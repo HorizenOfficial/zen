@@ -95,6 +95,7 @@ static const unsigned int DATABASE_WRITE_INTERVAL = 60 * 60;
 static const unsigned int DATABASE_FLUSH_INTERVAL = 24 * 60 * 60;
 /** Maximum length of reject messages. */
 static const unsigned int MAX_REJECT_MESSAGE_LENGTH = 111;
+static const bool DEFAULT_ADDRESSINDEX = false;
 
 // Sanity check the magic numbers when we change them
 BOOST_STATIC_ASSERT(DEFAULT_BLOCK_MAX_SIZE <= MAX_BLOCK_SIZE);
@@ -269,6 +270,42 @@ struct CNodeStateStats {
     std::vector<int> vHeightInFlight;
 };
 
+struct CAddressIndexKey {
+    uint160 hashBytes;
+    unsigned int type;
+    uint256 txhash;
+    size_t index;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(hashBytes);
+        READWRITE(type);
+        READWRITE(txhash);
+        READWRITE(index);
+    }
+
+    CAddressIndexKey(uint160 addressHash, unsigned int addressType, uint256 txid, size_t txindex) {
+        hashBytes = addressHash;
+        type = addressType;
+        txhash = txid;
+        index = txindex;
+    }
+
+    CAddressIndexKey() {
+        SetNull();
+    }
+
+    void SetNull() {
+        hashBytes.SetNull();
+        type = 0;
+        txhash.SetNull();
+        index = 0;
+    }
+
+};
+
 struct CDiskTxPos : public CDiskBlockPos
 {
     unsigned int nTxOffset; // after header
@@ -415,6 +452,7 @@ public:
     ScriptError GetScriptError() const { return error; }
 };
 
+bool GetAddressIndex(uint160 addressHash, int type, std::vector<std::pair<CAddressIndexKey, CAmount> > &addressIndex);
 
 /** Functions for disk access for blocks */
 bool WriteBlockToDisk(CBlock& block, CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& messageStart);
