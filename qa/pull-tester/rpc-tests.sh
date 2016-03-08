@@ -39,6 +39,7 @@ testScripts=(
     'key_import_export.py'
     'nodehandling.py'
     'reindex.py'
+    'addressindex.py'
     'decodescript.py'
     'disablewallet.py'
     'zcjoinsplit.py'
