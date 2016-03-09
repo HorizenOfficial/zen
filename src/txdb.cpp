@@ -264,7 +264,7 @@ bool CBlockTreeDB::WriteTxIndex(const std::vector<std::pair<uint256, CDiskTxPos>
 bool CBlockTreeDB::WriteAddressIndex(const std::vector<std::pair<CAddressIndexKey, CAmount > >&vect) {
     CLevelDBBatch batch;
     for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it=vect.begin(); it!=vect.end(); it++)
-	batch.Write(make_pair(DB_ADDRESSINDEX, it->first), it->second);
+        batch.Write(make_pair(DB_ADDRESSINDEX, it->first), it->second);
     return WriteBatch(batch);
 }
 
@@ -273,7 +273,7 @@ bool CBlockTreeDB::ReadAddressIndex(uint160 addressHash, int type, std::vector<s
     boost::scoped_ptr<leveldb::Iterator> pcursor(NewIterator());
 
     CDataStream ssKeySet(SER_DISK, CLIENT_VERSION);
-    ssKeySet << make_pair(DB_ADDRESSINDEX, addressHash); //TODO include type
+    ssKeySet << make_pair(DB_ADDRESSINDEX, CAddressIndexIteratorKey(type, addressHash));
     pcursor->Seek(ssKeySet.str());
 
     while (pcursor->Valid()) {
