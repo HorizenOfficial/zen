@@ -23,6 +23,7 @@ static const char DB_COINS = 'c';
 static const char DB_BLOCK_FILES = 'f';
 static const char DB_TXINDEX = 't';
 static const char DB_ADDRESSINDEX = 'd';
+static const char DB_TIMESTAMPINDEX = 'S';
 static const char DB_BLOCK_INDEX = 'b';
 
 static const char DB_BEST_BLOCK = 'B';
@@ -297,6 +298,43 @@ bool CBlockTreeDB::ReadAddressIndex(uint160 addressHash, int type, std::vector<s
                 } catch (const std::exception& e) {
                     return error("failed to get address index value");
                 }
+            } else {
+                break;
+            }
+        } catch (const std::exception& e) {
+            break;
+        }
+    }
+
+    return true;
+}
+
+bool CBlockTreeDB::WriteTimestampIndex(const CTimestampIndexKey &timestampIndex) {
+    CLevelDBBatch batch;
+    batch.Write(make_pair(DB_TIMESTAMPINDEX, timestampIndex), NULL);
+    return WriteBatch(batch);
+}
+
+bool CBlockTreeDB::ReadTimestampIndex(const unsigned int &high, const unsigned int &low, std::vector<uint256> &hashes) {
+
+    boost::scoped_ptr<leveldb::Iterator> pcursor(NewIterator());
+
+    CDataStream ssKeySet(SER_DISK, CLIENT_VERSION);
+    ssKeySet << make_pair(DB_TIMESTAMPINDEX, CTimestampIndexIteratorKey(low));
+    pcursor->Seek(ssKeySet.str());
+
+    while (pcursor->Valid()) {
+        boost::this_thread::interruption_point();
+        try {
+            leveldb::Slice slKey = pcursor->key();
+            CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
+            char chType;
+            CTimestampIndexKey indexKey;
+            ssKey >> chType;
+            ssKey >> indexKey;
+            if (chType == DB_TIMESTAMPINDEX && indexKey.timestamp <= high) {
+                hashes.push_back(indexKey.blockHash);
+                pcursor->Next();
             } else {
                 break;
             }
