@@ -97,6 +97,7 @@ static const unsigned int DATABASE_FLUSH_INTERVAL = 24 * 60 * 60;
 static const unsigned int MAX_REJECT_MESSAGE_LENGTH = 111;
 static const bool DEFAULT_ADDRESSINDEX = false;
 static const bool DEFAULT_TIMESTAMPINDEX = false;
+static const bool DEFAULT_SPENTINDEX = false;
 
 // Sanity check the magic numbers when we change them
 BOOST_STATIC_ASSERT(DEFAULT_BLOCK_MAX_SIZE <= MAX_BLOCK_SIZE);
@@ -269,6 +270,69 @@ struct CNodeStateStats {
     int nSyncHeight;
     int nCommonHeight;
     std::vector<int> vHeightInFlight;
+};
+
+struct CSpentIndexKey {
+    uint256 txid;
+    unsigned int outputIndex;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(txid);
+        READWRITE(outputIndex);
+    }
+
+    CSpentIndexKey(uint256 t, unsigned int i) {
+        txid = t;
+        outputIndex = i;
+    }
+
+    CSpentIndexKey() {
+        SetNull();
+    }
+
+    void SetNull() {
+        txid.SetNull();
+        outputIndex = 0;
+    }
+
+};
+
+struct CSpentIndexValue {
+    uint256 txid;
+    unsigned int inputIndex;
+    int blockHeight;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(txid);
+        READWRITE(inputIndex);
+        READWRITE(blockHeight);
+    }
+
+    CSpentIndexValue(uint256 t, unsigned int i, int h) {
+        txid = t;
+        inputIndex = i;
+        blockHeight = h;
+    }
+
+    CSpentIndexValue() {
+        SetNull();
+    }
+
+    void SetNull() {
+        txid.SetNull();
+        inputIndex = 0;
+        blockHeight = 0;
+    }
+
+    bool IsNull() const {
+        return txid.IsNull();
+    }
 };
 
 struct CTimestampIndexIteratorKey {
@@ -671,6 +735,7 @@ public:
 };
 
 bool GetTimestampIndex(const unsigned int &high, const unsigned int &low, std::vector<uint256> &hashes);
+bool GetSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value);
 bool GetAddressIndex(uint160 addressHash, int type,
                      std::vector<std::pair<CAddressIndexKey, CAmount> > &addressIndex,
                      int start = 0, int end = 0);
