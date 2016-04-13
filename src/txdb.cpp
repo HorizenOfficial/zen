@@ -397,7 +397,7 @@ bool CBlockTreeDB::ReadAddressIndex(uint160 addressHash, int type,
 
 bool CBlockTreeDB::WriteTimestampIndex(const CTimestampIndexKey &timestampIndex) {
     CLevelDBBatch batch;
-    batch.Write(make_pair(DB_TIMESTAMPINDEX, timestampIndex), NULL);
+    batch.Write(make_pair(DB_TIMESTAMPINDEX, timestampIndex), 0);
     return WriteBatch(batch);
 }
 
