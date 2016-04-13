@@ -354,7 +354,7 @@ bool CBlockTreeDB::ReadAddressIndex(uint160 addressHash, int type,
 
     CDataStream ssKeySet(SER_DISK, CLIENT_VERSION);
     if (start > 0 && end > 0) {
-        ssKeySet << make_pair(DB_ADDRESSINDEX, CAddressIndexIteratorKey(type, addressHash, start));
+        ssKeySet << make_pair(DB_ADDRESSINDEX, CAddressIndexIteratorHeightKey(type, addressHash, start));
     } else {
         ssKeySet << make_pair(DB_ADDRESSINDEX, CAddressIndexIteratorKey(type, addressHash));
     }
