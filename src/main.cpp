@@ -1304,8 +1304,15 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
         // Store transaction in memory
         pool.addUnchecked(hash, entry, !IsInitialBlockDownload());
+
+        // Add memory address index
         if (fAddressIndex) {
             pool.addAddressIndex(entry, view);
+        }
+
+        // Add memory spent index
+        if (fSpentIndex) {
+            pool.addSpentIndex(entry, view);
         }
     }
 
@@ -1329,6 +1336,9 @@ bool GetSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value)
 {
     if (!fSpentIndex)
         return false;
+
+    if (mempool.getSpentIndex(key, value))
+        return true;
 
     if (!pblocktree->ReadSpentIndex(key, value))
         return error("unable to get spent info");
