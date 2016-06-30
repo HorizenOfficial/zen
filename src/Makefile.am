@@ -116,6 +116,9 @@ if BUILD_BITCOIN_UTILS
 # ZEN_MOD_START
   bin_PROGRAMS += zen-cli zen-tx
 # ZEN_MOD_END
+if ENABLE_WALLET
+  bin_PROGRAMS += wallet-utility
+endif
 endif
 
 LIBZCASH_H = \
@@ -501,6 +504,14 @@ zen_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS)
 zen_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 zen_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
+# wallet-utility binary #
+if ENABLE_WALLET
+wallet_utility_SOURCES = wallet-utility.cpp
+wallet_utility_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+wallet_utility_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+wallet_utility_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+endif
+
 if TARGET_WINDOWS
 zen_cli_SOURCES += bitcoin-cli-res.rc
 endif
@@ -518,6 +529,23 @@ zen_cli_LDADD = \
   $(LIBSNARK) \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBZCASH_LIBS)
+
+if ENABLE_WALLET
+wallet_utility_LDADD = \
+  libbitcoin_wallet.a \
+  $(LIBBITCOIN_COMMON) \
+  $(LIBBITCOIN_CRYPTO) \
+  $(LIBSECP256K1) \
+  $(LIBBITCOIN_UTIL) \
+  $(BOOST_LIBS) \
+  $(BDB_LIBS) \
+  $(CRYPTO_LIBS) \
+  $(LIBZCASH) \
+  $(LIBSNARK) \
+  $(LIBZCASH_LIBS)
+endif
+
+#
 
 
 # zen-tx binary #
