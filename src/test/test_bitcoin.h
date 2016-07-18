@@ -37,14 +37,4 @@ struct TestingSetup: public JoinSplitTestingSetup {
     ~TestingSetup();
 };
 
-/** Wallet setup that configures a complete environment.
- * Included are data directory, coins database, script check threads
- * and wallet with 5 unused keys.
- */
-struct WalletSetup: public BasicTestingSetup {
-	boost::filesystem::path pathTemp;
-
-	WalletSetup(CBaseChainParams::Network network = CBaseChainParams::MAIN);
-	~WalletSetup();
-};
 #endif
