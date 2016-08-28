@@ -62,7 +62,9 @@ UniValue TxJoinSplitToJSON(const CTransaction& tx) {
         UniValue joinsplit(UniValue::VOBJ);
 
         joinsplit.push_back(Pair("vpub_old", ValueFromAmount(jsdescription.vpub_old)));
+        joinsplit.push_back(Pair("vpub_oldZat", jsdescription.vpub_old));
         joinsplit.push_back(Pair("vpub_new", ValueFromAmount(jsdescription.vpub_new)));
+        joinsplit.push_back(Pair("vpub_newZat", jsdescription.vpub_new));
 
         joinsplit.push_back(Pair("anchor", jsdescription.anchor.GetHex()));
 
