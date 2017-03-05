@@ -39,7 +39,7 @@
 using namespace std;
 
 #if defined(NDEBUG)
-# error "Zcash cannot be compiled without assertions."
+# error "Zen cannot be compiled without assertions."
 #endif
 
 /**
