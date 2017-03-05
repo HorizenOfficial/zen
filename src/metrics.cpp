@@ -258,7 +258,9 @@ int printMiningStatus(bool mining)
         lines++;
     } else {
         std::cout << _("You are currently not mining.") << std::endl;
-        std::cout << _("To enable mining, add 'gen=1' to your zcash.conf and restart.") << std::endl;
+        // ZEN_MOD_START
+        std::cout << _("To enable mining, add 'gen=1' to your zen.conf and restart.") << std::endl;
+        // ZEN_MOD_END
         lines += 2;
     }
     std::cout << std::endl;
@@ -429,11 +431,9 @@ void ThreadShowMetricsScreen()
         std::cout << std::endl;
 
         // Thank you text
-        std::cout << _("Thank you for running a Zcash node!") << std::endl;
-        std::cout << _("You're helping to strengthen the network and contributing to a social good :)") << std::endl;
-
-        // Privacy notice text
-        std::cout << PrivacyInfo();
+        // ZEN_MOD_START
+        std::cout << _("Zen is economic freedom. Thanks for running a node.") << std::endl;
+        // ZEN_MOD_END
         std::cout << std::endl;
     }
 
