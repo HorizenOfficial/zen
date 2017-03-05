@@ -1,9 +1,9 @@
-Zclassic 1.0.6
+Zen 1.0.6
 ==============
 
-What is Zclassic?
+What is Zen?
 ----------------
-Zclassic is financial freedom.
+A globally accessible and anonymous blockchain for censorship-resistant communications and economic activity.
 
 Get dependencies:
 ```{r, engine='bash'}
@@ -21,21 +21,19 @@ Install
 # fetch key
 ./zcutil/fetch-params.sh
 # Run
-./src/zcashd
+./src/zend
 ```
 
 
 About
 --------------
 
-[Zclassic](http://zclassic.org/), like [Zcash](https://z.cash/), is an implementation of the "Zerocash" protocol.
-Based on Bitcoin's code, it intends to offer a far higher standard of privacy
-through a sophisticated zero-knowledge proving scheme that preserves
-confidentiality of transaction metadata. Technical details are available
-in the Zcash [Protocol Specification](https://github.com/zcash/zips/raw/master/protocol/protocol.pdf).
+[Zen](https://zencash.io/) is a platform for secure communications and for deniable economic activity.
+Zen is an evolution of the Zclassic codebase aimed at primarily enabling intriniscally secure communications and 
+resilient networking. 
 
-This software is the Zclassic client. It downloads and stores the entire history
-of Zclassic transactions; depending on the speed of your computer and network
+This software is the Zen client. It downloads and stores the entire history
+of Zen transactions; depending on the speed of your computer and network
 connection, the synchronization process could take a day or more once the
 blockchain has reached a significant size.
 
@@ -45,33 +43,32 @@ Security Warnings
 See important security warnings in
 [doc/security-warnings.md](doc/security-warnings.md).
 
-**Zclassic and Zcash are unfinished and highly experimental.** Use at your own risk.
+**Zen is unfinished and highly experimental.** Use at your own risk.
 
 Where do I begin?
 -----------------
-We have a guide for joining the main Zclassic network:
-https://github.com/z-classic/zclassic/wiki/1.0-User-Guide
+* The easiest way to get started is to download one of the available graphical wallets from [Zdeveloper.org](https://zdeveloper.org)
 
 ### Need Help?
 
-* See the documentation at the [Zclassic Wiki](https://github.com/z-classic/zclassic/wiki)
+* Many guides and tutorials are available at [Zdeveloper.org](https://zdeveloper.org)
   for help and more information.
-* Ask for help on the [Zclassic](http://zcltalk.tech/index.php) forum.
+* Ask for help on the [Zdeveloper Rocket Chat](https://rocketchat.zdeveloper.org).
 
 ### Want to participate in development?
 
 * Code review is welcome!
-* If you want to get to know us join our slack: http://zclassic.herokuapp.com/
+* If you want to get to know us join our [Rocket Chat](https://rocketchat.zdeveloper.org)
 
 
-Participation in the Zcash project is subject to a
+Participation in the Zen project is subject to a
 [Code of Conduct](code_of_conduct.md).
 
 Building
 --------
 
-Build Zcash along with most dependencies from source by running
-./zcutil/build.sh. Currently only Linux is officially supported.
+Build Zen along with most dependencies from source by running
+./zcutil/build.sh. Linux, MacOS, and Windows x64 are supported.
 
 License
 -------
