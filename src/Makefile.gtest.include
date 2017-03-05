@@ -1,10 +1,10 @@
-TESTS += zcash-gtest
-noinst_PROGRAMS += zcash-gtest
+TESTS += zen-gtest
+noinst_PROGRAMS += zen-gtest
 
 # tool for generating our public parameters.
 # test_checktransaction.cpp MUST be before
 # any test that calls SelectParams().
-zcash_gtest_SOURCES = \
+zen_gtest_SOURCES = \
 	gtest/main.cpp \
 	gtest/utils.cpp \
 	gtest/test_checktransaction.cpp \
@@ -13,10 +13,10 @@ zcash_gtest_SOURCES = \
 # These tests are order-dependent, because they
 # depend on global state (see #1539)
 if ENABLE_WALLET
-zcash_gtest_SOURCES += \
+zen_gtest_SOURCES += \
 	wallet/gtest/test_wallet_zkeys.cpp
 endif
-zcash_gtest_SOURCES += \
+zen_gtest_SOURCES += \
 	gtest/test_jsonspirit.cpp \
 	gtest/test_tautology.cpp \
 	gtest/test_equihash.cpp \
@@ -35,24 +35,24 @@ zcash_gtest_SOURCES += \
 	gtest/test_proofs.cpp \
 	gtest/test_checkblock.cpp
 if ENABLE_WALLET
-zcash_gtest_SOURCES += \
+zen_gtest_SOURCES += \
 	wallet/gtest/test_wallet.cpp
 endif
 
-zcash_gtest_CPPFLAGS = -DMULTICORE -fopenmp -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DSTATIC
+zen_gtest_CPPFLAGS = -DMULTICORE -fopenmp -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DSTATIC
 
-zcash_gtest_LDADD = -lgtest -lgmock $(LIBBITCOIN_SERVER) $(LIBBITCOIN_CLI) $(LIBBITCOIN_COMMON) $(LIBBITCOIN_UTIL) $(LIBBITCOIN_CRYPTO) $(LIBBITCOIN_UNIVALUE) $(LIBLEVELDB) $(LIBMEMENV) \
+zen_gtest_LDADD = -lgtest -lgmock $(LIBBITCOIN_SERVER) $(LIBBITCOIN_CLI) $(LIBBITCOIN_COMMON) $(LIBBITCOIN_UTIL) $(LIBBITCOIN_CRYPTO) $(LIBBITCOIN_UNIVALUE) $(LIBLEVELDB) $(LIBMEMENV) \
   $(BOOST_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIB) $(LIBSECP256K1)
 if ENABLE_WALLET
-zcash_gtest_LDADD += $(LIBBITCOIN_WALLET)
+zen_gtest_LDADD += $(LIBBITCOIN_WALLET)
 endif
 
-zcash_gtest_LDADD += $(LIBZCASH_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(LIBZCASH) $(LIBZCASH_LIBS)
+zen_gtest_LDADD += $(LIBZCASH_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(LIBZCASH) $(LIBZCASH_LIBS)
 
-zcash_gtest_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
+zen_gtest_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
 
-zcash-gtest_check: zcash-gtest FORCE
-	./zcash-gtest
+zcash-gtest_check: zen-gtest FORCE
+	./zen-gtest
 
-zcash-gtest-expected-failures: zcash-gtest FORCE
-	./zcash-gtest --gtest_filter=*DISABLED_* --gtest_also_run_disabled_tests
+zcash-gtest-expected-failures: zen-gtest FORCE
+	./zen-gtest --gtest_filter=*DISABLED_* --gtest_also_run_disabled_tests
