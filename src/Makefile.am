@@ -378,7 +378,7 @@ zend_LDADD = \
   $(LIBSECP256K1)
 
 if ENABLE_ZMQ
-zcashd_LDADD += $(LIBBITCOIN_ZMQ) $(ZMQ_LIBS)
+zend_LDADD += $(LIBBITCOIN_ZMQ) $(ZMQ_LIBS)
 endif
 
 if ENABLE_WALLET
@@ -427,7 +427,7 @@ endif
 
 # FIXME: Is libzcash needed for zen_tx?
 zen_tx_LDADD = \
-  $(LIBBITCOIN_UNIVALUE) \
+  $(LIBUNIVALUE) \
   $(LIBBITCOIN_COMMON) \
   $(LIBBITCOIN_UTIL) \
   $(LIBSECP256K1) \
