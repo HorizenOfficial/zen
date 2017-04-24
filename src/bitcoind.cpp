@@ -10,10 +10,15 @@
 #include "noui.h"
 #include "scheduler.h"
 #include "util.h"
+#include "httpserver.h"
+#include "httprpc.h"
+#include "rpcserver.h"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
+
+#include <stdio.h>
 
 /* Introduction text for doxygen: */
 
@@ -44,7 +49,7 @@ void WaitForShutdown(boost::thread_group* threadGroup)
     }
     if (threadGroup)
     {
-        threadGroup->interrupt_all();
+        Interrupt(*threadGroup);
         threadGroup->join_all();
     }
 }
@@ -63,7 +68,6 @@ bool AppInit(int argc, char* argv[])
     //
     // Parameters
     //
-    // If Qt is used, parameters/zen.conf are parsed in qt/bitcoin.cpp's main()
     ParseParameters(argc, argv);
 
     // Process help and version before taking care about datadir

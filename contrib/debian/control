@@ -10,12 +10,8 @@ Build-Depends: autoconf, automake, bsdmainutils, build-essential,
 Vcs-Git: https://github.com/zcash/zcash.git
 Vcs-Browser: https://github.com/zcash/zcash
 
-Package: zclassic
+Package: zen
 Version: 1.0.6
 Depends: ${shlibs:Depends}
-Description: HTTPS for money.
- Based on Bitcoin's code, it intends to offer a far higher standard
- of privacy and anonymity through a sophisticiated zero-knowledge
- proving scheme which preserves confidentiality of transaction metadata.
- This package provides the daemon, zcashd, and the CLI tool,
- zcash-cli, to interact with the daemon.
+Description: Tor for money.
+ To be written.
