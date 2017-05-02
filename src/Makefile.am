@@ -426,8 +426,8 @@ zen_cli_LDADD = \
 #
 
 # zen-tx binary #
-zen_tx_SOURCES = bitcoin-tx.cpp
-zen_tx_CPPFLAGS = $(BITCOIN_INCLUDES)
+zen_tx_SOURCES = bitcoin-tx.cpp script/interpreter.cpp script/standard.cpp
+zen_tx_CPPFLAGS = $(BITCOIN_INCLUDES) -DBITCOIN_TX
 zen_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
