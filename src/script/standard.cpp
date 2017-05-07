@@ -307,7 +307,8 @@ public:
         return false;
     }
 
-#ifdef BITCOIN_TX // zen-tx does not have access to chain state so no replay protection is possible
+
+#if defined(BITCOIN_TX) // zen-tx does not have access to chain state so no replay protection is possible
     bool operator()(const CKeyID &keyID) const {
         script->clear();
         *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
@@ -319,6 +320,8 @@ public:
         *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
     }
 #else
+
+
     bool operator()(const CKeyID &keyID) const {
         script->clear();
         CBlockIndex *currentBlock = chainActive.Tip();
