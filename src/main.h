@@ -25,6 +25,9 @@
 #include "tinyformat.h"
 #include "txmempool.h"
 #include "uint256.h"
+// ZEN_MOD_START
+#include "versionbits.h"
+// ZEN_MOD_END
 
 #include <algorithm>
 #include <exception>
@@ -251,6 +254,13 @@ void PruneAndFlush();
 bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, bool fLimitFree,
                         bool* pfMissingInputs, bool fRejectAbsurdFee=false);
 
+// ZEN_MOD_START
+/** Get the BIP9 state for a given deployment at the current tip. */
+ThresholdState VersionBitsTipState(const Consensus::Params& params, Consensus::DeploymentPos pos);
+
+/** Get the block height at which the BIP9 deployment switched into the state for the block building on the current tip. */
+int VersionBitsTipStateSinceHeight(const Consensus::Params& params, Consensus::DeploymentPos pos);
+// ZEN_MOD_END
 
 struct CNodeStateStats {
     int nMisbehavior;
@@ -522,6 +532,15 @@ extern CBlockTreeDB *pblocktree;
  * This is also true for mempool checks.
  */
 int GetSpendHeight(const CCoinsViewCache& inputs);
+
+// ZEN_MOD_START
+extern VersionBitsCache versionbitscache;
+
+/**
+* Determine what nVersion a new block should use.
+*/
+int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Params& params);
+// ZEN_MOD_END
 
 namespace Consensus {
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);

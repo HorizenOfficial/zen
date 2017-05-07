@@ -27,6 +27,9 @@
 #include "util.h"
 #include "utilmoneystr.h"
 #include "validationinterface.h"
+// ZEN_MOD_START
+#include "versionbits.h"
+// ZEN_MOD_END
 #include "wallet/asyncrpcoperation_sendmany.h"
 #include "wallet/asyncrpcoperation_shieldcoinbase.h"
 
@@ -2038,6 +2041,53 @@ void PartitionCheck(bool (*initialDownloadCheck)(), CCriticalSection& cs, const 
     }
 }
 
+// ZEN_MOD_START
+// Protected by cs_main
+VersionBitsCache versionbitscache;
+
+int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Params& params)
+{
+    LOCK(cs_main);
+    int32_t nVersion = VERSIONBITS_TOP_BITS;
+
+    for (int i = 0; i < (int)Consensus::MAX_VERSION_BITS_DEPLOYMENTS; i++) {
+        ThresholdState state = VersionBitsState(pindexPrev, params, (Consensus::DeploymentPos)i, versionbitscache);
+        if (state == THRESHOLD_LOCKED_IN || state == THRESHOLD_STARTED) {
+            nVersion |= VersionBitsMask(params, (Consensus::DeploymentPos)i);
+        }
+    }
+
+    return nVersion;
+}
+
+/**
+ * Threshold condition checker that triggers when unknown versionbits are seen on the network.
+ */
+class WarningBitsConditionChecker : public AbstractThresholdConditionChecker
+{
+private:
+    int bit;
+
+public:
+    WarningBitsConditionChecker(int bitIn) : bit(bitIn) {}
+
+    int64_t BeginTime(const Consensus::Params& params) const { return 0; }
+    int64_t EndTime(const Consensus::Params& params) const { return std::numeric_limits<int64_t>::max(); }
+    int Period(const Consensus::Params& params) const { return params.nMinerConfirmationWindow; }
+    int Threshold(const Consensus::Params& params) const { return params.nRuleChangeActivationThreshold; }
+
+    bool Condition(const CBlockIndex* pindex, const Consensus::Params& params) const
+    {
+        return ((pindex->nVersion & VERSIONBITS_TOP_MASK) == VERSIONBITS_TOP_BITS) &&
+               ((pindex->nVersion >> bit) & 1) != 0 &&
+               ((ComputeBlockVersion(pindex->pprev, params) >> bit) & 1) == 0;
+    }
+};
+
+// Protected by cs_main
+static ThresholdConditionCache warningcache[VERSIONBITS_NUM_BITS];
+// ZEN_MOD_END
+
 static int64_t nTimeVerify = 0;
 static int64_t nTimeConnect = 0;
 static int64_t nTimeIndex = 0;
@@ -2095,6 +2145,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     unsigned int flags = SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY;
 
     // DERSIG (BIP66) is also always enforced, but does not have a flag.
+
+// ZEN_MOD_START
+    // Start enforcing OP_CHECKBLOCKATHEIGHT rules using versionbits logic.
+    if (VersionBitsState(pindex->pprev, chainparams.GetConsensus(), Consensus::DEPLOYMENT_CBAH, versionbitscache) == THRESHOLD_ACTIVE) {
+        flags |= SCRIPT_VERIFY_CHECKBLOCKATHEIGHT;
+    }
+// ZEN_MOD_END
 
     CBlockUndo blockundo;
 
@@ -2384,26 +2441,46 @@ void static UpdateTip(CBlockIndex *pindexNew) {
 
     // Check the version of the last 100 blocks to see if we need to upgrade:
     static bool fWarned = false;
-    if (!IsInitialBlockDownload() && !fWarned)
+// ZEN_MOD_START
+    if (!IsInitialBlockDownload())
     {
         int nUpgraded = 0;
         const CBlockIndex* pindex = chainActive.Tip();
+        for (int bit = 0; bit < VERSIONBITS_NUM_BITS; bit++) {
+            WarningBitsConditionChecker checker(bit);
+            ThresholdState state = checker.GetStateFor(pindex, chainParams.GetConsensus(), warningcache[bit]);
+            if (state == THRESHOLD_ACTIVE || state == THRESHOLD_LOCKED_IN) {
+                if (state == THRESHOLD_ACTIVE) {
+                    strMiscWarning = strprintf(_("Warning: unknown new rules activated (versionbit %i)"), bit);
+                    if (!fWarned) {
+                        CAlert::Notify(strMiscWarning, true);
+                        fWarned = true;
+                    }
+                } else {
+                    LogPrintf("%s: unknown new rules are about to activate (versionbit %i)\n", __func__, bit);
+                }
+            }
+        }
         for (int i = 0; i < 100 && pindex != NULL; i++)
         {
-            if (pindex->nVersion > CBlock::CURRENT_VERSION)
+            int32_t nExpectedVersion = ComputeBlockVersion(pindex->pprev, chainParams.GetConsensus());
+            if (pindex->nVersion > VERSIONBITS_LAST_OLD_BLOCK_VERSION && (pindex->nVersion & ~nExpectedVersion) != 0)
                 ++nUpgraded;
             pindex = pindex->pprev;
         }
         if (nUpgraded > 0)
-            LogPrintf("%s: %d of last 100 blocks above version %d\n", __func__, nUpgraded, (int)CBlock::CURRENT_VERSION);
+            LogPrintf("%s: %d of last 100 blocks have unexpected version\n", __func__, nUpgraded);
         if (nUpgraded > 100/2)
         {
             // strMiscWarning is read by GetWarnings(), called by the JSON-RPC code to warn the user:
-            strMiscWarning = _("Warning: This version is obsolete; upgrade required!");
-            CAlert::Notify(strMiscWarning, true);
-            fWarned = true;
+            strMiscWarning = _("Warning: Unknown block versions being mined! It's possible unknown rules are in effect");
+            if (!fWarned) {
+                CAlert::Notify(strMiscWarning, true);
+                fWarned = true;
+            }
         }
     }
+// ZEN_MOD_END
 }
 
 /** Disconnect chainActive's tip. */
@@ -3763,6 +3840,12 @@ void UnloadBlockIndex()
     setDirtyFileInfo.clear();
     mapNodeState.clear();
     recentRejects.reset(NULL);
+// ZEN_MOD_START
+    versionbitscache.Clear();
+    for (int b = 0; b < VERSIONBITS_NUM_BITS; b++) {
+        warningcache[b].clear();
+    }
+// ZEN_MOD_END
 
     BOOST_FOREACH(BlockMap::value_type& entry, mapBlockIndex) {
         delete entry.second;
@@ -4112,6 +4195,20 @@ void static CheckBlockIndex()
     // Check that we actually traversed the entire map.
     assert(nNodes == forward.size());
 }
+
+// ZEN_MOD_START
+ThresholdState VersionBitsTipState(const Consensus::Params& params, Consensus::DeploymentPos pos)
+{
+    LOCK(cs_main);
+    return VersionBitsState(chainActive.Tip(), params, pos, versionbitscache);
+}
+
+int VersionBitsTipStateSinceHeight(const Consensus::Params& params, Consensus::DeploymentPos pos)
+{
+    LOCK(cs_main);
+    return VersionBitsStateSinceHeight(chainActive.Tip(), params, pos, versionbitscache);
+}
+// ZEN_MOD_END
 
 //////////////////////////////////////////////////////////////////////////////
 //

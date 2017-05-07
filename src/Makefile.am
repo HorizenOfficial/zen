@@ -118,6 +118,7 @@ LIBZCASH_H = \
 
 .PHONY: FORCE collate-libsnark check-symbols check-security
 # bitcoin core #
+# ZEN_MOD_START
 BITCOIN_CORE_H = \
   addrman.h \
   alert.h \
@@ -212,6 +213,7 @@ BITCOIN_CORE_H = \
   utilstrencodings.h \
   utiltime.h \
   validationinterface.h \
+  versionbits.h \
   version.h \
   wallet/asyncrpcoperation_sendmany.h \
   wallet/asyncrpcoperation_shieldcoinbase.h \
@@ -224,6 +226,7 @@ BITCOIN_CORE_H = \
   zmq/zmqconfig.h\
   zmq/zmqnotificationinterface.h \
   zmq/zmqpublishnotifier.h
+# ZEN_MOD_END
 
 
 obj/build.h: FORCE
@@ -235,6 +238,7 @@ libbitcoin_util_a-clientversion.$(OBJEXT): obj/build.h
 # server: zcashd
 libbitcoin_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS)
 libbitcoin_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+# ZEN_MOD_START
 libbitcoin_server_a_SOURCES = \
   sendalert.cpp \
   addrman.cpp \
@@ -273,8 +277,10 @@ libbitcoin_server_a_SOURCES = \
   txdb.cpp \
   txmempool.cpp \
   validationinterface.cpp \
+  versionbits.cpp \
   $(BITCOIN_CORE_H) \
   $(LIBZCASH_H)
+# ZEN_MOD_END
 
 if ENABLE_ZMQ
 LIBBITCOIN_ZMQ=libbitcoin_zmq.a

@@ -660,9 +660,32 @@ static UniValue SoftForkDesc(const std::string &name, int version, CBlockIndex* 
     return rv;
 }
 
+// ZEN_MOD_START
+static UniValue BIP9SoftForkDesc(const Consensus::Params& consensusParams, Consensus::DeploymentPos id)
+{
+    UniValue rv(UniValue::VOBJ);
+    const ThresholdState thresholdState = VersionBitsTipState(consensusParams, id);
+    switch (thresholdState) {
+        case THRESHOLD_DEFINED: rv.push_back(Pair("status", "defined")); break;
+        case THRESHOLD_STARTED: rv.push_back(Pair("status", "started")); break;
+        case THRESHOLD_LOCKED_IN: rv.push_back(Pair("status", "locked_in")); break;
+        case THRESHOLD_ACTIVE: rv.push_back(Pair("status", "active")); break;
+        case THRESHOLD_FAILED: rv.push_back(Pair("status", "failed")); break;
+    }
+    if (THRESHOLD_STARTED == thresholdState)
+    {
+        rv.push_back(Pair("bit", consensusParams.vDeployments[id].bit));
+    }
+    rv.push_back(Pair("startTime", consensusParams.vDeployments[id].nStartTime));
+    rv.push_back(Pair("timeout", consensusParams.vDeployments[id].nTimeout));
+    return rv;
+}
+// ZEN_MOD_END
+
 UniValue getblockchaininfo(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
+// ZEN_MOD_START
         throw runtime_error(
             "getblockchaininfo\n"
             "Returns an object containing various state info regarding block chain processing.\n"
@@ -688,12 +711,20 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
             "        },\n"
             "        \"reject\": { ... }      (object) progress toward rejecting pre-softfork blocks (same fields as \"enforce\")\n"
             "     }, ...\n"
-            "  ]\n"
+            "  \n"
             "}\n"
+            "  \"bip9_softforks\": {          (object) status of BIP9 softforks in progress\n"
+            "  \"xxxx\" : {                (string) name of the softfork\n"
+            "      \"status\": \"xxxx\",    (string) one of \"defined\", \"started\", \"lockedin\", \"active\", \"failed\"\n"
+            "      \"bit\": xx,             (numeric) the bit, 0-28, in the block version field used to signal this soft fork\n"
+            "      \"startTime\": xx,       (numeric) the minimum median time past of a block at which the bit gains its meaning\n"
+            "       \"timeout\": xx          (numeric) the median time past of a block at which the deployment is considered failed if not yet locked in\n"
+            "  }\n"
             "\nExamples:\n"
             + HelpExampleCli("getblockchaininfo", "")
             + HelpExampleRpc("getblockchaininfo", "")
         );
+// ZEN_MOD_END
 
     LOCK(cs_main);
 
@@ -718,10 +749,20 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
 
     const Consensus::Params& consensusParams = Params().GetConsensus();
     UniValue softforks(UniValue::VARR);
+// ZEN_MOD_START
+    UniValue bip9_softforks(UniValue::VOBJ);
+// ZEN_MOD_END
     softforks.push_back(SoftForkDesc("bip34", 2, tip, consensusParams));
     softforks.push_back(SoftForkDesc("bip66", 3, tip, consensusParams));
     softforks.push_back(SoftForkDesc("bip65", 4, tip, consensusParams));
+// ZEN_MOD_START
+    bip9_softforks.push_back(Pair("cbah", BIP9SoftForkDesc(consensusParams, Consensus::DEPLOYMENT_CBAH)));
+// ZEN_MOD_END
+
     obj.push_back(Pair("softforks",             softforks));
+// ZEN_MOD_START
+    obj.push_back(Pair("bip9_softforks", bip9_softforks));
+// ZEN_MOD_END
 
     if (fPruneMode)
     {

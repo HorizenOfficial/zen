@@ -377,13 +377,46 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 
     // subsidy changing
     int nHeight = chainActive.Height();
-    chainActive.Tip()->nHeight = 209999;
+// ZEN_MOD_START
+    // Create an actual 209999-long block chain (without valid blocks).
+    while (chainActive.Tip()->nHeight < 209999) {
+        CBlockIndex* prev = chainActive.Tip();
+        CBlockIndex* next = new CBlockIndex();
+        next->phashBlock = new uint256(GetRandHash());
+        pcoinsTip->SetBestBlock(next->GetBlockHash());
+        next->pprev = prev;
+        next->nHeight = prev->nHeight + 1;
+        next->BuildSkip();
+        chainActive.SetTip(next);
+    }
+// ZEN_MOD_END
     BOOST_CHECK(pblocktemplate = CreateNewBlock(scriptPubKey));
     delete pblocktemplate;
-    chainActive.Tip()->nHeight = 210000;
+// ZEN_MOD_START
+    // Extend to a 210000-long block chain.
+    while (chainActive.Tip()->nHeight < 210000) {
+        CBlockIndex* prev = chainActive.Tip();
+        CBlockIndex* next = new CBlockIndex();
+        next->phashBlock = new uint256(GetRandHash());
+        pcoinsTip->SetBestBlock(next->GetBlockHash());
+        next->pprev = prev;
+        next->nHeight = prev->nHeight + 1;
+        next->BuildSkip();
+        chainActive.SetTip(next);
+    }
+// ZEN_MOD_END
     BOOST_CHECK(pblocktemplate = CreateNewBlock(scriptPubKey));
     delete pblocktemplate;
-    chainActive.Tip()->nHeight = nHeight;
+// ZEN_MOD_START
+    // Delete the dummy blocks again.
+    while (chainActive.Tip()->nHeight > nHeight) {
+        CBlockIndex* del = chainActive.Tip();
+        chainActive.SetTip(del->pprev);
+        pcoinsTip->SetBestBlock(del->pprev->GetBlockHash());
+        delete del->phashBlock;
+        delete del;
+    }
+// ZEN_MOD_END
 
     // non-final txs in mempool
     SetMockTime(chainActive.Tip()->GetMedianTimePast()+1);
