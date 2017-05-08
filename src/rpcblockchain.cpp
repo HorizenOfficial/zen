@@ -719,7 +719,7 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
     softforks.push_back(SoftForkDesc("bip34", 2, tip, consensusParams));
     softforks.push_back(SoftForkDesc("bip66", 3, tip, consensusParams));
     softforks.push_back(SoftForkDesc("bip65", 4, tip, consensusParams));
-    bip9_softforks.push_back(Pair("cbah", BIP9SoftForkDesc(consensusParams, Consensus::DEPLOYMENT_CBAH)));
+    //bip9_softforks.push_back(Pair("cbah", BIP9SoftForkDesc(consensusParams, Consensus::DEPLOYMENT_CBAH)));
 
     obj.push_back(Pair("softforks",             softforks));
     obj.push_back(Pair("bip9_softforks", bip9_softforks));

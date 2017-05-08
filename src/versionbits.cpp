@@ -7,10 +7,12 @@
 #include "consensus/params.h"
 
 const struct BIP9DeploymentInfo VersionBitsDeploymentInfo[Consensus::MAX_VERSION_BITS_DEPLOYMENTS] = {
+/*
     {
-        /*.name =*/ "cbah",
-        /*.gbt_force =*/ true,
+        .name = "dummy",
+        .gbt_force = false,
     }
+*/
 };
 
 ThresholdState AbstractThresholdConditionChecker::GetStateFor(const CBlockIndex* pindexPrev, const Consensus::Params& params, ThresholdConditionCache& cache) const
