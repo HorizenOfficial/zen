@@ -890,9 +890,9 @@ void SetThreadPriority(int nPriority)
 
 std::string PrivacyInfo()
 {
-    return "\n" +
-           FormatParagraph(strprintf(_("In order to ensure you are adequately protecting your privacy when using Zen, please see <%s>."),
-                                     "https://zencash.io")) + "\n";
+    return ""; //"\n" +
+           //FormatParagraph(strprintf(_(""),
+                                     //"www")) + "\n";
 }
 
 std::string LicenseInfo()
