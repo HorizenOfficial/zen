@@ -431,9 +431,15 @@ void ThreadShowMetricsScreen()
         std::cout << std::endl;
 
         // Thank you text
-        // ZEN_MOD_START
+// ZEN_MOD_START
         std::cout << _("Zen is economic freedom. Thanks for running a node.") << std::endl;
-        // ZEN_MOD_END
+        std::cout << _("仕方が無い") << std::endl;
+        std::cout << _("Shikata ga nai.") << std::endl;
+        std::cout << _("它不能得到帮助") << std::endl << std::endl;
+
+        // Privacy notice text
+        std::cout << PrivacyInfo();
+// ZEN_MOD_END
         std::cout << std::endl;
     }
 
