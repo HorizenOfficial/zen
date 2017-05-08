@@ -403,9 +403,9 @@ void ThreadShowMetricsScreen()
         std::cout << std::endl;
 
         // Thank you text
-        std::cout << _("起死回生") << std::endl;
-        std::cout << _("Wake from death and return to life.") << std::endl;
-        std::cout << _("从死亡中醒来并返回生命") << std::endl << std::endl;
+        std::cout << _("仕方が無い") << std::endl;
+        std::cout << _("Shikata ga nai.") << std::endl;
+        std::cout << _("它不能得到帮助") << std::endl << std::endl;
 
         // Privacy notice text
         std::cout << PrivacyInfo();
