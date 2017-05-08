@@ -352,29 +352,20 @@ public:
     bool operator()(const CKeyID &keyID) const {
         script->clear();
         CBlockIndex *currentBlock = chainActive.Tip();
-        if (THRESHOLD_ACTIVE == VersionBitsState(chainActive[(currentBlock->nHeight - 1) < 0 ? 0 : (currentBlock->nHeight - 1)], Params().GetConsensus(), Consensus::DEPLOYMENT_CBAH, versionbitscache)) {
-            CBlockIndex *currentBlock = chainActive.Tip();
-            int blockIndex = currentBlock->nHeight - 300;
-            if (blockIndex < 0)
-                blockIndex = 0;
-            *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG << ToByteVector(chainActive[blockIndex]->GetBlockHash()) << chainActive[blockIndex]->nHeight << OP_CHECKBLOCKATHEIGHT;
-        }
-        else
-            *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
+        int blockIndex = currentBlock->nHeight - 300;
+        if (blockIndex < 0)
+            blockIndex = 0;
+        *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG << ToByteVector(chainActive[blockIndex]->GetBlockHash()) << chainActive[blockIndex]->nHeight << OP_CHECKBLOCKATHEIGHT;
         return true;
     }
 
     bool operator()(const CScriptID &scriptID) const {
         script->clear();
         CBlockIndex *currentBlock = chainActive.Tip();
-        if (THRESHOLD_ACTIVE == VersionBitsState(chainActive[(currentBlock->nHeight - 1) < 0 ? 0 : (currentBlock->nHeight - 1)], Params().GetConsensus(), Consensus::DEPLOYMENT_CBAH, versionbitscache)) {
-            int blockIndex = currentBlock->nHeight - 300;
-            if (blockIndex < 0)
-                blockIndex = 0;
-            *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL << ToByteVector(chainActive[blockIndex]->GetBlockHash()) << chainActive[blockIndex]->nHeight << OP_CHECKBLOCKATHEIGHT;
-        }
-        else
-            *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+        int blockIndex = currentBlock->nHeight - 300;
+        if (blockIndex < 0)
+            blockIndex = 0;
+        *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL << ToByteVector(chainActive[blockIndex]->GetBlockHash()) << chainActive[blockIndex]->nHeight << OP_CHECKBLOCKATHEIGHT;
         return true;
     }
 #endif

@@ -2146,13 +2146,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     // DERSIG (BIP66) is also always enforced, but does not have a flag.
 
-// ZEN_MOD_START
-    // Start enforcing OP_CHECKBLOCKATHEIGHT rules using versionbits logic.
-    if (VersionBitsState(pindex->pprev, chainparams.GetConsensus(), Consensus::DEPLOYMENT_CBAH, versionbitscache) == THRESHOLD_ACTIVE) {
-        flags |= SCRIPT_VERIFY_CHECKBLOCKATHEIGHT;
-    }
-// ZEN_MOD_END
-
     CBlockUndo blockundo;
 
     CCheckQueueControl<CScriptCheck> control(fExpensiveChecks && nScriptCheckThreads ? &scriptcheckqueue : NULL);
