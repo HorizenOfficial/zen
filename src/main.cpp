@@ -3148,7 +3148,9 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
 
         BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
             if (output.scriptPubKey == Params().GetFoundersRewardScriptAtHeight(nHeight)) {
-                if (output.nValue == (GetBlockSubsidy(nHeight, consensusParams) / 5)) {
+// ZEN_MOD_START
+                if (output.nValue == (GetBlockSubsidy(nHeight, consensusParams) * 0.035)) {
+// ZEN_MOD_END
                     found = true;
                     break;
                 }
