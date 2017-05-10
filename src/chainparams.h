@@ -83,6 +83,8 @@ public:
     std::string GetFoundersRewardAddressAtIndex(int i) const;
     /** Enforce coinbase consensus rule in regtest mode */
     void SetRegTestCoinbaseMustBeProtected() { consensus.fCoinbaseMustBeProtected = true; }
+    /** #1398 to return a fixed founders reward script for miner_tests */
+    bool fMinerTestModeForFoundersRewardScript = false;
 protected:
     CChainParams() {}
 
@@ -109,6 +111,7 @@ protected:
     bool fTestnetToBeDeprecatedFieldRPC = false;
     Checkpoints::CCheckpointData checkpointData;
     std::vector<std::string> vFoundersRewardAddress;
+    std::vector<std::string> vDAOAddress;
 };
 
 /**

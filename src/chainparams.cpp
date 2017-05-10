@@ -15,6 +15,11 @@
 
 #include "base58.h"
 
+// stuff
+#include <mutex>
+#include <string>
+#include <boost/algorithm/hex.hpp>
+
 using namespace std;
 
 #include "chainparamsseeds.h"
@@ -317,13 +322,83 @@ public:
         BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N, K));
         nEquihashN = N;
         nEquihashK = K;
-        genesis.nTime = 1482971059;
+        genesis.hashPrevBlock.SetNull();
+        genesis.nTime = 1494548150;
         genesis.nBits = 0x200f0f0f;
-        genesis.nNonce = uint256S("0x0000000000000000000000000000000000000000000000000000000000000009");
-        genesis.nSolution = ParseHex("05ffd6ad016271ade20cfce093959c3addb2079629f9f123c52ef920caa316531af5af3f");
+        genesis.nVersion = 4;
+        genesis.nNonce = uint256S("0x000000000000000000000000000000000000000000000000000000000000003d");
+
+/*
+//
+
+
+        std::mutex m_cs;
+        bool cancelSolver = false;
+        CBlock* pblock = &genesis;
+        arith_uint256 hashTarget = arith_uint256().SetCompact(pblock->nBits);
+        SelectParams(CBaseChainParams::REGTEST);
+        const CChainParams& chainp = Params();
+
+
+
+        while (true) {
+            pblock->nNonce = ArithToUint256(UintToArith256(pblock->nNonce) + 1);
+            // Hash state
+            crypto_generichash_blake2b_state state;
+            EhInitialiseState(N, K, state);
+
+            // I = the block header minus nonce and solution.
+            CEquihashInput I{*pblock};
+            CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+            ss << I;
+
+            // H(I||...
+            crypto_generichash_blake2b_update(&state, (unsigned char*)&ss[0], ss.size());
+
+            // H(I||V||...
+            crypto_generichash_blake2b_state curr_state;
+            curr_state = state;
+            crypto_generichash_blake2b_update(&curr_state,
+                                              pblock->nNonce.begin(),
+                                              pblock->nNonce.size());
+
+            std::function<bool(std::vector<unsigned char>)> validBlock =
+            [&pblock, &hashTarget, &m_cs, &cancelSolver, &chainp]
+            (std::vector<unsigned char> soln) {
+                // Write the solution to the hash and compute the result.
+                pblock->nSolution = soln;
+                //std::string res;
+                //boost::algorithm::hex(soln.begin(), soln.end(), back_inserter(res));
+                //std::cout << res << std::endl;
+
+                if (UintToArith256(pblock->GetHash()) < hashTarget) {
+                    std::cout << "Solution found!" << std::endl;
+                    std::string res;
+                    boost::algorithm::hex(soln.begin(), soln.end(), back_inserter(res));
+                    std::cout << res << std::endl;
+                    std::cout << pblock->GetHash().ToString() << std::endl;
+                    //std::cout << pblock->GetHash().ToString() << std::endl;
+                    std::cout << pblock->nNonce.ToString() << std::endl;
+                    std::cout << std::endl;
+
+                    return true;
+                }
+
+                return false;
+            };
+
+            bool found = EhOptimisedSolveUncancellable(N, K, curr_state, validBlock);
+            if (found) {
+                break;
+            }
+        }
+
+*/
+//
+        genesis.nSolution = ParseHex("00CBA7185285F4FF37432E1F3AA7A569FBC81B5A0876F23DA8D38840B0130C74E68297B5");
         consensus.hashGenesisBlock = genesis.GetHash();
         nDefaultPort = 18133;
-        assert(consensus.hashGenesisBlock == uint256S("0x0575f78ee8dc057deee78ef691876e3be29833aaee5e189bb0459c087451305a"));
+        assert(consensus.hashGenesisBlock == uint256S("0x0da5ee723b7923feb580518541c6f098206330dbc711a6678922c11f2ccf1abb"));
         nPruneAfterHeight = 1000;
 
         vFixedSeeds.clear(); //! Regtest mode doesn't have any fixed seeds.
@@ -337,7 +412,7 @@ public:
 
         checkpointData = (Checkpoints::CCheckpointData){
             boost::assign::map_list_of
-            ( 0, uint256S("0x0575f78ee8dc057deee78ef691876e3be29833aaee5e189bb0459c087451305a")),
+            ( 0, uint256S("0x0da5ee723b7923feb580518541c6f098206330dbc711a6678922c11f2ccf1abb")),
             0,
             0,
             0
