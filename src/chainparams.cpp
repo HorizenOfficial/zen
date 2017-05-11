@@ -237,12 +237,16 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.push_back(CDNSSeedData("z.cash", "dnsseed.testnet.z.cash")); // Zcash
+// ZEN_MOD_START
+        vSeeds.push_back(CDNSSeedData("zencash.io", "testnet-zen.zencash.io"));
+        vSeeds.push_back(CDNSSeedData("zdeveloper.org", "testnet-zen.zdeveloper.org"));
+        vSeeds.push_back(CDNSSeedData("rotorproject.org", "testnet-zen.rotorproject.org"));
 
-        // guarantees the first 2 characters, when base58 encoded, are "tm"
-        base58Prefixes[PUBKEY_ADDRESS]     = {0x1D,0x25};
-        // guarantees the first 2 characters, when base58 encoded, are "t2"
-        base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0xBA};
+        // guarantees the first 2 characters, when base58 encoded, are "tn"
+        base58Prefixes[PUBKEY_ADDRESS]     = {0x1D,0x26};
+        // guarantees the first 2 characters, when base58 encoded, are "t4"
+        base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0xBC};
+// ZEN_MOD_END
         // the first character, when base58 encoded, is "9" or "c" (as in Bitcoin)
         base58Prefixes[SECRET_KEY]         = {0xEF};
         // do not rely on these BIP32 prefixes; they are not specified and may change
