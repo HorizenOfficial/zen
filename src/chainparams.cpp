@@ -233,9 +233,9 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.push_back(CDNSSeedData("zencash.io", "mainnet-zen.zencash.io"));
-        vSeeds.push_back(CDNSSeedData("zdeveloper.org", "mainnet-zen.zdeveloper.org"));
-        vSeeds.push_back(CDNSSeedData("rotorproject.org", "mainnet-zen.rotorproject.org"));
+        vSeeds.push_back(CDNSSeedData("zencash.io", "testnet-zen.zencash.io"));
+        vSeeds.push_back(CDNSSeedData("zdeveloper.org", "testnet-zen.zdeveloper.org"));
+        vSeeds.push_back(CDNSSeedData("rotorproject.org", "testnet-zen.rotorproject.org"));
 
         // guarantees the first 2 characters, when base58 encoded, are "tn"
         base58Prefixes[PUBKEY_ADDRESS]     = {0x1D,0x26};
