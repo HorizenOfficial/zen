@@ -344,9 +344,9 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         txNew.vout[0].nValue = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
 
 // ZEN_MOD_START
-       if ((nHeight > 0) && (nHeight <= chainparams.GetConsensus().GetLastFoundersRewardBlockHeight())) {
-            // Founders reward is 20% of the block subsidy
-            auto vFoundersReward = txNew.vout[0].nValue * 0.035;
+        if ((nHeight > chainparams.GetConsensus().nChainsplitIndex) && (nHeight <= chainparams.GetConsensus().GetLastFoundersRewardBlockHeight())) {
+            // Founders reward is 8.5% of the block subsidy
+            auto vFoundersReward = ((txNew.vout[0].nValue * 85) / 1000);
 // ZEN_MOD_END
             // Take some reward away from us
             txNew.vout[0].nValue -= vFoundersReward;

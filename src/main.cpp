@@ -678,7 +678,15 @@ bool IsStandardTx(const CTransaction& tx, string& reason)
             return false;
         }
 
-        if (whichType == TX_NULL_DATA)
+// ZEN_MOD_START
+        int nHeight = chainActive.Height();
+        // provide temporary replay protection for two minerconf windows during chainsplit
+        if ((whichType != TX_PUBKEY_REPLAY && whichType != TX_PUBKEYHASH_REPLAY && whichType != TX_MULTISIG_REPLAY) && nHeight < Params().GetConsensus().nChainsplitIndex + (Params().GetConsensus().nMinerConfirmationWindow * 2)) {
+            reason = "op-checkblockatheight-needed";
+            return false;
+        }
+        else if (whichType == TX_NULL_DATA)
+// ZEN_MOD_END
             nDataOut++;
         else if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
             reason = "bare-multisig";
@@ -1395,6 +1403,10 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex)
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
 {
     CAmount nSubsidy = 12.5 * COIN;
+// ZEN_MOD_START
+    if (nHeight == 0)
+        return 0;
+// ZEN_MOD_END
 
     // Mining slow start
     // The subsidy is ramped up linearly, skipping the middle payout of
@@ -2398,10 +2410,14 @@ void static UpdateTip(CBlockIndex *pindexNew) {
             LogPrintf("%s: %d of last 100 blocks above version %d\n", __func__, nUpgraded, (int)CBlock::CURRENT_VERSION);
         if (nUpgraded > 100/2)
         {
-            // strMiscWarning is read by GetWarnings(), called by the JSON-RPC code to warn the user:
-            strMiscWarning = _("Warning: This version is obsolete; upgrade required!");
-            CAlert::Notify(strMiscWarning, true);
-            fWarned = true;
+// ZEN_MOD_START
+            // strMiscWarning is read by GetWarnings(), called by Qt and the JSON-RPC code to warn the user:
+            strMiscWarning = _("Warning: Unknown block versions being mined! It's possible unknown rules are in effect");
+            if (!fWarned) {
+                CAlert::Notify(strMiscWarning, true);
+                fWarned = true;
+            }
+// ZEN_MOD_END
         }
     }
 }
@@ -3138,18 +3154,26 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
         }
     }
 
-    // Coinbase transaction must include an output sending 20% of
+// ZEN_MOD_START
+    // Reject the post-chainsplit block until a specific time is reached
+    if ((nHeight == consensusParams.nChainsplitIndex + 1) && (block.GetBlockTime() < consensusParams.nChainsplitTime))
+    {
+        return state.DoS(10, error("%s: post-chainsplit block received prior to scheduled time", __func__), REJECT_INVALID, "bad-cs-time");
+    }
+
+    // Coinbase transaction must include an output sending 8.5% of
     // the block reward to a founders reward script, until the last founders
     // reward block is reached, with exception of the genesis block.
     // The last founders reward block is defined as the block just before the
     // first subsidy halving block, which occurs at halving_interval + slow_start_shift
-    if ((nHeight > 0) && (nHeight <= consensusParams.GetLastFoundersRewardBlockHeight())) {
+    if ((nHeight > consensusParams.nChainsplitIndex) && (nHeight <= consensusParams.GetLastFoundersRewardBlockHeight())) {
+// ZEN_MOD_END
         bool found = false;
 
         BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
             if (output.scriptPubKey == Params().GetFoundersRewardScriptAtHeight(nHeight)) {
 // ZEN_MOD_START
-                if (output.nValue == (GetBlockSubsidy(nHeight, consensusParams) * 0.035)) {
+                if (output.nValue == ((GetBlockSubsidy(nHeight, consensusParams) * 85) / 1000)) {
 // ZEN_MOD_END
                     found = true;
                     break;
