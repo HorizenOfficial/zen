@@ -79,6 +79,9 @@ struct Params {
     int64_t AveragingWindowTimespan() const { return nPowAveragingWindow * nPowTargetSpacing; }
     int64_t MinActualTimespan() const { return (AveragingWindowTimespan() * (100 - nPowMaxAdjustUp  )) / 100; }
     int64_t MaxActualTimespan() const { return (AveragingWindowTimespan() * (100 + nPowMaxAdjustDown)) / 100; }
+    /** Zen chainsplit*/
+    int nChainsplitIndex;
+    int nChainsplitTime;
 };
 } // namespace Consensus
 
