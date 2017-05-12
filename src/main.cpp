@@ -681,7 +681,9 @@ bool IsStandardTx(const CTransaction& tx, string& reason)
 // ZEN_MOD_START
         int nHeight = chainActive.Height();
         // provide temporary replay protection for two minerconf windows during chainsplit
-        if ((whichType != TX_PUBKEY_REPLAY && whichType != TX_PUBKEYHASH_REPLAY && whichType != TX_MULTISIG_REPLAY) && nHeight < Params().GetConsensus().nChainsplitIndex + (Params().GetConsensus().nMinerConfirmationWindow * 2)) {
+        if ((whichType != TX_PUBKEY_REPLAY && whichType != TX_PUBKEYHASH_REPLAY && whichType != TX_MULTISIG_REPLAY) &&
+             nHeight < Params().GetConsensus().nChainsplitIndex + (Params().GetConsensus().nMinerConfirmationWindow * 2) &&
+             nHeight > Params().GetConsensus().nChainsplitIndex) {
             reason = "op-checkblockatheight-needed";
             return false;
         }
@@ -1083,6 +1085,11 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     auto verifier = libzcash::ProofVerifier::Strict();
     if (!CheckTransaction(tx, state, verifier))
         return error("AcceptToMemoryPool: CheckTransaction failed");
+
+
+    // Silently drop pre-chainsplit transactions
+    if (Params().GetConsensus().nChainsplitIndex > chainActive.Tip()->nHeight)
+        return false;
 
     // Coinbase is only valid in a block, not as a loose transaction
     if (tx.IsCoinBase())
