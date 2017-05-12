@@ -1425,11 +1425,13 @@ bool IsInitialBlockDownload()
     static bool lockIBDState = false;
     if (lockIBDState)
         return false;
-    bool state = (chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 ||
-            pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge());
-    if (!state)
-        lockIBDState = true;
-    return state;
+    if (chainActive.Height() != chainParams.GetConsensus().nChainsplitIndex) {
+        bool state = (chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 ||
+                pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge());
+        if (!state)
+            lockIBDState = true;
+        return state;
+    }
 }
 
 bool fLargeWorkForkFound = false;
