@@ -228,7 +228,7 @@ public:
         consensus.nRuleChangeActivationThreshold = 1512; // 75% for testchains
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
         consensus.nChainsplitIndex = 70000;
-        consensus.nChainsplitTime = 1495582200;
+        consensus.nChainsplitTime = 1494616813; // 05/12/2017 @ 7:20pm (UTC)
 
         pchMessageStart[0] = 0xbf;
         pchMessageStart[1] = 0xf2;
