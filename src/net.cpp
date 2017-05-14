@@ -33,6 +33,13 @@
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 
+// Used for E2E Encryption in Zen
+#include <openssl/bio.h>
+#include <openssl/conf.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <stdio.h> // debugging
+
 // Dump addresses to peers.dat every 15 minutes (900s)
 #define DUMP_ADDRESSES_INTERVAL 900
 
@@ -101,6 +108,109 @@ CCriticalSection cs_nLastNodeId;
 
 static CSemaphore *semOutbound = NULL;
 boost::condition_variable messageHandlerCondition;
+
+// OpenSSL Functions
+SSL_CTX *create_context(bool server_side)
+{
+    const SSL_METHOD *method;
+    SSL_CTX *ctx;
+
+    if (server_side == true)
+        method = TLS_server_method();
+    else if (server_side == false)
+        method = TLS_client_method();
+
+    ctx = SSL_CTX_new(method);
+    configure_context(ctx, server_side);
+
+    if (!ctx) {
+	perror("Unable to create TLS context");
+        LogPrintf("Unable to create TLS context");
+	ERR_print_errors_fp(stderr);
+    }
+
+    return ctx;
+}
+
+void configure_context(SSL_CTX *ctx, bool server_side)
+{
+    SSL_CTX_set_ecdh_auto(ctx, 1);
+
+    // Set OpenSSL verification options
+    const long flags = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1;
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
+    SSL_CTX_set_verify_depth(ctx, 4);
+    SSL_CTX_set_options(ctx, flags);
+
+    if (server_side == true) {
+        /* Set the key and cert */
+        if (SSL_CTX_use_certificate_file(ctx, "cert.pem", SSL_FILETYPE_PEM) < 0) {
+            ERR_print_errors_fp(stderr);
+        }
+
+        if (SSL_CTX_use_PrivateKey_file(ctx, "key.pem", SSL_FILETYPE_PEM) < 0 ) {
+            ERR_print_errors_fp(stderr);
+        }
+    }
+}
+
+SSL_CTX *server_ctx = create_context(true);
+SSL_CTX *client_ctx = create_context(false);
+
+bool CNode::establish_tls_connection()
+{
+
+    if (ssl != NULL)
+        return true;
+
+    // Initialize OpenSSL context
+    if (server_side == true)
+        ctx = server_ctx;
+    else if (server_side == false)
+        ctx = client_ctx;
+
+    // Create context and assign socket
+    sbio = BIO_new_fd(hSocket, BIO_NOCLOSE);
+    ssl = SSL_new(ctx);
+    SSL_set_bio(ssl, sbio, sbio);
+
+    // Set OpenSSL flags
+    const char* const PREFERRED_CIPHERS = "HIGH:!aNULL:!kRSA:!PSK:!SRP:!MD5:!RC4";
+    SSL_set_cipher_list(ssl, PREFERRED_CIPHERS);
+
+    // Set connect state
+    if (server_side == true) {
+        SSL_set_accept_state(ssl);
+        SSL_accept(ssl);
+        while (true) {
+            boost::this_thread::interruption_point();
+            int err = SSL_do_handshake(ssl);
+            if (err == 1 || SSL_is_init_finished(ssl) == 1)
+                break;
+            int ssl_err = SSL_get_error(ssl, err);
+            if (ssl_err == SSL_ERROR_WANT_READ || ssl_err == SSL_ERROR_WANT_WRITE)
+                continue;
+            else
+                return false;
+        }
+    }
+    else if (server_side == false) {
+        SSL_set_connect_state(ssl);
+        SSL_connect(ssl);
+        while (true) {
+            boost::this_thread::interruption_point();
+            int err = SSL_do_handshake(ssl);
+            if (err == 1 || SSL_is_init_finished(ssl) == 1)
+                break;
+            int ssl_err = SSL_get_error(ssl, err);
+            if (ssl_err == SSL_ERROR_WANT_READ || ssl_err == SSL_ERROR_WANT_WRITE)
+                continue;
+            else
+                return false;
+        }
+    }
+    return true;
+}
 
 // Signals for message handling
 static CNodeSignals g_signals;
@@ -366,9 +476,22 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 
         // Look for an existing connection
         CNode* pnode = FindNode((CService)addrConnect);
-        if (pnode)
+        if (pnode && pnode->hSocket != INVALID_SOCKET)
         {
-            pnode->AddRef();
+            if (!SSL_is_init_finished(pnode->ssl)) {
+                // Initiate OpenSSL connection over existing socket
+                pnode->server_side = false;
+                if (!pnode->establish_tls_connection())
+                    pnode->AddRef();
+                else
+                    return NULL;
+            }
+
+            /// debug print
+            LogPrint("net", "using connection %s lastseen=%.1fhrs\n",
+                pszDest ? pszDest : addrConnect.ToString(),
+                pszDest ? 0.0 : (double)(GetAdjustedTime() - addrConnect.nTime)/3600.0);
+
             return pnode;
         }
     }
@@ -394,6 +517,12 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 
         // Add node
         CNode* pnode = new CNode(hSocket, addrConnect, pszDest ? pszDest : "", false);
+
+        // Initiate OpenSSL connection over existing socket
+        pnode->server_side = false;
+        if (!pnode->establish_tls_connection())
+            return NULL;
+
         pnode->AddRef();
 
         {
@@ -415,6 +544,8 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 
 void CNode::CloseSocketDisconnect()
 {
+    if (ssl != NULL)
+        SSL_shutdown(ssl);
     fDisconnect = true;
     if (hSocket != INVALID_SOCKET)
     {
@@ -679,10 +810,10 @@ void SocketSendData(CNode *pnode)
 {
     std::deque<CSerializeData>::iterator it = pnode->vSendMsg.begin();
 
-    while (it != pnode->vSendMsg.end()) {
+    while (it != pnode->vSendMsg.end() && pnode->ssl != NULL && SSL_is_init_finished(pnode->ssl)) {
         const CSerializeData &data = *it;
         assert(data.size() > pnode->nSendOffset);
-        int nBytes = send(pnode->hSocket, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset, MSG_NOSIGNAL | MSG_DONTWAIT);
+        int nBytes = SSL_write(pnode->ssl, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset);
         if (nBytes > 0) {
             pnode->nLastSend = GetTime();
             pnode->nSendBytes += nBytes;
@@ -936,6 +1067,9 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
 #endif
 
     CNode* pnode = new CNode(hSocket, addr, "", true);
+    pnode->server_side = true;
+    if (!pnode->establish_tls_connection())
+        return;
     pnode->AddRef();
     pnode->fWhitelisted = whitelisted;
 
@@ -1115,8 +1249,10 @@ void ThreadSocketHandler()
         {
             LOCK(cs_vNodes);
             vNodesCopy = vNodes;
-            BOOST_FOREACH(CNode* pnode, vNodesCopy)
+            BOOST_FOREACH(CNode* pnode, vNodesCopy) {
+                pnode->establish_tls_connection();
                 pnode->AddRef();
+            }
         }
         BOOST_FOREACH(CNode* pnode, vNodesCopy)
         {
@@ -1130,12 +1266,12 @@ void ThreadSocketHandler()
             if (FD_ISSET(pnode->hSocket, &fdsetRecv) || FD_ISSET(pnode->hSocket, &fdsetError))
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
-                if (lockRecv)
+                if (lockRecv && pnode->ssl != NULL && SSL_is_init_finished(pnode->ssl))
                 {
                     {
                         // typical socket buffer is 8K-64K
                         char pchBuf[0x10000];
-                        int nBytes = recv(pnode->hSocket, pchBuf, sizeof(pchBuf), MSG_DONTWAIT);
+                        int nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf));
                         if (nBytes > 0)
                         {
                             if (!pnode->ReceiveMsgBytes(pchBuf, nBytes))
@@ -1701,7 +1837,6 @@ bool BindListenPort(const CService &addrBind, string& strError, bool fWhiteliste
     strError = "";
     int nOne = 1;
 
-    // Create socket for listening for incoming connections
     struct sockaddr_storage sockaddr;
     socklen_t len = sizeof(sockaddr);
     if (!addrBind.GetSockAddr((struct sockaddr*)&sockaddr, &len))
@@ -1724,7 +1859,6 @@ bool BindListenPort(const CService &addrBind, string& strError, bool fWhiteliste
         LogPrintf("%s\n", strError);
         return false;
     }
-
 
 #ifndef WIN32
 #ifdef SO_NOSIGPIPE
@@ -1924,12 +2058,15 @@ public:
     {
         // Close sockets
         BOOST_FOREACH(CNode* pnode, vNodes)
-            if (pnode->hSocket != INVALID_SOCKET)
+            if (pnode->hSocket != INVALID_SOCKET) {
+                SSL_shutdown(pnode->ssl);
                 CloseSocket(pnode->hSocket);
+            }
         BOOST_FOREACH(ListenSocket& hListenSocket, vhListenSocket)
-            if (hListenSocket.socket != INVALID_SOCKET)
+            if (hListenSocket.socket != INVALID_SOCKET) {
                 if (!CloseSocket(hListenSocket.socket))
                     LogPrintf("CloseSocket(hListenSocket) failed with error %s\n", NetworkErrorString(WSAGetLastError()));
+            }
 
         // clean up some globals (to help leak detection)
         BOOST_FOREACH(CNode *pnode, vNodes)
@@ -2165,6 +2302,11 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
     addrKnown(5000, 0.001),
     setInventoryKnown(SendBufferSize() / 1000)
 {
+    // OpenSSL support
+    sbio = NULL;
+    ctx = NULL;
+    ssl = NULL;
+
     nServices = 0;
     hSocket = hSocketIn;
     nRecvVersion = INIT_PROTO_VERSION;

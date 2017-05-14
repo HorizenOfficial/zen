@@ -30,6 +30,10 @@
 #include <boost/foreach.hpp>
 #include <boost/signals2/signal.hpp>
 
+// Enable OpenSSL Support for Zen
+#include <openssl/bio.h>
+#include <openssl/ssl.h>
+
 class CAddrMan;
 class CBlockIndex;
 class CScheduler;
@@ -81,6 +85,8 @@ bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhite
 void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler);
 bool StopNode();
 void SocketSendData(CNode *pnode);
+SSL_CTX* create_context(bool server_side);
+void configure_context(SSL_CTX *ctx, bool server_side);
 
 typedef int NodeId;
 
@@ -240,6 +246,13 @@ public:
 class CNode
 {
 public:
+    // OpenSSL
+    BIO *sbio;
+    SSL_CTX *ctx;
+    SSL *ssl;
+    bool server_side;
+    bool establish_tls_connection();
+
     // socket
     uint64_t nServices;
     SOCKET hSocket;
