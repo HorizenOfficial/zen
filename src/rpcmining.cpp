@@ -555,7 +555,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     if (vNodes.empty())
         throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Zcash is not connected!");
 
-    if (IsInitialBlockDownload())
+    if (IsInitialBlockDownload() && chainActive.Tip()->nHeight > Params().GetConsensus().nChainsplitIndex + (Params().GetConsensus().nMinerConfirmationWindow * 2))
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Zcash is downloading blocks...");
 
     static unsigned int nTransactionsUpdatedLast;
@@ -883,8 +883,8 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
             "1. height         (numeric, optional) The block height.  If not provided, defaults to the current height of the chain.\n"
             "\nResult:\n"
             "{\n"
-            "  \"miner\" : x.xxx           (numeric) The mining reward amount in ZEC.\n"
-            "  \"founders\" : x.xxx        (numeric) The founders reward amount in ZEC.\n"
+            "  \"miner\" : x.xxx           (numeric) The mining reward amount in ZEN.\n"
+            "  \"founders\" : x.xxx        (numeric) The founders reward amount in ZEN.\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("getblocksubsidy", "1000")
@@ -898,8 +898,8 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
 
     CAmount nReward = GetBlockSubsidy(nHeight, Params().GetConsensus());
     CAmount nFoundersReward = 0;
-    if ((nHeight > 0) && (nHeight <= Params().GetConsensus().GetLastFoundersRewardBlockHeight())) {
-        nFoundersReward = nReward/5;
+    if ((nHeight > Params().GetConsensus().nChainsplitIndex) && (nHeight <= Params().GetConsensus().GetLastFoundersRewardBlockHeight())) {
+        nFoundersReward = ((nReward * 85) / 1000);
         nReward -= nFoundersReward;
     }
     UniValue result(UniValue::VOBJ);
