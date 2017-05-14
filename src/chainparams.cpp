@@ -10,6 +10,9 @@
 #include "utilstrencodings.h"
 
 #include <assert.h>
+// ZEN_MOD_START
+#include <ctime> // used for chainsplit
+// ZEN_MOD_END
 
 #include <boost/assign/list_of.hpp>
 
@@ -65,9 +68,13 @@ public:
         pchMessageStart[3] = 0x68;
         vAlertPubKey = ParseHex("048679fb891b15d0cada9692047fd0ae26ad8bfb83fabddbb50334ee5bc0683294deb410be20513c5af6e7b9cec717ade82b27080ee6ef9a245c36a795ab044bb3");
         nDefaultPort = 8033;
-//        nMinerThreads = 0;
+        nMinerThreads = 0;
+        std::time_t result = std::time(nullptr);
+        if (result < consensus.nChainsplitTime + (24 * 60 * 60))
+            nMaxTipAge = 10 * 24 * 60 * 60; // Allow blocks up to 10 days old to be the chain tip
+        else
+            nMaxTipAge = 24 * 60 * 60;
 // ZEN_MOD_END
-        nMaxTipAge = 24 * 60 * 60;
         nPruneAfterHeight = 100000;
         const size_t N = 200, K = 9;
         BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N, K));
