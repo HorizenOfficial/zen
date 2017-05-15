@@ -208,6 +208,7 @@ libbitcoin_server_a_SOURCES = \
   bloom.cpp \
   chain.cpp \
   checkpoints.cpp \
+  deprecation.cpp \
   httprpc.cpp \
   httpserver.cpp \
   init.cpp \
