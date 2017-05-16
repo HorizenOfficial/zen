@@ -116,7 +116,7 @@ public:
         // guarantees the first 2 characters, when base58 encoded, are "zn"
         base58Prefixes[PUBKEY_ADDRESS]     = {0x20,0x89};
         // guarantees the first 2 characters, when base58 encoded, are "zs"
-        base58Prefixes[SCRIPT_ADDRESS]     = {0x20,0x94};
+        base58Prefixes[SCRIPT_ADDRESS]     = {0x20,0x96};
         // the first character, when base58 encoded, is "5" or "K" or "L" (as in Bitcoin)
         base58Prefixes[SECRET_KEY]         = {0x80};
         // do not rely on these BIP32 prefixes; they are not specified and may change
