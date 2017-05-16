@@ -113,17 +113,17 @@ public:
         vSeeds.push_back(CDNSSeedData("zdeveloper.org", "mainnet-zen.zdeveloper.org"));
         vSeeds.push_back(CDNSSeedData("rotorproject.org", "mainnet-zen.rotorproject.org"));
 
-        // guarantees the first 2 characters, when base58 encoded, are "t5"
-        base58Prefixes[PUBKEY_ADDRESS]     = {0x1C,0xBF};
-        // guarantees the first 2 characters, when base58 encoded, are "t7"
-        base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0xC1};
+        // guarantees the first 2 characters, when base58 encoded, are "zn"
+        base58Prefixes[PUBKEY_ADDRESS]     = {0x20,0x89};
+        // guarantees the first 2 characters, when base58 encoded, are "zs"
+        base58Prefixes[SCRIPT_ADDRESS]     = {0x20,0x94};
         // the first character, when base58 encoded, is "5" or "K" or "L" (as in Bitcoin)
         base58Prefixes[SECRET_KEY]         = {0x80};
         // do not rely on these BIP32 prefixes; they are not specified and may change
         base58Prefixes[EXT_PUBLIC_KEY]     = {0x04,0x88,0xB2,0x1E};
         base58Prefixes[EXT_SECRET_KEY]     = {0x04,0x88,0xAD,0xE4};
-        // guarantees the first 2 characters, when base58 encoded, are "zn"
-        base58Prefixes[ZCPAYMENT_ADDRRESS] = {0x16,0xA5};
+        // guarantees the first 2 characters, when base58 encoded, are "zc"
+        base58Prefixes[ZCPAYMENT_ADDRRESS] = {0x16,0x9A};
         // guarantees the first 2 characters, when base58 encoded, are "SK"
         base58Prefixes[ZCSPENDING_KEY]     = {0xAB,0x36};
 
@@ -252,10 +252,10 @@ public:
         vSeeds.push_back(CDNSSeedData("zdeveloper.org", "testnet-zen.zdeveloper.org"));
         vSeeds.push_back(CDNSSeedData("rotorproject.org", "testnet-zen.rotorproject.org"));
 
-        // guarantees the first 2 characters, when base58 encoded, are "tn"
-        base58Prefixes[PUBKEY_ADDRESS]     = {0x1D,0x26};
-        // guarantees the first 2 characters, when base58 encoded, are "t4"
-        base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0xBC};
+        // guarantees the first 2 characters, when base58 encoded, are "zt"
+        base58Prefixes[PUBKEY_ADDRESS]     = {0x20,0x98};
+        // guarantees the first 2 characters, when base58 encoded, are "zr"
+        base58Prefixes[SCRIPT_ADDRESS]     = {0x20,0x92};
         // the first character, when base58 encoded, is "9" or "c" (as in Bitcoin)
         base58Prefixes[SECRET_KEY]         = {0xEF};
         // do not rely on these BIP32 prefixes; they are not specified and may change
@@ -282,20 +282,20 @@ public:
             0
         };
 
-        // Founders reward script expects a vector of 2-of-3 multisig addresses
+        // Founders reward script expects a vector of 3-of-4 multisig addresses
         vFoundersRewardAddress = {
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t284JhyS8LGM72Tx1porSqwrcq3CejthP1p", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
+            "zrS7wh6nkHAaNLBoBg7DzJLBbq8eaiKLmQa", "zrJru5MafScK6nNTnaCJJEJGfnnz3oLS6VZ", "zr3b5NtkqSiG51U4ud7bQ6Xc5LfNF6fZ1Jb", "zrBeNNqHUuoZ98mpyGpzhcHxHSJGBF8To1w",
+            "zrAZAt4FXpBabXngpxTua6VVAcYsX3DeD6G", "zrEXD3aZfrAT15QGsGo5JqqeDcAY2XdcY5X", "zr6xd1vfqTz2L31suFApwDLRj51o9FbPxdU", "zrHpnXiwQYsySdCgEFpkLDwsza4zHE23tZa",
+            "zrHrn3mTJtNpQQ3dZ8njHZhsnuTPPnjXGP1", "zrHQGDkWw9PDQjj6cXPASH9EQyYYuA6LGiL", "zrQbijU88BwiPenD9AbAFWhXkedb6ReMggq", "zr7c4MfJgDgtH4hJZH5d8NxGDMeGsV3doPj",
+            "zrHSJNd9pvP2RkFQXr3TmD7kZGmskwVyP5S", "zr9nV5eLZymNf5sYhCzE5wDSvU8boS4mV93", "zrFdfWgGMrRswoEKtf4y9q3JzhtPLi4Vqmp", "zr7LFkSg6S1q33SsKzvrvkKFcKuAAPYTGzj",
+            "zr5JmNJ9taXVbHjrqDV3SnvPf4cVXsfi1pg", "zrC3j8CS8YQbouhau3Uuv8n5HtbLc6DGrvh", "zrDyhz4n4vAymTvSrQp5hveZbdGfYchoDXg", "zrP2HVdi9vVTk1gu7gcnpSbtHo9tRDc4BqZ",
+            "zr7xEqwDLzhB6RwrBidTfJSXyTNAgfwPhdi", "zr5jV3jMVabQw3LXis5KXFJux9PhSwigayc", "zrGwEtRtfKaoLNHizz397wDeS7mYchFGPqF", "zrFYbLC1jxBA49mw3tjLXzucMifotV5ZWSw",
+            "zrLS1eTXvPmoUg4kuBCxZ6VVTzPWSvFxrJY", "zr7jebTdNWYeyeEV3K6hbzGz3srhvevvted", "zrR1eQGEjteMsgqX5ibYgdw6JSDy7m8TG5e", "zrFRM8FSqEAirXKA43usBErUQEzt9mteiJv",
+            "zrJYfXeT9qkgQoAJmVrGkdc3RCvVnbidyUK", "zrQBsJoFGavnmDDCcKChCL1vMsN57RY2vHo", "zrFtXq6Rd8P7j8sAjVkZTSVs3pACu562WKs", "zrBUacrs9tBscjoVcRnD1P6C3f97RpPJ9zp",
+            "zrEBHuvcuneFZ5jnzeh6iLWakCcRY2rbEar", "zrM96PXnTXSGSz38UfzMd8YWfFcU9HWyRcR", "zr7MNLHBB5bwDV4CVaSVPtvKiHwSkfiW48U", "zrQuggPdjhpBqG3aEk1ubGPPpt5VS59KeDD",
+            "zrMzoFGbCsNZqvDGrAvoqBxujy8X9vrSkVX", "zrCyNhTbe5PSq6eFPF6FSBWLYPNvwX2PG1f", "zr8bpVisfyqCLi1PSxzzKChYYBPdfdGshX5", "zrFkkH4W1A1aAT2mgGtUWdpPTHVNDzq1xZ3",
+            "zr9a2dds8R3XBNnSf3ksmdtF5VEYCjUrcRy", "zrAfVMx7TekjaKLCJ6RUm45rLnQ3q1hbcDG", "zrCLJE55yFp1YfxhKL8czNuqj5xkYREuhs9", "zr6jXTCoiSZBGWC1UsYxebMXU4GeWVVbfHR",
+            "zrSH83dkjwunqQ8KJ9LWfqBXVtaDeqYGukG", "zrFscKUGBjDLMKnZNHwpx9QSBjQoxzwCQQr", "zrN5rUsTTehpRZwGxj4tJruRUBBLpA1aM1y", "zr9scrSW7zdDaxxtVAfxZLFxDW2NjqAAHgi",
         };
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
     }
