@@ -295,7 +295,7 @@ public:
             "zrEBHuvcuneFZ5jnzeh6iLWakCcRY2rbEar", "zrM96PXnTXSGSz38UfzMd8YWfFcU9HWyRcR", "zr7MNLHBB5bwDV4CVaSVPtvKiHwSkfiW48U", "zrQuggPdjhpBqG3aEk1ubGPPpt5VS59KeDD",
             "zrMzoFGbCsNZqvDGrAvoqBxujy8X9vrSkVX", "zrCyNhTbe5PSq6eFPF6FSBWLYPNvwX2PG1f", "zr8bpVisfyqCLi1PSxzzKChYYBPdfdGshX5", "zrFkkH4W1A1aAT2mgGtUWdpPTHVNDzq1xZ3",
             "zr9a2dds8R3XBNnSf3ksmdtF5VEYCjUrcRy", "zrAfVMx7TekjaKLCJ6RUm45rLnQ3q1hbcDG", "zrCLJE55yFp1YfxhKL8czNuqj5xkYREuhs9", "zr6jXTCoiSZBGWC1UsYxebMXU4GeWVVbfHR",
-            "zrSH83dkjwunqQ8KJ9LWfqBXVtaDeqYGukG", "zrFscKUGBjDLMKnZNHwpx9QSBjQoxzwCQQr", "zrN5rUsTTehpRZwGxj4tJruRUBBLpA1aM1y", "zr9scrSW7zdDaxxtVAfxZLFxDW2NjqAAHgi",
+            "zrSH83dkjwunqQ8KJ9LWfqBXVtaDeqYGukG", "zrFscKUGBjDLMKnZNHwpx9QSBjQoxzwCQQr", "zrN5rUsTTehpRZwGxj4tJruRUBBLpA1aM1y", "zr9scrSW7zdDaxxtVAfxZLFxDW2NjqAAHgi"
         };
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
     }
