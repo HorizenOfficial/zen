@@ -312,7 +312,7 @@ public:
         strCurrencyUnits = "REG";
         consensus.fCoinbaseMustBeProtected = false;
         consensus.nSubsidySlowStartInterval = 0;
-        consensus.nSubsidyHalvingInterval = 20000;
+        consensus.nSubsidyHalvingInterval = 2000;
         consensus.nMajorityEnforceBlockUpgrade = 750;
         consensus.nMajorityRejectBlockOutdated = 950;
         consensus.nMajorityWindow = 1000;
@@ -322,9 +322,8 @@ public:
         consensus.nPowMaxAdjustUp = 0; // Turn off adjustment up
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
-        consensus.nChainsplitIndex = 10000;
-        //consensus.nChainsplitTime = 1495582200;
-        consensus.nChainsplitTime = 1494601330;
+        consensus.nChainsplitIndex = 1000;
+        consensus.nChainsplitTime = 0;
 
         pchMessageStart[0] = 0x2f;
         pchMessageStart[1] = 0x54;
@@ -365,7 +364,7 @@ public:
         };
 
         // Founders reward script expects a vector of 2-of-3 multisig addresses
-        vFoundersRewardAddress = { "t3ELub7Kz4kTHomWYdhqb4Xy2D9cWvpYnQ6" };
+        vFoundersRewardAddress = { "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa" };
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
     }
 };
