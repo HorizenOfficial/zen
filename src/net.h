@@ -86,13 +86,13 @@ void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler);
 bool StopNode();
 void SocketSendData(CNode *pnode);
 SSL_CTX* create_context(bool server_side);
-
 EVP_PKEY *generate_key();
-
 X509 *generate_x509(EVP_PKEY *pkey);
-
 bool write_to_disk(EVP_PKEY *pkey, X509 *x509);
 void configure_context(SSL_CTX *ctx, bool server_side);
+static boost::filesystem::path tlsKeyPath;
+static boost::filesystem::path tlsCertPath;
+static std::string tlsvalidate;
 
 typedef int NodeId;
 
@@ -178,11 +178,9 @@ struct LocalServiceInfo {
     int nPort;
 };
 
+
 extern CCriticalSection cs_mapLocalHost;
 extern std::map<CNetAddr, LocalServiceInfo> mapLocalHost;
-
-extern std::string sslKeyPath;
-extern std::string sslCertPath;
 
 class CNodeStats
 {

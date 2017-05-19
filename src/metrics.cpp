@@ -171,19 +171,42 @@ void ConnectMetricsScreen()
 int printStats(bool mining)
 {
     // Number of lines that are always displayed
-    int lines = 4;
+    int lines = 9;
 
     int height;
     size_t connections;
     int64_t netsolps;
+    tlsvalidate = GetArg("-tlsvalidate","");
+    std::string cipherdescription = "Not Encrypted";
+    std::string securitylevel = "INACTIVE";
+    std::string routingsecrecy = "CLEARNET";
+    std::string validationdescription = (tlsvalidate == "1" ? "YES" : "PUBLIC");
+    if (routingsecrecy == "ipv4" || routingsecrecy == "ipv6")
+        routingsecrecy = "CLEARNET";
+    else if (routingsecrecy == "onion")
+        routingsecrecy = "TOR NETWORK";
     {
         LOCK2(cs_main, cs_vNodes);
         height = chainActive.Height();
         connections = vNodes.size();
+        if (connections > 0 && SSL_get_current_cipher(vNodes[0]->ssl)) {
+            char *tmp = new char[256];
+            cipherdescription = SSL_CIPHER_get_name(SSL_get_current_cipher(vNodes[0]->ssl));
+            if (cipherdescription == "ECDHE-RSA-AES256-GCM-SHA384") {
+                securitylevel = "ACTIVE";
+            }
+            else
+                securitylevel = "UNKNOWN";
+        }
         netsolps = GetNetworkHashPS(120, -1);
     }
     auto localsolps = GetLocalSolPS();
 
+    std::cout << "          " << _("COMSEC STATUS") << " | " << securitylevel << std::endl;
+    std::cout << "      " << _("Encryption Cipher") << " | " << cipherdescription << std::endl;
+    std::cout << "        " << _("Routing Secrecy") << " | " << routingsecrecy << std::endl;
+    std::cout << "         " << _("Validate Peers") << " | " << validationdescription << std::endl;
+    std::cout << std::endl;
     std::cout << "           " << _("Block height") << " | " << height << std::endl;
     std::cout << "            " << _("Connections") << " | " << connections << std::endl;
     std::cout << "  " << _("Network solution rate") << " | " << netsolps << " Sol/s" << std::endl;

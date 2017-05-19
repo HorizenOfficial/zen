@@ -204,13 +204,24 @@ X509 *generate_x509(EVP_PKEY *pkey) {
     return x509;
 }
 
+bool verify_x509(SSL* ssl) {
+    tlsvalidate = GetArg("-tlsvalidate", "");
+    int res = SSL_get_verify_result(ssl);
+    if (!(X509_V_OK == res) && tlsvalidate == "1") {
+        LogPrintf("TLS certificate failed to pass validation. %s\n", res);
+        return false;
+    }
+    return true;
+}
+
 bool write_to_disk(EVP_PKEY *pkey, X509 *x509) {
     ERR_load_CRYPTO_strings();
     OPENSSL_add_all_algorithms_noconf();
 
     const char *encryptionPassword = "MySuperDuperSecurePassword";
 
-    FILE *f = fopen("key.pem", "wb");
+    boost::filesystem::path pathKey = GetDataDir(false) / "key.pem";
+    FILE *f = fopen(pathKey.string().c_str(), "wb");
 
     // Here you write the private key (pkey) to disk.
     //TODO: OpenSSL can encrypt the file using the password and cipher.
@@ -224,7 +235,9 @@ bool write_to_disk(EVP_PKEY *pkey, X509 *x509) {
     }
     fclose(f);
 
-    f = fopen("cert.pem", "wb");
+    boost::filesystem::path pathCert = GetDataDir(false) / "cert.pem";
+    f = fopen(pathCert.string().c_str(), "wb");
+    //f = fopen(pathCert.string().c_str(), "wb");
 
     // Here you write the certificate to the disk. No encryption is needed here since this is public facing information
     if (PEM_write_X509(f, x509) < 0) {
@@ -247,25 +260,32 @@ void configure_context(SSL_CTX *ctx, bool server_side)
     SSL_CTX_set_options(ctx, flags);
 
     if (server_side) {
-        if (!boost::filesystem::exist(sslKeyPath) || !boost::filesystem::exist(sslCertPath)) {
-            EVP_PKEY *pkey = generate_key();
-            X509 *x509 = generate_x509(EVP_PKEY * pkey);
-            write_to_disk(pkey, x509);
-            sslKeyPath = "key.pem";
-            sslCertPath = "cert.pem";
+        tlsKeyPath = GetArg("-tlskeypath", "");
+        tlsCertPath = GetArg("-tlscertpath", "");
+        if (!boost::filesystem::exists(tlsKeyPath) || !boost::filesystem::exists(tlsCertPath)) {
+            LogPrintf("Error retrieving secure TLS certificates. Trying self-signed ones.");
+            const char * cert = (GetDataDir(false) / "cert.pem").string().c_str();
+            const char * key = (GetDataDir(false) / "key.pem").string().c_str();
+            if (!boost::filesystem::exists(cert) && !boost::filesystem::exists(key)) {
+                EVP_PKEY *pkey = generate_key();
+                X509 *x509 = generate_x509(pkey);
+                write_to_disk(pkey, x509);
+            }
+            tlsKeyPath = GetDataDir(false) / "key.pem";
+            tlsCertPath = GetDataDir(false) / "cert.pem";
         }
 
         // Set the private key and cert
-        if (!SSL_CTX_use_PrivateKey_file(ctx, sslKeyPath, SSL_FILETYPE_PEM)) {
+        if (!SSL_CTX_use_PrivateKey_file(ctx, tlsKeyPath.string().c_str(), SSL_FILETYPE_PEM)) {
             ERR_print_errors_fp(stderr);
         }
-        if (!SSL_CTX_use_certificate_file(ctx, sslCertPath, SSL_FILETYPE_PEM)) {
+        if (!SSL_CTX_use_certificate_file(ctx, tlsCertPath.string().c_str(), SSL_FILETYPE_PEM)) {
             ERR_print_errors_fp(stderr);
         }
     }
 }
 
-SSL_CTX *server_ctx = create_context(true);
+SSL_CTX *server_ctx;
 SSL_CTX *client_ctx = create_context(false);
 
 bool CNode::establish_tls_connection()
@@ -319,7 +339,11 @@ bool CNode::establish_tls_connection()
                 return false;
         }
     }
-    return true;
+
+    if (verify_x509(ssl))
+        return true;
+    else
+        return false;
 }
 
 // Signals for message handling
@@ -1949,6 +1973,9 @@ bool BindListenPort(const CService &addrBind, string& strError, bool fWhiteliste
 
     struct sockaddr_storage sockaddr;
     socklen_t len = sizeof(sockaddr);
+
+    server_ctx = create_context(true);
+
     if (!addrBind.GetSockAddr((struct sockaddr*)&sockaddr, &len))
     {
         strError = strprintf("Error: Bind address family for %s not supported", addrBind.ToString());
