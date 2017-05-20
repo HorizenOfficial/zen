@@ -290,6 +290,8 @@ SSL_CTX *client_ctx = create_context(false);
 
 bool CNode::establish_tls_connection()
 {
+    struct timeval timeout;
+    timeout.tv_sec  = 8;
 
     if (ssl != NULL)
         return true;
@@ -312,36 +314,89 @@ bool CNode::establish_tls_connection()
     // Set connect state
     if (server_side) {
         SSL_set_accept_state(ssl);
-        SSL_accept(ssl);
-        while (true) {
+        bool repeat = true;
+        while (repeat) {
+            repeat = false;
+            int err = SSL_accept(ssl);
             boost::this_thread::interruption_point();
-            int err = SSL_do_handshake(ssl);
-            if (err == 1 || SSL_is_init_finished(ssl) == 1)
-                break;
             int ssl_err = SSL_get_error(ssl, err);
-            if (ssl_err == SSL_ERROR_WANT_READ || ssl_err == SSL_ERROR_WANT_WRITE)
-                continue;
+            if (ssl_err == SSL_ERROR_WANT_READ) {
+                fd_set fds;
+                int sock = SSL_get_rfd(ssl);
+                FD_ZERO(&fds);
+                FD_SET(sock, &fds);
+                int sel = select(sock+1, &fds, NULL, NULL, &timeout);
+                boost::this_thread::interruption_point();
+                repeat = true;
+            }
+            else if (ssl_err == SSL_ERROR_WANT_WRITE) {
+                fd_set fds;
+                int sock = SSL_get_rfd(ssl);
+                FD_ZERO(&fds);
+                FD_SET(sock, &fds);
+                int sel = select(sock+1, NULL, &fds, NULL, &timeout);
+                boost::this_thread::interruption_point();
+                repeat = true;
+            }
+            else if (ssl_err == SSL_ERROR_WANT_CONNECT) {
+                SSL_connect(ssl);
+                repeat = true;
+            }
+            else if (ssl_err == SSL_ERROR_WANT_ACCEPT) {
+                SSL_accept(ssl);
+                repeat = true;
+            }
+            else if (ssl_err == SSL_ERROR_NONE) {
+                repeat = false;
+            }
             else
                 return false;
         }
     } else {
         SSL_set_connect_state(ssl);
-        SSL_connect(ssl);
-        while (true) {
+        bool repeat = true;
+        while (repeat) {
+            repeat = false;
+            int err = SSL_connect(ssl);
             boost::this_thread::interruption_point();
-            int err = SSL_do_handshake(ssl);
-            if (err == 1 || SSL_is_init_finished(ssl) == 1)
-                break;
             int ssl_err = SSL_get_error(ssl, err);
-            if (ssl_err == SSL_ERROR_WANT_READ || ssl_err == SSL_ERROR_WANT_WRITE)
-                continue;
+            if (ssl_err == SSL_ERROR_WANT_READ) {
+                fd_set fds;
+                int sock = SSL_get_rfd(ssl);
+                FD_ZERO(&fds);
+                FD_SET(sock, &fds);
+                int sel = select(sock+1, &fds, NULL, NULL, &timeout);
+                boost::this_thread::interruption_point();
+                repeat = true;
+            }
+            else if (ssl_err == SSL_ERROR_WANT_WRITE) {
+                fd_set fds;
+                int sock = SSL_get_rfd(ssl);
+                FD_ZERO(&fds);
+                FD_SET(sock, &fds);
+                int sel = select(sock+1, NULL, &fds, NULL, &timeout);
+                boost::this_thread::interruption_point();
+                repeat = true;
+            }
+            else if (ssl_err == SSL_ERROR_WANT_CONNECT) {
+                SSL_connect(ssl);
+                repeat = true;
+            }
+            else if (ssl_err == SSL_ERROR_WANT_ACCEPT) {
+                SSL_accept(ssl);
+                repeat = true;
+            }
+            else if (ssl_err == SSL_ERROR_NONE) {
+                repeat = false;
+            }
             else
                 return false;
         }
     }
 
-    if (verify_x509(ssl))
+    if (verify_x509(ssl)) {
         return true;
+    }
     else
         return false;
 }
@@ -612,14 +667,14 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
         CNode* pnode = FindNode((CService)addrConnect);
         if (pnode && pnode->hSocket != INVALID_SOCKET)
         {
-            if (!SSL_is_init_finished(pnode->ssl)) {
-                // Initiate OpenSSL connection over existing socket
-                pnode->server_side = false;
-                if (!pnode->establish_tls_connection())
-                    pnode->AddRef();
-                else
-                    return NULL;
+            // Initiate OpenSSL connection over existing socket
+            pnode->server_side = false;
+            if (pnode->establish_tls_connection()) {
+                pnode->PushVersion();
+                pnode->AddRef();
             }
+            else
+                return NULL;
 
             /// debug print
             LogPrint("net", "using connection %s lastseen=%.1fhrs\n",
@@ -657,6 +712,7 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
         if (!pnode->establish_tls_connection())
             return NULL;
 
+        pnode->PushVersion();
         pnode->AddRef();
 
         {
@@ -940,14 +996,18 @@ int CNetMessage::readData(const char *pch, unsigned int nBytes)
 
 
 // requires LOCK(cs_vSend)
-void SocketSendData(CNode *pnode)
-{
-    std::deque<CSerializeData>::iterator it = pnode->vSendMsg.begin();
+void SocketSendData(CNode *pnode) {
+    struct timeval timeout;
+    timeout.tv_sec  = 8;
 
-    while (it != pnode->vSendMsg.end() && pnode->ssl != NULL && SSL_is_init_finished(pnode->ssl)) {
+    std::deque<CSerializeData>::iterator it = pnode->vSendMsg.begin();
+    bool repeat = true;
+    while (it != pnode->vSendMsg.end() && pnode->ssl != NULL && SSL_is_init_finished(pnode->ssl) && repeat) {
+        repeat= false;
         const CSerializeData &data = *it;
         assert(data.size() > pnode->nSendOffset);
         int nBytes = SSL_write(pnode->ssl, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset);
+        int ssl_err = SSL_get_error(pnode->ssl, nBytes);
         if (nBytes > 0) {
             pnode->nLastSend = GetTime();
             pnode->nSendBytes += nBytes;
@@ -958,21 +1018,49 @@ void SocketSendData(CNode *pnode)
                 pnode->nSendSize -= data.size();
                 it++;
             } else {
+                LogPrintf("DEBUG: Send offset does not match.\n");
                 // could not send full message; stop sending more
                 break;
             }
-        } else {
-            if (nBytes < 0) {
-                // error
+        }
+        else if (nBytes < 0) {
+            if (ssl_err == SSL_ERROR_WANT_READ) {
+                fd_set fds;
+                int sock = SSL_get_rfd(pnode->ssl);
+                FD_ZERO(&fds);
+                FD_SET(sock, &fds);
+                int sel = select(sock+1, &fds, NULL, NULL, &timeout);
+                boost::this_thread::interruption_point();
+                repeat = true;
+            }
+            else if (ssl_err == SSL_ERROR_WANT_WRITE) {
+                fd_set fds;
+                int sock = SSL_get_rfd(pnode->ssl);
+                FD_ZERO(&fds);
+                FD_SET(sock, &fds);
+                int sel = select(sock+1, NULL, &fds, NULL, &timeout);
+                boost::this_thread::interruption_point();
+                repeat = true;
+            }
+            else if (ssl_err == SSL_ERROR_WANT_CONNECT) {
+                SSL_connect(pnode->ssl);
+                repeat = true;
+            }
+            else if (ssl_err == SSL_ERROR_WANT_ACCEPT) {
+                SSL_accept(pnode->ssl);
+                repeat = true;
+            }
+            else if (ssl_err == SSL_ERROR_NONE) {
+                repeat = false;
+            }
+            else {
                 int nErr = WSAGetLastError();
-                if (nErr != WSAEWOULDBLOCK && nErr != WSAEMSGSIZE && nErr != WSAEINTR && nErr != WSAEINPROGRESS)
-                {
-                    LogPrintf("socket send error %s\n", NetworkErrorString(nErr));
+                if (nErr != WSAEWOULDBLOCK && nErr != WSAEMSGSIZE && nErr != WSAEINTR && nErr != WSAEINPROGRESS) {
+                    if (!pnode->fDisconnect)
+                        LogPrintf("socket recv error %s\n", ssl_err);
                     pnode->CloseSocketDisconnect();
                 }
             }
-            // couldn't send anything at all
-            break;
         }
     }
 
@@ -1204,6 +1292,7 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
     pnode->server_side = true;
     if (!pnode->establish_tls_connection())
         return;
+    pnode->PushVersion();
     pnode->AddRef();
     pnode->fWhitelisted = whitelisted;
 
@@ -1384,7 +1473,6 @@ void ThreadSocketHandler()
             LOCK(cs_vNodes);
             vNodesCopy = vNodes;
             BOOST_FOREACH(CNode* pnode, vNodesCopy) {
-                pnode->establish_tls_connection();
                 pnode->AddRef();
             }
         }
@@ -1397,19 +1485,21 @@ void ThreadSocketHandler()
             //
             if (pnode->hSocket == INVALID_SOCKET)
                 continue;
-            if (FD_ISSET(pnode->hSocket, &fdsetRecv) || FD_ISSET(pnode->hSocket, &fdsetError))
+            if (FD_ISSET(pnode->hSocket, &fdsetRecv) || FD_ISSET(pnode->hSocket, &fdsetError) || SSL_has_pending(pnode->ssl))
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
-                if (lockRecv && pnode->ssl != NULL && SSL_is_init_finished(pnode->ssl))
+                bool repeat = true;
+                while (lockRecv && pnode->ssl != NULL && repeat)
                 {
                     {
+                        repeat = false;
                         // typical socket buffer is 8K-64K
                         char pchBuf[0x10000];
                         int nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf));
+                        int ssl_err = SSL_get_error(pnode->ssl, nBytes);
                         if (nBytes > 0)
                         {
-                            if (!pnode->ReceiveMsgBytes(pchBuf, nBytes))
-                                pnode->CloseSocketDisconnect();
+                            pnode->ReceiveMsgBytes(pchBuf, nBytes);
                             pnode->nLastRecv = GetTime();
                             pnode->nRecvBytes += nBytes;
                             pnode->RecordBytesRecv(nBytes);
@@ -1423,13 +1513,42 @@ void ThreadSocketHandler()
                         }
                         else if (nBytes < 0)
                         {
-                            // error
-                            int nErr = WSAGetLastError();
-                            if (nErr != WSAEWOULDBLOCK && nErr != WSAEMSGSIZE && nErr != WSAEINTR && nErr != WSAEINPROGRESS)
-                            {
-                                if (!pnode->fDisconnect)
-                                    LogPrintf("socket recv error %s\n", NetworkErrorString(nErr));
-                                pnode->CloseSocketDisconnect();
+                            if (ssl_err == SSL_ERROR_WANT_READ) {
+                                fd_set fds;
+                                int sock = SSL_get_rfd(pnode->ssl);
+                                FD_ZERO(&fds);
+                                FD_SET(sock, &fds);
+                                int sel = select(sock+1, &fds, NULL, NULL, &timeout);
+                                boost::this_thread::interruption_point();
+                                repeat = true;
+                            }
+                            else if (ssl_err == SSL_ERROR_WANT_WRITE) {
+                                fd_set fds;
+                                int sock = SSL_get_wfd(pnode->ssl);
+                                FD_ZERO(&fds);
+                                FD_SET(sock, &fds);
+                                int sel = select(sock+1, NULL, &fds, NULL, &timeout);
+                                boost::this_thread::interruption_point();
+                                repeat = true;
+                            }
+                            else if (ssl_err == SSL_ERROR_WANT_CONNECT) {
+                                SSL_connect(pnode->ssl);
+                                repeat = true;
+                            }
+                            else if (ssl_err == SSL_ERROR_WANT_ACCEPT) {
+                                SSL_accept(pnode->ssl);
+                                repeat = true;
+                            }
+                            else if (ssl_err == SSL_ERROR_NONE) {
+                                repeat = false;
+                            }
+                            else {
+                                int nErr = WSAGetLastError();
+                                if (nErr != WSAEWOULDBLOCK && nErr != WSAEMSGSIZE && nErr != WSAEINTR && nErr != WSAEINPROGRESS) {
+                                    if (!pnode->fDisconnect)
+                                        LogPrintf("socket recv error %s\n", NetworkErrorString(nErr));
+                                    pnode->CloseSocketDisconnect();
+                                }
                             }
                         }
                     }
@@ -1443,9 +1562,9 @@ void ThreadSocketHandler()
                 continue;
             if (FD_ISSET(pnode->hSocket, &fdsetSend))
             {
-                TRY_LOCK(pnode->cs_vSend, lockSend);
-                if (lockSend)
-                    SocketSendData(pnode);
+                //TRY_LOCK(pnode->cs_vSend, lockSend);
+                //if (lockSend)
+                SocketSendData(pnode);
             }
 
             //
@@ -2488,10 +2607,6 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
         LogPrint("net", "Added connection to %s peer=%d\n", addrName, id);
     else
         LogPrint("net", "Added connection peer=%d\n", id);
-
-    // Be shy and don't send version until we hear
-    if (hSocket != INVALID_SOCKET && !fInbound)
-        PushVersion();
 
     GetNodeSignals().InitializeNode(GetId(), this);
 }
