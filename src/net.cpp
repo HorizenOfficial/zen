@@ -1514,22 +1514,10 @@ void ThreadSocketHandler()
                         else if (nBytes < 0)
                         {
                             if (ssl_err == SSL_ERROR_WANT_READ) {
-                                fd_set fds;
-                                int sock = SSL_get_rfd(pnode->ssl);
-                                FD_ZERO(&fds);
-                                FD_SET(sock, &fds);
-                                int sel = select(sock+1, &fds, NULL, NULL, &timeout);
-                                boost::this_thread::interruption_point();
-                                repeat = true;
+                                repeat = false;
                             }
                             else if (ssl_err == SSL_ERROR_WANT_WRITE) {
-                                fd_set fds;
-                                int sock = SSL_get_wfd(pnode->ssl);
-                                FD_ZERO(&fds);
-                                FD_SET(sock, &fds);
-                                int sel = select(sock+1, NULL, &fds, NULL, &timeout);
-                                boost::this_thread::interruption_point();
-                                repeat = true;
+                                repeat = false;
                             }
                             else if (ssl_err == SSL_ERROR_WANT_CONNECT) {
                                 SSL_connect(pnode->ssl);
