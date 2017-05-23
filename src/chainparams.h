@@ -37,7 +37,9 @@ class CChainParams
 public:
     enum Base58Type {
         PUBKEY_ADDRESS,
+        PUBKEY_ADDRESS_OLD,
         SCRIPT_ADDRESS,
+        SCRIPT_ADDRESS_OLD,
         SECRET_KEY,
         EXT_PUBLIC_KEY,
         EXT_SECRET_KEY,

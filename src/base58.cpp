@@ -251,7 +251,9 @@ bool CBitcoinAddress::IsValid(const CChainParams& params) const
 {
     bool fCorrectSize = vchData.size() == 20;
     bool fKnownVersion = vchVersion == params.Base58Prefix(CChainParams::PUBKEY_ADDRESS) ||
-                         vchVersion == params.Base58Prefix(CChainParams::SCRIPT_ADDRESS);
+                         vchVersion == params.Base58Prefix(CChainParams::SCRIPT_ADDRESS) ||
+                         vchVersion == params.Base58Prefix(CChainParams::PUBKEY_ADDRESS_OLD) ||
+                         vchVersion == params.Base58Prefix(CChainParams::SCRIPT_ADDRESS_OLD);
     return fCorrectSize && fKnownVersion;
 }
 
