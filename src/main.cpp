@@ -1425,6 +1425,8 @@ bool IsInitialBlockDownload()
 {
     const CChainParams& chainParams = Params();
     LOCK(cs_main);
+    if (chainActive.Height() < chainParams.GetConsensus().nChainsplitIndex + 1)
+        return false;
     if (fImporting || fReindex)
         return true;
     if (fCheckpointsEnabled && chainActive.Height() < Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()))
@@ -1432,13 +1434,11 @@ bool IsInitialBlockDownload()
     static bool lockIBDState = false;
     if (lockIBDState)
         return false;
-    if (chainActive.Height() != chainParams.GetConsensus().nChainsplitIndex) {
-        bool state = (chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 ||
-                pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge());
-        if (!state)
-            lockIBDState = true;
-        return state;
-    }
+    bool state = (chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 ||
+            pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge());
+    if (!state)
+        lockIBDState = true;
+    return state;
 }
 
 bool fLargeWorkForkFound = false;
@@ -4770,7 +4770,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
         LOCK(cs_main);
 
-        if (IsInitialBlockDownload())
+        if (IsInitialBlockDownload() && chainActive.Tip()->nHeight >= Params().GetConsensus().nChainsplitIndex)
             return true;
 
         CBlockIndex* pindex = NULL;
@@ -5495,12 +5495,25 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         bool fFetch = state.fPreferredDownload || (nPreferredDownload == 0 && !pto->fClient && !pto->fOneShot); // Download if this is a nice peer, or we have no nice peers and this one might do.
         if (!state.fSyncStarted && !pto->fClient && !fImporting && !fReindex) {
             // Only actively request headers from a single peer, unless we're close to today.
-            if ((nSyncStarted == 0 && fFetch) || pindexBestHeader->GetBlockTime() > GetAdjustedTime() - 24 * 60 * 60) {
-                state.fSyncStarted = true;
-                nSyncStarted++;
-                CBlockIndex *pindexStart = pindexBestHeader->pprev ? pindexBestHeader->pprev : pindexBestHeader;
-                LogPrint("net", "initial getheaders (%d) to peer=%d (startheight:%d)\n", pindexStart->nHeight, pto->id, pto->nStartingHeight);
-                pto->PushMessage("getheaders", chainActive.GetLocator(pindexStart), uint256());
+            time_t t = time(0);
+            if (t < consensusParams.nChainsplitTime && chainActive.Tip()->nHeight < consensusParams.nChainsplitIndex) {
+                fFetch = true;
+                if ((nSyncStarted == 0 && fFetch) || pindexBestHeader->GetBlockTime() > GetAdjustedTime() - 14 * 24 * 60 * 60) {
+                    state.fSyncStarted = true;
+                    nSyncStarted++;
+                    CBlockIndex *pindexStart = pindexBestHeader->pprev ? pindexBestHeader->pprev : pindexBestHeader;
+                    LogPrint("net", "initial getheaders (%d) to peer=%d (startheight:%d)\n", pindexStart->nHeight, pto->id, pto->nStartingHeight);
+                    pto->PushMessage("getheaders", chainActive.GetLocator(pindexStart), uint256());
+                }
+            }
+            else {
+                if ((nSyncStarted == 0 && fFetch) || pindexBestHeader->GetBlockTime() > GetAdjustedTime() - 24 * 60 * 60) {
+                    state.fSyncStarted = true;
+                    nSyncStarted++;
+                    CBlockIndex *pindexStart = pindexBestHeader->pprev ? pindexBestHeader->pprev : pindexBestHeader;
+                    LogPrint("net", "initial getheaders (%d) to peer=%d (startheight:%d)\n", pindexStart->nHeight, pto->id, pto->nStartingHeight);
+                    pto->PushMessage("getheaders", chainActive.GetLocator(pindexStart), uint256());
+                }
             }
         }
 
