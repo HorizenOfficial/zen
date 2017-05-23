@@ -1425,6 +1425,8 @@ bool IsInitialBlockDownload()
 {
     const CChainParams& chainParams = Params();
     LOCK(cs_main);
+    if (chainActive.Height() < chainParams.GetConsensus().nChainsplitIndex + 1)
+        return false;
     if (fImporting || fReindex)
         return true;
     if (fCheckpointsEnabled && chainActive.Height() < Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()))
@@ -1432,15 +1434,11 @@ bool IsInitialBlockDownload()
     static bool lockIBDState = false;
     if (lockIBDState)
         return false;
-    if (chainActive.Height() >= chainParams.GetConsensus().nChainsplitIndex) {
-        bool state = (chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 ||
-                pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge());
-        if (!state)
-            lockIBDState = true;
-        return state;
-    }
-    else
-        return true;
+    bool state = (chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 ||
+            pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge());
+    if (!state)
+        lockIBDState = true;
+    return state;
 }
 
 bool fLargeWorkForkFound = false;
