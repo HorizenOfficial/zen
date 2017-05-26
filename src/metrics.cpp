@@ -189,7 +189,8 @@ int printStats(bool mining)
         LOCK2(cs_main, cs_vNodes);
         height = chainActive.Height();
         connections = vNodes.size();
-        if (connections > 0 && SSL_get_current_cipher(vNodes[0]->ssl)) {
+        if (connections > 0 && vNodes[0]->ssl != NULL && SSL_get_state(vNodes[0]->ssl) == TLS_ST_OK &&
+          SSL_get_current_cipher(vNodes[0]->ssl)) {
             char *tmp = new char[256];
             cipherdescription = SSL_CIPHER_get_name(SSL_get_current_cipher(vNodes[0]->ssl));
             if (cipherdescription == "ECDHE-RSA-AES256-GCM-SHA384") {
