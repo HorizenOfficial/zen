@@ -2,6 +2,7 @@
 
 set -eu
 
+# Need to be verified before changing to Zen...
 if [[ "$OSTYPE" == "darwin"* ]]; then
     PARAMS_DIR="$HOME/Library/Application Support/ZcashParams"
 else
@@ -83,6 +84,7 @@ function main() {
     || exit_locked_error
 
     cat <<EOF
+# Not changed to Zen because we're still using the Zcash zcSNARK params
 Zcash - fetch-params.sh
 
 This script will fetch the Zcash zkSNARK parameters and verify their
