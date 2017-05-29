@@ -1,7 +1,7 @@
 Zcash Contributors
 ==================
 
-Jack Grigg (392)
+Jack Grigg (387)
 Simon Liu (254)
 Sean Bowe (185)
 Daira Hopwood (80)
@@ -19,6 +19,7 @@ Paige Peterson (5)
 MarcoFalke (5)
 Johnathan Corgan (5)
 Gregory Maxwell (5)
+Zclassic Team (4)
 Philip Kaufmann (4)
 Peter Todd (4)
 Patrick Strateman (4)
