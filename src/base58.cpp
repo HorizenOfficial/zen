@@ -223,12 +223,16 @@ public:
 
 bool CBitcoinAddress::Set(const CKeyID& id)
 {
+	//TODO: Is the check regarding the id address created before or after chainsplit needed?
+	// Now old addresses will receive new prefixes. Seems like that is not a problem but additional QA is needed.
     SetData(Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS), &id, 20);
     return true;
 }
 
 bool CBitcoinAddress::Set(const CScriptID& id)
 {
+	//TODO: Is the check regarding the id address created before or after chainsplit needed?
+	// Now old addresses will receive new prefixes. Seems like that is not a problem but additional QA is needed.
     SetData(Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS), &id, 20);
     return true;
 }
@@ -267,9 +271,11 @@ CTxDestination CBitcoinAddress::Get() const
         return CNoDestination();
     uint160 id;
     memcpy(&id, &vchData[0], 20);
-    if (vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS))
+    if (vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS)
+    	|| vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS_OLD))
         return CKeyID(id);
-    else if (vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS))
+    else if (vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS)
+    		|| vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS_OLD))
         return CScriptID(id);
     else
         return CNoDestination();
@@ -277,7 +283,7 @@ CTxDestination CBitcoinAddress::Get() const
 
 bool CBitcoinAddress::GetKeyID(CKeyID& keyID) const
 {
-    if (!IsValid() || vchVersion != Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS))
+    if (!IsPubKey())
         return false;
     uint160 id;
     memcpy(&id, &vchData[0], 20);
@@ -285,9 +291,18 @@ bool CBitcoinAddress::GetKeyID(CKeyID& keyID) const
     return true;
 }
 
+bool CBitcoinAddress::IsPubKey() const
+{
+    return IsValid() &&
+    		(vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS)
+    		|| vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS_OLD));
+}
+
 bool CBitcoinAddress::IsScript() const
 {
-    return IsValid() && vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS);
+    return IsValid() &&
+    		(vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS)
+    		|| vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS_OLD));
 }
 
 void CBitcoinSecret::SetKey(const CKey& vchSecret)
