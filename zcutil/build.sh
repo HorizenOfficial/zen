@@ -34,17 +34,17 @@ $0 --help
   Show this help message and exit.
 
 $0 [ --enable-lcov || --disable-tests ] [ --disable-mining ] [ --disable-rust ] [ MAKEARGS... ]
-  Build Zcash and most of its transitive dependencies from
-  source. MAKEARGS are applied to both dependencies and Zcash itself.
+  Build Zen and most of its transitive dependencies from
+  source. MAKEARGS are applied to both dependencies and Zen itself.
 
-  If --enable-lcov is passed, Zcash is configured to add coverage
+  If --enable-lcov is passed, Zen is configured to add coverage
   instrumentation, thus enabling "make cov" to work.
-  If --disable-tests is passed instead, the Zcash tests are not built.
+  If --disable-tests is passed instead, the Zen tests are not built.
 
-  If --disable-mining is passed, Zcash is configured to not build any mining
+  If --disable-mining is passed, Zen is configured to not build any mining
   code. It must be passed after the test arguments, if present.
 
-  If --disable-rust is passed, Zcash is configured to not build any Rust language
+  If --disable-rust is passed, Zen is configured to not build any Rust language
   assets. It must be passed after mining/test arguments, if present.
 EOF
     exit 0
@@ -83,8 +83,12 @@ then
     RUST_ARG='--enable-rust=no'
     shift
 fi
-
 PREFIX="$(pwd)/depends/$BUILD/"
+
+#echo '================================================'
+#echo "HOST=" "$HOST" "BUILD=" "$BUILD" "NO_RUST=" "$RUST_ARG"
+#echo "$MAKE" "$@" "-C ./depends/ V=1"
+#echo '================================================'
 
 HOST="$HOST" BUILD="$BUILD" NO_RUST="$RUST_ARG" "$MAKE" "$@" -C ./depends/ V=1
 ./autogen.sh
