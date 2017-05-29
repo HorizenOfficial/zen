@@ -16,9 +16,10 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
     1. Centos:
     ```{r, engine='bash')
     sudo yum install epel-release
-    sudo yum install patch lbzip2 \
-        autoconf libtool ncurses-dev unzip git python \
-        zlib1g-dev wget bsdmainutils automake
+    sudo yum group install 'Development Tools'
+    sudo yum install lbzip2 \
+        ncurses-dev unzip python \
+        zlib1g-dev wget bsdmainutils
     ```   
 
 1. Install
