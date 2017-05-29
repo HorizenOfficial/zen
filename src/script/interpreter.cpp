@@ -433,7 +433,6 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     // since we can't access chain data then we treat OP_CHECKBLOCKATHEIGHT as a NOP
                     popstack(stack);
                     popstack(stack);
-                    stack.push_back(vchTrue);
                 }
                 break;
 #else
@@ -507,8 +506,9 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                         {
                             popstack(stack);
                         }
-                        else
+                        else {
                             return set_error(serror, SCRIPT_ERR_CHECKBLOCKATHEIGHT);
+                        }
                     }
                 }
                 break;
