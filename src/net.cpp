@@ -290,6 +290,8 @@ SSL_CTX *client_ctx = create_context(false);
 
 bool CNode::establish_tls_connection(bool blocking)
 {
+    boost::this_thread::interruption_point();
+
     // Initialize TLS context
     if (ctx == NULL) {
         if (server_side)
@@ -647,7 +649,9 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 
 void CNode::CloseSocketDisconnect()
 {
-    if (ssl != NULL) SSL_shutdown(ssl);
+    if (ssl != NULL) {
+        SSL_shutdown(ssl);
+    }
     fDisconnect = true;
     if (hSocket != INVALID_SOCKET)
     {
@@ -920,6 +924,7 @@ void SocketSendData(CNode *pnode) {
         const CSerializeData &data = *it;
         assert(data.size() > pnode->nSendOffset);
         int nBytes = SSL_write(pnode->ssl, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset);
+        boost::this_thread::interruption_point();
         int ssl_err = SSL_get_error(pnode->ssl, nBytes);
         if (nBytes > 0) {
             pnode->nLastSend = GetTime();
@@ -931,15 +936,19 @@ void SocketSendData(CNode *pnode) {
                 pnode->nSendSize -= data.size();
                 it++;
             }
-        }
-        else return; // Try again another time
-    }
 
-    if (it == pnode->vSendMsg.end()) {
-        assert(pnode->nSendOffset == 0);
-        assert(pnode->nSendSize == 0);
+            if (it == pnode->vSendMsg.end()) {
+                assert(pnode->nSendOffset == 0);
+                assert(pnode->nSendSize == 0);
+            }
+            pnode->vSendMsg.erase(pnode->vSendMsg.begin(), it);
+            break;
+        }
+
+        else break;
+        boost::this_thread::interruption_point();
+
     }
-    pnode->vSendMsg.erase(pnode->vSendMsg.begin(), it);
 }
 
 static list<CNode*> vNodesDisconnected;
@@ -1355,6 +1364,7 @@ void ThreadSocketHandler()
             if (pnode->hSocket == INVALID_SOCKET)
                 continue;
             pnode->establish_tls_connection();
+            boost::this_thread::interruption_point();
 
             //
             // Receive
@@ -1385,7 +1395,9 @@ void ThreadSocketHandler()
             if (FD_ISSET(pnode->hSocket, &fdsetSend))
             {
                 TRY_LOCK(pnode->cs_vSend, lockSend);
-                SocketSendData(pnode);
+                if (lockSend) {
+                    SocketSendData(pnode);
+                }
             }
 
             //
@@ -1873,13 +1885,13 @@ void ThreadMessageHandler()
 
         BOOST_FOREACH(CNode* pnode, vNodesCopy)
         {
-            if (pnode->fDisconnect || !pnode->fTLSHandshakeComplete)
+            if (pnode->fDisconnect)
                 continue;
 
             // Receive messages
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
-                if (lockRecv)
+                if (lockRecv && pnode->ssl != NULL && pnode->establish_tls_connection())
                 {
                     if (!g_signals.ProcessMessages(pnode))
                         pnode->CloseSocketDisconnect();
@@ -1898,7 +1910,7 @@ void ThreadMessageHandler()
             // Send messages
             {
                 TRY_LOCK(pnode->cs_vSend, lockSend);
-                if (lockSend)
+                if (lockSend && pnode->ssl != NULL && pnode->establish_tls_connection())
                     g_signals.SendMessages(pnode, pnode == pnodeTrickle || pnode->fWhitelisted);
             }
             boost::this_thread::interruption_point();
@@ -2150,7 +2162,7 @@ public:
         // Close sockets
         BOOST_FOREACH(CNode* pnode, vNodes)
             if (pnode->hSocket != INVALID_SOCKET) {
-                SSL_shutdown(pnode->ssl);
+                if (pnode->ssl != NULL) SSL_shutdown(pnode->ssl);
                 CloseSocket(pnode->hSocket);
             }
         BOOST_FOREACH(ListenSocket& hListenSocket, vhListenSocket)
@@ -2547,7 +2559,7 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
     nSendSize += (*it).size();
 
     // If write queue empty, attempt "optimistic write"
-    if (it == vSendMsg.begin() && this->establish_tls_connection())
+    if (it == vSendMsg.begin() && this->ssl != NULL && this->establish_tls_connection())
         SocketSendData(this);
 
     LEAVE_CRITICAL_SECTION(cs_vSend);
