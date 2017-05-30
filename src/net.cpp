@@ -648,10 +648,6 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 
         pnode->nTimeConnected = GetTime();
 
-        // Initiate TLS handshake
-        pnode->establish_tls_connection();
-        boost::this_thread::interruption_point();
-
         return pnode;
     } else if (!proxyConnectionFailed) {
         // If connecting to the node failed, and failure is not caused by a problem connecting to
@@ -1852,6 +1848,10 @@ bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOu
     pnode->fNetworkNode = true;
     if (fOneShot)
         pnode->fOneShot = true;
+
+    // Initiate TLS handshake
+    pnode->establish_tls_connection();
+    boost::this_thread::interruption_point();
 
     return true;
 }
