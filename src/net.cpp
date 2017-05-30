@@ -126,6 +126,8 @@ SSL_CTX *create_context(bool server_side)
     ctx = SSL_CTX_new(method);
     configure_context(ctx, server_side);
 
+    SSL_CTX_set_mode(ctx, SSL_MODE_ENABLE_PARTIAL_WRITE);
+
     if (!ctx) {
 	perror("Unable to create TLS context");
         LogPrintf("Unable to create TLS context");
@@ -1362,14 +1364,6 @@ void ThreadSocketHandler()
             boost::this_thread::interruption_point();
 
             //
-            // Set/Initiate/Continue TLS handshake status
-            //
-            if (pnode->hSocket == INVALID_SOCKET || !pnode->fTLSHandshakeComplete)
-                continue;
-            pnode->establish_tls_connection();
-            boost::this_thread::interruption_point();
-
-            //
             // Receive
             //
             if (pnode->hSocket == INVALID_SOCKET || !pnode->fTLSHandshakeComplete)
@@ -1872,6 +1866,7 @@ void ThreadMessageHandler()
             }
             else {
                 // Initialize and continue TLS handshake
+                boost::this_thread::interruption_point();
                 pnode->establish_tls_connection();
                 boost::this_thread::interruption_point();
 
@@ -1898,7 +1893,7 @@ void ThreadMessageHandler()
             // Receive messages
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
-                if (lockRecv)
+                if (lockRecv || SSL_has_pending(pnode->ssl))
                 {
                     if (!g_signals.ProcessMessages(pnode))
                         pnode->CloseSocketDisconnect();
