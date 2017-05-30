@@ -290,7 +290,7 @@ void configure_context(SSL_CTX *ctx, bool server_side)
 SSL_CTX *server_ctx;
 SSL_CTX *client_ctx = create_context(false);
 
-bool CNode::establish_tls_connection(bool blocking)
+bool CNode::establish_tls_connection(bool contextonly)
 {
     boost::this_thread::interruption_point();
 
@@ -320,6 +320,9 @@ bool CNode::establish_tls_connection(bool blocking)
             SSL_set_connect_state(ssl);
     }
 
+    // Return if we're only initializing context
+    if (contextonly) return false;
+
     // Initiate/Continue TLS handshake
     if (ssl != NULL && SSL_get_state(ssl) != TLS_ST_OK) SSL_do_handshake(ssl);
     boost::this_thread::interruption_point();
@@ -330,7 +333,10 @@ bool CNode::establish_tls_connection(bool blocking)
             fTLSHandshakeComplete = true;
             return true;
         }
-        else CloseSocketDisconnect();
+        else {
+            LogPrintf("net", "Unable to verify x509 certificate. Disconnecting peer.\n");
+            CloseSocketDisconnect();
+        }
     }
 
     return false;
@@ -641,6 +647,10 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
         }
 
         pnode->nTimeConnected = GetTime();
+
+        // Initiate TLS handshake
+        pnode->establish_tls_connection();
+        boost::this_thread::interruption_point();
 
         return pnode;
     } else if (!proxyConnectionFailed) {
@@ -1178,6 +1188,10 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
     pnode->AddRef();
     pnode->fWhitelisted = whitelisted;
 
+    // Initiate TLS handshake
+    pnode->establish_tls_connection();
+    boost::this_thread::interruption_point();
+
     LogPrint("net", "connection from %s accepted\n", addr.ToString());
 
     {
@@ -1366,13 +1380,13 @@ void ThreadSocketHandler()
             //
             // Receive
             //
-            if (pnode->hSocket == INVALID_SOCKET || !pnode->fTLSHandshakeComplete)
+            if (pnode->hSocket == INVALID_SOCKET)
                 continue;
             if ((FD_ISSET(pnode->hSocket, &fdsetRecv) || FD_ISSET(pnode->hSocket, &fdsetError)))
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
-                if (lockRecv) {
-                    char pchBuf[0x40000];
+                if (lockRecv && pnode->fTLSHandshakeComplete) {
+                    char pchBuf[0x10000];
                     int nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf));
                     int ssl_err = SSL_get_error(pnode->ssl, nBytes);
                     if (nBytes > 0) {
@@ -1387,12 +1401,12 @@ void ThreadSocketHandler()
             //
             // Send
             //
-            if (pnode->hSocket == INVALID_SOCKET || !pnode->fTLSHandshakeComplete)
+            if (pnode->hSocket == INVALID_SOCKET)
                 continue;
             if (FD_ISSET(pnode->hSocket, &fdsetSend))
             {
                 TRY_LOCK(pnode->cs_vSend, lockSend);
-                if (lockSend) {
+                if (lockSend && pnode->fTLSHandshakeComplete) {
                     SocketSendData(pnode);
                 }
             }
@@ -1861,10 +1875,13 @@ void ThreadMessageHandler()
 
         BOOST_FOREACH(CNode* pnode, vNodesCopy)
         {
-            if (pnode->hSocket == INVALID_SOCKET) {
+            if (pnode->hSocket == INVALID_SOCKET && pnode->ssl == NULL) {
                 pnode->fDisconnect = true;
             }
-            else {
+            else if (SSL_get_state(pnode->ssl) != TLS_ST_OK) {
+                // Prevent thread from consuming full CPU
+                MilliSleep(100);
+
                 // Initialize and continue TLS handshake
                 boost::this_thread::interruption_point();
                 pnode->establish_tls_connection();
@@ -1887,13 +1904,13 @@ void ThreadMessageHandler()
 
         BOOST_FOREACH(CNode* pnode, vNodesCopy)
         {
-            if (pnode->fDisconnect || !pnode->fTLSHandshakeComplete)
+            if (pnode->fDisconnect)
                 continue;
 
             // Receive messages
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
-                if (lockRecv || SSL_has_pending(pnode->ssl))
+                if (lockRecv && pnode->fTLSHandshakeComplete)
                 {
                     if (!g_signals.ProcessMessages(pnode))
                         pnode->CloseSocketDisconnect();
@@ -1912,7 +1929,7 @@ void ThreadMessageHandler()
             // Send messages
             {
                 TRY_LOCK(pnode->cs_vSend, lockSend);
-                if (lockSend)
+                if (lockSend && pnode->fTLSHandshakeComplete)
                     g_signals.SendMessages(pnode, pnode == pnodeTrickle || pnode->fWhitelisted);
             }
             boost::this_thread::interruption_point();
