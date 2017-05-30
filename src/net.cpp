@@ -1182,10 +1182,6 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
     pnode->AddRef();
     pnode->fWhitelisted = whitelisted;
 
-    // Initiate TLS handshake
-    pnode->establish_tls_connection();
-    boost::this_thread::interruption_point();
-
     LogPrint("net", "connection from %s accepted\n", addr.ToString());
 
     {
@@ -1372,6 +1368,8 @@ void ThreadSocketHandler()
             boost::this_thread::interruption_point();
 
             // Initiate/continue TLS handshake
+            if (pnode->hSocket == INVALID_SOCKET)
+                continue;
             pnode->establish_tls_connection();
             boost::this_thread::interruption_point();
 
@@ -1851,10 +1849,6 @@ bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOu
     if (fOneShot)
         pnode->fOneShot = true;
 
-    // Initiate TLS handshake
-    pnode->establish_tls_connection();
-    boost::this_thread::interruption_point();
-
     return true;
 }
 
@@ -1880,17 +1874,8 @@ void ThreadMessageHandler()
             if (pnode->hSocket == INVALID_SOCKET) {
                 pnode->fDisconnect = true;
             }
-            else if (pnode->ssl == NULL || SSL_get_state(pnode->ssl) != TLS_ST_OK) {
-                // Prevent thread from consuming full CPU
-                MilliSleep(100);
 
-                // Initialize or continue TLS handshake
-                boost::this_thread::interruption_point();
-                pnode->establish_tls_connection();
-                boost::this_thread::interruption_point();
-            }
-
-            // Sent out version message if needed
+            // Sent oud version message if needed
             if (pnode->ssl != NULL && SSL_get_state(pnode->ssl) == TLS_ST_OK) {
                 if (!pnode->fInbound) pnode->PushVersion();
                 if (!pnode->fSentVersion) pnode->PushVersion();
@@ -2581,7 +2566,7 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
     nSendSize += (*it).size();
 
     // If write queue empty, attempt "optimistic write"
-    if (it == vSendMsg.begin() && this->ssl != NULL && this->establish_tls_connection())
+    if (it == vSendMsg.begin() && this->ssl != NULL && this->fTLSHandshakeComplete)
         SocketSendData(this);
 
     LEAVE_CRITICAL_SECTION(cs_vSend);
