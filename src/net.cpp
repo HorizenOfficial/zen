@@ -1373,6 +1373,10 @@ void ThreadSocketHandler()
         {
             boost::this_thread::interruption_point();
 
+            // Initiate/continue TLS handshake
+            pnode->establish_tls_connection();
+            boost::this_thread::interruption_point();
+
             //
             // Receive
             //
