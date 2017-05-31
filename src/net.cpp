@@ -2565,6 +2565,8 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
     ssSend.GetAndClear(*it);
     nSendSize += (*it).size();
 
+    if (this->ssl == NULL) this->establish_tls_connection();
+
     // If write queue empty, attempt "optimistic write"
     if (it == vSendMsg.begin())
         SocketSendData(this);
