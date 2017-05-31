@@ -1881,13 +1881,6 @@ void ThreadMessageHandler()
             if (pnode->hSocket == INVALID_SOCKET) {
                 pnode->fDisconnect = true;
             }
-            else {
-                // Send out version message if needed
-                if (!pnode->fDisconnect && pnode->hSocket != INVALID_SOCKET) {
-                    if (!pnode->fInbound) pnode->PushVersion();
-                    if (!pnode->fSentVersion) pnode->PushVersion();
-                }
-            }
         }
 
         // Poll the connected nodes for messages
@@ -1899,7 +1892,7 @@ void ThreadMessageHandler()
 
         BOOST_FOREACH(CNode* pnode, vNodesCopy)
         {
-            if (pnode->fDisconnect || pnode->ssl == NULL)
+            if (pnode->fDisconnect)
                 continue;
 
             // Receive messages
