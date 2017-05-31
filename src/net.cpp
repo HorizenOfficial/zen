@@ -1367,17 +1367,12 @@ void ThreadSocketHandler()
             vNodesCopy = vNodes;
             BOOST_FOREACH(CNode* pnode, vNodesCopy) {
                 pnode->AddRef();
+                if (pnode->ssl == NULL) pnode->establish_tls_connection();
             }
         }
         BOOST_FOREACH(CNode* pnode, vNodesCopy)
         {
             boost::this_thread::interruption_point();
-
-            // Initiate/continue TLS handshake (only run once)
-            if (pnode->hSocket != INVALID_SOCKET && pnode->ssl == NULL) {
-                pnode->establish_tls_connection();
-                boost::this_thread::interruption_point();
-            }
 
             //
             // Receive
@@ -1880,13 +1875,13 @@ void ThreadMessageHandler()
             if (pnode->hSocket == INVALID_SOCKET) {
                 pnode->fDisconnect = true;
             }
-
-            // Send out version message if needed
-            if (pnode->hSocket != INVALID_SOCKET && pnode->ssl != NULL) {
-                if (!pnode->fInbound) pnode->PushVersion();
-                if (!pnode->fSentVersion) pnode->PushVersion();
+            else {
+                // Send out version message if needed
+                if (!pnode->fDisconnect && pnode->hSocket != INVALID_SOCKET) {
+                    if (!pnode->fInbound) pnode->PushVersion();
+                    if (!pnode->fSentVersion) pnode->PushVersion();
+                }
             }
-
         }
 
         // Poll the connected nodes for messages
@@ -1906,8 +1901,7 @@ void ThreadMessageHandler()
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
                 if (lockRecv)
                 {
-                    if (!g_signals.ProcessMessages(pnode))
-                        pnode->CloseSocketDisconnect();
+                    g_signals.ProcessMessages(pnode);
 
                     if (pnode->nSendSize < SendBufferSize())
                     {
@@ -2572,7 +2566,7 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
     nSendSize += (*it).size();
 
     // If write queue empty, attempt "optimistic write"
-    if (it == vSendMsg.begin() && this->ssl != NULL && this->fTLSHandshakeComplete)
+    if (it == vSendMsg.begin())
         SocketSendData(this);
 
     LEAVE_CRITICAL_SECTION(cs_vSend);
