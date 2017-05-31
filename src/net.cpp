@@ -1195,6 +1195,9 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
 
 void ThreadSocketHandler()
 {
+    // Make OpenSSL less CPU intensive
+    SetThreadPriority(THREAD_PRIORITY_BELOW_NORMAL);
+
     unsigned int nPrevNodeCount = 0;
     while (true)
     {
@@ -1371,10 +1374,11 @@ void ThreadSocketHandler()
             boost::this_thread::interruption_point();
 
             // Initiate/continue TLS handshake
-            if (pnode->hSocket == INVALID_SOCKET)
-                continue;
-            pnode->establish_tls_connection();
+            if (pnode->hSocket != INVALID_SOCKET && !pnode->fTLSHandshakeComplete) {
+                pnode->establish_tls_connection();
+                MilliSleep(100);
             boost::this_thread::interruption_point();
+            }
 
             //
             // Receive
