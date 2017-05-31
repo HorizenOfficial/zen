@@ -666,6 +666,7 @@ void CNode::CloseSocketDisconnect()
 {
     if (ssl != NULL) {
         SSL_shutdown(ssl);
+        SSL_shutdown(ssl);
     }
     fDisconnect = true;
     if (hSocket != INVALID_SOCKET)
