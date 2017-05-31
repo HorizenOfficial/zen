@@ -932,7 +932,7 @@ int CNetMessage::readData(const char *pch, unsigned int nBytes)
 // requires LOCK(cs_vSend)
 void SocketSendData(CNode *pnode) {
     std::deque<CSerializeData>::iterator it = pnode->vSendMsg.begin();
-    while (it != pnode->vSendMsg.end()) {
+    while (it != pnode->vSendMsg.end() && pnode->ssl != NULL) {
         boost::this_thread::interruption_point();
         const CSerializeData &data = *it;
         assert(data.size() > pnode->nSendOffset);
@@ -1382,7 +1382,7 @@ void ThreadSocketHandler()
             if ((FD_ISSET(pnode->hSocket, &fdsetRecv) || FD_ISSET(pnode->hSocket, &fdsetError)))
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
-                if (lockRecv) {
+                if (lockRecv && pnode->ssl != NULL) {
                     char pchBuf[0x10000];
                     int nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf)); // SSL_read() transparently continues TLS handshaking
                     int ssl_err = SSL_get_error(pnode->ssl, nBytes);
