@@ -1883,7 +1883,7 @@ void ThreadMessageHandler()
             }
 
             // Send out version message if needed
-            if (pnode->hSocket != INVALID_SOCKET && pnode->ssl != NULL && SSL_get_state(pnode->ssl) == TLS_ST_OK) {
+            if (pnode->hSocket != INVALID_SOCKET && pnode->ssl != NULL) {
                 if (!pnode->fInbound) pnode->PushVersion();
                 if (!pnode->fSentVersion) pnode->PushVersion();
             }
@@ -1905,7 +1905,7 @@ void ThreadMessageHandler()
             // Receive messages
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
-                if (lockRecv && pnode->fTLSHandshakeComplete)
+                if (lockRecv)
                 {
                     if (!g_signals.ProcessMessages(pnode))
                         pnode->CloseSocketDisconnect();
@@ -1924,7 +1924,7 @@ void ThreadMessageHandler()
             // Send messages
             {
                 TRY_LOCK(pnode->cs_vSend, lockSend);
-                if (lockSend && pnode->fTLSHandshakeComplete)
+                if (lockSend)
                     g_signals.SendMessages(pnode, pnode == pnodeTrickle || pnode->fWhitelisted);
             }
             boost::this_thread::interruption_point();
