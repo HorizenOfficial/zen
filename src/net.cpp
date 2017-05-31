@@ -255,6 +255,9 @@ void configure_context(SSL_CTX *ctx, bool server_side)
 
     // Set OpenSSL verification options
     const long flags = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1;
+    SSL_CTX_set_mode(ctx, SSL_MODE_ENABLE_PARTIAL_WRITE);
+    SSL_CTX_set_mode(ctx, SSL_MODE_AUTO_RETRY);
+
     SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
     SSL_CTX_set_verify_depth(ctx, 4);
     SSL_CTX_set_options(ctx, flags);
@@ -941,7 +944,7 @@ void SocketSendData(CNode *pnode) {
         int nBytes = SSL_write(pnode->ssl, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset);
         boost::this_thread::interruption_point();
         int ssl_err = SSL_get_error(pnode->ssl, nBytes);
-        if (nBytes == data.size() - pnode->nSendOffset) {
+        if (nBytes > 0) {
             pnode->nLastSend = GetTime();
             pnode->nSendBytes += nBytes;
             pnode->nSendOffset += nBytes;
@@ -2171,6 +2174,7 @@ public:
         // Close sockets
         BOOST_FOREACH(CNode* pnode, vNodes)
             if (pnode->hSocket != INVALID_SOCKET) {
+                if (pnode->ssl != NULL) SSL_shutdown(pnode->ssl);
                 if (pnode->ssl != NULL) SSL_shutdown(pnode->ssl);
                 CloseSocket(pnode->hSocket);
             }
