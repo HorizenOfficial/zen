@@ -931,8 +931,10 @@ int CNetMessage::readData(const char *pch, unsigned int nBytes)
 
 // requires LOCK(cs_vSend)
 void SocketSendData(CNode *pnode) {
+    if (pnode->ssl == NULL) pnode->establish_tls_connection();
+
     std::deque<CSerializeData>::iterator it = pnode->vSendMsg.begin();
-    while (it != pnode->vSendMsg.end() && pnode->ssl != NULL) {
+    while (it != pnode->vSendMsg.end()) {
         boost::this_thread::interruption_point();
         const CSerializeData &data = *it;
         assert(data.size() > pnode->nSendOffset);
@@ -1367,7 +1369,6 @@ void ThreadSocketHandler()
             vNodesCopy = vNodes;
             BOOST_FOREACH(CNode* pnode, vNodesCopy) {
                 pnode->AddRef();
-                if (pnode->ssl == NULL) pnode->establish_tls_connection();
             }
         }
         BOOST_FOREACH(CNode* pnode, vNodesCopy)
@@ -1381,8 +1382,9 @@ void ThreadSocketHandler()
                 continue;
             if ((FD_ISSET(pnode->hSocket, &fdsetRecv) || FD_ISSET(pnode->hSocket, &fdsetError)))
             {
+                if (pnode->ssl == NULL) pnode->establish_tls_connection();
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
-                if (lockRecv && pnode->ssl != NULL) {
+                if (lockRecv) {
                     char pchBuf[0x10000];
                     int nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf)); // SSL_read() transparently continues TLS handshaking
                     int ssl_err = SSL_get_error(pnode->ssl, nBytes);
