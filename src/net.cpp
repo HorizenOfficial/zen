@@ -955,9 +955,9 @@ void SocketSendData(CNode *pnode) {
                 assert(pnode->nSendSize == 0);
             }
             pnode->vSendMsg.erase(pnode->vSendMsg.begin(), it);
-            break;
+            return;
         }
-        else break;
+        else return;
         boost::this_thread::interruption_point();
 
     }
