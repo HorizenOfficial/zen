@@ -933,12 +933,13 @@ int CNetMessage::readData(const char *pch, unsigned int nBytes)
 void SocketSendData(CNode *pnode) {
     std::deque<CSerializeData>::iterator it = pnode->vSendMsg.begin();
     while (it != pnode->vSendMsg.end()) {
+        boost::this_thread::interruption_point();
         const CSerializeData &data = *it;
         assert(data.size() > pnode->nSendOffset);
         int nBytes = SSL_write(pnode->ssl, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset);
         boost::this_thread::interruption_point();
         int ssl_err = SSL_get_error(pnode->ssl, nBytes);
-        if (nBytes > 0) {
+        if (nBytes == data.size() - pnode->nSendOffset) {
             pnode->nLastSend = GetTime();
             pnode->nSendBytes += nBytes;
             pnode->nSendOffset += nBytes;
@@ -956,7 +957,6 @@ void SocketSendData(CNode *pnode) {
             pnode->vSendMsg.erase(pnode->vSendMsg.begin(), it);
             break;
         }
-
         else break;
         boost::this_thread::interruption_point();
 
