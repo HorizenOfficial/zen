@@ -81,26 +81,13 @@ static bool SignStep(const BaseSignatureCreator& creator, const CScript& scriptP
     {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
-        return false;
     case TX_NULL_DATA_REPLAY:
         return false;
     case TX_PUBKEY:
-        keyID = CPubKey(vSolutions[0]).GetID();
-        return Sign1(keyID, creator, scriptPubKey, scriptSigRet);
     case TX_PUBKEY_REPLAY:
         keyID = CPubKey(vSolutions[0]).GetID();
         return Sign1(keyID, creator, scriptPubKey, scriptSigRet);
     case TX_PUBKEYHASH:
-        keyID = CKeyID(uint160(vSolutions[0]));
-        if (!Sign1(keyID, creator, scriptPubKey, scriptSigRet))
-            return false;
-        else
-        {
-            CPubKey vch;
-            creator.KeyStore().GetPubKey(keyID, vch);
-            scriptSigRet << ToByteVector(vch);
-        }
-        return true;
     case TX_PUBKEYHASH_REPLAY:
         keyID = CKeyID(uint160(vSolutions[0]));
         if (!Sign1(keyID, creator, scriptPubKey, scriptSigRet))
@@ -113,11 +100,10 @@ static bool SignStep(const BaseSignatureCreator& creator, const CScript& scriptP
         }
         return true;
     case TX_SCRIPTHASH:
+    case TX_SCRIPTHASH_REPLAY:
         return creator.KeyStore().GetCScript(uint160(vSolutions[0]), scriptSigRet);
 
     case TX_MULTISIG:
-        scriptSigRet << OP_0; // workaround CHECKMULTISIG bug
-        return (SignN(vSolutions, creator, scriptPubKey, scriptSigRet));
     case TX_MULTISIG_REPLAY:
         scriptSigRet << OP_0; // workaround CHECKMULTISIG bug
         return (SignN(vSolutions, creator, scriptPubKey, scriptSigRet));
@@ -131,7 +117,7 @@ bool ProduceSignature(const BaseSignatureCreator& creator, const CScript& fromPu
     if (!SignStep(creator, fromPubKey, scriptSig, whichType))
         return false;
 
-    if (whichType == TX_SCRIPTHASH)
+    if (whichType == TX_SCRIPTHASH || whichType == TX_SCRIPTHASH_REPLAY)
     {
         // Solver returns the subscript that need to be evaluated;
         // the final scriptSig is the signatures from that
@@ -140,7 +126,9 @@ bool ProduceSignature(const BaseSignatureCreator& creator, const CScript& fromPu
 
         txnouttype subType;
         bool fSolved =
-            SignStep(creator, subscript, scriptSig, subType) && subType != TX_SCRIPTHASH;
+            SignStep(creator, subscript, scriptSig, subType) &&
+            subType != TX_SCRIPTHASH &&
+            subType != TX_SCRIPTHASH_REPLAY;
         // Append serialized subscript whether or not it is completely signed:
         scriptSig << static_cast<valtype>(subscript);
         if (!fSolved) return false;
@@ -242,10 +230,6 @@ static CScript CombineSignatures(const CScript& scriptPubKey, const BaseSignatur
     {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
-        // Don't know anything about this, assume bigger one is correct:
-        if (sigs1.size() >= sigs2.size())
-            return PushAll(sigs1);
-        return PushAll(sigs2);
     case TX_NULL_DATA_REPLAY:
         // Don't know anything about this, assume bigger one is correct:
         if (sigs1.size() >= sigs2.size())
@@ -254,16 +238,13 @@ static CScript CombineSignatures(const CScript& scriptPubKey, const BaseSignatur
     case TX_PUBKEY:
     case TX_PUBKEY_REPLAY:
     case TX_PUBKEYHASH:
-        // Signatures are bigger than placeholders or empty scripts:
-        if (sigs1.empty() || sigs1[0].empty())
-            return PushAll(sigs2);
-        return PushAll(sigs1);
     case TX_PUBKEYHASH_REPLAY:
         // Signatures are bigger than placeholders or empty scripts:
         if (sigs1.empty() || sigs1[0].empty())
             return PushAll(sigs2);
         return PushAll(sigs1);
     case TX_SCRIPTHASH:
+    case TX_SCRIPTHASH_REPLAY:
         if (sigs1.empty() || sigs1.back().empty())
             return PushAll(sigs2);
         else if (sigs2.empty() || sigs2.back().empty())
@@ -284,7 +265,6 @@ static CScript CombineSignatures(const CScript& scriptPubKey, const BaseSignatur
             return result;
         }
     case TX_MULTISIG:
-        return CombineMultisig(scriptPubKey, checker, vSolutions, sigs1, sigs2);
     case TX_MULTISIG_REPLAY:
         return CombineMultisig(scriptPubKey, checker, vSolutions, sigs1, sigs2);
     }
