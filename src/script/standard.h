@@ -44,7 +44,7 @@ static const unsigned int MANDATORY_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_P2SH;
  * with. However scripts violating these flags may still be present in valid
  * blocks and we must accept those blocks.
  */
-static const unsigned int STANDARD_SCRIPT_VERIFY_FLAGS = MANDATORY_SCRIPT_VERIFY_FLAGS |
+static const unsigned int STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS = MANDATORY_SCRIPT_VERIFY_FLAGS |
                                                          SCRIPT_VERIFY_DERSIG |
                                                          SCRIPT_VERIFY_STRICTENC |
                                                          SCRIPT_VERIFY_MINIMALDATA |
@@ -55,8 +55,11 @@ static const unsigned int STANDARD_SCRIPT_VERIFY_FLAGS = MANDATORY_SCRIPT_VERIFY
                                                          SCRIPT_VERIFY_LOW_S |
                                                          SCRIPT_VERIFY_CHECKBLOCKATHEIGHT;
 
+/** For convenience, standard but not contextual verify flags. */
+static const unsigned int STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS = STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS & ~CONTEXTUAL_SCRIPT_VERIFY_FLAGS;
+
 /** For convenience, standard but not mandatory verify flags. */
-static const unsigned int STANDARD_NOT_MANDATORY_VERIFY_FLAGS = STANDARD_SCRIPT_VERIFY_FLAGS & ~MANDATORY_SCRIPT_VERIFY_FLAGS;
+static const unsigned int STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS = STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS & ~MANDATORY_SCRIPT_VERIFY_FLAGS;
 
 enum txnouttype
 {
