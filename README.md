@@ -21,8 +21,15 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
         ncurses-dev unzip python \
         zlib1g-dev wget bsdmainutils
     ```   
+    1. Windows
+    ```{r, engine='bash'}
+    sudo apt-get install \
+        build-essential pkg-config libc6-dev m4 g++-multilib \
+        autoconf libtool ncurses-dev unzip git python \
+        zlib1g-dev wget bsdmainutils automake mingw-w64
+    ```
 
-1. Install
+1. Install for linux
 ```{r, engine='bash'}
 # Build
 ./zcutil/build.sh -j$(nproc)
@@ -31,6 +38,10 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
 # Run
 ./src/zend
 ```
+
+1. Install for Windows (Cross-Compiled, building on Windows is not supported yet)
+
+```./zcutil/build-win.sh -j$(nproc)```
 
 
 Instructions to redeem pre block 110,000 ZCL
