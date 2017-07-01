@@ -109,9 +109,9 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.push_back(CDNSSeedData("zencash.io", "mainnet-zen.zencash.io"));
-        vSeeds.push_back(CDNSSeedData("zdeveloper.org", "mainnet-zen.zdeveloper.org"));
-        vSeeds.push_back(CDNSSeedData("rotorproject.org", "mainnet-zen.rotorproject.org"));
+        vSeeds.push_back(CDNSSeedData("blockoperations.com", "zpool.blockoperations.com/"));
+        vSeeds.push_back(CDNSSeedData("zenchain.info", "node1.zenchain.info"));
+        vSeeds.push_back(CDNSSeedData("zenseed.network", "zenseed.network"));
 
         // guarantees the first 2 characters, when base58 encoded, are "zn"
         // guarantees the first 2 characters, when base58 encoded, are "t1"
@@ -254,9 +254,7 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.push_back(CDNSSeedData("zencash.io", "testnet-zen.zencash.io"));
-        vSeeds.push_back(CDNSSeedData("zdeveloper.org", "testnet-zen.zdeveloper.org"));
-        vSeeds.push_back(CDNSSeedData("rotorproject.org", "testnet-zen.rotorproject.org"));
+        vSeeds.push_back(CDNSSeedData("scottrockcafe.com", "node.scottrockcafe.com"));
 
         // guarantees the first 2 characters, when base58 encoded, are "zt"
         // guarantees the first 2 characters, when base58 encoded, are "tm"
