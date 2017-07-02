@@ -180,6 +180,9 @@ UniValue validateaddress(const UniValue& params, bool fHelp)
 
     CBitcoinAddress address(params[0].get_str());
     bool isValid = address.IsValid();
+    if (params[0].get_str()[0]=='t') {
+        isValid = false;
+    }
 
     UniValue ret(UniValue::VOBJ);
     ret.push_back(Pair("isvalid", isValid));
