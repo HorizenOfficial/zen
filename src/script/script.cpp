@@ -219,12 +219,22 @@ unsigned int CScript::GetSigOpCount(const CScript& scriptSig) const
 bool CScript::IsPayToPublicKeyHash() const
 {
     // Extra-fast test for pay-to-pubkey-hash CScripts:
-    return (this->size() == 25 &&
-	    (*this)[0] == OP_DUP &&
-	    (*this)[1] == OP_HASH160 &&
-	    (*this)[2] == 0x14 &&
-	    (*this)[23] == OP_EQUALVERIFY &&
-	    (*this)[24] == OP_CHECKSIG);
+    bool p2pkh = (this->size() == 25 &&
+                (*this)[0] == OP_DUP &&
+                (*this)[1] == OP_HASH160 &&
+                (*this)[2] == 0x14 &&
+                (*this)[23] == OP_EQUALVERIFY &&
+                (*this)[24] == OP_CHECKSIG);
+
+    bool p2pkhWithReplay = (this->size() == 65 &&
+                          (*this)[0] == OP_DUP &&
+                          (*this)[1] == OP_HASH160 &&
+                          (*this)[2] == 0x14 &&
+                          (*this)[23] == OP_EQUALVERIFY &&
+                          (*this)[24] == OP_CHECKSIG &&
+                          (*this)[this->size() -1] == OP_CHECKBLOCKATHEIGHT);
+
+    return p2pkh || p2pkhWithReplay;
 }
 
 bool CScript::IsPayToScriptHash() const
