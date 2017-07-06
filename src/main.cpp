@@ -677,8 +677,14 @@ bool IsStandardTx(const CTransaction& tx, string& reason)
 
         int nHeight = chainActive.Height();
         // provide temporary replay protection for two minerconf windows during chainsplit
-        if ((whichType != TX_PUBKEY_REPLAY && whichType != TX_PUBKEYHASH_REPLAY && whichType != TX_MULTISIG_REPLAY) &&
-             nHeight > Params().GetConsensus().nChainsplitIndex && !tx.IsCoinBase()) {
+        // TODO: do we really need this check here?
+        if ((whichType != TX_PUBKEY_REPLAY &&
+             whichType != TX_PUBKEYHASH_REPLAY &&
+             whichType != TX_MULTISIG_REPLAY &&
+             whichType != TX_SCRIPTHASH_REPLAY) &&
+             nHeight > Params().GetConsensus().nChainsplitIndex &&
+            !tx.IsCoinBase())
+        {
             reason = "op-checkblockatheight-needed";
             return false;
         }
@@ -783,7 +789,7 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         if (!EvalScript(stack, tx.vin[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker()))
             return false;
 
-        if (whichType == TX_SCRIPTHASH)
+        if (whichType == TX_SCRIPTHASH || whichType == TX_SCRIPTHASH_REPLAY)
         {
             if (stack.empty())
                 return false;
@@ -864,18 +870,28 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
 
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
     int nHeight = chainActive.Height();
-    bool fTestNet = GetBoolArg("-testnet", false);
+    bool fTestNet = GetBoolArg("-testnet", false) && GetBoolArg("-regtest", false);
     int softForkHeight = fTestNet ? SF_REPLAY_PROTECTION_12_06_2017_TESTNET : SF_REPLAY_PROTECTION_12_06_2017;
+    int p2shHardForkHeight = fTestNet ? HF_FIX_P2SH_JUL17_TESTNET : HF_FIX_P2SH_JUL17;
 
     BOOST_FOREACH(const CTxOut& txout, tx.vout)
     {
         txnouttype whichType;
         ::IsStandard(txout.scriptPubKey, whichType);
 
-        if ((whichType != TX_PUBKEY_REPLAY && whichType != TX_PUBKEYHASH_REPLAY && whichType != TX_MULTISIG_REPLAY) &&
-            nHeight > softForkHeight && !tx.IsCoinBase())
+        if ((whichType != TX_PUBKEY_REPLAY &&
+             whichType != TX_PUBKEYHASH_REPLAY &&
+             whichType != TX_MULTISIG_REPLAY &&
+             whichType != TX_SCRIPTHASH_REPLAY) &&
+             nHeight > softForkHeight && !tx.IsCoinBase())
         {
             return state.DoS(100, error("%s: %s: op-checkblockatheight-needed. Tx id: %s", __FILE__, __func__, tx.GetHash().ToString()),
+                             REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
+        }
+
+        if (whichType == TX_SCRIPTHASH_REPLAY && nHeight < p2shHardForkHeight)
+        {
+            return state.DoS(100, error("%s: %s: TX_SCRIPTHASH_REPLAY will be activated only after %d block. Transaction rejected. Tx id: %s", __FILE__, __func__, p2shHardForkHeight, tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
     }

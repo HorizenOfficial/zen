@@ -33,6 +33,7 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_PUBKEYHASH: return "pubkeyhash";
     case TX_PUBKEYHASH_REPLAY: return "pubkeyhashreplay";
     case TX_SCRIPTHASH: return "scripthash";
+    case TX_SCRIPTHASH_REPLAY: return "scripthashreplay";
     case TX_MULTISIG: return "multisig";
     case TX_MULTISIG_REPLAY: return "multisigreplay";
     case TX_NULL_DATA: return "nulldata";
@@ -62,6 +63,10 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         mTemplates.insert(make_pair(TX_MULTISIG, CScript() << OP_SMALLINTEGER << OP_PUBKEYS << OP_SMALLINTEGER << OP_CHECKMULTISIG));
         mTemplates.insert(make_pair(TX_MULTISIG_REPLAY, CScript() << OP_SMALLINTEGER << OP_PUBKEYS << OP_SMALLINTEGER << OP_CHECKMULTISIG << OP_SMALLDATA << OP_SMALLDATA << OP_CHECKBLOCKATHEIGHT));
 
+        // P2SH, sender provides script hash
+        mTemplates.insert(make_pair(TX_SCRIPTHASH, CScript() << OP_HASH160 << OP_PUBKEYHASH << OP_EQUAL));
+        mTemplates.insert(make_pair(TX_SCRIPTHASH_REPLAY, CScript() << OP_HASH160 << OP_PUBKEYHASH << OP_EQUAL << OP_SMALLDATA << OP_SMALLDATA << OP_CHECKBLOCKATHEIGHT));
+
         // Empty, provably prunable, data-carrying output
         if (GetBoolArg("-datacarrier", true))
         {
@@ -72,19 +77,6 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
     }
 
-    // Shortcut for pay-to-script-hash, which are more constrained than the other types:
-    // it is always OP_HASH160 20 [20 byte hash] OP_EQUAL
-    if (scriptPubKey.IsPayToScriptHash())
-    {
-        typeRet = TX_SCRIPTHASH;
-        vector<unsigned char> hashBytes(scriptPubKey.begin()+2, scriptPubKey.begin()+22);
-        vSolutionsRet.push_back(hashBytes);
-        return true;
-    }
-
-    // OP_CHECKBLOCKATHEIGHT parameters
-    vector<unsigned char> vchBlockHash, vchBlockHeight;
-
     // Scan templates
     const CScript& script1 = scriptPubKey;
     BOOST_FOREACH(const PAIRTYPE(txnouttype, CScript)& tplate, mTemplates)
@@ -94,6 +86,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
         opcodetype opcode1, opcode2;
         vector<unsigned char> vch1, vch2;
+        vector<unsigned char> vchBlockHash, vchBlockHeight; // OP_CHECKBLOCKATHEIGHT arguments
 
         // Compare
         CScript::const_iterator pc1 = script1.begin();
@@ -112,6 +105,13 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     if (m < 1 || n < 1 || m > n || vSolutionsRet.size()-2 != n)
                         return false;
                 }
+
+                if (typeRet == TX_SCRIPTHASH || typeRet == TX_SCRIPTHASH_REPLAY)
+                {
+                    vector<unsigned char> hashBytes(scriptPubKey.begin()+2, scriptPubKey.begin()+22);
+                    vSolutionsRet.push_back(hashBytes);
+                }
+
                 return true;
             }
             if (!script1.GetOp(pc1, opcode1, vch1))
@@ -224,26 +224,21 @@ int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned c
     {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
-        return -1;
     case TX_NULL_DATA_REPLAY:
         return -1;
     case TX_PUBKEY:
-        return 1;
     case TX_PUBKEY_REPLAY:
         return 1;
     case TX_PUBKEYHASH:
-        return 2;
     case TX_PUBKEYHASH_REPLAY:
         return 2;
     case TX_MULTISIG:
-        if (vSolutions.size() < 1 || vSolutions[0].size() < 1)
-            return -1;
-        return vSolutions[0][0] + 1;
     case TX_MULTISIG_REPLAY:
         if (vSolutions.size() < 1 || vSolutions[0].size() < 1)
             return -1;
         return vSolutions[0][0] + 1;
     case TX_SCRIPTHASH:
+    case TX_SCRIPTHASH_REPLAY:
         return 1; // doesn't include args needed by the script
     }
     return -1;
@@ -290,7 +285,7 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
         addressRet = CKeyID(uint160(vSolutions[0]));
         return true;
     }
-    else if (whichType == TX_SCRIPTHASH)
+    else if (whichType == TX_SCRIPTHASH || whichType == TX_SCRIPTHASH_REPLAY)
     {
         addressRet = CScriptID(uint160(vSolutions[0]));
         return true;
