@@ -33,4 +33,12 @@ static const unsigned int STANDARD_LOCKTIME_VERIFY_FLAGS = LOCKTIME_MEDIAN_TIME_
 static const unsigned int SF_REPLAY_PROTECTION_12_06_2017 = 117575;
 static const unsigned int SF_REPLAY_PROTECTION_12_06_2017_TESTNET = 72650;
 
+/** Hard fork xxxxx facilitates different changes for Founders Rewards and P2SH bugfix */
+static const unsigned int HF_FOUNDERS_REWARD_JUL17 = INT_MAX;
+static const unsigned int HF_FOUNDERS_REWARD_JUL17_TESTNET = INT_MAX;
+static const unsigned int HF_FOUNDERS_REWARD_JUL17_REGTEST = 1000;
+static const unsigned int HF_P2SH_JUL17 = HF_FOUNDERS_REWARD_JUL17;
+static const unsigned int HF_P2SH_JUL17_TESTNET = HF_FOUNDERS_REWARD_JUL17_TESTNET;
+static const unsigned int HF_P2SH_JUL17_REGTEST = HF_FOUNDERS_REWARD_JUL17_REGTEST;
+
 #endif // BITCOIN_CONSENSUS_CONSENSUS_H

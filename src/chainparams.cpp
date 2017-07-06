@@ -39,6 +39,7 @@ public:
         strNetworkID = "main";
         strCurrencyUnits = "ZEN";
         consensus.fCoinbaseMustBeProtected = true;
+        consensus.fDisableCoinbaseProtectionForFoundersReward = true;
         consensus.nSubsidySlowStartInterval = 2;
         consensus.nSubsidyHalvingInterval = 840000;
         consensus.nMajorityEnforceBlockUpgrade = 750;
@@ -227,6 +228,7 @@ public:
         strNetworkID = "test";
         strCurrencyUnits = "ZNT";
         consensus.fCoinbaseMustBeProtected = true;
+        consensus.fDisableCoinbaseProtectionForFoundersReward = true;
         consensus.nMajorityEnforceBlockUpgrade = 51;
         consensus.nMajorityRejectBlockOutdated = 75;
         consensus.nMajorityWindow = 400;
@@ -325,6 +327,7 @@ public:
         strNetworkID = "regtest";
         strCurrencyUnits = "REG";
         consensus.fCoinbaseMustBeProtected = false;
+        consensus.fDisableCoinbaseProtectionForFoundersReward = true;
         consensus.nSubsidySlowStartInterval = 0;
         consensus.nSubsidyHalvingInterval = 2000;
         consensus.nMajorityEnforceBlockUpgrade = 750;
