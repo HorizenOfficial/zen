@@ -87,6 +87,10 @@ struct Params {
     /** Zen chainsplit*/
     int nChainsplitIndex;
     int nChainsplitTime;
+    /** List of Zen soft/hard forks */
+    int sfReplayProtectionHeight;
+    int hfFoundersRewardHeight;
+    int hfFixP2SHHeight;
 };
 } // namespace Consensus
 

@@ -215,6 +215,10 @@ public:
         //"zsi3PoGMUzkj8kPAaq9YGYUS8Wp2pDRjR8X",
         };
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
+
+        consensus.sfReplayProtectionHeight = 117575;
+        consensus.hfFoundersRewardHeight = INT_MAX;
+        consensus.hfFixP2SHHeight = INT_MAX;
     }
 };
 static CMainParams mainParams;
@@ -314,6 +318,10 @@ public:
             "zrCsWfwKotWnQmFviqAHAPAJ2jXqZYW966P", "zrLLB3JB3jozUoMGFEGhjqyVXTpngVQ8c4T", "zrAEa8YjJ2f3m2VsM1Xa9EwibZxEnRoSLUx", "zrAdJgp7Cx35xTvB7ABWP8YLTNDArMjP1s3"
         };
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
+
+        consensus.sfReplayProtectionHeight = 72650;
+        consensus.hfFoundersRewardHeight = INT_MAX;
+        consensus.hfFixP2SHHeight = INT_MAX;
     }
 };
 static CTestNetParams testNetParams;
@@ -383,6 +391,10 @@ public:
         // Founders reward script expects a vector of 2-of-3 multisig addresses
         vFoundersRewardAddress = { "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa" };
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
+
+        consensus.sfReplayProtectionHeight = 500;
+        consensus.hfFoundersRewardHeight = 1000;
+        consensus.hfFixP2SHHeight = 1000;
     }
 };
 static CRegTestParams regTestParams;

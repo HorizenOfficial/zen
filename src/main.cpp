@@ -869,11 +869,6 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
     }
 
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
-    int nHeight = chainActive.Height();
-    bool fTestNet = GetBoolArg("-testnet", false) && GetBoolArg("-regtest", false);
-    int softForkHeight = fTestNet ? SF_REPLAY_PROTECTION_12_06_2017_TESTNET : SF_REPLAY_PROTECTION_12_06_2017;
-    int p2shHardForkHeight = fTestNet ? HF_FIX_P2SH_JUL17_TESTNET : HF_FIX_P2SH_JUL17;
-
     BOOST_FOREACH(const CTxOut& txout, tx.vout)
     {
         txnouttype whichType;
@@ -883,15 +878,17 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
              whichType != TX_PUBKEYHASH_REPLAY &&
              whichType != TX_MULTISIG_REPLAY &&
              whichType != TX_SCRIPTHASH_REPLAY) &&
-             nHeight > softForkHeight && !tx.IsCoinBase())
+             chainActive.Height() > Params().GetConsensus().sfReplayProtectionHeight &&
+             !tx.IsCoinBase())
         {
             return state.DoS(100, error("%s: %s: op-checkblockatheight-needed. Tx id: %s", __FILE__, __func__, tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
 
-        if (whichType == TX_SCRIPTHASH_REPLAY && nHeight < p2shHardForkHeight)
+        if (whichType == TX_SCRIPTHASH_REPLAY &&
+            chainActive.Height() < Params().GetConsensus().hfFixP2SHHeight)
         {
-            return state.DoS(100, error("%s: %s: TX_SCRIPTHASH_REPLAY will be activated only after %d block. Transaction rejected. Tx id: %s", __FILE__, __func__, p2shHardForkHeight, tx.GetHash().ToString()),
+            return state.DoS(100, error("%s: %s: TX_SCRIPTHASH_REPLAY will be activated only after %d block. Transaction rejected. Tx id: %s", __FILE__, __func__, Params().GetConsensus().hfFixP2SHHeight, tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
     }
@@ -1717,7 +1714,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 
                     // Since HARD_FORK_HEIGHT there is an exemption for founders reward coinbase coins, so it is allowed
                     // to send them to the transparent addr.
-                    const int HARD_FORK_HEIGHT = HF_FOUNDERS_REWARD_JUL17; // TODO: change to the real height of the HF
+                    const int HARD_FORK_HEIGHT = consensusParams.hfFoundersRewardHeight;
                     bool fDisableProtectionForFR = consensusParams.fDisableCoinbaseProtectionForFoundersReward
                                                    && HARD_FORK_HEIGHT <= nSpendHeight;
                     if (!fDisableProtectionForFR || !IsFoundersReward(coins, prevout.n)) {
