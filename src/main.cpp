@@ -3270,9 +3270,14 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     if ((nHeight > consensusParams.nChainsplitIndex) && (nHeight <= consensusParams.GetLastFoundersRewardBlockHeight())) {
         bool found = false;
 
+        CAmount expectedReward = (GetBlockSubsidy(nHeight, consensusParams) * 85) / 1000;
+        // The FR reward is increased to 12% since hfFoundersRewardHeight block
+        if (nHeight >= consensusParams.hfFoundersRewardHeight)
+            expectedReward = (GetBlockSubsidy(nHeight, consensusParams) * 120) / 1000;
+
         BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
             if (output.scriptPubKey == Params().GetFoundersRewardScriptAtHeight(nHeight)) {
-                if (output.nValue == ((GetBlockSubsidy(nHeight, consensusParams) * 85) / 1000)) {
+                if (output.nValue == expectedReward) {
                     found = true;
                     break;
                 }

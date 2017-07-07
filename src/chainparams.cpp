@@ -392,9 +392,9 @@ public:
         vFoundersRewardAddress = { "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa" };
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
 
-        consensus.sfReplayProtectionHeight = 500;
-        consensus.hfFoundersRewardHeight = 1000;
-        consensus.hfFixP2SHHeight = 1000;
+        consensus.sfReplayProtectionHeight = 1100;
+        consensus.hfFoundersRewardHeight = 1200;
+        consensus.hfFixP2SHHeight = 1200;
     }
 };
 static CRegTestParams regTestParams;
