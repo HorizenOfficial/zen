@@ -1,5 +1,5 @@
 package=libgmp
-$(package)_download_path=https://github.com/z-classic/$(package)/archive/
+$(package)_download_path=https://github.com/ZencashOfficial/$(package)/archive/
 $(package)_file_name=$(package)-$($(package)_git_commit).tar.gz
 $(package)_download_file=$($(package)_git_commit).tar.gz
 $(package)_sha256_hash=59b2c2b5d58fdf5943bfde1fa709e9eb53e7e072c9699d28dc1c2cbb3c8cc32c
