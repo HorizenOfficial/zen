@@ -1,5 +1,5 @@
 package=libsnark
-$(package)_download_path=https://github.com/z-classic/$(package)/archive/
+$(package)_download_path=https://github.com/ZencashOfficial/$(package)/archive/
 $(package)_file_name=$(package)-$($(package)_git_commit).tar.gz
 $(package)_download_file=$($(package)_git_commit).tar.gz
 
