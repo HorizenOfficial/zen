@@ -111,7 +111,7 @@ protected:
     Checkpoints::CCheckpointData checkpointData;
     std::vector<std::string> vFoundersRewardAddress;
     std::vector<std::string> vFoundersRewardAddress2;
-    int addressChangeInterval = 100000;
+    int addressChangeInterval = 50000;
 };
 
 /**
