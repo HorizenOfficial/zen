@@ -44,7 +44,7 @@ string FormatScript(const CScript& script)
             if (vch.size() > 0) {
                 ret += strprintf("0x%x 0x%x ", HexStr(it2, it - vch.size()), HexStr(it - vch.size(), it));
             } else {
-                ret += strprintf("0x%x", HexStr(it2, it));
+                ret += strprintf("0x%x ", HexStr(it2, it));
             }
             continue;
         }
