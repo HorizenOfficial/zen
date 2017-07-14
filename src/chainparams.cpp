@@ -161,6 +161,8 @@ public:
                             //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
+        addressChangeInterval = 50000;
+
         // Founders reward script expects a vector of 2-of-3 multisig addresses
         vFoundersRewardAddress = {
         "zssEdGnZCQ9G86LZFtbynMn1hYTVhn6eYCL",
@@ -232,7 +234,6 @@ public:
         "zsi5Yr4Z8HwBvdBqQE8gk7ahExDu95J4oqZ",
         };
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
-        assert(vFoundersRewardAddress2.size() <= consensus.GetLastFoundersRewardBlockHeight() - consensus.hfFoundersRewardHeight - 1);
     }
 };
 static CMainParams mainParams;
@@ -321,6 +322,8 @@ public:
             0
         };
 
+        addressChangeInterval = 10000;
+
         // Founders reward script expects a vector of 3-of-4 multisig addresses
         vFoundersRewardAddress = {
             "zrH8KT8KUcpKKNBu3fjH4hA84jZBCawErqn", "zrGsMC4ou1r5Vxy7Dnxg4PfKpansx83BM8g", "zr6sB2Az36D8CqzeZNavB11WbovsGtJSAZG", "zrBAG3pXCTDq14nivNK9mW8SfwMNcdmMQpb",
@@ -337,12 +340,10 @@ public:
             "zrCsWfwKotWnQmFviqAHAPAJ2jXqZYW966P", "zrLLB3JB3jozUoMGFEGhjqyVXTpngVQ8c4T", "zrAEa8YjJ2f3m2VsM1Xa9EwibZxEnRoSLUx", "zrAdJgp7Cx35xTvB7ABWP8YLTNDArMjP1s3"
         };
         // vFoundersRewardAddress2 is another set of FR addresses that substitutes old set since hfFoundersRewardsHeight block
-        // TODO: change with real addresses
         vFoundersRewardAddress2 = {
             "zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1"
         };
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
-        assert(vFoundersRewardAddress2.size() <= consensus.GetLastFoundersRewardBlockHeight() - consensus.hfFoundersRewardHeight - 1);
     }
 };
 static CTestNetParams testNetParams;
@@ -414,12 +415,13 @@ public:
             0
         };
 
+        addressChangeInterval = 100;
+
         // Founders reward script expects a vector of 2-of-3 multisig addresses
         vFoundersRewardAddress = { "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa" };
         // vFoundersRewardAddress2 is another set of FR addresses that substitutes old set since hfFoundersRewardsHeight block
         vFoundersRewardAddress2 = { "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa" };
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
-        assert(vFoundersRewardAddress2.size() <= consensus.GetLastFoundersRewardBlockHeight() - consensus.hfFoundersRewardHeight - 1);
     }
 };
 static CRegTestParams regTestParams;
@@ -469,28 +471,21 @@ bool SelectParamsFromCommandLine()
 // Block height must be >0 and <=last founders reward block height
 // Index variable i ranges from 0 - (vFoundersRewardAddress.size()-1)
 std::string CChainParams::GetFoundersRewardAddressAtHeight(int nHeight) const {
-    int maxHeight = consensus.GetLastFoundersRewardBlockHeight();
-    assert(nHeight > 0 && nHeight <= maxHeight);
 
     // Since hfFoundersRewardHeight block use another set of FR addresses
     if (nHeight < consensus.hfFoundersRewardHeight)
     {
+        int maxHeight = consensus.GetLastFoundersRewardBlockHeight();
+        assert(nHeight > 0 && nHeight <= maxHeight);
+
         size_t addressChangeInterval = (maxHeight + vFoundersRewardAddress.size()) / vFoundersRewardAddress.size();
         size_t i = nHeight / addressChangeInterval;
-        if (i < 0 || i > (vFoundersRewardAddress.size() - 1)) {
-            assert(false && "vFoundersRewardAddress out of bound");
-            i = 0;
-        }
         return vFoundersRewardAddress[i];
     }
     else
     {
-        size_t addressChangeInterval = (maxHeight - consensus.hfFoundersRewardHeight + vFoundersRewardAddress2.size()) / vFoundersRewardAddress2.size();
-        size_t i = (nHeight - consensus.hfFoundersRewardHeight) / addressChangeInterval;
-        if (i < 0 || i > (vFoundersRewardAddress2.size() - 1)) {
-            assert(false && "vFoundersRewardAddress2 out of bound");
-            i = 0;
-        }
+        // change CR addresses every addressChangeInterval in a round-robin fashion
+        size_t i = ((nHeight - consensus.hfFoundersRewardHeight) / addressChangeInterval) % vFoundersRewardAddress2.size();
         return vFoundersRewardAddress2[i];
     }
 }
@@ -498,7 +493,7 @@ std::string CChainParams::GetFoundersRewardAddressAtHeight(int nHeight) const {
 // Block height must be >0 and <=last founders reward block height
 // The founders reward address is expected to be a multisig (P2SH) address
 CScript CChainParams::GetFoundersRewardScriptAtHeight(int nHeight) const {
-    assert(nHeight > 0 && nHeight <= consensus.GetLastFoundersRewardBlockHeight());
+    assert(nHeight > 0);
 
     CBitcoinAddress address(GetFoundersRewardAddressAtHeight(nHeight).c_str());
     assert(address.IsValid());
