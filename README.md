@@ -1,4 +1,4 @@
-Zen 2.0.9-3
+Zen 2.0.9-4
 ==============
 
 What is Zen?
@@ -70,7 +70,7 @@ See important security warnings in
 
 Where do I begin?
 -----------------
-* The easiest way to get started is to download one of the available graphical wallets from [Zdeveloper.org](https://zdeveloper.org)
+* The easiest way to get started is to download one of the available graphical wallets from [zensystem.io](https://zensystem.io)
 
 ### Need Help?
 

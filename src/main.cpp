@@ -677,8 +677,14 @@ bool IsStandardTx(const CTransaction& tx, string& reason)
 
         int nHeight = chainActive.Height();
         // provide temporary replay protection for two minerconf windows during chainsplit
-        if ((whichType != TX_PUBKEY_REPLAY && whichType != TX_PUBKEYHASH_REPLAY && whichType != TX_MULTISIG_REPLAY) &&
-             nHeight > Params().GetConsensus().nChainsplitIndex && !tx.IsCoinBase()) {
+        // TODO: do we really need this check here?
+        if ((whichType != TX_PUBKEY_REPLAY &&
+             whichType != TX_PUBKEYHASH_REPLAY &&
+             whichType != TX_MULTISIG_REPLAY &&
+             whichType != TX_SCRIPTHASH_REPLAY) &&
+             nHeight > Params().GetConsensus().nChainsplitIndex &&
+            !tx.IsCoinBase())
+        {
             reason = "op-checkblockatheight-needed";
             return false;
         }
@@ -783,7 +789,7 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         if (!EvalScript(stack, tx.vin[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker()))
             return false;
 
-        if (whichType == TX_SCRIPTHASH)
+        if (whichType == TX_SCRIPTHASH || whichType == TX_SCRIPTHASH_REPLAY)
         {
             if (stack.empty())
                 return false;
@@ -863,19 +869,26 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
     }
 
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
-    int nHeight = chainActive.Height();
-    bool fTestNet = GetBoolArg("-testnet", false);
-    int softForkHeight = fTestNet ? SF_REPLAY_PROTECTION_12_06_2017_TESTNET : SF_REPLAY_PROTECTION_12_06_2017;
-
     BOOST_FOREACH(const CTxOut& txout, tx.vout)
     {
         txnouttype whichType;
         ::IsStandard(txout.scriptPubKey, whichType);
 
-        if ((whichType != TX_PUBKEY_REPLAY && whichType != TX_PUBKEYHASH_REPLAY && whichType != TX_MULTISIG_REPLAY) &&
-            nHeight > softForkHeight && !tx.IsCoinBase())
+        if ((whichType != TX_PUBKEY_REPLAY &&
+             whichType != TX_PUBKEYHASH_REPLAY &&
+             whichType != TX_MULTISIG_REPLAY &&
+             whichType != TX_SCRIPTHASH_REPLAY) &&
+             chainActive.Height() > Params().GetConsensus().sfReplayProtectionHeight &&
+             !tx.IsCoinBase())
         {
-            return state.DoS(100, error("%s: %s: op-checkblockatheight-needed. Tx id: %s", __FILE__, __func__, tx.GetHash().ToString()),
+            return state.DoS(0, error("%s: %s: op-checkblockatheight-needed. Tx id: %s", __FILE__, __func__, tx.GetHash().ToString()),
+                             REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
+        }
+
+        if (whichType == TX_SCRIPTHASH_REPLAY &&
+            chainActive.Height() < Params().GetConsensus().hfFixP2SHHeight)
+        {
+            return state.DoS(0, error("%s: %s: TX_SCRIPTHASH_REPLAY will be activated only after %d block. Transaction rejected. Tx id: %s", __FILE__, __func__, Params().GetConsensus().hfFixP2SHHeight, tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
     }
@@ -1650,6 +1663,21 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
     return pindexPrev->nHeight + 1;
 }
 
+bool IsFoundersReward(const CCoins *coins, int nIn)
+{
+    if(coins != NULL &&
+       coins->IsCoinBase() &&
+       coins->nHeight > Params().GetConsensus().nChainsplitIndex &&
+       coins->vout.size() > nIn)
+    {
+        CScript founderScriptPubKey = Params().GetFoundersRewardScriptAtHeight(coins->nHeight);
+        if (coins->vout[nIn].scriptPubKey == founderScriptPubKey)
+            return true;
+    }
+
+    return false;
+}
+
 namespace Consensus {
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
 {
@@ -1683,9 +1711,17 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
                 if (fCoinbaseEnforcedProtectionEnabled &&
                     consensusParams.fCoinbaseMustBeProtected &&
                     !tx.vout.empty()) {
-                    return state.Invalid(
-                        error("CheckInputs(): tried to spend coinbase with transparent outputs"),
-                        REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
+
+                    // Since HARD_FORK_HEIGHT there is an exemption for founders reward coinbase coins, so it is allowed
+                    // to send them to the transparent addr.
+                    const int HARD_FORK_HEIGHT = consensusParams.hfFoundersRewardHeight;
+                    bool fDisableProtectionForFR = consensusParams.fDisableCoinbaseProtectionForFoundersReward
+                                                   && HARD_FORK_HEIGHT <= nSpendHeight;
+                    if (!fDisableProtectionForFR || !IsFoundersReward(coins, prevout.n)) {
+                        return state.Invalid(
+                                error("CheckInputs(): tried to spend coinbase with transparent outputs"),
+                                REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
+                    }
                 }
             }
 
@@ -3227,16 +3263,18 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     }
 
     // Coinbase transaction must include an output sending 8.5% of
-    // the block reward to a founders reward script, until the last founders
-    // reward block is reached, with exception of the genesis block.
-    // The last founders reward block is defined as the block just before the
-    // first subsidy halving block, which occurs at halving_interval + slow_start_shift
-    if ((nHeight > consensusParams.nChainsplitIndex) && (nHeight <= consensusParams.GetLastFoundersRewardBlockHeight())) {
+    // the block reward to a community fund script
+    if ((nHeight > consensusParams.nChainsplitIndex)) {
         bool found = false;
+
+        CAmount communityReward = (GetBlockSubsidy(nHeight, consensusParams) * 85) / 1000;
+        // The CF reward is increased to 12% since hfFoundersRewardHeight block
+        if (nHeight >= consensusParams.hfFoundersRewardHeight)
+            communityReward = (GetBlockSubsidy(nHeight, consensusParams) * 120) / 1000;
 
         BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
             if (output.scriptPubKey == Params().GetFoundersRewardScriptAtHeight(nHeight)) {
-                if (output.nValue == ((GetBlockSubsidy(nHeight, consensusParams) * 85) / 1000)) {
+                if (output.nValue == communityReward) {
                     found = true;
                     break;
                 }

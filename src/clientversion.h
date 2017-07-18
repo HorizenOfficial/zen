@@ -1,5 +1,6 @@
 // Copyright (c) 2009-2014 The Bitcoin Core developers
 // Copyright (c) 2016-2017 The Zcash developers
+// Copyright (c) 2017 Zen Blockchain Foundation
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -18,7 +19,7 @@
 #define CLIENT_VERSION_MAJOR 2
 #define CLIENT_VERSION_MINOR 0
 #define CLIENT_VERSION_REVISION 9
-#define CLIENT_VERSION_BUILD 53
+#define CLIENT_VERSION_BUILD 54
 
 //! Set to true for release, false for prerelease or test build
 #define CLIENT_VERSION_IS_RELEASE true
@@ -39,7 +40,7 @@
 #define DO_STRINGIZE(X) #X
 
 //! Copyright string used in Windows .rc files
-#define COPYRIGHT_STR "2009-" STRINGIZE(COPYRIGHT_YEAR) " The Bitcoin Core Developers and The Zcash developers"
+#define COPYRIGHT_STR "2009-" STRINGIZE(COPYRIGHT_YEAR) " The Bitcoin Core Developers, The Zcash developers, and Zen Blockchain Foundation"
 
 /**
  * bitcoind-res.rc includes this file, but it cannot cope with real c++ code.
