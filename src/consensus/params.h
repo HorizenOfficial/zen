@@ -91,6 +91,7 @@ struct Params {
     int sfReplayProtectionHeight;
     int hfFoundersRewardHeight;
     int hfFixP2SHHeight;
+    int hfFixReplayProtectionHeight;
 };
 } // namespace Consensus
 
