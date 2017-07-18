@@ -261,11 +261,7 @@ class CNode
 {
 public:
     // OpenSSL
-    BIO *sbio;
-    SSL_CTX *ctx;
     SSL *ssl;
-    bool server_side;
-    bool establish_tls_connection(bool contextonly=false);
 
     // socket
     uint64_t nServices;
@@ -360,7 +356,7 @@ public:
     // Whether a ping is requested.
     bool fPingQueued;
 
-    CNode(SOCKET hSocketIn, const CAddress &addrIn, const std::string &addrNameIn = "", bool fInboundIn = false);
+    CNode(SOCKET hSocketIn, const CAddress &addrIn, const std::string &addrNameIn = "", bool fInboundIn = false, SSL *sslIn = NULL);
     ~CNode();
 
 private:
