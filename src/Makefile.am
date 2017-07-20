@@ -507,7 +507,7 @@ zen_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 # wallet-utility binary #
 #if ENABLE_WALLET
 #wallet_utility_SOURCES = wallet-utility.cpp
-#wallet_utility_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+#wallet_utility_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAG)
 #wallet_utility_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 #wallet_utility_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 #endif

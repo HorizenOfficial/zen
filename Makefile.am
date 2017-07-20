@@ -17,7 +17,7 @@ BITCOIND_BIN=$(top_builddir)/src/zend$(EXEEXT)
 BITCOIN_QT_BIN=$(top_builddir)/src/qt/bitcoin-qt$(EXEEXT)
 BITCOIN_CLI_BIN=$(top_builddir)/src/zen-cli$(EXEEXT)
 # ZEN_MOD_END
-# WALLET_UTILITY_BIN=$(top_builddir)/src/wallet-utility$(EXEEXT)
+#WALLET_UTILITY_BIN=$(top_builddir)/src/wallet-utility$(EXEEXT)
 BITCOIN_WIN_INSTALLER=$(PACKAGE)-$(PACKAGE_VERSION)-win$(WINDOWS_BITS)-setup$(EXEEXT)
 
 ##OSX_APP=Bitcoin-Qt.app

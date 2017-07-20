@@ -219,6 +219,8 @@ unsigned int CScript::GetSigOpCount(const CScript& scriptSig) const
 bool CScript::IsPayToPublicKeyHash() const
 {
     // Extra-fast test for pay-to-pubkey-hash CScripts:
+
+    // Check if this script is P2SH without OP_CHECKBLOCKATHEIGHT
     bool p2pkh = (this->size() == 25 &&
                 (*this)[0] == OP_DUP &&
                 (*this)[1] == OP_HASH160 &&
@@ -226,7 +228,11 @@ bool CScript::IsPayToPublicKeyHash() const
                 (*this)[23] == OP_EQUALVERIFY &&
                 (*this)[24] == OP_CHECKSIG);
 
-    bool p2pkhWithReplay = (this->size() == 65 &&
+     // Check if this script is P2PKH with OP_CHECKBLOCKATHEIGHT
+     // The overall size should not be more then 62:
+     // 25 bytes for common P2PKH + 1 byte size + 32 bytes of block hash + 1 byte size + 4 bytes of block height + 1 byte opcode
+    bool p2pkhWithReplay = (this->size() > 25 &&
+                            this->size() < 65 &&
                           (*this)[0] == OP_DUP &&
                           (*this)[1] == OP_HASH160 &&
                           (*this)[2] == 0x14 &&
