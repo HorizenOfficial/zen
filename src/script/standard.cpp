@@ -343,8 +343,12 @@ class CScriptVisitor : public boost::static_visitor<bool>
 {
 private:
     CScript *script;
+    bool withCheckBlockAtHeight;
 public:
-    CScriptVisitor(CScript *scriptin) { script = scriptin; }
+    CScriptVisitor(CScript *scriptin, bool withCheckBlockAtHeightIn) {
+        script = scriptin;
+        withCheckBlockAtHeight = withCheckBlockAtHeightIn;
+    }
 
     bool operator()(const CNoDestination &dest) const {
         script->clear();
@@ -367,7 +371,7 @@ public:
     bool operator()(const CKeyID &keyID) const {
         script->clear();
         CBlockIndex *currentBlock = chainActive.Tip();
-        if (currentBlock == NULL) {
+        if (currentBlock == NULL || !withCheckBlockAtHeight) {
             *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
             return true;
         }
@@ -381,7 +385,7 @@ public:
     bool operator()(const CScriptID &scriptID) const {
         script->clear();
         CBlockIndex *currentBlock = chainActive.Tip();
-        if (currentBlock == NULL) {
+        if (currentBlock == NULL || !withCheckBlockAtHeight) {
             *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
             return true;
         }
@@ -396,11 +400,11 @@ public:
 };
 }
 
-CScript GetScriptForDestination(const CTxDestination& dest)
+CScript GetScriptForDestination(const CTxDestination& dest, bool withCheckBlockAtHeight)
 {
     CScript script;
 
-    boost::apply_visitor(CScriptVisitor(&script), dest);
+    boost::apply_visitor(CScriptVisitor(&script, withCheckBlockAtHeight), dest);
     return script;
 }
 
