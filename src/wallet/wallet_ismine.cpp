@@ -30,7 +30,7 @@ unsigned int HaveKeys(const vector<valtype>& pubkeys, const CKeyStore& keystore)
 
 isminetype IsMine(const CKeyStore &keystore, const CTxDestination& dest)
 {
-    CScript script = GetScriptForDestination(dest);
+    CScript script = GetScriptForDestination(dest, false);
     return IsMine(keystore, script);
 }
 
