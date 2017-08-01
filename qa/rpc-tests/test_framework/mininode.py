@@ -32,7 +32,7 @@ import logging
 import copy
 
 BIP0031_VERSION = 60000
-MY_VERSION = 60001  # past bip-31 for ping/pong
+MY_VERSION = 170002  # past bip-31 for ping/pong
 MY_SUBVERSION = "/python-mininode-tester:0.0.1/"
 
 MAX_INV_SZ = 50000
@@ -1082,9 +1082,9 @@ class NodeConn(asyncore.dispatcher):
         "mempool": msg_mempool
     }
     MAGIC_BYTES = {
-        "mainnet": "\xf9\xbe\xb4\xd9",   # mainnet
-        "testnet3": "\x0b\x11\x09\x07",  # testnet3
-        "regtest": "\xfa\xbf\xb5\xda"    # regtest
+        "mainnet": "\x63\x61\x73\x68",  # mainnet
+        "testnet3": "\xbf\xf2\xcd\xe6",  # testnet3
+        "regtest": "\x2f\x54\xcc\x9d"  # regtest
     }
 
     def __init__(self, dstaddr, dstport, rpc, callback, net="regtest"):
