@@ -16,6 +16,7 @@
 #include "scheduler.h"
 #include "ui_interface.h"
 #include "crypto/common.h"
+#include "utiltls.h"
 
 #ifdef WIN32
 #include <string.h>
@@ -2342,9 +2343,9 @@ SSL_CTX* InitServerTLSCtx()
 {
     SSL_CTX *tlsCtx = NULL;
     bool bInitialized = false;
-
-    string certificateFile = "./testCert.pem";
-    string privateKeyFile  = "./testCert.pem";
+    
+    string certificateFile = (GetDataDir() / TLS_CERT_FILE_NAME).string();
+    string privateKeyFile  = (GetDataDir() / TLS_KEY_FILE_NAME).string();
 
     if ((tlsCtx = SSL_CTX_new (TLS_server_method())))
     {
@@ -2395,7 +2396,7 @@ SSL_CTX* InitClientTLSCtx()
 }
 
 
-bool InitializeOpenSSL()
+bool InitializeTLS()
 {
     bool bInitializationStatus = false;
 
@@ -2451,7 +2452,14 @@ void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler)
     Discover(threadGroup);
 
 #ifdef USE_TLS
-    if (!InitializeOpenSSL())
+    
+    if (!PrepareCredentials(GetDataDir()))
+    {
+        LogPrintf("ERROR: %s: %s: Credentials weren't loaded. Node can't be started.\n", __FILE__, __func__);
+        return;
+    }
+    
+    if (!InitializeTLS())
     {
         LogPrintf("ERROR: %s: %s: OpenSSL initialization failed. Node can't be started.\n", __FILE__, __func__);
         return;
