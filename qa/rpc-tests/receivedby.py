@@ -147,20 +147,22 @@ class ReceivedByTest(BitcoinTestFramework):
         if balance != balance_by_account + Decimal("0.1"):
             raise AssertionError("Wrong balance returned by getreceivedbyaccount, %0.2f"%(balance))
 
-        #Create a new account named "mynewaccount" that has a 0 balance
-        self.nodes[1].getaccountaddress("mynewaccount")
-        received_by_account_json = get_sub_array_from_array(self.nodes[1].listreceivedbyaccount(0,True),{"account":"mynewaccount"})
-        if len(received_by_account_json) == 0:
-            raise AssertionError("No accounts found in node")
-
-        # Test includeempty of listreceivedbyaccount
-        if received_by_account_json["amount"] != Decimal("0.0"):
-            raise AssertionError("Wrong balance returned by listreceivedbyaccount, %0.2f"%(received_by_account_json["amount"]))
-
-        # Test getreceivedbyaccount for 0 amount accounts
-        balance = self.nodes[1].getreceivedbyaccount("mynewaccount")
-        if balance != Decimal("0.0"):
-            raise AssertionError("Wrong balance returned by getreceivedbyaccount, %0.2f"%(balance))
+        # Accounts are not supported currently in Zen
+        #
+        # #Create a new account named "mynewaccount" that has a 0 balance
+        # self.nodes[1].getaccountaddress("mynewaccount")
+        # received_by_account_json = get_sub_array_from_array(self.nodes[1].listreceivedbyaccount(0,True),{"account":"mynewaccount"})
+        # if len(received_by_account_json) == 0:
+        #     raise AssertionError("No accounts found in node")
+        #
+        # # Test includeempty of listreceivedbyaccount
+        # if received_by_account_json["amount"] != Decimal("0.0"):
+        #     raise AssertionError("Wrong balance returned by listreceivedbyaccount, %0.2f"%(received_by_account_json["amount"]))
+        #
+        # # Test getreceivedbyaccount for 0 amount accounts
+        # balance = self.nodes[1].getreceivedbyaccount("mynewaccount")
+        # if balance != Decimal("0.0"):
+        #     raise AssertionError("Wrong balance returned by getreceivedbyaccount, %0.2f"%(balance))
 
 if __name__ == '__main__':
     ReceivedByTest().main()
