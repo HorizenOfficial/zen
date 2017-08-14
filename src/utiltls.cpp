@@ -105,7 +105,7 @@ bool StoreKey(EVP_PKEY *key, const boost::filesystem::path &filePath)
     
     bool bStored = false;
     
-    FILE *keyfd = fopen(filePath.c_str(), "wb");
+    FILE *keyfd = fopen(filePath.string().c_str(), "wb");
     if (keyfd)
     {
         // TODO: add encryption, using user password
@@ -125,7 +125,7 @@ bool StoreCertificate(X509 *cert, const boost::filesystem::path &filePath)
     
     bool bStored = false;
     
-    FILE *certfd = fopen(filePath.c_str(), "wb");
+    FILE *certfd = fopen(filePath.string().c_str(), "wb");
     if (certfd)
     {
         bStored = PEM_write_X509(certfd, cert);
@@ -143,7 +143,7 @@ EVP_PKEY* LoadKey(const boost::filesystem::path &filePath)
         return NULL;
 
     EVP_PKEY *key = NULL;
-    FILE *keyfd = fopen(filePath.c_str(), "rb");
+    FILE *keyfd = fopen(filePath.string().c_str(), "rb");
     if (keyfd)
     {
         // TODO: add decryption, using user password
@@ -162,7 +162,7 @@ X509* LoadCertificate(const boost::filesystem::path &filePath)
         return NULL;
 
     X509 *cert = NULL;
-    FILE *certfd = fopen(filePath.c_str(), "rb");
+    FILE *certfd = fopen(filePath.string().c_str(), "rb");
     if (certfd)
     {
         cert = PEM_read_X509(certfd, NULL, NULL, NULL);
