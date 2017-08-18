@@ -625,19 +625,24 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 void CNode::CloseSocketDisconnect()
 {
     fDisconnect = true;
-    if (hSocket != INVALID_SOCKET)
+    
     {
-        LogPrint("net", "disconnecting peer=%d\n", id);
-
-        if (ssl)
-            SSL_shutdown(ssl); // unidirectional shutdown (the underlying connection shall be closed anyway)
-
-        CloseSocket(hSocket);
-
-        if (ssl)
+        LOCK(cs_hSocket);
+        
+        if (hSocket != INVALID_SOCKET)
         {
-            SSL_free(ssl);
-            ssl = NULL;
+            LogPrint("net", "disconnecting peer=%d\n", id);
+        
+            if (ssl)
+                SSL_shutdown(ssl); // unidirectional shutdown (the underlying connection shall be closed anyway)
+        
+            CloseSocket(hSocket);
+        
+            if (ssl)
+            {
+                SSL_free(ssl);
+                ssl = NULL;
+            }
         }
     }
 
@@ -910,12 +915,21 @@ void SocketSendData(CNode *pnode)
         assert(data.size() > pnode->nSendOffset);
 
         int nBytes = 0;
-
-        if (pnode->ssl)
-            nBytes = SSL_write(pnode->ssl, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset);
-        else
-            nBytes = send(pnode->hSocket, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset, MSG_NOSIGNAL | MSG_DONTWAIT);
-
+        
+        {
+            LOCK(pnode->cs_hSocket);
+            
+            if (pnode->hSocket == INVALID_SOCKET)
+            {
+                LogPrintf("Send: connection with %s is already closed\n", pnode->addr.ToString());
+                break;
+            }
+            
+            if (pnode->ssl)
+                nBytes = SSL_write(pnode->ssl, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset);
+            else
+                nBytes = send(pnode->hSocket, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset, MSG_NOSIGNAL | MSG_DONTWAIT);
+        }
         if (nBytes > 0)
         {
             pnode->nLastSend = GetTime();
@@ -1469,8 +1483,11 @@ void ThreadSocketHandler()
             LOCK(cs_vNodes);
             BOOST_FOREACH(CNode* pnode, vNodes)
             {
+                LOCK(pnode->cs_hSocket);
+                
                 if (pnode->hSocket == INVALID_SOCKET)
                     continue;
+                
                 FD_SET(pnode->hSocket, &fdsetError);
                 hSocketMax = max(hSocketMax, pnode->hSocket);
                 have_fds = true;
@@ -1553,9 +1570,20 @@ void ThreadSocketHandler()
             //
             // Receive
             //
-            if (pnode->hSocket == INVALID_SOCKET)
-                continue;
-            if ((FD_ISSET(pnode->hSocket, &fdsetRecv) || FD_ISSET(pnode->hSocket, &fdsetError)))
+            bool recvSet = false, sendSet = false, errorSet = false;
+            
+            {
+                LOCK(pnode->cs_hSocket);
+                
+                if (pnode->hSocket == INVALID_SOCKET)
+                    continue;
+    
+                recvSet  = FD_ISSET(pnode->hSocket, &fdsetRecv);
+                sendSet  = FD_ISSET(pnode->hSocket, &fdsetSend);
+                errorSet = FD_ISSET(pnode->hSocket, &fdsetError);
+            }
+            
+            if (recvSet || errorSet)
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
                 if (lockRecv)
@@ -1568,11 +1596,21 @@ void ThreadSocketHandler()
                         // maximum record size is 16kB for SSLv3/TLSv1
                         char pchBuf[0x10000];
                         int nBytes = 0;
-
-                        if (pnode->ssl)
-                            nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf));
-                        else
-                            nBytes = recv(pnode->hSocket, pchBuf, sizeof(pchBuf), MSG_DONTWAIT);
+    
+                        {
+                            LOCK(pnode->cs_hSocket);
+    
+                            if (pnode->hSocket == INVALID_SOCKET)
+                            {
+                                LogPrintf("Receive: connection with %s is already closed\n", pnode->addr.ToString());
+                                continue;
+                            }
+                            
+                            if (pnode->ssl)
+                                nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf));
+                            else
+                                nBytes = recv(pnode->hSocket, pchBuf, sizeof(pchBuf), MSG_DONTWAIT);
+                        }
 
                         if (nBytes > 0)
                         {
@@ -1633,9 +1671,7 @@ void ThreadSocketHandler()
             //
             // Send
             //
-            if (pnode->hSocket == INVALID_SOCKET)
-                continue;
-            if (FD_ISSET(pnode->hSocket, &fdsetSend))
+            if (sendSet)
             {
                 TRY_LOCK(pnode->cs_vSend, lockSend);
                 if (lockSend)
@@ -2527,8 +2563,7 @@ public:
     {
         // Close sockets
         BOOST_FOREACH(CNode* pnode, vNodes)
-            if (pnode->hSocket != INVALID_SOCKET)
-                CloseSocket(pnode->hSocket);
+            pnode->CloseSocketDisconnect();
         BOOST_FOREACH(ListenSocket& hListenSocket, vhListenSocket)
             if (hListenSocket.socket != INVALID_SOCKET)
                 if (!CloseSocket(hListenSocket.socket))
@@ -2823,15 +2858,21 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
 
 CNode::~CNode()
 {
-    if (ssl)
-        SSL_shutdown(ssl); // unidirectional shutdown (the underlying connection shall be closed anyway)
-
-    CloseSocket(hSocket);
-
-    if (ssl)
+    // No need to make a lock on cs_hSocket, because before deletion CNode object is removed from the vNodes vector, so any other thread hasn't access to it.
+    // Removal is synchronized with read and write routines, so all of them will be completed to this moment.
+    
+    if (hSocket != INVALID_SOCKET)
     {
-        SSL_free(ssl);
-        ssl = NULL;
+        if (ssl)
+            SSL_shutdown(ssl); // unidirectional shutdown (the underlying connection shall be closed anyway)
+    
+        CloseSocket(hSocket);
+    
+        if (ssl)
+        {
+            SSL_free(ssl);
+            ssl = NULL;
+        }
     }
 
     if (pfilter)
