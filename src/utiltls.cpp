@@ -8,6 +8,7 @@
 #include <openssl/x509.h>
 #include <openssl/pem.h>
 #include <openssl/rand.h>
+#include <openssl/ssl.h>
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
 
@@ -172,6 +173,56 @@ X509* LoadCertificate(const boost::filesystem::path &filePath)
     return cert;
 }
 
+// Verifies if the private key in 'key' matches the public key in 'cert'
+// (Signs random bytes on 'key' and verifies signature correctness on public key from 'cert')
+//
+bool IsMatching(EVP_PKEY *key, X509 *cert)
+{
+    bool bIsMatching = false;
+    
+    EVP_PKEY_CTX *ctxSign = EVP_PKEY_CTX_new(key, NULL);
+    if (ctxSign)
+    {
+        if (EVP_PKEY_sign_init(ctxSign) == 1 &&
+            EVP_PKEY_CTX_set_signature_md(ctxSign, EVP_sha512()) > 0)
+        {
+            unsigned char digest[SHA512_DIGEST_LENGTH] = { 0 };
+            size_t digestSize = sizeof digest, signatureSize = 0;
+            
+            if (RAND_bytes((unsigned char*)&digest, digestSize) && // set random bytes as a digest
+                EVP_PKEY_sign(ctxSign, NULL, &signatureSize, digest, digestSize) == 1) // determine buffer length
+            {
+                unsigned char *signature = (unsigned char*)OPENSSL_malloc(signatureSize);
+                if (signature)
+                {
+                    if (EVP_PKEY_sign(ctxSign, signature, &signatureSize, digest, digestSize) == 1)
+                    {
+                        EVP_PKEY *pubkey = X509_get_pubkey(cert);
+                        if (pubkey)
+                        {
+                            EVP_PKEY_CTX *ctxVerif = EVP_PKEY_CTX_new(pubkey, NULL);
+                            if (ctxVerif)
+                            {
+                                if (EVP_PKEY_verify_init(ctxVerif) == 1 &&
+                                    EVP_PKEY_CTX_set_signature_md(ctxVerif, EVP_sha512()) > 0)
+                                {
+                                    bIsMatching = (EVP_PKEY_verify(ctxVerif, signature, signatureSize, digest, digestSize) == 1);
+                                }
+                                EVP_PKEY_CTX_free(ctxVerif);
+                            }
+                            EVP_PKEY_free(pubkey);
+                        }
+                    }
+                    OPENSSL_free(signature);
+                }
+            }
+        }
+        EVP_PKEY_CTX_free(ctxSign);
+    }
+    
+    return bIsMatching;
+}
+
 // Checks the correctness of a private-public key pair and the validity of a certificate using public key from key pair
 //
 bool CheckCredentials(EVP_PKEY *key, X509 *cert)
@@ -204,10 +255,9 @@ bool CheckCredentials(EVP_PKEY *key, X509 *cert)
             bIsOk = false;
     }
     
-    // Verifies the signature of certificate using public key;
-    // Only the signature is checked: no other checks (such as certificate chain validity) are performed.
+    // Verifying if the private key matches the public key in certificate
     if (bIsOk)
-        bIsOk = (X509_verify(cert, key) == 1);
+        bIsOk = IsMatching(key, cert);
     
     return bIsOk;
 }
@@ -224,31 +274,42 @@ bool PrepareCredentials(const boost::filesystem::path &credentialsPath)
     if (!boost::filesystem::is_directory(credentialsPath))
         return false;
 
-    boost::filesystem::path keyPath = credentialsPath / TLS_KEY_FILE_NAME;
+    boost::filesystem::path keyPath  = credentialsPath / TLS_KEY_FILE_NAME;
     boost::filesystem::path certPath = credentialsPath / TLS_CERT_FILE_NAME;
     
     EVP_PKEY *key = NULL;
     X509 *cert = NULL;
     
-    key = LoadKey(keyPath);
-    
-    if (key)
-        cert = LoadCertificate(certPath);
+    key  = LoadKey(keyPath);
+    cert = LoadCertificate(certPath);
     
     if (key && cert)
         bPrepared = CheckCredentials(key, cert);
+    
+    // Saving an existing key material (if it doesn't fit for some reason) to another directory with random name
+    //
+    if (!bPrepared)
+    {
+        boost::filesystem::path dirname = credentialsPath / boost::filesystem::unique_path(boost::filesystem::path("credentials_%%%%-%%%%-%%%%-%%%%"));
+        if (boost::filesystem::create_directory(dirname))
+        {
+            if (key)
+                StoreKey(key, (dirname / TLS_KEY_FILE_NAME));
+            
+            if (cert)
+                StoreCertificate(cert, dirname / TLS_CERT_FILE_NAME);
+        }
+    }
     
     if (key)
         EVP_PKEY_free(key);
     if (cert)
         X509_free(cert);
     
-    // TODO: return error if either key or cert is available, we don't want to rewrite existing key data
     if (!bPrepared)
     {
         // Generating RSA key and self-signed certificate for it
         //
-        // TODO: avoid usage of short public keys (generate public key of a size corresponding to a private key size)
         key = GenerateRsaKey(2048, RSA_F4);
         if (key)
         {
@@ -269,4 +330,29 @@ bool PrepareCredentials(const boost::filesystem::path &credentialsPath)
     }
     
     return bPrepared;
+}
+
+// Checks if certificate is valid (by internal means of the TLS protocol)
+//
+bool CheckCertificate(SSL *ssl)
+{
+    if (!ssl)
+        return false;
+    
+    bool bIsOk = false;
+    
+    X509 *cert = SSL_get_peer_certificate (ssl);
+    if (cert)
+    {
+        // NOTE: SSL_get_verify_result() is only useful in connection with SSL_get_peer_certificate (https://www.openssl.org/docs/man1.0.2/ssl/SSL_get_verify_result.html)
+        //
+        bIsOk = (SSL_get_verify_result(ssl) == X509_V_OK);
+        X509_free(cert);
+    }
+    else
+    {
+        LogPrintf ("TLS: ERROR: Peer does not have certificate\n");
+        bIsOk = false;
+    }
+    return bIsOk;
 }

@@ -1233,13 +1233,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     BOOST_FOREACH(const std::string& strDest, mapMultiArgs["-seednode"])
         AddOneShot(strDest);
-
-    if (mapArgs.count("-tlsvalidate")) {
-        tlsvalidate = GetArg("-tlsvalidate", "1");
-        if (tlsvalidate != "0" && tlsvalidate != "1")
-            return InitError(strprintf(_("-tlsvalidate can only be 0 or 1'")));
-    }
-
+    
     if (mapArgs.count("-tlskeypath")) {
         boost::filesystem::path pathTLSKey(GetArg("-tlskeypath", ""));
     if (!boost::filesystem::exists(pathTLSKey))
