@@ -31,6 +31,8 @@ from threading import Thread
 import logging
 import copy
 
+from util import hex_str_to_bytes, bytes_to_hex_str
+
 BIP0031_VERSION = 60000
 MY_VERSION = 170002  # past bip-31 for ping/pong
 MY_SUBVERSION = "/python-mininode-tester:0.0.1/"
@@ -232,6 +234,16 @@ def ser_int_vector(l):
     for i in l:
         r += struct.pack("<i", i)
     return r
+
+
+# Deserialize from a hex string representation (eg from RPC)
+def FromHex(obj, hex_string):
+    obj.deserialize(BytesIO(hex_str_to_bytes(hex_string)))
+    return obj
+
+# Convert a binary-serializable object to hex (eg for submission via RPC)
+def ToHex(obj):
+    return bytes_to_hex_str(obj.serialize())
 
 
 # Objects that map to bitcoind objects, which can be serialized/deserialized
