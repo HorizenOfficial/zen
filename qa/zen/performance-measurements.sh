@@ -25,7 +25,7 @@ function zcashd_generate {
 function zcashd_start {
     rm -rf "$DATADIR"
     mkdir -p "$DATADIR"
-    touch "$DATADIR/zcash.conf"
+    touch "$DATADIR/zen.conf"
     ./src/zcashd -regtest -datadir="$DATADIR" -rpcuser=user -rpcpassword=password -rpcport=5983 -showmetrics=0 &
     ZCASHD_PID=$!
 }
@@ -38,7 +38,7 @@ function zcashd_stop {
 function zcashd_massif_start {
     rm -rf "$DATADIR"
     mkdir -p "$DATADIR"
-    touch "$DATADIR/zcash.conf"
+    touch "$DATADIR/zen.conf"
     rm -f massif.out
     valgrind --tool=massif --time-unit=ms --massif-out-file=massif.out ./src/zcashd -regtest -datadir="$DATADIR" -rpcuser=user -rpcpassword=password -rpcport=5983 -showmetrics=0 &
     ZCASHD_PID=$!
@@ -53,7 +53,7 @@ function zcashd_massif_stop {
 function zcashd_valgrind_start {
     rm -rf "$DATADIR"
     mkdir -p "$DATADIR"
-    touch "$DATADIR/zcash.conf"
+    touch "$DATADIR/zen.conf"
     rm -f valgrind.out
     valgrind --leak-check=yes -v --error-limit=no --log-file="valgrind.out" ./src/zcashd -regtest -datadir="$DATADIR" -rpcuser=user -rpcpassword=password -rpcport=5983 -showmetrics=0 &
     ZCASHD_PID=$!

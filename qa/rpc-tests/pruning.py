@@ -28,16 +28,22 @@ class PruneTest(BitcoinTestFramework):
         # So we have big transactions and full blocks to fill up our block files
 
         # create one script_pubkey
-        script_pubkey = "6a4d0200" #OP_RETURN OP_PUSH2 512 bytes
-        for i in xrange (512):
+        script_pubkey = "6a40"  # OP_RETURN 64 bytes
+        for i in xrange (64):
             script_pubkey = script_pubkey + "01"
-        # concatenate 128 txouts of above script_pubkey which we'll insert before the txout for change
-        self.txouts = "81"
-        for k in xrange(128):
+
+        # each output should be protected with OP_CHECKBLOCKATHEIGHT,
+        # let it be anchored to the genesis block because its hash is a constant
+        # HASH_SIZE + GENESIS_BLOCK_HASH + GENESIS_BLOCK_HEIGHT + OP_CHECKBLOCKATHEIGHT
+        script_pubkey += "20" + "bb1acf2c1fc1228967a611c7db30632098f0c641855180b5fe23793b72eea50d" + "00" + "b4"
+
+        # concatenate 690 txouts of above script_pubkey which we'll insert before the txout for change
+        self.txouts = "fdb302"
+        for k in xrange(690):
             # add txout value
             self.txouts = self.txouts + "0000000000000000"
             # add length of script_pubkey
-            self.txouts = self.txouts + "fd0402"
+            self.txouts = self.txouts + "65"    # 0x65 bytes
             # add script_pubkey
             self.txouts = self.txouts + script_pubkey
 

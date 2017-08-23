@@ -11,7 +11,7 @@ from time import *
 
 import sys
 
-starttime = 1388534400
+starttime = 1494548150
 
 class Wallet1941RegressionTest (BitcoinTestFramework):
 
@@ -74,7 +74,7 @@ class Wallet1941RegressionTest (BitcoinTestFramework):
 
         # Send 10 coins to our zaddr.
         recipients = []
-        recipients.append({"address":myzaddr, "amount":Decimal('10.0') - Decimal('0.0001')})
+        recipients.append({"address":myzaddr, "amount":Decimal('11.4375') - Decimal('0.0001')})
         myopid = self.nodes[0].z_sendmany(mytaddr, recipients)
         self.wait_and_assert_operationid_status(myopid)
         self.nodes[0].generate(1)
@@ -89,7 +89,7 @@ class Wallet1941RegressionTest (BitcoinTestFramework):
 
         # Confirm the balance on node 0.
         resp = self.nodes[0].z_getbalance(myzaddr)
-        assert_equal(Decimal(resp), Decimal('10.0') - Decimal('0.0001'))
+        assert_equal(Decimal(resp), Decimal('11.4375') - Decimal('0.0001'))
 
         # Export the key for the zaddr from node 0.
         key = self.nodes[0].z_exportkey(myzaddr)
@@ -116,7 +116,7 @@ class Wallet1941RegressionTest (BitcoinTestFramework):
         # Confirm that the balance on node 1 is valid now (node 1 must
         # have rescanned)
         resp = self.nodes[1].z_getbalance(myzaddr)
-        assert_equal(Decimal(resp), Decimal('10.0') - Decimal('0.0001'))
+        assert_equal(Decimal(resp), Decimal('11.4375') - Decimal('0.0001'))
 
 
 if __name__ == '__main__':

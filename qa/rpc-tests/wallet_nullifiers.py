@@ -20,14 +20,18 @@ class WalletNullifiersTest (BitcoinTestFramework):
 
         # send node 0 taddr to zaddr to get out of coinbase
         mytaddr = self.nodes[0].getnewaddress();
+
+        self.nodes[0].sendtoaddress(mytaddr, "11.4374")
+        self.nodes[0].generate(1)
+
         recipients = []
-        recipients.append({"address":myzaddr0, "amount":Decimal('10.0')-Decimal('0.0001')}) # utxo amount less fee
+        recipients.append({"address":myzaddr0, "amount":Decimal('11.4374')-Decimal('0.0001')}) # utxo amount less fee
         myopid = self.nodes[0].z_sendmany(mytaddr, recipients)
 
         opids = []
         opids.append(myopid)
 
-        timeout = 120
+        timeout = 300
         status = None
         for x in xrange(1, timeout):
             results = self.nodes[0].z_getoperationresult(opids)
@@ -68,7 +72,7 @@ class WalletNullifiersTest (BitcoinTestFramework):
         opids = []
         opids.append(myopid)
 
-        timeout = 120
+        timeout = 300
         status = None
         for x in xrange(1, timeout):
             results = self.nodes[0].z_getoperationresult(opids)
@@ -100,7 +104,7 @@ class WalletNullifiersTest (BitcoinTestFramework):
         opids = []
         opids.append(myopid)
 
-        timeout = 120
+        timeout = 300
         status = None
         for x in xrange(1, timeout):
             results = self.nodes[2].z_getoperationresult(opids)
@@ -141,7 +145,7 @@ class WalletNullifiersTest (BitcoinTestFramework):
         opids = []
         opids.append(myopid)
 
-        timeout = 120
+        timeout = 300
         status = None
         for x in xrange(1, timeout):
             results = self.nodes[1].z_getoperationresult(opids)

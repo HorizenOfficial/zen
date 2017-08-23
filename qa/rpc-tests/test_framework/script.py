@@ -14,7 +14,7 @@ Functionality to build scripts, as well as SignatureHash().
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from test_framework.mininode import CTransaction, CTxOut, hash256
+from test_framework.mininode import CTransaction, CTxOut, hash256, sha256
 
 import sys
 bchr = chr
@@ -26,6 +26,7 @@ if sys.version > '3':
 
 import copy
 import struct
+import hashlib
 
 import test_framework.bignum
 
@@ -34,6 +35,10 @@ MAX_SCRIPT_ELEMENT_SIZE = 520
 MAX_SCRIPT_OPCODES = 201
 
 OPCODE_NAMES = {}
+
+def hash160(s):
+    return hashlib.new('ripemd160', sha256(s)).digest()
+
 
 _opcode_instances = []
 class CScriptOp(int):

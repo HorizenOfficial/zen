@@ -367,13 +367,13 @@ public:
         consensus.nPowMaxAdjustUp = 0; // Turn off adjustment up
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
-        consensus.nChainsplitIndex = 1000;
+        consensus.nChainsplitIndex = 0;  // Note: non-zero value will break some tests in pull-tester (mostly because pre-chainsplit txs are rejected by Zen)
         consensus.nChainsplitTime = 0;
 
         /** Zen soft/hard forks heights */
         consensus.sfReplayProtectionHeight = 1100;
         consensus.hfCommunityFundHeight = 1200;
-        consensus.hfFixP2SHHeight = 1200;
+        consensus.hfFixP2SHHeight = 0;   // Note: non-zero value will break some tests in pull-tester (because there are tests for P2SH)
         consensus.hfFixReplayProtectionHeight = 1200;
 
         pchMessageStart[0] = 0x2f;
