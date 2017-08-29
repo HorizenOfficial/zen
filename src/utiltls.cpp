@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <stdio.h>
+#include <vector>
 
 #include <openssl/rsa.h>
 #include <openssl/x509.h>
@@ -14,6 +15,48 @@
 
 #include "util.h"
 #include "utiltls.h"
+
+// Set of most common default trusted certificates directories used by OpenSSL
+const char* defaultTrustedDirs[] =
+{
+    "/etc/ssl/certs",
+    "/usr/local/ssl/certs",
+    "/usr/lib/ssl/certs",
+    "/usr/share/ssl/certs",
+    "/etc/pki/tls/certs",
+    "/var/lib/ca-certificates",
+    "/System/Library/OpenSSL/certs"
+};
+
+// Default root certificates (PEM encoded)
+const char defaultRootCerts[] =
+{
+//    // Example of specifying a certificate
+//    //
+//    "-----BEGIN CERTIFICATE-----\n"
+//    "MIIDYDCCAkigAwIBAgIJAJMakdoBYY67MA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV\n"
+//    "BAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX\n"
+//    "aWRnaXRzIFB0eSBMdGQwHhcNMTcwODE0MTc0MTMyWhcNNDQxMjMwMTc0MTMyWjBF\n"
+//    "MQswCQYDVQQGEwJBVTETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50\n"
+//    "ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB\n"
+//    "CgKCAQEAzNV+SPRCKSEGlntfpCRMVSfz99NoEo3K1SRyw6GTSb1LNSTQCn1EsCSH\n"
+//    "cVZTmyfjcTHpwz4aF14yw8lQC42f218AOsG1DV5suCaUXhSmZlajMkvEJVwfBOft\n"
+//    "xpcqE1fA9wovXlnJLXVgyJGMc896S8tcbrCU/l/BsqKh5QX8N60MQ3w376nSGvVP\n"
+//    "ussN8bVH3aKRwjhateqx1GRt0GPnM8/u7EkgF8Bc+m8WZYcUfkPC5Am2D0MO1HOA\n"
+//    "u3IKxXZMs/fYd6nF5DZBwg+D23EP/V8oqenn8ilvrSORq5PguOl1QoDyY66PhmjN\n"
+//    "L9c4Spxw8HXUDlrfuSQn2NJnw1XhdQIDAQABo1MwUTAdBgNVHQ4EFgQU/KD+n5Bz\n"
+//    "QLbp09qKzwwyNwOQU4swHwYDVR0jBBgwFoAU/KD+n5BzQLbp09qKzwwyNwOQU4sw\n"
+//    "DwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAVtprBxZD6O+WNYUM\n"
+//    "ksdKiVVoszEJXlt7wajuaPBPK/K3buxE9FLVxS+LiH1PUhPCc6V28guyKWwn109/\n"
+//    "4WnO51LQjygvd7SaePlbiO7iIatkOk4oETJQZ+tEJ7fv/NITY/GQUfgPNkANmPPz\n"
+//    "Mz9I6He8XhIpO6NGuDG+74aR1RhvR3PWJJYT0QpL0STVR4qTc/HfnymF5XnnjOYZ\n"
+//    "mwzT8jXX5dhLYwJmyPBS+uv+oa1quM/FitA63N9anYtRBiPaBtund9Ikjat1hM0h\n"
+//    "neo2tz7Mfsgjb0aiORtiyaH2OetvwR0QuCSVPnknkfGWPDINdUdkgKyA1PX58Smw\n"
+//    "vaXEcw==\n"
+//    "-----END CERTIFICATE-----"
+        
+        ""
+};
 
 // Generates RSA keypair (a private key of 'bits' length for a specified 'uPublicKey')
 //
@@ -99,7 +142,7 @@ X509* GenerateCertificate(EVP_PKEY *keypair)
 
 // Stores key to file, specified by the 'filePath'
 //
-bool StoreKey(EVP_PKEY *key, const boost::filesystem::path &filePath)
+bool StoreKey(EVP_PKEY *key, const boost::filesystem::path &filePath, std::string &passphrase)
 {
     if (!key)
         return false;
@@ -109,8 +152,13 @@ bool StoreKey(EVP_PKEY *key, const boost::filesystem::path &filePath)
     FILE *keyfd = fopen(filePath.string().c_str(), "wb");
     if (keyfd)
     {
-        // TODO: add encryption, using user password
-        bStored = PEM_write_PrivateKey(keyfd, key, NULL, NULL, 0, NULL, NULL);
+        const EVP_CIPHER* pCipher = NULL;
+        
+        if (passphrase.length() && (pCipher = EVP_aes_256_cbc()))
+            bStored = PEM_write_PrivateKey(keyfd, key, pCipher, NULL, 0, NULL, (void*)passphrase.c_str());
+        else
+            bStored = PEM_write_PrivateKey(keyfd, key, NULL, NULL, 0, NULL, NULL);
+        
         fclose(keyfd);
     }
     
@@ -138,7 +186,7 @@ bool StoreCertificate(X509 *cert, const boost::filesystem::path &filePath)
 
 // Loads key from file, specified by the 'filePath'
 //
-EVP_PKEY* LoadKey(const boost::filesystem::path &filePath)
+EVP_PKEY* LoadKey(const boost::filesystem::path &filePath, std::string &passphrase)
 {
     if (!boost::filesystem::exists(filePath))
         return NULL;
@@ -147,8 +195,7 @@ EVP_PKEY* LoadKey(const boost::filesystem::path &filePath)
     FILE *keyfd = fopen(filePath.string().c_str(), "rb");
     if (keyfd)
     {
-        // TODO: add decryption, using user password
-        key = PEM_read_PrivateKey(keyfd, NULL, NULL, NULL);
+        key = PEM_read_PrivateKey(keyfd, NULL, NULL, passphrase.length() ? (void*)passphrase.c_str() : NULL);
         fclose(keyfd);
     }
     
@@ -178,6 +225,9 @@ X509* LoadCertificate(const boost::filesystem::path &filePath)
 //
 bool IsMatching(EVP_PKEY *key, X509 *cert)
 {
+    if (!key || !cert)
+        return false;
+    
     bool bIsMatching = false;
     
     EVP_PKEY_CTX *ctxSign = EVP_PKEY_CTX_new(key, NULL);
@@ -262,79 +312,77 @@ bool CheckCredentials(EVP_PKEY *key, X509 *cert)
     return bIsOk;
 }
 
-// Prepares credentials (a private key and a certificate for corresponding public key)
+// Verifies credentials (a private key, a certificate for public key and a correspondence between the private and the public key)
 //
-// Tries to load key and certificate from files located in the 'credentialsPath' directory.
-// If some of files is absent, or has a wrong format, then generates public keypair and a self-signed certificate for it, and then stores them in the 'credentialsPath' directory.
-//
-bool PrepareCredentials(const boost::filesystem::path &credentialsPath)
+CredentialsStatus VerifyCredentials(
+        boost::filesystem::path keyPath,
+        boost::filesystem::path certPath,
+        std::string             passphrase)
 {
-    bool bPrepared = false;
-
-    if (!boost::filesystem::is_directory(credentialsPath))
-        return false;
-
-    boost::filesystem::path keyPath  = credentialsPath / TLS_KEY_FILE_NAME;
-    boost::filesystem::path certPath = credentialsPath / TLS_CERT_FILE_NAME;
+    CredentialsStatus status = credAbsent;
     
     EVP_PKEY *key = NULL;
     X509 *cert = NULL;
     
-    key  = LoadKey(keyPath);
+    key  = LoadKey(keyPath, passphrase);
     cert = LoadCertificate(certPath);
     
     if (key && cert)
-        bPrepared = CheckCredentials(key, cert);
-    
-    // Saving an existing key material (if it doesn't fit for some reason) to another directory with random name
-    //
-    if (!bPrepared)
-    {
-        boost::filesystem::path dirname = credentialsPath / boost::filesystem::unique_path(boost::filesystem::path("credentials_%%%%-%%%%-%%%%-%%%%"));
-        if (boost::filesystem::create_directory(dirname))
-        {
-            if (key)
-                StoreKey(key, (dirname / TLS_KEY_FILE_NAME));
-            
-            if (cert)
-                StoreCertificate(cert, dirname / TLS_CERT_FILE_NAME);
-        }
-    }
+        status = CheckCredentials(key, cert) ? credOk : credNonConsistent;
+    else if (!key && !cert)
+        status = credAbsent;
+    else
+        status = credPartiallyAbsent;
     
     if (key)
         EVP_PKEY_free(key);
     if (cert)
         X509_free(cert);
     
-    if (!bPrepared)
-    {
-        // Generating RSA key and self-signed certificate for it
-        //
-        key = GenerateRsaKey(2048, RSA_F4);
-        if (key)
-        {
-            cert = GenerateCertificate(key);
-            if (cert)
-            {
-                if (StoreKey(key, keyPath) &&
-                    StoreCertificate(cert, certPath))
-                {
-                    bPrepared = true;
-                    LogPrintStr("New private key and self-signed certificate were generated successfully\n");
-                }
-                
-                X509_free(cert);
-            }
-            EVP_PKEY_free(key);
-        }
-    }
-    
-    return bPrepared;
+    return status;
 }
 
-// Checks if certificate is valid (by internal means of the TLS protocol)
+// Generates public key pair and the self-signed certificate for it, and then stores them by the specified paths 'keyPath' and 'certPath' respectively.
 //
-bool CheckCertificate(SSL *ssl)
+bool GenerateCredentials(
+        boost::filesystem::path keyPath,
+        boost::filesystem::path certPath,
+        std::string             passphrase)
+{
+    bool bGenerated = false;
+    
+    EVP_PKEY *key = NULL;
+    X509 *cert = NULL;
+    
+    // Generating RSA key and the self-signed certificate for it
+    //
+    key = GenerateRsaKey(TLS_RSA_KEY_SIZE, RSA_F4);
+    if (key)
+    {
+        cert = GenerateCertificate(key);
+        if (cert)
+        {
+            if (StoreKey(key, keyPath, passphrase) &&
+                StoreCertificate(cert, certPath))
+            {
+                bGenerated = true;
+                LogPrintStr("TLS: New private key and self-signed certificate were generated successfully\n");
+            }
+            
+            X509_free(cert);
+        }
+        EVP_PKEY_free(key);
+    }
+    
+    return bGenerated;
+}
+
+// Checks if certificate of a peer is valid (by internal means of the TLS protocol)
+//
+// Validates peer certificate using a chain of CA certificates.
+// If some of intermediate CA certificates are absent in the trusted certificates store, then validation status will be 'false')
+//
+bool ValidatePeerCertificate(SSL *ssl)
 {
     if (!ssl)
         return false;
@@ -355,4 +403,61 @@ bool CheckCertificate(SSL *ssl)
         bIsOk = false;
     }
     return bIsOk;
+}
+
+// Creates the list of available OpenSSL default directories for trusted certificates storage
+//
+std::vector<std::string> GetDefaultTrustedDirectories()
+{
+    std::vector<std::string> defaultDirectoriesList;
+    
+    // Default certificates directory specified in OpenSSL build
+    boost::filesystem::path libDefaultDir = X509_get_default_cert_dir();
+    
+    if (boost::filesystem::exists(libDefaultDir))
+        defaultDirectoriesList.push_back(libDefaultDir.string());
+    
+    // Check and set all possible standard default directories
+    for (const char *dir : defaultTrustedDirs)
+    {
+        boost::filesystem::path defaultDir(dir);
+        
+        if (defaultDir != libDefaultDir &&
+            boost::filesystem::exists(defaultDir))
+            defaultDirectoriesList.push_back(std::string(dir));
+    }
+    
+//    // Set the data directory as trusted if none of the standard default directories exists
+//    if (defaultDirectoriesList.size() == 0)
+//        defaultDirectoriesList.push_back(GetDataDir().string());
+    
+    return defaultDirectoriesList;
+}
+
+// Loads default root certificates (placed in the 'defaultRootCerts') into the specified context.
+// Returns the number of loaded certificates.
+//
+int LoadDefaultRootCertificates(SSL_CTX *ctx)
+{
+    if (!ctx)
+        return 0;
+    
+    int certsLoaded = 0;
+    
+    // Certificate text buffer 'defaultRootCerts' is a C string with certificates in PEM format
+    BIO *memBuf = BIO_new_mem_buf(defaultRootCerts, -1);
+    if (memBuf)
+    {
+        X509 *cert = NULL;
+        while ((cert = PEM_read_bio_X509(memBuf, NULL, 0, NULL)))
+        {
+            if (X509_STORE_add_cert(SSL_CTX_get_cert_store(ctx), cert) > 0)
+                certsLoaded++;
+            
+            X509_free(cert);
+        }
+        BIO_free(memBuf);
+    }
+    
+    return certsLoaded;
 }
