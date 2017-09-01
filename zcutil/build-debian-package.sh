@@ -17,8 +17,8 @@ if [ ! -d $BUILD_PATH ]; then
     mkdir $BUILD_PATH
 fi
 
-PACKAGE_VERSION=$(grep Version $SRC_PATH/contrib/debian/control | cut -d: -f2 | tr -d ' ')
-BUILD_DIR="$BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-arm64"
+PACKAGE_VERSION=$($SRC_PATH/src/zend --version | grep version | cut -d' ' -f4 | tr -d v)
+BUILD_DIR="$BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-amd64"
 
 if [ -d $BUILD_DIR ]; then
     rm -R $BUILD_DIR
@@ -69,5 +69,5 @@ dpkg-gencontrol -v$PACKAGE_VERSION -P$BUILD_DIR
 fakeroot dpkg-deb --build $BUILD_DIR
 cp $BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-arm64.deb $SRC_PATH
 # Analyze with Lintian, reporting bugs and policy violations
-#lintian -i $SRC_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-arm64.deb
+lintian -i $SRC_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-amd64.deb
 exit 0
