@@ -37,6 +37,10 @@ bool GenerateCredentials(
 //
 bool ValidatePeerCertificate(SSL *ssl);
 
+// Check if a given context is set up with a cert that can be validated by this context
+//
+bool ValidateCertificate(SSL_CTX *ssl_ctx);
+
 // Creates the list of available OpenSSL default directories for trusted certificates storage
 //
 std::vector<boost::filesystem::path> GetDefaultTrustedDirectories();

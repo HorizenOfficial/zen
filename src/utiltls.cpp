@@ -410,6 +410,32 @@ bool ValidatePeerCertificate(SSL *ssl)
     return bIsOk;
 }
 
+// Check if a given context is set up with a cert that can be validated by this context
+//
+bool ValidateCertificate(SSL_CTX *ssl_ctx)
+{
+    if (!ssl_ctx)
+        return false;
+
+    bool bIsOk = false;
+
+    X509_STORE *store = SSL_CTX_get_cert_store(ssl_ctx);
+
+    if (store)
+    {
+        X509_STORE_CTX *ctx = X509_STORE_CTX_new();
+        if (ctx)
+        {
+            if (X509_STORE_CTX_init(ctx, store, SSL_CTX_get0_certificate(ssl_ctx), NULL) == 1)
+                bIsOk = X509_verify_cert(ctx) == 1;
+
+            X509_STORE_CTX_free(ctx);
+        }
+    }
+
+    return bIsOk;
+}
+
 // Creates the list of available OpenSSL default directories for trusted certificates storage
 //
 std::vector<boost::filesystem::path> GetDefaultTrustedDirectories()
