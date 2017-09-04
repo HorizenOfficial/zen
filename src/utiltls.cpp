@@ -17,19 +17,24 @@
 #include "utiltls.h"
 
 // Set of most common default trusted certificates directories used by OpenSSL
-const char* defaultTrustedDirs[] =
+static const char* defaultTrustedDirs[] =
 {
+#ifdef WIN32
+    ""
+#elif MAC_OSX
+    "/System/Library/OpenSSL/certs"
+#else // Linux build
     "/etc/ssl/certs",
     "/usr/local/ssl/certs",
     "/usr/lib/ssl/certs",
     "/usr/share/ssl/certs",
     "/etc/pki/tls/certs",
-    "/var/lib/ca-certificates",
-    "/System/Library/OpenSSL/certs"
+    "/var/lib/ca-certificates"
+#endif
 };
 
 // Default root certificates (PEM encoded)
-const char defaultRootCerts[] =
+static const char defaultRootCerts[] =
 {
 //    // Example of specifying a certificate
 //    //
@@ -60,7 +65,7 @@ const char defaultRootCerts[] =
 
 // Generates RSA keypair (a private key of 'bits' length for a specified 'uPublicKey')
 //
-EVP_PKEY* GenerateRsaKey(int bits, BN_ULONG uPublicKey)
+static EVP_PKEY* GenerateRsaKey(int bits, BN_ULONG uPublicKey)
 {
     EVP_PKEY *evpPrivKey = NULL;
     
@@ -97,7 +102,7 @@ EVP_PKEY* GenerateRsaKey(int bits, BN_ULONG uPublicKey)
 
 // Generates certificate for a specified public key using a corresponding private key (both of them should be specified in the 'keypair').
 //
-X509* GenerateCertificate(EVP_PKEY *keypair)
+static X509* GenerateCertificate(EVP_PKEY *keypair)
 {
     if (!keypair)
         return NULL;
@@ -142,7 +147,7 @@ X509* GenerateCertificate(EVP_PKEY *keypair)
 
 // Stores key to file, specified by the 'filePath'
 //
-bool StoreKey(EVP_PKEY *key, const boost::filesystem::path &filePath, std::string &passphrase)
+static bool StoreKey(EVP_PKEY *key, const boost::filesystem::path &filePath, const std::string &passphrase)
 {
     if (!key)
         return false;
@@ -167,7 +172,7 @@ bool StoreKey(EVP_PKEY *key, const boost::filesystem::path &filePath, std::strin
 
 // Stores certificate to file, specified by the 'filePath'
 //
-bool StoreCertificate(X509 *cert, const boost::filesystem::path &filePath)
+static bool StoreCertificate(X509 *cert, const boost::filesystem::path &filePath)
 {
     if (!cert)
         return false;
@@ -186,7 +191,7 @@ bool StoreCertificate(X509 *cert, const boost::filesystem::path &filePath)
 
 // Loads key from file, specified by the 'filePath'
 //
-EVP_PKEY* LoadKey(const boost::filesystem::path &filePath, std::string &passphrase)
+static EVP_PKEY* LoadKey(const boost::filesystem::path &filePath, const std::string &passphrase)
 {
     if (!boost::filesystem::exists(filePath))
         return NULL;
@@ -204,7 +209,7 @@ EVP_PKEY* LoadKey(const boost::filesystem::path &filePath, std::string &passphra
 
 // Loads certificate from file, specified by the 'filePath'
 //
-X509* LoadCertificate(const boost::filesystem::path &filePath)
+static X509* LoadCertificate(const boost::filesystem::path &filePath)
 {
     if (!boost::filesystem::exists(filePath))
         return NULL;
@@ -223,7 +228,7 @@ X509* LoadCertificate(const boost::filesystem::path &filePath)
 // Verifies if the private key in 'key' matches the public key in 'cert'
 // (Signs random bytes on 'key' and verifies signature correctness on public key from 'cert')
 //
-bool IsMatching(EVP_PKEY *key, X509 *cert)
+static bool IsMatching(EVP_PKEY *key, X509 *cert)
 {
     if (!key || !cert)
         return false;
@@ -275,7 +280,7 @@ bool IsMatching(EVP_PKEY *key, X509 *cert)
 
 // Checks the correctness of a private-public key pair and the validity of a certificate using public key from key pair
 //
-bool CheckCredentials(EVP_PKEY *key, X509 *cert)
+static bool CheckCredentials(EVP_PKEY *key, X509 *cert)
 {
     if (!key || !cert)
         return false;
@@ -407,29 +412,26 @@ bool ValidatePeerCertificate(SSL *ssl)
 
 // Creates the list of available OpenSSL default directories for trusted certificates storage
 //
-std::vector<std::string> GetDefaultTrustedDirectories()
+std::vector<boost::filesystem::path> GetDefaultTrustedDirectories()
 {
-    std::vector<std::string> defaultDirectoriesList;
+    namespace fs = boost::filesystem;
+    std::vector<fs::path> defaultDirectoriesList;
     
     // Default certificates directory specified in OpenSSL build
-    boost::filesystem::path libDefaultDir = X509_get_default_cert_dir();
+    fs::path libDefaultDir = X509_get_default_cert_dir();
     
-    if (boost::filesystem::exists(libDefaultDir))
-        defaultDirectoriesList.push_back(libDefaultDir.string());
+    if (fs::exists(libDefaultDir))
+        defaultDirectoriesList.push_back(libDefaultDir);
     
     // Check and set all possible standard default directories
     for (const char *dir : defaultTrustedDirs)
     {
-        boost::filesystem::path defaultDir(dir);
+        fs::path defaultDir(dir);
         
         if (defaultDir != libDefaultDir &&
-            boost::filesystem::exists(defaultDir))
-            defaultDirectoriesList.push_back(std::string(dir));
+            fs::exists(defaultDir))
+            defaultDirectoriesList.push_back(defaultDir);
     }
-    
-//    // Set the data directory as trusted if none of the standard default directories exists
-//    if (defaultDirectoriesList.size() == 0)
-//        defaultDirectoriesList.push_back(GetDataDir().string());
     
     return defaultDirectoriesList;
 }

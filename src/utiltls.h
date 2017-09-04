@@ -39,7 +39,7 @@ bool ValidatePeerCertificate(SSL *ssl);
 
 // Creates the list of available OpenSSL default directories for trusted certificates storage
 //
-std::vector<std::string> GetDefaultTrustedDirectories();
+std::vector<boost::filesystem::path> GetDefaultTrustedDirectories();
 
 // Loads default root certificates (placed in the 'defaultRootCerts') into the specified context.
 // Returns the number of loaded certificates.
