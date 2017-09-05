@@ -39,7 +39,7 @@ public:
         strNetworkID = "main";
         strCurrencyUnits = "ZEN";
         consensus.fCoinbaseMustBeProtected = true;
-        consensus.fDisableCoinbaseProtectionForFoundersReward = true;
+        consensus.fDisableCoinbaseProtectionForCommunityFund = true;
         consensus.nSubsidySlowStartInterval = 2;
         consensus.nSubsidyHalvingInterval = 840000;
         consensus.nMajorityEnforceBlockUpgrade = 750;
@@ -59,8 +59,7 @@ public:
 
         /** Zen soft/hard forks heights */
         consensus.sfReplayProtectionHeight = 117575;
-        // TODO: rename variable to hfTreasuryFundHeight
-        consensus.hfFoundersRewardHeight = 139200;
+        consensus.hfCommunityFundHeight = 139200;
         consensus.hfFixP2SHHeight = 139200;
         consensus.hfFixReplayProtectionHeight = 139200;
 
@@ -155,19 +154,19 @@ public:
             ( 0, consensus.hashGenesisBlock)
             ( 30000, uint256S("0x000000005c2ad200c3c7c8e627f67b306659efca1268c9bb014335fdadc0c392"))
             ( 96577, uint256S("0x0000000177751545bd1af3ccf276ec2920d258453ab01f3d2f8f7fcc5f3a37b8"))
-            ( 110000, uint256S("0x000000003f5d6ba1385c6cd2d4f836dfc5adf7f98834309ad67e26faef462454")),
-            1495142510,     // * UNIX timestamp of last checkpoint block
-            276839,         // * total number of transactions between genesis and last checkpoint
+            ( 110000, uint256S("0x000000003f5d6ba1385c6cd2d4f836dfc5adf7f98834309ad67e26faef462454"))
+            ( 139200, uint256S("0x00000001ea53c09a45e3f097ba8f48a4c117b5b368031c4eb2fa02cb5a84c99e")),
+            1500666121,     // * UNIX timestamp of last checkpoint block
+            355208,         // * total number of transactions between genesis and last checkpoint
                             //   (the tx=... number in the SetBestChain debug.log lines)
-            1398            // * estimated number of transactions per day after checkpoint
+            1470            // * estimated number of transactions per day after checkpoint
                             //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
         addressChangeInterval = 50000;
 
-        // Founders reward script expects a vector of 2-of-3 multisig addresses
-        // TODO: rename variable to vTreasuryFundAddress
-        vFoundersRewardAddress = {
+        // Community fund script expects a vector of 2-of-3 multisig addresses
+        vCommunityFundAddress = {
         "zssEdGnZCQ9G86LZFtbynMn1hYTVhn6eYCL",
         "zsrCsXXmUf8k59NLasEKfxA7us3iNvaPATz",
         "zsnLPsWMXW2s4w9EmFSwtSLRxL2LhPcfdby",
@@ -224,15 +223,14 @@ public:
         //"zszxnNPj2zg81McDarbQi76y3NYeqj8PkwU",
         //"zsi3PoGMUzkj8kPAaq9YGYUS8Wp2pDRjR8X",
         };
-        // vFoundersRewardAddress2 is another set of FR addresses that substitutes old set since hfFoundersRewardsHeight block
-        // TODO: rename variable to vTreasuryFundAddress2
-        vFoundersRewardAddress2 = {
+        // vCommunityFundAddress2 is another set of FR addresses that substitutes old set since hfCommunityFundHeight block
+        vCommunityFundAddress2 = {
         "zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82",
         "zsfULrmbX7xbhqhAFRffVqCw9RyGv2hqNNG",
         "zsoemTfqjicem2QVU8cgBHquKb1o9JR5p4Z",
         "zt339oiGL6tTgc9Q71f5g1sFTZf6QiXrRUr"
         };
-        assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
+        assert(vCommunityFundAddress.size() <= consensus.GetLastCommunityRewardBlockHeight());
     }
 };
 static CMainParams mainParams;
@@ -246,7 +244,7 @@ public:
         strNetworkID = "test";
         strCurrencyUnits = "ZNT";
         consensus.fCoinbaseMustBeProtected = true;
-        consensus.fDisableCoinbaseProtectionForFoundersReward = true;
+        consensus.fDisableCoinbaseProtectionForCommunityFund = true;
         consensus.nMajorityEnforceBlockUpgrade = 51;
         consensus.nMajorityRejectBlockOutdated = 75;
         consensus.nMajorityWindow = 400;
@@ -260,7 +258,7 @@ public:
 
         /** Zen soft/hard forks heights */
         consensus.sfReplayProtectionHeight = 72650;
-        consensus.hfFoundersRewardHeight = 85500;
+        consensus.hfCommunityFundHeight = 85500;
         consensus.hfFixP2SHHeight = 85500;
         consensus.hfFixReplayProtectionHeight = 85500;
 
@@ -324,8 +322,8 @@ public:
 
         addressChangeInterval = 10000;
 
-        // Founders reward script expects a vector of 3-of-4 multisig addresses
-        vFoundersRewardAddress = {
+        // Community fund script expects a vector of 3-of-4 multisig addresses
+        vCommunityFundAddress = {
             "zrH8KT8KUcpKKNBu3fjH4hA84jZBCawErqn", "zrGsMC4ou1r5Vxy7Dnxg4PfKpansx83BM8g", "zr6sB2Az36D8CqzeZNavB11WbovsGtJSAZG", "zrBAG3pXCTDq14nivNK9mW8SfwMNcdmMQpb",
             "zrRLwpYRYky4wsvwLVrDp8fs89EBTRhNMB1", "zrLozMfptTmE3zLP5SrTLyB8TXqH84Agjrr", "zrMckkaLtVTEUvxj4ouU7BPDGa8xmdTZSVE", "zrFc897wJXmF7BcEdbvi2mS1bLrcuWYK6hm",
             "zrHEnni486u9SNcLWacroSgcdyMA33tfM92", "zrJ3ymPV3R8Xk4N3BdNb898xvZvARm5K7mq", "zrDj3P6trx73291krxU51U9QnfkbGxkyJ6E", "zrJs3vMGFJi9pQCireeSLckJonamBnwTSrY",
@@ -339,11 +337,11 @@ public:
             "zrEFrGWLX4hPHuHRUD3TPbMAJyeSpMSctUc", "zr5c3f8PTnW8qBFX1GvK2LhyLBBCb1WDdGG", "zrGkAZkZLqC9QKJR3XomgxNizCpNuAupTeg", "zrM7muDowiun9tCHhu5K9vcDGfUptuYorfZ",
             "zrCsWfwKotWnQmFviqAHAPAJ2jXqZYW966P", "zrLLB3JB3jozUoMGFEGhjqyVXTpngVQ8c4T", "zrAEa8YjJ2f3m2VsM1Xa9EwibZxEnRoSLUx", "zrAdJgp7Cx35xTvB7ABWP8YLTNDArMjP1s3"
         };
-        // vFoundersRewardAddress2 is another set of FR addresses that substitutes old set since hfFoundersRewardsHeight block
-        vFoundersRewardAddress2 = {
+        // vCommunityFundAddress2 is another set of FR addresses that substitutes old set since hfCommunityFundHeight block
+        vCommunityFundAddress2 = {
             "zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1"
         };
-        assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
+        assert(vCommunityFundAddress.size() <= consensus.GetLastCommunityRewardBlockHeight());
     }
 };
 static CTestNetParams testNetParams;
@@ -357,7 +355,7 @@ public:
         strNetworkID = "regtest";
         strCurrencyUnits = "REG";
         consensus.fCoinbaseMustBeProtected = false;
-        consensus.fDisableCoinbaseProtectionForFoundersReward = true;
+        consensus.fDisableCoinbaseProtectionForCommunityFund = true;
         consensus.nSubsidySlowStartInterval = 0;
         consensus.nSubsidyHalvingInterval = 2000;
         consensus.nMajorityEnforceBlockUpgrade = 750;
@@ -369,13 +367,13 @@ public:
         consensus.nPowMaxAdjustUp = 0; // Turn off adjustment up
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
-        consensus.nChainsplitIndex = 1000;
+        consensus.nChainsplitIndex = 0;  // Note: non-zero value will break some tests in pull-tester (mostly because pre-chainsplit txs are rejected by Zen)
         consensus.nChainsplitTime = 0;
 
         /** Zen soft/hard forks heights */
         consensus.sfReplayProtectionHeight = 1100;
-        consensus.hfFoundersRewardHeight = 1200;
-        consensus.hfFixP2SHHeight = 1200;
+        consensus.hfCommunityFundHeight = 1200;
+        consensus.hfFixP2SHHeight = 0;   // Note: non-zero value will break some tests in pull-tester (because there are tests for P2SH)
         consensus.hfFixReplayProtectionHeight = 1200;
 
         pchMessageStart[0] = 0x2f;
@@ -418,11 +416,11 @@ public:
 
         addressChangeInterval = 100;
 
-        // Founders reward script expects a vector of 2-of-3 multisig addresses
-        vFoundersRewardAddress = { "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa" };
-        // vFoundersRewardAddress2 is another set of FR addresses that substitutes old set since hfFoundersRewardsHeight block
-        vFoundersRewardAddress2 = { "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa" };
-        assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
+        // Community fund script expects a vector of 2-of-3 multisig addresses
+        vCommunityFundAddress = { "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa" };
+        // vCommunityFundAddress2 is another set of FR addresses that substitutes old set since hfCommunityFundHeight block
+        vCommunityFundAddress2 = { "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa" };
+        assert(vCommunityFundAddress.size() <= consensus.GetLastCommunityRewardBlockHeight());
     }
 };
 static CRegTestParams regTestParams;
@@ -469,34 +467,33 @@ bool SelectParamsFromCommandLine()
 }
 
 
-// Block height must be >0 and <=last founders reward block height
-// Index variable i ranges from 0 - (vFoundersRewardAddress.size()-1)
-std::string CChainParams::GetFoundersRewardAddressAtHeight(int nHeight) const {
+// Block height must be >0 and <=last CF reward block height (note that after hfCommunityFundHeight hard fork CF reward is permanent)
+// Index variable i ranges from 0 - (vCommunityFundAddress.size()-1)
+std::string CChainParams::GetCommunityFundAddressAtHeight(int nHeight) const {
 
-    // Since hfFoundersRewardHeight block use another set of FR addresses
-    if (nHeight < consensus.hfFoundersRewardHeight)
+    // Since hfCommunityFundHeight block use another set of CF addresses
+    if (nHeight < consensus.hfCommunityFundHeight)
     {
-        int maxHeight = consensus.GetLastFoundersRewardBlockHeight();
+        int maxHeight = consensus.GetLastCommunityRewardBlockHeight();
         assert(nHeight > 0 && nHeight <= maxHeight);
 
-        size_t addressChangeInterval = (maxHeight + vFoundersRewardAddress.size()) / vFoundersRewardAddress.size();
+        size_t addressChangeInterval = (maxHeight + vCommunityFundAddress.size()) / vCommunityFundAddress.size();
         size_t i = nHeight / addressChangeInterval;
-        return vFoundersRewardAddress[i];
+        return vCommunityFundAddress[i];
     }
     else
     {
-        // change CR addresses every addressChangeInterval in a round-robin fashion
-        size_t i = ((nHeight - consensus.hfFoundersRewardHeight) / addressChangeInterval) % vFoundersRewardAddress2.size();
-        return vFoundersRewardAddress2[i];
+        // change CF addresses every addressChangeInterval in a round-robin fashion
+        size_t i = ((nHeight - consensus.hfCommunityFundHeight) / addressChangeInterval) % vCommunityFundAddress2.size();
+        return vCommunityFundAddress2[i];
     }
 }
 
-// Block height must be >0 and <=last founders reward block height
-// The founders reward address is expected to be a multisig (P2SH) address
-CScript CChainParams::GetFoundersRewardScriptAtHeight(int nHeight) const {
+// The community fund address is expected to be a multisig (P2SH) address
+CScript CChainParams::GetCommunityFundScriptAtHeight(int nHeight) const {
     assert(nHeight > 0);
 
-    CBitcoinAddress address(GetFoundersRewardAddressAtHeight(nHeight).c_str());
+    CBitcoinAddress address(GetCommunityFundAddressAtHeight(nHeight).c_str());
     assert(address.IsValid());
     assert(address.IsScript());
     CScriptID scriptID = get<CScriptID>(address.Get()); // Get() returns a boost variant

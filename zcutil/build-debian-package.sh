@@ -67,7 +67,7 @@ dpkg-gencontrol -v$PACKAGE_VERSION -P$BUILD_DIR
 
 # Create the Debian package
 fakeroot dpkg-deb --build $BUILD_DIR
-cp $BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-amd64.deb $SRC_PATH
+cp $BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-arm64.deb $SRC_PATH
 # Analyze with Lintian, reporting bugs and policy violations
 lintian -i $SRC_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-amd64.deb
 exit 0

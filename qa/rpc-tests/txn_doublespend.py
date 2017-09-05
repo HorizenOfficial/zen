@@ -24,7 +24,7 @@ class TxnMallTest(BitcoinTestFramework):
         return super(TxnMallTest, self).setup_network(True)
 
     def run_test(self):
-        mining_reward = 10
+        mining_reward = Decimal("11.4375")
         starting_balance = mining_reward * 25
 
         for i in range(4):

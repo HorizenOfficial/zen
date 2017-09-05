@@ -338,7 +338,7 @@ int printMetrics(size_t cols, bool mining)
                     int height = mapBlockIndex[hash]->nHeight;
                     CAmount subsidy = GetBlockSubsidy(height, consensusParams);
                     if ((height > consensusParams.nChainsplitIndex)) {
-                        if (height >= consensusParams.hfFoundersRewardHeight)
+                        if (height >= consensusParams.hfCommunityFundHeight)
                             subsidy -= ((subsidy * 120) / 1000);
                         else
                             subsidy -= ((subsidy * 85) / 1000);
