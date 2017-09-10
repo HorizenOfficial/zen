@@ -82,7 +82,7 @@ Add the newly created release notes to the Git repository:
 Update the Debian package changelog:
 
     export DEBVERSION="${ZCASH_RELEASE}"
-    export DEBEMAIL="${DEBEMAIL:-team@z.cash}"
+    export DEBEMAIL="${DEBEMAIL:-info@zensystem.io}"
     export DEBFULLNAME="${DEBFULLNAME:-Zcash Company}"
 
     dch -v $DEBVERSION -D jessie -c contrib/debian/changelog
