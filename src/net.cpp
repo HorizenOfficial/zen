@@ -433,7 +433,7 @@ static int WaitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL *ssl, int 
 
         if (sslErr != SSL_ERROR_WANT_READ && sslErr != SSL_ERROR_WANT_WRITE)
         {
-            LogPrintf("TLS: ERROR: %s: %s: ssl_err_code: %s; errno: %s\n", __FILE__, __func__, ERR_error_string(sslErr, NULL), strerror(errno));
+            LogPrint("net", "TLS: WARNING: %s: %s: ssl_err_code: %s; errno: %s\n", __FILE__, __func__, ERR_error_string(sslErr, NULL), strerror(errno));
             nErr = -1;
             break;
         }
@@ -503,7 +503,7 @@ static SSL* TLSConnect(SOCKET hSocket, const CAddress &addrConnect)
     }
     else
     {
-        LogPrintf ("TLS: ERROR: %s: %s: TLS connection to %s failed\n", __FILE__, __func__, addrConnect.ToString());
+        LogPrintf ("TLS: %s: %s: TLS connection to %s failed\n", __FILE__, __func__, addrConnect.ToString());
 
         if (ssl)
         {
