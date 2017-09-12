@@ -94,7 +94,6 @@ static boost::filesystem::path tlsKeyPath;
 static boost::filesystem::path tlsCertPath;
 
 // OpenSSL related variables for metrics.cpp
-static std::string tlsvalidate;
 static std::string routingsecrecy;
 static std::string cipherdescription;
 static std::string securitylevel;
@@ -179,6 +178,9 @@ extern CCriticalSection cs_vAddedNodes;
 extern NodeId nLastNodeId;
 extern CCriticalSection cs_nLastNodeId;
 
+extern SSL_CTX *tls_ctx_server;
+extern SSL_CTX *tls_ctx_client;
+
 struct LocalServiceInfo {
     int nScore;
     int nPort;
@@ -193,7 +195,8 @@ class CNodeStats
 public:
     NodeId nodeid;
     uint64_t nServices;
-    bool fTLSHandshakeComplete;
+    bool fTLSEstablished;
+    bool fTLSVerified;
     int64_t nLastSend;
     int64_t nLastRecv;
     int64_t nTimeConnected;
@@ -261,15 +264,12 @@ class CNode
 {
 public:
     // OpenSSL
-    BIO *sbio;
-    SSL_CTX *ctx;
     SSL *ssl;
-    bool server_side;
-    bool establish_tls_connection(bool contextonly=false);
-
+    
     // socket
     uint64_t nServices;
     SOCKET hSocket;
+    CCriticalSection cs_hSocket;
     CDataStream ssSend;
     size_t nSendSize; // total size of all vSendMsg entries
     size_t nSendOffset; // offset inside the first vSendMsg already sent
@@ -282,7 +282,6 @@ public:
     CCriticalSection cs_vRecvMsg;
     uint64_t nRecvBytes;
     int nRecvVersion;
-    bool fTLSHandshakeComplete;
 
     int64_t nLastSend;
     int64_t nLastRecv;
@@ -360,7 +359,7 @@ public:
     // Whether a ping is requested.
     bool fPingQueued;
 
-    CNode(SOCKET hSocketIn, const CAddress &addrIn, const std::string &addrNameIn = "", bool fInboundIn = false);
+    CNode(SOCKET hSocketIn, const CAddress &addrIn, const std::string &addrNameIn = "", bool fInboundIn = false, SSL *sslIn = NULL);
     ~CNode();
 
 private:
