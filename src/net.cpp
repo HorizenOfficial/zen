@@ -2465,7 +2465,7 @@ static bool TLSInitialize()
         trustedDirs = GetDefaultTrustedDirectories();
 
     for (fs::path dir : trustedDirs)
-        LogPrintf("TLS: trusted directory '%s' will be used\n", dir.c_str());
+        LogPrintf("TLS: trusted directory '%s' will be used\n", dir.string().c_str());
 
     // Initialization of the server and client contexts
     //
