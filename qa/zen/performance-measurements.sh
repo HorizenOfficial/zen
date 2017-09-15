@@ -5,17 +5,17 @@ set -e
 DATADIR=./benchmark-datadir
 
 function zcash_rpc {
-    ./src/zcash-cli -datadir="$DATADIR" -rpcwait -rpcuser=user -rpcpassword=password -rpcport=5983 "$@"
+    ./src/zen-cli -datadir="$DATADIR" -rpcwait -rpcuser=user -rpcpassword=password -rpcport=5983 "$@"
 }
 
 function zcash_rpc_slow {
     # Timeout of 1 hour
-    ./src/zcash-cli -datadir="$DATADIR" -rpcwait -rpcuser=user -rpcpassword=password -rpcport=5983 -rpcclienttimeout=3600 "$@"
+    ./src/zen-cli -datadir="$DATADIR" -rpcwait -rpcuser=user -rpcpassword=password -rpcport=5983 -rpcclienttimeout=3600 "$@"
 }
 
 function zcash_rpc_veryslow {
     # Timeout of 2.5 hours
-    ./src/zcash-cli -datadir="$DATADIR" -rpcwait -rpcuser=user -rpcpassword=password -rpcport=5983 -rpcclienttimeout=9000 "$@"
+    ./src/zen-cli -datadir="$DATADIR" -rpcwait -rpcuser=user -rpcpassword=password -rpcport=5983 -rpcclienttimeout=9000 "$@"
 }
 
 function zcashd_generate {
@@ -26,7 +26,7 @@ function zcashd_start {
     rm -rf "$DATADIR"
     mkdir -p "$DATADIR"
     touch "$DATADIR/zen.conf"
-    ./src/zcashd -regtest -datadir="$DATADIR" -rpcuser=user -rpcpassword=password -rpcport=5983 -showmetrics=0 &
+    ./src/zend -regtest -datadir="$DATADIR" -rpcuser=user -rpcpassword=password -rpcport=5983 -showmetrics=0 &
     ZCASHD_PID=$!
 }
 
@@ -40,7 +40,7 @@ function zcashd_massif_start {
     mkdir -p "$DATADIR"
     touch "$DATADIR/zen.conf"
     rm -f massif.out
-    valgrind --tool=massif --time-unit=ms --massif-out-file=massif.out ./src/zcashd -regtest -datadir="$DATADIR" -rpcuser=user -rpcpassword=password -rpcport=5983 -showmetrics=0 &
+    valgrind --tool=massif --time-unit=ms --massif-out-file=massif.out ./src/zend -regtest -datadir="$DATADIR" -rpcuser=user -rpcpassword=password -rpcport=5983 -showmetrics=0 &
     ZCASHD_PID=$!
 }
 
@@ -55,7 +55,7 @@ function zcashd_valgrind_start {
     mkdir -p "$DATADIR"
     touch "$DATADIR/zen.conf"
     rm -f valgrind.out
-    valgrind --leak-check=yes -v --error-limit=no --log-file="valgrind.out" ./src/zcashd -regtest -datadir="$DATADIR" -rpcuser=user -rpcpassword=password -rpcport=5983 -showmetrics=0 &
+    valgrind --leak-check=yes -v --error-limit=no --log-file="valgrind.out" ./src/zend -regtest -datadir="$DATADIR" -rpcuser=user -rpcpassword=password -rpcport=5983 -showmetrics=0 &
     ZCASHD_PID=$!
 }
 
@@ -188,7 +188,7 @@ case "$1" in
         case "$2" in
             gtest)
                 rm -f valgrind.out
-                valgrind --leak-check=yes -v --error-limit=no --log-file="valgrind.out" ./src/zcash-gtest
+                valgrind --leak-check=yes -v --error-limit=no --log-file="valgrind.out" ./src/zen-gtest
                 cat valgrind.out
                 rm -f valgrind.out
                 ;;
