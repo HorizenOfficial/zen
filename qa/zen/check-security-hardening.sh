@@ -30,11 +30,11 @@ function test_fortify_source {
 make -C "$REPOROOT/src" check-security
 
 test_rpath_runpath "${REPOROOT}/src/zend"
-test_rpath_runpath "${REPOROOT}/src/zen-cii"
+test_rpath_runpath "${REPOROOT}/src/zen-cli"
 test_rpath_runpath "${REPOROOT}/src/zen-gtest"
 test_rpath_runpath "${REPOROOT}/src/zen-tx"
 test_rpath_runpath "${REPOROOT}/src/test/test_bitcoin"
-#test_rpath_runpath "${REPOROOT}/src/zen/GenerateParams"
+test_rpath_runpath "${REPOROOT}/src/zcash/GenerateParams"
 
 # NOTE: checksec.sh does not reliably determine whether FORTIFY_SOURCE is
 # enabled for the entire binary. See issue #915.
@@ -43,4 +43,4 @@ test_fortify_source "${REPOROOT}/src/zen-cli"
 test_fortify_source "${REPOROOT}/src/zen-gtest"
 test_fortify_source "${REPOROOT}/src/zen-tx"
 test_fortify_source "${REPOROOT}/src/test/test_bitcoin"
-#test_fortify_source "${REPOROOT}/src/zen/GenerateParams"
+test_fortify_source "${REPOROOT}/src/zcash/GenerateParams"
