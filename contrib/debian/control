@@ -1,7 +1,7 @@
 Source: zcash
 Section: utils
 Priority: optional
-Maintainer: Zen Blockchain Foundation <admin@zensystem.io>
+Maintainer: Zen Blockchain Foundation <info@zensystem.io>
 Homepage: https://zensystem.io
 Build-Depends: autoconf, automake, bsdmainutils, build-essential,
  git, g++-multilib, libc6-dev, libtool,

@@ -26,7 +26,7 @@ $(package)_cxxflags_linux=-fPIC
 endef
 
 define $(package)_preprocess_cmds
-  echo "using $(boost_toolset_$(host_os)) : : $($(package)_cxx) : <cxxflags>\"$($(package)_cxxflags) $($(package)_cppflags)\" <linkflags>\"$($(package)_ldflags)\" <archiver>\"$(boost_archiver_$(host_os))\" <striper>\"$(host_STRIP)\"  <ranlib>\"$(host_RANLIB)\" <rc>\"$(host_WINDRES)\" : ;" > user-config.jam && \
+  echo "using $(boost_toolset_$(host_os)) : g++ : $($(package)_cxx) : <cxxflags>\"$($(package)_cxxflags) $($(package)_cppflags)\" <linkflags>\"$($(package)_ldflags)\" <archiver>\"ar\" <striper>\"strip\"  <ranlib>\"ranlib\" <rc>\"$(host_WINDRES)\" : ;" > user-config.jam && \
    patch -p1 < $($(package)_patch_dir)/deprecated_auto_ptr.patch && \
    patch -p1 < $($(package)_patch_dir)/include_poll.patch
 endef

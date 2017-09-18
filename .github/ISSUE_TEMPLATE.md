@@ -4,7 +4,7 @@ This issue tracker is only for technical issues related to Zen.
 
 General Zen questions and/or support requests and are best directed to the [Slack](https://zencash.slack.com).
 
-For reporting security vulnerabilities or for sensitive discussions with our security team, please post a message in #developers within the above Slack, or email admin@zensystem.io with information.
+For reporting security vulnerabilities or for sensitive discussions with our security team, please post a message in #developers within the above Slack, or email info@zensystem.io with information.
 
 ### Describe the issue
 Please provide a general summary of the issue you're experiencing
