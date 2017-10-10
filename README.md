@@ -16,11 +16,10 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
     2. Centos:
     ```{r, engine='bash')
     sudo yum install epel-release
-    sudo yum group install 'Development Tools'
-    sudo yum install lbzip2 \
-        ncurses-dev unzip python \
-        zlib1g-dev wget bsdmainutils
-    ```   
+    sudo yum update
+    sudo yum groupinstall 'Development Tools'
+    sudo yum install git cmake3 wget
+    ```
     3. Windows
     ```{r, engine='bash'}
     sudo apt-get install \
@@ -33,7 +32,7 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
     sudo apt-get install \
         build-essential pkg-config libc6-dev m4 g++-multilib-arm-linux-gnueabihf \
         autoconf libtool ncurses-dev unzip git python \
-        zlib1g-dev wget bsdmainutils automake 
+        zlib1g-dev wget bsdmainutils automake
     ```
 
 * Install for linux
@@ -57,16 +56,16 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
 ```
 mkdir -p ~/bin
 cd ~/bin
-ln -s /usr/bin/ar aarch64-unknown-linux-gnu-ar 
-ln -s /usr/bin/g++ aarch64-unknown-linux-gnu-g++ 
-ln -s /usr/bin/gcc aarch64-unknown-linux-gnu-gcc 
-ln -s /usr/bin/nm aarch64-unknown-linux-gnu-nm 
-ln -s /usr/bin/ranlib aarch64-unknown-linux-gnu-ranlib 
-ln -s /usr/bin/strip aarch64-unknown-linux-gnu-strip 
+ln -s /usr/bin/ar aarch64-unknown-linux-gnu-ar
+ln -s /usr/bin/g++ aarch64-unknown-linux-gnu-g++
+ln -s /usr/bin/gcc aarch64-unknown-linux-gnu-gcc
+ln -s /usr/bin/nm aarch64-unknown-linux-gnu-nm
+ln -s /usr/bin/ranlib aarch64-unknown-linux-gnu-ranlib
+ln -s /usr/bin/strip aarch64-unknown-linux-gnu-strip
 PATH=$PATH:~/bin
 cd ~/zen/
 ./zcutil.build-arm.sh --disable-rust -j$(nproc)
-``` 
+```
 Instructions to redeem pre block 110,000 ZCL
 -------------
 1. Linux:
@@ -79,8 +78,8 @@ About
 --------------
 
 [Zen](https://zencash.io/) is a platform for secure communications and for deniable economic activity.
-Zen is an evolution of the Zclassic codebase aimed at primarily enabling intriniscally secure communications and 
-resilient networking. 
+Zen is an evolution of the Zclassic codebase aimed at primarily enabling intriniscally secure communications and
+resilient networking.
 
 This software is the Zen client. It downloads and stores the entire history
 of Zen transactions; depending on the speed of your computer and network
