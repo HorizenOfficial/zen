@@ -396,7 +396,8 @@ static const CRPCCommand vRPCCommands[] =
     { "wallet",             "z_exportkey",            &z_exportkey,            true  },
     { "wallet",             "z_importkey",            &z_importkey,            true  },
     { "wallet",             "z_exportwallet",         &z_exportwallet,         true  },
-    { "wallet",             "z_importwallet",         &z_importwallet,         true  }
+    { "wallet",             "z_importwallet",         &z_importwallet,         true  },
+    { "wallet",             "listaddresses",          &listaddresses,          true  }
 #endif // ENABLE_WALLET
 };
 
