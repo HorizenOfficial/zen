@@ -292,6 +292,8 @@ extern UniValue z_getoperationresult(const UniValue& params, bool fHelp); // in 
 extern UniValue z_listoperationids(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue z_validateaddress(const UniValue& params, bool fHelp); // in rpcmisc.cpp
 
+extern UniValue listaddresses(const UniValue& params, bool fHelp); // in rpcwallet.cpp
+
 bool StartRPC();
 void InterruptRPC();
 void StopRPC();
