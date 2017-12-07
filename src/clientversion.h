@@ -35,7 +35,7 @@
 #define CLIENT_VERSION_MAJOR 2
 #define CLIENT_VERSION_MINOR 0
 #define CLIENT_VERSION_REVISION 10
-#define CLIENT_VERSION_BUILD 50
+#define CLIENT_VERSION_BUILD 51
 
 //! Set to true for release, false for prerelease or test build
 #define CLIENT_VERSION_IS_RELEASE true
@@ -80,6 +80,7 @@ extern const std::string CLIENT_BUILD;
 extern const std::string CLIENT_DATE;
 
 
+std::string FormatVersion(int nVersion);
 std::string FormatFullVersion();
 std::string FormatSubVersion(const std::string& name, int nClientVersion, const std::vector<std::string>& comments);
 
