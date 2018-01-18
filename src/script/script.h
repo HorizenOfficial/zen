@@ -162,6 +162,9 @@ enum opcodetype
     OP_NOP3 = 0xb2,
     OP_NOP4 = 0xb3,
     OP_NOP5 = 0xb4,
+    // ZEN_MOD_START
+    OP_CHECKBLOCKATHEIGHT = OP_NOP5,
+    // ZEN_MOD_END
     OP_NOP6 = 0xb5,
     OP_NOP7 = 0xb6,
     OP_NOP8 = 0xb7,

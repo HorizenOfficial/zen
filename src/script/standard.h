@@ -65,6 +65,12 @@ enum txnouttype
     TX_SCRIPTHASH,
     TX_MULTISIG,
     TX_NULL_DATA,
+// ZEN_MOD_START
+    TX_PUBKEY_REPLAY,
+    TX_PUBKEYHASH_REPLAY,
+    TX_MULTISIG_REPLAY,
+    TX_NULL_DATA_REPLAY,
+// ZEN_MOD_END
 };
 
 class CNoDestination {

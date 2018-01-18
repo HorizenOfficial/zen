@@ -83,6 +83,32 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey)
             return ISMINE_SPENDABLE;
         break;
     }
+// ZEN_MOD_START
+    case TX_NULL_DATA_REPLAY:
+        break;
+    case TX_PUBKEY_REPLAY:
+        keyID = CPubKey(vSolutions[0]).GetID();
+        if (keystore.HaveKey(keyID))
+            return ISMINE_SPENDABLE;
+        break;
+    case TX_PUBKEYHASH_REPLAY:
+        keyID = CKeyID(uint160(vSolutions[0]));
+        if (keystore.HaveKey(keyID))
+            return ISMINE_SPENDABLE;
+        break;
+    case TX_MULTISIG_REPLAY:
+    {
+        // Only consider transactions "mine" if we own ALL the
+        // keys involved. Multi-signature transactions that are
+        // partially owned (somebody else has a key that can spend
+        // them) enable spend-out-from-under-you attacks, especially
+        // in shared-wallet situations.
+        vector<valtype> keys(vSolutions.begin()+1, vSolutions.begin()+vSolutions.size()-1);
+        if (HaveKeys(keys, keystore) == keys.size())
+            return ISMINE_SPENDABLE;
+        break;
+    }
+// ZEN_MOD_END
     }
 
     if (keystore.HaveWatchOnly(scriptPubKey))
