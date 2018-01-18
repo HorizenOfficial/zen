@@ -31,7 +31,9 @@ RE_FORTIFY_USED = re.compile('Binary compiled with FORTIFY_SOURCE support.*Yes')
 
 def test_rpath_runpath(filename):
     output = subprocess.check_output(
-        [repofile('qa/zcash/checksec.sh'), '--file', repofile(filename)]
+    # ZEN_MOD_START
+        [repofile('qa/zen/checksec.sh'), '--file', repofile(filename)]
+    # ZEN_MOD_END
     )
     if RE_RPATH_RUNPATH.search(output):
         print('PASS: %s has no RPATH or RUNPATH.' % filename)
@@ -43,7 +45,9 @@ def test_rpath_runpath(filename):
 
 def test_fortify_source(filename):
     proc = subprocess.Popen(
-        [repofile('qa/zcash/checksec.sh'), '--fortify-file', repofile(filename)],
+        # ZEN_MOD_START
+        [repofile('qa/zen/checksec.sh'), '--fortify-file', repofile(filename)],
+        # ZEN_MOD_END
         stdout=subprocess.PIPE,
     )
     line1 = proc.stdout.readline()
