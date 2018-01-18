@@ -138,13 +138,18 @@ const char* GetOpName(opcodetype opcode)
     case OP_CHECKSIGVERIFY         : return "OP_CHECKSIGVERIFY";
     case OP_CHECKMULTISIG          : return "OP_CHECKMULTISIG";
     case OP_CHECKMULTISIGVERIFY    : return "OP_CHECKMULTISIGVERIFY";
+// ZEN_MOD_START
+    case OP_CHECKBLOCKATHEIGHT     : return "OP_CHECKBLOCKATHEIGHT";
+// ZEN_MOD_END
 
     // expanson
     case OP_NOP1                   : return "OP_NOP1";
     case OP_NOP2                   : return "OP_NOP2";
     case OP_NOP3                   : return "OP_NOP3";
     case OP_NOP4                   : return "OP_NOP4";
-    case OP_NOP5                   : return "OP_NOP5";
+// ZEN_MOD_START
+    //case OP_NOP5                   : return "OP_NOP5"; Generic anti-replay protection using Script
+// ZEN_MOD_END
     case OP_NOP6                   : return "OP_NOP6";
     case OP_NOP7                   : return "OP_NOP7";
     case OP_NOP8                   : return "OP_NOP8";
