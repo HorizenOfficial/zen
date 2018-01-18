@@ -42,7 +42,9 @@
 using namespace std;
 
 #if defined(NDEBUG)
-# error "Zcash cannot be compiled without assertions."
+// ZEN_MOD_START
+# error "Zen cannot be compiled without assertions."
+// ZEN_MOD_END
 #endif
 
 /**

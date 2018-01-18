@@ -146,7 +146,9 @@ EOF
     if [ $ARCHIVE_RESULT -ne 0 ]; then
         zcashd_stop
         echo
-        echo "Please generate it using qa/zcash/create_benchmark_archive.py"
+        # ZEN_MOD_START
+        echo "Please generate it using qa/zen/create_benchmark_archive.py"
+        # ZEN_MOD_END
         echo "and place it in the base directory of the repository."
         echo "Usage details are inside the Python script."
         exit 1

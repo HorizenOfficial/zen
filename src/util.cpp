@@ -423,7 +423,9 @@ static std::string FormatException(const std::exception* pex, const char* pszThr
     char pszModule[MAX_PATH] = "";
     GetModuleFileNameA(NULL, pszModule, sizeof(pszModule));
 #else
-    const char* pszModule = "Zcash";
+    // ZEN_MOD_START
+    const char* pszModule = "Zen";
+    // ZEN_MOD_END
 #endif
     if (pex)
         return strprintf(
@@ -444,13 +446,17 @@ void PrintExceptionContinue(const std::exception* pex, const char* pszThread)
 boost::filesystem::path GetDefaultDataDir()
 {
     namespace fs = boost::filesystem;
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Zcash
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Zcash
-    // Mac: ~/Library/Application Support/Zcash
-    // Unix: ~/.zcash
+    // ZEN_MOD_START
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Zen
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Zen
+    // Mac: ~/Library/Application Support/Zen
+    // Unix: ~/.zen
+    // ZEN_MOD_END
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "Zcash";
+    // ZEN_MOD_START
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "Zen";
+    // ZEN_MOD_END
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -462,10 +468,14 @@ boost::filesystem::path GetDefaultDataDir()
     // Mac
     pathRet /= "Library/Application Support";
     TryCreateDirectory(pathRet);
-    return pathRet / "Zcash";
+    // ZEN_MOD_START
+    return pathRet / "Zen";
+    // ZEN_MOD_END
 #else
     // Unix
-    return pathRet / ".zcash";
+    // ZEN_MOD_START
+    return pathRet / ".zen";
+    // ZEN_MOD_END
 #endif
 #endif
 }
@@ -582,7 +592,9 @@ void ClearDatadirCache()
 
 boost::filesystem::path GetConfigFile()
 {
-    boost::filesystem::path pathConfigFile(GetArg("-conf", "zcash.conf"));
+    // ZEN_MOD_START
+    boost::filesystem::path pathConfigFile(GetArg("-conf", "zen.conf"));
+    // ZEN_MOD_END
     if (!pathConfigFile.is_complete())
         pathConfigFile = GetDataDir(false) / pathConfigFile;
 
@@ -594,14 +606,18 @@ void ReadConfigFile(map<string, string>& mapSettingsRet,
 {
     boost::filesystem::ifstream streamConfig(GetConfigFile());
     if (!streamConfig.good())
-        throw missing_zcash_conf();
+        // ZEN_MOD_START
+        return; // No zen.conf file is OK
+        // ZEN_MOD_END
 
     set<string> setOptions;
     setOptions.insert("*");
 
     for (boost::program_options::detail::config_file_iterator it(streamConfig, setOptions), end; it != end; ++it)
     {
-        // Don't overwrite existing settings so command line settings override zcash.conf
+        // ZEN_MOD_START
+        // Don't overwrite existing settings so command line settings override zen.conf
+        // ZEN_MOD_END
         string strKey = string("-") + it->string_key;
         if (mapSettingsRet.count(strKey) == 0)
         {
@@ -618,7 +634,9 @@ void ReadConfigFile(map<string, string>& mapSettingsRet,
 #ifndef WIN32
 boost::filesystem::path GetPidFile()
 {
-    boost::filesystem::path pathPidFile(GetArg("-pid", "zcashd.pid"));
+    // ZEN_MOD_START
+    boost::filesystem::path pathPidFile(GetArg("-pid", "zend.pid"));
+    // ZEN_MOD_END
     if (!pathPidFile.is_complete()) pathPidFile = GetDataDir() / pathPidFile;
     return pathPidFile;
 }
@@ -900,6 +918,9 @@ std::string LicenseInfo()
     return "\n" +
            FormatParagraph(strprintf(_("Copyright (C) 2009-%i The Bitcoin Core Developers"), COPYRIGHT_YEAR)) + "\n" +
            FormatParagraph(strprintf(_("Copyright (C) 2015-%i The Zcash Developers"), COPYRIGHT_YEAR)) + "\n" +
+            // ZEN_MOD_START
+           FormatParagraph(strprintf(_("Copyright (C) 2015-%i The Core from Zdeveloper.org"), COPYRIGHT_YEAR)) + "\n" +
+            // ZEN_MOD_END
            "\n" +
            FormatParagraph(_("This is experimental software.")) + "\n" +
            "\n" +
