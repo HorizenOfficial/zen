@@ -44,13 +44,13 @@ WINDOWS_PACKAGING = $(top_srcdir)/share/pixmaps/bitcoin.ico \
 ##  $(top_srcdir)/contrib/macdeploy/detached-sig-apply.sh \
 ##  $(top_srcdir)/contrib/macdeploy/detached-sig-create.sh
 
+# ZEN_MOD_START
 COVERAGE_INFO = baseline_filtered_combined.info baseline.info \
   leveldb_baseline.info test_bitcoin_filtered.info total_coverage.info \
   baseline_filtered.info \
   leveldb_baseline_filtered.info test_bitcoin_coverage.info test_bitcoin.info \
-  # ZEN_MOD_START
   zen-gtest.info zen-gtest_filtered.info zen-gtest_coverage.info
-  # ZEN_MOD_END
+# ZEN_MOD_END
 
 dist-hook:
 	-$(MAKE) -C $(top_distdir)/src/leveldb clean
@@ -241,11 +241,9 @@ test_bitcoin.coverage/.dirstamp:  test_bitcoin_coverage.info
 
 # ZEN_MOD_START
 zen-gtest.coverage/.dirstamp:  zen-gtest_coverage.info
-# ZEN_MOD_END
 	$(GENHTML) -s $< -o $(@D)
 	@touch $@
 
-# ZEN_MOD_START
 cov-zen: zen-gtest.coverage/.dirstamp
 # ZEN_MOD_END
 
