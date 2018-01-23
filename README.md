@@ -1,55 +1,74 @@
-Zcash 1.0.14
-=============
+Zen 1.0.8-2
+==============
 
-What is Zcash?
+What is Zen?
+----------------
+A globally accessible and anonymous blockchain for censorship-resistant communications and economic activity.
+
+Get dependencies:
+```{r, engine='bash'}
+
+sudo apt-get install \
+      build-essential pkg-config libc6-dev m4 g++-multilib \
+      autoconf libtool ncurses-dev unzip git python \
+      zlib1g-dev wget bsdmainutils automake
+```
+
+Install
+```{r, engine='bash'}
+# Build
+./zcutil/build.sh -j$(nproc)
+# fetch key
+./zcutil/fetch-params.sh
+# Run
+./src/zend
+```
+
+
+About
 --------------
 
-[Zcash](https://z.cash/) is an implementation of the "Zerocash" protocol.
-Based on Bitcoin's code, it intends to offer a far higher standard of privacy
-through a sophisticated zero-knowledge proving scheme that preserves
-confidentiality of transaction metadata. Technical details are available
-in our [Protocol Specification](https://github.com/zcash/zips/raw/master/protocol/protocol.pdf).
+[Zen](https://zencash.io/) is a platform for secure communications and for deniable economic activity.
+Zen is an evolution of the Zclassic codebase aimed at primarily enabling intriniscally secure communications and 
+resilient networking. 
 
-This software is the Zcash client. It downloads and stores the entire history
-of Zcash transactions; depending on the speed of your computer and network
+This software is the Zen client. It downloads and stores the entire history
+of Zen transactions; depending on the speed of your computer and network
 connection, the synchronization process could take a day or more once the
 blockchain has reached a significant size.
 
 Security Warnings
 -----------------
 
-See important security warnings on the
-[Security Information page](https://z.cash/support/security/).
+See important security warnings in
+[doc/security-warnings.md](doc/security-warnings.md).
 
-**Zcash is experimental and a work-in-progress.** Use at your own risk.
-
-Deprecation Policy
-------------------
-
-This release is considered deprecated 16 weeks after the release day. There
-is an automatic deprecation shutdown feature which will halt the node some
-time after this 16 week time period. The automatic feature is based on block
-height and can be explicitly disabled.
+**Zen is unfinished and highly experimental.** Use at your own risk.
 
 Where do I begin?
 -----------------
-We have a guide for joining the main Zcash network:
-https://github.com/zcash/zcash/wiki/1.0-User-Guide
+* The easiest way to get started is to download one of the available graphical wallets from [Zdeveloper.org](https://zdeveloper.org)
 
 ### Need Help?
 
-* See the documentation at the [Zcash Wiki](https://github.com/zcash/zcash/wiki)
+* Many guides and tutorials are available at [Zdeveloper.org](https://zdeveloper.org)
   for help and more information.
-* Ask for help on the [Zcash](https://forum.z.cash/) forum.
+* Ask for help on the [Zdeveloper Rocket Chat](https://rocketchat.zdeveloper.org).
 
-Participation in the Zcash project is subject to a
+### Want to participate in development?
+
+* Code review is welcome!
+* If you want to get to know us join our [Rocket Chat](https://rocketchat.zdeveloper.org)
+
+
+Participation in the Zen project is subject to a
 [Code of Conduct](code_of_conduct.md).
 
 Building
 --------
 
-Build Zcash along with most dependencies from source by running
-./zcutil/build.sh. Currently only Linux is officially supported.
+Build Zen along with most dependencies from source by running
+./zcutil/build.sh. Linux, MacOS, and Windows x64 are supported.
 
 License
 -------
