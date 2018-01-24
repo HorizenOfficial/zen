@@ -1,5 +1,5 @@
 ---
-name: "zcash-1.0.14"
+name: "zen-2.0.8-2"
 enable_cache: true
 distro: "debian"
 suites:
@@ -25,8 +25,8 @@ packages:
 - "wget"
 - "zlib1g-dev"
 remotes:
-- "url": "https://github.com/zcash/zcash.git"
-  "dir": "zcash"
+- "url": "https://github.com/zencashio/zen.git"
+  "dir": "zen"
 files: []
 script: |
   WRAP_DIR=$HOME/wrapped
