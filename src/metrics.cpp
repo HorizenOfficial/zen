@@ -209,9 +209,9 @@ int printStats(bool mining)
     tlsvalidate = GetArg("-tlsvalidate","");
     std::string cipherdescription = "Not Encrypted";
     std::string securitylevel = "INACTIVE";
-    std::string routingsecrecy = "CLEARNET";
+    std::string routingsecrecy = GetArg("-onlynet", "");
     std::string validationdescription = (tlsvalidate == "1" ? "YES" : "PUBLIC");
-    if (routingsecrecy == "ipv4" || routingsecrecy == "ipv6")
+    if (routingsecrecy == "" || routingsecrecy == "ipv4" || routingsecrecy == "ipv6")
         routingsecrecy = "CLEARNET";
     else if (routingsecrecy == "onion")
         routingsecrecy = "TOR NETWORK";
