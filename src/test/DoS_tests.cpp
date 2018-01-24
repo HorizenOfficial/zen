@@ -49,10 +49,7 @@ BOOST_AUTO_TEST_CASE(DoS_banning)
 {
     CNode::ClearBanned();
     CAddress addr1(ip(0xa0b0c001));
-// ZEN_MOD_START
-    BIO *BIO_node;
-    CNode dummyNode1(INVALID_SOCKET, BIO_node, addr1, "", true);
-// ZEN_MOD_END
+    CNode dummyNode1(INVALID_SOCKET, addr1, "", true);
     dummyNode1.nVersion = 1;
     Misbehaving(dummyNode1.GetId(), 100); // Should get banned
     SendMessages(&dummyNode1, false);
@@ -60,9 +57,7 @@ BOOST_AUTO_TEST_CASE(DoS_banning)
     BOOST_CHECK(!CNode::IsBanned(ip(0xa0b0c001|0x0000ff00))); // Different IP, not banned
 
     CAddress addr2(ip(0xa0b0c002));
-// ZEN_MOD_START
-    CNode dummyNode2(INVALID_SOCKET, BIO_node, addr2, "", true);
-// ZEN_MOD_END
+    CNode dummyNode2(INVALID_SOCKET, addr2, "", true);
     dummyNode2.nVersion = 1;
     Misbehaving(dummyNode2.GetId(), 50);
     SendMessages(&dummyNode2, false);
@@ -78,10 +73,7 @@ BOOST_AUTO_TEST_CASE(DoS_banscore)
     CNode::ClearBanned();
     mapArgs["-banscore"] = "111"; // because 11 is my favorite number
     CAddress addr1(ip(0xa0b0c001));
-// ZEN_MOD_START
-    BIO *BIO_node;
-    CNode dummyNode1(INVALID_SOCKET, BIO_node, addr1, "", true);
-// ZEN_MOD_END
+    CNode dummyNode1(INVALID_SOCKET, addr1, "", true);
     dummyNode1.nVersion = 1;
     Misbehaving(dummyNode1.GetId(), 100);
     SendMessages(&dummyNode1, false);
@@ -100,13 +92,8 @@ BOOST_AUTO_TEST_CASE(DoS_bantime)
     CNode::ClearBanned();
     int64_t nStartTime = GetTime();
     SetMockTime(nStartTime); // Overrides future calls to GetTime()
-// ZEN_MOD_START
-    BIO *BIO_node;
-// ZEN_MOD_END
     CAddress addr(ip(0xa0b0c001));
-// ZEN_MOD_START
-    CNode dummyNode(INVALID_SOCKET, BIO_node, addr, "", true);
-// ZEN_MOD_END
+    CNode dummyNode(INVALID_SOCKET, addr, "", true);
     dummyNode.nVersion = 1;
     Misbehaving(dummyNode.GetId(), 100);
     SendMessages(&dummyNode, false);
