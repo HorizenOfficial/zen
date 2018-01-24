@@ -1448,6 +1448,10 @@ bool IsInitialBlockDownload()
 {
     const CChainParams& chainParams = Params();
     LOCK(cs_main);
+// ZEN_MOD_START
+    if (chainActive.Height() < chainParams.GetConsensus().nChainsplitIndex + 1)
+        return false;
+// ZEN_MOD_END
     if (fImporting || fReindex)
         return true;
     if (fCheckpointsEnabled && chainActive.Height() < Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()))
@@ -1456,15 +1460,11 @@ bool IsInitialBlockDownload()
     if (lockIBDState)
         return false;
 // ZEN_MOD_START
-    if (chainActive.Height() >= chainParams.GetConsensus().nChainsplitIndex) {
-        bool state = (chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 ||
-                pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge());
-        if (!state)
-            lockIBDState = true;
-        return state;
-    }
-    else
-        return true;
+    bool state = (chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 ||
+            pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge());
+    if (!state)
+        lockIBDState = true;
+    return state;
 // ZEN_MOD_END
 }
 
