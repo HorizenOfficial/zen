@@ -6,7 +6,7 @@ What is Zen?
 A globally accessible and anonymous blockchain for censorship-resistant communications and economic activity.
 
 1. Get dependencies:
-    1.Debian
+    1. Debian
     ```{r, engine='bash'}
     sudo apt-get install \
           build-essential pkg-config libc6-dev m4 g++-multilib \
