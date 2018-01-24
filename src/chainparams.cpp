@@ -55,7 +55,7 @@ public:
         consensus.nPowMaxAdjustUp = 16; // 16% adjustment up
         consensus.nPowTargetSpacing = 2.5 * 60;
 // ZEN_MOD_START
-        consensus.fPowAllowMinDifficultyBlocks = false;
+//        consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.nRuleChangeActivationThreshold = 1916; // 95% of 2016
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
         consensus.nChainsplitIndex = 110000;
@@ -70,7 +70,7 @@ public:
         pchMessageStart[3] = 0x68;
         vAlertPubKey = ParseHex("048679fb891b15d0cada9692047fd0ae26ad8bfb83fabddbb50334ee5bc0683294deb410be20513c5af6e7b9cec717ade82b27080ee6ef9a245c36a795ab044bb3");
         nDefaultPort = 8033;
-        nMinerThreads = 0;
+//        nMinerThreads = 0;
         std::time_t result = std::time(nullptr);
         if (result < consensus.nChainsplitTime + (24 * 60 * 60))
             nMaxTipAge = 10 * 24 * 60 * 60; // Allow blocks up to 10 days old to be the chain tip
@@ -238,7 +238,7 @@ public:
         consensus.powLimit = uint256S("07ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nPowAveragingWindow);
 // ZEN_MOD_START
-        consensus.fPowAllowMinDifficultyBlocks = true;
+//        consensus.fPowAllowMinDifficultyBlocks = true;
         consensus.nRuleChangeActivationThreshold = 1512; // 75% for testchains
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
         consensus.nChainsplitIndex = 70000;
