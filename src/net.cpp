@@ -1394,15 +1394,9 @@ void ThreadSocketHandler()
                         pnode->nRecvBytes += nBytes;
                         pnode->RecordBytesRecv(nBytes);
                     }
-                    else if (nBytes == 0) {
-                        // socket closed gracefully
-                        if (!pnode->fDisconnect)
-                            LogPrint("net", "socket closed\n");
-                        pnode->CloseSocketDisconnect();
-// ZEN_MOD_END
-                    }
                 }
             }
+// ZEN_MOD_END
 
             //
             // Send
