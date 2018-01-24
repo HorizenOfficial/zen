@@ -256,8 +256,8 @@ public:
         pchMessageStart[2] = 0xcd;
         pchMessageStart[3] = 0xe6;
         vAlertPubKey = ParseHex("048679fb891b15d0cada9692047fd0ae26ad8bfb83fabddbb50334ee5bc0683294deb410be20513c5af6e7b9cec717ade82b27080ee6ef9a245c36a795ab044bb3");
-        nDefaultPort = 18033;
-//        nMinerThreads = 0;
+        nDefaultPort = 19033;
+        nMinerThreads = 0;
 // ZEN_MOD_END
         nPruneAfterHeight = 1000;
 
@@ -382,7 +382,7 @@ public:
         genesis.nNonce = uint256S("0x000000000000000000000000000000000000000000000000000000000000003d");
         genesis.nSolution = ParseHex("00CBA7185285F4FF37432E1F3AA7A569FBC81B5A0876F23DA8D38840B0130C74E68297B5");
         consensus.hashGenesisBlock = genesis.GetHash();
-        nDefaultPort = 18133;
+        nDefaultPort = 19133;
         assert(consensus.hashGenesisBlock == uint256S("0x0da5ee723b7923feb580518541c6f098206330dbc711a6678922c11f2ccf1abb"));
 // ZEN_MOD_END
 
