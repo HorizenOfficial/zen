@@ -14,6 +14,10 @@
 
 #include <vector>
 
+#include <boost/foreach.hpp>
+
+static const int SPROUT_VALUE_VERSION = 1001400;
+
 struct CDiskBlockPos
 {
     int nFile;
