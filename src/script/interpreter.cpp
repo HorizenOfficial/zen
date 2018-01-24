@@ -422,7 +422,19 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 #ifdef BITCOIN_TX // zen-tx can't process OP_CHECKBLOCKATHEIGHT because it requires an active chain
                 case OP_CHECKBLOCKATHEIGHT:
                 {
-                    return set_error(serror, SCRIPT_ERR_CHECKBLOCKATHEIGHT_UNVERIFIED);
+                    // we need two objects on the stack
+                    if (stack.size() < 2)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    valtype vchBlockHash(stacktop(-2));
+                    valtype vchBlockIndex(stacktop(-1));
+
+                    if ((vchBlockIndex.size() > sizeof(int)) || (vchBlockHash.size() > 32))
+                        return set_error(serror, SCRIPT_ERR_CHECKBLOCKATHEIGHT);
+
+                    // since we can't access chain data then we treat OP_CHECKBLOCKATHEIGHT as a NOP
+                    popstack(stack);
+                    popstack(stack);
                 }
                 break;
 #else
@@ -496,8 +508,9 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                         {
                             popstack(stack);
                         }
-                        else
+                        else {
                             return set_error(serror, SCRIPT_ERR_CHECKBLOCKATHEIGHT);
+                        }
                     }
                 }
                 break;
