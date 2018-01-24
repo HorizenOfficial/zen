@@ -286,6 +286,8 @@ SSL_CTX *client_ctx = create_context(false);
 
 bool CNode::establish_tls_connection(bool blocking)
 {
+    boost::this_thread::interruption_point();
+
     // Initialize TLS context
     if (ctx == NULL) {
         if (server_side)
@@ -647,7 +649,9 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 void CNode::CloseSocketDisconnect()
 {
 // ZEN_MOD_START
-    if (ssl != NULL) SSL_shutdown(ssl);
+    if (ssl != NULL) {
+        SSL_shutdown(ssl);
+    }
 // ZEN_MOD_END
     fDisconnect = true;
     if (hSocket != INVALID_SOCKET)
@@ -928,6 +932,7 @@ void SocketSendData(CNode *pnode) {
         assert(data.size() > pnode->nSendOffset);
 // ZEN_MOD_START
         int nBytes = SSL_write(pnode->ssl, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset);
+        boost::this_thread::interruption_point();
         int ssl_err = SSL_get_error(pnode->ssl, nBytes);
 // ZEN_MOD_END
         if (nBytes > 0) {
@@ -940,17 +945,19 @@ void SocketSendData(CNode *pnode) {
                 pnode->nSendSize -= data.size();
                 it++;
             }
+
+            if (it == pnode->vSendMsg.end()) {
+                assert(pnode->nSendOffset == 0);
+                assert(pnode->nSendSize == 0);
+            }
+            pnode->vSendMsg.erase(pnode->vSendMsg.begin(), it);
+            break;
         }
 // ZEN_MOD_START
-        else return; // Try again another time
+        else break;
+        boost::this_thread::interruption_point();
 // ZEN_MOD_END
     }
-
-    if (it == pnode->vSendMsg.end()) {
-        assert(pnode->nSendOffset == 0);
-        assert(pnode->nSendSize == 0);
-    }
-    pnode->vSendMsg.erase(pnode->vSendMsg.begin(), it);
 }
 
 static list<CNode*> vNodesDisconnected;
@@ -1373,6 +1380,7 @@ void ThreadSocketHandler()
             if (pnode->hSocket == INVALID_SOCKET)
                 continue;
             pnode->establish_tls_connection();
+            boost::this_thread::interruption_point();
 // ZEN_MOD_END
 
             //
@@ -1407,7 +1415,9 @@ void ThreadSocketHandler()
             {
 // ZEN_MOD_START
                 TRY_LOCK(pnode->cs_vSend, lockSend);
-                SocketSendData(pnode);
+                if (lockSend) {
+                    SocketSendData(pnode);
+                }
 // ZEN_MOD_END
             }
 
@@ -1771,15 +1781,15 @@ void ThreadMessageHandler()
 
         BOOST_FOREACH(CNode* pnode, vNodesCopy)
         {
-// ZEN_MOD_START
-            if (pnode->fDisconnect || !pnode->fTLSHandshakeComplete)
-// ZEN_MOD_END
+            if (pnode->fDisconnect)
                 continue;
 
             // Receive messages
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
-                if (lockRecv)
+// ZEN_MOD_START
+                if (lockRecv && pnode->ssl != NULL && pnode->establish_tls_connection())
+// ZEN_MOD_END
                 {
                     if (!g_signals.ProcessMessages(pnode))
                         pnode->CloseSocketDisconnect();
@@ -1798,7 +1808,9 @@ void ThreadMessageHandler()
             // Send messages
             {
                 TRY_LOCK(pnode->cs_vSend, lockSend);
-                if (lockSend)
+// ZEN_MOD_START
+                if (lockSend && pnode->ssl != NULL && pnode->establish_tls_connection())
+// ZEN_MOD_END
                     g_signals.SendMessages(pnode, pnode == pnodeTrickle || pnode->fWhitelisted);
             }
             boost::this_thread::interruption_point();
@@ -2048,8 +2060,8 @@ public:
         // Close sockets
         BOOST_FOREACH(CNode* pnode, vNodes)
             if (pnode->hSocket != INVALID_SOCKET) {
-                SSL_shutdown(pnode->ssl);
 // ZEN_MOD_START
+                if (pnode->ssl != NULL) SSL_shutdown(pnode->ssl);
                 CloseSocket(pnode->hSocket);
 // ZEN_MOD_END
             }
@@ -2452,7 +2464,7 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
 
     // If write queue empty, attempt "optimistic write"
 // ZEN_MOD_START
-    if (it == vSendMsg.begin() && this->establish_tls_connection())
+    if (it == vSendMsg.begin() && this->ssl != NULL && this->establish_tls_connection())
 // ZEN_MOD_END
         SocketSendData(this);
 
