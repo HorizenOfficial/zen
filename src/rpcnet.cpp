@@ -77,6 +77,7 @@ static void CopyNodeStats(std::vector<CNodeStats>& vstats)
 UniValue getpeerinfo(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
+// ZEN_MOD_START
         throw runtime_error(
             "getpeerinfo\n"
             "\nReturns data about each connected network node as a json array of objects.\n"
@@ -87,6 +88,7 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp)
             "    \"addr\":\"host:port\",      (string) The ip address and port of the peer\n"
             "    \"addrlocal\":\"ip:port\",   (string) local address\n"
             "    \"services\":\"xxxxxxxxxxxxxxxx\",   (string) The services offered\n"
+            "    \"tlshandshakecomplete\": true:false,   (boolean) Status of TLS handshake\n"
             "    \"lastsend\": ttt,           (numeric) The time in seconds since epoch (Jan 1 1970 GMT) of the last send\n"
             "    \"lastrecv\": ttt,           (numeric) The time in seconds since epoch (Jan 1 1970 GMT) of the last receive\n"
             "    \"bytessent\": n,            (numeric) The total bytes sent\n"
@@ -113,6 +115,7 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp)
             + HelpExampleCli("getpeerinfo", "")
             + HelpExampleRpc("getpeerinfo", "")
         );
+// ZEN_MOD_END
 
     LOCK(cs_main);
 
@@ -130,6 +133,9 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp)
         if (!(stats.addrLocal.empty()))
             obj.push_back(Pair("addrlocal", stats.addrLocal));
         obj.push_back(Pair("services", strprintf("%016x", stats.nServices)));
+// ZEN_MOD_START
+        obj.push_back(Pair("tlshandshakecomplete", stats.fTLSHandshakeComplete));
+// ZEN_MOD_END
         obj.push_back(Pair("lastsend", stats.nLastSend));
         obj.push_back(Pair("lastrecv", stats.nLastRecv));
         obj.push_back(Pair("bytessent", stats.nSendBytes));
