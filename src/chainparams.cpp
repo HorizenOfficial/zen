@@ -59,7 +59,7 @@ public:
         consensus.nRuleChangeActivationThreshold = 1916; // 95% of 2016
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
         consensus.nChainsplitIndex = 110000;
-        consensus.nChainsplitTime = 1495582200;
+        consensus.nChainsplitTime = 1496187000;
 
         /**
          * ZEN Network Magic Start Value
