@@ -32,7 +32,10 @@
 #include <openssl/conf.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <openssl/pem.h>
+#include <openssl/x509.h>
 #include <stdio.h> // debugging
+#include <random> // random version parameter in X509_get_serialNumber
 // ZEN_MOD_END
 
 // Dump addresses to peers.dat every 15 minutes (900s)
@@ -111,9 +114,9 @@ SSL_CTX *create_context(bool server_side)
     const SSL_METHOD *method;
     SSL_CTX *ctx;
 
-    if (server_side == true)
+    if (server_side)
         method = TLS_server_method();
-    else if (server_side == false)
+    else
         method = TLS_client_method();
 
     ctx = SSL_CTX_new(method);
@@ -128,6 +131,109 @@ SSL_CTX *create_context(bool server_side)
     return ctx;
 }
 
+// ZEN_MOD_START
+// Generates a 4096-bit RSA key.
+EVP_PKEY *generate_key() {
+    ERR_load_CRYPTO_strings();
+    OPENSSL_add_all_algorithms_noconf();
+
+    EVP_PKEY *pkey = EVP_PKEY_new();
+    BIGNUM *bigNumber = BN_new();
+    int exponent = RSA_F4;
+
+    if (BN_set_word(bigNumber, exponent) < 0) {
+        //TODO: Use ERR_peek_last_error_line to find out why
+        LogPrintf("Error creating the big number.");
+        EVP_PKEY_free(pkey);
+        exit(EXIT_FAILURE);
+    }
+
+    // Generate the RSA key and assign it to pkey.
+    RSA *rsa = RSA_new();
+    if (RSA_generate_key_ex(rsa, 4096, bigNumber, NULL) < 0) {
+        // TODO: Use ERR_peek_last_error_line to find out why
+        LogPrintf("Unable to generate 4096-bit RSA key.");
+        EVP_PKEY_free(pkey);
+        RSA_free(rsa);
+        exit(EXIT_FAILURE);
+    }
+    EVP_PKEY_assign_RSA(pkey, rsa);
+
+    return pkey;
+}
+
+// Generates a self-signed x509 certificate.
+X509 *generate_x509(EVP_PKEY *pkey) {
+    ERR_load_CRYPTO_strings();
+    OPENSSL_add_all_algorithms_noconf();
+
+    X509 *x509 = X509_new();
+
+    // seed
+    std::random_device rd;
+    // random-number engine used (Mersenne-Twister in this case)
+    std::mt19937 rng(rd());
+    std::uniform_int_distribution<int> uni(0, 9999);
+    auto random_integer = uni(rng);
+
+    // It's dangerous to use a static serial number!
+    ASN1_INTEGER_set(X509_get_serialNumber(x509), random_integer);
+
+    // Set the certificate validity dates, 0 = now.
+    X509_gmtime_adj(X509_get_notBefore(x509), 0);
+    // 60 * 60 * 24 * NUMBER_OF_DAYS_TO_BE_VALID, 157784630 = 5 years
+    X509_gmtime_adj(X509_get_notAfter(x509), 157784630);
+
+    // Use the pkey that we generated before
+    X509_set_pubkey(x509, pkey);
+
+    X509_NAME *name = X509_get_subject_name(x509);
+    X509_set_issuer_name(x509, name);
+
+    // Specify the encryption algorithm of the signature, SHA256 should suit.
+    if (X509_sign(x509, pkey, EVP_sha256()) < 0) {
+        //TODO: Use ERR_peek_last_error_line to find out why
+        X509_free(x509);
+        EVP_PKEY_free(pkey);
+        LogPrintf("Error signing the certificate with the key.");
+        exit(EXIT_FAILURE);
+    }
+    return x509;
+}
+
+bool write_to_disk(EVP_PKEY *pkey, X509 *x509) {
+    ERR_load_CRYPTO_strings();
+    OPENSSL_add_all_algorithms_noconf();
+
+    const char *encryptionPassword = "MySuperDuperSecurePassword";
+
+    FILE *f = fopen("key.pem", "wb");
+
+    // Here you write the private key (pkey) to disk.
+    //TODO: OpenSSL can encrypt the file using the password and cipher.
+    //if (!PEM_write_PrivateKey(f, pkey, EVP_des_ede3_cbc(), (unsigned char *) encryptionPassword,
+    //                         (int) strlen(encryptionPassword), NULL, NULL)) {
+    if (!PEM_write_PrivateKey(f, pkey, NULL, NULL, 0, 0, NULL)) {
+        //TODO: Use ERR_peek_last_error_line to find out why
+        fclose(f);
+        LogPrintf("Error writing private key to disk.");
+        exit(EXIT_FAILURE);
+    }
+    fclose(f);
+
+    f = fopen("cert.pem", "wb");
+
+    // Here you write the certificate to the disk. No encryption is needed here since this is public facing information
+    if (PEM_write_X509(f, x509) < 0) {
+        //TODO: Use ERR_peek_last_error_line to find out why
+        fclose(f);
+        LogPrintf("Error writing certificate to disk.");
+        exit(EXIT_FAILURE);
+    }
+    fclose(f);
+}
+// ZEN_MOD_END
+
 void configure_context(SSL_CTX *ctx, bool server_side)
 {
     SSL_CTX_set_ecdh_auto(ctx, 1);
@@ -138,16 +244,25 @@ void configure_context(SSL_CTX *ctx, bool server_side)
     SSL_CTX_set_verify_depth(ctx, 4);
     SSL_CTX_set_options(ctx, flags);
 
-    if (server_side == true) {
-        /* Set the key and cert */
-        if (SSL_CTX_use_certificate_file(ctx, "cert.pem", SSL_FILETYPE_PEM) < 0) {
-            ERR_print_errors_fp(stderr);
+// ZEN_MOD_START
+    if (server_side) {
+        if (!boost::filesystem::exist(sslKeyPath) || !boost::filesystem::exist(sslCertPath)) {
+            EVP_PKEY *pkey = generate_key();
+            X509 *x509 = generate_x509(EVP_PKEY * pkey);
+            write_to_disk(pkey, x509);
+            sslKeyPath = "key.pem";
+            sslCertPath = "cert.pem";
         }
 
-        if (SSL_CTX_use_PrivateKey_file(ctx, "key.pem", SSL_FILETYPE_PEM) < 0 ) {
+        // Set the private key and cert
+        if (!SSL_CTX_use_PrivateKey_file(ctx, sslKeyPath, SSL_FILETYPE_PEM)) {
+            ERR_print_errors_fp(stderr);
+        }
+        if (!SSL_CTX_use_certificate_file(ctx, sslCertPath, SSL_FILETYPE_PEM)) {
             ERR_print_errors_fp(stderr);
         }
     }
+// ZEN_MOD_END
 }
 
 SSL_CTX *server_ctx = create_context(true);
@@ -160,9 +275,9 @@ bool CNode::establish_tls_connection()
         return true;
 
     // Initialize OpenSSL context
-    if (server_side == true)
+    if (server_side)
         ctx = server_ctx;
-    else if (server_side == false)
+    else
         ctx = client_ctx;
 
     // Create context and assign socket
@@ -175,7 +290,7 @@ bool CNode::establish_tls_connection()
     SSL_set_cipher_list(ssl, PREFERRED_CIPHERS);
 
     // Set connect state
-    if (server_side == true) {
+    if (server_side) {
         SSL_set_accept_state(ssl);
         SSL_accept(ssl);
         while (true) {
@@ -189,8 +304,7 @@ bool CNode::establish_tls_connection()
             else
                 return false;
         }
-    }
-    else if (server_side == false) {
+    } else {
         SSL_set_connect_state(ssl);
         SSL_connect(ssl);
         while (true) {

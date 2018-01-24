@@ -397,6 +397,17 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-timeout=<n>", strprintf(_("Specify connection timeout in milliseconds (minimum: 1, default: %d)"), DEFAULT_CONNECT_TIMEOUT));
     strUsage += HelpMessageOpt("-torcontrol=<ip>:<port>", strprintf(_("Tor control port to use if onion listening enabled (default: %s)"), DEFAULT_TOR_CONTROL));
     strUsage += HelpMessageOpt("-torpassword=<pass>", _("Tor control port password (default: empty)"));
+// ZEN_MOD_START
+    strUsage += HelpMessageOpt("-sslkeypath=<path>", _("Path to the private key (default: key.pem)"));
+    strUsage += HelpMessageOpt("-sslcertpath=<path>", _("Path to the certificate (default: cert.pem)"));
+#ifdef USE_UPNP
+#if USE_UPNP
+    strUsage += HelpMessageOpt("-upnp", _("Use UPnP to map the listening port (default: 1 when listening and no -proxy)"));
+#else
+    strUsage += HelpMessageOpt("-upnp", strprintf(_("Use UPnP to map the listening port (default: %u)"), 0));
+#endif
+#endif
+// ZEN_MOD_END
     strUsage += HelpMessageOpt("-whitebind=<addr>", _("Bind to given address and whitelist peers connecting to it. Use [host]:port notation for IPv6"));
     strUsage += HelpMessageOpt("-whitelist=<netmask>", _("Whitelist peers connecting from the given netmask or IP address. Can be specified multiple times.") +
         " " + _("Whitelisted peers cannot be DoS banned and their transactions are always relayed, even if they are already in the mempool, useful e.g. for a gateway"));
@@ -1277,6 +1288,16 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     BOOST_FOREACH(const std::string& strDest, mapMultiArgs["-seednode"])
         AddOneShot(strDest);
+
+// ZEN_MOD_START
+    if (mapArgs.count("-sslkeypath")) {
+        sslKeyPath = GetArg("-sslkeypath", "key.pem");
+    }
+
+    if (mapArgs.count("-sslcertpath")) {
+        sslCertPath = GetArg("-sslcertpath", "cert.pem");
+    }
+// ZEN_MOD_END
 
 #if ENABLE_ZMQ
     pzmqNotificationInterface = CZMQNotificationInterface::CreateWithArguments(mapArgs);
