@@ -352,6 +352,10 @@ public:
     bool operator()(const CKeyID &keyID) const {
         script->clear();
         CBlockIndex *currentBlock = chainActive.Tip();
+        if (currentBlock == NULL) {
+            *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
+            return true;
+        }
         int blockIndex = currentBlock->nHeight - 300;
         if (blockIndex < 0)
             blockIndex = 0;
@@ -362,6 +366,10 @@ public:
     bool operator()(const CScriptID &scriptID) const {
         script->clear();
         CBlockIndex *currentBlock = chainActive.Tip();
+        if (currentBlock == NULL) {
+            *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+            return true;
+        }
         int blockIndex = currentBlock->nHeight - 300;
         if (blockIndex < 0)
             blockIndex = 0;

@@ -555,8 +555,10 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     if (vNodes.empty())
         throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Zcash is not connected!");
 
-    if (IsInitialBlockDownload())
+// ZEN_MOD_START
+    if (IsInitialBlockDownload() && chainActive.Tip()->nHeight > Params().GetConsensus().nChainsplitIndex + (Params().GetConsensus().nMinerConfirmationWindow * 2))
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Zcash is downloading blocks...");
+// ZEN_MOD_END
 
     static unsigned int nTransactionsUpdatedLast;
 
@@ -876,6 +878,7 @@ UniValue estimatepriority(const UniValue& params, bool fHelp)
 UniValue getblocksubsidy(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() > 1)
+// ZEN_MOD_START
         throw runtime_error(
             "getblocksubsidy height\n"
             "\nReturns block subsidy reward, taking into account the mining slow start and the founders reward, of block at index provided.\n"
@@ -883,13 +886,14 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
             "1. height         (numeric, optional) The block height.  If not provided, defaults to the current height of the chain.\n"
             "\nResult:\n"
             "{\n"
-            "  \"miner\" : x.xxx           (numeric) The mining reward amount in " + CURRENCY_UNIT + ".\n"
-            "  \"founders\" : x.xxx        (numeric) The founders reward amount in " + CURRENCY_UNIT + ".\n"
+            "  \"miner\" : x.xxx           (numeric) The mining reward amount in ZEN.\n"
+            "  \"founders\" : x.xxx        (numeric) The founders reward amount in ZEN.\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("getblocksubsidy", "1000")
             + HelpExampleRpc("getblockubsidy", "1000")
         );
+// ZEN_MOD_END
 
     LOCK(cs_main);
     int nHeight = (params.size()==1) ? params[0].get_int() : chainActive.Height();
@@ -898,10 +902,12 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
 
     CAmount nReward = GetBlockSubsidy(nHeight, Params().GetConsensus());
     CAmount nFoundersReward = 0;
-    if ((nHeight > 0) && (nHeight <= Params().GetConsensus().GetLastFoundersRewardBlockHeight())) {
-        nFoundersReward = nReward/5;
+// ZEN_MOD_START
+    if ((nHeight > Params().GetConsensus().nChainsplitIndex) && (nHeight <= Params().GetConsensus().GetLastFoundersRewardBlockHeight())) {
+        nFoundersReward = ((nReward * 85) / 1000);
         nReward -= nFoundersReward;
     }
+// ZEN_MOD_END
     UniValue result(UniValue::VOBJ);
     result.push_back(Pair("miner", ValueFromAmount(nReward)));
     result.push_back(Pair("founders", ValueFromAmount(nFoundersReward)));
