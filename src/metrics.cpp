@@ -197,28 +197,51 @@ void ConnectMetricsScreen()
 int printStats(bool mining)
 {
     // Number of lines that are always displayed
-    int lines = 4;
+// ZEN_MOD_START
+    int lines = 9;
+// ZEN_MOD_END
 
     int height;
     int64_t tipmediantime;
     size_t connections;
     int64_t netsolps;
+// ZEN_MOD_START
+    tlsvalidate = GetArg("-tlsvalidate","");
+    std::string cipherdescription = "Not Encrypted";
+    std::string securitylevel = "INACTIVE";
+    std::string routingsecrecy = "CLEARNET";
+    std::string validationdescription = (tlsvalidate == "1" ? "YES" : "PUBLIC");
+    if (routingsecrecy == "ipv4" || routingsecrecy == "ipv6")
+        routingsecrecy = "CLEARNET";
+    else if (routingsecrecy == "onion")
+        routingsecrecy = "TOR NETWORK";
+// ZEN_MOD_END
     {
         LOCK2(cs_main, cs_vNodes);
         height = chainActive.Height();
         tipmediantime = chainActive.Tip()->GetMedianTimePast();
         connections = vNodes.size();
+        if (connections > 0 && SSL_get_current_cipher(vNodes[0]->ssl)) {
+            char *tmp = new char[256];
+            cipherdescription = SSL_CIPHER_get_name(SSL_get_current_cipher(vNodes[0]->ssl));
+            if (cipherdescription == "ECDHE-RSA-AES256-GCM-SHA384") {
+                securitylevel = "ACTIVE";
+            }
+            else
+                securitylevel = "UNKNOWN";
+        }
         netsolps = GetNetworkHashPS(120, -1);
     }
     auto localsolps = GetLocalSolPS();
 
-    if (IsInitialBlockDownload()) {
-        int netheight = EstimateNetHeight(height, tipmediantime, Params());
-        int downloadPercent = height * 100 / netheight;
-        std::cout << "     " << _("Downloading blocks") << " | " << height << " / ~" << netheight << " (" << downloadPercent << "%)" << std::endl;
-    } else {
-        std::cout << "           " << _("Block height") << " | " << height << std::endl;
-    }
+// ZEN_MOD_START
+    std::cout << "          " << _("COMSEC STATUS") << " | " << securitylevel << std::endl;
+    std::cout << "      " << _("Encryption Cipher") << " | " << cipherdescription << std::endl;
+    std::cout << "        " << _("Routing Secrecy") << " | " << routingsecrecy << std::endl;
+    std::cout << "         " << _("Validate Peers") << " | " << validationdescription << std::endl;
+    std::cout << std::endl;
+    std::cout << "           " << _("Block height") << " | " << height << std::endl;
+// ZEN_MOD_END
     std::cout << "            " << _("Connections") << " | " << connections << std::endl;
     std::cout << "  " << _("Network solution rate") << " | " << netsolps << " Sol/s" << std::endl;
     if (mining && miningTimer.running()) {

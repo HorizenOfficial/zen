@@ -398,8 +398,9 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-torcontrol=<ip>:<port>", strprintf(_("Tor control port to use if onion listening enabled (default: %s)"), DEFAULT_TOR_CONTROL));
     strUsage += HelpMessageOpt("-torpassword=<pass>", _("Tor control port password (default: empty)"));
 // ZEN_MOD_START
-    strUsage += HelpMessageOpt("-sslkeypath=<path>", _("Path to the private key (default: key.pem)"));
-    strUsage += HelpMessageOpt("-sslcertpath=<path>", _("Path to the certificate (default: cert.pem)"));
+    strUsage += HelpMessageOpt("-tlsvalidate=<0 or 1>", _("Connect to peers only with valid certificates (default: 0)"));
+    strUsage += HelpMessageOpt("-tlskeypath=<path>", _("Full path to the private key"));
+    strUsage += HelpMessageOpt("-tlscertpath=<path>", _("Full path to the certificate"));
 #ifdef USE_UPNP
 #if USE_UPNP
     strUsage += HelpMessageOpt("-upnp", _("Use UPnP to map the listening port (default: 1 when listening and no -proxy)"));
@@ -1290,12 +1291,22 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         AddOneShot(strDest);
 
 // ZEN_MOD_START
-    if (mapArgs.count("-sslkeypath")) {
-        sslKeyPath = GetArg("-sslkeypath", "key.pem");
+    if (mapArgs.count("-tlsvalidate")) {
+        tlsvalidate = GetArg("-tlsvalidate", "1");
+        if (tlsvalidate != "0" && tlsvalidate != "1")
+            return InitError(strprintf(_("-tlsvalidate can only be 0 or 1'")));
     }
 
-    if (mapArgs.count("-sslcertpath")) {
-        sslCertPath = GetArg("-sslcertpath", "cert.pem");
+    if (mapArgs.count("-tlskeypath")) {
+        boost::filesystem::path pathTLSKey(GetArg("-tlskeypath", ""));
+    if (!boost::filesystem::exists(pathTLSKey))
+         return InitError(strprintf(_("Cannot find TLS key file: '%s'"), pathTLSKey.string()));
+    }
+
+    if (mapArgs.count("-tlscertpath")) {
+        boost::filesystem::path pathTLSCert(GetArg("-tlscertpath", ""));
+    if (!boost::filesystem::exists(pathTLSCert))
+        return InitError(strprintf(_("Cannot find TLS cert file: '%s'"), pathTLSCert.string()));
     }
 // ZEN_MOD_END
 
