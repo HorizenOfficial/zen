@@ -36,7 +36,9 @@ class CMainParams : public CChainParams {
 public:
     CMainParams() {
         strNetworkID = "main";
-        strCurrencyUnits = "ZEC";
+// ZEN_MOD_START
+        strCurrencyUnits = "ZEN";
+// ZEN_MOD_END
         consensus.fCoinbaseMustBeProtected = true;
         consensus.nSubsidySlowStartInterval = 20000;
         consensus.nSubsidyHalvingInterval = 840000;
@@ -98,23 +100,25 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.push_back(CDNSSeedData("z.cash", "dnsseed.z.cash")); // Zcash
-        vSeeds.push_back(CDNSSeedData("str4d.xyz", "dnsseed.str4d.xyz")); // @str4d
-        vSeeds.push_back(CDNSSeedData("znodes.org", "dnsseed.znodes.org")); // @bitcartel
+// ZEN_MOD_START
+        vSeeds.push_back(CDNSSeedData("zencash.io", "mainnet-zen.zencash.io"));
+        vSeeds.push_back(CDNSSeedData("zdeveloper.org", "mainnet-zen.zdeveloper.org"));
+        vSeeds.push_back(CDNSSeedData("rotorproject.org", "mainnet-zen.rotorproject.org"));
 
-        // guarantees the first 2 characters, when base58 encoded, are "t1"
-        base58Prefixes[PUBKEY_ADDRESS]     = {0x1C,0xB8};
-        // guarantees the first 2 characters, when base58 encoded, are "t3"
-        base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0xBD};
+        // guarantees the first 2 characters, when base58 encoded, are "t5"
+        base58Prefixes[PUBKEY_ADDRESS]     = {0x1C,0xBF};
+        // guarantees the first 2 characters, when base58 encoded, are "t7"
+        base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0xC1};
+// ZEN_MOD_END
         // the first character, when base58 encoded, is "5" or "K" or "L" (as in Bitcoin)
         base58Prefixes[SECRET_KEY]         = {0x80};
         // do not rely on these BIP32 prefixes; they are not specified and may change
         base58Prefixes[EXT_PUBLIC_KEY]     = {0x04,0x88,0xB2,0x1E};
         base58Prefixes[EXT_SECRET_KEY]     = {0x04,0x88,0xAD,0xE4};
-        // guarantees the first 2 characters, when base58 encoded, are "zc"
-        base58Prefixes[ZCPAYMENT_ADDRRESS] = {0x16,0x9A};
-        // guarantees the first 4 characters, when base58 encoded, are "ZiVK"
-        base58Prefixes[ZCVIEWING_KEY]      = {0xA8,0xAB,0xD3};
+// ZEN_MOD_START
+        // guarantees the first 2 characters, when base58 encoded, are "zn"
+        base58Prefixes[ZCPAYMENT_ADDRRESS] = {0x16,0xA5};
+// ZEN_MOD_END
         // guarantees the first 2 characters, when base58 encoded, are "SK"
         base58Prefixes[ZCSPENDING_KEY]     = {0xAB,0x36};
 
@@ -128,14 +132,15 @@ public:
 
         checkpointData = (Checkpoints::CCheckpointData) {
             boost::assign::map_list_of
-            (0, consensus.hashGenesisBlock)
-            (2500, uint256S("0x00000006dc968f600be11a86cbfbf7feb61c7577f45caced2e82b6d261d19744"))
-            (15000, uint256S("0x00000000b6bc56656812a5b8dcad69d6ad4446dec23b5ec456c18641fb5381ba"))
-            (67500, uint256S("0x000000006b366d2c1649a6ebb4787ac2b39c422f451880bc922e3a6fbd723616")),
-            1487767578,     // * UNIX timestamp of last checkpoint block
-            325430,         // * total number of transactions between genesis and last checkpoint
+// ZEN_MOD_START
+            ( 0, consensus.hashGenesisBlock)
+            ( 30000, uint256S("0x000000005c2ad200c3c7c8e627f67b306659efca1268c9bb014335fdadc0c392"))
+            ( 96577, uint256S("0x0000000177751545bd1af3ccf276ec2920d258453ab01f3d2f8f7fcc5f3a37b8")),
+            1493090861,     // * UNIX timestamp of last checkpoint block
+            241684,         // * total number of transactions between genesis and last checkpoint
                             //   (the tx=... number in the SetBestChain debug.log lines)
-            2777            // * estimated number of transactions per day after checkpoint
+            1441            // * estimated number of transactions per day after checkpoint
+// ZEN_MOD_END
                             //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
@@ -209,7 +214,9 @@ class CTestNetParams : public CMainParams {
 public:
     CTestNetParams() {
         strNetworkID = "test";
-        strCurrencyUnits = "TAZ";
+// ZEN_MOD_START
+        strCurrencyUnits = "ZNT";
+// ZEN_MOD_END
         consensus.nMajorityEnforceBlockUpgrade = 51;
         consensus.nMajorityRejectBlockOutdated = 75;
         consensus.nMajorityWindow = 400;
@@ -237,12 +244,16 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.push_back(CDNSSeedData("z.cash", "dnsseed.testnet.z.cash")); // Zcash
+// ZEN_MOD_START
+        vSeeds.push_back(CDNSSeedData("zencash.io", "mainnet-zen.zencash.io"));
+        vSeeds.push_back(CDNSSeedData("zdeveloper.org", "mainnet-zen.zdeveloper.org"));
+        vSeeds.push_back(CDNSSeedData("rotorproject.org", "mainnet-zen.rotorproject.org"));
 
-        // guarantees the first 2 characters, when base58 encoded, are "tm"
-        base58Prefixes[PUBKEY_ADDRESS]     = {0x1D,0x25};
-        // guarantees the first 2 characters, when base58 encoded, are "t2"
-        base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0xBA};
+        // guarantees the first 2 characters, when base58 encoded, are "tn"
+        base58Prefixes[PUBKEY_ADDRESS]     = {0x1D,0x26};
+        // guarantees the first 2 characters, when base58 encoded, are "t4"
+        base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0xBC};
+// ZEN_MOD_END
         // the first character, when base58 encoded, is "9" or "c" (as in Bitcoin)
         base58Prefixes[SECRET_KEY]         = {0xEF};
         // do not rely on these BIP32 prefixes; they are not specified and may change
