@@ -119,9 +119,13 @@ public:
         vSeeds.push_back(CDNSSeedData("rotorproject.org", "mainnet-zen.rotorproject.org"));
 
         // guarantees the first 2 characters, when base58 encoded, are "zn"
+        // guarantees the first 2 characters, when base58 encoded, are "t1"
         base58Prefixes[PUBKEY_ADDRESS]     = {0x20,0x89};
+        base58Prefixes[PUBKEY_ADDRESS_OLD]     = {0x1C,0xB8};
         // guarantees the first 2 characters, when base58 encoded, are "zs"
+        // guarantees the first 2 characters, when base58 encoded, are "t3"
         base58Prefixes[SCRIPT_ADDRESS]     = {0x20,0x96};
+        base58Prefixes[SCRIPT_ADDRESS_OLD]     = {0x1C,0xBD};
 // ZEN_MOD_END
         // the first character, when base58 encoded, is "5" or "K" or "L" (as in Bitcoin)
         base58Prefixes[SECRET_KEY]         = {0x80};
@@ -273,9 +277,13 @@ public:
         vSeeds.push_back(CDNSSeedData("rotorproject.org", "testnet-zen.rotorproject.org"));
 
         // guarantees the first 2 characters, when base58 encoded, are "zt"
+        // guarantees the first 2 characters, when base58 encoded, are "tm"
         base58Prefixes[PUBKEY_ADDRESS]     = {0x20,0x98};
+        base58Prefixes[PUBKEY_ADDRESS_OLD]     = {0x1D,0x25};
         // guarantees the first 2 characters, when base58 encoded, are "zr"
+        // guarantees the first 2 characters, when base58 encoded, are "t2"
         base58Prefixes[SCRIPT_ADDRESS]     = {0x20,0x92};
+        base58Prefixes[SCRIPT_ADDRESS_OLD]     = {0x1C,0xBA};
 // ZEN_MOD_END
         // the first character, when base58 encoded, is "9" or "c" (as in Bitcoin)
         base58Prefixes[SECRET_KEY]         = {0xEF};

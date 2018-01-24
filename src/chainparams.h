@@ -37,7 +37,13 @@ class CChainParams
 public:
     enum Base58Type {
         PUBKEY_ADDRESS,
+// ZEN_MOD_START
+        PUBKEY_ADDRESS_OLD,
+// ZEN_MOD_END
         SCRIPT_ADDRESS,
+// ZEN_MOD_START
+        SCRIPT_ADDRESS_OLD,
+// ZEN_MOD_END
         SECRET_KEY,
         EXT_PUBLIC_KEY,
         EXT_SECRET_KEY,
