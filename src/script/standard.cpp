@@ -351,14 +351,28 @@ public:
     bool operator()(const CKeyID &keyID) const {
         script->clear();
         CBlockIndex *currentBlock = chainActive.Tip();
-        *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG << ToByteVector(chainActive[currentBlock->nHeight - 300]->GetBlockHash()) << chainActive[currentBlock->nHeight - 300]->nHeight << OP_CHECKBLOCKATHEIGHT;
+        if (currentBlock == NULL) {
+            *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
+            return true;
+        }
+        int blockIndex = currentBlock->nHeight - 300;
+        if (blockIndex < 0)
+            blockIndex = 0;
+        *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG << ToByteVector(chainActive[blockIndex]->GetBlockHash()) << chainActive[blockIndex]->nHeight << OP_CHECKBLOCKATHEIGHT;
         return true;
     }
 
     bool operator()(const CScriptID &scriptID) const {
         script->clear();
         CBlockIndex *currentBlock = chainActive.Tip();
-        *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL << ToByteVector(chainActive[currentBlock->nHeight - 300]->GetBlockHash()) << chainActive[currentBlock->nHeight - 300]->nHeight << OP_CHECKBLOCKATHEIGHT;
+        if (currentBlock == NULL) {
+            *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+            return true;
+        }
+        int blockIndex = currentBlock->nHeight - 300;
+        if (blockIndex < 0)
+            blockIndex = 0;
+        *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL << ToByteVector(chainActive[blockIndex]->GetBlockHash()) << chainActive[blockIndex]->nHeight << OP_CHECKBLOCKATHEIGHT;
         return true;
     }
 #endif
