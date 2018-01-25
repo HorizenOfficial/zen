@@ -2472,6 +2472,10 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
     ssSend.GetAndClear(*it);
     nSendSize += (*it).size();
 
+// ZEN_MOD_START
+    if (this->ssl == NULL) this->establish_tls_connection();
+// ZEN_MOD_END
+
     // If write queue empty, attempt "optimistic write"
     if (it == vSendMsg.begin())
         SocketSendData(this);
