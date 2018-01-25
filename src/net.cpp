@@ -939,6 +939,7 @@ void SocketSendData(CNode *pnode) {
 // ZEN_MOD_START
     std::deque<CSerializeData>::iterator it = pnode->vSendMsg.begin();
     while (it != pnode->vSendMsg.end()) {
+        boost::this_thread::interruption_point();
 // ZEN_MOD_END
         const CSerializeData &data = *it;
         assert(data.size() > pnode->nSendOffset);
@@ -946,8 +947,8 @@ void SocketSendData(CNode *pnode) {
         int nBytes = SSL_write(pnode->ssl, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset);
         boost::this_thread::interruption_point();
         int ssl_err = SSL_get_error(pnode->ssl, nBytes);
+        if (nBytes == data.size() - pnode->nSendOffset) {
 // ZEN_MOD_END
-        if (nBytes > 0) {
             pnode->nLastSend = GetTime();
             pnode->nSendBytes += nBytes;
             pnode->nSendOffset += nBytes;
