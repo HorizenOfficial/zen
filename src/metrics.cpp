@@ -199,41 +199,39 @@ int printStats(bool mining)
     // Number of lines that are always displayed
 // ZEN_MOD_START
     int lines = 9;
-// ZEN_MOD_END
 
-    int height;
-    int64_t tipmediantime;
-    size_t connections;
-    int64_t netsolps;
-// ZEN_MOD_START
+    int height = chainActive.Height();
+    int connections = vNodes.size();
+    int64_t netsolps = GetNetworkHashPS(120, -1);
+
+    // OpenSSL related statistics
     tlsvalidate = GetArg("-tlsvalidate","");
-    std::string cipherdescription = "Not Encrypted";
-    std::string securitylevel = "INACTIVE";
-    std::string routingsecrecy = GetArg("-onlynet", "");
-    std::string validationdescription = (tlsvalidate == "1" ? "YES" : "PUBLIC");
-    if (routingsecrecy == "" || routingsecrecy == "ipv4" || routingsecrecy == "ipv6")
-        routingsecrecy = "CLEARNET";
-    else if (routingsecrecy == "onion")
-        routingsecrecy = "TOR NETWORK";
-// ZEN_MOD_END
+    cipherdescription = cipherdescription.length() == 0 ? "Not Encrypted" : cipherdescription;
+    securitylevel = securitylevel.length() == 0 ? "INACTIVE" : securitylevel;
+    routingsecrecy = routingsecrecy.length() == 0 ? GetArg("-onlynet", "") : routingsecrecy;
+    validationdescription = (tlsvalidate == "1" ? "YES" : "PUBLIC");
+
+    if (routingsecrecy == "" || routingsecrecy == "ipv4" || routingsecrecy == "ipv6") routingsecrecy = "CLEARNET";
+    else if (routingsecrecy == "onion") routingsecrecy = "TOR NETWORK";
+
     {
         LOCK2(cs_main, cs_vNodes);
-        height = chainActive.Height();
-        tipmediantime = chainActive.Tip()->GetMedianTimePast();
-        connections = vNodes.size();
-// ZEN_MOD_START
-        if (connections > 0 && vNodes[0]->ssl != NULL && SSL_get_state(vNodes[0]->ssl) == TLS_ST_OK &&
-          SSL_get_current_cipher(vNodes[0]->ssl)) {
-// ZEN_MOD_END
-            char *tmp = new char[256];
-            cipherdescription = SSL_CIPHER_get_name(SSL_get_current_cipher(vNodes[0]->ssl));
-            if (cipherdescription == "ECDHE-RSA-AES256-GCM-SHA384") {
-                securitylevel = "ACTIVE";
+
+        // Find first encrypted connection and populate states
+        if (connections > 0) {
+            for (int i = 0; i < vNodes.size(); i++) {
+                if (vNodes[i]->ssl != NULL && SSL_get_state(vNodes[i]->ssl) == TLS_ST_OK) {
+                    char *tmp = new char[256];
+                    cipherdescription = SSL_CIPHER_get_name(SSL_get_current_cipher(vNodes[i]->ssl));
+                    securitylevel = "ACTIVE";
+                    break;
+                }
+                else if (cipherdescription == "Not Encrypted") {
+                    securitylevel = "INACTIVE";
+                }
             }
-            else
-                securitylevel = "UNKNOWN";
         }
-        netsolps = GetNetworkHashPS(120, -1);
+// ZEN_MOD_END
     }
     auto localsolps = GetLocalSolPS();
 
