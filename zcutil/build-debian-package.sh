@@ -6,7 +6,9 @@ set -e
 set -x
 
 BUILD_PATH="/tmp/zcbuild"
-PACKAGE_NAME="zcash"
+# ZEN_MOD_START
+PACKAGE_NAME="zen"
+# ZEN_MOD_END
 SRC_PATH=`pwd`
 SRC_DEB=$SRC_PATH/contrib/debian
 SRC_DOC=$SRC_PATH/doc
@@ -17,7 +19,9 @@ if [ ! -d $BUILD_PATH ]; then
     mkdir $BUILD_PATH
 fi
 
-PACKAGE_VERSION=$($SRC_PATH/src/zcashd --version | grep version | cut -d' ' -f4 | tr -d v)
+# ZEN_MOD_START
+PACKAGE_VERSION=$($SRC_PATH/src/zend --version | grep version | cut -d' ' -f4 | tr -d v)
+# ZEN_MOD_END
 DEBVERSION=$(echo $PACKAGE_VERSION | sed 's/-beta/~beta/' | sed 's/-rc/~rc/' | sed 's/-/+/')
 BUILD_DIR="$BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-amd64"
 
@@ -38,33 +42,49 @@ chmod 0755 -R $BUILD_DIR/*
 #cp $SRC_DEB/preinst $BUILD_DIR/DEBIAN
 #cp $SRC_DEB/prerm $BUILD_DIR/DEBIAN
 # Copy binaries
-cp $SRC_PATH/src/zcashd $DEB_BIN
-cp $SRC_PATH/src/zcash-cli $DEB_BIN
-cp $SRC_PATH/zcutil/fetch-params.sh $DEB_BIN/zcash-fetch-params
+# ZEN_MOD_START
+cp $SRC_PATH/src/zend $DEB_BIN
+cp $SRC_PATH/src/zen-cli $DEB_BIN
+cp $SRC_PATH/zcutil/fetch-params.sh $DEB_BIN/zen-fetch-params
+# ZEN_MOD_END
 # Copy docs
 cp $SRC_PATH/doc/release-notes/release-notes-1.0.0.md $DEB_DOC/changelog
 cp $SRC_DEB/changelog $DEB_DOC/changelog.Debian
 cp $SRC_DEB/copyright $DEB_DOC
 cp -r $SRC_DEB/examples $DEB_DOC
 # Copy manpages
-cp $SRC_DOC/man/zcashd.1 $DEB_MAN
-cp $SRC_DOC/man/zcash-cli.1 $DEB_MAN
-cp $SRC_DOC/man/zcash-fetch-params.1 $DEB_MAN
+# ZEN_MOD_START
+cp $SRC_DOC/man/zcashd.1 $DEB_MAN/zend.1
+cp $SRC_DOC/man/zcash-cli.1 $DEB_MAN/zen-cli.1
+cp $SRC_DOC/man/zcash-fetch-params.1 $DEB_MAN/zen-fetch-params.1
+# ZEN_MOD_END
 # Copy bash completion files
-cp $SRC_PATH/contrib/zcashd.bash-completion $DEB_CMP/zcashd
-cp $SRC_PATH/contrib/zcash-cli.bash-completion $DEB_CMP/zcash-cli
+# ZEN_MOD_START
+# TODO: keeping these for reference. These might be the valid lines if we keep the zcash build system
+# cp $SRC_PATH/contrib/zcashd.bash-completion $DEB_CMP/zend
+# cp $SRC_PATH/contrib/zcash-cli.bash-completion $DEB_CMP/zen-cli
+cp $SRC_PATH/contrib/bitcoind.bash-completion $DEB_CMP/zend
+cp $SRC_PATH/contrib/bitcoin-cli.bash-completion $DEB_CMP/zen-cli
+# ZEN_MOD_END
 # Gzip files
 gzip --best -n $DEB_DOC/changelog
 gzip --best -n $DEB_DOC/changelog.Debian
-gzip --best -n $DEB_MAN/zcashd.1
-gzip --best -n $DEB_MAN/zcash-cli.1
-gzip --best -n $DEB_MAN/zcash-fetch-params.1
+
+# ZEN_MOD_START
+gzip --best -n $DEB_MAN/zend.1
+gzip --best -n $DEB_MAN/zen-cli.1
+gzip --best -n $DEB_MAN/zen-fetch-params.1
+# ZEN_MOD_END
 
 cd $SRC_PATH/contrib
 
 # Create the control file
-dpkg-shlibdeps $DEB_BIN/zcashd $DEB_BIN/zcash-cli
-dpkg-gencontrol -P$BUILD_DIR -v$DEBVERSION
+# ZEN_MOD_START
+# TODO: keeping this for reference. These might be the valid lines if we keep the zcash build system
+dpkg-shlibdeps $DEB_BIN/zend $DEB_BIN/zen-cli
+# dpkg-gencontrol -P$BUILD_DIR -v$DEBVERSION
+dpkg-gencontrol -v$PACKAGE_VERSION -P$BUILD_DIR
+# ZEN_MOD_END
 
 # Create the Debian package
 fakeroot dpkg-deb --build $BUILD_DIR

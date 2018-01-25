@@ -88,7 +88,13 @@ bool write_to_disk(EVP_PKEY *pkey, X509 *x509);
 void configure_context(SSL_CTX *ctx, bool server_side);
 static boost::filesystem::path tlsKeyPath;
 static boost::filesystem::path tlsCertPath;
+
+// OpenSSL related variables for metrics.cpp
 static std::string tlsvalidate;
+static std::string routingsecrecy;
+static std::string cipherdescription;
+static std::string securitylevel;
+static std::string validationdescription;
 // ZEN_MOD_END
 
 typedef int NodeId;
@@ -259,7 +265,7 @@ public:
     SSL_CTX *ctx;
     SSL *ssl;
     bool server_side;
-    bool establish_tls_connection(bool blocking=false);
+    bool establish_tls_connection(bool contextonly=false);
 // ZEN_MOD_END
 
     // socket
