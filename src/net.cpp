@@ -1386,6 +1386,7 @@ void ThreadSocketHandler()
 // ZEN_MOD_START
             BOOST_FOREACH(CNode* pnode, vNodesCopy) {
                 pnode->AddRef();
+                if (pnode->ssl == NULL) pnode->establish_tls_connection();
             }
 // ZEN_MOD_END
         }
@@ -1394,12 +1395,6 @@ void ThreadSocketHandler()
             boost::this_thread::interruption_point();
 
 // ZEN_MOD_START
-            // Initiate/continue TLS handshake (only run once)
-            if (pnode->hSocket != INVALID_SOCKET && pnode->ssl == NULL) {
-                pnode->establish_tls_connection();
-                boost::this_thread::interruption_point();
-            }
-
             //
             // Receive
             //
@@ -1778,11 +1773,12 @@ void ThreadMessageHandler()
             if (pnode->hSocket == INVALID_SOCKET) {
                 pnode->fDisconnect = true;
             }
-
-            // Send out version message if needed
-            if (pnode->hSocket != INVALID_SOCKET && pnode->ssl != NULL) {
-                if (!pnode->fInbound) pnode->PushVersion();
-                if (!pnode->fSentVersion) pnode->PushVersion();
+            else {
+                // Send out version message if needed
+                if (!pnode->fDisconnect && pnode->hSocket != INVALID_SOCKET) {
+                    if (!pnode->fInbound) pnode->PushVersion();
+                    if (!pnode->fSentVersion) pnode->PushVersion();
+                }
 // ZEN_MOD_END
             }
         }
@@ -1806,8 +1802,9 @@ void ThreadMessageHandler()
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
                 if (lockRecv)
                 {
-                    if (!g_signals.ProcessMessages(pnode))
-                        pnode->CloseSocketDisconnect();
+// ZEN_MOD_START
+                    g_signals.ProcessMessages(pnode);
+// ZEN_MOD_END
 
                     if (pnode->nSendSize < SendBufferSize())
                     {
@@ -2476,9 +2473,7 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
     nSendSize += (*it).size();
 
     // If write queue empty, attempt "optimistic write"
-// ZEN_MOD_START
-    if (it == vSendMsg.begin() && this->ssl != NULL && this->fTLSHandshakeComplete)
-// ZEN_MOD_END
+    if (it == vSendMsg.begin())
         SocketSendData(this);
 
     LEAVE_CRITICAL_SECTION(cs_vSend);
