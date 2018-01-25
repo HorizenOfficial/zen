@@ -1405,9 +1405,9 @@ void ThreadSocketHandler()
             if ((FD_ISSET(pnode->hSocket, &fdsetRecv) || FD_ISSET(pnode->hSocket, &fdsetError)))
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
-                if (lockRecv && pnode->fTLSHandshakeComplete) {
+                if (lockRecv) {
                     char pchBuf[0x10000];
-                    int nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf));
+                    int nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf)); // SSL_read() transparently continues TLS handshaking
                     int ssl_err = SSL_get_error(pnode->ssl, nBytes);
                     if (nBytes > 0) {
                         pnode->ReceiveMsgBytes(pchBuf, nBytes);
