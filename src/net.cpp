@@ -319,9 +319,12 @@ bool CNode::establish_tls_connection(bool blocking)
     boost::this_thread::interruption_point();
 
     // TLS is good
-    if (SSL_get_state(ssl) == TLS_ST_OK) {
-        fTLSHandshakeComplete = true;
-        return true;
+    if (ssl != NULL && SSL_get_state(ssl) == TLS_ST_OK && !fTLSHandshakeComplete) {
+        if (verify_x509(ssl)) {
+            fTLSHandshakeComplete = true;
+            return true;
+        }
+        else CloseSocketDisconnect();
     }
 
     return false;
