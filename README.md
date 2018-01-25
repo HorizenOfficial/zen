@@ -63,14 +63,14 @@ Where do I begin?
 
 ### Need Help?
 
-* Many guides and tutorials are available at [Zdeveloper.org](https://zdeveloper.org)
+* Many guides and tutorials are available at [ZencashOfficial slack](https://slackinvite.zensystem.io/)
   for help and more information.
-* Ask for help on the [Zdeveloper Rocket Chat](https://rocketchat.zdeveloper.org).
+* Ask for help on the [ZencashOfficial slack](slackinvite.zensystem.io).
 
 ### Want to participate in development?
 
 * Code review is welcome!
-* If you want to get to know us join our [Rocket Chat](https://rocketchat.zdeveloper.org)
+* If you want to get to know us join our [Slack](https://slackinvite.zensystem.io)
 
 
 Participation in the Zen project is subject to a
