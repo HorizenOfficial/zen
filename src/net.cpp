@@ -1394,11 +1394,10 @@ void ThreadSocketHandler()
             boost::this_thread::interruption_point();
 
 // ZEN_MOD_START
-            // Initiate/continue TLS handshake
-            if (pnode->hSocket != INVALID_SOCKET && !pnode->fTLSHandshakeComplete) {
+            // Initiate/continue TLS handshake (only run once)
+            if (pnode->hSocket != INVALID_SOCKET && pnode->ssl == NULL) {
                 pnode->establish_tls_connection();
-                MilliSleep(100);
-            boost::this_thread::interruption_point();
+                boost::this_thread::interruption_point();
             }
 
             //
@@ -1798,7 +1797,7 @@ void ThreadMessageHandler()
         BOOST_FOREACH(CNode* pnode, vNodesCopy)
         {
 // ZEN_MOD_START
-            if (pnode->fDisconnect)
+            if (pnode->fDisconnect || pnode->ssl == NULL)
                 continue;
 // ZEN_MOD_END
 
