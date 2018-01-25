@@ -118,10 +118,10 @@ public:
         vSeeds.push_back(CDNSSeedData("zdeveloper.org", "mainnet-zen.zdeveloper.org"));
         vSeeds.push_back(CDNSSeedData("rotorproject.org", "mainnet-zen.rotorproject.org"));
 
-        // guarantees the first 2 characters, when base58 encoded, are "t5"
-        base58Prefixes[PUBKEY_ADDRESS]     = {0x1C,0xBF};
-        // guarantees the first 2 characters, when base58 encoded, are "t7"
-        base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0xC1};
+        // guarantees the first 2 characters, when base58 encoded, are "zn"
+        base58Prefixes[PUBKEY_ADDRESS]     = {0x20,0x89};
+        // guarantees the first 2 characters, when base58 encoded, are "zs"
+        base58Prefixes[SCRIPT_ADDRESS]     = {0x20,0x96};
 // ZEN_MOD_END
         // the first character, when base58 encoded, is "5" or "K" or "L" (as in Bitcoin)
         base58Prefixes[SECRET_KEY]         = {0x80};
@@ -131,6 +131,8 @@ public:
 // ZEN_MOD_START
         // guarantees the first 2 characters, when base58 encoded, are "zn"
         base58Prefixes[ZCPAYMENT_ADDRRESS] = {0x16,0xA5};
+        // guarantees the first 2 characters, when base58 encoded, are "zc"
+        base58Prefixes[ZCPAYMENT_ADDRRESS] = {0x16,0x9A};
 // ZEN_MOD_END
         // guarantees the first 2 characters, when base58 encoded, are "SK"
         base58Prefixes[ZCSPENDING_KEY]     = {0xAB,0x36};
@@ -269,10 +271,10 @@ public:
         vSeeds.push_back(CDNSSeedData("zdeveloper.org", "testnet-zen.zdeveloper.org"));
         vSeeds.push_back(CDNSSeedData("rotorproject.org", "testnet-zen.rotorproject.org"));
 
-        // guarantees the first 2 characters, when base58 encoded, are "tn"
-        base58Prefixes[PUBKEY_ADDRESS]     = {0x1D,0x26};
-        // guarantees the first 2 characters, when base58 encoded, are "t4"
-        base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0xBC};
+        // guarantees the first 2 characters, when base58 encoded, are "zt"
+        base58Prefixes[PUBKEY_ADDRESS]     = {0x20,0x98};
+        // guarantees the first 2 characters, when base58 encoded, are "zr"
+        base58Prefixes[SCRIPT_ADDRESS]     = {0x20,0x92};
 // ZEN_MOD_END
         // the first character, when base58 encoded, is "9" or "c" (as in Bitcoin)
         base58Prefixes[SECRET_KEY]         = {0xEF};
@@ -304,21 +306,21 @@ public:
             715          //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
-        // Founders reward script expects a vector of 2-of-3 multisig addresses
 // ZEN_MOD_START
+        // Founders reward script expects a vector of 3-of-4 multisig addresses
         vFoundersRewardAddress = {
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t284JhyS8LGM72Tx1porSqwrcq3CejthP1p", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
-            "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h", "t3J8d43gMGysce5VsMkFWxVVyQ6C2KfaR7h",
+            "zrH8KT8KUcpKKNBu3fjH4hA84jZBCawErqn", "zrGsMC4ou1r5Vxy7Dnxg4PfKpansx83BM8g", "zr6sB2Az36D8CqzeZNavB11WbovsGtJSAZG", "zrBAG3pXCTDq14nivNK9mW8SfwMNcdmMQpb",
+            "zrRLwpYRYky4wsvwLVrDp8fs89EBTRhNMB1", "zrLozMfptTmE3zLP5SrTLyB8TXqH84Agjrr", "zrMckkaLtVTEUvxj4ouU7BPDGa8xmdTZSVE", "zrFc897wJXmF7BcEdbvi2mS1bLrcuWYK6hm",
+            "zrHEnni486u9SNcLWacroSgcdyMA33tfM92", "zrJ3ymPV3R8Xk4N3BdNb898xvZvARm5K7mq", "zrDj3P6trx73291krxU51U9QnfkbGxkyJ6E", "zrJs3vMGFJi9pQCireeSLckJonamBnwTSrY",
+            "zrKFdXQoAkkycy52EFoWARyzZWx6Kat2Som", "zrEXbSe79FXA9KRMnJTZUWZdZhNnjcnAdrq", "zr7iAwfNgJsMpSCmijK3TuVDuNvSmLr1rUz", "zrDEK7K6cftqSjeyVUH1WqJtBUkXN7GidxH",
+            "zrRennuq75hyBVU4JymtZk8UcQ1vRPKpmpj", "zr9HRTL79pKmn5R8fvkC9kucZ4u1bQruLTD", "zrML8KXpJsa1NVnbJuawX86ZvAn543tWdTT", "zrLBAkQoxpEtnztSUEcdxnEvuwtgxyAMGX7",
+            "zr6kPnVzFBYmcBDsWoTrPHRuBxLq21o4zvT", "zrMY3vdvqs9KSvx9TawvcyuVurt1Jj6GPVo", "zr9WB1qBpM4nwi1mudUFfjtMNmqzaBQDsXn", "zrAHbtHDPAqmzWJMQqSYzGyFnDWN3oELZRs",
+            "zrH1f5K3z7EQ6RWWZ7StCDWHTZwFChBVA2W", "zrNTacAid9LS4kAqzM4sw1YcF7gLFrzVM7U", "zrFyZpMVKMeDqbn6A2uUiL9mZmgxuR1pUBg", "zrD1cqGFGzBcPogFHJvnN4XegvvmbTjA43t",
+            "zr5A1D7czWkB4pAWfGC5Pux5Ek7anYybdPK", "zr8yTAxCy6jAdsc6qPvmVEQHbYo25AJKhy9", "zrFW2YjQw4cABim5kEDwapbSqTz3wW7cWkk", "zr9nJvNbsrvUTZD41fhqAQeUcgMfqZmAweN",
+            "zrCx4dXZd5b2tD483Ds4diHpo1QxBMJ76Jr", "zr6eVeRwU6Puob3K1RfWtva1R458oj8pzkL", "zr7B92iHtQcobZjGCXo3DAqMQjsn7ka31wE", "zr8bcemLWAjYuphXSVqtqZWEnJipCB9F5oC",
+            "zrFzsuPXb7HsFd3srBqtVqnC9GQ94DQubV2", "zr4yiBobiHjHnCYi75NmYtyoqCV4A3kpHDL", "zrGVdR4K4F8MfmWxhUiTypK7PTsvHi8uTAh", "zr7WiCDqCMvUdH1xmMu8YrBMFb2x2E6BX3z",
+            "zrEFrGWLX4hPHuHRUD3TPbMAJyeSpMSctUc", "zr5c3f8PTnW8qBFX1GvK2LhyLBBCb1WDdGG", "zrGkAZkZLqC9QKJR3XomgxNizCpNuAupTeg", "zrM7muDowiun9tCHhu5K9vcDGfUptuYorfZ",
+            "zrCsWfwKotWnQmFviqAHAPAJ2jXqZYW966P", "zrLLB3JB3jozUoMGFEGhjqyVXTpngVQ8c4T", "zrAEa8YjJ2f3m2VsM1Xa9EwibZxEnRoSLUx", "zrAdJgp7Cx35xTvB7ABWP8YLTNDArMjP1s3"
         };
 // ZEN_MOD_END
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
@@ -337,7 +339,7 @@ public:
         consensus.fCoinbaseMustBeProtected = false;
         consensus.nSubsidySlowStartInterval = 0;
 // ZEN_MOD_START
-        consensus.nSubsidyHalvingInterval = 20000;
+        consensus.nSubsidyHalvingInterval = 2000;
 // ZEN_MOD_END
         consensus.nMajorityEnforceBlockUpgrade = 750;
         consensus.nMajorityRejectBlockOutdated = 950;
@@ -349,9 +351,8 @@ public:
 // ZEN_MOD_START
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
-        consensus.nChainsplitIndex = 10000;
-        //consensus.nChainsplitTime = 1495582200;
-        consensus.nChainsplitTime = 1494601330;
+        consensus.nChainsplitIndex = 1000;
+        consensus.nChainsplitTime = 0;
 
         pchMessageStart[0] = 0x2f;
         pchMessageStart[1] = 0x54;
@@ -399,7 +400,7 @@ public:
 
         // Founders reward script expects a vector of 2-of-3 multisig addresses
 // ZEN_MOD_START
-        vFoundersRewardAddress = { "t3ELub7Kz4kTHomWYdhqb4Xy2D9cWvpYnQ6" };
+        vFoundersRewardAddress = { "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa" };
 // ZEN_MOD_END
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
     }

@@ -13,40 +13,58 @@ $(package)_config_opts+=no-async
 $(package)_config_opts+=no-bf
 $(package)_config_opts+=no-blake2
 $(package)_config_opts+=no-camellia
-$(package)_config_opts+=no-capieng
+# ZEN_MOD_START
+#$(package)_config_opts+=no-capieng
+# ZEN_MOD_END
 $(package)_config_opts+=no-cast
 $(package)_config_opts+=no-chacha
 $(package)_config_opts+=no-cmac
 $(package)_config_opts+=no-cms
-$(package)_config_opts+=no-comp
+# ZEN_MOD_START
+#$(package)_config_opts+=no-comp
+# ZEN_MOD_END
 $(package)_config_opts+=no-crypto-mdebug
 $(package)_config_opts+=no-crypto-mdebug-backtrace
-$(package)_config_opts+=no-ct
+# ZEN_MOD_START
+#$(package)_config_opts+=no-ct
+# ZEN_MOD_END
 $(package)_config_opts+=no-des
 $(package)_config_opts+=no-dgram
-$(package)_config_opts+=no-dsa
+# ZEN_MOD_START
+#$(package)_config_opts+=no-dsa
+# ZEN_MOD_END
 $(package)_config_opts+=no-dso
 $(package)_config_opts+=no-dtls
 $(package)_config_opts+=no-dtls1
 $(package)_config_opts+=no-dtls1-method
 $(package)_config_opts+=no-dynamic-engine
-$(package)_config_opts+=no-ec2m
-$(package)_config_opts+=no-ec_nistp_64_gcc_128
+# ZEN_MOD_START
+#$(package)_config_opts+=no-ec2m
+#$(package)_config_opts+=no-ec_nistp_64_gcc_128
+# ZEN_MOD_END
 $(package)_config_opts+=no-egd
 $(package)_config_opts+=no-engine
-$(package)_config_opts+=no-err
+# ZEN_MOD_START
+#$(package)_config_opts+=no-err
+# ZEN_MOD_END
 $(package)_config_opts+=no-gost
 $(package)_config_opts+=no-heartbeats
-$(package)_config_opts+=no-idea
+# ZEN_MOD_START
+#$(package)_config_opts+=no-idea
+# ZEN_MOD_END
 $(package)_config_opts+=no-md2
 $(package)_config_opts+=no-md4
 $(package)_config_opts+=no-mdc2
 $(package)_config_opts+=no-multiblock
 $(package)_config_opts+=no-nextprotoneg
 $(package)_config_opts+=no-ocb
-$(package)_config_opts+=no-ocsp
+# ZEN_MOD_START
+#$(package)_config_opts+=no-ocsp
+# ZEN_MOD_END
 $(package)_config_opts+=no-poly1305
-$(package)_config_opts+=no-posix-io
+# ZEN_MOD_START
+#$(package)_config_opts+=no-posix-io
+# ZEN_MOD_END
 $(package)_config_opts+=no-psk
 $(package)_config_opts+=no-rc2
 $(package)_config_opts+=no-rc4
@@ -58,24 +76,30 @@ $(package)_config_opts+=no-scrypt
 $(package)_config_opts+=no-sctp
 $(package)_config_opts+=no-seed
 $(package)_config_opts+=no-shared
-$(package)_config_opts+=no-sock
+# ZEN_MOD_START
+#$(package)_config_opts+=no-sock
+# ZEN_MOD_END
 $(package)_config_opts+=no-srp
 $(package)_config_opts+=no-srtp
 $(package)_config_opts+=no-ssl
 $(package)_config_opts+=no-ssl3
 $(package)_config_opts+=no-ssl3-method
 $(package)_config_opts+=no-ssl-trace
-$(package)_config_opts+=no-stdio
-$(package)_config_opts+=no-tls
-$(package)_config_opts+=no-tls1
-$(package)_config_opts+=no-tls1-method
+# ZEN_MOD_START
+#$(package)_config_opts+=no-stdio
+#$(package)_config_opts+=no-tls
+#$(package)_config_opts+=no-tls1
+#$(package)_config_opts+=no-tls1-method
+# ZEN_MOD_END
 $(package)_config_opts+=no-ts
 $(package)_config_opts+=no-ui
 $(package)_config_opts+=no-unit-test
 $(package)_config_opts+=no-weak-ssl-ciphers
 $(package)_config_opts+=no-whirlpool
-$(package)_config_opts+=no-zlib
-$(package)_config_opts+=no-zlib-dynamic
+# ZEN_MOD_START
+#$(package)_config_opts+=no-zlib
+#$(package)_config_opts+=no-zlib-dynamic
+# ZEN_MOD_END
 $(package)_config_opts+=$($(package)_cflags) $($(package)_cppflags)
 $(package)_config_opts+=-DPURIFY
 $(package)_config_opts_linux=-fPIC -Wa,--noexecstack

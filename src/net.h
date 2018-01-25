@@ -30,6 +30,12 @@
 #include <boost/foreach.hpp>
 #include <boost/signals2/signal.hpp>
 
+// ZEN_MOD_START
+// Enable OpenSSL Support for Zen
+#include <openssl/bio.h>
+#include <openssl/ssl.h>
+// ZEN_MOD_END
+
 class CAddrMan;
 class CBlockIndex;
 class CScheduler;
@@ -74,6 +80,16 @@ bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhite
 void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler);
 bool StopNode();
 void SocketSendData(CNode *pnode);
+// ZEN_MOD_START
+SSL_CTX* create_context(bool server_side);
+EVP_PKEY *generate_key();
+X509 *generate_x509(EVP_PKEY *pkey);
+bool write_to_disk(EVP_PKEY *pkey, X509 *x509);
+void configure_context(SSL_CTX *ctx, bool server_side);
+static boost::filesystem::path tlsKeyPath;
+static boost::filesystem::path tlsCertPath;
+static std::string tlsvalidate;
+// ZEN_MOD_END
 
 typedef int NodeId;
 
@@ -159,6 +175,7 @@ struct LocalServiceInfo {
     int nPort;
 };
 
+
 extern CCriticalSection cs_mapLocalHost;
 extern std::map<CNetAddr, LocalServiceInfo> mapLocalHost;
 
@@ -233,6 +250,15 @@ public:
 class CNode
 {
 public:
+// ZEN_MOD_START
+    // OpenSSL
+    BIO *sbio;
+    SSL_CTX *ctx;
+    SSL *ssl;
+    bool server_side;
+    bool establish_tls_connection();
+// ZEN_MOD_END
+
     // socket
     uint64_t nServices;
     SOCKET hSocket;
