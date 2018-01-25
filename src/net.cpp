@@ -964,10 +964,12 @@ void SocketSendData(CNode *pnode) {
                 assert(pnode->nSendSize == 0);
             }
             pnode->vSendMsg.erase(pnode->vSendMsg.begin(), it);
-            break;
+// ZEN_MOD_START
+            return;
+// ZEN_MOD_END
         }
 // ZEN_MOD_START
-        else break;
+        else return;
         boost::this_thread::interruption_point();
 // ZEN_MOD_END
     }
