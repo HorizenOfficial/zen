@@ -901,6 +901,24 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
     CAmount nValueOut = 0;
     BOOST_FOREACH(const CTxOut& txout, tx.vout)
     {
+// ZEN_MOD_START
+        int nHeight = chainActive.Height();
+        txnouttype whichType;
+        ::IsStandard(txout.scriptPubKey, whichType);
+        bool fTestNet = GetBoolArg("-testnet", false);
+
+        if (!fTestNet && (whichType != TX_PUBKEY_REPLAY && whichType != TX_PUBKEYHASH_REPLAY && whichType != TX_MULTISIG_REPLAY) &&
+            nHeight > 117575 && !tx.IsCoinBase()) {
+            return state.DoS(100, error("CheckTransaction(): op-checkblockatheight-needed"),
+                             REJECT_INVALID, "op-checkblockatheight-needed");
+        }
+
+        if (fTestNet && (whichType != TX_PUBKEY_REPLAY && whichType != TX_PUBKEYHASH_REPLAY && whichType != TX_MULTISIG_REPLAY) &&
+            nHeight > 72650 && !tx.IsCoinBase()) {
+            return state.DoS(100, error("CheckTransaction(): op-checkblockatheight-needed"),
+                             REJECT_INVALID, "op-checkblockatheight-needed");
+        }
+// ZEN_MOD_END
         if (txout.nValue < 0)
             return state.DoS(100, error("CheckTransaction(): txout.nValue negative"),
                              REJECT_INVALID, "bad-txns-vout-negative");
