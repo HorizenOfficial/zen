@@ -685,7 +685,6 @@ bool IsStandardTx(const CTransaction& tx, string& reason)
         int nHeight = chainActive.Height();
         // provide temporary replay protection for two minerconf windows during chainsplit
         if ((whichType != TX_PUBKEY_REPLAY && whichType != TX_PUBKEYHASH_REPLAY && whichType != TX_MULTISIG_REPLAY) &&
-             nHeight < Params().GetConsensus().nChainsplitIndex + (Params().GetConsensus().nMinerConfirmationWindow * 2) &&
              nHeight > Params().GetConsensus().nChainsplitIndex && !tx.IsCoinBase()) {
             reason = "op-checkblockatheight-needed";
             return false;
