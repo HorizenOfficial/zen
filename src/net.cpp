@@ -122,8 +122,6 @@ SSL_CTX *create_context(bool server_side)
     ctx = SSL_CTX_new(method);
     configure_context(ctx, server_side);
 
-    SSL_CTX_set_mode(ctx, SSL_MODE_ENABLE_PARTIAL_WRITE);
-
     if (!ctx) {
 	perror("Unable to create TLS context");
         LogPrintf("Unable to create TLS context");
@@ -330,7 +328,7 @@ bool CNode::establish_tls_connection(bool contextonly)
             return true;
         }
         else {
-            LogPrintf("net", "Unable to verify x509 certificate. Disconnecting peer.\n");
+            LogPrint("net", "Unable to verify x509 certificate. Disconnecting peer.\n");
             CloseSocketDisconnect();
         }
     }
