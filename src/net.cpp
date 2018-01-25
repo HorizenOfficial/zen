@@ -314,6 +314,9 @@ bool CNode::establish_tls_connection(bool contextonly)
             SSL_set_connect_state(ssl);
     }
 
+    // Don't bother handshaking with a bad socket
+    if (hSocket == INVALID_SOCKET) return false;
+
     // Return if we're only initializing context
     if (contextonly) return false;
 
@@ -1768,8 +1771,8 @@ void ThreadMessageHandler()
                 pnode->fDisconnect = true;
             }
 
-            // Sent oud version message if needed
-            if (pnode->ssl != NULL && SSL_get_state(pnode->ssl) == TLS_ST_OK) {
+            // Send out version message if needed
+            if (pnode->hSocket != INVALID_SOCKET && pnode->ssl != NULL && SSL_get_state(pnode->ssl) == TLS_ST_OK) {
                 if (!pnode->fInbound) pnode->PushVersion();
                 if (!pnode->fSentVersion) pnode->PushVersion();
 // ZEN_MOD_END
