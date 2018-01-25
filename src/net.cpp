@@ -647,12 +647,6 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 
         pnode->nTimeConnected = GetTime();
 
-// ZEN_MOD_START
-        // Initiate TLS handshake
-        pnode->establish_tls_connection();
-        boost::this_thread::interruption_point();
-// ZEN_MOD_END
-
         return pnode;
     } else if (!proxyConnectionFailed) {
         // If connecting to the node failed, and failure is not caused by a problem connecting to
@@ -1748,6 +1742,12 @@ bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOu
     pnode->fNetworkNode = true;
     if (fOneShot)
         pnode->fOneShot = true;
+
+// ZEN_MOD_START
+    // Initiate TLS handshake
+    pnode->establish_tls_connection();
+    boost::this_thread::interruption_point();
+// ZEN_MOD_END
 
     return true;
 }
