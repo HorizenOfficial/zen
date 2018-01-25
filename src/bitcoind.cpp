@@ -117,7 +117,7 @@ bool AppInit(int argc, char* argv[])
                     "------------------------------------------------------------------\n"
                     "                        WARNING:\n"
                     "Automatically copying the default config file to ~/.zen/zen.conf.\n"
-                    "This is a potential risk, as zend might accidentally compramize\n"
+                    "This is a potential risk, as zend might accidentally compromise\n"
                     "your privacy if there is a default option that you need to change!\n"
                     "\n"
                     "           Please restart zend to continue.\n"
