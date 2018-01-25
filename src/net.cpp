@@ -315,7 +315,7 @@ bool CNode::establish_tls_connection(bool blocking)
     }
 
     // Initiate/Continue TLS handshake
-    SSL_do_handshake(ssl);
+    if (ssl != NULL && SSL_get_state(ssl) != TLS_ST_OK) SSL_do_handshake(ssl);
     boost::this_thread::interruption_point();
 
     // TLS is good
@@ -1377,18 +1377,16 @@ void ThreadSocketHandler()
             //
             // Set/Initiate/Continue TLS handshake status
             //
-            if (pnode->hSocket == INVALID_SOCKET)
+            if (pnode->hSocket == INVALID_SOCKET || !pnode->fTLSHandshakeComplete)
                 continue;
             pnode->establish_tls_connection();
             boost::this_thread::interruption_point();
-// ZEN_MOD_END
 
             //
             // Receive
             //
-            if (pnode->hSocket == INVALID_SOCKET)
+            if (pnode->hSocket == INVALID_SOCKET || !pnode->fTLSHandshakeComplete)
                 continue;
-// ZEN_MOD_START
             if ((FD_ISSET(pnode->hSocket, &fdsetRecv) || FD_ISSET(pnode->hSocket, &fdsetError)))
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
@@ -1404,16 +1402,14 @@ void ThreadSocketHandler()
                     }
                 }
             }
-// ZEN_MOD_END
 
             //
             // Send
             //
-            if (pnode->hSocket == INVALID_SOCKET)
+            if (pnode->hSocket == INVALID_SOCKET || !pnode->fTLSHandshakeComplete)
                 continue;
             if (FD_ISSET(pnode->hSocket, &fdsetSend))
             {
-// ZEN_MOD_START
                 TRY_LOCK(pnode->cs_vSend, lockSend);
                 if (lockSend) {
                     SocketSendData(pnode);
@@ -1764,6 +1760,11 @@ void ThreadMessageHandler()
                 pnode->fDisconnect = true;
             }
             else {
+// ZEN_MOD_START
+                // Initialize and continue TLS handshake
+                pnode->establish_tls_connection();
+                boost::this_thread::interruption_point();
+// ZEN_MOD_END
                 // Sent out version message if needed
                 if (pnode->ssl != NULL && SSL_get_state(pnode->ssl) == TLS_ST_OK) {
                     if (!pnode->fInbound) pnode->PushVersion();
