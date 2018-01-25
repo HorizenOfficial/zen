@@ -302,7 +302,7 @@ bool CNode::establish_tls_connection(bool contextonly)
     // Initialize TLS BIO
     if (sbio == NULL) {
         // Create context and assign socket
-        sbio = BIO_new_fd(hSocket, BIO_NOCLOSE);
+        sbio = BIO_new_fd(hSocket, BIO_CLOSE);
         ssl = SSL_new(ctx);
         SSL_set_bio(ssl, sbio, sbio);
 
