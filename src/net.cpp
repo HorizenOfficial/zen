@@ -1779,7 +1779,7 @@ void ThreadMessageHandler()
             }
 
             // Send out version message if needed
-            if (pnode->hSocket != INVALID_SOCKET && pnode->ssl != NULL && SSL_get_state(pnode->ssl) == TLS_ST_OK) {
+            if (pnode->hSocket != INVALID_SOCKET && pnode->ssl != NULL) {
                 if (!pnode->fInbound) pnode->PushVersion();
                 if (!pnode->fSentVersion) pnode->PushVersion();
 // ZEN_MOD_END
@@ -1803,9 +1803,7 @@ void ThreadMessageHandler()
             // Receive messages
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
-// ZEN_MOD_START
-                if (lockRecv && pnode->fTLSHandshakeComplete)
-// ZEN_MOD_END
+                if (lockRecv)
                 {
                     if (!g_signals.ProcessMessages(pnode))
                         pnode->CloseSocketDisconnect();
@@ -1824,9 +1822,7 @@ void ThreadMessageHandler()
             // Send messages
             {
                 TRY_LOCK(pnode->cs_vSend, lockSend);
-// ZEN_MOD_START
-                if (lockSend && pnode->fTLSHandshakeComplete)
-// ZEN_MOD_END
+                if (lockSend)
                     g_signals.SendMessages(pnode, pnode == pnodeTrickle || pnode->fWhitelisted);
             }
             boost::this_thread::interruption_point();
