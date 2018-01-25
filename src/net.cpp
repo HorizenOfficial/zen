@@ -26,18 +26,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 
-// ZEN_MOD_START
-// Used for E2E Encryption in Zen
-#include <openssl/bio.h>
-#include <openssl/conf.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#include <openssl/pem.h>
-#include <openssl/x509.h>
-#include <stdio.h> // debugging
-#include <random> // random version parameter in X509_get_serialNumber
-// ZEN_MOD_END
-
 // Dump addresses to peers.dat every 15 minutes (900s)
 #define DUMP_ADDRESSES_INTERVAL 900
 
@@ -106,243 +94,6 @@ CCriticalSection cs_nLastNodeId;
 
 static CSemaphore *semOutbound = NULL;
 boost::condition_variable messageHandlerCondition;
-
-// ZEN_MOD_START
-// OpenSSL Functions
-SSL_CTX *create_context(bool server_side)
-{
-    const SSL_METHOD *method;
-    SSL_CTX *ctx;
-
-    if (server_side)
-        method = TLS_server_method();
-    else
-        method = TLS_client_method();
-
-    ctx = SSL_CTX_new(method);
-    configure_context(ctx, server_side);
-
-    if (!ctx) {
-	perror("Unable to create TLS context");
-        LogPrintf("Unable to create TLS context");
-	ERR_print_errors_fp(stderr);
-    }
-
-    return ctx;
-}
-
-// Generates a 4096-bit RSA key.
-EVP_PKEY *generate_key() {
-    ERR_load_CRYPTO_strings();
-    OPENSSL_add_all_algorithms_noconf();
-
-    EVP_PKEY *pkey = EVP_PKEY_new();
-    BIGNUM *bigNumber = BN_new();
-    int exponent = RSA_F4;
-
-    if (BN_set_word(bigNumber, exponent) < 0) {
-        //TODO: Use ERR_peek_last_error_line to find out why
-        LogPrintf("Error creating the big number.");
-        EVP_PKEY_free(pkey);
-        exit(EXIT_FAILURE);
-    }
-
-    // Generate the RSA key and assign it to pkey.
-    RSA *rsa = RSA_new();
-    if (RSA_generate_key_ex(rsa, 4096, bigNumber, NULL) < 0) {
-        // TODO: Use ERR_peek_last_error_line to find out why
-        LogPrintf("Unable to generate 4096-bit RSA key.");
-        EVP_PKEY_free(pkey);
-        RSA_free(rsa);
-        exit(EXIT_FAILURE);
-    }
-    EVP_PKEY_assign_RSA(pkey, rsa);
-
-    return pkey;
-}
-
-// Generates a self-signed x509 certificate.
-X509 *generate_x509(EVP_PKEY *pkey) {
-    ERR_load_CRYPTO_strings();
-    OPENSSL_add_all_algorithms_noconf();
-
-    X509 *x509 = X509_new();
-
-    // seed
-    std::random_device rd;
-    // random-number engine used (Mersenne-Twister in this case)
-    std::mt19937 rng(rd());
-    std::uniform_int_distribution<int> uni(0, 9999);
-    auto random_integer = uni(rng);
-
-    // It's dangerous to use a static serial number!
-    ASN1_INTEGER_set(X509_get_serialNumber(x509), random_integer);
-
-    // Set the certificate validity dates, 0 = now.
-    X509_gmtime_adj(X509_get_notBefore(x509), 0);
-    // 60 * 60 * 24 * NUMBER_OF_DAYS_TO_BE_VALID, 157784630 = 5 years
-    X509_gmtime_adj(X509_get_notAfter(x509), 157784630);
-
-    // Use the pkey that we generated before
-    X509_set_pubkey(x509, pkey);
-
-    X509_NAME *name = X509_get_subject_name(x509);
-    X509_set_issuer_name(x509, name);
-
-    // Specify the encryption algorithm of the signature, SHA256 should suit.
-    if (X509_sign(x509, pkey, EVP_sha256()) < 0) {
-        //TODO: Use ERR_peek_last_error_line to find out why
-        X509_free(x509);
-        EVP_PKEY_free(pkey);
-        LogPrintf("Error signing the certificate with the key.");
-        exit(EXIT_FAILURE);
-    }
-    return x509;
-}
-
-bool verify_x509(SSL* ssl) {
-    tlsvalidate = GetArg("-tlsvalidate", "");
-    int res = SSL_get_verify_result(ssl);
-    if (!(X509_V_OK == res) && tlsvalidate == "1") {
-        LogPrintf("TLS certificate failed to pass validation. %s\n", res);
-        return false;
-    }
-    return true;
-}
-
-bool write_to_disk(EVP_PKEY *pkey, X509 *x509) {
-    ERR_load_CRYPTO_strings();
-    OPENSSL_add_all_algorithms_noconf();
-
-    const char *encryptionPassword = "MySuperDuperSecurePassword";
-
-    boost::filesystem::path pathKey = GetDataDir(false) / "key.pem";
-    FILE *f = fopen(pathKey.string().c_str(), "wb");
-
-    // Here you write the private key (pkey) to disk.
-    //TODO: OpenSSL can encrypt the file using the password and cipher.
-    //if (!PEM_write_PrivateKey(f, pkey, EVP_des_ede3_cbc(), (unsigned char *) encryptionPassword,
-    //                         (int) strlen(encryptionPassword), NULL, NULL)) {
-    if (!PEM_write_PrivateKey(f, pkey, NULL, NULL, 0, 0, NULL)) {
-        //TODO: Use ERR_peek_last_error_line to find out why
-        fclose(f);
-        LogPrintf("Error writing private key to disk.");
-        exit(EXIT_FAILURE);
-    }
-    fclose(f);
-
-    boost::filesystem::path pathCert = GetDataDir(false) / "cert.pem";
-    f = fopen(pathCert.string().c_str(), "wb");
-    //f = fopen(pathCert.string().c_str(), "wb");
-
-    // Here you write the certificate to the disk. No encryption is needed here since this is public facing information
-    if (PEM_write_X509(f, x509) < 0) {
-        //TODO: Use ERR_peek_last_error_line to find out why
-        fclose(f);
-        LogPrintf("Error writing certificate to disk.");
-        exit(EXIT_FAILURE);
-    }
-    fclose(f);
-}
-
-void configure_context(SSL_CTX *ctx, bool server_side)
-{
-    SSL_CTX_set_ecdh_auto(ctx, 1);
-
-    // Set OpenSSL verification options
-    const long flags = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1;
-    SSL_CTX_set_mode(ctx, SSL_MODE_ENABLE_PARTIAL_WRITE);
-    SSL_CTX_set_mode(ctx, SSL_MODE_AUTO_RETRY);
-
-    SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
-    SSL_CTX_set_verify_depth(ctx, 4);
-    SSL_CTX_set_options(ctx, flags);
-
-    if (server_side) {
-        tlsKeyPath = GetArg("-tlskeypath", "");
-        tlsCertPath = GetArg("-tlscertpath", "");
-        if (!boost::filesystem::exists(tlsKeyPath) || !boost::filesystem::exists(tlsCertPath)) {
-            LogPrintf("Error retrieving secure TLS certificates. Trying self-signed ones.");
-            const char * cert = (GetDataDir(false) / "cert.pem").string().c_str();
-            const char * key = (GetDataDir(false) / "key.pem").string().c_str();
-            if (!boost::filesystem::exists(cert) && !boost::filesystem::exists(key)) {
-                EVP_PKEY *pkey = generate_key();
-                X509 *x509 = generate_x509(pkey);
-                write_to_disk(pkey, x509);
-            }
-            tlsKeyPath = GetDataDir(false) / "key.pem";
-            tlsCertPath = GetDataDir(false) / "cert.pem";
-        }
-
-        // Set the private key and cert
-        if (!SSL_CTX_use_PrivateKey_file(ctx, tlsKeyPath.string().c_str(), SSL_FILETYPE_PEM)) {
-            ERR_print_errors_fp(stderr);
-        }
-        if (!SSL_CTX_use_certificate_file(ctx, tlsCertPath.string().c_str(), SSL_FILETYPE_PEM)) {
-            ERR_print_errors_fp(stderr);
-        }
-    }
-}
-
-SSL_CTX *server_ctx;
-SSL_CTX *client_ctx = create_context(false);
-
-bool CNode::establish_tls_connection(bool contextonly)
-{
-    boost::this_thread::interruption_point();
-
-    // Initialize TLS context
-    if (ctx == NULL) {
-        if (server_side)
-            ctx = server_ctx;
-        else
-            ctx = client_ctx;
-    }
-
-    // Initialize TLS BIO
-    if (sbio == NULL) {
-        // Create context and assign socket
-        sbio = BIO_new_fd(hSocket, BIO_NOCLOSE);
-        ssl = SSL_new(ctx);
-        SSL_set_bio(ssl, sbio, sbio);
-
-        // Set OpenSSL flags
-        const char* const PREFERRED_CIPHERS = "HIGH:!aNULL:!kRSA:!PSK:!SRP:!MD5:!RC4";
-        SSL_set_cipher_list(ssl, PREFERRED_CIPHERS);
-
-        // Set connect state
-        if (server_side)
-            SSL_set_accept_state(ssl);
-        else
-            SSL_set_connect_state(ssl);
-    }
-
-    // Don't bother handshaking with a bad socket
-    if (hSocket == INVALID_SOCKET) return false;
-
-    // Return if we're only initializing context
-    if (contextonly) return false;
-
-    // Initiate/Continue TLS handshake
-    if (ssl != NULL && SSL_get_state(ssl) != TLS_ST_OK) SSL_do_handshake(ssl);
-    boost::this_thread::interruption_point();
-
-    // TLS is good
-    if (ssl != NULL && SSL_get_state(ssl) == TLS_ST_OK && !fTLSHandshakeComplete) {
-        if (verify_x509(ssl)) {
-            fTLSHandshakeComplete = true;
-            return true;
-        }
-        else {
-            LogPrint("net", "Unable to verify x509 certificate. Disconnecting peer.\n");
-            CloseSocketDisconnect();
-        }
-    }
-
-    return false;
-}
-// ZEN_MOD_END
-
 
 // Signals for message handling
 static CNodeSignals g_signals;
@@ -568,9 +319,8 @@ CNode* FindNode(const CNetAddr& ip)
 {
     LOCK(cs_vNodes);
     BOOST_FOREACH(CNode* pnode, vNodes)
-        if ((CNetAddr)pnode->addr == ip) {
+        if ((CNetAddr)pnode->addr == ip)
             return (pnode);
-        }
     return NULL;
 }
 
@@ -578,9 +328,8 @@ CNode* FindNode(const CSubNet& subNet)
 {
     LOCK(cs_vNodes);
     BOOST_FOREACH(CNode* pnode, vNodes)
-    if (subNet.Match((CNetAddr)pnode->addr)) {
+    if (subNet.Match((CNetAddr)pnode->addr))
         return (pnode);
-    }
     return NULL;
 }
 
@@ -588,9 +337,8 @@ CNode* FindNode(const std::string& addrName)
 {
     LOCK(cs_vNodes);
     BOOST_FOREACH(CNode* pnode, vNodes)
-        if (pnode->addrName == addrName) {
+        if (pnode->addrName == addrName)
             return (pnode);
-        }
     return NULL;
 }
 
@@ -598,9 +346,8 @@ CNode* FindNode(const CService& addr)
 {
     LOCK(cs_vNodes);
     BOOST_FOREACH(CNode* pnode, vNodes)
-        if ((CService)pnode->addr == addr) {
+        if ((CService)pnode->addr == addr)
             return (pnode);
-        }
     return NULL;
 }
 
@@ -663,11 +410,6 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 
 void CNode::CloseSocketDisconnect()
 {
-// ZEN_MOD_START
-    if (ssl != NULL) {
-        SSL_shutdown(ssl);
-    }
-// ZEN_MOD_END
     fDisconnect = true;
     if (hSocket != INVALID_SOCKET)
     {
@@ -683,25 +425,18 @@ void CNode::CloseSocketDisconnect()
 
 void CNode::PushVersion()
 {
-// ZEN_MOD_START
-    if (!fSentVersion) {
-        fSentVersion = true;
+    int nBestHeight = g_signals.GetHeight().get_value_or(0);
 
-        int nBestHeight = g_signals.GetHeight().get_value_or(0);
-
-        int64_t nTime = (fInbound ? GetAdjustedTime() : GetTime());
-        CAddress addrYou = (addr.IsRoutable() && !IsProxy(addr) ? addr : CAddress(CService("0.0.0.0",0)));
-        CAddress addrMe = GetLocalAddress(&addr);
-        GetRandBytes((unsigned char*)&nLocalHostNonce, sizeof(nLocalHostNonce));
-        if (fLogIPs)
-            LogPrint("net", "send version message: version %d, blocks=%d, us=%s, them=%s, peer=%d\n", PROTOCOL_VERSION, nBestHeight, addrMe.ToString(), addrYou.ToString(), id);
-        else
-            LogPrint("net", "send version message: version %d, blocks=%d, us=%s, peer=%d\n", PROTOCOL_VERSION, nBestHeight, addrMe.ToString(), id);
-
-        PushMessage("version", PROTOCOL_VERSION, nLocalServices, nTime, addrYou, addrMe,
-                    nLocalHostNonce, FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, std::vector<string>()), nBestHeight, true);
-    }
-// ZEN_MOD_END
+    int64_t nTime = (fInbound ? GetAdjustedTime() : GetTime());
+    CAddress addrYou = (addr.IsRoutable() && !IsProxy(addr) ? addr : CAddress(CService("0.0.0.0",0)));
+    CAddress addrMe = GetLocalAddress(&addr);
+    GetRandBytes((unsigned char*)&nLocalHostNonce, sizeof(nLocalHostNonce));
+    if (fLogIPs)
+        LogPrint("net", "send version message: version %d, blocks=%d, us=%s, them=%s, peer=%d\n", PROTOCOL_VERSION, nBestHeight, addrMe.ToString(), addrYou.ToString(), id);
+    else
+        LogPrint("net", "send version message: version %d, blocks=%d, us=%s, peer=%d\n", PROTOCOL_VERSION, nBestHeight, addrMe.ToString(), id);
+    PushMessage("version", PROTOCOL_VERSION, nLocalServices, nTime, addrYou, addrMe,
+                nLocalHostNonce, FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, std::vector<string>()), nBestHeight, true);
 }
 
 
@@ -807,9 +542,6 @@ void CNode::copyStats(CNodeStats &stats)
 {
     stats.nodeid = this->GetId();
     X(nServices);
-// ZEN_MOD_START
-    X(fTLSHandshakeComplete);
-// ZEN_MOD_END
     X(nLastSend);
     X(nLastRecv);
     X(nTimeConnected);
@@ -938,23 +670,15 @@ int CNetMessage::readData(const char *pch, unsigned int nBytes)
 
 
 // requires LOCK(cs_vSend)
-void SocketSendData(CNode *pnode) {
-
-// ZEN_MOD_START
-    if (pnode->ssl == NULL) pnode->establish_tls_connection();
-
+void SocketSendData(CNode *pnode)
+{
     std::deque<CSerializeData>::iterator it = pnode->vSendMsg.begin();
+
     while (it != pnode->vSendMsg.end()) {
-        boost::this_thread::interruption_point();
-// ZEN_MOD_END
         const CSerializeData &data = *it;
         assert(data.size() > pnode->nSendOffset);
-// ZEN_MOD_START
-        int nBytes = SSL_write(pnode->ssl, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset);
-        boost::this_thread::interruption_point();
-        int ssl_err = SSL_get_error(pnode->ssl, nBytes);
+        int nBytes = send(pnode->hSocket, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset, MSG_NOSIGNAL | MSG_DONTWAIT);
         if (nBytes > 0) {
-// ZEN_MOD_END
             pnode->nLastSend = GetTime();
             pnode->nSendBytes += nBytes;
             pnode->nSendOffset += nBytes;
@@ -963,22 +687,30 @@ void SocketSendData(CNode *pnode) {
                 pnode->nSendOffset = 0;
                 pnode->nSendSize -= data.size();
                 it++;
+            } else {
+                // could not send full message; stop sending more
+                break;
             }
-
-            if (it == pnode->vSendMsg.end()) {
-                assert(pnode->nSendOffset == 0);
-                assert(pnode->nSendSize == 0);
+        } else {
+            if (nBytes < 0) {
+                // error
+                int nErr = WSAGetLastError();
+                if (nErr != WSAEWOULDBLOCK && nErr != WSAEMSGSIZE && nErr != WSAEINTR && nErr != WSAEINPROGRESS)
+                {
+                    LogPrintf("socket send error %s\n", NetworkErrorString(nErr));
+                    pnode->CloseSocketDisconnect();
+                }
             }
-            pnode->vSendMsg.erase(pnode->vSendMsg.begin(), it);
-// ZEN_MOD_START
-            return;
-// ZEN_MOD_END
+            // couldn't send anything at all
+            break;
         }
-// ZEN_MOD_START
-        else return;
-        boost::this_thread::interruption_point();
-// ZEN_MOD_END
     }
+
+    if (it == pnode->vSendMsg.end()) {
+        assert(pnode->nSendOffset == 0);
+        assert(pnode->nSendSize == 0);
+    }
+    pnode->vSendMsg.erase(pnode->vSendMsg.begin(), it);
 }
 
 static list<CNode*> vNodesDisconnected;
@@ -1199,9 +931,6 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
 #endif
 
     CNode* pnode = new CNode(hSocket, addr, "", true);
-// ZEN_MOD_START
-    pnode->server_side = true;
-// ZEN_MOD_END
     pnode->AddRef();
     pnode->fWhitelisted = whitelisted;
 
@@ -1215,11 +944,6 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
 
 void ThreadSocketHandler()
 {
-// ZEN_MOD_START
-    // Make OpenSSL less CPU intensive
-    SetThreadPriority(THREAD_PRIORITY_BELOW_NORMAL);
-// ZEN_MOD_END
-
     unsigned int nPrevNodeCount = 0;
     while (true)
     {
@@ -1290,9 +1014,7 @@ void ThreadSocketHandler()
         // Find which sockets have data to receive
         //
         struct timeval timeout;
-// ZEN_MOD_START
-        timeout.tv_sec = 0;
-// ZEN_MOD_END
+        timeout.tv_sec  = 0;
         timeout.tv_usec = 50000; // frequency to poll pnode->vSend
 
         fd_set fdsetRecv;
@@ -1389,11 +1111,8 @@ void ThreadSocketHandler()
         {
             LOCK(cs_vNodes);
             vNodesCopy = vNodes;
-// ZEN_MOD_START
-            BOOST_FOREACH(CNode* pnode, vNodesCopy) {
+            BOOST_FOREACH(CNode* pnode, vNodesCopy)
                 pnode->AddRef();
-            }
-// ZEN_MOD_END
         }
         BOOST_FOREACH(CNode* pnode, vNodesCopy)
         {
@@ -1405,19 +1124,41 @@ void ThreadSocketHandler()
             //
             if (pnode->hSocket == INVALID_SOCKET)
                 continue;
-            if ((FD_ISSET(pnode->hSocket, &fdsetRecv) || FD_ISSET(pnode->hSocket, &fdsetError)))
+            if (FD_ISSET(pnode->hSocket, &fdsetRecv) || FD_ISSET(pnode->hSocket, &fdsetError))
             {
-                if (pnode->ssl == NULL) pnode->establish_tls_connection();
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
-                if (lockRecv) {
-                    char pchBuf[0x10000];
-                    int nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf)); // SSL_read() transparently continues TLS handshaking
-                    int ssl_err = SSL_get_error(pnode->ssl, nBytes);
-                    if (nBytes > 0) {
-                        pnode->ReceiveMsgBytes(pchBuf, nBytes);
-                        pnode->nLastRecv = GetTime();
-                        pnode->nRecvBytes += nBytes;
-                        pnode->RecordBytesRecv(nBytes);
+                if (lockRecv)
+                {
+                    {
+                        // typical socket buffer is 8K-64K
+                        char pchBuf[0x10000];
+                        int nBytes = recv(pnode->hSocket, pchBuf, sizeof(pchBuf), MSG_DONTWAIT);
+                        if (nBytes > 0)
+                        {
+                            if (!pnode->ReceiveMsgBytes(pchBuf, nBytes))
+                                pnode->CloseSocketDisconnect();
+                            pnode->nLastRecv = GetTime();
+                            pnode->nRecvBytes += nBytes;
+                            pnode->RecordBytesRecv(nBytes);
+                        }
+                        else if (nBytes == 0)
+                        {
+                            // socket closed gracefully
+                            if (!pnode->fDisconnect)
+                                LogPrint("net", "socket closed\n");
+                            pnode->CloseSocketDisconnect();
+                        }
+                        else if (nBytes < 0)
+                        {
+                            // error
+                            int nErr = WSAGetLastError();
+                            if (nErr != WSAEWOULDBLOCK && nErr != WSAEMSGSIZE && nErr != WSAEINTR && nErr != WSAEINPROGRESS)
+                            {
+                                if (!pnode->fDisconnect)
+                                    LogPrintf("socket recv error %s\n", NetworkErrorString(nErr));
+                                pnode->CloseSocketDisconnect();
+                            }
+                        }
                     }
                 }
             }
@@ -1430,9 +1171,8 @@ void ThreadSocketHandler()
             if (FD_ISSET(pnode->hSocket, &fdsetSend))
             {
                 TRY_LOCK(pnode->cs_vSend, lockSend);
-                if (lockSend) {
-                    SocketSendData(pnode); // SSL_write() transparently continues TLS handshaking
-                }
+                if (lockSend)
+                    SocketSendData(pnode);
 // ZEN_MOD_END
             }
 
@@ -1706,7 +1446,7 @@ void ThreadOpenAddedConnections()
         // (keeping in mind that addnode entries can have many IPs if fNameLookup)
         {
             LOCK(cs_vNodes);
-            BOOST_FOREACH(CNode* pnode, vNodes) {
+            BOOST_FOREACH(CNode* pnode, vNodes)
                 for (list<vector<CService> >::iterator it = lservAddressesToAdd.begin(); it != lservAddressesToAdd.end(); it++)
                     BOOST_FOREACH(const CService& addrNode, *(it))
                         if (pnode->addr == addrNode)
@@ -1715,7 +1455,6 @@ void ThreadOpenAddedConnections()
                             it--;
                             break;
                         }
-            }
         }
         BOOST_FOREACH(vector<CService>& vserv, lservAddressesToAdd)
         {
@@ -1769,17 +1508,9 @@ void ThreadMessageHandler()
         {
             LOCK(cs_vNodes);
             vNodesCopy = vNodes;
-            BOOST_FOREACH(CNode* pnode, vNodesCopy)
+            BOOST_FOREACH(CNode* pnode, vNodesCopy) {
                 pnode->AddRef();
-        }
-
-        BOOST_FOREACH(CNode* pnode, vNodesCopy)
-        {
-// ZEN_MOD_START
-            if (pnode->hSocket == INVALID_SOCKET) {
-                pnode->fDisconnect = true;
             }
-// ZEN_MOD_END
         }
 
         // Poll the connected nodes for messages
@@ -1799,9 +1530,8 @@ void ThreadMessageHandler()
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
                 if (lockRecv)
                 {
-// ZEN_MOD_START
-                    g_signals.ProcessMessages(pnode);
-// ZEN_MOD_END
+                    if (!g_signals.ProcessMessages(pnode))
+                        pnode->CloseSocketDisconnect();
 
                     if (pnode->nSendSize < SendBufferSize())
                     {
@@ -1844,12 +1574,9 @@ bool BindListenPort(const CService &addrBind, string& strError, bool fWhiteliste
     strError = "";
     int nOne = 1;
 
+    // Create socket for listening for incoming connections
     struct sockaddr_storage sockaddr;
     socklen_t len = sizeof(sockaddr);
-
-// ZEN_MOD_START
-    server_ctx = create_context(true);
-// ZEN_MOD_END
 
     if (!addrBind.GetSockAddr((struct sockaddr*)&sockaddr, &len))
     {
@@ -2066,17 +1793,14 @@ public:
     {
         // Close sockets
         BOOST_FOREACH(CNode* pnode, vNodes)
-            if (pnode->hSocket != INVALID_SOCKET) {
 // ZEN_MOD_START
-                if (pnode->ssl != NULL) SSL_shutdown(pnode->ssl);
+            if (pnode->hSocket != INVALID_SOCKET)
                 CloseSocket(pnode->hSocket);
 // ZEN_MOD_END
-            }
         BOOST_FOREACH(ListenSocket& hListenSocket, vhListenSocket)
-            if (hListenSocket.socket != INVALID_SOCKET) {
+            if (hListenSocket.socket != INVALID_SOCKET)
                 if (!CloseSocket(hListenSocket.socket))
                     LogPrintf("CloseSocket(hListenSocket) failed with error %s\n", NetworkErrorString(WSAGetLastError()));
-            }
 
         // clean up some globals (to help leak detection)
         BOOST_FOREACH(CNode *pnode, vNodes)
@@ -2312,21 +2036,9 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
     addrKnown(5000, 0.001),
     setInventoryKnown(SendBufferSize() / 1000)
 {
-// ZEN_MOD_START
-    // OpenSSL support
-    sbio = NULL;
-    ctx = NULL;
-    ssl = NULL;
-    server_side = false;
-// ZEN_MOD_END
-
     nServices = 0;
     hSocket = hSocketIn;
     nRecvVersion = INIT_PROTO_VERSION;
-// ZEN_MOD_START
-    fTLSHandshakeComplete = false;
-    fSentVersion = false;
-// ZEN_MOD_END
     nLastSend = 0;
     nLastRecv = 0;
     nSendBytes = 0;
@@ -2368,6 +2080,12 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
         LogPrint("net", "Added connection to %s peer=%d\n", addrName, id);
     else
         LogPrint("net", "Added connection peer=%d\n", id);
+
+// ZEN_MOD_START
+    // Be shy and don't send version until we hear
+    if (hSocket != INVALID_SOCKET && !fInbound)
+        PushVersion();
+// ZEN_MOD_END
 
     GetNodeSignals().InitializeNode(GetId(), this);
 }
@@ -2468,10 +2186,6 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
     std::deque<CSerializeData>::iterator it = vSendMsg.insert(vSendMsg.end(), CSerializeData());
     ssSend.GetAndClear(*it);
     nSendSize += (*it).size();
-
-// ZEN_MOD_START
-    if (this->ssl == NULL) this->establish_tls_connection();
-// ZEN_MOD_END
 
     // If write queue empty, attempt "optimistic write"
     if (it == vSendMsg.begin())

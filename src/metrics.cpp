@@ -198,12 +198,12 @@ int printStats(bool mining)
 {
     // Number of lines that are always displayed
 // ZEN_MOD_START
-    int lines = 9;
+    int lines = 4;
 
     int height = chainActive.Height();
     int connections = vNodes.size();
     int64_t netsolps = GetNetworkHashPS(120, -1);
-
+/*
     // OpenSSL related statistics
     tlsvalidate = GetArg("-tlsvalidate","");
     cipherdescription = cipherdescription.length() == 0 ? "Not Encrypted" : cipherdescription;
@@ -231,16 +231,19 @@ int printStats(bool mining)
                 }
             }
         }
-// ZEN_MOD_END
     }
+*/
+// ZEN_MOD_END
     auto localsolps = GetLocalSolPS();
 
 // ZEN_MOD_START
+/*
     std::cout << "          " << _("COMSEC STATUS") << " | " << securitylevel << std::endl;
     std::cout << "      " << _("Encryption Cipher") << " | " << cipherdescription << std::endl;
     std::cout << "        " << _("Routing Secrecy") << " | " << routingsecrecy << std::endl;
     std::cout << "         " << _("Validate Peers") << " | " << validationdescription << std::endl;
     std::cout << std::endl;
+*/
     std::cout << "           " << _("Block height") << " | " << height << std::endl;
 // ZEN_MOD_END
     std::cout << "            " << _("Connections") << " | " << connections << std::endl;
