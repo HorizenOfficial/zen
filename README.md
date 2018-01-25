@@ -33,6 +33,10 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
 ```
 
 
+Instructions to redeem pre block 110,000 ZCL
+-------------
+Copy and paste your wallet.dat from ~/.zclassic/ to ~/.zen. That's it
+
 About
 --------------
 
