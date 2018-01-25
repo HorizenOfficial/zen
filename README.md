@@ -1,20 +1,28 @@
-Zen 1.0.6
+Zen 2.0.8-2
 ==============
 
 What is Zen?
 ----------------
 A globally accessible and anonymous blockchain for censorship-resistant communications and economic activity.
 
-Get dependencies:
-```{r, engine='bash'}
+1. Get dependencies:
+    1. Debian
+    ```{r, engine='bash'}
+    sudo apt-get install \
+          build-essential pkg-config libc6-dev m4 g++-multilib \
+          autoconf libtool ncurses-dev unzip git python \
+          zlib1g-dev wget bsdmainutils automake
+    ```
+    1. Centos:
+    ```{r, engine='bash')
+    sudo yum install epel-release
+    sudo yum group install 'Development Tools'
+    sudo yum install lbzip2 \
+        ncurses-dev unzip python \
+        zlib1g-dev wget bsdmainutils
+    ```   
 
-sudo apt-get install \
-      build-essential pkg-config libc6-dev m4 g++-multilib \
-      autoconf libtool ncurses-dev unzip git python \
-      zlib1g-dev wget bsdmainutils automake
-```
-
-Install
+1. Install
 ```{r, engine='bash'}
 # Build
 ./zcutil/build.sh -j$(nproc)

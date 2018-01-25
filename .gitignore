@@ -1,3 +1,9 @@
+# Ignore Zen binaries
+src/zen-cli
+src/zen-gtest
+src/zen-tx
+src/zend
+
 *.tar.gz
 *.deb
 *.exe

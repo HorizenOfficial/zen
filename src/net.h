@@ -184,6 +184,9 @@ class CNodeStats
 public:
     NodeId nodeid;
     uint64_t nServices;
+// ZEN_MOD_START
+    bool fTLSHandshakeComplete;
+// ZEN_MOD_END
     int64_t nLastSend;
     int64_t nLastRecv;
     int64_t nTimeConnected;
@@ -256,7 +259,7 @@ public:
     SSL_CTX *ctx;
     SSL *ssl;
     bool server_side;
-    bool establish_tls_connection();
+    bool establish_tls_connection(bool blocking=false);
 // ZEN_MOD_END
 
     // socket
@@ -274,6 +277,9 @@ public:
     CCriticalSection cs_vRecvMsg;
     uint64_t nRecvBytes;
     int nRecvVersion;
+// ZEN_MOD_START
+    bool fTLSHandshakeComplete;
+// ZEN_MOD_END
 
     int64_t nLastSend;
     int64_t nLastRecv;
@@ -283,6 +289,9 @@ public:
     std::string addrName;
     CService addrLocal;
     int nVersion;
+// ZEN_MOD_START
+    bool fSentVersion;
+// ZEN_MOD_END
     // strSubVer is whatever byte array we read from the wire. However, this field is intended
     // to be printed out, displayed to humans in various forms and so on. So we sanitize it and
     // store the sanitized version in cleanSubVer. The original should be used when dealing with

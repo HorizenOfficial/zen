@@ -284,119 +284,53 @@ void configure_context(SSL_CTX *ctx, bool server_side)
 SSL_CTX *server_ctx;
 SSL_CTX *client_ctx = create_context(false);
 
-bool CNode::establish_tls_connection()
+bool CNode::establish_tls_connection(bool blocking)
 {
-    struct timeval timeout;
-    timeout.tv_sec  = 8;
+    boost::this_thread::interruption_point();
 
-    if (ssl != NULL)
-        return true;
-
-    // Initialize OpenSSL context
-    if (server_side)
-        ctx = server_ctx;
-    else
-        ctx = client_ctx;
-
-    // Create context and assign socket
-    sbio = BIO_new_fd(hSocket, BIO_NOCLOSE);
-    ssl = SSL_new(ctx);
-    SSL_set_bio(ssl, sbio, sbio);
-
-    // Set OpenSSL flags
-    const char* const PREFERRED_CIPHERS = "HIGH:!aNULL:!kRSA:!PSK:!SRP:!MD5:!RC4";
-    SSL_set_cipher_list(ssl, PREFERRED_CIPHERS);
-
-    // Set connect state
-    if (server_side) {
-        SSL_set_accept_state(ssl);
-        bool repeat = true;
-        while (repeat) {
-            repeat = false;
-            int err = SSL_accept(ssl);
-            boost::this_thread::interruption_point();
-            int ssl_err = SSL_get_error(ssl, err);
-            if (ssl_err == SSL_ERROR_WANT_READ) {
-                fd_set fds;
-                int sock = SSL_get_rfd(ssl);
-                FD_ZERO(&fds);
-                FD_SET(sock, &fds);
-                int sel = select(sock+1, &fds, NULL, NULL, &timeout);
-                boost::this_thread::interruption_point();
-                repeat = true;
-            }
-            else if (ssl_err == SSL_ERROR_WANT_WRITE) {
-                fd_set fds;
-                int sock = SSL_get_rfd(ssl);
-                FD_ZERO(&fds);
-                FD_SET(sock, &fds);
-                int sel = select(sock+1, NULL, &fds, NULL, &timeout);
-                boost::this_thread::interruption_point();
-                repeat = true;
-            }
-            else if (ssl_err == SSL_ERROR_WANT_CONNECT) {
-                SSL_connect(ssl);
-                repeat = true;
-            }
-            else if (ssl_err == SSL_ERROR_WANT_ACCEPT) {
-                SSL_accept(ssl);
-                repeat = true;
-            }
-            else if (ssl_err == SSL_ERROR_NONE) {
-                repeat = false;
-            }
-            else
-                return false;
-        }
-    } else {
-        SSL_set_connect_state(ssl);
-        bool repeat = true;
-        while (repeat) {
-            repeat = false;
-            int err = SSL_connect(ssl);
-            boost::this_thread::interruption_point();
-            int ssl_err = SSL_get_error(ssl, err);
-            if (ssl_err == SSL_ERROR_WANT_READ) {
-                fd_set fds;
-                int sock = SSL_get_rfd(ssl);
-                FD_ZERO(&fds);
-                FD_SET(sock, &fds);
-                int sel = select(sock+1, &fds, NULL, NULL, &timeout);
-                boost::this_thread::interruption_point();
-                repeat = true;
-            }
-            else if (ssl_err == SSL_ERROR_WANT_WRITE) {
-                fd_set fds;
-                int sock = SSL_get_rfd(ssl);
-                FD_ZERO(&fds);
-                FD_SET(sock, &fds);
-                int sel = select(sock+1, NULL, &fds, NULL, &timeout);
-                boost::this_thread::interruption_point();
-                repeat = true;
-            }
-            else if (ssl_err == SSL_ERROR_WANT_CONNECT) {
-                SSL_connect(ssl);
-                repeat = true;
-            }
-            else if (ssl_err == SSL_ERROR_WANT_ACCEPT) {
-                SSL_accept(ssl);
-                repeat = true;
-            }
-            else if (ssl_err == SSL_ERROR_NONE) {
-                repeat = false;
-            }
-            else
-                return false;
-        }
+    // Initialize TLS context
+    if (ctx == NULL) {
+        if (server_side)
+            ctx = server_ctx;
+        else
+            ctx = client_ctx;
     }
 
-    if (verify_x509(ssl)) {
-        return true;
+    // Initialize TLS BIO
+    if (sbio == NULL) {
+        // Create context and assign socket
+        sbio = BIO_new_fd(hSocket, BIO_NOCLOSE);
+        ssl = SSL_new(ctx);
+        SSL_set_bio(ssl, sbio, sbio);
+
+        // Set OpenSSL flags
+        const char* const PREFERRED_CIPHERS = "HIGH:!aNULL:!kRSA:!PSK:!SRP:!MD5:!RC4";
+        SSL_set_cipher_list(ssl, PREFERRED_CIPHERS);
+
+        // Set connect state
+        if (server_side)
+            SSL_set_accept_state(ssl);
+        else
+            SSL_set_connect_state(ssl);
     }
-    else
-        return false;
+
+    // Initiate/Continue TLS handshake
+    if (ssl != NULL && SSL_get_state(ssl) != TLS_ST_OK) SSL_do_handshake(ssl);
+    boost::this_thread::interruption_point();
+
+    // TLS is good
+    if (ssl != NULL && SSL_get_state(ssl) == TLS_ST_OK && !fTLSHandshakeComplete) {
+        if (verify_x509(ssl)) {
+            fTLSHandshakeComplete = true;
+            return true;
+        }
+        else CloseSocketDisconnect();
+    }
+
+    return false;
 }
 // ZEN_MOD_END
+
 
 // Signals for message handling
 static CNodeSignals g_signals;
@@ -622,8 +556,9 @@ CNode* FindNode(const CNetAddr& ip)
 {
     LOCK(cs_vNodes);
     BOOST_FOREACH(CNode* pnode, vNodes)
-        if ((CNetAddr)pnode->addr == ip)
+        if ((CNetAddr)pnode->addr == ip) {
             return (pnode);
+        }
     return NULL;
 }
 
@@ -631,8 +566,9 @@ CNode* FindNode(const CSubNet& subNet)
 {
     LOCK(cs_vNodes);
     BOOST_FOREACH(CNode* pnode, vNodes)
-    if (subNet.Match((CNetAddr)pnode->addr))
+    if (subNet.Match((CNetAddr)pnode->addr)) {
         return (pnode);
+    }
     return NULL;
 }
 
@@ -640,8 +576,9 @@ CNode* FindNode(const std::string& addrName)
 {
     LOCK(cs_vNodes);
     BOOST_FOREACH(CNode* pnode, vNodes)
-        if (pnode->addrName == addrName)
+        if (pnode->addrName == addrName) {
             return (pnode);
+        }
     return NULL;
 }
 
@@ -649,8 +586,9 @@ CNode* FindNode(const CService& addr)
 {
     LOCK(cs_vNodes);
     BOOST_FOREACH(CNode* pnode, vNodes)
-        if ((CService)pnode->addr == addr)
+        if ((CService)pnode->addr == addr) {
             return (pnode);
+        }
     return NULL;
 }
 
@@ -663,25 +601,12 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
         // Look for an existing connection
         CNode* pnode = FindNode((CService)addrConnect);
 // ZEN_MOD_START
-        if (pnode && pnode->hSocket != INVALID_SOCKET)
+        if (pnode)
         {
-            // Initiate OpenSSL connection over existing socket
-            pnode->server_side = false;
-            if (pnode->establish_tls_connection()) {
-                pnode->PushVersion();
-                pnode->AddRef();
-            }
-            else
-                return NULL;
-// ZEN_MOD_END
-
-            /// debug print
-            LogPrint("net", "using connection %s lastseen=%.1fhrs\n",
-                pszDest ? pszDest : addrConnect.ToString(),
-                pszDest ? 0.0 : (double)(GetAdjustedTime() - addrConnect.nTime)/3600.0);
-
+            pnode->AddRef();
             return pnode;
         }
+// ZEN_MOD_END
     }
 
     /// debug print
@@ -705,15 +630,6 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 
         // Add node
         CNode* pnode = new CNode(hSocket, addrConnect, pszDest ? pszDest : "", false);
-
-// ZEN_MOD_START
-        // Initiate OpenSSL connection over existing socket
-        pnode->server_side = false;
-        if (!pnode->establish_tls_connection())
-            return NULL;
-
-        pnode->PushVersion();
-// ZEN_MOD_END
         pnode->AddRef();
 
         {
@@ -736,8 +652,9 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 void CNode::CloseSocketDisconnect()
 {
 // ZEN_MOD_START
-    if (ssl != NULL)
+    if (ssl != NULL) {
         SSL_shutdown(ssl);
+    }
 // ZEN_MOD_END
     fDisconnect = true;
     if (hSocket != INVALID_SOCKET)
@@ -754,18 +671,25 @@ void CNode::CloseSocketDisconnect()
 
 void CNode::PushVersion()
 {
-    int nBestHeight = g_signals.GetHeight().get_value_or(0);
+// ZEN_MOD_START
+    if (!fSentVersion) {
+        fSentVersion = true;
 
-    int64_t nTime = (fInbound ? GetAdjustedTime() : GetTime());
-    CAddress addrYou = (addr.IsRoutable() && !IsProxy(addr) ? addr : CAddress(CService("0.0.0.0",0)));
-    CAddress addrMe = GetLocalAddress(&addr);
-    GetRandBytes((unsigned char*)&nLocalHostNonce, sizeof(nLocalHostNonce));
-    if (fLogIPs)
-        LogPrint("net", "send version message: version %d, blocks=%d, us=%s, them=%s, peer=%d\n", PROTOCOL_VERSION, nBestHeight, addrMe.ToString(), addrYou.ToString(), id);
-    else
-        LogPrint("net", "send version message: version %d, blocks=%d, us=%s, peer=%d\n", PROTOCOL_VERSION, nBestHeight, addrMe.ToString(), id);
-    PushMessage("version", PROTOCOL_VERSION, nLocalServices, nTime, addrYou, addrMe,
-                nLocalHostNonce, FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, std::vector<string>()), nBestHeight, true);
+        int nBestHeight = g_signals.GetHeight().get_value_or(0);
+
+        int64_t nTime = (fInbound ? GetAdjustedTime() : GetTime());
+        CAddress addrYou = (addr.IsRoutable() && !IsProxy(addr) ? addr : CAddress(CService("0.0.0.0",0)));
+        CAddress addrMe = GetLocalAddress(&addr);
+        GetRandBytes((unsigned char*)&nLocalHostNonce, sizeof(nLocalHostNonce));
+        if (fLogIPs)
+            LogPrint("net", "send version message: version %d, blocks=%d, us=%s, them=%s, peer=%d\n", PROTOCOL_VERSION, nBestHeight, addrMe.ToString(), addrYou.ToString(), id);
+        else
+            LogPrint("net", "send version message: version %d, blocks=%d, us=%s, peer=%d\n", PROTOCOL_VERSION, nBestHeight, addrMe.ToString(), id);
+
+        PushMessage("version", PROTOCOL_VERSION, nLocalServices, nTime, addrYou, addrMe,
+                    nLocalHostNonce, FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, std::vector<string>()), nBestHeight, true);
+    }
+// ZEN_MOD_END
 }
 
 
@@ -871,6 +795,9 @@ void CNode::copyStats(CNodeStats &stats)
 {
     stats.nodeid = this->GetId();
     X(nServices);
+// ZEN_MOD_START
+    X(fTLSHandshakeComplete);
+// ZEN_MOD_END
     X(nLastSend);
     X(nLastRecv);
     X(nTimeConnected);
@@ -1000,19 +927,15 @@ int CNetMessage::readData(const char *pch, unsigned int nBytes)
 
 // requires LOCK(cs_vSend)
 void SocketSendData(CNode *pnode) {
-    // ZEN_MOD_START
-    struct timeval timeout;
-    timeout.tv_sec  = 8;
-
+// ZEN_MOD_START
     std::deque<CSerializeData>::iterator it = pnode->vSendMsg.begin();
-    bool repeat = true;
-    while (it != pnode->vSendMsg.end() && pnode->ssl != NULL && SSL_is_init_finished(pnode->ssl) && repeat) {
-        repeat= false;
+    while (it != pnode->vSendMsg.end()) {
 // ZEN_MOD_END
         const CSerializeData &data = *it;
         assert(data.size() > pnode->nSendOffset);
 // ZEN_MOD_START
         int nBytes = SSL_write(pnode->ssl, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset);
+        boost::this_thread::interruption_point();
         int ssl_err = SSL_get_error(pnode->ssl, nBytes);
 // ZEN_MOD_END
         if (nBytes > 0) {
@@ -1024,62 +947,20 @@ void SocketSendData(CNode *pnode) {
                 pnode->nSendOffset = 0;
                 pnode->nSendSize -= data.size();
                 it++;
-            } else {
-// ZEN_MOD_START
-                LogPrintf("DEBUG: Send offset does not match.\n");
-// ZEN_MOD_END
-                // could not send full message; stop sending more
-                break;
             }
-        }
-// ZEN_MOD_START
-        else if (nBytes < 0) {
-            if (ssl_err == SSL_ERROR_WANT_READ) {
-                fd_set fds;
-                int sock = SSL_get_rfd(pnode->ssl);
-                FD_ZERO(&fds);
-                FD_SET(sock, &fds);
-                int sel = select(sock+1, &fds, NULL, NULL, &timeout);
-                boost::this_thread::interruption_point();
-                repeat = true;
-            }
-            else if (ssl_err == SSL_ERROR_WANT_WRITE) {
-                fd_set fds;
-                int sock = SSL_get_rfd(pnode->ssl);
-                FD_ZERO(&fds);
-                FD_SET(sock, &fds);
-                int sel = select(sock+1, NULL, &fds, NULL, &timeout);
-                boost::this_thread::interruption_point();
-                repeat = true;
-            }
-            else if (ssl_err == SSL_ERROR_WANT_CONNECT) {
-                SSL_connect(pnode->ssl);
-                repeat = true;
-            }
-            else if (ssl_err == SSL_ERROR_WANT_ACCEPT) {
-                SSL_accept(pnode->ssl);
-                repeat = true;
-            }
-            else if (ssl_err == SSL_ERROR_NONE) {
-                repeat = false;
-            }
-            else {
-                int nErr = WSAGetLastError();
-                if (nErr != WSAEWOULDBLOCK && nErr != WSAEMSGSIZE && nErr != WSAEINTR && nErr != WSAEINPROGRESS) {
-                    if (!pnode->fDisconnect)
-                        LogPrintf("socket recv error %s\n", ssl_err);
-                    pnode->CloseSocketDisconnect();
-                }
-            }
-// ZEN_MOD_END
-        }
-    }
 
-    if (it == pnode->vSendMsg.end()) {
-        assert(pnode->nSendOffset == 0);
-        assert(pnode->nSendSize == 0);
+            if (it == pnode->vSendMsg.end()) {
+                assert(pnode->nSendOffset == 0);
+                assert(pnode->nSendSize == 0);
+            }
+            pnode->vSendMsg.erase(pnode->vSendMsg.begin(), it);
+            break;
+        }
+// ZEN_MOD_START
+        else break;
+        boost::this_thread::interruption_point();
+// ZEN_MOD_END
     }
-    pnode->vSendMsg.erase(pnode->vSendMsg.begin(), it);
 }
 
 static list<CNode*> vNodesDisconnected;
@@ -1302,9 +1183,6 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
     CNode* pnode = new CNode(hSocket, addr, "", true);
 // ZEN_MOD_START
     pnode->server_side = true;
-    if (!pnode->establish_tls_connection())
-        return;
-    pnode->PushVersion();
 // ZEN_MOD_END
     pnode->AddRef();
     pnode->fWhitelisted = whitelisted;
@@ -1389,7 +1267,9 @@ void ThreadSocketHandler()
         // Find which sockets have data to receive
         //
         struct timeval timeout;
-        timeout.tv_sec  = 0;
+// ZEN_MOD_START
+        timeout.tv_sec = 0;
+// ZEN_MOD_END
         timeout.tv_usec = 50000; // frequency to poll pnode->vSend
 
         fd_set fdsetRecv;
@@ -1432,6 +1312,7 @@ void ThreadSocketHandler()
                 // * We send some data.
                 // * We wait for data to be received (and disconnect after timeout).
                 // * We process a message in the buffer (message handler thread).
+
                 {
                     TRY_LOCK(pnode->cs_vSend, lockSend);
                     if (lockSend && !pnode->vSendMsg.empty()) {
@@ -1495,85 +1376,32 @@ void ThreadSocketHandler()
         {
             boost::this_thread::interruption_point();
 
+// ZEN_MOD_START
+            //
+            // Set/Initiate/Continue TLS handshake status
+            //
+            if (pnode->hSocket == INVALID_SOCKET || !pnode->fTLSHandshakeComplete)
+                continue;
+            pnode->establish_tls_connection();
+            boost::this_thread::interruption_point();
+
             //
             // Receive
             //
-            if (pnode->hSocket == INVALID_SOCKET)
+            if (pnode->hSocket == INVALID_SOCKET || !pnode->fTLSHandshakeComplete)
                 continue;
-// ZEN_MOD_START
-            if (FD_ISSET(pnode->hSocket, &fdsetRecv) || FD_ISSET(pnode->hSocket, &fdsetError) || SSL_has_pending(pnode->ssl))
+            if ((FD_ISSET(pnode->hSocket, &fdsetRecv) || FD_ISSET(pnode->hSocket, &fdsetError)))
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
-                bool repeat = true;
-                while (lockRecv && pnode->ssl != NULL && repeat)
-// ZEN_MOD_END
-                {
-                    {
-                        repeat = false;
-                        // typical socket buffer is 8K-64K
-                        char pchBuf[0x10000];
-// ZEN_MOD_START
-                        int nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf));
-                        int ssl_err = SSL_get_error(pnode->ssl, nBytes);
-// ZEN_MOD_END
-                        if (nBytes > 0)
-                        {
-// ZEN_MOD_START
-                            pnode->ReceiveMsgBytes(pchBuf, nBytes);
-// ZEN_MOD_END
-                            pnode->nLastRecv = GetTime();
-                            pnode->nRecvBytes += nBytes;
-                            pnode->RecordBytesRecv(nBytes);
-                        }
-                        else if (nBytes == 0)
-                        {
-                            // socket closed gracefully
-                            if (!pnode->fDisconnect)
-                                LogPrint("net", "socket closed\n");
-                            pnode->CloseSocketDisconnect();
-                        }
-                        else if (nBytes < 0)
-                        {
-// ZEN_MOD_START
-                            if (ssl_err == SSL_ERROR_WANT_READ) {
-                                fd_set fds;
-                                int sock = SSL_get_rfd(pnode->ssl);
-                                FD_ZERO(&fds);
-                                FD_SET(sock, &fds);
-                                int sel = select(sock+1, &fds, NULL, NULL, &timeout);
-                                boost::this_thread::interruption_point();
-                                repeat = true;
-                            }
-                            else if (ssl_err == SSL_ERROR_WANT_WRITE) {
-                                fd_set fds;
-                                int sock = SSL_get_wfd(pnode->ssl);
-                                FD_ZERO(&fds);
-                                FD_SET(sock, &fds);
-                                int sel = select(sock+1, NULL, &fds, NULL, &timeout);
-                                boost::this_thread::interruption_point();
-                                repeat = true;
-                            }
-                            else if (ssl_err == SSL_ERROR_WANT_CONNECT) {
-                                SSL_connect(pnode->ssl);
-                                repeat = true;
-                            }
-                            else if (ssl_err == SSL_ERROR_WANT_ACCEPT) {
-                                SSL_accept(pnode->ssl);
-                                repeat = true;
-                            }
-                            else if (ssl_err == SSL_ERROR_NONE) {
-                                repeat = false;
-                            }
-                            else {
-                                int nErr = WSAGetLastError();
-                                if (nErr != WSAEWOULDBLOCK && nErr != WSAEMSGSIZE && nErr != WSAEINTR && nErr != WSAEINPROGRESS) {
-                                    if (!pnode->fDisconnect)
-                                        LogPrintf("socket recv error %s\n", NetworkErrorString(nErr));
-                                    pnode->CloseSocketDisconnect();
-                                }
-                            }
-// ZEN_MOD_END
-                        }
+                if (lockRecv) {
+                    char pchBuf[0x40000];
+                    int nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf));
+                    int ssl_err = SSL_get_error(pnode->ssl, nBytes);
+                    if (nBytes > 0) {
+                        pnode->ReceiveMsgBytes(pchBuf, nBytes);
+                        pnode->nLastRecv = GetTime();
+                        pnode->nRecvBytes += nBytes;
+                        pnode->RecordBytesRecv(nBytes);
                     }
                 }
             }
@@ -1581,14 +1409,14 @@ void ThreadSocketHandler()
             //
             // Send
             //
-            if (pnode->hSocket == INVALID_SOCKET)
+            if (pnode->hSocket == INVALID_SOCKET || !pnode->fTLSHandshakeComplete)
                 continue;
             if (FD_ISSET(pnode->hSocket, &fdsetSend))
             {
-// ZEN_MOD_START
-                //TRY_LOCK(pnode->cs_vSend, lockSend);
-                //if (lockSend)
-                SocketSendData(pnode);
+                TRY_LOCK(pnode->cs_vSend, lockSend);
+                if (lockSend) {
+                    SocketSendData(pnode);
+                }
 // ZEN_MOD_END
             }
 
@@ -1862,7 +1690,7 @@ void ThreadOpenAddedConnections()
         // (keeping in mind that addnode entries can have many IPs if fNameLookup)
         {
             LOCK(cs_vNodes);
-            BOOST_FOREACH(CNode* pnode, vNodes)
+            BOOST_FOREACH(CNode* pnode, vNodes) {
                 for (list<vector<CService> >::iterator it = lservAddressesToAdd.begin(); it != lservAddressesToAdd.end(); it++)
                     BOOST_FOREACH(const CService& addrNode, *(it))
                         if (pnode->addr == addrNode)
@@ -1871,6 +1699,7 @@ void ThreadOpenAddedConnections()
                             it--;
                             break;
                         }
+            }
         }
         BOOST_FOREACH(vector<CService>& vserv, lservAddressesToAdd)
         {
@@ -1924,8 +1753,26 @@ void ThreadMessageHandler()
         {
             LOCK(cs_vNodes);
             vNodesCopy = vNodes;
-            BOOST_FOREACH(CNode* pnode, vNodesCopy) {
+            BOOST_FOREACH(CNode* pnode, vNodesCopy)
                 pnode->AddRef();
+        }
+
+        BOOST_FOREACH(CNode* pnode, vNodesCopy)
+        {
+            if (pnode->hSocket == INVALID_SOCKET) {
+                pnode->fDisconnect = true;
+            }
+            else {
+// ZEN_MOD_START
+                // Initialize and continue TLS handshake
+                pnode->establish_tls_connection();
+                boost::this_thread::interruption_point();
+// ZEN_MOD_END
+                // Sent out version message if needed
+                if (pnode->ssl != NULL && SSL_get_state(pnode->ssl) == TLS_ST_OK) {
+                    if (!pnode->fInbound) pnode->PushVersion();
+                    if (!pnode->fSentVersion) pnode->PushVersion();
+                }
             }
         }
 
@@ -1938,7 +1785,7 @@ void ThreadMessageHandler()
 
         BOOST_FOREACH(CNode* pnode, vNodesCopy)
         {
-            if (pnode->fDisconnect)
+            if (pnode->fDisconnect || !pnode->fTLSHandshakeComplete)
                 continue;
 
             // Receive messages
@@ -2213,8 +2060,8 @@ public:
         // Close sockets
         BOOST_FOREACH(CNode* pnode, vNodes)
             if (pnode->hSocket != INVALID_SOCKET) {
-                SSL_shutdown(pnode->ssl);
 // ZEN_MOD_START
+                if (pnode->ssl != NULL) SSL_shutdown(pnode->ssl);
                 CloseSocket(pnode->hSocket);
 // ZEN_MOD_END
             }
@@ -2463,11 +2310,16 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
     sbio = NULL;
     ctx = NULL;
     ssl = NULL;
+    server_side = false;
 // ZEN_MOD_END
 
     nServices = 0;
     hSocket = hSocketIn;
     nRecvVersion = INIT_PROTO_VERSION;
+// ZEN_MOD_START
+    fTLSHandshakeComplete = false;
+    fSentVersion = false;
+// ZEN_MOD_END
     nLastSend = 0;
     nLastRecv = 0;
     nSendBytes = 0;
@@ -2611,7 +2463,9 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
     nSendSize += (*it).size();
 
     // If write queue empty, attempt "optimistic write"
-    if (it == vSendMsg.begin())
+// ZEN_MOD_START
+    if (it == vSendMsg.begin() && this->ssl != NULL && this->establish_tls_connection())
+// ZEN_MOD_END
         SocketSendData(this);
 
     LEAVE_CRITICAL_SECTION(cs_vSend);

@@ -121,6 +121,7 @@ function main() {
     || exit_locked_error
 
     cat <<EOF
+# Not changed to Zen because we're still using the Zcash zkSNARK params
 Zcash - fetch-params.sh
 
 This script will fetch the Zcash zkSNARK parameters and verify their

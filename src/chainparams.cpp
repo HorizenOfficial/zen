@@ -59,7 +59,7 @@ public:
         consensus.nRuleChangeActivationThreshold = 1916; // 95% of 2016
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
         consensus.nChainsplitIndex = 110000;
-        consensus.nChainsplitTime = 1495582200;
+        consensus.nChainsplitTime = 1496187000;
 
         /**
          * ZEN Network Magic Start Value
@@ -69,7 +69,7 @@ public:
         pchMessageStart[2] = 0x73;
         pchMessageStart[3] = 0x68;
         vAlertPubKey = ParseHex("048679fb891b15d0cada9692047fd0ae26ad8bfb83fabddbb50334ee5bc0683294deb410be20513c5af6e7b9cec717ade82b27080ee6ef9a245c36a795ab044bb3");
-        nDefaultPort = 8033;
+        nDefaultPort = 9033;
 //        nMinerThreads = 0;
         std::time_t result = std::time(nullptr);
         if (result < consensus.nChainsplitTime + (24 * 60 * 60))
@@ -119,9 +119,13 @@ public:
         vSeeds.push_back(CDNSSeedData("rotorproject.org", "mainnet-zen.rotorproject.org"));
 
         // guarantees the first 2 characters, when base58 encoded, are "zn"
+        // guarantees the first 2 characters, when base58 encoded, are "t1"
         base58Prefixes[PUBKEY_ADDRESS]     = {0x20,0x89};
+        base58Prefixes[PUBKEY_ADDRESS_OLD]     = {0x1C,0xB8};
         // guarantees the first 2 characters, when base58 encoded, are "zs"
+        // guarantees the first 2 characters, when base58 encoded, are "t3"
         base58Prefixes[SCRIPT_ADDRESS]     = {0x20,0x96};
+        base58Prefixes[SCRIPT_ADDRESS_OLD]     = {0x1C,0xBD};
 // ZEN_MOD_END
         // the first character, when base58 encoded, is "5" or "K" or "L" (as in Bitcoin)
         base58Prefixes[SECRET_KEY]         = {0x80};
@@ -145,78 +149,79 @@ public:
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = false;
 
+// ZEN_MOD_START
         checkpointData = (Checkpoints::CCheckpointData) {
             boost::assign::map_list_of
-// ZEN_MOD_START
             ( 0, consensus.hashGenesisBlock)
             ( 30000, uint256S("0x000000005c2ad200c3c7c8e627f67b306659efca1268c9bb014335fdadc0c392"))
-            ( 96577, uint256S("0x0000000177751545bd1af3ccf276ec2920d258453ab01f3d2f8f7fcc5f3a37b8")),
-            1493090861,     // * UNIX timestamp of last checkpoint block
-            241684,         // * total number of transactions between genesis and last checkpoint
+            ( 96577, uint256S("0x0000000177751545bd1af3ccf276ec2920d258453ab01f3d2f8f7fcc5f3a37b8"))
+            ( 110000, uint256S("0x000000003f5d6ba1385c6cd2d4f836dfc5adf7f98834309ad67e26faef462454")),
+            1495142510,     // * UNIX timestamp of last checkpoint block
+            276839,         // * total number of transactions between genesis and last checkpoint
                             //   (the tx=... number in the SetBestChain debug.log lines)
-            1441            // * estimated number of transactions per day after checkpoint
-// ZEN_MOD_END
+            1398            // * estimated number of transactions per day after checkpoint
                             //   total number of tx / (checkpoint block height / (24 * 24))
         };
+// ZEN_MOD_END
 
         // Founders reward script expects a vector of 2-of-3 multisig addresses
 // ZEN_MOD_START
         vFoundersRewardAddress = {
-             "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 0*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 1*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 2*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 3*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 4*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 5*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 6*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 7*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 8*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 9*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 10*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 11*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 12*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 13*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 14*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 15*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 16*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 17*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 18*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 19*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 20*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 21*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 22*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 23*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 24*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 25*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 26*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 27*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 28*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 29*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 30*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 31*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 32*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 33*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 34*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 35*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 36*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 37*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 38*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 39*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 40*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 41*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 42*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 43*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 44*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 45*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 46*/
-            "t5DiT2y2b5dBSzr51dQSVS2KgsGHYCRY5Js", /* main-index: 47*/
-            //"t3PZ9PPcLzgL57XRSG5ND4WNBC9UTFb8DXv", /* main-index: 48*/
-            //"t3L1WgcyQ95vtpSgjHfgANHyVYvffJZ9iGb", /* main-index: 49*/
-            //"t3JtoXqsv3FuS7SznYCd5pZJGU9di15mdd7", /* main-index: 50*/
-            //"t3hLJHrHs3ytDgExxr1mD8DYSrk1TowGV25", /* main-index: 51*/
-            //"t3fmYHU2DnVaQgPhDs6TMFVmyC3qbWEWgXN", /* main-index: 52*/
-            //"t3T4WmAp6nrLkJ24iPpGeCe1fSWTPv47ASG", /* main-index: 53*/
-            //"t3fP6GrDM4QVwdjFhmCxGNbe7jXXXSDQ5dv", /* main-index: 54*/
+        "zssEdGnZCQ9G86LZFtbynMn1hYTVhn6eYCL",
+        "zsrCsXXmUf8k59NLasEKfxA7us3iNvaPATz",
+        "zsnLPsWMXW2s4w9EmFSwtSLRxL2LhPcfdby",
+        "zshdovbcPfUAfkPeEE2qLbKnoue9RsbVokU",
+        "zsqmq97JAKCCBFRGvxgv6FiJgQLCZBDp62S",
+        "zskyFVFA7VRYX8EGdXmYN75WaBB25FmiL3g",
+        "zsmncLmwEUdVmAGPUrUnNKmPGXyej7mbmdM",
+        "zsfa9VVJCEdjfPbku4XrFcRR8kTDm2T64rz",
+        "zsjdMnfWuFi46VeN2HSXVQWEGsnGHgVxayY",
+        "zseb8wRQ8rZ722oLX5B8rx7qwZiBRb9mdig",
+        "zsjxkovhqiMVggoW7jvSRi3NTSD3a6b6qfd",
+        "zsokCCSU3wvZrS2G6mEDpJ5cH49E7sDyNr1",
+        "zt12EsFgkABHLMRXA7JNnpMqLrxsgCLnVEV",
+        "zt39mvuG9gDTHX8A8Qk45rbk3dSdQoJ8ZAv",
+        "zssTQZs5YxDGijKC86dvcDxzWogWcK7n5AK",
+        "zsywuMoQK7Bved2nrXs56AEtWBhpb88rMzS",
+        "zsxVS2w7h1fHFX2nQtGm4372pd4DSHzq9ee",
+        "zsupGi7ro3uC8CEVwm9r7vrdVUZaXQnHF6T",
+        "zshVZvW47dA5AB3Sqk1h7ytwWJeUJUJxxaE",
+        "zsubBCjvDx252MKFsL4Dcf5rJU9Z9Upqr1N",
+        "zsweaST3NcU4hfgkVULfCsfEq41pjgMDgcW",
+        "zswz6Rxb1S33fUpftETZwtGiVSeYxNKq2xc",
+        "zswnpHtiBbrvYDzbhPQshkgvLSfYhDMRJ4S",
+        "zsjSYAWaEYj35Ht7aXrRJUGY6Dc8qCmgYqu",
+        "zsvMv8fGroWR8epbSiGDCJHmfe6ec2uFQrt",
+        "zsujxCT56BExQDAwKwktBjtnopYnw8BiKbg",
+        "zsxeXc2FTAzmUmeZmqVsKVdwTMSvzyns4rT",
+        "zsuLqgABNudD8bVPbVGeUjGqapuoXp68i7F",
+        "zsoc39J1dCFK1U8kckZznvQkv8As7sajYLz",
+        "zt21NFdu1KRPJ7VRKtrWugM2Jqe5ePNmU4T",
+        "zsp15qbVcbx9ifcjKe6XZEJTvzsFUZ2BHLT",
+        "zso2KvqH6yxLQEYggHdmfL3Tcd5V6E9tqhp",
+        "zsnFG2W5ZHRYh3QucNze4mp31tBkemtfxdj",
+        "zsex2CGJtxHyHbpLXm7kESBmp3vWRqUkJMy",
+        "zsvtFv96nrgrXKUbtNe2BpCt8aQEp5oJ7F8",
+        "zsk5KitThmhK9KBa1KDybPgEmGSFTHzhMVA",
+        "zsuy4n48c4NsJyaCZEzwdAKULM1FqbB6Y4z",
+        "zsgtQVMpX2zNMLvHHG2NDwfqKoaebvVectJ",
+        "zszQqXRSPGdqsWw4iaMTNN6aJz4JjEzSdCF",
+        "zst6dBLrTtaMQBX7BLMNjKLTGcP11PBmgTV",
+        "zshD9r6Eb6dZGdzYW2HCb9CzkMokCT1NGJR",
+        "zswUaj1TboEGmvSfF7fdoxWyH3RMx7MBHHo",
+        "zsv8s4Poi5GxCsbBrRJ97Vsvazp84nrz5AN",
+        "zsmmxrKU6dqWFwUKow1iyovg3gxrgXpEivr",
+        "zskh1221aRC9WEfb5a59WxffeW34McmZZsw",
+        "zssAhuj57NnVm4yNFT6o8muRctABkUaBu3L",
+        "zsi5Yr4Z8HwBvdBqQE8gk7ahExDu95J4oqZ",
+        "zsy6ryEaxfk8emJ8bGVB7tmwRwBL8cfSqBW",
+        //"zsvM6GdLJWXAvKs9ruUDgEdKiJzN7qrtKcP",
+        //"zsre8uXg4TJTuqSaiKLQYjMd5ST3UwYorTj",
+        //"zsem4VjWQuzhhhWPLwQN39SewXV1xaCVrR4",
+        //"zt17Ett8K57LnhMt5RjUeYrjXDocjqt2oja",
+        //"zt2PZSoyKuigEgM6ss6id5wqem69mwSKSnP",
+        //"zszxnNPj2zg81McDarbQi76y3NYeqj8PkwU",
+        //"zsi3PoGMUzkj8kPAaq9YGYUS8Wp2pDRjR8X",
         };
 // ZEN_MOD_END
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
@@ -251,7 +256,7 @@ public:
         pchMessageStart[2] = 0xcd;
         pchMessageStart[3] = 0xe6;
         vAlertPubKey = ParseHex("048679fb891b15d0cada9692047fd0ae26ad8bfb83fabddbb50334ee5bc0683294deb410be20513c5af6e7b9cec717ade82b27080ee6ef9a245c36a795ab044bb3");
-        nDefaultPort = 18033;
+        nDefaultPort = 19033;
 //        nMinerThreads = 0;
 // ZEN_MOD_END
         nPruneAfterHeight = 1000;
@@ -272,9 +277,13 @@ public:
         vSeeds.push_back(CDNSSeedData("rotorproject.org", "testnet-zen.rotorproject.org"));
 
         // guarantees the first 2 characters, when base58 encoded, are "zt"
+        // guarantees the first 2 characters, when base58 encoded, are "tm"
         base58Prefixes[PUBKEY_ADDRESS]     = {0x20,0x98};
+        base58Prefixes[PUBKEY_ADDRESS_OLD]     = {0x1D,0x25};
         // guarantees the first 2 characters, when base58 encoded, are "zr"
+        // guarantees the first 2 characters, when base58 encoded, are "t2"
         base58Prefixes[SCRIPT_ADDRESS]     = {0x20,0x92};
+        base58Prefixes[SCRIPT_ADDRESS_OLD]     = {0x1C,0xBA};
 // ZEN_MOD_END
         // the first character, when base58 encoded, is "9" or "c" (as in Bitcoin)
         base58Prefixes[SECRET_KEY]         = {0xEF};
@@ -373,7 +382,7 @@ public:
         genesis.nNonce = uint256S("0x000000000000000000000000000000000000000000000000000000000000003d");
         genesis.nSolution = ParseHex("00CBA7185285F4FF37432E1F3AA7A569FBC81B5A0876F23DA8D38840B0130C74E68297B5");
         consensus.hashGenesisBlock = genesis.GetHash();
-        nDefaultPort = 18133;
+        nDefaultPort = 19133;
         assert(consensus.hashGenesisBlock == uint256S("0x0da5ee723b7923feb580518541c6f098206330dbc711a6678922c11f2ccf1abb"));
 // ZEN_MOD_END
 

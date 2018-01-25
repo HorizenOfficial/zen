@@ -221,7 +221,10 @@ int printStats(bool mining)
         height = chainActive.Height();
         tipmediantime = chainActive.Tip()->GetMedianTimePast();
         connections = vNodes.size();
-        if (connections > 0 && SSL_get_current_cipher(vNodes[0]->ssl)) {
+// ZEN_MOD_START
+        if (connections > 0 && vNodes[0]->ssl != NULL && SSL_get_state(vNodes[0]->ssl) == TLS_ST_OK &&
+          SSL_get_current_cipher(vNodes[0]->ssl)) {
+// ZEN_MOD_END
             char *tmp = new char[256];
             cipherdescription = SSL_CIPHER_get_name(SSL_get_current_cipher(vNodes[0]->ssl));
             if (cipherdescription == "ECDHE-RSA-AES256-GCM-SHA384") {
