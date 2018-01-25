@@ -1426,8 +1426,8 @@ void ThreadSocketHandler()
             if (FD_ISSET(pnode->hSocket, &fdsetSend))
             {
                 TRY_LOCK(pnode->cs_vSend, lockSend);
-                if (lockSend && pnode->fTLSHandshakeComplete) {
-                    SocketSendData(pnode);
+                if (lockSend) {
+                    SocketSendData(pnode); // SSL_write() transparently continues TLS handshaking
                 }
 // ZEN_MOD_END
             }
@@ -1772,23 +1772,24 @@ void ThreadMessageHandler()
         BOOST_FOREACH(CNode* pnode, vNodesCopy)
         {
 // ZEN_MOD_START
-            if (pnode->hSocket == INVALID_SOCKET && pnode->ssl == NULL) {
+            if (pnode->hSocket == INVALID_SOCKET) {
                 pnode->fDisconnect = true;
             }
-            else if (SSL_get_state(pnode->ssl) != TLS_ST_OK) {
+            else if (pnode->ssl == NULL || SSL_get_state(pnode->ssl) != TLS_ST_OK) {
                 // Prevent thread from consuming full CPU
                 MilliSleep(100);
 
-                // Initialize and continue TLS handshake
+                // Initialize or continue TLS handshake
                 boost::this_thread::interruption_point();
                 pnode->establish_tls_connection();
                 boost::this_thread::interruption_point();
+            }
+
+            // Sent out version message if needed
+            if (pnode->ssl != NULL && SSL_get_state(pnode->ssl) == TLS_ST_OK) {
+                if (!pnode->fInbound) pnode->PushVersion();
+                if (!pnode->fSentVersion) pnode->PushVersion();
 // ZEN_MOD_END
-                // Sent out version message if needed
-                if (pnode->ssl != NULL && SSL_get_state(pnode->ssl) == TLS_ST_OK) {
-                    if (!pnode->fInbound) pnode->PushVersion();
-                    if (!pnode->fSentVersion) pnode->PushVersion();
-                }
             }
         }
 
