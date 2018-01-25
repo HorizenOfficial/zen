@@ -1779,14 +1779,7 @@ void ThreadMessageHandler()
             if (pnode->hSocket == INVALID_SOCKET) {
                 pnode->fDisconnect = true;
             }
-            else {
-                // Send out version message if needed
-                if (!pnode->fDisconnect && pnode->hSocket != INVALID_SOCKET) {
-                    if (!pnode->fInbound) pnode->PushVersion();
-                    if (!pnode->fSentVersion) pnode->PushVersion();
-                }
 // ZEN_MOD_END
-            }
         }
 
         // Poll the connected nodes for messages
@@ -1798,10 +1791,8 @@ void ThreadMessageHandler()
 
         BOOST_FOREACH(CNode* pnode, vNodesCopy)
         {
-// ZEN_MOD_START
-            if (pnode->fDisconnect || pnode->ssl == NULL)
+            if (pnode->fDisconnect)
                 continue;
-// ZEN_MOD_END
 
             // Receive messages
             {
