@@ -49,7 +49,9 @@ enum
 
     // Passing a non-strict-DER signature to a checksig operation causes script failure (softfork safe, BIP62 rule 1)
     // In Zcash this is required, and validation of non-strict-DER signatures is not implemented.
-    //SCRIPT_VERIFY_DERSIG    = (1U << 2),
+// ZEN_MOD_START
+    SCRIPT_VERIFY_DERSIG    = (1U << 2),
+// ZEN_MOD_END
 
     // Passing a non-strict-DER signature or one with S > order/2 to a checksig operation causes script failure
     // (softfork safe, BIP62 rule 5).

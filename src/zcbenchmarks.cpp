@@ -424,10 +424,18 @@ double benchmark_connectblock_slow()
     index.pprev = &indexPrev;
     mapBlockIndex.insert(std::make_pair(hashPrev, &indexPrev));
 
+// ZEN_MOD_START
+    // Build a CChain
+    CChain chain;
+    chain.SetTip(&index);
+// ZEN_MOD_END
+    
     CValidationState state;
     struct timeval tv_start;
     timer_start(tv_start);
-    assert(ConnectBlock(block, state, &index, view, true));
+// ZEN_MOD_START
+    assert(ConnectBlock(block, state, &index, view, chain, true));
+// ZEN_MOD_END
     auto duration = timer_stop(tv_start);
 
     // Undo alterations to global state

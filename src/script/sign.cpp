@@ -108,9 +108,6 @@ static bool SignStep(const BaseSignatureCreator& creator, const CScript& scriptP
         }
         return true;
     case TX_SCRIPTHASH:
-        return creator.KeyStore().GetCScript(uint160(vSolutions[0]), scriptSigRet);
-
-    case TX_SCRIPTHASH:
 // ZEN_MOD_START
     case TX_SCRIPTHASH_REPLAY:
 // ZEN_MOD_END
