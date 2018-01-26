@@ -17,6 +17,9 @@ static const unsigned char REJECT_NONSTANDARD = 0x40;
 static const unsigned char REJECT_DUST = 0x41;
 static const unsigned char REJECT_INSUFFICIENTFEE = 0x42;
 static const unsigned char REJECT_CHECKPOINT = 0x43;
+// ZEN_MOD_START
+static const unsigned char REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND = 0x44;
+// ZEN_MOD_END
 
 /** Capture information about block/transaction validation */
 class CValidationState {
