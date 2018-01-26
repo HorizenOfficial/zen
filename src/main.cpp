@@ -881,8 +881,9 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
 
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
     int nHeight = chainActive.Height();
-    bool fTestNet = GetBoolArg("-testnet", false);
+    bool fTestNet = GetBoolArg("-testnet", false) && GetBoolArg("-regtest", false);
     int softForkHeight = fTestNet ? SF_REPLAY_PROTECTION_12_06_2017_TESTNET : SF_REPLAY_PROTECTION_12_06_2017;
+    int p2shHardForkHeight = fTestNet ? HF_FIX_P2SH_06_2017_TESTNET : HF_FIX_P2SH_06_2017;
 
     BOOST_FOREACH(const CTxOut& txout, tx.vout)
     {
@@ -896,6 +897,12 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
              nHeight > softForkHeight && !tx.IsCoinBase())
         {
             return state.DoS(100, error("%s: %s: op-checkblockatheight-needed. Tx id: %s", __FILE__, __func__, tx.GetHash().ToString()),
+                             REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
+        }
+
+        if (whichType == TX_SCRIPTHASH_REPLAY && nHeight < p2shHardForkHeight)
+        {
+            return state.DoS(100, error("%s: %s: TX_SCRIPTHASH_REPLAY will be activated only after %d block. Transaction rejected. Tx id: %s", __FILE__, __func__, p2shHardForkHeight, tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
     }
