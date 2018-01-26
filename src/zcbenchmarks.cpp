@@ -276,8 +276,10 @@ double benchmark_large_tx()
         ScriptError serror = SCRIPT_ERR_OK;
         assert(VerifyScript(final_spending_tx.vin[i].scriptSig,
                             prevPubKey,
-                            STANDARD_SCRIPT_VERIFY_FLAGS,
-                            TransactionSignatureChecker(&final_spending_tx, i),
+// ZEN_MOD_START
+                            STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
+                            TransactionSignatureChecker(&final_spending_tx, i, nullptr),
+// ZEN_MOD_END
                             &serror));
     }
     return timer_stop(tv_start);

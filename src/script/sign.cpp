@@ -17,7 +17,9 @@ using namespace std;
 
 typedef vector<unsigned char> valtype;
 
-TransactionSignatureCreator::TransactionSignatureCreator(const CKeyStore* keystoreIn, const CTransaction* txToIn, unsigned int nInIn, int nHashTypeIn) : BaseSignatureCreator(keystoreIn), txTo(txToIn), nIn(nInIn), nHashType(nHashTypeIn), checker(txTo, nIn) {}
+// ZEN_MOD_START
+TransactionSignatureCreator::TransactionSignatureCreator(const CKeyStore* keystoreIn, const CTransaction* txToIn, unsigned int nInIn, int nHashTypeIn) : BaseSignatureCreator(keystoreIn), txTo(txToIn), nIn(nInIn), nHashType(nHashTypeIn), checker(txTo, nIn, nullptr) {}
+// ZEN_MOD_END
 
 bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, const CKeyID& address, const CScript& scriptCode) const
 {
@@ -151,7 +153,9 @@ bool ProduceSignature(const BaseSignatureCreator& creator, const CScript& fromPu
     }
 
     // Test solution
-    return VerifyScript(scriptSig, fromPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, creator.Checker());
+// ZEN_MOD_START
+    return VerifyScript(scriptSig, fromPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS, creator.Checker());
+// ZEN_MOD_END
 }
 
 bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CMutableTransaction& txTo, unsigned int nIn, int nHashType)
@@ -301,7 +305,9 @@ static CScript CombineSignatures(const CScript& scriptPubKey, const BaseSignatur
 CScript CombineSignatures(const CScript& scriptPubKey, const CTransaction& txTo, unsigned int nIn,
                           const CScript& scriptSig1, const CScript& scriptSig2)
 {
-    TransactionSignatureChecker checker(&txTo, nIn);
+// ZEN_MOD_START
+    TransactionSignatureChecker checker(&txTo, nIn, nullptr);
+// ZEN_MOD_END
     return CombineSignatures(scriptPubKey, checker, scriptSig1, scriptSig2);
 }
 

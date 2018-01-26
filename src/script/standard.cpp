@@ -90,6 +90,11 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         mTemplates.insert(make_pair(TX_NULL_DATA, CScript() << OP_RETURN));
     }
 
+// ZEN_MOD_START
+    // OP_CHECKBLOCKATHEIGHT parameters
+    vector<unsigned char> vchBlockHash, vchBlockHeight;
+// ZEN_MOD_END
+
     // Scan templates
     const CScript& script1 = scriptPubKey;
     BOOST_FOREACH(const PAIRTYPE(txnouttype, CScript)& tplate, mTemplates)
@@ -175,10 +180,60 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
             }
             else if (opcode2 == OP_SMALLDATA)
             {
+// ZEN_MOD_START
+            	// Possible values of OP_CHECKBLOCKATHEIGHT parameters
+            	if (vch1.size() <= sizeof(int))
+					vchBlockHeight = vch1;
+				else
+					vchBlockHash = vch1;
+// ZEN_MOD_END
+
                 // small pushdata, <= nMaxDatacarrierBytes
                 if (vch1.size() > nMaxDatacarrierBytes)
                     break;
             }
+// ZEN_MOD_START
+            else if (opcode2 == OP_CHECKBLOCKATHEIGHT)
+            {
+            	// Full-fledged implementation of the OP_CHECKBLOCKATHEIGHT opcode for verification of vout's
+
+#if !defined(BITCOIN_TX) // TODO: This is an workaround. zen-tx does not have access to chain state so no replay protection is possible
+
+                if (vchBlockHeight.size() == 0 || vchBlockHash.size() == 0)
+                {
+                    LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad params.", __FILE__, __func__);
+                    break;
+                }
+
+                const int32_t nHeight = CScriptNum(vchBlockHeight, true, sizeof(int)).getint();
+
+                if (nHeight < 0 || nHeight > chainActive.Height())
+                {
+                    LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Transaction is non-final. Referenced height: %d", __FILE__, __func__, nHeight);
+                    break;
+                }
+
+                // According to BIP115, sufficiently old blocks are always valid, so check only blocks of depth less than 52596
+                if (nHeight > (chainActive.Height() - 52596))
+                {
+					CBlockIndex* pblockindex = chainActive[nHeight];
+
+					vector<unsigned char> vchCompareTo(pblockindex->GetBlockHash().begin(), pblockindex->GetBlockHash().end());
+					vchCompareTo.erase(vchCompareTo.begin(), vchCompareTo.end() - vchBlockHash.size());
+
+					if (vchCompareTo != vchBlockHash)
+                    {
+                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. vout block height: %d", __FILE__, __func__, nHeight);
+                        break;
+                    }
+                }
+#endif
+                if (opcode1 != opcode2 || vch1 != vch2)
+                {
+                    break;
+                }
+            }
+// ZEN_MOD_END
             else if (opcode1 != opcode2 || vch1 != vch2)
             {
                 // Others must match exactly
@@ -367,7 +422,9 @@ public:
             *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
             return true;
         }
-        int blockIndex = currentBlock->nHeight - 300;
+// ZEN_MOD_START
+        int blockIndex = currentBlock->nHeight - 25;
+// ZEN_MOD_END
         if (blockIndex < 0)
             blockIndex = 0;
         *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG << ToByteVector(chainActive[blockIndex]->GetBlockHash()) << chainActive[blockIndex]->nHeight << OP_CHECKBLOCKATHEIGHT;
@@ -381,7 +438,9 @@ public:
             *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
             return true;
         }
-        int blockIndex = currentBlock->nHeight - 300;
+// ZEN_MOD_START
+        int blockIndex = currentBlock->nHeight - 25;
+// ZEN_MOD_END
         if (blockIndex < 0)
             blockIndex = 0;
         *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL << ToByteVector(chainActive[blockIndex]->GetBlockHash()) << chainActive[blockIndex]->nHeight << OP_CHECKBLOCKATHEIGHT;
