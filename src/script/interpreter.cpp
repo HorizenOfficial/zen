@@ -5,6 +5,9 @@
 
 #include "interpreter.h"
 
+// ZEN_MOD_START
+#include "chain.h"
+// ZEN_MOD_END
 #include "primitives/transaction.h"
 #include "crypto/ripemd160.h"
 #include "crypto/sha1.h"
@@ -12,8 +15,8 @@
 #include "pubkey.h"
 #include "script/script.h"
 #include "uint256.h"
-
 // ZEN_MOD_START
+#include "util.h"
 #include "main.h"
 #include <boost/algorithm/hex.hpp>
 #include <boost/algorithm/string.hpp>
@@ -190,42 +193,6 @@ bool static IsDefinedHashtypeSignature(const valtype &vchSig) {
 
     return true;
 }
-
-// ZEN_MOD_START
-// Generic anti-replay protection using Script
-bool CheckBlockIndex(int &txBlockIndex, int blockIndex)
-{
-    // checks for relative txBlockIndex
-    if (txBlockIndex < 0)
-    	return false;
-    // checks for absolute blockIndex
-    else if (txBlockIndex >= 0) {
-        ssize_t blockDelta = txBlockIndex - blockIndex;
-        // blockDelta must be negative
-        if (blockDelta > 0)
-            return false;
-        // blockDelta must be greater than 100 but lesser than 262144
-        if ((blockDelta > -101) || (blockDelta < -262144))
-            return false;
-        // check if txBlockIndex refers to an actual block
-        if (txBlockIndex > blockIndex)
-            return false;
-        return true;
-    }
-
-    return false;
-}
-
-// Generic anti-replay protection using Script
-bool CheckBlockHash(uint256 &txBlockHash, uint256 &blockHash)
-{
-    // OP_CHECKBLOCKATHEIGHT matches active chain
-    if (txBlockHash == blockHash)
-        return true;
-
-    return false;
-}
-// ZEN_MOD_END
 
 bool static CheckSignatureEncoding(const valtype &vchSig, unsigned int flags, ScriptError* serror) {
     // Empty signature. Not strictly DER encoded, but allowed to provide a
@@ -419,102 +386,51 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                 }
 
 // ZEN_MOD_START
-#ifdef BITCOIN_TX // zen-tx can't process OP_CHECKBLOCKATHEIGHT because it requires an active chain
                 case OP_CHECKBLOCKATHEIGHT:
                 {
-                    // we need two objects on the stack
-                    if (stack.size() < 2)
+                    if (!(flags & SCRIPT_VERIFY_CHECKBLOCKATHEIGHT)) {
+                        // At least check that there are 2 parameters
+                        if (stack.size() < 2) {
+                            LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Wrong parameters amount.", __FILE__, __func__);
+                            return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+                        }
+                        // Clear stack
+                        popstack(stack);
+                        popstack(stack);
+                        break;
+                    }
+
+                    if (stack.size() < 2) {
+                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Wrong parameters amount.", __FILE__, __func__);
                         return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+                    }
 
                     valtype vchBlockHash(stacktop(-2));
                     valtype vchBlockIndex(stacktop(-1));
 
                     if ((vchBlockIndex.size() > sizeof(int)) || (vchBlockHash.size() > 32))
+                    {
+                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad params.", __FILE__, __func__);
                         return set_error(serror, SCRIPT_ERR_CHECKBLOCKATHEIGHT);
+                    }
 
-                    // since we can't access chain data then we treat OP_CHECKBLOCKATHEIGHT as a NOP
+                    // nHeight is a 32-bit signed integer field.
+                    const int32_t nHeight = CScriptNum(vchBlockIndex, true, 4).getint();
+
+                    // Compare the specified block hash with the input.
+                    if (nHeight < 0 || !checker.CheckBlockHash(nHeight, vchBlockHash)) {
+                        // Not final rather than a hard reject to avoid caching across different blockchains
+                        // Also because it will *eventually* become final when the height gets old enough
+                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Referenced height: %d", __FILE__, __func__, nHeight);
+                        return set_error(serror, SCRIPT_ERR_NOT_FINAL);
+                    }
+
+                    // Clear stack
                     popstack(stack);
                     popstack(stack);
+
+                    break;
                 }
-                break;
-#else
-                // Generic anti-replay protection using Script
-                // https://github.com/luke-jr/bips/blob/bip-noreplay/bip-noreplay.mediawiki
-                // Author: Luke Dashjr <luke+bip@dashjr.org>
-                // Implemented by: @movrcx; See: https://github.com/zencashio/zen/issues/12
-                case OP_CHECKBLOCKATHEIGHT:
-                {
-                    if (!(flags & SCRIPT_VERIFY_CHECKBLOCKATHEIGHT)) {
-                        // not enabled; treat as a NOP5
-                        if (flags & SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS) {
-                            return set_error(serror, SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS);
-                        }
-                        break;
-                    }
-
-                    // we need two objects on the stack
-                    if (stack.size() < 2)
-                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
-
-                    CBlockIndex *currentBlock = chainActive.Tip();
-                    valtype vchBlockHash(stacktop(-2));
-                    valtype vchBlockIndex(stacktop(-1));
-                    int txBlockIndex;
-                    uint256 blockHash;
-                    uint256 txBlockHash;
-                    bool fSuccess = false;
-
-                    // check for overflow before casting
-                    if ((vchBlockIndex.size() > 0x7ffffff) || (vchBlockHash.size() > 32))
-                        return set_error(serror, SCRIPT_ERR_CHECKBLOCKATHEIGHT);
-                    else
-                    {
-                        // get txBlockIndex from stack vch
-                        txBlockIndex = *reinterpret_cast<const uint16_t*>(&vchBlockIndex[0]);
-
-                        // get txBlockHash from stack vch and convert to hex string
-                        std::string str;
-                        boost::algorithm::hex(vchBlockHash.begin(), vchBlockHash.end(), back_inserter(str));
-                        boost::algorithm::to_lower(str);
-                        txBlockHash.SetHex(str);
-                    }
-
-                    if (currentBlock == NULL)
-                        return set_error(serror, SCRIPT_ERR_CHECKBLOCKATHEIGHT_UNVERIFIED);
-                    else
-                    {
-                        // relative blockIndex lookups are not permitted
-                        if (txBlockIndex < 0)
-                            return set_error(serror, SCRIPT_ERR_CHECKBLOCKATHEIGHT);
-                        else if (txBlockIndex >= 0)
-                            blockHash.SetHex(chainActive[txBlockIndex]->GetBlockHash().GetHex());
-
-                        // ensure we are not doing any null comparisons
-                        if (blockHash.IsNull() || txBlockHash.IsNull())
-                            return set_error(serror, SCRIPT_ERR_CHECKBLOCKATHEIGHT_UNVERIFIED);
-
-                        // check tx against blockchain
-                        fSuccess = ((CheckBlockIndex(txBlockIndex, currentBlock->nHeight)) && (CheckBlockHash(txBlockHash, blockHash)));
-                    }
-
-                    // pop OP_CHECKBLOCKATHEIGHT related vars off the stack
-                    popstack(stack);
-                    popstack(stack);
-                    stack.push_back(fSuccess ? vchTrue : vchFalse);
-
-                    if (opcode == OP_CHECKBLOCKATHEIGHT)
-                    {
-                        if (fSuccess)
-                        {
-                            popstack(stack);
-                        }
-                        else {
-                            return set_error(serror, SCRIPT_ERR_CHECKBLOCKATHEIGHT);
-                        }
-                    }
-                }
-                break;
-#endif
 
                 case OP_NOP1: case OP_NOP3: case OP_NOP4:
 // ZEN_MOD_END
@@ -1284,6 +1200,34 @@ bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime) con
     return true;
 }
 
+// ZEN_MOD_START
+bool TransactionSignatureChecker::CheckBlockHash(const int32_t nHeight, const std::vector<unsigned char>& vchCompareTo) const
+{
+    if (!chain) {
+        return false;
+    }
+
+    // If the chain doesn't reach the desired height yet, the transaction is non-final
+    if (nHeight > chain->Height()) {
+        return false;
+    }
+
+    // Sufficiently old blocks are always valid
+    if (nHeight <= chain->Height() - 52596) {
+        return true;
+    }
+
+    CBlockIndex* pblockindex = (*chain)[nHeight];
+    std::vector<unsigned char> vchBlockHash(pblockindex->GetBlockHash().begin(), pblockindex->GetBlockHash().end());
+    vchBlockHash.erase(vchBlockHash.begin(), vchBlockHash.end() - vchCompareTo.size());
+
+    if (vchBlockHash.empty() || vchCompareTo.empty()) {
+        return false;
+    }
+
+    return (vchCompareTo == vchBlockHash);
+}
+// ZEN_MOD_END
 
 bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror)
 {

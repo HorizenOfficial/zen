@@ -1,4 +1,4 @@
-Zen 2.0.8-2
+Zen 2.0.9-2
 ==============
 
 What is Zen?
@@ -21,8 +21,15 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
         ncurses-dev unzip python \
         zlib1g-dev wget bsdmainutils
     ```   
+    1. Windows
+    ```{r, engine='bash'}
+    sudo apt-get install \
+        build-essential pkg-config libc6-dev m4 g++-multilib \
+        autoconf libtool ncurses-dev unzip git python \
+        zlib1g-dev wget bsdmainutils automake mingw-w64
+    ```
 
-1. Install
+1. Install for linux
 ```{r, engine='bash'}
 # Build
 ./zcutil/build.sh -j$(nproc)
@@ -31,6 +38,10 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
 # Run
 ./src/zend
 ```
+
+1. Install for Windows (Cross-Compiled, building on Windows is not supported yet)
+
+```./zcutil/build-win.sh -j$(nproc)```
 
 
 Instructions to redeem pre block 110,000 ZCL
@@ -63,14 +74,14 @@ Where do I begin?
 
 ### Need Help?
 
-* Many guides and tutorials are available at [Zdeveloper.org](https://zdeveloper.org)
+* Many guides and tutorials are available at [ZencashOfficial slack](https://slackinvite.zensystem.io/)
   for help and more information.
-* Ask for help on the [Zdeveloper Rocket Chat](https://rocketchat.zdeveloper.org).
+* Ask for help on the [ZencashOfficial slack](slackinvite.zensystem.io).
 
 ### Want to participate in development?
 
 * Code review is welcome!
-* If you want to get to know us join our [Rocket Chat](https://rocketchat.zdeveloper.org)
+* If you want to get to know us join our [Slack](https://slackinvite.zensystem.io)
 
 
 Participation in the Zen project is subject to a

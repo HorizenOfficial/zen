@@ -238,6 +238,7 @@ public:
         strNetworkID = "test";
 // ZEN_MOD_START
         strCurrencyUnits = "ZNT";
+        consensus.fCoinbaseMustBeProtected = true;
 // ZEN_MOD_END
         consensus.nMajorityEnforceBlockUpgrade = 51;
         consensus.nMajorityRejectBlockOutdated = 75;

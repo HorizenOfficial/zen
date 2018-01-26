@@ -4,6 +4,11 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "chain.h"
+// ZEN_MOD_START
+#include "tinyformat.h"
+
+#include <stdexcept>
+// ZEN_MOD_END
 
 using namespace std;
 
@@ -107,3 +112,18 @@ void CBlockIndex::BuildSkip()
     if (pprev)
         pskip = pprev->GetAncestor(GetSkipHeight(nHeight));
 }
+
+// ZEN_MOD_START
+void CHistoricalChain::SetHeight(const int nHeight)
+{
+    if (nHeight > chain.Height()) {
+        throw std::runtime_error(strprintf("%s: Cannot set a height beyond parent!", __func__));
+    }
+    my_height = nHeight;
+}
+
+void CHistoricalChain::SetTip(CBlockIndex *pindex)
+{
+    throw std::runtime_error("Cannot SetTip of a CHistoricalChain!");
+}
+// ZEN_MOD_END

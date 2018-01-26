@@ -14,6 +14,9 @@
 #include "util.h"
 #include "utilmoneystr.h"
 #include "version.h"
+// ZEN_MOD_START
+#include "main.h"
+// ZEN_MOD_END
 
 using namespace std;
 
@@ -347,7 +350,9 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             waitingOnDependants.push_back(&it->second);
         else {
             CValidationState state;
-            assert(ContextualCheckInputs(tx, state, mempoolDuplicate, false, 0, false, Params().GetConsensus(), NULL));
+// ZEN_MOD_START
+            assert(ContextualCheckInputs(tx, state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+// ZEN_MOD_END
             UpdateCoins(tx, state, mempoolDuplicate, 1000000);
         }
     }
@@ -361,7 +366,9 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             stepsSinceLastRemove++;
             assert(stepsSinceLastRemove < waitingOnDependants.size());
         } else {
-            assert(ContextualCheckInputs(entry->GetTx(), state, mempoolDuplicate, false, 0, false, Params().GetConsensus(), NULL));
+// ZEN_MOD_START
+            assert(ContextualCheckInputs(entry->GetTx(), state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+// ZEN_MOD_END
             UpdateCoins(entry->GetTx(), state, mempoolDuplicate, 1000000);
             stepsSinceLastRemove = 0;
         }

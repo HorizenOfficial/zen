@@ -43,8 +43,10 @@ static const unsigned int MANDATORY_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_P2SH;
  * with. However scripts violating these flags may still be present in valid
  * blocks and we must accept those blocks.
  */
-static const unsigned int STANDARD_SCRIPT_VERIFY_FLAGS = MANDATORY_SCRIPT_VERIFY_FLAGS |
-                                                         // SCRIPT_VERIFY_DERSIG is always enforced
+
+// ZEN_MOD_START
+static const unsigned int STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS = MANDATORY_SCRIPT_VERIFY_FLAGS |
+                                                         SCRIPT_VERIFY_DERSIG |
                                                          SCRIPT_VERIFY_STRICTENC |
                                                          SCRIPT_VERIFY_MINIMALDATA |
                                                          SCRIPT_VERIFY_NULLDUMMY |
@@ -52,12 +54,14 @@ static const unsigned int STANDARD_SCRIPT_VERIFY_FLAGS = MANDATORY_SCRIPT_VERIFY
                                                          SCRIPT_VERIFY_CLEANSTACK |
                                                          SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY |
                                                          SCRIPT_VERIFY_LOW_S |
-// ZEN_MOD_START
                                                          SCRIPT_VERIFY_CHECKBLOCKATHEIGHT;
-// ZEN_MOD_END
+
+/** For convenience, standard but not contextual verify flags. */
+static const unsigned int STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS = STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS & ~CONTEXTUAL_SCRIPT_VERIFY_FLAGS;
 
 /** For convenience, standard but not mandatory verify flags. */
-static const unsigned int STANDARD_NOT_MANDATORY_VERIFY_FLAGS = STANDARD_SCRIPT_VERIFY_FLAGS & ~MANDATORY_SCRIPT_VERIFY_FLAGS;
+static const unsigned int STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS = STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS & ~MANDATORY_SCRIPT_VERIFY_FLAGS;
+// ZEN_MOD_END
 
 enum txnouttype
 {
@@ -66,6 +70,9 @@ enum txnouttype
     TX_PUBKEY,
     TX_PUBKEYHASH,
     TX_SCRIPTHASH,
+// ZEN_MOD_START
+    TX_SCRIPTHASH_REPLAY,
+// ZEN_MOD_END
     TX_MULTISIG,
     TX_NULL_DATA,
 // ZEN_MOD_START

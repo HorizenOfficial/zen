@@ -14,6 +14,9 @@
 #include <string>
 #include <climits>
 
+// ZEN_MOD_START
+class CChain;
+// ZEN_MOD_END
 class CPubKey;
 class CScript;
 class CTransaction;
@@ -46,7 +49,9 @@ enum
 
     // Passing a non-strict-DER signature to a checksig operation causes script failure (softfork safe, BIP62 rule 1)
     // In Zcash this is required, and validation of non-strict-DER signatures is not implemented.
-    //SCRIPT_VERIFY_DERSIG    = (1U << 2),
+// ZEN_MOD_START
+    SCRIPT_VERIFY_DERSIG    = (1U << 2),
+// ZEN_MOD_END
 
     // Passing a non-strict-DER signature or one with S > order/2 to a checksig operation causes script failure
     // (softfork safe, BIP62 rule 5).
@@ -93,6 +98,10 @@ enum
 // ZEN_MOD_END
 };
 
+// ZEN_MOD_START
+static const unsigned int CONTEXTUAL_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_CHECKBLOCKATHEIGHT;
+// ZEN_MOD_END
+
 uint256 SignatureHash(const CScript &scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType);
 
 class BaseSignatureChecker
@@ -108,6 +117,13 @@ public:
          return false;
     }
 
+// ZEN_MOD_START
+    virtual bool CheckBlockHash(const int32_t nHeight, const std::vector<unsigned char>& nBlockHash) const
+    {
+        return false;
+    }
+// ZEN_MOD_END
+
     virtual ~BaseSignatureChecker() {}
 };
 
@@ -116,14 +132,22 @@ class TransactionSignatureChecker : public BaseSignatureChecker
 private:
     const CTransaction* txTo;
     unsigned int nIn;
+// ZEN_MOD_START
+    const CChain* chain;
+// ZEN_MOD_END
 
 protected:
     virtual bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
 
 public:
-    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn) : txTo(txToIn), nIn(nInIn) {}
+// ZEN_MOD_START
+    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CChain* chainIn) : txTo(txToIn), nIn(nInIn), chain(chainIn) {}
+// ZEN_MOD_END
     bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode) const;
     bool CheckLockTime(const CScriptNum& nLockTime) const;
+// ZEN_MOD_START
+    bool CheckBlockHash(const int32_t nHeight, const std::vector<unsigned char>& nBlockHash) const;
+// ZEN_MOD_END
 };
 
 class MutableTransactionSignatureChecker : public TransactionSignatureChecker
@@ -132,7 +156,9 @@ private:
     const CTransaction txTo;
 
 public:
-    MutableTransactionSignatureChecker(const CMutableTransaction* txToIn, unsigned int nInIn) : TransactionSignatureChecker(&txTo, nInIn), txTo(*txToIn) {}
+// ZEN_MOD_START
+    MutableTransactionSignatureChecker(const CMutableTransaction* txToIn, unsigned int nInIn) : TransactionSignatureChecker(&txTo, nInIn, nullptr), txTo(*txToIn) {}
+// ZEN_MOD_END
 };
 
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* error = NULL);
