@@ -33,6 +33,9 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_PUBKEY: return "pubkey";
     case TX_PUBKEYHASH: return "pubkeyhash";
     case TX_SCRIPTHASH: return "scripthash";
+// ZEN_MOD_START
+    case TX_SCRIPTHASH_REPLAY: return "scripthashreplay";
+// ZEN_MOD_END
     case TX_MULTISIG: return "multisig";
     case TX_NULL_DATA: return "nulldata";
 // ZEN_MOD_START
@@ -56,41 +59,35 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
     {
         // Standard tx, sender provides pubkey, receiver adds signature
         mTemplates.insert(make_pair(TX_PUBKEY, CScript() << OP_PUBKEY << OP_CHECKSIG));
-        // ZEN_MOD_START
+// ZEN_MOD_START
         mTemplates.insert(make_pair(TX_PUBKEY_REPLAY, CScript() << OP_PUBKEY << OP_CHECKSIG << OP_SMALLDATA << OP_SMALLDATA << OP_CHECKBLOCKATHEIGHT));
-        // ZEN_MOD_END
+// ZEN_MOD_END
 
         // Bitcoin address tx, sender provides hash of pubkey, receiver provides signature and pubkey
         mTemplates.insert(make_pair(TX_PUBKEYHASH, CScript() << OP_DUP << OP_HASH160 << OP_PUBKEYHASH << OP_EQUALVERIFY << OP_CHECKSIG));
-        // ZEN_MOD_START
+// ZEN_MOD_START
         mTemplates.insert(make_pair(TX_PUBKEYHASH_REPLAY, CScript() << OP_DUP << OP_HASH160 << OP_PUBKEYHASH << OP_EQUALVERIFY << OP_CHECKSIG << OP_SMALLDATA << OP_SMALLDATA << OP_CHECKBLOCKATHEIGHT));
-        // ZEN_MOD_END
+// ZEN_MOD_END
 
         // Sender provides N pubkeys, receivers provides M signatures
         mTemplates.insert(make_pair(TX_MULTISIG, CScript() << OP_SMALLINTEGER << OP_PUBKEYS << OP_SMALLINTEGER << OP_CHECKMULTISIG));
-        // ZEN_MOD_START
+// ZEN_MOD_START
         mTemplates.insert(make_pair(TX_MULTISIG_REPLAY, CScript() << OP_SMALLINTEGER << OP_PUBKEYS << OP_SMALLINTEGER << OP_CHECKMULTISIG << OP_SMALLDATA << OP_SMALLDATA << OP_CHECKBLOCKATHEIGHT));
-        // ZEN_MOD_END
+
+        // P2SH, sender provides script hash
+        mTemplates.insert(make_pair(TX_SCRIPTHASH, CScript() << OP_HASH160 << OP_PUBKEYHASH << OP_EQUAL));
+        mTemplates.insert(make_pair(TX_SCRIPTHASH_REPLAY, CScript() << OP_HASH160 << OP_PUBKEYHASH << OP_EQUAL << OP_SMALLDATA << OP_SMALLDATA << OP_CHECKBLOCKATHEIGHT));
+// ZEN_MOD_END
 
         // Empty, provably prunable, data-carrying output
         if (GetBoolArg("-datacarrier", true))
         {
             mTemplates.insert(make_pair(TX_NULL_DATA, CScript() << OP_RETURN << OP_SMALLDATA));
-            // ZEN_MOD_START
+// ZEN_MOD_START
             mTemplates.insert(make_pair(TX_NULL_DATA_REPLAY, CScript() << OP_RETURN << OP_SMALLDATA << OP_SMALLDATA << OP_SMALLDATA << OP_CHECKBLOCKATHEIGHT));
-            // ZEN_MOD_END
+// ZEN_MOD_END
         }
         mTemplates.insert(make_pair(TX_NULL_DATA, CScript() << OP_RETURN));
-    }
-
-    // Shortcut for pay-to-script-hash, which are more constrained than the other types:
-    // it is always OP_HASH160 20 [20 byte hash] OP_EQUAL
-    if (scriptPubKey.IsPayToScriptHash())
-    {
-        typeRet = TX_SCRIPTHASH;
-        vector<unsigned char> hashBytes(scriptPubKey.begin()+2, scriptPubKey.begin()+22);
-        vSolutionsRet.push_back(hashBytes);
-        return true;
     }
 
     // Scan templates
@@ -112,9 +109,9 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
             {
                 // Found a match
                 typeRet = tplate.first;
-                // ZEN_MOD_START
+// ZEN_MOD_START
                 if (typeRet == TX_MULTISIG || typeRet == TX_MULTISIG_REPLAY)
-                // ZEN_MOD_END
+// ZEN_MOD_END
                 {
                     // Additional checks for TX_MULTISIG:
                     unsigned char m = vSolutionsRet.front()[0];
@@ -122,6 +119,15 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     if (m < 1 || n < 1 || m > n || vSolutionsRet.size()-2 != n)
                         return false;
                 }
+
+// ZEN_MOD_START
+                if (typeRet == TX_SCRIPTHASH || typeRet == TX_SCRIPTHASH_REPLAY)
+                {
+                    vector<unsigned char> hashBytes(scriptPubKey.begin()+2, scriptPubKey.begin()+22);
+                    vSolutionsRet.push_back(hashBytes);
+                }
+// ZEN_MOD_END
+
                 return true;
             }
             if (!script1.GetOp(pc1, opcode1, vch1))
@@ -192,29 +198,32 @@ int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned c
     {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
+// ZEN_MOD_START
+    case TX_NULL_DATA_REPLAY:
+// ZEN_MOD_END
         return -1;
     case TX_PUBKEY:
+// ZEN_MOD_START
+    case TX_PUBKEY_REPLAY:
+// ZEN_MOD_END
         return 1;
     case TX_PUBKEYHASH:
+// ZEN_MOD_START
+    case TX_PUBKEYHASH_REPLAY:
+// ZEN_MOD_END
         return 2;
     case TX_MULTISIG:
+// ZEN_MOD_START
+    case TX_MULTISIG_REPLAY:
+// ZEN_MOD_END
         if (vSolutions.size() < 1 || vSolutions[0].size() < 1)
             return -1;
         return vSolutions[0][0] + 1;
     case TX_SCRIPTHASH:
-        return 1; // doesn't include args needed by the script
 // ZEN_MOD_START
-    case TX_NULL_DATA_REPLAY:
-        return -1;
-    case TX_PUBKEY_REPLAY:
-        return 1;
-    case TX_PUBKEYHASH_REPLAY:
-        return 2;
-    case TX_MULTISIG_REPLAY:
-        if (vSolutions.size() < 1 || vSolutions[0].size() < 1)
-            return -1;
-        return vSolutions[0][0] + 1;
+    case TX_SCRIPTHASH_REPLAY:
 // ZEN_MOD_END
+        return 1; // doesn't include args needed by the script
     }
     return -1;
 }
@@ -225,9 +234,9 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
     if (!Solver(scriptPubKey, whichType, vSolutions))
         return false;
 
-    // ZEN_MOD_START
+// ZEN_MOD_START
     if (whichType == TX_MULTISIG || whichType == TX_MULTISIG_REPLAY)
-    // ZEN_MOD_END
+// ZEN_MOD_END
     {
         unsigned char m = vSolutions.front()[0];
         unsigned char n = vSolutions.back()[0];
@@ -248,9 +257,9 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
     if (!Solver(scriptPubKey, whichType, vSolutions))
         return false;
 
-    // ZEN_MOD_START
+// ZEN_MOD_START
     if (whichType == TX_PUBKEY || whichType == TX_PUBKEY_REPLAY)
-    // ZEN_MOD_END
+// ZEN_MOD_END
     {
         CPubKey pubKey(vSolutions[0]);
         if (!pubKey.IsValid())
@@ -259,14 +268,16 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
         addressRet = pubKey.GetID();
         return true;
     }
-    // ZEN_MOD_START
+// ZEN_MOD_START
     else if (whichType == TX_PUBKEYHASH || whichType == TX_PUBKEYHASH_REPLAY)
-    // ZEN_MOD_END
+// ZEN_MOD_END
     {
         addressRet = CKeyID(uint160(vSolutions[0]));
         return true;
     }
-    else if (whichType == TX_SCRIPTHASH)
+// ZEN_MOD_START
+    else if (whichType == TX_SCRIPTHASH || whichType == TX_SCRIPTHASH_REPLAY)
+// ZEN_MOD_END
     {
         addressRet = CScriptID(uint160(vSolutions[0]));
         return true;
@@ -282,16 +293,16 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, vecto
     vector<valtype> vSolutions;
     if (!Solver(scriptPubKey, typeRet, vSolutions))
         return false;
-    // ZEN_MOD_START
+// ZEN_MOD_START
     if (typeRet == TX_NULL_DATA || typeRet == TX_NULL_DATA_REPLAY){
-    // ZEN_MOD_END
+// ZEN_MOD_END
         // This is data, not addresses
         return false;
     }
 
-    // ZEN_MOD_START
+// ZEN_MOD_START
     if (typeRet == TX_MULTISIG || typeRet == TX_MULTISIG_REPLAY)
-    // ZEN_MOD_END
+// ZEN_MOD_END
     {
         nRequiredRet = vSolutions.front()[0];
         for (unsigned int i = 1; i < vSolutions.size()-1; i++)
