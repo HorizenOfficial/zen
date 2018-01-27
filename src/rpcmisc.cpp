@@ -182,6 +182,7 @@ UniValue validateaddress(const UniValue& params, bool fHelp)
     string strAddress = params[0].get_str();
     CBitcoinAddress address(strAddress);
     bool isValid = address.IsValid();
+    // do not valid addr `t` addr via rpc only
     if (isValid && strAddress[0]=='t') {
         isValid = false;
     }
