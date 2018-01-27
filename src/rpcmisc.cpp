@@ -177,11 +177,12 @@ UniValue validateaddress(const UniValue& params, bool fHelp)
 #else
     LOCK(cs_main);
 #endif
-
-    CBitcoinAddress address(params[0].get_str());
-    bool isValid = address.IsValid();
+    
 // ZEN_MOD_START
-    if (params[0].get_str()[0]=='t') {
+    string strAddress = params[0].get_str();
+    CBitcoinAddress address(strAddress);
+    bool isValid = address.IsValid();
+    if (isValid && strAddress[0]=='t') {
         isValid = false;
     }
 // ZEN_MOD_END
