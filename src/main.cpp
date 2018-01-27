@@ -3340,19 +3340,22 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     // The last founders reward block is defined as the block just before the
     // first subsidy halving block, which occurs at halving_interval + slow_start_shift
     if ((nHeight > consensusParams.nChainsplitIndex) && (nHeight <= consensusParams.GetLastFoundersRewardBlockHeight())) {
-// ZEN_MOD_END
         bool found = false;
+
+        CAmount expectedReward = (GetBlockSubsidy(nHeight, consensusParams) * 85) / 1000;
+        // The FR reward is increased to 12% since hfFoundersRewardHeight block
+        if (nHeight >= consensusParams.hfFoundersRewardHeight)
+            expectedReward = (GetBlockSubsidy(nHeight, consensusParams) * 120) / 1000;
 
         BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
             if (output.scriptPubKey == Params().GetFoundersRewardScriptAtHeight(nHeight)) {
-// ZEN_MOD_START
-                if (output.nValue == ((GetBlockSubsidy(nHeight, consensusParams) * 85) / 1000)) {
-// ZEN_MOD_END
+                if (output.nValue == expectedReward) {
                     found = true;
                     break;
                 }
             }
         }
+// ZEN_MOD_END
 
         if (!found) {
             return state.DoS(100, error("%s: founders reward missing", __func__), REJECT_INVALID, "cb-no-founders-reward");

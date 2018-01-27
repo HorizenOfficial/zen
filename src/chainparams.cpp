@@ -439,9 +439,9 @@ public:
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
 
 // ZEN_MOD_START
-        consensus.sfReplayProtectionHeight = 500;
-        consensus.hfFoundersRewardHeight = 1000;
-        consensus.hfFixP2SHHeight = 1000;
+        consensus.sfReplayProtectionHeight = 1100;
+        consensus.hfFoundersRewardHeight = 1200;
+        consensus.hfFixP2SHHeight = 1200;
 // ZEN_MOD_END
     }
 };

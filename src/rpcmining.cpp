@@ -905,6 +905,9 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
 // ZEN_MOD_START
     if ((nHeight >= Params().GetConsensus().nChainsplitIndex) && (nHeight <= Params().GetConsensus().GetLastFoundersRewardBlockHeight())) {
         nFoundersReward = ((nReward * 85) / 1000);
+        // The FR reward is increased to 12% since hfFoundersRewardHeight block
+        if (nHeight >= Params().GetConsensus().hfFoundersRewardHeight)
+            nFoundersReward = ((nReward * 120) / 1000);
         nReward -= nFoundersReward;
     }
 // ZEN_MOD_END

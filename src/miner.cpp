@@ -358,6 +358,9 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         if ((nHeight > chainparams.GetConsensus().nChainsplitIndex) && (nHeight <= chainparams.GetConsensus().GetLastFoundersRewardBlockHeight())) {
             // Founders reward is 8.5% of the block subsidy
             auto vFoundersReward = ((txNew.vout[0].nValue * 85) / 1000);
+            // The FR reward is increased to 12% since hfFoundersRewardHeight block
+            if (nHeight >= chainparams.GetConsensus().hfFoundersRewardHeight)
+                vFoundersReward = ((txNew.vout[0].nValue * 120) / 1000);
 // ZEN_MOD_END
             // Take some reward away from us
             txNew.vout[0].nValue -= vFoundersReward;
