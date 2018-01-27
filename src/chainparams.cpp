@@ -64,6 +64,11 @@ public:
         consensus.nChainsplitIndex = 110000;
         consensus.nChainsplitTime = 1496187000;
 
+        /** Zen soft/hard forks heights */
+        consensus.sfReplayProtectionHeight = 117575;
+        consensus.hfFoundersRewardHeight = INT_MAX;
+        consensus.hfFixP2SHHeight = INT_MAX;
+
         /**
          * ZEN Network Magic Start Value
          */
@@ -243,10 +248,6 @@ public:
         };
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
         assert(vFoundersRewardAddress2.size() <= consensus.GetLastFoundersRewardBlockHeight() - consensus.hfFoundersRewardHeight - 1);
-
-        consensus.sfReplayProtectionHeight = 117575;
-        consensus.hfFoundersRewardHeight = INT_MAX;
-        consensus.hfFixP2SHHeight = INT_MAX;
 // ZEN_MOD_END
     }
 };
@@ -275,6 +276,11 @@ public:
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
         consensus.nChainsplitIndex = 70000;
         consensus.nChainsplitTime = 1494616813; // 05/12/2017 @ 7:20pm (UTC)
+
+        /** Zen soft/hard forks heights */
+        consensus.sfReplayProtectionHeight = 72650;
+        consensus.hfFoundersRewardHeight = 85500;
+        consensus.hfFixP2SHHeight = 85500;
 
         pchMessageStart[0] = 0xbf;
         pchMessageStart[1] = 0xf2;
@@ -365,10 +371,6 @@ public:
         };
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
         assert(vFoundersRewardAddress2.size() <= consensus.GetLastFoundersRewardBlockHeight() - consensus.hfFoundersRewardHeight - 1);
-
-        consensus.sfReplayProtectionHeight = 72650;
-        consensus.hfFoundersRewardHeight = INT_MAX;
-        consensus.hfFixP2SHHeight = INT_MAX;
 // ZEN_MOD_END
     }
 };
@@ -402,6 +404,11 @@ public:
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
         consensus.nChainsplitIndex = 1000;
         consensus.nChainsplitTime = 0;
+
+        /** Zen soft/hard forks heights */
+        consensus.sfReplayProtectionHeight = 1100;
+        consensus.hfFoundersRewardHeight = 1200;
+        consensus.hfFixP2SHHeight = 1200;
 
         pchMessageStart[0] = 0x2f;
         pchMessageStart[1] = 0x54;
@@ -454,10 +461,6 @@ public:
         vFoundersRewardAddress2 = { "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa" };
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
         assert(vFoundersRewardAddress2.size() <= consensus.GetLastFoundersRewardBlockHeight() - consensus.hfFoundersRewardHeight - 1);
-
-        consensus.sfReplayProtectionHeight = 1100;
-        consensus.hfFoundersRewardHeight = 1200;
-        consensus.hfFixP2SHHeight = 1200;
 // ZEN_MOD_END
     }
 };
