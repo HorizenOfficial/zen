@@ -85,6 +85,14 @@ public:
     /** Return the founder's reward address and script for a given block height */
     std::string GetFoundersRewardAddressAtHeight(int height) const;
     CScript GetFoundersRewardScriptAtHeight(int height) const;
+// ZEN_MOD_START
+    int GetNumFoundersRewardAddresses() const;
+    int GetNumFoundersRewardAddresses2() const;
+// ZEN_MOD_END
+    std::string GetFoundersRewardAddressAtIndex(int i) const;
+// ZEN_MOD_START
+    std::string GetFoundersRewardAddress2AtIndex(int i) const;
+// ZEN_MOD_END
     /** Enforce coinbase consensus rule in regtest mode */
     void SetRegTestCoinbaseMustBeProtected() { consensus.fCoinbaseMustBeProtected = true; }
 protected:
