@@ -182,7 +182,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
             {
 // ZEN_MOD_START
             	// Possible values of OP_CHECKBLOCKATHEIGHT parameters
-            	if (vch1.size() <= sizeof(int))
+            	if (vch1.size() <= sizeof(int32_t))
 					vchBlockHeight = vch1;
 				else
 					vchBlockHash = vch1;
@@ -199,13 +199,13 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
 #if !defined(BITCOIN_TX) // TODO: This is an workaround. zen-tx does not have access to chain state so no replay protection is possible
 
-                if (vchBlockHash.size() == 0)
+                if (vchBlockHash.size() == 0 || vchBlockHash.size() > 32)
                 {
                     LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad params.", __FILE__, __func__);
                     break;
                 }
 
-                const int32_t nHeight = vchBlockHeight.size() == 0 ? 0 : CScriptNum(vchBlockHeight, true, sizeof(int)).getint();
+                const int32_t nHeight = vchBlockHeight.size() == 0 ? 0 : CScriptNum(vchBlockHeight, true, sizeof(int32_t)).getint();
 
                 // According to BIP115, sufficiently old blocks are always valid, so check only blocks of depth less than 52596.
                 // Skip check if referenced block is further than chainActive. It means that we are not fully synchronized.
@@ -214,8 +214,12 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                 {
 					CBlockIndex* pblockindex = chainActive[nHeight];
 
-					vector<unsigned char> vchCompareTo(pblockindex->GetBlockHash().begin(), pblockindex->GetBlockHash().end());
-					vchCompareTo.erase(vchCompareTo.begin(), vchCompareTo.end() - vchBlockHash.size());
+                    vector<unsigned char> vchCompareTo(pblockindex->GetBlockHash().begin(), pblockindex->GetBlockHash().end());
+					try { vchCompareTo.erase(vchCompareTo.begin(), vchCompareTo.end() - vchBlockHash.size()); }
+                    catch (...) {
+                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad block hash size.", __FILE__, __func__);
+                        break;
+                    }
 
 					if (vchCompareTo != vchBlockHash)
                     {
