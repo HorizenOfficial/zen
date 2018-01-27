@@ -214,14 +214,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                 {
 					CBlockIndex* pblockindex = chainActive[nHeight];
 
-                    vector<unsigned char> vchCompareTo(pblockindex->GetBlockHash().begin(), pblockindex->GetBlockHash().end());
-					try { vchCompareTo.erase(vchCompareTo.begin(), vchCompareTo.end() - vchBlockHash.size()); }
-                    catch (...) {
-                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad block hash size.", __FILE__, __func__);
-                        break;
-                    }
-
-					if (vchCompareTo != vchBlockHash)
+                    if (pblockindex->GetBlockHash() != uint256(vchBlockHash))
                     {
                         LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. vout block height: %d", __FILE__, __func__, nHeight);
                         break;
