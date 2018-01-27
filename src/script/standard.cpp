@@ -205,7 +205,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     break;
                 }
 
-                const int32_t nHeight = vchBlockHeight.size() == 0 ? 0 : CScriptNum(vchBlockHeight, true, sizeof(int32_t)).getint();
+                const int32_t nHeight = CScriptNum(vchBlockHeight, false, sizeof(int32_t)).getint();
 
                 // According to BIP115, sufficiently old blocks are always valid, so check only blocks of depth less than 52596.
                 // Skip check if referenced block is further than chainActive. It means that we are not fully synchronized.
