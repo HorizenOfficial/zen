@@ -1703,6 +1703,23 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
     return pindexPrev->nHeight + 1;
 }
 
+// ZEN_MOD_START
+bool IsFoundersReward(const CCoins *coins, int nIn)
+// ZEN_MOD_END
+{
+    if(coins != NULL &&
+       coins->IsCoinBase() &&
+       coins->nHeight > Params().GetConsensus().nChainsplitIndex &&
+       coins->vout.size() > nIn)
+    {
+        CScript founderScriptPubKey = Params().GetFoundersRewardScriptAtHeight(coins->nHeight);
+        if (coins->vout[nIn].scriptPubKey == founderScriptPubKey)
+            return true;
+    }
+
+    return false;
+}
+
 namespace Consensus {
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
 {
@@ -1736,9 +1753,19 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
                 if (fCoinbaseEnforcedProtectionEnabled &&
                     consensusParams.fCoinbaseMustBeProtected &&
                     !tx.vout.empty()) {
-                    return state.Invalid(
-                        error("CheckInputs(): tried to spend coinbase with transparent outputs"),
-                        REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
+
+// ZEN_MOD_START
+                    // Since HARD_FORK_HEIGHT there is an exemption for founders reward coinbase coins, so it is allowed
+                    // to send them to the transparent addr.
+                    const int HARD_FORK_HEIGHT = HF_FOUNDERS_REWARD_JUL17; // TODO: change to the real height of the HF
+                    bool fDisableProtectionForFR = consensusParams.fDisableCoinbaseProtectionForFoundersReward
+                                                   && HARD_FORK_HEIGHT <= nSpendHeight;
+                    if (!fDisableProtectionForFR || !IsFoundersReward(coins, prevout.n)) {
+                        return state.Invalid(
+                                error("CheckInputs(): tried to spend coinbase with transparent outputs"),
+                                REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
+                    }
+// ZEN_MOD_END
                 }
             }
 

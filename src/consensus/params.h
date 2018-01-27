@@ -41,7 +41,16 @@ struct BIP9Deployment {
 struct Params {
     uint256 hashGenesisBlock;
 
+// ZEN_MOD_START
+    /* Don't allow to send coinbase coins to transparent addresses. They should be first sent to the shielded addr */
+// ZEN_MOD_END
     bool fCoinbaseMustBeProtected;
+
+// ZEN_MOD_START
+    /* Disable coinbase protection for founders reward coins, so it would be possible to send FR coins to transparent addr.
+     * Activated only if fCoinbaseMustBeProtected is true, otherwise all coins could be sent to transparent addr in spite of this option */
+    bool fDisableCoinbaseProtectionForFoundersReward;
+// ZEN_MOD_END
 
     /** Needs to evenly divide MAX_SUBSIDY to avoid rounding errors. */
     int nSubsidySlowStartInterval;

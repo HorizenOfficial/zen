@@ -43,7 +43,10 @@ public:
         strCurrencyUnits = "ZEN";
 // ZEN_MOD_END
         consensus.fCoinbaseMustBeProtected = true;
-        consensus.nSubsidySlowStartInterval = 20000;
+// ZEN_MOD_START
+        consensus.fDisableCoinbaseProtectionForFoundersReward = true;
+        consensus.nSubsidySlowStartInterval = 2;
+// ZEN_MOD_END
         consensus.nSubsidyHalvingInterval = 840000;
         consensus.nMajorityEnforceBlockUpgrade = 750;
         consensus.nMajorityRejectBlockOutdated = 950;
@@ -242,6 +245,7 @@ public:
 // ZEN_MOD_START
         strCurrencyUnits = "ZNT";
         consensus.fCoinbaseMustBeProtected = true;
+        consensus.fDisableCoinbaseProtectionForFoundersReward = true;
 // ZEN_MOD_END
         consensus.nMajorityEnforceBlockUpgrade = 51;
         consensus.nMajorityRejectBlockOutdated = 75;
@@ -352,6 +356,9 @@ public:
         strNetworkID = "regtest";
         strCurrencyUnits = "REG";
         consensus.fCoinbaseMustBeProtected = false;
+// ZEN_MOD_START
+        consensus.fDisableCoinbaseProtectionForFoundersReward = true;
+// ZEN_MOD_END
         consensus.nSubsidySlowStartInterval = 0;
 // ZEN_MOD_START
         consensus.nSubsidyHalvingInterval = 2000;
