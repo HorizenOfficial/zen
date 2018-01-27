@@ -231,6 +231,12 @@ public:
         };
 // ZEN_MOD_END
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
+
+// ZEN_MOD_START
+        consensus.sfReplayProtectionHeight = 117575;
+        consensus.hfFoundersRewardHeight = INT_MAX;
+        consensus.hfFixP2SHHeight = INT_MAX;
+// ZEN_MOD_END
     }
 };
 static CMainParams mainParams;
@@ -343,6 +349,12 @@ public:
         };
 // ZEN_MOD_END
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
+
+// ZEN_MOD_START
+        consensus.sfReplayProtectionHeight = 72650;
+        consensus.hfFoundersRewardHeight = INT_MAX;
+        consensus.hfFixP2SHHeight = INT_MAX;
+// ZEN_MOD_END
     }
 };
 static CTestNetParams testNetParams;
@@ -425,6 +437,12 @@ public:
         vFoundersRewardAddress = { "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa" };
 // ZEN_MOD_END
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
+
+// ZEN_MOD_START
+        consensus.sfReplayProtectionHeight = 500;
+        consensus.hfFoundersRewardHeight = 1000;
+        consensus.hfFixP2SHHeight = 1000;
+// ZEN_MOD_END
     }
 };
 static CRegTestParams regTestParams;

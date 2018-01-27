@@ -2448,8 +2448,9 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTx*
     bool fProtectCoinbase = Params().GetConsensus().fCoinbaseMustBeProtected;
     bool fProtectFRCoinbase = fProtectCoinbase && !Params().GetConsensus().fDisableCoinbaseProtectionForFoundersReward;
 
-    if (chainActive.Height() < HF_FOUNDERS_REWARD_JUL17)
-        fProtectFRCoinbase = fProtectCoinbase; // FR exemption allowed only after HF_FOUNDERS_REWARD_JUL17 hardfork
+    // FR exemption allowed only after hfFoundersRewardHeight hardfork
+    if (chainActive.Height() < Params().GetConsensus().hfFoundersRewardHeight)
+        fProtectFRCoinbase = fProtectCoinbase;
 
     // Output parameter fOnlyCoinbaseCoinsRet is set to true when the only available coins are coinbase utxos.
     vector<COutput> vCoinsNoProtectedCoinbase, vCoinsWithProtectedCoinbase;
