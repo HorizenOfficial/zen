@@ -20,8 +20,8 @@ if [ ! -d $BUILD_PATH ]; then
 fi
 
 # ZEN_MOD_START
-PACKAGE_VERSION=$(grep Version $SRC_PATH/contrib/debian/control | cut -d: -f2 | tr -d ' ')
-BUILD_DIR="$BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-arm64"
+PACKAGE_VERSION=$($SRC_PATH/src/zend --version | grep version | cut -d' ' -f4 | tr -d v)
+BUILD_DIR="$BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-amd64"
 # ZEN_MOD_END
 
 if [ -d $BUILD_DIR ]; then
@@ -90,6 +90,6 @@ fakeroot dpkg-deb --build $BUILD_DIR
 # ZEN_MOD_START
 cp $BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-arm64.deb $SRC_PATH
 # Analyze with Lintian, reporting bugs and policy violations
-#lintian -i $SRC_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-arm64.deb
+lintian -i $SRC_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-amd64.deb
 # ZEN_MOD_END
 exit 0
