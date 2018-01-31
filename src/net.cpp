@@ -633,23 +633,31 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 void CNode::CloseSocketDisconnect()
 {
     fDisconnect = true;
-    if (hSocket != INVALID_SOCKET)
+    
     {
-        LogPrint("net", "disconnecting peer=%d\n", id);
 // ZEN_MOD_START
-        if (ssl)
-            SSL_shutdown(ssl); // unidirectional shutdown (the underlying connection shall be closed anyway)
+        LOCK(cs_hSocket);
 // ZEN_MOD_END
-
-        CloseSocket(hSocket);
-
-// ZEN_MOD_START
-        if (ssl)
+        
+        if (hSocket != INVALID_SOCKET)
         {
-            SSL_free(ssl);
-            ssl = NULL;
-        }
+            LogPrint("net", "disconnecting peer=%d\n", id);
+        
+// ZEN_MOD_START
+            if (ssl)
+                SSL_shutdown(ssl); // unidirectional shutdown (the underlying connection shall be closed anyway)
 // ZEN_MOD_END
+        
+            CloseSocket(hSocket);
+        
+// ZEN_MOD_START
+            if (ssl)
+            {
+                SSL_free(ssl);
+                ssl = NULL;
+            }
+// ZEN_MOD_END
+        }
     }
 
     // in case this fails, we'll empty the recv buffer when the CNode is deleted
@@ -926,13 +934,21 @@ void SocketSendData(CNode *pnode)
 
 // ZEN_MOD_START
         int nBytes = 0;
-
-        if (pnode->ssl)
-            nBytes = SSL_write(pnode->ssl, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset);
-        else
-            nBytes = send(pnode->hSocket, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset, MSG_NOSIGNAL | MSG_DONTWAIT);
+        {
+            LOCK(pnode->cs_hSocket);
+            
+            if (pnode->hSocket == INVALID_SOCKET)
+            {
+                LogPrintf("Send: connection with %s is already closed\n", pnode->addr.ToString());
+                break;
+            }
+            
+            if (pnode->ssl)
+                nBytes = SSL_write(pnode->ssl, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset);
+            else
+                nBytes = send(pnode->hSocket, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset, MSG_NOSIGNAL | MSG_DONTWAIT);
+        }
 // ZEN_MOD_END
-
         if (nBytes > 0)
         {
             pnode->nLastSend = GetTime();
@@ -1500,8 +1516,13 @@ void ThreadSocketHandler()
             LOCK(cs_vNodes);
             BOOST_FOREACH(CNode* pnode, vNodes)
             {
+// ZEN_MOD_START
+                LOCK(pnode->cs_hSocket);
+// ZEN_MOD_END
+                
                 if (pnode->hSocket == INVALID_SOCKET)
                     continue;
+                
                 FD_SET(pnode->hSocket, &fdsetError);
                 hSocketMax = max(hSocketMax, pnode->hSocket);
                 have_fds = true;
@@ -1586,9 +1607,20 @@ void ThreadSocketHandler()
             //
             // Receive
             //
-            if (pnode->hSocket == INVALID_SOCKET)
-                continue;
-            if (FD_ISSET(pnode->hSocket, &fdsetRecv) || FD_ISSET(pnode->hSocket, &fdsetError))
+            bool recvSet = false, sendSet = false, errorSet = false;
+            
+            {
+                LOCK(pnode->cs_hSocket);
+                
+                if (pnode->hSocket == INVALID_SOCKET)
+                    continue;
+    
+                recvSet  = FD_ISSET(pnode->hSocket, &fdsetRecv);
+                sendSet  = FD_ISSET(pnode->hSocket, &fdsetSend);
+                errorSet = FD_ISSET(pnode->hSocket, &fdsetError);
+            }
+            
+            if (recvSet || errorSet)
             {
                 TRY_LOCK(pnode->cs_vRecvMsg, lockRecv);
                 if (lockRecv)
@@ -1601,11 +1633,21 @@ void ThreadSocketHandler()
                         // maximum record size is 16kB for SSLv3/TLSv1
                         char pchBuf[0x10000];
                         int nBytes = 0;
-
-                        if (pnode->ssl)
-                            nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf));
-                        else
-                            nBytes = recv(pnode->hSocket, pchBuf, sizeof(pchBuf), MSG_DONTWAIT);
+    
+                        {
+                            LOCK(pnode->cs_hSocket);
+    
+                            if (pnode->hSocket == INVALID_SOCKET)
+                            {
+                                LogPrintf("Receive: connection with %s is already closed\n", pnode->addr.ToString());
+                                continue;
+                            }
+                            
+                            if (pnode->ssl)
+                                nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf));
+                            else
+                                nBytes = recv(pnode->hSocket, pchBuf, sizeof(pchBuf), MSG_DONTWAIT);
+                        }
 
                         if (nBytes > 0)
                         {
@@ -1619,13 +1661,11 @@ void ThreadSocketHandler()
                         }
                         else if (nBytes == 0)
                         {
-// ZEN_MOD_START
                             // socket closed gracefully (peer disconnected)
                             //
                             if (!pnode->fDisconnect)
                                 LogPrintf("socket closed (%s)\n", pnode->addr.ToString());
                             pnode->CloseSocketDisconnect();
- // ZEN_MOD_END
                         }
                         else if (nBytes < 0)
                         {
@@ -1637,20 +1677,16 @@ void ThreadSocketHandler()
                                 if (nErr != SSL_ERROR_WANT_READ && nErr != SSL_ERROR_WANT_WRITE) // SSL_read() operation has to be repeated because of SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE (https://wiki.openssl.org/index.php/Manual:SSL_read(3)#NOTES)
                                 {
                                     if (!pnode->fDisconnect)
-// ZEN_MOD_START
                                         LogPrintf("ERROR: SSL_read %s\n", ERR_error_string(nErr, NULL));
-// ZEN_MOD_END
                                     pnode->CloseSocketDisconnect();
                                 }
                                 else
                                 {
-// ZEN_MOD_START
                                     DBGPRINT("TLS: SSL_read WANT_READ/WANT_WRITE: %s\n", ERR_error_string(nErr, NULL));
 
                                     // preventive measure from exhausting CPU usage
                                     //
                                     MilliSleep(1); // 1 msec
-// ZEN_MOD_END
                                 }
                             }
                             else
@@ -1659,9 +1695,7 @@ void ThreadSocketHandler()
                                 if (nErr != WSAEWOULDBLOCK && nErr != WSAEMSGSIZE && nErr != WSAEINTR && nErr != WSAEINPROGRESS)
                                 {
                                     if (!pnode->fDisconnect)
-// ZEN_MOD_START
                                         LogPrintf("ERROR: socket recv %s\n", NetworkErrorString(nErr));
-// ZEN_MOD_END
                                     pnode->CloseSocketDisconnect();
                                 }
                             }
@@ -1674,15 +1708,13 @@ void ThreadSocketHandler()
             //
             // Send
             //
-            if (pnode->hSocket == INVALID_SOCKET)
-                continue;
-            if (FD_ISSET(pnode->hSocket, &fdsetSend))
+            if (sendSet)
             {
                 TRY_LOCK(pnode->cs_vSend, lockSend);
                 if (lockSend)
                     SocketSendData(pnode);
-// ZEN_MOD_END
             }
+// ZEN_MOD_END
 
             //
             // Inactivity checking
@@ -2450,8 +2482,7 @@ public:
         // Close sockets
         BOOST_FOREACH(CNode* pnode, vNodes)
 // ZEN_MOD_START
-            if (pnode->hSocket != INVALID_SOCKET)
-                CloseSocket(pnode->hSocket);
+        pnode->CloseSocketDisconnect();
 // ZEN_MOD_END
         BOOST_FOREACH(ListenSocket& hListenSocket, vhListenSocket)
             if (hListenSocket.socket != INVALID_SOCKET)
@@ -2754,17 +2785,21 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
 CNode::~CNode()
 {
 // ZEN_MOD_START
-    if (ssl)
-        SSL_shutdown(ssl); // unidirectional shutdown (the underlying connection shall be closed anyway)
-// ZEN_MOD_END
-
-    CloseSocket(hSocket);
-
-// ZEN_MOD_START
-    if (ssl)
+    // No need to make a lock on cs_hSocket, because before deletion CNode object is removed from the vNodes vector, so any other thread hasn't access to it.
+    // Removal is synchronized with read and write routines, so all of them will be completed to this moment.
+    
+    if (hSocket != INVALID_SOCKET)
     {
-        SSL_free(ssl);
-        ssl = NULL;
+        if (ssl)
+            SSL_shutdown(ssl); // unidirectional shutdown (the underlying connection shall be closed anyway)
+    
+        CloseSocket(hSocket);
+    
+        if (ssl)
+        {
+            SSL_free(ssl);
+            ssl = NULL;
+        }
     }
 // ZEN_MOD_END
 
