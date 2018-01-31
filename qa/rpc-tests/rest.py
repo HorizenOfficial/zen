@@ -77,7 +77,9 @@ class RESTTest (BitcoinTestFramework):
         self.nodes[2].generate(100)
         self.sync_all()
 
-        assert_equal(self.nodes[0].getbalance(), 10)
+# ZEN_MOD_START
+        assert_equal(self.nodes[0].getbalance(), 11.4375)
+# ZEN_MOD_END
 
         txid = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.1)
         self.sync_all()

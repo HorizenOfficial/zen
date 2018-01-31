@@ -422,7 +422,7 @@ public:
         /** Zen soft/hard forks heights */
         consensus.sfReplayProtectionHeight = 1100;
         consensus.hfCommunityFundHeight = 1200;
-        consensus.hfFixP2SHHeight = 1200;
+        consensus.hfFixP2SHHeight = 0;   // Note: non-zero value will break some tests in pull-tester (because there are tests for P2SH)
         consensus.hfFixReplayProtectionHeight = 1200;
 
         pchMessageStart[0] = 0x2f;
