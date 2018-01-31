@@ -90,7 +90,6 @@ static boost::filesystem::path tlsKeyPath;
 static boost::filesystem::path tlsCertPath;
 
 // OpenSSL related variables for metrics.cpp
-static std::string tlsvalidate;
 static std::string routingsecrecy;
 static std::string cipherdescription;
 static std::string securitylevel;

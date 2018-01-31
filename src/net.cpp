@@ -66,6 +66,7 @@
 #endif
 
 typedef enum {sslAccept, sslConnect, sslShutdown} SSLConnectionRoutine;
+typedef enum {clientContext, serverContext} TLSContextType;
 // ZEN_MOD_END
 
 using namespace std;
@@ -443,7 +444,7 @@ int WaitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL *ssl, int timeout
 
         if (sslErr != SSL_ERROR_WANT_READ && sslErr != SSL_ERROR_WANT_WRITE)
         {
-            LogPrintf("ERROR: %s: %s: ssl_err_code: %s; errno: %s\n", __FILE__, __func__, ERR_error_string(sslErr, NULL), strerror(errno));
+            LogPrintf("TLS: ERROR: %s: %s: ssl_err_code: %s; errno: %s\n", __FILE__, __func__, ERR_error_string(sslErr, NULL), strerror(errno));
             nErr = -1;
             break;
         }
@@ -459,13 +460,13 @@ int WaitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL *ssl, int timeout
             int result = select(hSocket + 1, &socketSet, NULL, NULL, &timeout);
             if (result == 0)
             {
-                LogPrintf("ERROR: %s: %s: WANT_READ timeout\n", __FILE__, __func__);
+                LogPrintf("TLS: ERROR: %s: %s: WANT_READ timeout\n", __FILE__, __func__);
                 nErr = -1;
                 break;
             }
             else if (result == -1)
             {
-                LogPrintf("ERROR: %s: %s: WANT_READ ssl_err_code: %s; errno: %s\n", __FILE__, __func__, ERR_error_string(sslErr, NULL), strerror(errno));
+                LogPrintf("TLS: ERROR: %s: %s: WANT_READ ssl_err_code: %s; errno: %s\n", __FILE__, __func__, ERR_error_string(sslErr, NULL), strerror(errno));
                 nErr = -1;
                 break;
             }
@@ -475,13 +476,13 @@ int WaitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL *ssl, int timeout
             int result = select(hSocket + 1, NULL, &socketSet, NULL, &timeout);
             if (result == 0)
             {
-                LogPrintf("ERROR: %s: %s: WANT_WRITE timeout\n", __FILE__, __func__);
+                LogPrintf("TLS: ERROR: %s: %s: WANT_WRITE timeout\n", __FILE__, __func__);
                 nErr = -1;
                 break;
             }
             else if (result == -1)
             {
-                LogPrintf("ERROR: %s: %s: WANT_WRITE ssl_err_code: %s; errno: %s\n", __FILE__, __func__, ERR_error_string(sslErr, NULL), strerror(errno));
+                LogPrintf("TLS: ERROR: %s: %s: WANT_WRITE ssl_err_code: %s; errno: %s\n", __FILE__, __func__, ERR_error_string(sslErr, NULL), strerror(errno));
                 nErr = -1;
                 break;
             }
@@ -524,14 +525,14 @@ SSL* ConnectByTLS(SOCKET hSocket, CAddress &addrConnect)
             }
             else
             {
-                LogPrintf ("ERROR: %s: %s: SSL_connect failed\n", __FILE__, __func__);
+                LogPrintf ("TLS: ERROR: %s: %s: SSL_connect failed\n", __FILE__, __func__);
             }
         }
         else
-            LogPrintf ("ERROR: %s: %s: SSL_set_fd failed\n", __FILE__, __func__);
+            LogPrintf ("TLS: ERROR: %s: %s: SSL_set_fd failed\n", __FILE__, __func__);
     }
     else
-        LogPrintf ("ERROR: %s: %s: SSL_new failed\n", __FILE__, __func__);
+        LogPrintf ("TLS: ERROR: %s: %s: SSL_new failed\n", __FILE__, __func__);
     
     if (bConnectedTLS)
     {
@@ -540,7 +541,7 @@ SSL* ConnectByTLS(SOCKET hSocket, CAddress &addrConnect)
     }
     else
     {
-        LogPrintf ("ERROR: %s: %s: TLS connection to %s failed\n", __FILE__, __func__, addrConnect.ToString());
+        LogPrintf ("TLS: ERROR: %s: %s: TLS connection to %s failed\n", __FILE__, __func__, addrConnect.ToString());
         
         if (ssl)
         {
@@ -635,6 +636,19 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
             return NULL;
         }
 #endif  // COMPAT_NON_TLS
+    
+        if (GetBoolArg("-tlsvalidate", false))
+        {
+            if (ssl && !CheckCertificate(ssl))
+            {
+                LogPrintf ("TLS: ERROR: Wrong server certificate from %s. Connection will be closed.\n", addrConnect.ToString());
+        
+                SSL_shutdown(ssl);
+                CloseSocket(hSocket);
+                SSL_free(ssl);
+                return NULL;
+            }
+        }
 #endif  // USE_TLS
 
         // Add node
@@ -1253,23 +1267,23 @@ SSL* AcceptByTLS(SOCKET hSocket, CAddress &addr)
             }
             else
             {
-                LogPrintf ("ERROR: %s: %s: SSL_accept failed\n", __FILE__, __func__);
+                LogPrintf ("TLS: ERROR: %s: %s: SSL_accept failed\n", __FILE__, __func__);
             }
         }
         else
-            LogPrintf ("ERROR: %s: %s: SSL_set_fd failed\n", __FILE__, __func__);
+            LogPrintf ("TLS: ERROR: %s: %s: SSL_set_fd failed\n", __FILE__, __func__);
     }
     else
-        LogPrintf ("ERROR: %s: %s: SSL_new failed\n", __FILE__, __func__);
+        LogPrintf ("TLS: ERROR: %s: %s: SSL_new failed\n", __FILE__, __func__);
     
     if (bAcceptedTLS)
     {
-//        LogPrintf ("TLS: connection from %s has been accepted. Using_cipher: %s\n", addr.ToString(), bEstablishedTLS ? SSL_get_cipher(ssl) : "Cipher will be defined later");
-        LogPrintf ("TLS: connection from %s has been accepted. Using_cipher: %s\n", addr.ToString(), SSL_get_cipher(ssl));
+//        LogPrintf ("TLS: connection from %s has been accepted. Using cipher: %s\n", addr.ToString(), bEstablishedTLS ? SSL_get_cipher(ssl) : "Cipher will be defined later");
+        LogPrintf ("TLS: connection from %s has been accepted. Using cipher: %s\n", addr.ToString(), SSL_get_cipher(ssl));
     }
     else
     {
-        LogPrintf ("ERROR: %s: %s: TLS connection from %s failed\n", __FILE__, __func__, addr.ToString());
+        LogPrintf ("TLS: ERROR: %s: %s: TLS connection from %s failed\n", __FILE__, __func__, addr.ToString());
         
         if (ssl)
         {
@@ -1375,7 +1389,7 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
         }
         else
         {
-            LogPrintf ("Connection from %s will be unencrypted\n", addr.ToString());
+            LogPrintf ("TLS: Connection from %s will be unencrypted\n", addr.ToString());
             
             vNonTLSNodesInbound.erase(
                     remove(
@@ -1394,6 +1408,19 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
         return;
     }
 #endif // COMPAT_NON_TLS
+    
+    if (GetBoolArg("-tlsvalidate", false))
+    {
+        if (ssl && !CheckCertificate(ssl))
+        {
+            LogPrintf ("TLS: ERROR: Wrong client certificate from %s. Connection will be closed.\n", addr.ToString());
+        
+            SSL_shutdown(ssl);
+            CloseSocket(hSocket);
+            SSL_free(ssl);
+            return;
+        }
+    }
 #endif // USE_TLS
 
     CNode* pnode = new CNode(hSocket, addr, "", true, ssl);
@@ -1426,7 +1453,7 @@ void CleanNonTLSPool(std::vector<NODE_ADDR> &vPool, CCriticalSection &cs)
     {
         if ((GetTimeMillis() - nodeAddr.time) >= 900000)
         {
-            DBGPRINT ("Node %s is deleted from the non-TLS pool\n", nodeAddr.ipAddr);
+            DBGPRINT ("TLS: Node %s is deleted from the non-TLS pool\n", nodeAddr.ipAddr);
 
             vDeleted.push_back(nodeAddr);
         }
@@ -2332,42 +2359,51 @@ void static Discover(boost::thread_group& threadGroup)
 }
 
 // ZEN_MOD_START
-// Lightweight initialization of basic parameters, needed for TLS running; will be extended.
-//
-SSL_CTX* InitServerTLSCtx()
+int CertVerificationCallback(int preverify_ok, X509_STORE_CTX *chainContext)
 {
-    SSL_CTX *tlsCtx = NULL;
-    bool bInitialized = false;
-    
-    string certificateFile = (GetDataDir() / TLS_CERT_FILE_NAME).string();
-    string privateKeyFile  = (GetDataDir() / TLS_KEY_FILE_NAME).string();
+    //If verify_callback always returns 1, the TLS/SSL handshake will not be terminated with respect to verification failures and the connection will be established.
+    return 1;
+}
 
-    if ((tlsCtx = SSL_CTX_new (TLS_server_method())))
+SSL_CTX* InitTLSCtx(
+                    TLSContextType ctxType,
+                    boost::filesystem::path privateKeyFile,
+                    boost::filesystem::path certificateFile)
+{
+    if (!boost::filesystem::exists(privateKeyFile) ||
+        !boost::filesystem::exists(certificateFile))
+        return NULL;
+    
+    bool bInitialized = false;
+    SSL_CTX *tlsCtx = NULL;
+    
+    if ((tlsCtx = SSL_CTX_new(ctxType == serverContext ? TLS_server_method() : TLS_client_method())))
     {
         SSL_CTX_set_mode(tlsCtx, SSL_MODE_AUTO_RETRY);
-        SSL_CTX_set_verify(tlsCtx, SSL_VERIFY_NONE, NULL);
-
-        if (SSL_CTX_use_certificate_file(tlsCtx, certificateFile.c_str(), SSL_FILETYPE_PEM) > 0)
+        SSL_CTX_load_verify_locations(tlsCtx, NULL, OPENSSL_CA_CERTS_DIR);
+        SSL_CTX_set_verify(tlsCtx, SSL_VERIFY_PEER, CertVerificationCallback);
+        
+        if (SSL_CTX_use_certificate_file(tlsCtx, certificateFile.string().c_str(), SSL_FILETYPE_PEM) > 0)
         {
-            if (SSL_CTX_use_PrivateKey_file(tlsCtx, privateKeyFile.c_str(), SSL_FILETYPE_PEM) > 0)
+            if (SSL_CTX_use_PrivateKey_file(tlsCtx, privateKeyFile.string().c_str(), SSL_FILETYPE_PEM) > 0)
             {
                 if (SSL_CTX_check_private_key(tlsCtx))
                     bInitialized = true;
                 else
-                    LogPrintf("ERROR: %s: %s: private key does not match the certificate public key\n", __FILE__, __func__);
+                    LogPrintf("TLS: ERROR: %s: %s: private key does not match the certificate public key\n", __FILE__, __func__);
             }
             else
-                LogPrintf("ERROR: %s: %s: failed to use privateKey file\n", __FILE__, __func__);
+                LogPrintf("TLS: ERROR: %s: %s: failed to use privateKey file\n", __FILE__, __func__);
         }
         else
         {
-            LogPrintf("ERROR: %s: %s: failed to use certificate file\n", __FILE__, __func__);
+            LogPrintf("TLS: ERROR: %s: %s: failed to use certificate file\n", __FILE__, __func__);
             ERR_print_errors_fp(stderr);
         }
     }
     else
-        LogPrintf("ERROR: %s: %s: failed to create TLS server context\n", __FILE__, __func__);
-
+        LogPrintf("TLS: ERROR: %s: %s: failed to create TLS context\n", __FILE__, __func__);
+    
     if (!bInitialized)
     {
         if (tlsCtx)
@@ -2376,17 +2412,7 @@ SSL_CTX* InitServerTLSCtx()
             tlsCtx = NULL;
         }
     }
-
-    return tlsCtx;
-}
-
-SSL_CTX* InitClientTLSCtx()
-{
-    SSL_CTX *tlsCtx = SSL_CTX_new (TLS_client_method());
-
-    SSL_CTX_set_mode(tlsCtx, SSL_MODE_AUTO_RETRY);
-    SSL_CTX_set_verify(tlsCtx, SSL_VERIFY_NONE, NULL);
-
+    
     return tlsCtx;
 }
 
@@ -2399,24 +2425,27 @@ bool InitializeTLS()
     //
     SSL_load_error_strings();
     OpenSSL_add_ssl_algorithms(); // OpenSSL_add_ssl_algorithms() always returns "1", so it is safe to discard the return value.
-
+    
+    boost::filesystem::path certFile    = (GetDataDir() / TLS_CERT_FILE_NAME);
+    boost::filesystem::path privKeyFile = (GetDataDir() / TLS_KEY_FILE_NAME);
+    
     // Initialization of the server and client contexts
     //
-    if ((tls_ctx_server = InitServerTLSCtx()))
+    if ((tls_ctx_server = InitTLSCtx(serverContext, privKeyFile, certFile)))
     {
-        if ((tls_ctx_client = InitClientTLSCtx()))
+        if ((tls_ctx_client = InitTLSCtx(clientContext, privKeyFile, certFile)))
         {
             DBGPRINT("TLS: contexts are initialized\n");
             bInitializationStatus = true;
         }
         else
         {
-            LogPrintf("ERROR: %s: %s: failed to initialize TLS client context\n", __FILE__, __func__);
+            LogPrintf("TLS: ERROR: %s: %s: failed to initialize TLS client context\n", __FILE__, __func__);
             SSL_CTX_free (tls_ctx_server);
         }
     }
     else
-        LogPrintf("ERROR: %s: %s: failed to initialize TLS server context\n", __FILE__, __func__);
+        LogPrintf("TLS: ERROR: %s: %s: failed to initialize TLS server context\n", __FILE__, __func__);
 
     return bInitializationStatus;
 }
@@ -2452,13 +2481,13 @@ void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler)
     
     if (!PrepareCredentials(GetDataDir()))
     {
-        LogPrintf("ERROR: %s: %s: Credentials weren't loaded. Node can't be started.\n", __FILE__, __func__);
+        LogPrintf("TLS: ERROR: %s: %s: Credentials weren't loaded. Node can't be started.\n", __FILE__, __func__);
         return;
     }
     
     if (!InitializeTLS())
     {
-        LogPrintf("ERROR: %s: %s: OpenSSL initialization failed. Node can't be started.\n", __FILE__, __func__);
+        LogPrintf("TLS: ERROR: %s: %s: TLS initialization failed. Node can't be started.\n", __FILE__, __func__);
         return;
     }
 #else
