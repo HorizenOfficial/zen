@@ -86,6 +86,10 @@ public:
     /** Return the community fund address and script for a given block height */
     std::string GetCommunityFundAddressAtHeight(int height) const;
     CScript GetCommunityFundScriptAtHeight(int height) const;
+    int GetNumCommunityFundAddresses() const;
+    int GetNumCommunityFundAddresses2() const;
+    std::string GetCommunityFundAddressAtIndex(int i) const;
+    std::string GetCommunityFundAddress2AtIndex(int i) const;
 // ZEN_MOD_END
     /** Enforce coinbase consensus rule in regtest mode */
     void SetRegTestCoinbaseMustBeProtected() { consensus.fCoinbaseMustBeProtected = true; }

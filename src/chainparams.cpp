@@ -560,24 +560,22 @@ CScript CChainParams::GetCommunityFundScriptAtHeight(int nHeight) const {
 }
 
 // ZEN_MOD_START
-int CChainParams::GetNumFoundersRewardAddresses() const {
-    return vFoundersRewardAddress.size();
+int CChainParams::GetNumCommunityFundAddresses() const {
+    return vCommunityFundAddress.size();
 }
 
-int CChainParams::GetNumFoundersRewardAddresses2() const {
-    return vFoundersRewardAddress2.size();
-}
-// ZEN_MOD_END
-
-std::string CChainParams::GetFoundersRewardAddressAtIndex(int i) const {
-    assert(i >= 0 && i < vFoundersRewardAddress.size());
-    return vFoundersRewardAddress[i];
+int CChainParams::GetNumCommunityFundAddresses2() const {
+    return vCommunityFundAddress2.size();
 }
 
-// ZEN_MOD_START
-std::string CChainParams::GetFoundersRewardAddress2AtIndex(int i) const {
-    assert(i >= 0 && i < vFoundersRewardAddress2.size());
-    return vFoundersRewardAddress2[i];
+std::string CChainParams::GetCommunityFundAddressAtIndex(int i) const {
+    assert(i >= 0 && i < vCommunityFundAddress.size());
+    return vCommunityFundAddress[i];
+}
+
+std::string CChainParams::GetCommunityFundAddress2AtIndex(int i) const {
+    assert(i >= 0 && i < vCommunityFundAddress2.size());
+    return vCommunityFundAddress2[i];
 }
 // ZEN_MOD_END
 
