@@ -55,25 +55,11 @@ function use_200k_benchmark {
 }
 
 function zcashd_start {
-    case "$1" in
-        sendtoaddress|loadwallet|listunspent)
-            case "$2" in
-                200k-recv)
-                    use_200k_benchmark 0
-                    ;;
-                200k-send)
-                    use_200k_benchmark 1
-                    ;;
-                *)
-                    echo "Bad arguments to zcashd_start."
-                    exit 1
-            esac
-            ;;
-        *)
-            rm -rf "$DATADIR"
-            mkdir -p "$DATADIR/regtest"
-            touch "$DATADIR/zcash.conf"
-    esac
+# ZEN_MOD_START
+    rm -rf "$DATADIR"
+    mkdir -p "$DATADIR"
+    touch "$DATADIR/zen.conf"
+# ZEN_MOD_END
     ./src/zcashd -regtest -datadir="$DATADIR" -rpcuser=user -rpcpassword=password -rpcport=5983 -showmetrics=0 &
     ZCASHD_PID=$!
     zcash_rpc_wait_for_start
@@ -85,25 +71,11 @@ function zcashd_stop {
 }
 
 function zcashd_massif_start {
-    case "$1" in
-        sendtoaddress|loadwallet|listunspent)
-            case "$2" in
-                200k-recv)
-                    use_200k_benchmark 0
-                    ;;
-                200k-send)
-                    use_200k_benchmark 1
-                    ;;
-                *)
-                    echo "Bad arguments to zcashd_massif_start."
-                    exit 1
-            esac
-            ;;
-        *)
-            rm -rf "$DATADIR"
-            mkdir -p "$DATADIR/regtest"
-            touch "$DATADIR/zcash.conf"
-    esac
+# ZEN_MOD_START
+    rm -rf "$DATADIR"
+    mkdir -p "$DATADIR"
+    touch "$DATADIR/zen.conf"
+# ZEN_MOD_END
     rm -f massif.out
     valgrind --tool=massif --time-unit=ms --massif-out-file=massif.out ./src/zcashd -regtest -datadir="$DATADIR" -rpcuser=user -rpcpassword=password -rpcport=5983 -showmetrics=0 &
     ZCASHD_PID=$!
@@ -118,8 +90,10 @@ function zcashd_massif_stop {
 
 function zcashd_valgrind_start {
     rm -rf "$DATADIR"
-    mkdir -p "$DATADIR/regtest"
-    touch "$DATADIR/zcash.conf"
+# ZEN_MOD_START
+    mkdir -p "$DATADIR"
+    touch "$DATADIR/zen.conf"
+# ZEN_MOD_END
     rm -f valgrind.out
     valgrind --leak-check=yes -v --error-limit=no --log-file="valgrind.out" ./src/zcashd -regtest -datadir="$DATADIR" -rpcuser=user -rpcpassword=password -rpcport=5983 -showmetrics=0 &
     ZCASHD_PID=$!

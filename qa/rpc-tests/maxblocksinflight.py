@@ -83,9 +83,11 @@ class TestManager(NodeConnCB):
 
 class MaxBlocksInFlightTest(BitcoinTestFramework):
     def add_options(self, parser):
+# ZEN_MOD_START
         parser.add_option("--testbinary", dest="testbinary",
-                          default=os.getenv("BITCOIND", "bitcoind"),
+                          default=os.getenv("BITCOIND", "zend"),
                           help="Binary to test max block requests behavior")
+# ZEN_MOD_END
 
     def setup_chain(self):
         print "Initializing test directory "+self.options.tmpdir
