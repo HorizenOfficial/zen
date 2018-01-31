@@ -118,7 +118,7 @@ CNodeSignals& GetNodeSignals() { return g_signals; }
 
 // ZEN_MOD_START
 // OpenSSL server and client contexts
-static SSL_CTX *tls_ctx_server, *tls_ctx_client;
+SSL_CTX *tls_ctx_server, *tls_ctx_client;
 
 typedef struct _NODE_ADDR
 {
@@ -825,6 +825,7 @@ void CNode::copyStats(CNodeStats &stats)
     {
         LOCK(cs_hSocket);
         stats.fTLSEstablished = (ssl != NULL) && (SSL_get_state(ssl) == TLS_ST_OK);
+        stats.fTLSVerified = (ssl != NULL) && ValidatePeerCertificate(ssl);
     }
 // ZEN_MOD_END
 }
