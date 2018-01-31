@@ -230,7 +230,8 @@ bool CScript::IsPayToScriptHash() const
     // Check if this script is P2SH with OP_CHECKBLOCKATHEIGHT
     // The overall size should not be more then 62:
     // 23 bytes for common P2SH + 1 byte size + 32 bytes of block hash + 1 byte size + 4 bytes of block height + 1 byte opcode
-    bool p2shWithReplay = (this->size() < 63 &&
+    bool p2shWithReplay = (this->size() > 23 &&
+                           this->size() < 63 &&
                            this->at(0) == OP_HASH160 &&
                            this->at(1) == 0x14 &&
                            this->at(22) == OP_EQUAL &&

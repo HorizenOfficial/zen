@@ -228,6 +228,13 @@ BOOST_AUTO_TEST_CASE(is)
     static const unsigned char pushdata4[] = { OP_HASH160, OP_PUSHDATA4, 20,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, OP_EQUAL };
     BOOST_CHECK(!CScript(pushdata4, pushdata4+sizeof(pushdata4)).IsPayToScriptHash());
 
+    // Test for pay-to-script-hash with OP_CHECKBLOCKATHEIGHT
+// ZEN_MOD_START
+    static const unsigned char direct_checkblock[] = { OP_HASH160, 20, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, OP_EQUAL,
+            4, 0,0,0,0, 32, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, OP_CHECKBLOCKATHEIGHT };
+    BOOST_CHECK(CScript(direct_checkblock, direct_checkblock+sizeof(direct_checkblock)).IsPayToScriptHash());
+// ZEN_MOD_END
+
     CScript not_p2sh;
     BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
 
@@ -239,6 +246,21 @@ BOOST_AUTO_TEST_CASE(is)
 
     not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_CHECKSIG;
     BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
+
+// ZEN_MOD_START
+    // tests for pay-to-script-hash with OP_CHECKBLOCKATHEIGHT
+    int dummyHeight;
+    uint256 dummyBlockHash;
+
+    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_EQUAL << dummyHeight << ToByteVector(dummyBlockHash) << OP_NOP4;
+    BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
+
+    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_EQUAL << ToByteVector(dummyBlockHash) << ToByteVector(dummyBlockHash) << OP_CHECKBLOCKATHEIGHT;
+    BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
+
+    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_NOP4 << dummyHeight << ToByteVector(dummyBlockHash) << OP_CHECKBLOCKATHEIGHT;
+    BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
+// ZEN_MOD_END
 }
 
 BOOST_AUTO_TEST_CASE(switchover)
