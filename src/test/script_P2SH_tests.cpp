@@ -249,16 +249,13 @@ BOOST_AUTO_TEST_CASE(is)
 
 // ZEN_MOD_START
     // tests for pay-to-script-hash with OP_CHECKBLOCKATHEIGHT
-    int dummyHeight;
-    uint256 dummyBlockHash;
-
-    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_EQUAL << dummyHeight << ToByteVector(dummyBlockHash) << OP_NOP4;
+    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_EQUAL << ToByteVector(uint256()) << 0x1 << OP_NOP4;
     BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
 
-    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_EQUAL << ToByteVector(dummyBlockHash) << ToByteVector(dummyBlockHash) << OP_CHECKBLOCKATHEIGHT;
+    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_EQUAL << ToByteVector(uint256()) << ToByteVector(uint256()) << OP_CHECKBLOCKATHEIGHT;
     BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
 
-    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_NOP4 << dummyHeight << ToByteVector(dummyBlockHash) << OP_CHECKBLOCKATHEIGHT;
+    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_NOP4 << ToByteVector(uint256()) << 0x1 << OP_CHECKBLOCKATHEIGHT;
     BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
 // ZEN_MOD_END
 }
