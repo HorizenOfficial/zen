@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Execute all of the automated tests related to Zcash.
+# Execute all of the automated tests related to Zen.
 #
 
 set -eu
@@ -26,8 +26,10 @@ function run_test_phase
 cd "${REPOROOT}"
 
 # Test phases:
-run_test_phase "${REPOROOT}/qa/zcash/check-security-hardening.sh"
-run_test_phase "${REPOROOT}/qa/zcash/ensure-no-dot-so-in-depends.py"
+# ZEN_MOD_START
+run_test_phase "${REPOROOT}/qa/zen/check-security-hardening.sh"
+run_test_phase "${REPOROOT}/qa/zen/ensure-no-dot-so-in-depends.py"
+# ZEN_MOD_END
 
 # If make check fails, show test-suite.log as part of our run_test_phase
 # output (and fail the phase with false):
