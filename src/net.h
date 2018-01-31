@@ -175,6 +175,11 @@ extern CCriticalSection cs_vAddedNodes;
 extern NodeId nLastNodeId;
 extern CCriticalSection cs_nLastNodeId;
 
+// ZEN_MOD_START
+extern SSL_CTX *tls_ctx_server;
+extern SSL_CTX *tls_ctx_client;
+// ZEN_MOD_END
+
 struct LocalServiceInfo {
     int nScore;
     int nPort;
@@ -191,6 +196,7 @@ public:
     uint64_t nServices;
 // ZEN_MOD_START
     bool fTLSEstablished;
+    bool fTLSVerified;
 // ZEN_MOD_END
     int64_t nLastSend;
     int64_t nLastRecv;

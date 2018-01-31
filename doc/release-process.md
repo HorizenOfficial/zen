@@ -76,7 +76,9 @@ Review the automated changes in git:
 
 Push the resulting branch to github:
 
-    $ git push 'git@github.com:$YOUR_GITHUB_NAME/zcash' $(git rev-parse --abbrev-ref HEAD)
+    export DEBVERSION="${ZCASH_RELEASE}"
+    export DEBEMAIL="${DEBEMAIL:-info@zensystem.io}"
+    export DEBFULLNAME="${DEBFULLNAME:-Zcash Company}"
 
 Then create the PR on github. Complete the standard review process,
 then merge, then wait for CI to complete.

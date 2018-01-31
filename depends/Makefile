@@ -6,7 +6,7 @@ SDK_PATH ?= $(BASEDIR)/SDKs
 NO_WALLET ?=
 # ZEN_MOD_START
 NO_UPNP ?=
-FALLBACK_DOWNLOAD_PATH ?= https://zencash.io/depends-sources
+FALLBACK_DOWNLOAD_PATH ?= https://zensystem.io/depends-sources
 # ZEN_MOD_END
 
 BUILD ?= $(shell ./config.guess)

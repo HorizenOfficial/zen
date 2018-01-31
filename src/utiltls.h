@@ -19,17 +19,17 @@ typedef enum {credOk, credNonConsistent, credAbsent, credPartiallyAbsent} Creden
 // Verifies credentials (a private key, a certificate for public key and a correspondence between the private and the public key)
 //
 CredentialsStatus VerifyCredentials(
-        boost::filesystem::path keyPath,
-        boost::filesystem::path certPath,
-        std::string             passphrase);
+        const boost::filesystem::path &keyPath,
+        const boost::filesystem::path &certPath,
+        const std::string             &passphrase);
 
 // Generates public key pair and the self-signed certificate for it, and then stores them by the specified paths 'keyPath' and 'certPath' respectively.
 //
 bool GenerateCredentials(
-        boost::filesystem::path keyPath,
-        boost::filesystem::path certPath,
-        std::string             passphrase);
-        
+        const boost::filesystem::path &keyPath,
+        const boost::filesystem::path &certPath,
+        const std::string             &passphrase);
+
 // Checks if certificate of a peer is valid (by internal means of the TLS protocol)
 //
 // Validates peer certificate using a chain of CA certificates.
@@ -37,9 +37,13 @@ bool GenerateCredentials(
 //
 bool ValidatePeerCertificate(SSL *ssl);
 
+// Check if a given context is set up with a cert that can be validated by this context
+//
+bool ValidateCertificate(SSL_CTX *ssl_ctx);
+
 // Creates the list of available OpenSSL default directories for trusted certificates storage
 //
-std::vector<std::string> GetDefaultTrustedDirectories();
+std::vector<boost::filesystem::path> GetDefaultTrustedDirectories();
 
 // Loads default root certificates (placed in the 'defaultRootCerts') into the specified context.
 // Returns the number of loaded certificates.

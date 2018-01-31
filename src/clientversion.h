@@ -19,8 +19,8 @@
 #define CLIENT_VERSION_MAJOR 2
 #define CLIENT_VERSION_MINOR 0
 // ZEN_MOD_START
-#define CLIENT_VERSION_REVISION 9
-#define CLIENT_VERSION_BUILD 54
+#define CLIENT_VERSION_REVISION 10
+#define CLIENT_VERSION_BUILD 50
 // ZEN_MOD_END
 
 //! Set to true for release, false for prerelease or test build
