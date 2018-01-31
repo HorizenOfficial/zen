@@ -122,6 +122,7 @@ protected:
     std::vector<std::string> vFoundersRewardAddress;
 // ZEN_MOD_START
     std::vector<std::string> vFoundersRewardAddress2;
+    int addressChangeInterval = 100000;
 // ZEN_MOD_END
 };
 

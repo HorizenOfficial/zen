@@ -355,19 +355,19 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         txNew.vout[0].nValue = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
 
 // ZEN_MOD_START
-        if ((nHeight > chainparams.GetConsensus().nChainsplitIndex) && (nHeight <= chainparams.GetConsensus().GetLastFoundersRewardBlockHeight())) {
+        if ((nHeight > chainparams.GetConsensus().nChainsplitIndex)) {
             // Founders reward is 8.5% of the block subsidy
-            auto vFoundersReward = ((txNew.vout[0].nValue * 85) / 1000);
+            auto vCommunityFund = ((txNew.vout[0].nValue * 85) / 1000);
             // The FR reward is increased to 12% since hfFoundersRewardHeight block
             if (nHeight >= chainparams.GetConsensus().hfFoundersRewardHeight)
-                vFoundersReward = ((txNew.vout[0].nValue * 120) / 1000);
-// ZEN_MOD_END
+                vCommunityFund = ((txNew.vout[0].nValue * 120) / 1000);
             // Take some reward away from us
-            txNew.vout[0].nValue -= vFoundersReward;
+            txNew.vout[0].nValue -= vCommunityFund;
 
             // And give it to the founders
-            txNew.vout.push_back(CTxOut(vFoundersReward, chainparams.GetFoundersRewardScriptAtHeight(nHeight)));
+            txNew.vout.push_back(CTxOut(vCommunityFund, chainparams.GetFoundersRewardScriptAtHeight(nHeight)));
         }
+// ZEN_MOD_END
 
         // Add fees
         txNew.vout[0].nValue += nFees;
