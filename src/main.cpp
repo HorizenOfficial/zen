@@ -892,14 +892,14 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
              chainActive.Height() > Params().GetConsensus().sfReplayProtectionHeight &&
              !tx.IsCoinBase())
         {
-            return state.DoS(100, error("%s: %s: op-checkblockatheight-needed. Tx id: %s", __FILE__, __func__, tx.GetHash().ToString()),
+            return state.DoS(0, error("%s: %s: op-checkblockatheight-needed. Tx id: %s", __FILE__, __func__, tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
 
         if (whichType == TX_SCRIPTHASH_REPLAY &&
             chainActive.Height() < Params().GetConsensus().hfFixP2SHHeight)
         {
-            return state.DoS(100, error("%s: %s: TX_SCRIPTHASH_REPLAY will be activated only after %d block. Transaction rejected. Tx id: %s", __FILE__, __func__, Params().GetConsensus().hfFixP2SHHeight, tx.GetHash().ToString()),
+            return state.DoS(0, error("%s: %s: TX_SCRIPTHASH_REPLAY will be activated only after %d block. Transaction rejected. Tx id: %s", __FILE__, __func__, Params().GetConsensus().hfFixP2SHHeight, tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
     }

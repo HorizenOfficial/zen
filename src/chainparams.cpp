@@ -68,6 +68,7 @@ public:
         consensus.sfReplayProtectionHeight = 117575;
         consensus.hfFoundersRewardHeight = INT_MAX;
         consensus.hfFixP2SHHeight = INT_MAX;
+        consensus.hfFixReplayProtectionHeight = INT_MAX;
 
         /**
          * ZEN Network Magic Start Value
@@ -292,6 +293,7 @@ public:
         consensus.sfReplayProtectionHeight = 72650;
         consensus.hfFoundersRewardHeight = 85500;
         consensus.hfFixP2SHHeight = 85500;
+        consensus.hfFixReplayProtectionHeight = 85500;
 
         pchMessageStart[0] = 0xbf;
         pchMessageStart[1] = 0xf2;
@@ -425,6 +427,7 @@ public:
         consensus.sfReplayProtectionHeight = 1100;
         consensus.hfFoundersRewardHeight = 1200;
         consensus.hfFixP2SHHeight = 1200;
+        consensus.hfFixReplayProtectionHeight = 1200;
 
         pchMessageStart[0] = 0x2f;
         pchMessageStart[1] = 0x54;
