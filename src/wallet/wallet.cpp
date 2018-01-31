@@ -159,7 +159,9 @@ bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey)
 
     // check if we need to remove from watch-only
     CScript script;
-    script = GetScriptForDestination(pubkey.GetID());
+// ZEN_MOD_START
+    script = GetScriptForDestination(pubkey.GetID(), false);
+// ZEN_MOD_END
     if (HaveWatchOnly(script))
         RemoveWatchOnly(script);
 

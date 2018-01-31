@@ -30,7 +30,9 @@ unsigned int HaveKeys(const vector<valtype>& pubkeys, const CKeyStore& keystore)
 
 isminetype IsMine(const CKeyStore &keystore, const CTxDestination& dest)
 {
-    CScript script = GetScriptForDestination(dest);
+// ZEN_MOD_START
+    CScript script = GetScriptForDestination(dest, false);
+// ZEN_MOD_END
     return IsMine(keystore, script);
 }
 

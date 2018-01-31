@@ -177,7 +177,9 @@ UniValue importaddress(const UniValue& params, bool fHelp)
 
     CBitcoinAddress address(params[0].get_str());
     if (address.IsValid()) {
-        script = GetScriptForDestination(address.Get());
+// ZEN_MOD_START
+        script = GetScriptForDestination(address.Get(), false);
+// ZEN_MOD_END
     } else if (IsHex(params[0].get_str())) {
         std::vector<unsigned char> data(ParseHex(params[0].get_str()));
         script = CScript(data.begin(), data.end());
