@@ -66,9 +66,9 @@ public:
 
         /** Zen soft/hard forks heights */
         consensus.sfReplayProtectionHeight = 117575;
-        consensus.hfFoundersRewardHeight = INT_MAX;
-        consensus.hfFixP2SHHeight = INT_MAX;
-        consensus.hfFixReplayProtectionHeight = INT_MAX;
+        consensus.hfFoundersRewardHeight = 139200;
+        consensus.hfFixP2SHHeight = 139200;
+        consensus.hfFixReplayProtectionHeight = 139200;
 
         /**
          * ZEN Network Magic Start Value
