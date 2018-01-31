@@ -248,16 +248,11 @@ public:
         //"zsi3PoGMUzkj8kPAaq9YGYUS8Wp2pDRjR8X",
         };
         // vFoundersRewardAddress2 is another set of FR addresses that substitutes old set since hfFoundersRewardsHeight block
-        // TODO: change with real addresses
         vFoundersRewardAddress2 = {
-        "zst6dBLrTtaMQBX7BLMNjKLTGcP11PBmgTV",
-        "zshD9r6Eb6dZGdzYW2HCb9CzkMokCT1NGJR",
-        "zswUaj1TboEGmvSfF7fdoxWyH3RMx7MBHHo",
-        "zsv8s4Poi5GxCsbBrRJ97Vsvazp84nrz5AN",
-        "zsmmxrKU6dqWFwUKow1iyovg3gxrgXpEivr",
-        "zskh1221aRC9WEfb5a59WxffeW34McmZZsw",
-        "zssAhuj57NnVm4yNFT6o8muRctABkUaBu3L",
-        "zsi5Yr4Z8HwBvdBqQE8gk7ahExDu95J4oqZ",
+        "zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82",
+        "zsfULrmbX7xbhqhAFRffVqCw9RyGv2hqNNG",
+        "zsoemTfqjicem2QVU8cgBHquKb1o9JR5p4Z",
+        "zt339oiGL6tTgc9Q71f5g1sFTZf6QiXrRUr"
         };
         assert(vFoundersRewardAddress.size() <= consensus.GetLastFoundersRewardBlockHeight());
 // ZEN_MOD_END
