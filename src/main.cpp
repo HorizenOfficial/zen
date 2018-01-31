@@ -880,11 +880,6 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
     }
 
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
-    int nHeight = chainActive.Height();
-    bool fTestNet = GetBoolArg("-testnet", false) && GetBoolArg("-regtest", false);
-    int softForkHeight = fTestNet ? SF_REPLAY_PROTECTION_12_06_2017_TESTNET : SF_REPLAY_PROTECTION_12_06_2017;
-    int p2shHardForkHeight = fTestNet ? HF_FIX_P2SH_06_2017_TESTNET : HF_FIX_P2SH_06_2017;
-
     BOOST_FOREACH(const CTxOut& txout, tx.vout)
     {
         txnouttype whichType;
@@ -894,15 +889,17 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
              whichType != TX_PUBKEYHASH_REPLAY &&
              whichType != TX_MULTISIG_REPLAY &&
              whichType != TX_SCRIPTHASH_REPLAY) &&
-             nHeight > softForkHeight && !tx.IsCoinBase())
+             chainActive.Height() > Params().GetConsensus().sfReplayProtectionHeight &&
+             !tx.IsCoinBase())
         {
             return state.DoS(100, error("%s: %s: op-checkblockatheight-needed. Tx id: %s", __FILE__, __func__, tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
 
-        if (whichType == TX_SCRIPTHASH_REPLAY && nHeight < p2shHardForkHeight)
+        if (whichType == TX_SCRIPTHASH_REPLAY &&
+            chainActive.Height() < Params().GetConsensus().hfFixP2SHHeight)
         {
-            return state.DoS(100, error("%s: %s: TX_SCRIPTHASH_REPLAY will be activated only after %d block. Transaction rejected. Tx id: %s", __FILE__, __func__, p2shHardForkHeight, tx.GetHash().ToString()),
+            return state.DoS(100, error("%s: %s: TX_SCRIPTHASH_REPLAY will be activated only after %d block. Transaction rejected. Tx id: %s", __FILE__, __func__, Params().GetConsensus().hfFixP2SHHeight, tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
     }
@@ -1703,6 +1700,23 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
     return pindexPrev->nHeight + 1;
 }
 
+// ZEN_MOD_START
+bool IsFoundersReward(const CCoins *coins, int nIn)
+// ZEN_MOD_END
+{
+    if(coins != NULL &&
+       coins->IsCoinBase() &&
+       coins->nHeight > Params().GetConsensus().nChainsplitIndex &&
+       coins->vout.size() > nIn)
+    {
+        CScript founderScriptPubKey = Params().GetFoundersRewardScriptAtHeight(coins->nHeight);
+        if (coins->vout[nIn].scriptPubKey == founderScriptPubKey)
+            return true;
+    }
+
+    return false;
+}
+
 namespace Consensus {
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
 {
@@ -1736,9 +1750,19 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
                 if (fCoinbaseEnforcedProtectionEnabled &&
                     consensusParams.fCoinbaseMustBeProtected &&
                     !tx.vout.empty()) {
-                    return state.Invalid(
-                        error("CheckInputs(): tried to spend coinbase with transparent outputs"),
-                        REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
+
+// ZEN_MOD_START
+                    // Since HARD_FORK_HEIGHT there is an exemption for founders reward coinbase coins, so it is allowed
+                    // to send them to the transparent addr.
+                    const int HARD_FORK_HEIGHT = consensusParams.hfFoundersRewardHeight;
+                    bool fDisableProtectionForFR = consensusParams.fDisableCoinbaseProtectionForFoundersReward
+                                                   && HARD_FORK_HEIGHT <= nSpendHeight;
+                    if (!fDisableProtectionForFR || !IsFoundersReward(coins, prevout.n)) {
+                        return state.Invalid(
+                                error("CheckInputs(): tried to spend coinbase with transparent outputs"),
+                                REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
+                    }
+// ZEN_MOD_END
                 }
             }
 
@@ -3316,19 +3340,22 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     // The last founders reward block is defined as the block just before the
     // first subsidy halving block, which occurs at halving_interval + slow_start_shift
     if ((nHeight > consensusParams.nChainsplitIndex) && (nHeight <= consensusParams.GetLastFoundersRewardBlockHeight())) {
-// ZEN_MOD_END
         bool found = false;
+
+        CAmount expectedReward = (GetBlockSubsidy(nHeight, consensusParams) * 85) / 1000;
+        // The FR reward is increased to 12% since hfFoundersRewardHeight block
+        if (nHeight >= consensusParams.hfFoundersRewardHeight)
+            expectedReward = (GetBlockSubsidy(nHeight, consensusParams) * 120) / 1000;
 
         BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
             if (output.scriptPubKey == Params().GetFoundersRewardScriptAtHeight(nHeight)) {
-// ZEN_MOD_START
-                if (output.nValue == ((GetBlockSubsidy(nHeight, consensusParams) * 85) / 1000)) {
-// ZEN_MOD_END
+                if (output.nValue == expectedReward) {
                     found = true;
                     break;
                 }
             }
         }
+// ZEN_MOD_END
 
         if (!found) {
             return state.DoS(100, error("%s: founders reward missing", __func__), REJECT_INVALID, "cb-no-founders-reward");

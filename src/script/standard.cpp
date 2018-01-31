@@ -182,7 +182,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
             {
 // ZEN_MOD_START
             	// Possible values of OP_CHECKBLOCKATHEIGHT parameters
-            	if (vch1.size() <= sizeof(int))
+            	if (vch1.size() <= sizeof(int32_t))
 					vchBlockHeight = vch1;
 				else
 					vchBlockHash = vch1;
@@ -199,29 +199,22 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
 #if !defined(BITCOIN_TX) // TODO: This is an workaround. zen-tx does not have access to chain state so no replay protection is possible
 
-                if (vchBlockHeight.size() == 0 || vchBlockHash.size() == 0)
+                if (vchBlockHash.size() == 0 || vchBlockHash.size() > 32)
                 {
                     LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad params.", __FILE__, __func__);
                     break;
                 }
 
-                const int32_t nHeight = CScriptNum(vchBlockHeight, true, sizeof(int)).getint();
+                const int32_t nHeight = CScriptNum(vchBlockHeight, false, sizeof(int32_t)).getint();
 
-                if (nHeight < 0 || nHeight > chainActive.Height())
-                {
-                    LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Transaction is non-final. Referenced height: %d", __FILE__, __func__, nHeight);
-                    break;
-                }
-
-                // According to BIP115, sufficiently old blocks are always valid, so check only blocks of depth less than 52596
-                if (nHeight > (chainActive.Height() - 52596))
+                // According to BIP115, sufficiently old blocks are always valid, so check only blocks of depth less than 52596.
+                // Skip check if referenced block is further than chainActive. It means that we are not fully synchronized.
+                if (nHeight > (chainActive.Height() - 52596) && nHeight >= 0 &&
+                    nHeight <= chainActive.Height())
                 {
 					CBlockIndex* pblockindex = chainActive[nHeight];
 
-					vector<unsigned char> vchCompareTo(pblockindex->GetBlockHash().begin(), pblockindex->GetBlockHash().end());
-					vchCompareTo.erase(vchCompareTo.begin(), vchCompareTo.end() - vchBlockHash.size());
-
-					if (vchCompareTo != vchBlockHash)
+                    if (pblockindex->GetBlockHash() != uint256(vchBlockHash))
                     {
                         LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. vout block height: %d", __FILE__, __func__, nHeight);
                         break;
@@ -422,9 +415,7 @@ public:
             *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
             return true;
         }
-// ZEN_MOD_START
-        int blockIndex = currentBlock->nHeight - 25;
-// ZEN_MOD_END
+        int blockIndex = currentBlock->nHeight - 300;
         if (blockIndex < 0)
             blockIndex = 0;
         *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG << ToByteVector(chainActive[blockIndex]->GetBlockHash()) << chainActive[blockIndex]->nHeight << OP_CHECKBLOCKATHEIGHT;
@@ -438,9 +429,7 @@ public:
             *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
             return true;
         }
-// ZEN_MOD_START
-        int blockIndex = currentBlock->nHeight - 25;
-// ZEN_MOD_END
+        int blockIndex = currentBlock->nHeight - 300;
         if (blockIndex < 0)
             blockIndex = 0;
         *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL << ToByteVector(chainActive[blockIndex]->GetBlockHash()) << chainActive[blockIndex]->nHeight << OP_CHECKBLOCKATHEIGHT;

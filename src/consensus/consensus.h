@@ -28,14 +28,4 @@ enum {
 /** Used as the flags parameter to CheckFinalTx() in non-consensus code */
 static const unsigned int STANDARD_LOCKTIME_VERIFY_FLAGS = LOCKTIME_MEDIAN_TIME_PAST;
 
-// ZEN_MOD_START
-/** List of soft/hard forks */
-/** Soft fork 117575 facilitates replay protection */
-static const unsigned int SF_REPLAY_PROTECTION_12_06_2017 = 117575;
-static const unsigned int SF_REPLAY_PROTECTION_12_06_2017_TESTNET = 72650;
-
-static const unsigned int HF_FIX_P2SH_06_2017 = INT_MAX;
-static const unsigned int HF_FIX_P2SH_06_2017_TESTNET = INT_MAX;
-// ZEN_MOD_END
-
 #endif // BITCOIN_CONSENSUS_CONSENSUS_H
