@@ -3335,21 +3335,18 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     }
 
     // Coinbase transaction must include an output sending 8.5% of
-    // the block reward to a founders reward script, until the last founders
-    // reward block is reached, with exception of the genesis block.
-    // The last founders reward block is defined as the block just before the
-    // first subsidy halving block, which occurs at halving_interval + slow_start_shift
-    if ((nHeight > consensusParams.nChainsplitIndex) && (nHeight <= consensusParams.GetLastFoundersRewardBlockHeight())) {
+    // the block reward to a community fund script
+    if ((nHeight > consensusParams.nChainsplitIndex)) {
         bool found = false;
 
-        CAmount expectedReward = (GetBlockSubsidy(nHeight, consensusParams) * 85) / 1000;
-        // The FR reward is increased to 12% since hfFoundersRewardHeight block
+        CAmount communityReward = (GetBlockSubsidy(nHeight, consensusParams) * 85) / 1000;
+        // The CF reward is increased to 12% since hfFoundersRewardHeight block
         if (nHeight >= consensusParams.hfFoundersRewardHeight)
-            expectedReward = (GetBlockSubsidy(nHeight, consensusParams) * 120) / 1000;
+            communityReward = (GetBlockSubsidy(nHeight, consensusParams) * 120) / 1000;
 
         BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
             if (output.scriptPubKey == Params().GetFoundersRewardScriptAtHeight(nHeight)) {
-                if (output.nValue == expectedReward) {
+                if (output.nValue == communityReward) {
                     found = true;
                     break;
                 }

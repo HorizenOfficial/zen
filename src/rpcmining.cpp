@@ -901,18 +901,20 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
 
     CAmount nReward = GetBlockSubsidy(nHeight, Params().GetConsensus());
-    CAmount nFoundersReward = 0;
 // ZEN_MOD_START
-    if ((nHeight >= Params().GetConsensus().nChainsplitIndex) && (nHeight <= Params().GetConsensus().GetLastFoundersRewardBlockHeight())) {
-        nFoundersReward = ((nReward * 85) / 1000);
-        // The FR reward is increased to 12% since hfFoundersRewardHeight block
+    CAmount nCommunityFund = 0;
+    if ((nHeight >= Params().GetConsensus().nChainsplitIndex)) {
+        nCommunityFund = ((nReward * 85) / 1000);
+        // The CR reward is increased to 12% since hfFoundersRewardHeight block
         if (nHeight >= Params().GetConsensus().hfFoundersRewardHeight)
-            nFoundersReward = ((nReward * 120) / 1000);
-        nReward -= nFoundersReward;
+            nCommunityFund = ((nReward * 120) / 1000);
+        nReward -= nCommunityFund;
     }
 // ZEN_MOD_END
     UniValue result(UniValue::VOBJ);
     result.push_back(Pair("miner", ValueFromAmount(nReward)));
-    result.push_back(Pair("founders", ValueFromAmount(nFoundersReward)));
+// ZEN_MOD_START
+    result.push_back(Pair("community", ValueFromAmount(nCommunityFund)));
+// ZEN_MOD_END
     return result;
 }

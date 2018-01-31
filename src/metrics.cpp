@@ -357,7 +357,7 @@ int printMetrics(size_t cols, bool mining)
                     int height = mapBlockIndex[hash]->nHeight;
                     CAmount subsidy = GetBlockSubsidy(height, consensusParams);
 // ZEN_MOD_START
-                    if ((height > consensusParams.nChainsplitIndex) && (height <= consensusParams.GetLastFoundersRewardBlockHeight())) {
+                    if ((height > consensusParams.nChainsplitIndex)) {
                         if (height >= consensusParams.hfFoundersRewardHeight)
                             subsidy -= ((subsidy * 120) / 1000);
                         else
