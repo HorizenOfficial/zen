@@ -639,7 +639,7 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
     
         if (GetBoolArg("-tlsvalidate", false))
         {
-            if (ssl && !CheckCertificate(ssl))
+            if (ssl && !ValidatePeerCertificate(ssl))
             {
                 LogPrintf ("TLS: ERROR: Wrong server certificate from %s. Connection will be closed.\n", addrConnect.ToString());
         
@@ -1411,7 +1411,7 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
     
     if (GetBoolArg("-tlsvalidate", false))
     {
-        if (ssl && !CheckCertificate(ssl))
+        if (ssl && !ValidatePeerCertificate(ssl))
         {
             LogPrintf ("TLS: ERROR: Wrong client certificate from %s. Connection will be closed.\n", addr.ToString());
         
@@ -2359,18 +2359,21 @@ void static Discover(boost::thread_group& threadGroup)
 }
 
 // ZEN_MOD_START
-int CertVerificationCallback(int preverify_ok, X509_STORE_CTX *chainContext)
+#ifdef USE_TLS
+
+int TLSCertVerificationCallback(int preverify_ok, X509_STORE_CTX *chainContext)
 {
     //If verify_callback always returns 1, the TLS/SSL handshake will not be terminated with respect to verification failures and the connection will be established.
     return 1;
 }
 
-SSL_CTX* InitTLSCtx(
+SSL_CTX* TLSInitCtx(
                     TLSContextType ctxType,
                     boost::filesystem::path privateKeyFile,
-                    boost::filesystem::path certificateFile)
+                    boost::filesystem::path certificateFile,
+                    std::vector<std::string> trustedDirs)
 {
-    if (!boost::filesystem::exists(privateKeyFile) ||
+    if (!boost::filesystem::exists(privateKeyFile)  ||
         !boost::filesystem::exists(certificateFile))
         return NULL;
     
@@ -2380,8 +2383,31 @@ SSL_CTX* InitTLSCtx(
     if ((tlsCtx = SSL_CTX_new(ctxType == serverContext ? TLS_server_method() : TLS_client_method())))
     {
         SSL_CTX_set_mode(tlsCtx, SSL_MODE_AUTO_RETRY);
-        SSL_CTX_load_verify_locations(tlsCtx, NULL, OPENSSL_CA_CERTS_DIR);
-        SSL_CTX_set_verify(tlsCtx, SSL_VERIFY_PEER, CertVerificationCallback);
+        
+        if (GetBoolArg("-tlsvalidate", false))
+        {
+            int rootCertsNum    = LoadDefaultRootCertificates(tlsCtx);
+            int trustedPathsNum = 0;
+    
+            for (string trustedDir : trustedDirs)
+            {
+                if (SSL_CTX_load_verify_locations(tlsCtx, NULL, trustedDir.c_str()) == 1)
+                    trustedPathsNum++;
+            }
+            
+            if (rootCertsNum == 0 && trustedPathsNum == 0)
+            {
+                LogPrintf("TLS: ERROR: %s: %s: failed to set up root certificates\n", __FILE__, __func__);
+                SSL_CTX_free(tlsCtx);
+                return NULL;
+            }
+            
+            SSL_CTX_set_verify(tlsCtx, SSL_VERIFY_PEER, TLSCertVerificationCallback);
+        }
+        else
+        {
+            SSL_CTX_set_verify(tlsCtx, SSL_VERIFY_NONE, NULL);
+        }
         
         if (SSL_CTX_use_certificate_file(tlsCtx, certificateFile.string().c_str(), SSL_FILETYPE_PEM) > 0)
         {
@@ -2416,8 +2442,7 @@ SSL_CTX* InitTLSCtx(
     return tlsCtx;
 }
 
-
-bool InitializeTLS()
+bool TLSInitialize()
 {
     bool bInitializationStatus = false;
 
@@ -2426,14 +2451,34 @@ bool InitializeTLS()
     SSL_load_error_strings();
     OpenSSL_add_ssl_algorithms(); // OpenSSL_add_ssl_algorithms() always returns "1", so it is safe to discard the return value.
     
-    boost::filesystem::path certFile    = (GetDataDir() / TLS_CERT_FILE_NAME);
-    boost::filesystem::path privKeyFile = (GetDataDir() / TLS_KEY_FILE_NAME);
+    boost::filesystem::path certFile = GetArg("-tlscertpath", "");
+    if (!boost::filesystem::exists(certFile))
+            certFile = (GetDataDir() / TLS_CERT_FILE_NAME);
+    
+    boost::filesystem::path privKeyFile = GetArg("-tlskeypath", "");
+    if (!boost::filesystem::exists(privKeyFile))
+            privKeyFile = (GetDataDir() / TLS_KEY_FILE_NAME);
+    
+    std::vector<std::string> trustedDirs;
+    if (GetBoolArg("-tlsvalidate", false))
+    {
+        boost::filesystem::path trustedDir = GetArg("-tlstrustdir", "");
+        if (boost::filesystem::exists(trustedDir))
+            // Use only the specified trusted directory
+            trustedDirs.push_back(trustedDir.string());
+        else
+            // If specified directory can't be used, then setting the default trusted directories
+            trustedDirs = GetDefaultTrustedDirectories();
+    
+        for (string dir : trustedDirs)
+            LogPrintf("TLS: trusted directory '%s' will be used\n", dir.c_str());
+    }
     
     // Initialization of the server and client contexts
     //
-    if ((tls_ctx_server = InitTLSCtx(serverContext, privKeyFile, certFile)))
+    if ((tls_ctx_server = TLSInitCtx(serverContext, privKeyFile, certFile, trustedDirs)))
     {
-        if ((tls_ctx_client = InitTLSCtx(clientContext, privKeyFile, certFile)))
+        if ((tls_ctx_client = TLSInitCtx(clientContext, privKeyFile, certFile, trustedDirs)))
         {
             DBGPRINT("TLS: contexts are initialized\n");
             bInitializationStatus = true;
@@ -2449,6 +2494,43 @@ bool InitializeTLS()
 
     return bInitializationStatus;
 }
+
+bool TLSPrepareCredentials()
+{
+    boost::filesystem::path
+            defaultKeyPath (GetDataDir() / TLS_KEY_FILE_NAME),
+            defaultCertPath(GetDataDir() / TLS_CERT_FILE_NAME);
+    
+    CredentialsStatus credStatus =
+            VerifyCredentials(
+                    boost::filesystem::path(GetArg("-tlskeypath",  defaultKeyPath.string())),
+                    boost::filesystem::path(GetArg("-tlscertpath", defaultCertPath.string())),
+                    GetArg("-tlskeypwd",""));
+    
+    bool bPrepared = (credStatus == credOk);
+    
+    if (!bPrepared)
+    {
+        if (!mapArgs.count("-tlskeypath") && !mapArgs.count("-tlscertpath"))
+        {
+            // Default paths were used
+            
+            if (credStatus == credAbsent)
+            {
+                // Generate new credentials (key and self-signed certificate on it) only if credentials were absent previously
+                //
+                bPrepared = GenerateCredentials(
+                                    defaultKeyPath,
+                                    defaultCertPath,
+                                    GetArg("-tlskeypwd",""));
+            }
+        }
+    }
+    
+    return bPrepared;
+}
+
+#endif // USE_TLS
 // ZEN_MOD_END
 
 void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler)
@@ -2479,13 +2561,13 @@ void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler)
 // ZEN_MOD_START
 #ifdef USE_TLS
     
-    if (!PrepareCredentials(GetDataDir()))
+    if (!TLSPrepareCredentials())
     {
         LogPrintf("TLS: ERROR: %s: %s: Credentials weren't loaded. Node can't be started.\n", __FILE__, __func__);
         return;
     }
     
-    if (!InitializeTLS())
+    if (!TLSInitialize())
     {
         LogPrintf("TLS: ERROR: %s: %s: TLS initialization failed. Node can't be started.\n", __FILE__, __func__);
         return;
