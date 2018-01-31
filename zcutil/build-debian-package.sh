@@ -12,6 +12,12 @@ PACKAGE_NAME="zen"
 SRC_PATH=`pwd`
 SRC_DEB=$SRC_PATH/contrib/debian
 SRC_DOC=$SRC_PATH/doc
+# ZEN_MOD_START
+ARCH=amd64
+if $(uname -m | grep -q 'aarch64\|arm64'); then
+    ARCH=arm64
+fi
+# ZEN_MOD_END
 
 umask 022
 
@@ -21,7 +27,7 @@ fi
 
 # ZEN_MOD_START
 PACKAGE_VERSION=$($SRC_PATH/src/zend --version | grep version | cut -d' ' -f4 | tr -d v)
-BUILD_DIR="$BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-amd64"
+BUILD_DIR="$BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-$ARCH"
 # ZEN_MOD_END
 
 if [ -d $BUILD_DIR ]; then
@@ -88,8 +94,8 @@ dpkg-gencontrol -v$PACKAGE_VERSION -P$BUILD_DIR
 # Create the Debian package
 fakeroot dpkg-deb --build $BUILD_DIR
 # ZEN_MOD_START
-cp $BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-arm64.deb $SRC_PATH
+cp $BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-$ARCH.deb $SRC_PATH
 # Analyze with Lintian, reporting bugs and policy violations
-lintian -i $SRC_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-amd64.deb
+lintian -i $SRC_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-$ARCH.deb
 # ZEN_MOD_END
 exit 0
