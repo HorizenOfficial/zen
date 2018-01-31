@@ -26,6 +26,12 @@
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 
+// ZEN_MOD_START
+#include <openssl/conf.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+// ZEN_MOD_END
+
 // Dump addresses to peers.dat every 15 minutes (900s)
 #define DUMP_ADDRESSES_INTERVAL 900
 
@@ -43,6 +49,20 @@
 #define IPV6_PROTECTION_LEVEL 23
 #endif
 #endif
+
+// ZEN_MOD_START
+#define USE_TLS
+
+#ifdef EXTENDED_INFO
+#define DBGPRINT LogPrintf
+#else
+#define DBGPRINT
+#endif
+
+#define CONNECTION_ESTABLISHING_TIMEOUT 10 // sec
+
+typedef enum {sslAccept, sslConnect} SSLConnectionRoutine;
+// ZEN_MOD_END
 
 using namespace std;
 
@@ -98,6 +118,11 @@ boost::condition_variable messageHandlerCondition;
 // Signals for message handling
 static CNodeSignals g_signals;
 CNodeSignals& GetNodeSignals() { return g_signals; }
+
+// ZEN_MOD_START
+// OpenSSL server and client contexts
+SSL_CTX *tls_ctx_server, *tls_ctx_client;
+// ZEN_MOD_END
 
 void AddOneShot(const std::string& strDest)
 {
@@ -351,6 +376,69 @@ CNode* FindNode(const CService& addr)
     return NULL;
 }
 
+// ZEN_MOD_START
+int WaitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL *ssl, int timeoutSec)
+{
+    int nErr = 0;
+
+    struct timeval sleep_period = {0, 1000}; // 1 msec
+    select(0, NULL, NULL, NULL, &sleep_period);
+
+    while ((nErr = (eRoutine == sslConnect ? SSL_connect(ssl) : SSL_accept(ssl))) != 1)
+    {
+        int sslErr = SSL_get_error(ssl, nErr);
+
+        if (sslErr != SSL_ERROR_WANT_READ && sslErr != SSL_ERROR_WANT_WRITE)
+        {
+            LogPrintf("ERROR: %s: %s: ssl_err_code: %s; errno: %s\n", __FILE__, __func__, ERR_error_string(sslErr, NULL), strerror(errno));
+            nErr = -1;
+            break;
+        }
+
+        fd_set socketSet;
+        FD_ZERO(&socketSet);
+        FD_SET(hSocket, &socketSet);
+
+        struct timeval timeout = { timeoutSec, 0 };
+
+        if (sslErr == SSL_ERROR_WANT_READ)
+        {
+            int result = select(hSocket + 1, &socketSet, NULL, NULL, &timeout);
+            if (result == 0)
+            {
+                LogPrintf("ERROR: %s: %s: WANT_READ timeout\n", __FILE__, __func__);
+                nErr = -1;
+                break;
+            }
+            else if (result == -1)
+            {
+                LogPrintf("ERROR: %s: %s: WANT_READ ssl_err_code: %s; errno: %s\n", __FILE__, __func__, ERR_error_string(sslErr, NULL), strerror(errno));
+                nErr = -1;
+                break;
+            }
+        }
+        else
+        {
+            int result = select(hSocket + 1, NULL, &socketSet, NULL, &timeout);
+            if (result == 0)
+            {
+                LogPrintf("ERROR: %s: %s: WANT_WRITE timeout\n", __FILE__, __func__);
+                nErr = -1;
+                break;
+            }
+            else if (result == -1)
+            {
+                LogPrintf("ERROR: %s: %s: WANT_WRITE ssl_err_code: %s; errno: %s\n", __FILE__, __func__, ERR_error_string(sslErr, NULL), strerror(errno));
+                nErr = -1;
+                break;
+            }
+        }
+    }
+
+    return nErr;
+}
+// ZEN_MOD_END
+
 CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 {
     if (pszDest == NULL) {
@@ -387,8 +475,55 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 
         addrman.Attempt(addrConnect);
 
+// ZEN_MOD_START
+        SSL *ssl = NULL;
+
+#ifdef USE_TLS
+
+        DBGPRINT ("TLS: establishing connection (tid = %X)\n", pthread_self());
+
+        /* TCP connection is ready. Do client side SSL. */
+
+        bool bConnectedTLS = false;
+
+        if ((ssl = SSL_new(tls_ctx_client)))
+        {
+            if (SSL_set_fd(ssl, hSocket))
+            {
+                int nErr = 0;
+                if (WaitFor(sslConnect, hSocket, ssl, CONNECTION_ESTABLISHING_TIMEOUT))
+                {
+                    bConnectedTLS = true;
+                }
+                else
+                {
+                    LogPrintf ("ERROR: %s: %s: SSL_connect failed\n", __FILE__, __func__);
+                }
+            }
+            else
+                LogPrintf ("ERROR: %s: %s: SSL_set_fd failed\n", __FILE__, __func__);
+        }
+        else
+            LogPrintf ("ERROR: %s: %s: SSL_new failed\n", __FILE__, __func__);
+
+        if (bConnectedTLS)
+        {
+            LogPrintf ("TLS: connection to %s has been established. Using cipher: %s\n", addrConnect.ToString(), SSL_get_cipher(ssl));
+        }
+        else
+        {
+            LogPrintf ("ERROR: %s: %s: TLS connection to %s failed\n", __FILE__, __func__, addrConnect.ToString());
+
+            CloseSocket(hSocket);
+            if (ssl) SSL_free(ssl);
+            return NULL;
+        }
+
+#endif
+
         // Add node
-        CNode* pnode = new CNode(hSocket, addrConnect, pszDest ? pszDest : "", false);
+        CNode* pnode = new CNode(hSocket, addrConnect, pszDest ? pszDest : "", false, ssl);
+// ZEN_MOD_END
         pnode->AddRef();
 
         {
@@ -414,7 +549,20 @@ void CNode::CloseSocketDisconnect()
     if (hSocket != INVALID_SOCKET)
     {
         LogPrint("net", "disconnecting peer=%d\n", id);
+// ZEN_MOD_START
+        if (ssl)
+            SSL_shutdown(ssl); // unidirectional shutdown (the underlying connection shall be closed anyway)
+// ZEN_MOD_END
+
         CloseSocket(hSocket);
+
+// ZEN_MOD_START
+        if (ssl)
+        {
+            SSL_free(ssl);
+            ssl = NULL;
+        }
+// ZEN_MOD_END
     }
 
     // in case this fails, we'll empty the recv buffer when the CNode is deleted
@@ -672,45 +820,101 @@ int CNetMessage::readData(const char *pch, unsigned int nBytes)
 // requires LOCK(cs_vSend)
 void SocketSendData(CNode *pnode)
 {
+// ZEN_MOD_START
+    DBGPRINT("-------------------------------------- S\n");
+    DBGPRINT("Sending data to %s (tid = %X)\n", pnode->addr.ToString(), pthread_self());
+// ZEN_MOD_END
+
     std::deque<CSerializeData>::iterator it = pnode->vSendMsg.begin();
 
-    while (it != pnode->vSendMsg.end()) {
+    while (it != pnode->vSendMsg.end())
+    {
         const CSerializeData &data = *it;
         assert(data.size() > pnode->nSendOffset);
-        int nBytes = send(pnode->hSocket, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset, MSG_NOSIGNAL | MSG_DONTWAIT);
-        if (nBytes > 0) {
+
+// ZEN_MOD_START
+        int nBytes = 0;
+
+        if (pnode->ssl)
+            nBytes = SSL_write(pnode->ssl, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset);
+        else
+            nBytes = send(pnode->hSocket, &data[pnode->nSendOffset], data.size() - pnode->nSendOffset, MSG_NOSIGNAL | MSG_DONTWAIT);
+// ZEN_MOD_END
+
+        if (nBytes > 0)
+        {
             pnode->nLastSend = GetTime();
             pnode->nSendBytes += nBytes;
             pnode->nSendOffset += nBytes;
             pnode->RecordBytesSent(nBytes);
-            if (pnode->nSendOffset == data.size()) {
+
+            if (pnode->nSendOffset == data.size())
+            {
                 pnode->nSendOffset = 0;
                 pnode->nSendSize -= data.size();
                 it++;
-            } else {
+            }
+            else
+            {
                 // could not send full message; stop sending more
                 break;
             }
-        } else {
-            if (nBytes < 0) {
+// ZEN_MOD_START
+            DBGPRINT("Sent %d bytes (%d)\n", nBytes, SSL_get_error(pnode->ssl, nBytes));
+// ZEN_MOD_END
+        }
+        else
+        {
+            if (nBytes < 0)
+            {
                 // error
-                int nErr = WSAGetLastError();
-                if (nErr != WSAEWOULDBLOCK && nErr != WSAEMSGSIZE && nErr != WSAEINTR && nErr != WSAEINPROGRESS)
+                //
+// ZEN_MOD_START
+                if (pnode->ssl)
                 {
-                    LogPrintf("socket send error %s\n", NetworkErrorString(nErr));
-                    pnode->CloseSocketDisconnect();
+                    int nErr = SSL_get_error(pnode->ssl, nBytes);
+                    if (nErr != SSL_ERROR_WANT_READ && nErr != SSL_ERROR_WANT_WRITE)
+                    {
+                        LogPrintf("ERROR: SSL_write %s\n", ERR_error_string(nErr, NULL));
+                        pnode->CloseSocketDisconnect();
+                    }
+                    else
+                    {
+                        DBGPRINT("TLS: SSL_write WANT_READ/WANT_WRITE: %s\n", ERR_error_string(nErr, NULL));
+
+                        // preventive measure from exhausting CPU usage
+                        //
+                        struct timeval sleep_period = {0, 1000}; // 1 msec
+                        select(0, NULL, NULL, NULL, &sleep_period);
+                    }
+                }
+                else
+                {
+                    int nErr = WSAGetLastError();
+                    if (nErr != WSAEWOULDBLOCK && nErr != WSAEMSGSIZE && nErr != WSAEINTR && nErr != WSAEINPROGRESS)
+                    {
+                        LogPrintf("ERROR: socket send %s\n", NetworkErrorString(nErr));
+                        pnode->CloseSocketDisconnect();
+                    }
                 }
             }
+
+            DBGPRINT("Can't send anything\n");
+// ZEN_MOD_END
+
             // couldn't send anything at all
             break;
         }
     }
 
-    if (it == pnode->vSendMsg.end()) {
+    if (it == pnode->vSendMsg.end())
+    {
         assert(pnode->nSendOffset == 0);
         assert(pnode->nSendSize == 0);
     }
     pnode->vSendMsg.erase(pnode->vSendMsg.begin(), it);
+
+    DBGPRINT("-------------------------------------- E\n");
 }
 
 static list<CNode*> vNodesDisconnected;
@@ -930,11 +1134,56 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
     setsockopt(hSocket, IPPROTO_TCP, TCP_NODELAY, (void*)&set, sizeof(int));
 #endif
 
-    CNode* pnode = new CNode(hSocket, addr, "", true);
+// ZEN_MOD_START
+    SSL *ssl = NULL;
+
+#ifdef USE_TLS
+
+    /* TCP connection is ready. Do server side SSL. */
+
+    DBGPRINT ("TLS: accepting connection from %s (tid = %X)\n", addr.ToString(), pthread_self());
+
+    bool bAcceptedTLS = false;
+
+    if ((ssl = SSL_new(tls_ctx_server)))
+    {
+        if (SSL_set_fd(ssl, hSocket))
+        {
+            int nErr = 0;
+            if ((nErr = WaitFor(sslAccept, hSocket, ssl, CONNECTION_ESTABLISHING_TIMEOUT)) == 1)
+            {
+                bAcceptedTLS = true;
+            }
+            else
+            {
+                LogPrintf ("ERROR: %s: %s: SSL_accept failed\n", __FILE__, __func__);
+            }
+        }
+        else
+            LogPrintf ("ERROR: %s: %s: SSL_set_fd failed\n", __FILE__, __func__);
+    }
+    else
+        LogPrintf ("ERROR: %s: %s: SSL_new failed\n", __FILE__, __func__);
+
+    if (bAcceptedTLS)
+    {
+        LogPrintf ("TLS: connection from %s has been accepted. Using cipher: %s\n", addr.ToString(), SSL_get_cipher(ssl));
+    }
+    else
+    {
+        LogPrintf ("ERROR: %s: %s: TLS connection from %s failed\n", __FILE__, __func__, addr.ToString());
+
+        CloseSocket(hSocket);
+        if (ssl) SSL_free(ssl);
+        return;
+    }
+
+#endif
+
+    CNode* pnode = new CNode(hSocket, addr, "", true, ssl);
+// ZEN_MOD_END
     pnode->AddRef();
     pnode->fWhitelisted = whitelisted;
-
-    LogPrint("net", "connection from %s accepted\n", addr.ToString());
 
     {
         LOCK(cs_vNodes);
@@ -1130,9 +1379,19 @@ void ThreadSocketHandler()
                 if (lockRecv)
                 {
                     {
+                        DBGPRINT("-------------------------------------- S\n");
+                        DBGPRINT("Reading data from %s (tid = %X)\n", pnode->addr.ToString(), pthread_self());
+
                         // typical socket buffer is 8K-64K
+                        // maximum record size is 16kB for SSLv3/TLSv1
                         char pchBuf[0x10000];
-                        int nBytes = recv(pnode->hSocket, pchBuf, sizeof(pchBuf), MSG_DONTWAIT);
+                        int nBytes = 0;
+
+                        if (pnode->ssl)
+                            nBytes = SSL_read(pnode->ssl, pchBuf, sizeof(pchBuf));
+                        else
+                            nBytes = recv(pnode->hSocket, pchBuf, sizeof(pchBuf), MSG_DONTWAIT);
+
                         if (nBytes > 0)
                         {
                             if (!pnode->ReceiveMsgBytes(pchBuf, nBytes))
@@ -1140,25 +1399,79 @@ void ThreadSocketHandler()
                             pnode->nLastRecv = GetTime();
                             pnode->nRecvBytes += nBytes;
                             pnode->RecordBytesRecv(nBytes);
+
+                            DBGPRINT("Read %d bytes\n", nBytes);
                         }
                         else if (nBytes == 0)
                         {
-                            // socket closed gracefully
-                            if (!pnode->fDisconnect)
-                                LogPrint("net", "socket closed\n");
-                            pnode->CloseSocketDisconnect();
-                        }
-                        else if (nBytes < 0)
-                        {
-                            // error
-                            int nErr = WSAGetLastError();
-                            if (nErr != WSAEWOULDBLOCK && nErr != WSAEMSGSIZE && nErr != WSAEINTR && nErr != WSAEINPROGRESS)
+                            DBGPRINT("Nothing to read; ");
+
+                            if (pnode->ssl)
                             {
+                                int nErr = SSL_get_error(pnode->ssl, nBytes);
+
+                                DBGPRINT("%s\n", ERR_error_string(nErr, NULL));
+
+                                if (nErr != SSL_ERROR_NONE)
+                                {
+                                    // peer disconnected
+                                    //
+                                    if (!pnode->fDisconnect)
+                                        LogPrintf("peer disconnected (%s)\n", pnode->addr.ToString());
+                                    pnode->CloseSocketDisconnect();
+                                }
+                                else
+                                {
+                                    // preventive measure from exhausting CPU usage
+                                    //
+                                    struct timeval sleep_period = {0, 1000}; // 1 msec
+                                    select(0, NULL, NULL, NULL, &sleep_period);
+                                }
+                            }
+                            else
+                            {
+                                // socket closed gracefully
+                                //
                                 if (!pnode->fDisconnect)
-                                    LogPrintf("socket recv error %s\n", NetworkErrorString(nErr));
+                                    LogPrintf("socket closed (%s)\n", pnode->addr.ToString());
                                 pnode->CloseSocketDisconnect();
                             }
                         }
+                        else if (nBytes < 0)
+                        {
+                            DBGPRINT("Reading error; ");
+
+                            // error
+                            //
+                            if (pnode->ssl)
+                            {
+                                int nErr = SSL_get_error(pnode->ssl, nBytes);
+                                if (nErr != SSL_ERROR_WANT_READ && nErr != SSL_ERROR_WANT_WRITE) // SSL_read() operation has to be repeated because of SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE (https://wiki.openssl.org/index.php/Manual:SSL_read(3)#NOTES)
+                                {
+                                    if (!pnode->fDisconnect)
+                                        LogPrintf("SSL_read error: %s\n", ERR_error_string(nErr, NULL));
+                                    pnode->CloseSocketDisconnect();
+                                }
+                                else
+                                {
+                                    // preventive measure from exhausting CPU usage
+                                    //
+                                    struct timeval sleep_period = {0, 1000}; // 1 msec
+                                    select(0, NULL, NULL, NULL, &sleep_period);
+                                }
+                            }
+                            else
+                            {
+                                int nErr = WSAGetLastError();
+                                if (nErr != WSAEWOULDBLOCK && nErr != WSAEMSGSIZE && nErr != WSAEINTR && nErr != WSAEINPROGRESS)
+                                {
+                                    if (!pnode->fDisconnect)
+                                        LogPrintf("socket recv error %s\n", NetworkErrorString(nErr));
+                                    pnode->CloseSocketDisconnect();
+                                }
+                            }
+                        }
+                        DBGPRINT("-------------------------------------- E\n");
                     }
                 }
             }
@@ -1718,6 +2031,97 @@ void static Discover(boost::thread_group& threadGroup)
 #endif
 }
 
+// ZEN_MOD_START
+// Lightweight initialization of basic parameters, needed for TLS running; will be extended.
+//
+SSL_CTX* InitServerTLSCtx()
+{
+    SSL_CTX *tlsCtx = NULL;
+    bool bInitialized = false;
+
+    string certificateFile = "./testCert.pem";
+    string privateKeyFile  = "./testCert.pem";
+
+    if ((tlsCtx = SSL_CTX_new (TLS_server_method())))
+    {
+        SSL_CTX_set_mode(tlsCtx, SSL_MODE_AUTO_RETRY);
+        SSL_CTX_set_verify(tlsCtx, SSL_VERIFY_NONE, NULL);
+
+        if (SSL_CTX_use_certificate_file(tlsCtx, certificateFile.c_str(), SSL_FILETYPE_PEM) > 0)
+        {
+            if (SSL_CTX_use_PrivateKey_file(tlsCtx, privateKeyFile.c_str(), SSL_FILETYPE_PEM) > 0)
+            {
+                if (SSL_CTX_check_private_key(tlsCtx))
+                    bInitialized = true;
+                else
+                    LogPrintf("ERROR: %s: %s: private key does not match the certificate public key\n", __FILE__, __func__);
+            }
+            else
+                LogPrintf("ERROR: %s: %s: failed to use privateKey file\n", __FILE__, __func__);
+        }
+        else
+        {
+            LogPrintf("ERROR: %s: %s: failed to use certificate file\n", __FILE__, __func__);
+            ERR_print_errors_fp(stderr);
+        }
+    }
+    else
+        LogPrintf("ERROR: %s: %s: failed to create TLS server context\n", __FILE__, __func__);
+
+    if (!bInitialized)
+    {
+        if (tlsCtx)
+        {
+            SSL_CTX_free(tlsCtx);
+            tlsCtx = NULL;
+        }
+    }
+
+    return tlsCtx;
+}
+
+SSL_CTX* InitClientTLSCtx()
+{
+    SSL_CTX *tlsCtx = SSL_CTX_new (TLS_client_method());
+
+    SSL_CTX_set_mode(tlsCtx, SSL_MODE_AUTO_RETRY);
+    SSL_CTX_set_verify(tlsCtx, SSL_VERIFY_NONE, NULL);
+
+    return tlsCtx;
+}
+
+
+bool InitializeOpenSSL()
+{
+    bool bInitializationStatus = false;
+
+    // Initialization routines for the OpenSSL library
+    //
+    SSL_load_error_strings();
+    OpenSSL_add_ssl_algorithms(); // OpenSSL_add_ssl_algorithms() always returns "1", so it is safe to discard the return value.
+
+    // Initialization of the server and client contexts
+    //
+    if ((tls_ctx_server = InitServerTLSCtx()))
+    {
+        if ((tls_ctx_client = InitClientTLSCtx()))
+        {
+            DBGPRINT("TLS: contexts are initialized\n");
+            bInitializationStatus = true;
+        }
+        else
+        {
+            LogPrintf("ERROR: %s: %s: failed to initialize TLS client context\n", __FILE__, __func__);
+            SSL_CTX_free (tls_ctx_server);
+        }
+    }
+    else
+        LogPrintf("ERROR: %s: %s: failed to initialize TLS server context\n", __FILE__, __func__);
+
+    return bInitializationStatus;
+}
+// ZEN_MOD_END
+
 void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler)
 {
     uiInterface.InitMessage(_("Loading addresses..."));
@@ -1742,6 +2146,18 @@ void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler)
         pnodeLocalHost = new CNode(INVALID_SOCKET, CAddress(CService("127.0.0.1", 0), nLocalServices));
 
     Discover(threadGroup);
+
+// ZEN_MOD_START
+#ifdef USE_TLS
+    if (!InitializeOpenSSL())
+    {
+        LogPrintf("ERROR: %s: %s: OpenSSL initialization failed. Node can't be started.\n", __FILE__, __func__);
+        return;
+    }
+#else
+    LogPrintf("TLS is not used!\n");
+#endif
+// ZEN_MOD_END
 
     //
     // Start threads
@@ -2031,11 +2447,16 @@ bool CAddrDB::Read(CAddrMan& addr)
 unsigned int ReceiveFloodSize() { return 1000*GetArg("-maxreceivebuffer", 5*1000); }
 unsigned int SendBufferSize() { return 1000*GetArg("-maxsendbuffer", 1*1000); }
 
-CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNameIn, bool fInboundIn) :
+// ZEN_MOD_START
+CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNameIn, bool fInboundIn, SSL *sslIn) :
+// ZEN_MOD_END
     ssSend(SER_NETWORK, INIT_PROTO_VERSION),
     addrKnown(5000, 0.001),
     setInventoryKnown(SendBufferSize() / 1000)
 {
+// ZEN_MOD_START
+    ssl = sslIn;
+// ZEN_MOD_END
     nServices = 0;
     hSocket = hSocketIn;
     nRecvVersion = INIT_PROTO_VERSION;
@@ -2092,7 +2513,20 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
 
 CNode::~CNode()
 {
+// ZEN_MOD_START
+    if (ssl)
+        SSL_shutdown(ssl); // unidirectional shutdown (the underlying connection shall be closed anyway)
+// ZEN_MOD_END
+
     CloseSocket(hSocket);
+
+// ZEN_MOD_START
+    if (ssl)
+    {
+        SSL_free(ssl);
+        ssl = NULL;
+    }
+// ZEN_MOD_END
 
     if (pfilter)
         delete pfilter;

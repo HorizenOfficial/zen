@@ -261,11 +261,7 @@ class CNode
 public:
 // ZEN_MOD_START
     // OpenSSL
-    BIO *sbio;
-    SSL_CTX *ctx;
     SSL *ssl;
-    bool server_side;
-    bool establish_tls_connection(bool contextonly=false);
 // ZEN_MOD_END
 
     // socket
@@ -365,7 +361,9 @@ public:
     // Whether a ping is requested.
     bool fPingQueued;
 
-    CNode(SOCKET hSocketIn, const CAddress &addrIn, const std::string &addrNameIn = "", bool fInboundIn = false);
+// ZEN_MOD_START
+    CNode(SOCKET hSocketIn, const CAddress &addrIn, const std::string &addrNameIn = "", bool fInboundIn = false, SSL *sslIn = NULL);
+// ZEN_MOD_END
     ~CNode();
 
 private:
