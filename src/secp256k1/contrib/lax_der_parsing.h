@@ -48,8 +48,8 @@
  *   8.3.1.
  */
 
-#ifndef _SECP256K1_CONTRIB_LAX_DER_PARSING_H_
-#define _SECP256K1_CONTRIB_LAX_DER_PARSING_H_
+#ifndef SECP256K1_CONTRIB_LAX_DER_PARSING_H
+#define SECP256K1_CONTRIB_LAX_DER_PARSING_H
 
 #include <secp256k1.h>
 
@@ -88,4 +88,4 @@ int ecdsa_signature_parse_der_lax(
 }
 #endif
 
-#endif
+#endif /* SECP256K1_CONTRIB_LAX_DER_PARSING_H */

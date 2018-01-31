@@ -1,5 +1,5 @@
-#ifndef _SECP256K1_RECOVERY_
-# define _SECP256K1_RECOVERY_
+#ifndef SECP256K1_RECOVERY_H
+#define SECP256K1_RECOVERY_H
 
 #include "secp256k1.h"
 
@@ -107,4 +107,4 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_ecdsa_recover(
 }
 #endif
 
-#endif
+#endif /* SECP256K1_RECOVERY_H */

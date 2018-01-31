@@ -229,7 +229,7 @@ void bench_group_add_affine_var(void* arg) {
 
 void bench_group_jacobi_var(void* arg) {
     int i;
-    bench_inv_t *data = (bench_inv_t*)arg;
+    bench_inv *data = (bench_inv*)arg;
 
     for (i = 0; i < 20000; i++) {
         secp256k1_gej_has_quad_y_var(&data->gej_x);
@@ -249,16 +249,6 @@ void bench_ecmult_wnaf(void* arg) {
 void bench_wnaf_const(void* arg) {
     int i;
     bench_inv *data = (bench_inv*)arg;
-
-    for (i = 0; i < 20000; i++) {
-        secp256k1_ecmult_wnaf(data->wnaf, 256, &data->scalar_x, WINDOW_A);
-        secp256k1_scalar_add(&data->scalar_x, &data->scalar_x, &data->scalar_y);
-    }
-}
-
-void bench_wnaf_const(void* arg) {
-    int i;
-    bench_inv_t *data = (bench_inv_t*)arg;
 
     for (i = 0; i < 20000; i++) {
         secp256k1_wnaf_const(data->wnaf, data->scalar_x, WINDOW_A);
@@ -321,7 +311,7 @@ void bench_context_sign(void* arg) {
 #ifndef USE_NUM_NONE
 void bench_num_jacobi(void* arg) {
     int i;
-    bench_inv_t *data = (bench_inv_t*)arg;
+    bench_inv *data = (bench_inv*)arg;
     secp256k1_num nx, norder;
 
     secp256k1_scalar_get_num(&nx, &data->scalar_x);

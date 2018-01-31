@@ -9,8 +9,6 @@
 
 #include <stddef.h>
 
-#include <stddef.h>
-
 #include "scalar.h"
 #include "group.h"
 #include "ecmult.h"
