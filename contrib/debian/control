@@ -11,7 +11,6 @@ Vcs-Git: https://github.com/ZencashOfficial/zen.git
 Vcs-Browser: https://github.com/ZencashOfficial/zen
 
 Package: zen
-Version: 1.0.8-1
 Architecture: amd64
 Depends: ${shlibs:Depends}
 Description: Private and reliable transactions, communications, and publishing - zensystem.io
