@@ -66,6 +66,7 @@ public:
 
         /** Zen soft/hard forks heights */
         consensus.sfReplayProtectionHeight = 117575;
+        // TODO: rename variable to hfTreasuryFundHeight
         consensus.hfFoundersRewardHeight = 139200;
         consensus.hfFixP2SHHeight = 139200;
         consensus.hfFixReplayProtectionHeight = 139200;
@@ -190,6 +191,7 @@ public:
         addressChangeInterval = 50000;
 
         // Founders reward script expects a vector of 2-of-3 multisig addresses
+        // TODO: rename variable to vTreasuryFundAddress
         vFoundersRewardAddress = {
         "zssEdGnZCQ9G86LZFtbynMn1hYTVhn6eYCL",
         "zsrCsXXmUf8k59NLasEKfxA7us3iNvaPATz",
@@ -248,6 +250,7 @@ public:
         //"zsi3PoGMUzkj8kPAaq9YGYUS8Wp2pDRjR8X",
         };
         // vFoundersRewardAddress2 is another set of FR addresses that substitutes old set since hfFoundersRewardsHeight block
+        // TODO: rename variable to vTreasuryFundAddress2
         vFoundersRewardAddress2 = {
         "zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82",
         "zsfULrmbX7xbhqhAFRffVqCw9RyGv2hqNNG",
