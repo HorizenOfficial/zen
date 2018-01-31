@@ -26,9 +26,9 @@ Ensure that new performance metrics appear on that site.
 
 ### Protocol Safety Checks:
 
-If this release changes the behavior of the protocol or fixes a serious
-bug, verify that a pre-release PR merge updated `PROTOCOL_VERSION` in
-`version.h` correctly.
+### B2. Update (commit) version and deprecation in sources.
+
+Update the client version in these files:
 
 If this release breaks backwards compatibility or needs to prevent
 interaction with software forked projects, change the network magic
@@ -47,8 +47,13 @@ The release script has the following dependencies:
 - `help2man`
 - `debchange` (part of the devscripts Debian package)
 
-You can optionally install the `progressbar2` Python module with pip to have a
-progress bar displayed during the build process.
+Update `APPROX_RELEASE_HEIGHT` and `WEEKS_UNTIL_DEPRECATION` in `src/deprecation.h`
+so that `APPROX_RELEASE_HEIGHT` will be reached shortly after release, and
+`WEEKS_UNTIL_DEPRECATION` is the number of weeks from release day until the
+deprecation target (as defined by the current deprecation policy).
+
+If this release changes the behavior of the protocol or fixes a serious bug, we may
+also wish to change the `PROTOCOL_VERSION` in `version.h`.
 
 ## Release process
 
