@@ -201,8 +201,14 @@ int printStats(bool mining)
     int lines = 4;
 
     int height = chainActive.Height();
-    int connections = vNodes.size();
     int64_t netsolps = GetNetworkHashPS(120, -1);
+    int connections = 0;
+    int tlsConnections = 0;
+    {
+        LOCK2(cs_main, cs_vNodes);
+        connections = vNodes.size();
+        tlsConnections = std::count_if(vNodes.begin(), vNodes.end(), [](CNode* n) {return n->ssl != NULL;});
+    }
 /*
     // OpenSSL related statistics
     tlsvalidate = GetArg("-tlsvalidate","");
@@ -245,8 +251,8 @@ int printStats(bool mining)
     std::cout << std::endl;
 */
     std::cout << "           " << _("Block height") << " | " << height << std::endl;
+    std::cout << "            " << _("Connections") << " | " << connections << " (TLS: " << tlsConnections << ")" << std::endl;
 // ZEN_MOD_END
-    std::cout << "            " << _("Connections") << " | " << connections << std::endl;
     std::cout << "  " << _("Network solution rate") << " | " << netsolps << " Sol/s" << std::endl;
     if (mining && miningTimer.running()) {
         std::cout << "    " << _("Local solution rate") << " | " << strprintf("%.4f Sol/s", localsolps) << std::endl;
@@ -358,7 +364,7 @@ int printMetrics(size_t cols, bool mining)
                     CAmount subsidy = GetBlockSubsidy(height, consensusParams);
 // ZEN_MOD_START
                     if ((height > consensusParams.nChainsplitIndex)) {
-                        if (height >= consensusParams.hfFoundersRewardHeight)
+                        if (height >= consensusParams.hfCommunityFundHeight)
                             subsidy -= ((subsidy * 120) / 1000);
                         else
                             subsidy -= ((subsidy * 85) / 1000);

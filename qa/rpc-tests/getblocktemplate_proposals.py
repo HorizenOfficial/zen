@@ -140,7 +140,10 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         txlist.pop()
 
         # Test 6: Future tx lock time
-        txlist[0][-4:] = b'\xff\xff\xff\xff'
+# ZEN_MOD_START
+        txlist[0][49] -= 1                      # in template nSequence is equal 0xffffffff, in such case it disables nLockTime. Decrease nSequence to enable lock time check.
+        txlist[0][-4:] = b'\xff\xff\xff\xff'    # set nLockTime far in future
+# ZEN_MOD_END
         assert_template(node, tmpl, txlist, 'bad-txns-nonfinal')
         txlist[0][-4:] = b'\0\0\0\0'
 

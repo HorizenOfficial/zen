@@ -159,15 +159,26 @@ CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew=false)
     // Check if the current key has been used
     if (account.vchPubKey.IsValid())
     {
-        CScript scriptPubKey = GetScriptForDestination(account.vchPubKey.GetID());
+// ZEN_MOD_START
+        /* Get script for addr without OP_CHECKBLOCKATHEIGHT, cause we will use it only for searching */
+        CScript scriptPubKey = GetScriptForDestination(account.vchPubKey.GetID(), false);
+// ZEN_MOD_END
         for (map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin();
              it != pwalletMain->mapWallet.end() && account.vchPubKey.IsValid();
              ++it)
         {
             const CWalletTx& wtx = (*it).second;
             BOOST_FOREACH(const CTxOut& txout, wtx.vout)
-                if (txout.scriptPubKey == scriptPubKey)
+// ZEN_MOD_START
+            {
+                /* Check that txout.scriptPubKey starts with scriptPubKey instead of full match,
+                 * cause we cant compare OP_CHECKBLOCKATHEIGHT arguments, they are different all the time */
+                auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(),
+                                       scriptPubKey.end());
+                if (res == txout.scriptPubKey.begin())
                     bKeyUsed = true;
+            }
+// ZEN_MOD_END
         }
     }
 
@@ -593,7 +604,11 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
     CBitcoinAddress address = CBitcoinAddress(params[0].get_str());
     if (!address.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zcash address");
-    CScript scriptPubKey = GetScriptForDestination(address.Get());
+
+// ZEN_MOD_START
+    /* Get script for addr without OP_CHECKBLOCKATHEIGHT, cause we will use it only for searching */
+    CScript scriptPubKey = GetScriptForDestination(address.Get(), false);
+// ZEN_MOD_END
     if (!IsMine(*pwalletMain,scriptPubKey))
         return (double)0.0;
 
@@ -611,9 +626,17 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
             continue;
 
         BOOST_FOREACH(const CTxOut& txout, wtx.vout)
-            if (txout.scriptPubKey == scriptPubKey)
+// ZEN_MOD_START
+        {
+            /* Check that txout.scriptPubKey starts with scriptPubKey instead of full match,
+             * cause we cant compare OP_CHECKBLOCKATHEIGHT arguments, they are different all the time */
+            auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(),
+                                   scriptPubKey.end());
+            if (res == txout.scriptPubKey.begin())
                 if (wtx.GetDepthInMainChain() >= nMinDepth)
                     nAmount += txout.nValue;
+        }
+// ZEN_MOD_END
     }
 
     return  ValueFromAmount(nAmount);

@@ -199,13 +199,19 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
 #if !defined(BITCOIN_TX) // TODO: This is an workaround. zen-tx does not have access to chain state so no replay protection is possible
 
-                if (vchBlockHash.size() == 0 || vchBlockHash.size() > 32)
+                if (vchBlockHash.size() != 32)
                 {
                     LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad params.", __FILE__, __func__);
                     break;
                 }
 
                 const int32_t nHeight = CScriptNum(vchBlockHeight, false, sizeof(int32_t)).getint();
+
+                if ((nHeight < 0 || nHeight > chainActive.Height()) && chainActive.Height() > Params().GetConsensus().hfFixReplayProtectionHeight)
+                {
+                    LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Transaction is non-final. nHeight: %d", __FILE__, __func__, nHeight);
+                    break;
+                }
 
                 // According to BIP115, sufficiently old blocks are always valid, so check only blocks of depth less than 52596.
                 // Skip check if referenced block is further than chainActive. It means that we are not fully synchronized.
@@ -384,8 +390,16 @@ class CScriptVisitor : public boost::static_visitor<bool>
 {
 private:
     CScript *script;
+// ZEN_MOD_START
+    bool withCheckBlockAtHeight;
+// ZEN_MOD_END
 public:
-    CScriptVisitor(CScript *scriptin) { script = scriptin; }
+// ZEN_MOD_START
+    CScriptVisitor(CScript *scriptin, bool withCheckBlockAtHeightIn) {
+        script = scriptin;
+        withCheckBlockAtHeight = withCheckBlockAtHeightIn;
+    }
+// ZEN_MOD_END
 
     bool operator()(const CNoDestination &dest) const {
         script->clear();
@@ -411,7 +425,7 @@ public:
     bool operator()(const CKeyID &keyID) const {
         script->clear();
         CBlockIndex *currentBlock = chainActive.Tip();
-        if (currentBlock == NULL) {
+        if (currentBlock == NULL || !withCheckBlockAtHeight) {
             *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
             return true;
         }
@@ -425,7 +439,7 @@ public:
     bool operator()(const CScriptID &scriptID) const {
         script->clear();
         CBlockIndex *currentBlock = chainActive.Tip();
-        if (currentBlock == NULL) {
+        if (currentBlock == NULL || !withCheckBlockAtHeight) {
             *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
             return true;
         }
@@ -441,11 +455,15 @@ public:
 };
 }
 
-CScript GetScriptForDestination(const CTxDestination& dest)
+// ZEN_MOD_START
+CScript GetScriptForDestination(const CTxDestination& dest, bool withCheckBlockAtHeight)
+// ZEN_MOD_END
 {
     CScript script;
 
-    boost::apply_visitor(CScriptVisitor(&script), dest);
+// ZEN_MOD_START
+    boost::apply_visitor(CScriptVisitor(&script, withCheckBlockAtHeight), dest);
+// ZEN_MOD_END
     return script;
 }
 

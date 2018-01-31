@@ -892,14 +892,14 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
              chainActive.Height() > Params().GetConsensus().sfReplayProtectionHeight &&
              !tx.IsCoinBase())
         {
-            return state.DoS(100, error("%s: %s: op-checkblockatheight-needed. Tx id: %s", __FILE__, __func__, tx.GetHash().ToString()),
+            return state.DoS(0, error("%s: %s: op-checkblockatheight-needed. Tx id: %s", __FILE__, __func__, tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
 
         if (whichType == TX_SCRIPTHASH_REPLAY &&
             chainActive.Height() < Params().GetConsensus().hfFixP2SHHeight)
         {
-            return state.DoS(100, error("%s: %s: TX_SCRIPTHASH_REPLAY will be activated only after %d block. Transaction rejected. Tx id: %s", __FILE__, __func__, Params().GetConsensus().hfFixP2SHHeight, tx.GetHash().ToString()),
+            return state.DoS(0, error("%s: %s: TX_SCRIPTHASH_REPLAY will be activated only after %d block. Transaction rejected. Tx id: %s", __FILE__, __func__, Params().GetConsensus().hfFixP2SHHeight, tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
     }
@@ -1701,7 +1701,7 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
 }
 
 // ZEN_MOD_START
-bool IsFoundersReward(const CCoins *coins, int nIn)
+bool IsCommunityFund(const CCoins *coins, int nIn)
 // ZEN_MOD_END
 {
     if(coins != NULL &&
@@ -1709,8 +1709,10 @@ bool IsFoundersReward(const CCoins *coins, int nIn)
        coins->nHeight > Params().GetConsensus().nChainsplitIndex &&
        coins->vout.size() > nIn)
     {
-        CScript founderScriptPubKey = Params().GetFoundersRewardScriptAtHeight(coins->nHeight);
-        if (coins->vout[nIn].scriptPubKey == founderScriptPubKey)
+// ZEN_MOD_START
+        CScript communityScriptPubKey = Params().GetCommunityFundScriptAtHeight(coins->nHeight);
+        if (coins->vout[nIn].scriptPubKey == communityScriptPubKey)
+// ZEN_MOD_END
             return true;
     }
 
@@ -1752,12 +1754,12 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
                     !tx.vout.empty()) {
 
 // ZEN_MOD_START
-                    // Since HARD_FORK_HEIGHT there is an exemption for founders reward coinbase coins, so it is allowed
+                    // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed
                     // to send them to the transparent addr.
-                    const int HARD_FORK_HEIGHT = consensusParams.hfFoundersRewardHeight;
-                    bool fDisableProtectionForFR = consensusParams.fDisableCoinbaseProtectionForFoundersReward
+                    const int HARD_FORK_HEIGHT = consensusParams.hfCommunityFundHeight;
+                    bool fDisableProtectionForFR = consensusParams.fDisableCoinbaseProtectionForCommunityFund
                                                    && HARD_FORK_HEIGHT <= nSpendHeight;
-                    if (!fDisableProtectionForFR || !IsFoundersReward(coins, prevout.n)) {
+                    if (!fDisableProtectionForFR || !IsCommunityFund(coins, prevout.n)) {
                         return state.Invalid(
                                 error("CheckInputs(): tried to spend coinbase with transparent outputs"),
                                 REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
@@ -3340,23 +3342,23 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
         bool found = false;
 
         CAmount communityReward = (GetBlockSubsidy(nHeight, consensusParams) * 85) / 1000;
-        // The CF reward is increased to 12% since hfFoundersRewardHeight block
-        if (nHeight >= consensusParams.hfFoundersRewardHeight)
+        // The CF reward is increased to 12% since hfCommunityFundHeight block
+        if (nHeight >= consensusParams.hfCommunityFundHeight)
             communityReward = (GetBlockSubsidy(nHeight, consensusParams) * 120) / 1000;
 
         BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
-            if (output.scriptPubKey == Params().GetFoundersRewardScriptAtHeight(nHeight)) {
+            if (output.scriptPubKey == Params().GetCommunityFundScriptAtHeight(nHeight)) {
                 if (output.nValue == communityReward) {
                     found = true;
                     break;
                 }
             }
         }
-// ZEN_MOD_END
 
         if (!found) {
-            return state.DoS(100, error("%s: founders reward missing", __func__), REJECT_INVALID, "cb-no-founders-reward");
+            return state.DoS(100, error("%s: community fund missing", __func__), REJECT_INVALID, "cb-no-community-fund");
         }
+// ZEN_MOD_END
     }
 
     return true;

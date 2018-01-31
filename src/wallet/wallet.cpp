@@ -159,7 +159,9 @@ bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey)
 
     // check if we need to remove from watch-only
     CScript script;
-    script = GetScriptForDestination(pubkey.GetID());
+// ZEN_MOD_START
+    script = GetScriptForDestination(pubkey.GetID(), false);
+// ZEN_MOD_END
     if (HaveWatchOnly(script))
         RemoveWatchOnly(script);
 
@@ -2232,7 +2234,7 @@ CAmount CWallet::GetImmatureWatchOnlyBalance() const
  * populate vCoins with vector of available COutputs.
  */
 // ZEN_MOD_START
-void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const CCoinControl *coinControl, bool fIncludeZeroValue, bool fIncludeCoinBase, bool fIncludeFoundersReward) const
+void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const CCoinControl *coinControl, bool fIncludeZeroValue, bool fIncludeCoinBase, bool fIncludeCommunityFund) const
 // ZEN_MOD_END
 {
     vCoins.clear();
@@ -2251,7 +2253,7 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                 continue;
 
 // ZEN_MOD_START
-             if (pcoin->IsCoinBase() && !fIncludeCoinBase && !fIncludeFoundersReward)
+             if (pcoin->IsCoinBase() && !fIncludeCoinBase && !fIncludeCommunityFund)
 // ZEN_MOD_END
                  continue;
 
@@ -2274,9 +2276,9 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                         const CCoins *coins = pcoinsTip->AccessCoins(wtxid);
                         assert(coins);
 
-                        if (IsFoundersReward(coins, i))
+                        if (IsCommunityFund(coins, i))
                         {
-                            if(!fIncludeFoundersReward)
+                            if(!fIncludeCommunityFund)
                                 continue;
                         }
                         else
@@ -2446,15 +2448,15 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTx*
 // ZEN_MOD_START
     // If coinbase utxos can only be sent to zaddrs, exclude any coinbase utxos from coin selection.
     bool fProtectCoinbase = Params().GetConsensus().fCoinbaseMustBeProtected;
-    bool fProtectFRCoinbase = fProtectCoinbase && !Params().GetConsensus().fDisableCoinbaseProtectionForFoundersReward;
+    bool fProtectCFCoinbase = fProtectCoinbase && !Params().GetConsensus().fDisableCoinbaseProtectionForCommunityFund;
 
-    // FR exemption allowed only after hfFoundersRewardHeight hardfork
-    if (chainActive.Height() < Params().GetConsensus().hfFoundersRewardHeight)
-        fProtectFRCoinbase = fProtectCoinbase;
+    // CF exemption allowed only after hfCommunityFundHeight hardfork
+    if (chainActive.Height() < Params().GetConsensus().hfCommunityFundHeight)
+        fProtectCFCoinbase = fProtectCoinbase;
 
     // Output parameter fOnlyCoinbaseCoinsRet is set to true when the only available coins are coinbase utxos.
     vector<COutput> vCoinsNoProtectedCoinbase, vCoinsWithProtectedCoinbase;
-    AvailableCoins(vCoinsNoProtectedCoinbase, true, coinControl, false, false, !fProtectFRCoinbase);
+    AvailableCoins(vCoinsNoProtectedCoinbase, true, coinControl, false, false, !fProtectCFCoinbase);
     AvailableCoins(vCoinsWithProtectedCoinbase, true, coinControl, false, true, true);
     fOnlyCoinbaseCoinsRet = vCoinsNoProtectedCoinbase.size() == 0 && vCoinsWithProtectedCoinbase.size() > 0;
 

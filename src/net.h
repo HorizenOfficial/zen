@@ -90,7 +90,6 @@ static boost::filesystem::path tlsKeyPath;
 static boost::filesystem::path tlsCertPath;
 
 // OpenSSL related variables for metrics.cpp
-static std::string tlsvalidate;
 static std::string routingsecrecy;
 static std::string cipherdescription;
 static std::string securitylevel;
@@ -191,7 +190,7 @@ public:
     NodeId nodeid;
     uint64_t nServices;
 // ZEN_MOD_START
-    bool fTLSHandshakeComplete;
+    bool fTLSEstablished;
 // ZEN_MOD_END
     int64_t nLastSend;
     int64_t nLastRecv;
@@ -261,16 +260,15 @@ class CNode
 public:
 // ZEN_MOD_START
     // OpenSSL
-    BIO *sbio;
-    SSL_CTX *ctx;
     SSL *ssl;
-    bool server_side;
-    bool establish_tls_connection(bool contextonly=false);
 // ZEN_MOD_END
 
     // socket
     uint64_t nServices;
     SOCKET hSocket;
+// ZEN_MOD_START
+    CCriticalSection cs_hSocket;
+// ZEN_MOD_END
     CDataStream ssSend;
     size_t nSendSize; // total size of all vSendMsg entries
     size_t nSendOffset; // offset inside the first vSendMsg already sent
@@ -283,9 +281,6 @@ public:
     CCriticalSection cs_vRecvMsg;
     uint64_t nRecvBytes;
     int nRecvVersion;
-// ZEN_MOD_START
-    bool fTLSHandshakeComplete;
-// ZEN_MOD_END
 
     int64_t nLastSend;
     int64_t nLastRecv;
@@ -365,7 +360,9 @@ public:
     // Whether a ping is requested.
     bool fPingQueued;
 
-    CNode(SOCKET hSocketIn, const CAddress &addrIn, const std::string &addrNameIn = "", bool fInboundIn = false);
+// ZEN_MOD_START
+    CNode(SOCKET hSocketIn, const CAddress &addrIn, const std::string &addrNameIn = "", bool fInboundIn = false, SSL *sslIn = NULL);
+// ZEN_MOD_END
     ~CNode();
 
 private:

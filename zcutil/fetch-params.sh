@@ -6,8 +6,10 @@ PARAMS_DIR="$HOME/.zcash-params"
 
 SPROUT_PKEY_NAME='sprout-proving.key'
 SPROUT_VKEY_NAME='sprout-verifying.key'
-SPROUT_URL="https://z.cash/downloads"
-SPROUT_IPFS="/ipfs/QmZKKx7Xup7LiAtFRhYsE1M7waXcv9ir9eCECyXAFGxhEo"
+# ZEN_MOD_START
+SPROUT_PKEY_URL="https://zensystem.io/downloads/$SPROUT_PKEY_NAME"
+SPROUT_VKEY_URL="https://zensystem.io/downloads/$SPROUT_VKEY_NAME"
+# ZEN_MOD_END
 
 SHA256CMD="$(command -v sha256sum || echo shasum)"
 SHA256ARGS="$(command -v sha256sum >/dev/null || echo '-a 256')"

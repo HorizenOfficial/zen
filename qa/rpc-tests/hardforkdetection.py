@@ -19,8 +19,10 @@ class HardForkDetectionTest(BitcoinTestFramework):
         self.alert_filename = os.path.join(self.options.tmpdir, "alert.txt")
         with open(self.alert_filename, 'w'):
             pass  # Just open then close to create zero-length file
+# ZEN_MOD_START
         self.nodes.append(start_node(0, self.options.tmpdir,
-                            ["-blockversion=2", "-alertnotify=echo %s >> \"" + self.alert_filename + "\""]))
+                            ["-blockversion=4", "-alertnotify=echo %s >> \"" + self.alert_filename + "\""]))
+# ZEN_MOD_END
 
     def assert_safemode_off(self):
         self.nodes[0].getbalance()
