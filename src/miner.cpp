@@ -361,10 +361,10 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
             // The FR reward is increased to 12% since hfFoundersRewardHeight block
             if (nHeight >= chainparams.GetConsensus().hfFoundersRewardHeight)
                 vCommunityFund = ((txNew.vout[0].nValue * 120) / 1000);
-            // Take some reward away from us
-            txNew.vout[0].nValue -= vCommunityFund;
 
-            // And give it to the founders
+            // Take some reward away from miners
+            txNew.vout[0].nValue -= vCommunityFund;
+            // And give it to the community
             txNew.vout.push_back(CTxOut(vCommunityFund, chainparams.GetFoundersRewardScriptAtHeight(nHeight)));
         }
 // ZEN_MOD_END
