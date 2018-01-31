@@ -191,7 +191,7 @@ public:
     NodeId nodeid;
     uint64_t nServices;
 // ZEN_MOD_START
-    bool fTLSHandshakeComplete;
+    bool fTLSEstablished;
 // ZEN_MOD_END
     int64_t nLastSend;
     int64_t nLastRecv;
@@ -279,9 +279,6 @@ public:
     CCriticalSection cs_vRecvMsg;
     uint64_t nRecvBytes;
     int nRecvVersion;
-// ZEN_MOD_START
-    bool fTLSHandshakeComplete;
-// ZEN_MOD_END
 
     int64_t nLastSend;
     int64_t nLastRecv;

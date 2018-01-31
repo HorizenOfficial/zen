@@ -804,6 +804,11 @@ void CNode::copyStats(CNodeStats &stats)
 
     // Leave string empty if addrLocal invalid (not filled in yet)
     stats.addrLocal = addrLocal.IsValid() ? addrLocal.ToString() : "";
+
+// ZEN_MOD_START
+    // If ssl != NULL it means TLS connection was established successfully
+    stats.fTLSEstablished = (ssl != NULL) && (SSL_get_state(ssl) == TLS_ST_OK);
+// ZEN_MOD_END
 }
 #undef X
 
