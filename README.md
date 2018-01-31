@@ -28,8 +28,15 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
         autoconf libtool ncurses-dev unzip git python \
         zlib1g-dev wget bsdmainutils automake mingw-w64
     ```
+    4. Arm
+    ```{r, engine='bash'}
+    sudo apt-get install \
+        build-essential pkg-config libc6-dev m4 g++-multilib-arm-linux-gnueabihf \
+        autoconf libtool ncurses-dev unzip git python \
+        zlib1g-dev wget bsdmainutils automake 
+    ```
 
-1. Install for linux
+* Install for linux
 ```{r, engine='bash'}
 # Build
 ./zcutil/build.sh -j$(nproc)
@@ -39,11 +46,27 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
 ./src/zend
 ```
 
-2. Install for Windows (Cross-Compiled, building on Windows is not supported yet)
+* Install for Windows (Cross-Compiled, building on Windows is not supported yet)
 
-```./zcutil/build-win.sh -j$(nproc)```
+```
+./zcutil/build-win.sh -j$(nproc)
+```
 
+* Install for aarch64(ARM64)
 
+```
+mkdir -p ~/bin
+cd ~/bin
+ln -s /usr/bin/ar aarch64-unknown-linux-gnu-ar 
+ln -s /usr/bin/g++ aarch64-unknown-linux-gnu-g++ 
+ln -s /usr/bin/gcc aarch64-unknown-linux-gnu-gcc 
+ln -s /usr/bin/nm aarch64-unknown-linux-gnu-nm 
+ln -s /usr/bin/ranlib aarch64-unknown-linux-gnu-ranlib 
+ln -s /usr/bin/strip aarch64-unknown-linux-gnu-strip 
+PATH=$PATH:~/bin
+cd ~/zen/
+./zcutil.build-arm.sh --disable-rust -j$(nproc)
+``` 
 Instructions to redeem pre block 110,000 ZCL
 -------------
 1. Linux:
