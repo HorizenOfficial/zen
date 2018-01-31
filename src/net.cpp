@@ -126,7 +126,7 @@ CNodeSignals& GetNodeSignals() { return g_signals; }
 
 // ZEN_MOD_START
 // OpenSSL server and client contexts
-SSL_CTX *tls_ctx_server, *tls_ctx_client;
+static SSL_CTX *tls_ctx_server, *tls_ctx_client;
 
 typedef struct _NODE_ADDR
 {
@@ -137,16 +137,16 @@ typedef struct _NODE_ADDR
 } NODE_ADDR, *PNODE_ADDR;
 
 
-bool operator==(_NODE_ADDR a, _NODE_ADDR b)
+static bool operator==(_NODE_ADDR a, _NODE_ADDR b)
 {
     return (a.ipAddr == b.ipAddr);
 }
 
-std::vector<NODE_ADDR> vNonTLSNodesInbound;
-CCriticalSection cs_vNonTLSNodesInbound;
+static std::vector<NODE_ADDR> vNonTLSNodesInbound;
+static CCriticalSection cs_vNonTLSNodesInbound;
 
-std::vector<NODE_ADDR> vNonTLSNodesOutbound;
-CCriticalSection cs_vNonTLSNodesOutbound;
+static std::vector<NODE_ADDR> vNonTLSNodesOutbound;
+static CCriticalSection cs_vNonTLSNodesOutbound;
 
 // ZEN_MOD_END
 
@@ -405,7 +405,7 @@ CNode* FindNode(const CService& addr)
 // ZEN_MOD_START
 #ifdef USE_TLS
 
-int WaitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL *ssl, int timeoutSec)
+static int WaitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL *ssl, int timeoutSec)
 {
     int nErr = 0;
 
@@ -492,33 +492,17 @@ int WaitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL *ssl, int timeout
     return nErr;
 }
 
-SSL* ConnectByTLS(SOCKET hSocket, CAddress &addrConnect)
+static SSL* TLSConnect(SOCKET hSocket, CAddress &addrConnect)
 {
     DBGPRINT ("TLS: establishing connection (tid = %X)\n", pthread_self());
     
     SSL *ssl = NULL;
     bool bConnectedTLS = false;
-//    bool bEstablishedTLS = false;
     
     if ((ssl = SSL_new(tls_ctx_client)))
     {
         if (SSL_set_fd(ssl, hSocket))
         {
-//            int sslErr = SSL_get_error(ssl, SSL_connect(ssl));
-//
-//            if (sslErr == SSL_ERROR_NONE || sslErr == SSL_ERROR_WANT_WRITE || sslErr == SSL_ERROR_WANT_READ)
-//            {
-//                bConnectedTLS = true;
-//
-//                if (sslErr == SSL_ERROR_NONE)
-//                    bEstablishedTLS = true;
-//            }
-//            else
-//            {
-//                LogPrintf ("ERROR: %s: %s: SSL_connect failed\n", __FILE__, __func__);
-//            }
-            
-            int nErr = 0;
             if (WaitFor(sslConnect, hSocket, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000)) == 1)
             {
                 bConnectedTLS = true;
@@ -536,7 +520,6 @@ SSL* ConnectByTLS(SOCKET hSocket, CAddress &addrConnect)
     
     if (bConnectedTLS)
     {
-//        LogPrintf ("TLS: connection to %s has been established. Using cipher: %s\n", addrConnect.ToString(), bEstablishedTLS ? SSL_get_cipher(ssl) : "Cipher will be defined later");
         LogPrintf ("TLS: connection to %s has been established. Using cipher: %s\n", addrConnect.ToString(), SSL_get_cipher(ssl));
     }
     else
@@ -607,7 +590,7 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
                                  nodeAddr) == vNonTLSNodesOutbound.end());
             if (bUseTLS)
             {
-                ssl = ConnectByTLS(hSocket, addrConnect);
+                ssl = TLSConnect(hSocket, addrConnect);
                 if (!ssl)
                 {
                     // Further reconnection will be made in non-TLS (unencrypted) mode
@@ -629,7 +612,7 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
             }
         }
 #else
-        ssl = ConnectByTLS(hSocket, addrConnect);
+        ssl = TLSConnect(hSocket, addrConnect);
         if(!ssl)
         {
             CloseSocket(hSocket);
@@ -1234,34 +1217,18 @@ static bool AttemptToEvictConnection(bool fPreferNewConnection) {
 // ZEN_MOD_START
 #ifdef USE_TLS
 
-SSL* AcceptByTLS(SOCKET hSocket, CAddress &addr)
+static SSL* TLSAccept(SOCKET hSocket, CAddress &addr)
 {
     DBGPRINT ("TLS: accepting connection from %s (tid = %X)\n", addr.ToString(), pthread_self());
     
     SSL *ssl = NULL;
     bool bAcceptedTLS = false;
-//    bool bEstablishedTLS = false;
     
     if ((ssl = SSL_new(tls_ctx_server)))
     {
         if (SSL_set_fd(ssl, hSocket))
         {
-//            int sslErr = SSL_get_error(ssl, SSL_accept(ssl));
-//
-//            if (sslErr == SSL_ERROR_NONE || sslErr == SSL_ERROR_WANT_WRITE || sslErr == SSL_ERROR_WANT_READ)
-//            {
-//                bAcceptedTLS = true;
-//
-//                if (sslErr == SSL_ERROR_NONE)
-//                    bEstablishedTLS = true;
-//            }
-//            else
-//            {
-//                LogPrintf ("ERROR: %s: %s: SSL_accept failed\n", __FILE__, __func__);
-//            }
-            
-            int nErr = 0;
-            if ((nErr = WaitFor(sslAccept, hSocket, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000))) == 1)
+            if (WaitFor(sslAccept, hSocket, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000)) == 1)
             {
                 bAcceptedTLS = true;
             }
@@ -1278,7 +1245,6 @@ SSL* AcceptByTLS(SOCKET hSocket, CAddress &addr)
     
     if (bAcceptedTLS)
     {
-//        LogPrintf ("TLS: connection from %s has been accepted. Using cipher: %s\n", addr.ToString(), bEstablishedTLS ? SSL_get_cipher(ssl) : "Cipher will be defined later");
         LogPrintf ("TLS: connection from %s has been accepted. Using cipher: %s\n", addr.ToString(), SSL_get_cipher(ssl));
     }
     else
@@ -1378,7 +1344,7 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
                              nodeAddr) == vNonTLSNodesInbound.end());
         if (bUseTLS)
         {
-            ssl = AcceptByTLS(hSocket, addr);
+            ssl = TLSAccept(hSocket, addr);
             if(!ssl)
             {
                 // Further reconnection will be made in non-TLS (unencrypted) mode
@@ -1401,7 +1367,7 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
         }
     }
 #else
-    ssl = AcceptByTLS(hSocket, addr);
+    ssl = TLSAccept(hSocket, addr);
     if(!ssl)
     {
         CloseSocket(hSocket);
@@ -1437,13 +1403,13 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
 // ZEN_MOD_START
 #if defined(USE_TLS) && defined(COMPAT_NON_TLS)
 
-bool IsNonTLSAddr(string strAddr, vector<NODE_ADDR> &vPool, CCriticalSection &cs)
+static bool IsNonTLSAddr(string strAddr, vector<NODE_ADDR> &vPool, CCriticalSection &cs)
 {
     LOCK(cs);
     return (find(vPool.begin(), vPool.end(), NODE_ADDR(strAddr)) != vPool.end());
 }
 
-void CleanNonTLSPool(std::vector<NODE_ADDR> &vPool, CCriticalSection &cs)
+static void CleanNonTLSPool(std::vector<NODE_ADDR> &vPool, CCriticalSection &cs)
 {
     LOCK(cs);
     
@@ -2361,17 +2327,17 @@ void static Discover(boost::thread_group& threadGroup)
 // ZEN_MOD_START
 #ifdef USE_TLS
 
-int TLSCertVerificationCallback(int preverify_ok, X509_STORE_CTX *chainContext)
+static int TLSCertVerificationCallback(int preverify_ok, X509_STORE_CTX *chainContext)
 {
     //If verify_callback always returns 1, the TLS/SSL handshake will not be terminated with respect to verification failures and the connection will be established.
     return 1;
 }
 
-SSL_CTX* TLSInitCtx(
+static SSL_CTX* TLSInitCtx(
                     TLSContextType ctxType,
                     boost::filesystem::path privateKeyFile,
                     boost::filesystem::path certificateFile,
-                    std::vector<std::string> trustedDirs)
+                    std::vector<boost::filesystem::path> trustedDirs)
 {
     if (!boost::filesystem::exists(privateKeyFile)  ||
         !boost::filesystem::exists(certificateFile))
@@ -2384,30 +2350,23 @@ SSL_CTX* TLSInitCtx(
     {
         SSL_CTX_set_mode(tlsCtx, SSL_MODE_AUTO_RETRY);
         
-        if (GetBoolArg("-tlsvalidate", false))
+        int rootCertsNum    = LoadDefaultRootCertificates(tlsCtx);
+        int trustedPathsNum = 0;
+
+        for (boost::filesystem::path trustedDir : trustedDirs)
         {
-            int rootCertsNum    = LoadDefaultRootCertificates(tlsCtx);
-            int trustedPathsNum = 0;
-    
-            for (string trustedDir : trustedDirs)
-            {
-                if (SSL_CTX_load_verify_locations(tlsCtx, NULL, trustedDir.c_str()) == 1)
-                    trustedPathsNum++;
-            }
-            
-            if (rootCertsNum == 0 && trustedPathsNum == 0)
-            {
-                LogPrintf("TLS: ERROR: %s: %s: failed to set up root certificates\n", __FILE__, __func__);
-                SSL_CTX_free(tlsCtx);
-                return NULL;
-            }
-            
-            SSL_CTX_set_verify(tlsCtx, SSL_VERIFY_PEER, TLSCertVerificationCallback);
+            if (SSL_CTX_load_verify_locations(tlsCtx, NULL, trustedDir.string().c_str()) == 1)
+                trustedPathsNum++;
         }
-        else
+        
+        if (rootCertsNum == 0 && trustedPathsNum == 0)
         {
-            SSL_CTX_set_verify(tlsCtx, SSL_VERIFY_NONE, NULL);
+            LogPrintf("TLS: ERROR: %s: %s: failed to set up root certificates\n", __FILE__, __func__);
+            SSL_CTX_free(tlsCtx);
+            return NULL;
         }
+        
+        SSL_CTX_set_verify(tlsCtx, SSL_VERIFY_PEER, TLSCertVerificationCallback);
         
         if (SSL_CTX_use_certificate_file(tlsCtx, certificateFile.string().c_str(), SSL_FILETYPE_PEM) > 0)
         {
@@ -2442,37 +2401,35 @@ SSL_CTX* TLSInitCtx(
     return tlsCtx;
 }
 
-bool TLSInitialize()
+static bool TLSInitialize()
 {
     bool bInitializationStatus = false;
-
+    
     // Initialization routines for the OpenSSL library
     //
     SSL_load_error_strings();
     OpenSSL_add_ssl_algorithms(); // OpenSSL_add_ssl_algorithms() always returns "1", so it is safe to discard the return value.
     
-    boost::filesystem::path certFile = GetArg("-tlscertpath", "");
-    if (!boost::filesystem::exists(certFile))
+    namespace fs = boost::filesystem;
+    fs::path certFile = GetArg("-tlscertpath", "");
+    if (!fs::exists(certFile))
             certFile = (GetDataDir() / TLS_CERT_FILE_NAME);
     
-    boost::filesystem::path privKeyFile = GetArg("-tlskeypath", "");
-    if (!boost::filesystem::exists(privKeyFile))
+    fs::path privKeyFile = GetArg("-tlskeypath", "");
+    if (!fs::exists(privKeyFile))
             privKeyFile = (GetDataDir() / TLS_KEY_FILE_NAME);
     
-    std::vector<std::string> trustedDirs;
-    if (GetBoolArg("-tlsvalidate", false))
-    {
-        boost::filesystem::path trustedDir = GetArg("-tlstrustdir", "");
-        if (boost::filesystem::exists(trustedDir))
-            // Use only the specified trusted directory
-            trustedDirs.push_back(trustedDir.string());
-        else
-            // If specified directory can't be used, then setting the default trusted directories
-            trustedDirs = GetDefaultTrustedDirectories();
-    
-        for (string dir : trustedDirs)
-            LogPrintf("TLS: trusted directory '%s' will be used\n", dir.c_str());
-    }
+    std::vector<fs::path> trustedDirs;
+    fs::path trustedDir = GetArg("-tlstrustdir", "");
+    if (fs::exists(trustedDir))
+        // Use only the specified trusted directory
+        trustedDirs.push_back(trustedDir);
+    else
+        // If specified directory can't be used, then setting the default trusted directories
+        trustedDirs = GetDefaultTrustedDirectories();
+
+    for (fs::path dir : trustedDirs)
+        LogPrintf("TLS: trusted directory '%s' will be used\n", dir.c_str());
     
     // Initialization of the server and client contexts
     //
@@ -2495,7 +2452,7 @@ bool TLSInitialize()
     return bInitializationStatus;
 }
 
-bool TLSPrepareCredentials()
+static bool TLSPrepareCredentials()
 {
     boost::filesystem::path
             defaultKeyPath (GetDataDir() / TLS_KEY_FILE_NAME),
