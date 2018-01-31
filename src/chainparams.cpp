@@ -186,7 +186,7 @@ public:
                             //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
-        addressChangeInterval = 100000;
+        addressChangeInterval = 50000;
 
         // Founders reward script expects a vector of 2-of-3 multisig addresses
         vFoundersRewardAddress = {
@@ -383,7 +383,6 @@ public:
             "zrCsWfwKotWnQmFviqAHAPAJ2jXqZYW966P", "zrLLB3JB3jozUoMGFEGhjqyVXTpngVQ8c4T", "zrAEa8YjJ2f3m2VsM1Xa9EwibZxEnRoSLUx", "zrAdJgp7Cx35xTvB7ABWP8YLTNDArMjP1s3"
         };
         // vFoundersRewardAddress2 is another set of FR addresses that substitutes old set since hfFoundersRewardsHeight block
-        // TODO: change with real addresses
         vFoundersRewardAddress2 = {
             "zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1"
         };
