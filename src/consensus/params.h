@@ -47,9 +47,9 @@ struct Params {
     bool fCoinbaseMustBeProtected;
 
 // ZEN_MOD_START
-    /* Disable coinbase protection for founders reward coins, so it would be possible to send FR coins to transparent addr.
+    /* Disable coinbase protection for community fund coins, so it would be possible to send CF coins to transparent addr.
      * Activated only if fCoinbaseMustBeProtected is true, otherwise all coins could be sent to transparent addr in spite of this option */
-    bool fDisableCoinbaseProtectionForFoundersReward;
+    bool fDisableCoinbaseProtectionForCommunityFund;
 // ZEN_MOD_END
 
     /** Needs to evenly divide MAX_SUBSIDY to avoid rounding errors. */
@@ -67,7 +67,9 @@ struct Params {
      */
     int SubsidySlowStartShift() const { return nSubsidySlowStartInterval / 2; }
     int nSubsidyHalvingInterval;
-    int GetLastFoundersRewardBlockHeight() const {
+// ZEN_MOD_START
+    int GetLastCommunityRewardBlockHeight() const {
+// ZEN_MOD_END
         return nSubsidyHalvingInterval + SubsidySlowStartShift() - 1;
     }
     /** Used to check majorities for block version upgrade */
@@ -99,7 +101,7 @@ struct Params {
     int nChainsplitTime;
     /** List of Zen soft/hard forks */
     int sfReplayProtectionHeight;
-    int hfFoundersRewardHeight;
+    int hfCommunityFundHeight;
     int hfFixP2SHHeight;
     int hfFixReplayProtectionHeight;
 // ZEN_MOD_END

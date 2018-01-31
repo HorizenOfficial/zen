@@ -549,9 +549,9 @@ int GetSpendHeight(const CCoinsViewCache& inputs);
 
 // ZEN_MOD_START
 /**
- * Check if the output nIn in the coins is Founders Reward
+ * Check if the output nIn is CF Reward
  */
-bool IsFoundersReward(const CCoins *coins, int nIn);
+bool IsCommunityFund(const CCoins *coins, int nIn);
 
 extern VersionBitsCache versionbitscache;
 

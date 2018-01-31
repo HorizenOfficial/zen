@@ -56,7 +56,9 @@ TEST(ContextualCheckBlock, BadCoinbaseHeight) {
     EXPECT_TRUE(ContextualCheckBlock(block, state, NULL));
 
     // Treating block as non-genesis should fail
-    mtx.vout.push_back(CTxOut(GetBlockSubsidy(1, Params().GetConsensus())/5, Params().GetFoundersRewardScriptAtHeight(1)));
+// ZEN_MOD_START
+    //mtx.vout.push_back(CTxOut(GetBlockSubsidy(1, Params().GetConsensus())/5, Params().GetCommunityFundScriptAtHeight(1))); // disabled for Zen
+// ZEN_MOD_END
     CTransaction tx2 {mtx};
     block.vtx[0] = tx2;
     CBlock prev;
@@ -107,11 +109,11 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     mtx.vin[0].scriptSig = CScript() << 110001 << OP_0;
     block.vtx[0] = CTransaction(mtx);
     indexPrev.nHeight = 110000;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-founders-reward", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // Add community reward output for post chain split block
-    CBitcoinAddress address(Params().GetFoundersRewardAddressAtHeight(110001).c_str());
+    CBitcoinAddress address(Params().GetCommunityFundAddressAtHeight(110001).c_str());
     CScriptID scriptID = boost::get<CScriptID>(address.Get());
     mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
     mtx.vout[0].nValue = 1.0625 * COIN;
@@ -136,7 +138,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     CBlockIndex indexPrev {prev};
 
     int blockIndex = Params().GetConsensus().nChainsplitIndex + 1; // first block after chain split
-    CBitcoinAddress address(Params().GetFoundersRewardAddressAtHeight(blockIndex).c_str());
+    CBitcoinAddress address(Params().GetCommunityFundAddressAtHeight(blockIndex).c_str());
     CScriptID scriptID = boost::get<CScriptID>(address.Get());
 
     // Test bad amount for community reward output
@@ -151,24 +153,24 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     CBlock block;
     block.vtx.push_back(CTransaction(mtx));
     block.nTime = Params().GetConsensus().nChainsplitTime;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-founders-reward", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // Test bad amount for community reward output after hard fork
-    int hardForkHeight = Params().GetConsensus().hfFoundersRewardHeight;
+    int hardForkHeight = Params().GetConsensus().hfCommunityFundHeight;
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
-    CBitcoinAddress address1(Params().GetFoundersRewardAddressAtHeight(hardForkHeight).c_str());
+    CBitcoinAddress address1(Params().GetCommunityFundAddressAtHeight(hardForkHeight).c_str());
     CScriptID scriptID1 = boost::get<CScriptID>(address1.Get());
     mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
     mtx.vout[0].nValue = 1.0625 * COIN;
     indexPrev.nHeight = hardForkHeight - 1;
     block.vtx[0] = CTransaction(mtx);
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-founders-reward", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // Test community reward halving
     int halvingBlock = Params().GetConsensus().nSubsidyHalvingInterval + Params().GetConsensus().SubsidySlowStartShift();
-    CBitcoinAddress address2(Params().GetFoundersRewardAddressAtHeight(halvingBlock).c_str());
+    CBitcoinAddress address2(Params().GetCommunityFundAddressAtHeight(halvingBlock).c_str());
     CScriptID scriptID2 = boost::get<CScriptID>(address2.Get());
     mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID2) << OP_EQUAL;
     mtx.vout[0].nValue = 0.75 * COIN;
@@ -198,7 +200,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     CBlock block;
     block.vtx.push_back(CTransaction(mtx));
     block.nTime = Params().GetConsensus().nChainsplitTime;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-founders-reward", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // Test bad addr for community reward output after hardfork
@@ -208,7 +210,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     mtx.vout[0].nValue = 1.5 * COIN;
     indexPrev.nHeight = 139199;
     block.vtx[0] = CTransaction(mtx);;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-founders-reward", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // Test community reward address rotation. Addresses should change every 50000 blocks in a round-robin fashion.

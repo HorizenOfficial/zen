@@ -82,16 +82,10 @@ public:
     const std::vector<unsigned char>& Base58Prefix(Base58Type type) const { return base58Prefixes[type]; }
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     const Checkpoints::CCheckpointData& Checkpoints() const { return checkpointData; }
-    /** Return the founder's reward address and script for a given block height */
-    std::string GetFoundersRewardAddressAtHeight(int height) const;
-    CScript GetFoundersRewardScriptAtHeight(int height) const;
 // ZEN_MOD_START
-    int GetNumFoundersRewardAddresses() const;
-    int GetNumFoundersRewardAddresses2() const;
-// ZEN_MOD_END
-    std::string GetFoundersRewardAddressAtIndex(int i) const;
-// ZEN_MOD_START
-    std::string GetFoundersRewardAddress2AtIndex(int i) const;
+    /** Return the community fund address and script for a given block height */
+    std::string GetCommunityFundAddressAtHeight(int height) const;
+    CScript GetCommunityFundScriptAtHeight(int height) const;
 // ZEN_MOD_END
     /** Enforce coinbase consensus rule in regtest mode */
     void SetRegTestCoinbaseMustBeProtected() { consensus.fCoinbaseMustBeProtected = true; }
@@ -119,9 +113,9 @@ protected:
     bool fMineBlocksOnDemand = false;
     bool fTestnetToBeDeprecatedFieldRPC = false;
     Checkpoints::CCheckpointData checkpointData;
-    std::vector<std::string> vFoundersRewardAddress;
 // ZEN_MOD_START
-    std::vector<std::string> vFoundersRewardAddress2;
+    std::vector<std::string> vCommunityFundAddress;
+    std::vector<std::string> vCommunityFundAddress2;
     int addressChangeInterval = 50000;
 // ZEN_MOD_END
 };

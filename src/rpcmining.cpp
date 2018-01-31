@@ -679,10 +679,12 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         entry.push_back(Pair("sigops", pblocktemplate->vTxSigOps[index_in_template]));
 
         if (tx.IsCoinBase()) {
-            // Show founders' reward if it is required
+            // Show community reward if it is required
             if (pblock->vtx[0].vout.size() > 1) {
                 // Correct this if GetBlockTemplate changes the order
-                entry.push_back(Pair("foundersreward", (int64_t)tx.vout[1].nValue));
+// ZEN_MOD_START
+                entry.push_back(Pair("communityfund", (int64_t)tx.vout[1].nValue));
+// ZEN_MOD_END
             }
             entry.push_back(Pair("required", true));
             txCoinbase = entry;
@@ -881,13 +883,13 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
 // ZEN_MOD_START
         throw runtime_error(
             "getblocksubsidy height\n"
-            "\nReturns block subsidy reward, taking into account the mining slow start and the founders reward, of block at index provided.\n"
+            "\nReturns block subsidy reward, taking into account the mining slow start and the community fund, of block at index provided.\n"
             "\nArguments:\n"
             "1. height         (numeric, optional) The block height.  If not provided, defaults to the current height of the chain.\n"
             "\nResult:\n"
             "{\n"
             "  \"miner\" : x.xxx           (numeric) The mining reward amount in ZEN.\n"
-            "  \"founders\" : x.xxx        (numeric) The founders reward amount in ZEN.\n"
+            "  \"community\" : x.xxx        (numeric) The community fund amount in ZEN.\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("getblocksubsidy", "1000")
@@ -905,8 +907,8 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
     CAmount nCommunityFund = 0;
     if ((nHeight >= Params().GetConsensus().nChainsplitIndex)) {
         nCommunityFund = ((nReward * 85) / 1000);
-        // The CR reward is increased to 12% since hfFoundersRewardHeight block
-        if (nHeight >= Params().GetConsensus().hfFoundersRewardHeight)
+        // The CF reward is increased to 12% since hfCommunityFundHeight block
+        if (nHeight >= Params().GetConsensus().hfCommunityFundHeight)
             nCommunityFund = ((nReward * 120) / 1000);
         nReward -= nCommunityFund;
     }
