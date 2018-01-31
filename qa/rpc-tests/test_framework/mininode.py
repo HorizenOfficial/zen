@@ -39,6 +39,10 @@ from .equihash import (
     zcash_person,
 )
 
+# ZEN_MOD_START
+from util import hex_str_to_bytes, bytes_to_hex_str
+# ZEN_MOD_END
+
 BIP0031_VERSION = 60000
 MY_VERSION = 170002  # past bip-31 for ping/pong
 MY_SUBVERSION = "/python-mininode-tester:0.0.1/"
@@ -242,34 +246,18 @@ def ser_int_vector(l):
     return r
 
 
-def deser_char_vector(f):
-    nit = struct.unpack("<B", f.read(1))[0]
-    if nit == 253:
-        nit = struct.unpack("<H", f.read(2))[0]
-    elif nit == 254:
-        nit = struct.unpack("<I", f.read(4))[0]
-    elif nit == 255:
-        nit = struct.unpack("<Q", f.read(8))[0]
-    r = []
-    for i in xrange(nit):
-        t = struct.unpack("<B", f.read(1))[0]
-        r.append(t)
-    return r
+# ZEN_MOD_START
 
+# Deserialize from a hex string representation (eg from RPC)
+def FromHex(obj, hex_string):
+    obj.deserialize(BytesIO(hex_str_to_bytes(hex_string)))
+    return obj
 
-def ser_char_vector(l):
-    r = ""
-    if len(l) < 253:
-        r = chr(len(l))
-    elif len(l) < 0x10000:
-        r = chr(253) + struct.pack("<H", len(l))
-    elif len(l) < 0x100000000L:
-        r = chr(254) + struct.pack("<I", len(l))
-    else:
-        r = chr(255) + struct.pack("<Q", len(l))
-    for i in l:
-        r += chr(i)
-    return r
+# Convert a binary-serializable object to hex (eg for submission via RPC)
+def ToHex(obj):
+    return bytes_to_hex_str(obj.serialize())
+
+# ZEN_MOD_END
 
 
 # Objects that map to bitcoind objects, which can be serialized/deserialized
@@ -1321,9 +1309,11 @@ class NodeConn(asyncore.dispatcher):
         "mempool": msg_mempool
     }
     MAGIC_BYTES = {
-        "mainnet": "\x24\xe9\x27\x64",   # mainnet
-        "testnet3": "\xfa\x1a\xf9\xbf",  # testnet3
-        "regtest": "\xaa\xe8\x3f\x5f"    # regtest
+# ZEN_MOD_START
+        "mainnet": "\x63\x61\x73\x68",  # mainnet
+        "testnet3": "\xbf\xf2\xcd\xe6",  # testnet3
+        "regtest": "\x2f\x54\xcc\x9d"  # regtest
+# ZEN_MOD_END
     }
 
     def __init__(self, dstaddr, dstport, rpc, callback, net="regtest"):

@@ -90,7 +90,6 @@ static boost::filesystem::path tlsKeyPath;
 static boost::filesystem::path tlsCertPath;
 
 // OpenSSL related variables for metrics.cpp
-static std::string tlsvalidate;
 static std::string routingsecrecy;
 static std::string cipherdescription;
 static std::string securitylevel;
@@ -191,7 +190,7 @@ public:
     NodeId nodeid;
     uint64_t nServices;
 // ZEN_MOD_START
-    bool fTLSHandshakeComplete;
+    bool fTLSEstablished;
 // ZEN_MOD_END
     int64_t nLastSend;
     int64_t nLastRecv;
@@ -267,6 +266,9 @@ public:
     // socket
     uint64_t nServices;
     SOCKET hSocket;
+// ZEN_MOD_START
+    CCriticalSection cs_hSocket;
+// ZEN_MOD_END
     CDataStream ssSend;
     size_t nSendSize; // total size of all vSendMsg entries
     size_t nSendOffset; // offset inside the first vSendMsg already sent
@@ -279,9 +281,6 @@ public:
     CCriticalSection cs_vRecvMsg;
     uint64_t nRecvBytes;
     int nRecvVersion;
-// ZEN_MOD_START
-    bool fTLSHandshakeComplete;
-// ZEN_MOD_END
 
     int64_t nLastSend;
     int64_t nLastRecv;
