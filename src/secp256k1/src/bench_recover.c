@@ -17,7 +17,7 @@ typedef struct {
 
 void bench_recover(void* arg) {
     int i;
-    bench_recover *data = (bench_recover*)arg;
+    bench_recover_t *data = (bench_recover_t*)arg;
     secp256k1_pubkey pubkey;
     unsigned char pubkeyc[33];
 

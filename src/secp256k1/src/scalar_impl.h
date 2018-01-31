@@ -4,8 +4,8 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef SECP256K1_SCALAR_IMPL_H
-#define SECP256K1_SCALAR_IMPL_H
+#ifndef _SECP256K1_SCALAR_IMPL_H_
+#define _SECP256K1_SCALAR_IMPL_H_
 
 #include "group.h"
 #include "scalar.h"
