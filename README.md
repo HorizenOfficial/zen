@@ -77,7 +77,7 @@ Copy and paste your wallet.dat from %APPDATA%/Zclassic/ to %APPDATA%/Zen. That's
 About
 --------------
 
-[Zen](https://zencash.io/) is a platform for secure communications and for deniable economic activity.
+[Zen](https://zensystem.io/) is a platform for secure communications and for deniable economic activity.
 Zen is an evolution of the Zclassic codebase aimed at primarily enabling intriniscally secure communications and
 resilient networking.
 
@@ -100,14 +100,13 @@ Where do I begin?
 
 ### Need Help?
 
-* Many guides and tutorials are available at [ZencashOfficial slack](https://slackinvite.zensystem.io/)
+* Many guides and tutorials are available at [ZenCashOfficial Discord](https://discord.gg/9kXQFHx)
   for help and more information.
-* Ask for help on the [ZencashOfficial slack](slackinvite.zensystem.io).
 
 ### Want to participate in development?
 
 * Code review is welcome!
-* If you want to get to know us join our [Slack](https://slackinvite.zensystem.io)
+* If you want to get to know us join our [Discord](https://discord.gg/9kXQFHx)
 
 
 Participation in the Zen project is subject to a
