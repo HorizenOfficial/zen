@@ -133,7 +133,9 @@ void CreatePidFile(const boost::filesystem::path &path, pid_t pid);
 #endif
 class missing_zcash_conf : public std::runtime_error {
 public:
-    missing_zcash_conf() : std::runtime_error("Missing zcash.conf") { }
+// ZEN_MOD_START
+    missing_zcash_conf() : std::runtime_error("Missing zen.conf") { }
+// ZEN_MOD_END
 };
 void ReadConfigFile(std::map<std::string, std::string>& mapSettingsRet, std::map<std::string, std::vector<std::string> >& mapMultiSettingsRet);
 #ifdef WIN32
@@ -237,7 +239,9 @@ void RenameThread(const char* name);
  */
 template <typename Callable> void TraceThread(const char* name,  Callable func)
 {
-    std::string s = strprintf("zcash-%s", name);
+// ZEN_MOD_START
+    std::string s = strprintf("zen-%s", name);
+// ZEN_MOD_END
     RenameThread(s.c_str());
     try
     {
