@@ -100,7 +100,7 @@ Where do I begin?
 
 ### Need Help?
 
-* Many guides and tutorials are available at [ZenCashOfficial Discord](https://discord.gg/9kXQFHx)
+* Many guides and tutorials are available at [ZenCashOfficial Discord](https://discord.gg/CEbKY9w)
   for help and more information.
 
 ### Want to participate in development?
