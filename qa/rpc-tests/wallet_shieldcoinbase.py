@@ -64,6 +64,11 @@ class WalletShieldCoinbaseTest (BitcoinTestFramework):
 
 # ZEN_MOD_END
     def run_test (self):
+        
+# ZEN_MOD_START
+        blockreward = 11.4375
+# ZEN_MOD_END
+        
         print "Mining blocks..."
 
         self.nodes[0].generate(1)
@@ -71,7 +76,9 @@ class WalletShieldCoinbaseTest (BitcoinTestFramework):
 
         self.nodes[0].generate(4)
         walletinfo = self.nodes[0].getwalletinfo()
-        assert_equal(walletinfo['immature_balance'], 50)
+# ZEN_MOD_START
+        assert_equal(walletinfo['immature_balance'], blockreward * 5)
+# ZEN_MOD_END
         assert_equal(walletinfo['balance'], 0)
         self.sync_all()
         self.nodes[2].generate(1)
@@ -82,9 +89,11 @@ class WalletShieldCoinbaseTest (BitcoinTestFramework):
         self.sync_all()
         self.nodes[1].generate(101)
         self.sync_all()
-        assert_equal(self.nodes[0].getbalance(), 50)
-        assert_equal(self.nodes[1].getbalance(), 10)
-        assert_equal(self.nodes[2].getbalance(), 30)
+# ZEN_MOD_START
+        assert_equal(self.nodes[0].getbalance(), blockreward * 5)
+        assert_equal(self.nodes[1].getbalance(), blockreward)
+        assert_equal(self.nodes[2].getbalance(), blockreward * 3)
+# ZEN_MOD_END
 
         # Prepare to send taddr->zaddr
         mytaddr = self.nodes[0].getnewaddress()
@@ -129,11 +138,13 @@ class WalletShieldCoinbaseTest (BitcoinTestFramework):
         self.sync_all()
 
         # Confirm balances and that do_not_shield_taddr containing funds of 10 was left alone
-        assert_equal(self.nodes[0].getbalance(), 10)
-        assert_equal(self.nodes[0].z_getbalance(do_not_shield_taddr), Decimal('10.0'))
-        assert_equal(self.nodes[0].z_getbalance(myzaddr), Decimal('39.99990000'))
-        assert_equal(self.nodes[1].getbalance(), 20)
-        assert_equal(self.nodes[2].getbalance(), 30)
+# ZEN_MOD_START
+        assert_equal(self.nodes[0].getbalance(), blockreward)
+        assert_equal(self.nodes[0].z_getbalance(do_not_shield_taddr), Decimal(blockreward))
+        assert_equal(self.nodes[0].z_getbalance(myzaddr), Decimal('45.74990000')) # Not using blockreward due to rounding error
+        assert_equal(self.nodes[1].getbalance(), blockreward * 2)
+        assert_equal(self.nodes[2].getbalance(), blockreward * 3)
+# ZEN_MOD_END
 
         # Shield coinbase utxos from any node 2 taddr, and set fee to 0
         result = self.nodes[2].z_shieldcoinbase("*", myzaddr, 0)
@@ -144,10 +155,12 @@ class WalletShieldCoinbaseTest (BitcoinTestFramework):
         self.nodes[1].generate(1)
         self.sync_all()
 
-        assert_equal(self.nodes[0].getbalance(), 10)
-        assert_equal(self.nodes[0].z_getbalance(myzaddr), Decimal('69.99990000'))
-        assert_equal(self.nodes[1].getbalance(), 30)
+# ZEN_MOD_START
+        assert_equal(self.nodes[0].getbalance(), blockreward)
+        assert_equal(self.nodes[0].z_getbalance(myzaddr), Decimal('80.06240000')) # Not using blockreward due to rounding error
+        assert_equal(self.nodes[1].getbalance(), blockreward * 3)
         assert_equal(self.nodes[2].getbalance(), 0)
+# ZEN_MOD_END
 
         # Generate 800 coinbase utxos on node 0, and 20 coinbase utxos on node 2
         self.nodes[0].generate(800)
