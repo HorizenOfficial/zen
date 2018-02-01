@@ -103,6 +103,9 @@ map<string, vector<string> > mapMultiArgs;
 bool fDebug = false;
 bool fPrintToConsole = false;
 bool fPrintToDebugLog = true;
+// ZEN_MOD_START
+bool fLimitDebugLogSize = true;
+// ZEN_MOD_END
 bool fDaemon = false;
 bool fServer = false;
 string strMiscWarning;
@@ -170,12 +173,14 @@ static boost::once_flag debugPrintInitFlag = BOOST_ONCE_INIT;
  * We use boost::call_once() to make sure mutexDebugLog and
  * vMsgsBeforeOpenLog are initialized in a thread-safe manner.
  *
- * NOTE: fileout, mutexDebugLog and sometimes vMsgsBeforeOpenLog
+ * NOTE: debugLogFp, mutexDebugLog and sometimes vMsgsBeforeOpenLog
  * are leaked on exit. This is ugly, but will be cleaned up by
  * the OS/libc. When the shutdown sequence is fully audited and
  * tested, explicit destruction of these objects can be implemented.
  */
-static FILE* fileout = NULL;
+// ZEN_MOD_START
+static FILE* debugLogFp = NULL;
+// ZEN_MOD_END
 static boost::mutex* mutexDebugLog = NULL;
 static list<string> *vMsgsBeforeOpenLog;
 
@@ -191,20 +196,31 @@ static void DebugPrintInit()
     vMsgsBeforeOpenLog = new list<string>;
 }
 
+// ZEN_MOD_START
+boost::filesystem::path GetDebugLogPath()
+{
+    return GetDataDir() / "debug.log";
+}
+// ZEN_MOD_END
+
 void OpenDebugLog()
 {
     boost::call_once(&DebugPrintInit, debugPrintInitFlag);
     boost::mutex::scoped_lock scoped_lock(*mutexDebugLog);
-
-    assert(fileout == NULL);
+// ZEN_MOD_START
+    boost::filesystem::path pathDebug = GetDebugLogPath();
+    assert(debugLogFp == NULL);
     assert(vMsgsBeforeOpenLog);
-    boost::filesystem::path pathDebug = GetDataDir() / "debug.log";
-    fileout = fopen(pathDebug.string().c_str(), "a");
-    if (fileout) setbuf(fileout, NULL); // unbuffered
+    debugLogFp = fopen(pathDebug.string().c_str(), "a");
+    if (debugLogFp)
+        setbuf(debugLogFp, NULL); // unbuffered
+// ZEN_MOD_END
 
     // dump buffered messages from before we opened the log
     while (!vMsgsBeforeOpenLog->empty()) {
-        FileWriteStr(vMsgsBeforeOpenLog->front(), fileout);
+// ZEN_MOD_START
+        FileWriteStr(vMsgsBeforeOpenLog->front(), debugLogFp);
+// ZEN_MOD_END
         vMsgsBeforeOpenLog->pop_front();
     }
 
@@ -284,22 +300,31 @@ int LogPrintStr(const std::string &str)
         string strTimestamped = LogTimestampStr(str, &fStartedNewLine);
 
         // buffer if we haven't opened the log yet
-        if (fileout == NULL) {
+// ZEN_MOD_START
+        if (debugLogFp == NULL) {
+// ZEN_MOD_END
             assert(vMsgsBeforeOpenLog);
             ret = strTimestamped.length();
             vMsgsBeforeOpenLog->push_back(strTimestamped);
         }
         else
         {
+// ZEN_MOD_START
+            // prevent log from endless growth
+            if (fLimitDebugLogSize)
+                ShrinkDebugFile();
+// ZEN_MOD_END
             // reopen the log file, if requested
             if (fReopenDebugLog) {
                 fReopenDebugLog = false;
-                boost::filesystem::path pathDebug = GetDataDir() / "debug.log";
-                if (freopen(pathDebug.string().c_str(),"a",fileout) != NULL)
-                    setbuf(fileout, NULL); // unbuffered
+// ZEN_MOD_START
+                boost::filesystem::path pathDebug = GetDebugLogPath();
+                if (freopen(pathDebug.string().c_str(),"a", debugLogFp) != NULL)
+                    setbuf(debugLogFp, NULL); // unbuffered
             }
 
-            ret = FileWriteStr(strTimestamped, fileout);
+            ret = FileWriteStr(strTimestamped, debugLogFp);
+// ZEN_MOD_END
         }
     }
     return ret;
@@ -779,25 +804,27 @@ void AllocateFileRange(FILE *file, unsigned int offset, unsigned int length) {
 void ShrinkDebugFile()
 {
     // Scroll debug.log if it's getting too big
-    boost::filesystem::path pathLog = GetDataDir() / "debug.log";
-    FILE* file = fopen(pathLog.string().c_str(), "r");
-    if (file && boost::filesystem::file_size(pathLog) > 10 * 1000000)
+// ZEN_MOD_START
+    boost::filesystem::path pathDebug = GetDebugLogPath();
+    if (boost::filesystem::exists(pathDebug) && boost::filesystem::file_size(pathDebug) > 10 * 1000000)
     {
         // Restart the file with some of the end
-        std::vector <char> vch(200000,0);
+        FILE* file = fopen(pathDebug.string().c_str(), "r");
+        std::vector <char> vch(200000, 0);
+// ZEN_MOD_END
         fseek(file, -((long)vch.size()), SEEK_END);
         int nBytes = fread(begin_ptr(vch), 1, vch.size(), file);
         fclose(file);
 
-        file = fopen(pathLog.string().c_str(), "w");
+// ZEN_MOD_START
+        file = fopen(pathDebug.string().c_str(), "w");
+// ZEN_MOD_END
         if (file)
         {
             fwrite(begin_ptr(vch), 1, nBytes, file);
             fclose(file);
         }
     }
-    else if (file != NULL)
-        fclose(file);
 }
 
 #ifdef WIN32
