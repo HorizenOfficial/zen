@@ -1,11 +1,11 @@
 package=openssl
 # ZEN_MOD_START
-$(package)_version=1.1.0f
+$(package)_version=1.1.0g
 # ZEN_MOD_END
 $(package)_download_path=https://www.openssl.org/source
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 # ZEN_MOD_START
-$(package)_sha256_hash=12f746f3f2493b2f39da7ecf63d7ee19c6ac9ec6a4fcd8c229da8a522cb12765
+$(package)_sha256_hash=de4d501267da39310905cb6dc8c6121f7a2cad45a7707f76df828fe1b85073af
 # ZEN_MOD_END
 
 define $(package)_set_vars

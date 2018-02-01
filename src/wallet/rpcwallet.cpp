@@ -113,18 +113,19 @@ UniValue getnewaddress(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() > 1)
+// ZEN_MOD_START
         throw runtime_error(
             "getnewaddress ( \"account\" )\n"
             "\nReturns a new Zcash address for receiving payments.\n"
             "\nArguments:\n"
             "1. \"account\"        (string, optional) DEPRECATED. If provided, it MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
             "\nResult:\n"
-            "\"zcashaddress\"    (string) The new Zcash address\n"
+            "\"zenaddress\"    (string) The new zen address\n"
             "\nExamples:\n"
             + HelpExampleCli("getnewaddress", "")
             + HelpExampleRpc("getnewaddress", "")
         );
-
+// ZEN_MOD_END
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     // Parse the account first so we don't generate a key if there's an error
@@ -200,6 +201,7 @@ UniValue getaccountaddress(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
+// ZEN_MOD_START
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "getaccountaddress \"account\"\n"
@@ -207,13 +209,14 @@ UniValue getaccountaddress(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             "1. \"account\"       (string, required) MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
             "\nResult:\n"
-            "\"zcashaddress\"   (string) The account Zcash address\n"
+            "\"zenaddress\"   (string) The account zen address\n"
             "\nExamples:\n"
             + HelpExampleCli("getaccountaddress", "")
             + HelpExampleCli("getaccountaddress", "\"\"")
             + HelpExampleCli("getaccountaddress", "\"myaccount\"")
             + HelpExampleRpc("getaccountaddress", "\"myaccount\"")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -268,16 +271,18 @@ UniValue setaccount(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() < 1 || params.size() > 2)
+// ZEN_MOD_START
         throw runtime_error(
-            "setaccount \"zcashaddress\" \"account\"\n"
+            "setaccount \"zenaddress\" \"account\"\n"
             "\nDEPRECATED. Sets the account associated with the given address.\n"
             "\nArguments:\n"
-            "1. \"zcashaddress\"  (string, required) The Zcash address to be associated with an account.\n"
+            "1. \"zenaddress\"  (string, required) The zen address to be associated with an account.\n"
             "2. \"account\"         (string, required) MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
             "\nExamples:\n"
             + HelpExampleCli("setaccount", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\" \"tabby\"")
             + HelpExampleRpc("setaccount", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\", \"tabby\"")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -314,17 +319,19 @@ UniValue getaccount(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() != 1)
+// ZEN_MOD_START
         throw runtime_error(
-            "getaccount \"zcashaddress\"\n"
+            "getaccount \"zenaddress\"\n"
             "\nDEPRECATED. Returns the account associated with the given address.\n"
             "\nArguments:\n"
-            "1. \"zcashaddress\"  (string, required) The Zcash address for account lookup.\n"
+            "1. \"zenaddress\"  (string, required) The zen address for account lookup.\n"
             "\nResult:\n"
             "\"accountname\"        (string) the account address\n"
             "\nExamples:\n"
             + HelpExampleCli("getaccount", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\"")
             + HelpExampleRpc("getaccount", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\"")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -346,6 +353,7 @@ UniValue getaddressesbyaccount(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() != 1)
+// ZEN_MOD_START
         throw runtime_error(
             "getaddressesbyaccount \"account\"\n"
             "\nDEPRECATED. Returns the list of addresses for the given account.\n"
@@ -353,13 +361,14 @@ UniValue getaddressesbyaccount(const UniValue& params, bool fHelp)
             "1. \"account\"  (string, required) MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
             "\nResult:\n"
             "[                     (json array of string)\n"
-            "  \"zcashaddress\"  (string) a Zcash address associated with the given account\n"
+            "  \"zenaddress\"  (string) a zen address associated with the given account\n"
             "  ,...\n"
             "]\n"
             "\nExamples:\n"
             + HelpExampleCli("getaddressesbyaccount", "\"tabby\"")
             + HelpExampleRpc("getaddressesbyaccount", "\"tabby\"")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -448,20 +457,21 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() < 2 || params.size() > 5)
+// ZEN_MOD_START
         throw runtime_error(
-            "sendtoaddress \"zcashaddress\" amount ( \"comment\" \"comment-to\" subtractfeefromamount )\n"
+            "sendtoaddress \"zenaddress\" amount ( \"comment\" \"comment-to\" subtractfeefromamount )\n"
             "\nSend an amount to a given address. The amount is a real and is rounded to the nearest 0.00000001\n"
             + HelpRequiringPassphrase() +
             "\nArguments:\n"
-            "1. \"zcashaddress\"  (string, required) The zcash address to send to.\n"
-            "2. \"amount\"      (numeric, required) The amount in " + CURRENCY_UNIT + " to send. eg 0.1\n"
+            "1. \"zenaddress\"  (string, required) The zen address to send to.\n"
+            "2. \"amount\"      (numeric, required) The amount in btc to send. eg 0.1\n"
             "3. \"comment\"     (string, optional) A comment used to store what the transaction is for. \n"
             "                             This is not part of the transaction, just kept in your wallet.\n"
             "4. \"comment-to\"  (string, optional) A comment to store the name of the person or organization \n"
             "                             to which you're sending the transaction. This is not part of the \n"
             "                             transaction, just kept in your wallet.\n"
             "5. subtractfeefromamount  (boolean, optional, default=false) The fee will be deducted from the amount being sent.\n"
-            "                             The recipient will receive less Zcash than you enter in the amount field.\n"
+            "                             The recipient will receive less zen than you enter in the amount field.\n"
             "\nResult:\n"
             "\"transactionid\"  (string) The transaction id.\n"
             "\nExamples:\n"
@@ -470,6 +480,7 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
             + HelpExampleCli("sendtoaddress", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"\" \"\" true")
             + HelpExampleRpc("sendtoaddress", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", 0.1, \"donation\", \"seans outpost\"")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -506,6 +517,7 @@ UniValue listaddressgroupings(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp)
+// ZEN_MOD_START
         throw runtime_error(
             "listaddressgroupings\n"
             "\nLists groups of addresses which have had their common ownership\n"
@@ -515,8 +527,8 @@ UniValue listaddressgroupings(const UniValue& params, bool fHelp)
             "[\n"
             "  [\n"
             "    [\n"
-            "      \"zcashaddress\",     (string) The zcash address\n"
-            "      amount,                 (numeric) The amount in " + CURRENCY_UNIT + "\n"
+            "      \"zenaddress\",     (string) The zen address\n"
+            "      amount,                 (numeric) The amount in btc\n"
             "      \"account\"             (string, optional) The account (DEPRECATED)\n"
             "    ]\n"
             "    ,...\n"
@@ -527,6 +539,7 @@ UniValue listaddressgroupings(const UniValue& params, bool fHelp)
             + HelpExampleCli("listaddressgroupings", "")
             + HelpExampleRpc("listaddressgroupings", "")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -557,12 +570,13 @@ UniValue signmessage(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() != 2)
+// ZEN_MOD_START
         throw runtime_error(
-            "signmessage \"zcashaddress\" \"message\"\n"
+            "signmessage \"zenaddress\" \"message\"\n"
             "\nSign a message with the private key of an address"
             + HelpRequiringPassphrase() + "\n"
             "\nArguments:\n"
-            "1. \"zcashaddress\"  (string, required) The Zcash address to use for the private key.\n"
+            "1. \"zenaddress\"  (string, required) The zen address to use for the private key.\n"
             "2. \"message\"         (string, required) The message to create a signature of.\n"
             "\nResult:\n"
             "\"signature\"          (string) The signature of the message encoded in base 64\n"
@@ -576,6 +590,7 @@ UniValue signmessage(const UniValue& params, bool fHelp)
             "\nAs json rpc\n"
             + HelpExampleRpc("signmessage", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\", \"my message\"")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -613,11 +628,12 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() < 1 || params.size() > 2)
+// ZEN_MOD_START
         throw runtime_error(
-            "getreceivedbyaddress \"zcashaddress\" ( minconf )\n"
-            "\nReturns the total amount received by the given Zcash address in transactions with at least minconf confirmations.\n"
+            "getreceivedbyaddress \"zenaddress\" ( minconf )\n"
+            "\nReturns the total amount received by the given zenaddress in transactions with at least minconf confirmations.\n"
             "\nArguments:\n"
-            "1. \"zcashaddress\"  (string, required) The Zcash address for transactions.\n"
+            "1. \"zenaddress\"  (string, required) The zen address for transactions.\n"
             "2. minconf             (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
             "\nResult:\n"
             "amount   (numeric) The total amount in " + CURRENCY_UNIT + " received at this address.\n"
@@ -631,6 +647,7 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
             "\nAs a json rpc call\n"
             + HelpExampleRpc("getreceivedbyaddress", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\", 6")
        );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -933,15 +950,16 @@ UniValue sendfrom(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() < 3 || params.size() > 6)
+// ZEN_MOD_START
         throw runtime_error(
-            "sendfrom \"fromaccount\" \"tozcashaddress\" amount ( minconf \"comment\" \"comment-to\" )\n"
-            "\nDEPRECATED (use sendtoaddress). Sent an amount from an account to a Zcash address.\n"
+            "sendfrom \"fromaccount\" \"tozenaddress\" amount ( minconf \"comment\" \"comment-to\" )\n"
+            "\nDEPRECATED (use sendtoaddress). Sent an amount from an account to a zen address.\n"
             "The amount is a real and is rounded to the nearest 0.00000001."
             + HelpRequiringPassphrase() + "\n"
             "\nArguments:\n"
             "1. \"fromaccount\"       (string, required) MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
-            "2. \"tozcashaddress\"  (string, required) The zcash address to send funds to.\n"
-            "3. amount                (numeric, required) The amount in " + CURRENCY_UNIT + " (transaction fee is added on top).\n"
+            "2. \"tozenaddress\"  (string, required) The zen address to send funds to.\n"
+            "3. amount                (numeric, required) The amount in btc. (transaction fee is added on top).\n"
             "4. minconf               (numeric, optional, default=1) Only use funds with at least this many confirmations.\n"
             "5. \"comment\"           (string, optional) A comment used to store what the transaction is for. \n"
             "                                     This is not part of the transaction, just kept in your wallet.\n"
@@ -958,6 +976,7 @@ UniValue sendfrom(const UniValue& params, bool fHelp)
             "\nAs a json rpc call\n"
             + HelpExampleRpc("sendfrom", "\"tabby\", \"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", 0.01, 6, \"donation\", \"seans outpost\"")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -998,6 +1017,7 @@ UniValue sendmany(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() < 2 || params.size() > 5)
+// ZEN_MOD_START
         throw runtime_error(
             "sendmany \"fromaccount\" {\"address\":amount,...} ( minconf \"comment\" [\"address\",...] )\n"
             "\nSend multiple times. Amounts are double-precision floating point numbers."
@@ -1006,7 +1026,7 @@ UniValue sendmany(const UniValue& params, bool fHelp)
             "1. \"fromaccount\"         (string, required) MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
             "2. \"amounts\"             (string, required) A json object with addresses and amounts\n"
             "    {\n"
-            "      \"address\":amount   (numeric) The zcash address is the key, the numeric amount in " + CURRENCY_UNIT + " is the value\n"
+            "      \"address\":amount   (numeric) The zen address is the key, the numeric amount in btc is the value\n"
             "      ,...\n"
             "    }\n"
             "3. minconf                 (numeric, optional, default=1) Only use the balance confirmed at least this many times.\n"
@@ -1032,6 +1052,7 @@ UniValue sendmany(const UniValue& params, bool fHelp)
             "\nAs a json rpc call\n"
             + HelpExampleRpc("sendmany", "\"\", \"{\\\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\\\":0.01,\\\"t1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\", 6, \"testing\"")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -1113,6 +1134,7 @@ UniValue addmultisigaddress(const UniValue& params, bool fHelp)
 
     if (fHelp || params.size() < 2 || params.size() > 3)
     {
+// ZEN_MOD_START
         string msg = "addmultisigaddress nrequired [\"key\",...] ( \"account\" )\n"
             "\nAdd a nrequired-to-sign multisignature address to the wallet.\n"
             "Each key is a Zcash address or hex-encoded public key.\n"
@@ -1120,15 +1142,15 @@ UniValue addmultisigaddress(const UniValue& params, bool fHelp)
 
             "\nArguments:\n"
             "1. nrequired        (numeric, required) The number of required signatures out of the n keys or addresses.\n"
-            "2. \"keysobject\"   (string, required) A json array of Zcash addresses or hex-encoded public keys\n"
+            "2. \"keysobject\"   (string, required) A json array of zen addresses or hex-encoded public keys\n"
             "     [\n"
-            "       \"address\"  (string) Zcash address or hex-encoded public key\n"
+            "       \"address\"  (string) zen address or hex-encoded public key\n"
             "       ...,\n"
             "     ]\n"
             "3. \"account\"      (string, optional) DEPRECATED. If provided, MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
 
             "\nResult:\n"
-            "\"zcashaddress\"  (string) A Zcash address associated with the keys.\n"
+            "\"zenaddress\"  (string) A zen address associated with the keys.\n"
 
             "\nExamples:\n"
             "\nAdd a multisig address from 2 addresses\n"
@@ -1137,6 +1159,7 @@ UniValue addmultisigaddress(const UniValue& params, bool fHelp)
             + HelpExampleRpc("addmultisigaddress", "2, \"[\\\"t16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"t171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"")
         ;
         throw runtime_error(msg);
+// ZEN_MOD_END
     }
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1462,6 +1485,7 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() > 4)
+// ZEN_MOD_START
         throw runtime_error(
             "listtransactions ( \"account\" count from includeWatchonly)\n"
             "\nReturns up to 'count' most recent transactions skipping the first 'from' transactions for account 'account'.\n"
@@ -1475,7 +1499,7 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
             "  {\n"
             "    \"account\":\"accountname\",       (string) DEPRECATED. The account name associated with the transaction. \n"
             "                                                It will be \"\" for the default account.\n"
-            "    \"address\":\"zcashaddress\",    (string) The Zcash address of the transaction. Not present for \n"
+            "    \"address\":\"zenaddress\",    (string) The zen address of the transaction. Not present for \n"
             "                                                move transactions (category = move).\n"
             "    \"category\":\"send|receive|move\", (string) The transaction category. 'move' is a local (off blockchain)\n"
             "                                                transaction between accounts, and not associated with an address,\n"
@@ -1513,6 +1537,7 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
             "\nAs a json rpc call\n"
             + HelpExampleRpc("listtransactions", "\"*\", 20, 100")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -1664,6 +1689,7 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp)
+// ZEN_MOD_START
         throw runtime_error(
             "listsinceblock ( \"blockhash\" target-confirmations includeWatchonly)\n"
             "\nGet all transactions in blocks since block [blockhash], or all transactions if omitted\n"
@@ -1675,7 +1701,7 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
             "{\n"
             "  \"transactions\": [\n"
             "    \"account\":\"accountname\",       (string) DEPRECATED. The account name associated with the transaction. Will be \"\" for the default account.\n"
-            "    \"address\":\"zcashaddress\",    (string) The Zcash address of the transaction. Not present for move transactions (category = move).\n"
+            "    \"address\":\"zenaddress\",    (string) The zen address of the transaction. Not present for move transactions (category = move).\n"
             "    \"category\":\"send|receive\",     (string) The transaction category. 'send' has negative amounts, 'receive' has positive amounts.\n"
             "    \"amount\": x.xxx,          (numeric) The amount in " + CURRENCY_UNIT + ". This is negative for the 'send' category, and for the 'move' category for moves \n"
             "                                          outbound. It is positive for the 'receive' category, and for the 'move' category for inbound funds.\n"
@@ -1698,6 +1724,7 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
             + HelpExampleCli("listsinceblock", "\"000000000000000bacf66f7497b7dc45ef753ee9a7d38571037cdb1a57f663ad\" 6")
             + HelpExampleRpc("listsinceblock", "\"000000000000000bacf66f7497b7dc45ef753ee9a7d38571037cdb1a57f663ad\", 6")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -1755,6 +1782,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() < 1 || params.size() > 2)
+// ZEN_MOD_START
         throw runtime_error(
             "gettransaction \"txid\" ( includeWatchonly )\n"
             "\nGet detailed information about in-wallet transaction <txid>\n"
@@ -1774,7 +1802,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
             "  \"details\" : [\n"
             "    {\n"
             "      \"account\" : \"accountname\",  (string) DEPRECATED. The account name involved in the transaction, can be \"\" for the default account.\n"
-            "      \"address\" : \"zcashaddress\",   (string) The Zcash address involved in the transaction\n"
+            "      \"address\" : \"zenaddress\",   (string) The zen address involved in the transaction\n"
             "      \"category\" : \"send|receive\",    (string) The category, either 'send' or 'receive'\n"
             "      \"amount\" : x.xxx                  (numeric) The amount in " + CURRENCY_UNIT + "\n"
             "      \"vout\" : n,                       (numeric) the vout value\n"
@@ -1800,6 +1828,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
             + HelpExampleCli("gettransaction", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\" true")
             + HelpExampleRpc("gettransaction", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -1931,10 +1960,11 @@ UniValue walletpassphrase(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (pwalletMain->IsCrypted() && (fHelp || params.size() != 2))
+// ZEN_MOD_START
         throw runtime_error(
             "walletpassphrase \"passphrase\" timeout\n"
             "\nStores the wallet decryption key in memory for 'timeout' seconds.\n"
-            "This is needed prior to performing transactions related to private keys such as sending Zcash\n"
+            "This is needed prior to performing transactions related to private keys such as sending zen\n"
             "\nArguments:\n"
             "1. \"passphrase\"     (string, required) The wallet passphrase\n"
             "2. timeout            (numeric, required) The time to keep the decryption key in seconds.\n"
@@ -1949,6 +1979,7 @@ UniValue walletpassphrase(const UniValue& params, bool fHelp)
             "\nAs json rpc call\n"
             + HelpExampleRpc("walletpassphrase", "\"my pass phrase\", 60")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -2085,6 +2116,7 @@ UniValue encryptwallet(const UniValue& params, bool fHelp)
     }
 
     if (!pwalletMain->IsCrypted() && (fHelp || params.size() != 1))
+// ZEN_MOD_START
         throw runtime_error(
             "encryptwallet \"passphrase\"\n"
             + strWalletEncryptionDisabledMsg +
@@ -2099,15 +2131,16 @@ UniValue encryptwallet(const UniValue& params, bool fHelp)
             "\nExamples:\n"
             "\nEncrypt you wallet\n"
             + HelpExampleCli("encryptwallet", "\"my pass phrase\"") +
-            "\nNow set the passphrase to use the wallet, such as for signing or sending Zcash\n"
+            "\nNow set the passphrase to use the wallet, such as for signing or sending zen\n"
             + HelpExampleCli("walletpassphrase", "\"my pass phrase\"") +
             "\nNow we can so something like sign\n"
-            + HelpExampleCli("signmessage", "\"zcashaddress\" \"test message\"") +
+            + HelpExampleCli("signmessage", "\"zenaddress\" \"test message\"") +
             "\nNow lock the wallet again by removing the passphrase\n"
             + HelpExampleCli("walletlock", "") +
             "\nAs a json rpc call\n"
             + HelpExampleRpc("encryptwallet", "\"my pass phrase\"")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -2146,11 +2179,12 @@ UniValue lockunspent(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() < 1 || params.size() > 2)
+// ZEN_MOD_START
         throw runtime_error(
             "lockunspent unlock [{\"txid\":\"txid\",\"vout\":n},...]\n"
             "\nUpdates list of temporarily unspendable outputs.\n"
             "Temporarily lock (unlock=false) or unlock (unlock=true) specified transaction outputs.\n"
-            "A locked transaction output will not be chosen by automatic coin selection, when spending Zcash.\n"
+            "A locked transaction output will not be chosen by automatic coin selection, when spending zen.\n"
             "Locks are stored in memory only. Nodes start with zero locked outputs, and the locked output list\n"
             "is always cleared (by virtue of process exit) when a node stops or fails.\n"
             "Also see the listunspent call\n"
@@ -2180,6 +2214,7 @@ UniValue lockunspent(const UniValue& params, bool fHelp)
             "\nAs a json rpc call\n"
             + HelpExampleRpc("lockunspent", "false, \"[{\\\"txid\\\":\\\"a08e6907dbbd3d809776dbfc5d82e371b764ed838b5655e72f463568df1aadf0\\\",\\\"vout\\\":1}]\"")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -2306,15 +2341,16 @@ UniValue getwalletinfo(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() != 0)
+// ZEN_MOD_START
         throw runtime_error(
             "getwalletinfo\n"
             "Returns an object containing various wallet state info.\n"
             "\nResult:\n"
             "{\n"
             "  \"walletversion\": xxxxx,     (numeric) the wallet version\n"
-            "  \"balance\": xxxxxxx,         (numeric) the total confirmed balance of the wallet in " + CURRENCY_UNIT + "\n"
-            "  \"unconfirmed_balance\": xxx, (numeric) the total unconfirmed balance of the wallet in " + CURRENCY_UNIT + "\n"
-            "  \"immature_balance\": xxxxxx, (numeric) the total immature balance of the wallet in " + CURRENCY_UNIT + "\n"
+            "  \"balance\": xxxxxxx,         (numeric) the total confirmed zen balance of the wallet\n"
+            "  \"unconfirmed_balance\": xxx, (numeric) the total unconfirmed zen balance of the wallet\n"
+            "  \"immature_balance\": xxxxxx, (numeric) the total immature balance of the wallet\n"
             "  \"txcount\": xxxxxxx,         (numeric) the total number of transactions in the wallet\n"
             "  \"keypoololdest\": xxxxxx,    (numeric) the timestamp (seconds since GMT epoch) of the oldest pre-generated key in the key pool\n"
             "  \"keypoolsize\": xxxx,        (numeric) how many new keys are pre-generated\n"
@@ -2325,6 +2361,7 @@ UniValue getwalletinfo(const UniValue& params, bool fHelp)
             + HelpExampleCli("getwalletinfo", "")
             + HelpExampleRpc("getwalletinfo", "")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -2373,6 +2410,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() > 3)
+// ZEN_MOD_START
         throw runtime_error(
             "listunspent ( minconf maxconf  [\"address\",...] )\n"
             "\nReturns array of unspent transaction outputs\n"
@@ -2383,9 +2421,9 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             "1. minconf          (numeric, optional, default=1) The minimum confirmations to filter\n"
             "2. maxconf          (numeric, optional, default=9999999) The maximum confirmations to filter\n"
-            "3. \"addresses\"    (string) A json array of Zcash addresses to filter\n"
+            "3. \"addresses\"    (string) A json array of zen addresses to filter\n"
             "    [\n"
-            "      \"address\"   (string) Zcash address\n"
+            "      \"address\"   (string) zen address\n"
             "      ,...\n"
             "    ]\n"
             "\nResult\n"
@@ -2394,7 +2432,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             "    \"txid\" : \"txid\",        (string) the transaction id \n"
             "    \"vout\" : n,               (numeric) the vout value\n"
             "    \"generated\" : true|false  (boolean) true if txout is a coinbase transaction output\n"
-            "    \"address\" : \"address\",  (string) the zcash address\n"
+            "    \"address\" : \"address\",  (string) the zen address\n"
             "    \"account\" : \"account\",  (string) DEPRECATED. The associated account, or \"\" for the default account\n"
             "    \"scriptPubKey\" : \"key\", (string) the script key\n"
             "    \"amount\" : x.xxx,         (numeric) the transaction amount in " + CURRENCY_UNIT + "\n"
@@ -2408,6 +2446,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             + HelpExampleCli("listunspent", "6 9999999 \"[\\\"t1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\\\",\\\"t1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\\\"]\"")
             + HelpExampleRpc("listunspent", "6, 9999999 \"[\\\"t1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\\\",\\\"t1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\\\"]\"")
         );
+// ZEN_MOD_END
 
     RPCTypeCheck(params, boost::assign::list_of(UniValue::VNUM)(UniValue::VNUM)(UniValue::VARR));
 
@@ -2426,7 +2465,9 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             const UniValue& input = inputs[idx];
             CBitcoinAddress address(input.get_str());
             if (!address.IsValid())
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Zcash address: ")+input.get_str());
+// ZEN_MOD_START
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Zen address: ")+input.get_str());
+// ZEN_MOD_END
             if (setAddress.count(address))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+input.get_str());
            setAddress.insert(address);
@@ -2988,16 +3029,18 @@ UniValue z_getnewaddress(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() > 0)
+// ZEN_MOD_START
         throw runtime_error(
             "z_getnewaddress\n"
             "\nReturns a new zaddr for receiving payments.\n"
             "\nArguments:\n"
             "\nResult:\n"
-            "\"zcashaddress\"    (string) The new zaddr\n"
+            "\"zenaddress\"    (string) The new zaddr\n"
             "\nExamples:\n"
             + HelpExampleCli("z_getnewaddress", "")
             + HelpExampleRpc("z_getnewaddress", "")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -3608,21 +3651,19 @@ When estimating the number of coinbase utxos we can shield in a single transacti
 */
 #define CTXIN_SPEND_P2SH_SIZE 400
 
-#define SHIELD_COINBASE_DEFAULT_LIMIT 50
-
 UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() < 2 || params.size() > 4)
+// ZEN_MOD_START
+    if (fHelp || params.size() < 2 || params.size() > 3)
         throw runtime_error(
-            "z_shieldcoinbase \"fromaddress\" \"tozaddress\" ( fee ) ( limit )\n"
+            "z_shieldcoinbase \"fromaddress\" \"tozaddress\" ( fee )\n"
             "\nShield transparent coinbase funds by sending to a shielded zaddr.  This is an asynchronous operation and utxos"
             "\nselected for shielding will be locked.  If there is an error, they are unlocked.  The RPC call `listlockunspent`"
-            "\ncan be used to return a list of locked utxos.  The number of coinbase utxos selected for shielding can be limited"
-            "\nby the caller.  If the limit parameter is set to zero, the -mempooltxinputlimit option will determine the number"
-            "\nof uxtos.  Any limit is constrained by the consensus rule defining a maximum transaction size of "
+            "\ncan be used to return a list of locked utxos.  The number of coinbase utxos selected for shielding is limited by"
+            "\nboth the -mempooltxinputlimit=xxx option and a consensus rule defining a maximum transaction size of "
             + strprintf("%d bytes.", MAX_TX_SIZE)
             + HelpRequiringPassphrase() + "\n"
             "\nArguments:\n"
@@ -3630,20 +3671,16 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
             "2. \"toaddress\"           (string, required) The address is a zaddr.\n"
             "3. fee                   (numeric, optional, default="
             + strprintf("%s", FormatMoney(SHIELD_COINBASE_DEFAULT_MINERS_FEE)) + ") The fee amount to attach to this transaction.\n"
-            "4. limit                 (numeric, optional, default="
-            + strprintf("%d", SHIELD_COINBASE_DEFAULT_LIMIT) + ") Limit on the maximum number of utxos to shield.  Set to 0 to use node option -mempooltxinputlimit.\n"
             "\nResult:\n"
             "{\n"
+            "  \"operationid\": xxx          (string) An operationid to pass to z_getoperationstatus to get the result of the operation.\n"
+            "  \"shieldedUTXOs\": xxx        (numeric) Number of coinbase utxos being shielded.\n"
+            "  \"shieldedValue\": xxx        (numeric) Value of coinbase utxos being shielded.\n"
             "  \"remainingUTXOs\": xxx       (numeric) Number of coinbase utxos still available for shielding.\n"
             "  \"remainingValue\": xxx       (numeric) Value of coinbase utxos still available for shielding.\n"
-            "  \"shieldingUTXOs\": xxx        (numeric) Number of coinbase utxos being shielded.\n"
-            "  \"shieldingValue\": xxx        (numeric) Value of coinbase utxos being shielded.\n"
-            "  \"opid\": xxx          (string) An operationid to pass to z_getoperationstatus to get the result of the operation.\n"
             "}\n"
-            "\nExamples:\n"
-            + HelpExampleCli("z_shieldcoinbase", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" \"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\"")
-            + HelpExampleRpc("z_shieldcoinbase", "\"t1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", \"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\"")
         );
+// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -3677,14 +3714,6 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
         }
     }
 
-    int nLimit = SHIELD_COINBASE_DEFAULT_LIMIT;
-    if (params.size() > 3) {
-        nLimit = params[3].get_int();
-        if (nLimit < 0) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Limit on maximum number of utxos cannot be negative");
-        }
-    }
-
     // Prepare to get coinbase utxos
     std::vector<ShieldCoinbaseUTXO> inputs;
     CAmount shieldedValue = 0;
@@ -3692,7 +3721,9 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
     size_t estimatedTxSize = 2000;  // 1802 joinsplit description + tx overhead + wiggle room
     size_t utxoCounter = 0;
     bool maxedOutFlag = false;
-    size_t mempoolLimit = (nLimit != 0) ? nLimit : (size_t)GetArg("-mempooltxinputlimit", 0);
+// ZEN_MOD_START
+    size_t mempoolLimit = (size_t)GetArg("-mempooltxinputlimit", 0);
+// ZEN_MOD_END
 
     // Set of addresses to filter utxos by
     set<CBitcoinAddress> setAddress = {};
