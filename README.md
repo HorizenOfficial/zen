@@ -106,8 +106,6 @@ Where do I begin?
 ### Want to participate in development?
 
 * Code review is welcome!
-* If you want to get to know us join our [Discord](https://discord.gg/9kXQFHx)
-
 
 Participation in the Zen project is subject to a
 [Code of Conduct](code_of_conduct.md).
