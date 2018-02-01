@@ -377,6 +377,40 @@ UniValue getaddressesbyaccount(const UniValue& params, bool fHelp)
     return ret;
 }
 
+// ZEN_MOD_START
+UniValue listaddresses(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() > 1)
+        throw runtime_error(
+                "listaddresses\n"
+                "Returns the list of transparent addresses.\n"
+                "\nResult:\n"
+                "[                     (json array of string)\n" 
+                "  \"zenaddress\"  (string) a zen address associated with the given account\n"
+                "  ,...\n"
+                "]\n"
+                "\nExamples:\n" 
+                + HelpExampleCli("listaddresses", "")
+                + HelpExampleRpc("listaddresses", "")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet); 
+    
+    UniValue ret(UniValue::VARR);
+    BOOST_FOREACH(const PAIRTYPE(CBitcoinAddress, CAddressBookData)& item, pwalletMain->mapAddressBook)
+    {
+        const CBitcoinAddress& address = item.first;
+        const string& strName = item.second.name;
+        if (strName == "")
+            ret.push_back(address.ToString());
+    }
+    return ret;
+}
+// ZEN_MOD_END
+
 static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, CWalletTx& wtxNew)
 {
     CAmount curBalance = pwalletMain->GetBalance();

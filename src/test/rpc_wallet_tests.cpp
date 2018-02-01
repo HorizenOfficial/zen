@@ -250,6 +250,20 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     }
     BOOST_CHECK(!notFound);
 
+// ZEN_MOD_START
+   /*********************************
+    *       listaddresses
+    *********************************/
+    BOOST_CHECK_NO_THROW(retValue = CallRPC("listaddresses"));
+    arr = retValue.get_array();
+    BOOST_CHECK_EQUAL(4, arr.size());
+    notFound = true;
+    for (auto a : arr.getValues()) {
+        notFound &= CBitcoinAddress(a.get_str()).Get() != demoAddress.Get();
+    }
+    BOOST_CHECK(!notFound);
+// ZEN_MOD_END
+    
     /*********************************
      * 	     fundrawtransaction
      *********************************/
