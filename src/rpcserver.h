@@ -297,6 +297,10 @@ extern UniValue z_validateaddress(const UniValue& params, bool fHelp); // in rpc
 extern UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp); // in rpcdisclosure.cpp
 extern UniValue z_validatepaymentdisclosure(const UniValue &params, bool fHelp); // in rpcdisclosure.cpp
 
+// ZEN_MOD_START
+extern UniValue listaddresses(const UniValue& params, bool fHelp); // in rpcwallet.cpp
+// ZEN_MOD_END
+
 bool StartRPC();
 void InterruptRPC();
 void StopRPC();
