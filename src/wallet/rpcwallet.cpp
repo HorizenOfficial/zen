@@ -393,8 +393,8 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
                 "  ,...\n"
                 "]\n"
                 "\nExamples:\n" 
-                + HelpExampleCli("getaddressesbyaccount", "\"tabby\"")
-                + HelpExampleRpc("getaddressesbyaccount", "\"tabby\"")
+                + HelpExampleCli("listaddresses", "")
+                + HelpExampleRpc("listaddresses", "")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet); 
