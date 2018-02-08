@@ -212,7 +212,7 @@ BITCOIN_CORE_H = \
   utilmoneystr.h \
   utilstrencodings.h \
   utiltime.h \
-  utiltls.h\
+  zen/utiltls.h\
   validationinterface.h \
   versionbits.h \
   version.h \
@@ -277,7 +277,7 @@ libbitcoin_server_a_SOURCES = \
   torcontrol.cpp \
   txdb.cpp \
   txmempool.cpp \
-  utiltls.cpp\
+  zen/utiltls.cpp\
   validationinterface.cpp \
   versionbits.cpp \
   $(BITCOIN_CORE_H) \

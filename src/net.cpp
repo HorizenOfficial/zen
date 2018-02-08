@@ -17,7 +17,7 @@
 #include "ui_interface.h"
 #include "crypto/common.h"
 // ZEN_MOD_START
-#include "utiltls.h"
+#include "zen/utiltls.h"
 // ZEN_MOD_END
 
 #ifdef WIN32
@@ -33,6 +33,8 @@
 #include <openssl/conf.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+
+using namespace zen;
 // ZEN_MOD_END
 
 // Dump addresses to peers.dat every 15 minutes (900s)
