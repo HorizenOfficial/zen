@@ -323,6 +323,9 @@ UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInf
     boost::array<size_t, ZC_NUM_JS_OUTPUTS> outputMap;
     #endif
 // ZEN_MOD_END
+
+    uint256 esk;
+
     JSDescription jsdesc = JSDescription::Randomized(
             *pzcashParams,
             joinSplitPubKey_,
@@ -334,7 +337,8 @@ UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInf
             info.vpub_old,
             info.vpub_new,
 // ZEN_MOD_START
-            !this->testmode);
+            !this->testmode,
+            &esk);  // parameter expects pointer to esk, so pass in address
 // ZEN_MOD_END
     {
         auto verifier = libzcash::ProofVerifier::Strict();

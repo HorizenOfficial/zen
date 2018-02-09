@@ -102,8 +102,9 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey)
         break;
     }
 
+    }
     if (keystore.HaveWatchOnly(scriptPubKey))
         return ISMINE_WATCH_ONLY;
     return ISMINE_NO;
-}
+
 }

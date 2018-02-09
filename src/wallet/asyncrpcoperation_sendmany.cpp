@@ -965,9 +965,16 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
     boost::array<libzcash::JSInput, ZC_NUM_JS_INPUTS> inputs
             {info.vjsin[0], info.vjsin[1]};
     boost::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS> outputs
-            {info.vjsout[0], info.vjsout[1]};
-    boost::array<size_t, ZC_NUM_JS_INPUTS> inputMap;
-    boost::array<size_t, ZC_NUM_JS_OUTPUTS> outputMap;
+            {info.vjsout[0], info.vjsout[1]};    
+// ZEN_MOD_START
+        #ifdef __APPLE__
+        boost::array<uint64_t, ZC_NUM_JS_INPUTS> inputMap;
+        boost::array<uint64_t, ZC_NUM_JS_OUTPUTS> outputMap;
+        #else
+        boost::array<size_t, ZC_NUM_JS_INPUTS> inputMap;
+        boost::array<size_t, ZC_NUM_JS_OUTPUTS> outputMap;
+        #endif
+// ZEN_MOD_END
 
     uint256 esk; // payment disclosure - secret
 
