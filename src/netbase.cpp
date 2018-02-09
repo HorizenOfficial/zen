@@ -15,7 +15,11 @@
 #include "random.h"
 #include "util.h"
 #include "utilstrencodings.h"
-
+// ZEN_MOD_START
+#ifdef __APPLE__
+#undef HAVE_GETADDRINFO_A
+#endif
+// ZEN_MOD_END
 #ifdef HAVE_GETADDRINFO_A
 #include <netdb.h>
 #endif
