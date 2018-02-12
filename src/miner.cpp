@@ -42,6 +42,11 @@
 
 using namespace std;
 
+// ZEN_MOD_START
+#include "zen/forkmanager.h"
+using namespace zen; 
+// ZEN_MOD_END
+
 //////////////////////////////////////////////////////////////////////////////
 //
 // BitcoinMiner
@@ -355,18 +360,11 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         txNew.vout[0].nValue = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
 
 // ZEN_MOD_START
-        if ((nHeight > chainparams.GetConsensus().nChainsplitIndex)) {
-            // Community fund is 8.5% of the block subsidy
-            auto vCommunityFund = ((txNew.vout[0].nValue * 85) / 1000);
-            // The CF reward is increased to 12% since hfCommunityFundHeight block
-            if (nHeight >= chainparams.GetConsensus().hfCommunityFundHeight)
-                vCommunityFund = ((txNew.vout[0].nValue * 120) / 1000);
-
-            // Take some reward away from miners
-            txNew.vout[0].nValue -= vCommunityFund;
-            // And give it to the community
-            txNew.vout.push_back(CTxOut(vCommunityFund, chainparams.GetCommunityFundScriptAtHeight(nHeight)));
-        }
+        CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight,txNew.vout[0].nValue);
+        // Take some reward away from miners
+        txNew.vout[0].nValue -= vCommunityFund;
+        // And give it to the community
+        txNew.vout.push_back(CTxOut(vCommunityFund, chainparams.GetCommunityFundScriptAtHeight(nHeight)));
 // ZEN_MOD_END
 
         // Add fees

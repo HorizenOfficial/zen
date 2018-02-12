@@ -32,6 +32,11 @@
 
 using namespace std;
 
+// ZEN_MOD_START
+#include "zen/forkmanager.h"
+using namespace zen;
+// ZEN_MOD_END
+
 /**
  * Return average network hashes per second based on the last 'lookup' blocks,
  * or over the difficulty averaging window if 'lookup' is nonpositive.
@@ -556,7 +561,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Zcash is not connected!");
 
 // ZEN_MOD_START
-    if (IsInitialBlockDownload() && chainActive.Tip()->nHeight > Params().GetConsensus().nChainsplitIndex + (Params().GetConsensus().nMinerConfirmationWindow * 2))
+    if (IsInitialBlockDownload() && ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight-(Params().GetConsensus().nMinerConfirmationWindow * 2)))
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Zcash is downloading blocks...");
 // ZEN_MOD_END
 
@@ -904,14 +909,8 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
 
     CAmount nReward = GetBlockSubsidy(nHeight, Params().GetConsensus());
 // ZEN_MOD_START
-    CAmount nCommunityFund = 0;
-    if ((nHeight >= Params().GetConsensus().nChainsplitIndex)) {
-        nCommunityFund = ((nReward * 85) / 1000);
-        // The CF reward is increased to 12% since hfCommunityFundHeight block
-        if (nHeight >= Params().GetConsensus().hfCommunityFundHeight)
-            nCommunityFund = ((nReward * 120) / 1000);
-        nReward -= nCommunityFund;
-    }
+    CAmount nCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight,nReward);
+    nReward -= nCommunityFund;
 // ZEN_MOD_END
     UniValue result(UniValue::VOBJ);
     result.push_back(Pair("miner", ValueFromAmount(nReward)));

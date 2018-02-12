@@ -19,6 +19,12 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+// ZEN_MOD_START
+#include "zen/forkmanager.h"
+
+using namespace zen;
+// ZEN_MOD_END
+
 void AtomicTimer::start()
 {
     std::unique_lock<std::mutex> lock(mtx);
@@ -363,12 +369,8 @@ int printMetrics(size_t cols, bool mining)
                     int height = mapBlockIndex[hash]->nHeight;
                     CAmount subsidy = GetBlockSubsidy(height, consensusParams);
 // ZEN_MOD_START
-                    if ((height > consensusParams.nChainsplitIndex)) {
-                        if (height >= consensusParams.hfCommunityFundHeight)
-                            subsidy -= ((subsidy * 120) / 1000);
-                        else
-                            subsidy -= ((subsidy * 85) / 1000);
-                    }
+                    CAmount communityFundAmount = ForkManager::getInstance().getCommunityFundReward(height,subsidy);
+                    subsidy -= communityFundAmount;
 // ZEN_MOD_END
                     if (std::max(0, COINBASE_MATURITY - (tipHeight - height)) > 0) {
                         immature += subsidy;

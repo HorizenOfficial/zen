@@ -20,6 +20,8 @@
 #include "crypter.h"
 // ZEN_MOD_START
 #include "chainparams.h"
+#include "zen/forkmanager.h"
+using namespace zen;
 // ZEN_MOD_END
 
 #include <assert.h>
@@ -2448,10 +2450,10 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTx*
 // ZEN_MOD_START
     // If coinbase utxos can only be sent to zaddrs, exclude any coinbase utxos from coin selection.
     bool fProtectCoinbase = Params().GetConsensus().fCoinbaseMustBeProtected;
-    bool fProtectCFCoinbase = fProtectCoinbase && !Params().GetConsensus().fDisableCoinbaseProtectionForCommunityFund;
+    bool fProtectCFCoinbase = false;
 
     // CF exemption allowed only after hfCommunityFundHeight hardfork
-    if (chainActive.Height() < Params().GetConsensus().hfCommunityFundHeight)
+    if (!ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(chainActive.Height()))
         fProtectCFCoinbase = fProtectCoinbase;
 
     // Output parameter fOnlyCoinbaseCoinsRet is set to true when the only available coins are coinbase utxos.

@@ -13,14 +13,15 @@ zen_gtest_SOURCES = \
 	gtest/test_checktransaction.cpp \
 	gtest/json_test_vectors.cpp \
 	gtest/json_test_vectors.h \
-	gtest/test_foundersreward.cpp
+	gtest/test_foundersreward.cpp \
+        gtest/test_forkmanager.cpp
 # These tests are order-dependent, because they
 # depend on global state (see #1539)
 if ENABLE_WALLET
 zen_gtest_SOURCES += \
 	wallet/gtest/test_wallet_zkeys.cpp
 endif
-# ZEND_MOD_END
+# ZEN_MOD_END
 zen_gtest_SOURCES += \
 	gtest/test_tautology.cpp \
 	gtest/test_deprecation.cpp \
@@ -63,7 +64,9 @@ if ENABLE_WALLET
 zen_gtest_LDADD += $(LIBBITCOIN_WALLET)
 endif
 
-zen_gtest_LDADD += $(LIBZCASH_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(LIBZCASH) $(LIBSNARK) $(LIBZCASH_LIBS)
+# ZEN_MOD_START
+zen_gtest_LDADD += $(LIBZCASH_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(LIBZCASH) $(LIBZENCASH) $(LIBSNARK) $(LIBZCASH_LIBS)
+# ZEN_MOD_END
 
 if ENABLE_PROTON
 zen_gtest_LDADD += $(LIBBITCOIN_PROTON) $(PROTON_LIBS)

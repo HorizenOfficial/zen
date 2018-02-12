@@ -12,6 +12,10 @@
 #include <assert.h>
 // ZEN_MOD_START
 #include <ctime> // used for chainsplit
+#include "zen/forkmanager.h"
+#include "zen/chainsplitfork.h"
+
+using namespace zen;
 // ZEN_MOD_END
 
 #include <boost/assign/list_of.hpp>
@@ -44,7 +48,6 @@ public:
 // ZEN_MOD_END
         consensus.fCoinbaseMustBeProtected = true;
 // ZEN_MOD_START
-        consensus.fDisableCoinbaseProtectionForCommunityFund = true;
         consensus.nSubsidySlowStartInterval = 2;
 // ZEN_MOD_END
         consensus.nSubsidyHalvingInterval = 840000;
@@ -61,14 +64,6 @@ public:
 //        consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.nRuleChangeActivationThreshold = 1916; // 95% of 2016
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
-        consensus.nChainsplitIndex = 110000;
-        consensus.nChainsplitTime = 1496187000;
-
-        /** Zen soft/hard forks heights */
-        consensus.sfReplayProtectionHeight = 117575;
-        consensus.hfCommunityFundHeight = 139200;
-        consensus.hfFixP2SHHeight = 139200;
-        consensus.hfFixReplayProtectionHeight = 139200;
 
         /**
          * ZEN Network Magic Start Value
@@ -81,7 +76,9 @@ public:
         nDefaultPort = 9033;
 //        nMinerThreads = 0;
         std::time_t result = std::time(nullptr);
-        if (result < consensus.nChainsplitTime + (24 * 60 * 60))
+        // temp code until we figure out what this is for and if it's needed
+        ChainsplitFork chainsplitFork;
+        if (result < chainsplitFork.getMinimumTime(CBaseChainParams::Network::MAIN) + (24 * 60 * 60))
             nMaxTipAge = 10 * 24 * 60 * 60; // Allow blocks up to 10 days old to be the chain tip
         else
             nMaxTipAge = 24 * 60 * 60;
@@ -188,74 +185,8 @@ public:
                             //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
-        addressChangeInterval = 50000;
-
-        // Community fund script expects a vector of 2-of-3 multisig addresses
-        vCommunityFundAddress = {
-        "zssEdGnZCQ9G86LZFtbynMn1hYTVhn6eYCL",
-        "zsrCsXXmUf8k59NLasEKfxA7us3iNvaPATz",
-        "zsnLPsWMXW2s4w9EmFSwtSLRxL2LhPcfdby",
-        "zshdovbcPfUAfkPeEE2qLbKnoue9RsbVokU",
-        "zsqmq97JAKCCBFRGvxgv6FiJgQLCZBDp62S",
-        "zskyFVFA7VRYX8EGdXmYN75WaBB25FmiL3g",
-        "zsmncLmwEUdVmAGPUrUnNKmPGXyej7mbmdM",
-        "zsfa9VVJCEdjfPbku4XrFcRR8kTDm2T64rz",
-        "zsjdMnfWuFi46VeN2HSXVQWEGsnGHgVxayY",
-        "zseb8wRQ8rZ722oLX5B8rx7qwZiBRb9mdig",
-        "zsjxkovhqiMVggoW7jvSRi3NTSD3a6b6qfd",
-        "zsokCCSU3wvZrS2G6mEDpJ5cH49E7sDyNr1",
-        "zt12EsFgkABHLMRXA7JNnpMqLrxsgCLnVEV",
-        "zt39mvuG9gDTHX8A8Qk45rbk3dSdQoJ8ZAv",
-        "zssTQZs5YxDGijKC86dvcDxzWogWcK7n5AK",
-        "zsywuMoQK7Bved2nrXs56AEtWBhpb88rMzS",
-        "zsxVS2w7h1fHFX2nQtGm4372pd4DSHzq9ee",
-        "zsupGi7ro3uC8CEVwm9r7vrdVUZaXQnHF6T",
-        "zshVZvW47dA5AB3Sqk1h7ytwWJeUJUJxxaE",
-        "zsubBCjvDx252MKFsL4Dcf5rJU9Z9Upqr1N",
-        "zsweaST3NcU4hfgkVULfCsfEq41pjgMDgcW",
-        "zswz6Rxb1S33fUpftETZwtGiVSeYxNKq2xc",
-        "zswnpHtiBbrvYDzbhPQshkgvLSfYhDMRJ4S",
-        "zsjSYAWaEYj35Ht7aXrRJUGY6Dc8qCmgYqu",
-        "zsvMv8fGroWR8epbSiGDCJHmfe6ec2uFQrt",
-        "zsujxCT56BExQDAwKwktBjtnopYnw8BiKbg",
-        "zsxeXc2FTAzmUmeZmqVsKVdwTMSvzyns4rT",
-        "zsuLqgABNudD8bVPbVGeUjGqapuoXp68i7F",
-        "zsoc39J1dCFK1U8kckZznvQkv8As7sajYLz",
-        "zt21NFdu1KRPJ7VRKtrWugM2Jqe5ePNmU4T",
-        "zsp15qbVcbx9ifcjKe6XZEJTvzsFUZ2BHLT",
-        "zso2KvqH6yxLQEYggHdmfL3Tcd5V6E9tqhp",
-        "zsnFG2W5ZHRYh3QucNze4mp31tBkemtfxdj",
-        "zsex2CGJtxHyHbpLXm7kESBmp3vWRqUkJMy",
-        "zsvtFv96nrgrXKUbtNe2BpCt8aQEp5oJ7F8",
-        "zsk5KitThmhK9KBa1KDybPgEmGSFTHzhMVA",
-        "zsuy4n48c4NsJyaCZEzwdAKULM1FqbB6Y4z",
-        "zsgtQVMpX2zNMLvHHG2NDwfqKoaebvVectJ",
-        "zszQqXRSPGdqsWw4iaMTNN6aJz4JjEzSdCF",
-        "zst6dBLrTtaMQBX7BLMNjKLTGcP11PBmgTV",
-        "zshD9r6Eb6dZGdzYW2HCb9CzkMokCT1NGJR",
-        "zswUaj1TboEGmvSfF7fdoxWyH3RMx7MBHHo",
-        "zsv8s4Poi5GxCsbBrRJ97Vsvazp84nrz5AN",
-        "zsmmxrKU6dqWFwUKow1iyovg3gxrgXpEivr",
-        "zskh1221aRC9WEfb5a59WxffeW34McmZZsw",
-        "zssAhuj57NnVm4yNFT6o8muRctABkUaBu3L",
-        "zsi5Yr4Z8HwBvdBqQE8gk7ahExDu95J4oqZ",
-        "zsy6ryEaxfk8emJ8bGVB7tmwRwBL8cfSqBW",
-        //"zsvM6GdLJWXAvKs9ruUDgEdKiJzN7qrtKcP",
-        //"zsre8uXg4TJTuqSaiKLQYjMd5ST3UwYorTj",
-        //"zsem4VjWQuzhhhWPLwQN39SewXV1xaCVrR4",
-        //"zt17Ett8K57LnhMt5RjUeYrjXDocjqt2oja",
-        //"zt2PZSoyKuigEgM6ss6id5wqem69mwSKSnP",
-        //"zszxnNPj2zg81McDarbQi76y3NYeqj8PkwU",
-        //"zsi3PoGMUzkj8kPAaq9YGYUS8Wp2pDRjR8X",
-        };
-        // vCommunityFundAddress2 is another set of FR addresses that substitutes old set since hfCommunityFundHeight block
-        vCommunityFundAddress2 = {
-        "zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82",
-        "zsfULrmbX7xbhqhAFRffVqCw9RyGv2hqNNG",
-        "zsoemTfqjicem2QVU8cgBHquKb1o9JR5p4Z",
-        "zt339oiGL6tTgc9Q71f5g1sFTZf6QiXrRUr"
-        };
-        assert(vCommunityFundAddress.size() <= consensus.GetLastCommunityRewardBlockHeight());
+//  commented out - seems to make no sense but kept around for reference just in case
+//        assert(vCommunityFundAddress.size() <= consensus.GetLastCommunityRewardBlockHeight());
 // ZEN_MOD_END
     }
 };
@@ -271,7 +202,6 @@ public:
 // ZEN_MOD_START
         strCurrencyUnits = "ZNT";
         consensus.fCoinbaseMustBeProtected = true;
-        consensus.fDisableCoinbaseProtectionForCommunityFund = true;
 // ZEN_MOD_END
         consensus.nMajorityEnforceBlockUpgrade = 51;
         consensus.nMajorityRejectBlockOutdated = 75;
@@ -282,14 +212,6 @@ public:
 //        consensus.fPowAllowMinDifficultyBlocks = true;
         consensus.nRuleChangeActivationThreshold = 1512; // 75% for testchains
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
-        consensus.nChainsplitIndex = 70000;
-        consensus.nChainsplitTime = 1494616813; // 05/12/2017 @ 7:20pm (UTC)
-
-        /** Zen soft/hard forks heights */
-        consensus.sfReplayProtectionHeight = 72650;
-        consensus.hfCommunityFundHeight = 85500;
-        consensus.hfFixP2SHHeight = 85500;
-        consensus.hfFixReplayProtectionHeight = 85500;
 
         pchMessageStart[0] = 0xbf;
         pchMessageStart[1] = 0xf2;
@@ -363,28 +285,8 @@ public:
         };
 
 // ZEN_MOD_START
-        addressChangeInterval = 10000;
-
-        // Community fund script expects a vector of 3-of-4 multisig addresses
-        vCommunityFundAddress = {
-            "zrH8KT8KUcpKKNBu3fjH4hA84jZBCawErqn", "zrGsMC4ou1r5Vxy7Dnxg4PfKpansx83BM8g", "zr6sB2Az36D8CqzeZNavB11WbovsGtJSAZG", "zrBAG3pXCTDq14nivNK9mW8SfwMNcdmMQpb",
-            "zrRLwpYRYky4wsvwLVrDp8fs89EBTRhNMB1", "zrLozMfptTmE3zLP5SrTLyB8TXqH84Agjrr", "zrMckkaLtVTEUvxj4ouU7BPDGa8xmdTZSVE", "zrFc897wJXmF7BcEdbvi2mS1bLrcuWYK6hm",
-            "zrHEnni486u9SNcLWacroSgcdyMA33tfM92", "zrJ3ymPV3R8Xk4N3BdNb898xvZvARm5K7mq", "zrDj3P6trx73291krxU51U9QnfkbGxkyJ6E", "zrJs3vMGFJi9pQCireeSLckJonamBnwTSrY",
-            "zrKFdXQoAkkycy52EFoWARyzZWx6Kat2Som", "zrEXbSe79FXA9KRMnJTZUWZdZhNnjcnAdrq", "zr7iAwfNgJsMpSCmijK3TuVDuNvSmLr1rUz", "zrDEK7K6cftqSjeyVUH1WqJtBUkXN7GidxH",
-            "zrRennuq75hyBVU4JymtZk8UcQ1vRPKpmpj", "zr9HRTL79pKmn5R8fvkC9kucZ4u1bQruLTD", "zrML8KXpJsa1NVnbJuawX86ZvAn543tWdTT", "zrLBAkQoxpEtnztSUEcdxnEvuwtgxyAMGX7",
-            "zr6kPnVzFBYmcBDsWoTrPHRuBxLq21o4zvT", "zrMY3vdvqs9KSvx9TawvcyuVurt1Jj6GPVo", "zr9WB1qBpM4nwi1mudUFfjtMNmqzaBQDsXn", "zrAHbtHDPAqmzWJMQqSYzGyFnDWN3oELZRs",
-            "zrH1f5K3z7EQ6RWWZ7StCDWHTZwFChBVA2W", "zrNTacAid9LS4kAqzM4sw1YcF7gLFrzVM7U", "zrFyZpMVKMeDqbn6A2uUiL9mZmgxuR1pUBg", "zrD1cqGFGzBcPogFHJvnN4XegvvmbTjA43t",
-            "zr5A1D7czWkB4pAWfGC5Pux5Ek7anYybdPK", "zr8yTAxCy6jAdsc6qPvmVEQHbYo25AJKhy9", "zrFW2YjQw4cABim5kEDwapbSqTz3wW7cWkk", "zr9nJvNbsrvUTZD41fhqAQeUcgMfqZmAweN",
-            "zrCx4dXZd5b2tD483Ds4diHpo1QxBMJ76Jr", "zr6eVeRwU6Puob3K1RfWtva1R458oj8pzkL", "zr7B92iHtQcobZjGCXo3DAqMQjsn7ka31wE", "zr8bcemLWAjYuphXSVqtqZWEnJipCB9F5oC",
-            "zrFzsuPXb7HsFd3srBqtVqnC9GQ94DQubV2", "zr4yiBobiHjHnCYi75NmYtyoqCV4A3kpHDL", "zrGVdR4K4F8MfmWxhUiTypK7PTsvHi8uTAh", "zr7WiCDqCMvUdH1xmMu8YrBMFb2x2E6BX3z",
-            "zrEFrGWLX4hPHuHRUD3TPbMAJyeSpMSctUc", "zr5c3f8PTnW8qBFX1GvK2LhyLBBCb1WDdGG", "zrGkAZkZLqC9QKJR3XomgxNizCpNuAupTeg", "zrM7muDowiun9tCHhu5K9vcDGfUptuYorfZ",
-            "zrCsWfwKotWnQmFviqAHAPAJ2jXqZYW966P", "zrLLB3JB3jozUoMGFEGhjqyVXTpngVQ8c4T", "zrAEa8YjJ2f3m2VsM1Xa9EwibZxEnRoSLUx", "zrAdJgp7Cx35xTvB7ABWP8YLTNDArMjP1s3"
-        };
-        // vCommunityFundAddress2 is another set of FR addresses that substitutes old set since hfCommunityFundHeight block
-        vCommunityFundAddress2 = {
-            "zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1"
-        };
-        assert(vCommunityFundAddress.size() <= consensus.GetLastCommunityRewardBlockHeight());
+//  commented out - seems to make no sense but kept around for reference just in case
+//        assert(vCommunityFundAddress.size() <= consensus.GetLastCommunityRewardBlockHeight());
 // ZEN_MOD_END
     }
 };
@@ -399,9 +301,6 @@ public:
         strNetworkID = "regtest";
         strCurrencyUnits = "REG";
         consensus.fCoinbaseMustBeProtected = false;
-// ZEN_MOD_START
-        consensus.fDisableCoinbaseProtectionForCommunityFund = true;
-// ZEN_MOD_END
         consensus.nSubsidySlowStartInterval = 0;
 // ZEN_MOD_START
         consensus.nSubsidyHalvingInterval = 2000;
@@ -416,14 +315,6 @@ public:
 // ZEN_MOD_START
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
-        consensus.nChainsplitIndex = 0;  // Note: non-zero value will break some tests in pull-tester (mostly because pre-chainsplit txs are rejected by Zen)
-        consensus.nChainsplitTime = 0;
-
-        /** Zen soft/hard forks heights */
-        consensus.sfReplayProtectionHeight = 1100;
-        consensus.hfCommunityFundHeight = 1200;
-        consensus.hfFixP2SHHeight = 0;   // Note: non-zero value will break some tests in pull-tester (because there are tests for P2SH)
-        consensus.hfFixReplayProtectionHeight = 1200;
 
         pchMessageStart[0] = 0x2f;
         pchMessageStart[1] = 0x54;
@@ -468,13 +359,8 @@ public:
             0
         };
 
-        addressChangeInterval = 100;
-
-        // Community fund script expects a vector of 2-of-3 multisig addresses
-        vCommunityFundAddress = { "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa" };
-        // vCommunityFundAddress2 is another set of FR addresses that substitutes old set since hfCommunityFundHeight block
-        vCommunityFundAddress2 = { "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa" };
-        assert(vCommunityFundAddress.size() <= consensus.GetLastCommunityRewardBlockHeight());
+//  commented out - seems to make no sense but kept around for reference just in case
+//        assert(vCommunityFundAddress.size() <= consensus.GetLastCommunityRewardBlockHeight());
 // ZEN_MOD_END
     }
 };
@@ -509,6 +395,9 @@ void SelectParams(CBaseChainParams::Network network) {
     if (network == CBaseChainParams::REGTEST && mapArgs.count("-regtestprotectcoinbase")) {
         regTestParams.SetRegTestCoinbaseMustBeProtected();
     }
+// ZEN_MOD_START
+    ForkManager::getInstance().selectNetwork(network);
+// ZEN_MOD_END
 }
 
 bool SelectParamsFromCommandLine()
@@ -527,22 +416,7 @@ bool SelectParamsFromCommandLine()
 std::string CChainParams::GetCommunityFundAddressAtHeight(int nHeight) const {
 
 // ZEN_MOD_START
-    // Since hfCommunityFundHeight block use another set of CF addresses
-    if (nHeight < consensus.hfCommunityFundHeight)
-    {
-        int maxHeight = consensus.GetLastCommunityRewardBlockHeight();
-        assert(nHeight > 0 && nHeight <= maxHeight);
-
-        size_t addressChangeInterval = (maxHeight + vCommunityFundAddress.size()) / vCommunityFundAddress.size();
-        size_t i = nHeight / addressChangeInterval;
-        return vCommunityFundAddress[i];
-    }
-    else
-    {
-        // change CF addresses every addressChangeInterval in a round-robin fashion
-        size_t i = ((nHeight - consensus.hfCommunityFundHeight) / addressChangeInterval) % vCommunityFundAddress2.size();
-        return vCommunityFundAddress2[i];
-    }
+    return ForkManager::getInstance().getCommunityFundAddress(nHeight,consensus.GetLastCommunityRewardBlockHeight());
 // ZEN_MOD_END
 }
 
@@ -560,23 +434,4 @@ CScript CChainParams::GetCommunityFundScriptAtHeight(int nHeight) const {
     return script;
 }
 
-// ZEN_MOD_START
-int CChainParams::GetNumCommunityFundAddresses() const {
-    return vCommunityFundAddress.size();
-}
-
-int CChainParams::GetNumCommunityFundAddresses2() const {
-    return vCommunityFundAddress2.size();
-}
-
-std::string CChainParams::GetCommunityFundAddressAtIndex(int i) const {
-    assert(i >= 0 && i < vCommunityFundAddress.size());
-    return vCommunityFundAddress[i];
-}
-
-std::string CChainParams::GetCommunityFundAddress2AtIndex(int i) const {
-    assert(i >= 0 && i < vCommunityFundAddress2.size());
-    return vCommunityFundAddress2[i];
-}
-// ZEN_MOD_END
 
