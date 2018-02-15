@@ -159,7 +159,13 @@ public:
     // Transaction hash
     uint256 hash;
     // Index into CTransaction.vjoinsplit
-    size_t js;
+// ZEN_MOD_START
+    #ifdef __APPLE__
+    uint64_t js;            // Index into CTransaction.vjoinsplit
+    #else
+    size_t js;              // Index into CTransaction.vjoinsplit
+    #endif
+// ZEN_MOD_END
     // Index into JSDescription fields of length ZC_NUM_JS_OUTPUTS
     uint8_t n;
 

@@ -25,6 +25,13 @@ public:
         typ = initialType;
         val = initialStr;
     }
+// ZEN_MOD_START
+    #ifdef __APPLE__
+    UniValue(size_t val_) {
+            setInt(val_);
+    }
+    #endif
+// ZEN_MOD_END
     UniValue(uint64_t val_) {
         setInt(val_);
     }
@@ -54,6 +61,11 @@ public:
     bool setNull();
     bool setBool(bool val);
     bool setNumStr(const std::string& val);
+// ZEN_MOD_START
+    #ifdef __APPLE__
+    bool setInt(size_t val_);
+    #endif
+// ZEN_MOD_END
     bool setInt(uint64_t val);
     bool setInt(int64_t val);
     bool setInt(int val_) { return setInt((int64_t)val_); }
@@ -92,6 +104,15 @@ public:
         std::string s(val_);
         return push_back(s);
     }
+// ZEN_MOD_START
+
+    #ifdef __APPLE__
+    bool push_back(size_t val_) {
+        UniValue tmpVal(val_);
+        return push_back(tmpVal);
+    }
+    #endif
+// ZEN_MOD_END
     bool push_back(uint64_t val_) {
         UniValue tmpVal(val_);
         return push_back(tmpVal);
@@ -182,6 +203,17 @@ static inline std::pair<std::string,UniValue> Pair(const char *cKey, const char 
     UniValue uVal(cVal);
     return std::make_pair(key, uVal);
 }
+
+// ZEN_MOD_START
+#ifdef __APPLE__
+static inline std::pair<std::string,UniValue> Pair(const char *cKey, size_t sizeVal)
+{
+    std::string key(cKey);
+    UniValue uVal(sizeVal);
+    return std::make_pair(key, uVal);
+}
+#endif
+// ZEN_MOD_END
 
 static inline std::pair<std::string,UniValue> Pair(const char *cKey, std::string strVal)
 {

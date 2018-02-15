@@ -47,8 +47,15 @@ JSDescription JSDescription::Randomized(
             const uint256& anchor,
             boost::array<libzcash::JSInput, ZC_NUM_JS_INPUTS>& inputs,
             boost::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS>& outputs,
+// ZEN_MOD_START
+            #ifdef __LP64__ // required to build on MacOS due to size_t ambiguity errors
+            boost::array<uint64_t, ZC_NUM_JS_INPUTS>& inputMap,
+            boost::array<uint64_t, ZC_NUM_JS_OUTPUTS>& outputMap,
+            #else
             boost::array<size_t, ZC_NUM_JS_INPUTS>& inputMap,
             boost::array<size_t, ZC_NUM_JS_OUTPUTS>& outputMap,
+            #endif
+// ZEN_MOD_END
             CAmount vpub_old,
             CAmount vpub_new,
             bool computeProof,
