@@ -73,7 +73,7 @@ ln -s /usr/bin/ranlib aarch64-unknown-linux-gnu-ranlib
 ln -s /usr/bin/strip aarch64-unknown-linux-gnu-strip
 PATH=$PATH:~/bin
 cd ~/zen/
-./zcutil.build-arm.sh --disable-rust -j$(nproc)
+./zcutil/build-arm.sh --disable-rust -j$(nproc)
 ```
 Instructions to redeem pre block 110,000 ZCL
 -------------
