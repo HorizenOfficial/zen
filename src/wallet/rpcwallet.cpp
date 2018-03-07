@@ -4763,6 +4763,9 @@ UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp)
         obj.pushKV("amount", ValueFromAmount(CAmount(entry.plaintext.value())));
         std::string data(entry.plaintext.memo().begin(), entry.plaintext.memo().end());
         obj.pushKV("memo", HexStr(data));
+        // (txid, jsindex, jsoutindex) is needed to globally identify a note
+        obj.pushKV("jsindex", entry.jsop.js);
+        obj.pushKV("jsoutindex", entry.jsop.n);
         result.push_back(obj);
     }
     return result;
