@@ -1218,8 +1218,8 @@ bool TransactionSignatureChecker::CheckBlockHash(const int32_t nHeight, const st
     }
 
     CBlockIndex* pblockindex = (*chain)[nHeight];
-    std::vector<unsigned char> vchBlockHash(pblockindex->GetBlockHash().begin(), pblockindex->GetBlockHash().end());
-    vchBlockHash.erase(vchBlockHash.begin(), vchBlockHash.end() - vchCompareTo.size());
+    uint256 blockHash = pblockindex->GetBlockHash();
+    std::vector<unsigned char> vchBlockHash(blockHash.begin(), blockHash.end());
 
     if (vchBlockHash.empty() || vchCompareTo.empty()) {
         return false;
