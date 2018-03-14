@@ -41,16 +41,8 @@ struct BIP9Deployment {
 struct Params {
     uint256 hashGenesisBlock;
 
-// ZEN_MOD_START
     /* Don't allow to send coinbase coins to transparent addresses. They should be first sent to the shielded addr */
-// ZEN_MOD_END
     bool fCoinbaseMustBeProtected;
-
-// ZEN_MOD_START
-    /* Disable coinbase protection for community fund coins, so it would be possible to send CF coins to transparent addr.
-     * Activated only if fCoinbaseMustBeProtected is true, otherwise all coins could be sent to transparent addr in spite of this option */
-    bool fDisableCoinbaseProtectionForCommunityFund;
-// ZEN_MOD_END
 
     /** Needs to evenly divide MAX_SUBSIDY to avoid rounding errors. */
     int nSubsidySlowStartInterval;
@@ -95,16 +87,6 @@ struct Params {
     int64_t AveragingWindowTimespan() const { return nPowAveragingWindow * nPowTargetSpacing; }
     int64_t MinActualTimespan() const { return (AveragingWindowTimespan() * (100 - nPowMaxAdjustUp  )) / 100; }
     int64_t MaxActualTimespan() const { return (AveragingWindowTimespan() * (100 + nPowMaxAdjustDown)) / 100; }
-// ZEN_MOD_START
-    /** Zen chainsplit*/
-    int nChainsplitIndex;
-    int nChainsplitTime;
-    /** List of Zen soft/hard forks */
-    int sfReplayProtectionHeight;
-    int hfCommunityFundHeight;
-    int hfFixP2SHHeight;
-    int hfFixReplayProtectionHeight;
-// ZEN_MOD_END
 };
 } // namespace Consensus
 

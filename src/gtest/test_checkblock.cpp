@@ -6,6 +6,10 @@
 #include "zcash/Proof.hpp"
 // ZEN_MOD_START
 #include "base58.h"
+#include "zen/forkmanager.h"
+#include "zen/chainsplitfork.h"
+#include "zen/communityfundandrpfixfork.h"
+using namespace zen;
 // ZEN_MOD_END
 
 class MockCValidationState : public CValidationState {
@@ -84,6 +88,7 @@ TEST(ContextualCheckBlock, BadCoinbaseHeight) {
 // ZEN_MOD_START
 TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     SelectParams(CBaseChainParams::MAIN);
+    ChainsplitFork chainsplitFork;
 
     CMutableTransaction mtx;
     mtx.vin.resize(1);
@@ -95,17 +100,17 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     CTransaction tx{mtx};
     CBlock block;
     block.vtx.push_back(tx);
-    block.nTime = Params().GetConsensus().nChainsplitTime;
+    block.nTime = chainsplitFork.getMinimumTime(CBaseChainParams::Network::MAIN);
 
     MockCValidationState state;
     CBlock prev;
     CBlockIndex indexPrev{prev};
 
-    // Blocks before chain split at 110000 don't need to contain community reward output
+    // Blocks before chain split at 110001 don't need to contain community reward output
     indexPrev.nHeight = 109998;
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 
-    // Blocks after chain split at 110000 should redirect a part of block subsidy to community fund
+    // Blocks after chain split at 110001 should redirect a part of block subsidy to community fund
     mtx.vin[0].scriptSig = CScript() << 110001 << OP_0;
     block.vtx[0] = CTransaction(mtx);
     indexPrev.nHeight = 110000;
@@ -136,8 +141,10 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     MockCValidationState state;
     CBlock prev;
     CBlockIndex indexPrev {prev};
-
-    int blockIndex = Params().GetConsensus().nChainsplitIndex + 1; // first block after chain split
+    ChainsplitFork chainplitFork;
+    CommunityFundAndRPFixFork communityFundAndRPFixFork;
+    
+    int blockIndex = chainplitFork.getHeight(CBaseChainParams::MAIN)+1;
     CBitcoinAddress address(Params().GetCommunityFundAddressAtHeight(blockIndex).c_str());
     CScriptID scriptID = boost::get<CScriptID>(address.Get());
 
@@ -152,12 +159,12 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     indexPrev.nHeight = 110000;
     CBlock block;
     block.vtx.push_back(CTransaction(mtx));
-    block.nTime = Params().GetConsensus().nChainsplitTime;
+    block.nTime = chainplitFork.getMinimumTime(CBaseChainParams::Network::MAIN);
     EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // Test bad amount for community reward output after hard fork
-    int hardForkHeight = Params().GetConsensus().hfCommunityFundHeight;
+    int hardForkHeight = communityFundAndRPFixFork.getHeight(CBaseChainParams::MAIN);
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
     CBitcoinAddress address1(Params().GetCommunityFundAddressAtHeight(hardForkHeight).c_str());
     CScriptID scriptID1 = boost::get<CScriptID>(address1.Get());
@@ -186,6 +193,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     MockCValidationState state;
     CBlock prev;
     CBlockIndex indexPrev {prev};
+    ChainsplitFork chainsplitFork;
 
     // Test bad addr for community reward output
     CMutableTransaction mtx;
@@ -199,7 +207,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     indexPrev.nHeight = 139198;
     CBlock block;
     block.vtx.push_back(CTransaction(mtx));
-    block.nTime = Params().GetConsensus().nChainsplitTime;
+    block.nTime = chainsplitFork.getMinimumTime(CBaseChainParams::Network::MAIN);
     EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 

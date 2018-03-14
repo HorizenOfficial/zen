@@ -14,7 +14,7 @@
 #include "util.h"
 #include "version.h"
 // ZEN_MOD_START
-#include "utiltls.h"
+#include "zen/utiltls.h"
 // ZEN_MOD_END
 
 #include <boost/foreach.hpp>
@@ -22,6 +22,9 @@
 #include <univalue.h>
 
 using namespace std;
+// ZEN_MOD_START
+using namespace zen;
+// ZEN_MOD_END
 
 UniValue getconnectioncount(const UniValue& params, bool fHelp)
 {

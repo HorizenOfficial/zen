@@ -15,6 +15,8 @@
 // ZEN_MOD_START
 #include "main.h"
 #include "versionbits.h"
+#include "zen/forkmanager.h"
+using namespace zen;
 // ZEN_MOD_END
 
 using namespace std;
@@ -207,7 +209,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
                 const int32_t nHeight = CScriptNum(vchBlockHeight, false, sizeof(int32_t)).getint();
 
-                if ((nHeight < 0 || nHeight > chainActive.Height()) && chainActive.Height() > Params().GetConsensus().hfFixReplayProtectionHeight)
+                if ((nHeight < 0 || nHeight > chainActive.Height()) && ForkManager::getInstance().getReplayProtectionLevel(nHeight) == RPLEVEL_FIXED)
                 {
                     LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Transaction is non-final. nHeight: %d", __FILE__, __func__, nHeight);
                     break;

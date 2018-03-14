@@ -16,6 +16,8 @@
 #include "util.h"
 #include "utiltls.h"
 
+namespace zen {
+
 // Set of most common default trusted certificates directories used by OpenSSL
 static const char* defaultTrustedDirs[] =
 {
@@ -488,4 +490,5 @@ int LoadDefaultRootCertificates(SSL_CTX *ctx)
     }
 
     return certsLoaded;
+}
 }

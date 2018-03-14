@@ -42,6 +42,12 @@
 #include <boost/thread.hpp>
 #include <boost/static_assert.hpp>
 
+// ZEN_MOD_START
+#include "zen/forkmanager.h"
+
+using namespace zen;
+// ZEN_MOD_END
+
 using namespace std;
 
 #if defined(NDEBUG)
@@ -689,7 +695,7 @@ bool IsStandardTx(const CTransaction& tx, string& reason)
              whichType != TX_PUBKEYHASH_REPLAY &&
              whichType != TX_MULTISIG_REPLAY &&
              whichType != TX_SCRIPTHASH_REPLAY) &&
-             nHeight > Params().GetConsensus().nChainsplitIndex &&
+             ForkManager::getInstance().isAfterChainsplit(nHeight) &&
             !tx.IsCoinBase())
         {
             reason = "op-checkblockatheight-needed";
@@ -889,17 +895,16 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
              whichType != TX_PUBKEYHASH_REPLAY &&
              whichType != TX_MULTISIG_REPLAY &&
              whichType != TX_SCRIPTHASH_REPLAY) &&
-             chainActive.Height() > Params().GetConsensus().sfReplayProtectionHeight &&
+             ForkManager::getInstance().getReplayProtectionLevel(chainActive.Height()) >= RPLEVEL_BASIC &&
              !tx.IsCoinBase())
         {
             return state.DoS(0, error("%s: %s: op-checkblockatheight-needed. Tx id: %s", __FILE__, __func__, tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
 
-        if (whichType == TX_SCRIPTHASH_REPLAY &&
-            chainActive.Height() < Params().GetConsensus().hfFixP2SHHeight)
+        if (whichType == TX_SCRIPTHASH_REPLAY && ForkManager::getInstance().getReplayProtectionLevel(chainActive.Height()) != RPLEVEL_FIXED)
         {
-            return state.DoS(0, error("%s: %s: TX_SCRIPTHASH_REPLAY will be activated only after %d block. Transaction rejected. Tx id: %s", __FILE__, __func__, Params().GetConsensus().hfFixP2SHHeight, tx.GetHash().ToString()),
+            return state.DoS(0, error("%s: %s: TX_SCRIPTHASH_REPLAY is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, chainActive.Height(), tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
     }
@@ -1127,7 +1132,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
 // ZEN_MOD_START
     // Silently drop pre-chainsplit transactions
-    if (Params().GetConsensus().nChainsplitIndex > chainActive.Tip()->nHeight)
+    if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight))
         return false;
 // ZEN_MOD_END
     
@@ -1488,7 +1493,7 @@ bool IsInitialBlockDownload()
     const CChainParams& chainParams = Params();
     LOCK(cs_main);
 // ZEN_MOD_START
-    if (chainActive.Height() < chainParams.GetConsensus().nChainsplitIndex + 1)
+    if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Height()))
         return false;
 // ZEN_MOD_END
     if (fImporting || fReindex)
@@ -1702,22 +1707,20 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
 
 // ZEN_MOD_START
 bool IsCommunityFund(const CCoins *coins, int nIn)
-// ZEN_MOD_END
 {
     if(coins != NULL &&
        coins->IsCoinBase() &&
-       coins->nHeight > Params().GetConsensus().nChainsplitIndex &&
+       ForkManager::getInstance().isAfterChainsplit(coins->nHeight) &&
        coins->vout.size() > nIn)
     {
-// ZEN_MOD_START
         CScript communityScriptPubKey = Params().GetCommunityFundScriptAtHeight(coins->nHeight);
         if (coins->vout[nIn].scriptPubKey == communityScriptPubKey)
-// ZEN_MOD_END
             return true;
     }
 
     return false;
 }
+// ZEN_MOD_END
 
 namespace Consensus {
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
@@ -1756,9 +1759,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 // ZEN_MOD_START
                     // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed
                     // to send them to the transparent addr.
-                    const int HARD_FORK_HEIGHT = consensusParams.hfCommunityFundHeight;
-                    bool fDisableProtectionForFR = consensusParams.fDisableCoinbaseProtectionForCommunityFund
-                                                   && HARD_FORK_HEIGHT <= nSpendHeight;
+                    bool fDisableProtectionForFR = ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(nSpendHeight);
                     if (!fDisableProtectionForFR || !IsCommunityFund(coins, prevout.n)) {
                         return state.Invalid(
                                 error("CheckInputs(): tried to spend coinbase with transparent outputs"),
@@ -3331,20 +3332,17 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
 
 // ZEN_MOD_START
     // Reject the post-chainsplit block until a specific time is reached
-    if ((nHeight == consensusParams.nChainsplitIndex + 1) && (block.GetBlockTime() < consensusParams.nChainsplitTime))
+    if (ForkManager::getInstance().isAfterChainsplit(nHeight) && block.GetBlockTime() < ForkManager::getInstance().getMinimumTimema(nHeight))
     {
         return state.DoS(10, error("%s: post-chainsplit block received prior to scheduled time", __func__), REJECT_INVALID, "bad-cs-time");
     }
 
-    // Coinbase transaction must include an output sending 8.5% of
+    CAmount reward = GetBlockSubsidy(nHeight, consensusParams);
+    // Coinbase transaction must include an output sending x.x% of
     // the block reward to a community fund script
-    if ((nHeight > consensusParams.nChainsplitIndex)) {
+    CAmount communityReward = ForkManager::getInstance().getCommunityFundReward(nHeight,reward);
+    if (communityReward > 0) {
         bool found = false;
-
-        CAmount communityReward = (GetBlockSubsidy(nHeight, consensusParams) * 85) / 1000;
-        // The CF reward is increased to 12% since hfCommunityFundHeight block
-        if (nHeight >= consensusParams.hfCommunityFundHeight)
-            communityReward = (GetBlockSubsidy(nHeight, consensusParams) * 120) / 1000;
 
         BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
             if (output.scriptPubKey == Params().GetCommunityFundScriptAtHeight(nHeight)) {
@@ -4931,7 +4929,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         LOCK(cs_main);
 
 // ZEN_MOD_START
-        if (IsInitialBlockDownload() && chainActive.Tip()->nHeight >= Params().GetConsensus().nChainsplitIndex)
+        if (IsInitialBlockDownload() && ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight))
 // ZEN_MOD_END
             return true;
 
@@ -5659,7 +5657,8 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
             // Only actively request headers from a single peer, unless we're close to today.
 // ZEN_MOD_START
             time_t t = time(0);
-            if (t < consensusParams.nChainsplitTime && chainActive.Tip()->nHeight < consensusParams.nChainsplitIndex) {
+            int height = chainActive.Tip()->nHeight;
+            if (t < ForkManager::getInstance().getMinimumTime(height) && (!ForkManager::getInstance().isAfterChainsplit(height))) {
                 fFetch = true;
                 if ((nSyncStarted == 0 && fFetch) || pindexBestHeader->GetBlockTime() > GetAdjustedTime() - 14 * 24 * 60 * 60) {
                     state.fSyncStarted = true;

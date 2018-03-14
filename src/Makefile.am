@@ -37,6 +37,9 @@ LIBSECP256K1=secp256k1/libsecp256k1.la
 LIBSNARK=snark/build/lib/libsnark.a
 LIBUNIVALUE=univalue/libunivalue.la
 LIBZCASH=libzcash.a
+# ZEN_MOD_START
+LIBZENCASH=libzencash.a
+# ZEN_MOD_END
 
 $(LIBSECP256K1): $(wildcard secp256k1/src/*) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
@@ -64,13 +67,17 @@ $(LIBUNIVALUE): $(wildcard univalue/lib/*)
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
+# ZEN_MOD_START
 EXTRA_LIBRARIES = \
   crypto/libbitcoin_crypto.a \
   libbitcoin_util.a \
   libbitcoin_common.a \
   libbitcoin_server.a \
   libbitcoin_cli.a \
-  libzcash.a
+  libzcash.a \
+  libzencash.a
+# ZEN_MOD_END
+
 if ENABLE_WALLET
 BITCOIN_INCLUDES += $(BDB_CPPFLAGS)
 EXTRA_LIBRARIES += libbitcoin_wallet.a
@@ -118,7 +125,6 @@ LIBZCASH_H = \
 
 .PHONY: FORCE collate-libsnark check-symbols check-security
 # bitcoin core #
-# ZEN_MOD_START
 BITCOIN_CORE_H = \
   addrman.h \
   alert.h \
@@ -212,7 +218,6 @@ BITCOIN_CORE_H = \
   utilmoneystr.h \
   utilstrencodings.h \
   utiltime.h \
-  utiltls.h\
   validationinterface.h \
   versionbits.h \
   version.h \
@@ -227,6 +232,12 @@ BITCOIN_CORE_H = \
   zmq/zmqconfig.h\
   zmq/zmqnotificationinterface.h \
   zmq/zmqpublishnotifier.h
+
+# ZEN_MOD_START
+LIBZENCASH_H = \
+    zen/utiltls.h\
+    zen/forkmanager.h\
+    zen/replayprotectionlevel.h
 # ZEN_MOD_END
 
 
@@ -277,11 +288,11 @@ libbitcoin_server_a_SOURCES = \
   torcontrol.cpp \
   txdb.cpp \
   txmempool.cpp \
-  utiltls.cpp\
   validationinterface.cpp \
   versionbits.cpp \
   $(BITCOIN_CORE_H) \
-  $(LIBZCASH_H)
+  $(LIBZCASH_H) \
+  $(LIBZENCASH_H)
 # ZEN_MOD_END
 
 if ENABLE_ZMQ
@@ -448,12 +459,11 @@ zend_LDADD = \
   $(LIBBITCOIN_UTIL) \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBZCASH) \
+  $(LIBZENCASH) \
   $(LIBSNARK) \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
-
-
 
 if ENABLE_ZMQ
 zend_LDADD += $(LIBBITCOIN_ZMQ) $(ZMQ_LIBS)
@@ -496,6 +506,7 @@ zen_cli_LDADD = \
   $(CRYPTO_LIBS) \
   $(EVENT_LIBS) \
   $(LIBZCASH) \
+  $(LIBZENCASH) \
   $(LIBSNARK) \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBZCASH_LIBS)
@@ -518,6 +529,7 @@ zen_tx_LDADD = \
   $(LIBBITCOIN_UTIL) \
   $(LIBSECP256K1) \
   $(LIBZCASH) \
+  $(LIBZENCASH) \
   $(LIBSNARK) \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBZCASH_LIBS)
@@ -588,6 +600,31 @@ libzcashconsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
 endif
 #
+
+# ZEN_MOD_START
+# zencash-specific sources #
+libzencash_a_SOURCES = \
+    zen/utiltls.cpp\
+    zen/chainsplitfork.cpp\
+    zen/fork.cpp\
+    zen/forkmanager.cpp\
+    zen/originalfork.cpp\
+    zen/communityfundandrpfixfork.cpp\
+    zen/replayprotectionfork.cpp
+
+if HAVE_OPENMP
+libzencash_a_CPPFLAGS = -DMULTICORE -fopenmp
+endif
+libzencash_a_CPPFLAGS := $(libzencash_a_CPPFLAGS) -fPIC -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DBOOST_SPIRIT_THREADSAFE -DHAVE_BUILD_INFO -D__STDC_FORMAT_MACROS $(HARDENED_CPPFLAGS) -pipe -O1 -g -Wstack-protector -fstack-protector-all -fPIE -fvisibility=hidden -DSTATIC $(BITCOIN_INCLUDES)
+
+libzencash_a_CXXFLAGS = $(HARDENED_CXXFLAGS) -fwrapv -fno-strict-aliasing
+
+libzencash_a_LDFLAGS = $(HARDENED_LDFLAGS)
+
+libzencash_a_CPPFLAGS += -DMONTGOMERY_OUTPUT
+
+# ZEN_MOD_END
+
 
 CLEANFILES = leveldb/libleveldb.a leveldb/libmemenv.a *.gcda *.gcno */*.gcno wallet/*/*.gcno
 
