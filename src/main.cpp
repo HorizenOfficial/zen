@@ -3332,7 +3332,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
 
 // ZEN_MOD_START
     // Reject the post-chainsplit block until a specific time is reached
-    if (ForkManager::getInstance().isAfterChainsplit(nHeight) && block.GetBlockTime() < ForkManager::getInstance().getMinimumTimema(nHeight))
+    if (ForkManager::getInstance().isAfterChainsplit(nHeight) && block.GetBlockTime() < ForkManager::getInstance().getMinimumTime(nHeight))
     {
         return state.DoS(10, error("%s: post-chainsplit block received prior to scheduled time", __func__), REJECT_INVALID, "bad-cs-time");
     }
