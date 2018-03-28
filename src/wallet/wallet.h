@@ -285,6 +285,14 @@ struct CNotePlaintextEntry
     libzcash::NotePlaintext plaintext;
 };
 
+/** Decrypted note, location in a transaction, and confirmation height. */
+struct CUnspentNotePlaintextEntry {
+    JSOutPoint jsop;
+    libzcash::PaymentAddress address;
+    libzcash::NotePlaintext plaintext;
+    int nHeight;
+};
+
 class CWalletTransactionBase
 {
 protected:
@@ -1237,6 +1245,12 @@ public:
                           bool ignoreSpent=true,
                           bool ignoreUnspendable=true);
     
+    /* Find unspent notes filtered by payment address, min depth and max depth */
+    void GetUnspentFilteredNotes(std::vector<CUnspentNotePlaintextEntry>& outEntries,
+                                 std::set<libzcash::PaymentAddress>& filterAddresses,
+                                 int minDepth=1,
+                                 int maxDepth=INT_MAX,
+                                 bool requireSpendingKey=true);
 };
 
 /** A key allocated from the key pool. */
