@@ -1,12 +1,8 @@
 package=openssl
-# ZEN_MOD_START
-$(package)_version=1.1.0g
-# ZEN_MOD_END
+$(package)_version=1.1.0h
 $(package)_download_path=https://www.openssl.org/source
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-# ZEN_MOD_START
-$(package)_sha256_hash=de4d501267da39310905cb6dc8c6121f7a2cad45a7707f76df828fe1b85073af
-# ZEN_MOD_END
+$(package)_sha256_hash=5835626cde9e99656585fc7aaa2302a73a7e1340bf8c14fd635a62c66802a517
 
 define $(package)_set_vars
 $(package)_config_env=AR="$($(package)_ar)" RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)"
