@@ -37,6 +37,11 @@ public:
      */
     inline virtual bool canSendCommunityFundsToTransparentAddress() const { return true; }
 
+    /**
+     * @brief isTransactionTypeAllowed returns true if this transaction type is allowed in this fork, false otherwise
+     */
+    virtual bool isTransactionTypeAllowed(txnouttype transactionType) const;
+
 private:
     
     /**

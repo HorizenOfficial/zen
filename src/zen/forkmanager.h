@@ -9,7 +9,7 @@
 #include "amount.h"
 #include <list>
 #include "zen/replayprotectionlevel.h"
-
+#include "script/standard.h"
 
 namespace zen {
 class Fork;
@@ -63,6 +63,11 @@ public:
      * @brief isAfterChainsplit returns true if this height is after the original chain split, false otherwise
      */
     bool isAfterChainsplit(int height) const;
+
+    /**
+     * @brief isTransactionTypeAllowed returns true if this transaction type is allowed at this block height, false otherwise
+     */
+    bool isTransactionTypeAllowedAtHeight(int height, txnouttype transactionType) const;
 private:
     
     /**

@@ -163,6 +163,7 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
 
 # ZEN_MOD_START
         # This send will succeed.  We send two coinbase utxos totalling 22.875 less a fee of 0.00010000, with no change.
+        shieldvalue = Decimal('22.875') - Decimal('0.0001')
         recipients = []
         recipients.append({"address":myzaddr, "amount": Decimal('22.875') - Decimal('0.0001')})
 # ZEN_MOD_END

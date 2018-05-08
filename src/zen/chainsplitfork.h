@@ -26,6 +26,11 @@ public:
      * @brief isAfterChainsplit returns true if this height is after the original chain split, false otherwise
      */
     inline virtual bool isAfterChainsplit() const { return true; }
+
+    /**
+     * @brief isTransactionTypeAllowed returns true if this transaction type is allowed in this fork, false otherwise
+     */
+    virtual bool isTransactionTypeAllowed(txnouttype transactionType) const;
 };
 }
 
