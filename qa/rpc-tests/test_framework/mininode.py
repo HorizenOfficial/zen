@@ -256,7 +256,34 @@ def FromHex(obj, hex_string):
 # Convert a binary-serializable object to hex (eg for submission via RPC)
 def ToHex(obj):
     return bytes_to_hex_str(obj.serialize())
+def deser_char_vector(f):
+    nit = struct.unpack("<B", f.read(1))[0]
+    if nit == 253:
+        nit = struct.unpack("<H", f.read(2))[0]
+    elif nit == 254:
+        nit = struct.unpack("<I", f.read(4))[0]
+    elif nit == 255:
+        nit = struct.unpack("<Q", f.read(8))[0]
+    r = []
+    for i in xrange(nit):
+        t = struct.unpack("<B", f.read(1))[0]
+        r.append(t)
+    return r
 
+
+def ser_char_vector(l):
+    r = ""
+    if len(l) < 253:
+        r = chr(len(l))
+    elif len(l) < 0x10000:
+        r = chr(253) + struct.pack("<H", len(l))
+    elif len(l) < 0x100000000L:
+        r = chr(254) + struct.pack("<I", len(l))
+    else:
+        r = chr(255) + struct.pack("<Q", len(l))
+    for i in l:
+        r += chr(i)
+    return r
 # ZEN_MOD_END
 
 

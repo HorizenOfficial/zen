@@ -11,7 +11,8 @@ TEST(ForkManager, TestCommunityFundReward) {
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(70000,fakeReward),0);
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(70001,fakeReward),85);
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(75000,fakeReward),85);
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(100000,fakeReward),120);
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(90000,fakeReward),120);
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(120000,fakeReward),300);
 }
 
 TEST(ForkManager, TestReplayProtection) {
@@ -32,7 +33,7 @@ TEST(ForkManager, TestTransparentCFAddress) {
 
 TEST(ForkManager, SelectNetworkAfterChainsplit) {
     SelectParams(CBaseChainParams::REGTEST);
-    EXPECT_TRUE(ForkManager::getInstance().isAfterChainsplit(0));    
+    EXPECT_TRUE(ForkManager::getInstance().isAfterChainsplit(1));    
     SelectParams(CBaseChainParams::MAIN);
     EXPECT_TRUE(!ForkManager::getInstance().isAfterChainsplit(0));    
 }

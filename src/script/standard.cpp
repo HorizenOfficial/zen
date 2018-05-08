@@ -90,6 +90,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 // ZEN_MOD_END
         }
         mTemplates.insert(make_pair(TX_NULL_DATA, CScript() << OP_RETURN));
+        mTemplates.insert(make_pair(TX_NULL_DATA_REPLAY, CScript() << OP_RETURN << OP_SMALLDATA << OP_SMALLDATA << OP_CHECKBLOCKATHEIGHT));
     }
 
 // ZEN_MOD_START

@@ -17,7 +17,7 @@ public:
      * @brief OriginalFork constructor
      */
     OriginalFork();
-    
+
     /**
      * @brief getCommunityFundAddress returns the community fund address based on the passed in height and maxHeight
      */
@@ -43,6 +43,10 @@ public:
      */
     inline virtual bool isAfterChainsplit() const { return false; }
 
+    /**
+     * @brief isTransactionTypeAllowed returns true if this transaction type is allowed in this fork, false otherwise
+     */
+    virtual bool isTransactionTypeAllowed(txnouttype transactionType) const;
 };
 
 }

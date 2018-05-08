@@ -10,7 +10,7 @@
 from test_framework.test_framework import BitcoinTestFramework
 # ZEN_MOD_START
 from test_framework.util import *
-from test_framework.script import CScript, OP_1, OP_DROP, OP_2, OP_HASH160, OP_EQUAL, hash160, OP_TRUE
+from test_framework.script import CScript, OP_1, OP_DROP, OP_2, OP_HASH160, OP_EQUAL, hash160, OP_TRUE, OP_CHECKBLOCKATHEIGHT
 from test_framework.mininode import CTransaction, CTxIn, CTxOut, COutPoint, ToHex, COIN
 
 # Construct 2 trivial P2SH's and the ScriptSigs that spend them
@@ -18,8 +18,11 @@ from test_framework.mininode import CTransaction, CTxIn, CTxOut, COutPoint, ToHe
 # time signing.
 redeem_script_1 = CScript([OP_1, OP_DROP])
 redeem_script_2 = CScript([OP_2, OP_DROP])
-P2SH_1 = CScript([OP_HASH160, hash160(redeem_script_1), OP_EQUAL])
-P2SH_2 = CScript([OP_HASH160, hash160(redeem_script_2), OP_EQUAL])
+#ZEN_MOD_START
+genesis_block_hash = hex_str_to_bytes("bb1acf2c1fc1228967a611c7db30632098f0c641855180b5fe23793b72eea50d")
+P2SH_1 = CScript([OP_HASH160, hash160(redeem_script_1), OP_EQUAL,CScript(genesis_block_hash),0,OP_CHECKBLOCKATHEIGHT])
+P2SH_2 = CScript([OP_HASH160, hash160(redeem_script_2), OP_EQUAL,CScript(genesis_block_hash),0,OP_CHECKBLOCKATHEIGHT])
+#ZEN_MOD_END
 
 # Associated ScriptSig's to spend satisfy P2SH_1 and P2SH_2
 SCRIPT_SIG = [CScript([OP_TRUE, redeem_script_1]), CScript([OP_TRUE, redeem_script_2])]

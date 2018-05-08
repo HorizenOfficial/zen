@@ -75,7 +75,7 @@ class MempoolTxInputLimitTest(BitcoinTestFramework):
         assert_equal(set(self.nodes[0].getrawmempool()), set())
 
         # Reduce amount to only use two inputs
-        spend_zaddr_amount = Decimal('20.0') - Decimal('0.0001')
+        spend_zaddr_amount = Decimal('22.875') - Decimal('0.0001')
         spend_zaddr_id = self.call_z_sendmany(node0_taddr, node0_zaddr, spend_zaddr_amount) # utxo amount less fee
         self.sync_all()
 

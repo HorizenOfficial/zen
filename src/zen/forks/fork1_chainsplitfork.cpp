@@ -1,4 +1,4 @@
-#include "originalfork.h"
+#include "fork1_chainsplitfork.h"
 
 namespace zen {
 
@@ -6,13 +6,12 @@ namespace zen {
 /// PUBLIC MEMBERS
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
- * @brief OriginalFork constructor
+ * @brief ChainsplitFork constructor
  */
-OriginalFork::OriginalFork()
-{
-    setHeightMap({{CBaseChainParams::Network::MAIN,0},
-                  {CBaseChainParams::Network::REGTEST,0},
-                  {CBaseChainParams::Network::TESTNET,0}});
+ChainsplitFork::ChainsplitFork() {
+    setHeightMap({{CBaseChainParams::Network::MAIN,110001},
+                  {CBaseChainParams::Network::REGTEST,1},
+                  {CBaseChainParams::Network::TESTNET,70001}});
     setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN,{
                                      "zssEdGnZCQ9G86LZFtbynMn1hYTVhn6eYCL","zsrCsXXmUf8k59NLasEKfxA7us3iNvaPATz","zsnLPsWMXW2s4w9EmFSwtSLRxL2LhPcfdby","zshdovbcPfUAfkPeEE2qLbKnoue9RsbVokU",
                                      "zsqmq97JAKCCBFRGvxgv6FiJgQLCZBDp62S","zskyFVFA7VRYX8EGdXmYN75WaBB25FmiL3g","zsmncLmwEUdVmAGPUrUnNKmPGXyej7mbmdM","zsfa9VVJCEdjfPbku4XrFcRR8kTDm2T64rz",
@@ -45,9 +44,9 @@ OriginalFork::OriginalFork()
                                      "zrCsWfwKotWnQmFviqAHAPAJ2jXqZYW966P", "zrLLB3JB3jozUoMGFEGhjqyVXTpngVQ8c4T", "zrAEa8YjJ2f3m2VsM1Xa9EwibZxEnRoSLUx", "zrAdJgp7Cx35xTvB7ABWP8YLTNDArMjP1s3"
                                  }}});
     setMinimumTimeMap({
-                               {CBaseChainParams::Network::MAIN,0},
+                               {CBaseChainParams::Network::MAIN,1496187000},
                                {CBaseChainParams::Network::REGTEST,0},
-                               {CBaseChainParams::Network::TESTNET,0}
+                               {CBaseChainParams::Network::TESTNET,1494616813}
                            });
 }
 
@@ -56,8 +55,8 @@ OriginalFork::OriginalFork()
  * @param reward the main reward
  * @return the community reward
  */
-CAmount OriginalFork::getCommunityFundReward(const CAmount& amount) const {
-    return (CAmount)0L;
+CAmount ChainsplitFork::getCommunityFundReward(const CAmount& amount) const {
+    return (CAmount)amount*85/1000;
 }
 
 /**
@@ -66,7 +65,7 @@ CAmount OriginalFork::getCommunityFundReward(const CAmount& amount) const {
  * @param maxHeight the maximum height sometimes used in the computation of the proper address
  * @return the community fund address for this height
  */
-const std::string& OriginalFork::getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight) const {
+const std::string& ChainsplitFork::getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight) const {
 
     assert(height > 0 && height <= maxHeight);
     const std::vector<std::string>& communityFundAddresses = this->getCommunityFundAddresses(network);
@@ -74,4 +73,24 @@ const std::string& OriginalFork::getCommunityFundAddress(CBaseChainParams::Netwo
     size_t i = height / addressChangeInterval;
     return communityFundAddresses[i];
 }
+
+
+/**
+ * @brief isTransactionTypeAllowed returns true if this transaction type is allowed in this fork, false otherwise
+ * @param transactionType transaction type
+ * @return true if allowed, false otherwise
+ */
+bool ChainsplitFork::isTransactionTypeAllowed(txnouttype transactionType) const {
+    switch (transactionType) {
+    case TX_NONSTANDARD:
+    case TX_PUBKEY_REPLAY:
+    case TX_PUBKEYHASH_REPLAY:
+    case TX_MULTISIG_REPLAY:
+    case TX_PUBKEYHASH: // bug in replay protection
+        return true;
+    default:
+        return false;
+    }
+}
+
 }

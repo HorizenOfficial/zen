@@ -1,7 +1,7 @@
 #ifndef REPLAYPROTECTIONFIXFORK_H
 #define REPLAYPROTECTIONFIXFORK_H
 
-#include "replayprotectionfork.h"
+#include "fork2_replayprotectionfork.h"
 
 namespace zen {
 
@@ -36,6 +36,11 @@ public:
      * @brief canSendCommunityFundsToTransparentAddress true if community funds can be sent to a transparent address
      */
     inline virtual bool canSendCommunityFundsToTransparentAddress() const { return true; }
+
+    /**
+     * @brief isTransactionTypeAllowed returns true if this transaction type is allowed in this fork, false otherwise
+     */
+    virtual bool isTransactionTypeAllowed(txnouttype transactionType) const;
 
 private:
     

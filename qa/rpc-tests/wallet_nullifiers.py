@@ -22,16 +22,16 @@ class WalletNullifiersTest (BitcoinTestFramework):
         myzaddr0 = self.nodes[0].z_getnewaddress()
 
         # send node 0 taddr to zaddr to get out of coinbase
-        mytaddr = self.nodes[0].getnewaddress();
+        mytaddr = self.nodes[0].getnewaddress()
 
 # ZEN_MOD_START
-        self.nodes[0].sendtoaddress(mytaddr, "11.4374")
+        self.nodes[0].sendtoaddress(mytaddr, "11")
         self.nodes[0].generate(1)
 # ZEN_MOD_END
 
         recipients = []
 # ZEN_MOD_START
-        recipients.append({"address":myzaddr0, "amount":Decimal('11.4374')-Decimal('0.0001')}) # utxo amount less fee
+        recipients.append({"address":myzaddr0, "amount":Decimal('11')-Decimal('0.0001')}) # utxo amount less fee
 # ZEN_MOD_END
         myopid = self.nodes[0].z_sendmany(mytaddr, recipients)
 
@@ -185,10 +185,11 @@ class WalletNullifiersTest (BitcoinTestFramework):
         zaddrremaining2 = zaddrremaining - zsendmany3notevalue - zsendmanyfee
         assert_equal(self.nodes[1].z_getbalance(myzaddr), zaddrremaining2)
         assert_equal(self.nodes[2].z_getbalance(myzaddr), zaddrremaining2)
-
         # Test viewing keys
-
-        node3mined = Decimal('250.0')
+#ZEN_MOD_START
+        # 285.9375 = 25 * 11.4375
+        node3mined = Decimal('285.9375')
+#ZEN_MOD_END 
         assert_equal({k: Decimal(v) for k, v in self.nodes[3].z_gettotalbalance().items()}, {
             'transparent': node3mined,
             'private': zsendmany2notevalue,

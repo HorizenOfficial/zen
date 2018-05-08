@@ -136,7 +136,12 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         # Test 5: Add an invalid tx to the end (non-duplicate)
         txlist.append(bytearray(txlist[0]))
         txlist[-1][4+1] = b'\xff'
-        assert_template(node, tmpl, txlist, 'bad-txns-inputs-missingorspent')
+        #ZEN_MOD_START
+        #! This transaction is failing sooner than intended in the
+        #! test because of the lack of an op-checkblockheight
+        #assert_template(node, tmpl, txlist, 'bad-txns-inputs-missingorspent') 
+        assert_template(node, tmpl, txlist, 'op-checkblockatheight-needed')
+        #ZEN_MOD_END
         txlist.pop()
 
         # Test 6: Future tx lock time

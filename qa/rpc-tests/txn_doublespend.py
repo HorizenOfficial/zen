@@ -10,7 +10,7 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, connect_nodes, \
     sync_blocks, gather_inputs
-
+from decimal import Decimal
 
 class TxnMallTest(BitcoinTestFramework):
 
@@ -25,6 +25,7 @@ class TxnMallTest(BitcoinTestFramework):
     def run_test(self):
 # ZEN_MOD_START
         mining_reward = Decimal("11.4375")
+        mining_reward_2 = Decimal("11")
 # ZEN_MOD_END
         starting_balance = mining_reward * 25
 
@@ -63,7 +64,7 @@ class TxnMallTest(BitcoinTestFramework):
         # Node0's balance should be starting balance, plus mining_reward for another
         # matured block, minus (starting_balance - (mining_reward - 2)), minus 5, and minus transaction fees:
         expected = starting_balance
-        if self.options.mine_block: expected += mining_reward
+        if self.options.mine_block: expected += mining_reward_2
         expected += tx1["amount"] + tx1["fee"]
         expected += tx2["amount"] + tx2["fee"]
         assert_equal(self.nodes[0].getbalance(), expected)
@@ -94,10 +95,12 @@ class TxnMallTest(BitcoinTestFramework):
         # Both transactions should be conflicted
         assert_equal(tx1["confirmations"], -1)
         assert_equal(tx2["confirmations"], -1)
-
+# ZEN_MOD_START
         # Node0's total balance should be starting balance, plus (mining_reward * 2) for
         # two more matured blocks, minus (starting_balance - (mining_reward - 2)) for the double-spend:
-        expected = starting_balance + (mining_reward * 2) - (starting_balance - (mining_reward - 2))
+        
+        expected = starting_balance + (mining_reward_2 * 2) - (starting_balance - (mining_reward - 2))
+# ZEN_MOD_END        
         assert_equal(self.nodes[0].getbalance(), expected)
         assert_equal(self.nodes[0].getbalance("*"), expected)
 
