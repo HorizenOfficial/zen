@@ -648,11 +648,6 @@ unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans) EXCLUSIVE_LOCKS_REQUIRE
 }
 
 
-
-
-
-
-
 bool IsStandardTx(const CTransaction& tx, string& reason)
 {
     if (tx.nVersion > CTransaction::MAX_CURRENT_VERSION || tx.nVersion < CTransaction::MIN_CURRENT_VERSION) {
@@ -689,19 +684,14 @@ bool IsStandardTx(const CTransaction& tx, string& reason)
 
 // ZEN_MOD_START
         int nHeight = chainActive.Height();
+        
         // provide temporary replay protection for two minerconf windows during chainsplit
-        // TODO: do we really need this check here?
-        if ((whichType != TX_PUBKEY_REPLAY &&
-             whichType != TX_PUBKEYHASH_REPLAY &&
-             whichType != TX_MULTISIG_REPLAY &&
-             whichType != TX_SCRIPTHASH_REPLAY) &&
-             ForkManager::getInstance().isAfterChainsplit(nHeight) &&
-            !tx.IsCoinBase())
-        {
+        if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(nHeight,whichType))) {
             reason = "op-checkblockatheight-needed";
             return false;
         }
-        else if (whichType == TX_NULL_DATA)
+
+        if (whichType == TX_NULL_DATA || whichType == TX_NULL_DATA_REPLAY)
 // ZEN_MOD_END
             nDataOut++;
         else if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
@@ -891,20 +881,9 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
         txnouttype whichType;
         ::IsStandard(txout.scriptPubKey, whichType);
 
-        if ((whichType != TX_PUBKEY_REPLAY &&
-             whichType != TX_PUBKEYHASH_REPLAY &&
-             whichType != TX_MULTISIG_REPLAY &&
-             whichType != TX_SCRIPTHASH_REPLAY) &&
-             ForkManager::getInstance().getReplayProtectionLevel(chainActive.Height()) >= RPLEVEL_BASIC &&
-             !tx.IsCoinBase())
-        {
-            return state.DoS(0, error("%s: %s: op-checkblockatheight-needed. Tx id: %s", __FILE__, __func__, tx.GetHash().ToString()),
-                             REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
-        }
-
-        if (whichType == TX_SCRIPTHASH_REPLAY && ForkManager::getInstance().getReplayProtectionLevel(chainActive.Height()) != RPLEVEL_FIXED)
-        {
-            return state.DoS(0, error("%s: %s: TX_SCRIPTHASH_REPLAY is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, chainActive.Height(), tx.GetHash().ToString()),
+        // provide temporary replay protection for two minerconf windows during chainsplit
+        if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(),whichType))) {
+            return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, ::GetTxnOutputType(whichType), chainActive.Height(), tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
     }
@@ -1493,6 +1472,7 @@ bool IsInitialBlockDownload()
     const CChainParams& chainParams = Params();
     LOCK(cs_main);
 // ZEN_MOD_START
+    // from commit: https://github.com/ZencashOfficial/zen/commit/0c479520d29cae571dc531e54aa01813daacd1e1
     if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Height()))
         return false;
 // ZEN_MOD_END
@@ -1503,13 +1483,11 @@ bool IsInitialBlockDownload()
     static bool lockIBDState = false;
     if (lockIBDState)
         return false;
-// ZEN_MOD_START
     bool state = (chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 ||
             pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge());
     if (!state)
         lockIBDState = true;
     return state;
-// ZEN_MOD_END
 }
 
 bool fLargeWorkForkFound = false;
@@ -2215,9 +2193,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         CBlockIndex *pindexLastCheckpoint = Checkpoints::GetLastCheckpoint(chainparams.Checkpoints());
         if (pindexLastCheckpoint && pindexLastCheckpoint->GetAncestor(pindex->nHeight) == pindex) {
             // This block is an ancestor of a checkpoint: disable script checks
-            fExpensiveChecks = false;
+            fExpensiveChecks = false;            
         }
-    }
+    }    
 
     auto verifier = libzcash::ProofVerifier::Strict();
     auto disabledVerifier = libzcash::ProofVerifier::Disabled();
@@ -3332,7 +3310,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
 
 // ZEN_MOD_START
     // Reject the post-chainsplit block until a specific time is reached
-    if (ForkManager::getInstance().isAfterChainsplit(nHeight) && block.GetBlockTime() < ForkManager::getInstance().getMinimumTime(nHeight))
+    if (ForkManager::getInstance().isAfterChainsplit(nHeight) && !ForkManager::getInstance().isAfterChainsplit(nHeight-1)  && block.GetBlockTime() < ForkManager::getInstance().getMinimumTime(nHeight))
     {
         return state.DoS(10, error("%s: post-chainsplit block received prior to scheduled time", __func__), REJECT_INVALID, "bad-cs-time");
     }
@@ -3354,7 +3332,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
         }
 
         if (!found) {
-            return state.DoS(100, error("%s: community fund missing", __func__), REJECT_INVALID, "cb-no-community-fund");
+            return state.DoS(100, error("%s: community fund missing block %d", __func__, nHeight), REJECT_INVALID, "cb-no-community-fund");
         }
 // ZEN_MOD_END
     }
@@ -4928,9 +4906,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
         LOCK(cs_main);
 
-// ZEN_MOD_START
-        if (IsInitialBlockDownload() && ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight))
-// ZEN_MOD_END
+        if (IsInitialBlockDownload())
             return true;
 
         CBlockIndex* pindex = NULL;

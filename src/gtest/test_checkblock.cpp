@@ -7,8 +7,8 @@
 // ZEN_MOD_START
 #include "base58.h"
 #include "zen/forkmanager.h"
-#include "zen/chainsplitfork.h"
-#include "zen/communityfundandrpfixfork.h"
+#include "zen/forks/fork1_chainsplitfork.h"
+#include "zen/forks/fork3_communityfundandrpfixfork.h"
 using namespace zen;
 // ZEN_MOD_END
 
@@ -180,7 +180,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     CBitcoinAddress address2(Params().GetCommunityFundAddressAtHeight(halvingBlock).c_str());
     CScriptID scriptID2 = boost::get<CScriptID>(address2.Get());
     mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID2) << OP_EQUAL;
-    mtx.vout[0].nValue = 0.75 * COIN;
+    mtx.vout[0].nValue = 1.875 * COIN;
     mtx.vin[0].scriptSig = CScript() << halvingBlock << OP_0;
     block.vtx[0] = CTransaction(mtx);;
     indexPrev.nHeight = halvingBlock - 1;
@@ -249,6 +249,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     CScriptID scriptID6 = boost::get<CScriptID>(CBitcoinAddress("zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82").Get());
     mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID6) << OP_EQUAL;
     mtx.vin[0].scriptSig = CScript() << 339200 << OP_0;
+    mtx.vout[0].nValue = 3.75 * COIN;   // higher coin here due to change of hard fork
     indexPrev.nHeight = 339199;
     block.vtx[0] = CTransaction(mtx);
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));

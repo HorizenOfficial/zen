@@ -73,11 +73,11 @@ class WalletTest (BitcoinTestFramework):
         self.sync_all()
 
 # ZEN_MOD_START
-        # node0 should end up with (11.4375*5) btc in block rewards plus fees, but
+        # node0 should end up with (11.4375*4 + 8.75) btc in block rewards plus fees, but
         # minus the 23.4375 plus fees sent to node2
-        assert_equal(self.nodes[0].getbalance(), (11.4375*5)-23.4375)
+        assert_equal(self.nodes[0].getbalance(), (11.4375*4 + 8.75)-23.4375)
         assert_equal(self.nodes[2].getbalance(), 23.4375)
-        assert_equal(self.nodes[0].getbalance("*"), (11.4375*5)-23.4375)
+        assert_equal(self.nodes[0].getbalance("*"), (11.4375*4 + 8.75)-23.4375)
         assert_equal(self.nodes[2].getbalance("*"), 23.4375)
 # ZEN_MOD_END
 
@@ -121,11 +121,11 @@ class WalletTest (BitcoinTestFramework):
 
         assert_equal(self.nodes[0].getbalance(), 0)
 # ZEN_MOD_START
-        assert_equal(self.nodes[2].getbalance(), 11.4375 * 5)
+        assert_equal(self.nodes[2].getbalance(), 11.4375*4 + 8.75)
 # ZEN_MOD_END
         assert_equal(self.nodes[0].getbalance("*"), 0)
 # ZEN_MOD_START
-        assert_equal(self.nodes[2].getbalance("*"), 11.4375 * 5)
+        assert_equal(self.nodes[2].getbalance("*"), 11.4375*4 + 8.75)
 # ZEN_MOD_END
 
         # Send 11.4375 BTC normal
@@ -138,9 +138,10 @@ class WalletTest (BitcoinTestFramework):
         self.nodes[2].generate(1)
         self.sync_all()
 # ZEN_MOD_START
-        assert_equal(self.nodes[2].getbalance(), Decimal('45.749'))
+        # 43.0615 = (11.4375*3 + 8.75) - 0.001
+        assert_equal(self.nodes[2].getbalance(), Decimal('43.0615'))
         assert_equal(self.nodes[0].getbalance(), Decimal('11.4375'))
-        assert_equal(self.nodes[2].getbalance("*"), Decimal('45.749'))
+        assert_equal(self.nodes[2].getbalance("*"), Decimal('43.0615'))
         assert_equal(self.nodes[0].getbalance("*"), Decimal('11.4375'))
 
         # Send 11.4375 BTC with subtract fee from amount
@@ -150,9 +151,10 @@ class WalletTest (BitcoinTestFramework):
         self.nodes[2].generate(1)
         self.sync_all()
 # ZEN_MOD_START
-        assert_equal(self.nodes[2].getbalance(), Decimal('34.3115'))
+        # 31.624 = (11.4375*2 + 8.75) - 0.001
+        assert_equal(self.nodes[2].getbalance(), Decimal('31.624'))
         assert_equal(self.nodes[0].getbalance(), Decimal('22.874'))
-        assert_equal(self.nodes[2].getbalance("*"), Decimal('34.3115'))
+        assert_equal(self.nodes[2].getbalance("*"), Decimal('31.624'))
         assert_equal(self.nodes[0].getbalance("*"), Decimal('22.874'))
 # ZEN_MOD_END
 
@@ -162,9 +164,10 @@ class WalletTest (BitcoinTestFramework):
         self.nodes[2].generate(1)
         self.sync_all()
 # ZEN_MOD_START
-        assert_equal(self.nodes[2].getbalance(), Decimal('24.3105'))
+        # 21.623 = 31.624 -10 - 0.001
+        assert_equal(self.nodes[2].getbalance(), Decimal('21.623'))
         assert_equal(self.nodes[0].getbalance(), Decimal('32.874'))
-        assert_equal(self.nodes[2].getbalance("*"), Decimal('24.3105'))
+        assert_equal(self.nodes[2].getbalance("*"), Decimal('21.623'))
         assert_equal(self.nodes[0].getbalance("*"), Decimal('32.874'))
 # ZEN_MOD_END
 
@@ -174,9 +177,10 @@ class WalletTest (BitcoinTestFramework):
         self.nodes[2].generate(1)
         self.sync_all()
 # ZEN_MOD_START
-        assert_equal(self.nodes[2].getbalance(), Decimal('14.3105'))
+        # 11.623 = 21.623 - 10
+        assert_equal(self.nodes[2].getbalance(), Decimal('11.623'))
         assert_equal(self.nodes[0].getbalance(), Decimal('42.873'))
-        assert_equal(self.nodes[2].getbalance("*"), Decimal('14.3105'))
+        assert_equal(self.nodes[2].getbalance("*"), Decimal('11.623'))
         assert_equal(self.nodes[0].getbalance("*"), Decimal('42.873'))
 # ZEN_MOD_END
 
@@ -243,8 +247,8 @@ class WalletTest (BitcoinTestFramework):
         self.nodes[1].generate(1) #mine a block, tx should not be in there
         self.sync_all()
 # ZEN_MOD_START
-        assert_equal(self.nodes[2].getbalance(), Decimal('14.3105')); #should not be changed because tx was not broadcasted
-        assert_equal(self.nodes[2].getbalance("*"), Decimal('14.3105')); #should not be changed because tx was not broadcasted
+        assert_equal(self.nodes[2].getbalance(), Decimal('11.623')); #should not be changed because tx was not broadcasted
+        assert_equal(self.nodes[2].getbalance("*"), Decimal('11.623')); #should not be changed because tx was not broadcasted
 # ZEN_MOD_END
 
         #now broadcast from another node, mine a block, sync, and check the balance
@@ -254,8 +258,8 @@ class WalletTest (BitcoinTestFramework):
         self.sync_all()
         txObjNotBroadcasted = self.nodes[0].gettransaction(txIdNotBroadcasted)
 # ZEN_MOD_START
-        assert_equal(self.nodes[2].getbalance(), Decimal('16.3105')); #should not be
-        assert_equal(self.nodes[2].getbalance("*"), Decimal('16.3105')); #should not be
+        assert_equal(self.nodes[2].getbalance(), Decimal('13.623')); #should not be
+        assert_equal(self.nodes[2].getbalance("*"), Decimal('13.623')); #should not be
 # ZEN_MOD_END
 
         #create another tx
@@ -275,8 +279,8 @@ class WalletTest (BitcoinTestFramework):
 
         #tx should be added to balance because after restarting the nodes tx should be broadcastet
 # ZEN_MOD_START
-        assert_equal(self.nodes[2].getbalance(), Decimal('18.3105')); #should not be
-        assert_equal(self.nodes[2].getbalance("*"), Decimal('18.3105')); #should not be
+        assert_equal(self.nodes[2].getbalance(), Decimal('15.623')); #should not be
+        assert_equal(self.nodes[2].getbalance("*"), Decimal('15.623')); #should not be
 # ZEN_MOD_END
 
         # send from node 0 to node 2 taddr
@@ -385,7 +389,7 @@ class WalletTest (BitcoinTestFramework):
         zsendmanynotevalue = Decimal('7.0')
         zsendmanyfee = Decimal('0.0001')
 # ZEN_MOD_START
-        node2utxobalance = Decimal('28.3105') - zsendmanynotevalue - zsendmanyfee
+        node2utxobalance = Decimal('25.623') - zsendmanynotevalue - zsendmanyfee
 # ZEN_MOD_END
 
         assert_equal(self.nodes[2].getbalance(), node2utxobalance)
@@ -417,7 +421,7 @@ class WalletTest (BitcoinTestFramework):
         # send from private note to node 0 and node 2
 # ZEN_MOD_START
         node0balance = self.nodes[0].getbalance() # 28.87298817
-        node2balance = self.nodes[2].getbalance() # 21.3104
+        node2balance = self.nodes[2].getbalance() # 18.6229
 # ZEN_MOD_END
 
         recipients = []

@@ -6,6 +6,7 @@
 #define FORK_H
 
 #include "chainparamsbase.h"
+#include "script/standard.h"
 #include "amount.h"
 #include <map>
 #include <vector>
@@ -68,6 +69,13 @@ public:
      * @brief isAfterChainsplit returns true if this height is after the original chain split, false otherwise
      */
     virtual bool isAfterChainsplit() const=0;
+    
+    /**
+     * @brief isTransactionTypeAllowed returns true if this transaction type is allowed in this fork, false otherwise
+     * @param transactionType transaction type
+     * @return true if allowed, false otherwise
+     */
+    virtual bool isTransactionTypeAllowed(txnouttype transactionType) const=0;
 
 protected:
     

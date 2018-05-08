@@ -35,16 +35,16 @@ class PaymentDisclosureTest (BitcoinTestFramework):
 
         self.nodes[0].generate(4)
         walletinfo = self.nodes[0].getwalletinfo()
-        assert_equal(walletinfo['immature_balance'], 40)
+        assert_equal(walletinfo['immature_balance'], 11.4375*4)
         assert_equal(walletinfo['balance'], 0)
         self.sync_all()
         self.nodes[2].generate(3)
         self.sync_all()
         self.nodes[1].generate(101)
         self.sync_all()
-        assert_equal(self.nodes[0].getbalance(), 40)
-        assert_equal(self.nodes[1].getbalance(), 10)
-        assert_equal(self.nodes[2].getbalance(), 30)
+        assert_equal(self.nodes[0].getbalance(), 11.4375*4)
+        assert_equal(self.nodes[1].getbalance(), 11.4375)
+        assert_equal(self.nodes[2].getbalance(), 11.4375*3)
 
         mytaddr = self.nodes[0].getnewaddress()
         myzaddr = self.nodes[0].z_getnewaddress()
@@ -66,7 +66,7 @@ class PaymentDisclosureTest (BitcoinTestFramework):
             assert("No information available about transaction" in errorString)
 
         # Shield coinbase utxos from node 0 of value 40, standard fee of 0.00010000
-        recipients = [{"address":myzaddr, "amount":Decimal('40.0')-Decimal('0.0001')}]
+        recipients = [{"address":myzaddr, "amount":Decimal('45.75')-Decimal('0.0001')}]
         myopid = self.nodes[0].z_sendmany(mytaddr, recipients)
         txid = wait_and_assert_operationid_status(self.nodes[0], myopid)
 
@@ -161,8 +161,10 @@ class PaymentDisclosureTest (BitcoinTestFramework):
         pd = self.nodes[0].z_getpaymentdisclosure(txid, 0, 1)
         result = self.nodes[0].z_validatepaymentdisclosure(pd)
         output_value_sum += Decimal(result["value"])
-        assert_equal(output_value_sum, Decimal('39.99990000'))
-
+#ZEN_MOD_START
+        # 45.74990000 = 11.4375*4 -0.0001
+        assert_equal(output_value_sum, Decimal('45.74990000'))
+#ZEN_MOD_END
         # Create a z->z transaction, sending shielded funds from node 0 to node 1
         node1zaddr = self.nodes[1].z_getnewaddress()
         recipients = [{"address":node1zaddr, "amount":Decimal('1')}]

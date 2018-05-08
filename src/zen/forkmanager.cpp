@@ -3,11 +3,12 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "forkmanager.h"
-#include "fork.h"
-#include "originalfork.h"
-#include "chainsplitfork.h"
-#include "replayprotectionfork.h"
-#include "communityfundandrpfixfork.h"
+#include "forks/fork.h"
+#include "forks/fork0_originalfork.h"
+#include "forks/fork1_chainsplitfork.h"
+#include "forks/fork2_replayprotectionfork.h"
+#include "forks/fork3_communityfundandrpfixfork.h"
+#include "forks/fork4_nulltransactionfork.h"
 
 namespace zen {
 
@@ -91,6 +92,16 @@ bool ForkManager::isAfterChainsplit(int height) const {
     return getForkAtHeight(height)->isAfterChainsplit();
 }
 
+/**
+ * @brief isTransactionTypeAllowed returns true if this transaction type is allowed at this block height, false otherwise
+ * @param height the block height to test against
+ * @param transactionType transaction type
+ * @return true if allowed, false otherwise
+ */
+bool ForkManager::isTransactionTypeAllowedAtHeight(int height, txnouttype transactionType) const {
+    return getForkAtHeight(height)->isTransactionTypeAllowed(transactionType);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// PRIVATE MEMBERS
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -105,6 +116,7 @@ ForkManager::ForkManager() {
     registerFork(new ChainsplitFork());
     registerFork(new ReplayProtectionFork());
     registerFork(new CommunityFundAndRPFixFork());
+    registerFork(new NullTransactionFork());
 }
 
 /**

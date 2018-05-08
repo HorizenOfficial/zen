@@ -36,6 +36,8 @@
 #include <openssl/ssl.h>
 // ZEN_MOD_END
 
+
+
 class CAddrMan;
 class CBlockIndex;
 class CScheduler;

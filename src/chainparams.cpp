@@ -11,9 +11,7 @@
 
 #include <assert.h>
 // ZEN_MOD_START
-#include <ctime> // used for chainsplit
 #include "zen/forkmanager.h"
-#include "zen/chainsplitfork.h"
 
 using namespace zen;
 // ZEN_MOD_END
@@ -75,14 +73,8 @@ public:
         vAlertPubKey = ParseHex("048679fb891b15d0cada9692047fd0ae26ad8bfb83fabddbb50334ee5bc0683294deb410be20513c5af6e7b9cec717ade82b27080ee6ef9a245c36a795ab044bb3");
         nDefaultPort = 9033;
 //       nMinerThreads = 0;
-        std::time_t result = std::time(nullptr);
-        // temp code until we figure out what this is for and if it's needed
-        ChainsplitFork chainsplitFork;
-        if (result < chainsplitFork.getMinimumTime(CBaseChainParams::Network::MAIN) + (24 * 60 * 60))
-            nMaxTipAge = 10 * 24 * 60 * 60; // Allow blocks up to 10 days old to be the chain tip
-        else
-            nMaxTipAge = 24 * 60 * 60;
 // ZEN_MOD_END
+        nMaxTipAge = 24 * 60 * 60;
         nPruneAfterHeight = 100000;
         const size_t N = 200, K = 9;
         BOOST_STATIC_ASSERT(equihash_parameters_acceptable(N, K));
@@ -101,6 +93,7 @@ public:
         const char* pszTimestamp = "Zclassic860413afe207aa173afee4fcfa9166dc745651c754a41ea8f155646f5aa828ac";
 // ZEN_MOD_END
         CMutableTransaction txNew;
+        txNew.nVersion = 1;
         txNew.vin.resize(1);
         txNew.vout.resize(1);
 // ZEN_MOD_START
@@ -172,14 +165,15 @@ public:
 
 // ZEN_MOD_START
         checkpointData = (Checkpoints::CCheckpointData) {
-            boost::assign::map_list_of
+            boost::assign::map_list_of           
             ( 0, consensus.hashGenesisBlock)
             ( 30000, uint256S("0x000000005c2ad200c3c7c8e627f67b306659efca1268c9bb014335fdadc0c392"))
             ( 96577, uint256S("0x0000000177751545bd1af3ccf276ec2920d258453ab01f3d2f8f7fcc5f3a37b8"))
             ( 110000, uint256S("0x000000003f5d6ba1385c6cd2d4f836dfc5adf7f98834309ad67e26faef462454"))
-            ( 139200, uint256S("0x00000001ea53c09a45e3f097ba8f48a4c117b5b368031c4eb2fa02cb5a84c99e")),
-            1500666121,     // * UNIX timestamp of last checkpoint block
-            355208,         // * total number of transactions between genesis and last checkpoint
+            ( 139200, uint256S("0x00000001ea53c09a45e3f097ba8f48a4c117b5b368031c4eb2fa02cb5a84c99e"))
+            ( 294072, uint256S("0x000000005f9ceecc87d9e5eaab2cf548c787231829ad6f609975fadd10fff5be")),
+            1524276059, //1500666121,     // * UNIX timestamp of last checkpoint block
+            2132058, //355208,         // * total number of transactions between genesis and last checkpoint
                             //   (the tx=... number in the SetBestChain debug.log lines)
             1470            // * estimated number of transactions per day after checkpoint
                             //   total number of tx / (checkpoint block height / (24 * 24))

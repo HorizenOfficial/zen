@@ -142,8 +142,8 @@ class BitcoinTestFramework(object):
             print("Note: bitcoinds were not stopped and may still be running")
 
         if not self.options.nocleanup and not self.options.noshutdown:
-            print("Cleaning up")
-            shutil.rmtree(self.options.tmpdir)
+            print("(NOT) Cleaning up")
+            #shutil.rmtree(self.options.tmpdir)
 
         if success:
             print("Tests successful")

@@ -280,18 +280,26 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
 // ZEN_MOD_START
     BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 12.5);
     BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 0.0);
-    BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 110000"));
+    
+    BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 110001"));
     obj = retValue.get_obj();
     BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 11.4375);
     BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 1.0625);
+    
     BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 139200"));
     obj = retValue.get_obj();
     BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 11.0);
     BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 1.5);
+    
+    BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 300000"));
+    obj = retValue.get_obj();
+    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 8.75);
+    BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 3.75);
+
     BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 840001"));
     obj = retValue.get_obj();
-    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 5.5);
-    BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 0.75);
+    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 4.375);
+    BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 1.875);
 // ZEN_MOD_END
 
     /*

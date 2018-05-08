@@ -3,7 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "fork.h"
-#include "forkmanager.h"
 
 namespace zen {
 

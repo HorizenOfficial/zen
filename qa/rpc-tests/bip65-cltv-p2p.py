@@ -12,6 +12,7 @@ from test_framework.comptool import TestInstance, TestManager
 from test_framework.script import CScript, OP_1NEGATE, OP_NOP2, OP_DROP
 from binascii import unhexlify
 import cStringIO
+import time
 
 
 '''

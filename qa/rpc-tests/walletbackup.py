@@ -168,8 +168,8 @@ class WalletBackupTest(BitcoinTestFramework):
 
         # At this point, there are 214 blocks (103 for setup, then 10 rounds, then 101.)
 # ZEN_MOD_START
-        # 114 are mature, so the sum of all wallets should be 114 * 11.4375 = 1303.875.
-        assert_equal(total, 1303.875)
+        # 114 are mature, so the sum of all wallets should be 100*11.4375 + 4 * 11 + 10*8.75 = 1275.25
+        assert_equal(total, 1275.25)
 # ZEN_MOD_END
 
         ##

@@ -163,6 +163,7 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
 
 # ZEN_MOD_START
         # This send will succeed.  We send two coinbase utxos totalling 22.875 less a fee of 0.00010000, with no change.
+        shieldvalue = Decimal('22.875') - Decimal('0.0001')
         recipients = []
         recipients.append({"address":myzaddr, "amount": Decimal('22.875') - Decimal('0.0001')})
 # ZEN_MOD_END
@@ -219,7 +220,9 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
         check_value_pool(self.nodes[0], 'sprout', sproutvalue)
 
         # convert note to transparent funds
-        unshieldvalue = Decimal('10.0')
+# ZEN_MOD_START
+        unshieldvalue = Decimal('11.4375')
+# ZEN_MOD_END
         recipients = []
 # ZEN_MOD_START
         recipients.append({"address":mytaddr, "amount":Decimal('11.4375')})

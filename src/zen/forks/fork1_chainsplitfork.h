@@ -1,7 +1,7 @@
 #ifndef CHAINSPLITFORK_H
 #define CHAINSPLITFORK_H
 
-#include "originalfork.h"
+#include "fork0_originalfork.h"
 
 namespace zen {
 
@@ -23,9 +23,19 @@ public:
     virtual CAmount getCommunityFundReward(const CAmount& amount) const;
 
     /**
+     * @brief getCommunityFundAddress returns the community fund address based on the passed in height and maxHeight
+     */
+    virtual const std::string& getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight) const;
+
+    /**
      * @brief isAfterChainsplit returns true if this height is after the original chain split, false otherwise
      */
     inline virtual bool isAfterChainsplit() const { return true; }
+
+    /**
+     * @brief isTransactionTypeAllowed returns true if this transaction type is allowed in this fork, false otherwise
+     */
+    virtual bool isTransactionTypeAllowed(txnouttype transactionType) const;
 };
 }
 
