@@ -10,7 +10,7 @@ namespace zen {
  */
 CommunityFundAndRPFixFork::CommunityFundAndRPFixFork(){
     setHeightMap({{CBaseChainParams::Network::MAIN,139200},
-                  {CBaseChainParams::Network::REGTEST,1200},
+                  {CBaseChainParams::Network::REGTEST,101},
                   {CBaseChainParams::Network::TESTNET,85500}});
     setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN,{
                                      "zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82",
@@ -53,4 +53,15 @@ const std::string& CommunityFundAndRPFixFork::getCommunityFundAddress(CBaseChain
     size_t i = ((height - getHeight(network)) / addressChangeInterval) % communityFundAddresses.size();
     return communityFundAddresses[i];
 }
+/**
+ * @brief isTransactionTypeAllowed returns true if this transaction type is allowed in this fork, false otherwise
+ * @param transactionType transaction type
+ * @return true if allowed, false otherwise
+ */
+bool CommunityFundAndRPFixFork::isTransactionTypeAllowed(txnouttype transactionType) const {
+    if (transactionType == TX_SCRIPTHASH_REPLAY)
+        return true;
+    return ReplayProtectionFork::isTransactionTypeAllowed(transactionType);
+}
+
 }

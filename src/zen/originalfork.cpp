@@ -74,4 +74,23 @@ const std::string& OriginalFork::getCommunityFundAddress(CBaseChainParams::Netwo
     size_t i = height / addressChangeInterval;
     return communityFundAddresses[i];
 }
+
+/**
+ * @brief isTransactionTypeAllowed returns true if this transaction type is allowed in this fork, false otherwise
+ * @param transactionType transaction type
+ * @return true if allowed, false otherwise
+ */
+bool OriginalFork::isTransactionTypeAllowed(txnouttype transactionType) const {
+    switch (transactionType) {
+    case TX_NONSTANDARD:
+    case TX_PUBKEY:
+    case TX_PUBKEYHASH:
+    case TX_SCRIPTHASH:
+    case TX_MULTISIG:
+    case TX_NULL_DATA:
+        return true;
+    default:
+        return false;
+    }
+}
 }

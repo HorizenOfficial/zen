@@ -47,6 +47,7 @@ testScripts=(
     'getblocktemplate.py'
     'bip65-cltv-p2p.py'
     'bipdersig-p2p.py'
+    'nulldata.py'
 );
 # ZEN_MOD_START
 testScriptsExt=(
@@ -65,6 +66,7 @@ testScriptsExt=(
 #   'invalidblockrequest.py'    # requires create_block functionality that is not implemented for zcash blocks yet
 #   'forknotify.py'
 #   'p2p-acceptblock.py'        # requires create_block functionality that is not implemented for zcash blocks yet
+    'replay_protection.py'
 );
 # ZEN_MOD_END
 

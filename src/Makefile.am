@@ -610,7 +610,8 @@ libzencash_a_SOURCES = \
     zen/forkmanager.cpp\
     zen/originalfork.cpp\
     zen/communityfundandrpfixfork.cpp\
-    zen/replayprotectionfork.cpp
+    zen/replayprotectionfork.cpp\
+    zen/nulltransactionfork.cpp
 
 if HAVE_OPENMP
 libzencash_a_CPPFLAGS = -DMULTICORE -fopenmp

@@ -689,19 +689,14 @@ bool IsStandardTx(const CTransaction& tx, string& reason)
 
 // ZEN_MOD_START
         int nHeight = chainActive.Height();
+        
         // provide temporary replay protection for two minerconf windows during chainsplit
-        // TODO: do we really need this check here?
-        if ((whichType != TX_PUBKEY_REPLAY &&
-             whichType != TX_PUBKEYHASH_REPLAY &&
-             whichType != TX_MULTISIG_REPLAY &&
-             whichType != TX_SCRIPTHASH_REPLAY) &&
-             ForkManager::getInstance().isAfterChainsplit(nHeight) &&
-            !tx.IsCoinBase())
-        {
+        if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(nHeight,whichType))) {
             reason = "op-checkblockatheight-needed";
             return false;
         }
-        else if (whichType == TX_NULL_DATA)
+        
+        if (whichType == TX_NULL_DATA || whichType == TX_NULL_DATA_REPLAY)
 // ZEN_MOD_END
             nDataOut++;
         else if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
@@ -891,20 +886,9 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
         txnouttype whichType;
         ::IsStandard(txout.scriptPubKey, whichType);
 
-        if ((whichType != TX_PUBKEY_REPLAY &&
-             whichType != TX_PUBKEYHASH_REPLAY &&
-             whichType != TX_MULTISIG_REPLAY &&
-             whichType != TX_SCRIPTHASH_REPLAY) &&
-             ForkManager::getInstance().getReplayProtectionLevel(chainActive.Height()) >= RPLEVEL_BASIC &&
-             !tx.IsCoinBase())
-        {
-            return state.DoS(0, error("%s: %s: op-checkblockatheight-needed. Tx id: %s", __FILE__, __func__, tx.GetHash().ToString()),
-                             REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
-        }
-
-        if (whichType == TX_SCRIPTHASH_REPLAY && ForkManager::getInstance().getReplayProtectionLevel(chainActive.Height()) != RPLEVEL_FIXED)
-        {
-            return state.DoS(0, error("%s: %s: TX_SCRIPTHASH_REPLAY is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, chainActive.Height(), tx.GetHash().ToString()),
+        // provide temporary replay protection for two minerconf windows during chainsplit
+        if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(),whichType))) {
+            return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, ::GetTxnOutputType(whichType), chainActive.Height(), tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
     }

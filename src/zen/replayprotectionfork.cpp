@@ -10,7 +10,7 @@ namespace zen {
  */
 ReplayProtectionFork::ReplayProtectionFork() {
     setHeightMap({{CBaseChainParams::Network::MAIN,117576},
-                  {CBaseChainParams::Network::REGTEST,1101},
+                  {CBaseChainParams::Network::REGTEST,100},
                   {CBaseChainParams::Network::TESTNET,72651}});
 }
     
