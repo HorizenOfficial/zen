@@ -45,6 +45,15 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
 ./src/zend
 ```
 
+* Install for Mac OS (using clang)
+
+```
+Read and follow the README.md at https://github.com/ZencashOfficial/zencash-apple
+```
+
+https://github.com/ZencashOfficial/zencash-apple
+
+
 * Install for Windows (Cross-Compiled, building on Windows is not supported yet)
 
 ```
