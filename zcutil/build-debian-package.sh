@@ -65,11 +65,8 @@ cp $SRC_DOC/man/zcash-fetch-params.1 $DEB_MAN/zen-fetch-params.1
 # ZEN_MOD_END
 # Copy bash completion files
 # ZEN_MOD_START
-# TODO: keeping these for reference. These might be the valid lines if we keep the zcash build system
-# cp $SRC_PATH/contrib/zcashd.bash-completion $DEB_CMP/zend
-# cp $SRC_PATH/contrib/zcash-cli.bash-completion $DEB_CMP/zen-cli
-cp $SRC_PATH/contrib/bitcoind.bash-completion $DEB_CMP/zend
-cp $SRC_PATH/contrib/bitcoin-cli.bash-completion $DEB_CMP/zen-cli
+cp $SRC_PATH/contrib/zcashd.bash-completion $DEB_CMP/zend
+cp $SRC_PATH/contrib/zcash-cli.bash-completion $DEB_CMP/zen-cli
 # ZEN_MOD_END
 # Gzip files
 gzip --best -n $DEB_DOC/changelog
@@ -85,9 +82,7 @@ cd $SRC_PATH/contrib
 
 # Create the control file
 # ZEN_MOD_START
-# TODO: keeping this for reference. These might be the valid lines if we keep the zcash build system
 dpkg-shlibdeps $DEB_BIN/zend $DEB_BIN/zen-cli
-# dpkg-gencontrol -P$BUILD_DIR -v$DEBVERSION
 dpkg-gencontrol -v$PACKAGE_VERSION -P$BUILD_DIR
 # ZEN_MOD_END
 
