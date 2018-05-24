@@ -131,6 +131,11 @@ bool AppInit(int argc, char* argv[])
                     strConfPath = "contrib/debian/examples/zen.conf";
                 }
 
+                if (!boost::filesystem::exists(strConfPath))
+                {
+                    strConfPath = "../contrib/debian/examples/zen.conf";
+                }
+
                 // Copy default config file
                 std::ifstream src(strConfPath, std::ios::binary);
                 src.exceptions(std::ifstream::failbit | std::ifstream::badbit);
