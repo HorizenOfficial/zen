@@ -123,15 +123,15 @@ bool AppInit(int argc, char* argv[])
                     "           Please restart zend to continue.\n"
                     "           You will not see this warning again.\n"
                     "------------------------------------------------------------------\n");
-                
+
                 std::string strConfPath("/usr/share/doc/zen/examples/zen.conf");
 
-                if (!boost::filesystem::exists(strConfPath)) 
+                if (!boost::filesystem::exists(strConfPath))
                 {
-                    strConfPath = "../contrib/debian/examples/zen.conf";
+                    strConfPath = "contrib/debian/examples/zen.conf";
                 }
-                
-                // Copy default config file   
+
+                // Copy default config file
                 std::ifstream src(strConfPath, std::ios::binary);
                 src.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 
