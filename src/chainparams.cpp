@@ -147,8 +147,6 @@ public:
         base58Prefixes[EXT_PUBLIC_KEY]     = {0x04,0x88,0xB2,0x1E};
         base58Prefixes[EXT_SECRET_KEY]     = {0x04,0x88,0xAD,0xE4};
 // ZEN_MOD_START
-        // guarantees the first 2 characters, when base58 encoded, are "zn"
-        base58Prefixes[ZCPAYMENT_ADDRRESS] = {0x16,0xA5};
         // guarantees the first 2 characters, when base58 encoded, are "zc"
         base58Prefixes[ZCPAYMENT_ADDRRESS] = {0x16,0x9A};
 // ZEN_MOD_END
