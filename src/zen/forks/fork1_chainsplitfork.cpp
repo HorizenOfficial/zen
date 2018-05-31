@@ -42,7 +42,7 @@ ChainsplitFork::ChainsplitFork() {
                                      "zrFzsuPXb7HsFd3srBqtVqnC9GQ94DQubV2", "zr4yiBobiHjHnCYi75NmYtyoqCV4A3kpHDL", "zrGVdR4K4F8MfmWxhUiTypK7PTsvHi8uTAh", "zr7WiCDqCMvUdH1xmMu8YrBMFb2x2E6BX3z",
                                      "zrEFrGWLX4hPHuHRUD3TPbMAJyeSpMSctUc", "zr5c3f8PTnW8qBFX1GvK2LhyLBBCb1WDdGG", "zrGkAZkZLqC9QKJR3XomgxNizCpNuAupTeg", "zrM7muDowiun9tCHhu5K9vcDGfUptuYorfZ",
                                      "zrCsWfwKotWnQmFviqAHAPAJ2jXqZYW966P", "zrLLB3JB3jozUoMGFEGhjqyVXTpngVQ8c4T", "zrAEa8YjJ2f3m2VsM1Xa9EwibZxEnRoSLUx", "zrAdJgp7Cx35xTvB7ABWP8YLTNDArMjP1s3"
-                                 }}});
+                                 }}}, CommunityFundType::FOUNDATION);
     setMinimumTimeMap({
                                {CBaseChainParams::Network::MAIN,1496187000},
                                {CBaseChainParams::Network::REGTEST,0},
@@ -55,7 +55,8 @@ ChainsplitFork::ChainsplitFork() {
  * @param reward the main reward
  * @return the community reward
  */
-CAmount ChainsplitFork::getCommunityFundReward(const CAmount& amount) const {
+CAmount ChainsplitFork::getCommunityFundReward(const CAmount& amount, CommunityFundType cfType) const {
+    if (cfType != CommunityFundType::FOUNDATION) { return 0; }
     return (CAmount)amount*85/1000;
 }
 
@@ -65,10 +66,13 @@ CAmount ChainsplitFork::getCommunityFundReward(const CAmount& amount) const {
  * @param maxHeight the maximum height sometimes used in the computation of the proper address
  * @return the community fund address for this height
  */
-const std::string& ChainsplitFork::getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight) const {
-
+const std::string& ChainsplitFork::getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight, CommunityFundType cfType) const {
+    if (cfType != CommunityFundType::FOUNDATION) {
+        static std::string emptyAddress = "";
+        return emptyAddress;
+    }
     assert(height > 0 && height <= maxHeight);
-    const std::vector<std::string>& communityFundAddresses = this->getCommunityFundAddresses(network);
+    const std::vector<std::string>& communityFundAddresses = this->getCommunityFundAddresses(network, cfType);
     size_t addressChangeInterval = (maxHeight + communityFundAddresses.size()) / communityFundAddresses.size();
     size_t i = height / addressChangeInterval;
     return communityFundAddresses[i];

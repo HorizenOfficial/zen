@@ -10,6 +10,7 @@
 #include <list>
 #include "zen/replayprotectionlevel.h"
 #include "script/standard.h"
+#include "forks/fork.h"
 
 namespace zen {
 class Fork;
@@ -37,7 +38,7 @@ public:
     /**
      * @brief getCommunityFundAddress returns the community fund address based on the passed in height and maxHeight
      */
-    const std::string& getCommunityFundAddress(int height, int maxHeight) const;
+    const std::string& getCommunityFundAddress(int height, int maxHeight, Fork::CommunityFundType cfType) const;
     
     /**
      * @brief getMinimumTime returns the minimum time at which a block of a given height can be processed.
@@ -47,7 +48,7 @@ public:
     /**
      * @brief getCommunityFundReward returns the community fund reward based on the height and passed-in reward
      */
-    CAmount getCommunityFundReward(int height, CAmount reward) const;
+    CAmount getCommunityFundReward(int height, CAmount reward, Fork::CommunityFundType cfType) const;
     
     /**
      * @brief getReplayProtectionLevel returns the replay protection level provided by the current fork

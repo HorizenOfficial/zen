@@ -20,12 +20,12 @@ public:
     /**
      * @brief getCommunityFundReward returns the community fund reward based on the height and passed-in reward
      */
-    virtual CAmount getCommunityFundReward(const CAmount& amount) const;
+    virtual CAmount getCommunityFundReward(const CAmount& amount, CommunityFundType cfType) const;
 
     /**
      * @brief getCommunityFundAddress returns the community fund address based on the passed in height and maxHeight
      */
-    virtual const std::string& getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight) const;
+    virtual const std::string& getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight, CommunityFundType cfType) const;
 
     /**
      * @brief getReplayProtectionLevel returns the replay protection level provided by the current fork

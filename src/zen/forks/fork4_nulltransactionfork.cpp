@@ -8,17 +8,44 @@ NullTransactionFork::NullTransactionFork()
                   {CBaseChainParams::Network::REGTEST,105},
                   {CBaseChainParams::Network::TESTNET,245000}});
     setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN,{
-                                     "zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82",
-                                     "zsfULrmbX7xbhqhAFRffVqCw9RyGv2hqNNG",
-                                     "zsoemTfqjicem2QVU8cgBHquKb1o9JR5p4Z",
-                                     "zt339oiGL6tTgc9Q71f5g1sFTZf6QiXrRUr"
+                                     "zsrS7gXdR16PAxGF7gZedTXQroNzkq2Dup9",
+                                     "zskcernKDXreLyUGkN4YB1d7uTDY3CR1oRj",
+                                     "zsutZxk6NwWSCjZe7kiG987dLjCfVYUmYJs",
+                                     "zszpcLB6C5B8QvfDbF2dYWXsrpac5DL9WRk"
                                      }},
                                 {CBaseChainParams::Network::REGTEST,{
                                      "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa"
                                  }},
                                 {CBaseChainParams::Network::TESTNET,{
                                      "zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1"
-                                 }}});
+                                 }}}, CommunityFundType::FOUNDATION);
+
+    setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN,{
+                                     "zszKB4u12v31QdWbzL9QUVeXmZ3rVyzfav5",
+                                     "zstmj8Gsr3iiKh8PzA1qRaGFLhMoPkK7J6y",
+                                     "zsvHuvuE536tb31B7nF5fhNQwDAnQs71vSo",
+                                     "zsxWnyDbU8pk2Vp98Uvkx5Nh33RFzqnCpWN"
+                                     }},
+                                {CBaseChainParams::Network::REGTEST,{
+                                     "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa"
+                                 }},
+                                {CBaseChainParams::Network::TESTNET,{
+                                     "zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1"
+                                 }}}, CommunityFundType::SECURENODE);
+
+    setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN,{
+                                     "zsqekTQ59LxwZVDU6z3ZZCpVKxGzhY2jtYV",
+                                     "zsve4xKR4A4AcKWgzZXeDXJ4BADtrVgrHdx",
+                                     "zsj5LDk3TyN37Q7u2itfAXVvHyeEU4cSruL",
+                                     "zsnL6pKdzvZ1BPVzALUoqw2KsY966XFs5CE"
+                                     }},
+                                {CBaseChainParams::Network::REGTEST,{
+                                     "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa"
+                                 }},
+                                {CBaseChainParams::Network::TESTNET,{
+                                     "zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1"
+                                 }}}, CommunityFundType::SUPERNODE);
+
     addressChangeIntervals = {
         {CBaseChainParams::Network::MAIN,50000},
         {CBaseChainParams::Network::REGTEST,100},
@@ -33,8 +60,17 @@ NullTransactionFork::NullTransactionFork()
 * @param reward the main reward
 * @return the community reward
 */
-CAmount NullTransactionFork::getCommunityFundReward(const CAmount& amount) const {
-   return (CAmount)amount*300/1000;
+CAmount NullTransactionFork::getCommunityFundReward(const CAmount& amount, CommunityFundType cfType) const {
+    if (cfType == CommunityFundType::FOUNDATION) {
+        return (CAmount)amount*100/1000;
+    }
+    if (cfType == CommunityFundType::SECURENODE) {
+        return (CAmount)amount*100/1000;
+    }
+    if (cfType == CommunityFundType::SUPERNODE) {
+        return (CAmount)amount*100/1000;
+    }
+    return (CAmount)0L;
 }
 
 /**
@@ -43,8 +79,8 @@ CAmount NullTransactionFork::getCommunityFundReward(const CAmount& amount) const
  * @param maxHeight the maximum height sometimes used in the computation of the proper address
  * @return the community fund address for this height
  */
-const std::string& NullTransactionFork::getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight) const {
-    const std::vector<std::string>& communityFundAddresses = this->getCommunityFundAddresses(network);
+const std::string& NullTransactionFork::getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight, CommunityFundType cfType) const {
+    const std::vector<std::string>& communityFundAddresses = this->getCommunityFundAddresses(network, cfType);
     int addressChangeInterval = addressChangeIntervals.at(network);
     // change CF addresses every addressChangeInterval in a round-robin fashion
     size_t i = ((height - getHeight(network)) / addressChangeInterval) % communityFundAddresses.size();

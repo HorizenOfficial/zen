@@ -39,8 +39,8 @@ void ForkManager::selectNetwork(const CBaseChainParams::Network network) {
  * @param maxHeight the maximum height sometimes used in the computation of the proper address
  * @return the community fund address for this height
  */
-const std::string& ForkManager::getCommunityFundAddress(int height, int maxHeight) const {
-    return getForkAtHeight(height)->getCommunityFundAddress(currentNetwork,height,maxHeight);
+const std::string& ForkManager::getCommunityFundAddress(int height, int maxHeight, Fork::CommunityFundType cfType) const {
+    return getForkAtHeight(height)->getCommunityFundAddress(currentNetwork,height,maxHeight, cfType);
 }
 
 /**
@@ -60,8 +60,8 @@ int ForkManager::getMinimumTime(int height) const {
  * @param reward the main reward
  * @return the community reward
  */
-CAmount ForkManager::getCommunityFundReward(int height, CAmount reward) const {
-    return getForkAtHeight(height)->getCommunityFundReward(reward);
+CAmount ForkManager::getCommunityFundReward(int height, CAmount reward, Fork::CommunityFundType cfType) const {
+    return getForkAtHeight(height)->getCommunityFundReward(reward, cfType);
 }
 
 /**

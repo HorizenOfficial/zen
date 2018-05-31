@@ -23,7 +23,7 @@ CommunityFundAndRPFixFork::CommunityFundAndRPFixFork(){
                                  }},
                                 {CBaseChainParams::Network::TESTNET,{
                                      "zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1"
-                                 }}});
+                                 }}}, CommunityFundType::FOUNDATION);
     addressChangeIntervals = {
         {CBaseChainParams::Network::MAIN,50000},
         {CBaseChainParams::Network::REGTEST,100},
@@ -36,7 +36,8 @@ CommunityFundAndRPFixFork::CommunityFundAndRPFixFork(){
  * @param reward the main reward
  * @return the community reward
  */
-CAmount CommunityFundAndRPFixFork::getCommunityFundReward(const CAmount& amount) const {
+CAmount CommunityFundAndRPFixFork::getCommunityFundReward(const CAmount& amount, CommunityFundType cfType) const {
+    if (cfType != CommunityFundType::FOUNDATION) { return 0; }
     return (CAmount)amount*120/1000;
 }
 
@@ -46,8 +47,12 @@ CAmount CommunityFundAndRPFixFork::getCommunityFundReward(const CAmount& amount)
  * @param maxHeight the maximum height sometimes used in the computation of the proper address
  * @return the community fund address for this height
  */
-const std::string& CommunityFundAndRPFixFork::getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight) const {
-    const std::vector<std::string>& communityFundAddresses = this->getCommunityFundAddresses(network);
+const std::string& CommunityFundAndRPFixFork::getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight, CommunityFundType cfType) const {
+    if (cfType != CommunityFundType::FOUNDATION) {
+        static std::string emptyAddress = "";
+        return emptyAddress;
+    }
+    const std::vector<std::string>& communityFundAddresses = this->getCommunityFundAddresses(network, cfType);
     int addressChangeInterval = addressChangeIntervals.at(network);
     // change CF addresses every addressChangeInterval in a round-robin fashion
     size_t i = ((height - getHeight(network)) / addressChangeInterval) % communityFundAddresses.size();

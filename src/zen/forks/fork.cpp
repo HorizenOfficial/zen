@@ -54,12 +54,20 @@ int Fork::getHeight(CBaseChainParams::Network network) const {
  * @brief setCommunityFundAddressMap sets the list of community addresses per network map
  * @param communityFundAddressMap the map to set
  */
-void Fork::setCommunityFundAddressMap(const std::map<CBaseChainParams::Network,std::vector<std::string>>& communityFundAddressMap) {
+void Fork::setCommunityFundAddressMap(const std::map<CBaseChainParams::Network,std::vector<std::string>>& communityFundAddressMap, CommunityFundType cfType) {
     if (communityFundAddressMap.size() != CBaseChainParams::Network::MAX_NETWORK_TYPES) {
         printf("Fork attempting to set communityFundAddress map of the wrong size! communityFundAddressMap.size()=%ld MAX_NETWORK_TYPES=%d\n",communityFundAddressMap.size(),CBaseChainParams::Network::MAX_NETWORK_TYPES);
         assert(0);
     }
-    this->communityFundAddressMap = communityFundAddressMap;
+    if (cfType == CommunityFundType::FOUNDATION) {
+        this->communityFundAddressMap = communityFundAddressMap;
+    }
+    if (cfType == CommunityFundType::SECURENODE) {
+        this->secureNodeFundAddressMap = communityFundAddressMap;
+    }
+    if (cfType == CommunityFundType::SUPERNODE) {
+        this->superNodeFundAddressMap = communityFundAddressMap;
+    }
 }
 
 /**
@@ -67,7 +75,16 @@ void Fork::setCommunityFundAddressMap(const std::map<CBaseChainParams::Network,s
  * @param network the network
  * @return the community fund addresses for this fork and network
  */
-const std::vector<std::string>& Fork::getCommunityFundAddresses(CBaseChainParams::Network network) const {
+const std::vector<std::string>& Fork::getCommunityFundAddresses(CBaseChainParams::Network network, CommunityFundType cfType) const {
+    if (cfType == CommunityFundType::FOUNDATION) {
+        return communityFundAddressMap.at(network);
+    }
+    if (cfType == CommunityFundType::SECURENODE) {
+        return secureNodeFundAddressMap.at(network);
+    }
+    if (cfType == CommunityFundType::SUPERNODE) {
+        return superNodeFundAddressMap.at(network);
+    }
     return communityFundAddressMap.at(network);
 }
 

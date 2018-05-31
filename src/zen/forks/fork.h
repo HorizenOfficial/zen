@@ -24,6 +24,12 @@ namespace zen {
 class Fork
 {
 public:
+    enum CommunityFundType {
+        FOUNDATION,
+        SECURENODE,
+        SUPERNODE,
+        ENDTYPE
+    };
     /**
      * @brief ~Fork public destructor
      */
@@ -42,18 +48,18 @@ public:
     /**
      * @brief getCommunityFundAddresses returns the community fund addresses for this fork based on the network
      */
-    const std::vector<std::string>& getCommunityFundAddresses(CBaseChainParams::Network network) const;
+    const std::vector<std::string>& getCommunityFundAddresses(CBaseChainParams::Network network, CommunityFundType cfType) const;
 
     // abstract methods
     /**
      * @brief getCommunityFundAddress returns the community fund address based on the passed in height and maxHeight
      */
-    virtual const std::string& getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight) const=0;
+    virtual const std::string& getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight, CommunityFundType cfType) const=0;
 
     /**
      * @brief getCommunityFundReward returns the community fund reward based on the height and passed-in reward
      */
-    virtual CAmount getCommunityFundReward(const CAmount& amount) const = 0;
+    virtual CAmount getCommunityFundReward(const CAmount& amount, CommunityFundType cfType) const = 0;
 
     /**
      * @brief canSendCommunityFundsToTransparentAddress true if community funds can be sent to a transparent address
@@ -87,7 +93,7 @@ protected:
     /**
      * @brief setCommunityFundAddressMap sets the list of community addresses per network map
      */
-    void setCommunityFundAddressMap(const std::map<CBaseChainParams::Network,std::vector<std::string>>& communityFundAddressMap);
+    void setCommunityFundAddressMap(const std::map<CBaseChainParams::Network,std::vector<std::string>>& communityFundAddressMap, CommunityFundType cfType);
     
     /**
      * @brief setMinimumTimeMap sets the minimum required system time per network map
@@ -101,6 +107,9 @@ private:
     std::map<CBaseChainParams::Network,int> heightMap; /**< the height at which this fork takes effect depending on network */
     std::map<CBaseChainParams::Network,int> minimumTimeMap; /**< the time at which this fork takes effects depending on network */
     std::map<CBaseChainParams::Network,std::vector<std::string>> communityFundAddressMap; /**< the community fund addresses to use depending on network */
+
+    std::map<CBaseChainParams::Network,std::vector<std::string>> secureNodeFundAddressMap; /**< the securenode fund addresses to use depending on network */
+    std::map<CBaseChainParams::Network,std::vector<std::string>> superNodeFundAddressMap; /**< the supernode fund addresses to use depending on network */
 };
 }
 #endif // FORK_H

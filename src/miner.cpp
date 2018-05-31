@@ -360,11 +360,16 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         txNew.vout[0].nValue = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
 
 // ZEN_MOD_START
-        CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight,txNew.vout[0].nValue);
-        // Take some reward away from miners
-        txNew.vout[0].nValue -= vCommunityFund;
-        // And give it to the community
-        txNew.vout.push_back(CTxOut(vCommunityFund, chainparams.GetCommunityFundScriptAtHeight(nHeight)));
+
+        for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
+            CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight,txNew.vout[0].nValue, cfType);
+            if (vCommunityFund > 0) {
+                // Take some reward away from miners
+                txNew.vout[0].nValue -= vCommunityFund;
+                // And give it to the community
+                txNew.vout.push_back(CTxOut(vCommunityFund, chainparams.GetCommunityFundScriptAtHeight(nHeight, cfType)));
+            }
+        }
 // ZEN_MOD_END
 
         // Add fees
