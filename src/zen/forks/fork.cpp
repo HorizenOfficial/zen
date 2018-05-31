@@ -59,14 +59,18 @@ void Fork::setCommunityFundAddressMap(const std::map<CBaseChainParams::Network,s
         printf("Fork attempting to set communityFundAddress map of the wrong size! communityFundAddressMap.size()=%ld MAX_NETWORK_TYPES=%d\n",communityFundAddressMap.size(),CBaseChainParams::Network::MAX_NETWORK_TYPES);
         assert(0);
     }
-    if (cfType == CommunityFundType::FOUNDATION) {
+    switch (cfType) {
+    case CommunityFundType::FOUNDATION:
         this->communityFundAddressMap = communityFundAddressMap;
-    }
-    if (cfType == CommunityFundType::SECURENODE) {
+        break;
+    case CommunityFundType::SECURENODE:
         this->secureNodeFundAddressMap = communityFundAddressMap;
-    }
-    if (cfType == CommunityFundType::SUPERNODE) {
+        break;
+    case CommunityFundType::SUPERNODE:
         this->superNodeFundAddressMap = communityFundAddressMap;
+        break;
+    default:
+        break;
     }
 }
 
@@ -76,16 +80,20 @@ void Fork::setCommunityFundAddressMap(const std::map<CBaseChainParams::Network,s
  * @return the community fund addresses for this fork and network
  */
 const std::vector<std::string>& Fork::getCommunityFundAddresses(CBaseChainParams::Network network, CommunityFundType cfType) const {
-    if (cfType == CommunityFundType::FOUNDATION) {
+    switch (cfType) {
+    case CommunityFundType::FOUNDATION:
         return communityFundAddressMap.at(network);
-    }
-    if (cfType == CommunityFundType::SECURENODE) {
+        break;
+    case CommunityFundType::SECURENODE:
         return secureNodeFundAddressMap.at(network);
-    }
-    if (cfType == CommunityFundType::SUPERNODE) {
+        break;
+    case CommunityFundType::SUPERNODE:
         return superNodeFundAddressMap.at(network);
+        break;
+    default:
+        return communityFundAddressMap.at(network);
+        break;
     }
-    return communityFundAddressMap.at(network);
 }
 
 /**
