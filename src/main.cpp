@@ -1696,19 +1696,6 @@ bool IsCommunityFund(const CCoins *coins, int nIn)
             if (coins->vout[nIn].scriptPubKey == communityScriptPubKey)
                 return true;
         }
-        /*
-        CScript communityScriptPubKey = Params().GetCommunityFundScriptAtHeight(coins->nHeight, Fork::CommunityFundType::FOUNDATION);
-        if (coins->vout[nIn].scriptPubKey == communityScriptPubKey)
-            return true;
-
-        CScript secureNodeScriptPubKey = Params().GetCommunityFundScriptAtHeight(coins->nHeight, Fork::CommunityFundType::SECURENODE);
-        if (coins->vout[nIn].scriptPubKey == secureNodeScriptPubKey)
-            return true;
-
-        CScript superNodeScriptPubKey = Params().GetCommunityFundScriptAtHeight(coins->nHeight, Fork::CommunityFundType::SUPERNODE);
-        if (coins->vout[nIn].scriptPubKey == superNodeScriptPubKey)
-            return true;
-        */
     }
 
     return false;

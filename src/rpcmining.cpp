@@ -910,17 +910,17 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
 
     CAmount nReward = GetBlockSubsidy(nHeight, Params().GetConsensus());
 // ZEN_MOD_START
-    CAmount nTotalCommunityFound = 0;
+    CAmount nTotalCommunityFund = 0;
     for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
         CAmount nCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight,nReward, cfType);
         nReward -= nCommunityFund;
-        nTotalCommunityFound += nCommunityFund;
+        nTotalCommunityFund += nCommunityFund;
     }
 // ZEN_MOD_END
     UniValue result(UniValue::VOBJ);
     result.push_back(Pair("miner", ValueFromAmount(nReward)));
 // ZEN_MOD_START
-    result.push_back(Pair("community", ValueFromAmount(nTotalCommunityFound)));
+    result.push_back(Pair("community", ValueFromAmount(nTotalCommunityFund)));
 // ZEN_MOD_END
     return result;
 }
