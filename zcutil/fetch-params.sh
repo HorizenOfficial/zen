@@ -2,7 +2,13 @@
 
 set -eu
 
-PARAMS_DIR="$HOME/.zcash-params"
+# ZEN_MOD_START
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    PARAMS_DIR="$HOME/Library/Application Support/ZcashParams"
+else
+    PARAMS_DIR="$HOME/.zcash-params"
+fi
+# ZEN_MOD_END
 
 SPROUT_PKEY_NAME='sprout-proving.key'
 SPROUT_VKEY_NAME='sprout-verifying.key'
@@ -104,12 +110,22 @@ EOF
 # Use flock to prevent parallel execution.
 function lock() {
     local lockfile=/tmp/fetch_params.lock
-    # create lock file
-    eval "exec 200>/$lockfile"
-    # acquire the lock
-    flock -n 200 \
-        && return 0 \
-        || return 1
+# ZEN_MOD_START
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        if shlock -f ${lockfile} -p $$; then
+            return 0
+        else
+            return 1
+        fi
+    else
+        # create lock file
+        eval "exec 200>/$lockfile"
+        # acquire the lock
+        flock -n 200 \
+            && return 0 \
+            || return 1
+    fi
+# ZEN_MOD_END
 }
 
 function exit_locked_error {
