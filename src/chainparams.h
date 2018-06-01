@@ -12,7 +12,11 @@
 #include "primitives/block.h"
 #include "protocol.h"
 
+#include "zen/forkmanager.h"
+
 #include <vector>
+
+using namespace zen;
 
 struct CDNSSeedData {
     std::string name, host;
@@ -84,8 +88,8 @@ public:
     const Checkpoints::CCheckpointData& Checkpoints() const { return checkpointData; }
 // ZEN_MOD_START
     /** Return the community fund address and script for a given block height */
-    std::string GetCommunityFundAddressAtHeight(int height) const;
-    CScript GetCommunityFundScriptAtHeight(int height) const;
+    std::string GetCommunityFundAddressAtHeight(int height, Fork::CommunityFundType cfType) const;
+    CScript GetCommunityFundScriptAtHeight(int height, Fork::CommunityFundType cfType) const;
 // ZEN_MOD_END
     /** Enforce coinbase consensus rule in regtest mode */
     void SetRegTestCoinbaseMustBeProtected() { consensus.fCoinbaseMustBeProtected = true; }

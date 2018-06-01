@@ -1691,9 +1691,11 @@ bool IsCommunityFund(const CCoins *coins, int nIn)
        ForkManager::getInstance().isAfterChainsplit(coins->nHeight) &&
        coins->vout.size() > nIn)
     {
-        CScript communityScriptPubKey = Params().GetCommunityFundScriptAtHeight(coins->nHeight);
-        if (coins->vout[nIn].scriptPubKey == communityScriptPubKey)
-            return true;
+        for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
+            CScript communityScriptPubKey = Params().GetCommunityFundScriptAtHeight(coins->nHeight, cfType);
+            if (coins->vout[nIn].scriptPubKey == communityScriptPubKey)
+                return true;
+        }
     }
 
     return false;
@@ -3318,24 +3320,28 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     CAmount reward = GetBlockSubsidy(nHeight, consensusParams);
     // Coinbase transaction must include an output sending x.x% of
     // the block reward to a community fund script
-    CAmount communityReward = ForkManager::getInstance().getCommunityFundReward(nHeight,reward);
-    if (communityReward > 0) {
-        bool found = false;
 
-        BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
-            if (output.scriptPubKey == Params().GetCommunityFundScriptAtHeight(nHeight)) {
-                if (output.nValue == communityReward) {
-                    found = true;
-                    break;
+    for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
+        CAmount communityReward = ForkManager::getInstance().getCommunityFundReward(nHeight, reward, cfType);
+        if (communityReward > 0) {
+            bool found = false;
+
+            BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
+                if (output.scriptPubKey == Params().GetCommunityFundScriptAtHeight(nHeight, cfType)) {
+                    if (output.nValue == communityReward) {
+                        found = true;
+                        LogPrintf("%s: communityReward found at h: %d \n", __func__, nHeight);
+                        break;
+                    }
                 }
             }
-        }
 
-        if (!found) {
-            return state.DoS(100, error("%s: community fund missing block %d", __func__, nHeight), REJECT_INVALID, "cb-no-community-fund");
+            if (!found) {
+                return state.DoS(100, error("%s: community fund missing block %d", __func__, nHeight), REJECT_INVALID, "cb-no-community-fund");
+            }
         }
-// ZEN_MOD_END
     }
+// ZEN_MOD_END
 
     return true;
 }

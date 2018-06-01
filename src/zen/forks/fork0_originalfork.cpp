@@ -26,7 +26,7 @@ OriginalFork::OriginalFork()
  * @param reward the main reward
  * @return the community reward
  */
-CAmount OriginalFork::getCommunityFundReward(const CAmount& amount) const {
+CAmount OriginalFork::getCommunityFundReward(const CAmount& amount, CommunityFundType cfType) const {
     return (CAmount)0L;
 }
 
@@ -36,7 +36,7 @@ CAmount OriginalFork::getCommunityFundReward(const CAmount& amount) const {
  * @param maxHeight the maximum height sometimes used in the computation of the proper address
  * @return the community fund address for this height
  */
-const std::string& OriginalFork::getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight) const {
+const std::string& OriginalFork::getCommunityFundAddress(CBaseChainParams::Network network, int height, int maxHeight, CommunityFundType cfType) const {
     static std::string emptyAddress = "";
     return emptyAddress;
 }

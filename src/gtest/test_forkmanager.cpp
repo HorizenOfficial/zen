@@ -3,16 +3,16 @@
 #include "chainparams.h"
 
 using namespace zen;
-
+//TODO ADD TEST FOR THE SECURENODE AND SUPERNODE FUND ADDRESS AND REWARD
 TEST(ForkManager, TestCommunityFundReward) {
     SelectParams(CBaseChainParams::TESTNET);
     CAmount fakeReward = (CAmount)1000L;
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(100,fakeReward),0);
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(70000,fakeReward),0);
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(70001,fakeReward),85);
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(75000,fakeReward),85);
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(90000,fakeReward),120);
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(245100,fakeReward),300);
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(100,fakeReward, Fork::CommunityFundType::FOUNDATION),0);
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(70000,fakeReward, Fork::CommunityFundType::FOUNDATION),0);
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(70001,fakeReward, Fork::CommunityFundType::FOUNDATION),85);
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(75000,fakeReward, Fork::CommunityFundType::FOUNDATION),85);
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(90000,fakeReward, Fork::CommunityFundType::FOUNDATION),120);
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(245100,fakeReward, Fork::CommunityFundType::FOUNDATION),100);
 }
 
 TEST(ForkManager, TestReplayProtection) {
@@ -40,10 +40,10 @@ TEST(ForkManager, SelectNetworkAfterChainsplit) {
 
 TEST(ForkManager, GetCommunityFundAddress) {
     SelectParams(CBaseChainParams::TESTNET);
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(60000,1000000000),"");
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(70001,1000000000),"zrH8KT8KUcpKKNBu3fjH4hA84jZBCawErqn");
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(75000,1000000000),"zrH8KT8KUcpKKNBu3fjH4hA84jZBCawErqn");
-    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(90000,1000000000),"zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(60000,1000000000, Fork::CommunityFundType::FOUNDATION),"");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(70001,1000000000, Fork::CommunityFundType::FOUNDATION),"zrH8KT8KUcpKKNBu3fjH4hA84jZBCawErqn");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(75000,1000000000, Fork::CommunityFundType::FOUNDATION),"zrH8KT8KUcpKKNBu3fjH4hA84jZBCawErqn");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(90000,1000000000, Fork::CommunityFundType::FOUNDATION),"zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1");
 }
 
 TEST(ForkManager, GetMinimumTime) {

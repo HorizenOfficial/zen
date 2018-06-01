@@ -11,9 +11,6 @@
 
 #include <assert.h>
 // ZEN_MOD_START
-#include "zen/forkmanager.h"
-
-using namespace zen;
 // ZEN_MOD_END
 
 #include <boost/assign/list_of.hpp>
@@ -147,8 +144,6 @@ public:
         base58Prefixes[EXT_PUBLIC_KEY]     = {0x04,0x88,0xB2,0x1E};
         base58Prefixes[EXT_SECRET_KEY]     = {0x04,0x88,0xAD,0xE4};
 // ZEN_MOD_START
-        // guarantees the first 2 characters, when base58 encoded, are "zn"
-        base58Prefixes[ZCPAYMENT_ADDRRESS] = {0x16,0xA5};
         // guarantees the first 2 characters, when base58 encoded, are "zc"
         base58Prefixes[ZCPAYMENT_ADDRRESS] = {0x16,0x9A};
 // ZEN_MOD_END
@@ -407,19 +402,19 @@ bool SelectParamsFromCommandLine()
 
 // Block height must be >0 and <=last CF reward block height (note that after hfCommunityFundHeight hard fork CF reward is permanent)
 // Index variable i ranges from 0 - (vCommunityFundAddress.size()-1)
-std::string CChainParams::GetCommunityFundAddressAtHeight(int nHeight) const {
+std::string CChainParams::GetCommunityFundAddressAtHeight(int nHeight , Fork::CommunityFundType cfType) const {
 
 // ZEN_MOD_START
-    return ForkManager::getInstance().getCommunityFundAddress(nHeight,consensus.GetLastCommunityRewardBlockHeight());
+    return ForkManager::getInstance().getCommunityFundAddress(nHeight,consensus.GetLastCommunityRewardBlockHeight(), cfType);
 // ZEN_MOD_END
 }
 
 // ZEN_MOD_START
 // The community fund address is expected to be a multisig (P2SH) address
-CScript CChainParams::GetCommunityFundScriptAtHeight(int nHeight) const {
+CScript CChainParams::GetCommunityFundScriptAtHeight(int nHeight, Fork::CommunityFundType cfType) const {
     assert(nHeight > 0);
 
-    CBitcoinAddress address(GetCommunityFundAddressAtHeight(nHeight).c_str());
+    CBitcoinAddress address(GetCommunityFundAddressAtHeight(nHeight, cfType).c_str());
 // ZEN_MOD_END
     assert(address.IsValid());
     assert(address.IsScript());

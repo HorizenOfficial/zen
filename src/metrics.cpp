@@ -369,8 +369,10 @@ int printMetrics(size_t cols, bool mining)
                     int height = mapBlockIndex[hash]->nHeight;
                     CAmount subsidy = GetBlockSubsidy(height, consensusParams);
 // ZEN_MOD_START
-                    CAmount communityFundAmount = ForkManager::getInstance().getCommunityFundReward(height,subsidy);
-                    subsidy -= communityFundAmount;
+                    for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
+                        CAmount communityFundAmount = ForkManager::getInstance().getCommunityFundReward(height,subsidy, cfType);
+                        subsidy -= communityFundAmount;
+                    }
 // ZEN_MOD_END
                     if (std::max(0, COINBASE_MATURITY - (tipHeight - height)) > 0) {
                         immature += subsidy;

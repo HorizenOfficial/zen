@@ -54,12 +54,24 @@ int Fork::getHeight(CBaseChainParams::Network network) const {
  * @brief setCommunityFundAddressMap sets the list of community addresses per network map
  * @param communityFundAddressMap the map to set
  */
-void Fork::setCommunityFundAddressMap(const std::map<CBaseChainParams::Network,std::vector<std::string>>& communityFundAddressMap) {
+void Fork::setCommunityFundAddressMap(const std::map<CBaseChainParams::Network,std::vector<std::string>>& communityFundAddressMap, CommunityFundType cfType) {
     if (communityFundAddressMap.size() != CBaseChainParams::Network::MAX_NETWORK_TYPES) {
         printf("Fork attempting to set communityFundAddress map of the wrong size! communityFundAddressMap.size()=%ld MAX_NETWORK_TYPES=%d\n",communityFundAddressMap.size(),CBaseChainParams::Network::MAX_NETWORK_TYPES);
         assert(0);
     }
-    this->communityFundAddressMap = communityFundAddressMap;
+    switch (cfType) {
+    case CommunityFundType::FOUNDATION:
+        this->communityFundAddressMap = communityFundAddressMap;
+        break;
+    case CommunityFundType::SECURENODE:
+        this->secureNodeFundAddressMap = communityFundAddressMap;
+        break;
+    case CommunityFundType::SUPERNODE:
+        this->superNodeFundAddressMap = communityFundAddressMap;
+        break;
+    default:
+        break;
+    }
 }
 
 /**
@@ -67,8 +79,21 @@ void Fork::setCommunityFundAddressMap(const std::map<CBaseChainParams::Network,s
  * @param network the network
  * @return the community fund addresses for this fork and network
  */
-const std::vector<std::string>& Fork::getCommunityFundAddresses(CBaseChainParams::Network network) const {
-    return communityFundAddressMap.at(network);
+const std::vector<std::string>& Fork::getCommunityFundAddresses(CBaseChainParams::Network network, CommunityFundType cfType) const {
+    switch (cfType) {
+    case CommunityFundType::FOUNDATION:
+        return communityFundAddressMap.at(network);
+        break;
+    case CommunityFundType::SECURENODE:
+        return secureNodeFundAddressMap.at(network);
+        break;
+    case CommunityFundType::SUPERNODE:
+        return superNodeFundAddressMap.at(network);
+        break;
+    default:
+        return communityFundAddressMap.at(network);
+        break;
+    }
 }
 
 /**

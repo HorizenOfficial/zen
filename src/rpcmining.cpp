@@ -895,7 +895,7 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "{\n"
             "  \"miner\" : x.xxx           (numeric) The mining reward amount in ZEN.\n"
-            "  \"community\" : x.xxx        (numeric) The community fund amount in ZEN.\n"
+            "  \"community\" : x.xxx        (numeric) The community (with securenodes and supernodes) fund amount in ZEN.\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("getblocksubsidy", "1000")
@@ -910,13 +910,17 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
 
     CAmount nReward = GetBlockSubsidy(nHeight, Params().GetConsensus());
 // ZEN_MOD_START
-    CAmount nCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight,nReward);
-    nReward -= nCommunityFund;
+    CAmount nTotalCommunityFund = 0;
+    for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
+        CAmount nCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight,nReward, cfType);
+        nReward -= nCommunityFund;
+        nTotalCommunityFund += nCommunityFund;
+    }
 // ZEN_MOD_END
     UniValue result(UniValue::VOBJ);
     result.push_back(Pair("miner", ValueFromAmount(nReward)));
 // ZEN_MOD_START
-    result.push_back(Pair("community", ValueFromAmount(nCommunityFund)));
+    result.push_back(Pair("community", ValueFromAmount(nTotalCommunityFund)));
 // ZEN_MOD_END
     return result;
 }
