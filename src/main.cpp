@@ -1691,10 +1691,15 @@ bool IsCommunityFund(const CCoins *coins, int nIn)
        ForkManager::getInstance().isAfterChainsplit(coins->nHeight) &&
        coins->vout.size() > nIn)
     {
+        const Consensus::Params& consensusParams = Params().GetConsensus();
+        CAmount reward = GetBlockSubsidy(coins->nHeight, consensusParams);
+
         for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
-            CScript communityScriptPubKey = Params().GetCommunityFundScriptAtHeight(coins->nHeight, cfType);
-            if (coins->vout[nIn].scriptPubKey == communityScriptPubKey)
-                return true;
+            if (ForkManager::getInstance().getCommunityFundReward(coins->nHeight, reward, cfType) > 0) {
+                CScript communityScriptPubKey = Params().GetCommunityFundScriptAtHeight(coins->nHeight, cfType);
+                if (coins->vout[nIn].scriptPubKey == communityScriptPubKey)
+                    return true;
+            }
         }
     }
 
@@ -3329,8 +3334,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
             BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
                 if (output.scriptPubKey == Params().GetCommunityFundScriptAtHeight(nHeight, cfType)) {
                     if (output.nValue == communityReward) {
-                        found = true;
-                        LogPrintf("%s: communityReward found at h: %d \n", __func__, nHeight);
+                        found = true;                        
                         break;
                     }
                 }
