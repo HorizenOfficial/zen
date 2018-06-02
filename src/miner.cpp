@@ -356,13 +356,14 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         txNew.vin.resize(1);
         txNew.vin[0].prevout.SetNull();
         txNew.vout.resize(1);
-        txNew.vout[0].scriptPubKey = scriptPubKeyIn;
-        txNew.vout[0].nValue = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+        txNew.vout[0].scriptPubKey = scriptPubKeyIn;        
+        CAmount reward = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+        txNew.vout[0].nValue = reward;
 
 // ZEN_MOD_START
 
         for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
-            CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight,txNew.vout[0].nValue, cfType);
+            CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight, reward, cfType);
             if (vCommunityFund > 0) {
                 // Take some reward away from miners
                 txNew.vout[0].nValue -= vCommunityFund;
@@ -370,12 +371,10 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
                 txNew.vout.push_back(CTxOut(vCommunityFund, chainparams.GetCommunityFundScriptAtHeight(nHeight, cfType)));
             }
         }
-// ZEN_MOD_END
-
+// ZEN_MOD_END        
         // Add fees
         txNew.vout[0].nValue += nFees;
-        txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;
-
+        txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;        
         pblock->vtx[0] = txNew;
         pblocktemplate->vTxFees[0] = -nFees;
 
