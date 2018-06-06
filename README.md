@@ -32,7 +32,7 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
     sudo apt-get install \
         build-essential pkg-config libc6-dev m4 g++-multilib-arm-linux-gnueabihf \
         autoconf libtool ncurses-dev unzip git python \
-        zlib1g-dev wget bsdmainutils automake
+        zlib1g-dev wget bsdmainutils automake cmake
     ```
 
 * Install for linux
