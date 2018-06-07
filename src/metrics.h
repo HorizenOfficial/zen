@@ -74,6 +74,7 @@ void ThreadShowMetricsScreen();
 
 /**
  * Rendering options:
+// ZEN MOD START
  * Logo: img2txt -W 60 -H 30 -f utf8 -d none -g 0.7 ./ZenCash\ Logo\ -\ RGB_Icon\ -\ Full\ Color\ -\ Crop.png > zen.utf8
  */
 const std::string METRICS_ART =
@@ -107,3 +108,4 @@ const std::string METRICS_ART =
 "                                 [0;37;5;40;100m8[0;36;5;40;100mX[0;34;40m888888[0;30;44m8[0;1;30;90;44m888888[0;36;5;40;100m@[0;1;30;90;47m8[0m          \n"
 "                                     [0;36;5;40;100m:[0;34;40m888[0;30;44m8[0;1;30;90;44m888[0;36;5;40;100m:[0m              \n"
 "                                        [0;37;5;40;100m@[0;36;5;40;100mS[0;1;30;90;47m8[0m                 ";
+// ZEN MOD END
