@@ -55,7 +55,7 @@
  *    - Set GENERATE_ALERTS_FLAG back to false.
  *    - Remove your private key from alertkeys.h
  *
- * 6. Build and verify the new test data:
+ * 6. Rebuild and verify the new test data:
  *    test_bitcoin -t Alert_tests
  *
  */
