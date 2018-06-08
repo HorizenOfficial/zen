@@ -52,7 +52,16 @@ typedef enum ScriptError_t
     /* softfork safeness */
     SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS,
 
+// ZEN_MOD_START
+    /* tx replay prevention */
+    SCRIPT_ERR_CHECKBLOCKATHEIGHT,
+    SCRIPT_ERR_CHECKBLOCKATHEIGHT_UNVERIFIED,
+
+    SCRIPT_ERR_NOT_FINAL,
+// ZEN_MOD_END
+
     SCRIPT_ERR_ERROR_COUNT
+
 } ScriptError;
 
 #define SCRIPT_ERR_LAST SCRIPT_ERR_ERROR_COUNT

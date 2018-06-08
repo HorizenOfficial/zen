@@ -337,6 +337,18 @@ BOOST_AUTO_TEST_CASE(script_build)
                               "P2PKH, bad pubkey", 0
                              ).PushSig(keys.key2).Push(keys.pubkey2C).DamagePush(5));
 
+// ZEN_MOD_START
+    good.push_back(TestBuilder(CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG << ToByteVector(uint256()) << 1 << OP_CHECKBLOCKATHEIGHT,
+                              "P2PKH OP_CHECKBLOCKATHEIGHT", 0
+                             ).PushSig(keys.key1).Push(keys.pubkey1C));
+    bad.push_back(TestBuilder(CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey2C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG << ToByteVector(uint256()) << 1 << OP_CHECKBLOCKATHEIGHT,
+                              "P2PKH OP_CHECKBLOCKATHEIGHT, bad pubkey", 0
+                             ).PushSig(keys.key1).Push(keys.pubkey1C));
+    bad.push_back(TestBuilder(CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG << OP_CHECKBLOCKATHEIGHT,
+                              "P2PKH OP_CHECKBLOCKATHEIGHT, bad params", 0
+                             ).PushSig(keys.key1).Push(keys.pubkey1C));
+// ZEN_MOD_END
+
     good.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1) << OP_CHECKSIG,
                                "P2PK anyonecanpay", 0
                               ).PushSig(keys.key1, SIGHASH_ALL | SIGHASH_ANYONECANPAY));

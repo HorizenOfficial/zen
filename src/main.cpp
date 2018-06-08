@@ -27,6 +27,9 @@
 #include "util.h"
 #include "utilmoneystr.h"
 #include "validationinterface.h"
+// ZEN_MOD_START
+#include "versionbits.h"
+// ZEN_MOD_END
 #include "wallet/asyncrpcoperation_sendmany.h"
 #include "wallet/asyncrpcoperation_shieldcoinbase.h"
 
@@ -39,10 +42,18 @@
 #include <boost/thread.hpp>
 #include <boost/static_assert.hpp>
 
+// ZEN_MOD_START
+#include "zen/forkmanager.h"
+
+using namespace zen;
+// ZEN_MOD_END
+
 using namespace std;
 
 #if defined(NDEBUG)
-# error "Zcash cannot be compiled without assertions."
+// ZEN_MOD_START
+# error "Zen cannot be compiled without assertions."
+// ZEN_MOD_END
 #endif
 
 /**
@@ -637,11 +648,6 @@ unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans) EXCLUSIVE_LOCKS_REQUIRE
 }
 
 
-
-
-
-
-
 bool IsStandardTx(const CTransaction& tx, string& reason)
 {
     if (tx.nVersion > CTransaction::MAX_CURRENT_VERSION || tx.nVersion < CTransaction::MIN_CURRENT_VERSION) {
@@ -676,7 +682,17 @@ bool IsStandardTx(const CTransaction& tx, string& reason)
             return false;
         }
 
-        if (whichType == TX_NULL_DATA)
+// ZEN_MOD_START
+        int nHeight = chainActive.Height();
+        
+        // provide temporary replay protection for two minerconf windows during chainsplit
+        if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(nHeight,whichType))) {
+            reason = "op-checkblockatheight-needed";
+            return false;
+        }
+
+        if (whichType == TX_NULL_DATA || whichType == TX_NULL_DATA_REPLAY)
+// ZEN_MOD_END
             nDataOut++;
         else if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
             reason = "bare-multisig";
@@ -777,7 +793,9 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         if (!EvalScript(stack, tx.vin[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker()))
             return false;
 
-        if (whichType == TX_SCRIPTHASH)
+// ZEN_MOD_START
+        if (whichType == TX_SCRIPTHASH || whichType == TX_SCRIPTHASH_REPLAY)
+// ZEN_MOD_END
         {
             if (stack.empty())
                 return false;
@@ -846,16 +864,32 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
 
     if (!CheckTransactionWithoutProofVerification(tx, state)) {
         return false;
-    } else {
-        // Ensure that zk-SNARKs verify
-        BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
-            if (!joinsplit.Verify(*pzcashParams, verifier, tx.joinSplitPubKey)) {
-                return state.DoS(100, error("CheckTransaction(): joinsplit does not verify"),
-                                    REJECT_INVALID, "bad-txns-joinsplit-verification-failed");
-            }
-        }
-        return true;
+// ZEN_MOD_START
     }
+
+    // Ensure that zk-SNARKs verify
+    BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
+        if (!joinsplit.Verify(*pzcashParams, verifier, tx.joinSplitPubKey)) {
+            return state.DoS(100, error("CheckTransaction(): joinsplit does not verify"),
+                                REJECT_INVALID, "bad-txns-joinsplit-verification-failed");
+        }
+    }
+
+    // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
+    BOOST_FOREACH(const CTxOut& txout, tx.vout)
+    {
+        txnouttype whichType;
+        ::IsStandard(txout.scriptPubKey, whichType);
+
+        // provide temporary replay protection for two minerconf windows during chainsplit
+        if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(),whichType))) {
+            return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, ::GetTxnOutputType(whichType), chainActive.Height(), tx.GetHash().ToString()),
+                             REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
+        }
+    }
+
+    return true;
+// ZEN_MOD_END
 }
 
 bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidationState &state)
@@ -1074,6 +1108,13 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     if (!CheckTransaction(tx, state, verifier))
         return error("AcceptToMemoryPool: CheckTransaction failed");
 
+
+// ZEN_MOD_START
+    // Silently drop pre-chainsplit transactions
+    if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight))
+        return false;
+// ZEN_MOD_END
+    
     // Coinbase is only valid in a block, not as a loose transaction
     if (tx.IsCoinBase())
         return state.DoS(100, error("AcceptToMemoryPool: coinbase as individual tx"),
@@ -1235,7 +1276,9 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
-        if (!ContextualCheckInputs(tx, state, view, true, STANDARD_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+// ZEN_MOD_START
+        if (!ContextualCheckInputs(tx, state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+// ZEN_MOD_END
         {
             return error("AcceptToMemoryPool: ConnectInputs failed %s", hash.ToString());
         }
@@ -1249,7 +1292,9 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // There is a similar check in CreateNewBlock() to prevent creating
         // invalid blocks, however allowing such transactions into the mempool
         // can be exploited as a DoS attack.
-        if (!ContextualCheckInputs(tx, state, view, true, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+// ZEN_MOD_START
+        if (!ContextualCheckInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+// ZEN_MOD_END
         {
             return error("AcceptToMemoryPool: BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", hash.ToString());
         }
@@ -1393,6 +1438,10 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex)
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
 {
     CAmount nSubsidy = 12.5 * COIN;
+// ZEN_MOD_START
+    if (nHeight == 0)
+        return 0;
+// ZEN_MOD_END
 
     // Mining slow start
     // The subsidy is ramped up linearly, skipping the middle payout of
@@ -1422,6 +1471,11 @@ bool IsInitialBlockDownload()
 {
     const CChainParams& chainParams = Params();
     LOCK(cs_main);
+// ZEN_MOD_START
+    // from commit: https://github.com/ZencashOfficial/zen/commit/0c479520d29cae571dc531e54aa01813daacd1e1
+    if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Height()))
+        return false;
+// ZEN_MOD_END
     if (fImporting || fReindex)
         return true;
     if (fCheckpointsEnabled && chainActive.Height() < Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()))
@@ -1614,7 +1668,9 @@ void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCach
 
 bool CScriptCheck::operator()() {
     const CScript &scriptSig = ptxTo->vin[nIn].scriptSig;
-    if (!VerifyScript(scriptSig, scriptPubKey, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, cacheStore), &error)) {
+// ZEN_MOD_START
+    if (!VerifyScript(scriptSig, scriptPubKey, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, chain, cacheStore), &error)) {
+// ZEN_MOD_END
         return ::error("CScriptCheck(): %s:%d VerifySignature failed: %s", ptxTo->GetHash().ToString(), nIn, ScriptErrorString(error));
     }
     return true;
@@ -1626,6 +1682,30 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
     CBlockIndex* pindexPrev = mapBlockIndex.find(inputs.GetBestBlock())->second;
     return pindexPrev->nHeight + 1;
 }
+
+// ZEN_MOD_START
+bool IsCommunityFund(const CCoins *coins, int nIn)
+{
+    if(coins != NULL &&
+       coins->IsCoinBase() &&
+       ForkManager::getInstance().isAfterChainsplit(coins->nHeight) &&
+       coins->vout.size() > nIn)
+    {
+        const Consensus::Params& consensusParams = Params().GetConsensus();
+        CAmount reward = GetBlockSubsidy(coins->nHeight, consensusParams);
+
+        for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
+            if (ForkManager::getInstance().getCommunityFundReward(coins->nHeight, reward, cfType) > 0) {
+                CScript communityScriptPubKey = Params().GetCommunityFundScriptAtHeight(coins->nHeight, cfType);
+                if (coins->vout[nIn].scriptPubKey == communityScriptPubKey)
+                    return true;
+            }
+        }
+    }
+
+    return false;
+}
+// ZEN_MOD_END
 
 namespace Consensus {
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
@@ -1660,9 +1740,17 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
                 if (fCoinbaseEnforcedProtectionEnabled &&
                     consensusParams.fCoinbaseMustBeProtected &&
                     !tx.vout.empty()) {
-                    return state.Invalid(
-                        error("CheckInputs(): tried to spend coinbase with transparent outputs"),
-                        REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
+
+// ZEN_MOD_START
+                    // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed
+                    // to send them to the transparent addr.
+                    bool fDisableProtectionForFR = ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(nSpendHeight);
+                    if (!fDisableProtectionForFR || !IsCommunityFund(coins, prevout.n)) {
+                        return state.Invalid(
+                                error("CheckInputs(): tried to spend coinbase with transparent outputs"),
+                                REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
+                    }
+// ZEN_MOD_END
                 }
             }
 
@@ -1697,7 +1785,9 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 }
 }// namespace Consensus
 
-bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams, std::vector<CScriptCheck> *pvChecks)
+// ZEN_MOD_START
+bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams, std::vector<CScriptCheck> *pvChecks)
+// ZEN_MOD_END
 {
     if (!tx.IsCoinBase())
     {
@@ -1722,20 +1812,29 @@ bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, cons
                 assert(coins);
 
                 // Verify signature
-                CScriptCheck check(*coins, tx, i, flags, cacheStore);
+// ZEN_MOD_START
+                CScriptCheck check(*coins, tx, i, &chain, flags, cacheStore);
+// ZEN_MOD_END
                 if (pvChecks) {
                     pvChecks->push_back(CScriptCheck());
                     check.swap(pvChecks->back());
                 } else if (!check()) {
-                    if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
+// ZEN_MOD_START
+                    if (check.GetScriptError() == SCRIPT_ERR_NOT_FINAL) {
+                        return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
+                    }
+                    if (flags & STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS) {
+// ZEN_MOD_END
                         // Check whether the failure was caused by a
                         // non-mandatory script verification check, such as
                         // non-standard DER encodings or non-null dummy
                         // arguments; if so, don't trigger DoS protection to
                         // avoid splitting the network between upgraded and
                         // non-upgraded nodes.
-                        CScriptCheck check(*coins, tx, i,
-                                flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheStore);
+// ZEN_MOD_START
+                        CScriptCheck check(*coins, tx, i, &chain,
+                                flags & ~STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS, cacheStore);
+// ZEN_MOD_END
                         if (check())
                             return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
                     }
@@ -2036,13 +2135,62 @@ void PartitionCheck(bool (*initialDownloadCheck)(), CCriticalSection& cs, const 
     }
 }
 
+// ZEN_MOD_START
+// Protected by cs_main
+VersionBitsCache versionbitscache;
+
+int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Params& params)
+{
+    LOCK(cs_main);
+    int32_t nVersion = VERSIONBITS_TOP_BITS;
+
+    for (int i = 0; i < (int)Consensus::MAX_VERSION_BITS_DEPLOYMENTS; i++) {
+        ThresholdState state = VersionBitsState(pindexPrev, params, (Consensus::DeploymentPos)i, versionbitscache);
+        if (state == THRESHOLD_LOCKED_IN || state == THRESHOLD_STARTED) {
+            nVersion |= VersionBitsMask(params, (Consensus::DeploymentPos)i);
+        }
+    }
+
+    return nVersion;
+}
+
+/**
+ * Threshold condition checker that triggers when unknown versionbits are seen on the network.
+ */
+class WarningBitsConditionChecker : public AbstractThresholdConditionChecker
+{
+private:
+    int bit;
+
+public:
+    WarningBitsConditionChecker(int bitIn) : bit(bitIn) {}
+
+    int64_t BeginTime(const Consensus::Params& params) const { return 0; }
+    int64_t EndTime(const Consensus::Params& params) const { return std::numeric_limits<int64_t>::max(); }
+    int Period(const Consensus::Params& params) const { return params.nMinerConfirmationWindow; }
+    int Threshold(const Consensus::Params& params) const { return params.nRuleChangeActivationThreshold; }
+
+    bool Condition(const CBlockIndex* pindex, const Consensus::Params& params) const
+    {
+        return ((pindex->nVersion & VERSIONBITS_TOP_MASK) == VERSIONBITS_TOP_BITS) &&
+               ((pindex->nVersion >> bit) & 1) != 0 &&
+               ((ComputeBlockVersion(pindex->pprev, params) >> bit) & 1) == 0;
+    }
+};
+
+// Protected by cs_main
+static ThresholdConditionCache warningcache[VERSIONBITS_NUM_BITS];
+// ZEN_MOD_END
+
 static int64_t nTimeVerify = 0;
 static int64_t nTimeConnect = 0;
 static int64_t nTimeIndex = 0;
 static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 
-bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, bool fJustCheck)
+// ZEN_MOD_START
+bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, const CChain& chain, bool fJustCheck)
+// ZEN_MOD_END
 {
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
@@ -2052,9 +2200,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         CBlockIndex *pindexLastCheckpoint = Checkpoints::GetLastCheckpoint(chainparams.Checkpoints());
         if (pindexLastCheckpoint && pindexLastCheckpoint->GetAncestor(pindex->nHeight) == pindex) {
             // This block is an ancestor of a checkpoint: disable script checks
-            fExpensiveChecks = false;
+            fExpensiveChecks = false;            
         }
-    }
+    }    
 
     auto verifier = libzcash::ProofVerifier::Strict();
     auto disabledVerifier = libzcash::ProofVerifier::Disabled();
@@ -2093,6 +2241,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     unsigned int flags = SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY;
 
     // DERSIG (BIP66) is also always enforced, but does not have a flag.
+
+// ZEN_MOD_START
+    // Start enforcing CHECKBLOCKATHEIGHT for block.nVersion=4
+    if (block.nVersion >= 4) {
+        flags |= SCRIPT_VERIFY_CHECKBLOCKATHEIGHT;
+    }
+// ZEN_MOD_END
 
     CBlockUndo blockundo;
 
@@ -2157,7 +2312,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             nFees += view.GetValueIn(tx)-tx.GetValueOut();
 
             std::vector<CScriptCheck> vChecks;
-            if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
+// ZEN_MOD_START
+            if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
+// ZEN_MOD_END
                 return false;
             control.Add(vChecks);
         }
@@ -2382,26 +2539,46 @@ void static UpdateTip(CBlockIndex *pindexNew) {
 
     // Check the version of the last 100 blocks to see if we need to upgrade:
     static bool fWarned = false;
-    if (!IsInitialBlockDownload() && !fWarned)
+// ZEN_MOD_START
+    if (!IsInitialBlockDownload())
     {
         int nUpgraded = 0;
         const CBlockIndex* pindex = chainActive.Tip();
+        for (int bit = 0; bit < VERSIONBITS_NUM_BITS; bit++) {
+            WarningBitsConditionChecker checker(bit);
+            ThresholdState state = checker.GetStateFor(pindex, chainParams.GetConsensus(), warningcache[bit]);
+            if (state == THRESHOLD_ACTIVE || state == THRESHOLD_LOCKED_IN) {
+                if (state == THRESHOLD_ACTIVE) {
+                    strMiscWarning = strprintf(_("Warning: unknown new rules activated (versionbit %i)"), bit);
+                    if (!fWarned) {
+                        CAlert::Notify(strMiscWarning, true);
+                        fWarned = true;
+                    }
+                } else {
+                    LogPrintf("%s: unknown new rules are about to activate (versionbit %i)\n", __func__, bit);
+                }
+            }
+        }
         for (int i = 0; i < 100 && pindex != NULL; i++)
         {
-            if (pindex->nVersion > CBlock::CURRENT_VERSION)
+            int32_t nExpectedVersion = ComputeBlockVersion(pindex->pprev, chainParams.GetConsensus());
+            if (pindex->nVersion > VERSIONBITS_LAST_OLD_BLOCK_VERSION && (pindex->nVersion & ~nExpectedVersion) != 0)
                 ++nUpgraded;
             pindex = pindex->pprev;
         }
         if (nUpgraded > 0)
-            LogPrintf("%s: %d of last 100 blocks above version %d\n", __func__, nUpgraded, (int)CBlock::CURRENT_VERSION);
+            LogPrintf("%s: %d of last 100 blocks have unexpected version\n", __func__, nUpgraded);
         if (nUpgraded > 100/2)
         {
-            // strMiscWarning is read by GetWarnings(), called by the JSON-RPC code to warn the user:
-            strMiscWarning = _("Warning: This version is obsolete; upgrade required!");
-            CAlert::Notify(strMiscWarning, true);
-            fWarned = true;
+            // strMiscWarning is read by GetWarnings(), called by Qt and the JSON-RPC code to warn the user:
+            strMiscWarning = _("Warning: Unknown block versions being mined! It's possible unknown rules are in effect");
+            if (!fWarned) {
+                CAlert::Notify(strMiscWarning, true);
+                fWarned = true;
+            }
         }
     }
+// ZEN_MOD_END
 }
 
 /** Disconnect chainActive's tip. */
@@ -2487,7 +2664,9 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     LogPrint("bench", "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * 0.001, nTimeReadFromDisk * 0.000001);
     {
         CCoinsViewCache view(pcoinsTip);
-        bool rv = ConnectBlock(*pblock, state, pindexNew, view);
+// ZEN_MOD_START
+        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive);
+// ZEN_MOD_END
         GetMainSignals().BlockChecked(*pblock, state);
         if (!rv) {
             if (state.IsInvalid())
@@ -3136,27 +3315,37 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
         }
     }
 
-    // Coinbase transaction must include an output sending 20% of
-    // the block reward to a founders reward script, until the last founders
-    // reward block is reached, with exception of the genesis block.
-    // The last founders reward block is defined as the block just before the
-    // first subsidy halving block, which occurs at halving_interval + slow_start_shift
-    if ((nHeight > 0) && (nHeight <= consensusParams.GetLastFoundersRewardBlockHeight())) {
-        bool found = false;
+// ZEN_MOD_START
+    // Reject the post-chainsplit block until a specific time is reached
+    if (ForkManager::getInstance().isAfterChainsplit(nHeight) && !ForkManager::getInstance().isAfterChainsplit(nHeight-1)  && block.GetBlockTime() < ForkManager::getInstance().getMinimumTime(nHeight))
+    {
+        return state.DoS(10, error("%s: post-chainsplit block received prior to scheduled time", __func__), REJECT_INVALID, "bad-cs-time");
+    }
 
-        BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
-            if (output.scriptPubKey == Params().GetFoundersRewardScriptAtHeight(nHeight)) {
-                if (output.nValue == (GetBlockSubsidy(nHeight, consensusParams) / 5)) {
-                    found = true;
-                    break;
+    CAmount reward = GetBlockSubsidy(nHeight, consensusParams);
+    // Coinbase transaction must include an output sending x.x% of
+    // the block reward to a community fund script
+
+    for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
+        CAmount communityReward = ForkManager::getInstance().getCommunityFundReward(nHeight, reward, cfType);
+        if (communityReward > 0) {
+            bool found = false;
+
+            BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
+                if (output.scriptPubKey == Params().GetCommunityFundScriptAtHeight(nHeight, cfType)) {
+                    if (output.nValue == communityReward) {
+                        found = true;                        
+                        break;
+                    }
                 }
             }
-        }
 
-        if (!found) {
-            return state.DoS(100, error("%s: founders reward missing", __func__), REJECT_INVALID, "cb-no-founders-reward");
+            if (!found) {
+                return state.DoS(100, error("%s: community fund missing block %d", __func__, nHeight), REJECT_INVALID, "cb-no-community-fund");
+            }
         }
     }
+// ZEN_MOD_END
 
     return true;
 }
@@ -3334,7 +3523,9 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
         return false;
     if (!ContextualCheckBlock(block, state, pindexPrev))
         return false;
-    if (!ConnectBlock(block, state, &indexDummy, viewNew, true))
+// ZEN_MOD_START
+    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, true))
+// ZEN_MOD_END
         return false;
     assert(state.IsValid());
 
@@ -3721,6 +3912,9 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     // check level 4: try reconnecting blocks
     if (nCheckLevel >= 4) {
         CBlockIndex *pindex = pindexState;
+// ZEN_MOD_START
+        CHistoricalChain chainHistorical(chainActive, pindex->nHeight - 1);
+// ZEN_MOD_END
         while (pindex != chainActive.Tip()) {
             boost::this_thread::interruption_point();
             uiInterface.ShowProgress(_("Verifying blocks..."), std::max(1, std::min(99, 100 - (int)(((double)(chainActive.Height() - pindex->nHeight)) / (double)nCheckDepth * 50))));
@@ -3728,7 +3922,10 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
             CBlock block;
             if (!ReadBlockFromDisk(block, pindex))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
-            if (!ConnectBlock(block, state, pindex, coins))
+// ZEN_MOD_START
+            chainHistorical.SetHeight(pindex->nHeight - 1);
+            if (!ConnectBlock(block, state, pindex, coins, chainHistorical))
+// ZEN_MOD_END
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         }
     }
@@ -3761,6 +3958,12 @@ void UnloadBlockIndex()
     setDirtyFileInfo.clear();
     mapNodeState.clear();
     recentRejects.reset(NULL);
+// ZEN_MOD_START
+    versionbitscache.Clear();
+    for (int b = 0; b < VERSIONBITS_NUM_BITS; b++) {
+        warningcache[b].clear();
+    }
+// ZEN_MOD_END
 
     BOOST_FOREACH(BlockMap::value_type& entry, mapBlockIndex) {
         delete entry.second;
@@ -4110,6 +4313,20 @@ void static CheckBlockIndex()
     // Check that we actually traversed the entire map.
     assert(nNodes == forward.size());
 }
+
+// ZEN_MOD_START
+ThresholdState VersionBitsTipState(const Consensus::Params& params, Consensus::DeploymentPos pos)
+{
+    LOCK(cs_main);
+    return VersionBitsState(chainActive.Tip(), params, pos, versionbitscache);
+}
+
+int VersionBitsTipStateSinceHeight(const Consensus::Params& params, Consensus::DeploymentPos pos)
+{
+    LOCK(cs_main);
+    return VersionBitsStateSinceHeight(chainActive.Tip(), params, pos, versionbitscache);
+}
+// ZEN_MOD_END
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -5424,13 +5641,29 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         bool fFetch = state.fPreferredDownload || (nPreferredDownload == 0 && !pto->fClient && !pto->fOneShot); // Download if this is a nice peer, or we have no nice peers and this one might do.
         if (!state.fSyncStarted && !pto->fClient && !fImporting && !fReindex) {
             // Only actively request headers from a single peer, unless we're close to today.
-            if ((nSyncStarted == 0 && fFetch) || pindexBestHeader->GetBlockTime() > GetAdjustedTime() - 24 * 60 * 60) {
-                state.fSyncStarted = true;
-                nSyncStarted++;
-                CBlockIndex *pindexStart = pindexBestHeader->pprev ? pindexBestHeader->pprev : pindexBestHeader;
-                LogPrint("net", "initial getheaders (%d) to peer=%d (startheight:%d)\n", pindexStart->nHeight, pto->id, pto->nStartingHeight);
-                pto->PushMessage("getheaders", chainActive.GetLocator(pindexStart), uint256());
+// ZEN_MOD_START
+            time_t t = time(0);
+            int height = chainActive.Tip()->nHeight;
+            if (t < ForkManager::getInstance().getMinimumTime(height) && (!ForkManager::getInstance().isAfterChainsplit(height))) {
+                fFetch = true;
+                if ((nSyncStarted == 0 && fFetch) || pindexBestHeader->GetBlockTime() > GetAdjustedTime() - 14 * 24 * 60 * 60) {
+                    state.fSyncStarted = true;
+                    nSyncStarted++;
+                    CBlockIndex *pindexStart = pindexBestHeader->pprev ? pindexBestHeader->pprev : pindexBestHeader;
+                    LogPrint("net", "initial getheaders (%d) to peer=%d (startheight:%d)\n", pindexStart->nHeight, pto->id, pto->nStartingHeight);
+                    pto->PushMessage("getheaders", chainActive.GetLocator(pindexStart), uint256());
+                }
             }
+            else {
+                if ((nSyncStarted == 0 && fFetch) || pindexBestHeader->GetBlockTime() > GetAdjustedTime() - 24 * 60 * 60) {
+                    state.fSyncStarted = true;
+                    nSyncStarted++;
+                    CBlockIndex *pindexStart = pindexBestHeader->pprev ? pindexBestHeader->pprev : pindexBestHeader;
+                    LogPrint("net", "initial getheaders (%d) to peer=%d (startheight:%d)\n", pindexStart->nHeight, pto->id, pto->nStartingHeight);
+                    pto->PushMessage("getheaders", chainActive.GetLocator(pindexStart), uint256());
+                }
+            }
+// ZEN_MOD_END
         }
 
         // Resend wallet transactions that haven't gotten in a block yet

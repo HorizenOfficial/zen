@@ -18,7 +18,9 @@ private:
     bool store;
 
 public:
-    CachingTransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, bool storeIn=true) : TransactionSignatureChecker(txToIn, nInIn), store(storeIn) {}
+// ZEN_MOD_START
+    CachingTransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CChain* chainIn, bool storeIn=true) : TransactionSignatureChecker(txToIn, nInIn, chainIn), store(storeIn) {}
+// ZEN_MOD_END
 
     bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
 };

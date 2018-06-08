@@ -19,6 +19,12 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+// ZEN_MOD_START
+#include "zen/forkmanager.h"
+
+using namespace zen;
+// ZEN_MOD_END
+
 void AtomicTimer::start()
 {
     std::unique_lock<std::mutex> lock(mtx);
@@ -197,29 +203,62 @@ void ConnectMetricsScreen()
 int printStats(bool mining)
 {
     // Number of lines that are always displayed
+// ZEN_MOD_START
     int lines = 4;
 
-    int height;
-    int64_t tipmediantime;
-    size_t connections;
-    int64_t netsolps;
+    int height = chainActive.Height();
+    int64_t netsolps = GetNetworkHashPS(120, -1);
+    int connections = 0;
+    int tlsConnections = 0;
     {
         LOCK2(cs_main, cs_vNodes);
-        height = chainActive.Height();
-        tipmediantime = chainActive.Tip()->GetMedianTimePast();
         connections = vNodes.size();
-        netsolps = GetNetworkHashPS(120, -1);
+        tlsConnections = std::count_if(vNodes.begin(), vNodes.end(), [](CNode* n) {return n->ssl != NULL;});
     }
+/*
+    // OpenSSL related statistics
+    tlsvalidate = GetArg("-tlsvalidate","");
+    cipherdescription = cipherdescription.length() == 0 ? "Not Encrypted" : cipherdescription;
+    securitylevel = securitylevel.length() == 0 ? "INACTIVE" : securitylevel;
+    routingsecrecy = routingsecrecy.length() == 0 ? GetArg("-onlynet", "") : routingsecrecy;
+    validationdescription = (tlsvalidate == "1" ? "YES" : "PUBLIC");
+
+    if (routingsecrecy == "" || routingsecrecy == "ipv4" || routingsecrecy == "ipv6") routingsecrecy = "CLEARNET";
+    else if (routingsecrecy == "onion") routingsecrecy = "TOR NETWORK";
+
+    {
+        LOCK2(cs_main, cs_vNodes);
+
+        // Find first encrypted connection and populate states
+        if (connections > 0) {
+            for (int i = 0; i < vNodes.size(); i++) {
+                if (vNodes[i]->ssl != NULL && SSL_get_state(vNodes[i]->ssl) == TLS_ST_OK) {
+                    char *tmp = new char[256];
+                    cipherdescription = SSL_CIPHER_get_name(SSL_get_current_cipher(vNodes[i]->ssl));
+                    securitylevel = "ACTIVE";
+                    break;
+                }
+                else if (cipherdescription == "Not Encrypted") {
+                    securitylevel = "INACTIVE";
+                }
+            }
+        }
+    }
+*/
+// ZEN_MOD_END
     auto localsolps = GetLocalSolPS();
 
-    if (IsInitialBlockDownload()) {
-        int netheight = EstimateNetHeight(height, tipmediantime, Params());
-        int downloadPercent = height * 100 / netheight;
-        std::cout << "     " << _("Downloading blocks") << " | " << height << " / ~" << netheight << " (" << downloadPercent << "%)" << std::endl;
-    } else {
-        std::cout << "           " << _("Block height") << " | " << height << std::endl;
-    }
-    std::cout << "            " << _("Connections") << " | " << connections << std::endl;
+// ZEN_MOD_START
+/*
+    std::cout << "          " << _("COMSEC STATUS") << " | " << securitylevel << std::endl;
+    std::cout << "      " << _("Encryption Cipher") << " | " << cipherdescription << std::endl;
+    std::cout << "        " << _("Routing Secrecy") << " | " << routingsecrecy << std::endl;
+    std::cout << "         " << _("Validate Peers") << " | " << validationdescription << std::endl;
+    std::cout << std::endl;
+*/
+    std::cout << "           " << _("Block height") << " | " << height << std::endl;
+    std::cout << "            " << _("Connections") << " | " << connections << " (TLS: " << tlsConnections << ")" << std::endl;
+// ZEN_MOD_END
     std::cout << "  " << _("Network solution rate") << " | " << netsolps << " Sol/s" << std::endl;
     if (mining && miningTimer.running()) {
         std::cout << "    " << _("Local solution rate") << " | " << strprintf("%.4f Sol/s", localsolps) << std::endl;
@@ -258,7 +297,9 @@ int printMiningStatus(bool mining)
         lines++;
     } else {
         std::cout << _("You are currently not mining.") << std::endl;
-        std::cout << _("To enable mining, add 'gen=1' to your zcash.conf and restart.") << std::endl;
+        // ZEN_MOD_START
+        std::cout << _("To enable mining, add 'gen=1' to your zen.conf and restart.") << std::endl;
+        // ZEN_MOD_END
         lines += 2;
     }
     std::cout << std::endl;
@@ -327,9 +368,12 @@ int printMetrics(size_t cols, bool mining)
                         chainActive.Contains(mapBlockIndex[hash])) {
                     int height = mapBlockIndex[hash]->nHeight;
                     CAmount subsidy = GetBlockSubsidy(height, consensusParams);
-                    if ((height > 0) && (height <= consensusParams.GetLastFoundersRewardBlockHeight())) {
-                        subsidy -= subsidy/5;
+// ZEN_MOD_START
+                    for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
+                        CAmount communityFundAmount = ForkManager::getInstance().getCommunityFundReward(height,subsidy, cfType);
+                        subsidy -= communityFundAmount;
                     }
+// ZEN_MOD_END
                     if (std::max(0, COINBASE_MATURITY - (tipHeight - height)) > 0) {
                         immature += subsidy;
                     } else {
@@ -429,11 +473,15 @@ void ThreadShowMetricsScreen()
         std::cout << std::endl;
 
         // Thank you text
-        std::cout << _("Thank you for running a Zcash node!") << std::endl;
-        std::cout << _("You're helping to strengthen the network and contributing to a social good :)") << std::endl;
+// ZEN_MOD_START
+        std::cout << _("Zen is economic freedom. Thanks for running a node.") << std::endl;
+        std::cout << _("仕方が無い") << std::endl;
+        std::cout << _("Shikata ga nai.") << std::endl;
+        std::cout << _("它不能得到帮助") << std::endl << std::endl;
 
         // Privacy notice text
         std::cout << PrivacyInfo();
+// ZEN_MOD_END
         std::cout << std::endl;
     }
 

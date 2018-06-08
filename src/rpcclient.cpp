@@ -103,7 +103,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "zcbenchmark", 1 },
     { "zcbenchmark", 2 },
     { "getblocksubsidy", 0},
-    { "z_listaddresses", 0},
     { "z_listreceivedbyaddress", 1},
     { "z_getbalance", 1},
     { "z_gettotalbalance", 0},

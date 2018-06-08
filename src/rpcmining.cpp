@@ -32,6 +32,11 @@
 
 using namespace std;
 
+// ZEN_MOD_START
+#include "zen/forkmanager.h"
+using namespace zen;
+// ZEN_MOD_END
+
 /**
  * Return average network hashes per second based on the last 'lookup' blocks,
  * or over the difficulty averaging window if 'lookup' is nonpositive.
@@ -555,8 +560,11 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     if (vNodes.empty())
         throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Zcash is not connected!");
 
-    if (IsInitialBlockDownload())
+// ZEN_MOD_START
+    // from https://github.com/ZencashOfficial/zen/commit/e7a774e9a72fae1228ccbc764d520bd685860822
+    if (IsInitialBlockDownload() && ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight-(Params().GetConsensus().nMinerConfirmationWindow * 2)))
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Zcash is downloading blocks...");
+// ZEN_MOD_END
 
     static unsigned int nTransactionsUpdatedLast;
 
@@ -677,10 +685,12 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         entry.push_back(Pair("sigops", pblocktemplate->vTxSigOps[index_in_template]));
 
         if (tx.IsCoinBase()) {
-            // Show founders' reward if it is required
+            // Show community reward if it is required
             if (pblock->vtx[0].vout.size() > 1) {
                 // Correct this if GetBlockTemplate changes the order
-                entry.push_back(Pair("foundersreward", (int64_t)tx.vout[1].nValue));
+// ZEN_MOD_START
+                entry.push_back(Pair("communityfund", (int64_t)tx.vout[1].nValue));
+// ZEN_MOD_END
             }
             entry.push_back(Pair("required", true));
             txCoinbase = entry;
@@ -876,20 +886,22 @@ UniValue estimatepriority(const UniValue& params, bool fHelp)
 UniValue getblocksubsidy(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() > 1)
+// ZEN_MOD_START
         throw runtime_error(
             "getblocksubsidy height\n"
-            "\nReturns block subsidy reward, taking into account the mining slow start and the founders reward, of block at index provided.\n"
+            "\nReturns block subsidy reward, taking into account the mining slow start and the community fund, of block at index provided.\n"
             "\nArguments:\n"
             "1. height         (numeric, optional) The block height.  If not provided, defaults to the current height of the chain.\n"
             "\nResult:\n"
             "{\n"
-            "  \"miner\" : x.xxx           (numeric) The mining reward amount in " + CURRENCY_UNIT + ".\n"
-            "  \"founders\" : x.xxx        (numeric) The founders reward amount in " + CURRENCY_UNIT + ".\n"
+            "  \"miner\" : x.xxx           (numeric) The mining reward amount in ZEN.\n"
+            "  \"community\" : x.xxx        (numeric) The community (with securenodes and supernodes) fund amount in ZEN.\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("getblocksubsidy", "1000")
             + HelpExampleRpc("getblockubsidy", "1000")
         );
+// ZEN_MOD_END
 
     LOCK(cs_main);
     int nHeight = (params.size()==1) ? params[0].get_int() : chainActive.Height();
@@ -897,13 +909,18 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
 
     CAmount nReward = GetBlockSubsidy(nHeight, Params().GetConsensus());
-    CAmount nFoundersReward = 0;
-    if ((nHeight > 0) && (nHeight <= Params().GetConsensus().GetLastFoundersRewardBlockHeight())) {
-        nFoundersReward = nReward/5;
-        nReward -= nFoundersReward;
+// ZEN_MOD_START
+    CAmount nTotalCommunityFund = 0;
+    for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
+        CAmount nCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight,nReward, cfType);
+        nReward -= nCommunityFund;
+        nTotalCommunityFund += nCommunityFund;
     }
+// ZEN_MOD_END
     UniValue result(UniValue::VOBJ);
     result.push_back(Pair("miner", ValueFromAmount(nReward)));
-    result.push_back(Pair("founders", ValueFromAmount(nFoundersReward)));
+// ZEN_MOD_START
+    result.push_back(Pair("community", ValueFromAmount(nTotalCommunityFund)));
+// ZEN_MOD_END
     return result;
 }

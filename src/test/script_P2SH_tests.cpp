@@ -115,7 +115,9 @@ BOOST_AUTO_TEST_CASE(sign)
         {
             CScript sigSave = txTo[i].vin[0].scriptSig;
             txTo[i].vin[0].scriptSig = txTo[j].vin[0].scriptSig;
-            bool sigOK = CScriptCheck(CCoins(txFrom, 0), txTo[i], 0, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_STRICTENC, false)();
+// ZEN_MOD_START
+            bool sigOK = CScriptCheck(CCoins(txFrom, 0), txTo[i], 0, nullptr, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_STRICTENC, false)();
+// ZEN_MOD_END
             if (i == j)
                 BOOST_CHECK_MESSAGE(sigOK, strprintf("VerifySignature %d %d", i, j));
             else
@@ -226,6 +228,13 @@ BOOST_AUTO_TEST_CASE(is)
     static const unsigned char pushdata4[] = { OP_HASH160, OP_PUSHDATA4, 20,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, OP_EQUAL };
     BOOST_CHECK(!CScript(pushdata4, pushdata4+sizeof(pushdata4)).IsPayToScriptHash());
 
+    // Test for pay-to-script-hash with OP_CHECKBLOCKATHEIGHT
+// ZEN_MOD_START
+    static const unsigned char direct_checkblock[] = { OP_HASH160, 20, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, OP_EQUAL,
+            4, 0,0,0,0, 32, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, OP_CHECKBLOCKATHEIGHT };
+    BOOST_CHECK(CScript(direct_checkblock, direct_checkblock+sizeof(direct_checkblock)).IsPayToScriptHash());
+// ZEN_MOD_END
+
     CScript not_p2sh;
     BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
 
@@ -237,6 +246,18 @@ BOOST_AUTO_TEST_CASE(is)
 
     not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_CHECKSIG;
     BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
+
+// ZEN_MOD_START
+    // tests for pay-to-script-hash with OP_CHECKBLOCKATHEIGHT
+    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_EQUAL << ToByteVector(uint256()) << 0x1 << OP_NOP4;
+    BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
+
+    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_EQUAL << ToByteVector(uint256()) << ToByteVector(uint256()) << OP_CHECKBLOCKATHEIGHT;
+    BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
+
+    not_p2sh.clear(); not_p2sh << OP_HASH160 << ToByteVector(dummy) << OP_NOP4 << ToByteVector(uint256()) << 0x1 << OP_CHECKBLOCKATHEIGHT;
+    BOOST_CHECK(!not_p2sh.IsPayToScriptHash());
+// ZEN_MOD_END
 }
 
 BOOST_AUTO_TEST_CASE(switchover)

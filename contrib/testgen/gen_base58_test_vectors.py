@@ -15,10 +15,12 @@ import random
 from binascii import b2a_hex
 
 # key types
-PUBKEY_ADDRESS = 0
-SCRIPT_ADDRESS = 5
-PUBKEY_ADDRESS_TEST = 111
-SCRIPT_ADDRESS_TEST = 196
+# ZEN_MOD_START
+PUBKEY_ADDRESS = 0x20
+SCRIPT_ADDRESS = 0x20
+PUBKEY_ADDRESS_TEST = 0x20
+SCRIPT_ADDRESS_TEST = 0x20
+# ZEN_MOD_END
 PRIVKEY = 128
 PRIVKEY_TEST = 239
 
@@ -27,10 +29,12 @@ metadata_keys = ['isPrivkey', 'isTestnet', 'addrType', 'isCompressed']
 templates = [
   # prefix, payload_size, suffix, metadata
   #                                  None = N/A
-  ((PUBKEY_ADDRESS,),      20, (),   (False, False, 'pubkey', None)),
-  ((SCRIPT_ADDRESS,),      20, (),   (False, False, 'script',  None)),
-  ((PUBKEY_ADDRESS_TEST,), 20, (),   (False, True,  'pubkey', None)),
-  ((SCRIPT_ADDRESS_TEST,), 20, (),   (False, True,  'script',  None)),
+# ZEN_MOD_START
+  ((PUBKEY_ADDRESS,0x89),      20, (),   (False, False, 'pubkey', None)),
+  ((SCRIPT_ADDRESS,0x96),      20, (),   (False, False, 'script',  None)),
+  ((PUBKEY_ADDRESS_TEST,0x98), 20, (),   (False, True,  'pubkey', None)),
+  ((SCRIPT_ADDRESS_TEST,0x92), 20, (),   (False, True,  'script',  None)),
+# ZEN_MOD_END
   ((PRIVKEY,),             32, (),   (True,  False, None,  False)),
   ((PRIVKEY,),             32, (1,), (True,  False, None,  True)),
   ((PRIVKEY_TEST,),        32, (),   (True,  True,  None,  False)),

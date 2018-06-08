@@ -30,6 +30,14 @@
 #include <boost/foreach.hpp>
 #include <boost/signals2/signal.hpp>
 
+// ZEN_MOD_START
+// Enable OpenSSL Support for Zen
+#include <openssl/bio.h>
+#include <openssl/ssl.h>
+// ZEN_MOD_END
+
+
+
 class CAddrMan;
 class CBlockIndex;
 class CScheduler;
@@ -74,6 +82,21 @@ bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhite
 void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler);
 bool StopNode();
 void SocketSendData(CNode *pnode);
+// ZEN_MOD_START
+SSL_CTX* create_context(bool server_side);
+EVP_PKEY *generate_key();
+X509 *generate_x509(EVP_PKEY *pkey);
+bool write_to_disk(EVP_PKEY *pkey, X509 *x509);
+void configure_context(SSL_CTX *ctx, bool server_side);
+static boost::filesystem::path tlsKeyPath;
+static boost::filesystem::path tlsCertPath;
+
+// OpenSSL related variables for metrics.cpp
+static std::string routingsecrecy;
+static std::string cipherdescription;
+static std::string securitylevel;
+static std::string validationdescription;
+// ZEN_MOD_END
 
 typedef int NodeId;
 
@@ -154,10 +177,16 @@ extern CCriticalSection cs_vAddedNodes;
 extern NodeId nLastNodeId;
 extern CCriticalSection cs_nLastNodeId;
 
+// ZEN_MOD_START
+extern SSL_CTX *tls_ctx_server;
+extern SSL_CTX *tls_ctx_client;
+// ZEN_MOD_END
+
 struct LocalServiceInfo {
     int nScore;
     int nPort;
 };
+
 
 extern CCriticalSection cs_mapLocalHost;
 extern std::map<CNetAddr, LocalServiceInfo> mapLocalHost;
@@ -167,6 +196,10 @@ class CNodeStats
 public:
     NodeId nodeid;
     uint64_t nServices;
+// ZEN_MOD_START
+    bool fTLSEstablished;
+    bool fTLSVerified;
+// ZEN_MOD_END
     int64_t nLastSend;
     int64_t nLastRecv;
     int64_t nTimeConnected;
@@ -233,9 +266,17 @@ public:
 class CNode
 {
 public:
+// ZEN_MOD_START
+    // OpenSSL
+    SSL *ssl;
+// ZEN_MOD_END
+
     // socket
     uint64_t nServices;
     SOCKET hSocket;
+// ZEN_MOD_START
+    CCriticalSection cs_hSocket;
+// ZEN_MOD_END
     CDataStream ssSend;
     size_t nSendSize; // total size of all vSendMsg entries
     size_t nSendOffset; // offset inside the first vSendMsg already sent
@@ -257,6 +298,9 @@ public:
     std::string addrName;
     CService addrLocal;
     int nVersion;
+// ZEN_MOD_START
+    bool fSentVersion;
+// ZEN_MOD_END
     // strSubVer is whatever byte array we read from the wire. However, this field is intended
     // to be printed out, displayed to humans in various forms and so on. So we sanitize it and
     // store the sanitized version in cleanSubVer. The original should be used when dealing with
@@ -324,7 +368,9 @@ public:
     // Whether a ping is requested.
     bool fPingQueued;
 
-    CNode(SOCKET hSocketIn, const CAddress &addrIn, const std::string &addrNameIn = "", bool fInboundIn = false);
+// ZEN_MOD_START
+    CNode(SOCKET hSocketIn, const CAddress &addrIn, const std::string &addrNameIn = "", bool fInboundIn = false, SSL *sslIn = NULL);
+// ZEN_MOD_END
     ~CNode();
 
 private:

@@ -164,6 +164,9 @@ public:
     CTxDestination Get() const;
     bool GetKeyID(CKeyID &keyID) const;
     bool IsScript() const;
+// ZEN_MOD_START
+    bool IsPubKey() const;
+// ZEN_MOD_END
 };
 
 /**

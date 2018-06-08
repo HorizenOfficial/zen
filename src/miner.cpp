@@ -42,6 +42,11 @@
 
 using namespace std;
 
+// ZEN_MOD_START
+#include "zen/forkmanager.h"
+using namespace zen; 
+// ZEN_MOD_END
+
 //////////////////////////////////////////////////////////////////////////////
 //
 // BitcoinMiner
@@ -145,6 +150,15 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         const int nHeight = pindexPrev->nHeight + 1;
         pblock->nTime = GetAdjustedTime();
         const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();
+
+// ZEN_MOD_START
+        pblock->nVersion = ComputeBlockVersion(pindexPrev, chainparams.GetConsensus());
+        // -regtest only: allow overriding block.nVersion with
+        // -blockversion=N to test forking scenarios
+        if (chainparams.MineBlocksOnDemand())
+            pblock->nVersion = GetArg("-blockversion", pblock->nVersion);
+// ZEN_MOD_END
+
         CCoinsViewCache view(pcoinsTip);
 
         // Priority order to process transactions
@@ -293,7 +307,9 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
             // policy here, but we still have to ensure that the block we
             // create only contains transactions that are valid in new blocks.
             CValidationState state;
-            if (!ContextualCheckInputs(tx, state, view, true, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+// ZEN_MOD_START
+            if (!ContextualCheckInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
+// ZEN_MOD_END
                 continue;
 
             UpdateCoins(tx, state, view, nHeight);
@@ -340,23 +356,25 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         txNew.vin.resize(1);
         txNew.vin[0].prevout.SetNull();
         txNew.vout.resize(1);
-        txNew.vout[0].scriptPubKey = scriptPubKeyIn;
-        txNew.vout[0].nValue = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+        txNew.vout[0].scriptPubKey = scriptPubKeyIn;        
+        CAmount reward = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+        txNew.vout[0].nValue = reward;
 
-        if ((nHeight > 0) && (nHeight <= chainparams.GetConsensus().GetLastFoundersRewardBlockHeight())) {
-            // Founders reward is 20% of the block subsidy
-            auto vFoundersReward = txNew.vout[0].nValue / 5;
-            // Take some reward away from us
-            txNew.vout[0].nValue -= vFoundersReward;
+// ZEN_MOD_START
 
-            // And give it to the founders
-            txNew.vout.push_back(CTxOut(vFoundersReward, chainparams.GetFoundersRewardScriptAtHeight(nHeight)));
+        for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
+            CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight, reward, cfType);
+            if (vCommunityFund > 0) {
+                // Take some reward away from miners
+                txNew.vout[0].nValue -= vCommunityFund;
+                // And give it to the community
+                txNew.vout.push_back(CTxOut(vCommunityFund, chainparams.GetCommunityFundScriptAtHeight(nHeight, cfType)));
+            }
         }
-
+// ZEN_MOD_END        
         // Add fees
         txNew.vout[0].nValue += nFees;
-        txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;
-
+        txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;        
         pblock->vtx[0] = txNew;
         pblocktemplate->vTxFees[0] = -nFees;
 

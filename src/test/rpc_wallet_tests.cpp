@@ -250,6 +250,20 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     }
     BOOST_CHECK(!notFound);
 
+// ZEN_MOD_START
+   /*********************************
+    *       listaddresses
+    *********************************/
+    BOOST_CHECK_NO_THROW(retValue = CallRPC("listaddresses"));
+    arr = retValue.get_array();
+    BOOST_CHECK_EQUAL(4, arr.size());
+    notFound = true;
+    for (auto a : arr.getValues()) {
+        notFound &= CBitcoinAddress(a.get_str()).Get() != demoAddress.Get();
+    }
+    BOOST_CHECK(!notFound);
+// ZEN_MOD_END
+    
     /*********************************
      * 	     fundrawtransaction
      *********************************/
@@ -263,16 +277,30 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     BOOST_CHECK_THROW(CallRPC("getblocksubsidy -1"), runtime_error);
     BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 50000"));
     UniValue obj = retValue.get_obj();
-    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 10.0);
-    BOOST_CHECK_EQUAL(find_value(obj, "founders").get_real(), 2.5);
-    BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 1000000"));
+// ZEN_MOD_START
+    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 12.5);
+    BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 0.0);
+    
+    BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 110001"));
     obj = retValue.get_obj();
-    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 6.25);
-    BOOST_CHECK_EQUAL(find_value(obj, "founders").get_real(), 0.0);
-    BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 2000000"));
+    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 11.4375);
+    BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 1.0625);
+    
+    BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 139200"));
     obj = retValue.get_obj();
-    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 3.125);
-    BOOST_CHECK_EQUAL(find_value(obj, "founders").get_real(), 0.0);
+    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 11.0);
+    BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 1.5);
+    
+    BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 300000"));
+    obj = retValue.get_obj();
+    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 8.75);
+    BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 3.75);
+
+    BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 840001"));
+    obj = retValue.get_obj();
+    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 4.375);
+    BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 1.875);
+// ZEN_MOD_END
 
     /*
      * getblock
@@ -1251,7 +1279,9 @@ BOOST_AUTO_TEST_CASE(rpc_z_shieldcoinbase_parameters)
 
     BOOST_CHECK_THROW(CallRPC("z_shieldcoinbase"), runtime_error);
     BOOST_CHECK_THROW(CallRPC("z_shieldcoinbase toofewargs"), runtime_error);
-    BOOST_CHECK_THROW(CallRPC("z_shieldcoinbase too many args shown here"), runtime_error);
+// ZEN_MOD_START
+    BOOST_CHECK_THROW(CallRPC("z_shieldcoinbase too many args here"), runtime_error);
+// ZEN_MOD_END
 
     // bad from address
     BOOST_CHECK_THROW(CallRPC("z_shieldcoinbase "
@@ -1278,13 +1308,6 @@ BOOST_AUTO_TEST_CASE(rpc_z_shieldcoinbase_parameters)
             "tnpoQJVnYBZZqkFadj2bJJLThNCxbADGB5gSGeYTAGGrT5tejsxY9Zc1BtY8nnHmZkB "
             "21000001"
             ), runtime_error);
-
-    // invalid limit, must be at least 0
-    BOOST_CHECK_THROW(CallRPC("z_shieldcoinbase "
-    "tmRr6yJonqGK23UVhrKuyvTpF8qxQQjKigJ "
-    "tnpoQJVnYBZZqkFadj2bJJLThNCxbADGB5gSGeYTAGGrT5tejsxY9Zc1BtY8nnHmZkB "
-    "100 -1"
-    ), runtime_error);
 
     // Test constructor of AsyncRPCOperation_sendmany
     std::string testnetzaddr = "ztjiDe569DPNbyTE6TSdJTaSDhoXEHLGvYoUnBU1wfVNU52TEyT6berYtySkd21njAeEoh8fFJUT42kua9r8EnhBaEKqCpP";
@@ -1372,7 +1395,9 @@ BOOST_AUTO_TEST_CASE(rpc_z_shieldcoinbase_internals)
         try {
             proxy.perform_joinsplit(info);
         } catch (const std::runtime_error & e) {
-            BOOST_CHECK( string(e.what()).find("error verifying joinsplit")!= string::npos);
+// ZEN_MOD_START
+            BOOST_CHECK( string(e.what()).find("JoinSplit verifying key not loaded")!= string::npos);
+// ZEN_MOD_END
         }
     }
 

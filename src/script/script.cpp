@@ -138,13 +138,18 @@ const char* GetOpName(opcodetype opcode)
     case OP_CHECKSIGVERIFY         : return "OP_CHECKSIGVERIFY";
     case OP_CHECKMULTISIG          : return "OP_CHECKMULTISIG";
     case OP_CHECKMULTISIGVERIFY    : return "OP_CHECKMULTISIGVERIFY";
+// ZEN_MOD_START
+    case OP_CHECKBLOCKATHEIGHT     : return "OP_CHECKBLOCKATHEIGHT";
+// ZEN_MOD_END
 
     // expanson
     case OP_NOP1                   : return "OP_NOP1";
     case OP_NOP2                   : return "OP_NOP2";
     case OP_NOP3                   : return "OP_NOP3";
     case OP_NOP4                   : return "OP_NOP4";
-    case OP_NOP5                   : return "OP_NOP5";
+// ZEN_MOD_START
+    //case OP_NOP5                   : return "OP_NOP5"; Generic anti-replay protection using Script
+// ZEN_MOD_END
     case OP_NOP6                   : return "OP_NOP6";
     case OP_NOP7                   : return "OP_NOP7";
     case OP_NOP8                   : return "OP_NOP8";
@@ -213,11 +218,27 @@ unsigned int CScript::GetSigOpCount(const CScript& scriptSig) const
 
 bool CScript::IsPayToScriptHash() const
 {
+// ZEN_MOD_START
     // Extra-fast test for pay-to-script-hash CScripts:
-    return (this->size() == 23 &&
-            this->at(0) == OP_HASH160 &&
-            this->at(1) == 0x14 &&
-            this->at(22) == OP_EQUAL);
+
+    // Check if this script is P2SH without OP_CHECKBLOCKATHEIGHT
+    bool p2sh = (this->size() == 23 &&
+                 this->at(0) == OP_HASH160 &&
+                 this->at(1) == 0x14 &&
+                 this->at(22) == OP_EQUAL);
+
+    // Check if this script is P2SH with OP_CHECKBLOCKATHEIGHT
+    // The overall size should not be more then 62:
+    // 23 bytes for common P2SH + 1 byte size + 32 bytes of block hash + 1 byte size + 4 bytes of block height + 1 byte opcode
+    bool p2shWithReplay = (this->size() > 23 &&
+                           this->size() < 63 &&
+                           this->at(0) == OP_HASH160 &&
+                           this->at(1) == 0x14 &&
+                           this->at(22) == OP_EQUAL &&
+                           this->at(this->size() - 1) == OP_CHECKBLOCKATHEIGHT);
+
+    return p2sh || p2shWithReplay;
+// ZEN_MOD_END
 }
 
 bool CScript::IsPushOnly() const

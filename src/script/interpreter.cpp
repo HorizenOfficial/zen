@@ -5,6 +5,9 @@
 
 #include "interpreter.h"
 
+// ZEN_MOD_START
+#include "chain.h"
+// ZEN_MOD_END
 #include "primitives/transaction.h"
 #include "crypto/ripemd160.h"
 #include "crypto/sha1.h"
@@ -12,6 +15,12 @@
 #include "pubkey.h"
 #include "script/script.h"
 #include "uint256.h"
+// ZEN_MOD_START
+#include "util.h"
+#include "main.h"
+#include <boost/algorithm/hex.hpp>
+#include <boost/algorithm/string.hpp>
+// ZEN_MOD_END
 
 using namespace std;
 
@@ -376,7 +385,55 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     break;
                 }
 
-                case OP_NOP1: case OP_NOP3: case OP_NOP4: case OP_NOP5:
+// ZEN_MOD_START
+                case OP_CHECKBLOCKATHEIGHT:
+                {
+                    if (!(flags & SCRIPT_VERIFY_CHECKBLOCKATHEIGHT)) {
+                        // At least check that there are 2 parameters
+                        if (stack.size() < 2) {
+                            LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Wrong parameters amount.", __FILE__, __func__);
+                            return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+                        }
+                        // Clear stack
+                        popstack(stack);
+                        popstack(stack);
+                        break;
+                    }
+
+                    if (stack.size() < 2) {
+                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Wrong parameters amount.", __FILE__, __func__);
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+                    }
+
+                    valtype vchBlockHash(stacktop(-2));
+                    valtype vchBlockIndex(stacktop(-1));
+
+                    if ((vchBlockIndex.size() > sizeof(int)) || (vchBlockHash.size() > 32))
+                    {
+                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad params.", __FILE__, __func__);
+                        return set_error(serror, SCRIPT_ERR_CHECKBLOCKATHEIGHT);
+                    }
+
+                    // nHeight is a 32-bit signed integer field.
+                    const int32_t nHeight = CScriptNum(vchBlockIndex, true, 4).getint();
+
+                    // Compare the specified block hash with the input.
+                    if (nHeight < 0 || !checker.CheckBlockHash(nHeight, vchBlockHash)) {
+                        // Not final rather than a hard reject to avoid caching across different blockchains
+                        // Also because it will *eventually* become final when the height gets old enough
+                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Referenced height: %d", __FILE__, __func__, nHeight);
+                        return set_error(serror, SCRIPT_ERR_NOT_FINAL);
+                    }
+
+                    // Clear stack
+                    popstack(stack);
+                    popstack(stack);
+
+                    break;
+                }
+
+                case OP_NOP1: case OP_NOP3: case OP_NOP4:
+// ZEN_MOD_END
                 case OP_NOP6: case OP_NOP7: case OP_NOP8: case OP_NOP9: case OP_NOP10:
                 {
                     if (flags & SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS)
@@ -1143,6 +1200,34 @@ bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime) con
     return true;
 }
 
+// ZEN_MOD_START
+bool TransactionSignatureChecker::CheckBlockHash(const int32_t nHeight, const std::vector<unsigned char>& vchCompareTo) const
+{
+    if (!chain) {
+        return false;
+    }
+
+    // If the chain doesn't reach the desired height yet, the transaction is non-final
+    if (nHeight > chain->Height()) {
+        return false;
+    }
+
+    // Sufficiently old blocks are always valid
+    if (nHeight <= chain->Height() - 52596) {
+        return true;
+    }
+
+    CBlockIndex* pblockindex = (*chain)[nHeight];
+    uint256 blockHash = pblockindex->GetBlockHash();
+    std::vector<unsigned char> vchBlockHash(blockHash.begin(), blockHash.end());
+
+    if (vchBlockHash.empty() || vchCompareTo.empty()) {
+        return false;
+    }
+
+    return (vchCompareTo == vchBlockHash);
+}
+// ZEN_MOD_END
 
 bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror)
 {

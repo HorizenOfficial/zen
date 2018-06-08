@@ -17,7 +17,9 @@ class CBaseMainParams : public CBaseChainParams
 public:
     CBaseMainParams()
     {
-        nRPCPort = 8232;
+// ZEN_MOD_START
+        nRPCPort = 8231;
+// ZEN_MOD_END
     }
 };
 static CBaseMainParams mainParams;
@@ -30,7 +32,9 @@ class CBaseTestNetParams : public CBaseMainParams
 public:
     CBaseTestNetParams()
     {
-        nRPCPort = 18232;
+// ZEN_MOD_START
+        nRPCPort = 18231;
+// ZEN_MOD_END
         strDataDir = "testnet3";
     }
 };
