@@ -895,7 +895,9 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "{\n"
             "  \"miner\" : x.xxx           (numeric) The mining reward amount in ZEN.\n"
-            "  \"community\" : x.xxx        (numeric) The community (with securenodes and supernodes) fund amount in ZEN.\n"
+            "  \"community\" : x.xxx        (numeric) The community fund amount in ZEN.\n"
+            "  \"securenodes\" : x.xxx        (numeric) The securenodes fund amount in ZEN (only if securenode HF fund is available).\n"
+            "  \"supernodes\" : x.xxx        (numeric) The supernodes fund amount in ZEN (only if supernode HF fund is available).\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("getblocksubsidy", "1000")
@@ -909,18 +911,34 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
 
     CAmount nReward = GetBlockSubsidy(nHeight, Params().GetConsensus());
-// ZEN_MOD_START
-    CAmount nTotalCommunityFund = 0;
-    for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
-        CAmount nCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight,nReward, cfType);
-        nReward -= nCommunityFund;
-        nTotalCommunityFund += nCommunityFund;
+    CAmount minerReward = nReward;
+
+// ZEN_MOD_START    
+    CAmount nCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight,nReward, Fork::CommunityFundType::FOUNDATION);
+    minerReward -= nCommunityFund;
+
+    CAmount secureNodeFund = ForkManager::getInstance().getCommunityFundReward(nHeight,nReward, Fork::CommunityFundType::SECURENODE);
+    if (secureNodeFund > 0) {
+        minerReward -= secureNodeFund;
     }
+    CAmount superNodeFund = ForkManager::getInstance().getCommunityFundReward(nHeight,nReward, Fork::CommunityFundType::SUPERNODE);
+    if (superNodeFund > 0) {
+        minerReward -= superNodeFund;
+    }
+
+
 // ZEN_MOD_END
     UniValue result(UniValue::VOBJ);
     result.push_back(Pair("miner", ValueFromAmount(nReward)));
 // ZEN_MOD_START
-    result.push_back(Pair("community", ValueFromAmount(nTotalCommunityFund)));
+    result.push_back(Pair("community", ValueFromAmount(nCommunityFund)));
+    if (secureNodeFund > 0) {
+        result.push_back(Pair("securenodes", ValueFromAmount(secureNodeFund)));
+    }
+    if (superNodeFund > 0) {
+        result.push_back(Pair("supernodes", ValueFromAmount(superNodeFund)));
+    }
+
 // ZEN_MOD_END
     return result;
 }
