@@ -1,4 +1,4 @@
-Zen 2.0.10-1
+Zen 2.0.14-rc1
 ==============
 
 What is Zen?
@@ -18,7 +18,7 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
     sudo yum install epel-release
     sudo yum update
     sudo yum groupinstall 'Development Tools'
-    sudo yum install git cmake3 wget
+    sudo yum install git cmake3 curl
     ```
     3. Windows
     ```{r, engine='bash'}
@@ -32,7 +32,7 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
     sudo apt-get install \
         build-essential pkg-config libc6-dev m4 g++-multilib-arm-linux-gnueabihf \
         autoconf libtool ncurses-dev unzip git python \
-        zlib1g-dev wget bsdmainutils automake cmake
+        zlib1g-dev curl bsdmainutils automake cmake
     ```
 
 * Install for linux
