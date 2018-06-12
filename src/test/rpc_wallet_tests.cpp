@@ -1399,9 +1399,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_shieldcoinbase_internals)
         try {
             proxy.perform_joinsplit(info);
         } catch (const std::runtime_error & e) {
-// ZEN_MOD_START
-            BOOST_CHECK( string(e.what()).find("JoinSplit verifying key not loaded")!= string::npos);
-// ZEN_MOD_END
+            BOOST_CHECK( string(e.what()).find("error verifying joinsplit")!= string::npos);
         }
     }
 
