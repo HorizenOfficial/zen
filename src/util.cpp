@@ -631,9 +631,7 @@ void ReadConfigFile(map<string, string>& mapSettingsRet,
 {
     boost::filesystem::ifstream streamConfig(GetConfigFile());
     if (!streamConfig.good())
-// ZEN_MOD_START
-        return; // No zen.conf file is OK
-// ZEN_MOD_END
+        throw missing_zcash_conf();
 
     set<string> setOptions;
     setOptions.insert("*");
