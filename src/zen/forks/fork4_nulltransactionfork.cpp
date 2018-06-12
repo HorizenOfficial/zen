@@ -8,42 +8,33 @@ NullTransactionFork::NullTransactionFork()
                   {CBaseChainParams::Network::REGTEST,105},
                   {CBaseChainParams::Network::TESTNET,245000}});
     setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN,{
-                                     "zsrS7gXdR16PAxGF7gZedTXQroNzkq2Dup9",
-                                     "zskcernKDXreLyUGkN4YB1d7uTDY3CR1oRj",
-                                     "zsutZxk6NwWSCjZe7kiG987dLjCfVYUmYJs",
                                      "zszpcLB6C5B8QvfDbF2dYWXsrpac5DL9WRk"
                                      }},
                                 {CBaseChainParams::Network::REGTEST,{
                                      "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa"
                                  }},
                                 {CBaseChainParams::Network::TESTNET,{
-                                     "zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1"
+                                     "zrFzxutppvxEdjyu4QNjogBMjtC1py9Hp1S"
                                  }}}, CommunityFundType::FOUNDATION);
 
     setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN,{
-                                     "zszKB4u12v31QdWbzL9QUVeXmZ3rVyzfav5",
-                                     "zstmj8Gsr3iiKh8PzA1qRaGFLhMoPkK7J6y",
-                                     "zsvHuvuE536tb31B7nF5fhNQwDAnQs71vSo",
                                      "zsxWnyDbU8pk2Vp98Uvkx5Nh33RFzqnCpWN"
                                      }},
                                 {CBaseChainParams::Network::REGTEST,{
                                      "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa"
                                  }},
                                 {CBaseChainParams::Network::TESTNET,{
-                                     "zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1"
+                                     "zrS7QUB2eDbbKvyP43VJys3t7RpojW8GdxH"
                                  }}}, CommunityFundType::SECURENODE);
 
     setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN,{
-                                     "zsqekTQ59LxwZVDU6z3ZZCpVKxGzhY2jtYV",
-                                     "zsve4xKR4A4AcKWgzZXeDXJ4BADtrVgrHdx",
-                                     "zsj5LDk3TyN37Q7u2itfAXVvHyeEU4cSruL",
                                      "zsnL6pKdzvZ1BPVzALUoqw2KsY966XFs5CE"
                                      }},
                                 {CBaseChainParams::Network::REGTEST,{
                                      "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa"
                                  }},
                                 {CBaseChainParams::Network::TESTNET,{
-                                     "zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1"
+                                     "zrFr5HVm7woVq3oFzkMEdJdbfBchfPAPDsP"
                                  }}}, CommunityFundType::SUPERNODE);
 
     addressChangeIntervals = {
