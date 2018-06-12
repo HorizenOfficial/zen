@@ -910,10 +910,10 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
     if (nHeight < 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
 
+// ZEN_MOD_START    
     CAmount nReward = GetBlockSubsidy(nHeight, Params().GetConsensus());
     CAmount minerReward = nReward;
 
-// ZEN_MOD_START    
     CAmount nCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight,nReward, Fork::CommunityFundType::FOUNDATION);
     minerReward -= nCommunityFund;
 
@@ -929,7 +929,7 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
 
 // ZEN_MOD_END
     UniValue result(UniValue::VOBJ);
-    result.push_back(Pair("miner", ValueFromAmount(nReward)));
+    result.push_back(Pair("miner", ValueFromAmount(minerReward)));
 // ZEN_MOD_START
     result.push_back(Pair("community", ValueFromAmount(nCommunityFund)));
     if (secureNodeFund > 0) {

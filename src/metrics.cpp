@@ -367,8 +367,8 @@ int printMetrics(size_t cols, bool mining)
                 if (mapBlockIndex.count(hash) > 0 &&
                         chainActive.Contains(mapBlockIndex[hash])) {
                     int height = mapBlockIndex[hash]->nHeight;
-                    CAmount reward = GetBlockSubsidy(height, consensusParams);
 // ZEN_MOD_START
+                    CAmount reward = GetBlockSubsidy(height, consensusParams);
                     CAmount subsidy = reward;
                     for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
                         CAmount communityFundAmount = ForkManager::getInstance().getCommunityFundReward(height,reward, cfType);
