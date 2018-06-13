@@ -690,6 +690,10 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
                 // Correct this if GetBlockTemplate changes the order
 // ZEN_MOD_START
                 entry.push_back(Pair("communityfund", (int64_t)tx.vout[1].nValue));
+                if (pblock->vtx[0].vout.size() > 3) {
+                    entry.push_back(Pair("securenodes", (int64_t)tx.vout[2].nValue));
+                    entry.push_back(Pair("supernodes", (int64_t)tx.vout[3].nValue));
+                }
 // ZEN_MOD_END
             }
             entry.push_back(Pair("required", true));
