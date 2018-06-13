@@ -57,5 +57,13 @@ class GetBlockTemplateTest(BitcoinTestFramework):
 # ZEN_MOD_END
         assert(tmpl['coinbasetxn']['required'])
 
+# ZEN_MOD_START
+        node.generate(105) # Mine after the 07/2018 fork (supernodes and 10/10/10/70 split reward)
+        tmpl = node.getblocktemplate()
+        assert('communityfund' in tmpl['coinbasetxn'])
+        assert('supernodes' in tmpl['coinbasetxn'])
+        assert('securenodes' in tmpl['coinbasetxn'])
+
+# ZEN_MOD_END
 if __name__ == '__main__':
     GetBlockTemplateTest().main()
