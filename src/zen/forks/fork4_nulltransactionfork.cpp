@@ -4,9 +4,9 @@ namespace zen {
 
 NullTransactionFork::NullTransactionFork()
 {
-    setHeightMap({{CBaseChainParams::Network::MAIN,335000},
+    setHeightMap({{CBaseChainParams::Network::MAIN,344700},
                   {CBaseChainParams::Network::REGTEST,105},
-                  {CBaseChainParams::Network::TESTNET,245000}});
+                  {CBaseChainParams::Network::TESTNET,260500}});
     setCommunityFundAddressMap({{CBaseChainParams::Network::MAIN,{
                                      "zszpcLB6C5B8QvfDbF2dYWXsrpac5DL9WRk"
                                      }},

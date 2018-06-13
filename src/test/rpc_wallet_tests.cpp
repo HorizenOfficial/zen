@@ -291,7 +291,7 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 11.0);
     BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 1.5);
     
-    BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 300000"));
+    BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 344700"));
     obj = retValue.get_obj();
     BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 8.75);
     BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 1.25);
@@ -1399,9 +1399,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_shieldcoinbase_internals)
         try {
             proxy.perform_joinsplit(info);
         } catch (const std::runtime_error & e) {
-// ZEN_MOD_START
-            BOOST_CHECK( string(e.what()).find("JoinSplit verifying key not loaded")!= string::npos);
-// ZEN_MOD_END
+            BOOST_CHECK( string(e.what()).find("error verifying joinsplit")!= string::npos);
         }
     }
 
