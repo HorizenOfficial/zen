@@ -32,7 +32,7 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
     sudo apt-get install \
         build-essential pkg-config libc6-dev m4 g++-multilib-arm-linux-gnueabihf \
         autoconf libtool ncurses-dev unzip git python \
-        zlib1g-dev curl bsdmainutils automake cmake
+        zlib1g-dev curl bsdmainutils automake cmake cargo
     ```
 
 * Install for linux
@@ -73,7 +73,7 @@ ln -s /usr/bin/ranlib aarch64-unknown-linux-gnu-ranlib
 ln -s /usr/bin/strip aarch64-unknown-linux-gnu-strip
 PATH=$PATH:~/bin
 cd ~/zen/
-./zcutil/build-arm.sh --disable-rust -j$(nproc)
+./zcutil/build-arm.sh -j$(nproc)
 ```
 Instructions to redeem pre block 110,000 ZCL
 -------------
