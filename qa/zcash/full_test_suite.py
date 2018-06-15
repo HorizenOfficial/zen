@@ -65,23 +65,23 @@ def check_security_hardening():
 
     # PIE, RELRO, Canary, and NX are tested by make check-security.
     ret &= subprocess.call(['make', '-C', repofile('src'), 'check-security']) == 0
-
-    ret &= test_rpath_runpath('src/zcashd')
-    ret &= test_rpath_runpath('src/zcash-cli')
-    ret &= test_rpath_runpath('src/zcash-gtest')
-    ret &= test_rpath_runpath('src/zcash-tx')
+# ZEN_MOD_START
+    ret &= test_rpath_runpath('src/zend')
+    ret &= test_rpath_runpath('src/zen-cli')
+    ret &= test_rpath_runpath('src/zen-gtest')
+    ret &= test_rpath_runpath('src/zen-tx')
     ret &= test_rpath_runpath('src/test/test_bitcoin')
     ret &= test_rpath_runpath('src/zcash/GenerateParams')
 
     # NOTE: checksec.sh does not reliably determine whether FORTIFY_SOURCE
     # is enabled for the entire binary. See issue #915.
-    ret &= test_fortify_source('src/zcashd')
-    ret &= test_fortify_source('src/zcash-cli')
-    ret &= test_fortify_source('src/zcash-gtest')
-    ret &= test_fortify_source('src/zcash-tx')
+    ret &= test_fortify_source('src/zend')
+    ret &= test_fortify_source('src/zen-cli')
+    ret &= test_fortify_source('src/zen-gtest')
+    ret &= test_fortify_source('src/zen-tx')
     ret &= test_fortify_source('src/test/test_bitcoin')
     ret &= test_fortify_source('src/zcash/GenerateParams')
-
+# ZEN_MOD_END
     return ret
 
 def ensure_no_dot_so_in_depends():
@@ -140,7 +140,9 @@ STAGES = [
 
 STAGE_COMMANDS = {
     'btest': [repofile('src/test/test_bitcoin'), '-p'],
-    'gtest': [repofile('src/zcash-gtest')],
+# ZEN_MOD_START
+    'gtest': [repofile('src/zen-gtest')],
+# ZEN_MOD_END
     'sec-hard': check_security_hardening,
     'no-dot-so': ensure_no_dot_so_in_depends,
     'util-test': util_test,
