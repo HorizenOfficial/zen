@@ -166,7 +166,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
 }
 
 UniValue getrawtransaction(const UniValue& params, bool fHelp)
-{
+{   // ZEN_MOD_START
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
             "getrawtransaction \"txid\" ( verbose )\n"
@@ -212,7 +212,7 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             "         \"reqSigs\" : n,            (numeric) The required sigs\n"
             "         \"type\" : \"pubkeyhash\",  (string) The type, eg 'pubkeyhash'\n"
             "         \"addresses\" : [           (json array of string)\n"
-            "           \"zcashaddress\"          (string) Zcash address\n"
+            "           \"zenaddress\"          (string) Zen address\n"
             "           ,...\n"
             "         ]\n"
             "       }\n"
@@ -257,7 +257,7 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             + HelpExampleCli("getrawtransaction", "\"mytxid\" 1")
             + HelpExampleRpc("getrawtransaction", "\"mytxid\", 1")
         );
-
+    // ZEN_MOD_END
     LOCK(cs_main);
 
     uint256 hash = ParseHashV(params[0], "parameter 1");
@@ -397,7 +397,8 @@ UniValue verifytxoutproof(const UniValue& params, bool fHelp)
 }
 
 UniValue createrawtransaction(const UniValue& params, bool fHelp)
-{
+{   
+    // ZEN_MOD_START
     if (fHelp || params.size() != 2)
         throw runtime_error(
             "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...}\n"
@@ -417,7 +418,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "     ]\n"
             "2. \"addresses\"           (string, required) a json object with addresses as keys and amounts as values\n"
             "    {\n"
-            "      \"address\": x.xxx   (numeric, required) The key is the zcash address, the value is the " + CURRENCY_UNIT + " amount\n"
+            "      \"address\": x.xxx   (numeric, required) The key is the zen address, the value is the " + CURRENCY_UNIT + " amount\n"
             "      ,...\n"
             "    }\n"
 
@@ -428,6 +429,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"address\\\":0.01}\"")
             + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"address\\\":0.01}\"")
         );
+    // ZEN_MOD_END
 
     LOCK(cs_main);
     RPCTypeCheck(params, boost::assign::list_of(UniValue::VARR)(UniValue::VOBJ));
@@ -459,7 +461,9 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
     BOOST_FOREACH(const string& name_, addrList) {
         CBitcoinAddress address(name_);
         if (!address.IsValid())
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Zcash address: ")+name_);
+            // ZEN_MOD_START
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Zen address: ")+name_);
+            // ZEN_MOD_END
 
         if (setAddress.count(address))
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+name_);
@@ -476,7 +480,8 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 }
 
 UniValue decoderawtransaction(const UniValue& params, bool fHelp)
-{
+{   
+    // ZEN_MOD_START
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "decoderawtransaction \"hexstring\"\n"
@@ -512,7 +517,7 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
             "         \"reqSigs\" : n,            (numeric) The required sigs\n"
             "         \"type\" : \"pubkeyhash\",  (string) The type, eg 'pubkeyhash'\n"
             "         \"addresses\" : [           (json array of string)\n"
-            "           \"t12tvKAXCxZjSmdNbao16dKXC8tRWfcF5oc\"   (string) zcash address\n"
+            "           \"t12tvKAXCxZjSmdNbao16dKXC8tRWfcF5oc\"   (string) zen address\n"
             "           ,...\n"
             "         ]\n"
             "       }\n"
@@ -552,6 +557,7 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
             + HelpExampleCli("decoderawtransaction", "\"hexstring\"")
             + HelpExampleRpc("decoderawtransaction", "\"hexstring\"")
         );
+    // ZEN_MOD_END
 
     LOCK(cs_main);
     RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR));
@@ -568,7 +574,8 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
 }
 
 UniValue decodescript(const UniValue& params, bool fHelp)
-{
+{   
+    // ZEN_MOD_START
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "decodescript \"hex\"\n"
@@ -582,7 +589,7 @@ UniValue decodescript(const UniValue& params, bool fHelp)
             "  \"type\":\"type\", (string) The output type\n"
             "  \"reqSigs\": n,    (numeric) The required signatures\n"
             "  \"addresses\": [   (json array of string)\n"
-            "     \"address\"     (string) Zcash address\n"
+            "     \"address\"     (string) Zen address\n"
             "     ,...\n"
             "  ],\n"
             "  \"p2sh\",\"address\" (string) script address\n"
@@ -591,6 +598,7 @@ UniValue decodescript(const UniValue& params, bool fHelp)
             + HelpExampleCli("decodescript", "\"hexstring\"")
             + HelpExampleRpc("decodescript", "\"hexstring\"")
         );
+    // ZEN_MOD_END
 
     LOCK(cs_main);
     RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR));
