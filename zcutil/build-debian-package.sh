@@ -59,14 +59,14 @@ cp $SRC_DEB/copyright $DEB_DOC
 cp -r $SRC_DEB/examples $DEB_DOC
 # Copy manpages
 # ZEN_MOD_START
-cp $SRC_DOC/man/zcashd.1 $DEB_MAN/zend.1
-cp $SRC_DOC/man/zcash-cli.1 $DEB_MAN/zen-cli.1
-cp $SRC_DOC/man/zcash-fetch-params.1 $DEB_MAN/zen-fetch-params.1
+cp $SRC_DOC/man/zend.1 $DEB_MAN/zend.1
+cp $SRC_DOC/man/zen-cli.1 $DEB_MAN/zen-cli.1
+cp $SRC_DOC/man/zen-fetch-params.1 $DEB_MAN/zen-fetch-params.1
 # ZEN_MOD_END
 # Copy bash completion files
 # ZEN_MOD_START
-cp $SRC_PATH/contrib/zcashd.bash-completion $DEB_CMP/zend
-cp $SRC_PATH/contrib/zcash-cli.bash-completion $DEB_CMP/zen-cli
+cp $SRC_PATH/contrib/zend.bash-completion $DEB_CMP/zend
+cp $SRC_PATH/contrib/zen-cli.bash-completion $DEB_CMP/zen-cli
 # ZEN_MOD_END
 # Gzip files
 gzip --best -n $DEB_DOC/changelog
