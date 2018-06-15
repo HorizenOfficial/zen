@@ -252,6 +252,7 @@ UniValue disconnectnode(const UniValue& params, bool fHelp)
 
 UniValue getaddednodeinfo(const UniValue& params, bool fHelp)
 {
+    // ZEN_MOD_START
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
             "getaddednodeinfo dns ( \"node\" )\n"
@@ -269,7 +270,7 @@ UniValue getaddednodeinfo(const UniValue& params, bool fHelp)
             "    \"connected\" : true|false,          (boolean) If connected\n"
             "    \"addresses\" : [\n"
             "       {\n"
-            "         \"address\" : \"192.168.0.201:8233\",  (string) The Zcash server host and port\n"
+            "         \"address\" : \"192.168.0.201:8233\",  (string) The Zen server host and port\n"
             "         \"connected\" : \"outbound\"           (string) connection, inbound or outbound\n"
             "       }\n"
             "       ,...\n"
@@ -282,7 +283,7 @@ UniValue getaddednodeinfo(const UniValue& params, bool fHelp)
             + HelpExampleCli("getaddednodeinfo", "true \"192.168.0.201\"")
             + HelpExampleRpc("getaddednodeinfo", "true, \"192.168.0.201\"")
         );
-
+    // ZEN_MOD_END
     bool fDns = params[0].get_bool();
 
     list<string> laddedNodes(0);
