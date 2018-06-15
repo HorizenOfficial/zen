@@ -27,6 +27,7 @@ fi
 
 # ZEN_MOD_START
 PACKAGE_VERSION=$($SRC_PATH/src/zend --version | grep version | cut -d' ' -f4 | tr -d v)
+DEBVERSION=$(echo $PACKAGE_VERSION | sed 's/-beta/~beta/' | sed 's/-rc/~rc/' | sed 's/-/+/')
 BUILD_DIR="$BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-$ARCH"
 # ZEN_MOD_END
 
@@ -83,8 +84,8 @@ cd $SRC_PATH/contrib
 # Create the control file
 # ZEN_MOD_START
 dpkg-shlibdeps $DEB_BIN/zend $DEB_BIN/zen-cli
-dpkg-gencontrol -v$PACKAGE_VERSION -P$BUILD_DIR
 # ZEN_MOD_END
+dpkg-gencontrol -P$BUILD_DIR -v$DEBVERSION
 
 # Create the Debian package
 fakeroot dpkg-deb --build $BUILD_DIR
