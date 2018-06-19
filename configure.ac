@@ -721,6 +721,18 @@ AX_OPENMP(
    AC_DEFINE(HAVE_OPENMP, 0, [Define if OpenMP is enabled])
    AM_CONDITIONAL([HAVE_OPENMP], [false])])
 
+# ZEN_MOD_START
+dnl detect aarch64
+case $host in
+  aarch64*)
+     AM_CONDITIONAL([IS_ARM64],[true])
+     ;;
+  *)
+     AM_CONDITIONAL([IS_ARM64],[false])
+     ;;
+esac
+# ZEN_MOD_END
+
 # Gitian uses a config.site that sets depends_prefix, and then sets --prefix=/
 # build.sh just uses --prefix
 if test x$depends_prefix != x; then
