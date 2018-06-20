@@ -1,9 +1,27 @@
-Zen 2.0.14-rc1
+Zen 2.0.14
 ==============
 
 What is Zen?
 ----------------
 A globally accessible and anonymous blockchain for censorship-resistant communications and economic activity.
+
+Upgrading from 2.0.11 source
+----------------
+
+To upgrade from any version prior to 2.0.14 you will have to re-clone the repository, the [ZencashOfficial/zen](https://github.com/ZencashOfficial/zen) repository was replaced by a new repository based on Zcash upstream with a different commit history, merging/pulling is not possible without issues.
+Assuming your current repository is stored at `~/zen`, do the following to upgrade:
+```{r, engine='bash'}
+# if you don't want to keep the old src around
+rm -r ~/zen
+# or if you do want to keep it
+mv ~/zen ~/zen_archived
+git clone https://github.com/ZencashOfficial/zen.git
+cd ~/zen
+```
+Now continue with building from source.
+
+Installing from source
+----------------
 
 1. Get dependencies:
     1. Debian
