@@ -1,10 +1,10 @@
 Format: http://svn.debian.org/wsvn/dep/web/deps/dep5.mdwn?rev=174
 Upstream-Name: ZenCash
-Upstream-Contact: ZenCash Team <info@zensystem.io>
-Source: https://github.com/zencashofficial/zen
+Upstream-Contact: ZenCash Team <info@zencash.com>
+Source: https://github.com/ZencashOfficial/zen
 
 Files: *
-Copyright: 2016-2017, The Zen Blockchain Foundation
+Copyright: 2016-2018, The Zen Blockchain Foundation
  2016-2017, The Zcash developers
  2009-2017, Bitcoin Core developers
 License: Expat
