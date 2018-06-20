@@ -1,6 +1,7 @@
 #ifndef BITCOIN_TEST_TEST_BITCOIN_H
 #define BITCOIN_TEST_TEST_BITCOIN_H
 
+#include "chainparamsbase.h"
 #include "pubkey.h"
 #include "txdb.h"
 
