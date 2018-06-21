@@ -17,6 +17,7 @@ BITCOIND_BIN=$(top_builddir)/src/zend$(EXEEXT)
 BITCOIN_QT_BIN=$(top_builddir)/src/qt/bitcoin-qt$(EXEEXT)
 BITCOIN_CLI_BIN=$(top_builddir)/src/zen-cli$(EXEEXT)
 # ZEN_MOD_END
+# WALLET_UTILITY_BIN=$(top_builddir)/src/wallet-utility$(EXEEXT)
 BITCOIN_WIN_INSTALLER=$(PACKAGE)-$(PACKAGE_VERSION)-win$(WINDOWS_BITS)-setup$(EXEEXT)
 
 ##OSX_APP=Bitcoin-Qt.app
@@ -69,7 +70,7 @@ $(BITCOIN_WIN_INSTALLER): all-recursive
 	$(MKDIR_P) $(top_builddir)/release
 	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCOIND_BIN) $(top_builddir)/release
 	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCOIN_CLI_BIN) $(top_builddir)/release
-	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(WALLET_UTILITY_BIN) $(top_builddir)/release
+#	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(WALLET_UTILITY_BIN) $(top_builddir)/release
 	@test -f $(MAKENSIS) && $(MAKENSIS) -V2 $(top_builddir)/share/setup.nsi || \
 	  echo error: could not build $@
 	@echo built $@
@@ -150,8 +151,8 @@ $(BITCOIND_BIN): FORCE
 $(BITCOIN_CLI_BIN): FORCE
 	$(MAKE) -C src $(@F)
 
-$(WALLET_UTILITY_BIN): FORCE
-	$(MAKE) -C src $(@F)
+#$(WALLET_UTILITY_BIN): FORCE
+#	$(MAKE) -C src $(@F)
 
 if USE_LCOV
 
