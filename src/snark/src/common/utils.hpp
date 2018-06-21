@@ -27,7 +27,7 @@ inline uint64_t exp2(uint64_t k) { return UINT64_C(1) << k; }
 
 uint64_t bitreverse(uint64_t n, const uint64_t l);
 bit_vector int_list_to_bits(const std::initializer_list<uint64_t> &l, const uint64_t wordsize);
-uint64_t div_ceil(uint64_t x, uint64_t y);
+int64_t div_ceil(int64_t x, int64_t y);
 
 bool is_little_endian();
 
