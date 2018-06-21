@@ -136,7 +136,7 @@ Fp2_model<n,modulus> Fp2_model<n,modulus>::inverse() const
 }
 
 template<mp_size_t n, const bigint<n>& modulus>
-Fp2_model<n,modulus> Fp2_model<n,modulus>::Frobenius_map(unsigned long power) const
+Fp2_model<n,modulus> Fp2_model<n,modulus>::Frobenius_map(uint64_t power) const
 {
     return Fp2_model<n,modulus>(c0,
                                 Frobenius_coeffs_c1[power % 2] * c1);
@@ -151,7 +151,7 @@ Fp2_model<n,modulus> Fp2_model<n,modulus>::sqrt() const
 
     Fp2_model<n,modulus> one = Fp2_model<n,modulus>::one();
 
-    size_t v = Fp2_model<n,modulus>::s;
+    unsigned long long v = Fp2_model<n,modulus>::s;
     Fp2_model<n,modulus> z = Fp2_model<n,modulus>::nqr_to_t;
     Fp2_model<n,modulus> w = (*this)^Fp2_model<n,modulus>::t_minus_1_over_2;
     Fp2_model<n,modulus> x = (*this) * w;
@@ -175,7 +175,11 @@ Fp2_model<n,modulus> Fp2_model<n,modulus>::sqrt() const
 
     while (b != one)
     {
+#ifdef WIN32
+        uint64_t m = 0;
+#else
         size_t m = 0;
+#endif
         Fp2_model<n,modulus> b2m = b;
         while (b2m != one)
         {
@@ -239,7 +243,11 @@ std::istream& operator>>(std::istream& in, std::vector<Fp2_model<n, modulus> > &
 {
     v.clear();
 
+#ifdef WIN32
+    unsigned long long s;
+#else
     size_t s;
+#endif
     in >> s;
 
     char b;

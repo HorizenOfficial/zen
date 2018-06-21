@@ -22,7 +22,7 @@ then
 fi
 
 # If --disable-mining is the next argument, disable mining code:
-MINING_ARG=''
+MINING_ARG='--enable-mining=no'
 if [ "x${1:-}" = 'x--disable-mining' ]
 then
     MINING_ARG='--enable-mining=no'
@@ -30,7 +30,7 @@ then
 fi
 
 # If --disable-rust is the next argument, disable Rust code:
-RUST_ARG=''
+RUST_ARG='--enable-rust=no'
 if [ "x${1:-}" = 'x--disable-rust' ]
 then
     RUST_ARG='--enable-rust=no'
@@ -40,7 +40,7 @@ fi
 set -x
 cd "$(dirname "$(readlink -f "$0")")/.."
 
-cd depends/ && make HOST=$HOST V=1 NO_QT=1 && cd ../
+cd depends/ && make HOST=$HOST V=1 NO_QT=1 NO_RUST=1 && cd ../
 ./autogen.sh
 CXXFLAGS="-DPTW32_STATIC_LIB -DCURVE_ALT_BN128 -fopenmp -pthread" CONFIG_SITE=$PWD/depends/x86_64-w64-mingw32/share/config.site ./configure --prefix="${PREFIX}" --with-gui=no --host="${HOST}" --enable-static --disable-shared "$RUST_ARG" "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG"
 sed -i 's/-lboost_system-mt /-lboost_system-mt-s /' configure

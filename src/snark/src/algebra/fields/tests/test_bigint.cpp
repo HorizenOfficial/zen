@@ -13,7 +13,7 @@ using namespace libsnark;
 
 TEST(algebra, bigint)
 {
-    static_assert(ULONG_MAX == 0xFFFFFFFFFFFFFFFFul, "unsigned long not 64-bit");
+    static_assert(UINT64_MAX == 0xFFFFFFFFFFFFFFFFul, "uint64_t not 64-bit");
     static_assert(GMP_NUMB_BITS == 64, "GMP limb not 64-bit");
 
     const char *b1_decimal = "76749407";
@@ -22,15 +22,15 @@ TEST(algebra, bigint)
     const char *b2_binary = "0000000000000000000000000000010101111101101000000110100001011010"
                             "1101101010001001000001101000101000100110011001110001111110100010";
 
-    bigint<1> b0 = bigint<1>(0ul);
+    bigint<1> b0 = bigint<1>(UINT64_C(0));
     bigint<1> b1 = bigint<1>(b1_decimal);
     bigint<2> b2 = bigint<2>(b2_decimal);
 
-    EXPECT_EQ(b0.as_ulong(), 0ul);
+    EXPECT_EQ(b0.as_ulong(), UINT64_C(0));
     EXPECT_TRUE(b0.is_zero());
-    EXPECT_EQ(b1.as_ulong(), 76749407ul);
+    EXPECT_EQ(b1.as_ulong(), UINT64_C(76749407));
     EXPECT_FALSE(b1.is_zero());
-    EXPECT_EQ(b2.as_ulong(), 15747124762497195938ul);
+    EXPECT_EQ(b2.as_ulong(), UINT64_C(15747124762497195938));
     EXPECT_FALSE(b2.is_zero());
     EXPECT_NE(b0, b1);
     EXPECT_FALSE(b0 == b1);

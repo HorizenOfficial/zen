@@ -21,14 +21,14 @@ FieldT coset_shift()
 }
 
 template<typename FieldT>
-FieldT get_root_of_unity(const size_t n)
+FieldT get_root_of_unity(const uint64_t n)
 {
-    const size_t logn = log2(n);
+    const uint64_t logn = log2(n);
     assert(n == (1u << logn));
     assert(logn <= FieldT::s);
 
     FieldT omega = FieldT::root_of_unity;
-    for (size_t i = FieldT::s; i > logn; --i)
+    for (uint64_t i = FieldT::s; i > logn; --i)
     {
         omega *= omega;
     }
@@ -37,21 +37,21 @@ FieldT get_root_of_unity(const size_t n)
 }
 
 template<typename FieldT>
-std::vector<FieldT> pack_int_vector_into_field_element_vector(const std::vector<size_t> &v, const size_t w)
+std::vector<FieldT> pack_int_vector_into_field_element_vector(const std::vector<uint64_t> &v, const uint64_t w)
 {
-    const size_t chunk_bits = FieldT::capacity();
-    const size_t repacked_size = div_ceil(v.size() * w, chunk_bits);
+    const uint64_t chunk_bits = FieldT::capacity();
+    const uint64_t repacked_size = div_ceil(v.size() * w, chunk_bits);
     std::vector<FieldT> result(repacked_size);
 
-    for (size_t i = 0; i < repacked_size; ++i)
+    for (uint64_t i = 0; i < repacked_size; ++i)
     {
         bigint<FieldT::num_limbs> b;
-        for (size_t j = 0; j < chunk_bits; ++j)
+        for (uint64_t j = 0; j < chunk_bits; ++j)
         {
-            const size_t word_index = (i * chunk_bits + j) / w;
-            const size_t pos_in_word = (i * chunk_bits + j) % w;
-            const size_t word_or_0 = (word_index < v.size() ? v[word_index] : 0);
-            const size_t bit = (word_or_0 >> pos_in_word) & 1;
+            const uint64_t word_index = (i * chunk_bits + j) / w;
+            const uint64_t pos_in_word = (i * chunk_bits + j) % w;
+            const uint64_t word_or_0 = (word_index < v.size() ? v[word_index] : 0);
+            const uint64_t bit = (word_or_0 >> pos_in_word) & 1;
 
             b.data[j / GMP_NUMB_BITS] |= bit << (j % GMP_NUMB_BITS);
         }
@@ -62,11 +62,11 @@ std::vector<FieldT> pack_int_vector_into_field_element_vector(const std::vector<
 }
 
 template<typename FieldT>
-std::vector<FieldT> pack_bit_vector_into_field_element_vector(const bit_vector &v, const size_t chunk_bits)
+std::vector<FieldT> pack_bit_vector_into_field_element_vector(const bit_vector &v, const uint64_t chunk_bits)
 {
     assert(chunk_bits <= FieldT::capacity());
 
-    const size_t repacked_size = div_ceil(v.size(), chunk_bits);
+    const uint64_t repacked_size = div_ceil(v.size(), chunk_bits);
     std::vector<FieldT> result(repacked_size);
 
     for (size_t i = 0; i < repacked_size; ++i)
@@ -131,7 +131,7 @@ bit_vector convert_field_element_to_bit_vector(const FieldT &el)
 }
 
 template<typename FieldT>
-bit_vector convert_field_element_to_bit_vector(const FieldT &el, const size_t bitcount)
+bit_vector convert_field_element_to_bit_vector(const FieldT &el, const uint64_t bitcount)
 {
     bit_vector result = convert_field_element_to_bit_vector(el);
     result.resize(bitcount);
@@ -171,7 +171,7 @@ void batch_invert(std::vector<FieldT> &vec)
 
     FieldT acc_inverse = acc.inverse();
 
-    for (long i = vec.size()-1; i >= 0; --i)
+    for (int64_t i = vec.size()-1; i >= 0; --i)
     {
         const FieldT old_el = vec[i];
         vec[i] = acc_inverse * prod[i];

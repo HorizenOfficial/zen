@@ -194,7 +194,7 @@ Fp_model<n,modulus>::Fp_model(const bigint<n> &b)
 }
 
 template<mp_size_t n, const bigint<n>& modulus>
-Fp_model<n,modulus>::Fp_model(const long x, const bool is_unsigned)
+Fp_model<n,modulus>::Fp_model(const int64_t x, const bool is_unsigned)
 {
     if (is_unsigned || x >= 0)
     {
@@ -210,7 +210,7 @@ Fp_model<n,modulus>::Fp_model(const long x, const bool is_unsigned)
 }
 
 template<mp_size_t n, const bigint<n>& modulus>
-void Fp_model<n,modulus>::set_ulong(const unsigned long x)
+void Fp_model<n,modulus>::set_ulong(const uint64_t x)
 {
     this->mont_repr.clear();
     this->mont_repr.data[0] = x;
@@ -237,7 +237,7 @@ bigint<n> Fp_model<n,modulus>::as_bigint() const
 }
 
 template<mp_size_t n, const bigint<n>& modulus>
-unsigned long Fp_model<n,modulus>::as_ulong() const
+uint64_t Fp_model<n,modulus>::as_ulong() const
 {
     return this->as_bigint().as_ulong();
 }
@@ -502,7 +502,7 @@ Fp_model<n,modulus>& Fp_model<n,modulus>::operator*=(const Fp_model<n,modulus>& 
 }
 
 template<mp_size_t n, const bigint<n>& modulus>
-Fp_model<n,modulus>& Fp_model<n,modulus>::operator^=(const unsigned long pow)
+Fp_model<n,modulus>& Fp_model<n,modulus>::operator^=(const uint64_t pow)
 {
     (*this) = power<Fp_model<n, modulus> >(*this, pow);
     return (*this);
@@ -538,7 +538,7 @@ Fp_model<n,modulus> Fp_model<n,modulus>::operator*(const Fp_model<n,modulus>& ot
 }
 
 template<mp_size_t n, const bigint<n>& modulus>
-Fp_model<n,modulus> Fp_model<n,modulus>::operator^(const unsigned long pow) const
+Fp_model<n,modulus> Fp_model<n,modulus>::operator^(const uint64_t pow) const
 {
     Fp_model<n, modulus> r(*this);
     return (r ^= pow);
@@ -684,13 +684,13 @@ Fp_model<n, modulus> Fp_model<n,modulus>::random_element() /// returns random el
         r.mont_repr.randomize();
 
         /* clear all bits higher than MSB of modulus */
-        size_t bitno = GMP_NUMB_BITS * n - 1;
+        uint64_t bitno = GMP_NUMB_BITS * n - 1;
         while (modulus.test_bit(bitno) == false)
         {
-            const std::size_t part = bitno/GMP_NUMB_BITS;
-            const std::size_t bit = bitno - (GMP_NUMB_BITS*part);
+            const uint64_t part = bitno/GMP_NUMB_BITS;
+            const uint64_t bit = bitno - (GMP_NUMB_BITS*part);
 
-            r.mont_repr.data[part] &= ~(1ul<<bit);
+            r.mont_repr.data[part] &= ~(UINT64_C(1)<<bit);
 
             bitno--;
         }
@@ -710,7 +710,7 @@ Fp_model<n,modulus> Fp_model<n,modulus>::sqrt() const
 
     Fp_model<n,modulus> one = Fp_model<n,modulus>::one();
 
-    size_t v = Fp_model<n,modulus>::s;
+    uint64_t v = Fp_model<n,modulus>::s;
     Fp_model<n,modulus> z = Fp_model<n,modulus>::nqr_to_t;
     Fp_model<n,modulus> w = (*this)^Fp_model<n,modulus>::t_minus_1_over_2;
     Fp_model<n,modulus> x = (*this) * w;
@@ -734,7 +734,7 @@ Fp_model<n,modulus> Fp_model<n,modulus>::sqrt() const
 
     while (b != one)
     {
-        size_t m = 0;
+        uint64_t m = 0;
         Fp_model<n,modulus> b2m = b;
         while (b2m != one)
         {

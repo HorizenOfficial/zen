@@ -16,13 +16,25 @@ namespace libsnark {
 
 // returns root of unity of order n (for n a power of 2), if one exists
 template<typename FieldT>
+#ifdef WIN32
+FieldT get_root_of_unity(const uint64_t n);
+#else
 FieldT get_root_of_unity(const size_t n);
+#endif
 
 template<typename FieldT>
+#ifdef WIN32
+std::vector<FieldT> pack_int_vector_into_field_element_vector(const std::vector<uint64_t> &v, const uint64_t w);
+#else
 std::vector<FieldT> pack_int_vector_into_field_element_vector(const std::vector<size_t> &v, const size_t w);
+#endif
 
 template<typename FieldT>
+#ifdef WIN32
+std::vector<FieldT> pack_bit_vector_into_field_element_vector(const bit_vector &v, const uint64_t chunk_bits);
+#else
 std::vector<FieldT> pack_bit_vector_into_field_element_vector(const bit_vector &v, const size_t chunk_bits);
+#endif
 
 template<typename FieldT>
 std::vector<FieldT> pack_bit_vector_into_field_element_vector(const bit_vector &v);
@@ -37,7 +49,11 @@ template<typename FieldT>
 bit_vector convert_field_element_to_bit_vector(const FieldT &el);
 
 template<typename FieldT>
+#ifdef WIN32
+bit_vector convert_field_element_to_bit_vector(const FieldT &el, const uint64_t bitcount);
+#else
 bit_vector convert_field_element_to_bit_vector(const FieldT &el, const size_t bitcount);
+#endif
 
 template<typename FieldT>
 FieldT convert_bit_vector_to_field_element(const bit_vector &v);

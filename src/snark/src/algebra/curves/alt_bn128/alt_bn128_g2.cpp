@@ -10,12 +10,12 @@
 namespace libsnark {
 
 #ifdef PROFILE_OP_COUNTS
-long long alt_bn128_G2::add_cnt = 0;
-long long alt_bn128_G2::dbl_cnt = 0;
+int64_t alt_bn128_G2::add_cnt = 0;
+int64_t alt_bn128_G2::dbl_cnt = 0;
 #endif
 
-std::vector<size_t> alt_bn128_G2::wnaf_window_table;
-std::vector<size_t> alt_bn128_G2::fixed_base_exp_window_table;
+std::vector<uint64_t> alt_bn128_G2::wnaf_window_table;
+std::vector<uint64_t> alt_bn128_G2::fixed_base_exp_window_table;
 alt_bn128_G2 alt_bn128_G2::G2_zero;
 alt_bn128_G2 alt_bn128_G2::G2_one;
 
