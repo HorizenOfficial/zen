@@ -46,39 +46,39 @@ class AddressIndexTest(BitcoinTestFramework):
         assert_equal(self.nodes[2].getbalance(), 0)
 
         # Check that balances are correct
-        balance0 = self.nodes[1].getaddressbalance("2N2JD6wb56AfK4tfmM6PwdVmoYk2dCKf4Br")
+        balance0 = self.nodes[1].getaddressbalance("zrCBKy4Uoy1X5jws6cxLqrMuE1ukuctSqfS")
         assert_equal(balance0["balance"], 0)
 
         # Check p2pkh and p2sh address indexes
         print "Testing p2pkh and p2sh address index..."
 
-        txid0 = self.nodes[0].sendtoaddress("mo9ncXisMeAoXwqcV5EWuyncbmCcQN4rVs", 10)
+        txid0 = self.nodes[0].sendtoaddress("ztano5XjpquCJdSipz7VRGFgdLqNjXmV9cD", 10)
         self.nodes[0].generate(1)
 
-        txidb0 = self.nodes[0].sendtoaddress("2N2JD6wb56AfK4tfmM6PwdVmoYk2dCKf4Br", 10)
+        txidb0 = self.nodes[0].sendtoaddress("zrCBKy4Uoy1X5jws6cxLqrMuE1ukuctSqfS", 10)
         self.nodes[0].generate(1)
 
-        txid1 = self.nodes[0].sendtoaddress("mo9ncXisMeAoXwqcV5EWuyncbmCcQN4rVs", 15)
+        txid1 = self.nodes[0].sendtoaddress("ztano5XjpquCJdSipz7VRGFgdLqNjXmV9cD", 15)
         self.nodes[0].generate(1)
 
-        txidb1 = self.nodes[0].sendtoaddress("2N2JD6wb56AfK4tfmM6PwdVmoYk2dCKf4Br", 15)
+        txidb1 = self.nodes[0].sendtoaddress("zrCBKy4Uoy1X5jws6cxLqrMuE1ukuctSqfS", 15)
         self.nodes[0].generate(1)
 
-        txid2 = self.nodes[0].sendtoaddress("mo9ncXisMeAoXwqcV5EWuyncbmCcQN4rVs", 20)
+        txid2 = self.nodes[0].sendtoaddress("ztano5XjpquCJdSipz7VRGFgdLqNjXmV9cD", 20)
         self.nodes[0].generate(1)
 
-        txidb2 = self.nodes[0].sendtoaddress("2N2JD6wb56AfK4tfmM6PwdVmoYk2dCKf4Br", 20)
+        txidb2 = self.nodes[0].sendtoaddress("zrCBKy4Uoy1X5jws6cxLqrMuE1ukuctSqfS", 20)
         self.nodes[0].generate(1)
 
         self.sync_all()
 
-        txids = self.nodes[1].getaddresstxids("mo9ncXisMeAoXwqcV5EWuyncbmCcQN4rVs")
+        txids = self.nodes[1].getaddresstxids("ztano5XjpquCJdSipz7VRGFgdLqNjXmV9cD")
         assert_equal(len(txids), 3)
         assert_equal(txids[0], txid0)
         assert_equal(txids[1], txid1)
         assert_equal(txids[2], txid2)
 
-        txidsb = self.nodes[1].getaddresstxids("2N2JD6wb56AfK4tfmM6PwdVmoYk2dCKf4Br")
+        txidsb = self.nodes[1].getaddresstxids("zrCBKy4Uoy1X5jws6cxLqrMuE1ukuctSqfS")
         assert_equal(len(txidsb), 3)
         assert_equal(txidsb[0], txidb0)
         assert_equal(txidsb[1], txidb1)
@@ -87,7 +87,7 @@ class AddressIndexTest(BitcoinTestFramework):
         # Check that limiting by height works
         print "Testing querying txids by range of block heights.."
         height_txids = self.nodes[1].getaddresstxids({
-            "addresses": ["2N2JD6wb56AfK4tfmM6PwdVmoYk2dCKf4Br"],
+            "addresses": ["zrCBKy4Uoy1X5jws6cxLqrMuE1ukuctSqfS"],
             "start": 105,
             "end": 110
         })
@@ -96,7 +96,7 @@ class AddressIndexTest(BitcoinTestFramework):
         assert_equal(height_txids[1], txidb1)
 
         # Check that multiple addresses works
-        multitxids = self.nodes[1].getaddresstxids({"addresses": ["2N2JD6wb56AfK4tfmM6PwdVmoYk2dCKf4Br", "mo9ncXisMeAoXwqcV5EWuyncbmCcQN4rVs"]})
+        multitxids = self.nodes[1].getaddresstxids({"addresses": ["zrCBKy4Uoy1X5jws6cxLqrMuE1ukuctSqfS", "ztano5XjpquCJdSipz7VRGFgdLqNjXmV9cD"]})
         assert_equal(len(multitxids), 6)
         assert_equal(multitxids[0], txid0)
         assert_equal(multitxids[1], txidb0)
@@ -106,13 +106,17 @@ class AddressIndexTest(BitcoinTestFramework):
         assert_equal(multitxids[5], txidb2)
 
         # Check that balances are correct
-        balance0 = self.nodes[1].getaddressbalance("2N2JD6wb56AfK4tfmM6PwdVmoYk2dCKf4Br")
+        balance0 = self.nodes[1].getaddressbalance("zrCBKy4Uoy1X5jws6cxLqrMuE1ukuctSqfS")
         assert_equal(balance0["balance"], 45 * 100000000)
 
         # Check that outputs with the same address will only return one txid
         print "Testing for txid uniqueness..."
-        addressHash = "6349a418fc4578d10a372b54b45c280cc8c4382f".decode("hex")
-        scriptPubKey = CScript([OP_HASH160, addressHash, OP_EQUAL])
+        op_hash160 = "a9"
+        op_push_20_bytes_onto_the_stack = "14"
+        addressHash = "6349a418fc4578d10a372b54b45c280cc8c4382f"
+        op_equal = "87"
+        genesisCbah = "20bb1acf2c1fc1228967a611c7db30632098f0c641855180b5fe23793b72eea50d00b4"
+        scriptPubKey = binascii.unhexlify(op_hash160 + op_push_20_bytes_onto_the_stack + addressHash + op_equal + genesisCbah)
         unspent = self.nodes[0].listunspent()
         tx = CTransaction()
         tx.vin = [CTxIn(COutPoint(int(unspent[0]["txid"], 16), unspent[0]["vout"]))]
@@ -125,21 +129,24 @@ class AddressIndexTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        txidsmany = self.nodes[1].getaddresstxids("2N2JD6wb56AfK4tfmM6PwdVmoYk2dCKf4Br")
+        txidsmany = self.nodes[1].getaddresstxids("zrCBKy4Uoy1X5jws6cxLqrMuE1ukuctSqfS")
         assert_equal(len(txidsmany), 4)
         assert_equal(txidsmany[3], sent_txid)
 
         # Check that balances are correct
         print "Testing balances..."
-        balance0 = self.nodes[1].getaddressbalance("2N2JD6wb56AfK4tfmM6PwdVmoYk2dCKf4Br")
+        balance0 = self.nodes[1].getaddressbalance("zrCBKy4Uoy1X5jws6cxLqrMuE1ukuctSqfS")
         assert_equal(balance0["balance"], 45 * 100000000 + 21)
 
         # Check that balances are correct after spending
         print "Testing balances after spending..."
         privkey2 = "cSdkPxkAjA4HDr5VHgsebAPDEh9Gyub4HK8UJr2DFGGqKKy4K5sG"
-        address2 = "mgY65WSfEmsyYaYPQaXhmXMeBhwp4EcsQW"
-        addressHash2 = "0b2f0a0c31bfe0406b0ccc1381fdbe311946dadc".decode("hex")
-        scriptPubKey2 = CScript([OP_DUP, OP_HASH160, addressHash2, OP_EQUALVERIFY, OP_CHECKSIG])
+        address2 = "ztUB6YWTcj2uUe5Rbucnc7oFevn7wCKyN63"
+        op_dup = "76"
+        addressHash2 = "0b2f0a0c31bfe0406b0ccc1381fdbe311946dadc"
+        op_equalverify = "88"
+        op_checksig = "ac"
+        scriptPubKey2 = binascii.unhexlify(op_dup + op_hash160 + op_push_20_bytes_onto_the_stack + addressHash2 + op_equalverify + op_checksig + genesisCbah)
         self.nodes[0].importprivkey(privkey2)
 
         unspent = self.nodes[0].listunspent()
@@ -229,11 +236,11 @@ class AddressIndexTest(BitcoinTestFramework):
         print "Testing mempool indexing..."
 
         privKey3 = "cVfUn53hAbRrDEuMexyfgDpZPhF7KqXpS8UZevsyTDaugB7HZ3CD"
-        address3 = "mw4ynwhS7MmrQ27hr82kgqu7zryNDK26JB"
-        addressHash3 = "aa9872b5bbcdb511d89e0e11aa27da73fd2c3f50".decode("hex")
-        scriptPubKey3 = CScript([OP_DUP, OP_HASH160, addressHash3, OP_EQUALVERIFY, OP_CHECKSIG])
-        address4 = "2N8oFVB2vThAKury4vnLquW2zVjsYjjAkYQ"
-        scriptPubKey4 = CScript([OP_HASH160, addressHash3, OP_EQUAL])
+        address3 = "ztihzFwiPbcoMVWzvMAHf37o8jw9VSHdLtC"
+        addressHash3 = "aa9872b5bbcdb511d89e0e11aa27da73fd2c3f50"
+        scriptPubKey3 = binascii.unhexlify(op_dup + op_hash160 + op_push_20_bytes_onto_the_stack + addressHash3 + op_equalverify + op_checksig + genesisCbah)
+        address4 = "zrJgNMHvfLY26avAQCeHk8NAQxubq7CExqH"
+        scriptPubKey4 = binascii.unhexlify(op_hash160 + op_push_20_bytes_onto_the_stack + addressHash3 + op_equal + genesisCbah)
         unspent = self.nodes[2].listunspent()
 
         tx = CTransaction()
@@ -295,9 +302,9 @@ class AddressIndexTest(BitcoinTestFramework):
 
         # sending and receiving to the same address
         privkey1 = "cQY2s58LhzUCmEXN8jtAp1Etnijx78YRZ466w4ikX1V4UpTpbsf8"
-        address1 = "myAUWSHnwsQrhuMWv4Br6QsCnpB41vFwHn"
-        address1hash = "c192bff751af8efec15135d42bfeedf91a6f3e34".decode("hex")
-        address1script = CScript([OP_DUP, OP_HASH160, address1hash, OP_EQUALVERIFY, OP_CHECKSIG])
+        address1 = "ztkoUySJkS8SMoQEjR6SkSgmDXtMB531yiw"
+        address1hash = "c192bff751af8efec15135d42bfeedf91a6f3e34"
+        address1script = binascii.unhexlify(op_dup + op_hash160 + op_push_20_bytes_onto_the_stack + address1hash + op_equalverify + op_checksig + genesisCbah)
 
         self.nodes[0].sendtoaddress(address1, 10)
         self.nodes[0].generate(1)

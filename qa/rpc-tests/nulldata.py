@@ -57,7 +57,7 @@ class NullDataTest (BitcoinTestFramework):
         dummy_script = ""
         data = "Zencash is awesome!"
         for vo in decoded_tx['vout']:
-            if vo['valueZat']==0:
+            if vo['valueSat']==0:
                 dummy_script = vo['scriptPubKey']['hex']
                 break
         dummy_script = hexlify(chr(len(dummy_script)/2))+dummy_script
