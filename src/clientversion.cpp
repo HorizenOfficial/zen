@@ -19,7 +19,9 @@
  * for both bitcoind and bitcoin-core, to make it harder for attackers to
  * target servers or GUI users specifically.
  */
+// ZEN_MOD_START
 const std::string CLIENT_NAME("zenai");
+// ZEN_MOD_END
 
 /**
  * Client version number
