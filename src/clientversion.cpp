@@ -20,7 +20,7 @@
  * target servers or GUI users specifically.
  */
 // ZEN_MOD_START
-const std::string CLIENT_NAME("zen");
+const std::string CLIENT_NAME("zenai");
 // ZEN_MOD_END
 
 /**
