@@ -184,7 +184,7 @@ UniValue importaddress(const UniValue& params, bool fHelp)
         std::vector<unsigned char> data(ParseHex(params[0].get_str()));
         script = CScript(data.begin(), data.end());
     } else {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zcash address or script");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid ZenCash address or script");
     }
 
     string strLabel = "";
@@ -410,7 +410,7 @@ UniValue dumpprivkey(const UniValue& params, bool fHelp)
     string strAddress = params[0].get_str();
     CBitcoinAddress address;
     if (!address.SetString(strAddress))
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zcash address");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid ZenCash address");
     CKeyID keyID;
     if (!address.GetKeyID(keyID))
         throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to a key");
@@ -509,7 +509,7 @@ UniValue dumpwallet_impl(const UniValue& params, bool fHelp, bool fDumpZKeys)
     std::sort(vKeyBirth.begin(), vKeyBirth.end());
 
     // produce output
-    file << strprintf("# Wallet dump created by Zcash %s (%s)\n", CLIENT_BUILD, CLIENT_DATE);
+    file << strprintf("# Wallet dump created by ZenCash %s (%s)\n", CLIENT_BUILD, CLIENT_DATE);
     file << strprintf("# * Created on %s\n", EncodeDumpTime(GetTime()));
     file << strprintf("# * Best block at time of backup was %i (%s),\n", chainActive.Height(), chainActive.Tip()->GetBlockHash().ToString());
     file << strprintf("#   mined on %s\n", EncodeDumpTime(chainActive.Tip()->GetBlockTime()));

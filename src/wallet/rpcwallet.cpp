@@ -116,7 +116,7 @@ UniValue getnewaddress(const UniValue& params, bool fHelp)
 // ZEN_MOD_START
         throw runtime_error(
             "getnewaddress ( \"account\" )\n"
-            "\nReturns a new Zcash address for receiving payments.\n"
+            "\nReturns a new ZenCash address for receiving payments.\n"
             "\nArguments:\n"
             "1. \"account\"        (string, optional) DEPRECATED. If provided, it MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
             "\nResult:\n"
@@ -205,7 +205,7 @@ UniValue getaccountaddress(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "getaccountaddress \"account\"\n"
-            "\nDEPRECATED. Returns the current Zcash address for receiving payments to this account.\n"
+            "\nDEPRECATED. Returns the current ZenCash address for receiving payments to this account.\n"
             "\nArguments:\n"
             "1. \"account\"       (string, required) MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
             "\nResult:\n"
@@ -238,7 +238,7 @@ UniValue getrawchangeaddress(const UniValue& params, bool fHelp)
     if (fHelp || params.size() > 1)
         throw runtime_error(
             "getrawchangeaddress\n"
-            "\nReturns a new Zcash address, for receiving change.\n"
+            "\nReturns a new ZenCash address, for receiving change.\n"
             "This is for use with raw transactions, NOT normal use.\n"
             "\nResult:\n"
             "\"address\"    (string) The address\n"
@@ -288,7 +288,7 @@ UniValue setaccount(const UniValue& params, bool fHelp)
 
     CBitcoinAddress address(params[0].get_str());
     if (!address.IsValid())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zcash address");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid ZenCash address");
 
     string strAccount;
     if (params.size() > 1)
@@ -337,7 +337,7 @@ UniValue getaccount(const UniValue& params, bool fHelp)
 
     CBitcoinAddress address(params[0].get_str());
     if (!address.IsValid())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zcash address");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid ZenCash address");
 
     string strAccount;
     map<CTxDestination, CAddressBookData>::iterator mi = pwalletMain->mapAddressBook.find(address.Get());
@@ -486,7 +486,7 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
 
     CBitcoinAddress address(params[0].get_str());
     if (!address.IsValid())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zcash address");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid ZenCash address");
 
     // Amount
     CAmount nAmount = AmountFromValue(params[1]);
@@ -654,7 +654,7 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
     // Bitcoin address
     CBitcoinAddress address = CBitcoinAddress(params[0].get_str());
     if (!address.IsValid())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zcash address");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid ZenCash address");
 
 // ZEN_MOD_START
     /* Get script for addr without OP_CHECKBLOCKATHEIGHT, cause we will use it only for searching */
@@ -983,7 +983,7 @@ UniValue sendfrom(const UniValue& params, bool fHelp)
     string strAccount = AccountFromValue(params[0]);
     CBitcoinAddress address(params[1].get_str());
     if (!address.IsValid())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zcash address");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid ZenCash address");
     CAmount nAmount = AmountFromValue(params[2]);
     if (nAmount <= 0)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
@@ -1033,7 +1033,7 @@ UniValue sendmany(const UniValue& params, bool fHelp)
             "4. \"comment\"             (string, optional) A comment\n"
             "5. subtractfeefromamount   (string, optional) A json array with addresses.\n"
             "                           The fee will be equally deducted from the amount of each selected address.\n"
-            "                           Those recipients will receive less Zcash than you enter in their corresponding amount field.\n"
+            "                           Those recipients will receive less ZenCash than you enter in their corresponding amount field.\n"
             "                           If no addresses are specified here, the sender pays the fee.\n"
             "    [\n"
             "      \"address\"            (string) Subtract fee from this address\n"
@@ -1080,7 +1080,7 @@ UniValue sendmany(const UniValue& params, bool fHelp)
     {
         CBitcoinAddress address(name_);
         if (!address.IsValid())
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Zcash address: ")+name_);
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid ZenCash address: ")+name_);
 
         if (setAddress.count(address))
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+name_);
@@ -1137,7 +1137,7 @@ UniValue addmultisigaddress(const UniValue& params, bool fHelp)
 // ZEN_MOD_START
         string msg = "addmultisigaddress nrequired [\"key\",...] ( \"account\" )\n"
             "\nAdd a nrequired-to-sign multisignature address to the wallet.\n"
-            "Each key is a Zcash address or hex-encoded public key.\n"
+            "Each key is a ZenCash address or hex-encoded public key.\n"
             "If 'account' is specified (DEPRECATED), assign address to that account.\n"
 
             "\nArguments:\n"
@@ -2170,7 +2170,7 @@ UniValue encryptwallet(const UniValue& params, bool fHelp)
     // slack space in .dat files; that is bad if the old data is
     // unencrypted private keys. So:
     StartShutdown();
-    return "wallet encrypted; Zcash server stopping, restart to run with encrypted wallet. The keypool has been flushed, you need to make a new backup.";
+    return "wallet encrypted; ZenCash server stopping, restart to run with encrypted wallet. The keypool has been flushed, you need to make a new backup.";
 }
 
 UniValue lockunspent(const UniValue& params, bool fHelp)
