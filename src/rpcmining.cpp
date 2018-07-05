@@ -558,12 +558,12 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid mode");
 
     if (vNodes.empty())
-        throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Zcash is not connected!");
+        throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "ZenCash is not connected!");
 
 // ZEN_MOD_START
     // from https://github.com/ZencashOfficial/zen/commit/e7a774e9a72fae1228ccbc764d520bd685860822
     if (IsInitialBlockDownload() && ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight-(Params().GetConsensus().nMinerConfirmationWindow * 2)))
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Zcash is downloading blocks...");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "ZenCash is downloading blocks...");
 // ZEN_MOD_END
 
     static unsigned int nTransactionsUpdatedLast;
