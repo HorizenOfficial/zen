@@ -516,7 +516,7 @@ void static BitcoinMiner()
 {
     LogPrintf("ZenCashMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
-    RenameThread("zcash-miner");
+    RenameThread("zen-miner");
     const CChainParams& chainparams = Params();
 
 #ifdef ENABLE_WALLET
