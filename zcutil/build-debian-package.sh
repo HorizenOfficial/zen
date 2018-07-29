@@ -27,6 +27,7 @@ fi
 
 # ZEN_MOD_START
 PACKAGE_VERSION=$($SRC_PATH/src/zend --version | grep version | cut -d' ' -f4 | tr -d v)
+DEBVERSION=$(echo $PACKAGE_VERSION | sed 's/-beta/~beta/' | sed 's/-rc/~rc/' | sed 's/-/+/')
 BUILD_DIR="$BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-$ARCH"
 # ZEN_MOD_END
 
@@ -59,14 +60,14 @@ cp $SRC_DEB/copyright $DEB_DOC
 cp -r $SRC_DEB/examples $DEB_DOC
 # Copy manpages
 # ZEN_MOD_START
-cp $SRC_DOC/man/zcashd.1 $DEB_MAN/zend.1
-cp $SRC_DOC/man/zcash-cli.1 $DEB_MAN/zen-cli.1
-cp $SRC_DOC/man/zcash-fetch-params.1 $DEB_MAN/zen-fetch-params.1
+cp $SRC_DOC/man/zend.1 $DEB_MAN/zend.1
+cp $SRC_DOC/man/zen-cli.1 $DEB_MAN/zen-cli.1
+cp $SRC_DOC/man/zen-fetch-params.1 $DEB_MAN/zen-fetch-params.1
 # ZEN_MOD_END
 # Copy bash completion files
 # ZEN_MOD_START
-cp $SRC_PATH/contrib/zcashd.bash-completion $DEB_CMP/zend
-cp $SRC_PATH/contrib/zcash-cli.bash-completion $DEB_CMP/zen-cli
+cp $SRC_PATH/contrib/zend.bash-completion $DEB_CMP/zend
+cp $SRC_PATH/contrib/zen-cli.bash-completion $DEB_CMP/zen-cli
 # ZEN_MOD_END
 # Gzip files
 gzip --best -n $DEB_DOC/changelog
@@ -83,8 +84,8 @@ cd $SRC_PATH/contrib
 # Create the control file
 # ZEN_MOD_START
 dpkg-shlibdeps $DEB_BIN/zend $DEB_BIN/zen-cli
-dpkg-gencontrol -v$PACKAGE_VERSION -P$BUILD_DIR
 # ZEN_MOD_END
+dpkg-gencontrol -P$BUILD_DIR -v$DEBVERSION
 
 # Create the Debian package
 fakeroot dpkg-deb --build $BUILD_DIR

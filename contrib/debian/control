@@ -1,8 +1,8 @@
-Source: zcash
+Source: zen
 Section: utils
 Priority: optional
-Maintainer: Zen Blockchain Foundation <info@zensystem.io>
-Homepage: https://zensystem.io
+Maintainer: Zen Blockchain Foundation <info@zencash.com>
+Homepage: https://zencash.com
 Build-Depends: autoconf, automake, bsdmainutils, build-essential,
  git, g++-multilib, libc6-dev, libtool,
  m4, ncurses-dev, pkg-config, python,
@@ -11,6 +11,6 @@ Vcs-Git: https://github.com/ZencashOfficial/zen.git
 Vcs-Browser: https://github.com/ZencashOfficial/zen
 
 Package: zen
-Architecture: amd64
+Architecture: any
 Depends: ${shlibs:Depends}
-Description: Private and reliable transactions, communications, and publishing - zensystem.io
+Description: Private and reliable transactions, communications, and publishing - zencash.com
