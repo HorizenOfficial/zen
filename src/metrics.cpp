@@ -460,7 +460,9 @@ int printInitMessage()
 void ThreadShowMetricsScreen()
 {
     // Make this thread recognisable as the metrics screen thread
+// ZEN_MOD_START
     RenameThread("zen-metrics-screen");
+// ZEN_MOD_END
 
     // Determine whether we should render a persistent UI or rolling metrics
     bool isTTY = isatty(STDOUT_FILENO);

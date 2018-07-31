@@ -920,7 +920,9 @@ DBErrors CWalletDB::ZapWalletTx(CWallet* pwallet, vector<CWalletTx>& vWtx)
 void ThreadFlushWalletDB(const string& strFile)
 {
     // Make this thread recognisable as the wallet flushing thread
+// ZEN_MOD_START
     RenameThread("zen-wallet");
+// ZEN_MOD_END
 
     static bool fOneThread;
     if (fOneThread)

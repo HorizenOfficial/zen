@@ -542,8 +542,10 @@ UniValue gettxout(const UniValue& params, bool fHelp)
             "     \"hex\" : \"hex\",        (string) \n"
             "     \"reqSigs\" : n,          (numeric) Number of required signatures\n"
             "     \"type\" : \"pubkeyhash\", (string) The type, eg pubkeyhash\n"
+// ZEN_MOD_START
             "     \"addresses\" : [          (array of string) array of Zen addresses\n"
             "        \"zenaddress\"        (string) Zen address\n"
+// ZEN_MOD_END
             "        ,...\n"
             "     ]\n"
             "  },\n"

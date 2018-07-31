@@ -704,7 +704,9 @@ static void ZC_LoadParams()
 
     if (!(boost::filesystem::exists(pk_path) && boost::filesystem::exists(vk_path))) {
         uiInterface.ThreadSafeMessageBox(strprintf(
+// ZEN_MOD_START
             _("Cannot find the Zen network parameters in the following directory:\n"
+// ZEN_MOD_END
               "%s\n"
               // ZEN_MOD_START
               "Please run 'zen-fetch-params' or './zcutil/fetch-params.sh' and then restart."),
@@ -824,8 +826,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     fLogTimestamps = GetBoolArg("-logtimestamps", true);
     fLogIPs = GetBoolArg("-logips", false);
 
-    LogPrintf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
+// ZEN_MOD_START
     LogPrintf("Zen version %s (%s)\n", FormatFullVersion(), CLIENT_DATE);
+// ZEN_MOD_END
 
     // when specifying an explicit binding address, you want to listen on it
     // even when -connect or -proxy is specified
@@ -1546,10 +1549,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 InitWarning(msg);
             }
             else if (nLoadWalletRet == DB_TOO_NEW)
+// ZEN_MOD_START
                 strErrors << _("Error loading wallet.dat: Wallet requires newer version of Zen") << "\n";
+// ZEN_MOD_END
             else if (nLoadWalletRet == DB_NEED_REWRITE)
             {
+// ZEN_MOD_START
                 strErrors << _("Wallet needed to be rewritten: restart Zen to complete") << "\n";
+// ZEN_MOD_END
                 LogPrintf("%s", strErrors.str());
                 return InitError(strErrors.str());
             }
@@ -1650,10 +1657,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 #ifdef ENABLE_MINING
  #ifndef ENABLE_WALLET
     if (GetBoolArg("-minetolocalwallet", false)) {
+// ZEN_MOD_START
         return InitError(_("Zen was not built with wallet support. Set -minetolocalwallet=0 to use -mineraddress, or rebuild Zen with wallet support."));
+// ZEN_MOD_END
     }
     if (GetArg("-mineraddress", "").empty() && GetBoolArg("-gen", false)) {
+// ZEN_MOD_START
         return InitError(_("Zen was not built with wallet support. Set -mineraddress, or rebuild Zen with wallet support."));
+// ZEN_MOD_END
     }
  #endif // !ENABLE_WALLET
 

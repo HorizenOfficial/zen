@@ -238,7 +238,9 @@ UniValue getrawchangeaddress(const UniValue& params, bool fHelp)
     if (fHelp || params.size() > 1)
         throw runtime_error(
             "getrawchangeaddress\n"
+// ZEN_MOD_START
             "\nReturns a new Zen address, for receiving change.\n"
+// ZEN_MOD_END
             "This is for use with raw transactions, NOT normal use.\n"
             "\nResult:\n"
             "\"address\"    (string) The address\n"
@@ -337,7 +339,9 @@ UniValue getaccount(const UniValue& params, bool fHelp)
 
     CBitcoinAddress address(params[0].get_str());
     if (!address.IsValid())
+// ZEN_MOD_START
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
+// ZEN_MOD_END
 
     string strAccount;
     map<CTxDestination, CAddressBookData>::iterator mi = pwalletMain->mapAddressBook.find(address.Get());
@@ -476,9 +480,9 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
             "\"transactionid\"  (string) The transaction id.\n"
             "\nExamples:\n"
             + HelpExampleCli("sendtoaddress", "\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\" 0.1")
-            + HelpExampleCli("sendtoaddress", "\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\" 0.1 \"donation\" \"psyrax outpost\"")
+            + HelpExampleCli("sendtoaddress", "\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\" 0.1 \"donation\" \"ZenCash outpost\"")
             + HelpExampleCli("sendtoaddress", "\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\" 0.1 \"\" \"\" true")
-            + HelpExampleRpc("sendtoaddress", "\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\", 0.1, \"donation\", \"psyrax outpost\"")
+            + HelpExampleRpc("sendtoaddress", "\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\", 0.1, \"donation\", \"ZenCash outpost\"")
         );
 // ZEN_MOD_END
 
@@ -486,7 +490,9 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
 
     CBitcoinAddress address(params[0].get_str());
     if (!address.IsValid())
+// ZEN_MOD_START
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
+// ZEN_MOD-END
 
     // Amount
     CAmount nAmount = AmountFromValue(params[1]);
@@ -654,7 +660,9 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
     // Bitcoin address
     CBitcoinAddress address = CBitcoinAddress(params[0].get_str());
     if (!address.IsValid())
+// ZEN_MOD_START
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
+// ZEN_MOD_END
 
 // ZEN_MOD_START
     /* Get script for addr without OP_CHECKBLOCKATHEIGHT, cause we will use it only for searching */
@@ -950,8 +958,8 @@ UniValue sendfrom(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() < 3 || params.size() > 6)
-// ZEN_MOD_START
         throw runtime_error(
+// ZEN_MOD_START
             "sendfrom \"fromaccount\" \"tozenaddress\" amount ( minconf \"comment\" \"comment-to\" )\n"
             "\nDEPRECATED (use sendtoaddress). Sent an amount from an account to a zen address.\n"
             "The amount is a real and is rounded to the nearest 0.00000001."
@@ -972,9 +980,9 @@ UniValue sendfrom(const UniValue& params, bool fHelp)
             "\nSend 0.01 " + CURRENCY_UNIT + " from the default account to the address, must have at least 1 confirmation\n"
             + HelpExampleCli("sendfrom", "\"\" \"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\" 0.01") +
             "\nSend 0.01 from the tabby account to the given address, funds must have at least 6 confirmations\n"
-            + HelpExampleCli("sendfrom", "\"tabby\" \"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\" 0.01 6 \"donation\" \"psyrax outpost\"") +
+            + HelpExampleCli("sendfrom", "\"tabby\" \"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\" 0.01 6 \"donation\" \"ZenCash outpost\"") +
             "\nAs a json rpc call\n"
-            + HelpExampleRpc("sendfrom", "\"tabby\", \"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\", 0.01, 6, \"donation\", \"psyrax outpost\"")
+            + HelpExampleRpc("sendfrom", "\"tabby\", \"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\", 0.01, 6, \"donation\", \"ZenCash outpost\"")
         );
 // ZEN_MOD_END
 
@@ -983,7 +991,9 @@ UniValue sendfrom(const UniValue& params, bool fHelp)
     string strAccount = AccountFromValue(params[0]);
     CBitcoinAddress address(params[1].get_str());
     if (!address.IsValid())
+// ZEN_MOD_START
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
+// ZEN_MOD_END
     CAmount nAmount = AmountFromValue(params[2]);
     if (nAmount <= 0)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
@@ -1080,7 +1090,9 @@ UniValue sendmany(const UniValue& params, bool fHelp)
     {
         CBitcoinAddress address(name_);
         if (!address.IsValid())
+// ZEN_MOD_START
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Zen address: ")+name_);
+// ZEN_MOD_END
 
         if (setAddress.count(address))
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+name_);
@@ -2079,7 +2091,9 @@ UniValue walletlock(const UniValue& params, bool fHelp)
             "\nSet the passphrase for 2 minutes to perform a transaction\n"
             + HelpExampleCli("walletpassphrase", "\"my pass phrase\" 120") +
             "\nPerform a send (requires passphrase set)\n"
+// ZEN_MOD_START
             + HelpExampleCli("sendtoaddress", "\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\" 1.0") +
+// ZEN_MOD_END
             "\nClear the passphrase since we are done before 2 minutes is up\n"
             + HelpExampleCli("walletlock", "") +
             "\nAs json rpc call\n"
@@ -2170,7 +2184,9 @@ UniValue encryptwallet(const UniValue& params, bool fHelp)
     // slack space in .dat files; that is bad if the old data is
     // unencrypted private keys. So:
     StartShutdown();
+// ZEN_MOD_START
     return "wallet encrypted; Zen server stopping, restart to run with encrypted wallet. The keypool has been flushed, you need to make a new backup.";
+// ZEN_MOD_END
 }
 
 UniValue lockunspent(const UniValue& params, bool fHelp)
@@ -3475,8 +3491,10 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"operationid\"          (string) An operationid to pass to z_getoperationstatus to get the result of the operation.\n"
             "\nExamples:\n"
+// ZEN_MOD_START
             + HelpExampleCli("z_sendmany", "\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\" '[{\"address\": \"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\" ,\"amount\": 5.0}]'")
             + HelpExampleRpc("z_sendmany", "\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\", [{\"address\": \"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\" ,\"amount\": 5.0}]")
+// ZEN_MOD_END
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
