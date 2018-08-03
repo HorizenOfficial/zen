@@ -44,6 +44,7 @@
 
 // ZEN_MOD_START
 #include "zen/forkmanager.h"
+#include "zen/delay.h"
 
 using namespace zen;
 // ZEN_MOD_END
@@ -114,7 +115,11 @@ namespace {
     struct CBlockIndexWorkComparator
     {
         bool operator()(CBlockIndex *pa, CBlockIndex *pb) const {
-            // First sort by most total work, ...
+            // First sort by total delay in chain.
+            if (pa->nChainDelay < pb->nChainDelay) return false;
+            if (pa->nChainDelay > pb->nChainDelay) return true;
+
+            // Then sort by most total work, ...
             if (pa->nChainWork > pb->nChainWork) return false;
             if (pa->nChainWork < pb->nChainWork) return true;
 
@@ -2644,7 +2649,7 @@ static int64_t nTimePostConnect = 0;
  * Connect a new block to chainActive. pblock is either NULL or a pointer to a CBlock
  * corresponding to pindexNew, to bypass loading it again from disk.
  */
-bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *pblock) {
+bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *pblock) { // ???
     assert(pindexNew->pprev == chainActive.Tip());
     mempool.check(pcoinsTip);
     // Read block from disk.
@@ -3000,6 +3005,14 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
         pindexNew->BuildSkip();
     }
     pindexNew->nChainWork = (pindexNew->pprev ? pindexNew->pprev->nChainWork : 0) + GetBlockProof(*pindexNew);
+//ZEN_MOD_START
+    if (pindexNew->pprev){
+        pindexNew->nChainDelay = pindexNew->pprev->nChainDelay + GetBlockDelay(*pindexNew,*(pindexNew->pprev), chainActive.Height());
+    } else {
+        pindexNew->nChainDelay = 0 ;
+    }
+    LogPrintf("DELAY----------->  Delay VAL: %i BLOCKHEIGHT: %d\n",pindexNew->nChainDelay,pindexNew->nHeight);
+//ZEN_MOD_END
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);
     if (pindexBestHeader == NULL || pindexBestHeader->nChainWork < pindexNew->nChainWork)
         pindexBestHeader = pindexNew;
@@ -3725,6 +3738,15 @@ bool static LoadBlockIndexDB()
     {
         CBlockIndex* pindex = item.second;
         pindex->nChainWork = (pindex->pprev ? pindex->pprev->nChainWork : 0) + GetBlockProof(*pindex);
+//ZEN_MOD_START
+    if (pindex->pprev){
+        pindex->nChainDelay = pindex->pprev->nChainDelay 
+        + GetBlockDelay(*pindex,*(pindex->pprev), chainActive.Height());
+    } else {
+        pindex->nChainDelay = 0 ;
+    }
+    //LogPrintf("DELAY_Index_load--------->  Delay VAL: %i BLOCKHEIGHT: %d\n",pindex->nChainDelay,pindex->nHeight);
+//ZEN_MOD_END
         // We can link the chain of blocks for which we've received transactions at some point.
         // Pruned nodes may have deleted the block.
         if (pindex->nTx > 0) {

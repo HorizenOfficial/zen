@@ -432,9 +432,9 @@ libbitcoin_util_a_SOURCES = \
   $(BITCOIN_CORE_H) \
   $(LIBZCASH_H)
 
-if GLIBC_BACK_COMPAT
-libbitcoin_util_a_SOURCES += compat/glibc_compat.cpp
-endif
+if GLIBC_BACK_COMPAT 
+libbitcoin_util_a_SOURCES += compat/glibc_compat.cpp 
+endif 
 
 # cli: zcash-cli
 libbitcoin_cli_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
@@ -618,7 +618,8 @@ libzencash_a_SOURCES = \
     zen/forks/fork2_replayprotectionfork.cpp\
     zen/forks/fork3_communityfundandrpfixfork.cpp\
     zen/forks/fork4_nulltransactionfork.cpp\
-    zen/tlsmanager.cpp
+    zen/tlsmanager.cpp\
+    zen/delay.cpp
 
 if HAVE_OPENMP
 libzencash_a_CPPFLAGS = -DMULTICORE -fopenmp
