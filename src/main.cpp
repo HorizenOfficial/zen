@@ -2649,7 +2649,7 @@ static int64_t nTimePostConnect = 0;
  * Connect a new block to chainActive. pblock is either NULL or a pointer to a CBlock
  * corresponding to pindexNew, to bypass loading it again from disk.
  */
-bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *pblock) { // ???
+bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *pblock) {
     assert(pindexNew->pprev == chainActive.Tip());
     mempool.check(pcoinsTip);
     // Read block from disk.
@@ -3014,7 +3014,7 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
     LogPrintf("DELAY----------->  Delay VAL: %i BLOCKHEIGHT: %d\n",pindexNew->nChainDelay,pindexNew->nHeight);
 //ZEN_MOD_END
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);
-    if (pindexBestHeader == NULL || pindexBestHeader->nChainWork < pindexNew->nChainWork)
+    if (pindexBestHeader == NULL || (pindexBestHeader->nChainWork < pindexNew->nChainWork && pindexNew->nChainDelay==0))
         pindexBestHeader = pindexNew;
 
     setDirtyBlockIndex.insert(pindexNew);
