@@ -4243,6 +4243,7 @@ void static CheckBlockIndex()
                 // setBlockIndexCandidates.  chainActive.Tip() must also be there
                 // even if some data has been pruned.
                 if (pindexFirstMissing == NULL || pindex == chainActive.Tip()) {
+                    // LogPrintf("net","ASSERT============>%x  but  %x", pindex->phashBlock, chainActive.Tip()->phashBlock);
                     assert(setBlockIndexCandidates.count(pindex));
                 }
                 // If some parent is missing, then it could be that this block was in
