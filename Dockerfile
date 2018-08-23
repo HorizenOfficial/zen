@@ -50,6 +50,7 @@ COPY --from=builder2 /usr/local/bin/libzcashconsensus.so* \
                      /usr/local/bin/zen-gtest \
                      /usr/local/bin/zen-tx \
                      /usr/local/bin/zend \
+                     /usr/local/bin/fetch-params.sh \
                      /usr/local/bin/
 
 RUN fetch-params.sh && zend --version || /bin/true
