@@ -36,7 +36,7 @@ RUN cd /zen && ./zcutil/build.sh -j 1
 
 FROM fedora:28 as builder2
 
-#RUN dnf -y update && dnf install wget libstdc++ libgomp -y && dnf clean all
+RUN dnf -y install wget libstdc++ libgomp
 
 COPY --from=builder /zen/src/* /usr/local/bin/
 COPY --from=builder /zen/zcutil/* /usr/local/bin/
