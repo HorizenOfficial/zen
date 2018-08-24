@@ -41,6 +41,9 @@ FROM fedora:28 as builder2
 COPY --from=builder /zen/src/* /usr/local/bin/
 COPY --from=builder /zen/zcutil/* /usr/local/bin/
 
+RUN echo --------------TEST------------------------ && \
+    fetch-params.sh && zend --version || /bin/true
+
 FROM fedora:28
 
 RUN dnf -y update && dnf install wget libstdc++ libgomp iputils -y && dnf clean all
@@ -53,5 +56,4 @@ COPY --from=builder2 /usr/local/bin/libzcashconsensus.so* \
                      /usr/local/bin/fetch-params.sh \
                      /usr/local/bin/
 
-RUN fetch-params.sh && zend --version || /bin/true
-
+#RUN fetch-params.sh && zend --version || /bin/true
