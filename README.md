@@ -5,6 +5,13 @@ What is Zen?
 ----------------
 A globally accessible and anonymous blockchain for censorship-resistant communications and economic activity.
 
+* Docker images and build
+
+[![](https://images.microbadger.com/badges/image/homdx/zen.svg)](https://microbadger.com/images/homdx/zen "Get your own image badge on microbadger.com")
+[![](https://images.microbadger.com/badges/version/homdx/zen.svg)](https://microbadger.com/images/homdx/zen "Get your own version badge on microbadger.com")
+
+https://hub.docker.com/r/homdx/zen/builds/
+
 Upgrading from 2.0.11 source
 ----------------
 
@@ -62,6 +69,7 @@ Installing from source
 # Run
 ./src/zend
 ```
+
 
 * Install for Mac OS (using clang)
 
