@@ -51,7 +51,16 @@ Building
 Build Zcash along with most dependencies from source by running
 ./zcutil/build.sh. Currently only Linux is officially supported.
 
+--------
+* Docker images and build
+
+[![](https://images.microbadger.com/badges/image/homdx/zen.svg)](https://microbadger.com/images/homdx/zen "Get your own image badge on microbadger.com")
+[![](https://images.microbadger.com/badges/version/homdx/zen.svg)](https://microbadger.com/images/homdx/zen "Get your own version badge on microbadger.com")
+
+https://hub.docker.com/r/homdx/zen/builds/
+
+--------
 License
--------
+-
 
 For license information see the file [COPYING](COPYING).
