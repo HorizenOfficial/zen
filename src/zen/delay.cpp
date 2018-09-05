@@ -28,7 +28,7 @@ int GetBlockDelay(const CBlockIndex& newBlock, const CBlockIndex& prevBlock, con
         // Introduce penalty in case we receive a historic block.
         // (uses a threshold value)
         if (activeChainHeight - newBlock.nHeight > PENALTY_THRESHOLD ){
-            return (activeChainHeight - newBlock.nHeight - PENALTY_THRESHOLD);
+            return (activeChainHeight - newBlock.nHeight);
         // no delay detected.
         } else {
             return 0;
