@@ -205,6 +205,10 @@ Threads
 
 - Shutdown : Does an orderly shutdown of everything.
 
+Pull Requests
+------------------------
+All pull requests must be submitted to the `Development` branch for testing.  Only `Development` may be merged to `master`.
+
 Pull Request Terminology
 ------------------------
 
