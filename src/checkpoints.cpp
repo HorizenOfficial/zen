@@ -24,7 +24,6 @@ namespace Checkpoints {
      */
     static const double SIGCHECK_VERIFICATION_FACTOR = 5.0;
 
-    //static bool isSync = true;
 
     //! Guess how far we are in the verification process at the given block index
     double GuessVerificationProgress(const CCheckpointData& data, CBlockIndex *pindex, bool fSigchecks) {
@@ -53,16 +52,8 @@ namespace Checkpoints {
             fWorkAfter = nExpensiveAfter*fSigcheckVerificationFactor;
         }
 
-        // ZEN_MOD_START
-        double ret = fWorkBefore / (fWorkBefore + fWorkAfter);
-        if (std::abs(1.0 - ret) < 0.000001) {
-            LogPrintf("%s: set isSync to FALSE %f \n",__func__, ret);
-            isSync = false;
+        return fWorkBefore / (fWorkBefore + fWorkAfter);
         }
-
-        return ret;
-        // ZEN_MOD_END
-    }
 
     int GetTotalBlocksEstimate(const CCheckpointData& data)
     {

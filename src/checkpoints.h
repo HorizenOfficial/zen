@@ -32,9 +32,7 @@ int GetTotalBlocksEstimate(const CCheckpointData& data);
 CBlockIndex* GetLastCheckpoint(const CCheckpointData& data);
 
 double GuessVerificationProgress(const CCheckpointData& data, CBlockIndex* pindex, bool fSigchecks = true);
-// ZEN_MOD_START
-bool isSync = true;
-// ZEN_MOD_END
+
 
 } //namespace Checkpoints
 
