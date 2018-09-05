@@ -3011,7 +3011,7 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
     } else {
         pindexNew->nChainDelay = 0 ;
     }
-    LogPrintf("DELAY----------->  Delay VAL: %i BLOCKHEIGHT: %d\n",pindexNew->nChainDelay,pindexNew->nHeight);
+    LogPrintf("%s: DELAY----------->  Delay VAL: %i BLOCKHEIGHT: %d\n", __func__, pindexNew->nChainDelay,pindexNew->nHeight);
 //ZEN_MOD_END
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);
     if (pindexBestHeader == NULL || (pindexBestHeader->nChainWork < pindexNew->nChainWork && pindexNew->nChainDelay==0))
@@ -3744,8 +3744,7 @@ bool static LoadBlockIndexDB()
         + GetBlockDelay(*pindex,*(pindex->pprev), chainActive.Height());
     } else {
         pindex->nChainDelay = 0 ;
-    }
-    //LogPrintf("DELAY_Index_load--------->  Delay VAL: %i BLOCKHEIGHT: %d\n",pindex->nChainDelay,pindex->nHeight);
+    }    
 //ZEN_MOD_END
         // We can link the chain of blocks for which we've received transactions at some point.
         // Pruned nodes may have deleted the block.

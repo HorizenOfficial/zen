@@ -7,7 +7,7 @@
 #include "chainparams.h"
 #include "main.h"
 #include "uint256.h"
-
+#include "util.h"
 #include <stdint.h>
 
 #include <boost/foreach.hpp>
@@ -23,6 +23,8 @@ namespace Checkpoints {
      * fast multicore CPU, it won't be much higher than 1.
      */
     static const double SIGCHECK_VERIFICATION_FACTOR = 5.0;
+
+    //static bool isSync = true;
 
     //! Guess how far we are in the verification process at the given block index
     double GuessVerificationProgress(const CCheckpointData& data, CBlockIndex *pindex, bool fSigchecks) {
@@ -51,7 +53,15 @@ namespace Checkpoints {
             fWorkAfter = nExpensiveAfter*fSigcheckVerificationFactor;
         }
 
-        return fWorkBefore / (fWorkBefore + fWorkAfter);
+        // ZEN_MOD_START
+        double ret = fWorkBefore / (fWorkBefore + fWorkAfter);
+        if (std::abs(1.0 - ret) < 0.000001) {
+            LogPrintf("%s: set isSync to FALSE %f \n",__func__, ret);
+            isSync = false;
+        }
+
+        return ret;
+        // ZEN_MOD_END
     }
 
     int GetTotalBlocksEstimate(const CCheckpointData& data)
