@@ -76,6 +76,9 @@ class blockdelay(BitcoinTestFramework):
         #Join the (previously split) network halves together.
         assert self.is_network_split
         connect_nodes_bi(self.nodes, 0, 3)
+        connect_nodes_bi(self.nodes, 3, 0)
+        connect_nodes_bi(self.nodes, 1, 3)
+        connect_nodes_bi(self.nodes, 3, 1)
         #sync_blocks(self.nodes[0:3],1,True)
         #sync_mempools(self.nodes[1:3])
         self.sync_all()
@@ -87,8 +90,10 @@ class blockdelay(BitcoinTestFramework):
 
         blocks.append(self.nodes[0].getblockhash(0))
         print("\n\nGenesis block is: " + blocks[0])
+        # raw_input("press enter to start..")
 
-        print("\n\nGenerating initial blockchain")
+
+        print("\n\nGenerating initial blockchain 4 blocks")
         blocks.extend(self.nodes[0].generate(1)) # block height 1
         self.sync_all()
         blocks.extend(self.nodes[1].generate(1)) # block height 2
@@ -97,48 +102,53 @@ class blockdelay(BitcoinTestFramework):
         self.sync_all()
         blocks.extend(self.nodes[3].generate(1)) # block height 4
         self.sync_all()
+        print("Blocks generated")
 
         print("\n\nSplit network")
         self.split_network()
+        print("The network is split")
+
 
         # Main chain
         print("\n\nGenerating 2 parallel chains with different length")
+
+        print("\nGenerating 12 honest blocks")
         blocks.extend(self.nodes[0].generate(6)) # block height 5 -6 -7 -8 - 9 - 10
         self.sync_all()
         blocks.extend(self.nodes[1].generate(6)) # block height 11-12-13-14-15-16
         last_main_blockhash=blocks[len(blocks)-1]
         self.sync_all()
+        print("Honest block generated")
 
         assert self.nodes[0].getbestblockhash() == last_main_blockhash
 
         # Malicious nodes mining privately faster
+        print("\nGenerating 13 malicious blocks")
         self.nodes[2].generate(10) # block height 5 - 6 -7 -8 -9-10 -11 12 13 14
         self.sync_all()
         self.nodes[3].generate(3) # block height 15 - 16 - 17
         self.sync_all()
+        print("Malicious block generated")
 
 
         print("\n\nJoin network")
-        raw_input("join????")
+        # raw_input("press enter to join the netorks..")
         self.join_network()
         time.sleep(2)
+        print("\nNetwork joined")
 
-        print("\n\nNetwork joined")
-        print("Testing if the current chain is still the honest chain")
+        print("\nTesting if the current chain is still the honest chain")
         assert self.nodes[0].getbestblockhash() == last_main_blockhash
         print("Confirmed: malicious chain is under penalty")
 
 
-        print("\nGenerating 64 malicious blocks")
-        # main chain (0/1 nodes win)
-        # self.nodes[3].generate(61)
-        self.nodes[3].generate(64) # block height 21-82
-        #self.sync_all()
+        print("\nGenerating 64 malicious blocks")       
+        self.nodes[3].generate(64)
         print("Malicious block generated")
 
         time.sleep(10)
 
-        print("Testing if the current chain is still the honest chain")
+        print("\nTesting if the current chain is still the honest chain")
         assert self.nodes[0].getbestblockhash() == last_main_blockhash
         print("Confirmed: malicious chain is under penalty")
 
@@ -150,16 +160,21 @@ class blockdelay(BitcoinTestFramework):
         last_malicious_blockhash=self.nodes[3].generate(1)[0]
         print("Malicious block generated")
 
-        time.sleep(5)
+        print("\nWaiting that all network nodes are synced with same chain length")
+        sync_blocks(self.nodes, 1, True)
+        print("Network nodes are synced")
 
-        print("Testing if the current chain switched to the malicious chain")
+        print("\nTesting if all the nodes/chains have the same best tip")
+        assert (self.nodes[0].getbestblockhash() == self.nodes[1].getbestblockhash()
+                == self.nodes[2].getbestblockhash() == self.nodes[3].getbestblockhash())
+        print("Confirmed: all the nodes have the same best tip")
+
+        print("\nTesting if the current chain switched to the malicious chain")
         assert self.nodes[0].getbestblockhash() == last_malicious_blockhash
         print("Confirmed: malicious chain is the best chain")
 
-        time.sleep(5)
-        # sync_blocks(self.nodes,1,True)
+        time.sleep(2)
         sync_mempools(self.nodes)
-
 
 if __name__ == '__main__':
     blockdelay().main()
