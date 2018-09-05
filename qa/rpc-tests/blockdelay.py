@@ -162,4 +162,4 @@ class blockdelay(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    blockdelay.main()
+    blockdelay().main()
