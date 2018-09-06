@@ -8,29 +8,34 @@ TEST(delay_tests, get_block_delay) {
     CBlockIndex *block = new CBlockIndex();
     CBlockIndex *pblock = new CBlockIndex();
 
-    // no delay in current chain.
-    block->nHeight= 100 ;
-    pblock->nChainDelay= 0 ;
+    CBlock newblock;
+    CBlockIndex indexNew {newblock};
+    CBlock prevblock;
+    CBlockIndex indexPrev {prevblock};
+
+
+    indexNew.nHeight = 100;
+    indexPrev.nChainDelay = 0;
     int activeChainHeight = 100; 
-    ASSERT_EQ (GetBlockDelay(block, pblock, activeChainHeight), 0);
+    ASSERT_EQ (GetBlockDelay(indexNew, indexPrev, activeChainHeight, false), 0);
 
     
-    block->nHeight= 980 ;
-    pblock->nChainDelay= 0 ;
-    activeChainHeight = 550; 
-    ASSERT_EQ (GetBlockDelay(block, pblock, activeChainHeight), 0);
+    indexNew.nHeight = 5;
+    indexPrev.nChainDelay = 0;
+    activeChainHeight = 16;
+    ASSERT_EQ (GetBlockDelay(indexNew, indexPrev, activeChainHeight, false), 11);
 
 
     // some delay in the current chain
-    block->nHeight= 100 ;
-    pblock->nChainDelay= 20 ;
+    indexNew.nHeight = 100 ;
+    indexPrev.nChainDelay = 20 ;
     activeChainHeight = 500; 
-    ASSERT_EQ (GetBlockDelay(block, pblock, activeChainHeight), 0);
+    ASSERT_EQ (GetBlockDelay(indexNew, indexPrev, activeChainHeight, false), 400);
 
 
-    block->nHeight= 1000 ;
-    pblock->nChainDelay= 300 ;
-    activeChainHeight = 500; 
-    ASSERT_EQ (GetBlockDelay(block, pblock, activeChainHeight), 0);
+    indexNew.nHeight = 6;
+    indexPrev.nChainDelay = 11;
+    activeChainHeight = 16;
+    ASSERT_EQ (GetBlockDelay(indexNew, indexPrev, activeChainHeight, false), 10);
 
 }
