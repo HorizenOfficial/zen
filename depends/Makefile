@@ -6,7 +6,7 @@ SDK_PATH ?= $(BASEDIR)/SDKs
 NO_WALLET ?=
 # ZEN_MOD_START
 NO_UPNP ?=
-PRIORITY_DOWNLOAD_PATH ?= https://zensystem.io/depends-sources
+PRIORITY_DOWNLOAD_PATH ?= https://horizen.global/depends-sources
 # ZEN_MOD_END
 
 BUILD ?= $(shell ./config.guess)

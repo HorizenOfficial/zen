@@ -122,12 +122,12 @@ public:
         vFixedSeeds.clear();
         vSeeds.clear();
 // ZEN_MOD_START
-        vSeeds.push_back(CDNSSeedData("zensystem.io", "dnsseed.zensystem.io"));
+        vSeeds.push_back(CDNSSeedData("horizen.global", "dnsseed.horizen.global"));
         vSeeds.push_back(CDNSSeedData("zenseed.network", "dnsseed.zenseed.network"));
         vSeeds.push_back(CDNSSeedData("blockoperations.com", "zpool.blockoperations.com"));
         vSeeds.push_back(CDNSSeedData("zenchain.info", "node1.zenchain.info"));
         vSeeds.push_back(CDNSSeedData("zenseed.network", "mainnet.zenseed.network"));
-        vSeeds.push_back(CDNSSeedData("zensystem.io", "mainnet.zensystem.io"));
+        vSeeds.push_back(CDNSSeedData("horizen.global", "mainnet.horizen.global"));
 
         // guarantees the first 2 characters, when base58 encoded, are "zn"
         // guarantees the first 2 characters, when base58 encoded, are "t1"
@@ -229,10 +229,10 @@ public:
         vSeeds.clear();
 
 // ZEN_MOD_START
-        vSeeds.push_back(CDNSSeedData("zensystem.io", "dnsseed.testnet.zensystem.io"));
+        vSeeds.push_back(CDNSSeedData("horizen.global", "dnsseed.testnet.horizen.global"));
         vSeeds.push_back(CDNSSeedData("blockoperations.com", "zpool2.blockoperations.com"));
         vSeeds.push_back(CDNSSeedData("scottrockcafe.com", "node.scottrockcafe.com"));
-        vSeeds.push_back(CDNSSeedData("zensystem.io", "testnet.zensystem.io"));
+        vSeeds.push_back(CDNSSeedData("horizen.global", "testnet.horizen.global"));
 
         // guarantees the first 2 characters, when base58 encoded, are "zt"
         // guarantees the first 2 characters, when base58 encoded, are "tm"
