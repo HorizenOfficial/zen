@@ -432,9 +432,9 @@ libbitcoin_util_a_SOURCES = \
   $(BITCOIN_CORE_H) \
   $(LIBZCASH_H)
 
-if GLIBC_BACK_COMPAT 
-libbitcoin_util_a_SOURCES += compat/glibc_compat.cpp 
-endif 
+if GLIBC_BACK_COMPAT
+libbitcoin_util_a_SOURCES += compat/glibc_compat.cpp
+endif
 
 # cli: zcash-cli
 libbitcoin_cli_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
