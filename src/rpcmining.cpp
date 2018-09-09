@@ -566,14 +566,14 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
 
     if (vNodes.empty())
         // ZEN_MOD_START
-        throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Zen is not connected!");
+        throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Horizen is not connected!");
         // ZEN_MOD_END
 
 // ZEN_MOD_START
     // from https://github.com/ZencashOfficial/zen/commit/e7a774e9a72fae1228ccbc764d520bd685860822
     if (IsInitialBlockDownload() && ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight-(Params().GetConsensus().nMinerConfirmationWindow * 2)))
         // ZEN_MOD_START
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Zen is downloading blocks...");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Horizen is downloading blocks...");
         // ZEN_MOD_END
 // ZEN_MOD_END
 
