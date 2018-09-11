@@ -17,7 +17,7 @@
 
 #if defined(NDEBUG)
 // ZEN_MOD_START
-# error "Zen cannot be compiled without assertions."
+# error "Horizen cannot be compiled without assertions."
 // ZEN_MOD_END
 #endif
 

@@ -543,8 +543,8 @@ UniValue gettxout(const UniValue& params, bool fHelp)
             "     \"reqSigs\" : n,          (numeric) Number of required signatures\n"
             "     \"type\" : \"pubkeyhash\", (string) The type, eg pubkeyhash\n"
 // ZEN_MOD_START
-            "     \"addresses\" : [          (array of string) array of Zen addresses\n"
-            "        \"zenaddress\"        (string) Zen address\n"
+            "     \"addresses\" : [          (array of string) array of Horizen addresses\n"
+            "        \"horizenaddress\"        (string) Horizen address\n"
 // ZEN_MOD_END
             "        ,...\n"
             "     ]\n"

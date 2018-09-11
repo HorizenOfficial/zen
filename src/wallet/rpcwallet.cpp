@@ -116,11 +116,11 @@ UniValue getnewaddress(const UniValue& params, bool fHelp)
 // ZEN_MOD_START
         throw runtime_error(
             "getnewaddress ( \"account\" )\n"
-            "\nReturns a new Zen address for receiving payments.\n"
+            "\nReturns a new Horizen address for receiving payments.\n"
             "\nArguments:\n"
             "1. \"account\"        (string, optional) DEPRECATED. If provided, it MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
             "\nResult:\n"
-            "\"zenaddress\"    (string) The new zen address\n"
+            "\"zenaddress\"    (string) The new Horizen address\n"
             "\nExamples:\n"
             + HelpExampleCli("getnewaddress", "")
             + HelpExampleRpc("getnewaddress", "")
@@ -205,11 +205,11 @@ UniValue getaccountaddress(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "getaccountaddress \"account\"\n"
-            "\nDEPRECATED. Returns the current Zen address for receiving payments to this account.\n"
+            "\nDEPRECATED. Returns the current Horizen address for receiving payments to this account.\n"
             "\nArguments:\n"
             "1. \"account\"       (string, required) MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
             "\nResult:\n"
-            "\"zenaddress\"   (string) The account zen address\n"
+            "\"zenaddress\"   (string) The account Horizen address\n"
             "\nExamples:\n"
             + HelpExampleCli("getaccountaddress", "")
             + HelpExampleCli("getaccountaddress", "\"\"")
@@ -239,7 +239,7 @@ UniValue getrawchangeaddress(const UniValue& params, bool fHelp)
         throw runtime_error(
             "getrawchangeaddress\n"
 // ZEN_MOD_START
-            "\nReturns a new Zen address, for receiving change.\n"
+            "\nReturns a new Horizen address, for receiving change.\n"
 // ZEN_MOD_END
             "This is for use with raw transactions, NOT normal use.\n"
             "\nResult:\n"
@@ -278,7 +278,7 @@ UniValue setaccount(const UniValue& params, bool fHelp)
             "setaccount \"zenaddress\" \"account\"\n"
             "\nDEPRECATED. Sets the account associated with the given address.\n"
             "\nArguments:\n"
-            "1. \"zenaddress\"  (string, required) The zen address to be associated with an account.\n"
+            "1. \"zenaddress\"  (string, required) The Horizen address to be associated with an account.\n"
             "2. \"account\"         (string, required) MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
             "\nExamples:\n"
             + HelpExampleCli("setaccount", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\" \"tabby\"")
@@ -475,7 +475,7 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
             "                             to which you're sending the transaction. This is not part of the \n"
             "                             transaction, just kept in your wallet.\n"
             "5. subtractfeefromamount  (boolean, optional, default=false) The fee will be deducted from the amount being sent.\n"
-            "                             The recipient will receive less zen than you enter in the amount field.\n"
+            "                             The recipient will receive less Horizen than you enter in the amount field.\n"
             "\nResult:\n"
             "\"transactionid\"  (string) The transaction id.\n"
             "\nExamples:\n"
@@ -2185,7 +2185,7 @@ UniValue encryptwallet(const UniValue& params, bool fHelp)
     // unencrypted private keys. So:
     StartShutdown();
 // ZEN_MOD_START
-    return "wallet encrypted; Zen server stopping, restart to run with encrypted wallet. The keypool has been flushed, you need to make a new backup.";
+    return "wallet encrypted; Horizen server stopping, restart to run with encrypted wallet. The keypool has been flushed, you need to make a new backup.";
 // ZEN_MOD_END
 }
 

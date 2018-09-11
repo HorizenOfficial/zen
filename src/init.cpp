@@ -705,7 +705,7 @@ static void ZC_LoadParams()
     if (!(boost::filesystem::exists(pk_path) && boost::filesystem::exists(vk_path))) {
         uiInterface.ThreadSafeMessageBox(strprintf(
 // ZEN_MOD_START
-            _("Cannot find the Zen network parameters in the following directory:\n"
+            _("Cannot find the Horizen network parameters in the following directory:\n"
 // ZEN_MOD_END
               "%s\n"
               // ZEN_MOD_START
@@ -827,7 +827,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     fLogIPs = GetBoolArg("-logips", false);
 
 // ZEN_MOD_START
-    LogPrintf("Zen version %s (%s)\n", FormatFullVersion(), CLIENT_DATE);
+    LogPrintf("Horizen version %s (%s)\n", FormatFullVersion(), CLIENT_DATE);
 // ZEN_MOD_END
 
     // when specifying an explicit binding address, you want to listen on it
@@ -1550,12 +1550,12 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
             }
             else if (nLoadWalletRet == DB_TOO_NEW)
 // ZEN_MOD_START
-                strErrors << _("Error loading wallet.dat: Wallet requires newer version of Zen") << "\n";
+                strErrors << _("Error loading wallet.dat: Wallet requires newer version of Horizen") << "\n";
 // ZEN_MOD_END
             else if (nLoadWalletRet == DB_NEED_REWRITE)
             {
 // ZEN_MOD_START
-                strErrors << _("Wallet needed to be rewritten: restart Zen to complete") << "\n";
+                strErrors << _("Wallet needed to be rewritten: restart Horizen to complete") << "\n";
 // ZEN_MOD_END
                 LogPrintf("%s", strErrors.str());
                 return InitError(strErrors.str());
@@ -1658,12 +1658,12 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
  #ifndef ENABLE_WALLET
     if (GetBoolArg("-minetolocalwallet", false)) {
 // ZEN_MOD_START
-        return InitError(_("Zen was not built with wallet support. Set -minetolocalwallet=0 to use -mineraddress, or rebuild Zen with wallet support."));
+        return InitError(_("Horizen was not built with wallet support. Set -minetolocalwallet=0 to use -mineraddress, or rebuild Horizen with wallet support."));
 // ZEN_MOD_END
     }
     if (GetArg("-mineraddress", "").empty() && GetBoolArg("-gen", false)) {
 // ZEN_MOD_START
-        return InitError(_("Zen was not built with wallet support. Set -mineraddress, or rebuild Zen with wallet support."));
+        return InitError(_("Horizen was not built with wallet support. Set -mineraddress, or rebuild Horizen with wallet support."));
 // ZEN_MOD_END
     }
  #endif // !ENABLE_WALLET

@@ -921,7 +921,7 @@ void ThreadFlushWalletDB(const string& strFile)
 {
     // Make this thread recognisable as the wallet flushing thread
 // ZEN_MOD_START
-    RenameThread("zen-wallet");
+    RenameThread("horizen-wallet");
 // ZEN_MOD_END
 
     static bool fOneThread;
