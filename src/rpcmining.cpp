@@ -145,11 +145,12 @@ UniValue getnetworkhashps(const UniValue& params, bool fHelp)
 #ifdef ENABLE_MINING
 UniValue getgenerate(const UniValue& params, bool fHelp)
 {
+    // ZEN_MOD_START
     if (fHelp || params.size() != 0)
         throw runtime_error(
             "getgenerate\n"
             "\nReturn if the server is set to generate coins or not. The default is false.\n"
-            "It is set with the command line argument -gen (or zcash.conf setting gen)\n"
+            "It is set with the command line argument -gen (or zen.conf setting gen)\n"
             "It can also be set with the setgenerate call.\n"
             "\nResult\n"
             "true|false      (boolean) If the server is set to generate coins or not\n"
@@ -157,7 +158,7 @@ UniValue getgenerate(const UniValue& params, bool fHelp)
             + HelpExampleCli("getgenerate", "")
             + HelpExampleRpc("getgenerate", "")
         );
-
+    // ZEN_MOD_END
     LOCK(cs_main);
     return GetBoolArg("-gen", false);
 }
@@ -184,7 +185,9 @@ UniValue generate(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Wallet disabled and -mineraddress not set");
         }
 #else
-        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "zcashd compiled without wallet and -mineraddress not set");
+        // ZEN_MOD_START
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "zend compiled without wallet and -mineraddress not set");
+        // ZEN_MOD_END
 #endif
     }
     if (!Params().MineBlocksOnDemand())
@@ -299,7 +302,9 @@ UniValue setgenerate(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Wallet disabled and -mineraddress not set");
         }
 #else
-        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "zcashd compiled without wallet and -mineraddress not set");
+        // ZEN_MOD_START
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "zend compiled without wallet and -mineraddress not set");
+        // ZEN_MOD_END
 #endif
     }
     if (Params().MineBlocksOnDemand())
@@ -501,7 +506,9 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Wallet disabled and -mineraddress not set");
         }
 #else
-        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "zcashd compiled without wallet and -mineraddress not set");
+        // ZEN_MOD_START
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "zend compiled without wallet and -mineraddress not set");
+        // ZEN_MOD_END
 #endif
     }
 
@@ -558,12 +565,16 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid mode");
 
     if (vNodes.empty())
-        throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Zcash is not connected!");
+        // ZEN_MOD_START
+        throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Horizen is not connected!");
+        // ZEN_MOD_END
 
 // ZEN_MOD_START
     // from https://github.com/ZencashOfficial/zen/commit/e7a774e9a72fae1228ccbc764d520bd685860822
     if (IsInitialBlockDownload() && ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight-(Params().GetConsensus().nMinerConfirmationWindow * 2)))
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Zcash is downloading blocks...");
+        // ZEN_MOD_START
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Horizen is downloading blocks...");
+        // ZEN_MOD_END
 // ZEN_MOD_END
 
     static unsigned int nTransactionsUpdatedLast;
