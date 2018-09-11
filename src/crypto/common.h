@@ -16,7 +16,9 @@
 #include "compat/endian.h"
 
 #if defined(NDEBUG)
+// ZEN_MOD_START
 # error "Horizen cannot be compiled without assertions."
+// ZEN_MOD_END
 #endif
 
 uint16_t static inline ReadLE16(const unsigned char* ptr)
