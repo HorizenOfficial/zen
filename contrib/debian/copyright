@@ -1,7 +1,7 @@
 Format: http://svn.debian.org/wsvn/dep/web/deps/dep5.mdwn?rev=174
-Upstream-Name: ZenCash
-Upstream-Contact: ZenCash Team <info@zencash.com>
-Source: https://github.com/ZencashOfficial/zen
+Upstream-Name: Horizen
+Upstream-Contact: Horizen Team <info@Horizen.global>
+Source: https://github.com/ZenCashOfficial/zen
 
 Files: *
 Copyright: 2016-2018, The Zen Blockchain Foundation
@@ -11,7 +11,7 @@ License: Expat
 Comment: The Bitcoin Core developers encompasses the current developers listed on bitcoin.org,
  as well as the numerous contributors to the project.
  The Zcash developers are listed at https://z.cash/team.html.
- The ZenCash developers are listed at https://zensystem.io/team.
+ The Horizen developers are listed at https://horizen.global/team.
 
 Files: depends/sources/libsodium-*.tar.gz
 Copyright: 2013-2016 Frank Denis

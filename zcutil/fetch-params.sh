@@ -13,7 +13,7 @@ fi
 SPROUT_PKEY_NAME='sprout-proving.key'
 SPROUT_VKEY_NAME='sprout-verifying.key'
 # ZEN_MOD_START
-SPROUT_URL="https://zensystem.io/downloads"
+SPROUT_URL="https://horizen.global/downloads"
 # ZEN_MOD_END
 SPROUT_IPFS="/ipfs/QmZKKx7Xup7LiAtFRhYsE1M7waXcv9ir9eCECyXAFGxhEo"
 

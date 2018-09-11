@@ -120,7 +120,7 @@ UniValue getnewaddress(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             "1. \"account\"        (string, optional) DEPRECATED. If provided, it MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
             "\nResult:\n"
-            "\"zenaddress\"    (string) The new Horizen address\n"
+            "\"horizenaddress\"    (string) The new Horizen address\n"
             "\nExamples:\n"
             + HelpExampleCli("getnewaddress", "")
             + HelpExampleRpc("getnewaddress", "")
@@ -209,7 +209,7 @@ UniValue getaccountaddress(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             "1. \"account\"       (string, required) MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
             "\nResult:\n"
-            "\"zenaddress\"   (string) The account Horizen address\n"
+            "\"horizenaddress\"   (string) The account Horizen address\n"
             "\nExamples:\n"
             + HelpExampleCli("getaccountaddress", "")
             + HelpExampleCli("getaccountaddress", "\"\"")
@@ -275,10 +275,10 @@ UniValue setaccount(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 1 || params.size() > 2)
 // ZEN_MOD_START
         throw runtime_error(
-            "setaccount \"zenaddress\" \"account\"\n"
+            "setaccount \"horizenaddress\" \"account\"\n"
             "\nDEPRECATED. Sets the account associated with the given address.\n"
             "\nArguments:\n"
-            "1. \"zenaddress\"  (string, required) The Horizen address to be associated with an account.\n"
+            "1. \"horizenaddress\"  (string, required) The Horizen address to be associated with an account.\n"
             "2. \"account\"         (string, required) MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
             "\nExamples:\n"
             + HelpExampleCli("setaccount", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\" \"tabby\"")
@@ -323,10 +323,10 @@ UniValue getaccount(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
 // ZEN_MOD_START
         throw runtime_error(
-            "getaccount \"zenaddress\"\n"
+            "getaccount \"horizenaddress\"\n"
             "\nDEPRECATED. Returns the account associated with the given address.\n"
             "\nArguments:\n"
-            "1. \"zenaddress\"  (string, required) The zen address for account lookup.\n"
+            "1. \"horizenaddress\"  (string, required) The horizen address for account lookup.\n"
             "\nResult:\n"
             "\"accountname\"        (string) the account address\n"
             "\nExamples:\n"
@@ -365,7 +365,7 @@ UniValue getaddressesbyaccount(const UniValue& params, bool fHelp)
             "1. \"account\"  (string, required) MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
             "\nResult:\n"
             "[                     (json array of string)\n"
-            "  \"zenaddress\"  (string) a zen address associated with the given account\n"
+            "  \"horizenaddress\"  (string) a horizen address associated with the given account\n"
             "  ,...\n"
             "]\n"
             "\nExamples:\n"
@@ -402,7 +402,7 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
                 "Returns the list of transparent addresses.\n"
                 "\nResult:\n"
                 "[                     (json array of string)\n" 
-                "  \"zenaddress\"  (string) a zen address associated with the given account\n"
+                "  \"horizenaddress\"  (string) a horizen address associated with the given account\n"
                 "  ,...\n"
                 "]\n"
                 "\nExamples:\n" 
@@ -463,11 +463,11 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 2 || params.size() > 5)
 // ZEN_MOD_START
         throw runtime_error(
-            "sendtoaddress \"zenaddress\" amount ( \"comment\" \"comment-to\" subtractfeefromamount )\n"
+            "sendtoaddress \"horizenaddress\" amount ( \"comment\" \"comment-to\" subtractfeefromamount )\n"
             "\nSend an amount to a given address. The amount is a real and is rounded to the nearest 0.00000001\n"
             + HelpRequiringPassphrase() +
             "\nArguments:\n"
-            "1. \"zenaddress\"  (string, required) The zen address to send to.\n"
+            "1. \"horizenaddress\"  (string, required) The horizen address to send to.\n"
             "2. \"amount\"      (numeric, required) The amount in btc to send. eg 0.1\n"
             "3. \"comment\"     (string, optional) A comment used to store what the transaction is for. \n"
             "                             This is not part of the transaction, just kept in your wallet.\n"
@@ -533,7 +533,7 @@ UniValue listaddressgroupings(const UniValue& params, bool fHelp)
             "[\n"
             "  [\n"
             "    [\n"
-            "      \"zenaddress\",     (string) The zen address\n"
+            "      \"horizenaddress\",     (string) The horizen address\n"
             "      amount,                 (numeric) The amount in btc\n"
             "      \"account\"             (string, optional) The account (DEPRECATED)\n"
             "    ]\n"
@@ -578,11 +578,11 @@ UniValue signmessage(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 2)
 // ZEN_MOD_START
         throw runtime_error(
-            "signmessage \"zenaddress\" \"message\"\n"
+            "signmessage \"horizenaddress\" \"message\"\n"
             "\nSign a message with the private key of an address"
             + HelpRequiringPassphrase() + "\n"
             "\nArguments:\n"
-            "1. \"zenaddress\"  (string, required) The zen address to use for the private key.\n"
+            "1. \"horizenaddress\"  (string, required) The horizen address to use for the private key.\n"
             "2. \"message\"         (string, required) The message to create a signature of.\n"
             "\nResult:\n"
             "\"signature\"          (string) The signature of the message encoded in base 64\n"
@@ -636,10 +636,10 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 1 || params.size() > 2)
 // ZEN_MOD_START
         throw runtime_error(
-            "getreceivedbyaddress \"zenaddress\" ( minconf )\n"
-            "\nReturns the total amount received by the given zenaddress in transactions with at least minconf confirmations.\n"
+            "getreceivedbyaddress \"horizenaddress\" ( minconf )\n"
+            "\nReturns the total amount received by the given horizenaddress in transactions with at least minconf confirmations.\n"
             "\nArguments:\n"
-            "1. \"zenaddress\"  (string, required) The zen address for transactions.\n"
+            "1. \"horizenaddress\"  (string, required) The horizen address for transactions.\n"
             "2. minconf             (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
             "\nResult:\n"
             "amount   (numeric) The total amount in " + CURRENCY_UNIT + " received at this address.\n"
@@ -959,14 +959,13 @@ UniValue sendfrom(const UniValue& params, bool fHelp)
 
     if (fHelp || params.size() < 3 || params.size() > 6)
         throw runtime_error(
-// ZEN_MOD_START
-            "sendfrom \"fromaccount\" \"tozenaddress\" amount ( minconf \"comment\" \"comment-to\" )\n"
-            "\nDEPRECATED (use sendtoaddress). Sent an amount from an account to a zen address.\n"
+            "sendfrom \"fromaccount\" \"tohorizenaddress\" amount ( minconf \"comment\" \"comment-to\" )\n"
+            "\nDEPRECATED (use sendtoaddress). Sent an amount from an account to a Horizen address.\n"
             "The amount is a real and is rounded to the nearest 0.00000001."
             + HelpRequiringPassphrase() + "\n"
             "\nArguments:\n"
             "1. \"fromaccount\"       (string, required) MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
-            "2. \"tozenaddress\"  (string, required) The zen address to send funds to.\n"
+            "2. \"tohorizenaddress\"  (string, required) The horizen address to send funds to.\n"
             "3. amount                (numeric, required) The amount in btc. (transaction fee is added on top).\n"
             "4. minconf               (numeric, optional, default=1) Only use funds with at least this many confirmations.\n"
             "5. \"comment\"           (string, optional) A comment used to store what the transaction is for. \n"
@@ -1036,7 +1035,7 @@ UniValue sendmany(const UniValue& params, bool fHelp)
             "1. \"fromaccount\"         (string, required) MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
             "2. \"amounts\"             (string, required) A json object with addresses and amounts\n"
             "    {\n"
-            "      \"address\":amount   (numeric) The zen address is the key, the numeric amount in btc is the value\n"
+            "      \"address\":amount   (numeric) The horizen address is the key, the numeric amount in btc is the value\n"
             "      ,...\n"
             "    }\n"
             "3. minconf                 (numeric, optional, default=1) Only use the balance confirmed at least this many times.\n"
@@ -1154,15 +1153,15 @@ UniValue addmultisigaddress(const UniValue& params, bool fHelp)
 
             "\nArguments:\n"
             "1. nrequired        (numeric, required) The number of required signatures out of the n keys or addresses.\n"
-            "2. \"keysobject\"   (string, required) A json array of zen addresses or hex-encoded public keys\n"
+            "2. \"keysobject\"   (string, required) A json array of horizen addresses or hex-encoded public keys\n"
             "     [\n"
-            "       \"address\"  (string) zen address or hex-encoded public key\n"
+            "       \"address\"  (string) horizen address or hex-encoded public key\n"
             "       ...,\n"
             "     ]\n"
             "3. \"account\"      (string, optional) DEPRECATED. If provided, MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
 
             "\nResult:\n"
-            "\"zenaddress\"  (string) A zen address associated with the keys.\n"
+            "\"horizenaddress\"  (string) A horizen address associated with the keys.\n"
 
             "\nExamples:\n"
             "\nAdd a multisig address from 2 addresses\n"
@@ -1511,7 +1510,7 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
             "  {\n"
             "    \"account\":\"accountname\",       (string) DEPRECATED. The account name associated with the transaction. \n"
             "                                                It will be \"\" for the default account.\n"
-            "    \"address\":\"zenaddress\",    (string) The zen address of the transaction. Not present for \n"
+            "    \"address\":\"horizenaddress\",    (string) The horizen address of the transaction. Not present for \n"
             "                                                move transactions (category = move).\n"
             "    \"category\":\"send|receive|move\", (string) The transaction category. 'move' is a local (off blockchain)\n"
             "                                                transaction between accounts, and not associated with an address,\n"
@@ -1713,7 +1712,7 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
             "{\n"
             "  \"transactions\": [\n"
             "    \"account\":\"accountname\",       (string) DEPRECATED. The account name associated with the transaction. Will be \"\" for the default account.\n"
-            "    \"address\":\"zenaddress\",    (string) The zen address of the transaction. Not present for move transactions (category = move).\n"
+            "    \"address\":\"horizenaddress\",    (string) The horizen address of the transaction. Not present for move transactions (category = move).\n"
             "    \"category\":\"send|receive\",     (string) The transaction category. 'send' has negative amounts, 'receive' has positive amounts.\n"
             "    \"amount\": x.xxx,          (numeric) The amount in " + CURRENCY_UNIT + ". This is negative for the 'send' category, and for the 'move' category for moves \n"
             "                                          outbound. It is positive for the 'receive' category, and for the 'move' category for inbound funds.\n"
@@ -1814,7 +1813,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
             "  \"details\" : [\n"
             "    {\n"
             "      \"account\" : \"accountname\",  (string) DEPRECATED. The account name involved in the transaction, can be \"\" for the default account.\n"
-            "      \"address\" : \"zenaddress\",   (string) The zen address involved in the transaction\n"
+            "      \"address\" : \"horizenaddress\",   (string) The horizen address involved in the transaction\n"
             "      \"category\" : \"send|receive\",    (string) The category, either 'send' or 'receive'\n"
             "      \"amount\" : x.xxx                  (numeric) The amount in " + CURRENCY_UNIT + "\n"
             "      \"vout\" : n,                       (numeric) the vout value\n"
@@ -1976,7 +1975,7 @@ UniValue walletpassphrase(const UniValue& params, bool fHelp)
         throw runtime_error(
             "walletpassphrase \"passphrase\" timeout\n"
             "\nStores the wallet decryption key in memory for 'timeout' seconds.\n"
-            "This is needed prior to performing transactions related to private keys such as sending zen\n"
+            "This is needed prior to performing transactions related to private keys such as sending horizen\n"
             "\nArguments:\n"
             "1. \"passphrase\"     (string, required) The wallet passphrase\n"
             "2. timeout            (numeric, required) The time to keep the decryption key in seconds.\n"
@@ -2145,10 +2144,10 @@ UniValue encryptwallet(const UniValue& params, bool fHelp)
             "\nExamples:\n"
             "\nEncrypt you wallet\n"
             + HelpExampleCli("encryptwallet", "\"my pass phrase\"") +
-            "\nNow set the passphrase to use the wallet, such as for signing or sending zen\n"
+            "\nNow set the passphrase to use the wallet, such as for signing or sending horizen\n"
             + HelpExampleCli("walletpassphrase", "\"my pass phrase\"") +
             "\nNow we can so something like sign\n"
-            + HelpExampleCli("signmessage", "\"zenaddress\" \"test message\"") +
+            + HelpExampleCli("signmessage", "\"horizenaddress\" \"test message\"") +
             "\nNow lock the wallet again by removing the passphrase\n"
             + HelpExampleCli("walletlock", "") +
             "\nAs a json rpc call\n"
@@ -2200,7 +2199,7 @@ UniValue lockunspent(const UniValue& params, bool fHelp)
             "lockunspent unlock [{\"txid\":\"txid\",\"vout\":n},...]\n"
             "\nUpdates list of temporarily unspendable outputs.\n"
             "Temporarily lock (unlock=false) or unlock (unlock=true) specified transaction outputs.\n"
-            "A locked transaction output will not be chosen by automatic coin selection, when spending zen.\n"
+            "A locked transaction output will not be chosen by automatic coin selection, when spending horizen.\n"
             "Locks are stored in memory only. Nodes start with zero locked outputs, and the locked output list\n"
             "is always cleared (by virtue of process exit) when a node stops or fails.\n"
             "Also see the listunspent call\n"
@@ -2364,8 +2363,8 @@ UniValue getwalletinfo(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "{\n"
             "  \"walletversion\": xxxxx,     (numeric) the wallet version\n"
-            "  \"balance\": xxxxxxx,         (numeric) the total confirmed zen balance of the wallet\n"
-            "  \"unconfirmed_balance\": xxx, (numeric) the total unconfirmed zen balance of the wallet\n"
+            "  \"balance\": xxxxxxx,         (numeric) the total confirmed horizen balance of the wallet\n"
+            "  \"unconfirmed_balance\": xxx, (numeric) the total unconfirmed horizen balance of the wallet\n"
             "  \"immature_balance\": xxxxxx, (numeric) the total immature balance of the wallet\n"
             "  \"txcount\": xxxxxxx,         (numeric) the total number of transactions in the wallet\n"
             "  \"keypoololdest\": xxxxxx,    (numeric) the timestamp (seconds since GMT epoch) of the oldest pre-generated key in the key pool\n"
@@ -2437,9 +2436,9 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             "1. minconf          (numeric, optional, default=1) The minimum confirmations to filter\n"
             "2. maxconf          (numeric, optional, default=9999999) The maximum confirmations to filter\n"
-            "3. \"addresses\"    (string) A json array of zen addresses to filter\n"
+            "3. \"addresses\"    (string) A json array of horizen addresses to filter\n"
             "    [\n"
-            "      \"address\"   (string) zen address\n"
+            "      \"address\"   (string) horizen address\n"
             "      ,...\n"
             "    ]\n"
             "\nResult\n"
@@ -2448,7 +2447,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             "    \"txid\" : \"txid\",        (string) the transaction id \n"
             "    \"vout\" : n,               (numeric) the vout value\n"
             "    \"generated\" : true|false  (boolean) true if txout is a coinbase transaction output\n"
-            "    \"address\" : \"address\",  (string) the zen address\n"
+            "    \"address\" : \"address\",  (string) the horizen address\n"
             "    \"account\" : \"account\",  (string) DEPRECATED. The associated account, or \"\" for the default account\n"
             "    \"scriptPubKey\" : \"key\", (string) the script key\n"
             "    \"amount\" : x.xxx,         (numeric) the transaction amount in " + CURRENCY_UNIT + "\n"
@@ -2482,7 +2481,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             CBitcoinAddress address(input.get_str());
             if (!address.IsValid())
 // ZEN_MOD_START
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Zen address: ")+input.get_str());
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid horizen address: ")+input.get_str());
 // ZEN_MOD_END
             if (setAddress.count(address))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+input.get_str());
@@ -3051,7 +3050,7 @@ UniValue z_getnewaddress(const UniValue& params, bool fHelp)
             "\nReturns a new zaddr for receiving payments.\n"
             "\nArguments:\n"
             "\nResult:\n"
-            "\"zenaddress\"    (string) The new zaddr\n"
+            "\"horizenaddress\"    (string) The new zaddr\n"
             "\nExamples:\n"
             + HelpExampleCli("z_getnewaddress", "")
             + HelpExampleRpc("z_getnewaddress", "")
