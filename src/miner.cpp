@@ -483,7 +483,7 @@ static bool ProcessBlockFound(CBlock* pblock)
         LOCK(cs_main);
         if (pblock->hashPrevBlock != chainActive.Tip()->GetBlockHash())
             // ZEN_MOD_START
-            return error("ZenMiner: generated block is stale");
+            return error("HorizenMiner: generated block is stale");
             // ZEN_MOD_END
     }
 
@@ -504,7 +504,7 @@ static bool ProcessBlockFound(CBlock* pblock)
     CValidationState state;
     if (!ProcessNewBlock(state, NULL, pblock, true, NULL))
         // ZEN_MOD_START
-        return error("ZenMiner: ProcessNewBlock, block not accepted");
+        return error("HorizenMiner: ProcessNewBlock, block not accepted");
         // ZEN_MOD_END
 
     TrackMinedBlock(pblock->GetHash());
@@ -519,7 +519,7 @@ void static BitcoinMiner()
 #endif
 {
     // ZEN_MOD_START
-    LogPrintf("ZenMiner started\n");
+    LogPrintf("HorizenMiner started\n");
     // ZEN_MOD_END
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
     // ZEN_MOD_START
@@ -586,12 +586,12 @@ void static BitcoinMiner()
             {
                 if (GetArg("-mineraddress", "").empty()) {
                     // ZEN_MOD_START
-                    LogPrintf("Error in ZenMiner: Keypool ran out, please call keypoolrefill before restarting the mining thread\n");
+                    LogPrintf("Error in HorizenMiner: Keypool ran out, please call keypoolrefill before restarting the mining thread\n");
                     // ZEN_MOD_END
                 } else {
                     // Should never reach here, because -mineraddress validity is checked in init.cpp
                     // ZEN_MOD_START
-                    LogPrintf("Error in ZenMiner: Invalid -mineraddress\n");
+                    LogPrintf("Error in HorizenMiner: Invalid -mineraddress\n");
                     // ZEN_MOD_END
                 }
                 return;
@@ -599,7 +599,7 @@ void static BitcoinMiner()
             CBlock *pblock = &pblocktemplate->block;
             IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
             // ZEN_MOD_START
-            LogPrintf("Running ZenMiner with %u transactions in block (%u bytes)\n", pblock->vtx.size(),
+            LogPrintf("Running HorizenMiner with %u transactions in block (%u bytes)\n", pblock->vtx.size(),
                 ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION));
             // ZEN_MOD_END
 
@@ -652,7 +652,7 @@ void static BitcoinMiner()
                     // Found a solution
                     SetThreadPriority(THREAD_PRIORITY_NORMAL);
                     // ZEN_MOD_START
-                    LogPrintf("ZenMiner:\n");
+                    LogPrintf("HorizenMiner:\n");
                     // ZEN_MOD_END
                     LogPrintf("proof-of-work found  \n  hash: %s  \ntarget: %s\n", pblock->GetHash().GetHex(), hashTarget.GetHex());
 #ifdef ENABLE_WALLET
@@ -751,7 +751,7 @@ void static BitcoinMiner()
         miningTimer.stop();
         c.disconnect();
         // ZEN_MOD_START
-        LogPrintf("ZenMiner terminated\n");
+        LogPrintf("HorizenMiner terminated\n");
         // ZEN_MOD_END
         throw;
     }
@@ -760,7 +760,7 @@ void static BitcoinMiner()
         miningTimer.stop();
         c.disconnect();
         // ZEN_MOD_START
-        LogPrintf("ZenMiner runtime error: %s\n", e.what());
+        LogPrintf("HorizenMiner runtime error: %s\n", e.what());
         // ZEN_MOD_END
         return;
     }

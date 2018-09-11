@@ -2069,7 +2069,7 @@ bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, unsigne
 static CCheckQueue<CScriptCheck> scriptcheckqueue(128);
 
 void ThreadScriptCheck() {
-    RenameThread("zen-scriptch");
+    RenameThread("horizen-scriptch");
     scriptcheckqueue.Thread();
 }
 

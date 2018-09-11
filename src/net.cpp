@@ -1891,7 +1891,7 @@ bool BindListenPort(const CService &addrBind, string& strError, bool fWhiteliste
         int nErr = WSAGetLastError();
         if (nErr == WSAEADDRINUSE)
             // ZEN_MOD_START
-            strError = strprintf(_("Unable to bind to %s on this computer. Zen is probably already running."), addrBind.ToString());
+            strError = strprintf(_("Unable to bind to %s on this computer. Horizen is probably already running."), addrBind.ToString());
             // ZEN_MOD_END
         else
             strError = strprintf(_("Unable to bind to %s on this computer (bind returned error %s)"), addrBind.ToString(), NetworkErrorString(nErr));
