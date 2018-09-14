@@ -25,13 +25,11 @@ $(package)_cxxflags=-std=c++11 -fvisibility=hidden
 $(package)_cxxflags_linux=-fPIC
 endef
 
-# ZEN_MOD_START
 define $(package)_preprocess_cmds
    echo "using $(boost_toolset_$(host_os)) : g++ : $($(package)_cxx) : <cxxflags>\"$($(package)_cxxflags) $($(package)_cppflags)\" <linkflags>\"$($(package)_ldflags)\" <archiver>\"ar\" <striper>\"strip\"  <ranlib>\"ranlib\" <rc>\"$(host_WINDRES)\" : ;" > user-config.jam && \
    patch -p1 < $($(package)_patch_dir)/deprecated_auto_ptr.patch && \
    patch -p1 < $($(package)_patch_dir)/include_poll.patch
 endef
-# ZEN_MOD_END
 
 define $(package)_config_cmds
   ./bootstrap.sh --without-icu --with-libraries=$(boost_config_libraries)

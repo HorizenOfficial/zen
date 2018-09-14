@@ -37,9 +37,7 @@ LIBSECP256K1=secp256k1/libsecp256k1.la
 LIBSNARK=snark/build/lib/libsnark.a
 LIBUNIVALUE=univalue/libunivalue.la
 LIBZCASH=libzcash.a
-# ZEN_MOD_START
 LIBZENCASH=libzencash.a
-# ZEN_MOD_END
 
 $(LIBSECP256K1): $(wildcard secp256k1/src/*) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
@@ -55,7 +53,6 @@ LIBSNARK_CONFIG_FLAGS = CURVE=ALT_BN128 NO_PROCPS=1 NO_DOCS=1 STATIC=1 NO_SUPERC
 if HAVE_OPENMP
 LIBSNARK_CONFIG_FLAGS += MULTICORE=1
 endif
-# ZEN_MOD_START
 LIBSNARK_OPTFLAGS =-O2
 if !IS_ARM64
 LIBSNARK_OPTFLAGS +=-march=x86-64
@@ -66,14 +63,12 @@ $(LIBSNARK): $(wildcard snark/src/*)
 
 libsnark-tests: $(wildcard snark/src/*)
 	$(AM_V_at) CXXFLAGS="$(LIBSNARK_CXXFLAGS)" $(MAKE) $(AM_MAKEFLAGS) -C snark/ check PREFIX=$(srcdir)/build DEPINST="$(LIBSNARK_DEPINST)" $(LIBSNARK_CONFIG_FLAGS) OPTFLAGS="$(LIBSNARK_OPTFLAGS)"
-# ZEN_MOD_END
 
 $(LIBUNIVALUE): $(wildcard univalue/lib/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C univalue/
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
-# ZEN_MOD_START
 EXTRA_LIBRARIES = \
   crypto/libbitcoin_crypto.a \
   libbitcoin_util.a \
@@ -82,7 +77,6 @@ EXTRA_LIBRARIES = \
   libbitcoin_cli.a \
   libzcash.a \
   libzencash.a
-# ZEN_MOD_END
 
 if ENABLE_WALLET
 BITCOIN_INCLUDES += $(BDB_CPPFLAGS)
@@ -107,15 +101,11 @@ noinst_PROGRAMS =
 TESTS =
 
 if BUILD_BITCOIND
-  # ZEN_MOD_START
   bin_PROGRAMS += zend
-  # ZEN_MOD_END
 endif
 
 if BUILD_BITCOIN_UTILS
-# ZEN_MOD_START
   bin_PROGRAMS += zen-cli zen-tx
-# ZEN_MOD_END
 endif
 
 LIBZCASH_H = \
@@ -239,12 +229,10 @@ BITCOIN_CORE_H = \
   zmq/zmqnotificationinterface.h \
   zmq/zmqpublishnotifier.h
 
-# ZEN_MOD_START
 LIBZENCASH_H = \
     zen/utiltls.h\
     zen/forkmanager.h\
     zen/replayprotectionlevel.h
-# ZEN_MOD_END
 
 
 obj/build.h: FORCE
@@ -256,7 +244,6 @@ libbitcoin_util_a-clientversion.$(OBJEXT): obj/build.h
 # server: zcashd
 libbitcoin_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS)
 libbitcoin_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-# ZEN_MOD_START
 libbitcoin_server_a_SOURCES = \
   sendalert.cpp \
   addrman.cpp \
@@ -299,7 +286,6 @@ libbitcoin_server_a_SOURCES = \
   $(BITCOIN_CORE_H) \
   $(LIBZCASH_H) \
   $(LIBZENCASH_H)
-# ZEN_MOD_END
 
 if ENABLE_ZMQ
 LIBBITCOIN_ZMQ=libbitcoin_zmq.a
@@ -448,7 +434,6 @@ nodist_libbitcoin_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
 # bitcoind binary #
-# ZEN_MOD_START
 zend_SOURCES = bitcoind.cpp
 zend_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 zend_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
@@ -542,7 +527,6 @@ zen_tx_LDADD = \
 
 zen_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
 
-# ZEN_MOD_END
 
 # zcash protocol primitives #
 libzcash_a_SOURCES = \
@@ -561,14 +545,12 @@ libzcash_a_SOURCES = \
   zcash/circuit/prfs.tcc \
   zcash/circuit/utils.tcc
 
-# ZEN_MOD_START
 #libzcash_a_CPPFLAGS = -DMULTICORE -fopenmp -fPIC -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DBOOST_SPIRIT_THREADSAFE -DHAVE_BUILD_INFO -D__STDC_FORMAT_MACROS $(HARDENED_CPPFLAGS) -pipe -O1 -g -Wstack-protector -fstack-protector-all -fPIE -fvisibility=hidden -DSTATIC $(BITCOIN_INCLUDES)
 
 if HAVE_OPENMP
 libzcash_a_CPPFLAGS = -DMULTICORE -fopenmp
 endif
 libzcash_a_CPPFLAGS := $(libzcash_a_CPPFLAGS) -fPIC -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DBOOST_SPIRIT_THREADSAFE -DHAVE_BUILD_INFO -D__STDC_FORMAT_MACROS $(HARDENED_CPPFLAGS) -pipe -O1 -g -Wstack-protector -fstack-protector-all -fPIE -fvisibility=hidden -DSTATIC $(BITCOIN_INCLUDES)
-# ZEN_MOD_END 
 
 libzcash_a_CXXFLAGS = $(HARDENED_CXXFLAGS) -fwrapv -fno-strict-aliasing
 
@@ -607,7 +589,6 @@ libzcashconsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 endif
 #
 
-# ZEN_MOD_START
 # zencash-specific sources #
 libzencash_a_SOURCES = \
     zen/utiltls.cpp\
@@ -631,7 +612,6 @@ libzencash_a_LDFLAGS = $(HARDENED_LDFLAGS)
 
 libzencash_a_CPPFLAGS += -DMONTGOMERY_OUTPUT
 
-# ZEN_MOD_END
 
 
 CLEANFILES = leveldb/libleveldb.a leveldb/libmemenv.a *.gcda *.gcno */*.gcno wallet/*/*.gcno

@@ -166,7 +166,6 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
 }
 
 UniValue getrawtransaction(const UniValue& params, bool fHelp)
-{   // ZEN_MOD_START
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
             "getrawtransaction \"txid\" ( verbose )\n"
@@ -257,7 +256,6 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             + HelpExampleCli("getrawtransaction", "\"mytxid\" 1")
             + HelpExampleRpc("getrawtransaction", "\"mytxid\", 1")
         );
-    // ZEN_MOD_END
     LOCK(cs_main);
 
     uint256 hash = ParseHashV(params[0], "parameter 1");
@@ -398,7 +396,6 @@ UniValue verifytxoutproof(const UniValue& params, bool fHelp)
 
 UniValue createrawtransaction(const UniValue& params, bool fHelp)
 {   
-    // ZEN_MOD_START
     if (fHelp || params.size() != 2)
         throw runtime_error(
             "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...}\n"
@@ -429,7 +426,6 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"address\\\":0.01}\"")
             + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"address\\\":0.01}\"")
         );
-    // ZEN_MOD_END
 
     LOCK(cs_main);
     RPCTypeCheck(params, boost::assign::list_of(UniValue::VARR)(UniValue::VOBJ));
@@ -461,9 +457,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
     BOOST_FOREACH(const string& name_, addrList) {
         CBitcoinAddress address(name_);
         if (!address.IsValid())
-            // ZEN_MOD_START
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Horizen address: ")+name_);
-            // ZEN_MOD_END
 
         if (setAddress.count(address))
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+name_);
@@ -481,7 +475,6 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
 UniValue decoderawtransaction(const UniValue& params, bool fHelp)
 {   
-    // ZEN_MOD_START
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "decoderawtransaction \"hexstring\"\n"
@@ -557,7 +550,6 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
             + HelpExampleCli("decoderawtransaction", "\"hexstring\"")
             + HelpExampleRpc("decoderawtransaction", "\"hexstring\"")
         );
-    // ZEN_MOD_END
 
     LOCK(cs_main);
     RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR));
@@ -575,7 +567,6 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
 
 UniValue decodescript(const UniValue& params, bool fHelp)
 {   
-    // ZEN_MOD_START
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "decodescript \"hex\"\n"
@@ -598,7 +589,6 @@ UniValue decodescript(const UniValue& params, bool fHelp)
             + HelpExampleCli("decodescript", "\"hexstring\"")
             + HelpExampleRpc("decodescript", "\"hexstring\"")
         );
-    // ZEN_MOD_END
 
     LOCK(cs_main);
     RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR));
@@ -855,9 +845,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             txin.scriptSig = CombineSignatures(prevPubKey, mergedTx, i, txin.scriptSig, txv.vin[i].scriptSig);
         }
         ScriptError serror = SCRIPT_ERR_OK;
-// ZEN_MOD_START
         if (!VerifyScript(txin.scriptSig, prevPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS, MutableTransactionSignatureChecker(&mergedTx, i), &serror)) {
-// ZEN_MOD_END
             TxInErrorToJSON(txin, vErrors, ScriptErrorString(serror));
         }
     }

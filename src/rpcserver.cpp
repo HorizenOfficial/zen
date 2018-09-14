@@ -243,16 +243,12 @@ UniValue stop(const UniValue& params, bool fHelp)
 {
     // Accept the deprecated and ignored 'detach' boolean argument
     if (fHelp || params.size() > 1)
-// ZEN_MOD_START
         throw runtime_error(
             "stop\n"
             "\nStop Zen server.");
     // Shutdown will take long enough that the response should get back
-// ZEN_MOD_END
     StartShutdown();
-// ZEN_MOD_START
     return "Zen server stopping";
-// ZEN_MOD_END
 }
 
 /**
@@ -406,9 +402,7 @@ static const CRPCCommand vRPCCommands[] =
     // TODO: rearrange into another category 
     { "disclosure",         "z_getpaymentdisclosure", &z_getpaymentdisclosure, true  }, 
     { "disclosure",         "z_validatepaymentdisclosure", &z_validatepaymentdisclosure, true },
-// ZEN_MOD_START
     { "wallet",             "listaddresses",          &listaddresses,          true  }
-// ZEN_MOD_END
 #endif // ENABLE_WALLET
 };
 
@@ -593,9 +587,7 @@ UniValue CRPCTable::execute(const std::string &strMethod, const UniValue &params
 
 std::string HelpExampleCli(const std::string& methodname, const std::string& args)
 {
-// ZEN_MOD_START
     return "> zen-cli " + methodname + " " + args + "\n";
-// ZEN_MOD_END
 }
 
 std::string HelpExampleRpc(const std::string& methodname, const std::string& args)

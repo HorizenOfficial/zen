@@ -47,9 +47,7 @@ class MempoolSpendCoinbaseTest(BitcoinTestFramework):
         # is too immature to spend.
         b = [ self.nodes[0].getblockhash(n) for n in range(101, 103) ]
         coinbase_txids = [ self.nodes[0].getblock(h)['tx'][0] for h in b ]
-# ZEN_MOD_START
         spends_raw = [ self.create_tx(txid, node0_address, 11) for txid in coinbase_txids ]
-# ZEN_MOD_END
 
         spend_101_id = self.nodes[0].sendrawtransaction(spends_raw[0])
 

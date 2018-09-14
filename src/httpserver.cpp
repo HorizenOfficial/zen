@@ -307,9 +307,7 @@ static void http_reject_request_cb(struct evhttp_request* req, void*)
 static void ThreadHTTP(struct event_base* base, struct evhttp* http)
 {
 
-// ZEN_MOD_START
     RenameThread("horizen-http");
-// ZEN_MOD_END
     LogPrint("http", "Entering http event loop\n");
     event_base_dispatch(base);
     // Event loop will be interrupted by InterruptHTTPServer()
@@ -358,9 +356,7 @@ static bool HTTPBindAddresses(struct evhttp* http)
 /** Simple wrapper to set thread name and run work queue */
 static void HTTPWorkQueueRun(WorkQueue<HTTPClosure>* queue)
 {
-// ZEN_MOD_START
     RenameThread("horizen-httpworker");
-// ZEN_MOD_END
     queue->Run();
 }
 

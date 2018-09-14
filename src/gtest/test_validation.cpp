@@ -71,9 +71,7 @@ TEST(Validation, ContextualCheckInputsPassesWithCoinbase) {
     CCoinsViewCache view(&fakeDB);
 
     CValidationState state;
-// ZEN_MOD_START
     EXPECT_TRUE(ContextualCheckInputs(tx, state, view, false, chainActive, 0, false, Params(CBaseChainParams::MAIN).GetConsensus()));
-// ZEN_MOD_END
 }
 
 TEST(Validation, ReceivedBlockTransactions) {

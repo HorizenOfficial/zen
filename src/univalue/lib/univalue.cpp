@@ -119,7 +119,6 @@ bool UniValue::setNumStr(const string& val_)
     return true;
 }
 
-// ZEN_MOD_START
 #ifdef __APPLE__
 bool UniValue::setInt(size_t val_)
 {
@@ -130,7 +129,6 @@ bool UniValue::setInt(size_t val_)
     return setNumStr(oss.str());
 }
 #endif
-// ZEN_MOD_END
 
 bool UniValue::setInt(uint64_t val_)
 {

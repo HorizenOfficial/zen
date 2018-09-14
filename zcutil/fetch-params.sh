@@ -2,19 +2,15 @@
 
 set -eu
 
-# ZEN_MOD_START
 if [[ "$OSTYPE" == "darwin"* ]]; then
     PARAMS_DIR="$HOME/Library/Application Support/ZcashParams"
 else
     PARAMS_DIR="$HOME/.zcash-params"
 fi
-# ZEN_MOD_END
 
 SPROUT_PKEY_NAME='sprout-proving.key'
 SPROUT_VKEY_NAME='sprout-verifying.key'
-# ZEN_MOD_START
 SPROUT_URL="https://horizen.global/downloads"
-# ZEN_MOD_END
 SPROUT_IPFS="/ipfs/QmZKKx7Xup7LiAtFRhYsE1M7waXcv9ir9eCECyXAFGxhEo"
 
 SHA256CMD="$(command -v sha256sum || echo shasum)"
@@ -110,7 +106,6 @@ EOF
 # Use flock to prevent parallel execution.
 function lock() {
     local lockfile=/tmp/fetch_params.lock
-# ZEN_MOD_START
     if [[ "$OSTYPE" == "darwin"* ]]; then
         if shlock -f ${lockfile} -p $$; then
             return 0
@@ -125,7 +120,6 @@ function lock() {
             && return 0 \
             || return 1
     fi
-# ZEN_MOD_END
 }
 
 function exit_locked_error {
