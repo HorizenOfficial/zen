@@ -74,12 +74,12 @@ static bool AppInitRPC(int argc, char* argv[])
     ParseParameters(argc, argv);
     if (argc<2 || mapArgs.count("-?") || mapArgs.count("-h") || mapArgs.count("-help") || mapArgs.count("-version")) {
         // ZEN_MOD_START
-        std::string strUsage = _("Zen RPC client version") + " " + FormatFullVersion() + "\n";
+        std::string strUsage = _("Horizen RPC client version") + " " + FormatFullVersion() + "\n";
         // ZEN_MOD_END
         if (!mapArgs.count("-version")) {
             // ZEN_MOD_START
             strUsage += "\n" + _("Usage:") + "\n" +
-                  "  zen-cli [options] <command> [params]  " + _("Send command to zen") + "\n" +
+                  "  zen-cli [options] <command> [params]  " + _("Send command to horizen") + "\n" +
                   "  zen-cli [options] help                " + _("List commands") + "\n" +
                   "  zen-cli [options] help <command>      " + _("Get help for a command") + "\n";
             // ZEN_MOD_END

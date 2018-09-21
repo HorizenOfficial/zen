@@ -86,7 +86,7 @@ TEST(founders_reward_test, create_testnet_2of3multisig) {
 #endif
 
 
-#if 0 // Disabling all these tests for now until all the latest zencash commits have been integrated then will re-enable and fix
+#if 0 // Disabling all these tests for now until all the latest horizen commits have been integrated then will re-enable and fix
 
 // Utility method to check the number of unique addresses from height 1 to maxHeight
 void checkNumberOfUniqueAddresses(int nUnique) {
