@@ -39,28 +39,10 @@ class Class
 Zencash-specific code
 ====================
 
-This new version of Zencash is no longer based on ZClassic but on ZCash. A couple requirements have been added to help distinguish Zencash-specific code from ZCash code. This will facilitate integration of updates from ZCash as well as help identify Zencash-specific code and track down Zencash-specific issues.
+This new version of Zencash is no longer based on ZClassic but on ZCash.
 
-------------------------------------------------
+### zen folder and namespace
 
-&nbsp;&nbsp;&nbsp;&nbsp;... code ...			- ZCash code  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do something different  
-&nbsp;&nbsp;&nbsp;&nbsp;.. code ... 		- rest of ZCash code
-	
-or in python/makefiles:
-
-&nbsp;&nbsp;&nbsp;&nbsp;... code ...		- ZCash code  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do something different  
-&nbsp;&nbsp;&nbsp;&nbsp;.. code ... 	- rest of ZCash code
-
-Other considerations:
-
-- no need to mark changes in comments
-- no need to mark entire files that are Zencash-specific
-- no need to mark deleted code
-
-zen folder and namespace
--------------------------------
 All Zencash-specific files should reside under a zen subfolder and Zencash-specific C++ classes must be declared within a zen namespace.
 
 
