@@ -210,7 +210,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
                 const int32_t nHeight = CScriptNum(vchBlockHeight, false, sizeof(int32_t)).getint();
 
-                if ((nHeight < 0 || nHeight > chainActive.Height()) && ForkManager::getInstance().getReplayProtectionLevel(nHeight) == RPLEVEL_FIXED)
+                if ((nHeight < 0 || nHeight > chainActive.Height()) && ForkManager::getInstance().getReplayProtectionLevel(chainActive.Height()) == RPLEVEL_FIXED)
                 {
                     LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Transaction is non-final. nHeight: %d", __FILE__, __func__, nHeight);
                     break;
