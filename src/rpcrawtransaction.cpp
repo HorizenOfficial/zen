@@ -166,6 +166,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
 }
 
 UniValue getrawtransaction(const UniValue& params, bool fHelp)
+{
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
             "getrawtransaction \"txid\" ( verbose )\n"
