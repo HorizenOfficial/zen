@@ -48,6 +48,7 @@ testScripts=(
     'bip65-cltv-p2p.py'
     'bipdersig-p2p.py'
     'nulldata.py'
+    'blockdelay.py'
 );
 testScriptsExt=(
     'getblocktemplate_longpoll.py'
