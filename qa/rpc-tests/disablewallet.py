@@ -24,13 +24,9 @@ class DisableWalletTest (BitcoinTestFramework):
 
     def run_test (self):
         # Check regression: https://github.com/bitcoin/bitcoin/issues/6963#issuecomment-154548880
-# ZEN_MOD_START
         x = self.nodes[0].validateaddress('zsmmxrKU6dqWFwUKow1iyovg3gxrgXpEivr')
-# ZEN_MOD_END
         assert(x['isvalid'] == False)
-# ZEN_MOD_START
         x = self.nodes[0].validateaddress('zr8yTAxCy6jAdsc6qPvmVEQHbYo25AJKhy9')
-# ZEN_MOD_END
         assert(x['isvalid'] == True)
 
 if __name__ == '__main__':

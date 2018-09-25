@@ -8,7 +8,6 @@
 #
 
 from test_framework.test_framework import BitcoinTestFramework
-# ZEN_MOD_START
 from test_framework.util import *
 from test_framework.script import CScript, OP_1, OP_DROP, OP_2, OP_HASH160, OP_EQUAL, hash160, OP_TRUE, OP_CHECKBLOCKATHEIGHT
 from test_framework.mininode import CTransaction, CTxIn, CTxOut, COutPoint, ToHex, COIN
@@ -18,21 +17,17 @@ from test_framework.mininode import CTransaction, CTxIn, CTxOut, COutPoint, ToHe
 # time signing.
 redeem_script_1 = CScript([OP_1, OP_DROP])
 redeem_script_2 = CScript([OP_2, OP_DROP])
-#ZEN_MOD_START
 genesis_block_hash = hex_str_to_bytes("bb1acf2c1fc1228967a611c7db30632098f0c641855180b5fe23793b72eea50d")
 P2SH_1 = CScript([OP_HASH160, hash160(redeem_script_1), OP_EQUAL,CScript(genesis_block_hash),0,OP_CHECKBLOCKATHEIGHT])
 P2SH_2 = CScript([OP_HASH160, hash160(redeem_script_2), OP_EQUAL,CScript(genesis_block_hash),0,OP_CHECKBLOCKATHEIGHT])
-#ZEN_MOD_END
 
 # Associated ScriptSig's to spend satisfy P2SH_1 and P2SH_2
 SCRIPT_SIG = [CScript([OP_TRUE, redeem_script_1]), CScript([OP_TRUE, redeem_script_2])]
-# ZEN_MOD_END
 
 def satoshi_round(amount):
     return  Decimal(amount).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
 
 def small_txpuzzle_randfee(from_node, conflist, unconflist, amount, min_fee, fee_increment):
-# ZEN_MOD_START
     """
     Create and send a transaction with a random fee.
     The transaction pays to a trivial P2SH script, and assumes that its inputs
@@ -42,33 +37,25 @@ def small_txpuzzle_randfee(from_node, conflist, unconflist, amount, min_fee, fee
     It adds the newly created outputs to the unconfirmed list.
     Returns (raw transaction, fee)
     """
-# ZEN_MOD_END
     # It's best to exponentially distribute our random fees
     # because the buckets are exponentially spaced.
     # Exponentially distributed from 1-128 * fee_increment
     rand_fee = float(fee_increment)*(1.1892**random.randint(0,28))
     # Total fee ranges from min_fee to min_fee + 127*fee_increment
     fee = min_fee - fee_increment + satoshi_round(rand_fee)
-# ZEN_MOD_START
     tx = CTransaction()
-# ZEN_MOD_END
     total_in = Decimal("0.00000000")
     while total_in <= (amount + fee) and len(conflist) > 0:
         t = conflist.pop(0)
         total_in += t["amount"]
-# ZEN_MOD_START
         tx.vin.append(CTxIn(COutPoint(int(t["txid"], 16), t["vout"]), b""))
-# ZEN_MOD_END
     if total_in <= amount + fee:
         while total_in <= (amount + fee) and len(unconflist) > 0:
             t = unconflist.pop(0)
             total_in += t["amount"]
-# ZEN_MOD_START
             tx.vin.append(CTxIn(COutPoint(int(t["txid"], 16), t["vout"]), b""))
-# ZEN_MOD_END
         if total_in <= amount + fee:
             raise RuntimeError("Insufficient funds: need %d, have %d"%(amount+fee, total_in))
-# ZEN_MOD_START
     tx.vout.append(CTxOut(int((total_in - amount - fee)*COIN), P2SH_1))
     tx.vout.append(CTxOut(int(amount*COIN), P2SH_2))
     # These transactions don't need to be signed, but we still have to insert
@@ -76,16 +63,12 @@ def small_txpuzzle_randfee(from_node, conflist, unconflist, amount, min_fee, fee
     for inp in tx.vin:
         inp.scriptSig = SCRIPT_SIG[inp.prevout.n]
     txid = from_node.sendrawtransaction(ToHex(tx), True)
-# ZEN_MOD_END
     unconflist.append({ "txid" : txid, "vout" : 0 , "amount" : total_in - amount - fee})
     unconflist.append({ "txid" : txid, "vout" : 1 , "amount" : amount})
 
-# ZEN_MOD_START
     return (ToHex(tx), fee)
-# ZEN_MOD_END
 
 def split_inputs(from_node, txins, txouts, initial_split = False):
-# ZEN_MOD_START
     """
     We need to generate a lot of inputs so we can generate a ton of transactions.
     This function takes an input from txins, and creates and sends a transaction
@@ -93,16 +76,12 @@ def split_inputs(from_node, txins, txouts, initial_split = False):
     Previously this was designed to be small inputs so they wouldn't have
     a high coin age when the notion of priority still existed.
     """
-# ZEN_MOD_END
     prevtxout = txins.pop()
-# ZEN_MOD_START
     tx = CTransaction()
     tx.vin.append(CTxIn(COutPoint(int(prevtxout["txid"], 16), prevtxout["vout"]), b""))
-# ZEN_MOD_END
 
     half_change = satoshi_round(prevtxout["amount"]/2)
     rem_change = prevtxout["amount"] - half_change  - Decimal("0.00001000")
-# ZEN_MOD_START
     tx.vout.append(CTxOut(int(half_change*COIN), P2SH_1))
     tx.vout.append(CTxOut(int(rem_change*COIN), P2SH_2))
 
@@ -113,7 +92,6 @@ def split_inputs(from_node, txins, txouts, initial_split = False):
     else :
         tx.vin[0].scriptSig = SCRIPT_SIG[prevtxout["vout"]]
         completetx = ToHex(tx)
-# ZEN_MOD_END
     txid = from_node.sendrawtransaction(completetx, True)
     txouts.append({ "txid" : txid, "vout" : 0 , "amount" : half_change})
     txouts.append({ "txid" : txid, "vout" : 1 , "amount" : rem_change})

@@ -24,9 +24,7 @@ static bool ThreadSafeMessageBox(MockUIInterface *mock,
                                  const std::string& caption,
                                  unsigned int style)
 {
-// ZEN_MOD_START
    return mock->ThreadSafeMessageBox(message, caption, style);
-// ZEN_MOD_END
 }
 
 class DeprecationTest : public ::testing::Test {

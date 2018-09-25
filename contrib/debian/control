@@ -1,8 +1,8 @@
-Source: zen
+Source: horizen
 Section: utils
 Priority: optional
-Maintainer: Zen Blockchain Foundation <info@zencash.com>
-Homepage: https://zencash.com
+Maintainer: Zen Blockchain Foundation <info@horizen.global>
+Homepage: https://horizen.global
 Build-Depends: autoconf, automake, bsdmainutils, build-essential,
  git, g++-multilib, libc6-dev, libtool,
  m4, ncurses-dev, pkg-config, python,
@@ -10,7 +10,7 @@ Build-Depends: autoconf, automake, bsdmainutils, build-essential,
 Vcs-Git: https://github.com/ZencashOfficial/zen.git
 Vcs-Browser: https://github.com/ZencashOfficial/zen
 
-Package: zen
+Package: horizen
 Architecture: any
 Depends: ${shlibs:Depends}
-Description: Private and reliable transactions, communications, and publishing - zencash.com
+Description: Private and reliable transactions, communications, and publishing - horizen.global

@@ -146,7 +146,6 @@ class ReceivedByTest(BitcoinTestFramework):
         if balance != balance_by_account + Decimal("0.1"):
             raise AssertionError("Wrong balance returned by getreceivedbyaccount, %0.2f"%(balance))
 
-# ZEN_MOD_START
         # Accounts are not supported currently in Zen
         #
         # #Create a new account named "mynewaccount" that has a 0 balance
@@ -163,7 +162,6 @@ class ReceivedByTest(BitcoinTestFramework):
         # balance = self.nodes[1].getreceivedbyaccount("mynewaccount")
         # if balance != Decimal("0.0"):
         #     raise AssertionError("Wrong balance returned by getreceivedbyaccount, %0.2f"%(balance))
-# ZEN_MOD_END
 
 if __name__ == '__main__':
     ReceivedByTest().main()

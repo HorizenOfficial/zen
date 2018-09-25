@@ -76,7 +76,6 @@ bool CBasicKeyStore::HaveWatchOnly(const CScript &dest) const
 {
     LOCK(cs_KeyStore);
 
-// ZEN_MOD_START
     /* We assume that dest could be a script with OP_CHECKBLOCKATHEIGHT. In this case we cant search
      * for full match with watchonly scripts, cause OP_CHECKBLOCKATHEIGHT arguments are different all the time.
      * So, instead, check that dest starts with some of the scripts from setWatchOnly */
@@ -86,7 +85,6 @@ bool CBasicKeyStore::HaveWatchOnly(const CScript &dest) const
     };
 
     return std::find_if(setWatchOnly.begin(), setWatchOnly.end(), predicate) != setWatchOnly.end();
-// ZEN_MOD_END
 }
 
 bool CBasicKeyStore::HaveWatchOnly() const
