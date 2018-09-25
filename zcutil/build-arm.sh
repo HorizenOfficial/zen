@@ -54,7 +54,6 @@ Usage:
 $0 --help
   Show this help message and exit.
 
-# ZEN_MOD_START
 $0 [ --enable-lcov || --disable-tests ] [ --disable-mining ] [ --disable-rust ] [ --enable-proton ] [ --disable-libs ] [ MAKEARGS... ]
     Build Zen and most of its transitive dependencies from
     source. MAKEARGS are applied to both dependencies and Zen itself.
@@ -76,7 +75,6 @@ $0 [ --enable-lcov || --disable-tests ] [ --disable-mining ] [ --disable-rust ] 
   If --disable-libs is passed, Zen is configured to not build any libraries like
   'libzcashconsensus'.
 EOF
-# ZEN_MOD_END
     exit 0
 fi
 

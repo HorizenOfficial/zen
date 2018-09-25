@@ -113,7 +113,6 @@ UniValue getnewaddress(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() > 1)
-// ZEN_MOD_START
         throw runtime_error(
             "getnewaddress ( \"account\" )\n"
             "\nReturns a new Horizen address for receiving payments.\n"
@@ -125,7 +124,6 @@ UniValue getnewaddress(const UniValue& params, bool fHelp)
             + HelpExampleCli("getnewaddress", "")
             + HelpExampleRpc("getnewaddress", "")
         );
-// ZEN_MOD_END
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     // Parse the account first so we don't generate a key if there's an error
@@ -160,17 +158,14 @@ CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew=false)
     // Check if the current key has been used
     if (account.vchPubKey.IsValid())
     {
-// ZEN_MOD_START
         /* Get script for addr without OP_CHECKBLOCKATHEIGHT, cause we will use it only for searching */
         CScript scriptPubKey = GetScriptForDestination(account.vchPubKey.GetID(), false);
-// ZEN_MOD_END
         for (map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin();
              it != pwalletMain->mapWallet.end() && account.vchPubKey.IsValid();
              ++it)
         {
             const CWalletTx& wtx = (*it).second;
             BOOST_FOREACH(const CTxOut& txout, wtx.vout)
-// ZEN_MOD_START
             {
                 /* Check that txout.scriptPubKey starts with scriptPubKey instead of full match,
                  * cause we cant compare OP_CHECKBLOCKATHEIGHT arguments, they are different all the time */
@@ -179,7 +174,6 @@ CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew=false)
                 if (res == txout.scriptPubKey.begin())
                     bKeyUsed = true;
             }
-// ZEN_MOD_END
         }
     }
 
@@ -201,7 +195,6 @@ UniValue getaccountaddress(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-// ZEN_MOD_START
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "getaccountaddress \"account\"\n"
@@ -216,7 +209,6 @@ UniValue getaccountaddress(const UniValue& params, bool fHelp)
             + HelpExampleCli("getaccountaddress", "\"myaccount\"")
             + HelpExampleRpc("getaccountaddress", "\"myaccount\"")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -238,9 +230,7 @@ UniValue getrawchangeaddress(const UniValue& params, bool fHelp)
     if (fHelp || params.size() > 1)
         throw runtime_error(
             "getrawchangeaddress\n"
-// ZEN_MOD_START
             "\nReturns a new Horizen address, for receiving change.\n"
-// ZEN_MOD_END
             "This is for use with raw transactions, NOT normal use.\n"
             "\nResult:\n"
             "\"address\"    (string) The address\n"
@@ -273,7 +263,6 @@ UniValue setaccount(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() < 1 || params.size() > 2)
-// ZEN_MOD_START
         throw runtime_error(
             "setaccount \"horizenaddress\" \"account\"\n"
             "\nDEPRECATED. Sets the account associated with the given address.\n"
@@ -284,7 +273,6 @@ UniValue setaccount(const UniValue& params, bool fHelp)
             + HelpExampleCli("setaccount", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\" \"tabby\"")
             + HelpExampleRpc("setaccount", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\", \"tabby\"")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -321,7 +309,6 @@ UniValue getaccount(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() != 1)
-// ZEN_MOD_START
         throw runtime_error(
             "getaccount \"horizenaddress\"\n"
             "\nDEPRECATED. Returns the account associated with the given address.\n"
@@ -333,15 +320,12 @@ UniValue getaccount(const UniValue& params, bool fHelp)
             + HelpExampleCli("getaccount", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\"")
             + HelpExampleRpc("getaccount", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\"")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     CBitcoinAddress address(params[0].get_str());
     if (!address.IsValid())
-// ZEN_MOD_START
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
-// ZEN_MOD_END
 
     string strAccount;
     map<CTxDestination, CAddressBookData>::iterator mi = pwalletMain->mapAddressBook.find(address.Get());
@@ -357,7 +341,6 @@ UniValue getaddressesbyaccount(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() != 1)
-// ZEN_MOD_START
         throw runtime_error(
             "getaddressesbyaccount \"account\"\n"
             "\nDEPRECATED. Returns the list of addresses for the given account.\n"
@@ -372,7 +355,6 @@ UniValue getaddressesbyaccount(const UniValue& params, bool fHelp)
             + HelpExampleCli("getaddressesbyaccount", "\"tabby\"")
             + HelpExampleRpc("getaddressesbyaccount", "\"tabby\"")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -390,7 +372,6 @@ UniValue getaddressesbyaccount(const UniValue& params, bool fHelp)
     return ret;
 }
 
-// ZEN_MOD_START
 UniValue listaddresses(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -422,7 +403,6 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
     }
     return ret;
 }
-// ZEN_MOD_END
 
 static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, CWalletTx& wtxNew)
 {
@@ -461,7 +441,6 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() < 2 || params.size() > 5)
-// ZEN_MOD_START
         throw runtime_error(
             "sendtoaddress \"horizenaddress\" amount ( \"comment\" \"comment-to\" subtractfeefromamount )\n"
             "\nSend an amount to a given address. The amount is a real and is rounded to the nearest 0.00000001\n"
@@ -484,15 +463,12 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
             + HelpExampleCli("sendtoaddress", "\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\" 0.1 \"\" \"\" true")
             + HelpExampleRpc("sendtoaddress", "\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\", 0.1, \"donation\", \"ZenCash outpost\"")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     CBitcoinAddress address(params[0].get_str());
     if (!address.IsValid())
-// ZEN_MOD_START
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
-// ZEN_MOD-END
 
     // Amount
     CAmount nAmount = AmountFromValue(params[1]);
@@ -523,7 +499,6 @@ UniValue listaddressgroupings(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp)
-// ZEN_MOD_START
         throw runtime_error(
             "listaddressgroupings\n"
             "\nLists groups of addresses which have had their common ownership\n"
@@ -545,7 +520,6 @@ UniValue listaddressgroupings(const UniValue& params, bool fHelp)
             + HelpExampleCli("listaddressgroupings", "")
             + HelpExampleRpc("listaddressgroupings", "")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -576,7 +550,6 @@ UniValue signmessage(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() != 2)
-// ZEN_MOD_START
         throw runtime_error(
             "signmessage \"horizenaddress\" \"message\"\n"
             "\nSign a message with the private key of an address"
@@ -596,7 +569,6 @@ UniValue signmessage(const UniValue& params, bool fHelp)
             "\nAs json rpc\n"
             + HelpExampleRpc("signmessage", "\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\", \"my message\"")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -634,7 +606,6 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() < 1 || params.size() > 2)
-// ZEN_MOD_START
         throw runtime_error(
             "getreceivedbyaddress \"horizenaddress\" ( minconf )\n"
             "\nReturns the total amount received by the given horizenaddress in transactions with at least minconf confirmations.\n"
@@ -653,21 +624,16 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
             "\nAs a json rpc call\n"
             + HelpExampleRpc("getreceivedbyaddress", "\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\", 6")
        );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     // Bitcoin address
     CBitcoinAddress address = CBitcoinAddress(params[0].get_str());
     if (!address.IsValid())
-// ZEN_MOD_START
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
-// ZEN_MOD_END
 
-// ZEN_MOD_START
     /* Get script for addr without OP_CHECKBLOCKATHEIGHT, cause we will use it only for searching */
     CScript scriptPubKey = GetScriptForDestination(address.Get(), false);
-// ZEN_MOD_END
     if (!IsMine(*pwalletMain,scriptPubKey))
         return (double)0.0;
 
@@ -685,7 +651,6 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
             continue;
 
         BOOST_FOREACH(const CTxOut& txout, wtx.vout)
-// ZEN_MOD_START
         {
             /* Check that txout.scriptPubKey starts with scriptPubKey instead of full match,
              * cause we cant compare OP_CHECKBLOCKATHEIGHT arguments, they are different all the time */
@@ -695,7 +660,6 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
                 if (wtx.GetDepthInMainChain() >= nMinDepth)
                     nAmount += txout.nValue;
         }
-// ZEN_MOD_END
     }
 
     return  ValueFromAmount(nAmount);
@@ -983,16 +947,13 @@ UniValue sendfrom(const UniValue& params, bool fHelp)
             "\nAs a json rpc call\n"
             + HelpExampleRpc("sendfrom", "\"tabby\", \"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\", 0.01, 6, \"donation\", \"ZenCash outpost\"")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     string strAccount = AccountFromValue(params[0]);
     CBitcoinAddress address(params[1].get_str());
     if (!address.IsValid())
-// ZEN_MOD_START
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
-// ZEN_MOD_END
     CAmount nAmount = AmountFromValue(params[2]);
     if (nAmount <= 0)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
@@ -1026,7 +987,6 @@ UniValue sendmany(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() < 2 || params.size() > 5)
-// ZEN_MOD_START
         throw runtime_error(
             "sendmany \"fromaccount\" {\"address\":amount,...} ( minconf \"comment\" [\"address\",...] )\n"
             "\nSend multiple times. Amounts are double-precision floating point numbers."
@@ -1061,7 +1021,6 @@ UniValue sendmany(const UniValue& params, bool fHelp)
             "\nAs a json rpc call\n"
             + HelpExampleRpc("sendmany", "\"\", \"{\\\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\\\":0.01,\\\"znYHqyumkLY3zVwgaHq3sbtHXuP8GxsNws3\\\":0.02}\", 6, \"testing\"")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -1089,9 +1048,7 @@ UniValue sendmany(const UniValue& params, bool fHelp)
     {
         CBitcoinAddress address(name_);
         if (!address.IsValid())
-// ZEN_MOD_START
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Zen address: ")+name_);
-// ZEN_MOD_END
 
         if (setAddress.count(address))
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+name_);
@@ -1145,7 +1102,6 @@ UniValue addmultisigaddress(const UniValue& params, bool fHelp)
 
     if (fHelp || params.size() < 2 || params.size() > 3)
     {
-// ZEN_MOD_START
         string msg = "addmultisigaddress nrequired [\"key\",...] ( \"account\" )\n"
             "\nAdd a nrequired-to-sign multisignature address to the wallet.\n"
             "Each key is a Zen address or hex-encoded public key.\n"
@@ -1170,7 +1126,6 @@ UniValue addmultisigaddress(const UniValue& params, bool fHelp)
             + HelpExampleRpc("addmultisigaddress", "2, \"[\\\"t16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"t171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"")
         ;
         throw runtime_error(msg);
-// ZEN_MOD_END
     }
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1496,7 +1451,6 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() > 4)
-// ZEN_MOD_START
         throw runtime_error(
             "listtransactions ( \"account\" count from includeWatchonly)\n"
             "\nReturns up to 'count' most recent transactions skipping the first 'from' transactions for account 'account'.\n"
@@ -1548,7 +1502,6 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
             "\nAs a json rpc call\n"
             + HelpExampleRpc("listtransactions", "\"*\", 20, 100")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -1700,7 +1653,6 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp)
-// ZEN_MOD_START
         throw runtime_error(
             "listsinceblock ( \"blockhash\" target-confirmations includeWatchonly)\n"
             "\nGet all transactions in blocks since block [blockhash], or all transactions if omitted\n"
@@ -1735,7 +1687,6 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
             + HelpExampleCli("listsinceblock", "\"000000000000000bacf66f7497b7dc45ef753ee9a7d38571037cdb1a57f663ad\" 6")
             + HelpExampleRpc("listsinceblock", "\"000000000000000bacf66f7497b7dc45ef753ee9a7d38571037cdb1a57f663ad\", 6")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -1793,7 +1744,6 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() < 1 || params.size() > 2)
-// ZEN_MOD_START
         throw runtime_error(
             "gettransaction \"txid\" ( includeWatchonly )\n"
             "\nGet detailed information about in-wallet transaction <txid>\n"
@@ -1839,7 +1789,6 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
             + HelpExampleCli("gettransaction", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\" true")
             + HelpExampleRpc("gettransaction", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -1971,7 +1920,6 @@ UniValue walletpassphrase(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (pwalletMain->IsCrypted() && (fHelp || params.size() != 2))
-// ZEN_MOD_START
         throw runtime_error(
             "walletpassphrase \"passphrase\" timeout\n"
             "\nStores the wallet decryption key in memory for 'timeout' seconds.\n"
@@ -1990,7 +1938,6 @@ UniValue walletpassphrase(const UniValue& params, bool fHelp)
             "\nAs json rpc call\n"
             + HelpExampleRpc("walletpassphrase", "\"my pass phrase\", 60")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -2090,9 +2037,7 @@ UniValue walletlock(const UniValue& params, bool fHelp)
             "\nSet the passphrase for 2 minutes to perform a transaction\n"
             + HelpExampleCli("walletpassphrase", "\"my pass phrase\" 120") +
             "\nPerform a send (requires passphrase set)\n"
-// ZEN_MOD_START
             + HelpExampleCli("sendtoaddress", "\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\" 1.0") +
-// ZEN_MOD_END
             "\nClear the passphrase since we are done before 2 minutes is up\n"
             + HelpExampleCli("walletlock", "") +
             "\nAs json rpc call\n"
@@ -2129,7 +2074,6 @@ UniValue encryptwallet(const UniValue& params, bool fHelp)
     }
 
     if (!pwalletMain->IsCrypted() && (fHelp || params.size() != 1))
-// ZEN_MOD_START
         throw runtime_error(
             "encryptwallet \"passphrase\"\n"
             + strWalletEncryptionDisabledMsg +
@@ -2153,7 +2097,6 @@ UniValue encryptwallet(const UniValue& params, bool fHelp)
             "\nAs a json rpc call\n"
             + HelpExampleRpc("encryptwallet", "\"my pass phrase\"")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -2183,9 +2126,7 @@ UniValue encryptwallet(const UniValue& params, bool fHelp)
     // slack space in .dat files; that is bad if the old data is
     // unencrypted private keys. So:
     StartShutdown();
-// ZEN_MOD_START
     return "wallet encrypted; Horizen server stopping, restart to run with encrypted wallet. The keypool has been flushed, you need to make a new backup.";
-// ZEN_MOD_END
 }
 
 UniValue lockunspent(const UniValue& params, bool fHelp)
@@ -2194,7 +2135,6 @@ UniValue lockunspent(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() < 1 || params.size() > 2)
-// ZEN_MOD_START
         throw runtime_error(
             "lockunspent unlock [{\"txid\":\"txid\",\"vout\":n},...]\n"
             "\nUpdates list of temporarily unspendable outputs.\n"
@@ -2229,7 +2169,6 @@ UniValue lockunspent(const UniValue& params, bool fHelp)
             "\nAs a json rpc call\n"
             + HelpExampleRpc("lockunspent", "false, \"[{\\\"txid\\\":\\\"a08e6907dbbd3d809776dbfc5d82e371b764ed838b5655e72f463568df1aadf0\\\",\\\"vout\\\":1}]\"")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -2356,7 +2295,6 @@ UniValue getwalletinfo(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() != 0)
-// ZEN_MOD_START
         throw runtime_error(
             "getwalletinfo\n"
             "Returns an object containing various wallet state info.\n"
@@ -2376,7 +2314,6 @@ UniValue getwalletinfo(const UniValue& params, bool fHelp)
             + HelpExampleCli("getwalletinfo", "")
             + HelpExampleRpc("getwalletinfo", "")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -2425,7 +2362,6 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() > 3)
-// ZEN_MOD_START
         throw runtime_error(
             "listunspent ( minconf maxconf  [\"address\",...] )\n"
             "\nReturns array of unspent transaction outputs\n"
@@ -2461,7 +2397,6 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             + HelpExampleCli("listunspent", "6 9999999 \"[\\\"t1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\\\",\\\"t1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\\\"]\"")
             + HelpExampleRpc("listunspent", "6, 9999999 \"[\\\"t1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\\\",\\\"t1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\\\"]\"")
         );
-// ZEN_MOD_END
 
     RPCTypeCheck(params, boost::assign::list_of(UniValue::VNUM)(UniValue::VNUM)(UniValue::VARR));
 
@@ -2480,9 +2415,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             const UniValue& input = inputs[idx];
             CBitcoinAddress address(input.get_str());
             if (!address.IsValid())
-// ZEN_MOD_START
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid horizen address: ")+input.get_str());
-// ZEN_MOD_END
             if (setAddress.count(address))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+input.get_str());
            setAddress.insert(address);
@@ -2493,9 +2426,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
     vector<COutput> vecOutputs;
     assert(pwalletMain != NULL);
     LOCK2(cs_main, pwalletMain->cs_wallet);
-// ZEN_MOD_START
     pwalletMain->AvailableCoins(vecOutputs, false, NULL, true, true);
-// ZEN_MOD_END
     BOOST_FOREACH(const COutput& out, vecOutputs) {
         if (out.nDepth < nMinDepth || out.nDepth > nMaxDepth)
             continue;
@@ -3044,7 +2975,6 @@ UniValue z_getnewaddress(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     if (fHelp || params.size() > 0)
-// ZEN_MOD_START
         throw runtime_error(
             "z_getnewaddress\n"
             "\nReturns a new zaddr for receiving payments.\n"
@@ -3055,7 +2985,6 @@ UniValue z_getnewaddress(const UniValue& params, bool fHelp)
             + HelpExampleCli("z_getnewaddress", "")
             + HelpExampleRpc("z_getnewaddress", "")
         );
-// ZEN_MOD_END
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -3121,9 +3050,7 @@ CAmount getBalanceTaddr(std::string transparentAddress, int minDepth=1, bool ign
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-// ZEN_MOD_START
     pwalletMain->AvailableCoins(vecOutputs, false, NULL, true, true);
-// ZEN_MOD_END
 
     BOOST_FOREACH(const COutput& out, vecOutputs) {
         if (out.nDepth < minDepth) {
@@ -3490,10 +3417,8 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"operationid\"          (string) An operationid to pass to z_getoperationstatus to get the result of the operation.\n"
             "\nExamples:\n"
-// ZEN_MOD_START
             + HelpExampleCli("z_sendmany", "\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\" '[{\"address\": \"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\" ,\"amount\": 5.0}]'")
             + HelpExampleRpc("z_sendmany", "\"znnwwojWQJp1ARgbi1dqYtmnNMfihmg8m1b\", [{\"address\": \"ztfaW34Gj9FrnGUEf833ywDVL62NWXBM81u6EQnM6VR45eYnXhwztecW1SjxA7JrmAXKJhxhj3vDNEpVCQoSvVoSpmbhtjf\" ,\"amount\": 5.0}]")
-// ZEN_MOD_END
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);

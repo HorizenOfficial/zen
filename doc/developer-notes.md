@@ -39,36 +39,10 @@ class Class
 Zencash-specific code
 ====================
 
-This new version of Zencash is no longer based on ZClassic but on ZCash. A couple requirements have been added to help distinguish Zencash-specific code from ZCash code. This will facilitate integration of updates from ZCash as well as help identify Zencash-specific code and track down Zencash-specific issues.
+This new version of Zencash is no longer based on ZClassic but on ZCash.
 
-ZEN_MOD_START and ZEN_MOD_END
-------------------------------------------------
-It is now a requirement to encapsulate all modifications between a ZEN_MOD_START and ZEN_MOD_END comment whether in C++, Python or in makefiles. This will also greatly help integrating future updates from the ZCash codebase. Here are some examples:
+### zen folder and namespace
 
-&nbsp;&nbsp;&nbsp;&nbsp;... code ...			- ZCash code  
-// ZEN_MOD_START		- beginning of Zencash specific modification  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do something different  
-// ZEN_MOD_END			- end of Zencash specific modification  
-&nbsp;&nbsp;&nbsp;&nbsp;.. code ... 		- rest of ZCash code
-	
-or in python/makefiles:
-
-&nbsp;&nbsp;&nbsp;&nbsp;... code ...		- ZCash code  
-\# ZEN_MOD_START	- beginning of Zencash specific modification  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;do something different  
-\# ZEN_MOD_END		- end of Zencash specific modification  
-&nbsp;&nbsp;&nbsp;&nbsp;.. code ... 	- rest of ZCash code
-
-Other considerations:
-
-- all ZEN_MOD_START and ZEN_MOD_END statements must start in the first column to make them more easy to spot.
-- no need to mark changes in comments
-- no need to mark entire files that are Zencash-specific
-- no need to mark deleted code
-- when code is being modified inside ZEN_MOD_START and ZEN_MOD_END, please check against the latest ZCash version that was integrated to see if your modification effectively restores the original ZCash state and remove the ZEN_MOD_START and ZEN_MOD_END statements if applicable.
-
-zen folder and namespace
--------------------------------
 All Zencash-specific files should reside under a zen subfolder and Zencash-specific C++ classes must be declared within a zen namespace.
 
 

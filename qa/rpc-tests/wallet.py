@@ -33,32 +33,24 @@ class WalletTest (BitcoinTestFramework):
         self.nodes[0].generate(4)
 
         walletinfo = self.nodes[0].getwalletinfo()
-# ZEN_MOD_START
         assert_equal(walletinfo['immature_balance'], 11.4375 * 4)
-# ZEN_MOD_END
         assert_equal(walletinfo['balance'], 0)
 
         self.sync_all()
         self.nodes[1].generate(101)
         self.sync_all()
 
-# ZEN_MOD_START
         assert_equal(self.nodes[0].getbalance(), 11.4375 * 4)
         assert_equal(self.nodes[1].getbalance(), 11.4375)
-# ZEN_MOD_END
         assert_equal(self.nodes[2].getbalance(), 0)
-# ZEN_MOD_START
         assert_equal(self.nodes[0].getbalance("*"), 11.4375 * 4)
         assert_equal(self.nodes[1].getbalance("*"), 11.4375)
-# ZEN_MOD_END
         assert_equal(self.nodes[2].getbalance("*"), 0)
 
         # Send 21 BTC from 0 to 2 using sendtoaddress call.
         # Second transaction will be child of first, and will require a fee
-# ZEN_MOD_START
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 12)
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11.4375)
-# ZEN_MOD_END
 
         walletinfo = self.nodes[0].getwalletinfo()
         assert_equal(walletinfo['immature_balance'], 0)
@@ -72,14 +64,12 @@ class WalletTest (BitcoinTestFramework):
         self.nodes[1].generate(100)
         self.sync_all()
 
-# ZEN_MOD_START
         # node0 should end up with (11.4375*4 + 8.75) btc in block rewards plus fees, but
         # minus the 23.4375 plus fees sent to node2
         assert_equal(self.nodes[0].getbalance(), (11.4375*4 + 8.75)-23.4375)
         assert_equal(self.nodes[2].getbalance(), 23.4375)
         assert_equal(self.nodes[0].getbalance("*"), (11.4375*4 + 8.75)-23.4375)
         assert_equal(self.nodes[2].getbalance("*"), 23.4375)
-# ZEN_MOD_END
 
         # Node0 should have three unspent outputs.
         # Create a couple of transactions to send them to node2, submit them through
@@ -120,24 +110,17 @@ class WalletTest (BitcoinTestFramework):
         self.sync_all()
 
         assert_equal(self.nodes[0].getbalance(), 0)
-# ZEN_MOD_START
         assert_equal(self.nodes[2].getbalance(), 11.4375*4 + 8.75)
-# ZEN_MOD_END
         assert_equal(self.nodes[0].getbalance("*"), 0)
-# ZEN_MOD_START
         assert_equal(self.nodes[2].getbalance("*"), 11.4375*4 + 8.75)
-# ZEN_MOD_END
 
         # Send 11.4375 BTC normal
         address = self.nodes[0].getnewaddress("")
         self.nodes[2].settxfee(Decimal('0.001'))
-# ZEN_MOD_START
         txid = self.nodes[2].sendtoaddress(address, 11.4375, "", "", False)
-# ZEN_MOD_END
         self.sync_all()
         self.nodes[2].generate(1)
         self.sync_all()
-# ZEN_MOD_START
         # 43.0615 = (11.4375*3 + 8.75) - 0.001
         assert_equal(self.nodes[2].getbalance(), Decimal('43.0615'))
         assert_equal(self.nodes[0].getbalance(), Decimal('11.4375'))
@@ -146,43 +129,36 @@ class WalletTest (BitcoinTestFramework):
 
         # Send 11.4375 BTC with subtract fee from amount
         txid = self.nodes[2].sendtoaddress(address, 11.4375, "", "", True)
-# ZEN_MOD_END
         self.sync_all()
         self.nodes[2].generate(1)
         self.sync_all()
-# ZEN_MOD_START
         # 31.624 = (11.4375*2 + 8.75) - 0.001
         assert_equal(self.nodes[2].getbalance(), Decimal('31.624'))
         assert_equal(self.nodes[0].getbalance(), Decimal('22.874'))
         assert_equal(self.nodes[2].getbalance("*"), Decimal('31.624'))
         assert_equal(self.nodes[0].getbalance("*"), Decimal('22.874'))
-# ZEN_MOD_END
 
         # Sendmany 10 BTC
         self.nodes[2].sendmany("", {address: 10}, 0, "", [])
         self.sync_all()
         self.nodes[2].generate(1)
         self.sync_all()
-# ZEN_MOD_START
         # 21.623 = 31.624 -10 - 0.001
         assert_equal(self.nodes[2].getbalance(), Decimal('21.623'))
         assert_equal(self.nodes[0].getbalance(), Decimal('32.874'))
         assert_equal(self.nodes[2].getbalance("*"), Decimal('21.623'))
         assert_equal(self.nodes[0].getbalance("*"), Decimal('32.874'))
-# ZEN_MOD_END
 
         # Sendmany 10 BTC with subtract fee from amount
         self.nodes[2].sendmany("", {address: 10}, 0, "", [address])
         self.sync_all()
         self.nodes[2].generate(1)
         self.sync_all()
-# ZEN_MOD_START
         # 11.623 = 21.623 - 10
         assert_equal(self.nodes[2].getbalance(), Decimal('11.623'))
         assert_equal(self.nodes[0].getbalance(), Decimal('42.873'))
         assert_equal(self.nodes[2].getbalance("*"), Decimal('11.623'))
         assert_equal(self.nodes[0].getbalance("*"), Decimal('42.873'))
-# ZEN_MOD_END
 
         # Test ResendWalletTransactions:
         # Create a couple of transactions, then start up a fourth
@@ -209,9 +185,7 @@ class WalletTest (BitcoinTestFramework):
         #4. check if recipient (node0) can list the zero value tx
         usp = self.nodes[1].listunspent()
         inputs = [{"txid":usp[0]['txid'], "vout":usp[0]['vout']}]
-# ZEN_MOD_START
         outputs = {self.nodes[1].getnewaddress(): 11.4365, self.nodes[0].getnewaddress(): 11.11}
-# ZEN_MOD_END
 
         rawTx = self.nodes[1].createrawtransaction(inputs, outputs).replace("c0833842", "00000000") #replace 11.11 with 0.0 (int32)
         decRawTx = self.nodes[1].decoderawtransaction(rawTx)
@@ -246,10 +220,8 @@ class WalletTest (BitcoinTestFramework):
         self.sync_all()
         self.nodes[1].generate(1) #mine a block, tx should not be in there
         self.sync_all()
-# ZEN_MOD_START
         assert_equal(self.nodes[2].getbalance(), Decimal('11.623')); #should not be changed because tx was not broadcasted
         assert_equal(self.nodes[2].getbalance("*"), Decimal('11.623')); #should not be changed because tx was not broadcasted
-# ZEN_MOD_END
 
         #now broadcast from another node, mine a block, sync, and check the balance
         self.nodes[1].sendrawtransaction(txObjNotBroadcasted['hex'])
@@ -257,10 +229,8 @@ class WalletTest (BitcoinTestFramework):
         self.nodes[1].generate(1)
         self.sync_all()
         txObjNotBroadcasted = self.nodes[0].gettransaction(txIdNotBroadcasted)
-# ZEN_MOD_START
         assert_equal(self.nodes[2].getbalance(), Decimal('13.623')); #should not be
         assert_equal(self.nodes[2].getbalance("*"), Decimal('13.623')); #should not be
-# ZEN_MOD_END
 
         #create another tx
         txIdNotBroadcasted  = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 2);
@@ -278,10 +248,8 @@ class WalletTest (BitcoinTestFramework):
         sync_blocks(self.nodes)
 
         #tx should be added to balance because after restarting the nodes tx should be broadcastet
-# ZEN_MOD_START
         assert_equal(self.nodes[2].getbalance(), Decimal('15.623')); #should not be
         assert_equal(self.nodes[2].getbalance("*"), Decimal('15.623')); #should not be
-# ZEN_MOD_END
 
         # send from node 0 to node 2 taddr
         mytaddr = self.nodes[2].getnewaddress();
@@ -388,9 +356,7 @@ class WalletTest (BitcoinTestFramework):
         # check balances
         zsendmanynotevalue = Decimal('7.0')
         zsendmanyfee = Decimal('0.0001')
-# ZEN_MOD_START
         node2utxobalance = Decimal('25.623') - zsendmanynotevalue - zsendmanyfee
-# ZEN_MOD_END
 
         assert_equal(self.nodes[2].getbalance(), node2utxobalance)
         assert_equal(self.nodes[2].getbalance("*"), node2utxobalance)
@@ -419,10 +385,8 @@ class WalletTest (BitcoinTestFramework):
 
 
         # send from private note to node 0 and node 2
-# ZEN_MOD_START
         node0balance = self.nodes[0].getbalance() # 28.87298817
         node2balance = self.nodes[2].getbalance() # 18.6229
-# ZEN_MOD_END
 
         recipients = []
         recipients.append({"address":self.nodes[0].getnewaddress(), "amount":1})

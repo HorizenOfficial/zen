@@ -32,10 +32,8 @@
 
 using namespace std;
 
-// ZEN_MOD_START
 #include "zen/forkmanager.h"
 using namespace zen;
-// ZEN_MOD_END
 
 /**
  * Return average network hashes per second based on the last 'lookup' blocks,
@@ -145,7 +143,6 @@ UniValue getnetworkhashps(const UniValue& params, bool fHelp)
 #ifdef ENABLE_MINING
 UniValue getgenerate(const UniValue& params, bool fHelp)
 {
-    // ZEN_MOD_START
     if (fHelp || params.size() != 0)
         throw runtime_error(
             "getgenerate\n"
@@ -158,7 +155,6 @@ UniValue getgenerate(const UniValue& params, bool fHelp)
             + HelpExampleCli("getgenerate", "")
             + HelpExampleRpc("getgenerate", "")
         );
-    // ZEN_MOD_END
     LOCK(cs_main);
     return GetBoolArg("-gen", false);
 }
@@ -185,9 +181,7 @@ UniValue generate(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Wallet disabled and -mineraddress not set");
         }
 #else
-        // ZEN_MOD_START
         throw JSONRPCError(RPC_METHOD_NOT_FOUND, "zend compiled without wallet and -mineraddress not set");
-        // ZEN_MOD_END
 #endif
     }
     if (!Params().MineBlocksOnDemand())
@@ -302,9 +296,7 @@ UniValue setgenerate(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Wallet disabled and -mineraddress not set");
         }
 #else
-        // ZEN_MOD_START
         throw JSONRPCError(RPC_METHOD_NOT_FOUND, "zend compiled without wallet and -mineraddress not set");
-        // ZEN_MOD_END
 #endif
     }
     if (Params().MineBlocksOnDemand())
@@ -506,9 +498,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Wallet disabled and -mineraddress not set");
         }
 #else
-        // ZEN_MOD_START
         throw JSONRPCError(RPC_METHOD_NOT_FOUND, "zend compiled without wallet and -mineraddress not set");
-        // ZEN_MOD_END
 #endif
     }
 
@@ -565,17 +555,11 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid mode");
 
     if (vNodes.empty())
-        // ZEN_MOD_START
         throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Horizen is not connected!");
-        // ZEN_MOD_END
 
-// ZEN_MOD_START
     // from https://github.com/ZencashOfficial/zen/commit/e7a774e9a72fae1228ccbc764d520bd685860822
     if (IsInitialBlockDownload() && ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight-(Params().GetConsensus().nMinerConfirmationWindow * 2)))
-        // ZEN_MOD_START
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Horizen is downloading blocks...");
-        // ZEN_MOD_END
-// ZEN_MOD_END
 
     static unsigned int nTransactionsUpdatedLast;
 
@@ -699,13 +683,11 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
             // Show community reward if it is required
             if (pblock->vtx[0].vout.size() > 1) {
                 // Correct this if GetBlockTemplate changes the order
-// ZEN_MOD_START
                 entry.push_back(Pair("communityfund", (int64_t)tx.vout[1].nValue));
                 if (pblock->vtx[0].vout.size() > 3) {
                     entry.push_back(Pair("securenodes", (int64_t)tx.vout[2].nValue));
                     entry.push_back(Pair("supernodes", (int64_t)tx.vout[3].nValue));
                 }
-// ZEN_MOD_END
             }
             entry.push_back(Pair("required", true));
             txCoinbase = entry;
@@ -901,7 +883,6 @@ UniValue estimatepriority(const UniValue& params, bool fHelp)
 UniValue getblocksubsidy(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() > 1)
-// ZEN_MOD_START
         throw runtime_error(
             "getblocksubsidy height\n"
             "\nReturns block subsidy reward, taking into account the mining slow start and the community fund, of block at index provided.\n"
@@ -918,14 +899,12 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
             + HelpExampleCli("getblocksubsidy", "1000")
             + HelpExampleRpc("getblockubsidy", "1000")
         );
-// ZEN_MOD_END
 
     LOCK(cs_main);
     int nHeight = (params.size()==1) ? params[0].get_int() : chainActive.Height();
     if (nHeight < 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
 
-// ZEN_MOD_START    
     CAmount nReward = GetBlockSubsidy(nHeight, Params().GetConsensus());
     CAmount minerReward = nReward;
 
@@ -942,10 +921,8 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
     }
 
 
-// ZEN_MOD_END
     UniValue result(UniValue::VOBJ);
     result.push_back(Pair("miner", ValueFromAmount(minerReward)));
-// ZEN_MOD_START
     result.push_back(Pair("community", ValueFromAmount(nCommunityFund)));
     if (secureNodeFund > 0) {
         result.push_back(Pair("securenodes", ValueFromAmount(secureNodeFund)));
@@ -954,6 +931,5 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
         result.push_back(Pair("supernodes", ValueFromAmount(superNodeFund)));
     }
 
-// ZEN_MOD_END
     return result;
 }

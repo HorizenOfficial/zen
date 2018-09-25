@@ -53,9 +53,7 @@ public:
 
     void SetNull()
     {
-// ZEN_MOD_START
         nVersion = 0;
-// ZEN_MOD_END
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
         hashReserved.SetNull();

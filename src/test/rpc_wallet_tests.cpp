@@ -250,7 +250,6 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     }
     BOOST_CHECK(!notFound);
 
-// ZEN_MOD_START
    /*********************************
     *       listaddresses
     *********************************/
@@ -262,7 +261,6 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
         notFound &= CBitcoinAddress(a.get_str()).Get() != demoAddress.Get();
     }
     BOOST_CHECK(!notFound);
-// ZEN_MOD_END
     
     /*********************************
      * 	     fundrawtransaction
@@ -277,7 +275,6 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     BOOST_CHECK_THROW(CallRPC("getblocksubsidy -1"), runtime_error);
     BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 50000"));
     UniValue obj = retValue.get_obj();
-// ZEN_MOD_START
     BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 12.5);
     BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 0.0);
     
@@ -304,7 +301,6 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 0.625);
     BOOST_CHECK_EQUAL(find_value(obj, "securenodes").get_real(), 0.625);
     BOOST_CHECK_EQUAL(find_value(obj, "supernodes").get_real(), 0.625);
-// ZEN_MOD_END
 
     /*
      * getblock
@@ -1283,9 +1279,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_shieldcoinbase_parameters)
 
     BOOST_CHECK_THROW(CallRPC("z_shieldcoinbase"), runtime_error);
     BOOST_CHECK_THROW(CallRPC("z_shieldcoinbase toofewargs"), runtime_error);
-// ZEN_MOD_START
     BOOST_CHECK_THROW(CallRPC("z_shieldcoinbase too many args here"), runtime_error);
-// ZEN_MOD_END
 
     // bad from address
     BOOST_CHECK_THROW(CallRPC("z_shieldcoinbase "

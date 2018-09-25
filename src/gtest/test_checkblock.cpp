@@ -4,13 +4,11 @@
 #include "consensus/validation.h"
 #include "main.h"
 #include "zcash/Proof.hpp"
-// ZEN_MOD_START
 #include "base58.h"
 #include "zen/forkmanager.h"
 #include "zen/forks/fork1_chainsplitfork.h"
 #include "zen/forks/fork3_communityfundandrpfixfork.h"
 using namespace zen;
-// ZEN_MOD_END
 
 class MockCValidationState : public CValidationState {
 public:
@@ -60,9 +58,7 @@ TEST(ContextualCheckBlock, BadCoinbaseHeight) {
     EXPECT_TRUE(ContextualCheckBlock(block, state, NULL));
 
     // Treating block as non-genesis should fail
-// ZEN_MOD_START
     //mtx.vout.push_back(CTxOut(GetBlockSubsidy(1, Params().GetConsensus())/5, Params().GetCommunityFundScriptAtHeight(1))); // disabled for Zen
-// ZEN_MOD_END
     CTransaction tx2 {mtx};
     block.vtx[0] = tx2;
     CBlock prev;
@@ -85,7 +81,6 @@ TEST(ContextualCheckBlock, BadCoinbaseHeight) {
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 }
 
-// ZEN_MOD_START
 TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     SelectParams(CBaseChainParams::MAIN);
     ChainsplitFork chainsplitFork;
@@ -260,4 +255,3 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
     */
 }
-// ZEN_MOD_END

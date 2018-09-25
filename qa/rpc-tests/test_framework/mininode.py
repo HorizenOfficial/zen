@@ -39,9 +39,7 @@ from .equihash import (
     zcash_person,
 )
 
-# ZEN_MOD_START
 from util import hex_str_to_bytes, bytes_to_hex_str
-# ZEN_MOD_END
 
 BIP0031_VERSION = 60000
 MY_VERSION = 170002  # past bip-31 for ping/pong
@@ -246,7 +244,6 @@ def ser_int_vector(l):
     return r
 
 
-# ZEN_MOD_START
 
 # Deserialize from a hex string representation (eg from RPC)
 def FromHex(obj, hex_string):
@@ -284,7 +281,6 @@ def ser_char_vector(l):
     for i in l:
         r += chr(i)
     return r
-# ZEN_MOD_END
 
 
 # Objects that map to bitcoind objects, which can be serialized/deserialized
@@ -1336,11 +1332,9 @@ class NodeConn(asyncore.dispatcher):
         "mempool": msg_mempool
     }
     MAGIC_BYTES = {
-# ZEN_MOD_START
         "mainnet": "\x63\x61\x73\x68",  # mainnet
         "testnet3": "\xbf\xf2\xcd\xe6",  # testnet3
         "regtest": "\x2f\x54\xcc\x9d"  # regtest
-# ZEN_MOD_END
     }
 
     def __init__(self, dstaddr, dstport, rpc, callback, net="regtest"):

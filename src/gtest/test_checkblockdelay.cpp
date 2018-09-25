@@ -1,8 +1,6 @@
 #include <gtest/gtest.h>
-// ZEN_MOD_START
 #include <zen/delay.h> 
 using namespace zen;
-// ZEN_MOD_END
 
 TEST(delay_tests, get_block_delay) {
     CBlockIndex *block = new CBlockIndex();

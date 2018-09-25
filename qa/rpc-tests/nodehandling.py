@@ -62,7 +62,6 @@ class NodeHandlingTest (BitcoinTestFramework):
                 found = True
         assert(found)
 
-# ZEN_MOD_START
         ###########################
         # Connection to self (takes approx 5 min)
         # Stress test for network layer. Trying to connect to self every 0.5 sec.
@@ -79,7 +78,6 @@ class NodeHandlingTest (BitcoinTestFramework):
             # self-connection should be disconnected during the version checking
             for node in self.nodes[0].getpeerinfo():
                 assert(node['addr'] != url.hostname+":"+str(p2p_port(0)))
-# ZEN_MOD_END
 
 if __name__ == '__main__':
     NodeHandlingTest ().main ()
