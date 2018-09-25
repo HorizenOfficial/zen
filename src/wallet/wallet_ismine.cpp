@@ -30,9 +30,7 @@ unsigned int HaveKeys(const vector<valtype>& pubkeys, const CKeyStore& keystore)
 
 isminetype IsMine(const CKeyStore &keystore, const CTxDestination& dest)
 {
-// ZEN_MOD_START
     CScript script = GetScriptForDestination(dest, false);
-// ZEN_MOD_END
     return IsMine(keystore, script);
 }
 
@@ -51,31 +49,23 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey)
     {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
-// ZEN_MOD_START
     case TX_NULL_DATA_REPLAY:
-// ZEN_MOD_END
         break;
 
     case TX_PUBKEY:
-// ZEN_MOD_START
     case TX_PUBKEY_REPLAY:
-// ZEN_MOD_END
         keyID = CPubKey(vSolutions[0]).GetID();
         if (keystore.HaveKey(keyID))
             return ISMINE_SPENDABLE;
         break;
     case TX_PUBKEYHASH:
-// ZEN_MOD_START
     case TX_PUBKEYHASH_REPLAY:
-// ZEN_MOD_END
         keyID = CKeyID(uint160(vSolutions[0]));
         if (keystore.HaveKey(keyID))
             return ISMINE_SPENDABLE;
         break;
     case TX_SCRIPTHASH:
-// ZEN_MOD_START
     case TX_SCRIPTHASH_REPLAY:
-// ZEN_MOD_END
     {
         CScriptID scriptID = CScriptID(uint160(vSolutions[0]));
         CScript subscript;
@@ -87,9 +77,7 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey)
         break;
     }
     case TX_MULTISIG:
-// ZEN_MOD_START
     case TX_MULTISIG_REPLAY:
-// ZEN_MOD_END
     {
         // Only consider transactions "mine" if we own ALL the
         // keys involved. Multi-signature transactions that are

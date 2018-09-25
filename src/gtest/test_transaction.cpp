@@ -38,7 +38,6 @@ TEST(Transaction, JSDescriptionRandomized) {
         libzcash::JSOutput(addr, 50),
         libzcash::JSOutput(addr, 50)
     };
-// ZEN_MOD_START
     #ifdef __LP64__ // required for building on MacOS
     boost::array<uint64_t, ZC_NUM_JS_INPUTS> inputMap;
     boost::array<uint64_t, ZC_NUM_JS_OUTPUTS> outputMap;
@@ -46,14 +45,12 @@ TEST(Transaction, JSDescriptionRandomized) {
     boost::array<size_t, ZC_NUM_JS_INPUTS> inputMap;
     boost::array<size_t, ZC_NUM_JS_OUTPUTS> outputMap;
     #endif
-// ZEN_MOD_END
     {
         auto jsdesc = JSDescription::Randomized(
             *params, pubKeyHash, rt,
             inputs, outputs,
             inputMap, outputMap,
             0, 0, false);
-// ZEN_MOD_START
         #ifdef __LP64__ // required for building on MacOS
         std::set<uint64_t> inputSet(inputMap.begin(), inputMap.end());
         std::set<uint64_t> expectedInputSet {0, 1};
@@ -70,7 +67,6 @@ TEST(Transaction, JSDescriptionRandomized) {
         std::set<size_t> outputSet(outputMap.begin(), outputMap.end());
         std::set<size_t> expectedOutputSet {0, 1};
         #endif
-// ZEN_MOD_END
         EXPECT_EQ(expectedOutputSet, outputSet);
     }
 
@@ -80,7 +76,6 @@ TEST(Transaction, JSDescriptionRandomized) {
             inputs, outputs,
             inputMap, outputMap,
             0, 0, false, nullptr, GenZero);       
-// ZEN_MOD_START
         #ifdef __LP64__ // required for building on MacOS
         boost::array<uint64_t, ZC_NUM_JS_INPUTS> expectedInputMap {1, 0};
         boost::array<uint64_t, ZC_NUM_JS_OUTPUTS> expectedOutputMap {1, 0};
@@ -88,7 +83,6 @@ TEST(Transaction, JSDescriptionRandomized) {
         boost::array<size_t, ZC_NUM_JS_INPUTS> expectedInputMap {1, 0};
         boost::array<size_t, ZC_NUM_JS_OUTPUTS> expectedOutputMap {1, 0};
         #endif
-// ZEN_MOD_END
         EXPECT_EQ(expectedInputMap, inputMap);
         EXPECT_EQ(expectedOutputMap, outputMap);
     }
@@ -99,7 +93,6 @@ TEST(Transaction, JSDescriptionRandomized) {
             inputs, outputs,
             inputMap, outputMap,
             0, 0, false, nullptr, GenMax);
-// ZEN_MOD_START
         #ifdef __LP64__ // required for building on MacOS
         boost::array<uint64_t, ZC_NUM_JS_INPUTS> expectedInputMap {0, 1};
         boost::array<uint64_t, ZC_NUM_JS_OUTPUTS> expectedOutputMap {0, 1};
@@ -107,7 +100,6 @@ TEST(Transaction, JSDescriptionRandomized) {
         boost::array<size_t, ZC_NUM_JS_INPUTS> expectedInputMap {0, 1};
         boost::array<size_t, ZC_NUM_JS_OUTPUTS> expectedOutputMap {0, 1};
         #endif
-// ZEN_MOD_END
         EXPECT_EQ(expectedInputMap, inputMap);
         EXPECT_EQ(expectedOutputMap, outputMap);
     }

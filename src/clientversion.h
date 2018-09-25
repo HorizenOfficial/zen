@@ -34,10 +34,8 @@
 //! These need to be macros, as clientversion.cpp's and bitcoin*-res.rc's voodoo requires it
 #define CLIENT_VERSION_MAJOR 2
 #define CLIENT_VERSION_MINOR 0
-// ZEN_MOD_START
 #define CLIENT_VERSION_REVISION 15
 #define CLIENT_VERSION_BUILD 0
-// ZEN_MOD_END
 
 //! Set to true for release, false for prerelease or test build
 #define CLIENT_VERSION_IS_RELEASE true
@@ -58,9 +56,7 @@
 #define DO_STRINGIZE(X) #X
 
 //! Copyright string used in Windows .rc files
-// ZEN_MOD_START
 #define COPYRIGHT_STR "2009-" STRINGIZE(COPYRIGHT_YEAR) " The Bitcoin Core Developers, The Zcash developers, and Zen Blockchain Foundation"
-// ZEN_MOD_END
 
 /**
  * bitcoind-res.rc includes this file, but it cannot cope with real c++ code.

@@ -14,9 +14,7 @@ Functionality to build scripts, as well as SignatureHash().
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-# ZEN_MOD_START
 from test_framework.mininode import CTransaction, CTxOut, hash256, sha256
-# ZEN_MOD_END
 
 import sys
 bchr = chr
@@ -27,9 +25,7 @@ if sys.version > '3':
     bord = lambda x: x
 
 import struct
-# ZEN_MOD_START
 import hashlib
-# ZEN_MOD_END
 
 from test_framework import bignum
 
@@ -39,10 +35,8 @@ MAX_SCRIPT_OPCODES = 201
 
 OPCODE_NAMES = {}
 
-# ZEN_MOD_START
 def hash160(s):
     return hashlib.new('ripemd160', sha256(s)).digest()
-# ZEN_MOD_END
 
 _opcode_instances = []
 class CScriptOp(int):
@@ -239,9 +233,7 @@ OP_NOP2 = CScriptOp(0xb1)
 OP_NOP3 = CScriptOp(0xb2)
 OP_NOP4 = CScriptOp(0xb3)
 OP_NOP5 = CScriptOp(0xb4)
-#ZEN_MOD_START
 OP_CHECKBLOCKATHEIGHT = OP_NOP5
-#ZEN_MOD_END
 OP_NOP6 = CScriptOp(0xb5)
 OP_NOP7 = CScriptOp(0xb6)
 OP_NOP8 = CScriptOp(0xb7)
@@ -369,9 +361,7 @@ VALID_OPCODES = {
     OP_NOP3,
     OP_NOP4,
     OP_NOP5,
-#ZEN_MOD_START
     OP_CHECKBLOCKATHEIGHT,    
-#ZEN_MOD_END
     OP_NOP6,
     OP_NOP7,
     OP_NOP8,
@@ -490,10 +480,8 @@ OPCODE_NAMES.update({
     OP_NOP2 : 'OP_NOP2',
     OP_NOP3 : 'OP_NOP3',
     OP_NOP4 : 'OP_NOP4',
-#ZEN_MOD_START
     #OP_NOP5 : 'OP_NOP5',
     OP_CHECKBLOCKATHEIGHT : 'OP_CHECKBLOCKATHEIGHT',
-#ZEN_MOD_END
     OP_NOP6 : 'OP_NOP6',
     OP_NOP7 : 'OP_NOP7',
     OP_NOP8 : 'OP_NOP8',
@@ -612,10 +600,8 @@ OPCODES_BY_NAME = {
     'OP_NOP2' : OP_NOP2,
     'OP_NOP3' : OP_NOP3,
     'OP_NOP4' : OP_NOP4,
-#ZEN_MOD_START
     #OP_NOP5 : 'OP_NOP5',
     OP_CHECKBLOCKATHEIGHT : 'OP_CHECKBLOCKATHEIGHT',
-#ZEN_MOD_END
     'OP_NOP6' : OP_NOP6,
     'OP_NOP7' : OP_NOP7,
     'OP_NOP8' : OP_NOP8,

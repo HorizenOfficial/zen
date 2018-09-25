@@ -42,10 +42,8 @@
 
 using namespace std;
 
-// ZEN_MOD_START
 #include "zen/forkmanager.h"
 using namespace zen; 
-// ZEN_MOD_END
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -151,13 +149,11 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         pblock->nTime = GetAdjustedTime();
         const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();
 
-// ZEN_MOD_START
         pblock->nVersion = ComputeBlockVersion(pindexPrev, chainparams.GetConsensus());
         // -regtest only: allow overriding block.nVersion with
         // -blockversion=N to test forking scenarios
         if (chainparams.MineBlocksOnDemand())
             pblock->nVersion = GetArg("-blockversion", pblock->nVersion);
-// ZEN_MOD_END
 
         CCoinsViewCache view(pcoinsTip);
 
@@ -307,9 +303,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
             // policy here, but we still have to ensure that the block we
             // create only contains transactions that are valid in new blocks.
             CValidationState state;
-// ZEN_MOD_START
             if (!ContextualCheckInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
-// ZEN_MOD_END
                 continue;
 
             UpdateCoins(tx, state, view, nHeight);
@@ -360,7 +354,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         CAmount reward = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
         txNew.vout[0].nValue = reward;
 
-// ZEN_MOD_START
 
         for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
             CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight, reward, cfType);
@@ -371,7 +364,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
                 txNew.vout.push_back(CTxOut(vCommunityFund, chainparams.GetCommunityFundScriptAtHeight(nHeight, cfType)));
             }
         }
-// ZEN_MOD_END        
         // Add fees
         txNew.vout[0].nValue += nFees;
         txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;        
@@ -482,9 +474,7 @@ static bool ProcessBlockFound(CBlock* pblock)
     {
         LOCK(cs_main);
         if (pblock->hashPrevBlock != chainActive.Tip()->GetBlockHash())
-            // ZEN_MOD_START
             return error("HorizenMiner: generated block is stale");
-            // ZEN_MOD_END
     }
 
 #ifdef ENABLE_WALLET
@@ -503,9 +493,7 @@ static bool ProcessBlockFound(CBlock* pblock)
     // Process this block the same as if we had received it from another node
     CValidationState state;
     if (!ProcessNewBlock(state, NULL, pblock, true, NULL))
-        // ZEN_MOD_START
         return error("HorizenMiner: ProcessNewBlock, block not accepted");
-        // ZEN_MOD_END
 
     TrackMinedBlock(pblock->GetHash());
 
@@ -518,14 +506,10 @@ void static BitcoinMiner(CWallet *pwallet)
 void static BitcoinMiner()
 #endif
 {
-    // ZEN_MOD_START
     LogPrintf("HorizenMiner started\n");
-    // ZEN_MOD_END
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
-    // ZEN_MOD_START
     RenameThread("zen-miner");
     const CChainParams& chainparams = Params();
-    // ZEN_MOD_END
 
 #ifdef ENABLE_WALLET
     // Each thread has its own key
@@ -585,23 +569,17 @@ void static BitcoinMiner()
             if (!pblocktemplate.get())
             {
                 if (GetArg("-mineraddress", "").empty()) {
-                    // ZEN_MOD_START
                     LogPrintf("Error in HorizenMiner: Keypool ran out, please call keypoolrefill before restarting the mining thread\n");
-                    // ZEN_MOD_END
                 } else {
                     // Should never reach here, because -mineraddress validity is checked in init.cpp
-                    // ZEN_MOD_START
                     LogPrintf("Error in HorizenMiner: Invalid -mineraddress\n");
-                    // ZEN_MOD_END
                 }
                 return;
             }
             CBlock *pblock = &pblocktemplate->block;
             IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
-            // ZEN_MOD_START
             LogPrintf("Running HorizenMiner with %u transactions in block (%u bytes)\n", pblock->vtx.size(),
                 ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION));
-            // ZEN_MOD_END
 
             //
             // Search
@@ -651,9 +629,7 @@ void static BitcoinMiner()
 
                     // Found a solution
                     SetThreadPriority(THREAD_PRIORITY_NORMAL);
-                    // ZEN_MOD_START
                     LogPrintf("HorizenMiner:\n");
-                    // ZEN_MOD_END
                     LogPrintf("proof-of-work found  \n  hash: %s  \ntarget: %s\n", pblock->GetHash().GetHex(), hashTarget.GetHex());
 #ifdef ENABLE_WALLET
                     if (ProcessBlockFound(pblock, *pwallet, reservekey)) {
@@ -750,18 +726,14 @@ void static BitcoinMiner()
     {
         miningTimer.stop();
         c.disconnect();
-        // ZEN_MOD_START
         LogPrintf("HorizenMiner terminated\n");
-        // ZEN_MOD_END
         throw;
     }
     catch (const std::runtime_error &e)
     {
         miningTimer.stop();
         c.disconnect();
-        // ZEN_MOD_START
         LogPrintf("HorizenMiner runtime error: %s\n", e.what());
-        // ZEN_MOD_END
         return;
     }
     miningTimer.stop();

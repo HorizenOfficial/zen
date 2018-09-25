@@ -44,17 +44,13 @@ class MempoolCoinbaseTest(BitcoinTestFramework):
 
         b = [ self.nodes[0].getblockhash(n) for n in range(1, 4) ]
         coinbase_txids = [ self.nodes[0].getblock(h)['tx'][0] for h in b ]
-# ZEN_MOD_START
         spends1_raw = [ self.create_tx(txid, node0_address, 11.4375) for txid in coinbase_txids ]
-# ZEN_MOD_END
         spends1_id = [ self.nodes[0].sendrawtransaction(tx) for tx in spends1_raw ]
 
         blocks = []
         blocks.extend(self.nodes[0].generate(1))
 
-# ZEN_MOD_START
         spends2_raw = [ self.create_tx(txid, node0_address, 11.4365) for txid in spends1_id ]
-# ZEN_MOD_END
         spends2_id = [ self.nodes[0].sendrawtransaction(tx) for tx in spends2_raw ]
 
         blocks.extend(self.nodes[0].generate(1))

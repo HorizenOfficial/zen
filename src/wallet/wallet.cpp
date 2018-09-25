@@ -18,11 +18,9 @@
 #include "utilmoneystr.h"
 #include "zcash/Note.hpp"
 #include "crypter.h"
-// ZEN_MOD_START
 #include "chainparams.h"
 #include "zen/forkmanager.h"
 using namespace zen;
-// ZEN_MOD_END
 
 #include <assert.h>
 
@@ -161,9 +159,7 @@ bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey)
 
     // check if we need to remove from watch-only
     CScript script;
-// ZEN_MOD_START
     script = GetScriptForDestination(pubkey.GetID(), false);
-// ZEN_MOD_END
     if (HaveWatchOnly(script))
         RemoveWatchOnly(script);
 
@@ -2235,9 +2231,7 @@ CAmount CWallet::GetImmatureWatchOnlyBalance() const
 /**
  * populate vCoins with vector of available COutputs.
  */
-// ZEN_MOD_START
 void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const CCoinControl *coinControl, bool fIncludeZeroValue, bool fIncludeCoinBase, bool fIncludeCommunityFund) const
-// ZEN_MOD_END
 {
     vCoins.clear();
 
@@ -2254,9 +2248,7 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
             if (fOnlyConfirmed && !pcoin->IsTrusted())
                 continue;
 
-// ZEN_MOD_START
              if (pcoin->IsCoinBase() && !fIncludeCoinBase && !fIncludeCommunityFund)
-// ZEN_MOD_END
                  continue;
 
             if (pcoin->IsCoinBase() && pcoin->GetBlocksToMaturity() > 0)
@@ -2272,7 +2264,6 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                     !IsLockedCoin((*it).first, i) && (pcoin->vout[i].nValue > 0 || fIncludeZeroValue) &&
                     (!coinControl || !coinControl->HasSelected() || coinControl->fAllowOtherInputs || coinControl->IsSelected((*it).first, i)))
                 {
-// ZEN_MOD_START
                     if (pcoin->IsCoinBase())
                     {
                         const CCoins *coins = pcoinsTip->AccessCoins(wtxid);
@@ -2289,7 +2280,6 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                                 continue;
                         }
                     }
-// ZEN_MOD_END
                     vCoins.push_back(COutput(pcoin, i, nDepth, (mine & ISMINE_SPENDABLE) != ISMINE_NO));
                 }
 
@@ -2447,7 +2437,6 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
 
 bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet,  bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl* coinControl) const
 {
-// ZEN_MOD_START
     // If coinbase utxos can only be sent to zaddrs, exclude any coinbase utxos from coin selection.
     bool fProtectCoinbase = Params().GetConsensus().fCoinbaseMustBeProtected;
     bool fProtectCFCoinbase = false;
@@ -2463,16 +2452,11 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTx*
     fOnlyCoinbaseCoinsRet = vCoinsNoProtectedCoinbase.size() == 0 && vCoinsWithProtectedCoinbase.size() > 0;
 
     vector<COutput> vCoins = (fProtectCoinbase) ? vCoinsNoProtectedCoinbase : vCoinsWithProtectedCoinbase;
-// ZEN_MOD_END
 
     // Output parameter fNeedCoinbaseCoinsRet is set to true if coinbase utxos need to be spent to meet target amount
-// ZEN_MOD_START
     if (fProtectCoinbase && vCoinsWithProtectedCoinbase.size() > vCoinsNoProtectedCoinbase.size()) {
-// ZEN_MOD_END
         CAmount value = 0;
-// ZEN_MOD_START
         for (const COutput& out : vCoinsNoProtectedCoinbase) {
-// ZEN_MOD_END
             if (!out.fSpendable) {
                 continue;
             }
@@ -2480,9 +2464,7 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTx*
         }
         if (value <= nTargetValue) {
             CAmount valueWithCoinbase = 0;
-// ZEN_MOD_START
             for (const COutput& out : vCoinsWithProtectedCoinbase) {
-// ZEN_MOD_END
                 if (!out.fSpendable) {
                     continue;
                 }
@@ -2699,9 +2681,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 {
                     if (fOnlyCoinbaseCoins && Params().GetConsensus().fCoinbaseMustBeProtected) {
                         strFailReason = _("Coinbase funds can only be sent to a zaddr");
-// ZEN_MOD_START
                     } else if (fNeedCoinbaseCoins && Params().GetConsensus().fCoinbaseMustBeProtected) {
-// ZEN_MOD_END
                         strFailReason = _("Insufficient funds, coinbase funds can only be spent after they have been sent to a zaddr");
                     } else {
                         strFailReason = _("Insufficient funds");
