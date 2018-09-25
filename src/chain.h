@@ -128,9 +128,7 @@ public:
     //! (memory only) Total amount of work (expected number of hashes) in the chain up to and including this block
     arith_uint256 nChainWork;
 
-//ZEN_MOD_START
     int nChainDelay;
-//ZEN_MOD_END
 
     //! Number of transactions in this block.
     //! Note: in a potential headers-first mode, this number cannot be relied upon
@@ -399,24 +397,18 @@ private:
 public:
     /** Returns the index entry for the genesis block of this chain, or NULL if none. */
     CBlockIndex *Genesis() const {
-// ZEN_MOD_START
         return (*this)[0];
-// ZEN_MOD_END
     }
 
     /** Returns the index entry for the tip of this chain, or NULL if none. */
     CBlockIndex *Tip() const {
-// ZEN_MOD_START
         const int nHeight = Height();
         return nHeight >= 0 ? (*this)[nHeight] : NULL;
-// ZEN_MOD_END
     }
 
     /** Returns the index entry at a particular height in this chain, or NULL if no such height exists. */
-// ZEN_MOD_START
     virtual CBlockIndex *operator[](int nHeight) const {
         if (nHeight < 0 || nHeight > Height()) {
-// ZEN_MOD_END
             return NULL;
         }
         return vChain[nHeight];
@@ -424,9 +416,7 @@ public:
 
     /** Compare two chains efficiently. */
     friend bool operator==(const CChain &a, const CChain &b) {
-// ZEN_MOD_START
         return a.Tip() == b.Tip();
-// ZEN_MOD_END
     }
 
     /** Efficiently check whether a block is present in this chain. */
@@ -443,16 +433,12 @@ public:
     }
 
     /** Return the maximal height in the chain. Is equal to chain.Tip() ? chain.Tip()->nHeight : -1. */
-// ZEN_MOD_START
     virtual int Height() const {
-// ZEN_MOD_END
         return vChain.size() - 1;
     }
 
     /** Set/initialize a chain with a given tip. */
-// ZEN_MOD_START
     virtual void SetTip(CBlockIndex *pindex);
-// ZEN_MOD_END
 
     /** Return a CBlockLocator that refers to a block in this chain (by default the tip). */
     CBlockLocator GetLocator(const CBlockIndex *pindex = NULL) const;
@@ -461,7 +447,6 @@ public:
     const CBlockIndex *FindFork(const CBlockIndex *pindex) const;
 };
 
-// ZEN_MOD_START
 class CHistoricalChain : public CChain {
 private:
     const CChain& chain;
@@ -486,6 +471,5 @@ private:
 
     void SetTip(CBlockIndex *pindex);
 };
-// ZEN_MOD_END
 
 #endif // BITCOIN_CHAIN_H

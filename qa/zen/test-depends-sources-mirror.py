@@ -12,9 +12,7 @@ import sys
 import os
 import requests
 
-# ZEN_MOD_START
 MIRROR_URL_DIR="https://horizen.global/depends-sources/"
-# ZEN_MOD_END
 DEPENDS_SOURCES_DIR=os.path.realpath(os.path.join(
     os.path.dirname(__file__),
     "..", "..", "depends", "sources"
@@ -27,9 +25,7 @@ def get_depends_sources_list():
     )
 
 for filename in get_depends_sources_list():
-# ZEN_MOD_START
     resp = requests.head(MIRROR_URL_DIR + filename, allow_redirects=True)
-# ZEN_MOD_END
 
     print "Checking [" + filename + "] ..."
 

@@ -44,7 +44,6 @@ static const unsigned int MANDATORY_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_P2SH;
  * blocks and we must accept those blocks.
  */
 
-// ZEN_MOD_START
 static const unsigned int STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS = MANDATORY_SCRIPT_VERIFY_FLAGS |
                                                          SCRIPT_VERIFY_DERSIG |
                                                          SCRIPT_VERIFY_STRICTENC |
@@ -61,7 +60,6 @@ static const unsigned int STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS = STANDARD_
 
 /** For convenience, standard but not mandatory verify flags. */
 static const unsigned int STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS = STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS & ~MANDATORY_SCRIPT_VERIFY_FLAGS;
-// ZEN_MOD_END
 
 enum txnouttype
 {
@@ -70,17 +68,13 @@ enum txnouttype
     TX_PUBKEY,
     TX_PUBKEYHASH,
     TX_SCRIPTHASH,
-// ZEN_MOD_START
     TX_SCRIPTHASH_REPLAY,
-// ZEN_MOD_END
     TX_MULTISIG,
     TX_NULL_DATA,
-// ZEN_MOD_START
     TX_PUBKEY_REPLAY,
     TX_PUBKEYHASH_REPLAY,
     TX_MULTISIG_REPLAY,
     TX_NULL_DATA_REPLAY,
-// ZEN_MOD_END
 };
 
 class CNoDestination {
@@ -106,9 +100,7 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
 bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet);
 bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<CTxDestination>& addressRet, int& nRequiredRet);
 
-// ZEN_MOD_START
 CScript GetScriptForDestination(const CTxDestination& dest, bool withCheckBlockAtHeight = true);
-// ZEN_MOD_END
 CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys);
 
 #endif // BITCOIN_SCRIPT_STANDARD_H

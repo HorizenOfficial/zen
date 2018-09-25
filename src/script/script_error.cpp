@@ -67,12 +67,10 @@ const char* ScriptErrorString(const ScriptError serror)
             return "NOPx reserved for soft-fork upgrades";
         case SCRIPT_ERR_PUBKEYTYPE:
             return "Public key is neither compressed or uncompressed";
-// ZEN_MOD_START
         case SCRIPT_ERR_CHECKBLOCKATHEIGHT:
             return "Transaction failed to pass replay prevention checks";
         case SCRIPT_ERR_CHECKBLOCKATHEIGHT_UNVERIFIED:
             return "OP_CHECKBLOCKATHEIGHT cannot be verified with zen-tx";
-// ZEN_MOD_END
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
         default: break;

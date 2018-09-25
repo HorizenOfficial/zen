@@ -542,10 +542,8 @@ UniValue gettxout(const UniValue& params, bool fHelp)
             "     \"hex\" : \"hex\",        (string) \n"
             "     \"reqSigs\" : n,          (numeric) Number of required signatures\n"
             "     \"type\" : \"pubkeyhash\", (string) The type, eg pubkeyhash\n"
-// ZEN_MOD_START
             "     \"addresses\" : [          (array of string) array of Horizen addresses\n"
             "        \"horizenaddress\"        (string) Horizen address\n"
-// ZEN_MOD_END
             "        ,...\n"
             "     ]\n"
             "  },\n"
@@ -662,7 +660,6 @@ static UniValue SoftForkDesc(const std::string &name, int version, CBlockIndex* 
     return rv;
 }
 
-// ZEN_MOD_START
 static UniValue BIP9SoftForkDesc(const Consensus::Params& consensusParams, Consensus::DeploymentPos id)
 {
     UniValue rv(UniValue::VOBJ);
@@ -682,12 +679,10 @@ static UniValue BIP9SoftForkDesc(const Consensus::Params& consensusParams, Conse
     rv.push_back(Pair("timeout", consensusParams.vDeployments[id].nTimeout));
     return rv;
 }
-// ZEN_MOD_END
 
 UniValue getblockchaininfo(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
-// ZEN_MOD_START
         throw runtime_error(
             "getblockchaininfo\n"
             "Returns an object containing various state info regarding block chain processing.\n"
@@ -726,7 +721,6 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
             + HelpExampleCli("getblockchaininfo", "")
             + HelpExampleRpc("getblockchaininfo", "")
         );
-// ZEN_MOD_END
 
     LOCK(cs_main);
 
@@ -751,20 +745,14 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
 
     const Consensus::Params& consensusParams = Params().GetConsensus();
     UniValue softforks(UniValue::VARR);
-// ZEN_MOD_START
     UniValue bip9_softforks(UniValue::VOBJ);
-// ZEN_MOD_END
     softforks.push_back(SoftForkDesc("bip34", 2, tip, consensusParams));
     softforks.push_back(SoftForkDesc("bip66", 3, tip, consensusParams));
     softforks.push_back(SoftForkDesc("bip65", 4, tip, consensusParams));
-// ZEN_MOD_START
     //bip9_softforks.push_back(Pair("cbah", BIP9SoftForkDesc(consensusParams, Consensus::DEPLOYMENT_CBAH)));
-// ZEN_MOD_END
 
     obj.push_back(Pair("softforks",             softforks));
-// ZEN_MOD_START
     obj.push_back(Pair("bip9_softforks", bip9_softforks));
-// ZEN_MOD_END
 
     if (fPruneMode)
     {
