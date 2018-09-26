@@ -649,13 +649,11 @@ void Serialize_impl(Stream& os, const std::vector<T, A>& v, int nType, int nVers
 {
     WriteCompactSize(os, v.size());
     for (typename std::vector<T, A>::const_iterator vi = v.begin(); vi != v.end(); ++vi)        
-// ZEN_MOD_START
         #ifdef __APPLE__
                 ::Serialize(os, static_cast<T>(*vi), nType, nVersion);
         #else
                 ::Serialize(os, (*vi), nType, nVersion);
         #endif
-// ZEN_MOD_END
 }
 
 template<typename Stream, typename T, typename A>

@@ -49,7 +49,6 @@ Usage:
 $0 --help
   Show this help message and exit.
 
-# ZEN_MOD_START
 $0 [ --enable-lcov || --disable-tests ] [ --disable-mining ] [ --disable-rust ] [ --enable-proton ] [ --disable-libs ] [ MAKEARGS... ]
     Build Zen and most of its transitive dependencies from
     source. MAKEARGS are applied to both dependencies and Zen itself.
@@ -71,7 +70,6 @@ $0 [ --enable-lcov || --disable-tests ] [ --disable-mining ] [ --disable-rust ] 
   If --disable-libs is passed, Zen is configured to not build any libraries like
   'libzcashconsensus'.
 EOF
-# ZEN_MOD_END
     exit 0
 fi
 
@@ -141,8 +139,6 @@ ld -v
 
 HOST="$HOST" BUILD="$BUILD" NO_RUST="$RUST_ARG" NO_PROTON="$PROTON_ARG" "$MAKE" "$@" -C ./depends/ V=1
 ./autogen.sh
-# ZEN_MOD_START
 # CC="$CC" CXX="$CXX" ./configure --prefix="${PREFIX}" --host="$HOST" --build="$BUILD" "$RUST_ARG" "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG" "$PROTON_ARG" "$LIBS_ARG" --enable-werror CXXFLAGS='-fwrapv -fno-strict-aliasing -Wno-builtin-declaration-mismatch -Werror -g'
-# ZEN_MOD_END
 CC="$CC" CXX="$CXX" ./configure --prefix="${PREFIX}" --host="$HOST" --build="$BUILD" "$RUST_ARG" "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG" "$PROTON_ARG" "$LIBS_ARG" --enable-werror  CXXFLAGS='-g'
 "$MAKE" "$@" V=1

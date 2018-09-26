@@ -157,11 +157,9 @@ BOOST_AUTO_TEST_CASE(tx_valid)
 
                 unsigned int verify_flags = ParseScriptFlags(test[2].get_str());
                 BOOST_CHECK_MESSAGE(VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
-// ZEN_MOD_START
                                                  verify_flags, TransactionSignatureChecker(&tx, i, nullptr), &err),
                                     strTest);
                 BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
-// ZEN_MOD_END
             }
 
             comment = "";
@@ -242,9 +240,7 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
 
                 unsigned int verify_flags = ParseScriptFlags(test[2].get_str());
                 fValid = VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
-// ZEN_MOD_START
                         verify_flags, TransactionSignatureChecker(&tx, i, nullptr), &err);
-// ZEN_MOD_END
             }
             BOOST_CHECK_MESSAGE(!fValid, strTest + comment);
             BOOST_CHECK_MESSAGE(err != SCRIPT_ERR_OK, ScriptErrorString(err) + comment);

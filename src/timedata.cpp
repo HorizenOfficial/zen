@@ -99,9 +99,7 @@ void AddTimeData(const CNetAddr& ip, int64_t nOffsetSample)
                 if (!fMatch)
                 {
                     fDone = true;
-                    // ZEN_MOD_START
                     string strMessage = _("Warning: Please check that your computer's date and time are correct! If your clock is wrong Horizen will not work properly.");
-                    // ZEN_MOD_END
                     strMiscWarning = strMessage;
                     LogPrintf("*** %s\n", strMessage);
                     uiInterface.ThreadSafeMessageBox(strMessage, "", CClientUIInterface::MSG_WARNING);

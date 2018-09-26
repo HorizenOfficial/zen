@@ -68,17 +68,13 @@ bool AppInit(int argc, char* argv[])
     //
     // Parameters
     //
-    // ZEN_MOD_START
     // If Qt is used, parameters/zen.conf are parsed in qt/bitcoin.cpp's main()
-    // ZEN_MOD_END
     ParseParameters(argc, argv);
 
     // Process help and version before taking care about datadir
     if (mapArgs.count("-?") || mapArgs.count("-h") ||  mapArgs.count("-help") || mapArgs.count("-version"))
     {
-        // ZEN_MOD_START
         std::string strUsage = _("Zen Daemon") + " " + _("version") + " " + FormatFullVersion() + "\n";
-        // ZEN_MOD_END
 
         if (mapArgs.count("-version"))
         {
@@ -87,9 +83,7 @@ bool AppInit(int argc, char* argv[])
         else
         {
             strUsage += "\n" + _("Usage:") + "\n" +
-                    // ZEN_MOD_START
                   "  zend [options]                     " + _("Start Zen Daemon") + "\n";
-                    // ZEN_MOD_END
 
             strUsage += "\n" + HelpMessage(HMM_BITCOIND);
         }
@@ -109,7 +103,6 @@ bool AppInit(int argc, char* argv[])
         {
             ReadConfigFile(mapArgs, mapMultiArgs);
         } catch (const missing_zcash_conf& e) {
-// ZEN_MOD_START
             try
             {
 
@@ -186,7 +179,6 @@ bool AppInit(int argc, char* argv[])
                 fprintf(stderr, "Error copying configuration file: %s\n", e.what());
                 return false;
             }
-// ZEN_MOD_END
         } catch (const std::exception& e) {
             fprintf(stderr,"Error reading configuration file: %s\n", e.what());
             return false;
@@ -200,25 +192,19 @@ bool AppInit(int argc, char* argv[])
         // Command-line RPC
         bool fCommandLine = false;
         for (int i = 1; i < argc; i++)
-            // ZEN_MOD_START
             if (!IsSwitchChar(argv[i][0]) && !boost::algorithm::istarts_with(argv[i], "zen:"))
-            // ZEN_MOD_END
                 fCommandLine = true;
 
         if (fCommandLine)
         {
-            // ZEN_MOD_START
             fprintf(stderr, "Error: There is no RPC client functionality in zend. Use the zen-cli utility instead.\n");
-            // ZEN_MOD_END
             exit(1);
         }
 #ifndef WIN32
         fDaemon = GetBoolArg("-daemon", false);
         if (fDaemon)
         {
-            // ZEN_MOD_START
             fprintf(stdout, "Zen server starting\n");
-            // ZEN_MOD_END
 
             // Daemonize
             pid_t pid = fork();

@@ -5,9 +5,7 @@
 
 #include "interpreter.h"
 
-// ZEN_MOD_START
 #include "chain.h"
-// ZEN_MOD_END
 #include "primitives/transaction.h"
 #include "crypto/ripemd160.h"
 #include "crypto/sha1.h"
@@ -15,12 +13,10 @@
 #include "pubkey.h"
 #include "script/script.h"
 #include "uint256.h"
-// ZEN_MOD_START
 #include "util.h"
 #include "main.h"
 #include <boost/algorithm/hex.hpp>
 #include <boost/algorithm/string.hpp>
-// ZEN_MOD_END
 
 using namespace std;
 
@@ -385,7 +381,6 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     break;
                 }
 
-// ZEN_MOD_START
                 case OP_CHECKBLOCKATHEIGHT:
                 {
                     if (!(flags & SCRIPT_VERIFY_CHECKBLOCKATHEIGHT)) {
@@ -433,7 +428,6 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                 }
 
                 case OP_NOP1: case OP_NOP3: case OP_NOP4:
-// ZEN_MOD_END
                 case OP_NOP6: case OP_NOP7: case OP_NOP8: case OP_NOP9: case OP_NOP10:
                 {
                     if (flags & SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS)
@@ -1200,7 +1194,6 @@ bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime) con
     return true;
 }
 
-// ZEN_MOD_START
 bool TransactionSignatureChecker::CheckBlockHash(const int32_t nHeight, const std::vector<unsigned char>& vchCompareTo) const
 {
     if (!chain) {
@@ -1227,7 +1220,6 @@ bool TransactionSignatureChecker::CheckBlockHash(const int32_t nHeight, const st
 
     return (vchCompareTo == vchBlockHash);
 }
-// ZEN_MOD_END
 
 bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror)
 {

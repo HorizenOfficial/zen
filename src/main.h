@@ -25,9 +25,7 @@
 #include "tinyformat.h"
 #include "txmempool.h"
 #include "uint256.h"
-// ZEN_MOD_START
 #include "versionbits.h"
-// ZEN_MOD_END
 
 #include <algorithm>
 #include <exception>
@@ -254,13 +252,11 @@ void PruneAndFlush();
 bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, bool fLimitFree,
                         bool* pfMissingInputs, bool fRejectAbsurdFee=false);
 
-// ZEN_MOD_START
 /** Get the BIP9 state for a given deployment at the current tip. */
 ThresholdState VersionBitsTipState(const Consensus::Params& params, Consensus::DeploymentPos pos);
 
 /** Get the block height at which the BIP9 deployment switched into the state for the block building on the current tip. */
 int VersionBitsTipStateSinceHeight(const Consensus::Params& params, Consensus::DeploymentPos pos);
-// ZEN_MOD_END
 
 struct CNodeStateStats {
     int nMisbehavior;
@@ -339,9 +335,7 @@ unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& ma
  * instead of being performed inline.
  */
 bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
-// ZEN_MOD_START
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
-// ZEN_MOD_END
                            std::vector<CScriptCheck> *pvChecks = NULL);
 
 /** Apply the effects of this transaction on the UTXO set represented by view */
@@ -381,22 +375,16 @@ private:
     CScript scriptPubKey;
     const CTransaction *ptxTo;
     unsigned int nIn;
-// ZEN_MOD_START
     const CChain *chain;
-// ZEN_MOD_END
     unsigned int nFlags;
     bool cacheStore;
     ScriptError error;
 
 public:
-// ZEN_MOD_START
     CScriptCheck(): ptxTo(0), nIn(0), chain(nullptr), nFlags(0), cacheStore(false), error(SCRIPT_ERR_UNKNOWN_ERROR) {}
     CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, const CChain* chainIn, unsigned int nFlagsIn, bool cacheIn) :
-// ZEN_MOD_END
         scriptPubKey(txFromIn.vout[txToIn.vin[nInIn].prevout.n].scriptPubKey),
-// ZEN_MOD_START
         ptxTo(&txToIn), nIn(nInIn), chain(chainIn), nFlags(nFlagsIn), cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR) { }
-// ZEN_MOD_END
 
     bool operator()();
 
@@ -404,9 +392,7 @@ public:
         scriptPubKey.swap(check.scriptPubKey);
         std::swap(ptxTo, check.ptxTo);
         std::swap(nIn, check.nIn);
-// ZEN_MOD_START
         std::swap(chain, check.chain);
-// ZEN_MOD_END
         std::swap(nFlags, check.nFlags);
         std::swap(cacheStore, check.cacheStore);
         std::swap(error, check.error);
@@ -431,9 +417,7 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex);
 bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& coins, bool* pfClean = NULL);
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins */
-// ZEN_MOD_START
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& coins, const CChain& chain, bool fJustCheck = false);
-// ZEN_MOD_END
 
 /** Context-independent validity checks */
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW = true);
@@ -547,7 +531,6 @@ extern CBlockTreeDB *pblocktree;
  */
 int GetSpendHeight(const CCoinsViewCache& inputs);
 
-// ZEN_MOD_START
 /**
  * Check if the output nIn is CF Reward
  */
@@ -559,7 +542,6 @@ extern VersionBitsCache versionbitscache;
 * Determine what nVersion a new block should use.
 */
 int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Params& params);
-// ZEN_MOD_END
 
 namespace Consensus {
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);

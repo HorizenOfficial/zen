@@ -1,12 +1,9 @@
-# ZEN_MOD_START
 TESTS += zen-gtest
 noinst_PROGRAMS += zen-gtest
-# ZEN_MOD_END
 
 # tool for generating our public parameters.
 # test_checktransaction.cpp MUST be before
 # any test that calls SelectParams().
-# ZEN_MOD_START
 zen_gtest_SOURCES = \
 	gtest/main.cpp \
 	gtest/utils.cpp \
@@ -22,7 +19,6 @@ if ENABLE_WALLET
 zen_gtest_SOURCES += \
 	wallet/gtest/test_wallet_zkeys.cpp
 endif
-# ZEN_MOD_END
 zen_gtest_SOURCES += \
 	gtest/test_tautology.cpp \
 	gtest/test_deprecation.cpp \
@@ -47,20 +43,17 @@ zen_gtest_SOURCES += \
 	gtest/test_paymentdisclosure.cpp \
 	gtest/test_checkblock.cpp
 
-# ZEN_MOD_START
 if ENABLE_WALLET
 zen_gtest_SOURCES += \
 	wallet/gtest/test_wallet.cpp
 endif
 
-# ZEN_MOD_START
 # zen_gtest_CPPFLAGS = $(AM_CPPFLAGS) -DMULTICORE -fopenmp -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DSTATIC -DBITCOIN_TX $(BITCOIN_INCLUDES)
 zen_gtest_CPPFLAGS = $(AM_CPPFLAGS)
 if HAVE_OPENMP
 zen_gtest_CPPFLAGS += -DMULTICORE -fopenmp
 endif
 zen_gtest_CPPFLAGS += -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DSTATIC $(BITCOIN_INCLUDES)
-# ZEN_MOD_END
 
 zen_gtest_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 zen_gtest_LDADD = -lgtest -lgmock $(LIBBITCOIN_SERVER) $(LIBBITCOIN_CLI) $(LIBBITCOIN_COMMON) $(LIBBITCOIN_UTIL) $(LIBBITCOIN_CRYPTO) $(LIBUNIVALUE) $(LIBLEVELDB) $(LIBMEMENV) \
@@ -73,9 +66,7 @@ if ENABLE_WALLET
 zen_gtest_LDADD += $(LIBBITCOIN_WALLET)
 endif
 
-# ZEN_MOD_START
 zen_gtest_LDADD += $(LIBZCASH_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(LIBZCASH) $(LIBZENCASH) $(LIBSNARK) $(LIBZCASH_LIBS)
-# ZEN_MOD_END
 
 if ENABLE_PROTON
 zen_gtest_LDADD += $(LIBBITCOIN_PROTON) $(PROTON_LIBS)
@@ -88,4 +79,3 @@ zen-gtest_check: zen-gtest FORCE
 
 zen-gtest-expected-failures: zen-gtest FORCE
 	./zen-gtest --gtest_filter=*DISABLED_* --gtest_also_run_disabled_tests
-# ZEN_MOD_END
