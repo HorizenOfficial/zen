@@ -391,7 +391,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     if (!(flags & SCRIPT_VERIFY_CHECKBLOCKATHEIGHT)) {
                         // At least check that there are 2 parameters
                         if (stack.size() < 2) {
-                            LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Wrong parameters amount.", __FILE__, __func__);
+                            LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Wrong parameters amount.\n", __FILE__, __func__);
                             return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
                         }
                         // Clear stack
@@ -401,7 +401,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     }
 
                     if (stack.size() < 2) {
-                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Wrong parameters amount.", __FILE__, __func__);
+                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Wrong parameters amount.\n", __FILE__, __func__);
                         return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
                     }
 
@@ -410,7 +410,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 
                     if ((vchBlockIndex.size() > sizeof(int)) || (vchBlockHash.size() > 32))
                     {
-                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad params.", __FILE__, __func__);
+                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad params.\n", __FILE__, __func__);
                         return set_error(serror, SCRIPT_ERR_CHECKBLOCKATHEIGHT);
                     }
 
@@ -421,7 +421,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     if (nHeight < 0 || !checker.CheckBlockHash(nHeight, vchBlockHash)) {
                         // Not final rather than a hard reject to avoid caching across different blockchains
                         // Also because it will *eventually* become final when the height gets old enough
-                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Referenced height: %d", __FILE__, __func__, nHeight);
+                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Referenced height: %d\n", __FILE__, __func__, nHeight);
                         return set_error(serror, SCRIPT_ERR_NOT_FINAL);
                     }
 
