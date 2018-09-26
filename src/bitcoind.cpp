@@ -112,13 +112,14 @@ bool AppInit(int argc, char* argv[])
                     "                        WARNING:\n"
                     "The configuration file zen.conf is missing.\n"
                     "Please create a valid zen.conf in the default application data directory:\n"
-                    "Windows < Windows Vista: C:\Documents and Settings\Username\Application Data\Zen\n"
-                    "Windows >= Windows Vista: C:\Users\Username\AppData\\Roaming\Zen\n"
+                    "Windows < Windows Vista: C:\\Documents and Settings\\Username\\Application Data\\Zen\n"
+                    "Windows >= Windows Vista: C:\\Users\\Username\\AppData\\Roaming\\Zen\n"
                     "\n"
                     "You can find a configuration file template on:\n"
                     "https://github.com/ZencashOfficial/zen/blob/master/contrib/debian/examples/zen.conf\n"
                     "\n"
                     "This template is a default option that you need to change!\n"
+                    "\n"
                     "           Please create a valid zen.conf and restart to continue.\n"
                     "------------------------------------------------------------------\n");
                 return false;
