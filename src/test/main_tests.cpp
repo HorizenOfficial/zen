@@ -59,9 +59,7 @@ BOOST_AUTO_TEST_CASE(subsidy_limit_test)
         nSum += nSubsidy;
         BOOST_CHECK(MoneyRange(nSum));
     }
-// ZEN_MOD_START
     BOOST_CHECK_EQUAL(nSum, 1250000000ULL);
-// ZEN_MOD_END
     // Remainder of first period
     for (int nHeight = consensusParams.nSubsidySlowStartInterval; nHeight < consensusParams.nSubsidyHalvingInterval + consensusParams.SubsidySlowStartShift(); nHeight ++) {
         CAmount nSubsidy = GetBlockSubsidy(nHeight, consensusParams);

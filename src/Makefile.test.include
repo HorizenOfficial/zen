@@ -35,13 +35,10 @@ JSON_TEST_FILES = \
   test/data/g1_compressed.json \
   test/data/g2_compressed.json
 
-# ZEN_MOD_START
 #RAW_TEST_FILES = test/data/alertTests.raw
-# ZEN_MOD_END
 
 GENERATED_TEST_FILES = $(JSON_TEST_FILES:.json=.json.h) $(RAW_TEST_FILES:.raw=.raw.h)
 
-# ZEN_MOD_START
 BITCOIN_TESTS =\
   script/standard.cpp \
   test/arith_uint256_tests.cpp \
@@ -105,19 +102,16 @@ if !TARGET_WINDOWS
 BITCOIN_TESTS += test/rpc_wallet_tests.cpp
 endif
 
-# ZEN_MOD_END
 
 endif
 
 test_test_bitcoin_SOURCES = $(BITCOIN_TESTS) $(JSON_TEST_FILES) $(RAW_TEST_FILES)
-# ZEN_MOD_START
 # test_test_bitcoin_CPPFLAGS = $(AM_CPPFLAGS) -fopenmp $(BITCOIN_INCLUDES) -I$(builddir)/test/ $(TESTDEFS) $(EVENT_CFLAGS) -DBITCOIN_TX
 test_test_bitcoin_CPPFLAGS = $(AM_CPPFLAGS)
 if HAVE_OPENMP
 test_test_bitcoin_CPPFLAGS += -DMULTICORE -fopenmp
 endif
 test_test_bitcoin_CPPFLAGS += $(BITCOIN_INCLUDES) -I$(builddir)/test/ $(TESTDEFS) $(EVENT_CFLAGS)
-# ZEN_MOD_END
 
 test_test_bitcoin_LDADD = $(LIBBITCOIN_SERVER) $(LIBBITCOIN_CLI) $(LIBBITCOIN_COMMON) $(LIBBITCOIN_UTIL) $(LIBBITCOIN_CRYPTO) $(LIBUNIVALUE) $(LIBLEVELDB) $(LIBMEMENV) \
   $(BOOST_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIB) $(LIBSECP256K1) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS)
@@ -126,9 +120,7 @@ if ENABLE_WALLET
 test_test_bitcoin_LDADD += $(LIBBITCOIN_WALLET)
 endif
 
-# ZEN_MOD_START
 test_test_bitcoin_LDADD += $(LIBZCASH_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(LIBZCASH) $(LIBZENCASH) $(LIBSNARK) $(LIBZCASH_LIBS)
-# ZEN_MOD_END
 
 test_test_bitcoin_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
 

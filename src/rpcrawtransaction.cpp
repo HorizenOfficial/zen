@@ -212,7 +212,7 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             "         \"reqSigs\" : n,            (numeric) The required sigs\n"
             "         \"type\" : \"pubkeyhash\",  (string) The type, eg 'pubkeyhash'\n"
             "         \"addresses\" : [           (json array of string)\n"
-            "           \"zcashaddress\"          (string) Zcash address\n"
+            "           \"horizenaddress\"          (string) Horizen address\n"
             "           ,...\n"
             "         ]\n"
             "       }\n"
@@ -257,7 +257,6 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             + HelpExampleCli("getrawtransaction", "\"mytxid\" 1")
             + HelpExampleRpc("getrawtransaction", "\"mytxid\", 1")
         );
-
     LOCK(cs_main);
 
     uint256 hash = ParseHashV(params[0], "parameter 1");
@@ -397,7 +396,7 @@ UniValue verifytxoutproof(const UniValue& params, bool fHelp)
 }
 
 UniValue createrawtransaction(const UniValue& params, bool fHelp)
-{
+{   
     if (fHelp || params.size() != 2)
         throw runtime_error(
             "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...}\n"
@@ -417,7 +416,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "     ]\n"
             "2. \"addresses\"           (string, required) a json object with addresses as keys and amounts as values\n"
             "    {\n"
-            "      \"address\": x.xxx   (numeric, required) The key is the zcash address, the value is the " + CURRENCY_UNIT + " amount\n"
+            "      \"address\": x.xxx   (numeric, required) The key is the Horizen address, the value is the " + CURRENCY_UNIT + " amount\n"
             "      ,...\n"
             "    }\n"
 
@@ -459,7 +458,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
     BOOST_FOREACH(const string& name_, addrList) {
         CBitcoinAddress address(name_);
         if (!address.IsValid())
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Zcash address: ")+name_);
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Horizen address: ")+name_);
 
         if (setAddress.count(address))
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+name_);
@@ -476,7 +475,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 }
 
 UniValue decoderawtransaction(const UniValue& params, bool fHelp)
-{
+{   
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "decoderawtransaction \"hexstring\"\n"
@@ -512,7 +511,7 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
             "         \"reqSigs\" : n,            (numeric) The required sigs\n"
             "         \"type\" : \"pubkeyhash\",  (string) The type, eg 'pubkeyhash'\n"
             "         \"addresses\" : [           (json array of string)\n"
-            "           \"t12tvKAXCxZjSmdNbao16dKXC8tRWfcF5oc\"   (string) zcash address\n"
+            "           \"t12tvKAXCxZjSmdNbao16dKXC8tRWfcF5oc\"   (string) Horizen address\n"
             "           ,...\n"
             "         ]\n"
             "       }\n"
@@ -568,7 +567,7 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
 }
 
 UniValue decodescript(const UniValue& params, bool fHelp)
-{
+{   
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "decodescript \"hex\"\n"
@@ -582,7 +581,7 @@ UniValue decodescript(const UniValue& params, bool fHelp)
             "  \"type\":\"type\", (string) The output type\n"
             "  \"reqSigs\": n,    (numeric) The required signatures\n"
             "  \"addresses\": [   (json array of string)\n"
-            "     \"address\"     (string) Zcash address\n"
+            "     \"address\"     (string) Zen address\n"
             "     ,...\n"
             "  ],\n"
             "  \"p2sh\",\"address\" (string) script address\n"
@@ -847,9 +846,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             txin.scriptSig = CombineSignatures(prevPubKey, mergedTx, i, txin.scriptSig, txv.vin[i].scriptSig);
         }
         ScriptError serror = SCRIPT_ERR_OK;
-// ZEN_MOD_START
         if (!VerifyScript(txin.scriptSig, prevPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS, MutableTransactionSignatureChecker(&mergedTx, i), &serror)) {
-// ZEN_MOD_END
             TxInErrorToJSON(txin, vErrors, ScriptErrorString(serror));
         }
     }

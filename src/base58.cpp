@@ -250,12 +250,10 @@ bool CBitcoinAddress::IsValid() const
 bool CBitcoinAddress::IsValid(const CChainParams& params) const
 {
     bool fCorrectSize = vchData.size() == 20;
-// ZEN_MOD_START
     bool fKnownVersion = vchVersion == params.Base58Prefix(CChainParams::PUBKEY_ADDRESS) ||
                          vchVersion == params.Base58Prefix(CChainParams::SCRIPT_ADDRESS) ||
                          vchVersion == params.Base58Prefix(CChainParams::PUBKEY_ADDRESS_OLD) ||
                          vchVersion == params.Base58Prefix(CChainParams::SCRIPT_ADDRESS_OLD);
-// ZEN_MOD_END
     return fCorrectSize && fKnownVersion;
 }
 
@@ -275,15 +273,11 @@ CTxDestination CBitcoinAddress::Get() const
         return CNoDestination();
     uint160 id;
     memcpy(&id, &vchData[0], 20);
-// ZEN_MOD_START
     if (vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS)
     	|| vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS_OLD))
-// ZEN_MOD_END
         return CKeyID(id);
-// ZEN_MOD_START
     else if (vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS)
     		|| vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS_OLD))
-// ZEN_MOD_END
         return CScriptID(id);
     else
         return CNoDestination();
@@ -291,32 +285,26 @@ CTxDestination CBitcoinAddress::Get() const
 
 bool CBitcoinAddress::GetKeyID(CKeyID& keyID) const
 {
-// ZEN_MOD_START
     if (!IsPubKey())
         return false;
-// ZEN_MOD_END
     uint160 id;
     memcpy(&id, &vchData[0], 20);
     keyID = CKeyID(id);
     return true;
 }
 
-// ZEN_MOD_START
 bool CBitcoinAddress::IsPubKey() const
 {
     return IsValid() &&
     		(vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS)
     		|| vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS_OLD));
 }
-// ZEN_MOD_END
 
 bool CBitcoinAddress::IsScript() const
 {
-// ZEN_MOD_START
     return IsValid() &&
     		(vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS)
     		|| vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS_OLD));
-// ZEN_MOD_END
 }
 
 void CBitcoinSecret::SetKey(const CKey& vchSecret)

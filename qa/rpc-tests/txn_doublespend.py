@@ -23,10 +23,8 @@ class TxnMallTest(BitcoinTestFramework):
         return super(TxnMallTest, self).setup_network(True)
 
     def run_test(self):
-# ZEN_MOD_START
         mining_reward = Decimal("11.4375")
         mining_reward_2 = Decimal("11")
-# ZEN_MOD_END
         starting_balance = mining_reward * 25
 
         for i in range(4):
@@ -95,12 +93,10 @@ class TxnMallTest(BitcoinTestFramework):
         # Both transactions should be conflicted
         assert_equal(tx1["confirmations"], -1)
         assert_equal(tx2["confirmations"], -1)
-# ZEN_MOD_START
         # Node0's total balance should be starting balance, plus (mining_reward * 2) for
         # two more matured blocks, minus (starting_balance - (mining_reward - 2)) for the double-spend:
         
         expected = starting_balance + (mining_reward_2 * 2) - (starting_balance - (mining_reward - 2))
-# ZEN_MOD_END        
         assert_equal(self.nodes[0].getbalance(), expected)
         assert_equal(self.nodes[0].getbalance("*"), expected)
 

@@ -276,10 +276,8 @@ double benchmark_large_tx()
         ScriptError serror = SCRIPT_ERR_OK;
         assert(VerifyScript(final_spending_tx.vin[i].scriptSig,
                             prevPubKey,
-// ZEN_MOD_START
                             STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
                             TransactionSignatureChecker(&final_spending_tx, i, nullptr),
-// ZEN_MOD_END
                             &serror));
     }
     return timer_stop(tv_start);
@@ -424,18 +422,14 @@ double benchmark_connectblock_slow()
     index.pprev = &indexPrev;
     mapBlockIndex.insert(std::make_pair(hashPrev, &indexPrev));
 
-// ZEN_MOD_START
     // Build a CChain
     CChain chain;
     chain.SetTip(&index);
-// ZEN_MOD_END
     
     CValidationState state;
     struct timeval tv_start;
     timer_start(tv_start);
-// ZEN_MOD_START
     assert(ConnectBlock(block, state, &index, view, chain, true));
-// ZEN_MOD_END
     auto duration = timer_stop(tv_start);
 
     // Undo alterations to global state

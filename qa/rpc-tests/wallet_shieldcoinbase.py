@@ -5,13 +5,11 @@
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-# ZEN_MOD_START
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_node, connect_nodes_bi, sync_blocks, sync_mempools
 
 import sys
 import time
-# ZEN_MOD_END
 from decimal import Decimal
 
 class WalletShieldCoinbaseTest (BitcoinTestFramework):
@@ -33,7 +31,6 @@ class WalletShieldCoinbaseTest (BitcoinTestFramework):
         self.is_network_split=False
         self.sync_all()
 
-# ZEN_MOD_START
     # Returns txid if operation was a success or None
     def wait_and_assert_operationid_status(self, nodeid, myopid, in_status='success', in_errormsg=None):
         print('waiting for async operation {}'.format(myopid))
@@ -62,12 +59,9 @@ class WalletShieldCoinbaseTest (BitcoinTestFramework):
             print('...returned error: {}'.format(errormsg))
         return txid
 
-# ZEN_MOD_END
     def run_test (self):
         
-# ZEN_MOD_START
         blockreward = 11.4375
-# ZEN_MOD_END
         
         print "Mining blocks..."
 
@@ -76,9 +70,7 @@ class WalletShieldCoinbaseTest (BitcoinTestFramework):
 
         self.nodes[0].generate(4)
         walletinfo = self.nodes[0].getwalletinfo()
-# ZEN_MOD_START
         assert_equal(walletinfo['immature_balance'], blockreward * 5)
-# ZEN_MOD_END
         assert_equal(walletinfo['balance'], 0)
         self.sync_all()
         self.nodes[2].generate(1)
@@ -89,11 +81,9 @@ class WalletShieldCoinbaseTest (BitcoinTestFramework):
         self.sync_all()
         self.nodes[1].generate(101)
         self.sync_all()
-# ZEN_MOD_START
         assert_equal(self.nodes[0].getbalance(), blockreward * 5)
         assert_equal(self.nodes[1].getbalance(), blockreward)
         assert_equal(self.nodes[2].getbalance(), blockreward * 3)
-# ZEN_MOD_END
 
         # Prepare to send taddr->zaddr
         mytaddr = self.nodes[0].getnewaddress()
@@ -142,39 +132,31 @@ class WalletShieldCoinbaseTest (BitcoinTestFramework):
             errorString = e.error['message']
             assert_equal("JSON integer out of range" in errorString, True)
 
-# ZEN_MOD_START
         # Shield coinbase utxos from node 0 of value 40, standard fee of 0.00010000
         result = self.nodes[0].z_shieldcoinbase(mytaddr, myzaddr)
         mytxid = self.wait_and_assert_operationid_status(0, result['opid'])
-# ZEN_MOD_END
         self.sync_all()
         self.nodes[1].generate(1)
         self.sync_all()
 
         # Confirm balances and that do_not_shield_taddr containing funds of 10 was left alone
-# ZEN_MOD_START
         assert_equal(self.nodes[0].getbalance(), blockreward)
         assert_equal(self.nodes[0].z_getbalance(do_not_shield_taddr), Decimal(blockreward))
         assert_equal(self.nodes[0].z_getbalance(myzaddr), Decimal('45.74990000')) # Not using blockreward due to rounding error
         assert_equal(self.nodes[1].getbalance(), blockreward * 2)
         assert_equal(self.nodes[2].getbalance(), blockreward * 3)
-# ZEN_MOD_END
 
         # Shield coinbase utxos from any node 2 taddr, and set fee to 0
         result = self.nodes[2].z_shieldcoinbase("*", myzaddr, 0)
-# ZEN_MOD_START
         mytxid = self.wait_and_assert_operationid_status(2, result['opid'])
-# ZEN_MOD_END
         self.sync_all()
         self.nodes[1].generate(1)
         self.sync_all()
 
-# ZEN_MOD_START
         assert_equal(self.nodes[0].getbalance(), blockreward)
         assert_equal(self.nodes[0].z_getbalance(myzaddr), Decimal('80.06240000')) # Not using blockreward due to rounding error
         assert_equal(self.nodes[1].getbalance(), blockreward * 3)
         assert_equal(self.nodes[2].getbalance(), 0)
-# ZEN_MOD_END
 
         # Generate 800 coinbase utxos on node 0, and 20 coinbase utxos on node 2
         self.nodes[0].generate(800)
@@ -187,18 +169,14 @@ class WalletShieldCoinbaseTest (BitcoinTestFramework):
 
         # Shielding the 800 utxos will occur over two transactions, since max tx size is 100,000 bytes.
         # We don't verify shieldingValue as utxos are not selected in any specific order, so value can change on each test run.
-# ZEN_MOD_START
         result = self.nodes[0].z_shieldcoinbase(mytaddr, myzaddr, 0, 9999)
-# ZEN_MOD_END
         assert_equal(result["shieldingUTXOs"], Decimal('662'))
         assert_equal(result["remainingUTXOs"], Decimal('138'))
         remainingValue = result["remainingValue"]
         opid1 = result['opid']
 
         # Verify that utxos are locked (not available for selection) by queuing up another shielding operation
-# ZEN_MOD_START
         result = self.nodes[0].z_shieldcoinbase(mytaddr, myzaddr, 0 , 0)
-# ZEN_MOD_END
         assert_equal(result["shieldingValue"], Decimal(remainingValue))
         assert_equal(result["shieldingUTXOs"], Decimal('138'))
         assert_equal(result["remainingValue"], Decimal('0'))
@@ -206,7 +184,6 @@ class WalletShieldCoinbaseTest (BitcoinTestFramework):
         opid2 = result['opid']
 
         # wait for both aysnc operations to complete
-# ZEN_MOD_START
         self.wait_and_assert_operationid_status(0, opid1)
         self.wait_and_assert_operationid_status(0, opid2)
 
@@ -215,19 +192,16 @@ class WalletShieldCoinbaseTest (BitcoinTestFramework):
         # which mines tx1 and tx2, all nodes will have an empty mempool which can then be synced.
         sync_blocks(self.nodes[:2])
         sync_mempools(self.nodes[:2])
-# ZEN_MOD_END
         self.nodes[1].generate(1)
         self.sync_all()
 
         # Verify maximum number of utxos which node 2 can shield is limited by option -mempooltxinputlimit
-# ZEN_MOD_START
         mytaddr = self.nodes[2].getnewaddress()
         result = self.nodes[2].z_shieldcoinbase(mytaddr, myzaddr, Decimal('0.0001'), 0)
         assert_equal(result["shieldingUTXOs"], Decimal('7'))
         assert_equal(result["remainingUTXOs"], Decimal('13'))
         mytxid = self.wait_and_assert_operationid_status(2, result['opid'])
         self.sync_all()
-# ZEN_MOD_END
         self.nodes[1].generate(1)
         self.sync_all()
 

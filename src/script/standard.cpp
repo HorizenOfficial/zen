@@ -12,12 +12,10 @@
 
 #include <boost/foreach.hpp>
 
-// ZEN_MOD_START
 #include "main.h"
 #include "versionbits.h"
 #include "zen/forkmanager.h"
 using namespace zen;
-// ZEN_MOD_END
 
 using namespace std;
 
@@ -35,17 +33,13 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_PUBKEY: return "pubkey";
     case TX_PUBKEYHASH: return "pubkeyhash";
     case TX_SCRIPTHASH: return "scripthash";
-// ZEN_MOD_START
     case TX_SCRIPTHASH_REPLAY: return "scripthashreplay";
-// ZEN_MOD_END
     case TX_MULTISIG: return "multisig";
     case TX_NULL_DATA: return "nulldata";
-// ZEN_MOD_START
     case TX_PUBKEY_REPLAY: return "pubkeyreplay";
     case TX_PUBKEYHASH_REPLAY: return "pubkeyhashreplay";
     case TX_MULTISIG_REPLAY: return "multisigreplay";
     case TX_NULL_DATA_REPLAY: return "nulldatareplay";
-// ZEN_MOD_END
     }
     return NULL;
 }
@@ -61,42 +55,32 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
     {
         // Standard tx, sender provides pubkey, receiver adds signature
         mTemplates.insert(make_pair(TX_PUBKEY, CScript() << OP_PUBKEY << OP_CHECKSIG));
-// ZEN_MOD_START
         mTemplates.insert(make_pair(TX_PUBKEY_REPLAY, CScript() << OP_PUBKEY << OP_CHECKSIG << OP_SMALLDATA << OP_SMALLDATA << OP_CHECKBLOCKATHEIGHT));
-// ZEN_MOD_END
 
         // Bitcoin address tx, sender provides hash of pubkey, receiver provides signature and pubkey
         mTemplates.insert(make_pair(TX_PUBKEYHASH, CScript() << OP_DUP << OP_HASH160 << OP_PUBKEYHASH << OP_EQUALVERIFY << OP_CHECKSIG));
-// ZEN_MOD_START
         mTemplates.insert(make_pair(TX_PUBKEYHASH_REPLAY, CScript() << OP_DUP << OP_HASH160 << OP_PUBKEYHASH << OP_EQUALVERIFY << OP_CHECKSIG << OP_SMALLDATA << OP_SMALLDATA << OP_CHECKBLOCKATHEIGHT));
-// ZEN_MOD_END
 
         // Sender provides N pubkeys, receivers provides M signatures
         mTemplates.insert(make_pair(TX_MULTISIG, CScript() << OP_SMALLINTEGER << OP_PUBKEYS << OP_SMALLINTEGER << OP_CHECKMULTISIG));
-// ZEN_MOD_START
         mTemplates.insert(make_pair(TX_MULTISIG_REPLAY, CScript() << OP_SMALLINTEGER << OP_PUBKEYS << OP_SMALLINTEGER << OP_CHECKMULTISIG << OP_SMALLDATA << OP_SMALLDATA << OP_CHECKBLOCKATHEIGHT));
 
         // P2SH, sender provides script hash
         mTemplates.insert(make_pair(TX_SCRIPTHASH, CScript() << OP_HASH160 << OP_PUBKEYHASH << OP_EQUAL));
         mTemplates.insert(make_pair(TX_SCRIPTHASH_REPLAY, CScript() << OP_HASH160 << OP_PUBKEYHASH << OP_EQUAL << OP_SMALLDATA << OP_SMALLDATA << OP_CHECKBLOCKATHEIGHT));
-// ZEN_MOD_END
 
         // Empty, provably prunable, data-carrying output
         if (GetBoolArg("-datacarrier", true))
         {
             mTemplates.insert(make_pair(TX_NULL_DATA, CScript() << OP_RETURN << OP_SMALLDATA));
-// ZEN_MOD_START
             mTemplates.insert(make_pair(TX_NULL_DATA_REPLAY, CScript() << OP_RETURN << OP_SMALLDATA << OP_SMALLDATA << OP_SMALLDATA << OP_CHECKBLOCKATHEIGHT));
-// ZEN_MOD_END
         }
         mTemplates.insert(make_pair(TX_NULL_DATA, CScript() << OP_RETURN));
         mTemplates.insert(make_pair(TX_NULL_DATA_REPLAY, CScript() << OP_RETURN << OP_SMALLDATA << OP_SMALLDATA << OP_CHECKBLOCKATHEIGHT));
     }
 
-// ZEN_MOD_START
     // OP_CHECKBLOCKATHEIGHT parameters
     vector<unsigned char> vchBlockHash, vchBlockHeight;
-// ZEN_MOD_END
 
     // Scan templates
     const CScript& script1 = scriptPubKey;
@@ -117,9 +101,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
             {
                 // Found a match
                 typeRet = tplate.first;
-// ZEN_MOD_START
                 if (typeRet == TX_MULTISIG || typeRet == TX_MULTISIG_REPLAY)
-// ZEN_MOD_END
                 {
                     // Additional checks for TX_MULTISIG:
                     unsigned char m = vSolutionsRet.front()[0];
@@ -128,13 +110,11 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                         return false;
                 }
 
-// ZEN_MOD_START
                 if (typeRet == TX_SCRIPTHASH || typeRet == TX_SCRIPTHASH_REPLAY)
                 {
                     vector<unsigned char> hashBytes(scriptPubKey.begin()+2, scriptPubKey.begin()+22);
                     vSolutionsRet.push_back(hashBytes);
                 }
-// ZEN_MOD_END
 
                 return true;
             }
@@ -183,19 +163,16 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
             }
             else if (opcode2 == OP_SMALLDATA)
             {
-// ZEN_MOD_START
             	// Possible values of OP_CHECKBLOCKATHEIGHT parameters
             	if (vch1.size() <= sizeof(int32_t))
 					vchBlockHeight = vch1;
 				else
 					vchBlockHash = vch1;
-// ZEN_MOD_END
 
                 // small pushdata, <= nMaxDatacarrierBytes
                 if (vch1.size() > nMaxDatacarrierBytes)
                     break;
             }
-// ZEN_MOD_START
             else if (opcode2 == OP_CHECKBLOCKATHEIGHT)
             {
             	// Full-fledged implementation of the OP_CHECKBLOCKATHEIGHT opcode for verification of vout's
@@ -210,7 +187,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
                 const int32_t nHeight = CScriptNum(vchBlockHeight, false, sizeof(int32_t)).getint();
 
-                if ((nHeight < 0 || nHeight > chainActive.Height()) && ForkManager::getInstance().getReplayProtectionLevel(nHeight) == RPLEVEL_FIXED)
+                if ((nHeight < 0 || nHeight > chainActive.Height()) && ForkManager::getInstance().getReplayProtectionLevel(chainActive.Height()) == RPLEVEL_FIXED)
                 {
                     LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Transaction is non-final. nHeight: %d", __FILE__, __func__, nHeight);
                     break;
@@ -235,7 +212,6 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     break;
                 }
             }
-// ZEN_MOD_END
             else if (opcode1 != opcode2 || vch1 != vch2)
             {
                 // Others must match exactly
@@ -255,31 +231,21 @@ int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned c
     {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
-// ZEN_MOD_START
     case TX_NULL_DATA_REPLAY:
-// ZEN_MOD_END
         return -1;
     case TX_PUBKEY:
-// ZEN_MOD_START
     case TX_PUBKEY_REPLAY:
-// ZEN_MOD_END
         return 1;
     case TX_PUBKEYHASH:
-// ZEN_MOD_START
     case TX_PUBKEYHASH_REPLAY:
-// ZEN_MOD_END
         return 2;
     case TX_MULTISIG:
-// ZEN_MOD_START
     case TX_MULTISIG_REPLAY:
-// ZEN_MOD_END
         if (vSolutions.size() < 1 || vSolutions[0].size() < 1)
             return -1;
         return vSolutions[0][0] + 1;
     case TX_SCRIPTHASH:
-// ZEN_MOD_START
     case TX_SCRIPTHASH_REPLAY:
-// ZEN_MOD_END
         return 1; // doesn't include args needed by the script
     }
     return -1;
@@ -291,9 +257,7 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
     if (!Solver(scriptPubKey, whichType, vSolutions))
         return false;
 
-// ZEN_MOD_START
     if (whichType == TX_MULTISIG || whichType == TX_MULTISIG_REPLAY)
-// ZEN_MOD_END
     {
         unsigned char m = vSolutions.front()[0];
         unsigned char n = vSolutions.back()[0];
@@ -314,9 +278,7 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
     if (!Solver(scriptPubKey, whichType, vSolutions))
         return false;
 
-// ZEN_MOD_START
     if (whichType == TX_PUBKEY || whichType == TX_PUBKEY_REPLAY)
-// ZEN_MOD_END
     {
         CPubKey pubKey(vSolutions[0]);
         if (!pubKey.IsValid())
@@ -325,16 +287,12 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
         addressRet = pubKey.GetID();
         return true;
     }
-// ZEN_MOD_START
     else if (whichType == TX_PUBKEYHASH || whichType == TX_PUBKEYHASH_REPLAY)
-// ZEN_MOD_END
     {
         addressRet = CKeyID(uint160(vSolutions[0]));
         return true;
     }
-// ZEN_MOD_START
     else if (whichType == TX_SCRIPTHASH || whichType == TX_SCRIPTHASH_REPLAY)
-// ZEN_MOD_END
     {
         addressRet = CScriptID(uint160(vSolutions[0]));
         return true;
@@ -350,16 +308,12 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, vecto
     vector<valtype> vSolutions;
     if (!Solver(scriptPubKey, typeRet, vSolutions))
         return false;
-// ZEN_MOD_START
     if (typeRet == TX_NULL_DATA || typeRet == TX_NULL_DATA_REPLAY){
-// ZEN_MOD_END
         // This is data, not addresses
         return false;
     }
 
-// ZEN_MOD_START
     if (typeRet == TX_MULTISIG || typeRet == TX_MULTISIG_REPLAY)
-// ZEN_MOD_END
     {
         nRequiredRet = vSolutions.front()[0];
         for (unsigned int i = 1; i < vSolutions.size()-1; i++)
@@ -393,25 +347,19 @@ class CScriptVisitor : public boost::static_visitor<bool>
 {
 private:
     CScript *script;
-// ZEN_MOD_START
     bool withCheckBlockAtHeight;
-// ZEN_MOD_END
 public:
-// ZEN_MOD_START
     CScriptVisitor(CScript *scriptin, bool withCheckBlockAtHeightIn) {
         script = scriptin;
         withCheckBlockAtHeight = withCheckBlockAtHeightIn;
     }
-// ZEN_MOD_END
 
     bool operator()(const CNoDestination &dest) const {
         script->clear();
         return false;
     }
 
-// ZEN_MOD_START
 #ifdef BITCOIN_TX // zen-tx does not have access to chain state so no replay protection is possible
-// ZEN_MOD_END
     bool operator()(const CKeyID &keyID) const {
         script->clear();
         *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
@@ -423,7 +371,6 @@ public:
         *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
         return true;
     }
-// ZEN_MOD_START
 #else
     bool operator()(const CKeyID &keyID) const {
         script->clear();
@@ -453,20 +400,15 @@ public:
         return true;
     }
 #endif
-// ZEN_MOD_END
 
 };
 }
 
-// ZEN_MOD_START
 CScript GetScriptForDestination(const CTxDestination& dest, bool withCheckBlockAtHeight)
-// ZEN_MOD_END
 {
     CScript script;
 
-// ZEN_MOD_START
     boost::apply_visitor(CScriptVisitor(&script, withCheckBlockAtHeight), dest);
-// ZEN_MOD_END
     return script;
 }
 

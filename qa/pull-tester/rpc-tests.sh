@@ -48,8 +48,8 @@ testScripts=(
     'bip65-cltv-p2p.py'
     'bipdersig-p2p.py'
     'nulldata.py'
+    'blockdelay.py'
 );
-# ZEN_MOD_START
 testScriptsExt=(
     'getblocktemplate_longpoll.py'
     'getblocktemplate_proposals.py'
@@ -68,7 +68,6 @@ testScriptsExt=(
 #   'p2p-acceptblock.py'        # requires create_block functionality that is not implemented for zcash blocks yet
     'replay_protection.py'
 );
-# ZEN_MOD_END
 
 if [ "x$ENABLE_ZMQ" = "x1" ]; then
   testScripts+=('zmq_test.py')
