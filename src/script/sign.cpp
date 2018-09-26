@@ -17,9 +17,7 @@ using namespace std;
 
 typedef vector<unsigned char> valtype;
 
-// ZEN_MOD_START
 TransactionSignatureCreator::TransactionSignatureCreator(const CKeyStore* keystoreIn, const CTransaction* txToIn, unsigned int nInIn, int nHashTypeIn) : BaseSignatureCreator(keystoreIn), txTo(txToIn), nIn(nInIn), nHashType(nHashTypeIn), checker(txTo, nIn, nullptr) {}
-// ZEN_MOD_END
 
 bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, const CKeyID& address, const CScript& scriptCode) const
 {
@@ -83,20 +81,14 @@ static bool SignStep(const BaseSignatureCreator& creator, const CScript& scriptP
     {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
-// ZEN_MOD_START
     case TX_NULL_DATA_REPLAY:
-// ZEN_MOD_END
         return false;
     case TX_PUBKEY:
-// ZEN_MOD_START
     case TX_PUBKEY_REPLAY:
-// ZEN_MOD_END
         keyID = CPubKey(vSolutions[0]).GetID();
         return Sign1(keyID, creator, scriptPubKey, scriptSigRet);
     case TX_PUBKEYHASH:
-// ZEN_MOD_START
     case TX_PUBKEYHASH_REPLAY:
-// ZEN_MOD_END
         keyID = CKeyID(uint160(vSolutions[0]));
         if (!Sign1(keyID, creator, scriptPubKey, scriptSigRet))
             return false;
@@ -108,15 +100,11 @@ static bool SignStep(const BaseSignatureCreator& creator, const CScript& scriptP
         }
         return true;
     case TX_SCRIPTHASH:
-// ZEN_MOD_START
     case TX_SCRIPTHASH_REPLAY:
-// ZEN_MOD_END
         return creator.KeyStore().GetCScript(uint160(vSolutions[0]), scriptSigRet);
 
     case TX_MULTISIG:
-// ZEN_MOD_START
     case TX_MULTISIG_REPLAY:
-// ZEN_MOD_END
         scriptSigRet << OP_0; // workaround CHECKMULTISIG bug
         return (SignN(vSolutions, creator, scriptPubKey, scriptSigRet));
     }
@@ -129,9 +117,7 @@ bool ProduceSignature(const BaseSignatureCreator& creator, const CScript& fromPu
     if (!SignStep(creator, fromPubKey, scriptSig, whichType))
         return false;
 
-// ZEN_MOD_START
     if (whichType == TX_SCRIPTHASH || whichType == TX_SCRIPTHASH_REPLAY)
-// ZEN_MOD_END
     {
         // Solver returns the subscript that need to be evaluated;
         // the final scriptSig is the signatures from that
@@ -141,18 +127,14 @@ bool ProduceSignature(const BaseSignatureCreator& creator, const CScript& fromPu
         txnouttype subType;
         bool fSolved =
             SignStep(creator, subscript, scriptSig, subType) && subType != TX_SCRIPTHASH
-// ZEN_MOD_START
             && subType != TX_SCRIPTHASH_REPLAY;
-// ZEN_MOD_END
         // Append serialized subscript whether or not it is completely signed:
         scriptSig << static_cast<valtype>(subscript);
         if (!fSolved) return false;
     }
 
     // Test solution
-// ZEN_MOD_START
     return VerifyScript(scriptSig, fromPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS, creator.Checker());
-// ZEN_MOD_END
 }
 
 bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CMutableTransaction& txTo, unsigned int nIn, int nHashType)
@@ -247,29 +229,21 @@ static CScript CombineSignatures(const CScript& scriptPubKey, const BaseSignatur
     {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
-// ZEN_MOD_START
     case TX_NULL_DATA_REPLAY:
-// ZEN_MOD_END
         // Don't know anything about this, assume bigger one is correct:
         if (sigs1.size() >= sigs2.size())
             return PushAll(sigs1);
         return PushAll(sigs2);
     case TX_PUBKEY:
-// ZEN_MOD_START
     case TX_PUBKEY_REPLAY:
-// ZEN_MOD_END
     case TX_PUBKEYHASH:
-// ZEN_MOD_START
     case TX_PUBKEYHASH_REPLAY:
-// ZEN_MOD_END
         // Signatures are bigger than placeholders or empty scripts:
         if (sigs1.empty() || sigs1[0].empty())
             return PushAll(sigs2);
         return PushAll(sigs1);
     case TX_SCRIPTHASH:
-// ZEN_MOD_START
     case TX_SCRIPTHASH_REPLAY:
-// ZEN_MOD_END
         if (sigs1.empty() || sigs1.back().empty())
             return PushAll(sigs2);
         else if (sigs2.empty() || sigs2.back().empty())
@@ -290,9 +264,7 @@ static CScript CombineSignatures(const CScript& scriptPubKey, const BaseSignatur
             return result;
         }
     case TX_MULTISIG:
-// ZEN_MOD_START
     case TX_MULTISIG_REPLAY:
-// ZEN_MOD_END
         return CombineMultisig(scriptPubKey, checker, vSolutions, sigs1, sigs2);
     }
 
@@ -302,9 +274,7 @@ static CScript CombineSignatures(const CScript& scriptPubKey, const BaseSignatur
 CScript CombineSignatures(const CScript& scriptPubKey, const CTransaction& txTo, unsigned int nIn,
                           const CScript& scriptSig1, const CScript& scriptSig2)
 {
-// ZEN_MOD_START
     TransactionSignatureChecker checker(&txTo, nIn, nullptr);
-// ZEN_MOD_END
     return CombineSignatures(scriptPubKey, checker, scriptSig1, scriptSig2);
 }
 

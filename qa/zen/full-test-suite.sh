@@ -26,10 +26,8 @@ function run_test_phase
 cd "${REPOROOT}"
 
 # Test phases:
-# ZEN_MOD_START
 run_test_phase "${REPOROOT}/qa/zen/check-security-hardening.sh"
 run_test_phase "${REPOROOT}/qa/zen/ensure-no-dot-so-in-depends.py"
-# ZEN_MOD_END
 
 # If make check fails, show test-suite.log as part of our run_test_phase
 # output (and fail the phase with false):

@@ -161,10 +161,8 @@ class PaymentDisclosureTest (BitcoinTestFramework):
         pd = self.nodes[0].z_getpaymentdisclosure(txid, 0, 1)
         result = self.nodes[0].z_validatepaymentdisclosure(pd)
         output_value_sum += Decimal(result["value"])
-#ZEN_MOD_START
         # 45.74990000 = 11.4375*4 -0.0001
         assert_equal(output_value_sum, Decimal('45.74990000'))
-#ZEN_MOD_END
         # Create a z->z transaction, sending shielded funds from node 0 to node 1
         node1zaddr = self.nodes[1].z_getnewaddress()
         recipients = [{"address":node1zaddr, "amount":Decimal('1')}]

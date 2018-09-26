@@ -165,9 +165,7 @@ public:
     bool GetKeyID(CKeyID &keyID) const;
     bool GetIndexKey(uint160& hashBytes, int& type) const;
     bool IsScript() const;
-// ZEN_MOD_START
     bool IsPubKey() const;
-// ZEN_MOD_END
 };
 
 /**

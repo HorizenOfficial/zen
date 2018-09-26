@@ -26,9 +26,7 @@ class BitcoinTestFramework(object):
     def run_test(self):
         for node in self.nodes:
             assert_equal(node.getblockcount(), 200)
-# ZEN_MOD_START
             assert_equal(node.getbalance(), 25 * 11.4375)
-# ZEN_MOD_END
 
     def add_options(self, parser):
         pass
@@ -166,14 +164,12 @@ class ComparisonTestFramework(BitcoinTestFramework):
         self.num_nodes = 2
 
     def add_options(self, parser):
-# ZEN_MOD_START
         parser.add_option("--testbinary", dest="testbinary",
                           default=os.getenv("BITCOIND", "zend"),
                           help="zend binary to test")
         parser.add_option("--refbinary", dest="refbinary",
                           default=os.getenv("BITCOIND", "zend"),
                           help="zend binary to use for reference nodes (if any)")
-# ZEN_MOD_END
 
     def setup_chain(self):
         print "Initializing test directory "+self.options.tmpdir

@@ -16,7 +16,6 @@ BEGIN
     BEGIN
         BLOCK "040904E4" // U.S. English - multilingual (hex)
         BEGIN
-// ZEN_MOD_START
             VALUE "CompanyName",        "Zen"
             VALUE "FileDescription",    "zen-tx (CLI Zcash transaction editor utility)"
             VALUE "FileVersion",        VER_FILEVERSION_STR
@@ -26,7 +25,6 @@ BEGIN
             VALUE "OriginalFilename",   "zen-tx.exe"
             VALUE "ProductName",        "zen-tx"
             VALUE "ProductVersion",     VER_PRODUCTVERSION_STR
-// ZEN_MOD_END
         END
     END
 

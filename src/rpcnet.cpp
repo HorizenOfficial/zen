@@ -13,18 +13,14 @@
 #include "timedata.h"
 #include "util.h"
 #include "version.h"
-// ZEN_MOD_START
 #include "zen/utiltls.h"
-// ZEN_MOD_END
 
 #include <boost/foreach.hpp>
 
 #include <univalue.h>
 
 using namespace std;
-// ZEN_MOD_START
 using namespace zen;
-// ZEN_MOD_END
 
 UniValue getconnectioncount(const UniValue& params, bool fHelp)
 {
@@ -83,7 +79,6 @@ static void CopyNodeStats(std::vector<CNodeStats>& vstats)
 UniValue getpeerinfo(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
-// ZEN_MOD_START
         throw runtime_error(
             "getpeerinfo\n"
             "\nReturns data about each connected network node as a json array of objects.\n"
@@ -122,7 +117,6 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp)
             + HelpExampleCli("getpeerinfo", "")
             + HelpExampleRpc("getpeerinfo", "")
         );
-// ZEN_MOD_END
 
     LOCK(cs_main);
 
@@ -140,10 +134,8 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp)
         if (!(stats.addrLocal.empty()))
             obj.push_back(Pair("addrlocal", stats.addrLocal));
         obj.push_back(Pair("services", strprintf("%016x", stats.nServices)));
-// ZEN_MOD_START
         obj.push_back(Pair("tls_established", stats.fTLSEstablished));
         obj.push_back(Pair("tls_verified", stats.fTLSVerified));
-// ZEN_MOD_END
         obj.push_back(Pair("lastsend", stats.nLastSend));
         obj.push_back(Pair("lastrecv", stats.nLastRecv));
         obj.push_back(Pair("bytessent", stats.nSendBytes));
@@ -269,7 +261,7 @@ UniValue getaddednodeinfo(const UniValue& params, bool fHelp)
             "    \"connected\" : true|false,          (boolean) If connected\n"
             "    \"addresses\" : [\n"
             "       {\n"
-            "         \"address\" : \"192.168.0.201:8233\",  (string) The Zcash server host and port\n"
+            "         \"address\" : \"192.168.0.201:8233\",  (string) The Horizen server host and port\n"
             "         \"connected\" : \"outbound\"           (string) connection, inbound or outbound\n"
             "       }\n"
             "       ,...\n"
@@ -282,7 +274,6 @@ UniValue getaddednodeinfo(const UniValue& params, bool fHelp)
             + HelpExampleCli("getaddednodeinfo", "true \"192.168.0.201\"")
             + HelpExampleRpc("getaddednodeinfo", "true, \"192.168.0.201\"")
         );
-
     bool fDns = params[0].get_bool();
 
     list<string> laddedNodes(0);
@@ -415,7 +406,6 @@ static UniValue GetNetworksInfo()
 UniValue getnetworkinfo(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
-// ZEN_MOD_START
         throw runtime_error(
             "getnetworkinfo\n"
             "Returns an object containing various state info regarding P2P networking.\n"
@@ -452,7 +442,6 @@ UniValue getnetworkinfo(const UniValue& params, bool fHelp)
             + HelpExampleCli("getnetworkinfo", "")
             + HelpExampleRpc("getnetworkinfo", "")
         );
-// ZEN_MOD_END
 
     LOCK(cs_main);
 
@@ -464,9 +453,7 @@ UniValue getnetworkinfo(const UniValue& params, bool fHelp)
     obj.push_back(Pair("localservices",       strprintf("%016x", nLocalServices)));
     obj.push_back(Pair("timeoffset",    GetTimeOffset()));
     obj.push_back(Pair("connections",   (int)vNodes.size()));
-// ZEN_MOD_START
     obj.push_back(Pair("tls_cert_verified", ValidateCertificate(tls_ctx_server)));
-// ZEN_MOD_END
     obj.push_back(Pair("networks",      GetNetworksInfo()));
     obj.push_back(Pair("relayfee",      ValueFromAmount(::minRelayTxFee.GetFeePerK())));
     UniValue localAddresses(UniValue::VARR);

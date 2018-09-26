@@ -123,12 +123,10 @@ class WalletBackupTest(BitcoinTestFramework):
         self.nodes[3].generate(100)
         sync_blocks(self.nodes)
 
-# ZEN_MOD_START
         assert_equal(self.nodes[0].getbalance(), 11.4375)
         assert_equal(self.nodes[1].getbalance(), 11.4375)
         assert_equal(self.nodes[2].getbalance(), 11.4375)
         assert_equal(self.nodes[3].getbalance(), 0)
-# ZEN_MOD_END
 
         logging.info("Creating transactions")
         # Five rounds of sending each other transactions.
@@ -167,10 +165,8 @@ class WalletBackupTest(BitcoinTestFramework):
         total = balance0 + balance1 + balance2 + balance3
 
         # At this point, there are 214 blocks (103 for setup, then 10 rounds, then 101.)
-# ZEN_MOD_START
         # 114 are mature, so the sum of all wallets should be 100*11.4375 + 4 * 11 + 10*8.75 = 1275.25
         assert_equal(total, 1275.25)
-# ZEN_MOD_END
 
         ##
         # Test restoring spender wallets from backups

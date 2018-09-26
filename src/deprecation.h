@@ -5,10 +5,8 @@
 #ifndef ZCASH_DEPRECATION_H
 #define ZCASH_DEPRECATION_H
 
-// ZEN_MOD_START
 static const int APPROX_RELEASE_HEIGHT = 328000;
 static const int WEEKS_UNTIL_DEPRECATION = 16;
-// ZEN_MOD_END
 static const int DEPRECATION_HEIGHT = APPROX_RELEASE_HEIGHT + (WEEKS_UNTIL_DEPRECATION * 7 * 24 * 24);
 
 // Number of blocks before deprecation to warn users

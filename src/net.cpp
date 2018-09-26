@@ -16,9 +16,7 @@
 #include "scheduler.h"
 #include "ui_interface.h"
 #include "crypto/common.h"
-// ZEN_MOD_START
 #include "zen/utiltls.h"
-// ZEN_MOD_END
 
 
 
@@ -33,13 +31,11 @@
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 
-// ZEN_MOD_START
 #include <openssl/conf.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <zen/tlsmanager.cpp>
 using namespace zen;
-// ZEN_MOD_END
 
 // Dump addresses to peers.dat every 15 minutes (900s)
 #define DUMP_ADDRESSES_INTERVAL 900
@@ -59,10 +55,8 @@ using namespace zen;
 #endif
 #endif
 
-// ZEN_MOD_START
 #define USE_TLS
 #define COMPAT_NON_TLS // enables compatibility with nodes, that still doesn't support TLS connections
-// ZEN_MOD_END
 
 using namespace std;
 
@@ -119,7 +113,6 @@ boost::condition_variable messageHandlerCondition;
 static CNodeSignals g_signals;
 CNodeSignals& GetNodeSignals() { return g_signals; }
 
-// ZEN_MOD_START
 // OpenSSL server and client contexts
 SSL_CTX *tls_ctx_server, *tls_ctx_client;
 
@@ -134,7 +127,6 @@ static CCriticalSection cs_vNonTLSNodesInbound;
 static std::vector<NODE_ADDR> vNonTLSNodesOutbound;
 static CCriticalSection cs_vNonTLSNodesOutbound;
 
-// ZEN_MOD_END
 
 void AddOneShot(const std::string& strDest)
 {
@@ -398,13 +390,11 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 
         // Look for an existing connection
         CNode* pnode = FindNode((CService)addrConnect);
-// ZEN_MOD_START
         if (pnode)
         {
             pnode->AddRef();
             return pnode;
         }
-// ZEN_MOD_END
     }
 
     /// debug print
@@ -426,7 +416,6 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 
         addrman.Attempt(addrConnect);
 
-// ZEN_MOD_START
         SSL *ssl = NULL;
         
 #ifdef USE_TLS
@@ -488,7 +477,6 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 
         // Add node
         CNode* pnode = new CNode(hSocket, addrConnect, pszDest ? pszDest : "", false, ssl);
-// ZEN_MOD_END
         pnode->AddRef();
 
         {
@@ -513,15 +501,12 @@ void CNode::CloseSocketDisconnect()
     fDisconnect = true;
     
     {
-// ZEN_MOD_START
         LOCK(cs_hSocket);
-// ZEN_MOD_END
         
         if (hSocket != INVALID_SOCKET)
         {
             LogPrint("net", "disconnecting peer=%d\n", id);
         
-// ZEN_MOD_START
             if (ssl)
             {
 
@@ -530,7 +515,6 @@ void CNode::CloseSocketDisconnect()
                 ssl = NULL;
             }
             CloseSocket(hSocket);
-// ZEN_MOD_END
         }
     }
 
@@ -690,14 +674,12 @@ void CNode::copyStats(CNodeStats &stats)
     // Leave string empty if addrLocal invalid (not filled in yet)
     stats.addrLocal = addrLocal.IsValid() ? addrLocal.ToString() : "";
 
-// ZEN_MOD_START
     // If ssl != NULL it means TLS connection was established successfully
     {
         LOCK(cs_hSocket);
         stats.fTLSEstablished = (ssl != NULL) && (SSL_get_state(ssl) == TLS_ST_OK);
         stats.fTLSVerified = (ssl != NULL) && ValidatePeerCertificate(ssl);
     }
-// ZEN_MOD_END
 }
 #undef X
 
@@ -805,7 +787,6 @@ void SocketSendData(CNode *pnode)
         const CSerializeData &data = *it;
         assert(data.size() > pnode->nSendOffset);
 
-// ZEN_MOD_START
         bool bIsSSL = false;
         int nBytes = 0, nRet = 0;
         {
@@ -831,7 +812,6 @@ void SocketSendData(CNode *pnode)
                 nRet = WSAGetLastError();
             }
         }
-// ZEN_MOD_END
         if (nBytes > 0)
         {
             pnode->nLastSend = GetTime();
@@ -853,13 +833,10 @@ void SocketSendData(CNode *pnode)
         }
         else
         {
-// ZEN_MOD_START
             if (nBytes <= 0)
-// ZEN_MOD_END
             {
                 // error
                 //
-// ZEN_MOD_START
                 if (bIsSSL)
                 {
                     if (nRet != SSL_ERROR_WANT_READ && nRet != SSL_ERROR_WANT_WRITE)
@@ -884,7 +861,6 @@ void SocketSendData(CNode *pnode)
                 }
             }
 
-// ZEN_MOD_END
             // couldn't send anything at all
             break;
         }
@@ -1116,7 +1092,6 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
     setsockopt(hSocket, IPPROTO_TCP, TCP_NODELAY, (void*)&set, sizeof(int));
 #endif
 
-// ZEN_MOD_START
 
     SSL *ssl = NULL;
     
@@ -1181,7 +1156,6 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
 #endif // USE_TLS
 
     CNode* pnode = new CNode(hSocket, addr, "", true, ssl);
-// ZEN_MOD_END
     pnode->AddRef();
     pnode->fWhitelisted = whitelisted;
 
@@ -1191,7 +1165,6 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
     }
 }
 
-// ZEN_MOD_START
 #if defined(USE_TLS) && defined(COMPAT_NON_TLS)
 void ThreadNonTLSPoolsCleaner()
 {
@@ -1205,7 +1178,6 @@ void ThreadNonTLSPoolsCleaner()
 
 #endif // USE_TLS && COMPAT_NON_TLS
 
-// ZEN_MOD_END
 
 void ThreadSocketHandler()
 {
@@ -1301,9 +1273,7 @@ void ThreadSocketHandler()
             LOCK(cs_vNodes);
             BOOST_FOREACH(CNode* pnode, vNodes)
             {
-// ZEN_MOD_START
                 LOCK(pnode->cs_hSocket);
-// ZEN_MOD_END
                 
                 if (pnode->hSocket == INVALID_SOCKET)
                     continue;
@@ -1388,11 +1358,9 @@ void ThreadSocketHandler()
         {
             boost::this_thread::interruption_point();
 
-// ZEN_MOD_START
             if (tlsmanager.threadSocketHandler(pnode,fdsetRecv,fdsetSend,fdsetError)==-1){
                 continue;
             }
-// ZEN_MOD_END
 
             //
             // Inactivity checking
@@ -1703,7 +1671,6 @@ bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOu
     CNode* pnode = ConnectNode(addrConnect, pszDest);
     boost::this_thread::interruption_point();
     
-// ZEN_MOD_START
 #if defined(USE_TLS) && defined(COMPAT_NON_TLS)
     
     if (!pnode)
@@ -1726,7 +1693,6 @@ bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOu
     
 #endif
 
-// ZEN_MOD_END
 
     if (!pnode)
         return false;
@@ -1890,7 +1856,7 @@ bool BindListenPort(const CService &addrBind, string& strError, bool fWhiteliste
     {
         int nErr = WSAGetLastError();
         if (nErr == WSAEADDRINUSE)
-            strError = strprintf(_("Unable to bind to %s on this computer. Zcash is probably already running."), addrBind.ToString());
+            strError = strprintf(_("Unable to bind to %s on this computer. Horizen is probably already running."), addrBind.ToString());
         else
             strError = strprintf(_("Unable to bind to %s on this computer (bind returned error %s)"), addrBind.ToString(), NetworkErrorString(nErr));
         LogPrintf("%s\n", strError);
@@ -1994,7 +1960,6 @@ void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     Discover(threadGroup);
 
-// ZEN_MOD_START
 #ifdef USE_TLS
     
     if (!tlsmanager.prepareCredentials())
@@ -2011,7 +1976,6 @@ void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler)
 #else
     LogPrintf("TLS is not used!\n");
 #endif
-// ZEN_MOD_END
 
     //
     // Start threads
@@ -2034,12 +1998,10 @@ void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler)
     // Process messages
     threadGroup.create_thread(boost::bind(&TraceThread<void (*)()>, "msghand", &ThreadMessageHandler));
 
-// ZEN_MOD_START
 #if defined(USE_TLS) && defined(COMPAT_NON_TLS)
     // Clean pools of addresses for non-TLS connections
     threadGroup.create_thread(boost::bind(&TraceThread<void (*)()>, "poolscleaner", &ThreadNonTLSPoolsCleaner));
 #endif
-// ZEN_MOD_END
     
     // Dump network addresses
     scheduler.scheduleEvery(&DumpAddresses, DUMP_ADDRESSES_INTERVAL);
@@ -2070,9 +2032,7 @@ public:
     {
         // Close sockets
         BOOST_FOREACH(CNode* pnode, vNodes)
-// ZEN_MOD_START
         pnode->CloseSocketDisconnect();
-// ZEN_MOD_END
         BOOST_FOREACH(ListenSocket& hListenSocket, vhListenSocket)
             if (hListenSocket.socket != INVALID_SOCKET)
                 if (!CloseSocket(hListenSocket.socket))
@@ -2307,16 +2267,12 @@ bool CAddrDB::Read(CAddrMan& addr)
 unsigned int ReceiveFloodSize() { return 1000*GetArg("-maxreceivebuffer", 5*1000); }
 unsigned int SendBufferSize() { return 1000*GetArg("-maxsendbuffer", 1*1000); }
 
-// ZEN_MOD_START
 CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNameIn, bool fInboundIn, SSL *sslIn) :
-// ZEN_MOD_END
     ssSend(SER_NETWORK, INIT_PROTO_VERSION),
     addrKnown(5000, 0.001),
     setInventoryKnown(SendBufferSize() / 1000)
 {
-// ZEN_MOD_START
     ssl = sslIn;
-// ZEN_MOD_END
     nServices = 0;
     hSocket = hSocketIn;
     nRecvVersion = INIT_PROTO_VERSION;
@@ -2362,18 +2318,15 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
     else
         LogPrint("net", "Added connection peer=%d\n", id);
 
-// ZEN_MOD_START
     // Be shy and don't send version until we hear
     if (hSocket != INVALID_SOCKET && !fInbound)
         PushVersion();
-// ZEN_MOD_END
 
     GetNodeSignals().InitializeNode(GetId(), this);
 }
 
 CNode::~CNode()
 {
-// ZEN_MOD_START
     // No need to make a lock on cs_hSocket, because before deletion CNode object is removed from the vNodes vector, so any other thread hasn't access to it.
     // Removal is synchronized with read and write routines, so all of them will be completed to this moment.
     
@@ -2389,7 +2342,6 @@ CNode::~CNode()
         
         CloseSocket(hSocket);
     }
-// ZEN_MOD_END
 
     if (pfilter)
         delete pfilter;

@@ -1,28 +1,28 @@
-# ZenCash Payment API
+# Horizen Payment API
 
 ## Overview
 
-ZenCash extends the Bitcoin Core API with new RPC calls to support private ZenCash payments.
+Horizen extends the Bitcoin Core API with new RPC calls to support private Horizen payments.
 
-ZenCash payments make use of two address formats:
+Horizen payments make use of two address formats:
 
 * taddr - an address for transparent funds (just like a Bitcoin address, value stored in UTXOs)
 * zaddr - an address for private funds (value stored in objects called notes)
 
-When transferring funds from one taddr to another taddr, you can use either the existing Bitcoin RPC calls or the new ZenCash RPC calls.
+When transferring funds from one taddr to another taddr, you can use either the existing Bitcoin RPC calls or the new Horizen RPC calls.
 
-When a transfer involves zaddrs, you must use the new ZenCash RPC calls.
+When a transfer involves zaddrs, you must use the new Horizen RPC calls.
 
 
 ## Compatibility with Bitcoin Core
 
-ZenCash supports all commands in the Bitcoin Core API (as of version 0.11.2).   Where applicable, ZenCash will extend commands in a backwards-compatible way to enable additional functionality.
+Horizen supports all commands in the Bitcoin Core API (as of version 0.11.2).   Where applicable, Horizen will extend commands in a backwards-compatible way to enable additional functionality.
 
 We do not recommend use of accounts which are now deprecated in Bitcoin Core.  Where the account parameter exists in the API, please use “” as its value, otherwise an error will be returned.
 
 To support multiple users in a single node’s wallet, consider using getnewaddress or z_getnewaddress to obtain a new address for each user.  Also consider mapping multiple addresses to each user.
 
-## List of ZenCash API commands
+## List of Horizen API commands
 
 Optional parameters are denoted in [square brackets].
 
@@ -61,8 +61,8 @@ z_validateaddress | zaddr | Return information about a given zaddr.<br><br>Outpu
 
 Command | Parameters | Description
 --- | --- | ---
-z_exportkey | zaddr | _Requires an unlocked wallet or an unencrypted wallet._<br><br>Return a zkey for a given zaddr belonging to the node’s wallet.<br><br>The key will be returned as a string formatted using Base58Check as described in the ZenCash protocol spec.<br><br>Output:AKWUAkypwQjhZ6LLNaMuuuLcmZ6gt5UFyo8m3jGutvALmwZKLdR5
-z_importkey | zkey [rescan=true] | _Wallet must be unlocked._<br><br>Add a zkey as returned by z_exportkey to a node's wallet.<br><br>The key should be formatted using Base58Check as described in the ZenCash protocol spec.<br><br>Set rescan to true (the default) to rescan the entire local block database for transactions affecting any address or pubkey script in the wallet (including transactions affecting the newly-added address for this spending key).
+z_exportkey | zaddr | _Requires an unlocked wallet or an unencrypted wallet._<br><br>Return a zkey for a given zaddr belonging to the node’s wallet.<br><br>The key will be returned as a string formatted using Base58Check as described in the Horizen protocol spec.<br><br>Output:AKWUAkypwQjhZ6LLNaMuuuLcmZ6gt5UFyo8m3jGutvALmwZKLdR5
+z_importkey | zkey [rescan=true] | _Wallet must be unlocked._<br><br>Add a zkey as returned by z_exportkey to a node's wallet.<br><br>The key should be formatted using Base58Check as described in the Horizen protocol spec.<br><br>Set rescan to true (the default) to rescan the entire local block database for transactions affecting any address or pubkey script in the wallet (including transactions affecting the newly-added address for this spending key).
 z_exportwallet | filename | _Requires an unlocked wallet or an unencrypted wallet._<br><br>Creates or overwrites a file with taddr private keys and zaddr private keys in a human-readable format.<br><br>Filename is the file in which the wallet dump will be placed. May be prefaced by an absolute file path. An existing file with that name will be overwritten.<br><br>No value is returned but a JSON-RPC error will be reported if a failure occurred.
 z_importwallet | filename | _Requires an unlocked wallet or an unencrypted wallet._<br><br>Imports private keys from a file in wallet export file format (see z_exportwallet). These keys will be added to the keys currently in the wallet. This call may need to rescan all or parts of the block chain for transactions affecting the newly-added keys, which may take several minutes.<br><br>Filename is the file to import. The path is relative to zend’s working directory.<br><br>No value is returned but a JSON-RPC error will be reported if a failure occurred.
 
@@ -107,7 +107,7 @@ z_listoperationids <br>| [state] | Return a list of operationids for all operati
 
 ## Asynchronous RPC call Error Codes
 
-ZenCash error codes are defined in https://github.com/ZenCashOfficial/zen/blob/master/src/rpcprotocol.h
+Horizen error codes are defined in https://github.com/ZenCashOfficial/zen/blob/master/src/rpcprotocol.h
 
 ### z_sendmany error codes
 

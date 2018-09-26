@@ -103,9 +103,7 @@ map<string, vector<string> > mapMultiArgs;
 bool fDebug = false;
 bool fPrintToConsole = false;
 bool fPrintToDebugLog = true;
-// ZEN_MOD_START
 bool fLimitDebugLogSize = true;
-// ZEN_MOD_END
 bool fDaemon = false;
 bool fServer = false;
 string strMiscWarning;
@@ -178,9 +176,7 @@ static boost::once_flag debugPrintInitFlag = BOOST_ONCE_INIT;
  * the OS/libc. When the shutdown sequence is fully audited and
  * tested, explicit destruction of these objects can be implemented.
  */
-// ZEN_MOD_START
 static FILE* debugLogFp = NULL;
-// ZEN_MOD_END
 static boost::mutex* mutexDebugLog = NULL;
 static list<string> *vMsgsBeforeOpenLog;
 
@@ -196,31 +192,25 @@ static void DebugPrintInit()
     vMsgsBeforeOpenLog = new list<string>;
 }
 
-// ZEN_MOD_START
 boost::filesystem::path GetDebugLogPath()
 {
     return GetDataDir() / "debug.log";
 }
-// ZEN_MOD_END
 
 void OpenDebugLog()
 {
     boost::call_once(&DebugPrintInit, debugPrintInitFlag);
     boost::mutex::scoped_lock scoped_lock(*mutexDebugLog);
-// ZEN_MOD_START
     boost::filesystem::path pathDebug = GetDebugLogPath();
     assert(debugLogFp == NULL);
     assert(vMsgsBeforeOpenLog);
     debugLogFp = fopen(pathDebug.string().c_str(), "a");
     if (debugLogFp)
         setbuf(debugLogFp, NULL); // unbuffered
-// ZEN_MOD_END
 
     // dump buffered messages from before we opened the log
     while (!vMsgsBeforeOpenLog->empty()) {
-// ZEN_MOD_START
         FileWriteStr(vMsgsBeforeOpenLog->front(), debugLogFp);
-// ZEN_MOD_END
         vMsgsBeforeOpenLog->pop_front();
     }
 
@@ -300,31 +290,25 @@ int LogPrintStr(const std::string &str)
         string strTimestamped = LogTimestampStr(str, &fStartedNewLine);
 
         // buffer if we haven't opened the log yet
-// ZEN_MOD_START
         if (debugLogFp == NULL) {
-// ZEN_MOD_END
             assert(vMsgsBeforeOpenLog);
             ret = strTimestamped.length();
             vMsgsBeforeOpenLog->push_back(strTimestamped);
         }
         else
         {
-// ZEN_MOD_START
             // prevent log from endless growth
             if (fLimitDebugLogSize)
                 ShrinkDebugFile();
-// ZEN_MOD_END
             // reopen the log file, if requested
             if (fReopenDebugLog) {
                 fReopenDebugLog = false;
-// ZEN_MOD_START
                 boost::filesystem::path pathDebug = GetDebugLogPath();
                 if (freopen(pathDebug.string().c_str(),"a", debugLogFp) != NULL)
                     setbuf(debugLogFp, NULL); // unbuffered
             }
 
             ret = FileWriteStr(strTimestamped, debugLogFp);
-// ZEN_MOD_END
         }
     }
     return ret;
@@ -448,9 +432,7 @@ static std::string FormatException(const std::exception* pex, const char* pszThr
     char pszModule[MAX_PATH] = "";
     GetModuleFileNameA(NULL, pszModule, sizeof(pszModule));
 #else
-// ZEN_MOD_START
     const char* pszModule = "Zen";
-// ZEN_MOD_END
 #endif
     if (pex)
         return strprintf(
@@ -471,17 +453,13 @@ void PrintExceptionContinue(const std::exception* pex, const char* pszThread)
 boost::filesystem::path GetDefaultDataDir()
 {
     namespace fs = boost::filesystem;
-// ZEN_MOD_START
     // Windows < Vista: C:\Documents and Settings\Username\Application Data\Zen
     // Windows >= Vista: C:\Users\Username\AppData\Roaming\Zen
     // Mac: ~/Library/Application Support/Zen
     // Unix: ~/.zen
-// ZEN_MOD_END
 #ifdef WIN32
     // Windows
-// ZEN_MOD_START
     return GetSpecialFolderPath(CSIDL_APPDATA) / "Zen";
-// ZEN_MOD_END
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -493,14 +471,10 @@ boost::filesystem::path GetDefaultDataDir()
     // Mac
     pathRet /= "Library/Application Support";
     TryCreateDirectory(pathRet);
-// ZEN_MOD_START
     return pathRet / "Zen";
-// ZEN_MOD_END
 #else
     // Unix
-// ZEN_MOD_START
     return pathRet / ".zen";
-// ZEN_MOD_END
 #endif
 #endif
 }
@@ -617,9 +591,7 @@ void ClearDatadirCache()
 
 boost::filesystem::path GetConfigFile()
 {
-// ZEN_MOD_START
     boost::filesystem::path pathConfigFile(GetArg("-conf", "zen.conf"));
-// ZEN_MOD_END
     if (!pathConfigFile.is_complete())
         pathConfigFile = GetDataDir(false) / pathConfigFile;
 
@@ -638,9 +610,7 @@ void ReadConfigFile(map<string, string>& mapSettingsRet,
 
     for (boost::program_options::detail::config_file_iterator it(streamConfig, setOptions), end; it != end; ++it)
     {
-// ZEN_MOD_START
         // Don't overwrite existing settings so command line settings override zen.conf
-// ZEN_MOD_END
         string strKey = string("-") + it->string_key;
         if (mapSettingsRet.count(strKey) == 0)
         {
@@ -657,9 +627,7 @@ void ReadConfigFile(map<string, string>& mapSettingsRet,
 #ifndef WIN32
 boost::filesystem::path GetPidFile()
 {
-// ZEN_MOD_START
     boost::filesystem::path pathPidFile(GetArg("-pid", "zend.pid"));
-// ZEN_MOD_END
     if (!pathPidFile.is_complete()) pathPidFile = GetDataDir() / pathPidFile;
     return pathPidFile;
 }
@@ -802,21 +770,17 @@ void AllocateFileRange(FILE *file, unsigned int offset, unsigned int length) {
 void ShrinkDebugFile()
 {
     // Scroll debug.log if it's getting too big
-// ZEN_MOD_START
     boost::filesystem::path pathDebug = GetDebugLogPath();
     if (boost::filesystem::exists(pathDebug) && boost::filesystem::file_size(pathDebug) > 10 * 1000000)
     {
         // Restart the file with some of the end
         FILE* file = fopen(pathDebug.string().c_str(), "r");
         std::vector <char> vch(200000, 0);
-// ZEN_MOD_END
         fseek(file, -((long)vch.size()), SEEK_END);
         int nBytes = fread(begin_ptr(vch), 1, vch.size(), file);
         fclose(file);
 
-// ZEN_MOD_START
         file = fopen(pathDebug.string().c_str(), "w");
-// ZEN_MOD_END
         if (file)
         {
             fwrite(begin_ptr(vch), 1, nBytes, file);
@@ -944,10 +908,8 @@ std::string LicenseInfo()
     return "\n" +
            FormatParagraph(strprintf(_("Copyright (C) 2009-%i The Bitcoin Core Developers"), COPYRIGHT_YEAR)) + "\n" +
            FormatParagraph(strprintf(_("Copyright (C) 2015-%i The Zcash Developers"), COPYRIGHT_YEAR)) + "\n" +
-// ZEN_MOD_START
            FormatParagraph(strprintf(_("Copyright (C) 2015-%i Zdeveloper.org"), COPYRIGHT_YEAR)) + "\n" +
            FormatParagraph(strprintf(_("Copyright (C) 2015-%i Zen Blockchain Foundation"), COPYRIGHT_YEAR)) + "\n" +
-// ZEN_MOD_END
            "\n" +
            FormatParagraph(_("This is experimental software.")) + "\n" +
            "\n" +
