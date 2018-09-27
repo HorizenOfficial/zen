@@ -105,18 +105,56 @@ bool AppInit(int argc, char* argv[])
         } catch (const missing_zcash_conf& e) {
             try
             {
+
+#ifdef WIN32
+                fprintf(stdout,
+                    "------------------------------------------------------------------\n"
+                    "                        ERROR:\n"
+                    " The configuration file zen.conf is missing.\n"
+                    " Please create a valid zen.conf in the application data directory.\n"
+                    " The default application data directories are:\n"
+                    "\n"
+                    " Windows (pre Vista): C:\\Documents and Settings\\Username\\Application Data\\Zen\n"
+                    " Windows (Vista and later): C:\\Users\\Username\\AppData\\Roaming\\Zen\n"
+                    "\n"
+                    " You can find the default configuration file at:\n"
+                    " https://github.com/ZencashOfficial/zen/blob/master/contrib/debian/examples/zen.conf\n"
+                    "\n"
+                    "                        WARNING:\n"
+                    " Running the default configuration file without review is considered a potential risk, as zend\n"
+                    " might accidentally compromise your privacy if there is a default option that you need to change!\n"
+                    "\n"
+                    " Please create a valid zen.conf and restart to zend continue.\n"
+                    "------------------------------------------------------------------\n");
+                return false;
+#endif
                 // Warn user about using default config file
                 fprintf(stdout,
                     "------------------------------------------------------------------\n"
                     "                        WARNING:\n"
-                    "Automatically copying the default config file to ~/.zen/zen.conf.\n"
-                    "This is a potential risk, as zend might accidentally compromise\n"
-                    "your privacy if there is a default option that you need to change!\n"
+                    "Automatically copying the default config file to:\n"
+                    "\n"
+#ifdef  __APPLE__
+                    "~/Library/Application Support/Zen\n"
+#else
+                    "~/.zen/zen.conf\n"
+#endif
+                    "\n"
+                    " Running the default configuration file without review is considered a potential risk, as zend\n"
+                    " might accidentally compromise your privacy if there is a default option that you need to change!\n"
                     "\n"
                     "           Please restart zend to continue.\n"
                     "           You will not see this warning again.\n"
                     "------------------------------------------------------------------\n");
 
+
+#ifdef __APPLE__
+                // On Mac OS try to copy the default config file if zend is started from source folder zen/src/zend
+                std::string strConfPath("../contrib/debian/examples/zen.conf");
+                if (!boost::filesystem::exists(strConfPath)){
+                    strConfPath = "contrib/debian/examples/zen.conf";
+                }
+#else
                 std::string strConfPath("/usr/share/doc/zen/examples/zen.conf");
 
                 if (!boost::filesystem::exists(strConfPath))
@@ -128,7 +166,7 @@ bool AppInit(int argc, char* argv[])
                 {
                     strConfPath = "../contrib/debian/examples/zen.conf";
                 }
-
+#endif
                 // Copy default config file
                 std::ifstream src(strConfPath, std::ios::binary);
                 src.exceptions(std::ifstream::failbit | std::ifstream::badbit);
@@ -136,7 +174,23 @@ bool AppInit(int argc, char* argv[])
                 std::ofstream dst(GetConfigFile().string().c_str(), std::ios::binary);
                 dst << src.rdbuf();
                 return false;
-            } catch (const std::exception& e) {
+            } catch (const std::exception& e) {                
+                fprintf(stdout,
+                    "------------------------------------------------------------------\n"
+                    " There was an error copying the default configuration file!!!!\n"
+                    "\n"
+                    " Please create a configuration file in the data directory.\n"
+                    " The default application data directories are:\n"
+                    " Windows (pre Vista): C:\\Documents and Settings\\Username\\Application Data\\Zen\n"
+                    " Windows (Vista and later): C:\\Users\\Username\\AppData\\Roaming\\Zen\n"
+                    "\n"
+                    " You can find the default configuration file at:\n"
+                    " https://github.com/ZencashOfficial/zen/blob/master/contrib/debian/examples/zen.conf\n"
+                    "\n"
+                    "                        WARNING:\n"
+                    " Running the default configuration file without review is considered a potential risk, as zend\n"
+                    " might accidentally compromise your privacy if there is a default option that you need to change!\n"
+                    "------------------------------------------------------------------\n");
                 fprintf(stderr, "Error copying configuration file: %s\n", e.what());
                 return false;
             }
