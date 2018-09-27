@@ -12,9 +12,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
 
 from decimal import Decimal
 
-# ZEN_MOD_START
 starttime = 1494548150
-# ZEN_MOD_END
 
 class Wallet1941RegressionTest (BitcoinTestFramework):
 
@@ -53,9 +51,7 @@ class Wallet1941RegressionTest (BitcoinTestFramework):
 
         # Send 10 coins to our zaddr.
         recipients = []
-# ZEN_MOD_START
         recipients.append({"address":myzaddr, "amount":Decimal('11.4375') - Decimal('0.0001')})
-# ZEN_MOD_END
         myopid = self.nodes[0].z_sendmany(mytaddr, recipients)
         wait_and_assert_operationid_status(self.nodes[0], myopid)
         self.nodes[0].generate(1)
@@ -70,9 +66,7 @@ class Wallet1941RegressionTest (BitcoinTestFramework):
 
         # Confirm the balance on node 0.
         resp = self.nodes[0].z_getbalance(myzaddr)
-# ZEN_MOD_START
         assert_equal(Decimal(resp), Decimal('11.4375') - Decimal('0.0001'))
-# ZEN_MOD_END
 
         # Export the key for the zaddr from node 0.
         key = self.nodes[0].z_exportkey(myzaddr)
@@ -99,9 +93,7 @@ class Wallet1941RegressionTest (BitcoinTestFramework):
         # Confirm that the balance on node 1 is valid now (node 1 must
         # have rescanned)
         resp = self.nodes[1].z_getbalance(myzaddr)
-# ZEN_MOD_START
         assert_equal(Decimal(resp), Decimal('11.4375') - Decimal('0.0001'))
-# ZEN_MOD_END
 
 
 if __name__ == '__main__':

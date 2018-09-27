@@ -114,11 +114,9 @@ class TestNode(NodeConnCB):
 
 class AcceptBlockTest(BitcoinTestFramework):
     def add_options(self, parser):
-# ZEN_MOD_START
         parser.add_option("--testbinary", dest="testbinary",
                           default=os.getenv("BITCOIND", "zend"),
                           help="zend binary to test")
-# ZEN_MOD_END
 
     def setup_chain(self):
         initialize_chain_clean(self.options.tmpdir, 2)

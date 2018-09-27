@@ -86,26 +86,22 @@ TEST(founders_reward_test, create_testnet_2of3multisig) {
 #endif
 
 
-#if 0 // Disabling all these tests for now until all the latest zencash commits have been integrated then will re-enable and fix
+#if 0 // Disabling all these tests for now until all the latest horizen commits have been integrated then will re-enable and fix
 
 // Utility method to check the number of unique addresses from height 1 to maxHeight
 void checkNumberOfUniqueAddresses(int nUnique) {
 
     int maxHeight = Params().GetConsensus().GetLastFoundersRewardBlockHeight();
-// ZEN_MOD_START
     printf("maxHeight = %d\n",maxHeight);
-// ZEN_MOD_END
     std::set<std::string> addresses;
     for (int i = 1; i <= maxHeight; i++) {
         addresses.insert(Params().GetFoundersRewardAddressAtHeight(i));
     }
-// ZEN_MOD_START
     std::set<std::string>::iterator it;
     for (it = addresses.begin(); it != addresses.end(); it++) {
         printf("Found address %s\n",(*it).c_str());
     }
     EXPECT_EQ(addresses.size(), nUnique);
-// ZEN_MOD_END
 }
 
 
@@ -115,7 +111,6 @@ TEST(founders_reward_test, general) {
 
     CChainParams params = Params();
     
-// ZEN_MOD_START
     // Fourth testnet reward:
     // address = zrBAG3pXCTDq14nivNK9mW8SfwMNcdmMQpb
     // script.ToString() = OP_HASH160 9990975a435209031e247dccf9bc3e3ed3c81339 OP_EQUAL
@@ -128,7 +123,6 @@ TEST(founders_reward_test, general) {
     EXPECT_EQ(params.GetFoundersRewardScriptAtHeight(53127), ParseHex("a914581dd4277287b64d523f5cd70ccd69f9db384d5387"));
     EXPECT_EQ(params.GetFoundersRewardAddressAtHeight(53127), "zrBAG3pXCTDq14nivNK9mW8SfwMNcdmMQpb");
 
-// ZEN_MOD_END
 
     int maxHeight = params.GetConsensus().GetLastFoundersRewardBlockHeight();
     
@@ -192,7 +186,6 @@ void verifyNumberOfRewards() {
         ms.insert(params.GetFoundersRewardAddressAtHeight(nHeight));
     }
 
-// ZEN_MOD_START
     EXPECT_EQ(ms.count(params.GetFoundersRewardAddressAtIndex(0)),17500);
     for (int i = 1; i <= params.GetNumFoundersRewardAddresses()-2; i++) {
         EXPECT_EQ(ms.count(params.GetFoundersRewardAddressAtIndex(i)), 17501);
@@ -204,7 +197,6 @@ void verifyNumberOfRewards() {
         EXPECT_EQ(ms.count(params.GetFoundersRewardAddress2AtIndex(i)), 17501);
     }
     EXPECT_EQ(ms.count(params.GetFoundersRewardAddress2AtIndex(params.GetNumFoundersRewardAddresses2()-1)), 17501);
-// ZEN_MOD_END
 }
 
 // Verify the number of rewards going to each mainnet address

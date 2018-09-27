@@ -279,9 +279,7 @@ void AsyncRPCOperation_shieldcoinbase::sign_send_raw_transaction(UniValue obj)
 
 
 UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInfo & info) {
-// ZEN_MOD_START
     uint256 anchor = pcoinsTip->GetBestAnchor();
-// ZEN_MOD_END
     if (anchor.IsNull()) {
         throw std::runtime_error("anchor is null");
     }
@@ -314,7 +312,6 @@ UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInf
             {info.vjsin[0], info.vjsin[1]};
     boost::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS> outputs
             {info.vjsout[0], info.vjsout[1]};
-// ZEN_MOD_START
     #ifdef __APPLE__
     boost::array<uint64_t, ZC_NUM_JS_INPUTS> inputMap;
     boost::array<uint64_t, ZC_NUM_JS_OUTPUTS> outputMap;
@@ -322,7 +319,6 @@ UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInf
     boost::array<size_t, ZC_NUM_JS_INPUTS> inputMap;
     boost::array<size_t, ZC_NUM_JS_OUTPUTS> outputMap;
     #endif
-// ZEN_MOD_END
 
     uint256 esk;
 
@@ -336,10 +332,8 @@ UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInf
             outputMap,
             info.vpub_old,
             info.vpub_new,
-// ZEN_MOD_START
             !this->testmode,
             &esk);  // parameter expects pointer to esk, so pass in address
-// ZEN_MOD_END
     {
         auto verifier = libzcash::ProofVerifier::Strict();
         if (!(jsdesc.Verify(*pzcashParams, verifier, joinSplitPubKey_))) {

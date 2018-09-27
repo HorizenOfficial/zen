@@ -32,13 +32,10 @@ class PruneTest(BitcoinTestFramework):
         # So we have big transactions and full blocks to fill up our block files
 
         # create one script_pubkey
-# ZEN_MOD_START
         script_pubkey = "6a40"  # OP_RETURN 64 bytes
         for i in xrange (64):
-# ZEN_MOD_END
             script_pubkey = script_pubkey + "01"
 
-# ZEN_MOD_START
         # each output should be protected with OP_CHECKBLOCKATHEIGHT,
         # let it be anchored to the genesis block because its hash is a constant
         # HASH_SIZE + GENESIS_BLOCK_HASH + GENESIS_BLOCK_HEIGHT + OP_CHECKBLOCKATHEIGHT
@@ -47,13 +44,10 @@ class PruneTest(BitcoinTestFramework):
         # concatenate 690 txouts of above script_pubkey which we'll insert before the txout for change
         self.txouts = "fdb302"
         for k in xrange(690):
-# ZEN_MOD_END
             # add txout value
             self.txouts = self.txouts + "0000000000000000"
             # add length of script_pubkey
-# ZEN_MOD_START
             self.txouts = self.txouts + "65"    # 0x65 bytes
-# ZEN_MOD_END
             # add script_pubkey
             self.txouts = self.txouts + script_pubkey
 

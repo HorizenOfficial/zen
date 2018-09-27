@@ -4,10 +4,8 @@ SOURCES_PATH ?= $(BASEDIR)/sources
 BASE_CACHE ?= $(BASEDIR)/built
 SDK_PATH ?= $(BASEDIR)/SDKs
 NO_WALLET ?=
-# ZEN_MOD_START
 NO_UPNP ?=
-PRIORITY_DOWNLOAD_PATH ?= https://zensystem.io/depends-sources
-# ZEN_MOD_END
+PRIORITY_DOWNLOAD_PATH ?= https://horizen.global/depends-sources
 
 BUILD ?= $(shell ./config.guess)
 HOST ?= $(BUILD)
