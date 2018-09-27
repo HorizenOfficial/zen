@@ -1,4 +1,4 @@
-Zen 2.0.15-rc1
+Zen 2.0.15
 ==============
 
 What is Horizen?
