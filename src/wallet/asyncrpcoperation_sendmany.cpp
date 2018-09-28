@@ -821,9 +821,7 @@ bool AsyncRPCOperation_sendmany::find_utxos(bool fAcceptCoinbase=false) {
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-// ZEN_MOD_START
     pwalletMain->AvailableCoins(vecOutputs, false, NULL, true, fAcceptCoinbase, fAcceptCoinbase);
-// ZEN_MOD_END
 
     BOOST_FOREACH(const COutput& out, vecOutputs) {
         if (!out.fSpendable) {
@@ -966,7 +964,6 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
             {info.vjsin[0], info.vjsin[1]};
     boost::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS> outputs
             {info.vjsout[0], info.vjsout[1]};    
-// ZEN_MOD_START
         #ifdef __APPLE__
         boost::array<uint64_t, ZC_NUM_JS_INPUTS> inputMap;
         boost::array<uint64_t, ZC_NUM_JS_OUTPUTS> outputMap;
@@ -974,7 +971,6 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
         boost::array<size_t, ZC_NUM_JS_INPUTS> inputMap;
         boost::array<size_t, ZC_NUM_JS_OUTPUTS> outputMap;
         #endif
-// ZEN_MOD_END
 
     uint256 esk; // payment disclosure - secret
 

@@ -7,7 +7,7 @@
 #include "chainparams.h"
 #include "main.h"
 #include "uint256.h"
-
+#include "util.h"
 #include <stdint.h>
 
 #include <boost/foreach.hpp>
@@ -23,6 +23,7 @@ namespace Checkpoints {
      * fast multicore CPU, it won't be much higher than 1.
      */
     static const double SIGCHECK_VERIFICATION_FACTOR = 5.0;
+
 
     //! Guess how far we are in the verification process at the given block index
     double GuessVerificationProgress(const CCheckpointData& data, CBlockIndex *pindex, bool fSigchecks) {
@@ -71,7 +72,7 @@ namespace Checkpoints {
         BOOST_REVERSE_FOREACH(const MapCheckpoints::value_type& i, checkpoints)
         {
             const uint256& hash = i.second;
-            BlockMap::const_iterator t = mapBlockIndex.find(hash);            
+            BlockMap::const_iterator t = mapBlockIndex.find(hash);
             if (t != mapBlockIndex.end()){
                 return t->second;
             }

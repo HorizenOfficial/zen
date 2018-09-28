@@ -39,9 +39,7 @@ class WalletTreeStateTest (BitcoinTestFramework):
 
         # Spend coinbase utxos to create three notes of 9.99990000 each
         recipients = []
-# ZEN_MOD_START
         recipients.append({"address":myzaddr, "amount":Decimal('11.4375') - Decimal('0.0001')})
-# ZEN_MOD_END
         myopid = self.nodes[0].z_sendmany(mytaddr, recipients)
         wait_and_assert_operationid_status(self.nodes[0], myopid)
         self.sync_all()
@@ -60,9 +58,7 @@ class WalletTreeStateTest (BitcoinTestFramework):
 
         # Check balance
         resp = self.nodes[0].z_getbalance(myzaddr)
-# ZEN_MOD_START
         assert_equal(Decimal(resp), Decimal('11.4374') * 3 )
-# ZEN_MOD_END
 
         # We want to test a real-world situation where during the time spent creating a transaction
         # with joinsplits, other transactions containing joinsplits have been mined into new blocks,
@@ -70,9 +66,7 @@ class WalletTreeStateTest (BitcoinTestFramework):
 
         # Tx 1 will change the treestate while Tx 2 containing chained joinsplits is still being generated
         recipients = []
-# ZEN_MOD_START
         recipients.append({"address":self.nodes[2].z_getnewaddress(), "amount":Decimal('11.4375') - Decimal('0.0001')})
-# ZEN_MOD_END
         myopid = self.nodes[0].z_sendmany(mytaddr, recipients)
         wait_and_assert_operationid_status(self.nodes[0], myopid)
 

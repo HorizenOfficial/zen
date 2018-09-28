@@ -44,12 +44,14 @@ def hex_str_to_bytes(hex_str):
 def str_to_b64str(string):
     return b64encode(string.encode('utf-8')).decode('ascii')
 
-def sync_blocks(rpc_connections, wait=1):
+def sync_blocks(rpc_connections, wait=1, p=False):
     """
     Wait until everybody has the same block count
     """
     while True:
         counts = [ x.getblockcount() for x in rpc_connections ]
+        if p :
+            print counts
         if counts == [ counts[0] ]*len(counts):
             break
         time.sleep(wait)
@@ -75,9 +77,7 @@ def initialize_datadir(dirname, n):
     datadir = os.path.join(dirname, "node"+str(n))
     if not os.path.isdir(datadir):
         os.makedirs(datadir)
-# ZEN_MOD_START
     with open(os.path.join(datadir, "zen.conf"), 'w') as f:
-# ZEN_MOD_END
         f.write("regtest=1\n");
         f.write("showmetrics=0\n");
         f.write("rpcuser=rt\n");
@@ -99,20 +99,16 @@ def initialize_chain(test_dir):
         # Create cache directories, run bitcoinds:
         for i in range(4):
             datadir=initialize_datadir("cache", i)
-# ZEN_MOD_START
             args = [ os.getenv("BITCOIND", "zend"), "-keypool=1", "-datadir="+datadir, "-discover=0" ]
-# ZEN_MOD_END
             if i > 0:
                 args.append("-connect=127.0.0.1:"+str(p2p_port(0)))
             bitcoind_processes[i] = subprocess.Popen(args)
-# ZEN_MOD_START
             if os.getenv("PYTHON_DEBUG", ""):
                 print "initialize_chain: zend started, calling zen-cli -rpcwait getblockcount"
             subprocess.check_call([ os.getenv("BITCOINCLI", "zen-cli"), "-datadir="+datadir,
                                     "-rpcwait", "getblockcount"], stdout=devnull)
             if os.getenv("PYTHON_DEBUG", ""):
                 print "initialize_chain: zen-cli -rpcwait getblockcount completed"
-# ZEN_MOD_END
         devnull.close()
         rpcs = []
         for i in range(4):
@@ -126,10 +122,8 @@ def initialize_chain(test_dir):
         # Create a 200-block-long chain; each of the 4 nodes
         # gets 25 mature blocks and 25 immature.
         # blocks are created with timestamps 10 minutes apart, starting
-# ZEN_MOD_START
         # at Fri, 12 May 2017 00:15:50 GMT (genesis block time)
         block_time = 1494548150
-# ZEN_MOD_END
         for i in range(2):
             for peer in range(4):
                 for j in range(25):
@@ -189,14 +183,11 @@ def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=
     """
     datadir = os.path.join(dirname, "node"+str(i))
     if binary is None:
-# ZEN_MOD_START
         binary = os.getenv("BITCOIND", "zend")
-# ZEN_MOD_END
     args = [ binary, "-datadir="+datadir, "-keypool=1", "-discover=0", "-rest" ]
     if extra_args is not None: args.extend(extra_args)
     bitcoind_processes[i] = subprocess.Popen(args)
     devnull = open("/dev/null", "w+")
-# ZEN_MOD_START
     if os.getenv("PYTHON_DEBUG", ""):
         print "start_node: zend started, calling zen-cli -rpcwait getblockcount"
     subprocess.check_call([ os.getenv("BITCOINCLI", "zen-cli"), "-datadir="+datadir] +
@@ -204,7 +195,6 @@ def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=
                           ["-rpcwait", "getblockcount"], stdout=devnull)
     if os.getenv("PYTHON_DEBUG", ""):
         print "start_node: calling zen-cli -rpcwait getblockcount returned"
-# ZEN_MOD_END
     devnull.close()
     url = "http://rt:rt@%s:%d" % (rpchost or '127.0.0.1', rpc_port(i))
     if timewait is not None:

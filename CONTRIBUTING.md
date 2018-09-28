@@ -9,7 +9,7 @@
 # Filing bug reports:
 
 1. Follow the github issue guide
-2. If it requires secrecy, send an email to info@zensystem.io
+2. If it requires secrecy, send an email to info@horizen.global
 
 # What we're looking for:
 

@@ -4,7 +4,6 @@ TOPDIR=${TOPDIR:-$(git rev-parse --show-toplevel)}
 SRCDIR=${SRCDIR:-$TOPDIR/src}
 MANDIR=${MANDIR:-$TOPDIR/doc/man}
 
-# ZEN_MOD_START
 ZEND=${ZCASHD:-$SRCDIR/zend}
 ZENCLI=${ZCASHCLI:-$SRCDIR/zen-cli}
 ZENTX=${ZCASHTX:-$SRCDIR/zen-tx}
@@ -27,6 +26,5 @@ for cmd in $ZEND $ZENCLI $ZENTX; do
   help2man -N --version-string=$ZECVER --include=footer.h2m -o ${MANDIR}/${cmdname}.1 ${cmd}
   sed -i "s/\\\-$ZECCOMMIT//g" ${MANDIR}/${cmdname}.1
 done
-# ZEN_MOD_END
 
 rm -f footer.h2m

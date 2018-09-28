@@ -463,9 +463,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
 
         # make sure funds are received at node1
-# ZEN_MOD_START
         assert_equal(oldBalance+Decimal('12.5375'), self.nodes[0].getbalance())
-# ZEN_MOD_END
 
 
 
@@ -528,9 +526,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
-# ZEN_MOD_START
         assert_equal(oldBalance+Decimal('11.6275'), self.nodes[0].getbalance()) #0.19+block reward
-# ZEN_MOD_END
 
         #####################################################
         # test fundrawtransaction with OP_RETURN and no vin #

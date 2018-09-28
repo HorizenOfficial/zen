@@ -143,9 +143,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
-# ZEN_MOD_START
         assert_equal(self.nodes[0].getbalance(), bal+Decimal('11.4375')+Decimal('2.19900000')) #block reward + tx
-# ZEN_MOD_END
 
 if __name__ == '__main__':
     RawTransactionsTest().main()

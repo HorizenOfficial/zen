@@ -84,9 +84,7 @@ class ProxyTest(BitcoinTestFramework):
         rv = []
         # Test: outgoing IPv4 connection through node
         node.addnode("15.61.23.23:1234", "onetry")
-        #ZEN_MOD_START
         proxies[0].queue.get() #Discard one result due to TLS failure
-        #ZEN_MOD_END
         cmd = proxies[0].queue.get()
         assert(isinstance(cmd, Socks5Command))
         # Note: bitcoind's SOCKS5 implementation only sends atyp DOMAINNAME, even if connecting directly to IPv4/IPv6
@@ -101,9 +99,7 @@ class ProxyTest(BitcoinTestFramework):
         if self.have_ipv6:
             # Test: outgoing IPv6 connection through node
             node.addnode("[1233:3432:2434:2343:3234:2345:6546:4534]:5443", "onetry")
-            #ZEN_MOD_START
             proxies[1].queue.get() #Discard one result due to TLS failure
-            #ZEN_MOD_END
             cmd = proxies[1].queue.get()
             assert(isinstance(cmd, Socks5Command))
             # Note: bitcoind's SOCKS5 implementation only sends atyp DOMAINNAME, even if connecting directly to IPv4/IPv6
@@ -118,9 +114,7 @@ class ProxyTest(BitcoinTestFramework):
         if test_onion:
             # Test: outgoing onion connection through node
             node.addnode("bitcoinostk4e4re.onion:8333", "onetry")
-            #ZEN_MOD_START
             proxies[2].queue.get() #Discard one result due to TLS failure
-            #ZEN_MOD_END
             cmd = proxies[2].queue.get()
             assert(isinstance(cmd, Socks5Command))
             assert_equal(cmd.atyp, AddressType.DOMAINNAME)
@@ -182,7 +176,7 @@ class ProxyTest(BitcoinTestFramework):
         assert_equal(n1['onion']['proxy'], '%s:%i' % (self.conf2.addr))
         assert_equal(n1['onion']['proxy_randomize_credentials'], False)
         assert_equal(n1['onion']['reachable'], True)
-        
+
         n2 = networks_dict(self.nodes[2].getnetworkinfo())
         for net in ['ipv4','ipv6','onion']:
             assert_equal(n2[net]['proxy'], '%s:%i' % (self.conf2.addr))
