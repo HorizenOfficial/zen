@@ -20,7 +20,7 @@ cd ~/zen
 ```
 Now continue with building from source.
 
-Installing from source
+Building from source
 ----------------
 
 1. Get dependencies:
@@ -31,12 +31,21 @@ Installing from source
           autoconf libtool ncurses-dev unzip git python \
           zlib1g-dev bsdmainutils automake curl
     ```
-    2. Centos:
+    2. Centos 7:
     ```{r, engine='bash')
-    sudo yum install epel-release
-    sudo yum update
-    sudo yum groupinstall 'Development Tools'
-    sudo yum install git cmake3 curl
+    sudo yum group install 'Development Tools'
+    sudo yum install \
+    autoconf libtool unzip git python \
+    curl automake gcc gcc-c++ patch \
+    glibc-static libstdc++-static
+    ```
+    Please execute the below commands in order.
+    ```{r, engine='bash')
+    sudo yum install centos-release-scl-rh
+    sudo yum install devtoolset-3-gcc devtoolset-3-gcc-c++
+    sudo update-alternatives --install /usr/bin/gcc-4.9 gcc-4.9 /opt/rh/devtoolset-3/root/usr/bin/gcc 10
+    sudo update-alternatives --install /usr/bin/g++-4.9 g++-4.9 /opt/rh/devtoolset-3/root/usr/bin/g++ 10
+    scl enable devtoolset-3 bash
     ```
     3. Windows
     ```{r, engine='bash'}
@@ -55,6 +64,8 @@ Installing from source
 
 * Install for linux
 ```{r, engine='bash'}
+git clone https://github.com/ZencashOfficial/zen.git
+cd zen
 # Build
 ./zcutil/build.sh -j$(nproc)
 # fetch key
