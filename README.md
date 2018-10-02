@@ -36,7 +36,7 @@ Installing from source
     sudo yum group install 'Development Tools'
     sudo yum install \
     autoconf libtool unzip git python \
-    wget curl automake gcc gcc-c++ patch \
+    curl automake gcc gcc-c++ patch \
     glibc-static libstdc++-static
     ```
     Please execute the below commands in order.
