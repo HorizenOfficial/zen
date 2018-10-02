@@ -33,6 +33,7 @@ Installing from source
     ```
     2. Centos:
     ```{r, engine='bash')
+    sudo yum group install 'Development Tools'
     sudo yum install \
     autoconf libtool unzip git python \
     wget curl automake gcc gcc-c++ patch \
