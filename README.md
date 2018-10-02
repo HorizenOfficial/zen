@@ -64,6 +64,8 @@ Installing from source
 
 * Install for linux
 ```{r, engine='bash'}
+git clone https://github.com/ZencashOfficial/zen.git
+cd zen
 # Build
 ./zcutil/build.sh -j$(nproc)
 # fetch key
