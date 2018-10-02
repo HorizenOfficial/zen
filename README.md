@@ -20,7 +20,7 @@ cd ~/zen
 ```
 Now continue with building from source.
 
-Installing from source
+Building from source
 ----------------
 
 1. Get dependencies:
@@ -31,7 +31,7 @@ Installing from source
           autoconf libtool ncurses-dev unzip git python \
           zlib1g-dev bsdmainutils automake curl
     ```
-    2. Centos:
+    2. Centos 7:
     ```{r, engine='bash')
     sudo yum group install 'Development Tools'
     sudo yum install \
