@@ -37,6 +37,12 @@ Installing from source
     sudo yum update
     sudo yum groupinstall 'Development Tools'
     sudo yum install git cmake3 curl
+    # zend requires GCC 4.9 to build
+    sudo update-alternatives --install /usr/bin/gcc-4.9 gcc-4.9 \
+        /opt/rh/devtoolset-3/root/usr/bin/gcc 10
+    sudo update-alternatives --install /usr/bin/g++-4.9 g++-4.9 \
+        /opt/rh/devtoolset-3/root/usr/bin/g++ 10
+    scl enable devtoolset-3 bash
     ```
     3. Windows
     ```{r, engine='bash'}
