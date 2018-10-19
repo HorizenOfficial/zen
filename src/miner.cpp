@@ -291,6 +291,13 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
 
 CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
 {
+    // Block complexity is a sum of block transactions complexity. Transaction complexisty equals to number of inputs squared.
+    unsigned int nBlockMaxComplexitySize = GetArg("-blockmaxcomplexity", DEFAULT_BLOCK_MAX_COMPLEXITY_SIZE);
+    // Calculate current block complexity
+    return  CreateNewBlock(scriptPubKeyIn,  nBlockMaxComplexitySize);
+}
+CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlockMaxComplexitySize)
+{
     const CChainParams& chainparams = Params();
     // Create new block
     std::unique_ptr<CBlockTemplate> pblocktemplate(new CBlockTemplate());
@@ -324,9 +331,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
     nBlockMinSize = std::min(nBlockMaxSize, nBlockMinSize);
 
 // ZEN_MOD_START
-    // Block complexity is a sum of block transactions complexity. Transaction complexisty equals to number of inputs squared.
-    unsigned int nBlockMaxComplexitySize = GetArg("-blockmaxcomplexity", DEFAULT_BLOCK_MAX_COMPLEXITY_SIZE);
-    // Calculate current block complexity
     int nBlockComplexity = 0;
 // ZEN_MOD_END
 

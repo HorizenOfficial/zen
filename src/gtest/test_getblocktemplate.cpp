@@ -25,9 +25,12 @@
 #include <boost/filesystem.hpp>
 
 static const unsigned int NUM_BLOCKS = 2;
-static const unsigned int NUM_FAKE_COINS = 6000000;
-static const unsigned int NUM_TX_INPUTS  = 60000;
-static const unsigned int NUM_SPEND_TX   = 100;
+static const unsigned int NUM_FAKE_COINS = 20000;
+
+static const unsigned int NUM_SPEND_TX = 40;
+static const unsigned int INPUTS_IN_TX_0 = 40;
+static const unsigned int INPUTS_IN_TX_1 = 10;
+
 static const unsigned int COINS_DB_CACHE_SIZE_MB = 2;
 static const unsigned int COINS_DB_CACHE_SIZE = COINS_DB_CACHE_SIZE_MB * 1024 * 1024;
 
@@ -76,9 +79,8 @@ public:
 class TxFactory
 {
 public:
-	TxFactory(unsigned int numFakeCoins,unsigned int numTxInputs, unsigned int numSpendTx, unsigned int numBlocks)
+	TxFactory(unsigned int numFakeCoins, unsigned int numSpendTx, unsigned int numBlocks)
 		: m_numFakeCoins(numFakeCoins)
-		, m_numTxInputs(numTxInputs)
 		, m_numSpendTx(numSpendTx)
 		, m_numBlocks(numBlocks)
 	{
@@ -108,43 +110,43 @@ private:
 			fakeCoins.emplace(txid, entry);
 	    }
 	}
-
+	
 	void GenerateSpendTxSet()
 	{
-		ASSERT_LE(m_numTxInputs, m_numFakeCoins) << "Inputs number must be less than coins number.";
-		ASSERT_LE(m_numSpendTx, m_numTxInputs) << "Tx number must be less than inputs number.";
+			LogPrintf("start GenerateSpendTxSet \n");
+			ASSERT_LE((INPUTS_IN_TX_0/2 + INPUTS_IN_TX_1/2)*m_numSpendTx, m_numFakeCoins) << "Inputs number must be less than coins number.";
 
-		const unsigned int numInputsInTx = m_numTxInputs / m_numSpendTx;
 
-	    CCoinsMap::const_iterator pos = fakeCoins.begin();
-	    CCoinsMap::const_iterator end = fakeCoins.end();
+		    CCoinsMap::const_iterator pos = fakeCoins.begin();
+		    CCoinsMap::const_iterator end = fakeCoins.end();
 
-		spendTransactions.resize(m_numSpendTx);
-		for(unsigned int txIndex = 0; txIndex < m_numSpendTx; ++txIndex)
-		{
-			CCoinsMap::const_iterator txPos = pos;
-			CMutableTransaction& tx = spendTransactions[txIndex];
-
-			tx.nVersion = 2;
-			tx.vin.resize(numInputsInTx);
-
-			CAmount amount(0);
-			for(unsigned int inputIndex = 0; inputIndex < numInputsInTx; ++inputIndex, ++pos)
+			spendTransactions.resize(m_numSpendTx);
+			for(unsigned int txIndex = 0; txIndex < m_numSpendTx; ++txIndex)
 			{
-				tx.vin[inputIndex].prevout = COutPoint(pos->first, 0);
-				amount += GetCacheEntryTxOut(pos->second, 0).nValue;
-			}
+				CCoinsMap::const_iterator txPos = pos;
+				CMutableTransaction& tx = spendTransactions[txIndex];
 
-			tx.vout.resize(1);
-			tx.vout[0].nValue = amount*0.9;
-			tx.vout[0].scriptPubKey = GetScriptPubKey();
+				tx.nVersion = 2;
+				// split the transaction pool in 2 type of transactions different by number of input
+				tx.vin.resize(txIndex%2 == 0 ? INPUTS_IN_TX_0 : INPUTS_IN_TX_1);
 
-			for(unsigned int inputNum = 0; inputNum < numInputsInTx; ++inputNum, ++txPos)
-			{
-			    EXPECT_TRUE(SignSignature(m_keystore, GetCacheEntryTxOut(txPos->second, 0).scriptPubKey, tx, inputNum));
+				CAmount amount(0);
+				for(unsigned int inputIndex = 0; inputIndex < tx.vin.size(); ++inputIndex, ++pos)
+				{
+					tx.vin[inputIndex].prevout = COutPoint(pos->first, 0);
+					amount += GetCacheEntryTxOut(pos->second, 0).nValue;
+				}
+				tx.vout.resize(1);
+				tx.vout[0].nValue = amount*0.9;
+				tx.vout[0].scriptPubKey = GetScriptPubKey();
+
+				for(unsigned int inputNum = 0; inputNum < tx.vin.size(); ++inputNum, ++txPos)
+				{
+				    EXPECT_TRUE(SignSignature(m_keystore, GetCacheEntryTxOut(txPos->second, 0).scriptPubKey, tx, inputNum));
+				}
 			}
+			LogPrintf("end GenerateSpendTxSet \n");
 		}
-	}
 
 	const CTxOut& GetCacheEntryTxOut(const CCoinsCacheEntry& entry, unsigned int num)
 	{
@@ -186,7 +188,6 @@ private:
 	const unsigned int m_numFakeCoins;
 	const unsigned int m_numSpendTx;
 	const unsigned int m_numBlocks;
-	const unsigned int m_numTxInputs;
 
 	CKey m_key;
 	CBasicKeyStore m_keystore;
@@ -195,6 +196,7 @@ private:
 
 class GetBlockTemplateTest : public ::testing::Test {
 protected:
+	boost::filesystem::path pathTemp;
 	GetBlockTemplateTest()
 	{
 		SetupParams();
@@ -207,12 +209,14 @@ protected:
 		ECC_Stop();
 
 		boost::system::error_code ec;
-		boost::filesystem::remove_all("/tmp/regtest", ec);
+		boost::filesystem::remove_all(pathTemp.string()+"/regtest", ec);
 	}
 
 	void SetupParams()
 	{
-		mapArgs["-datadir"] = "/tmp";
+		pathTemp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+		boost::filesystem::create_directories(pathTemp);
+		mapArgs["-datadir"] = pathTemp.string();
 
 		fPrintToConsole = true;
 
@@ -272,7 +276,9 @@ protected:
 	{
 	    for(const CMutableTransaction& tx : transactions)
 	    {
-	    	ASSERT_TRUE(mempool.addUnchecked(tx.GetHash(), CTxMemPoolEntry(tx, 0, 0, 0.0, 1)));
+	    	//To be able to control the order of adding transactions in the blocktemplate based on the number of inputs we provide different fees.
+	    	ASSERT_TRUE(mempool.addUnchecked(tx.GetHash(), CTxMemPoolEntry(tx, tx.vout[0].nValue/0.9 *0.1, 0, 0.00, 1)));
+
 	    }
 
 	    ASSERT_EQ(mempool.size(), transactions.size());
@@ -283,9 +289,46 @@ protected:
 	std::vector<CBlockIndex> blocks;
 };
 
+void TestMaxWeight(int maxWeight, std::map<int,int> expectedInputTx)
+{
+	TestReserveKey reserveKey;
+	boost::chrono::steady_clock::time_point startTime = boost::chrono::steady_clock::now();
+
+	boost::optional<CScript> scriptPubKey = GetMinerScriptPubKey(reserveKey);
+
+	CBlockTemplate* pblocktemplate = CreateNewBlock(*scriptPubKey, maxWeight);
+	boost::chrono::steady_clock::time_point endTime = boost::chrono::steady_clock::now();
+
+	ASSERT_NE(pblocktemplate, nullptr);
+
+	boost::chrono::duration<double> elapsedTime = endTime - startTime;
+
+
+	for(const CTransaction& tx: pblocktemplate->block.vtx)
+	{
+
+		if(tx.IsCoinBase())
+			continue;
+
+		ASSERT_TRUE(expectedInputTx.count(tx.vin.size()) > 0);
+
+		expectedInputTx.at(tx.vin.size()) --;
+
+		if(expectedInputTx.at(tx.vin.size()) == 0) {
+			expectedInputTx.erase(tx.vin.size());
+		}
+
+	}
+	ASSERT_TRUE(expectedInputTx.empty());
+
+	LogPrintf("Block transaction count = %d\n", pblocktemplate->block.vtx.size());
+	LogPrintf("CreateNewBlock() takes %g seconds.\n", elapsedTime.count());
+
+}
+
 TEST_F(GetBlockTemplateTest, TxWith100Inputs)
 {
-    TxFactory txFactory(NUM_FAKE_COINS, NUM_TX_INPUTS, NUM_SPEND_TX, NUM_BLOCKS);
+    TxFactory txFactory(NUM_FAKE_COINS,  NUM_SPEND_TX, NUM_BLOCKS);
     txFactory.Generate();
     ASSERT_EQ(txFactory.fakeCoins.size(), NUM_FAKE_COINS);
     ASSERT_EQ(txFactory.spendTransactions.size(), NUM_SPEND_TX);
@@ -297,31 +340,24 @@ TEST_F(GetBlockTemplateTest, TxWith100Inputs)
     InitSetupCoinsViewCache(&dbCoins);
     FillMempool(txFactory.spendTransactions);
 
-    TestReserveKey reserveKey;
-    boost::chrono::steady_clock::time_point startTime = boost::chrono::steady_clock::now();
     try
     {
-		CBlockTemplate* pblocktemplate = CreateNewBlockWithKey(reserveKey);
-		boost::chrono::steady_clock::time_point endTime = boost::chrono::steady_clock::now();
 
-		ASSERT_NE(pblocktemplate, nullptr);
+    	//call getblocktemplate with different max weights and verify if the block contains the expected transactions.
+    	TestMaxWeight(INPUTS_IN_TX_0*INPUTS_IN_TX_0*5 + INPUTS_IN_TX_1*INPUTS_IN_TX_1*4 + 1, {{INPUTS_IN_TX_0, 5},{INPUTS_IN_TX_1, 4}});
+		TestMaxWeight(INPUTS_IN_TX_0*INPUTS_IN_TX_0*10 + INPUTS_IN_TX_1*INPUTS_IN_TX_1*9 + 1,{{INPUTS_IN_TX_0, 10},{INPUTS_IN_TX_1, 9}});
+		TestMaxWeight(INPUTS_IN_TX_0*INPUTS_IN_TX_0*NUM_SPEND_TX/2 + INPUTS_IN_TX_1*INPUTS_IN_TX_1*NUM_SPEND_TX/2 + 1,{{INPUTS_IN_TX_0, NUM_SPEND_TX/2},{INPUTS_IN_TX_1, NUM_SPEND_TX/2}});
+		// test without max weight and verify if block contains all mempool transactions
+		TestMaxWeight(0,{{INPUTS_IN_TX_0, NUM_SPEND_TX/2},{INPUTS_IN_TX_1, NUM_SPEND_TX/2}});
 
-	    boost::chrono::duration<double> elapsedTime = endTime - startTime;
-
-	    unsigned int inputsCount = 0;
-	    for(const CTransaction& tx: pblocktemplate->block.vtx)
-	    {
-	    	inputsCount += tx.vin.size();
-	    }
-
-	    LogPrintf("Block transaction count = %d\n", pblocktemplate->block.vtx.size());
-	    LogPrintf("Block inputs count = %d\n", inputsCount);
-		LogPrintf("CreateNewBlock() takes %g seconds.\n", elapsedTime.count());
+		ClearDatadirCache();
     }
     catch(std::exception& ex)
     {
     	LogPrintf("Exeption: %s \n", ex.what());
+    	ClearDatadirCache();
+    	throw ex;
     }
 
-    ClearDatadirCache();
+
 }
