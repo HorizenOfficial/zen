@@ -8,7 +8,7 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
 Upgrading from 2.0.11 source
 ----------------
 
-To upgrade from any version prior to 2.0.14 you will have to re-clone the repository, the [ZencashOfficial/zen](https://github.com/ZencashOfficial/zen) repository was replaced by a new repository based on Zcash upstream with a different commit history, merging/pulling is not possible without issues.
+To upgrade from any version prior to 2.0.14, you will have to re-clone the repository, the [ZencashOfficial/zen](https://github.com/ZencashOfficial/zen) repository was replaced by a new repository based on Zcash upstream with a different commit history. Merging/pulling is not possible without issues.
 Assuming your current repository is stored at `~/zen`, do the following to upgrade:
 ```{r, engine='bash'}
 # if you don't want to keep the old src around
@@ -62,7 +62,7 @@ Building from source
         zlib1g-dev curl bsdmainutils automake cmake cargo
     ```
 
-* Install for linux
+* Install for Linux
 ```{r, engine='bash'}
 git clone https://github.com/ZencashOfficial/zen.git
 cd zen
@@ -104,7 +104,7 @@ PATH=$PATH:~/bin
 cd ~/zen/
 ./zcutil/build-arm.sh -j$(nproc)
 ```
-Instructions to redeem pre block 110,000 ZCL
+Instructions to redeem pre-block 110,000 ZCL
 -------------
 1. Linux:
 Copy and paste your wallet.dat from ~/.zclassic/ to ~/.zen. That's it!
@@ -134,7 +134,7 @@ See important security warnings in
 
 Where do I begin?
 -----------------
-* The easiest way to get started is to download one of the available graphical wallets from [horizen.global](https://horizen.global)
+* The easiest way to get started is to download one of the available GUI wallets from [horizen.global](https://horizen.global)
 
 ### Need Help?
 
