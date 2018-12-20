@@ -4,9 +4,9 @@ namespace zen {
 
 ShieldFork::ShieldFork()
 {
-    setHeightMap({{CBaseChainParams::Network::MAIN,500000},
+    setHeightMap({{CBaseChainParams::Network::MAIN,455555},
                   {CBaseChainParams::Network::REGTEST,200},
-                  {CBaseChainParams::Network::TESTNET,450000}});
+                  {CBaseChainParams::Network::TESTNET,369900}});
 
 }
 
