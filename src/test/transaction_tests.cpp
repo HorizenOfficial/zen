@@ -714,8 +714,8 @@ void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHe
 BOOST_AUTO_TEST_CASE(test_IsStandardV2)
 {
 	verifyTxVersions(CBaseChainParams::REGTEST, 200);
-	verifyTxVersions(CBaseChainParams::TESTNET, 450000);
-	verifyTxVersions(CBaseChainParams::MAIN, 500000);
+	verifyTxVersions(CBaseChainParams::TESTNET, 369900);
+	verifyTxVersions(CBaseChainParams::MAIN, 455555);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

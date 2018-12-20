@@ -53,7 +53,7 @@ TEST(CheckBlock, BlockRejectsBadVersion) {
     mtx.vout.resize(1);
     mtx.vout[0].scriptPubKey = CScript() << OP_TRUE;
     mtx.vout[0].nValue = 0;
-    
+
     mtx.nVersion = -1;
 
     CTransaction tx {mtx};
@@ -244,8 +244,8 @@ protected:
 TEST_F(ContextualTxsCheckBlockTest, BlockShieldRulesRejectOtherTx) {
 
 	TestTxsAcceptanceRules(CBaseChainParams::REGTEST, 200);
-	TestTxsAcceptanceRules(CBaseChainParams::TESTNET, 450000);
-	TestTxsAcceptanceRules(CBaseChainParams::MAIN, 500000);
+	TestTxsAcceptanceRules(CBaseChainParams::TESTNET, 369900);
+	TestTxsAcceptanceRules(CBaseChainParams::MAIN, 455555);
 
 }
 
@@ -367,7 +367,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     CBlockIndex indexPrev {prev};
     ChainsplitFork chainplitFork;
     CommunityFundAndRPFixFork communityFundAndRPFixFork;
-    
+
     int blockIndex = chainplitFork.getHeight(CBaseChainParams::MAIN)+1;
     CBitcoinAddress address(Params().GetCommunityFundAddressAtHeight(blockIndex, Fork::CommunityFundType::FOUNDATION).c_str());
     CScriptID scriptID = boost::get<CScriptID>(address.Get());
