@@ -10,7 +10,7 @@
 #include "main.h"
 #include "net.h"
 #include "netbase.h"
-#include "rpcserver.h"
+#include "rpc/server.h"
 #include "timedata.h"
 #include "util.h"
 #include "utilmoneystr.h"
@@ -382,17 +382,17 @@ UniValue listaddresses(const UniValue& params, bool fHelp)
                 "listaddresses\n"
                 "Returns the list of transparent addresses.\n"
                 "\nResult:\n"
-                "[                     (json array of string)\n" 
+                "[                     (json array of string)\n"
                 "  \"horizenaddress\"  (string) a horizen address associated with the given account\n"
                 "  ,...\n"
                 "]\n"
-                "\nExamples:\n" 
+                "\nExamples:\n"
                 + HelpExampleCli("listaddresses", "")
                 + HelpExampleRpc("listaddresses", "")
         );
 
-    LOCK2(cs_main, pwalletMain->cs_wallet); 
-    
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
     UniValue ret(UniValue::VARR);
     BOOST_FOREACH(const PAIRTYPE(CBitcoinAddress, CAddressBookData)& item, pwalletMain->mapAddressBook)
     {
@@ -2537,9 +2537,15 @@ UniValue zc_sample_joinsplit(const UniValue& params, bool fHelp)
 
     LOCK(cs_main);
 
+    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(chainActive.Height());
+    LogPrintf("shieldedTxVersion (Forkmanager): %d\n", shieldedTxVersion);
+
+    const bool isGroth = (shieldedTxVersion == GROTH_TX_VERSION);
+
     uint256 pubKeyHash;
     uint256 anchor = ZCIncrementalMerkleTree().root();
-    JSDescription samplejoinsplit(*pzcashParams,
+    JSDescription samplejoinsplit(isGroth,
+								  *pzcashParams,
                                   pubKeyHash,
                                   anchor,
                                   {JSInput(), JSInput()},
@@ -2547,9 +2553,11 @@ UniValue zc_sample_joinsplit(const UniValue& params, bool fHelp)
                                   0,
                                   0);
 
-    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-    ss << samplejoinsplit;
 
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+
+    auto os = WithTxVersion(&ss, shieldedTxVersion);
+    os << samplejoinsplit;
     return HexStr(ss.begin(), ss.end());
 }
 
@@ -2578,6 +2586,11 @@ UniValue zc_benchmark(const UniValue& params, bool fHelp)
             );
     }
 
+    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(chainActive.Height());
+    LogPrintf("shieldedTxVersion (Forkmanager): %d\n", shieldedTxVersion);
+
+
+
     LOCK(cs_main);
 
     std::string benchmarktype = params[0].get_str();
@@ -2589,11 +2602,12 @@ UniValue zc_benchmark(const UniValue& params, bool fHelp)
 
     std::vector<double> sample_times;
 
-    JSDescription samplejoinsplit;
+    JSDescription samplejoinsplit = JSDescription::getNewInstance(shieldedTxVersion == GROTH_TX_VERSION);
 
     if (benchmarktype == "verifyjoinsplit") {
         CDataStream ss(ParseHexV(params[2].get_str(), "js"), SER_NETWORK, PROTOCOL_VERSION);
-        ss >> samplejoinsplit;
+        auto os = WithTxVersion(&ss, shieldedTxVersion);
+        os >> samplejoinsplit;
     }
 
     for (int i = 0; i < samplecount; i++) {
@@ -2739,7 +2753,7 @@ UniValue zc_raw_receive(const UniValue& params, bool fHelp)
     ss << npt;
 
     UniValue result(UniValue::VOBJ);
-    result.push_back(Pair("amount", ValueFromAmount(decrypted_note.value)));
+    result.push_back(Pair("amount", ValueFromAmount(decrypted_note.value())));
     result.push_back(Pair("note", HexStr(ss.begin(), ss.end())));
     result.push_back(Pair("exists", (bool) witnesses[0]));
     return result;
@@ -2865,10 +2879,11 @@ UniValue zc_raw_joinsplit(const UniValue& params, bool fHelp)
     crypto_sign_keypair(joinSplitPubKey.begin(), joinSplitPrivKey);
 
     CMutableTransaction mtx(tx);
-    mtx.nVersion = 2;
+    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(chainActive.Height() + 1);
+    mtx.nVersion = shieldedTxVersion;
     mtx.joinSplitPubKey = joinSplitPubKey;
-
-    JSDescription jsdesc(*pzcashParams,
+    JSDescription jsdesc(mtx.nVersion == GROTH_TX_VERSION,
+						 *pzcashParams,
                          joinSplitPubKey,
                          anchor,
                          {vjsin[0], vjsin[1]},
@@ -3084,7 +3099,7 @@ CAmount getBalanceZaddr(std::string address, int minDepth = 1, bool ignoreUnspen
     LOCK2(cs_main, pwalletMain->cs_wallet);
     pwalletMain->GetFilteredNotes(entries, address, minDepth, true, ignoreUnspendable);
     for (auto & entry : entries) {
-        balance += CAmount(entry.plaintext.value);
+        balance += CAmount(entry.plaintext.value());
     }
     return balance;
 }
@@ -3145,8 +3160,8 @@ UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp)
     for (CNotePlaintextEntry & entry : entries) {
         UniValue obj(UniValue::VOBJ);
         obj.push_back(Pair("txid",entry.jsop.hash.ToString()));
-        obj.push_back(Pair("amount", ValueFromAmount(CAmount(entry.plaintext.value))));
-        std::string data(entry.plaintext.memo.begin(), entry.plaintext.memo.end());
+        obj.push_back(Pair("amount", ValueFromAmount(CAmount(entry.plaintext.value()))));
+        std::string data(entry.plaintext.memo().begin(), entry.plaintext.memo().end());
         obj.push_back(Pair("memo", HexStr(data)));
         result.push_back(obj);
     }
@@ -3384,7 +3399,7 @@ UniValue z_getoperationstatus_IMPL(const UniValue& params, bool fRemoveFinishedO
 // If input notes are small, we might actually require more than one joinsplit per zaddr output.
 // For now though, we assume we use one joinsplit per zaddr output (and the second output note is change).
 // We reduce the result by 1 to ensure there is room for non-joinsplit CTransaction data.
-#define Z_SENDMANY_MAX_ZADDR_OUTPUTS    ((MAX_TX_SIZE / JSDescription().GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)) - 1)
+#define Z_SENDMANY_MAX_ZADDR_OUTPUTS(TX_VER)    ((MAX_TX_SIZE / JSDescription::getNewInstance(TX_VER == GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, TX_VER)) - 1)
 
 // transaction.h comment: spending taddr output requires CTxIn >= 148 bytes and typical taddr txout is 34 bytes
 #define CTXIN_SPEND_DUST_SIZE   148
@@ -3395,13 +3410,16 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
+    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(chainActive.Height() + 1);
+    LogPrintf("z_sendmany shieldedTxVersion: %d\n", shieldedTxVersion);
+
     if (fHelp || params.size() < 2 || params.size() > 4)
         throw runtime_error(
             "z_sendmany \"fromaddress\" [{\"address\":... ,\"amount\":...},...] ( minconf ) ( fee )\n"
             "\nSend multiple times. Amounts are double-precision floating point numbers."
             "\nChange from a taddr flows to a new taddr address, while change from zaddr returns to itself."
             "\nWhen sending coinbase UTXOs to a zaddr, change is not allowed. The entire value of the UTXO(s) must be consumed."
-            + strprintf("\nCurrently, the maximum number of zaddr outputs is %d due to transaction size limits.\n", Z_SENDMANY_MAX_ZADDR_OUTPUTS)
+            + strprintf("\nCurrently, the maximum number of zaddr outputs is %d due to transaction size limits.\n", Z_SENDMANY_MAX_ZADDR_OUTPUTS(shieldedTxVersion))
             + HelpRequiringPassphrase() + "\n"
             "\nArguments:\n"
             "1. \"fromaddress\"         (string, required) The taddr or zaddr to send the funds from.\n"
@@ -3515,8 +3533,10 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
         nTotalOut += nAmount;
     }
 
+
+
     // Check the number of zaddr outputs does not exceed the limit.
-    if (zaddrRecipients.size() > Z_SENDMANY_MAX_ZADDR_OUTPUTS)  {
+    if (zaddrRecipients.size() > Z_SENDMANY_MAX_ZADDR_OUTPUTS(shieldedTxVersion))  {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, too many zaddr outputs");
     }
 
@@ -3524,12 +3544,12 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     // Depending on the input notes, the actual tx size may turn out to be larger and perhaps invalid.
     size_t txsize = 0;
     CMutableTransaction mtx;
-    mtx.nVersion = 2;
+    mtx.nVersion = shieldedTxVersion;
     for (int i = 0; i < zaddrRecipients.size(); i++) {
-        mtx.vjoinsplit.push_back(JSDescription());
+        mtx.vjoinsplit.push_back(JSDescription::getNewInstance(mtx.nVersion == GROTH_TX_VERSION));
     }
     CTransaction tx(mtx);
-    txsize += tx.GetSerializeSize(SER_NETWORK, tx.nVersion);
+    txsize += tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     if (fromTaddr) {
         txsize += CTXIN_SPEND_DUST_SIZE;
         txsize += CTXOUT_REGULAR_SIZE;      // There will probably be taddr change
@@ -3571,9 +3591,15 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     o.push_back(Pair("fee", std::stod(FormatMoney(nFee))));
     UniValue contextInfo = o;
 
+    CMutableTransaction contextualTx;
+    bool isShielded = !fromTaddr || zaddrRecipients.size() > 0;
+	contextualTx.nVersion = 1;
+	if(isShielded) {
+		contextualTx.nVersion = shieldedTxVersion;
+	}    
     // Create operation and add to global queue
     std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
-    std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(fromaddress, taddrRecipients, zaddrRecipients, nMinDepth, nFee, contextInfo) );
+    std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(contextualTx, fromaddress, taddrRecipients, zaddrRecipients, nMinDepth, nFee, contextInfo) );
     q->addOperation(operation);
     AsyncRPCOperationId operationId = operation->getId();
     return operationId;
@@ -3752,9 +3778,17 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
     contextInfo.push_back(Pair("toaddress", params[1]));
     contextInfo.push_back(Pair("fee", ValueFromAmount(nFee)));
 
+    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(chainActive.Height() + 1);
+    LogPrintf("z_shieldcoinbase shieldedTxVersion (Forkmanager): %d\n", shieldedTxVersion);
+
+    // Contextual transaction we will build on
+    // (used if no Sapling addresses are involved)
+    CMutableTransaction contextualTx;
+    contextualTx.nVersion = shieldedTxVersion;
+
     // Create operation and add to global queue
     std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
-    std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(inputs, destaddress, nFee, contextInfo) );
+    std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(contextualTx, inputs, destaddress, nFee, contextInfo) );
     q->addOperation(operation);
     AsyncRPCOperationId operationId = operation->getId();
 

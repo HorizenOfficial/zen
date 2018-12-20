@@ -14,6 +14,7 @@
 // For JSOutPoint
 #include "wallet/wallet.h"
 
+#include <array>
 #include <cstdint>
 #include <string>
 
@@ -73,11 +74,7 @@ struct PaymentDisclosurePayload {
     uint8_t version;        // 0 = experimental, 1 = first production version, etc.
     uint256 esk;            // zcash/NoteEncryption.cpp
     uint256 txid;           // primitives/transaction.h
-    #ifdef __APPLE__
     uint64_t js;              // Index into CTransaction.vjoinsplit
-    #else
-    size_t js;              // Index into CTransaction.vjoinsplit
-    #endif
     uint8_t n;              // Index into JSDescription fields of length ZC_NUM_JS_OUTPUTS
     libzcash::PaymentAddress zaddr; // zcash/Address.hpp
     std::string message;     // parameter to RPC call
@@ -116,12 +113,12 @@ struct PaymentDisclosurePayload {
 };
 
 struct PaymentDisclosure {
-    PaymentDisclosurePayload            payload;
-    boost::array<unsigned char, 64>     payloadSig;
+    PaymentDisclosurePayload payload;
+    std::array<unsigned char, 64> payloadSig;
     // We use boost array because serialize doesn't like char buffer, otherwise we could do: unsigned char payloadSig[64];
 
     PaymentDisclosure() {};
-    PaymentDisclosure(const PaymentDisclosurePayload payload, const boost::array<unsigned char, 64> sig) : payload(payload), payloadSig(sig) {};
+    PaymentDisclosure(const PaymentDisclosurePayload payload, const std::array<unsigned char, 64> sig) : payload(payload), payloadSig(sig) {};
     PaymentDisclosure(const uint256& joinSplitPubKey, const PaymentDisclosureKey& key, const PaymentDisclosureInfo& info, const std::string& message);
 
     ADD_SERIALIZE_METHODS;

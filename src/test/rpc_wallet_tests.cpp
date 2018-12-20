@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "rpcserver.h"
-#include "rpcclient.h"
+#include "rpc/server.h"
+#include "rpc/client.h"
 
 #include "base58.h"
 #include "main.h"
@@ -13,13 +13,13 @@
 
 #include "zcash/Address.hpp"
 
-#include "rpcserver.h"
+#include "rpc/server.h"
 #include "asyncrpcqueue.h"
 #include "asyncrpcoperation.h"
 #include "wallet/asyncrpcoperation_sendmany.h"
 #include "wallet/asyncrpcoperation_shieldcoinbase.h"
 
-#include "rpcprotocol.h"
+#include "rpc/protocol.h"
 #include "init.h"
 
 #include <chrono>
@@ -34,6 +34,10 @@
 #include <boost/filesystem.hpp>
 
 #include <univalue.h>
+
+#include "zen/forks/fork3_communityfundandrpfixfork.h"
+#include "zen/forks/fork4_nulltransactionfork.h"
+#include "zen/forks/fork5_shieldfork.h"
 
 using namespace std;
 
@@ -261,7 +265,7 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
         notFound &= CBitcoinAddress(a.get_str()).Get() != demoAddress.Get();
     }
     BOOST_CHECK(!notFound);
-    
+
     /*********************************
      * 	     fundrawtransaction
      *********************************/
@@ -277,28 +281,45 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     UniValue obj = retValue.get_obj();
     BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 12.5);
     BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 0.0);
-    
+
     BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 110001"));
     obj = retValue.get_obj();
     BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 11.4375);
     BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 1.0625);
-    
-    BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 139200"));
+
+    CommunityFundAndRPFixFork communityFundAndRPFixFork;
+    int hardForkHeight = communityFundAndRPFixFork.getHeight(CBaseChainParams::MAIN);
+
+    BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy " + std::to_string(hardForkHeight)));
     obj = retValue.get_obj();
     BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 11.0);
     BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 1.5);
-    
-    BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 344700"));
+
+    NullTransactionFork nullTransactionFork;
+    hardForkHeight = nullTransactionFork.getHeight(CBaseChainParams::MAIN);
+
+    BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy " + std::to_string(hardForkHeight)));
     obj = retValue.get_obj();
     BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 8.75);
     BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 1.25);
     BOOST_CHECK_EQUAL(find_value(obj, "securenodes").get_real(), 1.25);
     BOOST_CHECK_EQUAL(find_value(obj, "supernodes").get_real(), 1.25);
 
+    ShieldFork shieldFork;
+    hardForkHeight = shieldFork.getHeight(CBaseChainParams::MAIN);
+
+    BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy " + std::to_string(hardForkHeight)));
+    obj = retValue.get_obj();
+    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 7.5);
+    BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 2.5);
+    BOOST_CHECK_EQUAL(find_value(obj, "securenodes").get_real(), 1.25);
+    BOOST_CHECK_EQUAL(find_value(obj, "supernodes").get_real(), 1.25);
+
+
     BOOST_CHECK_NO_THROW(retValue = CallRPC("getblocksubsidy 840001"));
     obj = retValue.get_obj();
-    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 4.375);
-    BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 0.625);
+    BOOST_CHECK_EQUAL(find_value(obj, "miner").get_real(), 3.75);
+    BOOST_CHECK_EQUAL(find_value(obj, "community").get_real(), 1.25);
     BOOST_CHECK_EQUAL(find_value(obj, "securenodes").get_real(), 0.625);
     BOOST_CHECK_EQUAL(find_value(obj, "supernodes").get_real(), 0.625);
 
@@ -936,45 +957,51 @@ BOOST_AUTO_TEST_CASE(rpc_z_sendmany_parameters)
     BOOST_CHECK_THROW(CallRPC(string("z_sendmany tmRr6yJonqGK23UVhrKuyvTpF8qxQQjKigJ ")
             + "[{\"address\":\"" + zaddr1 + "\", \"amount\":123.456}]"), runtime_error);
 
+    // Mutable tx containing contextual information we need to build tx
+    UniValue retValue = CallRPC("getblockcount");
+    int nHeight = retValue.get_int();
+    CMutableTransaction mtx;
+    mtx.nVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight + 1);
+
     // Test constructor of AsyncRPCOperation_sendmany
     try {
-        std::shared_ptr<AsyncRPCOperation> operation(new AsyncRPCOperation_sendmany("",{}, {}, -1));
+        std::shared_ptr<AsyncRPCOperation> operation(new AsyncRPCOperation_sendmany(mtx, "",{}, {}, -1));
     } catch (const UniValue& objError) {
         BOOST_CHECK( find_error(objError, "Minconf cannot be negative"));
     }
 
     try {
-        std::shared_ptr<AsyncRPCOperation> operation(new AsyncRPCOperation_sendmany("",{}, {}, 1));
+        std::shared_ptr<AsyncRPCOperation> operation(new AsyncRPCOperation_sendmany(mtx, "",{}, {}, 1));
     } catch (const UniValue& objError) {
         BOOST_CHECK( find_error(objError, "From address parameter missing"));
     }
 
     try {
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany("tmRr6yJonqGK23UVhrKuyvTpF8qxQQjKigJ", {}, {}, 1) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(mtx, "tmRr6yJonqGK23UVhrKuyvTpF8qxQQjKigJ", {}, {}, 1) );
     } catch (const UniValue& objError) {
         BOOST_CHECK( find_error(objError, "No recipients"));
     }
 
     try {
         std::vector<SendManyRecipient> recipients = { SendManyRecipient("dummy",1.0, "") };
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany("INVALID", recipients, {}, 1) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(mtx, "INVALID", recipients, {}, 1) );
     } catch (const UniValue& objError) {
-        BOOST_CHECK( find_error(objError, "payment address is invalid"));
+        BOOST_CHECK( find_error(objError, "Invalid from address"));
     }
 
     // Testnet payment addresses begin with 'zt'.  This test detects an incorrect prefix.
     try {
         std::vector<SendManyRecipient> recipients = { SendManyRecipient("dummy",1.0, "") };
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany("zcMuhvq8sEkHALuSU2i4NbNQxshSAYrpCExec45ZjtivYPbuiFPwk6WHy4SvsbeZ4siy1WheuRGjtaJmoD1J8bFqNXhsG6U", recipients, {}, 1) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(mtx, "zcMuhvq8sEkHALuSU2i4NbNQxshSAYrpCExec45ZjtivYPbuiFPwk6WHy4SvsbeZ4siy1WheuRGjtaJmoD1J8bFqNXhsG6U", recipients, {}, 1) );
     } catch (const UniValue& objError) {
-        BOOST_CHECK( find_error(objError, "payment address is for wrong network type"));
+        BOOST_CHECK( find_error(objError, "Invalid from address"));
     }
 
     // Note: The following will crash as a google test because AsyncRPCOperation_sendmany
     // invokes a method on pwalletMain, which is undefined in the google test environment.
     try {
         std::vector<SendManyRecipient> recipients = { SendManyRecipient("dummy",1.0, "") };
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany("ztjiDe569DPNbyTE6TSdJTaSDhoXEHLGvYoUnBU1wfVNU52TEyT6berYtySkd21njAeEoh8fFJUT42kua9r8EnhBaEKqCpP", recipients, {}, 1) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(mtx, "ztjiDe569DPNbyTE6TSdJTaSDhoXEHLGvYoUnBU1wfVNU52TEyT6berYtySkd21njAeEoh8fFJUT42kua9r8EnhBaEKqCpP", recipients, {}, 1) );
     } catch (const UniValue& objError) {
         BOOST_CHECK( find_error(objError, "no spending key found for zaddr"));
     }
@@ -990,6 +1017,12 @@ BOOST_AUTO_TEST_CASE(rpc_z_sendmany_internals)
 
     UniValue retValue;
 
+    // Mutable tx containing contextual information we need to build tx
+    retValue = CallRPC("getblockcount");
+    int nHeight = retValue.get_int();
+    CMutableTransaction mtx;
+    mtx.nVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight + 1);
+
     // add keys manually
     BOOST_CHECK_NO_THROW(retValue = CallRPC("getnewaddress"));
     std::string taddr1 = retValue.get_str();
@@ -999,7 +1032,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_sendmany_internals)
     // there are no utxos to spend
     {
         std::vector<SendManyRecipient> recipients = { SendManyRecipient(zaddr1,100.0, "DEADBEEF") };
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(taddr1, {}, recipients, 1) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(mtx, taddr1, {}, recipients, 1) );
         operation->main();
         BOOST_CHECK(operation->isFailed());
         std::string msg = operation->getErrorMessage();
@@ -1010,7 +1043,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_sendmany_internals)
     {
         try {
             std::vector<SendManyRecipient> recipients = {SendManyRecipient(taddr1, 100.0, "DEADBEEF")};
-            std::shared_ptr<AsyncRPCOperation> operation(new AsyncRPCOperation_sendmany(zaddr1, recipients, {}, 0));
+            std::shared_ptr<AsyncRPCOperation> operation(new AsyncRPCOperation_sendmany(mtx, zaddr1, recipients, {}, 0));
             BOOST_CHECK(false); // Fail test if an exception is not thrown
         } catch (const UniValue& objError) {
             BOOST_CHECK(find_error(objError, "Minconf cannot be zero when sending from zaddr"));
@@ -1021,7 +1054,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_sendmany_internals)
     // there are no unspent notes to spend
     {
         std::vector<SendManyRecipient> recipients = { SendManyRecipient(taddr1,100.0, "DEADBEEF") };
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(zaddr1, recipients, {}, 1) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(mtx, zaddr1, recipients, {}, 1) );
         operation->main();
         BOOST_CHECK(operation->isFailed());
         std::string msg = operation->getErrorMessage();
@@ -1031,12 +1064,12 @@ BOOST_AUTO_TEST_CASE(rpc_z_sendmany_internals)
     // get_memo_from_hex_string())
     {
         std::vector<SendManyRecipient> recipients = { SendManyRecipient(zaddr1,100.0, "DEADBEEF") };
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(zaddr1, recipients, {}, 1) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(mtx, zaddr1, recipients, {}, 1) );
         std::shared_ptr<AsyncRPCOperation_sendmany> ptr = std::dynamic_pointer_cast<AsyncRPCOperation_sendmany> (operation);
         TEST_FRIEND_AsyncRPCOperation_sendmany proxy(ptr);
 
         std::string memo = "DEADBEEF";
-        boost::array<unsigned char, ZC_MEMO_SIZE> array = proxy.get_memo_from_hex_string(memo);
+        std::array<unsigned char, ZC_MEMO_SIZE> array = proxy.get_memo_from_hex_string(memo);
         BOOST_CHECK_EQUAL(array[0], 0xDE);
         BOOST_CHECK_EQUAL(array[1], 0xAD);
         BOOST_CHECK_EQUAL(array[2], 0xBE);
@@ -1082,7 +1115,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_sendmany_internals)
     // add_taddr_change_output_to_tx() will append a vout to a raw transaction
     {
         std::vector<SendManyRecipient> recipients = { SendManyRecipient(zaddr1,100.0, "DEADBEEF") };
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(zaddr1, recipients, {}, 1) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(mtx, zaddr1, recipients, {}, 1) );
         std::shared_ptr<AsyncRPCOperation_sendmany> ptr = std::dynamic_pointer_cast<AsyncRPCOperation_sendmany> (operation);
         TEST_FRIEND_AsyncRPCOperation_sendmany proxy(ptr);
 
@@ -1111,7 +1144,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_sendmany_internals)
             SendManyRecipient("tmUSbHz3vxnwLvRyNDXbwkZxjVyDodMJEhh",CAmount(4.56), ""),
             SendManyRecipient("tmYZAXYPCP56Xa5JQWWPZuK7o7bfUQW6kkd",CAmount(7.89), ""),
         };
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(zaddr1, recipients, {}, 1) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(mtx, zaddr1, recipients, {}, 1) );
         std::shared_ptr<AsyncRPCOperation_sendmany> ptr = std::dynamic_pointer_cast<AsyncRPCOperation_sendmany> (operation);
         TEST_FRIEND_AsyncRPCOperation_sendmany proxy(ptr);
 
@@ -1134,7 +1167,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_sendmany_internals)
         // we have the spending key for the dummy recipient zaddr1
         std::vector<SendManyRecipient> recipients = { SendManyRecipient(zaddr1, 0.0005, "ABCD") };
 
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(zaddr1, {}, recipients, 1) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(mtx, zaddr1, {}, recipients, 1) );
         std::shared_ptr<AsyncRPCOperation_sendmany> ptr = std::dynamic_pointer_cast<AsyncRPCOperation_sendmany> (operation);
         TEST_FRIEND_AsyncRPCOperation_sendmany proxy(ptr);
 
@@ -1159,7 +1192,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_sendmany_internals)
         // Dummy input so the operation object can be instantiated.
         std::vector<SendManyRecipient> recipients = { SendManyRecipient(zaddr1, 0.0005, "ABCD") };
 
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(zaddr1, {}, recipients, 1) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(mtx, zaddr1, {}, recipients, 1) );
         std::shared_ptr<AsyncRPCOperation_sendmany> ptr = std::dynamic_pointer_cast<AsyncRPCOperation_sendmany> (operation);
         TEST_FRIEND_AsyncRPCOperation_sendmany proxy(ptr);
 
@@ -1307,18 +1340,31 @@ BOOST_AUTO_TEST_CASE(rpc_z_shieldcoinbase_parameters)
             "21000001"
             ), runtime_error);
 
+    // invalid limit, must be at least 0
+    BOOST_CHECK_THROW(CallRPC("z_shieldcoinbase "
+    "tmRr6yJonqGK23UVhrKuyvTpF8qxQQjKigJ "
+    "tnpoQJVnYBZZqkFadj2bJJLThNCxbADGB5gSGeYTAGGrT5tejsxY9Zc1BtY8nnHmZkB "
+    "100 -1"
+    ), runtime_error);
+
+    // Mutable tx containing contextual information we need to build tx
+    UniValue retValue = CallRPC("getblockcount");
+    int nHeight = retValue.get_int();
+    CMutableTransaction mtx;
+    mtx.nVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight + 1);
+
     // Test constructor of AsyncRPCOperation_sendmany
     std::string testnetzaddr = "ztjiDe569DPNbyTE6TSdJTaSDhoXEHLGvYoUnBU1wfVNU52TEyT6berYtySkd21njAeEoh8fFJUT42kua9r8EnhBaEKqCpP";
     std::string mainnetzaddr = "zcMuhvq8sEkHALuSU2i4NbNQxshSAYrpCExec45ZjtivYPbuiFPwk6WHy4SvsbeZ4siy1WheuRGjtaJmoD1J8bFqNXhsG6U";
 
     try {
-        std::shared_ptr<AsyncRPCOperation> operation(new AsyncRPCOperation_shieldcoinbase({}, testnetzaddr, -1 ));
+        std::shared_ptr<AsyncRPCOperation> operation(new AsyncRPCOperation_shieldcoinbase(mtx, {}, testnetzaddr, -1 ));
     } catch (const UniValue& objError) {
         BOOST_CHECK( find_error(objError, "Fee is out of range"));
     }
 
     try {
-        std::shared_ptr<AsyncRPCOperation> operation(new AsyncRPCOperation_shieldcoinbase({}, testnetzaddr, 1));
+        std::shared_ptr<AsyncRPCOperation> operation(new AsyncRPCOperation_shieldcoinbase(mtx, {}, testnetzaddr, 1));
     } catch (const UniValue& objError) {
         BOOST_CHECK( find_error(objError, "Empty inputs"));
     }
@@ -1326,9 +1372,9 @@ BOOST_AUTO_TEST_CASE(rpc_z_shieldcoinbase_parameters)
     // Testnet payment addresses begin with 'zt'.  This test detects an incorrect prefix.
     try {
         std::vector<ShieldCoinbaseUTXO> inputs = { ShieldCoinbaseUTXO{uint256(),0,0} };
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(inputs, mainnetzaddr, 1) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(mtx, inputs, mainnetzaddr, 1) );
     } catch (const UniValue& objError) {
-        BOOST_CHECK( find_error(objError, "payment address is for wrong network type"));
+        BOOST_CHECK( find_error(objError, "Invalid to address"));
     }
 
 }
@@ -1341,8 +1387,12 @@ BOOST_AUTO_TEST_CASE(rpc_z_shieldcoinbase_internals)
 
     LOCK(pwalletMain->cs_wallet);
 
-    UniValue retValue;
-
+    // Mutable tx containing contextual information we need to build tx
+    UniValue retValue = CallRPC("getblockcount");
+    int nHeight = retValue.get_int();
+    CMutableTransaction mtx;
+    mtx.nVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight + 1);
+    
     // Test that option -mempooltxinputlimit is respected.
     mapArgs["-mempooltxinputlimit"] = "1";
 
@@ -1353,7 +1403,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_shieldcoinbase_internals)
     // Supply 2 inputs when mempool limit is 1
     {
         std::vector<ShieldCoinbaseUTXO> inputs = { ShieldCoinbaseUTXO{uint256(),0,0}, ShieldCoinbaseUTXO{uint256(),0,0} };
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(inputs, zaddr) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(mtx, inputs, zaddr) );
         operation->main();
         BOOST_CHECK(operation->isFailed());
         std::string msg = operation->getErrorMessage();
@@ -1363,7 +1413,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_shieldcoinbase_internals)
     // Insufficient funds
     {
         std::vector<ShieldCoinbaseUTXO> inputs = { ShieldCoinbaseUTXO{uint256(),0,0} };
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(inputs, zaddr) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(mtx, inputs, zaddr) );
         operation->main();
         BOOST_CHECK(operation->isFailed());
         std::string msg = operation->getErrorMessage();
@@ -1374,7 +1424,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_shieldcoinbase_internals)
     {
         // Dummy input so the operation object can be instantiated.
         std::vector<ShieldCoinbaseUTXO> inputs = { ShieldCoinbaseUTXO{uint256(),0,100000} };
-        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(inputs, zaddr) );
+        std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_shieldcoinbase(mtx, inputs, zaddr) );
         std::shared_ptr<AsyncRPCOperation_shieldcoinbase> ptr = std::dynamic_pointer_cast<AsyncRPCOperation_shieldcoinbase> (operation);
         TEST_FRIEND_AsyncRPCOperation_shieldcoinbase proxy(ptr);
         static_cast<AsyncRPCOperation_shieldcoinbase *>(operation.get())->testmode = true;

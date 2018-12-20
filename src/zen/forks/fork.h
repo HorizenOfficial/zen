@@ -83,6 +83,11 @@ public:
      */
     virtual bool isTransactionTypeAllowed(txnouttype transactionType) const=0;
 
+    /**
+	 * @brief returns phpgr,groth,... tx version based on block height
+	 */
+    virtual int getShieldedTxVersion() const = 0;
+
 protected:
     
     /**

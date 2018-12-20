@@ -310,8 +310,8 @@ SetupDummyInputs(CBasicKeyStore& keystoreRet, CCoinsViewCache& coinsRet)
     return dummyTransactions;
 }
 
-BOOST_AUTO_TEST_CASE(test_basic_joinsplit_verification)
-{
+
+void basic_joinsplit_verification(int txVersion, bool isGroth) {
     // We only check that joinsplits are constructed properly
     // and verify properly here. libsnark tends to segfault
     // when our snarks or what-have-you are invalid, so
@@ -348,11 +348,11 @@ BOOST_AUTO_TEST_CASE(test_basic_joinsplit_verification)
 
     // create JSDescription
     uint256 pubKeyHash;
-    boost::array<libzcash::JSInput, ZC_NUM_JS_INPUTS> inputs = {
+    std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS> inputs = {
         libzcash::JSInput(witness, note, k),
         libzcash::JSInput() // dummy input of zero value
     };
-    boost::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS> outputs = {
+    std::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS> outputs = {
         libzcash::JSOutput(addr, 50),
         libzcash::JSOutput(addr, 50)
     };
@@ -360,14 +360,16 @@ BOOST_AUTO_TEST_CASE(test_basic_joinsplit_verification)
     auto verifier = libzcash::ProofVerifier::Strict();
 
     {
-        JSDescription jsdesc(*pzcashParams, pubKeyHash, rt, inputs, outputs, 0, 0);
+        JSDescription jsdesc(isGroth, *pzcashParams, pubKeyHash, rt, inputs, outputs, 0, 0);
         BOOST_CHECK(jsdesc.Verify(*pzcashParams, verifier, pubKeyHash));
 
         CDataStream ss(SER_DISK, CLIENT_VERSION);
-        ss << jsdesc;
+        
+        auto over_ss = WithTxVersion(&ss, txVersion);
+        over_ss << jsdesc;
 
         JSDescription jsdesc_deserialized;
-        ss >> jsdesc_deserialized;
+        over_ss >> jsdesc_deserialized;
 
         BOOST_CHECK(jsdesc_deserialized == jsdesc);
         BOOST_CHECK(jsdesc_deserialized.Verify(*pzcashParams, verifier, pubKeyHash));
@@ -375,16 +377,23 @@ BOOST_AUTO_TEST_CASE(test_basic_joinsplit_verification)
 
     {
         // Ensure that the balance equation is working.
-        BOOST_CHECK_THROW(JSDescription(*pzcashParams, pubKeyHash, rt, inputs, outputs, 10, 0), std::invalid_argument);
-        BOOST_CHECK_THROW(JSDescription(*pzcashParams, pubKeyHash, rt, inputs, outputs, 0, 10), std::invalid_argument);
+        BOOST_CHECK_THROW(JSDescription(isGroth, *pzcashParams, pubKeyHash, rt, inputs, outputs, 10, 0), std::invalid_argument);
+        BOOST_CHECK_THROW(JSDescription(isGroth, *pzcashParams, pubKeyHash, rt, inputs, outputs, 0, 10), std::invalid_argument);
     }
 
     {
         // Ensure that it won't verify if the root is changed.
-        auto test = JSDescription(*pzcashParams, pubKeyHash, rt, inputs, outputs, 0, 0);
+        auto test = JSDescription(isGroth, *pzcashParams, pubKeyHash, rt, inputs, outputs, 0, 0);
         test.anchor = GetRandHash();
         BOOST_CHECK(!test.Verify(*pzcashParams, verifier, pubKeyHash));
     }
+}
+
+BOOST_AUTO_TEST_CASE(test_basic_joinsplit_verification)
+{
+	basic_joinsplit_verification(PHGR_TX_VERSION, false);
+	basic_joinsplit_verification(GROTH_TX_VERSION, true);
+
 }
 
 BOOST_AUTO_TEST_CASE(test_simple_joinsplit_invalidity)
@@ -558,7 +567,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     CCoinsView coinsDummy;
     CCoinsViewCache coins(&coinsDummy);
     std::vector<CMutableTransaction> dummyTransactions = SetupDummyInputs(keystore, coins);
-
+    
     CMutableTransaction t;
     t.vin.resize(1);
     t.vin[0].prevout.hash = dummyTransactions[0].GetHash();
@@ -571,52 +580,64 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     t.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
 
     string reason;
-    BOOST_CHECK(IsStandardTx(t, reason));
+    BOOST_CHECK(IsStandardTx(t, reason, 0));
 
     t.vout[0].nValue = 53; // dust
-    BOOST_CHECK(!IsStandardTx(t, reason));
+    BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
     t.vout[0].nValue = 2730; // not dust
-    BOOST_CHECK(IsStandardTx(t, reason));
+    BOOST_CHECK(IsStandardTx(t, reason, 0));
 
     t.vout[0].scriptPubKey = CScript() << OP_1;
-    BOOST_CHECK(!IsStandardTx(t, reason));
+    BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
     // 80-byte TX_NULL_DATA (standard)
     t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
-    BOOST_CHECK(IsStandardTx(t, reason));
+    BOOST_CHECK(IsStandardTx(t, reason, 0));
 
     // 81-byte TX_NULL_DATA (non-standard)
     t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3800");
-    BOOST_CHECK(!IsStandardTx(t, reason));
+    BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
     // TX_NULL_DATA w/o PUSHDATA
     t.vout.resize(1);
     t.vout[0].scriptPubKey = CScript() << OP_RETURN;
-    BOOST_CHECK(IsStandardTx(t, reason));
+    BOOST_CHECK(IsStandardTx(t, reason, 0));
 
     // Only one TX_NULL_DATA permitted in all cases
     t.vout.resize(2);
     t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
     t.vout[1].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
-    BOOST_CHECK(!IsStandardTx(t, reason));
+    BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
     t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
     t.vout[1].scriptPubKey = CScript() << OP_RETURN;
-    BOOST_CHECK(!IsStandardTx(t, reason));
+    BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
     t.vout[0].scriptPubKey = CScript() << OP_RETURN;
     t.vout[1].scriptPubKey = CScript() << OP_RETURN;
-    BOOST_CHECK(!IsStandardTx(t, reason));
+    BOOST_CHECK(!IsStandardTx(t, reason, 0));
 }
 
-BOOST_AUTO_TEST_CASE(test_IsStandardV2)
+
+void verifyTx(CMutableTransaction &t, int height, bool expectResultStd, bool expectResultCtx) {
+	string reason;
+	CValidationState state;
+	BOOST_CHECK_MESSAGE(IsStandardTx(t, reason, height) == expectResultStd, "IsStandardTx unexpected (" << !expectResultStd << ") result for tx version " << t.nVersion << ", height " << height);
+	BOOST_CHECK_MESSAGE(ContextualCheckTransaction(t, state, height, 100) == expectResultCtx, "ContextualCheckTransaction unexpected (" << !expectResultCtx << ") result for tx version " << t.nVersion << ", height " << height );
+}
+
+void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHeight)
 {
     LOCK(cs_main);
+
+	SelectParams(network);
+
     CBasicKeyStore keystore;
     CCoinsView coinsDummy;
     CCoinsViewCache coins(&coinsDummy);
     std::vector<CMutableTransaction> dummyTransactions = SetupDummyInputs(keystore, coins);
+
 
     CMutableTransaction t;
     t.vin.resize(1);
@@ -629,36 +650,72 @@ BOOST_AUTO_TEST_CASE(test_IsStandardV2)
     key.MakeNewKey(true);
     t.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
 
-    string reason;
+
     // A v2 transaction with no JoinSplits is still standard.
     t.nVersion = 2;
-    BOOST_CHECK(IsStandardTx(t, reason));
+    verifyTx(t, grothIntroductionHeight - 1, true, true);
 
     // ... and with one JoinSplit.
-    t.vjoinsplit.push_back(JSDescription());
-    BOOST_CHECK(IsStandardTx(t, reason));
+    t.vjoinsplit.push_back(JSDescription::getNewInstance(false));
+    verifyTx(t, grothIntroductionHeight - 1, true, true);
 
     // ... and when that JoinSplit takes from a transparent input.
     JSDescription *jsdesc = &t.vjoinsplit[0];
     jsdesc->vpub_old = 10*CENT;
     t.vout[0].nValue -= 10*CENT;
-    BOOST_CHECK(IsStandardTx(t, reason));
+    verifyTx(t, grothIntroductionHeight - 1, true, true);
 
     // A v2 transaction with JoinSplits but no transparent inputs is standard.
     jsdesc->vpub_old = 0;
     jsdesc->vpub_new = 100*CENT;
     t.vout[0].nValue = 90*CENT;
     t.vin.resize(0);
-    BOOST_CHECK(IsStandardTx(t, reason));
+    verifyTx(t, grothIntroductionHeight - 1, true, true);
+    // but is not standard if Groth is active
+    verifyTx(t, grothIntroductionHeight, false, false);
 
     // v2 transactions can still be non-standard for the same reasons as v1.
     t.vout[0].nValue = 53; // dust
-    BOOST_CHECK(!IsStandardTx(t, reason));
+    verifyTx(t, grothIntroductionHeight, false, false);
 
-    // v3 is not standard.
-    t.nVersion = 3;
+
+    // v3 with Groth is not standard before Groth is active
+    t.nVersion = GROTH_TX_VERSION;
+    t.vjoinsplit.clear();
+    t.vjoinsplit.push_back(JSDescription::getNewInstance(true)); // use Groth
+    jsdesc = &t.vjoinsplit[0];
+    jsdesc->vpub_old = 0;
+    jsdesc->vpub_new = 100*CENT;
     t.vout[0].nValue = 90*CENT;
-    BOOST_CHECK(!IsStandardTx(t, reason));
+    t.vin.resize(0);
+    verifyTx(t, grothIntroductionHeight - 1, false, false);
+    // v3 with Groth is standard when Groth is active
+    verifyTx(t, grothIntroductionHeight, true, true);
+
+    // v2 is not standard after Groth is active
+	t.nVersion = PHGR_TX_VERSION;
+	t.vjoinsplit.clear();
+	t.vjoinsplit.push_back(JSDescription::getNewInstance(false)); // use PHGR
+	jsdesc = &t.vjoinsplit[0];
+	jsdesc->vpub_old = 0;
+	jsdesc->vpub_new = 100*CENT;
+	t.vout[0].nValue = 90*CENT;
+    verifyTx(t, grothIntroductionHeight, false, false);
+
+	// v1 is still standard after Groth is active but should be refused by contextual checks if joinsplit is not empty
+	t.nVersion = TRANSPARENT_TX_VERSION;
+	verifyTx(t, grothIntroductionHeight, true, false);
+	// but v1 was accepted by consensus if joinsplit is not empty before Groth introduction (in any case it should have never happened
+	// because deserializer would not have deserialized joinsplits for v1)
+	verifyTx(t, grothIntroductionHeight - 1, true, true);
+}
+
+
+BOOST_AUTO_TEST_CASE(test_IsStandardV2)
+{
+	verifyTxVersions(CBaseChainParams::REGTEST, 200);
+	verifyTxVersions(CBaseChainParams::TESTNET, 450000);
+	verifyTxVersions(CBaseChainParams::MAIN, 500000);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

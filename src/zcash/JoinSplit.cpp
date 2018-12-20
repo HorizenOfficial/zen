@@ -18,14 +18,17 @@
 #include "sync.h"
 #include "amount.h"
 
+#include "librustzcash.h"
+#include "streams.h"
+#include "version.h"
+
 using namespace libsnark;
 
 namespace libzcash {
 
 #include "zcash/circuit/gadget.tcc"
 
-CCriticalSection cs_ParamsIO;
-CCriticalSection cs_LoadKeys;
+static CCriticalSection cs_ParamsIO;
 
 template<typename T>
 void saveToFile(const std::string path, T& obj) {
@@ -99,13 +102,13 @@ public:
     }
 
     bool verify(
-        const ZCProof& proof,
+        const PHGRProof& proof,
         ProofVerifier& verifier,
-        const uint256& pubKeyHash,
+        const uint256& joinSplitPubKey,
         const uint256& randomSeed,
-        const boost::array<uint256, NumInputs>& macs,
-        const boost::array<uint256, NumInputs>& nullifiers,
-        const boost::array<uint256, NumOutputs>& commitments,
+        const std::array<uint256, NumInputs>& macs,
+        const std::array<uint256, NumInputs>& nullifiers,
+        const std::array<uint256, NumOutputs>& commitments,
         uint64_t vpub_old,
         uint64_t vpub_new,
         const uint256& rt
@@ -113,7 +116,7 @@ public:
         try {
             auto r1cs_proof = proof.to_libsnark_proof<r1cs_ppzksnark_proof<ppzksnark_ppT>>();
 
-            uint256 h_sig = this->h_sig(randomSeed, nullifiers, pubKeyHash);
+            uint256 h_sig = this->h_sig(randomSeed, nullifiers, joinSplitPubKey);
 
             auto witness = joinsplit_gadget<FieldT, NumInputs, NumOutputs>::witness_map(
                 rt,
@@ -136,17 +139,18 @@ public:
         }
     }
 
-    ZCProof prove(
-        const boost::array<JSInput, NumInputs>& inputs,
-        const boost::array<JSOutput, NumOutputs>& outputs,
-        boost::array<Note, NumOutputs>& out_notes,
-        boost::array<ZCNoteEncryption::Ciphertext, NumOutputs>& out_ciphertexts,
+    SproutProof prove(
+        bool makeGrothProof,
+        const std::array<JSInput, NumInputs>& inputs,
+        const std::array<JSOutput, NumOutputs>& outputs,
+        std::array<Note, NumOutputs>& out_notes,
+        std::array<ZCNoteEncryption::Ciphertext, NumOutputs>& out_ciphertexts,
         uint256& out_ephemeralKey,
-        const uint256& pubKeyHash,
+        const uint256& joinSplitPubKey,
         uint256& out_randomSeed,
-        boost::array<uint256, NumInputs>& out_macs,
-        boost::array<uint256, NumInputs>& out_nullifiers,
-        boost::array<uint256, NumOutputs>& out_commitments,
+        std::array<uint256, NumInputs>& out_macs,
+        std::array<uint256, NumInputs>& out_nullifiers,
+        std::array<uint256, NumOutputs>& out_commitments,
         uint64_t vpub_old,
         uint64_t vpub_new,
         const uint256& rt,
@@ -168,7 +172,7 @@ public:
             // Sanity checks of input
             {
                 // If note has nonzero value
-                if (inputs[i].note.value != 0) {
+                if (inputs[i].note.value() != 0) {
                     // The witness root must equal the input root.
                     if (inputs[i].witness.root() != rt) {
                         throw std::invalid_argument("joinsplit not anchored to the correct root");
@@ -186,11 +190,11 @@ public:
                 }
 
                 // Balance must be sensical
-                if (inputs[i].note.value > MAX_MONEY) {
+                if (inputs[i].note.value() > MAX_MONEY) {
                     throw std::invalid_argument("nonsensical input note value");
                 }
 
-                lhs_value += inputs[i].note.value;
+                lhs_value += inputs[i].note.value();
 
                 if (lhs_value > MAX_MONEY) {
                     throw std::invalid_argument("nonsensical left hand size of joinsplit balance");
@@ -205,7 +209,7 @@ public:
         out_randomSeed = random_uint256();
 
         // Compute h_sig
-        uint256 h_sig = this->h_sig(out_randomSeed, out_nullifiers, pubKeyHash);
+        uint256 h_sig = this->h_sig(out_randomSeed, out_nullifiers, joinSplitPubKey);
 
         // Sample phi
         uint252 phi = random_uint252();
@@ -267,8 +271,57 @@ public:
             out_macs[i] = PRF_pk(inputs[i].key, i, h_sig);
         }
 
+        if (makeGrothProof) {
+            if (!computeProof) {
+                return GrothProof();
+            }
+
+            GrothProof proof;
+
+            CDataStream ss1(SER_NETWORK, PROTOCOL_VERSION);
+            ss1 << inputs[0].witness.path();
+            std::vector<unsigned char> auth1(ss1.begin(), ss1.end());
+
+            CDataStream ss2(SER_NETWORK, PROTOCOL_VERSION);
+            ss2 << inputs[1].witness.path();
+            std::vector<unsigned char> auth2(ss2.begin(), ss2.end());
+
+            librustzcash_sprout_prove(
+                proof.begin(),
+
+                phi.begin(),
+                rt.begin(),
+                h_sig.begin(),
+
+                inputs[0].key.begin(),
+                inputs[0].note.value(),
+                inputs[0].note.rho.begin(),
+                inputs[0].note.r.begin(),
+                auth1.data(),
+
+                inputs[1].key.begin(),
+                inputs[1].note.value(),
+                inputs[1].note.rho.begin(),
+                inputs[1].note.r.begin(),
+                auth2.data(),
+
+                out_notes[0].a_pk.begin(),
+                out_notes[0].value(),
+                out_notes[0].r.begin(),
+
+                out_notes[1].a_pk.begin(),
+                out_notes[1].value(),
+                out_notes[1].r.begin(),
+
+                vpub_old,
+                vpub_new
+            );
+
+            return proof;
+        }
+
         if (!computeProof) {
-            return ZCProof();
+            return PHGRProof();
         }
 
         protoboard<FieldT> pb;
@@ -306,7 +359,7 @@ public:
             throw std::runtime_error(strprintf("could not load param file at %s", pkPath));
         }
 
-        return ZCProof(r1cs_ppzksnark_prover_streaming<ppzksnark_ppT>(
+        return PHGRProof(r1cs_ppzksnark_prover_streaming<ppzksnark_ppT>(
             fh,
             primary_input,
             aux_input,
@@ -335,8 +388,8 @@ JoinSplit<NumInputs, NumOutputs>* JoinSplit<NumInputs, NumOutputs>::Prepared(con
 template<size_t NumInputs, size_t NumOutputs>
 uint256 JoinSplit<NumInputs, NumOutputs>::h_sig(
     const uint256& randomSeed,
-    const boost::array<uint256, NumInputs>& nullifiers,
-    const uint256& pubKeyHash
+    const std::array<uint256, NumInputs>& nullifiers,
+    const uint256& joinSplitPubKey
 ) {
     const unsigned char personalization[crypto_generichash_blake2b_PERSONALBYTES]
         = {'Z','c','a','s','h','C','o','m','p','u','t','e','h','S','i','g'};
@@ -347,7 +400,7 @@ uint256 JoinSplit<NumInputs, NumOutputs>::h_sig(
         block.insert(block.end(), nullifiers[i].begin(), nullifiers[i].end());
     }
 
-    block.insert(block.end(), pubKeyHash.begin(), pubKeyHash.end());
+    block.insert(block.end(), joinSplitPubKey.begin(), joinSplitPubKey.end());
 
     uint256 output;
 

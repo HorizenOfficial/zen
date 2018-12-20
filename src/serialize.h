@@ -29,6 +29,20 @@ class CScript;
 static const unsigned int MAX_SIZE = 0x02000000;
 
 /**
+ * Dummy data type to identify deserializing constructors.
+ *
+ * By convention, a constructor of a type T with signature
+ *
+ *   template <typename Stream> T::T(deserialize_type, Stream& s)
+ *
+ * is a deserializing constructor, which builds the type by
+ * deserializing it from s. If T contains const fields, this
+ * is likely the only way to do so.
+ */
+struct deserialize_type {};
+constexpr deserialize_type deserialize {};
+
+/**
  * Used to bypass the rule against non-const reference to temporary
  * where it makes sense with wrappers such as CFlatData or CTxDB
  */
@@ -523,6 +537,10 @@ template<typename T, std::size_t N> unsigned int GetSerializeSize(const boost::a
 template<typename Stream, typename T, std::size_t N> void Serialize(Stream& os, const boost::array<T, N>& item, int nType, int nVersion);
 template<typename Stream, typename T, std::size_t N> void Unserialize(Stream& is, boost::array<T, N>& item, int nType, int nVersion);
 
+template<typename T, std::size_t N> unsigned int GetSerializeSize(const std::array<T, N> &item, int nType, int nVersion);
+template<typename Stream, typename T, std::size_t N> void Serialize(Stream& os, const std::array<T, N>& item, int nType, int nVersion);
+template<typename Stream, typename T, std::size_t N> void Unserialize(Stream& is, std::array<T, N>& item, int nType, int nVersion);
+
 /**
  * pair
  */
@@ -804,6 +822,33 @@ void Unserialize(Stream& is, boost::array<T, N>& item, int nType, int nVersion)
 }
 
 
+template<typename T, std::size_t N>
+unsigned int GetSerializeSize(const std::array<T, N> &item, int nType, int nVersion)
+{
+    unsigned int size = 0;
+    for (size_t i = 0; i < N; i++) {
+        size += GetSerializeSize(item[0], nType, nVersion);
+    }
+    return size;
+}
+
+template<typename Stream, typename T, std::size_t N>
+void Serialize(Stream& os, const std::array<T, N>& item, int nType, int nVersion)
+{
+    for (size_t i = 0; i < N; i++) {
+        Serialize(os, item[i], nType, nVersion);
+    }
+}
+
+template<typename Stream, typename T, std::size_t N>
+void Unserialize(Stream& is, std::array<T, N>& item, int nType, int nVersion)
+{
+    for (size_t i = 0; i < N; i++) {
+        Unserialize(is, item[i], nType, nVersion);
+    }
+}
+
+
 /**
  * pair
  */
@@ -996,6 +1041,9 @@ public:
     size_t size() const {
         return nSize;
     }
+
+    int GetVersion() const { return nVersion; }
+    int GetType() const { return nType; }
 };
 
 #endif // BITCOIN_SERIALIZE_H

@@ -69,6 +69,11 @@ public:
      * @brief isTransactionTypeAllowed returns true if this transaction type is allowed at this block height, false otherwise
      */
     bool isTransactionTypeAllowedAtHeight(int height, txnouttype transactionType) const;
+
+    /**
+	 * @brief returns phpgr,groth,... tx version based on block height
+	 */
+	int getShieldedTxVersion(int height) const;
 private:
     
     /**
