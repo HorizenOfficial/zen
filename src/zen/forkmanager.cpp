@@ -9,6 +9,7 @@
 #include "forks/fork2_replayprotectionfork.h"
 #include "forks/fork3_communityfundandrpfixfork.h"
 #include "forks/fork4_nulltransactionfork.h"
+#include "forks/fork5_shieldfork.h"
 
 namespace zen {
 
@@ -102,6 +103,15 @@ bool ForkManager::isTransactionTypeAllowedAtHeight(int height, txnouttype transa
     return getForkAtHeight(height)->isTransactionTypeAllowed(transactionType);
 }
 
+/**
+ * @brief returns phpgr,groth,... tx version based on block height
+ * @param height height to test against
+ * @return returns phpgr,groth,... tx version based on block height
+ */
+int ForkManager::getShieldedTxVersion(int height) const {
+    return getForkAtHeight(height)->getShieldedTxVersion();
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// PRIVATE MEMBERS
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -117,6 +127,7 @@ ForkManager::ForkManager() {
     registerFork(new ReplayProtectionFork());
     registerFork(new CommunityFundAndRPFixFork());
     registerFork(new NullTransactionFork());
+    registerFork(new ShieldFork());
 }
 
 /**

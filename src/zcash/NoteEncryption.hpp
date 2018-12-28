@@ -11,6 +11,9 @@ https://github.com/zcash/zips/blob/master/protocol/protocol.pdf
 #include "uint252.h"
 
 #include "zcash/Zcash.h"
+#include "zcash/Address.hpp"
+
+#include <array>
 
 namespace libzcash {
 
@@ -26,8 +29,8 @@ protected:
     uint256 hSig;
 
 public:
-    typedef boost::array<unsigned char, CLEN> Ciphertext;
-    typedef boost::array<unsigned char, MLEN> Plaintext;
+    typedef std::array<unsigned char, CLEN> Ciphertext;
+    typedef std::array<unsigned char, MLEN> Plaintext;
 
     NoteEncryption(uint256 hSig);
 
@@ -63,8 +66,8 @@ protected:
     uint256 pk_enc;
 
 public:
-    typedef boost::array<unsigned char, CLEN> Ciphertext;
-    typedef boost::array<unsigned char, MLEN> Plaintext;
+    typedef std::array<unsigned char, CLEN> Ciphertext;
+    typedef std::array<unsigned char, MLEN> Plaintext;
 
     NoteDecryption() { }
     NoteDecryption(uint256 sk_enc);
@@ -100,8 +103,8 @@ class PaymentDisclosureNoteDecryption : public NoteDecryption<MLEN> {
 protected:
 public:
     enum { CLEN=MLEN+NOTEENCRYPTION_AUTH_BYTES };
-    typedef boost::array<unsigned char, CLEN> Ciphertext;
-    typedef boost::array<unsigned char, MLEN> Plaintext;
+    typedef std::array<unsigned char, CLEN> Ciphertext;
+    typedef std::array<unsigned char, MLEN> Plaintext;
 
     PaymentDisclosureNoteDecryption() : NoteDecryption<MLEN>() {}
     PaymentDisclosureNoteDecryption(uint256 sk_enc) : NoteDecryption<MLEN>(sk_enc) {}

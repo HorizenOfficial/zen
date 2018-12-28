@@ -338,6 +338,10 @@ bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, cons
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
                            std::vector<CScriptCheck> *pvChecks = NULL);
 
+/** Check a transaction contextually against a set of consensus rules */
+bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state, int nHeight, int dosLevel,
+                                bool (*isInitBlockDownload)() = IsInitialBlockDownload);
+
 /** Apply the effects of this transaction on the UTXO set represented by view */
 void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCache &inputs, int nHeight);
 
@@ -348,7 +352,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
 /** Check for standard transaction types
  * @return True if all outputs (scriptPubKeys) use only standard transaction forms
  */
-bool IsStandardTx(const CTransaction& tx, std::string& reason);
+bool IsStandardTx(const CTransaction& tx, std::string& reason, int nHeight);
 
 /**
  * Check if transaction is final and can be included in a block with the

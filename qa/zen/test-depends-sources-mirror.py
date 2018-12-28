@@ -12,7 +12,7 @@ import sys
 import os
 import requests
 
-MIRROR_URL_DIR="https://horizen.global/depends-sources/"
+MIRROR_URL_DIR="https://downloads.horizen.global/file/depends-sources/"
 DEPENDS_SOURCES_DIR=os.path.realpath(os.path.join(
     os.path.dirname(__file__),
     "..", "..", "depends", "sources"
