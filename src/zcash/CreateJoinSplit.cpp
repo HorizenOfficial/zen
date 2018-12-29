@@ -23,7 +23,9 @@ int main(int argc, char **argv)
         uint256 anchor = ZCIncrementalMerkleTree().root();
         uint256 pubKeyHash;
 
-        JSDescription jsdesc(*p,
+        JSDescription jsdesc(
+                             false, // TODO parametrize it
+                             *p,
                              pubKeyHash,
                              anchor,
                              {JSInput(), JSInput()},

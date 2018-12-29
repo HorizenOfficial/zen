@@ -4,8 +4,16 @@
 #include "uint256.h"
 #include "uint252.h"
 #include "serialize.h"
+#include "Zcash.h"
+
+#include <boost/variant.hpp>
 
 namespace libzcash {
+class InvalidEncoding {
+public:
+    friend bool operator==(const InvalidEncoding &a, const InvalidEncoding &b) { return true; }
+    friend bool operator<(const InvalidEncoding &a, const InvalidEncoding &b) { return true; }
+};
 
 const size_t SerializedPaymentAddressSize = 64;
 const size_t SerializedViewingKeySize = 64;

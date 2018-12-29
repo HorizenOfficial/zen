@@ -2,6 +2,7 @@
 *.a
 *.so
 *.d
+libsnark/gtests
 depinst/
 depsrc/
 README.html
