@@ -47,6 +47,11 @@ public:
      * @brief isTransactionTypeAllowed returns true if this transaction type is allowed in this fork, false otherwise
      */
     virtual bool isTransactionTypeAllowed(txnouttype transactionType) const;
+
+    /**
+	 * @brief returns phpgr,groth,... tx version based on block height
+	 */
+    inline virtual int getShieldedTxVersion() const { return 2; }
 };
 
 }

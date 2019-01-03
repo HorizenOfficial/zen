@@ -19,6 +19,7 @@ testScripts=(
     'wallet.py'
     'wallet_nullifiers.py'
     'wallet_1941.py'
+    'wallet_grothtx.py'
     'listtransactions.py'
     'mempool_resurrect_test.py'
     'txn_doublespend.py'

@@ -1083,14 +1083,15 @@ public:
         ::Serialize(s, txTo.nLockTime, nType, nVersion);
 
         // Serialize vjoinsplit
-        if (txTo.nVersion >= 2) {
+        if (txTo.nVersion >= PHGR_TX_VERSION || txTo.nVersion == GROTH_TX_VERSION) {
             //
             // SIGHASH_* functions will hash portions of
             // the transaction for use in signatures. This
             // keeps the JoinSplit cryptographically bound
             // to the transaction.
             //
-            ::Serialize(s, txTo.vjoinsplit, nType, nVersion);
+        	auto os = WithTxVersion(&s, txTo.nVersion);
+        	::Serialize(os, txTo.vjoinsplit, nType, nVersion);
             if (txTo.vjoinsplit.size() > 0) {
                 ::Serialize(s, txTo.joinSplitPubKey, nType, nVersion);
 
@@ -1120,6 +1121,7 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
 
     // Wrapper to serialize only the necessary parts of the transaction being signed
     CTransactionSignatureSerializer txTmp(txTo, scriptCode, nIn, nHashType);
+
 
     // Serialize and hash
     CHashWriter ss(SER_GETHASH, 0);

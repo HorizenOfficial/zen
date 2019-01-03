@@ -4,6 +4,9 @@
 #include "prf.h"
 #include "streams.h"
 
+#include <librustzcash.h>
+
+
 namespace libzcash {
 
 uint256 PaymentAddress::GetHash() const {
