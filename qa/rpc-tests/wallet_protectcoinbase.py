@@ -353,7 +353,7 @@ class WalletProtectCoinbaseTest (BitcoinTestFramework):
             newzaddr = self.nodes[2].z_getnewaddress()
             recipients.append({"address":newzaddr, "amount":amount_per_recipient})
         myopid = self.nodes[0].z_sendmany(myzaddr, recipients, minconf, custom_fee)
-        wait_and_assert_operationid_status(self.nodes[0], myopid)
+        wait_and_assert_operationid_status(self.nodes[0], myopid, timeout=900)
         self.sync_all()
         self.nodes[1].generate(1)
         self.sync_all()
