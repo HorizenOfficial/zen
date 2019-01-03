@@ -13,6 +13,8 @@ TEST(ForkManager, TestCommunityFundRewardTestnet) {
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(85500,fakeReward, Fork::CommunityFundType::FOUNDATION),120);
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(260499,fakeReward, Fork::CommunityFundType::FOUNDATION),120);
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(260500,fakeReward, Fork::CommunityFundType::FOUNDATION),100);
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(369899,fakeReward, Fork::CommunityFundType::FOUNDATION),100);
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(369900,fakeReward, Fork::CommunityFundType::FOUNDATION),200);
 }
 
 TEST(ForkManager, TestCommunityFundRewardMainnet) {
@@ -25,30 +27,36 @@ TEST(ForkManager, TestCommunityFundRewardMainnet) {
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(139200,fakeReward, Fork::CommunityFundType::FOUNDATION),120);
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(344699,fakeReward, Fork::CommunityFundType::FOUNDATION),120);
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(344700,fakeReward, Fork::CommunityFundType::FOUNDATION),100);
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(455554,fakeReward, Fork::CommunityFundType::FOUNDATION),100);
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(455555,fakeReward, Fork::CommunityFundType::FOUNDATION),200);
 }
 
 TEST(ForkManager, TestSecureNodeFundRewardTestnet) {
     SelectParams(CBaseChainParams::TESTNET);
     CAmount fakeReward = (CAmount)1000L;
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(260500,fakeReward, Fork::CommunityFundType::SECURENODE),100);
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(369900,fakeReward, Fork::CommunityFundType::SECURENODE),100);
 }
 
 TEST(ForkManager, TestSecureNodeFundRewardMainnet) {
     SelectParams(CBaseChainParams::MAIN);
     CAmount fakeReward = (CAmount)1000L;
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(344700,fakeReward, Fork::CommunityFundType::SECURENODE),100);
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(455555,fakeReward, Fork::CommunityFundType::SECURENODE),100);
 }
 
 TEST(ForkManager, TestSuperNodeFundRewardTestnet) {
     SelectParams(CBaseChainParams::TESTNET);
     CAmount fakeReward = (CAmount)1000L;
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(260500,fakeReward, Fork::CommunityFundType::SUPERNODE),100);
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(369900,fakeReward, Fork::CommunityFundType::SUPERNODE),100);
 }
 
 TEST(ForkManager, TestSuperNodeFundRewardMainnet) {
     SelectParams(CBaseChainParams::MAIN);
     CAmount fakeReward = (CAmount)1000L;
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(344700,fakeReward, Fork::CommunityFundType::SUPERNODE),100);
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundReward(455555,fakeReward, Fork::CommunityFundType::SUPERNODE),100);
 }
 
 TEST(ForkManager, TestReplayProtectionTestnet) {
