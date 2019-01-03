@@ -79,10 +79,17 @@ def check_security_hardening():
     return ret
 
 def ensure_no_dot_so_in_depends():
+    try:
+        os.environ['HOST']
+    except NameError:
+        host = 'x86_64-unknown-linux-gnu'
+    else:
+        host = os.environ['HOST']
+
     arch_dir = os.path.join(
         REPOROOT,
         'depends',
-        'x86_64-unknown-linux-gnu',
+        host,
     )
 
     exit_code = 0
