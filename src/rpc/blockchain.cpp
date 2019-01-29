@@ -14,6 +14,7 @@
 #include "streams.h"
 #include "sync.h"
 #include "util.h"
+#include "zen/delay.h"
 
 #include <stdint.h>
 
@@ -977,3 +978,160 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
 
     return NullUniValue;
 }
+
+UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 2)
+        throw runtime_error(
+            "getblockfinalityindex \"hash\"\n"
+            "\nReturns the minimum number of consecutive blocks a miner should mine from now in order to revert the block of given hash\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getblockfinalityindex", "\"hash\"")
+        );
+    LOCK(cs_main);
+
+    uint256 hash = ParseHashV(params[0], "parameter 1");
+
+    if (mapBlockIndex.count(hash) == 0)
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
+
+    CBlockIndex* pblkIndex = mapBlockIndex[hash];
+
+    if (fHavePruned && !(pblkIndex->nStatus & BLOCK_HAVE_DATA) && pblkIndex->nTx > 0)
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Block not available (pruned data)");
+
+    CBlock block;
+    if(!ReadBlockFromDisk(block, pblkIndex))
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
+
+    // 0. if the input does not belong to the main chain can not ctell finality
+    if (!chainActive.Contains(pblkIndex))
+    {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't tell finality of a block not on main chain");
+    }
+
+    // find possible forks
+    //-------------------------------------------------------------------------
+    // TODO keep a repo up to date
+    std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
+    BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
+    {
+        setTips.insert(item.second);
+    }
+    BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
+    {
+        const CBlockIndex* pprev = item.second->pprev;
+        if (pprev)
+            setTips.erase(pprev);
+    }
+
+    setTips.insert(chainActive.Tip());
+
+    int inputHeight = pblkIndex->nHeight;
+    int delta = chainActive.Height() - inputHeight;
+    int gap = 0;
+    int minGap = 100;
+
+    // For each tip find the stemming block on the main chain
+    // In case of main tip such a block would be the tip itself
+    //-----------------------------------------------------------------------
+    BOOST_FOREACH(const CBlockIndex* idx, setTips)
+    {
+        const int forkBaseHeight = chainActive.FindFork(idx)->nHeight;
+
+        if (forkBaseHeight < inputHeight)
+        {
+            // if the fork is older than the input, it also depends on the current penalty ongoing on the fork
+            int forkDelay  = idx->nChainDelay;
+            int forkTipHeight = idx->nHeight;
+            if (forkTipHeight >= chainActive.Height())
+            {
+                // if forkDelay is null one still has to mine 1 block only
+                gap = forkDelay ? forkDelay : 1;
+            }
+            else
+            {
+                gap  = chainActive.Height() - forkTipHeight + forkDelay + 1;
+            }
+        }
+        else
+        {
+            // this also handle the main chain tip
+            if (delta < PENALTY_THRESHOLD + 1)
+            {
+                // an attacker can mine from previous block up to tip + 1
+                gap = delta + 2;
+            }
+            else
+            {
+                // penalty applies
+                gap = (delta * (delta + 1) / 2) - 1;
+            }
+        }
+        minGap = std::min(minGap, gap);
+    }
+
+/*
+    const int forkHeigth = chainActive.FindFork(pblkIndex)->nHeight;
+
+    string resp =
+        "block nHeight: " + std::to_string(inputHeight) + "\n"
+        "block delay: "   + std::to_string(pblkIndex->nChainDelay) + "\n"
+        "chainActive Height: " + std::to_string(chainActive.Height() ) + "\n"
+        "fork Heigth: " + std::to_string(forkHeigth);
+
+    return resp;
+*/
+    return minGap;
+}
+
+UniValue dbg_log(const UniValue& params, bool fHelp)
+{
+    std::string s = params[0].get_str();
+    LogPrintf("%s() - ########## [%s] #########\n", __func__, s);
+    return "Log printed";
+}
+
+UniValue dbg_do(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 2)
+    {
+        throw runtime_error(
+            "dbg_do: \"h1, h2\"\n"
+        );
+    }
+
+    std::string strHashAnc;
+    CBlockIndex* anc = NULL;
+
+    int anch = 5;
+    int h = params[0].get_int();
+    if (params.size() == 2)
+    {
+        anch = params[1].get_int();
+    }
+
+    LOCK(cs_main);
+
+    std::string strHash = chainActive[h]->GetBlockHash().GetHex();
+    uint256 hash(uint256S(strHash));
+
+    CBlockIndex* pblkIndex = mapBlockIndex[hash];
+
+    if (pblkIndex)
+    {
+        anc = pblkIndex->GetAncestor(anch);
+    }
+    if (anc)
+    {
+        strHashAnc = anc->GetBlockHash().GetHex();
+    }
+
+    std::string ret =
+        "[" + strHash + "](h=" + std::to_string(h) +
+        ") ==> anc[" + strHashAnc + "](h=" + std::to_string(anch) + ")\n";
+
+    return ret;
+}
+
+

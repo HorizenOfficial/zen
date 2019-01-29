@@ -22,7 +22,7 @@ class blockdelay(BitcoinTestFramework):
 
     def setup_chain(self, split=False):
         print("Initializing test directory "+self.options.tmpdir)
-        initialize_chain_clean(self.options.tmpdir, 4)
+        initialize_chain_clean(self.options.tmpdir, 5)
         self.alert_filename = os.path.join(self.options.tmpdir, "alert.txt")
         with open(self.alert_filename, 'w'):
             pass  # Just open then close to create zero-length file
@@ -44,7 +44,6 @@ class blockdelay(BitcoinTestFramework):
 
         #self.nodes = start_nodes(4, self.options.tmpdir, extra_args)
         self.nodes = start_nodes(4, self.options.tmpdir)
-
 
         if not split:
             connect_nodes_bi(self.nodes, 1, 2)
@@ -77,8 +76,8 @@ class blockdelay(BitcoinTestFramework):
         assert self.is_network_split
         connect_nodes_bi(self.nodes, 0, 3)
         connect_nodes_bi(self.nodes, 3, 0)
-        connect_nodes_bi(self.nodes, 1, 3)
-        connect_nodes_bi(self.nodes, 3, 1)
+#        connect_nodes_bi(self.nodes, 1, 3)
+#        connect_nodes_bi(self.nodes, 3, 1)
         #sync_blocks(self.nodes[0:3],1,True)
         #sync_mempools(self.nodes[1:3])
         self.sync_all()
@@ -87,11 +86,11 @@ class blockdelay(BitcoinTestFramework):
 
     def run_test(self):
         blocks = []
+        self.bl_count = 0
 
         blocks.append(self.nodes[0].getblockhash(0))
         print("\n\nGenesis block is: " + blocks[0])
         # raw_input("press enter to start..")
-
 
         print("\n\nGenerating initial blockchain 4 blocks")
         blocks.extend(self.nodes[0].generate(1)) # block height 1
@@ -103,6 +102,14 @@ class blockdelay(BitcoinTestFramework):
         blocks.extend(self.nodes[3].generate(1)) # block height 4
         self.sync_all()
         print("Blocks generated")
+
+# Node(0): [0]->..->[4]
+#   |
+# Node(1): [0]->..->[4]
+#   |
+# Node(2): [0]->..->[4]
+#   |
+# Node(3): [0]->..->[4]
 
         print("\n\nSplit network")
         self.split_network()
@@ -122,6 +129,15 @@ class blockdelay(BitcoinTestFramework):
 
         assert self.nodes[0].getbestblockhash() == last_main_blockhash
 
+#   Node(0): [0]->..->[4]->[5h]...->[16h]
+#   /   
+# Node(1): [0]->..->[4]->[5h]...->[16h]
+#
+#
+# Node(2): [0]->..->[4]
+#   \   
+#   Node(3): [0]->..->[4]
+#=========================================================================================
         # Malicious nodes mining privately faster
         print("\nGenerating 13 malicious blocks")
         self.nodes[2].generate(10) # block height 5 - 6 -7 -8 -9-10 -11 12 13 14
@@ -131,6 +147,15 @@ class blockdelay(BitcoinTestFramework):
         print("Malicious block generated")
 
 
+#   Node(0): [0]->..->[4]->[5h]...->[16h]
+#   /   
+# Node(1): [0]->..->[4]->[5h]...->[16h]
+#
+#
+# Node(2): [0]->..->[4]->[5m]...->[17m]
+#   \   
+#   Node(3): [0]->..->[4]->[5m]...->[17m]
+#=========================================================================================
         print("\n\nJoin network")
         # raw_input("press enter to join the netorks..")
         self.join_network()
@@ -142,6 +167,22 @@ class blockdelay(BitcoinTestFramework):
         print("Confirmed: malicious chain is under penalty")
 
 
+#   +-------Node(0): [0]->..->[4]->[5h]...->[16h]   <<==ACTIVE
+#   |         /                  \
+#   |        /                    +->[5m]...->[17m]
+#   |       /   
+#   |     Node(1): [0]->..->[4]->[5h]...->[16h]   <<==ACTIVE
+#   |                          
+#   |                        
+#   |    
+#   |     Node(2): [0]->..->[4]->[5m]...->[17m]   <<==ACTIVE
+#   |        \   
+#   |         \   
+#   +-------Node(3): [0]->..->[4]->[5m]...->[17m]   <<==ACTIVE
+#                               \
+#                                +->[5h]...->[16h]
+#=========================================================================================
+        time.sleep(5)
         print("\nGenerating 64 malicious blocks")       
         self.nodes[3].generate(64)
         print("Malicious block generated")
@@ -152,10 +193,44 @@ class blockdelay(BitcoinTestFramework):
         assert self.nodes[0].getbestblockhash() == last_main_blockhash
         print("Confirmed: malicious chain is under penalty")
 
+
+#   +-------Node(0): [0]->..->[4]->[5h]...->[16h]         <<== ACTIVE
+#   |         /                  \
+#   |        /                    +->[5m]...->[17m]->[18m]->..->[81m]
+#   |       /   
+#   |     Node(1): [0]->..->[4]->[5h]...->[16h]           <<== ACTIVE
+#   |                        
+#   |                       
+#   |                        
+#   |    
+#   |     Node(2): [0]->..->[4]->[5m]...->[17m]->[18m]->..->[81m]   <<== ACTIVE
+#   |        \   
+#   |         \   
+#   +-------Node(3): [0]->..->[4]->[5m]...->[17m]->[18m]->..->[81m]   <<== ACTIVE
+#                               \
+#                                +->[5h]...->[16h]
+#=========================================================================================
         print("\nGenerating 65 more honest blocks")
         self.nodes[0].generate(65)
         print("Honest block generated")
 
+#   +-------Node(0): [0]->..->[4]->[5h]...->[16h]->[17h]->..->[81h]   <<= ACTIVE
+#   |         /                  \
+#   |        /                    +->[5m]...->[17m]->[18m]->..->[81m]
+#   |       /   
+#   |     Node(1): [0]->..->[4]->[5h]...->[16h]->[17h]->..->[81h]   <<= ACTIVE
+#   |                          \
+#   |                           +->[5m]...->[17m]->[18m]->..->[81m]
+#   |                        
+#   |    
+#   |     Node(2): [0]->..->[4]->[5m]...->[17m]->[18m]->..->[81m]   <<== ACTIVE
+#   |        \   
+#   |         \   
+#   +-------Node(3): [0]->..->[4]->[5m]...->[17m]->[18m]->..->[81m]   <<== ACTIVE
+#                               \
+#                                +->[5h]...->[16h]->[17h]->..->[81h] 
+#=========================================================================================
+        time.sleep(5)
         print("\nGenerating 1 more malicious block")
         last_malicious_blockhash=self.nodes[3].generate(1)[0]
         print("Malicious block generated")
@@ -175,6 +250,35 @@ class blockdelay(BitcoinTestFramework):
 
         time.sleep(2)
         sync_mempools(self.nodes)
+
+#   +-------Node(0): [0]->..->[4]->[5h]...->[16h]->[17h]->..->[81h]
+#   |         /                  \
+#   |        /                    +->[5m]...->[17m]->[18m]->..->[81m]->[82m]   <<= ACTIVE!
+#   |       /   
+#   |     Node(1): [0]->..->[4]->[5h]...->[16h]->[17h]->..->[81h]
+#   |                          \
+#   |                           +->[5m]...->[17m]->[18m]->..->[81m]->[82m]   <<= ACTIVE!
+#   |                        
+#   |     
+#   |     Node(2): [0]->..->[4]->[5m]...->[17m]->[18m]->..->[81m]->[82m]   <<= ACTIVE
+#   |        \   
+#   |         \   
+#   +-------Node(3): [0]->..->[4]->[5m]...->[17m]->[18m]->..->[81m]->[82m]   <<= ACTIVE
+#                               \
+#                                +->[5h]...->[16h]->[17h]->..->[81h] 
+#=========================================================================================
+        # Connect a fifth node from scratch and update
+        self.nodes.append(start_node(4, self.options.tmpdir))
+        connect_nodes_bi(self.nodes, 4, 3)
+        connect_nodes_bi(self.nodes, 3, 4)
+        self.sync_all()
+
+        for i in range(0, 5):
+            print "Node%d  ---" % (i+1) 
+            for j in range(0, len(self.nodes[i].getchaintips()) ):
+                print self.nodes[i].getchaintips()[j]
+
+#        raw_input("press enter to continue..")
 
 if __name__ == '__main__':
     blockdelay().main()

@@ -55,3 +55,18 @@ std::string DateTimeStrFormat(const char* pszFormat, int64_t nTime)
     ss << boost::posix_time::from_time_t(nTime);
     return ss.str();
 }
+
+std::string DateTimeStrFormatMicro(const char* pszFormat)
+{
+    std::stringstream   ss;
+
+    // std::locale takes ownership of the pointer
+    ss.imbue(
+        std::locale(
+            std::locale::classic(),
+            new boost::posix_time::time_facet(pszFormat) ));
+
+    ss << boost::posix_time::microsec_clock::local_time();
+
+    return ss.str();
+}
