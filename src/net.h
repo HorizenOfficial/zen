@@ -61,6 +61,8 @@ static const bool DEFAULT_LISTEN = true;
 static const size_t MAPASKFOR_MAX_SZ = MAX_INV_SZ;
 /** The maximum number of entries in setAskFor (larger due to getdata latency)*/
 static const size_t SETASKFOR_MAX_SZ = 2 * MAX_INV_SZ;
+/** The maximum number of entries in setEarlyBlocks*/
+static const size_t SETEARLYBLOCKS_MAX_SZ = 128;
 /** The maximum number of peer connections to maintain. */
 static const unsigned int DEFAULT_MAX_PEER_CONNECTIONS = 125;
 
@@ -340,6 +342,7 @@ public:
     std::vector<CInv> vInventoryToSend;
     CCriticalSection cs_inventory;
     std::set<uint256> setAskFor;
+    std::set<uint256> setEarlyBlocks;
     std::multimap<int64_t, CInv> mapAskFor;
 
     // Ping time measurement:

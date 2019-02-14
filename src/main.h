@@ -553,4 +553,7 @@ namespace Consensus {
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
 }
 
+std::string dbg_blk_in_fligth();
+std::string dbg_blk_unlinked();
+void dump_db();
 #endif // BITCOIN_MAIN_H

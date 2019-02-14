@@ -853,13 +853,13 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
             status = "invalid";
         } else if (block->nChainTx == 0) {
             // This block cannot be connected because full block data for it or one of its parents is missing.
-            status = "headers-only";
+            status = "headers-only (delay=" + std::to_string(block->nChainDelay) + ")";
         } else if (block->IsValid(BLOCK_VALID_SCRIPTS)) {
             // This block is fully validated, but no longer part of the active chain. It was probably the active block once, but was reorganized.
-            status = "valid-fork";
+            status = "valid-fork (delay=" + std::to_string(block->nChainDelay) + ")";
         } else if (block->IsValid(BLOCK_VALID_TREE)) {
             // The headers for this block are valid, but it has not been validated. It was probably never part of the most-work chain.
-            status = "valid-headers";
+            status = "valid-headers (delay=" + std::to_string(block->nChainDelay) + ")";
         } else {
             // No clue.
             status = "unknown";
@@ -995,6 +995,9 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
     if (mapBlockIndex.count(hash) == 0)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
 
+    if (hash == Params().GetConsensus().hashGenesisBlock)
+        throw JSONRPCError(RPC_INVALID_PARAMS, "Does not apply to genesis block");
+
     CBlockIndex* pblkIndex = mapBlockIndex[hash];
 
     if (fHavePruned && !(pblkIndex->nStatus & BLOCK_HAVE_DATA) && pblkIndex->nTx > 0)
@@ -1029,8 +1032,8 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
 
     int inputHeight = pblkIndex->nHeight;
     int delta = chainActive.Height() - inputHeight;
-    int gap = 0;
-    int minGap = 100;
+    long int gap = 0;
+    long int minGap = LONG_MAX;
 
     // For each tip find the stemming block on the main chain
     // In case of main tip such a block would be the tip itself
@@ -1082,13 +1085,13 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
 
     return resp;
 */
-    return minGap;
+    return (int)minGap;
 }
 
 UniValue dbg_log(const UniValue& params, bool fHelp)
 {
     std::string s = params[0].get_str();
-    LogPrintf("%s() - ########## [%s] #########\n", __func__, s);
+    LogPrint("py", "%s() - ########## [%s] #########\n", __func__, s);
     return "Log printed";
 }
 
@@ -1100,7 +1103,7 @@ UniValue dbg_do(const UniValue& params, bool fHelp)
             "dbg_do: \"h1, h2\"\n"
         );
     }
-
+#if 0
     std::string strHashAnc;
     CBlockIndex* anc = NULL;
 
@@ -1130,7 +1133,12 @@ UniValue dbg_do(const UniValue& params, bool fHelp)
     std::string ret =
         "[" + strHash + "](h=" + std::to_string(h) +
         ") ==> anc[" + strHashAnc + "](h=" + std::to_string(anch) + ")\n";
+#else
+        std::string ret;
+        ret += dbg_blk_in_fligth();
+        ret += dbg_blk_unlinked();
 
+#endif
     return ret;
 }
 

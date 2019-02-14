@@ -157,6 +157,7 @@ class headers(BitcoinTestFramework):
 #        raw_input("press enter to go on..")
 
         print("\nNode2 generating 1 mal block")
+        self.mark_logs("M block generated")
         blocks.extend(self.nodes[2].generate(1)) # block height 3
         print blocks[4]
         self.mark_logs("Syncing network after malicious attack")

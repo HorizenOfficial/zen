@@ -84,6 +84,7 @@
 #include <openssl/crypto.h>
 #include <openssl/conf.h>
 
+
 // Work around clang compilation problem in Boost 1.46:
 // /usr/include/boost/program_options/detail/config_file.hpp:163:17: error: call to function 'to_internal' that is neither visible in the template definition nor found by argument-dependent lookup
 // See also: http://stackoverflow.com/questions/10020179/compilation-fail-in-boost-librairies-program-options
@@ -260,14 +261,16 @@ static std::string LogTimestampStr(const std::string &str, bool *fStartedNewLine
         return str;
 
     if (*fStartedNewLine)
+    {
         if (!fLogTimeMicros)
         {
-        strStamped =  DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) + ' ' + str;
+            strStamped =  DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) + ' ' + str;
         }
         else
         {
             strStamped =  DateTimeStrFormatMicro("%Y-%m-%d %H:%M:%S%F") + ' ' + str;
         }
+    }
     else
         strStamped = str;
 
