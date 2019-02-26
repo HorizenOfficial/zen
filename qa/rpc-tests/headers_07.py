@@ -14,6 +14,7 @@ import shutil
 from random import randint
 from decimal import Decimal
 import logging
+import operator
 
 import time
 class headers(BitcoinTestFramework):
@@ -22,21 +23,25 @@ class headers(BitcoinTestFramework):
 
     def setup_chain(self, split=False):
         print("Initializing test directory "+self.options.tmpdir)
-        initialize_chain_clean(self.options.tmpdir, 3)
+        initialize_chain_clean(self.options.tmpdir, 4)
         self.alert_filename = os.path.join(self.options.tmpdir, "alert.txt")
         with open(self.alert_filename, 'w'):
             pass  # Just open then close to create zero-length file
 
+    def setup_nodes(self):
+        return start_nodes(4, self.options.tmpdir)
+
     def setup_network(self, split=False):
         self.nodes = []
 
-        self.nodes = start_nodes(3, self.options.tmpdir)
+        self.nodes = start_nodes(4, self.options.tmpdir)
 
         if not split:
             # 1 and 2 are joint only if split==false
             connect_nodes_bi(self.nodes, 1, 2)
-            sync_blocks(self.nodes[1:3])
-            sync_mempools(self.nodes[1:3])
+            connect_nodes_bi(self.nodes, 1, 3)
+            sync_blocks(self.nodes[1:4])
+            sync_mempools(self.nodes[1:4])
 
         connect_nodes_bi(self.nodes, 0, 1)
         self.is_network_split = split
@@ -49,27 +54,42 @@ class headers(BitcoinTestFramework):
         # with transaction relaying
         while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
             time.sleep(0.1)
+        print "Disconnected node%d %s" % (node_num, ip_port)
 
     def split_network(self):
-        # Split the network of three nodes into nodes 0-1 and 2.
-        assert not self.is_network_split
+#        assert not self.is_network_split
         self.disconnect_nodes(self.nodes[1], 2)
         self.disconnect_nodes(self.nodes[2], 1)
         self.is_network_split = True
 
-    def join_network(self):
-        #Join the (previously split) network pieces together: 0-1-2
-        assert self.is_network_split
-        connect_nodes_bi(self.nodes, 1, 2)
-        connect_nodes_bi(self.nodes, 2, 1)
-        self.sync_all()
-        self.is_network_split = False
+    def split_network_2(self):
+#        assert not self.is_network_split
+        self.disconnect_nodes(self.nodes[1], 3)
+        self.disconnect_nodes(self.nodes[3], 1)
+        self.is_network_split = True
 
+
+    def join_network(self):
+#        assert self.is_network_split
+        connect_nodes_bi(self.nodes, 2, 1)
+        connect_nodes_bi(self.nodes, 1, 2)
+#        self.sync_all()
+        time.sleep(2)
+#        self.is_network_split = False
+
+    def join_network_2(self):
+#        assert self.is_network_split
+        connect_nodes_bi(self.nodes, 3, 1)
+        connect_nodes_bi(self.nodes, 1, 3)
+        time.sleep(2)
+#        self.sync_all()
+        self.is_network_split = False
 
     def mark_logs(self, msg):
         self.nodes[0].dbg_log(msg)
         self.nodes[1].dbg_log(msg)
         self.nodes[2].dbg_log(msg)
+        self.nodes[3].dbg_log(msg)
 
     def dump_ordered_tips(self, tip_list):
         sorted_x = sorted(tip_list, key=lambda k: k['status'])
@@ -83,13 +103,14 @@ class headers(BitcoinTestFramework):
 
     def run_test(self):
         '''
-        (0)--(1)--(2)
-        Verify that rpc getblockfinalityindex returns different values if called on  Nodes (0) and (1)
-        This is because (0) do not have the knowledge of any old forked chain on (2) since (1) has kept hidden it
-        because it has never been a candidate for its best chain.
+               (3)
+               /
+        (0)--(1)
+               \
+               (2)
+        Simulate multiple split for having more forks on different blocks
         '''
         blocks = []
-        self.bl_count = 0
 
         blocks.append(self.nodes[0].getblockhash(0))
         print("\n\nGenesis block is:\n" + blocks[0])
@@ -99,115 +120,246 @@ class headers(BitcoinTestFramework):
         self.mark_logs(s)
 
         blocks.extend(self.nodes[1].generate(1)) # block height 1
-        bl1 = blocks[1]
-        print bl1
+        print blocks[len(blocks)-1]
         self.sync_all()
 
-# Node(0): [0]->[1]
-#   |
-# Node(1): [0]->[1]
-#   |
-# Node(2): [0]->[1]
+#    Node(0): [0]->[1]
+#      |
+#      |
+#    Node(1): [0]->[1]
+#      /\
+#     /  \
+#    +   Node(2): [0]->[1]
+#    |    
+# Node(3): [0]->[1]
 
-        print("\n\nSplit network")
-        self.split_network()
+        print("\n\nSplit nodes (1)----x   x---(3)")
+#        self.split_network_2()
+#-------------------------------------------------
+        self.disconnect_nodes(self.nodes[1], 3)
+        self.disconnect_nodes(self.nodes[3], 1)
+#        connect_nodes_bi(self.nodes, 1, 2)
+#        connect_nodes_bi(self.nodes, 0, 1)
+#-------------------------------------------------
+        time.sleep(2)
+        print("The network is split")
+        self.mark_logs("The network is split 2")
+
+        s = "Node 1 generates a block"
+        print("\n" + s)
+        self.mark_logs(s)
+
+        blocks.extend(self.nodes[1].generate(1)) # block height 2
+        bl2 = blocks[2]
+        print bl2
+        time.sleep(2)
+
+#    Node(0): [0]->[1]->[2h]
+#      |
+#      |
+#    Node(1): [0]->[1]->[2h]
+#       \
+#        \
+#        Node(2): [0]->[1]->[2h]
+#      
+# Node(3): [0]->[1]
+
+        print("\n\nSplit nodes (1)----x   x---(2)")
+#        self.split_network()
+#-------------------------------------------------
+        stop_nodes(self.nodes)
+        wait_bitcoinds()
+        self.nodes = self.setup_nodes()
+        connect_nodes_bi(self.nodes, 0, 1)
+#-------------------------------------------------
+        self.is_network_split = True
+        time.sleep(2)
+
         print("The network is split")
         self.mark_logs("The network is split")
 
-        print("\nNode1 generating 2 honest block")
-        blocks.extend(self.nodes[1].generate(2)) # block height 2--3
-        bl2 = blocks[2]
-        for i in range(2, 4):
+        print("\nNode1 generating 7 honest block")
+        blocks.extend(self.nodes[1].generate(7)) # block height 3
+        bl3 = blocks[3]
+        print bl3
+        time.sleep(2)
+
+        print("\nNode3 generating 8 mal block")
+        blocks.extend(self.nodes[3].generate(8)) # block height 2M
+        for i in range(10, 18):
             print blocks[i]
-        self.sync_all()
-
-        nMal=1
-        print("\nNode2 generating %d mal block" % nMal)
-        blocks.extend(self.nodes[2].generate(nMal)) # block height 2
-        for i in range(4, 4+nMal):
-            print blocks[i]
-        self.sync_all()
-
-        print
-        for i in range(0, 3):
-            self.dump_ordered_tips(self.nodes[i].getchaintips())
-            print "---"
-
-# Node(0): [0]->[1]->..->[3h]
-#   |                   
-# Node(1): [0]->[1]->..->[3h]
-#                       
-# Node(2): [0]->[1]->[2m]
+        time.sleep(2)
 
 #        raw_input("press enter to go on..")
 
-        print("\n\nJoin network")
+        print("\nNode2 generating 8 mal block")
+        blocks.extend(self.nodes[2].generate(8)) # block height 2m
+        for i in range(18, 26):
+            print blocks[i]
+        time.sleep(2)
+
+#      Node(0): [0]->[1]->[2h]->[3h]
+#        |
+#        |
+#      Node(1): [0]->[1]->[2h]->[3h]
+#          
+#           
+#          Node(2): [0]->[1]->[2h]->[3m]
+#        
+# Node(3): [0]->[1]->[2M]
+
+#        raw_input("press enter to go on..")
+
+        for i in range(0, 4):
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "---"
+
+        print("\n\nJoin nodes (1)--(2)")
         # raw_input("press enter to join the netorks..")
         self.mark_logs("Joining network")
-        self.join_network()
+#        self.join_network()
+#-------------------------------------------------
+        stop_nodes(self.nodes)
+        wait_bitcoinds()
+        self.nodes = self.setup_nodes()
+        connect_nodes_bi(self.nodes, 0, 1)
+        connect_nodes_bi(self.nodes, 1, 2)
+#-------------------------------------------------
+        time.sleep(10)
 
-        time.sleep(2)
-        print("\nNetwork joined\n") 
+        print("\nNetwork joined") 
         self.mark_logs("Network joined")
 
-        print
-        for i in range(0, 3):
+        for i in range(0, 4):
             self.dump_ordered_tips(self.nodes[i].getchaintips())
             print "---"
 
-# Node(0): [0]->[1]->[2h]->[3h]   ** Active **
-#   |                   
-# Node(1): [0]->[1]->[2h]->[3h]   ** Active **
-#   |             \                   
-#   |              +->[2m]     
-#   |                   
-# Node(2): [0]->[1]->[2h]->[3h]   ** Active **
-#                 \                   
-#                  +->[2m]     
+#      Node(0): [0]->[1]->[2h]->[3h]      **Active**
+#        |                  
+#        |                  
+#        |
+#      Node(1): [0]->[1]->[2h]->[3h]      **Active**
+#         \                 \
+#          \                 +->[3m]
+#           \
+#          Node(2): [0]->[1]->[2h]->[3m]  **Active**
+#                               \ 
+#                                +->[3h] 
+#        
+# Node(3): [0]->[1]->[2M]
 
 #        raw_input("press enter to go on..")
-
-        print "\nChecking finality of block[", bl1, "]"
-        print "  Node0 has: %d" % self.nodes[0].getblockfinalityindex(bl1)
-        print "  Node1 has: %d" % self.nodes[1].getblockfinalityindex(bl1)
-        print
-        print "\nChecking finality of block[", bl2, "]"
-        print "  Node0 has: %d" % self.nodes[0].getblockfinalityindex(bl2)
-        print "  Node1 has: %d" % self.nodes[1].getblockfinalityindex(bl2)
-        print
-
-#        raw_input("press enter to go on..")
-
-        print("Node2 generating 1 mal block")
-        blocks.extend(self.nodes[2].generate(1)) # block height 8--12
-        print blocks[len(blocks)-1]
-        time.sleep(3)
 
         try:
-            print "\nChecking finality of block[", bl1, "]"
-            print "  Node0 has: %d" % self.nodes[0].getblockfinalityindex(bl1)
-            print "  Node1 has: %d" % self.nodes[1].getblockfinalityindex(bl1)
-            print
             print "\nChecking finality of block[", bl2, "]"
             print "  Node0 has: %d" % self.nodes[0].getblockfinalityindex(bl2)
             print "  Node1 has: %d" % self.nodes[1].getblockfinalityindex(bl2)
-            print
+            print "\nChecking finality of block[", bl3, "]"
+            print "  Node0 has: %d" % self.nodes[0].getblockfinalityindex(bl3)
+            print "  Node1 has: %d" % self.nodes[1].getblockfinalityindex(bl3)
         except JSONRPCException,e:
             errorString = e.error['message']
             print errorString
 
-        print
-        for i in range(0, 3):
+#        raw_input("press enter to go on..")
+
+        for i in range(0, 4):
             self.dump_ordered_tips(self.nodes[i].getchaintips())
             print "---"
+
+        print("\n\nJoin nodes (1)--(3)")
+        self.mark_logs("Joining network 2")
+#        self.join_network_2()
+#-------------------------------------------------
+        connect_nodes_bi(self.nodes, 0, 1)
+        connect_nodes_bi(self.nodes, 1, 2)
+        connect_nodes_bi(self.nodes, 1, 3)
+#-------------------------------------------------
+        time.sleep(10)
+
+        print("\nNetwork joined") 
+        self.mark_logs("Network joined 2")
+        time.sleep(2)
+
+        for i in range(0, 4):
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "---"
+
+#     Node(0): [0]->[1]->[2h]->[3h]      **Active**
+#       |                  \
+#       |                   +->[3m]
+#       |
+#       |              +->[2M]
+#       |             /
+#     Node(1): [0]->[1]->[2h]->[3h]      **Active**
+#       /\                  \
+#      /  \                  +->[3m]
+#     /    \
+#    +    Node(2): [0]->[1]->[2h]->[3m]  **Active**
+#    |                         \ 
+#    |                          +->[3h] 
+#    |
+# Node(3): [0]->[1]->[2M]
+#                 \
+#                  +->[2h]->[3h]     **Active**
+
 #        raw_input("press enter to go on..")
 
+        print("\nNode3 generating 40 mal block")
+        blocks.extend(self.nodes[3].generate(40)) # block height 4m
+        n=len(blocks)-1
+        print blocks[n]
+        time.sleep(3)
 
-        sync_blocks(self.nodes, 5, True)
+        for i in range(0, 4):
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "---"
 
+        try:
+            print "\nChecking finality of block[", bl2, "]"
+            print "  Node0 has: %d" % self.nodes[0].getblockfinalityindex(bl2)
+            print "  Node1 has: %d" % self.nodes[1].getblockfinalityindex(bl2)
+            print "\nChecking finality of block[", bl3, "]"
+            print "  Node0 has: %d" % self.nodes[0].getblockfinalityindex(bl3)
+            print "  Node1 has: %d" % self.nodes[1].getblockfinalityindex(bl3)
+        except JSONRPCException,e:
+            errorString = e.error['message']
+            print errorString, "\n"
+
+        print("\nNode2 generating 40 mal block")
+        blocks.extend(self.nodes[2].generate(40)) # block height 4m
+        n=len(blocks)-1
+        print blocks[n]
+        time.sleep(3)
+
+        self.mark_logs("\nSyncing network after malicious attack")
+        sync_blocks(self.nodes, 1, True, 10)
+
+#     Node(0): [0]->[1]->[2h]->[3h]     
+#       |                  \
+#       |                   +->[3m]->[4m]       **Active**
+#       |
+#       |              +->[2M]
+#       |             /
+#     Node(1): [0]->[1]->[2h]->[3h]  
+#       /\                  \
+#      /  \                  +->[3m]->[4m]      **Active**
+#     /    \
+#    +    Node(2): [0]->[1]->[2h]->[3m]->[4m]   **Active**
+#    |                         \ 
+#    |                          +->[3h] 
+#    |
+# Node(3): [0]->[1]->[2M]
+#                 \
+#                  +->[2h]->[3h] 
+#                       \
+#                        +->[3m]->[4m]          **Active**
+
+        for i in range(0, 4):
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "---"
 
 #        raw_input("press enter to go on..")
-
 
 if __name__ == '__main__':
     headers().main()

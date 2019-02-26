@@ -139,8 +139,8 @@ class headers(BitcoinTestFramework):
             print "---"
 
 # Node(0): [0]->[1]->[2h]  **Active**    
-#   |             \     
-#   |              +->[2m]    
+#   |            
+#   |                
 #   |                   
 # Node(1): [0]->[1]->[2h]  **Active**    
 #   |             \     

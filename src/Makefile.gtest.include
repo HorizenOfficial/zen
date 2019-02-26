@@ -12,7 +12,8 @@ zen_gtest_SOURCES = \
 	gtest/json_test_vectors.h \
 	gtest/test_foundersreward.cpp \
         gtest/test_forkmanager.cpp \
-        gtest/test_checkblockdelay.cpp
+        gtest/test_checkblockdelay.cpp \
+        gtest/test_findaltblocks.cpp
 # These tests are order-dependent, because they
 # depend on global state (see #1539)
 if ENABLE_WALLET

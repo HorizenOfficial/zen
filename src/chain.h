@@ -303,8 +303,8 @@ public:
             return false;
         if ((nStatus & BLOCK_VALID_MASK) < nUpTo) {
             nStatus = (nStatus & ~BLOCK_VALID_MASK) | nUpTo;
-            LogPrint("forks", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
-                nStatus, GetBlockHash().ToString());
+//            LogPrint("forks", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
+//                nStatus, GetBlockHash().ToString());
             return true;
         }
         return false;

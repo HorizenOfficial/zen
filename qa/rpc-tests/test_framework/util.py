@@ -265,6 +265,7 @@ def connect_nodes(from_connection, node_num):
     # with transaction relaying
     while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
         time.sleep(0.1)
+    #print "Connected node%d %s" % (node_num, ip_port)
 
 def connect_nodes_bi(nodes, a, b):
     connect_nodes(nodes[a], b)

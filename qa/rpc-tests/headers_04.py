@@ -158,8 +158,8 @@ class headers(BitcoinTestFramework):
 #        raw_input("press enter to go on..")
 
 # Node(0): [0]->[1]->..->[7h]  **Active**    
-#   |             \     
-#   |              +->..->[7m]    
+#   |             
+#   |                 
 #   |                   
 # Node(1): [0]->[1]->..->[7h]  **Active**    
 #   |             \     

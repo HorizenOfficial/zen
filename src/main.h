@@ -37,6 +37,7 @@
 #include <vector>
 
 #include <boost/unordered_map.hpp>
+#include <boost/circular_buffer.hpp>
 
 class CBlockIndex;
 class CBlockTreeDB;
@@ -93,6 +94,9 @@ static const unsigned int DATABASE_WRITE_INTERVAL = 60 * 60;
 static const unsigned int DATABASE_FLUSH_INTERVAL = 24 * 60 * 60;
 /** Maximum length of reject messages. */
 static const unsigned int MAX_REJECT_MESSAGE_LENGTH = 111;
+/* Maximum number of heigths retained in the circular buffer with the latest block index received */
+static const int LATEST_BLOCKS_CAPACITY = 2000;
+//static const int LATEST_BLOCKS_CAPACITY = 20;
 
 // Sanity check the magic numbers when we change them
 BOOST_STATIC_ASSERT(DEFAULT_BLOCK_MAX_SIZE <= MAX_BLOCK_SIZE);
@@ -132,6 +136,10 @@ extern size_t nCoinCacheUsage;
 extern CFeeRate minRelayTxFee;
 extern bool fAlerts;
 
+typedef std::vector<CBlockIndex*> BlockVector;
+typedef boost::circular_buffer< BlockVector > LatestBlocks;
+extern LatestBlocks latestBlocks;
+ 
 /** Best header we've seen so far (used for getheaders queries' starting points). */
 extern CBlockIndex *pindexBestHeader;
 
@@ -215,6 +223,11 @@ bool GetTransaction(const uint256 &hash, CTransaction &tx, uint256 &hashBlock, b
 bool ActivateBestChain(CValidationState &state, CBlock *pblock = NULL);
 /** Find an alternative chain tip and propagate to the network */
 bool RelayAlternativeChain(CValidationState &state, CBlock *pblock);
+/** Helper method for the one above */
+//int findAltBlocks2(CBlockIndex* pindex, std::vector<CBlockIndex*>& vCandidates, std::vector<CBlockIndex*>& vResult, int lev);
+int findAltBlocks(CBlockIndex* pindex, std::vector<CBlockIndex*>& vResult);
+bool addToLatestBlocks(CBlockIndex* pindex, int hMain);
+
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams);
 
 /**
@@ -555,5 +568,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 
 std::string dbg_blk_in_fligth();
 std::string dbg_blk_unlinked();
+std::string dbg_blk_candidates();
 void dump_db();
+void dump_latest_blocks(CBlock* bl, bool gtest);
 #endif // BITCOIN_MAIN_H

@@ -105,7 +105,6 @@ class blockdelay(BitcoinTestFramework):
         blocks.append(self.nodes[0].getblockhash(0))
         print("\n\nGenesis block is: " + blocks[0])
         # raw_input("press enter to start..")
-        '''
         try:
             print "\nChecking finality of block (%d) [%s]" % (0, blocks[0])
             print "  Node0 has: %d" % self.nodes[0].getblockfinalityindex(blocks[0])
@@ -113,6 +112,7 @@ class blockdelay(BitcoinTestFramework):
         except JSONRPCException,e:
             errorString = e.error['message']
             print errorString
+        '''
         '''
 
 #        raw_input("press enter to continue..")
@@ -160,6 +160,7 @@ class blockdelay(BitcoinTestFramework):
             bl.append(blocks[len(blocks)-1])
             print "%2d) %s" % ((i+5), bl[i])
         last_main_blockhash=blocks[len(blocks)-1]
+        first_main_blockhash=bl[0]
         self.sync_all()
         print("Honest block generated")
 
@@ -183,7 +184,7 @@ class blockdelay(BitcoinTestFramework):
         print("Malicious blocks generated")
 
         for i in range(0, 4):
-            print "Node%d  ---" % (i+1) 
+            print "Node%d  ---" % i 
             self.dump_ordered_tips(self.nodes[i].getchaintips())
             print "---"
 
@@ -205,7 +206,7 @@ class blockdelay(BitcoinTestFramework):
         print("\nNetwork joined")
 
         for i in range(0, 4):
-            print "Node%d  ---" % (i+1) 
+            print "Node%d  ---" % i 
             self.dump_ordered_tips(self.nodes[i].getchaintips())
             print "---"
 
@@ -227,6 +228,17 @@ class blockdelay(BitcoinTestFramework):
             print errorString
         '''
 
+        print "\nChecking finality of first honest block [%s]" %  first_main_blockhash
+        for i in range(0, 4):
+            try:
+                print "  Node%d sees:"  % i
+                print "      finality: %d" % self.nodes[i].getblockfinalityindex(first_main_blockhash)
+                print
+            except JSONRPCException,e:
+                errorString = e.error['message']
+                print "      " + errorString
+                print
+
 #   +-------Node(0): [0]->..->[4]->[5h]...->[16h]   <<==ACTIVE
 #   |         /                  \
 #   |        /                    +->[5m]...->[17m]
@@ -243,15 +255,39 @@ class blockdelay(BitcoinTestFramework):
 #                                +->[5h]...->[16h]
 #=========================================================================================
         time.sleep(5)
+
+        '''
+        for i in range(0, 4):
+            print "\nNode%d view:" % i
+            print "===================="
+            print self.nodes[i].dbg_do(1, 2);
+        '''
+
         print("\nGenerating 64 malicious blocks")       
         self.mark_logs("Generating 64 malicious blocks")
-        self.nodes[3].generate(64)
+        self.nodes[3].generate(32)
+
+        '''
+        for i in range(0, 4):
+            print "\nNode%d view:" % i
+            print "===================="
+            print self.nodes[i].dbg_do(1, 2);
+        '''
+
+        self.nodes[3].generate(32)
         print("Malicious blocks generated")
 
         time.sleep(10)
 
+        '''
         for i in range(0, 4):
-            print "Node%d  ---" % (i+1) 
+            print "\nNode%d view:" % i
+            print "===================="
+            print self.nodes[i].dbg_do(1, 2);
+        '''
+
+        for i in range(0, 4):
+            print "Node%d  ---" % i 
             self.dump_ordered_tips(self.nodes[i].getchaintips())
             print "---"
 
@@ -283,6 +319,13 @@ class blockdelay(BitcoinTestFramework):
         print("Honest blocks generated")
         time.sleep(5)
 
+        '''
+        for i in range(0, 4):
+            print "\nNode%d view:" % i
+            print "===================="
+            print self.nodes[i].dbg_do(1, 2);
+        '''
+
 #   +-------Node(0): [0]->..->[4]->[5h]...->[16h]->[17h]->..->[81h]   <<= ACTIVE
 #   |         /                  \
 #   |        /                    +->[5m]...->[17m]->[18m]->..->[81m]
@@ -300,7 +343,7 @@ class blockdelay(BitcoinTestFramework):
 #                                +->[5h]...->[16h]->[17h]->..->[81h] 
 #=========================================================================================
         for i in range(0, 4):
-            print "Node%d  ---" % (i+1) 
+            print "Node%d  ---" % i 
             self.dump_ordered_tips(self.nodes[i].getchaintips())
             print "---"
 
@@ -310,7 +353,7 @@ class blockdelay(BitcoinTestFramework):
         print("Malicious block generated:")
         print last_malicious_blockhash
 
-        print self.nodes[1].dbg_do(1, 2);
+#        print self.nodes[1].dbg_do(1, 2);
 
         print("\n\nWaiting that all network nodes are synced with same chain length")
         sync_blocks(self.nodes, 1, True, 5)
@@ -320,7 +363,7 @@ class blockdelay(BitcoinTestFramework):
         print self.nodes[1].dbg_do(1, 2);
 
         for i in range(0, 4):
-            print "Node%d  ---" % (i+1) 
+            print "Node%d  ---" % i 
             self.dump_ordered_tips(self.nodes[i].getchaintips())
             print "---"
 
@@ -349,7 +392,7 @@ class blockdelay(BitcoinTestFramework):
                 print self.nodes[1].dbg_do(1, 2);
   
                 for i in range(0, 4):
-                    print "Node%d  ---" % (i+1) 
+                    print "Node%d  ---" % i 
                     self.dump_ordered_tips(self.nodes[i].getchaintips())
                     print "---"
 
@@ -364,8 +407,8 @@ class blockdelay(BitcoinTestFramework):
         assert self.nodes[0].getbestblockhash() == last_malicious_blockhash
         print("Confirmed: malicious chain is the best chain")
 
-        time.sleep(2)
-#        sync_mempools(self.nodes)
+#        time.sleep(2)
+        sync_mempools(self.nodes)
 
 #   +-------Node(0): [0]->..->[4]->[5h]...->[16h]->[17h]->..->[81h]
 #   |         /                  \
@@ -384,13 +427,23 @@ class blockdelay(BitcoinTestFramework):
 #                                +->[5h]...->[16h]->[17h]->..->[81h] 
 #=========================================================================================
         # Connect a fifth node from scratch and update
+        s = "Connecting a new node"
+        print(s)
+        self.mark_logs(s)
         self.nodes.append(start_node(4, self.options.tmpdir))
         connect_nodes_bi(self.nodes, 4, 3)
         connect_nodes_bi(self.nodes, 3, 4)
         self.sync_all()
 
+        '''
         for i in range(0, 5):
-            print "Node%d  ---" % (i+1) 
+            print "\nNode%d view:" % i
+            print "===================="
+            print self.nodes[i].dbg_do(1, 2);
+        '''
+
+        for i in range(0, 5):
+            print "Node%d  ---" % i 
             self.dump_ordered_tips(self.nodes[i].getchaintips())
             print "---"
 #            for j in range(0, len(self.nodes[i].getchaintips()) ):

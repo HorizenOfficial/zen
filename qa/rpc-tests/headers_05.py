@@ -65,6 +65,16 @@ class headers(BitcoinTestFramework):
         self.sync_all()
         self.is_network_split = False
 
+    def dump_ordered_tips(self, tip_list):
+        sorted_x = sorted(tip_list, key=lambda k: k['status'])
+        c = 0
+        for y in sorted_x:
+            if (c == 0):
+                print y 
+            else:
+                print " ",y 
+            c = 1
+
     def mark_logs(self, msg):
         self.nodes[0].dbg_log(msg)
         self.nodes[1].dbg_log(msg)
@@ -129,7 +139,7 @@ class headers(BitcoinTestFramework):
         self.mark_logs("Network joined")
 
         for i in range(0, 3):
-            print self.nodes[i].getchaintips()
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
             print "---"
 
 # Node(0): [0]->[1]->[2h]->..->[8h]       **Active**    
@@ -191,7 +201,7 @@ class headers(BitcoinTestFramework):
         time.sleep(2)
 
         for i in range(0, 3):
-            print self.nodes[i].getchaintips()
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
             print "---"
 
         time.sleep(1)

@@ -51,6 +51,12 @@ using namespace std;
 # error "Zen cannot be compiled without assertions."
 #endif
 
+// enable it for propagating also forks with less work than the main chain, not considering the delay
+//#define RELAY_SHORT_FORK 1
+
+// enable it for propagating any block with complete data, not considering its ancestors.
+//#define RELAY_EARLY_BLOCKS 1
+
 /**
  * Global state
  */
@@ -80,6 +86,10 @@ size_t nCoinCacheUsage = 5000 * 300;
 uint64_t nPruneTarget = 0;
 bool fAlerts = DEFAULT_ALERTS;
 
+LatestBlocks latestBlocks((LATEST_BLOCKS_CAPACITY));
+bool addToLatestBlocks(CBlockIndex* pindex, int hMain);
+void dump_latest_blocks(CBlock* bl, bool gtest = false);
+
 /** Fees smaller than this (in satoshi) are considered zero fee (for relaying and mining) */
 CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 
@@ -99,6 +109,10 @@ void EraseOrphansFor(NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
  */
 static bool IsSuperMajority(int minVersion, const CBlockIndex* pstart, unsigned nRequired, const Consensus::Params& consensusParams);
 static void CheckBlockIndex();
+
+void dump_index(const CBlockIndex* pindex);
+void dump_dirty();
+void dump_candidates();
 
 /** Constant stuff for coinbase transactions we create: */
 CScript COINBASE_FLAGS;
@@ -478,7 +492,7 @@ void FindNextBlocksToDownload(NodeId nodeid, unsigned int count, std::vector<CBl
     // Make sure pindexBestKnownBlock is up to date, we'll need it.
     ProcessBlockAvailability(nodeid);
 
-#if 0
+#if defined(RELAY_SHORT_FORK)
 // process also blocks of 'shorter' chains
     if (state->pindexBestKnownBlock == NULL)  {
 #else
@@ -1734,7 +1748,7 @@ void static InvalidBlockFound(CBlockIndex *pindex, const CValidationState &state
     }
     if (!state.CorruptionPossible()) {
         pindex->nStatus |= BLOCK_FAILED_VALID;
-        LogPrint("forks", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
+        LogPrint("status", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
             pindex->nStatus, pindex->GetBlockHash().ToString());
         setDirtyBlockIndex.insert(pindex);
         if (pindex)
@@ -2472,12 +2486,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             // update nUndoPos in block index
             pindex->nUndoPos = pos.nPos;
             pindex->nStatus |= BLOCK_HAVE_UNDO;
-            LogPrint("forks", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
+            LogPrint("status", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
                 pindex->nStatus, pindex->GetBlockHash().ToString());
         }
 
         pindex->RaiseValidity(BLOCK_VALID_SCRIPTS);
-        LogPrint("forks", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
+        LogPrint("status", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
             pindex->nStatus, pindex->GetBlockHash().ToString());
 
         setDirtyBlockIndex.insert(pindex);
@@ -2861,7 +2875,7 @@ static CBlockIndex* FindMostWorkChain() {
                         LogPrint("forks", "%s():%d - marking FAILED candidate idx [%s]\n", __func__, __LINE__,
                             pindexFailed->GetBlockHash().ToString());
                         pindexFailed->nStatus |= BLOCK_FAILED_CHILD;
-                        LogPrint("forks", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
+                        LogPrint("status", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
                             pindexFailed->nStatus, pindexFailed->GetBlockHash().ToString());
                     } else if (fMissingData) {
                         // If we're missing data, then add back to mapBlocksUnlinked,
@@ -2871,13 +2885,13 @@ static CBlockIndex* FindMostWorkChain() {
                             pindexFailed->GetBlockHash().ToString());
                         mapBlocksUnlinked.insert(std::make_pair(pindexFailed->pprev, pindexFailed));
                     }
-                    LogPrint("forks", "%s():%d - erasing candidate idx [%s]\n", __func__, __LINE__,
+                    LogPrint("forks", "%s():%d - removing idx from candidate [%s]\n", __func__, __LINE__,
                         pindexFailed->GetBlockHash().ToString());
                     setBlockIndexCandidates.erase(pindexFailed);
                     pindexFailed = pindexFailed->pprev;
                 }
 
-                LogPrint("forks", "%s():%d - erasing candidate idx [%s]\n", __func__, __LINE__,
+                LogPrint("forks", "%s():%d - removing idx from candidate [%s]\n", __func__, __LINE__,
                     pindexTest->GetBlockHash().ToString());
 
                 setBlockIndexCandidates.erase(pindexTest);
@@ -2896,6 +2910,8 @@ static void PruneBlockIndexCandidates() {
     // Note that we can't delete the current block itself, as we may need to return to it later in case a
     // reorganization to a better block fails.
     std::set<CBlockIndex*, CBlockIndexWorkComparator>::iterator it = setBlockIndexCandidates.begin();
+// [AS]
+#if 1
     while (it != setBlockIndexCandidates.end() && setBlockIndexCandidates.value_comp()(*it, chainActive.Tip())) {
         if (*it)
         {
@@ -2903,6 +2919,30 @@ static void PruneBlockIndexCandidates() {
         }
         setBlockIndexCandidates.erase(it++);
     }
+#else
+    while (it != setBlockIndexCandidates.end() )
+    {
+        // do not consider 'delay'
+        bool b = CBlockIndexRealWorkComparator() (*it, chainActive.Tip());
+
+        LogPrint("forks", "%s() - b[%d] - comp: %s vs %s\n", __func__,
+            b, (*it)->GetBlockHash().ToString(), chainActive.Tip()->GetBlockHash().ToString() );
+
+        if (b)
+        {
+            if (*it)
+            {
+                LogPrint("forks", "%s() - removing idx from candidate: %s\n", __func__, (*it)->GetBlockHash().ToString() );
+            }
+            setBlockIndexCandidates.erase(it++);
+        }
+        else
+        {
+            // go on with the remainder, we are not using the built in comparison 
+            it++;
+        }
+    }
+#endif
     // Either the current tip or a successor of it we're working towards is left in setBlockIndexCandidates.
     assert(!setBlockIndexCandidates.empty());
 }
@@ -2912,7 +2952,14 @@ static void PruneBlockIndexCandidates() {
  * pblock is either NULL or a pointer to a CBlock corresponding to pindexMostWork.
  */
 static bool ActivateBestChainStep(CValidationState &state, CBlockIndex *pindexMostWork, CBlock *pblock) {
-    LogPrint("forks", "%s():%d - Entering block[%p]\n", __func__, __LINE__, pblock);
+    if (pblock)
+    {
+        LogPrint("forks", "%s():%d - Entering block[%s]\n", __func__, __LINE__, pblock->GetHash().ToString() );
+    }
+    else
+    {
+        LogPrint("forks", "%s():%d - Entering block[%p]\n", __func__, __LINE__, pblock);
+    }
     AssertLockHeld(cs_main);
     bool fInvalidFound = false;
     const CBlockIndex *pindexOldTip = chainActive.Tip();
@@ -2957,6 +3004,7 @@ static bool ActivateBestChainStep(CValidationState &state, CBlockIndex *pindexMo
                 return false;
             }
         } else {
+            LogPrint("forks", "%s():%d - Calling PruneBlockIndexCandidates\n", __func__, __LINE__ );
             PruneBlockIndexCandidates();
             if (!pindexOldTip || chainActive.Tip()->nChainWork > pindexOldTip->nChainWork) {
                 // We're in a better position than we were. Return temporarily to release the lock.
@@ -3028,6 +3076,8 @@ bool ActivateBestChain(CValidationState &state, CBlock *pblock) {
             fInitialDownload = IsInitialBlockDownload();
         }
         // When we reach this point, we switched to a new tip (stored in pindexNewTip).
+        
+        LogPrint("forks", "%s():%d - Node list size %s\n", __func__, __LINE__, vNodes.size() );
 
         // Notifications/callbacks that can run without cs_main
         if (!fInitialDownload) {
@@ -3055,12 +3105,29 @@ bool ActivateBestChain(CValidationState &state, CBlock *pblock) {
                             pnode->addrName, pnode->GetId(), hashNewTip.ToString());
                         pnode->PushInventory(CInv(MSG_BLOCK, hashNewTip));
                     }
+                    else
+                    {
+                        LogPrint("forks", "%s():%d - Node [%s] (peer=%d) NOT pushing inv [%s] - hM[%d], hS[%d], nB[%d]\n",
+                            __func__, __LINE__, pnode->addrName, pnode->GetId(), hashNewTip.ToString(),
+                            chainActive.Height(), pnode->nStartingHeight, nBlockEstimate);
+                    }
                 }
             }
+            else
+            {
+                LogPrint("forks", "%s():%d - NOT pushing inv [%s]\n", __func__, __LINE__,
+                    hashNewTip.ToString());
+            }
+
             // Notify external listeners about the new tip.
             GetMainSignals().UpdatedBlockTip(pindexNewTip);
             uiInterface.NotifyBlockTip(hashNewTip);
         }
+        else
+        {
+            LogPrint("forks", "%s():%d - InitialDownload in progress: NOT pushing any inv\n", __func__, __LINE__);
+        }
+
     } while(pindexMostWork != chainActive.Tip());
     CheckBlockIndex();
 
@@ -3077,7 +3144,7 @@ bool InvalidateBlock(CValidationState& state, CBlockIndex *pindex) {
 
     // Mark the block itself as invalid.
     pindex->nStatus |= BLOCK_FAILED_VALID;
-    LogPrint("forks", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
+    LogPrint("status", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
         pindex->nStatus, pindex->GetBlockHash().ToString());
     setDirtyBlockIndex.insert(pindex);
     if (pindex)
@@ -3089,7 +3156,7 @@ bool InvalidateBlock(CValidationState& state, CBlockIndex *pindex) {
     while (chainActive.Contains(pindex)) {
         CBlockIndex *pindexWalk = chainActive.Tip();
         pindexWalk->nStatus |= BLOCK_FAILED_CHILD;
-        LogPrint("forks", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
+        LogPrint("status", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
             pindexWalk->nStatus, pindexWalk->GetBlockHash().ToString());
         setDirtyBlockIndex.insert(pindexWalk);
         if (pindexWalk)
@@ -3111,7 +3178,7 @@ bool InvalidateBlock(CValidationState& state, CBlockIndex *pindex) {
         if (it->second->IsValid(BLOCK_VALID_TRANSACTIONS) && it->second->nChainTx && !setBlockIndexCandidates.value_comp()(it->second, chainActive.Tip())) {
             if (it->second)
             {
-                LogPrint("forks", "%s() - inserting idx from candidate: %s\n", __func__, it->second->GetBlockHash().ToString() );
+                LogPrint("forks", "%s() - Adding idx from candidate: %s\n", __func__, it->second->GetBlockHash().ToString() );
             }
             setBlockIndexCandidates.insert(it->second);
         }
@@ -3132,13 +3199,13 @@ bool ReconsiderBlock(CValidationState& state, CBlockIndex *pindex) {
     while (it != mapBlockIndex.end()) {
         if (!it->second->IsValid() && it->second->GetAncestor(nHeight) == pindex) {
             it->second->nStatus &= ~BLOCK_FAILED_MASK;
-            LogPrint("forks", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
+            LogPrint("status", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
                 it->second->nStatus, it->second->GetBlockHash().ToString());
             setDirtyBlockIndex.insert(it->second);
             if (it->second->IsValid(BLOCK_VALID_TRANSACTIONS) && it->second->nChainTx && setBlockIndexCandidates.value_comp()(chainActive.Tip(), it->second)) {
                 if (it->second)
                 {
-                    LogPrint("forks", "%s() - inserting idx from candidate: %s\n", __func__, it->second->GetBlockHash().ToString() );
+                    LogPrint("forks", "%s() - Adding idx to candidate: %s\n", __func__, it->second->GetBlockHash().ToString() );
                 }
                 setBlockIndexCandidates.insert(it->second);
             }
@@ -3154,7 +3221,7 @@ bool ReconsiderBlock(CValidationState& state, CBlockIndex *pindex) {
     while (pindex != NULL) {
         if (pindex->nStatus & BLOCK_FAILED_MASK) {
             pindex->nStatus &= ~BLOCK_FAILED_MASK;
-            LogPrint("forks", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
+            LogPrint("status", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
                 pindex->nStatus, pindex->GetBlockHash().ToString());
             setDirtyBlockIndex.insert(pindex);
         }
@@ -3170,6 +3237,8 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
     BlockMap::iterator it = mapBlockIndex.find(hash);
     if (it != mapBlockIndex.end())
         return it->second;
+
+    LogPrint("forks", "%s():%d - Entering for block[%s]\n", __func__, __LINE__, block.GetHash().ToString() );
 
     // Construct new block index object
     CBlockIndex* pindexNew = new CBlockIndex(block);
@@ -3202,6 +3271,9 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
 
     setDirtyBlockIndex.insert(pindexNew);
 
+    // this will insert block index (probably full block stll to arrive)
+    //addToLatestBlocks(pindexNew, hMain);
+
     return pindexNew;
 }
 
@@ -3224,7 +3296,7 @@ bool ReceivedBlockTransactions(const CBlock &block, CValidationState& state, CBl
     pindexNew->nDataPos = pos.nPos;
     pindexNew->nUndoPos = 0;
     pindexNew->nStatus |= BLOCK_HAVE_DATA;
-    LogPrint("forks", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
+    LogPrint("status", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
         pindexNew->nStatus, pindexNew->GetBlockHash().ToString());
     pindexNew->RaiseValidity(BLOCK_VALID_TRANSACTIONS);
     setDirtyBlockIndex.insert(pindexNew);
@@ -3252,24 +3324,22 @@ bool ReceivedBlockTransactions(const CBlock &block, CValidationState& state, CBl
                 LOCK(cs_nBlockSequenceId);
                 pindex->nSequenceId = nBlockSequenceId++;
             }
-#if 0 /* [AS] */
             if (chainActive.Tip() == NULL || !setBlockIndexCandidates.value_comp()(pindex, chainActive.Tip())) {
                 LogPrint("forks", "%s():%d - Adding idx to candidate: h(%d) [%s], wk %s delay=%d\n", __func__, __LINE__,
                     pindex->nHeight, pindex->GetBlockHash().ToString(), pindex->nChainWork.GetHex(), pindex->nChainDelay );
                 setBlockIndexCandidates.insert(pindex);
             }
-#else
+#if 1 /* [AS] */
             // we must not take 'delay' into account, otherwise when we do the relay of a block we might miss a higher tip
-            // on a fork because we look into this container
-            if (chainActive.Tip() == NULL || !CBlockIndexRealWorkComparator()(pindex, chainActive.Tip())) {
-                LogPrint("forks", "%s():%d - Adding idx to candidate: h(%d) [%s], wk %s delay=%d\n", __func__, __LINE__,
-                    pindex->nHeight, pindex->GetBlockHash().ToString(), pindex->nChainWork.GetHex(), pindex->nChainDelay );
-                setBlockIndexCandidates.insert(pindex);
-            }
-            else
+            // on a fork because we will look into this container
+            if (chainActive.Tip() == NULL || !CBlockIndexRealWorkComparator()(pindex, chainActive.Tip()))
             {
-                LogPrint("forks", "%s():%d - NOT adding idx to candidate: h(%d) [%s], wk %s delay=%d\n", __func__, __LINE__,
-                    pindex->nHeight, pindex->GetBlockHash().ToString(), pindex->nChainWork.GetHex(), pindex->nChainDelay );
+                LogPrint("forks", "%s():%d - Adding idx to circular_buffer: h(%d) [%s], nChainTx=%d, delay=%d\n",
+                    __func__, __LINE__, pindex->nHeight, pindex->GetBlockHash().ToString(),
+                    pindex->nChainTx, pindex->nChainDelay);
+
+                // we have a complete block and all the ancestors
+                addToLatestBlocks(pindex, GetHeight() );
             }
 #endif
             std::pair<std::multimap<CBlockIndex*, CBlockIndex*>::iterator, std::multimap<CBlockIndex*, CBlockIndex*>::iterator> range = mapBlocksUnlinked.equal_range(pindex);
@@ -3620,7 +3690,7 @@ bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBloc
         return true;
     }
 
-    LogPrint("forks", "%s():%d - brand new header: [%s]\n", __func__, __LINE__, block.GetHash().ToString());
+//    LogPrint("forks", "%s():%d - brand new header: [%s]\n", __func__, __LINE__, block.GetHash().ToString());
 
     if (!CheckBlockHeader(block, state))
         return false;
@@ -3690,7 +3760,7 @@ bool AcceptBlock(CBlock& block, CValidationState& state, CBlockIndex** ppindex, 
     if ((!CheckBlock(block, state, verifier)) || !ContextualCheckBlock(block, state, pindex->pprev)) {
         if (state.IsInvalid() && !state.CorruptionPossible()) {
             pindex->nStatus |= BLOCK_FAILED_VALID;
-            LogPrint("forks", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
+            LogPrint("status", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
                 pindex->nStatus, pindex->GetBlockHash().ToString());
             setDirtyBlockIndex.insert(pindex);
         }
@@ -3734,8 +3804,6 @@ static bool IsSuperMajority(int minVersion, const CBlockIndex* pstart, unsigned 
     return (nFound >= nRequired);
 }
 
-void dump_dirty();
-
 bool ProcessNewBlock(CValidationState &state, CNode* pfrom, CBlock* pblock, bool fForceProcessing, CDiskBlockPos *dbp)
 {
     // Preliminary checks
@@ -3759,31 +3827,6 @@ bool ProcessNewBlock(CValidationState &state, CNode* pfrom, CBlock* pblock, bool
         if (pindex && pfrom) {
             mapBlockSource[pindex->GetBlockHash()] = pfrom->GetId();
         }
-//---------------------------------------------------------
-#if 0 /* [AS] */
-        LogPrint("forks", "%s():%d - Verifying this is not unlinked\n", __func__, __LINE__);
-        CBlockIndex* indexRetry = pindex->pprev;
-        if (indexRetry && indexRetry->nChainTx == 0)
-        {
-            std::vector<CInv> vToFetch;
-            uint256 hashRetry = indexRetry->GetBlockHash();
-            bool onFork = !chainActive.Contains(indexRetry);
-
-            LogPrint("forks", "%s():%d (nChainTx=%d, onFork=%s, childRequested=%s) adding [%s]\n", __func__, __LINE__,
-                indexRetry->nChainTx, onFork?"Y":"N", fRequested?"Y":"N", hashRetry.ToString() );
-
-            vToFetch.push_back(CInv(MSG_BLOCK, hashRetry) );
-
-            MarkBlockAsInFlight(pfrom->GetId(), hashRetry, Params().GetConsensus(), indexRetry);
-
-            LogPrint("forks", "%s():%d - Pushing getdata for %d entries:\n", __func__, __LINE__, vToFetch.size());
-            {
-                LOCK(cs_vNodes);
-                pfrom->PushMessage("getdata", vToFetch);
-            }
-        }
-#endif
-//---------------------------------------------------------
         CheckBlockIndex();
         if (!ret)
             return error("%s: AcceptBlock FAILED", __func__);
@@ -3792,10 +3835,11 @@ bool ProcessNewBlock(CValidationState &state, CNode* pfrom, CBlock* pblock, bool
     if (!ActivateBestChain(state, pblock))
         return error("%s: ActivateBestChain failed", __func__);
 
-    dump_db();
-//    dump_dirty();
-
 /* [AS] */
+//    dump_db();
+//    dump_dirty();
+//    dump_candidates();
+// dump_latest_blocks(pblock);
     if (!RelayAlternativeChain(state, pblock))
         return error("%s: RelayAlternativeChain failed", __func__);
 
@@ -3850,7 +3894,7 @@ void PruneOneBlockFile(const int fileNumber)
         if (pindex->nFile == fileNumber) {
             pindex->nStatus &= ~BLOCK_HAVE_DATA;
             pindex->nStatus &= ~BLOCK_HAVE_UNDO;
-            LogPrint("forks", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
+            LogPrint("status", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
                 pindex->nStatus, pindex->GetBlockHash().ToString());
             pindex->nFile = 0;
             pindex->nDataPos = 0;
@@ -4017,18 +4061,19 @@ bool static LoadBlockIndexDB()
     {
         CBlockIndex* pindex = item.second;
         vSortedByHeight.push_back(make_pair(pindex->nHeight, pindex));
+        //addToLatestBlocks(pindex, GetHeight() );
     }
     sort(vSortedByHeight.begin(), vSortedByHeight.end());
     BOOST_FOREACH(const PAIRTYPE(int, CBlockIndex*)& item, vSortedByHeight)
     {
         CBlockIndex* pindex = item.second;
         pindex->nChainWork = (pindex->pprev ? pindex->pprev->nChainWork : 0) + GetBlockProof(*pindex);
-    if (pindex->pprev){
-        pindex->nChainDelay = pindex->pprev->nChainDelay
-        + GetBlockDelay(*pindex,*(pindex->pprev), chainActive.Height(), fIsStartupSyncing);
-    } else {
-        pindex->nChainDelay = 0 ;
-    }
+        if (pindex->pprev){
+            pindex->nChainDelay = pindex->pprev->nChainDelay
+            + GetBlockDelay(*pindex,*(pindex->pprev), chainActive.Height(), fIsStartupSyncing);
+        } else {
+            pindex->nChainDelay = 0 ;
+        }
         // We can link the chain of blocks for which we've received transactions at some point.
         // Pruned nodes may have deleted the block.
         if (pindex->nTx > 0) {
@@ -4051,7 +4096,11 @@ bool static LoadBlockIndexDB()
             }
         }
         if (pindex->IsValid(BLOCK_VALID_TRANSACTIONS) && (pindex->nChainTx || pindex->pprev == NULL))
+        {
+            LogPrint("forks", "%s() - Adding idx to candidate: %s\n", __func__, pindex->GetBlockHash().ToString() );
             setBlockIndexCandidates.insert(pindex);
+        }
+            
         if (pindex->nStatus & BLOCK_FAILED_MASK && (!pindexBestInvalid || pindex->nChainWork > pindexBestInvalid->nChainWork))
             pindexBestInvalid = pindex;
         if (pindex->pprev)
@@ -4527,11 +4576,20 @@ void static CheckBlockIndex()
                 // In this case it must be in mapBlocksUnlinked -- see test below.
             }
         } else { // If this block sorts worse than the current tip or some ancestor's block has never been seen, it cannot be in setBlockIndexCandidates.
-#if 1 /* [AS] */
+#if 0 /* [AS] */
             // do not take 'delay' into account
             if (CBlockIndexRealWorkComparator()(pindex, chainActive.Tip()) )
+            {
+                if (setBlockIndexCandidates.count(pindex) != 0)
+                {
+                    dump_index(chainActive.Tip());
+                    dump_index(pindex);
+                }
 #endif
             assert(setBlockIndexCandidates.count(pindex) == 0);
+#if 0
+            }
+#endif
         }
         // Check whether this block is in mapBlocksUnlinked.
         std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator,std::multimap<CBlockIndex*,CBlockIndex*>::iterator> rangeUnlinked = mapBlocksUnlinked.equal_range(pindex->pprev);
@@ -4846,19 +4904,19 @@ void static ProcessGetData(CNode* pfrom)
                         pfrom->hashContinue.SetNull();
                     }
                 }
-// [AS]
-#if 1
                 else
                 {
                     if (send && !(mi->second->nStatus & BLOCK_HAVE_DATA) )
                     {
                         LogPrint("forks", "%s():%d - NOT Pushing incomplete block [%s]\n", __func__, __LINE__, inv.hash.ToString() );
+// [AS]
+#if defined(RELAY_EARLY_BLOCKS)
                         mi->second->nStatus |= BLOCK_EARLY_REQ;
-                        LogPrint("forks", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
+                        LogPrint("status", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
                             mi->second->nStatus, mi->second->GetBlockHash().ToString());
                         pfrom->setEarlyBlocks.insert(inv.hash);
-                    }
 #endif
+                    }
                 }
             }
             else if (inv.IsKnownType())
@@ -6336,6 +6394,7 @@ bool RelayAlternativeChain(CValidationState &state, CBlock *pblock)
         LogPrint("forks", "%s():%d - Null pblock index!\n", __func__, __LINE__);
         return false;
     }
+    LogPrint("forks", "%s():%d - h[%d]\n", __func__, __LINE__, pindex->nHeight);
 
     // 2. check this block is a fork from best chain, otherwise exit
     if (chainActive.Contains(pindex))
@@ -6344,8 +6403,23 @@ bool RelayAlternativeChain(CValidationState &state, CBlock *pblock)
         return true;
     }
 
-#if 1    
+#if defined(RELAY_EARLY_BLOCKS)
+    // 3. check we have complete block for this header
+    if ( !(pindex->nStatus & BLOCK_HAVE_DATA) )
+    {
+        LogPrint("forks", "%s():%d - Exiting: incomplete block=0\n", __func__, __LINE__);
+        return true;
+    }
+#else
     // 3. check we have complete list of ancestors
+    // --
+    // This is due to the fact that blocks can easily be received in sparse order
+    // By skipping this block we choose to delay its propagation in the loop
+    // below where we look for the best height possible.
+    // --
+    // Consider that in case RELAY_SHORT_FORK is enabled, there might be some chance
+    // to end with an incomplete fork on some node, when no further blocks are added
+    // by any miner anymore
     if ( pindex->nChainTx <= 0 )
     {
         LogPrint("forks", "%s():%d - Exiting: nChainTx=0\n", __func__, __LINE__);
@@ -6353,33 +6427,46 @@ bool RelayAlternativeChain(CValidationState &state, CBlock *pblock)
     }
 #endif
 
-#if 0
-    // 3. check we have complete block for this header
-    if ( !(pindex->nStatus & BLOCK_HAVE_DATA) )
-    {
-        LogPrint("forks", "%s():%d - Exiting: incomplete block=0\n", __func__, __LINE__);
-        return true;
-    }
-#endif
-
+#if !defined(RELAY_SHORT_FORK)
     // 4. Chack we have at least the same amount of work as the best tip, but not considering delay
     if ( CBlockIndexRealWorkComparator()(pindex, pindexBestHeader))
     {
         LogPrint("forks", "%s():%d - Exiting: it has less work than the best chain\n", __func__, __LINE__);
         return true;
     }
+#endif
 
-#if 1
+#if !defined(RELAY_EARLY_BLOCKS)
     // 5. Starting from this block, look for the best height that has a complete chain of ancestors
     bool found = false;
     unsigned int count = 0;
 
-    LogPrint("forks", "%s():%d - setBlockIndexCandidates(%d), setDirtyBlockIndex(%d)\n",
-        __func__, __LINE__, setBlockIndexCandidates.size(), setDirtyBlockIndex.size() );
+#if 0
+    auto CompByHeight = [](const CBlockIndex* a, const CBlockIndex* b)
+    {
+        if (a->nHeight != b->nHeight)
+            return (a->nHeight > b->nHeight);
+
+        if (a->nSequenceId != b->nSequenceId)
+            return (a->nSequenceId > b->nSequenceId);
+
+        return a < b;
+    };
+
+    auto setForkCandidates = std::set<CBlockIndex*, decltype(CompByHeight)> (CompByHeight);
+    BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
+    {
+        if (pindex->nSequenceId < item.second->nSequenceId)
+        {
+            setForkCandidates.insert(item.second);
+        }
+    }
+
+    LogPrint("forks", "%s():%d - setForkCandidates(%d)\n", __func__, __LINE__, setForkCandidates.size() );
 
     while(true)
     {
-        BOOST_FOREACH(CBlockIndex* block, setBlockIndexCandidates)
+        BOOST_FOREACH(CBlockIndex* block, setForkCandidates)
         {
             found = false;
             CBlockIndex* pprev = block->pprev;
@@ -6389,7 +6476,7 @@ bool RelayAlternativeChain(CValidationState &state, CBlock *pblock)
                 if (block->nChainTx > 0)
                 {
                     hashAlternativeTip = block->GetBlockHash();
-                    LogPrint("forks", "%s():%d - Heigher tip (%d) found on fork: %s\n",
+                    LogPrint("forks", "%s():%d - Higher tip (%d) found on fork: %s\n",
                         __func__, __LINE__, ++count, hashAlternativeTip.ToString() );
                     found = true;
                 }
@@ -6404,53 +6491,82 @@ bool RelayAlternativeChain(CValidationState &state, CBlock *pblock)
             break;
         }
     }
-#endif
 
-    // 6. push inv of the alternative tip
-    int nBlockEstimate = 0;
-    if (fCheckpointsEnabled)
-        nBlockEstimate = Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints());
-
-    int nodeHeight = -1;
-    if (nLocalServices & NODE_NETWORK) {
-        LOCK(cs_vNodes);
-        BOOST_FOREACH(CNode* pnode, vNodes)
+    auto vCandidates = std::vector<CBlockIndex*>();
+    BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
+    {
+        if (pindex->nSequenceId < item.second->nSequenceId)
         {
-#if 0
-            if (pnode->GetId() % 2)
-            {
-                continue;
-            }
+            vCandidates.push_back(item.second);
+        }
+    }
 #endif
+//dump_latest_blocks(pblock);
 
-            if (pnode->nStartingHeight != -1)
+    auto vCandidates = std::vector<CBlockIndex*>();
+    BOOST_FOREACH(BlockVector& entry, latestBlocks)
+    {
+        if (entry.size() != 0 && entry[0] && (pindex->nHeight < entry[0]->nHeight) )
+        {
+            BOOST_FOREACH(CBlockIndex* pdx, entry)
             {
-                nodeHeight = (pnode->nStartingHeight - 2000);
+                vCandidates.push_back(pdx);
             }
-            else
+        }
+    }
+
+    std::vector<CBlockIndex*> vResult;
+    int num = findAltBlocks(pindex, vResult);
+//    int num = findAltBlocks2(pindex, vCandidates, vResult, 1);
+
+    LogPrint("forks", "%s():%d - vCandidates(%d), vResult(%d)\n", __func__, __LINE__,
+        vCandidates.size(), vResult.size() );
+    
+    BOOST_FOREACH(CBlockIndex* block, vResult)
+    {
+        hashAlternativeTip = block->GetBlockHash();
+
+#endif // end of RELAY_EARLY_BLOCKS
+
+        // 6. push inv of the alternative tips
+        int nBlockEstimate = 0;
+        if (fCheckpointsEnabled)
+            nBlockEstimate = Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints());
+ 
+        int nodeHeight = -1;
+        if (nLocalServices & NODE_NETWORK) {
+            LOCK(cs_vNodes);
+            BOOST_FOREACH(CNode* pnode, vNodes)
             {
-                nodeHeight = nBlockEstimate;
-            }
-            if (chainActive.Height() > nodeHeight)
-            {
-#if 0
-                if (pnode->setEarlyBlocks.count(hashAlternativeTip) )
+                if (pnode->nStartingHeight != -1)
                 {
-                    // if this forked block has been already requested, but too early, by a peer
-                    // this is the time to deliver it, otherwise it could be eventually missing and invalidating the
-                    // whole fork since peer has marked it as in flight and the 'inv' would be simply neglected 
-                    LogPrint("forks", "%s():%d - Pushing early req block [%s] (id=%d)\n", __func__, __LINE__,
-                        hashAlternativeTip.ToString(), pnode->GetId() );
-                    pnode->PushMessage("block", *pblock);
-                    pnode->setEarlyBlocks.erase(hashAlternativeTip);
-                    pindex->nStatus &= ~BLOCK_EARLY_REQ;
+                    nodeHeight = (pnode->nStartingHeight - 2000);
                 }
                 else
-#endif
                 {
-                    LogPrint("forks", "%s():%d - Pushing inv to Node [%s] (id=%d) hash[%s]\n",
-                        __func__, __LINE__, pnode->addrName, pnode->GetId(), hashAlternativeTip.ToString() );
-                    pnode->PushInventory(CInv(MSG_BLOCK, hashAlternativeTip));
+                    nodeHeight = nBlockEstimate;
+                }
+                if (chainActive.Height() > nodeHeight)
+                {
+#if defined(RELAY_EARLY_BLOCKS)
+                    if (pnode->setEarlyBlocks.count(hashAlternativeTip) )
+                    {
+                        // if this forked block has been already requested, but too early, by a peer
+                        // this is the time to deliver it, otherwise it could be eventually missing and invalidating the
+                        // whole fork since peer has marked it as in flight and the 'inv' would be simply neglected 
+                        LogPrint("forks", "%s():%d - Pushing early req block [%s] (id=%d)\n", __func__, __LINE__,
+                            hashAlternativeTip.ToString(), pnode->GetId() );
+                        pnode->PushMessage("block", *pblock);
+                        pnode->setEarlyBlocks.erase(hashAlternativeTip);
+                        pindex->nStatus &= ~BLOCK_EARLY_REQ;
+                    }
+                    else
+#endif
+                    {
+                        LogPrint("forks", "%s():%d - Pushing inv to Node [%s] (id=%d) hash[%s]\n",
+                            __func__, __LINE__, pnode->addrName, pnode->GetId(), hashAlternativeTip.ToString() );
+                        pnode->PushInventory(CInv(MSG_BLOCK, hashAlternativeTip));
+                    }
                 }
             }
         }
@@ -6496,6 +6612,26 @@ std::string dbg_blk_unlinked()
         CBlockIndex* indexPrev = it->first;
         ret += indexPrev->GetBlockHash().ToString() + "\n";
         ret += "   +--->" + index->GetBlockHash().ToString() + "\n";
+    }
+    return ret;
+}
+
+std::string dbg_blk_candidates()
+{
+    std::string ret = "";
+    int sz = setBlockIndexCandidates.size();
+    ret += "Blocks candidate:" + std::to_string(sz) + "\n";
+    ret += "-----------------------\n";
+    if (sz <= 0)
+    {
+        return ret;
+    }
+
+    std::set<CBlockIndex*, CBlockIndexWorkComparator>::iterator it = setBlockIndexCandidates.begin();
+    for (it = setBlockIndexCandidates.begin(); it != setBlockIndexCandidates.end(); ++it)
+    {
+        uint256 hash = (*it)->GetBlockHash();
+        ret += hash.GetHex() + "\n";
     }
     return ret;
 }
@@ -6594,14 +6730,347 @@ void dump_db()
     }
 }
 
-
-void dump_dirty()
+void dump_candidates()
 {
-    BOOST_FOREACH(const CBlockIndex* block, setDirtyBlockIndex)
+    LogPrint("forks", "===== CANDIDATES: %d =================\n", setBlockIndexCandidates.size());
+    BOOST_FOREACH(const CBlockIndex* block, setBlockIndexCandidates)
     {
-        LogPrint("forks", "===== DIRTIES =================\n" );
         const CBlockIndex* dum = block;
         
         dump_index(dum);
     }
 }
+
+void dump_dirty()
+{
+    LogPrint("forks", "===== DIRTIES: %d =================\n", setDirtyBlockIndex.size());
+    BOOST_FOREACH(const CBlockIndex* block, setDirtyBlockIndex)
+    {
+        const CBlockIndex* dum = block;
+        
+        dump_index(dum);
+    }
+}
+
+
+
+
+#if 0
+int findAltBlocks2(CBlockIndex* pindex, std::vector<CBlockIndex*>& vCandidates, std::vector<CBlockIndex*>& vResult, int lev)
+{
+//    uint256 hash = pindex->GetBlockHash();
+    const uint256* hash = pindex->phashBlock;
+
+    std::vector<CBlockIndex*> vChildren;
+
+//    LogPrint("forks", "%s():%d - Enter (lev=%d) %s\n", __func__, __LINE__, lev, hash->ToString() );
+
+    // first of all find all possible children
+    BOOST_FOREACH(CBlockIndex* block, vCandidates)
+    {
+        CBlockIndex* pprev = block->pprev;
+    
+        if (pprev && pprev->GetBlockHash() == *hash)
+        {
+            // we found a child
+//            LogPrint("forks", "%s():%d - children found: %s nChainTx=%d\n", __func__, __LINE__,
+//                block->GetBlockHash().ToString(), block->nChainTx);
+
+            if (block->nChainTx > 0)
+            {
+//                LogPrint("forks", "%s():%d - children added\n", __func__, __LINE__);
+                vChildren.push_back(block);
+            }
+        }
+    }
+
+    if (vChildren.size() == 0)
+    {
+        vResult.push_back(pindex);
+        LogPrint("forks", "%s():%d - Returning (lev=%d) %d\n", __func__, __LINE__, lev, vResult.size() );
+        return (int)vResult.size();
+    }
+
+//    LogPrint("forks", "%s():%d - vChildren(%d), calling it again\n", __func__, __LINE__, vChildren.size() );
+
+    // for all children do it recursively
+    BOOST_FOREACH(CBlockIndex* block, vChildren)
+    {
+        findAltBlocks2(block, vCandidates, vResult, lev+1);
+    }
+
+    LogPrint("forks", "%s():%d - Returning (lev=%d) %d\n", __func__, __LINE__,
+        lev, vResult.size() );
+    return (int)vResult.size();
+}
+#else
+int findAltBlocks(CBlockIndex* pindex, std::vector<CBlockIndex*>& vResult)
+{
+    if (!pindex || latestBlocks.size() == 0 || !latestBlocks.back()[0])
+    {
+        LogPrint("forks", "%s():%d - Nothing to do\n", __func__, __LINE__);
+        return 0;
+    }
+    
+    uint256 hash = pindex->GetBlockHash();
+
+    int h = pindex->nHeight;
+    int topH = latestBlocks.back()[0]->nHeight;
+    int gap = topH - h;
+    int sz = latestBlocks.size();
+    int pos = sz - gap - 1;
+
+    if (pos < 0 || pos >= sz)
+    {
+        LogPrint("forks", "%s():%d - Invalid data\n", __func__, __LINE__);
+        return 0;
+    }
+
+    LogPrint("forks", "%s():%d - h[%d], topH[%d], sz[%d], pos[%d] %s\n", __func__, __LINE__,
+        h, topH, sz, pos, hash.ToString() );
+
+    std::set<CBlockIndex*> sProcessed;
+
+    for (int i = (sz-1); i > pos; i--)
+    {
+        BlockVector& entry = latestBlocks[i];
+        LogPrint("forks", "%s():%d - i[%d]\n", __func__, __LINE__, i);
+
+        BOOST_FOREACH(CBlockIndex* pidx, entry)
+        {
+            if (sProcessed.count(pidx) )
+            {
+                LogPrint("forks", "%s():%d - already visited[%s]\n", __func__, __LINE__,
+                    pidx->GetBlockHash().ToString() );
+                continue;
+            }
+            else
+            {
+                sProcessed.insert(pidx);
+            }
+            
+            if (pidx->nChainTx == 0)
+            {
+                LogPrint("forks", "%s():%d - nChainTx=0 for [%s]\n", __func__, __LINE__,
+                    pidx->GetBlockHash().ToString() );
+                continue;
+            }
+
+            CBlockIndex* parent = pidx;
+            CBlockIndex* pprev = NULL;
+            int c = gap; // optimize it
+            while (true && c)
+            {
+                sProcessed.insert(parent);
+                pprev = parent->pprev;
+                if (pprev == pindex)
+                {
+                    LogPrint("forks", "%s():%d - adding to result [%s] h(%d)\n", __func__, __LINE__,
+                        pidx->GetBlockHash().ToString(), pidx->nHeight );
+                    vResult.push_back(pidx);
+                    break;
+                }
+                parent = pprev;
+                c--;
+            }
+        }
+    }
+
+    if (vResult.size() == 0)
+    {
+        // no future blocks found, add the input block
+        vResult.push_back(pindex);
+    }
+
+    LogPrint("forks", "%s():%d - Returning %d\n", __func__, __LINE__, vResult.size() );
+    return (int)vResult.size();
+}
+#endif
+
+bool addToLatestBlocks(CBlockIndex* pindex, int hMain)
+{
+    LOCK(cs_main);
+
+    if (!pindex)
+    {
+        LogPrint("forks", "%s():%d - null ptr\n", __func__, __LINE__);
+        return false;
+    }
+
+//    int hMain = GetHeight();
+    int h = pindex->nHeight;
+
+    LogPrint("forks", "%s():%d - block: %s, h(%d), h main(%d)\n",
+        __func__, __LINE__, pindex->GetBlockHash().ToString(), h, hMain);
+
+    if ( h <= (hMain - LATEST_BLOCKS_CAPACITY) )
+    {
+        LogPrint("forks", "%s():%d - too old a block: h(%d), main h(%d)\n",
+            __func__, __LINE__, h, hMain);
+        return false;
+    }
+
+    // create the very first 
+    if (latestBlocks.size() == 0)
+    {
+        if (h == 0)
+        {
+            // in this case must be genesis, otherwise is incomplete
+            const Consensus::Params& consensusParams = Params().GetConsensus();
+            assert(pindex->GetBlockHash() == consensusParams.hashGenesisBlock );
+        }
+
+        BlockVector vBlocks;
+        vBlocks.push_back(pindex);
+        latestBlocks.push_back(vBlocks);
+        LogPrint("forks", "%s():%d - added first: %s, h(%d)\n",
+            __func__, __LINE__, pindex->GetBlockHash().ToString(), h);
+        return true;
+    }
+
+    // check the latest, probaby we are adding after this
+    BlockVector& vBlocks = latestBlocks.back();
+
+    if (vBlocks.size() != 0)
+    {
+        CBlockIndex* b = vBlocks[0];
+        assert(b);
+        int backH = b->nHeight;
+
+        if (h == backH)
+        {
+            vBlocks.push_back(pindex);
+            LogPrint("forks", "%s():%d - added %s, h(%d)\n",
+                __func__, __LINE__, pindex->GetBlockHash().ToString(), h);
+            return true;
+        }
+        else
+        if (h > backH)
+        {
+            BlockVector vBlocks;
+            vBlocks.push_back(pindex);
+            latestBlocks.push_back(vBlocks);
+            LogPrint("forks", "%s():%d - added %s, h(%d)\n",
+                __func__, __LINE__, pindex->GetBlockHash().ToString(), h);
+            return true;
+        }
+        else
+        {
+            // we have to look in the proper vector
+            LogPrint("forks", "%s():%d - we have to process block: %s, h(%d), backH(%d)\n",
+                __func__, __LINE__, pindex->GetBlockHash().ToString(), h, backH);
+        }
+    }
+            
+    BOOST_REVERSE_FOREACH(BlockVector& entry, latestBlocks)
+    {
+        CBlockIndex* b = entry[0];
+        assert(b);
+        int hEntry = b->nHeight;
+        if (h == hEntry)
+        {
+            entry.push_back(pindex);
+            LogPrint("forks", "%s():%d - added %s, h(%d)\n",
+                __func__, __LINE__, pindex->GetBlockHash().ToString(), h);
+            return true;
+        }
+    }
+
+    // should never happen unless we are loading blocks from db
+    if (hMain == -1)
+    {
+        BlockVector vBlocks;
+        vBlocks.push_back(pindex);
+        latestBlocks.push_back(vBlocks);
+        LogPrint("forks", "%s():%d - added: %s, h(%d)\n",
+            __func__, __LINE__, pindex->GetBlockHash().ToString(), h);
+        return true;
+    }
+
+    LogPrint("forks", "%s():%d - unexpected block: %s, h(%d)\n",
+        __func__, __LINE__, pindex->GetBlockHash().ToString(), h);
+
+    return false;
+}
+
+void dump_latest_blocks(CBlock* bl, bool gtest)
+{
+/*
+ * Can happen when we have a hole in complete block chain
+    // block has already been validated
+    CBlockIndex* pindex = NULL;
+    BlockMap::iterator mi = mapBlockIndex.find(bl->GetHash() );
+    assert(mi != mapBlockIndex.end());
+    pindex = (*mi).second;
+    int curH = pindex->nHeight;
+
+    // check we have all sorted and without holes
+    int topH = latestBlocks.back()[0]->nHeight;
+    int bottomH = latestBlocks.front()[0]->nHeight;
+
+    if (curH < bottomH || curH > topH )
+    {
+         LogPrint("forks", "%s():%d  - NOT:  %d < %d < %d -------\n", __func__, __LINE__, bottomH, curH, topH);
+            __func__, __LINE__, pindex->GetBlockHash().ToString(), h);
+        return true;
+    }
+ */
+    int sz = latestBlocks.size();
+
+    if (gtest)
+    {
+        cout << "===== LATEST: " << sz << " =================" << endl;
+    }
+    else
+    {
+        LogPrint("forks", "===== LATEST: %d =================\n", sz);
+    }
+
+    if (sz <= 0)
+    {
+        return;
+    }
+
+    int count = 0;
+
+    int topH = latestBlocks.back()[0]->nHeight;
+
+    BOOST_FOREACH(BlockVector& entry, latestBlocks)
+    {
+        count++;
+
+        CBlockIndex* b = entry[0];
+        assert(b);
+        int hEntry = b->nHeight;
+        
+        if (hEntry != (topH - sz + count) )
+        {
+            // Should never happen, it would mean we have holes!
+            LogPrint("forks", "%s():%d !!!!!!!!!!!!  %d != %d-%d+%d -------\n",
+                __func__, __LINE__, hEntry, topH, sz, count);
+        }
+
+        if (gtest)
+        {
+            cout << "Heigth: " << hEntry << " -----" << endl;
+        }
+        else
+        {
+            LogPrint("forks", "Height %d -------\n", hEntry);
+        }
+
+        BOOST_FOREACH(CBlockIndex* pindex, entry)
+        {
+            if (gtest)
+            {
+                cout << "   " << pindex->GetBlockHash().ToString() << " - nChainTx=" << pindex->nChainTx << endl;
+            }
+            else
+            {
+                LogPrint("forks", "    %s - nChainTx=%d\n", pindex->GetBlockHash().ToString(), pindex->nChainTx);
+            }
+            assert(pindex->nHeight == hEntry);
+        }
+    }
+}
+

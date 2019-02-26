@@ -821,6 +821,7 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
        known blocks, and successively remove blocks that appear as pprev
        of another block.  */
     std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
+#if 1
     BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
         setTips.insert(item.second);
     BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
@@ -829,6 +830,34 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
         if (pprev)
             setTips.erase(pprev);
     }
+#else
+    // it would work but we risk to loose the very old forks due to the
+    // limit on size of latestBlocks 
+
+    BOOST_FOREACH(BlockVector& entry, latestBlocks)
+    {
+        BOOST_FOREACH(CBlockIndex* pdx, entry)
+        {
+            if(pdx)
+                setTips.insert(pdx);
+        }
+    }
+
+    BOOST_FOREACH(BlockVector& entry, latestBlocks)
+    {
+        BOOST_FOREACH(CBlockIndex* pdx, entry)
+        {
+            if (pdx)
+            {
+                CBlockIndex* pprev = pdx->pprev;
+                if (pprev)
+                {
+                    setTips.erase(pprev);
+                }
+            }
+        }
+    }
+#endif
 
     // Always report the currently active tip.
     setTips.insert(chainActive.Tip());
@@ -993,19 +1022,20 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
     uint256 hash = ParseHashV(params[0], "parameter 1");
 
     if (mapBlockIndex.count(hash) == 0)
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No such block header");
 
     if (hash == Params().GetConsensus().hashGenesisBlock)
-        throw JSONRPCError(RPC_INVALID_PARAMS, "Does not apply to genesis block");
+        throw JSONRPCError(RPC_INVALID_PARAMS, "Finality does not apply to genesis block");
 
     CBlockIndex* pblkIndex = mapBlockIndex[hash];
 
     if (fHavePruned && !(pblkIndex->nStatus & BLOCK_HAVE_DATA) && pblkIndex->nTx > 0)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Block not available (pruned data)");
-
-    CBlock block;
-    if(!ReadBlockFromDisk(block, pblkIndex))
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
+/*
+ *  CBlock block;
+ *  if(!ReadBlockFromDisk(block, pblkIndex))
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk (header only)");
+ */
 
     // 0. if the input does not belong to the main chain can not ctell finality
     if (!chainActive.Contains(pblkIndex))
@@ -1013,10 +1043,19 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't tell finality of a block not on main chain");
     }
 
+    int inputHeight = pblkIndex->nHeight;
+    int delta = chainActive.Height() - inputHeight;
+    if (delta >= LATEST_BLOCKS_CAPACITY)
+    {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Old block: its finality is more than 2 millions!");
+    }
+
+
     // find possible forks
     //-------------------------------------------------------------------------
     // TODO keep a repo up to date
     std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
+#if 0
     BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
     {
         setTips.insert(item.second);
@@ -1027,11 +1066,34 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
         if (pprev)
             setTips.erase(pprev);
     }
+#else
+    BOOST_FOREACH(BlockVector& entry, latestBlocks)
+    {
+        BOOST_FOREACH(CBlockIndex* pdx, entry)
+        {
+            if(pdx)
+                setTips.insert(pdx);
+        }
+    }
+
+    BOOST_FOREACH(BlockVector& entry, latestBlocks)
+    {
+        BOOST_FOREACH(CBlockIndex* pdx, entry)
+        {
+            if (pdx)
+            {
+                CBlockIndex* pprev = pdx->pprev;
+                if (pprev)
+                {
+                    setTips.erase(pprev);
+                }
+            }
+        }
+    }
+#endif
 
     setTips.insert(chainActive.Tip());
 
-    int inputHeight = pblkIndex->nHeight;
-    int delta = chainActive.Height() - inputHeight;
     long int gap = 0;
     long int minGap = LONG_MAX;
 
@@ -1137,6 +1199,7 @@ UniValue dbg_do(const UniValue& params, bool fHelp)
         std::string ret;
         ret += dbg_blk_in_fligth();
         ret += dbg_blk_unlinked();
+        ret += dbg_blk_candidates();
 
 #endif
     return ret;
