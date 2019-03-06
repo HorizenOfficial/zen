@@ -106,6 +106,7 @@ class headers(BitcoinTestFramework):
             self.dump_ordered_tips(self.nodes[i].getchaintips())
             print "---"
 
+        raw_input("press enter to go on..")
 
 if __name__ == '__main__':
     headers().main()

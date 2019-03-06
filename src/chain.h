@@ -94,8 +94,6 @@ enum BlockStatus: uint32_t {
     BLOCK_FAILED_VALID       =   32, //! stage after last reached validness failed
     BLOCK_FAILED_CHILD       =   64, //! descends from failed block
     BLOCK_FAILED_MASK        =   BLOCK_FAILED_VALID | BLOCK_FAILED_CHILD,
-
-    BLOCK_EARLY_REQ          =  128,
 };
 
 /** The block chain is a tree shaped structure starting with the
@@ -303,8 +301,6 @@ public:
             return false;
         if ((nStatus & BLOCK_VALID_MASK) < nUpTo) {
             nStatus = (nStatus & ~BLOCK_VALID_MASK) | nUpTo;
-//            LogPrint("forks", "%s():%d - status=[0x%x] set for [%s]\n", __func__, __LINE__,
-//                nStatus, GetBlockHash().ToString());
             return true;
         }
         return false;

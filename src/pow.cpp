@@ -122,7 +122,7 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&
     {
         if (Params().NetworkIDString() != "regtest")
         {
-        return error("CheckProofOfWork(): hash doesn't match nBits");
+            return error("CheckProofOfWork(): hash doesn't match nBits");
         }
         else
         {

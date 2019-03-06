@@ -821,7 +821,6 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
        known blocks, and successively remove blocks that appear as pprev
        of another block.  */
     std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
-#if 1
     BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
         setTips.insert(item.second);
     BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
@@ -830,34 +829,6 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
         if (pprev)
             setTips.erase(pprev);
     }
-#else
-    // it would work but we risk to loose the very old forks due to the
-    // limit on size of latestBlocks 
-
-    BOOST_FOREACH(BlockVector& entry, latestBlocks)
-    {
-        BOOST_FOREACH(CBlockIndex* pdx, entry)
-        {
-            if(pdx)
-                setTips.insert(pdx);
-        }
-    }
-
-    BOOST_FOREACH(BlockVector& entry, latestBlocks)
-    {
-        BOOST_FOREACH(CBlockIndex* pdx, entry)
-        {
-            if (pdx)
-            {
-                CBlockIndex* pprev = pdx->pprev;
-                if (pprev)
-                {
-                    setTips.erase(pprev);
-                }
-            }
-        }
-    }
-#endif
 
     // Always report the currently active tip.
     setTips.insert(chainActive.Tip());
@@ -882,13 +853,13 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
             status = "invalid";
         } else if (block->nChainTx == 0) {
             // This block cannot be connected because full block data for it or one of its parents is missing.
-            status = "headers-only (delay=" + std::to_string(block->nChainDelay) + ")";
+            status = "headers-only";
         } else if (block->IsValid(BLOCK_VALID_SCRIPTS)) {
             // This block is fully validated, but no longer part of the active chain. It was probably the active block once, but was reorganized.
-            status = "valid-fork (delay=" + std::to_string(block->nChainDelay) + ")";
+            status = "valid-fork";
         } else if (block->IsValid(BLOCK_VALID_TREE)) {
             // The headers for this block are valid, but it has not been validated. It was probably never part of the most-work chain.
-            status = "valid-headers (delay=" + std::to_string(block->nChainDelay) + ")";
+            status = "valid-headers";
         } else {
             // No clue.
             status = "unknown";
@@ -1037,7 +1008,7 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk (header only)");
  */
 
-    // 0. if the input does not belong to the main chain can not ctell finality
+    // 0. if the input does not belong to the main chain can not tell finality
     if (!chainActive.Contains(pblkIndex))
     {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't tell finality of a block not on main chain");
@@ -1053,20 +1024,8 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
 
     // find possible forks
     //-------------------------------------------------------------------------
-    // TODO keep a repo up to date
     std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
-#if 0
-    BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
-    {
-        setTips.insert(item.second);
-    }
-    BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
-    {
-        const CBlockIndex* pprev = item.second->pprev;
-        if (pprev)
-            setTips.erase(pprev);
-    }
-#else
+
     BOOST_FOREACH(BlockVector& entry, latestBlocks)
     {
         BOOST_FOREACH(CBlockIndex* pdx, entry)
@@ -1090,7 +1049,6 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
             }
         }
     }
-#endif
 
     setTips.insert(chainActive.Tip());
 
@@ -1136,22 +1094,12 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
         minGap = std::min(minGap, gap);
     }
 
-/*
-    const int forkHeigth = chainActive.FindFork(pblkIndex)->nHeight;
-
-    string resp =
-        "block nHeight: " + std::to_string(inputHeight) + "\n"
-        "block delay: "   + std::to_string(pblkIndex->nChainDelay) + "\n"
-        "chainActive Height: " + std::to_string(chainActive.Height() ) + "\n"
-        "fork Heigth: " + std::to_string(forkHeigth);
-
-    return resp;
-*/
     return (int)minGap;
 }
 
 UniValue dbg_log(const UniValue& params, bool fHelp)
 {
+    // log a string passed from cli, useful for python test
     std::string s = params[0].get_str();
     LogPrint("py", "%s() - ########## [%s] #########\n", __func__, s);
     return "Log printed";
@@ -1165,43 +1113,28 @@ UniValue dbg_do(const UniValue& params, bool fHelp)
             "dbg_do: \"h1, h2\"\n"
         );
     }
-#if 0
-    std::string strHashAnc;
-    CBlockIndex* anc = NULL;
 
-    int anch = 5;
-    int h = params[0].get_int();
-    if (params.size() == 2)
-    {
-        anch = params[1].get_int();
-    }
-
-    LOCK(cs_main);
-
-    std::string strHash = chainActive[h]->GetBlockHash().GetHex();
+    std::string strHash = params[0].get_str();
     uint256 hash(uint256S(strHash));
 
-    CBlockIndex* pblkIndex = mapBlockIndex[hash];
+    if (mapBlockIndex.count(hash) == 0)
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
 
-    if (pblkIndex)
+    CBlockIndex* pblockindex = mapBlockIndex[hash];
+
+    std::string ret;
+    while ( pblockindex && !chainActive.Contains(pblockindex) )
     {
-        anc = pblkIndex->GetAncestor(anch);
-    }
-    if (anc)
-    {
-        strHashAnc = anc->GetBlockHash().GetHex();
+        ret += pblockindex->GetBlockHash().ToString() + " - h[" + std::to_string(pblockindex->nHeight) + "]\n";
+        pblockindex = pblockindex->pprev;
     }
 
-    std::string ret =
-        "[" + strHash + "](h=" + std::to_string(h) +
-        ") ==> anc[" + strHashAnc + "](h=" + std::to_string(anch) + ")\n";
-#else
-        std::string ret;
-        ret += dbg_blk_in_fligth();
-        ret += dbg_blk_unlinked();
-        ret += dbg_blk_candidates();
+    ret += dbg_blk_in_fligth();
+    ret += dbg_blk_unlinked();
+    ret += dbg_blk_candidates();
 
-#endif
+
+
     return ret;
 }
 

@@ -45,6 +45,7 @@ class blockdelay(BitcoinTestFramework):
         #self.nodes = start_nodes(4, self.options.tmpdir, extra_args)
         self.nodes = start_nodes(4, self.options.tmpdir)
 
+
         if not split:
             connect_nodes_bi(self.nodes, 1, 2)
             sync_blocks(self.nodes[1:3])
@@ -76,8 +77,6 @@ class blockdelay(BitcoinTestFramework):
         assert self.is_network_split
         connect_nodes_bi(self.nodes, 0, 3)
         connect_nodes_bi(self.nodes, 3, 0)
-#        connect_nodes_bi(self.nodes, 1, 3)
-#        connect_nodes_bi(self.nodes, 3, 1)
         #sync_blocks(self.nodes[0:3],1,True)
         #sync_mempools(self.nodes[1:3])
         self.sync_all()
@@ -202,7 +201,7 @@ class blockdelay(BitcoinTestFramework):
         self.mark_logs("Joining network")
         # raw_input("press enter to join the netorks..")
         self.join_network()
-        time.sleep(10)
+        time.sleep(2)
         print("\nNetwork joined")
 
         for i in range(0, 4):
@@ -213,20 +212,6 @@ class blockdelay(BitcoinTestFramework):
         print("\nTesting if the current chain is still the honest chain")
         assert self.nodes[0].getbestblockhash() == last_main_blockhash
         print("Confirmed: malicious chain is under penalty")
-
-#        raw_input("press enter to go on..")
-        '''
-        try:
-            for i in range(0, 12):
-                time.sleep(1)
-                print "\nChecking finality of block (%d) [%s]" % (i, bl[i])
-                print "  Node0 has: %d" % self.nodes[0].getblockfinalityindex(bl[i])
-                print "  Node1 has: %d" % self.nodes[1].getblockfinalityindex(bl[i])
-                print
-        except JSONRPCException,e:
-            errorString = e.error['message']
-            print errorString
-        '''
 
         print "\nChecking finality of first honest block [%s]" %  first_main_blockhash
         for i in range(0, 4):
@@ -256,35 +241,12 @@ class blockdelay(BitcoinTestFramework):
 #=========================================================================================
         time.sleep(5)
 
-        '''
-        for i in range(0, 4):
-            print "\nNode%d view:" % i
-            print "===================="
-            print self.nodes[i].dbg_do(1, 2);
-        '''
-
         print("\nGenerating 64 malicious blocks")       
         self.mark_logs("Generating 64 malicious blocks")
-        self.nodes[3].generate(32)
-
-        '''
-        for i in range(0, 4):
-            print "\nNode%d view:" % i
-            print "===================="
-            print self.nodes[i].dbg_do(1, 2);
-        '''
-
-        self.nodes[3].generate(32)
+        self.nodes[3].generate(64)
         print("Malicious blocks generated")
 
         time.sleep(10)
-
-        '''
-        for i in range(0, 4):
-            print "\nNode%d view:" % i
-            print "===================="
-            print self.nodes[i].dbg_do(1, 2);
-        '''
 
         for i in range(0, 4):
             print "Node%d  ---" % i 
@@ -317,14 +279,6 @@ class blockdelay(BitcoinTestFramework):
         self.mark_logs("Generating 65 more honest blocks")
         self.nodes[0].generate(65)
         print("Honest blocks generated")
-        time.sleep(5)
-
-        '''
-        for i in range(0, 4):
-            print "\nNode%d view:" % i
-            print "===================="
-            print self.nodes[i].dbg_do(1, 2);
-        '''
 
 #   +-------Node(0): [0]->..->[4]->[5h]...->[16h]->[17h]->..->[81h]   <<= ACTIVE
 #   |         /                  \
@@ -353,14 +307,10 @@ class blockdelay(BitcoinTestFramework):
         print("Malicious block generated:")
         print last_malicious_blockhash
 
-#        print self.nodes[1].dbg_do(1, 2);
-
         print("\n\nWaiting that all network nodes are synced with same chain length")
         sync_blocks(self.nodes, 1, True, 5)
-#        time.sleep(10)
-        print("Network nodes are synced")
 
-        print self.nodes[1].dbg_do(1, 2);
+        print("Network nodes are synced")
 
         for i in range(0, 4):
             print "Node%d  ---" % i 
@@ -368,46 +318,14 @@ class blockdelay(BitcoinTestFramework):
             print "---"
 
         print("\nTesting if all the nodes/chains have the same best tip")
-#        assert (self.nodes[0].getbestblockhash() == self.nodes[1].getbestblockhash()
-#                == self.nodes[2].getbestblockhash() == self.nodes[3].getbestblockhash())
-        if (self.nodes[0].getbestblockhash() == self.nodes[1].getbestblockhash()
-            == self.nodes[2].getbestblockhash() == self.nodes[3].getbestblockhash()):
-            print("Confirmed: all the nodes have the same best tip")
-        else:
-            while True:
-                raw_input("\n\n################## press enter to continue..")
-                 
-                print("\nGenerating 1 more malicious block")
-                self.mark_logs("Generating 1 more malicious block ")
-                last_malicious_blockhash=self.nodes[3].generate(1)[0]
-                print("Malicious block generated:")
-                print last_malicious_blockhash
-  
-                print self.nodes[1].dbg_do(1, 2);
-  
-                print("\n\nWaiting that all network nodes are synced with same chain length")
-                sync_blocks(self.nodes, 1, True, 5)
-                print("Network nodes are synced")
-  
-                print self.nodes[1].dbg_do(1, 2);
-  
-                for i in range(0, 4):
-                    print "Node%d  ---" % i 
-                    self.dump_ordered_tips(self.nodes[i].getchaintips())
-                    print "---"
-
-                if (self.nodes[0].getbestblockhash() == self.nodes[1].getbestblockhash()
-                    == self.nodes[2].getbestblockhash() == self.nodes[3].getbestblockhash()):
-                    print("Confirmed: all the nodes have the same best tip")
-                    break
-
-        print self.nodes[1].dbg_do(1, 2);
+        assert (self.nodes[0].getbestblockhash() == self.nodes[1].getbestblockhash()
+                == self.nodes[2].getbestblockhash() == self.nodes[3].getbestblockhash())
+        print("Confirmed: all the nodes have the same best tip")
 
         print("\nTesting if the current chain switched to the malicious chain")
         assert self.nodes[0].getbestblockhash() == last_malicious_blockhash
         print("Confirmed: malicious chain is the best chain")
 
-#        time.sleep(2)
         sync_mempools(self.nodes)
 
 #   +-------Node(0): [0]->..->[4]->[5h]...->[16h]->[17h]->..->[81h]
@@ -435,21 +353,11 @@ class blockdelay(BitcoinTestFramework):
         connect_nodes_bi(self.nodes, 3, 4)
         self.sync_all()
 
-        '''
-        for i in range(0, 5):
-            print "\nNode%d view:" % i
-            print "===================="
-            print self.nodes[i].dbg_do(1, 2);
-        '''
-
         for i in range(0, 5):
             print "Node%d  ---" % i 
             self.dump_ordered_tips(self.nodes[i].getchaintips())
             print "---"
-#            for j in range(0, len(self.nodes[i].getchaintips()) ):
-#                print self.nodes[i].getchaintips()[j]
 
-#        raw_input("press enter to continue..")
 
 if __name__ == '__main__':
     blockdelay().main()

@@ -223,10 +223,11 @@ bool GetTransaction(const uint256 &hash, CTransaction &tx, uint256 &hashBlock, b
 bool ActivateBestChain(CValidationState &state, CBlock *pblock = NULL);
 /** Find an alternative chain tip and propagate to the network */
 bool RelayAlternativeChain(CValidationState &state, CBlock *pblock);
-/** Helper method for the one above */
-//int findAltBlocks2(CBlockIndex* pindex, std::vector<CBlockIndex*>& vCandidates, std::vector<CBlockIndex*>& vResult, int lev);
-int findAltBlocks(CBlockIndex* pindex, std::vector<CBlockIndex*>& vResult);
-bool addToLatestBlocks(CBlockIndex* pindex, int hMain);
+/** Find any best tip forward linked to the input block, possibly many of them if we have forked forks
+    which has also a complete chain of ancestors */
+void findAltBlocks(CBlockIndex* pindex, std::vector<CBlockIndex*>& vResult);
+/** add pindex to the container for the last 2000 received heights */
+bool addToLatestBlocks(CBlockIndex* pindex);
 
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams);
 
