@@ -4,8 +4,6 @@
 #include <algorithm>
 #include <random>
 
-extern bool fDebug;
-
 //#define TEST_ALT_DEBUG
 
 #if !defined(TEST_ALT_DEBUG)
@@ -178,6 +176,11 @@ TEST(findaltblocks_test, findaltblocks) {
     std::cout << "Forking from first fork...";
     makeFork(FORK_04_POS, TRUNK_05_SZ);
 
+    LatestBlocksContainer& latestBlocks = LatestBlocks::getInstance().latestBlocks;
+    std::cout << "Container capacity: " << latestBlocks.capacity() << std::endl;
+    latestBlocks.set_capacity(1000);
+    std::cout << "Container capacity: " << latestBlocks.capacity() << std::endl;
+
     std::cout << "Checking we have a vector of size 5 for heigth " << MULTI_BLOCK_HEIGHT << "... expecting true" << std::endl;
     int hmin = latestBlocks.front()[0]->nHeight;
     int sz = latestBlocks[MULTI_BLOCK_HEIGHT-hmin].size();
@@ -297,6 +300,7 @@ TEST(findaltblocks_test, addtolatestblocks)
     dum = makeDummyOne(h);
     ASSERT_EQ (addToLatestBlocks(dum), true);
 
+    LatestBlocksContainer& latestBlocks = LatestBlocks::getInstance().latestBlocks;
     hmin = latestBlocks.front()[0]->nHeight;
     int sz = latestBlocks[h-hmin].size();
     std::cout << " Checking we have a vector of size 3 for that heigth... expecting true" << std::endl;

@@ -50,7 +50,6 @@ testScripts=(
     'bipdersig-p2p.py'
     'nulldata.py'
     'blockdelay.py'
-    'blockdelay_short.py'
     'headers_01.py'
     'headers_02.py'
     'headers_03.py'

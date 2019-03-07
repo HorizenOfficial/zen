@@ -279,6 +279,7 @@ class blockdelay(BitcoinTestFramework):
         self.mark_logs("Generating 65 more honest blocks")
         self.nodes[0].generate(65)
         print("Honest blocks generated")
+        time.sleep(5);
 
 #   +-------Node(0): [0]->..->[4]->[5h]...->[16h]->[17h]->..->[81h]   <<= ACTIVE
 #   |         /                  \

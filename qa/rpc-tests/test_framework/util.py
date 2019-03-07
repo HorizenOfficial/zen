@@ -82,7 +82,7 @@ bitcoind_processes = {}
 Known debug trace categories:
     "addrman", "alert", "amqp", "bench", "db", "estimatefee", "forks", "forks_2", "http", 
     "mempool", "net", "partitioncheck", "paymentdisclosure", "pow", "prune", "py",
-    "reindex", "rpc", "selectcoin", "tor", "zmq", 
+    "reindex", "rpc", "selectcoin", "status","tor", "zmq", 
 '''
 def initialize_datadir(dirname, n):
     datadir = os.path.join(dirname, "node"+str(n))
@@ -96,16 +96,16 @@ def initialize_datadir(dirname, n):
         f.write("port="+str(p2p_port(n))+"\n");
         f.write("rpcport="+str(rpc_port(n))+"\n");
         f.write("listenonion=0\n");
-        f.write("debug=forks\n");
-        f.write("debug=forks_2\n");
-        f.write("debug=py\n");
-        f.write("debug=net\n");
-        f.write("debug=bench\n");
+#        f.write("debug=forks\n");
 #        f.write("debug=forks_2\n");
+#        f.write("debug=py\n");
+#        f.write("debug=net\n");
+#        f.write("debug=bench\n");
 #        f.write("debug=rpc\n");
 #        f.write("debug=alert\n");
 #        f.write("debug=http\n");
-        f.write("logtimemicros=1\n");
+#        f.write("logtimemicros=1\n");
+#        f.write("latestblockscapacity=100\n");
     return datadir
 
 def initialize_chain(test_dir):

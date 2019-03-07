@@ -80,8 +80,6 @@ size_t nCoinCacheUsage = 5000 * 300;
 uint64_t nPruneTarget = 0;
 bool fAlerts = DEFAULT_ALERTS;
 
-LatestBlocks latestBlocks((LATEST_BLOCKS_CAPACITY));
-
 /** Fees smaller than this (in satoshi) are considered zero fee (for relaying and mining) */
 CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 
@@ -474,7 +472,7 @@ CBlockIndex* LastCommonAncestor(CBlockIndex* pa, CBlockIndex* pb) {
 void FindNextBlocksToDownload(NodeId nodeid, unsigned int count, std::vector<CBlockIndex*>& vBlocks, NodeId& nodeStaller) {
     if (count == 0)
     {
-        LogPrint("forks", "%s() - peer has too many blocks in fligth\n", __func__, __LINE__);
+        LogPrint("forks", "%s():%d - peer has too many blocks in fligth\n", __func__, __LINE__);
         return;
     }
 
@@ -6409,6 +6407,8 @@ void findAltBlocks(CBlockIndex* pindex, std::vector<CBlockIndex*>& vResult)
 {
     LOCK(cs_main);
 
+    LatestBlocksContainer& latestBlocks = LatestBlocks::getInstance().latestBlocks;
+
     if (!pindex || latestBlocks.size() == 0 || !latestBlocks.back()[0])
     {
         LogPrint("forks", "%s():%d - Nothing to do\n", __func__, __LINE__);
@@ -6515,17 +6515,26 @@ bool addToLatestBlocks(CBlockIndex* pindex)
         return false;
     }
 
+    LatestBlocksContainer& latestBlocks = LatestBlocks::getInstance().latestBlocks;
+    static const int LATEST_BLOCKS_CAPACITY = latestBlocks.capacity(); 
+
     int h = pindex->nHeight;
     int hMain = GetHeight();
+    int hMax = hMain;
+
+    if (latestBlocks.size() && latestBlocks.back().size() && latestBlocks.back().back())
+    {
+        hMax = max(hMain, latestBlocks.back().back()->nHeight);
+    }
 
     LogPrint("forks", "%s():%d - block: %s, h(%d), h main(%d)\n",
         __func__, __LINE__, pindex->GetBlockHash().ToString(), h, hMain);
 
-    if ( h <= (hMain - LATEST_BLOCKS_CAPACITY) )
+    if ( h <= (hMax - LATEST_BLOCKS_CAPACITY) )
     {
         // the block has a height out of the window of the latest ones
-        LogPrint("forks", "%s():%d - too old a block: h(%d), main h(%d)\n",
-            __func__, __LINE__, h, hMain);
+        LogPrint("forks", "%s():%d - too old a block: h(%d), main h(%d), max h(%d)\n",
+            __func__, __LINE__, h, hMain, hMax);
         return false;
     }
 
@@ -6796,26 +6805,8 @@ void dump_dirty()
 
 void dump_latest_blocks(CBlock* bl, bool gtest)
 {
-/*
- * Can happen when we have a hole in complete block chain
-    // block has already been validated
-    CBlockIndex* pindex = NULL;
-    BlockMap::iterator mi = mapBlockIndex.find(bl->GetHash() );
-    assert(mi != mapBlockIndex.end());
-    pindex = (*mi).second;
-    int curH = pindex->nHeight;
+    LatestBlocksContainer& latestBlocks = LatestBlocks::getInstance().latestBlocks;
 
-    // check we have all sorted and without holes
-    int topH = latestBlocks.back()[0]->nHeight;
-    int bottomH = latestBlocks.front()[0]->nHeight;
-
-    if (curH < bottomH || curH > topH )
-    {
-         LogPrint("forks", "%s():%d  - NOT:  %d < %d < %d -------\n", __func__, __LINE__, bottomH, curH, topH);
-            __func__, __LINE__, pindex->GetBlockHash().ToString(), h);
-        return true;
-    }
- */
     int sz = latestBlocks.size();
 
     if (gtest)

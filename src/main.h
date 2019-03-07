@@ -95,8 +95,8 @@ static const unsigned int DATABASE_FLUSH_INTERVAL = 24 * 60 * 60;
 /** Maximum length of reject messages. */
 static const unsigned int MAX_REJECT_MESSAGE_LENGTH = 111;
 /* Maximum number of heigths retained in the circular buffer with the latest block index received */
-static const int LATEST_BLOCKS_CAPACITY = 2000;
-//static const int LATEST_BLOCKS_CAPACITY = 20;
+static const int DEFAULT_LATEST_BLOCKS_CAPACITY = 2000;
+//static const int DEFAULT_LATEST_BLOCKS_CAPACITY = 20;
 
 // Sanity check the magic numbers when we change them
 BOOST_STATIC_ASSERT(DEFAULT_BLOCK_MAX_SIZE <= MAX_BLOCK_SIZE);
@@ -137,9 +137,26 @@ extern CFeeRate minRelayTxFee;
 extern bool fAlerts;
 
 typedef std::vector<CBlockIndex*> BlockVector;
-typedef boost::circular_buffer< BlockVector > LatestBlocks;
-extern LatestBlocks latestBlocks;
- 
+typedef boost::circular_buffer< BlockVector > LatestBlocksContainer;
+
+class LatestBlocks
+{
+    public:
+        static LatestBlocks& getInstance()
+        {
+            static LatestBlocks _instance;
+            return _instance;
+        }
+    private:
+        LatestBlocks() : latestBlocks((DEFAULT_LATEST_BLOCKS_CAPACITY)) { }
+
+    public:
+        LatestBlocks(LatestBlocks const&) = delete;
+        void operator=(LatestBlocks const&) = delete;
+
+        LatestBlocksContainer latestBlocks;
+};
+
 /** Best header we've seen so far (used for getheaders queries' starting points). */
 extern CBlockIndex *pindexBestHeader;
 
