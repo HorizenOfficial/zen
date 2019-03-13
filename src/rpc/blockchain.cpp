@@ -1014,57 +1014,33 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't tell finality of a block not on main chain");
     }
 
-    LatestBlocksContainer& latestBlocks = LatestBlocks::getInstance().latestBlocks;
-    static const int LATEST_BLOCKS_CAPACITY = latestBlocks.capacity(); 
-
-    int inputHeight = pblkIndex->nHeight;
-    int delta = chainActive.Height() - inputHeight;
-    if (delta >= LATEST_BLOCKS_CAPACITY)
-    {
-        if (LATEST_BLOCKS_CAPACITY == DEFAULT_LATEST_BLOCKS_CAPACITY)
-        {
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "Old block: its finality is more than 2 millions!");
-        }
-        else
-        {
-            int approx = LATEST_BLOCKS_CAPACITY * (LATEST_BLOCKS_CAPACITY -1) / 2;
-            string s = "Old block: its finality is more than " + std::to_string(approx) + "!";
-            throw JSONRPCError(RPC_INTERNAL_ERROR, s);
-        }
-    }
-
-
+#if 0
     // find possible forks
     //-------------------------------------------------------------------------
     std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
-
-    LogPrint("forks", "%s():%d - Container capacity=%d\n", __func__, __LINE__, latestBlocks.capacity() );
-
-    BOOST_FOREACH(BlockVector& entry, latestBlocks)
+    BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
+        setTips.insert(item.second);
+    BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
     {
-        BOOST_FOREACH(CBlockIndex* pdx, entry)
-        {
-            if(pdx)
-                setTips.insert(pdx);
-        }
+        const CBlockIndex* pprev = item.second->pprev;
+        if (pprev)
+            setTips.erase(pprev);
     }
 
-    BOOST_FOREACH(BlockVector& entry, latestBlocks)
-    {
-        BOOST_FOREACH(CBlockIndex* pdx, entry)
-        {
-            if (pdx)
-            {
-                CBlockIndex* pprev = pdx->pprev;
-                if (pprev)
-                {
-                    setTips.erase(pprev);
-                }
-            }
-        }
-    }
-
+    // Always report the currently active tip.
     setTips.insert(chainActive.Tip());
+#else
+    std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
+    BOOST_FOREACH(const CBlockIndex* item,sGlobalForkTips)
+        setTips.insert(item);
+#endif
+
+    int inputHeight = pblkIndex->nHeight;
+    int delta = chainActive.Height() - inputHeight;
+    if (delta >= DEFAULT_LATEST_BLOCKS_CAPACITY)
+    {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Old block: its finality is more than 2 millions!");
+    }
 
     LogPrint("forks", "%s():%d - Number of tips found=%d\n", __func__, __LINE__, setTips.size() );
 

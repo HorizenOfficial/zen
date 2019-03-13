@@ -96,7 +96,7 @@ void makeFork(int start_pos, int trunk_size)
         }
         bi->nChainTx = 33;
         vBlocks.push_back(bi);
-        addToLatestBlocks(bi);
+//        addToLatestBlocks(bi);
     }
 }
 
@@ -142,7 +142,7 @@ void makeMain(int trunk_size)
         bi->BuildSkip();
         chainActive.SetTip(bi);
         vBlocks.push_back(bi);
-        addToLatestBlocks(bi);
+//        addToLatestBlocks(bi);
     }
 
     std::cout << " main chain built: length(" << trunk_size << ")" << std::endl;
@@ -176,6 +176,7 @@ TEST(findaltblocks_test, findaltblocks) {
     std::cout << "Forking from first fork...";
     makeFork(FORK_04_POS, TRUNK_05_SZ);
 
+#if 0
     LatestBlocksContainer& latestBlocks = LatestBlocks::getInstance().latestBlocks;
     std::cout << "Container capacity: " << latestBlocks.capacity() << std::endl;
     latestBlocks.set_capacity(1000);
@@ -185,6 +186,7 @@ TEST(findaltblocks_test, findaltblocks) {
     int hmin = latestBlocks.front()[0]->nHeight;
     int sz = latestBlocks[MULTI_BLOCK_HEIGHT-hmin].size();
     ASSERT_EQ(sz, 5);
+#endif
 
 #if defined(TEST_ALT_DEBUG)
     std::cout << "Blocks: " << vBlocks.size() <<std::endl;
@@ -208,7 +210,7 @@ TEST(findaltblocks_test, findaltblocks) {
 #endif
 
     std::cout << "Testing API: looking for tips, there should be 5 of them... " <<std::endl;
-    findAltBlocks(chainActive[1], vResult);
+//    findAltBlocks(chainActive[1], vResult);
     ASSERT_EQ (vResult.size(), 5);
 
     std::cout << "Results: " << vResult.size() << std::endl;
@@ -243,7 +245,7 @@ TEST(findaltblocks_test, findaltblocks) {
 #endif
 
     std::cout << "Testing API: looking for tips after creating hole, there should be 3 of them now... " <<std::endl;
-    findAltBlocks(chainActive[1], vResult);
+//    findAltBlocks(chainActive[1], vResult);
     ASSERT_EQ (vResult.size(), 3);
 
     std::cout << "Results: " << vResult.size() << std::endl;
@@ -252,10 +254,11 @@ TEST(findaltblocks_test, findaltblocks) {
         std::cout << "   " << block->GetBlockHash().ToString() << "   h(" << block->nHeight << ") " << std::endl;
     }
 
-    latestBlocks.clear();
+//    latestBlocks.clear();
     vBlocks.clear();
 }
 
+#if 0
 TEST(findaltblocks_test, addtolatestblocks)
 {
     int hmin = -1;
@@ -316,3 +319,4 @@ TEST(findaltblocks_test, addtolatestblocks)
 
     latestBlocks.clear();
 }
+#endif

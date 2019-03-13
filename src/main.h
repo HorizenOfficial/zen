@@ -136,6 +136,7 @@ extern size_t nCoinCacheUsage;
 extern CFeeRate minRelayTxFee;
 extern bool fAlerts;
 
+#if 0
 typedef std::vector<CBlockIndex*> BlockVector;
 typedef boost::circular_buffer< BlockVector > LatestBlocksContainer;
 
@@ -156,6 +157,10 @@ class LatestBlocks
 
         LatestBlocksContainer latestBlocks;
 };
+#endif
+
+typedef std::set<CBlockIndex*> BlockSet;
+extern BlockSet sGlobalForkTips;
 
 /** Best header we've seen so far (used for getheaders queries' starting points). */
 extern CBlockIndex *pindexBestHeader;
@@ -239,7 +244,7 @@ bool GetTransaction(const uint256 &hash, CTransaction &tx, uint256 &hashBlock, b
 /** Find the best known block, and make it the tip of the block chain */
 bool ActivateBestChain(CValidationState &state, CBlock *pblock = NULL);
 /** Find an alternative chain tip and propagate to the network */
-bool RelayAlternativeChain(CValidationState &state, CBlock *pblock);
+bool RelayAlternativeChain(CValidationState &state, CBlock *pblock, BlockSet* sForkTips);
 /** Find any best tip forward linked to the input block, possibly many of them if we have forked forks
     which has also a complete chain of ancestors */
 void findAltBlocks(CBlockIndex* pindex, std::vector<CBlockIndex*>& vResult);
@@ -476,7 +481,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
  * - The only caller of AcceptBlock verifies JoinSplit proofs elsewhere.
  * If dbp is non-NULL, the file is known to already reside on disk
  */
-bool AcceptBlock(CBlock& block, CValidationState& state, CBlockIndex **pindex, bool fRequested, CDiskBlockPos* dbp);
+bool AcceptBlock(CBlock& block, CValidationState& state, CBlockIndex **pindex, bool fRequested, CDiskBlockPos* dbp, BlockSet* sForkTips = NULL);
 bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex **ppindex= NULL);
 
 

@@ -57,6 +57,9 @@ testScripts=(
     'headers_05.py'
     'headers_06.py'
     'headers_07.py'
+    'headers_08.py'
+    'headers_09.py'
+    'headers_10.py'
 );
 testScriptsExt=(
     'getblocktemplate_longpoll.py'
