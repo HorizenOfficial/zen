@@ -159,8 +159,25 @@ class LatestBlocks
 };
 #endif
 
-typedef std::set<CBlockIndex*> BlockSet;
+/** Comparison function for sorting the getchaintips heads.  */
+struct CompareBlocksByHeight
+{
+    bool operator()(const CBlockIndex* a, const CBlockIndex* b) const
+    {
+        /* Make sure that unequal blocks with the same height do not compare
+           equal. Use the pointers themselves to make a distinction. */
+
+        if (a->nHeight != b->nHeight)
+          return (a->nHeight > b->nHeight);
+
+        return a < b;
+    }
+};
+
+typedef std::set<const CBlockIndex*, CompareBlocksByHeight> BlockSet;
 extern BlockSet sGlobalForkTips;
+static const int MAX_NUM_GLOBAL_FORKS = 10;
+static const int MAX_AGE_GLOBAL_FORK = 2000;
 
 /** Best header we've seen so far (used for getheaders queries' starting points). */
 extern CBlockIndex *pindexBestHeader;
@@ -593,5 +610,6 @@ std::string dbg_blk_in_fligth();
 std::string dbg_blk_unlinked();
 std::string dbg_blk_candidates();
 void dump_db();
-void dump_latest_blocks(CBlock* bl, bool gtest);
+void dump_global_tips();
+//void dump_latest_blocks(CBlock* bl, bool gtest);
 #endif // BITCOIN_MAIN_H

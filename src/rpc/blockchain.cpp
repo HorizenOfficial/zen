@@ -767,21 +767,6 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
     return obj;
 }
 
-/** Comparison function for sorting the getchaintips heads.  */
-struct CompareBlocksByHeight
-{
-    bool operator()(const CBlockIndex* a, const CBlockIndex* b) const
-    {
-        /* Make sure that unequal blocks with the same height do not compare
-           equal. Use the pointers themselves to make a distinction. */
-
-        if (a->nHeight != b->nHeight)
-          return (a->nHeight > b->nHeight);
-
-        return a < b;
-    }
-};
-
 UniValue getchaintips(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
@@ -1029,10 +1014,6 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
 
     // Always report the currently active tip.
     setTips.insert(chainActive.Tip());
-#else
-    std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
-    BOOST_FOREACH(const CBlockIndex* item,sGlobalForkTips)
-        setTips.insert(item);
 #endif
 
     int inputHeight = pblkIndex->nHeight;
@@ -1042,7 +1023,8 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Old block: its finality is more than 2 millions!");
     }
 
-    LogPrint("forks", "%s():%d - Number of tips found=%d\n", __func__, __LINE__, setTips.size() );
+    LogPrint("forks", "%s():%d - Number of tips found=%d\n", __func__, __LINE__, sGlobalForkTips.size() );
+    dump_global_tips();
 
     long int gap = 0;
     long int minGap = LONG_MAX;
@@ -1050,7 +1032,7 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
     // For each tip find the stemming block on the main chain
     // In case of main tip such a block would be the tip itself
     //-----------------------------------------------------------------------
-    BOOST_FOREACH(const CBlockIndex* idx, setTips)
+    BOOST_FOREACH(const CBlockIndex* idx, sGlobalForkTips)
     {
         const int forkBaseHeight = chainActive.FindFork(idx)->nHeight;
 
