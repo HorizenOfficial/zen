@@ -5490,15 +5490,34 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                         block = block->pprev;
                     }
 
-                    // we must process each deque in order to have a resulting vector with headers in the correct order
-                    // for all possible forks
-                    BOOST_FOREACH(const CBlock& cb, dHeadersAlternativeMulti)
+                    if (block == pindexReference)
                     {
-                        if (--nLimit > 0)
+                        // we exited from the while loop with the right condition, therefore we must take this branch into account
+                        LogPrint("forks", "%s():%d - found reference %s h(%d)\n",
+                            __func__, __LINE__, block->GetBlockHash().ToString(), block->nHeight);
+
+                        // we must process each deque in order to have a resulting vector with headers in the correct order
+                        // for all possible forks
+                        BOOST_FOREACH(const CBlock& cb, dHeadersAlternativeMulti)
                         {
-                            LogPrint("forks", "%s():%d -- [%s]\n", __func__, __LINE__, cb.GetHash().ToString() );
-                            vHeadersMulti.push_back(cb);
+                            if (--nLimit > 0)
+                            {
+                                LogPrint("forks", "%s():%d -- [%s]\n", __func__, __LINE__, cb.GetHash().ToString() );
+                                vHeadersMulti.push_back(cb);
+                            }
                         }
+                    }
+                    else
+                    if (block->nHeight < h)
+                    {
+                        // we must neglect this branch since not linked to the reference
+                        LogPrint("forks", "%s():%d - could not find reference, stopped at %s h(%d)\n",
+                            __func__, __LINE__, block->GetBlockHash().ToString(), block->nHeight);
+                    }
+                    else
+                    {
+                        // should never happen
+                        LogPrint("forks", "%s():%d - block ptr is null\n", __func__, __LINE__);
                     }
                 }
 
@@ -5694,8 +5713,17 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             // Headers message had its maximum size; the peer may have more headers.
             // TODO: optimize: if pindexLast is an ancestor of chainActive.Tip or pindexBestHeader, continue
             // from there instead.
+
+            CBlockLocator bl = chainActive.GetLocator(pindexLast);
+            std::vector<uint256>::iterator b = bl.vHave.begin();
+            // get a copy and place on top beside it: peer will detect we are continuing after 160 blocks
+            uint256 hash = uint256(*b);
+            bl.vHave.insert(b, hash);
+            LogPrint("forks", "%s():%d - added duplicate of hash %s to locator\n",
+                __func__, __LINE__, hash.ToString() );
+
             LogPrint("net", "more getheaders (%d) to end to peer=%d (startheight:%d)\n", pindexLast->nHeight, pfrom->id, pfrom->nStartingHeight);
-            pfrom->PushMessage("getheaders", chainActive.GetLocator(pindexLast), uint256());
+            pfrom->PushMessage("getheaders", bl, uint256());
         }
 
         CheckBlockIndex();
@@ -6721,26 +6749,39 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
     }
     else
     {
-        // hashStop is null, we must tell from tip of locator if we are on a fork and not in main
-        const uint256& hash = locator.vHave[0];
-        BlockMap::iterator mi = mapBlockIndex.find(hash);
-        if (mi != mapBlockIndex.end() ) 
-        {
-            CBlockIndex* idx = (*mi).second;
+        // hashstop can be null:
+        // 1. when a node is syncing after a network join or a node startup
+        // 2. when a bunch of 160 headers has been sent and peer requests more
 
-            if (!chainActive.Contains(idx))
-            {
-                *pindexReference = idx;
-                LogPrint("forks", "%s():%d - hash found, returning FALSE\n",
-                    __func__, __LINE__);
-                return false;
-            }
-        }
-        else
+        const uint256& hash_0 = locator.vHave[0];
+        const uint256& hash_1 = locator.vHave[1];
+
+        if (hash_0 == hash_1)
         {
-            // should never happen
-            LogPrint("forks", "%s():%d - hash not found, returning TRUE\n", __func__, __LINE__);
-            return true;
+            // we are on case 2. above, check locator for telling if peer is on main or not
+            LogPrint("forks", "%s():%d - found duplicate of hash %s in the locator\n",
+                __func__, __LINE__, hash_0.ToString() );
+
+            BlockMap::iterator mi = mapBlockIndex.find(hash_0);
+            if (mi != mapBlockIndex.end() ) 
+            {
+                CBlockIndex* idx = (*mi).second;
+ 
+                if (!chainActive.Contains(idx))
+                {
+                    // tip of locator not on main
+                    *pindexReference = idx;
+                    LogPrint("forks", "%s():%d - hash found, returning FALSE\n",
+                        __func__, __LINE__);
+                    return false;
+                }
+            }
+            else
+            {
+                // should never happen
+                LogPrint("forks", "%s():%d - hash not found, returning TRUE\n", __func__, __LINE__);
+                return true;
+            }
         }
 
         LogPrint("forks", "%s():%d - Exiting returning TRUE\n", __func__, __LINE__);
