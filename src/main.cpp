@@ -4122,8 +4122,6 @@ CBlockIndex * InsertBlockIndex(uint256 hash)
     mi = mapBlockIndex.insert(make_pair(hash, pindexNew)).first;
     pindexNew->phashBlock = &((*mi).first);
 
-//    addToGlobalForkTips(pindexNew);
-
     return pindexNew;
 }
 
@@ -4148,12 +4146,17 @@ bool static LoadBlockIndexDB()
     {
         CBlockIndex* pindex = item.second;
         pindex->nChainWork = (pindex->pprev ? pindex->pprev->nChainWork : 0) + GetBlockProof(*pindex);
-        if (pindex->pprev){
+#if 0
+                if (pindex->pprev){
+            assert(fIsStartupSyncing);
             pindex->nChainDelay = pindex->pprev->nChainDelay
             + GetBlockDelay(*pindex,*(pindex->pprev), chainActive.Height(), fIsStartupSyncing);
         } else {
             pindex->nChainDelay = 0 ;
         }
+#else
+        pindex->nChainDelay = 0 ;
+#endif
         // We can link the chain of blocks for which we've received transactions at some point.
         // Pruned nodes may have deleted the block.
         if (pindex->nTx > 0) {
@@ -4191,6 +4194,8 @@ bool static LoadBlockIndexDB()
             pindex->BuildSkip();
         if (pindex->IsValid(BLOCK_VALID_TREE) && (pindexBestHeader == NULL || CBlockIndexWorkComparator()(pindexBestHeader, pindex)))
             pindexBestHeader = pindex;
+
+        addToGlobalForkTips(pindex);
     }
 
     // Load block file info
