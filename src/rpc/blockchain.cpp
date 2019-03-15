@@ -804,7 +804,8 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
 
     /* Build up a list of chain tips.  We start with the list of all
        known blocks, and successively remove blocks that appear as pprev
-       of another block.  */
+       of another block*/
+#if 1
     std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
     BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
         setTips.insert(item.second);
@@ -815,6 +816,14 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
             setTips.erase(pprev);
     }
 
+#else
+    std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
+    BOOST_FOREACH(auto mapPair, mGlobalForkTips)
+    {
+        const CBlockIndex* idx = mapPair.first;
+        setTips.insert(idx);
+    }
+#endif
     // Always report the currently active tip.
     setTips.insert(chainActive.Tip());
 
@@ -1014,6 +1023,14 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
 
     // Always report the currently active tip.
     setTips.insert(chainActive.Tip());
+#else
+    std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
+    BOOST_FOREACH(auto mapPair, mGlobalForkTips)
+    {
+        const CBlockIndex* idx = mapPair.first;
+        setTips.insert(idx);
+    }
+    setTips.insert(chainActive.Tip());
 #endif
 
     int inputHeight = pblkIndex->nHeight;
@@ -1032,10 +1049,14 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
     // For each tip find the stemming block on the main chain
     // In case of main tip such a block would be the tip itself
     //-----------------------------------------------------------------------
+#if 0
     BOOST_FOREACH(auto mapPair, mGlobalForkTips)
     {
         const CBlockIndex* idx = mapPair.first;
-
+#else
+    BOOST_FOREACH(auto idx, setTips)
+    {
+#endif
         const int forkBaseHeight = chainActive.FindFork(idx)->nHeight;
 
         if (forkBaseHeight < inputHeight)
@@ -1090,6 +1111,8 @@ UniValue dbg_do(const UniValue& params, bool fHelp)
         );
     }
 
+    std::string ret;
+#if 0
     std::string strHash = params[0].get_str();
     uint256 hash(uint256S(strHash));
 
@@ -1098,16 +1121,17 @@ UniValue dbg_do(const UniValue& params, bool fHelp)
 
     CBlockIndex* pblockindex = mapBlockIndex[hash];
 
-    std::string ret;
     while ( pblockindex && !chainActive.Contains(pblockindex) )
     {
         ret += pblockindex->GetBlockHash().ToString() + " - h[" + std::to_string(pblockindex->nHeight) + "]\n";
         pblockindex = pblockindex->pprev;
     }
 
-    ret += dbg_blk_in_fligth();
-    ret += dbg_blk_unlinked();
-    ret += dbg_blk_candidates();
+//    ret += dbg_blk_in_fligth();
+//    ret += dbg_blk_unlinked();
+//    ret += dbg_blk_candidates();
+#endif
+    ret += dbg_blk_global_tips();
 
 
 

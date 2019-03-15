@@ -174,7 +174,7 @@ struct CompareBlocksByHeight
     }
 };
 
-typedef std::map<const CBlockIndex*, int> BlockTimeMap;
+typedef std::map<const CBlockIndex*, int, CompareBlocksByHeight> BlockTimeMap;
 extern BlockTimeMap mGlobalForkTips;
 
 typedef std::set<const CBlockIndex*, CompareBlocksByHeight> BlockSet;
@@ -613,6 +613,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 std::string dbg_blk_in_fligth();
 std::string dbg_blk_unlinked();
 std::string dbg_blk_candidates();
+std::string dbg_blk_global_tips();
 void dump_db();
 void dump_global_tips();
 //void dump_latest_blocks(CBlock* bl, bool gtest);

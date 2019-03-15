@@ -2630,6 +2630,11 @@ void static UpdateTip(CBlockIndex *pindexNew) {
     const CChainParams& chainParams = Params();
     chainActive.SetTip(pindexNew);
 
+#if 0
+    // to be sure we always have best tip in repo (incomplete blocks over it can remove main tip)
+    addToGlobalForkTips(pindexNew);
+#endif
+
     // New best block
     nTimeBestReceived = GetTime();
     mempool.AddTransactionsUpdated(1);
@@ -3193,7 +3198,20 @@ bool addToGlobalForkTips(const CBlockIndex* pindex)
     LogPrint("forks", "%s():%d - adding tip in global map: h(%d) [%s]\n",
         __func__, __LINE__, pindex->nHeight, pindex->GetBlockHash().ToString());
 
+#if 0
+    // useful when best tip is updated, it overrides the timestamp of the same block
+    // which was added to repo when still incomplete
+    using map_pair = pair<BlockTimeMap::iterator, bool>;
+    map_pair obj = mGlobalForkTips.insert(std::make_pair( pindex, (int)GetTime() ));
+
+    if (!obj.second)
+    {
+        mGlobalForkTips[pindex] = (int)GetTime();
+    }
+    return obj.second;
+#else
     return mGlobalForkTips.insert(std::make_pair( pindex, (int)GetTime() )).second;
+#endif
 }
 
 bool updateGlobalForkTips(const CBlockIndex* pindex, bool lookForwardTips)
@@ -3258,7 +3276,7 @@ bool updateGlobalForkTips(const CBlockIndex* pindex, bool lookForwardTips)
                     LogPrint("forks", "%s():%d - updating tip access time in global set: h(%d) [%s]\n",
                         __func__, __LINE__, tipIndex->nHeight, tipIndex->GetBlockHash().ToString());
 #if 1
-                    mGlobalForkTips[pindex] = (int)GetTime();
+                    mGlobalForkTips[tipIndex] = (int)GetTime();
                     done |= true;
 #else
                     mGlobalForkTips.erase(tipIndex);
@@ -4147,7 +4165,7 @@ bool static LoadBlockIndexDB()
         CBlockIndex* pindex = item.second;
         pindex->nChainWork = (pindex->pprev ? pindex->pprev->nChainWork : 0) + GetBlockProof(*pindex);
 #if 0
-                if (pindex->pprev){
+        if (pindex->pprev){
             assert(fIsStartupSyncing);
             pindex->nChainDelay = pindex->pprev->nChainDelay
             + GetBlockDelay(*pindex,*(pindex->pprev), chainActive.Height(), fIsStartupSyncing);
@@ -4182,10 +4200,6 @@ bool static LoadBlockIndexDB()
         {
             LogPrint("forks_2", "%s() - Adding idx to candidate: %s\n", __func__, pindex->GetBlockHash().ToString() );
             setBlockIndexCandidates.insert(pindex);
-#if 0
-            /* [AS] */
-            addToLatestBlocks(pindex);
-#endif
         }
             
         if (pindex->nStatus & BLOCK_FAILED_MASK && (!pindexBestInvalid || pindex->nChainWork > pindexBestInvalid->nChainWork))
@@ -6712,6 +6726,61 @@ std::string dbg_blk_candidates()
     {
         uint256 hash = (*it)->GetBlockHash();
         ret += hash.GetHex() + "\n";
+    }
+    return ret;
+}
+
+std::string dbg_blk_global_tips()
+{
+    std::string ret = "";
+    int sz = mGlobalForkTips.size();
+    ret += "Global tips: " + std::to_string(sz) + "\n";
+    ret += "-----------------------\n";
+    if (sz <= 0)
+    {
+        return ret;
+    }
+
+    BOOST_FOREACH(auto mapPair, mGlobalForkTips)
+    {
+        const CBlockIndex* pindex = mapPair.first;
+
+        bool onFork = !chainActive.Contains(pindex);
+        bool onForkPrev = false;
+        if (onFork && pindex->pprev)
+        {
+            // chanches are that the header is temporarly not a tip but will be promoted soon when the full blocks comes 
+            onForkPrev = !chainActive.Contains(pindex->pprev);
+        }
+
+        uint256 hash = pindex->GetBlockHash();
+        int h = pindex->nHeight;
+        ret += "h(" + std::to_string(h) + ") " + hash.GetHex() + " onFork";
+        if (onFork)
+        {
+            if (onForkPrev)
+            {
+                ret += "[X]";
+            }
+            else
+            {
+                ret += "[?]";
+            }
+        }
+        else
+        {
+            ret += "[-]";
+        }
+        ret += " time[" + std::to_string(mapPair.second) + "]\n";
+    }
+
+    std::vector<uint256> vOutput;
+    getMostRecentGlobalForkTips(vOutput);
+
+    ret += "Ordered: ---------------\n";
+    BOOST_FOREACH(const uint256& hash, vOutput)
+    {
+        ret += "  [" + hash.GetHex() + "]\n";
     }
     return ret;
 }
