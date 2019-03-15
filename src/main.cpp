@@ -58,6 +58,8 @@ using namespace std;
 CCriticalSection cs_main;
 
 BlockSet sGlobalForkTips;
+BlockTimeMap mGlobalForkTips;
+
 BlockMap mapBlockIndex;
 CChain chainActive;
 CBlockIndex *pindexBestHeader = NULL;
@@ -102,7 +104,7 @@ static bool IsSuperMajority(int minVersion, const CBlockIndex* pstart, unsigned 
 static void CheckBlockIndex();
 static bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, CBlockIndex** pindexReference);
 
-void dump_index(const CBlockIndex* pindex);
+void dump_index(const CBlockIndex* pindex, int val = 0);
 void dump_dirty();
 void dump_candidates();
 
@@ -3185,42 +3187,120 @@ bool addToGlobalForkTips(const CBlockIndex* pindex)
     if (!pindex)
         return false;
 
-    int sz = sGlobalForkTips.size();
-
-    // remove old blocks if any
-    if (sz > 1)
-    {
-        const CBlockIndex* p = *(sGlobalForkTips.rbegin());
-        if (p && p->nHeight < (chainActive.Height() - MAX_AGE_GLOBAL_FORK) )
-        {
-            LogPrint("forks", "%s():%d - erasing old tip from global set: h(%d) [%s]\n",
-                __func__, __LINE__, p->nHeight, p->GetBlockHash().ToString());
-            sGlobalForkTips.erase(p);
-        }
-    }
-
-    // anyway check we have no more than max limit of elements
-    if (sz >= (MAX_NUM_GLOBAL_FORKS-1) )
-    {
-        // remove the oldest, just check it is not tha main tip
-        BlockSet::reverse_iterator rit = sGlobalForkTips.rbegin();
-        if ((*rit) == chainActive.Tip() )
-        {
-            ++rit;
-        }
-        const CBlockIndex* p = *rit;
-        LogPrint("forks", "%s():%d - erasing oldest tip from global set: h(%d) [%s] there are too many of them\n",
-            __func__, __LINE__, p->nHeight, p->GetBlockHash().ToString());
-        sGlobalForkTips.erase(p);
-    }
-
     // remove its parent if any
-    sGlobalForkTips.erase(pindex->pprev);
+    mGlobalForkTips.erase(pindex->pprev);
 
-    LogPrint("forks", "%s():%d - adding tip in global set: h(%d) [%s]\n",
+    LogPrint("forks", "%s():%d - adding tip in global map: h(%d) [%s]\n",
         __func__, __LINE__, pindex->nHeight, pindex->GetBlockHash().ToString());
 
-    return sGlobalForkTips.insert(pindex).second;
+    return mGlobalForkTips.insert(std::make_pair( pindex, (int)GetTime() )).second;
+}
+
+bool updateGlobalForkTips(const CBlockIndex* pindex, bool lookForwardTips)
+{
+    if (!pindex)
+        return false;
+
+    LogPrint("forks", "%s():%d - Entering: lookFwd[%d], h(%d) [%s]\n",
+        __func__, __LINE__, lookForwardTips, pindex->nHeight, pindex->GetBlockHash().ToString());
+
+    if (chainActive.Contains(pindex))
+    {
+        LogPrint("forks", "%s():%d - Exiting: header is on main chain h(%d) [%s]\n",
+            __func__, __LINE__, pindex->nHeight, pindex->GetBlockHash().ToString());
+        return false;
+    }
+
+    if (mGlobalForkTips.count(pindex) )
+    {
+        LogPrint("forks", "%s():%d - updating tip in global set: h(%d) [%s]\n",
+            __func__, __LINE__, pindex->nHeight, pindex->GetBlockHash().ToString());
+#if 1
+        mGlobalForkTips[pindex] = (int)GetTime();
+        return true;
+#else
+        mGlobalForkTips.erase(pindex);
+        return mGlobalForkTips.insert(std::make_pair(pindex, (int)GetTime() )).second;
+#endif
+    }
+    else
+    {
+        // check from tips downward if we connect to this index and in this case 
+        // update the tip instead (for coping with very old tips not in the most recent set)
+        if (lookForwardTips)
+        {
+            int h = pindex->nHeight;
+            bool done = false;
+
+            BOOST_FOREACH(auto mapPair, mGlobalForkTips)
+            {
+                const CBlockIndex* tipIndex = mapPair.first;
+                if (!tipIndex)
+                    continue;
+
+                LogPrint("forks", "%s():%d - tip %s h(%d)\n",
+                    __func__, __LINE__, tipIndex->GetBlockHash().ToString(), tipIndex->nHeight);
+
+                if (tipIndex == chainActive.Tip() || tipIndex == pindexBestHeader )
+                {
+                    LogPrint("forks", "%s():%d - skipping main chain tip\n", __func__, __LINE__);
+                    continue;
+                }
+ 
+                const CBlockIndex* dum = tipIndex;
+                while ( dum != pindex && dum->nHeight >= h)
+                {
+                    dum = dum->pprev;
+                }
+
+                if (dum == pindex)
+                {
+                    LogPrint("forks", "%s():%d - updating tip access time in global set: h(%d) [%s]\n",
+                        __func__, __LINE__, tipIndex->nHeight, tipIndex->GetBlockHash().ToString());
+#if 1
+                    mGlobalForkTips[pindex] = (int)GetTime();
+                    done |= true;
+#else
+                    mGlobalForkTips.erase(tipIndex);
+                    done |= mGlobalForkTips.insert(std::make_pair(tipIndex, (int)GetTime() )).second;
+#endif
+                }
+                else
+                {
+                    // we must neglect this branch since not linked to the pindex
+                    LogPrint("forks", "%s():%d - stopped at %s h(%d)\n",
+                        __func__, __LINE__, dum->GetBlockHash().ToString(), dum->nHeight);
+                }
+            }
+
+            LogPrint("forks", "%s():%d - exiting done[%d]\n", __func__, __LINE__, done);
+            return done;
+        }
+
+        // nothing to do, this is not a tip at all
+        LogPrint("forks", "%s():%d - not a tip: h(%d) [%s]\n",
+            __func__, __LINE__, pindex->nHeight, pindex->GetBlockHash().ToString());
+        return false;
+    }
+}
+
+int getMostRecentGlobalForkTips(std::vector<uint256>& output)
+{
+    using map_pair = pair<const CBlockIndex*, int>;
+
+    std::vector<map_pair> vTemp(begin(mGlobalForkTips), end(mGlobalForkTips));
+
+    sort(begin(vTemp), end(vTemp), [](const map_pair& a, const map_pair& b) { return a.second < b.second; });
+
+    int count = MAX_NUM_GLOBAL_FORKS;
+    BOOST_REVERSE_FOREACH(auto const &p, vTemp)
+    {
+        output.push_back(p.first->GetBlockHash() );
+        if (--count <= 0)
+            break;
+    }
+
+    return output.size();
 }
 
 CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
@@ -3669,8 +3749,10 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     return true;
 }
 
-bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex** ppindex)
+bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex** ppindex, bool lookForwardTips)
 {
+    dump_global_tips();
+
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
     // Check for duplicate
@@ -3681,6 +3763,10 @@ bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBloc
         // Block header is already known.
         pindex = miSelf->second;
         LogPrint("forks", "%s():%d - block already known: [%s]\n", __func__, __LINE__, block.GetHash().ToString());
+
+        // update it because if it is a tip, its timestamp is most probably changed
+        updateGlobalForkTips(pindex, lookForwardTips);
+
         if (ppindex)
             *ppindex = pindex;
         if (pindex->nStatus & BLOCK_FAILED_MASK)
@@ -4036,7 +4122,7 @@ CBlockIndex * InsertBlockIndex(uint256 hash)
     mi = mapBlockIndex.insert(make_pair(hash, pindexNew)).first;
     pindexNew->phashBlock = &((*mi).first);
 
-    addToGlobalForkTips(pindexNew);
+//    addToGlobalForkTips(pindexNew);
 
     return pindexNew;
 }
@@ -5212,10 +5298,11 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                     // add fork tips to the locator, they will be used by peer in case we need updating a fork
                     CBlockLocator bl = chainActive.GetLocator(pindexBestHeader);
 
-                    if (sGlobalForkTips.size() > 1)
+                    if (mGlobalForkTips.size() > 1)
                     {
+#if 0
                         // we have at least a fork
-                        BOOST_FOREACH(const CBlockIndex* pidx, sGlobalForkTips)
+                        BOOST_FOREACH(const CBlockIndex* pidx, mGlobalForkTips)
                         {
                             // rule out main tip or pindexBestHeader (they are not necessarely the same at this stage)
                             if (pidx == chainActive.Tip() || pidx == pindexBestHeader )
@@ -5230,6 +5317,17 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                             std::vector<uint256>::iterator b = bl.vHave.begin();
                             bl.vHave.insert(b, pidx->GetBlockHash() );
                         }
+#else
+                        std::vector<uint256> vOutput;
+                        getMostRecentGlobalForkTips(vOutput);
+
+                        BOOST_FOREACH(const uint256& hash, vOutput)
+                        {
+                            std::vector<uint256>::iterator b = bl.vHave.begin();
+                            LogPrint("forks", "%s():%d - adding tip hash [%s]\n", __func__, __LINE__, hash.ToString());
+                            bl.vHave.insert(b, hash);
+                        }
+#endif
                     }
 
                     LogPrint("forks", "%s():%d - Pushing getheaders [%s]\n", __func__, __LINE__, inv.hash.ToString());
@@ -5466,10 +5564,14 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
                 // we must follow all forks backwards because we can not tell which is the concerned one
                 // peer will discard headers already known if any
-                BOOST_FOREACH(const CBlockIndex* block, sGlobalForkTips)
+                BOOST_FOREACH(auto mapPair, mGlobalForkTips)
                 {
-                    if (block == chainActive.Tip() )
+                    const CBlockIndex* block = mapPair.first;
+                    if (block == chainActive.Tip() || block == pindexBestHeader )
+                    {
+                        LogPrint("forks", "%s():%d - skipping tips\n", __func__, __LINE__);
                         continue;
+                    }
 
                     std::deque<CBlock> dHeadersAlternativeMulti;
 
@@ -5686,6 +5788,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         }
 
         CBlockIndex *pindexLast = NULL;
+        int cnt = 0;
         BOOST_FOREACH(const CBlockHeader& header, headers) {
             CValidationState state;
             if (pindexLast != NULL && header.hashPrevBlock != pindexLast->GetBlockHash()) {
@@ -5693,7 +5796,10 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 LogPrint("forks", "%s():%d - non continuous sequence\n", __func__, __LINE__);
                 return error("non-continuous headers sequence");
             }
-            if (!AcceptBlockHeader(header, state, &pindexLast)) {
+            
+            bool lookForwardTips = (++cnt == MAX_HEADERS_RESULTS);
+             
+            if (!AcceptBlockHeader(header, state, &pindexLast, lookForwardTips)) {
                 int nDoS;
                 if (state.IsInvalid(nDoS)) {
                     if (nDoS > 0)
@@ -6607,9 +6713,16 @@ std::string dbg_blk_candidates()
 
 std::deque<const CBlockIndex*> to_dump;
 
-void dump_index(const CBlockIndex* pindex)
+void dump_index(const CBlockIndex* pindex, int val)
 {
     bool onFork = !chainActive.Contains(pindex);
+    bool onForkPrev = false;
+    if (onFork && pindex->pprev)
+    {
+        // chanches are that the header is temporarly not a tip but will be promoted soon when the full blocks comes 
+        onForkPrev = !chainActive.Contains(pindex->pprev);
+    }
+
     std::string offset = "";
     if (onFork)
     {
@@ -6618,7 +6731,9 @@ void dump_index(const CBlockIndex* pindex)
     }
     LogPrint("forks", "%s-------------------------------------------------\n", offset);
     LogPrint("forks", "%sh(%3d) %s\n", offset, pindex->nHeight, pindex->GetBlockHash().ToString() );
-    LogPrint("forks", "%s   onFork[%s]\n", offset, onFork?"X":"-" );
+    LogPrint("forks", "%s   onFork[%s]\n", offset, onFork? (onForkPrev?"X":"?"):"-" );
+    LogPrint("forks", "%s   nTime[%d]\n", offset, (int)pindex->nTime );
+    LogPrint("forks", "%s   nSequenceId[%d]\n", offset, (int)pindex->nSequenceId );
     LogPrint("forks", "%s   delay=%3d,\n", offset, pindex->nChainDelay);
     LogPrint("forks", "%s   prev[%s]\n", offset, pindex->pprev? (pindex->pprev->GetBlockHash().ToString()):"N.A." );
     LogPrint("forks", "%s   chainWork=%.8g\n", offset, log(pindex->nChainWork.getdouble())/log(2.0) );
@@ -6628,7 +6743,10 @@ void dump_index(const CBlockIndex* pindex)
         !!(pindex->nStatus & BLOCK_HAVE_DATA),
         !!(pindex->nStatus & BLOCK_HAVE_UNDO) );
     LogPrint("forks", "%s   nChainTx=%d\n", offset, pindex->nChainTx);
-    LogPrint("forks", "%s   sequenceId=%3d\n", offset, pindex->nSequenceId);
+    if (val)
+    {
+        LogPrint("forks", "%s   recv_time=%d\n", offset, val);
+    }
 }
 
 
@@ -6696,12 +6814,22 @@ void dump_candidates()
 
 void dump_global_tips()
 {
-    LogPrint("forks", "===== GLOBAL TIPS: %d =================\n", sGlobalForkTips.size());
-    BOOST_FOREACH(const CBlockIndex* block, sGlobalForkTips)
+    LogPrint("forks", "===== GLOBAL TIPS: %d =================\n", mGlobalForkTips.size());
+    BOOST_FOREACH(auto mapPair, mGlobalForkTips)
     {
-        const CBlockIndex* dum = block;
+        const CBlockIndex* block = mapPair.first;
         
-        dump_index(dum);
+        dump_index(block, mapPair.second);
+    }
+
+    std::vector<uint256> vOutput;
+    getMostRecentGlobalForkTips(vOutput);
+
+    LogPrint("forks", "Ordered by time:\n");
+    LogPrint("forks", "----------------------------------------------------------------\n");
+    BOOST_FOREACH(const uint256& hash, vOutput)
+    {
+        LogPrint("forks", "  %s\n", hash.ToString() );
     }
 }
 

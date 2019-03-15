@@ -1023,7 +1023,7 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Old block: its finality is more than 2 millions!");
     }
 
-    LogPrint("forks", "%s():%d - Number of tips found=%d\n", __func__, __LINE__, sGlobalForkTips.size() );
+    LogPrint("forks", "%s():%d - Number of tips found=%d\n", __func__, __LINE__, mGlobalForkTips.size() );
     dump_global_tips();
 
     long int gap = 0;
@@ -1032,8 +1032,10 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
     // For each tip find the stemming block on the main chain
     // In case of main tip such a block would be the tip itself
     //-----------------------------------------------------------------------
-    BOOST_FOREACH(const CBlockIndex* idx, sGlobalForkTips)
+    BOOST_FOREACH(auto mapPair, mGlobalForkTips)
     {
+        const CBlockIndex* idx = mapPair.first;
+
         const int forkBaseHeight = chainActive.FindFork(idx)->nHeight;
 
         if (forkBaseHeight < inputHeight)

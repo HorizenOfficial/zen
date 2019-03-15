@@ -316,6 +316,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, Params().GetConsensus()))
                     return error("LoadBlockIndex(): CheckProofOfWork failed: %s", pindexNew->ToString());
 
+                addToGlobalForkTips(pindexNew);
                 pcursor->Next();
             } else {
                 break; // if shutdown requested or finished loading block index

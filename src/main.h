@@ -174,10 +174,12 @@ struct CompareBlocksByHeight
     }
 };
 
+typedef std::map<const CBlockIndex*, int> BlockTimeMap;
+extern BlockTimeMap mGlobalForkTips;
+
 typedef std::set<const CBlockIndex*, CompareBlocksByHeight> BlockSet;
 extern BlockSet sGlobalForkTips;
-static const int MAX_NUM_GLOBAL_FORKS = 10;
-static const int MAX_AGE_GLOBAL_FORK = 2000;
+static const int MAX_NUM_GLOBAL_FORKS = 3;
 
 /** Best header we've seen so far (used for getheaders queries' starting points). */
 extern CBlockIndex *pindexBestHeader;
@@ -264,9 +266,11 @@ bool ActivateBestChain(CValidationState &state, CBlock *pblock = NULL);
 bool RelayAlternativeChain(CValidationState &state, CBlock *pblock, BlockSet* sForkTips);
 /** Find any best tip forward linked to the input block, possibly many of them if we have forked forks
     which has also a complete chain of ancestors */
-void findAltBlocks(CBlockIndex* pindex, std::vector<CBlockIndex*>& vResult);
+//void findAltBlocks(CBlockIndex* pindex, std::vector<CBlockIndex*>& vResult);
 /** add pindex to the container for the last 2000 received heights */
-bool addToLatestBlocks(CBlockIndex* pindex);
+//bool addToLatestBlocks(CBlockIndex* pindex);
+
+bool addToGlobalForkTips(const CBlockIndex* pindex);
 
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams);
 
@@ -499,7 +503,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
  * If dbp is non-NULL, the file is known to already reside on disk
  */
 bool AcceptBlock(CBlock& block, CValidationState& state, CBlockIndex **pindex, bool fRequested, CDiskBlockPos* dbp, BlockSet* sForkTips = NULL);
-bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex **ppindex= NULL);
+bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex **ppindex= NULL, bool lookForwardTips = false);
 
 
 
