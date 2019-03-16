@@ -6655,7 +6655,6 @@ bool RelayAlternativeChain(CValidationState &state, CBlock *pblock, BlockSet* sF
                         LogPrint("forks", "%s():%d - Pushing inv to Node [%s] (id=%d) hash[%s]\n",
                             __func__, __LINE__, pnode->addrName, pnode->GetId(), inv.hash.ToString() );
                         pnode->PushInventory(inv);
-                        usleep(1000*10);
                     }
                 }
             }
@@ -6954,6 +6953,13 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
         // hashstop can be null:
         // 1. when a node is syncing after a network join or a node startup
         // 2. when a bunch of 160 headers has been sent and peer requests more
+
+        if (locator.vHave.size() < 2)
+        {
+            // should never happen
+            LogPrint("forks", "%s():%d - short locator, returning TRUE\n", __func__, __LINE__);
+            return true;
+        }
 
         const uint256& hash_0 = locator.vHave[0];
         const uint256& hash_1 = locator.vHave[1];
