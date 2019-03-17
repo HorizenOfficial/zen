@@ -3192,8 +3192,11 @@ bool addToGlobalForkTips(const CBlockIndex* pindex)
     if (!pindex)
         return false;
 
-    // remove its parent if any
-    mGlobalForkTips.erase(pindex->pprev);
+    if (pindex->pprev)
+    {
+        // remove its parent if any
+        mGlobalForkTips.erase(pindex->pprev);
+    }
 
     LogPrint("forks", "%s():%d - adding tip in global map: h(%d) [%s]\n",
         __func__, __LINE__, pindex->nHeight, pindex->GetBlockHash().ToString());
