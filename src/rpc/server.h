@@ -301,7 +301,6 @@ extern UniValue z_validatepaymentdisclosure(const UniValue &params, bool fHelp);
 extern UniValue listaddresses(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 
 extern UniValue dbg_log(const UniValue &params, bool fHelp); // print a line in debug.log
-extern UniValue dbg_do(const UniValue &params, bool fHelp); // do some specific stuff
 
 bool StartRPC();
 void InterruptRPC();

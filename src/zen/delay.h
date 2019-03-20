@@ -10,7 +10,6 @@
 #include <boost/foreach.hpp>
 
 static const int PENALTY_THRESHOLD = 5;
-//static const int PENALTY_THRESHOLD = 1000;
 
 int64_t GetBlockDelay (const CBlockIndex& newBlock,const CBlockIndex& prevBlock, const int activeChainHeight, bool isStartupSyncing);
 bool IsChainPenalised (const CChain& chain);

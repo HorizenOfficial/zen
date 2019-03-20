@@ -926,16 +926,6 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 #endif
     }
 
-#if 0
-    unsigned int latestBlocksContainerCapacity = GetArg("-latestblockscapacity", DEFAULT_LATEST_BLOCKS_CAPACITY);
-    LogPrintf("%s : -latestblockscapacity=%u\n", __func__, latestBlocksContainerCapacity);
-    if (latestBlocksContainerCapacity != DEFAULT_LATEST_BLOCKS_CAPACITY)
-    {
-        LatestBlocksContainer& latestBlocks = LatestBlocks::getInstance().latestBlocks;
-        latestBlocks.set_capacity(latestBlocksContainerCapacity);
-    }
-#endif
-
     // ********************************************************* Step 3: parameter-to-internal-flags
 
     fDebug = !mapMultiArgs["-debug"].empty();

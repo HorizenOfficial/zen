@@ -804,8 +804,7 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
 
     /* Build up a list of chain tips.  We start with the list of all
        known blocks, and successively remove blocks that appear as pprev
-       of another block*/
-#if 1
+       of another block. */
     std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
     BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
         setTips.insert(item.second);
@@ -816,14 +815,6 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
             setTips.erase(pprev);
     }
 
-#else
-    std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
-    BOOST_FOREACH(auto mapPair, mGlobalForkTips)
-    {
-        const CBlockIndex* idx = mapPair.first;
-        setTips.insert(idx);
-    }
-#endif
     // Always report the currently active tip.
     setTips.insert(chainActive.Tip());
 
@@ -1008,22 +999,6 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't tell finality of a block not on main chain");
     }
 
-#if 0
-    // find possible forks
-    //-------------------------------------------------------------------------
-    std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
-    BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
-        setTips.insert(item.second);
-    BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
-    {
-        const CBlockIndex* pprev = item.second->pprev;
-        if (pprev)
-            setTips.erase(pprev);
-    }
-
-    // Always report the currently active tip.
-    setTips.insert(chainActive.Tip());
-#else
     std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
     BOOST_FOREACH(auto mapPair, mGlobalForkTips)
     {
@@ -1031,17 +1006,18 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
         setTips.insert(idx);
     }
     setTips.insert(chainActive.Tip());
-#endif
 
     int inputHeight = pblkIndex->nHeight;
-    int delta = chainActive.Height() - inputHeight;
-    if (delta >= DEFAULT_LATEST_BLOCKS_CAPACITY)
+    LogPrint("forks", "%s():%d - input h(%d) [%s]\n",
+        __func__, __LINE__, pblkIndex->nHeight, pblkIndex->GetBlockHash().ToString());
+
+    int delta = chainActive.Height() - inputHeight + 1;
+    if (delta >= MAX_BLOCK_AGE_FOR_FINALITY)
     {
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "Old block: its finality is more than 2 millions!");
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Old block: older than 2000!");
     }
 
-    LogPrint("forks", "%s():%d - Number of tips found=%d\n", __func__, __LINE__, mGlobalForkTips.size() );
-    dump_global_tips();
+//    dump_global_tips();
 
     long int gap = 0;
     long int minGap = LONG_MAX;
@@ -1049,15 +1025,11 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
     // For each tip find the stemming block on the main chain
     // In case of main tip such a block would be the tip itself
     //-----------------------------------------------------------------------
-#if 0
-    BOOST_FOREACH(auto mapPair, mGlobalForkTips)
-    {
-        const CBlockIndex* idx = mapPair.first;
-#else
     BOOST_FOREACH(auto idx, setTips)
     {
-#endif
         const int forkBaseHeight = chainActive.FindFork(idx)->nHeight;
+        LogPrint("forks", "%s():%d - processing tip h(%d) [%s] forkBaseHeight[%d]\n",
+            __func__, __LINE__, idx->nHeight, idx->GetBlockHash().ToString(), forkBaseHeight);
 
         if (forkBaseHeight < inputHeight)
         {
@@ -1068,74 +1040,54 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
             {
                 // if forkDelay is null one still has to mine 1 block only
                 gap = forkDelay ? forkDelay : 1;
+                LogPrint("forks", "%s():%d - gap[%d], forkDelay[%d]\n", __func__, __LINE__, gap, forkDelay);
             }
             else
             {
-                gap  = chainActive.Height() - forkTipHeight + forkDelay + 1;
+                int dt = chainActive.Height() - forkTipHeight + 1;
+                dt = dt * ( dt + 1) / 2;
+                
+                gap  = dt + forkDelay + 1;
+                LogPrint("forks", "%s():%d - gap[%d], forkDelay[%d], dt[%d]\n", __func__, __LINE__, gap, forkDelay, dt);
             }
         }
         else
         {
             // this also handle the main chain tip
-            if (delta < PENALTY_THRESHOLD + 1)
+            if (delta < PENALTY_THRESHOLD)
             {
                 // an attacker can mine from previous block up to tip + 1
                 gap = delta + 2;
+                LogPrint("forks", "%s():%d - gap[%d], delta[%d]\n", __func__, __LINE__, gap, delta);
             }
             else
             {
                 // penalty applies
-                gap = (delta * (delta + 1) / 2) - 1;
+                gap = (delta * (delta + 1) / 2);
+                LogPrint("forks", "%s():%d - gap[%d], delta[%d]\n", __func__, __LINE__, gap, delta);
             }
         }
         minGap = std::min(minGap, gap);
     }
 
+    LogPrint("forks", "%s():%d - returning [%d]\n", __func__, __LINE__, minGap);
     return (int)minGap;
 }
 
+/*
+ * Can be useful when working at python scripts 
+ */
 UniValue dbg_log(const UniValue& params, bool fHelp)
 {
-    // log a string passed from cli, useful for python test
+    if (Params().NetworkIDString() != "regtest")
+    {
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "This method can only be used on regtest");
+    }
+
     std::string s = params[0].get_str();
     LogPrint("py", "%s() - ########## [%s] #########\n", __func__, s);
     return "Log printed";
 }
 
-UniValue dbg_do(const UniValue& params, bool fHelp)
-{
-    if (fHelp || params.size() < 1 || params.size() > 2)
-    {
-        throw runtime_error(
-            "dbg_do: \"h1, h2\"\n"
-        );
-    }
-
-    std::string ret;
-#if 0
-    std::string strHash = params[0].get_str();
-    uint256 hash(uint256S(strHash));
-
-    if (mapBlockIndex.count(hash) == 0)
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
-
-    CBlockIndex* pblockindex = mapBlockIndex[hash];
-
-    while ( pblockindex && !chainActive.Contains(pblockindex) )
-    {
-        ret += pblockindex->GetBlockHash().ToString() + " - h[" + std::to_string(pblockindex->nHeight) + "]\n";
-        pblockindex = pblockindex->pprev;
-    }
-
-//    ret += dbg_blk_in_fligth();
-//    ret += dbg_blk_unlinked();
-//    ret += dbg_blk_candidates();
-#endif
-    ret += dbg_blk_global_tips();
-
-
-
-    return ret;
-}
 
 

@@ -37,7 +37,6 @@
 #include <vector>
 
 #include <boost/unordered_map.hpp>
-#include <boost/circular_buffer.hpp>
 
 class CBlockIndex;
 class CBlockTreeDB;
@@ -94,9 +93,8 @@ static const unsigned int DATABASE_WRITE_INTERVAL = 60 * 60;
 static const unsigned int DATABASE_FLUSH_INTERVAL = 24 * 60 * 60;
 /** Maximum length of reject messages. */
 static const unsigned int MAX_REJECT_MESSAGE_LENGTH = 111;
-/* Maximum number of heigths retained in the circular buffer with the latest block index received */
-static const int DEFAULT_LATEST_BLOCKS_CAPACITY = 2000;
-//static const int DEFAULT_LATEST_BLOCKS_CAPACITY = 20;
+/* Maximum number of heigths meaningful when looking for block finality */
+static const int MAX_BLOCK_AGE_FOR_FINALITY = 2000;
 
 // Sanity check the magic numbers when we change them
 BOOST_STATIC_ASSERT(DEFAULT_BLOCK_MAX_SIZE <= MAX_BLOCK_SIZE);
@@ -135,29 +133,6 @@ extern bool fCoinbaseEnforcedProtectionEnabled;
 extern size_t nCoinCacheUsage;
 extern CFeeRate minRelayTxFee;
 extern bool fAlerts;
-
-#if 0
-typedef std::vector<CBlockIndex*> BlockVector;
-typedef boost::circular_buffer< BlockVector > LatestBlocksContainer;
-
-class LatestBlocks
-{
-    public:
-        static LatestBlocks& getInstance()
-        {
-            static LatestBlocks _instance;
-            return _instance;
-        }
-    private:
-        LatestBlocks() : latestBlocks((DEFAULT_LATEST_BLOCKS_CAPACITY)) { }
-
-    public:
-        LatestBlocks(LatestBlocks const&) = delete;
-        void operator=(LatestBlocks const&) = delete;
-
-        LatestBlocksContainer latestBlocks;
-};
-#endif
 
 /** Comparison function for sorting the getchaintips heads.  */
 struct CompareBlocksByHeight
@@ -264,13 +239,11 @@ bool GetTransaction(const uint256 &hash, CTransaction &tx, uint256 &hashBlock, b
 bool ActivateBestChain(CValidationState &state, CBlock *pblock = NULL);
 /** Find an alternative chain tip and propagate to the network */
 bool RelayAlternativeChain(CValidationState &state, CBlock *pblock, BlockSet* sForkTips);
-/** Find any best tip forward linked to the input block, possibly many of them if we have forked forks
-    which has also a complete chain of ancestors */
-//void findAltBlocks(CBlockIndex* pindex, std::vector<CBlockIndex*>& vResult);
-/** add pindex to the container for the last 2000 received heights */
-//bool addToLatestBlocks(CBlockIndex* pindex);
 
 bool addToGlobalForkTips(const CBlockIndex* pindex);
+int getMostRecentGlobalForkTips(std::vector<uint256>& output);
+bool updateGlobalForkTips(const CBlockIndex* pindex, bool lookForwardTips);
+bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, CBlockIndex** pindexReference);
 
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams);
 
@@ -610,11 +583,4 @@ namespace Consensus {
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
 }
 
-std::string dbg_blk_in_fligth();
-std::string dbg_blk_unlinked();
-std::string dbg_blk_candidates();
-std::string dbg_blk_global_tips();
-void dump_db();
-void dump_global_tips();
-//void dump_latest_blocks(CBlock* bl, bool gtest);
 #endif // BITCOIN_MAIN_H
