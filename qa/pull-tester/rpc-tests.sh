@@ -65,7 +65,7 @@ testScriptsExt=(
     'getblocktemplate_longpoll.py'
     'getblocktemplate_proposals.py'
     'getblocktemplate_blockmaxcomplexity.py'
-    'getblocktempalte_priority.py'
+    'getblocktemplate_priority.py'
 #   'pruning.py'                # disabled for Zen. Failed because of the issue #1302 in zcash
     'forknotify.py'
 #   'hardforkdetection.py'      # disabled for Zen. Failed because of the issue #1302 in zcash
@@ -96,6 +96,20 @@ passOn=${@#$extArg}
 successCount=0
 declare -a failures
 
+function checkFileExists
+{
+    # take only file name, strip off any options/param
+    local TestScriptFile="$(echo $1 | cut -d' ' -f1)"
+    local TestScriptFileAndPath=${BUILDDIR}/qa/rpc-tests/${TestScriptFile}
+        
+    if [ ! -f ${TestScriptFileAndPath} ]
+    then
+        echo -e "\nWARNING: file not found [ ${TestScriptFileAndPath} ]"
+        failures[${#failures[@]}]="(#-NotFound-$1-#)"
+    fi
+}
+
+
 function runTestScript
 {
     local testName="$1"
@@ -118,6 +132,8 @@ function runTestScript
 if [ "x${ENABLE_BITCOIND}${ENABLE_UTILS}${ENABLE_WALLET}" = "x111" ]; then
     for (( i = 0; i < ${#testScripts[@]}; i++ ))
     do
+        checkFileExists "${testScripts[$i]}"
+
         if [ -z "$1" ] || [ "${1:0:1}" == "-" ] || [ "$1" == "${testScripts[$i]}" ] || [ "$1.py" == "${testScripts[$i]}" ]
         then
             runTestScript \
@@ -128,6 +144,8 @@ if [ "x${ENABLE_BITCOIND}${ENABLE_UTILS}${ENABLE_WALLET}" = "x111" ]; then
     done
     for (( i = 0; i < ${#testScriptsExt[@]}; i++ ))
     do
+        checkFileExists "${testScriptsExt[$i]}"
+
         if [ "$1" == $extArg ] || [ "$1" == "${testScriptsExt[$i]}" ] || [ "$1.py" == "${testScriptsExt[$i]}" ]
         then
             runTestScript \
@@ -137,8 +155,16 @@ if [ "x${ENABLE_BITCOIND}${ENABLE_UTILS}${ENABLE_WALLET}" = "x111" ]; then
         fi
     done
 
-    echo -e "\n\nTests completed: $(expr $successCount + ${#failures[@]})"
+    total=$(($successCount + ${#failures[@]}))
+    echo -e "\n\nTests completed: $total"
     echo "successes $successCount; failures: ${#failures[@]}"
+
+    if [ $total == 0 ]
+    then
+        echo -e "\nCould not exec any test: File name [$1]"
+        checkFileExists $1
+        exit 1
+    fi
 
     if [ ${#failures[@]} -gt 0 ]
     then

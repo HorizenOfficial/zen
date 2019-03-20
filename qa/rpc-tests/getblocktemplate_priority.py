@@ -24,8 +24,8 @@ class GetBlockTemplatePriorityTest(BitcoinTestFramework):
     def setup_network(self):
         args0 = ["-printpriority"]
 	args1 = ["-printpriority", "-blockmaxcomplexity=9"]
-	args2 = ["-blockprioritysize=0"]
-	args3 = ["-blockprioritysize=0", "-blockmaxcomplexity=9"]
+	args2 = ["-printpriority", "-blockprioritysize=0"]
+	args3 = ["-printpriority", "-blockprioritysize=0", "-blockmaxcomplexity=9"]
 
         self.nodes = []
         self.nodes.append(start_node(0, self.options.tmpdir, args0))
@@ -44,6 +44,19 @@ class GetBlockTemplatePriorityTest(BitcoinTestFramework):
         print "Initializing test directory "+self.options.tmpdir
         initialize_chain_clean(self.options.tmpdir, 4)
 
+    def calculate_fee_rate(self, fee, rawtx):
+        size = len (rawtx['hex'])
+
+        if size == 0 :
+            return 0
+
+        # add a multiplier for improving precision. We are interested in having
+        # proportional rates, the actual rate on c++ core is different but the
+        # order will be the same
+        MULTIP_CONST = 1000000
+        return Decimal( fee*MULTIP_CONST/size )
+
+
     def run_test(self):
 	self.nodes[0].generate(100)
         self.sync_all()
@@ -60,6 +73,8 @@ class GetBlockTemplatePriorityTest(BitcoinTestFramework):
 	node0_taddrs = []
 	node0_txs = []
 	node0_txs_amount = []
+	node0_txs_fee_rate = []
+
 	for i in range(0,4):
 	    node0_taddrs.append(self.nodes[0].getnewaddress())
 
@@ -67,6 +82,7 @@ class GetBlockTemplatePriorityTest(BitcoinTestFramework):
 	# Tx complexity equal to 2*2=4
 	tx1_inputs = []
 	tx1_inputs_sum = Decimal('0.0')
+	tx1_fee_rate   = Decimal('0.0')
 	    
 	tx1_inputs.append({"txid" : node0_unspent[0]['txid'], 'vout' : 0})
 	tx1_inputs_sum += node0_unspent[0]['amount']
@@ -82,10 +98,11 @@ class GetBlockTemplatePriorityTest(BitcoinTestFramework):
             
 	node0_txs.append(self.nodes[0].sendrawtransaction(tx1_rawtx['hex']))
         node0_txs_amount.append(tx1_inputs_sum - tx1_fee)
+        node0_txs_fee_rate.append( self.calculate_fee_rate( tx1_fee, tx1_rawtx) )
 	
 	# Create another Tx with 2 inputs with the same amount and total input confirmations as first Tx
 	# Tx complexity equal to 2*2=4
-	# Tx2 will have prirority equal to Tx1, but bigger fee.
+	# Tx2 will have prirority equal to Tx1, but bigger feeRate.
 	tx2_inputs = []
 	tx2_inputs_sum = Decimal('0.0')
 	    
@@ -103,6 +120,7 @@ class GetBlockTemplatePriorityTest(BitcoinTestFramework):
             
 	node0_txs.append(self.nodes[0].sendrawtransaction(tx2_rawtx['hex']))
         node0_txs_amount.append(tx2_inputs_sum - tx2_fee)
+        node0_txs_fee_rate.append( self.calculate_fee_rate( tx2_fee, tx2_rawtx) )
 
 	# Create 2 Txs with 2 inputs each.
 	for n in range(2,4):
@@ -122,16 +140,20 @@ class GetBlockTemplatePriorityTest(BitcoinTestFramework):
             
 	    node0_txs.append(self.nodes[0].sendrawtransaction(tx_rawtx['hex']))
             node0_txs_amount.append(tx_inputs_sum - tx_fee)
+            node0_txs_fee_rate.append( self.calculate_fee_rate( tx_fee, tx_rawtx) )
 
 	self.sync_all()
 	time.sleep(5)
 
+#        for i in range(0, len(node0_txs)):
+#            print "UTXO[%d]: sum=%f, feeRate=%f, txid[%s]" % (i, node0_txs_amount[i], node0_txs_fee_rate[i], node0_txs[i]) 
+
 	# At this moment mempool contains 4 UTXO with 2 inputs each, with the same coins amount
 	# UTXO by priorities has order: node0_txs[1], node0_txs[0], node0_txs[2], node0_txs[3]
-	# UTXO by fees has order: node0_txs[1], node0_txs[3], node0_txs[0], node0_txs[2]
-	# Note: node0_txs[0] and node1_tx[1] has equal priorities but different fees.
+	# UTXO by feeRates has order: node0_txs[1], node0_txs[3], node0_txs[0], node0_txs[2]
+	# Note: node0_txs[0] and node1_tx[1] has equal priorities but different feeRates.
 	
-	# Test 1: nodes[0] must have all 4 txs in order by priority, then by fee
+	# Test 1: nodes[0] must have all 4 txs in order by priority, then by feeRate
 	tmpl = self.nodes[0].getblocktemplate()
 	assert_equal(len(tmpl['transactions']), 4)
 	assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
@@ -145,13 +167,24 @@ class GetBlockTemplatePriorityTest(BitcoinTestFramework):
 	assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
 	assert_equal(tmpl['transactions'][1]['hash'], node0_txs[0])
 
-	# Test 3: nodes[2] must have all 4 txs in order by fee, then by priority
+	# Test 3: nodes[2] must have all 4 txs in order by feeRate, then by priority
 	tmpl = self.nodes[2].getblocktemplate()
 	assert_equal(len(tmpl['transactions']), 4)
 	assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
 	assert_equal(tmpl['transactions'][1]['hash'], node0_txs[3])
-	assert_equal(tmpl['transactions'][2]['hash'], node0_txs[0])
-	assert_equal(tmpl['transactions'][3]['hash'], node0_txs[2])
+
+        # check fee rates for tx with equal fee
+        # ---------
+        # NOTE: In the c++ core, feeRate is related to (fee / tx serialization size).
+        # Tx serialization contains signature serialization, and signature length can vary sligthly (1 or 2 bytes
+        # depending on the value of R and S points on the ECDSA curve).
+        # Therefore we might have a feeRate that randomly slightly varies across different runs for a fixed fee.
+        if node0_txs_fee_rate[0] >= node0_txs_fee_rate[2]: 
+	    assert_equal(tmpl['transactions'][2]['hash'], node0_txs[0])
+            assert_equal(tmpl['transactions'][3]['hash'], node0_txs[2])
+        else:
+	    assert_equal(tmpl['transactions'][2]['hash'], node0_txs[2])
+	    assert_equal(tmpl['transactions'][3]['hash'], node0_txs[0])
 
 	# Test 4: nodes[3] has blockmaxcompexity=9, must contain 2 txs in order by fee, then by priority
 	tmpl = self.nodes[3].getblocktemplate()
@@ -172,15 +205,20 @@ class GetBlockTemplatePriorityTest(BitcoinTestFramework):
 	    orphan_inputs_sum += self.nodes[0].listunspent()[i]['amount']
 	
 	
-	orphan_outputs = {node0_orphan_tx : orphan_inputs_sum - Decimal('0.0009')}
+	orphan_fee = Decimal('0.0009')
+	orphan_outputs = {node0_orphan_tx : orphan_inputs_sum - orphan_fee}
 
 	orphantx_rawtx = self.nodes[0].createrawtransaction(orphan_inputs, orphan_outputs)
         orphantx_rawtx = self.nodes[0].signrawtransaction(orphantx_rawtx)
 	node0_txs.append(self.nodes[0].sendrawtransaction(orphantx_rawtx['hex']))
+        node0_txs_amount.append(orphan_inputs_sum - orphan_fee)
+        node0_txs_fee_rate.append( self.calculate_fee_rate( orphan_fee, orphantx_rawtx) )
 	
 	self.sync_all()
 	time.sleep(5) # wait to be sured, tah orphan tx was added to the wallet and mempool
 
+#        for i in range(0, len(node0_txs)):
+#            print "UTXO[%d]: sum=%f, feeRate=%f, txid[%s]" % (i, node0_txs_amount[i], node0_txs_fee_rate[i], node0_txs[i]) 
 
 	# At this moment mempool contains 4 UTXO (with 2 inputs each, with the same coins amount)
 	# and 1 orphan UTXO (node0_txs[4]) with 4 inputs (Tx complexity = 16), that depends on node0_txs[1]

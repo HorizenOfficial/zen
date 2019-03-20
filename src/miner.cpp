@@ -294,6 +294,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
     // Calculate current block complexity
     return  CreateNewBlock(scriptPubKeyIn,  nBlockMaxComplexitySize);
 }
+
 CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlockMaxComplexitySize)
 {
     const CChainParams& chainparams = Params();
@@ -450,8 +451,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
             if (fPrintPriority)
             {
-                LogPrintf("priority %.1f fee %s txid %s\n",
-                    dPriority, feeRate.ToString(), tx.GetHash().ToString());
+                LogPrintf("priority %.1f fee %d feeRate %s txid %s\n",
+                    dPriority, nTxFees, feeRate.ToString(), tx.GetHash().ToString());
             }
 
             // Add transactions that depend on this one to the priority queue

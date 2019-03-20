@@ -16,7 +16,7 @@
 #include "consensus/validation.h"
 #include "miner.h"
 #include "wallet/wallet.h"
-#include "rpcserver.h"
+#include "rpc/server.h"
 
 #include <vector>
 #include <map>
@@ -206,7 +206,6 @@ protected:
 	~GetBlockTemplateTest() override
 	{
 		mapBlockIndex.clear();
-		ECC_Stop();
 
 		boost::system::error_code ec;
 		boost::filesystem::remove_all(pathTemp.string()+"/regtest", ec);
@@ -220,7 +219,6 @@ protected:
 
 		fPrintToConsole = true;
 
-		ECC_Start();
 		SelectParams(CBaseChainParams::REGTEST);
 	}
 
