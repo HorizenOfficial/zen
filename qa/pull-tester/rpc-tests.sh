@@ -64,6 +64,8 @@ testScripts=(
 testScriptsExt=(
     'getblocktemplate_longpoll.py'
     'getblocktemplate_proposals.py'
+    'getblocktemplate_blockmaxcomplexity.py'
+    'getblocktempalte_priority.py'
 #   'pruning.py'                # disabled for Zen. Failed because of the issue #1302 in zcash
     'forknotify.py'
 #   'hardforkdetection.py'      # disabled for Zen. Failed because of the issue #1302 in zcash
