@@ -1054,10 +1054,10 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
         else
         {
             // this also handle the main chain tip
-            if (delta < PENALTY_THRESHOLD)
+            if (delta < PENALTY_THRESHOLD + 1)
             {
                 // an attacker can mine from previous block up to tip + 1
-                gap = delta + 2;
+                gap = delta + 1;
                 LogPrint("forks", "%s():%d - gap[%d], delta[%d]\n", __func__, __LINE__, gap, delta);
             }
             else
