@@ -96,17 +96,8 @@ def initialize_datadir(dirname, n):
         f.write("port="+str(p2p_port(n))+"\n");
         f.write("rpcport="+str(rpc_port(n))+"\n");
         f.write("listenonion=0\n");
-        f.write("debug=forks\n");
-        f.write("debug=status\n");
-        f.write("debug=forks_2\n");
-        f.write("debug=py\n");
-        f.write("debug=net\n");
-#        f.write("debug=bench\n");
-#        f.write("debug=rpc\n");
-#        f.write("debug=alert\n");
-#        f.write("debug=http\n");
-        f.write("logtimemicros=1\n");
-#        f.write("latestblockscapacity=100\n");
+#        f.write("debug=net\n");
+#        f.write("logtimemicros=1\n");
     return datadir
 
 def initialize_chain(test_dir):

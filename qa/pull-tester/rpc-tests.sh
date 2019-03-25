@@ -50,16 +50,6 @@ testScripts=(
     'bipdersig-p2p.py'
     'nulldata.py'
     'blockdelay.py'
-    'headers_01.py'
-    'headers_02.py'
-    'headers_03.py'
-    'headers_04.py'
-    'headers_05.py'
-    'headers_06.py'
-    'headers_07.py'
-    'headers_08.py'
-    'headers_09.py'
-    'headers_10.py'
 );
 testScriptsExt=(
     'getblocktemplate_longpoll.py'
