@@ -96,6 +96,40 @@ class blockdelay(BitcoinTestFramework):
         for x in self.nodes:
             x.dbg_log(msg)
 
+    def sync_longest_fork(self, wait=1, limit_loop=0):
+
+        '''
+           Wait until all the nodes have the same length for the longest fork.
+        '''
+        rpc_connections = self.nodes
+        loop_num = 0
+        max_len = 0
+        max_len_tot = 0
+
+        while True:
+            max_len_tot = 0
+
+            if limit_loop > 0:
+                loop_num += 1
+                if loop_num > limit_loop:
+                    break
+
+            for x in rpc_connections:
+
+                max_len = 0
+                y = x.getchaintips()
+
+                for j in y:
+                    h = j['height']
+                    max_len = max(max_len, h)
+
+                max_len_tot += max_len
+
+            if max_len_tot == max_len*len(rpc_connections):
+                break
+
+            time.sleep(wait)
+        
 
     def run_test(self):
         blocks = []
@@ -207,7 +241,8 @@ class blockdelay(BitcoinTestFramework):
         self.mark_logs("Joining network")
 #        raw_input("press enter to join the netorks..")
         self.join_network()
-        time.sleep(2)
+        self.sync_longest_fork(1, 10);
+
         print("\nNetwork joined")
 
         for i in range(0, 4):
@@ -253,7 +288,7 @@ class blockdelay(BitcoinTestFramework):
         self.nodes[3].generate(64)
         print("Malicious blocks generated")
 
-        time.sleep(10)
+        self.sync_longest_fork(1, 10);
 
         for i in range(0, 4):
             print "Node%d  ---" % i 
@@ -292,7 +327,7 @@ class blockdelay(BitcoinTestFramework):
         self.mark_logs("Generating 65 more honest blocks")
         self.nodes[0].generate(65)
         print("Honest blocks generated")
-        time.sleep(5);
+        sync_blocks(self.nodes, 1, True, 5)
 
 #   +-------Node(0): [0]->..->[104]->[105h]...->[116h]->[117h]->..->[181h]   <<==ACTIVE
 #   |         /                  \
@@ -371,20 +406,18 @@ class blockdelay(BitcoinTestFramework):
         self.nodes.append(start_node(4, self.options.tmpdir))
         connect_nodes_bi(self.nodes, 4, 3)
         connect_nodes_bi(self.nodes, 3, 4)
-        time.sleep(5)
+        sync_blocks(self.nodes, 1, True, 5)
 
         for i in range(0, 5):
             print "Node%d  ---" % i 
             self.dump_ordered_tips(self.nodes[i].getchaintips())
             print "---"
 
-        time.sleep(2)
-
         print("\nNode0 generating 1 new blocks")       
         self.mark_logs("Node0 generating 1 new blocks")
         self.nodes[0].generate(1)
         print("New blocks generated")
-        time.sleep(2)
+        sync_blocks(self.nodes, 1, True, 5)
 
         for i in range(0, 5):
             print "Node%d  ---" % i 
