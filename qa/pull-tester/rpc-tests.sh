@@ -61,7 +61,6 @@ testScripts=(
     'headers_08.py'
     'headers_09.py'
     'headers_10.py'
-    'coin_transfer.py'
 );
 testScriptsExt=(
     'getblocktemplate_longpoll.py'
