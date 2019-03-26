@@ -205,6 +205,7 @@ protected:
 
 	~GetBlockTemplateTest() override
 	{
+                chainActive.SetTip(NULL);
 		mapBlockIndex.clear();
 
 		boost::system::error_code ec;
@@ -224,6 +225,10 @@ protected:
 
 	void GenerateChainActive()
 	{
+                // start from scratch
+                chainActive.SetTip(NULL);
+                mapBlockIndex.clear();
+
 		blockHashes.resize(NUM_BLOCKS);
 		blocks.resize(NUM_BLOCKS);
 
@@ -354,6 +359,10 @@ TEST_F(GetBlockTemplateTest, TxWith100Inputs)
     {
     	LogPrintf("Exeption: %s \n", ex.what());
     	ClearDatadirCache();
+
+        chainActive.SetTip(NULL);
+        mapBlockIndex.clear();
+
     	throw ex;
     }
 

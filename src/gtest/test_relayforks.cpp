@@ -74,6 +74,15 @@ static const int  MAIN_CHAIN_TEST_LEN = 10;
 std::vector<CBlockIndex*> vBlocks;
 std::vector<uint256> vOutput;
 
+void CleanUpAll()
+{
+    chainActive.SetTip(NULL);
+    vBlocks.clear();
+    vOutput.clear();
+    mapBlockIndex.clear();
+    mGlobalForkTips.clear();
+}
+
 const CBlockIndex* makeFork(int start_pos, int trunk_size)
 {
     assert(start_pos < vBlocks.size() );
@@ -148,6 +157,8 @@ const CBlockIndex* makeMain(int trunk_size)
 }
 
 TEST(relayforks_test, relayforks) {
+    CleanUpAll();
+
 #if defined(TEST_ALT_DEBUG)
     // print logs to console
     fDebug = true;
@@ -160,19 +171,19 @@ TEST(relayforks_test, relayforks) {
 
     std::cout << "Building main chain..." << std::endl;
     const CBlockIndex* fm = makeMain(TRUNK_01_SZ);
-    sleep(1);
+    sleep(2);
 
     std::cout << "Forking from main chain..." << std::endl;
     const CBlockIndex* f1 = makeFork(FORK_01_POS, TRUNK_02_SZ);
-    sleep(1);
+    sleep(2);
 
     std::cout << "Forking from main chain again..." << std::endl;
     const CBlockIndex* f2 = makeFork(FORK_02_POS, TRUNK_03_SZ);
-    sleep(1);
+    sleep(2);
 
     std::cout << "Forking from latest fork..." << std::endl;
     const CBlockIndex* f3 = makeFork(FORK_03_POS, TRUNK_04_SZ);
-    sleep(1);
+    sleep(2);
 
     std::cout << "Forking from first fork..." << std::endl;
     const CBlockIndex* f4 = makeFork(FORK_04_POS, TRUNK_05_SZ);
@@ -203,6 +214,10 @@ TEST(relayforks_test, relayforks) {
     ASSERT_EQ ( highest->GetBlockHash(), f1->GetBlockHash() );
 
     // 2. check that the latest arrived tips are in the correct order
+    std::cout << "f4: " << std::to_string((int)mGlobalForkTips[f4]) << std::endl;
+    std::cout << "f3: " << std::to_string((int)mGlobalForkTips[f3]) << std::endl;
+    std::cout << "f2: " << std::to_string((int)mGlobalForkTips[f2]) << std::endl;
+
     vOutput.clear();
     ASSERT_EQ ( getMostRecentGlobalForkTips(vOutput), 3);
     ASSERT_EQ ( vOutput[0], f4->GetBlockHash() );
@@ -210,20 +225,20 @@ TEST(relayforks_test, relayforks) {
     ASSERT_EQ ( vOutput[2], f2->GetBlockHash() );
 
     // 3. update the time of the tip on f1 and check it is the most recent now 
-    sleep(1);
+    sleep(2);
     ASSERT_EQ( updateGlobalForkTips(f1, false), true);
     vOutput.clear();
     ASSERT_EQ ( getMostRecentGlobalForkTips(vOutput), 3);
     ASSERT_EQ ( vOutput[0], f1->GetBlockHash() );
 
     // 4. take a block on the main chain, updating the concerned tip should fail
-    sleep(1);
+    sleep(2);
     const CBlockIndex* dum1 = vBlocks[FORK_01_POS + 1];
     ASSERT_EQ( updateGlobalForkTips(dum1, true), false);
 
     // 5. take a block on a fork placed behind a crossroads: updating of both its tips should
     // be succesful and they would be on top of ordered vector 
-    sleep(1);
+    sleep(2);
     const CBlockIndex* dum2 = vBlocks[FORK_04_POS - 1];
     ASSERT_EQ( updateGlobalForkTips(dum2, true), true);
 
@@ -235,9 +250,13 @@ TEST(relayforks_test, relayforks) {
     bool b2 = ( (vOutput[0] == f4->GetBlockHash() ) && (vOutput[1] == f1->GetBlockHash() ) );
 
     ASSERT_EQ( (b1 || b2) , true);
+
+    CleanUpAll();
 }
 
 TEST(relayforks_test, checkisonmain) {
+    CleanUpAll();
+
 #if defined(TEST_ALT_DEBUG)
     // print logs to console
     fDebug = true;
@@ -248,19 +267,19 @@ TEST(relayforks_test, checkisonmain) {
 
     std::cout << "Building main chain..." << std::endl;
     const CBlockIndex* fm = makeMain(TRUNK_01_SZ);
-    sleep(1);
+    sleep(2);
 
     std::cout << "Forking from main chain..." << std::endl;
     const CBlockIndex* f1 = makeFork(FORK_01_POS, TRUNK_02_SZ);
-    sleep(1);
+    sleep(2);
 
     std::cout << "Forking from main chain again..." << std::endl;
     const CBlockIndex* f2 = makeFork(FORK_02_POS, TRUNK_03_SZ);
-    sleep(1);
+    sleep(2);
 
     std::cout << "Forking from latest fork..." << std::endl;
     const CBlockIndex* f3 = makeFork(FORK_03_POS, TRUNK_04_SZ);
-    sleep(1);
+    sleep(2);
 
     std::cout << "Forking from first fork..." << std::endl;
     const CBlockIndex* f4 = makeFork(FORK_04_POS, TRUNK_05_SZ);
@@ -293,4 +312,6 @@ TEST(relayforks_test, checkisonmain) {
     bool onMain = getHeadersIsOnMain(bl, hashStop, &ref);
 
     ASSERT_EQ( (onMain) , true);
+
+    CleanUpAll();
 }

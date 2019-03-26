@@ -4717,14 +4717,6 @@ void static ProcessGetData(CNode* pfrom)
                         // chain if they are valid, and no more than a month older (both in time, and in
                         // best equivalent proof of work) than the best header chain we know about.
 
-#if 0
-                        send = mi->second->IsValid(BLOCK_VALID_SCRIPTS) && (pindexBestHeader != NULL) &&
-                            (pindexBestHeader->GetBlockTime() - mi->second->GetBlockTime() < nOneMonth) &&
-                            (GetBlockProofEquivalentTime(*pindexBestHeader, *mi->second, *pindexBestHeader, Params().GetConsensus()) < nOneMonth);
-                        if (!send) {
-                            LogPrintf("%s: ignoring request from peer=%i for old block that isn't in the main chain\n", __func__, pfrom->GetId());
-                        }
-#else
                         // this is set by ConnectBlock method, when a new tip is added to the main chain
                         bool b1 = mi->second->IsValid(BLOCK_VALID_SCRIPTS);
                         bool b2 = (pindexBestHeader != NULL);
@@ -4749,7 +4741,6 @@ void static ProcessGetData(CNode* pfrom)
                                     __func__, __LINE__, pfrom->GetId(), inv.hash.ToString(), mi->second->nStatus);
                             }
                         }
-#endif
                     }
                 }
                 // Pruned nodes may have deleted the block, so check whether

@@ -50,6 +50,7 @@ TEST(Metrics, AtomicTimer) {
     t.stop();
     EXPECT_FALSE(t.running());
     EXPECT_EQ(0.5, t.rate(c));
+    SetMockTime(0);
 }
 
 TEST(Metrics, GetLocalSolPS) {
@@ -91,6 +92,7 @@ TEST(Metrics, GetLocalSolPS) {
     // Increment time
     SetMockTime(104);
     EXPECT_EQ(1, GetLocalSolPS());
+    SetMockTime(0);
 }
 
 TEST(Metrics, EstimateNetHeightInner) {
@@ -132,4 +134,5 @@ TEST(Metrics, EstimateNetHeightInner) {
     //   -> Average spacing: 100
     //   -> estimated height: 153 -> 150
     EXPECT_EQ(150, EstimateNetHeightInner(100, 14100, 50, 12000, 0, 150));
+    SetMockTime(0);
 }
