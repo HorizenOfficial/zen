@@ -27,7 +27,6 @@ struct CBlockTemplate
     std::vector<int64_t> vTxSigOps;
 };
 
-// ZEN_MOD_START
 class CCoinsViewCache;
 class COrphan;
 typedef boost::tuple<double, CFeeRate, const CTransaction*> TxPriority;
@@ -37,7 +36,6 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
 /** DEPRECATED. Retrieve mempool transactions priority info */
 void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedianTimePast, const CCoinsViewCache& view,
                                std::vector<TxPriority>& vecPriority, std::list<COrphan>& vOrphan, std::map<uint256, std::vector<COrphan*> >& mapDependers);
-// ZEN_MOD_END
 
 /** Generate a new block, without valid proof-of-work */
 CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn);

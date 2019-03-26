@@ -50,6 +50,7 @@ testScripts=(
     'bipdersig-p2p.py'
     'nulldata.py'
     'blockdelay.py'
+<<<<<<< HEAD
     'blockdelay_2.py'
     'headers_01.py'
     'headers_02.py'
@@ -61,6 +62,8 @@ testScripts=(
     'headers_08.py'
     'headers_09.py'
     'headers_10.py'
+=======
+>>>>>>> branch 'maxComplexityMergeWithForks' of https://github.com/ZencashOfficial/zen-private.git
 );
 testScriptsExt=(
     'getblocktemplate_longpoll.py'

@@ -104,7 +104,6 @@ void UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, 
     pblock->nTime = std::max(pindexPrev->GetMedianTimePast()+1, GetAdjustedTime());
 }
 
-// ZEN_MOD_START
 void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTimePast, const CCoinsViewCache& view,
                                vector<TxPriority>& vecPriority, list<COrphan>& vOrphan, map<uint256, vector<COrphan*> >& mapDependers)
 {
@@ -285,7 +284,6 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
             vecPriority.push_back(TxPriority(dPriority, feeRate, &mi->second.GetTx()));
     }
 }
-// ZEN_MOD_END
 
 CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
 {
@@ -329,9 +327,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
     unsigned int nBlockMinSize = GetArg("-blockminsize", DEFAULT_BLOCK_MIN_SIZE);
     nBlockMinSize = std::min(nBlockMaxSize, nBlockMinSize);
 
-// ZEN_MOD_START
     int nBlockComplexity = 0;
-// ZEN_MOD_END
 
     // Collect memory pool transactions into the block
     CAmount nFees = 0;
@@ -359,13 +355,11 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         // This vector will be sorted into a priority queue:
         vector<TxPriority> vecPriority;
         vecPriority.reserve(mempool.mapTx.size());
-// ZEN_MOD_START
         bool fDeprecatedGetBlockTemplate = GetBoolArg("-deprecatedgetblocktemplate", false);
         if (fDeprecatedGetBlockTemplate)
             GetBlockTxPriorityDataOld(pblock, nHeight, nMedianTimePast, view, vecPriority, vOrphan, mapDependers);
         else
             GetBlockTxPriorityData(pblock, nHeight, nMedianTimePast, view, vecPriority, vOrphan, mapDependers);
-// ZEN_MOD_END
 
         // Collect transactions into block
         uint64_t nBlockSize = 1000;
@@ -414,12 +408,10 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 std::make_heap(vecPriority.begin(), vecPriority.end(), comparer);
             }
 
-// ZEN_MOD_START
             // Skip transaction if max block complexity reached.
             int nTxComplexity = tx.vin.size() * tx.vin.size();
             if (!fDeprecatedGetBlockTemplate && nBlockMaxComplexitySize > 0 && nBlockComplexity + nTxComplexity >= nBlockMaxComplexitySize)
                 continue;
-// ZEN_MOD_END
 
             if (!view.HaveInputs(tx))
                 continue;

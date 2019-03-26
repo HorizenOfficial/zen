@@ -1074,6 +1074,21 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
     return (int)minGap;
 }
 
+UniValue getglobaltips(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+    {
+        throw runtime_error(
+            "getglobaltips\n"
+            "\nReturns the list of hashes of the tips of all the existing forks\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getglobaltips", "\"hash\"")
+        );
+    }
+    LOCK(cs_main);
+    return dbg_blk_global_tips();
+}
+
 /*
  * Can be useful when working at python scripts 
  */
@@ -1088,6 +1103,3 @@ UniValue dbg_log(const UniValue& params, bool fHelp)
     LogPrint("py", "%s() - ########## [%s] #########\n", __func__, s);
     return "Log printed";
 }
-
-
-

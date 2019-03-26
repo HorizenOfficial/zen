@@ -8,7 +8,7 @@
 
 extern CBlockIndex* AddToBlockIndex(const CBlockHeader& block);
 
-#define TEST_ALT_DEBUG
+//#define TEST_ALT_DEBUG
 
 #if !defined(TEST_ALT_DEBUG)
 
@@ -245,8 +245,6 @@ TEST(relayforks_test, checkisonmain) {
     mapArgs["-debug"] = "forks";
     mapMultiArgs["-debug"].push_back("forks");
 #endif
-
-//    SelectParams(CBaseChainParams::REGTEST);
 
     std::cout << "Building main chain..." << std::endl;
     const CBlockIndex* fm = makeMain(TRUNK_01_SZ);
