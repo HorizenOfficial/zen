@@ -156,13 +156,15 @@ STAGE_COMMANDS = {
 # Test driver
 #
 
-def run_stage(stage):
+def run_stage(stage, option=None):
     print('Running stage %s' % stage)
     print('=' * (len(stage) + 14))
     print
 
     cmd = STAGE_COMMANDS[stage]
     if type(cmd) == type([]):
+        if option:
+            cmd.append(option)
         ret = subprocess.call(cmd) == 0
     else:
         ret = cmd()
@@ -179,6 +181,8 @@ def main():
     parser.add_argument('--list-stages', dest='list', action='store_true')
     parser.add_argument('stage', nargs='*', default=STAGES,
                         help='One of %s'%STAGES)
+    parser.add_argument('--rpc-extended', dest='extended',
+                        action='store_true', help='run extended rpc tests')
     args = parser.parse_args()
 
     # Check for list
@@ -196,7 +200,11 @@ def main():
     # Run the stages
     passed = True
     for s in args.stage:
-        passed &= run_stage(s)
+        # Check for extended rpc tests
+        if args.extended and s == 'rpc':
+            passed &= run_stage(s, '-extended')
+        else:
+            passed &= run_stage(s)
 
     if not passed:
         print("!!! One or more test stages failed !!!")
