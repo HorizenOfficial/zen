@@ -1094,6 +1094,16 @@ UniValue getglobaltips(const UniValue& params, bool fHelp)
  */
 UniValue dbg_log(const UniValue& params, bool fHelp)
 {
+    if (fHelp)
+    {
+        throw runtime_error(
+            "dbg_log\n"
+            "\nPrints on debug.log any passed string."
+            "\n(Valid only in regtest)\n"
+            "\nExamples:\n"
+            + HelpExampleCli("dbg_log", "\"<log string>\"")
+        );
+    }
     if (Params().NetworkIDString() != "regtest")
     {
         throw JSONRPCError(RPC_METHOD_NOT_FOUND, "This method can only be used on regtest");
