@@ -501,12 +501,13 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-blockmaxsize=<n>", strprintf(_("Set maximum block size in bytes (default: %d)"), DEFAULT_BLOCK_MAX_SIZE));
     strUsage += HelpMessageOpt("-blockprioritysize=<n>", strprintf(_("Set maximum size of high-priority/low-fee transactions in bytes (default: %d)"), DEFAULT_BLOCK_PRIORITY_SIZE));
     strUsage += HelpMessageOpt("-blockmaxcomplexity=<n>",
-        strprintf(_("Set maximum size of block based on transactions complexity. "
-        " Block complexity is a sum of block transactions complexity. Transaction complexity equals to number of inputs squared."
-        " 0  or negative values imply infinity max block complexity. (default: %d)"
+        strprintf(_("Limit transactions to be included into blocks based on block complexity. "
+        " Block complexity is the sum of transaction complexity per block. Transaction complexity is the number of inputs of a transaction squared. "
+        " Like -mempooltxinputlimit this switch is intended as a last resort when unable to build blocks fast enough because of poor GBT performance. "
+        " 0  or negative values means no limit is applied. (default: %d)"
         ), DEFAULT_BLOCK_MAX_COMPLEXITY_SIZE)
     );
-    strUsage += HelpMessageOpt("-deprecatedgetblocktemplate", (_("Disable block complexity calculation")));
+    strUsage += HelpMessageOpt("-deprecatedgetblocktemplate", (_("Disable block complexity calculation and use the previous GetBlockTemplate implementation")));
         
     if (GetBoolArg("-help-debug", false))
         strUsage += HelpMessageOpt("-blockversion=<n>", "Override block version to test forking scenarios");
