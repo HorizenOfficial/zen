@@ -9,6 +9,7 @@
 #include "primitives/block.h"
 
 #include <boost/optional.hpp>
+#include <boost/tuple/tuple.hpp>
 #include <stdint.h>
 
 class CBlockIndex;
@@ -26,8 +27,19 @@ struct CBlockTemplate
     std::vector<int64_t> vTxSigOps;
 };
 
+class CCoinsViewCache;
+class COrphan;
+typedef boost::tuple<double, CFeeRate, const CTransaction*> TxPriority;
+/** Retrieve mempool transactions priority info */
+void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTimePast, const CCoinsViewCache& view,
+                               std::vector<TxPriority>& vecPriority, std::list<COrphan>& vOrphan, std::map<uint256, std::vector<COrphan*> >& mapDependers);
+/** DEPRECATED. Retrieve mempool transactions priority info */
+void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedianTimePast, const CCoinsViewCache& view,
+                               std::vector<TxPriority>& vecPriority, std::list<COrphan>& vOrphan, std::map<uint256, std::vector<COrphan*> >& mapDependers);
+
 /** Generate a new block, without valid proof-of-work */
 CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn);
+CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlockMaxComplexitySize);
 #ifdef ENABLE_WALLET
 boost::optional<CScript> GetMinerScriptPubKey(CReserveKey& reservekey);
 CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey);

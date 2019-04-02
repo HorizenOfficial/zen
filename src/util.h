@@ -50,6 +50,7 @@ extern bool fLimitDebugLogSize;
 extern bool fServer;
 extern std::string strMiscWarning;
 extern bool fLogTimestamps;
+extern bool fLogTimeMicros;
 extern bool fLogIPs;
 extern std::atomic<bool> fReopenDebugLog;
 extern CTranslationInterface translationInterface;
@@ -257,5 +258,20 @@ template <typename Callable> void TraceThread(const char* name,  Callable func)
         throw;
     }
 }
+
+// Utilities useful for developing and debugging
+//--------------------------------------------------------------
+class CBlockIndex;
+
+void dump_index(const CBlockIndex* pindex, int val = 0);
+void dump_dirty();
+void dump_candidates();
+void dump_db();
+void dump_global_tips(int limit = 0);
+
+std::string dbg_blk_in_fligth();
+std::string dbg_blk_unlinked();
+std::string dbg_blk_candidates();
+std::string dbg_blk_global_tips();
 
 #endif // BITCOIN_UTIL_H

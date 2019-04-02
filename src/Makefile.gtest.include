@@ -34,6 +34,7 @@ zen_gtest_SOURCES += \
 	gtest/test_pow.cpp \
 	gtest/test_random.cpp \
 	gtest/test_rpc.cpp \
+	gtest/test_getblocktemplate.cpp \
 	gtest/test_transaction.cpp \
 	gtest/test_validation.cpp \
 	gtest/test_circuit.cpp \
@@ -41,7 +42,8 @@ zen_gtest_SOURCES += \
 	gtest/test_libzcash_utils.cpp \
 	gtest/test_proofs.cpp \
 	gtest/test_paymentdisclosure.cpp \
-	gtest/test_checkblock.cpp
+	gtest/test_checkblock.cpp       \
+	gtest/test_relayforks.cpp
 
 if ENABLE_WALLET
 zen_gtest_SOURCES += \

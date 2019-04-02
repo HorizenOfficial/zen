@@ -22,7 +22,7 @@ class blockdelay(BitcoinTestFramework):
 
     def setup_chain(self, split=False):
         print("Initializing test directory "+self.options.tmpdir)
-        initialize_chain_clean(self.options.tmpdir, 4)
+        initialize_chain_clean(self.options.tmpdir, 5)
         self.alert_filename = os.path.join(self.options.tmpdir, "alert.txt")
         with open(self.alert_filename, 'w'):
             pass  # Just open then close to create zero-length file
@@ -77,92 +77,296 @@ class blockdelay(BitcoinTestFramework):
         assert self.is_network_split
         connect_nodes_bi(self.nodes, 0, 3)
         connect_nodes_bi(self.nodes, 3, 0)
-        connect_nodes_bi(self.nodes, 1, 3)
-        connect_nodes_bi(self.nodes, 3, 1)
         #sync_blocks(self.nodes[0:3],1,True)
         #sync_mempools(self.nodes[1:3])
         self.sync_all()
         self.is_network_split = False
 
+    def dump_ordered_tips(self, tip_list):
+        sorted_x = sorted(tip_list, key=lambda k: k['status'])
+        c = 0
+        for y in sorted_x:
+            if (c == 0):
+                print y 
+            else:
+                print " ",y 
+            c = 1
+
+    def mark_logs(self, msg):
+        for x in self.nodes:
+            x.dbg_log(msg)
+
+    def sync_longest_fork(self, wait=1, limit_loop=0):
+
+        '''
+           Wait until all the nodes have the same length for the longest fork.
+        '''
+        rpc_connections = self.nodes
+        loop_num = 0
+        max_len = 0
+        max_len_tot = 0
+
+        while True:
+            max_len_tot = 0
+
+            if limit_loop > 0:
+                loop_num += 1
+                if loop_num > limit_loop:
+                    break
+
+            for x in rpc_connections:
+
+                max_len = 0
+                y = x.getchaintips()
+
+                for j in y:
+                    h = j['height']
+                    max_len = max(max_len, h)
+
+                max_len_tot += max_len
+
+            if max_len_tot == max_len*len(rpc_connections):
+                break
+
+            time.sleep(wait)
+        
 
     def run_test(self):
         blocks = []
+        self.bl_count = 0
 
         blocks.append(self.nodes[0].getblockhash(0))
         print("\n\nGenesis block is: " + blocks[0])
-        # raw_input("press enter to start..")
+#        raw_input("press enter to start..")
+        try:
+            print "\nChecking finality of block (%d) [%s]" % (0, blocks[0])
+            print "  Node0 has: %d" % self.nodes[0].getblockfinalityindex(blocks[0])
+            print
+        except JSONRPCException,e:
+            errorString = e.error['message']
+            print errorString
+        '''
+        '''
 
-
-        print("\n\nGenerating initial blockchain 4 blocks")
-        blocks.extend(self.nodes[0].generate(1)) # block height 1
+        print("\n\nGenerating initial blockchain 104 blocks")
+        blocks.extend(self.nodes[0].generate(101)) # block height 1
+        #print blocks[len(blocks)-1]
         self.sync_all()
         blocks.extend(self.nodes[1].generate(1)) # block height 2
+        #print blocks[len(blocks)-1]
         self.sync_all()
         blocks.extend(self.nodes[2].generate(1)) # block height 3
+        #print blocks[len(blocks)-1]
         self.sync_all()
         blocks.extend(self.nodes[3].generate(1)) # block height 4
+        print "104) ", blocks[len(blocks)-1]
         self.sync_all()
-        print("Blocks generated")
+        print("\nBlocks generated")
+
+# Node(0): [0]->..->[104]
+#   |
+# Node(1): [0]->..->[104]
+#   |
+# Node(2): [0]->..->[104]
+#   |
+# Node(3): [0]->..->[104]
 
         print("\n\nSplit network")
         self.split_network()
         print("The network is split")
 
+        print("\nNode0 sends 3.0 coins to Node1\n")
+        # Node0 sends 3.0 coins to Node1
+        self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 3.0)
+        time.sleep(1)
 
         # Main chain
         print("\n\nGenerating 2 parallel chains with different length")
 
+        bl = []
         print("\nGenerating 12 honest blocks")
-        blocks.extend(self.nodes[0].generate(6)) # block height 5 -6 -7 -8 - 9 - 10
+        for i in range (0, 5):
+            blocks.extend(self.nodes[0].generate(1)) # block height 105 -6 -7 -8 - 9 - 10
+            bl.append(blocks[len(blocks)-1])
+            print "%2d) %s" % ((i+105), bl[i])
         self.sync_all()
-        blocks.extend(self.nodes[1].generate(6)) # block height 11-12-13-14-15-16
+        for i in range (5, 12):
+            blocks.extend(self.nodes[1].generate(1)) # block height 111-12-13-14-15-16
+            bl.append(blocks[len(blocks)-1])
+            print "%2d) %s" % ((i+105), bl[i])
         last_main_blockhash=blocks[len(blocks)-1]
+        first_main_blockhash=bl[0]
         self.sync_all()
         print("Honest block generated")
 
+        # check node1 balance has changed
+        assert self.nodes[1].getbalance() == 3.0
+        print "\nNode1 balance:", self.nodes[1].getbalance()
+
         assert self.nodes[0].getbestblockhash() == last_main_blockhash
+
+#   Node(0): [0]->..->[104]->[105h]...->[116h]
+#   /   
+# Node(1): [0]->..->[104]->[105h]...->[116h]
+#
+#
+# Node(2): [0]->..->[104]
+#   \   
+#   Node(3): [0]->..->[104]
 
         # Malicious nodes mining privately faster
         print("\nGenerating 13 malicious blocks")
-        self.nodes[2].generate(10) # block height 5 - 6 -7 -8 -9-10 -11 12 13 14
+        self.nodes[2].generate(10) # block height 105 - 6 -7 -8 -9-10 -11 12 13 14
         self.sync_all()
-        self.nodes[3].generate(3) # block height 15 - 16 - 17
+        self.nodes[3].generate(3) # block height 115 - 16 - 17
         self.sync_all()
-        print("Malicious block generated")
+        print("Malicious blocks generated")
 
+        for i in range(0, 4):
+            print "Node%d  ---" % i 
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "---"
+# 
+
+#   Node(0): [0]->..->[104]->[105h]...->[116h]
+#   /   
+# Node(1): [0]->..->[104]->[105h]...->[116h]
+#
+#
+# Node(2): [0]->..->[104]->[105m]...->[117m]
+#   \   
+#   Node(3): [0]->..->[104]->[105m]...->[117m]
 
         print("\n\nJoin network")
-        # raw_input("press enter to join the netorks..")
+        self.mark_logs("Joining network")
+#        raw_input("press enter to join the netorks..")
         self.join_network()
-        time.sleep(2)
+        self.sync_longest_fork(1, 10);
+
         print("\nNetwork joined")
 
+        for i in range(0, 4):
+            print "Node%d  ---" % i 
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "---"
+
         print("\nTesting if the current chain is still the honest chain")
         assert self.nodes[0].getbestblockhash() == last_main_blockhash
         print("Confirmed: malicious chain is under penalty")
 
+        print "\nChecking finality of first honest block [%s]" %  first_main_blockhash
+        for i in range(0, 4):
+            try:
+                print "  Node%d sees:"  % i
+                print "      finality: %d" % self.nodes[i].getblockfinalityindex(first_main_blockhash)
+                print
+            except JSONRPCException,e:
+                errorString = e.error['message']
+                print "      " + errorString
+                print
+
+#   +-------Node(0): [0]->..->[104]->[105h]...->[116h]   <<==ACTIVE
+#   |         /                  \
+#   |        /                    +->[105m]...->[117m]
+#   |       /   
+#   |     Node(1): [0]->..->[104]->[105h]...->[116h]   <<==ACTIVE
+#   |                          \
+#   |                           +->[105m]...->[117m]
+#   |    
+#   |     Node(2): [0]->..->[104]->[105m]...->[117m]   <<==ACTIVE
+#   |        \                
+#   |         \                
+#   |          \
+#   +-------Node(3): [0]->..->[104]->[105m]...->[117m]   <<==ACTIVE
+#                                \
+#                                 +->[105h]...->[116h]
+
+#        raw_input("press enter to generate 64 malicious blocks..")
 
         print("\nGenerating 64 malicious blocks")       
+        self.mark_logs("Generating 64 malicious blocks")
         self.nodes[3].generate(64)
-        print("Malicious block generated")
+        print("Malicious blocks generated")
 
-        time.sleep(10)
+        self.sync_longest_fork(1, 10);
+
+        for i in range(0, 4):
+            print "Node%d  ---" % i 
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "---"
+
 
         print("\nTesting if the current chain is still the honest chain")
         assert self.nodes[0].getbestblockhash() == last_main_blockhash
         print("Confirmed: malicious chain is under penalty")
 
+        # check node1 balance has not changed
+        assert self.nodes[1].getbalance() == 3.0
+        print "\nNode1 balance is still the same:", self.nodes[1].getbalance()
+
+
+#   +-------Node(0): [0]->..->[104]->[105h]...->[116h]                       <<==ACTIVE
+#   |         /                  \
+#   |        /                    +->[105m]...->[117m]->[118m]->..->[181m]
+#   |       /   
+#   |     Node(1): [0]->..->[104]->[105h]...->[116h]                         <<==ACTIVE
+#   |                          \
+#   |                           +->[105m]...->[117m]->[118m]->..->[181m]
+#   |    
+#   |     Node(2): [0]->..->[104]->[105m]...->[117m]->[118m]->..->[181m]     <<==ACTIVE
+#   |        \               
+#   |         \                
+#   |          \
+#   +-------Node(3): [0]->..->[104]->[105m]...->[117m]->[118m]->..->[181m]   <<==ACTIVE
+#                                \
+#                                 +->[105h]...->[116h]
+
+#        raw_input("press enter to generate 65 honest blocks..")
+
         print("\nGenerating 65 more honest blocks")
+        self.mark_logs("Generating 65 more honest blocks")
         self.nodes[0].generate(65)
-        print("Honest block generated")
+        print("Honest blocks generated")
+        sync_blocks(self.nodes, 1, True, 5)
+
+#   +-------Node(0): [0]->..->[104]->[105h]...->[116h]->[117h]->..->[181h]   <<==ACTIVE
+#   |         /                  \
+#   |        /                    +->[105m]...->[117m]->[118m]->..->[181m]
+#   |       /   
+#   |     Node(1): [0]->..->[104]->[105h]...->[116h]->[117h]->..->[181h]   <<==ACTIVE
+#   |                          \
+#   |                           +->[105m]...->[117m]->[118m]->..->[181m]
+#   |    
+#   |     Node(2): [0]->..->[104]->[105m]...->[117m]->[118m]->..->[181m]   <<==ACTIVE
+#   |        \   
+#   |         \  
+#   |          \
+#   +-------Node(3): [0]->..->[104]->[105m]...->[117m]->[118m]->..->[181m]   <<==ACTIVE
+#                                \
+#                                 +->[105h]...->[116h]->[117h]->..->[181h]
+
+        for i in range(0, 4):
+            print "Node%d  ---" % i 
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "---"
+
+#        raw_input("press enter to generate 1 more malicious blocks which will cause the attack to succeed..")
 
         print("\nGenerating 1 more malicious block")
+        self.mark_logs("Generating 1 more malicious block ")
         last_malicious_blockhash=self.nodes[3].generate(1)[0]
-        print("Malicious block generated")
+        print("Malicious block generated:")
+        print last_malicious_blockhash
 
-        print("\nWaiting that all network nodes are synced with same chain length")
-        sync_blocks(self.nodes, 1, True)
+        print("\n\nWaiting that all network nodes are synced with same chain length")
+        sync_blocks(self.nodes, 1, True, 5)
+
         print("Network nodes are synced")
+
+        for i in range(0, 4):
+            print "Node%d  ---" % i 
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "---"
 
         print("\nTesting if all the nodes/chains have the same best tip")
         assert (self.nodes[0].getbestblockhash() == self.nodes[1].getbestblockhash()
@@ -173,8 +377,75 @@ class blockdelay(BitcoinTestFramework):
         assert self.nodes[0].getbestblockhash() == last_malicious_blockhash
         print("Confirmed: malicious chain is the best chain")
 
-        time.sleep(2)
-        sync_mempools(self.nodes)
+#   +-------Node(0): [0]->..->[104]->[105h]...->[116h]->[117h]->..->[181h] 
+#   |         /                  \
+#   |        /                    +->[105m]...->[117m]->[118m]->..->[181m]->[182m]  <<==ACTIVE!
+#   |       /   
+#   |     Node(1): [0]->..->[104]->[105h]...->[116h]->[117h]->..->[181h]
+#   |                          \
+#   |                           +->[105m]...->[117m]->[118m]->..->[181m]->[182m]    <<==ACTIVE!
+#   |    
+#   |     Node(2): [0]->..->[104]->[105m]...->[117m]->[118m]->..->[181m]->[182m]    <<==ACTIVE
+#   |        \   
+#   |         \  
+#   |          \
+#   +-------Node(3): [0]->..->[104]->[105m]...->[117m]->[118m]->..->[181m]->[182m]  <<==ACTIVE
+#                                \
+#                                 +->[105h]...->[116h]->[117h]->..->[181h]
+
+        # check node1 balance has been erased
+        assert self.nodes[1].getbalance() == 0.0
+        print "\nNode1 balance has been erased!:", self.nodes[1].getbalance()
+
+#        raw_input("press enter to connect a brand new node..")
+
+        # Connect a fifth node from scratch and update
+        s = "Connecting a new node"
+        print(s)
+        self.mark_logs(s)
+        self.nodes.append(start_node(4, self.options.tmpdir))
+        connect_nodes_bi(self.nodes, 4, 3)
+        connect_nodes_bi(self.nodes, 3, 4)
+        sync_blocks(self.nodes, 1, True, 5)
+
+        for i in range(0, 5):
+            print "Node%d  ---" % i 
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "---"
+
+        print("\nNode0 generating 1 new blocks")       
+        self.mark_logs("Node0 generating 1 new blocks")
+        self.nodes[0].generate(1)
+        print("New blocks generated")
+        sync_blocks(self.nodes, 1, True, 5)
+
+        for i in range(0, 5):
+            print "Node%d  ---" % i 
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "---"
+
+        # check node1 balance has been restored
+        assert self.nodes[1].getbalance() == 3.0
+        print "Node1 balance has been restored: ", self.nodes[1].getbalance()
+
+#   +-------Node(0): [0]->..->[104]->[105h]...->[116h]->[117h]->..->[181h] 
+#   |         /                  \
+#   |        /                    +->[105m]...->[117m]->[118m]->..->[181m]->[182m]->[183m]  <<==ACTIVE!
+#   |       /   
+#   |     Node(1): [0]->..->[104]->[105h]...->[116h]->[117h]->..->[181h]
+#   |                          \
+#   |                           +->[105m]...->[117m]->[118m]->..->[181m]->[182m]->[183m]    <<==ACTIVE!
+#   |    
+#   |     Node(2): [0]->..->[104]->[105m]...->[117m]->[118m]->..->[181m]->[182m]->[183m]    <<==ACTIVE
+#   |        \   
+#   |         \  
+#   |          \
+#   +---------Node(3): [0]->..->[104]->[105m]...->[117m]->[118m]->..->[181m]->[182m]->[183m]  <<==ACTIVE
+#               |                  \                                                        
+#               |                   +->[105h]...->[116h]->[117h]->..->[181h]        
+#               |                                                                           
+#               |                                                                           
+#             Node(4): [0]->..- ..     ...     ...     ...     ...     ...      ... ->[183m]  <<==ACTIVE
 
 if __name__ == '__main__':
     blockdelay().main()

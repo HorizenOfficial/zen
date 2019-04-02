@@ -13,6 +13,8 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread.hpp>
 
+#include <thread>
+
 using namespace std;
 
 static int64_t nMockTime = 0;  //! For unit testing
@@ -53,5 +55,21 @@ std::string DateTimeStrFormat(const char* pszFormat, int64_t nTime)
     std::stringstream ss;
     ss.imbue(loc);
     ss << boost::posix_time::from_time_t(nTime);
+    return ss.str();
+}
+
+std::string DateTimeStrFormatMicro(const char* pszFormat)
+{
+    std::stringstream   ss;
+
+    // std::locale takes ownership of the pointer
+    ss.imbue(
+        std::locale(
+            std::locale::classic(),
+            new boost::posix_time::time_facet(pszFormat) ));
+
+    ss << boost::posix_time::microsec_clock::local_time();
+
+    ss << " [" << std::this_thread::get_id() << "] ";
     return ss.str();
 }
