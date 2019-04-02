@@ -4,9 +4,13 @@
 
 #include "utiltest.h"
 
-CWalletTx GetValidReceive(ZCJoinSplit& params,
-                          const libzcash::SpendingKey& sk, CAmount value,
-                          bool randomInputs) {
+#include <array>
+
+CMutableTransaction GetValidReceiveTransaction(ZCJoinSplit& params,
+                                const libzcash::SpendingKey& sk,
+                                CAmount value,
+                                bool randomInputs,
+                                int32_t version /* = 2 */) {
     CMutableTransaction mtx;
     mtx.nVersion = 2; // Enable JoinSplits
     mtx.vin.resize(2);
@@ -53,6 +57,34 @@ CWalletTx GetValidReceive(ZCJoinSplit& params,
                                 joinSplitPrivKey
                                ) == 0);
 
+    return mtx;
+}
+
+CWalletTx GetValidReceive(ZCJoinSplit& params,
+                                const libzcash::SpendingKey& sk,
+                                CAmount value,
+                                bool randomInputs,
+                                int32_t version /* = 2 */)
+{
+    CMutableTransaction mtx = GetValidReceiveTransaction(
+        params, sk, value, randomInputs, version
+    );
+    CTransaction tx {mtx};
+    CWalletTx wtx {NULL, tx};
+    return wtx;
+}
+
+CWalletTx GetInvalidCommitmentReceive(ZCJoinSplit& params,
+                                const libzcash::SpendingKey& sk,
+                                CAmount value,
+                                bool randomInputs,
+                                int32_t version /* = 2 */)
+{
+    CMutableTransaction mtx = GetValidReceiveTransaction(
+        params, sk, value, randomInputs, version
+    );
+    mtx.vjoinsplit[0].commitments[0] = uint256();
+    mtx.vjoinsplit[0].commitments[1] = uint256();
     CTransaction tx {mtx};
     CWalletTx wtx {NULL, tx};
     return wtx;
