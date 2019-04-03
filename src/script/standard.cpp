@@ -181,7 +181,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
                 if (vchBlockHash.size() != 32)
                 {
-                    LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad params.", __FILE__, __func__);
+                    LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad params.\n", __FILE__, __func__);
                     break;
                 }
 
@@ -189,7 +189,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
                 if ((nHeight < 0 || nHeight > chainActive.Height()) && ForkManager::getInstance().getReplayProtectionLevel(chainActive.Height()) == RPLEVEL_FIXED)
                 {
-                    LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Transaction is non-final. nHeight: %d", __FILE__, __func__, nHeight);
+                    LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Transaction is non-final. nHeight: %d\n", __FILE__, __func__, nHeight);
                     break;
                 }
 
@@ -202,7 +202,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
                     if (pblockindex->GetBlockHash() != uint256(vchBlockHash))
                     {
-                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. vout block height: %d", __FILE__, __func__, nHeight);
+                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. vout block height: %d\n", __FILE__, __func__, nHeight);
                         break;
                     }
                 }

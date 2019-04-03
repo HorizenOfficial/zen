@@ -471,6 +471,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-help-debug", _("Show all debugging options (usage: --help -help-debug)"));
     strUsage += HelpMessageOpt("-logips", strprintf(_("Include IP addresses in debug output (default: %u)"), 0));
     strUsage += HelpMessageOpt("-logtimestamps", strprintf(_("Prepend debug output with timestamp (default: %u)"), 1));
+    strUsage += HelpMessageOpt("-logtimemicros", strprintf(_("Meaningful if -logtimestamps=1. In debug output timestamp reports microseconds (default: %u)"), 0));
     if (showDebug)
     {
         strUsage += HelpMessageOpt("-limitfreerelay=<n>", strprintf("Continuously rate-limit free transactions to <n>*1000 bytes per minute (default: %u)", 15));
@@ -499,6 +500,15 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-blockminsize=<n>", strprintf(_("Set minimum block size in bytes (default: %u)"), 0));
     strUsage += HelpMessageOpt("-blockmaxsize=<n>", strprintf(_("Set maximum block size in bytes (default: %d)"), DEFAULT_BLOCK_MAX_SIZE));
     strUsage += HelpMessageOpt("-blockprioritysize=<n>", strprintf(_("Set maximum size of high-priority/low-fee transactions in bytes (default: %d)"), DEFAULT_BLOCK_PRIORITY_SIZE));
+    strUsage += HelpMessageOpt("-blockmaxcomplexity=<n>",
+        strprintf(_("Limit transactions to be included into blocks based on block complexity. "
+        " Block complexity is the sum of transaction complexity per block. Transaction complexity is the number of inputs of a transaction squared. "
+        " Like -mempooltxinputlimit this switch is intended as a last resort when unable to build blocks fast enough because of poor GBT performance. "
+        " 0  or negative values means no limit is applied. (default: %d)"
+        ), DEFAULT_BLOCK_MAX_COMPLEXITY_SIZE)
+    );
+    strUsage += HelpMessageOpt("-deprecatedgetblocktemplate", (_("Disable block complexity calculation and use the previous GetBlockTemplate implementation")));
+        
     if (GetBoolArg("-help-debug", false))
         strUsage += HelpMessageOpt("-blockversion=<n>", "Override block version to test forking scenarios");
 
@@ -841,6 +851,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // Set this early so that parameter interactions go to console
     fPrintToConsole = GetBoolArg("-printtoconsole", false);
     fLogTimestamps = GetBoolArg("-logtimestamps", true);
+    fLogTimeMicros = GetBoolArg("-logtimemicros", false);
     fLogIPs = GetBoolArg("-logips", false);
 
     LogPrintf("Horizen version %s (%s)\n", FormatFullVersion(), CLIENT_DATE);

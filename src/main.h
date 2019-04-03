@@ -53,6 +53,8 @@ static const unsigned int DEFAULT_BLOCK_MAX_SIZE = MAX_BLOCK_SIZE;
 static const unsigned int DEFAULT_BLOCK_MIN_SIZE = 0;
 /** Default for -blockprioritysize, maximum space for zero/low-fee transactions **/
 static const unsigned int DEFAULT_BLOCK_PRIORITY_SIZE = DEFAULT_BLOCK_MAX_SIZE / 2;
+/** Default for -blockmaxcomplexity, which control the maximum comlexity of the block during template creation **/
+static const unsigned int DEFAULT_BLOCK_MAX_COMPLEXITY_SIZE = 0;
 /** Default for accepting alerts from the P2P network. */
 static const bool DEFAULT_ALERTS = true;
 /** Minimum alert priority for enabling safe mode. */
@@ -93,6 +95,8 @@ static const unsigned int DATABASE_WRITE_INTERVAL = 60 * 60;
 static const unsigned int DATABASE_FLUSH_INTERVAL = 24 * 60 * 60;
 /** Maximum length of reject messages. */
 static const unsigned int MAX_REJECT_MESSAGE_LENGTH = 111;
+/* Maximum number of heigths meaningful when looking for block finality */
+static const int MAX_BLOCK_AGE_FOR_FINALITY = 2000;
 
 // Sanity check the magic numbers when we change them
 BOOST_STATIC_ASSERT(DEFAULT_BLOCK_MAX_SIZE <= MAX_BLOCK_SIZE);
@@ -131,6 +135,28 @@ extern bool fCoinbaseEnforcedProtectionEnabled;
 extern size_t nCoinCacheUsage;
 extern CFeeRate minRelayTxFee;
 extern bool fAlerts;
+
+/** Comparison function for sorting the getchaintips heads.  */
+struct CompareBlocksByHeight
+{
+    bool operator()(const CBlockIndex* a, const CBlockIndex* b) const
+    {
+        /* Make sure that unequal blocks with the same height do not compare
+           equal. Use the pointers themselves to make a distinction. */
+
+        if (a->nHeight != b->nHeight)
+          return (a->nHeight > b->nHeight);
+
+        return a < b;
+    }
+};
+
+typedef std::map<const CBlockIndex*, int, CompareBlocksByHeight> BlockTimeMap;
+extern BlockTimeMap mGlobalForkTips;
+
+typedef std::set<const CBlockIndex*, CompareBlocksByHeight> BlockSet;
+extern BlockSet sGlobalForkTips;
+static const int MAX_NUM_GLOBAL_FORKS = 3;
 
 /** Best header we've seen so far (used for getheaders queries' starting points). */
 extern CBlockIndex *pindexBestHeader;
@@ -213,6 +239,14 @@ std::string GetWarnings(const std::string& strFor);
 bool GetTransaction(const uint256 &hash, CTransaction &tx, uint256 &hashBlock, bool fAllowSlow = false);
 /** Find the best known block, and make it the tip of the block chain */
 bool ActivateBestChain(CValidationState &state, CBlock *pblock = NULL);
+/** Find an alternative chain tip and propagate to the network */
+bool RelayAlternativeChain(CValidationState &state, CBlock *pblock, BlockSet* sForkTips);
+
+bool addToGlobalForkTips(const CBlockIndex* pindex);
+int getMostRecentGlobalForkTips(std::vector<uint256>& output);
+bool updateGlobalForkTips(const CBlockIndex* pindex, bool lookForwardTips);
+bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, CBlockIndex** pindexReference);
+
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams);
 
 /**
@@ -443,8 +477,8 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
  * - The only caller of AcceptBlock verifies JoinSplit proofs elsewhere.
  * If dbp is non-NULL, the file is known to already reside on disk
  */
-bool AcceptBlock(CBlock& block, CValidationState& state, CBlockIndex **pindex, bool fRequested, CDiskBlockPos* dbp);
-bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex **ppindex= NULL);
+bool AcceptBlock(CBlock& block, CValidationState& state, CBlockIndex **pindex, bool fRequested, CDiskBlockPos* dbp, BlockSet* sForkTips = NULL);
+bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex **ppindex= NULL, bool lookForwardTips = false);
 
 
 
