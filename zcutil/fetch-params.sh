@@ -19,14 +19,58 @@ SPROUT_IPFS="/ipfs/QmZKKx7Xup7LiAtFRhYsE1M7waXcv9ir9eCECyXAFGxhEo"
 SHA256CMD="$(command -v sha256sum || echo shasum)"
 SHA256ARGS="$(command -v sha256sum >/dev/null || echo '-a 256')"
 
+ARIA2CMD="$(command -v aria2c || echo '')"
 WGETCMD="$(command -v wget || echo '')"
 IPFSCMD="$(command -v ipfs || echo '')"
 CURLCMD="$(command -v curl || echo '')"
 
 # fetch methods can be disabled with ZC_DISABLE_SOMETHING=1
+ZC_DISABLE_ARIA2="${ZC_DISABLE_ARIA2:-}"
 ZC_DISABLE_WGET="${ZC_DISABLE_WGET:-}"
 ZC_DISABLE_IPFS="${ZC_DISABLE_IPFS:-}"
 ZC_DISABLE_CURL="${ZC_DISABLE_CURL:-}"
+
+function fetch_aria2 {
+    if [ -z "$ARIA2CMD" ] || ! [ -z "$ZC_DISABLE_ARIA2" ]; then
+        return 1
+    fi
+
+    local filename="$1"
+    local dlname="$(basename $2)"
+
+    cat <<EOF
+
+Retrieving (aria2): $SPROUT_URL/$filename
+EOF
+
+    aria2c \
+        --out="$dlname" \
+        --continue=true \
+        --max-tries=3 \
+        --retry-wait=2 \
+        --split=16 \
+        --max-connection-per-server=16 \
+        --timeout=90 \
+        --auto-save-interval=5 \
+        --always-resume=false \
+        --allow-overwrite=true \
+        --download-result=full \
+        --summary-interval=10 \
+        "$SPROUT_URL/$filename" || \
+    {   echo -e "\n\nResume failed, downloading $filename from scratch.\n\n" \
+        && aria2c \
+            --out="$dlname" \
+            --continue=false \
+            --remove-control-file=true \
+            --max-tries=3 \
+            --timeout=30 \
+            --always-resume=false \
+            --allow-overwrite=true \
+            --download-result=full \
+            --summary-interval=10 \
+            "$SPROUT_URL/$filename"
+    }
+}
 
 function fetch_wget {
     if [ -z "$WGETCMD" ] || ! [ -z "$ZC_DISABLE_WGET" ]; then
@@ -44,9 +88,17 @@ EOF
     wget \
         --progress=dot:giga \
         --output-document="$dlname" \
-        --continue \
-        --retry-connrefused --waitretry=3 --timeout=30 \
-        "$SPROUT_URL/$filename"
+        --continue --tries=3 \
+        --retry-connrefused --waitretry=3 --timeout=90 \
+        "$SPROUT_URL/$filename" || \
+    {   echo -e "\n\nResume failed, downloading $filename from scratch.\n\n" \
+        && wget \
+            --progress=dot:giga \
+            --output-document="$dlname" \
+            --tries=3 \
+            --retry-connrefused --waitretry=3 --timeout=30 \
+            "$SPROUT_URL/$filename"
+    }
 }
 
 function fetch_ipfs {
@@ -91,6 +143,7 @@ function fetch_failure {
 Failed to fetch the Zcash zkSNARK parameters!
 Try installing one of the following programs and make sure you're online:
 
+ * aria2
  * ipfs
  * wget
  * curl
@@ -107,7 +160,7 @@ function fetch_params {
 
     if ! [ -f "$output" ]
     then
-        for method in wget ipfs curl failure; do
+        for method in aria2 wget ipfs curl failure; do
             if "fetch_$method" "$filename" "$dlname"; then
                 echo "Download successful!"
                 break
