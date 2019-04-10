@@ -6,6 +6,7 @@
 #ifndef BITCOIN_PRIMITIVES_TRANSACTION_H
 #define BITCOIN_PRIMITIVES_TRANSACTION_H
 
+
 #include "amount.h"
 #include "random.h"
 #include "script/script.h"
@@ -22,6 +23,12 @@
 #include "zcash/Zcash.h"
 #include "zcash/JoinSplit.hpp"
 #include "zcash/Proof.hpp"
+
+enum TransactionTypeActive {
+       OVERWINTER_TX,
+       SAPLING_TX,
+	   ENDTYPE
+};
 
 
 static const int32_t OVERWINTER_TX_VERSION = 0xFFFFFFFC;
@@ -41,11 +48,7 @@ static_assert(TRANSPARENT_TX_VERSION >= MIN_OLD_TX_VERSION,
 //Many static casts to int * of Tx nVersion (int32_t *) are performed. Verify at compile time that they are equivalent.
 static_assert(sizeof(int32_t) == sizeof(int), "int size differs from 4 bytes. This may lead to unexpected behaviors on static casts");
 
-enum TransactionTypeActive {
-       OVERWINTER_TX,
-       SAPLING_TX,
-	   ENDTYPE
-};
+
 
 
 /**
@@ -309,11 +312,18 @@ public:
     	//  tx.nVersion
     	const int txVersion = s.GetTxVersion();
 //TODO CHECK
-    	if( !((txVersion >= TRANSPARENT_TX_VERSION) && txVersion != GROTH_TX_VERSION) || txVersion != OVERWINTER_TX_VERSION || txVersion != SAPLING_TX_VERSION ) {
-	    	LogPrintf("============== JsDescription GetTxVersion: Invalid shielded tx version %d \n", txVersion);
-    		throw std::ios_base::failure("Invalid shielded tx version (expected >=1 for PHGRProof or -3 for GrothProof)");
+    	bool useGroth = false;
+
+    	if (txVersion == OVERWINTER_TX_VERSION || txVersion == SAPLING_TX_VERSION)  {
+        	useGroth = true;
+    	} else {
+			if( !(txVersion >= TRANSPARENT_TX_VERSION) && txVersion != GROTH_TX_VERSION) {
+				LogPrintf("============== JsDescription GetTxVersion: Invalid shielded tx version %d \n", txVersion);
+				throw std::ios_base::failure("Invalid shielded tx version (expected >=1 for PHGRProof or -3 for GrothProof)");
+			}
+			useGroth = (txVersion == GROTH_TX_VERSION);
     	}
-    	bool useGroth = (txVersion == GROTH_TX_VERSION || txVersion == OVERWINTER_TX_VERSION || txVersion == SAPLING_TX_VERSION);
+
         READWRITE(vpub_old);
         READWRITE(vpub_new);
         READWRITE(anchor);
