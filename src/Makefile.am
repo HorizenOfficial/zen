@@ -113,7 +113,8 @@ LIBZCASH_H = \
   zcash/prf.h \
   zcash/Proof.hpp \
   zcash/util.h \
-  zcash/Zcash.h
+  zcash/Zcash.h \
+  zcash/zip32.h
 
 .PHONY: FORCE collate-libsnark check-symbols check-security
 # bitcoin core #
@@ -130,6 +131,7 @@ BITCOIN_CORE_H = \
   asyncrpcoperation.h \
   asyncrpcqueue.h \
   base58.h \
+  bech32.h \
   bloom.h \
   chain.h \
   chainparams.h \
@@ -156,8 +158,9 @@ BITCOIN_CORE_H = \
   httpserver.h \
   init.h \
   key.h \
+  key_io.h \
   keystore.h \
-  leveldbwrapper.h \
+  dbwrapper.h \
   limitedmap.h \
   main.h \
   memusage.h \
@@ -172,6 +175,7 @@ BITCOIN_CORE_H = \
   paymentdisclosuredb.h \
   policy/fees.h \
   pow.h \
+  prevector.h \
   primitives/block.h \
   primitives/transaction.h \
   protocol.h \
@@ -200,6 +204,7 @@ BITCOIN_CORE_H = \
   timedata.h \
   tinyformat.h \
   torcontrol.h \
+  transaction_builder.h \
   txdb.h \
   txmempool.h \
   ui_interface.h \
@@ -213,10 +218,12 @@ BITCOIN_CORE_H = \
   validationinterface.h \
   versionbits.h \
   version.h \
+  wallet/asyncrpcoperation_mergetoaddress.h \
   wallet/asyncrpcoperation_sendmany.h \
   wallet/asyncrpcoperation_shieldcoinbase.h \
   wallet/crypter.h \
   wallet/db.h \
+  wallet/rpcwallet.h \
   wallet/wallet.h \
   wallet/wallet_ismine.h \
   wallet/walletdb.h \
@@ -254,7 +261,7 @@ libbitcoin_server_a_SOURCES = \
   httprpc.cpp \
   httpserver.cpp \
   init.cpp \
-  leveldbwrapper.cpp \
+  dbwrapper.cpp \
   main.cpp \
   merkleblock.cpp \
   metrics.cpp \
@@ -313,6 +320,7 @@ libbitcoin_wallet_a_SOURCES = \
   utiltest.h \
   zcbenchmarks.cpp \
   zcbenchmarks.h \
+  wallet/asyncrpcoperation_mergetoaddress.cpp \
   wallet/asyncrpcoperation_sendmany.cpp \
   wallet/asyncrpcoperation_shieldcoinbase.cpp \
   wallet/crypter.cpp \
@@ -368,6 +376,7 @@ libbitcoin_common_a_SOURCES = \
   amount.cpp \
   arith_uint256.cpp \
   base58.cpp \
+  bech32.cpp \
   chainparams.cpp \
   coins.cpp \
   compressor.cpp \
@@ -375,6 +384,7 @@ libbitcoin_common_a_SOURCES = \
   core_write.cpp \
   hash.cpp \
   key.cpp \
+  key_io.cpp \
   keystore.cpp \
   netbase.cpp \
   primitives/block.cpp \
@@ -387,6 +397,7 @@ libbitcoin_common_a_SOURCES = \
   script/script_error.cpp \
   script/sign.cpp \
   script/standard.cpp \
+  transaction_builder.cpp \
   $(BITCOIN_CORE_H) \
   $(LIBZCASH_H)
 
@@ -534,6 +545,7 @@ libzcash_a_SOURCES = \
   zcash/Note.cpp \
   zcash/prf.cpp \
   zcash/util.cpp \
+  zcash/zip32.cpp \
   zcash/circuit/commitment.tcc \
   zcash/circuit/gadget.tcc \
   zcash/circuit/merkle.tcc \
@@ -589,7 +601,9 @@ libzencash_a_SOURCES = \
     zen/forks/fork3_communityfundandrpfixfork.cpp\
     zen/forks/fork4_nulltransactionfork.cpp\
     zen/forks/fork5_shieldfork.cpp\
-    zen/tlsmanager.cpp\
+	zen/forks/fork6_overwinterfork.cpp\
+	zen/forks/fork7_saplingfork.cpp\
+	zen/tlsmanager.cpp\
     zen/delay.cpp
 
 if HAVE_OPENMP
@@ -648,4 +662,4 @@ include Makefile.test.include
 include Makefile.gtest.include
 endif
 
-include Makefile.zcash.include
+# include Makefile.zcash.include

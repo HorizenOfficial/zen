@@ -109,6 +109,7 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.push_back(Pair("height", blockindex->nHeight));
     result.push_back(Pair("version", blockindex->nVersion));
     result.push_back(Pair("merkleroot", blockindex->hashMerkleRoot.GetHex()));
+    result.push_back(Pair("finalsaplingroot", blockindex->hashFinalSaplingRoot.GetHex()));
     result.push_back(Pair("time", (int64_t)blockindex->nTime));
     result.push_back(Pair("nonce", blockindex->nNonce.GetHex()));
     result.push_back(Pair("solution", HexStr(blockindex->nSolution)));
@@ -137,6 +138,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.push_back(Pair("height", blockindex->nHeight));
     result.push_back(Pair("version", block.nVersion));
     result.push_back(Pair("merkleroot", block.hashMerkleRoot.GetHex()));
+    result.push_back(Pair("finalsaplingroot", block.hashFinalSaplingRoot.GetHex()));
     UniValue txs(UniValue::VARR);
     BOOST_FOREACH(const CTransaction&tx, block.vtx)
     {
@@ -156,10 +158,11 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.push_back(Pair("bits", strprintf("%08x", block.nBits)));
     result.push_back(Pair("difficulty", GetDifficulty(blockindex)));
     result.push_back(Pair("chainwork", blockindex->nChainWork.GetHex()));
-    result.push_back(Pair("anchor", blockindex->hashAnchorEnd.GetHex()));
+    result.push_back(Pair("anchor", blockindex->hashFinalSproutRoot.GetHex()));
 
     UniValue valuePools(UniValue::VARR);
     valuePools.push_back(ValuePoolDesc("sprout", blockindex->nChainSproutValue, blockindex->nSproutValue));
+    valuePools.push_back(ValuePoolDesc("sapling", blockindex->nChainSaplingValue, blockindex->nSaplingValue));
     result.push_back(Pair("valuePools", valuePools));
 
     if (blockindex->pprev)
@@ -175,7 +178,7 @@ UniValue getblockcount(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 0)
         throw runtime_error(
             "getblockcount\n"
-            "\nReturns the number of blocks in the longest block chain.\n"
+            "\nReturns the number of blocks in the best valid block chain.\n"
             "\nResult:\n"
             "n    (numeric) The current block count\n"
             "\nExamples:\n"
@@ -227,10 +230,9 @@ UniValue mempoolToJSON(bool fVerbose = false)
     {
         LOCK(mempool.cs);
         UniValue o(UniValue::VOBJ);
-        BOOST_FOREACH(const PAIRTYPE(uint256, CTxMemPoolEntry)& entry, mempool.mapTx)
+        BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx)
         {
-            const uint256& hash = entry.first;
-            const CTxMemPoolEntry& e = entry.second;
+            const uint256& hash = e.GetTx().GetHash();
             UniValue info(UniValue::VOBJ);
             info.push_back(Pair("size", (int)e.GetTxSize()));
             info.push_back(Pair("fee", ValueFromAmount(e.GetFee())));
@@ -353,6 +355,7 @@ UniValue getblockheader(const UniValue& params, bool fHelp)
             "  \"height\" : n,          (numeric) The block height or index\n"
             "  \"version\" : n,         (numeric) The block version\n"
             "  \"merkleroot\" : \"xxxx\", (string) The merkle root\n"
+            "  \"finalsaplingroot\" : \"xxxx\", (string) The root of the Sapling commitment tree after applying this block\n"
             "  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"nonce\" : n,           (numeric) The nonce\n"
             "  \"bits\" : \"1d00ffff\", (string) The bits\n"
@@ -410,6 +413,7 @@ UniValue getblock(const UniValue& params, bool fHelp)
             "  \"height\" : n,          (numeric) The block height or index (same as provided height)\n"
             "  \"version\" : n,         (numeric) The block version\n"
             "  \"merkleroot\" : \"xxxx\", (string) The merkle root\n"
+            "  \"finalsaplingroot\" : \"xxxx\", (string) The root of the Sapling commitment tree after applying this block\n"
             "  \"tx\" : [               (array of string) The transaction ids\n"
             "     \"transactionid\"     (string) The transaction id\n"
             "     ,...\n"
@@ -458,9 +462,18 @@ UniValue getblock(const UniValue& params, bool fHelp)
 
     uint256 hash(uint256S(strHash));
 
-    bool fVerbose = true;
-    if (params.size() > 1)
-        fVerbose = params[1].get_bool();
+    int verbosity = 1;
+    if (params.size() > 1) {
+        if(params[1].isNum()) {
+            verbosity = params[1].get_int();
+        } else {
+            verbosity = params[1].get_bool() ? 1 : 0;
+        }
+    }
+
+    if (verbosity < 0 || verbosity > 2) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Verbosity must be in range from 0 to 2");
+    }
 
     if (mapBlockIndex.count(hash) == 0)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
@@ -474,7 +487,7 @@ UniValue getblock(const UniValue& params, bool fHelp)
     if(!ReadBlockFromDisk(block, pblockindex))
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
 
-    if (!fVerbose)
+    if (verbosity == 0)
     {
         CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
         ssBlock << block;
@@ -482,7 +495,7 @@ UniValue getblock(const UniValue& params, bool fHelp)
         return strHex;
     }
 
-    return blockToJSON(block, pblockindex);
+    return blockToJSON(block, pblockindex, verbosity >= 2);
 }
 
 UniValue gettxoutsetinfo(const UniValue& params, bool fHelp)
@@ -532,7 +545,7 @@ UniValue gettxout(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             "1. \"txid\"       (string, required) The transaction id\n"
             "2. n              (numeric, required) vout value\n"
-            "3. includemempool  (boolean, optional) Whether to included the mem pool\n"
+            "3. includemempool  (boolean, optional) Whether to include the mempool\n"
             "\nResult:\n"
             "{\n"
             "  \"bestblock\" : \"hash\",    (string) the block hash\n"
@@ -735,13 +748,14 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
     obj.push_back(Pair("chainwork",             chainActive.Tip()->nChainWork.GetHex()));
     obj.push_back(Pair("pruned",                fPruneMode));
 
-    ZCIncrementalMerkleTree tree;
-    pcoinsTip->GetAnchorAt(pcoinsTip->GetBestAnchor(), tree);
-    obj.push_back(Pair("commitments",           tree.size()));
+    SproutMerkleTree tree;
+    pcoinsTip->GetSproutAnchorAt(pcoinsTip->GetBestAnchor(SPROUT), tree);
+    obj.push_back(Pair("commitments",           static_cast<uint64_t>(tree.size())));
 
     CBlockIndex* tip = chainActive.Tip();
     UniValue valuePools(UniValue::VARR);
     valuePools.push_back(ValuePoolDesc("sprout", tip->nChainSproutValue, boost::none));
+    valuePools.push_back(ValuePoolDesc("sapling", tip->nChainSaplingValue, boost::none));
     obj.push_back(Pair("valuePools",            valuePools));
 
     const Consensus::Params& consensusParams = Params().GetConsensus();

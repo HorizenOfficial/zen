@@ -101,6 +101,16 @@ public:
         saveToFile(pkPath, keypair.pk);
     }
 
+    void saveR1CS(std::string path)
+    {
+        protoboard<FieldT> pb;
+        joinsplit_gadget<FieldT, NumInputs, NumOutputs> g(pb);
+        g.generate_r1cs_constraints();
+        r1cs_constraint_system<FieldT> r1cs = pb.get_constraint_system();
+
+        saveToFile(path, r1cs);
+    }
+
     bool verify(
         const PHGRProof& proof,
         ProofVerifier& verifier,
@@ -143,7 +153,7 @@ public:
         bool makeGrothProof,
         const std::array<JSInput, NumInputs>& inputs,
         const std::array<JSOutput, NumOutputs>& outputs,
-        std::array<Note, NumOutputs>& out_notes,
+        std::array<SproutNote, NumOutputs>& out_notes,
         std::array<ZCNoteEncryption::Ciphertext, NumOutputs>& out_ciphertexts,
         uint256& out_ephemeralKey,
         const uint256& joinSplitPubKey,
@@ -250,7 +260,7 @@ public:
             ZCNoteEncryption encryptor(h_sig);
 
             for (size_t i = 0; i < NumOutputs; i++) {
-                NotePlaintext pt(out_notes[i], outputs[i].memo);
+                SproutNotePlaintext pt(out_notes[i], outputs[i].memo);
 
                 out_ciphertexts[i] = pt.encrypt(encryptor, outputs[i].addr.pk_enc);
             }
@@ -417,21 +427,21 @@ uint256 JoinSplit<NumInputs, NumOutputs>::h_sig(
     return output;
 }
 
-Note JSOutput::note(const uint252& phi, const uint256& r, size_t i, const uint256& h_sig) const {
+SproutNote JSOutput::note(const uint252& phi, const uint256& r, size_t i, const uint256& h_sig) const {
     uint256 rho = PRF_rho(phi, i, h_sig);
 
-    return Note(addr.a_pk, value, rho, r);
+    return SproutNote(addr.a_pk, value, rho, r);
 }
 
 JSOutput::JSOutput() : addr(uint256(), uint256()), value(0) {
-    SpendingKey a_sk = SpendingKey::random();
+    SproutSpendingKey a_sk = SproutSpendingKey::random();
     addr = a_sk.address();
 }
 
-JSInput::JSInput() : witness(ZCIncrementalMerkleTree().witness()),
-                     key(SpendingKey::random()) {
-    note = Note(key.address().a_pk, 0, random_uint256(), random_uint256());
-    ZCIncrementalMerkleTree dummy_tree;
+JSInput::JSInput() : witness(SproutMerkleTree().witness()),
+                     key(SproutSpendingKey::random()) {
+    note = SproutNote(key.address().a_pk, 0, random_uint256(), random_uint256());
+    SproutMerkleTree dummy_tree;
     dummy_tree.append(note.cm());
     witness = dummy_tree.witness();
 }

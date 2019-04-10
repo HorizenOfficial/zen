@@ -6,6 +6,7 @@
 #include "base58.h"
 #include "clientversion.h"
 #include "init.h"
+#include "key_io.h"
 #include "main.h"
 #include "net.h"
 #include "netbase.h"
@@ -137,8 +138,9 @@ public:
             obj.push_back(Pair("script", GetTxnOutputType(whichType)));
             obj.push_back(Pair("hex", HexStr(subscript.begin(), subscript.end())));
             UniValue a(UniValue::VARR);
-            BOOST_FOREACH(const CTxDestination& addr, addresses)
-                a.push_back(CBitcoinAddress(addr).ToString());
+            for (const CTxDestination& addr : addresses) {
+                a.push_back(EncodeDestination(addr));
+            }
             obj.push_back(Pair("addresses", a));
             if (whichType == TX_MULTISIG)
                 obj.push_back(Pair("sigsrequired", nRequired));
@@ -177,21 +179,15 @@ UniValue validateaddress(const UniValue& params, bool fHelp)
 #else
     LOCK(cs_main);
 #endif
-    
-    string strAddress = params[0].get_str();
-    CBitcoinAddress address(strAddress);
-    bool isValid = address.IsValid();
-    // do not valid addr `t` addr via rpc only
-    if (isValid && strAddress[0]=='t') {
-        isValid = false;
-    }
+
+    CTxDestination dest = DecodeDestination(params[0].get_str());
+    bool isValid = IsValidDestination(dest);
 
     UniValue ret(UniValue::VOBJ);
     ret.push_back(Pair("isvalid", isValid));
     if (isValid)
     {
-        CTxDestination dest = address.Get();
-        string currentAddress = address.ToString();
+        std::string currentAddress = EncodeDestination(dest);
         ret.push_back(Pair("address", currentAddress));
 
         CScript scriptPubKey = GetScriptForDestination(dest);
@@ -211,6 +207,43 @@ UniValue validateaddress(const UniValue& params, bool fHelp)
 }
 
 
+class DescribePaymentAddressVisitor : public boost::static_visitor<UniValue>
+{
+public:
+    UniValue operator()(const libzcash::InvalidEncoding &zaddr) const { return UniValue(UniValue::VOBJ); }
+
+    UniValue operator()(const libzcash::SproutPaymentAddress &zaddr) const {
+        UniValue obj(UniValue::VOBJ);
+        obj.push_back(Pair("type", "sprout"));
+        obj.push_back(Pair("payingkey", zaddr.a_pk.GetHex()));
+        obj.push_back(Pair("transmissionkey", zaddr.pk_enc.GetHex()));
+#ifdef ENABLE_WALLET
+        if (pwalletMain) {
+            obj.push_back(Pair("ismine", pwalletMain->HaveSproutSpendingKey(zaddr)));
+        }
+#endif
+        return obj;
+    }
+
+    UniValue operator()(const libzcash::SaplingPaymentAddress &zaddr) const {
+        UniValue obj(UniValue::VOBJ);
+        obj.push_back(Pair("type", "sapling"));
+        obj.push_back(Pair("diversifier", HexStr(zaddr.d)));
+        obj.push_back(Pair("diversifiedtransmissionkey", zaddr.pk_d.GetHex()));
+#ifdef ENABLE_WALLET
+        if (pwalletMain) {
+            libzcash::SaplingIncomingViewingKey ivk;
+            libzcash::SaplingFullViewingKey fvk;
+            bool isMine = pwalletMain->GetSaplingIncomingViewingKey(zaddr, ivk) &&
+                pwalletMain->GetSaplingFullViewingKey(ivk, fvk) &&
+                pwalletMain->HaveSaplingSpendingKey(fvk);
+            obj.push_back(Pair("ismine", isMine));
+        }
+#endif
+        return obj;
+    }
+};
+
 UniValue z_validateaddress(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)
@@ -223,9 +256,12 @@ UniValue z_validateaddress(const UniValue& params, bool fHelp)
             "{\n"
             "  \"isvalid\" : true|false,      (boolean) If the address is valid or not. If not, this is the only property returned.\n"
             "  \"address\" : \"zaddr\",         (string) The z address validated\n"
+            "  \"type\" : \"xxxx\",             (string) \"sprout\" or \"sapling\"\n"
             "  \"ismine\" : true|false,       (boolean) If the address is yours or not\n"
-            "  \"payingkey\" : \"hex\",         (string) The hex value of the paying key, a_pk\n"
-            "  \"transmissionkey\" : \"hex\",   (string) The hex value of the transmission key, pk_enc\n"
+            "  \"payingkey\" : \"hex\",         (string) [sprout] The hex value of the paying key, a_pk\n"
+            "  \"transmissionkey\" : \"hex\",   (string) [sprout] The hex value of the transmission key, pk_enc\n"
+            "  \"diversifier\" : \"hex\",       (string) [sapling] The hex value of the diversifier, d\n"
+            "  \"diversifiedtransmissionkey\" : \"hex\", (string) [sapling] The hex value of pk_d\n"
 
             "}\n"
             "\nExamples:\n"
@@ -240,35 +276,19 @@ UniValue z_validateaddress(const UniValue& params, bool fHelp)
     LOCK(cs_main);
 #endif
 
-    bool isValid = false;
-    bool isMine = false;
-    std::string payingKey, transmissionKey;
+
 
     string strAddress = params[0].get_str();
-    try {
-        CZCPaymentAddress address(strAddress);
-        libzcash::PaymentAddress addr = address.Get();
-
-#ifdef ENABLE_WALLET
-        isMine = pwalletMain->HaveSpendingKey(addr);
-#endif
-        payingKey = addr.a_pk.GetHex();
-        transmissionKey = addr.pk_enc.GetHex();
-        isValid = true;
-    } catch (std::runtime_error e) {
-        // address is invalid, nop here as isValid is false.
-    }
+    auto address = DecodePaymentAddress(strAddress);
+    bool isValid = IsValidPaymentAddress(address);
 
     UniValue ret(UniValue::VOBJ);
     ret.push_back(Pair("isvalid", isValid));
     if (isValid)
     {
         ret.push_back(Pair("address", strAddress));
-        ret.push_back(Pair("payingkey", payingKey));
-        ret.push_back(Pair("transmissionkey", transmissionKey));
-#ifdef ENABLE_WALLET
-        ret.push_back(Pair("ismine", isMine));
-#endif
+        UniValue detail = boost::apply_visitor(DescribePaymentAddressVisitor(), address);
+        ret.pushKVs(detail);
     }
     return ret;
 }
@@ -298,17 +318,16 @@ CScript _createmultisig_redeemScript(const UniValue& params)
         const std::string& ks = keys[i].get_str();
 #ifdef ENABLE_WALLET
         // Case 1: Bitcoin address and we have full public key:
-        CBitcoinAddress address(ks);
-        if (pwalletMain && address.IsValid())
-        {
-            CKeyID keyID;
-            if (!address.GetKeyID(keyID))
-                throw runtime_error(
-                    strprintf("%s does not refer to a key",ks));
+        CTxDestination dest = DecodeDestination(ks);
+        if (pwalletMain && IsValidDestination(dest)) {
+            const CKeyID *keyID = boost::get<CKeyID>(&dest);
+            if (!keyID) {
+                throw std::runtime_error(strprintf("%s does not refer to a key", ks));
+            }
             CPubKey vchPubKey;
-            if (!pwalletMain->GetPubKey(keyID, vchPubKey))
-                throw runtime_error(
-                    strprintf("no full public key for address %s",ks));
+            if (!pwalletMain->GetPubKey(*keyID, vchPubKey)) {
+                throw std::runtime_error(strprintf("no full public key for address %s", ks));
+            }
             if (!vchPubKey.IsFullyValid())
                 throw runtime_error(" Invalid public key: "+ks);
             pubkeys[i] = vchPubKey;
@@ -372,10 +391,9 @@ UniValue createmultisig(const UniValue& params, bool fHelp)
     // Construct using pay-to-script-hash:
     CScript inner = _createmultisig_redeemScript(params);
     CScriptID innerID(inner);
-    CBitcoinAddress address(innerID);
 
     UniValue result(UniValue::VOBJ);
-    result.push_back(Pair("address", address.ToString()));
+    result.push_back(Pair("address", EncodeDestination(innerID)));
     result.push_back(Pair("redeemScript", HexStr(inner.begin(), inner.end())));
 
     return result;
@@ -410,13 +428,15 @@ UniValue verifymessage(const UniValue& params, bool fHelp)
     string strSign     = params[1].get_str();
     string strMessage  = params[2].get_str();
 
-    CBitcoinAddress addr(strAddress);
-    if (!addr.IsValid())
+    CTxDestination destination = DecodeDestination(strAddress);
+    if (!IsValidDestination(destination)) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
+    }
 
-    CKeyID keyID;
-    if (!addr.GetKeyID(keyID))
+    const CKeyID *keyID = boost::get<CKeyID>(&destination);
+    if (!keyID) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to key");
+    }
 
     bool fInvalid = false;
     vector<unsigned char> vchSig = DecodeBase64(strSign.c_str(), &fInvalid);
@@ -432,7 +452,7 @@ UniValue verifymessage(const UniValue& params, bool fHelp)
     if (!pubkey.RecoverCompact(ss.GetHash(), vchSig))
         return false;
 
-    return (pubkey.GetID() == keyID);
+    return (pubkey.GetID() == *keyID);
 }
 
 UniValue setmocktime(const UniValue& params, bool fHelp)

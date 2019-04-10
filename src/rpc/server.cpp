@@ -7,6 +7,7 @@
 
 #include "base58.h"
 #include "init.h"
+#include "key_io.h"
 #include "random.h"
 #include "sync.h"
 #include "ui_interface.h"
@@ -426,6 +427,20 @@ const CRPCCommand *CRPCTable::operator[](const std::string &name) const
     return (*it).second;
 }
 
+bool CRPCTable::appendCommand(const std::string& name, const CRPCCommand* pcmd)
+{
+    if (IsRPCRunning())
+        return false;
+
+    // don't allow overwriting for now
+    map<string, const CRPCCommand*>::const_iterator it = mapCommands.find(name);
+    if (it != mapCommands.end())
+        return false;
+
+    mapCommands[name] = pcmd;
+    return true;
+}
+
 bool StartRPC()
 {
     LogPrint("rpc", "Starting RPC\n");
@@ -594,6 +609,16 @@ std::string HelpExampleRpc(const std::string& methodname, const std::string& arg
 {
     return "> curl --user myusername --data-binary '{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", "
         "\"method\": \"" + methodname + "\", \"params\": [" + args + "] }' -H 'content-type: text/plain;' http://127.0.0.1:8232/\n";
+}
+
+string experimentalDisabledHelpMsg(const string& rpc, const string& enableArg)
+{
+    return "\nWARNING: " + rpc + " is disabled.\n"
+        "To enable it, restart zcashd with the -experimentalfeatures and\n"
+        "-" + enableArg + " commandline options, or add these two lines\n"
+        "to the zcash.conf file:\n\n"
+        "experimentalfeatures=1\n"
+        + enableArg + "=1\n";
 }
 
 void RPCRegisterTimerInterface(RPCTimerInterface *iface)

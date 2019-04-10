@@ -10,6 +10,7 @@
 #include <list>
 #include "zen/replayprotectionlevel.h"
 #include "script/standard.h"
+#include "primitives/transaction.h"
 #include "forks/fork.h"
 
 namespace zen {
@@ -74,6 +75,10 @@ public:
 	 * @brief returns phpgr,groth,... tx version based on block height
 	 */
 	int getShieldedTxVersion(int height) const;
+
+
+	bool isTransactionUpgradeActive(TransactionTypeActive txType, int height) const;
+
 private:
     
     /**

@@ -24,6 +24,8 @@
 #include "zcash/Proof.hpp"
 
 
+static const int32_t OVERWINTER_TX_VERSION = 0xFFFFFFFC;
+static const int32_t SAPLING_TX_VERSION = 0xFFFFFFFB;
 static const int32_t GROTH_TX_VERSION = 0xFFFFFFFD;
 static const int32_t PHGR_TX_VERSION = 2;
 static const int32_t TRANSPARENT_TX_VERSION = 1;
@@ -38,6 +40,106 @@ static_assert(TRANSPARENT_TX_VERSION >= MIN_OLD_TX_VERSION,
 
 //Many static casts to int * of Tx nVersion (int32_t *) are performed. Verify at compile time that they are equivalent.
 static_assert(sizeof(int32_t) == sizeof(int), "int size differs from 4 bytes. This may lead to unexpected behaviors on static casts");
+
+enum TransactionTypeActive {
+       OVERWINTER_TX,
+       SAPLING_TX,
+	   ENDTYPE
+};
+
+
+/**
+ * A shielded input to a transaction. It contains data that describes a Spend transfer.
+ */
+class SpendDescription
+{
+public:
+    typedef std::array<unsigned char, 64> spend_auth_sig_t;
+
+    uint256 cv;                    //!< A value commitment to the value of the input note.
+    uint256 anchor;                //!< A Merkle root of the Sapling note commitment tree at some block height in the past.
+    uint256 nullifier;             //!< The nullifier of the input note.
+    uint256 rk;                    //!< The randomized public key for spendAuthSig.
+    libzcash::GrothProof zkproof;  //!< A zero-knowledge proof using the spend circuit.
+    spend_auth_sig_t spendAuthSig; //!< A signature authorizing this spend.
+
+    SpendDescription() { }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(cv);
+        READWRITE(anchor);
+        READWRITE(nullifier);
+        READWRITE(rk);
+        READWRITE(zkproof);
+        READWRITE(spendAuthSig);
+    }
+
+    friend bool operator==(const SpendDescription& a, const SpendDescription& b)
+    {
+        return (
+            a.cv == b.cv &&
+            a.anchor == b.anchor &&
+            a.nullifier == b.nullifier &&
+            a.rk == b.rk &&
+            a.zkproof == b.zkproof &&
+            a.spendAuthSig == b.spendAuthSig
+            );
+    }
+
+    friend bool operator!=(const SpendDescription& a, const SpendDescription& b)
+    {
+        return !(a == b);
+    }
+};
+
+/**
+ * A shielded output to a transaction. It contains data that describes an Output transfer.
+ */
+class OutputDescription
+{
+public:
+    uint256 cv;                     //!< A value commitment to the value of the output note.
+    uint256 cm;                     //!< The note commitment for the output note.
+    uint256 ephemeralKey;           //!< A Jubjub public key.
+    libzcash::SaplingEncCiphertext encCiphertext; //!< A ciphertext component for the encrypted output note.
+    libzcash::SaplingOutCiphertext outCiphertext; //!< A ciphertext component for the encrypted output note.
+    libzcash::GrothProof zkproof;   //!< A zero-knowledge proof using the output circuit.
+
+    OutputDescription() { }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(cv);
+        READWRITE(cm);
+        READWRITE(ephemeralKey);
+        READWRITE(encCiphertext);
+        READWRITE(outCiphertext);
+        READWRITE(zkproof);
+    }
+
+    friend bool operator==(const OutputDescription& a, const OutputDescription& b)
+    {
+        return (
+            a.cv == b.cv &&
+            a.cm == b.cm &&
+            a.ephemeralKey == b.ephemeralKey &&
+            a.encCiphertext == b.encCiphertext &&
+            a.outCiphertext == b.outCiphertext &&
+            a.zkproof == b.zkproof
+            );
+    }
+
+    friend bool operator!=(const OutputDescription& a, const OutputDescription& b)
+    {
+        return !(a == b);
+    }
+};
+
 
 template <typename Stream>
 class SproutProofSerializer : public boost::static_visitor<>
@@ -206,12 +308,12 @@ public:
     	// Stream version (that is transaction version) is set by CTransaction and CMutableTransaction to
     	//  tx.nVersion
     	const int txVersion = s.GetTxVersion();
-
-    	if( !(txVersion >= TRANSPARENT_TX_VERSION) && txVersion != GROTH_TX_VERSION) {
+//TODO CHECK
+    	if( !((txVersion >= TRANSPARENT_TX_VERSION) && txVersion != GROTH_TX_VERSION) || txVersion != OVERWINTER_TX_VERSION || txVersion != SAPLING_TX_VERSION ) {
 	    	LogPrintf("============== JsDescription GetTxVersion: Invalid shielded tx version %d \n", txVersion);
     		throw std::ios_base::failure("Invalid shielded tx version (expected >=1 for PHGRProof or -3 for GrothProof)");
     	}
-    	bool useGroth = (txVersion == GROTH_TX_VERSION);
+    	bool useGroth = (txVersion == GROTH_TX_VERSION || txVersion == OVERWINTER_TX_VERSION || txVersion == SAPLING_TX_VERSION);
         READWRITE(vpub_old);
         READWRITE(vpub_new);
         READWRITE(anchor);
@@ -291,7 +393,15 @@ public:
     std::string ToString() const;
 };
 
-
+/** An outpoint - a combination of a transaction hash and an index n into its sapling
+ * output description (vShieldedOutput) */
+class SaplingOutPoint : public BaseOutPoint
+{
+public:
+    SaplingOutPoint() : BaseOutPoint() {};
+    SaplingOutPoint(uint256 hashIn, uint32_t nIn) : BaseOutPoint(hashIn, nIn) {}; 
+    std::string ToString() const;
+};
 
 /** An input of a transaction.  It contains the location of the previous
  * transaction's output that it claims and a signature that matches the
@@ -317,7 +427,7 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(prevout);
-        READWRITE(scriptSig);
+        READWRITE(*(CScriptBase*)(&scriptSig));
         READWRITE(nSequence);
     }
 
@@ -362,7 +472,7 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(nValue);
-        READWRITE(scriptPubKey);
+        READWRITE(*(CScriptBase*)(&scriptPubKey));
     }
 
     void SetNull()
@@ -426,8 +536,15 @@ private:
     const uint256 hash;
     void UpdateHash() const;
 
+protected:
+    /** Developer testing only.  Set evilDeveloperFlag to true.
+     * Convert a CMutableTransaction into a CTransaction without invoking UpdateHash()
+     */
+    CTransaction(const CMutableTransaction &tx, bool evilDeveloperFlag);
+
 public:
-    typedef boost::array<unsigned char, 64> joinsplit_sig_t;
+    typedef std::array<unsigned char, 64> joinsplit_sig_t;
+    typedef std::array<unsigned char, 64> binding_sig_t;
 
     // Transactions that include a list of JoinSplits are version 2.
     static const int32_t MIN_OLD_VERSION = 1;
@@ -445,15 +562,21 @@ public:
     const std::vector<CTxIn> vin;
     const std::vector<CTxOut> vout;
     const uint32_t nLockTime;
+    const uint32_t nExpiryHeight;
+    const CAmount valueBalance;
+    const std::vector<SpendDescription> vShieldedSpend;
+    const std::vector<OutputDescription> vShieldedOutput;
     const std::vector<JSDescription> vjoinsplit;
     const uint256 joinSplitPubKey;
     const joinsplit_sig_t joinSplitSig = {{0}};
+    const binding_sig_t bindingSig = {{0}};
 
     /** Construct a CTransaction that qualifies as IsNull() */
     CTransaction();
 
     /** Convert a CMutableTransaction into a CTransaction. */
     CTransaction(const CMutableTransaction &tx);
+    CTransaction(CMutableTransaction &&tx);
 
     CTransaction& operator=(const CTransaction& tx);
 
@@ -466,6 +589,14 @@ public:
         READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
         READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
         READWRITE(*const_cast<uint32_t*>(&nLockTime));
+        if (nVersion == OVERWINTER_TX_VERSION || nVersion == SAPLING_TX_VERSION) {
+            READWRITE(*const_cast<uint32_t*>(&nExpiryHeight));
+        }
+        if (nVersion == SAPLING_TX_VERSION) {
+            READWRITE(*const_cast<CAmount*>(&valueBalance));
+            READWRITE(*const_cast<std::vector<SpendDescription>*>(&vShieldedSpend));
+            READWRITE(*const_cast<std::vector<OutputDescription>*>(&vShieldedOutput));
+        }
         if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {
             auto os = WithTxVersion(&s, static_cast<int>(this->nVersion));
             ::SerReadWrite(os, *const_cast<std::vector<JSDescription>*>(&vjoinsplit), nType, nVersion, ser_action);
@@ -473,6 +604,9 @@ public:
                 READWRITE(*const_cast<uint256*>(&joinSplitPubKey));
                 READWRITE(*const_cast<joinsplit_sig_t*>(&joinSplitSig));
             }
+        }
+        if (nVersion == SAPLING_TX_VERSION && !(vShieldedSpend.empty() && vShieldedOutput.empty())) {
+            READWRITE(*const_cast<binding_sig_t*>(&bindingSig));
         }
         if (ser_action.ForRead())
             UpdateHash();
@@ -493,8 +627,8 @@ public:
     // GetValueIn() is a method on CCoinsViewCache, because
     // inputs must be known to compute value in.
 
-    // Return sum of JoinSplit vpub_new
-    CAmount GetJoinSplitValueIn() const;
+    // Return sum of (positive valueBalance or zero) and JoinSplit vpub_new
+    CAmount GetShieldedValueIn() const;
 
     // Compute priority, given priority of inputs and (optionally) tx size
     double ComputePriority(double dPriorityInputs, unsigned int nTxSize=0) const;
@@ -527,9 +661,14 @@ struct CMutableTransaction
     std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
     uint32_t nLockTime;
+    uint32_t nExpiryHeight;
+    CAmount valueBalance;
+    std::vector<SpendDescription> vShieldedSpend;
+    std::vector<OutputDescription> vShieldedOutput;
     std::vector<JSDescription> vjoinsplit;
     uint256 joinSplitPubKey;
     CTransaction::joinsplit_sig_t joinSplitSig = {{0}};
+    CTransaction::binding_sig_t bindingSig = {{0}};
 
     CMutableTransaction();
     CMutableTransaction(const CTransaction& tx);
@@ -543,7 +682,16 @@ struct CMutableTransaction
         READWRITE(vin);
         READWRITE(vout);
         READWRITE(nLockTime);
-        if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {
+        if (nVersion == OVERWINTER_TX_VERSION || nVersion == SAPLING_TX_VERSION) {
+            READWRITE(nExpiryHeight);
+        }
+        if (nVersion == SAPLING_TX_VERSION) {
+            READWRITE(valueBalance);
+            READWRITE(vShieldedSpend);
+            READWRITE(vShieldedOutput);
+        }
+//TODO we need to add nversion == SAPLING ?
+        if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION || nVersion == OVERWINTER_TX_VERSION) {
             auto os = WithTxVersion(&s, static_cast<int>(this->nVersion));
             ::SerReadWrite(os, vjoinsplit, nType, nVersion, ser_action);
             if (vjoinsplit.size() > 0) {
@@ -551,11 +699,14 @@ struct CMutableTransaction
                 READWRITE(joinSplitSig);
             }
         }
+        if (nVersion == SAPLING_TX_VERSION && !(vShieldedSpend.empty() && vShieldedOutput.empty())) {
+            READWRITE(bindingSig);
+        }
     }
-
+//TODO CHECK
     template <typename Stream>
-    CMutableTransaction(deserialize_type, Stream& s) {
-        Unserialize(s);
+    CMutableTransaction(deserialize_type, Stream& s,int nType, int nVersion ) {
+        Unserialize(s, nType, nVersion);
     }
 
     /** Compute the hash of this CMutableTransaction. This is computed on the

@@ -10,6 +10,8 @@
 #include "forks/fork3_communityfundandrpfixfork.h"
 #include "forks/fork4_nulltransactionfork.h"
 #include "forks/fork5_shieldfork.h"
+#include "forks/fork6_overwinterfork.h"
+#include "forks/fork7_saplingfork.h"
 
 namespace zen {
 
@@ -112,6 +114,15 @@ int ForkManager::getShieldedTxVersion(int height) const {
     return getForkAtHeight(height)->getShieldedTxVersion();
 }
 
+
+/**
+ *
+ *
+ */
+bool ForkManager::isTransactionUpgradeActive(TransactionTypeActive txType, int height) const {
+	return getForkAtHeight(height)->isTransactionUpgradeActive(txType);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// PRIVATE MEMBERS
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -128,6 +139,8 @@ ForkManager::ForkManager() {
     registerFork(new CommunityFundAndRPFixFork());
     registerFork(new NullTransactionFork());
     registerFork(new ShieldFork());
+    registerFork(new OverWinterFork());
+    registerFork(new SaplingFork());
 }
 
 /**

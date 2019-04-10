@@ -7,6 +7,7 @@
 
 #include "chainparamsbase.h"
 #include "script/standard.h"
+#include "primitives/transaction.h"
 #include "amount.h"
 #include <map>
 #include <vector>
@@ -30,6 +31,7 @@ public:
         SUPERNODE,
         ENDTYPE
     };
+
     /**
      * @brief ~Fork public destructor
      */
@@ -87,6 +89,8 @@ public:
 	 * @brief returns phpgr,groth,... tx version based on block height
 	 */
     virtual int getShieldedTxVersion() const = 0;
+
+    virtual bool isTransactionUpgradeActive(TransactionTypeActive  txType) const = 0;
 
 protected:
     

@@ -4,11 +4,14 @@
 
 #include "utiltest.h"
 
+#include <array>
+
 CWalletTx GetValidReceive(ZCJoinSplit& params,
-                          const libzcash::SpendingKey& sk, CAmount value,
-                          bool randomInputs) {
+                          const libzcash::SproutSpendingKey& sk, CAmount value,
+                          bool randomInputs,
+                          int32_t version /* = 2 */) {
     CMutableTransaction mtx;
-    mtx.nVersion = 2; // Enable JoinSplits
+    mtx.nVersion = version;
     mtx.vin.resize(2);
     if (randomInputs) {
         mtx.vin[0].prevout.hash = GetRandHash();
@@ -41,11 +44,17 @@ CWalletTx GetValidReceive(ZCJoinSplit& params,
     JSDescription jsdesc {false, params, mtx.joinSplitPubKey, rt,
                           inputs, outputs, 2*value, 0, false};
     mtx.vjoinsplit.push_back(jsdesc);
+//TODO CHECK
+    if (version >= 4) {
+        // Shielded Output
+        OutputDescription od;
+        mtx.vShieldedOutput.push_back(od);
+    }
 
     // Empty output script.
     CScript scriptCode;
     CTransaction signTx(mtx);
-    uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL);
+    uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL, 0);
 
     // Add the signature
     assert(crypto_sign_detached(&mtx.joinSplitSig[0], NULL,
@@ -58,12 +67,12 @@ CWalletTx GetValidReceive(ZCJoinSplit& params,
     return wtx;
 }
 
-libzcash::Note GetNote(ZCJoinSplit& params,
-                       const libzcash::SpendingKey& sk,
+libzcash::SproutNote GetNote(ZCJoinSplit& params,
+                       const libzcash::SproutSpendingKey& sk,
                        const CTransaction& tx, size_t js, size_t n) {
     ZCNoteDecryption decryptor {sk.receiving_key()};
     auto hSig = tx.vjoinsplit[js].h_sig(params, tx.joinSplitPubKey);
-    auto note_pt = libzcash::NotePlaintext::decrypt(
+    auto note_pt = libzcash::SproutNotePlaintext::decrypt(
         decryptor,
         tx.vjoinsplit[js].ciphertexts[n],
         tx.vjoinsplit[js].ephemeralKey,
@@ -73,8 +82,8 @@ libzcash::Note GetNote(ZCJoinSplit& params,
 }
 
 CWalletTx GetValidSpend(ZCJoinSplit& params,
-                        const libzcash::SpendingKey& sk,
-                        const libzcash::Note& note, CAmount value) {
+                        const libzcash::SproutSpendingKey& sk,
+                        const libzcash::SproutNote& note, CAmount value) {
     CMutableTransaction mtx;
     mtx.vout.resize(2);
     mtx.vout[0].nValue = value;
@@ -87,20 +96,20 @@ CWalletTx GetValidSpend(ZCJoinSplit& params,
     mtx.joinSplitPubKey = joinSplitPubKey;
 
     // Fake tree for the unused witness
-    ZCIncrementalMerkleTree tree;
+    SproutMerkleTree tree;
 
     libzcash::JSOutput dummyout;
     libzcash::JSInput dummyin;
 
     {
         if (note.value() > value) {
-            libzcash::SpendingKey dummykey = libzcash::SpendingKey::random();
-            libzcash::PaymentAddress dummyaddr = dummykey.address();
+            libzcash::SproutSpendingKey dummykey = libzcash::SproutSpendingKey::random();
+            libzcash::SproutPaymentAddress dummyaddr = dummykey.address();
             dummyout = libzcash::JSOutput(dummyaddr, note.value() - value);
         } else if (note.value() < value) {
-            libzcash::SpendingKey dummykey = libzcash::SpendingKey::random();
-            libzcash::PaymentAddress dummyaddr = dummykey.address();
-            libzcash::Note dummynote(dummyaddr.a_pk, (value - note.value()), uint256(), uint256());
+            libzcash::SproutSpendingKey dummykey = libzcash::SproutSpendingKey::random();
+            libzcash::SproutPaymentAddress dummyaddr = dummykey.address();
+            libzcash::SproutNote dummynote(dummyaddr.a_pk, (value - note.value()), uint256(), uint256());
             tree.append(dummynote.cm());
             dummyin = libzcash::JSInput(tree.witness(), dummynote, dummykey);
         }
@@ -127,7 +136,7 @@ CWalletTx GetValidSpend(ZCJoinSplit& params,
     // Empty output script.
     CScript scriptCode;
     CTransaction signTx(mtx);
-    uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL);
+    uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL, 0);
 
     // Add the signature
     assert(crypto_sign_detached(&mtx.joinSplitSig[0], NULL,

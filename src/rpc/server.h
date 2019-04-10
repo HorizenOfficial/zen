@@ -148,6 +148,14 @@ public:
      * @throws an exception (UniValue) when an error happens.
      */
     UniValue execute(const std::string &method, const UniValue &params) const;
+
+
+    /**
+     * Appends a CRPCCommand to the dispatch table.
+     * Returns false if RPC server is already running (dump concurrency protection).
+     * Commands cannot be overwritten (returns false).
+     */
+    bool appendCommand(const std::string& name, const CRPCCommand* pcmd);
 };
 
 extern const CRPCTable tableRPC;
@@ -303,5 +311,7 @@ bool StartRPC();
 void InterruptRPC();
 void StopRPC();
 std::string JSONRPCExecBatch(const UniValue& vReq);
+
+extern std::string experimentalDisabledHelpMsg(const std::string& rpc, const std::string& enableArg);
 
 #endif // BITCOIN_RPCSERVER_H

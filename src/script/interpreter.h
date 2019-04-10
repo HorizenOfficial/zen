@@ -92,14 +92,39 @@ enum
     SCRIPT_VERIFY_CHECKBLOCKATHEIGHT = (1U << 10),
 };
 
+bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned int flags, ScriptError* serror);
+
+struct PrecomputedTransactionData
+{
+    uint256 hashPrevouts, hashSequence, hashOutputs, hashJoinSplits, hashShieldedSpends, hashShieldedOutputs;
+
+    PrecomputedTransactionData(const CTransaction& tx);
+};
+
+enum SigVersion
+{
+    SIGVERSION_SPROUT = 0,
+    SIGVERSION_OVERWINTER = 1,
+    SIGVERSION_SAPLING = 2,
+};
+
 static const unsigned int CONTEXTUAL_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_CHECKBLOCKATHEIGHT;
 
-uint256 SignatureHash(const CScript &scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType);
+uint256 SignatureHash(
+    const CScript &scriptCode,
+    const CTransaction& txTo,
+    unsigned int nIn,
+    int nHashType,
+    const CAmount& amount,
+    const PrecomputedTransactionData* cache = NULL);
 
 class BaseSignatureChecker
 {
 public:
-    virtual bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode) const
+    virtual bool CheckSig(
+        const std::vector<unsigned char>& scriptSig,
+        const std::vector<unsigned char>& vchPubKey,
+        const CScript& scriptCode) const
     {
         return false;
     }
@@ -123,12 +148,15 @@ private:
     const CTransaction* txTo;
     unsigned int nIn;
     const CChain* chain;
+    const CAmount amount;
+    const PrecomputedTransactionData* txdata;
 
 protected:
     virtual bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
 
 public:
-    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CChain* chainIn) : txTo(txToIn), nIn(nInIn), chain(chainIn) {}
+    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CChain* chainIn, const CAmount& amountIn) : txTo(txToIn), nIn(nInIn), chain(chainIn), amount(amountIn), txdata(NULL) {}
+    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CChain* chainIn, const CAmount& amountIn, const PrecomputedTransactionData& txdataIn) : txTo(txToIn), nIn(nInIn), chain(chainIn), amount(amountIn), txdata(&txdataIn) {}
     bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode) const;
     bool CheckLockTime(const CScriptNum& nLockTime) const;
     bool CheckBlockHash(const int32_t nHeight, const std::vector<unsigned char>& nBlockHash) const;
@@ -140,7 +168,7 @@ private:
     const CTransaction txTo;
 
 public:
-    MutableTransactionSignatureChecker(const CMutableTransaction* txToIn, unsigned int nInIn) : TransactionSignatureChecker(&txTo, nInIn, nullptr), txTo(*txToIn) {}
+    MutableTransactionSignatureChecker(const CMutableTransaction* txToIn, unsigned int nInIn, const CAmount& amount) : TransactionSignatureChecker(&txTo, nInIn, nullptr, amount), txTo(*txToIn) {}
 };
 
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* error = NULL);

@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "key_io.h"
 #include "main.h"
 #include "crypto/equihash.h"
 
@@ -13,11 +14,9 @@
 
 #include <boost/assign/list_of.hpp>
 
-#include "base58.h"
+#include "chainparamsseeds.h"
 
 using namespace std;
-
-#include "chainparamsseeds.h"
 
 /**
  * Main network
@@ -37,6 +36,7 @@ public:
     CMainParams() {
         strNetworkID = "main";
         strCurrencyUnits = "ZEN";
+        bip44CoinType = 121; // As registered in https://github.com/satoshilabs/slips/blob/master/slip-0044.md
         consensus.fCoinbaseMustBeProtected = true;
         consensus.nSubsidySlowStartInterval = 2;
         consensus.nSubsidyHalvingInterval = 840000;
@@ -86,7 +86,10 @@ public:
         txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
         txNew.vout[0].nValue = 0;
         txNew.vout[0].scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
+
+
         genesis.vtx.push_back(txNew);
+
         genesis.hashPrevBlock.SetNull();
         genesis.hashMerkleRoot = genesis.BuildMerkleTree();
         genesis.nVersion = 4;
@@ -98,6 +101,8 @@ public:
         consensus.hashGenesisBlock = genesis.GetHash();
         assert(consensus.hashGenesisBlock == uint256S("0x0007104ccda289427919efc39dc9e4d499804b7bebc22df55f8b834301260602"));
         assert(genesis.hashMerkleRoot == uint256S("0x19612bcf00ea7611d315d7f43554fa983c6e8c30cba17e52c679e0e80abf7d42"));
+
+
 
         vFixedSeeds.clear();
         vSeeds.clear();
@@ -122,8 +127,15 @@ public:
         base58Prefixes[EXT_SECRET_KEY]     = {0x04,0x88,0xAD,0xE4};
         // guarantees the first 2 characters, when base58 encoded, are "zc"
         base58Prefixes[ZCPAYMENT_ADDRRESS] = {0x16,0x9A};
+        // guarantees the first 4 characters, when base58 encoded, are "ZiVK"
+        base58Prefixes[ZCVIEWING_KEY]      = {0xA8,0xAB,0xD3};
         // guarantees the first 2 characters, when base58 encoded, are "SK"
         base58Prefixes[ZCSPENDING_KEY]     = {0xAB,0x36};
+
+        bech32HRPs[SAPLING_PAYMENT_ADDRESS]      = "zs";
+        bech32HRPs[SAPLING_FULL_VIEWING_KEY]     = "zviews";
+        bech32HRPs[SAPLING_INCOMING_VIEWING_KEY] = "zivks";
+        bech32HRPs[SAPLING_EXTENDED_SPEND_KEY]   = "secret-extended-key-main";
 
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 
@@ -133,7 +145,7 @@ public:
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = false;
 
-        checkpointData = (Checkpoints::CCheckpointData) {
+        checkpointData = (CCheckpointData) {
             boost::assign::map_list_of
             ( 0, consensus.hashGenesisBlock)
             ( 30000, uint256S("0x000000005c2ad200c3c7c8e627f67b306659efca1268c9bb014335fdadc0c392"))
@@ -163,6 +175,7 @@ public:
     CTestNetParams() {
         strNetworkID = "test";
         strCurrencyUnits = "ZNT";
+        bip44CoinType = 1;
         consensus.fCoinbaseMustBeProtected = true;
         consensus.nMajorityEnforceBlockUpgrade = 51;
         consensus.nMajorityRejectBlockOutdated = 75;
@@ -217,6 +230,11 @@ public:
         // guarantees the first 2 characters, when base58 encoded, are "ST"
         base58Prefixes[ZCSPENDING_KEY]     = {0xAC,0x08};
 
+        bech32HRPs[SAPLING_PAYMENT_ADDRESS]      = "ztestsapling";
+        bech32HRPs[SAPLING_FULL_VIEWING_KEY]     = "zviewtestsapling";
+        bech32HRPs[SAPLING_INCOMING_VIEWING_KEY] = "zivktestsapling";
+        bech32HRPs[SAPLING_EXTENDED_SPEND_KEY]   = "secret-extended-key-test";
+
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_test, pnSeed6_test + ARRAYLEN(pnSeed6_test));
 
         fMiningRequiresPeers = true;
@@ -225,13 +243,14 @@ public:
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = true;
 
-        checkpointData = (Checkpoints::CCheckpointData) {
+        checkpointData = (CCheckpointData) {
             boost::assign::map_list_of
             (0, consensus.hashGenesisBlock)
             (38000, uint256S("0x001e9a2d2e2892b88e9998cf7b079b41d59dd085423a921fe8386cecc42287b8"))
-            (362210, uint256S("0x00023d5c074a7c2ccf130dac34b2b6f77e3c4466cfed0b72c3f3715157c92949")),
-            1544778326,     // * UNIX timestamp of last checkpoint block
-            742245,         // * total number of transactions between genesis and last checkpoint
+            (362210, uint256S("0x00023d5c074a7c2ccf130dac34b2b6f77e3c4466cfed0b72c3f3715157c92949"))
+			(424889, uint256S("0x000b0dcdf7b1abe6c83bff28b84b6455858b56ffe1cee15cd4d49c8cfa8c714c")),
+			1554355891,     // * UNIX timestamp of last checkpoint block
+            942245,         // * total number of transactions between genesis and last checkpoint
                             //   (the tx=... number in the SetBestChain debug.log lines)
             1180            //   total number of tx / (checkpoint block height / (24 * 24))
         };
@@ -250,6 +269,7 @@ public:
     CRegTestParams() {
         strNetworkID = "regtest";
         strCurrencyUnits = "REG";
+        bip44CoinType = 1;
         consensus.fCoinbaseMustBeProtected = false;
         consensus.nSubsidySlowStartInterval = 0;
         consensus.nSubsidyHalvingInterval = 2000;
@@ -294,13 +314,18 @@ public:
         fMineBlocksOnDemand = true;
         fTestnetToBeDeprecatedFieldRPC = false;
 
-        checkpointData = (Checkpoints::CCheckpointData){
+        checkpointData = (CCheckpointData){
             boost::assign::map_list_of
             ( 0, uint256S("0x0da5ee723b7923feb580518541c6f098206330dbc711a6678922c11f2ccf1abb")),
             0,
             0,
             0
         };
+
+        bech32HRPs[SAPLING_PAYMENT_ADDRESS]      = "zregtestsapling";
+        bech32HRPs[SAPLING_FULL_VIEWING_KEY]     = "zviewregtestsapling";
+        bech32HRPs[SAPLING_INCOMING_VIEWING_KEY] = "zivkregtestsapling";
+        bech32HRPs[SAPLING_EXTENDED_SPEND_KEY]   = "secret-extended-key-regtest";
 
 //  commented out - seems to make no sense but kept around for reference just in case
 //        assert(vCommunityFundAddress.size() <= consensus.GetLastCommunityRewardBlockHeight());
@@ -362,10 +387,10 @@ std::string CChainParams::GetCommunityFundAddressAtHeight(int nHeight , Fork::Co
 CScript CChainParams::GetCommunityFundScriptAtHeight(int nHeight, Fork::CommunityFundType cfType) const {
     assert(nHeight > 0);
 
-    CBitcoinAddress address(GetCommunityFundAddressAtHeight(nHeight, cfType).c_str());
-    assert(address.IsValid());
-    assert(address.IsScript());
-    CScriptID scriptID = get<CScriptID>(address.Get()); // Get() returns a boost variant
+    CTxDestination address = DecodeDestination(GetCommunityFundAddressAtHeight(nHeight, cfType).c_str());
+    assert(IsValidDestination(address));
+    assert(boost::get<CScriptID>(&address) != nullptr);
+    CScriptID scriptID = boost::get<CScriptID>(address); // address is a boost variant
     CScript script = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
     return script;
 }

@@ -16,16 +16,6 @@
 #include <vector>
 
 
-/** 
- * secp256k1:
- */
-const unsigned int PRIVATE_KEY_SIZE            = 279;
-const unsigned int COMPRESSED_PRIVATE_KEY_SIZE = 214;
-/**
- * see www.keylength.com
- * script supports up to 75 for single byte push
- */
-
 /**
  * secure_allocator is defined in allocators.h
  * CPrivKey is a serialized private key, with all parameters included
@@ -36,6 +26,20 @@ typedef std::vector<unsigned char, secure_allocator<unsigned char> > CPrivKey;
 /** An encapsulated private key. */
 class CKey
 {
+public:
+    /**
+     * secp256k1:
+     */
+    static const unsigned int PRIVATE_KEY_SIZE            = 279;
+    static const unsigned int COMPRESSED_PRIVATE_KEY_SIZE = 214;
+    /**
+     * see www.keylength.com
+     * script supports up to 75 for single byte push
+     */
+    static_assert(
+        PRIVATE_KEY_SIZE >= COMPRESSED_PRIVATE_KEY_SIZE,
+        "COMPRESSED_PRIVATE_KEY_SIZE is larger than PRIVATE_KEY_SIZE");
+
 private:
     //! Whether this private key is valid. We check for correctness when modifying the key
     //! data, so fValid should always correspond to the actual state.
@@ -166,11 +170,28 @@ struct CExtKey {
                a.chaincode == b.chaincode && a.key == b.key;
     }
 
-    void Encode(unsigned char code[74]) const;
-    void Decode(const unsigned char code[74]);
+    void Encode(unsigned char code[BIP32_EXTKEY_SIZE]) const;
+    void Decode(const unsigned char code[BIP32_EXTKEY_SIZE]);
     bool Derive(CExtKey& out, unsigned int nChild) const;
     CExtPubKey Neuter() const;
     void SetMaster(const unsigned char* seed, unsigned int nSeedLen);
+    template <typename Stream>
+    void Serialize(Stream& s) const
+    {
+        unsigned int len = BIP32_EXTKEY_SIZE;
+        ::WriteCompactSize(s, len);
+        unsigned char code[BIP32_EXTKEY_SIZE];
+        Encode(code);
+        s.write((const char *)&code[0], len);
+    }
+    template <typename Stream>
+    void Unserialize(Stream& s)
+    {
+        unsigned int len = ::ReadCompactSize(s);
+        unsigned char code[BIP32_EXTKEY_SIZE];
+        s.read((char *)&code[0], len);
+        Decode(code);
+    }
 };
 
 /** Initialize the elliptic curve support. May not be called twice without calling ECC_Stop first. */

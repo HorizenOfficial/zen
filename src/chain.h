@@ -16,7 +16,8 @@
 
 #include <boost/foreach.hpp>
 
-static const int SPROUT_VALUE_VERSION = 2001400;
+static const int SPROUT_VALUE_VERSION = 2001500;
+static const int SAPLING_VALUE_VERSION = 1010100;
 
 struct CDiskBlockPos
 {
@@ -143,10 +144,10 @@ public:
     unsigned int nStatus;
 
     //! The anchor for the tree state up to the start of this block
-    uint256 hashAnchor;
+    uint256 hashSproutAnchor;
 
     //! (memory only) The anchor for the tree state up to the end of this block
-    uint256 hashAnchorEnd;
+    uint256 hashFinalSproutRoot;
 
     //! Change in value held by the Sprout circuit over this block.
     //! Will be boost::none for older blocks on old nodes until a reindex has taken place.
@@ -157,10 +158,19 @@ public:
     //! Will be boost::none if nChainTx is zero.
     boost::optional<CAmount> nChainSproutValue;
 
+    //! Change in value held by the Sapling circuit over this block.
+    //! Not a boost::optional because this was added before Sapling activated, so we can
+    //! rely on the invariant that every block before this was added had nSaplingValue = 0.
+    CAmount nSaplingValue;
+
+    //! (memory only) Total value held by the Sapling circuit up to and including this block.
+    //! Will be boost::none if nChainTx is zero.
+    boost::optional<CAmount> nChainSaplingValue;
+
     //! block header
     int nVersion;
     uint256 hashMerkleRoot;
-    uint256 hashReserved;
+    uint256 hashFinalSaplingRoot;
     unsigned int nTime;
     unsigned int nBits;
     uint256 nNonce;
@@ -183,15 +193,17 @@ public:
         nTx = 0;
         nChainTx = 0;
         nStatus = 0;
-        hashAnchor = uint256();
-        hashAnchorEnd = uint256();
+        hashSproutAnchor = uint256();
+        hashFinalSproutRoot = uint256();
         nSequenceId = 0;
         nSproutValue = boost::none;
         nChainSproutValue = boost::none;
+        nSaplingValue = 0;
+        nChainSaplingValue = boost::none;
 
         nVersion       = 0;
         hashMerkleRoot = uint256();
-        hashReserved   = uint256();
+        hashFinalSaplingRoot   = uint256();
         nTime          = 0;
         nBits          = 0;
         nNonce         = uint256();
@@ -209,7 +221,7 @@ public:
 
         nVersion       = block.nVersion;
         hashMerkleRoot = block.hashMerkleRoot;
-        hashReserved   = block.hashReserved;
+        hashFinalSaplingRoot   = block.hashFinalSaplingRoot;
         nTime          = block.nTime;
         nBits          = block.nBits;
         nNonce         = block.nNonce;
@@ -241,7 +253,7 @@ public:
         if (pprev)
             block.hashPrevBlock = pprev->GetBlockHash();
         block.hashMerkleRoot = hashMerkleRoot;
-        block.hashReserved   = hashReserved;
+        block.hashFinalSaplingRoot   = hashFinalSaplingRoot;
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
@@ -344,13 +356,13 @@ public:
             READWRITE(VARINT(nDataPos));
         if (nStatus & BLOCK_HAVE_UNDO)
             READWRITE(VARINT(nUndoPos));
-        READWRITE(hashAnchor);
+        READWRITE(hashSproutAnchor);
 
         // block header
         READWRITE(this->nVersion);
         READWRITE(hashPrev);
         READWRITE(hashMerkleRoot);
-        READWRITE(hashReserved);
+        READWRITE(hashFinalSaplingRoot);
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
@@ -361,6 +373,9 @@ public:
         if ((nType & SER_DISK) && (nVersion >= SPROUT_VALUE_VERSION)) {
             READWRITE(nSproutValue);
         }
+    	if ((nType & SER_DISK) && (nVersion >= SAPLING_VALUE_VERSION)) {
+            READWRITE(nSaplingValue);
+        }
     }
 
     uint256 GetBlockHash() const
@@ -369,7 +384,7 @@ public:
         block.nVersion        = nVersion;
         block.hashPrevBlock   = hashPrev;
         block.hashMerkleRoot  = hashMerkleRoot;
-        block.hashReserved    = hashReserved;
+        block.hashFinalSaplingRoot    = hashFinalSaplingRoot;
         block.nTime           = nTime;
         block.nBits           = nBits;
         block.nNonce          = nNonce;

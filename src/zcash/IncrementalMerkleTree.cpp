@@ -354,4 +354,10 @@ template class IncrementalMerkleTree<INCREMENTAL_MERKLE_TREE_DEPTH_TESTING, SHA2
 template class IncrementalWitness<INCREMENTAL_MERKLE_TREE_DEPTH, SHA256Compress>;
 template class IncrementalWitness<INCREMENTAL_MERKLE_TREE_DEPTH_TESTING, SHA256Compress>;
 
+template class IncrementalMerkleTree<SAPLING_INCREMENTAL_MERKLE_TREE_DEPTH, PedersenHash>;
+template class IncrementalMerkleTree<INCREMENTAL_MERKLE_TREE_DEPTH_TESTING, PedersenHash>;
+
+template class IncrementalWitness<SAPLING_INCREMENTAL_MERKLE_TREE_DEPTH, PedersenHash>;
+template class IncrementalWitness<INCREMENTAL_MERKLE_TREE_DEPTH_TESTING, PedersenHash>;
+
 } // end namespace `libzcash`

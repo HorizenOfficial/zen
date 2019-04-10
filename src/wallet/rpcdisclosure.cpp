@@ -5,6 +5,7 @@
 #include "base58.h"
 #include "rpc/server.h"
 #include "init.h"
+#include "key_io.h"
 #include "main.h"
 #include "script/script.h"
 #include "script/standard.h"
@@ -253,12 +254,9 @@ UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp)
     }
 
     // Check the payment address is valid
-    PaymentAddress zaddr = pd.payload.zaddr;
-    CZCPaymentAddress address;
-    if (!address.Set(zaddr)) {
-        errs.push_back("Payment disclosure refers to an invalid payment address");
-    } else {
-        o.push_back(Pair("paymentAddress", address.ToString()));
+    SproutPaymentAddress zaddr = pd.payload.zaddr;
+    {
+        o.push_back(Pair("paymentAddress", EncodePaymentAddress(zaddr)));
 
         try {
             // Decrypt the note to get value and memo field
@@ -274,7 +272,7 @@ UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp)
 
             CDataStream ssPlain(SER_NETWORK, PROTOCOL_VERSION);
             ssPlain << plaintext;
-            NotePlaintext npt;
+            SproutNotePlaintext npt;
             ssPlain >> npt;
 
             string memoHexString = HexStr(npt.memo().data(), npt.memo().data() + npt.memo().size());
@@ -283,7 +281,7 @@ UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp)
 
             // Check the blockchain commitment matches decrypted note commitment
             uint256 cm_blockchain =  jsdesc.commitments[pd.payload.n];
-            Note note = npt.note(zaddr);
+            SproutNote note = npt.note(zaddr);
             uint256 cm_decrypted = note.cm();
             bool cm_match = (cm_decrypted == cm_blockchain);
             o.push_back(Pair("commitmentMatch", cm_match));

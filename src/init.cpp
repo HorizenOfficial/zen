@@ -20,12 +20,17 @@
 #include "httpserver.h"
 #include "httprpc.h"
 #include "key.h"
+#ifdef ENABLE_MINING
+#include "key_io.h"
+#endif
 #include "main.h"
 #include "metrics.h"
 #include "miner.h"
 #include "net.h"
 #include "rpc/server.h"
+//#include "rpc/register.h"
 #include "script/standard.h"
+#include "script/sigcache.h"
 #include "scheduler.h"
 #include "txdb.h"
 #include "torcontrol.h"
@@ -44,8 +49,10 @@
 #include <signal.h>
 #endif
 
+#include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string/split.hpp>
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/function.hpp>
@@ -425,6 +432,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-sendfreetransactions", strprintf(_("Send transactions as zero-fee transactions if possible (default: %u)"), 0));
     strUsage += HelpMessageOpt("-spendzeroconfchange", strprintf(_("Spend unconfirmed change when sending transactions (default: %u)"), 1));
     strUsage += HelpMessageOpt("-txconfirmtarget=<n>", strprintf(_("If paytxfee is not set, include enough fee so transactions begin confirmation on average within n blocks (default: %u)"), DEFAULT_TX_CONFIRM_TARGET));
+    strUsage += HelpMessageOpt("-txexpirydelta", strprintf(_("Set the number of blocks after which a transaction that has not been mined will become invalid (min: %u, default: %u)"), TX_EXPIRING_SOON_THRESHOLD + 1, DEFAULT_TX_EXPIRY_DELTA));
     strUsage += HelpMessageOpt("-maxtxfee=<amt>", strprintf(_("Maximum total fees (in %s) to use in a single wallet transaction; setting this too low may abort large transactions (default: %s)"),
         CURRENCY_UNIT, FormatMoney(maxTxFee)));
     strUsage += HelpMessageOpt("-upgradewallet", _("Upgrade wallet to latest format") + " " + _("on startup"));
@@ -475,7 +483,8 @@ std::string HelpMessage(HelpMessageMode mode)
     {
         strUsage += HelpMessageOpt("-limitfreerelay=<n>", strprintf("Continuously rate-limit free transactions to <n>*1000 bytes per minute (default: %u)", 15));
         strUsage += HelpMessageOpt("-relaypriority", strprintf("Require high priority for relaying free or low-fee transactions (default: %u)", 0));
-        strUsage += HelpMessageOpt("-maxsigcachesize=<n>", strprintf("Limit size of signature cache to <n> entries (default: %u)", 50000));
+        strUsage += HelpMessageOpt("-maxsigcachesize=<n>", strprintf("Limit size of signature cache to <n> MiB (default: %u)", DEFAULT_MAX_SIG_CACHE_SIZE));
+        strUsage += HelpMessageOpt("-maxtipage=<n>", strprintf("Maximum tip age in seconds to consider node in initial block download (default: %u)", DEFAULT_MAX_TIP_AGE));
     }
     strUsage += HelpMessageOpt("-minrelaytxfee=<amt>", strprintf(_("Fees (in %s/kB) smaller than this are considered zero fee for relaying (default: %s)"),
         CURRENCY_UNIT, FormatMoney(::minRelayTxFee.GetFeePerK())));
@@ -684,7 +693,9 @@ bool InitSanityCheck(void)
 }
 
 
-static void ZC_LoadParams()
+static void ZC_LoadParams(
+    const CChainParams& chainparams
+)
 {
     struct timeval tv_start, tv_end;
     float elapsed;
@@ -731,11 +742,14 @@ static void ZC_LoadParams()
     gettimeofday(&tv_start, 0);
 
     librustzcash_init_zksnark_params(
-        sapling_spend_str.c_str(),
+        reinterpret_cast<const codeunit*>(sapling_spend_str.c_str()),
+        sapling_spend_str.length(),
         "8270785a1a0d0bc77196f000ee6d221c9c9894f55307bd9357c3f0105d31ca63991ab91324160d8f53e2bbd3c2633a6eb8bdf5205d822e7f3f73edac51b2b70c",
-        sapling_output_str.c_str(),
+        reinterpret_cast<const codeunit*>(sapling_output_str.c_str()),
+        sapling_output_str.length(),
         "657e3d38dbb5cb5e7dd2970e8b03d69b4787dd907285b5a7f0790dcc8072f60bf593b32cc2d1c030e00ff5ae64bf84c5c3beb84ddc841d48264b4a171744d028",
-        sprout_groth16_str.c_str(),
+        reinterpret_cast<const codeunit*>(sprout_groth16_str.c_str()),
+        sprout_groth16_str.length(),
         "e9b238411bd6c0ec4791e9d04245ec350c9c5744f5610dfcce4365d5ca49dfefd5054e371842b3f88fa1b9d7e8e075249b3ebabd167fa8b0f3161292d36c180a"
     );
 
@@ -821,6 +835,8 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // Ignore SIGPIPE, otherwise it will bring the daemon down if the client closes unexpectedly
     signal(SIGPIPE, SIG_IGN);
 #endif
+
+    std::set_new_handler(new_handler_terminate);
 
     // ********************************************************* Step 2: parameter interactions
     const CChainParams& chainparams = Params();
@@ -1045,6 +1061,11 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         }
     }
     nTxConfirmTarget = GetArg("-txconfirmtarget", DEFAULT_TX_CONFIRM_TARGET);
+    expiryDelta = GetArg("-txexpirydelta", DEFAULT_TX_EXPIRY_DELTA);
+    uint32_t minExpiryDelta = TX_EXPIRING_SOON_THRESHOLD + 1;
+    if (expiryDelta < minExpiryDelta) {
+        return InitError(strprintf(_("Invalid value for -expiryDelta='%u' (must be least %u)"), expiryDelta, minExpiryDelta));
+    }
     bSpendZeroConfChange = GetBoolArg("-spendzeroconfchange", true);
     fSendFreeTransactions = GetBoolArg("-sendfreetransactions", false);
 
@@ -1061,8 +1082,8 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
 #ifdef ENABLE_MINING
     if (mapArgs.count("-mineraddress")) {
-        CBitcoinAddress addr;
-        if (!addr.SetString(mapArgs["-mineraddress"])) {
+        CTxDestination addr = DecodeDestination(mapArgs["-mineraddress"]);
+        if (!IsValidDestination(addr)) {
             return InitError(strprintf(
                 _("Invalid address for -mineraddress=<addr>: '%s' (must be a transparent address)"),
                 mapArgs["-mineraddress"]));
@@ -1168,7 +1189,15 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     libsnark::inhibit_profiling_counters = true;
 
     // Initialize Zcash circuit parameters
-    ZC_LoadParams();
+    ZC_LoadParams(chainparams);
+
+    if (GetBoolArg("-savesproutr1cs", false)) {
+        boost::filesystem::path r1cs_path = ZC_GetParamsDir() / "r1cs";
+
+        LogPrintf("Saving Sprout R1CS to %s\n", r1cs_path.string());
+
+        pzcashParams->saveR1CS(r1cs_path.string());
+    }
 
     /* Start the RPC server already.  It will be started in "warmup" mode
      * and not really process calls already (but it will signify connections
@@ -1397,6 +1426,8 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     LogPrintf("* Using %.1fMiB for chain state database\n", nCoinDBCache * (1.0 / 1024 / 1024));
     LogPrintf("* Using %.1fMiB for in-memory UTXO set\n", nCoinCacheUsage * (1.0 / 1024 / 1024));
 
+    bool clearWitnessCaches = false;
+
     bool fLoaded = false;
     while (!fLoaded) {
         bool fReset = fReindex;
@@ -1579,6 +1610,12 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
             pwalletMain->SetMaxVersion(nMaxVersion);
         }
 
+        if (!pwalletMain->HaveHDSeed())
+        {
+            // generate a new HD seed
+            pwalletMain->GenerateNewSeed();
+        }
+
         if (fFirstRun)
         {
             // Create new keyUser and set as default key
@@ -1598,7 +1635,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         RegisterValidationInterface(pwalletMain);
 
         CBlockIndex *pindexRescan = chainActive.Tip();
-        if (GetBoolArg("-rescan", false))
+        if (clearWitnessCaches || GetBoolArg("-rescan", false))
         {
             pwalletMain->ClearNoteWitnessCache();
             pindexRescan = chainActive.Genesis();
@@ -1668,9 +1705,8 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         bool minerAddressInLocalWallet = false;
         if (pwalletMain) {
             // Address has alreday been validated
-            CBitcoinAddress addr(mapArgs["-mineraddress"]);
-            CKeyID keyID;
-            addr.GetKeyID(keyID);
+            CTxDestination addr = DecodeDestination(mapArgs["-mineraddress"]);
+            CKeyID keyID = boost::get<CKeyID>(addr);
             minerAddressInLocalWallet = pwalletMain->HaveKey(keyID);
         }
         if (GetBoolArg("-minetolocalwallet", true) && !minerAddressInLocalWallet) {

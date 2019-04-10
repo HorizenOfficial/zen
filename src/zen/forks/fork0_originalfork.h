@@ -52,6 +52,8 @@ public:
 	 * @brief returns phpgr,groth,... tx version based on block height
 	 */
     inline virtual int getShieldedTxVersion() const { return 2; }
+
+    inline virtual bool isTransactionUpgradeActive(TransactionTypeActive  txType) const { return false; }
 };
 
 }
