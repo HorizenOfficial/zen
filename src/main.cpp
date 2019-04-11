@@ -941,56 +941,50 @@ bool ContextualCheckTransaction(
 	bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
 	bool saplingActive = ForkManager::getInstance().isTransactionUpgradeActive(TransactionTypeActive::SAPLING_TX, nHeight);
 	bool overwinterActive = ForkManager::getInstance().isTransactionUpgradeActive(TransactionTypeActive::OVERWINTER_TX, nHeight);
+	LogPrintf(" isGROTHActive: %b , overwinterActive: %b , saplingActive: %b ,  version: %d \n", isGROTHActive, overwinterActive, saplingActive,
+			tx.nVersion);
 
+    if(!overwinterActive) {
+			if(isGROTHActive) {
+					//verify if transaction is transparent or the actual shielded version
+					if(tx.nVersion == TRANSPARENT_TX_VERSION) {
+						//enforce empty joinsplit for transparent txs
+						if(!tx.vjoinsplit.empty()) {
+							return state.DoS(dosLevel, error("ContextualCheckTransaction(): transparent tx but vjoinsplit not empty"),
+												 REJECT_INVALID, "bad-txns-transparent-jsnotempty");
+						}
+						return true;
+					}
+					if(tx.nVersion != GROTH_TX_VERSION) {
+						LogPrintf("ContextualCheckTransaction: rejecting non GROTH (%d) transaction because GROTH is already active at block height %d\n", tx.nVersion, nHeight);
+						return state.DoS(dosLevel,
+										 error("ContextualCheckTransaction(): groth is already active"),
+										 REJECT_INVALID, "bad-tx-shielded-version-too-low");
+					}
+					return true;
 
-	if(isGROTHActive) {
-		//verify if transaction is transparent or the actual shielded version
-		if(tx.nVersion == TRANSPARENT_TX_VERSION) {
-			//enforce empty joinsplit for transparent txs
-			if(!tx.vjoinsplit.empty()) {
-				return state.DoS(dosLevel, error("ContextualCheckTransaction(): transparent tx but vjoinsplit not empty"),
-									 REJECT_INVALID, "bad-txns-transparent-jsnotempty");
+				} else {
+					if(tx.nVersion < TRANSPARENT_TX_VERSION) {
+						LogPrintf("ContextualCheckTransaction: rejecting non PHGR (%d) transaction because PHGR is still active at block height %d\n", tx.nVersion, nHeight);
+						return state.DoS(0,
+										 error("ContextualCheckTransaction(): phgr is still active"),
+										 REJECT_INVALID, "bad-tx-shielded-version-too-low");
+					}
+					return true;
 			}
-			return true;
-		}
-		if(tx.nVersion != GROTH_TX_VERSION) {
-			LogPrintf("ContextualCheckTransaction: rejecting non GROTH (%d) transaction because GROTH is already active at block height %d\n", tx.nVersion, nHeight);
-			return state.DoS(dosLevel,
-	                         error("ContextualCheckTransaction(): groth is already active"),
-	                         REJECT_INVALID, "bad-tx-shielded-version-too-low");
-		}
-		return true;
-
-	} else {
-		if(tx.nVersion < TRANSPARENT_TX_VERSION) {
-			LogPrintf("ContextualCheckTransaction: rejecting non PHGR (%d) transaction because PHGR is still active at block height %d\n", tx.nVersion, nHeight);
-			return state.DoS(0,
-	                         error("ContextualCheckTransaction(): phgr is still active"),
-	                         REJECT_INVALID, "bad-tx-shielded-version-too-low");
-		}
-		return true;
-	}
+    }
 
    // If Sprout rules apply, reject transactions which are intended for Overwinter and beyond
-    if (overwinterActive &&  (tx.nVersion != OVERWINTER_TX_VERSION || tx.nVersion != SAPLING_TX_VERSION)) {
+    if (!overwinterActive &&  (tx.nVersion == OVERWINTER_TX_VERSION)) {
         return state.DoS(isInitBlockDownload() ? 0 : dosLevel,
                          error("ContextualCheckTransaction(): overwinter is not active yet"),
                          REJECT_INVALID, "tx-overwinter-not-active");
     }
 
-    if (saplingActive) {
+    if (!saplingActive && (tx.nVersion == SAPLING_TX_VERSION)) {
         // Reject transactions with invalid version
-        if (tx.nVersion != SAPLING_TX_VERSION) {
-            return state.DoS(dosLevel, error("ContextualCheckTransaction(): tx sapling version"),
+            return state.DoS(dosLevel, error("ContextualCheckTransaction(): sapling is not active yet"),
                             REJECT_INVALID, "tx-sapling-version");
-        }
-
-    } else if (overwinterActive) {
-    	// Reject transactions with invalid version
-        if (tx.nVersion != OVERWINTER_TX_VERSION) {
-            return state.DoS(dosLevel, error("ContextualCheckTransaction(): tx overwinter version"),
-                            REJECT_INVALID, "tx-overwinter-version");
-        }
     }
 
     // Rules that apply to Overwinter or later:
@@ -1144,29 +1138,14 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
     // Basic checks that don't depend on any context
     // Check transaction version
 
-	bool overwinterActive = ForkManager::getInstance().isTransactionUpgradeActive(TransactionTypeActive::OVERWINTER_TX, chainActive.Height());
-	bool saplingActive = ForkManager::getInstance().isTransactionUpgradeActive(TransactionTypeActive::SAPLING_TX, chainActive.Height());
+	LogPrintf("txVersion: %d \n", tx.nVersion);
 
-	if (!overwinterActive && !saplingActive) {
+	if (tx.nVersion != OVERWINTER_TX_VERSION && tx.nVersion != SAPLING_TX_VERSION) {
 		if ((tx.nVersion < MIN_OLD_TX_VERSION && tx.nVersion != GROTH_TX_VERSION)) {
 			return state.DoS(100, error("CheckTransaction(): version too low"),
 					REJECT_INVALID, "bad-txns-version-too-low");
 		}
-	} else if (overwinterActive) {
-		if ((tx.nVersion < MIN_OLD_TX_VERSION && tx.nVersion != GROTH_TX_VERSION)
-				|| tx.nVersion != OVERWINTER_TX_VERSION) {
-			return state.DoS(100, error("CheckTransaction(): version too low"),
-					REJECT_INVALID, "bad-txns-version-too-low");
-		}
-
-	} else if(saplingActive) {
-		if ((tx.nVersion < MIN_OLD_TX_VERSION && tx.nVersion != GROTH_TX_VERSION)
-				|| tx.nVersion != OVERWINTER_TX_VERSION || tx.nVersion == SAPLING_TX_VERSION) {
-			return state.DoS(100, error("CheckTransaction(): version too low"),
-					REJECT_INVALID, "bad-txns-version-too-low");
-		}
 	}
-
 
     // Transactions can contain empty `vin` and `vout` so long as
     // `vjoinsplit` is non-empty.

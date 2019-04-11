@@ -4,7 +4,7 @@ namespace zen {
 
 SaplingFork::SaplingFork() {
 	setHeightMap( { { CBaseChainParams::Network::MAIN, 665555 }, {
-			CBaseChainParams::Network::REGTEST, 310 }, {
+			CBaseChainParams::Network::REGTEST, 230 }, {
 			CBaseChainParams::Network::TESTNET, 579900 } });
 
 }

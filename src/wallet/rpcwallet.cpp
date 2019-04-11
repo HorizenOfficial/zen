@@ -3845,7 +3845,7 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     unsigned int max_tx_size = MAX_TX_SIZE_AFTER_SAPLING;
 
     if (!ForkManager::getInstance().isTransactionUpgradeActive(TransactionTypeActive::SAPLING_TX, nextBlockHeight)) {
-    	if (ForkManager::getInstance().isTransactionUpgradeActive(TransactionTypeActive::SAPLING_TX, nextBlockHeight)) {
+    	if (ForkManager::getInstance().isTransactionUpgradeActive(TransactionTypeActive::OVERWINTER_TX, nextBlockHeight)) {
             mtx.nVersion = OVERWINTER_TX_VERSION;
         } else {
             mtx.nVersion = shieldedTxVersion;
@@ -3866,16 +3866,10 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
         }
     }
 
-    // Check the number of zaddr outputs does not exceed the limit.
-    //if (zaddrRecipients.size() > Z_SENDMANY_MAX_ZADDR_OUTPUTS(shieldedTxVersion))  {
-    //    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, too many zaddr outputs");
-    //}
-
     // As a sanity check, estimate and verify that the size of the transaction will be valid.
     // Depending on the input notes, the actual tx size may turn out to be larger and perhaps invalid.
-    size_t txsize = 0;
 
-    mtx.nVersion = shieldedTxVersion;
+    size_t txsize = 0;
     for (int i = 0; i < zaddrRecipients.size(); i++) {
         auto address = std::get<0>(zaddrRecipients[i]);
         auto res = DecodePaymentAddress(address);
@@ -3883,11 +3877,8 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
         if (toSapling) {
             mtx.vShieldedOutput.push_back(OutputDescription());
         } else {
-            JSDescription jsdesc;
-            if (mtx.nVersion >= SAPLING_TX_VERSION) {
-                jsdesc.proof = GrothProof();
-            }
-            mtx.vjoinsplit.push_back(jsdesc);
+        	bool useGroth = (mtx.nVersion == GROTH_TX_VERSION || mtx.nVersion == OVERWINTER_TX_VERSION || mtx.nVersion == SAPLING_TX_VERSION);
+            mtx.vjoinsplit.push_back(JSDescription::getNewInstance(useGroth));
         }
     }
     CTransaction tx(mtx);

@@ -62,7 +62,8 @@ AsyncRPCOperation_shieldcoinbase::AsyncRPCOperation_shieldcoinbase(
         UniValue contextInfo) :
         builder_(builder), tx_(contextualTx), inputs_(inputs), fee_(fee), contextinfo_(contextInfo)
 {
-    assert(contextualTx.nVersion >= PHGR_TX_VERSION || contextualTx.nVersion == GROTH_TX_VERSION);  // transaction format version must support vjoinsplit
+    assert(contextualTx.nVersion >= PHGR_TX_VERSION || contextualTx.nVersion == GROTH_TX_VERSION ||
+    		contextualTx.nVersion == OVERWINTER_TX_VERSION || contextualTx.nVersion == SAPLING_TX_VERSION);  // transaction format version must support vjoinsplit
 
     if (fee < 0 || fee > MAX_MONEY) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Fee is out of range");

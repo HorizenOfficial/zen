@@ -4,7 +4,7 @@ namespace zen {
 
 OverWinterFork::OverWinterFork() {
 	setHeightMap( { { CBaseChainParams::Network::MAIN, 655555 }, {
-			CBaseChainParams::Network::REGTEST, 300 }, {
+			CBaseChainParams::Network::REGTEST, 220 }, {
 			CBaseChainParams::Network::TESTNET, 569900 } });
 
 }

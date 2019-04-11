@@ -1007,10 +1007,12 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
     if (tx.nExpiryHeight > 0) {
 		int nextBlockHeight = chainActive.Height() + 1;
 		if (ForkManager::getInstance().isTransactionUpgradeActive(TransactionTypeActive::OVERWINTER_TX, nextBlockHeight)) {
-			throw JSONRPCError(RPC_TRANSACTION_REJECTED,
-				strprintf("tx-expiring-soon: expiryheight is %d but should be at least %d to avoid transaction expiring soon",
-				tx.nExpiryHeight,
-				nextBlockHeight + TX_EXPIRING_SOON_THRESHOLD));
+			 if (nextBlockHeight + TX_EXPIRING_SOON_THRESHOLD > tx.nExpiryHeight) {
+					throw JSONRPCError(RPC_TRANSACTION_REJECTED,
+						strprintf("tx-expiring-soon: expiryheight is %d but should be at least %d to avoid transaction expiring soon",
+						tx.nExpiryHeight,
+						nextBlockHeight + TX_EXPIRING_SOON_THRESHOLD));
+			 }
 		}
     }
 
