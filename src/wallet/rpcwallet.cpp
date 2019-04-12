@@ -3687,7 +3687,8 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 //TODO CHECK
-    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(chainActive.Height() + 1);
+    int nextBlockHeight = chainActive.Height() + 1;
+    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nextBlockHeight);
     LogPrintf("z_sendmany shieldedTxVersion: %d\n", shieldedTxVersion);
 
     if (fHelp || params.size() < 2 || params.size() > 4)
@@ -3839,7 +3840,6 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     }
 
 //TODO CHECK
-    int nextBlockHeight = chainActive.Height() + 1;
     CMutableTransaction mtx;
     mtx.nVersion = SAPLING_TX_VERSION;
     unsigned int max_tx_size = MAX_TX_SIZE_AFTER_SAPLING;

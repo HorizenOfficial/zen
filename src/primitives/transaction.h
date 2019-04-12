@@ -607,7 +607,7 @@ public:
             READWRITE(*const_cast<std::vector<SpendDescription>*>(&vShieldedSpend));
             READWRITE(*const_cast<std::vector<OutputDescription>*>(&vShieldedOutput));
         }
-        if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {
+        if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION || nVersion == OVERWINTER_TX_VERSION) {
             auto os = WithTxVersion(&s, static_cast<int>(this->nVersion));
             ::SerReadWrite(os, *const_cast<std::vector<JSDescription>*>(&vjoinsplit), nType, nVersion, ser_action);
             if (vjoinsplit.size() > 0) {

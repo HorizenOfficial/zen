@@ -6286,11 +6286,11 @@ CMutableTransaction CreateNewContextualCMutableTransaction(const Consensus::Para
 {
     CMutableTransaction mtx;
 //TODO CHECK
-    bool isOverwintered = ForkManager::getInstance().isTransactionUpgradeActive(TransactionTypeActive::OVERWINTER_TX, chainActive.Height());
+    bool isOverwintered = ForkManager::getInstance().isTransactionUpgradeActive(TransactionTypeActive::OVERWINTER_TX, nHeight);
     if (isOverwintered) {
     	mtx.nVersion = OVERWINTER_TX_VERSION;
         mtx.nExpiryHeight = nHeight + expiryDelta;
-        if (ForkManager::getInstance().isTransactionUpgradeActive(TransactionTypeActive::SAPLING_TX, chainActive.Height())) {
+        if (ForkManager::getInstance().isTransactionUpgradeActive(TransactionTypeActive::SAPLING_TX, nHeight)) {
         	mtx.nVersion = SAPLING_TX_VERSION;
         }
     }

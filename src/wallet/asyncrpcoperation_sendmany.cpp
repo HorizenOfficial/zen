@@ -1175,7 +1175,7 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
     uint256 esk; // payment disclosure - secret
 
     JSDescription jsdesc = JSDescription::Randomized(
-			mtx.nVersion == GROTH_TX_VERSION,
+			mtx.nVersion == GROTH_TX_VERSION || mtx.nVersion == OVERWINTER_TX_VERSION || mtx.nVersion == SAPLING_TX_VERSION,
             *pzcashParams,
             joinSplitPubKey_,
             anchor,
