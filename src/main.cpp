@@ -1138,8 +1138,6 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
     // Basic checks that don't depend on any context
     // Check transaction version
 
-	LogPrintf("txVersion: %d \n", tx.nVersion);
-
 	if (tx.nVersion != OVERWINTER_TX_VERSION && tx.nVersion != SAPLING_TX_VERSION) {
 		if ((tx.nVersion < MIN_OLD_TX_VERSION && tx.nVersion != GROTH_TX_VERSION)) {
 			return state.DoS(100, error("CheckTransaction(): version too low"),
