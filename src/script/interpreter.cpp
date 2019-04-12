@@ -1083,7 +1083,7 @@ public:
         ::Serialize(s, txTo.nLockTime, nType, nVersion);
 
         // Serialize vjoinsplit
-        if (txTo.nVersion >= PHGR_TX_VERSION || txTo.nVersion == GROTH_TX_VERSION) {
+        if (txTo.nVersion >= PHGR_TX_VERSION || txTo.nVersion == GROTH_TX_VERSION || txTo.nVersion == OVERWINTER_TX_VERSION || txTo.nVersion == SAPLING_TX_VERSION ) {
             //
             // SIGHASH_* functions will hash portions of
             // the transaction for use in signatures. This
