@@ -177,9 +177,11 @@ CTxDestination GetAccountAddress(std::string strAccount, bool bForceNew=false)
             {
                 /* Check that txout.scriptPubKey starts with scriptPubKey instead of full match,
                  * cause we cant compare OP_CHECKBLOCKATHEIGHT arguments, they are different all the time */
-                auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(),
-                                       scriptPubKey.end());
-                if (res == txout.scriptPubKey.begin())
+                std::vector<unsigned char> v1 = txout.scriptPubKey.ToVector();
+                std::vector<unsigned char> v2 = scriptPubKey.ToVector();
+                auto res = std::search(v1.begin(), v1.end(), v2.begin(), v2.end());
+
+                if (res == v1.begin())
                     bKeyUsed = true;
             }
         }
@@ -668,9 +670,11 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
         {
             /* Check that txout.scriptPubKey starts with scriptPubKey instead of full match,
              * cause we cant compare OP_CHECKBLOCKATHEIGHT arguments, they are different all the time */
-            auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(),
-                                   scriptPubKey.end());
-            if (res == txout.scriptPubKey.begin())
+            std::vector<unsigned char> v1 = txout.scriptPubKey.ToVector();
+            std::vector<unsigned char> v2 = scriptPubKey.ToVector();
+            auto res = std::search(v1.begin(), v1.end(), v2.begin(), v2.end());
+
+            if (res == v1.begin())
                 if (wtx.GetDepthInMainChain() >= nMinDepth)
                     nAmount += txout.nValue;
         }

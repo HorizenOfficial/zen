@@ -429,6 +429,29 @@ public:
         std::swap(_size, other._size);
     }
 
+    size_t fillVector(std::vector<T>& v) const
+    {
+        v.clear();
+        const_iterator b = begin();
+        const_iterator e = end();
+        while (b != e) {
+            v.push_back(*b);
+            ++b;
+        }
+        return v.size();
+    }
+
+    std::vector<T> ToVector() const {
+        const_iterator b = begin();
+        const_iterator e = end();
+        std::vector<T> v(_size);
+        while (b != e) {
+            v.push_back(*b);
+            ++b;
+        }
+        return v;
+    }
+
     ~prevector() {
         clear();
         if (!is_direct()) {

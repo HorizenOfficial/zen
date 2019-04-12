@@ -451,7 +451,14 @@ zend_SOURCES += bitcoind-res.rc
 endif
 
 zend_LDADD = \
-  $(LIBBITCOIN_SERVER) \
+  $(LIBBITCOIN_SERVER) 
+
+# must be before COMMON
+if ENABLE_WALLET
+zend_LDADD += libbitcoin_wallet.a
+endif
+
+zend_LDADD += \
   $(LIBBITCOIN_COMMON) \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_UTIL) \
@@ -465,10 +472,6 @@ zend_LDADD = \
 
 if ENABLE_ZMQ
 zend_LDADD += $(LIBBITCOIN_ZMQ) $(ZMQ_LIBS)
-endif
-
-if ENABLE_WALLET
-zend_LDADD += libbitcoin_wallet.a
 endif
 
 zend_LDADD += \
