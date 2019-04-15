@@ -68,6 +68,7 @@ testScriptsExt=(
 #   'forknotify.py'
 #   'p2p-acceptblock.py'        # requires create_block functionality that is not implemented for zcash blocks yet
     'replay_protection.py'
+    'shield_types_01.py'
 );
 
 if [ "x$ENABLE_ZMQ" = "x1" ]; then

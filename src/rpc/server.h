@@ -291,6 +291,7 @@ extern UniValue z_exportviewingkey(const UniValue& params, bool fHelp); // in rp
 extern UniValue z_importviewingkey(const UniValue& params, bool fHelp); // in rpcdump.cpp
 extern UniValue z_getnewaddress(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue z_listaddresses(const UniValue& params, bool fHelp); // in rpcwallet.cpp
+extern UniValue z_listunspent(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue z_exportwallet(const UniValue& params, bool fHelp); // in rpcdump.cpp
 extern UniValue z_importwallet(const UniValue& params, bool fHelp); // in rpcdump.cpp
 extern UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp); // in rpcwallet.cpp
