@@ -1396,6 +1396,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // DoS level set to 10 to be more forgiving.
     // Check transaction contextually against the set of consensus rules which apply in the next block to be mined.
     if (!ContextualCheckTransaction(tx, state, nextBlockHeight, 10)) {
+        LogPrintf("%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString());
         return error("AcceptToMemoryPool: ContextualCheckTransaction failed");
     }
 
@@ -1486,13 +1487,19 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
         // are the actual inputs available?
         if (!view.HaveInputs(tx))
+        {
+            LogPrintf("%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString());
             return state.Invalid(error("AcceptToMemoryPool: inputs already spent"),
                                  REJECT_DUPLICATE, "bad-txns-inputs-spent");
+        }
 
         // are the joinsplits' and sapling spends' requirements met in tx(valid anchors/nullifiers)?
         if (!view.HaveShieldedRequirements(tx))
+        {
+            LogPrintf("%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString());
             return state.Invalid(error("AcceptToMemoryPool: joinsplit requirements not met"),
                                  REJECT_DUPLICATE, "bad-txns-joinsplit-requirements-not-met");
+        }
 
         // Bring the best block into scope
         view.GetBestBlock();

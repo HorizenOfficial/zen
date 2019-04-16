@@ -17,13 +17,16 @@ import logging
 import pprint
 
 import time
+
+NUMB_OF_NODES = 3
+
 class headers(BitcoinTestFramework):
 
     alert_filename = None
 
     def setup_chain(self, split=False):
         print("Initializing test directory "+self.options.tmpdir)
-        initialize_chain_clean(self.options.tmpdir, 2)
+        initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
         self.alert_filename = os.path.join(self.options.tmpdir, "alert.txt")
         with open(self.alert_filename, 'w'):
             pass  # Just open then close to create zero-length file
@@ -31,13 +34,14 @@ class headers(BitcoinTestFramework):
     def setup_network(self, split=False):
         self.nodes = []
 
-        self.nodes = start_nodes(2, self.options.tmpdir)
+        self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir)
 
         if not split:
-            connect_nodes_bi(self.nodes, 0, 1)
-            sync_blocks(self.nodes[0:2])
-            sync_mempools(self.nodes[0:2])
+            connect_nodes_bi(self.nodes, 1, 2)
+            sync_blocks(self.nodes[1:NUMB_OF_NODES])
+            sync_mempools(self.nodes[1:NUMB_OF_NODES])
 
+        connect_nodes_bi(self.nodes, 0, 1)
         self.is_network_split = split
         self.sync_all()
 
@@ -52,62 +56,44 @@ class headers(BitcoinTestFramework):
     def split_network(self):
         # Split the network of two nodes into nodes 0 and 1.
         assert not self.is_network_split
-        self.disconnect_nodes(self.nodes[0], 1)
-        self.disconnect_nodes(self.nodes[1], 0)
+        self.disconnect_nodes(self.nodes[1], 2)
+        self.disconnect_nodes(self.nodes[2], 1)
         self.is_network_split = True
 
 
     def join_network(self):
         #Join the (previously split) network halves together.
         assert self.is_network_split
-        connect_nodes_bi(self.nodes, 0, 1)
-        connect_nodes_bi(self.nodes, 1, 0)
+        connect_nodes_bi(self.nodes, 1, 2)
+        connect_nodes_bi(self.nodes, 2, 1)
         self.sync_all()
         self.is_network_split = False
 
-    def dump_ordered_tips(self, tip_list):
-        sorted_x = sorted(tip_list, key=lambda k: k['status'])
-        c = 0
-        for y in sorted_x:
-            if (c == 0):
-                print y 
-            else:
-                print " ",y 
-            c = 1
+    def dump_fmt(self, node_s, node_r, addr_s, addr_r, amount):
+        print "-------------------------------------------------------"
+        print "    Node%d [%s]" % (node_s, addr_s)
+        print "      |"
+        print "     %f" % amount
+        print "      |"
+        print "      V"
+        print "    Node%d [%s]" % (node_r, addr_r)
 
-    def qqq(self, blocks, SHIELD_TYPE):
+    def do_transactions(self, blocks, SHIELD_TYPE):
 
-        arr = []
-        arr = self.nodes[0].listaddressgroupings() 
-        t_addr_g    = (arr[0][0][0])                                                                                            
-#        pprint.pprint(arr)
-        print
         height = self.nodes[0].getblockcount()
-        print "\nChain height: ", height
-        print "==========================================================\n"
+        print
+        print "===================="
+        print "  Chain height: ", height
+        print "===================="
+        print
 
-        print "Testing T to T..."
-        print "==================="
-        t_addr = self.nodes[1].getnewaddress()
-        print "...sending 1.0 coins from node0 to node1...\n"
-        tx1 = self.nodes[0].sendtoaddress(t_addr, 1.0)
-        res = self.nodes[0].getrawtransaction(tx1, 1)
-        ver = res['version']
-        print "  txid: ", tx1
-        print "  Version: ", ver
-
-        print "\nNode0 generating one block...\n"
-        blocks.extend(self.nodes[0].generate(1))
-        self.sync_all()
-
-        print "Testing T to Z..."
-        print "==================="
-        z_addr = self.nodes[1].z_getnewaddress(SHIELD_TYPE)
-
-        op_res = self.nodes[0].z_shieldcoinbase("*", z_addr, 0.0001, 1)
+        z_addr_1 = self.nodes[1].z_getnewaddress(SHIELD_TYPE)
+        op_res = self.nodes[0].z_shieldcoinbase("*", z_addr_1, 0.0001, 1)
         opid = op_res['opid']
         amount = op_res['shieldingValue']
-        print "...shielding %s coin base from node0 to node1" % amount
+        print "Testing shield coin base T to Z(%s)" % (SHIELD_TYPE)
+        self.dump_fmt(0, 1, "*", z_addr_1, amount)
+#        print "    [%s] Node0 --- %f ---> Node1 [%s]" % ("\"*\"", Decimal(amount), z_addr_1)
         arr = []
         arr.append(opid)
 
@@ -115,30 +101,81 @@ class headers(BitcoinTestFramework):
             res = self.nodes[0].z_getoperationresult(arr) 
             if (len(res) > 0):
                 break
-            time.sleep(1)
+            time.sleep(3)
 
-        print "shield op completed after ", res[0]['execution_secs'], " secs"
+        print
+        print "    ...op completed after ", res[0]['execution_secs'], " secs"
+        print
+        tx_id = res[0]['result']['txid']
+        res = self.nodes[0].getrawtransaction(tx_id, 1)
+        ver = res['version']
+        print "    txid: ", tx_id
+        print "    Version: ", ver
         print
 
+        blocks.extend(self.nodes[0].generate(1))
+        self.sync_all()
+
+        t_addr = self.nodes[1].getnewaddress()
+        amount = 1.0
+        print "Testing T to T"
+        self.dump_fmt(0, 1, "*", t_addr, amount)
+#        print "    [%s] Node0 --- %f ---> Node1 [%s] " % ("\"*\"", Decimal(amount), t_addr)
+        tx1 = self.nodes[0].sendtoaddress(t_addr, 1.0)
+        res = self.nodes[0].getrawtransaction(tx1, 1)
+        ver = res['version']
+        print
+        print "    txid: ", tx1
+        print "    Version: ", ver
+        print
+#        pprint.pprint(res)
+
+        blocks.extend(self.nodes[0].generate(1))
+        self.sync_all()
+
+        amount = 0.5
+        z_addr_0 = self.nodes[0].z_getnewaddress(SHIELD_TYPE)
+        recipients = []
+        recipients.append({"address":z_addr_0, "amount": Decimal(amount)})
+        print
+        print "Testing T to Z(%s)" % (SHIELD_TYPE)
+        self.dump_fmt(1, 0, t_addr, z_addr_0, amount)
+#        print "    [%s] Node1 --- %f ---> Node0 [%s] " % (t_addr, Decimal(amount), z_addr_0)
+        opid = self.nodes[1].z_sendmany(t_addr, recipients)
+
+        arr = []
+        arr.append(opid)
+
+        while True:
+            res = self.nodes[1].z_getoperationresult(arr) 
+            if (len(res) > 0):
+                break
+            time.sleep(5)
+
+        #print res
+        print
+        print "    ...op completed after ", res[0]['execution_secs'], " secs"
+        print
         tx_id = res[0]['result']['txid']
 
         res = self.nodes[0].getrawtransaction(tx_id, 1)
         ver = res['version']
-        print "  txid: ", tx_id
-        print "  Version: ", ver
+        print "    txid: ", tx_id
+        print "    Version: ", ver
+        print
 
-        print "\nNode0 generating one block...\n"
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        print "Testing Z to T..."
-        print "==================="
         t_addr = self.nodes[0].getnewaddress()
-
+        amount = 1.0
         recipients = []
-        recipients.append({"address":t_addr, "amount": Decimal(1.0)})
-        print "...sending 1.0 shielded coins from node1 to transparent node0 %s " % t_addr
-        opid = self.nodes[1].z_sendmany(z_addr, recipients)
+        recipients.append({"address":t_addr, "amount": Decimal(amount)})
+        print
+        print "Testing Z(%s) to T" % (SHIELD_TYPE)
+        self.dump_fmt(1, 0, z_addr_1, t_addr, amount)
+#        print "    [%s] Node1 --- %f ---> Node0 [%s] " % (z_addr_1, Decimal(amount), t_addr)
+        opid = self.nodes[1].z_sendmany(z_addr_1, recipients)
 
         arr = []
         arr.append(opid)
@@ -150,28 +187,28 @@ class headers(BitcoinTestFramework):
             time.sleep(5)
 
         #print res
-        print "shield op completed after ", res[0]['execution_secs'], " secs"
+        print
+        print "    ...op completed after ", res[0]['execution_secs'], " secs"
         print
         tx_id = res[0]['result']['txid']
 
         res = self.nodes[0].getrawtransaction(tx_id, 1)
         ver = res['version']
-        print "  txid: ", tx_id
-        print "  Version: ", ver
+        print "    txid: ", tx_id
+        print "    Version: ", ver
         print
 
-        print "\nNode0 generating one block...\n"
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        print "Testing Z to Z..."
-        print "==================="
-        z_addr2 = self.nodes[0].z_getnewaddress(SHIELD_TYPE)
-
+        amount = 3.0
         recipients = []
-        recipients.append({"address":z_addr2, "amount": Decimal(1.0)})
-        print "...sending 1.0 shielded coins from node1 to shielded addr node0 %s " % t_addr
-        opid = self.nodes[1].z_sendmany(z_addr, recipients)
+        recipients.append({"address":z_addr_0, "amount": Decimal(amount)})
+        print
+        print "Testing Z(%s) to Z(%s)" % (SHIELD_TYPE, SHIELD_TYPE)
+        self.dump_fmt(1, 0, z_addr_1, z_addr_0, amount)
+#        print "    [%s] Node1 --- %f ---> Node0 [%s] " % (z_addr_1, Decimal(amount), z_addr_0)
+        opid = self.nodes[1].z_sendmany(z_addr_1, recipients)
 
         arr = []
         arr.append(opid)
@@ -183,20 +220,60 @@ class headers(BitcoinTestFramework):
             time.sleep(5)
 
         #print res
-        print "shield op completed after ", res[0]['execution_secs'], " secs"
+        print
+        print "    ...op completed after ", res[0]['execution_secs'], " secs"
         print
         tx_id = res[0]['result']['txid']
 
         res = self.nodes[0].getrawtransaction(tx_id, 1)
         ver = res['version']
-        print "  txid: ", tx_id
-        print "  Version: ", ver
+        print "    txid: ", tx_id
+        print "    Version: ", ver
+        print
+        #pprint.pprint(res)
+        print
+
+        blocks.extend(self.nodes[0].generate(1))
+        self.sync_all()
 
         print "\nNode0 balance:"
-        print self.nodes[0].z_gettotalbalance()
+        pprint.pprint(self.nodes[0].z_gettotalbalance())
         
         print "\nNode1 balance:"
-        print self.nodes[1].z_gettotalbalance()
+        pprint.pprint(self.nodes[1].z_gettotalbalance())
+        
+    def do_bad_transactions(self, blocks):
+
+        height = self.nodes[0].getblockcount()
+        print
+        print "===================="
+        print "  Chain height: ", height
+        print "===================="
+        print
+
+        amount = 3.0
+        s_addr_1 = self.nodes[1].z_getnewaddress("sapling")
+        z_addr_0 = self.nodes[0].z_getnewaddress("sprout")
+        recipients = []
+        recipients.append({"address":z_addr_0, "amount": Decimal(amount)})
+        print
+        print "Testing Z(%s) to Z(%s)" % ("sapling", "sprout")
+        self.dump_fmt(1, 0, s_addr_1, z_addr_0, amount)
+#        print "    [%s] Node1 --- %f ---> Node0 [%s] " % (s_addr_1, Decimal(amount), z_addr_0)
+        try:
+            opid = self.nodes[1].z_sendmany(s_addr_1, recipients)
+        except JSONRPCException,e:
+            errorString = e.error['message']
+            print "============================================================================================="
+            print "Failed:\n\t", errorString
+            print "============================================================================================="
+            print
+
+        print "\nNode0 balance:"
+        pprint.pprint(self.nodes[0].z_gettotalbalance())
+        
+        print "\nNode1 balance:"
+        pprint.pprint(self.nodes[1].z_gettotalbalance())
         
 
     def run_test(self):
@@ -211,26 +288,45 @@ class headers(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(101))
         self.sync_all()
 
-        self.qqq(blocks, "sprout")
+        print("\n\nSplit network")
+        self.split_network()
+        print("The network is split")
 
-        print "\nNode0 generates 100 blocks..."
-        blocks.extend(self.nodes[0].generate(100))
-        self.sync_all()
+        try:
+            self.do_transactions(blocks, "sprout")
+ 
+            print "\nNode0 generates 96 blocks..."
+            blocks.extend(self.nodes[0].generate(96))
+            self.sync_all()
+ 
+            self.do_transactions(blocks, "sprout")
+ 
+            print "\nNode0 generates 16 blocks..."
+            blocks.extend(self.nodes[0].generate(16))
+            self.sync_all()
+ 
+            self.do_transactions(blocks, "sprout")
+ 
+            print "\nNode0 generates 6 blocks..."
+            blocks.extend(self.nodes[0].generate(6))
+            self.sync_all()
+ 
+            self.do_transactions(blocks, "sprout")
+            self.do_transactions(blocks, "sapling")
 
-        self.qqq(blocks, "sprout")
+        except JSONRPCException,e:
+            errorString = e.error['message']
+            print "============================================================================================="
+            print "Failed:\n\t", errorString
+            print "============================================================================================="
+            print
 
-        print "\nNode0 generates 20 blocks..."
-        blocks.extend(self.nodes[0].generate(20))
-        self.sync_all()
+        self.do_bad_transactions(blocks)
 
-        self.qqq(blocks, "sprout")
-
-        print "\nNode0 generates 10 blocks..."
-        blocks.extend(self.nodes[0].generate(10))
-        self.sync_all()
-
-        self.qqq(blocks, "sapling")
-
+        print("\n\nJoin network")
+        self.join_network()
+        time.sleep(5)
+        print("\nNetwork joined") 
 
 
 if __name__ == '__main__':
