@@ -184,8 +184,16 @@ class WalletTest (BitcoinTestFramework):
         #3. sign and send
         #4. check if recipient (node0) can list the zero value tx
         usp = self.nodes[1].listunspent()
+
+        # position 0 might randomly contain an amount different than the wanted one, this is
+        # because coinbase has changed across forks (also in regtest)
+        # That would lead to failure in checks when calling sendrawtransaction  
+        newbal = usp[0]['amount']
+#        print newbal, "\n"
+
         inputs = [{"txid":usp[0]['txid'], "vout":usp[0]['vout']}]
-        outputs = {self.nodes[1].getnewaddress(): 11.4365, self.nodes[0].getnewaddress(): 11.11}
+#        outputs = {self.nodes[1].getnewaddress(): 11.4365, self.nodes[0].getnewaddress(): 11.11}
+        outputs = {self.nodes[1].getnewaddress(): newbal, self.nodes[0].getnewaddress(): 11.11}
 
         rawTx = self.nodes[1].createrawtransaction(inputs, outputs).replace("c0833842", "00000000") #replace 11.11 with 0.0 (int32)
         decRawTx = self.nodes[1].decoderawtransaction(rawTx)

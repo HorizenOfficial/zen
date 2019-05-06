@@ -44,11 +44,16 @@ def hex_str_to_bytes(hex_str):
 def str_to_b64str(string):
     return b64encode(string.encode('utf-8')).decode('ascii')
 
-def sync_blocks(rpc_connections, wait=1, p=False):
+def sync_blocks(rpc_connections, wait=1, p=False, limit_loop=0):
     """
-    Wait until everybody has the same block count
+    Wait until everybody has the same block count or a limit has been exceeded
     """
+    loop_num = 0
     while True:
+        if limit_loop > 0:
+            loop_num += 1
+            if loop_num > limit_loop:
+                break
         counts = [ x.getblockcount() for x in rpc_connections ]
         if p :
             print counts
@@ -73,6 +78,12 @@ def sync_mempools(rpc_connections, wait=1):
 
 bitcoind_processes = {}
 
+'''
+Known debug trace categories:
+    "addrman", "alert", "amqp", "bench", "db", "estimatefee", "forks", "forks_2", "http", 
+    "mempool", "net", "partitioncheck", "paymentdisclosure", "pow", "prune", "py",
+    "reindex", "rpc", "selectcoin", "status","tor", "zmq", 
+'''
 def initialize_datadir(dirname, n):
     datadir = os.path.join(dirname, "node"+str(n))
     if not os.path.isdir(datadir):
@@ -85,6 +96,8 @@ def initialize_datadir(dirname, n):
         f.write("port="+str(p2p_port(n))+"\n");
         f.write("rpcport="+str(rpc_port(n))+"\n");
         f.write("listenonion=0\n");
+#        f.write("debug=net\n");
+#        f.write("logtimemicros=1\n");
     return datadir
 
 def initialize_chain(test_dir):
@@ -246,6 +259,7 @@ def connect_nodes(from_connection, node_num):
     # with transaction relaying
     while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
         time.sleep(0.1)
+    #print "Connected node%d %s" % (node_num, ip_port)
 
 def connect_nodes_bi(nodes, a, b):
     connect_nodes(nodes[a], b)

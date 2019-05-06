@@ -505,7 +505,16 @@ void CNode::CloseSocketDisconnect()
         
         if (hSocket != INVALID_SOCKET)
         {
-            LogPrint("net", "disconnecting peer=%d\n", id);
+            try
+            {
+                LogPrint("net", "disconnecting peer=%d\n", id);
+            }
+            catch(std::bad_alloc&)
+            {
+                // when the node is shutting down, the call above might use invalid memory resulting in a 
+                // std::bad_alloc exception when instantiating internal objs for handling log category
+                LogPrintf("(node is probably shutting down) disconnecting peer=%d\n", id);
+            }
         
             if (ssl)
             {

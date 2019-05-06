@@ -72,6 +72,10 @@ CWalletTx GetValidReceive(const libzcash::SpendingKey& sk, CAmount value, bool r
     return GetValidReceive(*params, sk, value, randomInputs);
 }
 
+CWalletTx GetInvalidCommitmentReceive(const libzcash::SpendingKey& sk, CAmount value, bool randomInputs, int32_t version = 2) {
+    return GetInvalidCommitmentReceive(*params, sk, value, randomInputs, version);
+}
+
 libzcash::Note GetNote(const libzcash::SpendingKey& sk,
                        const CTransaction& tx, size_t js, size_t n) {
     return GetNote(*params, sk, tx, js, n);
@@ -323,7 +327,28 @@ TEST(wallet_tests, set_invalid_note_addrs_in_cwallettx) {
     EXPECT_THROW(wtx.SetNoteData(noteData), std::logic_error);
 }
 
-TEST(wallet_tests, GetNoteNullifier) {
+TEST(WalletTests, CheckNoteCommitmentAgainstNotePlaintext) {
+    CWallet wallet;
+
+    auto sk = libzcash::SpendingKey::random();
+    auto address = sk.address();
+    auto dec = ZCNoteDecryption(sk.receiving_key());
+
+    auto wtx = GetInvalidCommitmentReceive(sk, 10, true);
+    auto note = GetNote(sk, wtx, 0, 1);
+    auto nullifier = note.nullifier(sk);
+
+    auto hSig = wtx.vjoinsplit[0].h_sig(
+        *params, wtx.joinSplitPubKey);
+
+    ASSERT_THROW(wallet.GetNoteNullifier(
+        wtx.vjoinsplit[0],
+        address,
+        dec,
+        hSig, 1), libzcash::note_decryption_failed);
+}
+
+TEST(WalletTests, GetNoteNullifier) {
     CWallet wallet;
 
     auto sk = libzcash::SpendingKey::random();
