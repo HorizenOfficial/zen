@@ -6,7 +6,7 @@
 
 #include <array>
 
-CMutableTransaction GetValidReceive(ZCJoinSplit& params,
+CMutableTransaction GetValidReceiveTransaction(ZCJoinSplit& params,
                           const libzcash::SproutSpendingKey& sk, CAmount value,
                           bool randomInputs,
                           int32_t version /* = 2 */) {

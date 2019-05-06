@@ -109,10 +109,10 @@ void UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, 
 void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTimePast, const CCoinsViewCache& view,
                                vector<TxPriority>& vecPriority, list<COrphan>& vOrphan, map<uint256, vector<COrphan*> >& mapDependers)
 {
-    for (map<uint256, CTxMemPoolEntry>::iterator mi = mempool.mapTx.begin();
+    for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin();
          mi != mempool.mapTx.end(); ++mi)
     {
-        const CTransaction& tx = mi->second.GetTx();
+        const CTransaction& tx = mi->GetTx();
 
         int64_t nLockTimeCutoff = (STANDARD_LOCKTIME_VERIFY_FLAGS & LOCKTIME_MEDIAN_TIME_PAST)
                 ? nMedianTimePast
@@ -142,14 +142,14 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
                 }
                 mapDependers[txin.prevout.hash].push_back(porphan);
                 porphan->setDependsOn.insert(txin.prevout.hash);
-                nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().vout[txin.prevout.n].nValue;
+                nTotalIn += mempool.mapTx.find(txin.prevout.hash)->GetTx().vout[txin.prevout.n].nValue;
             }
         }
 
         if (!porphan)
         {
-            dPriority = mi->second.GetPriority(nHeight);
-            nFee = mi->second.GetFee();
+            dPriority = mi->GetPriority(nHeight);
+            nFee = mi->GetFee();
             mempool.ApplyDeltas(hash, dPriority, nFee);
             nTotalIn = tx.GetValueOut() - nFee;
         }
@@ -183,7 +183,7 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
 
                 dPriority += (double)nValueIn * nConf;
             }
-            nTotalIn += tx.GetJoinSplitValueIn();
+            nTotalIn += tx.GetShieldedValueIn();
 
             if (fMissingInputs) continue;
 
@@ -201,17 +201,17 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
             porphan->feeRate = feeRate;
         }
         else
-            vecPriority.push_back(TxPriority(dPriority, feeRate, &mi->second.GetTx()));
+            vecPriority.push_back(TxPriority(dPriority, feeRate, &mi->GetTx()));
     }
 }
 
 void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedianTimePast, const CCoinsViewCache& view,
                                vector<TxPriority>& vecPriority, list<COrphan>& vOrphan, map<uint256, vector<COrphan*> >& mapDependers)
 {
-    for (map<uint256, CTxMemPoolEntry>::iterator mi = mempool.mapTx.begin();
+    for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin();
          mi != mempool.mapTx.end(); ++mi)
     {
-        const CTransaction& tx = mi->second.GetTx();
+        const CTransaction& tx = mi->GetTx();
 
         int64_t nLockTimeCutoff = (STANDARD_LOCKTIME_VERIFY_FLAGS & LOCKTIME_MEDIAN_TIME_PAST)
                 ? nMedianTimePast
@@ -251,7 +251,7 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
                 }
                 mapDependers[txin.prevout.hash].push_back(porphan);
                 porphan->setDependsOn.insert(txin.prevout.hash);
-                nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().vout[txin.prevout.n].nValue;
+                nTotalIn += mempool.mapTx.find(txin.prevout.hash)->GetTx().vout[txin.prevout.n].nValue;
                 continue;
             }
             const CCoins* coins = view.AccessCoins(txin.prevout.hash);
@@ -264,7 +264,7 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
 
             dPriority += (double)nValueIn * nConf;
         }
-        nTotalIn += tx.GetJoinSplitValueIn();
+        nTotalIn += tx.GetShieldedValueIn();
 
         if (fMissingInputs) continue;
 
@@ -283,7 +283,7 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
             porphan->feeRate = feeRate;
         }
         else
-            vecPriority.push_back(TxPriority(dPriority, feeRate, &mi->second.GetTx()));
+            vecPriority.push_back(TxPriority(dPriority, feeRate, &mi->GetTx()));
     }
 }
 
