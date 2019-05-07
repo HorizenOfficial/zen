@@ -4,9 +4,11 @@
 
 #include "base58.h"
 #include "chainparams.h"
+#include "key_io.h"
 #include "main.h"
 #include "primitives/block.h"
 #include "random.h"
+#include "transaction_builder.h"
 #include "utiltest.h"
 #include "wallet/wallet.h"
 #include "zcash/JoinSplit.hpp"
@@ -22,6 +24,8 @@ extern ZCJoinSplit* params;
 ACTION(ThrowLogicError) {
     throw std::logic_error("Boom");
 }
+
+static const std::string tSecretRegtest = "cND2ZvtabDbJ1gucx9GWH6XT9kgTAqfb6cotPt5Q5CyxVDhid2EN";
 
 class MockWalletDB {
 public:
@@ -51,8 +55,9 @@ public:
 
     void IncrementNoteWitnesses(const CBlockIndex* pindex,
                                 const CBlock* pblock,
-                                ZCIncrementalMerkleTree& tree) {
-        CWallet::IncrementNoteWitnesses(pindex, pblock, tree);
+                                SproutMerkleTree& sproutTree,
+                                SaplingMerkleTree& saplingTree) {
+        CWallet::IncrementNoteWitnesses(pindex, pblock, sproutTree, saplingTree);
     }
     void DecrementNoteWitnesses(const CBlockIndex* pindex) {
         CWallet::DecrementNoteWitnesses(pindex);
@@ -68,70 +73,92 @@ public:
     }
 };
 
-CWalletTx GetValidReceive(const libzcash::SpendingKey& sk, CAmount value, bool randomInputs) {
-    return GetValidReceive(*params, sk, value, randomInputs);
+CWalletTx GetValidReceive(const libzcash::SproutSpendingKey& sk, CAmount value, bool randomInputs, int32_t version = 2) {
+    return GetValidReceive(*params, sk, value, randomInputs, version);
 }
 
-CWalletTx GetInvalidCommitmentReceive(const libzcash::SpendingKey& sk, CAmount value, bool randomInputs, int32_t version = 2) {
-    return GetInvalidCommitmentReceive(*params, sk, value, randomInputs, version);
-}
-
-libzcash::Note GetNote(const libzcash::SpendingKey& sk,
+libzcash::SproutNote GetNote(const libzcash::SproutSpendingKey& sk,
                        const CTransaction& tx, size_t js, size_t n) {
     return GetNote(*params, sk, tx, js, n);
 }
 
-CWalletTx GetValidSpend(const libzcash::SpendingKey& sk,
-                        const libzcash::Note& note, CAmount value) {
+CWalletTx GetValidSpend(const libzcash::SproutSpendingKey& sk,
+                        const libzcash::SproutNote& note, CAmount value) {
     return GetValidSpend(*params, sk, note, value);
 }
 
-JSOutPoint CreateValidBlock(TestWallet& wallet,
-                            const libzcash::SpendingKey& sk,
+std::vector<SaplingOutPoint> SetSaplingNoteData(CWalletTx& wtx) {
+    mapSaplingNoteData_t saplingNoteData;
+    SaplingOutPoint saplingOutPoint = {wtx.GetHash(), 0};
+    SaplingNoteData saplingNd;
+    saplingNoteData[saplingOutPoint] = saplingNd;
+    wtx.SetSaplingNoteData(saplingNoteData);
+    std::vector<SaplingOutPoint> saplingNotes {saplingOutPoint};
+    return saplingNotes;
+}
+
+std::pair<JSOutPoint, SaplingOutPoint> CreateValidBlock(TestWallet& wallet,
+                            const libzcash::SproutSpendingKey& sk,
                             const CBlockIndex& index,
                             CBlock& block,
-                            ZCIncrementalMerkleTree& tree) {
-    auto wtx = GetValidReceive(sk, 50, true);
+                            SproutMerkleTree& sproutTree,
+                            SaplingMerkleTree& saplingTree) {
+    auto wtx = GetValidReceive(sk, 50, true, 4);
     auto note = GetNote(sk, wtx, 0, 1);
     auto nullifier = note.nullifier(sk);
 
-    mapNoteData_t noteData;
+    mapSproutNoteData_t noteData;
     JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
-    CNoteData nd {sk.address(), nullifier};
+    SproutNoteData nd {sk.address(), nullifier};
     noteData[jsoutpt] = nd;
-    wtx.SetNoteData(noteData);
+    wtx.SetSproutNoteData(noteData);
+    auto saplingNotes = SetSaplingNoteData(wtx);
     wallet.AddToWallet(wtx, true, NULL);
 
     block.vtx.push_back(wtx);
-    wallet.IncrementNoteWitnesses(&index, &block, tree);
+    wallet.IncrementNoteWitnesses(&index, &block, sproutTree, saplingTree);
 
-    return jsoutpt;
+    return std::make_pair(jsoutpt, saplingNotes[0]);
 }
 
-TEST(wallet_tests, setup_datadir_location_run_as_first_test) {
+std::pair<uint256, uint256> GetWitnessesAndAnchors(TestWallet& wallet,
+                                std::vector<JSOutPoint>& sproutNotes,
+                                std::vector<SaplingOutPoint>& saplingNotes,
+                                std::vector<boost::optional<SproutWitness>>& sproutWitnesses,
+                                std::vector<boost::optional<SaplingWitness>>& saplingWitnesses) {
+    sproutWitnesses.clear();
+    saplingWitnesses.clear();
+    uint256 sproutAnchor;
+    uint256 saplingAnchor;
+    wallet.GetSproutNoteWitnesses(sproutNotes, sproutWitnesses, sproutAnchor);
+    wallet.GetSaplingNoteWitnesses(saplingNotes, saplingWitnesses, saplingAnchor);
+    return std::make_pair(sproutAnchor, saplingAnchor);
+}
+
+TEST(WalletTests, SetupDatadirLocationRunAsFirstTest) {
     // Get temporary and unique path for file.
     boost::filesystem::path pathTemp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
     boost::filesystem::create_directories(pathTemp);
     mapArgs["-datadir"] = pathTemp.string();
 }
 
-TEST(wallet_tests, note_data_serialisation) {
-    auto sk = libzcash::SpendingKey::random();
+TEST(WalletTests, SproutNoteDataSerialisation) {
+    auto sk = libzcash::SproutSpendingKey::random();
     auto wtx = GetValidReceive(sk, 10, true);
     auto note = GetNote(sk, wtx, 0, 1);
     auto nullifier = note.nullifier(sk);
 
-    mapNoteData_t noteData;
+    mapSproutNoteData_t noteData;
     JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
-    CNoteData nd {sk.address(), nullifier};
-    ZCIncrementalMerkleTree tree;
+    SproutNoteData nd {sk.address(), nullifier};
+    SproutMerkleTree tree;
     nd.witnesses.push_front(tree.witness());
     noteData[jsoutpt] = nd;
 
     CDataStream ss(SER_DISK, CLIENT_VERSION);
     ss << noteData;
 
-    mapNoteData_t noteData2;
+    mapSproutNoteData_t noteData2;
     ss >> noteData2;
 
     EXPECT_EQ(noteData, noteData2);
@@ -139,33 +166,36 @@ TEST(wallet_tests, note_data_serialisation) {
 }
 
 
-TEST(wallet_tests, find_unspent_notes) {
+TEST(WalletTests, FindUnspentSproutNotes) {
     SelectParams(CBaseChainParams::TESTNET);
     CWallet wallet;
-    auto sk = libzcash::SpendingKey::random();
-    wallet.AddSpendingKey(sk);
+    auto sk = libzcash::SproutSpendingKey::random();
+    wallet.AddSproutSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
     auto note = GetNote(sk, wtx, 0, 1);
     auto nullifier = note.nullifier(sk);
 
-    mapNoteData_t noteData;
+    mapSproutNoteData_t noteData;
     JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
-    CNoteData nd {sk.address(), nullifier};
+    SproutNoteData nd {sk.address(), nullifier};
     noteData[jsoutpt] = nd;
 
-    wtx.SetNoteData(noteData);
+    wtx.SetSproutNoteData(noteData);
     wallet.AddToWallet(wtx, true, NULL);
-    EXPECT_FALSE(wallet.IsSpent(nullifier));
+    EXPECT_FALSE(wallet.IsSproutSpent(nullifier));
 
     // We currently have an unspent and unconfirmed note in the wallet (depth of -1)
-    std::vector<CNotePlaintextEntry> entries;
-    wallet.GetFilteredNotes(entries, "", 0);
-    EXPECT_EQ(0, entries.size());
-    entries.clear();
-    wallet.GetFilteredNotes(entries, "", -1);
-    EXPECT_EQ(1, entries.size());
-    entries.clear();
+    std::vector<CSproutNotePlaintextEntry> sproutEntries;
+    std::vector<SaplingNoteEntry> saplingEntries;
+    wallet.GetFilteredNotes(sproutEntries, saplingEntries, "", 0);
+    EXPECT_EQ(0, sproutEntries.size());
+    sproutEntries.clear();
+    saplingEntries.clear();
+    wallet.GetFilteredNotes(sproutEntries, saplingEntries, "", -1);
+    EXPECT_EQ(1, sproutEntries.size());
+    sproutEntries.clear();
+    saplingEntries.clear();
 
     // Fake-mine the transaction
     EXPECT_EQ(-1, chainActive.Height());
@@ -181,25 +211,28 @@ TEST(wallet_tests, find_unspent_notes) {
 
     wtx.SetMerkleBranch(block);
     wallet.AddToWallet(wtx, true, NULL);
-    EXPECT_FALSE(wallet.IsSpent(nullifier));
+    EXPECT_FALSE(wallet.IsSproutSpent(nullifier));
 
 
     // We now have an unspent and confirmed note in the wallet (depth of 1)
-    wallet.GetFilteredNotes(entries, "", 0);
-    EXPECT_EQ(1, entries.size());
-    entries.clear();
-    wallet.GetFilteredNotes(entries, "", 1);
-    EXPECT_EQ(1, entries.size());
-    entries.clear();
-    wallet.GetFilteredNotes(entries, "", 2);
-    EXPECT_EQ(0, entries.size());
-    entries.clear();
+    wallet.GetFilteredNotes(sproutEntries, saplingEntries, "", 0);
+    EXPECT_EQ(1, sproutEntries.size());
+    sproutEntries.clear();
+    saplingEntries.clear();
+    wallet.GetFilteredNotes(sproutEntries, saplingEntries, "", 1);
+    EXPECT_EQ(1, sproutEntries.size());
+    sproutEntries.clear();
+    saplingEntries.clear();
+    wallet.GetFilteredNotes(sproutEntries, saplingEntries, "", 2);
+    EXPECT_EQ(0, sproutEntries.size());
+    sproutEntries.clear();
+    saplingEntries.clear();
 
 
     // Let's spend the note.
     auto wtx2 = GetValidSpend(sk, note, 5);
     wallet.AddToWallet(wtx2, true, NULL);
-    EXPECT_FALSE(wallet.IsSpent(nullifier));
+    EXPECT_FALSE(wallet.IsSproutSpent(nullifier));
 
     // Fake-mine a spend transaction
     EXPECT_EQ(0, chainActive.Height());
@@ -217,24 +250,28 @@ TEST(wallet_tests, find_unspent_notes) {
 
     wtx2.SetMerkleBranch(block2);
     wallet.AddToWallet(wtx2, true, NULL);
-    EXPECT_TRUE(wallet.IsSpent(nullifier));
+    EXPECT_TRUE(wallet.IsSproutSpent(nullifier));
 
     // The note has been spent.  By default, GetFilteredNotes() ignores spent notes.
-    wallet.GetFilteredNotes(entries, "", 0);
-    EXPECT_EQ(0, entries.size());
-    entries.clear();
+    wallet.GetFilteredNotes(sproutEntries, saplingEntries, "", 0);
+    EXPECT_EQ(0, sproutEntries.size());
+    sproutEntries.clear();
+    saplingEntries.clear();
     // Let's include spent notes to retrieve it.
-    wallet.GetFilteredNotes(entries, "", 0, false);
-    EXPECT_EQ(1, entries.size());
-    entries.clear();
+    wallet.GetFilteredNotes(sproutEntries, saplingEntries, "", 0, false);
+    EXPECT_EQ(1, sproutEntries.size());
+    sproutEntries.clear();
+    saplingEntries.clear();
     // The spent note has two confirmations.
-    wallet.GetFilteredNotes(entries, "", 2, false);
-    EXPECT_EQ(1, entries.size());
-    entries.clear();
+    wallet.GetFilteredNotes(sproutEntries, saplingEntries, "", 2, false);
+    EXPECT_EQ(1, sproutEntries.size());
+    sproutEntries.clear();
+    saplingEntries.clear();
     // It does not have 3 confirmations.
-    wallet.GetFilteredNotes(entries, "", 3, false);
-    EXPECT_EQ(0, entries.size());
-    entries.clear();
+    wallet.GetFilteredNotes(sproutEntries, saplingEntries, "", 3, false);
+    EXPECT_EQ(0, sproutEntries.size());
+    sproutEntries.clear();
+    saplingEntries.clear();
 
 
     // Let's receive a new note
@@ -244,14 +281,14 @@ TEST(wallet_tests, find_unspent_notes) {
         auto note = GetNote(sk, wtx, 0, 1);
         auto nullifier = note.nullifier(sk);
 
-        mapNoteData_t noteData;
+        mapSproutNoteData_t noteData;
         JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
-        CNoteData nd {sk.address(), nullifier};
+        SproutNoteData nd {sk.address(), nullifier};
         noteData[jsoutpt] = nd;
 
-        wtx.SetNoteData(noteData);
+        wtx.SetSproutNoteData(noteData);
         wallet.AddToWallet(wtx, true, NULL);
-        EXPECT_FALSE(wallet.IsSpent(nullifier));
+        EXPECT_FALSE(wallet.IsSproutSpent(nullifier));
 
         wtx3 = wtx;
     }
@@ -274,21 +311,25 @@ TEST(wallet_tests, find_unspent_notes) {
     wallet.AddToWallet(wtx3, true, NULL);
 
     // We now have an unspent note which has one confirmation, in addition to our spent note.
-    wallet.GetFilteredNotes(entries, "", 1);
-    EXPECT_EQ(1, entries.size());
-    entries.clear();
+    wallet.GetFilteredNotes(sproutEntries, saplingEntries, "", 1);
+    EXPECT_EQ(1, sproutEntries.size());
+    sproutEntries.clear();
+    saplingEntries.clear();
     // Let's return the spent note too.
-    wallet.GetFilteredNotes(entries, "", 1, false);
-    EXPECT_EQ(2, entries.size());
-    entries.clear();
+    wallet.GetFilteredNotes(sproutEntries, saplingEntries, "", 1, false);
+    EXPECT_EQ(2, sproutEntries.size());
+    sproutEntries.clear();
+    saplingEntries.clear();
     // Increasing number of confirmations will exclude our new unspent note.
-    wallet.GetFilteredNotes(entries, "", 2, false);
-    EXPECT_EQ(1, entries.size());
-    entries.clear();    
-    // If we also ignore spent notes at thie depth, we won't find any notes.
-    wallet.GetFilteredNotes(entries, "", 2, true);
-    EXPECT_EQ(0, entries.size());
-    entries.clear(); 
+    wallet.GetFilteredNotes(sproutEntries, saplingEntries, "", 2, false);
+    EXPECT_EQ(1, sproutEntries.size());
+    sproutEntries.clear();
+    saplingEntries.clear();
+    // If we also ignore spent notes at this depth, we won't find any notes.
+    wallet.GetFilteredNotes(sproutEntries, saplingEntries, "", 2, true);
+    EXPECT_EQ(0, sproutEntries.size());
+    sproutEntries.clear();
+    saplingEntries.clear();
 
     // Tear down
     chainActive.SetTip(NULL);
@@ -298,60 +339,51 @@ TEST(wallet_tests, find_unspent_notes) {
 }
 
 
-TEST(wallet_tests, set_note_addrs_in_cwallettx) {
-    auto sk = libzcash::SpendingKey::random();
+TEST(WalletTests, SetSproutNoteAddrsInCWalletTx) {
+    auto sk = libzcash::SproutSpendingKey::random();
     auto wtx = GetValidReceive(sk, 10, true);
     auto note = GetNote(sk, wtx, 0, 1);
     auto nullifier = note.nullifier(sk);
-    EXPECT_EQ(0, wtx.mapNoteData.size());
+    EXPECT_EQ(0, wtx.mapSproutNoteData.size());
 
-    mapNoteData_t noteData;
+    mapSproutNoteData_t noteData;
     JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
-    CNoteData nd {sk.address(), nullifier};
+    SproutNoteData nd {sk.address(), nullifier};
     noteData[jsoutpt] = nd;
 
-    wtx.SetNoteData(noteData);
-    EXPECT_EQ(noteData, wtx.mapNoteData);
+    wtx.SetSproutNoteData(noteData);
+    EXPECT_EQ(noteData, wtx.mapSproutNoteData);
 }
 
-TEST(wallet_tests, set_invalid_note_addrs_in_cwallettx) {
+TEST(WalletTests, SetSproutInvalidNoteAddrsInCWalletTx) {
     CWalletTx wtx;
-    EXPECT_EQ(0, wtx.mapNoteData.size());
+    EXPECT_EQ(0, wtx.mapSproutNoteData.size());
 
-    mapNoteData_t noteData;
-    auto sk = libzcash::SpendingKey::random();
+    mapSproutNoteData_t noteData;
+    auto sk = libzcash::SproutSpendingKey::random();
     JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
-    CNoteData nd {sk.address(), uint256()};
+    SproutNoteData nd {sk.address(), uint256()};
     noteData[jsoutpt] = nd;
 
-    EXPECT_THROW(wtx.SetNoteData(noteData), std::logic_error);
+    EXPECT_THROW(wtx.SetSproutNoteData(noteData), std::logic_error);
 }
 
-TEST(WalletTests, CheckNoteCommitmentAgainstNotePlaintext) {
-    CWallet wallet;
+TEST(WalletTests, SetInvalidSaplingNoteDataInCWalletTx) {
+    CWalletTx wtx;
+    EXPECT_EQ(0, wtx.mapSaplingNoteData.size());
 
-    auto sk = libzcash::SpendingKey::random();
-    auto address = sk.address();
-    auto dec = ZCNoteDecryption(sk.receiving_key());
+    mapSaplingNoteData_t noteData;
+    SaplingOutPoint op {uint256(), 1};
+    SaplingNoteData nd;
+    noteData.insert(std::make_pair(op, nd));
 
-    auto wtx = GetInvalidCommitmentReceive(sk, 10, true);
-    auto note = GetNote(sk, wtx, 0, 1);
-    auto nullifier = note.nullifier(sk);
-
-    auto hSig = wtx.vjoinsplit[0].h_sig(
-        *params, wtx.joinSplitPubKey);
-
-    ASSERT_THROW(wallet.GetNoteNullifier(
-        wtx.vjoinsplit[0],
-        address,
-        dec,
-        hSig, 1), libzcash::note_decryption_failed);
+    EXPECT_THROW(wtx.SetSaplingNoteData(noteData), std::logic_error);
 }
 
-TEST(WalletTests, GetNoteNullifier) {
+TEST(WalletTests, GetSproutNoteNullifier) {
     CWallet wallet;
 
-    auto sk = libzcash::SpendingKey::random();
+    auto sk = libzcash::SproutSpendingKey::random();
     auto address = sk.address();
     auto dec = ZCNoteDecryption(sk.receiving_key());
 
@@ -362,16 +394,16 @@ TEST(WalletTests, GetNoteNullifier) {
     auto hSig = wtx.vjoinsplit[0].h_sig(
         *params, wtx.joinSplitPubKey);
 
-    auto ret = wallet.GetNoteNullifier(
+    auto ret = wallet.GetSproutNoteNullifier(
         wtx.vjoinsplit[0],
         address,
         dec,
         hSig, 1);
     EXPECT_NE(nullifier, ret);
 
-    wallet.AddSpendingKey(sk);
+    wallet.AddSproutSpendingKey(sk);
 
-    ret = wallet.GetNoteNullifier(
+    ret = wallet.GetSproutNoteNullifier(
         wtx.vjoinsplit[0],
         address,
         dec,
@@ -379,38 +411,38 @@ TEST(WalletTests, GetNoteNullifier) {
     EXPECT_EQ(nullifier, ret);
 }
 
-TEST(wallet_tests, FindMyNotes) {
+TEST(WalletTests, FindMySproutNotes) {
     CWallet wallet;
 
-    auto sk = libzcash::SpendingKey::random();
-    auto sk2 = libzcash::SpendingKey::random();
-    wallet.AddSpendingKey(sk2);
+    auto sk = libzcash::SproutSpendingKey::random();
+    auto sk2 = libzcash::SproutSpendingKey::random();
+    wallet.AddSproutSpendingKey(sk2);
 
     auto wtx = GetValidReceive(sk, 10, true);
     auto note = GetNote(sk, wtx, 0, 1);
     auto nullifier = note.nullifier(sk);
 
-    auto noteMap = wallet.FindMyNotes(wtx);
+    auto noteMap = wallet.FindMySproutNotes(wtx);
     EXPECT_EQ(0, noteMap.size());
 
-    wallet.AddSpendingKey(sk);
+    wallet.AddSproutSpendingKey(sk);
 
-    noteMap = wallet.FindMyNotes(wtx);
+    noteMap = wallet.FindMySproutNotes(wtx);
     EXPECT_EQ(2, noteMap.size());
 
     JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
-    CNoteData nd {sk.address(), nullifier};
+    SproutNoteData nd {sk.address(), nullifier};
     EXPECT_EQ(1, noteMap.count(jsoutpt));
     EXPECT_EQ(nd, noteMap[jsoutpt]);
 }
 
-TEST(wallet_tests, FindMyNotesInEncryptedWallet) {
+TEST(WalletTests, FindMySproutNotesInEncryptedWallet) {
     TestWallet wallet;
     uint256 r {GetRandHash()};
     CKeyingMaterial vMasterKey (r.begin(), r.end());
 
-    auto sk = libzcash::SpendingKey::random();
-    wallet.AddSpendingKey(sk);
+    auto sk = libzcash::SproutSpendingKey::random();
+    wallet.AddSproutSpendingKey(sk);
 
     ASSERT_TRUE(wallet.EncryptKeys(vMasterKey));
 
@@ -418,27 +450,27 @@ TEST(wallet_tests, FindMyNotesInEncryptedWallet) {
     auto note = GetNote(sk, wtx, 0, 1);
     auto nullifier = note.nullifier(sk);
 
-    auto noteMap = wallet.FindMyNotes(wtx);
+    auto noteMap = wallet.FindMySproutNotes(wtx);
     EXPECT_EQ(2, noteMap.size());
 
     JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
-    CNoteData nd {sk.address(), nullifier};
+    SproutNoteData nd {sk.address(), nullifier};
     EXPECT_EQ(1, noteMap.count(jsoutpt));
     EXPECT_NE(nd, noteMap[jsoutpt]);
 
     ASSERT_TRUE(wallet.Unlock(vMasterKey));
 
-    noteMap = wallet.FindMyNotes(wtx);
+    noteMap = wallet.FindMySproutNotes(wtx);
     EXPECT_EQ(2, noteMap.size());
     EXPECT_EQ(1, noteMap.count(jsoutpt));
     EXPECT_EQ(nd, noteMap[jsoutpt]);
 }
 
-TEST(wallet_tests, get_conflicted_notes) {
+TEST(WalletTests, GetConflictedSproutNotes) {
     CWallet wallet;
 
-    auto sk = libzcash::SpendingKey::random();
-    wallet.AddSpendingKey(sk);
+    auto sk = libzcash::SproutSpendingKey::random();
+    wallet.AddSproutSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
     auto note = GetNote(sk, wtx, 0, 1);
@@ -465,24 +497,24 @@ TEST(wallet_tests, get_conflicted_notes) {
     EXPECT_EQ(std::set<uint256>({hash2, hash3}), c3);
 }
 
-TEST(wallet_tests, nullifier_is_spent) {
+TEST(WalletTests, SproutNullifierIsSpent) {
     CWallet wallet;
 
-    auto sk = libzcash::SpendingKey::random();
-    wallet.AddSpendingKey(sk);
+    auto sk = libzcash::SproutSpendingKey::random();
+    wallet.AddSproutSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
     auto note = GetNote(sk, wtx, 0, 1);
     auto nullifier = note.nullifier(sk);
 
-    EXPECT_FALSE(wallet.IsSpent(nullifier));
+    EXPECT_FALSE(wallet.IsSproutSpent(nullifier));
 
     wallet.AddToWallet(wtx, true, NULL);
-    EXPECT_FALSE(wallet.IsSpent(nullifier));
+    EXPECT_FALSE(wallet.IsSproutSpent(nullifier));
 
     auto wtx2 = GetValidSpend(sk, note, 5);
     wallet.AddToWallet(wtx2, true, NULL);
-    EXPECT_FALSE(wallet.IsSpent(nullifier));
+    EXPECT_FALSE(wallet.IsSproutSpent(nullifier));
 
     // Fake-mine the transaction
     EXPECT_EQ(-1, chainActive.Height());
@@ -498,44 +530,44 @@ TEST(wallet_tests, nullifier_is_spent) {
 
     wtx2.SetMerkleBranch(block);
     wallet.AddToWallet(wtx2, true, NULL);
-    EXPECT_TRUE(wallet.IsSpent(nullifier));
+    EXPECT_TRUE(wallet.IsSproutSpent(nullifier));
 
     // Tear down
     chainActive.SetTip(NULL);
     mapBlockIndex.erase(blockHash);
 }
 
-TEST(wallet_tests, navigate_from_nullifier_to_note) {
+TEST(WalletTests, NavigateFromSproutNullifierToNote) {
     CWallet wallet;
 
-    auto sk = libzcash::SpendingKey::random();
-    wallet.AddSpendingKey(sk);
+    auto sk = libzcash::SproutSpendingKey::random();
+    wallet.AddSproutSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
     auto note = GetNote(sk, wtx, 0, 1);
     auto nullifier = note.nullifier(sk);
 
-    mapNoteData_t noteData;
+    mapSproutNoteData_t noteData;
     JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
-    CNoteData nd {sk.address(), nullifier};
+    SproutNoteData nd {sk.address(), nullifier};
     noteData[jsoutpt] = nd;
 
-    wtx.SetNoteData(noteData);
+    wtx.SetSproutNoteData(noteData);
 
-    EXPECT_EQ(0, wallet.mapNullifiersToNotes.count(nullifier));
+    EXPECT_EQ(0, wallet.mapSproutNullifiersToNotes.count(nullifier));
 
     wallet.AddToWallet(wtx, true, NULL);
-    EXPECT_EQ(1, wallet.mapNullifiersToNotes.count(nullifier));
-    EXPECT_EQ(wtx.GetHash(), wallet.mapNullifiersToNotes[nullifier].hash);
-    EXPECT_EQ(0, wallet.mapNullifiersToNotes[nullifier].js);
-    EXPECT_EQ(1, wallet.mapNullifiersToNotes[nullifier].n);
+    EXPECT_EQ(1, wallet.mapSproutNullifiersToNotes.count(nullifier));
+    EXPECT_EQ(wtx.GetHash(), wallet.mapSproutNullifiersToNotes[nullifier].hash);
+    EXPECT_EQ(0, wallet.mapSproutNullifiersToNotes[nullifier].js);
+    EXPECT_EQ(1, wallet.mapSproutNullifiersToNotes[nullifier].n);
 }
 
-TEST(wallet_tests, spent_note_is_from_me) {
+TEST(WalletTests, SpentSproutNoteIsFromMe) {
     CWallet wallet;
 
-    auto sk = libzcash::SpendingKey::random();
-    wallet.AddSpendingKey(sk);
+    auto sk = libzcash::SproutSpendingKey::random();
+    wallet.AddSproutSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
     auto note = GetNote(sk, wtx, 0, 1);
@@ -545,12 +577,12 @@ TEST(wallet_tests, spent_note_is_from_me) {
     EXPECT_FALSE(wallet.IsFromMe(wtx));
     EXPECT_FALSE(wallet.IsFromMe(wtx2));
 
-    mapNoteData_t noteData;
+    mapSproutNoteData_t noteData;
     JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
-    CNoteData nd {sk.address(), nullifier};
+    SproutNoteData nd {sk.address(), nullifier};
     noteData[jsoutpt] = nd;
 
-    wtx.SetNoteData(noteData);
+    wtx.SetSproutNoteData(noteData);
     EXPECT_FALSE(wallet.IsFromMe(wtx));
     EXPECT_FALSE(wallet.IsFromMe(wtx2));
 
@@ -559,96 +591,113 @@ TEST(wallet_tests, spent_note_is_from_me) {
     EXPECT_TRUE(wallet.IsFromMe(wtx2));
 }
 
-TEST(wallet_tests, cached_witnesses_empty_chain) {
+TEST(WalletTests, CachedWitnessesEmptyChain) {
     TestWallet wallet;
 
-    auto sk = libzcash::SpendingKey::random();
-    wallet.AddSpendingKey(sk);
+    auto sk = libzcash::SproutSpendingKey::random();
+    wallet.AddSproutSpendingKey(sk);
 
-    auto wtx = GetValidReceive(sk, 10, true);
+    auto wtx = GetValidReceive(sk, 10, true, 4);
     auto note = GetNote(sk, wtx, 0, 0);
     auto note2 = GetNote(sk, wtx, 0, 1);
     auto nullifier = note.nullifier(sk);
     auto nullifier2 = note2.nullifier(sk);
 
-    mapNoteData_t noteData;
+    mapSproutNoteData_t sproutNoteData;
     JSOutPoint jsoutpt {wtx.GetHash(), 0, 0};
     JSOutPoint jsoutpt2 {wtx.GetHash(), 0, 1};
-    CNoteData nd {sk.address(), nullifier};
-    CNoteData nd2 {sk.address(), nullifier2};
-    noteData[jsoutpt] = nd;
-    noteData[jsoutpt2] = nd2;
-    wtx.SetNoteData(noteData);
+    SproutNoteData nd {sk.address(), nullifier};
+    SproutNoteData nd2 {sk.address(), nullifier2};
+    sproutNoteData[jsoutpt] = nd;
+    sproutNoteData[jsoutpt2] = nd2;
+    wtx.SetSproutNoteData(sproutNoteData);
 
-    std::vector<JSOutPoint> notes {jsoutpt, jsoutpt2};
-    std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
-    uint256 anchor;
+    std::vector<JSOutPoint> sproutNotes {jsoutpt, jsoutpt2};
+    std::vector<SaplingOutPoint> saplingNotes = SetSaplingNoteData(wtx);
 
-    wallet.GetNoteWitnesses(notes, witnesses, anchor);
-    EXPECT_FALSE((bool) witnesses[0]);
-    EXPECT_FALSE((bool) witnesses[1]);
+    std::vector<boost::optional<SproutWitness>> sproutWitnesses;
+    std::vector<boost::optional<SaplingWitness>> saplingWitnesses;
+
+    ::GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
+
+    EXPECT_FALSE((bool) sproutWitnesses[0]);
+    EXPECT_FALSE((bool) sproutWitnesses[1]);
+    EXPECT_FALSE((bool) saplingWitnesses[0]);
 
     wallet.AddToWallet(wtx, true, NULL);
-    witnesses.clear();
-    wallet.GetNoteWitnesses(notes, witnesses, anchor);
-    EXPECT_FALSE((bool) witnesses[0]);
-    EXPECT_FALSE((bool) witnesses[1]);
+
+    ::GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
+
+    EXPECT_FALSE((bool) sproutWitnesses[0]);
+    EXPECT_FALSE((bool) sproutWitnesses[1]);
+    EXPECT_FALSE((bool) saplingWitnesses[0]);
 
     CBlock block;
     block.vtx.push_back(wtx);
     CBlockIndex index(block);
-    ZCIncrementalMerkleTree tree;
-    wallet.IncrementNoteWitnesses(&index, &block, tree);
-    witnesses.clear();
-    wallet.GetNoteWitnesses(notes, witnesses, anchor);
-    EXPECT_TRUE((bool) witnesses[0]);
-    EXPECT_TRUE((bool) witnesses[1]);
+    SproutMerkleTree sproutTree;
+    SaplingMerkleTree saplingTree;
+    wallet.IncrementNoteWitnesses(&index, &block, sproutTree, saplingTree);
+
+    ::GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
+
+    EXPECT_TRUE((bool) sproutWitnesses[0]);
+    EXPECT_TRUE((bool) sproutWitnesses[1]);
+    EXPECT_TRUE((bool) saplingWitnesses[0]);
 
     // Until #1302 is implemented, this should triggger an assertion
-    /*EXPECT_DEATH(wallet.DecrementNoteWitnesses(&index),
-                 "Assertion( `| failed: \()nWitnessCacheSize > 0");*/
+    EXPECT_DEATH(wallet.DecrementNoteWitnesses(&index),
+                 ".*nWitnessCacheSize > 0.*");
 }
 
-TEST(wallet_tests, cached_witnesses_chain_tip) {
+TEST(WalletTests, CachedWitnessesChainTip) {
     TestWallet wallet;
-    uint256 anchor1;
+    std::pair<uint256, uint256> anchors1;
     CBlock block1;
-    ZCIncrementalMerkleTree tree;
+    SproutMerkleTree sproutTree;
+    SaplingMerkleTree saplingTree;
 
-    auto sk = libzcash::SpendingKey::random();
-    wallet.AddSpendingKey(sk);
+    auto sk = libzcash::SproutSpendingKey::random();
+    wallet.AddSproutSpendingKey(sk);
 
     {
         // First block (case tested in _empty_chain)
         CBlockIndex index1(block1);
         index1.nHeight = 1;
-        auto jsoutpt = CreateValidBlock(wallet, sk, index1, block1, tree);
+        auto outpts = CreateValidBlock(wallet, sk, index1, block1, sproutTree, saplingTree);
 
         // Called to fetch anchor
-        std::vector<JSOutPoint> notes {jsoutpt};
-        std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
-        wallet.GetNoteWitnesses(notes, witnesses, anchor1);
+        std::vector<JSOutPoint> sproutNotes {outpts.first};
+        std::vector<SaplingOutPoint> saplingNotes {outpts.second};
+        std::vector<boost::optional<SproutWitness>> sproutWitnesses;
+        std::vector<boost::optional<SaplingWitness>> saplingWitnesses;
+
+        anchors1 = GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
+        EXPECT_NE(anchors1.first, anchors1.second);
     }
 
     {
         // Second transaction
-        auto wtx = GetValidReceive(sk, 50, true);
+        auto wtx = GetValidReceive(sk, 50, true, 4);
         auto note = GetNote(sk, wtx, 0, 1);
         auto nullifier = note.nullifier(sk);
 
-        mapNoteData_t noteData;
+        mapSproutNoteData_t sproutNoteData;
         JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
-        CNoteData nd {sk.address(), nullifier};
-        noteData[jsoutpt] = nd;
-        wtx.SetNoteData(noteData);
+        SproutNoteData nd {sk.address(), nullifier};
+        sproutNoteData[jsoutpt] = nd;
+        wtx.SetSproutNoteData(sproutNoteData);
+        std::vector<SaplingOutPoint> saplingNotes = SetSaplingNoteData(wtx);
         wallet.AddToWallet(wtx, true, NULL);
 
-        std::vector<JSOutPoint> notes {jsoutpt};
-        std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
-        uint256 anchor2;
+        std::vector<JSOutPoint> sproutNotes {jsoutpt};
+        std::vector<boost::optional<SproutWitness>> sproutWitnesses;
+        std::vector<boost::optional<SaplingWitness>> saplingWitnesses;
 
-        wallet.GetNoteWitnesses(notes, witnesses, anchor2);
-        EXPECT_FALSE((bool) witnesses[0]);
+        GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
+
+        EXPECT_FALSE((bool) sproutWitnesses[0]);
+        EXPECT_FALSE((bool) saplingWitnesses[0]);
 
         // Second block
         CBlock block2;
@@ -656,121 +705,152 @@ TEST(wallet_tests, cached_witnesses_chain_tip) {
         block2.vtx.push_back(wtx);
         CBlockIndex index2(block2);
         index2.nHeight = 2;
-        ZCIncrementalMerkleTree tree2 {tree};
-        wallet.IncrementNoteWitnesses(&index2, &block2, tree2);
-        witnesses.clear();
-        wallet.GetNoteWitnesses(notes, witnesses, anchor2);
-        EXPECT_TRUE((bool) witnesses[0]);
-        EXPECT_NE(anchor1, anchor2);
+        SproutMerkleTree sproutTree2 {sproutTree};
+        SaplingMerkleTree saplingTree2 {saplingTree};
+        wallet.IncrementNoteWitnesses(&index2, &block2, sproutTree2, saplingTree2);
+
+        auto anchors2 = GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
+        EXPECT_NE(anchors2.first, anchors2.second);
+
+        EXPECT_TRUE((bool) sproutWitnesses[0]);
+        EXPECT_TRUE((bool) saplingWitnesses[0]);
+        EXPECT_NE(anchors1.first, anchors2.first);
+        EXPECT_NE(anchors1.second, anchors2.second);
 
         // Decrementing should give us the previous anchor
-        uint256 anchor3;
+       // uint256 anchor3;
         wallet.DecrementNoteWitnesses(&index2);
-        witnesses.clear();
-        wallet.GetNoteWitnesses(notes, witnesses, anchor3);
-        EXPECT_FALSE((bool) witnesses[0]);
+        auto anchors3 = GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
+
+        EXPECT_FALSE((bool) sproutWitnesses[0]);
+        EXPECT_FALSE((bool) saplingWitnesses[0]);
         // Should not equal first anchor because none of these notes had witnesses
-        EXPECT_NE(anchor1, anchor3);
+        EXPECT_NE(anchors1.first, anchors3.first);
+        EXPECT_NE(anchors1.second, anchors3.second);
 
         // Re-incrementing with the same block should give the same result
-        uint256 anchor4;
-        wallet.IncrementNoteWitnesses(&index2, &block2, tree);
-        witnesses.clear();
-        wallet.GetNoteWitnesses(notes, witnesses, anchor4);
-        EXPECT_TRUE((bool) witnesses[0]);
-        EXPECT_EQ(anchor2, anchor4);
+        wallet.IncrementNoteWitnesses(&index2, &block2, sproutTree, saplingTree);
+        auto anchors4 = GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
+        EXPECT_NE(anchors4.first, anchors4.second);
+
+        EXPECT_TRUE((bool) sproutWitnesses[0]);
+        EXPECT_TRUE((bool) saplingWitnesses[0]);
+        EXPECT_EQ(anchors2.first, anchors4.first);
+        EXPECT_EQ(anchors2.second, anchors4.second);
 
         // Incrementing with the same block again should not change the cache
-        uint256 anchor5;
-        wallet.IncrementNoteWitnesses(&index2, &block2, tree);
-        std::vector<boost::optional<ZCIncrementalWitness>> witnesses5;
-        wallet.GetNoteWitnesses(notes, witnesses5, anchor5);
-        EXPECT_EQ(witnesses, witnesses5);
-        EXPECT_EQ(anchor4, anchor5);
+        wallet.IncrementNoteWitnesses(&index2, &block2, sproutTree, saplingTree);
+        std::vector<boost::optional<SproutWitness>> sproutWitnesses5;
+        std::vector<boost::optional<SaplingWitness>> saplingWitnesses5;
+
+        auto anchors5 = GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses5, saplingWitnesses5);
+        EXPECT_NE(anchors5.first, anchors5.second);
+
+        EXPECT_EQ(sproutWitnesses, sproutWitnesses5);
+        EXPECT_EQ(saplingWitnesses, saplingWitnesses5);
+        EXPECT_EQ(anchors4.first, anchors5.first);
+        EXPECT_EQ(anchors4.second, anchors5.second);
     }
 }
 
-TEST(wallet_tests, CachedWitnessesDecrementFirst) {
+TEST(WalletTests, CachedWitnessesDecrementFirst) {
     TestWallet wallet;
-    uint256 anchor2;
-    CBlock block2;
-    CBlockIndex index2(block2);
-    ZCIncrementalMerkleTree tree;
+    SproutMerkleTree sproutTree;
+    SaplingMerkleTree saplingTree;
 
-    auto sk = libzcash::SpendingKey::random();
-    wallet.AddSpendingKey(sk);
+    auto sk = libzcash::SproutSpendingKey::random();
+    wallet.AddSproutSpendingKey(sk);
 
     {
         // First block (case tested in _empty_chain)
         CBlock block1;
         CBlockIndex index1(block1);
         index1.nHeight = 1;
-        CreateValidBlock(wallet, sk, index1, block1, tree);
+        CreateValidBlock(wallet, sk, index1, block1, sproutTree, saplingTree);
     }
+
+    std::pair<uint256, uint256> anchors2;
+    CBlock block2;
+    CBlockIndex index2(block2);
 
     {
         // Second block (case tested in _chain_tip)
         index2.nHeight = 2;
-        auto jsoutpt = CreateValidBlock(wallet, sk, index2, block2, tree);
+        auto outpts = CreateValidBlock(wallet, sk, index2, block2, sproutTree, saplingTree);
 
         // Called to fetch anchor
-        std::vector<JSOutPoint> notes {jsoutpt};
-        std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
-        wallet.GetNoteWitnesses(notes, witnesses, anchor2);
+        std::vector<JSOutPoint> sproutNotes {outpts.first};
+        std::vector<SaplingOutPoint> saplingNotes {outpts.second};
+        std::vector<boost::optional<SproutWitness>> sproutWitnesses;
+        std::vector<boost::optional<SaplingWitness>> saplingWitnesses;
+        anchors2 = GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
     }
 
-    {
+{
         // Third transaction - never mined
-        auto wtx = GetValidReceive(sk, 20, true);
+        auto wtx = GetValidReceive(sk, 20, true, 4);
         auto note = GetNote(sk, wtx, 0, 1);
         auto nullifier = note.nullifier(sk);
 
-        mapNoteData_t noteData;
+        mapSproutNoteData_t noteData;
         JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
-        CNoteData nd {sk.address(), nullifier};
+        SproutNoteData nd {sk.address(), nullifier};
         noteData[jsoutpt] = nd;
-        wtx.SetNoteData(noteData);
+        wtx.SetSproutNoteData(noteData);
+        std::vector<SaplingOutPoint> saplingNotes = SetSaplingNoteData(wtx);
         wallet.AddToWallet(wtx, true, NULL);
 
-        std::vector<JSOutPoint> notes {jsoutpt};
-        std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
-        uint256 anchor3;
+        std::vector<JSOutPoint> sproutNotes {jsoutpt};
+        std::vector<boost::optional<SproutWitness>> sproutWitnesses;
+        std::vector<boost::optional<SaplingWitness>> saplingWitnesses;
 
-        wallet.GetNoteWitnesses(notes, witnesses, anchor3);
-        EXPECT_FALSE((bool) witnesses[0]);
+        auto anchors3 = GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
+
+        EXPECT_FALSE((bool) sproutWitnesses[0]);
+        EXPECT_FALSE((bool) saplingWitnesses[0]);
 
         // Decrementing (before the transaction has ever seen an increment)
         // should give us the previous anchor
-        uint256 anchor4;
+    //    uint256 anchor4;
         wallet.DecrementNoteWitnesses(&index2);
-        witnesses.clear();
-        wallet.GetNoteWitnesses(notes, witnesses, anchor4);
-        EXPECT_FALSE((bool) witnesses[0]);
+
+        auto anchors4 = GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
+
+        EXPECT_FALSE((bool) sproutWitnesses[0]);
+        EXPECT_FALSE((bool) saplingWitnesses[0]);
         // Should not equal second anchor because none of these notes had witnesses
-        EXPECT_NE(anchor2, anchor4);
+        EXPECT_NE(anchors2.first, anchors4.first);
+        EXPECT_NE(anchors2.second, anchors4.second);
 
         // Re-incrementing with the same block should give the same result
-        uint256 anchor5;
-        wallet.IncrementNoteWitnesses(&index2, &block2, tree);
-        witnesses.clear();
-        wallet.GetNoteWitnesses(notes, witnesses, anchor5);
-        EXPECT_FALSE((bool) witnesses[0]);
-        EXPECT_EQ(anchor3, anchor5);
+        wallet.IncrementNoteWitnesses(&index2, &block2, sproutTree, saplingTree);
+
+        auto anchors5 = GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
+
+        EXPECT_FALSE((bool) sproutWitnesses[0]);
+        EXPECT_FALSE((bool) saplingWitnesses[0]);
+        EXPECT_EQ(anchors3.first, anchors5.first);
+        EXPECT_EQ(anchors3.second, anchors5.second);
     }
 }
 
-TEST(wallet_tests, CachedWitnessesCleanIndex) {
+TEST(WalletTests, CachedWitnessesCleanIndex) {
     TestWallet wallet;
     std::vector<CBlock> blocks;
     std::vector<CBlockIndex> indices;
-    std::vector<JSOutPoint> notes;
-    std::vector<uint256> anchors;
-    ZCIncrementalMerkleTree tree;
-    ZCIncrementalMerkleTree riTree = tree;
-    std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
+    std::vector<JSOutPoint> sproutNotes;
+    std::vector<SaplingOutPoint> saplingNotes;
+    std::vector<uint256> sproutAnchors;
+    std::vector<uint256> saplingAnchors;
+    SproutMerkleTree sproutTree;
+    SproutMerkleTree sproutRiTree = sproutTree;
+    SaplingMerkleTree saplingTree;
+    SaplingMerkleTree saplingRiTree = saplingTree;
+    std::vector<boost::optional<SproutWitness>> sproutWitnesses;
+    std::vector<boost::optional<SaplingWitness>> saplingWitnesses;
 
-    auto sk = libzcash::SpendingKey::random();
-    wallet.AddSpendingKey(sk);
+    auto sk = libzcash::SproutSpendingKey::random();
+    wallet.AddSproutSpendingKey(sk);
 
     // Generate a chain
     size_t numBlocks = WITNESS_CACHE_SIZE + 10;
@@ -778,119 +858,144 @@ TEST(wallet_tests, CachedWitnessesCleanIndex) {
     indices.resize(numBlocks);
     for (size_t i = 0; i < numBlocks; i++) {
         indices[i].nHeight = i;
-        auto old = tree.root();
-        auto jsoutpt = CreateValidBlock(wallet, sk, indices[i], blocks[i], tree);
-        EXPECT_NE(old, tree.root());
-        notes.push_back(jsoutpt);
+        auto oldSproutRoot = sproutTree.root();
+        auto oldSaplingRoot = saplingTree.root();
+        auto outpts = CreateValidBlock(wallet, sk, indices[i], blocks[i], sproutTree, saplingTree);
+        EXPECT_NE(oldSproutRoot, sproutTree.root());
+        EXPECT_NE(oldSaplingRoot, saplingTree.root());
+        sproutNotes.push_back(outpts.first);
+        saplingNotes.push_back(outpts.second);
 
-        witnesses.clear();
-        uint256 anchor;
-        wallet.GetNoteWitnesses(notes, witnesses, anchor);
+        auto anchors = GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
         for (size_t j = 0; j <= i; j++) {
-            EXPECT_TRUE((bool) witnesses[j]);
+            EXPECT_TRUE((bool) sproutWitnesses[j]);
+            EXPECT_TRUE((bool) saplingWitnesses[j]);
         }
-        anchors.push_back(anchor);
+        sproutAnchors.push_back(anchors.first);
+        saplingAnchors.push_back(anchors.second);
     }
 
     // Now pretend we are reindexing: the chain is cleared, and each block is
     // used to increment witnesses again.
     for (size_t i = 0; i < numBlocks; i++) {
-        ZCIncrementalMerkleTree riPrevTree {riTree};
-        wallet.IncrementNoteWitnesses(&(indices[i]), &(blocks[i]), riTree);
-        witnesses.clear();
-        uint256 anchor;
-        wallet.GetNoteWitnesses(notes, witnesses, anchor);
+        SproutMerkleTree sproutRiPrevTree {sproutRiTree};
+        SaplingMerkleTree saplingRiPrevTree {saplingRiTree};
+        wallet.IncrementNoteWitnesses(&(indices[i]), &(blocks[i]), sproutRiTree, saplingRiTree);
+
+        auto anchors = GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
         for (size_t j = 0; j < numBlocks; j++) {
-            EXPECT_TRUE((bool) witnesses[j]);
+            EXPECT_TRUE((bool) sproutWitnesses[j]);
+            EXPECT_TRUE((bool) saplingWitnesses[j]);
         }
         // Should equal final anchor because witness cache unaffected
-        EXPECT_EQ(anchors.back(), anchor);
+        EXPECT_EQ(sproutAnchors.back(), anchors.first);
+        EXPECT_EQ(saplingAnchors.back(), anchors.second);
 
         if ((i == 5) || (i == 50)) {
             // Pretend a reorg happened that was recorded in the block files
             {
                 wallet.DecrementNoteWitnesses(&(indices[i]));
-                witnesses.clear();
-                uint256 anchor;
-                wallet.GetNoteWitnesses(notes, witnesses, anchor);
+
+                auto anchors = GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
                 for (size_t j = 0; j < numBlocks; j++) {
-                    EXPECT_TRUE((bool) witnesses[j]);
+                    EXPECT_TRUE((bool) sproutWitnesses[j]);
+                    EXPECT_TRUE((bool) saplingWitnesses[j]);
                 }
                 // Should equal final anchor because witness cache unaffected
-                EXPECT_EQ(anchors.back(), anchor);
+                EXPECT_EQ(sproutAnchors.back(), anchors.first);
+                EXPECT_EQ(saplingAnchors.back(), anchors.second);
             }
 
             {
-                wallet.IncrementNoteWitnesses(&(indices[i]), &(blocks[i]), riPrevTree);
-                witnesses.clear();
-                uint256 anchor;
-                wallet.GetNoteWitnesses(notes, witnesses, anchor);
+                wallet.IncrementNoteWitnesses(&(indices[i]), &(blocks[i]), sproutRiPrevTree, saplingRiPrevTree);
+                auto anchors = GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
                 for (size_t j = 0; j < numBlocks; j++) {
-                    EXPECT_TRUE((bool) witnesses[j]);
+                    EXPECT_TRUE((bool) sproutWitnesses[j]);
+                    EXPECT_TRUE((bool) saplingWitnesses[j]);
                 }
                 // Should equal final anchor because witness cache unaffected
-                EXPECT_EQ(anchors.back(), anchor);
+                EXPECT_EQ(sproutAnchors.back(), anchors.first);
+                EXPECT_EQ(saplingAnchors.back(), anchors.second);
             }
         }
     }
 }
 
-TEST(wallet_tests, ClearNoteWitnessCache) {
+TEST(WalletTests, ClearNoteWitnessCache) {
     TestWallet wallet;
 
-    auto sk = libzcash::SpendingKey::random();
-    wallet.AddSpendingKey(sk);
+    auto sk = libzcash::SproutSpendingKey::random();
+    wallet.AddSproutSpendingKey(sk);
 
-    auto wtx = GetValidReceive(sk, 10, true);
+    auto wtx = GetValidReceive(sk, 10, true, 4);
     auto hash = wtx.GetHash();
     auto note = GetNote(sk, wtx, 0, 0);
     auto nullifier = note.nullifier(sk);
 
-    mapNoteData_t noteData;
+    mapSproutNoteData_t noteData;
     JSOutPoint jsoutpt {wtx.GetHash(), 0, 0};
     JSOutPoint jsoutpt2 {wtx.GetHash(), 0, 1};
-    CNoteData nd {sk.address(), nullifier};
+    SproutNoteData nd {sk.address(), nullifier};
     noteData[jsoutpt] = nd;
-    wtx.SetNoteData(noteData);
+    wtx.SetSproutNoteData(noteData);
+    auto saplingNotes = SetSaplingNoteData(wtx);
 
     // Pretend we mined the tx by adding a fake witness
-    ZCIncrementalMerkleTree tree;
-    wtx.mapNoteData[jsoutpt].witnesses.push_front(tree.witness());
-    wtx.mapNoteData[jsoutpt].witnessHeight = 1;
+    SproutMerkleTree sproutTree;
+    wtx.mapSproutNoteData[jsoutpt].witnesses.push_front(sproutTree.witness());
+    wtx.mapSproutNoteData[jsoutpt].witnessHeight = 1;
     wallet.nWitnessCacheSize = 1;
+
+    SaplingMerkleTree saplingTree;
+    wtx.mapSaplingNoteData[saplingNotes[0]].witnesses.push_front(saplingTree.witness());
+    wtx.mapSaplingNoteData[saplingNotes[0]].witnessHeight = 1;
+    wallet.nWitnessCacheSize = 2;
 
     wallet.AddToWallet(wtx, true, NULL);
 
-    std::vector<JSOutPoint> notes {jsoutpt, jsoutpt2};
-    std::vector<boost::optional<ZCIncrementalWitness>> witnesses;
-    uint256 anchor2;
+    std::vector<JSOutPoint> sproutNotes {jsoutpt, jsoutpt2};
+    std::vector<boost::optional<SproutWitness>> sproutWitnesses;
+    std::vector<boost::optional<SaplingWitness>> saplingWitnesses;
 
     // Before clearing, we should have a witness for one note
-    wallet.GetNoteWitnesses(notes, witnesses, anchor2);
-    EXPECT_TRUE((bool) witnesses[0]);
-    EXPECT_FALSE((bool) witnesses[1]);
-    EXPECT_EQ(1, wallet.mapWallet[hash].mapNoteData[jsoutpt].witnessHeight);
-    EXPECT_EQ(1, wallet.nWitnessCacheSize);
+    GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
+    EXPECT_TRUE((bool) sproutWitnesses[0]);
+    EXPECT_FALSE((bool) sproutWitnesses[1]);
+    EXPECT_TRUE((bool) saplingWitnesses[0]);
+    EXPECT_FALSE((bool) saplingWitnesses[1]);
+    EXPECT_EQ(1, wallet.mapWallet[hash].mapSproutNoteData[jsoutpt].witnessHeight);
+    EXPECT_EQ(1, wallet.mapWallet[hash].mapSaplingNoteData[saplingNotes[0]].witnessHeight);
+    EXPECT_EQ(2, wallet.nWitnessCacheSize);
 
     // After clearing, we should not have a witness for either note
     wallet.ClearNoteWitnessCache();
-    witnesses.clear();
-    wallet.GetNoteWitnesses(notes, witnesses, anchor2);
-    EXPECT_FALSE((bool) witnesses[0]);
-    EXPECT_FALSE((bool) witnesses[1]);
-    EXPECT_EQ(-1, wallet.mapWallet[hash].mapNoteData[jsoutpt].witnessHeight);
+    auto anchors2 = GetWitnessesAndAnchors(wallet, sproutNotes, saplingNotes, sproutWitnesses, saplingWitnesses);
+    EXPECT_FALSE((bool) sproutWitnesses[0]);
+    EXPECT_FALSE((bool) sproutWitnesses[1]);
+    EXPECT_FALSE((bool) saplingWitnesses[0]);
+    EXPECT_FALSE((bool) saplingWitnesses[1]);
+    EXPECT_EQ(-1, wallet.mapWallet[hash].mapSproutNoteData[jsoutpt].witnessHeight);
+    EXPECT_EQ(-1, wallet.mapWallet[hash].mapSaplingNoteData[saplingNotes[0]].witnessHeight);
     EXPECT_EQ(0, wallet.nWitnessCacheSize);
 }
 
-TEST(wallet_tests, WriteWitnessCache) {
+TEST(WalletTests, WriteWitnessCache) {
     TestWallet wallet;
     MockWalletDB walletdb;
     CBlockLocator loc;
 
-    auto sk = libzcash::SpendingKey::random();
-    wallet.AddSpendingKey(sk);
+    auto sk = libzcash::SproutSpendingKey::random();
+    wallet.AddSproutSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
+    auto note = GetNote(sk, wtx, 0, 1);
+    auto nullifier = note.nullifier(sk);
+
+    mapSproutNoteData_t noteData;
+    JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+    SproutNoteData nd {sk.address(), nullifier};
+    noteData[jsoutpt] = nd;
+    wtx.SetSproutNoteData(noteData);
     wallet.AddToWallet(wtx, true, NULL);
 
     // TxnBegin fails
@@ -959,13 +1064,13 @@ TEST(wallet_tests, WriteWitnessCache) {
     wallet.SetBestChain(walletdb, loc);
 }
 
-TEST(wallet_tests, UpdateNullifierNoteMap) {
+TEST(WalletTests, UpdateSproutNullifierNoteMap) {
     TestWallet wallet;
     uint256 r {GetRandHash()};
     CKeyingMaterial vMasterKey (r.begin(), r.end());
 
-    auto sk = libzcash::SpendingKey::random();
-    wallet.AddSpendingKey(sk);
+    auto sk = libzcash::SproutSpendingKey::random();
+    wallet.AddSproutSpendingKey(sk);
 
     ASSERT_TRUE(wallet.EncryptKeys(vMasterKey));
 
@@ -973,32 +1078,32 @@ TEST(wallet_tests, UpdateNullifierNoteMap) {
     auto note = GetNote(sk, wtx, 0, 1);
     auto nullifier = note.nullifier(sk);
 
-    // Pretend that we called FindMyNotes while the wallet was locked
-    mapNoteData_t noteData;
+    // Pretend that we called FindMySproutNotes while the wallet was locked
+    mapSproutNoteData_t noteData;
     JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
-    CNoteData nd {sk.address()};
+    SproutNoteData nd {sk.address()};
     noteData[jsoutpt] = nd;
-    wtx.SetNoteData(noteData);
+    wtx.SetSproutNoteData(noteData);
 
     wallet.AddToWallet(wtx, true, NULL);
-    EXPECT_EQ(0, wallet.mapNullifiersToNotes.count(nullifier));
+    EXPECT_EQ(0, wallet.mapSproutNullifiersToNotes.count(nullifier));
 
     EXPECT_FALSE(wallet.UpdateNullifierNoteMap());
 
     ASSERT_TRUE(wallet.Unlock(vMasterKey));
 
     EXPECT_TRUE(wallet.UpdateNullifierNoteMap());
-    EXPECT_EQ(1, wallet.mapNullifiersToNotes.count(nullifier));
-    EXPECT_EQ(wtx.GetHash(), wallet.mapNullifiersToNotes[nullifier].hash);
-    EXPECT_EQ(0, wallet.mapNullifiersToNotes[nullifier].js);
-    EXPECT_EQ(1, wallet.mapNullifiersToNotes[nullifier].n);
+    EXPECT_EQ(1, wallet.mapSproutNullifiersToNotes.count(nullifier));
+    EXPECT_EQ(wtx.GetHash(), wallet.mapSproutNullifiersToNotes[nullifier].hash);
+    EXPECT_EQ(0, wallet.mapSproutNullifiersToNotes[nullifier].js);
+    EXPECT_EQ(1, wallet.mapSproutNullifiersToNotes[nullifier].n);
 }
 
-TEST(wallet_tests, UpdatedNoteData) {
+TEST(WalletTests, UpdatedSproutNoteData) {
     TestWallet wallet;
 
-    auto sk = libzcash::SpendingKey::random();
-    wallet.AddSpendingKey(sk);
+    auto sk = libzcash::SproutSpendingKey::random();
+    wallet.AddSproutSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
     auto note = GetNote(sk, wtx, 0, 0);
@@ -1009,43 +1114,43 @@ TEST(wallet_tests, UpdatedNoteData) {
 
     // First pretend we added the tx to the wallet and
     // we don't have the key for the second note
-    mapNoteData_t noteData;
+    mapSproutNoteData_t noteData;
     JSOutPoint jsoutpt {wtx.GetHash(), 0, 0};
-    CNoteData nd {sk.address(), nullifier};
+    SproutNoteData nd {sk.address(), nullifier};
     noteData[jsoutpt] = nd;
-    wtx.SetNoteData(noteData);
+    wtx.SetSproutNoteData(noteData);
 
     // Pretend we mined the tx by adding a fake witness
-    ZCIncrementalMerkleTree tree;
-    wtx.mapNoteData[jsoutpt].witnesses.push_front(tree.witness());
-    wtx.mapNoteData[jsoutpt].witnessHeight = 100;
+    SproutMerkleTree tree;
+    wtx.mapSproutNoteData[jsoutpt].witnesses.push_front(tree.witness());
+    wtx.mapSproutNoteData[jsoutpt].witnessHeight = 100;
 
     // Now pretend we added the key for the second note, and
     // the tx was "added" to the wallet again to update it.
     // This happens via the 'z_importkey' RPC method.
     JSOutPoint jsoutpt2 {wtx2.GetHash(), 0, 1};
-    CNoteData nd2 {sk.address(), nullifier2};
+    SproutNoteData nd2 {sk.address(), nullifier2};
     noteData[jsoutpt2] = nd2;
-    wtx2.SetNoteData(noteData);
+    wtx2.SetSproutNoteData(noteData);
 
     // The txs should initially be different
-    EXPECT_NE(wtx.mapNoteData, wtx2.mapNoteData);
-    EXPECT_EQ(1, wtx.mapNoteData[jsoutpt].witnesses.size());
-    EXPECT_EQ(100, wtx.mapNoteData[jsoutpt].witnessHeight);
+    EXPECT_NE(wtx.mapSproutNoteData, wtx2.mapSproutNoteData);
+    EXPECT_EQ(1, wtx.mapSproutNoteData[jsoutpt].witnesses.size());
+    EXPECT_EQ(100, wtx.mapSproutNoteData[jsoutpt].witnessHeight);
 
     // After updating, they should be the same
     EXPECT_TRUE(wallet.UpdatedNoteData(wtx2, wtx));
-    EXPECT_EQ(wtx.mapNoteData, wtx2.mapNoteData);
-    EXPECT_EQ(1, wtx.mapNoteData[jsoutpt].witnesses.size());
-    EXPECT_EQ(100, wtx.mapNoteData[jsoutpt].witnessHeight);
+    EXPECT_EQ(wtx.mapSproutNoteData, wtx2.mapSproutNoteData);
+    EXPECT_EQ(1, wtx.mapSproutNoteData[jsoutpt].witnesses.size());
+    EXPECT_EQ(100, wtx.mapSproutNoteData[jsoutpt].witnessHeight);
     // TODO: The new note should get witnessed (but maybe not here) (#1350)
 }
 
-TEST(wallet_tests, MarkAffectedTransactionsDirty) {
+TEST(WalletTests, MarkAffectedSproutTransactionsDirty) {
     TestWallet wallet;
 
-    auto sk = libzcash::SpendingKey::random();
-    wallet.AddSpendingKey(sk);
+    auto sk = libzcash::SproutSpendingKey::random();
+    wallet.AddSproutSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
     auto hash = wtx.GetHash();
@@ -1053,12 +1158,12 @@ TEST(wallet_tests, MarkAffectedTransactionsDirty) {
     auto nullifier = note.nullifier(sk);
     auto wtx2 = GetValidSpend(sk, note, 5);
 
-    mapNoteData_t noteData;
+    mapSproutNoteData_t noteData;
     JSOutPoint jsoutpt {hash, 0, 1};
-    CNoteData nd {sk.address(), nullifier};
+    SproutNoteData nd {sk.address(), nullifier};
     noteData[jsoutpt] = nd;
 
-    wtx.SetNoteData(noteData);
+    wtx.SetSproutNoteData(noteData);
     wallet.AddToWallet(wtx, true, NULL);
     wallet.MarkAffectedTransactionsDirty(wtx);
 

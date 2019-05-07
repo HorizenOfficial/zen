@@ -147,6 +147,7 @@ BOOST_AUTO_TEST_CASE(tx_valid)
             BOOST_CHECK_MESSAGE(CheckTransaction(tx, state, verifier), strTest + comment);
             BOOST_CHECK_MESSAGE(state.IsValid(), comment);
 
+            PrecomputedTransactionData txdata(tx);
             for (unsigned int i = 0; i < tx.vin.size(); i++)
             {
                 if (!mapprevOutScriptPubKeys.count(tx.vin[i].prevout))
@@ -155,11 +156,12 @@ BOOST_AUTO_TEST_CASE(tx_valid)
                     break;
                 }
 
+                CAmount amount = 0;
                 unsigned int verify_flags = ParseScriptFlags(test[2].get_str());
                 BOOST_CHECK_MESSAGE(VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
-                                                 verify_flags, TransactionSignatureChecker(&tx, i, nullptr), &err),
-                                    strTest);
-                BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
+                                                 verify_flags, TransactionSignatureChecker(&tx, i, nullptr, amount, txdata), &err),
+                                    strTest + comment);
+                BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err) + comment);
             }
 
             comment = "";
@@ -230,6 +232,7 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
             CValidationState state;
             fValid = CheckTransaction(tx, state, verifier) && state.IsValid();
 
+            PrecomputedTransactionData txdata(tx);
             for (unsigned int i = 0; i < tx.vin.size() && fValid; i++)
             {
                 if (!mapprevOutScriptPubKeys.count(tx.vin[i].prevout))
@@ -239,8 +242,9 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
                 }
 
                 unsigned int verify_flags = ParseScriptFlags(test[2].get_str());
+                CAmount amount = 0;
                 fValid = VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
-                        verify_flags, TransactionSignatureChecker(&tx, i, nullptr), &err);
+                        verify_flags, TransactionSignatureChecker(&tx, i, nullptr,  amount, txdata), &err);
             }
             BOOST_CHECK_MESSAGE(!fValid, strTest + comment);
             BOOST_CHECK_MESSAGE(err != SCRIPT_ERR_OK, ScriptErrorString(err) + comment);
@@ -328,12 +332,12 @@ void basic_joinsplit_verification(int txVersion, bool isGroth) {
     // integrity of the scheme through its own tests.
 
     // construct a merkle tree
-    ZCIncrementalMerkleTree merkleTree;
+    SproutMerkleTree merkleTree;
 
-    libzcash::SpendingKey k = libzcash::SpendingKey::random();
-    libzcash::PaymentAddress addr = k.address();
+    auto k = libzcash::SproutSpendingKey::random();
+    auto addr = k.address();
 
-    libzcash::Note note(addr.a_pk, 100, uint256(), uint256());
+    libzcash::SproutNote note(addr.a_pk, 100, uint256(), uint256());
 
     // commitment from coin
     uint256 commitment = note.cm();
@@ -347,7 +351,7 @@ void basic_joinsplit_verification(int txVersion, bool isGroth) {
     auto witness = merkleTree.witness();
 
     // create JSDescription
-    uint256 pubKeyHash;
+    uint256 joinSplitPubKey;
     std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS> inputs = {
         libzcash::JSInput(witness, note, k),
         libzcash::JSInput() // dummy input of zero value
@@ -360,8 +364,8 @@ void basic_joinsplit_verification(int txVersion, bool isGroth) {
     auto verifier = libzcash::ProofVerifier::Strict();
 
     {
-        JSDescription jsdesc(isGroth, *pzcashParams, pubKeyHash, rt, inputs, outputs, 0, 0);
-        BOOST_CHECK(jsdesc.Verify(*pzcashParams, verifier, pubKeyHash));
+        JSDescription jsdesc(isGroth, *pzcashParams, joinSplitPubKey, rt, inputs, outputs, 0, 0);
+        BOOST_CHECK(jsdesc.Verify(*pzcashParams, verifier, joinSplitPubKey));
 
         CDataStream ss(SER_DISK, CLIENT_VERSION);
         
@@ -372,20 +376,20 @@ void basic_joinsplit_verification(int txVersion, bool isGroth) {
         over_ss >> jsdesc_deserialized;
 
         BOOST_CHECK(jsdesc_deserialized == jsdesc);
-        BOOST_CHECK(jsdesc_deserialized.Verify(*pzcashParams, verifier, pubKeyHash));
+        BOOST_CHECK(jsdesc_deserialized.Verify(*pzcashParams, verifier, joinSplitPubKey));
     }
 
     {
         // Ensure that the balance equation is working.
-        BOOST_CHECK_THROW(JSDescription(isGroth, *pzcashParams, pubKeyHash, rt, inputs, outputs, 10, 0), std::invalid_argument);
-        BOOST_CHECK_THROW(JSDescription(isGroth, *pzcashParams, pubKeyHash, rt, inputs, outputs, 0, 10), std::invalid_argument);
+        BOOST_CHECK_THROW(JSDescription(isGroth, *pzcashParams, joinSplitPubKey, rt, inputs, outputs, 10, 0), std::invalid_argument);
+        BOOST_CHECK_THROW(JSDescription(isGroth, *pzcashParams, joinSplitPubKey, rt, inputs, outputs, 0, 10), std::invalid_argument);
     }
 
     {
         // Ensure that it won't verify if the root is changed.
-        auto test = JSDescription(isGroth, *pzcashParams, pubKeyHash, rt, inputs, outputs, 0, 0);
+        auto test = JSDescription(isGroth, *pzcashParams, joinSplitPubKey, rt, inputs, outputs, 0, 0);
         test.anchor = GetRandHash();
-        BOOST_CHECK(!test.Verify(*pzcashParams, verifier, pubKeyHash));
+        BOOST_CHECK(!test.Verify(*pzcashParams, verifier, joinSplitPubKey));
     }
 }
 
@@ -425,13 +429,14 @@ BOOST_AUTO_TEST_CASE(test_simple_joinsplit_invalidity)
         jsdesc->nullifiers[0] = GetRandHash();
         jsdesc->nullifiers[1] = GetRandHash();
 
-        BOOST_CHECK(!CheckTransactionWithoutProofVerification(newTx, state));
+        BOOST_CHECK(CheckTransactionWithoutProofVerification(newTx, state));
+        BOOST_CHECK(!ContextualCheckTransaction(newTx, state, 0, 100));
         BOOST_CHECK(state.GetRejectReason() == "bad-txns-invalid-joinsplit-signature");
 
         // Empty output script.
         CScript scriptCode;
         CTransaction signTx(newTx);
-        uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL);
+        uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL, 0);
 
         assert(crypto_sign_detached(&newTx.joinSplitSig[0], NULL,
                                     dataToBeSigned.begin(), 32,
@@ -439,6 +444,7 @@ BOOST_AUTO_TEST_CASE(test_simple_joinsplit_invalidity)
                                     ) == 0);
 
         BOOST_CHECK(CheckTransactionWithoutProofVerification(newTx, state));
+        BOOST_CHECK(ContextualCheckTransaction(newTx, state, 0, 100));
     }
     {
         // Ensure that values within the joinsplit are well-formed.

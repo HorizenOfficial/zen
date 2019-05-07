@@ -32,8 +32,15 @@ JSON_TEST_FILES = \
   test/data/merkle_witness_serialization.json \
   test/data/merkle_path.json \
   test/data/merkle_commitments.json \
+  test/data/merkle_roots_sapling.json \
+  test/data/merkle_roots_empty_sapling.json \
+  test/data/merkle_serialization_sapling.json \
+  test/data/merkle_witness_serialization_sapling.json \
+  test/data/merkle_path_sapling.json \
+  test/data/merkle_commitments_sapling.json \
   test/data/g1_compressed.json \
-  test/data/g2_compressed.json
+  test/data/g2_compressed.json \
+  test/data/sapling_key_components.json
 
 #RAW_TEST_FILES = test/data/alertTests.raw
 
@@ -49,12 +56,14 @@ BITCOIN_TESTS =\
   test/base32_tests.cpp \
   test/base58_tests.cpp \
   test/base64_tests.cpp \
+  test/bech32_tests.cpp \
   test/bip32_tests.cpp \
   test/bloom_tests.cpp \
   test/checkblock_tests.cpp \
   test/Checkpoints_tests.cpp \
   test/coins_tests.cpp \
   test/compress_tests.cpp \
+  test/convertbits_tests.cpp \
   test/crypto_tests.cpp \
   test/DoS_tests.cpp \
   test/equihash_tests.cpp \
@@ -70,6 +79,7 @@ BITCOIN_TESTS =\
   test/pmt_tests.cpp \
   test/policyestimator_tests.cpp \
   test/pow_tests.cpp \
+  test/prevector_tests.cpp \
   test/raii_event_tests.cpp \
   test/reverselock_tests.cpp \
   test/rpc_tests.cpp \

@@ -15,6 +15,7 @@
 #include "sodium.h"
 
 #include <iostream>
+#include <random>
 
 #include <boost/test/unit_test.hpp>
 
@@ -161,7 +162,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
         // Empty output script.
         CScript scriptCode;
         CTransaction signTx(tx);
-        uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL);
+        uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL, 0);
 
         assert(crypto_sign_detached(&tx.joinSplitSig[0], NULL,
                                     dataToBeSigned.begin(), 32,
@@ -195,7 +196,7 @@ BOOST_AUTO_TEST_CASE(sighash_test)
 
         uint256 sh, sho;
         sho = SignatureHashOld(scriptCode, txTo, nIn, nHashType);
-        sh = SignatureHash(scriptCode, txTo, nIn, nHashType);
+        sh = SignatureHash(scriptCode, txTo, nIn, nHashType, 0);
         #if defined(PRINT_SIGHASH_JSON)
         CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
         ss << txTo;
@@ -233,7 +234,7 @@ BOOST_AUTO_TEST_CASE(sighash_from_tx)
 		CTransaction::joinsplit_sig_t nullSig = {};
 		txTo.joinSplitSig = nullSig;
 
-		interpreterSH = SignatureHash(scriptCode, txTo, NOT_AN_INPUT, SIGHASH_ALL);
+		interpreterSH = SignatureHash(scriptCode, txTo, NOT_AN_INPUT, SIGHASH_ALL, 0);
 
 
 		// Serialize and hash
@@ -300,7 +301,7 @@ BOOST_AUTO_TEST_CASE(sighash_from_data)
           continue;
         }
 
-        sh = SignatureHash(scriptCode, tx, nIn, nHashType);
+        sh = SignatureHash(scriptCode, tx, nIn, nHashType, 0);
         BOOST_CHECK_MESSAGE(sh.GetHex() == sigHashHex, strTest);
     }
 }

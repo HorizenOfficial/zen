@@ -10,6 +10,8 @@
 #include "zen/forks/fork3_communityfundandrpfixfork.h"
 #include "zen/forks/fork4_nulltransactionfork.h"
 #include "zen/forks/fork5_shieldfork.h"
+#include "key.h"
+#include "key_io.h"
 using namespace zen;
 
 class MockCValidationState : public CValidationState {
@@ -281,8 +283,10 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // Add community reward output for post chain split block
-    CBitcoinAddress address(Params().GetCommunityFundAddressAtHeight(110001, Fork::CommunityFundType::FOUNDATION).c_str());
-    CScriptID scriptID = boost::get<CScriptID>(address.Get());
+
+    CTxDestination address= DecodeDestination(Params().GetCommunityFundAddressAtHeight(110001, Fork::CommunityFundType::FOUNDATION));
+    CScriptID scriptID = CScriptID(GetScriptForDestination(address));
+
     mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
     mtx.vout[0].nValue = 1.0625 * COIN;
     block.vtx[0] = CTransaction(mtx);
@@ -292,7 +296,8 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
 
     int hardForkHeight = communityFundAndRPFixFork.getHeight(CBaseChainParams::MAIN);
     // Test community reward output for post hard fork block
-    CScriptID scriptID2 = boost::get<CScriptID>(CBitcoinAddress("zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82").Get());
+    CScriptID scriptID2 = CScriptID(GetScriptForDestination(CTxDestination(DecodeDestination("zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82"))));
+
     mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID2) << OP_EQUAL;
     mtx.vout[0].nValue = 1.5 * COIN;
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
@@ -305,13 +310,13 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
 
     hardForkHeight = nullTransactionFork.getHeight(CBaseChainParams::MAIN);
     // Test community reward output for post hard fork block
-    CBitcoinAddress address_foundation(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::FOUNDATION).c_str());
-    CBitcoinAddress address_sec_node(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SECURENODE).c_str());
-    CBitcoinAddress address_sup_node(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SUPERNODE).c_str());
+    CTxDestination address_foundation = DecodeDestination(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::FOUNDATION).c_str());
+    CTxDestination address_sec_node = DecodeDestination(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SECURENODE).c_str());
+    CTxDestination address_sup_node= DecodeDestination(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SUPERNODE).c_str());
 
-    CScriptID scriptID_found    = boost::get<CScriptID>(address_foundation.Get());
-    CScriptID scriptID_sec_node = boost::get<CScriptID>(address_sec_node.Get());
-    CScriptID scriptID_sup_node = boost::get<CScriptID>(address_sup_node.Get());
+    CScriptID scriptID_found    = CScriptID(GetScriptForDestination(address_foundation));
+    CScriptID scriptID_sec_node = CScriptID(GetScriptForDestination(address_sec_node));
+    CScriptID scriptID_sup_node = CScriptID(GetScriptForDestination(address_sup_node));
 
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
 
@@ -333,13 +338,13 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
 
     hardForkHeight = shieldFork.getHeight(CBaseChainParams::MAIN);
 
-    address_foundation.SetString(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::FOUNDATION).c_str());
-    address_sec_node.SetString(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SECURENODE).c_str());
-    address_sup_node.SetString(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SUPERNODE).c_str());
+    address_foundation = DecodeDestination(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::FOUNDATION).c_str());
+    address_sec_node = DecodeDestination(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SECURENODE).c_str());
+    address_sup_node = DecodeDestination(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SUPERNODE).c_str());
 
-    scriptID_found    = boost::get<CScriptID>(address_foundation.Get());
-    scriptID_sec_node = boost::get<CScriptID>(address_sec_node.Get());
-    scriptID_sup_node = boost::get<CScriptID>(address_sup_node.Get());
+    scriptID_found    = CScriptID(GetScriptForDestination(address_foundation));
+    scriptID_sec_node = CScriptID(GetScriptForDestination(address_sec_node));
+    scriptID_sup_node = CScriptID(GetScriptForDestination(address_sup_node));
 
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
 
@@ -369,8 +374,8 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     CommunityFundAndRPFixFork communityFundAndRPFixFork;
 
     int blockIndex = chainplitFork.getHeight(CBaseChainParams::MAIN)+1;
-    CBitcoinAddress address(Params().GetCommunityFundAddressAtHeight(blockIndex, Fork::CommunityFundType::FOUNDATION).c_str());
-    CScriptID scriptID = boost::get<CScriptID>(address.Get());
+    CTxDestination address = DecodeDestination(Params().GetCommunityFundAddressAtHeight(blockIndex, Fork::CommunityFundType::FOUNDATION).c_str());
+    CScriptID scriptID = CScriptID(GetScriptForDestination(address));
 
     // Test bad amount for community reward output
     CMutableTransaction mtx;
@@ -390,8 +395,8 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     // Test bad amount for community reward output after hard fork
     int hardForkHeight = communityFundAndRPFixFork.getHeight(CBaseChainParams::MAIN);
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
-    CBitcoinAddress address1(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::FOUNDATION).c_str());
-    CScriptID scriptID1 = boost::get<CScriptID>(address1.Get());
+    CTxDestination address1 = DecodeDestination(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::FOUNDATION).c_str());
+    CScriptID scriptID1 = CScriptID(GetScriptForDestination(address1));
     mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
     mtx.vout[0].nValue = 1.0625 * COIN;
     indexPrev.nHeight = hardForkHeight - 1;
@@ -406,13 +411,13 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     hardForkHeight = nullTransactionFork.getHeight(CBaseChainParams::MAIN);
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
 
-    address1.SetString((Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::FOUNDATION).c_str()));
-    CBitcoinAddress address_sec_node(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SECURENODE).c_str());
-	CBitcoinAddress address_sup_node(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SUPERNODE).c_str());
+    address1= DecodeDestination(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::FOUNDATION).c_str());
+    CTxDestination address_sec_node = DecodeDestination(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SECURENODE).c_str());
+    CTxDestination address_sup_node = DecodeDestination(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SUPERNODE).c_str());
 
-	CScriptID scriptID_sec_node = boost::get<CScriptID>(address_sec_node.Get());
-	CScriptID scriptID_sup_node = boost::get<CScriptID>(address_sup_node.Get());
-    scriptID1 = boost::get<CScriptID>(address1.Get());
+	CScriptID scriptID_sec_node = CScriptID(GetScriptForDestination(address_sec_node));
+	CScriptID scriptID_sup_node = CScriptID(GetScriptForDestination(address_sup_node));
+    scriptID1 = CScriptID(GetScriptForDestination(address1));
 
 
     mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
@@ -442,13 +447,13 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
 
     hardForkHeight = shieldFork.getHeight(CBaseChainParams::MAIN);
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
-    address1.SetString((Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::FOUNDATION).c_str()));
-    address_sec_node.SetString(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SECURENODE).c_str());
-    address_sup_node.SetString(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SUPERNODE).c_str());
+    address1 = DecodeDestination (Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::FOUNDATION).c_str());
+    address_sec_node = DecodeDestination(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SECURENODE).c_str());
+    address_sup_node = DecodeDestination(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SUPERNODE).c_str());
 
-    scriptID_sec_node = boost::get<CScriptID>(address_sec_node.Get());
-	scriptID_sup_node = boost::get<CScriptID>(address_sup_node.Get());
-	scriptID1 = boost::get<CScriptID>(address1.Get());
+    scriptID_sec_node = CScriptID(GetScriptForDestination(address_sec_node));
+	scriptID_sup_node = CScriptID(GetScriptForDestination(address_sup_node));
+	scriptID1 = CScriptID(GetScriptForDestination(address1));
 
 
 	mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
@@ -488,7 +493,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     mtx.vin[0].prevout.SetNull();
     mtx.vin[0].scriptSig = CScript() << 139199 << OP_0;
     mtx.vout.resize(1);
-    CScriptID scriptID = boost::get<CScriptID>(CBitcoinAddress("zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82").Get());
+    CScriptID scriptID = CScriptID(GetScriptForDestination(CTxDestination(DecodeDestination("zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82"))));
     mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
     mtx.vout[0].nValue = 1.0625 * COIN;
     indexPrev.nHeight = 139198;
@@ -499,7 +504,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // Test bad addr for community reward output after hardfork
-    CScriptID scriptID1 = boost::get<CScriptID>(CBitcoinAddress("zsfa9VVJCEdjfPbku4XrFcRR8kTDm2T64rz").Get());
+    CScriptID scriptID1 = CScriptID(GetScriptForDestination(CTxDestination(DecodeDestination("zsfa9VVJCEdjfPbku4XrFcRR8kTDm2T64rz"))));
     mtx.vin[0].scriptSig = CScript() << 139200 << OP_0;
     mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
     mtx.vout[0].nValue = 1.5 * COIN;
@@ -509,7 +514,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // Test community reward address rotation. Addresses should change every 50000 blocks in a round-robin fashion.
-    CScriptID scriptID3 = boost::get<CScriptID>(CBitcoinAddress("zsfULrmbX7xbhqhAFRffVqCw9RyGv2hqNNG").Get());
+    CScriptID scriptID3 = CScriptID(GetScriptForDestination(CTxDestination(DecodeDestination("zsfULrmbX7xbhqhAFRffVqCw9RyGv2hqNNG"))));
     mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID3) << OP_EQUAL;
     mtx.vin[0].scriptSig = CScript() << 189200 << OP_0;
     indexPrev.nHeight = 189199;
@@ -517,7 +522,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 
     // Test community reward address rotation. Addresses should change every 50000 blocks in a round-robin fashion.
-    CScriptID scriptID4 = boost::get<CScriptID>(CBitcoinAddress("zsoemTfqjicem2QVU8cgBHquKb1o9JR5p4Z").Get());
+    CScriptID scriptID4 = CScriptID(GetScriptForDestination(CTxDestination(DecodeDestination("zsoemTfqjicem2QVU8cgBHquKb1o9JR5p4Z"))));
     mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID4) << OP_EQUAL;
     mtx.vin[0].scriptSig = CScript() << 239200 << OP_0;
     indexPrev.nHeight = 239199;
@@ -525,7 +530,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 
     // Test community reward address rotation. Addresses should change every 50000 blocks in a round-robin fashion.
-    CScriptID scriptID5 = boost::get<CScriptID>(CBitcoinAddress("zt339oiGL6tTgc9Q71f5g1sFTZf6QiXrRUr").Get());
+    CScriptID scriptID5 = CScriptID(GetScriptForDestination(CTxDestination(DecodeDestination("zt339oiGL6tTgc9Q71f5g1sFTZf6QiXrRUr"))));
     mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID5) << OP_EQUAL;
     mtx.vin[0].scriptSig = CScript() << 289200 << OP_0;
     indexPrev.nHeight = 289199;

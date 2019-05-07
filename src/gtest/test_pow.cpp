@@ -68,3 +68,5 @@ TEST(PoW, DifficultyAveraging) {
                                         params),
               GetNextWorkRequired(&blocks[lastBlk], nullptr, params));
 }
+
+

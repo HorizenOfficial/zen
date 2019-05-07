@@ -20,11 +20,15 @@ class FakeCoinsViewDB : public CCoinsView {
 public:
     FakeCoinsViewDB() {}
 
-    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const {
+    bool GetSproutAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const {
         return false;
     }
 
-    bool GetNullifier(const uint256 &nf) const {
+    bool GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const {
+        return false;
+    }
+
+    bool GetNullifier(const uint256 &nf, ShieldedType type) const {
         return false;
     }
 
@@ -41,16 +45,19 @@ public:
         return a;
     }
 
-    uint256 GetBestAnchor() const {
+    uint256 GetBestAnchor(ShieldedType type) const {
         uint256 a;
         return a;
     }
 
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
-                    const uint256 &hashAnchor,
-                    CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers) {
+                    const uint256 &hashSproutAnchor,
+                    const uint256 &hashSaplingAnchor,
+                    CAnchorsSproutMap &mapSproutAnchors,
+                    CAnchorsSaplingMap &mapSaplingAnchors,
+                    CNullifiersMap &mapSproutNullifiers,
+                    CNullifiersMap saplingNullifiersMap) {
         return false;
     }
 
@@ -71,11 +78,12 @@ TEST(Validation, ContextualCheckInputsPassesWithCoinbase) {
     CCoinsViewCache view(&fakeDB);
 
     CValidationState state;
-    EXPECT_TRUE(ContextualCheckInputs(tx, state, view, false, chainActive, 0, false, Params(CBaseChainParams::MAIN).GetConsensus()));
+    PrecomputedTransactionData txdata(tx);
+    EXPECT_TRUE(ContextualCheckInputs(tx, state, view, false, chainActive, 0, false, txdata, Params(CBaseChainParams::MAIN).GetConsensus()));
 }
 
 TEST(Validation, ReceivedBlockTransactions) {
-    auto sk = libzcash::SpendingKey::random();
+    auto sk = libzcash::SproutSpendingKey::random();
 
     // Create a fake genesis block
     CBlock block1;

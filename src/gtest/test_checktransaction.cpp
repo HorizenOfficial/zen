@@ -6,6 +6,8 @@
 #include "primitives/transaction.h"
 #include "consensus/validation.h"
 
+extern ZCJoinSplit* params;
+
 TEST(checktransaction_tests, check_vpub_not_both_nonzero) {
     CMutableTransaction tx;
     tx.nVersion = 2;
@@ -79,7 +81,7 @@ CMutableTransaction GetValidTransaction(int txVersion) {
     // Empty output script.
     CScript scriptCode;
     CTransaction signTx(mtx);
-    uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL);
+    uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL, 0);
     if (dataToBeSigned == one) {
         throw std::runtime_error("SignatureHash failed");
     }

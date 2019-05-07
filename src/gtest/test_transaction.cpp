@@ -4,6 +4,8 @@
 #include "zcash/Note.hpp"
 #include "zcash/Address.hpp"
 
+#include <array>
+
 extern ZCJoinSplit* params;
 extern int GenZero(int n);
 extern int GenMax(int n);
@@ -12,12 +14,12 @@ extern int GenMax(int n);
 static void do_test(bool isGroth)
 {
     // construct a merkle tree
-    ZCIncrementalMerkleTree merkleTree;
+    SproutMerkleTree merkleTree;
 
-    libzcash::SpendingKey k = libzcash::SpendingKey::random();
-    libzcash::PaymentAddress addr = k.address();
+    libzcash::SproutSpendingKey k = libzcash::SproutSpendingKey::random();
+    libzcash::SproutPaymentAddress addr = k.address();
 
-    libzcash::Note note(addr.a_pk, 100, uint256(), uint256());
+    libzcash::SproutNote note(addr.a_pk, 100, uint256(), uint256());
 
     // commitment from coin
     uint256 commitment = note.cm();
@@ -31,7 +33,7 @@ static void do_test(bool isGroth)
     auto witness = merkleTree.witness();
 
     // create JSDescription
-    uint256 pubKeyHash;
+    uint256 joinSplitPubKey;
     std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS> inputs = {
         libzcash::JSInput(witness, note, k),
         libzcash::JSInput() // dummy input of zero value
@@ -50,7 +52,7 @@ static void do_test(bool isGroth)
     {
         auto jsdesc = JSDescription::Randomized(
             isGroth,
-            *params, pubKeyHash, rt,
+            *params, joinSplitPubKey, rt,
             inputs, outputs,
             inputMap, outputMap,
             0, 0, false);
@@ -76,7 +78,7 @@ static void do_test(bool isGroth)
     {
         auto jsdesc = JSDescription::Randomized(
             isGroth,
-            *params, pubKeyHash, rt,
+            *params, joinSplitPubKey, rt,
             inputs, outputs,
             inputMap, outputMap,
             0, 0, false, nullptr, GenZero);       
@@ -94,7 +96,7 @@ static void do_test(bool isGroth)
     {
         auto jsdesc = JSDescription::Randomized(
             isGroth,
-            *params, pubKeyHash, rt,
+            *params, joinSplitPubKey, rt,
             inputs, outputs,
             inputMap, outputMap,
             0, 0, false, nullptr, GenMax);

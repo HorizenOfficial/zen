@@ -19,11 +19,15 @@ class FakeCoinsViewDB : public CCoinsView {
 public:
     FakeCoinsViewDB() {}
 
-    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const {
+    bool GetSproutAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const {
         return false;
     }
 
-    bool GetNullifier(const uint256 &nf) const {
+    bool GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const {
+        return false;
+    }
+
+    bool GetNullifier(const uint256 &nf, ShieldedType type) const {
         return false;
     }
 
@@ -47,16 +51,19 @@ public:
         return a;
     }
 
-    uint256 GetBestAnchor() const {
+    uint256 GetBestAnchor(ShieldedType type) const {
         uint256 a;
         return a;
     }
 
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
-                    const uint256 &hashAnchor,
-                    CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers) {
+                    const uint256 &hashSproutAnchor,
+                    const uint256 &hashSaplingAnchor,
+                    CAnchorsSproutMap &mapSproutAnchors,
+                    CAnchorsSaplingMap &mapSaplingAnchors,
+                    CNullifiersMap &mapSproutNullifiers,
+                    CNullifiersMap &mapSaplingNullifiers) {
         return false;
     }
 
@@ -87,7 +94,7 @@ TEST(Mempool, PriorityStatsDoNotCrash) {
     unsigned int nHeight = 92045;
     double dPriority = view.GetPriority(tx, nHeight);
 
-    CTxMemPoolEntry entry(tx, nFees, nTime, dPriority, nHeight, true);
+    CTxMemPoolEntry entry(tx, nFees, nTime, dPriority, nHeight, true, false);
 
     // Check it does not crash (ie. the death test fails)
     EXPECT_NONFATAL_FAILURE(EXPECT_DEATH(testPool.addUnchecked(tx.GetHash(), entry), ""), "");

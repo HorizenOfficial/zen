@@ -144,6 +144,10 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     CMutableTransaction tx,tx2;
     CScript script;
     uint256 hash;
+    TestMemPoolEntryHelper entry;
+    entry.nFee = 11;
+    entry.dPriority = 111.0;
+    entry.nHeight = 11;
 
     LOCK(cs_main);
     fCheckpointsEnabled = false;
@@ -256,6 +260,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 
         }
 *//*
+        pblock->hashFinalSaplingRoot = uint256();
 
         CValidationState state;
         BOOST_CHECK(ProcessNewBlock(state, NULL, pblock, true, NULL));
