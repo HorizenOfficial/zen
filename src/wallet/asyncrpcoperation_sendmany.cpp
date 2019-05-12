@@ -340,11 +340,11 @@ bool AsyncRPCOperation_sendmany::main_impl() {
 
         // update the transaction with these inputs
         if (isUsingBuilder_) {
-            CScript scriptPubKey = GetScriptForDestination(fromtaddr_);
             for (auto t : t_inputs_) {
                 uint256 txid = std::get<0>(t);
                 int vout = std::get<1>(t);
                 CAmount amount = std::get<2>(t);
+                CScript scriptPubKey = std::get<4>(t);
                 builder_.AddTransparentInput(COutPoint(txid, vout), scriptPubKey, amount);
             }
         } else {
@@ -1024,7 +1024,8 @@ bool AsyncRPCOperation_sendmany::find_utxos(bool fAcceptCoinbase=false) {
         }
 
         CAmount nValue = out.tx->vout[out.i].nValue;
-        SendManyInputUTXO utxo(out.tx->GetHash(), out.i, nValue, isCoinbase);
+        CScript scriptPubKey = out.tx->vout[out.i].scriptPubKey;
+        SendManyInputUTXO utxo(out.tx->GetHash(), out.i, nValue, isCoinbase, scriptPubKey);
         t_inputs_.push_back(utxo);
     }
 

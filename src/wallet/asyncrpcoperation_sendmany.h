@@ -29,8 +29,8 @@ using namespace libzcash;
 // A recipient is a tuple of address, amount, memo (optional if zaddr)
 typedef std::tuple<std::string, CAmount, std::string> SendManyRecipient;
 
-// Input UTXO is a tuple (quadruple) of txid, vout, amount, coinbase)
-typedef std::tuple<uint256, int, CAmount, bool> SendManyInputUTXO;
+// Input UTXO is a tuple (quadruple) of txid, vout, amount, coinbase, scriptPubKey)
+typedef std::tuple<uint256, int, CAmount, bool, CScript> SendManyInputUTXO;
 
 // Input JSOP is a tuple of JSOutpoint, note and amount
 typedef std::tuple<JSOutPoint, SproutNote, CAmount> SendManyInputJSOP;
