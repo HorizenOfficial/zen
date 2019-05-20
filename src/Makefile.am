@@ -29,7 +29,6 @@ BITCOIN_INCLUDES += -I$(srcdir)/snark/libsnark
 BITCOIN_INCLUDES += -I$(srcdir)/univalue/include
 
 LIBBITCOIN_SERVER=libbitcoin_server.a
-LIBBITCOIN_WALLET=libbitcoin_wallet.a
 LIBBITCOIN_COMMON=libbitcoin_common.a
 LIBBITCOIN_CLI=libbitcoin_cli.a
 LIBBITCOIN_UTIL=libbitcoin_util.a
@@ -39,6 +38,19 @@ LIBSNARK=snark/libsnark.a
 LIBUNIVALUE=univalue/libunivalue.la
 LIBZCASH=libzcash.a
 LIBZENCASH=libzencash.a
+
+if ENABLE_ZMQ
+LIBBITCOIN_ZMQ=libbitcoin_zmq.a
+endif
+if ENABLE_PROTON
+LIBBITCOIN_PROTON=libbitcoin_proton.a
+endif
+if BUILD_BITCOIN_LIBS
+LIBZCASH_CONSENSUS=libzcashconsensus.la
+endif
+if ENABLE_WALLET
+LIBBITCOIN_WALLET=libbitcoin_wallet.a
+endif
 
 $(LIBSECP256K1): $(wildcard secp256k1/src/*) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
@@ -65,15 +77,15 @@ $(LIBUNIVALUE): $(wildcard univalue/lib/*) $(wildcard univalue/include/*)
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
-EXTRA_LIBRARIES = \
-  crypto/libbitcoin_crypto.a \
-  libbitcoin_util.a \
-  libbitcoin_common.a \
-  libbitcoin_server.a \
-  libbitcoin_cli.a \
-  libzcash.a \
+EXTRA_LIBRARIES += \
+  $(LIBBITCOIN_CRYPTO) \
+  $(LIBBITCOIN_UTIL) \
+  $(LIBBITCOIN_COMMON) \
+  $(LIBBITCOIN_SERVER) \
+  $(LIBBITCOIN_CLI) \
+  $(LIBZCASH) \
   libzencash.a
-
+  
 if ENABLE_WALLET
 BITCOIN_INCLUDES += $(BDB_CPPFLAGS)
 EXTRA_LIBRARIES += libbitcoin_wallet.a
@@ -291,8 +303,6 @@ libbitcoin_server_a_SOURCES = \
   $(LIBZENCASH_H)
 
 if ENABLE_ZMQ
-LIBBITCOIN_ZMQ=libbitcoin_zmq.a
-
 libbitcoin_zmq_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(ZMQ_CFLAGS)
 libbitcoin_zmq_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_zmq_a_SOURCES = \
@@ -302,8 +312,6 @@ libbitcoin_zmq_a_SOURCES = \
 endif
 
 if ENABLE_PROTON
-LIBBITCOIN_PROTON=libbitcoin_proton.a
-
 libbitcoin_proton_a_CPPFLAGS = $(BITCOIN_INCLUDES)
 libbitcoin_proton_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_proton_a_SOURCES = \
@@ -452,7 +460,7 @@ endif
 
 zend_LDADD = \
   $(LIBBITCOIN_SERVER) 
-
+  
 # must be before COMMON
 if ENABLE_WALLET
 zend_LDADD += libbitcoin_wallet.a
@@ -469,7 +477,7 @@ zend_LDADD += \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
-
+  
 if ENABLE_ZMQ
 zend_LDADD += $(LIBBITCOIN_ZMQ) $(ZMQ_LIBS)
 endif
@@ -487,6 +495,7 @@ zend_LDADD += \
 if ENABLE_PROTON
 zend_LDADD += $(LIBBITCOIN_PROTON) $(PROTON_LIBS)
 endif
+
 
 # bitcoin-cli binary #
 zen_cli_SOURCES = bitcoin-cli.cpp
@@ -607,7 +616,7 @@ libzencash_a_SOURCES = \
 	zen/forks/fork6_overwinterfork.cpp\
 	zen/forks/fork7_saplingfork.cpp\
 	zen/tlsmanager.cpp\
-    zen/delay.cpp
+    zen/delay.cpp 
 
 if HAVE_OPENMP
 libzencash_a_CPPFLAGS = -DMULTICORE -fopenmp
