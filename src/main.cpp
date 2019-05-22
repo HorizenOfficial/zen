@@ -991,7 +991,6 @@ bool ContextualCheckTransaction(
 										 error("ContextualCheckTransaction(): groth is already active"),
 										 REJECT_INVALID, "bad-tx-shielded-version-too-low");
 					}
-					return true;
 
 				} else {
 					if(tx.nVersion < TRANSPARENT_TX_VERSION) {
@@ -1000,7 +999,9 @@ bool ContextualCheckTransaction(
 										 error("ContextualCheckTransaction(): phgr is still active"),
 										 REJECT_INVALID, "bad-tx-shielded-version-too-low");
 					}
-					return true;
+					if(tx.nVersion == TRANSPARENT_TX_VERSION) {
+						return true;
+					}
 			}
     }
 
