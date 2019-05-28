@@ -165,9 +165,27 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
             {
             	// Possible values of OP_CHECKBLOCKATHEIGHT parameters
             	if (vch1.size() <= sizeof(int32_t))
-					vchBlockHeight = vch1;
-				else
-					vchBlockHash = vch1;
+                {
+                    if (vch1.size() == 0 && (opcode1 >= OP_1 && opcode1 <= OP_16) )
+                    {
+                        // small size int (1..16) are not in vch1
+                        // they are represented in the opcode itself
+                        // (see CScript::push_int64() method)
+
+                        // leave vch1 alone and use a copy, just to be in the safest side
+                        vector<unsigned char> vTemp;
+                        vTemp.push_back((unsigned char)(opcode1 - OP_1 + 1));
+                        vchBlockHeight = vTemp;
+                    }
+                    else
+                    {
+                        vchBlockHeight = vch1;
+                    }
+                }
+                else
+                {
+                    vchBlockHash = vch1;
+                }
 
                 // small pushdata, <= nMaxDatacarrierBytes
                 if (vch1.size() > nMaxDatacarrierBytes)
@@ -186,24 +204,45 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                 }
 
                 const int32_t nHeight = CScriptNum(vchBlockHeight, false, sizeof(int32_t)).getint();
+                const int32_t nChActHeight = chainActive.Height();
 
-                if ((nHeight < 0 || nHeight > chainActive.Height()) && ForkManager::getInstance().getReplayProtectionLevel(chainActive.Height()) == RPLEVEL_FIXED)
+                if ((nHeight < 0 || nHeight > nChActHeight ) && ForkManager::getInstance().getReplayProtectionLevel(nChActHeight) == RPLEVEL_FIXED)
                 {
-                    LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Transaction is non-final. nHeight: %d\n", __FILE__, __func__, nHeight);
+                    LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight not legal[%d], chainActive height: %d\n",
+                        __FILE__, __func__, __LINE__, nHeight, nChActHeight);
                     break;
                 }
 
-                // According to BIP115, sufficiently old blocks are always valid, so check only blocks of depth less than 52596.
-                // Skip check if referenced block is further than chainActive. It means that we are not fully synchronized.
-                if (nHeight > (chainActive.Height() - 52596) && nHeight >= 0 &&
-                    nHeight <= chainActive.Height())
+                // enforce that referenced block is not too recent
+                if ( (nChActHeight - nHeight) < getCheckBlockAtHeightMinAge() && ForkManager::getInstance().getReplayProtectionLevel(nChActHeight) == RPLEVEL_FIXED)
                 {
-					CBlockIndex* pblockindex = chainActive[nHeight];
+                    LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT targets a block too young: nHeight[%d], chainActive height[%d], min age[%d]\n",
+                        __FILE__, __func__, __LINE__, nHeight, nChActHeight, getCheckBlockAtHeightMinAge());
+                    break;
+                }
+
+                // According to BIP115, sufficiently old blocks are always valid, so reject only blocks of depth less than 52596.
+                // Skip check if referenced block is further than chainActive. It means that we are not fully synchronized.
+                if (nHeight >= 0 && nHeight <= nChActHeight)
+                {
+                    CBlockIndex* pblockindex = chainActive[nHeight];
 
                     if (pblockindex->GetBlockHash() != uint256(vchBlockHash))
                     {
-                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. vout block height: %d\n", __FILE__, __func__, nHeight);
-                        break;
+                        LogPrint("cbh", "%s: %s():%d - script has[%s], actual [%s]\n",
+                            __FILE__, __func__, __LINE__, pblockindex->GetBlockHash().ToString(), uint256(vchBlockHash).ToString());
+
+                        if (nHeight <= (nChActHeight - getCheckBlockAtHeightSafeDepth() ) )
+                        {
+                            LogPrint("cbh", "%s: %s():%d - Old block: ignore script failure [h=%d, chain h=%d, safe depth = %d]\n",
+                                __FILE__, __func__, __LINE__, nHeight, nChActHeight, getCheckBlockAtHeightSafeDepth() );
+                        }
+                        else
+                        {
+                            LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT verification failed at block height: %d\n",
+                                __FILE__, __func__, __LINE__, nHeight);
+                            break;
+                        }
                     }
                 }
 #endif

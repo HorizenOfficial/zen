@@ -744,8 +744,18 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
             reason = "bare-multisig";
             return false;
         } else if (txout.IsDust(::minRelayTxFee)) {
-            reason = "dust";
-            return false;
+            if (Params().NetworkIDString() == "regtest")
+            {
+                // do not reject this tx in regtest, there are py tests intentionally using zero values
+                // and expecting this to be processable
+                LogPrintf("%s():%d - txout is dust, ignoring it because we are in regtest\n",
+                    __func__, __LINE__);
+            }
+            else
+            {
+                reason = "dust";
+                return false;
+            }
         }
     }
 
@@ -6789,3 +6799,40 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
     return false;
 }
     
+
+static int getInitCbhSafeDepth()
+{
+    if (Params().NetworkIDString() == "regtest")
+    {
+        int val = (int)(GetArg("-cbhsafedepth", Params().CbhSafeDepth() ));
+        LogPrint("cbh", "%s():%d - REGTEST: using val %d \n", __func__, __LINE__, val);
+        return val;
+    }
+    return Params().CbhSafeDepth();
+}
+
+int getCheckBlockAtHeightSafeDepth()
+{
+    // gets constructed just one time
+    static int retVal( getInitCbhSafeDepth() );
+    return retVal;
+}
+
+static int getInitCbhMinAge()
+{
+    if (Params().NetworkIDString() == "regtest")
+    {
+        int val = (int)(GetArg("-cbhminage", Params().CbhMinimumAge() ));
+        LogPrint("cbh", "%s():%d - REGTEST: using val %d \n", __func__, __LINE__, val);
+        return val;
+    }
+    return Params().CbhMinimumAge();
+}
+
+int getCheckBlockAtHeightMinAge()
+{
+    // gets constructed just one time
+    static int retVal( getInitCbhMinAge() );
+    return retVal;
+}
+
