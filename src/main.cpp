@@ -725,15 +725,26 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
     unsigned int nDataOut = 0;
     txnouttype whichType;
     BOOST_FOREACH(const CTxOut& txout, tx.vout) {
-        if (!::IsStandard(txout.scriptPubKey, whichType)) {
+
+	    CheckBlockResult checkBlockResult;
+        if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
             reason = "scriptpubkey";
             return false;
         }
 
-        int nHeight = chainActive.Height();
+        if (checkBlockResult.referencedHeight > 0)
+        {
+            if ( (nHeight - checkBlockResult.referencedHeight) < getCheckBlockAtHeightMinAge())
+            {
+                LogPrintf("%s():%d - referenced block h[%d], chain.h[%d], minAge[%d]\n",
+                    __func__, __LINE__, checkBlockResult.referencedHeight, nHeight, getCheckBlockAtHeightMinAge() );
+                reason = "scriptpubkey checkblockatheight: referenced block too recent";
+                return false;
+            }
+        }
 
         // provide temporary replay protection for two minerconf windows during chainsplit
-        if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(nHeight,whichType))) {
+        if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(), whichType))) {
             reason = "op-checkblockatheight-needed";
             return false;
         }

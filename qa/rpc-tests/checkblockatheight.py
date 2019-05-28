@@ -199,12 +199,15 @@ class headers(BitcoinTestFramework):
         h = self.nodes[1].getblockcount()
         assert_greater_than(FINALITY_MIN_AGE, h - modTargetHeigth)
 
+        #raw_input("\npress enter to go on ..")
         try:
             txid = self.nodes[1].sendrawtransaction(signedRawTx['hex'])
             print "  Tx sent: ", txid
+            # should fail, therefore force test failure
+            assert_equal(True, False)
 
         except JSONRPCException,e:
-            print "  ==> tx has been rejected due to the issue in the script: "
+            print "  ==> tx has been rejected as expected:"
             print "      referenced block height=%d, chainActive.height=%d, minimumAge=%d" % (modTargetHeigth, h, FINALITY_MIN_AGE)
             print
 
