@@ -510,16 +510,13 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-deprecatedgetblocktemplate", (_("Disable block complexity calculation and use the previous GetBlockTemplate implementation")));
 
     strUsage += HelpMessageOpt("-cbhsafedepth=<n>",
-        strprintf(_("regtest/testnet only - Set safe depth for skipping checkblockatheight in txout scripts (default: %u)"),
-        Params().CbhSafeDepth() ));
+        "regtest/testnet only - Set safe depth for skipping checkblockatheight in txout scripts (default depends on regtest/testnet params)");
         
     strUsage += HelpMessageOpt("-cbhminage=<n>",
-        strprintf(_("regtest/testnet only - Set the minimum legal age of the referenced block for checkblockatheight in txout scripts (default: %u)"),
-        Params().CbhMinimumAge() ));
+        "regtest/testnet only - Set the minimum legal age of the referenced block for checkblockatheight in txout scripts (default depends on regtest/testnet params)");
 
     strUsage += HelpMessageOpt("-allownonstandardtx",
-        strprintf(_("regtest/testnet only - allow non-standard tx (default: %u)"),
-        (!Params().RequireStandard()) ));
+        "regtest/testnet only - allow non-standard tx (default depends on regtest/testnet params)");
 
     if (GetBoolArg("-help-debug", false))
         strUsage += HelpMessageOpt("-blockversion=<n>", "Override block version to test forking scenarios");
