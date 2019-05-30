@@ -249,6 +249,7 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
 
 int getCheckBlockAtHeightSafeDepth();
 int getCheckBlockAtHeightMinAge();
+bool getRequireStandard();
 
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams);
 

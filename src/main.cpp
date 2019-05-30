@@ -726,7 +726,7 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
     txnouttype whichType;
     BOOST_FOREACH(const CTxOut& txout, tx.vout) {
 
-	    CheckBlockResult checkBlockResult;
+        CheckBlockResult checkBlockResult;
         if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
             reason = "scriptpubkey";
             return false;
@@ -738,9 +738,9 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
             {
                 LogPrintf("%s():%d - referenced block h[%d], chain.h[%d], minAge[%d]\n",
                     __func__, __LINE__, checkBlockResult.referencedHeight, nHeight, getCheckBlockAtHeightMinAge() );
-                reason = "scriptpubkey checkblockatheight: referenced block too recent";
-                return false;
-            }
+            reason = "scriptpubkey checkblockatheight: referenced block too recent";
+            return false;
+        }
         }
 
         // provide temporary replay protection for two minerconf windows during chainsplit
@@ -1249,7 +1249,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     string reason;
-    if (Params().RequireStandard() && !IsStandardTx(tx, reason, nextBlockHeight))
+    if (getRequireStandard() && !IsStandardTx(tx, reason, nextBlockHeight))
         return state.DoS(0,
                          error("AcceptToMemoryPool: nonstandard transaction: %s", reason),
                          REJECT_NONSTANDARD, reason);
@@ -1332,7 +1332,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
 
         // Check for non-standard pay-to-script-hash in inputs
-        if (Params().RequireStandard() && !AreInputsStandard(tx, view))
+        if (getRequireStandard() && !AreInputsStandard(tx, view))
             return error("AcceptToMemoryPool: nonstandard transaction input");
 
         // Check that the transaction doesn't have an excessive number of
@@ -6813,10 +6813,10 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
 
 static int getInitCbhSafeDepth()
 {
-    if (Params().NetworkIDString() == "regtest")
+    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
     {
         int val = (int)(GetArg("-cbhsafedepth", Params().CbhSafeDepth() ));
-        LogPrint("cbh", "%s():%d - REGTEST: using val %d \n", __func__, __LINE__, val);
+        LogPrint("cbh", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
         return val;
     }
     return Params().CbhSafeDepth();
@@ -6831,10 +6831,10 @@ int getCheckBlockAtHeightSafeDepth()
 
 static int getInitCbhMinAge()
 {
-    if (Params().NetworkIDString() == "regtest")
+    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
     {
         int val = (int)(GetArg("-cbhminage", Params().CbhMinimumAge() ));
-        LogPrint("cbh", "%s():%d - REGTEST: using val %d \n", __func__, __LINE__, val);
+        LogPrint("cbh", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
         return val;
     }
     return Params().CbhMinimumAge();
@@ -6844,6 +6844,30 @@ int getCheckBlockAtHeightMinAge()
 {
     // gets constructed just one time
     static int retVal( getInitCbhMinAge() );
+    return retVal;
+}
+
+static bool getInitRequireStandard()
+{
+    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
+    {
+        bool val = Params().RequireStandard();
+
+        if ((bool)(GetBoolArg("-allownonstandardtx",  false ) ) )
+        {
+            // if this flag is set the user wants to allow non-standars tx, therefore we override default param and return false  
+            val = false;
+        }
+        LogPrintf("%s():%d - %s: using val %d (%s)\n", __func__, __LINE__, Params().NetworkIDString(), (int)val, (val?"Y":"N"));
+        return val;
+    }
+    return Params().RequireStandard();
+}
+
+bool getRequireStandard()
+{
+    // gets constructed just one time
+    static int retVal( getInitRequireStandard() );
     return retVal;
 }
 
