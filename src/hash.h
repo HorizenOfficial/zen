@@ -101,6 +101,33 @@ inline uint256 Hash(const T1 p1begin, const T1 p1end,
     return result;
 }
 
+/** Compute the 256-bit hash of the concatenation of N objects of the same type. */
+template<typename T>
+inline uint256 Hash(const std::vector<T> vInput)
+{
+    static const unsigned char pblank[1] = {};
+    static const int size = vInput.size();
+    uint256 result;
+
+    if (size == 0)
+    {
+        return result;
+    }
+
+    CHash256 dum;
+
+    for (int j = 0; j < size; j++)
+    {
+        char* tb = (char*)&(vInput[j]);
+        char* te = (char*)&((&(vInput[j]))[1]);
+ 
+        dum = dum.Write(tb == te ? pblank : (const unsigned char*)&tb[0], (te - tb) * sizeof(tb[0]));
+    }
+
+    dum.Finalize((unsigned char*)&result);
+    return result;
+}
+
 /** Compute the 160-bit hash an object. */
 template<typename T1>
 inline uint160 Hash160(const T1 pbegin, const T1 pend)

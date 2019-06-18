@@ -22,10 +22,12 @@ class CBlockHeader
 public:
     // header
     static const size_t HEADER_SIZE=4+32+32+32+4+4+32; // excluding Equihash solution
+    static const int32_t CURRENT_VERSION = 0x20000001;
     int32_t nVersion;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
     uint256 hashReserved;
+    uint256 hashScMerkleRootsMap;
     uint32_t nTime;
     uint32_t nBits;
     uint256 nNonce;
@@ -45,6 +47,10 @@ public:
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
         READWRITE(hashReserved);
+        if (nVersion == CURRENT_VERSION)
+        {
+            READWRITE(hashScMerkleRootsMap);
+        }
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
@@ -57,6 +63,7 @@ public:
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
         hashReserved.SetNull();
+        hashScMerkleRootsMap.SetNull();
         nTime = 0;
         nBits = 0;
         nNonce = uint256();
@@ -85,6 +92,7 @@ public:
 
     // memory only
     mutable std::vector<uint256> vMerkleTree;
+    mutable std::vector<uint256> vScMerkleRootsMap;
 
     CBlock()
     {
@@ -119,6 +127,7 @@ public:
         block.hashPrevBlock  = hashPrevBlock;
         block.hashMerkleRoot = hashMerkleRoot;
         block.hashReserved   = hashReserved;
+        block.hashScMerkleRootsMap      = hashScMerkleRootsMap;
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
@@ -131,9 +140,11 @@ public:
     // tree (a duplication of transactions in the block leading to an identical
     // merkle root).
     uint256 BuildMerkleTree(bool* mutated = NULL) const;
+    uint256 BuildScMerkleRootsMap();
 
     std::vector<uint256> GetMerkleBranch(int nIndex) const;
     static uint256 CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex);
+    static uint256 BuildMerkleRootHash(const std::vector<uint256>& vInput, bool* fMutated = NULL);
     std::string ToString() const;
 };
 
@@ -160,6 +171,10 @@ public:
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
         READWRITE(hashReserved);
+        if (nVersion == CURRENT_VERSION)
+        {
+            READWRITE(hashScMerkleRootsMap);
+        }
         READWRITE(nTime);
         READWRITE(nBits);
     }

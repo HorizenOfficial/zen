@@ -57,6 +57,8 @@ using namespace std;
 
 CCriticalSection cs_main;
 
+ScTxMap mScTransactions;
+
 BlockSet sGlobalForkTips;
 BlockTimeMap mGlobalForkTips;
 
@@ -102,6 +104,8 @@ void EraseOrphansFor(NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
  */
 static bool IsSuperMajority(int minVersion, const CBlockIndex* pstart, unsigned nRequired, const Consensus::Params& consensusParams);
 static void CheckBlockIndex();
+static void AddToScTransactionMap(const CBlock& block);
+static void RemoveFromScTransactionMap(const CBlock& block);
 
 /** Constant stuff for coinbase transactions we create: */
 CScript COINBASE_FLAGS;
@@ -926,7 +930,7 @@ bool ContextualCheckTransaction(
 
 	if(isGROTHActive) {
 		//verify if transaction is transparent or the actual shielded version
-		if(tx.nVersion == TRANSPARENT_TX_VERSION) {
+		if(tx.nVersion == TRANSPARENT_TX_VERSION || tx.nVersion == SC_TX_VERSION) {
 			//enforce empty joinsplit for transparent txs
 			if(!tx.vjoinsplit.empty()) {
 				return state.DoS(dosLevel, error("ContextualCheckTransaction(): transparent tx but vjoinsplit not empty"),
@@ -943,7 +947,7 @@ bool ContextualCheckTransaction(
 		return true;
 
 	} else {
-		if(tx.nVersion < TRANSPARENT_TX_VERSION) {
+		if(tx.nVersion < TRANSPARENT_TX_VERSION && tx.nVersion != SC_TX_VERSION) {
 			LogPrintf("ContextualCheckTransaction: rejecting non PHGR (%d) transaction because PHGR is still active at block height %d\n", tx.nVersion, nHeight);
 			return state.DoS(0,
 	                         error("ContextualCheckTransaction(): phgr is still active"),
@@ -996,7 +1000,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
 {
     // Basic checks that don't depend on any context
     // Check transaction version
-    if (tx.nVersion < MIN_OLD_TX_VERSION && tx.nVersion != GROTH_TX_VERSION) {
+    if (tx.nVersion < MIN_OLD_TX_VERSION && tx.nVersion != GROTH_TX_VERSION && tx.nVersion != SC_TX_VERSION) {
         return state.DoS(100, error("CheckTransaction(): version too low"),
                          REJECT_INVALID, "bad-txns-version-too-low");
     }
@@ -1007,7 +1011,10 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
     if (tx.vin.empty() && tx.vjoinsplit.empty())
         return state.DoS(10, error("CheckTransaction(): vin empty"),
                          REJECT_INVALID, "bad-txns-vin-empty");
-    if (tx.vout.empty() && tx.vjoinsplit.empty())
+
+    // also allow the case when vccout is not empty. In that case there might be no vout at all
+    // when utxo reminder is only dust, which is added to fee leaving no change for the sender
+    if (tx.vout.empty() && tx.vjoinsplit.empty() && tx.vccout.empty())
         return state.DoS(10, error("CheckTransaction(): vout empty"),
                          REJECT_INVALID, "bad-txns-vout-empty");
 
@@ -1328,6 +1335,14 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                              REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
 
         CAmount nValueOut = tx.GetValueOut();
+        CAmount nValueCcOut = tx.GetValueCrossChainOut();
+
+        if (tx.nVersion == SC_TX_VERSION)
+        {
+            nValueCcOut = tx.GetValueCrossChainOut();
+            nValueOut += nValueCcOut;
+        }
+
         CAmount nFees = nValueIn-nValueOut;
         double dPriority = view.GetPriority(tx, chainActive.Height());
 
@@ -1340,6 +1355,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         } else {
             // Don't accept it if it can't get into a block
             CAmount txMinFee = GetMinRelayFee(tx, nSize, true);
+            LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
             if (fLimitFree && nFees < txMinFee)
                 return state.DoS(0, error("AcceptToMemoryPool: not enough fees %s, %d < %d",
                                         hash.ToString(), nFees, txMinFee),
@@ -2460,6 +2476,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if (!pblocktree->WriteTxIndex(vPos))
             return AbortNode(state, "Failed to write transaction index");
 
+    // check for SC-related tx in block, and in case update data
+    AddToScTransactionMap(block);
+
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
@@ -2684,6 +2703,9 @@ bool static DisconnectTip(CValidationState &state) {
     // Write the chain state to disk, if necessary.
     if (!FlushStateToDisk(state, FLUSH_STATE_IF_NEEDED))
         return false;
+
+    RemoveFromScTransactionMap(block);
+
     // Resurrect mempool transactions from the disconnected block.
     BOOST_FOREACH(const CTransaction &tx, block.vtx) {
         // ignore validation errors in resurrected transactions
@@ -4167,6 +4189,8 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
         }
         if (ShutdownRequested())
             return true;
+
+        AddToScTransactionMap(block);
     }
     if (pindexFailure)
         return error("VerifyDB(): *** coin database inconsistencies found (last %i blocks, %i good transactions before that)\n", chainActive.Height() - pindexFailure->nHeight + 1, nGoodTransactions);
@@ -6788,4 +6812,102 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
     LogPrint("forks", "%s():%d - ##### Exiting returning FALSE\n", __func__, __LINE__);
     return false;
 }
+
+void AddToScTransactionMap(const CBlock& block)
+{
+    BOOST_FOREACH(const CTransaction& tx, block.vtx)
+    {
+        if (tx.nVersion == SC_TX_VERSION)
+        {
+            uint256 txHash = tx.GetHash();
+            LogPrint("sc", "%s():%d - tx=%s\n", __func__, __LINE__, txHash.ToString() );
+            int c = 0;
+
+            BOOST_FOREACH(const CTxCrosschainOut& txccout, tx.vccout)
+            {
+                std::vector<mScCcOutputs>& vec = mScTransactions[txccout.scId];
+                if (!vec.size())
+                {
+                    mScCcOutputs m;
+                    auto& v = m[txHash];
+                    v.push_back(c);
+
+                    LogPrint("sc", "%s():%d - scId=%s, adding tx vccout %d to a new m in new vec\n",
+                        __func__, __LINE__, txccout.scId.ToString(), c );
+                    vec.push_back(m);
+                }
+                else
+                {
+                    BOOST_FOREACH(auto& m, vec)
+                    {
+                        auto mi = m.find(txHash);
+                        if (mi != m.end() )
+                        {
+                            LogPrint("sc", "%s():%d - scId=%s, adding tx vccout %d to an existing m in existing vec\n",
+                                __func__, __LINE__, txccout.scId.ToString(), c );
+                            (*mi).second.push_back(c);
+                        }
+                        else
+                        {
+                            auto& v = m[txHash];
+                            v.push_back(c);
+
+                            LogPrint("sc", "%s():%d - scId=%s, adding tx vccout %d to a new m in existing vec\n",
+                                __func__, __LINE__, txccout.scId.ToString(), c );
+                        }
+                    }
+                }
+                c++;
+            }
+        }
+    }
+}
     
+void RemoveFromScTransactionMap(const CBlock& block)
+{
+    BOOST_FOREACH(const CTransaction& tx, block.vtx)
+    {
+        if (tx.nVersion == SC_TX_VERSION)
+        {
+            uint256 txHash = tx.GetHash();
+            LogPrint("sc", "%s():%d - tx=%s\n", __func__, __LINE__, txHash.ToString() );
+            int c = 0;
+
+            BOOST_FOREACH(auto& scPair, mScTransactions)
+            {
+                BOOST_FOREACH(auto& map, scPair.second)
+                {
+                    auto mi = map.find(txHash);
+                    if (mi != map.end() )
+                    {
+                        LogPrint("sc", "%s():%d - erasing from sc=%s\n", __func__, __LINE__, scPair.first.ToString() );
+                        map.erase(txHash);
+                    }
+                }
+            }
+        }
+    }
+}
+    
+void dump_sc_tx()
+{
+    LogPrint("sc", "===== SC TXs: %d =================\n", mScTransactions.size());
+    BOOST_FOREACH(const auto& scPair, mScTransactions)
+    {
+        LogPrint("sc", "SC id: [%s]\n", scPair.first.ToString());
+
+        BOOST_FOREACH(const auto& map, scPair.second)
+        {
+            BOOST_FOREACH(const auto& txPair, map)
+            {
+                LogPrint("sc", "    tx id: [%s]\n", txPair.first.ToString());
+
+                BOOST_FOREACH(const auto& nIdx, txPair.second)
+                {
+                    LogPrint("sc", "        vccout n: [%s]\n", nIdx);
+                }
+            }
+        }
+    }
+}
+

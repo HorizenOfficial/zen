@@ -124,6 +124,13 @@ struct CRecipient
     bool fSubtractFeeFromAmount;
 };
 
+struct CRecipientCrossChain : public CRecipient
+{
+    unsigned char type;
+    uint256 scId;
+    int64_t epoch;
+};
+
 typedef std::map<std::string, std::string> mapValue_t;
 
 
@@ -150,6 +157,7 @@ struct COutputEntry
     CTxDestination destination;
     CAmount amount;
     int vout;
+    int vccout;
 };
 
 /** An note outpoint */
@@ -354,8 +362,10 @@ public:
     // memory only
     mutable bool fDebitCached;
     mutable bool fCreditCached;
+    mutable bool fScCreditCached;
     mutable bool fImmatureCreditCached;
     mutable bool fAvailableCreditCached;
+    mutable bool fAvailableScCreditCached;
     mutable bool fWatchDebitCached;
     mutable bool fWatchCreditCached;
     mutable bool fImmatureWatchCreditCached;
@@ -363,8 +373,10 @@ public:
     mutable bool fChangeCached;
     mutable CAmount nDebitCached;
     mutable CAmount nCreditCached;
+    mutable CAmount nScCreditCached;
     mutable CAmount nImmatureCreditCached;
     mutable CAmount nAvailableCreditCached;
+    mutable CAmount nAvailableScCreditCached;
     mutable CAmount nWatchDebitCached;
     mutable CAmount nWatchCreditCached;
     mutable CAmount nImmatureWatchCreditCached;
@@ -404,8 +416,10 @@ public:
         strFromAccount.clear();
         fDebitCached = false;
         fCreditCached = false;
+        fScCreditCached = false;
         fImmatureCreditCached = false;
         fAvailableCreditCached = false;
+        fAvailableScCreditCached = false;
         fWatchDebitCached = false;
         fWatchCreditCached = false;
         fImmatureWatchCreditCached = false;
@@ -413,8 +427,10 @@ public:
         fChangeCached = false;
         nDebitCached = 0;
         nCreditCached = 0;
+        nScCreditCached = 0;
         nImmatureCreditCached = 0;
         nAvailableCreditCached = 0;
+        nAvailableScCreditCached = 0;
         nWatchDebitCached = 0;
         nWatchCreditCached = 0;
         nAvailableWatchCreditCached = 0;
@@ -472,7 +488,9 @@ public:
     void MarkDirty()
     {
         fCreditCached = false;
+        fScCreditCached = false;
         fAvailableCreditCached = false;
+        fAvailableScCreditCached = false;
         fWatchDebitCached = false;
         fWatchCreditCached = false;
         fAvailableWatchCreditCached = false;
@@ -492,8 +510,10 @@ public:
     //! filter decides which addresses will count towards the debit
     CAmount GetDebit(const isminefilter& filter) const;
     CAmount GetCredit(const isminefilter& filter) const;
+    CAmount GetScCredit(const isminefilter& filter) const;
     CAmount GetImmatureCredit(bool fUseCache=true) const;
     CAmount GetAvailableCredit(bool fUseCache=true) const;
+    CAmount GetAvailableScCredit(bool fUseCache=true) const;
     CAmount GetImmatureWatchOnlyCredit(const bool& fUseCache=true) const;
     CAmount GetAvailableWatchOnlyCredit(const bool& fUseCache=true) const;
     CAmount GetChange() const;
@@ -681,6 +701,12 @@ private:
      */
     typedef TxSpendMap<COutPoint> TxSpends;
     TxSpends mapTxSpends;
+    /**
+     * Used to keep track of spent crosschain outpoints, and
+     * detect and report conflicts (double-spends or
+     * mutated transactions where the mutant gets mined).
+     */
+    TxSpends mapTxCrosschainSpends;
     /**
      * Used to keep track of spent Notes, and
      * detect and report conflicts (double-spends).
@@ -884,9 +910,11 @@ public:
     //! check whether we are allowed to upgrade (or already support) to the named feature
     bool CanSupportFeature(enum WalletFeature wf) { AssertLockHeld(cs_wallet); return nWalletMaxVersion >= wf; }
 
+    void AvailableScCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl = NULL, bool fIncludeZeroValue=false, bool fIncludeCoinBase=true, bool fIncludeCommunityFund=true) const;
     void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl = NULL, bool fIncludeZeroValue=false, bool fIncludeCoinBase=true, bool fIncludeCommunityFund=true) const;
     bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet) const;
 
+    bool IsCrosschainSpent(const uint256& hash, unsigned int n) const;
     bool IsSpent(const uint256& hash, unsigned int n) const;
     bool IsSpent(const uint256& nullifier) const;
 
@@ -992,6 +1020,7 @@ public:
     void ResendWalletTransactions(int64_t nBestBlockTime);
     std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime);
     CAmount GetBalance() const;
+    CAmount GetScBalance() const;
     CAmount GetUnconfirmedBalance() const;
     CAmount GetImmatureBalance() const;
     CAmount GetWatchOnlyBalance() const;
@@ -999,6 +1028,8 @@ public:
     CAmount GetImmatureWatchOnlyBalance() const;
     bool FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosRet, std::string& strFailReason);
     bool CreateTransaction(const std::vector<CRecipient>& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosRet,
+                           std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true);
+    bool ScCreateTransaction(const std::vector<CRecipientCrossChain>& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosRet,
                            std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true);
     bool CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);
 
@@ -1036,6 +1067,8 @@ public:
     CAmount GetDebit(const CTxIn& txin, const isminefilter& filter) const;
     isminetype IsMine(const CTxOut& txout) const;
     CAmount GetCredit(const CTxOut& txout, const isminefilter& filter) const;
+    isminetype IsMine(const CTxCrosschainOut& txccout) const;
+    CAmount GetCredit(const CTxCrosschainOut& txccout, const isminefilter& filter) const;
     bool IsChange(const CTxOut& txout) const;
     CAmount GetChange(const CTxOut& txout) const;
     bool IsMine(const CTransaction& tx) const;
@@ -1043,6 +1076,7 @@ public:
     bool IsFromMe(const CTransaction& tx) const;
     CAmount GetDebit(const CTransaction& tx, const isminefilter& filter) const;
     CAmount GetCredit(const CTransaction& tx, const isminefilter& filter) const;
+    CAmount GetScCredit(const CTransaction& tx, const isminefilter& filter) const;
     CAmount GetChange(const CTransaction& tx) const;
     void ChainTip(const CBlockIndex *pindex, const CBlock *pblock, ZCIncrementalMerkleTree tree, bool added);
     /** Saves witness caches and best block locator to disk. */

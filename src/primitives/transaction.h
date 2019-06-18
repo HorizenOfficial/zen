@@ -24,7 +24,8 @@
 #include "zcash/Proof.hpp"
 
 
-static const int32_t GROTH_TX_VERSION = 0xFFFFFFFD;
+static const int32_t SC_TX_VERSION = 0xFFFFFFFC; // -4
+static const int32_t GROTH_TX_VERSION = 0xFFFFFFFD; // -3
 static const int32_t PHGR_TX_VERSION = 2;
 static const int32_t TRANSPARENT_TX_VERSION = 1;
 static_assert(GROTH_TX_VERSION < MIN_OLD_TX_VERSION,
@@ -35,6 +36,9 @@ static_assert(PHGR_TX_VERSION >= MIN_OLD_TX_VERSION,
 
 static_assert(TRANSPARENT_TX_VERSION >= MIN_OLD_TX_VERSION,
     "TRANSPARENT tx version must not be lower than minimum");
+
+static const unsigned char SC_FORWARD_TRANSFER_TYPE = 0x1;
+static const unsigned char SC_CERTIFIER_LOCK_TYPE = 0x2;
 
 //Many static casts to int * of Tx nVersion (int32_t *) are performed. Verify at compile time that they are equivalent.
 static_assert(sizeof(int32_t) == sizeof(int), "int size differs from 4 bytes. This may lead to unexpected behaviors on static casts");
@@ -414,6 +418,108 @@ public:
     std::string ToString() const;
 };
 
+/** An output of a transaction related to SideChain only.
+ */
+class CTxCrosschainOut
+{
+public:
+    CAmount nValue;
+    CScript scriptPubKey;
+    unsigned char bType;
+    uint256 scId;
+
+    // optional fields, discriminated by bType 
+    int64_t activeFromWithdrawalEpoch; 
+
+    CTxCrosschainOut()
+    {
+        SetNull();
+    }
+
+    CTxCrosschainOut(
+        const CAmount& nValueIn, CScript scriptPubKeyIn, unsigned char type,
+        uint256 scId, int64_t activeFromWithdrawalEpoch = -1);
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(nValue);
+        READWRITE(scriptPubKey);
+        READWRITE(bType);
+        READWRITE(scId);
+        if (bType == SC_CERTIFIER_LOCK_TYPE)
+        {
+            READWRITE(activeFromWithdrawalEpoch);
+        }
+    }
+
+    void SetNull()
+    {
+        nValue = -1;
+        scriptPubKey.clear();
+        bType = -1;
+        scId = uint256();
+        activeFromWithdrawalEpoch = -1;
+    }
+
+    bool IsNull() const
+    {
+        return (nValue == -1);
+    }
+
+    uint256 GetHash() const;
+
+    CAmount GetDustThreshold(const CFeeRate &minRelayTxFee) const
+    {
+        // "Dust" is defined in terms of CTransaction::minRelayTxFee,
+        // which has units satoshis-per-kilobyte.
+        // If you'd pay more than 1/3 in fees
+        // to spend something, then we consider it dust.
+        // A typical spendable txout is 34 bytes big, and will
+        // need a CTxIn of at least 148 bytes to spend:
+        // so dust is a spendable txout less than 54 satoshis
+        // with default minRelayTxFee.
+        if (scriptPubKey.IsUnspendable())
+            return 0;
+
+        size_t nSize = GetSerializeSize(SER_DISK,0)+148u;
+        return 3*minRelayTxFee.GetFee(nSize);
+    }
+
+    bool IsDust(const CFeeRate &minRelayTxFee) const
+    {
+        return (nValue < GetDustThreshold(minRelayTxFee));
+    }
+
+    friend bool operator==(const CTxCrosschainOut& a, const CTxCrosschainOut& b)
+    {
+        return (a.nValue       == b.nValue &&
+                a.scriptPubKey == b.scriptPubKey &&
+                a.bType        == b.bType &&
+                a.scId         == b.scId &&
+                a.activeFromWithdrawalEpoch == b.activeFromWithdrawalEpoch
+                );
+    }
+
+    friend bool operator!=(const CTxCrosschainOut& a, const CTxCrosschainOut& b)
+    {
+        return !(a == b);
+    }
+
+    std::string ToString() const;
+
+    static const char* type2str(unsigned char type)
+    {
+        switch(type)
+        {
+            case 1:  return "FORWARD_TRANSFER_TYPE"; break; 
+            case 2:  return "CERTIFIER_LOCK_TYPE";   break; 
+            default: return "UNKNOWN_TYPE";
+        }
+    }
+};
+
 struct CMutableTransaction;
 
 /** The basic transaction that is broadcasted on the network and contained in
@@ -444,6 +550,7 @@ public:
     const int32_t nVersion;
     const std::vector<CTxIn> vin;
     const std::vector<CTxOut> vout;
+    const std::vector<CTxCrosschainOut> vccout;
     const uint32_t nLockTime;
     const std::vector<JSDescription> vjoinsplit;
     const uint256 joinSplitPubKey;
@@ -465,6 +572,10 @@ public:
         nVersion = this->nVersion;
         READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
         READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
+        if (nVersion == SC_TX_VERSION)
+        {
+            READWRITE(*const_cast<std::vector<CTxCrosschainOut>*>(&vccout));
+        }
         READWRITE(*const_cast<uint32_t*>(&nLockTime));
         if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {
             auto os = WithTxVersion(&s, static_cast<int>(this->nVersion));
@@ -481,7 +592,12 @@ public:
     CTransaction(deserialize_type, Stream& s) : CTransaction(CMutableTransaction(deserialize, s)) {}
 
     bool IsNull() const {
-        return vin.empty() && vout.empty();
+        bool ret = vin.empty() && vout.empty();
+        if (nVersion == SC_TX_VERSION)
+        {
+            ret = ret && vccout.empty();
+        }
+        return ret;
     }
 
     const uint256& GetHash() const {
@@ -490,6 +606,8 @@ public:
 
     // Return sum of txouts.
     CAmount GetValueOut() const;
+    // Return sum of txccouts.
+    CAmount GetValueCrossChainOut() const;
     // GetValueIn() is a method on CCoinsViewCache, because
     // inputs must be known to compute value in.
 
@@ -526,6 +644,7 @@ struct CMutableTransaction
     int32_t nVersion;
     std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
+    std::vector<CTxCrosschainOut> vccout;
     uint32_t nLockTime;
     std::vector<JSDescription> vjoinsplit;
     uint256 joinSplitPubKey;
@@ -542,6 +661,10 @@ struct CMutableTransaction
         nVersion = this->nVersion;
         READWRITE(vin);
         READWRITE(vout);
+        if (nVersion == SC_TX_VERSION)
+        {
+            READWRITE(vccout);
+        }
         READWRITE(nLockTime);
         if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {
             auto os = WithTxVersion(&s, static_cast<int>(this->nVersion));

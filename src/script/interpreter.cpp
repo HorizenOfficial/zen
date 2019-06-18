@@ -1064,6 +1064,18 @@ public:
             ::Serialize(s, txTo.vout[nOutput], nType, nVersion);
     }
 
+    /** Serialize a cross chain output of txTo */
+    template<typename S>
+    void SerializeCrosschainOutput(S &s, unsigned int nCcOutput, int nType, int nVersion) const {
+        /* TODO what to do with fHashSingle case? Maybe we can compute nCcOutput+vout.size(), but does it make sense?
+        if (fHashSingle && nCcOutput != nIn)
+            // Do not lock-in the txout payee at other indices as txin
+            ::Serialize(s, CTxCrosschainOutOut(), nType, nVersion);
+        else
+        */
+            ::Serialize(s, txTo.vccout[nCcOutput], nType, nVersion);
+    }
+
     /** Serialize txTo */
     template<typename S>
     void Serialize(S &s, int nType, int nVersion) const {
@@ -1079,6 +1091,17 @@ public:
         ::WriteCompactSize(s, nOutputs);
         for (unsigned int nOutput = 0; nOutput < nOutputs; nOutput++)
              SerializeOutput(s, nOutput, nType, nVersion);
+
+        if (txTo.nVersion == SC_TX_VERSION)
+        {
+            // Serialize vccout
+            // TODO what to do with fHashSingle case? Maybe we can compute nCcOutput+vout.size(), but does it make sense?
+            unsigned int nCcOutputs = fHashNone ? 0 : (/* fHashSingle ? nIn+1 : */ txTo.vccout.size());
+            ::WriteCompactSize(s, nCcOutputs);
+            for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
+                 SerializeCrosschainOutput(s, nCcOutput, nType, nVersion);
+        }
+
         // Serialize nLockTime
         ::Serialize(s, txTo.nLockTime, nType, nVersion);
 
@@ -1099,6 +1122,8 @@ public:
                 ::Serialize(s, nullSig, nType, nVersion);
             }
         }
+        
+
     }
 };
 

@@ -106,7 +106,7 @@ BOOST_STATIC_ASSERT(DEFAULT_BLOCK_PRIORITY_SIZE <= DEFAULT_BLOCK_MAX_SIZE);
     ((CBlockHeader::HEADER_SIZE + equihash_solution_size(N, K))*MAX_HEADERS_RESULTS < \
      MAX_PROTOCOL_MESSAGE_LENGTH-1000)
 
-struct BlockHasher
+struct ObjectHasher
 {
     size_t operator()(const uint256& hash) const { return hash.GetCheapHash(); }
 };
@@ -114,7 +114,7 @@ struct BlockHasher
 extern CScript COINBASE_FLAGS;
 extern CCriticalSection cs_main;
 extern CTxMemPool mempool;
-typedef boost::unordered_map<uint256, CBlockIndex*, BlockHasher> BlockMap;
+typedef boost::unordered_map<uint256, CBlockIndex*, ObjectHasher> BlockMap;
 extern BlockMap mapBlockIndex;
 extern uint64_t nLastBlockTx;
 extern uint64_t nLastBlockSize;
@@ -157,6 +157,15 @@ extern BlockTimeMap mGlobalForkTips;
 typedef std::set<const CBlockIndex*, CompareBlocksByHeight> BlockSet;
 extern BlockSet sGlobalForkTips;
 static const int MAX_NUM_GLOBAL_FORKS = 3;
+
+// key: the hash of the sc transaction
+// value: an index list of meaningful vccouts
+typedef boost::unordered_map<uint256, std::vector<int>, ObjectHasher > mScCcOutputs;
+
+// key: sc id
+// value: a list od sc outputs
+typedef boost::unordered_map<uint256, std::vector<mScCcOutputs>, ObjectHasher> ScTxMap;
+extern ScTxMap mScTransactions;
 
 /** Best header we've seen so far (used for getheaders queries' starting points). */
 extern CBlockIndex *pindexBestHeader;

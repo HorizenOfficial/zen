@@ -9,6 +9,7 @@
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 #include "crypto/common.h"
+#include <boost/foreach.hpp>
 
 uint256 CBlockHeader::GetHash() const
 {
@@ -56,6 +57,13 @@ uint256 CBlock::BuildMerkleTree(bool* fMutated) const
     vMerkleTree.reserve(vtx.size() * 2 + 16); // Safe upper bound for the number of total nodes.
     for (std::vector<CTransaction>::const_iterator it(vtx.begin()); it != vtx.end(); ++it)
         vMerkleTree.push_back(it->GetHash());
+
+// TODO test only
+    bool qqq;
+    uint256 testHash = BuildMerkleRootHash(vMerkleTree, &qqq);
+
+// TODO test only
+
     int j = 0;
     bool mutated = false;
     for (int nSize = vtx.size(); nSize > 1; nSize = (nSize + 1) / 2)
@@ -75,8 +83,91 @@ uint256 CBlock::BuildMerkleTree(bool* fMutated) const
     if (fMutated) {
         *fMutated = mutated;
     }
-    return (vMerkleTree.empty() ? uint256() : vMerkleTree.back());
+    uint256 ret = (vMerkleTree.empty() ? uint256() : vMerkleTree.back());
+
+//    std::cout << "testHash: " << testHash.ToString() << std::endl;
+//    std::cout << "ret:      " << ret.ToString() << std::endl;
+
+    return ret;
 }
+
+uint256 CBlock::BuildMerkleRootHash(const std::vector<uint256>& vInput, bool* fMutated) 
+{
+    // copy it
+    std::vector<uint256> vTempMerkleTree = vInput;
+
+    int j = 0;
+    bool mutated = false;
+    for (int nSize = vInput.size(); nSize > 1; nSize = (nSize + 1) / 2)
+    {
+        for (int i = 0; i < nSize; i += 2)
+        {
+            int i2 = std::min(i+1, nSize-1);
+            if (i2 == i + 1 && i2 + 1 == nSize && vTempMerkleTree[j+i] == vTempMerkleTree[j+i2]) {
+                // Two identical hashes at the end of the list at a particular level.
+                mutated = true;
+            }
+            vTempMerkleTree.push_back(Hash(BEGIN(vTempMerkleTree[j+i]),  END(vTempMerkleTree[j+i]),
+                                       BEGIN(vTempMerkleTree[j+i2]), END(vTempMerkleTree[j+i2])));
+        }
+        j += nSize;
+    }
+    if (fMutated) {
+        *fMutated = mutated;
+    }
+    return (vTempMerkleTree.empty() ? uint256() : vTempMerkleTree.back());
+}
+
+uint256 CBlock::BuildScMerkleRootsMap()
+{
+    vScMerkleRootsMap.clear();
+    // TODO compute: vScMerkleRootsMap.reserve(vtx.size() * 2 + 16); // Safe upper bound for the number of total nodes.
+
+    std::vector<CTransaction> vScTx;
+    std::map<uint256, std::vector<uint256> > mScMerkleTreeLeaves; 
+
+    // 1. Look for tx with sc related vccout
+    BOOST_FOREACH(const CTransaction& tx, vtx)
+    {
+        if (tx.nVersion == SC_TX_VERSION)
+        {
+            vScTx.push_back(tx);
+
+            BOOST_FOREACH(const CTxCrosschainOut& txccout, tx.vccout)
+            {
+                std::vector<uint256>& vec = mScMerkleTreeLeaves[txccout.scId];
+                vec.push_back(txccout.GetHash() );
+            }
+        }
+    }
+
+    typedef std::pair<uint256, std::vector<uint256> > PairType;
+    BOOST_FOREACH(const PairType& p, mScMerkleTreeLeaves)
+    {
+        uint256 scid = p.first;
+        uint256 vccoutHash = BuildMerkleRootHash(p.second);
+
+        vScMerkleRootsMap.push_back(scid);
+        vScMerkleRootsMap.push_back(vccoutHash);
+
+    }
+
+#if 0
+    hashScMerkleRootsMap = BuildMerkleRootHash(vScMerkleRootsMap);
+#else
+    hashScMerkleRootsMap = Hash(vScMerkleRootsMap);
+#endif
+
+/*
+    // TODO
+    char dum[32] = {};
+    sprintf(dum, "Ciao!");
+    uint256 dum2 = Hash(BEGIN(dum), END(dum));
+    return dum2;
+    */
+    return hashScMerkleRootsMap;
+}
+
 
 std::vector<uint256> CBlock::GetMerkleBranch(int nIndex) const
 {
@@ -112,14 +203,30 @@ uint256 CBlock::CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMer
 std::string CBlock::ToString() const
 {
     std::stringstream s;
-    s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, hashReserved=%s, nTime=%u, nBits=%08x, nNonce=%s, vtx=%u)\n",
-        GetHash().ToString(),
-        nVersion,
-        hashPrevBlock.ToString(),
-        hashMerkleRoot.ToString(),
-        hashReserved.ToString(),
-        nTime, nBits, nNonce.ToString(),
-        vtx.size());
+    if (nVersion == CURRENT_VERSION)
+    {
+        s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, hashReserved=%s, hashScMerkleRootsMap=%s, nTime=%u, nBits=%08x, nNonce=%s, vtx=%u)\n",
+            GetHash().ToString(),
+            nVersion,
+            hashPrevBlock.ToString(),
+            hashMerkleRoot.ToString(),
+            hashReserved.ToString(),
+            hashScMerkleRootsMap.ToString(),
+            nTime, nBits, nNonce.ToString(),
+            vtx.size());
+    }
+    else
+    {
+        s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, hashReserved=%s, nTime=%u, nBits=%08x, nNonce=%s, vtx=%u)\n",
+            GetHash().ToString(),
+            nVersion,
+            hashPrevBlock.ToString(),
+            hashMerkleRoot.ToString(),
+            hashReserved.ToString(),
+            nTime, nBits, nNonce.ToString(),
+            vtx.size());
+    }
+
     for (unsigned int i = 0; i < vtx.size(); i++)
     {
         s << "  " << vtx[i].ToString() << "\n";

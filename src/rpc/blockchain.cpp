@@ -138,6 +138,10 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.push_back(Pair("height", blockindex->nHeight));
     result.push_back(Pair("version", block.nVersion));
     result.push_back(Pair("merkleroot", block.hashMerkleRoot.GetHex()));
+    if (block.nVersion >= CBlock::CURRENT_VERSION)
+    {
+        result.push_back(Pair("scmerklerootsmap", block.hashScMerkleRootsMap.GetHex()));
+    }
     UniValue txs(UniValue::VARR);
     BOOST_FOREACH(const CTransaction&tx, block.vtx)
     {
@@ -1113,3 +1117,48 @@ UniValue dbg_log(const UniValue& params, bool fHelp)
     LogPrint("py", "%s() - ########## [%s] #########\n", __func__, s);
     return "Log printed";
 }
+
+extern void dump_sc_tx();
+
+UniValue dbg_do(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() == 0)
+    {
+        throw runtime_error(
+            "dbg_do: does some hard coded helper task\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getglobaltips", "\"hash\"")
+        );
+    }
+
+    std::string strHash1 = params[0].get_str();
+    std::string strHash2 = params[1].get_str();
+    uint256 hash1(uint256S(strHash1));
+    uint256 hash2(uint256S(strHash2));
+
+    std::vector<uint256> vDum;
+    vDum.push_back(hash1);
+    vDum.push_back(hash2);
+
+    uint256 ret0 = Hash(vDum);
+
+    uint256 ret1 = Hash(BEGIN(hash1), END(hash1), BEGIN(hash2), END(hash2));
+
+    unsigned char buf[64] = {};
+    memcpy(buf, BEGIN(hash1), sizeof(uint256));
+    memcpy(buf+sizeof(uint256), BEGIN(hash2), sizeof(uint256));
+
+    uint256 ret2 = Hash(BEGIN(buf), END(buf));
+
+    std::vector<string> vDum3;
+    vDum3.push_back(strHash1);
+    vDum3.push_back(strHash2);
+    uint256 ret3 = Hash(vDum3);
+
+    std::string ret(ret0.ToString() + "\n" + ret1.ToString() + "\n" + ret2.ToString() + " ### " + ret3.ToString()); 
+    dump_sc_tx();
+    return ret;
+}
+
+
+
