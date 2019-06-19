@@ -92,7 +92,6 @@ public:
 
     // memory only
     mutable std::vector<uint256> vMerkleTree;
-    mutable std::vector<uint256> vScMerkleRootsMap;
 
     CBlock()
     {

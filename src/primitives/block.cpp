@@ -57,13 +57,6 @@ uint256 CBlock::BuildMerkleTree(bool* fMutated) const
     vMerkleTree.reserve(vtx.size() * 2 + 16); // Safe upper bound for the number of total nodes.
     for (std::vector<CTransaction>::const_iterator it(vtx.begin()); it != vtx.end(); ++it)
         vMerkleTree.push_back(it->GetHash());
-
-// TODO test only
-    bool qqq;
-    uint256 testHash = BuildMerkleRootHash(vMerkleTree, &qqq);
-
-// TODO test only
-
     int j = 0;
     bool mutated = false;
     for (int nSize = vtx.size(); nSize > 1; nSize = (nSize + 1) / 2)
@@ -83,12 +76,7 @@ uint256 CBlock::BuildMerkleTree(bool* fMutated) const
     if (fMutated) {
         *fMutated = mutated;
     }
-    uint256 ret = (vMerkleTree.empty() ? uint256() : vMerkleTree.back());
-
-//    std::cout << "testHash: " << testHash.ToString() << std::endl;
-//    std::cout << "ret:      " << ret.ToString() << std::endl;
-
-    return ret;
+    return (vMerkleTree.empty() ? uint256() : vMerkleTree.back());
 }
 
 uint256 CBlock::BuildMerkleRootHash(const std::vector<uint256>& vInput, bool* fMutated) 
@@ -120,10 +108,6 @@ uint256 CBlock::BuildMerkleRootHash(const std::vector<uint256>& vInput, bool* fM
 
 uint256 CBlock::BuildScMerkleRootsMap()
 {
-    vScMerkleRootsMap.clear();
-    // TODO compute: vScMerkleRootsMap.reserve(vtx.size() * 2 + 16); // Safe upper bound for the number of total nodes.
-
-    std::vector<CTransaction> vScTx;
     std::map<uint256, std::vector<uint256> > mScMerkleTreeLeaves; 
 
     // 1. Look for tx with sc related vccout
@@ -131,8 +115,6 @@ uint256 CBlock::BuildScMerkleRootsMap()
     {
         if (tx.nVersion == SC_TX_VERSION)
         {
-            vScTx.push_back(tx);
-
             BOOST_FOREACH(const CTxCrosschainOut& txccout, tx.vccout)
             {
                 std::vector<uint256>& vec = mScMerkleTreeLeaves[txccout.scId];
@@ -141,11 +123,12 @@ uint256 CBlock::BuildScMerkleRootsMap()
         }
     }
 
-    typedef std::pair<uint256, std::vector<uint256> > PairType;
-    BOOST_FOREACH(const PairType& p, mScMerkleTreeLeaves)
+    std::vector<uint256> vScMerkleRootsMap;
+
+    BOOST_FOREACH(const auto& pair, mScMerkleTreeLeaves)
     {
-        uint256 scid = p.first;
-        uint256 vccoutHash = BuildMerkleRootHash(p.second);
+        uint256 scid = pair.first;
+        uint256 vccoutHash = BuildMerkleRootHash(pair.second);
 
         vScMerkleRootsMap.push_back(scid);
         vScMerkleRootsMap.push_back(vccoutHash);
@@ -157,14 +140,6 @@ uint256 CBlock::BuildScMerkleRootsMap()
 #else
     hashScMerkleRootsMap = Hash(vScMerkleRootsMap);
 #endif
-
-/*
-    // TODO
-    char dum[32] = {};
-    sprintf(dum, "Ciao!");
-    uint256 dum2 = Hash(BEGIN(dum), END(dum));
-    return dum2;
-    */
     return hashScMerkleRootsMap;
 }
 

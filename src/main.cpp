@@ -1300,8 +1300,11 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
         // are the actual inputs available?
         if (!view.HaveInputs(tx))
+        {
+            LogPrintf("%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString());
             return state.Invalid(error("AcceptToMemoryPool: inputs already spent"),
                                  REJECT_DUPLICATE, "bad-txns-inputs-spent");
+        }
 
         // are the joinsplit's requirements met?
         if (!view.HaveJoinSplitRequirements(tx))
