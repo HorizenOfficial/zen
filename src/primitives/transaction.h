@@ -423,12 +423,18 @@ public:
 class CTxCrosschainOut
 {
 public:
+    // depending on bType, it represents:
+    // -  the value to be sent to SC (bType 1)
+    // -  a locked amount (bType=2)
     CAmount nValue;
+
     CScript scriptPubKey;
+
     unsigned char bType;
     uint256 scId;
 
     // optional fields, discriminated by bType 
+    // - bType=2
     int64_t activeFromWithdrawalEpoch; 
 
     CTxCrosschainOut()

@@ -117,6 +117,8 @@ uint256 CBlock::BuildScMerkleRootsMap()
         {
             BOOST_FOREACH(const CTxCrosschainOut& txccout, tx.vccout)
             {
+                // if it exists, is is a reference to the stored value. If it does not, it is
+                // a reference to the new element inserted 
                 std::vector<uint256>& vec = mScMerkleTreeLeaves[txccout.scId];
                 vec.push_back(txccout.GetHash() );
             }
@@ -132,9 +134,11 @@ uint256 CBlock::BuildScMerkleRootsMap()
 
         vScMerkleRootsMap.push_back(scid);
         vScMerkleRootsMap.push_back(vccoutHash);
-
     }
 
+    // 1. The merkle root of an empty sequence is the uint256 zero value
+    // 2. The hash of a null value is a const value (specific to hash256, which is a double sha256)
+    // 3. The hash of the uin256 zero value is a different const value
 #if 0
     hashScMerkleRootsMap = BuildMerkleRootHash(vScMerkleRootsMap);
 #else

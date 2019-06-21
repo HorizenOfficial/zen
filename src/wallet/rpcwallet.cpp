@@ -4429,3 +4429,62 @@ UniValue z_listoperationids(const UniValue& params, bool fHelp)
 
     return ret;
 }
+
+UniValue getscinfo(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() > 1)
+        throw runtime_error(
+            "getscinfo\n"
+            "\nReturns array of side chain info. Each entry will have an array of tx info.\n"
+            "\nEach tx info contains concerned cross chain outputs.\n"
+            "]\n"
+
+            "\nExamples\n"
+            + HelpExampleCli("getscinfo", "")
+        );
+
+    UniValue results(UniValue::VARR);
+
+    BOOST_FOREACH(const auto& scPair, mScTransactions)
+    {
+        UniValue sc(UniValue::VOBJ);
+        sc.push_back(Pair("scid:", scPair.first.GetHex()));
+
+        BOOST_FOREACH(const auto& map, scPair.second)
+        {
+            UniValue txs(UniValue::VARR);
+         
+            BOOST_FOREACH(const auto& txPair, map)
+            {
+                UniValue tx(UniValue::VOBJ);
+                tx.push_back(Pair("txid:", txPair.first.GetHex()));
+
+                CTransaction txObj;
+                uint256 hashBlock;
+                if (!GetTransaction(txPair.first, txObj, hashBlock, true))
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
+
+                UniValue ccouts(UniValue::VARR);
+
+                BOOST_FOREACH(const auto& nIdx, txPair.second)
+                {
+                    UniValue ccout(UniValue::VOBJ);
+                    ccout.push_back(Pair("n:", nIdx));
+                    ccout.push_back(Pair("value:", ValueFromAmount(txObj.vccout[nIdx].nValue)));
+                    ccout.push_back(Pair("type:", CTxCrosschainOut::type2str(txObj.vccout[nIdx].bType)));
+                    if ((int)txObj.vccout[nIdx].bType == SC_CERTIFIER_LOCK_TYPE)
+                    {
+                        ccout.push_back(Pair("epoch:", txObj.vccout[nIdx].activeFromWithdrawalEpoch));
+                    }
+                    ccouts.push_back(ccout);
+                }
+                tx.push_back(Pair("vccouts:", ccouts));
+                txs.push_back(tx);
+            }
+            sc.push_back(Pair("txs:", txs));
+            results.push_back(sc);
+        }
+    }
+
+    return results;
+}

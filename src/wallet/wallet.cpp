@@ -482,8 +482,6 @@ set<uint256> CWallet::GetConflicts(const uint256& txid) const
             result.insert(it->second);
     }
 
-    // TODO add crosschain thing
-
     std::pair<TxNullifiers::const_iterator, TxNullifiers::const_iterator> range_n;
 
     for (const JSDescription& jsdesc : wtx.vjoinsplit) {
@@ -658,8 +656,6 @@ void CWallet::AddToSpends(const COutPoint& outpoint, const uint256& wtxid)
     range = mapTxSpends.equal_range(outpoint);
     SyncMetaData<COutPoint>(range);
 }
-
-// TODO add crosschain thing
 
 void CWallet::AddToSpends(const uint256& nullifier, const uint256& wtxid)
 {
@@ -1489,6 +1485,11 @@ bool CWallet::IsMine(const CTransaction& tx) const
     BOOST_FOREACH(const CTxOut& txout, tx.vout)
         if (IsMine(txout))
             return true;
+
+    BOOST_FOREACH(const CTxCrosschainOut& txccout, tx.vccout)
+        if (IsMine(txccout))
+            return true;
+
     return false;
 }
 
