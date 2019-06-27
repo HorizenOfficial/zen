@@ -263,6 +263,7 @@ static const CRPCCommand vRPCCommands[] =
     { "control",            "stop",                   &stop,                   true  },
     { "control",            "dbg_log",                &dbg_log,                true  },
     { "control",            "dbg_do",                 &dbg_do,                 true  },
+    { "control",            "dbg_getscinfo",          &dbg_getscinfo,          true  },
 
     /* P2P networking */
     { "network",            "getnetworkinfo",         &getnetworkinfo,         true  },
@@ -351,7 +352,6 @@ static const CRPCCommand vRPCCommands[] =
     { "wallet",             "getaccount",             &getaccount,             true  },
     { "wallet",             "getaddressesbyaccount",  &getaddressesbyaccount,  true  },
     { "wallet",             "getbalance",             &getbalance,             false },
-    { "wallet",             "sc_getbalance",          &sc_getbalance,          false },
     { "wallet",             "getnewaddress",          &getnewaddress,          true  },
     { "wallet",             "getrawchangeaddress",    &getrawchangeaddress,    true  },
     { "wallet",             "getreceivedbyaccount",   &getreceivedbyaccount,   false },
@@ -371,8 +371,6 @@ static const CRPCCommand vRPCCommands[] =
     { "wallet",             "listsinceblock",         &listsinceblock,         false },
     { "wallet",             "listtransactions",       &listtransactions,       false },
     { "wallet",             "listunspent",            &listunspent,            false },
-    { "wallet",             "sc_listunspent",         &sc_listunspent,         false },
-    { "wallet",             "getscinfo",              &getscinfo,              false },
     { "wallet",             "lockunspent",            &lockunspent,            true  },
     { "wallet",             "move",                   &movecmd,                false },
     { "wallet",             "sendfrom",               &sendfrom,               false },

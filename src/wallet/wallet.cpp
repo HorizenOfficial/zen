@@ -1439,18 +1439,6 @@ CAmount CWallet::GetCredit(const CTxOut& txout, const isminefilter& filter) cons
     return ((IsMine(txout) & filter) ? txout.nValue : 0);
 }
 
-isminetype CWallet::IsMine(const CTxCrosschainOut& txout) const
-{
-    return ::IsMine(*this, txout.scriptPubKey);
-}
-
-CAmount CWallet::GetCredit(const CTxCrosschainOut& txccout, const isminefilter& filter) const
-{
-    if (!MoneyRange(txccout.nValue))
-        throw std::runtime_error("CWallet::GetCredit(): value out of range");
-    return ((IsMine(txccout) & filter) ? txccout.nValue : 0);
-}
-
 bool CWallet::IsChange(const CTxOut& txout) const
 {
     // TODO: fix handling of 'change' outputs. The assumption is that any
@@ -1485,11 +1473,6 @@ bool CWallet::IsMine(const CTransaction& tx) const
     BOOST_FOREACH(const CTxOut& txout, tx.vout)
         if (IsMine(txout))
             return true;
-
-    BOOST_FOREACH(const CTxCrosschainOut& txccout, tx.vccout)
-        if (IsMine(txccout))
-            return true;
-
     return false;
 }
 
@@ -1518,21 +1501,6 @@ CAmount CWallet::GetDebit(const CTransaction& tx, const isminefilter& filter) co
             throw std::runtime_error("CWallet::GetDebit(): value out of range");
     }
     return nDebit;
-}
-
-CAmount CWallet::GetScCredit(const CTransaction& tx, const isminefilter& filter) const
-{
-    if (tx.nVersion != SC_TX_VERSION)
-        return 0;
-
-    CAmount nCredit = 0;
-    BOOST_FOREACH(const CTxCrosschainOut& txccout, tx.vccout)
-    {
-        nCredit += GetCredit(txccout, filter);
-        if (!MoneyRange(nCredit))
-            throw std::runtime_error("CWallet::GetScCredit(): value out of range");
-    }
-    return nCredit;
 }
 
 CAmount CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) const
@@ -1621,12 +1589,13 @@ int CWalletTx::GetRequestCount() const
 }
 
 // GetAmounts will determine the transparent debits and credits for a given wallet tx.
-void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
-                           list<COutputEntry>& listSent, CAmount& nFee, string& strSentAccount, const isminefilter& filter) const
+void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>& listSent, list<CScOutputEntry>& listScSent,
+    CAmount& nFee, string& strSentAccount, const isminefilter& filter) const
 {
     nFee = 0;
     listReceived.clear();
     listSent.clear();
+    listScSent.clear();
     strSentAccount = strFromAccount;
 
     // Is this tx sent/signed by me?
@@ -1694,10 +1663,10 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
 
         // Create an output for the value taken from or added to the transparent value pool by JoinSplits
         if (myVpubOld > myVpubNew) {
-            COutputEntry output = {CNoDestination(), myVpubOld - myVpubNew, (int)vout.size(), (int)-1};
+            COutputEntry output = {CNoDestination(), myVpubOld - myVpubNew, (int)vout.size()};
             listSent.push_back(output);
         } else if (myVpubNew > myVpubOld) {
-            COutputEntry output = {CNoDestination(), myVpubNew - myVpubOld, (int)vout.size(), (int)-1};
+            COutputEntry output = {CNoDestination(), myVpubNew - myVpubOld, (int)vout.size()};
             listReceived.push_back(output);
         }
     }
@@ -1728,7 +1697,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
             address = CNoDestination();
         }
 
-        COutputEntry output = {address, txout.nValue, (int)i, -1};
+        COutputEntry output = {address, txout.nValue, (int)i};
 
         // If we are debited by the transaction, add the output as a "sent" entry
         if (nDebit > 0)
@@ -1744,36 +1713,37 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
         // first of all remove cc out from nFee that has not been considered before
         if (nFee != 0)
         {
-            nFee -= GetValueCrossChainOut(); 
+            nFee -= GetValueForwardTransferCcOut(); 
+            nFee -= GetValueCertifierLockCcOut(); 
         }
 
         // crosschain amount sent/received.
-        for (unsigned int i = 0; i < vccout.size(); ++i)
+        for (unsigned int i = 0; i < vcl_ccout.size(); ++i)
         {
-            const CTxCrosschainOut& txccout = vccout[i];
-            isminetype fIsMine = pwallet->IsMine(txccout);
-            // Only need to handle txouts if AT LEAST one of these is true:
-            //   1) they debit from us (sent)
-            //   2) the output is to us (received)
+            const CTxCertifierLockCrosschainOut& txccout = vcl_ccout[i];
  
             // we need to get the destination address
-            CTxDestination address;
-            if (!ExtractDestination(txccout.scriptPubKey, address))
-            {
-                LogPrintf("CWalletTx::GetAmounts: Unknown transaction type found, txid %s\n",
-                         this->GetHash().ToString());
-                address = CNoDestination();
-            }
+            uint256 address = txccout.address;
  
-            COutputEntry output = {address, txccout.nValue, -1, (int)i};
+            CScOutputEntry output = {address, txccout.nValue, (int)i, -1};
  
             // If we are debited by the transaction, add the output as a "sent" entry
             if (nDebit > 0)
-                listSent.push_back(output);
+                listScSent.push_back(output);
+        }
+        for (unsigned int i = 0; i < vft_ccout.size(); ++i)
+        {
+            const CTxForwardTransferCrosschainOut& txccout = vft_ccout[i];
+            // Only need to handle txouts if they debit from us (sent)
  
-            // If we are receiving the output, add it as a "received" entry
-            if (fIsMine & filter)
-                listReceived.push_back(output);
+            // we need to get the destination address
+            uint256 address = txccout.address;
+ 
+            CScOutputEntry output = {address, txccout.nValue, -1, (int)i};
+ 
+            // If we are debited by the transaction, add the output as a "sent" entry
+            if (nDebit > 0)
+                listScSent.push_back(output);
         }
     }
 }
@@ -1787,11 +1757,14 @@ void CWalletTx::GetAccountAmounts(const string& strAccount, CAmount& nReceived,
     string strSentAccount;
     list<COutputEntry> listReceived;
     list<COutputEntry> listSent;
-    GetAmounts(listReceived, listSent, allFee, strSentAccount, filter);
+    list<CScOutputEntry> listScSent;
+    GetAmounts(listReceived, listSent, listScSent, allFee, strSentAccount, filter);
 
     if (strAccount == strSentAccount)
     {
         BOOST_FOREACH(const COutputEntry& s, listSent)
+            nSent += s.amount;
+        BOOST_FOREACH(const CScOutputEntry& s, listScSent)
             nSent += s.amount;
         nFee = allFee;
     }
@@ -2052,38 +2025,6 @@ CAmount CWalletTx::GetCredit(const isminefilter& filter) const
     return credit;
 }
 
-CAmount CWalletTx::GetScCredit(const isminefilter& filter) const
-{
-    if (nVersion != SC_TX_VERSION)
-        return 0;
-
-    int64_t credit = 0;
-    if (filter & ISMINE_SPENDABLE)
-    {
-        // GetBalance can assume transactions in mapWallet won't change
-        if (fScCreditCached)
-            credit += nScCreditCached;
-        else
-        {
-            nScCreditCached = pwallet->GetScCredit(*this, ISMINE_SPENDABLE);
-            fScCreditCached = true;
-            credit += nScCreditCached;
-        }
-    }
-    if (filter & ISMINE_WATCH_ONLY)
-    {
-        if (fWatchCreditCached)
-            credit += nWatchCreditCached;
-        else
-        {
-            nWatchCreditCached = pwallet->GetScCredit(*this, ISMINE_WATCH_ONLY);
-            fWatchCreditCached = true;
-            credit += nWatchCreditCached;
-        }
-    }
-    return credit;
-}
-
 CAmount CWalletTx::GetImmatureCredit(bool fUseCache) const
 {
     if (IsCoinBase() && GetBlocksToMaturity() > 0 && IsInMainChain())
@@ -2125,40 +2066,6 @@ CAmount CWalletTx::GetAvailableCredit(bool fUseCache) const
 
     nAvailableCreditCached = nCredit;
     fAvailableCreditCached = true;
-    return nCredit;
-}
-
-CAmount CWalletTx::GetAvailableScCredit(bool fUseCache) const
-{
-    if (pwallet == 0)
-        return 0;
-
-    // only crosschain tx
-    if ( nVersion != SC_TX_VERSION)
-        return 0;
-
-    // Must wait until coinbase is safely deep enough in the chain before valuing it
-    if (IsCoinBase() && GetBlocksToMaturity() > 0)
-        return 0;
-
-    if (fUseCache && fAvailableScCreditCached)
-        return nAvailableScCreditCached;
-
-    CAmount nCredit = 0;
-    uint256 hashTx = GetHash();
-    for (unsigned int i = 0; i < vccout.size(); i++)
-    {
-        if (!pwallet->IsCrosschainSpent(hashTx, i))
-        {
-            const CTxCrosschainOut &txccout = vccout[i];
-            nCredit += pwallet->GetCredit(txccout, ISMINE_SPENDABLE);
-            if (!MoneyRange(nCredit))
-                throw std::runtime_error("CWalletTx::GetAvailableScCredit() : value out of range");
-        }
-    }
-
-    nAvailableScCreditCached = nCredit;
-    fAvailableScCreditCached = true;
     return nCredit;
 }
 
@@ -2315,22 +2222,6 @@ CAmount CWallet::GetBalance() const
     return nTotal;
 }
 
-CAmount CWallet::GetScBalance() const
-{
-    CAmount nTotal = 0;
-    {
-        LOCK2(cs_main, cs_wallet);
-        for (map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
-        {
-            const CWalletTx* pcoin = &(*it).second;
-            if (pcoin->IsTrusted())
-                nTotal += pcoin->GetAvailableScCredit();
-        }
-    }
-
-    return nTotal;
-}
-
 CAmount CWallet::GetUnconfirmedBalance() const
 {
     CAmount nTotal = 0;
@@ -2440,77 +2331,6 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                 if (!(IsSpent(wtxid, i)) && mine != ISMINE_NO &&
                     !IsLockedCoin((*it).first, i) && (pcoin->vout[i].nValue > 0 || fIncludeZeroValue) &&
                     (!coinControl || !coinControl->HasSelected() || coinControl->fAllowOtherInputs || coinControl->IsSelected((*it).first, i)))
-                {
-                    if (pcoin->IsCoinBase())
-                    {
-                        const CCoins *coins = pcoinsTip->AccessCoins(wtxid);
-                        assert(coins);
-
-                        if (IsCommunityFund(coins, i))
-                        {
-                            if(!fIncludeCommunityFund)
-                                continue;
-                        }
-                        else
-                        {
-                            if(!fIncludeCoinBase)
-                                continue;
-                        }
-                    }
-                    vCoins.push_back(COutput(pcoin, i, nDepth, (mine & ISMINE_SPENDABLE) != ISMINE_NO));
-                }
-
-            }
-        }
-    }
-}
-
-void CWallet::AvailableScCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const CCoinControl *coinControl, bool fIncludeZeroValue, bool fIncludeCoinBase, bool fIncludeCommunityFund) const
-{
-    vCoins.clear();
-
-    {
-        LOCK2(cs_main, cs_wallet);
-        for (map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
-        {
-            const uint256& wtxid = it->first;
-            const CWalletTx* pcoin = &(*it).second;
-
-            if (!CheckFinalTx(*pcoin))
-                continue;
-
-            if (pcoin->nVersion != SC_TX_VERSION)
-                continue;
-
-            if (fOnlyConfirmed && !pcoin->IsTrusted())
-                continue;
-
-            if (pcoin->IsCoinBase() && !fIncludeCoinBase && !fIncludeCommunityFund)
-                continue;
-
-            if (pcoin->IsCoinBase() && pcoin->GetBlocksToMaturity() > 0)
-                continue;
-
-            int nDepth = pcoin->GetDepthInMainChain();
-            if (nDepth < 0)
-                continue;
-
-            for (unsigned int i = 0; i < pcoin->vccout.size(); i++) {
-                isminetype mine = IsMine(pcoin->vccout[i]);
-#if 1
-                bool b1 = !IsCrosschainSpent(wtxid, i);
-                bool b2 = (mine != ISMINE_NO);
-                bool b3 = !IsLockedCoin((*it).first, i);
-                bool b4 = (pcoin->vccout[i].nValue > 0 || fIncludeZeroValue);
-                bool b5 = (!coinControl || !coinControl->HasSelected() || coinControl->fAllowOtherInputs || coinControl->IsSelected((*it).first, i));
-
-                if (b1 && b2 && b3 && b4 && b5)
-#else
-
-                if (!(IsSpent(wtxid, i)) && mine != ISMINE_NO &&
-                    !IsLockedCoin((*it).first, i) && (pcoin->vccout[i].nValue > 0 || fIncludeZeroValue) &&
-                    (!coinControl || !coinControl->HasSelected() || coinControl->fAllowOtherInputs || coinControl->IsSelected((*it).first, i)))
-#endif
                 {
                     if (pcoin->IsCoinBase())
                     {
@@ -3179,7 +2999,8 @@ bool CWallet::ScCreateTransaction(
             {
                 txNew.vin.clear();
                 txNew.vout.clear();
-                txNew.vccout.clear();
+                txNew.vcl_ccout.clear();
+                txNew.vft_ccout.clear();
                 wtxNew.fFromMe = true;
                 nChangePosRet = -1;
                 bool fFirst = true;
@@ -3199,14 +3020,37 @@ bool CWallet::ScCreateTransaction(
                         return false;
                     }
 
-                    CTxCrosschainOut txccout(recipient.nAmount, recipient.scriptPubKey, recipient.type, recipient.scId, recipient.epoch);
+                    CTxCrosschainOut*  ccOutBasePtr;
+                    switch (recipient.type)
+                    {
+                        case SC_CERTIFIER_LOCK_TYPE:
+                        {
+                            CTxCertifierLockCrosschainOut txccout(recipient.nAmount, recipient.address, recipient.type, recipient.scId, recipient.epoch);
+                            txNew.vcl_ccout.push_back(txccout);
+                            ccOutBasePtr = &txccout;
+                            break;
+                        }
 
-                    if (txccout.IsDust(::minRelayTxFee))
+                        case SC_FORWARD_TRANSFER_TYPE:
+                        {
+                            CTxForwardTransferCrosschainOut txccout(recipient.nAmount, recipient.address, recipient.type, recipient.scId);
+                            txNew.vft_ccout.push_back(txccout);
+                            ccOutBasePtr = &txccout;
+                            break;
+                        }
+
+                        default:
+                        {
+                            strFailReason = _("Unexpected cc out type");
+                            return false;
+                        }
+                    }
+
+                    if (ccOutBasePtr->IsDust(::minRelayTxFee))
                     {
                         strFailReason = _("Transaction amount too small");
                         return false;
                     }
-                    txNew.vccout.push_back(txccout);
                 }
 
                 // Choose coins to use

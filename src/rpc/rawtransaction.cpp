@@ -148,23 +148,37 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     }
     entry.push_back(Pair("vout", vout));
 
-//    if (tx.nVersion == SC_TX_VERSION) TODO decide wether to enable or not
     {
-        UniValue vccout(UniValue::VARR);
-        for (unsigned int i = 0; i < tx.vccout.size(); i++) {
-            const CTxCrosschainOut& txccout = tx.vccout[i];
+        UniValue vcls(UniValue::VARR);
+        for (unsigned int i = 0; i < tx.vcl_ccout.size(); i++) {
+            const CTxCertifierLockCrosschainOut& txccout = tx.vcl_ccout[i];
             UniValue out(UniValue::VOBJ);
             out.push_back(Pair("scid", txccout.scId.GetHex()));
-            out.push_back(Pair("ccout type", CTxCrosschainOut::type2str(txccout.bType)));
+            out.push_back(Pair("type", CTxCrosschainOut::type2str(txccout.bType)));
             out.push_back(Pair("value", ValueFromAmount(txccout.nValue)));
             out.push_back(Pair("valueZat", txccout.nValue));
             out.push_back(Pair("n", (int64_t)i));
             UniValue o(UniValue::VOBJ);
-            ScriptPubKeyToJSON(txccout.scriptPubKey, o, true);
-            out.push_back(Pair("scriptPubKey", o));
-            vccout.push_back(out);
+            out.push_back(Pair("address", txccout.address.GetHex()));
+            out.push_back(Pair("active from withdrawal epoch", (int)txccout.activeFromWithdrawalEpoch));
+            vcls.push_back(out);
         }
-        entry.push_back(Pair("vccout", vccout));
+        entry.push_back(Pair("vft_ccout", vcls));
+
+        UniValue vfts(UniValue::VARR);
+        for (unsigned int i = 0; i < tx.vft_ccout.size(); i++) {
+            const CTxForwardTransferCrosschainOut& txccout = tx.vft_ccout[i];
+            UniValue out(UniValue::VOBJ);
+            out.push_back(Pair("scid", txccout.scId.GetHex()));
+            out.push_back(Pair("type", CTxCrosschainOut::type2str(txccout.bType)));
+            out.push_back(Pair("value", ValueFromAmount(txccout.nValue)));
+            out.push_back(Pair("valueZat", txccout.nValue));
+            out.push_back(Pair("n", (int64_t)i));
+            UniValue o(UniValue::VOBJ);
+            out.push_back(Pair("address", txccout.address.GetHex()));
+            vfts.push_back(out);
+        }
+        entry.push_back(Pair("vft_ccout", vfts));
     }
 
     UniValue vjoinsplit = TxJoinSplitToJSON(tx);

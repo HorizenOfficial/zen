@@ -311,7 +311,6 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
                 pindexNew->nSproutValue   = diskindex.nSproutValue;
-                pindexNew->hashReserved   = diskindex.hashReserved;
                 pindexNew->hashScMerkleRootsMap = diskindex.hashScMerkleRootsMap;
 
                 if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, Params().GetConsensus()))

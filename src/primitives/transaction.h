@@ -428,45 +428,25 @@ public:
     // -  a locked amount (bType=2)
     CAmount nValue;
 
-    CScript scriptPubKey;
+    uint256 address;
 
     unsigned char bType;
     uint256 scId;
 
-    // optional fields, discriminated by bType 
-    // - bType=2
-    int64_t activeFromWithdrawalEpoch; 
-
-    CTxCrosschainOut()
-    {
-        SetNull();
-    }
-
     CTxCrosschainOut(
-        const CAmount& nValueIn, CScript scriptPubKeyIn, unsigned char type,
-        uint256 scId, int64_t activeFromWithdrawalEpoch = -1);
+        const CAmount& nValueIn, uint256 addressIn, unsigned char type,
+        uint256 scId);
 
-    ADD_SERIALIZE_METHODS;
+    virtual ~CTxCrosschainOut() {};
 
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(nValue);
-        READWRITE(scriptPubKey);
-        READWRITE(bType);
-        READWRITE(scId);
-        if (bType == SC_CERTIFIER_LOCK_TYPE)
-        {
-            READWRITE(activeFromWithdrawalEpoch);
-        }
-    }
+    CTxCrosschainOut() { SetNull(); }
 
-    void SetNull()
+    virtual void SetNull()
     {
         nValue = -1;
-        scriptPubKey.clear();
+        address = uint256();
         bType = -1;
         scId = uint256();
-        activeFromWithdrawalEpoch = -1;
     }
 
     bool IsNull() const
@@ -474,21 +454,8 @@ public:
         return (nValue == -1);
     }
 
-    uint256 GetHash() const;
-
     CAmount GetDustThreshold(const CFeeRate &minRelayTxFee) const
     {
-        // "Dust" is defined in terms of CTransaction::minRelayTxFee,
-        // which has units satoshis-per-kilobyte.
-        // If you'd pay more than 1/3 in fees
-        // to spend something, then we consider it dust.
-        // A typical spendable txout is 34 bytes big, and will
-        // need a CTxIn of at least 148 bytes to spend:
-        // so dust is a spendable txout less than 54 satoshis
-        // with default minRelayTxFee.
-        if (scriptPubKey.IsUnspendable())
-            return 0;
-
         size_t nSize = GetSerializeSize(SER_DISK,0)+148u;
         return 3*minRelayTxFee.GetFee(nSize);
     }
@@ -498,22 +465,9 @@ public:
         return (nValue < GetDustThreshold(minRelayTxFee));
     }
 
-    friend bool operator==(const CTxCrosschainOut& a, const CTxCrosschainOut& b)
-    {
-        return (a.nValue       == b.nValue &&
-                a.scriptPubKey == b.scriptPubKey &&
-                a.bType        == b.bType &&
-                a.scId         == b.scId &&
-                a.activeFromWithdrawalEpoch == b.activeFromWithdrawalEpoch
-                );
-    }
+    virtual uint256 GetHash() const = 0;
 
-    friend bool operator!=(const CTxCrosschainOut& a, const CTxCrosschainOut& b)
-    {
-        return !(a == b);
-    }
-
-    std::string ToString() const;
+    virtual std::string ToString() const = 0;
 
     static const char* type2str(unsigned char type)
     {
@@ -523,6 +477,98 @@ public:
             case 2:  return "CERTIFIER_LOCK_TYPE";   break; 
             default: return "UNKNOWN_TYPE";
         }
+    }
+
+protected:
+    static bool isBaseEqual(const CTxCrosschainOut& a, const CTxCrosschainOut& b)
+    {
+        return (a.nValue  == b.nValue &&
+                a.address == b.address &&
+                a.bType   == b.bType &&
+                a.scId    == b.scId);
+    }
+
+};
+
+class CTxForwardTransferCrosschainOut : public CTxCrosschainOut
+{
+public:
+
+    CTxForwardTransferCrosschainOut() { SetNull(); }
+
+    CTxForwardTransferCrosschainOut( const CAmount& nValueIn, uint256 addressIn, unsigned char typeIn, uint256 scIdIn):
+        CTxCrosschainOut(nValueIn, addressIn, typeIn, scIdIn) {}
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(nValue);
+        READWRITE(address);
+        READWRITE(bType);
+        READWRITE(scId);
+    }
+
+    virtual uint256 GetHash() const;
+    virtual std::string ToString() const;
+
+    friend bool operator==(const CTxForwardTransferCrosschainOut& a, const CTxForwardTransferCrosschainOut& b)
+    {
+        return (isBaseEqual(a, b));
+    }
+
+    friend bool operator!=(const CTxForwardTransferCrosschainOut& a, const CTxForwardTransferCrosschainOut& b)
+    {
+        return !(a == b);
+    }
+};
+
+class CTxCertifierLockCrosschainOut : public CTxCrosschainOut
+{
+public:
+
+    // optional fields, discriminated by bType 
+    // - bType=2
+    int64_t activeFromWithdrawalEpoch; 
+
+    CTxCertifierLockCrosschainOut() { SetNull(); }
+
+    CTxCertifierLockCrosschainOut(
+        const CAmount& nValueIn, uint256 addressIn, unsigned char type,
+        uint256 scId, int64_t activeFromWithdrawalEpoch = -1);
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(nValue);
+        READWRITE(address);
+        READWRITE(bType);
+        READWRITE(scId);
+        if (bType == SC_CERTIFIER_LOCK_TYPE)
+        {
+            READWRITE(activeFromWithdrawalEpoch);
+        }
+    }
+
+    virtual void SetNull()
+    {
+        CTxCrosschainOut::SetNull();
+        activeFromWithdrawalEpoch = -1;
+    }
+
+    virtual uint256 GetHash() const;
+    virtual std::string ToString() const;
+
+    friend bool operator==(const CTxCertifierLockCrosschainOut& a, const CTxCertifierLockCrosschainOut& b)
+    {
+        return (isBaseEqual(a, b) &&
+                a.activeFromWithdrawalEpoch == b.activeFromWithdrawalEpoch);
+    }
+
+    friend bool operator!=(const CTxCertifierLockCrosschainOut& a, const CTxCertifierLockCrosschainOut& b)
+    {
+        return !(a == b);
     }
 };
 
@@ -556,7 +602,8 @@ public:
     const int32_t nVersion;
     const std::vector<CTxIn> vin;
     const std::vector<CTxOut> vout;
-    const std::vector<CTxCrosschainOut> vccout;
+    const std::vector<CTxCertifierLockCrosschainOut> vcl_ccout;
+    const std::vector<CTxForwardTransferCrosschainOut> vft_ccout;
     const uint32_t nLockTime;
     const std::vector<JSDescription> vjoinsplit;
     const uint256 joinSplitPubKey;
@@ -580,7 +627,8 @@ public:
         READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
         if (nVersion == SC_TX_VERSION)
         {
-            READWRITE(*const_cast<std::vector<CTxCrosschainOut>*>(&vccout));
+            READWRITE(*const_cast<std::vector<CTxCertifierLockCrosschainOut>*>(&vcl_ccout));
+            READWRITE(*const_cast<std::vector<CTxForwardTransferCrosschainOut>*>(&vft_ccout));
         }
         READWRITE(*const_cast<uint32_t*>(&nLockTime));
         if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {
@@ -601,7 +649,9 @@ public:
         bool ret = vin.empty() && vout.empty();
         if (nVersion == SC_TX_VERSION)
         {
-            ret = ret && vccout.empty();
+            ret = ret &&
+                  vcl_ccout.empty() &&
+                  vft_ccout.empty();
         }
         return ret;
     }
@@ -613,7 +663,8 @@ public:
     // Return sum of txouts.
     CAmount GetValueOut() const;
     // Return sum of txccouts.
-    CAmount GetValueCrossChainOut() const;
+    CAmount GetValueCertifierLockCcOut() const;
+    CAmount GetValueForwardTransferCcOut() const;
     // GetValueIn() is a method on CCoinsViewCache, because
     // inputs must be known to compute value in.
 
@@ -650,7 +701,8 @@ struct CMutableTransaction
     int32_t nVersion;
     std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
-    std::vector<CTxCrosschainOut> vccout;
+    std::vector<CTxCertifierLockCrosschainOut> vcl_ccout;
+    std::vector<CTxForwardTransferCrosschainOut> vft_ccout;
     uint32_t nLockTime;
     std::vector<JSDescription> vjoinsplit;
     uint256 joinSplitPubKey;
@@ -669,7 +721,8 @@ struct CMutableTransaction
         READWRITE(vout);
         if (nVersion == SC_TX_VERSION)
         {
-            READWRITE(vccout);
+            READWRITE(vcl_ccout);
+            READWRITE(vft_ccout);
         }
         READWRITE(nLockTime);
         if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {

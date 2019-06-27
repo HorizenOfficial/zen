@@ -43,6 +43,8 @@
 #include "zen/forkmanager.h"
 #include "zen/delay.h"
 
+#include "sc/sidechain.h"
+
 using namespace zen;
 
 using namespace std;
@@ -57,7 +59,8 @@ using namespace std;
 
 CCriticalSection cs_main;
 
-ScTxMap mScTransactions;
+ScTxMap mDbgScTransactions;
+ScInfoMap mScInfo;
 
 BlockSet sGlobalForkTips;
 BlockTimeMap mGlobalForkTips;
@@ -1012,9 +1015,9 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
         return state.DoS(10, error("CheckTransaction(): vin empty"),
                          REJECT_INVALID, "bad-txns-vin-empty");
 
-    // also allow the case when vccout is not empty. In that case there might be no vout at all
+    // also allow the case when crosschain outputs are not empty. In that case there might be no vout at all
     // when utxo reminder is only dust, which is added to fee leaving no change for the sender
-    if (tx.vout.empty() && tx.vjoinsplit.empty() && tx.vccout.empty())
+    if (tx.vout.empty() && tx.vjoinsplit.empty() && tx.vcl_ccout.empty() && tx.vft_ccout.empty())
         return state.DoS(10, error("CheckTransaction(): vout empty"),
                          REJECT_INVALID, "bad-txns-vout-empty");
 
@@ -1338,12 +1341,10 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                              REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
 
         CAmount nValueOut = tx.GetValueOut();
-        CAmount nValueCcOut = tx.GetValueCrossChainOut();
 
         if (tx.nVersion == SC_TX_VERSION)
         {
-            nValueCcOut = tx.GetValueCrossChainOut();
-            nValueOut += nValueCcOut;
+            nValueOut += ( tx.GetValueCertifierLockCcOut() + tx.GetValueForwardTransferCcOut() );
         }
 
         CAmount nFees = nValueIn-nValueOut;
@@ -6816,6 +6817,68 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
     return false;
 }
 
+template <typename T>
+static void helperDbgAddCcOut(const T& param, const uint256& txHash)
+{
+    string tag;
+    int typeIdx;
+    if (boost::is_same<T, std::vector<CTxCertifierLockCrosschainOut> >::value)
+    {
+        tag = "vcl";
+        typeIdx = 0;
+    }
+    else
+    if (boost::is_same<T, std::vector<CTxForwardTransferCrosschainOut> >::value)
+    {
+        tag = "vft";
+        typeIdx = 1;
+    }
+    else
+    {
+        // should never happen
+        LogPrint("sc", "%s():%d - Unexpected typename in template\n", __func__, __LINE__);
+        return;
+    }
+
+    int c = 0;
+    BOOST_FOREACH(const auto& entry, param)
+    {
+        std::vector<mScCcOutputs>& vec = mDbgScTransactions[entry.scId];
+        if (!vec.size())
+        {
+            mScCcOutputs m;
+            auto& ccOuts = m[txHash];
+            ccOuts[typeIdx].push_back(c);
+ 
+            LogPrint("sc", "%s():%d - scId=%s, adding tx %s_ccout %d to a new m in new vec\n",
+                __func__, __LINE__, entry.scId.ToString(), tag, c );
+            vec.push_back(m);
+        }
+        else
+        {
+            BOOST_FOREACH(auto& m, vec)
+            {
+                auto mi = m.find(txHash);
+                if (mi != m.end() )
+                {
+                    LogPrint("sc", "%s():%d - scId=%s, adding tx %s_ccout %d to an existing m in existing vec\n",
+                        __func__, __LINE__, entry.scId.ToString(), tag, c );
+                    (*mi).second[typeIdx].push_back(c);
+                }
+                else
+                {
+                    auto& ccOuts = m[txHash];
+                    ccOuts[typeIdx].push_back(c);
+ 
+                    LogPrint("sc", "%s():%d - scId=%s, adding tx %s_ccout %d to a new m in existing vec\n",
+                        __func__, __LINE__, entry.scId.ToString(), tag, c );
+                }
+            }
+        }
+        c++;
+    }
+}
+
 void AddToScTransactionMap(const CBlock& block)
 {
     BOOST_FOREACH(const CTransaction& tx, block.vtx)
@@ -6824,44 +6887,9 @@ void AddToScTransactionMap(const CBlock& block)
         {
             uint256 txHash = tx.GetHash();
             LogPrint("sc", "%s():%d - tx=%s\n", __func__, __LINE__, txHash.ToString() );
-            int c = 0;
 
-            BOOST_FOREACH(const CTxCrosschainOut& txccout, tx.vccout)
-            {
-                std::vector<mScCcOutputs>& vec = mScTransactions[txccout.scId];
-                if (!vec.size())
-                {
-                    mScCcOutputs m;
-                    auto& v = m[txHash];
-                    v.push_back(c);
-
-                    LogPrint("sc", "%s():%d - scId=%s, adding tx vccout %d to a new m in new vec\n",
-                        __func__, __LINE__, txccout.scId.ToString(), c );
-                    vec.push_back(m);
-                }
-                else
-                {
-                    BOOST_FOREACH(auto& m, vec)
-                    {
-                        auto mi = m.find(txHash);
-                        if (mi != m.end() )
-                        {
-                            LogPrint("sc", "%s():%d - scId=%s, adding tx vccout %d to an existing m in existing vec\n",
-                                __func__, __LINE__, txccout.scId.ToString(), c );
-                            (*mi).second.push_back(c);
-                        }
-                        else
-                        {
-                            auto& v = m[txHash];
-                            v.push_back(c);
-
-                            LogPrint("sc", "%s():%d - scId=%s, adding tx vccout %d to a new m in existing vec\n",
-                                __func__, __LINE__, txccout.scId.ToString(), c );
-                        }
-                    }
-                }
-                c++;
-            }
+            helperDbgAddCcOut(tx.vcl_ccout, txHash);
+            helperDbgAddCcOut(tx.vft_ccout, txHash);
         }
     }
 }
@@ -6876,7 +6904,7 @@ void RemoveFromScTransactionMap(const CBlock& block)
             LogPrint("sc", "%s():%d - tx=%s\n", __func__, __LINE__, txHash.ToString() );
             int c = 0;
 
-            BOOST_FOREACH(auto& scPair, mScTransactions)
+            BOOST_FOREACH(auto& scPair, mDbgScTransactions)
             {
                 BOOST_FOREACH(auto& map, scPair.second)
                 {
@@ -6888,14 +6916,16 @@ void RemoveFromScTransactionMap(const CBlock& block)
                     }
                 }
             }
+
+            // we choose not to remove empty sc entries in map if any
         }
     }
 }
     
 void dump_sc_tx()
 {
-    LogPrint("sc", "===== SC TXs: %d =================\n", mScTransactions.size());
-    BOOST_FOREACH(const auto& scPair, mScTransactions)
+    LogPrint("sc", "===== SC TXs: %d =================\n", mDbgScTransactions.size());
+    BOOST_FOREACH(const auto& scPair, mDbgScTransactions)
     {
         LogPrint("sc", "SC id: [%s]\n", scPair.first.ToString());
 
@@ -6905,9 +6935,13 @@ void dump_sc_tx()
             {
                 LogPrint("sc", "    tx id: [%s]\n", txPair.first.ToString());
 
-                BOOST_FOREACH(const auto& nIdx, txPair.second)
+                BOOST_FOREACH(const auto& nIdx, txPair.second[0])
                 {
-                    LogPrint("sc", "        vccout n: [%s]\n", nIdx);
+                    LogPrint("sc", "        vcl_ccout n: [%s]\n", nIdx);
+                }
+                BOOST_FOREACH(const auto& nIdx, txPair.second[1])
+                {
+                    LogPrint("sc", "        vft_ccout n: [%s]\n", nIdx);
                 }
             }
         }

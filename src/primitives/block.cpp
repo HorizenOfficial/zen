@@ -110,14 +110,30 @@ uint256 CBlock::BuildScMerkleRootsMap()
 {
     std::map<uint256, std::vector<uint256> > mScMerkleTreeLeaves; 
 
-    // 1. Look for tx with sc related vccout
     BOOST_FOREACH(const CTransaction& tx, vtx)
     {
         if (tx.nVersion == SC_TX_VERSION)
         {
-            BOOST_FOREACH(const CTxCrosschainOut& txccout, tx.vccout)
+            BOOST_FOREACH(const auto& txccout, tx.vcl_ccout)
             {
-                // if it exists, is is a reference to the stored value. If it does not, it is
+                // if it exists, is a reference to the stored value. If it does not, it is
+                // a reference to the new element inserted 
+                std::vector<uint256>& vec = mScMerkleTreeLeaves[txccout.scId];
+                vec.push_back(txccout.GetHash() );
+            }
+#if 0
+// loop on tx two times or do both outputs in the same tx?
+        }
+    }
+
+    BOOST_FOREACH(const CTransaction& tx, vtx)
+    {
+        if (tx.nVersion == SC_TX_VERSION)
+        {
+#endif
+            BOOST_FOREACH(const auto& txccout, tx.vft_ccout)
+            {
+                // if it exists, is a reference to the stored value. If it does not, it is
                 // a reference to the new element inserted 
                 std::vector<uint256>& vec = mScMerkleTreeLeaves[txccout.scId];
                 vec.push_back(txccout.GetHash() );
@@ -182,30 +198,14 @@ uint256 CBlock::CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMer
 std::string CBlock::ToString() const
 {
     std::stringstream s;
-    if (nVersion == CURRENT_VERSION)
-    {
-        s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, hashReserved=%s, hashScMerkleRootsMap=%s, nTime=%u, nBits=%08x, nNonce=%s, vtx=%u)\n",
-            GetHash().ToString(),
-            nVersion,
-            hashPrevBlock.ToString(),
-            hashMerkleRoot.ToString(),
-            hashReserved.ToString(),
-            hashScMerkleRootsMap.ToString(),
-            nTime, nBits, nNonce.ToString(),
-            vtx.size());
-    }
-    else
-    {
-        s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, hashReserved=%s, nTime=%u, nBits=%08x, nNonce=%s, vtx=%u)\n",
-            GetHash().ToString(),
-            nVersion,
-            hashPrevBlock.ToString(),
-            hashMerkleRoot.ToString(),
-            hashReserved.ToString(),
-            nTime, nBits, nNonce.ToString(),
-            vtx.size());
-    }
-
+    s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, hashScMerkleRootsMap=%s, nTime=%u, nBits=%08x, nNonce=%s, vtx=%u)\n",
+        GetHash().ToString(),
+        nVersion,
+        hashPrevBlock.ToString(),
+        hashMerkleRoot.ToString(),
+        hashScMerkleRootsMap.ToString(),
+        nTime, nBits, nNonce.ToString(),
+        vtx.size());
     for (unsigned int i = 0; i < vtx.size(); i++)
     {
         s << "  " << vtx[i].ToString() << "\n";

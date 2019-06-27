@@ -1064,16 +1064,20 @@ public:
             ::Serialize(s, txTo.vout[nOutput], nType, nVersion);
     }
 
-    /** Serialize a cross chain output of txTo */
+    /** Serialize a cross chain outputs of txTo */
     template<typename S>
-    void SerializeCrosschainOutput(S &s, unsigned int nCcOutput, int nType, int nVersion) const {
+    void SerializeForwardTransferCcOutput(S &s, unsigned int nCcOutput, int nType, int nVersion) const {
         /* TODO what to do with fHashSingle case? Maybe we can compute nCcOutput+vout.size(), but does it make sense?
         if (fHashSingle && nCcOutput != nIn)
             // Do not lock-in the txout payee at other indices as txin
             ::Serialize(s, CTxCrosschainOutOut(), nType, nVersion);
         else
         */
-            ::Serialize(s, txTo.vccout[nCcOutput], nType, nVersion);
+            ::Serialize(s, txTo.vft_ccout[nCcOutput], nType, nVersion);
+    }
+    template<typename S>
+    void SerializeCertifierLockCcOutput(S &s, unsigned int nCcOutput, int nType, int nVersion) const {
+            ::Serialize(s, txTo.vcl_ccout[nCcOutput], nType, nVersion);
     }
 
     /** Serialize txTo */
@@ -1094,12 +1098,19 @@ public:
 
         if (txTo.nVersion == SC_TX_VERSION)
         {
-            // Serialize vccout
+            // Serialize vccouts
             // TODO what to do with fHashSingle case? Maybe we can compute nCcOutput+vout.size(), but does it make sense?
-            unsigned int nCcOutputs = fHashNone ? 0 : (/* fHashSingle ? nIn+1 : */ txTo.vccout.size());
+            unsigned int nCcOutputs = 0;
+
+            nCcOutputs = fHashNone ? 0 : (/* fHashSingle ? nIn+1 : */ txTo.vft_ccout.size());
             ::WriteCompactSize(s, nCcOutputs);
             for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
-                 SerializeCrosschainOutput(s, nCcOutput, nType, nVersion);
+                 SerializeForwardTransferCcOutput(s, nCcOutput, nType, nVersion);
+
+            nCcOutputs = fHashNone ? 0 : (/* fHashSingle ? nIn+1 : */ txTo.vcl_ccout.size());
+            ::WriteCompactSize(s, nCcOutputs);
+            for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
+                 SerializeCertifierLockCcOutput(s, nCcOutput, nType, nVersion);
         }
 
         // Serialize nLockTime

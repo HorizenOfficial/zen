@@ -339,8 +339,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         pblock->nTime = GetAdjustedTime();
         const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();
 
-//        pblock->nVersion = ComputeBlockVersion(pindexPrev, chainparams.GetConsensus());
-        pblock->nVersion = CBlock::CURRENT_VERSION;
+        pblock->nVersion = ComputeBlockVersion(pindexPrev, chainparams.GetConsensus());
         // -regtest only: allow overriding block.nVersion with
         // -blockversion=N to test forking scenarios
         if (chainparams.MineBlocksOnDemand())
@@ -504,11 +503,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
         // Fill in header
         pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
-        pblock->hashReserved   = uint256();
-        if (pblock->nVersion == CBlock::CURRENT_VERSION)
-        {
-            pblock->hashScMerkleRootsMap = uint256();
-        }
+        pblock->hashScMerkleRootsMap   = uint256();
         UpdateTime(pblock, Params().GetConsensus(), pindexPrev);
         pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock, Params().GetConsensus());
         pblock->nSolution.clear();

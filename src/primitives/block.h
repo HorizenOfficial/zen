@@ -22,11 +22,9 @@ class CBlockHeader
 public:
     // header
     static const size_t HEADER_SIZE=4+32+32+32+4+4+32; // excluding Equihash solution
-    static const int32_t CURRENT_VERSION = 0x20000001;
     int32_t nVersion;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
-    uint256 hashReserved;
     uint256 hashScMerkleRootsMap;
     uint32_t nTime;
     uint32_t nBits;
@@ -46,11 +44,7 @@ public:
         nVersion = this->nVersion;
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
-        READWRITE(hashReserved);
-        if (nVersion == CURRENT_VERSION)
-        {
-            READWRITE(hashScMerkleRootsMap);
-        }
+        READWRITE(hashScMerkleRootsMap);
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
@@ -62,7 +56,6 @@ public:
         nVersion = 0;
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
-        hashReserved.SetNull();
         hashScMerkleRootsMap.SetNull();
         nTime = 0;
         nBits = 0;
@@ -125,8 +118,7 @@ public:
         block.nVersion       = nVersion;
         block.hashPrevBlock  = hashPrevBlock;
         block.hashMerkleRoot = hashMerkleRoot;
-        block.hashReserved   = hashReserved;
-        block.hashScMerkleRootsMap      = hashScMerkleRootsMap;
+        block.hashScMerkleRootsMap   = hashScMerkleRootsMap;
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
@@ -169,11 +161,7 @@ public:
         nVersion = this->nVersion;
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
-        READWRITE(hashReserved);
-        if (nVersion == CURRENT_VERSION)
-        {
-            READWRITE(hashScMerkleRootsMap);
-        }
+        READWRITE(hashScMerkleRootsMap);
         READWRITE(nTime);
         READWRITE(nBits);
     }
