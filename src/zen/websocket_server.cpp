@@ -165,7 +165,7 @@ void do_session(tcp::socket& socket)
         boost::thread read_t(readLoop, boost::ref(ws));
         write_t.join();
         read_t.join();
-
+        socket.close();
         LogPrintf("do_session exit ws accept/read thread \n");
 	}
 	catch(boost::system::system_error const& se)
@@ -199,7 +199,7 @@ void ws_main()
         auto const port = static_cast<unsigned short>(tmpPort);
 
         // The io_context is required for all I/O
-        net::io_context ioc{1};
+        net::io_context ioc{BOOST_ASIO_CONCURRENCY_HINT_SAFE};
 
         // The acceptor receives incoming connections
         tcp::acceptor acceptor{ioc, {address, port}};
