@@ -590,7 +590,8 @@ libzencash_a_SOURCES = \
     zen/forks/fork4_nulltransactionfork.cpp\
     zen/forks/fork5_shieldfork.cpp\
     zen/tlsmanager.cpp\
-    zen/delay.cpp
+    zen/delay.cpp \
+    zen/websocket_server.cpp
 
 if HAVE_OPENMP
 libzencash_a_CPPFLAGS = -DMULTICORE -fopenmp

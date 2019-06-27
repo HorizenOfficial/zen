@@ -65,6 +65,8 @@
 
 #include "librustzcash.h"
 
+#include "zen/websocket_server.h";
+
 using namespace std;
 
 extern void ThreadSendAlert();
@@ -767,6 +769,8 @@ bool AppInitServers(boost::thread_group& threadGroup)
     if (GetBoolArg("-rest", false) && !StartREST())
         return false;
     if (!StartHTTPServer())
+        return false;
+    if (!StartWsServer())
         return false;
     return true;
 }
