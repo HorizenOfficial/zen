@@ -218,8 +218,8 @@ class RESTTest (BitcoinTestFramework):
         # /rest/block/ #
         ################
 
-        # Block header length of 209 is:
-        # - 120 bytes: regular fields
+        # Block header length of 177 is:
+        # - 108 bytes: regular fields
         # -  32 bytes: nonce
         # -  37 bytes: Equihash solution:
         #              - 1 byte length
@@ -230,15 +230,15 @@ class RESTTest (BitcoinTestFramework):
         # check binary format
         response = http_get_call(url.hostname, url.port, '/rest/block/'+bb_hash+self.FORMAT_SEPARATOR+"bin", True)
         assert_equal(response.status, 200)
-        assert_greater_than(int(response.getheader('content-length')), 209)
+        assert_greater_than(int(response.getheader('content-length')), 177)
         response_str = response.read()
 
         # compare with block header
         response_header = http_get_call(url.hostname, url.port, '/rest/headers/1/'+bb_hash+self.FORMAT_SEPARATOR+"bin", True)
         assert_equal(response_header.status, 200)
-        assert_equal(int(response_header.getheader('content-length')), 209)
+        assert_equal(int(response_header.getheader('content-length')), 177)
         response_header_str = response_header.read()
-        assert_equal(response_str[0:209], response_header_str)
+        assert_equal(response_str[0:177], response_header_str)
 
         # check block hex format
         response_hex = http_get_call(url.hostname, url.port, '/rest/block/'+bb_hash+self.FORMAT_SEPARATOR+"hex", True)
