@@ -423,19 +423,17 @@ public:
 class CTxCrosschainOut
 {
 public:
-    // depending on bType, it represents:
-    // -  the value to be sent to SC (bType 1)
-    // -  a locked amount (bType=2)
+    // depending on child, it represents:
+    // -  the value to be sent to SC (fwd transf)
+    // -  a locked amount (cert lock)
     CAmount nValue;
 
     uint256 address;
 
-    unsigned char bType;
     uint256 scId;
 
-    CTxCrosschainOut(
-        const CAmount& nValueIn, uint256 addressIn, unsigned char type,
-        uint256 scId);
+    CTxCrosschainOut(const CAmount& nValueIn, uint256 addressIn, uint256 scIdIn)
+        : nValue(nValueIn), address(addressIn), scId(scIdIn) { }
 
     virtual ~CTxCrosschainOut() {};
 
@@ -445,7 +443,6 @@ public:
     {
         nValue = -1;
         address = uint256();
-        bType = -1;
         scId = uint256();
     }
 
@@ -484,7 +481,6 @@ protected:
     {
         return (a.nValue  == b.nValue &&
                 a.address == b.address &&
-                a.bType   == b.bType &&
                 a.scId    == b.scId);
     }
 
@@ -496,8 +492,8 @@ public:
 
     CTxForwardTransferCrosschainOut() { SetNull(); }
 
-    CTxForwardTransferCrosschainOut( const CAmount& nValueIn, uint256 addressIn, unsigned char typeIn, uint256 scIdIn):
-        CTxCrosschainOut(nValueIn, addressIn, typeIn, scIdIn) {}
+    CTxForwardTransferCrosschainOut( const CAmount& nValueIn, uint256 addressIn, uint256 scIdIn):
+        CTxCrosschainOut(nValueIn, addressIn, scIdIn) {}
 
     ADD_SERIALIZE_METHODS;
 
@@ -505,7 +501,6 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(nValue);
         READWRITE(address);
-        READWRITE(bType);
         READWRITE(scId);
     }
 
@@ -527,15 +522,12 @@ class CTxCertifierLockCrosschainOut : public CTxCrosschainOut
 {
 public:
 
-    // optional fields, discriminated by bType 
-    // - bType=2
     int64_t activeFromWithdrawalEpoch; 
 
     CTxCertifierLockCrosschainOut() { SetNull(); }
 
     CTxCertifierLockCrosschainOut(
-        const CAmount& nValueIn, uint256 addressIn, unsigned char type,
-        uint256 scId, int64_t activeFromWithdrawalEpoch = -1);
+        const CAmount& nValueIn, uint256 addressIn, uint256 scId, int64_t activeFromWithdrawalEpoch = -1);
 
     ADD_SERIALIZE_METHODS;
 
@@ -543,12 +535,8 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(nValue);
         READWRITE(address);
-        READWRITE(bType);
         READWRITE(scId);
-        if (bType == SC_CERTIFIER_LOCK_TYPE)
-        {
-            READWRITE(activeFromWithdrawalEpoch);
-        }
+        READWRITE(activeFromWithdrawalEpoch);
     }
 
     virtual void SetNull()

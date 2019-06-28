@@ -35,18 +35,17 @@
 #include <univalue.h>
 
 #include <numeric>
-#include <regex>
 
 using namespace std;
 
 using namespace libzcash;
 
 extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
+extern void AddTxCrosschainJSON (const CTransaction& tx, UniValue& parentObj);
 
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
 
-static void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry, isminefilter filter);
 
 // Private method:
 UniValue z_getoperationstatus_IMPL(const UniValue&, bool);
@@ -82,26 +81,6 @@ void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry, isminefilter filter)
     entry.push_back(Pair("confirmations", confirms));
     if (wtx.IsCoinBase())
         entry.push_back(Pair("generated", true));
-    if (wtx.nVersion == SC_TX_VERSION)
-    {
-        entry.push_back(Pair("crosschain tx", true));
-        char buf[64] = {};
-        sprintf(buf, "%s", CTxCrosschainOut::type2str(SC_CERTIFIER_LOCK_TYPE));
-        BOOST_FOREACH(const CTxCertifierLockCrosschainOut& txccout, wtx.vcl_ccout)
-        {
-            entry.push_back(Pair("scid ", txccout.scId.GetHex()));
-            entry.push_back(Pair("type ", buf));
-            entry.push_back(Pair("address", txccout.address.GetHex()));
-            entry.push_back(Pair("active from withdrawal epoch", (int)txccout.activeFromWithdrawalEpoch));
-        }
-        sprintf(buf, "%s", CTxCrosschainOut::type2str(SC_FORWARD_TRANSFER_TYPE));
-        BOOST_FOREACH(const CTxForwardTransferCrosschainOut& txccout, wtx.vft_ccout)
-        {
-            entry.push_back(Pair("scid ", txccout.scId.GetHex()));
-            entry.push_back(Pair("type ", buf));
-            entry.push_back(Pair("address", txccout.address.GetHex()));
-        }
-    }
     if (confirms > 0)
     {
         entry.push_back(Pair("blockhash", wtx.hashBlock.GetHex()));
@@ -118,6 +97,9 @@ void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry, isminefilter filter)
     entry.push_back(Pair("timereceived", (int64_t)wtx.nTimeReceived));
     BOOST_FOREACH(const PAIRTYPE(string,string)& item, wtx.mapValue)
         entry.push_back(Pair(item.first, item.second));
+
+    // add to entry obj the cross chain outputs if any
+    AddTxCrosschainJSON(wtx, entry);
 
     entry.push_back(Pair("vjoinsplit", TxJoinSplitToJSON(wtx)));
 }
@@ -1284,14 +1266,12 @@ UniValue addmultisigaddress(const UniValue& params, bool fHelp)
 struct tallyitem
 {
     CAmount nAmount;
-    CAmount nScAmount;
     int nConf;
     vector<uint256> txids;
     bool fIsWatchonly;
     tallyitem()
     {
         nAmount = 0;
-        nScAmount = 0;
         nConf = std::numeric_limits<int>::max();
         fIsWatchonly = false;
     }
@@ -1358,13 +1338,11 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
             continue;
 
         CAmount nAmount = 0;
-        CAmount nScAmount = 0;
         int nConf = std::numeric_limits<int>::max();
         bool fIsWatchonly = false;
         if (it != mapTally.end())
         {
             nAmount = (*it).second.nAmount;
-            nScAmount = (*it).second.nScAmount;
             nConf = (*it).second.nConf;
             fIsWatchonly = (*it).second.fIsWatchonly;
         }
@@ -1373,7 +1351,6 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
         {
             tallyitem& item = mapAccountTally[strAccount];
             item.nAmount += nAmount;
-            item.nScAmount += nScAmount;
             item.nConf = min(item.nConf, nConf);
             item.fIsWatchonly = fIsWatchonly;
         }
@@ -1385,7 +1362,6 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
             obj.push_back(Pair("address",       address.ToString()));
             obj.push_back(Pair("account",       strAccount));
             obj.push_back(Pair("amount",        ValueFromAmount(nAmount)));
-            obj.push_back(Pair("crosschain amount",        ValueFromAmount(nScAmount)));
             obj.push_back(Pair("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf)));
             UniValue transactions(UniValue::VARR);
             if (it != mapTally.end())
@@ -1405,14 +1381,12 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
         for (map<string, tallyitem>::iterator it = mapAccountTally.begin(); it != mapAccountTally.end(); ++it)
         {
             CAmount nAmount = (*it).second.nAmount;
-            CAmount nScAmount = (*it).second.nScAmount;
             int nConf = (*it).second.nConf;
             UniValue obj(UniValue::VOBJ);
             if((*it).second.fIsWatchonly)
                 obj.push_back(Pair("involvesWatchonly", true));
             obj.push_back(Pair("account",       (*it).first));
             obj.push_back(Pair("amount",        ValueFromAmount(nAmount)));
-            obj.push_back(Pair("crosschain amount",        ValueFromAmount(nScAmount)));
             obj.push_back(Pair("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf)));
             ret.push_back(obj);
         }
@@ -2475,7 +2449,6 @@ UniValue getwalletinfo(const UniValue& params, bool fHelp)
             "{\n"
             "  \"walletversion\": xxxxx,     (numeric) the wallet version\n"
             "  \"balance\": xxxxxxx,         (numeric) the total confirmed horizen balance of the wallet\n"
-            "  \"sc balance\": xxxxxxx,      (numeric) the total confirmed horizen crosschain balance of the wallet\n"
             "  \"unconfirmed_balance\": xxx, (numeric) the total unconfirmed horizen balance of the wallet\n"
             "  \"immature_balance\": xxxxxx, (numeric) the total immature balance of the wallet\n"
             "  \"txcount\": xxxxxxx,         (numeric) the total number of transactions in the wallet\n"
@@ -4210,7 +4183,7 @@ UniValue dbg_getscinfo(const UniValue& params, bool fHelp)
                 BOOST_FOREACH(const auto& nIdx, txPair.second[0])
                 {
                     UniValue ccout(UniValue::VOBJ);
-                    ccout.push_back(Pair("type:", CTxCrosschainOut::type2str(txObj.vcl_ccout[nIdx].bType)));
+                    ccout.push_back(Pair("type:", CTxCrosschainOut::type2str(SC_CERTIFIER_LOCK_TYPE)));
                     ccout.push_back(Pair("n:", nIdx));
                     ccout.push_back(Pair("value:", ValueFromAmount(txObj.vcl_ccout[nIdx].nValue)));
                     ccout.push_back(Pair("address:", txObj.vcl_ccout[nIdx].address.GetHex()));
@@ -4220,7 +4193,7 @@ UniValue dbg_getscinfo(const UniValue& params, bool fHelp)
                 BOOST_FOREACH(const auto& nIdx, txPair.second[1])
                 {
                     UniValue ccout(UniValue::VOBJ);
-                    ccout.push_back(Pair("type:", CTxCrosschainOut::type2str(txObj.vft_ccout[nIdx].bType)));
+                    ccout.push_back(Pair("type:", CTxCrosschainOut::type2str(SC_FORWARD_TRANSFER_TYPE)));
                     ccout.push_back(Pair("n:", nIdx));
                     ccout.push_back(Pair("value:", ValueFromAmount(txObj.vft_ccout[nIdx].nValue)));
                     ccout.push_back(Pair("address:", txObj.vft_ccout[nIdx].address.GetHex()));

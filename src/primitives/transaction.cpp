@@ -212,12 +212,6 @@ std::string CTxOut::ToString() const
 }
 
 //----------------------------------------------------------------------------
-CTxCrosschainOut::CTxCrosschainOut(const CAmount& nValueIn, uint256 addressIn, unsigned char typeIn, uint256 scIdIn)
-: nValue(nValueIn), address(addressIn), bType(typeIn), scId(scIdIn)
-{
-}
-
-//----------------------------------------------------------------------------
 uint256 CTxForwardTransferCrosschainOut::GetHash() const
 {
     return SerializeHash(*this);
@@ -225,13 +219,13 @@ uint256 CTxForwardTransferCrosschainOut::GetHash() const
 
 std::string CTxForwardTransferCrosschainOut::ToString() const
 {
-    return strprintf("CTxCertifierLockCrosschainOut(nValue=%d.%08d, address=%s, type=0x%x, scId=%s)",
-        nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), bType, scId.ToString() );
+    return strprintf("CTxCertifierLockCrosschainOut(nValue=%d.%08d, address=%s, scId=%s)",
+        nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), scId.ToString() );
 }
 
 //----------------------------------------------------------------------------
-CTxCertifierLockCrosschainOut::CTxCertifierLockCrosschainOut(const CAmount& nValueIn, uint256 addressIn, unsigned char typeIn, uint256 scIdIn, int64_t epoch)
-: CTxCrosschainOut(nValueIn, addressIn, typeIn, scIdIn), activeFromWithdrawalEpoch(epoch)
+CTxCertifierLockCrosschainOut::CTxCertifierLockCrosschainOut(const CAmount& nValueIn, uint256 addressIn, uint256 scIdIn, int64_t epoch)
+: CTxCrosschainOut(nValueIn, addressIn, scIdIn), activeFromWithdrawalEpoch(epoch)
 {
 }
 
@@ -242,8 +236,8 @@ uint256 CTxCertifierLockCrosschainOut::GetHash() const
 
 std::string CTxCertifierLockCrosschainOut::ToString() const
 {
-    return strprintf("CTxCertifierLockCrosschainOut(nValue=%d.%08d, address=%s, type=0x%x, scId=%s, activeFromWithdrawalEpoch=%lld",
-        nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), bType, scId.ToString(), activeFromWithdrawalEpoch);
+    return strprintf("CTxCertifierLockCrosschainOut(nValue=%d.%08d, address=%s, scId=%s, activeFromWithdrawalEpoch=%lld",
+        nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), scId.ToString(), activeFromWithdrawalEpoch);
 }
 
 

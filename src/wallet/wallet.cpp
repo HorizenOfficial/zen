@@ -610,26 +610,6 @@ bool CWallet::IsSpent(const uint256& hash, unsigned int n) const
 }
 
 /**
- * Outpoint is spent if any non-conflicted transaction
- * spends it:
- */
-bool CWallet::IsCrosschainSpent(const uint256& hash, unsigned int n) const
-{
-    const COutPoint outpoint(hash, n);
-    pair<TxSpends::const_iterator, TxSpends::const_iterator> range;
-    range = mapTxCrosschainSpends.equal_range(outpoint);
-
-    for (TxSpends::const_iterator it = range.first; it != range.second; ++it)
-    {    
-        const uint256& wtxid = it->second;
-        std::map<uint256, CWalletTx>::const_iterator mit = mapWallet.find(wtxid);
-        if (mit != mapWallet.end() && mit->second.GetDepthInMainChain() >= 0)
-            return true; // Spent
-    }    
-    return false;
-}
-
-/**
  * Note is spent if any non-conflicted transaction
  * spends it:
  */
@@ -3025,7 +3005,7 @@ bool CWallet::ScCreateTransaction(
                     {
                         case SC_CERTIFIER_LOCK_TYPE:
                         {
-                            CTxCertifierLockCrosschainOut txccout(recipient.nAmount, recipient.address, recipient.type, recipient.scId, recipient.epoch);
+                            CTxCertifierLockCrosschainOut txccout(recipient.nAmount, recipient.address, recipient.scId, recipient.epoch);
                             txNew.vcl_ccout.push_back(txccout);
                             ccOutBasePtr = &txccout;
                             break;
@@ -3033,7 +3013,7 @@ bool CWallet::ScCreateTransaction(
 
                         case SC_FORWARD_TRANSFER_TYPE:
                         {
-                            CTxForwardTransferCrosschainOut txccout(recipient.nAmount, recipient.address, recipient.type, recipient.scId);
+                            CTxForwardTransferCrosschainOut txccout(recipient.nAmount, recipient.address, recipient.scId);
                             txNew.vft_ccout.push_back(txccout);
                             ccOutBasePtr = &txccout;
                             break;

@@ -699,12 +699,6 @@ private:
     typedef TxSpendMap<COutPoint> TxSpends;
     TxSpends mapTxSpends;
     /**
-     * Used to keep track of spent crosschain outpoints, and
-     * detect and report conflicts (double-spends or
-     * mutated transactions where the mutant gets mined).
-     */
-    TxSpends mapTxCrosschainSpends;
-    /**
      * Used to keep track of spent Notes, and
      * detect and report conflicts (double-spends).
      */
@@ -910,7 +904,6 @@ public:
     void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl = NULL, bool fIncludeZeroValue=false, bool fIncludeCoinBase=true, bool fIncludeCommunityFund=true) const;
     bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet) const;
 
-    bool IsCrosschainSpent(const uint256& hash, unsigned int n) const;
     bool IsSpent(const uint256& hash, unsigned int n) const;
     bool IsSpent(const uint256& nullifier) const;
 
