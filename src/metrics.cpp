@@ -551,7 +551,7 @@ void ThreadShowMetricsScreen()
             //std::cout << "[" << _("Press Ctrl+C to exit") << "] [" << _("Set 'showmetrics=0' to hide") << "]" << std::endl;
             std::cout << "[";
 #ifdef WIN32
-            std::cout << _("'zcash-cli.exe stop' to exit");
+            std::cout << _("'zen-cli.exe stop' to exit");
 #else
             std::cout << _("Press Ctrl+C to exit");
 #endif
