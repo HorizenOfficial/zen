@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include "main.h"
 #include "consensus/validation.h"
+#include "univalue.h"
+#include "rpc/server.h"
 
 #include <algorithm>
 #include <random>
@@ -38,9 +40,8 @@ static const int MULTI_BLOCK_HEIGHT = 503;
 //                            \
 //                            [503]                      (Trunk 4)
 
-static const int  MAIN_CHAIN_TEST_LEN = 10000;
-
 #else
+
 static const int TRUNK_01_SZ = 5;
 static const int FORK_01_POS  = 1;
 
@@ -66,8 +67,6 @@ static const int MULTI_BLOCK_HEIGHT = 5;
 //                  [4]-[5]              (Trunk 3)    f2
 //                    \
 //                    [5]                (Trunk 4)    f3
-
-static const int  MAIN_CHAIN_TEST_LEN = 10;
 
 #endif
 
@@ -97,67 +96,60 @@ const CBlockIndex* makeFork(int start_pos, int trunk_size)
     for (int i = baseH; i < baseH + trunk_size; i++)
     {
         CBlock b;
-        CBlockIndex* bi  = new CBlockIndex(b);
-        bi->phashBlock = new uint256(GetRandHash());
-        bi->nHeight = i;
+        b.nVersion = MIN_BLOCK_VERSION;
+        b.nNonce = uint256(GetRandHash());  
+        b.nBits = arith_uint256(uint256(GetRandHash()).ToString() ).GetCompact();
+
         if (i == baseH)
         {
-            bi->pprev = forkStart;
+            b.hashPrevBlock = forkStart->GetBlockHash();
         }
         else
         {
-            bi->pprev = vBlocks.back();
+            b.hashPrevBlock = vBlocks.back()->GetBlockHash();
         }
-        bi->nChainTx = 33;
+        CBlockIndex *bi = AddToBlockIndex(b);
         vBlocks.push_back(bi);
-        addToGlobalForkTips(bi);
     }
     return vBlocks.back();
 }
 
 const CBlockIndex* makeMain(int trunk_size)
 {
-    // Create a fake genesis block
-    CBlock b;
-    CBlockIndex* genesis = new CBlockIndex(b);
-    genesis->phashBlock = new uint256(GetRandHash());
-    genesis->nHeight = 0;
-    chainActive.SetTip(genesis);
+    // Create genesis block
+    CBlock b = Params().GenesisBlock();
+    CBlockIndex* genesis = AddToBlockIndex(b);
 
-    CBlockIndex* pindex = NULL;
+    // add to blocks vector for ease of main chain creation, it will be erased at the end
+    vBlocks.push_back(genesis);
 
     // create the main trunk, from which some forks will possibly stem
-    for (int i = 1; i < trunk_size + 1; i++)
+    for (int i = 0; i < trunk_size; i++)
     {
         CBlock b;
         b.nVersion = MIN_BLOCK_VERSION;
+        b.nNonce = uint256(GetRandHash());  
+        b.nBits = arith_uint256(uint256(GetRandHash()).ToString() ).GetCompact();
+
+        b.hashPrevBlock = vBlocks.back()->GetBlockHash();
 
         CBlockIndex *bi = AddToBlockIndex(b);
-//        CBlockIndex* bi = new CBlockIndex(b);
-//        bi->phashBlock = new uint256(GetRandHash());
-//        bi->nHeight = i;
-        if (i == 1)
-        {
-            bi->pprev = genesis;
-            pindex = bi;
-        }
-        else
-        {
-            bi->pprev = vBlocks.back();
-        }
-        bi->nChainTx = 33;
-        bi->BuildSkip();
+
         chainActive.SetTip(bi);
         vBlocks.push_back(bi);
-        addToGlobalForkTips(bi);
     }
 
     std::cout << " main chain built: length(" << trunk_size << ")" << std::endl;
+
+    // remove genesis
+    vBlocks.erase(vBlocks.begin());
+
     return vBlocks.back();
 }
 
 TEST(relayforks_test, relayforks) {
     CleanUpAll();
+    SelectParams(CBaseChainParams::MAIN);
 
 #if defined(TEST_ALT_DEBUG)
     // print logs to console
@@ -256,6 +248,7 @@ TEST(relayforks_test, relayforks) {
 
 TEST(relayforks_test, checkisonmain) {
     CleanUpAll();
+    SelectParams(CBaseChainParams::MAIN);
 
 #if defined(TEST_ALT_DEBUG)
     // print logs to console
@@ -312,6 +305,103 @@ TEST(relayforks_test, checkisonmain) {
     bool onMain = getHeadersIsOnMain(bl, hashStop, &ref);
 
     ASSERT_EQ( (onMain) , true);
+
+    CleanUpAll();
+}
+/*
+*/
+
+#if !defined(TEST_ALT_DEBUG)
+
+static const int MAIN_CHAIN_TEST_LEN = 500000;
+static const int FORK1_TEST_POS = 3;
+static const int FORK2_TEST_POS = 200000;
+static const int FORK3_TEST_POS = 400000;
+static const int FORK4_TEST_POS = 498000;
+
+//    [0]- .. -[4]- .. -[200001]- .. -[400001]- .. -[498001]- .. -[500000]         (Main)
+//               \          \            \              \                             #
+//               [5]       [200002]     [400002]      [498002]          
+
+#else
+
+static const int MAIN_CHAIN_TEST_LEN = 15;
+static const int FORK1_TEST_POS = 2;
+static const int FORK2_TEST_POS = 4;
+static const int FORK3_TEST_POS = 6;
+static const int FORK4_TEST_POS = 8;
+
+//    [0]- .. -[3]- .. -[5]- .. -[7]- .. -[9]- .. -[15]         (Main)
+//               \        \        \        \                      #
+//               [4]      [6]      [8]     [10]          
+#endif
+
+
+TEST(relayforks_test, getfinality) {
+    CleanUpAll();
+
+    SelectParams(CBaseChainParams::MAIN);
+#if defined(TEST_ALT_DEBUG)
+    // print logs to console
+    fDebug = true;
+    fPrintToConsole = true;
+    mapArgs["-debug"] = "forks";
+    mapMultiArgs["-debug"].push_back("forks");
+#endif
+
+    std::cout << "Building main chain..." << std::endl;
+    const CBlockIndex* fm = makeMain(MAIN_CHAIN_TEST_LEN);
+
+    std::cout << "Forking from main chain..." << std::endl;
+    const CBlockIndex* f1 = makeFork(FORK1_TEST_POS, 1);
+
+    std::cout << "Forking from main chain..." << std::endl;
+    const CBlockIndex* f2 = makeFork(FORK2_TEST_POS, 1);
+
+    std::cout << "Forking from main chain..." << std::endl;
+    const CBlockIndex* f3 = makeFork(FORK3_TEST_POS, 1);
+
+    std::cout << "Forking from main chain..." << std::endl;
+    const CBlockIndex* f4 = makeFork(FORK4_TEST_POS, 1);
+
+#if defined(TEST_ALT_DEBUG)
+    std::cout << "Blocks: " << vBlocks.size() <<std::endl;
+    std::cout << "------------" << std::endl;
+
+    BOOST_FOREACH(CBlockIndex* block, vBlocks)
+    {
+        std::cout << "h(" << block->nHeight << ") " <<
+            block->GetBlockHash().ToString() << " <-- ";
+        if (block->pprev)
+        {
+            std::cout << block->pprev->GetBlockHash().ToString() << std::endl;
+        }
+        else
+        {
+            std::cout << "???" << std::endl;
+        }
+    }
+#endif
+
+    dump_global_tips();
+
+    uint256 hash = chainActive.Tip()->GetBlockHash();
+
+    UniValue input(UniValue::VARR);
+    input.push_back(hash.ToString());
+    std::cout << "input block hash: " << hash.ToString() << std::endl;
+    UniValue ret;
+    try
+    {
+        ret = getblockfinalityindex(input, false);
+    }
+    catch (...) {
+        std::cout << "Exception thrown!" << std::endl;
+        ret = -1;
+    }
+    std::cout << "Result: " << ret.get_int64() << std::endl;
+
+    ASSERT_EQ( (ret.get_int64() > 0) , true);
 
     CleanUpAll();
 }
