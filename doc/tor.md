@@ -61,6 +61,7 @@ Currently, there is no Zen Seed Node to provide Tor node addresses, edit your `~
 ```
 addnode=d2y2vsq5rxkcpk6f.onion
 addnode=eorrku3hauy53zup.onion
+addnode=dr7rtjaszmuowjrt.onion
 ```
 
 
