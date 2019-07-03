@@ -1,8 +1,8 @@
 package=openssl
-$(package)_version=1.1.0j
+$(package)_version=1.1.1c
 $(package)_download_path=https://www.openssl.org/source
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=31bec6c203ce1a8e93d5994f4ed304c63ccf07676118b6634edded12ad1b3246
+$(package)_sha256_hash=f6fb3079ad15076154eda9413fed42877d668e7069d9b87396d0804fdb3f4c90
 
 define $(package)_set_vars
 $(package)_config_env=AR="$($(package)_ar)" RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)"
@@ -92,7 +92,7 @@ $(package)_config_opts_i686_mingw32=mingw
 endef
 
 define $(package)_preprocess_cmds
-  sed -i.old "/define DATE/d" util/mkbuildinf.pl && \
+  sed -i.old 's/built on: $$$$date/built on: date not available/' util/mkbuildinf.pl && \
   sed -i.old "s|\"engines\", \"apps\", \"test\"|\"engines\"|" Configure
 endef
 
