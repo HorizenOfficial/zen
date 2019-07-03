@@ -67,6 +67,8 @@ public:
     bool DefaultConsistencyChecks() const { return fDefaultConsistencyChecks; }
     /** Policy: Filter transactions that do not match well-defined patterns */
     bool RequireStandard() const { return fRequireStandard; }
+    int CbhMinimumAge() const { return nCbhMinimumAge; }
+    int CbhSafeDepth() const { return nCbhSafeDepth; }
     int64_t MaxTipAge() const { return nMaxTipAge; }
     int64_t PruneAfterHeight() const { return nPruneAfterHeight; }
     unsigned int EquihashN() const { return nEquihashN; }
@@ -110,6 +112,8 @@ protected:
     bool fRequireStandard = false;
     bool fMineBlocksOnDemand = false;
     bool fTestnetToBeDeprecatedFieldRPC = false;
+    int  nCbhMinimumAge = 0;
+    int  nCbhSafeDepth = 0;
     Checkpoints::CCheckpointData checkpointData;
 };
 

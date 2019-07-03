@@ -1208,9 +1208,18 @@ bool TransactionSignatureChecker::CheckBlockHash(const int32_t nHeight, const st
     }
 
     // Sufficiently old blocks are always valid
+#ifndef BITCOIN_TX
+    if (nHeight <= chain->Height() - getCheckBlockAtHeightSafeDepth() ) {
+        LogPrint("cbh", "%s: %s():%d - Old block: dont even check [h=%d, chain h=%d, safe depth = %d]\n",
+            __FILE__, __func__, __LINE__, nHeight, chain->Height(), getCheckBlockAtHeightSafeDepth() );
+        return true;
+    }
+#else
+    // zen-tx does not link all symbols
     if (nHeight <= chain->Height() - 52596) {
         return true;
     }
+#endif
 
     CBlockIndex* pblockindex = (*chain)[nHeight];
     uint256 blockHash = pblockindex->GetBlockHash();

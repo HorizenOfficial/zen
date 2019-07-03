@@ -508,7 +508,16 @@ std::string HelpMessage(HelpMessageMode mode)
         ), DEFAULT_BLOCK_MAX_COMPLEXITY_SIZE)
     );
     strUsage += HelpMessageOpt("-deprecatedgetblocktemplate", (_("Disable block complexity calculation and use the previous GetBlockTemplate implementation")));
+
+    strUsage += HelpMessageOpt("-cbhsafedepth=<n>",
+        "regtest/testnet only - Set safe depth for skipping checkblockatheight in txout scripts (default depends on regtest/testnet params)");
         
+    strUsage += HelpMessageOpt("-cbhminage=<n>",
+        "regtest/testnet only - Set the minimum legal age of the referenced block for checkblockatheight in txout scripts (default depends on regtest/testnet params)");
+
+    strUsage += HelpMessageOpt("-allownonstandardtx",
+        "regtest/testnet only - allow non-standard tx (default depends on regtest/testnet params)");
+
     if (GetBoolArg("-help-debug", false))
         strUsage += HelpMessageOpt("-blockversion=<n>", "Override block version to test forking scenarios");
 
@@ -1786,3 +1795,4 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     return !fRequestShutdown;
 }
+
