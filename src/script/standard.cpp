@@ -47,7 +47,7 @@ const char* GetTxnOutputType(txnouttype t)
 /**
  * Return public keys or hashes from scriptPubKey, for 'standard' transaction types.
  */
-bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsigned char> >& vSolutionsRet)
+bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsigned char> >& vSolutionsRet, CheckBlockResult& checkBlockResult)
 {
     // Templates
     static multimap<txnouttype, CScript> mTemplates;
@@ -165,9 +165,27 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
             {
             	// Possible values of OP_CHECKBLOCKATHEIGHT parameters
             	if (vch1.size() <= sizeof(int32_t))
-					vchBlockHeight = vch1;
-				else
-					vchBlockHash = vch1;
+                {
+                    if (vch1.size() == 0 && (opcode1 >= OP_1 && opcode1 <= OP_16) )
+                    {
+                        // small size int (1..16) are not in vch1
+                        // they are represented in the opcode itself
+                        // (see CScript::push_int64() method)
+
+                        // leave vch1 alone and use a copy, just to be in the safest side
+                        vector<unsigned char> vTemp;
+                        vTemp.push_back((unsigned char)(opcode1 - OP_1 + 1));
+                        vchBlockHeight = vTemp;
+                    }
+                    else
+                    {
+                        vchBlockHeight = vch1;
+                    }
+                }
+                else
+                {
+                    vchBlockHash = vch1;
+                }
 
                 // small pushdata, <= nMaxDatacarrierBytes
                 if (vch1.size() > nMaxDatacarrierBytes)
@@ -186,19 +204,24 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                 }
 
                 const int32_t nHeight = CScriptNum(vchBlockHeight, false, sizeof(int32_t)).getint();
+                const int32_t nChActHeight = chainActive.Height();
 
-                if ((nHeight < 0 || nHeight > chainActive.Height()) && ForkManager::getInstance().getReplayProtectionLevel(chainActive.Height()) == RPLEVEL_FIXED)
+                // interested caller will use this for enforcing that referenced block is valid and not too recent
+                checkBlockResult.referencedHeight = nHeight;
+
+                if ((nHeight < 0 || nHeight > nChActHeight ) && ForkManager::getInstance().getReplayProtectionLevel(nChActHeight) == RPLEVEL_FIXED)
                 {
-                    LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Transaction is non-final. nHeight: %d\n", __FILE__, __func__, nHeight);
+                    LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight not legal[%d], chainActive height: %d\n",
+                        __FILE__, __func__, __LINE__, nHeight, nChActHeight);
                     break;
                 }
 
-                // According to BIP115, sufficiently old blocks are always valid, so check only blocks of depth less than 52596.
+                // According to BIP115, sufficiently old blocks are always valid, so reject only blocks of depth less than 52596.
                 // Skip check if referenced block is further than chainActive. It means that we are not fully synchronized.
-                if (nHeight > (chainActive.Height() - 52596) && nHeight >= 0 &&
-                    nHeight <= chainActive.Height())
+                if (nHeight > (nChActHeight - getCheckBlockAtHeightSafeDepth() ) && nHeight >= 0 &&
+                    nHeight <= nChActHeight)
                 {
-					CBlockIndex* pblockindex = chainActive[nHeight];
+                    CBlockIndex* pblockindex = chainActive[nHeight];
 
                     if (pblockindex->GetBlockHash() != uint256(vchBlockHash))
                     {
@@ -224,6 +247,12 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
     typeRet = TX_NONSTANDARD;
     return false;
 }
+
+bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsigned char> >& vSolutionsRet) {
+	CheckBlockResult checkBlockResult;
+    return Solver(scriptPubKey, typeRet, vSolutionsRet, checkBlockResult);
+}
+
 
 int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned char> >& vSolutions)
 {
@@ -253,8 +282,14 @@ int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned c
 
 bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
 {
+	CheckBlockResult checkBlockResult;
+    return IsStandard(scriptPubKey, whichType, checkBlockResult);
+}
+
+bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType, CheckBlockResult& checkBlockResult)
+{
     vector<valtype> vSolutions;
-    if (!Solver(scriptPubKey, whichType, vSolutions))
+    if (!Solver(scriptPubKey, whichType, vSolutions, checkBlockResult))
         return false;
 
     if (whichType == TX_MULTISIG || whichType == TX_MULTISIG_REPLAY)
