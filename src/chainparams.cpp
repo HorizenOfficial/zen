@@ -133,6 +133,9 @@ public:
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = false;
 
+        nCbhMinimumAge = 99;
+        nCbhSafeDepth = 52596;
+
         checkpointData = (Checkpoints::CCheckpointData) {
             boost::assign::map_list_of
             ( 0, consensus.hashGenesisBlock)
@@ -226,6 +229,9 @@ public:
         fMineBlocksOnDemand = false;
         fTestnetToBeDeprecatedFieldRPC = true;
 
+        nCbhMinimumAge = 99;
+        nCbhSafeDepth = 52596;
+
         checkpointData = (Checkpoints::CCheckpointData) {
             boost::assign::map_list_of
             (0, consensus.hashGenesisBlock)
@@ -292,9 +298,13 @@ public:
 
         fMiningRequiresPeers = false;
         fDefaultConsistencyChecks = true;
-        fRequireStandard = false;
+        //fRequireStandard = false;
+        fRequireStandard = true;
         fMineBlocksOnDemand = true;
         fTestnetToBeDeprecatedFieldRPC = false;
+
+        nCbhMinimumAge = 99;
+        nCbhSafeDepth = 320;
 
         checkpointData = (Checkpoints::CCheckpointData){
             boost::assign::map_list_of

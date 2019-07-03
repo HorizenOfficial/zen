@@ -71,6 +71,95 @@ TEST(CheckBlock, BlockRejectsBadVersion) {
 }
 
 
+extern CBlockIndex* AddToBlockIndex(const CBlockHeader& block);
+extern void CleanUpAll();
+std::vector<CBlockIndex*> vecBlocks;
+const CBlockIndex* helpMakeMain(int size)
+{
+    // Create genesis block
+    CBlock b = Params().GenesisBlock();
+    CBlockIndex* genesis = AddToBlockIndex(b);
+
+    // add to blocks vector for ease of main chain creation, it will be erased at the end
+    vecBlocks.push_back(genesis);
+
+    for (int i = 0; i < size; i++)
+    {
+        CBlock b;
+        b.nVersion = MIN_BLOCK_VERSION;
+        b.nNonce = uint256(GetRandHash());
+        b.nBits = arith_uint256(uint256(GetRandHash()).ToString() ).GetCompact();
+
+        b.hashPrevBlock = vecBlocks.back()->GetBlockHash();
+
+        CBlockIndex *bi = AddToBlockIndex(b);
+
+        chainActive.SetTip(bi);
+        vecBlocks.push_back(bi);
+    }
+
+    //std::cout << " main chain built: length(" << size << ")" << std::endl;
+
+    // remove genesis
+    vecBlocks.erase(vecBlocks.begin());
+
+    return vecBlocks.back();
+}
+
+// Test that a tx without CHECKBLOCKATHEIGHT in script is rejected 
+// by CheckBlock under consensus rules.
+TEST(CheckBlock, BlockRejectsNoCbh) {
+    CleanUpAll();
+    SelectParams(CBaseChainParams::MAIN);
+
+    const CBlockIndex* fm = helpMakeMain(117576);
+
+    // the block to be checked
+    CBlock block;
+    block.nVersion = MIN_BLOCK_VERSION;
+
+    // build a dummy coin base (any block needs it) 
+    CMutableTransaction mtx_cb;
+    mtx_cb.vin.resize(1);
+    mtx_cb.vin[0].prevout.SetNull();
+    mtx_cb.vin[0].scriptSig = CScript() << 1 << OP_0;
+    mtx_cb.vout.resize(1);
+    mtx_cb.vout[0].scriptPubKey = CScript() << OP_TRUE;
+    mtx_cb.vout[0].nValue = 0;
+
+    block.vtx.push_back(mtx_cb);
+
+    // build the tx with the bad script
+    CMutableTransaction mtx;
+
+    mtx.vin.resize(1);
+    mtx.vin[0].prevout.n = 0;
+    mtx.vin[0].scriptSig = CScript() << 2 << OP_0;
+
+    // get a valid address for having a legal scriptPubKey 
+    CBitcoinAddress address(Params().GetCommunityFundAddressAtHeight(110001, Fork::CommunityFundType::FOUNDATION).c_str());
+    CScriptID scriptID = boost::get<CScriptID>(address.Get());
+
+    // build a script without the CHECKBLOCKATHEIGHT part
+    CScript scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(scriptID) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    //std::cout << "Script: " << scriptPubKey.ToString() << std::endl;
+
+    mtx.vout.push_back( CTxOut(0.5, scriptPubKey));
+
+    block.vtx.push_back(mtx);
+
+    MockCValidationState state;
+
+    auto verifier = libzcash::ProofVerifier::Strict();
+
+    EXPECT_CALL(state, DoS(0, false, REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed", false)).Times(1);
+    EXPECT_FALSE(CheckBlock(block, state, verifier, false, false));
+
+    CleanUpAll();
+}
+
+
 class ContextualCheckBlockTest : public ::testing::Test {
 protected:
     virtual void SetUp() {

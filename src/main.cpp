@@ -725,15 +725,26 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
     unsigned int nDataOut = 0;
     txnouttype whichType;
     BOOST_FOREACH(const CTxOut& txout, tx.vout) {
-        if (!::IsStandard(txout.scriptPubKey, whichType)) {
+
+        CheckBlockResult checkBlockResult;
+        if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
             reason = "scriptpubkey";
             return false;
         }
 
-        int nHeight = chainActive.Height();
+        if (checkBlockResult.referencedHeight > 0)
+        {
+            if ( (nHeight - checkBlockResult.referencedHeight) < getCheckBlockAtHeightMinAge())
+            {
+                LogPrintf("%s():%d - referenced block h[%d], chain.h[%d], minAge[%d]\n",
+                    __func__, __LINE__, checkBlockResult.referencedHeight, nHeight, getCheckBlockAtHeightMinAge() );
+            reason = "scriptpubkey checkblockatheight: referenced block too recent";
+            return false;
+        }
+        }
 
         // provide temporary replay protection for two minerconf windows during chainsplit
-        if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(nHeight,whichType))) {
+        if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(), whichType))) {
             reason = "op-checkblockatheight-needed";
             return false;
         }
@@ -744,8 +755,18 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
             reason = "bare-multisig";
             return false;
         } else if (txout.IsDust(::minRelayTxFee)) {
-            reason = "dust";
-            return false;
+            if (Params().NetworkIDString() == "regtest")
+            {
+                // do not reject this tx in regtest, there are py tests intentionally using zero values
+                // and expecting this to be processable
+                LogPrintf("%s():%d - txout is dust, ignoring it because we are in regtest\n",
+                    __func__, __LINE__);
+            }
+            else
+            {
+                reason = "dust";
+                return false;
+            }
         }
     }
 
@@ -1228,7 +1249,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     string reason;
-    if (Params().RequireStandard() && !IsStandardTx(tx, reason, nextBlockHeight))
+    if (getRequireStandard() && !IsStandardTx(tx, reason, nextBlockHeight))
         return state.DoS(0,
                          error("AcceptToMemoryPool: nonstandard transaction: %s", reason),
                          REJECT_NONSTANDARD, reason);
@@ -1311,7 +1332,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
 
         // Check for non-standard pay-to-script-hash in inputs
-        if (Params().RequireStandard() && !AreInputsStandard(tx, view))
+        if (getRequireStandard() && !AreInputsStandard(tx, view))
             return error("AcceptToMemoryPool: nonstandard transaction input");
 
         // Check that the transaction doesn't have an excessive number of
@@ -6789,3 +6810,64 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
     return false;
 }
     
+
+static int getInitCbhSafeDepth()
+{
+    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
+    {
+        int val = (int)(GetArg("-cbhsafedepth", Params().CbhSafeDepth() ));
+        LogPrint("cbh", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
+        return val;
+    }
+    return Params().CbhSafeDepth();
+}
+
+int getCheckBlockAtHeightSafeDepth()
+{
+    // gets constructed just one time
+    static int retVal( getInitCbhSafeDepth() );
+    return retVal;
+}
+
+static int getInitCbhMinAge()
+{
+    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
+    {
+        int val = (int)(GetArg("-cbhminage", Params().CbhMinimumAge() ));
+        LogPrint("cbh", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
+        return val;
+    }
+    return Params().CbhMinimumAge();
+}
+
+int getCheckBlockAtHeightMinAge()
+{
+    // gets constructed just one time
+    static int retVal( getInitCbhMinAge() );
+    return retVal;
+}
+
+static bool getInitRequireStandard()
+{
+    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
+    {
+        bool val = Params().RequireStandard();
+
+        if ((bool)(GetBoolArg("-allownonstandardtx",  false ) ) )
+        {
+            // if this flag is set the user wants to allow non-standars tx, therefore we override default param and return false  
+            val = false;
+        }
+        LogPrintf("%s():%d - %s: using val %d (%s)\n", __func__, __LINE__, Params().NetworkIDString(), (int)val, (val?"Y":"N"));
+        return val;
+    }
+    return Params().RequireStandard();
+}
+
+bool getRequireStandard()
+{
+    // gets constructed just one time
+    static int retVal( getInitRequireStandard() );
+    return retVal;
+}
+
