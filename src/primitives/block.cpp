@@ -114,30 +114,7 @@ uint256 CBlock::BuildScMerkleRootsMap()
     {
         if (tx.nVersion == SC_TX_VERSION)
         {
-            BOOST_FOREACH(const auto& txccout, tx.vcl_ccout)
-            {
-                // if it exists, is a reference to the stored value. If it does not, it is
-                // a reference to the new element inserted 
-                std::vector<uint256>& vec = mScMerkleTreeLeaves[txccout.scId];
-                vec.push_back(txccout.GetHash() );
-            }
-#if 0
-// loop on tx two times or do both outputs in the same tx?
-        }
-    }
-
-    BOOST_FOREACH(const CTransaction& tx, vtx)
-    {
-        if (tx.nVersion == SC_TX_VERSION)
-        {
-#endif
-            BOOST_FOREACH(const auto& txccout, tx.vft_ccout)
-            {
-                // if it exists, is a reference to the stored value. If it does not, it is
-                // a reference to the new element inserted 
-                std::vector<uint256>& vec = mScMerkleTreeLeaves[txccout.scId];
-                vec.push_back(txccout.GetHash() );
-            }
+            tx.getCrosschainOutputs(mScMerkleTreeLeaves);
         }
     }
 
@@ -146,6 +123,10 @@ uint256 CBlock::BuildScMerkleRootsMap()
     BOOST_FOREACH(const auto& pair, mScMerkleTreeLeaves)
     {
         uint256 scid = pair.first;
+
+        LogPrint("sc", "%s():%d building merkle root for sc[%s[ with %d leaves\n",
+            __func__, __LINE__, scid.ToString(), pair.second.size());
+
         uint256 vccoutHash = BuildMerkleRootHash(pair.second);
 
         vScMerkleRootsMap.push_back(scid);
@@ -158,6 +139,9 @@ uint256 CBlock::BuildScMerkleRootsMap()
 #if 0
     hashScMerkleRootsMap = BuildMerkleRootHash(vScMerkleRootsMap);
 #else
+    LogPrint("sc", "%s():%d getting hash of merkle root map with %d entries\n",
+        __func__, __LINE__, vScMerkleRootsMap.size());
+
     hashScMerkleRootsMap = Hash(vScMerkleRootsMap);
 #endif
     return hashScMerkleRootsMap;
@@ -216,3 +200,4 @@ std::string CBlock::ToString() const
     s << "\n";
     return s.str();
 }
+

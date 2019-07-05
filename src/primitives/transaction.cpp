@@ -9,6 +9,7 @@
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 #include "librustzcash.h"
+#include <boost/foreach.hpp>
 
 JSDescription JSDescription::getNewInstance(bool useGroth) {
 	JSDescription js;
@@ -224,11 +225,6 @@ std::string CTxForwardTransferCrosschainOut::ToString() const
 }
 
 //----------------------------------------------------------------------------
-CTxCertifierLockCrosschainOut::CTxCertifierLockCrosschainOut(const CAmount& nValueIn, uint256 addressIn, uint256 scIdIn, int64_t epoch)
-: CTxCrosschainOut(nValueIn, addressIn, scIdIn), activeFromWithdrawalEpoch(epoch)
-{
-}
-
 uint256 CTxCertifierLockCrosschainOut::GetHash() const
 {
     return SerializeHash(*this);
@@ -240,10 +236,23 @@ std::string CTxCertifierLockCrosschainOut::ToString() const
         nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), scId.ToString(), activeFromWithdrawalEpoch);
 }
 
+//----------------------------------------------------------------------------
+uint256 CTxScCreationCrosschainOut::GetHash() const
+{
+    return SerializeHash(*this);
+}
+
+std::string CTxScCreationCrosschainOut::ToString() const
+{
+    return strprintf("CTxScCreationCrosschainOut(nValue=%d.%08d, address=%s, scId=%s, startBlockHeight=%d",
+        nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), scId.ToString(), startBlockHeight);
+}
+
 
 CMutableTransaction::CMutableTransaction() : nVersion(TRANSPARENT_TX_VERSION), nLockTime(0) {}
 CMutableTransaction::CMutableTransaction(const CTransaction& tx) :
-    nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout), nLockTime(tx.nLockTime),
+    nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout),
+    vsc_ccout(tx.vsc_ccout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout), nLockTime(tx.nLockTime),
     vjoinsplit(tx.vjoinsplit), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     
@@ -259,11 +268,13 @@ void CTransaction::UpdateHash() const
     *const_cast<uint256*>(&hash) = SerializeHash(*this);
 }
 
-CTransaction::CTransaction() : nVersion(TRANSPARENT_TX_VERSION), vin(), vout(), vcl_ccout(), vft_ccout(), nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() { }
+CTransaction::CTransaction() :
+    nVersion(TRANSPARENT_TX_VERSION), vin(), vout(), vsc_ccout(), vcl_ccout(), vft_ccout(),
+    nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() { }
 
 CTransaction::CTransaction(const CMutableTransaction &tx) :
-    nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout), nLockTime(tx.nLockTime),
-    vjoinsplit(tx.vjoinsplit), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
+    nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), vsc_ccout(tx.vsc_ccout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout),
+    nLockTime(tx.nLockTime), vjoinsplit(tx.vjoinsplit), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     UpdateHash();
 }
@@ -272,8 +283,9 @@ CTransaction& CTransaction::operator=(const CTransaction &tx) {
     *const_cast<int*>(&nVersion) = tx.nVersion;
     *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
-    *const_cast<std::vector<CTxForwardTransferCrosschainOut>*>(&vft_ccout) = tx.vft_ccout;
+    *const_cast<std::vector<CTxScCreationCrosschainOut>*>(&vsc_ccout) = tx.vsc_ccout;
     *const_cast<std::vector<CTxCertifierLockCrosschainOut>*>(&vcl_ccout) = tx.vcl_ccout;
+    *const_cast<std::vector<CTxForwardTransferCrosschainOut>*>(&vft_ccout) = tx.vft_ccout;
     *const_cast<unsigned int*>(&nLockTime) = tx.nLockTime;
     *const_cast<std::vector<JSDescription>*>(&vjoinsplit) = tx.vjoinsplit;
     *const_cast<uint256*>(&joinSplitPubKey) = tx.joinSplitPubKey;
@@ -299,6 +311,18 @@ CAmount CTransaction::GetValueOut() const
 
         if (!MoneyRange(it->vpub_old) || !MoneyRange(nValueOut))
             throw std::runtime_error("CTransaction::GetValueOut(): value out of range");
+    }
+    return nValueOut;
+}
+
+CAmount CTransaction::GetValueScCreationCcOut() const
+{
+    CAmount nValueOut = 0;
+    for (std::vector<CTxScCreationCrosschainOut>::const_iterator it(vsc_ccout.begin()); it != vsc_ccout.end(); ++it)
+    {
+        nValueOut += it->nValue;
+        if (!MoneyRange(it->nValue) || !MoneyRange(nValueOut))
+            throw std::runtime_error("CTransaction::GetValueScCreationCcOut(): value out of range");
     }
     return nValueOut;
 }
@@ -374,11 +398,12 @@ std::string CTransaction::ToString() const
 
     if (nVersion == SC_TX_VERSION)
     {
-        str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%u, vout.size=%u, vcl_ccout.size=%u, vft_ccout.size=%u, nLockTime=%u)\n",
+        str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%u, vout.size=%u, vsc_ccout.size=%u, vcl_ccout.size=%u, vft_ccout.size=%u, nLockTime=%u)\n",
             GetHash().ToString().substr(0,10),
             nVersion,
             vin.size(),
             vout.size(),
+            vsc_ccout.size(),
             vcl_ccout.size(),
             vft_ccout.size(),
             nLockTime);
@@ -386,6 +411,8 @@ std::string CTransaction::ToString() const
             str += "    " + vin[i].ToString() + "\n";
         for (unsigned int i = 0; i < vout.size(); i++)
             str += "    " + vout[i].ToString() + "\n";
+        for (unsigned int i = 0; i < vsc_ccout.size(); i++)
+            str += "    " + vsc_ccout[i].ToString() + "\n";
         for (unsigned int i = 0; i < vcl_ccout.size(); i++)
             str += "    " + vcl_ccout[i].ToString() + "\n";
         for (unsigned int i = 0; i < vft_ccout.size(); i++)
@@ -406,3 +433,23 @@ std::string CTransaction::ToString() const
     }
     return str;
 }
+
+void CTransaction::getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& map) const
+{
+    unsigned int nIdx = 0;
+    LogPrint("sc", "%s():%d -getting leaves for vsc out\n", __func__, __LINE__);
+    fillCrosschainOutput(vsc_ccout, nIdx, map);
+
+    LogPrint("sc", "%s():%d -getting leaves for vcl out\n", __func__, __LINE__);
+    fillCrosschainOutput(vcl_ccout, nIdx, map);
+
+    LogPrint("sc", "%s():%d -getting leaves for vft out\n", __func__, __LINE__);
+    fillCrosschainOutput(vft_ccout, nIdx, map);
+
+    LogPrint("sc", "%s():%d - nIdx[%d]\n", __func__, __LINE__, nIdx);
+}
+
+    
+
+
+const uint256 CTxScCreationCrosschainOut::SC_CREATION_PAYEE_ADDRESS = uint256S("badc01dcafe");
