@@ -712,6 +712,13 @@ public:
 
     // Return sum of txouts.
     CAmount GetValueOut() const;
+    CAmount GetValueCcOut() const
+    {
+        return (GetValueScCreationCcOut() +
+                GetValueCertifierLockCcOut() +
+                GetValueForwardTransferCcOut() );
+    }
+
     // Return sum of txccouts.
     CAmount GetValueScCreationCcOut() const;
     CAmount GetValueCertifierLockCcOut() const;
@@ -752,22 +759,28 @@ public:
     template <typename T>
     inline void fillCrosschainOutput(const T& vOuts, unsigned int& nIdx, std::map<uint256, std::vector<uint256> >& map) const
     {
-        uint256 leaf;
+        uint256 txHash = GetHash();
  
         for(const auto& txccout : vOuts)
         {
-            // if it exists, is a reference to the stored value. If it does not, it is
-            // a reference to the new element inserted 
+            // if the mapped value exists, vec is a reference to it. If it does not, vec is
+            // a reference to the new element inserted in the map with the scid as a key
             std::vector<uint256>& vec = map[txccout.scId];
  
-            uint256 h1 = txccout.GetHash();
-            uint256 h2 = GetHash();
+            uint256 ccoutHash = txccout.GetHash();
             unsigned int n = nIdx;
  
-            LogPrint("sc", "%s():%d -Inputs: h1[%s], h2[%s], n[%d]\n", __func__, __LINE__, h1.ToString(), h2.ToString(), n);
-            uint256 leaf = Hash( BEGIN(h1), END(h1), BEGIN(h2), END(h2), BEGIN(n),  END(n) );
-            vec.push_back(leaf);
-            LogPrint("sc", "%s():%d -Output: leaf[%s]\n", __func__, __LINE__, leaf.ToString());
+            LogPrint("sc", "%s():%d -Inputs: h1[%s], h2[%s], n[%d]\n",
+                __func__, __LINE__, ccoutHash.ToString(), txHash.ToString(), n);
+
+            uint256 entry = Hash(
+                BEGIN(ccoutHash), END(ccoutHash),
+                BEGIN(txHash),    END(txHash),
+                BEGIN(n),         END(n) );
+
+            vec.push_back(entry);
+
+            LogPrint("sc", "%s():%d -Output: entry[%s]\n", __func__, __LINE__, entry.ToString());
  
             nIdx++;
         }

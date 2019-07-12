@@ -149,7 +149,8 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
             dPriority = mi->second.GetPriority(nHeight);
             nFee = mi->second.GetFee();
             mempool.ApplyDeltas(hash, dPriority, nFee);
-            nTotalIn = tx.GetValueOut() - nFee;
+            // not used
+            // nTotalIn = tx.GetValueOut() - nFee;
         }
         else
         {
@@ -188,7 +189,7 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
             // Priority is sum(valuein * age) / modified_txsize
             dPriority = tx.ComputePriority(dPriority, nTxSize);
             mempool.ApplyDeltas(hash, dPriority, nTotalIn);
-            nFee = nTotalIn - tx.GetValueOut();
+            nFee = nTotalIn - tx.GetValueOut() - tx.GetValueCcOut();
         }
 
         CFeeRate feeRate(nFee, nTxSize);
@@ -273,7 +274,7 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
         uint256 hash = tx.GetHash();
         mempool.ApplyDeltas(hash, dPriority, nTotalIn);
 
-        CFeeRate feeRate(nTotalIn-tx.GetValueOut(), nTxSize);
+        CFeeRate feeRate(nTotalIn-tx.GetValueOut()-tx.GetValueCcOut(), nTxSize);
 
         if (porphan)
         {
@@ -416,7 +417,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             if (!view.HaveInputs(tx))
                 continue;
 
-            CAmount nTxFees = view.GetValueIn(tx)-tx.GetValueOut();
+            CAmount nTxFees = view.GetValueIn(tx)-tx.GetValueOut()-tx.GetValueCcOut();
 
             nTxSigOps += GetP2SHSigOpCount(tx, view);
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)

@@ -436,6 +436,11 @@ std::string CTransaction::ToString() const
 
 void CTransaction::getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& map) const
 {
+    if (nVersion != SC_TX_VERSION)
+    {
+        return;
+    }
+
     unsigned int nIdx = 0;
     LogPrint("sc", "%s():%d -getting leaves for vsc out\n", __func__, __LINE__);
     fillCrosschainOutput(vsc_ccout, nIdx, map);

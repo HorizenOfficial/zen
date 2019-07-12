@@ -108,43 +108,42 @@ uint256 CBlock::BuildMerkleRootHash(const std::vector<uint256>& vInput, bool* fM
 
 uint256 CBlock::BuildScMerkleRootsMap()
 {
+    // Key: the side chain ID
+    // Value: the array of objs of type 'Hash( Hash(ccout) | txid | n)', where n is the index of the 
+    // ccout in the tx pertaining to the current scid. Tx are ordered as they are included in the block  
     std::map<uint256, std::vector<uint256> > mScMerkleTreeLeaves; 
 
     BOOST_FOREACH(const CTransaction& tx, vtx)
     {
-        if (tx.nVersion == SC_TX_VERSION)
-        {
-            tx.getCrosschainOutputs(mScMerkleTreeLeaves);
-        }
+        tx.getCrosschainOutputs(mScMerkleTreeLeaves);
     }
 
-    std::vector<uint256> vScMerkleRootsMap;
+    uint256 result;
+    CHash256 hasher;
+
+    if (mScMerkleTreeLeaves.size() == 0)
+    {
+        // no sc tx found, return the hash of a null value
+        static const unsigned char pblank[1] = {};
+        hasher.Write(pblank, 0).Finalize((unsigned char*)&result);
+        return result;
+    }
 
     BOOST_FOREACH(const auto& pair, mScMerkleTreeLeaves)
     {
         uint256 scid = pair.first;
+        uint256 mklHash = BuildMerkleRootHash(pair.second);
 
-        LogPrint("sc", "%s():%d building merkle root for sc[%s[ with %d leaves\n",
+        LogPrint("sc", "%s():%d built merkle root for sc[%s[ with %d leaves\n",
             __func__, __LINE__, scid.ToString(), pair.second.size());
 
-        uint256 vccoutHash = BuildMerkleRootHash(pair.second);
-
-        vScMerkleRootsMap.push_back(scid);
-        vScMerkleRootsMap.push_back(vccoutHash);
+        // concatenate the two hashes above
+        hasher.Write( (const unsigned char*)&scid, sizeof(uint256)).Write( (const unsigned char*)&mklHash, sizeof(uint256));
     }
 
-    // 1. The merkle root of an empty sequence is the uint256 zero value
-    // 2. The hash of a null value is a const value (specific to hash256, which is a double sha256)
-    // 3. The hash of the uin256 zero value is a different const value
-#if 0
-    hashScMerkleRootsMap = BuildMerkleRootHash(vScMerkleRootsMap);
-#else
-    LogPrint("sc", "%s():%d getting hash of merkle root map with %d entries\n",
-        __func__, __LINE__, vScMerkleRootsMap.size());
-
-    hashScMerkleRootsMap = Hash(vScMerkleRootsMap);
-#endif
-    return hashScMerkleRootsMap;
+    // return the hash of the final concatenation: (scid-0 | mklHash-0 | ... | scid-N | mklHash-N)
+    hasher.Finalize((unsigned char*)&result);
+    return result;
 }
 
 
