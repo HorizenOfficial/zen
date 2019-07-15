@@ -1066,6 +1066,16 @@ public:
 
     /** Serialize a cross chain outputs of txTo */
     template<typename S>
+    void SerializeScCreationCcOutput(S &s, unsigned int nCcOutput, int nType, int nVersion) const {
+            ::Serialize(s, txTo.vsc_ccout[nCcOutput], nType, nVersion);
+    }
+
+    template<typename S>
+    void SerializeCertifierLockCcOutput(S &s, unsigned int nCcOutput, int nType, int nVersion) const {
+            ::Serialize(s, txTo.vcl_ccout[nCcOutput], nType, nVersion);
+    }
+
+    template<typename S>
     void SerializeForwardTransferCcOutput(S &s, unsigned int nCcOutput, int nType, int nVersion) const {
         /* TODO what to do with fHashSingle case? Maybe we can compute nCcOutput+vout.size(), but does it make sense?
         if (fHashSingle && nCcOutput != nIn)
@@ -1075,11 +1085,6 @@ public:
         */
             ::Serialize(s, txTo.vft_ccout[nCcOutput], nType, nVersion);
     }
-    template<typename S>
-    void SerializeCertifierLockCcOutput(S &s, unsigned int nCcOutput, int nType, int nVersion) const {
-            ::Serialize(s, txTo.vcl_ccout[nCcOutput], nType, nVersion);
-    }
-
     /** Serialize txTo */
     template<typename S>
     void Serialize(S &s, int nType, int nVersion) const {
@@ -1102,15 +1107,21 @@ public:
             // TODO what to do with fHashSingle case? Maybe we can compute nCcOutput+vout.size(), but does it make sense?
             unsigned int nCcOutputs = 0;
 
-            nCcOutputs = fHashNone ? 0 : (/* fHashSingle ? nIn+1 : */ txTo.vft_ccout.size());
+            nCcOutputs = fHashNone ? 0 : (/* fHashSingle ? nIn+1 : */ txTo.vsc_ccout.size());
             ::WriteCompactSize(s, nCcOutputs);
             for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
-                 SerializeForwardTransferCcOutput(s, nCcOutput, nType, nVersion);
+                 SerializeScCreationCcOutput(s, nCcOutput, nType, nVersion);
 
             nCcOutputs = fHashNone ? 0 : (/* fHashSingle ? nIn+1 : */ txTo.vcl_ccout.size());
             ::WriteCompactSize(s, nCcOutputs);
             for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
                  SerializeCertifierLockCcOutput(s, nCcOutput, nType, nVersion);
+
+            nCcOutputs = fHashNone ? 0 : (/* fHashSingle ? nIn+1 : */ txTo.vft_ccout.size());
+            ::WriteCompactSize(s, nCcOutputs);
+            for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
+                 SerializeForwardTransferCcOutput(s, nCcOutput, nType, nVersion);
+
         }
 
         // Serialize nLockTime

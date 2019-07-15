@@ -28,6 +28,8 @@ using namespace zen;
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 
+#include "sc/sidechain.h"
+
 using namespace std;
 using namespace libzcash;
 
@@ -1693,8 +1695,9 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
         // first of all remove cc out from nFee that has not been considered before
         if (nFee != 0)
         {
-            nFee -= GetValueForwardTransferCcOut(); 
+            nFee -= GetValueScCreationCcOut(); 
             nFee -= GetValueCertifierLockCcOut(); 
+            nFee -= GetValueForwardTransferCcOut(); 
         }
 
         // crosschain amount sent/received.
@@ -2922,20 +2925,21 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 }
 
 bool CWallet::ScCreateTransaction(
-    const vector<CRecipientCrossChain>& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey,
+    const vector<CcRecipientVariant>& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey,
     CAmount& nFeeRet, int& nChangePosRet, std::string& strFailReason, const CCoinControl* coinControl, bool sign)
 {
     CAmount nValue = 0;
-    BOOST_FOREACH (const CRecipientCrossChain& recipient, vecSend)
+    BOOST_FOREACH (const auto& recipient, vecSend)
     {
-        if (nValue < 0 || recipient.nAmount < 0)
+        CAmount amount = boost::apply_visitor(CcRecipientAmountVisitor(), recipient);
+        if (nValue < 0 || amount < 0)
         {
             strFailReason = _("Transaction amounts must be positive");
             return false;
         }
-        nValue += recipient.nAmount;
-
+        nValue += amount;
     }
+
     if (vecSend.empty() || nValue < 0)
     {
         strFailReason = _("Transaction amounts must be positive");
@@ -2979,6 +2983,7 @@ bool CWallet::ScCreateTransaction(
             {
                 txNew.vin.clear();
                 txNew.vout.clear();
+                txNew.vsc_ccout.clear();
                 txNew.vcl_ccout.clear();
                 txNew.vft_ccout.clear();
                 wtxNew.fFromMe = true;
@@ -2991,47 +2996,23 @@ bool CWallet::ScCreateTransaction(
 
                 double dPriority = 0;
                 // vccouts to the payees
-                BOOST_FOREACH (const CRecipientCrossChain& recipient, vecSend)
+                BOOST_FOREACH (const auto& recipient, vecSend)
                 {
-                    // check consistency of type and optional data
-                    if (recipient.epoch != -1 && recipient.type != SC_CERTIFIER_LOCK_TYPE)
+                    CRecipientFactory fac(txNew, strFailReason);
+                    if (!fac.set(recipient) )
                     {
-                        strFailReason = _("mismatch between ccout type and epoch value");
-                        return false;
-                    }
-
-                    CTxCrosschainOut*  ccOutBasePtr;
-                    switch (recipient.type)
-                    {
-                        case SC_CERTIFIER_LOCK_TYPE:
-                        {
-                            CTxCertifierLockCrosschainOut txccout(recipient.nAmount, recipient.address, recipient.scId, recipient.epoch);
-                            txNew.vcl_ccout.push_back(txccout);
-                            ccOutBasePtr = &txccout;
-                            break;
-                        }
-
-                        case SC_FORWARD_TRANSFER_TYPE:
-                        {
-                            CTxForwardTransferCrosschainOut txccout(recipient.nAmount, recipient.address, recipient.scId);
-                            txNew.vft_ccout.push_back(txccout);
-                            ccOutBasePtr = &txccout;
-                            break;
-                        }
-
-                        default:
-                        {
-                            strFailReason = _("Unexpected cc out type");
-                            return false;
-                        }
-                    }
-
-                    if (ccOutBasePtr->IsDust(::minRelayTxFee))
-                    {
-                        strFailReason = _("Transaction amount too small");
                         return false;
                     }
                 }
+
+                // if this tx creates a sc, check that no other tx are doing the same in the mempool
+                if (!ScMgr::instance().checkCreationInMemPool(mempool, txNew) )
+                {
+                    strFailReason = _("Sc already created by a tx in mempool");
+                    return false;
+                }
+                
+
 
                 // Choose coins to use
                 set<pair<const CWalletTx*,unsigned int> > setCoins;
@@ -4089,3 +4070,43 @@ void CWallet::GetFilteredNotes(std::vector<CNotePlaintextEntry> & outEntries, st
         }
     }
 }
+
+//--------------------------------------------------------------------------------------------
+// Cross chain outputs
+
+bool CcRecipientVisitor::operator() (const CRecipientScCreation& r) const { return fact->set(r); }
+bool CcRecipientVisitor::operator() (const CRecipientCertLock& r) const { return fact->set(r); }
+bool CcRecipientVisitor::operator() (const CRecipientForwardTransfer& r) const { return fact->set(r); }
+
+bool CRecipientFactory::set(const CRecipientScCreation& r)
+{
+    CTxScCreationCrosschainOut txccout(r.nAmount, r.address, r.scId, r.startBlockHeight);
+    // no dust can be found in sc creation
+    tx.vsc_ccout.push_back(txccout);
+    return true;
+};
+
+bool CRecipientFactory::set(const CRecipientCertLock& r)
+{
+    CTxCertifierLockCrosschainOut txccout(r.nAmount, r.address, r.scId, r.epoch);
+    if (txccout.IsDust(::minRelayTxFee))
+    {
+        err = _("Transaction amount too small");
+        return false;
+    }
+    tx.vcl_ccout.push_back(txccout);
+    return true;
+};
+
+bool CRecipientFactory::set(const CRecipientForwardTransfer& r)
+{
+    CTxForwardTransferCrosschainOut txccout(r.nAmount, r.address, r.scId);
+    if (txccout.IsDust(::minRelayTxFee))
+    {
+        err = _("Transaction amount too small");
+        return false;
+    }
+    tx.vft_ccout.push_back(txccout);
+    return true;
+};
+

@@ -376,7 +376,6 @@ static const CRPCCommand vRPCCommands[] =
     { "wallet",             "sendfrom",               &sendfrom,               false },
     { "wallet",             "sendmany",               &sendmany,               false },
     { "wallet",             "sendtoaddress",          &sendtoaddress,          false },
-    { "wallet",             "sc_sendtoaddress",       &sc_sendtoaddress,       false },
     { "wallet",             "setaccount",             &setaccount,             true  },
     { "wallet",             "settxfee",               &settxfee,               true  },
     { "wallet",             "signmessage",            &signmessage,            true  },
@@ -392,7 +391,6 @@ static const CRPCCommand vRPCCommands[] =
     { "wallet",             "z_getbalance",           &z_getbalance,           false },
     { "wallet",             "z_gettotalbalance",      &z_gettotalbalance,      false },
     { "wallet",             "z_sendmany",             &z_sendmany,             false },
-    { "wallet",             "sc_sendmany",            &sc_sendmany,            false },
     { "wallet",             "z_shieldcoinbase",       &z_shieldcoinbase,       false },
     { "wallet",             "z_getoperationstatus",   &z_getoperationstatus,   true  },
     { "wallet",             "z_getoperationresult",   &z_getoperationresult,   true  },
@@ -405,6 +403,11 @@ static const CRPCCommand vRPCCommands[] =
     { "wallet",             "z_importviewingkey",     &z_importviewingkey,     true  },
     { "wallet",             "z_exportwallet",         &z_exportwallet,         true  },
     { "wallet",             "z_importwallet",         &z_importwallet,         true  },
+    { "wallet",             "sc_fwdtr",               &sc_fwdtr,               false },
+    { "wallet",             "sc_fwdtr_many",          &sc_fwdtr_many,          false },
+    { "wallet",             "sc_certlock",            &sc_certlock,            false },
+    { "wallet",             "sc_certlock_many",       &sc_certlock_many,       false },
+    { "wallet",             "sc_create",              &sc_create,              false },
 
     // TODO: rearrange into another category 
     { "disclosure",         "z_getpaymentdisclosure", &z_getpaymentdisclosure, true  }, 

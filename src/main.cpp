@@ -60,7 +60,6 @@ using namespace std;
 CCriticalSection cs_main;
 
 ScTxMap mDbgScTransactions;
-ScInfoMap mScInfo;
 
 BlockSet sGlobalForkTips;
 BlockTimeMap mGlobalForkTips;
@@ -107,8 +106,8 @@ void EraseOrphansFor(NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
  */
 static bool IsSuperMajority(int minVersion, const CBlockIndex* pstart, unsigned nRequired, const Consensus::Params& consensusParams);
 static void CheckBlockIndex();
-static void AddToScTransactionMap(const CBlock& block);
-static void RemoveFromScTransactionMap(const CBlock& block);
+static void DbgAddToScTransactionMap(const CBlock& block);
+static void DbgRemoveFromScTransactionMap(const CBlock& block);
 
 /** Constant stuff for coinbase transactions we create: */
 CScript COINBASE_FLAGS;
@@ -996,6 +995,14 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
         }
     }
 
+    // if the tx creates a side chain, check that it is not yet created by a different tx
+    if (!ScMgr::instance().checkSidechainTxCreation(tx) )
+    {
+        return state.DoS(10,
+            error("CheckTransaction: transaction tries to create scid already created"),
+            REJECT_INVALID, "sidechain-creation");
+    }
+
     return true;
 }
 
@@ -1017,7 +1024,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
 
     // also allow the case when crosschain outputs are not empty. In that case there might be no vout at all
     // when utxo reminder is only dust, which is added to fee leaving no change for the sender
-    if (tx.vout.empty() && tx.vjoinsplit.empty() && tx.vcl_ccout.empty() && tx.vft_ccout.empty())
+    if (tx.vout.empty() && tx.vjoinsplit.empty() && tx.vsc_ccout.empty() && tx.vcl_ccout.empty() && tx.vft_ccout.empty())
         return state.DoS(10, error("CheckTransaction(): vout empty"),
                          REJECT_INVALID, "bad-txns-vout-empty");
 
@@ -1256,24 +1263,32 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
     // Check for conflicts with in-memory transactions
     {
-    LOCK(pool.cs); // protect pool.mapNextTx
-    for (unsigned int i = 0; i < tx.vin.size(); i++)
-    {
-        COutPoint outpoint = tx.vin[i].prevout;
-        if (pool.mapNextTx.count(outpoint))
+        LOCK(pool.cs); // protect pool.mapNextTx
+        for (unsigned int i = 0; i < tx.vin.size(); i++)
         {
-            // Disable replacement feature for now
-            return false;
-        }
-    }
-    BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
-        BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
-            if (pool.mapNullifiers.count(nf))
+            COutPoint outpoint = tx.vin[i].prevout;
+            if (pool.mapNextTx.count(outpoint))
             {
+                // Disable replacement feature for now
                 return false;
             }
         }
-    }
+        BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
+            BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
+                if (pool.mapNullifiers.count(nf))
+                {
+                    return false;
+                }
+            }
+        }
+
+        // if this tx creates a sc, check that no other tx are doing the same in the mempool
+        if (!ScMgr::instance().checkCreationInMemPool(pool, tx) )
+        {
+            return state.DoS(0,
+                 error("AcceptToMemoryPool: transaction tries to create scid already created"),
+                 REJECT_INVALID, "sidechain-creation");
+        }
     }
 
     {
@@ -1340,12 +1355,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                                    hash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
                              REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
 
-        CAmount nValueOut = tx.GetValueOut();
-
-        if (tx.nVersion == SC_TX_VERSION)
-        {
-            nValueOut += ( tx.GetValueCertifierLockCcOut() + tx.GetValueForwardTransferCcOut() );
-        }
+        CAmount nValueOut = tx.GetValueOut() + tx.GetValueCcOut();
 
         CAmount nFees = nValueIn-nValueOut;
         double dPriority = view.GetPriority(tx, chainActive.Height());
@@ -1477,6 +1487,7 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock
 
     if (pindexSlow) {
         CBlock block;
+//        cout << __LINE__ << "] Reading block from disk: h = " << pindexSlow->nHeight << endl;
         if (ReadBlockFromDisk(block, pindexSlow)) {
             BOOST_FOREACH(const CTransaction &tx, block.vtx) {
                 if (tx.GetHash() == hash) {
@@ -1879,13 +1890,14 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             return state.DoS(100, error("CheckInputs(): vpub_old values out of range"),
                              REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
-        if (nValueIn < tx.GetValueOut())
-            return state.DoS(100, error("CheckInputs(): %s value in (%s) < value out (%s)",
-                                        tx.GetHash().ToString(), FormatMoney(nValueIn), FormatMoney(tx.GetValueOut())),
+        if (nValueIn < (tx.GetValueOut() + tx.GetValueCcOut() ) )
+            return state.DoS(100, error("CheckInputs(): %s value in (%s) < value [out (%s) + ccout (%s) ]",
+                                        tx.GetHash().ToString(),
+                                        FormatMoney(nValueIn), FormatMoney(tx.GetValueOut()), FormatMoney(tx.GetValueCcOut()) ),
                              REJECT_INVALID, "bad-txns-in-belowout");
 
         // Tally transaction fees
-        CAmount nTxFee = nValueIn - tx.GetValueOut();
+        CAmount nTxFee = nValueIn - tx.GetValueOut() - tx.GetValueCcOut();
         if (nTxFee < 0)
             return state.DoS(100, error("CheckInputs(): %s nTxFee < 0", tx.GetHash().ToString()),
                              REJECT_INVALID, "bad-txns-fee-negative");
@@ -2292,6 +2304,7 @@ static int64_t nTimeTotal = 0;
 
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, const CChain& chain, bool fJustCheck)
 {
+//    cout << __LINE__ << "] connecting block: h = " << pindex->nHeight << endl;
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
 
@@ -2407,7 +2420,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): too many sigops"),
                                  REJECT_INVALID, "bad-blk-sigops");
 
-            nFees += view.GetValueIn(tx)-tx.GetValueOut();
+            nFees += view.GetValueIn(tx)-tx.GetValueOut()-tx.GetValueCcOut();
 
             std::vector<CScriptCheck> vChecks;
             if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
@@ -2481,7 +2494,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             return AbortNode(state, "Failed to write transaction index");
 
     // check for SC-related tx in block, and in case update data
-    AddToScTransactionMap(block);
+    DbgAddToScTransactionMap(block);
+    ScMgr::instance().addBlockScTransactions(block, pindex);
 
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
@@ -2682,6 +2696,9 @@ void static UpdateTip(CBlockIndex *pindexNew) {
             }
         }
     }
+
+    // TODO test, remove it
+    ScMgr::instance().dump_info();
 }
 
 /** Disconnect chainActive's tip. */
@@ -2708,7 +2725,8 @@ bool static DisconnectTip(CValidationState &state) {
     if (!FlushStateToDisk(state, FLUSH_STATE_IF_NEEDED))
         return false;
 
-    RemoveFromScTransactionMap(block);
+    DbgRemoveFromScTransactionMap(block);
+    ScMgr::instance().removeBlockScTransactions(block);
 
     // Resurrect mempool transactions from the disconnected block.
     BOOST_FOREACH(const CTransaction &tx, block.vtx) {
@@ -2757,6 +2775,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     int64_t nTime1 = GetTimeMicros();
     CBlock block;
     if (!pblock) {
+//        cout << __LINE__ << "] Reading block from disk: h = " << pindexNew->nHeight << endl;
         if (!ReadBlockFromDisk(block, pindexNew))
             return AbortNode(state, "Failed to read block");
         pblock = &block;
@@ -4165,6 +4184,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
             break;
         CBlock block;
         // check level 0: read from disk
+//        cout << __LINE__ << "] Reading block from disk: h = " << pindex->nHeight << endl;
         if (!ReadBlockFromDisk(block, pindex))
             return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         // check level 1: verify block validity
@@ -4191,11 +4211,19 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
             } else
                 nGoodTransactions += block.vtx.size();
         }
+
+        // fill temporary sidechain fw amounts here, and update sidechains map later, since we are reading blocks in reverse
+        // and therefore creation will be found after all of its fw transfers
+        ScMgr::instance().addSidechainsAndCacheAmounts(block, pindex);
+
         if (ShutdownRequested())
             return true;
 
-        AddToScTransactionMap(block);
     }
+
+    bool ret = ScMgr::instance().updateAmountsFromCache();
+    // TODO handle error
+    
     if (pindexFailure)
         return error("VerifyDB(): *** coin database inconsistencies found (last %i blocks, %i good transactions before that)\n", chainActive.Height() - pindexFailure->nHeight + 1, nGoodTransactions);
 
@@ -4208,6 +4236,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
             uiInterface.ShowProgress(_("Verifying blocks..."), std::max(1, std::min(99, 100 - (int)(((double)(chainActive.Height() - pindex->nHeight)) / (double)nCheckDepth * 50))));
             pindex = chainActive.Next(pindex);
             CBlock block;
+//        cout << __LINE__ << "] Reading block from disk: h = " << pindex->nHeight << endl;
             if (!ReadBlockFromDisk(block, pindex))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             chainHistorical.SetHeight(pindex->nHeight - 1);
@@ -4386,6 +4415,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
                     std::pair<std::multimap<uint256, CDiskBlockPos>::iterator, std::multimap<uint256, CDiskBlockPos>::iterator> range = mapBlocksUnknownParent.equal_range(head);
                     while (range.first != range.second) {
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
+//        cout << __LINE__ << "] Reading block from disk from pos" << endl;
                         if (ReadBlockFromDisk(block, it->second))
                         {
                             LogPrintf("%s: Processing out of order child %s of %s\n", __func__, block.GetHash().ToString(),
@@ -4777,6 +4807,7 @@ void static ProcessGetData(CNode* pfrom)
                 {
                     // Send block from disk
                     CBlock block;
+//        cout << __LINE__ << "] Reading block from disk: h = " << (*mi).second->nHeight << endl;
                     if (!ReadBlockFromDisk(block, (*mi).second))
                         assert(!"cannot load block from disk");
                     if (inv.type == MSG_BLOCK)
@@ -6822,16 +6853,22 @@ static void helperDbgAddCcOut(const T& param, const uint256& txHash)
 {
     string tag;
     int typeIdx;
+    if (boost::is_same<T, std::vector<CTxScCreationCrosschainOut> >::value)
+    {
+        tag = "vsc";
+        typeIdx = 0;
+    }
+    else
     if (boost::is_same<T, std::vector<CTxCertifierLockCrosschainOut> >::value)
     {
         tag = "vcl";
-        typeIdx = 0;
+        typeIdx = 1;
     }
     else
     if (boost::is_same<T, std::vector<CTxForwardTransferCrosschainOut> >::value)
     {
         tag = "vft";
-        typeIdx = 1;
+        typeIdx = 2;
     }
     else
     {
@@ -6879,7 +6916,7 @@ static void helperDbgAddCcOut(const T& param, const uint256& txHash)
     }
 }
 
-void AddToScTransactionMap(const CBlock& block)
+void DbgAddToScTransactionMap(const CBlock& block)
 {
     BOOST_FOREACH(const CTransaction& tx, block.vtx)
     {
@@ -6888,13 +6925,14 @@ void AddToScTransactionMap(const CBlock& block)
             uint256 txHash = tx.GetHash();
             LogPrint("sc", "%s():%d - tx=%s\n", __func__, __LINE__, txHash.ToString() );
 
+            helperDbgAddCcOut(tx.vsc_ccout, txHash);
             helperDbgAddCcOut(tx.vcl_ccout, txHash);
             helperDbgAddCcOut(tx.vft_ccout, txHash);
         }
     }
 }
     
-void RemoveFromScTransactionMap(const CBlock& block)
+void DbgRemoveFromScTransactionMap(const CBlock& block)
 {
     BOOST_FOREACH(const CTransaction& tx, block.vtx)
     {
@@ -6922,9 +6960,10 @@ void RemoveFromScTransactionMap(const CBlock& block)
     }
 }
     
+// dev dbg only
 void dump_sc_tx()
 {
-    LogPrint("sc", "===== SC TXs: %d =================\n", mDbgScTransactions.size());
+    LogPrint("sc", "===== SC TXs MAP size: %d =================\n", mDbgScTransactions.size());
     BOOST_FOREACH(const auto& scPair, mDbgScTransactions)
     {
         LogPrint("sc", "SC id: [%s]\n", scPair.first.ToString());
@@ -6937,9 +6976,13 @@ void dump_sc_tx()
 
                 BOOST_FOREACH(const auto& nIdx, txPair.second[0])
                 {
-                    LogPrint("sc", "        vcl_ccout n: [%s]\n", nIdx);
+                    LogPrint("sc", "        vsc_ccout n: [%s]\n", nIdx);
                 }
                 BOOST_FOREACH(const auto& nIdx, txPair.second[1])
+                {
+                    LogPrint("sc", "        vcl_ccout n: [%s]\n", nIdx);
+                }
+                BOOST_FOREACH(const auto& nIdx, txPair.second[2])
                 {
                     LogPrint("sc", "        vft_ccout n: [%s]\n", nIdx);
                 }

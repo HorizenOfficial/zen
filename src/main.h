@@ -155,7 +155,8 @@ static const int MAX_NUM_GLOBAL_FORKS = 3;
 
 // --------- dbg only -------------------------------------------------
 // sequences of indexes to cl and ft cc outputs in a transaction
-typedef std::array< std::vector<int>, 2 > CcOutsIndexes;
+// Should a new output be added, update array size and update helperDbgAddCcOut) accordingly
+typedef std::array< std::vector<int>, 3 > CcOutsIndexes;
 
 // key: the hash of the sc transaction
 // value: a  
