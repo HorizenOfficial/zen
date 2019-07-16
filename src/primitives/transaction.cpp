@@ -318,12 +318,15 @@ CAmount CTransaction::GetValueOut() const
 CAmount CTransaction::GetValueScCreationCcOut() const
 {
     CAmount nValueOut = 0;
+    // the amount is sent to the foundation as a separate vout
+#if 0
     for (std::vector<CTxScCreationCrosschainOut>::const_iterator it(vsc_ccout.begin()); it != vsc_ccout.end(); ++it)
     {
         nValueOut += it->nValue;
         if (!MoneyRange(it->nValue) || !MoneyRange(nValueOut))
             throw std::runtime_error("CTransaction::GetValueScCreationCcOut(): value out of range");
     }
+#endif
     return nValueOut;
 }
 
@@ -457,4 +460,3 @@ void CTransaction::getCrosschainOutputs(std::map<uint256, std::vector<uint256> >
     
 
 
-const uint256 CTxScCreationCrosschainOut::SC_CREATION_PAYEE_ADDRESS = uint256S("badc01dcafe");

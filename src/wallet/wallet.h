@@ -33,6 +33,8 @@
 #include <utility>
 #include <vector>
 
+#include "sc/sidechain.h"
+
 /**
  * Settings
  */
@@ -124,79 +126,6 @@ struct CRecipient
     bool fSubtractFeeFromAmount;
 };
 
-struct CRecipientCrossChain
-{
-    uint256 address;
-    CAmount nAmount;
-    unsigned char type;
-    uint256 scId;
-    int64_t epoch;
-};
-
-//--------------------------------------------------------------------------------------------
-// Cross chain outputs
-struct CRecipientCrossChainBase
-{
-    uint256 address;
-    CAmount nAmount;
-    uint256 scId;
-};
-
-struct CRecipientScCreation : public CRecipientCrossChainBase
-{
-    int startBlockHeight;
-};
-
-struct CRecipientCertLock : public CRecipientCrossChainBase
-{
-    int64_t epoch;
-};
-
-typedef CRecipientCrossChainBase CRecipientForwardTransfer;
-
-typedef boost::variant<CRecipientScCreation, CRecipientCertLock, CRecipientForwardTransfer> CcRecipientVariant;
-
-class CcRecipientAmountVisitor : public boost::static_visitor<CAmount>
-{
-    public:
-    template <typename T>
-    CAmount operator() (const T& r) const { return r.nAmount; }
-};
-
-class CRecipientFactory;
-
-class CcRecipientVisitor : public boost::static_visitor<bool>
-{
-    private:
-       CRecipientFactory* fact;
-    public:
-       CcRecipientVisitor(CRecipientFactory* factIn) : fact(factIn) {}
-
-    bool operator() (const CRecipientScCreation& r) const;
-    bool operator() (const CRecipientCertLock& r) const;
-    bool operator() (const CRecipientForwardTransfer& r) const;
-};
-
-class CRecipientFactory
-{
-    private:
-       CMutableTransaction& tx;
-       std::string& err;
-
-    public:
-       CRecipientFactory(CMutableTransaction& txIn, std::string& errIn) : tx(txIn), err(errIn) {}
-
-    bool set(const CcRecipientVariant& rec)
-    {
-        return boost::apply_visitor(CcRecipientVisitor(this), rec);
-    };
-
-    bool set(const CRecipientScCreation& r);
-    bool set(const CRecipientCertLock& r);
-    bool set(const CRecipientForwardTransfer& r);
-};
-//--------------------------------------------------------------------------------------------
-
 typedef std::map<std::string, std::string> mapValue_t;
 
 
@@ -222,8 +151,6 @@ struct CScOutputEntry
 {
     uint256 address;
     CAmount amount;
-    int vcl_ccout;
-    int vft_ccout;
 };
 
 struct COutputEntry
@@ -600,6 +527,18 @@ public:
     bool RelayWalletTransaction();
 
     std::set<uint256> GetConflicts() const;
+
+    // fill the crosschain output
+    template <typename T>
+    inline void fillScSent(const T& vOuts, std::list<CScOutputEntry>& listScSent) const
+    {
+        for(const auto& txccout : vOuts)
+        {
+            CScOutputEntry output = {txccout.address, txccout.nValue};
+            listScSent.push_back(output);
+        }
+    }
+
 };
 
 
@@ -1081,7 +1020,7 @@ public:
     bool FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosRet, std::string& strFailReason);
     bool CreateTransaction(const std::vector<CRecipient>& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosRet,
                            std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true);
-    bool ScCreateTransaction(const std::vector< CcRecipientVariant >& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey,
+    bool ScCreateTransaction(const std::vector< Sidechain::CcRecipientVariant >& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey,
          CAmount& nFeeRet, int& nChangePosRet, std::string& strFailReason, const CCoinControl* coinControl = NULL, bool sign = true);
     bool CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);
 

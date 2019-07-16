@@ -41,6 +41,7 @@
 using namespace std;
 
 using namespace libzcash;
+using namespace Sidechain;
 
 extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
 extern void AddTxCrosschainJSON (const CTransaction& tx, UniValue& parentObj);
@@ -517,8 +518,7 @@ UniValue sc_fwdtr(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"transactionid\"  (string) The transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sc_sendtoaddress", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 0.1 1 \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\"")
-            + HelpExampleCli("sc_sendtoaddress", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 0.1 2 \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 123456")
+            + HelpExampleCli("sc_fwdtr", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 0.1 \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -591,7 +591,7 @@ UniValue sc_certlock(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"transactionid\"  (string) The transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sc_certlock", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 0.1 2 \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 123456")
+            + HelpExampleCli("sc_certlock", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 0.1 \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 123456")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -681,8 +681,8 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     // Amount and address
-    CAmount nAmount(CTxScCreationCrosschainOut::SC_CREATION_FEE);
-    uint256 hrzAddress(CTxScCreationCrosschainOut::SC_CREATION_PAYEE_ADDRESS);
+    CAmount nAmount(SC_CREATION_FEE);
+    uint256 hrzAddress(SC_CREATION_PAYEE_ADDRESS);
 
     if (nAmount <= 0)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
@@ -709,9 +709,9 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     CRecipientScCreation sc;
     sc.scId = scId;
-    sc.nAmount = nAmount;
+    sc.nValue = nAmount;
     sc.address = hrzAddress;
-    sc.startBlockHeight = startBlockHeight;
+    sc.creationData.startBlockHeight = startBlockHeight;
 
     CcRecipientVariant r(sc);
 
@@ -3940,7 +3940,7 @@ UniValue sc_fwdtr_many(const UniValue& params, bool fHelp)
 
         CRecipientForwardTransfer ft;
         ft.address = address;
-        ft.nAmount = nAmount;
+        ft.nValue = nAmount;
         ft.scId = scId;
 
         vecSend.push_back(CcRecipientVariant(ft));
@@ -4055,7 +4055,7 @@ UniValue sc_certlock_many(const UniValue& params, bool fHelp)
  
         CRecipientCertLock cl;
         cl.address = address;
-        cl.nAmount = nAmount;
+        cl.nValue = nAmount;
         cl.scId = scId;
         cl.epoch = epoch;
 
@@ -4355,7 +4355,7 @@ UniValue dbg_getscinfo(const UniValue& params, bool fHelp)
             "]\n"
 
             "\nExamples\n"
-            + HelpExampleCli("getscinfo", "")
+            + HelpExampleCli("dbg_getscinfo", "")
         );
 
     UniValue results(UniValue::VARR);
@@ -4416,6 +4416,46 @@ UniValue dbg_getscinfo(const UniValue& params, bool fHelp)
             results.push_back(sc);
         }
     }
+
+    return results;
+}
+
+UniValue getscinfo(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() > 1)
+        throw runtime_error(
+            "getscinfo \"scid\" startBlockHeight\n"
+            "\nReturns side chain info for the given id.\n"
+            "]\n"
+
+            "\nExamples\n"
+            + HelpExampleCli("getscinfo", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
+        );
+
+    UniValue results(UniValue::VARR);
+
+    // side chain id
+    string inputString = params[0].get_str();
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+
+    uint256 scId;
+    scId.SetHex(inputString);
+
+    ScInfo info;
+    if (!ScMgr::instance().getScInfo(scId, info) )
+    {
+        LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+    }
+
+    UniValue sc(UniValue::VOBJ);
+    sc.push_back(Pair("scid:", scId.GetHex()));
+    sc.push_back(Pair("amount:", info.balance));
+    sc.push_back(Pair("creating tx:", info.ownerTxHash.GetHex()));
+    sc.push_back(Pair("created in block:", info.creationBlockIndex->GetBlockHash().GetHex()));
+
+    results.push_back(sc);
 
     return results;
 }

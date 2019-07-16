@@ -32,6 +32,7 @@ using namespace zen;
 
 using namespace std;
 using namespace libzcash;
+using namespace Sidechain;
 
 /**
  * Settings
@@ -1695,38 +1696,15 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
         // first of all remove cc out from nFee that has not been considered before
         if (nFee != 0)
         {
-            nFee -= GetValueScCreationCcOut(); 
-            nFee -= GetValueCertifierLockCcOut(); 
-            nFee -= GetValueForwardTransferCcOut(); 
+            nFee -= GetValueCcOut(); 
         }
 
-        // crosschain amount sent/received.
-        for (unsigned int i = 0; i < vcl_ccout.size(); ++i)
+        if (nDebit > 0)
         {
-            const CTxCertifierLockCrosschainOut& txccout = vcl_ccout[i];
- 
-            // we need to get the destination address
-            uint256 address = txccout.address;
- 
-            CScOutputEntry output = {address, txccout.nValue, (int)i, -1};
- 
-            // If we are debited by the transaction, add the output as a "sent" entry
-            if (nDebit > 0)
-                listScSent.push_back(output);
-        }
-        for (unsigned int i = 0; i < vft_ccout.size(); ++i)
-        {
-            const CTxForwardTransferCrosschainOut& txccout = vft_ccout[i];
-            // Only need to handle txouts if they debit from us (sent)
- 
-            // we need to get the destination address
-            uint256 address = txccout.address;
- 
-            CScOutputEntry output = {address, txccout.nValue, -1, (int)i};
- 
-            // If we are debited by the transaction, add the output as a "sent" entry
-            if (nDebit > 0)
-                listScSent.push_back(output);
+            // do not consider sc creation since we sent amount to the foundation
+            //fillScSent(vsc_ccout, listScSent);
+            fillScSent(vcl_ccout, listScSent);
+            fillScSent(vft_ccout, listScSent);
         }
     }
 }
@@ -3013,7 +2991,6 @@ bool CWallet::ScCreateTransaction(
                 }
                 
 
-
                 // Choose coins to use
                 set<pair<const CWalletTx*,unsigned int> > setCoins;
                 CAmount nValueIn = 0;
@@ -3046,6 +3023,10 @@ bool CWallet::ScCreateTransaction(
                 CAmount nChange = nValueIn - nValue;
                 // differently from standard tx, always create fee from change (do not charge payee)
                 nChange -= nFeeRet;
+
+                // in case this tx creates any sc, send a fixed reward to the community. Such a reward corresponds to the 
+                // vsc_ccout nAmounts (fixed)
+                ScMgr::instance().evalSendCreationFee(txNew);
 
                 if (nChange > 0)
                 {
@@ -4080,7 +4061,7 @@ bool CcRecipientVisitor::operator() (const CRecipientForwardTransfer& r) const {
 
 bool CRecipientFactory::set(const CRecipientScCreation& r)
 {
-    CTxScCreationCrosschainOut txccout(r.nAmount, r.address, r.scId, r.startBlockHeight);
+    CTxScCreationCrosschainOut txccout(r.nValue, r.address, r.scId, r.creationData.startBlockHeight);
     // no dust can be found in sc creation
     tx.vsc_ccout.push_back(txccout);
     return true;
@@ -4088,7 +4069,7 @@ bool CRecipientFactory::set(const CRecipientScCreation& r)
 
 bool CRecipientFactory::set(const CRecipientCertLock& r)
 {
-    CTxCertifierLockCrosschainOut txccout(r.nAmount, r.address, r.scId, r.epoch);
+    CTxCertifierLockCrosschainOut txccout(r.nValue, r.address, r.scId, r.epoch);
     if (txccout.IsDust(::minRelayTxFee))
     {
         err = _("Transaction amount too small");
@@ -4100,7 +4081,7 @@ bool CRecipientFactory::set(const CRecipientCertLock& r)
 
 bool CRecipientFactory::set(const CRecipientForwardTransfer& r)
 {
-    CTxForwardTransferCrosschainOut txccout(r.nAmount, r.address, r.scId);
+    CTxForwardTransferCrosschainOut txccout(r.nValue, r.address, r.scId);
     if (txccout.IsDust(::minRelayTxFee))
     {
         err = _("Transaction amount too small");

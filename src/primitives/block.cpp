@@ -134,7 +134,7 @@ uint256 CBlock::BuildScMerkleRootsMap()
         uint256 scid = pair.first;
         uint256 mklHash = BuildMerkleRootHash(pair.second);
 
-        LogPrint("sc", "%s():%d built merkle root for sc[%s[ with %d leaves\n",
+        LogPrint("sc", "%s():%d built merkle root for sc[%s] with %d leaves\n",
             __func__, __LINE__, scid.ToString(), pair.second.size());
 
         // concatenate the two hashes above

@@ -442,7 +442,7 @@ public:
 
     CTxCrosschainOut() { SetNull(); }
 
-    virtual void SetNull()
+    void SetNull()
     {
         nValue = -1;
         address = uint256();
@@ -525,9 +525,6 @@ public:
 class CTxScCreationCrosschainOut : public CTxCrosschainOut
 {
 public:
-    static const CAmount SC_CREATION_FEE = 100000000; // in satoshi = 1.0 Zen
-    static const uint256 SC_CREATION_PAYEE_ADDRESS;
-
     int startBlockHeight; 
 /*
     TODO check and add 
@@ -555,7 +552,7 @@ public:
         READWRITE(startBlockHeight);
     }
 
-    virtual void SetNull()
+    void SetNull()
     {
         CTxCrosschainOut::SetNull();
         startBlockHeight = -1;
@@ -597,7 +594,7 @@ public:
         READWRITE(activeFromWithdrawalEpoch);
     }
 
-    virtual void SetNull()
+    void SetNull()
     {
         CTxCrosschainOut::SetNull();
         activeFromWithdrawalEpoch = -1;

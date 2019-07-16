@@ -8,66 +8,56 @@
 #include "hash.h"
 #include <boost/unordered_map.hpp>
 
-//--------------------------------
-class ScCertifier
+//------------------------------------------------------------------------------------
+class CTxMemPool;
+
+namespace Sidechain
 {
-public:
-    uint256 address;
-    CAmount lockedAmount;
-};
 
-
-struct ScTransactionBase
-{
-    uint256 scId;
-    virtual ~ScTransactionBase() {}
-};
-
-
-struct ScTransactionWithAmount : public ScTransactionBase
-{
-    CAmount nValue;
-    uint256 address;
-
-    ScTransactionWithAmount() :nValue(0) {}
-};
-
-
-//--------------------------------
-struct CertifierLock : public ScTransactionWithAmount
-{
-    int64_t activeFromWithdrawalEpoch; 
-
-    CertifierLock() : activeFromWithdrawalEpoch(-1) {}
-};
-
-//--------------------------------
-class CTxForwardTransferCrosschainOut;
-
-struct ForwardTransfer : public ScTransactionWithAmount
-{
-    ForwardTransfer(const CTxForwardTransferCrosschainOut&);
-};
-
-//--------------------------------
-struct ScCreation : public ScTransactionBase
+struct ScCreationParameters
 {
     int startBlockHeight; 
 
-    ScCreation() :startBlockHeight(-1) {}
+    ScCreationParameters() :startBlockHeight(-1) {}
     
     // all creation data follows...
     // TODO
 };
 
-/*
-class ScTransaction
+struct CRecipientCrossChainBase
 {
-    std::vector<ScCreation> creations;
-    std::vector<CertifierLock> certifierLocks;
-    std::vector<ForwardTransfer> forwardTransfers;
+    uint256 address;
+    CAmount nValue;
+    uint256 scId;
+
+    virtual ~CRecipientCrossChainBase() {}
+    CRecipientCrossChainBase() : nValue(0) {}
 };
-*/
+
+// probably not needed, a fee is devolved to foundation via tr address
+// in that case address should be moved from base class to children, not creation
+static const uint256 SC_CREATION_PAYEE_ADDRESS = uint256S("badc01dcafe");
+static const CAmount SC_CREATION_FEE = 100000000; // in satoshi = 1.0 Zen
+
+struct CRecipientScCreation : public CRecipientCrossChainBase
+{
+    ScCreationParameters creationData;
+};
+
+struct CRecipientCertLock : public CRecipientCrossChainBase
+{
+    int64_t epoch;
+    CRecipientCertLock() : epoch(-1) {}
+};
+
+using ::CTxForwardTransferCrosschainOut;
+
+class CRecipientForwardTransfer : public CRecipientCrossChainBase
+{
+    public:
+    explicit CRecipientForwardTransfer(const CTxForwardTransferCrosschainOut&);
+    CRecipientForwardTransfer() {};
+};
 
 //--------------------------------
 class ScInfo
@@ -77,7 +67,7 @@ public:
     
     // reference to the block containing the tx that created the side chain 
     const CBlockIndex* creationBlockIndex;;
-    // index of the creating tx in the block
+    // index of the creating tx in the block vect of txs
     int creationTxIndex;
     // hash of the tx who created it
     uint256 ownerTxHash;
@@ -86,18 +76,17 @@ public:
     CAmount balance;
 
     // list of certifiers
-    std::vector<ScCertifier> certifiers;
+    std::vector<CRecipientCertLock> certifiers;
 
     // creation data
-    ScCreation creationData;
+    ScCreationParameters creationData;
 
     std::string ToString() const;
 };
 
-//--------------------------------
 typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
 
-class CTxMemPool;
+using ::CTxMemPool;
 
 class ScMgr
 {
@@ -105,11 +94,10 @@ class ScMgr
     ScMgr(); // Disallow instantiation outside of the class.
     ScInfoMap mScInfo;
 
-    typedef boost::unordered_map<uint256, std::vector<ForwardTransfer>, ObjectHasher> ScFwdTransfers;
+    typedef boost::unordered_map<uint256, std::vector<CRecipientForwardTransfer>, ObjectHasher> ScFwdTransfers;
     ScFwdTransfers _cachedFwTransfers;
 
   public:
-
     static ScMgr& instance();
 
     ScMgr(const ScMgr&) = delete;
@@ -136,9 +124,57 @@ class ScMgr
     void addSidechainsAndCacheAmounts(const CBlock& block, const CBlockIndex* pindex);
     bool updateAmountsFromCache();
 
+    void evalSendCreationFee(CMutableTransaction& tx);
+
+
     // dbg functions
     void dump_info();
     void dump_info(const uint256& scId);
 }; 
+
+
+class CRecipientFactory;
+
+class CcRecipientVisitor : public boost::static_visitor<bool>
+{
+    private:
+       CRecipientFactory* fact;
+    public:
+       explicit CcRecipientVisitor(CRecipientFactory* factIn) : fact(factIn) {}
+
+    bool operator() (const CRecipientScCreation& r) const;
+    bool operator() (const CRecipientCertLock& r) const;
+    bool operator() (const CRecipientForwardTransfer& r) const;
+};
+
+typedef boost::variant<CRecipientScCreation, CRecipientCertLock, CRecipientForwardTransfer> CcRecipientVariant;
+
+class CRecipientFactory
+{
+    private:
+       CMutableTransaction& tx;
+       std::string& err;
+
+    public:
+       CRecipientFactory(CMutableTransaction& txIn, std::string& errIn) : tx(txIn), err(errIn) {}
+
+    bool set(const CcRecipientVariant& rec)
+    {
+        return boost::apply_visitor(CcRecipientVisitor(this), rec);
+    };
+
+    bool set(const CRecipientScCreation& r);
+    bool set(const CRecipientCertLock& r);
+    bool set(const CRecipientForwardTransfer& r);
+};
+
+class CcRecipientAmountVisitor : public boost::static_visitor<CAmount>
+{
+    public:
+    template <typename T>
+    CAmount operator() (const T& r) const { return r.nValue; }
+};
+
+}; // end of namespace
 
 #endif // _SIDECHAIN_H

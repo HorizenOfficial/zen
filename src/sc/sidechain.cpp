@@ -2,8 +2,14 @@
 #include "primitives/transaction.h"
 #include "utilmoneystr.h"
 #include "txmempool.h"
+#include "chainparams.h"
+#include "base58.h"
+#include "script/standard.h"
 
-extern bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex);
+extern CChain chainActive;
+
+
+using namespace Sidechain;
 
 std::string ScInfo::ToString() const
 {
@@ -98,7 +104,8 @@ bool ScMgr::checkSidechainTxCreation(const CTransaction& tx)
             else
             {
                 // brand new sc
-                LogPrint("sc", "%s():%d - No such scid[%s], tx is creating it\n", __func__, __LINE__, sc.scId.ToString());
+                LogPrint("sc", "%s():%d - No such scid[%s], tx[%s] is creating it\n",
+                    __func__, __LINE__, sc.scId.ToString(), txHash.ToString() );
             }
         }
     }
@@ -119,6 +126,7 @@ bool ScMgr::updateAmountsFromCache()
             }
         }
     }
+    return true;
 }
 
 bool ScMgr::addBlockScTransactions(const CBlock& block, const CBlockIndex* pindex)
@@ -174,6 +182,10 @@ bool ScMgr::addBlockScTransactions(const CBlock& block, const CBlockIndex* pinde
         }
         txIndex++;
     }
+
+    // TODO test, remove it
+    dump_info();
+
     return true;
 }
 
@@ -201,7 +213,7 @@ bool ScMgr::removeBlockScTransactions(const CBlock& block)
                 if (info.balance > 0)
                 {
                     // should not happen either 
-                    LogPrint("sc", "@@@ %s():%d - scId=%s balance not null: %s\n",
+                    LogPrint("sc", "#### %s():%d - scId=%s balance not null: %s\n",
                         __func__, __LINE__, sc.scId.ToString(), FormatMoney(info.balance));
                     return false;
                 }
@@ -229,6 +241,9 @@ bool ScMgr::removeBlockScTransactions(const CBlock& block)
             }
         }
     }
+    // TODO test, remove it
+    dump_info();
+
     return true;
 }
 
@@ -255,7 +270,7 @@ void ScMgr::addSidechainsAndCacheAmounts(const CBlock& block, const CBlockIndex*
             // get fw transfers and cache them. 
             BOOST_FOREACH(auto& ft, tx.vft_ccout)
             {
-                ForwardTransfer ftObj(ft);
+                CRecipientForwardTransfer ftObj(ft);
                 _cachedFwTransfers[ftObj.scId].push_back(ftObj);
             }
         }
@@ -269,7 +284,7 @@ bool ScMgr::checkCreationInMemPool(CTxMemPool& pool, const CTransaction& tx)
     {
         BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
         {
-            for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = pool.mapTx.begin(); it != pool.mapTx.end(); it++)
+            for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = pool.mapTx.begin(); it != pool.mapTx.end(); ++it)
             {
                 const CTransaction& mpTx = it->second.GetTx();
 
@@ -291,7 +306,35 @@ bool ScMgr::checkCreationInMemPool(CTxMemPool& pool, const CTransaction& tx)
     return true;
 }
 
-ForwardTransfer::ForwardTransfer(const CTxForwardTransferCrosschainOut& ccout)
+void ScMgr::evalSendCreationFee(CMutableTransaction& tx)
+{
+    if (tx.vsc_ccout.size() == 0 )
+    {
+        return;
+    }
+
+    const CChainParams& chainparams = Params();
+    CAmount totalReward = 0;
+    BOOST_FOREACH(const auto& txccout, tx.vsc_ccout)
+    {
+        totalReward += SC_CREATION_FEE;
+    }
+
+    CBitcoinAddress address(
+        chainparams.GetCommunityFundAddressAtHeight(chainActive.Height(), Fork::CommunityFundType::FOUNDATION));
+
+    assert(address.IsValid());
+    assert(address.IsScript());
+
+    CScriptID scriptId = boost::get<CScriptID>(address.Get());
+    CScript scriptFund = GetScriptForDestination(scriptId);
+
+    tx.vout.push_back( CTxOut(totalReward, scriptFund));
+}
+
+
+
+CRecipientForwardTransfer::CRecipientForwardTransfer(const CTxForwardTransferCrosschainOut& ccout)
 {
     scId    = ccout.scId;
     nValue  = ccout.nValue;

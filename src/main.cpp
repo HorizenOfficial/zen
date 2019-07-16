@@ -49,6 +49,7 @@ using namespace zen;
 
 using namespace std;
 
+
 #if defined(NDEBUG)
 # error "Zen cannot be compiled without assertions."
 #endif
@@ -996,7 +997,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
     }
 
     // if the tx creates a side chain, check that it is not yet created by a different tx
-    if (!ScMgr::instance().checkSidechainTxCreation(tx) )
+    if (!Sidechain::ScMgr::instance().checkSidechainTxCreation(tx) )
     {
         return state.DoS(10,
             error("CheckTransaction: transaction tries to create scid already created"),
@@ -1283,7 +1284,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
 
         // if this tx creates a sc, check that no other tx are doing the same in the mempool
-        if (!ScMgr::instance().checkCreationInMemPool(pool, tx) )
+        if (!Sidechain::ScMgr::instance().checkCreationInMemPool(pool, tx) )
         {
             return state.DoS(0,
                  error("AcceptToMemoryPool: transaction tries to create scid already created"),
@@ -2495,7 +2496,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     // check for SC-related tx in block, and in case update data
     DbgAddToScTransactionMap(block);
-    ScMgr::instance().addBlockScTransactions(block, pindex);
+    Sidechain::ScMgr::instance().addBlockScTransactions(block, pindex);
 
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
@@ -2696,9 +2697,6 @@ void static UpdateTip(CBlockIndex *pindexNew) {
             }
         }
     }
-
-    // TODO test, remove it
-    ScMgr::instance().dump_info();
 }
 
 /** Disconnect chainActive's tip. */
@@ -2726,7 +2724,7 @@ bool static DisconnectTip(CValidationState &state) {
         return false;
 
     DbgRemoveFromScTransactionMap(block);
-    ScMgr::instance().removeBlockScTransactions(block);
+    Sidechain::ScMgr::instance().removeBlockScTransactions(block);
 
     // Resurrect mempool transactions from the disconnected block.
     BOOST_FOREACH(const CTransaction &tx, block.vtx) {
@@ -4214,15 +4212,17 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
 
         // fill temporary sidechain fw amounts here, and update sidechains map later, since we are reading blocks in reverse
         // and therefore creation will be found after all of its fw transfers
-        ScMgr::instance().addSidechainsAndCacheAmounts(block, pindex);
+        Sidechain::ScMgr::instance().addSidechainsAndCacheAmounts(block, pindex);
 
         if (ShutdownRequested())
             return true;
 
     }
 
-    bool ret = ScMgr::instance().updateAmountsFromCache();
-    // TODO handle error
+    if (!Sidechain::ScMgr::instance().updateAmountsFromCache() )
+    {
+        return error("VerifyDB(): *** Could not update sidechain balance ((last %i blocks, %i good transactions before that) \n", chainActive.Height() - pindexFailure->nHeight + 1, nGoodTransactions);
+    }
     
     if (pindexFailure)
         return error("VerifyDB(): *** coin database inconsistencies found (last %i blocks, %i good transactions before that)\n", chainActive.Height() - pindexFailure->nHeight + 1, nGoodTransactions);
