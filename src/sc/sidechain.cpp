@@ -375,6 +375,14 @@ void ScMgr::dump_info()
     }
 }
 
+void ScMgr::fillJSON(const uint256& scId, const ScInfo& info, UniValue& sc)
+{
+    sc.push_back(Pair("scid", scId.GetHex()));
+    sc.push_back(Pair("amount", ValueFromAmount(info.balance)));
+    sc.push_back(Pair("creating tx", info.ownerTxHash.GetHex()));
+    sc.push_back(Pair("created in block", info.creationBlockIndex->GetBlockHash().GetHex()));
+}
+
 bool ScMgr::fillJSON(const uint256& scId, UniValue& sc)
 {
     ScInfo info;
@@ -384,11 +392,7 @@ bool ScMgr::fillJSON(const uint256& scId, UniValue& sc)
         return false; 
     }
  
-    sc.push_back(Pair("scid", scId.GetHex()));
-    sc.push_back(Pair("amount", ValueFromAmount(info.balance)));
-    sc.push_back(Pair("creating tx", info.ownerTxHash.GetHex()));
-    sc.push_back(Pair("created in block", info.creationBlockIndex->GetBlockHash().GetHex()));
- 
+    fillJSON(scId, info, sc);
     return true;
 }
 
@@ -396,14 +400,8 @@ void ScMgr::fillJSON(UniValue& result)
 {
     BOOST_FOREACH(const auto& entry, mScInfo)
     {
-        ScInfo info = entry.second;
- 
         UniValue sc(UniValue::VOBJ);
-        sc.push_back(Pair("scid", entry.first.GetHex()));
-        sc.push_back(Pair("amount", ValueFromAmount(info.balance)));
-        sc.push_back(Pair("creating tx", info.ownerTxHash.GetHex()));
-        sc.push_back(Pair("created in block", info.creationBlockIndex->GetBlockHash().GetHex()));
- 
+        fillJSON(entry.first, entry.second, sc);
         result.push_back(sc);
     }
 }

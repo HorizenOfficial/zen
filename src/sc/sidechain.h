@@ -134,6 +134,7 @@ class ScMgr
     void dump_info();
     bool fillJSON(const uint256& scId, UniValue& sc);
     void fillJSON(UniValue& result);
+    void fillJSON(const uint256& scId, const ScInfo& info, UniValue& sc);
 }; 
 
 
