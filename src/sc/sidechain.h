@@ -10,6 +10,8 @@
 
 //------------------------------------------------------------------------------------
 class CTxMemPool;
+class UniValue;
+class CTxForwardTransferCrosschainOut;
 
 namespace Sidechain
 {
@@ -87,6 +89,7 @@ public:
 typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
 
 using ::CTxMemPool;
+using ::UniValue;
 
 class ScMgr
 {
@@ -105,16 +108,16 @@ class ScMgr
     ScMgr(ScMgr &&) = delete;
     ScMgr & operator=(ScMgr &&) = delete;
 
-    void addSidechain(const uint256& id, ScInfo& info);
-    void removeSidechain(const uint256& id);
+    void addSidechain(const uint256& scId, ScInfo& info);
+    void removeSidechain(const uint256& scId);
 
-    bool sidechainExists(const uint256& id);
+    bool sidechainExists(const uint256& scId);
 
     bool addBlockScTransactions(const CBlock& block, const CBlockIndex* pindex);
     bool removeBlockScTransactions(const CBlock& block);
 
-    bool updateSidechainBalance(const uint256& id, const CAmount& amount);
-    CAmount getSidechainBalance(const uint256& id);
+    bool updateSidechainBalance(const uint256& scId, const CAmount& amount);
+    CAmount getSidechainBalance(const uint256& scId);
 
     bool getScInfo(const uint256& scId, ScInfo& info);
     bool checkSidechainTxCreation(const CTransaction& tx);
@@ -126,10 +129,11 @@ class ScMgr
 
     void evalSendCreationFee(CMutableTransaction& tx);
 
-
-    // dbg functions
+    // print functions
+    bool dump_info(const uint256& scId);
     void dump_info();
-    void dump_info(const uint256& scId);
+    bool fillJSON(const uint256& scId, UniValue& sc);
+    void fillJSON(UniValue& result);
 }; 
 
 

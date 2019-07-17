@@ -3998,8 +3998,6 @@ UniValue sc_certlock_many(const UniValue& params, bool fHelp)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    CWalletTx wtx;
-
     UniValue outputs = params[0].get_array();
 
     if (outputs.size()==0)
@@ -4080,22 +4078,10 @@ UniValue sc_certlock_many(const UniValue& params, bool fHelp)
 
     EnsureWalletIsUnlocked();
 
-    // Check funds
-    int nMinDepth = 1;
-    CAmount nBalance = GetAccountBalance("", nMinDepth, ISMINE_SPENDABLE);
-    if (nTotalOut > nBalance)
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Account has insufficient funds");
-
     // Send
-    CReserveKey keyChange(pwalletMain);
-    CAmount nFeeRequired = 0;
-    int nChangePosRet = -1;
-    string strFailReason;
-    bool fCreated = pwalletMain->ScCreateTransaction(vecSend, wtx, keyChange, nFeeRequired, nChangePosRet, strFailReason);
-    if (!fCreated)
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
-    if (!pwalletMain->CommitTransaction(wtx, keyChange))
-        throw JSONRPCError(RPC_WALLET_ERROR, "Transaction commit failed");
+    CWalletTx wtx;
+
+    ScHandleTransaction(wtx, vecSend, nTotalOut);
 
     return wtx.GetHash().GetHex();
 }
@@ -4424,38 +4410,37 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() > 1)
         throw runtime_error(
-            "getscinfo \"scid\" startBlockHeight\n"
-            "\nReturns side chain info for the given id.\n"
+            "getscinfo \"scid\" (Optional)\n"
+            "\nReturns side chain info for the given id or for all of the existing sc if the id is not given.\n"
             "]\n"
 
             "\nExamples\n"
             + HelpExampleCli("getscinfo", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
+            + HelpExampleCli("getscinfo", "")
         );
 
-    UniValue results(UniValue::VARR);
-
-    // side chain id
-    string inputString = params[0].get_str();
-    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
-
-    uint256 scId;
-    scId.SetHex(inputString);
-
-    ScInfo info;
-    if (!ScMgr::instance().getScInfo(scId, info) )
+    if (params.size() > 0)
     {
-        LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+        // side chain id
+        string inputString = params[0].get_str();
+        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+ 
+        uint256 scId;
+        scId.SetHex(inputString);
+ 
+        UniValue sc(UniValue::VOBJ);
+        if (!ScMgr::instance().fillJSON(scId, sc) )
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+        }
+ 
+        return sc;
     }
 
-    UniValue sc(UniValue::VOBJ);
-    sc.push_back(Pair("scid:", scId.GetHex()));
-    sc.push_back(Pair("amount:", info.balance));
-    sc.push_back(Pair("creating tx:", info.ownerTxHash.GetHex()));
-    sc.push_back(Pair("created in block:", info.creationBlockIndex->GetBlockHash().GetHex()));
+    // dump all of them if any
+    UniValue result(UniValue::VARR);
+    ScMgr::instance().fillJSON(result);
 
-    results.push_back(sc);
-
-    return results;
+    return result;
 }

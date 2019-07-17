@@ -5,8 +5,10 @@
 #include "chainparams.h"
 #include "base58.h"
 #include "script/standard.h"
+#include "univalue.h"
 
 extern CChain chainActive;
+extern UniValue ValueFromAmount(const CAmount& amount);
 
 
 using namespace Sidechain;
@@ -65,17 +67,17 @@ CAmount ScMgr::getSidechainBalance(const uint256& scId)
     return it->second.balance;
 }
 
-void ScMgr::addSidechain(const uint256& id, ScInfo& info)
+void ScMgr::addSidechain(const uint256& scId, ScInfo& info)
 {
     // checks should be done by caller
-    mScInfo[id] = info;
+    mScInfo[scId] = info;
 }
 
-void ScMgr::removeSidechain(const uint256& id)
+void ScMgr::removeSidechain(const uint256& scId)
 {
     // checks should be done by caller
-    int num = mScInfo.erase(id);
-    LogPrint("sc", "%s():%d - (erased=%d) scId=%s\n", __func__, __LINE__, num, id.ToString() );
+    int num = mScInfo.erase(scId);
+    LogPrint("sc", "%s():%d - (erased=%d) scId=%s\n", __func__, __LINE__, num, scId.ToString() );
 }
 
 bool ScMgr::checkSidechainTxCreation(const CTransaction& tx)
@@ -310,6 +312,7 @@ void ScMgr::evalSendCreationFee(CMutableTransaction& tx)
 {
     if (tx.vsc_ccout.size() == 0 )
     {
+        // no sc creation here
         return;
     }
 
@@ -320,6 +323,7 @@ void ScMgr::evalSendCreationFee(CMutableTransaction& tx)
         totalReward += SC_CREATION_FEE;
     }
 
+    // can not be calculated just once because depends on height
     CBitcoinAddress address(
         chainparams.GetCommunityFundAddressAtHeight(chainActive.Height(), Fork::CommunityFundType::FOUNDATION));
 
@@ -333,7 +337,6 @@ void ScMgr::evalSendCreationFee(CMutableTransaction& tx)
 }
 
 
-
 CRecipientForwardTransfer::CRecipientForwardTransfer(const CTxForwardTransferCrosschainOut& ccout)
 {
     scId    = ccout.scId;
@@ -343,14 +346,14 @@ CRecipientForwardTransfer::CRecipientForwardTransfer(const CTxForwardTransferCro
 
 ScMgr::ScMgr() {}
 
-void ScMgr::dump_info(const uint256& scId)
+bool ScMgr::dump_info(const uint256& scId)
 {
     LogPrint("sc", "-- side chain [%s] ------------------------\n", scId.ToString());
     ScInfo info;
     if (!getScInfo(scId, info) )
     {
         LogPrint("sc", "===> No such side chain\n");
-        return;
+        return false;
     }
 
     LogPrint("sc", "  created in block[%s] (h=%d)\n", info.creationBlockIndex->GetBlockHash().ToString(), info.creationBlockIndex->nHeight );
@@ -359,6 +362,8 @@ void ScMgr::dump_info(const uint256& scId)
     LogPrint("sc", "  ----- creation data:\n");
     LogPrint("sc", "      startBlockHeight[%d]\n", info.creationData.startBlockHeight);
     LogPrint("sc", "      ...more to come...\n");
+
+    return true;
 }
 
 
@@ -367,5 +372,38 @@ void ScMgr::dump_info()
     BOOST_FOREACH(const auto& entry, mScInfo)
     {
         dump_info(entry.first);
+    }
+}
+
+bool ScMgr::fillJSON(const uint256& scId, UniValue& sc)
+{
+    ScInfo info;
+    if (!ScMgr::instance().getScInfo(scId, info) )
+    {
+        LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+        return false; 
+    }
+ 
+    sc.push_back(Pair("scid", scId.GetHex()));
+    sc.push_back(Pair("amount", ValueFromAmount(info.balance)));
+    sc.push_back(Pair("creating tx", info.ownerTxHash.GetHex()));
+    sc.push_back(Pair("created in block", info.creationBlockIndex->GetBlockHash().GetHex()));
+ 
+    return true;
+}
+
+void ScMgr::fillJSON(UniValue& result)
+{
+    BOOST_FOREACH(const auto& entry, mScInfo)
+    {
+        ScInfo info = entry.second;
+ 
+        UniValue sc(UniValue::VOBJ);
+        sc.push_back(Pair("scid", entry.first.GetHex()));
+        sc.push_back(Pair("amount", ValueFromAmount(info.balance)));
+        sc.push_back(Pair("creating tx", info.ownerTxHash.GetHex()));
+        sc.push_back(Pair("created in block", info.creationBlockIndex->GetBlockHash().GetHex()));
+ 
+        result.push_back(sc);
     }
 }
