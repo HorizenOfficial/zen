@@ -31,7 +31,7 @@ if [ -e "$(which git 2>/dev/null)" -a "$(git rev-parse --is-inside-work-tree 2>/
     git diff-index --quiet HEAD -- || SUFFIX="$SUFFIX-dirty"
 
     # get a string like "2012-04-10 16:27:19 +0200"
-    LAST_COMMIT_DATE="$(git log -n 1 --format="%ci")"
+    LAST_COMMIT_DATE="$(git log -n 1 --format="%ci" | tail -n1)"
 fi
 
 if [ -n "$DESC" ]; then

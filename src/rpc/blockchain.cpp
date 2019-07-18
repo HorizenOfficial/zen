@@ -1011,7 +1011,7 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
     LogPrint("forks", "%s():%d - input h(%d) [%s]\n",
         __func__, __LINE__, pblkIndex->nHeight, pblkIndex->GetBlockHash().ToString());
 
-    int delta = chainActive.Height() - inputHeight + 1;
+    int64_t delta = chainActive.Height() - inputHeight + 1;
     if (delta >= MAX_BLOCK_AGE_FOR_FINALITY)
     {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Old block: older than 2000!");
@@ -1019,32 +1019,44 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
 
 //    dump_global_tips();
 
-    long int gap = 0;
-    long int minGap = LONG_MAX;
+    int64_t gap = 0;
+    int64_t minGap = LLONG_MAX;
 
     // For each tip find the stemming block on the main chain
     // In case of main tip such a block would be the tip itself
     //-----------------------------------------------------------------------
     BOOST_FOREACH(auto idx, setTips)
     {
+        const int forkTipHeight = idx->nHeight;
         const int forkBaseHeight = chainActive.FindFork(idx)->nHeight;
+
         LogPrint("forks", "%s():%d - processing tip h(%d) [%s] forkBaseHeight[%d]\n",
             __func__, __LINE__, idx->nHeight, idx->GetBlockHash().ToString(), forkBaseHeight);
 
+        // during a node's life, there might be many tips in the container, it is not useful
+        // keeping all of them into account for calculating the finality, just consider the most recent ones.
+        // Blocks are ordered by heigth, stop if we exceed a safe limit in depth, lets say the max age
+        if ( (chainActive.Height() - forkTipHeight) >=  MAX_BLOCK_AGE_FOR_FINALITY )
+        {
+            LogPrint("forks", "%s():%d - exiting loop on tips, max age reached: forkBaseHeight[%d], chain[%d]\n",
+                __func__, __LINE__, forkBaseHeight, chainActive.Height());
+            break;
+        }
+
         if (forkBaseHeight < inputHeight)
         {
-            // if the fork is older than the input, it also depends on the current penalty ongoing on the fork
-            int forkDelay  = idx->nChainDelay;
-            int forkTipHeight = idx->nHeight;
+            // if the fork base is older than the input block, finality also depends on the current penalty
+            // ongoing on the fork
+            int64_t forkDelay  = idx->nChainDelay;
             if (forkTipHeight >= chainActive.Height())
             {
-                // if forkDelay is null one still has to mine 1 block only
+                // if forkDelay is null one has to mine 1 block only
                 gap = forkDelay ? forkDelay : 1;
                 LogPrint("forks", "%s():%d - gap[%d], forkDelay[%d]\n", __func__, __LINE__, gap, forkDelay);
             }
             else
             {
-                int dt = chainActive.Height() - forkTipHeight + 1;
+                int64_t dt = chainActive.Height() - forkTipHeight + 1;
                 dt = dt * ( dt + 1) / 2;
                 
                 gap  = dt + forkDelay + 1;
@@ -1053,7 +1065,7 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
         }
         else
         {
-            // this also handle the main chain tip
+            // this also handles the main chain tip
             if (delta < PENALTY_THRESHOLD + 1)
             {
                 // an attacker can mine from previous block up to tip + 1
@@ -1071,7 +1083,7 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
     }
 
     LogPrint("forks", "%s():%d - returning [%d]\n", __func__, __LINE__, minGap);
-    return (int)minGap;
+    return minGap;
 }
 
 UniValue getglobaltips(const UniValue& params, bool fHelp)
