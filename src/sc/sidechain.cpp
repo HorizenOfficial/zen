@@ -456,8 +456,6 @@ CRecipientForwardTransfer::CRecipientForwardTransfer(const CTxForwardTransferCro
     address = ccout.address;
 }
 
-ScMgr::ScMgr(): db(NULL) {}
-
 bool ScMgr::initialUpdateFromDb(size_t cacheSize, bool fWipe)
 {
     static bool initDone = false;
@@ -521,6 +519,13 @@ bool ScMgr::initialUpdateFromDb(size_t cacheSize, bool fWipe)
 
 void ScMgr::eraseFromDb(const uint256& scId)
 {
+    if (db == NULL)
+    {
+        LogPrintf("%s():%d - Error: sc db not initialized\n", __func__, __LINE__);
+        return;
+    }
+
+
     // erase from level db
     CLevelDBBatch batch;
 
@@ -549,6 +554,12 @@ void ScMgr::eraseFromDb(const uint256& scId)
 
 bool ScMgr::writeToDb(const uint256& scId, const ScInfo& info)
 {
+    if (db == NULL)
+    {
+        LogPrintf("%s():%d - Error: sc db not initialized\n", __func__, __LINE__);
+        return false;
+    }
+
     // write into level db
     CLevelDBBatch batch;
     bool ret = true;
@@ -606,6 +617,11 @@ void ScMgr::dump_info()
     BOOST_FOREACH(const auto& entry, mScInfo)
     {
         dump_info(entry.first);
+    }
+
+    if (db == NULL)
+    {
+        return;
     }
 
     // dump leveldb contents on stdout

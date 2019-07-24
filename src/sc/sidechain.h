@@ -113,7 +113,9 @@ using ::CValidationState;
 class ScMgr
 {
   private:
-    ScMgr(); // Disallow instantiation outside of the class.
+    // Disallow instantiation outside of the class.
+    ScMgr(): db(NULL) {}
+    ~ScMgr() { delete db; }
 
     CCriticalSection sc_lock;
     ScInfoMap mScInfo;
@@ -132,12 +134,13 @@ class ScMgr
     bool checkCreationInMemPool(CTxMemPool& pool, const CTransaction& tx);
 
   public:
-    static ScMgr& instance();
 
     ScMgr(const ScMgr&) = delete;
     ScMgr& operator=(const ScMgr &) = delete;
     ScMgr(ScMgr &&) = delete;
     ScMgr & operator=(ScMgr &&) = delete;
+
+    static ScMgr& instance();
 
     bool initialUpdateFromDb(size_t cacheSize, bool fWipe);
 
