@@ -6,6 +6,7 @@
 #include "base58.h"
 #include "script/standard.h"
 #include "univalue.h"
+#include "consensus/validation.h"
 
 extern CChain chainActive;
 extern UniValue ValueFromAmount(const CAmount& amount);
@@ -44,6 +45,7 @@ bool ScMgr::getScInfo(const uint256& scId, ScInfo& info)
 
 bool ScMgr::updateSidechainBalance(const uint256& scId, const CAmount& amount)
 {
+    LOCK(sc_lock);
     ScInfoMap::iterator it = mScInfo.find(scId);
     if (it == mScInfo.end() )
     {
@@ -52,7 +54,8 @@ bool ScMgr::updateSidechainBalance(const uint256& scId, const CAmount& amount)
     }
 
     it->second.balance += amount;
-    return true;
+
+    return writeToDb(scId, it->second);
 }
 
 CAmount ScMgr::getSidechainBalance(const uint256& scId)
@@ -67,22 +70,30 @@ CAmount ScMgr::getSidechainBalance(const uint256& scId)
     return it->second.balance;
 }
 
-void ScMgr::addSidechain(const uint256& scId, ScInfo& info)
+bool ScMgr::addSidechain(const uint256& scId, ScInfo& info)
 {
+    LOCK(sc_lock);
     // checks should be done by caller
     mScInfo[scId] = info;
+
+    return writeToDb(scId, info);
 }
 
 void ScMgr::removeSidechain(const uint256& scId)
 {
+    LOCK(sc_lock);
     // checks should be done by caller
     int num = mScInfo.erase(scId);
+    if (num)
+    {
+        eraseFromDb(scId);
+    }
     LogPrint("sc", "%s():%d - (erased=%d) scId=%s\n", __func__, __LINE__, num, scId.ToString() );
 }
 
-bool ScMgr::checkSidechainTxCreation(const CTransaction& tx)
+bool ScMgr::checkSidechainCreation(const CTransaction& tx)
 {
-    if (tx.nVersion == SC_TX_VERSION && tx.vsc_ccout.size() )
+    if (tx.vsc_ccout.size() )
     {
         const uint256 txHash = tx.GetHash();
 
@@ -114,16 +125,19 @@ bool ScMgr::checkSidechainTxCreation(const CTransaction& tx)
     return true;
 }
 
-bool ScMgr::updateAmountsFromCache()
+bool ScMgr::checkSidechainForwardTransaction(const CTransaction& tx)
 {
-    // TODO optimize
-    BOOST_FOREACH(auto& entry, _cachedFwTransfers)
+    if (tx.vft_ccout.size() )
     {
-        BOOST_FOREACH(auto& ft, entry.second)
+        const uint256 txHash = tx.GetHash();
+
+        BOOST_FOREACH(const auto& sc, tx.vft_ccout)
         {
-            if (!updateSidechainBalance(ft.scId, ft.nValue))
+            ScInfo info;
+            if (!getScInfo(sc.scId, info) )
             {
-                // should not happen, handle the disaster
+                LogPrint("sc", "%s():%d - tx[%s]: scid[%s] not found\n",
+                    __func__, __LINE__, txHash.ToString(), sc.scId.ToString() );
                 return false;
             }
         }
@@ -131,7 +145,38 @@ bool ScMgr::updateAmountsFromCache()
     return true;
 }
 
-bool ScMgr::addBlockScTransactions(const CBlock& block, const CBlockIndex* pindex)
+bool ScMgr::checkTransaction(const CTransaction& tx, CValidationState& state)
+{
+    // check version consistency
+    if (tx.nVersion != SC_TX_VERSION )
+    {
+        if (tx.vsc_ccout.size() != 0 || tx.vcl_ccout.size() != 0 || tx.vft_ccout.size() != 0)
+        {
+            return state.DoS(100,
+                error("mismatch between transaction version and sidechain output presence"), 
+                REJECT_INVALID, "sidechain-tx-version");
+        }
+    }
+
+    if (!checkSidechainCreation(tx) )
+    {
+        return state.DoS(10,
+            error("transaction tries to create scid already created"),
+            REJECT_INVALID, "sidechain-creation");
+    }
+
+    if (!checkSidechainForwardTransaction(tx) )
+    {
+        return state.DoS(10,
+            error("transaction tries to forward trasnfer to a scid not yet created"),
+            REJECT_INVALID, "sidechain-forward-transfer");
+    }
+
+    return true;
+}
+
+
+bool ScMgr::onBlockConnected(const CBlock& block, int nHeight)
 {
     uint256 hash = block.GetHash();
 
@@ -154,7 +199,8 @@ bool ScMgr::addBlockScTransactions(const CBlock& block, const CBlockIndex* pinde
                 }
 
                 ScInfo scInfo;
-                scInfo.creationBlockIndex = pindex;
+                scInfo.ownerBlockHash = block.GetHash();
+                scInfo.creationBlockHeight = nHeight;
                 scInfo.creationTxIndex = txIndex;
                 scInfo.ownerTxHash = tx.GetHash();
                 scInfo.creationData.startBlockHeight = sc.startBlockHeight;
@@ -191,7 +237,7 @@ bool ScMgr::addBlockScTransactions(const CBlock& block, const CBlockIndex* pinde
     return true;
 }
 
-bool ScMgr::removeBlockScTransactions(const CBlock& block)
+bool ScMgr::onBlockDisconnected(const CBlock& block)
 {
     BOOST_FOREACH(const CTransaction& tx, block.vtx)
     {
@@ -243,43 +289,20 @@ bool ScMgr::removeBlockScTransactions(const CBlock& block)
             }
         }
     }
-    // TODO test, remove it
-    dump_info();
 
     return true;
 }
 
-void ScMgr::addSidechainsAndCacheAmounts(const CBlock& block, const CBlockIndex* pindex)
+bool ScMgr::checkMemPool(CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
 {
-    int txIndex = 0;
-    BOOST_FOREACH(const CTransaction& tx, block.vtx)
+    if (!checkCreationInMemPool(pool, tx) )
     {
-        if (tx.nVersion == SC_TX_VERSION)
-        {
-            // get sc creations and add them to the map
-            BOOST_FOREACH(auto& sc, tx.vsc_ccout)
-            {
-                ScInfo scInfo;
-                scInfo.creationBlockIndex = pindex;
-                scInfo.creationTxIndex = txIndex;
-                scInfo.ownerTxHash = tx.GetHash();
-                scInfo.creationData.startBlockHeight = sc.startBlockHeight;
-
-                addSidechain(sc.scId, scInfo);
-                LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, sc.scId.ToString() );
-            }
-
-            // get fw transfers and cache them. 
-            BOOST_FOREACH(auto& ft, tx.vft_ccout)
-            {
-                CRecipientForwardTransfer ftObj(ft);
-                _cachedFwTransfers[ftObj.scId].push_back(ftObj);
-            }
-        }
-        txIndex++;
+        return state.Invalid(error("transaction tries to create scid already created in mempool"),
+             REJECT_INVALID, "sidechain-creation");
     }
+    return true;
 }
-     
+
 bool ScMgr::checkCreationInMemPool(CTxMemPool& pool, const CTransaction& tx)
 {
     if (tx.nVersion == SC_TX_VERSION && tx.vsc_ccout.size() )
@@ -308,12 +331,12 @@ bool ScMgr::checkCreationInMemPool(CTxMemPool& pool, const CTransaction& tx)
     return true;
 }
 
-void ScMgr::evalSendCreationFee(CMutableTransaction& tx)
+int ScMgr::evalAddCreationFeeOut(CMutableTransaction& tx)
 {
     if (tx.vsc_ccout.size() == 0 )
     {
         // no sc creation here
-        return;
+        return -1;
     }
 
     const CChainParams& chainparams = Params();
@@ -330,12 +353,101 @@ void ScMgr::evalSendCreationFee(CMutableTransaction& tx)
     assert(address.IsValid());
     assert(address.IsScript());
 
-    CScriptID scriptId = boost::get<CScriptID>(address.Get());
-    CScript scriptFund = GetScriptForDestination(scriptId);
+    CScript scriptFund = GetScriptForDestination(address.Get());
 
     tx.vout.push_back( CTxOut(totalReward, scriptFund));
+    return tx.vout.size() -1;
 }
 
+bool ScMgr::fillRawCreation(UniValue& sc_crs, CMutableTransaction& rawTx, CTxMemPool& mempool, std::string& error) 
+{
+    rawTx.nVersion = SC_TX_VERSION;
+
+    for (size_t j = 0; j < sc_crs.size(); j++)
+    {
+        const UniValue& input = sc_crs[j];
+        const UniValue& o = input.get_obj();
+ 
+        std::string inputString = find_value(o, "scid").get_str();
+        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        {
+            error = "Invalid scid format: not an hex";
+            return false;
+        }
+    
+        uint256 scId;
+        scId.SetHex(inputString);
+ 
+        const UniValue& sh_v = find_value(o, "start_height");
+        if (!sh_v.isNum())
+        {
+            error = "Invalid parameter, missing start_height key";
+            return false;
+        }
+        int nHeight = sh_v.get_int();
+        if (nHeight < 0)
+        {
+            error = "Invalid parameter, start_height must be positive";
+            return false;
+        }
+ 
+        // Amount and address
+        CAmount nAmount(Sidechain::SC_CREATION_FEE);
+        uint256 hrzAddress(Sidechain::SC_CREATION_PAYEE_ADDRESS);
+ 
+        CTxScCreationCrosschainOut txccout(nAmount, hrzAddress, scId, nHeight);
+        rawTx.vsc_ccout.push_back(txccout);
+ 
+        CValidationState state;
+        // if this tx creates a sc, check that no other tx are doing the same in the mempool
+        if (!ScMgr::instance().checkMemPool(mempool, rawTx, state) )
+        {
+            error = "Sc already created by a tx in mempool";
+            return false;
+        }
+    }
+    
+    // add output for the foundation
+    ScMgr::instance().evalAddCreationFeeOut(rawTx);
+    return true;
+}
+
+void ScMgr::fillFundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& vecCcSend)
+{
+    BOOST_FOREACH(auto& entry, tx.vsc_ccout)
+    {
+        CRecipientScCreation sc;
+        sc.scId = entry.scId;
+        // when funding a tx with sc creation, the amount is already contained in vcout to foundation
+        sc.nValue = 0;
+        sc.address = entry.address;
+        sc.creationData.startBlockHeight = entry.startBlockHeight;
+
+        vecCcSend.push_back(CcRecipientVariant(sc));
+    }
+
+    BOOST_FOREACH(auto& entry, tx.vcl_ccout)
+    {
+        CRecipientCertLock cl;
+        cl.scId = entry.scId;
+        cl.nValue = entry.nValue;
+        cl.address = entry.address;
+        cl.epoch = entry.activeFromWithdrawalEpoch;
+
+        vecCcSend.push_back(CcRecipientVariant(cl));
+    }
+
+    BOOST_FOREACH(auto& entry, tx.vft_ccout)
+    {
+        CRecipientForwardTransfer ft;
+        ft.scId = entry.scId;
+        ft.address = entry.address;
+        ft.nValue = entry.nValue;
+
+        vecCcSend.push_back(CcRecipientVariant(ft));
+    }
+
+}
 
 CRecipientForwardTransfer::CRecipientForwardTransfer(const CTxForwardTransferCrosschainOut& ccout)
 {
@@ -344,7 +456,128 @@ CRecipientForwardTransfer::CRecipientForwardTransfer(const CTxForwardTransferCro
     address = ccout.address;
 }
 
-ScMgr::ScMgr() {}
+ScMgr::ScMgr(): db(NULL) {}
+
+bool ScMgr::initialUpdateFromDb(size_t cacheSize, bool fWipe)
+{
+    static bool initDone = false;
+
+    if (initDone)
+    {
+        LogPrintf("%s():%d - Error: could not init from db mpre than once!\n", __func__, __LINE__);
+        return false;
+    }
+
+    db = new CLevelDBWrapper(GetDataDir() / "sidechains", cacheSize, false, fWipe);
+
+    initDone = true;
+
+	LOCK(sc_lock);
+
+    boost::scoped_ptr<leveldb::Iterator> it(db->NewIterator());
+
+    for (it->SeekToFirst(); it->Valid(); it->Next())
+    {
+        boost::this_thread::interruption_point();
+
+        try {
+            leveldb::Slice slKey = it->key();
+            CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
+            char chType;
+            uint256 keyScId;
+            ssKey >> chType;
+            ssKey >> keyScId;;
+ 
+            if (chType == 'j')
+            {
+                leveldb::Slice slValue = it->value();
+                CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
+                ScInfo info;
+                ssValue >> info;
+ 
+                mScInfo[keyScId] = info;
+                LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, keyScId.ToString() );
+            }
+            else
+            {
+                // should never happen
+                LogPrintf("%s():%d - Error: could not read from db, invalid record type %c\n", __func__, __LINE__, chType);
+                return false;
+            }
+        }
+        catch (const std::exception& e)
+        {
+            return error("%s: Deserialize or I/O error - %s", __func__, e.what());
+        }
+    }
+
+    //    assert(it->status().ok());  // Check for any errors found during the scan
+    if (!it->status().ok())
+    {
+        return error("%s():%d - error occurred during db scan", __func__, __LINE__);
+    }
+    return true;
+}
+
+void ScMgr::eraseFromDb(const uint256& scId)
+{
+    // erase from level db
+    CLevelDBBatch batch;
+
+    try {
+        batch.Erase(std::make_pair('j', scId));
+        bool ret = db->WriteBatch(batch, true);
+        if (ret)
+        {
+            LogPrint("sc", "%s():%d - erased scId=%s in db\n", __func__, __LINE__, scId.ToString() );
+        }
+        else
+        {
+            LogPrint("sc", "%s():%d - Error: could not erase scId=%s in db\n", __func__, __LINE__, scId.ToString() );
+        }
+    }
+    catch (const std::exception& e)
+    {
+        LogPrintf("%s():%d - Error: could not erase scId=%s in db - %s\n", __func__, __LINE__, scId.ToString(), e.what());
+    }
+    catch (...)
+    {
+        LogPrintf("%s():%d - Error: could not erase scId=%s in db\n", __func__, __LINE__, scId.ToString());
+    }
+}
+
+
+bool ScMgr::writeToDb(const uint256& scId, const ScInfo& info)
+{
+    // write into level db
+    CLevelDBBatch batch;
+    bool ret = true;
+
+    try {
+        batch.Write(std::make_pair('j', scId), info );
+        // do it synchronously (true)
+        ret = db->WriteBatch(batch, true);
+        if (ret)
+        {
+            LogPrint("sc", "%s():%d - wrote scId=%s in db\n", __func__, __LINE__, scId.ToString() );
+        }
+        else
+        {
+            LogPrint("sc", "%s():%d - Error: could not write scId=%s in db\n", __func__, __LINE__, scId.ToString() );
+        }
+    }
+    catch (const std::exception& e)
+    {
+        LogPrintf("%s():%d - Error: could not write scId=%s in db - %s\n", __func__, __LINE__, scId.ToString(), e.what());
+        ret = false;
+    }
+    catch (...)
+    {
+        LogPrintf("%s():%d - Error: could not write scId=%s in db\n", __func__, __LINE__, scId.ToString());
+        ret = false;
+    }
+    return ret;
+}
 
 bool ScMgr::dump_info(const uint256& scId)
 {
@@ -356,7 +589,8 @@ bool ScMgr::dump_info(const uint256& scId)
         return false;
     }
 
-    LogPrint("sc", "  created in block[%s] (h=%d)\n", info.creationBlockIndex->GetBlockHash().ToString(), info.creationBlockIndex->nHeight );
+
+    LogPrint("sc", "  created in block[%s] (h=%d)\n", info.ownerBlockHash.ToString(), info.creationBlockHeight );
     LogPrint("sc", "  ownerTx[%s] (index in block=%d)\n", info.ownerTxHash.ToString(), info.creationTxIndex);
     LogPrint("sc", "  balance[%s]\n", FormatMoney(info.balance));
     LogPrint("sc", "  ----- creation data:\n");
@@ -366,21 +600,57 @@ bool ScMgr::dump_info(const uint256& scId)
     return true;
 }
 
-
 void ScMgr::dump_info()
 {
+    LogPrint("sc", "-- number of side chains found [%d] ------------------------\n", mScInfo.size());
     BOOST_FOREACH(const auto& entry, mScInfo)
     {
         dump_info(entry.first);
+    }
+
+    // dump leveldb contents on stdout
+    boost::scoped_ptr<leveldb::Iterator> it(db->NewIterator());
+
+    for (it->SeekToFirst(); it->Valid(); it->Next())
+    {
+        leveldb::Slice slKey = it->key();
+        CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
+        char chType;
+        uint256 keyScId;
+        ssKey >> chType;
+        ssKey >> keyScId;;
+
+        if (chType == 'j')
+        {
+            leveldb::Slice slValue = it->value();
+            CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
+            ScInfo info;
+            ssValue >> info;
+
+            uint256* scId = (uint256*)(it->key().data()); 
+            std::cout
+                << "scId[" << keyScId.ToString() << "]" << std::endl
+                << "  creating block hash: " + info.ownerBlockHash.ToString()
+                << " (height: " + std::to_string(info.creationBlockHeight) + ")" << std::endl
+                << "  creating tx hash: " + info.ownerTxHash.ToString() << std::endl
+                << "  tx idx in block: " + std::to_string(info.creationTxIndex)  << std::endl
+                << "  ### balance: " + std::to_string(info.balance) << std::endl;
+        }
+        else
+        {
+            std::cout << "unknown type " << chType << std::endl;
+        }
     }
 }
 
 void ScMgr::fillJSON(const uint256& scId, const ScInfo& info, UniValue& sc)
 {
     sc.push_back(Pair("scid", scId.GetHex()));
-    sc.push_back(Pair("amount", ValueFromAmount(info.balance)));
-    sc.push_back(Pair("creating tx", info.ownerTxHash.GetHex()));
-    sc.push_back(Pair("created in block", info.creationBlockIndex->GetBlockHash().GetHex()));
+    sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
+    sc.push_back(Pair("created in block", info.ownerBlockHash.ToString()));
+    sc.push_back(Pair("created at block height", info.creationBlockHeight));
+    sc.push_back(Pair("creating tx index in block", info.creationTxIndex));
+    sc.push_back(Pair("creating tx hash", info.ownerTxHash.GetHex()));
 }
 
 bool ScMgr::fillJSON(const uint256& scId, UniValue& sc)

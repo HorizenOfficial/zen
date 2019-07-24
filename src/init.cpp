@@ -65,6 +65,8 @@
 
 #include "librustzcash.h"
 
+#include "sc/sidechain.h"
+
 using namespace std;
 
 extern void ThreadSendAlert();
@@ -1396,6 +1398,8 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     int64_t nTotalCache = (GetArg("-dbcache", nDefaultDbCache) << 20);
     nTotalCache = std::max(nTotalCache, nMinDbCache << 20); // total cache cannot be less than nMinDbCache
     nTotalCache = std::min(nTotalCache, nMaxDbCache << 20); // total cache cannot be greated than nMaxDbcache
+    int64_t nSideChainDBCache = nTotalCache / 32;
+    nTotalCache -= nSideChainDBCache;
     int64_t nBlockTreeDBCache = nTotalCache / 8;
     if (nBlockTreeDBCache > (1 << 21) && !GetBoolArg("-txindex", false))
         nBlockTreeDBCache = (1 << 21); // block tree db cache shouldn't be larger than 2 MiB
@@ -1407,6 +1411,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     LogPrintf("* Using %.1fMiB for block index database\n", nBlockTreeDBCache * (1.0 / 1024 / 1024));
     LogPrintf("* Using %.1fMiB for chain state database\n", nCoinDBCache * (1.0 / 1024 / 1024));
     LogPrintf("* Using %.1fMiB for in-memory UTXO set\n", nCoinCacheUsage * (1.0 / 1024 / 1024));
+    LogPrintf("* Using %.1fMiB for sidechain database\n", nSideChainDBCache * (1.0 / 1024 / 1024));
 
     bool fLoaded = false;
     while (!fLoaded) {
@@ -1438,6 +1443,13 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
                 if (!LoadBlockIndex()) {
                     strLoadError = _("Error loading block database");
+                    break;
+                }
+
+                // open sidechain db, read data and populate memory objects
+                if (!Sidechain::ScMgr::instance().initialUpdateFromDb((size_t)nSideChainDBCache, fReindex) )
+                {
+                    strLoadError = _("Error loading sidechain database");
                     break;
                 }
 

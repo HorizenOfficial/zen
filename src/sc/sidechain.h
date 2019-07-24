@@ -7,11 +7,14 @@
 #include "chain.h"
 #include "hash.h"
 #include <boost/unordered_map.hpp>
+#include "leveldbwrapper.h"
+#include "sync.h"
 
 //------------------------------------------------------------------------------------
 class CTxMemPool;
 class UniValue;
 class CTxForwardTransferCrosschainOut;
+class CValidationState;
 
 namespace Sidechain
 {
@@ -65,40 +68,68 @@ class CRecipientForwardTransfer : public CRecipientCrossChainBase
 class ScInfo
 {
 public:
-    ScInfo() : creationBlockIndex(NULL), creationTxIndex(-1), ownerTxHash(), balance(0) {}
+    ScInfo() : ownerBlockHash(), creationBlockHeight(-1), creationTxIndex(-1), ownerTxHash(), balance(0) {}
     
     // reference to the block containing the tx that created the side chain 
-    const CBlockIndex* creationBlockIndex;;
+    uint256 ownerBlockHash;
+
+    // We can not serialize a pointer value to block index, but can retrieve it from chainActive if we have height
+    int creationBlockHeight;
+
     // index of the creating tx in the block vect of txs
     int creationTxIndex;
+
     // hash of the tx who created it
     uint256 ownerTxHash;
 
-    // total amount given by sum(fw transfer)
+    // total amount given by sum(fw transfer)-sum(bkw transfer)
     CAmount balance;
-
-    // list of certifiers
-    std::vector<CRecipientCertLock> certifiers;
 
     // creation data
     ScCreationParameters creationData;
 
     std::string ToString() const;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
+        READWRITE(ownerBlockHash);
+        READWRITE(creationBlockHeight);
+        READWRITE(creationTxIndex);
+        READWRITE(ownerTxHash);
+        READWRITE(balance);
+    }
 };
 
+typedef boost::variant<CRecipientScCreation, CRecipientCertLock, CRecipientForwardTransfer> CcRecipientVariant;
 typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
 
 using ::CTxMemPool;
 using ::UniValue;
+using ::CValidationState;
 
 class ScMgr
 {
   private:
     ScMgr(); // Disallow instantiation outside of the class.
+
+    CCriticalSection sc_lock;
     ScInfoMap mScInfo;
+    CLevelDBWrapper* db;
+
+    bool writeToDb(const uint256& scId, const ScInfo& info);
+    void eraseFromDb(const uint256& scId);
 
     typedef boost::unordered_map<uint256, std::vector<CRecipientForwardTransfer>, ObjectHasher> ScFwdTransfers;
     ScFwdTransfers _cachedFwTransfers;
+
+    bool addSidechain(const uint256& scId, ScInfo& info);
+    void removeSidechain(const uint256& scId);
+
+    bool checkSidechainCreation(const CTransaction& tx);
+    bool checkCreationInMemPool(CTxMemPool& pool, const CTransaction& tx);
 
   public:
     static ScMgr& instance();
@@ -108,26 +139,28 @@ class ScMgr
     ScMgr(ScMgr &&) = delete;
     ScMgr & operator=(ScMgr &&) = delete;
 
-    void addSidechain(const uint256& scId, ScInfo& info);
-    void removeSidechain(const uint256& scId);
+    bool initialUpdateFromDb(size_t cacheSize, bool fWipe);
 
     bool sidechainExists(const uint256& scId);
+    bool getScInfo(const uint256& scId, ScInfo& info);
 
-    bool addBlockScTransactions(const CBlock& block, const CBlockIndex* pindex);
-    bool removeBlockScTransactions(const CBlock& block);
+    bool onBlockConnected(const CBlock& block, int nHeight);
+    bool onBlockDisconnected(const CBlock& block);
 
     bool updateSidechainBalance(const uint256& scId, const CAmount& amount);
     CAmount getSidechainBalance(const uint256& scId);
 
-    bool getScInfo(const uint256& scId, ScInfo& info);
-    bool checkSidechainTxCreation(const CTransaction& tx);
-    bool checkCreationInMemPool(CTxMemPool& pool, const CTransaction& tx);
+    bool checkTransaction(const CTransaction& tx, CValidationState& state);
+    bool checkMemPool(CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
+    bool checkSidechainForwardTransaction(const CTransaction& tx);
 
-    // used at node startupwhen verifying blocks
-    void addSidechainsAndCacheAmounts(const CBlock& block, const CBlockIndex* pindex);
-    bool updateAmountsFromCache();
+    // return the index of the added vout, -1 if no output has been added 
+    int evalAddCreationFeeOut(CMutableTransaction& tx);
 
-    void evalSendCreationFee(CMutableTransaction& tx);
+    // used when creating a raw transaction with cc outputs
+    bool fillRawCreation(UniValue& sc_crs, CMutableTransaction& rawTx, CTxMemPool& pool, std::string& error); 
+    // used when funding a raw tx 
+    void fillFundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant>& vecCcSend);
 
     // print functions
     bool dump_info(const uint256& scId);
@@ -151,8 +184,6 @@ class CcRecipientVisitor : public boost::static_visitor<bool>
     bool operator() (const CRecipientCertLock& r) const;
     bool operator() (const CRecipientForwardTransfer& r) const;
 };
-
-typedef boost::variant<CRecipientScCreation, CRecipientCertLock, CRecipientForwardTransfer> CcRecipientVariant;
 
 class CRecipientFactory
 {

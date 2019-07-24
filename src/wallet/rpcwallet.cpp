@@ -431,10 +431,12 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtr
     CAmount nFeeRequired;
     std::string strError;
     vector<CRecipient> vecSend;
+    vector< Sidechain::CcRecipientVariant > vecCcSend;
+    bool bFundScCreation = false;
     int nChangePosRet = -1;
     CRecipient recipient = {scriptPubKey, nValue, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
-    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, reservekey, nFeeRequired, nChangePosRet, strError)) {
+    if (!pwalletMain->CreateTransaction(vecSend, vecCcSend, wtxNew, reservekey, nFeeRequired, nChangePosRet, bFundScCreation, strError)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > pwalletMain->GetBalance())
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s because of its amount, complexity, or use of recently received funds!", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
@@ -642,7 +644,7 @@ UniValue sc_certlock(const UniValue& params, bool fHelp)
     return sc_certlock_many(input, false);
 }
 
-static void ScHandleTransaction(CWalletTx& wtx, std::vector<CcRecipientVariant>& vecSend, const CAmount& nTotalOut)
+static void ScHandleTransaction(CWalletTx& wtx, std::vector<CcRecipientVariant>& vecCcSend, const CAmount& nTotalOut)
 {
     CAmount curBalance = pwalletMain->GetBalance();
     if (nTotalOut > curBalance)
@@ -651,8 +653,10 @@ static void ScHandleTransaction(CWalletTx& wtx, std::vector<CcRecipientVariant>&
     CReserveKey keyChange(pwalletMain);
     CAmount nFeeRequired = 0;
     int nChangePosRet = -1;
+    bool bFundScCreation = false;
     string strFailReason;
-    bool fCreated = pwalletMain->ScCreateTransaction(vecSend, wtx, keyChange, nFeeRequired, nChangePosRet, strFailReason);
+    std::vector<CRecipient> vecSend;
+    bool fCreated = pwalletMain->CreateTransaction(vecSend, vecCcSend, wtx, keyChange, nFeeRequired, nChangePosRet, bFundScCreation, strFailReason);
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     if (!pwalletMain->CommitTransaction(wtx, keyChange))
@@ -1319,7 +1323,9 @@ UniValue sendmany(const UniValue& params, bool fHelp)
     CAmount nFeeRequired = 0;
     int nChangePosRet = -1;
     string strFailReason;
-    bool fCreated = pwalletMain->CreateTransaction(vecSend, wtx, keyChange, nFeeRequired, nChangePosRet, strFailReason);
+    vector< Sidechain::CcRecipientVariant > vecCcSend;
+    bool bFundScCreation = false;
+    bool fCreated = pwalletMain->CreateTransaction(vecSend, vecCcSend, wtx, keyChange, nFeeRequired, nChangePosRet, bFundScCreation, strFailReason);
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     if (!pwalletMain->CommitTransaction(wtx, keyChange))
@@ -2067,9 +2073,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
     
     if (wtx.nVersion == SC_TX_VERSION)
     {
-        nOut += wtx.GetValueScCreationCcOut();
-        nOut += wtx.GetValueCertifierLockCcOut();
-        nOut += wtx.GetValueForwardTransferCcOut();
+        nOut += wtx.GetValueCcOut();
     }
 
     CAmount nNet = nCredit - nDebit;

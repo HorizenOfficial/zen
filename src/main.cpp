@@ -58,6 +58,8 @@ using namespace std;
  * Global state
  */
 
+Sidechain::ScMgr& scMgr = Sidechain::ScMgr::instance();
+
 CCriticalSection cs_main;
 
 ScTxMap mDbgScTransactions;
@@ -996,8 +998,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
         }
     }
 
-    // if the tx creates a side chain, check that it is not yet created by a different tx
-    if (!Sidechain::ScMgr::instance().checkSidechainTxCreation(tx) )
+   if (!scMgr.checkTransaction(tx, state) )
     {
         return state.DoS(10,
             error("CheckTransaction: transaction tries to create scid already created"),
@@ -1283,12 +1284,11 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             }
         }
 
-        // if this tx creates a sc, check that no other tx are doing the same in the mempool
-        if (!Sidechain::ScMgr::instance().checkCreationInMemPool(pool, tx) )
+        // beside the check performed in CheckTransaction above, ensure that if this tx creates
+        // a sc, no other tx is doing the same in the mempool
+        if (!scMgr.checkMemPool(pool, tx, state) )
         {
-            return state.DoS(0,
-                 error("AcceptToMemoryPool: transaction tries to create scid already created"),
-                 REJECT_INVALID, "sidechain-creation");
+            return false;
         }
     }
 
@@ -2494,10 +2494,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if (!pblocktree->WriteTxIndex(vPos))
             return AbortNode(state, "Failed to write transaction index");
 
-    // check for SC-related tx in block, and in case update data
-    DbgAddToScTransactionMap(block);
-    Sidechain::ScMgr::instance().addBlockScTransactions(block, pindex);
-
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
@@ -2724,7 +2720,7 @@ bool static DisconnectTip(CValidationState &state) {
         return false;
 
     DbgRemoveFromScTransactionMap(block);
-    Sidechain::ScMgr::instance().removeBlockScTransactions(block);
+    scMgr.onBlockDisconnected(block);
 
     // Resurrect mempool transactions from the disconnected block.
     BOOST_FOREACH(const CTransaction &tx, block.vtx) {
@@ -2825,6 +2821,10 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     GetMainSignals().ChainTip(pindexNew, pblock, oldTree, true);
 
     EnforceNodeDeprecation(pindexNew->nHeight);
+
+    // as a last thing, update sidechain data if any
+    DbgAddToScTransactionMap(*pblock);
+    scMgr.onBlockConnected(*pblock, pindexNew->nHeight);
 
     int64_t nTime6 = GetTimeMicros(); nTimePostConnect += nTime6 - nTime5; nTimeTotal += nTime6 - nTime1;
     LogPrint("bench", "  - Connect postprocess: %.2fms [%.2fs]\n", (nTime6 - nTime5) * 0.001, nTimePostConnect * 0.000001);
@@ -4210,20 +4210,11 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
                 nGoodTransactions += block.vtx.size();
         }
 
-        // fill temporary sidechain fw amounts here, and update sidechains map later, since we are reading blocks in reverse
-        // and therefore creation will be found after all of its fw transfers
-        Sidechain::ScMgr::instance().addSidechainsAndCacheAmounts(block, pindex);
-
         if (ShutdownRequested())
             return true;
 
     }
 
-    if (!Sidechain::ScMgr::instance().updateAmountsFromCache() )
-    {
-        return error("VerifyDB(): *** Could not update sidechain balance ((last %i blocks, %i good transactions before that) \n", chainActive.Height() - pindexFailure->nHeight + 1, nGoodTransactions);
-    }
-    
     if (pindexFailure)
         return error("VerifyDB(): *** coin database inconsistencies found (last %i blocks, %i good transactions before that)\n", chainActive.Height() - pindexFailure->nHeight + 1, nGoodTransactions);
 

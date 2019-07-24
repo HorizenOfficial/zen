@@ -39,10 +39,12 @@
 #include <functional>
 #endif
 #include <mutex>
+#include "sc/sidechain.h"
 
 using namespace std;
 
 #include "zen/forkmanager.h"
+
 using namespace zen; 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -416,6 +418,16 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
             if (!view.HaveInputs(tx))
                 continue;
+
+            // skip transactions that forward crosschain amounts if the creation of the target sidechain is not yet in blockchain
+            // this should happen only if a chain has been reverted and a mix of creation/fwd has been placed back in the mem pool
+            // The skipped tx will be mined in the next block if the scid is found
+            if (!Sidechain::ScMgr::instance().checkSidechainForwardTransaction(tx) )
+            {
+                LogPrint("sc", "%s():%d - Skipping tx[%s] because tries to forward funds to a SC not yet created\n", __func__, __LINE__, tx.GetHash().ToString());
+                continue;
+            }
+    
 
             CAmount nTxFees = view.GetValueIn(tx)-tx.GetValueOut()-tx.GetValueCcOut();
 

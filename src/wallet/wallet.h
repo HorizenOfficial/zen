@@ -1018,10 +1018,11 @@ public:
     CAmount GetUnconfirmedWatchOnlyBalance() const;
     CAmount GetImmatureWatchOnlyBalance() const;
     bool FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosRet, std::string& strFailReason);
-    bool CreateTransaction(const std::vector<CRecipient>& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosRet,
-                           std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true);
-    bool ScCreateTransaction(const std::vector< Sidechain::CcRecipientVariant >& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey,
-         CAmount& nFeeRet, int& nChangePosRet, std::string& strFailReason, const CCoinControl* coinControl = NULL, bool sign = true);
+    bool CreateTransaction(
+        const std::vector<CRecipient>& vecSend, const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
+        CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosRet, bool bFundScCreation,
+        std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true);
+
     bool CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);
 
     static CFeeRate minTxFee;
