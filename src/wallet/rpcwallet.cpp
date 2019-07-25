@@ -2065,7 +2065,6 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid or non-wallet transaction id");
     const CWalletTx& wtx = pwalletMain->mapWallet[hash];
 
-    CAmount nScCredit = 0;
     CAmount nOut = wtx.GetValueOut();
 
     CAmount nCredit = wtx.GetCredit(filter);

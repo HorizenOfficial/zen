@@ -547,10 +547,10 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
         if (sc_crs.size())
         {
-            std::string error;
-            if (!ScMgr::instance().fillRawCreation(sc_crs, rawTx, mempool, error) )
+            std::string errString;
+            if (!ScMgr::instance().fillRawCreation(sc_crs, rawTx, mempool, errString) )
             {
-                throw JSONRPCError(RPC_TYPE_ERROR, error);
+                throw JSONRPCError(RPC_TYPE_ERROR, errString);
             }
         }
     }

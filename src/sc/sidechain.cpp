@@ -11,6 +11,7 @@
 extern CChain chainActive;
 extern UniValue ValueFromAmount(const CAmount& amount);
 
+static const char DB_SC_INFO = 'i';
 
 using namespace Sidechain;
 
@@ -363,9 +364,9 @@ bool ScMgr::fillRawCreation(UniValue& sc_crs, CMutableTransaction& rawTx, CTxMem
 {
     rawTx.nVersion = SC_TX_VERSION;
 
-    for (size_t j = 0; j < sc_crs.size(); j++)
+    for (size_t i = 0; i < sc_crs.size(); i++)
     {
-        const UniValue& input = sc_crs[j];
+        const UniValue& input = sc_crs[i];
         const UniValue& o = input.get_obj();
  
         std::string inputString = find_value(o, "scid").get_str();
@@ -486,7 +487,7 @@ bool ScMgr::initialUpdateFromDb(size_t cacheSize, bool fWipe)
             ssKey >> chType;
             ssKey >> keyScId;;
  
-            if (chType == 'j')
+            if (chType == DB_SC_INFO)
             {
                 leveldb::Slice slValue = it->value();
                 CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
@@ -530,7 +531,7 @@ void ScMgr::eraseFromDb(const uint256& scId)
     CLevelDBBatch batch;
 
     try {
-        batch.Erase(std::make_pair('j', scId));
+        batch.Erase(std::make_pair(DB_SC_INFO, scId));
         bool ret = db->WriteBatch(batch, true);
         if (ret)
         {
@@ -565,7 +566,7 @@ bool ScMgr::writeToDb(const uint256& scId, const ScInfo& info)
     bool ret = true;
 
     try {
-        batch.Write(std::make_pair('j', scId), info );
+        batch.Write(std::make_pair(DB_SC_INFO, scId), info );
         // do it synchronously (true)
         ret = db->WriteBatch(batch, true);
         if (ret)
@@ -636,21 +637,20 @@ void ScMgr::dump_info()
         ssKey >> chType;
         ssKey >> keyScId;;
 
-        if (chType == 'j')
+        if (chType == DB_SC_INFO)
         {
             leveldb::Slice slValue = it->value();
             CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
             ScInfo info;
             ssValue >> info;
 
-            uint256* scId = (uint256*)(it->key().data()); 
             std::cout
                 << "scId[" << keyScId.ToString() << "]" << std::endl
-                << "  creating block hash: " + info.ownerBlockHash.ToString()
-                << " (height: " + std::to_string(info.creationBlockHeight) + ")" << std::endl
-                << "  creating tx hash: " + info.ownerTxHash.ToString() << std::endl
-                << "  tx idx in block: " + std::to_string(info.creationTxIndex)  << std::endl
-                << "  ### balance: " + std::to_string(info.balance) << std::endl;
+                << "  creating block hash: " << info.ownerBlockHash.ToString()
+                << " (height: " << info.creationBlockHeight << ")" << std::endl
+                << "  creating tx hash: " << info.ownerTxHash.ToString() << std::endl
+                << "  tx idx in block: " << info.creationTxIndex << std::endl
+                << "  ==> balance: " << ValueFromAmount(info.balance).get_real() << std::endl;
         }
         else
         {
