@@ -192,6 +192,7 @@ void Shutdown()
     RenameThread("zcash-shutoff");
     mempool.AddTransactionsUpdated(1);
 
+    StopWsServer();
     StopHTTPRPC();
     StopREST();
     StopRPC();
@@ -779,7 +780,7 @@ bool AppInitServers(boost::thread_group& threadGroup)
         return false;
     if (!StartHTTPServer())
         return false;
-    if (!StartWsServer())
+    if (GetBoolArg("-websocket", false) && !StartWsServer())
         return false;
     return true;
 }
