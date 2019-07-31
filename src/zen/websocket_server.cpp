@@ -78,6 +78,7 @@ public:
 	    UPDATE_TIP = 1,
 		GET_SINGLE_BLOCK = 2,
 		GET_MULTIPLE_BLOCKS = 3,
+		GET_MULTIPLE_BLOCK_HASHES = 4,
 		ERROR = -1
 	};
 
@@ -115,18 +116,40 @@ private:
 	boost::lockfree::queue<WsEvent*, boost::lockfree::capacity<1024>>* wsq;
 	std::atomic<bool> exit_rwhandler_thread_flag{false};
 
-	void sendBlock(int height, std::string strHash, std::string blockHex, WsEvent::WsEventType eventType, int counter = 0)
+	void sendBlock(int height, std::string strHash, std::string blockHex, WsEvent::WsEventType eventType, std::string clientMsgId = "",
+			int counter = 0)
 	{
 		// Send a message to the client:  type = eventType
-
 		WsEvent* wse = new WsEvent(eventType);
 		UniValue* rv = wse->getPayload();
 		if (counter > 0) rv->push_back(Pair("counter", counter));
 		rv->push_back(Pair("height", height));
 		rv->push_back(Pair("hash", strHash));
 		rv->push_back(Pair("block", blockHex));
+		if (!clientMsgId.empty()) rv->push_back(Pair("msgId", clientMsgId));
 		wsq->push(wse);
 	}
+
+	void sendHashes(int height,std::list<CBlockIndex*>& listBlock , WsEvent::WsEventType eventType, std::string clientMsgId = "")
+	{
+		// Send a message to the client:  type = eventType
+		WsEvent* wse = new WsEvent(eventType);
+		UniValue* rv = wse->getPayload();
+		rv->push_back(Pair("height", height));
+		UniValue hashes(UniValue::VARR);
+
+		std::list<CBlockIndex*>::iterator it = listBlock.begin();
+		while(it != listBlock.end())
+		{
+			CBlockIndex* blockIndexIterator = *it;
+			hashes.push_back(blockIndexIterator->GetBlockHash().GetHex());
+			it++;
+		}
+		rv->push_back(Pair("hashes", hashes));
+		if (!clientMsgId.empty()) rv->push_back(Pair("msgId", clientMsgId));
+		wsq->push(wse);
+	}
+
 
 	int getHashByHeight(std::string height, std::string& strHash)
 	{
@@ -147,15 +170,15 @@ private:
 		return OK;
 	}
 
-	int sendBlockByHeight(std::string strHeight)
+	int sendBlockByHeight(std::string strHeight, std::string clientMsgId)
 	{
         std::string strHash;
         int r = getHashByHeight(strHeight, strHash);
         if (r!=OK) return r;
-        return sendBlockByHash(strHash);
+        return sendBlockByHash(strHash, clientMsgId);
 	}
 
-	int sendBlockByHash(std::string strHash)
+	int sendBlockByHash(std::string strHash, std::string clientMsgId)
 	{
 		CBlockIndex* pblockindex;
 		{
@@ -168,20 +191,20 @@ private:
 			}
 		}
 		std::string block = getblock(pblockindex);
-		sendBlock(pblockindex->nHeight, strHash, block, WsEvent::WsEventType::GET_SINGLE_BLOCK);
+		sendBlock(pblockindex->nHeight, strHash, block, WsEvent::WsEventType::GET_SINGLE_BLOCK, clientMsgId);
 		return OK;
 	}
 
-	int sendBlocksFromHeight(std::string strHeight, std::string strLen)
+	int sendBlocksFromHeight(std::string strHeight, std::string strLen, std::string clientMsgId, bool includeBlock = true)
 	{
 		std::string strHash;
 		int r = getHashByHeight(strHeight, strHash);
 		if (r != OK)
 			return r;
-		return sendBlocksFromHash(strHash, strLen);
+		return sendBlocksFromHash(strHash, strLen, clientMsgId, includeBlock);
 	}
 
-	int sendBlocksFromHash(std::string strHash, std::string strLen)
+	int sendBlocksFromHash(std::string strHash, std::string strLen, std::string clientMsgId, bool includeBlock = true)
 	{
 		int len = -1;
 		try
@@ -217,18 +240,23 @@ private:
 				n++;
 			}
 		}
-		int counter = 1;
-		std::list<CBlockIndex*>::iterator it = listBlock.begin();
-		while(it != listBlock.end())
+		if (includeBlock)
 		{
-			CBlockIndex* blockIndexIterator = *it;
-			std::string blockHex = getblock(blockIndexIterator);
-
-			sendBlock(blockIndexIterator->nHeight, blockIndexIterator->GetBlockHash().GetHex(), blockHex,
-					WsEvent::WsEventType::GET_MULTIPLE_BLOCKS, counter);
-
-			counter++;
-			it++;
+			int counter = 1;
+			std::list<CBlockIndex*>::iterator it = listBlock.begin();
+			while(it != listBlock.end())
+			{
+				CBlockIndex* blockIndexIterator = *it;
+				std::string blockHex = getblock(blockIndexIterator);
+				sendBlock(blockIndexIterator->nHeight, blockIndexIterator->GetBlockHash().GetHex(), blockHex,
+						WsEvent::WsEventType::GET_MULTIPLE_BLOCKS, clientMsgId, counter);
+				counter++;
+				it++;
+			}
+		}
+		else
+		{
+			sendHashes(listBlock.front()->nHeight, listBlock, WsEvent::WsEventType::GET_MULTIPLE_BLOCK_HASHES, clientMsgId);
 		}
 		return OK;
 	}
@@ -272,7 +300,7 @@ private:
 		LogPrintf("wshandler:writeLoop: write thread exit\n");
 	}
 
-	int parseClientMessage()
+	int parseClientMessage(WsEvent::WsEventType& commandType)
 	{
 		try
 		{
@@ -295,13 +323,20 @@ private:
 				return INVALID_JSON_FORMAT;
 			}
 
+			std::string clientMsgId = findFieldValue("msgId", request);
+
 			command = findFieldValue("command", request);
 			if (command.empty())
 			{
 				return INVALID_COMMAND;
 			}
-			if (command == "getblock")
+			if (command == "getBlock")
 			{
+				commandType = WsEvent::GET_SINGLE_BLOCK;
+				if (clientMsgId.empty())
+				{
+					return MISSING_MSGID;
+				}
 				std::string param1 = findFieldValue("height", request);
 				if (param1.empty())
 				{
@@ -310,29 +345,59 @@ private:
 					{
 						return MISSING_PARAMETER; //
 					}
-					return sendBlockByHash(param1);
+					return sendBlockByHash(param1, clientMsgId);
 				}
-				return sendBlockByHeight(param1);
+				return sendBlockByHeight(param1, clientMsgId);
 			}
-			if (command == "getblocks")
+			if (command == "getBlocks")
 			{
+				commandType = WsEvent::GET_MULTIPLE_BLOCKS;
+				if (clientMsgId.empty())
+				{
+					return MISSING_MSGID;
+				}
 				std::string strLen = findFieldValue("len", request);
 				if (strLen.empty())
 				{
 					return MISSING_PARAMETER;
 				}
 
-				std::string param1 = findFieldValue("fromHeight", request);
+				std::string param1 = findFieldValue("afterHeight", request);
 				if (param1.empty())
 				{
-					param1 = findFieldValue("fromHash", request);
+					param1 = findFieldValue("afterHash", request);
 					if (param1.empty())
 					{
 						return MISSING_PARAMETER; //
 					}
-					return sendBlocksFromHash(param1, strLen);
+					return sendBlocksFromHash(param1, strLen, clientMsgId);
 				}
-				return sendBlocksFromHeight(param1, strLen);
+				return sendBlocksFromHeight(param1, strLen, clientMsgId);
+			}
+			if (command == "getBlockHashes")
+			{
+				commandType = WsEvent::GET_MULTIPLE_BLOCK_HASHES;
+				if (clientMsgId.empty())
+				{
+					return MISSING_MSGID;
+				}
+				std::string strLen = findFieldValue("len", request);
+				if (strLen.empty())
+				{
+					return MISSING_PARAMETER;
+				}
+
+				std::string param1 = findFieldValue("afterHeight", request);
+				if (param1.empty())
+				{
+					param1 = findFieldValue("afterHash", request);
+					if (param1.empty())
+					{
+						return MISSING_PARAMETER; //
+					}
+					return sendBlocksFromHash(param1, strLen, clientMsgId, false);
+				}
+				return sendBlocksFromHeight(param1, strLen, clientMsgId, false);
 			}
 
 			return INVALID_COMMAND;
@@ -348,7 +413,8 @@ private:
 	{
 		while(!exit_rwhandler_thread_flag)
 		{
-			int res = parseClientMessage();
+			WsEvent::WsEventType commandType;
+			int res = parseClientMessage(commandType);
 			if (res == READ_ERROR)
 			{
 				LogPrintf("wshandler:readLoop: websocket closed/error exit reading loop \n ");
@@ -366,15 +432,22 @@ private:
 				case MISSING_PARAMETER:
 					msgError = "Missing parameter";
 					break;
+				case MISSING_MSGID:
+					msgError = "Missing msgId";
+					break;
 				case INVALID_COMMAND:
 					msgError = "Invalid command";
 					break;
 				case INVALID_JSON_FORMAT:
+					commandType = WsEvent::ERROR;
 					msgError = "Invalid JSON format";
 					break;
+				default:
+					msgError = "Generic error";
+
 				}
 				// Send a message error to the client:  type = -1
-				WsEvent* wse = new WsEvent(WsEvent::WsEventType::ERROR);
+				WsEvent* wse = new WsEvent(commandType);
 				UniValue* rv = wse->getPayload();
 				rv->push_back(Pair("errorCode", res));
 				rv->push_back(Pair("message", msgError));
@@ -386,13 +459,14 @@ private:
 
 public:
 
-	enum CLIENT_REPLY_CODE {
+	enum CLIENT_PROCMSG_CODE {
 		OK = 0,
 		MISSING_PARAMETER = 1,
 		INVALID_COMMAND = 2,
 		INVALID_JSON_FORMAT = 3,
-		READ_ERROR = 4,
-		INVALID_PARAMETER = 5
+		INVALID_PARAMETER = 4,
+		MISSING_MSGID = 5,
+		READ_ERROR = 99
 	};
 
 	int t_id = 0;
