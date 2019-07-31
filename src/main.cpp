@@ -929,6 +929,14 @@ bool ContextualCheckTransaction(
 	// at height < groth_fork v>=1 txs with PHGR proofs
 	// at height >= groth_fork v=-3 shielded with GROTH proofs and v=1 transparent with joinsplit empty
 
+    if (!scMgr.checkSidechainCreationFunds(tx, nHeight) )
+    {
+        LogPrint("sc", "%s():%d - Invalid tx[%s] : community fund missing or wrong\n",
+            __func__, __LINE__, tx.GetHash().ToString() );
+        return state.DoS(100, error("%s: community fund missing or not valid at block h %d",
+            __func__, nHeight), REJECT_INVALID, "sidechain-creation-wrong-community-fund");
+    }
+
 
 	const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
 	bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);

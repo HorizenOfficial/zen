@@ -130,7 +130,7 @@ class ScMgr
     bool addSidechain(const uint256& scId, ScInfo& info);
     void removeSidechain(const uint256& scId);
 
-    bool checkSidechainCreation(const CTransaction& tx);
+    bool checkSidechainCreation(const CTransaction& tx, CValidationState& state);
     bool checkCreationInMemPool(CTxMemPool& pool, const CTransaction& tx);
 
   public:
@@ -156,6 +156,7 @@ class ScMgr
     bool checkTransaction(const CTransaction& tx, CValidationState& state);
     bool checkMemPool(CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
     bool checkSidechainForwardTransaction(const CTransaction& tx);
+    bool checkSidechainCreationFunds(const CTransaction& tx, int nHeight);
 
     // return the index of the added vout, -1 if no output has been added 
     int evalAddCreationFeeOut(CMutableTransaction& tx);

@@ -92,7 +92,62 @@ void ScMgr::removeSidechain(const uint256& scId)
     LogPrint("sc", "%s():%d - (erased=%d) scId=%s\n", __func__, __LINE__, num, scId.ToString() );
 }
 
-bool ScMgr::checkSidechainCreation(const CTransaction& tx)
+bool ScMgr::checkSidechainCreationFunds(const CTransaction& tx, int nHeight)
+{
+    if (tx.vsc_ccout.size() )
+    {
+        const uint256 txHash = tx.GetHash();
+
+        CScript comScript = Params().GetCommunityFundScriptAtHeight(nHeight, Fork::CommunityFundType::FOUNDATION);
+        LogPrint("sc", "%s():%d - com script[%s]\n", __func__, __LINE__, comScript.ToString() );
+
+        CAmount totalFund = 0;
+        BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
+        {
+            totalFund += sc.nValue;
+        }
+        LogPrint("sc", "%s():%d - total funds should be %s for the creation of %d sidechains\n",
+            __func__, __LINE__, FormatMoney(totalFund), tx.vsc_ccout.size() );
+
+        bool ret = false;
+        BOOST_FOREACH(const auto& output, tx.vout)
+        {
+            CScript outScript = output.scriptPubKey;
+            LogPrint("sc", "%s():%d - out script[%s]\n", __func__, __LINE__, outScript.ToString() );
+
+            // we have the 'check block at height' condition in the out script which community fund script does not have
+            // therefore we do not check the equality of scripts but the containment of the latter in the former
+            auto res = search(begin(outScript), end(outScript), begin(comScript), end(comScript));
+
+            if (res != end(outScript) )
+            {
+                // check also the consistency of the fund; we are also happy with amounts greater than the default
+                if (output.nValue == totalFund && output.nValue >= (tx.vsc_ccout.size()*SC_CREATION_FEE) )
+                {
+                    LogPrint("sc", "%s():%d - OK tx[%s] funds the foundation with %s for the creation of %d sidechains\n",
+                        __func__, __LINE__, txHash.ToString(), FormatMoney(output.nValue), tx.vsc_ccout.size() );
+                    ret = true;
+                    break;
+                }
+                else
+                {
+                    LogPrint("sc", "%s():%d - BAD tx[%s] funds %s for the creation of %d sidechains\n",
+                        __func__, __LINE__, txHash.ToString(), FormatMoney(output.nValue), tx.vsc_ccout.size() );
+                }
+            }
+        }
+
+        if (!ret)
+        {
+            LogPrint("sc", "%s():%d - ERROR: tx[%s] does not fund correctly the foundation\n",
+                __func__, __LINE__, txHash.ToString());
+            return false;
+        }
+    }
+    return true;
+}
+
+bool ScMgr::checkSidechainCreation(const CTransaction& tx, CValidationState& state)
 {
     if (tx.vsc_ccout.size() )
     {
@@ -107,12 +162,23 @@ bool ScMgr::checkSidechainCreation(const CTransaction& tx)
                 {
                     LogPrint("sc", "%s():%d - Invalid tx[%s] : scid[%s] already created by tx[%s]\n",
                         __func__, __LINE__, txHash.ToString(), sc.scId.ToString(), info.ownerTxHash.ToString() );
-                    return false;
+                    return state.DoS(10,
+                        error("transaction tries to create scid already created"),
+                        REJECT_INVALID, "sidechain-creation-id-already-created");
                 }
-                else
-                {
+
                     LogPrint("sc", "%s():%d - OK tx[%s] : scid[%s] creation detected\n",
                         __func__, __LINE__, txHash.ToString(), sc.scId.ToString() );
+
+                // check the fee has been payed to the community
+                int nHeight = info.creationBlockHeight;
+
+                if (!checkSidechainCreationFunds(tx, nHeight) )
+                {
+                    LogPrint("sc", "%s():%d - Invalid tx[%s] : community fund missing\n",
+                        __func__, __LINE__, txHash.ToString() );
+                    return state.DoS(100, error("%s: community fund missing or not valid at block h %d",
+                        __func__, nHeight), REJECT_INVALID, "sidechain-creation-wrong-community-fund");
                 }
             }
             else
@@ -159,11 +225,9 @@ bool ScMgr::checkTransaction(const CTransaction& tx, CValidationState& state)
         }
     }
 
-    if (!checkSidechainCreation(tx) )
+    if (!checkSidechainCreation(tx, state) )
     {
-        return state.DoS(10,
-            error("transaction tries to create scid already created"),
-            REJECT_INVALID, "sidechain-creation");
+        return false;
     }
 
     if (!checkSidechainForwardTransaction(tx) )
@@ -341,10 +405,10 @@ int ScMgr::evalAddCreationFeeOut(CMutableTransaction& tx)
     }
 
     const CChainParams& chainparams = Params();
-    CAmount totalReward = 0;
+    CAmount totalFund = 0;
     BOOST_FOREACH(const auto& txccout, tx.vsc_ccout)
     {
-        totalReward += SC_CREATION_FEE;
+        totalFund += SC_CREATION_FEE;
     }
 
     // can not be calculated just once because depends on height
@@ -356,7 +420,7 @@ int ScMgr::evalAddCreationFeeOut(CMutableTransaction& tx)
 
     CScript scriptFund = GetScriptForDestination(address.Get());
 
-    tx.vout.push_back( CTxOut(totalReward, scriptFund));
+    tx.vout.push_back( CTxOut(totalFund, scriptFund));
     return tx.vout.size() -1;
 }
 
@@ -650,7 +714,7 @@ void ScMgr::dump_info()
                 << " (height: " << info.creationBlockHeight << ")" << std::endl
                 << "  creating tx hash: " << info.ownerTxHash.ToString() << std::endl
                 << "  tx idx in block: " << info.creationTxIndex << std::endl
-                << "  ==> balance: " << ValueFromAmount(info.balance).get_real() << std::endl;
+                << "  ==> balance: " << FormatMoney(info.balance) << std::endl;
         }
         else
         {
