@@ -46,61 +46,50 @@ std::mutex wsmtx;
 static std::string findFieldValue(std::string field, UniValue& request)
 {
 	const UniValue& clientvalue = find_value(request, field);
-	if (clientvalue.isStr())
-	{
+	if (clientvalue.isStr()) {
 		return clientvalue.get_str();
-	}
-	else if (clientvalue.isNum())
-	{
+	} else if (clientvalue.isNum()) {
 		return std::to_string(clientvalue.get_int());
-	}
-	else if (clientvalue.isNull())
-	{	return "";
+	} else if (clientvalue.isNull()) {
+		return "";
 	}
 	return "";
 }
 
 
-class WsNotificationInterface : public CValidationInterface
+class WsNotificationInterface: public CValidationInterface
 {
 protected:
-    virtual void UpdatedBlockTip(const CBlockIndex *pindex) {
-    		ws_updatetip(pindex);
-       };
+	virtual void UpdatedBlockTip(const CBlockIndex *pindex) {
+		ws_updatetip(pindex);
+	};
 };
-
 
 class WsEvent
 {
 public:
-	enum WsEventType
-	{
-	    UPDATE_TIP = 1,
+	enum WsEventType {
+		UPDATE_TIP = 1,
 		GET_SINGLE_BLOCK = 2,
 		GET_MULTIPLE_BLOCKS = 3,
 		GET_MULTIPLE_BLOCK_HASHES = 4,
 		ERROR = -1
 	};
 
-	WsEvent(WsEventType xn)
-	{
+	WsEvent(WsEventType xn) {
 		type = xn;
 		payload = new UniValue(UniValue::VOBJ);
 		payload->push_back(Pair("type", type));
 	}
-	WsEvent(const WsEvent& ws)
-	{
-		type=ws.type;
+	WsEvent(const WsEvent& ws) {
+		type = ws.type;
 		payload = ws.payload;
 	}
- 	~WsEvent()
- 	{
+	~WsEvent(){};
 
- 	};
- 	UniValue* getPayload()
- 	{
- 		return payload;
- 	}
+	UniValue* getPayload() {
+		return payload;
+	}
 
 private:
 	WsEventType type;
