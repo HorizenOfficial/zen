@@ -103,24 +103,26 @@ class WsHandler
 private:
 	websocket::stream<tcp::socket>* localWs = NULL;
 	boost::lockfree::queue<WsEvent*, boost::lockfree::capacity<1024>>* wsq;
-	std::atomic<bool> exit_rwhandler_thread_flag{false};
+	std::atomic<bool> exit_rwhandler_thread_flag { false };
 
-	void sendBlock(int height, std::string strHash, std::string blockHex, WsEvent::WsEventType eventType, std::string clientMsgId = "",
-			int counter = 0)
-	{
+	void sendBlock(int height, std::string strHash, std::string blockHex,
+			WsEvent::WsEventType eventType, std::string clientMsgId = "",
+			int counter = 0) {
 		// Send a message to the client:  type = eventType
 		WsEvent* wse = new WsEvent(eventType);
 		UniValue* rv = wse->getPayload();
-		if (counter > 0) rv->push_back(Pair("counter", counter));
+		if (counter > 0)
+			rv->push_back(Pair("counter", counter));
 		rv->push_back(Pair("height", height));
 		rv->push_back(Pair("hash", strHash));
 		rv->push_back(Pair("block", blockHex));
-		if (!clientMsgId.empty()) rv->push_back(Pair("msgId", clientMsgId));
+		if (!clientMsgId.empty())
+			rv->push_back(Pair("msgId", clientMsgId));
 		wsq->push(wse);
 	}
 
-	void sendHashes(int height,std::list<CBlockIndex*>& listBlock , WsEvent::WsEventType eventType, std::string clientMsgId = "")
-	{
+	void sendHashes(int height, std::list<CBlockIndex*>& listBlock,
+			WsEvent::WsEventType eventType, std::string clientMsgId = "") {
 		// Send a message to the client:  type = eventType
 		WsEvent* wse = new WsEvent(eventType);
 		UniValue* rv = wse->getPayload();
@@ -128,25 +130,22 @@ private:
 		UniValue hashes(UniValue::VARR);
 
 		std::list<CBlockIndex*>::iterator it = listBlock.begin();
-		while(it != listBlock.end())
-		{
+		while (it != listBlock.end()) {
 			CBlockIndex* blockIndexIterator = *it;
 			hashes.push_back(blockIndexIterator->GetBlockHash().GetHex());
 			it++;
 		}
 		rv->push_back(Pair("hashes", hashes));
-		if (!clientMsgId.empty()) rv->push_back(Pair("msgId", clientMsgId));
+		if (!clientMsgId.empty())
+			rv->push_back(Pair("msgId", clientMsgId));
 		wsq->push(wse);
 	}
 
-
-	int getHashByHeight(std::string height, std::string& strHash)
-	{
+	int getHashByHeight(std::string height, std::string& strHash) {
 		int nHeight = -1;
 		try {
 			nHeight = std::stoi(height);
-		}
-		catch (const std::exception &e) {
+		} catch (const std::exception &e) {
 			return INVALID_PARAMETER;
 		}
 		if (nHeight < 0 || nHeight > chainActive.Height()) {
@@ -159,33 +158,31 @@ private:
 		return OK;
 	}
 
-	int sendBlockByHeight(std::string strHeight, std::string clientMsgId)
-	{
-        std::string strHash;
-        int r = getHashByHeight(strHeight, strHash);
-        if (r!=OK) return r;
-        return sendBlockByHash(strHash, clientMsgId);
+	int sendBlockByHeight(std::string strHeight, std::string clientMsgId) {
+		std::string strHash;
+		int r = getHashByHeight(strHeight, strHash);
+		if (r != OK)
+			return r;
+		return sendBlockByHash(strHash, clientMsgId);
 	}
 
-	int sendBlockByHash(std::string strHash, std::string clientMsgId)
-	{
+	int sendBlockByHash(std::string strHash, std::string clientMsgId) {
 		CBlockIndex* pblockindex;
 		{
 			LOCK(cs_main);
 			uint256 hash(uint256S(strHash));
 			pblockindex = mapBlockIndex[hash];
-			if (pblockindex == NULL)
-			{
+			if (pblockindex == NULL) {
 				return INVALID_PARAMETER;
 			}
 		}
 		std::string block = getblock(pblockindex);
-		sendBlock(pblockindex->nHeight, strHash, block, WsEvent::WsEventType::GET_SINGLE_BLOCK, clientMsgId);
+		sendBlock(pblockindex->nHeight, strHash, block, WsEvent::GET_SINGLE_BLOCK, clientMsgId);
 		return OK;
 	}
 
-	int sendBlocksFromHeight(std::string strHeight, std::string strLen, std::string clientMsgId, bool includeBlock = true)
-	{
+	int sendBlocksFromHeight(std::string strHeight, std::string strLen,
+			std::string clientMsgId, bool includeBlock = true) {
 		std::string strHash;
 		int r = getHashByHeight(strHeight, strHash);
 		if (r != OK)
@@ -193,19 +190,18 @@ private:
 		return sendBlocksFromHash(strHash, strLen, clientMsgId, includeBlock);
 	}
 
-	int sendBlocksFromHash(std::string strHash, std::string strLen, std::string clientMsgId, bool includeBlock = true)
-	{
+	int sendBlocksFromHash(std::string strHash, std::string strLen,
+			std::string clientMsgId, bool includeBlock = true) {
 		int len = -1;
-		try
-		{
+		try {
 			len = std::stoi(strLen);
-		}
-		catch (const std::exception &e)
-		{
+		} catch (const std::exception &e) {
 			return INVALID_PARAMETER;
 		}
-		if (len < 1) return INVALID_PARAMETER;
-		if (len > MAX_BLOCKS_REQUEST) return INVALID_PARAMETER;
+		if (len < 1)
+			return INVALID_PARAMETER;
+		if (len > MAX_BLOCKS_REQUEST)
+			return INVALID_PARAMETER;
 
 		std::list<CBlockIndex*> listBlock;
 		CBlockIndex* pblockindex;
@@ -213,15 +209,14 @@ private:
 			LOCK(cs_main);
 			uint256 hash(uint256S(strHash));
 			pblockindex = mapBlockIndex[hash];
-			if (pblockindex == NULL)
-			{
+			if (pblockindex == NULL) {
 				return INVALID_PARAMETER;
 			}
 			CBlockIndex* nextBlock = chainActive.Next(pblockindex);
-			if (nextBlock == NULL) return INVALID_PARAMETER;
-			int n=0;
-			while (n < len)
-			{
+			if (nextBlock == NULL)
+				return INVALID_PARAMETER;
+			int n = 0;
+			while (n < len) {
 				listBlock.push_back(nextBlock);
 				nextBlock = chainActive.Next(nextBlock);
 				if (nextBlock == NULL)
@@ -229,85 +224,69 @@ private:
 				n++;
 			}
 		}
-		if (includeBlock)
-		{
+		if (includeBlock) {
 			int counter = 1;
 			std::list<CBlockIndex*>::iterator it = listBlock.begin();
-			while(it != listBlock.end())
-			{
+			while (it != listBlock.end()) {
 				CBlockIndex* blockIndexIterator = *it;
 				std::string blockHex = getblock(blockIndexIterator);
 				sendBlock(blockIndexIterator->nHeight, blockIndexIterator->GetBlockHash().GetHex(), blockHex,
-						WsEvent::WsEventType::GET_MULTIPLE_BLOCKS, clientMsgId, counter);
+						WsEvent::GET_MULTIPLE_BLOCKS, clientMsgId, counter);
 				counter++;
 				it++;
 			}
-		}
-		else
-		{
-			sendHashes(listBlock.front()->nHeight, listBlock, WsEvent::WsEventType::GET_MULTIPLE_BLOCK_HASHES, clientMsgId);
+		} else {
+			sendHashes(listBlock.front()->nHeight, listBlock,
+					WsEvent::GET_MULTIPLE_BLOCK_HASHES, clientMsgId);
 		}
 		return OK;
 	}
 
-	void writeLoop()
-	{
+	void writeLoop() {
 		localWs->text(localWs->got_text());
 
-		while(!exit_rwhandler_thread_flag)
-		{
-			if(!wsq->empty())
-			{
+		while (!exit_rwhandler_thread_flag) {
+			if (!wsq->empty()) {
 				WsEvent* wse;
-				if (wsq->pop(wse))
-				{
+				if (wsq->pop(wse)) {
 					std::string msg = wse->getPayload()->write();
 					delete wse;
-					if (localWs->is_open())
-					{
+					if (localWs->is_open()) {
 						boost::beast::error_code ec;
 						localWs->write(boost::asio::buffer(msg), ec);
 
-						if (ec == websocket::error::closed)
-						{
-							LogPrintf("wshandler:writeLoop: websocket error closed \n");
+						if (ec == websocket::error::closed) {
+							LogPrintf(
+									"wshandler:writeLoop: websocket error closed \n");
 							break;
 						}
-					}
-					else
-					{
+					} else {
 						LogPrintf("wshandler:writeLoop: ws is closed \n");
 						break;
 					}
 				}
-			}
-			else
-			{
+			} else {
 				std::this_thread::sleep_for(std::chrono::seconds(1));
 			}
 		}
 		LogPrintf("wshandler:writeLoop: write thread exit\n");
 	}
 
-	int parseClientMessage(WsEvent::WsEventType& commandType)
-	{
-		try
-		{
+	int parseClientMessage(WsEvent::WsEventType& commandType) {
+		try {
 			std::string command;
 			boost::beast::multi_buffer buffer;
 			boost::beast::error_code ec;
 
 			localWs->read(buffer, ec);
-			if (ec == websocket::error::closed || ec == websocket::error::no_connection)
-			{
+			if (ec == websocket::error::closed || ec == websocket::error::no_connection) {
 				LogPrintf("wshandler:parseClientMessage websocket error close \n");
 				return READ_ERROR;
 			}
 
 			std::string msg = boost::beast::buffers_to_string(buffer.data());
 			UniValue request;
-			if (!request.read(msg))
-			{
+			if (!request.read(msg)) {
 				LogPrintf("wshandler:parseClientMessage error parsing message from websocket: %s \n", msg);
 				return INVALID_JSON_FORMAT;
 			}
@@ -315,73 +294,58 @@ private:
 			std::string clientMsgId = findFieldValue("msgId", request);
 
 			command = findFieldValue("command", request);
-			if (command.empty())
-			{
+			if (command.empty()) {
 				return INVALID_COMMAND;
 			}
-			if (command == "getBlock")
-			{
+			if (command == "getBlock") {
 				commandType = WsEvent::GET_SINGLE_BLOCK;
-				if (clientMsgId.empty())
-				{
+				if (clientMsgId.empty()) {
 					return MISSING_MSGID;
 				}
 				std::string param1 = findFieldValue("height", request);
-				if (param1.empty())
-				{
+				if (param1.empty()) {
 					param1 = findFieldValue("hash", request);
-					if (param1.empty())
-					{
+					if (param1.empty()) {
 						return MISSING_PARAMETER; //
 					}
 					return sendBlockByHash(param1, clientMsgId);
 				}
 				return sendBlockByHeight(param1, clientMsgId);
 			}
-			if (command == "getBlocks")
-			{
+			if (command == "getBlocks") {
 				commandType = WsEvent::GET_MULTIPLE_BLOCKS;
-				if (clientMsgId.empty())
-				{
+				if (clientMsgId.empty()) {
 					return MISSING_MSGID;
 				}
 				std::string strLen = findFieldValue("len", request);
-				if (strLen.empty())
-				{
+				if (strLen.empty()) {
 					return MISSING_PARAMETER;
 				}
 
 				std::string param1 = findFieldValue("afterHeight", request);
-				if (param1.empty())
-				{
+				if (param1.empty()) {
 					param1 = findFieldValue("afterHash", request);
-					if (param1.empty())
-					{
+					if (param1.empty()) {
 						return MISSING_PARAMETER; //
 					}
 					return sendBlocksFromHash(param1, strLen, clientMsgId);
 				}
 				return sendBlocksFromHeight(param1, strLen, clientMsgId);
 			}
-			if (command == "getBlockHashes")
-			{
+			if (command == "getBlockHashes") {
 				commandType = WsEvent::GET_MULTIPLE_BLOCK_HASHES;
-				if (clientMsgId.empty())
-				{
+				if (clientMsgId.empty()) {
 					return MISSING_MSGID;
 				}
 				std::string strLen = findFieldValue("len", request);
-				if (strLen.empty())
-				{
+				if (strLen.empty()) {
 					return MISSING_PARAMETER;
 				}
 
 				std::string param1 = findFieldValue("afterHeight", request);
-				if (param1.empty())
-				{
+				if (param1.empty()) {
 					param1 = findFieldValue("afterHash", request);
-					if (param1.empty())
-					{
+					if (param1.empty()) {
 						return MISSING_PARAMETER; //
 					}
 					return sendBlocksFromHash(param1, strLen, clientMsgId, false);
@@ -390,31 +354,24 @@ private:
 			}
 
 			return INVALID_COMMAND;
-		}
-		catch (std::exception const& e)
-		{
+		} catch (std::exception const& e) {
 			LogPrintf("wshandler:parseClientMessage error read loop \n");
 			return READ_ERROR;
 		}
 	}
 
-	void readLoop()
-	{
-		while(!exit_rwhandler_thread_flag)
-		{
+	void readLoop() {
+		while (!exit_rwhandler_thread_flag) {
 			WsEvent::WsEventType commandType;
 			int res = parseClientMessage(commandType);
-			if (res == READ_ERROR)
-			{
+			if (res == READ_ERROR) {
 				LogPrintf("wshandler:readLoop: websocket closed/error exit reading loop \n ");
 				break;
 			}
 
-			if (res != OK)
-			{
+			if (res != OK) {
 				std::string msgError;
-				switch (res)
-				{
+				switch (res) {
 				case INVALID_PARAMETER:
 					msgError = "Invalid parameter";
 					break;
@@ -460,27 +417,26 @@ public:
 
 	int t_id = 0;
 
-	WsHandler()
-	{
+	WsHandler() {
 		wsq = new boost::lockfree::queue<WsEvent*, boost::lockfree::capacity<1024>>;
 	}
-	~WsHandler(){}
+	~WsHandler() {
+	}
 
-	void do_session(tcp::socket& socket, int t_id)
-	{
+	void do_session(tcp::socket& socket, int t_id) {
 		this->t_id = t_id;
 
-		try
-		{
-			localWs = new websocket::stream<tcp::socket>{std::move(socket)};
+		try {
+			localWs = new websocket::stream<tcp::socket> { std::move(socket) };
 
-			localWs->set_option(websocket::stream_base::decorator(
-				[](websocket::response_type& res)
-				{
-					res.set(http::field::server,
-						std::string(BOOST_BEAST_VERSION_STRING) +
-							" Horizen-sidechain-connector");
-				}));
+			localWs->set_option(
+					websocket::stream_base::decorator(
+							[](websocket::response_type& res)
+							{
+								res.set(http::field::server,
+										std::string(BOOST_BEAST_VERSION_STRING) +
+										" Horizen-sidechain-connector");
+							}));
 
 			localWs->accept();
 
@@ -489,38 +445,29 @@ public:
 			exit_rwhandler_thread_flag = true;
 			write_t.join();
 			socket.close();
-		}
-		catch(boost::system::system_error const& se)
-		{
-			if(se.code() != websocket::error::closed)
-				LogPrintf("wshandler:do_session boost error %s\n",  se.code().message());
-		}
-		catch(std::exception const& e)
-		{
+		} catch (boost::system::system_error const& se) {
+			if (se.code() != websocket::error::closed)
+				LogPrintf("wshandler:do_session boost error %s\n", se.code().message());
+		} catch (std::exception const& e) {
 			LogPrintf("wshandler:do_session: error: %s\n", std::string(e.what()));
 		}
 		LogPrintf("wshandler:do_session: exit thread final\n");
 		{
-			std::unique_lock<std::mutex> lck (wsmtx);
+			std::unique_lock<std::mutex> lck(wsmtx);
 			listWsHandler.remove(this);
 		}
 	}
 
-	void send_tip_update(int height, std::string strHash, std::string blockHex)
-	{
+	void send_tip_update(int height, std::string strHash, std::string blockHex) {
 		sendBlock(height, strHash, blockHex, WsEvent::WsEventType::UPDATE_TIP);
 	}
 
-	void shutdown()
-	{
-		try
-		{
+	void shutdown() {
+		try {
 			LogPrintf("wshandler: closing socket...\n");
 			exit_rwhandler_thread_flag = true;
 			this->localWs->next_layer().close();
-		}
-		catch (std::exception const& e)
-		{
+		} catch (std::exception const& e) {
 			LogPrintf("wshandler: closing socket cexception %s\n", std::string(e.what()));
 		}
 	}
@@ -535,8 +482,7 @@ static std::string getblock(const CBlockIndex *pindex)
 	{
 		LOCK(cs_main);
 		CBlock block;
-		if(!ReadBlockFromDisk(block, pindex))
-		{
+		if (!ReadBlockFromDisk(block, pindex)) {
 			// return ERRORR;
 		}
 		ss << block;
@@ -553,13 +499,12 @@ static void ws_updatetip(const CBlockIndex *pindex)
 	std::string strHex = getblock(pindex);
 	LogPrintf("websocket: update tip loop on ws clients.\n");
 	{
-		std::unique_lock<std::mutex> lck (wsmtx);
+		std::unique_lock<std::mutex> lck(wsmtx);
 		std::list<WsHandler*>::iterator i = listWsHandler.begin();
-		for (i = listWsHandler.begin(); i != listWsHandler.end(); ++i)
-		{
+		for (i = listWsHandler.begin(); i != listWsHandler.end(); ++i) {
 			WsHandler* wsh = *i;
 			LogPrintf("websocket: call wshandler_send_tip_update to: %d \n", wsh->t_id);
-			wsh->send_tip_update(pindex->nHeight, pindex->GetBlockHash().GetHex() , strHex);
+			wsh->send_tip_update(pindex->nHeight, pindex->GetBlockHash().GetHex(), strHex);
 		}
 	}
 }
@@ -570,78 +515,54 @@ static void ws_updatetip(const CBlockIndex *pindex)
 tcp::acceptor* acceptor;
 void ws_main(std::string strAddressWs, int portWs)
 {
-    try
-    {
-    	LogPrintf("start websocket service address: %s \n", strAddressWs);
-    	LogPrintf("start websocket service port: %s \n", portWs);
+	try {
+		LogPrintf("start websocket service address: %s \n", strAddressWs);
+		LogPrintf("start websocket service port: %s \n", portWs);
 
-        auto const address = boost::asio::ip::make_address(strAddressWs);
-        auto const port = static_cast<unsigned short>(portWs);
+		auto const address = boost::asio::ip::make_address(strAddressWs);
+		auto const port = static_cast<unsigned short>(portWs);
 
-        net::io_context ioc{1};
-        acceptor = new tcp::acceptor{ioc, {address, port}};
-        int t_id = 0;
+		net::io_context ioc { 1 };
+		acceptor = new tcp::acceptor { ioc, { address, port } };
+		int t_id = 0;
 
-        while (!exit_ws_thread)
-        {
-            tcp::socket socket{ioc};
+		while (!exit_ws_thread) {
+			tcp::socket socket { ioc };
 
-            LogPrintf("ws_main: waiting to get a new connection \n");
-            acceptor->accept(socket);
+			LogPrintf("ws_main: waiting to get a new connection \n");
+			acceptor->accept(socket);
 
-            WsHandler* w = new WsHandler();
-            std::thread{std::bind(&WsHandler::do_session, w, std::move(socket), t_id)}.detach();
-            {
-        		std::unique_lock<std::mutex> lck (wsmtx);
-            	listWsHandler.push_back(w);
-            }
-            t_id ++;
-        }
-    }
-    catch (const std::exception& e)
-    {
-    	LogPrintf("error ws_main: %s\n", std::string(e.what()));
-    }
-    LogPrintf("ws_main websocket service stop. \n");
+			WsHandler* w = new WsHandler();
+			std::thread { std::bind(&WsHandler::do_session, w,
+					std::move(socket), t_id) }.detach();
+			{
+				std::unique_lock<std::mutex> lck(wsmtx);
+				listWsHandler.push_back(w);
+			}
+			t_id++;
+		}
+	} catch (const std::exception& e) {
+		LogPrintf("error ws_main: %s\n", std::string(e.what()));
+	}
+	LogPrintf("ws_main websocket service stop. \n");
 }
-
 
 static void shutdown()
 {
 	LogPrintf("shutdown all the threads/sockets thread... \n");
 	{
-		std::unique_lock<std::mutex> lck (wsmtx);
+		std::unique_lock<std::mutex> lck(wsmtx);
 		std::list<WsHandler*>::iterator i = listWsHandler.begin();
-		for (i = listWsHandler.begin(); i != listWsHandler.end(); ++i)
-		{
+		for (i = listWsHandler.begin(); i != listWsHandler.end(); ++i) {
 			WsHandler* wsh = *i;
 			wsh->shutdown();
 		}
 	}
 }
 
-void shutdown_late()
-{
-	int counter = 0;
-	for(;;)
-	{
-		if(counter > 20)
-		{
-			shutdown();
-			exit_ws_thread = true;
-			acceptor->close();
-			break;
-		}
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-		counter++;
-	}
-	LogPrintf("shutdown_late: ..... \n");
-}
-
 bool StartWsServer()
 {
-	try
-	{
+	try {
 		std::string strAddress = GetArg("-wsaddress", "127.0.0.1");
 		int port = GetArg("-wsport", 8888);
 
@@ -650,9 +571,7 @@ bool StartWsServer()
 
 		wsNotificationInterface = new WsNotificationInterface();
 		RegisterValidationInterface(wsNotificationInterface);
-	}
-	catch (const std::exception& e)
-	{
+	} catch (const std::exception& e) {
 		LogPrintf("error StartWsServer %s\n", std::string(e.what()));
 		return false;
 	}
@@ -661,14 +580,11 @@ bool StartWsServer()
 
 bool StopWsServer()
 {
-	try
-	{
+	try {
 		shutdown();
 		exit_ws_thread = true;
 		acceptor->close();
-	}
-	catch (const std::exception& e)
-	{
+	} catch (const std::exception& e) {
 		LogPrintf("Error stopping Websocket service\n");
 		return false;
 	}
