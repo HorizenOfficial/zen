@@ -430,13 +430,12 @@ public:
 			localWs = new websocket::stream<tcp::socket> { std::move(socket) };
 
 			localWs->set_option(
-					websocket::stream_base::decorator(
-							[](websocket::response_type& res)
-							{
-								res.set(http::field::server,
-										std::string(BOOST_BEAST_VERSION_STRING) +
-										" Horizen-sidechain-connector");
-							}));
+				websocket::stream_base::decorator(
+					[](websocket::response_type& res)
+						{
+							res.set(http::field::server,
+							std::string(BOOST_BEAST_VERSION_STRING) + " Horizen-sidechain-connector");
+						}));
 
 			localWs->accept();
 
