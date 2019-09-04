@@ -9,6 +9,7 @@
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 #include "librustzcash.h"
+#include <boost/foreach.hpp>
 
 JSDescription JSDescription::getNewInstance(bool useGroth) {
 	JSDescription js;
@@ -211,9 +212,48 @@ std::string CTxOut::ToString() const
     return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s)", nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30));
 }
 
+//----------------------------------------------------------------------------
+uint256 CTxForwardTransferCrosschainOut::GetHash() const
+{
+    return SerializeHash(*this);
+}
+
+std::string CTxForwardTransferCrosschainOut::ToString() const
+{
+    return strprintf("CTxForwardTransferCrosschainOut(nValue=%d.%08d, address=%s, scId=%s)",
+        nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), scId.ToString() );
+}
+
+//----------------------------------------------------------------------------
+uint256 CTxCertifierLockCrosschainOut::GetHash() const
+{
+    return SerializeHash(*this);
+}
+
+std::string CTxCertifierLockCrosschainOut::ToString() const
+{
+    return strprintf("CTxCertifierLockCrosschainOut(nValue=%d.%08d, address=%s, scId=%s, activeFromWithdrawalEpoch=%lld",
+        nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), scId.ToString(), activeFromWithdrawalEpoch);
+}
+
+//----------------------------------------------------------------------------
+uint256 CTxScCreationCrosschainOut::GetHash() const
+{
+    return SerializeHash(*this);
+}
+
+std::string CTxScCreationCrosschainOut::ToString() const
+{
+    return strprintf("CTxScCreationCrosschainOut(scId=%s, withdrawalEpochLength=%d",
+        scId.ToString(), withdrawalEpochLength);
+}
+
+
 CMutableTransaction::CMutableTransaction() : nVersion(TRANSPARENT_TX_VERSION), nLockTime(0) {}
-CMutableTransaction::CMutableTransaction(const CTransaction& tx) : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), nLockTime(tx.nLockTime),
-                                                                   vjoinsplit(tx.vjoinsplit), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
+CMutableTransaction::CMutableTransaction(const CTransaction& tx) :
+    nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout),
+    vsc_ccout(tx.vsc_ccout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout), sc_cert(tx.sc_cert), nLockTime(tx.nLockTime),
+    vjoinsplit(tx.vjoinsplit), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     
 }
@@ -228,10 +268,14 @@ void CTransaction::UpdateHash() const
     *const_cast<uint256*>(&hash) = SerializeHash(*this);
 }
 
-CTransaction::CTransaction() : nVersion(TRANSPARENT_TX_VERSION), vin(), vout(), nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() { }
+CTransaction::CTransaction() :
+    nVersion(TRANSPARENT_TX_VERSION), vin(), vout(), vsc_ccout(), vcl_ccout(), vft_ccout(), sc_cert(),
+    nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() { }
 
-CTransaction::CTransaction(const CMutableTransaction &tx) : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), nLockTime(tx.nLockTime), vjoinsplit(tx.vjoinsplit),
-                                                            joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
+CTransaction::CTransaction(const CMutableTransaction &tx) :
+    nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout),
+    vsc_ccout(tx.vsc_ccout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout), sc_cert(tx.sc_cert),
+    nLockTime(tx.nLockTime), vjoinsplit(tx.vjoinsplit), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     UpdateHash();
 }
@@ -240,6 +284,10 @@ CTransaction& CTransaction::operator=(const CTransaction &tx) {
     *const_cast<int*>(&nVersion) = tx.nVersion;
     *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
+    *const_cast<std::vector<CTxScCreationCrosschainOut>*>(&vsc_ccout) = tx.vsc_ccout;
+    *const_cast<std::vector<CTxCertifierLockCrosschainOut>*>(&vcl_ccout) = tx.vcl_ccout;
+    *const_cast<std::vector<CTxForwardTransferCrosschainOut>*>(&vft_ccout) = tx.vft_ccout;
+    *const_cast<CScCertificate*>(&sc_cert) = tx.sc_cert;
     *const_cast<unsigned int*>(&nLockTime) = tx.nLockTime;
     *const_cast<std::vector<JSDescription>*>(&vjoinsplit) = tx.vjoinsplit;
     *const_cast<uint256*>(&joinSplitPubKey) = tx.joinSplitPubKey;
@@ -265,6 +313,45 @@ CAmount CTransaction::GetValueOut() const
 
         if (!MoneyRange(it->vpub_old) || !MoneyRange(nValueOut))
             throw std::runtime_error("CTransaction::GetValueOut(): value out of range");
+    }
+    return nValueOut;
+}
+
+CAmount CTransaction::GetValueScCreationCcOut() const
+{
+    CAmount nValueOut = 0;
+    // the amount is sent to the foundation as a separate vout
+#if 0
+    for (std::vector<CTxScCreationCrosschainOut>::const_iterator it(vsc_ccout.begin()); it != vsc_ccout.end(); ++it)
+    {
+        nValueOut += it->nValue;
+        if (!MoneyRange(it->nValue) || !MoneyRange(nValueOut))
+            throw std::runtime_error("CTransaction::GetValueScCreationCcOut(): value out of range");
+    }
+#endif
+    return nValueOut;
+}
+
+CAmount CTransaction::GetValueCertifierLockCcOut() const
+{
+    CAmount nValueOut = 0;
+    for (std::vector<CTxCertifierLockCrosschainOut>::const_iterator it(vcl_ccout.begin()); it != vcl_ccout.end(); ++it)
+    {
+        nValueOut += it->nValue;
+        if (!MoneyRange(it->nValue) || !MoneyRange(nValueOut))
+            throw std::runtime_error("CTransaction::GetValueCertifierLockCcOut(): value out of range");
+    }
+    return nValueOut;
+}
+
+CAmount CTransaction::GetValueForwardTransferCcOut() const
+{
+    CAmount nValueOut = 0;
+    for (std::vector<CTxForwardTransferCrosschainOut>::const_iterator it(vft_ccout.begin()); it != vft_ccout.end(); ++it)
+    {
+        nValueOut += it->nValue;
+        if (!MoneyRange(it->nValue) || !MoneyRange(nValueOut))
+            throw std::runtime_error("CTransaction::GetValueForwardTransferCcOut(): value out of range");
     }
     return nValueOut;
 }
@@ -313,15 +400,103 @@ unsigned int CTransaction::CalculateModifiedSize(unsigned int nTxSize) const
 std::string CTransaction::ToString() const
 {
     std::string str;
-    str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%u, vout.size=%u, nLockTime=%u)\n",
-        GetHash().ToString().substr(0,10),
-        nVersion,
-        vin.size(),
-        vout.size(),
-        nLockTime);
-    for (unsigned int i = 0; i < vin.size(); i++)
-        str += "    " + vin[i].ToString() + "\n";
-    for (unsigned int i = 0; i < vout.size(); i++)
-        str += "    " + vout[i].ToString() + "\n";
+
+    if (nVersion == SC_TX_VERSION)
+    {
+        str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%u, vout.size=%u, vsc_ccout.size=%u, vcl_ccout.size=%u, vft_ccout.size=%u, vbt_ccout.size=%u, cert.amount(%lld) nLockTime=%u)\n",
+            GetHash().ToString().substr(0,10),
+            nVersion,
+            vin.size(),
+            vout.size(),
+            vsc_ccout.size(),
+            vcl_ccout.size(),
+            vft_ccout.size(),
+            sc_cert.vbt_ccout.size(),
+            sc_cert.totalAmount,
+            nLockTime);
+        for (unsigned int i = 0; i < vin.size(); i++)
+            str += "    " + vin[i].ToString() + "\n";
+        for (unsigned int i = 0; i < vout.size(); i++)
+            str += "    " + vout[i].ToString() + "\n";
+        for (unsigned int i = 0; i < vsc_ccout.size(); i++)
+            str += "    " + vsc_ccout[i].ToString() + "\n";
+        for (unsigned int i = 0; i < vcl_ccout.size(); i++)
+            str += "    " + vcl_ccout[i].ToString() + "\n";
+        for (unsigned int i = 0; i < vft_ccout.size(); i++)
+            str += "    " + vft_ccout[i].ToString() + "\n";
+        for (unsigned int i = 0; i < sc_cert.vbt_ccout.size(); i++)
+            str += "    " + sc_cert.vbt_ccout[i].ToString() + "\n";
+    }
+    else
+    {
+        str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%u, vout.size=%u, nLockTime=%u)\n",
+            GetHash().ToString().substr(0,10),
+            nVersion,
+            vin.size(),
+            vout.size(),
+            nLockTime);
+        for (unsigned int i = 0; i < vin.size(); i++)
+            str += "    " + vin[i].ToString() + "\n";
+        for (unsigned int i = 0; i < vout.size(); i++)
+            str += "    " + vout[i].ToString() + "\n";
+    }
     return str;
+}
+
+void CTransaction::getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& map) const
+{
+    if (nVersion != SC_TX_VERSION)
+    {
+        return;
+    }
+
+    unsigned int nIdx = 0;
+    LogPrint("sc", "%s():%d -getting leaves for vsc out\n", __func__, __LINE__);
+    fillCrosschainOutput(vsc_ccout, nIdx, map);
+
+    LogPrint("sc", "%s():%d -getting leaves for vcl out\n", __func__, __LINE__);
+    fillCrosschainOutput(vcl_ccout, nIdx, map);
+
+    LogPrint("sc", "%s():%d -getting leaves for vft out\n", __func__, __LINE__);
+    fillCrosschainOutput(vft_ccout, nIdx, map);
+
+    LogPrint("sc", "%s():%d - nIdx[%d]\n", __func__, __LINE__, nIdx);
+}
+
+    
+
+
+//----------------------------------------------------------------------------
+CScCertificate::CScCertificate() :  scId(), totalAmount(0), vbt_ccout() { }
+
+CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
+{
+    scId = cert.scId;
+    totalAmount = cert.totalAmount;
+    vbt_ccout = cert.vbt_ccout;
+    return *this;
+}
+
+uint256 CTxBackwardTransferCrosschainOut::GetHash() const
+{
+    std::cout << "Calling " << __LINE__<< std::endl;
+    return SerializeHash(*this);
+}
+
+std::string CTxBackwardTransferCrosschainOut::ToString() const
+{
+    return strprintf("CTxBackwardTransferCrosschainOut(nValue=%d.%08d, address=%s)",
+        nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30) );
+}
+
+CAmount CScCertificate::GetValueBackwardTransferCcOut() const
+{
+    CAmount nValueOut = 0;
+    for (std::vector<CTxBackwardTransferCrosschainOut>::const_iterator it(vbt_ccout.begin()); it != vbt_ccout.end(); ++it)
+    {
+        nValueOut += it->nValue;
+        if (!MoneyRange(it->nValue) || !MoneyRange(nValueOut))
+            throw std::runtime_error("CScCertificate::GetValueBackwardTransferCcOut(): value out of range");
+    }
+    return nValueOut;
 }

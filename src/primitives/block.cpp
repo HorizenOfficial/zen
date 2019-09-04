@@ -9,6 +9,7 @@
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 #include "crypto/common.h"
+#include <boost/foreach.hpp>
 
 uint256 CBlockHeader::GetHash() const
 {
@@ -78,6 +79,87 @@ uint256 CBlock::BuildMerkleTree(bool* fMutated) const
     return (vMerkleTree.empty() ? uint256() : vMerkleTree.back());
 }
 
+uint256 CBlock::BuildMerkleRootHash(const std::vector<uint256>& vInput, bool* fMutated) 
+{
+    // copy it
+    std::vector<uint256> vTempMerkleTree = vInput;
+
+    int j = 0;
+    bool mutated = false;
+    for (int nSize = vInput.size(); nSize > 1; nSize = (nSize + 1) / 2)
+    {
+        for (int i = 0; i < nSize; i += 2)
+        {
+            int i2 = std::min(i+1, nSize-1);
+            if (i2 == i + 1 && i2 + 1 == nSize && vTempMerkleTree[j+i] == vTempMerkleTree[j+i2]) {
+                // Two identical hashes at the end of the list at a particular level.
+                mutated = true;
+            }
+            vTempMerkleTree.push_back(Hash(BEGIN(vTempMerkleTree[j+i]),  END(vTempMerkleTree[j+i]),
+                                       BEGIN(vTempMerkleTree[j+i2]), END(vTempMerkleTree[j+i2])));
+        }
+        j += nSize;
+    }
+    if (fMutated) {
+        *fMutated = mutated;
+    }
+    return (vTempMerkleTree.empty() ? uint256() : vTempMerkleTree.back());
+}
+
+uint256 CBlock::BuildScMerkleRootsMap()
+{
+    // Key: the side chain ID
+    // Value: the array of objs of type 'Hash( Hash(ccout) | txid | n)', where n is the index of the 
+    // ccout in the tx pertaining to the current scid. Tx are ordered as they are included in the block  
+    std::map<uint256, std::vector<uint256> > mScMerkleTreeLeaves; 
+
+    BOOST_FOREACH(const CTransaction& tx, vtx)
+    {
+        tx.getCrosschainOutputs(mScMerkleTreeLeaves);
+    }
+
+    uint256 result;
+    CHash256 hasher;
+
+    if (mScMerkleTreeLeaves.size() == 0)
+    {
+#if 0
+        // no sc tx found, return the hash of a null value
+        static const unsigned char pblank[1] = {};
+        hasher.Write(pblank, 0).Finalize((unsigned char*)&result);
+#endif
+        return result;
+    }
+
+    // Note that by default the map is ordered by key value, therefore the entries in
+    // the vector will be sorted in the same way
+    std::vector<uint256> vSortedLeaves;
+
+    BOOST_FOREACH(const auto& pair, mScMerkleTreeLeaves)
+    {
+        const uint256& scid = pair.first;
+        uint256 mklHash = BuildMerkleRootHash(pair.second);
+
+        LogPrint("sc", "%s():%d built merkle root for sc[%s] with %d leaves: [%s]\n",
+            __func__, __LINE__, scid.ToString(), pair.second.size(), mklHash.ToString() );
+#if 1
+        vSortedLeaves.push_back(mklHash);
+#else
+        // concatenate the two hashes above
+        hasher.Write( (const unsigned char*)&scid, sizeof(uint256)).Write( (const unsigned char*)&mklHash, sizeof(uint256));
+#endif
+    }
+
+#if 0
+    // return the hash of the final concatenation: (scid-0 | mklHash-0 | ... | scid-N | mklHash-N)
+    hasher.Finalize((unsigned char*)&result);
+#else
+    result = BuildMerkleRootHash(vSortedLeaves);
+#endif
+    return result;
+}
+
+
 std::vector<uint256> CBlock::GetMerkleBranch(int nIndex) const
 {
     if (vMerkleTree.empty())
@@ -112,12 +194,12 @@ uint256 CBlock::CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMer
 std::string CBlock::ToString() const
 {
     std::stringstream s;
-    s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, hashReserved=%s, nTime=%u, nBits=%08x, nNonce=%s, vtx=%u)\n",
+    s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, hashScMerkleRootsMap=%s, nTime=%u, nBits=%08x, nNonce=%s, vtx=%u)\n",
         GetHash().ToString(),
         nVersion,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
-        hashReserved.ToString(),
+        hashScMerkleRootsMap.ToString(),
         nTime, nBits, nNonce.ToString(),
         vtx.size());
     for (unsigned int i = 0; i < vtx.size(); i++)
@@ -130,3 +212,4 @@ std::string CBlock::ToString() const
     s << "\n";
     return s.str();
 }
+

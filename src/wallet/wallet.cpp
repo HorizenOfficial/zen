@@ -28,8 +28,11 @@ using namespace zen;
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 
+#include "sc/sidechain.h"
+
 using namespace std;
 using namespace libzcash;
+using namespace Sidechain;
 
 /**
  * Settings
@@ -1569,12 +1572,13 @@ int CWalletTx::GetRequestCount() const
 }
 
 // GetAmounts will determine the transparent debits and credits for a given wallet tx.
-void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
-                           list<COutputEntry>& listSent, CAmount& nFee, string& strSentAccount, const isminefilter& filter) const
+void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>& listSent, list<CScOutputEntry>& listScSent,
+    CAmount& nFee, string& strSentAccount, const isminefilter& filter) const
 {
     nFee = 0;
     listReceived.clear();
     listSent.clear();
+    listScSent.clear();
     strSentAccount = strFromAccount;
 
     // Is this tx sent/signed by me?
@@ -1687,6 +1691,22 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
             listReceived.push_back(output);
     }
 
+    if (nVersion == SC_TX_VERSION)
+    {
+        // first of all remove cc out from nFee that has not been considered before
+        if (nFee != 0)
+        {
+            nFee -= GetValueCcOut(); 
+        }
+
+        if (nDebit > 0)
+        {
+            // do not consider sc creation since we sent amount to the foundation
+            //fillScSent(vsc_ccout, listScSent);
+            fillScSent(vcl_ccout, listScSent);
+            fillScSent(vft_ccout, listScSent);
+        }
+    }
 }
 
 void CWalletTx::GetAccountAmounts(const string& strAccount, CAmount& nReceived,
@@ -1698,11 +1718,14 @@ void CWalletTx::GetAccountAmounts(const string& strAccount, CAmount& nReceived,
     string strSentAccount;
     list<COutputEntry> listReceived;
     list<COutputEntry> listSent;
-    GetAmounts(listReceived, listSent, allFee, strSentAccount, filter);
+    list<CScOutputEntry> listScSent;
+    GetAmounts(listReceived, listSent, listScSent, allFee, strSentAccount, filter);
 
     if (strAccount == strSentAccount)
     {
         BOOST_FOREACH(const COutputEntry& s, listSent)
+            nSent += s.amount;
+        BOOST_FOREACH(const CScOutputEntry& s, listScSent)
             nSent += s.amount;
         nFee = allFee;
     }
@@ -2254,8 +2277,8 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
             if (fOnlyConfirmed && !pcoin->IsTrusted())
                 continue;
 
-             if (pcoin->IsCoinBase() && !fIncludeCoinBase && !fIncludeCommunityFund)
-                 continue;
+            if (pcoin->IsCoinBase() && !fIncludeCoinBase && !fIncludeCommunityFund)
+                continue;
 
             if (pcoin->IsCoinBase() && pcoin->GetBlocksToMaturity() > 0)
                 continue;
@@ -2549,6 +2572,12 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
         vecSend.push_back(recipient);
     }
 
+    // Turn the ccout set into a CcRecipientVariant vector
+    vector< Sidechain::CcRecipientVariant > vecCcSend;
+    ScMgr::instance().fillFundCcRecipients(tx, vecCcSend);
+    
+    bool bFundScCreation = (tx.vsc_ccout.size() > 0);
+
     CCoinControl coinControl;
     coinControl.fAllowOtherInputs = true;
     BOOST_FOREACH(const CTxIn& txin, tx.vin)
@@ -2556,7 +2585,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
 
     CReserveKey reservekey(this);
     CWalletTx wtx;
-    if (!CreateTransaction(vecSend, wtx, reservekey, nFeeRet, nChangePosRet, strFailReason, &coinControl, false))
+    if (!CreateTransaction(vecSend, vecCcSend, wtx, reservekey, nFeeRet, nChangePosRet, bFundScCreation, strFailReason, &coinControl, false))
         return false;
 
     if (nChangePosRet != -1)
@@ -2581,24 +2610,28 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
     return true;
 }
 
-bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
-                                int& nChangePosRet, std::string& strFailReason, const CCoinControl* coinControl, bool sign)
+bool CWallet::CreateCertificate(
+        const uint256& scId,
+        const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
+        CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
+        std::string& strFailReason, bool sign)
 {
     CAmount nValue = 0;
-    unsigned int nSubtractFeeFromAmount = 0;
-    BOOST_FOREACH (const CRecipient& recipient, vecSend)
+    // fee will be carved out from amounts
+    unsigned int nSubtractFeeFromAmount = vecCcSend.size();
+
+    BOOST_FOREACH (const auto& ccRecipient, vecCcSend)
     {
-        if (nValue < 0 || recipient.nAmount < 0)
+        CAmount amount = boost::apply_visitor(CcRecipientAmountVisitor(), ccRecipient);
+        if (nValue < 0 || amount < 0)
         {
             strFailReason = _("Transaction amounts must be positive");
             return false;
         }
-        nValue += recipient.nAmount;
-
-        if (recipient.fSubtractFeeFromAmount)
-            nSubtractFeeFromAmount++;
+        nValue += amount;
     }
-    if (vecSend.empty() || nValue < 0)
+
+    if ( vecCcSend.empty() || nValue < 0)
     {
         strFailReason = _("Transaction amounts must be positive");
         return false;
@@ -2607,6 +2640,11 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
     wtxNew.fTimeReceivedIsTxTime = true;
     wtxNew.BindWallet(this);
     CMutableTransaction txNew;
+
+    // set proper version and certificate data
+    txNew.nVersion = SC_TX_VERSION;
+    txNew.sc_cert.scId = scId; 
+    txNew.sc_cert.totalAmount = nValue; 
 
     // Discourage fee sniping.
     //
@@ -2638,6 +2676,229 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
             {
                 txNew.vin.clear();
                 txNew.vout.clear();
+                txNew.vsc_ccout.clear();
+                txNew.vcl_ccout.clear();
+                txNew.vft_ccout.clear();
+                txNew.sc_cert.vbt_ccout.clear();
+
+                wtxNew.fFromMe = true;
+                bool fFirst = true;
+
+                CAmount nTotalValue = nValue;
+                double dPriority = 0;
+
+                // fill backward vccouts to the payees
+                BOOST_FOREACH (const auto& ccRecipient, vecCcSend)
+                {
+                    CRecipientFactory fac(&txNew, strFailReason);
+                    if (!fac.set(ccRecipient) )
+                    {
+                        return false;
+                    }
+                }
+
+                // deduce fee
+                BOOST_FOREACH (auto& txout, txNew.sc_cert.vbt_ccout)
+                {
+                    CTxOut out(*((CTxOut*)( &txout )));
+
+                    out.nValue -= nFeeRet / nSubtractFeeFromAmount; // Subtract fee equally from each selected recipient
+
+                    if (fFirst) // first receiver pays the remainder not divisible by output count
+                    {
+                        fFirst = false;
+                        out.nValue -= nFeeRet % nSubtractFeeFromAmount;
+                    }
+
+                    if (out.IsDust(::minRelayTxFee))
+                    {
+                        if (nFeeRet > 0)
+                        {
+                            if (out.nValue < 0)
+                                strFailReason = _("The transaction amount is too small to pay the fee");
+                            else
+                                strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
+                        }
+                        else
+                        {
+                            strFailReason = _("Transaction amount too small");
+                        }
+                        return false;
+                    }
+
+                    txNew.vout.push_back(out);
+                }
+
+                reservekey.ReturnKey();
+
+                // Fill vin with sort of coinbase
+                txNew.vin.resize(1);
+                txNew.vin[0].prevout.SetNull();
+                // TODO in order to avoid potential non-unique tx hash, add a nonce
+                //txNew.vin[0].scriptSig = CScript() << chainActive.Height() << GetRandInt(std::numeric_limits<int>::max()) << OP_0;        
+                uint256 h(GetRandHash() );
+                txNew.vin[0].scriptSig = CScript() << chainActive.Height() << ToByteVector(h) << OP_0;        
+                
+#if 0
+                // Sign
+                int nIn = 0;
+                CTransaction txNewConst(txNew);
+                BOOST_FOREACH(const PAIRTYPE(const CWalletTx*,unsigned int)& coin, setCoins)
+                {
+                    bool signSuccess;
+                    const CScript& scriptPubKey = coin.first->vout[coin.second].scriptPubKey;
+                    CScript& scriptSigRes = txNew.vin[nIn].scriptSig;
+                    if (sign)
+                        signSuccess = ProduceSignature(TransactionSignatureCreator(this, &txNewConst, nIn, SIGHASH_ALL), scriptPubKey, scriptSigRes);
+                    else
+                        signSuccess = ProduceSignature(DummySignatureCreator(this), scriptPubKey, scriptSigRes);
+
+                    if (!signSuccess)
+                    {
+                        strFailReason = _("Signing transaction failed");
+                        return false;
+                    }
+                    nIn++;
+                }
+
+                // Remove scriptSigs if we used dummy signatures for fee calculation
+                if (!sign) {
+                    BOOST_FOREACH (CTxIn& vin, txNew.vin)
+                        vin.scriptSig = CScript();
+                }
+#endif
+
+                // Embed the constructed transaction data in wtxNew.
+                *static_cast<CTransaction*>(&wtxNew) = CTransaction(txNew);
+
+                unsigned int nBytes = ::GetSerializeSize(txNew, SER_NETWORK, PROTOCOL_VERSION);
+                // Limit size
+                if (nBytes >= MAX_TX_SIZE)
+                {
+                    strFailReason = _("Transaction too large");
+                    return false;
+                }
+
+                dPriority = wtxNew.ComputePriority(dPriority, nBytes);
+
+                // Can we complete this as a free transaction?
+                if (fSendFreeTransactions && nBytes <= MAX_FREE_TRANSACTION_CREATE_SIZE)
+                {
+                    // Not enough fee: enough priority?
+                    double dPriorityNeeded = mempool.estimatePriority(nTxConfirmTarget);
+                    // Not enough mempool history to estimate: use hard-coded AllowFree.
+                    if (dPriorityNeeded <= 0 && AllowFree(dPriority))
+                        break;
+
+                    // Small enough, and priority high enough, to send for free
+                    if (dPriorityNeeded > 0 && dPriority >= dPriorityNeeded)
+                        break;
+                }
+
+                CAmount nFeeNeeded = GetMinimumFee(nBytes, nTxConfirmTarget, mempool);
+
+                // If we made it here and we aren't even able to meet the relay fee on the next pass, give up
+                // because we must be at the maximum allowed fee.
+                if (nFeeNeeded < ::minRelayTxFee.GetFee(nBytes))
+                {
+                    strFailReason = _("Transaction too large for fee policy");
+                    return false;
+                }
+
+                if (nFeeRet >= nFeeNeeded)
+                    break; // Done, enough fee included.
+
+                // Include more fee and try again.
+                nFeeRet = nFeeNeeded;
+                continue;
+            }
+        }
+    }
+
+    return true;
+}
+
+
+bool CWallet::CreateTransaction(
+    const std::vector<CRecipient>& vecSend, const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
+    CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
+    int& nChangePosRet, bool bFundScCreation, std::string& strFailReason, const CCoinControl* coinControl, bool sign)
+{
+    CAmount nValue = 0;
+    unsigned int nSubtractFeeFromAmount = 0;
+    BOOST_FOREACH (const CRecipient& recipient, vecSend)
+    {
+        if (nValue < 0 || recipient.nAmount < 0)
+        {
+            strFailReason = _("Transaction amounts must be positive");
+            return false;
+        }
+        nValue += recipient.nAmount;
+
+        if (recipient.fSubtractFeeFromAmount)
+            nSubtractFeeFromAmount++;
+    }
+
+    BOOST_FOREACH (const auto& ccRecipient, vecCcSend)
+    {
+        CAmount amount = boost::apply_visitor(CcRecipientAmountVisitor(), ccRecipient);
+        if (nValue < 0 || amount < 0)
+        {
+            strFailReason = _("Transaction amounts must be positive");
+            return false;
+        }
+        nValue += amount;
+    }
+
+    if ( (vecSend.empty() && vecCcSend.empty() ) || nValue < 0)
+    {
+        strFailReason = _("Transaction amounts must be positive");
+        return false;
+    }
+
+    wtxNew.fTimeReceivedIsTxTime = true;
+    wtxNew.BindWallet(this);
+    CMutableTransaction txNew;
+
+    if (!vecCcSend.empty() )
+    {
+        // set proper version
+        txNew.nVersion = SC_TX_VERSION;
+    }
+
+    // Discourage fee sniping.
+    //
+    // However because of a off-by-one-error in previous versions we need to
+    // neuter it by setting nLockTime to at least one less than nBestHeight.
+    // Secondly currently propagation of transactions created for block heights
+    // corresponding to blocks that were just mined may be iffy - transactions
+    // aren't re-accepted into the mempool - we additionally neuter the code by
+    // going ten blocks back. Doesn't yet do anything for sniping, but does act
+    // to shake out wallet bugs like not showing nLockTime'd transactions at
+    // all.
+    txNew.nLockTime = std::max(0, chainActive.Height() - 10);
+
+    // Secondly occasionally randomly pick a nLockTime even further back, so
+    // that transactions that are delayed after signing for whatever reason,
+    // e.g. high-latency mix networks and some CoinJoin implementations, have
+    // better privacy.
+    if (GetRandInt(10) == 0)
+        txNew.nLockTime = std::max(0, (int)txNew.nLockTime - GetRandInt(100));
+
+    assert(txNew.nLockTime <= (unsigned int)chainActive.Height());
+    assert(txNew.nLockTime < LOCKTIME_THRESHOLD);
+
+    {
+        LOCK2(cs_main, cs_wallet);
+        {
+            nFeeRet = 0;
+            while (true)
+            {
+                txNew.vin.clear();
+                txNew.vout.clear();
+                txNew.vsc_ccout.clear();
+                txNew.vcl_ccout.clear();
+                txNew.vft_ccout.clear();
                 wtxNew.fFromMe = true;
                 nChangePosRet = -1;
                 bool fFirst = true;
@@ -2678,6 +2939,24 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     txNew.vout.push_back(txout);
                 }
 
+                // vccouts to the payees
+                BOOST_FOREACH (const auto& ccRecipient, vecCcSend)
+                {
+                    CRecipientFactory fac(&txNew, strFailReason);
+                    if (!fac.set(ccRecipient) )
+                    {
+                        return false;
+                    }
+                }
+
+                // if this tx creates a sc, check that no other tx are doing the same in the mempool
+                CValidationState state;
+                if (!ScMgr::instance().checkMemPool(mempool, txNew, state) )
+                {
+                    strFailReason = _("Sc already created by a tx in mempool");
+                    return false;
+                }
+
                 // Choose coins to use
                 set<pair<const CWalletTx*,unsigned int> > setCoins;
                 CAmount nValueIn = 0;
@@ -2710,6 +2989,20 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 CAmount nChange = nValueIn - nValue;
                 if (nSubtractFeeFromAmount == 0)
                     nChange -= nFeeRet;
+
+                
+                if (bFundScCreation)
+                {
+                    // we are in the process of funding a raw tx, do not create any vout for sc creation since it
+                    // has already been done 
+                    LogPrint("sc", "%s():%d - skipping sc creation vout\n", __func__, __LINE__);
+                }
+                else
+                {
+                    // in case this tx creates any sc, send a fixed reward to the community. Such a reward corresponds to the 
+                    // vsc_ccout nAmounts (fixed)
+                    ScMgr::instance().evalAddCreationFeeOut(txNew);
+                }
 
                 if (nChange > 0)
                 {
@@ -3666,8 +3959,10 @@ int CMerkleTx::GetDepthInMainChain(const CBlockIndex* &pindexRet) const
 
 int CMerkleTx::GetBlocksToMaturity() const
 {
-    if (!IsCoinBase())
+    // not coinbase or certified coin
+    if (!IsCoinBase() || IsCoinCertified())
         return 0;
+    
     return max(0, (COINBASE_MATURITY+1) - GetDepthInMainChain());
 }
 
@@ -3757,3 +4052,56 @@ void CWallet::GetFilteredNotes(std::vector<CNotePlaintextEntry> & outEntries, st
         }
     }
 }
+
+//--------------------------------------------------------------------------------------------
+// Cross chain outputs
+
+template <typename T>
+bool CcRecipientVisitor::operator() (const T& r) const { return fact->set(r); }
+
+/*
+bool CcRecipientVisitor::operator() (const CRecipientScCreation& r) const { return fact->set(r); }
+bool CcRecipientVisitor::operator() (const CRecipientCertLock& r) const { return fact->set(r); }
+bool CcRecipientVisitor::operator() (const CRecipientForwardTransfer& r) const { return fact->set(r); }
+bool CcRecipientVisitor::operator() (const CRecipientBackwardTransfer& r) const { return fact->set(r); }
+*/
+
+bool CRecipientFactory::set(const CRecipientScCreation& r)
+{
+    CTxScCreationCrosschainOut txccout(r.scId, r.creationData.withdrawalEpochLength);
+    // no dust can be found in sc creation
+    tx->vsc_ccout.push_back(txccout);
+    return true;
+};
+
+bool CRecipientFactory::set(const CRecipientCertLock& r)
+{
+    CTxCertifierLockCrosschainOut txccout(r.nValue, r.address, r.scId, r.epoch);
+    if (txccout.IsDust(::minRelayTxFee))
+    {
+        err = _("Transaction amount too small");
+        return false;
+    }
+    tx->vcl_ccout.push_back(txccout);
+    return true;
+};
+
+bool CRecipientFactory::set(const CRecipientForwardTransfer& r)
+{
+    CTxForwardTransferCrosschainOut txccout(r.nValue, r.address, r.scId);
+    if (txccout.IsDust(::minRelayTxFee))
+    {
+        err = _("Transaction amount too small");
+        return false;
+    }
+    tx->vft_ccout.push_back(txccout);
+    return true;
+};
+
+bool CRecipientFactory::set(const CRecipientBackwardTransfer& r)
+{
+    CTxBackwardTransferCrosschainOut txccout(r.nValue, r.scriptPubKey);
+    tx->sc_cert.vbt_ccout.push_back(txccout);
+    return true;
+};
+

@@ -101,6 +101,39 @@ inline uint256 Hash(const T1 p1begin, const T1 p1end,
     return result;
 }
 
+/** Compute the 256-bit hash of the concatenation of N objects of the same type. */
+template<typename T>
+inline uint256 Hash(const std::vector<T>& vInput)
+{
+    static const unsigned char pblank[1] = {};
+    const int size = vInput.size();
+    uint256 result;
+
+    CHash256 dum = CHash256();
+
+    if (size == 0)
+    {
+        dum = dum.Write(pblank, 0);
+    }
+
+    for (int j = 0; j < size; j++)
+    {
+        char* tb = (char*)&(vInput[j]);
+        char* te = (char*)&((&(vInput[j]))[1]);
+ 
+        dum = dum.Write(tb == te ? pblank : (const unsigned char*)&tb[0], (te - tb) * sizeof(tb[0]));
+    }
+
+    dum.Finalize((unsigned char*)&result);
+    return result;
+}
+
+/** Compute the 256-bit hash of a vector. */
+inline uint256 Hash256(const std::vector<unsigned char>& vch)
+{
+    return Hash(vch.begin(), vch.end());
+}
+
 /** Compute the 160-bit hash an object. */
 template<typename T1>
 inline uint160 Hash160(const T1 pbegin, const T1 pend)
@@ -165,5 +198,10 @@ uint256 SerializeHash(const T& obj, int nType=SER_GETHASH, int nVersion=PROTOCOL
 unsigned int MurmurHash3(unsigned int nHashSeed, const std::vector<unsigned char>& vDataToHash);
 
 void BIP32Hash(const ChainCode &chainCode, unsigned int nChild, unsigned char header, const unsigned char data[32], unsigned char output[64]);
+
+struct ObjectHasher
+{
+    size_t operator()(const uint256& hash) const { return hash.GetCheapHash(); }
+};
 
 #endif // BITCOIN_HASH_H

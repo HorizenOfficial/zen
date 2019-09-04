@@ -753,6 +753,8 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
             return DB_CORRUPT;
         }
 
+        Sidechain::ScVerifyDbGuard sc_db_verifier_guard;
+
         while (true)
         {
             // Read next record

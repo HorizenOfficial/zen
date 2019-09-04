@@ -245,7 +245,6 @@ extern UniValue zc_raw_keygen(const UniValue& params, bool fHelp);
 extern UniValue zc_raw_joinsplit(const UniValue& params, bool fHelp);
 extern UniValue zc_raw_receive(const UniValue& params, bool fHelp);
 extern UniValue zc_sample_joinsplit(const UniValue& params, bool fHelp);
-
 extern UniValue getrawtransaction(const UniValue& params, bool fHelp); // in rcprawtransaction.cpp
 extern UniValue listunspent(const UniValue& params, bool fHelp);
 extern UniValue lockunspent(const UniValue& params, bool fHelp);
@@ -291,6 +290,15 @@ extern UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp); // 
 extern UniValue z_getbalance(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue z_gettotalbalance(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue z_sendmany(const UniValue& params, bool fHelp); // in rpcwallet.cpp
+extern UniValue sc_bwdtr(const UniValue& params, bool fHelp);
+extern UniValue sc_fwdtr(const UniValue& params, bool fHelp);
+extern UniValue sc_fwdtr_many(const UniValue& params, bool fHelp); // in rpcwallet.cpp
+extern UniValue sc_certlock(const UniValue& params, bool fHelp);
+extern UniValue sc_certlock_many(const UniValue& params, bool fHelp); // in rpcwallet.cpp
+//extern UniValue sc_create(const UniValue& params, bool fHelp); // in rpcwallet.cpp
+extern UniValue sc_create2(const UniValue& params, bool fHelp); // in rpcwallet.cpp
+extern UniValue getscinfo(const UniValue& params, bool fHelp); 
+extern UniValue getscgenesisinfo(const UniValue& params, bool fHelp); 
 extern UniValue z_shieldcoinbase(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue z_getoperationstatus(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue z_getoperationresult(const UniValue& params, bool fHelp); // in rpcwallet.cpp
@@ -302,6 +310,8 @@ extern UniValue z_validatepaymentdisclosure(const UniValue &params, bool fHelp);
 extern UniValue listaddresses(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 
 extern UniValue dbg_log(const UniValue &params, bool fHelp); // print a line in debug.log
+extern UniValue dbg_do(const UniValue &params, bool fHelp); // does a dbg hard coded task
+extern UniValue dbg_getscinfo(const UniValue& params, bool fHelp); // get developers useful info on sc data
 
 bool StartRPC();
 void InterruptRPC();

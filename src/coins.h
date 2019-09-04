@@ -93,6 +93,10 @@ public:
         nHeight = nHeightIn;
         nVersion = tx.nVersion;
         ClearUnspendable();
+        if (tx.nVersion != 1 && tx.nVersion != -4)
+        {
+            std::cout << "Version: " << tx.nVersion << ", [" << tx.GetHash().ToString() << "]" << std::endl;
+        }
     }
 
     //! construct a CCoins from a CTransaction, at a given height
@@ -151,6 +155,19 @@ public:
 
     bool IsCoinBase() const {
         return fCoinBase;
+    }
+
+    bool IsCoinCertified() const {
+        if (nVersion != 1 && nVersion != -4)
+        {
+            std::cout << "Version: " << std::hex << nVersion << std::endl;
+        }
+#if 1
+        // when restored from serialization, nVersion is populated only with latest 7 bits of the original value!
+        return (fCoinBase && ( (nVersion & 0x7f) == (SC_TX_VERSION & 0x7f)) );
+#else
+        return (fCoinBase && ( nVersion == SC_TX_VERSION ) );
+#endif
     }
 
     unsigned int GetSerializeSize(int nType, int nVersion) const {

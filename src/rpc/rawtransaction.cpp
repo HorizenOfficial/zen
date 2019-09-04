@@ -27,8 +27,10 @@
 #include <boost/assign/list_of.hpp>
 
 #include <univalue.h>
+#include "sc/sidechain.h"
 
 using namespace std;
+using namespace Sidechain;
 
 void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex)
 {
@@ -54,6 +56,64 @@ void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fInclud
     out.push_back(Pair("addresses", a));
 }
 
+void AddTxCrosschainJSON (const CTransaction& tx, UniValue& parentObj)
+{
+    UniValue vscs(UniValue::VARR);
+    for (unsigned int i = 0; i < tx.vsc_ccout.size(); i++) {
+        const CTxScCreationCrosschainOut& out = tx.vsc_ccout[i];
+        UniValue o(UniValue::VOBJ);
+        o.push_back(Pair("scid", out.scId.GetHex()));
+        o.push_back(Pair("n", (int64_t)i));
+        o.push_back(Pair("withdrawal epoch length", (int)out.withdrawalEpochLength));
+        vscs.push_back(o);
+    }
+    parentObj.push_back(Pair("vsc_ccout", vscs));
+
+    UniValue vcls(UniValue::VARR);
+    for (unsigned int i = 0; i < tx.vcl_ccout.size(); i++) {
+        const CTxCertifierLockCrosschainOut& out = tx.vcl_ccout[i];
+        UniValue o(UniValue::VOBJ);
+        o.push_back(Pair("scid", out.scId.GetHex()));
+        o.push_back(Pair("value", ValueFromAmount(out.nValue)));
+        o.push_back(Pair("n", (int64_t)i));
+        o.push_back(Pair("address", out.address.GetHex()));
+        o.push_back(Pair("active from withdrawal epoch", out.activeFromWithdrawalEpoch));
+        vcls.push_back(o);
+    }
+    parentObj.push_back(Pair("vcl_ccout", vcls));
+
+    UniValue vfts(UniValue::VARR);
+    for (unsigned int i = 0; i < tx.vft_ccout.size(); i++) {
+        const CTxForwardTransferCrosschainOut& out = tx.vft_ccout[i];
+        UniValue o(UniValue::VOBJ);
+        o.push_back(Pair("scid", out.scId.GetHex()));
+        o.push_back(Pair("value", ValueFromAmount(out.nValue)));
+        o.push_back(Pair("n", (int64_t)i));
+        o.push_back(Pair("address", out.address.GetHex()));
+        vfts.push_back(o);
+    }
+    parentObj.push_back(Pair("vft_ccout", vfts));
+
+    if (tx.IsCoinCertified() )
+    {
+        UniValue o(UniValue::VOBJ);
+        o.push_back(Pair("scid", tx.sc_cert.scId.GetHex()));
+        o.push_back(Pair("totalAmount", ValueFromAmount(tx.sc_cert.totalAmount)));
+        parentObj.push_back(Pair("sc_cert", o));
+
+        UniValue vbts(UniValue::VARR);
+        for (unsigned int i = 0; i < tx.sc_cert.vbt_ccout.size(); i++) {
+            const auto& out = tx.sc_cert.vbt_ccout[i];
+            UniValue o(UniValue::VOBJ);
+            o.push_back(Pair("value", ValueFromAmount(out.nValue)));
+            UniValue p(UniValue::VOBJ);
+            ScriptPubKeyToJSON(out.scriptPubKey, p, true);
+            o.push_back(Pair("scriptPubKey", p));
+            vbts.push_back(o);
+        }
+        parentObj.push_back(Pair("sc_cert.vbt_ccout", vbts));
+    }
+}
 
 UniValue TxJoinSplitToJSON(const CTransaction& tx) {
     bool useGroth = tx.nVersion == GROTH_TX_VERSION;
@@ -147,6 +207,9 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         vout.push_back(out);
     }
     entry.push_back(Pair("vout", vout));
+
+    // add to entry obj the cross chain outputs
+    AddTxCrosschainJSON(tx, entry);
 
     UniValue vjoinsplit = TxJoinSplitToJSON(tx);
     entry.push_back(Pair("vjoinsplit", vjoinsplit));
@@ -399,13 +462,14 @@ UniValue verifytxoutproof(const UniValue& params, bool fHelp)
 
 UniValue createrawtransaction(const UniValue& params, bool fHelp)
 {   
-    if (fHelp || params.size() != 2)
+    if (fHelp || params.size() > 4)
         throw runtime_error(
-            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...}\n"
+            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} ( [{\"scid\":\"id\", epoch_length\":h},...] ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id}] ) )\n"
             "\nCreate a transaction spending the given inputs and sending to the given addresses.\n"
             "Returns hex-encoded raw transaction.\n"
             "Note that the transaction's inputs are not signed, and\n"
             "it is not stored in the wallet or transmitted to the network.\n"
+            "See also \"fundrawtransaction\" RPC method.\n"
 
             "\nArguments:\n"
             "1. \"transactions\"        (string, required) A json array of json objects\n"
@@ -421,6 +485,23 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "      \"address\": x.xxx   (numeric, required) The key is the Horizen address, the value is the " + CURRENCY_UNIT + " amount\n"
             "      ,...\n"
             "    }\n"
+            "3. \"sc creations\"        (string, optional but required if 4 is also given) A json array of json objects\n"
+            "     [\n"
+            "       {\n"
+            "         \"scid\":\"id\",   (string, required) The side chain id\n"
+            "         \"epoch_length\":n (numeric, required) length of the withdrawal epochs"
+            "       }\n"
+            "       ,...\n"
+            "     ]\n"
+            "4. \"forward transfers\"   (string, optional) A json array of json objects\n"
+            "     [\n"
+            "       {\n"
+            "         \"address\":\"address\",  (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "         \"amount\":amount         (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
+            "         \"scid\":side chain ID    (string, required) The uint256 side chain ID\n"
+            "       }\n"
+            "       ,...\n"
+            "     ]\n"
 
             "\nResult:\n"
             "\"transaction\"            (string) hex string of the transaction\n"
@@ -428,16 +509,19 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "\nExamples\n"
             + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"address\\\":0.01}\"")
             + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"address\\\":0.01}\"")
+            + HelpExampleRpc("createrawtransaction", "\"[]\" \"{}\" \"[{\\\"scid\\\" :\\\"myscid\\\", \\\"epoch_length\\\" :300}]\" \"{\\\"address\\\": \\\"myaddress\\\", \\\"amount\\\": 4.0, \\\"scid\\\": \\\"myscid\\\"}]\"")
         );
 
     LOCK(cs_main);
-    RPCTypeCheck(params, boost::assign::list_of(UniValue::VARR)(UniValue::VOBJ));
+    RPCTypeCheck(params, boost::assign::list_of 
+        (UniValue::VARR)(UniValue::VOBJ)(UniValue::VARR) (UniValue::VARR));
 
     UniValue inputs = params[0].get_array();
     UniValue sendTo = params[1].get_obj();
 
     CMutableTransaction rawTx;
 
+    // inputs
     for (size_t idx = 0; idx < inputs.size(); idx++) {
         const UniValue& input = inputs[idx];
         const UniValue& o = input.get_obj();
@@ -455,6 +539,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         rawTx.vin.push_back(in);
     }
 
+    // outputs
     set<CBitcoinAddress> setAddress;
     vector<string> addrList = sendTo.getKeys();
     BOOST_FOREACH(const string& name_, addrList) {
@@ -471,6 +556,62 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
         CTxOut out(nAmount, scriptPubKey);
         rawTx.vout.push_back(out);
+    }
+
+    // crosschain creation
+    if (params.size() > 2 && !params[2].isNull())
+    {
+        UniValue sc_crs = params[2].get_array();
+
+        if (sc_crs.size())
+        {
+            std::string errString;
+            if (!ScMgr::instance().fillRawCreation(sc_crs, rawTx, mempool, errString) )
+            {
+                throw JSONRPCError(RPC_TYPE_ERROR, errString);
+            }
+        }
+    }
+
+    // crosschain certifier locks TODO
+
+    // crosschain forward transfers
+    if (params.size() > 3 && !params[3].isNull())
+    {
+        UniValue sc_fwdtr = params[3].get_array();
+
+        if (sc_fwdtr.size())
+        {
+            rawTx.nVersion = SC_TX_VERSION;
+        }
+
+        for (size_t j = 0; j < sc_fwdtr.size(); j++)
+        {
+            const UniValue& input = sc_fwdtr[j];
+            const UniValue& o = input.get_obj();
+
+            string inputString = find_value(o, "scid").get_str();
+            if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+    
+            uint256 scId;
+            scId.SetHex(inputString);
+
+            const UniValue& av = find_value(o, "amount");
+            CAmount nAmount = AmountFromValue( av );
+            if (nAmount < 0)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
+
+            inputString = find_value(o, "address").get_str();
+            if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address format: not an hex");
+    
+            uint256 address;
+            address.SetHex(inputString);
+
+            CTxForwardTransferCrosschainOut txccout(nAmount, address, scId);
+            rawTx.vft_ccout.push_back(txccout);
+        }
     }
 
     return EncodeHexTx(rawTx);

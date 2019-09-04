@@ -22,7 +22,11 @@
 
 #include <regex>
 
+#include "sc/sidechain.h"
+
 using namespace std;
+
+using namespace Sidechain;
 
 extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
 void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
@@ -138,6 +142,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.push_back(Pair("height", blockindex->nHeight));
     result.push_back(Pair("version", block.nVersion));
     result.push_back(Pair("merkleroot", block.hashMerkleRoot.GetHex()));
+    result.push_back(Pair("scmerklerootsmap", block.hashScMerkleRootsMap.GetHex()));
     UniValue txs(UniValue::VARR);
     BOOST_FOREACH(const CTransaction&tx, block.vtx)
     {
@@ -762,7 +767,8 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
         while (block && block->pprev && (block->pprev->nStatus & BLOCK_HAVE_DATA))
             block = block->pprev;
 
-        obj.push_back(Pair("pruneheight",        block->nHeight));
+        if (block)
+            obj.push_back(Pair("pruneheight",        block->nHeight));
     }
     return obj;
 }
@@ -964,6 +970,138 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
+UniValue getscinfo(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() > 1)
+        throw runtime_error(
+            "getscinfo \"scid\" (Optional)\n"
+            "\nReturns side chain info for the given id or for all of the existing sc if the id is not given.\n"
+            "\n"
+
+            "\nExamples\n"
+            + HelpExampleCli("getscinfo", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
+            + HelpExampleCli("getscinfo", "")
+        );
+
+    if (params.size() > 0)
+    {
+        // side chain id
+        string inputString = params[0].get_str();
+        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+ 
+        uint256 scId;
+        scId.SetHex(inputString);
+ 
+        UniValue sc(UniValue::VOBJ);
+        if (!ScMgr::instance().fillJSON(scId, sc) )
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+        }
+ 
+        return sc;
+    }
+
+    // dump all of them if any
+    UniValue result(UniValue::VARR);
+    ScMgr::instance().fillJSON(result);
+
+    return result;
+}
+
+UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+    {
+        throw runtime_error(
+            "getscgenesisinfo \"scid\"\n"
+            "\nReturns side chain genesis info for the given id or for all of the existing sc if the id is not given.\n"
+            "\n"
+            "\nResult:\n"
+            "\"data\"             (string) A string that is serialized, hex-encoded data.\n"
+            // TODO explain the contents
+
+            "\nExamples\n"
+            + HelpExampleCli("getscgenesisinfo", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
+        );
+    }
+
+    // side chain id
+    string inputString = params[0].get_str();
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+ 
+    uint256 scId;
+    scId.SetHex(inputString);
+ 
+    // sanity check of the side chain ID
+    if (!ScMgr::instance().sidechainExists(scId) )
+    {
+        LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+    }
+
+    // find the block where it has been created
+    ScInfo info;
+    if (!ScMgr::instance().getScInfo(scId, info) )
+    {
+        LogPrint("sc", "cound not get info for scid[%s], probably not yet created\n", scId.ToString() );
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+    }
+ 
+    uint256 blockHash = info.ownerBlockHash;
+
+    if (mapBlockIndex.count(blockHash) == 0)
+    {
+        LogPrint("sc", "cound not find creating block\n", scId.ToString() );
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
+    }
+
+    CBlock block;
+    CBlockIndex* pblockindex = mapBlockIndex[blockHash];
+
+    if (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0)
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Block not available (pruned data)");
+
+    if(!ReadBlockFromDisk(block, pblockindex))
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
+
+    CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+
+    // block hex data
+    ssBlock << block;
+
+    // block height
+    ssBlock << pblockindex->nHeight;
+
+    // get pow data
+    const int vec_size = Params().GetConsensus().nPowAveragingWindow + CBlockIndex::nMedianTimeSpan;
+
+    std::vector<sPowRelatedData> vData;
+    vData.reserve(vec_size);
+
+    CBlockIndex* prev = pblockindex;
+
+    for (int i = 0; i < vec_size; i++)
+    {
+        sPowRelatedData s = {};
+        prev = prev->pprev;
+        if (!prev)
+        {
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't set block index!");
+        }
+        s.a = prev->nTime;
+        s.b = prev->nBits;
+        vData.push_back(s);
+    }
+
+    ssBlock << vData;
+
+    std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
+    return strHex;
+   
+}
+
 UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 2)
@@ -1125,3 +1263,106 @@ UniValue dbg_log(const UniValue& params, bool fHelp)
     LogPrint("py", "%s() - ########## [%s] #########\n", __func__, s);
     return "Log printed";
 }
+
+extern void dump_sc_tx();
+
+UniValue dbg_do(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() == 0)
+    {
+        throw runtime_error(
+            "dbg_do: does some hard coded helper task\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getglobaltips", "\"hash\"")
+        );
+    }
+
+    std::string strHash1 = params[0].get_str();
+    std::string strHash2 = params[1].get_str();
+    uint256 hash1(uint256S(strHash1));
+    uint256 hash2(uint256S(strHash2));
+
+    std::vector<uint256> vDum;
+    vDum.push_back(hash1);
+    vDum.push_back(hash2);
+
+    uint256 ret0 = Hash(vDum);
+
+    uint256 ret1 = Hash(BEGIN(hash1), END(hash1), BEGIN(hash2), END(hash2));
+
+    unsigned char buf[64] = {};
+    memcpy(buf, BEGIN(hash1), sizeof(uint256));
+    memcpy(buf+sizeof(uint256), BEGIN(hash2), sizeof(uint256));
+
+    uint256 ret2 = Hash(BEGIN(buf), END(buf));
+
+    std::vector<string> vDum3;
+    vDum3.push_back(strHash1);
+    vDum3.push_back(strHash2);
+    uint256 ret3 = Hash(vDum3);
+
+    std::string ret(ret0.ToString() + "\n" + ret1.ToString() + "\n" + ret2.ToString() + "\n### " + ret3.ToString() + "\n"); 
+    dump_sc_tx();
+
+    std::vector<uint256> vvv;
+    uint256 qqq = Hash(vvv);
+    char bbb = '1';
+    uint256 www = Hash(&bbb, &bbb);
+    uint256 rrr = Hash("", "");
+    std::vector<unsigned char> ccc;
+    uint256 zzz = Hash256(ccc);
+
+    ret += qqq.ToString() + "\n";
+    ret += www.ToString() + "\n";
+    ret += rrr.ToString() + "\n";
+    ret += zzz.ToString() + "\n";
+
+    uint256  h1 = uint256S("c1c7100708c6066da672f85a79aae2db1ff8fe7186d5f2a3b1c718073f8bfe8e");
+    uint256  h2 = uint256S("8cdc163ce8d630dcc125262aa4fba991253c48bf71a27c415350fc078a13af47");
+    uint256  h3 = uint256S("5a209c2fc55feb88055e51221601809259dfbbd1fc4cb7008b257af0cc391a6e");
+    uint256  h4 = uint256S("38dfafc6ed9f6fe2ad2428ff1896ea31f684e3b8aad611ca2299bde2bce8f8bb");
+    uint256  h5 = uint256S("0ad690dc7860feb0ebdc6bf225f9d0f5e42a6966c82afbb761827d336010aa0b");
+    uint256  h6 = uint256S("cbf714c277c4f3a4c3713b37f7ad7b9473236adb452df53e553e4c69d07858ea");
+    uint256  h7 = uint256S("8462f1e0ea46e3299cbf137d544a5024c7573dc165b9eb6befce8d61c8686354");
+    uint256  h8 = uint256S("90b6c3fd06982c301465f7a01de3dd330a1e72176f6f6502cb49f8ef6e2ec5a9");
+    uint256  h9 = uint256S("ee866a92df476d353a17c80eb6679e07443f1dc80f32e005431b3a4238d8535c");
+    uint256 h10 = uint256S("f226682ed5e505c1c3e533771b9861bfaf0173b6f70c35bea2109530817b2f92");
+
+    std::vector<uint256> mt;
+    mt.push_back( h1);
+    mt.push_back( h2);
+    mt.push_back( h3);
+    mt.push_back( h4);
+    mt.push_back( h5);
+    mt.push_back( h6);
+    mt.push_back( h7);
+    mt.push_back( h8);
+    mt.push_back( h9);
+    mt.push_back(h10);
+
+    uint256 mtrh = CBlock::BuildMerkleRootHash(mt);
+    ret += "MR: " + mtrh.ToString() + "\n";
+
+    mt.clear();
+
+    mtrh = CBlock::BuildMerkleRootHash(mt);
+    ret += "MR of an empty seq: " + mtrh.ToString() + "\n";
+
+    mt.push_back(h1);
+    mt.push_back(h2);
+
+    mtrh = CBlock::BuildMerkleRootHash(mt);
+    ret += "MR di 2: " + mtrh.ToString() + "\n";
+
+    qqq = Hash(mt);
+    ret += "Hash di 2: " + qqq.ToString() + "\n";
+
+    uint256 n = uint256();;
+    qqq = Hash(BEGIN(n), END(n));
+    ret += "Hash of a uint256 null: " + qqq.ToString() + "\n";
+
+    return ret;
+}
+
+
+

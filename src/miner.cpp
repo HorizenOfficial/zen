@@ -39,10 +39,12 @@
 #include <functional>
 #endif
 #include <mutex>
+#include "sc/sidechain.h"
 
 using namespace std;
 
 #include "zen/forkmanager.h"
+
 using namespace zen; 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -116,8 +118,10 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
                 ? nMedianTimePast
                 : pblock->GetBlockTime();
 
-        if (tx.IsCoinBase() || !IsFinalTx(tx, nHeight, nLockTimeCutoff))
+        if ( (tx.IsCoinBase() && !tx.IsCoinCertified() ) || !IsFinalTx(tx, nHeight, nLockTimeCutoff))
+        {
             continue;
+        }
 
         COrphan* porphan = NULL;
         double dPriority = 0;
@@ -127,6 +131,8 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
         uint256 hash = tx.GetHash();
         bool fMissingInputs = false;
 
+//        if (tx.IsCoinCertified())
+        {
         // Detect orphan transaction and its dependencies
         BOOST_FOREACH(const CTxIn& txin, tx.vin)
         {
@@ -143,16 +149,20 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
                 nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().vout[txin.prevout.n].nValue;
             }
         }
+        }
 
         if (!porphan)
         {
             dPriority = mi->second.GetPriority(nHeight);
             nFee = mi->second.GetFee();
             mempool.ApplyDeltas(hash, dPriority, nFee);
-            nTotalIn = tx.GetValueOut() - nFee;
+            // not used
+            // nTotalIn = tx.GetValueOut() - nFee;
         }
         else
         {
+//            if (tx.IsCoinCertified())
+            {
             BOOST_FOREACH(const CTxIn& txin, tx.vin)
             {
                 // Read prev transaction
@@ -182,13 +192,21 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
                 dPriority += (double)nValueIn * nConf;
             }
             nTotalIn += tx.GetJoinSplitValueIn();
+            }
 
             if (fMissingInputs) continue;
 
+            if (tx.IsCoinCertified())
+            {
+                nTotalIn += tx.sc_cert.totalAmount;
+            }
+
+            nFee = nTotalIn - tx.GetValueOut() - tx.GetValueCcOut();
+            
             // Priority is sum(valuein * age) / modified_txsize
             dPriority = tx.ComputePriority(dPriority, nTxSize);
             mempool.ApplyDeltas(hash, dPriority, nTotalIn);
-            nFee = nTotalIn - tx.GetValueOut();
+            //nFee = nTotalIn - tx.GetValueOut() - tx.GetValueCcOut();
         }
 
         CFeeRate feeRate(nFee, nTxSize);
@@ -273,7 +291,7 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
         uint256 hash = tx.GetHash();
         mempool.ApplyDeltas(hash, dPriority, nTotalIn);
 
-        CFeeRate feeRate(nTotalIn-tx.GetValueOut(), nTxSize);
+        CFeeRate feeRate(nTotalIn-tx.GetValueOut()-tx.GetValueCcOut(), nTxSize);
 
         if (porphan)
         {
@@ -396,7 +414,11 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             CAmount nFeeDelta = 0;
             mempool.ApplyDeltas(hash, dPriorityDelta, nFeeDelta);
             if (fSortedByFee && (dPriorityDelta <= 0) && (nFeeDelta <= 0) && (feeRate < ::minRelayTxFee) && (nBlockSize + nTxSize >= nBlockMinSize))
+            {
+                LogPrint("sc", "%s():%d - Skipping tx[%s] because it is free (feeDelta=%lld/feeRate=%s)\n",
+                    __func__, __LINE__, tx.GetHash().ToString(), nFeeDelta, feeRate.ToString() );
                 continue;
+            }
 
             // Prioritise by fee once past the priority size or we run out of high-priority
             // transactions:
@@ -416,7 +438,58 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             if (!view.HaveInputs(tx))
                 continue;
 
-            CAmount nTxFees = view.GetValueIn(tx)-tx.GetValueOut();
+            // skip transactions that send forward/backward crosschain amounts if the creation of the target sidechain is
+            // not yet in blockchain. This should happen only if a chain has been reverted and a mix of creation/transfers has been placed back in the mem pool
+            // The skipped tx will be mined in the next block if the scid is found
+            CValidationState state;
+            if ( !Sidechain::ScMgr::instance().checkSidechainForwardTransaction(tx, state) )
+            {
+                if (state.GetRejectCode() == REJECT_SCID_NOT_FOUND)
+            {
+                LogPrint("sc", "%s():%d - Skipping tx[%s] because tries to forward funds to a SC not yet created\n", __func__, __LINE__, tx.GetHash().ToString());
+                }
+                else
+                {
+                    // should not happen
+                    LogPrint("sc", "%s():%d - Skipping tx[%s]: unexpected error[0x%x] \n",
+                        __func__, __LINE__, tx.GetHash().ToString(), state.GetRejectCode());
+                }
+                continue;
+            }
+    
+            // same applies with bkws, but here we might have to give way to fwd transfer to happen first
+            if ( !Sidechain::ScMgr::instance().checkSidechainBackwardTransaction(tx, state) )
+            {
+                if (state.GetRejectCode() == REJECT_SCID_NOT_FOUND)
+                {
+                    LogPrint("sc", "%s():%d - Skipping tx[%s] because tries to backw funds to a SC not yet created\n", __func__, __LINE__, tx.GetHash().ToString());
+                }
+                else
+                if (state.GetRejectCode() == REJECT_INSUFFICIENT_SCID_FUNDS)
+                {
+                    LogPrint("sc", "%s():%d - Skipping tx[%s] because tries to backw coins to a SC with insufficient balance\n", __func__, __LINE__, tx.GetHash().ToString());
+                }
+                else
+                {
+                    // should not happen
+                    LogPrint("sc", "%s():%d - Skipping tx[%s]: unexpected error[0x%x] \n",
+                        __func__, __LINE__, tx.GetHash().ToString(), state.GetRejectCode());
+                }
+                continue;
+            }
+
+            CAmount nTxFees = 0;
+
+            if (tx.IsCoinCertified() )
+            {
+                // similarly to coinbase there are no vin, fees have been carved out from vout 
+                //nTxFees = tx.sc_cert.totalAmount - tx.sc_cert.GetValueBackwardTransferCcOut();
+                nTxFees = tx.sc_cert.totalAmount - tx.GetValueOut();
+            }
+            else
+            {
+                nTxFees = view.GetValueIn(tx)-tx.GetValueOut()-tx.GetValueCcOut();
+            }
 
             nTxSigOps += GetP2SHSigOpCount(tx, view);
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
@@ -425,7 +498,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             // Note that flags: we don't want to set mempool/IsStandard()
             // policy here, but we still have to ensure that the block we
             // create only contains transactions that are valid in new blocks.
-            CValidationState state;
             if (!ContextualCheckInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
                 continue;
 
@@ -503,7 +575,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
         // Fill in header
         pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
-        pblock->hashReserved   = uint256();
+        pblock->hashScMerkleRootsMap   = uint256();
         UpdateTime(pblock, Params().GetConsensus(), pindexPrev);
         pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock, Params().GetConsensus());
         pblock->nSolution.clear();
@@ -583,6 +655,7 @@ void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& 
 
     pblock->vtx[0] = txCoinbase;
     pblock->hashMerkleRoot = pblock->BuildMerkleTree();
+    pblock->hashScMerkleRootsMap = pblock->BuildScMerkleRootsMap();
 }
 
 #ifdef ENABLE_WALLET
