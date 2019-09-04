@@ -59,13 +59,17 @@ void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fInclud
 void AddTxCrosschainJSON (const CTransaction& tx, UniValue& parentObj)
 {
     UniValue vscs(UniValue::VARR);
+    // global idx
+    unsigned int nIdx = 0; 
+
     for (unsigned int i = 0; i < tx.vsc_ccout.size(); i++) {
         const CTxScCreationCrosschainOut& out = tx.vsc_ccout[i];
         UniValue o(UniValue::VOBJ);
         o.push_back(Pair("scid", out.scId.GetHex()));
-        o.push_back(Pair("n", (int64_t)i));
+        o.push_back(Pair("n", (int64_t)nIdx));
         o.push_back(Pair("withdrawal epoch length", (int)out.withdrawalEpochLength));
         vscs.push_back(o);
+        nIdx++;
     }
     parentObj.push_back(Pair("vsc_ccout", vscs));
 
@@ -75,10 +79,11 @@ void AddTxCrosschainJSON (const CTransaction& tx, UniValue& parentObj)
         UniValue o(UniValue::VOBJ);
         o.push_back(Pair("scid", out.scId.GetHex()));
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
-        o.push_back(Pair("n", (int64_t)i));
+        o.push_back(Pair("n", (int64_t)nIdx));
         o.push_back(Pair("address", out.address.GetHex()));
         o.push_back(Pair("active from withdrawal epoch", out.activeFromWithdrawalEpoch));
         vcls.push_back(o);
+        nIdx++;
     }
     parentObj.push_back(Pair("vcl_ccout", vcls));
 
@@ -88,9 +93,10 @@ void AddTxCrosschainJSON (const CTransaction& tx, UniValue& parentObj)
         UniValue o(UniValue::VOBJ);
         o.push_back(Pair("scid", out.scId.GetHex()));
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
-        o.push_back(Pair("n", (int64_t)i));
+        o.push_back(Pair("n", (int64_t)nIdx));
         o.push_back(Pair("address", out.address.GetHex()));
         vfts.push_back(o);
+        nIdx++;
     }
     parentObj.push_back(Pair("vft_ccout", vfts));
 
