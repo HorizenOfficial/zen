@@ -100,7 +100,7 @@ void AddTxCrosschainJSON (const CTransaction& tx, UniValue& parentObj)
     }
     parentObj.push_back(Pair("vft_ccout", vfts));
 
-    if (tx.IsCoinCertified() )
+//    if (tx.IsCoinCertified() )
     {
         UniValue vcert(UniValue::VARR);
         for (unsigned int i = 0; i < tx.vsc_cert.size(); i++)
