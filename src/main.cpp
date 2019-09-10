@@ -1407,7 +1407,10 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
         else
         {
-            nValueIn = tx.sc_cert.totalAmount;
+            BOOST_FOREACH(const auto& entry, tx.vsc_cert)
+            {
+                nValueIn += entry.totalAmount;
+            }
         }
 
 
@@ -2512,7 +2515,11 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         // add the certificates fee if any
         if (tx.IsCoinCertified() )
         {
-            nFees += tx.sc_cert.totalAmount - tx.GetValueOut();
+            BOOST_FOREACH(const auto& entry, tx.vsc_cert)
+            {
+                nFees += entry.totalAmount;
+            }
+            nFees -= tx.GetValueOut();
         }
 
         CTxUndo undoDummy;
@@ -2808,7 +2815,7 @@ bool static DisconnectTip(CValidationState &state) {
         return false;
 
     DbgRemoveFromScTransactionMap(block);
-    if (!scMgr.onBlockDisconnected(block) )
+    if (!scMgr.onBlockDisconnected(block, pindexDelete->nHeight) )
     {
         return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
     }
@@ -4268,6 +4275,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     CValidationState state;
     // No need to verify JoinSplits twice
     auto verifier = libzcash::ProofVerifier::Disabled();
+
     Sidechain::ScVerifyDbGuard sc_db_verifier_guard;
 
     for (CBlockIndex* pindex = chainActive.Tip(); pindex && pindex->pprev; pindex = pindex->pprev)

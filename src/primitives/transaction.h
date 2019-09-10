@@ -25,6 +25,8 @@
 #include "utilstrencodings.h"
 #include "hash.h"
 
+// uncomment for debugging some sc related hashing calculations
+//#define DEBUG_SC_HASH 1
 
 static const int32_t SC_TX_VERSION = 0xFFFFFFFC; // -4
 static const int32_t GROTH_TX_VERSION = 0xFFFFFFFD; // -3
@@ -643,7 +645,11 @@ public:
     uint256 scId;
     // int64_t epoch;
     // ...others
+
     CAmount totalAmount;
+
+    // for the time being it is exactly a CTxOut vector, in future this type can accomodate other specific
+    // objects if necessarys, otherwise we can remove this vect and live with usual vout+totalFee
     std::vector<CTxBackwardTransferCrosschainOut> vbt_ccout;
 
     /** Construct a CScCertificate that qualifies as IsNull() */
@@ -666,9 +672,6 @@ public:
             vbt_ccout.empty()
         );
     }
-
-    // this is (totalAmount-fee)
-    CAmount GetValueBackwardTransferCcOut() const;
 
     friend bool operator==(const CScCertificate& a, const CScCertificate& b)
     {
@@ -721,7 +724,7 @@ public:
     const std::vector<CTxScCreationCrosschainOut> vsc_ccout;
     const std::vector<CTxCertifierLockCrosschainOut> vcl_ccout;
     const std::vector<CTxForwardTransferCrosschainOut> vft_ccout;
-    const CScCertificate sc_cert;
+    const std::vector<CScCertificate> vsc_cert;
     const uint32_t nLockTime;
     const std::vector<JSDescription> vjoinsplit;
     const uint256 joinSplitPubKey;
@@ -748,7 +751,7 @@ public:
             READWRITE(*const_cast<std::vector<CTxScCreationCrosschainOut>*>(&vsc_ccout));
             READWRITE(*const_cast<std::vector<CTxCertifierLockCrosschainOut>*>(&vcl_ccout));
             READWRITE(*const_cast<std::vector<CTxForwardTransferCrosschainOut>*>(&vft_ccout));
-            READWRITE(*const_cast<CScCertificate*>(&sc_cert));
+            READWRITE(*const_cast<std::vector<CScCertificate>*>(&vsc_cert));
         }
         READWRITE(*const_cast<uint32_t*>(&nLockTime));
         if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {
@@ -769,7 +772,7 @@ public:
         bool ret = vin.empty() && vout.empty();
         if (nVersion == SC_TX_VERSION)
         {
-            ret = ret && ccIsNull() && sc_cert.IsNull();
+            ret = ret && ccIsNull() && vsc_cert.empty();
         }
         return ret;
     }
@@ -817,7 +820,7 @@ public:
 
     bool IsCoinCertified() const
     {
-        return (IsCoinBase() && !sc_cert.IsNull() );
+        return (IsCoinBase() && !vsc_cert.empty() );
     }
 
     friend bool operator==(const CTransaction& a, const CTransaction& b)
@@ -858,6 +861,37 @@ public:
                 BEGIN(txHash),    END(txHash),
                 BEGIN(n),         END(n) );
 
+#ifdef DEBUG_SC_HASH
+            CDataStream ss2(SER_NETWORK, PROTOCOL_VERSION);
+            ss2 << ccoutHash;
+            ss2 << txHash;
+            ss2 << n;
+            std::string ser2( HexStr(ss2.begin(), ss2.end()));
+            uint256 entry2 = Hash(ss2.begin(), ss2.begin() + (unsigned int)ss2.in_avail() );
+
+            CHashWriter ss3(SER_GETHASH, PROTOCOL_VERSION);
+            ss3 << ccoutHash;
+            ss3 << txHash;
+            ss3 << n;
+            uint256 entry3 = ss3.GetHash();
+
+            CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+            ss << txccout;
+            std::string ser( HexStr(ss.begin(), ss.end()));
+         
+            std::cout << __func__ << " -------------------------------------------" << std::endl;
+            std::cout << "                       ccout: " << ser << std::endl;
+            std::cout << "-------------------------------------------" << std::endl;
+            std::cout << "                 Hash(ccout): " << ccoutHash.ToString() << std::endl;
+            std::cout << "                        txid: " << txHash.ToString() << std::endl;
+            std::cout << "                           n: " << std::hex << n << std::dec << std::endl;
+            std::cout << "-------------------------------------------" << std::endl;
+            std::cout << "    Hash(Hash(ccout)|txid|n): " << entry.ToString() << std::endl;
+            std::cout << "-------------------------------------------" << std::endl;
+            std::cout << "concat = Hash(ccout)|txid| n: " << ser2 << std::endl;
+            std::cout << "                Hash(concat): " << entry2.ToString() << std::endl;
+#endif
+
             vec.push_back(entry);
 
             LogPrint("sc", "%s():%d -Output: entry[%s]\n", __func__, __LINE__, entry.ToString());
@@ -876,7 +910,7 @@ struct CMutableTransaction
     std::vector<CTxScCreationCrosschainOut> vsc_ccout;
     std::vector<CTxCertifierLockCrosschainOut> vcl_ccout;
     std::vector<CTxForwardTransferCrosschainOut> vft_ccout;
-    CScCertificate sc_cert;
+    std::vector<CScCertificate> vsc_cert;
     uint32_t nLockTime;
     std::vector<JSDescription> vjoinsplit;
     uint256 joinSplitPubKey;
@@ -898,7 +932,7 @@ struct CMutableTransaction
             READWRITE(vsc_ccout);
             READWRITE(vcl_ccout);
             READWRITE(vft_ccout);
-            READWRITE(sc_cert);
+            READWRITE(vsc_cert);
         }
         READWRITE(nLockTime);
         if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {

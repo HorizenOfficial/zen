@@ -97,6 +97,10 @@ uint256 CBlock::BuildMerkleRootHash(const std::vector<uint256>& vInput, bool* fM
             }
             vTempMerkleTree.push_back(Hash(BEGIN(vTempMerkleTree[j+i]),  END(vTempMerkleTree[j+i]),
                                        BEGIN(vTempMerkleTree[j+i2]), END(vTempMerkleTree[j+i2])));
+#ifdef DEBUG_SC_HASH
+            std::cout << " -------------------------------------------" << std::endl;
+            std::cout << i << ") mkl hash: " << vTempMerkleTree.back().ToString() << std::endl;
+#endif
         }
         j += nSize;
     }
@@ -118,17 +122,9 @@ uint256 CBlock::BuildScMerkleRootsMap()
         tx.getCrosschainOutputs(mScMerkleTreeLeaves);
     }
 
-    uint256 result;
-    CHash256 hasher;
-
     if (mScMerkleTreeLeaves.size() == 0)
     {
-#if 0
-        // no sc tx found, return the hash of a null value
-        static const unsigned char pblank[1] = {};
-        hasher.Write(pblank, 0).Finalize((unsigned char*)&result);
-#endif
-        return result;
+        return uint256();
     }
 
     // Note that by default the map is ordered by key value, therefore the entries in
@@ -139,24 +135,17 @@ uint256 CBlock::BuildScMerkleRootsMap()
     {
         const uint256& scid = pair.first;
         uint256 mklHash = BuildMerkleRootHash(pair.second);
+#ifdef DEBUG_SC_HASH
+        std::cout << " -------------------------------------------" << std::endl;
+        std::cout << "  sc mkl hash: " << mklHash.ToString() << std::endl;
+#endif
 
         LogPrint("sc", "%s():%d built merkle root for sc[%s] with %d leaves: [%s]\n",
             __func__, __LINE__, scid.ToString(), pair.second.size(), mklHash.ToString() );
-#if 1
         vSortedLeaves.push_back(mklHash);
-#else
-        // concatenate the two hashes above
-        hasher.Write( (const unsigned char*)&scid, sizeof(uint256)).Write( (const unsigned char*)&mklHash, sizeof(uint256));
-#endif
     }
 
-#if 0
-    // return the hash of the final concatenation: (scid-0 | mklHash-0 | ... | scid-N | mklHash-N)
-    hasher.Finalize((unsigned char*)&result);
-#else
-    result = BuildMerkleRootHash(vSortedLeaves);
-#endif
-    return result;
+    return BuildMerkleRootHash(vSortedLeaves);
 }
 
 

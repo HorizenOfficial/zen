@@ -102,22 +102,29 @@ void AddTxCrosschainJSON (const CTransaction& tx, UniValue& parentObj)
 
     if (tx.IsCoinCertified() )
     {
-        UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("scid", tx.sc_cert.scId.GetHex()));
-        o.push_back(Pair("totalAmount", ValueFromAmount(tx.sc_cert.totalAmount)));
-        parentObj.push_back(Pair("sc_cert", o));
-
-        UniValue vbts(UniValue::VARR);
-        for (unsigned int i = 0; i < tx.sc_cert.vbt_ccout.size(); i++) {
-            const auto& out = tx.sc_cert.vbt_ccout[i];
-            UniValue o(UniValue::VOBJ);
-            o.push_back(Pair("value", ValueFromAmount(out.nValue)));
-            UniValue p(UniValue::VOBJ);
-            ScriptPubKeyToJSON(out.scriptPubKey, p, true);
-            o.push_back(Pair("scriptPubKey", p));
-            vbts.push_back(o);
+        UniValue vcert(UniValue::VARR);
+        for (unsigned int i = 0; i < tx.vsc_cert.size(); i++)
+        {
+            const CScCertificate& entry = tx.vsc_cert[i];
+ 
+            UniValue x(UniValue::VOBJ);
+            x.push_back(Pair("scid", entry.scId.GetHex()));
+            x.push_back(Pair("totalAmount", ValueFromAmount(entry.totalAmount)));
+ 
+            UniValue vbts(UniValue::VARR);
+            for (unsigned int j = 0; j < entry.vbt_ccout.size(); j++) {
+                const auto& out = entry.vbt_ccout[j];
+                UniValue o(UniValue::VOBJ);
+                o.push_back(Pair("value", ValueFromAmount(out.nValue)));
+                UniValue p(UniValue::VOBJ);
+                ScriptPubKeyToJSON(out.scriptPubKey, p, true);
+                o.push_back(Pair("scriptPubKey", p));
+                vbts.push_back(o);
+            }
+            x.push_back(Pair("vbt_ccout", vbts));
+            vcert.push_back(x);
         }
-        parentObj.push_back(Pair("sc_cert.vbt_ccout", vbts));
+        parentObj.push_back(Pair("vsc_cert", vcert));
     }
 }
 
@@ -584,16 +591,16 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
     // crosschain forward transfers
     if (params.size() > 3 && !params[3].isNull())
     {
-        UniValue sc_fwdtr = params[3].get_array();
+        UniValue fwdtr = params[3].get_array();
 
-        if (sc_fwdtr.size())
+        if (fwdtr.size())
         {
             rawTx.nVersion = SC_TX_VERSION;
         }
 
-        for (size_t j = 0; j < sc_fwdtr.size(); j++)
+        for (size_t j = 0; j < fwdtr.size(); j++)
         {
-            const UniValue& input = sc_fwdtr[j];
+            const UniValue& input = fwdtr[j];
             const UniValue& o = input.get_obj();
 
             string inputString = find_value(o, "scid").get_str();

@@ -1086,6 +1086,7 @@ public:
             ::Serialize(s, txTo.vft_ccout[nCcOutput], nType, nVersion);
     }
 
+#if 0
     template<typename S>
     void SerializeBackwardTransferCcOutput(S &s, unsigned int nCcOutput, int nType, int nVersion) const {
         /* TODO what to do with fHashSingle case? Maybe we can compute nCcOutput+vout.size(), but does it make sense?
@@ -1100,6 +1101,7 @@ public:
     void SerializeScCertificate(S &s, int nType, int nVersion) const {
             ::Serialize(s, txTo.sc_cert.scId, nType, nVersion);
     }
+#endif
 
     /** Serialize txTo */
     template<typename S>
@@ -1138,11 +1140,13 @@ public:
             for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
                  SerializeForwardTransferCcOutput(s, nCcOutput, nType, nVersion);
 
+#if 0
             SerializeScCertificate(s, nType, nVersion);
             nCcOutputs = fHashNone ? 0 : (/* fHashSingle ? nIn+1 : */ txTo.sc_cert.vbt_ccout.size());
             ::WriteCompactSize(s, nCcOutputs);
             for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
                  SerializeBackwardTransferCcOutput(s, nCcOutput, nType, nVersion);
+#endif
 
         }
 

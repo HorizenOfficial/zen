@@ -1041,6 +1041,14 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
 {
     uint256 hash = wtxIn.GetHash();
 
+    if (wtxIn.IsCoinCertified() && !IsMine(wtxIn) )
+    {
+        // this transaction generates coins for a payee other than me
+        LogPrint("sc", "%s():%d - tx[%s]: certificate grants amount for payees different than me\n",
+            __func__, __LINE__, hash.ToString() );
+        return true;
+    }
+
     if (fFromLoadWallet)
     {
         mapWallet[hash] = wtxIn;
@@ -1899,7 +1907,7 @@ void CWallet::ReacceptWalletTransactions()
 bool CWalletTx::RelayWalletTransaction()
 {
     assert(pwallet->GetBroadcastTransactions());
-    if (!IsCoinBase())
+    if (!IsCoinBase() || IsCoinCertified())
     {
         if (GetDepthInMainChain() == 0) {
             LogPrintf("Relaying wtx %s\n", GetHash().ToString());
@@ -2643,8 +2651,10 @@ bool CWallet::CreateCertificate(
 
     // set proper version and certificate data
     txNew.nVersion = SC_TX_VERSION;
-    txNew.sc_cert.scId = scId; 
-    txNew.sc_cert.totalAmount = nValue; 
+    CScCertificate cert;
+    cert.scId = scId;
+    cert.totalAmount = nValue;
+    txNew.vsc_cert.push_back(cert);
 
     // Discourage fee sniping.
     //
@@ -2679,7 +2689,10 @@ bool CWallet::CreateCertificate(
                 txNew.vsc_ccout.clear();
                 txNew.vcl_ccout.clear();
                 txNew.vft_ccout.clear();
-                txNew.sc_cert.vbt_ccout.clear();
+                BOOST_FOREACH(auto& entry, txNew.vsc_cert)
+                {
+                    entry.vbt_ccout.clear();
+                }
 
                 wtxNew.fFromMe = true;
                 bool fFirst = true;
@@ -2698,35 +2711,38 @@ bool CWallet::CreateCertificate(
                 }
 
                 // deduce fee
-                BOOST_FOREACH (auto& txout, txNew.sc_cert.vbt_ccout)
+                BOOST_FOREACH (auto& entry, txNew.vsc_cert)
                 {
-                    CTxOut out(*((CTxOut*)( &txout )));
-
-                    out.nValue -= nFeeRet / nSubtractFeeFromAmount; // Subtract fee equally from each selected recipient
-
-                    if (fFirst) // first receiver pays the remainder not divisible by output count
+                    BOOST_FOREACH (auto& txout, entry.vbt_ccout)
                     {
-                        fFirst = false;
-                        out.nValue -= nFeeRet % nSubtractFeeFromAmount;
-                    }
-
-                    if (out.IsDust(::minRelayTxFee))
-                    {
-                        if (nFeeRet > 0)
+                        CTxOut out(*((CTxOut*)( &txout )));
+ 
+                        out.nValue -= nFeeRet / nSubtractFeeFromAmount; // Subtract fee equally from each selected recipient
+ 
+                        if (fFirst) // first receiver pays the remainder not divisible by output count
                         {
-                            if (out.nValue < 0)
-                                strFailReason = _("The transaction amount is too small to pay the fee");
+                            fFirst = false;
+                            out.nValue -= nFeeRet % nSubtractFeeFromAmount;
+                        }
+ 
+                        if (out.IsDust(::minRelayTxFee))
+                        {
+                            if (nFeeRet > 0)
+                            {
+                                if (out.nValue < 0)
+                                    strFailReason = _("The transaction amount is too small to pay the fee");
+                                else
+                                    strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
+                            }
                             else
-                                strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
+                            {
+                                strFailReason = _("Transaction amount too small");
+                            }
+                            return false;
                         }
-                        else
-                        {
-                            strFailReason = _("Transaction amount too small");
-                        }
-                        return false;
+ 
+                        txNew.vout.push_back(out);
                     }
-
-                    txNew.vout.push_back(out);
                 }
 
                 reservekey.ReturnKey();
@@ -2739,35 +2755,6 @@ bool CWallet::CreateCertificate(
                 uint256 h(GetRandHash() );
                 txNew.vin[0].scriptSig = CScript() << chainActive.Height() << ToByteVector(h) << OP_0;        
                 
-#if 0
-                // Sign
-                int nIn = 0;
-                CTransaction txNewConst(txNew);
-                BOOST_FOREACH(const PAIRTYPE(const CWalletTx*,unsigned int)& coin, setCoins)
-                {
-                    bool signSuccess;
-                    const CScript& scriptPubKey = coin.first->vout[coin.second].scriptPubKey;
-                    CScript& scriptSigRes = txNew.vin[nIn].scriptSig;
-                    if (sign)
-                        signSuccess = ProduceSignature(TransactionSignatureCreator(this, &txNewConst, nIn, SIGHASH_ALL), scriptPubKey, scriptSigRes);
-                    else
-                        signSuccess = ProduceSignature(DummySignatureCreator(this), scriptPubKey, scriptSigRes);
-
-                    if (!signSuccess)
-                    {
-                        strFailReason = _("Signing transaction failed");
-                        return false;
-                    }
-                    nIn++;
-                }
-
-                // Remove scriptSigs if we used dummy signatures for fee calculation
-                if (!sign) {
-                    BOOST_FOREACH (CTxIn& vin, txNew.vin)
-                        vin.scriptSig = CScript();
-                }
-#endif
-
                 // Embed the constructed transaction data in wtxNew.
                 *static_cast<CTransaction*>(&wtxNew) = CTransaction(txNew);
 
@@ -4100,8 +4087,18 @@ bool CRecipientFactory::set(const CRecipientForwardTransfer& r)
 
 bool CRecipientFactory::set(const CRecipientBackwardTransfer& r)
 {
+    // in case we can live with vout only (no vbt_ccout, duplicate of vout) we will
+    // fill vout instead. Their amount will be reduced carving out the fee by the caller
     CTxBackwardTransferCrosschainOut txccout(r.nValue, r.scriptPubKey);
-    tx->sc_cert.vbt_ccout.push_back(txccout);
+
+    // for the time being we support one and only one entry 
+    if (tx->vsc_cert.size() != 1)
+    {
+        err = _("One Certificate only is supported");
+        return false;
+    }
+
+    tx->vsc_cert[0].vbt_ccout.push_back(txccout);
     return true;
 };
 

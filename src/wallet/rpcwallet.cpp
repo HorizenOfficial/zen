@@ -683,63 +683,6 @@ static void ScHandleCertificate(CWalletTx& wtx, const uint256& scId, std::vector
         throw JSONRPCError(RPC_WALLET_ERROR, "Transaction commit failed");
 }
 
-#if 0
-UniValue sc_create(const UniValue& params, bool fHelp)
-{
-    if (!EnsureWalletIsAvailable(fHelp))
-        return NullUniValue;
-
-    if (fHelp || params.size() != 2 ) 
-        throw runtime_error(
-            "sc_create \"scid\" withdrawalEpochLength\n"
-            "\nCreate a Side chain with the given id staring from the given block. A fixed amount is charged t the creator\n"
-            + HelpRequiringPassphrase() +
-            "\nArguments:\n"
-            "1. \"side chain ID\"  (string, required) The uint256 side chain ID\n"
-            "2. withdrawalEpochLength:  (numeric, required) length of the withdrawal epochs"
-            "\nResult:\n"
-            "\"transactionid\"  (string) The transaction id.\n"
-            "\nExamples:\n"
-            + HelpExampleCli("sc_create", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 123456")
-        );
-
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-
-    // side chain id
-    string inputString = params[0].get_str();
-    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
-
-    uint256 scId;
-    scId.SetHex(inputString);
-
-    // sanity check of the side chain ID
-    if (ScMgr::instance().sidechainExists(scId) )
-    {
-        LogPrint("sc", "scid[%s] already created\n", scId.ToString() );
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid already created: ") + scId.ToString());
-    }
-
-    int withdrawalEpochLength = params[1].get_int(); 
-
-
-    EnsureWalletIsUnlocked();
-
-    CRecipientScCreation sc;
-    sc.scId = scId;
-    sc.creationData.withdrawalEpochLength = withdrawalEpochLength;
-
-    CcRecipientVariant r(sc);
-
-    vector<CcRecipientVariant> vecSend;
-    vecSend.push_back(r);
-
-    CWalletTx wtx;
-    ScHandleTransaction(wtx, vecSend, SC_CREATION_FEE);
-
-    return wtx.GetHash().GetHex();
-}
-#endif
 
 UniValue sc_create2(const UniValue& params, bool fHelp)
 {
@@ -837,7 +780,7 @@ UniValue sc_create2(const UniValue& params, bool fHelp)
     EnsureWalletIsUnlocked();
 
     CWalletTx wtx;
-    ScHandleTransaction(wtx, vecSend, nTotalOut + SC_CREATION_FEE);
+    ScHandleTransaction(wtx, vecSend, (nTotalOut + SC_CREATION_FEE) );
 
     return wtx.GetHash().GetHex();
 }

@@ -198,7 +198,10 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
 
             if (tx.IsCoinCertified())
             {
-                nTotalIn += tx.sc_cert.totalAmount;
+                BOOST_FOREACH(const auto& entry, tx.vsc_cert)
+                {
+                    nTotalIn += entry.totalAmount;
+                }
             }
 
             nFee = nTotalIn - tx.GetValueOut() - tx.GetValueCcOut();
@@ -483,8 +486,11 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             if (tx.IsCoinCertified() )
             {
                 // similarly to coinbase there are no vin, fees have been carved out from vout 
-                //nTxFees = tx.sc_cert.totalAmount - tx.sc_cert.GetValueBackwardTransferCcOut();
-                nTxFees = tx.sc_cert.totalAmount - tx.GetValueOut();
+                BOOST_FOREACH(const auto& entry, tx.vsc_cert)
+                {
+                    nTxFees += entry.totalAmount;
+                }
+                nTxFees -= tx.GetValueOut();
             }
             else
             {
@@ -656,6 +662,10 @@ void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& 
     pblock->vtx[0] = txCoinbase;
     pblock->hashMerkleRoot = pblock->BuildMerkleTree();
     pblock->hashScMerkleRootsMap = pblock->BuildScMerkleRootsMap();
+#ifdef DEBUG_SC_HASH
+    std::cout << "-------------------------------------------" << std::endl;
+    std::cout << "      ScMerkleRootMap: " << pblock->hashScMerkleRootsMap.ToString() << std::endl;
+#endif
 }
 
 #ifdef ENABLE_WALLET

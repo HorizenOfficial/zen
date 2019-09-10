@@ -174,7 +174,15 @@ void CTxMemPool::removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned in
     list<CTransaction> transactionsToRemove;
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         const CTransaction& tx = it->second.GetTx();
-        BOOST_FOREACH(const CTxIn& txin, tx.vin) {
+        BOOST_FOREACH(const CTxIn& txin, tx.vin)
+        {
+            if (tx.IsCoinCertified() )
+            {
+                // certificates in mempool must not be processed
+                LogPrint("sc", "%s():%d - Certificate tx[%s], skipping it\n", __func__, __LINE__, tx.GetHash().ToString());
+                continue;
+            }
+
             std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(txin.prevout.hash);
             if (it2 != mapTx.end())
                 continue;

@@ -1579,8 +1579,15 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 strErrors << _("Error loading wallet.dat: Wallet corrupted") << "\n";
             else if (nLoadWalletRet == DB_NONCRITICAL_ERROR)
             {
-                string msg(_("Warning: error reading wallet.dat! All keys read correctly, but transaction data"
+                string msg(_("error reading wallet.dat! All keys read correctly, but transaction data"
                              " or address book entries might be missing or incorrect."));
+
+                bool reindexing = false;
+                pblocktree->ReadReindexing(reindexing);
+                if (reindexing)
+                {
+                    msg = string(_("(Reindexing in progress...) ")) + msg;
+                }
                 InitWarning(msg);
             }
             else if (nLoadWalletRet == DB_TOO_NEW)
@@ -1794,6 +1801,29 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
 #ifdef ENABLE_WALLET
     if (pwalletMain) {
+
+        // wait for any reindexing in progress to terminate
+        bool reindexing = false;
+        static const int NUMB_OF_NAPS = 60;
+        static const int SLEEP_DURATION_MILLI = 1000;
+        int waitLimit = NUMB_OF_NAPS;
+
+        while (waitLimit-- > 0)
+        {
+            pblocktree->ReadReindexing(reindexing);
+            if (!reindexing)
+            {
+                LogPrintf("currently not reindexing...\n");
+                break;
+            }
+            LogPrintf("Waiting for reindexing to finish (count=%d)...\n", waitLimit);
+            MilliSleep(SLEEP_DURATION_MILLI);
+        }
+        if (waitLimit <= 0)
+        {
+            LogPrintf("Waiting for reindexing timed out!\n");
+        }
+
         // Add wallet transactions that aren't already in a block to mapTransactions
         pwalletMain->ReacceptWalletTransactions();
 

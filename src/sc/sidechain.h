@@ -54,9 +54,6 @@ struct CRecipientCrossChainBase
     virtual ~CRecipientCrossChainBase() {}
 };
 
-// probably not needed, a fee is devolved to foundation via tr address
-// in that case address should be moved from base class to children, not creation
-static const uint256 SC_CREATION_PAYEE_ADDRESS = uint256S("badc01dcafe");
 static const CAmount SC_CREATION_FEE = 100000000; // in satoshi = 1.0 Zen
 
 struct CRecipientScCreation : public CRecipientCrossChainBase
@@ -93,7 +90,21 @@ struct CRecipientBackwardTransfer
     CRecipientBackwardTransfer(): nValue(0) {};
 };
 
+//#define SC_TIMED_BALANCE 1
 //--------------------------------
+#ifdef SC_TIMED_BALANCE
+struct sScTimedBalance {
+    int height;
+    CAmount scAmount;
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(height);
+        READWRITE(scAmount);
+    }
+};
+#endif
+
 class ScInfo
 {
 public:
@@ -117,6 +128,14 @@ public:
     // creation data
     ScCreationParameters creationData;
 
+#ifdef SC_TIMED_BALANCE
+    // vector of timed amounts of the sc. Each entry is the amount stored at the reference height
+    std::vector<sScTimedBalance> vTimedBalances;
+#endif
+
+    // vector of backward transfer tx is. Used for verifying db and wallet at startup
+    std::vector<uint256> vBackwardTransfers;
+
     std::string ToString() const;
 
     ADD_SERIALIZE_METHODS;
@@ -130,6 +149,10 @@ public:
         READWRITE(ownerTxHash);
         READWRITE(balance);
         READWRITE(creationData);
+#ifdef SC_TIMED_BALANCE
+        READWRITE(vTimedBalances);
+#endif
+        READWRITE(vBackwardTransfers);
     }
 };
 
@@ -164,8 +187,12 @@ class ScMgr
     typedef boost::unordered_map<uint256, std::vector<CRecipientForwardTransfer>, ObjectHasher> ScFwdTransfers;
     ScFwdTransfers _cachedFwTransfers;
 
-    bool addSidechain(const uint256& scId, ScInfo& info);
+    bool addSidechain(const uint256& scId, const ScInfo& info);
     void removeSidechain(const uint256& scId);
+
+    bool addScBackwardTx(const uint256& scId, const uint256& hash);
+    bool removeScBackwardTx(const uint256& scId, const uint256& hash);
+    bool containsScBackwardTx(const uint256& scId, const uint256& txHash);
 
     bool checkSidechainCreation(const CTransaction& tx, CValidationState& state);
     bool checkCreationInMemPool(CTxMemPool& pool, const CTransaction& tx);
@@ -189,9 +216,9 @@ class ScMgr
     bool getScInfo(const uint256& scId, ScInfo& info);
 
     bool onBlockConnected(const CBlock& block, int nHeight);
-    bool onBlockDisconnected(const CBlock& block);
+    bool onBlockDisconnected(const CBlock& block, int nHeight);
 
-    bool updateSidechainBalance(const uint256& scId, const CAmount& amount);
+    bool updateSidechainBalance(const uint256& scId, const CAmount& amount, int nHeight);
     CAmount getSidechainBalance(const uint256& scId);
 
     bool checkTransaction(const CTransaction& tx, CValidationState& state);
@@ -202,6 +229,9 @@ class ScMgr
 
     // return true if the tx contains a fwd tr for the given scid
     bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
+
+    // return true if the tx is creating the scid
+    bool isCreating(const CTransaction& tx, const uint256& scId);
 
     // return the index of the added vout, -1 if no output has been added 
     int evalAddCreationFeeOut(CMutableTransaction& tx);
