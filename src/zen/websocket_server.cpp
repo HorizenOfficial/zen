@@ -242,6 +242,15 @@ private:
 		return OK;
 	}
 
+	/*
+	void sendPong(std::string payload) {
+		LogPrintf("ping received... %s\n", payload);
+		WsEvent* wse = new WsEvent(WsEvent::PONG);
+		UniValue* rv = wse->getPayload();
+		rv->push_back(Pair("pingPayload", payload));
+		wsq->push(wse);
+	}*/
+
 	void writeLoop() {
 		localWs->text(localWs->got_text());
 
@@ -272,7 +281,7 @@ private:
 		LogPrintf("wshandler:writeLoop: write thread exit\n");
 	}
 
-	int parseClientMessage(WsEvent::WsEventType& commandType) {
+	int parseClientMessage(WsEvent::WsEventType& commandType, std::string& clientMsgId) {
 		try {
 			std::string command;
 			boost::beast::multi_buffer buffer;
@@ -291,7 +300,7 @@ private:
 				return INVALID_JSON_FORMAT;
 			}
 
-			std::string clientMsgId = findFieldValue("msgId", request);
+			clientMsgId = findFieldValue("msgId", request);
 
 			command = findFieldValue("command", request);
 			if (command.empty()) {
@@ -363,7 +372,8 @@ private:
 	void readLoop() {
 		while (!exit_rwhandler_thread_flag) {
 			WsEvent::WsEventType commandType;
-			int res = parseClientMessage(commandType);
+			std::string clientMsgId = "";
+			int res = parseClientMessage(commandType, clientMsgId);
 			if (res == READ_ERROR) {
 				LogPrintf("wshandler:readLoop: websocket closed/error exit reading loop \n ");
 				break;
@@ -397,6 +407,8 @@ private:
 				UniValue* rv = wse->getPayload();
 				rv->push_back(Pair("errorCode", res));
 				rv->push_back(Pair("message", msgError));
+				if (!clientMsgId.empty())
+					rv->push_back(Pair("msgId", clientMsgId));
 				wsq->push(wse);
 			}
 		}
@@ -436,6 +448,17 @@ public:
 							res.set(http::field::server,
 							std::string(BOOST_BEAST_VERSION_STRING) + " Horizen-sidechain-connector");
 						}));
+
+			localWs->control_callback(
+			    [](websocket::frame_type kind, boost::string_view payload)
+			    {
+					if (kind == websocket::frame_type::ping) {
+						std::string payl(payload);
+						LogPrintf("ping received... %s\n", payl);
+					}
+			        // Do something with the payload
+					boost::ignore_unused(kind, payload);
+			    });
 
 			localWs->accept();
 
