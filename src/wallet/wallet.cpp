@@ -1041,14 +1041,6 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
 {
     uint256 hash = wtxIn.GetHash();
 
-    if (wtxIn.IsCoinCertified() && !IsMine(wtxIn) )
-    {
-        // this transaction generates coins for a payee other than me
-        LogPrint("sc", "%s():%d - tx[%s]: certificate grants amount for payees different than me\n",
-            __func__, __LINE__, hash.ToString() );
-        return true;
-    }
-
     if (fFromLoadWallet)
     {
         mapWallet[hash] = wtxIn;
@@ -1058,7 +1050,16 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
     }
     else
     {
+        if (wtxIn.IsCoinCertified() && !IsMine(wtxIn) )
+        {
+            // this transaction generates coins for a payee other than me
+            LogPrint("sc", "%s():%d - tx[%s]: certificate grants amount for payees different than me\n",
+                __func__, __LINE__, hash.ToString() );
+            return true;
+        }
+
         LOCK(cs_wallet);
+
         // Inserts only if not already there, returns tx inserted or tx found
         pair<map<uint256, CWalletTx>::iterator, bool> ret = mapWallet.insert(make_pair(hash, wtxIn));
         CWalletTx& wtx = (*ret.first).second;
@@ -2711,37 +2712,30 @@ bool CWallet::CreateCertificate(
                 }
 
                 // deduce fee
-                BOOST_FOREACH (auto& entry, txNew.vsc_cert)
+                BOOST_FOREACH (auto& out, txNew.vout)
                 {
-                    BOOST_FOREACH (auto& txout, entry.vbt_ccout)
+                    out.nValue -= nFeeRet / nSubtractFeeFromAmount; // Subtract fee equally from each selected recipient
+ 
+                    if (fFirst) // first receiver pays the remainder not divisible by output count
                     {
-                        CTxOut out(*((CTxOut*)( &txout )));
+                        fFirst = false;
+                        out.nValue -= nFeeRet % nSubtractFeeFromAmount;
+                    }
  
-                        out.nValue -= nFeeRet / nSubtractFeeFromAmount; // Subtract fee equally from each selected recipient
- 
-                        if (fFirst) // first receiver pays the remainder not divisible by output count
+                    if (out.IsDust(::minRelayTxFee))
+                    {
+                        if (nFeeRet > 0)
                         {
-                            fFirst = false;
-                            out.nValue -= nFeeRet % nSubtractFeeFromAmount;
-                        }
- 
-                        if (out.IsDust(::minRelayTxFee))
-                        {
-                            if (nFeeRet > 0)
-                            {
-                                if (out.nValue < 0)
-                                    strFailReason = _("The transaction amount is too small to pay the fee");
-                                else
-                                    strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
-                            }
+                            if (out.nValue < 0)
+                                strFailReason = _("The transaction amount is too small to pay the fee");
                             else
-                            {
-                                strFailReason = _("Transaction amount too small");
-                            }
-                            return false;
+                                strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
                         }
- 
-                        txNew.vout.push_back(out);
+                        else
+                        {
+                            strFailReason = _("Transaction amount too small");
+                        }
+                        return false;
                     }
                 }
 
@@ -4046,13 +4040,6 @@ void CWallet::GetFilteredNotes(std::vector<CNotePlaintextEntry> & outEntries, st
 template <typename T>
 bool CcRecipientVisitor::operator() (const T& r) const { return fact->set(r); }
 
-/*
-bool CcRecipientVisitor::operator() (const CRecipientScCreation& r) const { return fact->set(r); }
-bool CcRecipientVisitor::operator() (const CRecipientCertLock& r) const { return fact->set(r); }
-bool CcRecipientVisitor::operator() (const CRecipientForwardTransfer& r) const { return fact->set(r); }
-bool CcRecipientVisitor::operator() (const CRecipientBackwardTransfer& r) const { return fact->set(r); }
-*/
-
 bool CRecipientFactory::set(const CRecipientScCreation& r)
 {
     CTxScCreationCrosschainOut txccout(r.scId, r.creationData.withdrawalEpochLength);
@@ -4087,9 +4074,8 @@ bool CRecipientFactory::set(const CRecipientForwardTransfer& r)
 
 bool CRecipientFactory::set(const CRecipientBackwardTransfer& r)
 {
-    // in case we can live with vout only (no vbt_ccout, duplicate of vout) we will
-    // fill vout instead. Their amount will be reduced carving out the fee by the caller
-    CTxBackwardTransferCrosschainOut txccout(r.nValue, r.scriptPubKey);
+    // fill vout here but later their amount will be reduced carving out the fee by the caller
+    CTxOut txout(r.nValue, r.scriptPubKey);
 
     // for the time being we support one and only one entry 
     if (tx->vsc_cert.size() != 1)
@@ -4098,7 +4084,7 @@ bool CRecipientFactory::set(const CRecipientBackwardTransfer& r)
         return false;
     }
 
-    tx->vsc_cert[0].vbt_ccout.push_back(txccout);
+    tx->vout.push_back(txout);
     return true;
 };
 

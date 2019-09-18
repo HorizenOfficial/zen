@@ -113,6 +113,7 @@ void AddTxCrosschainJSON (const CTransaction& tx, UniValue& parentObj)
  
             UniValue vbts(UniValue::VARR);
             for (unsigned int j = 0; j < entry.vbt_ccout.size(); j++) {
+                /* TODO when it will contain data
                 const auto& out = entry.vbt_ccout[j];
                 UniValue o(UniValue::VOBJ);
                 o.push_back(Pair("value", ValueFromAmount(out.nValue)));
@@ -120,6 +121,7 @@ void AddTxCrosschainJSON (const CTransaction& tx, UniValue& parentObj)
                 ScriptPubKeyToJSON(out.scriptPubKey, p, true);
                 o.push_back(Pair("scriptPubKey", p));
                 vbts.push_back(o);
+                */
             }
             x.push_back(Pair("vbt_ccout", vbts));
             vcert.push_back(x);

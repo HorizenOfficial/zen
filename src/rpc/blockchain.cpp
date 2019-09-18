@@ -1049,7 +1049,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
     }
  
-    uint256 blockHash = info.ownerBlockHash;
+    const uint256& blockHash = info.ownerBlockHash;
 
     if (mapBlockIndex.count(blockHash) == 0)
     {

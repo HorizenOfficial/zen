@@ -83,7 +83,16 @@ void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry, isminefilter filter)
     int confirms = wtx.GetDepthInMainChain();
     entry.push_back(Pair("confirmations", confirms));
     if (wtx.IsCoinBase())
-        entry.push_back(Pair("generated", true));
+    {
+        if (wtx.IsCoinCertified() )
+        {
+            entry.push_back(Pair("certified", true));
+        }
+        else
+        {
+            entry.push_back(Pair("generated", true));
+        }
+    }
     if (confirms > 0)
     {
         entry.push_back(Pair("blockhash", wtx.hashBlock.GetHex()));
@@ -2771,6 +2780,10 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         entry.push_back(Pair("txid", out.tx->GetHash().GetHex()));
         entry.push_back(Pair("vout", out.i));
         entry.push_back(Pair("generated", out.tx->IsCoinBase()));
+        if (out.tx->IsCoinBase() )
+        {
+            entry.push_back(Pair("certified", out.tx->IsCoinCertified()));
+        }
         CTxDestination address;
         if (ExtractDestination(out.tx->vout[out.i].scriptPubKey, address)) {
             entry.push_back(Pair("address", CBitcoinAddress(address).ToString()));
@@ -4080,10 +4093,6 @@ UniValue sc_bwdtr(const UniValue& params, bool fHelp)
     CAmount nTotalOut = 0;
     vector<CcRecipientVariant> vecSend;
 
-    // Keep track of addresses to spot duplicates
-    // TODO do we need it?
-    // set<std::string> setAddress;
-
     for (const UniValue& o : outputs.getValues())
     {
         if (!o.isObject())
@@ -4116,8 +4125,8 @@ UniValue sc_bwdtr(const UniValue& params, bool fHelp)
         nTotalOut += nAmount;
     }
 
-    // As a sanity check, estimate and verify that the size of the certificate will be valid.
     // TODO
+    // As a sanity check, estimate and verify that the size of the certificate will be valid.
 
     EnsureWalletIsUnlocked();
 
