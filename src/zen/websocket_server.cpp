@@ -73,6 +73,7 @@ public:
 		GET_SINGLE_BLOCK = 2,
 		GET_MULTIPLE_BLOCKS = 3,
 		GET_MULTIPLE_BLOCK_HASHES = 4,
+		GET_SYNC_INFO = 5,
 		ERROR = -1
 	};
 
@@ -242,6 +243,56 @@ private:
 		return OK;
 	}
 
+
+	int sendHashFromLocator(UniValue& hashes, std::string strLen, std::string clientMsgId) {
+		int len = -1;
+		try {
+			len = std::stoi(strLen);
+		} catch (const std::exception &e) {
+			return INVALID_PARAMETER;
+		}
+		if (len < 1)
+			return INVALID_PARAMETER;
+		if (len > MAX_BLOCKS_REQUEST)
+			return INVALID_PARAMETER;
+
+		std::list<CBlockIndex*> listBlock;
+		CBlockIndex* pblockindexStart;
+		int lastH = 0;
+		for (const UniValue& o : hashes.getValues()) {
+				if (o.isObject()) {
+					return INVALID_PARAMETER;
+				}
+				uint256 hash(uint256S(o.get_str()));
+				{
+					LOCK(cs_main);
+					CBlockIndex* pblockindex = mapBlockIndex[hash];
+					if (pblockindex->nHeight > lastH) {
+						lastH = pblockindex->nHeight;
+						pblockindexStart = mapBlockIndex[hash];
+					}
+				}
+		}
+		listBlock.push_back(pblockindexStart);
+		{
+			LOCK(cs_main);
+			CBlockIndex* nextBlock = chainActive.Next(pblockindexStart);
+			if (nextBlock == NULL)
+				return INVALID_PARAMETER;
+			int n = 0;
+			while (n < len) {
+				listBlock.push_back(nextBlock);
+				nextBlock = chainActive.Next(nextBlock);
+				if (nextBlock == NULL)
+					break;
+				n++;
+			}
+		}
+		sendHashes(listBlock.front()->nHeight, listBlock, WsEvent::GET_SYNC_INFO, clientMsgId);
+		return OK;
+	}
+
+
 	/*
 	void sendPong(std::string payload) {
 		LogPrintf("ping received... %s\n", payload);
@@ -360,6 +411,24 @@ private:
 					return sendBlocksFromHash(param1, strLen, clientMsgId, false);
 				}
 				return sendBlocksFromHeight(param1, strLen, clientMsgId, false);
+			}
+			if (command == "getSyncInfo") {
+				commandType = WsEvent::GET_SYNC_INFO;
+				if (clientMsgId.empty()) {
+					return MISSING_MSGID;
+				}
+				std::string strLen = findFieldValue("len", request);
+				if (strLen.empty()) {
+					return MISSING_PARAMETER;
+				}
+
+				const UniValue&  hashArray = find_value(request, "hashes");
+				UniValue hashes = hashArray.get_array();
+				if (hashes.size()==0) {
+					LogPrintf("hashes = 0 \n");
+					return MISSING_PARAMETER;
+				}
+				return sendHashFromLocator(hashes, strLen, clientMsgId);
 			}
 
 			return INVALID_COMMAND;
