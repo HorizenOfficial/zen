@@ -293,7 +293,8 @@ private:
 	}
 
 
-	/*
+	/* this is not necessary boost/beast is handling the pong automatically,
+	 * the client should send a ping message the server will reply with a pong message (same payload)
 	void sendPong(std::string payload) {
 		LogPrintf("ping received... %s\n", payload);
 		WsEvent* wse = new WsEvent(WsEvent::PONG);
