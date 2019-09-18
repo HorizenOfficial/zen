@@ -616,28 +616,34 @@ public:
     }
 };
 
-class CTxBackwardTransferCrosschainOut : public CTxOut
+class CTxBackwardTransferCrosschainOut
 {
 public:
-
-    CTxBackwardTransferCrosschainOut() { SetNull(); }
-
-    CTxBackwardTransferCrosschainOut( const CAmount& nValueIn, CScript addressIn):
-        CTxOut(nValueIn, addressIn) {}
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        // the parent slice
-        READWRITE(*(CTxOut*)this);
-        // any extensions go here
+        // any data go here
         //...
     }
 
     virtual uint256 GetHash() const;
     virtual std::string ToString() const;
+
+    friend bool operator==(const CTxBackwardTransferCrosschainOut& a, const CTxBackwardTransferCrosschainOut& b)
+    {
+        // TODO implement based on real data members
+        return true;
+    }
+
+    friend bool operator!=(const CTxBackwardTransferCrosschainOut& a, const CTxBackwardTransferCrosschainOut& b)
+    {
+        return !(a == b);
+    }
 };
+
+class CTransaction;
 
 class CScCertificate
 {
@@ -648,8 +654,7 @@ public:
 
     CAmount totalAmount;
 
-    // for the time being it is exactly a CTxOut vector, in future this type can accomodate other specific
-    // objects if necessarys, otherwise we can remove this vect and live with usual vout+totalFee
+    // in future this type can accomodate other specific objects if necessary
     std::vector<CTxBackwardTransferCrosschainOut> vbt_ccout;
 
     /** Construct a CScCertificate that qualifies as IsNull() */
@@ -688,6 +693,10 @@ public:
     }
 
     std::string ToString() const;
+
+    // given the transaction returns the original outputs of the certificate, that is the
+    // amounts of the concerned vouts without the carved fee 
+    void getOriginalAmounts(const CTransaction& tx, std::vector<CAmount>& vAmounts) const;
 };
 
 

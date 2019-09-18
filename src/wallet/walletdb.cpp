@@ -425,7 +425,8 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssValue >> wtx;
             CValidationState state;
             auto verifier = libzcash::ProofVerifier::Strict();
-            if (!(CheckTransaction(wtx, state, verifier) && (wtx.GetHash() == hash) && state.IsValid()))
+            static const bool fVerifyingDB = true;
+            if (!(CheckTransaction(wtx, state, verifier, NULL, fVerifyingDB) && (wtx.GetHash() == hash) && state.IsValid()))
             {
                 // Don't consider REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND error code as a failure. It can appear because a tx
                 // is a pre-chainsplit tx, so it is perfectly fine in this case.
@@ -745,15 +746,13 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
             pwallet->LoadMinVersion(nMinVersion);
         }
 
-        // Get cursor
+
         Dbc* pcursor = GetCursor();
         if (!pcursor)
         {
             LogPrintf("Error getting wallet database cursor\n");
             return DB_CORRUPT;
         }
-
-        Sidechain::ScVerifyDbGuard sc_db_verifier_guard;
 
         while (true)
         {

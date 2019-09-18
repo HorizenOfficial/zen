@@ -86,24 +86,8 @@ struct CRecipientBackwardTransfer
     CScript scriptPubKey;
     CAmount nValue;
 
-    explicit CRecipientBackwardTransfer(const CTxBackwardTransferCrosschainOut&);
     CRecipientBackwardTransfer(): nValue(0) {};
 };
-
-//#define SC_TIMED_BALANCE 1
-//--------------------------------
-#ifdef SC_TIMED_BALANCE
-struct sScTimedBalance {
-    int height;
-    CAmount scAmount;
-    ADD_SERIALIZE_METHODS;
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(height);
-        READWRITE(scAmount);
-    }
-};
-#endif
 
 class ScInfo
 {
@@ -128,13 +112,8 @@ public:
     // creation data
     ScCreationParameters creationData;
 
-#ifdef SC_TIMED_BALANCE
-    // vector of timed amounts of the sc. Each entry is the amount stored at the reference height
-    std::vector<sScTimedBalance> vTimedBalances;
-#endif
-
-    // vector of backward transfer tx is. Used for verifying db and wallet at startup
-    std::vector<uint256> vBackwardTransfers;
+    // set of backward transfer tx, it is used for verifying db and wallet at startup
+    std::set<uint256> sBackwardTransfers;
 
     std::string ToString() const;
 
@@ -149,10 +128,7 @@ public:
         READWRITE(ownerTxHash);
         READWRITE(balance);
         READWRITE(creationData);
-#ifdef SC_TIMED_BALANCE
-        READWRITE(vTimedBalances);
-#endif
-        READWRITE(vBackwardTransfers);
+        READWRITE(sBackwardTransfers);
     }
 };
 
@@ -164,6 +140,7 @@ typedef boost::variant<
     > CcRecipientVariant;
 
 typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
+typedef boost::unordered_map<uint256, CAmount, ObjectHasher> ScAmountMap;
 
 using ::CTxMemPool;
 using ::UniValue;
@@ -181,15 +158,13 @@ class ScMgr
     CLevelDBWrapper* db;
     bool bVerifyingDb;
 
+    // low level api for DB
     bool writeToDb(const uint256& scId, const ScInfo& info);
     void eraseFromDb(const uint256& scId);
 
-    typedef boost::unordered_map<uint256, std::vector<CRecipientForwardTransfer>, ObjectHasher> ScFwdTransfers;
-    ScFwdTransfers _cachedFwTransfers;
-
+    // add/remove/find obj in sc map and DB
     bool addSidechain(const uint256& scId, const ScInfo& info);
     void removeSidechain(const uint256& scId);
-
     bool addScBackwardTx(const uint256& scId, const uint256& hash);
     bool removeScBackwardTx(const uint256& scId, const uint256& hash);
     bool containsScBackwardTx(const uint256& scId, const uint256& txHash);
@@ -198,6 +173,7 @@ class ScMgr
     bool checkCreationInMemPool(CTxMemPool& pool, const CTransaction& tx);
     bool checkCertificateInMemPool(CTxMemPool& pool, const CTransaction& tx);
 
+    bool updateSidechainBalance(const uint256& scId, const CAmount& amount);
   public:
 
     ScMgr(const ScMgr&) = delete;
@@ -218,13 +194,14 @@ class ScMgr
     bool onBlockConnected(const CBlock& block, int nHeight);
     bool onBlockDisconnected(const CBlock& block, int nHeight);
 
-    bool updateSidechainBalance(const uint256& scId, const CAmount& amount, int nHeight);
     CAmount getSidechainBalance(const uint256& scId);
 
-    bool checkTransaction(const CTransaction& tx, CValidationState& state);
     bool checkMemPool(CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
-    bool checkSidechainForwardTransaction(const CTransaction& tx, CValidationState& state);
-    bool checkSidechainBackwardTransaction(const CTransaction& tx, CValidationState& state);
+    bool checkTransaction(const CTransaction& tx, CValidationState& state, ScAmountMap* mScAmounts, bool fVerifyingDB);
+    bool checkSidechainForwardTransaction(const CTransaction& tx, CValidationState& state, ScAmountMap* mScAmounts);
+    bool checkSidechainBackwardTransaction(
+        const CTransaction& tx, CValidationState& state, ScAmountMap* mScAmounts, bool fVerifyingDB = false);
+
     bool checkSidechainCreationFunds(const CTransaction& tx, int nHeight);
 
     // return true if the tx contains a fwd tr for the given scid
@@ -240,6 +217,22 @@ class ScMgr
     bool fillRawCreation(UniValue& sc_crs, CMutableTransaction& rawTx, CTxMemPool& pool, std::string& error); 
     // used when funding a raw tx 
     void fillFundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant>& vecCcSend);
+
+#if 0
+    // get the set of scid that this tx targets, not dependong on the type (creation, fw, cert, ...)
+    static void getHandledSidechainList(const CTransaction& tx, std::set<uint256>& scIdSet);
+    // return true if the inputs are targeting at least one common scid
+    static bool handlingSameScid(const CTransaction& txa, const CTransaction& txb);
+#endif
+
+    // return true if any sc related tx has been found. In this case out parameter vTxReord has the same
+    // contents as the block.vtx vector, but all certificates, if any is found, have been moved at the end,
+    // and sScId contains all the concerned sc id.
+    static bool hasCrosschainTransfers(const CBlock& block, std::vector<CTransaction>& vTxReord, std::set<uint256>& sScId);
+
+    // take a snapshot (map of scid/balance) of all the balances concerning the sc whose ids are passed in the input set
+    // param consider all the sc in the db if the passed set is null. 
+    void initScAmounts(ScAmountMap& mScAmounts, const std::set<uint256>* sScId = NULL);
 
     // print functions
     bool dump_info(const uint256& scId);
@@ -284,12 +277,6 @@ class CcRecipientVisitor : public boost::static_visitor<bool>
 
     template <typename T>
     bool operator() (const T& r) const; //{ return fact->set(r); }
-/*
-    bool operator() (const CRecipientScCreation& r) const;
-    bool operator() (const CRecipientCertLock& r) const;
-    bool operator() (const CRecipientForwardTransfer& r) const;
-    bool operator() (const CRecipientBackwardTransfer& r) const;
-*/
 };
 
 class CRecipientFactory

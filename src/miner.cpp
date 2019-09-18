@@ -40,6 +40,7 @@
 #endif
 #include <mutex>
 #include "sc/sidechain.h"
+static Sidechain::ScMgr& scMgr = Sidechain::ScMgr::instance();
 
 using namespace std;
 
@@ -353,6 +354,9 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
     // Collect memory pool transactions into the block
     CAmount nFees = 0;
 
+    Sidechain::ScAmountMap mScAmounts;
+    scMgr.initScAmounts(mScAmounts);
+
     {
         LOCK2(cs_main, mempool.cs);
         CBlockIndex* pindexPrev = chainActive.Tip();
@@ -442,14 +446,14 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 continue;
 
             // skip transactions that send forward/backward crosschain amounts if the creation of the target sidechain is
-            // not yet in blockchain. This should happen only if a chain has been reverted and a mix of creation/transfers has been placed back in the mem pool
-            // The skipped tx will be mined in the next block if the scid is found
+            // not yet in blockchain. This should happen only if a chain has been reverted and a mix of creation/transfers
+            // has been placed back in the mem pool The skipped tx will be mined in the next block if the scid is found
             CValidationState state;
-            if ( !Sidechain::ScMgr::instance().checkSidechainForwardTransaction(tx, state) )
+            if ( !Sidechain::ScMgr::instance().checkSidechainForwardTransaction(tx, state, &mScAmounts) )
             {
                 if (state.GetRejectCode() == REJECT_SCID_NOT_FOUND)
-            {
-                LogPrint("sc", "%s():%d - Skipping tx[%s] because tries to forward funds to a SC not yet created\n", __func__, __LINE__, tx.GetHash().ToString());
+                {
+                    LogPrint("sc", "%s():%d - Skipping tx[%s] because tries to forward funds to a SC not yet created\n", __func__, __LINE__, tx.GetHash().ToString());
                 }
                 else
                 {
@@ -461,7 +465,9 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             }
     
             // same applies with bkws, but here we might have to give way to fwd transfer to happen first
-            if ( !Sidechain::ScMgr::instance().checkSidechainBackwardTransaction(tx, state) )
+            // It should not happen anyway because we sorted the priority vector in order to have bkw tx after
+            // the others
+            if ( !Sidechain::ScMgr::instance().checkSidechainBackwardTransaction(tx, state, &mScAmounts) )
             {
                 if (state.GetRejectCode() == REJECT_SCID_NOT_FOUND)
                 {

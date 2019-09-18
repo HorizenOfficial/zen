@@ -38,6 +38,8 @@
 
 #include <boost/unordered_map.hpp>
 
+#include "sc/sidechain.h"
+
 class CBlockIndex;
 class CBlockTreeDB;
 class CBloomFilter;
@@ -394,7 +396,8 @@ bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state,
 void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCache &inputs, int nHeight);
 
 /** Context-independent validity checks */
-bool CheckTransaction(const CTransaction& tx, CValidationState& state, libzcash::ProofVerifier& verifier);
+bool CheckTransaction(const CTransaction& tx, CValidationState& state, libzcash::ProofVerifier& verifier,
+    Sidechain::ScAmountMap* mScAmounts = NULL, bool fVerifyingDB = false);
 bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidationState &state);
 
 /** Check for standard transaction types
@@ -475,7 +478,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW = true);
 bool CheckBlock(const CBlock& block, CValidationState& state,
                 libzcash::ProofVerifier& verifier,
-                bool fCheckPOW = true, bool fCheckMerkleRoot = true);
+                bool fCheckPOW = true, bool fCheckMerkleRoot = true, bool fVerifyingDB = false);
 
 /** Context-dependent validity checks */
 bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex *pindexPrev);

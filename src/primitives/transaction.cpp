@@ -483,6 +483,37 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
     return *this;
 }
 
+void CScCertificate::getOriginalAmounts(const CTransaction& tx, std::vector<CAmount>& vAmounts) const
+{
+    if (!tx.IsCoinCertified() || !tx.vout.size() )
+    {
+        // should not happen, but we have nothing to do
+        LogPrint("sc", "%s():%d - ERROR: invalid tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString());
+        return;
+    }
+
+    // if in future there will be more than one certificate in the tx, they would be ScCertificate
+    // data members representing  the first entry in the global vout and the number of outs
+    const int voutStartIndex = 0;
+    const int out_size = tx.vout.size();
+
+    vAmounts.reserve(out_size);
+
+    CAmount totalFee = totalAmount;
+    for (int i = voutStartIndex; i < out_size; i++)
+    {
+        totalFee -= tx.vout[i].nValue;
+    }
+    CAmount outFee    = totalFee / out_size;
+    CAmount remainder = totalFee % out_size;
+
+    for (int i = voutStartIndex; i < out_size; i++)
+    {
+        vAmounts.push_back(tx.vout[i].nValue + outFee);
+    }
+    vAmounts[0] += remainder;
+}
+
 uint256 CTxBackwardTransferCrosschainOut::GetHash() const
 {
     std::cout << "Calling " << __LINE__<< std::endl;
@@ -491,6 +522,5 @@ uint256 CTxBackwardTransferCrosschainOut::GetHash() const
 
 std::string CTxBackwardTransferCrosschainOut::ToString() const
 {
-    return strprintf("CTxBackwardTransferCrosschainOut(nValue=%d.%08d, address=%s)",
-        nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30) );
+    return strprintf("CTxBackwardTransferCrosschainOut()");
 }

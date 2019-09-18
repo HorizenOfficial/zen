@@ -43,8 +43,6 @@
 #include "zen/forkmanager.h"
 #include "zen/delay.h"
 
-#include "sc/sidechain.h"
-
 using namespace zen;
 
 using namespace std;
@@ -54,11 +52,11 @@ using namespace std;
 # error "Zen cannot be compiled without assertions."
 #endif
 
+static Sidechain::ScMgr& scMgr = Sidechain::ScMgr::instance();
+
 /**
  * Global state
  */
-
-Sidechain::ScMgr& scMgr = Sidechain::ScMgr::instance();
 
 CCriticalSection cs_main;
 
@@ -145,7 +143,6 @@ namespace {
         }
     };
 
-// [AS]
     struct CBlockIndexRealWorkComparator
     {
         bool operator()(CBlockIndex *pa, CBlockIndex *pb) const {
@@ -999,7 +996,8 @@ bool ContextualCheckTransaction(
 
 
 bool CheckTransaction(const CTransaction& tx, CValidationState &state,
-                      libzcash::ProofVerifier& verifier)
+                      libzcash::ProofVerifier& verifier,
+                      Sidechain::ScAmountMap* mScAmounts, bool fVerifyingDB)
 {
     // Don't count coinbase transactions because mining skews the count
     if (!tx.IsCoinBase()) {
@@ -1025,12 +1023,23 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
 
         // provide temporary replay protection for two minerconf windows during chainsplit
         if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(),whichType))) {
-            return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, ::GetTxnOutputType(whichType), chainActive.Height(), tx.GetHash().ToString()),
+#if 0
+            if (tx.vsc_ccout.size() )
+            {
+                // allow sc creation since fees are rewarded to comunity similarly to coinbase
+                LogPrintf("Warning: %s():%d %s is not activated at this block height %d. Tx id: %s",
+                    __func__, __LINE__, ::GetTxnOutputType(whichType), chainActive.Height(), tx.GetHash().ToString());
+            }
+            else
+#endif
+            {
+                return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, ::GetTxnOutputType(whichType), chainActive.Height(), tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
+            }
         }
     }
 
-    if (!scMgr.checkTransaction(tx, state) )
+    if (!scMgr.checkTransaction(tx, state, mScAmounts, fVerifyingDB) )
     {
         return false;
     }
@@ -2825,8 +2834,12 @@ bool static DisconnectTip(CValidationState &state) {
         // ignore validation errors in resurrected transactions
         list<CTransaction> removed;
         CValidationState stateDummy;
-        if (tx.IsCoinBase() || !AcceptToMemoryPool(mempool, stateDummy, tx, false, NULL))
+        if (
+            (tx.IsCoinBase() && !tx.IsCoinCertified() ) ||
+            !AcceptToMemoryPool(mempool, stateDummy, tx, false, NULL))
+        {
             mempool.remove(tx, removed, true);
+        }
     }
     if (anchorBeforeDisconnect != anchorAfterDisconnect) {
         // The anchor may not change between block disconnects,
@@ -3575,7 +3588,7 @@ bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool f
 
 bool CheckBlock(const CBlock& block, CValidationState& state,
                 libzcash::ProofVerifier& verifier,
-                bool fCheckPOW, bool fCheckMerkleRoot)
+                bool fCheckPOW, bool fCheckMerkleRoot, bool fVerifyingDB)
 {
     // These are checks that are independent of context.
 
@@ -3619,9 +3632,26 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
                              REJECT_INVALID, "bad-cb-multiple");
 
     // Check transactions
-    BOOST_FOREACH(const CTransaction& tx, block.vtx)
-        if (!CheckTransaction(tx, state, verifier))
+    const std::vector<CTransaction>* blockVtx = &block.vtx;
+
+    Sidechain::ScAmountMap mScAmounts;
+    std::vector<CTransaction> vtxReordered;
+    std::set<uint256> sScId;
+    if (Sidechain::ScMgr::hasCrosschainTransfers(block, vtxReordered, sScId) )
+    {
+        // if we have sidechain fw/bw transfers, we need to pass along the current amount of any handled sc
+        // when checking transactions, and if we have bw transfers we also have to reorder the transactions list
+        blockVtx = &vtxReordered;
+        scMgr.initScAmounts(mScAmounts, &sScId);
+    }
+
+    BOOST_FOREACH(const CTransaction& tx, *blockVtx)
+    {
+        if (!CheckTransaction(tx, state, verifier, &mScAmounts, fVerifyingDB))
+        {
             return error("CheckBlock(): CheckTransaction failed");
+        }
+    }
 
     unsigned int nSigOps = 0;
     BOOST_FOREACH(const CTransaction& tx, block.vtx)
@@ -4276,7 +4306,10 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     // No need to verify JoinSplits twice
     auto verifier = libzcash::ProofVerifier::Disabled();
 
-    Sidechain::ScVerifyDbGuard sc_db_verifier_guard;
+    //Sidechain::ScVerifyDbGuard sc_db_verifier_guard;
+    bool fCheckPOW = true;
+    bool fCheckMerkleRoot = true;
+    bool fVerifyingDB = true;
 
     for (CBlockIndex* pindex = chainActive.Tip(); pindex && pindex->pprev; pindex = pindex->pprev)
     {
@@ -4290,7 +4323,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
         if (!ReadBlockFromDisk(block, pindex))
             return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         // check level 1: verify block validity
-        if (nCheckLevel >= 1 && !CheckBlock(block, state, verifier))
+        if (nCheckLevel >= 1 && !CheckBlock(block, state, verifier, fCheckPOW, fCheckMerkleRoot, fVerifyingDB))
             return error("VerifyDB(): *** found bad block at %d, hash=%s\n", pindex->nHeight, pindex->GetBlockHash().ToString());
         // check level 2: verify undo validity
         if (nCheckLevel >= 2 && pindex) {

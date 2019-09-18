@@ -1728,7 +1728,9 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
                 MaybePushAddress(entry, r.destination);
                 if (wtx.IsCoinBase())
                 {
-                    if (wtx.GetDepthInMainChain() < 1)
+                    if (wtx.IsCoinCertified())
+                        entry.push_back(Pair("category", "certified"));
+                    else if (wtx.GetDepthInMainChain() < 1)
                         entry.push_back(Pair("category", "orphan"));
                     else if (wtx.GetBlocksToMaturity() > 0)
                         entry.push_back(Pair("category", "immature"));

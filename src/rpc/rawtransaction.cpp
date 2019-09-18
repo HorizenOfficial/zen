@@ -111,10 +111,23 @@ void AddTxCrosschainJSON (const CTransaction& tx, UniValue& parentObj)
             x.push_back(Pair("scid", entry.scId.GetHex()));
             x.push_back(Pair("totalAmount", ValueFromAmount(entry.totalAmount)));
  
+            // add to json the vector of original amounts
+            std::vector<CAmount> certAmounts;
+            entry.getOriginalAmounts(tx, certAmounts);
+
+            UniValue origAm(UniValue::VARR);
+            for (unsigned int j = 0; j < certAmounts.size(); j++) {
+                UniValue o(UniValue::VOBJ);
+                o.push_back(Pair("n", (int64_t)j));
+                o.push_back(Pair("value", ValueFromAmount(certAmounts[j])));
+                origAm.push_back(o);
+            }
+            x.push_back(Pair("original amounts", origAm));
+
             UniValue vbts(UniValue::VARR);
-            for (unsigned int j = 0; j < entry.vbt_ccout.size(); j++) {
+            for (unsigned int k = 0; k < entry.vbt_ccout.size(); k++) {
                 /* TODO when it will contain data
-                const auto& out = entry.vbt_ccout[j];
+                const auto& out = entry.vbt_ccout[k];
                 UniValue o(UniValue::VOBJ);
                 o.push_back(Pair("value", ValueFromAmount(out.nValue)));
                 UniValue p(UniValue::VOBJ);
