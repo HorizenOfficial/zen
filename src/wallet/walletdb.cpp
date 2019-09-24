@@ -426,7 +426,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             CValidationState state;
             auto verifier = libzcash::ProofVerifier::Strict();
             static const bool fVerifyingDB = true;
-            if (!(CheckTransaction(wtx, state, verifier, NULL, fVerifyingDB) && (wtx.GetHash() == hash) && state.IsValid()))
+            if (!(CheckTransaction(wtx, state, verifier) && (wtx.GetHash() == hash) && state.IsValid()))
             {
                 // Don't consider REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND error code as a failure. It can appear because a tx
                 // is a pre-chainsplit tx, so it is perfectly fine in this case.

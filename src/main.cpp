@@ -43,10 +43,11 @@
 #include "zen/forkmanager.h"
 #include "zen/delay.h"
 
+#include "sc/sidechaincore.h"
+
 using namespace zen;
 
 using namespace std;
-
 
 #if defined(NDEBUG)
 # error "Zen cannot be compiled without assertions."
@@ -59,8 +60,6 @@ static Sidechain::ScMgr& scMgr = Sidechain::ScMgr::instance();
  */
 
 CCriticalSection cs_main;
-
-ScTxMap mDbgScTransactions;
 
 BlockSet sGlobalForkTips;
 BlockTimeMap mGlobalForkTips;
@@ -107,8 +106,6 @@ void EraseOrphansFor(NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
  */
 static bool IsSuperMajority(int minVersion, const CBlockIndex* pstart, unsigned nRequired, const Consensus::Params& consensusParams);
 static void CheckBlockIndex();
-static void DbgAddToScTransactionMap(const CBlock& block);
-static void DbgRemoveFromScTransactionMap(const CBlock& block);
 
 /** Constant stuff for coinbase transactions we create: */
 CScript COINBASE_FLAGS;
@@ -996,8 +993,7 @@ bool ContextualCheckTransaction(
 
 
 bool CheckTransaction(const CTransaction& tx, CValidationState &state,
-                      libzcash::ProofVerifier& verifier,
-                      Sidechain::ScAmountMap* mScAmounts, bool fVerifyingDB)
+                      libzcash::ProofVerifier& verifier)
 {
     // Don't count coinbase transactions because mining skews the count
     if (!tx.IsCoinBase()) {
@@ -1023,23 +1019,12 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
 
         // provide temporary replay protection for two minerconf windows during chainsplit
         if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(),whichType))) {
-#if 0
-            if (tx.vsc_ccout.size() )
-            {
-                // allow sc creation since fees are rewarded to comunity similarly to coinbase
-                LogPrintf("Warning: %s():%d %s is not activated at this block height %d. Tx id: %s",
-                    __func__, __LINE__, ::GetTxnOutputType(whichType), chainActive.Height(), tx.GetHash().ToString());
-            }
-            else
-#endif
-            {
                 return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, ::GetTxnOutputType(whichType), chainActive.Height(), tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
-            }
         }
     }
 
-    if (!scMgr.checkTransaction(tx, state, mScAmounts, fVerifyingDB) )
+    if (!scMgr.checkTransaction(tx, state) )
     {
         return false;
     }
@@ -1058,8 +1043,8 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
 
 
     // Transactions can contain empty `vin` and `vout` so long as
-    // `vjoinsplit` is non-empty or we have a certificate.
-    if (tx.vin.empty() && tx.vjoinsplit.empty() && !tx.IsCoinCertified() )
+    // `vjoinsplit` is non-empty.
+    if (tx.vin.empty() && tx.vjoinsplit.empty())
     {
         LogPrint("sc", "%s():%d - Error: tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString() );
         return state.DoS(10, error("CheckTransaction(): vin empty"),
@@ -1069,8 +1054,10 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
     // also allow the case when crosschain outputs are not empty. In that case there might be no vout at all
     // when utxo reminder is only dust, which is added to fee leaving no change for the sender
     if (tx.vout.empty() && tx.vjoinsplit.empty() && tx.ccIsNull())
+    {
         return state.DoS(10, error("CheckTransaction(): vout empty"),
                          REJECT_INVALID, "bad-txns-vout-empty");
+    }
 
     // Size limits
     BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_TX_SIZE); // sanity
@@ -1272,45 +1259,33 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         return error("AcceptToMemoryPool: CheckTransaction failed");
 
 
-    // TODO check this ----------
-    // if chainActive is empty, skip contextual check
-    // this can happen when wallet reconsiders its txes at node startup
-    if (chainActive.Height() != 0)
-    {
         // DoS level set to 10 to be more forgiving.
         // Check transaction contextually against the set of consensus rules which apply in the next block to be mined.
         if (!ContextualCheckTransaction(tx, state, nextBlockHeight, 10)) {
             return error("AcceptToMemoryPool: ContextualCheckTransaction failed");
-        }
     }
 
     // Silently drop pre-chainsplit transactions
     if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight))
         return false;
 
-    // Coinbase is only valid in a block, not as a loose transaction, unless we have a valid sc certificate
-    if (tx.IsCoinBase() && !tx.IsCoinCertified())
-    {
+    // Coinbase is only valid in a block, not as a loose transaction
+    if (tx.IsCoinBase())
         return state.DoS(100, error("AcceptToMemoryPool: coinbase as individual tx"),
                          REJECT_INVALID, "coinbase");
-    }
 
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     string reason;
     if (getRequireStandard() && !IsStandardTx(tx, reason, nextBlockHeight))
-    {
         return state.DoS(0,
                          error("AcceptToMemoryPool: nonstandard transaction: %s", reason),
                          REJECT_NONSTANDARD, reason);
-    }
 
     // Only accept nLockTime-using transactions that can be mined in the next
     // block; we don't want our mempool filled up with transactions that can't
     // be mined yet.
     if (!CheckFinalTx(tx, STANDARD_LOCKTIME_VERIFY_FLAGS))
-    {
         return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
-    }
 
     // is it already in the memory pool?
     uint256 hash = tx.GetHash();
@@ -1323,21 +1298,15 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // Check for conflicts with in-memory transactions
     {
         LOCK(pool.cs); // protect pool.mapNextTx
-
-        // skip check if we are handling a certificate, since is similar to coinbase and has no real vin
-        if (!tx.IsCoinCertified() )
+        for (unsigned int i = 0; i < tx.vin.size(); i++)
         {
-            for (unsigned int i = 0; i < tx.vin.size(); i++)
+            COutPoint outpoint = tx.vin[i].prevout;
+            if (pool.mapNextTx.count(outpoint))
             {
-                COutPoint outpoint = tx.vin[i].prevout;
-                if (pool.mapNextTx.count(outpoint))
-                {
-                    // Disable replacement feature for now
-                    return false;
-                }
+                // Disable replacement feature for now
+                return false;
             }
         }
-
         BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
             BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
                 if (pool.mapNullifiers.count(nf))
@@ -1348,9 +1317,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
 
         // beside the check performed in CheckTransaction above, perform some more checks specific to mempool. 
-        // 1. if this tx creates a sc, no other tx must be doing the same in the mempool
-        // 2. if this tx has a certificate, ensure that in scid balance we take also account of any other fwd/bwd 
-        //    tx in mempool for the same scid
+        // If this tx creates a sc, no other tx must be doing the same in the mempool
         if (!scMgr.checkMemPool(pool, tx, state) )
         {
             return false;
@@ -1362,9 +1329,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         CCoinsViewCache view(&dummy);
 
         CAmount nValueIn = 0;
-
-        // skip input check if we have a certificate
-        if (!tx.IsCoinCertified() )
         {
             LOCK(pool.cs);
             CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
@@ -1414,14 +1378,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
             view.SetBackend(dummy);
         }
-        else
-        {
-            BOOST_FOREACH(const auto& entry, tx.vsc_cert)
-            {
-                nValueIn += entry.totalAmount;
-            }
-        }
-
 
         // Check for non-standard pay-to-script-hash in inputs
         if (getRequireStandard() && !AreInputsStandard(tx, view))
@@ -1903,7 +1859,7 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
 bool IsCommunityFund(const CCoins *coins, int nIn)
 {
     if(coins != NULL &&
-       (coins->IsCoinBase() && !coins->IsCoinCertified() ) &&
+       coins->IsCoinBase() &&
        ForkManager::getInstance().isAfterChainsplit(coins->nHeight) &&
        coins->vout.size() > nIn)
     {
@@ -1942,8 +1898,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             const CCoins *coins = inputs.AccessCoins(prevout.hash);
             assert(coins);
 
-            if (coins->IsCoinBase() && !coins->IsCoinCertified() )
-            {
+            if (coins->IsCoinBase()) {
                 // Ensure that coinbases are matured
                 if (nSpendHeight - coins->nHeight < COINBASE_MATURITY) {
                     return state.Invalid(
@@ -2221,9 +2176,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
 
         // restore inputs
-        //if (i > 0) { // not coinbases
-        bool coinbase = tx.IsCoinBase(); // also sidechain certifier generated coins
-        if (!coinbase) { // not coinbases
+        if (i > 0) { // not coinbases
             const CTxUndo &txundo = blockUndo.vtxundo[i-1];
             if (txundo.vprevout.size() != tx.vin.size())
                 return error("DisconnectBlock(): transaction and undo data inconsistent");
@@ -2397,7 +2350,6 @@ static int64_t nTimeTotal = 0;
 
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, const CChain& chain, bool fJustCheck)
 {
-//    cout << __LINE__ << "] connecting block: h = " << pindex->nHeight << endl;
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
 
@@ -2521,23 +2473,11 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             control.Add(vChecks);
         }
 
-        // add the certificates fee if any
-        if (tx.IsCoinCertified() )
-        {
-            BOOST_FOREACH(const auto& entry, tx.vsc_cert)
-            {
-                nFees += entry.totalAmount;
-            }
-            nFees -= tx.GetValueOut();
-        }
-
         CTxUndo undoDummy;
         if (i > 0) {
             blockundo.vtxundo.push_back(CTxUndo());
         }
-
-        bool coinbase = tx.IsCoinBase(); // also sidechain certificates generate coins
-        UpdateCoins(tx, state, view, coinbase ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
+        UpdateCoins(tx, state, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
 
         BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
             BOOST_FOREACH(const uint256 &note_commitment, joinsplit.commitments) {
@@ -2823,7 +2763,6 @@ bool static DisconnectTip(CValidationState &state) {
     if (!FlushStateToDisk(state, FLUSH_STATE_IF_NEEDED))
         return false;
 
-    DbgRemoveFromScTransactionMap(block);
     if (!scMgr.onBlockDisconnected(block, pindexDelete->nHeight) )
     {
         return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
@@ -2834,9 +2773,7 @@ bool static DisconnectTip(CValidationState &state) {
         // ignore validation errors in resurrected transactions
         list<CTransaction> removed;
         CValidationState stateDummy;
-        if (
-            (tx.IsCoinBase() && !tx.IsCoinCertified() ) ||
-            !AcceptToMemoryPool(mempool, stateDummy, tx, false, NULL))
+        if (tx.IsCoinBase() || !AcceptToMemoryPool(mempool, stateDummy, tx, false, NULL))
         {
             mempool.remove(tx, removed, true);
         }
@@ -2880,7 +2817,6 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     int64_t nTime1 = GetTimeMicros();
     CBlock block;
     if (!pblock) {
-//        cout << __LINE__ << "] Reading block from disk: h = " << pindexNew->nHeight << endl;
         if (!ReadBlockFromDisk(block, pindexNew))
             return AbortNode(state, "Failed to read block");
         pblock = &block;
@@ -2934,7 +2870,6 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     EnforceNodeDeprecation(pindexNew->nHeight);
 
     // as a last thing, update sidechain data if any
-    DbgAddToScTransactionMap(*pblock);
     if (!scMgr.onBlockConnected(*pblock, pindexNew->nHeight) )
     {
         return error("ConnectTip(): ConnectBlock %s failed", pindexNew->GetBlockHash().ToString());
@@ -3588,7 +3523,7 @@ bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool f
 
 bool CheckBlock(const CBlock& block, CValidationState& state,
                 libzcash::ProofVerifier& verifier,
-                bool fCheckPOW, bool fCheckMerkleRoot, bool fVerifyingDB)
+                bool fCheckPOW, bool fCheckMerkleRoot)
 {
     // These are checks that are independent of context.
 
@@ -3627,27 +3562,14 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
         return state.DoS(100, error("CheckBlock(): first tx is not coinbase"),
                          REJECT_INVALID, "bad-cb-missing");
     for (unsigned int i = 1; i < block.vtx.size(); i++)
-        if (block.vtx[i].IsCoinBase() && !block.vtx[i].IsCoinCertified() )
+        if (block.vtx[i].IsCoinBase())
             return state.DoS(100, error("CheckBlock(): more than one coinbase"),
                              REJECT_INVALID, "bad-cb-multiple");
 
     // Check transactions
-    const std::vector<CTransaction>* blockVtx = &block.vtx;
-
-    Sidechain::ScAmountMap mScAmounts;
-    std::vector<CTransaction> vtxReordered;
-    std::set<uint256> sScId;
-    if (Sidechain::ScMgr::hasCrosschainTransfers(block, vtxReordered, sScId) )
+    BOOST_FOREACH(const CTransaction& tx, block.vtx)
     {
-        // if we have sidechain fw/bw transfers, we need to pass along the current amount of any handled sc
-        // when checking transactions, and if we have bw transfers we also have to reorder the transactions list
-        blockVtx = &vtxReordered;
-        scMgr.initScAmounts(mScAmounts, &sScId);
-    }
-
-    BOOST_FOREACH(const CTransaction& tx, *blockVtx)
-    {
-        if (!CheckTransaction(tx, state, verifier, &mScAmounts, fVerifyingDB))
+        if (!CheckTransaction(tx, state, verifier))
         {
             return error("CheckBlock(): CheckTransaction failed");
         }
@@ -4305,12 +4227,6 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     CValidationState state;
     // No need to verify JoinSplits twice
     auto verifier = libzcash::ProofVerifier::Disabled();
-
-    //Sidechain::ScVerifyDbGuard sc_db_verifier_guard;
-    bool fCheckPOW = true;
-    bool fCheckMerkleRoot = true;
-    bool fVerifyingDB = true;
-
     for (CBlockIndex* pindex = chainActive.Tip(); pindex && pindex->pprev; pindex = pindex->pprev)
     {
         boost::this_thread::interruption_point();
@@ -4319,11 +4235,10 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
             break;
         CBlock block;
         // check level 0: read from disk
-//        cout << __LINE__ << "] Reading block from disk: h = " << pindex->nHeight << endl;
         if (!ReadBlockFromDisk(block, pindex))
             return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         // check level 1: verify block validity
-        if (nCheckLevel >= 1 && !CheckBlock(block, state, verifier, fCheckPOW, fCheckMerkleRoot, fVerifyingDB))
+        if (nCheckLevel >= 1 && !CheckBlock(block, state, verifier))
             return error("VerifyDB(): *** found bad block at %d, hash=%s\n", pindex->nHeight, pindex->GetBlockHash().ToString());
         // check level 2: verify undo validity
         if (nCheckLevel >= 2 && pindex) {
@@ -4364,7 +4279,6 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
             uiInterface.ShowProgress(_("Verifying blocks..."), std::max(1, std::min(99, 100 - (int)(((double)(chainActive.Height() - pindex->nHeight)) / (double)nCheckDepth * 50))));
             pindex = chainActive.Next(pindex);
             CBlock block;
-//        cout << __LINE__ << "] Reading block from disk: h = " << pindex->nHeight << endl;
             if (!ReadBlockFromDisk(block, pindex))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             chainHistorical.SetHeight(pindex->nHeight - 1);
@@ -4543,7 +4457,6 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
                     std::pair<std::multimap<uint256, CDiskBlockPos>::iterator, std::multimap<uint256, CDiskBlockPos>::iterator> range = mapBlocksUnknownParent.equal_range(head);
                     while (range.first != range.second) {
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
-//        cout << __LINE__ << "] Reading block from disk from pos" << endl;
                         if (ReadBlockFromDisk(block, it->second))
                         {
                             LogPrintf("%s: Processing out of order child %s of %s\n", __func__, block.GetHash().ToString(),
@@ -4935,7 +4848,6 @@ void static ProcessGetData(CNode* pfrom)
                 {
                     // Send block from disk
                     CBlock block;
-//        cout << __LINE__ << "] Reading block from disk: h = " << (*mi).second->nHeight << endl;
                     if (!ReadBlockFromDisk(block, (*mi).second))
                         assert(!"cannot load block from disk");
                     if (inv.type == MSG_BLOCK)
@@ -7037,145 +6949,3 @@ bool getRequireStandard()
     return retVal;
 }
 
-template <typename T>
-static void helperDbgAddCcOut(const T& param, const uint256& txHash)
-{
-    string tag;
-    int typeIdx;
-    if (boost::is_same<T, std::vector<CTxScCreationCrosschainOut> >::value)
-    {
-        tag = "vsc";
-        typeIdx = 0;
-    }
-    else
-    if (boost::is_same<T, std::vector<CTxCertifierLockCrosschainOut> >::value)
-    {
-        tag = "vcl";
-        typeIdx = 1;
-    }
-    else
-    if (boost::is_same<T, std::vector<CTxForwardTransferCrosschainOut> >::value)
-    {
-        tag = "vft";
-        typeIdx = 2;
-    }
-    else
-    {
-        // should never happen
-        LogPrint("sc", "%s():%d - Unexpected typename in template\n", __func__, __LINE__);
-        return;
-    }
-
-    int c = 0;
-    BOOST_FOREACH(const auto& entry, param)
-    {
-        std::vector<mScCcOutputs>& vec = mDbgScTransactions[entry.scId];
-        if (!vec.size())
-        {
-            mScCcOutputs m;
-            auto& ccOuts = m[txHash];
-            ccOuts[typeIdx].push_back(c);
- 
-            LogPrint("sc", "%s():%d - scId=%s, adding tx %s_ccout %d to a new m in new vec\n",
-                __func__, __LINE__, entry.scId.ToString(), tag, c );
-            vec.push_back(m);
-        }
-        else
-        {
-            BOOST_FOREACH(auto& m, vec)
-            {
-                auto mi = m.find(txHash);
-                if (mi != m.end() )
-                {
-                    LogPrint("sc", "%s():%d - scId=%s, adding tx %s_ccout %d to an existing m in existing vec\n",
-                        __func__, __LINE__, entry.scId.ToString(), tag, c );
-                    (*mi).second[typeIdx].push_back(c);
-                }
-                else
-                {
-                    auto& ccOuts = m[txHash];
-                    ccOuts[typeIdx].push_back(c);
- 
-                    LogPrint("sc", "%s():%d - scId=%s, adding tx %s_ccout %d to a new m in existing vec\n",
-                        __func__, __LINE__, entry.scId.ToString(), tag, c );
-                }
-            }
-        }
-        c++;
-    }
-}
-
-void DbgAddToScTransactionMap(const CBlock& block)
-{
-    BOOST_FOREACH(const CTransaction& tx, block.vtx)
-    {
-        if (tx.nVersion == SC_TX_VERSION)
-        {
-            uint256 txHash = tx.GetHash();
-            LogPrint("sc", "%s():%d - tx=%s\n", __func__, __LINE__, txHash.ToString() );
-
-            helperDbgAddCcOut(tx.vsc_ccout, txHash);
-            helperDbgAddCcOut(tx.vcl_ccout, txHash);
-            helperDbgAddCcOut(tx.vft_ccout, txHash);
-        }
-    }
-}
-    
-void DbgRemoveFromScTransactionMap(const CBlock& block)
-{
-    BOOST_FOREACH(const CTransaction& tx, block.vtx)
-    {
-        if (tx.nVersion == SC_TX_VERSION)
-        {
-            uint256 txHash = tx.GetHash();
-            LogPrint("sc", "%s():%d - tx=%s\n", __func__, __LINE__, txHash.ToString() );
-            int c = 0;
-
-            BOOST_FOREACH(auto& scPair, mDbgScTransactions)
-            {
-                BOOST_FOREACH(auto& map, scPair.second)
-                {
-                    auto mi = map.find(txHash);
-                    if (mi != map.end() )
-                    {
-                        LogPrint("sc", "%s():%d - erasing from sc=%s\n", __func__, __LINE__, scPair.first.ToString() );
-                        map.erase(txHash);
-                    }
-                }
-            }
-
-            // we choose not to remove empty sc entries in map if any
-        }
-    }
-}
-    
-// dev dbg only
-void dump_sc_tx()
-{
-    LogPrint("sc", "===== SC TXs MAP size: %d =================\n", mDbgScTransactions.size());
-    BOOST_FOREACH(const auto& scPair, mDbgScTransactions)
-    {
-        LogPrint("sc", "SC id: [%s]\n", scPair.first.ToString());
-
-        BOOST_FOREACH(const auto& map, scPair.second)
-        {
-            BOOST_FOREACH(const auto& txPair, map)
-            {
-                LogPrint("sc", "    tx id: [%s]\n", txPair.first.ToString());
-
-                BOOST_FOREACH(const auto& nIdx, txPair.second[0])
-                {
-                    LogPrint("sc", "        vsc_ccout n: [%s]\n", nIdx);
-                }
-                BOOST_FOREACH(const auto& nIdx, txPair.second[1])
-                {
-                    LogPrint("sc", "        vcl_ccout n: [%s]\n", nIdx);
-                }
-                BOOST_FOREACH(const auto& nIdx, txPair.second[2])
-                {
-                    LogPrint("sc", "        vft_ccout n: [%s]\n", nIdx);
-                }
-            }
-        }
-    }
-}

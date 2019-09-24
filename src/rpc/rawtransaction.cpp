@@ -27,10 +27,9 @@
 #include <boost/assign/list_of.hpp>
 
 #include <univalue.h>
-#include "sc/sidechain.h"
+#include "sc/sidechaincore.h"
 
 using namespace std;
-using namespace Sidechain;
 
 void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex)
 {
@@ -99,48 +98,6 @@ void AddTxCrosschainJSON (const CTransaction& tx, UniValue& parentObj)
         nIdx++;
     }
     parentObj.push_back(Pair("vft_ccout", vfts));
-
-//    if (tx.IsCoinCertified() )
-    {
-        UniValue vcert(UniValue::VARR);
-        for (unsigned int i = 0; i < tx.vsc_cert.size(); i++)
-        {
-            const CScCertificate& entry = tx.vsc_cert[i];
- 
-            UniValue x(UniValue::VOBJ);
-            x.push_back(Pair("scid", entry.scId.GetHex()));
-            x.push_back(Pair("totalAmount", ValueFromAmount(entry.totalAmount)));
- 
-            // add to json the vector of original amounts
-            std::vector<CAmount> certAmounts;
-            entry.getOriginalAmounts(tx, certAmounts);
-
-            UniValue origAm(UniValue::VARR);
-            for (unsigned int j = 0; j < certAmounts.size(); j++) {
-                UniValue o(UniValue::VOBJ);
-                o.push_back(Pair("n", (int64_t)j));
-                o.push_back(Pair("value", ValueFromAmount(certAmounts[j])));
-                origAm.push_back(o);
-            }
-            x.push_back(Pair("original amounts", origAm));
-
-            UniValue vbts(UniValue::VARR);
-            for (unsigned int k = 0; k < entry.vbt_ccout.size(); k++) {
-                /* TODO when it will contain data
-                const auto& out = entry.vbt_ccout[k];
-                UniValue o(UniValue::VOBJ);
-                o.push_back(Pair("value", ValueFromAmount(out.nValue)));
-                UniValue p(UniValue::VOBJ);
-                ScriptPubKeyToJSON(out.scriptPubKey, p, true);
-                o.push_back(Pair("scriptPubKey", p));
-                vbts.push_back(o);
-                */
-            }
-            x.push_back(Pair("vbt_ccout", vbts));
-            vcert.push_back(x);
-        }
-        parentObj.push_back(Pair("vsc_cert", vcert));
-    }
 }
 
 UniValue TxJoinSplitToJSON(const CTransaction& tx) {
@@ -594,7 +551,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         if (sc_crs.size())
         {
             std::string errString;
-            if (!ScMgr::instance().fillRawCreation(sc_crs, rawTx, mempool, errString) )
+            if (!Sidechain::ScMgr::instance().fillRawCreation(sc_crs, rawTx, mempool, errString) )
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, errString);
             }

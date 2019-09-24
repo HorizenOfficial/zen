@@ -263,7 +263,6 @@ static const CRPCCommand vRPCCommands[] =
     { "control",            "stop",                   &stop,                   true  },
     { "control",            "dbg_log",                &dbg_log,                true  },
     { "control",            "dbg_do",                 &dbg_do,                 true  },
-    { "control",            "dbg_getscinfo",          &dbg_getscinfo,          true  },
     { "control",            "getscinfo",              &getscinfo,              true  },
     { "control",            "getscgenesisinfo",       &getscgenesisinfo,       true  },
 
@@ -405,12 +404,11 @@ static const CRPCCommand vRPCCommands[] =
     { "wallet",             "z_importviewingkey",     &z_importviewingkey,     true  },
     { "wallet",             "z_exportwallet",         &z_exportwallet,         true  },
     { "wallet",             "z_importwallet",         &z_importwallet,         true  },
-    { "wallet",             "sc_bwdtr",               &sc_bwdtr,               false },
     { "wallet",             "sc_fwdtr",               &sc_fwdtr,               false },
     { "wallet",             "sc_fwdtr_many",          &sc_fwdtr_many,          false },
     { "wallet",             "sc_certlock",            &sc_certlock,            false },
     { "wallet",             "sc_certlock_many",       &sc_certlock_many,       false },
-    { "wallet",             "sc_create",              &sc_create2,             false },
+    { "wallet",             "sc_create",              &sc_create,              false },
 
     // TODO: rearrange into another category 
     { "disclosure",         "z_getpaymentdisclosure", &z_getpaymentdisclosure, true  }, 

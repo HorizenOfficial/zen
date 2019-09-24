@@ -38,7 +38,7 @@
 
 #include <boost/unordered_map.hpp>
 
-#include "sc/sidechain.h"
+#include "sc/sidechaintypes.h"
 
 class CBlockIndex;
 class CBlockTreeDB;
@@ -154,21 +154,6 @@ extern BlockTimeMap mGlobalForkTips;
 typedef std::set<const CBlockIndex*, CompareBlocksByHeight> BlockSet;
 extern BlockSet sGlobalForkTips;
 static const int MAX_NUM_GLOBAL_FORKS = 3;
-
-// --------- dbg only -------------------------------------------------
-// sequences of indexes to cl and ft cc outputs in a transaction
-// Should a new output be added, update array size and update helperDbgAddCcOut) accordingly
-typedef std::array< std::vector<int>, 3 > CcOutsIndexes;
-
-// key: the hash of the sc transaction
-// value: a  
-typedef boost::unordered_map<uint256, CcOutsIndexes, ObjectHasher > mScCcOutputs;
-
-// key: sc id
-// value: a list od sc outputs
-typedef boost::unordered_map<uint256, std::vector<mScCcOutputs>, ObjectHasher> ScTxMap;
-extern ScTxMap mDbgScTransactions;
-// --------- dbg only -------------------------------------------------
 
 /** Best header we've seen so far (used for getheaders queries' starting points). */
 extern CBlockIndex *pindexBestHeader;
@@ -396,8 +381,7 @@ bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state,
 void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCache &inputs, int nHeight);
 
 /** Context-independent validity checks */
-bool CheckTransaction(const CTransaction& tx, CValidationState& state, libzcash::ProofVerifier& verifier,
-    Sidechain::ScAmountMap* mScAmounts = NULL, bool fVerifyingDB = false);
+bool CheckTransaction(const CTransaction& tx, CValidationState& state, libzcash::ProofVerifier& verifier);
 bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidationState &state);
 
 /** Check for standard transaction types
@@ -478,7 +462,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW = true);
 bool CheckBlock(const CBlock& block, CValidationState& state,
                 libzcash::ProofVerifier& verifier,
-                bool fCheckPOW = true, bool fCheckMerkleRoot = true, bool fVerifyingDB = false);
+                bool fCheckPOW = true, bool fCheckMerkleRoot = true);
 
 /** Context-dependent validity checks */
 bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex *pindexPrev);

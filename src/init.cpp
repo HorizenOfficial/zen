@@ -65,7 +65,7 @@
 
 #include "librustzcash.h"
 
-#include "sc/sidechain.h"
+#include "sc/sidechaincore.h"
 
 using namespace std;
 
@@ -1801,29 +1801,6 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
 #ifdef ENABLE_WALLET
     if (pwalletMain) {
-
-        // wait for any reindexing in progress to terminate
-        bool reindexing = false;
-        static const int NUMB_OF_NAPS = 60;
-        static const int SLEEP_DURATION_MILLI = 1000;
-        int waitLimit = NUMB_OF_NAPS;
-
-        while (waitLimit-- > 0)
-        {
-            pblocktree->ReadReindexing(reindexing);
-            if (!reindexing)
-            {
-                LogPrintf("currently not reindexing...\n");
-                break;
-            }
-            LogPrintf("Waiting for reindexing to finish (count=%d)...\n", waitLimit);
-            MilliSleep(SLEEP_DURATION_MILLI);
-        }
-        if (waitLimit <= 0)
-        {
-            LogPrintf("Waiting for reindexing timed out!\n");
-        }
-
         // Add wallet transactions that aren't already in a block to mapTransactions
         pwalletMain->ReacceptWalletTransactions();
 

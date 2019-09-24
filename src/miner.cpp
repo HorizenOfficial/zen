@@ -39,13 +39,12 @@
 #include <functional>
 #endif
 #include <mutex>
-#include "sc/sidechain.h"
+#include "sc/sidechaincore.h"
 static Sidechain::ScMgr& scMgr = Sidechain::ScMgr::instance();
 
 using namespace std;
 
 #include "zen/forkmanager.h"
-
 using namespace zen; 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -119,7 +118,7 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
                 ? nMedianTimePast
                 : pblock->GetBlockTime();
 
-        if ( (tx.IsCoinBase() && !tx.IsCoinCertified() ) || !IsFinalTx(tx, nHeight, nLockTimeCutoff))
+        if (tx.IsCoinBase() || !IsFinalTx(tx, nHeight, nLockTimeCutoff))
         {
             continue;
         }
@@ -132,8 +131,6 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
         uint256 hash = tx.GetHash();
         bool fMissingInputs = false;
 
-//        if (tx.IsCoinCertified())
-        {
         // Detect orphan transaction and its dependencies
         BOOST_FOREACH(const CTxIn& txin, tx.vin)
         {
@@ -150,7 +147,6 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
                 nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().vout[txin.prevout.n].nValue;
             }
         }
-        }
 
         if (!porphan)
         {
@@ -162,8 +158,6 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
         }
         else
         {
-//            if (tx.IsCoinCertified())
-            {
             BOOST_FOREACH(const CTxIn& txin, tx.vin)
             {
                 // Read prev transaction
@@ -193,24 +187,13 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
                 dPriority += (double)nValueIn * nConf;
             }
             nTotalIn += tx.GetJoinSplitValueIn();
-            }
 
             if (fMissingInputs) continue;
 
-            if (tx.IsCoinCertified())
-            {
-                BOOST_FOREACH(const auto& entry, tx.vsc_cert)
-                {
-                    nTotalIn += entry.totalAmount;
-                }
-            }
-
-            nFee = nTotalIn - tx.GetValueOut() - tx.GetValueCcOut();
-            
             // Priority is sum(valuein * age) / modified_txsize
             dPriority = tx.ComputePriority(dPriority, nTxSize);
             mempool.ApplyDeltas(hash, dPriority, nTotalIn);
-            //nFee = nTotalIn - tx.GetValueOut() - tx.GetValueCcOut();
+            nFee = nTotalIn - tx.GetValueOut() - tx.GetValueCcOut();
         }
 
         CFeeRate feeRate(nFee, nTxSize);
@@ -354,9 +337,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
     // Collect memory pool transactions into the block
     CAmount nFees = 0;
 
-    Sidechain::ScAmountMap mScAmounts;
-    scMgr.initScAmounts(mScAmounts);
-
     {
         LOCK2(cs_main, mempool.cs);
         CBlockIndex* pindexPrev = chainActive.Tip();
@@ -445,11 +425,11 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             if (!view.HaveInputs(tx))
                 continue;
 
-            // skip transactions that send forward/backward crosschain amounts if the creation of the target sidechain is
+            // skip transactions that send forward crosschain amounts if the creation of the target sidechain is
             // not yet in blockchain. This should happen only if a chain has been reverted and a mix of creation/transfers
             // has been placed back in the mem pool The skipped tx will be mined in the next block if the scid is found
             CValidationState state;
-            if ( !Sidechain::ScMgr::instance().checkSidechainForwardTransaction(tx, state, &mScAmounts) )
+            if ( !Sidechain::ScMgr::instance().checkSidechainForwardTransaction(tx, state) )
             {
                 if (state.GetRejectCode() == REJECT_SCID_NOT_FOUND)
                 {
@@ -464,44 +444,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 continue;
             }
     
-            // same applies with bkws, but here we might have to give way to fwd transfer to happen first
-            // It should not happen anyway because we sorted the priority vector in order to have bkw tx after
-            // the others
-            if ( !Sidechain::ScMgr::instance().checkSidechainBackwardTransaction(tx, state, &mScAmounts) )
-            {
-                if (state.GetRejectCode() == REJECT_SCID_NOT_FOUND)
-                {
-                    LogPrint("sc", "%s():%d - Skipping tx[%s] because tries to backw funds to a SC not yet created\n", __func__, __LINE__, tx.GetHash().ToString());
-                }
-                else
-                if (state.GetRejectCode() == REJECT_INSUFFICIENT_SCID_FUNDS)
-                {
-                    LogPrint("sc", "%s():%d - Skipping tx[%s] because tries to backw coins to a SC with insufficient balance\n", __func__, __LINE__, tx.GetHash().ToString());
-                }
-                else
-                {
-                    // should not happen
-                    LogPrint("sc", "%s():%d - Skipping tx[%s]: unexpected error[0x%x] \n",
-                        __func__, __LINE__, tx.GetHash().ToString(), state.GetRejectCode());
-                }
-                continue;
-            }
-
-            CAmount nTxFees = 0;
-
-            if (tx.IsCoinCertified() )
-            {
-                // similarly to coinbase there are no vin, fees have been carved out from vout 
-                BOOST_FOREACH(const auto& entry, tx.vsc_cert)
-                {
-                    nTxFees += entry.totalAmount;
-                }
-                nTxFees -= tx.GetValueOut();
-            }
-            else
-            {
-                nTxFees = view.GetValueIn(tx)-tx.GetValueOut()-tx.GetValueCcOut();
-            }
+            CAmount nTxFees = view.GetValueIn(tx)-tx.GetValueOut()-tx.GetValueCcOut();
 
             nTxSigOps += GetP2SHSigOpCount(tx, view);
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)

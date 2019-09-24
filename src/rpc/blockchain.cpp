@@ -22,7 +22,7 @@
 
 #include <regex>
 
-#include "sc/sidechain.h"
+#include "sc/sidechaincore.h"
 
 using namespace std;
 
@@ -1049,7 +1049,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
     }
  
-    const uint256& blockHash = info.ownerBlockHash;
+    const uint256& blockHash = info.creationBlockHash;
 
     if (mapBlockIndex.count(blockHash) == 0)
     {
@@ -1077,14 +1077,14 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     // get pow data
     const int vec_size = Params().GetConsensus().nPowAveragingWindow + CBlockIndex::nMedianTimeSpan;
 
-    std::vector<sPowRelatedData> vData;
+    std::vector<ScPowRelatedData> vData;
     vData.reserve(vec_size);
 
     CBlockIndex* prev = pblockindex;
 
     for (int i = 0; i < vec_size; i++)
     {
-        sPowRelatedData s = {};
+        ScPowRelatedData s = {};
         prev = prev->pprev;
         if (!prev)
         {
@@ -1264,8 +1264,6 @@ UniValue dbg_log(const UniValue& params, bool fHelp)
     return "Log printed";
 }
 
-extern void dump_sc_tx();
-
 UniValue dbg_do(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() == 0)
@@ -1273,93 +1271,10 @@ UniValue dbg_do(const UniValue& params, bool fHelp)
         throw runtime_error(
             "dbg_do: does some hard coded helper task\n"
             "\nExamples:\n"
-            + HelpExampleCli("getglobaltips", "\"hash\"")
+            + HelpExampleCli("dbg_do", "\"todo\"")
         );
     }
-
-    std::string strHash1 = params[0].get_str();
-    std::string strHash2 = params[1].get_str();
-    uint256 hash1(uint256S(strHash1));
-    uint256 hash2(uint256S(strHash2));
-
-    std::vector<uint256> vDum;
-    vDum.push_back(hash1);
-    vDum.push_back(hash2);
-
-    uint256 ret0 = Hash(vDum);
-
-    uint256 ret1 = Hash(BEGIN(hash1), END(hash1), BEGIN(hash2), END(hash2));
-
-    unsigned char buf[64] = {};
-    memcpy(buf, BEGIN(hash1), sizeof(uint256));
-    memcpy(buf+sizeof(uint256), BEGIN(hash2), sizeof(uint256));
-
-    uint256 ret2 = Hash(BEGIN(buf), END(buf));
-
-    std::vector<string> vDum3;
-    vDum3.push_back(strHash1);
-    vDum3.push_back(strHash2);
-    uint256 ret3 = Hash(vDum3);
-
-    std::string ret(ret0.ToString() + "\n" + ret1.ToString() + "\n" + ret2.ToString() + "\n### " + ret3.ToString() + "\n"); 
-    dump_sc_tx();
-
-    std::vector<uint256> vvv;
-    uint256 qqq = Hash(vvv);
-    char bbb = '1';
-    uint256 www = Hash(&bbb, &bbb);
-    uint256 rrr = Hash("", "");
-    std::vector<unsigned char> ccc;
-    uint256 zzz = Hash256(ccc);
-
-    ret += qqq.ToString() + "\n";
-    ret += www.ToString() + "\n";
-    ret += rrr.ToString() + "\n";
-    ret += zzz.ToString() + "\n";
-
-    uint256  h1 = uint256S("c1c7100708c6066da672f85a79aae2db1ff8fe7186d5f2a3b1c718073f8bfe8e");
-    uint256  h2 = uint256S("8cdc163ce8d630dcc125262aa4fba991253c48bf71a27c415350fc078a13af47");
-    uint256  h3 = uint256S("5a209c2fc55feb88055e51221601809259dfbbd1fc4cb7008b257af0cc391a6e");
-    uint256  h4 = uint256S("38dfafc6ed9f6fe2ad2428ff1896ea31f684e3b8aad611ca2299bde2bce8f8bb");
-    uint256  h5 = uint256S("0ad690dc7860feb0ebdc6bf225f9d0f5e42a6966c82afbb761827d336010aa0b");
-    uint256  h6 = uint256S("cbf714c277c4f3a4c3713b37f7ad7b9473236adb452df53e553e4c69d07858ea");
-    uint256  h7 = uint256S("8462f1e0ea46e3299cbf137d544a5024c7573dc165b9eb6befce8d61c8686354");
-    uint256  h8 = uint256S("90b6c3fd06982c301465f7a01de3dd330a1e72176f6f6502cb49f8ef6e2ec5a9");
-    uint256  h9 = uint256S("ee866a92df476d353a17c80eb6679e07443f1dc80f32e005431b3a4238d8535c");
-    uint256 h10 = uint256S("f226682ed5e505c1c3e533771b9861bfaf0173b6f70c35bea2109530817b2f92");
-
-    std::vector<uint256> mt;
-    mt.push_back( h1);
-    mt.push_back( h2);
-    mt.push_back( h3);
-    mt.push_back( h4);
-    mt.push_back( h5);
-    mt.push_back( h6);
-    mt.push_back( h7);
-    mt.push_back( h8);
-    mt.push_back( h9);
-    mt.push_back(h10);
-
-    uint256 mtrh = CBlock::BuildMerkleRootHash(mt);
-    ret += "MR: " + mtrh.ToString() + "\n";
-
-    mt.clear();
-
-    mtrh = CBlock::BuildMerkleRootHash(mt);
-    ret += "MR of an empty seq: " + mtrh.ToString() + "\n";
-
-    mt.push_back(h1);
-    mt.push_back(h2);
-
-    mtrh = CBlock::BuildMerkleRootHash(mt);
-    ret += "MR di 2: " + mtrh.ToString() + "\n";
-
-    qqq = Hash(mt);
-    ret += "Hash di 2: " + qqq.ToString() + "\n";
-
-    uint256 n = uint256();;
-    qqq = Hash(BEGIN(n), END(n));
-    ret += "Hash of a uint256 null: " + qqq.ToString() + "\n";
+    std::string ret = "TODO";
 
     return ret;
 }

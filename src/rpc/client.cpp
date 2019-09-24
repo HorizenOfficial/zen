@@ -118,8 +118,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "sc_certlock_many", 0},
     { "sc_create", 1 },
     { "sc_create", 2 },
-    { "sc_create2", 1 },
-    { "sc_create2", 2 },
     { "z_shieldcoinbase", 2},
     { "z_shieldcoinbase", 3},
     { "z_getoperationstatus", 0},

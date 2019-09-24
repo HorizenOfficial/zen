@@ -223,8 +223,7 @@ BITCOIN_CORE_H = \
   zmq/zmqabstractnotifier.h \
   zmq/zmqconfig.h\
   zmq/zmqnotificationinterface.h \
-  zmq/zmqpublishnotifier.h \
-  sc/sidechain.h
+  zmq/zmqpublishnotifier.h 
 
 LIBZENCASH_H = \
     zen/utiltls.h\

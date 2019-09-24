@@ -99,17 +99,8 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     LOCK(cs);
     mapTx[hash] = entry;
     const CTransaction& tx = mapTx[hash].GetTx();
-
-    // even if they are included in the mempool, certificates have a null vin.prevout because they
-    // are sort of coin base transactions, therefore no mapping takes place
-    if (!tx.IsCoinCertified() )
-    {
         for (unsigned int i = 0; i < tx.vin.size(); i++)
-        {
             mapNextTx[tx.vin[i].prevout] = CInPoint(&tx, i);
-        }
-    }
-
     BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
         BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
             mapNullifiers[nf] = &tx;
@@ -183,15 +174,7 @@ void CTxMemPool::removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned in
     list<CTransaction> transactionsToRemove;
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         const CTransaction& tx = it->second.GetTx();
-        BOOST_FOREACH(const CTxIn& txin, tx.vin)
-        {
-            if (tx.IsCoinCertified() )
-            {
-                // certificates in mempool must not be processed
-                LogPrint("sc", "%s():%d - Certificate tx[%s], skipping it\n", __func__, __LINE__, tx.GetHash().ToString());
-                continue;
-            }
-
+        BOOST_FOREACH(const CTxIn& txin, tx.vin) {
             std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(txin.prevout.hash);
             if (it2 != mapTx.end())
                 continue;
@@ -319,13 +302,6 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         checkTotal += it->second.GetTxSize();
         innerUsage += it->second.DynamicMemoryUsage();
         const CTransaction& tx = it->second.GetTx();
-
-        if (tx.IsCoinCertified())
-        {
-            LogPrint("sc", "%s():%d - TX has a certificate, skip it\n", __func__, __LINE__);
-            continue;
-        }
-
         bool fDependsWait = false;
         BOOST_FOREACH(const CTxIn &txin, tx.vin) {
             // Check that every mempool transaction's inputs refer to available coins, or other mempool tx's.

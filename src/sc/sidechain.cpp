@@ -1,4 +1,4 @@
-#include "sc/sidechain.h"
+#include "sc/sidechaincore.h"
 #include "primitives/transaction.h"
 #include "utilmoneystr.h"
 #include "txmempool.h"
@@ -103,63 +103,6 @@ void ScMgr::removeSidechain(const uint256& scId)
     }
 }
 
-bool ScMgr::addScBackwardTx(const uint256& scId, const uint256& txHash)
-{
-    LOCK(sc_lock);
-    ScInfoMap::iterator it = mScInfo.find(scId);
-    if (it == mScInfo.end() )
-    {
-        // caller should have checked it
-        return false;
-    }
-
-    ScInfo& info = it->second;
-
-    // check that tx is not already there
-    if (!info.sBackwardTransfers.insert(txHash).second)
-    {
-        LogPrint("sc", "%s():%d - ERROR: tx[%s] is already there!\n", __func__, __LINE__, txHash.ToString() );
-        return false;
-    }
-
-    return writeToDb(scId, info);
-}
-
-bool ScMgr::removeScBackwardTx(const uint256& scId, const uint256& txHash)
-{
-    LOCK(sc_lock);
-
-    ScInfoMap::iterator it = mScInfo.find(scId);
-    if (it == mScInfo.end() )
-    {
-        // caller should have checked it
-        return false;
-    }
-
-    ScInfo& info = it->second;
-
-    int num = info.sBackwardTransfers.erase(txHash);
-    if (num)
-    {
-        return writeToDb(scId, info);
-    }
-
-    LogPrint("sc", "%s():%d - ERROR: tx[%s] not found\n", __func__, __LINE__, txHash.ToString() );
-    return false;
-}
-
-bool ScMgr::containsScBackwardTx(const uint256& scId, const uint256& txHash)
-{
-    ScInfo info;
-    if (!getScInfo(scId, info) )
-    {
-        LogPrint("sc", "%s():%d - ERROR: scId[%s] not found\n", __func__, __LINE__, scId.ToString() );
-        return false;
-    }
-
-    return info.sBackwardTransfers.count(txHash);
-}
-
 bool ScMgr::checkSidechainCreationFunds(const CTransaction& tx, int nHeight)
 {
     if (tx.vsc_ccout.size() )
@@ -223,10 +166,10 @@ bool ScMgr::checkSidechainCreation(const CTransaction& tx, CValidationState& sta
             ScInfo info;
             if (getScInfo(sc.scId, info) )
             {
-                if (info.ownerTxHash != txHash )
+                if (info.creationTxHash != txHash )
                 {
                     LogPrint("sc", "%s():%d - Invalid tx[%s] : scid[%s] already created by tx[%s]\n",
-                        __func__, __LINE__, txHash.ToString(), sc.scId.ToString(), info.ownerTxHash.ToString() );
+                        __func__, __LINE__, txHash.ToString(), sc.scId.ToString(), info.creationTxHash.ToString() );
                     return state.DoS(10,
                         error("transaction tries to create scid already created"),
                         REJECT_INVALID, "sidechain-creation-id-already-created");
@@ -285,45 +228,6 @@ bool ScMgr::anyForwardTransaction(const CTransaction& tx, const uint256& scId)
     return false;
 }
 
-#if 0
-bool ScMgr::handlingSameScid(const CTransaction& txa, const CTransaction& txb)
-{
-    std::set<uint256> sa;
-    std::set<uint256> sb;
-
-    ScMgr::getHandledSidechainList(txa, sa);
-    ScMgr::getHandledSidechainList(txb, sb);
-
-    BOOST_FOREACH(const auto& entry, sa)
-    {
-        if (sb.count(entry) )
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-void ScMgr::getHandledSidechainList(const CTransaction& tx, std::set<uint256>& scIdSet)
-{
-    if (tx.nVersion == SC_TX_VERSION)
-    {
-        BOOST_FOREACH(const auto& cr, tx.vsc_ccout)
-        {
-            scIdSet.insert(cr.scId);
-        }
-        BOOST_FOREACH(const auto& ft, tx.vft_ccout)
-        {
-            scIdSet.insert(ft.scId);
-        }
-        BOOST_FOREACH(const auto& cert, tx.vsc_cert)
-        {
-            scIdSet.insert(cert.scId);
-        }
-    }
-}
-#endif
-
 bool ScMgr::isCreating(const CTransaction& tx, const uint256& scId)
 {
     if (tx.vsc_ccout.size() )
@@ -339,7 +243,7 @@ bool ScMgr::isCreating(const CTransaction& tx, const uint256& scId)
     return false;
 }
 
-bool ScMgr::checkSidechainForwardTransaction(const CTransaction& tx, CValidationState& state, ScAmountMap* mScAmounts)
+bool ScMgr::checkSidechainForwardTransaction(const CTransaction& tx, CValidationState& state)
 {
     if (tx.vft_ccout.size() )
     {
@@ -365,17 +269,6 @@ bool ScMgr::checkSidechainForwardTransaction(const CTransaction& tx, CValidation
                         __func__, __LINE__, txHash.ToString(), scId.ToString() );
                 }
             }
-            else
-            {
-                if (mScAmounts && (mScAmounts->find(scId) != mScAmounts->end() ) )
-                {
-                    LogPrint("sc", "= FWD = %s():%d - scId=%s balance before: %s\n",
-                        __func__, __LINE__, scId.ToString(), FormatMoney((*mScAmounts)[scId]));
-                    (*mScAmounts)[scId] += ft.nValue;
-                    LogPrint("sc", "= FWD = %s():%d - scId=%s balance after: %s\n",
-                        __func__, __LINE__, scId.ToString(), FormatMoney((*mScAmounts)[scId]));
-                }
-            }
             LogPrint("sc", "%s():%d - tx[%s]: scid[%s], fw[%s]\n",
                 __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(ft.nValue) );
         }
@@ -383,113 +276,12 @@ bool ScMgr::checkSidechainForwardTransaction(const CTransaction& tx, CValidation
     return true;
 }
 
-bool ScMgr::checkSidechainBackwardTransaction(const CTransaction& tx, CValidationState& state,
-    ScAmountMap* mScAmounts, bool fVerifyingDB)
-{
-    if (tx.IsCoinCertified() )
-    {
-        const uint256& txHash = tx.GetHash();
-
-        BOOST_FOREACH(const auto& entry, tx.vsc_cert)
-        {
-            const uint256& scId = entry.scId;
-            const CAmount& totalAmount = entry.totalAmount;
- 
-            ScInfo info;
-            if (!getScInfo(scId, info) )
-            {
-                LogPrint("sc", "%s():%d - tx[%s]: scid[%s] not found\n",
-                    __func__, __LINE__, txHash.ToString(), scId.ToString() );
-                return state.DoS(10,
-                    error("transaction tries to backward transfer to a scid not yet created"),
-                    REJECT_SCID_NOT_FOUND, "sidechain-backward-transfer");
-            }
- 
-            LogPrint("sc", "%s():%d - tx[%s]: scid[%s], bw[%s]\n",
-                __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(totalAmount) );
- 
-//            if (verifyingDb() )
-            if (fVerifyingDB )
-            {
-                LogPrint("sc", "%s():%d - Verifying DB\n", __func__, __LINE__);
- 
-                // this is because at startup:
-                //   1. when loading blocks db most recent blocks are checked from the tip down
-                //   2. when loading wallet db, tx are checked after chain is loaded
-                // in these cases sc is in its final state, and might have an insufficient amount compared to the value of
-                // certified tx which is being currently checked
- 
-                // check that DB has it
-                if (!containsScBackwardTx(scId, txHash) )
-                {
-                    LogPrint("sc", "%s():%d - tx[%s] not found in scid[%s]\n",
-                        __func__, __LINE__, txHash.ToString(), scId.ToString() );
-                    return state.DoS(100,
-                        error("transaction with backward transfer not found in sc"),
-                        REJECT_INVALID, "sidechain-backward-transfer");
-                }
-            }
-            else
-            {
-                if (mScAmounts && (mScAmounts->find(scId) != mScAmounts->end() ) )
-                {
-                    CAmount& balance = (*mScAmounts)[scId];
-                    if ( balance < totalAmount)
-                    {
-                        LogPrint("sc", "%s():%d - tx[%s]: insufficent balance in scid[%s]: balance[%s], bkw amount[%s]\n",
-                            __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(balance), FormatMoney(totalAmount) );
-                        return state.DoS(100,
-                            error("transaction tries to backward transfer to a scid with insufficient balance"),
-                            REJECT_INSUFFICIENT_SCID_FUNDS, "sidechain-backward-transfer");
-                    }
-                    LogPrint("sc", "= BWD = %s():%d - scId=%s balance before: %s\n",
-                        __func__, __LINE__, scId.ToString(), FormatMoney((*mScAmounts)[scId]));
-                    balance -= totalAmount;
-                    LogPrint("sc", "= BWD = %s():%d - scId=%s balance after: %s\n",
-                        __func__, __LINE__, scId.ToString(), FormatMoney((*mScAmounts)[scId]));
-                }
-                else
-                {
-                    // this is not a conservative approach since the fee for the miner has been carved out from
-                    // the total amount of the certificate
-                    if (info.balance < totalAmount)
-                    {
-                        LogPrint("sc", "%s():%d - tx[%s]: insufficent balance in scid[%s]: balance[%s], bkw amount[%s]\n",
-                            __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(info.balance), FormatMoney(totalAmount) );
-                        return state.DoS(100,
-                            error("transaction tries to backward transfer to a scid with insufficient balance"),
-                            REJECT_INSUFFICIENT_SCID_FUNDS, "sidechain-backward-transfer");
-                    }
-                }
-            }
- 
-            // check consistency with total amount
-            CAmount actualTransfer = 0;
-            BOOST_FOREACH(const auto& out, tx.vout)
-            {
-                actualTransfer += out.nValue;
-            }
-            if (actualTransfer >= totalAmount)
-            {
-                LogPrint("sc", "%s():%d - tx[%s]: inconsistency in tx data, totalAmount[%s], sum of vout amount[%s]\n",
-                    __func__, __LINE__, txHash.ToString(), FormatMoney(totalAmount), FormatMoney(actualTransfer) );
-                return state.DoS(100,
-                    error("transaction tries to backward transfer with data inconsistent"),
-                    REJECT_INVALID, "sidechain-backward-transfer");
-            }
-            // TODO add sanity check for vbt_ccout contents
-        }
-    }
-    return true;
-}
-
-bool ScMgr::checkTransaction(const CTransaction& tx, CValidationState& state,
-    ScAmountMap* mScAmounts, bool fVerifyingDB)
+bool ScMgr::checkTransaction(const CTransaction& tx, CValidationState& state)
 {
     // check version consistency
     if (tx.nVersion != SC_TX_VERSION )
     {
-        if (!tx.ccIsNull() || !tx.vsc_cert.empty() )
+        if (!tx.ccIsNull() )
         {
             return state.DoS(100,
                 error("mismatch between transaction version and sidechain output presence"), 
@@ -517,97 +309,12 @@ bool ScMgr::checkTransaction(const CTransaction& tx, CValidationState& state,
         return false;
     }
 
-    if (!checkSidechainForwardTransaction(tx, state, mScAmounts) )
-    {
-        return false;
-    }
-
-    if (!checkSidechainBackwardTransaction(tx, state, mScAmounts, fVerifyingDB) )
+    if (!checkSidechainForwardTransaction(tx, state) )
     {
         return false;
     }
 
     return true;
-}
-
-bool ScMgr::hasCrosschainTransfers(const CBlock& block, std::vector<CTransaction>& vTxReord, std::set<uint256>& sScId)
-{
-    // note that this function is called also by miner when testing correctness of a generated block candidate,
-    // in that case merkle tree attributes are both not set yet. In that case we can not tell here
-    // if there is any sc related tx.
-    if (block.vtx.size() <= 1 || (block.hashScMerkleRootsMap == uint256() && block.hashMerkleRoot != uint256()))
-    {
-        // nothing to do, either we have just the coinbase or no sc related txes anyway
-        //---
-        LogPrint("sc", "%s():%d - block[%s] needs no tx reorder\n", __func__, __LINE__, block.GetHash().ToString() );
-        return false;
-    }
-
-    // clone input into output
-    vTxReord.reserve(block.vtx.size());
-    vTxReord.insert(vTxReord.end(), block.vtx.begin(), block.vtx.end());
-
-    std::vector<CTransaction> certificates;
-    auto it = vTxReord.begin();
-
-    while(it != vTxReord.end() )
-    {
-        const CTransaction& tx = *it;
-        if (tx.IsCoinCertified() )
-        {
-            BOOST_FOREACH(const auto& cert, tx.vsc_cert)
-            {
-                // backward transfer
-                sScId.insert(cert.scId);
-            }
-
-            // remove this certificate and put it in the helper vector
-            certificates.push_back(tx);
-            it = vTxReord.erase(it);
-        }
-        else
-        {
-            if (tx.vft_ccout.size() )
-            {
-                BOOST_FOREACH(const auto& fwd, tx.vft_ccout)
-                {
-                    // forward transfer
-                    sScId.insert(fwd.scId);
-                }
-            }
-
-            ++it;
-        }
-    }
-
-    // join the two chunks if any certificate ha been found
-    if (certificates.size() > 0)
-    {
-        LogPrint("sc", "%s():%d - Moved %d certificates at the back of block tx vector\n",
-            __func__, __LINE__, certificates.size() );
-        vTxReord.insert(vTxReord.end(), certificates.begin(), certificates.end());
-    }
-
-    LogPrint("sc", "%s():%d - Found %d sidechains handling fw/bw in block[%s]\n",
-        __func__, __LINE__, sScId.size(), block.GetHash().ToString() );
-    return true;
-}
-
-void ScMgr::initScAmounts(ScAmountMap& mScAmounts, const std::set<uint256>* sScId)
-{
-    LOCK(sc_lock);
-    BOOST_FOREACH(const auto& entry, mScInfo)
-    {
-        if (sScId)
-        {
-            if (!sScId->count(entry.first) )
-            {
-                // this is not interesting
-                continue;
-            }
-        }
-        mScAmounts[entry.first] = entry.second.balance;
-    }
 }
 
 
@@ -618,12 +325,6 @@ bool ScMgr::onBlockConnected(const CBlock& block, int nHeight)
     LogPrint("sc", "%s():%d - Entering with block [%s]\n", __func__, __LINE__, blockHash.ToString() );
 
     const std::vector<CTransaction>* blockVtx = &block.vtx;
-    std::vector<CTransaction> vtxReordered;
-    std::set<uint256> sUnused;
-    if (hasCrosschainTransfers(block, vtxReordered, sUnused) )
-    {
-        blockVtx = &vtxReordered;
-    }
 
     int txIndex = 0;
     BOOST_FOREACH(const CTransaction& tx, *blockVtx)
@@ -644,10 +345,9 @@ bool ScMgr::onBlockConnected(const CBlock& block, int nHeight)
                 }
 
                 ScInfo scInfo;
-                scInfo.ownerBlockHash = blockHash;
+                scInfo.creationBlockHash = blockHash;
                 scInfo.creationBlockHeight = nHeight;
-                scInfo.creationTxIndex = txIndex;
-                scInfo.ownerTxHash = txHash;
+                scInfo.creationTxHash = txHash;
                 scInfo.creationData.withdrawalEpochLength = sc.withdrawalEpochLength;
 
                 if (addSidechain(sc.scId, scInfo) )
@@ -683,40 +383,6 @@ bool ScMgr::onBlockConnected(const CBlock& block, int nHeight)
                 LogPrint("sc", "%s():%d - scId=%s balance after:  %s\n",
                     __func__, __LINE__, ft.scId.ToString(), FormatMoney(getSidechainBalance(ft.scId)));
             }
-
-            if (tx.IsCoinCertified() )
-            {
-                BOOST_FOREACH(const auto& entry, tx.vsc_cert)
-                {
-                    const uint256& scId = entry.scId;
-                    const CAmount& totalAmount = entry.totalAmount;
- 
-                    if (!sidechainExists(scId))
-                    {
-                        // should not happen at this point due to previous checks
-                        LogPrint("sc", "ERROR: %s():%d - BW: scId=%s not in map\n", __func__, __LINE__, scId.ToString() );
-                        return false;
-                    }
-  
-                    LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
-                        __func__, __LINE__, scId.ToString(), FormatMoney(getSidechainBalance(scId)));
- 
-                    // subtract from sc amount, this include the carved fee
-                    if (!updateSidechainBalance(scId, -totalAmount) )
-                    {
-                        return false;
-                    }
- 
-                    LogPrint("sc", "%s():%d - scId=%s balance after:  %s\n",
-                        __func__, __LINE__, scId.ToString(), FormatMoney(getSidechainBalance(scId)));
- 
-                    if (!addScBackwardTx(scId, txHash) )
-                    {
-                        LogPrint("sc", "%s():%d - ERROR: tx[%s] could not be added to DB!\n", __func__, __LINE__, txHash.ToString() );
-                        return false;
-                    }
-                }
-            }
         }
         txIndex++;
     }
@@ -734,12 +400,6 @@ bool ScMgr::onBlockDisconnected(const CBlock& block, int nHeight)
     LogPrint("sc", "%s():%d - Entering with block [%s]\n", __func__, __LINE__, blockHash.ToString() );
 
     const std::vector<CTransaction>* blockVtx = &block.vtx;
-    std::vector<CTransaction> vtxReordered;
-    std::set<uint256> sUnused;
-    if (hasCrosschainTransfers(block, vtxReordered, sUnused) )
-    {
-        blockVtx = &vtxReordered;
-    }
 
     // do it in reverse order in block txes, they are sorted with bkw txes at the bottom, therefore
     // they will be processed beforehand
@@ -752,39 +412,6 @@ bool ScMgr::onBlockDisconnected(const CBlock& block, int nHeight)
             LogPrint("sc", "%s():%d - tx=%s\n", __func__, __LINE__, txHash.ToString() );
             int c = 0;
 
-            // first update side chain balance with the proper order 
-            if (tx.IsCoinCertified() )
-            {
-                BOOST_FOREACH(const auto& entry, tx.vsc_cert)
-                {
-                    const uint256& scId = entry.scId;
-                    const CAmount& totalAmount = entry.totalAmount;
- 
-                    if (!sidechainExists(scId))
-                    {
-                        // should not happen at this point due to previous checks
-                        LogPrint("sc", "ERROR: %s():%d - BW: scId=%s not in map\n", __func__, __LINE__, scId.ToString() );
-                        return false;
-                    }
-  
-                    if (!removeScBackwardTx(scId, txHash) )
-                    {
-                        return false;
-                    }
- 
-                    LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
-                        __func__, __LINE__, scId.ToString(), FormatMoney(getSidechainBalance(scId)));
- 
-                    // subtract from sc amount, this include the carved fee
-                    if (!updateSidechainBalance(scId, totalAmount) )
-                    {
-                        return false;
-                    }
- 
-                    LogPrint("sc", "%s():%d - scId=%s balance after:  %s\n",
-                        __func__, __LINE__, scId.ToString(), FormatMoney(getSidechainBalance(scId)));
-                }
-            }
             BOOST_FOREACH(auto& ft, tx.vft_ccout)
             {
                 if (!sidechainExists(ft.scId))
@@ -841,11 +468,6 @@ bool ScMgr::checkMemPool(CTxMemPool& pool, const CTransaction& tx, CValidationSt
              REJECT_INVALID, "sidechain-creation");
     }
 
-    if (!checkCertificateInMemPool(pool, tx) )
-    {
-        return state.Invalid(error("transaction tries to create a certificate with no sc balance enough considering mempool"),
-             REJECT_INVALID, "sidechain-certificate");
-    }
     return true;
 }
 
@@ -877,69 +499,6 @@ bool ScMgr::checkCreationInMemPool(CTxMemPool& pool, const CTransaction& tx)
     return true;
 }
 
-bool ScMgr::checkCertificateInMemPool(CTxMemPool& pool, const CTransaction& tx)
-{
-    if (tx.IsCoinCertified() )
-    {
-        const uint256& txHash = tx.GetHash();
-
-        BOOST_FOREACH(const auto& entry, tx.vsc_cert)
-        {
-            const uint256& scId = entry.scId;
-            const CAmount& certAmount = entry.totalAmount;
- 
-            CAmount scBalance = getSidechainBalance(scId);
-            if (scBalance == -1)
-            {
-                // should not happen at this point due to previous checks
-                LogPrint("sc", "%s():%d - tx[%s]: scid[%s] not found\n",
-                    __func__, __LINE__, txHash.ToString(), scId.ToString() );
-                return false;
-            }
-            LogPrint("sc", "%s():%d - scid consolidated balance: %s\n", __func__, __LINE__, FormatMoney(scBalance) );
- 
-            for (auto it = pool.mapTx.begin(); it != pool.mapTx.end(); ++it)
-            {
-                const CTransaction& mpTx = it->second.GetTx();
- 
-                if (mpTx.nVersion == SC_TX_VERSION)
-                {
-                    // backward tx to the same sc
-                    if (mpTx.IsCoinCertified() )
-                    {
-                        BOOST_FOREACH(const auto& mpEntry, mpTx.vsc_cert)
-                        {
-                            if (scId == mpEntry.scId)
-                            {
-                                LogPrint("sc", "%s():%d - tx[%s]: bwd[%s]\n",
-                                    __func__, __LINE__, mpTx.GetHash().ToString(), FormatMoney(mpEntry.totalAmount) );
-                                scBalance -= mpEntry.totalAmount;
-                            }
-                        }
-                    }
-  
-                    BOOST_FOREACH(auto& ft, mpTx.vft_ccout)
-                    {
-                        if (scId == ft.scId)
-                        {
-                            LogPrint("sc", "%s():%d - tx[%s]: fwd[%s]\n",
-                                __func__, __LINE__, mpTx.GetHash().ToString(), FormatMoney(ft.nValue) );
-                            scBalance += ft.nValue;
-                        }
-                    }
-                }
-            }
- 
-            if (certAmount > scBalance)
-            {
-                LogPrint("sc", "%s():%d - invalid tx[%s]: scid[%s] has not balance enough: %s\n",
-                    __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(scBalance) );
-                return false;
-            }
-        }
-    }
-    return true;
-}
 
 int ScMgr::evalAddCreationFeeOut(CMutableTransaction& tx)
 {
@@ -1202,8 +761,8 @@ bool ScMgr::dump_info(const uint256& scId)
         return false;
     }
 
-    LogPrint("sc", "  created in block[%s] (h=%d)\n", info.ownerBlockHash.ToString(), info.creationBlockHeight );
-    LogPrint("sc", "  ownerTx[%s] (index in block=%d)\n", info.ownerTxHash.ToString(), info.creationTxIndex);
+    LogPrint("sc", "  created in block[%s] (h=%d)\n", info.creationBlockHash.ToString(), info.creationBlockHeight );
+    LogPrint("sc", "  creationTx[%s]\n", info.creationTxHash.ToString());
     LogPrint("sc", "  balance[%s]\n", FormatMoney(info.balance));
     LogPrint("sc", "  ----- creation data:\n");
     LogPrint("sc", "      withdrawalEpochLength[%d]\n", info.creationData.withdrawalEpochLength);
@@ -1247,10 +806,9 @@ void ScMgr::dump_info()
             std::cout
                 << "scId[" << keyScId.ToString() << "]" << std::endl
                 << "  ==> balance: " << FormatMoney(info.balance) << std::endl
-                << "  creating block hash: " << info.ownerBlockHash.ToString() <<
+                << "  creating block hash: " << info.creationBlockHash.ToString() <<
                    " (height: " << info.creationBlockHeight << ")" << std::endl
-                << "  creating tx hash: " << info.ownerTxHash.ToString() << std::endl
-                << "  tx idx in block: " << info.creationTxIndex << std::endl
+                << "  creating tx hash: " << info.creationTxHash.ToString() << std::endl
                 // creation parameters
                 << "  withdrawalEpochLength: " << info.creationData.withdrawalEpochLength << std::endl;
         }
@@ -1265,22 +823,11 @@ void ScMgr::fillJSON(const uint256& scId, const ScInfo& info, UniValue& sc)
 {
     sc.push_back(Pair("scid", scId.GetHex()));
     sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
-    sc.push_back(Pair("creating tx hash", info.ownerTxHash.GetHex()));
-    sc.push_back(Pair("creating tx index in block", info.creationTxIndex));
-    sc.push_back(Pair("created in block", info.ownerBlockHash.ToString()));
+    sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
+    sc.push_back(Pair("created in block", info.creationBlockHash.ToString()));
     sc.push_back(Pair("created at block height", info.creationBlockHeight));
     // creation parameters
     sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
-
-    if (info.sBackwardTransfers.size() )
-    {
-        UniValue arr(UniValue::VARR);
-        BOOST_FOREACH(const auto& entry, info.sBackwardTransfers)
-        {
-            arr.push_back(entry.GetHex());
-        }
-        sc.push_back(Pair("certificate txes", arr));
-    }
 }
 
 bool ScMgr::fillJSON(const uint256& scId, UniValue& sc)
