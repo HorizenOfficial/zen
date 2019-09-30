@@ -101,11 +101,11 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.push_back(CDNSSeedData("horizen.global", "dnsseed.horizen.global"));
-        vSeeds.push_back(CDNSSeedData("zenseed.network", "dnsseed.zenseed.network"));
-        vSeeds.push_back(CDNSSeedData("zenchain.info", "node1.zenchain.info"));
-        vSeeds.push_back(CDNSSeedData("zenseed.network", "mainnet.zenseed.network"));
-        vSeeds.push_back(CDNSSeedData("horizen.global", "mainnet.horizen.global"));
+        vSeeds.push_back(CDNSSeedData("dnsseed.horizen.global", "dnsseed.horizen.global")); // dns seeder
+        vSeeds.push_back(CDNSSeedData("dnsseed.zensystem.io", "dnsseed.zensystem.io")); // dns seeder
+        vSeeds.push_back(CDNSSeedData("mainnet.horizen.global", "mainnet.horizen.global")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("mainnet.zensytem.io", "mainnet.zensystem.io")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("node1.zenchain.info", "node1.zenchain.info")); // fixed seed
 
         // guarantees the first 2 characters, when base58 encoded, are "zn"
         // guarantees the first 2 characters, when base58 encoded, are "t1"
@@ -196,11 +196,11 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-
-        vSeeds.push_back(CDNSSeedData("horizen.global", "dnsseed.testnet.horizen.global"));
-        vSeeds.push_back(CDNSSeedData("blockoperations.com", "zpool2.blockoperations.com"));
-        vSeeds.push_back(CDNSSeedData("scottrockcafe.com", "node.scottrockcafe.com"));
-        vSeeds.push_back(CDNSSeedData("horizen.global", "testnet.horizen.global"));
+        vSeeds.push_back(CDNSSeedData("dnsseed.testnet.horizen.global", "dnsseed.testnet.horizen.global")); // dns seeder
+        vSeeds.push_back(CDNSSeedData("dnsseed.testnet.zensystem.io", "dnsseed.testnet.zensystem.io")); // dns seeder
+        vSeeds.push_back(CDNSSeedData("testnet.horizen.global", "testnet.horizen.global")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("tesntet.zensytem.io", "tesntet.zensystem.io")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("node1.zenchain.info", "node1.zenchain.info")); // fixed seed
 
         // guarantees the first 2 characters, when base58 encoded, are "zt"
         // guarantees the first 2 characters, when base58 encoded, are "tm"
