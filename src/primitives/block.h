@@ -25,7 +25,7 @@ public:
     int32_t nVersion;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
-    uint256 hashReserved;
+    uint256 hashScMerkleRootsMap;
     uint32_t nTime;
     uint32_t nBits;
     uint256 nNonce;
@@ -44,7 +44,7 @@ public:
         nVersion = this->nVersion;
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
-        READWRITE(hashReserved);
+        READWRITE(hashScMerkleRootsMap);
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
@@ -56,7 +56,7 @@ public:
         nVersion = 0;
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
-        hashReserved.SetNull();
+        hashScMerkleRootsMap.SetNull();
         nTime = 0;
         nBits = 0;
         nNonce = uint256();
@@ -118,7 +118,7 @@ public:
         block.nVersion       = nVersion;
         block.hashPrevBlock  = hashPrevBlock;
         block.hashMerkleRoot = hashMerkleRoot;
-        block.hashReserved   = hashReserved;
+        block.hashScMerkleRootsMap   = hashScMerkleRootsMap;
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
@@ -131,9 +131,12 @@ public:
     // tree (a duplication of transactions in the block leading to an identical
     // merkle root).
     uint256 BuildMerkleTree(bool* mutated = NULL) const;
-
+    uint256 BuildMerkleTree(std::vector<uint256>& vMerkleTree, size_t vtxSize, bool* mutated = NULL) const;
+    uint256 BuildScMerkleRootsMap();
+    
     std::vector<uint256> GetMerkleBranch(int nIndex) const;
     static uint256 CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex);
+    uint256 BuildMerkleRootHash(const std::vector<uint256>& vInput);
     std::string ToString() const;
 };
 
@@ -159,7 +162,7 @@ public:
         nVersion = this->nVersion;
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
-        READWRITE(hashReserved);
+        READWRITE(hashScMerkleRootsMap);
         READWRITE(nTime);
         READWRITE(nBits);
     }

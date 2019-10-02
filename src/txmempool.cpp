@@ -99,8 +99,8 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     LOCK(cs);
     mapTx[hash] = entry;
     const CTransaction& tx = mapTx[hash].GetTx();
-    for (unsigned int i = 0; i < tx.vin.size(); i++)
-        mapNextTx[tx.vin[i].prevout] = CInPoint(&tx, i);
+        for (unsigned int i = 0; i < tx.vin.size(); i++)
+            mapNextTx[tx.vin[i].prevout] = CInPoint(&tx, i);
     BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
         BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
             mapNullifiers[nf] = &tx;

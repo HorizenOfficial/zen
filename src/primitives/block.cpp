@@ -9,6 +9,7 @@
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 #include "crypto/common.h"
+#include <boost/foreach.hpp>
 
 uint256 CBlockHeader::GetHash() const
 {
@@ -56,9 +57,15 @@ uint256 CBlock::BuildMerkleTree(bool* fMutated) const
     vMerkleTree.reserve(vtx.size() * 2 + 16); // Safe upper bound for the number of total nodes.
     for (std::vector<CTransaction>::const_iterator it(vtx.begin()); it != vtx.end(); ++it)
         vMerkleTree.push_back(it->GetHash());
+
+    return BuildMerkleTree(vMerkleTree, vtx.size(), fMutated);
+}
+
+uint256 CBlock::BuildMerkleTree(std::vector<uint256>& vMerkleTree, size_t vtxSize, bool* fMutated) const
+{
     int j = 0;
     bool mutated = false;
-    for (int nSize = vtx.size(); nSize > 1; nSize = (nSize + 1) / 2)
+    for (int nSize = vtxSize; nSize > 1; nSize = (nSize + 1) / 2)
     {
         for (int i = 0; i < nSize; i += 2)
         {
@@ -69,6 +76,10 @@ uint256 CBlock::BuildMerkleTree(bool* fMutated) const
             }
             vMerkleTree.push_back(Hash(BEGIN(vMerkleTree[j+i]),  END(vMerkleTree[j+i]),
                                        BEGIN(vMerkleTree[j+i2]), END(vMerkleTree[j+i2])));
+#ifdef DEBUG_SC_HASH
+            std::cout << " -------------------------------------------" << std::endl;
+            std::cout << i << ") mkl hash: " << vTempMerkleTree.back().ToString() << std::endl;
+#endif
         }
         j += nSize;
     }
@@ -77,6 +88,51 @@ uint256 CBlock::BuildMerkleTree(bool* fMutated) const
     }
     return (vMerkleTree.empty() ? uint256() : vMerkleTree.back());
 }
+
+uint256 CBlock::BuildMerkleRootHash(const std::vector<uint256>& vInput) 
+{
+    std::vector<uint256> vTempMerkleTree = vInput;
+    return BuildMerkleTree(vTempMerkleTree, vInput.size());
+}
+
+uint256 CBlock::BuildScMerkleRootsMap()
+{
+    // Key: the side chain ID
+    // Value: the array of objs of type 'Hash( Hash(ccout) | txid | n)', where n is the index of the 
+    // ccout in the tx pertaining to the current scid. Tx are ordered as they are included in the block  
+    std::map<uint256, std::vector<uint256> > mScMerkleTreeLeaves; 
+
+    BOOST_FOREACH(const CTransaction& tx, vtx)
+    {
+        tx.getCrosschainOutputs(mScMerkleTreeLeaves);
+    }
+
+    if (mScMerkleTreeLeaves.size() == 0)
+    {
+        return uint256();
+    }
+
+    // Note that by default the map is ordered by key value, therefore the entries in
+    // the vector will be sorted in the same way
+    std::vector<uint256> vSortedLeaves;
+
+    BOOST_FOREACH(const auto& pair, mScMerkleTreeLeaves)
+    {
+        const uint256& scid = pair.first;
+        uint256 mklHash = BuildMerkleRootHash(pair.second);
+#ifdef DEBUG_SC_HASH
+        std::cout << " -------------------------------------------" << std::endl;
+        std::cout << "  sc mkl hash: " << mklHash.ToString() << std::endl;
+#endif
+
+        LogPrint("sc", "%s():%d built merkle root for sc[%s] with %d leaves: [%s]\n",
+            __func__, __LINE__, scid.ToString(), pair.second.size(), mklHash.ToString() );
+        vSortedLeaves.push_back(mklHash);
+    }
+
+    return BuildMerkleRootHash(vSortedLeaves);
+}
+
 
 std::vector<uint256> CBlock::GetMerkleBranch(int nIndex) const
 {
@@ -112,12 +168,12 @@ uint256 CBlock::CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMer
 std::string CBlock::ToString() const
 {
     std::stringstream s;
-    s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, hashReserved=%s, nTime=%u, nBits=%08x, nNonce=%s, vtx=%u)\n",
+    s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, hashScMerkleRootsMap=%s, nTime=%u, nBits=%08x, nNonce=%s, vtx=%u)\n",
         GetHash().ToString(),
         nVersion,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
-        hashReserved.ToString(),
+        hashScMerkleRootsMap.ToString(),
         nTime, nBits, nNonce.ToString(),
         vtx.size());
     for (unsigned int i = 0; i < vtx.size(); i++)

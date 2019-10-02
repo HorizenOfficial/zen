@@ -52,6 +52,16 @@ public:
 	 * @brief returns phpgr,groth,... tx version based on block height
 	 */
     inline virtual int getShieldedTxVersion() const { return 2; }
+
+    /**
+	 * @brief returns sidechain tx version based on block height, if sidechains are not supported return 0
+	 */
+	inline virtual int getSidechainTxVersion() const { return 0; }
+
+    /**
+	 * @brief returns true sidechains are supported based on block height, false otherwise
+	 */
+	inline virtual bool areSidechainsSupported() const { return false; }
 };
 
 }

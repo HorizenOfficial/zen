@@ -223,7 +223,7 @@ BITCOIN_CORE_H = \
   zmq/zmqabstractnotifier.h \
   zmq/zmqconfig.h\
   zmq/zmqnotificationinterface.h \
-  zmq/zmqpublishnotifier.h
+  zmq/zmqpublishnotifier.h 
 
 LIBZENCASH_H = \
     zen/utiltls.h\
@@ -272,6 +272,8 @@ libbitcoin_server_a_SOURCES = \
   rpc/net.cpp \
   rpc/rawtransaction.cpp \
   rpc/server.cpp \
+  sc/sidechain.cpp \
+  sc/sidechainrpc.cpp \
   script/sigcache.cpp \
   timedata.cpp \
   torcontrol.cpp \
@@ -589,6 +591,7 @@ libzencash_a_SOURCES = \
     zen/forks/fork3_communityfundandrpfixfork.cpp\
     zen/forks/fork4_nulltransactionfork.cpp\
     zen/forks/fork5_shieldfork.cpp\
+    zen/forks/fork6_sidechainfork.cpp\
     zen/tlsmanager.cpp\
     zen/delay.cpp
 
