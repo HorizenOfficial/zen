@@ -745,7 +745,7 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
             pwallet->LoadMinVersion(nMinVersion);
         }
 
-        // Get cursor
+
         Dbc* pcursor = GetCursor();
         if (!pcursor)
         {

@@ -33,6 +33,8 @@
 #include <utility>
 #include <vector>
 
+#include "sc/sidechainrpc.h"
+
 /**
  * Settings
  */
@@ -144,6 +146,12 @@ static void WriteOrderPos(const int64_t& nOrderPos, mapValue_t& mapValue)
         return;
     mapValue["n"] = i64tostr(nOrderPos);
 }
+
+struct CScOutputEntry
+{
+    uint256 address;
+    CAmount amount;
+};
 
 struct COutputEntry
 {
@@ -498,8 +506,8 @@ public:
     CAmount GetAvailableWatchOnlyCredit(const bool& fUseCache=true) const;
     CAmount GetChange() const;
 
-    void GetAmounts(std::list<COutputEntry>& listReceived,
-                    std::list<COutputEntry>& listSent, CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const;
+    void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
+        CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const;
 
     void GetAccountAmounts(const std::string& strAccount, CAmount& nReceived,
                            CAmount& nSent, CAmount& nFee, const isminefilter& filter) const;
@@ -519,6 +527,18 @@ public:
     bool RelayWalletTransaction();
 
     std::set<uint256> GetConflicts() const;
+
+    // fill the crosschain output
+    template <typename T>
+    inline void fillScSent(const T& vOuts, std::list<CScOutputEntry>& listScSent) const
+    {
+        for(const auto& txccout : vOuts)
+        {
+            CScOutputEntry output = {txccout.address, txccout.nValue};
+            listScSent.push_back(output);
+        }
+    }
+
 };
 
 
@@ -998,9 +1018,18 @@ public:
     CAmount GetUnconfirmedWatchOnlyBalance() const;
     CAmount GetImmatureWatchOnlyBalance() const;
     bool FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosRet, std::string& strFailReason);
-    bool CreateTransaction(const std::vector<CRecipient>& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosRet,
-                           std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true);
+    bool CreateTransaction(
+        const std::vector<CRecipient>& vecSend, const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
+        CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosRet,
+        std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true);
+
     bool CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);
+
+    bool CreateCertificate(
+        const uint256& scId,
+        const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
+        CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
+        std::string& strFailReason, bool sign = true);
 
     static CFeeRate minTxFee;
     static CAmount GetMinimumFee(unsigned int nTxBytes, unsigned int nConfirmTarget, const CTxMemPool& pool);

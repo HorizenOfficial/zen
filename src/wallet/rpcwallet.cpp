@@ -36,14 +36,19 @@
 
 #include <numeric>
 
+#include "sc/sidechaincore.h"
+#include "sc/sidechainrpc.h"
+
 using namespace std;
 
 using namespace libzcash;
+using namespace Sidechain;
 
 extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
 
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
+
 
 // Private method:
 UniValue z_getoperationstatus_IMPL(const UniValue&, bool);
@@ -73,7 +78,7 @@ void EnsureWalletIsUnlocked()
         throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Please enter the wallet passphrase with walletpassphrase first.");
 }
 
-void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
+void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry, isminefilter filter)
 {
     int confirms = wtx.GetDepthInMainChain();
     entry.push_back(Pair("confirmations", confirms));
@@ -95,6 +100,9 @@ void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
     entry.push_back(Pair("timereceived", (int64_t)wtx.nTimeReceived));
     BOOST_FOREACH(const PAIRTYPE(string,string)& item, wtx.mapValue)
         entry.push_back(Pair(item.first, item.second));
+
+    // add the cross chain outputs if any
+    Sidechain::AddSidechainOutsToJSON(wtx, entry);
 
     entry.push_back(Pair("vjoinsplit", TxJoinSplitToJSON(wtx)));
 }
@@ -423,10 +431,11 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtr
     CAmount nFeeRequired;
     std::string strError;
     vector<CRecipient> vecSend;
+    vector< Sidechain::CcRecipientVariant > vecCcSend;
     int nChangePosRet = -1;
     CRecipient recipient = {scriptPubKey, nValue, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
-    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, reservekey, nFeeRequired, nChangePosRet, strError)) {
+    if (!pwalletMain->CreateTransaction(vecSend, vecCcSend, wtxNew, reservekey, nFeeRequired, nChangePosRet, strError)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > pwalletMain->GetBalance())
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s because of its amount, complexity, or use of recently received funds!", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
@@ -489,6 +498,264 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
     EnsureWalletIsUnlocked();
 
     SendMoney(address.Get(), nAmount, fSubtractFeeFromAmount, wtx);
+
+    return wtx.GetHash().GetHex();
+}
+
+UniValue sc_send(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() != 3)
+        throw runtime_error(
+            "sc_send \"address\" amount ( \"comment\" \"comment-to\" subtractfeefromamount )\n"
+            "\nSend an amount to a given address. The amount is a real and is rounded to the nearest 0.00000001\n"
+            + HelpRequiringPassphrase() +
+            "\nArguments:\n"
+            "1. \"address\"        (string, required) The uint256 hex representation of the PublicKey25519Proposition in the SC to send to.\n"
+            "2. \"amount\"         (numeric, required) The amount in zen to send. eg 0.1\n"
+            "3. \"side chain ID\"  (string, required) The uint256 side chain ID\n"
+            "\nResult:\n"
+            "\"transactionid\"  (string) The transaction id.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("sc_send", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 0.1 \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    uint256 sc_address;
+    std::string inputString = params[0].get_str();
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address format: not an hex");
+
+    sc_address.SetHex(inputString);
+
+    if (sc_address.IsNull() )
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
+
+    // Amount
+    CAmount nAmount = AmountFromValue(params[1]);
+    if (nAmount <= 0)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
+
+    // side chain id
+    inputString = params[2].get_str();
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+
+    uint256 scId;
+    scId.SetHex(inputString);
+
+    // sanity check of the side chain ID
+    if (!ScMgr::instance().sidechainExists(scId) )
+    {
+        LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+    }
+
+
+    // Wallet comments
+    CWalletTx wtx;
+
+    EnsureWalletIsUnlocked();
+
+    // rely on 'many' implementation
+    UniValue input(UniValue::VARR);
+
+    UniValue array(UniValue::VARR);
+    UniValue entry(UniValue::VOBJ);
+    entry.push_back(Pair("address", sc_address.GetHex()));
+    entry.push_back(Pair("amount", ValueFromAmount(nAmount)));
+    entry.push_back(Pair("scid", scId.GetHex()));
+    array.push_back(entry);
+
+    input.push_back(array);
+    return sc_sendmany(input, false);
+}
+
+UniValue sc_certlock(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() != 4)
+        throw runtime_error(
+            "sc_certlock \"address\" amount ( \"comment\" \"comment-to\" subtractfeefromamount )\n"
+            "\nSend an amount to a given address. The amount is a real and is rounded to the nearest 0.00000001\n"
+            + HelpRequiringPassphrase() +
+            "\nArguments:\n"
+            "1. \"address\"        (string, required) The uint256 hex representation of the PublicKey25519Proposition in the SC to send to.\n"
+            "2. \"amount\"         (numeric, required) The amount in zen to send. eg 0.1\n"
+            "3. \"side chain ID\"  (string, required) The uint256 side chain ID\n"
+            "4. \"active-from-withdrawal-epoch\": (numeric, required for type=2) TOBEDESCRIBED\n"
+            "\nResult:\n"
+            "\"transactionid\"  (string) The transaction id.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("sc_certlock", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 0.1 \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 123456")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    uint256 sc_address;
+    std::string inputString = params[0].get_str();
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address format: not an hex");
+
+    sc_address.SetHex(inputString);
+
+    if (sc_address.IsNull() )
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
+
+    // Amount
+    CAmount nAmount = AmountFromValue(params[1]);
+    if (nAmount <= 0)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
+
+    // side chain id
+    inputString = params[2].get_str();
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+
+    uint256 scId;
+    scId.SetHex(inputString);
+    int64_t epoch = params[3].get_int64();
+
+    // Wallet comments
+    CWalletTx wtx;
+
+    EnsureWalletIsUnlocked();
+
+    // rely on 'many' implementation
+    UniValue input(UniValue::VARR);
+
+    UniValue array(UniValue::VARR);
+    UniValue entry(UniValue::VOBJ);
+    entry.push_back(Pair("address", sc_address.GetHex()));
+    entry.push_back(Pair("amount", ValueFromAmount(nAmount)));
+    entry.push_back(Pair("scid", scId.GetHex()));
+    entry.push_back(Pair("epoch", epoch));
+    array.push_back(entry);
+
+    input.push_back(array);
+    return sc_certlock_many(input, false);
+}
+
+static void ScHandleTransaction(CWalletTx& wtx, std::vector<CcRecipientVariant>& vecCcSend, const CAmount& nTotalOut)
+{
+    CAmount curBalance = pwalletMain->GetBalance();
+    if (nTotalOut > curBalance)
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Account has insufficient funds");
+
+    CReserveKey keyChange(pwalletMain);
+    CAmount nFeeRequired = 0;
+    int nChangePosRet = -1;
+    string strFailReason;
+    std::vector<CRecipient> vecSend;
+    bool fCreated = pwalletMain->CreateTransaction(vecSend, vecCcSend, wtx, keyChange, nFeeRequired, nChangePosRet, strFailReason);
+    if (!fCreated)
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
+    if (!pwalletMain->CommitTransaction(wtx, keyChange))
+        throw JSONRPCError(RPC_WALLET_ERROR, "Transaction commit failed");
+}
+
+UniValue sc_create(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp ||  params.size() != 3 ) 
+        throw runtime_error(
+            "sc_create \"scid\" withdrawalEpochLength [{\"address\":... ,\"amount\":...,...},...]\n"
+            "\nCreate a Side chain with the given id staring from the given block. A fixed amount is charged to the creator\n"
+            "\nIt also sends cross chain forward transfer of coins multiple times. Amounts are double-precision floating point numbers."
+            "\nArguments:\n"
+            "1. \"side chain ID\"          (string, required) The uint256 side chain ID\n"
+            "2. withdrawalEpochLength:   (numeric, length of the withdrawal epochs\n"
+            "3. \"amounts\"                (array, required, nonempty) An array of json objects representing the amounts to send.\n"
+            "    [{\n"                     
+            "      \"address\":address     (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "      \"amount\":amount       (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
+            "    }, ... ]\n"
+            "\nResult:\n"
+            "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
+            "                                    the number of addresses.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("sc_create", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 123456 '[{\"address\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0}]'")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    // side chain id
+    string inputString = params[0].get_str();
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+
+    uint256 scId;
+    scId.SetHex(inputString);
+
+    // sanity check of the side chain ID
+    if (ScMgr::instance().sidechainExists(scId) )
+    {
+        LogPrint("sc", "scid[%s] already created\n", scId.ToString() );
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid already created: ") + scId.ToString());
+    }
+
+    int withdrawalEpochLength = params[1].get_int(); 
+
+    UniValue outputs = params[2].get_array();
+
+    if (outputs.size()==0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output array is empty.");
+
+    CRecipientScCreation sc;
+    sc.scId = scId;
+    sc.creationData.withdrawalEpochLength = withdrawalEpochLength;
+
+    CcRecipientVariant r(sc);
+
+    vector<CcRecipientVariant> vecSend;
+    vecSend.push_back(r);
+
+    // Recipients
+    CAmount nTotalOut = 0;
+
+    for (const UniValue& o : outputs.getValues())
+    {
+        if (!o.isObject())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
+
+        // sanity check, report error if unknown key-value pairs
+        for (const string& s : o.getKeys())
+        {
+            if (s != "address" && s != "amount")
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
+        }
+
+        uint256 address;
+        address.SetHex(find_value(o, "address").get_str() );
+
+        UniValue av = find_value(o, "amount");
+        CAmount nAmount = AmountFromValue( av );
+        if (nAmount <= 0)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
+
+        CRecipientForwardTransfer ft;
+        ft.address = address;
+        ft.nValue = nAmount;
+
+        // the scId we are creating
+        ft.scId = scId;
+
+        vecSend.push_back(CcRecipientVariant(ft));
+
+        nTotalOut += nAmount;
+    }
+
+    EnsureWalletIsUnlocked();
+
+    CWalletTx wtx;
+    ScHandleTransaction(wtx, vecSend, nTotalOut);
 
     return wtx.GetHash().GetHex();
 }
@@ -807,13 +1074,16 @@ UniValue getbalance(const UniValue& params, bool fHelp)
             string strSentAccount;
             list<COutputEntry> listReceived;
             list<COutputEntry> listSent;
-            wtx.GetAmounts(listReceived, listSent, allFee, strSentAccount, filter);
+            list<CScOutputEntry> listScSent;
+            wtx.GetAmounts(listReceived, listSent, listScSent, allFee, strSentAccount, filter);
             if (wtx.GetDepthInMainChain() >= nMinDepth)
             {
                 BOOST_FOREACH(const COutputEntry& r, listReceived)
                     nBalance += r.amount;
             }
             BOOST_FOREACH(const COutputEntry& s, listSent)
+                nBalance -= s.amount;
+            BOOST_FOREACH(const CScOutputEntry& s, listScSent)
                 nBalance -= s.amount;
             nBalance -= allFee;
         }
@@ -1083,7 +1353,8 @@ UniValue sendmany(const UniValue& params, bool fHelp)
     CAmount nFeeRequired = 0;
     int nChangePosRet = -1;
     string strFailReason;
-    bool fCreated = pwalletMain->CreateTransaction(vecSend, wtx, keyChange, nFeeRequired, nChangePosRet, strFailReason);
+    vector< Sidechain::CcRecipientVariant > vecCcSend;
+    bool fCreated = pwalletMain->CreateTransaction(vecSend, vecCcSend, wtx, keyChange, nFeeRequired, nChangePosRet, strFailReason);
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     if (!pwalletMain->CommitTransaction(wtx, keyChange))
@@ -1362,14 +1633,15 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
     string strSentAccount;
     list<COutputEntry> listReceived;
     list<COutputEntry> listSent;
+    list<CScOutputEntry> listScSent;
 
-    wtx.GetAmounts(listReceived, listSent, nFee, strSentAccount, filter);
+    wtx.GetAmounts(listReceived, listSent, listScSent, nFee, strSentAccount, filter);
 
     bool fAllAccounts = (strAccount == string("*"));
     bool involvesWatchonly = wtx.IsFromMe(ISMINE_WATCH_ONLY);
 
     // Sent
-    if ((!listSent.empty() || nFee != 0) && (fAllAccounts || strAccount == strSentAccount))
+    if (( (!listSent.empty() || !listScSent.empty() ) || nFee != 0) && (fAllAccounts || strAccount == strSentAccount))
     {
         BOOST_FOREACH(const COutputEntry& s, listSent)
         {
@@ -1380,10 +1652,23 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
             MaybePushAddress(entry, s.destination);
             entry.push_back(Pair("category", "send"));
             entry.push_back(Pair("amount", ValueFromAmount(-s.amount)));
-            entry.push_back(Pair("vout", s.vout));
+            if (s.vout != -1)
+               entry.push_back(Pair("vout", s.vout));
             entry.push_back(Pair("fee", ValueFromAmount(-nFee)));
             if (fLong)
-                WalletTxToJSON(wtx, entry);
+                WalletTxToJSON(wtx, entry, filter);
+            entry.push_back(Pair("size", static_cast<CTransaction>(wtx).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)));
+            ret.push_back(entry);
+        }
+        BOOST_FOREACH(const CScOutputEntry& s, listScSent)
+        {
+            UniValue entry(UniValue::VOBJ);
+            entry.push_back(Pair("address", s.address.GetHex()));
+            entry.push_back(Pair("category", "send"));
+            entry.push_back(Pair("amount", ValueFromAmount(-s.amount)));
+            entry.push_back(Pair("fee", ValueFromAmount(-nFee)));
+            if (fLong)
+                WalletTxToJSON(wtx, entry, filter);
             entry.push_back(Pair("size", static_cast<CTransaction>(wtx).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)));
             ret.push_back(entry);
         }
@@ -1418,9 +1703,10 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
                     entry.push_back(Pair("category", "receive"));
                 }
                 entry.push_back(Pair("amount", ValueFromAmount(r.amount)));
-                entry.push_back(Pair("vout", r.vout));
+                if (r.vout != -1)
+                   entry.push_back(Pair("vout", r.vout));
                 if (fLong)
-                    WalletTxToJSON(wtx, entry);
+                    WalletTxToJSON(wtx, entry, filter);
                 entry.push_back(Pair("size", static_cast<CTransaction>(wtx).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)));
                 ret.push_back(entry);
             }
@@ -1618,12 +1904,15 @@ UniValue listaccounts(const UniValue& params, bool fHelp)
         string strSentAccount;
         list<COutputEntry> listReceived;
         list<COutputEntry> listSent;
+        list<CScOutputEntry> listScSent;
         int nDepth = wtx.GetDepthInMainChain();
         if (wtx.GetBlocksToMaturity() > 0 || nDepth < 0)
             continue;
-        wtx.GetAmounts(listReceived, listSent, nFee, strSentAccount, includeWatchonly);
+        wtx.GetAmounts(listReceived, listSent, listScSent, nFee, strSentAccount, includeWatchonly);
         mapAccountBalances[strSentAccount] -= nFee;
         BOOST_FOREACH(const COutputEntry& s, listSent)
+            mapAccountBalances[strSentAccount] -= s.amount;
+        BOOST_FOREACH(const CScOutputEntry& s, listScSent)
             mapAccountBalances[strSentAccount] -= s.amount;
         if (nDepth >= nMinDepth)
         {
@@ -1805,16 +2094,19 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid or non-wallet transaction id");
     const CWalletTx& wtx = pwalletMain->mapWallet[hash];
 
+    CAmount nOut = wtx.GetValueOut();
+
     CAmount nCredit = wtx.GetCredit(filter);
     CAmount nDebit = wtx.GetDebit(filter);
+    
     CAmount nNet = nCredit - nDebit;
-    CAmount nFee = (wtx.IsFromMe(filter) ? wtx.GetValueOut() - nDebit : 0);
+    CAmount nFee = (wtx.IsFromMe(filter) ? nOut - nDebit : 0);
 
     entry.push_back(Pair("amount", ValueFromAmount(nNet - nFee)));
     if (wtx.IsFromMe(filter))
         entry.push_back(Pair("fee", ValueFromAmount(nFee)));
 
-    WalletTxToJSON(wtx, entry);
+    WalletTxToJSON(wtx, entry, filter);
 
     UniValue details(UniValue::VARR);
     ListTransactions(wtx, "*", 0, false, details, filter);
@@ -3603,6 +3895,222 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     q->addOperation(operation);
     AsyncRPCOperationId operationId = operation->getId();
     return operationId;
+}
+
+UniValue sc_sendmany(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() < 1 || params.size() > 2)
+        throw runtime_error(
+            "sc_sendmany [{\"address\":... ,\"amount\":...,\"scid\":,...},...]\n"
+            "\nSend cross chain forward transfer of coins multiple times. Amounts are double-precision floating point numbers."
+            "\nArguments:\n"
+            "\"amounts\"                (array, required) An array of json objects representing the amounts to send.\n"
+            "    [{\n"                     
+            "      \"address\":address     (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "      \"amount\":amount       (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
+            "      \"scid\":side chain ID  (string, required) The uint256 side chain ID\n"
+            "    }, ... ]\n"
+            "\nResult:\n"
+            "\"transactionid\"          (string) The transaction id for the send. Only 1 transaction is created regardless of \n"
+            "                                    the number of addresses.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("sc_sendmany", " '[{\"address\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0 ,\"scid\": \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\"}]'")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    UniValue outputs = params[0].get_array();
+
+    if (outputs.size()==0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output array is empty.");
+
+    // Recipients
+    CAmount nTotalOut = 0;
+    vector<CcRecipientVariant> vecSend;
+
+    for (const UniValue& o : outputs.getValues())
+    {
+        if (!o.isObject())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
+
+        // sanity check, report error if unknown key-value pairs
+        for (const string& s : o.getKeys())
+        {
+            if (s != "address" && s != "amount" && s != "scid")
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
+        }
+
+        uint256 address;
+        address.SetHex(find_value(o, "address").get_str() );
+
+        UniValue av = find_value(o, "amount");
+        CAmount nAmount = AmountFromValue( av );
+        if (nAmount <= 0)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
+
+        string inputString = find_value(o, "scid").get_str();
+        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+
+        uint256 scId;
+        scId.SetHex(inputString);
+
+        // scid must already been created
+        if (!ScMgr::instance().sidechainExists(scId) )
+        {
+            LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+        }
+
+        CRecipientForwardTransfer ft;
+        ft.address = address;
+        ft.nValue = nAmount;
+        ft.scId = scId;
+
+        vecSend.push_back(CcRecipientVariant(ft));
+
+        nTotalOut += nAmount;
+    }
+
+    // As a sanity check, estimate and verify that the size of the transaction will be valid.
+    // Depending on the input notes, the actual tx size may turn out to be larger and perhaps invalid.
+    size_t txsize = 0;
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    CTransaction tx(mtx);
+    txsize += tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    txsize += CTXIN_SPEND_DUST_SIZE;
+    txsize += CTXOUT_REGULAR_SIZE;      // There will probably be taddr change
+    txsize += CTXOUT_REGULAR_SIZE * vecSend.size();
+    if (txsize > MAX_TX_SIZE) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Too many outputs, size of raw transaction would be larger than limit of %d bytes", MAX_TX_SIZE ));
+    }
+
+    EnsureWalletIsUnlocked();
+
+    // Send
+    CWalletTx wtx;
+
+    ScHandleTransaction(wtx, vecSend, nTotalOut);
+
+    return wtx.GetHash().GetHex();
+}
+
+UniValue sc_certlock_many(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() < 1 || params.size() > 2)
+        throw runtime_error(
+            "sc_certlock_many [{\"address\":... ,\"amount\":...,\"scid\":,...,\"epoch\":,...},...] ( minconf ) ( fee )\n"
+            "\nSend cross chain forward transfer of coins multiple times. Amounts are double-precision floating point numbers."
+            "\nArguments:\n"
+            "\"amounts\"                (array, required) An array of json objects representing the amounts to send.\n"
+            "    [{\n"                     
+            "      \"address\":address     (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "      \"amount\":amount       (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
+            "      \"scid\":side chain ID  (string, required) The uint256 side chain ID\n"
+            "      \"epoch\":active-from-withdrawal-epoch\": (numeric, required for type=2) TOBEDESCRIBED\n"
+            "    }, ... ]\n"
+            "\nResult:\n"
+            "\"transactionid\"          (string) The transaction id for the send. Only 1 transaction is created regardless of \n"
+            "                                    the number of addresses.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("sc_certlock_many", " '[{\"address\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0 ,\"scid\": \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\",\"epoch\": 12345678}]'")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    UniValue outputs = params[0].get_array();
+
+    if (outputs.size()==0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amounts array is empty.");
+
+    // Recipients
+    CAmount nTotalOut = 0;
+    vector<CcRecipientVariant> vecSend;
+
+    for (const UniValue& o : outputs.getValues()) {
+        if (!o.isObject())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
+
+        // sanity check, report error if unknown key-value pairs
+        for (const string& name_ : o.getKeys()) {
+            std::string s = name_;
+            if (s != "address" && s != "amount" && s != "scid" && s != "epoch")
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ")+s);
+        }
+
+        uint256 address;
+        address.SetHex(find_value(o, "address").get_str() );
+
+        UniValue av = find_value(o, "amount");
+        CAmount nAmount = AmountFromValue( av );
+        if (nAmount <= 0)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
+
+        string inputString = find_value(o, "scid").get_str();
+        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+
+        uint256 scId;
+        scId.SetHex(inputString);
+
+        if (!ScMgr::instance().sidechainExists(scId) )
+        {
+            LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+        }
+
+        int64_t epoch = -1;
+        UniValue ev = find_value(o, "epoch");
+
+        if (ev.isNull())
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing or Invalid epoch parameter");
+        }
+        else
+        {
+            epoch = ev.get_int64();
+        }
+ 
+        CRecipientCertLock cl;
+        cl.address = address;
+        cl.nValue = nAmount;
+        cl.scId = scId;
+        cl.epoch = epoch;
+
+        vecSend.push_back(CcRecipientVariant(cl));
+
+        nTotalOut += nAmount;
+    }
+
+    // As a sanity check, estimate and verify that the size of the transaction will be valid.
+    // Depending on the input notes, the actual tx size may turn out to be larger and perhaps invalid.
+    size_t txsize = 0;
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    CTransaction tx(mtx);
+    txsize += tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    txsize += CTXIN_SPEND_DUST_SIZE;
+    txsize += CTXOUT_REGULAR_SIZE;      // There will probably be taddr change
+    txsize += CTXOUT_REGULAR_SIZE * vecSend.size();
+    if (txsize > MAX_TX_SIZE) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Too many outputs, size of raw transaction would be larger than limit of %d bytes", MAX_TX_SIZE ));
+    }
+
+    EnsureWalletIsUnlocked();
+
+    // Send
+    CWalletTx wtx;
+
+    ScHandleTransaction(wtx, vecSend, nTotalOut);
+
+    return wtx.GetHash().GetHex();
 }
 
 

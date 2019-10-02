@@ -22,7 +22,11 @@
 
 #include <regex>
 
+#include "sc/sidechaincore.h"
+
 using namespace std;
+
+using namespace Sidechain;
 
 extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
 void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
@@ -138,6 +142,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.push_back(Pair("height", blockindex->nHeight));
     result.push_back(Pair("version", block.nVersion));
     result.push_back(Pair("merkleroot", block.hashMerkleRoot.GetHex()));
+    result.push_back(Pair("scmerklerootsmap", block.hashScMerkleRootsMap.GetHex()));
     UniValue txs(UniValue::VARR);
     BOOST_FOREACH(const CTransaction&tx, block.vtx)
     {
@@ -762,7 +767,8 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
         while (block && block->pprev && (block->pprev->nStatus & BLOCK_HAVE_DATA))
             block = block->pprev;
 
-        obj.push_back(Pair("pruneheight",        block->nHeight));
+        if (block)
+            obj.push_back(Pair("pruneheight",        block->nHeight));
     }
     return obj;
 }
@@ -964,6 +970,134 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
+UniValue getscinfo(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() > 1)
+        throw runtime_error(
+            "getscinfo \"scid\" (Optional)\n"
+            "\nReturns side chain info for the given id or for all of the existing sc if the id is not given.\n"
+            "\n"
+
+            "\nExamples\n"
+            + HelpExampleCli("getscinfo", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
+            + HelpExampleCli("getscinfo", "")
+        );
+
+    if (params.size() > 0)
+    {
+        // side chain id
+        string inputString = params[0].get_str();
+        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+ 
+        uint256 scId;
+        scId.SetHex(inputString);
+ 
+        UniValue sc(UniValue::VOBJ);
+        if (!ScMgr::fillJSON(scId, sc) )
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+        }
+ 
+        return sc;
+    }
+
+    // dump all of them if any
+    UniValue result(UniValue::VARR);
+    ScMgr::instance().fillJSON(result);
+
+    return result;
+}
+
+UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+    {
+        throw runtime_error(
+            "getscgenesisinfo \"scid\"\n"
+            "\nReturns side chain genesis info for the given id or for all of the existing sc if the id is not given.\n"
+            "\n"
+            "\nResult:\n"
+            "\"data\"             (string) A string that is serialized, hex-encoded data.\n"
+            // TODO explain the contents
+
+            "\nExamples\n"
+            + HelpExampleCli("getscgenesisinfo", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
+        );
+    }
+
+    // side chain id
+    string inputString = params[0].get_str();
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+ 
+    uint256 scId;
+    scId.SetHex(inputString);
+ 
+    // sanity check of the side chain ID
+    if (!ScMgr::instance().sidechainExists(scId) )
+    {
+        LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+    }
+
+    // find the block where it has been created
+    ScInfo info;
+    if (!ScMgr::instance().getScInfo(scId, info) )
+    {
+        LogPrint("sc", "cound not get info for scid[%s], probably not yet created\n", scId.ToString() );
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+    }
+ 
+    const uint256& blockHash = info.creationBlockHash;
+
+    assert(mapBlockIndex.count(blockHash) != 0);
+
+    CBlock block;
+    CBlockIndex* pblockindex = mapBlockIndex[blockHash];
+
+    if (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0)
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Block not available (pruned data)");
+
+    if(!ReadBlockFromDisk(block, pblockindex))
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
+
+    CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+
+    // block hex data
+    ssBlock << block;
+
+    // block height
+    ssBlock << pblockindex->nHeight;
+
+    // get pow data
+    const int vec_size = Params().GetConsensus().nPowAveragingWindow + CBlockIndex::nMedianTimeSpan;
+
+    std::vector<ScPowRelatedData> vData;
+    vData.reserve(vec_size);
+
+    CBlockIndex* prev = pblockindex;
+
+    for (int i = 0; i < vec_size; i++)
+    {
+        ScPowRelatedData s = {};
+        prev = prev->pprev;
+        if (!prev)
+        {
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't set block index!");
+        }
+        s.a = prev->nTime;
+        s.b = prev->nBits;
+        vData.push_back(s);
+    }
+
+    ssBlock << vData;
+
+    std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
+    return strHex;
+   
+}
+
 UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 2)
@@ -1125,3 +1259,21 @@ UniValue dbg_log(const UniValue& params, bool fHelp)
     LogPrint("py", "%s() - ########## [%s] #########\n", __func__, s);
     return "Log printed";
 }
+
+UniValue dbg_do(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() == 0)
+    {
+        throw runtime_error(
+            "dbg_do: does some hard coded helper task\n"
+            "\nExamples:\n"
+            + HelpExampleCli("dbg_do", "\"todo\"")
+        );
+    }
+    std::string ret = "TODO";
+
+    return ret;
+}
+
+
+

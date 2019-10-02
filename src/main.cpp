@@ -43,6 +43,8 @@
 #include "zen/forkmanager.h"
 #include "zen/delay.h"
 
+#include "sc/sidechaincore.h"
+
 using namespace zen;
 
 using namespace std;
@@ -50,6 +52,8 @@ using namespace std;
 #if defined(NDEBUG)
 # error "Zen cannot be compiled without assertions."
 #endif
+
+static Sidechain::ScMgr& scMgr = Sidechain::ScMgr::instance();
 
 /**
  * Global state
@@ -136,7 +140,6 @@ namespace {
         }
     };
 
-// [AS]
     struct CBlockIndexRealWorkComparator
     {
         bool operator()(CBlockIndex *pa, CBlockIndex *pb) const {
@@ -687,18 +690,43 @@ unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans) EXCLUSIVE_LOCKS_REQUIRE
 
 bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
 {
+    // sidechain fork (happens after groth fork)
+    int sidechainVersion = 0; 
+    bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
+    if (areSidechainsSupported)
+    {
+        sidechainVersion = ForkManager::getInstance().getSidechainTxVersion(nHeight);
+    }
 
+    // groth fork
 	const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
 	bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
-	if(!isGROTHActive) {
-		if (tx.nVersion > CTransaction::MAX_OLD_VERSION || tx.nVersion < CTransaction::MIN_OLD_VERSION) {
+
+	if(!isGROTHActive)
+    {
+        if (areSidechainsSupported)
+        {
+            // can not be, sidechain fork is after groth one
+            reason = "version";
+            return false;
+        }
+
+		if (tx.nVersion > CTransaction::MAX_OLD_VERSION || tx.nVersion < CTransaction::MIN_OLD_VERSION)
+        {
 			reason = "version";
 			return false;
 		}
-	} else {
-		if (tx.nVersion != TRANSPARENT_TX_VERSION && tx.nVersion != GROTH_TX_VERSION) {
-			reason = "version";
-			return false;
+	}
+    else
+    {
+		if (tx.nVersion != TRANSPARENT_TX_VERSION && tx.nVersion != GROTH_TX_VERSION)
+        {
+            // check sidechain tx
+            if ( !(areSidechainsSupported && (tx.nVersion == sidechainVersion)) )
+            {
+			    reason = "version";
+			    return false;
+            }
 		}
 	}
 
@@ -764,10 +792,10 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
             }
             else
             {
-                reason = "dust";
-                return false;
-            }
+            reason = "dust";
+            return false;
         }
+    }
     }
 
     // only one OP_RETURN txout is permitted
@@ -940,35 +968,55 @@ bool ContextualCheckTransaction(
 	// at any height
 	// at height < groth_fork v>=1 txs with PHGR proofs
 	// at height >= groth_fork v=-3 shielded with GROTH proofs and v=1 transparent with joinsplit empty
+    // at height >= sidechain_fork same as above but also v=-4 with joinsplit empty
 
+    // sidechain fork (happens after groth fork)
+    int sidechainVersion = 0; 
+    bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
+    if (areSidechainsSupported)
+    {
+        sidechainVersion = ForkManager::getInstance().getSidechainTxVersion(nHeight);
+    }
 
+    // groth fork
 	const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
 	bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
 
-	if(isGROTHActive) {
-		//verify if transaction is transparent or the actual shielded version
-		if(tx.nVersion == TRANSPARENT_TX_VERSION) {
-			//enforce empty joinsplit for transparent txs
+	if(isGROTHActive)
+    {
+		//verify if transaction is transparent or related to sidechain...
+		if (tx.nVersion == TRANSPARENT_TX_VERSION  ||
+            (areSidechainsSupported && (tx.nVersion == sidechainVersion) ) )
+        {
+			//enforce empty joinsplit for transparent txs and sidechain tx
 			if(!tx.vjoinsplit.empty()) {
-				return state.DoS(dosLevel, error("ContextualCheckTransaction(): transparent tx but vjoinsplit not empty"),
+				return state.DoS(dosLevel, error("ContextualCheckTransaction(): transparent or sc tx but vjoinsplit not empty"),
 									 REJECT_INVALID, "bad-txns-transparent-jsnotempty");
 			}
 			return true;
 		}
-		if(tx.nVersion != GROTH_TX_VERSION) {
-			LogPrintf("ContextualCheckTransaction: rejecting non GROTH (%d) transaction because GROTH is already active at block height %d\n", tx.nVersion, nHeight);
+
+        // ... or the actual shielded version
+		if(tx.nVersion != GROTH_TX_VERSION)
+        {
+			LogPrintf("ContextualCheckTransaction: rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
+                tx.nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
 			return state.DoS(dosLevel,
-	                         error("ContextualCheckTransaction(): groth is already active"),
-	                         REJECT_INVALID, "bad-tx-shielded-version-too-low");
+	                         error("ContextualCheckTransaction(): unexpected tx version"),
+	                         REJECT_INVALID, "bad-tx-version-unexpected");
 		}
 		return true;
-
-	} else {
-		if(tx.nVersion < TRANSPARENT_TX_VERSION) {
-			LogPrintf("ContextualCheckTransaction: rejecting non PHGR (%d) transaction because PHGR is still active at block height %d\n", tx.nVersion, nHeight);
+	}
+    else
+    {
+        // sidechain fork is after groth one
+		if(tx.nVersion < TRANSPARENT_TX_VERSION)
+        {
+			LogPrintf("ContextualCheckTransaction: rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
+                tx.nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
 			return state.DoS(0,
-	                         error("ContextualCheckTransaction(): phgr is still active"),
-	                         REJECT_INVALID, "bad-tx-shielded-version-too-low");
+	                         error("ContextualCheckTransaction(): unexpected tx version"),
+	                         REJECT_INVALID, "bad-tx-version-unexpected");
 		}
 		return true;
 	}
@@ -1005,9 +1053,14 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
 
         // provide temporary replay protection for two minerconf windows during chainsplit
         if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(),whichType))) {
-            return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, ::GetTxnOutputType(whichType), chainActive.Height(), tx.GetHash().ToString()),
+                return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, ::GetTxnOutputType(whichType), chainActive.Height(), tx.GetHash().ToString()),
                              REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
+    }
+
+    if (!scMgr.checkTransaction(tx, state) )
+    {
+        return false;
     }
 
     return true;
@@ -1017,7 +1070,8 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
 {
     // Basic checks that don't depend on any context
     // Check transaction version
-    if (tx.nVersion < MIN_OLD_TX_VERSION && tx.nVersion != GROTH_TX_VERSION) {
+    if (tx.nVersion < MIN_OLD_TX_VERSION && tx.nVersion != GROTH_TX_VERSION && !tx.IsScVersion() )
+    {
         return state.DoS(100, error("CheckTransaction(): version too low"),
                          REJECT_INVALID, "bad-txns-version-too-low");
     }
@@ -1026,11 +1080,19 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
     // Transactions can contain empty `vin` and `vout` so long as
     // `vjoinsplit` is non-empty.
     if (tx.vin.empty() && tx.vjoinsplit.empty())
+    {
+        LogPrint("sc", "%s():%d - Error: tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString() );
         return state.DoS(10, error("CheckTransaction(): vin empty"),
                          REJECT_INVALID, "bad-txns-vin-empty");
-    if (tx.vout.empty() && tx.vjoinsplit.empty())
+    }
+
+    // also allow the case when crosschain outputs are not empty. In that case there might be no vout at all
+    // when utxo reminder is only dust, which is added to fee leaving no change for the sender
+    if (tx.vout.empty() && tx.vjoinsplit.empty() && tx.ccIsNull())
+    {
         return state.DoS(10, error("CheckTransaction(): vout empty"),
                          REJECT_INVALID, "bad-txns-vout-empty");
+    }
 
     // Size limits
     BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_TX_SIZE); // sanity
@@ -1232,10 +1294,10 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         return error("AcceptToMemoryPool: CheckTransaction failed");
 
 
-    // DoS level set to 10 to be more forgiving.
-    // Check transaction contextually against the set of consensus rules which apply in the next block to be mined.
-    if (!ContextualCheckTransaction(tx, state, nextBlockHeight, 10)) {
-        return error("AcceptToMemoryPool: ContextualCheckTransaction failed");
+        // DoS level set to 10 to be more forgiving.
+        // Check transaction contextually against the set of consensus rules which apply in the next block to be mined.
+        if (!ContextualCheckTransaction(tx, state, nextBlockHeight, 10)) {
+            return error("AcceptToMemoryPool: ContextualCheckTransaction failed");
     }
 
     // Silently drop pre-chainsplit transactions
@@ -1263,28 +1325,45 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // is it already in the memory pool?
     uint256 hash = tx.GetHash();
     if (pool.exists(hash))
+    {
+        LogPrint("mempool", "Dropping txid %s : already in mempool\n", hash.ToString());
         return false;
+    }
+
+    // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
+    // a not existing one and so on
+    if (!scMgr.checkSidechainState(tx) )
+    {
+        return false;
+    }
 
     // Check for conflicts with in-memory transactions
     {
-    LOCK(pool.cs); // protect pool.mapNextTx
-    for (unsigned int i = 0; i < tx.vin.size(); i++)
-    {
-        COutPoint outpoint = tx.vin[i].prevout;
-        if (pool.mapNextTx.count(outpoint))
+        LOCK(pool.cs); // protect pool.mapNextTx
+        for (unsigned int i = 0; i < tx.vin.size(); i++)
         {
-            // Disable replacement feature for now
-            return false;
-        }
-    }
-    BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
-        BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
-            if (pool.mapNullifiers.count(nf))
+            COutPoint outpoint = tx.vin[i].prevout;
+            if (pool.mapNextTx.count(outpoint))
             {
+                // Disable replacement feature for now
                 return false;
             }
         }
-    }
+        BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
+            BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
+                if (pool.mapNullifiers.count(nf))
+                {
+                    return false;
+                }
+            }
+        }
+
+        // beside the check performed in CheckTransaction above, perform some more checks specific to mempool. 
+        // If this tx creates a sc, no other tx must be doing the same in the mempool
+        if (!scMgr.IsTxAllowedInMempool(pool, tx, state) )
+        {
+            return false;
+        }
     }
 
     {
@@ -1293,47 +1372,60 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
         CAmount nValueIn = 0;
         {
-        LOCK(pool.cs);
-        CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
-        view.SetBackend(viewMemPool);
-
-        // do we already have it?
-        if (view.HaveCoins(hash))
-            return false;
-
-        // do all inputs exist?
-        // Note that this does not check for the presence of actual outputs (see the next check for that),
-        // and only helps with filling in pfMissingInputs (to determine missing vs spent).
-        BOOST_FOREACH(const CTxIn txin, tx.vin) {
-            if (!view.HaveCoins(txin.prevout.hash)) {
-                if (pfMissingInputs)
-                    *pfMissingInputs = true;
+            LOCK(pool.cs);
+            CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
+            view.SetBackend(viewMemPool);
+ 
+            // do we already have it?
+            if (view.HaveCoins(hash))
+            {
+                LogPrint("mempool", "Dropping txid %s : already have coins\n", hash.ToString());
                 return false;
             }
-        }
-
-        // are the actual inputs available?
-        if (!view.HaveInputs(tx))
-            return state.Invalid(error("AcceptToMemoryPool: inputs already spent"),
-                                 REJECT_DUPLICATE, "bad-txns-inputs-spent");
-
-        // are the joinsplit's requirements met?
-        if (!view.HaveJoinSplitRequirements(tx))
-            return state.Invalid(error("AcceptToMemoryPool: joinsplit requirements not met"),
-                                 REJECT_DUPLICATE, "bad-txns-joinsplit-requirements-not-met");
-
-        // Bring the best block into scope
-        view.GetBestBlock();
-
-        nValueIn = view.GetValueIn(tx);
-
-        // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
-        view.SetBackend(dummy);
+ 
+            // do all inputs exist?
+            // Note that this does not check for the presence of actual outputs (see the next check for that),
+            // and only helps with filling in pfMissingInputs (to determine missing vs spent).
+            BOOST_FOREACH(const CTxIn txin, tx.vin)
+            {
+                if (!view.HaveCoins(txin.prevout.hash))
+                {
+                    if (pfMissingInputs)
+                    {
+                        *pfMissingInputs = true;
+                    }
+                    LogPrint("mempool", "Dropping txid %s : no coins for vin\n", hash.ToString());
+                    return false;
+                }
+            }
+ 
+            // are the actual inputs available?
+            if (!view.HaveInputs(tx))
+            {
+                LogPrintf("%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString());
+                return state.Invalid(error("AcceptToMemoryPool: inputs already spent"),
+                                     REJECT_DUPLICATE, "bad-txns-inputs-spent");
+            }
+ 
+            // are the joinsplit's requirements met?
+            if (!view.HaveJoinSplitRequirements(tx))
+                return state.Invalid(error("AcceptToMemoryPool: joinsplit requirements not met"),
+                                     REJECT_DUPLICATE, "bad-txns-joinsplit-requirements-not-met");
+ 
+            // Bring the best block into scope
+            view.GetBestBlock();
+ 
+            nValueIn = view.GetValueIn(tx);
+ 
+            // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
+            view.SetBackend(dummy);
         }
 
         // Check for non-standard pay-to-script-hash in inputs
         if (getRequireStandard() && !AreInputsStandard(tx, view))
+        {
             return error("AcceptToMemoryPool: nonstandard transaction input");
+        }
 
         // Check that the transaction doesn't have an excessive number of
         // sigops, making it impossible to mine. Since the coinbase transaction
@@ -1343,13 +1435,18 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         unsigned int nSigOps = GetLegacySigOpCount(tx);
         nSigOps += GetP2SHSigOpCount(tx, view);
         if (nSigOps > MAX_STANDARD_TX_SIGOPS)
+        {
             return state.DoS(0,
                              error("AcceptToMemoryPool: too many sigops %s, %d > %d",
                                    hash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
                              REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
+        }
 
         CAmount nValueOut = tx.GetValueOut();
         CAmount nFees = nValueIn-nValueOut;
+
+        LogPrint("sc", "%s():%d - Computed fee=%lld\n", __func__, __LINE__, nFees);
+
         double dPriority = view.GetPriority(tx, chainActive.Height());
 
         CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height(), mempool.HasNoInputsOf(tx));
@@ -1361,6 +1458,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         } else {
             // Don't accept it if it can't get into a block
             CAmount txMinFee = GetMinRelayFee(tx, nSize, true);
+            LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
             if (fLimitFree && nFees < txMinFee)
                 return state.DoS(0, error("AcceptToMemoryPool: not enough fees %s, %d < %d",
                                         hash.ToString(), nFees, txMinFee),
@@ -1880,9 +1978,10 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             return state.DoS(100, error("CheckInputs(): vpub_old values out of range"),
                              REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
-        if (nValueIn < tx.GetValueOut())
+        if (nValueIn < tx.GetValueOut() )
             return state.DoS(100, error("CheckInputs(): %s value in (%s) < value out (%s)",
-                                        tx.GetHash().ToString(), FormatMoney(nValueIn), FormatMoney(tx.GetValueOut())),
+                                        tx.GetHash().ToString(),
+                                        FormatMoney(nValueIn), FormatMoney(tx.GetValueOut()) ),
                              REJECT_INVALID, "bad-txns-in-belowout");
 
         // Tally transaction fees
@@ -2416,6 +2515,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             control.Add(vChecks);
         }
 
+        // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
+        // a not existing one and so on
+        if (!scMgr.checkSidechainState(tx) )
+        {
+            LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
+            return state.DoS(100, error("ConnectBlock(): invalid sc transaction tx[%s]", tx.GetHash().ToString()),
+                             REJECT_INVALID, "bad-sc-tx");
+        }
+
         CTxUndo undoDummy;
         if (i > 0) {
             blockundo.vtxundo.push_back(CTxUndo());
@@ -2705,13 +2813,21 @@ bool static DisconnectTip(CValidationState &state) {
     // Write the chain state to disk, if necessary.
     if (!FlushStateToDisk(state, FLUSH_STATE_IF_NEEDED))
         return false;
+
+    if (!scMgr.onBlockDisconnected(block, pindexDelete->nHeight) )
+    {
+        return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
+    }
+
     // Resurrect mempool transactions from the disconnected block.
     BOOST_FOREACH(const CTransaction &tx, block.vtx) {
         // ignore validation errors in resurrected transactions
         list<CTransaction> removed;
         CValidationState stateDummy;
         if (tx.IsCoinBase() || !AcceptToMemoryPool(mempool, stateDummy, tx, false, NULL))
+        {
             mempool.remove(tx, removed, true);
+        }
     }
     if (anchorBeforeDisconnect != anchorAfterDisconnect) {
         // The anchor may not change between block disconnects,
@@ -2803,6 +2919,12 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     GetMainSignals().ChainTip(pindexNew, pblock, oldTree, true);
 
     EnforceNodeDeprecation(pindexNew->nHeight);
+
+    // as a last thing, update sidechain data if any
+    if (!scMgr.onBlockConnected(*pblock, pindexNew->nHeight) )
+    {
+        return error("ConnectTip(): ConnectBlock %s failed", pindexNew->GetBlockHash().ToString());
+    }
 
     int64_t nTime6 = GetTimeMicros(); nTimePostConnect += nTime6 - nTime5; nTimeTotal += nTime6 - nTime1;
     LogPrint("bench", "  - Connect postprocess: %.2fms [%.2fs]\n", (nTime6 - nTime5) * 0.001, nTimePostConnect * 0.000001);
@@ -3497,8 +3619,12 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
 
     // Check transactions
     BOOST_FOREACH(const CTransaction& tx, block.vtx)
+    {
         if (!CheckTransaction(tx, state, verifier))
+        {
             return error("CheckBlock(): CheckTransaction failed");
+        }
+    }
 
     unsigned int nSigOps = 0;
     BOOST_FOREACH(const CTransaction& tx, block.vtx)
@@ -4186,9 +4312,12 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
             } else
                 nGoodTransactions += block.vtx.size();
         }
+
         if (ShutdownRequested())
             return true;
+
     }
+
     if (pindexFailure)
         return error("VerifyDB(): *** coin database inconsistencies found (last %i blocks, %i good transactions before that)\n", chainActive.Height() - pindexFailure->nHeight + 1, nGoodTransactions);
 

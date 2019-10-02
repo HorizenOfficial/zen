@@ -74,6 +74,17 @@ public:
 	 * @brief returns phpgr,groth,... tx version based on block height
 	 */
 	int getShieldedTxVersion(int height) const;
+
+    /**
+	 * @brief returns sidechain tx version based on block height
+	 */
+	int getSidechainTxVersion(int height) const;
+
+    /**
+	 * @brief returns true sidechains are supported based on block height, false otherwise
+	 */
+	bool areSidechainsSupported(int height) const;
+
 private:
     
     /**
