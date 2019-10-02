@@ -88,6 +88,15 @@ public:
 	 */
     virtual int getShieldedTxVersion() const = 0;
 
+    /**
+	 * @brief returns sidechain tx version based on block height
+	 */
+	virtual int getSidechainTxVersion() const = 0;
+
+    /**
+	 * @brief returns true sidechains are supported based on block height, false otherwise
+	 */
+	virtual bool areSidechainsSupported() const = 0;
 protected:
     
     /**

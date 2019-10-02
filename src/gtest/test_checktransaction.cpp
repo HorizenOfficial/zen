@@ -443,7 +443,7 @@ TEST(checktransaction_tests, GrothTxVersion) {
 	CTransaction tx(mtx);
 	MockCValidationState state;
 	EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
-	EXPECT_CALL(state, DoS(0, false, REJECT_INVALID, "bad-tx-shielded-version-too-low", false)).Times(1);
+	EXPECT_CALL(state, DoS(0, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
 	EXPECT_FALSE(ContextualCheckTransaction(tx, state, 1, 100));
 	EXPECT_TRUE(ContextualCheckTransaction(tx, state, 200, 100));
 }
@@ -455,7 +455,7 @@ TEST(checktransaction_tests, PhgrTxVersion) {
 	MockCValidationState state;
 	EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
 	EXPECT_TRUE(ContextualCheckTransaction(tx, state, 1, 100));
-	EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-shielded-version-too-low", false)).Times(1);
+	EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
 	EXPECT_FALSE(ContextualCheckTransaction(tx, state, 200, 100));
 }
 

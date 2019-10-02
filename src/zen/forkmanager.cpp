@@ -10,6 +10,7 @@
 #include "forks/fork3_communityfundandrpfixfork.h"
 #include "forks/fork4_nulltransactionfork.h"
 #include "forks/fork5_shieldfork.h"
+#include "forks/fork6_sidechainfork.h"
 
 namespace zen {
 
@@ -112,6 +113,22 @@ int ForkManager::getShieldedTxVersion(int height) const {
     return getForkAtHeight(height)->getShieldedTxVersion();
 }
 
+/**
+ * @param height height to test against
+ * @return returns sidechain tx version based on block height
+ */
+int ForkManager::getSidechainTxVersion(int height) const {
+    return getForkAtHeight(height)->getSidechainTxVersion();
+}
+
+/**
+ * @brief returns true sidechains are supported based on block height, false otherwise
+ * @return true if allowed, false otherwise
+ */
+bool ForkManager::areSidechainsSupported(int height) const {
+    return getForkAtHeight(height)->areSidechainsSupported();
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// PRIVATE MEMBERS
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -128,6 +145,7 @@ ForkManager::ForkManager() {
     registerFork(new CommunityFundAndRPFixFork());
     registerFork(new NullTransactionFork());
     registerFork(new ShieldFork());
+    registerFork(new SidechainFork());
 }
 
 /**

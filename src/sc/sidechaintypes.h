@@ -3,11 +3,17 @@
 
 #include <vector>
 
+#include "uint256.h"
+#include "hash.h"
+#include "script/script.h"
 #include "amount.h"
 #include "serialize.h"
 #include <boost/unordered_map.hpp>
+#include <boost/variant.hpp>
 
 //------------------------------------------------------------------------------------
+class CTxForwardTransferOut;
+
 namespace Sidechain
 {
 
@@ -47,8 +53,6 @@ struct CRecipientCrossChainBase
     virtual ~CRecipientCrossChainBase() {}
 };
 
-static const CAmount SC_CREATION_FEE = 100000000; // in satoshi = 1.0 Zen
-
 struct CRecipientScCreation : public CRecipientCrossChainBase
 {
     ScCreationParameters creationData;
@@ -66,7 +70,7 @@ struct CRecipientForwardTransfer : public CRecipientCrossChainBase
 {
     uint256 address;
     CAmount nValue;
-    explicit CRecipientForwardTransfer(const CTxForwardTransferCrosschainOut&);
+    explicit CRecipientForwardTransfer(const CTxForwardTransferOut&);
     CRecipientForwardTransfer(): nValue(0) {};
 };
 

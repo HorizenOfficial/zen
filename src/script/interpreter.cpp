@@ -1096,7 +1096,7 @@ public:
         for (unsigned int nOutput = 0; nOutput < nOutputs; nOutput++)
              SerializeOutput(s, nOutput, nType, nVersion);
 
-        if (txTo.nVersion == SC_TX_VERSION)
+        if (txTo.IsScVersion() )
         {
             // Serialize vccouts
             unsigned int nCcOutputs = 0;

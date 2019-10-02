@@ -86,10 +86,19 @@ class ScMgr
     bool containsScBackwardTx(const uint256& scId, const uint256& txHash);
 
     bool checkSidechainCreation(const CTransaction& tx, CValidationState& state);
-    bool checkCreationInMemPool(CTxMemPool& pool, const CTransaction& tx);
+    bool hasSCCreationConflictsInMempool(const CTxMemPool& pool, const CTransaction& tx);
     bool checkCertificateInMemPool(CTxMemPool& pool, const CTransaction& tx);
 
+    // return true if the tx contains a fwd tr for the given scid
+    bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
+
+    // return true if the tx is creating the scid
+    bool hasSidechainCreationOutput(const CTransaction& tx, const uint256& scId);
+
     bool updateSidechainBalance(const uint256& scId, const CAmount& amount);
+
+    CAmount getSidechainBalance(const uint256& scId);
+
   public:
 
     ScMgr(const ScMgr&) = delete;
@@ -99,9 +108,6 @@ class ScMgr
 
     static ScMgr& instance();
 
-    bool verifyingDb() { return bVerifyingDb; }
-    void verifyingDb(bool flag) { bVerifyingDb = flag; }
-     
     bool initialUpdateFromDb(size_t cacheSize, bool fWipe);
 
     bool sidechainExists(const uint256& scId);
@@ -110,41 +116,21 @@ class ScMgr
     bool onBlockConnected(const CBlock& block, int nHeight);
     bool onBlockDisconnected(const CBlock& block, int nHeight);
 
-    CAmount getSidechainBalance(const uint256& scId);
-
-    bool checkMemPool(CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
+    bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
     bool checkTransaction(const CTransaction& tx, CValidationState& state);
-    bool checkSidechainForwardTransaction(const CTransaction& tx, CValidationState& state);
-    bool checkSidechainBackwardTransaction(
-        const CTransaction& tx, CValidationState& state);
+    bool checkSidechainState(const CTransaction& tx);
+    bool checkSidechainOutputs(const CTransaction& tx, CValidationState& state);
 
-    bool checkSidechainCreationFunds(const CTransaction& tx, int nHeight);
-
-    // return true if the tx contains a fwd tr for the given scid
-    bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
-
-    // return true if the tx is creating the scid
-    bool isCreating(const CTransaction& tx, const uint256& scId);
-
-    // return the index of the added vout, -1 if no output has been added 
-    int evalAddCreationFeeOut(CMutableTransaction& tx);
-
-    // used when creating a raw transaction with cc outputs
-    bool fillRawCreation(UniValue& sc_crs, CMutableTransaction& rawTx, CTxMemPool& pool, std::string& error); 
     // used when funding a raw tx 
-    void fillFundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant>& vecCcSend);
+    static void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant>& vecCcSend);
 
-    // return true if any sc related tx has been found. In this case out parameter vTxReord has the same
-    // contents as the block.vtx vector, but all certificates, if any is found, have been moved at the end,
-    // and sScId contains all the concerned sc id.
-    static bool hasCrosschainTransfers(const CBlock& block, std::vector<CTransaction>& vTxReord, std::set<uint256>& sScId);
+    void fillJSON(UniValue& result);
+    static bool fillJSON(const uint256& scId, UniValue& sc);
+    static void fillJSON(const uint256& scId, const ScInfo& info, UniValue& sc);
 
     // print functions
     bool dump_info(const uint256& scId);
     void dump_info();
-    bool fillJSON(const uint256& scId, UniValue& sc);
-    void fillJSON(UniValue& result);
-    void fillJSON(const uint256& scId, const ScInfo& info, UniValue& sc);
 }; 
 
 }; // end of namespace

@@ -273,6 +273,7 @@ libbitcoin_server_a_SOURCES = \
   rpc/rawtransaction.cpp \
   rpc/server.cpp \
   sc/sidechain.cpp \
+  sc/sidechainrpc.cpp \
   script/sigcache.cpp \
   timedata.cpp \
   torcontrol.cpp \
@@ -590,6 +591,7 @@ libzencash_a_SOURCES = \
     zen/forks/fork3_communityfundandrpfixfork.cpp\
     zen/forks/fork4_nulltransactionfork.cpp\
     zen/forks/fork5_shieldfork.cpp\
+    zen/forks/fork6_sidechainfork.cpp\
     zen/tlsmanager.cpp\
     zen/delay.cpp
 

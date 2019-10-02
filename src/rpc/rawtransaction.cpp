@@ -28,6 +28,7 @@
 
 #include <univalue.h>
 #include "sc/sidechaincore.h"
+#include "sc/sidechainrpc.h"
 
 using namespace std;
 
@@ -55,50 +56,6 @@ void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fInclud
     out.push_back(Pair("addresses", a));
 }
 
-void AddTxCrosschainJSON (const CTransaction& tx, UniValue& parentObj)
-{
-    UniValue vscs(UniValue::VARR);
-    // global idx
-    unsigned int nIdx = 0; 
-
-    for (unsigned int i = 0; i < tx.vsc_ccout.size(); i++) {
-        const CTxScCreationCrosschainOut& out = tx.vsc_ccout[i];
-        UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("scid", out.scId.GetHex()));
-        o.push_back(Pair("n", (int64_t)nIdx));
-        o.push_back(Pair("withdrawal epoch length", (int)out.withdrawalEpochLength));
-        vscs.push_back(o);
-        nIdx++;
-    }
-    parentObj.push_back(Pair("vsc_ccout", vscs));
-
-    UniValue vcls(UniValue::VARR);
-    for (unsigned int i = 0; i < tx.vcl_ccout.size(); i++) {
-        const CTxCertifierLockCrosschainOut& out = tx.vcl_ccout[i];
-        UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("scid", out.scId.GetHex()));
-        o.push_back(Pair("value", ValueFromAmount(out.nValue)));
-        o.push_back(Pair("n", (int64_t)nIdx));
-        o.push_back(Pair("address", out.address.GetHex()));
-        o.push_back(Pair("active from withdrawal epoch", out.activeFromWithdrawalEpoch));
-        vcls.push_back(o);
-        nIdx++;
-    }
-    parentObj.push_back(Pair("vcl_ccout", vcls));
-
-    UniValue vfts(UniValue::VARR);
-    for (unsigned int i = 0; i < tx.vft_ccout.size(); i++) {
-        const CTxForwardTransferCrosschainOut& out = tx.vft_ccout[i];
-        UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("scid", out.scId.GetHex()));
-        o.push_back(Pair("value", ValueFromAmount(out.nValue)));
-        o.push_back(Pair("n", (int64_t)nIdx));
-        o.push_back(Pair("address", out.address.GetHex()));
-        vfts.push_back(o);
-        nIdx++;
-    }
-    parentObj.push_back(Pair("vft_ccout", vfts));
-}
 
 UniValue TxJoinSplitToJSON(const CTransaction& tx) {
     bool useGroth = tx.nVersion == GROTH_TX_VERSION;
@@ -194,7 +151,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     entry.push_back(Pair("vout", vout));
 
     // add to entry obj the cross chain outputs
-    AddTxCrosschainJSON(tx, entry);
+    Sidechain::AddSidechainOutsToJSON(tx, entry);
 
     UniValue vjoinsplit = TxJoinSplitToJSON(tx);
     entry.push_back(Pair("vjoinsplit", vjoinsplit));
@@ -551,7 +508,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         if (sc_crs.size())
         {
             std::string errString;
-            if (!Sidechain::ScMgr::instance().fillRawCreation(sc_crs, rawTx, mempool, errString) )
+            if (!Sidechain::AddSidechainCreationOutputs(sc_crs, rawTx, errString) )
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, errString);
             }
@@ -567,35 +524,11 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
         if (fwdtr.size())
         {
-            rawTx.nVersion = SC_TX_VERSION;
-        }
-
-        for (size_t j = 0; j < fwdtr.size(); j++)
-        {
-            const UniValue& input = fwdtr[j];
-            const UniValue& o = input.get_obj();
-
-            string inputString = find_value(o, "scid").get_str();
-            if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
-    
-            uint256 scId;
-            scId.SetHex(inputString);
-
-            const UniValue& av = find_value(o, "amount");
-            CAmount nAmount = AmountFromValue( av );
-            if (nAmount < 0)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
-
-            inputString = find_value(o, "address").get_str();
-            if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address format: not an hex");
-    
-            uint256 address;
-            address.SetHex(inputString);
-
-            CTxForwardTransferCrosschainOut txccout(nAmount, address, scId);
-            rawTx.vft_ccout.push_back(txccout);
+            std::string errString;
+            if (!Sidechain::AddSidechainForwardOutputs(fwdtr, rawTx, errString) )
+            {
+                throw JSONRPCError(RPC_TYPE_ERROR, errString);
+            }
         }
     }
 

@@ -7,6 +7,10 @@
 
 //------------------------------------------------------------------------------------
 
+class UniValue;
+class CTransaction;
+class CMutableTransaction;
+
 namespace Sidechain
 {
 
@@ -49,14 +53,20 @@ class CcRecipientAmountVisitor : public boost::static_visitor<CAmount>
     public:
     CAmount operator() (const CRecipientScCreation& r) const
     {
-        // creation fee are in standard vout of the tx, while fwd contributions are in apposite obj below
-        return SC_CREATION_FEE;
+        // fwd contributions are in apposite obj below
+        return 0;
     }
 
     CAmount operator() (const CRecipientCertLock& r) const { return r.nValue; }
     CAmount operator() (const CRecipientForwardTransfer& r) const { return r.nValue; }
     CAmount operator() (const CRecipientBackwardTransfer& r) const { return r.nValue; }
 };
+
+void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj);
+
+// used when creating a raw transaction with cc outputs
+bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, std::string& error);
+bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std::string& error);
 
 }; // end of namespace
 

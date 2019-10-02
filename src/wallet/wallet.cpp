@@ -1691,14 +1691,8 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
             listReceived.push_back(output);
     }
 
-    if (nVersion == SC_TX_VERSION)
+    if (IsScVersion() )
     {
-        // first of all remove cc out from nFee that has not been considered before
-        if (nFee != 0)
-        {
-            nFee -= GetValueCcOut(); 
-        }
-
         if (nDebit > 0)
         {
             //fillScSent(vsc_ccout, listScSent);
@@ -2573,10 +2567,8 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
 
     // Turn the ccout set into a CcRecipientVariant vector
     vector< Sidechain::CcRecipientVariant > vecCcSend;
-    ScMgr::instance().fillFundCcRecipients(tx, vecCcSend);
+    ScMgr::fundCcRecipients(tx, vecCcSend);
     
-    bool bFundScCreation = (tx.vsc_ccout.size() > 0);
-
     CCoinControl coinControl;
     coinControl.fAllowOtherInputs = true;
     BOOST_FOREACH(const CTxIn& txin, tx.vin)
@@ -2584,7 +2576,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
 
     CReserveKey reservekey(this);
     CWalletTx wtx;
-    if (!CreateTransaction(vecSend, vecCcSend, wtx, reservekey, nFeeRet, nChangePosRet, bFundScCreation, strFailReason, &coinControl, false))
+    if (!CreateTransaction(vecSend, vecCcSend, wtx, reservekey, nFeeRet, nChangePosRet, strFailReason, &coinControl, false))
         return false;
 
     if (nChangePosRet != -1)
@@ -2613,7 +2605,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
 bool CWallet::CreateTransaction(
     const std::vector<CRecipient>& vecSend, const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
     CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
-    int& nChangePosRet, bool bFundScCreation, std::string& strFailReason, const CCoinControl* coinControl, bool sign)
+    int& nChangePosRet, std::string& strFailReason, const CCoinControl* coinControl, bool sign)
 {
     CAmount nValue = 0;
     unsigned int nSubtractFeeFromAmount = 0;
@@ -2740,13 +2732,17 @@ bool CWallet::CreateTransaction(
                     }
                 }
 
-                // if this tx creates a sc, check that no other tx are doing the same in the mempool
-                CValidationState state;
-                if (!ScMgr::instance().checkMemPool(mempool, txNew, state) )
-                {
-                    strFailReason = _("Sc already created by a tx in mempool");
-                    return false;
-                }
+/*
+ * this check has moved before adding to mem pool
+ *
+ *              // if this tx creates a sc, check that no other tx are doing the same in the mempool
+ *              CValidationState state;
+ *              if (!ScMgr::instance().IsTxAllowedInMempool(mempool, txNew, state) )
+ *              {
+ *                  strFailReason = _("Sc already created by a tx in mempool");
+ *                  return false;
+ *              }
+ */
 
                 // Choose coins to use
                 set<pair<const CWalletTx*,unsigned int> > setCoins;
@@ -2780,20 +2776,6 @@ bool CWallet::CreateTransaction(
                 CAmount nChange = nValueIn - nValue;
                 if (nSubtractFeeFromAmount == 0)
                     nChange -= nFeeRet;
-
-                
-                if (bFundScCreation)
-                {
-                    // we are in the process of funding a raw tx, do not create any vout for sc creation since it
-                    // has already been done 
-                    LogPrint("sc", "%s():%d - skipping sc creation vout\n", __func__, __LINE__);
-                }
-                else
-                {
-                    // in case this tx creates any sc, send a fixed reward to the community. Such a reward corresponds to the 
-                    // vsc_ccout nAmounts (fixed)
-                    ScMgr::instance().evalAddCreationFeeOut(txNew);
-                }
 
                 if (nChange > 0)
                 {
@@ -3850,7 +3832,7 @@ bool CcRecipientVisitor::operator() (const T& r) const { return fact->set(r); }
 
 bool CRecipientFactory::set(const CRecipientScCreation& r)
 {
-    CTxScCreationCrosschainOut txccout(r.scId, r.creationData.withdrawalEpochLength);
+    CTxScCreationOut txccout(r.scId, r.creationData.withdrawalEpochLength);
     // no dust can be found in sc creation
     tx->vsc_ccout.push_back(txccout);
     return true;
@@ -3858,7 +3840,7 @@ bool CRecipientFactory::set(const CRecipientScCreation& r)
 
 bool CRecipientFactory::set(const CRecipientCertLock& r)
 {
-    CTxCertifierLockCrosschainOut txccout(r.nValue, r.address, r.scId, r.epoch);
+    CTxCertifierLockOut txccout(r.nValue, r.address, r.scId, r.epoch);
     if (txccout.IsDust(::minRelayTxFee))
     {
         err = _("Transaction amount too small");
@@ -3870,7 +3852,7 @@ bool CRecipientFactory::set(const CRecipientCertLock& r)
 
 bool CRecipientFactory::set(const CRecipientForwardTransfer& r)
 {
-    CTxForwardTransferCrosschainOut txccout(r.nValue, r.address, r.scId);
+    CTxForwardTransferOut txccout(r.nValue, r.address, r.scId);
     if (txccout.IsDust(::minRelayTxFee))
     {
         err = _("Transaction amount too small");

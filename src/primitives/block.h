@@ -131,11 +131,12 @@ public:
     // tree (a duplication of transactions in the block leading to an identical
     // merkle root).
     uint256 BuildMerkleTree(bool* mutated = NULL) const;
+    uint256 BuildMerkleTree(std::vector<uint256>& vMerkleTree, size_t vtxSize, bool* mutated = NULL) const;
     uint256 BuildScMerkleRootsMap();
     
     std::vector<uint256> GetMerkleBranch(int nIndex) const;
     static uint256 CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex);
-    static uint256 BuildMerkleRootHash(const std::vector<uint256>& vInput, bool* fMutated = NULL);
+    uint256 BuildMerkleRootHash(const std::vector<uint256>& vInput);
     std::string ToString() const;
 };
 

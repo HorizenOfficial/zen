@@ -1020,7 +1020,7 @@ public:
     bool FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosRet, std::string& strFailReason);
     bool CreateTransaction(
         const std::vector<CRecipient>& vecSend, const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
-        CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosRet, bool bFundScCreation,
+        CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosRet,
         std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true);
 
     bool CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);

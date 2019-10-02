@@ -690,21 +690,43 @@ unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans) EXCLUSIVE_LOCKS_REQUIRE
 
 bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
 {
+    // sidechain fork (happens after groth fork)
+    int sidechainVersion = 0; 
+    bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
+    if (areSidechainsSupported)
+    {
+        sidechainVersion = ForkManager::getInstance().getSidechainTxVersion(nHeight);
+    }
 
+    // groth fork
 	const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
 	bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
-	if(!isGROTHActive) {
-		if (tx.nVersion > CTransaction::MAX_OLD_VERSION ||
-            (tx.nVersion < CTransaction::MIN_OLD_VERSION && tx.nVersion != SC_TX_VERSION)  ) {
+
+	if(!isGROTHActive)
+    {
+        if (areSidechainsSupported)
+        {
+            // can not be, sidechain fork is after groth one
+            reason = "version";
+            return false;
+        }
+
+		if (tx.nVersion > CTransaction::MAX_OLD_VERSION || tx.nVersion < CTransaction::MIN_OLD_VERSION)
+        {
 			reason = "version";
 			return false;
 		}
-	} else {
-		if (tx.nVersion != TRANSPARENT_TX_VERSION &&
-            tx.nVersion != GROTH_TX_VERSION       &&
-            tx.nVersion != SC_TX_VERSION) {
-			reason = "version";
-			return false;
+	}
+    else
+    {
+		if (tx.nVersion != TRANSPARENT_TX_VERSION && tx.nVersion != GROTH_TX_VERSION)
+        {
+            // check sidechain tx
+            if ( !(areSidechainsSupported && (tx.nVersion == sidechainVersion)) )
+            {
+			    reason = "version";
+			    return false;
+            }
 		}
 	}
 
@@ -946,43 +968,55 @@ bool ContextualCheckTransaction(
 	// at any height
 	// at height < groth_fork v>=1 txs with PHGR proofs
 	// at height >= groth_fork v=-3 shielded with GROTH proofs and v=1 transparent with joinsplit empty
+    // at height >= sidechain_fork same as above but also v=-4 with joinsplit empty
 
-    if (!scMgr.checkSidechainCreationFunds(tx, nHeight) )
+    // sidechain fork (happens after groth fork)
+    int sidechainVersion = 0; 
+    bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
+    if (areSidechainsSupported)
     {
-        LogPrint("sc", "%s():%d - Invalid tx[%s] : community fund missing or wrong\n",
-            __func__, __LINE__, tx.GetHash().ToString() );
-        return state.DoS(100, error("%s: community fund missing or not valid at block h %d",
-            __func__, nHeight), REJECT_INVALID, "sidechain-creation-wrong-community-fund");
+        sidechainVersion = ForkManager::getInstance().getSidechainTxVersion(nHeight);
     }
 
-
+    // groth fork
 	const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
 	bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
 
-	if(isGROTHActive) {
-		//verify if transaction is transparent or the actual shielded version
-		if(tx.nVersion == TRANSPARENT_TX_VERSION || tx.nVersion == SC_TX_VERSION) {
-			//enforce empty joinsplit for transparent txs
+	if(isGROTHActive)
+    {
+		//verify if transaction is transparent or related to sidechain...
+		if (tx.nVersion == TRANSPARENT_TX_VERSION  ||
+            (areSidechainsSupported && (tx.nVersion == sidechainVersion) ) )
+        {
+			//enforce empty joinsplit for transparent txs and sidechain tx
 			if(!tx.vjoinsplit.empty()) {
-				return state.DoS(dosLevel, error("ContextualCheckTransaction(): transparent tx but vjoinsplit not empty"),
+				return state.DoS(dosLevel, error("ContextualCheckTransaction(): transparent or sc tx but vjoinsplit not empty"),
 									 REJECT_INVALID, "bad-txns-transparent-jsnotempty");
 			}
 			return true;
 		}
-		if(tx.nVersion != GROTH_TX_VERSION) {
-			LogPrintf("ContextualCheckTransaction: rejecting non GROTH (%d) transaction because GROTH is already active at block height %d\n", tx.nVersion, nHeight);
+
+        // ... or the actual shielded version
+		if(tx.nVersion != GROTH_TX_VERSION)
+        {
+			LogPrintf("ContextualCheckTransaction: rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
+                tx.nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
 			return state.DoS(dosLevel,
-	                         error("ContextualCheckTransaction(): groth is already active"),
-	                         REJECT_INVALID, "bad-tx-shielded-version-too-low");
+	                         error("ContextualCheckTransaction(): unexpected tx version"),
+	                         REJECT_INVALID, "bad-tx-version-unexpected");
 		}
 		return true;
-
-	} else {
-		if(tx.nVersion < TRANSPARENT_TX_VERSION && tx.nVersion != SC_TX_VERSION) {
-			LogPrintf("ContextualCheckTransaction: rejecting non PHGR (%d) transaction because PHGR is still active at block height %d\n", tx.nVersion, nHeight);
+	}
+    else
+    {
+        // sidechain fork is after groth one
+		if(tx.nVersion < TRANSPARENT_TX_VERSION)
+        {
+			LogPrintf("ContextualCheckTransaction: rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
+                tx.nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
 			return state.DoS(0,
-	                         error("ContextualCheckTransaction(): phgr is still active"),
-	                         REJECT_INVALID, "bad-tx-shielded-version-too-low");
+	                         error("ContextualCheckTransaction(): unexpected tx version"),
+	                         REJECT_INVALID, "bad-tx-version-unexpected");
 		}
 		return true;
 	}
@@ -1036,7 +1070,8 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
 {
     // Basic checks that don't depend on any context
     // Check transaction version
-    if (tx.nVersion < MIN_OLD_TX_VERSION && tx.nVersion != GROTH_TX_VERSION && tx.nVersion != SC_TX_VERSION) {
+    if (tx.nVersion < MIN_OLD_TX_VERSION && tx.nVersion != GROTH_TX_VERSION && !tx.IsScVersion() )
+    {
         return state.DoS(100, error("CheckTransaction(): version too low"),
                          REJECT_INVALID, "bad-txns-version-too-low");
     }
@@ -1295,6 +1330,13 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         return false;
     }
 
+    // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
+    // a not existing one and so on
+    if (!scMgr.checkSidechainState(tx) )
+    {
+        return false;
+    }
+
     // Check for conflicts with in-memory transactions
     {
         LOCK(pool.cs); // protect pool.mapNextTx
@@ -1318,7 +1360,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
         // beside the check performed in CheckTransaction above, perform some more checks specific to mempool. 
         // If this tx creates a sc, no other tx must be doing the same in the mempool
-        if (!scMgr.checkMemPool(pool, tx, state) )
+        if (!scMgr.IsTxAllowedInMempool(pool, tx, state) )
         {
             return false;
         }
@@ -1400,7 +1442,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                              REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
         }
 
-        CAmount nValueOut = tx.GetValueOut() + tx.GetValueCcOut();
+        CAmount nValueOut = tx.GetValueOut();
         CAmount nFees = nValueIn-nValueOut;
 
         LogPrint("sc", "%s():%d - Computed fee=%lld\n", __func__, __LINE__, nFees);
@@ -1936,14 +1978,14 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             return state.DoS(100, error("CheckInputs(): vpub_old values out of range"),
                              REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
-        if (nValueIn < (tx.GetValueOut() + tx.GetValueCcOut() ) )
-            return state.DoS(100, error("CheckInputs(): %s value in (%s) < value [out (%s) + ccout (%s) ]",
+        if (nValueIn < tx.GetValueOut() )
+            return state.DoS(100, error("CheckInputs(): %s value in (%s) < value out (%s)",
                                         tx.GetHash().ToString(),
-                                        FormatMoney(nValueIn), FormatMoney(tx.GetValueOut()), FormatMoney(tx.GetValueCcOut()) ),
+                                        FormatMoney(nValueIn), FormatMoney(tx.GetValueOut()) ),
                              REJECT_INVALID, "bad-txns-in-belowout");
 
         // Tally transaction fees
-        CAmount nTxFee = nValueIn - tx.GetValueOut() - tx.GetValueCcOut();
+        CAmount nTxFee = nValueIn - tx.GetValueOut();
         if (nTxFee < 0)
             return state.DoS(100, error("CheckInputs(): %s nTxFee < 0", tx.GetHash().ToString()),
                              REJECT_INVALID, "bad-txns-fee-negative");
@@ -2465,12 +2507,21 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): too many sigops"),
                                  REJECT_INVALID, "bad-blk-sigops");
 
-            nFees += view.GetValueIn(tx)-tx.GetValueOut()-tx.GetValueCcOut();
+            nFees += view.GetValueIn(tx)-tx.GetValueOut();
 
             std::vector<CScriptCheck> vChecks;
             if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
                 return false;
             control.Add(vChecks);
+        }
+
+        // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
+        // a not existing one and so on
+        if (!scMgr.checkSidechainState(tx) )
+        {
+            LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
+            return state.DoS(100, error("ConnectBlock(): invalid sc transaction tx[%s]", tx.GetHash().ToString()),
+                             REJECT_INVALID, "bad-sc-tx");
         }
 
         CTxUndo undoDummy;

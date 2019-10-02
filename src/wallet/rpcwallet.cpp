@@ -45,7 +45,6 @@ using namespace libzcash;
 using namespace Sidechain;
 
 extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
-extern void AddTxCrosschainJSON (const CTransaction& tx, UniValue& parentObj);
 
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
@@ -102,8 +101,8 @@ void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry, isminefilter filter)
     BOOST_FOREACH(const PAIRTYPE(string,string)& item, wtx.mapValue)
         entry.push_back(Pair(item.first, item.second));
 
-    // add to entry obj the cross chain outputs if any
-    AddTxCrosschainJSON(wtx, entry);
+    // add the cross chain outputs if any
+    Sidechain::AddSidechainOutsToJSON(wtx, entry);
 
     entry.push_back(Pair("vjoinsplit", TxJoinSplitToJSON(wtx)));
 }
@@ -433,11 +432,10 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtr
     std::string strError;
     vector<CRecipient> vecSend;
     vector< Sidechain::CcRecipientVariant > vecCcSend;
-    bool bFundScCreation = false;
     int nChangePosRet = -1;
     CRecipient recipient = {scriptPubKey, nValue, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
-    if (!pwalletMain->CreateTransaction(vecSend, vecCcSend, wtxNew, reservekey, nFeeRequired, nChangePosRet, bFundScCreation, strError)) {
+    if (!pwalletMain->CreateTransaction(vecSend, vecCcSend, wtxNew, reservekey, nFeeRequired, nChangePosRet, strError)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > pwalletMain->GetBalance())
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s because of its amount, complexity, or use of recently received funds!", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
@@ -504,14 +502,14 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
     return wtx.GetHash().GetHex();
 }
 
-UniValue sc_fwdtr(const UniValue& params, bool fHelp)
+UniValue sc_send(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp || params.size() != 3)
         throw runtime_error(
-            "sc_fwdtr \"address\" amount ( \"comment\" \"comment-to\" subtractfeefromamount )\n"
+            "sc_send \"address\" amount ( \"comment\" \"comment-to\" subtractfeefromamount )\n"
             "\nSend an amount to a given address. The amount is a real and is rounded to the nearest 0.00000001\n"
             + HelpRequiringPassphrase() +
             "\nArguments:\n"
@@ -521,7 +519,7 @@ UniValue sc_fwdtr(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"transactionid\"  (string) The transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sc_fwdtr", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 0.1 \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\"")
+            + HelpExampleCli("sc_send", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 0.1 \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -573,7 +571,7 @@ UniValue sc_fwdtr(const UniValue& params, bool fHelp)
     array.push_back(entry);
 
     input.push_back(array);
-    return sc_fwdtr_many(input, false);
+    return sc_sendmany(input, false);
 }
 
 UniValue sc_certlock(const UniValue& params, bool fHelp)
@@ -652,10 +650,9 @@ static void ScHandleTransaction(CWalletTx& wtx, std::vector<CcRecipientVariant>&
     CReserveKey keyChange(pwalletMain);
     CAmount nFeeRequired = 0;
     int nChangePosRet = -1;
-    bool bFundScCreation = false;
     string strFailReason;
     std::vector<CRecipient> vecSend;
-    bool fCreated = pwalletMain->CreateTransaction(vecSend, vecCcSend, wtx, keyChange, nFeeRequired, nChangePosRet, bFundScCreation, strFailReason);
+    bool fCreated = pwalletMain->CreateTransaction(vecSend, vecCcSend, wtx, keyChange, nFeeRequired, nChangePosRet, strFailReason);
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     if (!pwalletMain->CommitTransaction(wtx, keyChange))
@@ -758,7 +755,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     EnsureWalletIsUnlocked();
 
     CWalletTx wtx;
-    ScHandleTransaction(wtx, vecSend, (nTotalOut + SC_CREATION_FEE) );
+    ScHandleTransaction(wtx, vecSend, nTotalOut);
 
     return wtx.GetHash().GetHex();
 }
@@ -1357,8 +1354,7 @@ UniValue sendmany(const UniValue& params, bool fHelp)
     int nChangePosRet = -1;
     string strFailReason;
     vector< Sidechain::CcRecipientVariant > vecCcSend;
-    bool bFundScCreation = false;
-    bool fCreated = pwalletMain->CreateTransaction(vecSend, vecCcSend, wtx, keyChange, nFeeRequired, nChangePosRet, bFundScCreation, strFailReason);
+    bool fCreated = pwalletMain->CreateTransaction(vecSend, vecCcSend, wtx, keyChange, nFeeRequired, nChangePosRet, strFailReason);
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     if (!pwalletMain->CommitTransaction(wtx, keyChange))
@@ -2103,11 +2099,6 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
     CAmount nCredit = wtx.GetCredit(filter);
     CAmount nDebit = wtx.GetDebit(filter);
     
-    if (wtx.nVersion == SC_TX_VERSION)
-    {
-        nOut += wtx.GetValueCcOut();
-    }
-
     CAmount nNet = nCredit - nDebit;
     CAmount nFee = (wtx.IsFromMe(filter) ? nOut - nDebit : 0);
 
@@ -3906,14 +3897,14 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     return operationId;
 }
 
-UniValue sc_fwdtr_many(const UniValue& params, bool fHelp)
+UniValue sc_sendmany(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
-            "sc_fwdtr_many [{\"address\":... ,\"amount\":...,\"scid\":,...},...]\n"
+            "sc_sendmany [{\"address\":... ,\"amount\":...,\"scid\":,...},...]\n"
             "\nSend cross chain forward transfer of coins multiple times. Amounts are double-precision floating point numbers."
             "\nArguments:\n"
             "\"amounts\"                (array, required) An array of json objects representing the amounts to send.\n"
@@ -3926,7 +3917,7 @@ UniValue sc_fwdtr_many(const UniValue& params, bool fHelp)
             "\"transactionid\"          (string) The transaction id for the send. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sc_fwdtr_many", " '[{\"address\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0 ,\"scid\": \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\"}]'")
+            + HelpExampleCli("sc_sendmany", " '[{\"address\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0 ,\"scid\": \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\"}]'")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);

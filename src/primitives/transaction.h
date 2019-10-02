@@ -492,13 +492,13 @@ protected:
 
 };
 
-class CTxForwardTransferCrosschainOut : public CTxCrosschainOut
+class CTxForwardTransferOut : public CTxCrosschainOut
 {
 public:
 
-    CTxForwardTransferCrosschainOut() { SetNull(); }
+    CTxForwardTransferOut() { SetNull(); }
 
-    CTxForwardTransferCrosschainOut( const CAmount& nValueIn, uint256 addressIn, uint256 scIdIn):
+    CTxForwardTransferOut( const CAmount& nValueIn, uint256 addressIn, uint256 scIdIn):
         CTxCrosschainOut(nValueIn, addressIn, scIdIn) {}
 
     ADD_SERIALIZE_METHODS;
@@ -513,18 +513,18 @@ public:
     virtual uint256 GetHash() const;
     virtual std::string ToString() const;
 
-    friend bool operator==(const CTxForwardTransferCrosschainOut& a, const CTxForwardTransferCrosschainOut& b)
+    friend bool operator==(const CTxForwardTransferOut& a, const CTxForwardTransferOut& b)
     {
         return (isBaseEqual(a, b));
     }
 
-    friend bool operator!=(const CTxForwardTransferCrosschainOut& a, const CTxForwardTransferCrosschainOut& b)
+    friend bool operator!=(const CTxForwardTransferOut& a, const CTxForwardTransferOut& b)
     {
         return !(a == b);
     }
 };
 
-class CTxScCreationCrosschainOut
+class CTxScCreationOut
 {
 public:
     uint256 scId;
@@ -540,9 +540,9 @@ public:
     CAmount minBkwTransferAmount;
 */
 
-    CTxScCreationCrosschainOut() { SetNull(); }
+    CTxScCreationOut() { SetNull(); }
 
-    CTxScCreationCrosschainOut(uint256 scIdIn, int withdrawalEpochLengthIn)
+    CTxScCreationOut(uint256 scIdIn, int withdrawalEpochLengthIn)
         :scId(scIdIn), withdrawalEpochLength(withdrawalEpochLengthIn) {}
 
     ADD_SERIALIZE_METHODS;
@@ -562,27 +562,27 @@ public:
     virtual uint256 GetHash() const;
     virtual std::string ToString() const;
 
-    friend bool operator==(const CTxScCreationCrosschainOut& a, const CTxScCreationCrosschainOut& b)
+    friend bool operator==(const CTxScCreationOut& a, const CTxScCreationOut& b)
     {
         return ( a.scId == b.scId &&
                 a.withdrawalEpochLength == b.withdrawalEpochLength);
     }
 
-    friend bool operator!=(const CTxScCreationCrosschainOut& a, const CTxScCreationCrosschainOut& b)
+    friend bool operator!=(const CTxScCreationOut& a, const CTxScCreationOut& b)
     {
         return !(a == b);
     }
 };
 
-class CTxCertifierLockCrosschainOut : public CTxCrosschainOut
+class CTxCertifierLockOut : public CTxCrosschainOut
 {
 public:
 
     int64_t activeFromWithdrawalEpoch; 
 
-    CTxCertifierLockCrosschainOut() { SetNull(); }
+    CTxCertifierLockOut() { SetNull(); }
 
-    CTxCertifierLockCrosschainOut(const CAmount& nValueIn, uint256 addressIn, uint256 scIdIn, int64_t epoch)
+    CTxCertifierLockOut(const CAmount& nValueIn, uint256 addressIn, uint256 scIdIn, int64_t epoch)
         :CTxCrosschainOut(nValueIn, addressIn, scIdIn), activeFromWithdrawalEpoch(epoch) {}
 
     ADD_SERIALIZE_METHODS;
@@ -604,13 +604,13 @@ public:
     virtual uint256 GetHash() const;
     virtual std::string ToString() const;
 
-    friend bool operator==(const CTxCertifierLockCrosschainOut& a, const CTxCertifierLockCrosschainOut& b)
+    friend bool operator==(const CTxCertifierLockOut& a, const CTxCertifierLockOut& b)
     {
         return (isBaseEqual(a, b) &&
                 a.activeFromWithdrawalEpoch == b.activeFromWithdrawalEpoch);
     }
 
-    friend bool operator!=(const CTxCertifierLockCrosschainOut& a, const CTxCertifierLockCrosschainOut& b)
+    friend bool operator!=(const CTxCertifierLockOut& a, const CTxCertifierLockOut& b)
     {
         return !(a == b);
     }
@@ -648,9 +648,9 @@ public:
     const int32_t nVersion;
     const std::vector<CTxIn> vin;
     const std::vector<CTxOut> vout;
-    const std::vector<CTxScCreationCrosschainOut> vsc_ccout;
-    const std::vector<CTxCertifierLockCrosschainOut> vcl_ccout;
-    const std::vector<CTxForwardTransferCrosschainOut> vft_ccout;
+    const std::vector<CTxScCreationOut> vsc_ccout;
+    const std::vector<CTxCertifierLockOut> vcl_ccout;
+    const std::vector<CTxForwardTransferOut> vft_ccout;
     const uint32_t nLockTime;
     const std::vector<JSDescription> vjoinsplit;
     const uint256 joinSplitPubKey;
@@ -672,11 +672,11 @@ public:
         nVersion = this->nVersion;
         READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
         READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
-        if (nVersion == SC_TX_VERSION)
+        if (this->IsScVersion())
         {
-            READWRITE(*const_cast<std::vector<CTxScCreationCrosschainOut>*>(&vsc_ccout));
-            READWRITE(*const_cast<std::vector<CTxCertifierLockCrosschainOut>*>(&vcl_ccout));
-            READWRITE(*const_cast<std::vector<CTxForwardTransferCrosschainOut>*>(&vft_ccout));
+            READWRITE(*const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout));
+            READWRITE(*const_cast<std::vector<CTxCertifierLockOut>*>(&vcl_ccout));
+            READWRITE(*const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout));
         }
         READWRITE(*const_cast<uint32_t*>(&nLockTime));
         if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {
@@ -693,9 +693,15 @@ public:
     template <typename Stream>
     CTransaction(deserialize_type, Stream& s) : CTransaction(CMutableTransaction(deserialize, s)) {}
 
+    bool IsScVersion() const
+    {
+        // so far just one version
+        return (nVersion == SC_TX_VERSION);
+    }
+
     bool IsNull() const {
         bool ret = vin.empty() && vout.empty();
-        if (nVersion == SC_TX_VERSION)
+        if (IsScVersion() )
         {
             ret = ret && ccIsNull();
         }
@@ -715,17 +721,11 @@ public:
 
     // Return sum of txouts.
     CAmount GetValueOut() const;
-    CAmount GetValueCcOut() const
-    {
-        return (GetValueScCreationCcOut() +
-                GetValueCertifierLockCcOut() +
-                GetValueForwardTransferCcOut() );
-    }
 
     // Return sum of txccouts.
-    CAmount GetValueScCreationCcOut() const;
     CAmount GetValueCertifierLockCcOut() const;
     CAmount GetValueForwardTransferCcOut() const;
+
     // GetValueIn() is a method on CCoinsViewCache, because
     // inputs must be known to compute value in.
 
@@ -827,9 +827,9 @@ struct CMutableTransaction
     int32_t nVersion;
     std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
-    std::vector<CTxScCreationCrosschainOut> vsc_ccout;
-    std::vector<CTxCertifierLockCrosschainOut> vcl_ccout;
-    std::vector<CTxForwardTransferCrosschainOut> vft_ccout;
+    std::vector<CTxScCreationOut> vsc_ccout;
+    std::vector<CTxCertifierLockOut> vcl_ccout;
+    std::vector<CTxForwardTransferOut> vft_ccout;
     uint32_t nLockTime;
     std::vector<JSDescription> vjoinsplit;
     uint256 joinSplitPubKey;
@@ -846,7 +846,7 @@ struct CMutableTransaction
         nVersion = this->nVersion;
         READWRITE(vin);
         READWRITE(vout);
-        if (nVersion == SC_TX_VERSION)
+        if (this->IsScVersion())
         {
             READWRITE(vsc_ccout);
             READWRITE(vcl_ccout);
@@ -872,131 +872,13 @@ struct CMutableTransaction
      * fly, as opposed to GetHash() in CTransaction, which uses a cached result.
      */
     uint256 GetHash() const;
-};
 
-class CTxBackwardTransferCrosschainOut : public CTxOut
-{
-public:
-
-    CTxBackwardTransferCrosschainOut() { SetNull(); }
-
-    CTxBackwardTransferCrosschainOut( const CAmount& nValueIn, CScript addressIn):
-        CTxOut(nValueIn, addressIn) {}
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        // the parent slice
-        READWRITE(*(CTxOut*)this);
-        // any extensions go here
-        //...
-    }
-
-    virtual uint256 GetHash() const;
-    virtual std::string ToString() const;
-};
-
-struct CMutableScCertificate;
-
-class CScCertificate
-{
-private:
-    /** Memory only. */
-    const uint256 hash;
-    void UpdateHash() const;
-
-public:
-    static const int32_t MIN_OLD_CERT_VERSION = 1;
-
-    const int32_t nVersion;
-    const uint256 scId;
-    const std::vector<CTxIn> vin;
-    const std::vector<CTxBackwardTransferCrosschainOut> vbt_ccout;
-    const uint32_t nLockTime;
-
-    /** Construct a CScCertificate that qualifies as IsNull() */
-    CScCertificate();
-
-    /** Convert a CMutableScCertificate into a CScCertificate.  */
-    CScCertificate(const CMutableScCertificate &tx);
-
-    CScCertificate& operator=(const CScCertificate& tx);
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(*const_cast<int32_t*>(&this->nVersion));
-        nVersion = this->nVersion;
-        READWRITE(*const_cast<uint256*>(&scId));
-        READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
-        READWRITE(*const_cast<std::vector<CTxBackwardTransferCrosschainOut>*>(&vbt_ccout));
-        READWRITE(*const_cast<uint32_t*>(&nLockTime));
-        if (ser_action.ForRead())
-            UpdateHash();
-    }
-
-    template <typename Stream>
-    CScCertificate(deserialize_type, Stream& s) : CScCertificate(CMutableScCertificate(deserialize, s)) {}
-
-    bool IsNull() const {
-        return vin.empty() && vbt_ccout.empty();
-    }
-
-    const uint256& GetHash() const {
-        return hash;
-    }
-
-    CAmount GetValueBackwardTransferCcOut() const;
-
-
-    friend bool operator==(const CScCertificate& a, const CScCertificate& b)
+    bool IsScVersion() const
     {
-        return a.hash == b.hash;
+        // so far just one version
+        return (nVersion == SC_TX_VERSION);
     }
 
-    friend bool operator!=(const CScCertificate& a, const CScCertificate& b)
-    {
-        return a.hash != b.hash;
-    }
-
-    std::string ToString() const;
-};
-
-/** A mutable version of CScCertificate. */
-struct CMutableScCertificate
-{
-    int32_t nVersion;
-    uint256 scId;
-    std::vector<CTxIn> vin;
-    std::vector<CTxBackwardTransferCrosschainOut> vbt_ccout;
-    uint32_t nLockTime;
-
-    CMutableScCertificate();
-    CMutableScCertificate(const CScCertificate& tx);
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(this->nVersion);
-        nVersion = this->nVersion;
-        READWRITE(scId);
-        READWRITE(vin);
-        READWRITE(vbt_ccout);
-        READWRITE(nLockTime);
-    }
-
-    template <typename Stream>
-    CMutableScCertificate(deserialize_type, Stream& s) {
-        Unserialize(s);
-    }
-
-    /** Compute the hash of this CMutableScCertificate. This is computed on the
-     * fly, as opposed to GetHash() in CTransaction, which uses a cached result.
-     */
-    uint256 GetHash() const;
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

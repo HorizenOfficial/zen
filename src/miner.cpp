@@ -153,8 +153,7 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
             dPriority = mi->second.GetPriority(nHeight);
             nFee = mi->second.GetFee();
             mempool.ApplyDeltas(hash, dPriority, nFee);
-            // not used
-            // nTotalIn = tx.GetValueOut() - nFee;
+            nTotalIn = tx.GetValueOut() - nFee;
         }
         else
         {
@@ -193,7 +192,7 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
             // Priority is sum(valuein * age) / modified_txsize
             dPriority = tx.ComputePriority(dPriority, nTxSize);
             mempool.ApplyDeltas(hash, dPriority, nTotalIn);
-            nFee = nTotalIn - tx.GetValueOut() - tx.GetValueCcOut();
+            nFee = nTotalIn - tx.GetValueOut();
         }
 
         CFeeRate feeRate(nFee, nTxSize);
@@ -278,7 +277,7 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
         uint256 hash = tx.GetHash();
         mempool.ApplyDeltas(hash, dPriority, nTotalIn);
 
-        CFeeRate feeRate(nTotalIn-tx.GetValueOut()-tx.GetValueCcOut(), nTxSize);
+        CFeeRate feeRate(nTotalIn-tx.GetValueOut(), nTxSize);
 
         if (porphan)
         {
@@ -429,7 +428,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             // not yet in blockchain. This should happen only if a chain has been reverted and a mix of creation/transfers
             // has been placed back in the mem pool The skipped tx will be mined in the next block if the scid is found
             CValidationState state;
-            if ( !Sidechain::ScMgr::instance().checkSidechainForwardTransaction(tx, state) )
+            if ( !Sidechain::ScMgr::instance().checkSidechainOutputs(tx, state) )
             {
                 if (state.GetRejectCode() == REJECT_SCID_NOT_FOUND)
                 {
@@ -444,7 +443,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 continue;
             }
     
-            CAmount nTxFees = view.GetValueIn(tx)-tx.GetValueOut()-tx.GetValueCcOut();
+            CAmount nTxFees = view.GetValueIn(tx)-tx.GetValueOut();
 
             nTxSigOps += GetP2SHSigOpCount(tx, view);
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)

@@ -994,7 +994,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
         scId.SetHex(inputString);
  
         UniValue sc(UniValue::VOBJ);
-        if (!ScMgr::instance().fillJSON(scId, sc) )
+        if (!ScMgr::fillJSON(scId, sc) )
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
         }
@@ -1051,11 +1051,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
  
     const uint256& blockHash = info.creationBlockHash;
 
-    if (mapBlockIndex.count(blockHash) == 0)
-    {
-        LogPrint("sc", "cound not find creating block\n", scId.ToString() );
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
-    }
+    assert(mapBlockIndex.count(blockHash) != 0);
 
     CBlock block;
     CBlockIndex* pblockindex = mapBlockIndex[blockHash];

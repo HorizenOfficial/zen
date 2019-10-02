@@ -425,7 +425,6 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssValue >> wtx;
             CValidationState state;
             auto verifier = libzcash::ProofVerifier::Strict();
-            static const bool fVerifyingDB = true;
             if (!(CheckTransaction(wtx, state, verifier) && (wtx.GetHash() == hash) && state.IsValid()))
             {
                 // Don't consider REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND error code as a failure. It can appear because a tx

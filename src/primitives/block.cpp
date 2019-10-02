@@ -57,9 +57,15 @@ uint256 CBlock::BuildMerkleTree(bool* fMutated) const
     vMerkleTree.reserve(vtx.size() * 2 + 16); // Safe upper bound for the number of total nodes.
     for (std::vector<CTransaction>::const_iterator it(vtx.begin()); it != vtx.end(); ++it)
         vMerkleTree.push_back(it->GetHash());
+
+    return BuildMerkleTree(vMerkleTree, vtx.size(), fMutated);
+}
+
+uint256 CBlock::BuildMerkleTree(std::vector<uint256>& vMerkleTree, size_t vtxSize, bool* fMutated) const
+{
     int j = 0;
     bool mutated = false;
-    for (int nSize = vtx.size(); nSize > 1; nSize = (nSize + 1) / 2)
+    for (int nSize = vtxSize; nSize > 1; nSize = (nSize + 1) / 2)
     {
         for (int i = 0; i < nSize; i += 2)
         {
@@ -70,33 +76,6 @@ uint256 CBlock::BuildMerkleTree(bool* fMutated) const
             }
             vMerkleTree.push_back(Hash(BEGIN(vMerkleTree[j+i]),  END(vMerkleTree[j+i]),
                                        BEGIN(vMerkleTree[j+i2]), END(vMerkleTree[j+i2])));
-        }
-        j += nSize;
-    }
-    if (fMutated) {
-        *fMutated = mutated;
-    }
-    return (vMerkleTree.empty() ? uint256() : vMerkleTree.back());
-}
-
-uint256 CBlock::BuildMerkleRootHash(const std::vector<uint256>& vInput, bool* fMutated) 
-{
-    // copy it
-    std::vector<uint256> vTempMerkleTree = vInput;
-
-    int j = 0;
-    bool mutated = false;
-    for (int nSize = vInput.size(); nSize > 1; nSize = (nSize + 1) / 2)
-    {
-        for (int i = 0; i < nSize; i += 2)
-        {
-            int i2 = std::min(i+1, nSize-1);
-            if (i2 == i + 1 && i2 + 1 == nSize && vTempMerkleTree[j+i] == vTempMerkleTree[j+i2]) {
-                // Two identical hashes at the end of the list at a particular level.
-                mutated = true;
-            }
-            vTempMerkleTree.push_back(Hash(BEGIN(vTempMerkleTree[j+i]),  END(vTempMerkleTree[j+i]),
-                                       BEGIN(vTempMerkleTree[j+i2]), END(vTempMerkleTree[j+i2])));
 #ifdef DEBUG_SC_HASH
             std::cout << " -------------------------------------------" << std::endl;
             std::cout << i << ") mkl hash: " << vTempMerkleTree.back().ToString() << std::endl;
@@ -107,7 +86,13 @@ uint256 CBlock::BuildMerkleRootHash(const std::vector<uint256>& vInput, bool* fM
     if (fMutated) {
         *fMutated = mutated;
     }
-    return (vTempMerkleTree.empty() ? uint256() : vTempMerkleTree.back());
+    return (vMerkleTree.empty() ? uint256() : vMerkleTree.back());
+}
+
+uint256 CBlock::BuildMerkleRootHash(const std::vector<uint256>& vInput) 
+{
+    std::vector<uint256> vTempMerkleTree = vInput;
+    return BuildMerkleTree(vTempMerkleTree, vInput.size());
 }
 
 uint256 CBlock::BuildScMerkleRootsMap()
