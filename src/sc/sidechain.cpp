@@ -141,6 +141,7 @@ bool ScMgr::checkSidechainState(const CTransaction& tx)
         return false;
     }
 
+    return true;
 }
 
 bool ScMgr::checkSidechainCreation(const CTransaction& tx, CValidationState& state)
