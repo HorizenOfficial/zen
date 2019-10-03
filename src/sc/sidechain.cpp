@@ -7,6 +7,7 @@
 #include "script/standard.h"
 #include "univalue.h"
 #include "consensus/validation.h"
+#include <boost/thread.hpp>
 
 extern CChain chainActive;
 extern UniValue ValueFromAmount(const CAmount& amount);
