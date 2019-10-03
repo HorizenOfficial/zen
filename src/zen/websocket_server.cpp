@@ -34,7 +34,7 @@ static int tot_connections = 0;
 
 class WsNotificationInterface;
 class WsHandler;
-static std::string getblock(const CBlockIndex *pindex);
+static int getblock(const CBlockIndex *pindex, std::string& blockHexStr);
 static void ws_updatetip(const CBlockIndex *pindex);
 
 static WsNotificationInterface* wsNotificationInterface = NULL;
@@ -212,7 +212,12 @@ private:
 				return INVALID_PARAMETER;
 			}
 		}
-		std::string block = getblock(pblockindex);
+		std::string block;
+        int ret = getblock(pblockindex, block);
+        if (ret != OK)
+        {
+            return ret;
+        }
 		sendBlock(pblockindex->nHeight, strHash, block, WsEvent::MSG_RESPONSE, clientRequestId);
 		return OK;
 	}
@@ -288,6 +293,9 @@ private:
 				{
 					LOCK(cs_main);
 					CBlockIndex* pblockindex = mapBlockIndex[hash];
+			        if (pblockindex == NULL) {
+				        return INVALID_PARAMETER;
+			        }
 					if (pblockindex->nHeight > lastH) {
 						lastH = pblockindex->nHeight;
 						pblockindexStart = mapBlockIndex[hash];
@@ -376,9 +384,7 @@ private:
 			}
 
 			msgType = findFieldValue("msgType", request);
-
 			clientRequestId = findFieldValue("requestId", request);
-
 			requestType = findFieldValue("requestType", request);
 			if (requestType.empty()) {
 				return INVALID_COMMAND;
@@ -623,20 +629,19 @@ public:
 };
 
 
-static std::string getblock(const CBlockIndex *pindex)
+static int getblock(const CBlockIndex *pindex, std::string& strHex)
 {
-	std::string strHex;
 	CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
 	{
 		LOCK(cs_main);
 		CBlock block;
 		if (!ReadBlockFromDisk(block, pindex)) {
-			// return ERRORR;
+			return WsHandler::READ_ERROR;
 		}
 		ss << block;
 		strHex = HexStr(ss.begin(), ss.end());
 	}
-	return strHex;
+	return WsHandler::OK;
 }
 
 
@@ -644,7 +649,14 @@ static std::string getblock(const CBlockIndex *pindex)
 
 static void ws_updatetip(const CBlockIndex *pindex)
 {
-	std::string strHex = getblock(pindex);
+	std::string strHex;
+    int ret = getblock(pindex, strHex);
+    if (ret != WsHandler::OK)
+    {
+        // should not happen
+	    LogPrintf("ERROR: websocket: can not update tip!\n");
+        return;
+    }
 	LogPrintf("websocket: update tip loop on ws clients.\n");
 	{
 		std::unique_lock<std::mutex> lck(wsmtx);
