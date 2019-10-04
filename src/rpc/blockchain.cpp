@@ -1064,13 +1064,10 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
 
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
 
-    // block hex data
-    ssBlock << block;
+    // scid
+    ssBlock << scId;
 
-    // block height
-    ssBlock << pblockindex->nHeight;
-
-    // get pow data
+    // pow data
     const int vec_size = Params().GetConsensus().nPowAveragingWindow + CBlockIndex::nMedianTimeSpan;
 
     std::vector<ScPowRelatedData> vData;
@@ -1092,6 +1089,12 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     }
 
     ssBlock << vData;
+
+    // block height
+    ssBlock << pblockindex->nHeight;
+
+    // block hex data
+    ssBlock << block;
 
     std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
     return strHex;
