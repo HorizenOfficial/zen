@@ -6,7 +6,7 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_node, connect_nodes
+    start_node, connect_nodes, sync_mempools
 
 from decimal import Decimal
 
@@ -71,6 +71,8 @@ class GetBlockTemplateBlockMaxComplexityTest(BitcoinTestFramework):
 	    tx_rawtx = self.nodes[0].createrawtransaction(tx_inputs, tx_outputs)
             tx_rawtx = self.nodes[0].signrawtransaction(tx_rawtx)
 	    tx_rawtx = self.nodes[0].sendrawtransaction(tx_rawtx['hex'])
+            # Wait for wallet to catch up with mempool for listunspent call
+            sync_mempools([self.nodes[0]])
 
 	# Create transaction 3 transactions with 2 inputs each
 	# Each transaction complexity will be equal to 2*2=4
@@ -85,6 +87,8 @@ class GetBlockTemplateBlockMaxComplexityTest(BitcoinTestFramework):
 	    tx_rawtx = self.nodes[0].createrawtransaction(tx_inputs, tx_outputs)
             tx_rawtx = self.nodes[0].signrawtransaction(tx_rawtx)
 	    tx_rawtx = self.nodes[0].sendrawtransaction(tx_rawtx['hex'])
+            # Wait for wallet to catch up with mempool for listunspent call
+            sync_mempools([self.nodes[0]])
 
 	self.sync_all()
 
