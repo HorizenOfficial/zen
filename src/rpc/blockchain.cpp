@@ -1064,6 +1064,16 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
 
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
 
+    // ntw type
+    CBaseChainParams::Network network = NetworkIdFromCommandLine();
+    if (network >= CBaseChainParams::Network::MAX_NETWORK_TYPES)
+    {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Illegal network type " + std::to_string(network) );
+    }
+    char cNetwork = (char)network;
+    LogPrint("sc", "ntw type[%d]\n", cNetwork);
+    ssBlock << cNetwork;;
+
     // scid
     ssBlock << scId;
 
