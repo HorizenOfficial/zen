@@ -277,6 +277,7 @@ libbitcoin_server_a_SOURCES = \
   torcontrol.cpp \
   txdb.cpp \
   txmempool.cpp \
+  txverificationqueue.cpp \
   validationinterface.cpp \
   versionbits.cpp \
   $(BITCOIN_CORE_H) \

@@ -24,6 +24,7 @@
 #include "sync.h"
 #include "tinyformat.h"
 #include "txmempool.h"
+#include "txverificationqueue.h"
 #include "uint256.h"
 #include "versionbits.h"
 
@@ -590,3 +591,6 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 }
 
 #endif // BITCOIN_MAIN_H
+
+void checkOneTx(CNode* pfrom, CTransaction tx);
+void txVerificationThread();

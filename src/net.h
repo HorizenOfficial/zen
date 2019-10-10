@@ -95,6 +95,7 @@ static std::string securitylevel;
 static std::string validationdescription;
 
 typedef int NodeId;
+CNode* FindNode(NodeId nodeId);
 
 struct CombinerAll
 {

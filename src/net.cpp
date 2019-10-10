@@ -380,6 +380,14 @@ CNode* FindNode(const CService& addr)
     return NULL;
 }
 
+CNode* FindNode(NodeId nodeId)
+{
+    LOCK(cs_vNodes);
+    BOOST_FOREACH(CNode* pnode, vNodes)
+        if (pnode->GetId() == nodeId)
+            return (pnode);
+    return NULL;
+}
 
 
 CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
