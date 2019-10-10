@@ -78,7 +78,7 @@ uint256 CBlock::BuildMerkleTree(std::vector<uint256>& vMerkleTree, size_t vtxSiz
                                        BEGIN(vMerkleTree[j+i2]), END(vMerkleTree[j+i2])));
 #ifdef DEBUG_SC_HASH
             std::cout << " -------------------------------------------" << std::endl;
-            std::cout << i << ") mkl hash: " << vTempMerkleTree.back().ToString() << std::endl;
+            std::cout << i << ") mkl hash: " << vMerkleTree.back().ToString() << std::endl;
 #endif
         }
         j += nSize;
@@ -118,16 +118,21 @@ uint256 CBlock::BuildScMerkleRootsMap()
 
     BOOST_FOREACH(const auto& pair, mScMerkleTreeLeaves)
     {
-        const uint256& scid = pair.first;
-        uint256 mklHash = BuildMerkleRootHash(pair.second);
-#ifdef DEBUG_SC_HASH
-        std::cout << " -------------------------------------------" << std::endl;
-        std::cout << "  sc mkl hash: " << mklHash.ToString() << std::endl;
-#endif
+        const uint256& scId = pair.first;
+        const uint256& mklHash = BuildMerkleRootHash(pair.second);
 
         LogPrint("sc", "%s():%d built merkle root for sc[%s] with %d leaves: [%s]\n",
-            __func__, __LINE__, scid.ToString(), pair.second.size(), mklHash.ToString() );
-        vSortedLeaves.push_back(mklHash);
+            __func__, __LINE__, scId.ToString(), pair.second.size(), mklHash.ToString() );
+
+        const uint256& leaf = Hash( BEGIN(scId), END(scId), BEGIN(mklHash), END(mklHash) );
+
+#ifdef DEBUG_SC_HASH
+        std::cout << " -------------------------------------------" << std::endl;
+        std::cout << "  sc mkl hash:  " << mklHash.ToString() << std::endl;
+        std::cout << "  sc leaf hash: " << leaf.ToString() << std::endl;
+#endif
+
+        vSortedLeaves.push_back(leaf);
     }
 
     return BuildMerkleRootHash(vSortedLeaves);
