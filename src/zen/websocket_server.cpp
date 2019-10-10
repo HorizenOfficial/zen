@@ -34,11 +34,13 @@ static int tot_connections = 0;
 
 class WsNotificationInterface;
 class WsHandler;
+
 static int getblock(const CBlockIndex *pindex, std::string& blockHexStr);
 static void ws_updatetip(const CBlockIndex *pindex);
 
-static WsNotificationInterface* wsNotificationInterface = NULL;
-std::list<WsHandler*> listWsHandler;
+static boost::shared_ptr<WsNotificationInterface> wsNotificationInterface;
+static std::list< boost::shared_ptr<WsHandler> > listWsHandler;
+
 std::atomic<bool> exit_ws_thread{false};
 boost::thread ws_thread;
 std::mutex wsmtx;
@@ -62,6 +64,11 @@ protected:
     virtual void UpdatedBlockTip(const CBlockIndex *pindex) {
         ws_updatetip(pindex);
     };
+public:
+    ~WsNotificationInterface() 
+    {
+        LogPrint("ws", "%s():%d - called this=%p\n", __func__, __LINE__, this);
+    }
 };
 
 class WsEvent
@@ -107,7 +114,7 @@ private:
 class WsHandler
 {
 private:
-    websocket::stream<tcp::socket>* localWs = NULL;
+    boost::shared_ptr< websocket::stream<tcp::socket>> localWs;
     boost::lockfree::queue<WsEvent*, boost::lockfree::capacity<1024>> wsq;
     std::atomic<bool> exit_rwhandler_thread_flag { false };
 
@@ -382,7 +389,7 @@ private:
             if (!wsq.empty())
             {
                 WsEvent* wse;
-                if (wsq.pop(wse))
+                if (wsq.pop(wse) && wse != NULL)
                 {
                     std::string msg = wse->getPayload()->write();
                     LogPrint("ws", "%s():%d - deleting %p\n", __func__, __LINE__, wse);
@@ -422,7 +429,7 @@ private:
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
         }
-        LogPrint("ws", "%s():%d - write thread exit\n", __func__, __LINE__);
+        LogPrint("ws", "%s():%d - write thread exit (this=%p)\n", __func__, __LINE__, this);
     }
 
     int parseClientMessage(WsEvent::WsRequestType& reqType, std::string& clientRequestId) 
@@ -643,12 +650,9 @@ public:
 
     unsigned int t_id = 0;
 
-    WsHandler():localWs(NULL) { }
-
+    WsHandler() {}
     ~WsHandler() {
-        LogPrint("ws", "%s():%d - deleting %p\n", __func__, __LINE__, localWs);
-        delete localWs;
-        localWs = NULL;
+        LogPrint("ws", "%s():%d - called this=%p\n", __func__, __LINE__, this);
     }
 
     WsHandler & operator=(const WsHandler& wsh) = delete;
@@ -664,12 +668,15 @@ public:
 
     void do_session(tcp::socket& socket, unsigned int t_id)
     {
+        // will be referenced when shutting down in order not destroying ptr while executing this thread
+        boost::shared_ptr<WsHandler> thisRef;
+
         this->t_id = t_id;
 
         try
         {
-            localWs = new websocket::stream<tcp::socket> { std::move(socket) };
-            LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, localWs);
+            localWs.reset(new websocket::stream<tcp::socket> { std::move(socket) });
+            LogPrint("ws", "%s():%d - allocated localWs %p\n", __func__, __LINE__, localWs.get());
 
             localWs->set_option(
                 websocket::stream_base::decorator(
@@ -715,11 +722,23 @@ public:
         {
             std::unique_lock<std::mutex> lck(wsmtx);
             this->shutdown();
-            listWsHandler.remove(this);
             tot_connections--;
             LogPrint("ws", "%s():%d - connection[%u] closed: tot[%d]\n", __func__, __LINE__, t_id, tot_connections);
-            LogPrint("ws", "%s():%d - deleting %p\n", __func__, __LINE__, this);
-            delete this;
+
+            auto it = listWsHandler.begin();
+            while (it != listWsHandler.end())
+            {
+                if (this == (*it).get() )
+                {
+                    thisRef = (*it);
+                    LogPrint("ws", "%s():%d - removing handler obj from list\n", __func__, __LINE__);
+                    listWsHandler.erase(it++);
+                }
+                else
+                {
+                    ++it;
+                }
+            }
         }
     }
 
@@ -776,15 +795,18 @@ static void ws_updatetip(const CBlockIndex *pindex)
         LogPrint("ws", "%s():%d - ERROR: can not update tip\n", __func__, __LINE__);
         return;
     }
-    LogPrint("ws", "%s():%d - update tip loop on ws clients\n", __func__, __LINE__);
     {
         std::unique_lock<std::mutex> lck(wsmtx);
-        std::list<WsHandler*>::iterator i;
-        for (i = listWsHandler.begin(); i != listWsHandler.end(); ++i)
+        if (listWsHandler.size() )
         {
-            WsHandler* wsh = *i;
-            LogPrint("ws", "%s():%d - call wshandler_send_tip_update to connection[%u]\n", __func__, __LINE__, wsh->t_id);
-            wsh->send_tip_update(pindex->nHeight, pindex->GetBlockHash().GetHex(), strHex);
+            LogPrint("ws", "%s():%d - update tip loop on ws clients\n", __func__, __LINE__);
+            auto it = listWsHandler.begin();
+            while (it != listWsHandler.end())
+            {
+                LogPrint("ws", "%s():%d - call wshandler_send_tip_update to connection[%u]\n", __func__, __LINE__, (*it)->t_id);
+                (*it)->send_tip_update(pindex->nHeight, pindex->GetBlockHash().GetHex(), strHex);
+                ++it;
+            }
         }
     }
 }
@@ -795,7 +817,6 @@ static void ws_updatetip(const CBlockIndex *pindex)
 static tcp::acceptor* acceptor = NULL;
 void ws_main(std::string strAddressWs, int portWs)
 {
-    WsHandler* w = NULL;
     std::string peerId;
 
     try {
@@ -820,9 +841,10 @@ void ws_main(std::string strAddressWs, int portWs)
             acceptor->accept(socket);
             WsHandler::getPeerIdentity(socket, peerId);
 
-            w = new WsHandler();
-            LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, w);
-            std::thread { std::bind(&WsHandler::do_session, w,
+            boost::shared_ptr<WsHandler> w(new WsHandler());
+            LogPrint("ws", "%s():%d - allocated ws handler %p\n", __func__, __LINE__, w.get());
+
+            std::thread { std::bind(&WsHandler::do_session, w.get(),
                     std::move(socket), t_id) }.detach();
             {
                 std::unique_lock<std::mutex> lck(wsmtx);
@@ -846,21 +868,15 @@ static void shutdown()
 {
     if (listWsHandler.size() != 0)
     {
+        // list objects are smart_ptrs and will clean up when they go out of scope
         LogPrint("ws", "%s():%d - shutdown %d threads/sockets thread... \n", __func__, __LINE__, listWsHandler.size());
         std::unique_lock<std::mutex> lck(wsmtx);
-        std::list<WsHandler*>::iterator i = listWsHandler.begin();
-        while (i != listWsHandler.end())
+        auto it = listWsHandler.begin();
+        while (it != listWsHandler.end())
         {
-            WsHandler* wsh = *i;
-            if (wsh)
-            {
-                LogPrint("ws", "%s():%d - calling shutdown on handler connection[%u]\n", __func__, __LINE__, wsh->t_id);
-                wsh->shutdown();
-            }
-            LogPrint("ws", "%s():%d - removing handler obj from list\n", __func__, __LINE__);
-            listWsHandler.erase(i++);
-            LogPrint("ws", "%s():%d - deleting handler obj\n", __func__, __LINE__);
-            delete wsh;
+            LogPrint("ws", "%s():%d - calling shutdown on handler connection[%u]\n", __func__, __LINE__, (*it)->t_id);
+            (*it)->shutdown();
+            ++it;
         }
     }
 }
@@ -875,9 +891,9 @@ bool StartWsServer()
         ws_thread = boost::thread(ws_main, strAddress, port);
         ws_thread.detach();
 
-        wsNotificationInterface = new WsNotificationInterface();
-        LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wsNotificationInterface);
-        RegisterValidationInterface(wsNotificationInterface);
+        wsNotificationInterface.reset(new WsNotificationInterface());
+        LogPrint("ws", "%s():%d - allocated notif if %p\n", __func__, __LINE__, wsNotificationInterface.get());
+        RegisterValidationInterface(wsNotificationInterface.get());
     }
     catch (const std::exception& e)
     {
@@ -899,12 +915,9 @@ bool StopWsServer()
             acceptor->close();
             acceptor = NULL;
         }
-        if (wsNotificationInterface != NULL)
+        if (wsNotificationInterface.get() != NULL)
         {
-            UnregisterValidationInterface(wsNotificationInterface);
-            LogPrint("ws", "%s():%d - deleting %p\n", __func__, __LINE__, wsNotificationInterface);
-            delete wsNotificationInterface;
-            wsNotificationInterface = NULL;
+            UnregisterValidationInterface(wsNotificationInterface.get());
         }
     }
     catch (const std::exception& e)
