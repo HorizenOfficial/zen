@@ -4875,13 +4875,19 @@ void static ProcessGetData(CNode* pfrom)
     }
 }
 
+bool checkVerificationQueue(){
+    LOCK(cs_verificationQueue);
+    return verificationQueue.isEmpty();
+}
+
 void txVerificationThread(){
     int i = 0;
     while(true)
     {
-        LOCK(cs_verificationQueue);
-        if (!verificationQueue.isEmpty() || i < 100)
+        if (!checkVerificationQueue() && i < 100)
         {
+            LOCK(cs_verificationQueue);
+            verificationQueue.verifyOne();
             i++;
         }
         else
