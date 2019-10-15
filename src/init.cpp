@@ -65,7 +65,7 @@
 
 #include "librustzcash.h"
 
-#include "zen/websocket_server.h";
+#include "zen/websocket_server.h"
 #include "sc/sidechaincore.h"
 
 using namespace std;

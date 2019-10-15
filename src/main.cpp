@@ -1864,6 +1864,18 @@ void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCach
                 undo.nVersion = coins->nVersion;
             }
         }
+        // sidechain
+        BOOST_FOREACH(auto& cr, tx.vsc_ccout)
+        {
+            txundo.vsc_ccout.push_back( CTxScCreationOutUndo(cr.scId));
+            LogPrint("sc", "%s():%d - added cr undo entry: scId=%s\n", __func__, __LINE__, cr.scId.ToString());
+        }
+        BOOST_FOREACH(auto& ft, tx.vft_ccout)
+        {
+            txundo.vft_ccout.push_back( CTxForwardTransferOutUndo(ft.scId, ft.nValue));
+            LogPrint("sc", "%s():%d - added ft undo entry: scId=%s nValue=%s\n",
+                __func__, __LINE__, ft.scId.ToString(), FormatMoney(ft.nValue));
+        }
     }
 
     // spend nullifiers
@@ -2167,7 +2179,8 @@ static bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const CO
     return fClean;
 }
 
-bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, bool* pfClean)
+bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
+    bool* pfClean, Sidechain::ScCoinsViewCache* scView)
 {
     assert(pindex->GetBlockHash() == view.GetBestBlock());
 
@@ -2227,6 +2240,14 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 const CTxInUndo &undo = txundo.vprevout[j];
                 if (!ApplyTxInUndo(undo, view, out))
                     fClean = false;
+            }
+
+            if (scView) // if this is not set it is called while verifying DB
+            {
+                if (!scView->UpdateScCoins(txundo) )
+                {
+                    return error("DisconnectBlock(): sc and undo data inconsistent");
+                }
             }
         }
     }
@@ -2390,7 +2411,8 @@ static int64_t nTimeIndex = 0;
 static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 
-bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, const CChain& chain, bool fJustCheck)
+bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
+    const CChain& chain, bool fJustCheck, Sidechain::ScCoinsViewCache* scView)
 {
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
@@ -2530,6 +2552,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
         UpdateCoins(tx, state, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
 
+        if ((!fJustCheck && i > 0) && scView)
+        {
+            if (!scView->UpdateScCoins(tx, block, pindex->nHeight) )
+            {
+                return state.DoS(100, error("ConnectBlock(): could not add sidechain in db: tx[%s]", tx.GetHash().ToString()),
+                                 REJECT_INVALID, "bad-sc-tx");
+            }
+        }
+
         BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
             BOOST_FOREACH(const uint256 &note_commitment, joinsplit.commitments) {
                 // Insert the note commitments into our temporary tree.
@@ -2576,6 +2607,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if (!UndoWriteToDisk(blockundo, pos, pindex->pprev->GetBlockHash(), chainparams.MessageStart()))
                 return AbortNode(state, "Failed to write undo data");
 
+            LogPrint("sc", "%s():%d - undo info written on disk\n", __func__, __LINE__);
             // update nUndoPos in block index
             pindex->nUndoPos = pos.nPos;
             pindex->nStatus |= BLOCK_HAVE_UNDO;
@@ -2620,6 +2652,7 @@ enum FlushStateMode {
  * or always and in all cases if we're in prune mode and are deleting files.
  */
 bool static FlushStateToDisk(CValidationState &state, FlushStateMode mode) {
+    LogPrint("sc", "%s():%d - called\n", __func__, __LINE__);
     LOCK2(cs_main, cs_LastBlockFile);
     static int64_t nLastWrite = 0;
     static int64_t nLastFlush = 0;
@@ -2804,20 +2837,17 @@ bool static DisconnectTip(CValidationState &state) {
     int64_t nStart = GetTimeMicros();
     {
         CCoinsViewCache view(pcoinsTip);
-        if (!DisconnectBlock(block, state, pindexDelete, view))
+        Sidechain::ScCoinsViewCache scView;
+        if (!DisconnectBlock(block, state, pindexDelete, view, NULL, &scView))
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         assert(view.Flush());
+        assert(scView.Flush());
     }
     LogPrint("bench", "- Disconnect block: %.2fms\n", (GetTimeMicros() - nStart) * 0.001);
     uint256 anchorAfterDisconnect = pcoinsTip->GetBestAnchor();
     // Write the chain state to disk, if necessary.
     if (!FlushStateToDisk(state, FLUSH_STATE_IF_NEEDED))
         return false;
-
-    if (!scMgr.onBlockDisconnected(block, pindexDelete->nHeight) )
-    {
-        return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
-    }
 
     // Resurrect mempool transactions from the disconnected block.
     BOOST_FOREACH(const CTransaction &tx, block.vtx) {
@@ -2881,7 +2911,9 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     LogPrint("bench", "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * 0.001, nTimeReadFromDisk * 0.000001);
     {
         CCoinsViewCache view(pcoinsTip);
-        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive);
+        Sidechain::ScCoinsViewCache scView;
+        static const bool JUST_CHECK_FALSE = false;
+        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, JUST_CHECK_FALSE, &scView);
         GetMainSignals().BlockChecked(*pblock, state);
         if (!rv) {
             if (state.IsInvalid())
@@ -2892,6 +2924,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint("bench", "  - Connect total: %.2fms [%.2fs]\n", (nTime3 - nTime2) * 0.001, nTimeConnectTotal * 0.000001);
         assert(view.Flush());
+        assert(scView.Flush());
     }
     int64_t nTime4 = GetTimeMicros(); nTimeFlush += nTime4 - nTime3;
     LogPrint("bench", "  - Flush: %.2fms [%.2fs]\n", (nTime4 - nTime3) * 0.001, nTimeFlush * 0.000001);
@@ -2919,12 +2952,6 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     GetMainSignals().ChainTip(pindexNew, pblock, oldTree, true);
 
     EnforceNodeDeprecation(pindexNew->nHeight);
-
-    // as a last thing, update sidechain data if any
-    if (!scMgr.onBlockConnected(*pblock, pindexNew->nHeight) )
-    {
-        return error("ConnectTip(): ConnectBlock %s failed", pindexNew->GetBlockHash().ToString());
-    }
 
     int64_t nTime6 = GetTimeMicros(); nTimePostConnect += nTime6 - nTime5; nTimeTotal += nTime6 - nTime1;
     LogPrint("bench", "  - Connect postprocess: %.2fms [%.2fs]\n", (nTime6 - nTime5) * 0.001, nTimePostConnect * 0.000001);
@@ -3931,7 +3958,9 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
         return false;
     if (!ContextualCheckBlock(block, state, pindexPrev))
         return false;
-    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, true))
+
+    static const bool JUST_CHECK_TRUE = true;
+    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, JUST_CHECK_TRUE))
         return false;
     assert(state.IsValid());
 
@@ -4333,7 +4362,8 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
             if (!ReadBlockFromDisk(block, pindex))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             chainHistorical.SetHeight(pindex->nHeight - 1);
-            if (!ConnectBlock(block, state, pindex, coins, chainHistorical))
+            static const bool JUST_CHECK_FALSE = false;
+            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, JUST_CHECK_FALSE))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         }
     }

@@ -14,6 +14,7 @@
 
 //------------------------------------------------------------------------------------
 class CTxMemPool;
+class CTxUndo;
 class UniValue;
 class CValidationState;
 
@@ -40,9 +41,6 @@ public:
     // creation data
     ScCreationParameters creationData;
 
-    // set of backward transfer tx, it is used for verifying db and wallet at startup
-    // std::set<uint256> sBackwardTransfers;
-
     std::string ToString() const;
 
     ADD_SERIALIZE_METHODS;
@@ -55,35 +53,52 @@ public:
         READWRITE(creationTxHash);
         READWRITE(balance);
         READWRITE(creationData);
-//        READWRITE(sBackwardTransfers);
     }
 };
 
 
 typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
 
+class ScCoinsViewCache
+{
+    ScInfoMap mUpdate;
+    std::set<uint256> sErase;
+
+    bool createSidechain(const CTransaction& tx, const CBlock& block, int nHeight);
+    bool deleteSidechain(const uint256& scId);
+    bool addSidechain(const uint256& scId, const ScInfo& info);
+    void removeSidechain(const uint256& scId);
+
+    bool updateSidechainBalance(const uint256& scId, const CAmount& amount);
+
+public:
+    bool UpdateScCoins(const CTransaction& tx, const CBlock&, int nHeight);
+    bool UpdateScCoins(const CTxUndo& undo);
+
+    bool Flush();
+
+    ScCoinsViewCache() {};
+    ScCoinsViewCache(const ScCoinsViewCache&) = delete;
+    ScCoinsViewCache& operator=(const ScCoinsViewCache &) = delete;
+    ScCoinsViewCache(ScCoinsViewCache&) = delete;
+    ScCoinsViewCache& operator=(ScCoinsViewCache &) = delete;
+};
+
 class ScMgr
 {
   private:
     // Disallow instantiation outside of the class.
-    ScMgr(): db(NULL), bVerifyingDb(false) {}
+    ScMgr(): db(NULL) {}
     ~ScMgr() { delete db; }
 
     CCriticalSection sc_lock;
     ScInfoMap mScInfo;
     CLevelDBWrapper* db;
-    bool bVerifyingDb;
 
     // low level api for DB
+    friend class ScCoinsViewCache;
     bool writeToDb(const uint256& scId, const ScInfo& info);
     void eraseFromDb(const uint256& scId);
-
-    // add/remove/find obj in sc map and DB
-    bool addSidechain(const uint256& scId, const ScInfo& info);
-    void removeSidechain(const uint256& scId);
-    bool addScBackwardTx(const uint256& scId, const uint256& hash);
-    bool removeScBackwardTx(const uint256& scId, const uint256& hash);
-    bool containsScBackwardTx(const uint256& scId, const uint256& txHash);
 
     bool checkSidechainCreation(const CTransaction& tx, CValidationState& state);
     bool hasSCCreationConflictsInMempool(const CTxMemPool& pool, const CTransaction& tx);
@@ -94,8 +109,6 @@ class ScMgr
 
     // return true if the tx is creating the scid
     bool hasSidechainCreationOutput(const CTransaction& tx, const uint256& scId);
-
-    bool updateSidechainBalance(const uint256& scId, const CAmount& amount);
 
     CAmount getSidechainBalance(const uint256& scId);
 
@@ -110,11 +123,8 @@ class ScMgr
 
     bool initialUpdateFromDb(size_t cacheSize, bool fWipe);
 
-    bool sidechainExists(const uint256& scId);
-    bool getScInfo(const uint256& scId, ScInfo& info);
-
-    bool onBlockConnected(const CBlock& block, int nHeight);
-    bool onBlockDisconnected(const CBlock& block, int nHeight);
+    bool sidechainExists(const uint256& scId) const;
+    bool getScInfo(const uint256& scId, ScInfo& info) const;
 
     bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
     bool checkTransaction(const CTransaction& tx, CValidationState& state);
