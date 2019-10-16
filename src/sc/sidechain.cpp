@@ -521,7 +521,7 @@ void ScMgr::fillJSON(UniValue& result)
 bool ScCoinsViewCache::UpdateScCoins(const CTransaction& tx, const CBlock& block, int nHeight)
 {
     LogPrint("sc", "%s():%d - enter tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
-    if (createSidechain(tx, block, nHeight) )
+    if (!createSidechain(tx, block, nHeight) )
     {
         // should never fail at this point
         LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
@@ -530,7 +530,7 @@ bool ScCoinsViewCache::UpdateScCoins(const CTransaction& tx, const CBlock& block
 
     BOOST_FOREACH(auto& ft, tx.vft_ccout)
     {
-        if (updateSidechainBalance(ft.scId, ft.nValue) )
+        if (!updateSidechainBalance(ft.scId, ft.nValue) )
         {
             LogPrint("sc", "ERROR: %s():%d - could not update sc balance: scId=%s\n",
                 __func__, __LINE__, ft.scId.ToString() );
@@ -547,7 +547,7 @@ bool ScCoinsViewCache::UpdateScCoins(const CTxUndo& txundo)
     // update sc balance
     BOOST_FOREACH(const auto& ftUndo, txundo.vft_ccout)
     {
-        if (updateSidechainBalance(ftUndo.scId, (-ftUndo.nValue)) )
+        if (!updateSidechainBalance(ftUndo.scId, (-ftUndo.nValue)) )
         {
             return false;
         }
@@ -556,7 +556,7 @@ bool ScCoinsViewCache::UpdateScCoins(const CTxUndo& txundo)
     BOOST_FOREACH(const auto& crUndo, txundo.vsc_ccout)
     {
         LogPrint("sc", "%s():%d - removing scId=%s\n", __func__, __LINE__, crUndo.scId.ToString());
-        if (deleteSidechain(crUndo.scId) )
+        if (!deleteSidechain(crUndo.scId) )
         {
             return false;
         }
