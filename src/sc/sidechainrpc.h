@@ -14,6 +14,7 @@ class CMutableTransaction;
 namespace Sidechain
 {
 
+class ScInfo;
 class CRecipientFactory;
 
 class CcRecipientVisitor : public boost::static_visitor<bool>
@@ -62,12 +63,20 @@ class CcRecipientAmountVisitor : public boost::static_visitor<CAmount>
     CAmount operator() (const CRecipientBackwardTransfer& r) const { return r.nValue; }
 };
 
+// used in get tx family of rpc commands
 void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj);
 
 // used when creating a raw transaction with cc outputs
 bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, std::string& error);
 bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std::string& error);
 
+// used when funding a raw tx 
+void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant>& vecCcSend);
+
+// used in getscinfo rpc cmd
+void AddScInfoToJSON(UniValue& result);
+bool AddScInfoToJSON(const uint256& scId, UniValue& sc);
+void AddScInfoToJSON(const uint256& scId, const ScInfo& info, UniValue& sc);
 }; // end of namespace
 
 #endif // _SIDECHAIN_RPC_H

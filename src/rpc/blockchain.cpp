@@ -22,7 +22,8 @@
 
 #include <regex>
 
-#include "sc/sidechaincore.h"
+#include "sc/sidechain.h"
+#include "sc/sidechainrpc.h"
 
 using namespace std;
 
@@ -994,7 +995,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
         scId.SetHex(inputString);
  
         UniValue sc(UniValue::VOBJ);
-        if (!ScMgr::fillJSON(scId, sc) )
+        if (!AddScInfoToJSON(scId, sc) )
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
         }
@@ -1004,7 +1005,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
 
     // dump all of them if any
     UniValue result(UniValue::VARR);
-    ScMgr::instance().fillJSON(result);
+    AddScInfoToJSON(result);
 
     return result;
 }

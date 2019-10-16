@@ -28,7 +28,7 @@ using namespace zen;
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 
-#include "sc/sidechaincore.h"
+#include "sc/sidechain.h"
 
 using namespace std;
 using namespace libzcash;
@@ -2567,7 +2567,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
 
     // Turn the ccout set into a CcRecipientVariant vector
     vector< Sidechain::CcRecipientVariant > vecCcSend;
-    ScMgr::fundCcRecipients(tx, vecCcSend);
+    Sidechain::fundCcRecipients(tx, vecCcSend);
     
     CCoinControl coinControl;
     coinControl.fAllowOtherInputs = true;

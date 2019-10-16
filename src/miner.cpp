@@ -39,7 +39,7 @@
 #include <functional>
 #endif
 #include <mutex>
-#include "sc/sidechaincore.h"
+#include "sc/sidechain.h"
 static Sidechain::ScMgr& scMgr = Sidechain::ScMgr::instance();
 
 using namespace std;
@@ -427,28 +427,21 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             // skip transactions that send forward crosschain amounts if the creation of the target sidechain is
             // not yet in blockchain. This should happen only if a chain has been reverted and a mix of creation/transfers
             // has been placed back in the mem pool The skipped tx will be mined in the next block if the scid is found
-            CValidationState state;
-            if ( !Sidechain::ScMgr::instance().checkSidechainOutputs(tx, state) )
+
+            if (!scMgr.IsTxApplicableToState(tx) )
             {
-                if (state.GetRejectCode() == REJECT_SCID_NOT_FOUND)
-                {
-                    LogPrint("sc", "%s():%d - Skipping tx[%s] because tries to forward funds to a SC not yet created\n", __func__, __LINE__, tx.GetHash().ToString());
-                }
-                else
-                {
-                    // should not happen
-                    LogPrint("sc", "%s():%d - Skipping tx[%s]: unexpected error[0x%x] \n",
-                        __func__, __LINE__, tx.GetHash().ToString(), state.GetRejectCode());
-                }
+                LogPrint("sc", "%s():%d - tx=%s is not applicable, skipping it...\n", __func__, __LINE__, tx.GetHash().ToString() );
                 continue;
             }
-    
+
             CAmount nTxFees = view.GetValueIn(tx)-tx.GetValueOut();
 
             nTxSigOps += GetP2SHSigOpCount(tx, view);
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
                 continue;
 
+            CValidationState state;
+    
             // Note that flags: we don't want to set mempool/IsStandard()
             // policy here, but we still have to ensure that the block we
             // create only contains transactions that are valid in new blocks.

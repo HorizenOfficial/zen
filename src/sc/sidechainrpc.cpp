@@ -1,6 +1,8 @@
 #include "sc/sidechainrpc.h"
+#include "sc/sidechain.h"
 #include <univalue.h>
 #include "primitives/transaction.h"
+#include <boost/foreach.hpp>
 
 
 extern UniValue ValueFromAmount(const CAmount& amount);
@@ -136,6 +138,79 @@ bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std
 
     return true;
 }
+
+void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& vecCcSend)
+{
+    BOOST_FOREACH(auto& entry, tx.vsc_ccout)
+    {
+        CRecipientScCreation sc;
+        sc.scId = entry.scId;
+        // when funding a tx with sc creation, the amount is already contained in vcout to foundation
+        sc.creationData.withdrawalEpochLength = entry.withdrawalEpochLength;
+
+        vecCcSend.push_back(CcRecipientVariant(sc));
+    }
+
+    BOOST_FOREACH(auto& entry, tx.vcl_ccout)
+    {
+        CRecipientCertLock cl;
+        cl.scId = entry.scId;
+        cl.nValue = entry.nValue;
+        cl.address = entry.address;
+        cl.epoch = entry.activeFromWithdrawalEpoch;
+
+        vecCcSend.push_back(CcRecipientVariant(cl));
+    }
+
+    BOOST_FOREACH(auto& entry, tx.vft_ccout)
+    {
+        CRecipientForwardTransfer ft;
+        ft.scId = entry.scId;
+        ft.address = entry.address;
+        ft.nValue = entry.nValue;
+
+        vecCcSend.push_back(CcRecipientVariant(ft));
+    }
+}
+
+void AddScInfoToJSON(const uint256& scId, const ScInfo& info, UniValue& sc)
+{
+    sc.push_back(Pair("scid", scId.GetHex()));
+    sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
+    sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
+    sc.push_back(Pair("created in block", info.creationBlockHash.ToString()));
+    sc.push_back(Pair("created at block height", info.creationBlockHeight));
+    // creation parameters
+    sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
+}
+
+bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
+{
+    ScInfo info;
+    if (!ScMgr::instance().getScInfo(scId, info) )
+    {
+        LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+        return false; 
+    }
+ 
+    AddScInfoToJSON(scId, info, sc);
+    return true;
+}
+
+void AddScInfoToJSON(UniValue& result)
+{
+    std::set<uint256> sScIds;
+
+    ScMgr::instance().getScIdSet(sScIds);
+
+    BOOST_FOREACH(const auto& entry, sScIds)
+    {
+        UniValue sc(UniValue::VOBJ);
+        AddScInfoToJSON(entry, sc);
+        result.push_back(sc);
+    }
+}
+
 
 }
 
