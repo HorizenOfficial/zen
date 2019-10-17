@@ -1,4 +1,4 @@
-#include "sc/sidechaincore.h"
+#include "sc/sidechain.h"
 #include "primitives/transaction.h"
 #include "utilmoneystr.h"
 #include "txmempool.h"
@@ -31,12 +31,29 @@ ScMgr& ScMgr::instance()
 
 bool ScMgr::sidechainExists(const uint256& scId) const
 {
-    const auto it = mScInfo.find(scId);
-    return (it != mScInfo.end() );
+    return sidechainExists(scId, mScInfo);
 }
+
+bool ScMgr::sidechainExists(const uint256& scId, const ScInfoMap& map) const
+{
+    LOCK(sc_lock);
+    const auto it = map.find(scId);
+    return (it != map.end() );
+}
+
+void ScMgr::getScIdSet(std::set<uint256>& sScIds) const
+{
+    LOCK(sc_lock);
+    BOOST_FOREACH(const auto& entry, mScInfo)
+    {
+        sScIds.insert(entry.first);
+    }
+}
+
 
 bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const
 {
+    LOCK(sc_lock);
     const auto it = mScInfo.find(scId);
     if (it == mScInfo.end() )
     {
@@ -50,6 +67,7 @@ bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const
 
 CAmount ScMgr::getSidechainBalance(const uint256& scId)
 {
+    LOCK(sc_lock);
     ScInfoMap::iterator it = mScInfo.find(scId);
     if (it == mScInfo.end() )
     {
@@ -60,63 +78,40 @@ CAmount ScMgr::getSidechainBalance(const uint256& scId)
     return it->second.balance;
 }
 
-bool ScMgr::checkSidechainState(const CTransaction& tx)
+bool ScMgr::IsTxApplicableToState(const CTransaction& tx, const ScInfoMap& mUpdate)
 {
     const uint256& txHash = tx.GetHash();
 
     // check creation
     BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
     {
-        ScInfo info;
-        if (getScInfo(sc.scId, info) )
+        if (sidechainExists(sc.scId, mUpdate) )
         {
-            if (info.creationTxHash != txHash )
-            {
-                LogPrint("sc", "%s():%d - Invalid tx[%s] : scid[%s] already created by tx[%s]\n",
-                    __func__, __LINE__, txHash.ToString(), sc.scId.ToString(), info.creationTxHash.ToString() );
-                return false;
-            }
-
-            // this tx is the owner, go on without error. Can happen also in check performed at
-            // startup in VerifyDB 
-            LogPrint("sc", "%s():%d - OK tx[%s] : scid[%s] creation detected\n",
-                __func__, __LINE__, txHash.ToString(), sc.scId.ToString() );
-
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : scid[%s] already created\n",
+                __func__, __LINE__, txHash.ToString(), sc.scId.ToString());
+            return false;
         }
-        else
-        {
-            // this is a brand new sc
-            LogPrint("sc", "%s():%d - No such scid[%s], tx[%s] is creating it\n",
-                __func__, __LINE__, sc.scId.ToString(), txHash.ToString() );
-        }
+        LogPrint("sc", "%s():%d - OK: tx[%s] is creating scId[%s]\n",
+            __func__, __LINE__, txHash.ToString(), sc.scId.ToString());
     }
 
     // check fw tx
-    CValidationState state;
-    if (!checkSidechainOutputs(tx, state) )
+    BOOST_FOREACH(const auto& ft, tx.vft_ccout)
     {
+        const uint256& scId = ft.scId;
+        if (!sidechainExists(scId) )
+        {
+            // return error unless we are creating this sc in the current tx
+            if (!hasSidechainCreationOutput(tx, scId) )
+            {
+                LogPrint("sc", "%s():%d - tx[%s] tries to send funds to scId[%s] not yet created\n",
+                    __func__, __LINE__, txHash.ToString(), scId.ToString() );
         return false;
     }
-
-    return true;
-}
-
-bool ScMgr::checkSidechainCreation(const CTransaction& tx, CValidationState& state)
-{
-    const uint256& txHash = tx.GetHash();
-
-    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
-    {
-        // check there is at least one fwt associated with this scId
-        if (!anyForwardTransaction(tx, sc.scId) )
-        {
-            LogPrint("sc", "%s():%d - Invalid tx[%s] : no fwd transactions associated to this creation\n",
-                __func__, __LINE__, txHash.ToString() );
-            return state.DoS(100, error("%s: no fwd transactions associated to this creation",
-                __func__), REJECT_INVALID, "sidechain-creation-missing-fwd-transfer");
         }
+        LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
+            __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
     }
-    
     return true;
 }
 
@@ -144,37 +139,7 @@ bool ScMgr::hasSidechainCreationOutput(const CTransaction& tx, const uint256& sc
     return false;
 }
 
-bool ScMgr::checkSidechainOutputs(const CTransaction& tx, CValidationState& state)
-{
-    const uint256& txHash = tx.GetHash();
-
-    BOOST_FOREACH(const auto& ft, tx.vft_ccout)
-    {
-        const uint256& scId = ft.scId;
-        if (!sidechainExists(scId) )
-        {
-            // return error unless we are creating this sc in the current tx
-            if (!hasSidechainCreationOutput(tx, scId) )
-            {
-                LogPrint("sc", "%s():%d - tx[%s]: scid[%s] not found\n",
-                    __func__, __LINE__, txHash.ToString(), scId.ToString() );
-                return state.DoS(10,
-                    error("transaction tries to forward transfer to a scid not yet created"),
-                    REJECT_SCID_NOT_FOUND, "sidechain-forward-transfer");
-            }
-            else
-            {
-                LogPrint("sc", "%s():%d - tx[%s]: scid[%s] is being created in this tx\n",
-                    __func__, __LINE__, txHash.ToString(), scId.ToString() );
-            }
-        }
-        LogPrint("sc", "%s():%d - tx[%s]: scid[%s], fw[%s]\n",
-            __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(ft.nValue) );
-    }
-    return true;
-}
-
-bool ScMgr::checkTransaction(const CTransaction& tx, CValidationState& state)
+bool ScMgr::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
 {
     // check version consistency
     if (!tx.IsScVersion() )
@@ -200,16 +165,24 @@ bool ScMgr::checkTransaction(const CTransaction& tx, CValidationState& state)
         }
     }
 
-    LogPrint("sc", "%s():%d - tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
+    const uint256& txHash = tx.GetHash();
 
-    if (!checkSidechainCreation(tx, state) )
+    LogPrint("sc", "%s():%d - tx=%s\n", __func__, __LINE__, txHash.ToString() );
+
+    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
     {
-        return false;
+        // check there is at least one fwt associated with this scId
+        if (!anyForwardTransaction(tx, sc.scId) )
+        {
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : no fwd transactions associated to this creation\n",
+                __func__, __LINE__, txHash.ToString() );
+            return state.DoS(100, error("%s: no fwd transactions associated to this creation",
+                __func__), REJECT_INVALID, "sidechain-creation-missing-fwd-transfer");
+        }
     }
 
     return true;
 }
-
 bool ScMgr::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
 {
     if (!hasSCCreationConflictsInMempool(pool, tx) )
@@ -242,45 +215,10 @@ bool ScMgr::hasSCCreationConflictsInMempool(const CTxMemPool& pool, const CTrans
     return true;
 }
 
-void ScMgr::fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& vecCcSend)
-{
-    BOOST_FOREACH(auto& entry, tx.vsc_ccout)
-    {
-        CRecipientScCreation sc;
-        sc.scId = entry.scId;
-        // when funding a tx with sc creation, the amount is already contained in vcout to foundation
-        sc.creationData.withdrawalEpochLength = entry.withdrawalEpochLength;
-
-        vecCcSend.push_back(CcRecipientVariant(sc));
-    }
-
-    BOOST_FOREACH(auto& entry, tx.vcl_ccout)
-    {
-        CRecipientCertLock cl;
-        cl.scId = entry.scId;
-        cl.nValue = entry.nValue;
-        cl.address = entry.address;
-        cl.epoch = entry.activeFromWithdrawalEpoch;
-
-        vecCcSend.push_back(CcRecipientVariant(cl));
-    }
-
-    BOOST_FOREACH(auto& entry, tx.vft_ccout)
-    {
-        CRecipientForwardTransfer ft;
-        ft.scId = entry.scId;
-        ft.address = entry.address;
-        ft.nValue = entry.nValue;
-
-        vecCcSend.push_back(CcRecipientVariant(ft));
-    }
-}
-
 CRecipientForwardTransfer::CRecipientForwardTransfer(const CTxForwardTransferOut& ccout)
+    : address(ccout.address), nValue(ccout.nValue)
 {
     scId    = ccout.scId;
-    nValue  = ccout.nValue;
-    address = ccout.address;
 }
 
 bool ScMgr::initialUpdateFromDb(size_t cacheSize, bool fWipe)
@@ -430,6 +368,7 @@ bool ScMgr::dump_info(const uint256& scId)
     LogPrint("sc", "  balance[%s]\n", FormatMoney(info.balance));
     LogPrint("sc", "  ----- creation data:\n");
     LogPrint("sc", "      withdrawalEpochLength[%d]\n", info.creationData.withdrawalEpochLength);
+    LogPrint("sc", "  immature amounts size[%d]\n", info.dImmatureAmounts.size());
 // TODO    LogPrint("sc", "      ...more to come...\n");
 
     return true;
@@ -480,41 +419,6 @@ void ScMgr::dump_info()
         {
             std::cout << "unknown type " << chType << std::endl;
         }
-    }
-}
-
-void ScMgr::fillJSON(const uint256& scId, const ScInfo& info, UniValue& sc)
-{
-    sc.push_back(Pair("scid", scId.GetHex()));
-    sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
-    sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
-    sc.push_back(Pair("created in block", info.creationBlockHash.ToString()));
-    sc.push_back(Pair("created at block height", info.creationBlockHeight));
-    // creation parameters
-    sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
-}
-
-bool ScMgr::fillJSON(const uint256& scId, UniValue& sc)
-{
-    ScInfo info;
-    if (!ScMgr::instance().getScInfo(scId, info) )
-    {
-        LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
-        return false; 
-    }
- 
-    fillJSON(scId, info, sc);
-    return true;
-}
-
-void ScMgr::fillJSON(UniValue& result)
-{
-	LOCK(sc_lock);
-    BOOST_FOREACH(const auto& entry, mScInfo)
-    {
-        UniValue sc(UniValue::VOBJ);
-        fillJSON(entry.first, entry.second, sc);
-        result.push_back(sc);
     }
 }
 
@@ -570,6 +474,8 @@ bool ScCoinsViewCache::updateSidechainBalance(const uint256& scId, const CAmount
     ScInfoMap::iterator it = mUpdate.find(scId);
     if (it == mUpdate.end() )
     {
+        // TODO a better approach is to create a view from the contents corrently stored in memory
+        // and then ignoring it completely during various cache updates
         LogPrint("sc", "%s():%d - sc not in scView, checking memory\n", __func__, __LINE__);
         if (!ScMgr::instance().getScInfo(scId, info) )
         {
@@ -615,6 +521,10 @@ void ScCoinsViewCache::removeSidechain(const uint256& scId)
 {
     LogPrint("sc", "%s():%d - adding scId=%s in scView candidates for erasure\n", __func__, __LINE__, scId.ToString() );
     sErase.insert(scId);
+    if (mUpdate.erase(scId))
+    {
+        LogPrint("sc", "%s():%d - scId=%s also removed from scView\n", __func__, __LINE__, scId.ToString() );
+    }
 }
 
 bool ScCoinsViewCache::createSidechain(const CTransaction& tx, const CBlock& block, int nHeight)
@@ -624,7 +534,7 @@ bool ScCoinsViewCache::createSidechain(const CTransaction& tx, const CBlock& blo
 
     BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
     {
-        if (ScMgr::instance().sidechainExists(sc.scId) )
+        if (ScMgr::instance().sidechainExists(sc.scId, mUpdate) )
         {
             // should not happen at this point due to previous checks
             LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in map\n", __func__, __LINE__, sc.scId.ToString() );
@@ -653,13 +563,6 @@ bool ScCoinsViewCache::createSidechain(const CTransaction& tx, const CBlock& blo
 
 bool ScCoinsViewCache::deleteSidechain(const uint256& scId)
 {
-    if (!ScMgr::instance().sidechainExists(scId) )
-    {
-        // should not happen 
-        LogPrint("sc", "ERROR: %s():%d - CR: scId=%s not in memory\n", __func__, __LINE__, scId.ToString() );
-        return false;
-    }
-
     const auto it = mUpdate.find(scId);
     if (it == mUpdate.end() )
     {

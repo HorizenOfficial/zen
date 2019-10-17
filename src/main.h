@@ -38,7 +38,7 @@
 
 #include <boost/unordered_map.hpp>
 
-#include "sc/sidechaincore.h"
+#include "sc/sidechain.h"
 
 class CBlockIndex;
 class CBlockTreeDB;

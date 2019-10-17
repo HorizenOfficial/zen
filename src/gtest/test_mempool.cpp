@@ -180,7 +180,8 @@ TEST(Mempool, SproutV3TxFailsAsExpected) {
 
     EXPECT_FALSE(AcceptToMemoryPool(pool, state1, tx1, false, &missingInputs));
     //EXPECT_EQ(state1.GetRejectReason(), "version");
-    EXPECT_EQ(state1.GetRejectReason(), "bad-tx-shielded-version-too-low");
+    //EXPECT_EQ(state1.GetRejectReason(), "bad-tx-shielded-version-too-low");
+    EXPECT_EQ(state1.GetRejectReason(), "bad-tx-version-unexpected");
 }
 
 
@@ -196,7 +197,8 @@ TEST(Mempool, SproutV3TxWhenGrothNotActive) {
     CValidationState state1;
     CTransaction tx1(mtx);
     EXPECT_FALSE(AcceptToMemoryPool(pool, state1, tx1, false, &missingInputs));
-    EXPECT_EQ(state1.GetRejectReason(), "bad-tx-shielded-version-too-low");
+    //EXPECT_EQ(state1.GetRejectReason(), "bad-tx-shielded-version-too-low");
+    EXPECT_EQ(state1.GetRejectReason(), "bad-tx-version-unexpected");
 }
 
 
@@ -226,7 +228,8 @@ TEST(Mempool, SproutNegativeVersionTx) {
 
         CValidationState state1;
         EXPECT_FALSE(AcceptToMemoryPool(pool, state1, tx1, false, &missingInputs));
-        EXPECT_EQ(state1.GetRejectReason(), "bad-tx-shielded-version-too-low");
+        //EXPECT_EQ(state1.GetRejectReason(), "bad-tx-shielded-version-too-low");
+        EXPECT_EQ(state1.GetRejectReason(), "bad-tx-version-unexpected");
     }
 
     // A Sprout transaction with version -3 created using Overwinter code (as found in zcashd >= 1.0.15).

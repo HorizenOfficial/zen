@@ -13,6 +13,7 @@
 #include <ios>
 #include <limits>
 #include <list>
+#include <deque>
 #include <map>
 #include <set>
 #include <stdint.h>
@@ -569,6 +570,13 @@ template<typename T, typename A> unsigned int GetSerializeSize(const std::list<T
 template<typename Stream, typename T, typename A> void Serialize(Stream& os, const std::list<T, A>& m, int nType, int nVersion);
 template<typename Stream, typename T, typename A> void Unserialize(Stream& is, std::list<T, A>& m, int nType, int nVersion);
 
+/**
+ * deque
+ */
+template<typename T, typename A> unsigned int GetSerializeSize(const std::deque<T, A>& m, int nType, int nVersion);
+template<typename Stream, typename T, typename A> void Serialize(Stream& os, const std::deque<T, A>& m, int nType, int nVersion);
+template<typename Stream, typename T, typename A> void Unserialize(Stream& is, std::deque<T, A>& m, int nType, int nVersion);
+
 
 
 
@@ -972,6 +980,40 @@ void Unserialize(Stream& is, std::list<T, A>& l, int nType, int nVersion)
     l.clear();
     unsigned int nSize = ReadCompactSize(is);
     typename std::list<T, A>::iterator it = l.begin();
+    for (unsigned int i = 0; i < nSize; i++)
+    {
+        T item;
+        Unserialize(is, item, nType, nVersion);
+        l.push_back(item);
+    }
+}
+
+/**
+ * deque
+ */
+template<typename T, typename A>
+unsigned int GetSerializeSize(const std::deque<T, A>& l, int nType, int nVersion)
+{
+    unsigned int nSize = GetSizeOfCompactSize(l.size());
+    for (typename std::deque<T, A>::const_iterator it = l.begin(); it != l.end(); ++it)
+        nSize += GetSerializeSize((*it), nType, nVersion);
+    return nSize;
+}
+
+template<typename Stream, typename T, typename A>
+void Serialize(Stream& os, const std::deque<T, A>& l, int nType, int nVersion)
+{
+    WriteCompactSize(os, l.size());
+    for (typename std::deque<T, A>::const_iterator it = l.begin(); it != l.end(); ++it)
+        Serialize(os, (*it), nType, nVersion);
+}
+
+template<typename Stream, typename T, typename A>
+void Unserialize(Stream& is, std::deque<T, A>& l, int nType, int nVersion)
+{
+    l.clear();
+    unsigned int nSize = ReadCompactSize(is);
+    typename std::deque<T, A>::iterator it = l.begin();
     for (unsigned int i = 0; i < nSize; i++)
     {
         T item;

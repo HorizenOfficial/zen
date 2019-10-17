@@ -36,7 +36,7 @@
 
 #include <numeric>
 
-#include "sc/sidechaincore.h"
+#include "sc/sidechain.h"
 #include "sc/sidechainrpc.h"
 
 using namespace std;

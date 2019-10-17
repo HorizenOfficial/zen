@@ -43,7 +43,7 @@
 #include "zen/forkmanager.h"
 #include "zen/delay.h"
 
-#include "sc/sidechaincore.h"
+#include "sc/sidechain.h"
 
 using namespace zen;
 
@@ -704,12 +704,8 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
 
 	if(!isGROTHActive)
     {
-        if (areSidechainsSupported)
-        {
-            // can not be, sidechain fork is after groth one
-            reason = "version";
-            return false;
-        }
+        // sidechain fork is after groth one
+        assert(!areSidechainsSupported);
 
 		if (tx.nVersion > CTransaction::MAX_OLD_VERSION || tx.nVersion < CTransaction::MIN_OLD_VERSION)
         {
@@ -1010,6 +1006,8 @@ bool ContextualCheckTransaction(
     else
     {
         // sidechain fork is after groth one
+        assert(!areSidechainsSupported);
+
 		if(tx.nVersion < TRANSPARENT_TX_VERSION)
         {
 			LogPrintf("ContextualCheckTransaction: rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
@@ -1058,7 +1056,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
         }
     }
 
-    if (!scMgr.checkTransaction(tx, state) )
+    if (!Sidechain::ScMgr::checkTxSemanticValidity(tx, state) )
     {
         return false;
     }
@@ -1217,7 +1215,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
             uint256 dataToBeSigned;
             try {
                 dataToBeSigned = SignatureHash(scriptCode, tx, NOT_AN_INPUT, SIGHASH_ALL);
-            } catch (std::logic_error ex) {
+            } catch (std::logic_error& ex) {
                 return state.DoS(100, error("CheckTransaction(): error computing signature hash"),
                                  REJECT_INVALID, "error-computing-signature-hash");
             }
@@ -1332,7 +1330,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
     // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
     // a not existing one and so on
-    if (!scMgr.checkSidechainState(tx) )
+    if (!scMgr.IsTxApplicableToState(tx, scMgr.getScInfoMap()) )
     {
         return false;
     }
@@ -1358,7 +1356,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             }
         }
 
-        // beside the check performed in CheckTransaction above, perform some more checks specific to mempool. 
+        // beside the check performed in IsTxApplicableToState above, perform some more checks specific to mempool. 
         // If this tx creates a sc, no other tx must be doing the same in the mempool
         if (!scMgr.IsTxAllowedInMempool(pool, tx, state) )
         {
@@ -2539,7 +2537,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
         // a not existing one and so on
-        if (!scMgr.checkSidechainState(tx) )
+        const Sidechain::ScInfoMap& map = (scView?scView->getUpdateMap():scMgr.getScInfoMap() );
+        if (!scMgr.IsTxApplicableToState(tx, map) )
         {
             LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
             return state.DoS(100, error("ConnectBlock(): invalid sc transaction tx[%s]", tx.GetHash().ToString()),
@@ -4301,6 +4300,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     nCheckLevel = std::max(0, std::min(4, nCheckLevel));
     LogPrintf("Verifying last %i blocks at level %i\n", nCheckDepth, nCheckLevel);
     CCoinsViewCache coins(coinsview);
+    Sidechain::ScCoinsViewCache scView;
     CBlockIndex* pindexState = chainActive.Tip();
     CBlockIndex* pindexFailure = NULL;
     int nGoodTransactions = 0;
@@ -4332,7 +4332,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
         // check level 3: check for inconsistencies during memory-only disconnect of tip blocks
         if (nCheckLevel >= 3 && pindex == pindexState && (coins.DynamicMemoryUsage() + pcoinsTip->DynamicMemoryUsage()) <= nCoinCacheUsage) {
             bool fClean = true;
-            if (!DisconnectBlock(block, state, pindex, coins, &fClean))
+            if (!DisconnectBlock(block, state, pindex, coins, &fClean, &scView))
                 return error("VerifyDB(): *** irrecoverable inconsistency in block data at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             pindexState = pindex->pprev;
             if (!fClean) {
@@ -4363,7 +4363,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             chainHistorical.SetHeight(pindex->nHeight - 1);
             static const bool JUST_CHECK_FALSE = false;
-            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, JUST_CHECK_FALSE))
+            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, JUST_CHECK_FALSE, &scView))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         }
     }

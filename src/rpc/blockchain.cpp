@@ -22,7 +22,8 @@
 
 #include <regex>
 
-#include "sc/sidechaincore.h"
+#include "sc/sidechain.h"
+#include "sc/sidechainrpc.h"
 
 using namespace std;
 
@@ -994,7 +995,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
         scId.SetHex(inputString);
  
         UniValue sc(UniValue::VOBJ);
-        if (!ScMgr::fillJSON(scId, sc) )
+        if (!AddScInfoToJSON(scId, sc) )
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
         }
@@ -1004,7 +1005,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
 
     // dump all of them if any
     UniValue result(UniValue::VARR);
-    ScMgr::instance().fillJSON(result);
+    AddScInfoToJSON(result);
 
     return result;
 }
@@ -1063,6 +1064,16 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
 
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+
+    // ntw type
+    CBaseChainParams::Network network = NetworkIdFromCommandLine();
+    if (network >= CBaseChainParams::Network::MAX_NETWORK_TYPES)
+    {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Illegal network type " + std::to_string(network) );
+    }
+    char cNetwork = (char)network;
+    LogPrint("sc", "ntw type[%d]\n", cNetwork);
+    ssBlock << cNetwork;;
 
     // scid
     ssBlock << scId;
