@@ -124,6 +124,8 @@ bool ScMgr::IsTxApplicableToState(const CTransaction& tx)
     // check creation
     BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
     {
+#if 0
+        // TODO activate this when implement a cache view for side chain state
         if (sidechainExists(sc.scId) )
         {
             LogPrint("sc", "%s():%d - Invalid tx[%s] : scid[%s] already created\n",
@@ -132,6 +134,30 @@ bool ScMgr::IsTxApplicableToState(const CTransaction& tx)
         }
         LogPrint("sc", "%s():%d - OK: tx[%s] is creating scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), sc.scId.ToString());
+#else
+        ScInfo info;
+        if (getScInfo(sc.scId, info) )
+        {
+            if (info.creationTxHash != txHash )
+            {
+                LogPrint("sc", "%s():%d - Invalid tx[%s] : scid[%s] already created by tx[%s]\n",
+                    __func__, __LINE__, txHash.ToString(), sc.scId.ToString(), info.creationTxHash.ToString() );
+                return false;
+            }
+
+            // this tx is the owner, go on without error. Can happen in check level 4 performed at
+            // startup in VerifyDB 
+            LogPrint("sc", "%s():%d - OK tx[%s] : scid[%s] creation detected\n",
+                __func__, __LINE__, txHash.ToString(), sc.scId.ToString() );
+
+        }
+        else
+        {
+            // this is a brand new sc
+            LogPrint("sc", "%s():%d - No such scid[%s], tx[%s] is creating it\n",
+                __func__, __LINE__, sc.scId.ToString(), txHash.ToString() );
+        }
+#endif
     }
 
     // check fw tx

@@ -704,12 +704,8 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
 
 	if(!isGROTHActive)
     {
-        if (areSidechainsSupported)
-        {
-            // can not be, sidechain fork is after groth one
-            reason = "version";
-            return false;
-        }
+        // sidechain fork is after groth one
+        assert(!areSidechainsSupported);
 
 		if (tx.nVersion > CTransaction::MAX_OLD_VERSION || tx.nVersion < CTransaction::MIN_OLD_VERSION)
         {
@@ -1010,6 +1006,8 @@ bool ContextualCheckTransaction(
     else
     {
         // sidechain fork is after groth one
+        assert(!areSidechainsSupported);
+
 		if(tx.nVersion < TRANSPARENT_TX_VERSION)
         {
 			LogPrintf("ContextualCheckTransaction: rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
