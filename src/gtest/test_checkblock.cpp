@@ -303,7 +303,8 @@ protected:
 	        mtx.nVersion = GROTH_TX_VERSION;
 	        {
 	            SCOPED_TRACE("BlockShieldRulesRejectGrothTx");
-	            ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1, 0, "bad-tx-shielded-version-too-low");
+//	            ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1, 0, "bad-tx-shielded-version-too-low");
+	            ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1, 0, "bad-tx-version-unexpected");
 	        }
 
 	        // Make it a PHGR transaction: since nHeight is below 200, it will succeed
@@ -323,7 +324,8 @@ protected:
 	        mtx.nVersion = PHGR_TX_VERSION;
 	        {
 	            SCOPED_TRACE("BlockShieldRulesRejectPhgrTx");
-	            ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight, 100, "bad-tx-shielded-version-too-low");
+	            //ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight, 100, "bad-tx-shielded-version-too-low");
+	            ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight, 100, "bad-tx-version-unexpected");
 	        }
 
 	    }
