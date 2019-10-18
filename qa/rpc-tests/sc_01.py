@@ -129,7 +129,7 @@ class headers(BitcoinTestFramework):
             errorString = e.error['message']
             print errorString
 
-        assert_equal("already created" in errorString, True);
+        assert_equal("Transaction commit failed" in errorString, True);
 
         self.mark_logs("\nNode 1 send 5.0 coins to a valid taddr")
         tx = self.nodes[1].sendtoaddress("zthXuPst7DVeePf2ZQvodgyMfQCrYf9oVx4", 5.0);

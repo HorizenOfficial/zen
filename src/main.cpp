@@ -43,7 +43,7 @@
 #include "zen/forkmanager.h"
 #include "zen/delay.h"
 
-#include "sc/sidechaincore.h"
+#include "sc/sidechain.h"
 
 using namespace zen;
 
@@ -704,12 +704,8 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
 
 	if(!isGROTHActive)
     {
-        if (areSidechainsSupported)
-        {
-            // can not be, sidechain fork is after groth one
-            reason = "version";
-            return false;
-        }
+        // sidechain fork is after groth one
+        assert(!areSidechainsSupported);
 
 		if (tx.nVersion > CTransaction::MAX_OLD_VERSION || tx.nVersion < CTransaction::MIN_OLD_VERSION)
         {
@@ -1010,6 +1006,8 @@ bool ContextualCheckTransaction(
     else
     {
         // sidechain fork is after groth one
+        assert(!areSidechainsSupported);
+
 		if(tx.nVersion < TRANSPARENT_TX_VERSION)
         {
 			LogPrintf("ContextualCheckTransaction: rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
@@ -1058,7 +1056,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
         }
     }
 
-    if (!scMgr.checkTransaction(tx, state) )
+    if (!Sidechain::ScMgr::checkTxSemanticValidity(tx, state) )
     {
         return false;
     }
@@ -1217,7 +1215,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
             uint256 dataToBeSigned;
             try {
                 dataToBeSigned = SignatureHash(scriptCode, tx, NOT_AN_INPUT, SIGHASH_ALL);
-            } catch (std::logic_error ex) {
+            } catch (std::logic_error& ex) {
                 return state.DoS(100, error("CheckTransaction(): error computing signature hash"),
                                  REJECT_INVALID, "error-computing-signature-hash");
             }
@@ -1332,7 +1330,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
     // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
     // a not existing one and so on
-    if (!scMgr.checkSidechainState(tx) )
+    if (!scMgr.IsTxApplicableToState(tx) )
     {
         return false;
     }
@@ -1358,7 +1356,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             }
         }
 
-        // beside the check performed in CheckTransaction above, perform some more checks specific to mempool. 
+        // beside the check performed in IsTxApplicableToState above, perform some more checks specific to mempool. 
         // If this tx creates a sc, no other tx must be doing the same in the mempool
         if (!scMgr.IsTxAllowedInMempool(pool, tx, state) )
         {
@@ -2517,7 +2515,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
         // a not existing one and so on
-        if (!scMgr.checkSidechainState(tx) )
+        if (!scMgr.IsTxApplicableToState(tx) )
         {
             LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
             return state.DoS(100, error("ConnectBlock(): invalid sc transaction tx[%s]", tx.GetHash().ToString()),
