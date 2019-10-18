@@ -29,16 +29,20 @@ ScMgr& ScMgr::instance()
     return _instance;
 }
 
-bool ScMgr::sidechainExists(const uint256& scId) const
+bool ScMgr::sidechainExists(const uint256& scId, const ScCoinsViewCache* scView) const
 {
-    return sidechainExists(scId, mScInfo);
-}
-
-bool ScMgr::sidechainExists(const uint256& scId, const ScInfoMap& map) const
-{
-    LOCK(sc_lock);
-    const auto it = map.find(scId);
-    return (it != map.end() );
+    bool ret = false;
+    if (scView)
+    {
+        ret = scView->sidechainExists(scId);
+    }
+    else
+    {
+        LOCK(sc_lock);
+        const auto it = mScInfo.find(scId);
+        ret = (it != mScInfo.end() );
+    }
+    return ret;
 }
 
 void ScMgr::getScIdSet(std::set<uint256>& sScIds) const
@@ -78,36 +82,37 @@ CAmount ScMgr::getSidechainBalance(const uint256& scId)
     return it->second.balance;
 }
 
-bool ScMgr::IsTxApplicableToState(const CTransaction& tx, const ScInfoMap& mUpdate)
+bool ScMgr::IsTxApplicableToState(const CTransaction& tx, const ScCoinsViewCache* const scView)
 {
     const uint256& txHash = tx.GetHash();
 
     // check creation
     BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
     {
-        if (sidechainExists(sc.scId, mUpdate) )
+        const uint256& scId = sc.scId;
+        if (sidechainExists(scId, scView) )
         {
             LogPrint("sc", "%s():%d - Invalid tx[%s] : scid[%s] already created\n",
-                __func__, __LINE__, txHash.ToString(), sc.scId.ToString());
+                __func__, __LINE__, txHash.ToString(), scId.ToString());
             return false;
         }
         LogPrint("sc", "%s():%d - OK: tx[%s] is creating scId[%s]\n",
-            __func__, __LINE__, txHash.ToString(), sc.scId.ToString());
+            __func__, __LINE__, txHash.ToString(), scId.ToString());
     }
 
     // check fw tx
     BOOST_FOREACH(const auto& ft, tx.vft_ccout)
     {
         const uint256& scId = ft.scId;
-        if (!sidechainExists(scId) )
+        if (!sidechainExists(scId, scView) )
         {
             // return error unless we are creating this sc in the current tx
             if (!hasSidechainCreationOutput(tx, scId) )
             {
                 LogPrint("sc", "%s():%d - tx[%s] tries to send funds to scId[%s] not yet created\n",
                     __func__, __LINE__, txHash.ToString(), scId.ToString() );
-        return false;
-    }
+                return false;
+            }
         }
         LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
@@ -235,7 +240,7 @@ bool ScMgr::initialUpdateFromDb(size_t cacheSize, bool fWipe)
 
     initDone = true;
 
-	LOCK(sc_lock);
+    LOCK(sc_lock);
 
     boost::scoped_ptr<leveldb::Iterator> it(db->NewIterator());
 
@@ -534,7 +539,7 @@ bool ScCoinsViewCache::createSidechain(const CTransaction& tx, const CBlock& blo
 
     BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
     {
-        if (ScMgr::instance().sidechainExists(sc.scId, mUpdate) )
+        if (sidechainExists(sc.scId))
         {
             // should not happen at this point due to previous checks
             LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in map\n", __func__, __LINE__, sc.scId.ToString() );
@@ -620,4 +625,11 @@ bool ScCoinsViewCache::Flush()
     }
     return true;
 }
+
+bool ScCoinsViewCache::sidechainExists(const uint256& scId) const
+{
+    const auto it = mUpdate.find(scId);
+    return (it != mUpdate.end() );
+}
+
 

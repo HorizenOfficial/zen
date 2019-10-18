@@ -1330,7 +1330,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
     // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
     // a not existing one and so on
-    if (!scMgr.IsTxApplicableToState(tx, scMgr.getScInfoMap()) )
+    if (!scMgr.IsTxApplicableToState(tx) )
     {
         return false;
     }
@@ -2240,7 +2240,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                     fClean = false;
             }
 
-            if (scView) // if this is not set it is called while verifying DB
+            if (scView)
             {
                 if (!scView->UpdateScCoins(txundo) )
                 {
@@ -2537,8 +2537,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
         // a not existing one and so on
-        const Sidechain::ScInfoMap& map = (scView?scView->getUpdateMap():scMgr.getScInfoMap() );
-        if (!scMgr.IsTxApplicableToState(tx, map) )
+        if (!scMgr.IsTxApplicableToState(tx, scView) )
         {
             LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
             return state.DoS(100, error("ConnectBlock(): invalid sc transaction tx[%s]", tx.GetHash().ToString()),
