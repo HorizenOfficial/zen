@@ -40,9 +40,6 @@ public:
     // creation data
     ScCreationParameters creationData;
 
-    // set of backward transfer tx, it is used for verifying db and wallet at startup
-    // std::set<uint256> sBackwardTransfers;
-
     std::string ToString() const;
 
     ADD_SERIALIZE_METHODS;
@@ -55,7 +52,6 @@ public:
         READWRITE(creationTxHash);
         READWRITE(balance);
         READWRITE(creationData);
-//        READWRITE(sBackwardTransfers);
     }
 };
 
@@ -66,13 +62,12 @@ class ScMgr
 {
   private:
     // Disallow instantiation outside of the class.
-    ScMgr(): db(NULL), bVerifyingDb(false) {}
+    ScMgr(): db(NULL) {}
     ~ScMgr() { delete db; }
 
     mutable CCriticalSection sc_lock;
     ScInfoMap mScInfo;
     CLevelDBWrapper* db;
-    bool bVerifyingDb;
 
     // low level api for DB
     bool writeToDb(const uint256& scId, const ScInfo& info);
@@ -81,9 +76,6 @@ class ScMgr
     // add/remove/find obj in sc map and DB
     bool addSidechain(const uint256& scId, const ScInfo& info);
     void removeSidechain(const uint256& scId);
-    bool addScBackwardTx(const uint256& scId, const uint256& hash);
-    bool removeScBackwardTx(const uint256& scId, const uint256& hash);
-    bool containsScBackwardTx(const uint256& scId, const uint256& txHash);
 
     bool hasSCCreationConflictsInMempool(const CTxMemPool& pool, const CTransaction& tx);
     bool checkCertificateInMemPool(CTxMemPool& pool, const CTransaction& tx);
