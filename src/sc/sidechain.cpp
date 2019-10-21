@@ -54,6 +54,15 @@ void ScMgr::getScIdSet(std::set<uint256>& sScIds) const
     }
 }
 
+void ScMgr::copyScInfoMap(ScInfoMap& mapCopy) const
+{
+    LOCK(sc_lock);
+    BOOST_FOREACH(const auto& entry, mScInfo)
+    {
+        mapCopy[entry.first] = entry.second;
+    }
+}
+
 
 bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const
 {
@@ -218,12 +227,6 @@ bool ScMgr::hasSCCreationConflictsInMempool(const CTxMemPool& pool, const CTrans
         }
     }
     return true;
-}
-
-CRecipientForwardTransfer::CRecipientForwardTransfer(const CTxForwardTransferOut& ccout)
-    : address(ccout.address), nValue(ccout.nValue)
-{
-    scId    = ccout.scId;
 }
 
 bool ScMgr::initialUpdateFromDb(size_t cacheSize, bool fWipe)
@@ -449,6 +452,12 @@ bool ScCoinsViewCache::UpdateScCoins(const CTransaction& tx, const CBlock& block
     return true;
 }
 
+ScCoinsViewCache::ScCoinsViewCache()
+{
+    mUpdate.clear();
+    ScMgr::instance().copyScInfoMap(mUpdate);
+}
+
 bool ScCoinsViewCache::UpdateScCoins(const CTxUndo& txundo)
 {
     LogPrint("sc", "%s():%d - enter\n", __func__, __LINE__);
@@ -475,33 +484,20 @@ bool ScCoinsViewCache::UpdateScCoins(const CTxUndo& txundo)
 
 bool ScCoinsViewCache::updateSidechainBalance(const uint256& scId, const CAmount& amount)
 {
-    ScInfo info;
     ScInfoMap::iterator it = mUpdate.find(scId);
     if (it == mUpdate.end() )
     {
-        // TODO a better approach is to create a view from the contents corrently stored in memory
-        // and then ignoring it completely during various cache updates
-        LogPrint("sc", "%s():%d - sc not in scView, checking memory\n", __func__, __LINE__);
-        if (!ScMgr::instance().getScInfo(scId, info) )
-        {
-            // should not happen
-            LogPrint("sc", "%s():%d - Can not update balance, could not find scId=%s\n",
-                __func__, __LINE__, scId.ToString() );
-            return false;
-        }
-        LogPrint("sc", "%s():%d - sc found in memory\n", __func__, __LINE__);
-    }
-    else
-    {
-        LogPrint("sc", "%s():%d - sc found in scView\n", __func__, __LINE__);
-        info = it->second;
+        // should not happen
+        LogPrint("sc", "%s():%d - Can not update balance, could not find scId=%s\n",
+            __func__, __LINE__, scId.ToString() );
+        return false;
     }
 
     LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
-        __func__, __LINE__, scId.ToString(), FormatMoney(info.balance));
+        __func__, __LINE__, scId.ToString(), FormatMoney(it->second.balance));
 
-    info.balance += amount;
-    if (info.balance < 0)
+    it->second.balance += amount;
+    if (it->second.balance < 0)
     {
         LogPrint("sc", "%s():%d - Can not update balance with amount[%s] for scId=%s, would be negative\n",
             __func__, __LINE__, FormatMoney(amount), scId.ToString() );
@@ -509,10 +505,7 @@ bool ScCoinsViewCache::updateSidechainBalance(const uint256& scId, const CAmount
     }
 
     LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
-        __func__, __LINE__, scId.ToString(), FormatMoney(info.balance));
-
-    // store copy in scView
-    mUpdate[scId] = info;
+        __func__, __LINE__, scId.ToString(), FormatMoney(it->second.balance));
 
     return true; 
 }
@@ -541,8 +534,7 @@ bool ScCoinsViewCache::createSidechain(const CTransaction& tx, const CBlock& blo
     {
         if (sidechainExists(sc.scId))
         {
-            // should not happen at this point due to previous checks
-            LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in map\n", __func__, __LINE__, sc.scId.ToString() );
+            LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, sc.scId.ToString() );
             return false;
         }
  

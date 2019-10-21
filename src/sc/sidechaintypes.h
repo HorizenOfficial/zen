@@ -70,7 +70,10 @@ struct CRecipientForwardTransfer : public CRecipientCrossChainBase
 {
     uint256 address;
     CAmount nValue;
-    explicit CRecipientForwardTransfer(const CTxForwardTransferOut&);
+
+//    explicit CRecipientForwardTransfer(const CTxForwardTransferOut& out)
+//        : address(out.address), nValue(out.nValue) { scId = out.scId; }
+
     CRecipientForwardTransfer(): nValue(0) {};
 };
 

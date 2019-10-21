@@ -97,7 +97,7 @@ public:
 
     bool Flush();
 
-    ScCoinsViewCache() {};
+    ScCoinsViewCache();
     ScCoinsViewCache(const ScCoinsViewCache&) = delete;
     ScCoinsViewCache& operator=(const ScCoinsViewCache &) = delete;
     ScCoinsViewCache(ScCoinsViewCache&) = delete;
@@ -131,6 +131,7 @@ class ScMgr
     bool hasSidechainCreationOutput(const CTransaction& tx, const uint256& scId);
 
     CAmount getSidechainBalance(const uint256& scId);
+    void copyScInfoMap(ScInfoMap& mapCopy) const;
 
   public:
 
