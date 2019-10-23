@@ -80,16 +80,15 @@ class ScCoinsViewCache
 {
     ScInfoMap mUpdate;
     std::set<uint256> sErase;
+    std::set<uint256> sDirty;
 
-    bool createSidechain(const CTransaction& tx, const CBlock& block, int nHeight);
-    bool deleteSidechain(const uint256& scId);
+    bool removeSidechain(const uint256& scId);
     bool addSidechain(const uint256& scId, const ScInfo& info);
-    void removeSidechain(const uint256& scId);
 
     bool updateSidechainBalance(const uint256& scId, const CAmount& amount);
 
 public:
-    bool UpdateScCoins(const CTransaction& tx, const CBlock&, int nHeight);
+    bool UpdateScCoins(const CTransaction& tx, const CBlock&, int nHeight, CTxUndo& txundo);
     bool UpdateScCoins(const CTxUndo& undo);
 
     const ScInfoMap& getUpdateMap() const { return mUpdate; }

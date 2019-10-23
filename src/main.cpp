@@ -1334,6 +1334,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     {
         return false;
     }
+    LogPrint("sc", "%s():%d - tx [%s] is applicable\n", __func__, __LINE__, hash.ToString());
 
     // Check for conflicts with in-memory transactions
     {
@@ -1362,6 +1363,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         {
             return false;
         }
+        LogPrint("sc", "%s():%d - tx [%s] has no conflicts in mempool\n", __func__, __LINE__, hash.ToString());
     }
 
     {
@@ -1862,18 +1864,6 @@ void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCach
                 undo.nVersion = coins->nVersion;
             }
         }
-        // sidechain
-        BOOST_FOREACH(auto& cr, tx.vsc_ccout)
-        {
-            txundo.vsc_ccout.push_back( CTxScCreationOutUndo(cr.scId));
-            LogPrint("sc", "%s():%d - added cr undo entry: scId=%s\n", __func__, __LINE__, cr.scId.ToString());
-        }
-        BOOST_FOREACH(auto& ft, tx.vft_ccout)
-        {
-            txundo.vft_ccout.push_back( CTxForwardTransferOutUndo(ft.scId, ft.nValue));
-            LogPrint("sc", "%s():%d - added ft undo entry: scId=%s nValue=%s\n",
-                __func__, __LINE__, ft.scId.ToString(), FormatMoney(ft.nValue));
-        }
     }
 
     // spend nullifiers
@@ -2242,8 +2232,10 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
             if (scView)
             {
+                LogPrint("sc", "%s():%d - restoring sc coins if any\n", __func__, __LINE__);
                 if (!scView->UpdateScCoins(txundo) )
                 {
+                    LogPrint("sc", "%s():%d - ERROR updating sc coins\n", __func__, __LINE__);
                     return error("DisconnectBlock(): sc and undo data inconsistent");
                 }
             }
@@ -2552,9 +2544,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if ((!fJustCheck && i > 0) && scView)
         {
-            if (!scView->UpdateScCoins(tx, block, pindex->nHeight) )
+            if (!scView->UpdateScCoins(tx, block, pindex->nHeight, blockundo.vtxundo.back()) )
             {
-                return state.DoS(100, error("ConnectBlock(): could not add sidechain in db: tx[%s]", tx.GetHash().ToString()),
+                return state.DoS(100, error("ConnectBlock(): could not add sidechain in scView: tx[%s]", tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
             }
         }
@@ -2852,6 +2844,10 @@ bool static DisconnectTip(CValidationState &state) {
         // ignore validation errors in resurrected transactions
         list<CTransaction> removed;
         CValidationState stateDummy;
+        if (tx.IsScVersion() )
+        {
+            LogPrint("sc", "%s():%d - resurrecting tx [%s] to mempool\n", __func__, __LINE__, tx.GetHash().ToString());
+        }
         if (tx.IsCoinBase() || !AcceptToMemoryPool(mempool, stateDummy, tx, false, NULL))
         {
             mempool.remove(tx, removed, true);
@@ -6457,7 +6453,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
             if (!AlreadyHave(inv))
             {
                 if (fDebug)
-                    LogPrint("net", "Requesting %s peer=%d\n", inv.ToString(), pto->id);
+                    LogPrint("net", "%s():%d - Requesting %s peer=%d\n", __func__, __LINE__, inv.ToString(), pto->id);
                 vGetData.push_back(inv);
                 if (vGetData.size() >= 1000)
                 {
