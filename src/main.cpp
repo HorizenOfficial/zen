@@ -4898,7 +4898,7 @@ void txVerificationThread(){
     }
 }
 
-void checkOneTx(CNode* pfrom, CTransaction tx){
+void checkOneTx(CNode* pfrom, CTransaction& tx){
 
     string strCommand = "tx";
 
@@ -5608,7 +5608,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         CTransaction tx;
         vRecv >> tx;
 
-        std::shared_ptr<CTxVerificationQueueEntry> ctvqe = createCTxVerificationQueueEntry(tx, pfrom);
+        std::shared_ptr<CTxVerificationQueueEntry> ctvqe = createCTxVerificationQueueEntry(tx, pfrom->GetId());
         LOCK(cs_verificationQueue);
         verificationQueue.append(ctvqe);
     }

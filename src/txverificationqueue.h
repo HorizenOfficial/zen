@@ -6,15 +6,15 @@ private:
     size_t nTxSize;
     NodeId nodeId;
 public:
-    void setTX(CTransaction newTx);
+    void setTX(const CTransaction& newTx);
     void setNFee(CAmount newNFee);
     void setNTxSize(size_t newNTxSize);
-    CTransaction getTX();
+    CTransaction& getTX();
     void setNodeId(NodeId newNodeId);
     NodeId getNodeId();
 };
 
-std::shared_ptr<CTxVerificationQueueEntry> createCTxVerificationQueueEntry(CTransaction tx, CNode* pfrom);
+std::shared_ptr<CTxVerificationQueueEntry> createCTxVerificationQueueEntry(const CTransaction& tx, NodeId nodeId);
 
 class CTxVerificationQueue
 {

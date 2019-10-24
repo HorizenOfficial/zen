@@ -3,12 +3,12 @@
 #include "main.h"
 //#include "coin.h"
 
-void CTxVerificationQueueEntry::setTX(CTransaction newTx)
+void CTxVerificationQueueEntry::setTX(const CTransaction& newTx)
 {
     tx = newTx;
 };
 
-CTransaction CTxVerificationQueueEntry::getTX()
+CTransaction& CTxVerificationQueueEntry::getTX()
 {
     return tx;
 };
@@ -22,13 +22,11 @@ NodeId CTxVerificationQueueEntry::getNodeId()
     return nodeId;
 }
 
-std::shared_ptr<CTxVerificationQueueEntry> createCTxVerificationQueueEntry(CTransaction tx, CNode* pfrom)
+std::shared_ptr<CTxVerificationQueueEntry> createCTxVerificationQueueEntry(const CTransaction& tx, NodeId nodeId)
 {
     std::shared_ptr<CTxVerificationQueueEntry> ctxvqe (new CTxVerificationQueueEntry());
 
     ctxvqe->setTX(tx);
-
-    NodeId nodeId = pfrom->GetId();
     ctxvqe->setNodeId(nodeId);
 
     return ctxvqe;
