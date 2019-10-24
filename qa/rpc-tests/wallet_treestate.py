@@ -6,7 +6,7 @@
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, connect_nodes_bi, wait_and_assert_operationid_status
+    start_nodes, connect_nodes_bi, wait_and_assert_operationid_status, sync_mempools
 
 import time
 from decimal import Decimal
@@ -92,6 +92,9 @@ class WalletTreeStateTest (BitcoinTestFramework):
 
         # Wait for Tx 2 to be created
         wait_and_assert_operationid_status(self.nodes[0], myopid)
+
+        # Wait for wallet to catch up with mempool
+        sync_mempools([self.nodes[0]])
 
         # Note that a bug existed in v1.0.0-1.0.3 where Tx 2 creation would fail with an error:
         # "Witness for spendable note does not have same anchor as change input"
