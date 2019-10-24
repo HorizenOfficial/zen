@@ -4879,7 +4879,7 @@ bool checkVerificationQueue(){
 
 void txVerificationThread(){
     int i = 0;
-    while(true)
+    while(!ShutdownRequested())
     {
         if (!checkVerificationQueue() && i < 100)
         {
