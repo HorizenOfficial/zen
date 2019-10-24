@@ -4876,7 +4876,6 @@ void static ProcessGetData(CNode* pfrom)
 }
 
 bool checkVerificationQueue(){
-    LOCK(cs_verificationQueue);
     return verificationQueue.isEmpty();
 }
 
