@@ -5608,9 +5608,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         CTransaction tx;
         vRecv >> tx;
 
-        CTxVerificationQueueEntry* ctvqe = createCTxVerificationQueueEntry(tx, pfrom);
+        std::shared_ptr<CTxVerificationQueueEntry> ctvqe = createCTxVerificationQueueEntry(tx, pfrom);
         LOCK(cs_verificationQueue);
-        verificationQueue.append(*ctvqe);
+        verificationQueue.append(ctvqe);
     }
 
 

@@ -14,13 +14,13 @@ public:
     NodeId getNodeId();
 };
 
-CTxVerificationQueueEntry* createCTxVerificationQueueEntry(CTransaction tx, CNode* pfrom);
+std::shared_ptr<CTxVerificationQueueEntry> createCTxVerificationQueueEntry(CTransaction tx, CNode* pfrom);
 
 class CTxVerificationQueue
 {
 public:
-    std::vector<CTxVerificationQueueEntry> vectorTX = {};
-    void append(CTxVerificationQueueEntry ctxvqe);
+    std::vector<std::shared_ptr<CTxVerificationQueueEntry>> vectorTX;;
+    void append(std::shared_ptr<CTxVerificationQueueEntry> ctxvqe);
     void verifyOne();
     bool isEmpty();
 };

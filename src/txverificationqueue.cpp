@@ -22,9 +22,9 @@ NodeId CTxVerificationQueueEntry::getNodeId()
     return nodeId;
 }
 
-CTxVerificationQueueEntry* createCTxVerificationQueueEntry(CTransaction tx, CNode* pfrom)
+std::shared_ptr<CTxVerificationQueueEntry> createCTxVerificationQueueEntry(CTransaction tx, CNode* pfrom)
 {
-    CTxVerificationQueueEntry* ctxvqe = new CTxVerificationQueueEntry();
+    std::shared_ptr<CTxVerificationQueueEntry> ctxvqe (new CTxVerificationQueueEntry());
 
     ctxvqe->setTX(tx);
 
@@ -34,18 +34,18 @@ CTxVerificationQueueEntry* createCTxVerificationQueueEntry(CTransaction tx, CNod
     return ctxvqe;
 };
 
-void CTxVerificationQueue::append(CTxVerificationQueueEntry ctxvqe)
+void CTxVerificationQueue::append(std::shared_ptr<CTxVerificationQueueEntry> ctxvqe)
 {
     vectorTX.push_back(ctxvqe);
 }
 
 void CTxVerificationQueue::verifyOne()
 {
-    CTxVerificationQueueEntry ctxvqe = vectorTX.back();
+    std::shared_ptr<CTxVerificationQueueEntry> ctxvqe = vectorTX.back();
     vectorTX.pop_back();
-    CNode* node = FindNode(ctxvqe.getNodeId());
+    CNode* node = FindNode(ctxvqe->getNodeId());
     if (node != NULL){
-        checkOneTx(node, ctxvqe.getTX());
+        checkOneTx(node, ctxvqe->getTX());
     }
 }
 
