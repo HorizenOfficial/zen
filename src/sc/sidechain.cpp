@@ -9,6 +9,7 @@
 #include "consensus/validation.h"
 #include <boost/thread.hpp>
 #include <undo.h>
+#include <main.h>
 
 extern CChain chainActive;
 extern UniValue ValueFromAmount(const CAmount& amount);
@@ -376,7 +377,7 @@ bool ScMgr::dump_info(const uint256& scId)
     LogPrint("sc", "  balance[%s]\n", FormatMoney(info.balance));
     LogPrint("sc", "  ----- creation data:\n");
     LogPrint("sc", "      withdrawalEpochLength[%d]\n", info.creationData.withdrawalEpochLength);
-    LogPrint("sc", "  immature amounts size[%d]\n", info.dImmatureAmounts.size());
+    LogPrint("sc", "  immature amounts size[%d]\n", info.vImmatureAmounts.size());
 // TODO    LogPrint("sc", "      ...more to come...\n");
 
     return true;
@@ -430,45 +431,63 @@ void ScMgr::dump_info()
     }
 }
 
-bool ScCoinsViewCache::UpdateScCoins(const CTransaction& tx, const CBlock& block, int nHeight, CTxUndo& txundo)
+bool ScCoinsViewCache::UpdateScCoins(const CTransaction& tx, const CBlock& block, int blockHeight, CTxUndo& txundo)
 {
     const uint256& txHash = tx.GetHash();
     LogPrint("sc", "%s():%d - enter tx=%s\n", __func__, __LINE__, txHash.ToString() );
 
     const uint256& blockHash = block.GetHash();
 
-    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
+    // creation ccout
+    BOOST_FOREACH(const auto& cr, tx.vsc_ccout)
     {
-        if (sidechainExists(sc.scId))
+        if (sidechainExists(cr.scId))
         {
-            LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, sc.scId.ToString() );
+            LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, cr.scId.ToString() );
             return false;
         }
  
         ScInfo scInfo;
         scInfo.creationBlockHash = blockHash;
-        scInfo.creationBlockHeight = nHeight;
+        scInfo.creationBlockHeight = blockHeight;
         scInfo.creationTxHash = txHash;
-        scInfo.creationData.withdrawalEpochLength = sc.withdrawalEpochLength;
+        scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
  
-        if (!addSidechain(sc.scId, scInfo) )
-        {
-            // should never fail
-            LogPrint("sc", "ERROR: %s():%d - scId=%s could not add to scView\n", __func__, __LINE__, sc.scId.ToString() );
-            return false;
-        }
-        txundo.vsc_ccout.push_back( CTxScCreationOutUndo(sc.scId));
+        mUpdate.insert(std::make_pair(cr.scId, scInfo));
+
+        LogPrint("sc", "%s():%d - scId[%s] added in scView\n", __func__, __LINE__, cr.scId.ToString() );
+
+        // store creation undo information in txundo
+        txundo.vsc_ccout.push_back( CScCreationOutUndo(cr.scId));
+
+        // mark this sc to be flushed in memory
+        sDirty.insert(cr.scId);
+
     }
 
+    static const int SC_COIN_MATURITY = getScCoinsMaturity();
+    int maturityHeight = blockHeight + SC_COIN_MATURITY;
+
+    // forward transfer ccout
     BOOST_FOREACH(auto& ft, tx.vft_ccout)
     {
-        if (!updateSidechainBalance(ft.scId, ft.nValue) )
+        auto it_map = mUpdate.find(ft.scId);
+        if (it_map == mUpdate.end() )
         {
-            LogPrint("sc", "ERROR: %s():%d - could not update sc balance: scId=%s\n",
+            // should not happen
+            LogPrint("sc", "%s():%d - Can not update balance, could not find scId=%s\n",
                 __func__, __LINE__, ft.scId.ToString() );
             return false;
         }
-        txundo.vft_ccout.push_back( CTxForwardTransferOutUndo(ft.scId, ft.nValue));
+
+        // add a new immature balance entry in sc info
+        it_map->second.vImmatureAmounts.push_back( ScImmatureAmount( maturityHeight, ft.nValue));
+
+        LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
+            __func__, __LINE__, maturityHeight, FormatMoney(ft.nValue), ft.scId.ToString());
+
+        // mark this sc to be flushed in memory
+        sDirty.insert(ft.scId);
     }
 
     return true;
@@ -482,97 +501,153 @@ ScCoinsViewCache::ScCoinsViewCache()
     ScMgr::instance().copyScInfoMap(mUpdate);
 }
 
-bool ScCoinsViewCache::UpdateScCoins(const CTxUndo& txundo)
+bool ScCoinsViewCache::UndoScCreation(const CTxUndo& txundo)
 {
-    // update sc balance
-    BOOST_FOREACH(const auto& ftUndo, txundo.vft_ccout)
-    {
-        LogPrint("sc", "%s():%d - undoing balance for scId=%s\n", __func__, __LINE__, ftUndo.scId.ToString());
-        if (!updateSidechainBalance(ftUndo.scId, (-ftUndo.nValue)) )
-        {
-            LogPrint("sc", "ERROR: %s():%d - could not update sc balance: scId=%s\n",
-                __func__, __LINE__, ftUndo.scId.ToString() );
-            return false;
-        }
-    }
-
     // remove sidechain if the case
     BOOST_FOREACH(const auto& crUndo, txundo.vsc_ccout)
     {
-        LogPrint("sc", "%s():%d - removing scId=%s\n", __func__, __LINE__, crUndo.scId.ToString());
-        if (!removeSidechain(crUndo.scId) )
+        const uint256& scId = crUndo.scId;
+
+        LogPrint("sc", "%s():%d - removing scId=%s\n", __func__, __LINE__, scId.ToString());
+
+        const auto it = mUpdate.find(scId);
+        if (it == mUpdate.end() )
         {
-            LogPrint("sc", "ERROR: %s():%d - scId=%s could not remove from scView\n", __func__, __LINE__, crUndo.scId.ToString() );
+            // should not happen 
+            LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
+ 
+        if (it->second.balance > 0)
+        {
+            // should not happen either 
+            LogPrint("sc", "ERROR %s():%d - scId=%s balance not null: %s\n",
+                __func__, __LINE__, scId.ToString(), FormatMoney(it->second.balance));
+            return false;
+        }
+ 
+        if (mUpdate.erase(scId))
+        {
+            LogPrint("sc", "%s():%d - scId=%s removed from scView\n", __func__, __LINE__, scId.ToString() );
+        }
+
+        // do not update in memory
+        sDirty.erase(scId);
+
+        // mark this sc to be removed from in memory
+        sErase.insert(scId);
     }
     return true;
 }
 
-bool ScCoinsViewCache::updateSidechainBalance(const uint256& scId, const CAmount& amount)
+bool ScCoinsViewCache::IncrementScBalance(int blockHeight, CBlockUndo& blockundo)
 {
-    ScInfoMap::iterator it = mUpdate.find(scId);
-    if (it == mUpdate.end() )
+    LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
+
+    auto it_map = mUpdate.begin();
+
+    while (it_map != mUpdate.end() )
     {
-        // should not happen
-        LogPrint("sc", "%s():%d - Can not update balance, could not find scId=%s\n",
-            __func__, __LINE__, scId.ToString() );
-        return false;
+        const uint256& scId = it_map->first;
+        ScInfo& info = it_map->second;
+        const std::string& scIdString = scId.ToString();
+
+        auto it_immAmount = info.vImmatureAmounts.begin();
+
+        while (it_immAmount != info.vImmatureAmounts.end() )
+        {
+            int maturityHeight = it_immAmount->maturityHeight;
+            CAmount a = it_immAmount->amount;
+
+            // store immature balances into the blockundo
+            LogPrint("sc", "%s():%d - adding immature balance entry into blockundo (h=%d, amount=%s) for scid=%s\n",
+                __func__, __LINE__, maturityHeight, FormatMoney(a), scIdString);
+            blockundo.msc_iaundo[scId].push_back( CScImmatureAmountUndo(maturityHeight, a));
+
+            if (maturityHeight <= blockHeight)
+            {
+                LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
+                    __func__, __LINE__, scIdString, FormatMoney(info.balance));
+
+                info.balance += a;
+
+                LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
+                    __func__, __LINE__, scIdString, FormatMoney(info.balance));
+
+                // balance has been updated, remove the entry
+                it_immAmount = info.vImmatureAmounts.erase(it_immAmount);
+
+                // mark this sc to be flushed in memory
+                sDirty.insert(scId);
+            }
+            else
+            {
+                ++it_immAmount;
+            }
+        }
+        ++it_map;
     }
-
-    LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
-        __func__, __LINE__, scId.ToString(), FormatMoney(it->second.balance));
-
-    it->second.balance += amount;
-    if (it->second.balance < 0)
-    {
-        LogPrint("sc", "%s():%d - Can not update balance with amount[%s] for scId=%s, would be negative\n",
-            __func__, __LINE__, FormatMoney(amount), scId.ToString() );
-        return false;
-    }
-
-    LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
-        __func__, __LINE__, scId.ToString(), FormatMoney(it->second.balance));
-
-    sDirty.insert(scId);
-    return true; 
+    return true;
 }
 
-bool ScCoinsViewCache::addSidechain(const uint256& scId, const ScInfo& info)
+bool ScCoinsViewCache::DecrementScBalance(int blockHeight, CBlockUndo& blockundo)
 {
-    if (mUpdate.insert(std::make_pair(scId, info)).second)
+    LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
+
+    auto it_mapundo = blockundo.msc_iaundo.begin();
+
+    while (it_mapundo != blockundo.msc_iaundo.end() )
     {
+        const uint256& scId = it_mapundo->first;
+        const std::string& scIdString = scId.ToString();
+
+        const auto it_map = mUpdate.find(scId);
+        if (it_map == mUpdate.end() )
+        {
+            // should not happen 
+            LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scIdString );
+            return false;
+        }
+
+        ScInfo& info = it_map->second;
+      
+        // replace (undo) the vect of immature amounts of this sc in scview with the blockundo contents
+        info.vImmatureAmounts = it_mapundo->second;
+
+        auto it_immAmount = info.vImmatureAmounts.begin();
+
+        while (it_immAmount != info.vImmatureAmounts.end() )
+        {
+            int maturityHeight = it_immAmount->maturityHeight;
+            CAmount a = it_immAmount->amount;
+
+            LogPrint("sc", "%s():%d - entry ( %s / %d / %s) \n", __func__, __LINE__, scIdString, maturityHeight, FormatMoney(a));
+
+            // if maturity border is exactly matched, then decrement sc amount 
+            if (maturityHeight == blockHeight)
+            {
+                LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
+                    __func__, __LINE__, scIdString, FormatMoney(info.balance));
+                
+                info.balance -= a;
+
+                if (info.balance < 0)
+                {
+                    LogPrint("sc", "%s():%d - Can not update balance with amount[%s] for scId=%s, would be negative\n",
+                        __func__, __LINE__, FormatMoney(a), scIdString );
+                    return false;
+                }
+
+                LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
+                    __func__, __LINE__, scIdString, FormatMoney(info.balance));
+            }
+            ++it_immAmount;
+        }
+ 
+        // mark this sc to be flushed in memory
         sDirty.insert(scId);
-        LogPrint("sc", "%s():%d - scId[%s] added in scView\n", __func__, __LINE__, scId.ToString() );
-        return true;
+        ++it_mapundo;
     }
-    return false;
-}
-
-bool ScCoinsViewCache::removeSidechain(const uint256& scId)
-{
-    const auto it = mUpdate.find(scId);
-    if (it == mUpdate.end() )
-    {
-        // should not happen 
-        LogPrint("sc", "ERROR: %s():%d - CR: scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
-        return false;
-    }
-
-    if (it->second.balance > 0)
-    {
-        // should not happen either 
-        LogPrint("sc", "ERROR %s():%d - scId=%s balance not null: %s\n",
-            __func__, __LINE__, scId.ToString(), FormatMoney(it->second.balance));
-        return false;
-    }
-
-    if (mUpdate.erase(scId))
-    {
-        LogPrint("sc", "%s():%d - scId=%s removed from scView\n", __func__, __LINE__, scId.ToString() );
-    }
-    sErase.insert(scId);
-    sDirty.erase(scId);
     return true;
 }
 

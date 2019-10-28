@@ -15,24 +15,12 @@
 //------------------------------------------------------------------------------------
 class CTxMemPool;
 class CTxUndo;
+class CBlockUndo;
 class UniValue;
 class CValidationState;
 
 namespace Sidechain
 {
-
-struct ScImmatureAmount
-{
-    int nHeight;
-    CAmount amount;
-
-    ADD_SERIALIZE_METHODS;
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(nHeight);
-        READWRITE(amount);
-    }
-};
 
 class ScInfo
 {
@@ -55,7 +43,7 @@ public:
     ScCreationParameters creationData;
 
     // immature amounts
-    std::deque<ScImmatureAmount> dImmatureAmounts;
+    std::vector<ScImmatureAmount> vImmatureAmounts;
 
     std::string ToString() const;
 
@@ -69,7 +57,7 @@ public:
         READWRITE(creationTxHash);
         READWRITE(balance);
         READWRITE(creationData);
-        READWRITE(dImmatureAmounts);
+        READWRITE(vImmatureAmounts);
     }
 };
 
@@ -82,14 +70,11 @@ class ScCoinsViewCache
     std::set<uint256> sErase;
     std::set<uint256> sDirty;
 
-    bool removeSidechain(const uint256& scId);
-    bool addSidechain(const uint256& scId, const ScInfo& info);
-
-    bool updateSidechainBalance(const uint256& scId, const CAmount& amount);
-
 public:
     bool UpdateScCoins(const CTransaction& tx, const CBlock&, int nHeight, CTxUndo& txundo);
-    bool UpdateScCoins(const CTxUndo& undo);
+    bool UndoScCreation(const CTxUndo& undo);
+    bool IncrementScBalance(int nHeight, CBlockUndo& blockundo);
+    bool DecrementScBalance(int nHeight, CBlockUndo& blockundo);
 
     const ScInfoMap& getUpdateMap() const { return mUpdate; }
     bool sidechainExists(const uint256& scId) const;

@@ -33,7 +33,7 @@ class headers(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
-            extra_args=[['-logtimemicros=1', '-debug=sc', '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench']] * NUMB_OF_NODES )
+            extra_args=[['-sccoinsmaturity=0', '-logtimemicros=1', '-debug=sc', '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench']] * NUMB_OF_NODES )
 
         if not split:
             # 1 and 2 are joint only if split==false

@@ -2187,6 +2187,16 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     if (blockUndo.vtxundo.size() + 1 != block.vtx.size())
         return error("DisconnectBlock(): block and undo data inconsistent");
 
+    if (scView)
+    {
+        LogPrint("sc", "%s():%d - restoring sc coins if any\n", __func__, __LINE__);
+        if (!scView->DecrementScBalance(pindex->nHeight, blockUndo) )
+        {
+            LogPrint("sc", "%s():%d - ERROR updating sc maturity amounts\n", __func__, __LINE__);
+            return error("DisconnectBlock(): sc and undo data inconsistent");
+        }
+    }
+
     // undo transactions in reverse order
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
         const CTransaction &tx = block.vtx[i];
@@ -2232,10 +2242,10 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
             if (scView)
             {
-                LogPrint("sc", "%s():%d - restoring sc coins if any\n", __func__, __LINE__);
-                if (!scView->UpdateScCoins(txundo) )
+                LogPrint("sc", "%s():%d - undo sc creation tx if any\n", __func__, __LINE__);
+                if (!scView->UndoScCreation(txundo) )
                 {
-                    LogPrint("sc", "%s():%d - ERROR updating sc coins\n", __func__, __LINE__);
+                    LogPrint("sc", "%s():%d - ERROR undoing sc creation tx\n", __func__, __LINE__);
                     return error("DisconnectBlock(): sc and undo data inconsistent");
                 }
             }
@@ -2561,6 +2571,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         vPos.push_back(std::make_pair(tx.GetHash(), pos));
         pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
+    }
+
+    if (!fJustCheck && scView)
+    {
+        if (!scView->IncrementScBalance(pindex->nHeight, blockundo) )
+        {
+            return state.DoS(100, error("ConnectBlock(): could not update sc immature amounts"),
+                             REJECT_INVALID, "bad-sc-amounts");
+        }
     }
 
     view.PushAnchor(tree);
@@ -6976,10 +6995,28 @@ static int getInitCbhSafeDepth()
     return Params().CbhSafeDepth();
 }
 
+static int getInitScCoinsMaturity()
+{
+    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
+    {
+        int val = (int)(GetArg("-sccoinsmaturity", Params().ScCoinsMaturity() ));
+        LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
+        return val;
+    }
+    return Params().ScCoinsMaturity();
+}
+
 int getCheckBlockAtHeightSafeDepth()
 {
     // gets constructed just one time
     static int retVal( getInitCbhSafeDepth() );
+    return retVal;
+}
+
+int getScCoinsMaturity()
+{
+    // gets constructed just one time
+    static int retVal( getInitScCoinsMaturity() );
     return retVal;
 }
 

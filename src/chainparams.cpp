@@ -135,6 +135,7 @@ public:
 
         nCbhMinimumAge = 99;
         nCbhSafeDepth = 52596;
+        nScCoinsMaturity = 10;
 
         checkpointData = (Checkpoints::CCheckpointData) {
             boost::assign::map_list_of
@@ -232,6 +233,7 @@ public:
 
         nCbhMinimumAge = 99;
         nCbhSafeDepth = 52596;
+        nScCoinsMaturity = 10;
 
         checkpointData = (Checkpoints::CCheckpointData) {
             boost::assign::map_list_of
@@ -307,6 +309,7 @@ public:
 
         nCbhMinimumAge = 99;
         nCbhSafeDepth = 320;
+        nScCoinsMaturity = 3;
 
         checkpointData = (Checkpoints::CCheckpointData){
             boost::assign::map_list_of
