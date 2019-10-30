@@ -2,13 +2,9 @@ class CTxVerificationQueueEntry
 {
 private:
     CTransaction tx;
-    CAmount nFee;
-    size_t nTxSize;
     NodeId nodeId;
 public:
     void setTX(const CTransaction& newTx);
-    void setNFee(CAmount newNFee);
-    void setNTxSize(size_t newNTxSize);
     CTransaction& getTX();
     void setNodeId(NodeId newNodeId);
     NodeId getNodeId();
