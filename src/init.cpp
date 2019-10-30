@@ -369,6 +369,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-sysperms", _("Create new files with system default permissions, instead of umask 077 (only effective with disabled wallet functionality)"));
 #endif
     strUsage += HelpMessageOpt("-txindex", strprintf(_("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)"), 0));
+    strUsage += HelpMessageOpt("-txverificationlimit", strprintf(_("Limit of transaction which can be verified and added to memory pool in 1 second (default: %u)"), 100));
 
     strUsage += HelpMessageGroup(_("Connection options:"));
     strUsage += HelpMessageOpt("-addnode=<ip>", _("Add a node to connect to and attempt to keep the connection open"));
@@ -1117,6 +1118,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         }
     }
 
+    if (mapArgs.count("-txverificationlimit")) {
+        txVerificationLimit = GetArg("-txverificationlimit", 100);
+        if (txVerificationLimit < 0) {
+            return InitError(_("Limit of verification cannot be negative"));
+        } else if (txVerificationLimit != 100) {
+            LogPrintf("Limit of transaction which can be verified and added to memory pool in 1 second = %lld \n", txVerificationLimit);
+        }
+    }
 
     // ********************************************************* Step 4: application initialization: dir lock, daemonize, pidfile, debug log
 

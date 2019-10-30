@@ -101,6 +101,7 @@ void EraseOrphansFor(NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 CCriticalSection cs_verificationQueue;
 CTxVerificationQueue verificationQueue = CTxVerificationQueue();
+int txVerificationLimit = DEFAULT_TX_VERIFICATION_LIMIT;
 
 /**
  * Returns true if there are nRequired or more blocks of minVersion or above
@@ -4877,7 +4878,7 @@ void txVerificationThread(){
     int i = 0;
     while(!ShutdownRequested())
     {
-        if (!(verificationQueue.isEmpty()) && i < 100)
+        if (!(verificationQueue.isEmpty()) && i < txVerificationLimit)
         {
             LOCK(cs_verificationQueue);
             verificationQueue.verifyOne();

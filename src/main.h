@@ -98,6 +98,8 @@ static const unsigned int DATABASE_FLUSH_INTERVAL = 24 * 60 * 60;
 static const unsigned int MAX_REJECT_MESSAGE_LENGTH = 111;
 /* Maximum number of heigths meaningful when looking for block finality */
 static const int MAX_BLOCK_AGE_FOR_FINALITY = 2000;
+/* Limit of transaction which can be verified and added to memory pool in 1 second */
+static const int DEFAULT_TX_VERIFICATION_LIMIT = 100;
 
 // Sanity check the magic numbers when we change them
 BOOST_STATIC_ASSERT(DEFAULT_BLOCK_MAX_SIZE <= MAX_BLOCK_SIZE);
@@ -136,6 +138,8 @@ extern bool fCoinbaseEnforcedProtectionEnabled;
 extern size_t nCoinCacheUsage;
 extern CFeeRate minRelayTxFee;
 extern bool fAlerts;
+
+extern int txVerificationLimit;
 
 /** Comparison function for sorting the getchaintips heads.  */
 struct CompareBlocksByHeight
