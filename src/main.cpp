@@ -4873,15 +4873,11 @@ void static ProcessGetData(CNode* pfrom)
     }
 }
 
-bool checkVerificationQueue(){
-    return verificationQueue.isEmpty();
-}
-
 void txVerificationThread(){
     int i = 0;
     while(!ShutdownRequested())
     {
-        if (!checkVerificationQueue() && i < 100)
+        if (!(verificationQueue.isEmpty()) && i < 100)
         {
             LOCK(cs_verificationQueue);
             verificationQueue.verifyOne();
