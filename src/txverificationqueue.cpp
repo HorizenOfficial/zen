@@ -8,7 +8,7 @@ void CTxVerificationQueueEntry::setTX(const CTransaction& newTx)
     tx = newTx;
 };
 
-CTransaction& CTxVerificationQueueEntry::getTX()
+const CTransaction& CTxVerificationQueueEntry::getTX()
 {
     return tx;
 };

@@ -5,7 +5,7 @@ private:
     NodeId nodeId;
 public:
     void setTX(const CTransaction& newTx);
-    CTransaction& getTX();
+    const CTransaction& getTX();
     void setNodeId(NodeId newNodeId);
     NodeId getNodeId();
 };

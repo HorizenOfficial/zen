@@ -596,5 +596,5 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 
 #endif // BITCOIN_MAIN_H
 
-void checkOneTx(CNode* pfrom, CTransaction& tx);
+void checkOneTx(CNode* pfrom, const CTransaction& tx);
 void txVerificationThread();

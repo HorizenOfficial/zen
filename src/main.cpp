@@ -4892,7 +4892,7 @@ void txVerificationThread(){
     }
 }
 
-void checkOneTx(CNode* pfrom, CTransaction& tx){
+void checkOneTx(CNode* pfrom, const CTransaction& tx){
 
     string strCommand = "tx";
 
