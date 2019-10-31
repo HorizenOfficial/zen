@@ -10,13 +10,11 @@ public:
     NodeId getNodeId();
 };
 
-CTxVerificationQueueEntry* createCTxVerificationQueueEntry(const CTransaction& tx, NodeId nodeId);
-
 class CTxVerificationQueue
 {
 public:
-    std::deque<CTxVerificationQueueEntry*> dequeTX;
-    void append(CTxVerificationQueueEntry* ctxvqe);
+    std::deque<CTxVerificationQueueEntry> dequeTX;
+    void createAndAppendCTxVerificationQueueEntry(const CTransaction& tx, NodeId nodeId);
     void verifyOne();
     bool isEmpty();
 };

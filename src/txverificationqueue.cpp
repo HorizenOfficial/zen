@@ -22,30 +22,24 @@ NodeId CTxVerificationQueueEntry::getNodeId()
     return nodeId;
 }
 
-CTxVerificationQueueEntry* createCTxVerificationQueueEntry(const CTransaction& tx, NodeId nodeId)
+void CTxVerificationQueue::createAndAppendCTxVerificationQueueEntry(const CTransaction& tx, NodeId nodeId)
 {
-    CTxVerificationQueueEntry* ctxvqe = new CTxVerificationQueueEntry();
+    CTxVerificationQueueEntry ctxvqe = CTxVerificationQueueEntry();
 
-    ctxvqe->setTX(tx);
-    ctxvqe->setNodeId(nodeId);
+    ctxvqe.setTX(tx);
+    ctxvqe.setNodeId(nodeId);
 
-    return ctxvqe;
-};
-
-void CTxVerificationQueue::append(CTxVerificationQueueEntry* ctxvqe)
-{
     dequeTX.push_back(ctxvqe);
 }
 
 void CTxVerificationQueue::verifyOne()
 {
-    CTxVerificationQueueEntry* ctxvqe = dequeTX.front();
-    CNode* node = FindNode(ctxvqe->getNodeId());
+    CTxVerificationQueueEntry ctxvqe = dequeTX.front();
+    CNode* node = FindNode(ctxvqe.getNodeId());
     if (node != NULL){
-        checkOneTx(node, ctxvqe->getTX());
+        checkOneTx(node, ctxvqe.getTX());
     }
     dequeTX.pop_front();
-    delete ctxvqe;
 }
 
 bool CTxVerificationQueue::isEmpty(){

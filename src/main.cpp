@@ -5602,9 +5602,8 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         CTransaction tx;
         vRecv >> tx;
 
-        CTxVerificationQueueEntry* ctvqe = createCTxVerificationQueueEntry(tx, pfrom->GetId());
         LOCK(cs_verificationQueue);
-        verificationQueue.append(ctvqe);
+        verificationQueue.createAndAppendCTxVerificationQueueEntry(tx, pfrom->GetId());
     }
 
 
