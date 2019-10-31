@@ -10,13 +10,13 @@ public:
     NodeId getNodeId();
 };
 
-std::shared_ptr<CTxVerificationQueueEntry> createCTxVerificationQueueEntry(const CTransaction& tx, NodeId nodeId);
+CTxVerificationQueueEntry* createCTxVerificationQueueEntry(const CTransaction& tx, NodeId nodeId);
 
 class CTxVerificationQueue
 {
 public:
-    std::vector<std::shared_ptr<CTxVerificationQueueEntry>> vectorTX;;
-    void append(std::shared_ptr<CTxVerificationQueueEntry> ctxvqe);
+    std::deque<CTxVerificationQueueEntry*> dequeTX;
+    void append(CTxVerificationQueueEntry* ctxvqe);
     void verifyOne();
     bool isEmpty();
 };
