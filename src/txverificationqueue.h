@@ -5,9 +5,9 @@ private:
     NodeId nodeId;
 public:
     void setTX(const CTransaction& newTx);
-    const CTransaction& getTX();
+    const CTransaction& getTX() const;
     void setNodeId(NodeId newNodeId);
-    NodeId getNodeId();
+    NodeId getNodeId()const;
 };
 
 class CTxVerificationQueue

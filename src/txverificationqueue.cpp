@@ -8,7 +8,7 @@ void CTxVerificationQueueEntry::setTX(const CTransaction& newTx)
     tx = newTx;
 };
 
-const CTransaction& CTxVerificationQueueEntry::getTX()
+const CTransaction& CTxVerificationQueueEntry::getTX() const
 {
     return tx;
 };
@@ -17,7 +17,7 @@ void CTxVerificationQueueEntry::setNodeId(NodeId newNodeId){
     nodeId = newNodeId;
 }
 
-NodeId CTxVerificationQueueEntry::getNodeId()
+NodeId CTxVerificationQueueEntry::getNodeId() const
 {
     return nodeId;
 }
@@ -34,7 +34,7 @@ void CTxVerificationQueue::createAndAppendCTxVerificationQueueEntry(const CTrans
 
 void CTxVerificationQueue::verifyOne()
 {
-    CTxVerificationQueueEntry ctxvqe = dequeTX.front();
+    const CTxVerificationQueueEntry& ctxvqe = dequeTX.front();
     CNode* node = FindNode(ctxvqe.getNodeId());
     if (node != NULL){
         checkOneTx(node, ctxvqe.getTX());
