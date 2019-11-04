@@ -4876,17 +4876,24 @@ void static ProcessGetData(CNode* pfrom)
 
 void txVerificationThread(){
     int i = 0;
+    bool emptyQueue = false;
     while(!ShutdownRequested())
     {
-        if (!(verificationQueue.isEmpty()) && i < txVerificationLimit)
+        if ((!emptyQueue) && i < txVerificationLimit)
         {
             LOCK(cs_verificationQueue);
-            verificationQueue.verifyOne();
-            i++;
+            if(!(verificationQueue.isEmpty())){
+                verificationQueue.verifyOne();
+                i++;
+            }
+            else{
+                emptyQueue = true;
+            }
         }
         else
         {
             i = 0;
+            emptyQueue = false;
             std::this_thread::sleep_for (std::chrono::seconds(1));
         }
     }
