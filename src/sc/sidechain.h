@@ -104,17 +104,17 @@ class ScMgr
     bool writeToDb(const uint256& scId, const ScInfo& info);
     void eraseFromDb(const uint256& scId);
 
-    bool checkSidechainCreation(const CTransaction& tx, CValidationState& state);
-    bool hasSCCreationConflictsInMempool(const CTxMemPool& pool, const CTransaction& tx);
+    bool checkScCreation(const CTransaction& tx, CValidationState& state);
+    bool hasScCreationConflictsInMempool(const CTxMemPool& pool, const CTransaction& tx);
     bool checkCertificateInMemPool(CTxMemPool& pool, const CTransaction& tx);
 
     // return true if the tx contains a fwd tr for the given scid
     static bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
 
     // return true if the tx is creating the scid
-    bool hasSidechainCreationOutput(const CTransaction& tx, const uint256& scId);
+    bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
 
-    CAmount getSidechainBalance(const uint256& scId);
+    CAmount getScBalance(const uint256& scId);
     void copyScInfoMap(ScInfoMap& mapCopy) const;
 
   public:

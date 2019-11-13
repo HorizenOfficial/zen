@@ -109,6 +109,10 @@ class headers(BitcoinTestFramework):
 
     def run_test(self):
 
+        ''' This test creates a Sidechain and forwards funds to it and then verifies
+          that scinfo is updated correctly in active chain also after blocks rollback
+          and alternative fork propagations
+        '''
         # network topology: (0)--(1)--(2)
         blocks = []
         self.bl_count = 0
@@ -195,6 +199,7 @@ class headers(BitcoinTestFramework):
         # node 2 invalidates the block just before the SC creation thus originating a chain fork
         self.mark_logs("\nNode 2 invalidates the pre-SC block..")
 
+        raw_input("Press to invalidate block...")
         try:
             self.nodes[2].invalidateblock(pre_sc_block);
         except JSONRPCException,e:

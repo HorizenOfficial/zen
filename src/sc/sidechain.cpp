@@ -79,7 +79,7 @@ bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const
     return true;
 }
 
-CAmount ScMgr::getSidechainBalance(const uint256& scId)
+CAmount ScMgr::getScBalance(const uint256& scId)
 {
     LOCK(sc_lock);
     ScInfoMap::iterator it = mScInfo.find(scId);
@@ -117,7 +117,7 @@ bool ScMgr::IsTxApplicableToState(const CTransaction& tx, const ScCoinsViewCache
         if (!sidechainExists(scId, scView) )
         {
             // return error unless we are creating this sc in the current tx
-            if (!hasSidechainCreationOutput(tx, scId) )
+            if (!hasScCreationOutput(tx, scId) )
             {
                 LogPrint("sc", "%s():%d - tx[%s] tries to send funds to scId[%s] not yet created\n",
                     __func__, __LINE__, txHash.ToString(), scId.ToString() );
@@ -142,7 +142,7 @@ bool ScMgr::anyForwardTransaction(const CTransaction& tx, const uint256& scId)
     return false;
 }
 
-bool ScMgr::hasSidechainCreationOutput(const CTransaction& tx, const uint256& scId)
+bool ScMgr::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
 {
     BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
     {
@@ -200,7 +200,7 @@ bool ScMgr::checkTxSemanticValidity(const CTransaction& tx, CValidationState& st
 }
 bool ScMgr::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
 {
-    if (!hasSCCreationConflictsInMempool(pool, tx) )
+    if (!hasScCreationConflictsInMempool(pool, tx) )
     {
         return state.Invalid(error("transaction tries to create scid already created in mempool"),
              REJECT_INVALID, "sidechain-creation");
@@ -208,7 +208,7 @@ bool ScMgr::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx,
     return true;
 }
 
-bool ScMgr::hasSCCreationConflictsInMempool(const CTxMemPool& pool, const CTransaction& tx)
+bool ScMgr::hasScCreationConflictsInMempool(const CTxMemPool& pool, const CTransaction& tx)
 {
     BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
     {

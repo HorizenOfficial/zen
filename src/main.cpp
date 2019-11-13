@@ -2198,7 +2198,8 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     }
 
     // undo transactions in reverse order
-    for (int i = block.vtx.size() - 1; i >= 0; i--) {
+    for (int i = block.vtx.size() - 1; i >= 0; i--)
+    {
         const CTransaction &tx = block.vtx[i];
         uint256 hash = tx.GetHash();
 
@@ -6997,7 +6998,7 @@ static int getInitCbhSafeDepth()
 
 static int getInitScCoinsMaturity()
 {
-    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
+    if ( (Params().NetworkIDString() == "regtest") )
     {
         int val = (int)(GetArg("-sccoinsmaturity", Params().ScCoinsMaturity() ));
         LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);

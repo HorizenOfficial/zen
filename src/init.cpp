@@ -526,7 +526,7 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-blockversion=<n>", "Override block version to test forking scenarios");
 
     strUsage += HelpMessageOpt("-sccoinsmaturity=<n>",
-        "regtest/testnet only - Set the maturity of sc funds as number of blocks to be mined before they are computed in the sc balance (default depends on regtest/testnet params)");
+        "regtest only - Set the maturity of sc funds as number of blocks to be mined before they are computed in the sc balance (default depends on regtest/testnet params)");
         
 #ifdef ENABLE_MINING
     strUsage += HelpMessageGroup(_("Mining options:"));

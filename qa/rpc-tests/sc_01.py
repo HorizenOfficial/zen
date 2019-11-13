@@ -30,7 +30,7 @@ class headers(BitcoinTestFramework):
     def setup_network(self, split=False):
         self.nodes = []
 
-        self.nodes = start_nodes(3, self.options.tmpdir, extra_args=[['-debug=sc']] * 3 )
+        self.nodes = start_nodes(3, self.options.tmpdir, extra_args=[['-sccoinsmaturity=0', '-debug=sc']] * 3 )
 
         if not split:
             # 1 and 2 are joint only if split==false
