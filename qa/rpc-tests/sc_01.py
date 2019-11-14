@@ -30,7 +30,7 @@ class headers(BitcoinTestFramework):
     def setup_network(self, split=False):
         self.nodes = []
 
-        self.nodes = start_nodes(3, self.options.tmpdir, extra_args=[['-debug=sc']] * 3 )
+        self.nodes = start_nodes(3, self.options.tmpdir, extra_args=[['-sccoinsmaturity=0', '-debug=sc']] * 3 )
 
         if not split:
             # 1 and 2 are joint only if split==false
@@ -89,8 +89,13 @@ class headers(BitcoinTestFramework):
 
         #forward transfer amount
         creation_amount = Decimal("0.5")
-        fwt_amount = Decimal("2.5")
+        fwt_amount_1 = Decimal("0.1")
+        fwt_amount_2 = Decimal("0.2")
+        fwt_amount_3 = Decimal("0.5")
+        fwt_amount_4 = Decimal("0.7")
+        fwt_amount_5 = Decimal("1.0")
 
+        fwt_amount = fwt_amount_1 + fwt_amount_2 + fwt_amount_3 + fwt_amount_4 + fwt_amount_5 
         blocks = []
         self.bl_count = 0
 
@@ -112,7 +117,7 @@ class headers(BitcoinTestFramework):
         self.split_network()
         self.mark_logs("The network is split: 0-1 .. 2")
 
-        print "\nNode1 balance: ", self.nodes[1].getbalance("", 0)
+        print "\n############ Node1 balance: ", self.nodes[1].getbalance("", 0)
 
         self.mark_logs("\nNode 1 creates the SC")
         amounts = []
@@ -151,9 +156,29 @@ class headers(BitcoinTestFramework):
         print "Node 0: ", self.nodes[0].getscinfo(scid)
         print "Node 1: ", self.nodes[1].getscinfo(scid)
 
-        self.mark_logs("\nNode 1 performs a fwd transfer of "+str(fwt_amount)+" coins ...")
+        self.mark_logs("\nNode 1 performs a fwd transfer of "+str(fwt_amount_1)+" coins ...")
+        tx = self.nodes[1].sc_send("abcd", fwt_amount_1, scid);
+        print "tx=" + tx
 
-        tx = self.nodes[1].sc_send("abcd", fwt_amount, scid);
+        self.mark_logs("\nNode 1 performs a fwd transfer of "+str(fwt_amount_2)+" coins ...")
+        tx = self.nodes[1].sc_send("abcd", fwt_amount_2, scid);
+        print "tx=" + tx
+
+        print("\nNode0 generating 1 honest block")
+        blocks.extend(self.nodes[0].generate(1))
+        print blocks[-1]
+        self.sync_all()
+
+        self.mark_logs("\nNode 1 performs a fwd transfer of "+str(fwt_amount_3)+" coins ...")
+        tx = self.nodes[1].sc_send("abcd", fwt_amount_3, scid);
+        print "tx=" + tx
+
+        self.mark_logs("\nNode 1 performs a fwd transfer of "+str(fwt_amount_4)+" coins ...")
+        tx = self.nodes[1].sc_send("abcd", fwt_amount_4, scid);
+        print "tx=" + tx
+
+        self.mark_logs("\nNode 1 performs a fwd transfer of "+str(fwt_amount_5)+" coins ...")
+        tx = self.nodes[1].sc_send("abcd", fwt_amount_5, scid);
         print "tx=" + tx
         self.sync_all()
 
@@ -162,7 +187,7 @@ class headers(BitcoinTestFramework):
         print blocks[-1]
         self.sync_all()
 
-        print "\nNode1 balance: ", self.nodes[1].getbalance("", 0)
+        print "\n############ Node1 balance: ", self.nodes[1].getbalance("", 0)
 
         print "\nChecking sc info on 'honest' portion of network..."
         print self.nodes[1].getscinfo(scid)
@@ -172,8 +197,8 @@ class headers(BitcoinTestFramework):
         assert_equal(self.nodes[1].getscinfo(scid)["created in block"], ownerBlock) 
         assert_equal(self.nodes[1].getscinfo(scid)["creating tx hash"], creating_tx) 
 
-        self.mark_logs("\nNode 2 generates 3 malicious blocks, its chain will have a greater length than honest...")
-        blocks.extend(self.nodes[2].generate(3))
+        self.mark_logs("\nNode 2 generates 4 malicious blocks, its chain will have a greater length than honest...")
+        blocks.extend(self.nodes[2].generate(4))
         print blocks[-1]
         self.sync_all()
 
@@ -201,7 +226,7 @@ class headers(BitcoinTestFramework):
         print "Node 1: ", self.nodes[1].getrawmempool()
         print "Node 2: ", self.nodes[2].getrawmempool()
 
-        print "\nNode1 balance: ", self.nodes[1].getbalance("", 0)
+        print "\n############ Node1 balance: ", self.nodes[1].getbalance("", 0)
 
         self.mark_logs("\nNode1 generating 1 honest block and restoring the SC creation...")
         blocks.extend(self.nodes[1].generate(1))

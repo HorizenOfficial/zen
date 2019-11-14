@@ -70,7 +70,7 @@ struct CRecipientForwardTransfer : public CRecipientCrossChainBase
 {
     uint256 address;
     CAmount nValue;
-    explicit CRecipientForwardTransfer(const CTxForwardTransferOut&);
+
     CRecipientForwardTransfer(): nValue(0) {};
 };
 
@@ -88,6 +88,23 @@ typedef boost::variant<
         CRecipientForwardTransfer,
         CRecipientBackwardTransfer
     > CcRecipientVariant;
+
+
+struct ScImmatureAmount
+{
+    int maturityHeight;
+    CAmount amount;
+
+    ScImmatureAmount(): maturityHeight(-1), amount(0) {}
+    ScImmatureAmount(int h, const CAmount& a): maturityHeight(h), amount(a) {}
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(maturityHeight);
+        READWRITE(amount);
+    }
+};
 
 }; // end of namespace
 

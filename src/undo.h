@@ -9,6 +9,7 @@
 #include "compressor.h" 
 #include "primitives/transaction.h"
 #include "serialize.h"
+#include "sc/sidechaintypes.h"
 
 /** Undo information for a CTxIn
  *
@@ -53,18 +54,39 @@ public:
     }
 };
 
+
+class CScCreationOutUndo
+{
+public:
+    uint256 scId;
+
+    CScCreationOutUndo() {}
+    CScCreationOutUndo(const uint256& scIdIn) : scId(scIdIn) {}
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(scId);
+    }
+};
+
+typedef Sidechain::ScImmatureAmount CScImmatureAmountUndo;
+
 /** Undo information for a CTransaction */
 class CTxUndo
 {
 public:
     // undo information for all txins
     std::vector<CTxInUndo> vprevout;
+    // undo information for cross chain creation
+    std::vector<CScCreationOutUndo> vsc_ccout;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(vprevout);
+        READWRITE(vsc_ccout);
     }
 };
 
@@ -73,6 +95,7 @@ class CBlockUndo
 {
 public:
     std::vector<CTxUndo> vtxundo; // for all but the coinbase
+    std::map<uint256, std::vector<CScImmatureAmountUndo>> msc_iaundo;
     uint256 old_tree_root;
 
     ADD_SERIALIZE_METHODS;
@@ -80,6 +103,7 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(vtxundo);
+        READWRITE(msc_iaundo);
         READWRITE(old_tree_root);
     }
 };

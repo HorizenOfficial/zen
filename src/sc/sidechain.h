@@ -14,6 +14,8 @@
 
 //------------------------------------------------------------------------------------
 class CTxMemPool;
+class CTxUndo;
+class CBlockUndo;
 class UniValue;
 class CValidationState;
 
@@ -40,6 +42,9 @@ public:
     // creation data
     ScCreationParameters creationData;
 
+    // immature amounts
+    std::vector<ScImmatureAmount> vImmatureAmounts;
+
     std::string ToString() const;
 
     ADD_SERIALIZE_METHODS;
@@ -52,11 +57,36 @@ public:
         READWRITE(creationTxHash);
         READWRITE(balance);
         READWRITE(creationData);
+        READWRITE(vImmatureAmounts);
     }
 };
 
 
 typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
+
+class ScCoinsViewCache
+{
+    ScInfoMap mUpdate;
+    std::set<uint256> sErase;
+    std::set<uint256> sDirty;
+
+public:
+    bool UpdateScCoins(const CTransaction& tx, const CBlock&, int nHeight, CTxUndo& txundo);
+    bool UndoScCreation(const CTxUndo& undo);
+    bool IncrementScBalance(int nHeight, CBlockUndo& blockundo);
+    bool DecrementScBalance(int nHeight, CBlockUndo& blockundo);
+
+    const ScInfoMap& getUpdateMap() const { return mUpdate; }
+    bool sidechainExists(const uint256& scId) const;
+
+    bool Flush();
+
+    ScCoinsViewCache();
+    ScCoinsViewCache(const ScCoinsViewCache&) = delete;
+    ScCoinsViewCache& operator=(const ScCoinsViewCache &) = delete;
+    ScCoinsViewCache(ScCoinsViewCache&) = delete;
+    ScCoinsViewCache& operator=(ScCoinsViewCache &) = delete;
+};
 
 class ScMgr
 {
@@ -70,25 +100,22 @@ class ScMgr
     CLevelDBWrapper* db;
 
     // low level api for DB
+    friend class ScCoinsViewCache;
     bool writeToDb(const uint256& scId, const ScInfo& info);
     void eraseFromDb(const uint256& scId);
 
-    // add/remove/find obj in sc map and DB
-    bool addSidechain(const uint256& scId, const ScInfo& info);
-    void removeSidechain(const uint256& scId);
-
-    bool hasSCCreationConflictsInMempool(const CTxMemPool& pool, const CTransaction& tx);
+    bool checkScCreation(const CTransaction& tx, CValidationState& state);
+    bool hasScCreationConflictsInMempool(const CTxMemPool& pool, const CTransaction& tx);
     bool checkCertificateInMemPool(CTxMemPool& pool, const CTransaction& tx);
 
     // return true if the tx contains a fwd tr for the given scid
     static bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
 
     // return true if the tx is creating the scid
-    bool hasSidechainCreationOutput(const CTransaction& tx, const uint256& scId);
+    bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
 
-    bool updateSidechainBalance(const uint256& scId, const CAmount& amount);
-
-    CAmount getSidechainBalance(const uint256& scId);
+    CAmount getScBalance(const uint256& scId);
+    void copyScInfoMap(ScInfoMap& mapCopy) const;
 
   public:
 
@@ -101,18 +128,16 @@ class ScMgr
 
     bool initialUpdateFromDb(size_t cacheSize, bool fWipe);
 
-    bool sidechainExists(const uint256& scId) const;
+    bool sidechainExists(const uint256& scId, const ScCoinsViewCache* const scView = NULL) const;
     bool getScInfo(const uint256& scId, ScInfo& info) const;
-
-    bool onBlockConnected(const CBlock& block, int nHeight);
-    bool onBlockDisconnected(const CBlock& block, int nHeight);
 
     bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
     static bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
-    bool IsTxApplicableToState(const CTransaction& tx);
+    bool IsTxApplicableToState(const CTransaction& tx, const ScCoinsViewCache* const scView = NULL);
 
     void getScIdSet(std::set<uint256>& sScIds) const;
 
+    const ScInfoMap& getScInfoMap() const { return mScInfo; }
     // print functions
     bool dump_info(const uint256& scId);
     void dump_info();
