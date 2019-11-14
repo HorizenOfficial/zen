@@ -74,7 +74,7 @@ public:
     bool UpdateScCoins(const CTransaction& tx, const CBlock&, int nHeight, CTxUndo& txundo);
     bool UndoScCreation(const CTxUndo& undo);
     bool IncrementScBalance(int nHeight, CBlockUndo& blockundo);
-    bool DecrementScBalance(int nHeight, CBlockUndo& blockundo);
+    bool DecrementScBalance(int nHeight, const CBlockUndo& blockundo);
 
     const ScInfoMap& getUpdateMap() const { return mUpdate; }
     bool sidechainExists(const uint256& scId) const;

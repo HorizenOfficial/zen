@@ -590,7 +590,7 @@ bool ScCoinsViewCache::IncrementScBalance(int blockHeight, CBlockUndo& blockundo
     return true;
 }
 
-bool ScCoinsViewCache::DecrementScBalance(int blockHeight, CBlockUndo& blockundo)
+bool ScCoinsViewCache::DecrementScBalance(int blockHeight, const CBlockUndo& blockundo)
 {
     LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
