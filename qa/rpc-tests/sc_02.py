@@ -33,7 +33,7 @@ class headers(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
-            extra_args=[['-sccoinsmaturity=0', '-logtimemicros=1', '-debug=sc', '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench']] * NUMB_OF_NODES )
+            extra_args=[['-sccoinsmaturity=2', '-logtimemicros=1', '-debug=sc', '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench']] * NUMB_OF_NODES )
 
         if not split:
             # 1 and 2 are joint only if split==false
@@ -83,6 +83,7 @@ class headers(BitcoinTestFramework):
         print "  Node %d - balance: %f" % ( i, info["balance"])
         print "    created in block: %s (%d)" % (info["created in block"], info["created at block height"])
         print "    created in tx:    %s" % info["creating tx hash"]
+        print "    immature amounts:  ", info["immature amounts"]
 
     def dump_sc_info(self, scId=""):
         if scId != "":
@@ -128,6 +129,7 @@ class headers(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(220))
         self.sync_all()
         pre_sc_block = blocks[-1]
+        pre_sc_block_2 = blocks[-2]
 
         print "\n############ Node1 balance: ", self.nodes[1].getbalance("", 0)
 
@@ -138,7 +140,8 @@ class headers(BitcoinTestFramework):
         fwt_amount_1 = Decimal("1.0")
         fwt_amount_2 = Decimal("2.0")
         fwt_amount_3 = Decimal("3.0")
-        fwt_amount_many = fwt_amount_1 + fwt_amount_2 + fwt_amount_3
+        fwt_amount_many   = fwt_amount_1 + fwt_amount_2 + fwt_amount_3
+        fwt_amount_double = 2*fwt_amount_1
 
         #---------------------------------------------------------------------------------------
         self.mark_logs("\nNode 1 creates SC")
@@ -181,12 +184,55 @@ class headers(BitcoinTestFramework):
         self.sync_all()
 
         print "\n############ Node1 balance: ", self.nodes[1].getbalance("", 0)
+        curh = self.nodes[1].getblockcount()
+        print "Current height: ", curh
+
+        # maturity has been reached only for creation amount
+        assert_equal(self.nodes[2].getscinfo(scid)["balance"], creation_amount) 
+        # maturity will be reached at next height for 2*wt_amount_1
+        ia = self.nodes[2].getscinfo(scid)["immature amounts"]
+        count = 0
+        for entry in ia:
+            count += 1
+            h = entry["maturityHeight"]
+            a = entry["amount"]
+            #print "%d) h=%d, amount=%f " % (count, h, a)
+            print "Check that %f coins will be mature at h=%d" % (a, h)
+            if h == curh + 1:
+                assert_equal(a, fwt_amount_double) 
+            if h == curh + 2:
+                assert_equal(a, fwt_amount_many) 
+            print "...OK"
+
+
+        print("\n...Node0 generating 1 block")
+        blocks.extend(self.nodes[0].generate(1))
+        self.sync_all()
+
+        # maturity has been reached for creation amount + 2*fwt_amount_1
+        assert_equal(self.nodes[2].getscinfo(scid)["balance"], creation_amount+fwt_amount_double) 
+        # maturity will be reached at next height for fwt_amount_many
+        ia = self.nodes[2].getscinfo(scid)["immature amounts"]
+        count = 0
+        for entry in ia:
+            count += 1
+            h = entry["maturityHeight"]
+            a = entry["amount"]
+            #print "%d) h=%d, amount=%f " % (count, h, a)
+            print "Check that %f coins will be mature at h=%d" % (a, h)
+            if h == curh + 1:
+                assert_equal(a, fwt_amount_many) 
+            print "...OK"
+
+        print("\n...Node0 generating 1 block")
+        blocks.extend(self.nodes[0].generate(1))
+        self.sync_all()
 
         print "\nChecking SC info on network..."
         print
         self.dump_sc_info(scid)
 
-        assert_equal(self.nodes[2].getscinfo(scid)["balance"], creation_amount + 2*fwt_amount_1 + fwt_amount_many) 
+        assert_equal(self.nodes[2].getscinfo(scid)["balance"], creation_amount + fwt_amount_double + fwt_amount_many) 
         assert_equal(self.nodes[2].getscinfo(scid)["created in block"], ownerBlock) 
         assert_equal(self.nodes[2].getscinfo(scid)["creating tx hash"], creating_tx_2) 
 
@@ -199,14 +245,12 @@ class headers(BitcoinTestFramework):
         # node 2 invalidates the block just before the SC creation thus originating a chain fork
         self.mark_logs("\nNode 2 invalidates the pre-SC block..")
 
-        raw_input("Press to invalidate block...")
         try:
             self.nodes[2].invalidateblock(pre_sc_block);
         except JSONRPCException,e:
             errorString = e.error['message']
             print errorString
 
-        #self.sync_all()
         time.sleep(2)
 
         print "\nChecking network chain tips, Node 2 has a shorter fork..."
@@ -227,7 +271,6 @@ class headers(BitcoinTestFramework):
         # the SC is recretaed on the Node2 forked chain with all the balance
         self.mark_logs("\n...Node 2 generates 3 malicious blocks...")
         blocks.extend(self.nodes[2].generate(3))
-        #self.sync_all()
         time.sleep(2)
 
         print "\nChecking network chain tips, Node 2 propagated the fork to its peer..."
@@ -251,14 +294,12 @@ class headers(BitcoinTestFramework):
         self.mark_logs("\nNode 1 sends "+str(fwt_amount_1)+" coins to SC")
         tx_after_fork = self.nodes[1].sc_send("abcd", fwt_amount_1, scid);
         print "tx=" + tx_after_fork
-        #self.sync_all()
-        time.sleep(2)
+        time.sleep(1)
 
         # the SC balance will be updated only in the node 2 forked chain 
         self.mark_logs("\n...Node 2 generates 1 malicious blocks, its chain will have the same length as the honest...")
         blocks.extend(self.nodes[2].generate(1))
-        #self.sync_all()
-        time.sleep(2)
+        time.sleep(1)
 
         print "\nChecking SC info on the whole network, balance is updated only in Node2 fork..."
         self.dump_sc_info(scid)
@@ -280,8 +321,7 @@ class headers(BitcoinTestFramework):
         # node0/1 will update the SC on their forked chain, including the tx in a different block than Node 2
         print("\n...Node0 generating 1 block")
         blocks.extend(self.nodes[0].generate(1))
-        #self.sync_all()
-        time.sleep(2)
+        time.sleep(1)
 
         print "\nChecking SC info on the whole network, balance is now updated everywhere..."
         self.dump_sc_info(scid)
@@ -297,10 +337,17 @@ class headers(BitcoinTestFramework):
         print "  Owner block of last tx on node 0: " + tx_1_block
         print "  Owner block of last tx on node 2: " + tx_2_block
         
-        self.mark_logs("\nNode 2 generates 2 malicious blocks, its chain will prevail over honest one...")
-        blocks.extend(self.nodes[2].generate(2))
-        self.sync_all()
+        print "\nChecking network chain tips..."
+        print 
+        for i in range(0, NUMB_OF_NODES):
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "---"
 
+        # block 221 is the forked point on malicious chain which is now at 225, honest is now at 228 => 3+(7*6/2+1)=24 blocks are necessary to revert honest chain
+        self.mark_logs("\nNode 2 generates 24 malicious blocks, its chain will prevail over honest one...")
+        blocks.extend(self.nodes[2].generate(24))
+        self.sync_all()
+        
         print "\nChecking network chain tips, Node 2 fork has prevailed..."
         print 
         for i in range(0, NUMB_OF_NODES):
@@ -332,6 +379,81 @@ class headers(BitcoinTestFramework):
         print "\nOk, last tx belongs to the same block"
         print "  Owner block of last tx on node 0: " + tx_0_block
         print "  Owner block of last tx on node 2: " + tx_2_block
+
+        # nodes invalidate the block just before the SC creation 
+        self.mark_logs("\nNodes invalidate the pre-SC block..")
+
+        try:
+            self.nodes[0].invalidateblock(pre_sc_block_2);
+            self.nodes[1].invalidateblock(pre_sc_block_2);
+            self.nodes[2].invalidateblock(pre_sc_block_2);
+        except JSONRPCException,e:
+            errorString = e.error['message']
+            print errorString
+
+        print "\nChecking network chain tips, chain has been reverted..."
+        print 
+        for i in range(0, NUMB_OF_NODES):
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "---"
+
+        # the honest chain at node 0/1 has been reverted, all data should now match 
+        print "\nChecking SC info on the whole network has disappeared, all data match..."
+        self.dump_sc_info(scid)
+
+        print "\nChecking mempools, Nodes still have sc tx in the mempool..."
+        print "Node 0: ", self.nodes[0].getrawmempool()
+        print "Node 1: ", self.nodes[1].getrawmempool()
+        print "Node 2: ", self.nodes[2].getrawmempool()
+
+        self.mark_logs("\nNode 0 generates 4 blocks...")
+        blocks.extend(self.nodes[0].generate(4))
+        self.sync_all()
+        last_inv_block = blocks[-1]
+
+        print "\nChecking network chain tips..."
+        print 
+        for i in range(0, NUMB_OF_NODES):
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "---"
+
+        # the honest chain at node 0/1 has been reverted, all data should now match 
+        print "\nChecking SC info on the whole network has appeared again, all data match..."
+        self.dump_sc_info(scid)
+
+        # nodes invalidate the block just before the SC creation 
+        self.mark_logs("\nNodes invalidate the latest block, immaturity is restored..")
+
+        try:
+            self.nodes[0].invalidateblock(last_inv_block);
+            self.nodes[1].invalidateblock(last_inv_block);
+            self.nodes[2].invalidateblock(last_inv_block);
+        except JSONRPCException,e:
+            errorString = e.error['message']
+            print errorString
+
+        for i in range(0, NUMB_OF_NODES):
+            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "---"
+
+        self.dump_sc_info(scid)
+
+        curh = self.nodes[1].getblockcount()
+
+        # maturity has not been reached but for creation amount
+        assert_equal(self.nodes[2].getscinfo(scid)["balance"], creation_amount) 
+        # maturity will be reached at next height for fwt_amount_many
+        ia = self.nodes[2].getscinfo(scid)["immature amounts"]
+        count = 0
+        for entry in ia:
+            count += 1
+            h = entry["maturityHeight"]
+            a = entry["amount"]
+            #print "%d) h=%d, amount=%f " % (count, h, a)
+            print "Check that %f coins will be mature at h=%d" % (a, h)
+            if h == curh + 1:
+                assert_equal(a, fwt_amount_many + fwt_amount_double + fwt_amount_1) 
+            print "...OK"
 
 
 if __name__ == '__main__':

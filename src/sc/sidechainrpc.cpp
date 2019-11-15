@@ -184,11 +184,11 @@ void AddScInfoToJSON(const uint256& scId, const ScInfo& info, UniValue& sc)
     sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
 
     UniValue ia(UniValue::VARR);
-    BOOST_FOREACH(const auto& entry, info.vImmatureAmounts)
+    BOOST_FOREACH(const auto& entry, info.mImmatureAmounts)
     {
         UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("maturityHeight", entry.maturityHeight));
-        o.push_back(Pair("amount", ValueFromAmount(entry.amount)));
+        o.push_back(Pair("maturityHeight", entry.first));
+        o.push_back(Pair("amount", ValueFromAmount(entry.second)));
         ia.push_back(o);
     }
     sc.push_back(Pair("immature amounts", ia));

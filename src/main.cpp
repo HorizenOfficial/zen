@@ -2190,7 +2190,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     if (scView)
     {
         LogPrint("sc", "%s():%d - restoring sc coins if any\n", __func__, __LINE__);
-        if (!scView->DecrementScBalance(pindex->nHeight, blockUndo) )
+        if (!scView->RestoreImmatureBalances(pindex->nHeight, blockUndo) )
         {
             LogPrint("sc", "%s():%d - ERROR updating sc maturity amounts\n", __func__, __LINE__);
             return error("DisconnectBlock(): sc and undo data inconsistent");
@@ -2229,6 +2229,16 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             }
         }
 
+        if (scView)
+        {
+            LogPrint("sc", "%s():%d - undo sc creation if any\n", __func__, __LINE__);
+            if (!scView->RevertTxOutputs(tx) )
+            {
+                LogPrint("sc", "%s():%d - ERROR undoing sc creation\n", __func__, __LINE__);
+                return error("DisconnectBlock(): sc creation can not be reverted: data inconsistent");
+            }
+        }
+
         // restore inputs
         if (i > 0) { // not coinbases
             const CTxUndo &txundo = blockUndo.vtxundo[i-1];
@@ -2239,16 +2249,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 const CTxInUndo &undo = txundo.vprevout[j];
                 if (!ApplyTxInUndo(undo, view, out))
                     fClean = false;
-            }
-
-            if (scView)
-            {
-                LogPrint("sc", "%s():%d - undo sc creation tx if any\n", __func__, __LINE__);
-                if (!scView->UndoScCreation(txundo) )
-                {
-                    LogPrint("sc", "%s():%d - ERROR undoing sc creation tx\n", __func__, __LINE__);
-                    return error("DisconnectBlock(): sc and undo data inconsistent");
-                }
             }
         }
     }
@@ -2555,7 +2555,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if ((!fJustCheck && i > 0) && scView)
         {
-            if (!scView->UpdateScCoins(tx, block, pindex->nHeight, blockundo.vtxundo.back()) )
+            if (!scView->UpdateScInfo(tx, block, pindex->nHeight) )
             {
                 return state.DoS(100, error("ConnectBlock(): could not add sidechain in scView: tx[%s]", tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
@@ -2576,7 +2576,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     if (!fJustCheck && scView)
     {
-        if (!scView->IncrementScBalance(pindex->nHeight, blockundo) )
+        if (!scView->ApplyMatureBalances(pindex->nHeight, blockundo) )
         {
             return state.DoS(100, error("ConnectBlock(): could not update sc immature amounts"),
                              REJECT_INVALID, "bad-sc-amounts");

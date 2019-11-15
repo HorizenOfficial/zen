@@ -14,7 +14,6 @@
 
 //------------------------------------------------------------------------------------
 class CTxMemPool;
-class CTxUndo;
 class CBlockUndo;
 class UniValue;
 class CValidationState;
@@ -43,7 +42,7 @@ public:
     ScCreationParameters creationData;
 
     // immature amounts
-    std::vector<ScImmatureAmount> vImmatureAmounts;
+    std::map<int, CAmount> mImmatureAmounts;
 
     std::string ToString() const;
 
@@ -57,7 +56,7 @@ public:
         READWRITE(creationTxHash);
         READWRITE(balance);
         READWRITE(creationData);
-        READWRITE(vImmatureAmounts);
+        READWRITE(mImmatureAmounts);
     }
 };
 
@@ -71,12 +70,11 @@ class ScCoinsViewCache
     std::set<uint256> sDirty;
 
 public:
-    bool UpdateScCoins(const CTransaction& tx, const CBlock&, int nHeight, CTxUndo& txundo);
-    bool UndoScCreation(const CTxUndo& undo);
-    bool IncrementScBalance(int nHeight, CBlockUndo& blockundo);
-    bool DecrementScBalance(int nHeight, const CBlockUndo& blockundo);
+    bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
+    bool RevertTxOutputs(const CTransaction& undo);
+    bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
+    bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
-    const ScInfoMap& getUpdateMap() const { return mUpdate; }
     bool sidechainExists(const uint256& scId) const;
 
     bool Flush();
