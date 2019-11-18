@@ -2231,8 +2231,8 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
         if (scView)
         {
-            LogPrint("sc", "%s():%d - undo sc creation if any\n", __func__, __LINE__);
-            if (!scView->RevertTxOutputs(tx) )
+            LogPrint("sc", "%s():%d - undo sc outputs if any\n", __func__, __LINE__);
+            if (!scView->RevertTxOutputs(tx, pindex->nHeight) )
             {
                 LogPrint("sc", "%s():%d - ERROR undoing sc creation\n", __func__, __LINE__);
                 return error("DisconnectBlock(): sc creation can not be reverted: data inconsistent");

@@ -71,7 +71,7 @@ class ScCoinsViewCache
 
 public:
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
-    bool RevertTxOutputs(const CTransaction& undo);
+    bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 

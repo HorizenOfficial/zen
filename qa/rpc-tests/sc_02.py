@@ -17,6 +17,7 @@ import logging
 import time
 
 NUMB_OF_NODES = 3
+SC_COINS_MAT = 2
 
 class headers(BitcoinTestFramework):
 
@@ -33,7 +34,7 @@ class headers(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
-            extra_args=[['-sccoinsmaturity=2', '-logtimemicros=1', '-debug=sc', '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench']] * NUMB_OF_NODES )
+            extra_args=[["-sccoinsmaturity=%d"%SC_COINS_MAT, '-logtimemicros=1', '-debug=sc', '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench']] * NUMB_OF_NODES )
 
         if not split:
             # 1 and 2 are joint only if split==false
@@ -143,6 +144,7 @@ class headers(BitcoinTestFramework):
         fwt_amount_many   = fwt_amount_1 + fwt_amount_2 + fwt_amount_3
         fwt_amount_double = 2*fwt_amount_1
 
+        #raw_input("Press enter to create SC...")
         #---------------------------------------------------------------------------------------
         self.mark_logs("\nNode 1 creates SC")
         amounts = []
@@ -243,21 +245,24 @@ class headers(BitcoinTestFramework):
             print "---"
 
         # node 2 invalidates the block just before the SC creation thus originating a chain fork
-        self.mark_logs("\nNode 2 invalidates the pre-SC block..")
+        self.mark_logs("\nNodes invalidate the highest pre-SC block (height=%d).."%self.nodes[0].getblock(pre_sc_block, True)["height"])
 
         try:
+            print "Invalidating %s"%pre_sc_block
             self.nodes[2].invalidateblock(pre_sc_block);
         except JSONRPCException,e:
             errorString = e.error['message']
             print errorString
 
-        time.sleep(2)
+        time.sleep(3)
 
         print "\nChecking network chain tips, Node 2 has a shorter fork..."
         print 
         for i in range(0, NUMB_OF_NODES):
             self.dump_ordered_tips(self.nodes[i].getchaintips())
             print "---"
+
+        #raw_input("Press enter to go on...")
 
         # Node2 mempool will contain all the transactions from the blocks reverted
         print "\nChecking mempools, Node 2 has the reverted blocks transaction..."
@@ -269,8 +274,8 @@ class headers(BitcoinTestFramework):
         self.dump_sc_info(scid)
 
         # the SC is recretaed on the Node2 forked chain with all the balance
-        self.mark_logs("\n...Node 2 generates 3 malicious blocks...")
-        blocks.extend(self.nodes[2].generate(3))
+        self.mark_logs("\n...Node 2 generates %d malicious blocks..."%SC_COINS_MAT)
+        blocks.extend(self.nodes[2].generate(SC_COINS_MAT))
         time.sleep(2)
 
         print "\nChecking network chain tips, Node 2 propagated the fork to its peer..."
@@ -343,9 +348,15 @@ class headers(BitcoinTestFramework):
             self.dump_ordered_tips(self.nodes[i].getchaintips())
             print "---"
 
-        # block 221 is the forked point on malicious chain which is now at 225, honest is now at 228 => 3+(7*6/2+1)=24 blocks are necessary to revert honest chain
-        self.mark_logs("\nNode 2 generates 24 malicious blocks, its chain will prevail over honest one...")
-        blocks.extend(self.nodes[2].generate(24))
+        fin = self.nodes[0].getblockfinalityindex(ownerBlock)
+
+        delta = self.nodes[0].getblockcount() - self.nodes[2].getblockcount()
+        fin += delta
+
+        # block 221 is the forked point on malicious chain which is now at 223, honest is now at 227 => 4 + (7*6/2+1) = 25
+        # blocks are necessary to revert honest chain
+        self.mark_logs("\nNode 2 generates %d malicious blocks, its chain will prevail over honest one..."%fin)
+        blocks.extend(self.nodes[2].generate(fin))
         self.sync_all()
         
         print "\nChecking network chain tips, Node 2 fork has prevailed..."
@@ -381,7 +392,7 @@ class headers(BitcoinTestFramework):
         print "  Owner block of last tx on node 2: " + tx_2_block
 
         # nodes invalidate the block just before the SC creation 
-        self.mark_logs("\nNodes invalidate the pre-SC block..")
+        self.mark_logs("\nNodes invalidate the most recent common block (height=%d).."%self.nodes[0].getblock(pre_sc_block_2, True)["height"])
 
         try:
             self.nodes[0].invalidateblock(pre_sc_block_2);
