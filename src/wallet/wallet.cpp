@@ -1221,7 +1221,9 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pbl
 
 void CWallet::SyncTransaction(const CTransaction& tx, const CBlock* pblock)
 {
-    LOCK(cs_wallet);
+
+    //LOCK(cs_wallet); changed to take lock on cs_main too
+	LOCK2(cs_main,cs_wallet);
     if (!AddToWalletIfInvolvingMe(tx, pblock, true))
         return; // Not one of ours
 
