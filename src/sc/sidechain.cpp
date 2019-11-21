@@ -632,7 +632,7 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
                 __func__, __LINE__, maturityHeight, FormatMoney(a), scIdString);
 
             // store immature balances into the blockundo obj
-            blockundo.msc_iaundo[scId][maturityHeight] += a;
+            blockundo.msc_iaundo[scId][maturityHeight] = a;
 
             if (maturityHeight == blockHeight)
             {

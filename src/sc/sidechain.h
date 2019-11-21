@@ -42,6 +42,8 @@ public:
     ScCreationParameters creationData;
 
     // immature amounts
+    // key   = height at which amount will be considered as mature and will be part of the sc balance
+    // value = the immature amount  
     std::map<int, CAmount> mImmatureAmounts;
 
     std::string ToString() const;
