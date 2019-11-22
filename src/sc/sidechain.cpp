@@ -249,8 +249,6 @@ bool ScMgr::hasScCreationConflictsInMempool(const CTxMemPool& pool, const CTrans
 
 bool ScMgr::initialUpdateFromDb(size_t cacheSize, bool fWipe)
 {
-    static bool initDone = false;
-
     if (initDone)
     {
         LogPrintf("%s():%d - Error: could not init from db mpre than once!\n", __func__, __LINE__);
@@ -305,6 +303,13 @@ bool ScMgr::initialUpdateFromDb(size_t cacheSize, bool fWipe)
         return error("%s():%d - error occurred during db scan", __func__, __LINE__);
     }
     return true;
+}
+
+void ScMgr::reset()
+{
+	delete db;
+	db = nullptr;
+	initDone = false;
 }
 
 void ScMgr::eraseFromDb(const uint256& scId)

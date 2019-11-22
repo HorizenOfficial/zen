@@ -92,12 +92,13 @@ class ScMgr
 {
   private:
     // Disallow instantiation outside of the class.
-    ScMgr(): db(NULL) {}
-    ~ScMgr() { delete db; }
+    ScMgr(): db(NULL),initDone(false) {}
+    ~ScMgr() { reset(); }
 
     mutable CCriticalSection sc_lock;
     ScInfoMap mScInfo;
     CLevelDBWrapper* db;
+    bool initDone;
 
     // low level api for DB
     friend class ScCoinsViewCache;
@@ -127,6 +128,7 @@ class ScMgr
     static ScMgr& instance();
 
     bool initialUpdateFromDb(size_t cacheSize, bool fWipe);
+    void reset(); //utility for dtor and unit tests, hence public
 
     bool sidechainExists(const uint256& scId, const ScCoinsViewCache* const scView = NULL) const;
     bool getScInfo(const uint256& scId, ScInfo& info) const;
