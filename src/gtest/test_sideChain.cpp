@@ -211,6 +211,41 @@ TEST_F(SideChainTestSuite, ForwardTransfersToNonExistentScAreRejected) {
 	EXPECT_FALSE(coinViewCache.sidechainExists(aForwardTransferTx.scId));
 }
 
+TEST_F(SideChainTestSuite, ForwardTransfersToExistentScAreRegistered) {
+	//Prerequisite
+
+	//insert the sidechain
+	theBlockHeight = 1789;
+
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = uint256S("1912");
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+	aTransaction = aMutableTransaction;
+	ASSERT_TRUE(aTransaction.vsc_ccout.size() != 0)<<"Test requires a sidechain creation transaction";
+
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, theBlockHeight))
+		<<"Test requires the sidechain to be available before forward transfer";
+	aMutableTransaction.vsc_ccout.clear();
+
+	//insert forward transfer
+	aMutableTransaction.vsc_ccout.clear();
+	CTxForwardTransferOut aForwardTransferTx;
+	aForwardTransferTx.scId = uint256S(aSideChainCreationTx.scId.ToString());
+	aForwardTransferTx.nValue = 1000; //Todo: find a way to check this
+	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+	aTransaction = aMutableTransaction;
+	ASSERT_TRUE(aTransaction.vft_ccout.size() != 0)<<"Test requires a forward transfer transaction";
+
+	//test
+	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, theBlockHeight);
+
+	//check
+	EXPECT_TRUE(res)<<"It should be possible to register a forward transfer to an existing sidechain";
+	//Todo: find a way to check amount inserted
+
+}
+
+
 TEST_F(SideChainTestSuite, EmptyTransactionsAreApplicableToState) {
 	//Prerequisite
 	ASSERT_TRUE(aTransaction.vsc_ccout.size() == 0)<<"Test requires no sidechain creation transactions";

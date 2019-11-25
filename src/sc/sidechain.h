@@ -44,7 +44,7 @@ public:
     // immature amounts
     // key   = height at which amount will be considered as mature and will be part of the sc balance
     // value = the immature amount  
-    std::map<int, CAmount> mImmatureAmounts;
+    std::map<int, CAmount> mImmatureAmounts; //albene: how about calling this matureAmountsByHeight
 
     std::string ToString() const;
 
