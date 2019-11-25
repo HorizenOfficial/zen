@@ -127,21 +127,21 @@ TEST_F(SideChainTestSuite, SideChainDoubleInsertionIsRejected) {
 	theBlockHeight = 1789;
 
 	//first,valid sideChain transaction
-	CTxScCreationOut firstScCreationTx;
-	firstScCreationTx.scId = uint256S("1492");
-	firstScCreationTx.withdrawalEpochLength = 1;
-	aMutableTransaction.vsc_ccout.push_back(firstScCreationTx);
+	CTxScCreationOut validScCreationTx;
+	validScCreationTx.scId = uint256S("1492");
+	validScCreationTx.withdrawalEpochLength = 1;
+	aMutableTransaction.vsc_ccout.push_back(validScCreationTx);
 
 	//second, id-duplicated, sideChain transaction
 	CTxScCreationOut duplicatedScCreationTx;
 	duplicatedScCreationTx.scId = uint256S("1492");
 	duplicatedScCreationTx.withdrawalEpochLength = 2;
 
-	ASSERT_TRUE(firstScCreationTx.scId == duplicatedScCreationTx.scId)<<"Test requires two SC Tx with same id";
-	ASSERT_TRUE(firstScCreationTx.withdrawalEpochLength != duplicatedScCreationTx.withdrawalEpochLength)
+	ASSERT_TRUE(validScCreationTx.scId == duplicatedScCreationTx.scId)<<"Test requires two SC Tx with same id";
+	ASSERT_TRUE(validScCreationTx.withdrawalEpochLength != duplicatedScCreationTx.withdrawalEpochLength)
 		<<"Test requires two SC Tx with different withdrawalEpochLength"; //TODO: check if this is possible
 
-	aMutableTransaction.vsc_ccout.push_back(firstScCreationTx);
+	aMutableTransaction.vsc_ccout.push_back(validScCreationTx);
 
 	aTransaction = aMutableTransaction;
 	ASSERT_TRUE(aTransaction.vsc_ccout.size() != 0)<<"Test requires a sidechain creation transaction";
@@ -150,8 +150,45 @@ TEST_F(SideChainTestSuite, SideChainDoubleInsertionIsRejected) {
 	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, theBlockHeight);
 
 	//check
-	EXPECT_FALSE(res)<<"New sidechain creation txs should be processed";
-	EXPECT_TRUE(coinViewCache.sidechainExists(firstScCreationTx.scId))<<"First, valid sidechain creation txs should be cached";
+	EXPECT_FALSE(res)<<"Duplicated sidechain creation txs should be processed";
+	EXPECT_TRUE(coinViewCache.sidechainExists(validScCreationTx.scId))<<"First, valid sidechain creation txs should be cached";
+}
+
+TEST_F(SideChainTestSuite, NoRollbackIsPerformedOnceInvalidTransactionIsEncountered) {
+	//Prerequisites
+	theBlockHeight = 1815;
+
+	//first,valid sideChain transaction
+	CTxScCreationOut aValidScCreationTx;
+	aValidScCreationTx.scId = uint256S("1492");
+	aValidScCreationTx.withdrawalEpochLength = 1;
+	aMutableTransaction.vsc_ccout.push_back(aValidScCreationTx);
+
+	//second, id-duplicated, sideChain transaction
+	CTxScCreationOut duplicatedScCreationTx;
+	duplicatedScCreationTx.scId = uint256S("1492");
+	duplicatedScCreationTx.withdrawalEpochLength = 2;
+
+	//third, valid, sideChain transaction
+	CTxScCreationOut anotherValidScCreationTx;
+	anotherValidScCreationTx.scId = uint256S("1912");
+	anotherValidScCreationTx.withdrawalEpochLength = 2;
+
+	ASSERT_TRUE(aValidScCreationTx.scId == duplicatedScCreationTx.scId)<<"Test requires second tx to be a duplicate";
+	ASSERT_TRUE(aValidScCreationTx.scId != anotherValidScCreationTx.scId)<<"Test requires third tx to be a valid one";
+
+	aMutableTransaction.vsc_ccout.push_back(aValidScCreationTx);
+
+	aTransaction = aMutableTransaction;
+	ASSERT_TRUE(aTransaction.vsc_ccout.size() != 0)<<"Test requires a sidechain creation transaction";
+
+	//test
+	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, theBlockHeight);
+
+	//check
+	EXPECT_FALSE(res)<<"Duplicated sidechain creation txs should be processed";
+	EXPECT_TRUE(coinViewCache.sidechainExists(aValidScCreationTx.scId))<<"First, valid sidechain creation txs should be cached";
+	EXPECT_FALSE(coinViewCache.sidechainExists(anotherValidScCreationTx.scId))<<"third, valid sidechain creation txs is currently not cached";
 }
 
 TEST_F(SideChainTestSuite, EmptyTransactionsAreApplicableToState) {

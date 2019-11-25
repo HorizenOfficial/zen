@@ -458,8 +458,6 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
     const uint256& txHash = tx.GetHash();
     LogPrint("sc", "%s():%d - enter tx=%s\n", __func__, __LINE__, txHash.ToString() );
 
-    const uint256& blockHash = block.GetHash();
-
     // creation ccout
     BOOST_FOREACH(const auto& cr, tx.vsc_ccout)
     {
@@ -467,10 +465,11 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
         {
             LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, cr.scId.ToString() );
             return false;
+            //No rollbacks of previously inserted creation/transfer ccout in current tx here
         }
  
         ScInfo scInfo;
-        scInfo.creationBlockHash = blockHash;
+        scInfo.creationBlockHash = block.GetHash();
         scInfo.creationBlockHeight = blockHeight;
         scInfo.creationTxHash = txHash;
         scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
@@ -497,6 +496,7 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
             LogPrint("sc", "%s():%d - Can not update balance, could not find scId=%s\n",
                 __func__, __LINE__, ft.scId.ToString() );
             return false;
+            //No rollbacks of previously inserted creation/transfer ccout in current tx here
         }
 
         // add a new immature balance entry in sc info or increment it if already there
