@@ -191,6 +191,26 @@ TEST_F(SideChainTestSuite, NoRollbackIsPerformedOnceInvalidTransactionIsEncounte
 	EXPECT_FALSE(coinViewCache.sidechainExists(anotherValidScCreationTx.scId))<<"third, valid sidechain creation txs is currently not cached";
 }
 
+TEST_F(SideChainTestSuite, ForwardTransfersToNonExistentScAreRejected) {
+	//Prerequisite
+	theBlockHeight = 1789;
+
+	CTxForwardTransferOut aForwardTransferTx;
+	aForwardTransferTx.scId = uint256S("1492");
+	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+
+	aTransaction = aMutableTransaction;
+	ASSERT_TRUE(aTransaction.vft_ccout.size() != 0)<<"Test requires a forward transfer transaction";
+	ASSERT_FALSE(coinViewCache.sidechainExists(aForwardTransferTx.scId))<<"Test requires target sidechain to be non-existent";
+
+	//test
+	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, theBlockHeight);
+
+	//check
+	EXPECT_FALSE(res)<<"Forward transfer to non existent side chain should be rejected";
+	EXPECT_FALSE(coinViewCache.sidechainExists(aForwardTransferTx.scId));
+}
+
 TEST_F(SideChainTestSuite, EmptyTransactionsAreApplicableToState) {
 	//Prerequisite
 	ASSERT_TRUE(aTransaction.vsc_ccout.size() == 0)<<"Test requires no sidechain creation transactions";
