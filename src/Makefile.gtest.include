@@ -44,7 +44,7 @@ zen_gtest_SOURCES += \
 	gtest/test_paymentdisclosure.cpp \
 	gtest/test_checkblock.cpp       \
 	gtest/test_relayforks.cpp	\
-	gtest/test_sideChainManager.cpp
+	gtest/test_sideChain.cpp
 
 if ENABLE_WALLET
 zen_gtest_SOURCES += \
