@@ -3,13 +3,15 @@
 #include <chainparams.h>
 #include <chainparamsbase.h>
 #include <consensus/validation.h>
+#include <txmempool.h>
 
 class SideChainTestSuite: public ::testing::Test {
 
 public:
 	SideChainTestSuite() :
 			sideChainManager(Sidechain::ScMgr::instance()), coinViewCache(),
-			aBlock(), aTransaction(), aMutableTransaction(), theBlockHeight(1789) {};
+			aBlock(), aTransaction(), aMutableTransaction(), anHeight(1789),
+			txState(), aFeeRate(), aMemPool(aFeeRate){};
 
 	~SideChainTestSuite() {
 		sideChainManager.reset();
@@ -35,8 +37,11 @@ protected:
 	CBlock aBlock;
 	CTransaction aTransaction;
 	CMutableTransaction aMutableTransaction;
-	int theBlockHeight;
+	int anHeight;
 	CValidationState  txState;
+
+	CFeeRate   aFeeRate;
+	CTxMemPool aMemPool;
 
 	//TODO: Consider storing initial CBaseChainParam/CChainParam and reset it upon TearDown; try and handle assert
 	//TODO: evaluate moving resetBaseParams to chainparamsbase.h
@@ -97,7 +102,7 @@ TEST_F(SideChainTestSuite, EmptyTxsAreProcessedButNotRegistered) {
 	ASSERT_TRUE(aTransaction.ccIsNull())<<"Test requires not Sc creation tx, nor forward transfer tx";
 
 	//test
-	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, theBlockHeight);
+	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
 	//check
 	EXPECT_TRUE(res) << "Empty tx should be processed"; //How to check for no side-effects (i.e. no register)
@@ -115,7 +120,7 @@ TEST_F(SideChainTestSuite, NewSCsAreRegisteredById) {
 			<< "Test requires that sidechain is not registered";
 
 	//test
-	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, theBlockHeight);
+	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
 	//check
 	EXPECT_TRUE(res) << "New sidechain creation txs should be processed";
@@ -143,7 +148,7 @@ TEST_F(SideChainTestSuite, ScDoubleInsertionIsRejected) {
 		<<"Test requires two SC Tx with different withdrawalEpochLength";
 
 	//test
-	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, theBlockHeight);
+	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
 	//check
 	EXPECT_FALSE(res)<< "Duplicated sidechain creation txs should be processed";
@@ -177,7 +182,7 @@ TEST_F(SideChainTestSuite, NoRollbackIsPerformedOnceInvalidTransactionIsEncounte
 	ASSERT_TRUE(aValidScCreationTx.scId != anotherValidScCreationTx.scId)<<"Test requires third tx to be a valid one";
 
 	//test
-	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, theBlockHeight);
+	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
 	//check
 	EXPECT_FALSE(res)<< "Duplicated sidechain creation txs should be processed";
@@ -200,7 +205,7 @@ TEST_F(SideChainTestSuite, ForwardTransfersToNonExistentScAreRejected) {
 		<<"Test requires target sidechain to be non-existent";
 
 	//test
-	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, theBlockHeight);
+	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
 	//check
 	EXPECT_FALSE(res)<< "Forward transfer to non existent side chain should be rejected";
@@ -214,7 +219,7 @@ TEST_F(SideChainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
 	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
 	aTransaction = aMutableTransaction;
 
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, theBlockHeight))
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
 		<<"Test requires the sidechain to be available before forward transfer";
 	aMutableTransaction.vsc_ccout.clear();
 
@@ -230,7 +235,7 @@ TEST_F(SideChainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
 	<<"Test requires Sc to exist before attempting the forward transfer tx";
 
 	//test
-	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, theBlockHeight);
+	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
 	//check
 	EXPECT_TRUE(res)<< "It should be possible to register a forward transfer to an existing sidechain";
@@ -276,7 +281,7 @@ TEST_F(SideChainTestSuite, DuplicatedScCreationsAreNotApplicableToState) {
 	aTransaction = aMutableTransaction;
 
 	//Prerequisite
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, theBlockHeight))
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
 		<<"Test requires the Sc creation tx to be already registered";
 
 	//test
@@ -293,7 +298,7 @@ TEST_F(SideChainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
 	aTransaction = aMutableTransaction;
 
 	//Prerequisite
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, theBlockHeight))
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
 		<<"Test requires the Sc creation tx to be already registered";
 
 	//create forward transfer
@@ -493,6 +498,48 @@ TEST_F(SideChainTestSuite, SideChainCreationsWithForwardTransferAreSemanticallyV
 
 	//Todo: How to check rejection code? There is currently no default/valid code value
 }
+
+///////////////////////////////////////////////////////////////////////////////
+//////////////////////////// IsTxAllowedInMempool /////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST_F(SideChainTestSuite, EmptyTxsAreAllowedInEmptyMemPool) {
+	//Prerequisites
+	ASSERT_TRUE(aMemPool.size() == 0)<<"Test requires empty mempool";
+	ASSERT_TRUE(aTransaction.ccIsNull())<<"Test requires not Sc creation tx, nor forward transfer tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//test
+	bool res = sideChainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
+
+	//check
+	EXPECT_TRUE(res)<<"empty transactions should be allowed in empty mempool";
+	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
+}
+
+TEST_F(SideChainTestSuite, EmptyTxsAreAllowedInNonEmptyMemPool) {
+	//Todo: addUnchecked is the simplest way I have found to add a tx to mempool. Verify correctness
+
+	CAmount txFee;
+	double txPriority;
+
+	CTxMemPoolEntry memPoolEntry(aTransaction, txFee, GetTime(), txPriority, anHeight);
+
+	ASSERT_TRUE(aMemPool.addUnchecked(aTransaction.GetHash(), memPoolEntry))
+		<<"Test requires at least a tx in mempool. Could not insert it.";
+
+	//Prerequisites
+	ASSERT_TRUE(aMemPool.size() != 0)<<"Test requires non-empty mempool";
+	ASSERT_TRUE(aTransaction.ccIsNull())<<"Test requires not Sc creation tx, nor forward transfer tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//test
+	bool res = sideChainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
+
+	//check
+	EXPECT_TRUE(res)<<"empty transactions should be allowed in non-empty mempool";
+	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
