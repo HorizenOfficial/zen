@@ -299,7 +299,7 @@ TEST_F(SideChainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
 	//create forward transfer
 	aMutableTransaction.vsc_ccout.clear();
 	CTxForwardTransferOut aForwardTransferTx;
-	aForwardTransferTx.scId = uint256S(aSideChainCreationTx.scId.ToString());
+	aForwardTransferTx.scId = aSideChainCreationTx.scId;
 	aForwardTransferTx.nValue = 1000;
 	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
 	aTransaction = aMutableTransaction;
@@ -318,7 +318,7 @@ TEST_F(SideChainTestSuite, ForwardTrasferIsApplicableToStateIfScCreationBelongsT
 	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
 
 	CTxForwardTransferOut aForwardTransferTx;
-	aForwardTransferTx.scId = uint256S(aSideChainCreationTx.scId.ToString());
+	aForwardTransferTx.scId = aSideChainCreationTx.scId;
 	aForwardTransferTx.nValue = 1000;
 	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
 
@@ -362,7 +362,7 @@ TEST_F(SideChainTestSuite, ForwardTransfersToNonExistingSCsAreNotApplicableToSta
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////// checkTxSemanticValidity ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SideChainTestSuite, NonSideChain_ccNull_TxAreSemanticallyValid) { //Todo: find better name
+TEST_F(SideChainTestSuite, NonSideChain_ccNull_TxAreSemanticallyValid) {
 	aMutableTransaction.nVersion = TRANSPARENT_TX_VERSION;
 	aTransaction = aMutableTransaction;
 
@@ -400,6 +400,98 @@ TEST_F(SideChainTestSuite, NonSideChain_NonCcNull_TxAreNotSemanticallyValid) {
 	EXPECT_FALSE(txState.IsValid())<<"Negative sematics checks should alter tx validity";
 	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
 		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
+
+TEST_F(SideChainTestSuite, SideChain_Shielded_TxAreNotCurrentlySupported) {
+	aMutableTransaction.nVersion = SC_TX_VERSION;
+	JSDescription  aShieldedTx; //Todo: verify naming and whether it should be filled somehow
+	aMutableTransaction.vjoinsplit.push_back(aShieldedTx);
+
+	aTransaction = aMutableTransaction;
+
+	//Prerequisites
+	ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
+	ASSERT_TRUE(aTransaction.ccIsNull())<<"Test requires null tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//test
+	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
+
+	//checks
+	EXPECT_FALSE(res)<<"sidechain tx with shielded tx should be considered semantically invalid";
+	EXPECT_FALSE(txState.IsValid())<<"Negative sematics checks should alter tx validity";
+	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
+
+TEST_F(SideChainTestSuite, SideChain_ccNull_TxAreSemanticallyValid) {
+	aMutableTransaction.nVersion = SC_TX_VERSION;
+	aTransaction = aMutableTransaction;
+
+	//Prerequisites
+	ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
+	ASSERT_TRUE(aTransaction.ccIsNull())<<"Test requires null tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//test
+	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
+
+	//checks
+	EXPECT_TRUE(res)<<"empty sidechain tx should be considered semantically valid";
+	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
+}
+
+TEST_F(SideChainTestSuite, SideChainCreationsWithoutForwardTransferAreNotSemanticallyValid) {
+	aMutableTransaction.nVersion = SC_TX_VERSION;
+
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = uint256S("1492");
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+
+	aTransaction = aMutableTransaction;
+
+	//Prerequisites
+	ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
+	ASSERT_FALSE(aTransaction.ccIsNull())<<"Test requires not null tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//test
+	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
+
+	//checks
+	EXPECT_FALSE(res)<<"sidechain creation without forward transfer should be considered semantically invalid";
+	EXPECT_FALSE(txState.IsValid())<<"Negative semantics checks should alter tx validity";
+	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
+
+TEST_F(SideChainTestSuite, SideChainCreationsWithForwardTransferAreSemanticallyValid) {
+	aMutableTransaction.nVersion = SC_TX_VERSION;
+
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = uint256S("1492");
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+
+	CTxForwardTransferOut aForwardTransferTx;
+	aForwardTransferTx.scId = aSideChainCreationTx.scId;
+	aForwardTransferTx.nValue = 1000;
+	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+
+	aTransaction = aMutableTransaction;
+
+	//Prerequisites
+	ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
+	ASSERT_FALSE(aTransaction.ccIsNull())<<"Test requires non null tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//test
+	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
+
+	//checks
+	EXPECT_TRUE(res)<<"sidechain creation with forward transfer should be considered semantically valid";
+	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
+
+	//Todo: How to check rejection code? There is currently no default/valid code value
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
