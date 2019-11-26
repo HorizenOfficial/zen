@@ -540,7 +540,107 @@ TEST_F(SideChainTestSuite, EmptyTxsAreAllowedInNonEmptyMemPool) {
 	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
 }
 
+TEST_F(SideChainTestSuite, ScCreationTxsAreAllowedInEmptyMemPool) {
+	aMutableTransaction.nVersion = SC_TX_VERSION;
 
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = uint256S("1492");
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+
+	aTransaction = aMutableTransaction;
+
+	//Prerequisites
+	ASSERT_TRUE(aMemPool.size() == 0)<<"Test requires empty mempool";
+	ASSERT_FALSE(aTransaction.ccIsNull())<<"Test requires a Sc creation tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//test
+	bool res = sideChainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
+
+	//check
+	EXPECT_TRUE(res)<<"Sc creation tx should be allowed in empty mempool";
+	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
+}
+
+TEST_F(SideChainTestSuite, NewScCreationTxsAreAllowedInMemPool) {
+	//A Sc tx should be already in mem pool
+	uint256 firstScTxId = uint256S("1987");
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = firstScTxId;
+	aSideChainCreationTx.withdrawalEpochLength = 1;
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+	aTransaction = aMutableTransaction;
+
+	CAmount txFee;
+	double txPriority;
+
+	CTxMemPoolEntry memPoolEntry(aTransaction, txFee, GetTime(), txPriority, anHeight);
+	ASSERT_TRUE(aMemPool.addUnchecked(aTransaction.GetHash(), memPoolEntry))
+		<<"Test requires at least a tx in mempool. Could not insert it.";
+
+	//Prerequisites
+	ASSERT_TRUE(aMemPool.size() != 0)<<"Test requires non-empty mempool";
+	ASSERT_FALSE(aTransaction.ccIsNull())<<"Test requires a Sc creation tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//Prepare a new Sc tx, with differentId
+	aMutableTransaction.vsc_ccout.clear();
+	aSideChainCreationTx.scId = uint256S("1991");
+	aSideChainCreationTx.withdrawalEpochLength = 2;
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+	aTransaction = aMutableTransaction;
+
+	//Prerequisites
+	ASSERT_TRUE(firstScTxId != aSideChainCreationTx.scId)<<"Test requires two Sc creation tx with different ids";
+
+	//test
+	bool res = sideChainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
+
+	//check
+	EXPECT_TRUE(res)<<"new Sc creation txs should be allowed in non-empty mempool";
+	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
+}
+
+TEST_F(SideChainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
+	//A Sc tx should be already in mem pool
+	uint256 firstScTxId = uint256S("1987");
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = firstScTxId;
+	aSideChainCreationTx.withdrawalEpochLength = 1;
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+	aTransaction = aMutableTransaction;
+
+	CAmount txFee;
+	double txPriority;
+
+	CTxMemPoolEntry memPoolEntry(aTransaction, txFee, GetTime(), txPriority, anHeight);
+	ASSERT_TRUE(aMemPool.addUnchecked(aTransaction.GetHash(), memPoolEntry))
+		<<"Test requires at least a tx in mempool. Could not insert it.";
+
+	//Prerequisites
+	ASSERT_TRUE(aMemPool.size() != 0)<<"Test requires non-empty mempool";
+	ASSERT_FALSE(aTransaction.ccIsNull())<<"Test requires a Sc creation tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//Prepare a new Sc tx, with differentId
+	aMutableTransaction.vsc_ccout.clear();
+	aSideChainCreationTx.scId = firstScTxId;
+	aSideChainCreationTx.withdrawalEpochLength = 2;
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+	aTransaction = aMutableTransaction;
+
+	//Prerequisites
+	ASSERT_TRUE(firstScTxId == aSideChainCreationTx.scId)<<"Test requires two Sc creation tx with same ids";
+
+	//test
+	bool res = sideChainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
+
+	//check
+	EXPECT_FALSE(res)<<"duplicated Sc creation txs should be not allowed in non-empty mempool";
+	EXPECT_FALSE(txState.IsValid())<<"Negative semantics checks should alter tx validity";
+	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //TODO: Check whether these are really useful
