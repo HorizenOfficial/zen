@@ -2,6 +2,7 @@
 #include <sc/sidechain.h>
 #include <chainparams.h>
 #include <chainparamsbase.h>
+#include <consensus/validation.h>
 
 class SideChainTestSuite: public ::testing::Test {
 
@@ -35,6 +36,7 @@ protected:
 	CTransaction aTransaction;
 	CMutableTransaction aMutableTransaction;
 	int theBlockHeight;
+	CValidationState  txState;
 
 	//TODO: Consider storing initial CBaseChainParam/CChainParam and reset it upon TearDown; try and handle assert
 	//TODO: evaluate moving resetBaseParams to chainparamsbase.h
@@ -87,6 +89,9 @@ TEST_F(SideChainTestSuite, Structural_ManagerDoubleInitializationIsForbidden) {
 	EXPECT_FALSE(bRet) << "Db double initialization should be forbidden";
 }
 
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////// UpdateScInfo ////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 TEST_F(SideChainTestSuite, EmptyTxsAreProcessedButNotRegistered) {
 	//Prerequisite
 	ASSERT_TRUE(aTransaction.ccIsNull())<<"Test requires not Sc creation tx, nor forward transfer tx";
@@ -135,7 +140,7 @@ TEST_F(SideChainTestSuite, ScDoubleInsertionIsRejected) {
 	//Prerequisites
 	ASSERT_TRUE(validScCreationTx.scId == duplicatedScCreationTx.scId)<<"Test requires two SC Tx with same id";
 	ASSERT_TRUE(validScCreationTx.withdrawalEpochLength != duplicatedScCreationTx.withdrawalEpochLength)
-		<<"Test requires two SC Tx with different withdrawalEpochLength"; //TODO: check if this makes sense
+		<<"Test requires two SC Tx with different withdrawalEpochLength";
 
 	//test
 	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, theBlockHeight);
@@ -232,6 +237,9 @@ TEST_F(SideChainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
 	//Todo: find a way to check amount inserted
 }
 
+///////////////////////////////////////////////////////////////////////////////
+//////////////////////////// IsTxApplicableToState ////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 TEST_F(SideChainTestSuite, EmptyTxsAreApplicableToState) {
 	//Prerequisite
 	ASSERT_TRUE(aTransaction.ccIsNull())<<"Test requires not Sc creation tx, nor forward transfer tx";
@@ -349,6 +357,49 @@ TEST_F(SideChainTestSuite, ForwardTransfersToNonExistingSCsAreNotApplicableToSta
 
 	//checks
 	EXPECT_FALSE(res)<<"Forward transactions to non existent side chains should not be applicable to state";
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/////////////////////////// checkTxSemanticValidity ///////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST_F(SideChainTestSuite, NonSideChain_ccNull_TxAreSemanticallyValid) { //Todo: find better name
+	aMutableTransaction.nVersion = TRANSPARENT_TX_VERSION;
+	aTransaction = aMutableTransaction;
+
+	//Prerequisites
+	ASSERT_FALSE(aTransaction.IsScVersion())<<"Test requires non sidechain tx";
+	ASSERT_TRUE(aTransaction.ccIsNull())<<"Test requires null tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//test
+	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
+
+	//checks
+	EXPECT_TRUE(res)<<"empty non sidechain tx should be considered semantically valid";
+	EXPECT_TRUE(txState.IsValid())<<"Positive sematics checks should not alter tx validity";
+}
+
+TEST_F(SideChainTestSuite, NonSideChain_NonCcNull_TxAreNotSemanticallyValid) {
+	aMutableTransaction.nVersion = TRANSPARENT_TX_VERSION;
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = uint256S("1492");
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+
+	aTransaction = aMutableTransaction;
+
+	//Prerequisites
+	ASSERT_FALSE(aTransaction.IsScVersion())<<"Test requires non sidechain tx";
+	ASSERT_FALSE(aTransaction.ccIsNull())<<"Test requires null tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//test
+	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
+
+	//checks
+	EXPECT_FALSE(res)<<"non empty non sidechain tx should be considered semantically invalid";
+	EXPECT_FALSE(txState.IsValid())<<"Negative sematics checks should alter tx validity";
+	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
