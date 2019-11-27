@@ -15,7 +15,6 @@ public:
 
 	~SideChainTestSuite() {
 		sideChainManager.reset();
-		//Todo: cleanup db for any ScId with the test met
 	};
 
 	void SetUp() override {
@@ -72,13 +71,13 @@ protected:
         scId = uint256S("a123");
         info.creationBlockHash = uint256S("aaaa");
         info.creationBlockHeight = 1992;
-        info.creationBlockHash = uint256S("bbbb");
+        info.creationTxHash = uint256S("bbbb");
         rManagerInternalMap[scId] = info;
 
         scId = uint256S("b987");
         info.creationBlockHash = uint256S("1111");
         info.creationBlockHeight = 1993;
-        info.creationBlockHash = uint256S("2222");
+        info.creationTxHash = uint256S("2222");
         rManagerInternalMap[scId] = info;
 	}
 };
@@ -86,7 +85,7 @@ protected:
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// Flush /////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SideChainTestSuite, EmptyFlushDoesNotRegisterNewSideChain) {
+TEST_F(SideChainTestSuite, EmptyFlushDoesNotPersistNewSideChain) {
 	//Prerequisites
 	const Sidechain::ScInfoMap & initialScCollection = sideChainManager.getScInfoMap();
 	ASSERT_TRUE(initialScCollection.size() == 0)<<"Test requires no sidechains initially";
@@ -118,6 +117,65 @@ TEST_F(SideChainTestSuite, EmptyFlushDoesNotAlterExistingSideChainsCollection) {
 	const Sidechain::ScInfoMap & finalScCollection = sideChainManager.getScInfoMap();
 	EXPECT_TRUE(finalScCollection == initialScCollection)
 	    <<"Sidechains collection should not have changed with empty flush";
+}
+
+TEST_F(SideChainTestSuite, FlushPersistsNewSideChains) {
+	uint256 newScId = uint256S("a1b2");
+	Sidechain::ScInfo infoHelper;
+
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = newScId;
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+	aTransaction = aMutableTransaction;
+
+	//Prerequisite
+	ASSERT_FALSE(sideChainManager.getScInfo(newScId, infoHelper))
+	    << "Test requires sidechain not to be previously persisted";
+
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
+	    << "Test requires new sidechain to be successfully processed";
+
+	//test
+	bool res = coinViewCache.Flush();
+
+	//checks
+	EXPECT_TRUE(res)<<"We should be allowed to flush a new sidechain";
+	EXPECT_TRUE(sideChainManager.getScInfo(newScId, infoHelper))
+	    << "Once flushed, new sidechain should be made available by ScManager";
+}
+
+TEST_F(SideChainTestSuite, FlushPersistsForwardTransfers) {
+	//insert the sidechain
+	uint256 newScId = uint256S("a1b2");
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = newScId;
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+	aTransaction = aMutableTransaction;
+
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
+		<<"Test requires the sidechain to be available before forward transfer";
+	aMutableTransaction.vsc_ccout.clear();
+
+	//create forward transfer
+	CAmount fwdTxAmount = 1000;
+	CTxForwardTransferOut aForwardTransferTx;
+	aForwardTransferTx.scId = aSideChainCreationTx.scId;
+	aForwardTransferTx.nValue = fwdTxAmount;
+	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+	aTransaction = aMutableTransaction;
+
+	//test
+	bool res = coinViewCache.Flush();
+
+	//checks
+	EXPECT_TRUE(res)<<"We should be allowed to flush a new sidechain";
+	Sidechain::ScInfo infoHelper;
+	EXPECT_TRUE(sideChainManager.getScInfo(newScId, infoHelper))
+	    << "Once flushed, new sidechain should be made available by ScManager";
+
+	//Todo: Add check on forward transfer amount
+/*	EXPECT_TRUE(infoHelper.balance == fwdTxAmount)
+	    <<"Instead of fwdTx amount "<< fwdTxAmount <<", sc balance is "<<infoHelper.balance;*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -293,6 +351,8 @@ TEST_F(SideChainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
 	EXPECT_TRUE(res)<< "It should be possible to register a forward transfer to an existing sidechain";
 	//Todo: find a way to check amount inserted
 }
+
+//Todo check duplicated forward transfers
 
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////// IsTxApplicableToState ////////////////////////////

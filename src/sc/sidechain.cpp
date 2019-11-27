@@ -321,6 +321,7 @@ void ScMgr::reset()
 {
 	delete db;
 	db = nullptr;
+	mScInfo.clear();
 	initDone = false;
 	chosenDbCreationPolicy = dbCreationPolicy::create; //the original one
 }
@@ -330,7 +331,7 @@ void ScMgr::eraseFromDb(const uint256& scId)
 	if (chosenDbCreationPolicy == dbCreationPolicy::mock)
 		return; //nothing to erase from db
 
-	if ( chosenDbCreationPolicy != dbCreationPolicy::create)
+	if (chosenDbCreationPolicy != dbCreationPolicy::create)
 	{
 		error("%s():%d - error specifying db creation policy", __func__, __LINE__);
 		return;
@@ -373,7 +374,7 @@ bool ScMgr::writeToDb(const uint256& scId, const ScInfo& info)
 	if (chosenDbCreationPolicy == dbCreationPolicy::mock)
 		return true; //nothing to write on db
 
-	if ( chosenDbCreationPolicy != dbCreationPolicy::create)
+	if (chosenDbCreationPolicy != dbCreationPolicy::create)
 	{
 		error("%s():%d - error specifying db creation policy", __func__, __LINE__);
 		return false;
