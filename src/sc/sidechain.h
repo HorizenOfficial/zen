@@ -90,18 +90,27 @@ public:
 
 class ScMgr
 {
+public:
+    enum dbCreationPolicy {
+    	mock = 0, //utility for UTs
+    	create,
+    };
+
   private:
     // Disallow instantiation outside of the class.
-    ScMgr(): db(NULL),initDone(false) {}
+    ScMgr(): db(NULL),initDone(false), chosenDbCreationPolicy(create) {}
     ~ScMgr() { reset(); }
 
     mutable CCriticalSection sc_lock;
     ScInfoMap mScInfo;
     CLevelDBWrapper* db;
     bool initDone;
+    dbCreationPolicy chosenDbCreationPolicy;
 
     // low level api for DB
     friend class ScCoinsViewCache;
+
+    bool loadInitialDataFromDb();
     bool writeToDb(const uint256& scId, const ScInfo& info);
     void eraseFromDb(const uint256& scId);
 
@@ -127,7 +136,7 @@ class ScMgr
 
     static ScMgr& instance();
 
-    bool initialUpdateFromDb(size_t cacheSize, bool fWipe);
+    bool initialUpdateFromDb(size_t cacheSize, bool fWipe, dbCreationPolicy dbPolicy = dbCreationPolicy::create );
     void reset(); //utility for dtor and unit tests, hence public
 
     bool sidechainExists(const uint256& scId, const ScCoinsViewCache* const scView = NULL) const;

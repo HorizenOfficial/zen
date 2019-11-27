@@ -15,11 +15,14 @@ public:
 
 	~SideChainTestSuite() {
 		sideChainManager.reset();
+		//Todo: cleanup db for any ScId with the test met
 	};
 
 	void SetUp() override {
-		SelectBaseParams(CBaseChainParams::TESTNET);
-		SelectParams(CBaseChainParams::TESTNET);
+		SelectBaseParams(CBaseChainParams::REGTEST);
+		SelectParams(CBaseChainParams::REGTEST);
+
+		sideChainManager.initialUpdateFromDb(0, true, Sidechain::ScMgr::mock);
 	};
 
 	void TearDown() override {
@@ -30,15 +33,15 @@ public:
 
 protected:
 	//Subjects under test
-	Sidechain::ScMgr& sideChainManager;
+	Sidechain::ScMgr&           sideChainManager;
 	Sidechain::ScCoinsViewCache coinViewCache;
 
 	//Helpers
-	CBlock aBlock;
-	CTransaction aTransaction;
+	CBlock              aBlock;
+	CTransaction        aTransaction;
 	CMutableTransaction aMutableTransaction;
-	int anHeight;
-	CValidationState  txState;
+	int                 anHeight;
+	CValidationState    txState;
 
 	CFeeRate   aFeeRate;
 	CTxMemPool aMemPool;
@@ -68,29 +71,16 @@ TEST_F(SideChainTestSuite, Structural_ManagerIsSingleton) {
 			<< &sideChainManager << " and " << &rAnotherScMgrInstance;
 }
 
-TEST_F(SideChainTestSuite, Structural_ManagerInitCanBePerformedWithZeroCacheAndWipe) {
-	//Prerequisites
-	size_t cacheSize(0);
-	bool fWipe(false);
-
-	//test
-	bool bRet = sideChainManager.initialUpdateFromDb(cacheSize, fWipe);
-
-	//checks
-	EXPECT_TRUE(bRet) << "Db initialization failed";
-	//not sure yet how to double check db creation/availability
-}
-
 TEST_F(SideChainTestSuite, Structural_ManagerDoubleInitializationIsForbidden) {
-	//Prerequisites
 	size_t cacheSize(0);
 	bool fWipe(false);
 
-	//test
-	ASSERT_TRUE(sideChainManager.initialUpdateFromDb(cacheSize, fWipe))<<"Db first initialization should succeed";
+	//Prerequisites: first initialization happens in fixture's setup
 
-	//checks
-	bool bRet = sideChainManager.initialUpdateFromDb(cacheSize, fWipe);
+	//test
+	bool bRet = sideChainManager.initialUpdateFromDb(cacheSize, fWipe, Sidechain::ScMgr::mock);
+
+	//Checks
 	EXPECT_FALSE(bRet) << "Db double initialization should be forbidden";
 }
 
@@ -367,7 +357,7 @@ TEST_F(SideChainTestSuite, ForwardTransfersToNonExistingSCsAreNotApplicableToSta
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////// checkTxSemanticValidity ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SideChainTestSuite, NonSideChain_ccNull_TxAreSemanticallyValid) {
+TEST_F(SideChainTestSuite, NonSideChain_ccNull_TxsAreSemanticallyValid) {
 	aMutableTransaction.nVersion = TRANSPARENT_TX_VERSION;
 	aTransaction = aMutableTransaction;
 
@@ -384,7 +374,7 @@ TEST_F(SideChainTestSuite, NonSideChain_ccNull_TxAreSemanticallyValid) {
 	EXPECT_TRUE(txState.IsValid())<<"Positive sematics checks should not alter tx validity";
 }
 
-TEST_F(SideChainTestSuite, NonSideChain_NonCcNull_TxAreNotSemanticallyValid) {
+TEST_F(SideChainTestSuite, NonSideChain_NonCcNull_TxsAreNotSemanticallyValid) {
 	aMutableTransaction.nVersion = TRANSPARENT_TX_VERSION;
 	CTxScCreationOut aSideChainCreationTx;
 	aSideChainCreationTx.scId = uint256S("1492");
@@ -407,7 +397,7 @@ TEST_F(SideChainTestSuite, NonSideChain_NonCcNull_TxAreNotSemanticallyValid) {
 		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
 
-TEST_F(SideChainTestSuite, SideChain_Shielded_TxAreNotCurrentlySupported) {
+TEST_F(SideChainTestSuite, SideChain_Shielded_TxsAreNotCurrentlySupported) {
 	aMutableTransaction.nVersion = SC_TX_VERSION;
 	JSDescription  aShieldedTx; //Todo: verify naming and whether it should be filled somehow
 	aMutableTransaction.vjoinsplit.push_back(aShieldedTx);
@@ -429,7 +419,7 @@ TEST_F(SideChainTestSuite, SideChain_Shielded_TxAreNotCurrentlySupported) {
 		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
 
-TEST_F(SideChainTestSuite, SideChain_ccNull_TxAreSemanticallyValid) {
+TEST_F(SideChainTestSuite, SideChain_ccNull_TxsAreSemanticallyValid) {
 	aMutableTransaction.nVersion = SC_TX_VERSION;
 	aTransaction = aMutableTransaction;
 
@@ -641,6 +631,14 @@ TEST_F(SideChainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
 	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
 		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////// Flush /////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST_F(SideChainTestSuite, WHAT) {
+	ASSERT_TRUE(true)<<"Test to be written";
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //TODO: Check whether these are really useful
