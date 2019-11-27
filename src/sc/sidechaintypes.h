@@ -44,6 +44,12 @@ typedef struct sCreationParameters_tag
         READWRITE(withdrawalEpochLength);
     }
     sCreationParameters_tag() :withdrawalEpochLength(-1) {}
+
+    inline bool operator==(const sCreationParameters_tag& rhs) const
+    {
+        return (this->withdrawalEpochLength == rhs.withdrawalEpochLength);
+    }
+    inline bool operator!=(const sCreationParameters_tag& rhs) const { return !(*this == rhs); }
 } ScCreationParameters;
 
 struct CRecipientCrossChainBase

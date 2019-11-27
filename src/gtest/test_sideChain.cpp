@@ -49,18 +49,80 @@ protected:
 	//TODO: Consider storing initial CBaseChainParam/CChainParam and reset it upon TearDown; try and handle assert
 	//TODO: evaluate moving resetBaseParams to chainparamsbase.h
 	void resetBaseParams() {
-		//force reset of pCurrentBaseParams, very ugly way
+		//force reset of pCurrentBaseParams
 		CBaseChainParams* nakedCurrentBaseParams = &const_cast<CBaseChainParams &>(BaseParams());
 		nakedCurrentBaseParams = nullptr;
 	}
 
 	void resetParams() {
-		//force reset of pCurrentParams, very ugly way
+		//force reset of pCurrentParams
 		CChainParams* nakedCurrentParams = &const_cast<CChainParams &>(Params());
 		nakedCurrentParams = nullptr;
 	}
+
+	void preFillSidechainsCollection() {
+        //force access to manager in-memory data structure to fill it up for testing purposes
+        Sidechain::ScInfoMap & rManagerInternalMap
+		    = const_cast<Sidechain::ScInfoMap&>(sideChainManager.getScInfoMap());
+
+        //create a couple of ScInfo to fill data struct
+        Sidechain::ScInfo info;
+        uint256 scId;
+
+        scId = uint256S("a123");
+        info.creationBlockHash = uint256S("aaaa");
+        info.creationBlockHeight = 1992;
+        info.creationBlockHash = uint256S("bbbb");
+        rManagerInternalMap[scId] = info;
+
+        scId = uint256S("b987");
+        info.creationBlockHash = uint256S("1111");
+        info.creationBlockHeight = 1993;
+        info.creationBlockHash = uint256S("2222");
+        rManagerInternalMap[scId] = info;
+	}
 };
 
+///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////// Flush /////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST_F(SideChainTestSuite, EmptyFlushDoesNotRegisterNewSideChain) {
+	//Prerequisites
+	const Sidechain::ScInfoMap & initialScCollection = sideChainManager.getScInfoMap();
+	ASSERT_TRUE(initialScCollection.size() == 0)<<"Test requires no sidechains initially";
+
+	//test
+	bool res = coinViewCache.Flush();
+
+	//checks
+	EXPECT_TRUE(res)<<"We should be allowed to empty flush";
+
+	const Sidechain::ScInfoMap & finalScCollection = sideChainManager.getScInfoMap();
+	EXPECT_TRUE(finalScCollection == initialScCollection)
+	    <<"Sidechains collection should not have changed with empty flush";
+}
+
+TEST_F(SideChainTestSuite, EmptyFlushDoesNotAlterExistingSideChainsCollection) {
+	//Prerequisites
+	preFillSidechainsCollection();
+
+	const Sidechain::ScInfoMap & initialScCollection = sideChainManager.getScInfoMap();
+	ASSERT_TRUE(initialScCollection.size() != 0)<<"Test requires some sidechains initially";
+
+	//test
+	bool res = coinViewCache.Flush();
+
+	//checks
+	EXPECT_TRUE(res)<<"We should be allowed to empty flush";
+
+	const Sidechain::ScInfoMap & finalScCollection = sideChainManager.getScInfoMap();
+	EXPECT_TRUE(finalScCollection == initialScCollection)
+	    <<"Sidechains collection should not have changed with empty flush";
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////// Structural UTs ////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 TEST_F(SideChainTestSuite, Structural_ManagerIsSingleton) {
 	//test
 	Sidechain::ScMgr& rAnotherScMgrInstance = Sidechain::ScMgr::instance();
@@ -630,13 +692,6 @@ TEST_F(SideChainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
 	EXPECT_FALSE(txState.IsValid())<<"Negative semantics checks should alter tx validity";
 	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
 		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////// Flush /////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-TEST_F(SideChainTestSuite, WHAT) {
-	ASSERT_TRUE(true)<<"Test to be written";
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////

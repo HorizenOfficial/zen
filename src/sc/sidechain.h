@@ -60,6 +60,16 @@ public:
         READWRITE(creationData);
         READWRITE(mImmatureAmounts);
     }
+
+    inline bool operator==(const ScInfo& rhs) const
+    {
+        return (this->creationBlockHash   == rhs.creationBlockHash)   &&
+               (this->creationBlockHeight == rhs.creationBlockHeight) &&
+               (this->creationTxHash      == rhs.creationTxHash)      &&
+               (this->creationData        == rhs.creationData)        &&
+               (this->mImmatureAmounts    == rhs.mImmatureAmounts);
+	}
+    inline bool operator!=(const ScInfo& rhs) const { return !(*this == rhs); }
 };
 
 
