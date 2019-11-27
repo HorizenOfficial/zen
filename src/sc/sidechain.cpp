@@ -285,17 +285,21 @@ bool ScMgr::loadInitialDataFromDb()
 bool ScMgr::initialUpdateFromDb(size_t cacheSize, bool fWipe, dbCreationPolicy dbPolicy)
 {
     if (initDone)
+    {
     	return error("%s():%d - could not init from db more than once!", __func__, __LINE__);
+    }
+
 
     initDone = true;
     chosenDbCreationPolicy = dbPolicy;
 
     if (dbPolicy == dbCreationPolicy::mock)
+    {
     	return true; //db is not instantiated and mScInfo is kept initially empty
+    }
 
     if (dbPolicy == dbCreationPolicy::create)
     {
-    	//Instantiate db here: TODO: mind that even ctor may throw
     	db = new CLevelDBWrapper(GetDataDir() / "sidechains", cacheSize, false, fWipe);
 
     	//load initial data!
@@ -304,7 +308,9 @@ bool ScMgr::initialUpdateFromDb(size_t cacheSize, bool fWipe, dbCreationPolicy d
     	{
     		bool res = loadInitialDataFromDb();
     		if (!res)
+    		{
     			return error("%s():%d - error occurred during db scan", __func__, __LINE__);
+    		}
     	}
         catch (const std::exception& e)
         {
@@ -329,7 +335,9 @@ void ScMgr::reset()
 void ScMgr::eraseFromDb(const uint256& scId)
 {
 	if (chosenDbCreationPolicy == dbCreationPolicy::mock)
+	{
 		return; //nothing to erase from db
+	}
 
 	if (chosenDbCreationPolicy != dbCreationPolicy::create)
 	{
@@ -372,7 +380,9 @@ void ScMgr::eraseFromDb(const uint256& scId)
 bool ScMgr::writeToDb(const uint256& scId, const ScInfo& info)
 {
 	if (chosenDbCreationPolicy == dbCreationPolicy::mock)
+	{
 		return true; //nothing to write on db
+	}
 
 	if (chosenDbCreationPolicy != dbCreationPolicy::create)
 	{
@@ -446,7 +456,9 @@ void ScMgr::dump_info()
     }
 
 	if (chosenDbCreationPolicy == dbCreationPolicy::mock)
+	{
 		return; //nothing to dump from db
+	}
 
 	if ( chosenDbCreationPolicy != dbCreationPolicy::create)
 	{
@@ -558,7 +570,7 @@ ScCoinsViewCache::ScCoinsViewCache()
     mUpdate.clear();
     sErase.clear();
     sDirty.clear();
-    ScMgr::instance().copyScInfoMap(mUpdate); //Todo: test link
+    ScMgr::instance().copyScInfoMap(mUpdate);
 }
 
 bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
@@ -827,5 +839,3 @@ bool ScCoinsViewCache::sidechainExists(const uint256& scId) const
     const auto it = mUpdate.find(scId);
     return (it != mUpdate.end() );
 }
-
-
