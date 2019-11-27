@@ -61,6 +61,8 @@ protected:
 
 	void preFillSidechainsCollection() {
         //force access to manager in-memory data structure to fill it up for testing purposes
+		//Todo: make it work for the case Sidechain::ScMgr::create, i.e. push this info to db
+
         Sidechain::ScInfoMap & rManagerInternalMap
 		    = const_cast<Sidechain::ScInfoMap&>(sideChainManager.getScInfoMap());
 
@@ -174,8 +176,43 @@ TEST_F(SideChainTestSuite, FlushPersistsForwardTransfers) {
 	    << "Once flushed, new sidechain should be made available by ScManager";
 
 	//Todo: Add check on forward transfer amount
-/*	EXPECT_TRUE(infoHelper.balance == fwdTxAmount)
-	    <<"Instead of fwdTx amount "<< fwdTxAmount <<", sc balance is "<<infoHelper.balance;*/
+}
+
+TEST_F(SideChainTestSuite, FlushAlignsMgrScCollectionToCoinViewOne) {
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = uint256S("c4d6");;
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+
+	CTxForwardTransferOut aForwardTransferTx;
+	aForwardTransferTx.scId = aSideChainCreationTx.scId;
+	aForwardTransferTx.nValue = 1000;
+	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+
+	aTransaction = aMutableTransaction;
+
+	//prerequisites
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
+		<<"Test requires view side chain collection to be filled";
+
+	//test
+	bool res = coinViewCache.Flush();
+
+	//check
+	EXPECT_TRUE(sideChainManager.getScInfoMap() == coinViewCache.getScInfoMap())
+	    <<"flush should align sidechain manager scCollection to coinViewCache one";
+}
+
+TEST_F(SideChainTestSuite, UponCreationCoinViewIsAlignedToMgrScCollection) {
+	//Prerequisites
+	preFillSidechainsCollection();
+	ASSERT_TRUE(sideChainManager.getScInfoMap().size() != 0)<<"Test requires some sidechains initially";
+
+	//test
+	Sidechain::ScCoinsViewCache newView;
+
+	//check
+	EXPECT_TRUE(sideChainManager.getScInfoMap() == newView.getScInfoMap())
+	    <<"when new coinViewCache is create, it should be aligned with sidechain manager";
 }
 
 ///////////////////////////////////////////////////////////////////////////////

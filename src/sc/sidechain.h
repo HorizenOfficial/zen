@@ -88,6 +88,7 @@ public:
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
     bool sidechainExists(const uint256& scId) const;
+    const ScInfoMap& getScInfoMap() const { return mUpdate; } //utility for UTs
 
     bool Flush();
 
