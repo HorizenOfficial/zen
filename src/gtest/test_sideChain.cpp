@@ -60,7 +60,64 @@ protected:
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// RevertTxOutputs ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
+TEST_F(SideChainTestSuite, EmptyTransactionOnMatureSideChainCanBeRevertedWithNoSideEffects) {
+	//insert a sideChain
+	uint256 newScId = uint256S("a1b2");
+	CAmount initialFwdTxAmount = 1;
+	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
+		<<"Test requires sc to be created";
 
+	//make the sideChain mature
+	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
+	ASSERT_TRUE(coinViewCache.ApplyMatureBalances(anHeight + Params().ScCoinsMaturity(), aBlockUndo))
+	    <<"Test requires sidechain to have a mature initial forward transfer";
+
+	CAmount initialScBalance = coinViewCache.getScInfoMap().at(newScId).balance;
+
+	//create empty tx, which will be reverted
+	int emptyTxHeight = coinMaturityHeight + 1;
+	aMutableTransaction.nVersion = SC_TX_VERSION;
+	aTransaction = aMutableTransaction;
+
+	//Prerequisites
+	ASSERT_TRUE(aTransaction.IsNull())<<"Test requires empty tx";
+
+	//test
+	bool res = coinViewCache.RevertTxOutputs(aTransaction, emptyTxHeight);
+
+	//checks
+	EXPECT_TRUE(res)<<"it should be possible to revert an empty tx";
+	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance == initialScBalance)
+	   <<"Tx reversion should leave balance unchanged";
+}
+
+TEST_F(SideChainTestSuite, EmptyTransactionOnImmatureSideChainCanBeRevertedWithNoSideEffects) {
+	//insert a sideChain
+	uint256 newScId = uint256S("a1b2");
+	CAmount initialFwdTxAmount = 1;
+	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
+		<<"Test requires sc to be created";
+
+	CAmount initialScBalance = coinViewCache.getScInfoMap().at(newScId).balance;
+
+	//create empty tx, which will be reverted
+	int emptyTxHeight = anHeight + Params().ScCoinsMaturity() - 1;
+	aMutableTransaction.nVersion = SC_TX_VERSION;
+	aTransaction = aMutableTransaction;
+
+	//Prerequisites
+	ASSERT_TRUE(aTransaction.IsNull())<<"Test requires empty tx";
+
+	//test
+	bool res = coinViewCache.RevertTxOutputs(aTransaction, emptyTxHeight);
+
+	//checks
+	EXPECT_TRUE(res)<<"it should be possible to revert an empty tx";
+	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance == initialScBalance)
+	   <<"Tx reversion should leave balance unchanged";
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// ApplyMatureBalances /////////////////////////////
@@ -202,7 +259,7 @@ TEST_F(SideChainTestSuite, FlushPersistsNewSideChains) {
 TEST_F(SideChainTestSuite, FlushPersistsForwardTransfersToo) {
 	Sidechain::ScInfo infoHelper;
 
-	//insert the sidechain
+	//create the sidechain
 	uint256 newScId = uint256S("a1b2");
 	CAmount initialFwdTxAmount = 1;
 	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
