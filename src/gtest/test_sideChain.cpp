@@ -4,6 +4,7 @@
 #include <chainparamsbase.h>
 #include <consensus/validation.h>
 #include <txmempool.h>
+#include <undo.h>
 
 class SideChainTestSuite: public ::testing::Test {
 
@@ -44,6 +45,7 @@ protected:
 
 	CFeeRate   aFeeRate;
 	CTxMemPool aMemPool;
+	CBlockUndo aBlockUndo;
 
 	//TODO: Consider storing initial CBaseChainParam/CChainParam and reset it upon TearDown; try and handle assert
 	//TODO: evaluate moving resetBaseParams to chainparamsbase.h
@@ -83,6 +85,65 @@ protected:
         rManagerInternalMap[scId] = info;
 	}
 };
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////// ApplyMatureBalances /////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST_F(SideChainTestSuite, ForwardTransfersDoNotImmediatelyModifyScBalance) {
+	//insert the sidechain
+	uint256 newScId = uint256S("a1b2");
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = newScId;
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+
+	//Insert forward transfer at a certain height
+	CAmount fwdTxAmount = 1000;
+	CTxForwardTransferOut aForwardTransferTx;
+	aForwardTransferTx.scId = aSideChainCreationTx.scId;
+	aForwardTransferTx.nValue = fwdTxAmount;
+	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+	aTransaction = aMutableTransaction;
+
+	//prerequisites //TODO: Not sure how to autonomously reset it to a value I please in tests
+	ASSERT_TRUE(Params().CbhMinimumAge() != 0)<<"Test requires that forward transfer maturity is not immediate";
+
+	//test
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
+
+	//check
+	const Sidechain::ScInfo& updatedInfo = coinViewCache.getScInfoMap().at(newScId);
+	EXPECT_TRUE(updatedInfo.balance < fwdTxAmount)
+	    <<"Forward Transfered coins should not alter immediately Sb balance if CbhMinimumAge is not null";
+}
+
+TEST_F(SideChainTestSuite, ForwardTransfersModifyScBalanceAfterMaturity) {
+	//insert the sidechain
+	uint256 newScId = uint256S("a1b2");
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = newScId;
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+
+	//Insert forward transfer at a certain height
+	CAmount fwdTxAmount = 1000;
+	CTxForwardTransferOut aForwardTransferTx;
+	aForwardTransferTx.scId = aSideChainCreationTx.scId;
+	aForwardTransferTx.nValue = fwdTxAmount;
+	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+	aTransaction = aMutableTransaction;
+
+	//Prerequisites
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
+	   <<"Test requires a fwd transfer to happen";
+
+	//test
+	int lookupBlockHeight = anHeight + Params().ScCoinsMaturity();
+	bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
+
+	//checks
+	const Sidechain::ScInfo& updatedInfo = coinViewCache.getScInfoMap().at(newScId);
+	EXPECT_TRUE(updatedInfo.balance == fwdTxAmount)
+	    <<"Forward Transfered coins should mature after CbhMinimumAge blocks";
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// Flush /////////////////////////////////////

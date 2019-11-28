@@ -135,7 +135,6 @@ public:
     // return true if the tx is creating the scid
     bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
 
-    CAmount getScBalance(const uint256& scId);
     void copyScInfoMap(ScInfoMap& mapCopy) const;
 
   public:
@@ -160,6 +159,7 @@ public:
     void getScIdSet(std::set<uint256>& sScIds) const;
 
     const ScInfoMap& getScInfoMap() const { return mScInfo; }
+    CAmount getScBalance(const uint256& scId); //utility for UTs
     // print functions
     bool dump_info(const uint256& scId);
     void dump_info();
