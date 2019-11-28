@@ -88,6 +88,7 @@ protected:
 	CTransaction createSideChainTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
 	{
 		CMutableTransaction aMutableTransaction;
+		aMutableTransaction.nVersion = SC_TX_VERSION;
 
 		CTxScCreationOut aSideChainCreationTx;
 		aSideChainCreationTx.scId = newScId;
@@ -104,6 +105,7 @@ protected:
 	CTransaction createSideChainTxWithNoFwdTransfer(const uint256 & newScId)
 	{
 		CMutableTransaction aMutableTransaction;
+		aMutableTransaction.nVersion = SC_TX_VERSION;
 
 		CTxScCreationOut aSideChainCreationTx;
 		aSideChainCreationTx.scId = newScId;
@@ -115,6 +117,7 @@ protected:
 	CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
 	{
 		CMutableTransaction aMutableTransaction;
+		aMutableTransaction.nVersion = SC_TX_VERSION;
 
 		CTxForwardTransferOut aForwardTransferTx;
 		aForwardTransferTx.scId = newScId;
@@ -666,13 +669,9 @@ TEST_F(SideChainTestSuite, SideChain_ccNull_TxsAreSemanticallyValid) {
 }
 
 TEST_F(SideChainTestSuite, SideChainCreationsWithoutForwardTransferAreNotSemanticallyValid) {
-	aMutableTransaction.nVersion = SC_TX_VERSION;
-
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = uint256S("1492");
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-
-	aTransaction = aMutableTransaction;
+	//create a sidechain withouth fwd transfer
+	uint256 newScId = uint256S("1492");
+	aTransaction = createSideChainTxWithNoFwdTransfer(newScId);
 
 	//Prerequisites
 	ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
@@ -690,18 +689,10 @@ TEST_F(SideChainTestSuite, SideChainCreationsWithoutForwardTransferAreNotSemanti
 }
 
 TEST_F(SideChainTestSuite, SideChainCreationsWithForwardTransferAreSemanticallyValid) {
-	aMutableTransaction.nVersion = SC_TX_VERSION;
-
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = uint256S("1492");
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-
-	CTxForwardTransferOut aForwardTransferTx;
-	aForwardTransferTx.scId = aSideChainCreationTx.scId;
-	aForwardTransferTx.nValue = 1000;
-	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
-
-	aTransaction = aMutableTransaction;
+	//insert a sidechain
+	uint256 newScId = uint256S("1492");
+	CAmount initialFwdAmount = 1000;
+	aTransaction = createSideChainTxWith(newScId, initialFwdAmount);
 
 	//Prerequisites
 	ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
