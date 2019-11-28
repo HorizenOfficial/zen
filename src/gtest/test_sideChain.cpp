@@ -85,7 +85,7 @@ protected:
         rManagerInternalMap[scId] = info;
 	}
 
-	CTransaction createSideChainTxWith(const uint256 & newScId, const CAmount & fwdTxAmount = CAmount(1000) )
+	CTransaction createSideChainTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
 	{
 		CMutableTransaction aMutableTransaction;
 
@@ -95,6 +95,18 @@ protected:
 
 		CTxForwardTransferOut aForwardTransferTx;
 		aForwardTransferTx.scId = aSideChainCreationTx.scId;
+		aForwardTransferTx.nValue = fwdTxAmount;
+		aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+
+		return CTransaction(aMutableTransaction);
+	}
+
+	CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
+	{
+		CMutableTransaction aMutableTransaction;
+
+		CTxForwardTransferOut aForwardTransferTx;
+		aForwardTransferTx.scId = newScId;
 		aForwardTransferTx.nValue = fwdTxAmount;
 		aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
 
@@ -182,8 +194,9 @@ TEST_F(SideChainTestSuite, ForwardTransfersDoNotModifyScBalanceAfterCoinMaturity
 /////////////////////////////////// Flush /////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SideChainTestSuite, EmptyFlushDoesNotPersistNewSideChain) {
-	//Prerequisites
 	const Sidechain::ScInfoMap & initialScCollection = sideChainManager.getScInfoMap();
+
+	//Prerequisites
 	ASSERT_TRUE(initialScCollection.size() == 0)<<"Test requires no sidechains initially";
 
 	//test
@@ -216,13 +229,11 @@ TEST_F(SideChainTestSuite, EmptyFlushDoesNotAlterExistingSideChainsCollection) {
 }
 
 TEST_F(SideChainTestSuite, FlushPersistsNewSideChains) {
-	uint256 newScId = uint256S("a1b2");
 	Sidechain::ScInfo infoHelper;
 
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = newScId;
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-	aTransaction = aMutableTransaction;
+	uint256 newScId = uint256S("a1b2");
+	CAmount fwdTransfer = 1000;
+	aTransaction = createSideChainTxWith(newScId, fwdTransfer);
 
 	//Prerequisite
 	ASSERT_FALSE(sideChainManager.getScInfo(newScId, infoHelper))
@@ -240,49 +251,37 @@ TEST_F(SideChainTestSuite, FlushPersistsNewSideChains) {
 	    << "Once flushed, new sidechain should be made available by ScManager";
 }
 
-TEST_F(SideChainTestSuite, FlushPersistsForwardTransfers) {
+TEST_F(SideChainTestSuite, FlushPersistsForwardTransfersToo) {
+	Sidechain::ScInfo infoHelper;
+
 	//insert the sidechain
 	uint256 newScId = uint256S("a1b2");
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = newScId;
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-	aTransaction = aMutableTransaction;
+	CAmount initialfwdTxAmount = 1;
+	aTransaction = createSideChainTxWith(newScId, initialfwdTxAmount);
 
+	//Prerequisites
 	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
 		<<"Test requires the sidechain to be available before forward transfer";
-	aMutableTransaction.vsc_ccout.clear();
 
 	//create forward transfer
 	CAmount fwdTxAmount = 1000;
-	CTxForwardTransferOut aForwardTransferTx;
-	aForwardTransferTx.scId = aSideChainCreationTx.scId;
-	aForwardTransferTx.nValue = fwdTxAmount;
-	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
-	aTransaction = aMutableTransaction;
+	aTransaction = createFwdTransferTxWith(newScId, fwdTxAmount);
 
 	//test
 	bool res = coinViewCache.Flush();
 
 	//checks
 	EXPECT_TRUE(res)<<"We should be allowed to flush a new sidechain";
-	Sidechain::ScInfo infoHelper;
 	EXPECT_TRUE(sideChainManager.getScInfo(newScId, infoHelper))
 	    << "Once flushed, new sidechain should be made available by ScManager";
 
-	//Todo: Add check on forward transfer amount
+	//Todo: Add check on forward transfer amount maybe resetting to zero coinMaturity
 }
 
 TEST_F(SideChainTestSuite, FlushAlignsMgrScCollectionToCoinViewOne) {
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = uint256S("c4d6");;
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-
-	CTxForwardTransferOut aForwardTransferTx;
-	aForwardTransferTx.scId = aSideChainCreationTx.scId;
-	aForwardTransferTx.nValue = 1000;
-	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
-
-	aTransaction = aMutableTransaction;
+	uint256 newScId = uint256S("a1b2");
+	CAmount initialfwdTxAmount = 1;
+	aTransaction = createSideChainTxWith(newScId, initialfwdTxAmount);
 
 	//prerequisites
 	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
@@ -350,14 +349,12 @@ TEST_F(SideChainTestSuite, EmptyTxsAreProcessedButNotRegistered) {
 }
 
 TEST_F(SideChainTestSuite, NewSCsAreRegisteredById) {
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = uint256S("1492");
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-
-	aTransaction = aMutableTransaction;
+	uint256 newScId = uint256S("1492");
+	CAmount initialfwdTxAmount = 1;
+	aTransaction = createSideChainTxWith(newScId, initialfwdTxAmount);
 
 	//Prerequisite
-	ASSERT_FALSE(coinViewCache.sidechainExists(aSideChainCreationTx.scId))
+	ASSERT_FALSE(coinViewCache.sidechainExists(newScId))
 			<< "Test requires that sidechain is not registered";
 
 	//test
@@ -365,7 +362,7 @@ TEST_F(SideChainTestSuite, NewSCsAreRegisteredById) {
 
 	//check
 	EXPECT_TRUE(res) << "New sidechain creation txs should be processed";
-	EXPECT_TRUE(coinViewCache.sidechainExists(aSideChainCreationTx.scId))
+	EXPECT_TRUE(coinViewCache.sidechainExists(newScId))
 			<< "New sidechain creation txs should be cached";
 }
 
