@@ -727,8 +727,6 @@ TEST_F(SideChainTestSuite, EmptyTxsAreAllowedInEmptyMemPool) {
 }
 
 TEST_F(SideChainTestSuite, EmptyTxsAreAllowedInNonEmptyMemPool) {
-	//Todo: addUnchecked is the simplest way I have found to add a tx to mempool. Verify correctness
-
 	CAmount txFee;
 	double txPriority;
 
@@ -751,13 +749,10 @@ TEST_F(SideChainTestSuite, EmptyTxsAreAllowedInNonEmptyMemPool) {
 }
 
 TEST_F(SideChainTestSuite, ScCreationTxsAreAllowedInEmptyMemPool) {
-	aMutableTransaction.nVersion = SC_TX_VERSION;
-
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = uint256S("1492");
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-
-	aTransaction = aMutableTransaction;
+	//create a sidechain
+	uint256 newScId = uint256S("1492");
+	CAmount initialFwdAmount = 1953;
+	aTransaction = createSideChainTxWith(newScId, initialFwdAmount);
 
 	//Prerequisites
 	ASSERT_TRUE(aMemPool.size() == 0)<<"Test requires empty mempool";
@@ -812,13 +807,10 @@ TEST_F(SideChainTestSuite, NewScCreationTxsAreAllowedInMemPool) {
 }
 
 TEST_F(SideChainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
-	//A Sc tx should be already in mem pool
-	uint256 firstScTxId = uint256S("1987");
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = firstScTxId;
-	aSideChainCreationTx.withdrawalEpochLength = 1;
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-	aTransaction = aMutableTransaction;
+	//create a sidechain tx and insert in mempool
+	uint256 firstScId = uint256S("1987");
+	CAmount initialFwdAmount = 1953;
+	aTransaction = createSideChainTxWith(firstScId, initialFwdAmount);
 
 	CAmount txFee;
 	double txPriority;
@@ -833,14 +825,12 @@ TEST_F(SideChainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
 	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
 
 	//Prepare a new Sc tx, with differentId
-	aMutableTransaction.vsc_ccout.clear();
-	aSideChainCreationTx.scId = firstScTxId;
-	aSideChainCreationTx.withdrawalEpochLength = 2;
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-	aTransaction = aMutableTransaction;
+	uint256 duplicatedScId = firstScId;
+	CAmount anotherAmount = 1492;
+	CTransaction duplicatedTx = createSideChainTxWith(duplicatedScId, anotherAmount);
 
 	//Prerequisites
-	ASSERT_TRUE(firstScTxId == aSideChainCreationTx.scId)<<"Test requires two Sc creation tx with same ids";
+	ASSERT_TRUE(duplicatedScId == firstScId)<<"Test requires two Sc creation tx with same ids";
 
 	//test
 	bool res = sideChainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
