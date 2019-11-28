@@ -101,6 +101,17 @@ protected:
 		return CTransaction(aMutableTransaction);
 	}
 
+	CTransaction createSideChainTxWithNoFwdTransfer(const uint256 & newScId)
+	{
+		CMutableTransaction aMutableTransaction;
+
+		CTxScCreationOut aSideChainCreationTx;
+		aSideChainCreationTx.scId = newScId;
+		aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+
+		return CTransaction(aMutableTransaction);
+	}
+
 	CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
 	{
 		CMutableTransaction aMutableTransaction;
@@ -480,15 +491,30 @@ TEST_F(SideChainTestSuite, EmptyTxsAreApplicableToState) {
 	EXPECT_TRUE(res)<<"Empty transaction should be applicable to state";
 }
 
-TEST_F(SideChainTestSuite, NewScCreationsAreApplicableToState) {
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = uint256S("1492");
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-
-	aTransaction = aMutableTransaction;
+TEST_F(SideChainTestSuite, ScCreationWithoutForwardTrasferIsApplicableToState) {
+	//create a sidechain without forward transfer
+	uint256 newScId = uint256S("1492");
+	aTransaction = createSideChainTxWithNoFwdTransfer(newScId);
 
 	//Prerequisite
-	ASSERT_FALSE(coinViewCache.sidechainExists(aSideChainCreationTx.scId))
+	ASSERT_FALSE(coinViewCache.sidechainExists(newScId))
+		<<"Test requires the Sc creation tx to be new in current transaction";
+
+	//test
+	bool res = sideChainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
+
+	//checks
+	EXPECT_TRUE(res)<<"Sc creation and forward transfer to it may coexist in the same tx";
+}
+
+TEST_F(SideChainTestSuite, NewScCreationsAreApplicableToState) {
+	//create a new sidechain
+	uint256 newScId = uint256S("1492");
+	CAmount initialFwdAmount = 1953;
+	aTransaction = createSideChainTxWith(newScId, initialFwdAmount);
+
+	//Prerequisite
+	ASSERT_FALSE(coinViewCache.sidechainExists(newScId))
 		<<"Test requires the Sc creation tx to be new";
 
 	//test
@@ -499,39 +525,39 @@ TEST_F(SideChainTestSuite, NewScCreationsAreApplicableToState) {
 }
 
 TEST_F(SideChainTestSuite, DuplicatedScCreationsAreNotApplicableToState) {
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = uint256S("1492");
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-	aTransaction = aMutableTransaction;
+	//insert a sidechain
+	uint256 newScId = uint256S("1492");
+	CAmount initialFwdAmount = 1953;
+	aTransaction = createSideChainTxWith(newScId, initialFwdAmount);
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
+
+	CAmount anotherFwdTransfer = 1815;
+	CTransaction duplicatedTx = createSideChainTxWith(newScId, anotherFwdTransfer);
 
 	//Prerequisite
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
-		<<"Test requires the Sc creation tx to be already registered";
+	ASSERT_TRUE(coinViewCache.sidechainExists(newScId))
+		<<"Test requires the Sc creation tx to be new";
 
 	//test
-	bool res = sideChainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
+	bool res = sideChainManager.IsTxApplicableToState(duplicatedTx, &coinViewCache);
 
 	//checks
 	EXPECT_FALSE(res)<<"Duplicated Sc creation txs should be applicable to state";
 }
 
 TEST_F(SideChainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = uint256S("1492");
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-	aTransaction = aMutableTransaction;
+	//insert a sidechain
+	uint256 newScId = uint256S("1492");
+	CAmount initialFwdAmount = 1953;
+	aTransaction = createSideChainTxWith(newScId, initialFwdAmount);
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
+
+	CAmount aFwdTransfer = 5;
+	aTransaction = createFwdTransferTxWith(newScId, aFwdTransfer);
 
 	//Prerequisite
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
-		<<"Test requires the Sc creation tx to be already registered";
-
-	//create forward transfer
-	aMutableTransaction.vsc_ccout.clear();
-	CTxForwardTransferOut aForwardTransferTx;
-	aForwardTransferTx.scId = aSideChainCreationTx.scId;
-	aForwardTransferTx.nValue = 1000;
-	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
-	aTransaction = aMutableTransaction;
+	ASSERT_TRUE(coinViewCache.sidechainExists(newScId))
+		<<"Test requires the Sc creation tx to be new";
 
 	//test
 	bool res = sideChainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
@@ -540,46 +566,15 @@ TEST_F(SideChainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
 	EXPECT_TRUE(res)<<"Forward transaction to existent side chains should be applicable to state";
 }
 
-TEST_F(SideChainTestSuite, ForwardTrasferIsApplicableToStateIfScCreationBelongsToTheSameTx) {
-	//Create both Sc creation and Forwar transfer in the same transaction
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = uint256S("1492");
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-
-	CTxForwardTransferOut aForwardTransferTx;
-	aForwardTransferTx.scId = aSideChainCreationTx.scId;
-	aForwardTransferTx.nValue = 1000;
-	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
-
-	aTransaction = aMutableTransaction;
-
-	//Prerequisite
-	ASSERT_FALSE(coinViewCache.sidechainExists(aSideChainCreationTx.scId))
-		<<"Test requires the Sc creation tx to be new in current transaction";
-
-	//create forward transfer
-	aTransaction = aMutableTransaction;
-
-	//test
-	bool res = sideChainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
-
-	//checks
-	EXPECT_TRUE(res)<<"Sc creation and forward transfer to it may coexist in the same tx";
-}
-
 TEST_F(SideChainTestSuite, ForwardTransfersToNonExistingSCsAreNotApplicableToState) {
 	uint256 nonExistentScId = uint256S("1492");
+
+	CAmount aFwdTransfer = 1815;
+	aTransaction = createFwdTransferTxWith(nonExistentScId, aFwdTransfer);
 
 	//Prerequisite
 	ASSERT_FALSE(coinViewCache.sidechainExists(nonExistentScId))
 		<<"Test requires target sidechain to be non-existent";
-
-	//create forward transfer
-	CTxForwardTransferOut aForwardTransferTx;
-	aForwardTransferTx.scId = nonExistentScId;
-	aForwardTransferTx.nValue = 1000;
-	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
-	aTransaction = aMutableTransaction;
 
 	//test
 	bool res = sideChainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
