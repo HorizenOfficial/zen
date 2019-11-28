@@ -19,6 +19,7 @@ public:
 	};
 
 	void SetUp() override {
+		//TODO: Consider storing initial CBaseChainParam/CChainParam and reset it upon TearDown; try and handle assert
 		SelectBaseParams(CBaseChainParams::REGTEST);
 		SelectParams(CBaseChainParams::REGTEST);
 
@@ -47,86 +48,19 @@ protected:
 	CTxMemPool aMemPool;
 	CBlockUndo aBlockUndo;
 
-	//TODO: Consider storing initial CBaseChainParam/CChainParam and reset it upon TearDown; try and handle assert
-	//TODO: evaluate moving resetBaseParams to chainparamsbase.h
-	void resetBaseParams() {
-		//force reset of pCurrentBaseParams
-		CBaseChainParams* nakedCurrentBaseParams = &const_cast<CBaseChainParams &>(BaseParams());
-		nakedCurrentBaseParams = nullptr;
-	}
+	void resetBaseParams();
+	void resetParams();
 
-	void resetParams() {
-		//force reset of pCurrentParams
-		CChainParams* nakedCurrentParams = &const_cast<CChainParams &>(Params());
-		nakedCurrentParams = nullptr;
-	}
-
-	void preFillSidechainsCollection() {
-        //force access to manager in-memory data structure to fill it up for testing purposes
-		//Todo: make it work for the case Sidechain::ScMgr::create, i.e. push this info to db
-
-        Sidechain::ScInfoMap & rManagerInternalMap
-		    = const_cast<Sidechain::ScInfoMap&>(sideChainManager.getScInfoMap());
-
-        //create a couple of ScInfo to fill data struct
-        Sidechain::ScInfo info;
-        uint256 scId;
-
-        scId = uint256S("a123");
-        info.creationBlockHash = uint256S("aaaa");
-        info.creationBlockHeight = 1992;
-        info.creationTxHash = uint256S("bbbb");
-        rManagerInternalMap[scId] = info;
-
-        scId = uint256S("b987");
-        info.creationBlockHash = uint256S("1111");
-        info.creationBlockHeight = 1993;
-        info.creationTxHash = uint256S("2222");
-        rManagerInternalMap[scId] = info;
-	}
-
-	CTransaction createSideChainTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
-	{
-		CMutableTransaction aMutableTransaction;
-		aMutableTransaction.nVersion = SC_TX_VERSION;
-
-		CTxScCreationOut aSideChainCreationTx;
-		aSideChainCreationTx.scId = newScId;
-		aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-
-		CTxForwardTransferOut aForwardTransferTx;
-		aForwardTransferTx.scId = aSideChainCreationTx.scId;
-		aForwardTransferTx.nValue = fwdTxAmount;
-		aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
-
-		return CTransaction(aMutableTransaction);
-	}
-
-	CTransaction createSideChainTxWithNoFwdTransfer(const uint256 & newScId)
-	{
-		CMutableTransaction aMutableTransaction;
-		aMutableTransaction.nVersion = SC_TX_VERSION;
-
-		CTxScCreationOut aSideChainCreationTx;
-		aSideChainCreationTx.scId = newScId;
-		aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-
-		return CTransaction(aMutableTransaction);
-	}
-
-	CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
-	{
-		CMutableTransaction aMutableTransaction;
-		aMutableTransaction.nVersion = SC_TX_VERSION;
-
-		CTxForwardTransferOut aForwardTransferTx;
-		aForwardTransferTx.scId = newScId;
-		aForwardTransferTx.nValue = fwdTxAmount;
-		aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
-
-		return CTransaction(aMutableTransaction);
-	}
+	void preFillSidechainsCollection();
+	CTransaction createSideChainTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
+	CTransaction createSideChainTxWithNoFwdTransfer(const uint256 & newScId);
+	CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
 };
+
+///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////// RevertTxOutputs ///////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// ApplyMatureBalances /////////////////////////////
@@ -873,4 +807,89 @@ TEST_F(SideChainTestSuite, TransactionWithForwardTransferOnlyIsDeemedNull) { //T
 
 	//check
 	EXPECT_TRUE(res)<< "Transactions are deemed null if they contains forward transfer tx only";
+}
+
+///////////////////////////////////////////////////////////////////////////////
+////////////////////////// Test Fixture definitions ///////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+void SideChainTestSuite::resetBaseParams() {
+	//TODO: evaluate moving resetBaseParams to chainparamsbase.h
+
+	//force reset of pCurrentBaseParams
+	CBaseChainParams* nakedCurrentBaseParams = &const_cast<CBaseChainParams &>(BaseParams());
+	nakedCurrentBaseParams = nullptr;
+}
+
+void SideChainTestSuite::resetParams() {
+	//TODO: evaluate moving resetBaseParams to chainparams.h
+
+	//force reset of pCurrentParams
+	CChainParams* nakedCurrentParams = &const_cast<CChainParams &>(Params());
+	nakedCurrentParams = nullptr;
+}
+
+void SideChainTestSuite::preFillSidechainsCollection() {
+    //force access to manager in-memory data structure to fill it up for testing purposes
+	//Todo: make it work for the case Sidechain::ScMgr::create, i.e. push this info to db
+
+    Sidechain::ScInfoMap & rManagerInternalMap
+	    = const_cast<Sidechain::ScInfoMap&>(sideChainManager.getScInfoMap());
+
+    //create a couple of ScInfo to fill data struct
+    Sidechain::ScInfo info;
+    uint256 scId;
+
+    scId = uint256S("a123");
+    info.creationBlockHash = uint256S("aaaa");
+    info.creationBlockHeight = 1992;
+    info.creationTxHash = uint256S("bbbb");
+    rManagerInternalMap[scId] = info;
+
+    scId = uint256S("b987");
+    info.creationBlockHash = uint256S("1111");
+    info.creationBlockHeight = 1993;
+    info.creationTxHash = uint256S("2222");
+    rManagerInternalMap[scId] = info;
+}
+
+CTransaction SideChainTestSuite::createSideChainTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
+{
+	CMutableTransaction aMutableTransaction;
+	aMutableTransaction.nVersion = SC_TX_VERSION;
+
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = newScId;
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+
+	CTxForwardTransferOut aForwardTransferTx;
+	aForwardTransferTx.scId = aSideChainCreationTx.scId;
+	aForwardTransferTx.nValue = fwdTxAmount;
+	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+
+	return CTransaction(aMutableTransaction);
+}
+
+CTransaction SideChainTestSuite::createSideChainTxWithNoFwdTransfer(const uint256 & newScId)
+{
+	CMutableTransaction aMutableTransaction;
+	aMutableTransaction.nVersion = SC_TX_VERSION;
+
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = newScId;
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+
+	return CTransaction(aMutableTransaction);
+}
+
+CTransaction SideChainTestSuite::createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
+{
+	CMutableTransaction aMutableTransaction;
+	aMutableTransaction.nVersion = SC_TX_VERSION;
+
+	CTxForwardTransferOut aForwardTransferTx;
+	aForwardTransferTx.scId = newScId;
+	aForwardTransferTx.nValue = fwdTxAmount;
+	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+
+	return CTransaction(aMutableTransaction);
 }
