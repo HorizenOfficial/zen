@@ -84,6 +84,22 @@ protected:
         info.creationTxHash = uint256S("2222");
         rManagerInternalMap[scId] = info;
 	}
+
+	CTransaction createSideChainTxWith(const uint256 & newScId, const CAmount & fwdTxAmount = CAmount(1000) )
+	{
+		CMutableTransaction aMutableTransaction;
+
+		CTxScCreationOut aSideChainCreationTx;
+		aSideChainCreationTx.scId = newScId;
+		aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+
+		CTxForwardTransferOut aForwardTransferTx;
+		aForwardTransferTx.scId = aSideChainCreationTx.scId;
+		aForwardTransferTx.nValue = fwdTxAmount;
+		aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+
+		return CTransaction(aMutableTransaction);
+	}
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -92,20 +108,10 @@ protected:
 //TODO MISSING CHECKS ON BlockUndo
 TEST_F(SideChainTestSuite, ForwardTransfersDoNotModifyScBalanceBeforeCoinMaturity) {
 	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
-
-	//insert the sidechain
 	uint256 newScId = uint256S("a1b2");
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = newScId;
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-
-	//Insert forward transfer at a certain height
 	CAmount fwdTxAmount = 1000;
-	CTxForwardTransferOut aForwardTransferTx;
-	aForwardTransferTx.scId = aSideChainCreationTx.scId;
-	aForwardTransferTx.nValue = fwdTxAmount;
-	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
-	aTransaction = aMutableTransaction;
+
+	aTransaction = createSideChainTxWith(newScId, fwdTxAmount);
 
 	int lookupBlockHeight = coinMaturityHeight - 1;
 
@@ -126,20 +132,10 @@ TEST_F(SideChainTestSuite, ForwardTransfersDoNotModifyScBalanceBeforeCoinMaturit
 
 TEST_F(SideChainTestSuite, ForwardTransfersModifyScBalanceAtCoinMaturity) {
 	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
-
-	//insert the sidechain
 	uint256 newScId = uint256S("a1b2");
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = newScId;
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-
-	//Insert forward transfer at a certain height
 	CAmount fwdTxAmount = 1000;
-	CTxForwardTransferOut aForwardTransferTx;
-	aForwardTransferTx.scId = aSideChainCreationTx.scId;
-	aForwardTransferTx.nValue = fwdTxAmount;
-	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
-	aTransaction = aMutableTransaction;
+
+	aTransaction = createSideChainTxWith(newScId, fwdTxAmount);
 
 	int lookupBlockHeight = coinMaturityHeight;
 
@@ -160,20 +156,10 @@ TEST_F(SideChainTestSuite, ForwardTransfersModifyScBalanceAtCoinMaturity) {
 
 TEST_F(SideChainTestSuite, ForwardTransfersDoNotModifyScBalanceAfterCoinMaturity) {
 	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
-
-	//insert the sidechain
 	uint256 newScId = uint256S("a1b2");
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = newScId;
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-
-	//Insert forward transfer at a certain height
 	CAmount fwdTxAmount = 1000;
-	CTxForwardTransferOut aForwardTransferTx;
-	aForwardTransferTx.scId = aSideChainCreationTx.scId;
-	aForwardTransferTx.nValue = fwdTxAmount;
-	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
-	aTransaction = aMutableTransaction;
+
+	aTransaction = createSideChainTxWith(newScId, fwdTxAmount);
 
 	int lookupBlockHeight = coinMaturityHeight + 1;
 
