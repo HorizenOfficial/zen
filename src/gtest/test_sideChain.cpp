@@ -89,7 +89,10 @@ protected:
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// ApplyMatureBalances /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SideChainTestSuite, ForwardTransfersDoNotImmediatelyModifyScBalance) {
+//TODO MISSING CHECKS ON BlockUndo
+TEST_F(SideChainTestSuite, ForwardTransfersDoNotModifyScBalanceBeforeCoinMaturity) {
+	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
+
 	//insert the sidechain
 	uint256 newScId = uint256S("a1b2");
 	CTxScCreationOut aSideChainCreationTx;
@@ -104,45 +107,89 @@ TEST_F(SideChainTestSuite, ForwardTransfersDoNotImmediatelyModifyScBalance) {
 	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
 	aTransaction = aMutableTransaction;
 
-	//prerequisites //TODO: Not sure how to autonomously reset it to a value I please in tests
-	ASSERT_TRUE(Params().CbhMinimumAge() != 0)<<"Test requires that forward transfer maturity is not immediate";
-
-	//test
-	coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
-
-	//check
-	const Sidechain::ScInfo& updatedInfo = coinViewCache.getScInfoMap().at(newScId);
-	EXPECT_TRUE(updatedInfo.balance < fwdTxAmount)
-	    <<"Forward Transfered coins should not alter immediately Sb balance if CbhMinimumAge is not null";
-}
-
-TEST_F(SideChainTestSuite, ForwardTransfersModifyScBalanceAfterMaturity) {
-	//insert the sidechain
-	uint256 newScId = uint256S("a1b2");
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = newScId;
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-
-	//Insert forward transfer at a certain height
-	CAmount fwdTxAmount = 1000;
-	CTxForwardTransferOut aForwardTransferTx;
-	aForwardTransferTx.scId = aSideChainCreationTx.scId;
-	aForwardTransferTx.nValue = fwdTxAmount;
-	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
-	aTransaction = aMutableTransaction;
+	int lookupBlockHeight = coinMaturityHeight - 1;
 
 	//Prerequisites
 	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
-	   <<"Test requires a fwd transfer to happen";
+	    <<"Test requires a fwd transfer to happen";
+	ASSERT_TRUE(lookupBlockHeight < coinMaturityHeight)
+	    <<"Test requires attempting to mature balances before their maturity height";
 
 	//test
-	int lookupBlockHeight = anHeight + Params().ScCoinsMaturity();
+	bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
+
+	//check
+	EXPECT_TRUE(res)<<"there should be no problem in attempting to applyMatureBalances before coin maturity";
+	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance < fwdTxAmount)
+	    <<"Forward Transfered coins should not alter immediately Sb balance if CbhMinimumAge is not null";
+}
+
+TEST_F(SideChainTestSuite, ForwardTransfersModifyScBalanceAtCoinMaturity) {
+	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
+
+	//insert the sidechain
+	uint256 newScId = uint256S("a1b2");
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = newScId;
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+
+	//Insert forward transfer at a certain height
+	CAmount fwdTxAmount = 1000;
+	CTxForwardTransferOut aForwardTransferTx;
+	aForwardTransferTx.scId = aSideChainCreationTx.scId;
+	aForwardTransferTx.nValue = fwdTxAmount;
+	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+	aTransaction = aMutableTransaction;
+
+	int lookupBlockHeight = coinMaturityHeight;
+
+	//Prerequisites
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
+	    <<"Test requires a fwd transfer to happen";
+	ASSERT_TRUE(lookupBlockHeight == coinMaturityHeight)
+	    <<"Test requires attempting to mature balances before their maturity height";
+
+	//test
 	bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
 
 	//checks
-	const Sidechain::ScInfo& updatedInfo = coinViewCache.getScInfoMap().at(newScId);
-	EXPECT_TRUE(updatedInfo.balance == fwdTxAmount)
+	EXPECT_TRUE(res)<<"there should be no problem in attempting to applyMatureBalances at coin maturity";
+	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance == fwdTxAmount)
 	    <<"Forward Transfered coins should mature after CbhMinimumAge blocks";
+}
+
+TEST_F(SideChainTestSuite, ForwardTransfersDoNotModifyScBalanceAfterCoinMaturity) {
+	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
+
+	//insert the sidechain
+	uint256 newScId = uint256S("a1b2");
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = newScId;
+	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+
+	//Insert forward transfer at a certain height
+	CAmount fwdTxAmount = 1000;
+	CTxForwardTransferOut aForwardTransferTx;
+	aForwardTransferTx.scId = aSideChainCreationTx.scId;
+	aForwardTransferTx.nValue = fwdTxAmount;
+	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+	aTransaction = aMutableTransaction;
+
+	int lookupBlockHeight = coinMaturityHeight + 1;
+
+	//Prerequisites
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
+	    <<"Test requires a fwd transfer to happen";
+	ASSERT_TRUE(lookupBlockHeight > coinMaturityHeight)
+	    <<"Test requires attempting to mature balances before their maturity height";
+
+	//test
+	bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
+
+	//check
+	EXPECT_FALSE(res)<<"there should be a problem in attempting to applyMatureBalances after coin maturity";
+	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance < fwdTxAmount)
+	    <<"Forward Transfered coins should not alter immediately Sb balance if CbhMinimumAge is not null";
 }
 
 ///////////////////////////////////////////////////////////////////////////////
