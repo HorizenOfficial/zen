@@ -256,8 +256,8 @@ TEST_F(SideChainTestSuite, FlushPersistsForwardTransfersToo) {
 
 	//insert the sidechain
 	uint256 newScId = uint256S("a1b2");
-	CAmount initialfwdTxAmount = 1;
-	aTransaction = createSideChainTxWith(newScId, initialfwdTxAmount);
+	CAmount initialFwdTxAmount = 1;
+	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
 
 	//Prerequisites
 	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
@@ -280,8 +280,8 @@ TEST_F(SideChainTestSuite, FlushPersistsForwardTransfersToo) {
 
 TEST_F(SideChainTestSuite, FlushAlignsMgrScCollectionToCoinViewOne) {
 	uint256 newScId = uint256S("a1b2");
-	CAmount initialfwdTxAmount = 1;
-	aTransaction = createSideChainTxWith(newScId, initialfwdTxAmount);
+	CAmount initialFwdTxAmount = 1;
+	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
 
 	//prerequisites
 	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
@@ -350,8 +350,8 @@ TEST_F(SideChainTestSuite, EmptyTxsAreProcessedButNotRegistered) {
 
 TEST_F(SideChainTestSuite, NewSCsAreRegisteredById) {
 	uint256 newScId = uint256S("1492");
-	CAmount initialfwdTxAmount = 1;
-	aTransaction = createSideChainTxWith(newScId, initialfwdTxAmount);
+	CAmount initialFwdTxAmount = 1;
+	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
 
 	//Prerequisite
 	ASSERT_FALSE(coinViewCache.sidechainExists(newScId))
@@ -368,30 +368,26 @@ TEST_F(SideChainTestSuite, NewSCsAreRegisteredById) {
 
 TEST_F(SideChainTestSuite, ScDoubleInsertionIsRejected) {
 	//first,valid sideChain transaction
-	CTxScCreationOut validScCreationTx;
-	validScCreationTx.scId = uint256S("1492");
-	validScCreationTx.withdrawalEpochLength = 1;
-	aMutableTransaction.vsc_ccout.push_back(validScCreationTx);
+	uint256 newScId = uint256S("1492");
+	CAmount initialFwdTxAmount = 1;
+	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
 	//second, id-duplicated, sideChain transaction
-	CTxScCreationOut duplicatedScCreationTx;
-	duplicatedScCreationTx.scId = uint256S("1492");
-	duplicatedScCreationTx.withdrawalEpochLength = 2;
-	aMutableTransaction.vsc_ccout.push_back(validScCreationTx);
-	aTransaction = aMutableTransaction;
+	CAmount aFwdTxAmount = 999;
+	CTransaction duplicatedTx = createSideChainTxWith(newScId, aFwdTxAmount);
 
 	//Prerequisites
-	ASSERT_TRUE(validScCreationTx.scId == duplicatedScCreationTx.scId)<<"Test requires two SC Tx with same id";
-	ASSERT_TRUE(validScCreationTx.withdrawalEpochLength != duplicatedScCreationTx.withdrawalEpochLength)
-		<<"Test requires two SC Tx with different withdrawalEpochLength";
+	ASSERT_TRUE(aTransaction.vsc_ccout[0].scId == duplicatedTx.vsc_ccout[0].scId)
+	    <<"Test requires two SC Tx with same id";
+	ASSERT_TRUE(coinViewCache.sidechainExists(newScId))
+		<<"Test requires first Sc to be successfully registered";
 
 	//test
-	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
+	bool res = coinViewCache.UpdateScInfo(duplicatedTx, aBlock, anHeight);
 
 	//check
-	EXPECT_FALSE(res)<< "Duplicated sidechain creation txs should be processed";
-	EXPECT_TRUE(coinViewCache.sidechainExists(validScCreationTx.scId))
-			<< "First, valid sidechain creation txs should be cached";
+	EXPECT_FALSE(res)<< "Duplicated sidechain creation txs should not be processed";
 }
 
 TEST_F(SideChainTestSuite, NoRollbackIsPerformedOnceInvalidTransactionIsEncountered) {
@@ -432,11 +428,8 @@ TEST_F(SideChainTestSuite, NoRollbackIsPerformedOnceInvalidTransactionIsEncounte
 
 TEST_F(SideChainTestSuite, ForwardTransfersToNonExistentScAreRejected) {
 	uint256 nonExistentId = uint256S("1492");
-
-	CTxForwardTransferOut aForwardTransferTx;
-	aForwardTransferTx.scId = nonExistentId;
-	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
-	aTransaction = aMutableTransaction;
+	CAmount initialFwdAmount = 1987;
+	aTransaction = createFwdTransferTxWith(nonExistentId, initialFwdAmount);
 
 	//Prerequisite
 	ASSERT_FALSE(coinViewCache.sidechainExists(nonExistentId))
@@ -452,32 +445,25 @@ TEST_F(SideChainTestSuite, ForwardTransfersToNonExistentScAreRejected) {
 
 TEST_F(SideChainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
 	//insert the sidechain
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = uint256S("1912");
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-	aTransaction = aMutableTransaction;
+	uint256 newScId = uint256S("1492");
+	CAmount initialFwdAmount = 1953;
+	aTransaction = createSideChainTxWith(newScId, initialFwdAmount);
 
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
-		<<"Test requires the sidechain to be available before forward transfer";
-	aMutableTransaction.vsc_ccout.clear();
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
 	//create forward transfer
-	CTxForwardTransferOut aForwardTransferTx;
-	aForwardTransferTx.scId = aSideChainCreationTx.scId;
-	aForwardTransferTx.nValue = 1000; //Todo: find a way to check this
-	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
-	aTransaction = aMutableTransaction;
+	CAmount anotherFwdAmount = 1987;
+	aTransaction = createFwdTransferTxWith(newScId, anotherFwdAmount);
 
 	//Prerequisite
-	ASSERT_TRUE(coinViewCache.sidechainExists(aForwardTransferTx.scId))
-	<<"Test requires Sc to exist before attempting the forward transfer tx";
+	ASSERT_TRUE(coinViewCache.sidechainExists(newScId))
+	    <<"Test requires Sc to exist before attempting the forward transfer tx";
 
 	//test
 	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
 	//check
 	EXPECT_TRUE(res)<< "It should be possible to register a forward transfer to an existing sidechain";
-	//Todo: find a way to check amount inserted
 }
 
 ///////////////////////////////////////////////////////////////////////////////
