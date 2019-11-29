@@ -40,7 +40,7 @@ protected:
 	//Helpers
 	CBlock              aBlock;
 	CTransaction        aTransaction;
-	CMutableTransaction aMutableTransaction;
+	//CMutableTransaction aMutableTransaction;
 	int                 anHeight;
 	CValidationState    txState;
 
@@ -52,23 +52,140 @@ protected:
 	void resetParams();
 
 	void preFillSidechainsCollection();
+
 	CTransaction createSideChainTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
-	CTransaction createSideChainTxWithNoFwdTransfer(const uint256 & newScId);
 	CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
+
+	CTransaction createEmptyScTx();
+	CTransaction createSideChainTxWithNoFwdTransfer(const uint256 & newScId);
+	CTransaction createNonScTx(bool ccIsNull = true);
+	CTransaction createShieldedTx();
+
 };
+
+///////////////////////////////////////////////////////////////////////////////
+/////////////////////////// checkTxSemanticValidity ///////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST_F(SideChainTestSuite, NonSideChainTxsAreSemanticallyValid) {
+	aTransaction = createNonScTx();
+
+	//Prerequisites
+	ASSERT_FALSE(aTransaction.IsScVersion())<<"Test requires non sidechain tx";
+	ASSERT_TRUE(aTransaction.ccIsNull())<<"Test requires null tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//test
+	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
+
+	//checks
+	EXPECT_TRUE(res)<<"empty non sidechain tx should be considered semantically valid";
+	EXPECT_TRUE(txState.IsValid())<<"Positive sematics checks should not alter tx validity";
+}
+
+TEST_F(SideChainTestSuite, NonSideChain_NonCcNull_TxsAreNotSemanticallyValid) {
+	aTransaction = createNonScTx(/*ccIsNull = */false);
+
+	//Prerequisites
+	ASSERT_FALSE(aTransaction.IsScVersion())<<"Test requires non sidechain tx";
+	ASSERT_FALSE(aTransaction.ccIsNull())<<"Test requires null tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//test
+	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
+
+	//checks
+	EXPECT_FALSE(res)<<"non empty non sidechain tx should be considered semantically invalid";
+	EXPECT_FALSE(txState.IsValid())<<"Negative sematics checks should alter tx validity";
+	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
+
+TEST_F(SideChainTestSuite, SideChain_Shielded_TxsAreNotCurrentlySupported) {
+	aTransaction = createShieldedTx();
+
+	//Prerequisites
+	ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
+	ASSERT_TRUE(aTransaction.ccIsNull())<<"Test requires null tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//test
+	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
+
+	//checks
+	EXPECT_FALSE(res)<<"sidechain tx with shielded tx should be considered semantically invalid";
+	EXPECT_FALSE(txState.IsValid())<<"Negative sematics checks should alter tx validity";
+	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
+
+TEST_F(SideChainTestSuite, SideChain_ccNull_TxsAreSemanticallyValid) {
+	aTransaction = createEmptyScTx();
+
+	//Prerequisites
+	ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
+	ASSERT_TRUE(aTransaction.ccIsNull())<<"Test requires null tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//test
+	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
+
+	//checks
+	EXPECT_TRUE(res)<<"empty sidechain tx should be considered semantically valid";
+	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
+}
+
+TEST_F(SideChainTestSuite, SideChainCreationsWithoutForwardTransferAreNotSemanticallyValid) {
+	//create a sidechain withouth fwd transfer
+	uint256 newScId = uint256S("1492");
+	aTransaction = createSideChainTxWithNoFwdTransfer(newScId);
+
+	//Prerequisites
+	ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
+	ASSERT_FALSE(aTransaction.ccIsNull())<<"Test requires not null tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//test
+	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
+
+	//checks
+	EXPECT_FALSE(res)<<"sidechain creation without forward transfer should be considered semantically invalid";
+	EXPECT_FALSE(txState.IsValid())<<"Negative semantics checks should alter tx validity";
+	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
+
+TEST_F(SideChainTestSuite, SideChainCreationsWithForwardTransferAreSemanticallyValid) {
+	//insert a sidechain
+	uint256 newScId = uint256S("1492");
+	CAmount initialFwdAmount = 1000;
+	aTransaction = createSideChainTxWith(newScId, initialFwdAmount);
+
+	//Prerequisites
+	ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
+	ASSERT_FALSE(aTransaction.ccIsNull())<<"Test requires non null tx";
+	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+
+	//test
+	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
+
+	//checks
+	EXPECT_TRUE(res)<<"sidechain creation with forward transfer should be considered semantically valid";
+	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// RevertTxOutputs ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SideChainTestSuite, FwdTxToUnexistingScCannotBeReverted) {
-	//insert a sideChain
+TEST_F(SideChainTestSuite, FwdTransferTxToUnexistingScCannotBeReverted) {
 	uint256 unexistingScId = uint256S("a1b2");
-	ASSERT_FALSE(coinViewCache.sidechainExists(unexistingScId))
-		<<"Test requires unexisting sideChain";
 
 	//create fwd transaction to be reverted
 	CAmount fwdAmount = 999;
 	aTransaction = createFwdTransferTxWith(unexistingScId, fwdAmount);
+
+	//Prerequisites
+	ASSERT_FALSE(coinViewCache.sidechainExists(unexistingScId))
+		<<"Test requires unexisting sideChain";
 
 	//test
 	bool res = coinViewCache.RevertTxOutputs(aTransaction, anHeight);
@@ -77,15 +194,16 @@ TEST_F(SideChainTestSuite, FwdTxToUnexistingScCannotBeReverted) {
 	EXPECT_FALSE(res)<<"it should not be possible to revert an fwd tx from unexisting sidechain";
 }
 
-TEST_F(SideChainTestSuite, ScCreationTxCannotBeRevertedIfPreviouslyNotCreate) {
-	//insert a sideChain
+TEST_F(SideChainTestSuite, ScCreationTxCannotBeRevertedIfScIsNotPreviouslyCreated) {
 	uint256 unexistingScId = uint256S("a1b2");
-	ASSERT_FALSE(coinViewCache.sidechainExists(unexistingScId))
-		<<"Test requires unexisint sideChain";
 
 	//create Sc transaction to be reverted
 	CAmount fwdAmount = 999;
 	aTransaction = createSideChainTxWithNoFwdTransfer(unexistingScId);
+
+	//Prerequisites
+	ASSERT_FALSE(coinViewCache.sidechainExists(unexistingScId))
+		<<"Test requires unexisint sideChain";
 
 	//test
 	bool res = coinViewCache.RevertTxOutputs(aTransaction, anHeight);
@@ -94,183 +212,78 @@ TEST_F(SideChainTestSuite, ScCreationTxCannotBeRevertedIfPreviouslyNotCreate) {
 	EXPECT_FALSE(res)<<"it should not be possible to revert an Sc creation tx if Sc creation has not happened before";
 }
 
-TEST_F(SideChainTestSuite, EmptyTxOnMatureSideChainCanBeRevertedWithNoSideEffects) {
-	//insert a sideChain
-	uint256 newScId = uint256S("a1b2");
-	CAmount initialFwdTxAmount = 1;
-	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
-		<<"Test requires sc to be created";
-
-	//make the sideChain mature
-	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
-	ASSERT_TRUE(coinViewCache.ApplyMatureBalances(coinMaturityHeight, aBlockUndo))
-	    <<"Test requires sidechain to have a mature initial forward transfer";
-
-	CAmount initialScBalance = coinViewCache.getScInfoMap().at(newScId).balance;
-
-	//create empty tx, which will be reverted
-	int emptyTxHeight = coinMaturityHeight + 1;
-	aMutableTransaction.nVersion = SC_TX_VERSION;
-	aTransaction = aMutableTransaction;
-
-	//Prerequisites
-	ASSERT_TRUE(aTransaction.IsNull())<<"Test requires empty tx";
-	ASSERT_TRUE(emptyTxHeight > coinMaturityHeight)<<"Test requires empty tx to come after sc is mature";
-
-	//test
-	bool res = coinViewCache.RevertTxOutputs(aTransaction, emptyTxHeight);
-
-	//checks
-	EXPECT_TRUE(res)<<"it should be possible to revert an empty tx";
-
-	//Recheck balance when reverted tx should have matured
-	ASSERT_TRUE(coinViewCache.ApplyMatureBalances(emptyTxHeight + Params().ScCoinsMaturity(), aBlockUndo))
-	    <<"Test requires to recheck balance at time when reverted tx should have matured";
-	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance == initialScBalance)
-	   <<"Current balance "<< coinViewCache.getScInfoMap().at(newScId).balance
-	   <<" differs from initial one "<<initialScBalance;
-}
-
-TEST_F(SideChainTestSuite, EmptyTxOnImmatureSideChainCanBeRevertedWithNoSideEffects) {
-	//insert a sideChain
-	uint256 newScId = uint256S("a1b2");
-	CAmount initialFwdTxAmount = 1;
-	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
-		<<"Test requires sc to be created";
-
-	//create empty tx, which will be reverted
-	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
-	int emptyTxHeight = coinMaturityHeight - 1;
-	aMutableTransaction.nVersion = SC_TX_VERSION;
-	aTransaction = aMutableTransaction;
-
-	//Prerequisites
-	ASSERT_TRUE(aTransaction.IsNull())<<"Test requires empty tx";
-	ASSERT_TRUE(emptyTxHeight < coinMaturityHeight)<<"Test requires empty tx to come after sc is mature";
-
-	//test
-	bool res = coinViewCache.RevertTxOutputs(aTransaction, emptyTxHeight);
-
-	//checks
-	EXPECT_TRUE(res)<<"it should be possible to revert an empty tx";
-
-	//Recheck balance when reverted tx should have matured
-	ASSERT_TRUE(coinViewCache.ApplyMatureBalances(anHeight + Params().ScCoinsMaturity(), aBlockUndo))
-	    <<"Test requires to recheck balance at time when reverted tx should have matured";
-	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance == initialFwdTxAmount)
-	   <<"Current balance "<< coinViewCache.getScInfoMap().at(newScId).balance
-	   <<" differs from initial fwd amount "<<initialFwdTxAmount;
-}
-
-TEST_F(SideChainTestSuite, UnexistingFwdTxCannotBeReverted) {
-	//insert a sideChain
-	uint256 newScId = uint256S("a1b2");
-	CAmount initialFwdTxAmount = 1;
-	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
-		<<"Test requires sc to be created";
-
-	//make the sideChain mature
-	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
-	ASSERT_TRUE(coinViewCache.ApplyMatureBalances(anHeight + Params().ScCoinsMaturity(), aBlockUndo))
-	    <<"Test requires sidechain to have a mature initial forward transfer";
-
-	CAmount initialScBalance = coinViewCache.getScInfoMap().at(newScId).balance;
-
-	//create fwd transaction to be reverted
-	CAmount fwdAmount = 999;
-	int fwdTxHeight = coinMaturityHeight + 1;
-	aTransaction = createFwdTransferTxWith(newScId, fwdAmount);
-
-	//Prerequisites
-	ASSERT_TRUE(fwdTxHeight > coinMaturityHeight)<<"Test requires fwd tx to come after sc is mature";
-
-	//test
-	bool res = coinViewCache.RevertTxOutputs(aTransaction, fwdTxHeight);
-
-	//checks
-	EXPECT_FALSE(res)<<"it should NOT be possible to revert an unexisting tx";
-
-	//Recheck balance when reverted tx should have matured
-	ASSERT_TRUE(coinViewCache.ApplyMatureBalances(fwdTxHeight + Params().ScCoinsMaturity(), aBlockUndo))
-	    <<"Test requires to recheck balance at time when reverted tx should have matured";
-	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance == initialScBalance)
-	   <<"Current balance "<< coinViewCache.getScInfoMap().at(newScId).balance
-	   <<" differs from initial one "<<initialScBalance;
-}
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// ApplyMatureBalances /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 //TODO MISSING CHECKS ON BlockUndo
-TEST_F(SideChainTestSuite, ForwardTransfersDoNotModifyScBalanceBeforeCoinMaturity) {
+TEST_F(SideChainTestSuite, CoinsInScCreationDoNotModifyScBalanceBeforeCoinMaturity) {
+	//Insert Sc
 	uint256 newScId = uint256S("a1b2");
-	CAmount fwdTxAmount = 1000;
-	aTransaction = createSideChainTxWith(newScId, fwdTxAmount);
+	CAmount initialAmount = 1000;
+	int scCreationHeight = 5;
+	aTransaction = createSideChainTxWith(newScId, initialAmount);
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight))
+	    <<"Test requires a sc creation to happen";
 
-	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
+	int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
 	int lookupBlockHeight = coinMaturityHeight - 1;
-
-	//Prerequisites
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
-	    <<"Test requires a fwd transfer to happen";
 	ASSERT_TRUE(lookupBlockHeight < coinMaturityHeight)
-	    <<"Test requires attempting to mature balance before coins maturity height";
+	    <<"Test requires attempting to mature coins before their maturity height";
 
 	//test
 	bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
 
 	//check
 	EXPECT_TRUE(res)<<"it should be possible to applyMatureBalances before coin maturity";
-	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance < fwdTxAmount)
-	    <<"Forward transfered coins should not alter Sb balance before coin maturity height comes";
+	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance < initialAmount)
+	    <<"Coins should not alter Sc balance before coin maturity height comes";
 }
 
-TEST_F(SideChainTestSuite, ForwardTransfersModifyScBalanceAtCoinMaturity) {
+TEST_F(SideChainTestSuite, CoinsInScCreationModifyScBalanceAtCoinMaturity) {
+	//Insert Sc
 	uint256 newScId = uint256S("a1b2");
-	CAmount fwdTxAmount = 1000;
-	aTransaction = createSideChainTxWith(newScId, fwdTxAmount);
+	CAmount initialAmount = 1000;
+	int scCreationHeight = 7;
+	aTransaction = createSideChainTxWith(newScId, initialAmount);
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight))
+	    <<"Test requires a sc creation to happen";
 
-	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
+	int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
 	int lookupBlockHeight = coinMaturityHeight;
-
-	//Prerequisites
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
-	    <<"Test requires a fwd transfer to happen";
 	ASSERT_TRUE(lookupBlockHeight == coinMaturityHeight)
-	    <<"Test requires attempting to mature balance at coins maturity height";
+	<<"Test requires attempting to mature coins at maturity height";
 
 	//test
 	bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
 
 	//checks
 	EXPECT_TRUE(res)<<"it should be possible to applyMatureBalances at coin maturity height";
-	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance == fwdTxAmount)
-	    <<"Forward transfered coins should alter Sb balance at coin maturity height comes";
+	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance == initialAmount)
+	    <<"Coins should alter Sc balance when coin maturity their height comes";
 }
 
-TEST_F(SideChainTestSuite, ForwardTransfersDoNotModifyScBalanceAfterCoinMaturity) {
+TEST_F(SideChainTestSuite, CoinsInScCreationDoNotModifyScBalanceAfterCoinMaturity) {
+	//Insert Sc
 	uint256 newScId = uint256S("a1b2");
-	CAmount fwdTxAmount = 1000;
-	aTransaction = createSideChainTxWith(newScId, fwdTxAmount);
+	CAmount initialAmount = 1000;
+	int scCreationHeight = 11;
+	aTransaction = createSideChainTxWith(newScId, initialAmount);
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight))
+	    <<"Test requires a sc creation to happen";
 
 	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
 	int lookupBlockHeight = coinMaturityHeight + 1;
-
 	//Prerequisites
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
-	    <<"Test requires a fwd transfer to happen";
 	ASSERT_TRUE(lookupBlockHeight > coinMaturityHeight)
-	    <<"Test requires attempting to mature balances after their maturity height";
+	<<"Test requires attempting to mature coins after their maturity height";
 
 	//test
 	bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
 
 	//check
 	EXPECT_FALSE(res)<<"it should not be possible to applyMatureBalances after coin maturity height";
-	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance < fwdTxAmount)
-	    <<"Forward Transfered coins should not alter immediately Sb balance if CbhMinimumAge is not null";
+	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance < initialAmount)
+	    <<"Coins should not alter Sc balance after coin maturity height has come";
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -314,6 +327,7 @@ TEST_F(SideChainTestSuite, EmptyFlushDoesNotAlterExistingSideChainsCollection) {
 TEST_F(SideChainTestSuite, FlushPersistsNewSideChains) {
 	Sidechain::ScInfo infoHelper;
 
+	//create the sidechain
 	uint256 newScId = uint256S("a1b2");
 	CAmount fwdTransfer = 1000;
 	aTransaction = createSideChainTxWith(newScId, fwdTransfer);
@@ -656,129 +670,6 @@ TEST_F(SideChainTestSuite, ForwardTransfersToNonExistingSCsAreNotApplicableToSta
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-/////////////////////////// checkTxSemanticValidity ///////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-TEST_F(SideChainTestSuite, NonSideChain_ccNull_TxsAreSemanticallyValid) {
-	aMutableTransaction.nVersion = TRANSPARENT_TX_VERSION;
-	aTransaction = aMutableTransaction;
-
-	//Prerequisites
-	ASSERT_FALSE(aTransaction.IsScVersion())<<"Test requires non sidechain tx";
-	ASSERT_TRUE(aTransaction.ccIsNull())<<"Test requires null tx";
-	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
-
-	//test
-	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
-
-	//checks
-	EXPECT_TRUE(res)<<"empty non sidechain tx should be considered semantically valid";
-	EXPECT_TRUE(txState.IsValid())<<"Positive sematics checks should not alter tx validity";
-}
-
-TEST_F(SideChainTestSuite, NonSideChain_NonCcNull_TxsAreNotSemanticallyValid) {
-	aMutableTransaction.nVersion = TRANSPARENT_TX_VERSION;
-	CTxScCreationOut aSideChainCreationTx;
-	aSideChainCreationTx.scId = uint256S("1492");
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-
-	aTransaction = aMutableTransaction;
-
-	//Prerequisites
-	ASSERT_FALSE(aTransaction.IsScVersion())<<"Test requires non sidechain tx";
-	ASSERT_FALSE(aTransaction.ccIsNull())<<"Test requires null tx";
-	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
-
-	//test
-	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
-
-	//checks
-	EXPECT_FALSE(res)<<"non empty non sidechain tx should be considered semantically invalid";
-	EXPECT_FALSE(txState.IsValid())<<"Negative sematics checks should alter tx validity";
-	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
-		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
-}
-
-TEST_F(SideChainTestSuite, SideChain_Shielded_TxsAreNotCurrentlySupported) {
-	aMutableTransaction.nVersion = SC_TX_VERSION;
-	JSDescription  aShieldedTx; //Todo: verify naming and whether it should be filled somehow
-	aMutableTransaction.vjoinsplit.push_back(aShieldedTx);
-
-	aTransaction = aMutableTransaction;
-
-	//Prerequisites
-	ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
-	ASSERT_TRUE(aTransaction.ccIsNull())<<"Test requires null tx";
-	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
-
-	//test
-	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
-
-	//checks
-	EXPECT_FALSE(res)<<"sidechain tx with shielded tx should be considered semantically invalid";
-	EXPECT_FALSE(txState.IsValid())<<"Negative sematics checks should alter tx validity";
-	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
-		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
-}
-
-TEST_F(SideChainTestSuite, SideChain_ccNull_TxsAreSemanticallyValid) {
-	aMutableTransaction.nVersion = SC_TX_VERSION;
-	aTransaction = aMutableTransaction;
-
-	//Prerequisites
-	ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
-	ASSERT_TRUE(aTransaction.ccIsNull())<<"Test requires null tx";
-	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
-
-	//test
-	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
-
-	//checks
-	EXPECT_TRUE(res)<<"empty sidechain tx should be considered semantically valid";
-	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
-}
-
-TEST_F(SideChainTestSuite, SideChainCreationsWithoutForwardTransferAreNotSemanticallyValid) {
-	//create a sidechain withouth fwd transfer
-	uint256 newScId = uint256S("1492");
-	aTransaction = createSideChainTxWithNoFwdTransfer(newScId);
-
-	//Prerequisites
-	ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
-	ASSERT_FALSE(aTransaction.ccIsNull())<<"Test requires not null tx";
-	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
-
-	//test
-	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
-
-	//checks
-	EXPECT_FALSE(res)<<"sidechain creation without forward transfer should be considered semantically invalid";
-	EXPECT_FALSE(txState.IsValid())<<"Negative semantics checks should alter tx validity";
-	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
-		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
-}
-
-TEST_F(SideChainTestSuite, SideChainCreationsWithForwardTransferAreSemanticallyValid) {
-	//insert a sidechain
-	uint256 newScId = uint256S("1492");
-	CAmount initialFwdAmount = 1000;
-	aTransaction = createSideChainTxWith(newScId, initialFwdAmount);
-
-	//Prerequisites
-	ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
-	ASSERT_FALSE(aTransaction.ccIsNull())<<"Test requires non null tx";
-	ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
-
-	//test
-	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
-
-	//checks
-	EXPECT_TRUE(res)<<"sidechain creation with forward transfer should be considered semantically valid";
-	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
-
-	//Todo: How to check rejection code? There is currently no default/valid code value
-}
-
-///////////////////////////////////////////////////////////////////////////////
 //////////////////////////// IsTxAllowedInMempool /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SideChainTestSuite, EmptyTxsAreAllowedInEmptyMemPool) {
@@ -911,39 +802,6 @@ TEST_F(SideChainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
 		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//TODO: Check whether these are really useful
-TEST_F(SideChainTestSuite, TransactionWithSideChainCreationOnlyIsDeemedNull) { //TODO: to verify with AlSala, AlGar
-	//Prerequisites
-	CTxScCreationOut aSideChainCreationTx;
-	aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
-
-	aTransaction = aMutableTransaction;
-	ASSERT_TRUE(aTransaction.vsc_ccout.size() != 0)<<"Test requires a sidechain creation transaction";
-
-	//test
-	bool res = aTransaction.IsNull();
-
-	//check
-	EXPECT_TRUE(res)<< "Transactions are deemed null if they contains sidechain creation tx only";
-}
-
-TEST_F(SideChainTestSuite, TransactionWithForwardTransferOnlyIsDeemedNull) { //TODO: to verify with AlSala, AlGar
-	//Prerequisites
-	CTxForwardTransferOut aForwardTransferTx;
-	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
-
-	aTransaction = aMutableTransaction;
-	ASSERT_TRUE(aTransaction.vft_ccout.size() != 0)<<"Test requires a forward transfer transaction";
-
-	//test
-	bool res = aTransaction.IsNull();
-
-	//check
-	EXPECT_TRUE(res)<< "Transactions are deemed null if they contains forward transfer tx only";
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Test Fixture definitions ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -1004,6 +862,26 @@ CTransaction SideChainTestSuite::createSideChainTxWith(const uint256 & newScId, 
 	return CTransaction(aMutableTransaction);
 }
 
+CTransaction SideChainTestSuite::createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
+{
+	CMutableTransaction aMutableTransaction;
+	aMutableTransaction.nVersion = SC_TX_VERSION;
+
+	CTxForwardTransferOut aForwardTransferTx;
+	aForwardTransferTx.scId = newScId;
+	aForwardTransferTx.nValue = fwdTxAmount;
+	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+
+	return CTransaction(aMutableTransaction);
+}
+
+CTransaction SideChainTestSuite::createEmptyScTx() {
+	CMutableTransaction aMutableTransaction;
+	aMutableTransaction.nVersion = SC_TX_VERSION;
+
+	return CTransaction(aMutableTransaction);
+}
+
 CTransaction SideChainTestSuite::createSideChainTxWithNoFwdTransfer(const uint256 & newScId)
 {
 	CMutableTransaction aMutableTransaction;
@@ -1016,15 +894,26 @@ CTransaction SideChainTestSuite::createSideChainTxWithNoFwdTransfer(const uint25
 	return CTransaction(aMutableTransaction);
 }
 
-CTransaction SideChainTestSuite::createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
+CTransaction SideChainTestSuite::createNonScTx(bool ccIsNull) {
+	CMutableTransaction aMutableTransaction;
+	aMutableTransaction.nVersion = TRANSPARENT_TX_VERSION;
+
+	if (!ccIsNull)
+	{
+		CTxScCreationOut aSideChainCreationTx;
+		aSideChainCreationTx.scId = uint256S("1492");
+		aMutableTransaction.vsc_ccout.push_back(aSideChainCreationTx);
+	}
+
+	return CTransaction(aMutableTransaction);
+}
+
+CTransaction SideChainTestSuite::createShieldedTx()
 {
 	CMutableTransaction aMutableTransaction;
 	aMutableTransaction.nVersion = SC_TX_VERSION;
-
-	CTxForwardTransferOut aForwardTransferTx;
-	aForwardTransferTx.scId = newScId;
-	aForwardTransferTx.nValue = fwdTxAmount;
-	aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+	JSDescription  aShieldedTx; //Todo: verify naming and whether it should be filled somehow
+	aMutableTransaction.vjoinsplit.push_back(aShieldedTx);
 
 	return CTransaction(aMutableTransaction);
 }
