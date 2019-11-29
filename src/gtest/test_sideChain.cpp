@@ -59,13 +59,78 @@ protected:
 	CTransaction createSideChainTxWithNoFwdTransfer(const uint256 & newScId);
 	CTransaction createNonScTx(bool ccIsNull = true);
 	CTransaction createShieldedTx();
-
 };
+
+///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////// RevertTxOutputs ///////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST_F(SideChainTestSuite, FwdTransferTxToUnexistingScCannotBeReverted) {
+	uint256 unexistingScId = uint256S("a1b2");
+
+	//create fwd transaction to be reverted
+	CAmount fwdAmount = 999;
+	aTransaction = createFwdTransferTxWith(unexistingScId, fwdAmount);
+
+	//Prerequisites
+	ASSERT_FALSE(coinViewCache.sidechainExists(unexistingScId))
+		<<"Test requires unexisting sideChain";
+
+	//test
+	bool res = coinViewCache.RevertTxOutputs(aTransaction, anHeight);
+
+	//checks
+	EXPECT_FALSE(res)<<"it should not be possible to revert an fwd tx from unexisting sidechain";
+}
+
+TEST_F(SideChainTestSuite, ScCreationTxCannotBeRevertedIfScIsNotPreviouslyCreated) {
+	uint256 unexistingScId = uint256S("a1b2");
+
+	//create Sc transaction to be reverted
+	CAmount fwdAmount = 999;
+	aTransaction = createSideChainTxWithNoFwdTransfer(unexistingScId);
+
+	//Prerequisites
+	ASSERT_FALSE(coinViewCache.sidechainExists(unexistingScId))
+		<<"Test requires unexisint sideChain";
+
+	//test
+	bool res = coinViewCache.RevertTxOutputs(aTransaction, anHeight);
+
+	//checks
+	EXPECT_FALSE(res)<<"it should not be possible to revert an Sc creation tx if Sc creation has not happened before";
+}
+
+TEST_F(SideChainTestSuite, FwdTransferNotYetAppliedCannotBeReverted) {
+	//insert sidechain
+	uint256 newScId = uint256S("a1b2");
+	CAmount initialAmount = 1;
+	int scCreationHeight = 1;
+	aTransaction = createSideChainTxWith(newScId, initialAmount);
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight))
+	    <<"Test requiers sc to exist";
+
+	//create fwd transaction to be rollbacked
+	CAmount fwdAmount = 7;
+	int fwdTxHeight = 5;
+	aTransaction = createFwdTransferTxWith(newScId, fwdAmount);
+
+	int revertHeight = 4;
+
+	//Prerequisites
+	ASSERT_TRUE(revertHeight < fwdTxHeight)
+	    <<"Test requires attempting a revert on height lower than fwd tx one";
+
+	//test
+	bool res = coinViewCache.RevertTxOutputs(aTransaction, revertHeight);
+
+	//checks
+	EXPECT_FALSE(res)<<"it should not be possible to revert an Sc creation tx if Sc creation has not happened before";
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////// checkTxSemanticValidity ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SideChainTestSuite, NonSideChainTxsAreSemanticallyValid) {
+TEST_F(SideChainTestSuite, NonSideChain_CcNull_TxsAreSemanticallyValid) {
 	aTransaction = createNonScTx();
 
 	//Prerequisites
@@ -303,45 +368,6 @@ TEST_F(SideChainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-/////////////////////////////// RevertTxOutputs ///////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-TEST_F(SideChainTestSuite, FwdTransferTxToUnexistingScCannotBeReverted) {
-	uint256 unexistingScId = uint256S("a1b2");
-
-	//create fwd transaction to be reverted
-	CAmount fwdAmount = 999;
-	aTransaction = createFwdTransferTxWith(unexistingScId, fwdAmount);
-
-	//Prerequisites
-	ASSERT_FALSE(coinViewCache.sidechainExists(unexistingScId))
-		<<"Test requires unexisting sideChain";
-
-	//test
-	bool res = coinViewCache.RevertTxOutputs(aTransaction, anHeight);
-
-	//checks
-	EXPECT_FALSE(res)<<"it should not be possible to revert an fwd tx from unexisting sidechain";
-}
-
-TEST_F(SideChainTestSuite, ScCreationTxCannotBeRevertedIfScIsNotPreviouslyCreated) {
-	uint256 unexistingScId = uint256S("a1b2");
-
-	//create Sc transaction to be reverted
-	CAmount fwdAmount = 999;
-	aTransaction = createSideChainTxWithNoFwdTransfer(unexistingScId);
-
-	//Prerequisites
-	ASSERT_FALSE(coinViewCache.sidechainExists(unexistingScId))
-		<<"Test requires unexisint sideChain";
-
-	//test
-	bool res = coinViewCache.RevertTxOutputs(aTransaction, anHeight);
-
-	//checks
-	EXPECT_FALSE(res)<<"it should not be possible to revert an Sc creation tx if Sc creation has not happened before";
-}
-
-///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// ApplyMatureBalances /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 //TODO MISSING CHECKS ON BlockUndo
@@ -422,6 +448,7 @@ TEST_F(SideChainTestSuite, EmptyFlushDoesNotPersistNewSideChain) {
 	const Sidechain::ScInfoMap & initialScCollection = sideChainManager.getScInfoMap();
 
 	//Prerequisites
+	ASSERT_TRUE(coinViewCache.getScInfoMap().size() == 0)<<"There should be no new txs to persist";
 	ASSERT_TRUE(initialScCollection.size() == 0)<<"Test requires no sidechains initially";
 
 	//test
@@ -440,6 +467,8 @@ TEST_F(SideChainTestSuite, EmptyFlushDoesNotAlterExistingSideChainsCollection) {
 	preFillSidechainsCollection();
 
 	const Sidechain::ScInfoMap & initialScCollection = sideChainManager.getScInfoMap();
+
+	ASSERT_TRUE(coinViewCache.getScInfoMap().size() == 0)<<"There should be no new txs to persist";
 	ASSERT_TRUE(initialScCollection.size() != 0)<<"Test requires some sidechains initially";
 
 	//test
@@ -454,74 +483,82 @@ TEST_F(SideChainTestSuite, EmptyFlushDoesNotAlterExistingSideChainsCollection) {
 }
 
 TEST_F(SideChainTestSuite, FlushPersistsNewSideChains) {
-	Sidechain::ScInfo infoHelper;
-
 	//create the sidechain
 	uint256 newScId = uint256S("a1b2");
 	CAmount fwdTransfer = 1000;
 	aTransaction = createSideChainTxWith(newScId, fwdTransfer);
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
 	//Prerequisite
-	ASSERT_FALSE(sideChainManager.getScInfo(newScId, infoHelper))
-	    << "Test requires sidechain not to be previously persisted";
+	ASSERT_TRUE(sideChainManager.sidechainExists(newScId,&coinViewCache))
+	    << "Test requires new sidechain to be ready to be persisted";
 
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
-	    << "Test requires new sidechain to be successfully processed";
+	//Todo: how to prove fwd tx is ready to be flushed
 
 	//test
 	bool res = coinViewCache.Flush();
 
 	//checks
 	EXPECT_TRUE(res)<<"We should be allowed to flush a new sidechain";
-	EXPECT_TRUE(sideChainManager.getScInfo(newScId, infoHelper))
+	EXPECT_TRUE(sideChainManager.sidechainExists(newScId))
 	    << "Once flushed, new sidechain should be made available by ScManager";
 }
 
 TEST_F(SideChainTestSuite, FlushPersistsForwardTransfersToo) {
-	Sidechain::ScInfo infoHelper;
-
-	//create the sidechain
+	//create and persist the sidechain
 	uint256 newScId = uint256S("a1b2");
 	CAmount initialFwdTxAmount = 1;
+	int scCreationHeight = 1;
 	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
-
-	//Prerequisites
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
-		<<"Test requires the sidechain to be available before forward transfer";
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
+	coinViewCache.Flush();
 
 	//create forward transfer
 	CAmount fwdTxAmount = 1000;
+	int fwdTxHeght = scCreationHeight + 10;
+	int fwdTxMaturityHeight = fwdTxHeght + Params().ScCoinsMaturity();
 	aTransaction = createFwdTransferTxWith(newScId, fwdTxAmount);
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, fwdTxHeght);
+
+    //Prerequisites
+	ASSERT_TRUE(sideChainManager.sidechainExists(newScId))
+	    << "Test requires new sidechain to be already persisted";
+
+	Sidechain::ScInfo infoInView = coinViewCache.getScInfoMap().at(newScId);
+	ASSERT_TRUE(infoInView.mImmatureAmounts.at(fwdTxMaturityHeight) == fwdTxAmount)
+	    <<"Test requires fwd amount to be ready to be flushed";
 
 	//test
 	bool res = coinViewCache.Flush();
 
 	//checks
-	EXPECT_TRUE(res)<<"We should be allowed to flush a new sidechain";
-	EXPECT_TRUE(sideChainManager.getScInfo(newScId, infoHelper))
-	    << "Once flushed, new sidechain should be made available by ScManager";
+	EXPECT_TRUE(res)<<"We should be allowed to flush a forward transfer";
 
-	//Todo: Add check on forward transfer amount maybe resetting to zero coinMaturity
+	Sidechain::ScInfo persistedInfo = sideChainManager.getScInfoMap().at(newScId);
+	ASSERT_TRUE(persistedInfo.mImmatureAmounts.at(fwdTxMaturityHeight) == fwdTxAmount)
+	    <<"Following flush, persisted fwd amount should equal the one in view";
 }
 
-TEST_F(SideChainTestSuite, FlushAlignsMgrScCollectionToCoinViewOne) {
+TEST_F(SideChainTestSuite, FlushAlignsPersistedTxsWithViewOnes) {
 	uint256 newScId = uint256S("a1b2");
 	CAmount initialFwdTxAmount = 1;
+	int scCreationHeight = 10;
 	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
 	//prerequisites
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
-		<<"Test requires view side chain collection to be filled";
+	ASSERT_TRUE(sideChainManager.sidechainExists(newScId,&coinViewCache))
+	    << "Test requires a tx to be ready to be persisted";
 
 	//test
 	bool res = coinViewCache.Flush();
 
 	//check
 	EXPECT_TRUE(sideChainManager.getScInfoMap() == coinViewCache.getScInfoMap())
-	    <<"flush should align sidechain manager scCollection to coinViewCache one";
+	    <<"flush should align txs in view with persisted ones";
 }
 
-TEST_F(SideChainTestSuite, UponCreationCoinViewIsAlignedToMgrScCollection) {
+TEST_F(SideChainTestSuite, UponViewCreationAllPersistedTxsAreLoaded) {
 	//Prerequisites
 	preFillSidechainsCollection();
 	ASSERT_TRUE(sideChainManager.getScInfoMap().size() != 0)<<"Test requires some sidechains initially";
