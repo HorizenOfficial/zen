@@ -59,6 +59,7 @@ protected:
 	CTransaction createSideChainTxWithNoFwdTransfer(const uint256 & newScId);
 	CTransaction createNonScTx(bool ccIsNull = true);
 	CTransaction createShieldedTx();
+	void         extendTransaction(CTransaction & tx, const uint256 & scId, const CAmount & amount);
 
 	CBlockUndo   createBlockUndoWith(const uint256 & scId, int height, CAmount amount);
 	CBlockUndo   createEmptyBlockUndo();
@@ -832,40 +833,30 @@ TEST_F(SideChainTestSuite, ScDoubleInsertionIsRejected) {
 }
 
 TEST_F(SideChainTestSuite, NoRollbackIsPerformedOnceInvalidTransactionIsEncountered) {
-	CMutableTransaction aMutableTransaction;
+	uint256 firstScId = uint256S("1492");
+	CAmount firstScAmount = 10;
+	aTransaction = createSideChainTxWith(firstScId, firstScAmount);
 
-	//first,valid sideChain transaction
-	CTxScCreationOut aValidScCreationTx;
-	aValidScCreationTx.scId = uint256S("1492");
-	aValidScCreationTx.withdrawalEpochLength = 1;
-	aMutableTransaction.vsc_ccout.push_back(aValidScCreationTx);
+	uint256 duplicatedScId = uint256S("1492");
+	CAmount duplicatedAmount = 100;
+	extendTransaction(aTransaction, duplicatedScId, duplicatedAmount);
 
-	//second, id-duplicated, sideChain transaction
-	CTxScCreationOut duplicatedScCreationTx;
-	duplicatedScCreationTx.scId = uint256S("1492");
-	duplicatedScCreationTx.withdrawalEpochLength = 2;
-	aMutableTransaction.vsc_ccout.push_back(duplicatedScCreationTx);
-
-	//third, valid, sideChain transaction
-	CTxScCreationOut anotherValidScCreationTx;
-	anotherValidScCreationTx.scId = uint256S("1912");
-	anotherValidScCreationTx.withdrawalEpochLength = 2;
-	aMutableTransaction.vsc_ccout.push_back(anotherValidScCreationTx);
-
-	aTransaction = aMutableTransaction;
+	uint256 anotherScId = uint256S("1912");
+	CAmount anotherScAmount = 2;
+	extendTransaction(aTransaction, anotherScId, anotherScAmount);
 
 	//prerequisites
-	ASSERT_TRUE(aValidScCreationTx.scId == duplicatedScCreationTx.scId)<<"Test requires second tx to be a duplicate";
-	ASSERT_TRUE(aValidScCreationTx.scId != anotherValidScCreationTx.scId)<<"Test requires third tx to be a valid one";
+	ASSERT_TRUE(firstScId == duplicatedScId)<<"Test requires second tx to be a duplicate";
+	ASSERT_TRUE(firstScId != anotherScId)<<"Test requires third tx to be a valid one";
 
 	//test
 	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
 	//check
 	EXPECT_FALSE(res);
-	EXPECT_TRUE(coinViewCache.sidechainExists(aValidScCreationTx.scId))
+	EXPECT_TRUE(coinViewCache.sidechainExists(firstScId))
 			<< "First, valid sidechain creation txs should be cached";
-	EXPECT_FALSE(coinViewCache.sidechainExists(anotherValidScCreationTx.scId))
+	EXPECT_FALSE(coinViewCache.sidechainExists(anotherScId))
 			<< "third, valid sidechain creation txs is currently not cached";
 }
 
@@ -1176,6 +1167,24 @@ CTransaction SideChainTestSuite::createShieldedTx()
 	aMutableTransaction.vjoinsplit.push_back(aShieldedTx);
 
 	return CTransaction(aMutableTransaction);
+}
+
+void  SideChainTestSuite::extendTransaction(CTransaction & tx, const uint256 & scId, const CAmount & amount) {
+	CMutableTransaction mutableTx = tx;
+
+	mutableTx.nVersion = SC_TX_VERSION;
+
+	CTxScCreationOut aSideChainCreationTx;
+	aSideChainCreationTx.scId = scId;
+	mutableTx.vsc_ccout.push_back(aSideChainCreationTx);
+
+	CTxForwardTransferOut aForwardTransferTx;
+	aForwardTransferTx.scId = aSideChainCreationTx.scId;
+	aForwardTransferTx.nValue = amount;
+	mutableTx.vft_ccout.push_back(aForwardTransferTx);
+
+	tx = mutableTx;
+	return;
 }
 
 CBlockUndo SideChainTestSuite::createBlockUndoWith(const uint256 & scId, int height, CAmount amount)
