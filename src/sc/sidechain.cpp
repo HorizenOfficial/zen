@@ -766,14 +766,14 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
             LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
                 __func__, __LINE__, scIdString, FormatMoney(info.balance));
             
-            info.balance -= a;
-
-            if (info.balance < 0)
+            if (info.balance < a)
             {
                 LogPrint("sc", "%s():%d - Can not update balance with amount[%s] for scId=%s, would be negative\n",
                     __func__, __LINE__, FormatMoney(a), scIdString );
                 return false;
             }
+
+            info.balance -= a;
 
             LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
                 __func__, __LINE__, scIdString, FormatMoney(info.balance));
