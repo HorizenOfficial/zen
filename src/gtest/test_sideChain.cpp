@@ -64,6 +64,41 @@ protected:
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// RevertTxOutputs ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
+TEST_F(SideChainTestSuite, RevertingFwdTransferRemovesCoinsFromImmatureBalance) {
+	//insert sidechain
+	uint256 newScId = uint256S("a1b2");
+	CAmount initialAmount = 1;
+	int scCreationHeight = 1;
+	aTransaction = createSideChainTxWith(newScId, initialAmount);
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
+
+	//create fwd transaction to be rollbacked
+	CAmount fwdAmount = 7;
+	int fwdTxHeight = 5;
+	int fwdTxMaturityHeight = fwdTxHeight + Params().ScCoinsMaturity();
+	aTransaction = createFwdTransferTxWith(newScId, fwdAmount);
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, fwdTxHeight);
+	Sidechain::ScInfo viewInfo = coinViewCache.getScInfoMap().at(newScId);
+
+	int revertHeight = fwdTxHeight;
+
+	//Prerequisites
+	ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test requires sc to exist";
+	ASSERT_TRUE(revertHeight == fwdTxHeight)
+	    <<"Test requires attempting a revert on the height where fwd tx was stored";
+	ASSERT_TRUE(viewInfo.mImmatureAmounts.at(fwdTxMaturityHeight) == fwdAmount)
+	    <<"Test requires a fwd amount amenable to be reverted";
+
+	//test
+	bool res = coinViewCache.RevertTxOutputs(aTransaction, revertHeight);
+
+	//checks
+	EXPECT_TRUE(res)<<"it should be possible to revert an fwd tx specifying it's height";
+	viewInfo = coinViewCache.getScInfoMap().at(newScId);
+	EXPECT_TRUE(viewInfo.mImmatureAmounts.count(fwdTxMaturityHeight) == 0)
+	    <<"All amount at height should have been reverted";
+}
+
 TEST_F(SideChainTestSuite, FwdTransferTxToUnexistingScCannotBeReverted) {
 	uint256 unexistingScId = uint256S("a1b2");
 
@@ -100,31 +135,39 @@ TEST_F(SideChainTestSuite, ScCreationTxCannotBeRevertedIfScIsNotPreviouslyCreate
 	EXPECT_FALSE(res)<<"it should not be possible to revert an Sc creation tx if Sc creation has not happened before";
 }
 
-TEST_F(SideChainTestSuite, FwdTransferNotYetAppliedCannotBeReverted) {
+TEST_F(SideChainTestSuite, RevertingAFwdTransferOnTheWrongHeightHasNoEffect) {
 	//insert sidechain
 	uint256 newScId = uint256S("a1b2");
 	CAmount initialAmount = 1;
 	int scCreationHeight = 1;
 	aTransaction = createSideChainTxWith(newScId, initialAmount);
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight))
-	    <<"Test requiers sc to exist";
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
 	//create fwd transaction to be rollbacked
 	CAmount fwdAmount = 7;
 	int fwdTxHeight = 5;
+	int fwdTxMaturityHeight = fwdTxHeight + Params().ScCoinsMaturity();
 	aTransaction = createFwdTransferTxWith(newScId, fwdAmount);
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, fwdTxHeight);
+	Sidechain::ScInfo viewInfo = coinViewCache.getScInfoMap().at(newScId);
 
-	int revertHeight = 4;
+	int revertHeight = fwdTxHeight -1;
 
 	//Prerequisites
-	ASSERT_TRUE(revertHeight < fwdTxHeight)
-	    <<"Test requires attempting a revert on height lower than fwd tx one";
+	ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test requires sc to exist";
+	ASSERT_TRUE(revertHeight != fwdTxHeight)
+	    <<"Test requires attempting a revert on the height where fwd tx was stored";
+	ASSERT_TRUE(viewInfo.mImmatureAmounts.at(fwdTxMaturityHeight) == fwdAmount)
+	    <<"Test requires a fwd amount amenable to be reverted";
 
 	//test
 	bool res = coinViewCache.RevertTxOutputs(aTransaction, revertHeight);
 
 	//checks
-	EXPECT_FALSE(res)<<"it should not be possible to revert an Sc creation tx if Sc creation has not happened before";
+	EXPECT_FALSE(res)<<"it should be possible to revert an fwd tx specifying it's height";
+	viewInfo = coinViewCache.getScInfoMap().at(newScId);
+	EXPECT_TRUE(viewInfo.mImmatureAmounts.at(fwdTxMaturityHeight) == fwdAmount)
+	    <<"Original amount should have not been reverted";
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -444,42 +487,36 @@ TEST_F(SideChainTestSuite, CoinsInScCreationDoNotModifyScBalanceAfterCoinMaturit
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// Flush /////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SideChainTestSuite, EmptyFlushDoesNotPersistNewSideChain) {
-	const Sidechain::ScInfoMap & initialScCollection = sideChainManager.getScInfoMap();
+TEST_F(SideChainTestSuite, FlushAlignsPersistedTxsWithViewOnes) {
+	uint256 newScId = uint256S("a1b2");
+	CAmount initialFwdTxAmount = 1;
+	int scCreationHeight = 10;
+	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
-	//Prerequisites
-	ASSERT_TRUE(coinViewCache.getScInfoMap().size() == 0)<<"There should be no new txs to persist";
-	ASSERT_TRUE(initialScCollection.size() == 0)<<"Test requires no sidechains initially";
+	//prerequisites
+	ASSERT_TRUE(sideChainManager.sidechainExists(newScId,&coinViewCache))
+	    << "Test requires a tx to be ready to be persisted";
 
 	//test
 	bool res = coinViewCache.Flush();
 
-	//checks
-	EXPECT_TRUE(res)<<"We should be allowed to empty flush";
-
-	const Sidechain::ScInfoMap & finalScCollection = sideChainManager.getScInfoMap();
-	EXPECT_TRUE(finalScCollection == initialScCollection)
-	    <<"Sidechains collection should not have changed with empty flush";
+	//check
+	EXPECT_TRUE(sideChainManager.getScInfoMap() == coinViewCache.getScInfoMap())
+	    <<"flush should align txs in view with persisted ones";
 }
 
-TEST_F(SideChainTestSuite, EmptyFlushDoesNotAlterExistingSideChainsCollection) {
+TEST_F(SideChainTestSuite, UponViewCreationAllPersistedTxsAreLoaded) {
 	//Prerequisites
 	preFillSidechainsCollection();
-
-	const Sidechain::ScInfoMap & initialScCollection = sideChainManager.getScInfoMap();
-
-	ASSERT_TRUE(coinViewCache.getScInfoMap().size() == 0)<<"There should be no new txs to persist";
-	ASSERT_TRUE(initialScCollection.size() != 0)<<"Test requires some sidechains initially";
+	ASSERT_TRUE(sideChainManager.getScInfoMap().size() != 0)<<"Test requires some sidechains initially";
 
 	//test
-	bool res = coinViewCache.Flush();
+	Sidechain::ScCoinsViewCache newView;
 
-	//checks
-	EXPECT_TRUE(res)<<"We should be allowed to empty flush";
-
-	const Sidechain::ScInfoMap & finalScCollection = sideChainManager.getScInfoMap();
-	EXPECT_TRUE(finalScCollection == initialScCollection)
-	    <<"Sidechains collection should not have changed with empty flush";
+	//check
+	EXPECT_TRUE(sideChainManager.getScInfoMap() == newView.getScInfoMap())
+	    <<"when new coinViewCache is create, it should be aligned with sidechain manager";
 }
 
 TEST_F(SideChainTestSuite, FlushPersistsNewSideChains) {
@@ -492,8 +529,6 @@ TEST_F(SideChainTestSuite, FlushPersistsNewSideChains) {
 	//Prerequisite
 	ASSERT_TRUE(sideChainManager.sidechainExists(newScId,&coinViewCache))
 	    << "Test requires new sidechain to be ready to be persisted";
-
-	//Todo: how to prove fwd tx is ready to be flushed
 
 	//test
 	bool res = coinViewCache.Flush();
@@ -539,36 +574,42 @@ TEST_F(SideChainTestSuite, FlushPersistsForwardTransfersToo) {
 	    <<"Following flush, persisted fwd amount should equal the one in view";
 }
 
-TEST_F(SideChainTestSuite, FlushAlignsPersistedTxsWithViewOnes) {
-	uint256 newScId = uint256S("a1b2");
-	CAmount initialFwdTxAmount = 1;
-	int scCreationHeight = 10;
-	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
-	coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
+TEST_F(SideChainTestSuite, EmptyFlushDoesNotPersistNewSideChain) {
+	const Sidechain::ScInfoMap & initialScCollection = sideChainManager.getScInfoMap();
 
-	//prerequisites
-	ASSERT_TRUE(sideChainManager.sidechainExists(newScId,&coinViewCache))
-	    << "Test requires a tx to be ready to be persisted";
+	//Prerequisites
+	ASSERT_TRUE(coinViewCache.getScInfoMap().size() == 0)<<"There should be no new txs to persist";
+	ASSERT_TRUE(initialScCollection.size() == 0)<<"Test requires no sidechains initially";
 
 	//test
 	bool res = coinViewCache.Flush();
 
-	//check
-	EXPECT_TRUE(sideChainManager.getScInfoMap() == coinViewCache.getScInfoMap())
-	    <<"flush should align txs in view with persisted ones";
+	//checks
+	EXPECT_TRUE(res)<<"We should be allowed to empty flush";
+
+	const Sidechain::ScInfoMap & finalScCollection = sideChainManager.getScInfoMap();
+	EXPECT_TRUE(finalScCollection == initialScCollection)
+	    <<"Sidechains collection should not have changed with empty flush";
 }
 
-TEST_F(SideChainTestSuite, UponViewCreationAllPersistedTxsAreLoaded) {
+TEST_F(SideChainTestSuite, EmptyFlushDoesNotAlterExistingSideChainsCollection) {
 	//Prerequisites
 	preFillSidechainsCollection();
-	ASSERT_TRUE(sideChainManager.getScInfoMap().size() != 0)<<"Test requires some sidechains initially";
+
+	const Sidechain::ScInfoMap & initialScCollection = sideChainManager.getScInfoMap();
+
+	ASSERT_TRUE(coinViewCache.getScInfoMap().size() == 0)<<"There should be no new txs to persist";
+	ASSERT_TRUE(initialScCollection.size() != 0)<<"Test requires some sidechains initially";
 
 	//test
-	Sidechain::ScCoinsViewCache newView;
+	bool res = coinViewCache.Flush();
 
-	//check
-	EXPECT_TRUE(sideChainManager.getScInfoMap() == newView.getScInfoMap())
-	    <<"when new coinViewCache is create, it should be aligned with sidechain manager";
+	//checks
+	EXPECT_TRUE(res)<<"We should be allowed to empty flush";
+
+	const Sidechain::ScInfoMap & finalScCollection = sideChainManager.getScInfoMap();
+	EXPECT_TRUE(finalScCollection == initialScCollection)
+	    <<"Sidechains collection should not have changed with empty flush";
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -602,6 +643,7 @@ TEST_F(SideChainTestSuite, Structural_ManagerDoubleInitializationIsForbidden) {
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SideChainTestSuite, EmptyTxsAreProcessedButNotRegistered) {
 	//Prerequisite
+	aTransaction = createEmptyScTx();
 	ASSERT_TRUE(aTransaction.ccIsNull())<<"Test requires not Sc creation tx, nor forward transfer tx";
 
 	//test
