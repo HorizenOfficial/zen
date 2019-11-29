@@ -40,7 +40,7 @@ protected:
 	//Helpers
 	CBlock              aBlock;
 	CTransaction        aTransaction;
-	//CMutableTransaction aMutableTransaction;
+	CMutableTransaction aMutableTransaction;
 	int                 anHeight;
 	CValidationState    txState;
 
