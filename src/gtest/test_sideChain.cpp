@@ -23,7 +23,7 @@ public:
 		SelectBaseParams(CBaseChainParams::REGTEST);
 		SelectParams(CBaseChainParams::REGTEST);
 
-		sideChainManager.initialUpdateFromDb(0, true, Sidechain::ScMgr::create);
+		sideChainManager.initialUpdateFromDb(0, true, Sidechain::ScMgr::mock);
 	};
 
 	void TearDown() override {
@@ -413,18 +413,19 @@ TEST_F(SideChainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// ApplyMatureBalances /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-//TODO MISSING CHECKS ON BlockUndo
 TEST_F(SideChainTestSuite, CoinsInScCreationDoNotModifyScBalanceBeforeCoinMaturity) {
 	//Insert Sc
 	uint256 newScId = uint256S("a1b2");
 	CAmount initialAmount = 1000;
 	int scCreationHeight = 5;
 	aTransaction = createSideChainTxWith(newScId, initialAmount);
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight))
-	    <<"Test requires a sc creation to happen";
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
 	int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
 	int lookupBlockHeight = coinMaturityHeight - 1;
+
+	//prerequisites
+	ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test requires existing sc";
 	ASSERT_TRUE(lookupBlockHeight < coinMaturityHeight)
 	    <<"Test requires attempting to mature coins before their maturity height";
 
@@ -432,7 +433,7 @@ TEST_F(SideChainTestSuite, CoinsInScCreationDoNotModifyScBalanceBeforeCoinMaturi
 	bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
 
 	//check
-	EXPECT_TRUE(res)<<"it should be possible to applyMatureBalances before coin maturity";
+	EXPECT_TRUE(res);
 	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance < initialAmount)
 	    <<"Coins should not alter Sc balance before coin maturity height comes";
 }
@@ -443,13 +444,15 @@ TEST_F(SideChainTestSuite, CoinsInScCreationModifyScBalanceAtCoinMaturity) {
 	CAmount initialAmount = 1000;
 	int scCreationHeight = 7;
 	aTransaction = createSideChainTxWith(newScId, initialAmount);
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight))
-	    <<"Test requires a sc creation to happen";
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
 	int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
 	int lookupBlockHeight = coinMaturityHeight;
+
+	//prerequisites
+	ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test requires existing sc";
 	ASSERT_TRUE(lookupBlockHeight == coinMaturityHeight)
-	<<"Test requires attempting to mature coins at maturity height";
+	    <<"Test requires attempting to mature coins at maturity height";
 
 	//test
 	bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
@@ -466,14 +469,15 @@ TEST_F(SideChainTestSuite, CoinsInScCreationDoNotModifyScBalanceAfterCoinMaturit
 	CAmount initialAmount = 1000;
 	int scCreationHeight = 11;
 	aTransaction = createSideChainTxWith(newScId, initialAmount);
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight))
-	    <<"Test requires a sc creation to happen";
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
 	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
 	int lookupBlockHeight = coinMaturityHeight + 1;
+
 	//prerequisites
+	ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test requires existing sc";
 	ASSERT_TRUE(lookupBlockHeight > coinMaturityHeight)
-	<<"Test requires attempting to mature coins after their maturity height";
+	    <<"Test requires attempting to mature coins after their maturity height";
 
 	//test
 	bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
@@ -1136,7 +1140,7 @@ CTransaction SideChainTestSuite::createShieldedTx()
 {
 	CMutableTransaction aMutableTransaction;
 	aMutableTransaction.nVersion = SC_TX_VERSION;
-	JSDescription  aShieldedTx; //Todo: verify naming and whether it should be filled somehow
+	JSDescription  aShieldedTx;
 	aMutableTransaction.vjoinsplit.push_back(aShieldedTx);
 
 	return CTransaction(aMutableTransaction);
