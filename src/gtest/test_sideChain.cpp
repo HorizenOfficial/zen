@@ -178,6 +178,8 @@ TEST_F(SideChainTestSuite, SideChainCreationsWithForwardTransferAreSemanticallyV
 //////////////////////////// IsTxApplicableToState ////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SideChainTestSuite, EmptyTxsAreApplicableToState) {
+	aTransaction = createEmptyScTx();
+
 	//Prerequisite
 	ASSERT_TRUE(aTransaction.ccIsNull())<<"Test requires not Sc creation tx, nor forward transfer tx";
 
@@ -189,7 +191,6 @@ TEST_F(SideChainTestSuite, EmptyTxsAreApplicableToState) {
 }
 
 TEST_F(SideChainTestSuite, ScCreationWithoutForwardTrasferIsApplicableToState) {
-	//create a sidechain without forward transfer
 	uint256 newScId = uint256S("1492");
 	aTransaction = createSideChainTxWithNoFwdTransfer(newScId);
 
@@ -205,7 +206,6 @@ TEST_F(SideChainTestSuite, ScCreationWithoutForwardTrasferIsApplicableToState) {
 }
 
 TEST_F(SideChainTestSuite, NewScCreationsAreApplicableToState) {
-	//create a new sidechain
 	uint256 newScId = uint256S("1492");
 	CAmount initialFwdAmount = 1953;
 	aTransaction = createSideChainTxWith(newScId, initialFwdAmount);
@@ -300,6 +300,8 @@ TEST_F(SideChainTestSuite, EmptyTxsAreAllowedInEmptyMemPool) {
 }
 
 TEST_F(SideChainTestSuite, EmptyTxsAreAllowedInNonEmptyMemPool) {
+	aTransaction = createEmptyScTx();
+
 	CAmount txFee;
 	double txPriority;
 
@@ -553,6 +555,35 @@ TEST_F(SideChainTestSuite, YouCannotRestoreMoreCoinsThanAvailableBalance) {
 	CAmount restoredBalance = coinViewCache.getScInfoMap().at(newScId).balance;
 	EXPECT_TRUE(restoredBalance == scBalance)
 	    <<"balance after restore is "<<restoredBalance<<" instead of"<< scBalance;
+}
+
+TEST_F(SideChainTestSuite, RestoringBeforeBalanceMaturesHasNoEffects) {
+	//insert a sidechain
+	uint256 newScId = uint256S("ca1985");
+	CAmount initialAmount = 34;
+	int scCreationHeight = 71;
+	aTransaction = createSideChainTxWith(newScId, initialAmount);
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
+
+	CAmount scBalance = coinViewCache.getScInfoMap().at(newScId).balance;
+
+	int amountToUndo = 17;
+	aBlockUndo = createBlockUndoWith(newScId,scCreationHeight,amountToUndo);
+
+	//prerequisites
+	ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test requires sc to exists";
+	ASSERT_TRUE(scBalance == 0) <<"Test requires initial coins to have not matured";
+	ASSERT_TRUE(amountToUndo != 0)
+	     <<"Test requires attempting to restore some non-zero coins";
+
+	//test
+	bool res = coinViewCache.RestoreImmatureBalances(scCreationHeight, aBlockUndo);
+
+	//checks
+	EXPECT_FALSE(res);
+	CAmount restoredBalance = coinViewCache.getScInfoMap().at(newScId).balance;
+	EXPECT_TRUE(restoredBalance == 0)
+	    <<"balance after restore is "<<restoredBalance<<" instead of 0";
 }
 
 TEST_F(SideChainTestSuite, RestoringFromEmptyUndoBlockHasEffect) {
