@@ -64,6 +64,35 @@ protected:
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// RevertTxOutputs ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
+TEST_F(SideChainTestSuite, RevertingScCreationTxRemovesTheSc) {
+	//create sidechain to be rollbacked and register it
+	uint256 newScId = uint256S("a1b2");
+	CAmount initialAmount = 1;
+	int scCreationHeight = 1;
+	aTransaction = createSideChainTxWith(newScId, initialAmount);
+	coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
+
+	//create fwd transaction to be rollbacked
+	int initialAmountMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
+	Sidechain::ScInfo viewInfo = coinViewCache.getScInfoMap().at(newScId);
+
+	int revertHeight = scCreationHeight;
+
+	//Prerequisites
+	ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test requires sc to exist";
+	ASSERT_TRUE(revertHeight == scCreationHeight)
+	    <<"Test requires attempting a revert on the height where sc creation tx was stored";
+	ASSERT_TRUE(viewInfo.mImmatureAmounts.at(initialAmountMaturityHeight) == initialAmount)
+	    <<"Test requires an initial amount amenable to be reverted";
+
+	//test
+	bool res = coinViewCache.RevertTxOutputs(aTransaction, revertHeight);
+
+	//checks
+	EXPECT_TRUE(res)<<"it should be possible to revert an fwd tx specifying it's height";
+	EXPECT_FALSE(coinViewCache.sidechainExists(newScId))<<"Sc should not exist anymore";
+}
+
 TEST_F(SideChainTestSuite, RevertingFwdTransferRemovesCoinsFromImmatureBalance) {
 	//insert sidechain
 	uint256 newScId = uint256S("a1b2");
