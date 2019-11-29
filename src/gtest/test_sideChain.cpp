@@ -23,7 +23,7 @@ public:
 		SelectBaseParams(CBaseChainParams::REGTEST);
 		SelectParams(CBaseChainParams::REGTEST);
 
-		sideChainManager.initialUpdateFromDb(0, true, Sidechain::ScMgr::mock);
+		sideChainManager.initialUpdateFromDb(0, true, Sidechain::ScMgr::create);
 	};
 
 	void TearDown() override {
@@ -60,7 +60,111 @@ protected:
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// RevertTxOutputs ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SideChainTestSuite, EmptyTransactionOnMatureSideChainCanBeRevertedWithNoSideEffects) {
+TEST_F(SideChainTestSuite, FwdTxToUnexistingScCannotBeReverted) {
+	//insert a sideChain
+	uint256 unexistingScId = uint256S("a1b2");
+	ASSERT_FALSE(coinViewCache.sidechainExists(unexistingScId))
+		<<"Test requires unexisting sideChain";
+
+	//create fwd transaction to be reverted
+	CAmount fwdAmount = 999;
+	aTransaction = createFwdTransferTxWith(unexistingScId, fwdAmount);
+
+	//test
+	bool res = coinViewCache.RevertTxOutputs(aTransaction, anHeight);
+
+	//checks
+	EXPECT_FALSE(res)<<"it should not be possible to revert an fwd tx from unexisting sidechain";
+}
+
+TEST_F(SideChainTestSuite, ScCreationTxCannotBeRevertedIfPreviouslyNotCreate) {
+	//insert a sideChain
+	uint256 unexistingScId = uint256S("a1b2");
+	ASSERT_FALSE(coinViewCache.sidechainExists(unexistingScId))
+		<<"Test requires unexisint sideChain";
+
+	//create Sc transaction to be reverted
+	CAmount fwdAmount = 999;
+	aTransaction = createSideChainTxWithNoFwdTransfer(unexistingScId);
+
+	//test
+	bool res = coinViewCache.RevertTxOutputs(aTransaction, anHeight);
+
+	//checks
+	EXPECT_FALSE(res)<<"it should not be possible to revert an Sc creation tx if Sc creation has not happened before";
+}
+
+TEST_F(SideChainTestSuite, EmptyTxOnMatureSideChainCanBeRevertedWithNoSideEffects) {
+	//insert a sideChain
+	uint256 newScId = uint256S("a1b2");
+	CAmount initialFwdTxAmount = 1;
+	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
+		<<"Test requires sc to be created";
+
+	//make the sideChain mature
+	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
+	ASSERT_TRUE(coinViewCache.ApplyMatureBalances(coinMaturityHeight, aBlockUndo))
+	    <<"Test requires sidechain to have a mature initial forward transfer";
+
+	CAmount initialScBalance = coinViewCache.getScInfoMap().at(newScId).balance;
+
+	//create empty tx, which will be reverted
+	int emptyTxHeight = coinMaturityHeight + 1;
+	aMutableTransaction.nVersion = SC_TX_VERSION;
+	aTransaction = aMutableTransaction;
+
+	//Prerequisites
+	ASSERT_TRUE(aTransaction.IsNull())<<"Test requires empty tx";
+	ASSERT_TRUE(emptyTxHeight > coinMaturityHeight)<<"Test requires empty tx to come after sc is mature";
+
+	//test
+	bool res = coinViewCache.RevertTxOutputs(aTransaction, emptyTxHeight);
+
+	//checks
+	EXPECT_TRUE(res)<<"it should be possible to revert an empty tx";
+
+	//Recheck balance when reverted tx should have matured
+	ASSERT_TRUE(coinViewCache.ApplyMatureBalances(emptyTxHeight + Params().ScCoinsMaturity(), aBlockUndo))
+	    <<"Test requires to recheck balance at time when reverted tx should have matured";
+	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance == initialScBalance)
+	   <<"Current balance "<< coinViewCache.getScInfoMap().at(newScId).balance
+	   <<" differs from initial one "<<initialScBalance;
+}
+
+TEST_F(SideChainTestSuite, EmptyTxOnImmatureSideChainCanBeRevertedWithNoSideEffects) {
+	//insert a sideChain
+	uint256 newScId = uint256S("a1b2");
+	CAmount initialFwdTxAmount = 1;
+	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
+	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
+		<<"Test requires sc to be created";
+
+	//create empty tx, which will be reverted
+	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
+	int emptyTxHeight = coinMaturityHeight - 1;
+	aMutableTransaction.nVersion = SC_TX_VERSION;
+	aTransaction = aMutableTransaction;
+
+	//Prerequisites
+	ASSERT_TRUE(aTransaction.IsNull())<<"Test requires empty tx";
+	ASSERT_TRUE(emptyTxHeight < coinMaturityHeight)<<"Test requires empty tx to come after sc is mature";
+
+	//test
+	bool res = coinViewCache.RevertTxOutputs(aTransaction, emptyTxHeight);
+
+	//checks
+	EXPECT_TRUE(res)<<"it should be possible to revert an empty tx";
+
+	//Recheck balance when reverted tx should have matured
+	ASSERT_TRUE(coinViewCache.ApplyMatureBalances(anHeight + Params().ScCoinsMaturity(), aBlockUndo))
+	    <<"Test requires to recheck balance at time when reverted tx should have matured";
+	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance == initialFwdTxAmount)
+	   <<"Current balance "<< coinViewCache.getScInfoMap().at(newScId).balance
+	   <<" differs from initial fwd amount "<<initialFwdTxAmount;
+}
+
+TEST_F(SideChainTestSuite, UnexistingFwdTxCannotBeReverted) {
 	//insert a sideChain
 	uint256 newScId = uint256S("a1b2");
 	CAmount initialFwdTxAmount = 1;
@@ -75,122 +179,96 @@ TEST_F(SideChainTestSuite, EmptyTransactionOnMatureSideChainCanBeRevertedWithNoS
 
 	CAmount initialScBalance = coinViewCache.getScInfoMap().at(newScId).balance;
 
-	//create empty tx, which will be reverted
-	int emptyTxHeight = coinMaturityHeight + 1;
-	aMutableTransaction.nVersion = SC_TX_VERSION;
-	aTransaction = aMutableTransaction;
+	//create fwd transaction to be reverted
+	CAmount fwdAmount = 999;
+	int fwdTxHeight = coinMaturityHeight + 1;
+	aTransaction = createFwdTransferTxWith(newScId, fwdAmount);
 
 	//Prerequisites
-	ASSERT_TRUE(aTransaction.IsNull())<<"Test requires empty tx";
+	ASSERT_TRUE(fwdTxHeight > coinMaturityHeight)<<"Test requires fwd tx to come after sc is mature";
 
 	//test
-	bool res = coinViewCache.RevertTxOutputs(aTransaction, emptyTxHeight);
+	bool res = coinViewCache.RevertTxOutputs(aTransaction, fwdTxHeight);
 
 	//checks
-	EXPECT_TRUE(res)<<"it should be possible to revert an empty tx";
+	EXPECT_FALSE(res)<<"it should NOT be possible to revert an unexisting tx";
+
+	//Recheck balance when reverted tx should have matured
+	ASSERT_TRUE(coinViewCache.ApplyMatureBalances(fwdTxHeight + Params().ScCoinsMaturity(), aBlockUndo))
+	    <<"Test requires to recheck balance at time when reverted tx should have matured";
 	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance == initialScBalance)
-	   <<"Tx reversion should leave balance unchanged";
+	   <<"Current balance "<< coinViewCache.getScInfoMap().at(newScId).balance
+	   <<" differs from initial one "<<initialScBalance;
 }
-
-TEST_F(SideChainTestSuite, EmptyTransactionOnImmatureSideChainCanBeRevertedWithNoSideEffects) {
-	//insert a sideChain
-	uint256 newScId = uint256S("a1b2");
-	CAmount initialFwdTxAmount = 1;
-	aTransaction = createSideChainTxWith(newScId, initialFwdTxAmount);
-	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
-		<<"Test requires sc to be created";
-
-	CAmount initialScBalance = coinViewCache.getScInfoMap().at(newScId).balance;
-
-	//create empty tx, which will be reverted
-	int emptyTxHeight = anHeight + Params().ScCoinsMaturity() - 1;
-	aMutableTransaction.nVersion = SC_TX_VERSION;
-	aTransaction = aMutableTransaction;
-
-	//Prerequisites
-	ASSERT_TRUE(aTransaction.IsNull())<<"Test requires empty tx";
-
-	//test
-	bool res = coinViewCache.RevertTxOutputs(aTransaction, emptyTxHeight);
-
-	//checks
-	EXPECT_TRUE(res)<<"it should be possible to revert an empty tx";
-	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance == initialScBalance)
-	   <<"Tx reversion should leave balance unchanged";
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// ApplyMatureBalances /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 //TODO MISSING CHECKS ON BlockUndo
 TEST_F(SideChainTestSuite, ForwardTransfersDoNotModifyScBalanceBeforeCoinMaturity) {
-	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
 	uint256 newScId = uint256S("a1b2");
 	CAmount fwdTxAmount = 1000;
-
 	aTransaction = createSideChainTxWith(newScId, fwdTxAmount);
 
+	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
 	int lookupBlockHeight = coinMaturityHeight - 1;
 
 	//Prerequisites
 	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
 	    <<"Test requires a fwd transfer to happen";
 	ASSERT_TRUE(lookupBlockHeight < coinMaturityHeight)
-	    <<"Test requires attempting to mature balances before their maturity height";
+	    <<"Test requires attempting to mature balance before coins maturity height";
 
 	//test
 	bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
 
 	//check
-	EXPECT_TRUE(res)<<"there should be no problem in attempting to applyMatureBalances before coin maturity";
+	EXPECT_TRUE(res)<<"it should be possible to applyMatureBalances before coin maturity";
 	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance < fwdTxAmount)
-	    <<"Forward Transfered coins should not alter immediately Sb balance if CbhMinimumAge is not null";
+	    <<"Forward transfered coins should not alter Sb balance before coin maturity height comes";
 }
 
 TEST_F(SideChainTestSuite, ForwardTransfersModifyScBalanceAtCoinMaturity) {
-	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
 	uint256 newScId = uint256S("a1b2");
 	CAmount fwdTxAmount = 1000;
-
 	aTransaction = createSideChainTxWith(newScId, fwdTxAmount);
 
+	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
 	int lookupBlockHeight = coinMaturityHeight;
 
 	//Prerequisites
 	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
 	    <<"Test requires a fwd transfer to happen";
 	ASSERT_TRUE(lookupBlockHeight == coinMaturityHeight)
-	    <<"Test requires attempting to mature balances before their maturity height";
+	    <<"Test requires attempting to mature balance at coins maturity height";
 
 	//test
 	bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
 
 	//checks
-	EXPECT_TRUE(res)<<"there should be no problem in attempting to applyMatureBalances at coin maturity";
+	EXPECT_TRUE(res)<<"it should be possible to applyMatureBalances at coin maturity height";
 	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance == fwdTxAmount)
-	    <<"Forward Transfered coins should mature after CbhMinimumAge blocks";
+	    <<"Forward transfered coins should alter Sb balance at coin maturity height comes";
 }
 
 TEST_F(SideChainTestSuite, ForwardTransfersDoNotModifyScBalanceAfterCoinMaturity) {
-	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
 	uint256 newScId = uint256S("a1b2");
 	CAmount fwdTxAmount = 1000;
-
 	aTransaction = createSideChainTxWith(newScId, fwdTxAmount);
 
+	int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
 	int lookupBlockHeight = coinMaturityHeight + 1;
 
 	//Prerequisites
 	ASSERT_TRUE(coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight))
 	    <<"Test requires a fwd transfer to happen";
 	ASSERT_TRUE(lookupBlockHeight > coinMaturityHeight)
-	    <<"Test requires attempting to mature balances before their maturity height";
+	    <<"Test requires attempting to mature balances after their maturity height";
 
 	//test
 	bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
 
 	//check
-	EXPECT_FALSE(res)<<"there should be a problem in attempting to applyMatureBalances after coin maturity";
+	EXPECT_FALSE(res)<<"it should not be possible to applyMatureBalances after coin maturity height";
 	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance < fwdTxAmount)
 	    <<"Forward Transfered coins should not alter immediately Sb balance if CbhMinimumAge is not null";
 }
