@@ -79,8 +79,8 @@ TEST_F(SideChainTestSuite, NonSideChain_CcNull_TxsAreSemanticallyValid) {
 	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
 
 	//checks
-	EXPECT_TRUE(res)<<"empty non sidechain tx should be considered semantically valid";
-	EXPECT_TRUE(txState.IsValid())<<"Positive sematics checks should not alter tx validity";
+	EXPECT_TRUE(res);
+	EXPECT_TRUE(txState.IsValid());
 }
 
 TEST_F(SideChainTestSuite, NonSideChain_NonCcNull_TxsAreNotSemanticallyValid) {
@@ -95,8 +95,8 @@ TEST_F(SideChainTestSuite, NonSideChain_NonCcNull_TxsAreNotSemanticallyValid) {
 	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
 
 	//checks
-	EXPECT_FALSE(res)<<"non empty non sidechain tx should be considered semantically invalid";
-	EXPECT_FALSE(txState.IsValid())<<"Negative sematics checks should alter tx validity";
+	EXPECT_FALSE(res);
+	EXPECT_FALSE(txState.IsValid());
 	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
 		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
@@ -113,8 +113,8 @@ TEST_F(SideChainTestSuite, SideChain_Shielded_TxsAreNotCurrentlySupported) {
 	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
 
 	//checks
-	EXPECT_FALSE(res)<<"sidechain tx with shielded tx should be considered semantically invalid";
-	EXPECT_FALSE(txState.IsValid())<<"Negative sematics checks should alter tx validity";
+	EXPECT_FALSE(res);
+	EXPECT_FALSE(txState.IsValid());
 	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
 		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
@@ -131,8 +131,8 @@ TEST_F(SideChainTestSuite, SideChain_ccNull_TxsAreSemanticallyValid) {
 	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
 
 	//checks
-	EXPECT_TRUE(res)<<"empty sidechain tx should be considered semantically valid";
-	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
+	EXPECT_TRUE(res);
+	EXPECT_TRUE(txState.IsValid());
 }
 
 TEST_F(SideChainTestSuite, SideChainCreationsWithoutForwardTransferAreNotSemanticallyValid) {
@@ -149,8 +149,8 @@ TEST_F(SideChainTestSuite, SideChainCreationsWithoutForwardTransferAreNotSemanti
 	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
 
 	//checks
-	EXPECT_FALSE(res)<<"sidechain creation without forward transfer should be considered semantically invalid";
-	EXPECT_FALSE(txState.IsValid())<<"Negative semantics checks should alter tx validity";
+	EXPECT_FALSE(res);
+	EXPECT_FALSE(txState.IsValid());
 	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
 		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
@@ -170,8 +170,8 @@ TEST_F(SideChainTestSuite, SideChainCreationsWithForwardTransferAreSemanticallyV
 	bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
 
 	//checks
-	EXPECT_TRUE(res)<<"sidechain creation with forward transfer should be considered semantically valid";
-	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
+	EXPECT_TRUE(res);
+	EXPECT_TRUE(txState.IsValid());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -187,7 +187,7 @@ TEST_F(SideChainTestSuite, EmptyTxsAreApplicableToState) {
 	bool res = sideChainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
 
 	//checks
-	EXPECT_TRUE(res)<<"Empty transaction should be applicable to state";
+	EXPECT_TRUE(res);
 }
 
 TEST_F(SideChainTestSuite, ScCreationWithoutForwardTrasferIsApplicableToState) {
@@ -202,7 +202,7 @@ TEST_F(SideChainTestSuite, ScCreationWithoutForwardTrasferIsApplicableToState) {
 	bool res = sideChainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
 
 	//checks
-	EXPECT_TRUE(res)<<"Sc creation and forward transfer to it may coexist in the same tx";
+	EXPECT_TRUE(res);
 }
 
 TEST_F(SideChainTestSuite, NewScCreationsAreApplicableToState) {
@@ -218,7 +218,7 @@ TEST_F(SideChainTestSuite, NewScCreationsAreApplicableToState) {
 	bool res = sideChainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
 
 	//checks
-	EXPECT_TRUE(res)<<"new Sc creation txs should be applicable to state";
+	EXPECT_TRUE(res);
 }
 
 TEST_F(SideChainTestSuite, DuplicatedScCreationsAreNotApplicableToState) {
@@ -239,7 +239,7 @@ TEST_F(SideChainTestSuite, DuplicatedScCreationsAreNotApplicableToState) {
 	bool res = sideChainManager.IsTxApplicableToState(duplicatedTx, &coinViewCache);
 
 	//checks
-	EXPECT_FALSE(res)<<"Duplicated Sc creation txs should be applicable to state";
+	EXPECT_FALSE(res);
 }
 
 TEST_F(SideChainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
@@ -260,7 +260,7 @@ TEST_F(SideChainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
 	bool res = sideChainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
 
 	//checks
-	EXPECT_TRUE(res)<<"Forward transaction to existent side chains should be applicable to state";
+	EXPECT_TRUE(res);
 }
 
 TEST_F(SideChainTestSuite, ForwardTransfersToNonExistingSCsAreNotApplicableToState) {
@@ -277,7 +277,7 @@ TEST_F(SideChainTestSuite, ForwardTransfersToNonExistingSCsAreNotApplicableToSta
 	bool res = sideChainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
 
 	//checks
-	EXPECT_FALSE(res)<<"Forward transactions to non existent side chains should not be applicable to state";
+	EXPECT_FALSE(res);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -295,8 +295,8 @@ TEST_F(SideChainTestSuite, EmptyTxsAreAllowedInEmptyMemPool) {
 	bool res = sideChainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
 
 	//check
-	EXPECT_TRUE(res)<<"empty transactions should be allowed in empty mempool";
-	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
+	EXPECT_TRUE(res);
+	EXPECT_TRUE(txState.IsValid());
 }
 
 TEST_F(SideChainTestSuite, EmptyTxsAreAllowedInNonEmptyMemPool) {
@@ -319,8 +319,8 @@ TEST_F(SideChainTestSuite, EmptyTxsAreAllowedInNonEmptyMemPool) {
 	bool res = sideChainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
 
 	//check
-	EXPECT_TRUE(res)<<"empty transactions should be allowed in non-empty mempool";
-	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
+	EXPECT_TRUE(res);
+	EXPECT_TRUE(txState.IsValid());
 }
 
 TEST_F(SideChainTestSuite, ScCreationTxsAreAllowedInEmptyMemPool) {
@@ -338,8 +338,8 @@ TEST_F(SideChainTestSuite, ScCreationTxsAreAllowedInEmptyMemPool) {
 	bool res = sideChainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
 
 	//check
-	EXPECT_TRUE(res)<<"Sc creation tx should be allowed in empty mempool";
-	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
+	EXPECT_TRUE(res);
+	EXPECT_TRUE(txState.IsValid());
 }
 
 TEST_F(SideChainTestSuite, NewScCreationTxsAreAllowedInMemPool) {
@@ -372,8 +372,8 @@ TEST_F(SideChainTestSuite, NewScCreationTxsAreAllowedInMemPool) {
 	bool res = sideChainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
 
 	//check
-	EXPECT_TRUE(res)<<"new Sc creation txs should be allowed in non-empty mempool";
-	EXPECT_TRUE(txState.IsValid())<<"Positive semantics checks should not alter tx validity";
+	EXPECT_TRUE(res);
+	EXPECT_TRUE(txState.IsValid());
 }
 
 TEST_F(SideChainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
@@ -406,8 +406,8 @@ TEST_F(SideChainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
 	bool res = sideChainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
 
 	//check
-	EXPECT_FALSE(res)<<"duplicated Sc creation txs should be not allowed in non-empty mempool";
-	EXPECT_FALSE(txState.IsValid())<<"Negative semantics checks should alter tx validity";
+	EXPECT_FALSE(res);
+	EXPECT_FALSE(txState.IsValid());
 	EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
 		<<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
@@ -460,9 +460,10 @@ TEST_F(SideChainTestSuite, CoinsInScCreationModifyScBalanceAtCoinMaturity) {
 	bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
 
 	//checks
-	EXPECT_TRUE(res)<<"it should be possible to applyMatureBalances at coin maturity height";
+	EXPECT_TRUE(res);
 	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance == initialAmount)
-	    <<"Coins should alter Sc balance when coin maturity their height comes";
+	    <<"Current balance is "<<coinViewCache.getScInfoMap().at(newScId).balance
+		<<" expected one is "<<initialAmount;
 }
 
 TEST_F(SideChainTestSuite, CoinsInScCreationDoNotModifyScBalanceAfterCoinMaturity) {
@@ -485,9 +486,10 @@ TEST_F(SideChainTestSuite, CoinsInScCreationDoNotModifyScBalanceAfterCoinMaturit
 	bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
 
 	//check
-	EXPECT_FALSE(res)<<"it should not be possible to applyMatureBalances after coin maturity height";
+	EXPECT_FALSE(res);
 	EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance < initialAmount)
-	    <<"Coins should not alter Sc balance after coin maturity height has come";
+        <<"Current balance is "<<coinViewCache.getScInfoMap().at(newScId).balance
+	    <<" while initial amount is "<<initialAmount;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -610,7 +612,7 @@ TEST_F(SideChainTestSuite, RestoringFromEmptyUndoBlockHasEffect) {
 	bool res = coinViewCache.RestoreImmatureBalances(anHeight, aBlockUndo);
 
 	//checks
-	EXPECT_TRUE(res)<<"empty undo block should be restored without problems";
+	EXPECT_TRUE(res);
 	CAmount restoredBalance = coinViewCache.getScInfoMap().at(newScId).balance;
 	EXPECT_TRUE(restoredBalance == scBalance)
 	    <<"balance after restore is "<<restoredBalance<<" instead of"<< scBalance;
@@ -631,7 +633,7 @@ TEST_F(SideChainTestSuite, YouCannotRestoreCoinsFromInexistentSc) {
 	bool res = coinViewCache.RestoreImmatureBalances(scCreationHeight, aBlockUndo);
 
 	//checks
-	EXPECT_FALSE(res)<<"It should not be possible to restore coins from inexistent sc";
+	EXPECT_FALSE(res);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -662,8 +664,8 @@ TEST_F(SideChainTestSuite, RevertingScCreationTxRemovesTheSc) {
 	bool res = coinViewCache.RevertTxOutputs(aTransaction, revertHeight);
 
 	//checks
-	EXPECT_TRUE(res)<<"it should be possible to revert an fwd tx specifying it's height";
-	EXPECT_FALSE(coinViewCache.sidechainExists(newScId))<<"Sc should not exist anymore";
+	EXPECT_TRUE(res);
+	EXPECT_FALSE(coinViewCache.sidechainExists(newScId));
 }
 
 TEST_F(SideChainTestSuite, RevertingFwdTransferRemovesCoinsFromImmatureBalance) {
@@ -695,10 +697,9 @@ TEST_F(SideChainTestSuite, RevertingFwdTransferRemovesCoinsFromImmatureBalance) 
 	bool res = coinViewCache.RevertTxOutputs(aTransaction, revertHeight);
 
 	//checks
-	EXPECT_TRUE(res)<<"it should be possible to revert an fwd tx specifying it's height";
+	EXPECT_TRUE(res);
 	viewInfo = coinViewCache.getScInfoMap().at(newScId);
-	EXPECT_TRUE(viewInfo.mImmatureAmounts.count(fwdTxMaturityHeight) == 0)
-	    <<"All amount at height should have been reverted";
+	EXPECT_TRUE(viewInfo.mImmatureAmounts.count(fwdTxMaturityHeight) == 0);
 }
 
 TEST_F(SideChainTestSuite, FwdTransferTxToUnexistingScCannotBeReverted) {
@@ -716,7 +717,7 @@ TEST_F(SideChainTestSuite, FwdTransferTxToUnexistingScCannotBeReverted) {
 	bool res = coinViewCache.RevertTxOutputs(aTransaction, anHeight);
 
 	//checks
-	EXPECT_FALSE(res)<<"it should not be possible to revert an fwd tx from unexisting sidechain";
+	EXPECT_FALSE(res);
 }
 
 TEST_F(SideChainTestSuite, ScCreationTxCannotBeRevertedIfScIsNotPreviouslyCreated) {
@@ -734,7 +735,7 @@ TEST_F(SideChainTestSuite, ScCreationTxCannotBeRevertedIfScIsNotPreviouslyCreate
 	bool res = coinViewCache.RevertTxOutputs(aTransaction, anHeight);
 
 	//checks
-	EXPECT_FALSE(res)<<"it should not be possible to revert an Sc creation tx if Sc creation has not happened before";
+	EXPECT_FALSE(res);
 }
 
 TEST_F(SideChainTestSuite, RevertingAFwdTransferOnTheWrongHeightHasNoEffect) {
@@ -766,10 +767,11 @@ TEST_F(SideChainTestSuite, RevertingAFwdTransferOnTheWrongHeightHasNoEffect) {
 	bool res = coinViewCache.RevertTxOutputs(aTransaction, revertHeight);
 
 	//checks
-	EXPECT_FALSE(res)<<"it should be possible to revert an fwd tx specifying it's height";
+	EXPECT_FALSE(res);
 	viewInfo = coinViewCache.getScInfoMap().at(newScId);
 	EXPECT_TRUE(viewInfo.mImmatureAmounts.at(fwdTxMaturityHeight) == fwdAmount)
-	    <<"Original amount should have not been reverted";
+	    <<"Immature amount is "<<viewInfo.mImmatureAmounts.at(fwdTxMaturityHeight)
+		<<"instead of "<<fwdAmount;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -826,7 +828,7 @@ TEST_F(SideChainTestSuite, ScDoubleInsertionIsRejected) {
 	bool res = coinViewCache.UpdateScInfo(duplicatedTx, aBlock, anHeight);
 
 	//check
-	EXPECT_FALSE(res)<< "Duplicated sidechain creation txs should not be processed";
+	EXPECT_FALSE(res);
 }
 
 TEST_F(SideChainTestSuite, NoRollbackIsPerformedOnceInvalidTransactionIsEncountered) {
@@ -860,7 +862,7 @@ TEST_F(SideChainTestSuite, NoRollbackIsPerformedOnceInvalidTransactionIsEncounte
 	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
 	//check
-	EXPECT_FALSE(res)<< "Duplicated sidechain creation txs should be processed";
+	EXPECT_FALSE(res);
 	EXPECT_TRUE(coinViewCache.sidechainExists(aValidScCreationTx.scId))
 			<< "First, valid sidechain creation txs should be cached";
 	EXPECT_FALSE(coinViewCache.sidechainExists(anotherValidScCreationTx.scId))
@@ -880,7 +882,7 @@ TEST_F(SideChainTestSuite, ForwardTransfersToNonExistentScAreRejected) {
 	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
 	//check
-	EXPECT_FALSE(res)<< "Forward transfer to non existent side chain should be rejected";
+	EXPECT_FALSE(res);
 	EXPECT_FALSE(coinViewCache.sidechainExists(nonExistentId));
 }
 
@@ -904,7 +906,7 @@ TEST_F(SideChainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
 	bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
 	//check
-	EXPECT_TRUE(res)<< "It should be possible to register a forward transfer to an existing sidechain";
+	EXPECT_TRUE(res);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -957,9 +959,8 @@ TEST_F(SideChainTestSuite, FlushPersistsNewSideChains) {
 	bool res = coinViewCache.Flush();
 
 	//checks
-	EXPECT_TRUE(res)<<"We should be allowed to flush a new sidechain";
-	EXPECT_TRUE(sideChainManager.sidechainExists(newScId))
-	    << "Once flushed, new sidechain should be made available by ScManager";
+	EXPECT_TRUE(res);
+	EXPECT_TRUE(sideChainManager.sidechainExists(newScId));
 }
 
 TEST_F(SideChainTestSuite, FlushPersistsForwardTransfersToo) {
@@ -990,7 +991,7 @@ TEST_F(SideChainTestSuite, FlushPersistsForwardTransfersToo) {
 	bool res = coinViewCache.Flush();
 
 	//checks
-	EXPECT_TRUE(res)<<"We should be allowed to flush a forward transfer";
+	EXPECT_TRUE(res);
 
 	Sidechain::ScInfo persistedInfo = sideChainManager.getScInfoMap().at(newScId);
 	ASSERT_TRUE(persistedInfo.mImmatureAmounts.at(fwdTxMaturityHeight) == fwdTxAmount)
@@ -1008,7 +1009,7 @@ TEST_F(SideChainTestSuite, EmptyFlushDoesNotPersistNewSideChain) {
 	bool res = coinViewCache.Flush();
 
 	//checks
-	EXPECT_TRUE(res)<<"We should be allowed to empty flush";
+	EXPECT_TRUE(res);
 
 	const Sidechain::ScInfoMap & finalScCollection = sideChainManager.getScInfoMap();
 	EXPECT_TRUE(finalScCollection == initialScCollection)
@@ -1028,7 +1029,7 @@ TEST_F(SideChainTestSuite, EmptyFlushDoesNotAlterExistingSideChainsCollection) {
 	bool res = coinViewCache.Flush();
 
 	//checks
-	EXPECT_TRUE(res)<<"We should be allowed to empty flush";
+	EXPECT_TRUE(res);
 
 	const Sidechain::ScInfoMap & finalScCollection = sideChainManager.getScInfoMap();
 	EXPECT_TRUE(finalScCollection == initialScCollection)
