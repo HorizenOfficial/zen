@@ -68,7 +68,7 @@ public:
                (this->creationTxHash      == rhs.creationTxHash)      &&
                (this->creationData        == rhs.creationData)        &&
                (this->mImmatureAmounts    == rhs.mImmatureAmounts);
-	}
+    }
     inline bool operator!=(const ScInfo& rhs) const { return !(*this == rhs); }
 };
 
@@ -103,8 +103,8 @@ class ScMgr
 {
 public:
     enum dbCreationPolicy {
-    	mock = 0, //utility for UTs
-    	create,
+        mock = 0, //utility for UTs
+        create,
     };
 
   private:
@@ -134,8 +134,6 @@ public:
 
     // return true if the tx is creating the scid
     bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
-
-    void copyScInfoMap(ScInfoMap& mapCopy) const;
 
   public:
 

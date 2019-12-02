@@ -71,16 +71,6 @@ void ScMgr::getScIdSet(std::set<uint256>& sScIds) const
     }
 }
 
-void ScMgr::copyScInfoMap(ScInfoMap& mapCopy) const
-{
-    LOCK(sc_lock);
-    BOOST_FOREACH(const auto& entry, mScInfo)
-    {
-        mapCopy[entry.first] = entry.second;
-    }
-}
-
-
 bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const
 {
     LOCK(sc_lock);
@@ -250,34 +240,34 @@ bool ScMgr::hasScCreationConflictsInMempool(const CTxMemPool& pool, const CTrans
 bool ScMgr::loadInitialDataFromDb()
 {
     boost::scoped_ptr<leveldb::Iterator> it(db->NewIterator());
-	for (it->SeekToFirst(); it->Valid(); it->Next())
-	{
-		boost::this_thread::interruption_point();
+    for (it->SeekToFirst(); it->Valid(); it->Next())
+    {
+        boost::this_thread::interruption_point();
 
-		leveldb::Slice slKey = it->key();
-		CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
-		char chType;
-		uint256 keyScId;
-		ssKey >> chType;
-		ssKey >> keyScId;;
+        leveldb::Slice slKey = it->key();
+        CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
+        char chType;
+        uint256 keyScId;
+        ssKey >> chType;
+        ssKey >> keyScId;;
 
-		if (chType == DB_SC_INFO)
-		{
-			leveldb::Slice slValue = it->value();
-			CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
-			ScInfo info;
-			ssValue >> info;
+        if (chType == DB_SC_INFO)
+        {
+            leveldb::Slice slValue = it->value();
+            CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
+            ScInfo info;
+            ssValue >> info;
 
-			mScInfo[keyScId] = info;
-			LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, keyScId.ToString() );
-		}
-		else
-		{
-			// should never happen
-			LogPrintf("%s():%d - Error: could not read from db, invalid record type %c\n", __func__, __LINE__, chType);
-			return false;
-		}
-	}
+            mScInfo[keyScId] = info;
+            LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, keyScId.ToString() );
+        }
+        else
+        {
+            // should never happen
+            LogPrintf("%s():%d - Error: could not read from db, invalid record type %c\n", __func__, __LINE__, chType);
+            return false;
+        }
+    }
 
     return it->status().ok();
 }
@@ -286,7 +276,7 @@ bool ScMgr::initialUpdateFromDb(size_t cacheSize, bool fWipe, dbCreationPolicy d
 {
     if (initDone)
     {
-    	return error("%s():%d - could not init from db more than once!", __func__, __LINE__);
+        return error("%s():%d - could not init from db more than once!", __func__, __LINE__);
     }
 
 
@@ -295,23 +285,23 @@ bool ScMgr::initialUpdateFromDb(size_t cacheSize, bool fWipe, dbCreationPolicy d
 
     if (dbPolicy == dbCreationPolicy::mock)
     {
-    	return true; //db is not instantiated and mScInfo is kept initially empty
+        return true; //db is not instantiated and mScInfo is kept initially empty
     }
 
     if (dbPolicy == dbCreationPolicy::create)
     {
-    	db = new CLevelDBWrapper(GetDataDir() / "sidechains", cacheSize, false, fWipe);
+        db = new CLevelDBWrapper(GetDataDir() / "sidechains", cacheSize, false, fWipe);
 
-    	//load initial data!
-    	LOCK(sc_lock);
-    	try
-    	{
-    		bool res = loadInitialDataFromDb();
-    		if (!res)
-    		{
-    			return error("%s():%d - error occurred during db scan", __func__, __LINE__);
-    		}
-    	}
+        //load initial data!
+        LOCK(sc_lock);
+        try
+        {
+            bool res = loadInitialDataFromDb();
+            if (!res)
+            {
+                return error("%s():%d - error occurred during db scan", __func__, __LINE__);
+            }
+        }
         catch (const std::exception& e)
         {
             return error("%s: Deserialize or I/O error - %s", __func__, e.what());
@@ -325,25 +315,25 @@ bool ScMgr::initialUpdateFromDb(size_t cacheSize, bool fWipe, dbCreationPolicy d
 
 void ScMgr::reset()
 {
-	delete db;
-	db = nullptr;
-	mScInfo.clear();
-	initDone = false;
-	chosenDbCreationPolicy = dbCreationPolicy::create; //the original one
+    delete db;
+    db = nullptr;
+    mScInfo.clear();
+    initDone = false;
+    chosenDbCreationPolicy = dbCreationPolicy::create; //the original one
 }
 
 void ScMgr::eraseFromDb(const uint256& scId)
 {
-	if (chosenDbCreationPolicy == dbCreationPolicy::mock)
-	{
-		return; //nothing to erase from db
-	}
+    if (chosenDbCreationPolicy == dbCreationPolicy::mock)
+    {
+        return; //nothing to erase from db
+    }
 
-	if (chosenDbCreationPolicy != dbCreationPolicy::create)
-	{
-		error("%s():%d - error specifying db creation policy", __func__, __LINE__);
-		return;
-	}
+    if (chosenDbCreationPolicy != dbCreationPolicy::create)
+    {
+        error("%s():%d - error specifying db creation policy", __func__, __LINE__);
+        return;
+    }
 
     if (db == NULL)
     {
@@ -379,16 +369,16 @@ void ScMgr::eraseFromDb(const uint256& scId)
 
 bool ScMgr::writeToDb(const uint256& scId, const ScInfo& info)
 {
-	if (chosenDbCreationPolicy == dbCreationPolicy::mock)
-	{
-		return true; //nothing to write on db
-	}
+    if (chosenDbCreationPolicy == dbCreationPolicy::mock)
+    {
+        return true; //nothing to write on db
+    }
 
-	if (chosenDbCreationPolicy != dbCreationPolicy::create)
-	{
-		error("%s():%d - error specifying db creation policy", __func__, __LINE__);
-		return false;
-	}
+    if (chosenDbCreationPolicy != dbCreationPolicy::create)
+    {
+        error("%s():%d - error specifying db creation policy", __func__, __LINE__);
+        return false;
+    }
 
     if (db == NULL)
     {
@@ -455,16 +445,16 @@ void ScMgr::dump_info()
         dump_info(entry.first);
     }
 
-	if (chosenDbCreationPolicy == dbCreationPolicy::mock)
-	{
-		return; //nothing to dump from db
-	}
+    if (chosenDbCreationPolicy == dbCreationPolicy::mock)
+    {
+        return; //nothing to dump from db
+    }
 
-	if ( chosenDbCreationPolicy != dbCreationPolicy::create)
-	{
-		error("%s():%d - error specifying db creation policy", __func__, __LINE__);
-		return;
-	}
+    if ( chosenDbCreationPolicy != dbCreationPolicy::create)
+    {
+        error("%s():%d - error specifying db creation policy", __func__, __LINE__);
+        return;
+    }
 
     if (db == NULL)
     {
@@ -565,12 +555,10 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
     return true;
 }
 
-ScCoinsViewCache::ScCoinsViewCache()
+ScCoinsViewCache::ScCoinsViewCache(): mUpdate(ScMgr::instance().getScInfoMap())
 {
-    mUpdate.clear();
     sErase.clear();
     sDirty.clear();
-    ScMgr::instance().copyScInfoMap(mUpdate);
 }
 
 bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
