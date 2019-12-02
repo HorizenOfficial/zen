@@ -388,8 +388,7 @@ bool ScMgr::writeToDb(const uint256& scId, const ScInfo& info)
 
     if (chosenDbCreationPolicy != dbCreationPolicy::create)
     {
-        error("%s():%d - error specifying db creation policy", __func__, __LINE__);
-        return false;
+        return error("%s():%d - error specifying db creation policy", __func__, __LINE__);
     }
 
     if (db == NULL)
