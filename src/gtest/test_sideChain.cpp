@@ -19,7 +19,6 @@ public:
 	};
 
 	void SetUp() override {
-		//TODO: Consider storing initial CBaseChainParam/CChainParam and reset it upon TearDown; try and handle assert
 		SelectBaseParams(CBaseChainParams::REGTEST);
 		SelectParams(CBaseChainParams::REGTEST);
 
@@ -27,7 +26,6 @@ public:
 	};
 
 	void TearDown() override {
-		//This means that at the exit of current test suite, following test will have to setup BaseParams/Params again
 		resetParams();
 		resetBaseParams();
 	};
@@ -1030,7 +1028,7 @@ TEST_F(SideChainTestSuite, EmptyFlushDoesNotAlterExistingSideChainsCollection) {
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// Structural UTs ////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SideChainTestSuite, Structural_ManagerIsSingleton) {
+TEST_F(SideChainTestSuite, ManagerIsSingleton) {
 	//test
 	Sidechain::ScMgr& rAnotherScMgrInstance = Sidechain::ScMgr::instance();
 
@@ -1040,7 +1038,7 @@ TEST_F(SideChainTestSuite, Structural_ManagerIsSingleton) {
 			<< &sideChainManager << " and " << &rAnotherScMgrInstance;
 }
 
-TEST_F(SideChainTestSuite, Structural_ManagerDoubleInitializationIsForbidden) {
+TEST_F(SideChainTestSuite, ManagerDoubleInitializationIsForbidden) {
 	size_t cacheSize(0);
 	bool fWipe(false);
 
@@ -1057,16 +1055,12 @@ TEST_F(SideChainTestSuite, Structural_ManagerDoubleInitializationIsForbidden) {
 ////////////////////////// Test Fixture definitions ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 void SideChainTestSuite::resetBaseParams() {
-	//TODO: evaluate moving resetBaseParams to chainparamsbase.h
-
 	//force reset of pCurrentBaseParams
 	CBaseChainParams* nakedCurrentBaseParams = &const_cast<CBaseChainParams &>(BaseParams());
 	nakedCurrentBaseParams = nullptr;
 }
 
 void SideChainTestSuite::resetParams() {
-	//TODO: evaluate moving resetBaseParams to chainparams.h
-
 	//force reset of pCurrentParams
 	CChainParams* nakedCurrentParams = &const_cast<CChainParams &>(Params());
 	nakedCurrentParams = nullptr;
@@ -1074,9 +1068,8 @@ void SideChainTestSuite::resetParams() {
 
 void SideChainTestSuite::preFillSidechainsCollection() {
     //force access to manager in-memory data structure to fill it up for testing purposes
-	//Todo: make it work for the case Sidechain::ScMgr::create, i.e. push this info to db
 
-    Sidechain::ScInfoMap & rManagerInternalMap
+	Sidechain::ScInfoMap & rManagerInternalMap
 	    = const_cast<Sidechain::ScInfoMap&>(sideChainManager.getScInfoMap());
 
     //create a couple of ScInfo to fill data struct
