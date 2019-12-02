@@ -168,7 +168,30 @@ TEST_F(SideChainTestSuite, SideChainCreationsWithPositiveForwardTransferAreSeman
     EXPECT_TRUE(txState.IsValid());
 }
 
-TEST_F(SideChainTestSuite, SideChainCreationsWithZeroForwardTransferAreSemanticallyValid) {
+TEST_F(SideChainTestSuite, SideChainCreationsWithTooLargePositiveForwardTransferAreNotSemanticallyValid) {
+    //insert a sidechain
+    uint256 newScId = uint256S("1492");
+    CAmount initialFwdAmount = MAX_MONEY +1;
+    std::cout<<"initialFwdAmount = "<<initialFwdAmount<<std::endl;
+    aTransaction = createSideChainTxWith(newScId, initialFwdAmount);
+
+    //prerequisites
+    ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
+    ASSERT_FALSE(aTransaction.ccIsNull())<<"Test requires non null tx";
+    ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+    ASSERT_TRUE(initialFwdAmount > MAX_MONEY) <<"Test requires forward amount larger than MAX_MONEY = "<<MAX_MONEY;
+
+    //test
+    bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
+
+    //checks
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+        <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
+
+TEST_F(SideChainTestSuite, SideChainCreationsWithZeroForwardTransferAreNotSemanticallyValid) {
     //insert a sidechain
     uint256 newScId = uint256S("1492");
     CAmount initialFwdAmount = 0;
@@ -190,7 +213,7 @@ TEST_F(SideChainTestSuite, SideChainCreationsWithZeroForwardTransferAreSemantica
         <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
 
-TEST_F(SideChainTestSuite, SideChainCreationsWithNegativeForwardTransferAreSemanticallyValid) {
+TEST_F(SideChainTestSuite, SideChainCreationsWithNegativeForwardTransferNotAreSemanticallyValid) {
     //insert a sidechain
     uint256 newScId = uint256S("1492");
     CAmount initialFwdAmount = -1;
