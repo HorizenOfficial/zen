@@ -172,7 +172,6 @@ TEST_F(SideChainTestSuite, SideChainCreationsWithTooLargePositiveForwardTransfer
     //insert a sidechain
     uint256 newScId = uint256S("1492");
     CAmount initialFwdAmount = MAX_MONEY +1;
-    std::cout<<"initialFwdAmount = "<<initialFwdAmount<<std::endl;
     aTransaction = createSideChainTxWith(newScId, initialFwdAmount);
 
     //prerequisites
@@ -907,6 +906,10 @@ TEST_F(SideChainTestSuite, NoRollbackIsPerformedOnceInvalidTransactionIsEncounte
     //prerequisites
     ASSERT_TRUE(firstScId == duplicatedScId)<<"Test requires second tx to be a duplicate";
     ASSERT_TRUE(firstScId != anotherScId)<<"Test requires third tx to be a valid one";
+    EXPECT_FALSE(coinViewCache.sidechainExists(firstScId))
+        << "Test requires first sc not to be already created";
+    EXPECT_FALSE(coinViewCache.sidechainExists(anotherScId))
+        << "Test requires second sc not to be already created";
 
     //test
     bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
@@ -914,9 +917,9 @@ TEST_F(SideChainTestSuite, NoRollbackIsPerformedOnceInvalidTransactionIsEncounte
     //check
     EXPECT_FALSE(res);
     EXPECT_TRUE(coinViewCache.sidechainExists(firstScId))
-            << "First, valid sidechain creation txs should be cached";
+        << "First, valid sidechain creation txs should be cached";
     EXPECT_FALSE(coinViewCache.sidechainExists(anotherScId))
-            << "third, valid sidechain creation txs is currently not cached";
+        << "third, valid sidechain creation txs is currently not cached";
 }
 
 TEST_F(SideChainTestSuite, ForwardTransfersToNonExistentScAreRejected) {
