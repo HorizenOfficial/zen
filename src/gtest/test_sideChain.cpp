@@ -154,7 +154,7 @@ TEST_F(SideChainTestSuite, SideChainCreationsWithoutForwardTransferAreNotSemanti
         <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
 
-TEST_F(SideChainTestSuite, SideChainCreationsWithForwardTransferAreSemanticallyValid) {
+TEST_F(SideChainTestSuite, SideChainCreationsWithPositiveForwardTransferAreSemanticallyValid) {
     //insert a sidechain
     uint256 newScId = uint256S("1492");
     CAmount initialFwdAmount = 1000;
@@ -164,6 +164,7 @@ TEST_F(SideChainTestSuite, SideChainCreationsWithForwardTransferAreSemanticallyV
     ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
     ASSERT_FALSE(aTransaction.ccIsNull())<<"Test requires non null tx";
     ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+    ASSERT_TRUE(initialFwdAmount > 0) <<"Test requires positive forward amount";
 
     //test
     bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
@@ -171,6 +172,50 @@ TEST_F(SideChainTestSuite, SideChainCreationsWithForwardTransferAreSemanticallyV
     //checks
     EXPECT_TRUE(res);
     EXPECT_TRUE(txState.IsValid());
+}
+
+TEST_F(SideChainTestSuite, SideChainCreationsWithZeroForwardTransferAreSemanticallyValid) {
+    //insert a sidechain
+    uint256 newScId = uint256S("1492");
+    CAmount initialFwdAmount = 0;
+    aTransaction = createSideChainTxWith(newScId, initialFwdAmount);
+
+    //prerequisites
+    ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
+    ASSERT_FALSE(aTransaction.ccIsNull())<<"Test requires non null tx";
+    ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+    ASSERT_TRUE(initialFwdAmount == 0) <<"Test requires positive forward amount";
+
+    //test
+    bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
+
+    //checks
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+        <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
+
+TEST_F(SideChainTestSuite, SideChainCreationsWithNegativeForwardTransferAreSemanticallyValid) {
+    //insert a sidechain
+    uint256 newScId = uint256S("1492");
+    CAmount initialFwdAmount = -1;
+    aTransaction = createSideChainTxWith(newScId, initialFwdAmount);
+
+    //prerequisites
+    ASSERT_TRUE(aTransaction.IsScVersion())<<"Test requires sidechain tx";
+    ASSERT_FALSE(aTransaction.ccIsNull())<<"Test requires non null tx";
+    ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+    ASSERT_TRUE(initialFwdAmount < 0) <<"Test requires negative forward amount";
+
+    //test
+    bool res = sideChainManager.checkTxSemanticValidity(aTransaction, txState);
+
+    //checks
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+        <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -507,7 +552,7 @@ TEST_F(SideChainTestSuite, RestoringFromUndoBlockAffectBalance) {
     coinViewCache.ApplyMatureBalances(maturityHeight, aBlockUndo);
     CAmount scBalance = coinViewCache.getScInfoMap().at(newScId).balance;
 
-    int amountToUndo = 17;
+    CAmount amountToUndo = 17;
     aBlockUndo = createBlockUndoWith(newScId,scCreationHeight,amountToUndo);
 
     //prerequisites
@@ -539,7 +584,7 @@ TEST_F(SideChainTestSuite, YouCannotRestoreMoreCoinsThanAvailableBalance) {
     coinViewCache.ApplyMatureBalances(maturityHeight, aBlockUndo);
     CAmount scBalance = coinViewCache.getScInfoMap().at(newScId).balance;
 
-    int amountToUndo = 50;
+    CAmount amountToUndo = 50;
     aBlockUndo = createBlockUndoWith(newScId,scCreationHeight,amountToUndo);
 
     //prerequisites
@@ -568,7 +613,7 @@ TEST_F(SideChainTestSuite, RestoringBeforeBalanceMaturesHasNoEffects) {
 
     CAmount scBalance = coinViewCache.getScInfoMap().at(newScId).balance;
 
-    int amountToUndo = 17;
+    CAmount amountToUndo = 17;
     aBlockUndo = createBlockUndoWith(newScId,scCreationHeight,amountToUndo);
 
     //prerequisites
@@ -622,7 +667,7 @@ TEST_F(SideChainTestSuite, YouCannotRestoreCoinsFromInexistentSc) {
     uint256 inexistentScId = uint256S("ca1985");
     int scCreationHeight = 71;
 
-    int amountToUndo = 10;
+    CAmount amountToUndo = 10;
     aBlockUndo = createBlockUndoWith(inexistentScId,scCreationHeight,amountToUndo);
 
     //prerequisites
@@ -723,7 +768,6 @@ TEST_F(SideChainTestSuite, ScCreationTxCannotBeRevertedIfScIsNotPreviouslyCreate
     uint256 unexistingScId = uint256S("a1b2");
 
     //create Sc transaction to be reverted
-    CAmount fwdAmount = 999;
     aTransaction = createSideChainTxWithNoFwdTransfer(unexistingScId);
 
     //prerequisites

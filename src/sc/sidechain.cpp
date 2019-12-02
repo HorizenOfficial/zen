@@ -203,6 +203,18 @@ bool ScMgr::checkTxSemanticValidity(const CTransaction& tx, CValidationState& st
         }
     }
 
+    BOOST_FOREACH(const auto& sc, tx.vft_ccout)
+    {
+        // check there is at least one fwt associated with this scId
+        if (sc.nValue <= CAmount(0))
+        {
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : fwd trasfer amount is negative or zero\n",
+                __func__, __LINE__, txHash.ToString() );
+            return state.DoS(100, error("%s: fwd trasfer amount is negative or zero",
+                __func__), REJECT_INVALID, "sidechain-non-positive-fwd-transfer-amount");
+        }
+    }
+
     return true;
 }
 bool ScMgr::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)

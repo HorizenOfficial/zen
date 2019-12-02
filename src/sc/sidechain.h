@@ -78,7 +78,7 @@ typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
 class ScCoinsViewCache
 {
     ScInfoMap mUpdate;
-    std::set<uint256> sErase; //albene: why not adding a state to ScInfoMap
+    std::set<uint256> sErase;
     std::set<uint256> sDirty;
 
 public:
