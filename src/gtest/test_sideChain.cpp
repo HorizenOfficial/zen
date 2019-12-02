@@ -25,10 +25,7 @@ public:
         sideChainManager.initialUpdateFromDb(0, true, Sidechain::ScMgr::mock);
     };
 
-    void TearDown() override {
-        resetParams();
-        resetBaseParams();
-    };
+    void TearDown() override {};
 
 protected:
     //Subjects under test
@@ -44,9 +41,6 @@ protected:
     CFeeRate   aFeeRate;
     CTxMemPool aMemPool;
     CBlockUndo aBlockUndo;
-
-    void resetBaseParams();
-    void resetParams();
 
     void preFillSidechainsCollection();
 
@@ -347,7 +341,7 @@ TEST_F(SideChainTestSuite, EmptyTxsAreAllowedInNonEmptyMemPool) {
     aTransaction = createEmptyScTx();
 
     CAmount txFee;
-    double txPriority;
+    double txPriority = 0.0;
 
     CTxMemPoolEntry memPoolEntry(aTransaction, txFee, GetTime(), txPriority, anHeight);
 
@@ -393,7 +387,7 @@ TEST_F(SideChainTestSuite, NewScCreationTxsAreAllowedInMemPool) {
     aTransaction = createSideChainTxWith(firstScTxId, firstScAmount);
 
     CAmount txFee;
-    double txPriority;
+    double txPriority = 0.0;
 
     CTxMemPoolEntry memPoolEntry(aTransaction, txFee, GetTime(), txPriority, anHeight);
     ASSERT_TRUE(aMemPool.addUnchecked(aTransaction.GetHash(), memPoolEntry))
@@ -427,7 +421,7 @@ TEST_F(SideChainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
     aTransaction = createSideChainTxWith(firstScId, initialFwdAmount);
 
     CAmount txFee;
-    double txPriority;
+    double txPriority = 0.0;
 
     CTxMemPoolEntry memPoolEntry(aTransaction, txFee, GetTime(), txPriority, anHeight);
     ASSERT_TRUE(aMemPool.addUnchecked(aTransaction.GetHash(), memPoolEntry))
@@ -960,6 +954,7 @@ TEST_F(SideChainTestSuite, FlushAlignsPersistedTxsWithViewOnes) {
     bool res = coinViewCache.Flush();
 
     //check
+    EXPECT_TRUE(res);
     EXPECT_TRUE(sideChainManager.getScInfoMap() == coinViewCache.getScInfoMap())
         <<"flush should align txs in view with persisted ones";
 }
@@ -1089,27 +1084,15 @@ TEST_F(SideChainTestSuite, ManagerDoubleInitializationIsForbidden) {
     //prerequisites: first initialization happens in fixture's setup
 
     //test
-    bool bRet = sideChainManager.initialUpdateFromDb(cacheSize, fWipe, Sidechain::ScMgr::mock);
+    bool res = sideChainManager.initialUpdateFromDb(cacheSize, fWipe, Sidechain::ScMgr::mock);
 
     //Checks
-    EXPECT_FALSE(bRet) << "Db double initialization should be forbidden";
+    EXPECT_FALSE(res) << "Db double initialization should be forbidden";
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Test Fixture definitions ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-void SideChainTestSuite::resetBaseParams() {
-    //force reset of pCurrentBaseParams
-    CBaseChainParams* nakedCurrentBaseParams = &const_cast<CBaseChainParams &>(BaseParams());
-    nakedCurrentBaseParams = nullptr;
-}
-
-void SideChainTestSuite::resetParams() {
-    //force reset of pCurrentParams
-    CChainParams* nakedCurrentParams = &const_cast<CChainParams &>(Params());
-    nakedCurrentParams = nullptr;
-}
-
 void SideChainTestSuite::preFillSidechainsCollection() {
     //force access to manager in-memory data structure to fill it up for testing purposes
 
