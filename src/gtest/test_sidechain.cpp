@@ -242,11 +242,11 @@ TEST_F(SidechainTestSuite, SidechainCreationsWithNegativeForwardTransferNotAreSe
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////// IsTxApplicableToState ////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainTestSuite, EmptyTxsAreApplicableToState) {
+TEST_F(SidechainTestSuite, Sidechain_CcNull_TxsAreApplicableToState) {
     aTransaction = createEmptyScTx();
 
     //Prerequisite
-    ASSERT_TRUE(aTransaction.ccIsNull())<<"Test context: not Sc creation tx, nor forward transfer tx";
+    ASSERT_TRUE(aTransaction.ccIsNull());
 
     //test
     bool res = sidechainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
@@ -255,13 +255,12 @@ TEST_F(SidechainTestSuite, EmptyTxsAreApplicableToState) {
     EXPECT_TRUE(res);
 }
 
-TEST_F(SidechainTestSuite, ScCreationWithoutForwardTrasferIsApplicableToState) {
+TEST_F(SidechainTestSuite, NewScCreationsWithoutForwardTrasferAreApplicableToState) {
     uint256 newScId = uint256S("1492");
     aTransaction = createSidechainTxWithNoFwdTransfer(newScId);
 
     //Prerequisite
-    ASSERT_FALSE(coinViewCache.sidechainExists(newScId))
-        <<"Test context: the Sc creation tx to be new in current transaction";
+    ASSERT_FALSE(coinViewCache.sidechainExists(newScId));
 
     //test
     bool res = sidechainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
@@ -272,12 +271,10 @@ TEST_F(SidechainTestSuite, ScCreationWithoutForwardTrasferIsApplicableToState) {
 
 TEST_F(SidechainTestSuite, NewScCreationsAreApplicableToState) {
     uint256 newScId = uint256S("1492");
-    CAmount initialFwdAmount = 1953;
-    aTransaction = createSidechainTxWith(newScId, initialFwdAmount);
+    aTransaction = createSidechainTxWith(newScId, CAmount(1953));
 
     //Prerequisite
-    ASSERT_FALSE(coinViewCache.sidechainExists(newScId))
-        <<"Test context: the Sc creation tx to be new";
+    ASSERT_FALSE(coinViewCache.sidechainExists(newScId));
 
     //test
     bool res = sidechainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
@@ -287,18 +284,14 @@ TEST_F(SidechainTestSuite, NewScCreationsAreApplicableToState) {
 }
 
 TEST_F(SidechainTestSuite, DuplicatedScCreationsAreNotApplicableToState) {
-    //insert a sidechain
     uint256 newScId = uint256S("1492");
-    CAmount initialFwdAmount = 1953;
-    aTransaction = createSidechainTxWith(newScId, initialFwdAmount);
+    aTransaction = createSidechainTxWith(newScId, CAmount(1953));
     coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
-    CAmount anotherFwdTransfer = 1815;
-    CTransaction duplicatedTx = createSidechainTxWith(newScId, anotherFwdTransfer);
+    CTransaction duplicatedTx = createSidechainTxWith(newScId, CAmount(1815));
 
     //Prerequisite
-    ASSERT_TRUE(coinViewCache.sidechainExists(newScId))
-        <<"Test context: the Sc creation tx to be new";
+    ASSERT_TRUE(coinViewCache.sidechainExists(newScId));
 
     //test
     bool res = sidechainManager.IsTxApplicableToState(duplicatedTx, &coinViewCache);
@@ -308,18 +301,14 @@ TEST_F(SidechainTestSuite, DuplicatedScCreationsAreNotApplicableToState) {
 }
 
 TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
-    //insert a sidechain
     uint256 newScId = uint256S("1492");
-    CAmount initialFwdAmount = 1953;
-    aTransaction = createSidechainTxWith(newScId, initialFwdAmount);
+    aTransaction = createSidechainTxWith(newScId, CAmount(1953));
     coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
-    CAmount aFwdTransfer = 5;
-    aTransaction = createFwdTransferTxWith(newScId, aFwdTransfer);
+    aTransaction = createFwdTransferTxWith(newScId, CAmount(5));
 
     //Prerequisite
-    ASSERT_TRUE(coinViewCache.sidechainExists(newScId))
-        <<"Test context: the Sc creation tx to be new";
+    ASSERT_TRUE(coinViewCache.sidechainExists(newScId));
 
     //test
     bool res = sidechainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
@@ -331,12 +320,10 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
 TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsAreNotApplicableToState) {
     uint256 nonExistentScId = uint256S("1492");
 
-    CAmount aFwdTransfer = 1815;
-    aTransaction = createFwdTransferTxWith(nonExistentScId, aFwdTransfer);
+    aTransaction = createFwdTransferTxWith(nonExistentScId, CAmount(1815));
 
     //Prerequisite
-    ASSERT_FALSE(coinViewCache.sidechainExists(nonExistentScId))
-        <<"Test context: target sidechain to be non-existent";
+    ASSERT_FALSE(coinViewCache.sidechainExists(nonExistentScId));
 
     //test
     bool res = sidechainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
