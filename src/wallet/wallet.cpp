@@ -107,6 +107,8 @@ bool CWallet::AddZKey(const libzcash::SpendingKey &key)
     AssertLockHeld(cs_wallet); // mapZKeyMetadata
     auto addr = key.address();
 
+
+
     if (!CCryptoKeyStore::AddSpendingKey(key))
         return false;
 
@@ -1222,8 +1224,9 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pbl
 void CWallet::SyncTransaction(const CTransaction& tx, const CBlock* pblock)
 {
 
-    //LOCK(cs_wallet); changed to take lock on cs_main too
-	LOCK2(cs_main,cs_wallet);
+    LOCK(cs_wallet);
+
+	//LOCK2(cs_main,cs_wallet);
     if (!AddToWalletIfInvolvingMe(tx, pblock, true))
         return; // Not one of ours
 
@@ -3679,6 +3682,44 @@ bool CMerkleTx::AcceptToMemoryPool(bool fLimitFree, bool fRejectAbsurdFee)
  * Find notes in the wallet filtered by payment address, min depth and ability to spend.
  * These notes are decrypted and added to the output parameter vector, outEntries.
  */
+
+
+void CWallet::GetFilteredTransactions(std::multimap<int64_t, CWalletTx >& outEntries, std::string address)
+{
+	LOCK2(cs_main, cs_wallet);
+	CScript scriptPubKey;
+
+	if(address.compare("*")!=0){
+		 CBitcoinAddress baddress = CBitcoinAddress(address);
+		 scriptPubKey = GetScriptForDestination(baddress.Get(), false);
+
+	}
+
+	//getting all Txes of address in the wallet
+    for (auto & p : mapWallet) {
+           CWalletTx wtx = p.second;
+           if(address.compare("*")==0){
+            	 outEntries.insert(make_pair(wtx.nOrderPos,wtx));
+           }
+           else{
+        	   for(const CTxOut& txout : wtx.vout){
+        	           auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(),
+        	           	           	                                     scriptPubKey.end());
+        	           if (res == txout.scriptPubKey.begin()){
+        	           	           	            	  outEntries.insert(make_pair(wtx.nOrderPos,wtx));
+        	           	   }
+
+        	      }
+
+           }
+
+
+     }
+
+
+}
+
+
 void CWallet::GetFilteredNotes(std::vector<CNotePlaintextEntry> & outEntries, std::string address, int minDepth, bool ignoreSpent, bool ignoreUnspendable)
 {
     bool fFilterAddress = false;

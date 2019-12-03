@@ -969,6 +969,8 @@ public:
     typedef std::pair<CWalletTx*, CAccountingEntry*> TxPair;
     typedef std::multimap<int64_t, TxPair > TxItems;
 
+
+
     /**
      * Get the wallet's activity log
      * @return multimap of ordered transactions and accounting entries
@@ -1127,6 +1129,11 @@ public:
                           bool ignoreSpent=true,
                           bool ignoreUnspendable=true);
     
+    /*Find all transactions of a specific addres*/
+    void GetFilteredTransactions(std::multimap<int64_t, CWalletTx >& outEntries,
+                              std::string address);
+
+
 };
 
 /** A key allocated from the key pool. */

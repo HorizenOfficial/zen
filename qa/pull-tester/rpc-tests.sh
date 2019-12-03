@@ -51,6 +51,7 @@ testScripts=(
     'nulldata.py'
     'blockdelay.py'
     'blockdelay_2.py'
+    'new_listtransactions.py'
 );
 testScriptsExt=(
     'getblocktemplate_longpoll.py'
