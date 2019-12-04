@@ -64,11 +64,6 @@ protected:
 TEST_F(SidechainTestSuite, TransparentCcNullTxsAreSemanticallyValid) {
     aTransaction = createTransparentTx(/*ccIsNull = */true);
 
-    //prerequisites
-    ASSERT_FALSE(aTransaction.IsScVersion());
-    ASSERT_TRUE(aTransaction.ccIsNull());
-    ASSERT_TRUE(txState.IsValid());
-
     //test
     bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
 
@@ -79,11 +74,6 @@ TEST_F(SidechainTestSuite, TransparentCcNullTxsAreSemanticallyValid) {
 
 TEST_F(SidechainTestSuite, TransparentNonCcNullTxsAreNotSemanticallyValid) {
     aTransaction = createTransparentTx(/*ccIsNull = */false);
-
-    //prerequisites
-    ASSERT_FALSE(aTransaction.IsScVersion());
-    ASSERT_FALSE(aTransaction.ccIsNull());
-    ASSERT_TRUE(txState.IsValid());
 
     //test
     bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
@@ -97,11 +87,6 @@ TEST_F(SidechainTestSuite, TransparentNonCcNullTxsAreNotSemanticallyValid) {
 
 TEST_F(SidechainTestSuite, SproutCcNullTxsAreCurrentlySupported) {
     aTransaction = createSproutTx(/*ccIsNull = */true);
-
-    //prerequisites
-    ASSERT_TRUE(aTransaction.nVersion == PHGR_TX_VERSION);
-    ASSERT_TRUE(aTransaction.vjoinsplit.size() != 0);
-    ASSERT_TRUE(txState.IsValid());
 
     //test
     bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
@@ -131,15 +116,7 @@ TEST_F(SidechainTestSuite, SproutCcNullTxsAreCurrentlySupported) {
 //}
 
 TEST_F(SidechainTestSuite, SidechainCreationsWithoutForwardTransferAreNotSemanticallyValid) {
-    //create a sidechain without fwd transfer
-    uint256 newScId = uint256S("1492");
-    aTransaction = createSidechainTxWithNoFwdTransfer(newScId);
-
-    //prerequisites
-    ASSERT_TRUE(aTransaction.IsScVersion());
-    ASSERT_TRUE(aTransaction.vsc_ccout.size() != 0);
-    ASSERT_FALSE(aTransaction.vft_ccout.size() != 0);
-    ASSERT_TRUE(txState.IsValid());
+    aTransaction = createSidechainTxWithNoFwdTransfer(uint256S("1492"));
 
     //test
     bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
@@ -152,17 +129,7 @@ TEST_F(SidechainTestSuite, SidechainCreationsWithoutForwardTransferAreNotSemanti
 }
 
 TEST_F(SidechainTestSuite, SidechainCreationsWithPositiveForwardTransferAreSemanticallyValid) {
-    //insert a sidechain
-    uint256 newScId = uint256S("1492");
-    CAmount initialFwdAmount = 1000;
-    aTransaction = createSidechainTxWith(newScId, initialFwdAmount);
-
-    //prerequisites
-    ASSERT_TRUE(aTransaction.IsScVersion());
-    ASSERT_TRUE(aTransaction.vsc_ccout.size() != 0);
-    ASSERT_TRUE(aTransaction.vft_ccout.size() != 0);
-    ASSERT_TRUE(txState.IsValid());
-    ASSERT_TRUE(initialFwdAmount > 0);
+    aTransaction = createSidechainTxWith( uint256S("1492"), CAmount(1000));
 
     //test
     bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
@@ -173,17 +140,7 @@ TEST_F(SidechainTestSuite, SidechainCreationsWithPositiveForwardTransferAreSeman
 }
 
 TEST_F(SidechainTestSuite, SidechainCreationsWithTooLargePositiveForwardTransferAreNotSemanticallyValid) {
-    //insert a sidechain
-    uint256 newScId = uint256S("1492");
-    CAmount initialFwdAmount = MAX_MONEY +1;
-    aTransaction = createSidechainTxWith(newScId, initialFwdAmount);
-
-    //prerequisites
-    ASSERT_TRUE(aTransaction.IsScVersion());
-    ASSERT_TRUE(aTransaction.vsc_ccout.size() != 0);
-    ASSERT_TRUE(aTransaction.vft_ccout.size() != 0);
-    ASSERT_TRUE(txState.IsValid());
-    ASSERT_TRUE(initialFwdAmount > MAX_MONEY);
+    aTransaction = createSidechainTxWith(uint256S("1492"), CAmount(MAX_MONEY +1));
 
     //test
     bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
@@ -196,17 +153,7 @@ TEST_F(SidechainTestSuite, SidechainCreationsWithTooLargePositiveForwardTransfer
 }
 
 TEST_F(SidechainTestSuite, SidechainCreationsWithZeroForwardTransferAreNotSemanticallyValid) {
-    //insert a sidechain
-    uint256 newScId = uint256S("1492");
-    CAmount initialFwdAmount = 0;
-    aTransaction = createSidechainTxWith(newScId, initialFwdAmount);
-
-    //prerequisites
-    ASSERT_TRUE(aTransaction.IsScVersion());
-    ASSERT_TRUE(aTransaction.vsc_ccout.size() != 0);
-    ASSERT_TRUE(aTransaction.vft_ccout.size() != 0);
-    ASSERT_TRUE(txState.IsValid());
-    ASSERT_TRUE(initialFwdAmount == 0);
+    aTransaction = createSidechainTxWith(uint256S("1492"), CAmount(0));
 
     //test
     bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
@@ -219,17 +166,7 @@ TEST_F(SidechainTestSuite, SidechainCreationsWithZeroForwardTransferAreNotSemant
 }
 
 TEST_F(SidechainTestSuite, SidechainCreationsWithNegativeForwardTransferNotAreSemanticallyValid) {
-    //insert a sidechain
-    uint256 newScId = uint256S("1492");
-    CAmount initialFwdAmount = -1;
-    aTransaction = createSidechainTxWith(newScId, initialFwdAmount);
-
-    //prerequisites
-    ASSERT_TRUE(aTransaction.IsScVersion());
-    ASSERT_TRUE(aTransaction.vsc_ccout.size() != 0);
-    ASSERT_TRUE(aTransaction.vft_ccout.size() != 0);
-    ASSERT_TRUE(txState.IsValid());
-    ASSERT_TRUE(initialFwdAmount < 0);
+    aTransaction = createSidechainTxWith(uint256S("1492"), CAmount(-1));
 
     //test
     bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
@@ -245,12 +182,10 @@ TEST_F(SidechainTestSuite, SidechainCreationsWithNegativeForwardTransferNotAreSe
 //////////////////////////// IsTxApplicableToState ////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-TEST_F(SidechainTestSuite, NewScCreationsWithoutForwardTrasferAreApplicableToState) {
-    uint256 newScId = uint256S("1492");
-    aTransaction = createSidechainTxWithNoFwdTransfer(newScId);
+//TODO: FROM HERE ONWARD ONLY TX SEMANTICALLY VALID SHOULD BE USED
 
-    //Prerequisite
-    ASSERT_FALSE(coinViewCache.sidechainExists(newScId));
+TEST_F(SidechainTestSuite, NewScCreationsWithoutForwardTrasferAreApplicableToState) { //Useless
+    aTransaction = createSidechainTxWithNoFwdTransfer(uint256S("1492"));
 
     //test
     bool res = sidechainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
@@ -260,11 +195,7 @@ TEST_F(SidechainTestSuite, NewScCreationsWithoutForwardTrasferAreApplicableToSta
 }
 
 TEST_F(SidechainTestSuite, NewScCreationsAreApplicableToState) {
-    uint256 newScId = uint256S("1492");
-    aTransaction = createSidechainTxWith(newScId, CAmount(1953));
-
-    //Prerequisite
-    ASSERT_FALSE(coinViewCache.sidechainExists(newScId));
+    aTransaction = createSidechainTxWith(uint256S("1492"), CAmount(1953));
 
     //test
     bool res = sidechainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
@@ -274,14 +205,11 @@ TEST_F(SidechainTestSuite, NewScCreationsAreApplicableToState) {
 }
 
 TEST_F(SidechainTestSuite, DuplicatedScCreationsAreNotApplicableToState) {
-    uint256 newScId = uint256S("1492");
-    aTransaction = createSidechainTxWith(newScId, CAmount(1953));
+    uint256 scId = uint256S("1492");
+    aTransaction = createSidechainTxWith(scId, CAmount(1953));
     coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
-    CTransaction duplicatedTx = createSidechainTxWith(newScId, CAmount(1815));
-
-    //Prerequisite
-    ASSERT_TRUE(coinViewCache.sidechainExists(newScId));
+    CTransaction duplicatedTx = createSidechainTxWith(scId, CAmount(1815));
 
     //test
     bool res = sidechainManager.IsTxApplicableToState(duplicatedTx, &coinViewCache);
@@ -291,14 +219,11 @@ TEST_F(SidechainTestSuite, DuplicatedScCreationsAreNotApplicableToState) {
 }
 
 TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
-    uint256 newScId = uint256S("1492");
-    aTransaction = createSidechainTxWith(newScId, CAmount(1953));
+    uint256 scId = uint256S("1492");
+    aTransaction = createSidechainTxWith(scId, CAmount(1953));
     coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
-    aTransaction = createFwdTransferTxWith(newScId, CAmount(5));
-
-    //Prerequisite
-    ASSERT_TRUE(coinViewCache.sidechainExists(newScId));
+    aTransaction = createFwdTransferTxWith(scId, CAmount(5));
 
     //test
     bool res = sidechainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
@@ -308,12 +233,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
 }
 
 TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsAreNotApplicableToState) {
-    uint256 nonExistentScId = uint256S("1492");
-
-    aTransaction = createFwdTransferTxWith(nonExistentScId, CAmount(1815));
-
-    //Prerequisite
-    ASSERT_FALSE(coinViewCache.sidechainExists(nonExistentScId));
+    aTransaction = createFwdTransferTxWith(uint256S("1492"), CAmount(1815));
 
     //test
     bool res = sidechainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
