@@ -5,6 +5,7 @@
 #include <consensus/validation.h>
 #include <txmempool.h>
 #include <undo.h>
+#include <main.h>
 
 class SidechainTestSuite: public ::testing::Test {
 
@@ -47,10 +48,10 @@ protected:
     CTransaction createSidechainTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
     CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
 
-    CTransaction createEmptyScTx();
+    CMutableTransaction GetValidTransaction(int txVersion);
     CTransaction createSidechainTxWithNoFwdTransfer(const uint256 & newScId);
-    CTransaction createNonScTx(bool ccIsNull = true);
-    CTransaction createShieldedTx();
+    CTransaction createTransparentTx(bool ccIsNull);
+    CTransaction createSproutTx(bool ccIsNull);
     void         extendTransaction(CTransaction & tx, const uint256 & scId, const CAmount & amount);
 
     CBlockUndo   createBlockUndoWith(const uint256 & scId, int height, CAmount amount);
@@ -60,8 +61,8 @@ protected:
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////// checkTxSemanticValidity ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainTestSuite, NonSidechain_CcNull_TxsAreSemanticallyValid) {
-    aTransaction = createNonScTx();
+TEST_F(SidechainTestSuite, TransparentCcNullTxsAreSemanticallyValid) {
+    aTransaction = createTransparentTx(/*ccIsNull = */true);
 
     //prerequisites
     ASSERT_FALSE(aTransaction.IsScVersion());
@@ -76,8 +77,8 @@ TEST_F(SidechainTestSuite, NonSidechain_CcNull_TxsAreSemanticallyValid) {
     EXPECT_TRUE(txState.IsValid());
 }
 
-TEST_F(SidechainTestSuite, NonSidechain_NonCcNull_TxsAreNotSemanticallyValid) {
-    aTransaction = createNonScTx(/*ccIsNull = */false);
+TEST_F(SidechainTestSuite, TransparentNonCcNullTxsAreNotSemanticallyValid) {
+    aTransaction = createTransparentTx(/*ccIsNull = */false);
 
     //prerequisites
     ASSERT_FALSE(aTransaction.IsScVersion());
@@ -94,30 +95,12 @@ TEST_F(SidechainTestSuite, NonSidechain_NonCcNull_TxsAreNotSemanticallyValid) {
         <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
 
-TEST_F(SidechainTestSuite, Sidechain_Shielded_TxsAreNotCurrentlySupported) {
-    aTransaction = createShieldedTx();
+TEST_F(SidechainTestSuite, SproutCcNullTxsAreCurrentlySupported) {
+    aTransaction = createSproutTx(/*ccIsNull = */true);
 
     //prerequisites
-    ASSERT_TRUE(aTransaction.IsScVersion());
+    ASSERT_TRUE(aTransaction.nVersion == PHGR_TX_VERSION);
     ASSERT_TRUE(aTransaction.vjoinsplit.size() != 0);
-    ASSERT_TRUE(txState.IsValid());
-
-    //test
-    bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
-
-    //checks
-    EXPECT_FALSE(res);
-    EXPECT_FALSE(txState.IsValid());
-    EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
-        <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
-}
-
-TEST_F(SidechainTestSuite, Sidechain_ccNull_TxsAreSemanticallyValid) {
-    aTransaction = createEmptyScTx();
-
-    //prerequisites
-    ASSERT_TRUE(aTransaction.IsScVersion());
-    ASSERT_TRUE(aTransaction.ccIsNull());
     ASSERT_TRUE(txState.IsValid());
 
     //test
@@ -127,6 +110,25 @@ TEST_F(SidechainTestSuite, Sidechain_ccNull_TxsAreSemanticallyValid) {
     EXPECT_TRUE(res);
     EXPECT_TRUE(txState.IsValid());
 }
+
+//TODO FIX IT
+//TEST_F(SidechainTestSuite, SproutNonCcNullTxsAreCurrentlySupported) {
+//    aTransaction = createSproutTx(/*ccIsNull = */false);
+//
+//    //prerequisites
+//    ASSERT_TRUE(aTransaction.IsScVersion());
+//    ASSERT_TRUE(aTransaction.vjoinsplit.size() != 0);
+//    ASSERT_TRUE(txState.IsValid());
+//
+//    //test
+//    bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
+//
+//    //checks
+//    EXPECT_FALSE(res);
+//    EXPECT_FALSE(txState.IsValid());
+//    EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+//        <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+//}
 
 TEST_F(SidechainTestSuite, SidechainCreationsWithoutForwardTransferAreNotSemanticallyValid) {
     //create a sidechain without fwd transfer
@@ -242,18 +244,6 @@ TEST_F(SidechainTestSuite, SidechainCreationsWithNegativeForwardTransferNotAreSe
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////// IsTxApplicableToState ////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainTestSuite, Sidechain_CcNull_TxsAreApplicableToState) {
-    aTransaction = createEmptyScTx();
-
-    //Prerequisite
-    ASSERT_TRUE(aTransaction.ccIsNull());
-
-    //test
-    bool res = sidechainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
-
-    //checks
-    EXPECT_TRUE(res);
-}
 
 TEST_F(SidechainTestSuite, NewScCreationsWithoutForwardTrasferAreApplicableToState) {
     uint256 newScId = uint256S("1492");
@@ -335,45 +325,6 @@ TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsAreNotApplicableToSta
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////// IsTxAllowedInMempool /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainTestSuite, EmptyTxsAreAllowedInEmptyMemPool) {
-    aTransaction = createEmptyScTx();
-
-    //prerequisites
-    ASSERT_TRUE(aMemPool.size() == 0)<<"Test context: empty mempool";
-    ASSERT_TRUE(aTransaction.ccIsNull())<<"Test context: not Sc creation tx, nor forward transfer tx";
-    ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
-
-    //test
-    bool res = sidechainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
-
-    //check
-    EXPECT_TRUE(res);
-    EXPECT_TRUE(txState.IsValid());
-}
-
-TEST_F(SidechainTestSuite, EmptyTxsAreAllowedInNonEmptyMemPool) {
-    aTransaction = createEmptyScTx();
-
-    CAmount txFee;
-    double txPriority = 0.0;
-
-    CTxMemPoolEntry memPoolEntry(aTransaction, txFee, GetTime(), txPriority, anHeight);
-
-    ASSERT_TRUE(aMemPool.addUnchecked(aTransaction.GetHash(), memPoolEntry))
-        <<"Test context: at least a tx in mempool. Could not insert it.";
-
-    //prerequisites
-    ASSERT_TRUE(aMemPool.size() != 0)<<"Test context: non-empty mempool";
-    ASSERT_TRUE(aTransaction.ccIsNull())<<"Test context: not Sc creation tx, nor forward transfer tx";
-    ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
-
-    //test
-    bool res = sidechainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
-
-    //check
-    EXPECT_TRUE(res);
-    EXPECT_TRUE(txState.IsValid());
-}
 
 TEST_F(SidechainTestSuite, ScCreationTxsAreAllowedInEmptyMemPool) {
     //create a sidechain
@@ -828,17 +779,6 @@ TEST_F(SidechainTestSuite, RevertingAFwdTransferOnTheWrongHeightHasNoEffect) {
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// UpdateScInfo ////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainTestSuite, EmptyTxsAreProcessedButNotRegistered) {
-    //Prerequisite
-    aTransaction = createEmptyScTx();
-    ASSERT_TRUE(aTransaction.ccIsNull())<<"Test context: not Sc creation tx, nor forward transfer tx";
-
-    //test
-    bool res = coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
-
-    //check
-    EXPECT_TRUE(res) << "Empty tx should be processed"; //How to check for no side-effects (i.e. no register)
-}
 
 TEST_F(SidechainTestSuite, NewSCsAreRegisteredById) {
     uint256 newScId = uint256S("1492");
@@ -1112,12 +1052,9 @@ TEST_F(SidechainTestSuite, ManagerDoubleInitializationIsForbidden) {
 ////////////////////////// Test Fixture definitions ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 void SidechainTestSuite::preFillSidechainsCollection() {
-    //force access to manager in-memory data structure to fill it up for testing purposes
-
     Sidechain::ScInfoMap & rManagerInternalMap
         = const_cast<Sidechain::ScInfoMap&>(sidechainManager.getScInfoMap());
 
-    //create a couple of ScInfo to fill data struct
     Sidechain::ScInfo info;
     uint256 scId;
 
@@ -1136,92 +1073,102 @@ void SidechainTestSuite::preFillSidechainsCollection() {
 
 CTransaction SidechainTestSuite::createSidechainTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
 {
-    CMutableTransaction aMutableTransaction;
-    aMutableTransaction.nVersion = SC_TX_VERSION;
+    CMutableTransaction mtx = GetValidTransaction(SC_TX_VERSION);
+    mtx.vout.resize(0);
+    mtx.vjoinsplit.resize(0);
 
     CTxScCreationOut aSidechainCreationTx;
     aSidechainCreationTx.scId = newScId;
-    aMutableTransaction.vsc_ccout.push_back(aSidechainCreationTx);
+    mtx.vsc_ccout.push_back(aSidechainCreationTx);
 
     CTxForwardTransferOut aForwardTransferTx;
     aForwardTransferTx.scId = aSidechainCreationTx.scId;
     aForwardTransferTx.nValue = fwdTxAmount;
-    aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+    mtx.vft_ccout.push_back(aForwardTransferTx);
 
-    return CTransaction(aMutableTransaction);
+    assert(CheckTransactionWithoutProofVerification(mtx, txState));
+    return CTransaction(mtx);
 }
 
 CTransaction SidechainTestSuite::createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
 {
-    CMutableTransaction aMutableTransaction;
-    aMutableTransaction.nVersion = SC_TX_VERSION;
+    CMutableTransaction mtx = GetValidTransaction(SC_TX_VERSION);
+    mtx.vout.resize(0);
+    mtx.vjoinsplit.resize(0);
 
     CTxForwardTransferOut aForwardTransferTx;
     aForwardTransferTx.scId = newScId;
     aForwardTransferTx.nValue = fwdTxAmount;
-    aMutableTransaction.vft_ccout.push_back(aForwardTransferTx);
+    mtx.vft_ccout.push_back(aForwardTransferTx);
 
-    return CTransaction(aMutableTransaction);
-}
-
-CTransaction SidechainTestSuite::createEmptyScTx() {
-    CMutableTransaction aMutableTransaction;
-    aMutableTransaction.nVersion = SC_TX_VERSION;
-
-    return CTransaction(aMutableTransaction);
+    assert(CheckTransactionWithoutProofVerification(mtx, txState));
+    return CTransaction(mtx);
 }
 
 CTransaction SidechainTestSuite::createSidechainTxWithNoFwdTransfer(const uint256 & newScId)
 {
-    CMutableTransaction aMutableTransaction;
-    aMutableTransaction.nVersion = SC_TX_VERSION;
+    CMutableTransaction mtx = GetValidTransaction(SC_TX_VERSION);
+    mtx.vout.resize(0);
+    mtx.vjoinsplit.resize(0);
 
     CTxScCreationOut aSidechainCreationTx;
     aSidechainCreationTx.scId = newScId;
-    aMutableTransaction.vsc_ccout.push_back(aSidechainCreationTx);
+    mtx.vsc_ccout.push_back(aSidechainCreationTx);
 
-    return CTransaction(aMutableTransaction);
+    assert(CheckTransactionWithoutProofVerification(mtx, txState));
+    return CTransaction(mtx);
 }
 
-CTransaction SidechainTestSuite::createNonScTx(bool ccIsNull) {
-    CMutableTransaction aMutableTransaction;
-    aMutableTransaction.nVersion = TRANSPARENT_TX_VERSION;
+CTransaction SidechainTestSuite::createTransparentTx(bool ccIsNull) {
+    CMutableTransaction mtx = GetValidTransaction(TRANSPARENT_TX_VERSION);
+    mtx.vjoinsplit.resize(0);
 
     if (!ccIsNull)
     {
-        CTxScCreationOut aSidechainCreationTx;
-        aSidechainCreationTx.scId = uint256S("1492");
-        aMutableTransaction.vsc_ccout.push_back(aSidechainCreationTx);
+        CTxScCreationOut aScCreationTx;
+        aScCreationTx.scId = uint256S("1492");
+        mtx.vsc_ccout.push_back(aScCreationTx);
     }
 
-    return CTransaction(aMutableTransaction);
+    assert(CheckTransactionWithoutProofVerification(mtx, txState));
+    return CTransaction(mtx);
 }
 
-CTransaction SidechainTestSuite::createShieldedTx()
+CTransaction SidechainTestSuite::createSproutTx(bool ccIsNull)
 {
-    CMutableTransaction aMutableTransaction;
-    aMutableTransaction.nVersion = SC_TX_VERSION;
-    JSDescription  aShieldedTx;
-    aMutableTransaction.vjoinsplit.push_back(aShieldedTx);
+    CMutableTransaction mtx;
+    if (!ccIsNull)
+    {
+        fDebug = true;
+        fPrintToConsole = true;
 
-    return CTransaction(aMutableTransaction);
+        //TODO: THIS BRANCH DOESN'T LOOK TO SURVIVE CheckTransactionWithoutProofVerification. Verify!
+        mtx = GetValidTransaction(SC_TX_VERSION);
+        CTxScCreationOut aScCreationTx;
+        aScCreationTx.scId = uint256S("1492");
+        mtx.vsc_ccout.push_back(aScCreationTx);
+    } else
+        mtx = GetValidTransaction(PHGR_TX_VERSION);
+
+    assert(CheckTransactionWithoutProofVerification(mtx, txState));
+    return CTransaction(mtx);
 }
 
 void  SidechainTestSuite::extendTransaction(CTransaction & tx, const uint256 & scId, const CAmount & amount) {
-    CMutableTransaction mutableTx = tx;
+    CMutableTransaction mtx = tx;
 
-    mutableTx.nVersion = SC_TX_VERSION;
+    mtx.nVersion = SC_TX_VERSION;
 
     CTxScCreationOut aSidechainCreationTx;
     aSidechainCreationTx.scId = scId;
-    mutableTx.vsc_ccout.push_back(aSidechainCreationTx);
+    mtx.vsc_ccout.push_back(aSidechainCreationTx);
 
     CTxForwardTransferOut aForwardTransferTx;
     aForwardTransferTx.scId = aSidechainCreationTx.scId;
     aForwardTransferTx.nValue = amount;
-    mutableTx.vft_ccout.push_back(aForwardTransferTx);
+    mtx.vft_ccout.push_back(aForwardTransferTx);
 
-    tx = mutableTx;
+    tx = mtx;
     return;
 }
 
@@ -1238,4 +1185,52 @@ CBlockUndo SidechainTestSuite::createBlockUndoWith(const uint256 & scId, int hei
 CBlockUndo SidechainTestSuite::createEmptyBlockUndo()
 {
     return CBlockUndo();
+}
+
+CMutableTransaction SidechainTestSuite::GetValidTransaction(int txVersion) {
+    CMutableTransaction mtx;
+    mtx.nVersion = txVersion;
+    mtx.vin.resize(2);
+    mtx.vin[0].prevout.hash = uint256S("0000000000000000000000000000000000000000000000000000000000000001");
+    mtx.vin[0].prevout.n = 0;
+    mtx.vin[1].prevout.hash = uint256S("0000000000000000000000000000000000000000000000000000000000000002");
+    mtx.vin[1].prevout.n = 0;
+    mtx.vout.resize(2);
+    // mtx.vout[0].scriptPubKey =
+    mtx.vout[0].nValue = 0;
+    mtx.vout[1].nValue = 0;
+
+    mtx.vjoinsplit.clear();
+    mtx.vjoinsplit.push_back(JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
+    mtx.vjoinsplit.push_back(JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
+
+    mtx.vjoinsplit[0].nullifiers.at(0) = uint256S("0000000000000000000000000000000000000000000000000000000000000000");
+    mtx.vjoinsplit[0].nullifiers.at(1) = uint256S("0000000000000000000000000000000000000000000000000000000000000001");
+    mtx.vjoinsplit[1].nullifiers.at(0) = uint256S("0000000000000000000000000000000000000000000000000000000000000002");
+    mtx.vjoinsplit[1].nullifiers.at(1) = uint256S("0000000000000000000000000000000000000000000000000000000000000003");
+
+
+    // Generate an ephemeral keypair.
+    uint256 joinSplitPubKey;
+    unsigned char joinSplitPrivKey[crypto_sign_SECRETKEYBYTES];
+    crypto_sign_keypair(joinSplitPubKey.begin(), joinSplitPrivKey);
+    mtx.joinSplitPubKey = joinSplitPubKey;
+
+    // Compute the correct hSig.
+    // TODO: #966.
+    static const uint256 one(uint256S("0000000000000000000000000000000000000000000000000000000000000001"));
+    // Empty output script.
+    CScript scriptCode;
+    CTransaction signTx(mtx);
+    uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL);
+    if (dataToBeSigned == one) {
+        throw std::runtime_error("SignatureHash failed");
+    }
+
+    // Add the signature
+    assert(crypto_sign_detached(&mtx.joinSplitSig[0], NULL,
+                         dataToBeSigned.begin(), 32,
+                         joinSplitPrivKey
+                        ) == 0);
+    return mtx;
 }
