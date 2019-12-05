@@ -104,7 +104,6 @@ TEST_F(SidechainTestSuite, SproutNonCcNullTxsAreCurrentlySupported) {
     aTransaction = createSproutTx(/*ccIsNull = */false);
 
     //prerequisites
-    ASSERT_TRUE(aTransaction.IsScVersion());
     ASSERT_TRUE(aTransaction.vjoinsplit.size() != 0);
     ASSERT_TRUE(txState.IsValid());
 
