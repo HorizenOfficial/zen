@@ -48,7 +48,6 @@ protected:
     CTransaction createSidechainTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
     CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
 
-    CMutableTransaction GetValidTransaction(int txVersion);
     CTransaction createSidechainTxWithNoFwdTransfer(const uint256 & newScId);
     CTransaction createTransparentTx(bool ccIsNull);
     CTransaction createSproutTx(bool ccIsNull);
@@ -56,6 +55,10 @@ protected:
 
     CBlockUndo   createBlockUndoWith(const uint256 & scId, int height, CAmount amount);
     CBlockUndo   createEmptyBlockUndo();
+
+private:
+    CMutableTransaction populateTx(int txVersion, const uint256 & newScId = uint256S("0"), const CAmount & fwdTxAmount = CAmount(0));
+    void signTx(CMutableTransaction& mtx);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -183,16 +186,6 @@ TEST_F(SidechainTestSuite, SidechainCreationsWithNegativeForwardTransferNotAreSe
 ///////////////////////////////////////////////////////////////////////////////
 
 //TODO: FROM HERE ONWARD ONLY TX SEMANTICALLY VALID SHOULD BE USED
-
-TEST_F(SidechainTestSuite, NewScCreationsWithoutForwardTrasferAreApplicableToState) { //Useless
-    aTransaction = createSidechainTxWithNoFwdTransfer(uint256S("1492"));
-
-    //test
-    bool res = sidechainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
-
-    //checks
-    EXPECT_TRUE(res);
-}
 
 TEST_F(SidechainTestSuite, NewScCreationsAreApplicableToState) {
     aTransaction = createSidechainTxWith(uint256S("1492"), CAmount(1953));
@@ -993,18 +986,10 @@ void SidechainTestSuite::preFillSidechainsCollection() {
 
 CTransaction SidechainTestSuite::createSidechainTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
 {
-    CMutableTransaction mtx = GetValidTransaction(SC_TX_VERSION);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, newScId, fwdTxAmount);
     mtx.vout.resize(0);
     mtx.vjoinsplit.resize(0);
-
-    CTxScCreationOut aSidechainCreationTx;
-    aSidechainCreationTx.scId = newScId;
-    mtx.vsc_ccout.push_back(aSidechainCreationTx);
-
-    CTxForwardTransferOut aForwardTransferTx;
-    aForwardTransferTx.scId = aSidechainCreationTx.scId;
-    aForwardTransferTx.nValue = fwdTxAmount;
-    mtx.vft_ccout.push_back(aForwardTransferTx);
+    signTx(mtx);
 
     assert(CheckTransactionWithoutProofVerification(mtx, txState));
     return CTransaction(mtx);
@@ -1012,14 +997,11 @@ CTransaction SidechainTestSuite::createSidechainTxWith(const uint256 & newScId, 
 
 CTransaction SidechainTestSuite::createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
 {
-    CMutableTransaction mtx = GetValidTransaction(SC_TX_VERSION);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, newScId, fwdTxAmount);
     mtx.vout.resize(0);
     mtx.vjoinsplit.resize(0);
-
-    CTxForwardTransferOut aForwardTransferTx;
-    aForwardTransferTx.scId = newScId;
-    aForwardTransferTx.nValue = fwdTxAmount;
-    mtx.vft_ccout.push_back(aForwardTransferTx);
+    mtx.vsc_ccout.resize(0);
+    signTx(mtx);
 
     assert(CheckTransactionWithoutProofVerification(mtx, txState));
     return CTransaction(mtx);
@@ -1027,28 +1009,26 @@ CTransaction SidechainTestSuite::createFwdTransferTxWith(const uint256 & newScId
 
 CTransaction SidechainTestSuite::createSidechainTxWithNoFwdTransfer(const uint256 & newScId)
 {
-    CMutableTransaction mtx = GetValidTransaction(SC_TX_VERSION);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, newScId);
     mtx.vout.resize(0);
     mtx.vjoinsplit.resize(0);
-
-    CTxScCreationOut aSidechainCreationTx;
-    aSidechainCreationTx.scId = newScId;
-    mtx.vsc_ccout.push_back(aSidechainCreationTx);
+    mtx.vft_ccout.resize(0);
+    signTx(mtx);
 
     assert(CheckTransactionWithoutProofVerification(mtx, txState));
     return CTransaction(mtx);
 }
 
 CTransaction SidechainTestSuite::createTransparentTx(bool ccIsNull) {
-    CMutableTransaction mtx = GetValidTransaction(TRANSPARENT_TX_VERSION);
+    CMutableTransaction mtx = populateTx(TRANSPARENT_TX_VERSION);
     mtx.vjoinsplit.resize(0);
 
-    if (!ccIsNull)
+    if (ccIsNull)
     {
-        CTxScCreationOut aScCreationTx;
-        aScCreationTx.scId = uint256S("1492");
-        mtx.vsc_ccout.push_back(aScCreationTx);
+        mtx.vsc_ccout.resize(0);
+        mtx.vft_ccout.resize(0);
     }
+    signTx(mtx);
 
     assert(CheckTransactionWithoutProofVerification(mtx, txState));
     return CTransaction(mtx);
@@ -1056,19 +1036,14 @@ CTransaction SidechainTestSuite::createTransparentTx(bool ccIsNull) {
 
 CTransaction SidechainTestSuite::createSproutTx(bool ccIsNull)
 {
-    CMutableTransaction mtx;
-    if (!ccIsNull)
-    {
-        fDebug = true;
-        fPrintToConsole = true;
+    CMutableTransaction mtx = populateTx(PHGR_TX_VERSION);
 
-        //TODO: THIS BRANCH DOESN'T LOOK TO SURVIVE CheckTransactionWithoutProofVerification. Verify!
-        mtx = GetValidTransaction(SC_TX_VERSION);
-        CTxScCreationOut aScCreationTx;
-        aScCreationTx.scId = uint256S("1492");
-        mtx.vsc_ccout.push_back(aScCreationTx);
-    } else
-        mtx = GetValidTransaction(PHGR_TX_VERSION);
+    if (ccIsNull)
+    {
+        mtx.vsc_ccout.resize(0);
+        mtx.vft_ccout.resize(0);
+    }
+    signTx(mtx);
 
     assert(CheckTransactionWithoutProofVerification(mtx, txState));
     return CTransaction(mtx);
@@ -1107,38 +1082,48 @@ CBlockUndo SidechainTestSuite::createEmptyBlockUndo()
     return CBlockUndo();
 }
 
-CMutableTransaction SidechainTestSuite::GetValidTransaction(int txVersion) {
+CMutableTransaction SidechainTestSuite::populateTx(int txVersion, const uint256 & newScId, const CAmount & fwdTxAmount) {
     CMutableTransaction mtx;
     mtx.nVersion = txVersion;
+
     mtx.vin.resize(2);
-    mtx.vin[0].prevout.hash = uint256S("0000000000000000000000000000000000000000000000000000000000000001");
+    mtx.vin[0].prevout.hash = uint256S("1");
     mtx.vin[0].prevout.n = 0;
-    mtx.vin[1].prevout.hash = uint256S("0000000000000000000000000000000000000000000000000000000000000002");
+    mtx.vin[1].prevout.hash = uint256S("2");
     mtx.vin[1].prevout.n = 0;
+
     mtx.vout.resize(2);
-    // mtx.vout[0].scriptPubKey =
     mtx.vout[0].nValue = 0;
     mtx.vout[1].nValue = 0;
 
-    mtx.vjoinsplit.clear();
-    mtx.vjoinsplit.push_back(JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
-    mtx.vjoinsplit.push_back(JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
+    mtx.vjoinsplit.push_back(
+            JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
+    mtx.vjoinsplit.push_back(
+            JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
+    mtx.vjoinsplit[0].nullifiers.at(0) = uint256S("0");
+    mtx.vjoinsplit[0].nullifiers.at(1) = uint256S("1");
+    mtx.vjoinsplit[1].nullifiers.at(0) = uint256S("2");
+    mtx.vjoinsplit[1].nullifiers.at(1) = uint256S("3");
 
-    mtx.vjoinsplit[0].nullifiers.at(0) = uint256S("0000000000000000000000000000000000000000000000000000000000000000");
-    mtx.vjoinsplit[0].nullifiers.at(1) = uint256S("0000000000000000000000000000000000000000000000000000000000000001");
-    mtx.vjoinsplit[1].nullifiers.at(0) = uint256S("0000000000000000000000000000000000000000000000000000000000000002");
-    mtx.vjoinsplit[1].nullifiers.at(1) = uint256S("0000000000000000000000000000000000000000000000000000000000000003");
+    mtx.vsc_ccout.resize(1);
+    mtx.vsc_ccout[0].scId = newScId;
 
+    mtx.vft_ccout.resize(1);
+    mtx.vft_ccout[0].scId = mtx.vsc_ccout[0].scId;
+    mtx.vft_ccout[0].nValue = fwdTxAmount;
 
+    return mtx;
+}
+
+void SidechainTestSuite::signTx(CMutableTransaction& mtx) {
     // Generate an ephemeral keypair.
     uint256 joinSplitPubKey;
     unsigned char joinSplitPrivKey[crypto_sign_SECRETKEYBYTES];
     crypto_sign_keypair(joinSplitPubKey.begin(), joinSplitPrivKey);
     mtx.joinSplitPubKey = joinSplitPubKey;
-
     // Compute the correct hSig.
     // TODO: #966.
-    static const uint256 one(uint256S("0000000000000000000000000000000000000000000000000000000000000001"));
+    static const uint256 one(uint256S("1"));
     // Empty output script.
     CScript scriptCode;
     CTransaction signTx(mtx);
@@ -1146,11 +1131,6 @@ CMutableTransaction SidechainTestSuite::GetValidTransaction(int txVersion) {
     if (dataToBeSigned == one) {
         throw std::runtime_error("SignatureHash failed");
     }
-
     // Add the signature
-    assert(crypto_sign_detached(&mtx.joinSplitSig[0], NULL,
-                         dataToBeSigned.begin(), 32,
-                         joinSplitPrivKey
-                        ) == 0);
-    return mtx;
+    assert(crypto_sign_detached(&mtx.joinSplitSig[0], NULL, dataToBeSigned.begin(), 32, joinSplitPrivKey ) == 0);
 }
