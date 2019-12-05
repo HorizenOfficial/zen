@@ -234,15 +234,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsAreNotApplicableToSta
 ///////////////////////////////////////////////////////////////////////////////
 
 TEST_F(SidechainTestSuite, ScCreationTxsAreAllowedInEmptyMemPool) {
-    //create a sidechain
-    uint256 newScId = uint256S("1492");
-    CAmount initialFwdAmount = 1953;
-    aTransaction = createSidechainTxWith(newScId, initialFwdAmount);
-
-    //prerequisites
-    ASSERT_TRUE(aMemPool.size() == 0)<<"Test context: empty mempool";
-    ASSERT_FALSE(aTransaction.ccIsNull())<<"Test context: a Sc creation tx";
-    ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
+    aTransaction = createSidechainTxWith(uint256S("1492"), CAmount(1953));
 
     //test
     bool res = sidechainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
@@ -253,33 +245,14 @@ TEST_F(SidechainTestSuite, ScCreationTxsAreAllowedInEmptyMemPool) {
 }
 
 TEST_F(SidechainTestSuite, NewScCreationTxsAreAllowedInMemPool) {
-    //A Sc tx should be already in mem pool
-    uint256 firstScTxId = uint256S("1987");
-    CAmount firstScAmount = 1994;
-    aTransaction = createSidechainTxWith(firstScTxId, firstScAmount);
+    aTransaction = createSidechainTxWith(uint256S("1987"), CAmount(1994));
+    CTxMemPoolEntry memPoolEntry(aTransaction, CAmount(), GetTime(), double(0.0), anHeight);
+    aMemPool.addUnchecked(aTransaction.GetHash(), memPoolEntry);
 
-    CAmount txFee;
-    double txPriority = 0.0;
-
-    CTxMemPoolEntry memPoolEntry(aTransaction, txFee, GetTime(), txPriority, anHeight);
-    ASSERT_TRUE(aMemPool.addUnchecked(aTransaction.GetHash(), memPoolEntry))
-        <<"Test context: at least a tx in mempool. Could not insert it.";
-
-    //prerequisites
-    ASSERT_TRUE(aMemPool.size() != 0)<<"Test context: non-empty mempool";
-    ASSERT_FALSE(aTransaction.ccIsNull())<<"Test context: a Sc creation tx";
-    ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
-
-    //Prepare a new Sc tx, with differentId
-    uint256 secondScTxId = uint256S("1991");
-    CAmount secondScAmount = 5;
-    aTransaction = createSidechainTxWith(secondScTxId, secondScAmount);
-
-    //prerequisites
-    ASSERT_TRUE(firstScTxId != secondScTxId)<<"Test context: two Sc creation tx with different ids";
+    CTransaction aNewTx = createSidechainTxWith(uint256S("1991"), CAmount(5));
 
     //test
-    bool res = sidechainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
+    bool res = sidechainManager.IsTxAllowedInMempool(aMemPool, aNewTx, txState);
 
     //check
     EXPECT_TRUE(res);
@@ -287,30 +260,13 @@ TEST_F(SidechainTestSuite, NewScCreationTxsAreAllowedInMemPool) {
 }
 
 TEST_F(SidechainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
-    //create a sidechain tx and insert in mempool
-    uint256 firstScId = uint256S("1987");
-    CAmount initialFwdAmount = 1953;
-    aTransaction = createSidechainTxWith(firstScId, initialFwdAmount);
+    uint256 scId = uint256S("1987");
 
-    CAmount txFee;
-    double txPriority = 0.0;
+    aTransaction = createSidechainTxWith(scId, CAmount(10));
+    CTxMemPoolEntry memPoolEntry(aTransaction, CAmount(), GetTime(), double(0.0), anHeight);
+    aMemPool.addUnchecked(aTransaction.GetHash(), memPoolEntry);
 
-    CTxMemPoolEntry memPoolEntry(aTransaction, txFee, GetTime(), txPriority, anHeight);
-    ASSERT_TRUE(aMemPool.addUnchecked(aTransaction.GetHash(), memPoolEntry))
-        <<"Test context: at least a tx in mempool. Could not insert it.";
-
-    //prerequisites
-    ASSERT_TRUE(aMemPool.size() != 0)<<"Test context: non-empty mempool";
-    ASSERT_FALSE(aTransaction.ccIsNull())<<"Test context: a Sc creation tx";
-    ASSERT_TRUE(txState.IsValid())<<"Test require transition state to be valid a-priori";
-
-    //Prepare a new Sc tx, with differentId
-    uint256 duplicatedScId = firstScId;
-    CAmount anotherAmount = 1492;
-    CTransaction duplicatedTx = createSidechainTxWith(duplicatedScId, anotherAmount);
-
-    //prerequisites
-    ASSERT_TRUE(duplicatedScId == firstScId)<<"Test context: two Sc creation tx with same ids";
+    CTransaction duplicatedTx = createSidechainTxWith(scId, CAmount(15));
 
     //test
     bool res = sidechainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
@@ -325,80 +281,63 @@ TEST_F(SidechainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// ApplyMatureBalances /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainTestSuite, CoinsInScCreationDoNotModifyScBalanceBeforeCoinMaturity) {
-    //Insert Sc
-    uint256 newScId = uint256S("a1b2");
+TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceBeforeCoinsMaturity) {
+    uint256 scId = uint256S("a1b2");
     CAmount initialAmount = 1000;
     int scCreationHeight = 5;
-    aTransaction = createSidechainTxWith(newScId, initialAmount);
+    aTransaction = createSidechainTxWith(scId, initialAmount);
     coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
     int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
     int lookupBlockHeight = coinMaturityHeight - 1;
-
-    //prerequisites
-    ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test context: existing sc";
-    ASSERT_TRUE(lookupBlockHeight < coinMaturityHeight)
-        <<"Test context: attempting to mature coins before their maturity height";
 
     //test
     bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
 
     //check
     EXPECT_TRUE(res);
-    EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance < initialAmount)
-        <<"Coins should not alter Sc balance before coin maturity height comes";
+    EXPECT_TRUE(coinViewCache.getScInfoMap().at(scId).balance < initialAmount)
+        <<"resulting balance is "<<coinViewCache.getScInfoMap().at(scId).balance
+        <<" while initial amount is "<<initialAmount;
 }
 
-TEST_F(SidechainTestSuite, CoinsInScCreationModifyScBalanceAtCoinMaturity) {
-    //Insert Sc
-    uint256 newScId = uint256S("a1b2");
+TEST_F(SidechainTestSuite, InitialCoinsTransferModifiesScBalanceAtCoinMaturity) {
+    uint256 scId = uint256S("a1b2");
     CAmount initialAmount = 1000;
     int scCreationHeight = 7;
-    aTransaction = createSidechainTxWith(newScId, initialAmount);
+    aTransaction = createSidechainTxWith(scId, initialAmount);
     coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
     int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
     int lookupBlockHeight = coinMaturityHeight;
-
-    //prerequisites
-    ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test context: existing sc";
-    ASSERT_TRUE(lookupBlockHeight == coinMaturityHeight)
-        <<"Test context: attempting to mature coins at maturity height";
 
     //test
     bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance == initialAmount)
-        <<"Current balance is "<<coinViewCache.getScInfoMap().at(newScId).balance
+    EXPECT_TRUE(coinViewCache.getScInfoMap().at(scId).balance == initialAmount)
+        <<"resulting balance is "<<coinViewCache.getScInfoMap().at(scId).balance
         <<" expected one is "<<initialAmount;
 }
 
-TEST_F(SidechainTestSuite, CoinsInScCreationDoNotModifyScBalanceAfterCoinMaturity) {
-    //Insert Sc
-    uint256 newScId = uint256S("a1b2");
+TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceAfterCoinsMaturity) {
+    uint256 scId = uint256S("a1b2");
     CAmount initialAmount = 1000;
     int scCreationHeight = 11;
-    aTransaction = createSidechainTxWith(newScId, initialAmount);
+    aTransaction = createSidechainTxWith(scId, initialAmount);
     coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
     int coinMaturityHeight = anHeight + Params().ScCoinsMaturity();
     int lookupBlockHeight = coinMaturityHeight + 1;
-
-    //prerequisites
-    ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test context: existing sc";
-    ASSERT_TRUE(lookupBlockHeight > coinMaturityHeight)
-        <<"Test context: attempting to mature coins after their maturity height";
 
     //test
     bool res = coinViewCache.ApplyMatureBalances(lookupBlockHeight, aBlockUndo);
 
     //check
     EXPECT_FALSE(res);
-    EXPECT_TRUE(coinViewCache.getScInfoMap().at(newScId).balance < initialAmount)
-        <<"Current balance is "<<coinViewCache.getScInfoMap().at(newScId).balance
+    EXPECT_TRUE(coinViewCache.getScInfoMap().at(scId).balance < initialAmount)
+        <<"resulting balance is "<<coinViewCache.getScInfoMap().at(scId).balance
         <<" while initial amount is "<<initialAmount;
 }
 
