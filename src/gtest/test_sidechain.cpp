@@ -99,13 +99,8 @@ TEST_F(SidechainTestSuite, SproutCcNullTxsAreCurrentlySupported) {
     EXPECT_TRUE(txState.IsValid());
 }
 
-//TODO FIX IT
 TEST_F(SidechainTestSuite, SproutNonCcNullTxsAreCurrentlySupported) {
     aTransaction = createSproutTx(/*ccIsNull = */false);
-
-    //prerequisites
-    ASSERT_TRUE(aTransaction.vjoinsplit.size() != 0);
-    ASSERT_TRUE(txState.IsValid());
 
     //test
     bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
@@ -1035,12 +1030,16 @@ CTransaction SidechainTestSuite::createTransparentTx(bool ccIsNull) {
 
 CTransaction SidechainTestSuite::createSproutTx(bool ccIsNull)
 {
-    CMutableTransaction mtx = populateTx(PHGR_TX_VERSION);
+    CMutableTransaction mtx;
 
     if (ccIsNull)
     {
+        mtx = populateTx(PHGR_TX_VERSION);
         mtx.vsc_ccout.resize(0);
         mtx.vft_ccout.resize(0);
+    } else
+    {
+        mtx = populateTx(SC_TX_VERSION);
     }
     signTx(mtx);
 
