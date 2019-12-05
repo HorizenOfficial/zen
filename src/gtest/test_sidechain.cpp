@@ -344,139 +344,74 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceAfterCoinsM
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////// RestoreImmatureBalances ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainTestSuite, RestoringFromUndoBlockAffectBalance) {
-    //insert a sidechain
-    uint256 newScId = uint256S("ca1985");
-    CAmount initialAmount = 34;
+TEST_F(SidechainTestSuite, RestoreImmatureBalancesAffectsScBalance) {
+    uint256 scId = uint256S("ca1985");
     int scCreationHeight = 71;
-    aTransaction = createSidechainTxWith(newScId, initialAmount);
+    aTransaction = createSidechainTxWith(scId, CAmount(34));
     coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
-    //let balance mature
-    int maturityHeight = scCreationHeight + Params().ScCoinsMaturity();
-    coinViewCache.ApplyMatureBalances(maturityHeight, aBlockUndo);
-    CAmount scBalance = coinViewCache.getScInfoMap().at(newScId).balance;
+    coinViewCache.ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity(), aBlockUndo);
+    CAmount scBalance = coinViewCache.getScInfoMap().at(scId).balance;
 
     CAmount amountToUndo = 17;
-    aBlockUndo = createBlockUndoWith(newScId,scCreationHeight,amountToUndo);
-
-    //prerequisites
-    ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test context: sc to exists";
-    ASSERT_TRUE(scBalance == initialAmount) <<"Test context: initial coins to have matured";
-    ASSERT_TRUE(amountToUndo <= scBalance)
-         <<"Test context: not attempting to restore more than initial value";
+    aBlockUndo = createBlockUndoWith(scId,scCreationHeight,amountToUndo);
 
     //test
     bool res = coinViewCache.RestoreImmatureBalances(scCreationHeight, aBlockUndo);
 
     //checks
     EXPECT_TRUE(res);
-    CAmount restoredBalance = coinViewCache.getScInfoMap().at(newScId).balance;
-    EXPECT_TRUE(restoredBalance == scBalance - amountToUndo)
-        <<"balance after restore is "<<restoredBalance<<" instead of"<< scBalance - amountToUndo;
+    EXPECT_TRUE(coinViewCache.getScInfoMap().at(scId).balance == scBalance - amountToUndo)
+        <<"balance after restore is "<<coinViewCache.getScInfoMap().at(scId).balance
+        <<" instead of"<< scBalance - amountToUndo;
 }
 
 TEST_F(SidechainTestSuite, YouCannotRestoreMoreCoinsThanAvailableBalance) {
-    //insert a sidechain
-    uint256 newScId = uint256S("ca1985");
-    CAmount initialAmount = 34;
+    uint256 scId = uint256S("ca1985");
     int scCreationHeight = 1991;
-    aTransaction = createSidechainTxWith(newScId, initialAmount);
+    aTransaction = createSidechainTxWith(scId, CAmount(34));
     coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
-    //let balance mature
-    int maturityHeight = scCreationHeight + Params().ScCoinsMaturity();
-    coinViewCache.ApplyMatureBalances(maturityHeight, aBlockUndo);
-    CAmount scBalance = coinViewCache.getScInfoMap().at(newScId).balance;
+    coinViewCache.ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity(), aBlockUndo);
+    CAmount scBalance = coinViewCache.getScInfoMap().at(scId).balance;
 
-    CAmount amountToUndo = 50;
-    aBlockUndo = createBlockUndoWith(newScId,scCreationHeight,amountToUndo);
-
-    //prerequisites
-    ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test context: sc to exists";
-    ASSERT_TRUE(scBalance == initialAmount) <<"Test context: initial coins to have matured";
-    ASSERT_TRUE(amountToUndo > scBalance)
-         <<"Test context: attempting to restore more than initial value";
+    aBlockUndo = createBlockUndoWith(scId,scCreationHeight,CAmount(50));
 
     //test
     bool res = coinViewCache.RestoreImmatureBalances(scCreationHeight, aBlockUndo);
 
     //checks
     EXPECT_FALSE(res);
-    CAmount restoredBalance = coinViewCache.getScInfoMap().at(newScId).balance;
-    EXPECT_TRUE(restoredBalance == scBalance)
-        <<"balance after restore is "<<restoredBalance<<" instead of"<< scBalance;
+    EXPECT_TRUE(coinViewCache.getScInfoMap().at(scId).balance == scBalance)
+        <<"balance after restore is "<<coinViewCache.getScInfoMap().at(scId).balance
+        <<" instead of"<< scBalance;
 }
 
 TEST_F(SidechainTestSuite, RestoringBeforeBalanceMaturesHasNoEffects) {
-    //insert a sidechain
-    uint256 newScId = uint256S("ca1985");
-    CAmount initialAmount = 34;
+    uint256 scId = uint256S("ca1985");
     int scCreationHeight = 71;
-    aTransaction = createSidechainTxWith(newScId, initialAmount);
+    aTransaction = createSidechainTxWith(scId, CAmount(34));
     coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
-    CAmount scBalance = coinViewCache.getScInfoMap().at(newScId).balance;
-
-    CAmount amountToUndo = 17;
-    aBlockUndo = createBlockUndoWith(newScId,scCreationHeight,amountToUndo);
-
-    //prerequisites
-    ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test context: sc to exists";
-    ASSERT_TRUE(scBalance == 0) <<"Test context: initial coins to have not matured";
-    ASSERT_TRUE(amountToUndo != 0)
-         <<"Test context: attempting to restore some non-zero coins";
+    aBlockUndo = createBlockUndoWith(scId,scCreationHeight,CAmount(17));
 
     //test
     bool res = coinViewCache.RestoreImmatureBalances(scCreationHeight, aBlockUndo);
 
     //checks
     EXPECT_FALSE(res);
-    CAmount restoredBalance = coinViewCache.getScInfoMap().at(newScId).balance;
-    EXPECT_TRUE(restoredBalance == 0)
-        <<"balance after restore is "<<restoredBalance<<" instead of 0";
-}
-
-TEST_F(SidechainTestSuite, RestoringFromEmptyUndoBlockHasEffect) {
-    //insert a sidechain
-    uint256 newScId = uint256S("ca1985");
-    CAmount initialAmount = 34;
-    int scCreationHeight = 71;
-    aTransaction = createSidechainTxWith(newScId, initialAmount);
-    coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
-
-    //let balance mature
-    int maturityHeight = scCreationHeight + Params().ScCoinsMaturity();
-    coinViewCache.ApplyMatureBalances(maturityHeight, aBlockUndo);
-    CAmount scBalance = coinViewCache.getScInfoMap().at(newScId).balance;
-
-    aBlockUndo = createEmptyBlockUndo();
-
-    //prerequisites
-    ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test context: sc to exists";
-    ASSERT_TRUE(scBalance == initialAmount) <<"Test context: initial coins to have matured";
-    ASSERT_TRUE(aBlockUndo.msc_iaundo.size() == 0)<<"Test context: an empty undo block";
-
-    //test
-    bool res = coinViewCache.RestoreImmatureBalances(anHeight, aBlockUndo);
-
-    //checks
-    EXPECT_TRUE(res);
-    CAmount restoredBalance = coinViewCache.getScInfoMap().at(newScId).balance;
-    EXPECT_TRUE(restoredBalance == scBalance)
-        <<"balance after restore is "<<restoredBalance<<" instead of"<< scBalance;
+    EXPECT_TRUE(coinViewCache.getScInfoMap().at(scId).balance == 0)
+        <<"balance after restore is "<<coinViewCache.getScInfoMap().at(scId).balance
+        <<" instead of 0";
 }
 
 TEST_F(SidechainTestSuite, YouCannotRestoreCoinsFromInexistentSc) {
-    //insert a sidechain
     uint256 inexistentScId = uint256S("ca1985");
     int scCreationHeight = 71;
 
     CAmount amountToUndo = 10;
-    aBlockUndo = createBlockUndoWith(inexistentScId,scCreationHeight,amountToUndo);
 
-    //prerequisites
-    ASSERT_FALSE(coinViewCache.sidechainExists(inexistentScId))<<"Test context: sc to be missing";
+    aBlockUndo = createBlockUndoWith(inexistentScId,scCreationHeight,amountToUndo);
 
     //test
     bool res = coinViewCache.RestoreImmatureBalances(scCreationHeight, aBlockUndo);
@@ -489,78 +424,41 @@ TEST_F(SidechainTestSuite, YouCannotRestoreCoinsFromInexistentSc) {
 /////////////////////////////// RevertTxOutputs ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainTestSuite, RevertingScCreationTxRemovesTheSc) {
-    //create sidechain to be rollbacked and register it
-    uint256 newScId = uint256S("a1b2");
-    CAmount initialAmount = 1;
+    uint256 scId = uint256S("a1b2");
     int scCreationHeight = 1;
-    aTransaction = createSidechainTxWith(newScId, initialAmount);
+    aTransaction = createSidechainTxWith(scId, CAmount(10));
     coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
-    //create fwd transaction to be rollbacked
-    int initialAmountMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
-    Sidechain::ScInfo viewInfo = coinViewCache.getScInfoMap().at(newScId);
-
-    int revertHeight = scCreationHeight;
-
-    //prerequisites
-    ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test context: sc to exist";
-    ASSERT_TRUE(revertHeight == scCreationHeight)
-        <<"Test context: attempting a revert on the height where sc creation tx was stored";
-    ASSERT_TRUE(viewInfo.mImmatureAmounts.at(initialAmountMaturityHeight) == initialAmount)
-        <<"Test context: an initial amount amenable to be reverted";
-
     //test
-    bool res = coinViewCache.RevertTxOutputs(aTransaction, revertHeight);
+    bool res = coinViewCache.RevertTxOutputs(aTransaction, scCreationHeight);
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_FALSE(coinViewCache.sidechainExists(newScId));
+    EXPECT_FALSE(coinViewCache.sidechainExists(scId));
 }
 
 TEST_F(SidechainTestSuite, RevertingFwdTransferRemovesCoinsFromImmatureBalance) {
-    //insert sidechain
-    uint256 newScId = uint256S("a1b2");
-    CAmount initialAmount = 1;
+    uint256 scId = uint256S("a1b2");
     int scCreationHeight = 1;
-    aTransaction = createSidechainTxWith(newScId, initialAmount);
+    aTransaction = createSidechainTxWith(scId, CAmount(10));
     coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
-    //create fwd transaction to be rollbacked
-    CAmount fwdAmount = 7;
     int fwdTxHeight = 5;
-    int fwdTxMaturityHeight = fwdTxHeight + Params().ScCoinsMaturity();
-    aTransaction = createFwdTransferTxWith(newScId, fwdAmount);
+    aTransaction = createFwdTransferTxWith(scId, CAmount(7));
     coinViewCache.UpdateScInfo(aTransaction, aBlock, fwdTxHeight);
-    Sidechain::ScInfo viewInfo = coinViewCache.getScInfoMap().at(newScId);
-
-    int revertHeight = fwdTxHeight;
-
-    //prerequisites
-    ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test context: sc to exist";
-    ASSERT_TRUE(revertHeight == fwdTxHeight)
-        <<"Test context: attempting a revert on the height where fwd tx was stored";
-    ASSERT_TRUE(viewInfo.mImmatureAmounts.at(fwdTxMaturityHeight) == fwdAmount)
-        <<"Test context: a fwd amount amenable to be reverted";
 
     //test
-    bool res = coinViewCache.RevertTxOutputs(aTransaction, revertHeight);
+    bool res = coinViewCache.RevertTxOutputs(aTransaction, fwdTxHeight);
 
     //checks
     EXPECT_TRUE(res);
-    viewInfo = coinViewCache.getScInfoMap().at(newScId);
-    EXPECT_TRUE(viewInfo.mImmatureAmounts.count(fwdTxMaturityHeight) == 0);
+    Sidechain::ScInfo viewInfo = coinViewCache.getScInfoMap().at(scId);
+    EXPECT_TRUE(viewInfo.mImmatureAmounts.count(fwdTxHeight + Params().ScCoinsMaturity()) == 0)
+        <<"resulting immature amount is "<< viewInfo.mImmatureAmounts.count(fwdTxHeight + Params().ScCoinsMaturity());
 }
 
-TEST_F(SidechainTestSuite, FwdTransferTxToUnexistingScCannotBeReverted) {
-    uint256 unexistingScId = uint256S("a1b2");
-
-    //create fwd transaction to be reverted
-    CAmount fwdAmount = 999;
-    aTransaction = createFwdTransferTxWith(unexistingScId, fwdAmount);
-
-    //prerequisites
-    ASSERT_FALSE(coinViewCache.sidechainExists(unexistingScId))
-        <<"Test context: unexisting sideChain";
+TEST_F(SidechainTestSuite, ScCreationTxCannotBeRevertedIfScIsNotPreviouslyCreated) {
+    aTransaction = createSidechainTxWith(uint256S("a1b2"),CAmount(15));
 
     //test
     bool res = coinViewCache.RevertTxOutputs(aTransaction, anHeight);
@@ -569,15 +467,8 @@ TEST_F(SidechainTestSuite, FwdTransferTxToUnexistingScCannotBeReverted) {
     EXPECT_FALSE(res);
 }
 
-TEST_F(SidechainTestSuite, ScCreationTxCannotBeRevertedIfScIsNotPreviouslyCreated) {
-    uint256 unexistingScId = uint256S("a1b2");
-
-    //create Sc transaction to be reverted
-    aTransaction = createSidechainTxWithNoFwdTransfer(unexistingScId);
-
-    //prerequisites
-    ASSERT_FALSE(coinViewCache.sidechainExists(unexistingScId))
-        <<"Test context: unexisint sideChain";
+TEST_F(SidechainTestSuite, FwdTransferTxToUnexistingScCannotBeReverted) {
+    aTransaction = createFwdTransferTxWith(uint256S("a1b2"), CAmount(999));
 
     //test
     bool res = coinViewCache.RevertTxOutputs(aTransaction, anHeight);
@@ -587,38 +478,25 @@ TEST_F(SidechainTestSuite, ScCreationTxCannotBeRevertedIfScIsNotPreviouslyCreate
 }
 
 TEST_F(SidechainTestSuite, RevertingAFwdTransferOnTheWrongHeightHasNoEffect) {
-    //insert sidechain
-    uint256 newScId = uint256S("a1b2");
-    CAmount initialAmount = 1;
+    uint256 scId = uint256S("a1b2");
     int scCreationHeight = 1;
-    aTransaction = createSidechainTxWith(newScId, initialAmount);
+    aTransaction = createSidechainTxWith(scId, CAmount(10));
     coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
-    //create fwd transaction to be rollbacked
-    CAmount fwdAmount = 7;
     int fwdTxHeight = 5;
-    int fwdTxMaturityHeight = fwdTxHeight + Params().ScCoinsMaturity();
-    aTransaction = createFwdTransferTxWith(newScId, fwdAmount);
+    CAmount fwdAmount = 7;
+    aTransaction = createFwdTransferTxWith(scId, fwdAmount);
     coinViewCache.UpdateScInfo(aTransaction, aBlock, fwdTxHeight);
-    Sidechain::ScInfo viewInfo = coinViewCache.getScInfoMap().at(newScId);
-
-    int revertHeight = fwdTxHeight -1;
-
-    //prerequisites
-    ASSERT_TRUE(coinViewCache.sidechainExists(newScId))<<"Test context: sc to exist";
-    ASSERT_TRUE(revertHeight != fwdTxHeight)
-        <<"Test context: attempting a revert on the height where fwd tx was stored";
-    ASSERT_TRUE(viewInfo.mImmatureAmounts.at(fwdTxMaturityHeight) == fwdAmount)
-        <<"Test context: a fwd amount amenable to be reverted";
 
     //test
-    bool res = coinViewCache.RevertTxOutputs(aTransaction, revertHeight);
+    int faultyHeight = fwdTxHeight -1;
+    bool res = coinViewCache.RevertTxOutputs(aTransaction, faultyHeight);
 
     //checks
     EXPECT_FALSE(res);
-    viewInfo = coinViewCache.getScInfoMap().at(newScId);
-    EXPECT_TRUE(viewInfo.mImmatureAmounts.at(fwdTxMaturityHeight) == fwdAmount)
-        <<"Immature amount is "<<viewInfo.mImmatureAmounts.at(fwdTxMaturityHeight)
+    Sidechain::ScInfo viewInfo = coinViewCache.getScInfoMap().at(scId);
+    EXPECT_TRUE(viewInfo.mImmatureAmounts.at(fwdTxHeight + Params().ScCoinsMaturity()) == fwdAmount)
+        <<"Immature amount is "<<viewInfo.mImmatureAmounts.at(fwdTxHeight + Params().ScCoinsMaturity())
         <<"instead of "<<fwdAmount;
 }
 

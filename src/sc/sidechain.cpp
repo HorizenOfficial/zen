@@ -605,18 +605,18 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         LogPrint("sc", "%s():%d - immature amount before: %s\n",
             __func__, __LINE__, FormatMoney(iaMap[maturityHeight]));
 
-        iaMap[maturityHeight] -= entry.nValue;
-
-        LogPrint("sc", "%s():%d - immature amount after: %s\n",
-            __func__, __LINE__, FormatMoney(iaMap[maturityHeight]));
-
-        if (iaMap[maturityHeight] < 0)
+        if (iaMap[maturityHeight] < entry.nValue)
         {
             // should not happen either 
             LogPrint("sc", "ERROR %s():%d - scId=%s negative balance at height=%d\n",
                 __func__, __LINE__, scId.ToString(), maturityHeight);
             return false;
         }
+
+        iaMap[maturityHeight] -= entry.nValue;
+
+        LogPrint("sc", "%s():%d - immature amount after: %s\n",
+            __func__, __LINE__, FormatMoney(iaMap[maturityHeight]));
 
         if (iaMap[maturityHeight] == 0)
         {
