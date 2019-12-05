@@ -102,21 +102,48 @@ public:
 class ScMgr
 {
 public:
-    enum dbCreationPolicy {
+    enum persistencePolicy {
         mock = 0, //utility for UTs
-        create,
+        persist,
     };
 
   private:
+    class persistanceLayer {
+    public:
+        persistanceLayer() {};
+        ~persistanceLayer() {};
+
+        virtual bool loadPersistedDataInto(ScInfoMap & scInfoMap) = 0;
+        virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
+        virtual bool erase(const uint256& scId) = 0;
+    };
+
+    class fakePersistance final : public persistanceLayer {
+    public:
+        fakePersistance() {};
+        ~fakePersistance() {};
+        bool loadPersistedDataInto(ScInfoMap & scInfoMap) {return true; /*nothing to do, it's fake*/}
+        bool persist(const uint256& scId, const ScInfo& info) {return true; /*nothing to do, it's fake*/}
+        bool erase(const uint256& scId) {return true; /*nothing to do, it's fake*/}
+    };
+
+    class dbPersistance final : public persistanceLayer {
+        dbPersistance() {};
+        ~dbPersistance() {};
+        bool loadPersistedDataInto(ScInfoMap & scInfoMap) {return true; /*TO COMPLETE*/}
+        bool persist(const uint256& scId, const ScInfo& info) {return true; /*TO COMPLETE*/}
+        bool erase(const uint256& scId) {return true; /*TO COMPLETE*/}
+    };
+
     // Disallow instantiation outside of the class.
-    ScMgr(): db(NULL),initDone(false), chosenDbCreationPolicy(create) {}
+    ScMgr(): db(NULL),initDone(false), chosenPersistencePolicy(persist) {}
     ~ScMgr() { reset(); }
 
     mutable CCriticalSection sc_lock;
     ScInfoMap mScInfo;
     CLevelDBWrapper* db;
     bool initDone;
-    dbCreationPolicy chosenDbCreationPolicy;
+    persistencePolicy chosenPersistencePolicy;
 
     // low level api for DB
     friend class ScCoinsViewCache;
@@ -144,7 +171,7 @@ public:
 
     static ScMgr& instance();
 
-    bool initialUpdateFromDb(size_t cacheSize, bool fWipe, dbCreationPolicy dbPolicy = dbCreationPolicy::create );
+    bool initPersistence(size_t cacheSize, bool fWipe, persistencePolicy dbPolicy = persistencePolicy::persist );
     void reset(); //utility for dtor and unit tests, hence public
 
     bool sidechainExists(const uint256& scId, const ScCoinsViewCache* const scView = NULL) const;

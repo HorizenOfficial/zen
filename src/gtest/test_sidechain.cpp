@@ -23,7 +23,7 @@ public:
         SelectBaseParams(CBaseChainParams::REGTEST);
         SelectParams(CBaseChainParams::REGTEST);
 
-        sidechainManager.initialUpdateFromDb(0, true, Sidechain::ScMgr::mock);
+        sidechainManager.initPersistence(0, true, Sidechain::ScMgr::mock);
     };
 
     void TearDown() override {};
@@ -178,8 +178,6 @@ TEST_F(SidechainTestSuite, SidechainCreationsWithNegativeForwardTransferNotAreSe
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////// IsTxApplicableToState ////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-
-//TODO: FROM HERE ONWARD ONLY TX SEMANTICALLY VALID SHOULD BE USED
 
 TEST_F(SidechainTestSuite, NewScCreationsAreApplicableToState) {
     aTransaction = createSidechainTxWith(uint256S("1492"), CAmount(1953));
@@ -650,7 +648,7 @@ TEST_F(SidechainTestSuite, ManagerIsSingleton) {
 
 TEST_F(SidechainTestSuite, ManagerDoubleInitializationIsForbidden) {
     //test
-    bool res = sidechainManager.initialUpdateFromDb(size_t(0), false, Sidechain::ScMgr::mock);
+    bool res = sidechainManager.initPersistence(size_t(0), false, Sidechain::ScMgr::mock);
 
     //Checks
     EXPECT_FALSE(res) << "Db double initialization should be forbidden";

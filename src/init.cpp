@@ -1463,7 +1463,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 }
 
                 // open sidechain db, read data and populate memory objects
-                if (!Sidechain::ScMgr::instance().initialUpdateFromDb((size_t)nSideChainDBCache, fReindex) )
+                if (!Sidechain::ScMgr::instance().initPersistence((size_t)nSideChainDBCache, fReindex) )
                 {
                     strLoadError = _("Error loading sidechain database");
                     break;

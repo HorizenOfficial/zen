@@ -283,7 +283,7 @@ bool ScMgr::loadInitialDataFromDb()
     return it->status().ok();
 }
 
-bool ScMgr::initialUpdateFromDb(size_t cacheSize, bool fWipe, dbCreationPolicy dbPolicy)
+bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, persistencePolicy dbPolicy)
 {
     if (initDone)
     {
@@ -292,14 +292,14 @@ bool ScMgr::initialUpdateFromDb(size_t cacheSize, bool fWipe, dbCreationPolicy d
 
 
     initDone = true;
-    chosenDbCreationPolicy = dbPolicy;
+    chosenPersistencePolicy = dbPolicy;
 
-    if (dbPolicy == dbCreationPolicy::mock)
+    if (dbPolicy == persistencePolicy::mock)
     {
         return true; //db is not instantiated and mScInfo is kept initially empty
     }
 
-    if (dbPolicy == dbCreationPolicy::create)
+    if (dbPolicy == persistencePolicy::persist)
     {
         db = new CLevelDBWrapper(GetDataDir() / "sidechains", cacheSize, false, fWipe);
 
@@ -330,17 +330,17 @@ void ScMgr::reset()
     db = nullptr;
     mScInfo.clear();
     initDone = false;
-    chosenDbCreationPolicy = dbCreationPolicy::create; //the original one
+    chosenPersistencePolicy = persistencePolicy::persist; //the original one
 }
 
 void ScMgr::eraseFromDb(const uint256& scId)
 {
-    if (chosenDbCreationPolicy == dbCreationPolicy::mock)
+    if (chosenPersistencePolicy == persistencePolicy::mock)
     {
         return; //nothing to erase from db
     }
 
-    if (chosenDbCreationPolicy != dbCreationPolicy::create)
+    if (chosenPersistencePolicy != persistencePolicy::persist)
     {
         error("%s():%d - error specifying db creation policy", __func__, __LINE__);
         return;
@@ -380,12 +380,12 @@ void ScMgr::eraseFromDb(const uint256& scId)
 
 bool ScMgr::writeToDb(const uint256& scId, const ScInfo& info)
 {
-    if (chosenDbCreationPolicy == dbCreationPolicy::mock)
+    if (chosenPersistencePolicy == persistencePolicy::mock)
     {
         return true; //nothing to write on db
     }
 
-    if (chosenDbCreationPolicy != dbCreationPolicy::create)
+    if (chosenPersistencePolicy != persistencePolicy::persist)
     {
         return error("%s():%d - error specifying db creation policy", __func__, __LINE__);
     }
@@ -455,12 +455,12 @@ void ScMgr::dump_info()
         dump_info(entry.first);
     }
 
-    if (chosenDbCreationPolicy == dbCreationPolicy::mock)
+    if (chosenPersistencePolicy == persistencePolicy::mock)
     {
         return; //nothing to dump from db
     }
 
-    if ( chosenDbCreationPolicy != dbCreationPolicy::create)
+    if ( chosenPersistencePolicy != persistencePolicy::persist)
     {
         error("%s():%d - error specifying db creation policy", __func__, __LINE__);
         return;
