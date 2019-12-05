@@ -100,23 +100,23 @@ TEST_F(SidechainTestSuite, SproutCcNullTxsAreCurrentlySupported) {
 }
 
 //TODO FIX IT
-//TEST_F(SidechainTestSuite, SproutNonCcNullTxsAreCurrentlySupported) {
-//    aTransaction = createSproutTx(/*ccIsNull = */false);
-//
-//    //prerequisites
-//    ASSERT_TRUE(aTransaction.IsScVersion());
-//    ASSERT_TRUE(aTransaction.vjoinsplit.size() != 0);
-//    ASSERT_TRUE(txState.IsValid());
-//
-//    //test
-//    bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
-//
-//    //checks
-//    EXPECT_FALSE(res);
-//    EXPECT_FALSE(txState.IsValid());
-//    EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
-//        <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
-//}
+TEST_F(SidechainTestSuite, SproutNonCcNullTxsAreCurrentlySupported) {
+    aTransaction = createSproutTx(/*ccIsNull = */false);
+
+    //prerequisites
+    ASSERT_TRUE(aTransaction.IsScVersion());
+    ASSERT_TRUE(aTransaction.vjoinsplit.size() != 0);
+    ASSERT_TRUE(txState.IsValid());
+
+    //test
+    bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
+
+    //checks
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+        <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
 
 TEST_F(SidechainTestSuite, SidechainCreationsWithoutForwardTransferAreNotSemanticallyValid) {
     aTransaction = createSidechainTxWithNoFwdTransfer(uint256S("1492"));
