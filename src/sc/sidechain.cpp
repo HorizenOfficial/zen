@@ -10,6 +10,7 @@
 #include <boost/thread.hpp>
 #include <undo.h>
 #include <main.h>
+#include "leveldbwrapper.h"
 
 extern CChain chainActive;
 extern UniValue ValueFromAmount(const CAmount& amount);
@@ -20,12 +21,15 @@ using namespace Sidechain;
 
     class ScMgr::persistanceLayer {
     public:
-        persistanceLayer() {};
+        persistanceLayer(): _db(nullptr) {};
         virtual ~persistanceLayer() {};
 
         virtual bool loadPersistedDataInto(ScInfoMap & scInfoMap) = 0;
         virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
         virtual void erase(const uint256& scId) = 0;
+        virtual void dump_info() = 0;
+    public:
+        CLevelDBWrapper* _db;
     };
 
     class fakePersistance final : public ScMgr::persistanceLayer {
@@ -35,15 +39,20 @@ using namespace Sidechain;
         bool loadPersistedDataInto(ScInfoMap & scInfoMap) {return true; /*nothing to do, it's fake*/}
         bool persist(const uint256& scId, const ScInfo& info) {return true; /*nothing to do, it's fake*/}
         void erase(const uint256& scId) {return; }
+        void dump_info() {return;}
     };
 
     class dbPersistance final : public ScMgr::persistanceLayer {
     public:
-        dbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe) {};
+        dbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe) {
+            _db = new CLevelDBWrapper(GetDataDir() / "sidechains", nCacheSize, fMemory, fWipe);
+
+        };
         ~dbPersistance() {};
         bool loadPersistedDataInto(ScInfoMap & scInfoMap) {return true; /*TO COMPLETE*/}
         bool persist(const uint256& scId, const ScInfo& info) {return true; /*TO COMPLETE*/}
         void erase(const uint256& scId) {return; /*TO COMPLETE*/}
+        void dump_info() {return; /*TO COMPLETE*/}
     };
 
 std::string ScInfo::ToString() const
@@ -278,7 +287,7 @@ bool ScMgr::hasScCreationConflictsInMempool(const CTxMemPool& pool, const CTrans
 
 bool ScMgr::loadInitialDataFromDb()
 {
-    boost::scoped_ptr<leveldb::Iterator> it(db->NewIterator());
+    boost::scoped_ptr<leveldb::Iterator> it(pLayer->_db->NewIterator());
     for (it->SeekToFirst(); it->Valid(); it->Next())
     {
         boost::this_thread::interruption_point();
@@ -313,7 +322,7 @@ bool ScMgr::loadInitialDataFromDb()
 
 bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, persistencePolicy dbPolicy)
 {
-    if (pLayer != NULL)
+    if (pLayer != nullptr)
     {
         return error("%s():%d - could not init persistence more than once!", __func__, __LINE__);
     }
@@ -338,8 +347,6 @@ bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, persistencePolicy dbPo
 
     if (dbPolicy == persistencePolicy::persist)
     {
-        db = new CLevelDBWrapper(GetDataDir() / "sidechains", cacheSize, false, fWipe);
-
         //load initial data!
         LOCK(sc_lock);
         try
@@ -363,8 +370,8 @@ bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, persistencePolicy dbPo
 
 void ScMgr::reset()
 {
-    delete db;
-    db = nullptr;
+    delete pLayer->_db;
+    pLayer->_db = nullptr;
 
     delete pLayer;
     pLayer = nullptr;
@@ -377,7 +384,7 @@ void ScMgr::eraseFromDb(const uint256& scId)
 {
     if (chosenPersistencePolicy == persistencePolicy::mock)
     {
-        return; //nothing to erase from db
+        return pLayer->erase(scId);
     }
 
     if (chosenPersistencePolicy != persistencePolicy::persist)
@@ -386,7 +393,7 @@ void ScMgr::eraseFromDb(const uint256& scId)
         return;
     }
 
-    if (db == NULL)
+    if (pLayer->_db == NULL)
     {
         LogPrintf("%s():%d - Error: sc db not initialized\n", __func__, __LINE__);
         return;
@@ -397,7 +404,7 @@ void ScMgr::eraseFromDb(const uint256& scId)
 
     try {
         batch.Erase(std::make_pair(DB_SC_INFO, scId));
-        bool ret = db->WriteBatch(batch, true);
+        bool ret = pLayer->_db->WriteBatch(batch, true);
         if (ret)
         {
             LogPrint("sc", "%s():%d - erased scId=%s from db\n", __func__, __LINE__, scId.ToString() );
@@ -422,7 +429,7 @@ bool ScMgr::writeToDb(const uint256& scId, const ScInfo& info)
 {
     if (chosenPersistencePolicy == persistencePolicy::mock)
     {
-        return true; //nothing to write on db
+        return pLayer->persist(scId, info);
     }
 
     if (chosenPersistencePolicy != persistencePolicy::persist)
@@ -430,7 +437,7 @@ bool ScMgr::writeToDb(const uint256& scId, const ScInfo& info)
         return error("%s():%d - error specifying db creation policy", __func__, __LINE__);
     }
 
-    if (db == NULL)
+    if (pLayer->_db == NULL)
     {
         LogPrintf("%s():%d - Error: sc db not initialized\n", __func__, __LINE__);
         return false;
@@ -443,7 +450,7 @@ bool ScMgr::writeToDb(const uint256& scId, const ScInfo& info)
     try {
         batch.Write(std::make_pair(DB_SC_INFO, scId), info );
         // do it synchronously (true)
-        ret = db->WriteBatch(batch, true);
+        ret = pLayer->_db->WriteBatch(batch, true);
         if (ret)
         {
             LogPrint("sc", "%s():%d - wrote scId=%s in db\n", __func__, __LINE__, scId.ToString() );
@@ -497,7 +504,7 @@ void ScMgr::dump_info()
 
     if (chosenPersistencePolicy == persistencePolicy::mock)
     {
-        return; //nothing to dump from db
+        return pLayer->dump_info();
     }
 
     if ( chosenPersistencePolicy != persistencePolicy::persist)
@@ -506,13 +513,13 @@ void ScMgr::dump_info()
         return;
     }
 
-    if (db == NULL)
+    if (pLayer->_db == NULL)
     {
         return;
     }
 
     // dump leveldb contents on stdout
-    boost::scoped_ptr<leveldb::Iterator> it(db->NewIterator());
+    boost::scoped_ptr<leveldb::Iterator> it(pLayer->_db->NewIterator());
 
     for (it->SeekToFirst(); it->Valid(); it->Next())
     {

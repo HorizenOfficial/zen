@@ -7,7 +7,6 @@
 #include "chain.h"
 #include "hash.h"
 #include <boost/unordered_map.hpp>
-#include "leveldbwrapper.h"
 #include "sync.h"
 
 #include "sc/sidechaintypes.h"
@@ -111,7 +110,7 @@ public:
 
 private:
     // Disallow instantiation outside of the class.
-    ScMgr(): pLayer(nullptr), db(nullptr), chosenPersistencePolicy(persist) {}
+    ScMgr(): pLayer(nullptr), chosenPersistencePolicy(persist) {}
     ~ScMgr() { reset(); }
 
     mutable CCriticalSection sc_lock;
@@ -119,7 +118,6 @@ private:
 
     persistanceLayer * pLayer;
 
-    CLevelDBWrapper* db;
     persistencePolicy chosenPersistencePolicy;
 
     // low level api for DB
