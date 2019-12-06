@@ -107,35 +107,9 @@ public:
         persist,
     };
 
-  private:
-    class persistanceLayer {
-    public:
-        persistanceLayer() {};
-        ~persistanceLayer() {};
+    class persistanceLayer; //Todo: make private
 
-        virtual bool loadPersistedDataInto(ScInfoMap & scInfoMap) = 0;
-        virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
-        virtual bool erase(const uint256& scId) = 0;
-    };
-
-    class fakePersistance final : public persistanceLayer {
-    public:
-        fakePersistance() {};
-        ~fakePersistance() {};
-        bool loadPersistedDataInto(ScInfoMap & scInfoMap) {return true; /*nothing to do, it's fake*/}
-        bool persist(const uint256& scId, const ScInfo& info) {return true; /*nothing to do, it's fake*/}
-        bool erase(const uint256& scId) {return true; /*nothing to do, it's fake*/}
-    };
-
-    class dbPersistance final : public persistanceLayer {
-    public:
-        dbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe) {};
-        ~dbPersistance() {};
-        bool loadPersistedDataInto(ScInfoMap & scInfoMap) {return true; /*TO COMPLETE*/}
-        bool persist(const uint256& scId, const ScInfo& info) {return true; /*TO COMPLETE*/}
-        bool erase(const uint256& scId) {return true; /*TO COMPLETE*/}
-    };
-
+private:
     // Disallow instantiation outside of the class.
     ScMgr(): pLayer(nullptr), db(nullptr), chosenPersistencePolicy(persist) {}
     ~ScMgr() { reset(); }

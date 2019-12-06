@@ -18,6 +18,34 @@ static const char DB_SC_INFO = 'i';
 
 using namespace Sidechain;
 
+    class ScMgr::persistanceLayer {
+    public:
+        persistanceLayer() {};
+        virtual ~persistanceLayer() {};
+
+        virtual bool loadPersistedDataInto(ScInfoMap & scInfoMap) = 0;
+        virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
+        virtual void erase(const uint256& scId) = 0;
+    };
+
+    class fakePersistance final : public ScMgr::persistanceLayer {
+    public:
+        fakePersistance() {};
+        ~fakePersistance() {};
+        bool loadPersistedDataInto(ScInfoMap & scInfoMap) {return true; /*nothing to do, it's fake*/}
+        bool persist(const uint256& scId, const ScInfo& info) {return true; /*nothing to do, it's fake*/}
+        void erase(const uint256& scId) {return; }
+    };
+
+    class dbPersistance final : public ScMgr::persistanceLayer {
+    public:
+        dbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe) {};
+        ~dbPersistance() {};
+        bool loadPersistedDataInto(ScInfoMap & scInfoMap) {return true; /*TO COMPLETE*/}
+        bool persist(const uint256& scId, const ScInfo& info) {return true; /*TO COMPLETE*/}
+        void erase(const uint256& scId) {return; /*TO COMPLETE*/}
+    };
+
 std::string ScInfo::ToString() const
 {
     std::string str;
