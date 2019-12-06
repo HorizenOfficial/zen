@@ -37,18 +37,20 @@ using namespace Sidechain;
         fakePersistance() {};
         ~fakePersistance() {};
         bool loadPersistedDataInto(ScInfoMap & _mapToFill) {return true; /*nothing to do, it's fake*/}
-        bool persist(const uint256& scId, const ScInfo& info) {return true; /*nothing to do, it's fake*/}
+        bool persist(const uint256& scId, const ScInfo& info) { return true; }
         void erase(const uint256& scId) {return; }
         void dump_info() {return;}
     };
 
     class dbPersistance final : public ScMgr::persistanceLayer {
     public:
-        dbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe) {
+        dbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe)
+        {
             _db = new CLevelDBWrapper(GetDataDir() / "sidechains", nCacheSize, fMemory, fWipe);
         };
-        ~dbPersistance() {};
-        bool loadPersistedDataInto(ScInfoMap & _mapToFill) {
+        ~dbPersistance() { delete _db; _db = nullptr; };
+        bool loadPersistedDataInto(ScInfoMap & _mapToFill)
+        {
             boost::scoped_ptr<leveldb::Iterator> it(_db->NewIterator());
             for (it->SeekToFirst(); it->Valid(); it->Next())
             {
@@ -81,10 +83,71 @@ using namespace Sidechain;
 
             return it->status().ok();
         }
-        bool persist(const uint256& scId, const ScInfo& info) {return true; /*TO COMPLETE*/}
-        void erase(const uint256& scId) {return; /*TO COMPLETE*/}
+
+        bool persist(const uint256& scId, const ScInfo& info)
+        {
+            CLevelDBBatch batch;
+            bool ret = true;
+
+            try {
+                batch.Write(std::make_pair(DB_SC_INFO, scId), info );
+                // do it synchronously (true)
+                ret = _db->WriteBatch(batch, true);
+                if (ret)
+                {
+                    LogPrint("sc", "%s():%d - wrote scId=%s in db\n", __func__, __LINE__, scId.ToString() );
+                }
+                else
+                {
+                    LogPrint("sc", "%s():%d - Error: could not write scId=%s in db\n", __func__, __LINE__, scId.ToString() );
+                }
+            }
+            catch (const std::exception& e)
+            {
+                LogPrintf("%s():%d - Error: could not write scId=%s in db - %s\n", __func__, __LINE__, scId.ToString(), e.what());
+                ret = false;
+            }
+            catch (...)
+            {
+                LogPrintf("%s():%d - Error: could not write scId=%s in db\n", __func__, __LINE__, scId.ToString());
+                ret = false;
+            }
+            return ret;
+
+        }
+
+        void erase(const uint256& scId)
+        {
+            // erase from level db
+            CLevelDBBatch batch;
+
+            try {
+                batch.Erase(std::make_pair(DB_SC_INFO, scId));
+                bool ret = _db->WriteBatch(batch, true);
+                if (ret)
+                {
+                    LogPrint("sc", "%s():%d - erased scId=%s from db\n", __func__, __LINE__, scId.ToString() );
+                }
+                else
+                {
+                    LogPrint("sc", "%s():%d - Error: could not erase scId=%s from db\n", __func__, __LINE__, scId.ToString() );
+                }
+            }
+            catch (const std::exception& e)
+            {
+                LogPrintf("%s():%d - Error: could not erase scId=%s in db - %s\n", __func__, __LINE__, scId.ToString(), e.what());
+            }
+            catch (...)
+            {
+                LogPrintf("%s():%d - Error: could not erase scId=%s in db\n", __func__, __LINE__, scId.ToString());
+            }
+        }
         void dump_info() {return; /*TO COMPLETE*/}
     };
+
+/*****************************************************************************/
+/*****************************************************************************/
+/*****************************************************************************/
 
 std::string ScInfo::ToString() const
 {
@@ -373,95 +436,25 @@ void ScMgr::reset()
 
 void ScMgr::eraseFromDb(const uint256& scId)
 {
-    if (chosenPersistencePolicy == persistencePolicy::mock)
-    {
-        return pLayer->erase(scId);
-    }
-
-    if (chosenPersistencePolicy != persistencePolicy::persist)
-    {
-        error("%s():%d - error specifying db creation policy", __func__, __LINE__);
-        return;
-    }
-
-    if (pLayer->_db == NULL)
+    if (pLayer == nullptr)
     {
         LogPrintf("%s():%d - Error: sc db not initialized\n", __func__, __LINE__);
         return;
     }
 
-    // erase from level db
-    CLevelDBBatch batch;
-
-    try {
-        batch.Erase(std::make_pair(DB_SC_INFO, scId));
-        bool ret = pLayer->_db->WriteBatch(batch, true);
-        if (ret)
-        {
-            LogPrint("sc", "%s():%d - erased scId=%s from db\n", __func__, __LINE__, scId.ToString() );
-        }
-        else
-        {
-            LogPrint("sc", "%s():%d - Error: could not erase scId=%s from db\n", __func__, __LINE__, scId.ToString() );
-        }
-    }
-    catch (const std::exception& e)
-    {
-        LogPrintf("%s():%d - Error: could not erase scId=%s in db - %s\n", __func__, __LINE__, scId.ToString(), e.what());
-    }
-    catch (...)
-    {
-        LogPrintf("%s():%d - Error: could not erase scId=%s in db\n", __func__, __LINE__, scId.ToString());
-    }
+    return pLayer->erase(scId);
 }
 
 
 bool ScMgr::writeToDb(const uint256& scId, const ScInfo& info)
 {
-    if (chosenPersistencePolicy == persistencePolicy::mock)
-    {
-        return pLayer->persist(scId, info);
-    }
-
-    if (chosenPersistencePolicy != persistencePolicy::persist)
-    {
-        return error("%s():%d - error specifying db creation policy", __func__, __LINE__);
-    }
-
-    if (pLayer->_db == NULL)
+    if (pLayer == nullptr)
     {
         LogPrintf("%s():%d - Error: sc db not initialized\n", __func__, __LINE__);
         return false;
     }
 
-    // write into level db
-    CLevelDBBatch batch;
-    bool ret = true;
-
-    try {
-        batch.Write(std::make_pair(DB_SC_INFO, scId), info );
-        // do it synchronously (true)
-        ret = pLayer->_db->WriteBatch(batch, true);
-        if (ret)
-        {
-            LogPrint("sc", "%s():%d - wrote scId=%s in db\n", __func__, __LINE__, scId.ToString() );
-        }
-        else
-        {
-            LogPrint("sc", "%s():%d - Error: could not write scId=%s in db\n", __func__, __LINE__, scId.ToString() );
-        }
-    }
-    catch (const std::exception& e)
-    {
-        LogPrintf("%s():%d - Error: could not write scId=%s in db - %s\n", __func__, __LINE__, scId.ToString(), e.what());
-        ret = false;
-    }
-    catch (...)
-    {
-        LogPrintf("%s():%d - Error: could not write scId=%s in db\n", __func__, __LINE__, scId.ToString());
-        ret = false;
-    }
-    return ret;
+    return pLayer->persist(scId, info);
 }
 
 bool ScMgr::dump_info(const uint256& scId)
@@ -504,7 +497,7 @@ void ScMgr::dump_info()
         return;
     }
 
-    if (pLayer->_db == NULL)
+    if (pLayer == nullptr)
     {
         return;
     }
