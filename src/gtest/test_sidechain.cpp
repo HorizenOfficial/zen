@@ -23,7 +23,7 @@ public:
         SelectBaseParams(CBaseChainParams::REGTEST);
         SelectParams(CBaseChainParams::REGTEST);
 
-        sidechainManager.initPersistence(0, true, Sidechain::ScMgr::mock);
+        ASSERT_TRUE(sidechainManager.initPersistence(0, true, Sidechain::ScMgr::persistencePolicy::mock));
     };
 
     void TearDown() override {};

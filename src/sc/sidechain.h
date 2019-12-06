@@ -128,7 +128,8 @@ public:
     };
 
     class dbPersistance final : public persistanceLayer {
-        dbPersistance() {};
+    public:
+        dbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe) {};
         ~dbPersistance() {};
         bool loadPersistedDataInto(ScInfoMap & scInfoMap) {return true; /*TO COMPLETE*/}
         bool persist(const uint256& scId, const ScInfo& info) {return true; /*TO COMPLETE*/}
@@ -136,13 +137,15 @@ public:
     };
 
     // Disallow instantiation outside of the class.
-    ScMgr(): db(NULL),initDone(false), chosenPersistencePolicy(persist) {}
+    ScMgr(): pLayer(nullptr), db(nullptr), chosenPersistencePolicy(persist) {}
     ~ScMgr() { reset(); }
 
     mutable CCriticalSection sc_lock;
     ScInfoMap mScInfo;
+
+    persistanceLayer * pLayer;
+
     CLevelDBWrapper* db;
-    bool initDone;
     persistencePolicy chosenPersistencePolicy;
 
     // low level api for DB

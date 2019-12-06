@@ -285,14 +285,23 @@ bool ScMgr::loadInitialDataFromDb()
 
 bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, persistencePolicy dbPolicy)
 {
-    if (initDone)
+    if (pLayer != NULL)
     {
-        return error("%s():%d - could not init from db more than once!", __func__, __LINE__);
+        return error("%s():%d - could not init persistence more than once!", __func__, __LINE__);
     }
 
-
-    initDone = true;
     chosenPersistencePolicy = dbPolicy;
+
+    switch(dbPolicy) {
+    case mock:
+        pLayer = new fakePersistance();
+        break;
+    case persist:
+        pLayer = new dbPersistance(GetDataDir() / "sidechains", cacheSize, false, fWipe);
+        break;
+    default:
+        return error("%s():%d - unknown persistence policy for ScManager", __func__, __LINE__);
+    }
 
     if (dbPolicy == persistencePolicy::mock)
     {
@@ -328,8 +337,11 @@ void ScMgr::reset()
 {
     delete db;
     db = nullptr;
+
+    delete pLayer;
+    pLayer = nullptr;
+
     mScInfo.clear();
-    initDone = false;
     chosenPersistencePolicy = persistencePolicy::persist; //the original one
 }
 
