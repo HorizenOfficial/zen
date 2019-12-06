@@ -12,141 +12,160 @@
 #include <main.h>
 #include "leveldbwrapper.h"
 
-extern CChain chainActive;
-extern UniValue ValueFromAmount(const CAmount& amount);
-
 static const char DB_SC_INFO = 'i';
 
 using namespace Sidechain;
 
-    class ScMgr::persistanceLayer {
-    public:
-        persistanceLayer(): _db(nullptr) {};
-        virtual ~persistanceLayer() { delete _db; _db = nullptr;};
+/*****************************************************************************/
+/********************** PERSISTENCE LAYER IMPLEMENTATION *********************/
+/*****************************************************************************/
 
-        virtual bool loadPersistedDataInto(ScInfoMap & _mapToFill) = 0;
-        virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
-        virtual void erase(const uint256& scId) = 0;
-        virtual void dump_info() = 0;
-    public:
-        CLevelDBWrapper* _db;
-    };
+bool ScMgr::fakePersistance::loadPersistedDataInto(ScInfoMap & _mapToFill) {return true;}
+bool ScMgr::fakePersistance::persist(const uint256& scId, const ScInfo& info) { return true; }
+void ScMgr::fakePersistance::erase(const uint256& scId) {return; }
+void ScMgr::fakePersistance::dump_info() {return;}
 
-    class fakePersistance final : public ScMgr::persistanceLayer {
-    public:
-        fakePersistance() {};
-        ~fakePersistance() {};
-        bool loadPersistedDataInto(ScInfoMap & _mapToFill) {return true; /*nothing to do, it's fake*/}
-        bool persist(const uint256& scId, const ScInfo& info) { return true; }
-        void erase(const uint256& scId) {return; }
-        void dump_info() {return;}
-    };
 
-    class dbPersistance final : public ScMgr::persistanceLayer {
-    public:
-        dbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe)
+ScMgr::dbPersistance::dbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe)
+{
+    _db = new CLevelDBWrapper(GetDataDir() / "sidechains", nCacheSize, fMemory, fWipe);
+}
+
+ScMgr::dbPersistance::~dbPersistance() { delete _db; _db = nullptr; };
+
+bool ScMgr::dbPersistance::loadPersistedDataInto(ScInfoMap & _mapToFill)
+{
+    boost::scoped_ptr<leveldb::Iterator> it(_db->NewIterator());
+    for (it->SeekToFirst(); it->Valid(); it->Next())
+    {
+        boost::this_thread::interruption_point();
+
+        leveldb::Slice slKey = it->key();
+        CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
+        char chType;
+        uint256 keyScId;
+        ssKey >> chType;
+        ssKey >> keyScId;;
+
+        if (chType == DB_SC_INFO)
         {
-            _db = new CLevelDBWrapper(GetDataDir() / "sidechains", nCacheSize, fMemory, fWipe);
-        };
-        ~dbPersistance() { delete _db; _db = nullptr; };
-        bool loadPersistedDataInto(ScInfoMap & _mapToFill)
-        {
-            boost::scoped_ptr<leveldb::Iterator> it(_db->NewIterator());
-            for (it->SeekToFirst(); it->Valid(); it->Next())
-            {
-                boost::this_thread::interruption_point();
+            leveldb::Slice slValue = it->value();
+            CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
+            ScInfo info;
+            ssValue >> info;
 
-                leveldb::Slice slKey = it->key();
-                CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
-                char chType;
-                uint256 keyScId;
-                ssKey >> chType;
-                ssKey >> keyScId;;
-
-                if (chType == DB_SC_INFO)
-                {
-                    leveldb::Slice slValue = it->value();
-                    CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
-                    ScInfo info;
-                    ssValue >> info;
-
-                    _mapToFill[keyScId] = info;
-                    LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, keyScId.ToString() );
-                }
-                else
-                {
-                    // should never happen
-                    LogPrintf("%s():%d - Error: could not read from db, invalid record type %c\n", __func__, __LINE__, chType);
-                    return false;
-                }
-            }
-
-            return it->status().ok();
+            _mapToFill[keyScId] = info;
+            LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, keyScId.ToString() );
         }
-
-        bool persist(const uint256& scId, const ScInfo& info)
+        else
         {
-            CLevelDBBatch batch;
-            bool ret = true;
-
-            try {
-                batch.Write(std::make_pair(DB_SC_INFO, scId), info );
-                // do it synchronously (true)
-                ret = _db->WriteBatch(batch, true);
-                if (ret)
-                {
-                    LogPrint("sc", "%s():%d - wrote scId=%s in db\n", __func__, __LINE__, scId.ToString() );
-                }
-                else
-                {
-                    LogPrint("sc", "%s():%d - Error: could not write scId=%s in db\n", __func__, __LINE__, scId.ToString() );
-                }
-            }
-            catch (const std::exception& e)
-            {
-                LogPrintf("%s():%d - Error: could not write scId=%s in db - %s\n", __func__, __LINE__, scId.ToString(), e.what());
-                ret = false;
-            }
-            catch (...)
-            {
-                LogPrintf("%s():%d - Error: could not write scId=%s in db\n", __func__, __LINE__, scId.ToString());
-                ret = false;
-            }
-            return ret;
-
+            // should never happen
+            LogPrintf("%s():%d - Error: could not read from db, invalid record type %c\n", __func__, __LINE__, chType);
+            return false;
         }
+    }
 
-        void erase(const uint256& scId)
+    return it->status().ok();
+}
+
+bool ScMgr::dbPersistance::persist(const uint256& scId, const ScInfo& info)
+{
+    CLevelDBBatch batch;
+    bool ret = true;
+
+    try {
+        batch.Write(std::make_pair(DB_SC_INFO, scId), info );
+        // do it synchronously (true)
+        ret = _db->WriteBatch(batch, true);
+        if (ret)
         {
-            // erase from level db
-            CLevelDBBatch batch;
-
-            try {
-                batch.Erase(std::make_pair(DB_SC_INFO, scId));
-                bool ret = _db->WriteBatch(batch, true);
-                if (ret)
-                {
-                    LogPrint("sc", "%s():%d - erased scId=%s from db\n", __func__, __LINE__, scId.ToString() );
-                }
-                else
-                {
-                    LogPrint("sc", "%s():%d - Error: could not erase scId=%s from db\n", __func__, __LINE__, scId.ToString() );
-                }
-            }
-            catch (const std::exception& e)
-            {
-                LogPrintf("%s():%d - Error: could not erase scId=%s in db - %s\n", __func__, __LINE__, scId.ToString(), e.what());
-            }
-            catch (...)
-            {
-                LogPrintf("%s():%d - Error: could not erase scId=%s in db\n", __func__, __LINE__, scId.ToString());
-            }
+            LogPrint("sc", "%s():%d - wrote scId=%s in db\n", __func__, __LINE__, scId.ToString() );
         }
-        void dump_info() {return; /*TO COMPLETE*/}
-    };
+        else
+        {
+            LogPrint("sc", "%s():%d - Error: could not write scId=%s in db\n", __func__, __LINE__, scId.ToString() );
+        }
+    }
+    catch (const std::exception& e)
+    {
+        LogPrintf("%s():%d - Error: could not write scId=%s in db - %s\n", __func__, __LINE__, scId.ToString(), e.what());
+        ret = false;
+    }
+    catch (...)
+    {
+        LogPrintf("%s():%d - Error: could not write scId=%s in db\n", __func__, __LINE__, scId.ToString());
+        ret = false;
+    }
+    return ret;
+
+}
+
+void ScMgr::dbPersistance::erase(const uint256& scId)
+{
+    // erase from level db
+    CLevelDBBatch batch;
+
+    try {
+        batch.Erase(std::make_pair(DB_SC_INFO, scId));
+        bool ret = _db->WriteBatch(batch, true);
+        if (ret)
+        {
+            LogPrint("sc", "%s():%d - erased scId=%s from db\n", __func__, __LINE__, scId.ToString() );
+        }
+        else
+        {
+            LogPrint("sc", "%s():%d - Error: could not erase scId=%s from db\n", __func__, __LINE__, scId.ToString() );
+        }
+    }
+    catch (const std::exception& e)
+    {
+        LogPrintf("%s():%d - Error: could not erase scId=%s in db - %s\n", __func__, __LINE__, scId.ToString(), e.what());
+    }
+    catch (...)
+    {
+        LogPrintf("%s():%d - Error: could not erase scId=%s in db\n", __func__, __LINE__, scId.ToString());
+    }
+}
+
+void ScMgr::dbPersistance::dump_info()
+{
+    // dump leveldb contents on stdout
+    boost::scoped_ptr<leveldb::Iterator> it(_db->NewIterator());
+
+    for (it->SeekToFirst(); it->Valid(); it->Next())
+    {
+        leveldb::Slice slKey = it->key();
+        CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
+        char chType;
+        uint256 keyScId;
+        ssKey >> chType;
+        ssKey >> keyScId;;
+
+        if (chType == DB_SC_INFO)
+        {
+            leveldb::Slice slValue = it->value();
+            CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
+            ScInfo info;
+            ssValue >> info;
+
+            std::cout
+                << "scId[" << keyScId.ToString() << "]" << std::endl
+                << "  ==> balance: " << FormatMoney(info.balance) << std::endl
+                << "  creating block hash: " << info.creationBlockHash.ToString() <<
+                   " (height: " << info.creationBlockHeight << ")" << std::endl
+                << "  creating tx hash: " << info.creationTxHash.ToString() << std::endl
+                // creation parameters
+                << "  withdrawalEpochLength: " << info.creationData.withdrawalEpochLength << std::endl;
+        }
+        else
+        {
+            std::cout << "unknown type " << chType << std::endl;
+        }
+    }
+}
 
 /*****************************************************************************/
-/*****************************************************************************/
+/****************** END OF PERSISTENCE LAYER IMPLEMENTATION ******************/
 /*****************************************************************************/
 
 std::string ScInfo::ToString() const
@@ -379,11 +398,6 @@ bool ScMgr::hasScCreationConflictsInMempool(const CTxMemPool& pool, const CTrans
     return true;
 }
 
-bool ScMgr::loadInitialDataFromDb(ScInfoMap & _mapToFill)
-{
-    throw;
-}
-
 bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, const persistencePolicy & dbPolicy)
 {
     if (pLayer != nullptr)
@@ -391,13 +405,11 @@ bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, const persistencePolic
         return error("%s():%d - could not init persistence more than once!", __func__, __LINE__);
     }
 
-    chosenPersistencePolicy = dbPolicy;
-
     switch(dbPolicy) {
-    case mock:
+    case STUB:
         pLayer = new fakePersistance();
         break;
-    case persist:
+    case PERSIST:
         pLayer = new dbPersistance(GetDataDir() / "sidechains", cacheSize, false, fWipe);
         break;
     default:
@@ -424,21 +436,17 @@ bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, const persistencePolic
 
 void ScMgr::reset()
 {
-    if (pLayer != nullptr)
-    {
-        delete pLayer;
-        pLayer = nullptr;
-    }
+    delete pLayer;
+    pLayer = nullptr;
 
     mScInfo.clear();
-    chosenPersistencePolicy = persistencePolicy::persist; //the original one
 }
 
-void ScMgr::eraseFromDb(const uint256& scId)
+void ScMgr::erase(const uint256& scId)
 {
     if (pLayer == nullptr)
     {
-        LogPrintf("%s():%d - Error: sc db not initialized\n", __func__, __LINE__);
+        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
         return;
     }
 
@@ -446,11 +454,11 @@ void ScMgr::eraseFromDb(const uint256& scId)
 }
 
 
-bool ScMgr::writeToDb(const uint256& scId, const ScInfo& info)
+bool ScMgr::persist(const uint256& scId, const ScInfo& info)
 {
     if (pLayer == nullptr)
     {
-        LogPrintf("%s():%d - Error: sc db not initialized\n", __func__, __LINE__);
+        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
         return false;
     }
 
@@ -486,55 +494,12 @@ void ScMgr::dump_info()
         dump_info(entry.first);
     }
 
-    if (chosenPersistencePolicy == persistencePolicy::mock)
-    {
-        return pLayer->dump_info();
-    }
-
-    if ( chosenPersistencePolicy != persistencePolicy::persist)
-    {
-        error("%s():%d - error specifying db creation policy", __func__, __LINE__);
-        return;
-    }
-
     if (pLayer == nullptr)
     {
         return;
     }
 
-    // dump leveldb contents on stdout
-    boost::scoped_ptr<leveldb::Iterator> it(pLayer->_db->NewIterator());
-
-    for (it->SeekToFirst(); it->Valid(); it->Next())
-    {
-        leveldb::Slice slKey = it->key();
-        CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
-        char chType;
-        uint256 keyScId;
-        ssKey >> chType;
-        ssKey >> keyScId;;
-
-        if (chType == DB_SC_INFO)
-        {
-            leveldb::Slice slValue = it->value();
-            CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
-            ScInfo info;
-            ssValue >> info;
-
-            std::cout
-                << "scId[" << keyScId.ToString() << "]" << std::endl
-                << "  ==> balance: " << FormatMoney(info.balance) << std::endl
-                << "  creating block hash: " << info.creationBlockHash.ToString() <<
-                   " (height: " << info.creationBlockHeight << ")" << std::endl
-                << "  creating tx hash: " << info.creationTxHash.ToString() << std::endl
-                // creation parameters
-                << "  withdrawalEpochLength: " << info.creationData.withdrawalEpochLength << std::endl;
-        }
-        else
-        {
-            std::cout << "unknown type " << chType << std::endl;
-        }
-    }
+    return pLayer->dump_info();
 }
 
 bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, int blockHeight)
@@ -831,7 +796,7 @@ bool ScCoinsViewCache::Flush()
         }
 
         // write to db
-        if (!ScMgr::instance().writeToDb(entry.first, entry.second) )
+        if (!ScMgr::instance().persist(entry.first, entry.second) )
         {
             return false;
         }
@@ -852,7 +817,7 @@ bool ScCoinsViewCache::Flush()
         {
             // erase from db
             LogPrint("sc", "%s():%d - erased scId=%s from memory\n", __func__, __LINE__, entry.ToString() );
-            ScMgr::instance().eraseFromDb(entry);
+            ScMgr::instance().erase(entry);
         }
         else
         {

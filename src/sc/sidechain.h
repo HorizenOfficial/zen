@@ -16,6 +16,7 @@ class CTxMemPool;
 class CBlockUndo;
 class UniValue;
 class CValidationState;
+class CLevelDBWrapper;
 
 namespace Sidechain
 {
@@ -102,30 +103,57 @@ class ScMgr
 {
 public:
     enum persistencePolicy {
-        mock = 0, //utility for UTs
-        persist,
+        STUB = 0, //utility for UTs
+        PERSIST,
     };
 
-    class persistanceLayer; //Todo: make private
-
 private:
+    class persistenceLayer {
+    public:
+        persistenceLayer() = default;
+        virtual ~persistenceLayer() = default;
+        virtual bool loadPersistedDataInto(ScInfoMap & _mapToFill) = 0;
+        virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
+        virtual void erase(const uint256& scId) = 0;
+        virtual void dump_info() = 0;
+    };
+
+    class fakePersistance final : public ScMgr::persistenceLayer {
+    public:
+        fakePersistance() = default;
+        ~fakePersistance() = default;
+        bool loadPersistedDataInto(ScInfoMap & _mapToFill);
+        bool persist(const uint256& scId, const ScInfo& info);
+        void erase(const uint256& scId);
+        void dump_info();
+    };
+
+    class dbPersistance final : public ScMgr::persistenceLayer {
+    public:
+        dbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe);
+        ~dbPersistance();
+        bool loadPersistedDataInto(ScInfoMap & _mapToFill);
+        bool persist(const uint256& scId, const ScInfo& info);
+        void erase(const uint256& scId);
+        void dump_info();
+    private:
+        CLevelDBWrapper* _db;
+    };
+
     // Disallow instantiation outside of the class.
-    ScMgr(): pLayer(nullptr), chosenPersistencePolicy(persist) {}
+    ScMgr(): pLayer(nullptr){}
     ~ScMgr() { reset(); }
 
     mutable CCriticalSection sc_lock;
     ScInfoMap mScInfo;
 
-    persistanceLayer * pLayer;
-
-    persistencePolicy chosenPersistencePolicy;
+    persistenceLayer * pLayer;
 
     // low level api for DB
     friend class ScCoinsViewCache;
 
-    bool loadInitialDataFromDb(ScInfoMap & _mapToFill);
-    bool writeToDb(const uint256& scId, const ScInfo& info);
-    void eraseFromDb(const uint256& scId);
+    bool persist(const uint256& scId, const ScInfo& info);
+    void erase(const uint256& scId);
 
     bool checkScCreation(const CTransaction& tx, CValidationState& state);
     bool hasScCreationConflictsInMempool(const CTxMemPool& pool, const CTransaction& tx);
@@ -146,7 +174,7 @@ private:
 
     static ScMgr& instance();
 
-    bool initPersistence(size_t cacheSize, bool fWipe, const persistencePolicy & dbPolicy = persistencePolicy::persist );
+    bool initPersistence(size_t cacheSize, bool fWipe, const persistencePolicy & dbPolicy = persistencePolicy::PERSIST );
     void reset(); //utility for dtor and unit tests, hence public
 
     bool sidechainExists(const uint256& scId, const ScCoinsViewCache* const scView = NULL) const;

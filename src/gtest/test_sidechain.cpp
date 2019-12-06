@@ -23,7 +23,7 @@ public:
         SelectBaseParams(CBaseChainParams::REGTEST);
         SelectParams(CBaseChainParams::REGTEST);
 
-        ASSERT_TRUE(sidechainManager.initPersistence(0, true, Sidechain::ScMgr::persistencePolicy::mock));
+        ASSERT_TRUE(sidechainManager.initPersistence(0, false, Sidechain::ScMgr::persistencePolicy::STUB));
     };
 
     void TearDown() override {};
@@ -577,6 +577,9 @@ TEST_F(SidechainTestSuite, FlushAlignsPersistedTxsWithViewOnes) {
     aTransaction = createSidechainTxWith(uint256S("a1b2"), CAmount(1));
     coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
 
+    //prerequisites
+    ASSERT_TRUE(sidechainManager.getScInfoMap().size() == 0);
+
     //test
     bool res = coinViewCache.Flush();
 
@@ -648,7 +651,7 @@ TEST_F(SidechainTestSuite, ManagerIsSingleton) {
 
 TEST_F(SidechainTestSuite, ManagerDoubleInitializationIsForbidden) {
     //test
-    bool res = sidechainManager.initPersistence(size_t(0), false, Sidechain::ScMgr::mock);
+    bool res = sidechainManager.initPersistence(size_t(0), false, Sidechain::ScMgr::STUB);
 
     //Checks
     EXPECT_FALSE(res) << "Db double initialization should be forbidden";
@@ -684,7 +687,7 @@ CTransaction SidechainTestSuite::createSidechainTxWith(const uint256 & newScId, 
     mtx.vjoinsplit.resize(0);
     signTx(mtx);
 
-    assert(CheckTransactionWithoutProofVerification(mtx, txState));
+    //assert(CheckTransactionWithoutProofVerification(mtx, txState));
     return CTransaction(mtx);
 }
 
@@ -696,7 +699,7 @@ CTransaction SidechainTestSuite::createFwdTransferTxWith(const uint256 & newScId
     mtx.vsc_ccout.resize(0);
     signTx(mtx);
 
-    assert(CheckTransactionWithoutProofVerification(mtx, txState));
+    //assert(CheckTransactionWithoutProofVerification(mtx, txState));
     return CTransaction(mtx);
 }
 
@@ -708,7 +711,7 @@ CTransaction SidechainTestSuite::createSidechainTxWithNoFwdTransfer(const uint25
     mtx.vft_ccout.resize(0);
     signTx(mtx);
 
-    assert(CheckTransactionWithoutProofVerification(mtx, txState));
+    //assert(CheckTransactionWithoutProofVerification(mtx, txState));
     return CTransaction(mtx);
 }
 
@@ -723,7 +726,7 @@ CTransaction SidechainTestSuite::createTransparentTx(bool ccIsNull) {
     }
     signTx(mtx);
 
-    assert(CheckTransactionWithoutProofVerification(mtx, txState));
+    //assert(CheckTransactionWithoutProofVerification(mtx, txState));
     return CTransaction(mtx);
 }
 
@@ -742,7 +745,7 @@ CTransaction SidechainTestSuite::createSproutTx(bool ccIsNull)
     }
     signTx(mtx);
 
-    assert(CheckTransactionWithoutProofVerification(mtx, txState));
+    //assert(CheckTransactionWithoutProofVerification(mtx, txState));
     return CTransaction(mtx);
 }
 
