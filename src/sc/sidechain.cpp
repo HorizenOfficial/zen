@@ -22,7 +22,7 @@ using namespace Sidechain;
     class ScMgr::persistanceLayer {
     public:
         persistanceLayer(): _db(nullptr) {};
-        virtual ~persistanceLayer() {};
+        virtual ~persistanceLayer() { delete _db; _db = nullptr;};
 
         virtual bool loadPersistedDataInto(ScInfoMap & scInfoMap) = 0;
         virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
@@ -46,7 +46,6 @@ using namespace Sidechain;
     public:
         dbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe) {
             _db = new CLevelDBWrapper(GetDataDir() / "sidechains", nCacheSize, fMemory, fWipe);
-
         };
         ~dbPersistance() {};
         bool loadPersistedDataInto(ScInfoMap & scInfoMap) {return true; /*TO COMPLETE*/}
@@ -285,7 +284,7 @@ bool ScMgr::hasScCreationConflictsInMempool(const CTxMemPool& pool, const CTrans
     return true;
 }
 
-bool ScMgr::loadInitialDataFromDb()
+bool ScMgr::loadInitialDataFromDb(ScInfoMap & _mapToFill)
 {
     boost::scoped_ptr<leveldb::Iterator> it(pLayer->_db->NewIterator());
     for (it->SeekToFirst(); it->Valid(); it->Next())
@@ -306,7 +305,7 @@ bool ScMgr::loadInitialDataFromDb()
             ScInfo info;
             ssValue >> info;
 
-            mScInfo[keyScId] = info;
+            _mapToFill[keyScId] = info;
             LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, keyScId.ToString() );
         }
         else
@@ -320,7 +319,7 @@ bool ScMgr::loadInitialDataFromDb()
     return it->status().ok();
 }
 
-bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, persistencePolicy dbPolicy)
+bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, const persistencePolicy & dbPolicy)
 {
     if (pLayer != nullptr)
     {
@@ -351,7 +350,7 @@ bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, persistencePolicy dbPo
         LOCK(sc_lock);
         try
         {
-            bool res = loadInitialDataFromDb();
+            bool res = loadInitialDataFromDb(mScInfo);
             if (!res)
             {
                 return error("%s():%d - error occurred during db scan", __func__, __LINE__);
@@ -370,11 +369,11 @@ bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, persistencePolicy dbPo
 
 void ScMgr::reset()
 {
-    delete pLayer->_db;
-    pLayer->_db = nullptr;
-
-    delete pLayer;
-    pLayer = nullptr;
+    if (pLayer != nullptr)
+    {
+        delete pLayer;
+        pLayer = nullptr;
+    }
 
     mScInfo.clear();
     chosenPersistencePolicy = persistencePolicy::persist; //the original one

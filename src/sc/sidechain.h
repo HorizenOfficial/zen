@@ -123,7 +123,7 @@ private:
     // low level api for DB
     friend class ScCoinsViewCache;
 
-    bool loadInitialDataFromDb();
+    bool loadInitialDataFromDb(ScInfoMap & _mapToFill);
     bool writeToDb(const uint256& scId, const ScInfo& info);
     void eraseFromDb(const uint256& scId);
 
@@ -146,7 +146,7 @@ private:
 
     static ScMgr& instance();
 
-    bool initPersistence(size_t cacheSize, bool fWipe, persistencePolicy dbPolicy = persistencePolicy::persist );
+    bool initPersistence(size_t cacheSize, bool fWipe, const persistencePolicy & dbPolicy = persistencePolicy::persist );
     void reset(); //utility for dtor and unit tests, hence public
 
     bool sidechainExists(const uint256& scId, const ScCoinsViewCache* const scView = NULL) const;
