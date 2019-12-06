@@ -24,7 +24,7 @@ using namespace Sidechain;
         persistanceLayer(): _db(nullptr) {};
         virtual ~persistanceLayer() { delete _db; _db = nullptr;};
 
-        virtual bool loadPersistedDataInto(ScInfoMap & scInfoMap) = 0;
+        virtual bool loadPersistedDataInto(ScInfoMap & _mapToFill) = 0;
         virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
         virtual void erase(const uint256& scId) = 0;
         virtual void dump_info() = 0;
@@ -36,7 +36,7 @@ using namespace Sidechain;
     public:
         fakePersistance() {};
         ~fakePersistance() {};
-        bool loadPersistedDataInto(ScInfoMap & scInfoMap) {return true; /*nothing to do, it's fake*/}
+        bool loadPersistedDataInto(ScInfoMap & _mapToFill) {return true; /*nothing to do, it's fake*/}
         bool persist(const uint256& scId, const ScInfo& info) {return true; /*nothing to do, it's fake*/}
         void erase(const uint256& scId) {return; }
         void dump_info() {return;}
@@ -48,7 +48,39 @@ using namespace Sidechain;
             _db = new CLevelDBWrapper(GetDataDir() / "sidechains", nCacheSize, fMemory, fWipe);
         };
         ~dbPersistance() {};
-        bool loadPersistedDataInto(ScInfoMap & scInfoMap) {return true; /*TO COMPLETE*/}
+        bool loadPersistedDataInto(ScInfoMap & _mapToFill) {
+            boost::scoped_ptr<leveldb::Iterator> it(_db->NewIterator());
+            for (it->SeekToFirst(); it->Valid(); it->Next())
+            {
+                boost::this_thread::interruption_point();
+
+                leveldb::Slice slKey = it->key();
+                CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
+                char chType;
+                uint256 keyScId;
+                ssKey >> chType;
+                ssKey >> keyScId;;
+
+                if (chType == DB_SC_INFO)
+                {
+                    leveldb::Slice slValue = it->value();
+                    CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
+                    ScInfo info;
+                    ssValue >> info;
+
+                    _mapToFill[keyScId] = info;
+                    LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, keyScId.ToString() );
+                }
+                else
+                {
+                    // should never happen
+                    LogPrintf("%s():%d - Error: could not read from db, invalid record type %c\n", __func__, __LINE__, chType);
+                    return false;
+                }
+            }
+
+            return it->status().ok();
+        }
         bool persist(const uint256& scId, const ScInfo& info) {return true; /*TO COMPLETE*/}
         void erase(const uint256& scId) {return; /*TO COMPLETE*/}
         void dump_info() {return; /*TO COMPLETE*/}
@@ -286,37 +318,7 @@ bool ScMgr::hasScCreationConflictsInMempool(const CTxMemPool& pool, const CTrans
 
 bool ScMgr::loadInitialDataFromDb(ScInfoMap & _mapToFill)
 {
-    boost::scoped_ptr<leveldb::Iterator> it(pLayer->_db->NewIterator());
-    for (it->SeekToFirst(); it->Valid(); it->Next())
-    {
-        boost::this_thread::interruption_point();
-
-        leveldb::Slice slKey = it->key();
-        CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
-        char chType;
-        uint256 keyScId;
-        ssKey >> chType;
-        ssKey >> keyScId;;
-
-        if (chType == DB_SC_INFO)
-        {
-            leveldb::Slice slValue = it->value();
-            CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
-            ScInfo info;
-            ssValue >> info;
-
-            _mapToFill[keyScId] = info;
-            LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, keyScId.ToString() );
-        }
-        else
-        {
-            // should never happen
-            LogPrintf("%s():%d - Error: could not read from db, invalid record type %c\n", __func__, __LINE__, chType);
-            return false;
-        }
-    }
-
-    return it->status().ok();
+    throw;
 }
 
 bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, const persistencePolicy & dbPolicy)
@@ -339,32 +341,22 @@ bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, const persistencePolic
         return error("%s():%d - unknown persistence policy for ScManager", __func__, __LINE__);
     }
 
-    if (dbPolicy == persistencePolicy::mock)
+    //load initial data!
+    LOCK(sc_lock);
+    try
     {
-        return true; //db is not instantiated and mScInfo is kept initially empty
+        bool res = pLayer->loadPersistedDataInto(mScInfo);
+        if (!res)
+        {
+            return error("%s():%d - error occurred during db scan", __func__, __LINE__);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        return error("%s: Deserialize or I/O error - %s", __func__, e.what());
     }
 
-    if (dbPolicy == persistencePolicy::persist)
-    {
-        //load initial data!
-        LOCK(sc_lock);
-        try
-        {
-            bool res = loadInitialDataFromDb(mScInfo);
-            if (!res)
-            {
-                return error("%s():%d - error occurred during db scan", __func__, __LINE__);
-            }
-        }
-        catch (const std::exception& e)
-        {
-            return error("%s: Deserialize or I/O error - %s", __func__, e.what());
-        }
-
-        return true;
-    }
-
-    return error("%s():%d - error specifying db creation policy", __func__, __LINE__);
+    return true;
 }
 
 void ScMgr::reset()
