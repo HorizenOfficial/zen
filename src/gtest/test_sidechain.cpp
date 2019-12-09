@@ -294,7 +294,9 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceBeforeCoins
 
     //check
     EXPECT_TRUE(res);
-    EXPECT_TRUE(coinViewCache.getScInfoMap().at(scId).balance < initialAmount)
+
+    coinViewCache.Flush();
+    EXPECT_TRUE(sidechainManager.getScBalance(scId) < initialAmount)
         <<"resulting balance is "<<coinViewCache.getScInfoMap().at(scId).balance
         <<" while initial amount is "<<initialAmount;
 }
@@ -314,7 +316,9 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferModifiesScBalanceAtCoinMaturity) 
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_TRUE(coinViewCache.getScInfoMap().at(scId).balance == initialAmount)
+
+    coinViewCache.Flush();
+    EXPECT_TRUE(sidechainManager.getScBalance(scId) == initialAmount)
         <<"resulting balance is "<<coinViewCache.getScInfoMap().at(scId).balance
         <<" expected one is "<<initialAmount;
 }
@@ -334,7 +338,9 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceAfterCoinsM
 
     //check
     EXPECT_FALSE(res);
-    EXPECT_TRUE(coinViewCache.getScInfoMap().at(scId).balance < initialAmount)
+
+    coinViewCache.Flush();
+    EXPECT_TRUE(sidechainManager.getScBalance(scId) < initialAmount)
         <<"resulting balance is "<<coinViewCache.getScInfoMap().at(scId).balance
         <<" while initial amount is "<<initialAmount;
 }
