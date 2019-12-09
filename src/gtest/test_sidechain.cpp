@@ -636,6 +636,22 @@ TEST_F(SidechainTestSuite, FlushPersistsForwardTransfers) {
         <<"Following flush, persisted fwd amount should equal the one in view";
 }
 
+TEST_F(SidechainTestSuite, FlushPersistScErasureToo) {
+    uint256 scId = uint256S("a1b2");
+    aTransaction = createSidechainTxWith(scId, CAmount(10));
+    coinViewCache.UpdateScInfo(aTransaction, aBlock, anHeight);
+    coinViewCache.Flush();
+
+    coinViewCache.RevertTxOutputs(aTransaction, anHeight);
+
+    //test
+    bool res = coinViewCache.Flush();
+
+    //checks
+    EXPECT_TRUE(res);
+    EXPECT_FALSE(sidechainManager.sidechainExists(scId));
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// Structural UTs ////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////

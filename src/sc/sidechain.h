@@ -147,10 +147,8 @@ private:
     mutable CCriticalSection sc_lock;
     ScInfoMap mScInfo;
 
-    persistenceLayer * pLayer;
-
-    // low level api for DB
     friend class ScCoinsViewCache;
+    persistenceLayer * pLayer;
 
     bool persist(const uint256& scId, const ScInfo& info);
     void erase(const uint256& scId);
