@@ -417,6 +417,7 @@ void CWallet::ChainTip(const CBlockIndex *pindex, const CBlock *pblock,
 
 void CWallet::SetBestChain(const CBlockLocator& loc)
 {
+    LOCK(cs_wallet);
     CWalletDB walletdb(strWalletFile);
     SetBestChainINTERNAL(walletdb, loc);
 }
