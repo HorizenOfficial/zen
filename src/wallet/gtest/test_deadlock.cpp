@@ -2,39 +2,14 @@
 #include <gtest/gtest.h>
 #include <sodium.h>
 
-#include "base58.h"
-#include "chainparams.h"
-#include "main.h"
-#include "primitives/block.h"
-#include "random.h"
-#include "utiltest.h"
-#include "wallet/wallet.h"
-#include "zcash/JoinSplit.hpp"
-#include "zcash/Note.hpp"
-#include "zcash/NoteEncryption.hpp"
-
 #include <boost/filesystem.hpp>
-
-#include <iostream>
 #include <thread>
-#include <initializer_list>
-#include <vector>
-#include <typeinfo>
-#include "db_cxx.h"
-#include "zcash/Address.hpp"
-#include <cstdlib>
-#include <pthread.h>
-#include <sys/prctl.h>
-
-#include <unistd.h>
-#include <chrono>
-#include <future>
-#include <unordered_map>
-
-#include <boost/thread.hpp>
 #include <atomic>
 
-using ::testing::Return;
+#include "zcash/JoinSplit.hpp"
+#include "wallet/wallet.h"
+#include "utiltest.h"
+
 using namespace libzcash;
 
 extern ZCJoinSplit *params;
@@ -44,6 +19,7 @@ CWalletTx GetValidTx(const libzcash::SpendingKey &sk, CAmount value,
 		bool randomInputs) {
 	return GetValidReceive(*params, sk, value, randomInputs);
 }
+
 
 TEST(deadlock_test, setup_datadir_location_run_as_first_test) {
 	// Get temporary and unique path for file.
