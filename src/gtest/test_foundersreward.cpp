@@ -13,6 +13,8 @@
 #include <vector>
 #include <boost/filesystem.hpp>
 #include "util.h"
+#include <boost/assign/list_of.hpp>
+
 
 // To run tests:
 // ./zcash-gtest --gtest_filter="founders_reward_test.*"
@@ -22,9 +24,9 @@
 // The output can be copied into chainparams.cpp.
 // The temporary wallet file can be renamed as wallet.dat and used for testing with zcashd.
 //
-#if 0
+
 TEST(founders_reward_test, create_testnet_2of3multisig) {
-    ECC_Start();
+    //ECC_Start(); this is called on the main class of gtest
     SelectParams(CBaseChainParams::TESTNET);
     boost::filesystem::path pathTemp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
     boost::filesystem::create_directories(pathTemp);
@@ -81,21 +83,24 @@ TEST(founders_reward_test, create_testnet_2of3multisig) {
 
     pWallet->Flush(true);
 
-    ECC_Stop();
+    //ECC_Stop(); this is called on the main class of gtest
 }
-#endif
 
 
-#if 0 // Disabling all these tests for now until all the latest horizen commits have been integrated then will re-enable and fix
+
 
 // Utility method to check the number of unique addresses from height 1 to maxHeight
 void checkNumberOfUniqueAddresses(int nUnique) {
 
-    int maxHeight = Params().GetConsensus().GetLastFoundersRewardBlockHeight();
+    int maxHeight = Params().GetConsensus().GetLastCommunityRewardBlockHeight();
     printf("maxHeight = %d\n",maxHeight);
     std::set<std::string> addresses;
     for (int i = 1; i <= maxHeight; i++) {
-        addresses.insert(Params().GetFoundersRewardAddressAtHeight(i));
+    	if(Params().GetCommunityFundAddressAtHeight(i, Fork::CommunityFundType::FOUNDATION).size()>0){
+    		auto result=addresses.insert(Params().GetCommunityFundAddressAtHeight(i, Fork::CommunityFundType::FOUNDATION));
+
+    	}
+
     }
     std::set<std::string>::iterator it;
     for (it = addresses.begin(); it != addresses.end(); it++) {
@@ -107,34 +112,44 @@ void checkNumberOfUniqueAddresses(int nUnique) {
 
 
 TEST(founders_reward_test, general) {
+
     SelectParams(CBaseChainParams::TESTNET);
 
     CChainParams params = Params();
     
-    // Fourth testnet reward:
-    // address = zrBAG3pXCTDq14nivNK9mW8SfwMNcdmMQpb
-    // script.ToString() = OP_HASH160 9990975a435209031e247dccf9bc3e3ed3c81339 OP_EQUAL
-    // HexStr(script) = a9149990975a435209031e247dccf9bc3e3ed3c8133987
-    
-    EXPECT_EQ(params.GetFoundersRewardScriptAtHeight(1), ParseHex("a9149990975a435209031e247dccf9bc3e3ed3c8133987"));
-    EXPECT_EQ(params.GetFoundersRewardAddressAtHeight(1), "zrH8KT8KUcpKKNBu3fjH4hA84jZBCawErqn");
-    EXPECT_EQ(params.GetFoundersRewardScriptAtHeight(53126), ParseHex("a914581dd4277287b64d523f5cd70ccd69f9db384d5387"));
-    EXPECT_EQ(params.GetFoundersRewardAddressAtHeight(53126), "zrBAG3pXCTDq14nivNK9mW8SfwMNcdmMQpb");
-    EXPECT_EQ(params.GetFoundersRewardScriptAtHeight(53127), ParseHex("a914581dd4277287b64d523f5cd70ccd69f9db384d5387"));
-    EXPECT_EQ(params.GetFoundersRewardAddressAtHeight(53127), "zrBAG3pXCTDq14nivNK9mW8SfwMNcdmMQpb");
+
+    /*
+    CBitcoinAddress add ("zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1");
+        CScriptID scriptID = boost::get<CScriptID>(add.Get()); // Get() returns a boost variant
+        CScript script = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+        std::cout<<"Script: "<<script.ToString()<<std::endl;
+        std::cout<<HexStr(script)<<std::endl;*/
 
 
-    int maxHeight = params.GetConsensus().GetLastFoundersRewardBlockHeight();
-    
+
+
+    EXPECT_EQ(params.GetCommunityFundScriptAtHeight(70001,Fork::CommunityFundType::FOUNDATION), ParseHex("a914581dd4277287b64d523f5cd70ccd69f9db384d5387"));
+    EXPECT_EQ(params.GetCommunityFundAddressAtHeight(70001,Fork::CommunityFundType::FOUNDATION), "zrBAG3pXCTDq14nivNK9mW8SfwMNcdmMQpb");
+    EXPECT_EQ(params.GetCommunityFundScriptAtHeight(70004,Fork::CommunityFundType::FOUNDATION), ParseHex("a914f3b4f2d391592337d6b4d67a5d67a7207596fd3487"));
+    EXPECT_EQ(params.GetCommunityFundAddressAtHeight(70004,Fork::CommunityFundType::FOUNDATION), "zrRLwpYRYky4wsvwLVrDp8fs89EBTRhNMB1");
+    EXPECT_EQ(params.GetCommunityFundScriptAtHeight(85500,Fork::CommunityFundType::FOUNDATION), ParseHex("a914f1e6b5f767701e3277330b4d7acd45c2af80580687"));
+    EXPECT_EQ(params.GetCommunityFundAddressAtHeight(85500,Fork::CommunityFundType::FOUNDATION), "zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1");
+    EXPECT_EQ(params.GetCommunityFundScriptAtHeight(260500,Fork::CommunityFundType::FOUNDATION), ParseHex("a9148d3468b6686ac59caf9ad94e547a737b09fa102787"));
+    EXPECT_EQ(params.GetCommunityFundAddressAtHeight(260500,Fork::CommunityFundType::FOUNDATION), "zrFzxutppvxEdjyu4QNjogBMjtC1py9Hp1S");
+
+
+    int maxHeight = params.GetConsensus().GetLastCommunityRewardBlockHeight();
+
     // If the block height parameter is out of bounds, there is an assert.
-    EXPECT_DEATH(params.GetFoundersRewardScriptAtHeight(0), "nHeight");
-    EXPECT_DEATH(params.GetFoundersRewardScriptAtHeight(maxHeight+1), "nHeight");
-    EXPECT_DEATH(params.GetFoundersRewardAddressAtHeight(0), "nHeight");
-    EXPECT_DEATH(params.GetFoundersRewardAddressAtHeight(maxHeight+1), "nHeight"); 
+    ASSERT_DEATH(params.GetCommunityFundScriptAtHeight(0,Fork::CommunityFundType::FOUNDATION), "nHeight > 0");
+    ASSERT_DEATH(params.GetCommunityFundScriptAtHeight(maxHeight+1,Fork::CommunityFundType::FOUNDATION), "nHeight<=consensus.GetLastCommunityRewardBlockHeight()");
+    ASSERT_DEATH(params.GetCommunityFundAddressAtHeight(0,Fork::CommunityFundType::FOUNDATION), "nHeight > 0");
+    ASSERT_DEATH(params.GetCommunityFundAddressAtHeight(maxHeight+1,Fork::CommunityFundType::FOUNDATION), "nHeight<=consensus.GetLastCommunityRewardBlockHeight()");
 }
 
 
-#define NUM_MAINNET_FOUNDER_ADDRESSES 48
+//#define NUM_MAINNET_FOUNDER_ADDRESSES 48
+#define NUM_MAINNET_FOUNDER_ADDRESSES 7
 
 TEST(founders_reward_test, mainnet) {
     SelectParams(CBaseChainParams::MAIN);
@@ -142,7 +157,8 @@ TEST(founders_reward_test, mainnet) {
 }
 
 
-#define NUM_TESTNET_FOUNDER_ADDRESSES 48
+//#define NUM_TESTNET_FOUNDER_ADDRESSES 48
+#define NUM_TESTNET_FOUNDER_ADDRESSES 4
 
 TEST(founders_reward_test, testnet) {
     SelectParams(CBaseChainParams::TESTNET);
@@ -165,7 +181,7 @@ TEST(founders_reward_test, slow_start_subsidy) {
     SelectParams(CBaseChainParams::MAIN);
     CChainParams params = Params();
 
-    int maxHeight = params.GetConsensus().GetLastFoundersRewardBlockHeight();    
+    int maxHeight = params.GetConsensus().GetLastCommunityRewardBlockHeight();
     CAmount totalSubsidy = 0;
     for (int nHeight = 1; nHeight <= maxHeight; nHeight++) {
         CAmount nSubsidy = GetBlockSubsidy(nHeight, params.GetConsensus()) / 5;
@@ -175,18 +191,20 @@ TEST(founders_reward_test, slow_start_subsidy) {
     ASSERT_TRUE(totalSubsidy == MAX_MONEY/10.0);
 }
 
-
+//This test has not more sense because GetNumFoundersRewardAddresses(), GetNumFoundersRewardAddresses2(),vCommunityFundAddress and vCommunityFundAddress2 doesn't exist anymore.
+/*
 // For use with mainnet and testnet which each have 48 addresses.
 // Verify the number of rewards each individual address receives.
 void verifyNumberOfRewards() {
     CChainParams params = Params();
-    int maxHeight = params.GetConsensus().GetLastFoundersRewardBlockHeight();
+    int maxHeight = params.GetConsensus().GetLastCommunityRewardBlockHeight();
     std::multiset<std::string> ms;
     for (int nHeight = 1; nHeight <= maxHeight; nHeight++) {
-        ms.insert(params.GetFoundersRewardAddressAtHeight(nHeight));
+        ms.insert(params.GetCommunityFundAddressAtHeight(nHeight,Fork::CommunityFundType::FOUNDATION));
     }
 
-    EXPECT_EQ(ms.count(params.GetFoundersRewardAddressAtIndex(0)),17500);
+    EXPECT_EQ(ms.count(params.GetCommunityFundAddressAtHeight(0,Fork::CommunityFundType::FOUNDATION)),17500);
+
     for (int i = 1; i <= params.GetNumFoundersRewardAddresses()-2; i++) {
         EXPECT_EQ(ms.count(params.GetFoundersRewardAddressAtIndex(i)), 17501);
     }
@@ -210,4 +228,4 @@ TEST(founders_reward_test, per_address_reward_testnet) {
     SelectParams(CBaseChainParams::TESTNET);
     verifyNumberOfRewards();
 }
-#endif
+*/
