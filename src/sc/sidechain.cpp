@@ -20,20 +20,20 @@ using namespace Sidechain;
 /********************** PERSISTENCE LAYER IMPLEMENTATION *********************/
 /*****************************************************************************/
 
-bool ScMgr::fakePersistance::loadPersistedDataInto(ScInfoMap & _mapToFill) {return true;}
-bool ScMgr::fakePersistance::persist(const uint256& scId, const ScInfo& info) { return true; }
-void ScMgr::fakePersistance::erase(const uint256& scId) {return; }
-void ScMgr::fakePersistance::dump_info() {return;}
+bool ScMgr::FakePersistance::loadPersistedDataInto(ScInfoMap & _mapToFill) {return true;}
+bool ScMgr::FakePersistance::persist(const uint256& scId, const ScInfo& info) { return true; }
+void ScMgr::FakePersistance::erase(const uint256& scId) {return; }
+void ScMgr::FakePersistance::dump_info() {return;}
 
 
-ScMgr::dbPersistance::dbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe)
+ScMgr::DbPersistance::DbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe)
 {
     _db = new CLevelDBWrapper(GetDataDir() / "sidechains", nCacheSize, fMemory, fWipe);
 }
 
-ScMgr::dbPersistance::~dbPersistance() { delete _db; _db = nullptr; };
+ScMgr::DbPersistance::~DbPersistance() { delete _db; _db = nullptr; };
 
-bool ScMgr::dbPersistance::loadPersistedDataInto(ScInfoMap & _mapToFill)
+bool ScMgr::DbPersistance::loadPersistedDataInto(ScInfoMap & _mapToFill)
 {
     boost::scoped_ptr<leveldb::Iterator> it(_db->NewIterator());
     for (it->SeekToFirst(); it->Valid(); it->Next())
@@ -68,7 +68,7 @@ bool ScMgr::dbPersistance::loadPersistedDataInto(ScInfoMap & _mapToFill)
     return it->status().ok();
 }
 
-bool ScMgr::dbPersistance::persist(const uint256& scId, const ScInfo& info)
+bool ScMgr::DbPersistance::persist(const uint256& scId, const ScInfo& info)
 {
     CLevelDBBatch batch;
     bool ret = true;
@@ -100,7 +100,7 @@ bool ScMgr::dbPersistance::persist(const uint256& scId, const ScInfo& info)
 
 }
 
-void ScMgr::dbPersistance::erase(const uint256& scId)
+void ScMgr::DbPersistance::erase(const uint256& scId)
 {
     // erase from level db
     CLevelDBBatch batch;
@@ -127,7 +127,7 @@ void ScMgr::dbPersistance::erase(const uint256& scId)
     }
 }
 
-void ScMgr::dbPersistance::dump_info()
+void ScMgr::DbPersistance::dump_info()
 {
     // dump leveldb contents on stdout
     boost::scoped_ptr<leveldb::Iterator> it(_db->NewIterator());
@@ -407,10 +407,10 @@ bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, const persistencePolic
 
     switch(dbPolicy) {
     case STUB:
-        pLayer = new fakePersistance();
+        pLayer = new FakePersistance();
         break;
     case PERSIST:
-        pLayer = new dbPersistance(GetDataDir() / "sidechains", cacheSize, false, fWipe);
+        pLayer = new DbPersistance(GetDataDir() / "sidechains", cacheSize, false, fWipe);
         break;
     default:
         return error("%s():%d - unknown persistence policy for ScManager", __func__, __LINE__);

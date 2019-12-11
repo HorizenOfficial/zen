@@ -397,6 +397,8 @@ TEST_F(SidechainTestSuite, RestoringBeforeBalanceMaturesHasNoEffects) {
     aTransaction = createSidechainTxWith(scId, CAmount(34));
     coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
+    coinViewCache.ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity() -1, aBlockUndo);
+
     aBlockUndo = createBlockUndoWith(scId,scCreationHeight,CAmount(17));
 
     //test
@@ -619,7 +621,6 @@ TEST_F(SidechainTestSuite, FlushPersistsNewSidechains) {
 
 TEST_F(SidechainTestSuite, FlushPersistsForwardTransfers) {
     uint256 scId = uint256S("a1b2");
-    CAmount initialFwdTxAmount = 1;
     int scCreationHeight = 1;
     aTransaction = createSidechainTxWith(scId, CAmount(1));
     coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);

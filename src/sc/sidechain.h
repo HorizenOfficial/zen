@@ -108,30 +108,30 @@ public:
     };
 
 private:
-    class persistenceLayer {
+    class PersistenceLayer {
     public:
-        persistenceLayer() = default;
-        virtual ~persistenceLayer() = default;
+        PersistenceLayer() = default;
+        virtual ~PersistenceLayer() = default;
         virtual bool loadPersistedDataInto(ScInfoMap & _mapToFill) = 0;
         virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
         virtual void erase(const uint256& scId) = 0;
         virtual void dump_info() = 0;
     };
 
-    class fakePersistance final : public ScMgr::persistenceLayer {
+    class FakePersistance final : public ScMgr::PersistenceLayer {
     public:
-        fakePersistance() = default;
-        ~fakePersistance() = default;
+        FakePersistance() = default;
+        ~FakePersistance() = default;
         bool loadPersistedDataInto(ScInfoMap & _mapToFill);
         bool persist(const uint256& scId, const ScInfo& info);
         void erase(const uint256& scId);
         void dump_info();
     };
 
-    class dbPersistance final : public ScMgr::persistenceLayer {
+    class DbPersistance final : public ScMgr::PersistenceLayer {
     public:
-        dbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe);
-        ~dbPersistance();
+        DbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe);
+        ~DbPersistance();
         bool loadPersistedDataInto(ScInfoMap & _mapToFill);
         bool persist(const uint256& scId, const ScInfo& info);
         void erase(const uint256& scId);
@@ -148,7 +148,7 @@ private:
     ScInfoMap mScInfo;
 
     friend class ScCoinsViewCache;
-    persistenceLayer * pLayer;
+    PersistenceLayer * pLayer;
 
     bool persist(const uint256& scId, const ScInfo& info);
     void erase(const uint256& scId);
