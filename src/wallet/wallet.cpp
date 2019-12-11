@@ -176,7 +176,6 @@ bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey)
 bool CWallet::AddCryptedKey(const CPubKey &vchPubKey,
                             const vector<unsigned char> &vchCryptedSecret)
 {
-    
     if (!CCryptoKeyStore::AddCryptedKey(vchPubKey, vchCryptedSecret))
         return false;
     if (!fFileBacked)
@@ -516,7 +515,6 @@ bool CWallet::Verify(const string& walletFile, string& warningString, string& er
         } catch (const boost::filesystem::filesystem_error&) {
             // failure is ok (well, not really, but it's not worse than what we started with)
         }
-        
         // try again
         if (!bitdb.Open(GetDataDir())) {
             // if it still fails, it probably means we can't even create the database env
@@ -525,14 +523,12 @@ bool CWallet::Verify(const string& walletFile, string& warningString, string& er
             return true;
         }
     }
-    
     if (GetBoolArg("-salvagewallet", false))
     {
         // Recover readable keypairs:
         if (!CWalletDB::Recover(bitdb, walletFile, true))
             return false;
     }
-    
     if (boost::filesystem::exists(GetDataDir() / walletFile))
     {
         CDBEnv::VerifyResult r = bitdb.Verify(walletFile, CWalletDB::Recover);
@@ -546,7 +542,6 @@ bool CWallet::Verify(const string& walletFile, string& warningString, string& er
         if (r == CDBEnv::RECOVER_FAIL)
             errorString += _("wallet.dat corrupt, salvage failed");
     }
-    
     return true;
 }
 
@@ -3672,6 +3667,42 @@ bool CMerkleTx::AcceptToMemoryPool(bool fLimitFree, bool fRejectAbsurdFee)
     CValidationState state;
     return ::AcceptToMemoryPool(mempool, state, *this, fLimitFree, NULL, fRejectAbsurdFee);
 }
+
+void CWallet::GetFilteredTransactions(std::multimap<int64_t, CWalletTx >& outEntries, std::string address)
+{
+	LOCK2(cs_main, cs_wallet);
+	CScript scriptPubKey;
+
+	if(address.compare("*")!=0){
+		 CBitcoinAddress baddress = CBitcoinAddress(address);
+		 scriptPubKey = GetScriptForDestination(baddress.Get(), false);
+
+	}
+
+	//getting all Txes of address in the wallet
+    for (auto & p : mapWallet) {
+           CWalletTx wtx = p.second;
+           if(address.compare("*")==0){
+            	 outEntries.insert(make_pair(wtx.nOrderPos,wtx));
+           }
+           else{
+        	   for(const CTxOut& txout : wtx.vout){
+        	           auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(),
+        	           	           	                                     scriptPubKey.end());
+        	           if (res == txout.scriptPubKey.begin()){
+        	           	           	            	  outEntries.insert(make_pair(wtx.nOrderPos,wtx));
+        	           	   }
+
+        	      }
+
+           }
+
+
+     }
+
+
+}
+
 
 /**
  * Find notes in the wallet filtered by payment address, min depth and ability to spend.
