@@ -34,10 +34,6 @@ void write_block(CWallet &walletdb, std::atomic_int &finish) {
 }
 
 TEST(deadlock_test, deadlock) {
-    std::string originalDataDir("");
-    if (mapArgs.count("-datadir") != 0)
-        originalDataDir = mapArgs["-datadir"];
-
     //set tmp db folder
     boost::filesystem::path pathTemp = boost::filesystem::temp_directory_path()
             / boost::filesystem::unique_path();
@@ -81,7 +77,4 @@ TEST(deadlock_test, deadlock) {
     }
 
     EXPECT_EQ(finished, size);
-
-    if (!originalDataDir.empty())
-        mapArgs["-datadir"] = originalDataDir;
 }
