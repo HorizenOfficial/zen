@@ -237,6 +237,9 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     }
     entry.push_back(Pair("vout", vout));
 
+    UniValue vjoinsplit = TxJoinSplitToJSON(tx);
+    entry.push_back(Pair("vjoinsplit", vjoinsplit));
+
     if (!hashBlock.IsNull()) {
         entry.push_back(Pair("blockhash", hashBlock.GetHex()));
         BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
