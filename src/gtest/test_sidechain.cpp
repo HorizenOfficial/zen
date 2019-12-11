@@ -175,6 +175,22 @@ TEST_F(SidechainTestSuite, SidechainCreationsWithNegativeForwardTransferNotAreSe
         <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
 
+TEST_F(SidechainTestSuite, FwdTransferCumulatedAmountDoesNotOverFlow) {
+    uint256 scId = uint256S("1492");
+    CAmount initialFwdTrasfer(1);
+    aTransaction = createSidechainTxWith(scId, initialFwdTrasfer);
+    extendTransaction(aTransaction, scId, MAX_MONEY);
+
+    //test
+    bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
+
+    //checks
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+        <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////// IsTxApplicableToState ////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////

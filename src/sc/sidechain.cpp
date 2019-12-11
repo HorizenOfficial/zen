@@ -353,6 +353,7 @@ bool ScMgr::checkTxSemanticValidity(const CTransaction& tx, CValidationState& st
         }
     }
 
+    CAmount cumulatedFwdAmount = 0;
     BOOST_FOREACH(const auto& sc, tx.vft_ccout)
     {
         if (sc.nValue == CAmount(0) || !MoneyRange(sc.nValue))
@@ -361,6 +362,16 @@ bool ScMgr::checkTxSemanticValidity(const CTransaction& tx, CValidationState& st
                 __func__, __LINE__, txHash.ToString(), FormatMoney(MAX_MONEY) );
             return state.DoS(100, error("%s: fwd trasfer amount is outside range",
                 __func__), REJECT_INVALID, "sidechain-fwd-transfer-amount-outside-range");
+        }
+
+        cumulatedFwdAmount += sc.nValue;
+        if (!MoneyRange(cumulatedFwdAmount))
+        {
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : cumulated fwd trasfers amount is outside range\n",
+                __func__, __LINE__, txHash.ToString() );
+            return state.DoS(100, error("%s: cumulated fwd trasfers amount is outside range",
+                __func__), REJECT_INVALID, "sidechain-fwd-transfer-amount-outside-range");
+
         }
     }
 
