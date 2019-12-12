@@ -1357,7 +1357,7 @@ static void MaybePushAddress(UniValue & entry, const CTxDestination &dest)
 }
 
 
-void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDepth, bool fLong, UniValue& ret, const isminefilter& filter,string address)
+void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDepth, bool fLong, UniValue& ret, const isminefilter& filter,const string& address)
 {
     CAmount nFee;
     string strSentAccount;
@@ -1386,8 +1386,8 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
             if (fLong)
                 WalletTxToJSON(wtx, entry);
             entry.push_back(Pair("size", static_cast<CTransaction>(wtx).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)));
-            if(!address.empty()&&address!="*"){
-            	entry.push_back(Pair("address",address));
+            if(!address.empty() && address!="*"){
+                entry.push_back(Pair("address",address));
             }
             ret.push_back(entry);
         }
@@ -1427,7 +1427,7 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
                     WalletTxToJSON(wtx, entry);
                 entry.push_back(Pair("size", static_cast<CTransaction>(wtx).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)));
                 if(!address.empty()&&address!="*"){
-                           	entry.push_back(Pair("address",address));
+                               entry.push_back(Pair("address",address));
                            }
                 ret.push_back(entry);
             }
@@ -1514,15 +1514,17 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
 
-    string address="*";
-    if (params.size() > 0){
-
-    		 address=params[0].get_str();
-    		 CBitcoinAddress baddress = CBitcoinAddress(address);
-    		 if (!baddress.IsValid())
-    		      throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
-
-    }
+    string address("*");
+        if (params.size() > 0)
+        {
+            address=params[0].get_str();
+            if (address.compare("*"))
+            {
+                CBitcoinAddress baddress = CBitcoinAddress(address);
+                if (!baddress.IsValid())
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
+            }
+        }
 
     int nCount = 10;
     if (params.size() > 1)
@@ -1550,7 +1552,7 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     for (std::multimap<int64_t, CWalletTx >::reverse_iterator itr = txes.rbegin();
          itr != txes.rend();++itr) {
 
-            ListTransactions(std::ref((*itr).second), "", 0, true, ret, filter,address);
+            ListTransactions(itr->second, "", 0, true, ret, filter,address);
 
     }
 
@@ -2561,7 +2563,7 @@ UniValue zc_sample_joinsplit(const UniValue& params, bool fHelp)
     uint256 pubKeyHash;
     uint256 anchor = ZCIncrementalMerkleTree().root();
     JSDescription samplejoinsplit(isGroth,
-								  *pzcashParams,
+                                  *pzcashParams,
                                   pubKeyHash,
                                   anchor,
                                   {JSInput(), JSInput()},
@@ -2899,7 +2901,7 @@ UniValue zc_raw_joinsplit(const UniValue& params, bool fHelp)
     mtx.nVersion = shieldedTxVersion;
     mtx.joinSplitPubKey = joinSplitPubKey;
     JSDescription jsdesc(mtx.nVersion == GROTH_TX_VERSION,
-						 *pzcashParams,
+                         *pzcashParams,
                          joinSplitPubKey,
                          anchor,
                          {vjsin[0], vjsin[1]},
@@ -3609,10 +3611,10 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
 
     CMutableTransaction contextualTx;
     bool isShielded = !fromTaddr || zaddrRecipients.size() > 0;
-	contextualTx.nVersion = 1;
-	if(isShielded) {
-		contextualTx.nVersion = shieldedTxVersion;
-	}    
+    contextualTx.nVersion = 1;
+    if(isShielded) {
+        contextualTx.nVersion = shieldedTxVersion;
+    }    
     // Create operation and add to global queue
     std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
     std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(contextualTx, fromaddress, taddrRecipients, zaddrRecipients, nMinDepth, nFee, contextInfo) );

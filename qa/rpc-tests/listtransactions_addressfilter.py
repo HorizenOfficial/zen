@@ -113,7 +113,7 @@ class ListTransactionsTest(BitcoinTestFramework):
 	#verify listtransactions returns the 5 most recent transactions of address
 	result=self.nodes[1].listtransactions(address,5)	
 	if(len(result)!=5):
-		raise AssertionError("Expected only 10 transactions")
+		raise AssertionError("Expected only 5 transactions")
 	for i in range(11,7):
 		check_array_result([result[i-1]],
 			   {"txid":txes[i-1]},
@@ -123,7 +123,7 @@ class ListTransactionsTest(BitcoinTestFramework):
 	#verify listtransactions returns the transactions n.3-4-5-6-7 of address
 	result=self.nodes[1].listtransactions(address,5,3)
 	if(len(result)!=5):
-		raise AssertionError("Expected only 10 transactions")
+		raise AssertionError("Expected only transactions: 3-4-5-6-7")
 	for i in range(8,4):
 		print("I: ",result[i-1])
 		check_array_result([result[i-1]],
@@ -131,6 +131,29 @@ class ListTransactionsTest(BitcoinTestFramework):
                            {"amount":float(i),"address":address})
 
 
+	#verify listtransactions returns only last 10 tx
+	result=self.nodes[1].listtransactions("*")
+	if(len(result)!=10):
+		raise AssertionError("Expected only 10 transactions")
+
+	#verify listtransactions returns the 5 most recent transactions
+	result=self.nodes[1].listtransactions("*",5)	
+	if(len(result)!=5):
+		raise AssertionError("Expected only 5 transactions")
+	for i in range(11,7):
+		check_array_result([result[i-1]],
+			   {"txid":txes[i-1]},
+                           {"amount":float(i)})
+	
+	#verify listtransactions returns the transactions n.3-4-5-6-7
+	result=self.nodes[1].listtransactions("*",5,3)
+	if(len(result)!=5):
+		raise AssertionError("Expected only transactions: 3-4-5-6-7")
+	for i in range(8,4):
+		print("I: ",result[i-1])
+		check_array_result([result[i-1]],
+			   {"txid":txes[i-1]},
+                           {"amount":float(i)})
 
 if __name__ == '__main__':
     ListTransactionsTest().main()
