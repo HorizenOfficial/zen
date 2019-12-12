@@ -3668,32 +3668,31 @@ bool CMerkleTx::AcceptToMemoryPool(bool fLimitFree, bool fRejectAbsurdFee)
     return ::AcceptToMemoryPool(mempool, state, *this, fLimitFree, NULL, fRejectAbsurdFee);
 }
 
-void CWallet::GetFilteredTransactions(std::multimap<int64_t, CWalletTx >& outEntries, std::string address)
+void CWallet::GetFilteredTransactions(std::multimap<int64_t, CWalletTx >& outEntries, const std::string& address)
 {
-	LOCK2(cs_main, cs_wallet);
-	CScript scriptPubKey;
+    LOCK2(cs_main, cs_wallet);
+    CScript scriptPubKey;
 
-	if(address.compare("*")!=0){
-		 CBitcoinAddress baddress = CBitcoinAddress(address);
-		 scriptPubKey = GetScriptForDestination(baddress.Get(), false);
+    if(address.compare("*")!=0){
+        CBitcoinAddress baddress = CBitcoinAddress(address);
+        scriptPubKey = GetScriptForDestination(baddress.Get(), false);
 
-	}
+    }
 
-	//getting all Txes of address in the wallet
+    //getting all Txes of address in the wallet
     for (auto & p : mapWallet) {
            CWalletTx wtx = p.second;
            if(address.compare("*")==0){
-            	 outEntries.insert(make_pair(wtx.nOrderPos,wtx));
+               outEntries.insert(make_pair(wtx.nOrderPos,wtx));
            }
            else{
-        	   for(const CTxOut& txout : wtx.vout){
-        	           auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(),
-        	           	           	                                     scriptPubKey.end());
-        	           if (res == txout.scriptPubKey.begin()){
-        	           	           	            	  outEntries.insert(make_pair(wtx.nOrderPos,wtx));
-        	           	   }
+               for(const CTxOut& txout : wtx.vout){
+                   auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
+                       if (res == txout.scriptPubKey.begin()){
+                           outEntries.insert(make_pair(wtx.nOrderPos,wtx));
+                           }
 
-        	      }
+               }
 
            }
 
