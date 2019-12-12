@@ -1553,7 +1553,7 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
          itr != txes.rend();++itr) {
 
             ListTransactions(itr->second, "", 0, true, ret, filter,address);
-
+            if ((int)ret.size() >= (nCount+nFrom)) break;
     }
 
     //getting all the specifi Txes requested by nCount and nFrom
@@ -1572,11 +1572,7 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     if (last != arrTmp.end()) arrTmp.erase(last, arrTmp.end());
     if (first != arrTmp.begin()) arrTmp.erase(arrTmp.begin(), first);
 
-    if(nFrom!=0){
-        std::reverse(arrTmp.begin(), arrTmp.end()); // Return oldest to newest
-
-    }
-
+    std::reverse(arrTmp.begin(), arrTmp.end()); // Return oldest to newest
 
     ret.clear();
     ret.setArray();
@@ -3614,7 +3610,7 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     contextualTx.nVersion = 1;
     if(isShielded) {
         contextualTx.nVersion = shieldedTxVersion;
-    }    
+    }
     // Create operation and add to global queue
     std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
     std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(contextualTx, fromaddress, taddrRecipients, zaddrRecipients, nMinDepth, nFee, contextInfo) );
