@@ -59,16 +59,16 @@ class ListTransactionsTest(BitcoinTestFramework):
 	self.nodes[0].generate(120)
 	address=self.nodes[1].getnewaddress()
 
-	
+
 	#simple send 1 to address and verify listtransaction returns this tx with address in input
 	txid=self.nodes[0].sendtoaddress(address, float(1) )
 	self.sync_all()
 	self.nodes[2].generate(1)
         self.sync_all()
-	check_array_result(self.nodes[1].listtransactions(address),
+	check_array_result(self.nodes[1].listtransactions("*",1,0,False,address),
                            {"txid":txid},
                            {"amount":Decimal("1.0")})
-
+	
 	#verify listtransactions returns this tx without any input
 	check_array_result(self.nodes[1].listtransactions("*"),
                            {"txid":txid},
@@ -79,7 +79,7 @@ class ListTransactionsTest(BitcoinTestFramework):
 	self.sync_all()
 	self.nodes[2].generate(1)
         self.sync_all()
-	result=self.nodes[1].listtransactions(address)
+	result=self.nodes[1].listtransactions("*",1,0,False,address)
 	if(len(result)!=1):
 		raise AssertionError("Expected only 1 transaction")
 	check_array_result(result,
@@ -102,19 +102,8 @@ class ListTransactionsTest(BitcoinTestFramework):
 		self.nodes[2].generate(1)
 		self.sync_all()
 
-	result=self.nodes[1].listtransactions(address)
-	if(len(result)!=10):
-		raise AssertionError("Expected only 10 transactions")
-
-
-	for i in range(1,11):
-		check_array_result([result[i-1]],
-			   {"txid":txes[i-1]},
-                           {"amount":float(i+1),"address":address})
-
-	
 	#verify listtransactions returns the 5 most recent transactions of address
-	result=self.nodes[1].listtransactions(address,5)	
+	result=self.nodes[1].listtransactions("*",5,0,False,address)	
 	if(len(result)!=5):
 		raise AssertionError("Expected only 5 transactions")
 
@@ -126,7 +115,7 @@ class ListTransactionsTest(BitcoinTestFramework):
 
 	
 	#verify listtransactions returns the transactions n.3-4-5-6-7 of address
-	result=self.nodes[1].listtransactions(address,5,3)
+	result=self.nodes[1].listtransactions("*",5,3,False,address)
 	if(len(result)!=5):
 		raise AssertionError("Expected only transactions: 3-4-5-6-7")
 
