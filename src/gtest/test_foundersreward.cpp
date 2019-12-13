@@ -26,12 +26,11 @@
 //
 
 TEST(founders_reward_test, create_testnet_2of3multisig) {
-    //ECC_Start(); this is called on the main class of gtest
     SelectParams(CBaseChainParams::TESTNET);
     boost::filesystem::path pathTemp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
     boost::filesystem::create_directories(pathTemp);
     mapArgs["-datadir"] = pathTemp.string();
-    bool fFirstRun;
+    bool fFirstRun=true;
     auto pWallet = std::make_shared<CWallet>("wallet.dat");
     ASSERT_EQ(DB_LOAD_OK, pWallet->LoadWallet(fFirstRun));
     pWallet->TopUpKeyPool();
@@ -83,7 +82,6 @@ TEST(founders_reward_test, create_testnet_2of3multisig) {
 
     pWallet->Flush(true);
 
-    //ECC_Stop(); this is called on the main class of gtest
 }
 
 
@@ -96,11 +94,10 @@ void checkNumberOfUniqueAddresses(int nUnique) {
     printf("maxHeight = %d\n",maxHeight);
     std::set<std::string> addresses;
     for (int i = 1; i <= maxHeight; i++) {
-    	if(Params().GetCommunityFundAddressAtHeight(i, Fork::CommunityFundType::FOUNDATION).size()>0){
-    		auto result=addresses.insert(Params().GetCommunityFundAddressAtHeight(i, Fork::CommunityFundType::FOUNDATION));
+        if(Params().GetCommunityFundAddressAtHeight(i, Fork::CommunityFundType::FOUNDATION).size()>0) {
+            auto result=addresses.insert(Params().GetCommunityFundAddressAtHeight(i, Fork::CommunityFundType::FOUNDATION));
 
-    	}
-
+        }
     }
     std::set<std::string>::iterator it;
     for (it = addresses.begin(); it != addresses.end(); it++) {
@@ -112,22 +109,10 @@ void checkNumberOfUniqueAddresses(int nUnique) {
 
 
 TEST(founders_reward_test, general) {
-
     SelectParams(CBaseChainParams::TESTNET);
-
     CChainParams params = Params();
     
-
-    /*
-    CBitcoinAddress add ("zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1");
-        CScriptID scriptID = boost::get<CScriptID>(add.Get()); // Get() returns a boost variant
-        CScript script = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
-        std::cout<<"Script: "<<script.ToString()<<std::endl;
-        std::cout<<HexStr(script)<<std::endl;*/
-
-
-
-
+    //to get the ParseHex's input, create BitcoinAddress from address, get the CScriptID and then call HexStr on the result    	
     EXPECT_EQ(params.GetCommunityFundScriptAtHeight(70001,Fork::CommunityFundType::FOUNDATION), ParseHex("a914581dd4277287b64d523f5cd70ccd69f9db384d5387"));
     EXPECT_EQ(params.GetCommunityFundAddressAtHeight(70001,Fork::CommunityFundType::FOUNDATION), "zrBAG3pXCTDq14nivNK9mW8SfwMNcdmMQpb");
     EXPECT_EQ(params.GetCommunityFundScriptAtHeight(70004,Fork::CommunityFundType::FOUNDATION), ParseHex("a914f3b4f2d391592337d6b4d67a5d67a7207596fd3487"));
@@ -136,7 +121,6 @@ TEST(founders_reward_test, general) {
     EXPECT_EQ(params.GetCommunityFundAddressAtHeight(85500,Fork::CommunityFundType::FOUNDATION), "zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1");
     EXPECT_EQ(params.GetCommunityFundScriptAtHeight(260500,Fork::CommunityFundType::FOUNDATION), ParseHex("a9148d3468b6686ac59caf9ad94e547a737b09fa102787"));
     EXPECT_EQ(params.GetCommunityFundAddressAtHeight(260500,Fork::CommunityFundType::FOUNDATION), "zrFzxutppvxEdjyu4QNjogBMjtC1py9Hp1S");
-
 
     int maxHeight = params.GetConsensus().GetLastCommunityRewardBlockHeight();
 
@@ -148,27 +132,22 @@ TEST(founders_reward_test, general) {
 }
 
 
-//#define NUM_MAINNET_FOUNDER_ADDRESSES 48
-#define NUM_MAINNET_FOUNDER_ADDRESSES 7
-
 TEST(founders_reward_test, mainnet) {
+    int NUM_MAINNET_FOUNDER_ADDRESSES 7;
     SelectParams(CBaseChainParams::MAIN);
     checkNumberOfUniqueAddresses(NUM_MAINNET_FOUNDER_ADDRESSES);
 }
 
 
-//#define NUM_TESTNET_FOUNDER_ADDRESSES 48
-#define NUM_TESTNET_FOUNDER_ADDRESSES 4
-
 TEST(founders_reward_test, testnet) {
+    int NUM_TESTNET_FOUNDER_ADDRESSES 4;
     SelectParams(CBaseChainParams::TESTNET);
     checkNumberOfUniqueAddresses(NUM_TESTNET_FOUNDER_ADDRESSES);
 }
 
 
-#define NUM_REGTEST_FOUNDER_ADDRESSES 1
-
 TEST(founders_reward_test, regtest) {
+    int NUM_REGTEST_FOUNDER_ADDRESSES 1;
     SelectParams(CBaseChainParams::REGTEST);
     checkNumberOfUniqueAddresses(NUM_REGTEST_FOUNDER_ADDRESSES);
 }

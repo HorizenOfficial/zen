@@ -370,15 +370,15 @@ bool SelectParamsFromCommandLine()
 // Block height must be >0 and <=last CF reward block height (note that after hfCommunityFundHeight hard fork CF reward is permanent)
 // Index variable i ranges from 0 - (vCommunityFundAddress.size()-1)
 std::string CChainParams::GetCommunityFundAddressAtHeight(int nHeight , Fork::CommunityFundType cfType) const {
-	assert(nHeight > 0);
-	assert(nHeight<=consensus.GetLastCommunityRewardBlockHeight());
+    assert(nHeight > 0);
+    assert(nHeight<=consensus.GetLastCommunityRewardBlockHeight());
     return ForkManager::getInstance().getCommunityFundAddress(nHeight,consensus.GetLastCommunityRewardBlockHeight(), cfType);
 }
 
 // The community fund address is expected to be a multisig (P2SH) address
 CScript CChainParams::GetCommunityFundScriptAtHeight(int nHeight, Fork::CommunityFundType cfType) const {
     assert(nHeight > 0);
-	assert(nHeight<=consensus.GetLastCommunityRewardBlockHeight());
+    assert(nHeight<=consensus.GetLastCommunityRewardBlockHeight());
 
     CBitcoinAddress address(GetCommunityFundAddressAtHeight(nHeight, cfType).c_str());
     assert(address.IsValid());
