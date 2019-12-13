@@ -1386,7 +1386,7 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
             if (fLong)
                 WalletTxToJSON(wtx, entry);
             entry.push_back(Pair("size", static_cast<CTransaction>(wtx).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)));
-            if(!address.empty() && address!="*"){
+            if(address!="*"){
                 entry.push_back(Pair("address",address));
             }
             ret.push_back(entry);
@@ -1426,7 +1426,8 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
                 if (fLong)
                     WalletTxToJSON(wtx, entry);
                 entry.push_back(Pair("size", static_cast<CTransaction>(wtx).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)));
-                if(!address.empty()&&address!="*"){
+                if(address!="*")
+                {
                                entry.push_back(Pair("address",address));
                            }
                 ret.push_back(entry);
@@ -1434,7 +1435,6 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
         }
     }
 }
-
 
 void AcentryToJSON(const CAccountingEntry& acentry, const string& strAccount, UniValue& ret)
 {
@@ -1558,9 +1558,9 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
 
     //getting all the specifi Txes requested by nCount and nFrom
     if (nFrom > (int)ret.size())
-            nFrom = ret.size();
+        nFrom = ret.size();
     if ((nFrom + nCount) > (int)ret.size())
-            nCount = ret.size() - nFrom;
+        nCount = ret.size() - nFrom;
 
     vector<UniValue> arrTmp = ret.getValues();
 
@@ -1739,7 +1739,7 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
         CWalletTx tx = (*it).second;
 
         if (depth == -1 || tx.GetDepthInMainChain() < depth)
-            ListTransactions(tx, "*", 0, true, transactions, filter,"");
+            ListTransactions(tx, "*", 0, true, transactions, filter,"*");
     }
 
     CBlockIndex *pblockLast = chainActive[chainActive.Height() + 1 - target_confirms];
