@@ -54,7 +54,7 @@ class ListTransactionsTest(BitcoinTestFramework):
         check_array_result(self.nodes[0].listtransactions(),
                            {"txid":txid, "category":"receive"},
                            {"amount":Decimal("0.2")})
-	
+
         # sendmany from node1: twice to self, twice to node2:
         send_to = { self.nodes[0].getnewaddress() : 0.11,
                     self.nodes[1].getnewaddress() : 0.22,

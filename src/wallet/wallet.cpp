@@ -3691,15 +3691,9 @@ void CWallet::GetFilteredTransactions(std::multimap<int64_t, CWalletTx >& outEnt
                        if (res == txout.scriptPubKey.begin()){
                            outEntries.insert(make_pair(wtx.nOrderPos,wtx));
                            }
-
                }
-
            }
-
-
      }
-
-
 }
 
 

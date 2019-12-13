@@ -1127,8 +1127,8 @@ public:
                           bool ignoreSpent=true,
                           bool ignoreUnspendable=true);
     /*Find all transactions of a specific addres*/
-       void GetFilteredTransactions(std::multimap<int64_t, CWalletTx >& outEntries,
-                                const std::string& address);
+    void GetFilteredTransactions(std::multimap<int64_t, CWalletTx >& outEntries,
+                          const std::string& address);
     
 };
 
