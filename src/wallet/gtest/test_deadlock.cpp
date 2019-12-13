@@ -14,8 +14,9 @@ using namespace libzcash;
 
 extern ZCJoinSplit *params;
 
-void write_db(CWallet &wallet, CBlock &block, SpendingKey &sk, std::atomic_int &finish)
+void write_db(CWallet &wallet, SpendingKey &sk, std::atomic_int &finish)
 {
+    CBlock block;
     for (int i = 0; i < 1000; i++) {
         auto wtx = GetValidReceive(*params, sk, 10, true);
         wallet.SyncTransaction(wtx, &block);
@@ -44,13 +45,10 @@ TEST(deadlock_test, deadlock) {
     SelectParams(CBaseChainParams::TESTNET);
     bool fFirstRun = true;
     CWallet walletMain("deadlock_ut_wallet.dat");
-    DBErrors nLoadWalletRet = walletMain.LoadWallet(fFirstRun);
+    walletMain.LoadWallet(fFirstRun);
 
     auto sk = libzcash::SpendingKey::random();
     walletMain.AddSpendingKey(sk);
-
-    //create block
-    CBlock block;
 
     //number of concurrent SyncTransaction Thread -1
     int size = 2;
@@ -66,7 +64,7 @@ TEST(deadlock_test, deadlock) {
         }
         else { //otherwise it process txes
             myThreads[i] = std::thread(write_db, std::ref(walletMain),
-                    std::ref(block), std::ref(sk), std::ref(finished));
+                    std::ref(sk), std::ref(finished));
         }
 
     }
