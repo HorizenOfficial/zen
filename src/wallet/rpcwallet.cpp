@@ -1458,15 +1458,16 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() > 4)
+    if (fHelp || params.size() > 5)
         throw runtime_error(
             "listtransactions ( \"account\" count from includeWatchonly)\n"
-            "\nReturns up to 'count' most recent transactions skipping the first 'from' transactions for account 'account'.\n"
+            "\nReturns up to 'count' most recent transactions skipping the first 'from' transactions for address 'address'.\n"
             "\nArguments:\n"
-            "1. \"address\"    (string, optional)  The address name.\n"
+            "1. \"account\"    (string, optional) DEPRECATED. The account name. Should be \"*\".\n"
             "2. count          (numeric, optional, default=10) The number of transactions to return\n"
             "3. from           (numeric, optional, default=0) The number of transactions to skip\n"
             "4. includeWatchonly (bool, optional, default=false) Include transactions to watchonly addresses (see 'importaddress')\n"
+            "5. address (string, optional) Include only transactions involving this address. All previous arguments should specified\n"
             "\nResult:\n"
             "[\n"
             "  {\n"
@@ -1513,18 +1514,11 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-
-    string address("*");
-        if (params.size() > 0)
-        {
-            address=params[0].get_str();
-            if (address.compare("*"))
-            {
-                CBitcoinAddress baddress = CBitcoinAddress(address);
-                if (!baddress.IsValid())
-                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
-            }
-        }
+    string account("*");
+    if (params.size() > 0)
+    {
+        account=params[0].get_str();
+    }
 
     int nCount = 10;
     if (params.size() > 1)
@@ -1536,7 +1530,17 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     if(params.size() > 3)
         if(params[3].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
-
+    string address("*");
+    if (params.size()>4)
+    {
+        address=params[4].get_str();
+        if (address.compare("*"))
+        {
+            CBitcoinAddress baddress = CBitcoinAddress(address);
+            if (!baddress.IsValid())
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
+        }
+    }
     if (nCount < 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
     if (nFrom < 0)
