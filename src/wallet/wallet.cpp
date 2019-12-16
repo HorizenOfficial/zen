@@ -3676,26 +3676,24 @@ void CWallet::GetFilteredTransactions(std::multimap<int64_t, CWalletTx >& outEnt
     if(address.compare("*")!=0){
         CBitcoinAddress baddress = CBitcoinAddress(address);
         scriptPubKey = GetScriptForDestination(baddress.Get(), false);
-
     }
 
     //getting all Txes of address in the wallet
     for (auto & p : mapWallet) {
            CWalletTx wtx = p.second;
-           if(address.compare("*")==0){
+           if(address.compare("*")==0) {
                outEntries.insert(make_pair(wtx.nOrderPos,wtx));
            }
-           else{
-               for(const CTxOut& txout : wtx.vout){
+           else {
+               for(const CTxOut& txout : wtx.vout) {
                    auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
                        if (res == txout.scriptPubKey.begin()){
                            outEntries.insert(make_pair(wtx.nOrderPos,wtx));
                            }
                }
            }
-     }
+    }
 }
-
 
 /**
  * Find notes in the wallet filtered by payment address, min depth and ability to spend.
