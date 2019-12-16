@@ -1467,7 +1467,7 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
             "2. count          (numeric, optional, default=10) The number of transactions to return\n"
             "3. from           (numeric, optional, default=0) The number of transactions to skip\n"
             "4. includeWatchonly (bool, optional, default=false) Include transactions to watchonly addresses (see 'importaddress')\n"
-            "5. address (string, optional) Include only transactions involving this address. All previous arguments should specified\n"
+            "5. address (string, optional) Include only transactions involving this address\n"
             "\nResult:\n"
             "[\n"
             "  {\n"
