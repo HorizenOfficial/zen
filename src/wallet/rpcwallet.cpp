@@ -1428,8 +1428,8 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
                 entry.push_back(Pair("size", static_cast<CTransaction>(wtx).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)));
                 if(address!="*")
                 {
-                               entry.push_back(Pair("address",address));
-                           }
+                    entry.push_back(Pair("address",address));
+                }
                 ret.push_back(entry);
             }
         }
@@ -1534,7 +1534,7 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     if (params.size()>4)
     {
         address=params[4].get_str();
-        if (address.compare("*"))
+        if (address!=("*"))
         {
             CBitcoinAddress baddress = CBitcoinAddress(address);
             if (!baddress.IsValid())

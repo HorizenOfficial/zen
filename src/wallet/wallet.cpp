@@ -3672,8 +3672,8 @@ void CWallet::GetFilteredTransactions(std::multimap<int64_t, CWalletTx >& outEnt
 {
     LOCK2(cs_main, cs_wallet);
     CScript scriptPubKey;
-
-    if(address.compare("*")!=0){
+    bool valid=address==("*");
+    if(!valid){
         CBitcoinAddress baddress = CBitcoinAddress(address);
         scriptPubKey = GetScriptForDestination(baddress.Get(), false);
     }
@@ -3681,7 +3681,7 @@ void CWallet::GetFilteredTransactions(std::multimap<int64_t, CWalletTx >& outEnt
     //getting all Txes of address in the wallet
     for (auto & p : mapWallet) {
            CWalletTx wtx = p.second;
-           if(address.compare("*")==0) {
+           if(valid) {
                outEntries.insert(make_pair(wtx.nOrderPos,wtx));
            }
            else {

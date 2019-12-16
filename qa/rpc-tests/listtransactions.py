@@ -40,16 +40,29 @@ class ListTransactionsTest(BitcoinTestFramework):
         check_array_result(self.nodes[1].listtransactions(),
                            {"txid":txid},
                            {"category":"receive","account":"","amount":Decimal("0.1"),"confirmations":0})
+ 	
+	check_array_result(self.nodes[0].listtransactions(),	
+                           {"txid":txid},	
+                           {"category":"send","account":"","amount":Decimal("-0.1"),"confirmations":0})
+
         # mine a block, confirmations should change:
         self.nodes[0].generate(1)
         self.sync_all()
-       
+
+        check_array_result(self.nodes[0].listtransactions(),	
+                           {"txid":txid},	
+                           {"category":"send","account":"","amount":Decimal("-0.1"),"confirmations":1})
+
         check_array_result(self.nodes[1].listtransactions(),
                            {"txid":txid},
                            {"category":"receive","account":"","amount":Decimal("0.1"),"confirmations":1})
 
         # send-to-self:
         txid = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 0.2)
+ 	
+	check_array_result(self.nodes[0].listtransactions(),	
+                           {"txid":txid, "category":"send"},	
+                           {"amount":Decimal("-0.2")})
        
         check_array_result(self.nodes[0].listtransactions(),
                            {"txid":txid, "category":"receive"},
@@ -62,19 +75,31 @@ class ListTransactionsTest(BitcoinTestFramework):
                     self.nodes[1].getaccountaddress("") : 0.44 }
         txid = self.nodes[1].sendmany("", send_to)
         self.sync_all()
-        
+
+	check_array_result(self.nodes[1].listtransactions(),	
+                           {"category":"send","amount":Decimal("-0.11")},	
+                           {"txid":txid} )     
         check_array_result(self.nodes[0].listtransactions(),
                            {"category":"receive","amount":Decimal("0.11")},
                            {"txid":txid} )
-        
+
+        check_array_result(self.nodes[1].listtransactions(),	
+                           {"category":"send","amount":Decimal("-0.22")},	
+                           {"txid":txid} )        
         check_array_result(self.nodes[1].listtransactions(),
                            {"category":"receive","amount":Decimal("0.22")},
                            {"txid":txid} )
        
+	check_array_result(self.nodes[1].listtransactions(),	
+                           {"category":"send","amount":Decimal("-0.33")},	
+                           {"txid":txid} )
         check_array_result(self.nodes[0].listtransactions(),
                            {"category":"receive","amount":Decimal("0.33")},
                            {"txid":txid, "account" : ""} )
-       
+
+	check_array_result(self.nodes[1].listtransactions(),	
+                           {"category":"send","amount":Decimal("-0.44")},	
+                           {"txid":txid, "account" : ""} )
         check_array_result(self.nodes[1].listtransactions(),
                            {"category":"receive","amount":Decimal("0.44")},
                            {"txid":txid, "account" : ""} )
