@@ -165,8 +165,7 @@ TEST(founders_reward_test, slow_start_subsidy) {
     for (int nHeight = 1; nHeight <= maxHeight; nHeight++) {
         CAmount nSubsidy = GetBlockSubsidy(nHeight, params.GetConsensus()) / 5;
         totalSubsidy += nSubsidy;
-    }
-    
+    }    
     ASSERT_TRUE(totalSubsidy == MAX_MONEY/10.0);
 }
 
