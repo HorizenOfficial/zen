@@ -81,10 +81,7 @@ TEST(founders_reward_test, create_testnet_2of3multisig) {
     std::cout << s << std::endl;
 
     pWallet->Flush(true);
-
 }
-
-
 
 
 // Utility method to check the number of unique addresses from height 1 to maxHeight
@@ -106,13 +103,16 @@ void checkNumberOfUniqueAddresses(int nUnique) {
     EXPECT_EQ(addresses.size(), nUnique);
 }
 
-
-
 TEST(founders_reward_test, general) {
     SelectParams(CBaseChainParams::TESTNET);
     CChainParams params = Params();
     
-    //to get the ParseHex's input, create BitcoinAddress from address, get the CScriptID and then call HexStr on the result    	
+    //You can retrieve Hex from a BitCoin address as follows:
+    //CBitcoinAddress add ("zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1");
+    //CScriptID scriptID = boost::get<CScriptID>(add.Get()); // Get() returns a boost variant
+    //CScript script = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+    //std::cout<<HexStr(script)<<std::endl;
+   	
     EXPECT_EQ(params.GetCommunityFundScriptAtHeight(70001,Fork::CommunityFundType::FOUNDATION), ParseHex("a914581dd4277287b64d523f5cd70ccd69f9db384d5387"));
     EXPECT_EQ(params.GetCommunityFundAddressAtHeight(70001,Fork::CommunityFundType::FOUNDATION), "zrBAG3pXCTDq14nivNK9mW8SfwMNcdmMQpb");
     EXPECT_EQ(params.GetCommunityFundScriptAtHeight(70004,Fork::CommunityFundType::FOUNDATION), ParseHex("a914f3b4f2d391592337d6b4d67a5d67a7207596fd3487"));
@@ -131,28 +131,23 @@ TEST(founders_reward_test, general) {
     ASSERT_DEATH(params.GetCommunityFundAddressAtHeight(maxHeight+1,Fork::CommunityFundType::FOUNDATION), "nHeight<=consensus.GetLastCommunityRewardBlockHeight()");
 }
 
-
 TEST(founders_reward_test, mainnet) {
-    int NUM_MAINNET_FOUNDER_ADDRESSES 7;
+    int NUM_MAINNET_FOUNDER_ADDRESSES = 7;
     SelectParams(CBaseChainParams::MAIN);
     checkNumberOfUniqueAddresses(NUM_MAINNET_FOUNDER_ADDRESSES);
 }
 
-
 TEST(founders_reward_test, testnet) {
-    int NUM_TESTNET_FOUNDER_ADDRESSES 4;
+    int NUM_TESTNET_FOUNDER_ADDRESSES = 4;
     SelectParams(CBaseChainParams::TESTNET);
     checkNumberOfUniqueAddresses(NUM_TESTNET_FOUNDER_ADDRESSES);
 }
 
-
 TEST(founders_reward_test, regtest) {
-    int NUM_REGTEST_FOUNDER_ADDRESSES 1;
+    int NUM_REGTEST_FOUNDER_ADDRESSES = 1;
     SelectParams(CBaseChainParams::REGTEST);
     checkNumberOfUniqueAddresses(NUM_REGTEST_FOUNDER_ADDRESSES);
 }
-
-
 
 // Test that 10% founders reward is fully rewarded after the first halving and slow start shift.
 // On Mainnet, this would be 2,100,000 ZEC after 850,000 blocks (840,000 + 10,000).
@@ -169,7 +164,7 @@ TEST(founders_reward_test, slow_start_subsidy) {
     ASSERT_TRUE(totalSubsidy == MAX_MONEY/10.0);
 }
 
-//This test has not more sense because GetNumFoundersRewardAddresses(), GetNumFoundersRewardAddresses2(),vCommunityFundAddress and vCommunityFundAddress2 doesn't exist anymore.
+//This test make sense no more because GetNumFoundersRewardAddresses(), GetNumFoundersRewardAddresses2(),vCommunityFundAddress and vCommunityFundAddress2 don't exist anymore.
 /*
 // For use with mainnet and testnet which each have 48 addresses.
 // Verify the number of rewards each individual address receives.
@@ -207,3 +202,5 @@ TEST(founders_reward_test, per_address_reward_testnet) {
     verifyNumberOfRewards();
 }
 */
+
+
