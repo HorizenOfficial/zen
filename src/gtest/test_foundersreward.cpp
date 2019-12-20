@@ -128,7 +128,6 @@ TEST(founders_reward_test, general) {
     ASSERT_DEATH(params.GetCommunityFundScriptAtHeight(0,Fork::CommunityFundType::FOUNDATION), "nHeight > 0");
     ASSERT_DEATH(params.GetCommunityFundScriptAtHeight(maxHeight+1,Fork::CommunityFundType::FOUNDATION), "nHeight<=consensus.GetLastCommunityRewardBlockHeight()");
     ASSERT_DEATH(params.GetCommunityFundAddressAtHeight(0,Fork::CommunityFundType::FOUNDATION), "nHeight > 0");
-    ASSERT_DEATH(params.GetCommunityFundAddressAtHeight(maxHeight+1,Fork::CommunityFundType::FOUNDATION), "nHeight<=consensus.GetLastCommunityRewardBlockHeight()");
 }
 
 TEST(founders_reward_test, mainnet) {
