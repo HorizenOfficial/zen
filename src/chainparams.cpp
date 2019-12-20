@@ -371,7 +371,6 @@ bool SelectParamsFromCommandLine()
 // Index variable i ranges from 0 - (vCommunityFundAddress.size()-1)
 std::string CChainParams::GetCommunityFundAddressAtHeight(int nHeight , Fork::CommunityFundType cfType) const {
     assert(nHeight > 0);
-    assert(nHeight<=consensus.GetLastCommunityRewardBlockHeight());
     return ForkManager::getInstance().getCommunityFundAddress(nHeight,consensus.GetLastCommunityRewardBlockHeight(), cfType);
 }
 
