@@ -51,6 +51,9 @@ testScripts=(
     'nulldata.py'
     'blockdelay.py'
     'blockdelay_2.py'
+    'sc_create.py'
+    'sc_split.py'
+    'sc_invalidate.py'
 );
 testScriptsExt=(
     'getblocktemplate_longpoll.py'
