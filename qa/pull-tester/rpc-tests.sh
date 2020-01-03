@@ -85,9 +85,6 @@ testScriptsExt=(
     'headers_09.py'
     'headers_10.py'
     'checkblockatheight.py'
-    'sc_01.py'
-    'sc_02.py'
-    'sc_03.py'
 );
 
 if [ "x$ENABLE_ZMQ" = "x1" ]; then
