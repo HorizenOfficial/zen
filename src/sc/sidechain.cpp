@@ -797,22 +797,17 @@ bool ScCoinsViewCache::Flush()
     LogPrint("sc", "%s():%d - called\n", __func__, __LINE__);
 
     // 1. update the entries that have been added or modified
-    BOOST_FOREACH(const auto& entry, CacheScInfoMap)
+    unsigned int numberFlushedUpdates = 0;
+    BOOST_FOREACH(const auto& entry, updatedOrNewScInfoList)
     {
-        if (!updatedOrNewScInfoList.count(entry.first) )
-        {
-            // skip unmodified records
-            continue;
-        }
-
-        // write to db
         if (!ScMgr::instance().persist(entry.first, entry.second) )
         {
             return false;
         }
-        updatedOrNewScInfoList.erase(entry.first);
+        ++numberFlushedUpdates;
     }
-    assert(updatedOrNewScInfoList.size() == 0);
+    assert(updatedOrNewScInfoList.size() == numberFlushedUpdates);
+    updatedOrNewScInfoList.clear();
 
     // 2. process the entries to be erased
     BOOST_FOREACH(const auto& entry, deletedScList)

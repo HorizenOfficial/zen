@@ -77,7 +77,7 @@ typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
 class ScCoinsViewCache
 {
     ScInfoMap CacheScInfoMap;
-    std::map<uint256, ScInfo> updatedOrNewScInfoList; // sc infos marked to be flushed in memory
+    std::map<uint256, ScInfo> updatedOrNewScInfoList;
     std::set<uint256>         deletedScList;
 
 public:
