@@ -147,7 +147,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         rawTxSigned = self.nodes[2].signrawtransaction(rawTx, inputs)
         assert_equal(rawTxSigned['complete'], True) # node2 can sign the tx compl., own two of three keys
-        rawtx=self.nodes[2].sendrawtransaction(rawTxSigned['hex'])
+        self.nodes[2].sendrawtransaction(rawTxSigned['hex'])
         self.nodes[0].decoderawtransaction(rawTxSigned['hex'])
         self.sync_all()
         self.nodes[0].generate(1)
