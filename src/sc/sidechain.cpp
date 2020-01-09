@@ -550,7 +550,7 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
         scInfo.creationTxHash = txHash;
         scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
  
-        CacheScInfoMap.insert(std::make_pair(cr.scId, scInfo));
+        AccessDuplicatedStruct().insert(std::make_pair(cr.scId, scInfo));
         updatedOrNewScInfoList[cr.scId] = scInfo;
 
         LogPrint("sc", "%s():%d - scId[%s] added in scView\n", __func__, __LINE__, cr.scId.ToString() );
@@ -562,8 +562,8 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
     // forward transfer ccout
     BOOST_FOREACH(auto& ft, tx.vft_ccout)
     {
-        auto it_map = CacheScInfoMap.find(ft.scId);
-        if (it_map == CacheScInfoMap.end() )
+        auto it_map = AccessDuplicatedStruct().find(ft.scId);
+        if (it_map == AccessDuplicatedStruct().end() )
         {
             // should not happen
             LogPrint("sc", "%s():%d - Can not update balance, could not find scId=%s\n",
@@ -583,8 +583,9 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
     return true;
 }
 
-ScCoinsViewCache::ScCoinsViewCache(): CacheScInfoMap(ScMgr::instance().getScInfoMap())
+ScCoinsViewCache::ScCoinsViewCache()
 {
+    AccessDuplicatedStruct() = ScMgr::instance().getScInfoMap();
     deletedScList.clear();
     updatedOrNewScInfoList.clear();
 }
@@ -601,8 +602,8 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
         LogPrint("sc", "%s():%d - removing fwt for scId=%s\n", __func__, __LINE__, scId.ToString());
 
-        const auto it_map = CacheScInfoMap.find(scId);
-        if (it_map == CacheScInfoMap.end() )
+        const auto it_map = AccessDuplicatedStruct().find(scId);
+        if (it_map == AccessDuplicatedStruct().end() )
         {
             // should not happen 
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
@@ -653,8 +654,8 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
         LogPrint("sc", "%s():%d - removing scId=%s\n", __func__, __LINE__, scId.ToString());
 
-        const auto it_map = CacheScInfoMap.find(scId);
-        if (it_map == CacheScInfoMap.end() )
+        const auto it_map = AccessDuplicatedStruct().find(scId);
+        if (it_map == AccessDuplicatedStruct().end() )
         {
             // should not happen 
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
@@ -669,7 +670,7 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
             return false;
         }
  
-        CacheScInfoMap.erase(scId);
+        AccessDuplicatedStruct().erase(scId);
         updatedOrNewScInfoList.erase(scId);
         deletedScList.insert(scId);
 
@@ -682,9 +683,9 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
 {
     LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
-    auto it_map = CacheScInfoMap.begin();
+    auto it_map = AccessDuplicatedStruct().begin();
 
-    while (it_map != CacheScInfoMap.end() )
+    while (it_map != AccessDuplicatedStruct().end() )
     {
         const uint256& scId = it_map->first;
         ScInfo& info = it_map->second;
@@ -746,8 +747,8 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
     {
         const uint256& scId           = it_ia_undo_map->first;
 
-        const auto it_map = CacheScInfoMap.find(scId);
-        if (it_map == CacheScInfoMap.end() )
+        const auto it_map = AccessDuplicatedStruct().find(scId);
+        if (it_map == AccessDuplicatedStruct().end() )
         {
             // should not happen 
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
@@ -821,6 +822,6 @@ bool ScCoinsViewCache::Flush()
 
 bool ScCoinsViewCache::sidechainExists(const uint256& scId) const
 {
-    const auto it = CacheScInfoMap.find(scId);
-    return (it != CacheScInfoMap.end() );
+    const ScInfoMap& yetAnotherDuplication = AccessDuplicatedStruct();
+    return ( yetAnotherDuplication.find(scId) != yetAnotherDuplication.end());
 }
