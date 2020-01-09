@@ -551,12 +551,9 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
         scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
  
         CacheScInfoMap.insert(std::make_pair(cr.scId, scInfo));
+        updatedOrNewScInfoList[cr.scId] = scInfo;
 
         LogPrint("sc", "%s():%d - scId[%s] added in scView\n", __func__, __LINE__, cr.scId.ToString() );
-
-        // mark this sc to be flushed in memory
-        sDirty.insert(cr.scId);
-
     }
 
     static const int SC_COIN_MATURITY = getScCoinsMaturity();
@@ -577,12 +574,10 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
 
         // add a new immature balance entry in sc info or increment it if already there
         it_map->second.mImmatureAmounts[maturityHeight] += ft.nValue;
+        updatedOrNewScInfoList[ft.scId] = it_map->second;
 
         LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
             __func__, __LINE__, maturityHeight, FormatMoney(ft.nValue), ft.scId.ToString());
-
-        // mark this sc to be flushed in memory
-        sDirty.insert(ft.scId);
     }
 
     return true;
@@ -590,8 +585,8 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
 
 ScCoinsViewCache::ScCoinsViewCache(): CacheScInfoMap(ScMgr::instance().getScInfoMap())
 {
-    sErase.clear();
-    sDirty.clear();
+    deletedScList.clear();
+    updatedOrNewScInfoList.clear();
 }
 
 bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
@@ -637,6 +632,7 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         }
 
         iaMap[maturityHeight] -= entry.nValue;
+        updatedOrNewScInfoList[scId] = it_map->second;
 
         LogPrint("sc", "%s():%d - immature amount after: %s\n",
             __func__, __LINE__, FormatMoney(iaMap[maturityHeight]));
@@ -644,11 +640,10 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         if (iaMap[maturityHeight] == 0)
         {
             iaMap.erase(maturityHeight);
+            updatedOrNewScInfoList[scId] = it_map->second;
             LogPrint("sc", "%s():%d - removed entry height=%d from immature amounts in memory\n",
                 __func__, __LINE__, maturityHeight );
         }
-        // mark this sc to be flushed in memory
-        sDirty.insert(scId);
     }
 
     // remove sidechain if the case
@@ -674,16 +669,11 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
             return false;
         }
  
-        if (CacheScInfoMap.erase(scId))
-        {
-            LogPrint("sc", "%s():%d - scId=%s removed from scView\n", __func__, __LINE__, scId.ToString() );
-        }
+        CacheScInfoMap.erase(scId);
+        updatedOrNewScInfoList.erase(scId);
+        deletedScList.insert(scId);
 
-        // do not update in memory
-        sDirty.erase(scId);
-
-        // mark this sc to be removed from in memory
-        sErase.insert(scId);
+        LogPrint("sc", "%s():%d - scId=%s removed from scView\n", __func__, __LINE__, scId.ToString() );
     }
     return true;
 }
@@ -698,7 +688,6 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
     {
         const uint256& scId = it_map->first;
         ScInfo& info = it_map->second;
-        const std::string& scIdString = scId.ToString();
 
         auto it_ia_map = info.mImmatureAmounts.begin();
 
@@ -708,7 +697,7 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
             CAmount a = it_ia_map->second;
 
             LogPrint("sc", "%s():%d - adding immature balance entry into blockundo (h=%d, amount=%s) for scid=%s\n",
-                __func__, __LINE__, maturityHeight, FormatMoney(a), scIdString);
+                __func__, __LINE__, maturityHeight, FormatMoney(a), scId.ToString());
 
             // store immature balances into the blockundo obj
             blockundo.msc_iaundo[scId][maturityHeight] = a;
@@ -716,26 +705,24 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
             if (maturityHeight == blockHeight)
             {
                 LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
-                    __func__, __LINE__, scIdString, FormatMoney(info.balance));
+                    __func__, __LINE__, scId.ToString(), FormatMoney(info.balance));
 
                 // if maturity has been reached apply it to balance in scview
                 info.balance += a;
 
                 LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
-                    __func__, __LINE__, scIdString, FormatMoney(info.balance));
+                    __func__, __LINE__, scId.ToString(), FormatMoney(info.balance));
 
                 // scview balance has been updated, remove the entry in scview immature map
                 it_ia_map = info.mImmatureAmounts.erase(it_ia_map);
-
-                // mark this sc to be flushed in memory
-                sDirty.insert(scId);
+                updatedOrNewScInfoList[scId] = info;
             }
             else
             if (maturityHeight < blockHeight)
             {
                 // should not happen 
                 LogPrint("sc", "ERROR: %s():%d - scId=%s maturuty(%d) < blockHeight(%d)\n",
-                    __func__, __LINE__, scIdString, maturityHeight, blockHeight);
+                    __func__, __LINE__, scId.ToString(), maturityHeight, blockHeight);
                 return false;
             }
             else
@@ -758,13 +745,12 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
     while (it_ia_undo_map != blockundo.msc_iaundo.end() )
     {
         const uint256& scId           = it_ia_undo_map->first;
-        const std::string& scIdString = scId.ToString();
 
         const auto it_map = CacheScInfoMap.find(scId);
         if (it_map == CacheScInfoMap.end() )
         {
             // should not happen 
-            LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scIdString );
+            LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
 
@@ -782,26 +768,24 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
 
             CAmount a = it_ia_map->second;
             LogPrint("sc", "%s():%d - entry ( %s / %d / %s) \n",
-                __func__, __LINE__, scIdString, blockHeight, FormatMoney(a));
+                __func__, __LINE__, scId.ToString(), blockHeight, FormatMoney(a));
 
             LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
-                __func__, __LINE__, scIdString, FormatMoney(info.balance));
+                __func__, __LINE__, scId.ToString(), FormatMoney(info.balance));
             
             if (info.balance < a)
             {
                 LogPrint("sc", "%s():%d - Can not update balance with amount[%s] for scId=%s, would be negative\n",
-                    __func__, __LINE__, FormatMoney(a), scIdString );
+                    __func__, __LINE__, FormatMoney(a), scId.ToString() );
                 return false;
             }
 
             info.balance -= a;
+            updatedOrNewScInfoList[scId] = info;
 
             LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
-                __func__, __LINE__, scIdString, FormatMoney(info.balance));
+                __func__, __LINE__, scId.ToString(), FormatMoney(info.balance));
         }
-
-        // mark this sc to be flushed in memory
-        sDirty.insert(scId);
 
         ++it_ia_undo_map;
     }
@@ -815,7 +799,7 @@ bool ScCoinsViewCache::Flush()
     // 1. update the entries that have been added or modified
     BOOST_FOREACH(const auto& entry, CacheScInfoMap)
     {
-        if (!sDirty.count(entry.first) )
+        if (!updatedOrNewScInfoList.count(entry.first) )
         {
             // skip unmodified records
             continue;
@@ -826,12 +810,12 @@ bool ScCoinsViewCache::Flush()
         {
             return false;
         }
-        sDirty.erase(entry.first);
+        updatedOrNewScInfoList.erase(entry.first);
     }
-    assert(sDirty.size() == 0);
+    assert(updatedOrNewScInfoList.size() == 0);
 
     // 2. process the entries to be erased
-    BOOST_FOREACH(const auto& entry, sErase)
+    BOOST_FOREACH(const auto& entry, deletedScList)
     {
         if (!ScMgr::instance().erase(entry))
             return false;
