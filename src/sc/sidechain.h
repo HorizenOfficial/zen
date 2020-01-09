@@ -1,7 +1,7 @@
 #ifndef _SIDECHAIN_CORE_H
 #define _SIDECHAIN_CORE_H
 
-#include <vector>
+//#include <vector>
 
 #include "amount.h"
 #include "chain.h"
@@ -72,12 +72,11 @@ public:
     inline bool operator!=(const ScInfo& rhs) const { return !(*this == rhs); }
 };
 
-
 typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
 
 class ScCoinsViewCache
 {
-    ScInfoMap mUpdate;
+    ScInfoMap CacheScInfoMap;
     std::set<uint256> sErase;
     std::set<uint256> sDirty;
 
@@ -88,7 +87,7 @@ public:
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
     bool sidechainExists(const uint256& scId) const;
-    const ScInfoMap& getScInfoMap() const { return mUpdate; } //utility for UTs
+    const ScInfoMap& getScInfoMap() const { return CacheScInfoMap; } //utility for UTs
 
     bool Flush();
 
@@ -114,7 +113,7 @@ private:
         virtual ~PersistenceLayer() = default;
         virtual bool loadPersistedDataInto(ScInfoMap & _mapToFill) = 0;
         virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
-        virtual void erase(const uint256& scId) = 0;
+        virtual bool erase(const uint256& scId) = 0;
         virtual void dump_info() = 0;
     };
 
@@ -124,7 +123,7 @@ private:
         ~FakePersistance() = default;
         bool loadPersistedDataInto(ScInfoMap & _mapToFill);
         bool persist(const uint256& scId, const ScInfo& info);
-        void erase(const uint256& scId);
+        bool erase(const uint256& scId);
         void dump_info();
     };
 
@@ -134,7 +133,7 @@ private:
         ~DbPersistance();
         bool loadPersistedDataInto(ScInfoMap & _mapToFill);
         bool persist(const uint256& scId, const ScInfo& info);
-        void erase(const uint256& scId);
+        bool erase(const uint256& scId);
         void dump_info();
     private:
         CLevelDBWrapper* _db;
@@ -145,13 +144,9 @@ private:
     ~ScMgr() { reset(); }
 
     mutable CCriticalSection sc_lock;
-    ScInfoMap mScInfo;
+    ScInfoMap ManagerScInfoMap;
 
-    friend class ScCoinsViewCache;
     PersistenceLayer * pLayer;
-
-    bool persist(const uint256& scId, const ScInfo& info);
-    void erase(const uint256& scId);
 
     bool checkScCreation(const CTransaction& tx, CValidationState& state);
     bool hasScCreationConflictsInMempool(const CTxMemPool& pool, const CTransaction& tx);
@@ -175,6 +170,9 @@ private:
     bool initPersistence(size_t cacheSize, bool fWipe, const persistencePolicy & dbPolicy = persistencePolicy::PERSIST );
     void reset(); //utility for dtor and unit tests, hence public
 
+    bool persist(const uint256& scId, const ScInfo& info);
+    bool erase(const uint256& scId);
+
     bool sidechainExists(const uint256& scId, const ScCoinsViewCache* const scView = NULL) const;
     bool getScInfo(const uint256& scId, ScInfo& info) const;
 
@@ -184,7 +182,7 @@ private:
 
     void getScIdSet(std::set<uint256>& sScIds) const;
 
-    const ScInfoMap& getScInfoMap() const { return mScInfo; }
+    const ScInfoMap& getScInfoMap() const { return ManagerScInfoMap; }
     CAmount getScBalance(const uint256& scId); //utility for UTs
     // print functions
     bool dump_info(const uint256& scId);

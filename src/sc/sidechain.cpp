@@ -22,7 +22,7 @@ using namespace Sidechain;
 
 bool ScMgr::FakePersistance::loadPersistedDataInto(ScInfoMap & _mapToFill) {return true;}
 bool ScMgr::FakePersistance::persist(const uint256& scId, const ScInfo& info) { return true; }
-void ScMgr::FakePersistance::erase(const uint256& scId) {return; }
+bool ScMgr::FakePersistance::erase(const uint256& scId) {return true; }
 void ScMgr::FakePersistance::dump_info() {return;}
 
 
@@ -100,14 +100,15 @@ bool ScMgr::DbPersistance::persist(const uint256& scId, const ScInfo& info)
 
 }
 
-void ScMgr::DbPersistance::erase(const uint256& scId)
+bool ScMgr::DbPersistance::erase(const uint256& scId)
 {
     // erase from level db
     CLevelDBBatch batch;
+    bool ret = false;
 
     try {
         batch.Erase(std::make_pair(DB_SC_INFO, scId));
-        bool ret = _db->WriteBatch(batch, true);
+        ret = _db->WriteBatch(batch, true);
         if (ret)
         {
             LogPrint("sc", "%s():%d - erased scId=%s from db\n", __func__, __LINE__, scId.ToString() );
@@ -125,6 +126,7 @@ void ScMgr::DbPersistance::erase(const uint256& scId)
     {
         LogPrintf("%s():%d - Error: could not erase scId=%s in db\n", __func__, __LINE__, scId.ToString());
     }
+    return ret;
 }
 
 void ScMgr::DbPersistance::dump_info()
@@ -206,8 +208,8 @@ bool ScMgr::sidechainExists(const uint256& scId, const ScCoinsViewCache* scView)
     else
     {
         LOCK(sc_lock);
-        const auto it = mScInfo.find(scId);
-        ret = (it != mScInfo.end() );
+        const auto it = ManagerScInfoMap.find(scId);
+        ret = (it != ManagerScInfoMap.end() );
     }
     return ret;
 }
@@ -215,7 +217,7 @@ bool ScMgr::sidechainExists(const uint256& scId, const ScCoinsViewCache* scView)
 void ScMgr::getScIdSet(std::set<uint256>& sScIds) const
 {
     LOCK(sc_lock);
-    BOOST_FOREACH(const auto& entry, mScInfo)
+    BOOST_FOREACH(const auto& entry, ManagerScInfoMap)
     {
         sScIds.insert(entry.first);
     }
@@ -224,8 +226,8 @@ void ScMgr::getScIdSet(std::set<uint256>& sScIds) const
 bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const
 {
     LOCK(sc_lock);
-    const auto it = mScInfo.find(scId);
-    if (it == mScInfo.end() )
+    const auto it = ManagerScInfoMap.find(scId);
+    if (it == ManagerScInfoMap.end() )
     {
         return false;
     }
@@ -239,8 +241,8 @@ bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const
 CAmount ScMgr::getScBalance(const uint256& scId)
 {
     LOCK(sc_lock);
-    ScInfoMap::iterator it = mScInfo.find(scId);
-    if (it == mScInfo.end() )
+    ScInfoMap::iterator it = ManagerScInfoMap.find(scId);
+    if (it == ManagerScInfoMap.end() )
     {
         // caller should have checked it
         return -1;
@@ -431,7 +433,7 @@ bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, const persistencePolic
     LOCK(sc_lock);
     try
     {
-        bool res = pLayer->loadPersistedDataInto(mScInfo);
+        bool res = pLayer->loadPersistedDataInto(ManagerScInfoMap);
         if (!res)
         {
             return error("%s():%d - error occurred during db scan", __func__, __LINE__);
@@ -450,30 +452,44 @@ void ScMgr::reset()
     delete pLayer;
     pLayer = nullptr;
 
-    mScInfo.clear();
+    ManagerScInfoMap.clear();
 }
 
-void ScMgr::erase(const uint256& scId)
+bool ScMgr::erase(const uint256& scId)
 {
-    if (pLayer == nullptr)
-    {
-        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
-        return;
-    }
-
-    return pLayer->erase(scId);
-}
-
-
-bool ScMgr::persist(const uint256& scId, const ScInfo& info)
-{
+    LOCK(sc_lock);
     if (pLayer == nullptr)
     {
         LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
         return false;
     }
 
-    return pLayer->persist(scId, info);
+    if (!ManagerScInfoMap.erase(scId))
+    {
+        LogPrint("sc", "ERROR: %s():%d - scId=%s not in map\n", __func__, __LINE__, scId.ToString() );
+        return false;
+    }
+
+    LogPrint("sc", "%s():%d - erased scId=%s from memory\n", __func__, __LINE__, scId.ToString() );
+    return pLayer->erase(scId);
+}
+
+
+bool ScMgr::persist(const uint256& scId, const ScInfo& info)
+{
+    LOCK(sc_lock);
+    if (pLayer == nullptr)
+    {
+        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
+        return false;
+    }
+
+    if (!pLayer->persist(scId, info))
+        return false;
+
+    ManagerScInfoMap[scId] = info;
+    LogPrint("sc", "%s():%d - persisted scId=%s\n", __func__, __LINE__, scId.ToString() );
+    return true;
 }
 
 bool ScMgr::dump_info(const uint256& scId)
@@ -499,8 +515,8 @@ bool ScMgr::dump_info(const uint256& scId)
 
 void ScMgr::dump_info()
 {
-    LogPrint("sc", "-- number of side chains found [%d] ------------------------\n", mScInfo.size());
-    BOOST_FOREACH(const auto& entry, mScInfo)
+    LogPrint("sc", "-- number of side chains found [%d] ------------------------\n", ManagerScInfoMap.size());
+    BOOST_FOREACH(const auto& entry, ManagerScInfoMap)
     {
         dump_info(entry.first);
     }
@@ -534,7 +550,7 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
         scInfo.creationTxHash = txHash;
         scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
  
-        mUpdate.insert(std::make_pair(cr.scId, scInfo));
+        CacheScInfoMap.insert(std::make_pair(cr.scId, scInfo));
 
         LogPrint("sc", "%s():%d - scId[%s] added in scView\n", __func__, __LINE__, cr.scId.ToString() );
 
@@ -549,8 +565,8 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
     // forward transfer ccout
     BOOST_FOREACH(auto& ft, tx.vft_ccout)
     {
-        auto it_map = mUpdate.find(ft.scId);
-        if (it_map == mUpdate.end() )
+        auto it_map = CacheScInfoMap.find(ft.scId);
+        if (it_map == CacheScInfoMap.end() )
         {
             // should not happen
             LogPrint("sc", "%s():%d - Can not update balance, could not find scId=%s\n",
@@ -572,7 +588,7 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
     return true;
 }
 
-ScCoinsViewCache::ScCoinsViewCache(): mUpdate(ScMgr::instance().getScInfoMap())
+ScCoinsViewCache::ScCoinsViewCache(): CacheScInfoMap(ScMgr::instance().getScInfoMap())
 {
     sErase.clear();
     sDirty.clear();
@@ -590,8 +606,8 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
         LogPrint("sc", "%s():%d - removing fwt for scId=%s\n", __func__, __LINE__, scId.ToString());
 
-        const auto it_map = mUpdate.find(scId);
-        if (it_map == mUpdate.end() )
+        const auto it_map = CacheScInfoMap.find(scId);
+        if (it_map == CacheScInfoMap.end() )
         {
             // should not happen 
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
@@ -642,8 +658,8 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
         LogPrint("sc", "%s():%d - removing scId=%s\n", __func__, __LINE__, scId.ToString());
 
-        const auto it_map = mUpdate.find(scId);
-        if (it_map == mUpdate.end() )
+        const auto it_map = CacheScInfoMap.find(scId);
+        if (it_map == CacheScInfoMap.end() )
         {
             // should not happen 
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
@@ -658,7 +674,7 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
             return false;
         }
  
-        if (mUpdate.erase(scId))
+        if (CacheScInfoMap.erase(scId))
         {
             LogPrint("sc", "%s():%d - scId=%s removed from scView\n", __func__, __LINE__, scId.ToString() );
         }
@@ -676,9 +692,9 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
 {
     LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
-    auto it_map = mUpdate.begin();
+    auto it_map = CacheScInfoMap.begin();
 
-    while (it_map != mUpdate.end() )
+    while (it_map != CacheScInfoMap.end() )
     {
         const uint256& scId = it_map->first;
         ScInfo& info = it_map->second;
@@ -744,8 +760,8 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
         const uint256& scId           = it_ia_undo_map->first;
         const std::string& scIdString = scId.ToString();
 
-        const auto it_map = mUpdate.find(scId);
-        if (it_map == mUpdate.end() )
+        const auto it_map = CacheScInfoMap.find(scId);
+        if (it_map == CacheScInfoMap.end() )
         {
             // should not happen 
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scIdString );
@@ -796,9 +812,8 @@ bool ScCoinsViewCache::Flush()
 {
     LogPrint("sc", "%s():%d - called\n", __func__, __LINE__);
 
-    LOCK(ScMgr::instance().sc_lock);
     // 1. update the entries that have been added or modified
-    BOOST_FOREACH(const auto& entry, mUpdate)
+    BOOST_FOREACH(const auto& entry, CacheScInfoMap)
     {
         if (!sDirty.count(entry.first) )
         {
@@ -811,10 +826,6 @@ bool ScCoinsViewCache::Flush()
         {
             return false;
         }
-
-        // update memory
-        ScMgr::instance().mScInfo[entry.first] = entry.second;
-        LogPrint("sc", "%s():%d - wrote scId=%s in memory\n", __func__, __LINE__, entry.first.ToString() );
         sDirty.erase(entry.first);
     }
     assert(sDirty.size() == 0);
@@ -822,25 +833,15 @@ bool ScCoinsViewCache::Flush()
     // 2. process the entries to be erased
     BOOST_FOREACH(const auto& entry, sErase)
     {
-        // update memory
-        int num = ScMgr::instance().mScInfo.erase(entry);
-        if (num)
-        {
-            // erase from db
-            LogPrint("sc", "%s():%d - erased scId=%s from memory\n", __func__, __LINE__, entry.ToString() );
-            ScMgr::instance().erase(entry);
-        }
-        else
-        {
-            LogPrint("sc", "ERROR: %s():%d - scId=%s not in map\n", __func__, __LINE__, entry.ToString() );
+        if (!ScMgr::instance().erase(entry))
             return false;
-        }
     }
+
     return true;
 }
 
 bool ScCoinsViewCache::sidechainExists(const uint256& scId) const
 {
-    const auto it = mUpdate.find(scId);
-    return (it != mUpdate.end() );
+    const auto it = CacheScInfoMap.find(scId);
+    return (it != CacheScInfoMap.end() );
 }
