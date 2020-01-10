@@ -238,19 +238,6 @@ bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const
     return true;
 }
 
-CAmount ScMgr::getScBalance(const uint256& scId)
-{
-    LOCK(sc_lock);
-    ScInfoMap::iterator it = ManagerScInfoMap.find(scId);
-    if (it == ManagerScInfoMap.end() )
-    {
-        // caller should have checked it
-        return -1;
-    }
-
-    return it->second.balance;
-}
-
 bool ScMgr::IsTxApplicableToState(const CTransaction& tx, const ScCoinsViewCache* const scView)
 {
     const uint256& txHash = tx.GetHash();
@@ -381,16 +368,7 @@ bool ScMgr::checkTxSemanticValidity(const CTransaction& tx, CValidationState& st
 }
 bool ScMgr::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
 {
-    if (!hasScCreationConflictsInMempool(pool, tx) )
-    {
-        return state.Invalid(error("transaction tries to create scid already created in mempool"),
-             REJECT_INVALID, "sidechain-creation");
-    }
-    return true;
-}
-
-bool ScMgr::hasScCreationConflictsInMempool(const CTxMemPool& pool, const CTransaction& tx)
-{
+    //Check for conflicts in mempool
     BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
     {
         for (auto it = pool.mapTx.begin(); it != pool.mapTx.end(); ++it)
@@ -403,7 +381,8 @@ bool ScMgr::hasScCreationConflictsInMempool(const CTxMemPool& pool, const CTrans
                 {
                     LogPrint("sc", "%s():%d - invalid tx[%s]: scid[%s] already created by tx[%s]\n",
                         __func__, __LINE__, tx.GetHash().ToString(), sc.scId.ToString(), mpTx.GetHash().ToString() );
-                    return false;
+                            return state.Invalid(error("transaction tries to create scid already created in mempool"),
+                            REJECT_INVALID, "sidechain-creation");
                 }
             }
         }
@@ -562,7 +541,7 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
     BOOST_FOREACH(auto& ft, tx.vft_ccout)
     {
         ScInfo targetScInfo;
-        if (!findNewUpdatedOrPersistedScInfobyScId(ft.scId, targetScInfo))
+        if (!getScInfo(ft.scId, targetScInfo))
         {
             // should not happen
             LogPrint("sc", "%s():%d - Can not update balance, could not find scId=%s\n",
@@ -582,12 +561,6 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
     return true;
 }
 
-ScCoinsViewCache::ScCoinsViewCache()
-{
-    deletedScList.clear();
-    updatedOrNewScInfoList.clear();
-}
-
 bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 {
     static const int SC_COIN_MATURITY = getScCoinsMaturity();
@@ -601,7 +574,7 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         LogPrint("sc", "%s():%d - removing fwt for scId=%s\n", __func__, __LINE__, scId.ToString());
 
         ScInfo targetScInfo;
-        if (!findNewUpdatedOrPersistedScInfobyScId(scId, targetScInfo))
+        if (!getScInfo(scId, targetScInfo))
         {
             // should not happen 
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
@@ -653,7 +626,7 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         LogPrint("sc", "%s():%d - removing scId=%s\n", __func__, __LINE__, scId.ToString());
 
         ScInfo targetScInfo;
-        if (!findNewUpdatedOrPersistedScInfobyScId(scId, targetScInfo))
+        if (!getScInfo(scId, targetScInfo))
         {
             // should not happen 
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
@@ -685,7 +658,7 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
     {
         const uint256& scId = *it_set;
         ScInfo info;
-        assert(findNewUpdatedOrPersistedScInfobyScId(scId, info));
+        assert(getScInfo(scId, info));
 
         auto it_ia_map = info.mImmatureAmounts.begin();
 
@@ -744,7 +717,7 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
         const uint256& scId           = it_ia_undo_map->first;
 
         ScInfo targetScInfo;
-        if (!findNewUpdatedOrPersistedScInfobyScId(scId, targetScInfo))
+        if (!getScInfo(scId, targetScInfo))
         {
             // should not happen 
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
@@ -814,7 +787,7 @@ bool ScCoinsViewCache::Flush()
     return true;
 }
 
-bool ScCoinsViewCache::findNewUpdatedOrPersistedScInfobyScId(const uint256 & scId, ScInfo& targetScInfo) const
+bool ScCoinsViewCache::getScInfo(const uint256 & scId, ScInfo& targetScInfo) const
 {
     const auto it = updatedOrNewScInfoList.find(scId);
     if (it != updatedOrNewScInfoList.end() )
@@ -848,23 +821,8 @@ std::set<uint256> ScCoinsViewCache::NewUpdatedOrPersistedScIdSet() const
     return res;
 }
 
-ScInfoMap ScCoinsViewCache::getScInfoMap() const
-{
-    ScInfoMap res = ScMgr::instance().getScInfoMap();
-
-    BOOST_FOREACH(const auto& entry, deletedScList) {
-      res.erase(entry);
-    }
-
-    BOOST_FOREACH(const auto& entry, updatedOrNewScInfoList) {
-        res[entry.first] = entry.second;
-    }
-
-    return res;
-}
-
 bool ScCoinsViewCache::sidechainExists(const uint256& scId) const
 {
     ScInfo localObj;
-    return findNewUpdatedOrPersistedScInfobyScId(scId, localObj);
+    return getScInfo(scId, localObj);
 }

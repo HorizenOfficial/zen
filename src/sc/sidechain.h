@@ -1,8 +1,6 @@
 #ifndef _SIDECHAIN_CORE_H
 #define _SIDECHAIN_CORE_H
 
-//#include <vector>
-
 #include "amount.h"
 #include "chain.h"
 #include "hash.h"
@@ -77,28 +75,22 @@ typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
 class ScCoinsViewCache
 {
 private:
-    bool findNewUpdatedOrPersistedScInfobyScId(const uint256 & scId, ScInfo& targetScInfo) const;
     std::set<uint256> NewUpdatedOrPersistedScIdSet() const;
-
-public:
-    ScInfoMap getScInfoMap() const; //utility for UTs
-
-private:
     ScInfoMap updatedOrNewScInfoList;
     std::set<uint256> deletedScList;
 
 public:
+    bool sidechainExists(const uint256& scId) const;
+    bool getScInfo(const uint256 & scId, ScInfo& targetScInfo) const;
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
+
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
-    bool sidechainExists(const uint256& scId) const;
-
-
     bool Flush();
 
-    ScCoinsViewCache();
+    ScCoinsViewCache() = default;
     ScCoinsViewCache(const ScCoinsViewCache&) = delete;
     ScCoinsViewCache& operator=(const ScCoinsViewCache &) = delete;
     ScCoinsViewCache(ScCoinsViewCache&) = delete;
@@ -151,13 +143,9 @@ private:
     ~ScMgr() { reset(); }
 
     mutable CCriticalSection sc_lock;
+
     ScInfoMap ManagerScInfoMap;
-
     PersistenceLayer * pLayer;
-
-    bool checkScCreation(const CTransaction& tx, CValidationState& state);
-    bool hasScCreationConflictsInMempool(const CTxMemPool& pool, const CTransaction& tx);
-    bool checkCertificateInMemPool(CTxMemPool& pool, const CTransaction& tx);
 
     // return true if the tx contains a fwd tr for the given scid
     static bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
@@ -166,7 +154,6 @@ private:
     bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
 
   public:
-
     ScMgr(const ScMgr&) = delete;
     ScMgr& operator=(const ScMgr &) = delete;
     ScMgr(ScMgr &&) = delete;
@@ -177,20 +164,19 @@ private:
     bool initPersistence(size_t cacheSize, bool fWipe, const persistencePolicy & dbPolicy = persistencePolicy::PERSIST );
     void reset(); //utility for dtor and unit tests, hence public
 
-    bool persist(const uint256& scId, const ScInfo& info);
-    bool erase(const uint256& scId);
+    bool persist(const uint256& scId, const ScInfo& info); //currently public to allow access to view. Move to protected private once interface is introduced
+    bool erase(const uint256& scId);                       //currently public to allow access to view. Move to protected private once interface is introduced
 
     bool sidechainExists(const uint256& scId, const ScCoinsViewCache* const scView = NULL) const;
     bool getScInfo(const uint256& scId, ScInfo& info) const;
 
-    bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
+    static bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
     static bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
     bool IsTxApplicableToState(const CTransaction& tx, const ScCoinsViewCache* const scView = NULL);
 
     void getScIdSet(std::set<uint256>& sScIds) const;
 
-    const ScInfoMap& getScInfoMap() const { return ManagerScInfoMap; }
-    CAmount getScBalance(const uint256& scId); //utility for UTs
+    const ScInfoMap& getScInfoMap() const { return ManagerScInfoMap; } //For UTs basically
     // print functions
     bool dump_info(const uint256& scId);
     void dump_info();
