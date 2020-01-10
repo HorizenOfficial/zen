@@ -21,7 +21,7 @@ public:
         SelectBaseParams(CBaseChainParams::REGTEST);
         SelectParams(CBaseChainParams::REGTEST);
 
-        ASSERT_TRUE(sidechainManager.initPersistence(0, false, Sidechain::ScMgr::persistencePolicy::STUB));
+        ASSERT_TRUE(sidechainManager.initPersistence(0, true, Sidechain::ScMgr::persistencePolicy::PERSIST));
     };
 
     void TearDown() override {};
@@ -687,7 +687,8 @@ TEST_F(SidechainTestSuite, FlushPersistsForwardTransfers) {
     //checks
     EXPECT_TRUE(res);
 
-    Sidechain::ScInfo persistedInfo = sidechainManager.getScInfoMap().at(scId);
+    Sidechain::ScInfo persistedInfo;
+    ASSERT_TRUE(sidechainManager.getScInfo(scId, persistedInfo));
     ASSERT_TRUE(persistedInfo.mImmatureAmounts.at(fwdTxMaturityHeight) == fwdTxAmount)
         <<"Following flush, persisted fwd amount should equal the one in view";
 }

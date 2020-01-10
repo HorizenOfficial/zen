@@ -586,7 +586,7 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
 
 ScCoinsViewCache::ScCoinsViewCache()
 {
-    AccessDuplicatedStruct() = ScMgr::instance().getScInfoMap();
+    //AccessDuplicatedStruct() = ScMgr::instance().getScInfoMap();
     deletedScList.clear();
     updatedOrNewScInfoList.clear();
 }
@@ -686,11 +686,12 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
 {
     LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
-    auto it_map = AccessDuplicatedStruct().begin();
-    while (it_map != AccessDuplicatedStruct().end() )
+    std::set<uint256> allKnowScIds = NewUpdatedOrPersistedScIdSet();
+    for(auto it_set = allKnowScIds.begin(); it_set != allKnowScIds.end(); ++it_set)
     {
-        const uint256& scId = it_map->first;
-        ScInfo& info = it_map->second;
+        const uint256& scId = *it_set;
+        ScInfo info;
+        assert(findNewUpdatedOrPersistedScInfobyScId(scId, info));
 
         auto it_ia_map = info.mImmatureAmounts.begin();
 
@@ -718,6 +719,7 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
 
                 // scview balance has been updated, remove the entry in scview immature map
                 it_ia_map = info.mImmatureAmounts.erase(it_ia_map);
+                AccessDuplicatedStruct()[scId] = info;
                 updatedOrNewScInfoList[scId] = info;
             }
             else
@@ -733,7 +735,6 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
                 ++it_ia_map;
             }
         }
-        ++it_map;
     }
     return true;
 }
@@ -838,8 +839,40 @@ bool ScCoinsViewCache::findNewUpdatedOrPersistedScInfobyScId(const uint256 & scI
     return false;
 }
 
+std::set<uint256> ScCoinsViewCache::NewUpdatedOrPersistedScIdSet() const
+{
+    std::set<uint256> res;
+
+    BOOST_FOREACH(const auto& entry, updatedOrNewScInfoList) {
+      res.insert(entry.first);
+    }
+
+    std::set<uint256> persistedScIds;
+    ScMgr::instance().getScIdSet(persistedScIds);
+    persistedScIds.erase(deletedScList.begin(),deletedScList.end());
+
+    res.insert(persistedScIds.begin(), persistedScIds.end());
+
+    return res;
+}
+
+ScInfoMap ScCoinsViewCache::getScInfoMap() const
+{
+    ScInfoMap res = ScMgr::instance().getScInfoMap();
+
+    BOOST_FOREACH(const auto& entry, deletedScList) {
+      res.erase(entry);
+    }
+
+    BOOST_FOREACH(const auto& entry, updatedOrNewScInfoList) {
+        res[entry.first] = entry.second;
+    }
+
+    return res;
+}
+
 bool ScCoinsViewCache::sidechainExists(const uint256& scId) const
 {
     ScInfo localObj;
-    return findNewUpdatedOrPersistedScInfobyScId(scId, localObj);//AccessDuplicatedStruct().count(scId);
+    return findNewUpdatedOrPersistedScInfobyScId(scId, localObj);
 }

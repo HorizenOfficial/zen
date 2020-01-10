@@ -76,9 +76,16 @@ typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
 
 class ScCoinsViewCache
 {
+private:
     ScInfoMap& AccessDuplicatedStruct()const {static ScInfoMap CacheScInfoMap; return CacheScInfoMap; };
-    bool findNewUpdatedOrPersistedScInfobyScId(const uint256 & scId, ScInfo& targetScInfo) const;
 
+    bool findNewUpdatedOrPersistedScInfobyScId(const uint256 & scId, ScInfo& targetScInfo) const;
+    std::set<uint256> NewUpdatedOrPersistedScIdSet() const;
+
+public:
+    ScInfoMap getScInfoMap() const; //utility for UTs
+
+private:
     ScInfoMap updatedOrNewScInfoList;
     std::set<uint256> deletedScList;
 
@@ -89,7 +96,7 @@ public:
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
     bool sidechainExists(const uint256& scId) const;
-    const ScInfoMap& getScInfoMap() const { return AccessDuplicatedStruct(); } //utility for UTs
+
 
     bool Flush();
 
