@@ -21,7 +21,7 @@ public:
         SelectBaseParams(CBaseChainParams::REGTEST);
         SelectParams(CBaseChainParams::REGTEST);
 
-        ASSERT_TRUE(sidechainManager.initPersistence(0, true, Sidechain::ScMgr::persistencePolicy::STUB));
+        ASSERT_TRUE(sidechainManager.initPersistence(0, true, Sidechain::ScMgr::persistencePolicy::PERSIST));
     };
 
     void TearDown() override {};
@@ -325,7 +325,7 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceBeforeCoins
 
     coinViewCache.Flush();
     EXPECT_TRUE(sidechainManager.getScBalance(scId) < initialAmount)
-        <<"resulting balance is "<<coinViewCache.getScInfoMap().at(scId).balance
+        <<"resulting balance is "<<sidechainManager.getScBalance(scId)
         <<" while initial amount is "<<initialAmount;
 }
 
@@ -349,7 +349,7 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferModifiesScBalanceAtCoinMaturity) 
 
     coinViewCache.Flush();
     EXPECT_TRUE(sidechainManager.getScBalance(scId) == initialAmount)
-        <<"resulting balance is "<<coinViewCache.getScInfoMap().at(scId).balance
+        <<"resulting balance is "<<sidechainManager.getScBalance(scId)
         <<" expected one is "<<initialAmount;
 }
 
@@ -373,7 +373,7 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceAfterCoinsM
 
     coinViewCache.Flush();
     EXPECT_TRUE(sidechainManager.getScBalance(scId) < initialAmount)
-        <<"resulting balance is "<<coinViewCache.getScInfoMap().at(scId).balance
+        <<"resulting balance is "<<sidechainManager.getScBalance(scId)
         <<" while initial amount is "<<initialAmount;
 }
 
@@ -627,32 +627,6 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// Flush /////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainTestSuite, FlushAlignsPersistedTxsWithViewOnes) {
-    CTransaction aTransaction = createNewSidechainTxWith(uint256S("a1b2"), CAmount(1));
-    CBlock aBlock;
-    coinViewCache.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
-
-    //prerequisites
-    ASSERT_TRUE(sidechainManager.getScInfoMap().size() == 0);
-
-    //test
-    bool res = coinViewCache.Flush();
-
-    //check
-    EXPECT_TRUE(res);
-    EXPECT_TRUE(sidechainManager.getScInfoMap() == coinViewCache.getScInfoMap());
-}
-
-TEST_F(SidechainTestSuite, UponViewCreationAllPersistedTxsAreLoaded) {
-    preFillSidechainsCollection();
-
-    //test
-    Sidechain::ScCoinsViewCache newView;
-
-    //check
-    EXPECT_TRUE(sidechainManager.getScInfoMap() == newView.getScInfoMap());
-}
-
 TEST_F(SidechainTestSuite, FlushPersistsNewSidechains) {
     uint256 scId = uint256S("a1b2");
     CTransaction aTransaction = createNewSidechainTxWith(scId, CAmount(1000));
