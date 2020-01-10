@@ -550,7 +550,6 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
         scInfo.creationTxHash = txHash;
         scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
  
-        AccessDuplicatedStruct().insert(std::make_pair(cr.scId, scInfo));
         updatedOrNewScInfoList[cr.scId] = scInfo;
 
         LogPrint("sc", "%s():%d - scId[%s] added in scView\n", __func__, __LINE__, cr.scId.ToString() );
@@ -574,7 +573,6 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
 
         // add a new immature balance entry in sc info or increment it if already there
         targetScInfo.mImmatureAmounts[maturityHeight] += ft.nValue;
-        AccessDuplicatedStruct()[ft.scId] = targetScInfo;
         updatedOrNewScInfoList[ft.scId] = targetScInfo;
 
         LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
@@ -586,7 +584,6 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
 
 ScCoinsViewCache::ScCoinsViewCache()
 {
-    //AccessDuplicatedStruct() = ScMgr::instance().getScInfoMap();
     deletedScList.clear();
     updatedOrNewScInfoList.clear();
 }
@@ -634,7 +631,6 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         }
 
         iaMap[maturityHeight] -= entry.nValue;
-        AccessDuplicatedStruct()[scId] = targetScInfo;
         updatedOrNewScInfoList[scId] = targetScInfo;
 
         LogPrint("sc", "%s():%d - immature amount after: %s\n",
@@ -643,7 +639,6 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         if (iaMap[maturityHeight] == 0)
         {
             iaMap.erase(maturityHeight);
-            AccessDuplicatedStruct()[scId] = targetScInfo;
             updatedOrNewScInfoList[scId] = targetScInfo;
             LogPrint("sc", "%s():%d - removed entry height=%d from immature amounts in memory\n",
                 __func__, __LINE__, maturityHeight );
@@ -673,7 +668,6 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
             return false;
         }
  
-        AccessDuplicatedStruct().erase(scId);
         updatedOrNewScInfoList.erase(scId);
         deletedScList.insert(scId);
 
@@ -719,7 +713,6 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
 
                 // scview balance has been updated, remove the entry in scview immature map
                 it_ia_map = info.mImmatureAmounts.erase(it_ia_map);
-                AccessDuplicatedStruct()[scId] = info;
                 updatedOrNewScInfoList[scId] = info;
             }
             else
@@ -783,7 +776,6 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
             }
 
             targetScInfo.balance -= a;
-            AccessDuplicatedStruct()[scId] = targetScInfo;
             updatedOrNewScInfoList[scId] = targetScInfo;
 
             LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
