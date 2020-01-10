@@ -233,7 +233,7 @@ bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const
     }
 
     // create a copy
-    info = ScInfo(it->second);
+    info = ScInfo(it->second); //ABENEGIA: you are spitting out a reference to a local object. Is it safe????
     LogPrint("sc", "scid[%s]: %s", scId.ToString(), info.ToString() );
     return true;
 }
@@ -562,8 +562,8 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
     // forward transfer ccout
     BOOST_FOREACH(auto& ft, tx.vft_ccout)
     {
-        auto it_map = AccessDuplicatedStruct().find(ft.scId);
-        if (it_map == AccessDuplicatedStruct().end() )
+        ScInfo targetScInfo;
+        if (!findNewUpdatedOrPersistedScInfobyScId(ft.scId, targetScInfo))
         {
             // should not happen
             LogPrint("sc", "%s():%d - Can not update balance, could not find scId=%s\n",
@@ -573,8 +573,9 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
         }
 
         // add a new immature balance entry in sc info or increment it if already there
-        it_map->second.mImmatureAmounts[maturityHeight] += ft.nValue;
-        updatedOrNewScInfoList[ft.scId] = it_map->second;
+        targetScInfo.mImmatureAmounts[maturityHeight] += ft.nValue;
+        AccessDuplicatedStruct()[ft.scId] = targetScInfo;
+        updatedOrNewScInfoList[ft.scId] = targetScInfo;
 
         LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
             __func__, __LINE__, maturityHeight, FormatMoney(ft.nValue), ft.scId.ToString());
@@ -602,8 +603,8 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
         LogPrint("sc", "%s():%d - removing fwt for scId=%s\n", __func__, __LINE__, scId.ToString());
 
-        const auto it_map = AccessDuplicatedStruct().find(scId);
-        if (it_map == AccessDuplicatedStruct().end() )
+        ScInfo targetScInfo;
+        if (!findNewUpdatedOrPersistedScInfobyScId(scId, targetScInfo))
         {
             // should not happen 
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
@@ -611,7 +612,7 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         }
  
         // get the map of immature amounts, they are indexed by height
-        auto& iaMap = it_map->second.mImmatureAmounts;
+        auto& iaMap = targetScInfo.mImmatureAmounts;
 
         if (!iaMap.count(maturityHeight) )
         {
@@ -633,7 +634,8 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         }
 
         iaMap[maturityHeight] -= entry.nValue;
-        updatedOrNewScInfoList[scId] = it_map->second;
+        AccessDuplicatedStruct()[scId] = targetScInfo;
+        updatedOrNewScInfoList[scId] = targetScInfo;
 
         LogPrint("sc", "%s():%d - immature amount after: %s\n",
             __func__, __LINE__, FormatMoney(iaMap[maturityHeight]));
@@ -641,7 +643,8 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         if (iaMap[maturityHeight] == 0)
         {
             iaMap.erase(maturityHeight);
-            updatedOrNewScInfoList[scId] = it_map->second;
+            AccessDuplicatedStruct()[scId] = targetScInfo;
+            updatedOrNewScInfoList[scId] = targetScInfo;
             LogPrint("sc", "%s():%d - removed entry height=%d from immature amounts in memory\n",
                 __func__, __LINE__, maturityHeight );
         }
@@ -654,19 +657,19 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
         LogPrint("sc", "%s():%d - removing scId=%s\n", __func__, __LINE__, scId.ToString());
 
-        const auto it_map = AccessDuplicatedStruct().find(scId);
-        if (it_map == AccessDuplicatedStruct().end() )
+        ScInfo targetScInfo;
+        if (!findNewUpdatedOrPersistedScInfobyScId(scId, targetScInfo))
         {
             // should not happen 
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
  
-        if (it_map->second.balance > 0)
+        if (targetScInfo.balance > 0)
         {
             // should not happen either 
             LogPrint("sc", "ERROR %s():%d - scId=%s balance not null: %s\n",
-                __func__, __LINE__, scId.ToString(), FormatMoney(it_map->second.balance));
+                __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
             return false;
         }
  
@@ -684,7 +687,6 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
     LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
     auto it_map = AccessDuplicatedStruct().begin();
-
     while (it_map != AccessDuplicatedStruct().end() )
     {
         const uint256& scId = it_map->first;
@@ -747,23 +749,21 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
     {
         const uint256& scId           = it_ia_undo_map->first;
 
-        const auto it_map = AccessDuplicatedStruct().find(scId);
-        if (it_map == AccessDuplicatedStruct().end() )
+        ScInfo targetScInfo;
+        if (!findNewUpdatedOrPersistedScInfobyScId(scId, targetScInfo))
         {
             // should not happen 
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
-
-        ScInfo& info = it_map->second;
       
         // replace (undo) the map of immature amounts of this sc in scview with the blockundo contents
-        info.mImmatureAmounts = it_ia_undo_map->second;
+        targetScInfo.mImmatureAmounts = it_ia_undo_map->second;
 
         // process the entry with key=height if it exists.
-        auto it_ia_map = info.mImmatureAmounts.find(blockHeight);
+        auto it_ia_map = targetScInfo.mImmatureAmounts.find(blockHeight);
 
-        if (it_ia_map != info.mImmatureAmounts.end() )
+        if (it_ia_map != targetScInfo.mImmatureAmounts.end() )
         {
             // For such an entry the maturity border is exactly matched, therefore decrement sc balance in scview 
 
@@ -772,20 +772,21 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
                 __func__, __LINE__, scId.ToString(), blockHeight, FormatMoney(a));
 
             LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
-                __func__, __LINE__, scId.ToString(), FormatMoney(info.balance));
+                __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
             
-            if (info.balance < a)
+            if (targetScInfo.balance < a)
             {
                 LogPrint("sc", "%s():%d - Can not update balance with amount[%s] for scId=%s, would be negative\n",
                     __func__, __LINE__, FormatMoney(a), scId.ToString() );
                 return false;
             }
 
-            info.balance -= a;
-            updatedOrNewScInfoList[scId] = info;
+            targetScInfo.balance -= a;
+            AccessDuplicatedStruct()[scId] = targetScInfo;
+            updatedOrNewScInfoList[scId] = targetScInfo;
 
             LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
-                __func__, __LINE__, scId.ToString(), FormatMoney(info.balance));
+                __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
         }
 
         ++it_ia_undo_map;
@@ -820,8 +821,25 @@ bool ScCoinsViewCache::Flush()
     return true;
 }
 
+bool ScCoinsViewCache::findNewUpdatedOrPersistedScInfobyScId(const uint256 & scId, ScInfo& targetScInfo) const
+{
+    const auto it = updatedOrNewScInfoList.find(scId);
+    if (it != updatedOrNewScInfoList.end() )
+    {
+        targetScInfo = ScInfo(it->second); //ABENEGIA: you are spitting out a reference to a local object. Is it safe????
+        return true;
+    }
+
+    if (ScMgr::instance().getScInfo(scId,targetScInfo) && deletedScList.count(scId) == 0)
+    {
+        return true;
+    }
+
+    return false;
+}
+
 bool ScCoinsViewCache::sidechainExists(const uint256& scId) const
 {
-    const ScInfoMap& yetAnotherDuplication = AccessDuplicatedStruct();
-    return ( yetAnotherDuplication.find(scId) != yetAnotherDuplication.end());
+    ScInfo localObj;
+    return findNewUpdatedOrPersistedScInfobyScId(scId, localObj);//AccessDuplicatedStruct().count(scId);
 }
