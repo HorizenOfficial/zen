@@ -228,7 +228,7 @@ bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const
     return true;
 }
 
-bool ScMgr::IsTxApplicableToState(const CTransaction& tx, const ScCoinsViewCache* const scView)
+bool ScMgr::IsTxApplicableToState(const CTransaction& tx)
 {
     const uint256& txHash = tx.GetHash();
 
@@ -236,8 +236,7 @@ bool ScMgr::IsTxApplicableToState(const CTransaction& tx, const ScCoinsViewCache
     BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
     {
         const uint256& scId = sc.scId;
-        bool doesSidechainExist = scView == nullptr? sidechainExists(scId) : scView->sidechainExists(scId);
-        if (doesSidechainExist)
+        if (sidechainExists(scId))
         {
             LogPrint("sc", "%s():%d - Invalid tx[%s] : scid[%s] already created\n",
                 __func__, __LINE__, txHash.ToString(), scId.ToString());
@@ -251,8 +250,7 @@ bool ScMgr::IsTxApplicableToState(const CTransaction& tx, const ScCoinsViewCache
     BOOST_FOREACH(const auto& ft, tx.vft_ccout)
     {
         const uint256& scId = ft.scId;
-        bool doesSidechainExist = scView == nullptr? sidechainExists(scId) : scView->sidechainExists(scId);
-        if (!doesSidechainExist)
+        if (!sidechainExists(scId))
         {
             // return error unless we are creating this sc in the current tx
             if (!hasScCreationOutput(tx, scId) )
@@ -748,6 +746,44 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
         }
 
         ++it_ia_undo_map;
+    }
+    return true;
+}
+
+bool ScCoinsViewCache::IsTxApplicableToState(const CTransaction& tx)
+{
+    const uint256& txHash = tx.GetHash();
+
+    // check creation
+    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
+    {
+        const uint256& scId = sc.scId;
+        if (sidechainExists(scId))
+        {
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : scid[%s] already created\n",
+                __func__, __LINE__, txHash.ToString(), scId.ToString());
+            return false;
+        }
+        LogPrint("sc", "%s():%d - OK: tx[%s] is creating scId[%s]\n",
+            __func__, __LINE__, txHash.ToString(), scId.ToString());
+    }
+
+    // check fw tx
+    BOOST_FOREACH(const auto& ft, tx.vft_ccout)
+    {
+        const uint256& scId = ft.scId;
+        if (!sidechainExists(scId))
+        {
+            // return error unless we are creating this sc in the current tx
+            if (!ScMgr::hasScCreationOutput(tx, scId) )
+            {
+                LogPrint("sc", "%s():%d - tx[%s] tries to send funds to scId[%s] not yet created\n",
+                    __func__, __LINE__, txHash.ToString(), scId.ToString() );
+                return false;
+            }
+        }
+        LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
+            __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
     }
     return true;
 }

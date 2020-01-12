@@ -198,7 +198,7 @@ TEST_F(SidechainTestSuite, NewScCreationsAreApplicableToState) {
     CTransaction aTransaction = createNewSidechainTxWith(uint256S("1492"), CAmount(1953));
 
     //test
-    bool res = sidechainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
+    bool res = coinViewCache.IsTxApplicableToState(aTransaction);
 
     //checks
     EXPECT_TRUE(res);
@@ -213,7 +213,7 @@ TEST_F(SidechainTestSuite, DuplicatedScCreationsAreNotApplicableToState) {
     CTransaction duplicatedTx = createNewSidechainTxWith(scId, CAmount(1815));
 
     //test
-    bool res = sidechainManager.IsTxApplicableToState(duplicatedTx, &coinViewCache);
+    bool res = coinViewCache.IsTxApplicableToState(duplicatedTx);
 
     //checks
     EXPECT_FALSE(res);
@@ -228,7 +228,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
     aTransaction = createFwdTransferTxWith(scId, CAmount(5));
 
     //test
-    bool res = sidechainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
+    bool res = coinViewCache.IsTxApplicableToState(aTransaction);
 
     //checks
     EXPECT_TRUE(res);
@@ -238,7 +238,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsAreNotApplicableToSta
     CTransaction aTransaction = createFwdTransferTxWith(uint256S("1492"), CAmount(1815));
 
     //test
-    bool res = sidechainManager.IsTxApplicableToState(aTransaction, &coinViewCache);
+    bool res = coinViewCache.IsTxApplicableToState(aTransaction);
 
     //checks
     EXPECT_FALSE(res);

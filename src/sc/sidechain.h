@@ -88,6 +88,8 @@ public:
     bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
+    bool IsTxApplicableToState(const CTransaction& tx);
+
     bool Flush();
 
     ScCoinsViewCache() = default;
@@ -172,7 +174,7 @@ private:
     static bool hasScCreationOutput(const CTransaction& tx, const uint256& scId); // return true if the tx is creating the scid
 
     bool sidechainExists(const uint256& scId) const;
-    bool IsTxApplicableToState(const CTransaction& tx, const ScCoinsViewCache* const scView = NULL);
+    bool IsTxApplicableToState(const CTransaction& tx);
 
     void getScIdSet(std::set<uint256>& sScIds) const;
 

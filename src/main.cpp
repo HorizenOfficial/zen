@@ -2540,7 +2540,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
         // a not existing one and so on
-        if (!scMgr.IsTxApplicableToState(tx, scView) )
+        bool isTxApplicableToState = scView == nullptr? scMgr.IsTxApplicableToState(tx) : scView->IsTxApplicableToState(tx);
+        if (!isTxApplicableToState)
         {
             LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
             return state.DoS(100, error("ConnectBlock(): invalid sc transaction tx[%s]", tx.GetHash().ToString()),
