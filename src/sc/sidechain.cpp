@@ -807,7 +807,7 @@ bool ScCoinsViewCache::Flush()
     unsigned int numberFlushedUpdates = 0;
     BOOST_FOREACH(const auto& entry, updatedOrNewScInfoList)
     {
-        if (!ScMgr::instance().persist(entry.first, entry.second) )
+        if (!persistedView.persist(entry.first, entry.second) )
         {
             return false;
         }
@@ -819,7 +819,7 @@ bool ScCoinsViewCache::Flush()
     // 2. process the entries to be erased
     BOOST_FOREACH(const auto& entry, deletedScList)
     {
-        if (!ScMgr::instance().erase(entry))
+        if (!persistedView.erase(entry))
             return false;
     }
 
@@ -835,7 +835,7 @@ bool ScCoinsViewCache::getScInfo(const uint256 & scId, ScInfo& targetScInfo) con
         return true;
     }
 
-    if (ScMgr::instance().getScInfo(scId,targetScInfo) && deletedScList.count(scId) == 0)
+    if (persistedView.getScInfo(scId,targetScInfo) && deletedScList.count(scId) == 0)
     {
         return true;
     }
@@ -851,7 +851,7 @@ std::set<uint256> ScCoinsViewCache::getScIdSet() const
       res.insert(entry.first);
     }
 
-    std::set<uint256> persistedScIds = ScMgr::instance().getScIdSet();
+    std::set<uint256> persistedScIds = persistedView.getScIdSet();
     persistedScIds.erase(deletedScList.begin(),deletedScList.end());
 
     res.insert(persistedScIds.begin(), persistedScIds.end());
@@ -859,7 +859,10 @@ std::set<uint256> ScCoinsViewCache::getScIdSet() const
     return res;
 }
 
+ScCoinsViewCache::ScCoinsViewCache(ScCoinsPersistedView& _persistedView): persistedView(_persistedView)
+{}
+
 bool ScCoinsViewCache::sidechainExists(const uint256& scId) const
 {
-    return updatedOrNewScInfoList.count(scId) || (ScMgr::instance().sidechainExists(scId) && !deletedScList.count(scId));
+    return updatedOrNewScInfoList.count(scId) || (persistedView.sidechainExists(scId) && !deletedScList.count(scId));
 }

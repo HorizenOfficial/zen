@@ -11,7 +11,7 @@ class SidechainTestSuite: public ::testing::Test {
 
 public:
     SidechainTestSuite() :
-            sidechainManager(Sidechain::ScMgr::instance()), coinViewCache(){};
+            sidechainManager(Sidechain::ScMgr::instance()), coinViewCache(sidechainManager){};
 
     ~SidechainTestSuite() {
         sidechainManager.reset();

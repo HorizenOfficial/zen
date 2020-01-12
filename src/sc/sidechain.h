@@ -91,13 +91,18 @@ protected:
     static bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
 };
 
+class ScCoinsPersistedView : public ScCoinsView
+{
+public:
+    virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
+    virtual bool erase(const uint256& scId) = 0;
+};
+
 class ScCoinsViewCache : public ScCoinsView
 {
-private:
-    ScInfoMap updatedOrNewScInfoList;
-    std::set<uint256> deletedScList;
-
 public:
+    ScCoinsViewCache(ScCoinsPersistedView& _persistedView);
+
     bool sidechainExists(const uint256& scId) const;
     bool getScInfo(const uint256 & scId, ScInfo& targetScInfo) const;
     std::set<uint256> getScIdSet() const;
@@ -111,10 +116,13 @@ public:
 
     bool Flush();
 
-    ScCoinsViewCache() = default;
+private:
+    ScCoinsPersistedView& persistedView;
+    ScInfoMap updatedOrNewScInfoList;
+    std::set<uint256> deletedScList;
 };
 
-class ScMgr : public ScCoinsView
+class ScMgr : public ScCoinsPersistedView
 {
 public:
     enum persistencePolicy {

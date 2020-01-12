@@ -2848,7 +2848,7 @@ bool static DisconnectTip(CValidationState &state) {
     int64_t nStart = GetTimeMicros();
     {
         CCoinsViewCache view(pcoinsTip);
-        Sidechain::ScCoinsViewCache scView;
+        Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
         if (!DisconnectBlock(block, state, pindexDelete, view, NULL, &scView))
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         assert(view.Flush());
@@ -2926,7 +2926,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     LogPrint("bench", "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * 0.001, nTimeReadFromDisk * 0.000001);
     {
         CCoinsViewCache view(pcoinsTip);
-        Sidechain::ScCoinsViewCache scView;
+        Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
         static const bool JUST_CHECK_FALSE = false;
         bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, JUST_CHECK_FALSE, &scView);
         GetMainSignals().BlockChecked(*pblock, state);
@@ -4316,7 +4316,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     nCheckLevel = std::max(0, std::min(4, nCheckLevel));
     LogPrintf("Verifying last %i blocks at level %i\n", nCheckDepth, nCheckLevel);
     CCoinsViewCache coins(coinsview);
-    Sidechain::ScCoinsViewCache scView;
+    Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
     CBlockIndex* pindexState = chainActive.Tip();
     CBlockIndex* pindexFailure = NULL;
     int nGoodTransactions = 0;
