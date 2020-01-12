@@ -192,6 +192,128 @@ std::string ScInfo::ToString() const
     return str;
 }
 
+/*****************************************************************************/
+/*************************** SCCOINVIEW INTERFACE ****************************/
+/*****************************************************************************/
+bool ScCoinsView::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
+{
+    // check version consistency
+    if (!tx.IsScVersion() )
+    {
+        if (!tx.ccIsNull() )
+        {
+            return state.DoS(100,
+                error("mismatch between transaction version and sidechain output presence"),
+                REJECT_INVALID, "sidechain-tx-version");
+        }
+
+        // anyway skip non sc related tx
+        return true;
+    }
+    else
+    {
+        // we do not support joinsplit as of now
+        if (tx.vjoinsplit.size() > 0)
+        {
+            return state.DoS(100,
+                error("mismatch between transaction version and joinsplit presence"),
+                REJECT_INVALID, "sidechain-tx-version");
+        }
+    }
+
+    const uint256& txHash = tx.GetHash();
+
+    LogPrint("sc", "%s():%d - tx=%s\n", __func__, __LINE__, txHash.ToString() );
+
+    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
+    {
+        // check there is at least one fwt associated with this scId
+        if (!anyForwardTransaction(tx, sc.scId) )
+        {
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : no fwd transactions associated to this creation\n",
+                __func__, __LINE__, txHash.ToString() );
+            return state.DoS(100, error("%s: no fwd transactions associated to this creation",
+                __func__), REJECT_INVALID, "sidechain-creation-missing-fwd-transfer");
+        }
+    }
+
+    CAmount cumulatedFwdAmount = 0;
+    BOOST_FOREACH(const auto& sc, tx.vft_ccout)
+    {
+        if (sc.nValue == CAmount(0) || !MoneyRange(sc.nValue))
+        {
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : fwd trasfer amount is non-positive or larger than %s\n",
+                __func__, __LINE__, txHash.ToString(), FormatMoney(MAX_MONEY) );
+            return state.DoS(100, error("%s: fwd trasfer amount is outside range",
+                __func__), REJECT_INVALID, "sidechain-fwd-transfer-amount-outside-range");
+        }
+
+        cumulatedFwdAmount += sc.nValue;
+        if (!MoneyRange(cumulatedFwdAmount))
+        {
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : cumulated fwd trasfers amount is outside range\n",
+                __func__, __LINE__, txHash.ToString() );
+            return state.DoS(100, error("%s: cumulated fwd trasfers amount is outside range",
+                __func__), REJECT_INVALID, "sidechain-fwd-transfer-amount-outside-range");
+
+        }
+    }
+
+    return true;
+}
+
+bool ScCoinsView::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
+{
+    //Check for conflicts in mempool
+    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
+    {
+        for (auto it = pool.mapTx.begin(); it != pool.mapTx.end(); ++it)
+        {
+            const CTransaction& mpTx = it->second.GetTx();
+
+            BOOST_FOREACH(const auto& mpSc, mpTx.vsc_ccout)
+            {
+                if (mpSc.scId == sc.scId)
+                {
+                    LogPrint("sc", "%s():%d - invalid tx[%s]: scid[%s] already created by tx[%s]\n",
+                        __func__, __LINE__, tx.GetHash().ToString(), sc.scId.ToString(), mpTx.GetHash().ToString() );
+                            return state.Invalid(error("transaction tries to create scid already created in mempool"),
+                            REJECT_INVALID, "sidechain-creation");
+                }
+            }
+        }
+    }
+    return true;
+}
+
+bool ScCoinsView::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
+{
+    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
+    {
+        if (sc.scId == scId)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool ScCoinsView::anyForwardTransaction(const CTransaction& tx, const uint256& scId)
+{
+    BOOST_FOREACH(const auto& fwd, tx.vft_ccout)
+    {
+        if (fwd.scId == scId)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+/*****************************************************************************/
+/************************ END OF SCCOINVIEW INTERFACE ************************/
+/*****************************************************************************/
+
 ScMgr& ScMgr::instance()
 {
     static ScMgr _instance;
@@ -204,13 +326,16 @@ bool ScMgr::sidechainExists(const uint256& scId) const
     return ManagerScInfoMap.count(scId);
 }
 
-void ScMgr::getScIdSet(std::set<uint256>& sScIds) const
+std::set<uint256> ScMgr::getScIdSet() const
 {
+    std::set<uint256> sScIds;
     LOCK(sc_lock);
     BOOST_FOREACH(const auto& entry, ManagerScInfoMap)
     {
         sScIds.insert(entry.first);
     }
+
+    return sScIds;
 }
 
 bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const
@@ -262,120 +387,6 @@ bool ScMgr::IsTxApplicableToState(const CTransaction& tx)
         }
         LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
-    }
-    return true;
-}
-
-bool ScMgr::anyForwardTransaction(const CTransaction& tx, const uint256& scId)
-{
-    BOOST_FOREACH(const auto& fwd, tx.vft_ccout)
-    {
-        if (fwd.scId == scId)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool ScMgr::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
-{
-    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
-    {
-        if (sc.scId == scId)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool ScMgr::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
-{
-    // check version consistency
-    if (!tx.IsScVersion() )
-    {
-        if (!tx.ccIsNull() )
-        {
-            return state.DoS(100,
-                error("mismatch between transaction version and sidechain output presence"), 
-                REJECT_INVALID, "sidechain-tx-version");
-        }
-
-        // anyway skip non sc related tx
-        return true;
-    }
-    else
-    {
-        // we do not support joinsplit as of now
-        if (tx.vjoinsplit.size() > 0)
-        {
-            return state.DoS(100,
-                error("mismatch between transaction version and joinsplit presence"), 
-                REJECT_INVALID, "sidechain-tx-version");
-        }
-    }
-
-    const uint256& txHash = tx.GetHash();
-
-    LogPrint("sc", "%s():%d - tx=%s\n", __func__, __LINE__, txHash.ToString() );
-
-    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
-    {
-        // check there is at least one fwt associated with this scId
-        if (!anyForwardTransaction(tx, sc.scId) )
-        {
-            LogPrint("sc", "%s():%d - Invalid tx[%s] : no fwd transactions associated to this creation\n",
-                __func__, __LINE__, txHash.ToString() );
-            return state.DoS(100, error("%s: no fwd transactions associated to this creation",
-                __func__), REJECT_INVALID, "sidechain-creation-missing-fwd-transfer");
-        }
-    }
-
-    CAmount cumulatedFwdAmount = 0;
-    BOOST_FOREACH(const auto& sc, tx.vft_ccout)
-    {
-        if (sc.nValue == CAmount(0) || !MoneyRange(sc.nValue))
-        {
-            LogPrint("sc", "%s():%d - Invalid tx[%s] : fwd trasfer amount is non-positive or larger than %s\n",
-                __func__, __LINE__, txHash.ToString(), FormatMoney(MAX_MONEY) );
-            return state.DoS(100, error("%s: fwd trasfer amount is outside range",
-                __func__), REJECT_INVALID, "sidechain-fwd-transfer-amount-outside-range");
-        }
-
-        cumulatedFwdAmount += sc.nValue;
-        if (!MoneyRange(cumulatedFwdAmount))
-        {
-            LogPrint("sc", "%s():%d - Invalid tx[%s] : cumulated fwd trasfers amount is outside range\n",
-                __func__, __LINE__, txHash.ToString() );
-            return state.DoS(100, error("%s: cumulated fwd trasfers amount is outside range",
-                __func__), REJECT_INVALID, "sidechain-fwd-transfer-amount-outside-range");
-
-        }
-    }
-
-    return true;
-}
-bool ScMgr::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
-{
-    //Check for conflicts in mempool
-    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
-    {
-        for (auto it = pool.mapTx.begin(); it != pool.mapTx.end(); ++it)
-        {
-            const CTransaction& mpTx = it->second.GetTx();
-
-            BOOST_FOREACH(const auto& mpSc, mpTx.vsc_ccout)
-            {
-                if (mpSc.scId == sc.scId)
-                {
-                    LogPrint("sc", "%s():%d - invalid tx[%s]: scid[%s] already created by tx[%s]\n",
-                        __func__, __LINE__, tx.GetHash().ToString(), sc.scId.ToString(), mpTx.GetHash().ToString() );
-                            return state.Invalid(error("transaction tries to create scid already created in mempool"),
-                            REJECT_INVALID, "sidechain-creation");
-                }
-            }
-        }
     }
     return true;
 }
@@ -643,7 +654,7 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
 {
     LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
-    std::set<uint256> allKnowScIds = NewUpdatedOrPersistedScIdSet();
+    std::set<uint256> allKnowScIds = getScIdSet();
     for(auto it_set = allKnowScIds.begin(); it_set != allKnowScIds.end(); ++it_set)
     {
         const uint256& scId = *it_set;
@@ -775,7 +786,7 @@ bool ScCoinsViewCache::IsTxApplicableToState(const CTransaction& tx)
         if (!sidechainExists(scId))
         {
             // return error unless we are creating this sc in the current tx
-            if (!ScMgr::hasScCreationOutput(tx, scId) )
+            if (!hasScCreationOutput(tx, scId) )
             {
                 LogPrint("sc", "%s():%d - tx[%s] tries to send funds to scId[%s] not yet created\n",
                     __func__, __LINE__, txHash.ToString(), scId.ToString() );
@@ -832,7 +843,7 @@ bool ScCoinsViewCache::getScInfo(const uint256 & scId, ScInfo& targetScInfo) con
     return false;
 }
 
-std::set<uint256> ScCoinsViewCache::NewUpdatedOrPersistedScIdSet() const
+std::set<uint256> ScCoinsViewCache::getScIdSet() const
 {
     std::set<uint256> res;
 
@@ -840,8 +851,7 @@ std::set<uint256> ScCoinsViewCache::NewUpdatedOrPersistedScIdSet() const
       res.insert(entry.first);
     }
 
-    std::set<uint256> persistedScIds;
-    ScMgr::instance().getScIdSet(persistedScIds);
+    std::set<uint256> persistedScIds = ScMgr::instance().getScIdSet();
     persistedScIds.erase(deletedScList.begin(),deletedScList.end());
 
     res.insert(persistedScIds.begin(), persistedScIds.end());
@@ -851,6 +861,5 @@ std::set<uint256> ScCoinsViewCache::NewUpdatedOrPersistedScIdSet() const
 
 bool ScCoinsViewCache::sidechainExists(const uint256& scId) const
 {
-    ScInfo localObj;
-    return getScInfo(scId, localObj);
+    return updatedOrNewScInfoList.count(scId) || (ScMgr::instance().sidechainExists(scId) && !deletedScList.count(scId));
 }

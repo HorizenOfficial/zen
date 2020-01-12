@@ -72,16 +72,35 @@ public:
 
 typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
 
-class ScCoinsViewCache
+class ScCoinsView
+{
+public:
+    ScCoinsView() = default;
+    ScCoinsView(const ScCoinsView&) = delete;
+    ScCoinsView& operator=(const ScCoinsView &) = delete;
+
+    static bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
+    static bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
+
+    virtual bool sidechainExists(const uint256& scId) const = 0;
+    virtual bool getScInfo(const uint256& scId, ScInfo& info) const = 0;
+    virtual std::set<uint256> getScIdSet() const = 0;
+
+protected:
+    static bool hasScCreationOutput(const CTransaction& tx, const uint256& scId); // return true if the tx is creating the scid
+    static bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
+};
+
+class ScCoinsViewCache : public ScCoinsView
 {
 private:
-    std::set<uint256> NewUpdatedOrPersistedScIdSet() const;
     ScInfoMap updatedOrNewScInfoList;
     std::set<uint256> deletedScList;
 
 public:
     bool sidechainExists(const uint256& scId) const;
     bool getScInfo(const uint256 & scId, ScInfo& targetScInfo) const;
+    std::set<uint256> getScIdSet() const;
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
 
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
@@ -93,13 +112,9 @@ public:
     bool Flush();
 
     ScCoinsViewCache() = default;
-    ScCoinsViewCache(const ScCoinsViewCache&) = delete;
-    ScCoinsViewCache& operator=(const ScCoinsViewCache &) = delete;
-    ScCoinsViewCache(ScCoinsViewCache&) = delete;
-    ScCoinsViewCache& operator=(ScCoinsViewCache &) = delete;
 };
 
-class ScMgr
+class ScMgr : public ScCoinsView
 {
 public:
     enum persistencePolicy {
@@ -149,15 +164,7 @@ private:
     ScInfoMap ManagerScInfoMap;
     PersistenceLayer * pLayer;
 
-    // return true if the tx contains a fwd tr for the given scid
-    static bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
-
   public:
-    ScMgr(const ScMgr&) = delete;
-    ScMgr& operator=(const ScMgr &) = delete;
-    ScMgr(ScMgr &&) = delete;
-    ScMgr & operator=(ScMgr &&) = delete;
-
     static ScMgr& instance();
 
     bool initPersistence(size_t cacheSize, bool fWipe, const persistencePolicy & dbPolicy = persistencePolicy::PERSIST );
@@ -166,17 +173,12 @@ private:
     bool persist(const uint256& scId, const ScInfo& info); //currently public to allow access to view. Move to protected private once interface is introduced
     bool erase(const uint256& scId);                       //currently public to allow access to view. Move to protected private once interface is introduced
 
-
+    bool sidechainExists(const uint256& scId) const;
     bool getScInfo(const uint256& scId, ScInfo& info) const;
 
-    static bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
-    static bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
-    static bool hasScCreationOutput(const CTransaction& tx, const uint256& scId); // return true if the tx is creating the scid
-
-    bool sidechainExists(const uint256& scId) const;
     bool IsTxApplicableToState(const CTransaction& tx);
 
-    void getScIdSet(std::set<uint256>& sScIds) const;
+    std::set<uint256> getScIdSet() const;
 
     const ScInfoMap& getScInfoMap() const { return ManagerScInfoMap; } //For UTs basically
     // print functions

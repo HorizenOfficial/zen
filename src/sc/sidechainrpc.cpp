@@ -209,9 +209,7 @@ bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
 
 void AddScInfoToJSON(UniValue& result)
 {
-    std::set<uint256> sScIds;
-
-    ScMgr::instance().getScIdSet(sScIds);
+    std::set<uint256> sScIds = ScMgr::instance().getScIdSet();
 
     BOOST_FOREACH(const auto& entry, sScIds)
     {
