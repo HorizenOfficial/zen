@@ -150,9 +150,6 @@ private:
     // return true if the tx contains a fwd tr for the given scid
     static bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
 
-    // return true if the tx is creating the scid
-    bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
-
   public:
     ScMgr(const ScMgr&) = delete;
     ScMgr& operator=(const ScMgr &) = delete;
@@ -167,11 +164,14 @@ private:
     bool persist(const uint256& scId, const ScInfo& info); //currently public to allow access to view. Move to protected private once interface is introduced
     bool erase(const uint256& scId);                       //currently public to allow access to view. Move to protected private once interface is introduced
 
-    bool sidechainExists(const uint256& scId, const ScCoinsViewCache* const scView = NULL) const;
+
     bool getScInfo(const uint256& scId, ScInfo& info) const;
 
     static bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
     static bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
+    static bool hasScCreationOutput(const CTransaction& tx, const uint256& scId); // return true if the tx is creating the scid
+
+    bool sidechainExists(const uint256& scId) const;
     bool IsTxApplicableToState(const CTransaction& tx, const ScCoinsViewCache* const scView = NULL);
 
     void getScIdSet(std::set<uint256>& sScIds) const;

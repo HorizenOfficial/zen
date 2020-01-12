@@ -198,20 +198,10 @@ ScMgr& ScMgr::instance()
     return _instance;
 }
 
-bool ScMgr::sidechainExists(const uint256& scId, const ScCoinsViewCache* scView) const
+bool ScMgr::sidechainExists(const uint256& scId) const
 {
-    bool ret = false;
-    if (scView)
-    {
-        ret = scView->sidechainExists(scId);
-    }
-    else
-    {
-        LOCK(sc_lock);
-        const auto it = ManagerScInfoMap.find(scId);
-        ret = (it != ManagerScInfoMap.end() );
-    }
-    return ret;
+    LOCK(sc_lock);
+    return ManagerScInfoMap.count(scId);
 }
 
 void ScMgr::getScIdSet(std::set<uint256>& sScIds) const
@@ -246,7 +236,8 @@ bool ScMgr::IsTxApplicableToState(const CTransaction& tx, const ScCoinsViewCache
     BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
     {
         const uint256& scId = sc.scId;
-        if (sidechainExists(scId, scView) )
+        bool doesSidechainExist = scView == nullptr? sidechainExists(scId) : scView->sidechainExists(scId);
+        if (doesSidechainExist)
         {
             LogPrint("sc", "%s():%d - Invalid tx[%s] : scid[%s] already created\n",
                 __func__, __LINE__, txHash.ToString(), scId.ToString());
@@ -260,7 +251,8 @@ bool ScMgr::IsTxApplicableToState(const CTransaction& tx, const ScCoinsViewCache
     BOOST_FOREACH(const auto& ft, tx.vft_ccout)
     {
         const uint256& scId = ft.scId;
-        if (!sidechainExists(scId, scView) )
+        bool doesSidechainExist = scView == nullptr? sidechainExists(scId) : scView->sidechainExists(scId);
+        if (!doesSidechainExist)
         {
             // return error unless we are creating this sc in the current tx
             if (!hasScCreationOutput(tx, scId) )
