@@ -92,13 +92,7 @@ protected:
     static bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
 };
 
-class ScCoinsPersistedView : public ScCoinsView
-{
-public:
-    virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
-    virtual bool erase(const uint256& scId) = 0;
-};
-
+class ScCoinsPersistedView;
 class ScCoinsViewCache : public ScCoinsView
 {
 public:
@@ -123,64 +117,34 @@ private:
     std::set<uint256> deletedScList;
 };
 
-class ScMgr : public ScCoinsPersistedView
+class ScCoinsPersistedView : public ScCoinsView
 {
 public:
-    enum persistencePolicy {
-        STUB = 0, //utility for UTs
-        PERSIST,
-    };
+    virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
+    virtual bool erase(const uint256& scId) = 0;
+};
 
+class PersistenceLayer;
+class ScMgr : public ScCoinsPersistedView
+{
 private:
-    class PersistenceLayer {
-    public:
-        PersistenceLayer() = default;
-        virtual ~PersistenceLayer() = default;
-        virtual bool loadPersistedDataInto(ScInfoMap & _mapToFill) = 0;
-        virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
-        virtual bool erase(const uint256& scId) = 0;
-        virtual void dump_info() = 0;
-    };
-
-    class FakePersistance final : public ScMgr::PersistenceLayer {
-    public:
-        FakePersistance() = default;
-        ~FakePersistance() = default;
-        bool loadPersistedDataInto(ScInfoMap & _mapToFill);
-        bool persist(const uint256& scId, const ScInfo& info);
-        bool erase(const uint256& scId);
-        void dump_info();
-    };
-
-    class DbPersistance final : public ScMgr::PersistenceLayer {
-    public:
-        DbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe);
-        ~DbPersistance();
-        bool loadPersistedDataInto(ScInfoMap & _mapToFill);
-        bool persist(const uint256& scId, const ScInfo& info);
-        bool erase(const uint256& scId);
-        void dump_info();
-    private:
-        CLevelDBWrapper* _db;
-    };
-
     // Disallow instantiation outside of the class.
     ScMgr(): pLayer(nullptr){}
     ~ScMgr() { reset(); }
 
     mutable CCriticalSection sc_lock;
-
     ScInfoMap ManagerScInfoMap;
     PersistenceLayer * pLayer;
 
   public:
     static ScMgr& instance();
 
-    bool initPersistence(size_t cacheSize, bool fWipe, const persistencePolicy & dbPolicy = persistencePolicy::PERSIST );
+    bool initPersistence(size_t cacheSize, bool fWipe);
+    bool initPersistence(PersistenceLayer * pTestLayer); //utility for unit tests
     void reset(); //utility for dtor and unit tests, hence public
 
-    bool persist(const uint256& scId, const ScInfo& info); //currently public to allow access to view. Move to protected private once interface is introduced
-    bool erase(const uint256& scId);                       //currently public to allow access to view. Move to protected private once interface is introduced
+    bool persist(const uint256& scId, const ScInfo& info);
+    bool erase(const uint256& scId);
 
     bool sidechainExists(const uint256& scId) const;
     bool getScInfo(const uint256& scId, ScInfo& info) const;
@@ -193,6 +157,28 @@ private:
     bool dump_info(const uint256& scId);
     void dump_info();
 }; 
+
+class PersistenceLayer {
+public:
+    PersistenceLayer() = default;
+    virtual ~PersistenceLayer() = default;
+    virtual bool loadPersistedDataInto(ScInfoMap & _mapToFill) = 0;
+    virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
+    virtual bool erase(const uint256& scId) = 0;
+    virtual void dump_info() = 0;
+};
+
+class DbPersistance final : public PersistenceLayer {
+public:
+    DbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe);
+    ~DbPersistance();
+    bool loadPersistedDataInto(ScInfoMap & _mapToFill);
+    bool persist(const uint256& scId, const ScInfo& info);
+    bool erase(const uint256& scId);
+    void dump_info();
+private:
+    CLevelDBWrapper* _db;
+};
 
 }; // end of namespace
 

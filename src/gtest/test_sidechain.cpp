@@ -7,6 +7,16 @@
 #include <undo.h>
 #include <main.h>
 
+class FakePersistance final : public Sidechain::PersistenceLayer {
+public:
+    FakePersistance() = default;
+    ~FakePersistance() = default;
+    bool loadPersistedDataInto(Sidechain::ScInfoMap & _mapToFill) {return true;}
+    bool persist(const uint256& scId, const Sidechain::ScInfo& info) {return true;}
+    bool erase(const uint256& scId) {return true;}
+    void dump_info() {return;}
+};
+
 class SidechainTestSuite: public ::testing::Test {
 
 public:
@@ -21,7 +31,8 @@ public:
         SelectBaseParams(CBaseChainParams::REGTEST);
         SelectParams(CBaseChainParams::REGTEST);
 
-        ASSERT_TRUE(sidechainManager.initPersistence(0, true, Sidechain::ScMgr::persistencePolicy::STUB));
+        ASSERT_TRUE(sidechainManager.initPersistence(/*cacheSize*/0, /*fWipe*/true));
+        //ASSERT_TRUE(sidechainManager.initPersistence(new FakePersistance()));
     };
 
     void TearDown() override {};
@@ -711,7 +722,7 @@ TEST_F(SidechainTestSuite, ManagerIsSingleton) {
 
 TEST_F(SidechainTestSuite, ManagerDoubleInitializationIsForbidden) {
     //test
-    bool res = sidechainManager.initPersistence(size_t(0), false, Sidechain::ScMgr::STUB);
+    bool res = sidechainManager.initPersistence(/*cacheSize*/0, /*fWipe*/false);
 
     //Checks
     EXPECT_FALSE(res);
