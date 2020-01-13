@@ -78,6 +78,7 @@ public:
     ScCoinsView() = default;
     ScCoinsView(const ScCoinsView&) = delete;
     ScCoinsView& operator=(const ScCoinsView &) = delete;
+    virtual ~ScCoinsView() = default;
 
     static bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
     static bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
@@ -188,7 +189,6 @@ private:
 
     std::set<uint256> getScIdSet() const;
 
-    const ScInfoMap& getScInfoMap() const { return ManagerScInfoMap; } //For UTs basically
     // print functions
     bool dump_info(const uint256& scId);
     void dump_info();

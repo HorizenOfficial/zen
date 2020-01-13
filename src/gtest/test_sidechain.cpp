@@ -721,23 +721,16 @@ TEST_F(SidechainTestSuite, ManagerDoubleInitializationIsForbidden) {
 ////////////////////////// Test Fixture definitions ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 void SidechainTestSuite::preFillSidechainsCollection() {
-    Sidechain::ScInfoMap & rManagerInternalMap
-        = const_cast<Sidechain::ScInfoMap&>(sidechainManager.getScInfoMap());
+    Sidechain::ScCoinsViewCache tmpCoinViewCache(sidechainManager);
 
-    Sidechain::ScInfo info;
-    uint256 scId;
+    CTransaction tmpTx = createNewSidechainTxWith(uint256S("a123"), CAmount(10));
+    CBlock tmpBlock;
+    tmpCoinViewCache.UpdateScInfo(tmpTx, tmpBlock, /*height*/int(1992));
+    tmpCoinViewCache.Flush();
 
-    scId = uint256S("a123");
-    info.creationBlockHash = uint256S("aaaa");
-    info.creationBlockHeight = 1992;
-    info.creationTxHash = uint256S("bbbb");
-    rManagerInternalMap[scId] = info;
-
-    scId = uint256S("b987");
-    info.creationBlockHash = uint256S("1111");
-    info.creationBlockHeight = 1993;
-    info.creationTxHash = uint256S("2222");
-    rManagerInternalMap[scId] = info;
+    tmpTx = createNewSidechainTxWith(uint256S("b987"), CAmount(10));
+    tmpCoinViewCache.UpdateScInfo(tmpTx, tmpBlock, /*height*/int(1993));
+    tmpCoinViewCache.Flush();
 }
 
 CTransaction SidechainTestSuite::createNewSidechainTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
