@@ -17,6 +17,16 @@ public:
     void dump_info() {return;}
 };
 
+class FaultyPersistance final : public Sidechain::PersistenceLayer {
+public:
+    FaultyPersistance() = default;
+    ~FaultyPersistance() = default;
+    bool loadPersistedDataInto(Sidechain::ScInfoMap & _mapToFill) {return true;} //This allows correct initialization
+    bool persist(const uint256& scId, const Sidechain::ScInfo& info) {return false;}
+    bool erase(const uint256& scId) {return false;}
+    void dump_info() {return;}
+};
+
 class SidechainTestSuite: public ::testing::Test {
 
 public:
@@ -704,6 +714,23 @@ TEST_F(SidechainTestSuite, FlushPersistScErasureToo) {
 
     //checks
     EXPECT_TRUE(res);
+    EXPECT_FALSE(sidechainManager.sidechainExists(scId));
+}
+
+TEST_F(SidechainTestSuite, FlushPropagatesErrorsInPersist) {
+    sidechainManager.reset();
+    ASSERT_TRUE(sidechainManager.initPersistence(new FaultyPersistance()));
+
+    uint256 scId = uint256S("a1b2");
+    CTransaction aTransaction = createNewSidechainTxWith(scId, CAmount(10));
+    CBlock aBlock;
+    coinViewCache.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+
+    //test
+    bool res = coinViewCache.Flush();
+
+    //checks
+    EXPECT_FALSE(res);
     EXPECT_FALSE(sidechainManager.sidechainExists(scId));
 }
 

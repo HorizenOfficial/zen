@@ -82,6 +82,7 @@ public:
 
     static bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
     static bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
+    bool IsTxApplicableToState(const CTransaction& tx);
 
     virtual bool sidechainExists(const uint256& scId) const = 0;
     virtual bool getScInfo(const uint256& scId, ScInfo& info) const = 0;
@@ -107,8 +108,6 @@ public:
     bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
-    bool IsTxApplicableToState(const CTransaction& tx);
-
     bool Flush();
 
 private:
@@ -127,16 +126,7 @@ public:
 class PersistenceLayer;
 class ScMgr : public ScCoinsPersistedView
 {
-private:
-    // Disallow instantiation outside of the class.
-    ScMgr(): pLayer(nullptr){}
-    ~ScMgr() { reset(); }
-
-    mutable CCriticalSection sc_lock;
-    ScInfoMap ManagerScInfoMap;
-    PersistenceLayer * pLayer;
-
-  public:
+public:
     static ScMgr& instance();
 
     bool initPersistence(size_t cacheSize, bool fWipe);
@@ -148,14 +138,22 @@ private:
 
     bool sidechainExists(const uint256& scId) const;
     bool getScInfo(const uint256& scId, ScInfo& info) const;
-
-    bool IsTxApplicableToState(const CTransaction& tx);
-
     std::set<uint256> getScIdSet() const;
 
     // print functions
     bool dump_info(const uint256& scId);
     void dump_info();
+
+private:
+    // Disallow instantiation outside of the class.
+    ScMgr(): pLayer(nullptr){}
+    ~ScMgr() { reset(); }
+
+    mutable CCriticalSection sc_lock;
+    ScInfoMap ManagerScInfoMap;
+    PersistenceLayer * pLayer;
+
+    bool loadInitialData();
 }; 
 
 class PersistenceLayer {
