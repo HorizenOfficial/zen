@@ -19,21 +19,14 @@ using namespace Sidechain;
 /*****************************************************************************/
 /********************** PERSISTENCE LAYER IMPLEMENTATION *********************/
 /*****************************************************************************/
-
-bool ScMgr::FakePersistance::loadPersistedDataInto(ScInfoMap & _mapToFill) {return true;}
-bool ScMgr::FakePersistance::persist(const uint256& scId, const ScInfo& info) { return true; }
-bool ScMgr::FakePersistance::erase(const uint256& scId) {return true; }
-void ScMgr::FakePersistance::dump_info() {return;}
-
-
-ScMgr::DbPersistance::DbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe)
+DbPersistance::DbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe)
 {
     _db = new CLevelDBWrapper(GetDataDir() / "sidechains", nCacheSize, fMemory, fWipe);
 }
 
-ScMgr::DbPersistance::~DbPersistance() { delete _db; _db = nullptr; };
+DbPersistance::~DbPersistance() { delete _db; _db = nullptr; };
 
-bool ScMgr::DbPersistance::loadPersistedDataInto(ScInfoMap & _mapToFill)
+bool DbPersistance::loadPersistedDataInto(ScInfoMap & _mapToFill)
 {
     boost::scoped_ptr<leveldb::Iterator> it(_db->NewIterator());
     for (it->SeekToFirst(); it->Valid(); it->Next())
@@ -68,7 +61,7 @@ bool ScMgr::DbPersistance::loadPersistedDataInto(ScInfoMap & _mapToFill)
     return it->status().ok();
 }
 
-bool ScMgr::DbPersistance::persist(const uint256& scId, const ScInfo& info)
+bool DbPersistance::persist(const uint256& scId, const ScInfo& info)
 {
     CLevelDBBatch batch;
     bool ret = true;
@@ -100,7 +93,7 @@ bool ScMgr::DbPersistance::persist(const uint256& scId, const ScInfo& info)
 
 }
 
-bool ScMgr::DbPersistance::erase(const uint256& scId)
+bool DbPersistance::erase(const uint256& scId)
 {
     // erase from level db
     CLevelDBBatch batch;
@@ -129,7 +122,7 @@ bool ScMgr::DbPersistance::erase(const uint256& scId)
     return ret;
 }
 
-void ScMgr::DbPersistance::dump_info()
+void DbPersistance::dump_info()
 {
     // dump leveldb contents on stdout
     boost::scoped_ptr<leveldb::Iterator> it(_db->NewIterator());
@@ -391,23 +384,41 @@ bool ScMgr::IsTxApplicableToState(const CTransaction& tx)
     return true;
 }
 
-bool ScMgr::initPersistence(size_t cacheSize, bool fWipe, const persistencePolicy & dbPolicy)
+bool ScMgr::initPersistence(size_t cacheSize, bool fWipe)
 {
     if (pLayer != nullptr)
     {
         return error("%s():%d - could not init persistence more than once!", __func__, __LINE__);
     }
 
-    switch(dbPolicy) {
-    case STUB:
-        pLayer = new FakePersistance();
-        break;
-    case PERSIST:
-        pLayer = new DbPersistance(GetDataDir() / "sidechains", cacheSize, false, fWipe);
-        break;
-    default:
-        return error("%s():%d - unknown persistence policy for ScManager", __func__, __LINE__);
+    pLayer = new DbPersistance(GetDataDir() / "sidechains", cacheSize, false, fWipe);
+
+    //load initial data!
+    LOCK(sc_lock);
+    try
+    {
+        bool res = pLayer->loadPersistedDataInto(ManagerScInfoMap);
+        if (!res)
+        {
+            return error("%s():%d - error occurred during db scan", __func__, __LINE__);
+        }
     }
+    catch (const std::exception& e)
+    {
+        return error("%s: Deserialize or I/O error - %s", __func__, e.what());
+    }
+
+    return true;
+}
+
+bool ScMgr::initPersistence(PersistenceLayer * pTestLayer)
+{
+    if (pLayer != nullptr)
+    {
+        return error("%s():%d - could not init persistence more than once!", __func__, __LINE__);
+    }
+
+    pLayer = pTestLayer;
 
     //load initial data!
     LOCK(sc_lock);
