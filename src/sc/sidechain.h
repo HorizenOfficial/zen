@@ -112,8 +112,8 @@ public:
 
 private:
     ScCoinsPersistedView& persistedView;
-    ScInfoMap updatedOrNewScInfoList;
-    std::set<uint256> deletedScList;
+    ScInfoMap mUpdatedOrNewScInfoList;
+    std::set<uint256> sDeletedScList;
 };
 
 class ScCoinsPersistedView : public ScCoinsView

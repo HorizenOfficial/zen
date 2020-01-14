@@ -2413,7 +2413,7 @@ static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
-    const CChain& chain, bool fJustCheck, Sidechain::ScCoinsViewCache* scView)
+    const CChain& chain, Sidechain::ScCoinsViewCache& scView, bool fJustCheck)
 {
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
@@ -2540,8 +2540,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
         // a not existing one and so on
-        bool isTxApplicableToState = scView == nullptr? scMgr.IsTxApplicableToState(tx) : scView->IsTxApplicableToState(tx);
-        if (!isTxApplicableToState)
+        if (!scView.IsTxApplicableToState(tx))
         {
             LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
             return state.DoS(100, error("ConnectBlock(): invalid sc transaction tx[%s]", tx.GetHash().ToString()),
@@ -2554,9 +2553,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
         UpdateCoins(tx, state, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
 
-        if ((!fJustCheck && i > 0) && scView)
+        if (!fJustCheck && i > 0)
         {
-            if (!scView->UpdateScInfo(tx, block, pindex->nHeight) )
+            if (!scView.UpdateScInfo(tx, block, pindex->nHeight) )
             {
                 return state.DoS(100, error("ConnectBlock(): could not add sidechain in scView: tx[%s]", tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
@@ -2575,9 +2574,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
     }
 
-    if (!fJustCheck && scView)
+    if (!fJustCheck)
     {
-        if (!scView->ApplyMatureBalances(pindex->nHeight, blockundo) )
+        if (!scView.ApplyMatureBalances(pindex->nHeight, blockundo) )
         {
             return state.DoS(100, error("ConnectBlock(): could not update sc immature amounts"),
                              REJECT_INVALID, "bad-sc-amounts");
@@ -2928,7 +2927,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         CCoinsViewCache view(pcoinsTip);
         Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
         static const bool JUST_CHECK_FALSE = false;
-        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, JUST_CHECK_FALSE, &scView);
+        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, scView, JUST_CHECK_FALSE);
         GetMainSignals().BlockChecked(*pblock, state);
         if (!rv) {
             if (state.IsInvalid())
@@ -3960,6 +3959,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
     assert(pindexPrev == chainActive.Tip());
 
     CCoinsViewCache viewNew(pcoinsTip);
+    Sidechain::ScCoinsViewCache fakeScView(Sidechain::ScMgr::instance());
     CBlockIndex indexDummy(block);
     indexDummy.pprev = pindexPrev;
     indexDummy.nHeight = pindexPrev->nHeight + 1;
@@ -3975,7 +3975,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
         return false;
 
     static const bool JUST_CHECK_TRUE = true;
-    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, JUST_CHECK_TRUE))
+    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, fakeScView, JUST_CHECK_TRUE))
         return false;
     assert(state.IsValid());
 
@@ -4379,7 +4379,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             chainHistorical.SetHeight(pindex->nHeight - 1);
             static const bool JUST_CHECK_FALSE = false;
-            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, JUST_CHECK_FALSE, &scView))
+            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, scView, JUST_CHECK_FALSE))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         }
     }
