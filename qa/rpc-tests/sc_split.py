@@ -15,7 +15,7 @@ NUMB_OF_NODES = 3
 DEBUG_MODE = 0
 
 
-class headers(BitcoinTestFramework):
+class ScSplitTest(BitcoinTestFramework):
     alert_filename = None
 
     def setup_chain(self, split=False):
@@ -74,6 +74,8 @@ class headers(BitcoinTestFramework):
         print ("    immature amounts:  ", info["immature amounts"])
 
     def dump_sc_info(self, scId=""):
+        if DEBUG_MODE == 0:
+            return
         if scId != "":
             print ("scid: %s" % scId)
             print ("-------------------------------------------------------------------------------------")
@@ -89,6 +91,8 @@ class headers(BitcoinTestFramework):
                     self.dump_sc_info_record(info, i)
 
     def mark_logs(self, msg):
+        if DEBUG_MODE == 0:
+            return
         print (msg)
         self.nodes[0].dbg_log(msg)
         self.nodes[1].dbg_log(msg)
@@ -106,7 +110,7 @@ class headers(BitcoinTestFramework):
 
         # forward transfer amount
         creation_amount = Decimal("0.5")
-        fwt_amount_1 = Decimal("0.2")
+        fwt_amount_1 = Decimal("4.0")
         fwt_amount_2 = Decimal("1.0")
 
         blocks = [self.nodes[0].getblockhash(0)]
@@ -131,13 +135,22 @@ class headers(BitcoinTestFramework):
 
         # ---------------------------------------------------------------------------------------
         # Nodes 1 creates the SC
-        print("------------------------------")
         self.mark_logs("\nNode 1 creates the SC")
 
         amounts = [{"address": "dada", "amount": creation_amount}]
         tx_create = self.nodes[1].sc_create(scid, 123, amounts)
         txes.append(tx_create)
         self.sync_all()
+
+        # Node 0 try create a SC with same id
+        self.mark_logs("\nNode 0 try creates the same SC")
+        try:
+            self.nodes[0].sc_create(scid, 123, amounts)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            self.mark_logs (errorString)
+        assert_equal("Transaction commit failed" in errorString, True)
+
 
         # Nodes 1 send 5.0 coins to a valid taddr to verify the network split
         self.mark_logs("\nNode 1 send 5.0 coins to a valid taddr to verify the network split")
@@ -146,7 +159,7 @@ class headers(BitcoinTestFramework):
         self.sync_all()
 
         # Check the mempools of every nodes
-        print ("\nChecking mempools...")
+        self.mark_logs ("\nChecking mempools...")
         for i in range(0, NUMB_OF_NODES):
             txmem = self.nodes[i].getrawmempool()
             if i == 2:
@@ -160,11 +173,11 @@ class headers(BitcoinTestFramework):
         ownerBlock = blocks[-1]
         self.sync_all()
 
-        # Node 1 creates a FT of 0.2 coins and Node 0 generates 1 block
+        # Node 1 creates a FT of 4.0 coins and Node 0 generates 1 block
         self.mark_logs("\nNode 1 performs a fwd transfer of " + str(fwt_amount_1) + " coins ...")
         txes.append(self.nodes[1].sc_send("abcd", fwt_amount_1, scid))
 
-        print("\nNode0 generating 1 honest block")
+        self.mark_logs("\nNode0 generating 1 honest block")
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
@@ -173,22 +186,22 @@ class headers(BitcoinTestFramework):
         txes.append(self.nodes[1].sc_send("abcd", fwt_amount_2, scid))
         self.sync_all()
 
-        print("\nNode0 generating 1 honest block")
+        self.mark_logs("\nNode0 generating 1 honest block")
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
         # Check the sc info
-        print ("\nChecking sc info on 'honest' portion of network...")
+        self.mark_logs ("\nChecking sc info on 'honest' portion of network...")
         scinfoNode0 = self.nodes[0].getscinfo(scid)
         scinfoNode1 = self.nodes[1].getscinfo(scid)
         assert_equal(scinfoNode0, scinfoNode1)
-        print ("Node 0: ", scinfoNode0)
-        print ("Node 1: ", scinfoNode1)
+        self.mark_logs ("Node 0: "+str(scinfoNode0))
+        self.mark_logs ("Node 1: "+str(scinfoNode1))
         try:
-            print ("Node 2: ", self.nodes[2].getscinfo(scid))
+            self.mark_logs ("Node 2: ", self.nodes[2].getscinfo(scid))
         except JSONRPCException, e:
             errorString = e.error['message']
-            print (errorString)
+            self.mark_logs (errorString)
 
         assert_equal(self.nodes[1].getscinfo(scid)["balance"], creation_amount + fwt_amount_1 + fwt_amount_2)
         assert_equal(self.nodes[1].getscinfo(scid)["created in block"], ownerBlock)
@@ -197,7 +210,6 @@ class headers(BitcoinTestFramework):
 
         # ---------------------------------------------------------------------------------------
         # Nodes 2 start to work on malicious chain
-        print("------------------------------")
         self.mark_logs("\nNode 2 generates 4 malicious blocks, its chain will have a greater length than honest...")
 
         blocks.extend(self.nodes[2].generate(4))
@@ -207,16 +219,16 @@ class headers(BitcoinTestFramework):
         self.join_network()
         self.mark_logs("Network joined")
 
-        print ("\nChecking that sc info on Node1 are not available anymore since tx has been reverted...")
+        self.mark_logs ("\nChecking that sc info on Node1 are not available anymore since tx has been reverted...")
         try:
-            print (self.nodes[1].getscinfo(scid))
+            self.mark_logs (self.nodes[1].getscinfo(scid))
         except JSONRPCException, e:
             errorString = e.error['message']
-            print (errorString)
+            self.mark_logs (errorString)
         assert_equal("scid not yet created" in errorString, True)
 
         # Check the mempools of every nodes
-        print ("\nChecking mempools...")
+        self.mark_logs ("\nChecking mempools...")
         for i in range(0, NUMB_OF_NODES):
             txmem = self.nodes[i].getrawmempool()
             if i == 2:
@@ -224,33 +236,40 @@ class headers(BitcoinTestFramework):
             else:
                 assert_equal(sorted(txes), sorted(txmem))
 
+        # Node 1 try to reuse inputs of FT
+        self.mark_logs("\nNode 1 try to reuse inputs of FT...")
+
+        try:
+            self.nodes[1].sendtoaddress("zthXuPst7DVeePf2ZQvodgyMfQCrYf9oVx4", 3.5)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            self.mark_logs (errorString)
+        assert_equal("Insufficient funds" in errorString, True)
         # ---------------------------------------------------------------------------------------
         # Node 1 restores honest chain
-        print("------------------------------")
         self.mark_logs("\nNode1 generating 1 honest block and restoring the SC creation...")
 
         blocks.extend(self.nodes[1].generate(1))
         secondOwnerBlock = blocks[-1]
-        time.sleep(2)
 
         self.mark_logs("\nNode1 generating 1 honest block more and restoring all of SC funds...")
         blocks.extend(self.nodes[1].generate(1))
         self.sync_all()
 
         # Check the mempools of every nodes
-        print ("\nChecking mempools...")
+        self.mark_logs ("\nChecking mempools...")
         for i in range(0, NUMB_OF_NODES):
             txmem = self.nodes[i].getrawmempool()
             assert_equal(len(txmem), 0)
 
-        print ("\nChecking sc info on the whole network...")
+        self.mark_logs ("\nChecking sc info on the whole network...")
         scinfoNode0 = self.nodes[0].getscinfo(scid)
         scinfoNode1 = self.nodes[1].getscinfo(scid)
         scinfoNode2 = self.nodes[2].getscinfo(scid)
 
-        print ("Node 0: ", scinfoNode0)
-        print ("Node 1: ", scinfoNode1)
-        print ("Node 2: ", scinfoNode2)
+        self.mark_logs ("Node 0: "+ str(scinfoNode0))
+        self.mark_logs ("Node 1: "+ str(scinfoNode1))
+        self.mark_logs ("Node 2: "+ str(scinfoNode2))
 
         assert_equal(scinfoNode0, scinfoNode1)
         assert_equal(scinfoNode0, scinfoNode2)
@@ -260,4 +279,4 @@ class headers(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    headers().main()
+    ScSplitTest().main()
