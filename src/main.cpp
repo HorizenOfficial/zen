@@ -1056,7 +1056,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
         }
     }
 
-    if (!Sidechain::ScMgr::checkTxSemanticValidity(tx, state) )
+    if (!Sidechain::checkTxSemanticValidity(tx, state) )
     {
         return false;
     }

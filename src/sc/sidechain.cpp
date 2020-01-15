@@ -39,8 +39,8 @@ std::string ScInfo::ToString() const
     return str;
 }
 
-/*************************** SCCOINVIEW INTERFACE ****************************/
-bool ScCoinsView::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
+/*************************** VALIDATION FUNCTIONS ****************************/
+bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
 {
     // check version consistency
     if (!tx.IsScVersion() )
@@ -106,6 +106,20 @@ bool ScCoinsView::checkTxSemanticValidity(const CTransaction& tx, CValidationSta
 
     return true;
 }
+
+bool Sidechain::anyForwardTransaction(const CTransaction& tx, const uint256& scId)
+{
+    BOOST_FOREACH(const auto& fwd, tx.vft_ccout)
+    {
+        if (fwd.scId == scId)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+/*************************** SCCOINVIEW INTERFACE ****************************/
 
 bool ScCoinsView::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
 {
@@ -174,18 +188,6 @@ bool ScCoinsView::hasScCreationOutput(const CTransaction& tx, const uint256& scI
     BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
     {
         if (sc.scId == scId)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool ScCoinsView::anyForwardTransaction(const CTransaction& tx, const uint256& scId)
-{
-    BOOST_FOREACH(const auto& fwd, tx.vft_ccout)
-    {
-        if (fwd.scId == scId)
         {
             return true;
         }

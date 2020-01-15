@@ -38,8 +38,6 @@
 
 #include <boost/unordered_map.hpp>
 
-#include "sc/sidechain.h"
-
 class CBlockIndex;
 class CBlockTreeDB;
 class CBloomFilter;
@@ -47,6 +45,7 @@ class CInv;
 class CScriptCheck;
 class CValidationInterface;
 class CValidationState;
+namespace Sidechain { class ScCoinsViewCache; }
 
 struct CNodeStateStats;
 

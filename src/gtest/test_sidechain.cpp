@@ -79,7 +79,7 @@ TEST_F(SidechainTestSuite, TransparentCcNullTxsAreSemanticallyValid) {
     CValidationState txState;
 
     //test
-    bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
 
     //checks
     EXPECT_TRUE(res);
@@ -91,7 +91,7 @@ TEST_F(SidechainTestSuite, TransparentNonCcNullTxsAreNotSemanticallyValid) {
     CValidationState txState;
 
     //test
-    bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
 
     //checks
     EXPECT_FALSE(res);
@@ -105,7 +105,7 @@ TEST_F(SidechainTestSuite, SproutCcNullTxsAreCurrentlySupported) {
     CValidationState txState;
 
     //test
-    bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
 
     //checks
     EXPECT_TRUE(res);
@@ -117,7 +117,7 @@ TEST_F(SidechainTestSuite, SproutNonCcNullTxsAreCurrentlySupported) {
     CValidationState txState;
 
     //test
-    bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
 
     //checks
     EXPECT_FALSE(res);
@@ -131,7 +131,7 @@ TEST_F(SidechainTestSuite, SidechainCreationsWithoutForwardTransferAreNotSemanti
     CValidationState txState;
 
     //test
-    bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
 
     //checks
     EXPECT_FALSE(res);
@@ -145,7 +145,7 @@ TEST_F(SidechainTestSuite, SidechainCreationsWithPositiveForwardTransferAreSeman
     CValidationState txState;
 
     //test
-    bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
 
     //checks
     EXPECT_TRUE(res);
@@ -157,7 +157,7 @@ TEST_F(SidechainTestSuite, SidechainCreationsWithTooLargePositiveForwardTransfer
     CValidationState txState;
 
     //test
-    bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
 
     //checks
     EXPECT_FALSE(res);
@@ -171,7 +171,7 @@ TEST_F(SidechainTestSuite, SidechainCreationsWithZeroForwardTransferAreNotSemant
     CValidationState txState;
 
     //test
-    bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
 
     //checks
     EXPECT_FALSE(res);
@@ -185,7 +185,7 @@ TEST_F(SidechainTestSuite, SidechainCreationsWithNegativeForwardTransferNotAreSe
     CValidationState txState;
 
     //test
-    bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
 
     //checks
     EXPECT_FALSE(res);
@@ -202,7 +202,7 @@ TEST_F(SidechainTestSuite, FwdTransferCumulatedAmountDoesNotOverFlow) {
     CValidationState txState;
 
     //test
-    bool res = sidechainManager.checkTxSemanticValidity(aTransaction, txState);
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
 
     //checks
     EXPECT_FALSE(res);
