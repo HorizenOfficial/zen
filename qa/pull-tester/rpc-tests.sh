@@ -51,6 +51,9 @@ testScripts=(
     'nulldata.py'
     'blockdelay.py'
     'blockdelay_2.py'
+    'sc_create.py'
+    'sc_split.py'
+    'sc_invalidate.py'
 );
 testScriptsExt=(
     'getblocktemplate_longpoll.py'
@@ -82,9 +85,6 @@ testScriptsExt=(
     'headers_09.py'
     'headers_10.py'
     'checkblockatheight.py'
-    'sc_01.py'
-    'sc_02.py'
-    'sc_03.py'
 );
 
 if [ "x$ENABLE_ZMQ" = "x1" ]; then

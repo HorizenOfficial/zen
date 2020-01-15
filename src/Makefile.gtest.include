@@ -43,7 +43,8 @@ zen_gtest_SOURCES += \
 	gtest/test_proofs.cpp \
 	gtest/test_paymentdisclosure.cpp \
 	gtest/test_checkblock.cpp       \
-	gtest/test_relayforks.cpp
+	gtest/test_relayforks.cpp	\
+	gtest/test_sidechain.cpp
 
 if ENABLE_WALLET
 zen_gtest_SOURCES += \

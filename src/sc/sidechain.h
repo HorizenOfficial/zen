@@ -1,13 +1,10 @@
 #ifndef _SIDECHAIN_CORE_H
 #define _SIDECHAIN_CORE_H
 
-#include <vector>
-
 #include "amount.h"
 #include "chain.h"
 #include "hash.h"
 #include <boost/unordered_map.hpp>
-#include "leveldbwrapper.h"
 #include "sync.h"
 
 #include "sc/sidechaintypes.h"
@@ -17,6 +14,7 @@ class CTxMemPool;
 class CBlockUndo;
 class UniValue;
 class CValidationState;
+class CLevelDBWrapper;
 
 namespace Sidechain
 {
@@ -60,88 +58,125 @@ public:
         READWRITE(creationData);
         READWRITE(mImmatureAmounts);
     }
-};
 
+    inline bool operator==(const ScInfo& rhs) const
+    {
+        return (this->creationBlockHash   == rhs.creationBlockHash)   &&
+               (this->creationBlockHeight == rhs.creationBlockHeight) &&
+               (this->creationTxHash      == rhs.creationTxHash)      &&
+               (this->creationData        == rhs.creationData)        &&
+               (this->mImmatureAmounts    == rhs.mImmatureAmounts);
+    }
+    inline bool operator!=(const ScInfo& rhs) const { return !(*this == rhs); }
+};
 
 typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
 
-class ScCoinsViewCache
+class ScCoinsView
 {
-    ScInfoMap mUpdate;
-    std::set<uint256> sErase;
-    std::set<uint256> sDirty;
-
 public:
+    ScCoinsView() = default;
+    ScCoinsView(const ScCoinsView&) = delete;
+    ScCoinsView& operator=(const ScCoinsView &) = delete;
+    virtual ~ScCoinsView() = default;
+
+    static bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
+    static bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
+    bool IsTxApplicableToState(const CTransaction& tx);
+
+    virtual bool sidechainExists(const uint256& scId) const = 0;
+    virtual bool getScInfo(const uint256& scId, ScInfo& info) const = 0;
+    virtual std::set<uint256> getScIdSet() const = 0;
+
+protected:
+    static bool hasScCreationOutput(const CTransaction& tx, const uint256& scId); // return true if the tx is creating the scid
+    static bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
+};
+
+class ScCoinsPersistedView;
+class ScCoinsViewCache : public ScCoinsView
+{
+public:
+    ScCoinsViewCache(ScCoinsPersistedView& _persistedView);
+
+    bool sidechainExists(const uint256& scId) const;
+    bool getScInfo(const uint256 & scId, ScInfo& targetScInfo) const;
+    std::set<uint256> getScIdSet() const;
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
+
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
-    bool sidechainExists(const uint256& scId) const;
-
     bool Flush();
 
-    ScCoinsViewCache();
-    ScCoinsViewCache(const ScCoinsViewCache&) = delete;
-    ScCoinsViewCache& operator=(const ScCoinsViewCache &) = delete;
-    ScCoinsViewCache(ScCoinsViewCache&) = delete;
-    ScCoinsViewCache& operator=(ScCoinsViewCache &) = delete;
+private:
+    ScCoinsPersistedView& persistedView;
+    ScInfoMap mUpdatedOrNewScInfoList;
+    std::set<uint256> sDeletedScList;
 };
 
-class ScMgr
+class ScCoinsPersistedView : public ScCoinsView
 {
-  private:
-    // Disallow instantiation outside of the class.
-    ScMgr(): db(NULL) {}
-    ~ScMgr() { delete db; }
+public:
+    virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
+    virtual bool erase(const uint256& scId) = 0;
+};
 
-    mutable CCriticalSection sc_lock;
-    ScInfoMap mScInfo;
-    CLevelDBWrapper* db;
-
-    // low level api for DB
-    friend class ScCoinsViewCache;
-    bool writeToDb(const uint256& scId, const ScInfo& info);
-    void eraseFromDb(const uint256& scId);
-
-    bool checkScCreation(const CTransaction& tx, CValidationState& state);
-    bool hasScCreationConflictsInMempool(const CTxMemPool& pool, const CTransaction& tx);
-    bool checkCertificateInMemPool(CTxMemPool& pool, const CTransaction& tx);
-
-    // return true if the tx contains a fwd tr for the given scid
-    static bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
-
-    // return true if the tx is creating the scid
-    bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
-
-    CAmount getScBalance(const uint256& scId);
-    void copyScInfoMap(ScInfoMap& mapCopy) const;
-
-  public:
-
-    ScMgr(const ScMgr&) = delete;
-    ScMgr& operator=(const ScMgr &) = delete;
-    ScMgr(ScMgr &&) = delete;
-    ScMgr & operator=(ScMgr &&) = delete;
-
+class PersistenceLayer;
+class ScMgr : public ScCoinsPersistedView
+{
+public:
     static ScMgr& instance();
 
-    bool initialUpdateFromDb(size_t cacheSize, bool fWipe);
+    bool initPersistence(size_t cacheSize, bool fWipe);
+    bool initPersistence(PersistenceLayer * pTestLayer); //utility for unit tests
+    void reset(); //utility for dtor and unit tests, hence public
 
-    bool sidechainExists(const uint256& scId, const ScCoinsViewCache* const scView = NULL) const;
+    bool persist(const uint256& scId, const ScInfo& info);
+    bool erase(const uint256& scId);
+
+    bool sidechainExists(const uint256& scId) const;
     bool getScInfo(const uint256& scId, ScInfo& info) const;
+    std::set<uint256> getScIdSet() const;
 
-    bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
-    static bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
-    bool IsTxApplicableToState(const CTransaction& tx, const ScCoinsViewCache* const scView = NULL);
-
-    void getScIdSet(std::set<uint256>& sScIds) const;
-
-    const ScInfoMap& getScInfoMap() const { return mScInfo; }
     // print functions
     bool dump_info(const uint256& scId);
     void dump_info();
+
+private:
+    // Disallow instantiation outside of the class.
+    ScMgr(): pLayer(nullptr){}
+    ~ScMgr() { reset(); }
+
+    mutable CCriticalSection sc_lock;
+    ScInfoMap ManagerScInfoMap;
+    PersistenceLayer * pLayer;
+
+    bool loadInitialData();
 }; 
+
+class PersistenceLayer {
+public:
+    PersistenceLayer() = default;
+    virtual ~PersistenceLayer() = default;
+    virtual bool loadPersistedDataInto(ScInfoMap & _mapToFill) = 0;
+    virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
+    virtual bool erase(const uint256& scId) = 0;
+    virtual void dump_info() = 0;
+};
+
+class DbPersistance final : public PersistenceLayer {
+public:
+    DbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe);
+    ~DbPersistance();
+    bool loadPersistedDataInto(ScInfoMap & _mapToFill);
+    bool persist(const uint256& scId, const ScInfo& info);
+    bool erase(const uint256& scId);
+    void dump_info();
+private:
+    CLevelDBWrapper* _db;
+};
 
 }; // end of namespace
 
