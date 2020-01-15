@@ -322,8 +322,8 @@ CNodeState *State(NodeId pnode) {
 }
 
 bool IsStartupSyncing() {
-	LOCK(cs_main);
-	return fIsStartupSyncing;
+    LOCK(cs_main);
+    return fIsStartupSyncing;
 }
 
 
@@ -699,32 +699,32 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
     }
 
     // groth fork
-	const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
-	bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
+    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
+    bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
 
-	if(!isGROTHActive)
+    if(!isGROTHActive)
     {
         // sidechain fork is after groth one
         assert(!areSidechainsSupported);
 
-		if (tx.nVersion > CTransaction::MAX_OLD_VERSION || tx.nVersion < CTransaction::MIN_OLD_VERSION)
+        if (tx.nVersion > CTransaction::MAX_OLD_VERSION || tx.nVersion < CTransaction::MIN_OLD_VERSION)
         {
-			reason = "version";
-			return false;
-		}
-	}
+            reason = "version";
+            return false;
+        }
+    }
     else
     {
-		if (tx.nVersion != TRANSPARENT_TX_VERSION && tx.nVersion != GROTH_TX_VERSION)
+        if (tx.nVersion != TRANSPARENT_TX_VERSION && tx.nVersion != GROTH_TX_VERSION)
         {
             // check sidechain tx
             if ( !(areSidechainsSupported && (tx.nVersion == sidechainVersion)) )
             {
-			    reason = "version";
-			    return false;
+                reason = "version";
+                return false;
             }
-		}
-	}
+        }
+    }
 
 
     BOOST_FOREACH(const CTxIn& txin, tx.vin)
@@ -960,10 +960,10 @@ bool ContextualCheckTransaction(
         bool (*isInitBlockDownload)())
 {
 
-	//Valid txs are:
-	// at any height
-	// at height < groth_fork v>=1 txs with PHGR proofs
-	// at height >= groth_fork v=-3 shielded with GROTH proofs and v=1 transparent with joinsplit empty
+    //Valid txs are:
+    // at any height
+    // at height < groth_fork v>=1 txs with PHGR proofs
+    // at height >= groth_fork v=-3 shielded with GROTH proofs and v=1 transparent with joinsplit empty
     // at height >= sidechain_fork same as above but also v=-4 with joinsplit empty
 
     // sidechain fork (happens after groth fork)
@@ -975,49 +975,49 @@ bool ContextualCheckTransaction(
     }
 
     // groth fork
-	const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
-	bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
+    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
+    bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
 
-	if(isGROTHActive)
+    if(isGROTHActive)
     {
-		//verify if transaction is transparent or related to sidechain...
-		if (tx.nVersion == TRANSPARENT_TX_VERSION  ||
+        //verify if transaction is transparent or related to sidechain...
+        if (tx.nVersion == TRANSPARENT_TX_VERSION  ||
             (areSidechainsSupported && (tx.nVersion == sidechainVersion) ) )
         {
-			//enforce empty joinsplit for transparent txs and sidechain tx
-			if(!tx.vjoinsplit.empty()) {
-				return state.DoS(dosLevel, error("ContextualCheckTransaction(): transparent or sc tx but vjoinsplit not empty"),
-									 REJECT_INVALID, "bad-txns-transparent-jsnotempty");
-			}
-			return true;
-		}
+            //enforce empty joinsplit for transparent txs and sidechain tx
+            if(!tx.vjoinsplit.empty()) {
+                return state.DoS(dosLevel, error("ContextualCheckTransaction(): transparent or sc tx but vjoinsplit not empty"),
+                                     REJECT_INVALID, "bad-txns-transparent-jsnotempty");
+            }
+            return true;
+        }
 
         // ... or the actual shielded version
-		if(tx.nVersion != GROTH_TX_VERSION)
+        if(tx.nVersion != GROTH_TX_VERSION)
         {
-			LogPrintf("ContextualCheckTransaction: rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
+            LogPrintf("ContextualCheckTransaction: rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
                 tx.nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
-			return state.DoS(dosLevel,
-	                         error("ContextualCheckTransaction(): unexpected tx version"),
-	                         REJECT_INVALID, "bad-tx-version-unexpected");
-		}
-		return true;
-	}
+            return state.DoS(dosLevel,
+                             error("ContextualCheckTransaction(): unexpected tx version"),
+                             REJECT_INVALID, "bad-tx-version-unexpected");
+        }
+        return true;
+    }
     else
     {
         // sidechain fork is after groth one
         assert(!areSidechainsSupported);
 
-		if(tx.nVersion < TRANSPARENT_TX_VERSION)
+        if(tx.nVersion < TRANSPARENT_TX_VERSION)
         {
-			LogPrintf("ContextualCheckTransaction: rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
+            LogPrintf("ContextualCheckTransaction: rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
                 tx.nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
-			return state.DoS(0,
-	                         error("ContextualCheckTransaction(): unexpected tx version"),
-	                         REJECT_INVALID, "bad-tx-version-unexpected");
-		}
-		return true;
-	}
+            return state.DoS(0,
+                             error("ContextualCheckTransaction(): unexpected tx version"),
+                             REJECT_INVALID, "bad-tx-version-unexpected");
+        }
+        return true;
+    }
 
 
     return true;
@@ -2779,9 +2779,9 @@ void static UpdateTip(CBlockIndex *pindexNew) {
     mempool.AddTransactionsUpdated(1);
 
     double syncProgress = Checkpoints::GuessVerificationProgress(chainParams.Checkpoints(), chainActive.Tip());
-	if(fIsStartupSyncing && std::abs(1.0 - syncProgress) < 0.000001) {
-    	LogPrintf("Fully synchronized at block height %d\n", chainActive.Height());
-    	fIsStartupSyncing = false;
+    if(fIsStartupSyncing && std::abs(1.0 - syncProgress) < 0.000001) {
+        LogPrintf("Fully synchronized at block height %d\n", chainActive.Height());
+        fIsStartupSyncing = false;
     }
 
     LogPrintf("%s: new best=%s  height=%d  log2_work=%.8g  tx=%lu  date=%s progress=%f  cache=%.1fMiB(%utx)\n", __func__,
@@ -3409,7 +3409,7 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
         pindexNew->nChainDelay = 0 ;
     }
     if(pindexNew->nChainDelay != 0) {
-    	LogPrintf("%s: Block belong to a chain under punishment Delay VAL: %i BLOCKHEIGHT: %d\n",__func__, pindexNew->nChainDelay,pindexNew->nHeight);
+        LogPrintf("%s: Block belong to a chain under punishment Delay VAL: %i BLOCKHEIGHT: %d\n",__func__, pindexNew->nChainDelay,pindexNew->nHeight);
     }
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);
     if (pindexBestHeader == NULL || (pindexBestHeader->nChainWork < pindexNew->nChainWork && pindexNew->nChainDelay==0))
