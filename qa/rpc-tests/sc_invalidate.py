@@ -6,7 +6,8 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, stop_nodes, sync_blocks, sync_mempools, connect_nodes_bi, p2p_port
+    start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, p2p_port, \
+    dump_ordered_tips, mark_logs
 import os
 from decimal import Decimal
 import time
@@ -67,50 +68,6 @@ class ScInvalidateTest(BitcoinTestFramework):
         time.sleep(2)
         self.is_network_split = False
 
-    def dump_ordered_tips(self, tip_list):
-        if DEBUG_MODE == 0:
-            return
-        sorted_x = sorted(tip_list, key=lambda k: k['status'])
-        c = 0
-        for y in sorted_x:
-            if (c == 0):
-                print (y)
-            else:
-                print (" ", y)
-            c = 1
-
-    def dump_sc_info_record(self, info, i):
-        if DEBUG_MODE == 0:
-            return
-        print ("  Node %d - balance: %f" % (i, info["balance"]))
-        print ("    created in block: %s (%d)" % (info["created in block"], info["created at block height"]))
-        print ("    created in tx:    %s" % info["creating tx hash"])
-        print ("    immature amounts:  ", info["immature amounts"])
-
-    def dump_sc_info(self, scId=""):
-        if DEBUG_MODE == 0:
-            return
-        if scId != "":
-            print ("scid: " + scId)
-            print ("-------------------------------------------------------------------------------------")
-            for i in range(0, NUMB_OF_NODES):
-                try:
-                    self.dump_sc_info_record(self.nodes[i].getscinfo(scId), i)
-                except JSONRPCException, e:
-                    print "  Node %d: ### [no such scid: %s]" % (i, scId)
-        else:
-            for i in range(0, NUMB_OF_NODES):
-                x = self.nodes[i].getscinfo()
-                for info in x:
-                    self.dump_sc_info_record(info, i)
-
-    def mark_logs(self, msg):
-        if DEBUG_MODE == 0:
-            return
-        print (msg)
-        self.nodes[0].dbg_log(msg)
-        self.nodes[1].dbg_log(msg)
-        self.nodes[2].dbg_log(msg)
 
     def run_test(self):
         ''' This test creates a Sidechain and forwards funds to it and then verifies
@@ -124,18 +81,18 @@ class ScInvalidateTest(BitcoinTestFramework):
         fwt_amount_1 = Decimal("1.0")
 
         # node 1 earns some coins, they would be available after 100 blocks
-        self.mark_logs("Node 1 generates 1 block")
+        mark_logs("Node 1 generates 1 block",self.nodes,DEBUG_MODE)
 
         blocks.extend(self.nodes[1].generate(1))
         self.sync_all()
 
         # node 2 earns some coins, they would be available after 100 blocks
-        self.mark_logs("Node 2 generates 1 block")
+        mark_logs("Node 2 generates 1 block",self.nodes,DEBUG_MODE)
 
         blocks.extend(self.nodes[2].generate(1))
         self.sync_all()
 
-        self.mark_logs("Node 0 generates 220 block")
+        mark_logs("Node 0 generates 220 block",self.nodes,DEBUG_MODE)
 
         blocks.extend(self.nodes[0].generate(220))
         self.sync_all()
@@ -144,7 +101,7 @@ class ScInvalidateTest(BitcoinTestFramework):
 
         # ---------------------------------------------------------------------------------------
         # Node 1 sends 10 coins to node 2 to have UTXO
-        self.mark_logs("\n...Node 1 sends 10 coins to node 2 to have a UTXO")
+        mark_logs("\n...Node 1 sends 10 coins to node 2 to have a UTXO",self.nodes,DEBUG_MODE)
 
         address_ds=self.nodes[2].getnewaddress()
         txid=self.nodes[1].sendtoaddress(address_ds,10.0)
@@ -156,7 +113,7 @@ class ScInvalidateTest(BitcoinTestFramework):
         self.sync_all()
 
         # Node 2 create rawtransaction that creates a SC using last UTXO
-        self.mark_logs("\nNode 2 create rawtransaction that creates a SC using last UTXO...")
+        mark_logs("\nNode 2 create rawtransaction that creates a SC using last UTXO...",self.nodes,DEBUG_MODE)
 
         decodedTx=self.nodes[2].decoderawtransaction(self.nodes[2].gettransaction(txid)['hex'])
         vout = {}
@@ -178,7 +135,7 @@ class ScInvalidateTest(BitcoinTestFramework):
         sigRawtx = self.nodes[2].signrawtransaction(rawtx)
 
         #Node 2 create rawtransaction with same UTXO
-        self.mark_logs("\nNode 2 create rawtransaction with same UTXO...")
+        mark_logs("\nNode 2 create rawtransaction with same UTXO...",self.nodes,DEBUG_MODE)
 
         outputs = {self.nodes[0].getnewaddress() : sc_amount}
         rawtx2=self.nodes[2].createrawtransaction(inputs,outputs)
@@ -186,13 +143,13 @@ class ScInvalidateTest(BitcoinTestFramework):
 
 
         # Split the network: (0)--(1) / (2)
-        self.mark_logs("\nSplit network")
+        mark_logs("\nSplit network",self.nodes,DEBUG_MODE)
         self.split_network()
-        self.mark_logs("The network is split: 0-1 .. 2")
+        mark_logs("The network is split: 0-1 .. 2",self.nodes,DEBUG_MODE)
 
 
         # Node 0 send the SC creation transaction and generate 1 block to create it
-        self.mark_logs("\nNode 0 send the SC creation transaction and generate 1 block to create it")
+        mark_logs("\nNode 0 send the SC creation transaction and generate 1 block to create it",self.nodes,DEBUG_MODE)
         finalTx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
         txes.append(finalTx)
         self.sync_all()
@@ -201,58 +158,58 @@ class ScInvalidateTest(BitcoinTestFramework):
         self.sync_all()
 
         # Node 1 creates a FT of 1.0 coin and Node 0 generates 1 block
-        self.mark_logs("\nNode 1 sends " + str(fwt_amount_1) + " coins to SC")
+        mark_logs("\nNode 1 sends " + str(fwt_amount_1) + " coins to SC",self.nodes,DEBUG_MODE)
 
         ftTx=self.nodes[1].sc_send("abcd", fwt_amount_1, scid)
         txes.append(ftTx)
         self.sync_all()
 
-        self.mark_logs("\n...Node0 generating 1 block")
+        mark_logs("\n...Node0 generating 1 block",self.nodes,DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        self.mark_logs ("\nChecking SC info on Node 2 that should not have any SC...")
+        mark_logs ("\nChecking SC info on Node 2 that should not have any SC...",self.nodes,DEBUG_MODE)
         scinfoNode0 = self.nodes[0].getscinfo(scid)
         scinfoNode1 = self.nodes[1].getscinfo(scid)
-        self.mark_logs("Node 0: " + str(scinfoNode0))
-        self.mark_logs("Node 1: " + str(scinfoNode1))
+        mark_logs("Node 0: " + str(scinfoNode0),self.nodes,DEBUG_MODE)
+        mark_logs("Node 1: " + str(scinfoNode1),self.nodes,DEBUG_MODE)
         try:
             self.nodes[2].getscinfo(scid)
         except JSONRPCException, e:
             errorString = e.error['message']
-            self.mark_logs (errorString)
+            mark_logs (errorString,self.nodes,DEBUG_MODE)
         assert_equal("scid not yet created" in errorString, True)
 
         # Node 2 generate 4 blocks including the rawtx2 and now it has the longest fork
-        self.mark_logs ("\nNode 2 generate 4 blocks including the rawtx2 and now it has the longest fork...")
+        mark_logs ("\nNode 2 generate 4 blocks including the rawtx2 and now it has the longest fork...",self.nodes,DEBUG_MODE)
         finalTx2 = self.nodes[2].sendrawtransaction(sigRawtx2['hex'])
         self.sync_all()
 
         self.nodes[2].generate(4)
         self.sync_all()
 
-        self.mark_logs("\nJoining network")
+        mark_logs("\nJoining network",self.nodes,DEBUG_MODE)
         self.join_network()
-        self.mark_logs("\nNetwork joined")
+        mark_logs("\nNetwork joined",self.nodes,DEBUG_MODE)
 
         # Checking the network chain tips
-        self.mark_logs ("\nChecking network chain tips, Node 2's fork became active...")
+        mark_logs ("\nChecking network chain tips, Node 2's fork became active...",self.nodes,DEBUG_MODE)
         for i in range(0, NUMB_OF_NODES):
             chaintips = self.nodes[i].getchaintips()
-            self.dump_ordered_tips(chaintips)
+            dump_ordered_tips(chaintips,DEBUG_MODE)
 
         # Checking SC info on network
-        self.mark_logs ("\nChecking SC info on network, noone see the SC...")
+        mark_logs ("\nChecking SC info on network, noone see the SC...",self.nodes,DEBUG_MODE)
         for i in range (0,NUMB_OF_NODES):
             try:
                 self.nodes[i].getscinfo(scid)
             except JSONRPCException, e:
                 errorString = e.error['message']
-                self.mark_logs (errorString)
+                mark_logs (errorString,self.nodes,DEBUG_MODE)
                 assert_equal("scid not yet created" in errorString, True)
 
         # The FT transaction should not be in mempool
-        self.mark_logs ("\nThe FT transaction should not be in mempool...")
+        mark_logs ("\nThe FT transaction should not be in mempool...",self.nodes,DEBUG_MODE)
         for i in range(0, NUMB_OF_NODES):
             txmem = self.nodes[i].getrawmempool()
             assert_equal(len(txmem), 0)
