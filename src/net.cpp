@@ -2113,6 +2113,50 @@ void RelayTransaction(const CTransaction& tx, const CDataStream& ss)
     }
 }
 
+void RelayCertificate(const CScCertificate& cert)
+{
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss.reserve(10000);
+    ss << cert;
+    RelayCertificate(cert, ss);
+}
+
+void RelayCertificate(const CScCertificate& cert, const CDataStream& ss)
+{
+    CInv inv(MSG_CERT, cert.GetHash());
+    {
+        LOCK(cs_mapRelay);
+        // Expire old relay messages
+        while (!vRelayExpiration.empty() && vRelayExpiration.front().first < GetTime())
+        {
+            mapRelay.erase(vRelayExpiration.front().second);
+            vRelayExpiration.pop_front();
+        }
+
+        // Save original serialized message so newer versions are preserved
+        mapRelay.insert(std::make_pair(inv, ss));
+        vRelayExpiration.push_back(std::make_pair(GetTime() + 15 * 60, inv));
+    }
+    LOCK(cs_vNodes);
+    BOOST_FOREACH(CNode* pnode, vNodes)
+    {
+        if(!pnode->fRelayTxes)
+            continue;
+        LOCK(pnode->cs_filter);
+#if 0
+// TODO cert: handle a node bloom filter for pushing inv
+// hint: add a virtual method in CBloomFilter or CTransactionBase passing filer along 
+        if (pnode->pfilter)
+        {
+            if (pnode->pfilter->IsRelevantAndUpdate(cert))
+                pnode->PushInventory(inv);
+        } else
+#endif
+            LogPrint("cert", "%s():%d - pushing inv for cert [%s]\n", __func__, __LINE__, cert.GetHash().ToString());
+            pnode->PushInventory(inv);
+    }
+}
+
 void CNode::RecordBytesRecv(uint64_t bytes)
 {
     LOCK(cs_totalBytesRecv);

@@ -6,6 +6,7 @@
 
 #include "base58.h"
 #include "primitives/transaction.h"
+#include "primitives/certificate.h"
 #include "script/script.h"
 #include "script/standard.h"
 #include "serialize.h"
@@ -59,6 +60,13 @@ string EncodeHexTx(const CTransaction& tx)
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
     ssTx << tx;
     return HexStr(ssTx.begin(), ssTx.end());
+}
+
+string EncodeHexCert(const CScCertificate& cert)
+{
+    CDataStream ssCert(SER_NETWORK, PROTOCOL_VERSION);
+    ssCert << cert;
+    return HexStr(ssCert.begin(), ssCert.end());
 }
 
 void ScriptPubKeyToUniv(const CScript& scriptPubKey,

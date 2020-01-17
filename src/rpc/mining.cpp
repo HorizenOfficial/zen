@@ -555,8 +555,10 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     if (strMode != "template")
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid mode");
 
+/* TODO cert: this is for testing, remove comments
     if (vNodes.empty())
         throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Horizen is not connected!");
+*/
 
     // from https://github.com/ZencashOfficial/zen/commit/e7a774e9a72fae1228ccbc764d520bd685860822
     if (IsInitialBlockDownload() && ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight-(Params().GetConsensus().nMinerConfirmationWindow * 2)))
@@ -653,6 +655,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
 
     UniValue txCoinbase = NullUniValue;
     UniValue transactions(UniValue::VARR);
+    UniValue certificates(UniValue::VARR);
     map<uint256, int64_t> setTxIndex;
     int i = 0;
     BOOST_FOREACH (const CTransaction& tx, pblock->vtx) {
@@ -697,6 +700,19 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         }
     }
 
+    int cert_idx_in_template = 0;
+    BOOST_FOREACH (const CScCertificate& cert, pblock->vcert) {
+        uint256 certHash = cert.GetHash();
+        UniValue entry(UniValue::VOBJ);
+
+        entry.push_back(Pair("data", EncodeHexCert(cert)));
+        entry.push_back(Pair("hash", certHash.GetHex()));
+        entry.push_back(Pair("fee", pblocktemplate->vCertFees[cert_idx_in_template]));
+        certificates.push_back(entry);
+
+        cert_idx_in_template++;
+    }
+
     UniValue aux(UniValue::VOBJ);
     aux.push_back(Pair("flags", HexStr(COINBASE_FLAGS.begin(), COINBASE_FLAGS.end())));
 
@@ -707,6 +723,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     {
         aMutable.push_back("time");
         aMutable.push_back("transactions");
+        aMutable.push_back("certificates");
         aMutable.push_back("prevblock");
     }
 
@@ -715,6 +732,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     result.push_back(Pair("version", pblock->nVersion));
     result.push_back(Pair("previousblockhash", pblock->hashPrevBlock.GetHex()));
     result.push_back(Pair("transactions", transactions));
+    result.push_back(Pair("certificates", certificates));
     if (coinbasetxn) {
         assert(txCoinbase.isObject());
         result.push_back(Pair("coinbasetxn", txCoinbase));

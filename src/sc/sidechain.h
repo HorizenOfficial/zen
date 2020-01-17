@@ -81,8 +81,12 @@ public:
     virtual ~ScCoinsView() = default;
 
     static bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
+    static bool checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state);
+
     static bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
+    static bool IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertificate& cert, CValidationState& state);
     bool IsTxApplicableToState(const CTransaction& tx);
+    bool IsCertApplicableToState(const CScCertificate& cert);
 
     virtual bool sidechainExists(const uint256& scId) const = 0;
     virtual bool getScInfo(const uint256& scId, ScInfo& info) const = 0;
@@ -107,6 +111,7 @@ public:
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
+    bool checkCertificateInMemPool(const CTxMemPool& pool, const CScCertificate& cert);
 
     bool Flush();
 
@@ -139,6 +144,8 @@ public:
     bool sidechainExists(const uint256& scId) const;
     bool getScInfo(const uint256& scId, ScInfo& info) const;
     std::set<uint256> getScIdSet() const;
+    CAmount getSidechainBalance(const uint256& scId) const;
+
 
     // print functions
     bool dump_info(const uint256& scId);
@@ -150,7 +157,7 @@ private:
     ~ScMgr() { reset(); }
 
     mutable CCriticalSection sc_lock;
-    ScInfoMap ManagerScInfoMap;
+    ScInfoMap mManagerScInfoMap;
     PersistenceLayer * pLayer;
 
     bool loadInitialData();

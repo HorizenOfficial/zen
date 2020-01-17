@@ -87,8 +87,8 @@ public:
     //! as new tx version will probably only be introduced at certain heights
     int nVersion;
 
-    void FromTx(const CTransaction &tx, int nHeightIn) {
-        fCoinBase = tx.IsCoinBase();
+    void FromTx(const CTransactionBase &tx, int nHeightIn) {
+        fCoinBase = tx.IsCoinBase() || tx.IsCoinCertified();
         vout = tx.vout;
         nHeight = nHeightIn;
         nVersion = tx.nVersion;
@@ -96,7 +96,7 @@ public:
     }
 
     //! construct a CCoins from a CTransaction, at a given height
-    CCoins(const CTransaction &tx, int nHeightIn) {
+    CCoins(const CTransactionBase &tx, int nHeightIn) {
         FromTx(tx, nHeightIn);
     }
 
@@ -150,7 +150,18 @@ public:
     void CalcMaskSize(unsigned int &nBytes, unsigned int &nNonzeroBytes) const;
 
     bool IsCoinBase() const {
-        return fCoinBase;
+        return fCoinBase && !IsCoinCertified();
+    }
+
+    bool IsCoinCertified() const {
+#if 0
+        if (nVersion != 1 && nVersion != -4)
+        {
+            std::cout << "Version: " << std::hex << nVersion << std::endl;
+        }
+#endif
+        // when restored from serialization, nVersion is populated only with latest 7 bits of the original value!
+        return (fCoinBase && ( (nVersion & 0x7f) == (SC_TX_VERSION & 0x7f)) );
     }
 
     unsigned int GetSerializeSize(int nType, int nVersion) const {

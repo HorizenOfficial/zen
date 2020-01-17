@@ -23,7 +23,11 @@
 
 using namespace std;
 
+#if 0
 typedef set<pair<const CWalletTx*,unsigned int> > CoinSet;
+#else
+typedef set<pair<const CWalletObjBase*,unsigned int> > CoinSet;
+#endif
 
 BOOST_FIXTURE_TEST_SUITE(wallet_tests, TestingSetup)
 

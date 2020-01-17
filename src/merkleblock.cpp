@@ -11,6 +11,7 @@
 
 using namespace std;
 
+// TODO cert: add certificates support
 CMerkleBlock::CMerkleBlock(const CBlock& block, CBloomFilter& filter)
 {
     header = block.GetBlockHeader();

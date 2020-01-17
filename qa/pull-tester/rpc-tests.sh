@@ -54,6 +54,7 @@ testScripts=(
     'sc_create.py'
     'sc_split.py'
     'sc_invalidate.py'
+    'sc_cert_01.py'
 );
 testScriptsExt=(
     'getblocktemplate_longpoll.py'

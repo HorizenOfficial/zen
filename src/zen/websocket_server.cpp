@@ -317,7 +317,7 @@ private:
         }
 
         std::list<CBlockIndex*> listBlock;
-        CBlockIndex* pblockindexStart;
+        CBlockIndex* pblockindexStart = NULL;
         int lastH = 0;
         for (const UniValue& o : hashes.getValues())
         {
@@ -346,6 +346,11 @@ private:
                 lastH = pblockindex->nHeight;
                 pblockindexStart = pblockindex;
             }
+        }
+        if (pblockindexStart == NULL)
+        {
+            LogPrint("ws", "%s():%d - could not find start index\n", __func__, __LINE__);
+            return INVALID_PARAMETER;
         }
         listBlock.push_back(pblockindexStart);
         {

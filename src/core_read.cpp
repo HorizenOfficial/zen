@@ -6,6 +6,7 @@
 
 #include "primitives/block.h"
 #include "primitives/transaction.h"
+#include "primitives/certificate.h"
 #include "script/script.h"
 #include "serialize.h"
 #include "streams.h"
@@ -107,10 +108,29 @@ bool DecodeHexTx(CTransaction& tx, const std::string& strHexTx)
     return true;
 }
 
+bool DecodeHexCert(CScCertificate& cert, const std::string& strHexTx)
+{
+    if (!IsHex(strHexTx))
+        return false;
+
+    vector<unsigned char> txData(ParseHex(strHexTx));
+    CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
+    try {
+        ssData >> cert;
+    }
+    catch (const std::exception&) {
+        return false;
+    }
+
+    return true;
+}
+
 bool DecodeHexBlk(CBlock& block, const std::string& strHexBlk)
 {
     if (!IsHex(strHexBlk))
         return false;
+
+//    std::cout << "[" << strHexBlk << "]" << std::endl;
 
     std::vector<unsigned char> blockData(ParseHex(strHexBlk));
     CDataStream ssBlock(blockData, SER_NETWORK, PROTOCOL_VERSION);

@@ -9,44 +9,42 @@
 
 class UniValue;
 class CTransaction;
+class CTransactionBase;
 class CMutableTransaction;
+class CMutableTransactionBase;
 
 namespace Sidechain
 {
 
 class ScInfo;
-class CRecipientFactory;
+
+class CRecipientHandler
+{
+    private:
+       CMutableTransactionBase* txBase;
+       std::string& err;
+
+    public:
+       CRecipientHandler(CMutableTransactionBase* objIn, std::string& errIn)
+           : txBase(objIn), err(errIn) {}
+
+    bool visit(const CcRecipientVariant& rec);
+
+    bool handle(const CRecipientScCreation& r);
+    bool handle(const CRecipientCertLock& r);
+    bool handle(const CRecipientForwardTransfer& r);
+    bool handle(const CRecipientBackwardTransfer& r);
+};
 
 class CcRecipientVisitor : public boost::static_visitor<bool>
 {
     private:
-       CRecipientFactory* fact;
+       CRecipientHandler* handler;
     public:
-       explicit CcRecipientVisitor(CRecipientFactory* factIn) : fact(factIn) {}
+       explicit CcRecipientVisitor(CRecipientHandler* hIn) : handler(hIn) {}
 
     template <typename T>
-    bool operator() (const T& r) const; //{ return fact->set(r); }
-};
-
-class CRecipientFactory
-{
-    private:
-       CMutableTransaction* tx;
-       std::string& err;
-
-    public:
-       CRecipientFactory(CMutableTransaction* txIn, std::string& errIn)
-           : tx(txIn), err(errIn) {}
-
-    bool set(const CcRecipientVariant& rec)
-    {
-        return boost::apply_visitor(CcRecipientVisitor(this), rec);
-    };
-
-    bool set(const CRecipientScCreation& r);
-    bool set(const CRecipientCertLock& r);
-    bool set(const CRecipientForwardTransfer& r);
-    bool set(const CRecipientBackwardTransfer& r);
+    bool operator() (const T& r) const { return handler->handle(r); }
 };
 
 class CcRecipientAmountVisitor : public boost::static_visitor<CAmount>

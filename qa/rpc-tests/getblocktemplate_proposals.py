@@ -10,6 +10,8 @@ from binascii import a2b_hex, b2a_hex
 from hashlib import sha256
 from struct import pack
 
+SC_CERTIFICATE_BLOCK_VERSION_HEX = "0x20000001"
+SC_CERTIFICATE_BLOCK_VERSION = int(SC_CERTIFICATE_BLOCK_VERSION_HEX, 0)
 
 def check_array_result(object_array, to_match, expected):
     """
@@ -68,9 +70,10 @@ def genmrklroot(leaflist):
         cur = n
     return cur[0]
 
-def template_to_bytes(tmpl, txlist):
+def template_to_bytes(tmpl, txlist, certlist):
     blkver = pack('<L', tmpl['version'])
-    mrklroot = genmrklroot(list(dblsha(a) for a in txlist))
+    objlist = txlist + certlist
+    mrklroot = genmrklroot(list(dblsha(a) for a in objlist))
     reserved = b'\0'*32
     timestamp = pack('<L', tmpl['curtime'])
     nonce = b'\0'*32
@@ -79,15 +82,27 @@ def template_to_bytes(tmpl, txlist):
     blk += varlenEncode(len(txlist))
     for tx in txlist:
         blk += tx
+    if tmpl['version'] >= SC_CERTIFICATE_BLOCK_VERSION:
+        # fill vector of certificates from this version on 
+        # print "Block ver=", hex(tmpl['version'])
+        blk += varlenEncode(len(certlist))
+        for cert in certlist:
+            blk += cert
     return blk
 
-def template_to_hex(tmpl, txlist):
-    return b2x(template_to_bytes(tmpl, txlist))
+def template_to_hex(tmpl, txlist, certlist):
+    return b2x(template_to_bytes(tmpl, txlist, certlist))
 
-def assert_template(node, tmpl, txlist, expect):
-    rsp = node.getblocktemplate({'data':template_to_hex(tmpl, txlist),'mode':'proposal'})
-    if rsp != expect:
-        raise AssertionError('unexpected: %s' % (rsp,))
+def assert_template(node, tmpl, txlist, certlist, expect):
+#    try:
+#        print "list=",template_to_hex(tmpl, txlist)
+#        raw_input("Pres to continue 1...")
+     rsp = node.getblocktemplate({'data':template_to_hex(tmpl, txlist, certlist),'mode':'proposal'})
+     if rsp != expect:
+         print "rsp: ", rsp
+         raise AssertionError('unexpected: %s' % (rsp,))
+#    except JSONRPCException as e:
+#            print "exception: ", e.error['message']
 
 class GetBlockTemplateProposalTest(BitcoinTestFramework):
     '''
@@ -98,6 +113,8 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         node = self.nodes[0]
         node.generate(1) # Mine a block to leave initial block download
         tmpl = node.getblocktemplate()
+        print tmpl
+        print
         if 'coinbasetxn' not in tmpl:
             rawcoinbase = encodeUNum(tmpl['height'])
             rawcoinbase += b'\x01-'
@@ -105,6 +122,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             hexoutval = b2x(pack('<Q', tmpl['coinbasevalue']))
             tmpl['coinbasetxn'] = {'data': '01000000' + '01' + '0000000000000000000000000000000000000000000000000000000000000000ffffffff' + ('%02x' % (len(rawcoinbase),)) + hexcoinbase + 'fffffffe' + '01' + hexoutval + '00' + '00000000'}
         txlist = list(bytearray(a2b_hex(a['data'])) for a in (tmpl['coinbasetxn'],) + tuple(tmpl['transactions']))
+        certlist = list(bytearray(a2b_hex(a['data'])) for a in tuple(tmpl['certificates']))
 
         # Test 0: Capability advertised
         assert('proposal' in tmpl['capabilities'])
@@ -115,22 +133,23 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         #assert_template(node, tmpl, txlist, 'FIXME')
         #txlist[0][4+1+36+1+1] -= 1
 
+        #raw_input("Pres to continue 1...")
         # Test 2: Bad input hash for gen tx
         txlist[0][4+1] += 1
-        assert_template(node, tmpl, txlist, 'bad-cb-missing')
+        assert_template(node, tmpl, txlist, certlist, 'bad-cb-missing')
         txlist[0][4+1] -= 1
 
         # Test 3: Truncated final tx
         lastbyte = txlist[-1].pop()
         try:
-            assert_template(node, tmpl, txlist, 'n/a')
+            assert_template(node, tmpl, txlist, certlist, 'n/a')
         except JSONRPCException:
             pass  # Expected
         txlist[-1].append(lastbyte)
 
         # Test 4: Add an invalid tx to the end (duplicate of gen tx)
         txlist.append(txlist[0])
-        assert_template(node, tmpl, txlist, 'bad-txns-duplicate')
+        assert_template(node, tmpl, txlist, certlist, 'bad-txns-duplicate')
         txlist.pop()
 
         # Test 5: Add an invalid tx to the end (non-duplicate)
@@ -139,19 +158,19 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         #! This transaction is failing sooner than intended in the
         #! test because of the lack of an op-checkblockheight
         #assert_template(node, tmpl, txlist, 'bad-txns-inputs-missingorspent') 
-        assert_template(node, tmpl, txlist, 'op-checkblockatheight-needed')
+        assert_template(node, tmpl, txlist, certlist, 'op-checkblockatheight-needed')
         txlist.pop()
 
         # Test 6: Future tx lock time
         txlist[0][49] -= 1                      # in template nSequence is equal 0xffffffff, in such case it disables nLockTime. Decrease nSequence to enable lock time check.
         txlist[0][-4:] = b'\xff\xff\xff\xff'    # set nLockTime far in future
-        assert_template(node, tmpl, txlist, 'bad-txns-nonfinal')
+        assert_template(node, tmpl, txlist, certlist, 'bad-txns-nonfinal')
         txlist[0][-4:] = b'\0\0\0\0'
 
         # Test 7: Bad tx count
         txlist.append(b'')
         try:
-            assert_template(node, tmpl, txlist, 'n/a')
+            assert_template(node, tmpl, txlist, certlist, 'n/a')
         except JSONRPCException:
             pass  # Expected
         txlist.pop()
@@ -159,11 +178,11 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         # Test 8: Bad bits
         realbits = tmpl['bits']
         tmpl['bits'] = '1c0000ff'  # impossible in the real world
-        assert_template(node, tmpl, txlist, 'bad-diffbits')
+        assert_template(node, tmpl, txlist, certlist, 'bad-diffbits')
         tmpl['bits'] = realbits
 
         # Test 9: Bad merkle root
-        rawtmpl = template_to_bytes(tmpl, txlist)
+        rawtmpl = template_to_bytes(tmpl, txlist, certlist)
         rawtmpl[4+32] = (rawtmpl[4+32] + 1) % 0x100
         rsp = node.getblocktemplate({'data':b2x(rawtmpl),'mode':'proposal'})
         if rsp != 'bad-txnmrklroot':
@@ -172,17 +191,17 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         # Test 10: Bad timestamps
         realtime = tmpl['curtime']
         tmpl['curtime'] = 0x7fffffff
-        assert_template(node, tmpl, txlist, 'time-too-new')
+        assert_template(node, tmpl, txlist, certlist, 'time-too-new')
         tmpl['curtime'] = 0
-        assert_template(node, tmpl, txlist, 'time-too-old')
+        assert_template(node, tmpl, txlist, certlist, 'time-too-old')
         tmpl['curtime'] = realtime
 
         # Test 11: Valid block
-        assert_template(node, tmpl, txlist, None)
+        assert_template(node, tmpl, txlist, certlist, None)
 
         # Test 12: Orphan block
         tmpl['previousblockhash'] = 'ff00' * 16
-        assert_template(node, tmpl, txlist, 'inconclusive-not-best-prevblk')
+        assert_template(node, tmpl, txlist, certlist, 'inconclusive-not-best-prevblk')
 
 if __name__ == '__main__':
     GetBlockTemplateProposalTest().main()

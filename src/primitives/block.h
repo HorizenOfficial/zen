@@ -7,8 +7,11 @@
 #define BITCOIN_PRIMITIVES_BLOCK_H
 
 #include "primitives/transaction.h"
+#include "primitives/certificate.h"
 #include "serialize.h"
 #include "uint256.h"
+
+//#define DEBUG_SC_HASH 1
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
@@ -22,6 +25,7 @@ class CBlockHeader
 public:
     // header
     static const size_t HEADER_SIZE=4+32+32+32+4+4+32; // excluding Equihash solution
+    static const int32_t SC_CERT_BLOCK_VERSION = 0x20000001;
     int32_t nVersion;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
@@ -82,10 +86,11 @@ class CBlock : public CBlockHeader
 public:
     // network and disk
     std::vector<CTransaction> vtx;
+    std::vector<CScCertificate> vcert;
 
     // memory only
     mutable std::vector<uint256> vMerkleTree;
-
+    
     CBlock()
     {
         SetNull();
@@ -103,12 +108,17 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(*(CBlockHeader*)this);
         READWRITE(vtx);
+        if (this->nVersion == SC_CERT_BLOCK_VERSION)
+        {
+            READWRITE(vcert);
+        }
     }
 
     void SetNull()
     {
         CBlockHeader::SetNull();
         vtx.clear();
+        vcert.clear();
         vMerkleTree.clear();
     }
 
@@ -131,13 +141,16 @@ public:
     // tree (a duplication of transactions in the block leading to an identical
     // merkle root).
     uint256 BuildMerkleTree(bool* mutated = NULL) const;
-    uint256 BuildMerkleTree(std::vector<uint256>& vMerkleTree, size_t vtxSize, bool* mutated = NULL) const;
+    uint256 BuildMerkleTree(std::vector<uint256>& vMerkleTreeIn, size_t vtxSize, bool* mutated = NULL) const;
     uint256 BuildScMerkleRootsMap();
     
     std::vector<uint256> GetMerkleBranch(int nIndex) const;
     static uint256 CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex);
     uint256 BuildMerkleRootHash(const std::vector<uint256>& vInput);
     std::string ToString() const;
+
+    // returns the vector of ptrs of tx and certs of the block (&tx1, .., &txn, &cert1, .., &certn).
+    void GetTxAndCertsVector(std::vector<const CTransactionBase*>& vBase) const;
 };
 
 

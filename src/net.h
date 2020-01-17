@@ -662,8 +662,11 @@ public:
 
 
 class CTransaction;
+class CScCertificate;
 void RelayTransaction(const CTransaction& tx);
 void RelayTransaction(const CTransaction& tx, const CDataStream& ss);
+void RelayCertificate(const CScCertificate& cert);
+void RelayCertificate(const CScCertificate& cert, const CDataStream& ss);
 
 /** Access to the (IP) address database (peers.dat) */
 class CAddrDB

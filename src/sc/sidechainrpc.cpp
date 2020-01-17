@@ -7,6 +7,7 @@
 
 extern UniValue ValueFromAmount(const CAmount& amount);
 extern CAmount AmountFromValue(const UniValue& value);
+extern CFeeRate minRelayTxFee;
 
 namespace Sidechain
 {
@@ -220,5 +221,49 @@ void AddScInfoToJSON(UniValue& result)
 }
 
 
-}
+//--------------------------------------------------------------------------------------------
+// Cross chain outputs
 
+bool CRecipientHandler::visit(const CcRecipientVariant& rec)
+{
+    return boost::apply_visitor(CcRecipientVisitor(this), rec);
+};
+
+
+bool CRecipientHandler::handle(const CRecipientScCreation& r)
+{
+    CTxScCreationOut txccout(r.scId, r.creationData.withdrawalEpochLength);
+    // no dust can be found in sc creation
+    return txBase->add(txccout);
+};
+
+bool CRecipientHandler::handle(const CRecipientCertLock& r)
+{
+    CTxCertifierLockOut txccout(r.nValue, r.address, r.scId, r.epoch);
+    if (txccout.IsDust(::minRelayTxFee))
+    {
+        err = _("Transaction amount too small");
+        return false;
+    }
+    return txBase->add(txccout);
+};
+
+bool CRecipientHandler::handle(const CRecipientForwardTransfer& r)
+{
+    CTxForwardTransferOut txccout(r.nValue, r.address, r.scId);
+    if (txccout.IsDust(::minRelayTxFee))
+    {
+        err = _("Transaction amount too small");
+        return false;
+    }
+    return txBase->add(txccout);
+};
+
+bool CRecipientHandler::handle(const CRecipientBackwardTransfer& r)
+{
+    // fill vout here but later their amount will be reduced carving out the fee by the caller
+    CTxOut txout(r.nValue, r.scriptPubKey);
+    return txBase->add(txout);
+};
+
+}  // end of namespace

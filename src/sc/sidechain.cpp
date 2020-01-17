@@ -107,6 +107,13 @@ bool ScCoinsView::checkTxSemanticValidity(const CTransaction& tx, CValidationSta
     return true;
 }
 
+bool ScCoinsView::checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state)
+{
+    // TODO cert: implement
+    LogPrint("cert", "%s():%d - TO BE IMPLEMENTED for cert [%s]\n", __func__, __LINE__, cert.GetHash().ToString());
+    return true;
+}
+
 bool ScCoinsView::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
 {
     //Check for conflicts in mempool
@@ -545,7 +552,7 @@ bool ScMgr::loadInitialData()
     LOCK(sc_lock);
     try
     {
-        bool res = pLayer->loadPersistedDataInto(ManagerScInfoMap);
+        bool res = pLayer->loadPersistedDataInto(mManagerScInfoMap);
         if (!res)
         {
             return error("%s():%d - error occurred during db scan", __func__, __LINE__);
@@ -564,7 +571,7 @@ void ScMgr::reset()
     delete pLayer;
     pLayer = nullptr;
 
-    ManagerScInfoMap.clear();
+    mManagerScInfoMap.clear();
 }
 
 bool ScMgr::persist(const uint256& scId, const ScInfo& info)
@@ -579,7 +586,7 @@ bool ScMgr::persist(const uint256& scId, const ScInfo& info)
     if (!pLayer->persist(scId, info))
         return false;
 
-    ManagerScInfoMap[scId] = info;
+    mManagerScInfoMap[scId] = info;
     LogPrint("sc", "%s():%d - persisted scId=%s\n", __func__, __LINE__, scId.ToString() );
     return true;
 }
@@ -593,7 +600,7 @@ bool ScMgr::erase(const uint256& scId)
         return false;
     }
 
-    if (!ManagerScInfoMap.erase(scId))
+    if (!mManagerScInfoMap.erase(scId))
     {
         LogPrint("sc", "ERROR: %s():%d - scId=%s not in map\n", __func__, __LINE__, scId.ToString() );
         return false;
@@ -606,14 +613,14 @@ bool ScMgr::erase(const uint256& scId)
 bool ScMgr::sidechainExists(const uint256& scId) const
 {
     LOCK(sc_lock);
-    return ManagerScInfoMap.count(scId);
+    return mManagerScInfoMap.count(scId);
 }
 
 bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const
 {
     LOCK(sc_lock);
-    const auto it = ManagerScInfoMap.find(scId);
-    if (it == ManagerScInfoMap.end() )
+    const auto it = mManagerScInfoMap.find(scId);
+    if (it == mManagerScInfoMap.end() )
     {
         return false;
     }
@@ -628,12 +635,25 @@ std::set<uint256> ScMgr::getScIdSet() const
 {
     std::set<uint256> sScIds;
     LOCK(sc_lock);
-    BOOST_FOREACH(const auto& entry, ManagerScInfoMap)
+    BOOST_FOREACH(const auto& entry, mManagerScInfoMap)
     {
         sScIds.insert(entry.first);
     }
 
     return sScIds;
+}
+
+CAmount ScMgr::getSidechainBalance(const uint256& scId) const
+{
+    LOCK(sc_lock);
+    ScInfoMap::const_iterator it = mManagerScInfoMap.find(scId);
+    if (it == mManagerScInfoMap.end() )
+    {
+        // caller should have checked it
+        return -1;
+    }
+        
+    return it->second.balance;
 }
 
 bool ScMgr::dump_info(const uint256& scId)
@@ -659,8 +679,8 @@ bool ScMgr::dump_info(const uint256& scId)
 
 void ScMgr::dump_info()
 {
-    LogPrint("sc", "-- number of side chains found [%d] ------------------------\n", ManagerScInfoMap.size());
-    BOOST_FOREACH(const auto& entry, ManagerScInfoMap)
+    LogPrint("sc", "-- number of side chains found [%d] ------------------------\n", mManagerScInfoMap.size());
+    BOOST_FOREACH(const auto& entry, mManagerScInfoMap)
     {
         dump_info(entry.first);
     }

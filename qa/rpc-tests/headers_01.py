@@ -30,7 +30,11 @@ class headers(BitcoinTestFramework):
     def setup_network(self, split=False):
         self.nodes = []
 
-        self.nodes = start_nodes(2, self.options.tmpdir)
+        self.nodes = start_nodes(2, self.options.tmpdir,
+            extra_args = [
+                ["-debug=1", "-logtimemicros=1"],
+                ["-debug=1", "-logtimemicros=1"]
+            ])
 
         if not split:
             connect_nodes_bi(self.nodes, 0, 1)
@@ -81,7 +85,7 @@ class headers(BitcoinTestFramework):
 
         blocks.append(self.nodes[0].getblockhash(0))
         print("\n\nGenesis block is:\n" + blocks[0] + "\n")
-#        raw_input("press enter to go on..")
+        #raw_input("press enter to go on..")
 
         s = "Node 0 generates a block"
         print("\n" + s) 

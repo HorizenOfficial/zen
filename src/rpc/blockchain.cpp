@@ -25,11 +25,14 @@
 #include "sc/sidechain.h"
 #include "sc/sidechainrpc.h"
 
+#include "validationinterface.h"
+
 using namespace std;
 
 using namespace Sidechain;
 
 extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
+extern void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& entry);
 void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
 
 double GetDifficultyINTERNAL(const CBlockIndex* blockindex, bool networkDifficulty)
@@ -143,7 +146,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.push_back(Pair("height", blockindex->nHeight));
     result.push_back(Pair("version", block.nVersion));
     result.push_back(Pair("merkleroot", block.hashMerkleRoot.GetHex()));
-    result.push_back(Pair("scmerklerootsmap", block.hashScMerkleRootsMap.GetHex()));
+    result.push_back(Pair("scMerklerootsmap", block.hashScMerkleRootsMap.GetHex()));
     UniValue txs(UniValue::VARR);
     BOOST_FOREACH(const CTransaction&tx, block.vtx)
     {
@@ -156,7 +159,22 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
         else
             txs.push_back(tx.GetHash().GetHex());
     }
+    UniValue certs(UniValue::VARR);
+    BOOST_FOREACH(const CScCertificate& cert, block.vcert)
+    {
+        if(txDetails)
+        {
+            UniValue objCert(UniValue::VOBJ);
+            CertToJSON(cert, uint256(), objCert);
+            certs.push_back(objCert);
+        }
+        else
+        {
+            certs.push_back(cert.GetHash().GetHex());
+        }
+    }
     result.push_back(Pair("tx", txs));
+    result.push_back(Pair("cert", certs));
     result.push_back(Pair("time", block.GetBlockTime()));
     result.push_back(Pair("nonce", block.nNonce.GetHex()));
     result.push_back(Pair("solution", HexStr(block.nSolution)));
@@ -260,6 +278,29 @@ UniValue mempoolToJSON(bool fVerbose = false)
             }
 
             info.push_back(Pair("depends", depends));
+            o.push_back(Pair(hash.ToString(), info));
+        }
+        BOOST_FOREACH(const PAIRTYPE(uint256, CCertificateMemPoolEntry)& entry, mempool.mapCertificate)
+        {
+            const uint256& hash = entry.first;
+            const auto& e = entry.second;
+            UniValue info(UniValue::VOBJ);
+            info.push_back(Pair("size", (int)e.GetCertificateSize()));
+            info.push_back(Pair("fee", ValueFromAmount(e.GetFee())));
+            info.push_back(Pair("time", e.GetTime()));
+            info.push_back(Pair("height", (int)e.GetHeight()));
+            info.push_back(Pair("startingpriority", e.GetPriority(e.GetHeight())));
+            info.push_back(Pair("currentpriority", e.GetPriority(chainActive.Height())));
+            o.push_back(Pair(hash.ToString(), info));
+        }
+        BOOST_FOREACH(const auto& entry, mempool.mapDeltas)
+        {
+            const uint256& hash = entry.first;
+            const auto& p = entry.second.first;
+            const auto& f = entry.second.second;
+            UniValue info(UniValue::VOBJ);
+            info.push_back(Pair("fee", ValueFromAmount(f)));
+            info.push_back(Pair("priority", p));
             o.push_back(Pair(hash.ToString(), info));
         }
         return o;
@@ -605,7 +646,12 @@ UniValue gettxout(const UniValue& params, bool fHelp)
     ScriptPubKeyToJSON(coins.vout[n].scriptPubKey, o, true);
     ret.push_back(Pair("scriptPubKey", o));
     ret.push_back(Pair("version", coins.nVersion));
+#if 0
     ret.push_back(Pair("coinbase", coins.fCoinBase));
+#else
+    ret.push_back(Pair("certificate", coins.IsCoinCertified()));
+    ret.push_back(Pair("coinbase", coins.IsCoinBase()));
+#endif
 
     return ret;
 }
@@ -868,7 +914,7 @@ UniValue mempoolInfoToJSON()
 {
     UniValue ret(UniValue::VOBJ);
     ret.push_back(Pair("size", (int64_t) mempool.size()));
-    ret.push_back(Pair("bytes", (int64_t) mempool.GetTotalTxSize()));
+    ret.push_back(Pair("bytes", (int64_t) mempool.GetTotalSize()));
     ret.push_back(Pair("usage", (int64_t) mempool.DynamicMemoryUsage()));
 
     return ret;
