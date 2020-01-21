@@ -60,11 +60,12 @@ public:
         pindexBestHeader = chainActive.Tip();
 
         InitCoinGeneration();
-        GenerateCoinsAmount(1);
+        GenerateCoinsAmount(1000);
         ASSERT_TRUE(PersistCoins());
     }
 
     void TearDown() override {
+        mempool.clear();
         chainActive.SetTip(NULL);
         mapBlockIndex.clear();
     }
@@ -86,21 +87,22 @@ public:
 
 protected:
     CTransaction GenerateScTx(const uint256 & newScId, const CAmount & fwdTxAmount);
+    CTransaction GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount);
 
 private:
-    boost::filesystem::path pathTemp;
-    const unsigned int      chainStateDbSize;
-    CCoinsOnlyViewDB*       pChainStateDb;
+    boost::filesystem::path  pathTemp;
+    const unsigned int       chainStateDbSize;
+    CCoinsOnlyViewDB*        pChainStateDb;
 
     const unsigned int       minimalHeightForSidechains;
     std::vector<uint256>     blockHashes;
     std::vector<CBlockIndex> blocks;
     void GenerateChainActive();
 
-    CKey coinsKey;
-    CBasicKeyStore keystore;
-    CScript coinsScript;
-    CCoinsMap initialCoinsSet;
+    CKey                     coinsKey;
+    CBasicKeyStore           keystore;
+    CScript                  coinsScript;
+    CCoinsMap                initialCoinsSet;
     void InitCoinGeneration();
     void GenerateCoinsAmount(const CAmount & amountToGenerate);
     bool PersistCoins();
@@ -109,43 +111,78 @@ private:
 TEST_F(SidechainsInMempoolTestSuite, NewSidechainsAreAcceptedToMempool) {
     CTransaction scTx = GenerateScTx(uint256S("1492"), CAmount(1));
     CValidationState txState;
-    CTxMemPool pool(::minRelayTxFee);
-    bool missingInputs;
+    bool missingInputs = false;
 
-    bool res = AcceptToMemoryPool(pool, txState, scTx, false, &missingInputs);
+    bool res = AcceptToMemoryPool(mempool, txState, scTx, false, &missingInputs);
 
     EXPECT_TRUE(res);
 }
 
 TEST_F(SidechainsInMempoolTestSuite, DuplicatedSidechainsAreNotAcceptedToMempool) {
-    CTransaction scTx = GenerateScTx(uint256S("1492"), CAmount(1));
+    uint256 scId = uint256S("1492");
+    CTransaction scTx = GenerateScTx(scId, CAmount(1));
     CValidationState txState;
-    CTxMemPool pool(::minRelayTxFee);
-    bool missingInputs;
+    bool missingInputs = false;
+    ASSERT_TRUE(AcceptToMemoryPool(mempool, txState, scTx, false, &missingInputs));
 
-    ASSERT_TRUE(AcceptToMemoryPool(pool, txState, scTx, false, &missingInputs));
-
-    bool res = AcceptToMemoryPool(pool, txState, scTx, false, &missingInputs);
+    scTx = GenerateScTx(scId, CAmount(100));
+    txState = CValidationState();
+    missingInputs = false;
+    bool res = AcceptToMemoryPool(mempool, txState, scTx, false, &missingInputs);
     EXPECT_FALSE(res);
 }
 
-TEST_F(SidechainsInMempoolTestSuite, DuplicatedOfFlushedSidechainsAreNotAcceptedToMempool) {
-    //Persist sidechain
+TEST_F(SidechainsInMempoolTestSuite, DuplicationsOfConfirmedSidechainsAreNotAcceptedToMempool) {
     uint256 scId = uint256S("a1b2");
-    CAmount scAmount = CAmount(10);
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, scAmount);
+    CTransaction scTx = GenerateScTx(scId, CAmount(1));
     CBlock aBlock;
     Sidechain::ScCoinsViewCache coinViewCache(Sidechain::ScMgr::instance());
-    coinViewCache.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+    coinViewCache.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
     ASSERT_TRUE(coinViewCache.Flush());
 
-    //Attempt to feed mempool with same sidechain
-    CTransaction scTx = GenerateScTx(scId, scAmount);
+    scTx = GenerateScTx(scId, CAmount(12));
     CValidationState txState;
-    CTxMemPool pool(::minRelayTxFee);
-    bool missingInputs;
+    bool missingInputs = false;
 
-    bool res = AcceptToMemoryPool(pool, txState, scTx, false, &missingInputs);
+    bool res = AcceptToMemoryPool(mempool, txState, scTx, false, &missingInputs);
+    EXPECT_FALSE(res);
+}
+
+TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed) {
+    uint256 scId = uint256S("aaaa");
+    CTransaction scTx = GenerateScTx(scId, CAmount(10));
+    CBlock aBlock;
+    Sidechain::ScCoinsViewCache coinViewCache(Sidechain::ScMgr::instance());
+    coinViewCache.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    ASSERT_TRUE(coinViewCache.Flush());
+
+    CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
+    CValidationState fwdTxState;
+    bool missingInputs = false;
+    bool res = AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs);
+    EXPECT_TRUE(res);
+}
+
+//ABENEGIA: commented out since it fails as per current implementation (github issue 215)
+//TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToSideChainInMempoolAreAllowed) {
+//    uint256 scId = uint256S("1492");
+//    CTransaction scTx = GenerateScTx(scId, CAmount(1));
+//    CValidationState scTxState;
+//    bool missingInputs = false;
+//    ASSERT_TRUE(AcceptToMemoryPool(mempool, scTxState, scTx, false, &missingInputs));
+//
+//    CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
+//    CValidationState fwdTxState;
+//    bool res = AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs);
+//    EXPECT_TRUE(res);
+//}
+
+TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSideChainAreNotAllowed) {
+    uint256 scId = uint256S("1492");
+    CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
+    CValidationState fwdTxState;
+    bool missingInputs = false;
+    bool res = AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs);
     EXPECT_FALSE(res);
 }
 
@@ -163,11 +200,11 @@ void SidechainsInMempoolTestSuite::GenerateChainActive() {
         blockHashes[height] = ArithToUint256(height);
 
         blocks[height].nHeight = height+1;
-        blocks[height].pprev = height != 0? &blocks[height - 1] : nullptr;
+        blocks[height].pprev = height == 0? nullptr : &blocks[height - 1];
         blocks[height].phashBlock = &blockHashes[height];
         blocks[height].nTime = 1269211443 + height * Params().GetConsensus().nPowTargetSpacing;
         blocks[height].nBits = 0x1e7fffff;
-        blocks[height].nChainWork = height != 0 ? blocks[height - 1].nChainWork + GetBlockProof(blocks[height - 1]) : arith_uint256(0);
+        blocks[height].nChainWork = height == 0 ? arith_uint256(0) : blocks[height - 1].nChainWork + GetBlockProof(blocks[height - 1]);
 
         mapBlockIndex[blockHashes[height]] = &blocks[height];
     }
@@ -188,7 +225,7 @@ void SidechainsInMempoolTestSuite::GenerateCoinsAmount(const CAmount & amountToG
     entry.flags = CCoinsCacheEntry::DIRTY;
 
     entry.coins.fCoinBase = false;
-    entry.coins.nVersion = 2;
+    entry.coins.nVersion = TRANSPARENT_TX_VERSION;
     entry.coins.nHeight = coinHeight;
 
     entry.coins.vout.resize(1);
@@ -218,6 +255,21 @@ CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const uint256 & newScId,
 
     scTx.vsc_ccout.resize(1);
     scTx.vsc_ccout[0].scId = newScId;
+
+    scTx.vft_ccout.resize(1);
+    scTx.vft_ccout[0].scId   = newScId;
+    scTx.vft_ccout[0].nValue = fwdTxAmount;
+
+    SignSignature(keystore, initialCoinsSet.begin()->second.coins.vout[0].scriptPubKey, scTx, 0);
+
+    return scTx;
+}
+
+CTransaction SidechainsInMempoolTestSuite::GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount) {
+    CMutableTransaction scTx;
+    scTx.nVersion = SC_TX_VERSION;
+    scTx.vin.resize(1);
+    scTx.vin[0].prevout = COutPoint(initialCoinsSet.begin()->first, 0);
 
     scTx.vft_ccout.resize(1);
     scTx.vft_ccout[0].scId   = newScId;
