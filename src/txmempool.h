@@ -100,10 +100,11 @@ private:
 
 public:
     mutable CCriticalSection cs;
-    std::map<uint256, CTxMemPoolEntry> mapTx;
-    std::map<COutPoint, CInPoint> mapNextTx;
-    std::map<uint256, const CTransaction*> mapNullifiers;
+    std::map<uint256, CTxMemPoolEntry>             mapTx;
+    std::map<COutPoint, CInPoint>                  mapNextTx;
+    std::map<uint256, const CTransaction*>         mapNullifiers;
     std::map<uint256, std::pair<double, CAmount> > mapDeltas;
+    std::set<uint256>                              setSidechains;
 
     CTxMemPool(const CFeeRate& _minRelayFee);
     ~CTxMemPool();

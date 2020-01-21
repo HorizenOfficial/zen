@@ -75,6 +75,7 @@ typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
 // Validation functions
 bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
 bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
+bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
 // End of Validation functions
 
 class ScCoinsView
@@ -85,8 +86,6 @@ public:
     ScCoinsView& operator=(const ScCoinsView &) = delete;
     virtual ~ScCoinsView() = default;
 
-
-    static bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
     bool IsTxApplicableToState(const CTransaction& tx);
 
     virtual bool sidechainExists(const uint256& scId) const = 0;

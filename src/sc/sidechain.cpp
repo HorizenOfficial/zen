@@ -119,10 +119,22 @@ bool Sidechain::anyForwardTransaction(const CTransaction& tx, const uint256& scI
     return false;
 }
 
-/*************************** SCCOINVIEW INTERFACE ****************************/
-
-bool ScCoinsView::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
+bool Sidechain::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
 {
+//    //ABENEGIA: Candidate solution once  mempool will start tracking know sidechains
+//    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
+//    {
+//        if (pool.setSidechains.count(sc.scId) != 0)
+//        {
+//            LogPrint("sc", "%s():%d - invalid tx[%s]: scid[%s] already created by tx[%s]\n",
+//                __func__, __LINE__, tx.GetHash().ToString(), sc.scId.ToString(),tx.GetHash().ToString() );
+//            return state.Invalid(error("transaction tries to create scid already created in mempool"),
+//            REJECT_INVALID, "sidechain-creation");
+//        }
+//    }
+//
+//    return true;
+
     //Check for conflicts in mempool
     BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
     {
@@ -136,8 +148,8 @@ bool ScCoinsView::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransactio
                 {
                     LogPrint("sc", "%s():%d - invalid tx[%s]: scid[%s] already created by tx[%s]\n",
                         __func__, __LINE__, tx.GetHash().ToString(), sc.scId.ToString(), mpTx.GetHash().ToString() );
-                            return state.Invalid(error("transaction tries to create scid already created in mempool"),
-                            REJECT_INVALID, "sidechain-creation");
+                    return state.Invalid(error("transaction tries to create scid already created in mempool"),
+                    REJECT_INVALID, "sidechain-creation");
                 }
             }
         }
@@ -145,6 +157,7 @@ bool ScCoinsView::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransactio
     return true;
 }
 
+/*************************** SCCOINVIEW INTERFACE ****************************/
 bool ScCoinsView::IsTxApplicableToState(const CTransaction& tx)
 {
     const uint256& txHash = tx.GetHash();

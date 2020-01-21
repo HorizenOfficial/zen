@@ -66,7 +66,7 @@ public:
 
     void TearDown() override {
         mempool.clear();
-        chainActive.SetTip(NULL);
+        chainActive.SetTip(nullptr);
         mapBlockIndex.clear();
     }
 

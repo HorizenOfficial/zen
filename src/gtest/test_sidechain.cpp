@@ -264,7 +264,7 @@ TEST_F(SidechainTestSuite, ScCreationTxsAreAllowedInEmptyMemPool) {
     CTxMemPool aMemPool(aFeeRate);
 
     //test
-    bool res = sidechainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
+    bool res = Sidechain::IsTxAllowedInMempool(aMemPool, aTransaction, txState);
 
     //check
     EXPECT_TRUE(res);
@@ -282,7 +282,7 @@ TEST_F(SidechainTestSuite, NewScCreationTxsAreAllowedInMemPool) {
     CValidationState txState;
 
     //test
-    bool res = sidechainManager.IsTxAllowedInMempool(aMemPool, aNewTx, txState);
+    bool res = Sidechain::IsTxAllowedInMempool(aMemPool, aNewTx, txState);
 
     //check
     EXPECT_TRUE(res);
@@ -302,7 +302,7 @@ TEST_F(SidechainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
     CValidationState txState;
 
     //test
-    bool res = sidechainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
+    bool res = Sidechain::IsTxAllowedInMempool(aMemPool, aTransaction, txState);
 
     //check
     EXPECT_FALSE(res);

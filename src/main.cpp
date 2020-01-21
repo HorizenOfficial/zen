@@ -1359,7 +1359,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
         // beside the check performed in IsTxApplicableToState above, perform some more checks specific to mempool. 
         // If this tx creates a sc, no other tx must be doing the same in the mempool
-        if (!scMgr.IsTxAllowedInMempool(pool, tx, state) )
+        if (!Sidechain::IsTxAllowedInMempool(pool, tx, state) )
         {
             return false;
         }
