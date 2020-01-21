@@ -7,6 +7,9 @@
 #include <main.h>
 #include <zen/forks/fork6_sidechainfork.h>
 
+#include <key.h>
+#include <keystore.h>
+
 #include "tx_creation_utils.h"
 #include <consensus/validation.h>
 
@@ -41,6 +44,7 @@ public:
 
         boost::filesystem::create_directories(pathTemp);
         mapArgs["-datadir"] = pathTemp.string();
+        //mapArgs["-allownonstandardtx"] = std::string("1"); //ABENEGIA: temp hack before fixing signature
 
         pChainStateDb = new CCoinsOnlyViewDB(chainStateDbSize,/*fWipe*/true);
         pcoinsTip = new CCoinsViewCache(pChainStateDb);
@@ -50,7 +54,29 @@ public:
         fPrintToConsole = true;
     }
 
+    void SetUp() override {
+        //ASSERT_TRUE(chainActive.Height() == -1)<<chainActive.Height();
+        GenerateChainActive();
+        pcoinsTip->SetBestBlock(blocks.back().GetBlockHash());
+        //ASSERT_TRUE(chainActive.Height() == minimalHeightForSidechains)<<chainActive.Height();
+
+        InitCoinGeneration();
+        GenerateCoins(1);
+
+        CCoinsViewCache view(pChainStateDb);
+        CCoinsMap copyConsumedOnWrite(initialCoinsSet);
+        ASSERT_TRUE(pChainStateDb->BatchWrite(copyConsumedOnWrite));
+        //ASSERT_TRUE(view.HaveCoins(initialCoinsSet.begin()->first) == true);
+    }
+
+    void TearDown() override {
+        chainActive.SetTip(NULL);
+        mapBlockIndex.clear();
+    }
+
     ~SidechainsInMempoolTestSuite() {
+        Sidechain::ScMgr::instance().reset();
+
         delete pcoinsTip;
         pcoinsTip = nullptr;
 
@@ -63,16 +89,8 @@ public:
         boost::filesystem::remove_all(pathTemp.string(), ec);
     }
 
-    void SetUp() override {
-        //ASSERT_TRUE(chainActive.Height() == -1)<<chainActive.Height();
-        GenerateChainActive();
-        //ASSERT_TRUE(chainActive.Height() == minimalHeightForSidechains)<<chainActive.Height();
-    }
-
-    void TearDown() override {
-        chainActive.SetTip(NULL);
-        mapBlockIndex.clear();
-    }
+protected:
+    CTransaction GenerateScTx(const uint256 & newScId, const CAmount & fwdTxAmount);
 
 private:
     boost::filesystem::path pathTemp;
@@ -82,8 +100,14 @@ private:
     const unsigned int       minimalHeightForSidechains;
     std::vector<uint256>     blockHashes;
     std::vector<CBlockIndex> blocks;
-
     void GenerateChainActive();
+
+    CKey coinsKey;
+    CBasicKeyStore keystore;
+    CScript coinsScript;
+    CCoinsMap initialCoinsSet;
+    void InitCoinGeneration();
+    void GenerateCoins(unsigned int coinsCount);
 };
 
 void SidechainsInMempoolTestSuite::GenerateChainActive() {
@@ -109,21 +133,69 @@ void SidechainsInMempoolTestSuite::GenerateChainActive() {
     chainActive.SetTip(&blocks.back());
 }
 
-TEST_F(SidechainsInMempoolTestSuite, SAMPLE_1) {
-    EXPECT_TRUE(true);
+void SidechainsInMempoolTestSuite::InitCoinGeneration() {
+    coinsKey.MakeNewKey(true);
+    keystore.AddKey(coinsKey);
+
+    coinsScript << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
 }
 
-TEST_F(SidechainsInMempoolTestSuite, SAMPLE_2) {
-    EXPECT_TRUE(true);
+void SidechainsInMempoolTestSuite::GenerateCoins(unsigned int coinsCount) {
+    for (unsigned int coinHeight = 0; coinHeight < coinsCount; ++coinHeight) {
+
+        CCoinsCacheEntry entry;
+        entry.flags = CCoinsCacheEntry::DIRTY;
+
+        entry.coins.fCoinBase = false;
+        entry.coins.nVersion = 2;
+        entry.coins.nHeight = coinHeight % minimalHeightForSidechains;
+
+        entry.coins.vout.resize(1);
+        entry.coins.vout[0].nValue = 1000000;
+        entry.coins.vout[0].scriptPubKey = coinsScript;
+
+        std::stringstream num;
+        num << std::hex << coinHeight;
+
+        initialCoinsSet[uint256S(num.str())] = entry;
+    }
+
+    return;
 }
+
+CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const uint256 & newScId, const CAmount & fwdTxAmount) {
+    CMutableTransaction scTx;
+    scTx.nVersion = SC_TX_VERSION;
+    scTx.vin.resize(1);
+    scTx.vin[0].prevout = COutPoint(initialCoinsSet.begin()->first, 0);
+
+    scTx.vsc_ccout.resize(1);
+    scTx.vsc_ccout[0].scId = newScId;
+
+    scTx.vft_ccout.resize(1);
+    scTx.vft_ccout[0].scId   = newScId;
+    scTx.vft_ccout[0].nValue = fwdTxAmount;
+
+    txCreationUtils::signTx(scTx);
+
+    return scTx;
+}
+
+//TEST_F(SidechainsInMempoolTestSuite, SAMPLE_1) {
+//    EXPECT_TRUE(true);
+//}
+//
+//TEST_F(SidechainsInMempoolTestSuite, SAMPLE_2) {
+//    EXPECT_TRUE(true);
+//}
 
 TEST_F(SidechainsInMempoolTestSuite, AcceptSimpleSidechainTxToMempool) {
-    CTransaction scTx = txCreationUtils::createNewSidechainTxWith(uint256S("aaa"), CAmount(100));
+    CTransaction scTx = GenerateScTx(uint256S("1492"), CAmount(1));
     CValidationState txState;
     CTxMemPool pool(::minRelayTxFee);
     bool missingInputs;
 
     bool res = AcceptToMemoryPool(pool, txState, scTx, false, &missingInputs);
 
-    EXPECT_TRUE(res)<<txState.GetRejectReason();
+    EXPECT_TRUE(res)<<"Rejection reason in Validation State is ["<<txState.GetRejectReason()<<"]";
 }

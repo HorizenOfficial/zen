@@ -146,7 +146,7 @@ private:
             }
         }
         LogPrintf("end GenerateSpendTxSet \n");
-        }
+    }
 
     const CTxOut& GetCacheEntryTxOut(const CCoinsCacheEntry& entry, unsigned int num)
     {
