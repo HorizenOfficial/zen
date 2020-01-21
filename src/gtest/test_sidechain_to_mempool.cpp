@@ -10,6 +10,8 @@
 #include "tx_creation_utils.h"
 #include <consensus/validation.h>
 
+#include <sc/sidechain.h>
+
 class CCoinsOnlyViewDB : public CCoinsViewDB
 {
 public:
@@ -42,6 +44,8 @@ public:
 
         pChainStateDb = new CCoinsOnlyViewDB(chainStateDbSize,/*fWipe*/true);
         pcoinsTip = new CCoinsViewCache(pChainStateDb);
+
+        assert(Sidechain::ScMgr::instance().initPersistence(/*cacheSize*/0, /*fWipe*/true));
 
         fPrintToConsole = true;
     }
