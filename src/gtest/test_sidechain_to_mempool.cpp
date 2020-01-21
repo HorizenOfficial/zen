@@ -5,8 +5,10 @@
 
 #include <txdb.h>
 #include <main.h>
-
 #include <zen/forks/fork6_sidechainfork.h>
+
+#include "tx_creation_utils.h"
+#include <consensus/validation.h>
 
 class CCoinsOnlyViewDB : public CCoinsViewDB
 {
@@ -41,7 +43,7 @@ public:
         pChainStateDb = new CCoinsOnlyViewDB(chainStateDbSize,/*fWipe*/true);
         pcoinsTip = new CCoinsViewCache(pChainStateDb);
 
-        //fPrintToConsole = true;
+        fPrintToConsole = true;
     }
 
     ~SidechainsInMempoolTestSuite() {
@@ -58,9 +60,9 @@ public:
     }
 
     void SetUp() override {
-        ASSERT_TRUE(chainActive.Height() == -1)<<chainActive.Height();
+        //ASSERT_TRUE(chainActive.Height() == -1)<<chainActive.Height();
         GenerateChainActive();
-        ASSERT_TRUE(chainActive.Height() == minimalHeightForSidechains)<<chainActive.Height();
+        //ASSERT_TRUE(chainActive.Height() == minimalHeightForSidechains)<<chainActive.Height();
     }
 
     void TearDown() override {
@@ -111,6 +113,13 @@ TEST_F(SidechainsInMempoolTestSuite, SAMPLE_2) {
     EXPECT_TRUE(true);
 }
 
-TEST_F(SidechainsInMempoolTestSuite, SAMPLE_3) {
-    EXPECT_TRUE(true);
+TEST_F(SidechainsInMempoolTestSuite, AcceptSimpleSidechainTxToMempool) {
+    CTransaction scTx = txCreationUtils::createNewSidechainTxWith(uint256S("aaa"), CAmount(100));
+    CValidationState txState;
+    CTxMemPool pool(::minRelayTxFee);
+    bool missingInputs;
+
+    bool res = AcceptToMemoryPool(pool, txState, scTx, false, &missingInputs);
+
+    EXPECT_TRUE(res)<<txState.GetRejectReason();
 }
