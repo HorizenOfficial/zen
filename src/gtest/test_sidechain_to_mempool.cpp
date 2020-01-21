@@ -9,6 +9,7 @@
 
 #include <key.h>
 #include <keystore.h>
+#include <script/sign.h>
 
 #include "tx_creation_utils.h"
 #include <consensus/validation.h>
@@ -44,10 +45,9 @@ public:
 
         boost::filesystem::create_directories(pathTemp);
         mapArgs["-datadir"] = pathTemp.string();
-        //mapArgs["-allownonstandardtx"] = std::string("1"); //ABENEGIA: temp hack before fixing signature
 
         pChainStateDb = new CCoinsOnlyViewDB(chainStateDbSize,/*fWipe*/true);
-        pcoinsTip = new CCoinsViewCache(pChainStateDb);
+        pcoinsTip     = new CCoinsViewCache(pChainStateDb);
 
         assert(Sidechain::ScMgr::instance().initPersistence(/*cacheSize*/0, /*fWipe*/true));
 
@@ -55,18 +55,13 @@ public:
     }
 
     void SetUp() override {
-        //ASSERT_TRUE(chainActive.Height() == -1)<<chainActive.Height();
+
         GenerateChainActive();
-        pcoinsTip->SetBestBlock(blocks.back().GetBlockHash());
-        //ASSERT_TRUE(chainActive.Height() == minimalHeightForSidechains)<<chainActive.Height();
+        pcoinsTip->SetBestBlock(blocks.back().GetBlockHash()); //ABENEGIA: This appear to be called in AcceptToMempool but relevance is unclear
 
         InitCoinGeneration();
-        GenerateCoins(1);
-
-        CCoinsViewCache view(pChainStateDb);
-        CCoinsMap copyConsumedOnWrite(initialCoinsSet);
-        ASSERT_TRUE(pChainStateDb->BatchWrite(copyConsumedOnWrite));
-        //ASSERT_TRUE(view.HaveCoins(initialCoinsSet.begin()->first) == true);
+        GenerateCoinsAmount(1);
+        ASSERT_TRUE(PersistCoins());
     }
 
     void TearDown() override {
@@ -107,7 +102,8 @@ private:
     CScript coinsScript;
     CCoinsMap initialCoinsSet;
     void InitCoinGeneration();
-    void GenerateCoins(unsigned int coinsCount);
+    void GenerateCoinsAmount(const CAmount & amountToGenerate);
+    bool PersistCoins();
 };
 
 void SidechainsInMempoolTestSuite::GenerateChainActive() {
@@ -140,27 +136,32 @@ void SidechainsInMempoolTestSuite::InitCoinGeneration() {
     coinsScript << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
 }
 
-void SidechainsInMempoolTestSuite::GenerateCoins(unsigned int coinsCount) {
-    for (unsigned int coinHeight = 0; coinHeight < coinsCount; ++coinHeight) {
+void SidechainsInMempoolTestSuite::GenerateCoinsAmount(const CAmount & amountToGenerate) {
+    unsigned int coinHeight = minimalHeightForSidechains;
+    CCoinsCacheEntry entry;
+    entry.flags = CCoinsCacheEntry::DIRTY;
 
-        CCoinsCacheEntry entry;
-        entry.flags = CCoinsCacheEntry::DIRTY;
+    entry.coins.fCoinBase = false;
+    entry.coins.nVersion = 2;
+    entry.coins.nHeight = coinHeight;
 
-        entry.coins.fCoinBase = false;
-        entry.coins.nVersion = 2;
-        entry.coins.nHeight = coinHeight % minimalHeightForSidechains;
+    entry.coins.vout.resize(1);
+    entry.coins.vout[0].nValue = amountToGenerate;
+    entry.coins.vout[0].scriptPubKey = coinsScript;
 
-        entry.coins.vout.resize(1);
-        entry.coins.vout[0].nValue = 1000000;
-        entry.coins.vout[0].scriptPubKey = coinsScript;
+    std::stringstream num;
+    num << std::hex << coinHeight;
 
-        std::stringstream num;
-        num << std::hex << coinHeight;
-
-        initialCoinsSet[uint256S(num.str())] = entry;
-    }
-
+    initialCoinsSet[uint256S(num.str())] = entry;
     return;
+}
+
+bool SidechainsInMempoolTestSuite::PersistCoins() {
+    CCoinsViewCache view(pChainStateDb);
+    CCoinsMap tmpCopyConsumedOnWrite(initialCoinsSet);
+    pChainStateDb->BatchWrite(tmpCopyConsumedOnWrite);
+
+    return view.HaveCoins(initialCoinsSet.begin()->first) == true;
 }
 
 CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const uint256 & newScId, const CAmount & fwdTxAmount) {
@@ -176,18 +177,18 @@ CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const uint256 & newScId,
     scTx.vft_ccout[0].scId   = newScId;
     scTx.vft_ccout[0].nValue = fwdTxAmount;
 
-    txCreationUtils::signTx(scTx);
+    SignSignature(keystore, initialCoinsSet.begin()->second.coins.vout[0].scriptPubKey, scTx, 0);
 
     return scTx;
 }
 
-//TEST_F(SidechainsInMempoolTestSuite, SAMPLE_1) {
-//    EXPECT_TRUE(true);
-//}
-//
-//TEST_F(SidechainsInMempoolTestSuite, SAMPLE_2) {
-//    EXPECT_TRUE(true);
-//}
+TEST_F(SidechainsInMempoolTestSuite, SAMPLE_1) {
+    EXPECT_TRUE(true);
+}
+
+TEST_F(SidechainsInMempoolTestSuite, SAMPLE_2) {
+    EXPECT_TRUE(true);
+}
 
 TEST_F(SidechainsInMempoolTestSuite, AcceptSimpleSidechainTxToMempool) {
     CTransaction scTx = GenerateScTx(uint256S("1492"), CAmount(1));
