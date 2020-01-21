@@ -51,13 +51,13 @@ public:
 
         assert(Sidechain::ScMgr::instance().initPersistence(/*cacheSize*/0, /*fWipe*/true));
 
-        fPrintToConsole = true;
+        //fPrintToConsole = true;
     }
 
     void SetUp() override {
-
         GenerateChainActive();
         pcoinsTip->SetBestBlock(blocks.back().GetBlockHash()); //ABENEGIA: This appear to be called in AcceptToMempool but relevance is unclear
+        pindexBestHeader = chainActive.Tip();
 
         InitCoinGeneration();
         GenerateCoinsAmount(1);
