@@ -106,6 +106,52 @@ private:
     bool PersistCoins();
 };
 
+TEST_F(SidechainsInMempoolTestSuite, NewSidechainsAreAcceptedToMempool) {
+    CTransaction scTx = GenerateScTx(uint256S("1492"), CAmount(1));
+    CValidationState txState;
+    CTxMemPool pool(::minRelayTxFee);
+    bool missingInputs;
+
+    bool res = AcceptToMemoryPool(pool, txState, scTx, false, &missingInputs);
+
+    EXPECT_TRUE(res);
+}
+
+TEST_F(SidechainsInMempoolTestSuite, DuplicatedSidechainsAreNotAcceptedToMempool) {
+    CTransaction scTx = GenerateScTx(uint256S("1492"), CAmount(1));
+    CValidationState txState;
+    CTxMemPool pool(::minRelayTxFee);
+    bool missingInputs;
+
+    ASSERT_TRUE(AcceptToMemoryPool(pool, txState, scTx, false, &missingInputs));
+
+    bool res = AcceptToMemoryPool(pool, txState, scTx, false, &missingInputs);
+    EXPECT_FALSE(res);
+}
+
+TEST_F(SidechainsInMempoolTestSuite, DuplicatedOfFlushedSidechainsAreNotAcceptedToMempool) {
+    //Persist sidechain
+    uint256 scId = uint256S("a1b2");
+    CAmount scAmount = CAmount(10);
+    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, scAmount);
+    CBlock aBlock;
+    Sidechain::ScCoinsViewCache coinViewCache(Sidechain::ScMgr::instance());
+    coinViewCache.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+    ASSERT_TRUE(coinViewCache.Flush());
+
+    //Attempt to feed mempool with same sidechain
+    CTransaction scTx = GenerateScTx(scId, scAmount);
+    CValidationState txState;
+    CTxMemPool pool(::minRelayTxFee);
+    bool missingInputs;
+
+    bool res = AcceptToMemoryPool(pool, txState, scTx, false, &missingInputs);
+    EXPECT_FALSE(res);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+////////////////////////// Test Fixture definitions ///////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 void SidechainsInMempoolTestSuite::GenerateChainActive() {
     chainActive.SetTip(NULL);
     mapBlockIndex.clear();
@@ -180,23 +226,4 @@ CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const uint256 & newScId,
     SignSignature(keystore, initialCoinsSet.begin()->second.coins.vout[0].scriptPubKey, scTx, 0);
 
     return scTx;
-}
-
-TEST_F(SidechainsInMempoolTestSuite, SAMPLE_1) {
-    EXPECT_TRUE(true);
-}
-
-TEST_F(SidechainsInMempoolTestSuite, SAMPLE_2) {
-    EXPECT_TRUE(true);
-}
-
-TEST_F(SidechainsInMempoolTestSuite, AcceptSimpleSidechainTxToMempool) {
-    CTransaction scTx = GenerateScTx(uint256S("1492"), CAmount(1));
-    CValidationState txState;
-    CTxMemPool pool(::minRelayTxFee);
-    bool missingInputs;
-
-    bool res = AcceptToMemoryPool(pool, txState, scTx, false, &missingInputs);
-
-    EXPECT_TRUE(res)<<"Rejection reason in Validation State is ["<<txState.GetRejectReason()<<"]";
 }
