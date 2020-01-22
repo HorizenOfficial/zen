@@ -17,7 +17,7 @@ import logging
 import pprint
 
 import time
-class headers(BitcoinTestFramework):
+class sc_cert_base(BitcoinTestFramework):
 
     alert_filename = None
 
@@ -92,13 +92,15 @@ class headers(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(220))
         self.sync_all()
 
-        print "\nNode1 balance: ", self.nodes[1].getbalance("", 0)
+        # node 1 has just the coinbase which is now maturee
+        bal_before = self.nodes[1].getbalance("", 0)
+        print "\nNode1 balance: ", bal_before
 
         self.mark_logs("\nNode 1 creates the SC spending "+str(creation_amount)+" coins ...")
         amounts = []
         amounts.append( {"address":"dada", "amount": creation_amount})
         creating_tx = self.nodes[1].sc_create(scid, 123, amounts);
-        print "tx = " + creating_tx
+        print "creating_tx = " + creating_tx
         self.sync_all()
 
         self.mark_logs("\nNode0 generating 1 block")
@@ -106,10 +108,18 @@ class headers(BitcoinTestFramework):
         ownerBlock = blocks[-1]
         self.sync_all()
 
-        self.mark_logs("\nNode 0 performs a fwd transfer of "+str(fwt_amount)+" coins to SC...")
+        # fee can be seen on sender wallet (is a negative value)
+        fee = self.nodes[1].gettransaction(creating_tx)['fee']
+        print "Fee = ",fee
 
-        tx = self.nodes[0].sc_send("abcd", fwt_amount, scid);
-        print "tx=" + tx
+        # node 1 has just the coinbase minus the sc creation amount
+        assert_equal(self.nodes[1].getbalance("", 0) + creation_amount - fee, bal_before) 
+        print "\nNode1 balance: ", self.nodes[1].getbalance("", 0)
+
+        self.mark_logs("\nNode 0 performs a fwd transfer of " + str(fwt_amount) + " coins to SC...")
+
+        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid);
+        print "fwd_tx=" + fwd_tx
         self.sync_all()
 
         self.mark_logs("\nNode0 generating 1 block")
@@ -118,12 +128,12 @@ class headers(BitcoinTestFramework):
 
         print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
 
-        pkh = self.nodes[1].getnewaddress("", True);
+        pkh_node1 = self.nodes[1].getnewaddress("", True);
         amounts = []
         cert = []
 
-        self.mark_logs("\nNode 0 tries to perform a bwd transfer of "+str(bwt_amount_bad)+" coins to pkh["+str(pkh)+"]...")
-        amounts.append( {"pubkeyhash":pkh, "amount": bwt_amount_bad})
+        self.mark_logs("\nNode 0 tries to perform a bwd transfer of "+str(bwt_amount_bad)+" coins to Node1 pkh["+str(pkh_node1)+"]...")
+        amounts.append( {"pubkeyhash":pkh_node1, "amount": bwt_amount_bad})
      
         # check this is refused because sc has not balance enough
         try:
@@ -135,8 +145,14 @@ class headers(BitcoinTestFramework):
         amounts = []
         cert = []
 
-        self.mark_logs("\nNode 0 performs a bwd transfer of "+str(bwt_amount)+" coins to pkh["+str(pkh)+"]...")
-        amounts.append( {"pubkeyhash":pkh, "amount": bwt_amount})
+        self.mark_logs("\nNode0 generating 3 more blocks for achieving sc coins maturity")
+        blocks.extend(self.nodes[0].generate(3))
+        self.sync_all()
+
+        print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
+
+        self.mark_logs("\nNode 0 performs a bwd transfer of "+str(bwt_amount)+" coins to Node1 pkh["+str(pkh_node1)+"]...")
+        amounts.append( {"pubkeyhash":pkh_node1, "amount": bwt_amount})
      
         try:
             cert = self.nodes[0].sc_bwdtr(scid, amounts);
@@ -147,31 +163,41 @@ class headers(BitcoinTestFramework):
             assert(False)
 
         self.sync_all()
-        #time.sleep(1)
 
         print "\nChecking mempools..."
         print "Node 0: ", self.nodes[0].getrawmempool()
         print "Node 1: ", self.nodes[1].getrawmempool()
         print "Node 2: ", self.nodes[2].getrawmempool()
 
-        print "\nNode1 balance: ", self.nodes[1].getbalance("", 0)
+        bal_before = self.nodes[1].getbalance("", 0)
+        print "\nNode1 balance: ", bal_before
 
-        print("\nNode0 generating 1 honest block")
+        print("\nNode0 generating 1 block")
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        print blocks[-1]
-        print self.nodes[0].getblock(blocks[-1], True)
-        #time.sleep(1)
+        # read the net value of the certificate amount (total amount - fee) on the receiver wallet
+        cert_net_amount = self.nodes[1].gettransaction(cert)['amount']
+        print "Cert net amount: ", cert_net_amount
+        print
 
-#        print "Node0 balance: ", self.nodes[0].getbalance("", 0)
-#        print "Node1 balance: ", self.nodes[1].getbalance("", 0)
-#        print "Node2 balance: ", self.nodes[2].getbalance("", 0)
+        bal_after = self.nodes[1].getbalance("", 0)
+        assert_equal(bal_after, bal_before + cert_net_amount) 
+        print "OK, Node1 balance has received the certificate net amount: ", bal_after
+        print
 
+        bal_before = bal_after
+
+        # now Node1 use the UTXO related to certificate for sending coins to Node2
         self.mark_logs("\nNode 1 sends "+str(bwt_amount/2)+" coins to node2...")
         tx = self.nodes[1].sendtoaddress(self.nodes[2].getnewaddress(), bwt_amount/2)
         print "this tx uses certificate as input:"
         print "tx = ", tx
+        print
+
+        # fee can be seen on sender wallet
+        fee_node2 = self.nodes[1].gettransaction(tx)['fee']
+        print "fee: ", fee_node2
         print
 
         # check that input is formed using the certificate
@@ -179,127 +205,20 @@ class headers(BitcoinTestFramework):
         assert_equal(vin[0]['txid'], cert)
         self.sync_all()
 
-        print "\nChecking mempools..."
-        print "Node 0: ", self.nodes[0].getrawmempool()
-        print "Node 1: ", self.nodes[1].getrawmempool()
-        print "Node 2: ", self.nodes[2].getrawmempool()
-
-        print("\nNode0 generating 1 honest block")
+        print("\nNode0 generating 1 block")
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        print blocks[-1]
-        print self.nodes[0].getblock(blocks[-1], True)
-        #time.sleep(1)
+        bal_after = self.nodes[1].getbalance("", 0)
 
-        print "Node0 balance: ", self.nodes[0].getbalance("", 0)
-        print "Node1 balance: ", self.nodes[1].getbalance("", 0)
-        print "Node2 balance: ", self.nodes[2].getbalance("", 0)
+        assert_equal(bal_after, bal_before - (bwt_amount/2) + fee_node2 ) 
+        print "OK, Node1 balance has spent the amount and has been charged with the fee: ", self.nodes[1].getbalance("", 0)
+
+        assert_equal(self.nodes[2].getbalance("", 0), (bwt_amount/2) ) 
+        print "OK, Node2 balance has received the amount spent by Node1: ", self.nodes[2].getbalance("", 0)
         print
 
-        print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
-        print "\nSC info:\n", pprint.pprint(self.nodes[1].getscinfo(scid))
-        print "\nSC info:\n", pprint.pprint(self.nodes[2].getscinfo(scid))
-        print
-
-        invalidating = self.nodes[0].getbestblockhash()
-        self.mark_logs("\nNode 0 invalidates last block...")
-        print "Invalidating: ", invalidating
-        self.nodes[0].invalidateblock(invalidating)
-        time.sleep(1)
-       
-        print "\nChecking mempools..."
-        print "Node 0: ", self.nodes[0].getrawmempool()
-        print "Node 1: ", self.nodes[1].getrawmempool()
-        print "Node 2: ", self.nodes[2].getrawmempool()
-
-        invalidating = self.nodes[0].getbestblockhash()
-        self.mark_logs("\nNode 0 invalidates last block...")
-        self.nodes[0].invalidateblock(invalidating)
-        print "Invalidating: ", invalidating
-        time.sleep(1)
-       
-        print "\nChecking mempools..."
-        print "Node 0: ", self.nodes[0].getrawmempool()
-        print "Node 1: ", self.nodes[1].getrawmempool()
-        print "Node 2: ", self.nodes[2].getrawmempool()
-
-        print "Node0 balance: ", self.nodes[0].getbalance("", 0)
-        print "Node1 balance: ", self.nodes[1].getbalance("", 0)
-        print "Node2 balance: ", self.nodes[2].getbalance("", 0)
-        print
-
-        print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
-        print "\nSC info:\n", pprint.pprint(self.nodes[1].getscinfo(scid))
-        print "\nSC info:\n", pprint.pprint(self.nodes[2].getscinfo(scid))
-        print
-
-        self.mark_logs("\nNode 0 generating...")
-        print("\nNode0 generating 6 blocks")
-        blocks.extend(self.nodes[0].generate(6))
-        self.sync_all()
-
-        print "Node0 balance: ", self.nodes[0].getbalance("", 0)
-        print "Node1 balance: ", self.nodes[1].getbalance("", 0)
-        print "Node2 balance: ", self.nodes[2].getbalance("", 0)
-        print
-
-        print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
-        print "\nSC info:\n", pprint.pprint(self.nodes[1].getscinfo(scid))
-        print "\nSC info:\n", pprint.pprint(self.nodes[2].getscinfo(scid))
-        print
-
-        self.mark_logs("\nNode 1 invalidates owner block...")
-        self.nodes[1].invalidateblock(ownerBlock)
-        print "Invalidating: ", ownerBlock
-        time.sleep(1)
-       
-        print "\nChecking mempools..."
-        print "Node 0: ", self.nodes[0].getrawmempool()
-        print "Node 1: ", self.nodes[1].getrawmempool()
-        print "Node 2: ", self.nodes[2].getrawmempool()
-
-        print "Node0 balance: ", self.nodes[0].getbalance("", 0)
-        print "Node1 balance: ", self.nodes[1].getbalance("", 0)
-        print "Node2 balance: ", self.nodes[2].getbalance("", 0)
-        print
-
-        print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
-
-        try:
-            print "\nSC info:\n", pprint.pprint(self.nodes[1].getscinfo(scid))
-        except JSONRPCException,e:
-            errorString = e.error['message']
-            print errorString
-
-        print "\nSC info:\n", pprint.pprint(self.nodes[2].getscinfo(scid))
-        print
-
-        print("\nNode1 generating 36 blocks")
-        blocks.extend(self.nodes[1].generate(36))
-        time.sleep(6)
-        #self.sync_all()
-
-        print "Node0 balance: ", self.nodes[0].getbalance("", 0)
-        print "Node1 balance: ", self.nodes[1].getbalance("", 0)
-        print "Node2 balance: ", self.nodes[2].getbalance("", 0)
-        print
-
-        print "\nChecking mempools..."
-        print "Node 0: ", self.nodes[0].getrawmempool()
-        print "Node 1: ", self.nodes[1].getrawmempool()
-        print "Node 2: ", self.nodes[2].getrawmempool()
-
-        print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
-        print "\nSC info:\n", pprint.pprint(self.nodes[1].getscinfo(scid))
-        print "\nSC info:\n", pprint.pprint(self.nodes[2].getscinfo(scid))
-        print
-
-        print 
-        for i in range(0, 3):
-            self.dump_ordered_tips(self.nodes[i].getchaintips())
-            print "---"
 
 
 if __name__ == '__main__':
-    headers().main()
+    sc_cert_base().main()

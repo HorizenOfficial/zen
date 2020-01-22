@@ -464,6 +464,16 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         checkTotal += it->second.GetTxSize();
         innerUsage += it->second.DynamicMemoryUsage();
         const CTransaction& tx = it->second.GetTx();
+#if 1
+        // TODO cert: TEST TEST
+        CValidationState state;
+        if (!Sidechain::ScCoinsView::IsTxAllowedInMempool(*this, tx, state))
+        {
+            LogPrint("sc", "%s():%d - tx [%s] has conflicts in mempool\n", __func__, __LINE__, tx.GetHash().ToString());
+            assert(false);
+        }
+#endif
+
         bool fDependsWait = false;
         BOOST_FOREACH(const CTxIn &txin, tx.vin) {
             // Check that every mempool transaction's inputs refer to available coins, or other mempool tx's.
@@ -537,6 +547,14 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         innerUsage += it->second.DynamicMemoryUsage();
         const auto& cert = it->second.GetCertificate();
         CValidationState state;
+#if 1
+        // TODO cert: TEST TEST
+        if (!Sidechain::ScCoinsView::IsCertAllowedInMempool(*this, cert, state))
+        {
+            LogPrint("sc", "%s():%d - cert [%s] has conflicts in mempool\n", __func__, __LINE__, cert.GetHash().ToString());
+            assert(false);
+        }
+#endif
         assert(cert.ContextualCheckInputs(state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
         // updating coins with cert outputs because the cache is checked below for
         // any tx inputs and maybe some tx has a cert out as its input.

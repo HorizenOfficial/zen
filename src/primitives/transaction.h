@@ -30,7 +30,9 @@
 // uncomment for debugging some sc related hashing calculations
 //#define DEBUG_SC_HASH 1
 
-static const int32_t SC_TX_VERSION = 0xFFFFFFFC; // -4
+static const int32_t SC_TX_BASE_VERSION = 0xFFFFFFFC; // -4
+static const int32_t SC_TX_VERSION = SC_TX_BASE_VERSION;
+static const int32_t SC_CERT_VERSION = SC_TX_BASE_VERSION;
 static const int32_t GROTH_TX_VERSION = 0xFFFFFFFD; // -3
 static const int32_t PHGR_TX_VERSION = 2;
 static const int32_t TRANSPARENT_TX_VERSION = 1;
@@ -661,7 +663,7 @@ public:
     bool IsScVersion() const
     {
         // so far just one version
-        return (nVersion == SC_TX_VERSION);
+        return (nVersion == SC_TX_BASE_VERSION);
     }
 
     friend bool operator==(const CTransactionBase& a, const CTransactionBase& b)

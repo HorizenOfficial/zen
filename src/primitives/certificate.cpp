@@ -10,6 +10,7 @@
 #include "consensus/validation.h"
 #include "sc/sidechain.h"
 #include "txmempool.h"
+#include "zen/forkmanager.h"
 
 CScCertificate::CScCertificate() : CTransactionBase(), scId(), totalAmount(), vbt_ccout(), nonce() { }
 
@@ -156,19 +157,16 @@ bool CScCertificate::IsStandard(std::string& reason, int nHeight) const { return
 bool CScCertificate::IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const { return true; }
 unsigned int CScCertificate::GetLegacySigOpCount() const { return 0; }
 #else
-bool CScCertificate::UpdateScInfo(Sidechain::ScCoinsViewCache& view, const CBlock& block, int nHeight) const
+bool CScCertificate::UpdateScInfo(Sidechain::ScCoinsViewCache& scView, const CBlock& /*unused*/, int /*unused*/) const
 {
-    // TODO cert: implement
-    LogPrint("cert", "%s():%d - TO BE IMPLEMENTED for cert [%s]\n", __func__, __LINE__, GetHash().ToString());
-    return true;
+    LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
+    return scView.UpdateScInfo(*this);
 }
 
-bool CScCertificate::RevertOutputs(Sidechain::ScCoinsViewCache& view, int nHeight) const
+bool CScCertificate::RevertOutputs(Sidechain::ScCoinsViewCache& scView, int nHeight) const
 {
-    //return scView.RevertCertOutputs(*this, nHeight);
-    // TODO cert: implement
-    LogPrint("cert", "%s():%d - TO BE IMPLEMENTED for cert [%s]\n", __func__, __LINE__, GetHash().ToString());
-    return true;
+    LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
+    return scView.RevertCertOutputs(*this, nHeight);
 }
 
 void CScCertificate::RemoveFromMemPool(CTxMemPool* mempool) const 
@@ -226,23 +224,25 @@ bool CScCertificate::Check(CValidationState& state, libzcash::ProofVerifier& /*u
 
 bool CScCertificate::IsApplicableToState() const
 {
-    //return Sidechain::ScMgr::instance().IsCertApplicableToState(*this);
-    // TODO cert: implement
-    LogPrint("cert", "%s():%d - TO BE IMPLEMENTED for cert [%s]\n", __func__, __LINE__, GetHash().ToString());
-    return true;
+    LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
+    return Sidechain::ScMgr::instance().IsCertApplicableToState(*this);
 }
     
 bool CScCertificate::IsStandard(std::string& reason, int nHeight) const
 {
+    if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
+    {
+        reason = "version";
+        return false;
+    }
+
     return CheckOutputsAreStandard(nHeight, reason);
 }
 
 bool CScCertificate::IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const
 {
-    //return Sidechain::ScMgr::instance().IsCertAllowedInMempool(pool, *this, state);
-    // TODO cert: implement
-    LogPrint("cert", "%s():%d - TO BE IMPLEMENTED for cert [%s]\n", __func__, __LINE__, GetHash().ToString());
-    return true;
+    LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
+    return Sidechain::ScCoinsView::IsCertAllowedInMempool(pool, *this, state);
 }
 
 unsigned int CScCertificate::GetLegacySigOpCount() const 

@@ -91,6 +91,8 @@ public:
     virtual bool sidechainExists(const uint256& scId) const = 0;
     virtual bool getScInfo(const uint256& scId, ScInfo& info) const = 0;
     virtual std::set<uint256> getScIdSet() const = 0;
+    virtual CAmount getSidechainBalance(const uint256& scId) const = 0;
+    virtual CAmount getSidechainBalanceImmature(const uint256& scId) const = 0;
 
 protected:
     static bool hasScCreationOutput(const CTransaction& tx, const uint256& scId); // return true if the tx is creating the scid
@@ -106,9 +108,13 @@ public:
     bool sidechainExists(const uint256& scId) const;
     bool getScInfo(const uint256 & scId, ScInfo& targetScInfo) const;
     std::set<uint256> getScIdSet() const;
+    CAmount getSidechainBalance(const uint256& scId) const;
+    virtual CAmount getSidechainBalanceImmature(const uint256& scId) const;
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
+    bool UpdateScInfo(const CScCertificate& cert);
 
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
+    bool RevertCertOutputs(const CScCertificate& cert, int nHeight);
     bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
     bool checkCertificateInMemPool(const CTxMemPool& pool, const CScCertificate& cert);
@@ -145,6 +151,7 @@ public:
     bool getScInfo(const uint256& scId, ScInfo& info) const;
     std::set<uint256> getScIdSet() const;
     CAmount getSidechainBalance(const uint256& scId) const;
+    virtual CAmount getSidechainBalanceImmature(const uint256& scId) const;
 
 
     // print functions

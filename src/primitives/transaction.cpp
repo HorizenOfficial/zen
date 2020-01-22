@@ -800,7 +800,7 @@ bool CTransaction::IsAllowedInMempool(CValidationState& state, const CTxMemPool&
         }
     }
 
-    return Sidechain::ScMgr::instance().IsTxAllowedInMempool(pool, *this, state);
+    return Sidechain::ScCoinsView::IsTxAllowedInMempool(pool, *this, state);
 }
 
 bool CTransaction::HasNoInputsInMempool(const CTxMemPool& pool) const
