@@ -945,10 +945,18 @@ int64_t CWallet::IncOrderPosNext(CWalletDB *pwalletdb)
     return nRet;
 }
 
-CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries, std::string strAccount)
+CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries, std::string strAccount,std::string address)
 {
     AssertLockHeld(cs_wallet); // mapWallet
     CWalletDB walletdb(strWalletFile);
+
+    CScript scriptPubKey;
+    bool noFilter=address==("*");
+     if(!noFilter){
+         CBitcoinAddress baddress = CBitcoinAddress(address);
+         scriptPubKey = GetScriptForDestination(baddress.Get(), false);
+     }
+
 
     // First: get all CWalletTx and CAccountingEntry into a sorted-by-order multimap.
     TxItems txOrdered;
@@ -958,7 +966,17 @@ CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries,
     for (map<uint256, CWalletTx>::iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
     {
         CWalletTx* wtx = &((*it).second);
-        txOrdered.insert(make_pair(wtx->nOrderPos, TxPair(wtx, (CAccountingEntry*)0)));
+        if(noFilter){
+            txOrdered.insert(make_pair(wtx->nOrderPos, TxPair(wtx, (CAccountingEntry*)0)));
+        }
+        else{
+            for(const CTxOut& txout : wtx->vout) {
+                auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
+                if (res == txout.scriptPubKey.begin()) {
+                    txOrdered.insert(make_pair(wtx->nOrderPos, TxPair(wtx, (CAccountingEntry*)0)));
+                }
+            }
+        }
     }
     acentries.clear();
     walletdb.ListAccountCreditDebit(strAccount, acentries);
@@ -3666,33 +3684,6 @@ bool CMerkleTx::AcceptToMemoryPool(bool fLimitFree, bool fRejectAbsurdFee)
 {
     CValidationState state;
     return ::AcceptToMemoryPool(mempool, state, *this, fLimitFree, NULL, fRejectAbsurdFee);
-}
-
-void CWallet::GetFilteredTransactions(std::multimap<int64_t, CWalletTx >& outEntries, const std::string& address)
-{
-    LOCK2(cs_main, cs_wallet);
-    CScript scriptPubKey;
-    bool valid=address==("*");
-    if(!valid){
-        CBitcoinAddress baddress = CBitcoinAddress(address);
-        scriptPubKey = GetScriptForDestination(baddress.Get(), false);
-    }
-
-    //getting all Txes of address in the wallet
-    for (auto & p : mapWallet) {
-           CWalletTx wtx = p.second;
-           if(valid) {
-               outEntries.insert(make_pair(wtx.nOrderPos,wtx));
-           }
-           else {
-               for(const CTxOut& txout : wtx.vout) {
-                   auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
-                       if (res == txout.scriptPubKey.begin()){
-                           outEntries.insert(make_pair(wtx.nOrderPos,wtx));
-                           }
-               }
-           }
-    }
 }
 
 /**

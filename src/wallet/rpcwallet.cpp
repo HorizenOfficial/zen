@@ -1357,7 +1357,7 @@ static void MaybePushAddress(UniValue & entry, const CTxDestination &dest)
 }
 
 
-void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDepth, bool fLong, UniValue& ret, const isminefilter& filter,const string& address)
+void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDepth, bool fLong, UniValue& ret, const isminefilter& filter)
 {
     CAmount nFee;
     string strSentAccount;
@@ -1386,9 +1386,6 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
             if (fLong)
                 WalletTxToJSON(wtx, entry);
             entry.push_back(Pair("size", static_cast<CTransaction>(wtx).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)));
-            if(address!="*"){
-                entry.push_back(Pair("address",address));
-            }
             ret.push_back(entry);
         }
     }
@@ -1426,10 +1423,6 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
                 if (fLong)
                     WalletTxToJSON(wtx, entry);
                 entry.push_back(Pair("size", static_cast<CTransaction>(wtx).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)));
-                if(address!="*")
-                {
-                    entry.push_back(Pair("address",address));
-                }
                 ret.push_back(entry);
             }
         }
@@ -1514,10 +1507,10 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    string account("*");
+    string strAccount("*");
     if (params.size() > 0)
     {
-        account=params[0].get_str();
+        strAccount=params[0].get_str();
     }
 
     int nCount = 10;
@@ -1546,28 +1539,30 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     if (nFrom < 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
 
-    std::multimap<int64_t, CWalletTx > txes;
-
-    //getting all TX ordered for nOrderPos and filtered by address
-    pwalletMain->GetFilteredTransactions(txes,address);
     UniValue ret(UniValue::VARR);
+    std::list<CAccountingEntry> acentries;
+    CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, strAccount,address);
 
-    //for each tx i create the ret object to return
-    for (std::multimap<int64_t, CWalletTx >::reverse_iterator itr = txes.rbegin();
-         itr != txes.rend();++itr) {
+    // iterate backwards until we have nCount items to return:
+    for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
+    {
+        CWalletTx *const pwtx = (*it).second.first;
+        if (pwtx != 0)
+            ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
+        CAccountingEntry *const pacentry = (*it).second.second;
+        if (pacentry != 0)
+            AcentryToJSON(*pacentry, strAccount, ret);
 
-            ListTransactions(itr->second, "", 0, true, ret, filter,address);
-            if ((int)ret.size() >= (nCount+nFrom)) break;
+        if ((int)ret.size() >= (nCount+nFrom)) break;
     }
 
-    //getting all the specifi Txes requested by nCount and nFrom
+    //getting all the specific Txes requested by nCount and nFrom
     if (nFrom > (int)ret.size())
         nFrom = ret.size();
     if ((nFrom + nCount) > (int)ret.size())
         nCount = ret.size() - nFrom;
 
     vector<UniValue> arrTmp = ret.getValues();
-
     vector<UniValue>::iterator first = arrTmp.begin();
     std::advance(first, nFrom);
     vector<UniValue>::iterator last = arrTmp.begin();
@@ -1581,7 +1576,6 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     ret.clear();
     ret.setArray();
     ret.push_backV(arrTmp);
-
     return ret;
 }
 
@@ -1743,7 +1737,7 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
         CWalletTx tx = (*it).second;
 
         if (depth == -1 || tx.GetDepthInMainChain() < depth)
-            ListTransactions(tx, "*", 0, true, transactions, filter,"*");
+            ListTransactions(tx, "*", 0, true, transactions, filter);
     }
 
     CBlockIndex *pblockLast = chainActive[chainActive.Height() + 1 - target_confirms];
@@ -1835,7 +1829,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
     WalletTxToJSON(wtx, entry);
 
     UniValue details(UniValue::VARR);
-    ListTransactions(wtx, "*", 0, false, details, filter,"");
+    ListTransactions(wtx, "*", 0, false, details, filter);
     entry.push_back(Pair("details", details));
 
     string strHex = EncodeHexTx(static_cast<CTransaction>(wtx));
