@@ -42,8 +42,14 @@ public:
         SelectBaseParams(CBaseChainParams::REGTEST);
         SelectParams(CBaseChainParams::REGTEST);
 
-        ASSERT_TRUE(sidechainManager.initPersistence(/*cacheSize*/0, /*fWipe*/true));
-        //ASSERT_TRUE(sidechainManager.initPersistence(new FakePersistance()));
+        //ASSERT_TRUE(sidechainManager.initPersistence(/*cacheSize*/0, /*fWipe*/true));
+        ASSERT_TRUE(sidechainManager.initPersistence(new FakePersistance()));
+
+        // Prints useful on debuggin
+        // fDebug = true;
+        // fPrintToConsole = true;
+        // mapArgs["-debug"] = "sc";
+        // mapMultiArgs["-debug"].push_back("sc");
     };
 
     void TearDown() override {};
@@ -722,6 +728,40 @@ TEST_F(SidechainTestSuite, FlushPropagatesErrorsInPersist) {
     EXPECT_FALSE(sidechainManager.sidechainExists(scId));
 }
 
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////// queryScIds //////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST_F(SidechainTestSuite, queryScIdsReturnsNewSidechains) {
+    //fPrintToConsole = true;
+
+    CBlock aBlock;
+
+    uint256 scId1 = uint256S("aaaa");
+    int sc1CreationHeight(11);
+    CTransaction scTx1 = txCreationUtils::createNewSidechainTxWith(scId1, CAmount(1));
+    ASSERT_TRUE(coinViewCache.UpdateScInfo(scTx1, aBlock, sc1CreationHeight));
+    ASSERT_TRUE(coinViewCache.Flush());
+
+    CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId1, CAmount(3));
+    int fwdTxHeight(22);
+    coinViewCache.UpdateScInfo(fwdTx, aBlock, fwdTxHeight);
+
+    uint256 scId2 = uint256S("bbbb");
+    int sc2CreationHeight(33);
+    CTransaction scTx2 = txCreationUtils::createNewSidechainTxWith(scId2, CAmount(2));
+    ASSERT_TRUE(coinViewCache.UpdateScInfo(scTx2, aBlock,sc2CreationHeight));
+    ASSERT_TRUE(coinViewCache.Flush());
+
+    ASSERT_TRUE(coinViewCache.RevertTxOutputs(scTx2, sc2CreationHeight));
+
+    //test
+    std::set<uint256> knownScIdsSet = coinViewCache.queryScIds();
+
+    //check
+    EXPECT_TRUE(knownScIdsSet.size() == 1)<<"Instead knowScIdSet size is "<<knownScIdsSet.size();
+    EXPECT_TRUE(knownScIdsSet.count(scId1) == 1)<<"Actual count is "<<knownScIdsSet.count(scId1);
+    EXPECT_TRUE(knownScIdsSet.count(scId2) == 0)<<"Actual count is "<<knownScIdsSet.count(scId2);
+}
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// Structural UTs ////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////

@@ -228,7 +228,9 @@ std::set<uint256> ScCoinsViewCache::queryScIds() const
     }
 
     std::set<uint256> persistedScIds = persistedView.queryScIds();
-    persistedScIds.erase(sDeletedScList.begin(),sDeletedScList.end());
+    BOOST_FOREACH(const auto& scToDelete, sDeletedScList) {
+        persistedScIds.erase(scToDelete);
+    }
 
     res.insert(persistedScIds.begin(), persistedScIds.end());
 
