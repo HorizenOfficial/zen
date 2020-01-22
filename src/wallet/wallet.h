@@ -974,7 +974,7 @@ public:
      * @return multimap of ordered transactions and accounting entries
      * @warning Returned pointers are *only* valid within the scope of passed acentries
      */
-    TxItems OrderedTxItems(std::list<CAccountingEntry>& acentries, std::string strAccount = "");
+    TxItems OrderedTxItems(std::list<CAccountingEntry>& acentries, std::string strAccount = "",std::string address="*");
 
     void MarkDirty();
     bool UpdateNullifierNoteMap();
@@ -1126,9 +1126,6 @@ public:
                           int minDepth=1,
                           bool ignoreSpent=true,
                           bool ignoreUnspendable=true);
-    /*Find all transactions of a specific addres*/
-    void GetFilteredTransactions(std::multimap<int64_t, CWalletTx >& outEntries,
-                          const std::string& address);
     
 };
 
