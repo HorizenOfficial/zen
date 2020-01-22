@@ -71,13 +71,13 @@ public:
     }
 
     ~SidechainsInMempoolTestSuite() {
-        Sidechain::ScMgr::instance().reset();
-
         delete pcoinsTip;
         pcoinsTip = nullptr;
 
         delete pChainStateDb;
         pChainStateDb = nullptr;
+
+        Sidechain::ScMgr::instance().reset();
 
         ClearDatadirCache();
 

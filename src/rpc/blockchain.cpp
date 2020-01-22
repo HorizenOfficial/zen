@@ -1053,7 +1053,8 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     scId.SetHex(inputString);
  
     // sanity check of the side chain ID
-    if (!ScMgr::instance().sidechainExists(scId) )
+    Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
+    if (!scView.sidechainExists(scId) )
     {
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
@@ -1061,7 +1062,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
 
     // find the block where it has been created
     ScInfo info;
-    if (!ScMgr::instance().getScInfo(scId, info) )
+    if (!scView.getScInfo(scId, info) )
     {
         LogPrint("sc", "cound not get info for scid[%s], probably not yet created\n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());

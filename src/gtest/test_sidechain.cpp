@@ -200,20 +200,20 @@ TEST_F(SidechainTestSuite, FwdTransferCumulatedAmountDoesNotOverFlow) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-//////////////////////////// IsTxApplicableToState ////////////////////////////
+/////////////////////////////// HaveDependencies //////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-TEST_F(SidechainTestSuite, NewScCreationsAreApplicableToState) {
+TEST_F(SidechainTestSuite, NewScCreationsHaveTheRightDependencies) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(uint256S("1492"), CAmount(1953));
 
     //test
-    bool res = coinViewCache.IsTxApplicableToState(aTransaction);
+    bool res = coinViewCache.HaveDependencies(aTransaction);
 
     //checks
     EXPECT_TRUE(res);
 }
 
-TEST_F(SidechainTestSuite, DuplicatedScCreationsAreNotApplicableToState) {
+TEST_F(SidechainTestSuite, DuplicatedScCreationsHaveNotTheRightDependencies) {
     uint256 scId = uint256S("1492");
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1953));
     CBlock aBlock;
@@ -222,13 +222,13 @@ TEST_F(SidechainTestSuite, DuplicatedScCreationsAreNotApplicableToState) {
     CTransaction duplicatedTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1815));
 
     //test
-    bool res = coinViewCache.IsTxApplicableToState(duplicatedTx);
+    bool res = coinViewCache.HaveDependencies(duplicatedTx);
 
     //checks
     EXPECT_FALSE(res);
 }
 
-TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
+TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsHaveTheRightDependencies) {
     uint256 scId = uint256S("1492");
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1953));
     CBlock aBlock;
@@ -237,24 +237,24 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
 
     //test
-    bool res = coinViewCache.IsTxApplicableToState(aTransaction);
+    bool res = coinViewCache.HaveDependencies(aTransaction);
 
     //checks
     EXPECT_TRUE(res);
 }
 
-TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsAreNotApplicableToState) {
+TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsHaveNotTheRightDependencies) {
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(uint256S("1492"), CAmount(1815));
 
     //test
-    bool res = coinViewCache.IsTxApplicableToState(aTransaction);
+    bool res = coinViewCache.HaveDependencies(aTransaction);
 
     //checks
     EXPECT_FALSE(res);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-//////////////////////////// IsTxAllowedInMempool /////////////////////////////
+////////////////////////////// existsInMempool ////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 TEST_F(SidechainTestSuite, ScCreationTxsAreAllowedInEmptyMemPool) {
@@ -264,7 +264,7 @@ TEST_F(SidechainTestSuite, ScCreationTxsAreAllowedInEmptyMemPool) {
     CTxMemPool aMemPool(aFeeRate);
 
     //test
-    bool res = Sidechain::IsTxAllowedInMempool(aMemPool, aTransaction, txState);
+    bool res = Sidechain::existsInMempool(aMemPool, aTransaction, txState);
 
     //check
     EXPECT_TRUE(res);
@@ -282,7 +282,7 @@ TEST_F(SidechainTestSuite, NewScCreationTxsAreAllowedInMemPool) {
     CValidationState txState;
 
     //test
-    bool res = Sidechain::IsTxAllowedInMempool(aMemPool, aNewTx, txState);
+    bool res = Sidechain::existsInMempool(aMemPool, aNewTx, txState);
 
     //check
     EXPECT_TRUE(res);
@@ -302,7 +302,7 @@ TEST_F(SidechainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
     CValidationState txState;
 
     //test
-    bool res = Sidechain::IsTxAllowedInMempool(aMemPool, aTransaction, txState);
+    bool res = Sidechain::existsInMempool(aMemPool, aTransaction, txState);
 
     //check
     EXPECT_FALSE(res);

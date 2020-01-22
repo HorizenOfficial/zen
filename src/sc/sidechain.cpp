@@ -119,7 +119,7 @@ bool Sidechain::anyForwardTransaction(const CTransaction& tx, const uint256& scI
     return false;
 }
 
-bool Sidechain::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
+bool Sidechain::existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
 {
     //Check for conflicts in mempool
     BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
@@ -144,7 +144,7 @@ bool Sidechain::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction&
 }
 
 /*************************** SCCOINVIEW INTERFACE ****************************/
-bool ScCoinsView::IsTxApplicableToState(const CTransaction& tx)
+bool ScCoinsView::HaveDependencies(const CTransaction& tx)
 {
     const uint256& txHash = tx.GetHash();
 
@@ -154,7 +154,7 @@ bool ScCoinsView::IsTxApplicableToState(const CTransaction& tx)
         const uint256& scId = sc.scId;
         if (sidechainExists(scId))
         {
-            LogPrint("sc", "%s():%d - Invalid tx[%s] : scid[%s] already created\n",
+            LogPrint("sc", "%s():%d - ERROR: Invalid tx[%s] : scid[%s] already created\n",
                 __func__, __LINE__, txHash.ToString(), scId.ToString());
             return false;
         }
@@ -171,7 +171,7 @@ bool ScCoinsView::IsTxApplicableToState(const CTransaction& tx)
             // return error unless we are creating this sc in the current tx
             if (!hasScCreationOutput(tx, scId) )
             {
-                LogPrint("sc", "%s():%d - tx[%s] tries to send funds to scId[%s] not yet created\n",
+                LogPrint("sc", "%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",
                     __func__, __LINE__, txHash.ToString(), scId.ToString() );
                 return false;
             }

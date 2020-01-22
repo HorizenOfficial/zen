@@ -1328,13 +1328,13 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         return false;
     }
 
-    // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
-    // a not existing one and so on
-    if (!scMgr.IsTxApplicableToState(tx) )
+    // If this tx creates a sc, no other tx must be doing the same in the mempool
+    if (!Sidechain::existsInMempool(pool, tx, state) )
     {
         return false;
     }
-    LogPrint("sc", "%s():%d - tx [%s] is applicable\n", __func__, __LINE__, hash.ToString());
+    LogPrint("sc", "%s():%d - tx [%s] has no conflicts in mempool\n", __func__, __LINE__, hash.ToString());
+
 
     // Check for conflicts with in-memory transactions
     {
@@ -1356,14 +1356,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                 }
             }
         }
-
-        // beside the check performed in IsTxApplicableToState above, perform some more checks specific to mempool. 
-        // If this tx creates a sc, no other tx must be doing the same in the mempool
-        if (!Sidechain::IsTxAllowedInMempool(pool, tx, state) )
-        {
-            return false;
-        }
-        LogPrint("sc", "%s():%d - tx [%s] has no conflicts in mempool\n", __func__, __LINE__, hash.ToString());
     }
 
     {
@@ -1375,6 +1367,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             LOCK(pool.cs);
             CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
             view.SetBackend(viewMemPool);
+            Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
  
             // do we already have it?
             if (view.HaveCoins(hash))
@@ -1382,7 +1375,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                 LogPrint("mempool", "Dropping txid %s : already have coins\n", hash.ToString());
                 return false;
             }
- 
+
             // do all inputs exist?
             // Note that this does not check for the presence of actual outputs (see the next check for that),
             // and only helps with filling in pfMissingInputs (to determine missing vs spent).
@@ -1405,6 +1398,13 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                 LogPrintf("%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString());
                 return state.Invalid(error("AcceptToMemoryPool: inputs already spent"),
                                      REJECT_DUPLICATE, "bad-txns-inputs-spent");
+            }
+
+            // are the sidechains dependencies available?
+            if (!scView.HaveDependencies(tx))
+            {
+                return state.Invalid(error("AcceptToMemoryPool: sidechain is redeclared or coins are forwarded to unknown sidechain"),
+                                    REJECT_INVALID, "bad-sc-tx");
             }
  
             // are the joinsplit's requirements met?
@@ -2511,12 +2511,17 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
 
+
+        if (!view.HaveInputs(tx))
+            return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
+                             REJECT_INVALID, "bad-txns-inputs-missingorspent");
+
+        if (!scView.HaveDependencies(tx))
+            return state.Invalid(error("AcceptToMemoryPool: sidechain is redeclared or coins are forwarded to unknown sidechain"),
+                                        REJECT_INVALID, "bad-sc-tx");
+
         if (!tx.IsCoinBase())
         {
-            if (!view.HaveInputs(tx))
-                return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
-                                 REJECT_INVALID, "bad-txns-inputs-missingorspent");
-
             // are the JoinSplit's requirements met?
             if (!view.HaveJoinSplitRequirements(tx))
                 return state.DoS(100, error("ConnectBlock(): JoinSplit requirements not met"),
@@ -2536,15 +2541,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
                 return false;
             control.Add(vChecks);
-        }
-
-        // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
-        // a not existing one and so on
-        if (!scView.IsTxApplicableToState(tx))
-        {
-            LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
-            return state.DoS(100, error("ConnectBlock(): invalid sc transaction tx[%s]", tx.GetHash().ToString()),
-                             REJECT_INVALID, "bad-sc-tx");
         }
 
         CTxUndo undoDummy;

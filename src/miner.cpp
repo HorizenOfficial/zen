@@ -350,6 +350,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             pblock->nVersion = GetArg("-blockversion", pblock->nVersion);
 
         CCoinsViewCache view(pcoinsTip);
+        Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
 
         // Priority order to process transactions
         list<COrphan> vOrphan; // list memory doesn't move
@@ -428,7 +429,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             // not yet in blockchain. This should happen only if a chain has been reverted and a mix of creation/transfers
             // has been placed back in the mem pool The skipped tx will be mined in the next block if the scid is found
 
-            if (!scMgr.IsTxApplicableToState(tx) )
+            if (!scView.HaveDependencies(tx) )
             {
                 LogPrint("sc", "%s():%d - tx=%s is not applicable, skipping it...\n", __func__, __LINE__, tx.GetHash().ToString() );
                 continue;
