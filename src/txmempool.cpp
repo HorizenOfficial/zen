@@ -108,9 +108,6 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
         }
     }
 
-    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
-        setSidechains.insert(sc.scId);
-
     nTransactionsUpdated++;
     totalTxSize += entry.GetTxSize();
     cachedInnerUsage += entry.DynamicMemoryUsage();
@@ -283,7 +280,6 @@ void CTxMemPool::clear()
     LOCK(cs);
     mapTx.clear();
     mapNextTx.clear();
-    setSidechains.clear();
     totalTxSize = 0;
     cachedInnerUsage = 0;
     ++nTransactionsUpdated;
