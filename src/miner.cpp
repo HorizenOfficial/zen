@@ -40,7 +40,6 @@
 #endif
 #include <mutex>
 #include "sc/sidechain.h"
-static Sidechain::ScMgr& scMgr = Sidechain::ScMgr::instance();
 
 using namespace std;
 

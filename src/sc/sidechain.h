@@ -90,7 +90,7 @@ public:
 
     virtual bool sidechainExists(const uint256& scId) const = 0;
     virtual bool getScInfo(const uint256& scId, ScInfo& info) const = 0;
-    virtual std::set<uint256> getScIdSet() const = 0;
+    virtual std::set<uint256> queryScIds() const = 0;
 
 protected:
     static bool hasScCreationOutput(const CTransaction& tx, const uint256& scId); // return true if the tx is creating the scid
@@ -104,7 +104,7 @@ public:
 
     bool sidechainExists(const uint256& scId) const;
     bool getScInfo(const uint256 & scId, ScInfo& targetScInfo) const;
-    std::set<uint256> getScIdSet() const;
+    std::set<uint256> queryScIds() const; //Similar to queryHashes
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
 
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
@@ -141,7 +141,7 @@ public:
 
     bool sidechainExists(const uint256& scId) const;
     bool getScInfo(const uint256& scId, ScInfo& info) const;
-    std::set<uint256> getScIdSet() const;
+    std::set<uint256> queryScIds() const;
 
     // print functions
     bool dump_info(const uint256& scId);

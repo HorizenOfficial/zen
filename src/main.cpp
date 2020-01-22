@@ -53,8 +53,6 @@ using namespace std;
 # error "Zen cannot be compiled without assertions."
 #endif
 
-static Sidechain::ScMgr& scMgr = Sidechain::ScMgr::instance();
-
 /**
  * Global state
  */

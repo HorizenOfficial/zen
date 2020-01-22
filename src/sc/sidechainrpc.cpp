@@ -211,7 +211,7 @@ bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
 void AddScInfoToJSON(UniValue& result)
 {
     Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
-    std::set<uint256> sScIds = scView.getScIdSet();
+    std::set<uint256> sScIds = scView.queryScIds();
 
     BOOST_FOREACH(const auto& entry, sScIds)
     {

@@ -219,7 +219,7 @@ bool ScCoinsViewCache::getScInfo(const uint256 & scId, ScInfo& targetScInfo) con
     return false;
 }
 
-std::set<uint256> ScCoinsViewCache::getScIdSet() const
+std::set<uint256> ScCoinsViewCache::queryScIds() const
 {
     std::set<uint256> res;
 
@@ -227,7 +227,7 @@ std::set<uint256> ScCoinsViewCache::getScIdSet() const
       res.insert(entry.first);
     }
 
-    std::set<uint256> persistedScIds = persistedView.getScIdSet();
+    std::set<uint256> persistedScIds = persistedView.queryScIds();
     persistedScIds.erase(sDeletedScList.begin(),sDeletedScList.end());
 
     res.insert(persistedScIds.begin(), persistedScIds.end());
@@ -380,7 +380,7 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
 {
     LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
-    std::set<uint256> allKnowScIds = getScIdSet();
+    std::set<uint256> allKnowScIds = queryScIds();
     for(auto it_set = allKnowScIds.begin(); it_set != allKnowScIds.end(); ++it_set)
     {
         const uint256& scId = *it_set;
@@ -625,7 +625,7 @@ bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const
     return true;
 }
 
-std::set<uint256> ScMgr::getScIdSet() const
+std::set<uint256> ScMgr::queryScIds() const
 {
     std::set<uint256> sScIds;
     LOCK(sc_lock);
