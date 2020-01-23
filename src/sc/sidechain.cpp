@@ -153,29 +153,61 @@ bool ScCoinsView::IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertif
  
     // do not use a sccoinsview since we are only reading
 
-    CAmount scBalance    = Sidechain::ScMgr::instance().getSidechainBalance(scId);
-    CAmount scBalanceImm = Sidechain::ScMgr::instance().getSidechainBalanceImmature(scId);
+    CAmount scBalance    = 0;
+    CAmount scBalanceImm = 0;
 
+    // TODO cert: check that epoch data are consistent
+
+    if (ScMgr::instance().sidechainExists(cert.scId))
+    {
+        scBalance =    ScMgr::instance().getSidechainBalance(cert.scId);
+        scBalanceImm = ScMgr::instance().getSidechainBalanceImmature(cert.scId);
     LogPrint("cert", "%s():%d - scid balance mature[%s], immature[%s]\n",
         __func__, __LINE__, FormatMoney(scBalance), FormatMoney(scBalanceImm) );
 
-    if (scBalance == -1 || scBalanceImm == -1)
-    {
-        // should not happen at this point due to previous checks
-        LogPrint("sc", "%s():%d - cert[%s]: scid[%s] not found\n",
-            __func__, __LINE__, certHash.ToString(), scId.ToString() );
-        assert(false);
+        // we also consider immature amounts that will turn ito mature one in one of next blocks
+        scBalance += scBalanceImm;
     }
+    else
+    {
+        LogPrint("sc", "%s():%d - cert[%s]: scid[%s] not found in db\n",
+            __func__, __LINE__, certHash.ToString(), cert.scId.ToString() );
 
-#if 1
-    // TODO cert: check this
-    // we also consider immature amounts that will turn ito mature one in one of next blocks?
-    scBalance += scBalanceImm;
-#endif
+        // maybe the creation is in the mempool (chain reorg)
+        bool creationIsInMempool = false;
+
+        for (auto it = pool.mapTx.begin(); it != pool.mapTx.end(); ++it)
+        {
+            if (creationIsInMempool)
+            {
+                break;
+            }
+
+            const CTransaction& mpTx = it->second.GetTx();
+
+            BOOST_FOREACH(const auto& mpSc, mpTx.vsc_ccout)
+            {
+                if (mpSc.scId == scId)
+                {
+                    LogPrint("sc", "%s():%d - cert[%s]: scid[%s] is going to be created by tx [%s] which is still in mempool\n",
+                        __func__, __LINE__, certHash.ToString(), scId.ToString(), mpTx.GetHash().ToString() );
+                    creationIsInMempool = true;
+                    break;
+                }
+            }
+        }
+
+        if (!creationIsInMempool)
+        {
+            // scid creation not found, should never happen
+            LogPrintf("%s():%d - ERROR: cert[%s]: scid[%s] not found in db and is no tx in mempool are creating it\n",
+                __func__, __LINE__, certHash.ToString(), scId.ToString() );
+            return false;
+        }
+    }
 
     LogPrint("cert", "%s():%d - scid balance: %s\n", __func__, __LINE__, FormatMoney(scBalance) );
  
-    // TODO cert: check this
     // consider fw transfers even if they can not be mature yet, and let a miner sort things
     // out in terms of dependancy
     for (auto it = pool.mapTx.begin(); it != pool.mapTx.end(); ++it)
@@ -205,7 +237,8 @@ bool ScCoinsView::IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertif
             continue;
         }
 
- 
+        // TODO cert: this should not be allowd since there can not be two cetrificates in mempool
+        // referring to the same sc
         if (scId == mpCert.scId)
         {
             LogPrint("sc", "%s():%d - tx[%s]: bwd[%s]\n",
@@ -623,6 +656,8 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
     for(auto it_set = allKnowScIds.begin(); it_set != allKnowScIds.end(); ++it_set)
     {
         const uint256& scId = *it_set;
+        const std::string& scIdString = scId.ToString();
+
         ScInfo targetScInfo;
         assert(getScInfo(scId, targetScInfo));
 
@@ -633,11 +668,6 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
             int maturityHeight = it_ia_map->first;
             CAmount a = it_ia_map->second;
 
-            LogPrint("sc", "%s():%d - adding immature balance entry into blockundo (h=%d, amount=%s) for scid=%s\n",
-                __func__, __LINE__, maturityHeight, FormatMoney(a), scId.ToString());
-
-            // store immature balances into the blockundo obj
-            blockundo.msc_iaundo[scId][maturityHeight] = a;
 
             if (maturityHeight == blockHeight)
             {
@@ -653,6 +683,12 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
                 // scview balance has been updated, remove the entry in scview immature map
                 it_ia_map = targetScInfo.mImmatureAmounts.erase(it_ia_map);
                 mUpdatedOrNewScInfoList[scId] = targetScInfo;
+
+                LogPrint("sc", "%s():%d - adding immature amount %s for scid=%s in blockundo\n",
+                    __func__, __LINE__, FormatMoney(a), scIdString);
+          
+                // store immature balances into the blockundo obj
+                blockundo.msc_iaundo[scId] = a;
             }
             else
             if (maturityHeight < blockHeight)
@@ -681,6 +717,7 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
     while (it_ia_undo_map != blockundo.msc_iaundo.end() )
     {
         const uint256& scId           = it_ia_undo_map->first;
+        const std::string& scIdString = scId.ToString();
 
         ScInfo targetScInfo;
         if (!getScInfo(scId, targetScInfo))
@@ -690,36 +727,24 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
             return false;
         }
 
-        // replace (undo) the map of immature amounts of this sc in scview with the blockundo contents
-        targetScInfo.mImmatureAmounts = it_ia_undo_map->second;
+        CAmount a = it_ia_undo_map->second;
 
-        // process the entry with key=height if it exists.
-        auto it_ia_map = targetScInfo.mImmatureAmounts.find(blockHeight);
+        LogPrint("sc", "%s():%d - adding immature amount %s into sc view for scid=%s\n",
+            __func__, __LINE__, FormatMoney(a), scIdString);
+        targetScInfo.mImmatureAmounts[blockHeight] += a;
 
-        if (it_ia_map != targetScInfo.mImmatureAmounts.end() )
+        if (targetScInfo.balance < a)
         {
-            // For such an entry the maturity border is exactly matched, therefore decrement sc balance in scview
-
-            CAmount a = it_ia_map->second;
-            LogPrint("sc", "%s():%d - entry ( %s / %d / %s) \n",
-                __func__, __LINE__, scId.ToString(), blockHeight, FormatMoney(a));
-
-            LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
-                __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
-
-            if (targetScInfo.balance < a)
-            {
-                LogPrint("sc", "%s():%d - Can not update balance with amount[%s] for scId=%s, would be negative\n",
-                    __func__, __LINE__, FormatMoney(a), scId.ToString() );
-                return false;
-            }
-
-            targetScInfo.balance -= a;
-            mUpdatedOrNewScInfoList[scId] = targetScInfo;
-
-            LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
-                __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
+            LogPrint("sc", "%s():%d - Can not update balance with amount[%s] for scId=%s, would be negative\n",
+                __func__, __LINE__, FormatMoney(a), scId.ToString() );
+            return false;
         }
+
+        LogPrint("sc", "%s():%d - scId=%s balance before: %s\n", __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
+        targetScInfo.balance -= a;
+
+        LogPrint("sc", "%s():%d - scId=%s balance after: %s\n", __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
+        mUpdatedOrNewScInfoList[scId] = targetScInfo;
 
         ++it_ia_undo_map;
     }
@@ -1083,4 +1108,17 @@ void DbPersistance::dump_info()
             std::cout << "unknown type " << chType << std::endl;
         }
     }
+}
+
+// TEMP TODO
+std::string CBlockUndo::ToString() const
+{
+    std::string str;
+    str += "______CBlockUndo(\n";
+    BOOST_FOREACH(const auto& obj, msc_iaundo)
+    {
+        str += strprintf("   scId=%s -> amount=%s\n", obj.first.ToString(), FormatMoney(obj.second));
+    }
+    str += ")_____";
+    return str;
 }

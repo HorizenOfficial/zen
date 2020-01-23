@@ -132,7 +132,7 @@ class headers(BitcoinTestFramework):
         print "Current height: ", self.nodes[2].getblockcount()
 
         #raw_input("Press enter to create...")
-        self.mark_logs("\nNode 1 creates SC 1")
+        self.mark_logs("\nNode 1 creates SC 1 with "+str(creation_amount)+" coins")
         amounts = []
         amounts.append( {"address":"dada", "amount": creation_amount})
         creating_tx_1 = self.nodes[1].sc_create(scid_1, 123, amounts);
@@ -169,7 +169,7 @@ class headers(BitcoinTestFramework):
         #print "tx=" + tx
         self.sync_all()
 
-        self.mark_logs("\nNode 1 creates SC 2")
+        self.mark_logs("\nNode 1 creates SC 2,3,4, all with "+str(creation_amount)+" coins")
         amounts = []
         amounts.append( {"address":"dada", "amount": creation_amount})
         creating_tx_2 = self.nodes[1].sc_create(scid_2, 123, amounts);
@@ -245,8 +245,7 @@ class headers(BitcoinTestFramework):
         print "...OK"
         print
 
-        #raw_input("Press enter to invalidate...")
-        self.mark_logs("\n################## Node 2 starts invalidating chain #################################\n")
+        self.mark_logs("\nNode 2 invalidates best block")
         try:
             self.nodes[2].invalidateblock(self.nodes[2].getbestblockhash() );
         except JSONRPCException,e:
@@ -270,7 +269,7 @@ class headers(BitcoinTestFramework):
         print "...OK"
         print
 
-        #raw_input("Press enter to invalidate...")
+        self.mark_logs("\nNode 2 invalidates best block")
         try:
             self.nodes[2].invalidateblock(self.nodes[2].getbestblockhash() );
         except JSONRPCException,e:
@@ -297,7 +296,7 @@ class headers(BitcoinTestFramework):
         print "...OK"
         print
 
-        #raw_input("Press enter to invalidate...")
+        self.mark_logs("\nNode 2 invalidates best block")
         try:
             self.nodes[2].invalidateblock(self.nodes[2].getbestblockhash() );
         except JSONRPCException,e:
@@ -318,7 +317,7 @@ class headers(BitcoinTestFramework):
             print "...OK"
             print
 
-        #raw_input("Press enter to invalidate...")
+        self.mark_logs("\nNode 2 invalidates best block")
         try:
             self.nodes[2].invalidateblock(self.nodes[2].getbestblockhash() );
         except JSONRPCException,e:
@@ -334,6 +333,7 @@ class headers(BitcoinTestFramework):
             print errorString
 
         assert_equal("scid not yet created" in errorString, True);
+        print "...OK"
         print
         time.sleep(1)
 

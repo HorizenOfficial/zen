@@ -73,8 +73,10 @@ class CBlockUndo
 {
 public:
     std::vector<CTxUndo> vtxundo; // for all but the coinbase
-    std::map<uint256, std::map<int, CAmount> > msc_iaundo;
+    std::map<uint256, CAmount> msc_iaundo; // key=scid, value=amount matured at block height
     uint256 old_tree_root;
+
+    std::string ToString() const;
 
     ADD_SERIALIZE_METHODS;
 

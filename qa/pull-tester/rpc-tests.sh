@@ -54,7 +54,8 @@ testScripts=(
     'sc_create.py'
     'sc_split.py'
     'sc_invalidate.py'
-    'sc_cert_01.py'
+    'sc_cert_base.py'
+    'sc_cert_invalidate.py'
     'sc_fwd_maturity.py'
 );
 testScriptsExt=(

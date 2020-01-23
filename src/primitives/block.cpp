@@ -120,6 +120,11 @@ uint256 CBlock::BuildScMerkleRootsMap()
         tx.getCrosschainOutputs(mScMerkleTreeLeaves);
     }
 
+    BOOST_FOREACH(const CScCertificate& cert, vcert)
+    {
+        cert.getCrosschainOutputs(mScMerkleTreeLeaves);
+    }
+
     if (mScMerkleTreeLeaves.size() == 0)
     {
         return uint256();

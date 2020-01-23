@@ -3200,6 +3200,8 @@ bool static DisconnectTip(CValidationState &state) {
         }
         if (obj->IsCoinBase() || !AcceptToMemoryPool(mempool, stateDummy, *obj, false, NULL))
         {
+            LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
+                __func__, __LINE__, obj->GetHash().ToString(), obj->ToString());
             obj->RemoveFromMemPool(&mempool);
         }
     }
@@ -5378,18 +5380,18 @@ void static ProcessGetData(CNode* pfrom)
                                     pfrom->PushMessage("tx", block.vtx[pair.first]);
 #else
                             {
-                                if (0 <= pair.first < block.vtx.size() )
+                                if ( (0 <= pair.first) && (pair.first < block.vtx.size() ) )
                                 {
                                     if (!pfrom->setInventoryKnown.count(CInv(MSG_TX, pair.second)))
                                         pfrom->PushMessage("tx", block.vtx[pair.first]);
                                 }
                                 else
-                                if (block.vtx.size() < pair.first < block.vcert.size())
+                                if ( (block.vtx.size() <= pair.first) && (pair.first < block.vcert.size()))
                                 {
                                     if (!pfrom->setInventoryKnown.count(CInv(MSG_CERT, pair.second)))
                                     {
                                         unsigned int offset = pair.first - block.vtx.size();
-                                        pfrom->PushMessage("tx", block.vcert[pair.first]);
+                                        pfrom->PushMessage("tx", block.vcert[offset]);
                                     }
                                 }
                                 else

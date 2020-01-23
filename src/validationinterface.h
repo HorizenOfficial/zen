@@ -34,6 +34,7 @@ void SyncWithWallets(const CScCertificate& cert, const CBlock* pblock = NULL);
 
 class CValidationInterface {
 protected:
+    virtual ~CValidationInterface() {}
     virtual void UpdatedBlockTip(const CBlockIndex *pindex) {}
     virtual void SyncTransaction(const CTransaction &tx, const CBlock *pblock) {}
     virtual void SyncCertificate(const CScCertificate &tx, const CBlock *pblock) {}

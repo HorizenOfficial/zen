@@ -866,8 +866,12 @@ void  SidechainTestSuite::appendTxTo(CTransaction & tx, const uint256 & scId, co
 CBlockUndo SidechainTestSuite::createBlockUndoWith(const uint256 & scId, int height, CAmount amount)
 {
     CBlockUndo retVal;
+#if 0
     std::map<int, CAmount> AmountPerHeight;
     AmountPerHeight[height] = amount;
+#else
+    CAmount AmountPerHeight = amount;
+#endif
     retVal.msc_iaundo[scId] = AmountPerHeight;
 
     return retVal;

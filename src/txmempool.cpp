@@ -217,6 +217,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
             removed.push_back(tx);
             totalTxSize -= mapTx[hash].GetTxSize();
             cachedInnerUsage -= mapTx[hash].DynamicMemoryUsage();
+
             LogPrint("cert", "%s():%d - removing tx [%s] from mempool\n", __func__, __LINE__, hash.ToString() );
             mapTx.erase(hash);
             nTransactionsUpdated++;
@@ -322,6 +323,8 @@ void CTxMemPool::removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned in
             const CCoins *coins = pcoins->AccessCoins(txin.prevout.hash);
             if (fSanityCheck) assert(coins);
             if (!coins || (coins->IsCoinBase() && ((signed long)nMemPoolHeight) - coins->nHeight < COINBASE_MATURITY)) {
+                // TODO cert: what if a fw tx spends an immature coin? Cert might depend also on this
+                LogPrint("sc", "%s():%d - adding tx [%s] to list for removing\n", __func__, __LINE__, tx.GetHash().ToString());
                 transactionsToRemove.push_back(tx);
                 break;
             }
@@ -465,7 +468,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         innerUsage += it->second.DynamicMemoryUsage();
         const CTransaction& tx = it->second.GetTx();
 #if 1
-        // TODO cert: TEST TEST
+        // TODO cert: check this is aimed at adding sidechain related mempool checks
         CValidationState state;
         if (!Sidechain::ScCoinsView::IsTxAllowedInMempool(*this, tx, state))
         {
@@ -548,7 +551,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         const auto& cert = it->second.GetCertificate();
         CValidationState state;
 #if 1
-        // TODO cert: TEST TEST
+        // TODO cert: check this is aimed at adding sidechain related mempool checks
         if (!Sidechain::ScCoinsView::IsCertAllowedInMempool(*this, cert, state))
         {
             LogPrint("sc", "%s():%d - cert [%s] has conflicts in mempool\n", __func__, __LINE__, cert.GetHash().ToString());
@@ -620,7 +623,6 @@ bool CTxMemPool::lookup(uint256 hash, CTransaction& result) const
     return true;
 }
 
-// TODO make it virtual
 #if 1
 bool CTxMemPool::lookup(uint256 hash, CScCertificate& result) const
 {

@@ -699,6 +699,7 @@ public:
 
     virtual std::string EncodeHex() const = 0;
     virtual std::string ToString() const = 0;
+    virtual void getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& map) const = 0;
 
     virtual void RemoveFromMemPool(CTxMemPool* pool) const = 0; 
 
@@ -892,7 +893,7 @@ public:
     std::string ToString() const override;
 
  public:
-    void getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& map) const;
+    void getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& map) const override;
 
  private:
     template <typename T>
@@ -905,6 +906,9 @@ public:
             // if the mapped value exists, vec is a reference to it. If it does not, vec is
             // a reference to the new element inserted in the map with the scid as a key
             std::vector<uint256>& vec = map[txccout.scId];
+ 
+            LogPrint("sc", "%s():%d - processing scId[%s], vec size = %d\n",
+                __func__, __LINE__, txccout.scId.ToString(), vec.size());
  
             uint256 ccoutHash = txccout.GetHash();
             unsigned int n = nIdx;

@@ -767,12 +767,20 @@ public:
 class COutput
 {
 public:
+#if 0
+    const CWalletTx *tx;
+#else
     const CWalletObjBase *tx;
+#endif
     int i;
     int nDepth;
     bool fSpendable;
 
+#if 0
+    COutput(const CWalletTx *txIn, int iIn, int nDepthIn, bool fSpendableIn)
+#else
     COutput(const CWalletObjBase *txIn, int iIn, int nDepthIn, bool fSpendableIn)
+#endif
     {
         tx = txIn; i = iIn; nDepth = nDepthIn; fSpendable = fSpendableIn;
     }
