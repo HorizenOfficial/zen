@@ -5386,7 +5386,7 @@ void static ProcessGetData(CNode* pfrom)
                                         pfrom->PushMessage("tx", block.vtx[pair.first]);
                                 }
                                 else
-                                if ( (block.vtx.size() <= pair.first) && (pair.first < block.vcert.size()))
+                                if ( (block.vtx.size() <= pair.first) && (pair.first < (block.vcert.size() + block.vtx.size())) )
                                 {
                                     if (!pfrom->setInventoryKnown.count(CInv(MSG_CERT, pair.second)))
                                     {
