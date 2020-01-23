@@ -1509,35 +1509,33 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
 
     string strAccount("*");
     if (params.size() > 0)
-    {
         strAccount=params[0].get_str();
-    }
 
     int nCount = 10;
     if (params.size() > 1)
         nCount = params[1].get_int();
+    if (nCount < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
+
     int nFrom = 0;
     if (params.size() > 2)
         nFrom = params[2].get_int();
+    if (nFrom < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
+
     isminefilter filter = ISMINE_SPENDABLE;
     if(params.size() > 3)
         if(params[3].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
     string address("*");
-    if (params.size()>4)
-    {
+    if (params.size()>4) {
         address=params[4].get_str();
-        if (address!=("*"))
-        {
+        if (address!=("*")) {
             CBitcoinAddress baddress = CBitcoinAddress(address);
             if (!baddress.IsValid())
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
         }
     }
-    if (nCount < 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
-    if (nFrom < 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
 
     UniValue ret(UniValue::VARR);
     std::list<CAccountingEntry> acentries;
@@ -1547,10 +1545,10 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
     {
         CWalletTx *const pwtx = (*it).second.first;
-        if (pwtx != 0)
+        if (pwtx != nullptr)
             ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
         CAccountingEntry *const pacentry = (*it).second.second;
-        if (pacentry != 0)
+        if (pacentry != nullptr)
             AcentryToJSON(*pacentry, strAccount, ret);
 
         if ((int)ret.size() >= (nCount+nFrom)) break;
