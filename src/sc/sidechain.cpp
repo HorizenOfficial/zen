@@ -203,7 +203,7 @@ CSidechainsMap::const_iterator ScCoinsViewCache::FetchSidechains(const uint256& 
         return candidateIt;
 
     ScInfo tmp;
-    if (!persistedView.getScInfo(scId, tmp))
+    if (!persistedView.GetScInfo(scId, tmp))
         return cacheSidechains.end();
 
     //Fill cache and return iterator. The insert in cache below looks cumbersome. However
@@ -226,7 +226,7 @@ bool ScCoinsViewCache::sidechainExists(const uint256& scId) const
     return (it != cacheSidechains.end()) && (it->second.flag != CSidechainsCacheEntry::Flags::ERASED);
 }
 
-bool ScCoinsViewCache::getScInfo(const uint256 & scId, ScInfo& targetScInfo) const
+bool ScCoinsViewCache::GetScInfo(const uint256 & scId, ScInfo& targetScInfo) const
 {
     CSidechainsMap::const_iterator it = FetchSidechains(scId);
     if (it != cacheSidechains.end())
@@ -239,25 +239,21 @@ bool ScCoinsViewCache::getScInfo(const uint256 & scId, ScInfo& targetScInfo) con
     return false;
 }
 
-std::set<uint256> ScCoinsViewCache::queryScIds() const
+bool ScCoinsViewCache::queryScIds(std::set<uint256>& scIdsList) const
 {
-    std::set<uint256> res;
-
-    std::set<uint256> persistedScIds = persistedView.queryScIds();
-    BOOST_FOREACH(const auto& candidateScId, persistedScIds) {
-          res.insert(candidateScId);
-    }
+    if(!persistedView.queryScIds(scIdsList))
+        return false;
 
     // Note that some of the values above may have been erased in current cache.
     // Also new id may be in current cache but not in persisted
     BOOST_FOREACH(const auto& entry, cacheSidechains) {
       if (entry.second.flag == CSidechainsCacheEntry::Flags::ERASED)
-          res.erase(entry.first);
+          scIdsList.erase(entry.first);
       else
-          res.insert(entry.first);
+          scIdsList.insert(entry.first);
     }
 
-    return res;
+    return true;
 }
 
 bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, int blockHeight)
@@ -292,7 +288,7 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
     BOOST_FOREACH(auto& ft, tx.vft_ccout)
     {
         ScInfo targetScInfo;
-        if (!getScInfo(ft.scId, targetScInfo))
+        if (!GetScInfo(ft.scId, targetScInfo))
         {
             // should not happen
             LogPrint("sc", "%s():%d - Can not update balance, could not find scId=%s\n",
@@ -324,7 +320,7 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         LogPrint("sc", "%s():%d - removing fwt for scId=%s\n", __func__, __LINE__, scId.ToString());
 
         ScInfo targetScInfo;
-        if (!getScInfo(scId, targetScInfo))
+        if (!GetScInfo(scId, targetScInfo))
         {
             // should not happen
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
@@ -376,7 +372,7 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         LogPrint("sc", "%s():%d - removing scId=%s\n", __func__, __LINE__, scId.ToString());
 
         ScInfo targetScInfo;
-        if (!getScInfo(scId, targetScInfo))
+        if (!GetScInfo(scId, targetScInfo))
         {
             // should not happen
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
@@ -402,12 +398,15 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
 {
     LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
-    std::set<uint256> allKnowScIds = queryScIds();
+    std::set<uint256> allKnowScIds;
+    if (!queryScIds(allKnowScIds))
+        return false;
+
     for(auto it_set = allKnowScIds.begin(); it_set != allKnowScIds.end(); ++it_set)
     {
         const uint256& scId = *it_set;
         ScInfo info;
-        assert(getScInfo(scId, info));
+        assert(GetScInfo(scId, info));
 
         auto it_ia_map = info.mImmatureAmounts.begin();
 
@@ -466,7 +465,7 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
         const uint256& scId = it_ia_undo_map->first;
 
         ScInfo targetScInfo;
-        if (!getScInfo(scId, targetScInfo))
+        if (!GetScInfo(scId, targetScInfo))
         {
             // should not happen
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
@@ -556,7 +555,7 @@ bool ScMgr::initPersistence(size_t cacheSize, bool fWipe)
 
     pLayer = new DbPersistance(GetDataDir() / "sidechains", cacheSize, false, fWipe);
 
-    return loadInitialData();
+    return true;
 }
 
 bool ScMgr::initPersistence(PersistenceLayer * pTestLayer)
@@ -568,25 +567,6 @@ bool ScMgr::initPersistence(PersistenceLayer * pTestLayer)
 
     pLayer = pTestLayer;
 
-    return loadInitialData();
-}
-
-bool ScMgr::loadInitialData()
-{
-    LOCK(sc_lock);
-    try
-    {
-        bool res = pLayer->loadPersistedDataInto(ManagerScInfoMap);
-        if (!res)
-        {
-            return error("%s():%d - error occurred during db scan", __func__, __LINE__);
-        }
-    }
-    catch (const std::exception& e)
-    {
-        return error("%s: Deserialize or I/O error - %s", __func__, e.what());
-    }
-
     return true;
 }
 
@@ -594,8 +574,6 @@ void ScMgr::reset()
 {
     delete pLayer;
     pLayer = nullptr;
-
-    ManagerScInfoMap.clear();
 }
 
 bool ScMgr::persist(const uint256& scId, const ScInfo& info)
@@ -610,7 +588,6 @@ bool ScMgr::persist(const uint256& scId, const ScInfo& info)
     if (!pLayer->persist(scId, info))
         return false;
 
-    ManagerScInfoMap[scId] = info;
     LogPrint("sc", "%s():%d - persisted scId=%s\n", __func__, __LINE__, scId.ToString() );
     return true;
 }
@@ -624,12 +601,6 @@ bool ScMgr::erase(const uint256& scId)
         return false;
     }
 
-    if (!ManagerScInfoMap.erase(scId))
-    {
-        LogPrint("sc", "ERROR: %s():%d - scId=%s not in map\n", __func__, __LINE__, scId.ToString() );
-        return false;
-    }
-
     LogPrint("sc", "%s():%d - erased scId=%s from memory\n", __func__, __LINE__, scId.ToString() );
     return pLayer->erase(scId);
 }
@@ -637,41 +608,51 @@ bool ScMgr::erase(const uint256& scId)
 bool ScMgr::sidechainExists(const uint256& scId) const
 {
     LOCK(sc_lock);
-    return ManagerScInfoMap.count(scId);
-}
-
-bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const
-{
-    LOCK(sc_lock);
-    const auto it = ManagerScInfoMap.find(scId);
-    if (it == ManagerScInfoMap.end() )
+    if (pLayer == nullptr)
     {
+        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
         return false;
     }
 
-    // create a copy
-    info = ScInfo(it->second);
+    return pLayer->exists(scId);
+}
+
+bool ScMgr::GetScInfo(const uint256& scId, ScInfo& info) const
+{
+    LOCK(sc_lock);
+    if (pLayer == nullptr)
+    {
+        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
+        return false;
+    }
+    ScInfo localObj;
+    if (!pLayer->read(scId, localObj))
+        return false;
+
+    info = localObj;
     LogPrint("sc", "scid[%s]: %s", scId.ToString(), info.ToString() );
     return true;
 }
 
-std::set<uint256> ScMgr::queryScIds() const
+bool ScMgr::queryScIds(std::set<uint256>& scIdsList) const
 {
-    std::set<uint256> sScIds;
     LOCK(sc_lock);
-    BOOST_FOREACH(const auto& entry, ManagerScInfoMap)
+    if (pLayer == nullptr)
     {
-        sScIds.insert(entry.first);
+        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
+        return false;
     }
+    if (!pLayer->readAllKeys(scIdsList))
+        return false;
 
-    return sScIds;
+    return true;
 }
 
 bool ScMgr::dump_info(const uint256& scId)
 {
     LogPrint("sc", "-- side chain [%s] ------------------------\n", scId.ToString());
     ScInfo info;
-    if (!getScInfo(scId, info) )
+    if (!GetScInfo(scId, info) )
     {
         LogPrint("sc", "===> No such side chain\n");
         return false;
@@ -690,10 +671,12 @@ bool ScMgr::dump_info(const uint256& scId)
 
 void ScMgr::dump_info()
 {
-    LogPrint("sc", "-- number of side chains found [%d] ------------------------\n", ManagerScInfoMap.size());
-    BOOST_FOREACH(const auto& entry, ManagerScInfoMap)
+    std::set<uint256> scIdsList;
+    queryScIds(scIdsList);
+    LogPrint("sc", "-- number of side chains found [%d] ------------------------\n", scIdsList.size());
+    BOOST_FOREACH(const auto& scId, scIdsList)
     {
-        dump_info(entry.first);
+        dump_info(scId);
     }
 
     if (pLayer == nullptr)
@@ -712,8 +695,16 @@ DbPersistance::DbPersistance(const boost::filesystem::path& path, size_t nCacheS
 
 DbPersistance::~DbPersistance() { delete _db; _db = nullptr; };
 
-bool DbPersistance::loadPersistedDataInto(boost::unordered_map<uint256, ScInfo, ObjectHasher> & _mapToFill)
+bool DbPersistance::exists(const uint256& scId)
 {
+    return _db->Exists(std::make_pair(DB_SC_INFO, scId));
+}
+
+bool DbPersistance::read(const uint256& scId, ScInfo& info) {
+    return _db->Read(std::make_pair(DB_SC_INFO, scId), info);
+}
+
+bool DbPersistance::readAllKeys(std::set<uint256>& keysSet) {
     boost::scoped_ptr<leveldb::Iterator> it(_db->NewIterator());
     for (it->SeekToFirst(); it->Valid(); it->Next())
     {
@@ -728,12 +719,7 @@ bool DbPersistance::loadPersistedDataInto(boost::unordered_map<uint256, ScInfo, 
 
         if (chType == DB_SC_INFO)
         {
-            leveldb::Slice slValue = it->value();
-            CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
-            ScInfo info;
-            ssValue >> info;
-
-            _mapToFill[keyScId] = info;
+            keysSet.insert(keyScId);
             LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, keyScId.ToString() );
         }
         else
@@ -744,7 +730,7 @@ bool DbPersistance::loadPersistedDataInto(boost::unordered_map<uint256, ScInfo, 
         }
     }
 
-    return it->status().ok();
+    return true;
 }
 
 bool DbPersistance::persist(const uint256& scId, const ScInfo& info)

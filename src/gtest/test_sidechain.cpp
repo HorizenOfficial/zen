@@ -12,20 +12,38 @@ class FakePersistance final : public Sidechain::PersistenceLayer {
 public:
     FakePersistance() = default;
     ~FakePersistance() = default;
-    bool loadPersistedDataInto(boost::unordered_map<uint256, Sidechain::ScInfo, ObjectHasher> & _mapToFill) {return true;}
-    bool persist(const uint256& scId, const Sidechain::ScInfo& info) {return true;}
-    bool erase(const uint256& scId) {return true;}
+    bool exists(const uint256& scId) {return inMemoryMap.count(scId);}
+    bool read(const uint256& scId, Sidechain::ScInfo& info) {
+        if(!inMemoryMap.count(scId))
+            return false;
+        info = inMemoryMap[scId];
+        return true;
+    }
+    bool readAllKeys(std::set<uint256>& keysSet) {
+        for (auto& entry : inMemoryMap)
+            keysSet.insert(entry.first);
+        return true;
+    }
+    bool persist(const uint256& scId, const Sidechain::ScInfo& info) {inMemoryMap[scId] = info; return true;}
+    bool erase(const uint256& scId) {inMemoryMap.erase(scId); return true;}
+
     void dump_info() {return;}
+private:
+    boost::unordered_map<uint256, Sidechain::ScInfo, ObjectHasher> inMemoryMap;
 };
 
 class FaultyPersistance final : public Sidechain::PersistenceLayer {
 public:
     FaultyPersistance() = default;
     ~FaultyPersistance() = default;
-    bool loadPersistedDataInto(boost::unordered_map<uint256, Sidechain::ScInfo, ObjectHasher> & _mapToFill) {return true;} //This allows correct initialization
-    bool persist(const uint256& scId, const Sidechain::ScInfo& info) {return false;}
-    bool erase(const uint256& scId) {return false;}
+    bool exists(const uint256& scId) {return false; }
+    bool read(const uint256& scId, Sidechain::ScInfo& info) {return false; }
+    bool readAllKeys(std::set<uint256>& keysSet) {return false; }
+    bool persist(const uint256& scId, const Sidechain::ScInfo& info) { return false; }
+    bool erase(const uint256& scId) { return false; }
     void dump_info() {return;}
+private:
+    boost::unordered_map<uint256, Sidechain::ScInfo, ObjectHasher> inMemoryMap;
 };
 
 class SidechainTestSuite: public ::testing::Test {
@@ -333,7 +351,7 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceBeforeCoins
 
     coinViewCache.Flush();
     Sidechain::ScInfo mgrInfos;
-    ASSERT_TRUE(sidechainManager.getScInfo(scId, mgrInfos));
+    ASSERT_TRUE(sidechainManager.GetScInfo(scId, mgrInfos));
     EXPECT_TRUE(mgrInfos.balance < initialAmount)
         <<"resulting balance is "<<mgrInfos.balance <<" while initial amount is "<<initialAmount;
 }
@@ -358,7 +376,7 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferModifiesScBalanceAtCoinMaturity) 
 
     coinViewCache.Flush();
     Sidechain::ScInfo mgrInfos;
-    ASSERT_TRUE(sidechainManager.getScInfo(scId, mgrInfos));
+    ASSERT_TRUE(sidechainManager.GetScInfo(scId, mgrInfos));
     EXPECT_TRUE(mgrInfos.balance == initialAmount)
         <<"resulting balance is "<<mgrInfos.balance <<" expected one is "<<initialAmount;
 }
@@ -383,7 +401,7 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceAfterCoinsM
 
     coinViewCache.Flush();
     Sidechain::ScInfo mgrInfos;
-    ASSERT_TRUE(sidechainManager.getScInfo(scId, mgrInfos));
+    ASSERT_TRUE(sidechainManager.GetScInfo(scId, mgrInfos));
     EXPECT_TRUE(mgrInfos.balance < initialAmount)
         <<"resulting balance is "<<mgrInfos.balance <<" while initial amount is "<<initialAmount;
 }
@@ -402,7 +420,7 @@ TEST_F(SidechainTestSuite, RestoreImmatureBalancesAffectsScBalance) {
     coinViewCache.ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity(), aBlockUndo);
 
     Sidechain::ScInfo viewInfos;
-    ASSERT_TRUE(coinViewCache.getScInfo(scId, viewInfos));
+    ASSERT_TRUE(coinViewCache.GetScInfo(scId, viewInfos));
     CAmount scBalance = viewInfos.balance;
 
     CAmount amountToUndo = 17;
@@ -413,7 +431,7 @@ TEST_F(SidechainTestSuite, RestoreImmatureBalancesAffectsScBalance) {
 
     //checks
     EXPECT_TRUE(res);
-    ASSERT_TRUE(coinViewCache.getScInfo(scId, viewInfos));
+    ASSERT_TRUE(coinViewCache.GetScInfo(scId, viewInfos));
     EXPECT_TRUE(viewInfos.balance == scBalance - amountToUndo)
         <<"balance after restore is "<<viewInfos.balance
         <<" instead of"<< scBalance - amountToUndo;
@@ -429,7 +447,7 @@ TEST_F(SidechainTestSuite, YouCannotRestoreMoreCoinsThanAvailableBalance) {
 
     coinViewCache.ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity(), aBlockUndo);
     Sidechain::ScInfo viewInfos;
-    ASSERT_TRUE(coinViewCache.getScInfo(scId, viewInfos));
+    ASSERT_TRUE(coinViewCache.GetScInfo(scId, viewInfos));
     CAmount scBalance = viewInfos.balance;
 
     aBlockUndo = createBlockUndoWith(scId,scCreationHeight,CAmount(50));
@@ -439,7 +457,7 @@ TEST_F(SidechainTestSuite, YouCannotRestoreMoreCoinsThanAvailableBalance) {
 
     //checks
     EXPECT_FALSE(res);
-    ASSERT_TRUE(coinViewCache.getScInfo(scId, viewInfos));
+    ASSERT_TRUE(coinViewCache.GetScInfo(scId, viewInfos));
     EXPECT_TRUE(viewInfos.balance == scBalance)
         <<"balance after restore is "<<viewInfos.balance <<" instead of"<< scBalance;
 }
@@ -462,7 +480,7 @@ TEST_F(SidechainTestSuite, RestoringBeforeBalanceMaturesHasNoEffects) {
     //checks
     EXPECT_FALSE(res);
     Sidechain::ScInfo viewInfos;
-    ASSERT_TRUE(coinViewCache.getScInfo(scId, viewInfos));
+    ASSERT_TRUE(coinViewCache.GetScInfo(scId, viewInfos));
     EXPECT_TRUE(viewInfos.balance == 0)
         <<"balance after restore is "<<viewInfos.balance <<" instead of 0";
 }
@@ -517,7 +535,7 @@ TEST_F(SidechainTestSuite, RevertingFwdTransferRemovesCoinsFromImmatureBalance) 
     //checks
     EXPECT_TRUE(res);
     Sidechain::ScInfo viewInfos;
-    ASSERT_TRUE(coinViewCache.getScInfo(scId, viewInfos));
+    ASSERT_TRUE(coinViewCache.GetScInfo(scId, viewInfos));
     EXPECT_TRUE(viewInfos.mImmatureAmounts.count(fwdTxHeight + Params().ScCoinsMaturity()) == 0)
         <<"resulting immature amount is "<< viewInfos.mImmatureAmounts.count(fwdTxHeight + Params().ScCoinsMaturity());
 }
@@ -561,7 +579,7 @@ TEST_F(SidechainTestSuite, RevertingAFwdTransferOnTheWrongHeightHasNoEffect) {
     //checks
     EXPECT_FALSE(res);
     Sidechain::ScInfo viewInfos;
-    ASSERT_TRUE(coinViewCache.getScInfo(scId, viewInfos));
+    ASSERT_TRUE(coinViewCache.GetScInfo(scId, viewInfos));
     EXPECT_TRUE(viewInfos.mImmatureAmounts.at(fwdTxHeight + Params().ScCoinsMaturity()) == fwdAmount)
         <<"Immature amount is "<<viewInfos.mImmatureAmounts.at(fwdTxHeight + Params().ScCoinsMaturity())
         <<"instead of "<<fwdAmount;
@@ -682,7 +700,7 @@ TEST_F(SidechainTestSuite, FlushPersistsForwardTransfers) {
     EXPECT_TRUE(res);
 
     Sidechain::ScInfo persistedInfo;
-    ASSERT_TRUE(sidechainManager.getScInfo(scId, persistedInfo));
+    ASSERT_TRUE(sidechainManager.GetScInfo(scId, persistedInfo));
     ASSERT_TRUE(persistedInfo.mImmatureAmounts.at(fwdTxMaturityHeight) == fwdTxAmount)
         <<"Following flush, persisted fwd amount should equal the one in view";
 }
@@ -746,7 +764,8 @@ TEST_F(SidechainTestSuite, queryScIdsReturnsNewSidechains) {
     ASSERT_TRUE(coinViewCache.RevertTxOutputs(scTx2, sc2CreationHeight));
 
     //test
-    std::set<uint256> knownScIdsSet = coinViewCache.queryScIds();
+    std::set<uint256> knownScIdsSet;
+    coinViewCache.queryScIds(knownScIdsSet);
 
     //check
     EXPECT_TRUE(knownScIdsSet.size() == 1)<<"Instead knowScIdSet size is "<<knownScIdsSet.size();

@@ -1062,7 +1062,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
 
     // find the block where it has been created
     ScInfo info;
-    if (!scView.getScInfo(scId, info) )
+    if (!scView.GetScInfo(scId, info) )
     {
         LogPrint("sc", "cound not get info for scid[%s], probably not yet created\n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());

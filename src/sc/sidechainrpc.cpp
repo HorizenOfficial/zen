@@ -198,7 +198,7 @@ bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
 {
     ScInfo info;
     Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
-    if (!scView.getScInfo(scId, info) )
+    if (!scView.GetScInfo(scId, info) )
     {
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
         return false; 
@@ -211,7 +211,8 @@ bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
 void AddScInfoToJSON(UniValue& result)
 {
     Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
-    std::set<uint256> sScIds = scView.queryScIds();
+    std::set<uint256> sScIds;
+    scView.queryScIds(sScIds);
 
     BOOST_FOREACH(const auto& entry, sScIds)
     {

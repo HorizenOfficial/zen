@@ -104,8 +104,8 @@ public:
     bool HaveDependencies(const CTransaction& tx);
 
     virtual bool sidechainExists(const uint256& scId) const = 0;
-    virtual bool getScInfo(const uint256& scId, ScInfo& info) const = 0;
-    virtual std::set<uint256> queryScIds() const = 0;
+    virtual bool GetScInfo(const uint256& scId, ScInfo& info) const = 0;
+    virtual bool queryScIds(std::set<uint256>& scIdsList) const = 0;
 
 protected:
     static bool hasScCreationOutput(const CTransaction& tx, const uint256& scId); // return true if the tx is creating the scid
@@ -118,8 +118,8 @@ public:
     ScCoinsViewCache(ScCoinsPersistedView& _persistedView);
 
     bool sidechainExists(const uint256& scId) const;
-    bool getScInfo(const uint256 & scId, ScInfo& targetScInfo) const;
-    std::set<uint256> queryScIds() const; //Similar to queryHashes
+    bool GetScInfo(const uint256 & scId, ScInfo& targetScInfo) const;
+    bool queryScIds(std::set<uint256>& scIdsList) const; //Similar to queryHashes
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
 
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
@@ -157,8 +157,8 @@ public:
     bool erase(const uint256& scId);
 
     bool sidechainExists(const uint256& scId) const;
-    bool getScInfo(const uint256& scId, ScInfo& info) const;
-    std::set<uint256> queryScIds() const;
+    bool GetScInfo(const uint256& scId, ScInfo& info) const;
+    bool queryScIds(std::set<uint256>& scIdsList) const;
 
     // print functions
     bool dump_info(const uint256& scId);
@@ -170,17 +170,16 @@ private:
     ~ScMgr() { reset(); }
 
     mutable CCriticalSection sc_lock;
-    boost::unordered_map<uint256, ScInfo, ObjectHasher> ManagerScInfoMap;
     PersistenceLayer * pLayer;
-
-    bool loadInitialData();
 }; 
 
 class PersistenceLayer {
 public:
     PersistenceLayer() = default;
     virtual ~PersistenceLayer() = default;
-    virtual bool loadPersistedDataInto(boost::unordered_map<uint256, ScInfo, ObjectHasher> & _mapToFill) = 0;
+    virtual bool exists(const uint256& scId) = 0;
+    virtual bool read(const uint256& scId, ScInfo& info) = 0;
+    virtual bool readAllKeys(std::set<uint256>& keysSet) = 0;
     virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
     virtual bool erase(const uint256& scId) = 0;
     virtual void dump_info() = 0;
@@ -190,7 +189,9 @@ class DbPersistance final : public PersistenceLayer {
 public:
     DbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe);
     ~DbPersistance();
-    bool loadPersistedDataInto(boost::unordered_map<uint256, ScInfo, ObjectHasher> & _mapToFill);
+    bool exists(const uint256& scId);
+    bool read(const uint256& scId, ScInfo& info);
+    bool readAllKeys(std::set<uint256>& keysSet);
     bool persist(const uint256& scId, const ScInfo& info);
     bool erase(const uint256& scId);
     void dump_info();
