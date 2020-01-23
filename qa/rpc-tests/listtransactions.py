@@ -35,7 +35,7 @@ def check_array_result(object_array, to_match, expected):
 class ListTransactionsTest(BitcoinTestFramework):
 
     def run_test(self):
-        # Simple send, 0 to 1:
+        # Simple send, 0 to 2:
         txid = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 0.1)
         self.sync_all()
         check_array_result(self.nodes[0].listtransactions(),
@@ -63,7 +63,7 @@ class ListTransactionsTest(BitcoinTestFramework):
                            {"txid": txid, "category": "receive"},
                            {"amount": Decimal("0.2")})
 
-        # sendmany from node1: twice to self, twice to node2:
+        # sendmany from node2: twice to self, twice to node0:
         send_to = {self.nodes[0].getnewaddress(): 0.11,
                    self.nodes[2].getnewaddress(): 0.22,
                    self.nodes[0].getaccountaddress(""): 0.33,
