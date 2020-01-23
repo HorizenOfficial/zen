@@ -447,8 +447,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 
     //Exceed the LastCommunityRewardBlockHeight
-    CChainParams params = Params();
-    int exceedHeight=params.GetConsensus()._deprecatedGetLastCommunityRewardBlockHeight()+1;
+    int exceedHeight=Params().GetConsensus()._deprecatedGetLastCommunityRewardBlockHeight()+1;
 
     address_foundation.SetString(Params().GetCommunityFundAddressAtHeight(exceedHeight, Fork::CommunityFundType::FOUNDATION).c_str());
     address_sec_node.SetString(Params().GetCommunityFundAddressAtHeight(exceedHeight, Fork::CommunityFundType::SECURENODE).c_str());
