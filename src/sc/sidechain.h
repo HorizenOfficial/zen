@@ -103,8 +103,6 @@ public:
     ScCoinsView& operator=(const ScCoinsView &) = delete;
     virtual ~ScCoinsView() = default;
 
-    bool HaveDependencies(const CTransaction& tx);
-
     virtual bool HaveScInfo(const uint256& scId) const = 0;
     virtual bool GetScInfo(const uint256& scId, ScInfo& info) const = 0;
     virtual bool queryScIds(std::set<uint256>& scIdsList) const = 0;
@@ -115,6 +113,8 @@ class ScCoinsViewCache : public ScCoinsView
 {
 public:
     ScCoinsViewCache(ScCoinsPersistedView& _persistedView);
+
+    bool HaveDependencies(const CTransaction& tx);
 
     bool HaveScInfo(const uint256& scId) const;
     bool GetScInfo(const uint256 & scId, ScInfo& targetScInfo) const;

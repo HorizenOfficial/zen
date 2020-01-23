@@ -155,8 +155,10 @@ bool Sidechain::existsInMempool(const CTxMemPool& pool, const CTransaction& tx, 
     return true;
 }
 
-/*************************** SCCOINVIEW INTERFACE ****************************/
-bool ScCoinsView::HaveDependencies(const CTransaction& tx)
+/********************** ScCoinsViewCache IMPLEMENTATION **********************/
+ScCoinsViewCache::ScCoinsViewCache(ScCoinsPersistedView& _persistedView): persistedView(_persistedView) {}
+
+bool ScCoinsViewCache::HaveDependencies(const CTransaction& tx)
 {
     const uint256& txHash = tx.GetHash();
 
@@ -193,9 +195,6 @@ bool ScCoinsView::HaveDependencies(const CTransaction& tx)
     }
     return true;
 }
-
-/********************** ScCoinsViewCache IMPLEMENTATION **********************/
-ScCoinsViewCache::ScCoinsViewCache(ScCoinsPersistedView& _persistedView): persistedView(_persistedView) {}
 
 CSidechainsMap::const_iterator ScCoinsViewCache::FetchSidechains(const uint256& scId) const {
     CSidechainsMap::iterator candidateIt = cacheSidechains.find(scId);
