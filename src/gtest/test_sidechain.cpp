@@ -12,7 +12,7 @@ class FakePersistance final : public Sidechain::PersistenceLayer {
 public:
     FakePersistance() = default;
     ~FakePersistance() = default;
-    bool loadPersistedDataInto(Sidechain::ScInfoMap & _mapToFill) {return true;}
+    bool loadPersistedDataInto(boost::unordered_map<uint256, Sidechain::ScInfo, ObjectHasher> & _mapToFill) {return true;}
     bool persist(const uint256& scId, const Sidechain::ScInfo& info) {return true;}
     bool erase(const uint256& scId) {return true;}
     void dump_info() {return;}
@@ -22,7 +22,7 @@ class FaultyPersistance final : public Sidechain::PersistenceLayer {
 public:
     FaultyPersistance() = default;
     ~FaultyPersistance() = default;
-    bool loadPersistedDataInto(Sidechain::ScInfoMap & _mapToFill) {return true;} //This allows correct initialization
+    bool loadPersistedDataInto(boost::unordered_map<uint256, Sidechain::ScInfo, ObjectHasher> & _mapToFill) {return true;} //This allows correct initialization
     bool persist(const uint256& scId, const Sidechain::ScInfo& info) {return false;}
     bool erase(const uint256& scId) {return false;}
     void dump_info() {return;}
@@ -42,14 +42,7 @@ public:
         SelectBaseParams(CBaseChainParams::REGTEST);
         SelectParams(CBaseChainParams::REGTEST);
 
-        //ASSERT_TRUE(sidechainManager.initPersistence(/*cacheSize*/0, /*fWipe*/true));
         ASSERT_TRUE(sidechainManager.initPersistence(new FakePersistance()));
-
-        // Prints useful on debuggin
-        // fDebug = true;
-        // fPrintToConsole = true;
-        // mapArgs["-debug"] = "sc";
-        // mapMultiArgs["-debug"].push_back("sc");
     };
 
     void TearDown() override {};
@@ -694,7 +687,7 @@ TEST_F(SidechainTestSuite, FlushPersistsForwardTransfers) {
         <<"Following flush, persisted fwd amount should equal the one in view";
 }
 
-TEST_F(SidechainTestSuite, FlushPersistScErasureToo) {
+TEST_F(SidechainTestSuite, FlushPersistsScErasureToo) {
     uint256 scId = uint256S("a1b2");
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     CBlock aBlock;
@@ -732,8 +725,6 @@ TEST_F(SidechainTestSuite, FlushPropagatesErrorsInPersist) {
 ///////////////////////////////// queryScIds //////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainTestSuite, queryScIdsReturnsNewSidechains) {
-    //fPrintToConsole = true;
-
     CBlock aBlock;
 
     uint256 scId1 = uint256S("aaaa");
@@ -762,6 +753,7 @@ TEST_F(SidechainTestSuite, queryScIdsReturnsNewSidechains) {
     EXPECT_TRUE(knownScIdsSet.count(scId1) == 1)<<"Actual count is "<<knownScIdsSet.count(scId1);
     EXPECT_TRUE(knownScIdsSet.count(scId2) == 0)<<"Actual count is "<<knownScIdsSet.count(scId2);
 }
+
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// Structural UTs ////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////

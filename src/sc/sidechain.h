@@ -70,7 +70,22 @@ public:
     inline bool operator!=(const ScInfo& rhs) const { return !(*this == rhs); }
 };
 
-typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
+struct CSidechainsCacheEntry
+{
+    ScInfo scInfo; // The actual cached data.
+
+    enum class Flags {
+        DEFAULT = 0,
+        DIRTY   = (1 << 0), // This cache entry is potentially different from the version in the parent view.
+        FRESH   = (1 << 1), // The parent view does not have this entry //ABENEGIA: in coins this is used for erased too. TODO: eliminare erased flag in coins
+        ERASED  = (1 << 2), // Flag in sidechain only, to be removed to conform what happens in CCoinsCacheEntry
+    } flag;
+
+    CSidechainsCacheEntry() : scInfo(), flag(Flags::DEFAULT) {}
+    CSidechainsCacheEntry(const ScInfo & _scInfo, Flags _flag) : scInfo(_scInfo), flag(_flag) {}
+};
+
+typedef boost::unordered_map<uint256, CSidechainsCacheEntry, ObjectHasher> CSidechainsMap;
 
 // Validation functions
 bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
@@ -115,8 +130,9 @@ public:
 
 private:
     ScCoinsPersistedView& persistedView;
-    ScInfoMap mUpdatedOrNewScInfoList;
-    std::set<uint256> sDeletedScList;
+
+    mutable CSidechainsMap cacheSidechains;
+    CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
 };
 
 class ScCoinsPersistedView : public ScCoinsView
@@ -124,6 +140,7 @@ class ScCoinsPersistedView : public ScCoinsView
 public:
     virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
     virtual bool erase(const uint256& scId) = 0;
+    virtual void dump_info() = 0;
 };
 
 class PersistenceLayer;
@@ -153,7 +170,7 @@ private:
     ~ScMgr() { reset(); }
 
     mutable CCriticalSection sc_lock;
-    ScInfoMap ManagerScInfoMap;
+    boost::unordered_map<uint256, ScInfo, ObjectHasher> ManagerScInfoMap;
     PersistenceLayer * pLayer;
 
     bool loadInitialData();
@@ -163,7 +180,7 @@ class PersistenceLayer {
 public:
     PersistenceLayer() = default;
     virtual ~PersistenceLayer() = default;
-    virtual bool loadPersistedDataInto(ScInfoMap & _mapToFill) = 0;
+    virtual bool loadPersistedDataInto(boost::unordered_map<uint256, ScInfo, ObjectHasher> & _mapToFill) = 0;
     virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
     virtual bool erase(const uint256& scId) = 0;
     virtual void dump_info() = 0;
@@ -173,7 +190,7 @@ class DbPersistance final : public PersistenceLayer {
 public:
     DbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe);
     ~DbPersistance();
-    bool loadPersistedDataInto(ScInfoMap & _mapToFill);
+    bool loadPersistedDataInto(boost::unordered_map<uint256, ScInfo, ObjectHasher> & _mapToFill);
     bool persist(const uint256& scId, const ScInfo& info);
     bool erase(const uint256& scId);
     void dump_info();
