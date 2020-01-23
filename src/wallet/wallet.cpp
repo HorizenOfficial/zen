@@ -952,24 +952,21 @@ CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries,
 
     CScript scriptPubKey;
     bool noFilter=address==("*");
-     if(!noFilter){
+     if(!noFilter) {
          CBitcoinAddress baddress = CBitcoinAddress(address);
          scriptPubKey = GetScriptForDestination(baddress.Get(), false);
      }
-
 
     // First: get all CWalletTx and CAccountingEntry into a sorted-by-order multimap.
     TxItems txOrdered;
 
     // Note: maintaining indices in the database of (account,time) --> txid and (account, time) --> acentry
     // would make this much faster for applications that do this a lot.
-    for (map<uint256, CWalletTx>::iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
-    {
+    for (map<uint256, CWalletTx>::iterator it = mapWallet.begin(); it != mapWallet.end(); ++it) {
         CWalletTx* wtx = &((*it).second);
-        if(noFilter){
+        if(noFilter)
             txOrdered.insert(make_pair(wtx->nOrderPos, TxPair(wtx, (CAccountingEntry*)0)));
-        }
-        else{
+        else {
             for(const CTxOut& txout : wtx->vout) {
                 auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
                 if (res == txout.scriptPubKey.begin()) {
@@ -980,8 +977,7 @@ CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries,
     }
     acentries.clear();
     walletdb.ListAccountCreditDebit(strAccount, acentries);
-    BOOST_FOREACH(CAccountingEntry& entry, acentries)
-    {
+    BOOST_FOREACH(CAccountingEntry& entry, acentries) {
         txOrdered.insert(make_pair(entry.nOrderPos, TxPair((CWalletTx*)0, &entry)));
     }
 
