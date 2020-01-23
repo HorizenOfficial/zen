@@ -119,6 +119,18 @@ bool Sidechain::anyForwardTransaction(const CTransaction& tx, const uint256& scI
     return false;
 }
 
+bool Sidechain::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
+{
+    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
+    {
+        if (sc.scId == scId)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool Sidechain::existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
 {
     //Check for conflicts in mempool
@@ -152,7 +164,7 @@ bool ScCoinsView::HaveDependencies(const CTransaction& tx)
     BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
     {
         const uint256& scId = sc.scId;
-        if (sidechainExists(scId))
+        if (HaveScInfo(scId))
         {
             LogPrint("sc", "%s():%d - ERROR: Invalid tx[%s] : scid[%s] already created\n",
                 __func__, __LINE__, txHash.ToString(), scId.ToString());
@@ -166,10 +178,10 @@ bool ScCoinsView::HaveDependencies(const CTransaction& tx)
     BOOST_FOREACH(const auto& ft, tx.vft_ccout)
     {
         const uint256& scId = ft.scId;
-        if (!sidechainExists(scId))
+        if (!HaveScInfo(scId))
         {
             // return error unless we are creating this sc in the current tx
-            if (!hasScCreationOutput(tx, scId) )
+            if (!Sidechain::hasScCreationOutput(tx, scId) )
             {
                 LogPrint("sc", "%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",
                     __func__, __LINE__, txHash.ToString(), scId.ToString() );
@@ -180,18 +192,6 @@ bool ScCoinsView::HaveDependencies(const CTransaction& tx)
             __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
     }
     return true;
-}
-
-bool ScCoinsView::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
-{
-    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
-    {
-        if (sc.scId == scId)
-        {
-            return true;
-        }
-    }
-    return false;
 }
 
 /********************** ScCoinsViewCache IMPLEMENTATION **********************/
@@ -220,7 +220,7 @@ CSidechainsMap::const_iterator ScCoinsViewCache::FetchSidechains(const uint256& 
     return ret;
 }
 
-bool ScCoinsViewCache::sidechainExists(const uint256& scId) const
+bool ScCoinsViewCache::HaveScInfo(const uint256& scId) const
 {
     CSidechainsMap::const_iterator it = FetchSidechains(scId);
     return (it != cacheSidechains.end()) && (it->second.flag != CSidechainsCacheEntry::Flags::ERASED);
@@ -264,7 +264,7 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
     // creation ccout
     BOOST_FOREACH(const auto& cr, tx.vsc_ccout)
     {
-        if (sidechainExists(cr.scId))
+        if (HaveScInfo(cr.scId))
         {
             LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, cr.scId.ToString() );
             return false;
@@ -605,7 +605,7 @@ bool ScMgr::erase(const uint256& scId)
     return pLayer->erase(scId);
 }
 
-bool ScMgr::sidechainExists(const uint256& scId) const
+bool ScMgr::HaveScInfo(const uint256& scId) const
 {
     LOCK(sc_lock);
     if (pLayer == nullptr)

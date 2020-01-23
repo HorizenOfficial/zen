@@ -90,6 +90,8 @@ typedef boost::unordered_map<uint256, CSidechainsCacheEntry, ObjectHasher> CSide
 // Validation functions
 bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
 bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
+bool hasScCreationOutput(const CTransaction& tx, const uint256& scId); // return true if the tx is creating the scid
+
 bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
 // End of Validation functions
 
@@ -103,12 +105,9 @@ public:
 
     bool HaveDependencies(const CTransaction& tx);
 
-    virtual bool sidechainExists(const uint256& scId) const = 0;
+    virtual bool HaveScInfo(const uint256& scId) const = 0;
     virtual bool GetScInfo(const uint256& scId, ScInfo& info) const = 0;
     virtual bool queryScIds(std::set<uint256>& scIdsList) const = 0;
-
-protected:
-    static bool hasScCreationOutput(const CTransaction& tx, const uint256& scId); // return true if the tx is creating the scid
 };
 
 class ScCoinsPersistedView;
@@ -117,7 +116,7 @@ class ScCoinsViewCache : public ScCoinsView
 public:
     ScCoinsViewCache(ScCoinsPersistedView& _persistedView);
 
-    bool sidechainExists(const uint256& scId) const;
+    bool HaveScInfo(const uint256& scId) const;
     bool GetScInfo(const uint256 & scId, ScInfo& targetScInfo) const;
     bool queryScIds(std::set<uint256>& scIdsList) const; //Similar to queryHashes
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
@@ -156,7 +155,7 @@ public:
     bool persist(const uint256& scId, const ScInfo& info);
     bool erase(const uint256& scId);
 
-    bool sidechainExists(const uint256& scId) const;
+    bool HaveScInfo(const uint256& scId) const;
     bool GetScInfo(const uint256& scId, ScInfo& info) const;
     bool queryScIds(std::set<uint256>& scIdsList) const;
 

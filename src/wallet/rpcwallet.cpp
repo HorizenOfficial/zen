@@ -549,7 +549,7 @@ UniValue sc_send(const UniValue& params, bool fHelp)
 
     // sanity check of the side chain ID
     Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
-    if (!scView.sidechainExists(scId) )
+    if (!scView.HaveScInfo(scId) )
     {
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
@@ -697,7 +697,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     // sanity check of the side chain ID
     Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
-    if (scView.sidechainExists(scId) )
+    if (scView.HaveScInfo(scId) )
     {
         LogPrint("sc", "scid[%s] already created\n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid already created: ") + scId.ToString());
@@ -3962,7 +3962,7 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
 
         // scid must already been created
         Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
-        if (!scView.sidechainExists(scId) )
+        if (!scView.HaveScInfo(scId) )
         {
             LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
@@ -4064,7 +4064,7 @@ UniValue sc_certlock_many(const UniValue& params, bool fHelp)
         scId.SetHex(inputString);
 
         Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
-        if (!scView.sidechainExists(scId) )
+        if (!scView.HaveScInfo(scId) )
         {
             LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());

@@ -515,7 +515,7 @@ TEST_F(SidechainTestSuite, RevertingScCreationTxRemovesTheSc) {
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_FALSE(coinViewCache.sidechainExists(scId));
+    EXPECT_FALSE(coinViewCache.HaveScInfo(scId));
 }
 
 TEST_F(SidechainTestSuite, RevertingFwdTransferRemovesCoinsFromImmatureBalance) {
@@ -599,7 +599,7 @@ TEST_F(SidechainTestSuite, NewSCsAreRegistered) {
 
     //check
     EXPECT_TRUE(res);
-    EXPECT_TRUE(coinViewCache.sidechainExists(newScId));
+    EXPECT_TRUE(coinViewCache.HaveScInfo(newScId));
 }
 
 TEST_F(SidechainTestSuite, DuplicatedSCsAreRejected) {
@@ -630,8 +630,8 @@ TEST_F(SidechainTestSuite, NoRollbackIsPerformedOnceInvalidTransactionIsEncounte
 
     //check
     EXPECT_FALSE(res);
-    EXPECT_TRUE(coinViewCache.sidechainExists(firstScId));
-    EXPECT_FALSE(coinViewCache.sidechainExists(secondScId));
+    EXPECT_TRUE(coinViewCache.HaveScInfo(firstScId));
+    EXPECT_FALSE(coinViewCache.HaveScInfo(secondScId));
 }
 
 TEST_F(SidechainTestSuite, ForwardTransfersToNonExistentSCsAreRejected) {
@@ -644,7 +644,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToNonExistentSCsAreRejected) {
 
     //check
     EXPECT_FALSE(res);
-    EXPECT_FALSE(coinViewCache.sidechainExists(nonExistentId));
+    EXPECT_FALSE(coinViewCache.HaveScInfo(nonExistentId));
 }
 
 TEST_F(SidechainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
@@ -676,7 +676,7 @@ TEST_F(SidechainTestSuite, FlushPersistsNewSidechains) {
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_TRUE(sidechainManager.sidechainExists(scId));
+    EXPECT_TRUE(sidechainManager.HaveScInfo(scId));
 }
 
 TEST_F(SidechainTestSuite, FlushPersistsForwardTransfers) {
@@ -719,7 +719,7 @@ TEST_F(SidechainTestSuite, FlushPersistsScErasureToo) {
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_FALSE(sidechainManager.sidechainExists(scId));
+    EXPECT_FALSE(sidechainManager.HaveScInfo(scId));
 }
 
 TEST_F(SidechainTestSuite, FlushPropagatesErrorsInPersist) {
@@ -736,7 +736,7 @@ TEST_F(SidechainTestSuite, FlushPropagatesErrorsInPersist) {
 
     //checks
     EXPECT_FALSE(res);
-    EXPECT_FALSE(sidechainManager.sidechainExists(scId));
+    EXPECT_FALSE(sidechainManager.HaveScInfo(scId));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
