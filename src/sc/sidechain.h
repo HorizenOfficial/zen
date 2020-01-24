@@ -95,57 +95,52 @@ bool hasScCreationOutput(const CTransaction& tx, const uint256& scId); // return
 bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
 // End of Validation functions
 
-class ScCoinsView
+class CSidechainsView
 {
 public:
-    ScCoinsView() = default;
-    ScCoinsView(const ScCoinsView&) = delete;
-    ScCoinsView& operator=(const ScCoinsView &) = delete;
-    virtual ~ScCoinsView() = default;
+    CSidechainsView() = default;
+    CSidechainsView(const CSidechainsView&) = delete;
+    CSidechainsView& operator=(const CSidechainsView &) = delete;
+    virtual ~CSidechainsView() = default;
 
     virtual bool HaveScInfo(const uint256& scId) const = 0;
     virtual bool GetScInfo(const uint256& scId, ScInfo& info) const = 0;
     virtual bool queryScIds(std::set<uint256>& scIdsList) const = 0;
+
+    virtual bool BatchWrite(const CSidechainsMap& sidechainMap) = 0;
 };
 
-class ScCoinsPersistedView;
-class ScCoinsViewCache : public ScCoinsView
+class CSidechainsViewCache : public CSidechainsView
 {
 public:
-    ScCoinsViewCache(ScCoinsPersistedView& _persistedView);
+    CSidechainsViewCache(CSidechainsView& scView);
 
     bool HaveDependencies(const CTransaction& tx);
 
     bool HaveScInfo(const uint256& scId) const;
     bool GetScInfo(const uint256 & scId, ScInfo& targetScInfo) const;
     bool queryScIds(std::set<uint256>& scIdsList) const; //Similar to queryHashes
-    bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
 
+    bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
+    bool BatchWrite(const CSidechainsMap& sidechainMap);
     bool Flush();
 
 private:
-    ScCoinsPersistedView& persistedView;
+    CSidechainsView& backingView;
 
     mutable CSidechainsMap cacheSidechains;
     CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
 };
 
-class ScCoinsPersistedView : public ScCoinsView
-{
-public:
-    virtual bool BatchWrite(const CSidechainsMap& sidechainMap) = 0;
-    virtual void dump_info() = 0;
-};
-
 class PersistenceLayer;
-class ScMgr : public ScCoinsPersistedView
+class CSidechainViewDB : public CSidechainsView
 {
 public:
-    static ScMgr& instance();
+    static CSidechainViewDB& instance();
 
     bool initPersistence(size_t cacheSize, bool fWipe);
     bool initPersistence(PersistenceLayer * pTestLayer); //utility for unit tests
@@ -163,8 +158,8 @@ public:
 
 private:
     // Disallow instantiation outside of the class.
-    ScMgr(): pLayer(nullptr){}
-    ~ScMgr() { reset(); }
+    CSidechainViewDB(): pLayer(nullptr){}
+    ~CSidechainViewDB() { reset(); }
 
     mutable CCriticalSection sc_lock;
     PersistenceLayer * pLayer;

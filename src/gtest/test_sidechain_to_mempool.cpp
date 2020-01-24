@@ -49,7 +49,7 @@ public:
         pChainStateDb = new CCoinsOnlyViewDB(chainStateDbSize,/*fWipe*/true);
         pcoinsTip     = new CCoinsViewCache(pChainStateDb);
 
-        assert(Sidechain::ScMgr::instance().initPersistence(/*cacheSize*/0, /*fWipe*/true));
+        assert(Sidechain::CSidechainViewDB::instance().initPersistence(/*cacheSize*/0, /*fWipe*/true));
 
         //fPrintToConsole = true;
     }
@@ -77,7 +77,7 @@ public:
         delete pChainStateDb;
         pChainStateDb = nullptr;
 
-        Sidechain::ScMgr::instance().reset();
+        Sidechain::CSidechainViewDB::instance().reset();
 
         ClearDatadirCache();
 
@@ -136,9 +136,9 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicationsOfConfirmedSidechainsAreNotAcce
     uint256 scId = uint256S("a1b2");
     CTransaction scTx = GenerateScTx(scId, CAmount(1));
     CBlock aBlock;
-    Sidechain::ScCoinsViewCache coinViewCache(Sidechain::ScMgr::instance());
-    coinViewCache.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
-    ASSERT_TRUE(coinViewCache.Flush());
+    Sidechain::CSidechainsViewCache sidechainsView(Sidechain::CSidechainViewDB::instance());
+    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    ASSERT_TRUE(sidechainsView.Flush());
 
     scTx = GenerateScTx(scId, CAmount(12));
     CValidationState txState;
@@ -152,9 +152,9 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed
     uint256 scId = uint256S("aaaa");
     CTransaction scTx = GenerateScTx(scId, CAmount(10));
     CBlock aBlock;
-    Sidechain::ScCoinsViewCache coinViewCache(Sidechain::ScMgr::instance());
-    coinViewCache.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
-    ASSERT_TRUE(coinViewCache.Flush());
+    Sidechain::CSidechainsViewCache sidechainsView(Sidechain::CSidechainViewDB::instance());
+    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    ASSERT_TRUE(sidechainsView.Flush());
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;

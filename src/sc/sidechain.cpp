@@ -16,7 +16,7 @@ static const char DB_SC_INFO = 'i';
 
 using namespace Sidechain;
 
-/*************************** SCCOINVIEW INTERFACE ****************************/
+/*************************** CSidechainsView INTERFACE ****************************/
 std::string ScInfo::ToString() const
 {
     std::string str;
@@ -155,10 +155,10 @@ bool Sidechain::existsInMempool(const CTxMemPool& pool, const CTransaction& tx, 
     return true;
 }
 
-/********************** ScCoinsViewCache IMPLEMENTATION **********************/
-ScCoinsViewCache::ScCoinsViewCache(ScCoinsPersistedView& _persistedView): persistedView(_persistedView) {}
+/********************** CSidechainsViewCache **********************/
+CSidechainsViewCache::CSidechainsViewCache(CSidechainsView& scView): backingView(scView) {}
 
-bool ScCoinsViewCache::HaveDependencies(const CTransaction& tx)
+bool CSidechainsViewCache::HaveDependencies(const CTransaction& tx)
 {
     const uint256& txHash = tx.GetHash();
 
@@ -196,13 +196,13 @@ bool ScCoinsViewCache::HaveDependencies(const CTransaction& tx)
     return true;
 }
 
-CSidechainsMap::const_iterator ScCoinsViewCache::FetchSidechains(const uint256& scId) const {
+CSidechainsMap::const_iterator CSidechainsViewCache::FetchSidechains(const uint256& scId) const {
     CSidechainsMap::iterator candidateIt = cacheSidechains.find(scId);
     if (candidateIt != cacheSidechains.end())
         return candidateIt;
 
     ScInfo tmp;
-    if (!persistedView.GetScInfo(scId, tmp))
+    if (!backingView.GetScInfo(scId, tmp))
         return cacheSidechains.end();
 
     //Fill cache and return iterator. The insert in cache below looks cumbersome. However
@@ -219,13 +219,13 @@ CSidechainsMap::const_iterator ScCoinsViewCache::FetchSidechains(const uint256& 
     return ret;
 }
 
-bool ScCoinsViewCache::HaveScInfo(const uint256& scId) const
+bool CSidechainsViewCache::HaveScInfo(const uint256& scId) const
 {
     CSidechainsMap::const_iterator it = FetchSidechains(scId);
     return (it != cacheSidechains.end()) && (it->second.flag != CSidechainsCacheEntry::Flags::ERASED);
 }
 
-bool ScCoinsViewCache::GetScInfo(const uint256 & scId, ScInfo& targetScInfo) const
+bool CSidechainsViewCache::GetScInfo(const uint256 & scId, ScInfo& targetScInfo) const
 {
     CSidechainsMap::const_iterator it = FetchSidechains(scId);
     if (it != cacheSidechains.end())
@@ -238,9 +238,9 @@ bool ScCoinsViewCache::GetScInfo(const uint256 & scId, ScInfo& targetScInfo) con
     return false;
 }
 
-bool ScCoinsViewCache::queryScIds(std::set<uint256>& scIdsList) const
+bool CSidechainsViewCache::queryScIds(std::set<uint256>& scIdsList) const
 {
-    if(!persistedView.queryScIds(scIdsList))
+    if(!backingView.queryScIds(scIdsList))
         return false;
 
     // Note that some of the values above may have been erased in current cache.
@@ -255,7 +255,7 @@ bool ScCoinsViewCache::queryScIds(std::set<uint256>& scIdsList) const
     return true;
 }
 
-bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, int blockHeight)
+bool CSidechainsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, int blockHeight)
 {
     const uint256& txHash = tx.GetHash();
     LogPrint("sc", "%s():%d - enter tx=%s\n", __func__, __LINE__, txHash.ToString() );
@@ -306,7 +306,7 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
     return true;
 }
 
-bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
+bool CSidechainsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 {
     static const int SC_COIN_MATURITY = getScCoinsMaturity();
     const int maturityHeight = nHeight + SC_COIN_MATURITY;
@@ -393,7 +393,7 @@ bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
     return true;
 }
 
-bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo)
+bool CSidechainsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo)
 {
     LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
@@ -452,7 +452,7 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
     return true;
 }
 
-bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo& blockundo)
+bool CSidechainsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo& blockundo)
 {
     LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
@@ -507,11 +507,19 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
     return true;
 }
 
-bool ScCoinsViewCache::Flush()
+bool CSidechainsViewCache::BatchWrite(const CSidechainsMap& sidechainMap)
+{
+    if (!backingView.BatchWrite(sidechainMap))
+        return false;
+
+    return true;
+}
+
+bool CSidechainsViewCache::Flush()
 {
     LogPrint("sc", "%s():%d - called\n", __func__, __LINE__);
 
-    if (!persistedView.BatchWrite(cacheSidechains))
+    if (!BatchWrite(cacheSidechains))
         return false;
 
     cacheSidechains.clear();
@@ -519,13 +527,13 @@ bool ScCoinsViewCache::Flush()
 }
 
 /**************************** ScMgr IMPLEMENTATION ***************************/
-ScMgr& ScMgr::instance()
+CSidechainViewDB& CSidechainViewDB::instance()
 {
-    static ScMgr _instance;
+    static CSidechainViewDB _instance;
     return _instance;
 }
 
-bool ScMgr::initPersistence(size_t cacheSize, bool fWipe)
+bool CSidechainViewDB::initPersistence(size_t cacheSize, bool fWipe)
 {
     if (pLayer != nullptr)
     {
@@ -537,7 +545,7 @@ bool ScMgr::initPersistence(size_t cacheSize, bool fWipe)
     return true;
 }
 
-bool ScMgr::initPersistence(PersistenceLayer * pTestLayer)
+bool CSidechainViewDB::initPersistence(PersistenceLayer * pTestLayer)
 {
     if (pLayer != nullptr)
     {
@@ -549,13 +557,13 @@ bool ScMgr::initPersistence(PersistenceLayer * pTestLayer)
     return true;
 }
 
-void ScMgr::reset()
+void CSidechainViewDB::reset()
 {
     delete pLayer;
     pLayer = nullptr;
 }
 
-bool ScMgr::BatchWrite(const CSidechainsMap& sidechainMap)
+bool CSidechainViewDB::BatchWrite(const CSidechainsMap& sidechainMap)
 {
     LOCK(sc_lock);
     if (pLayer == nullptr)
@@ -588,7 +596,7 @@ bool ScMgr::BatchWrite(const CSidechainsMap& sidechainMap)
     return true;
 }
 
-bool ScMgr::HaveScInfo(const uint256& scId) const
+bool CSidechainViewDB::HaveScInfo(const uint256& scId) const
 {
     LOCK(sc_lock);
     if (pLayer == nullptr)
@@ -600,7 +608,7 @@ bool ScMgr::HaveScInfo(const uint256& scId) const
     return pLayer->exists(scId);
 }
 
-bool ScMgr::GetScInfo(const uint256& scId, ScInfo& info) const
+bool CSidechainViewDB::GetScInfo(const uint256& scId, ScInfo& info) const
 {
     LOCK(sc_lock);
     if (pLayer == nullptr)
@@ -617,7 +625,7 @@ bool ScMgr::GetScInfo(const uint256& scId, ScInfo& info) const
     return true;
 }
 
-bool ScMgr::queryScIds(std::set<uint256>& scIdsList) const
+bool CSidechainViewDB::queryScIds(std::set<uint256>& scIdsList) const
 {
     LOCK(sc_lock);
     if (pLayer == nullptr)
@@ -631,7 +639,7 @@ bool ScMgr::queryScIds(std::set<uint256>& scIdsList) const
     return true;
 }
 
-bool ScMgr::dump_info(const uint256& scId)
+bool CSidechainViewDB::dump_info(const uint256& scId)
 {
     LogPrint("sc", "-- side chain [%s] ------------------------\n", scId.ToString());
     ScInfo info;
@@ -652,7 +660,7 @@ bool ScMgr::dump_info(const uint256& scId)
     return true;
 }
 
-void ScMgr::dump_info()
+void CSidechainViewDB::dump_info()
 {
     std::set<uint256> scIdsList;
     queryScIds(scIdsList);

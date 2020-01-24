@@ -1053,7 +1053,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     scId.SetHex(inputString);
  
     // sanity check of the side chain ID
-    Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
+    Sidechain::CSidechainsViewCache scView(Sidechain::CSidechainViewDB::instance());
     if (!scView.HaveScInfo(scId) )
     {
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
