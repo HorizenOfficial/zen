@@ -555,7 +555,7 @@ bool CSidechainViewDB::initPersistence(size_t cacheSize, bool fWipe)
 {
     if (scDb != nullptr)
     {
-        return error("%s():%d - could not init persistence more than once!", __func__, __LINE__);
+        return error("%s():%d - could not init sidechain db more than once!", __func__, __LINE__);
     }
 
     scDb  = new CLevelDBWrapper(GetDataDir() / "sidechains", cacheSize, /*fMemory*/false, fWipe);
@@ -573,7 +573,7 @@ bool CSidechainViewDB::BatchWrite(const CSidechainsMap& sidechainMap)
     LOCK(sc_lock);
     if (scDb == nullptr)
     {
-        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
+        LogPrintf("%s():%d - Error: sidechain db not initialized\n", __func__, __LINE__);
         return false;
     }
 
@@ -607,7 +607,7 @@ bool CSidechainViewDB::HaveScInfo(const uint256& scId) const
     LOCK(sc_lock);
     if (scDb == nullptr)
     {
-        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
+        LogPrintf("%s():%d - Error: sidechain db not initialized\n", __func__, __LINE__);
         return false;
     }
 
@@ -619,7 +619,7 @@ bool CSidechainViewDB::GetScInfo(const uint256& scId, ScInfo& info) const
     LOCK(sc_lock);
     if (scDb == nullptr)
     {
-        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
+        LogPrintf("%s():%d - Error: sidechain db not initialized\n", __func__, __LINE__);
         return false;
     }
 
@@ -635,7 +635,7 @@ bool CSidechainViewDB::queryScIds(std::set<uint256>& scIdsList) const
     LOCK(sc_lock);
     if (scDb == nullptr)
     {
-        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
+        LogPrintf("%s():%d - Error: sidechain db not initialized\n", __func__, __LINE__);
         return false;
     }
 
@@ -674,7 +674,7 @@ bool CSidechainViewDB::Persist(const uint256& scId, const ScInfo& info)  const
 {
     if (scDb == nullptr)
     {
-        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
+        LogPrintf("%s():%d - Error: sidechain db not initialized\n", __func__, __LINE__);
         return false;
     }
 
@@ -711,7 +711,7 @@ bool CSidechainViewDB::Erase(const uint256& scId)  const
 {
     if (scDb == nullptr)
     {
-        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
+        LogPrintf("%s():%d - Error: sidechain db not initialized\n", __func__, __LINE__);
         return false;
     }
 
