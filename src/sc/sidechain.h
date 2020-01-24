@@ -137,8 +137,7 @@ private:
 class ScCoinsPersistedView : public ScCoinsView
 {
 public:
-    virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
-    virtual bool erase(const uint256& scId) = 0;
+    virtual bool BatchWrite(const CSidechainsMap& sidechainMap) = 0;
     virtual void dump_info() = 0;
 };
 
@@ -152,8 +151,7 @@ public:
     bool initPersistence(PersistenceLayer * pTestLayer); //utility for unit tests
     void reset(); //utility for dtor and unit tests, hence public
 
-    bool persist(const uint256& scId, const ScInfo& info);
-    bool erase(const uint256& scId);
+    bool BatchWrite(const CSidechainsMap& sidechainMap);
 
     bool HaveScInfo(const uint256& scId) const;
     bool GetScInfo(const uint256& scId, ScInfo& info) const;

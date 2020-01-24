@@ -2,7 +2,6 @@
 #include "tx_creation_utils.h"
 #include <sc/sidechain.h>
 #include <chainparams.h>
-#include <chainparamsbase.h>
 #include <consensus/validation.h>
 #include <txmempool.h>
 #include <undo.h>
@@ -57,7 +56,6 @@ public:
     };
 
     void SetUp() override {
-        SelectBaseParams(CBaseChainParams::REGTEST);
         SelectParams(CBaseChainParams::REGTEST);
 
         ASSERT_TRUE(sidechainManager.initPersistence(new FakePersistance()));

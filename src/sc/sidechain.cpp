@@ -511,30 +511,10 @@ bool ScCoinsViewCache::Flush()
 {
     LogPrint("sc", "%s():%d - called\n", __func__, __LINE__);
 
-    BOOST_FOREACH(const auto& entry, cacheSidechains)
-    {
-        switch (entry.second.flag)
-        {
-        case CSidechainsCacheEntry::Flags::FRESH:
-        case CSidechainsCacheEntry::Flags::DIRTY:
-            if (!persistedView.persist(entry.first, entry.second.scInfo) )
-            {
-                return false;
-            }
-            break;
-        case CSidechainsCacheEntry::Flags::ERASED:
-            if (!persistedView.erase(entry.first) )
-            {
-                return false;
-            }
-            break;
-        case CSidechainsCacheEntry::Flags::DEFAULT:
-            break; //nothing to do. entry is already persisted and has not been modified
-        default:
-            assert(false);
-        }
-    }
+    if (!persistedView.BatchWrite(cacheSidechains))
+        return false;
 
+    cacheSidechains.clear();
     return true;
 }
 
@@ -575,7 +555,7 @@ void ScMgr::reset()
     pLayer = nullptr;
 }
 
-bool ScMgr::persist(const uint256& scId, const ScInfo& info)
+bool ScMgr::BatchWrite(const CSidechainsMap& sidechainMap)
 {
     LOCK(sc_lock);
     if (pLayer == nullptr)
@@ -584,24 +564,28 @@ bool ScMgr::persist(const uint256& scId, const ScInfo& info)
         return false;
     }
 
-    if (!pLayer->persist(scId, info))
-        return false;
-
-    LogPrint("sc", "%s():%d - persisted scId=%s\n", __func__, __LINE__, scId.ToString() );
+    BOOST_FOREACH(const auto& entry, sidechainMap) {
+        switch (entry.second.flag) {
+            case CSidechainsCacheEntry::Flags::FRESH:
+            case CSidechainsCacheEntry::Flags::DIRTY:
+                if (!pLayer->persist(entry.first, entry.second.scInfo) )
+                {
+                    return false;
+                }
+                break;
+            case CSidechainsCacheEntry::Flags::ERASED:
+                if (!pLayer->erase(entry.first))
+                {
+                    return false;
+                }
+                break;
+            case CSidechainsCacheEntry::Flags::DEFAULT:
+                break; //nothing to do. entry is already persisted and has not been modified
+            default:
+                return false;
+        }
+    }
     return true;
-}
-
-bool ScMgr::erase(const uint256& scId)
-{
-    LOCK(sc_lock);
-    if (pLayer == nullptr)
-    {
-        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
-        return false;
-    }
-
-    LogPrint("sc", "%s():%d - erased scId=%s from memory\n", __func__, __LINE__, scId.ToString() );
-    return pLayer->erase(scId);
 }
 
 bool ScMgr::HaveScInfo(const uint256& scId) const
