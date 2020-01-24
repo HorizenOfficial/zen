@@ -110,7 +110,20 @@ public:
     virtual bool BatchWrite(const CSidechainsMap& sidechainMap) = 0;
 };
 
-class CSidechainsViewCache : public CSidechainsView
+class CSidechainsViewBacked : public CSidechainsView
+{
+public:
+    CSidechainsViewBacked(CSidechainsView &viewIn): baseView(viewIn) {}
+    bool HaveScInfo(const uint256& scId)              const {return baseView.HaveScInfo(scId);}
+    bool GetScInfo(const uint256& scId, ScInfo& info) const {return baseView.GetScInfo(scId,info);}
+    bool queryScIds(std::set<uint256>& scIdsList)     const {return baseView.queryScIds(scIdsList);}
+    bool BatchWrite(const CSidechainsMap& sidechainMap)     {return baseView.BatchWrite(sidechainMap);}
+
+protected:
+    CSidechainsView &baseView;
+};
+
+class CSidechainsViewCache : public CSidechainsViewBacked
 {
 public:
     CSidechainsViewCache(CSidechainsView& scView);
@@ -130,8 +143,6 @@ public:
     bool Flush();
 
 private:
-    CSidechainsView& backingView;
-
     mutable CSidechainsMap cacheSidechains;
     CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
 };
