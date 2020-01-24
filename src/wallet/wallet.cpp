@@ -945,14 +945,14 @@ int64_t CWallet::IncOrderPosNext(CWalletDB *pwalletdb)
     return nRet;
 }
 
-CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries, std::string strAccount,std::string address)
+CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries, const std::string& strAccount,const std::string& address)
 {
     AssertLockHeld(cs_wallet); // mapWallet
     CWalletDB walletdb(strWalletFile);
 
     CScript scriptPubKey;
-    bool noFilter=address==("*");
-     if(!noFilter) {
+    bool noFilter=address==std::string("*");
+    if(!noFilter) {
          CBitcoinAddress baddress = CBitcoinAddress(address);
          scriptPubKey = GetScriptForDestination(baddress.Get(), false);
      }
