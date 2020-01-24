@@ -145,6 +145,7 @@ public:
 private:
     mutable CSidechainsMap cacheSidechains;
     CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
+    void Dump_info() const;
 };
 
 class CSidechainViewDB : public CSidechainsView
@@ -161,18 +162,11 @@ public:
     bool GetScInfo(const uint256& scId, ScInfo& info) const;
     bool queryScIds(std::set<uint256>& scIdsList) const;
 
-    // print functions
-    bool dump_info(const uint256& scId);
-    void dump_info();
-
 protected:
     // Disallow instantiation outside of the class. Only UTs should be allowed to inherit and build a fakeDB
     CSidechainViewDB();
     ~CSidechainViewDB();
 
-    bool Exists(const uint256& scId) const;
-    bool Read(const uint256& scId, ScInfo& info) const;
-    bool ReadAllKeys(std::set<uint256>& keysSet) const;
     bool Persist(const uint256& scId, const ScInfo& info) const;
     bool Erase(const uint256& scId) const;
     void Dump_info() const;

@@ -30,7 +30,7 @@ std::string ScInfo::ToString() const
     if (mImmatureAmounts.size() )
     {
         str += "immature amounts:\n";
-        BOOST_FOREACH(const auto& entry, mImmatureAmounts)
+        for (auto& entry : mImmatureAmounts)
         {
             str += strprintf("   maturityHeight=%d -> amount=%s\n", entry.first, FormatMoney(entry.second));
         }
@@ -70,7 +70,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
 
     LogPrint("sc", "%s():%d - tx=%s\n", __func__, __LINE__, txHash.ToString() );
 
-    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
+    for (const auto& sc: tx.vsc_ccout)
     {
         // check there is at least one fwt associated with this scId
         if (!anyForwardTransaction(tx, sc.scId) )
@@ -83,7 +83,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
     }
 
     CAmount cumulatedFwdAmount = 0;
-    BOOST_FOREACH(const auto& sc, tx.vft_ccout)
+    for (const auto& sc: tx.vft_ccout)
     {
         if (sc.nValue == CAmount(0) || !MoneyRange(sc.nValue))
         {
@@ -109,7 +109,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
 
 bool Sidechain::anyForwardTransaction(const CTransaction& tx, const uint256& scId)
 {
-    BOOST_FOREACH(const auto& fwd, tx.vft_ccout)
+    for (const auto& fwd: tx.vft_ccout)
     {
         if (fwd.scId == scId)
         {
@@ -121,7 +121,7 @@ bool Sidechain::anyForwardTransaction(const CTransaction& tx, const uint256& scI
 
 bool Sidechain::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
 {
-    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
+    for (const auto& sc: tx.vsc_ccout)
     {
         if (sc.scId == scId)
         {
@@ -134,13 +134,13 @@ bool Sidechain::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
 bool Sidechain::existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
 {
     //Check for conflicts in mempool
-    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
+    for (const auto& sc: tx.vsc_ccout)
     {
         for (auto it = pool.mapTx.begin(); it != pool.mapTx.end(); ++it)
         {
             const CTransaction& mpTx = it->second.GetTx();
 
-            BOOST_FOREACH(const auto& mpSc, mpTx.vsc_ccout)
+            for (const auto& mpSc: mpTx.vsc_ccout)
             {
                 if (mpSc.scId == sc.scId)
                 {
@@ -163,7 +163,7 @@ bool CSidechainsViewCache::HaveDependencies(const CTransaction& tx)
     const uint256& txHash = tx.GetHash();
 
     // check creation
-    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
+    for (const auto& sc: tx.vsc_ccout)
     {
         const uint256& scId = sc.scId;
         if (HaveScInfo(scId))
@@ -177,7 +177,7 @@ bool CSidechainsViewCache::HaveDependencies(const CTransaction& tx)
     }
 
     // check fw tx
-    BOOST_FOREACH(const auto& ft, tx.vft_ccout)
+    for (const auto& ft: tx.vft_ccout)
     {
         const uint256& scId = ft.scId;
         if (!HaveScInfo(scId))
@@ -207,15 +207,9 @@ CSidechainsMap::const_iterator CSidechainsViewCache::FetchSidechains(const uint2
 
     //Fill cache and return iterator. The insert in cache below looks cumbersome. However
     //it allows to insert ScInfo and keep iterator to inserted member without extra searches
-    CSidechainsMap::iterator ret = cacheSidechains.insert(std::make_pair(scId, CSidechainsCacheEntry(tmp, CSidechainsCacheEntry::Flags::DEFAULT ))).first;
+    CSidechainsMap::iterator ret =
+            cacheSidechains.insert(std::make_pair(scId, CSidechainsCacheEntry(tmp, CSidechainsCacheEntry::Flags::DEFAULT ))).first;
 
-//   ABENEGIA: Code below comes from FetchCoins. It hints how FRESH is used instead of ERASED in case of fully used coins
-//    if (ret->second.coins.IsPruned()) {
-//        // The parent only has an empty entry for this txid; we can consider our
-//        // version as fresh.
-//        ret->second.flags = CCoinsCacheEntry::FRESH;
-//    }
-//    cachedCoinsUsage += ret->second.coins.DynamicMemoryUsage();
     return ret;
 }
 
@@ -245,7 +239,8 @@ bool CSidechainsViewCache::queryScIds(std::set<uint256>& scIdsList) const
 
     // Note that some of the values above may have been erased in current cache.
     // Also new id may be in current cache but not in persisted
-    BOOST_FOREACH(const auto& entry, cacheSidechains) {
+    for (const auto& entry: cacheSidechains)
+    {
       if (entry.second.flag == CSidechainsCacheEntry::Flags::ERASED)
           scIdsList.erase(entry.first);
       else
@@ -261,7 +256,7 @@ bool CSidechainsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& bl
     LogPrint("sc", "%s():%d - enter tx=%s\n", __func__, __LINE__, txHash.ToString() );
 
     // creation ccout
-    BOOST_FOREACH(const auto& cr, tx.vsc_ccout)
+    for (const auto& cr: tx.vsc_ccout)
     {
         if (HaveScInfo(cr.scId))
         {
@@ -284,7 +279,7 @@ bool CSidechainsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& bl
     const int maturityHeight = blockHeight + SC_COIN_MATURITY;
 
     // forward transfer ccout
-    BOOST_FOREACH(auto& ft, tx.vft_ccout)
+    for(auto& ft: tx.vft_ccout)
     {
         ScInfo targetScInfo;
         if (!GetScInfo(ft.scId, targetScInfo))
@@ -312,7 +307,7 @@ bool CSidechainsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
     const int maturityHeight = nHeight + SC_COIN_MATURITY;
 
     // revert forward transfers
-    BOOST_FOREACH(const auto& entry, tx.vft_ccout)
+    for(const auto& entry: tx.vft_ccout)
     {
         const uint256& scId = entry.scId;
 
@@ -364,7 +359,7 @@ bool CSidechainsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
     }
 
     // remove sidechain if the case
-    BOOST_FOREACH(const auto& entry, tx.vsc_ccout)
+    for(const auto& entry: tx.vsc_ccout)
     {
         const uint256& scId = entry.scId;
 
@@ -407,9 +402,7 @@ bool CSidechainsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& bloc
         ScInfo info;
         assert(GetScInfo(scId, info));
 
-        auto it_ia_map = info.mImmatureAmounts.begin();
-
-        while (it_ia_map != info.mImmatureAmounts.end() )
+        for(auto it_ia_map = info.mImmatureAmounts.begin(); it_ia_map != info.mImmatureAmounts.end(); )
         {
             int maturityHeight = it_ia_map->first;
             CAmount a = it_ia_map->second;
@@ -456,10 +449,8 @@ bool CSidechainsViewCache::RestoreImmatureBalances(int blockHeight, const CBlock
 {
     LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
-    auto it_ia_undo_map = blockundo.msc_iaundo.begin();
-
     // loop in the map of the blockundo and process each sidechain id
-    while (it_ia_undo_map != blockundo.msc_iaundo.end() )
+    for (auto it_ia_undo_map = blockundo.msc_iaundo.begin(); it_ia_undo_map != blockundo.msc_iaundo.end(); )
     {
         const uint256& scId = it_ia_undo_map->first;
 
@@ -504,6 +495,7 @@ bool CSidechainsViewCache::RestoreImmatureBalances(int blockHeight, const CBlock
 
         ++it_ia_undo_map;
     }
+
     return true;
 }
 
@@ -524,6 +516,32 @@ bool CSidechainsViewCache::Flush()
 
     cacheSidechains.clear();
     return true;
+}
+
+void CSidechainsViewCache::Dump_info() const
+{
+    std::set<uint256> scIdsList;
+    queryScIds(scIdsList);
+    LogPrint("sc", "-- number of side chains found [%d] ------------------------\n", scIdsList.size());
+    for(const auto& scId: scIdsList)
+    {
+        LogPrint("sc", "-- side chain [%s] ------------------------\n", scId.ToString());
+        ScInfo info;
+        if (!GetScInfo(scId, info) )
+        {
+            LogPrint("sc", "===> No such side chain\n");
+            return;
+        }
+
+        LogPrint("sc", "  created in block[%s] (h=%d)\n", info.creationBlockHash.ToString(), info.creationBlockHeight );
+        LogPrint("sc", "  creationTx[%s]\n", info.creationTxHash.ToString());
+        LogPrint("sc", "  balance[%s]\n", FormatMoney(info.balance));
+        LogPrint("sc", "  ----- creation data:\n");
+        LogPrint("sc", "      withdrawalEpochLength[%d]\n", info.creationData.withdrawalEpochLength);
+        LogPrint("sc", "  immature amounts size[%d]\n", info.mImmatureAmounts.size());
+    }
+
+    return;
 }
 
 /**************************** ScMgr IMPLEMENTATION ***************************/
@@ -587,35 +605,6 @@ bool CSidechainViewDB::BatchWrite(const CSidechainsMap& sidechainMap)
 bool CSidechainViewDB::HaveScInfo(const uint256& scId) const
 {
     LOCK(sc_lock);
-    return Exists(scId);
-}
-
-bool CSidechainViewDB::GetScInfo(const uint256& scId, ScInfo& info) const
-{
-    LOCK(sc_lock);
-    ScInfo localObj;
-    if (!Read(scId, localObj))
-        return false;
-
-    info = localObj;
-    LogPrint("sc", "scid[%s]: %s", scId.ToString(), info.ToString() );
-    return true;
-}
-
-bool CSidechainViewDB::queryScIds(std::set<uint256>& scIdsList) const
-{
-    LOCK(sc_lock);
-    if (!ReadAllKeys(scIdsList))
-        return false;
-
-    return true;
-}
-
-CSidechainViewDB::CSidechainViewDB(): scDb(nullptr) {}
-CSidechainViewDB::~CSidechainViewDB() { reset(); }
-
-bool CSidechainViewDB::Exists(const uint256& scId) const
-{
     if (scDb == nullptr)
     {
         LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
@@ -625,26 +614,32 @@ bool CSidechainViewDB::Exists(const uint256& scId) const
     return scDb->Exists(std::make_pair(DB_SC_INFO, scId));
 }
 
-bool CSidechainViewDB::Read(const uint256& scId, ScInfo& info)  const
+bool CSidechainViewDB::GetScInfo(const uint256& scId, ScInfo& info) const
 {
+    LOCK(sc_lock);
     if (scDb == nullptr)
     {
         LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
         return false;
     }
 
-    return scDb->Read(std::make_pair(DB_SC_INFO, scId), info);
+    if (!scDb->Read(std::make_pair(DB_SC_INFO, scId), info))
+        return false;
+
+    LogPrint("sc", "scid[%s]: %s", scId.ToString(), info.ToString() );
+    return true;
 }
 
-bool CSidechainViewDB::ReadAllKeys(std::set<uint256>& keysSet)  const
+bool CSidechainViewDB::queryScIds(std::set<uint256>& scIdsList) const
 {
+    LOCK(sc_lock);
     if (scDb == nullptr)
     {
         LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
         return false;
     }
 
-    boost::scoped_ptr<leveldb::Iterator> it(scDb->NewIterator());
+    std::unique_ptr<leveldb::Iterator> it(scDb->NewIterator());
     for (it->SeekToFirst(); it->Valid(); it->Next())
     {
         boost::this_thread::interruption_point();
@@ -658,7 +653,7 @@ bool CSidechainViewDB::ReadAllKeys(std::set<uint256>& keysSet)  const
 
         if (chType == DB_SC_INFO)
         {
-            keysSet.insert(keyScId);
+            scIdsList.insert(keyScId);
             LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, keyScId.ToString() );
         }
         else
@@ -671,6 +666,9 @@ bool CSidechainViewDB::ReadAllKeys(std::set<uint256>& keysSet)  const
 
     return true;
 }
+
+CSidechainViewDB::CSidechainViewDB(): scDb(nullptr) {}
+CSidechainViewDB::~CSidechainViewDB() { reset(); }
 
 bool CSidechainViewDB::Persist(const uint256& scId, const ScInfo& info)  const
 {
@@ -747,7 +745,7 @@ bool CSidechainViewDB::Erase(const uint256& scId)  const
 void CSidechainViewDB::Dump_info()  const
 {
     // dump leveldb contents on stdout
-    boost::scoped_ptr<leveldb::Iterator> it(scDb->NewIterator());
+    std::unique_ptr<leveldb::Iterator> it(scDb->NewIterator());
 
     for (it->SeekToFirst(); it->Valid(); it->Next())
     {
@@ -779,38 +777,4 @@ void CSidechainViewDB::Dump_info()  const
             std::cout << "unknown type " << chType << std::endl;
         }
     }
-}
-
-bool CSidechainViewDB::dump_info(const uint256& scId)
-{
-    LogPrint("sc", "-- side chain [%s] ------------------------\n", scId.ToString());
-    ScInfo info;
-    if (!GetScInfo(scId, info) )
-    {
-        LogPrint("sc", "===> No such side chain\n");
-        return false;
-    }
-
-    LogPrint("sc", "  created in block[%s] (h=%d)\n", info.creationBlockHash.ToString(), info.creationBlockHeight );
-    LogPrint("sc", "  creationTx[%s]\n", info.creationTxHash.ToString());
-    LogPrint("sc", "  balance[%s]\n", FormatMoney(info.balance));
-    LogPrint("sc", "  ----- creation data:\n");
-    LogPrint("sc", "      withdrawalEpochLength[%d]\n", info.creationData.withdrawalEpochLength);
-    LogPrint("sc", "  immature amounts size[%d]\n", info.mImmatureAmounts.size());
-// TODO    LogPrint("sc", "      ...more to come...\n");
-
-    return true;
-}
-
-void CSidechainViewDB::dump_info()
-{
-    std::set<uint256> scIdsList;
-    queryScIds(scIdsList);
-    LogPrint("sc", "-- number of side chains found [%d] ------------------------\n", scIdsList.size());
-    BOOST_FOREACH(const auto& scId, scIdsList)
-    {
-        dump_info(scId);
-    }
-
-    return Dump_info();
 }
