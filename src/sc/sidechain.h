@@ -147,14 +147,12 @@ private:
     CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
 };
 
-class PersistenceLayer;
 class CSidechainViewDB : public CSidechainsView
 {
 public:
     static CSidechainViewDB& instance();
 
     bool initPersistence(size_t cacheSize, bool fWipe);
-    bool initPersistence(PersistenceLayer * pTestLayer); //utility for unit tests
     void reset(); //utility for dtor and unit tests, hence public
 
     bool BatchWrite(const CSidechainsMap& sidechainMap);
@@ -167,40 +165,22 @@ public:
     bool dump_info(const uint256& scId);
     void dump_info();
 
-private:
-    // Disallow instantiation outside of the class.
-    CSidechainViewDB(): pLayer(nullptr){}
-    ~CSidechainViewDB() { reset(); }
+protected:
+    // Disallow instantiation outside of the class. Only UTs should be allowed to inherit and build a fakeDB
+    CSidechainViewDB();
+    ~CSidechainViewDB();
 
+    bool Exists(const uint256& scId) const;
+    bool Read(const uint256& scId, ScInfo& info) const;
+    bool ReadAllKeys(std::set<uint256>& keysSet) const;
+    bool Persist(const uint256& scId, const ScInfo& info) const;
+    bool Erase(const uint256& scId) const;
+    void Dump_info() const;
+
+private:
     mutable CCriticalSection sc_lock;
-    PersistenceLayer * pLayer;
+    CLevelDBWrapper* scDb;
 }; 
-
-class PersistenceLayer {
-public:
-    PersistenceLayer() = default;
-    virtual ~PersistenceLayer() = default;
-    virtual bool exists(const uint256& scId) = 0;
-    virtual bool read(const uint256& scId, ScInfo& info) = 0;
-    virtual bool readAllKeys(std::set<uint256>& keysSet) = 0;
-    virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
-    virtual bool erase(const uint256& scId) = 0;
-    virtual void dump_info() = 0;
-};
-
-class DbPersistance final : public PersistenceLayer {
-public:
-    DbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe);
-    ~DbPersistance();
-    bool exists(const uint256& scId);
-    bool read(const uint256& scId, ScInfo& info);
-    bool readAllKeys(std::set<uint256>& keysSet);
-    bool persist(const uint256& scId, const ScInfo& info);
-    bool erase(const uint256& scId);
-    void dump_info();
-private:
-    CLevelDBWrapper* _db;
-};
 
 }; // end of namespace
 

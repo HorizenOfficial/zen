@@ -535,54 +535,41 @@ CSidechainViewDB& CSidechainViewDB::instance()
 
 bool CSidechainViewDB::initPersistence(size_t cacheSize, bool fWipe)
 {
-    if (pLayer != nullptr)
+    if (scDb != nullptr)
     {
         return error("%s():%d - could not init persistence more than once!", __func__, __LINE__);
     }
 
-    pLayer = new DbPersistance(GetDataDir() / "sidechains", cacheSize, false, fWipe);
-
-    return true;
-}
-
-bool CSidechainViewDB::initPersistence(PersistenceLayer * pTestLayer)
-{
-    if (pLayer != nullptr)
-    {
-        return error("%s():%d - could not init persistence more than once!", __func__, __LINE__);
-    }
-
-    pLayer = pTestLayer;
-
+    scDb  = new CLevelDBWrapper(GetDataDir() / "sidechains", cacheSize, /*fMemory*/false, fWipe);
     return true;
 }
 
 void CSidechainViewDB::reset()
 {
-    delete pLayer;
-    pLayer = nullptr;
+    delete scDb;
+    scDb = nullptr;
 }
 
 bool CSidechainViewDB::BatchWrite(const CSidechainsMap& sidechainMap)
 {
     LOCK(sc_lock);
-    if (pLayer == nullptr)
+    if (scDb == nullptr)
     {
         LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
         return false;
     }
 
-    BOOST_FOREACH(const auto& entry, sidechainMap) {
+    for (auto& entry : sidechainMap) {
         switch (entry.second.flag) {
             case CSidechainsCacheEntry::Flags::FRESH:
             case CSidechainsCacheEntry::Flags::DIRTY:
-                if (!pLayer->persist(entry.first, entry.second.scInfo) )
+                if (!Persist(entry.first, entry.second.scInfo) )
                 {
                     return false;
                 }
                 break;
             case CSidechainsCacheEntry::Flags::ERASED:
-                if (!pLayer->erase(entry.first))
+                if (!Erase(entry.first))
                 {
                     return false;
                 }
@@ -593,31 +580,21 @@ bool CSidechainViewDB::BatchWrite(const CSidechainsMap& sidechainMap)
                 return false;
         }
     }
+
     return true;
 }
 
 bool CSidechainViewDB::HaveScInfo(const uint256& scId) const
 {
     LOCK(sc_lock);
-    if (pLayer == nullptr)
-    {
-        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
-        return false;
-    }
-
-    return pLayer->exists(scId);
+    return Exists(scId);
 }
 
 bool CSidechainViewDB::GetScInfo(const uint256& scId, ScInfo& info) const
 {
     LOCK(sc_lock);
-    if (pLayer == nullptr)
-    {
-        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
-        return false;
-    }
     ScInfo localObj;
-    if (!pLayer->read(scId, localObj))
+    if (!Read(scId, localObj))
         return false;
 
     info = localObj;
@@ -628,15 +605,180 @@ bool CSidechainViewDB::GetScInfo(const uint256& scId, ScInfo& info) const
 bool CSidechainViewDB::queryScIds(std::set<uint256>& scIdsList) const
 {
     LOCK(sc_lock);
-    if (pLayer == nullptr)
+    if (!ReadAllKeys(scIdsList))
+        return false;
+
+    return true;
+}
+
+CSidechainViewDB::CSidechainViewDB(): scDb(nullptr) {}
+CSidechainViewDB::~CSidechainViewDB() { reset(); }
+
+bool CSidechainViewDB::Exists(const uint256& scId) const
+{
+    if (scDb == nullptr)
     {
         LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
         return false;
     }
-    if (!pLayer->readAllKeys(scIdsList))
+
+    return scDb->Exists(std::make_pair(DB_SC_INFO, scId));
+}
+
+bool CSidechainViewDB::Read(const uint256& scId, ScInfo& info)  const
+{
+    if (scDb == nullptr)
+    {
+        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
         return false;
+    }
+
+    return scDb->Read(std::make_pair(DB_SC_INFO, scId), info);
+}
+
+bool CSidechainViewDB::ReadAllKeys(std::set<uint256>& keysSet)  const
+{
+    if (scDb == nullptr)
+    {
+        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
+        return false;
+    }
+
+    boost::scoped_ptr<leveldb::Iterator> it(scDb->NewIterator());
+    for (it->SeekToFirst(); it->Valid(); it->Next())
+    {
+        boost::this_thread::interruption_point();
+
+        leveldb::Slice slKey = it->key();
+        CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
+        char chType;
+        uint256 keyScId;
+        ssKey >> chType;
+        ssKey >> keyScId;;
+
+        if (chType == DB_SC_INFO)
+        {
+            keysSet.insert(keyScId);
+            LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, keyScId.ToString() );
+        }
+        else
+        {
+            // should never happen
+            LogPrintf("%s():%d - Error: could not read from db, invalid record type %c\n", __func__, __LINE__, chType);
+            return false;
+        }
+    }
 
     return true;
+}
+
+bool CSidechainViewDB::Persist(const uint256& scId, const ScInfo& info)  const
+{
+    if (scDb == nullptr)
+    {
+        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
+        return false;
+    }
+
+    CLevelDBBatch batch;
+    bool ret = true;
+
+    try {
+        batch.Write(std::make_pair(DB_SC_INFO, scId), info );
+        // do it synchronously (true)
+        ret = scDb->WriteBatch(batch, true);
+        if (ret)
+        {
+            LogPrint("sc", "%s():%d - wrote scId=%s in db\n", __func__, __LINE__, scId.ToString() );
+        }
+        else
+        {
+            LogPrint("sc", "%s():%d - Error: could not write scId=%s in db\n", __func__, __LINE__, scId.ToString() );
+        }
+    }
+    catch (const std::exception& e)
+    {
+        LogPrintf("%s():%d - Error: could not write scId=%s in db - %s\n", __func__, __LINE__, scId.ToString(), e.what());
+        ret = false;
+    }
+    catch (...)
+    {
+        LogPrintf("%s():%d - Error: could not write scId=%s in db\n", __func__, __LINE__, scId.ToString());
+        ret = false;
+    }
+    return ret;
+}
+
+bool CSidechainViewDB::Erase(const uint256& scId)  const
+{
+    if (scDb == nullptr)
+    {
+        LogPrintf("%s():%d - Error: sc persistence layer not initialized\n", __func__, __LINE__);
+        return false;
+    }
+
+    // erase from level db
+    CLevelDBBatch batch;
+    bool ret = false;
+
+    try {
+        batch.Erase(std::make_pair(DB_SC_INFO, scId));
+        ret = scDb->WriteBatch(batch, true);
+        if (ret)
+        {
+            LogPrint("sc", "%s():%d - erased scId=%s from db\n", __func__, __LINE__, scId.ToString() );
+        }
+        else
+        {
+            LogPrint("sc", "%s():%d - Error: could not erase scId=%s from db\n", __func__, __LINE__, scId.ToString() );
+        }
+    }
+    catch (const std::exception& e)
+    {
+        LogPrintf("%s():%d - Error: could not erase scId=%s in db - %s\n", __func__, __LINE__, scId.ToString(), e.what());
+    }
+    catch (...)
+    {
+        LogPrintf("%s():%d - Error: could not erase scId=%s in db\n", __func__, __LINE__, scId.ToString());
+    }
+    return ret;
+}
+
+void CSidechainViewDB::Dump_info()  const
+{
+    // dump leveldb contents on stdout
+    boost::scoped_ptr<leveldb::Iterator> it(scDb->NewIterator());
+
+    for (it->SeekToFirst(); it->Valid(); it->Next())
+    {
+        leveldb::Slice slKey = it->key();
+        CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
+        char chType;
+        uint256 keyScId;
+        ssKey >> chType;
+        ssKey >> keyScId;;
+
+        if (chType == DB_SC_INFO)
+        {
+            leveldb::Slice slValue = it->value();
+            CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
+            ScInfo info;
+            ssValue >> info;
+
+            std::cout
+                << "scId[" << keyScId.ToString() << "]" << std::endl
+                << "  ==> balance: " << FormatMoney(info.balance) << std::endl
+                << "  creating block hash: " << info.creationBlockHash.ToString() <<
+                   " (height: " << info.creationBlockHeight << ")" << std::endl
+                << "  creating tx hash: " << info.creationTxHash.ToString() << std::endl
+                // creation parameters
+                << "  withdrawalEpochLength: " << info.creationData.withdrawalEpochLength << std::endl;
+        }
+        else
+        {
+            std::cout << "unknown type " << chType << std::endl;
+        }
+    }
 }
 
 bool CSidechainViewDB::dump_info(const uint256& scId)
@@ -670,154 +812,5 @@ void CSidechainViewDB::dump_info()
         dump_info(scId);
     }
 
-    if (pLayer == nullptr)
-    {
-        return;
-    }
-
-    return pLayer->dump_info();
-}
-
-/********************** PERSISTENCE LAYER IMPLEMENTATION *********************/
-DbPersistance::DbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe)
-{
-    _db = new CLevelDBWrapper(GetDataDir() / "sidechains", nCacheSize, fMemory, fWipe);
-}
-
-DbPersistance::~DbPersistance() { delete _db; _db = nullptr; };
-
-bool DbPersistance::exists(const uint256& scId)
-{
-    return _db->Exists(std::make_pair(DB_SC_INFO, scId));
-}
-
-bool DbPersistance::read(const uint256& scId, ScInfo& info) {
-    return _db->Read(std::make_pair(DB_SC_INFO, scId), info);
-}
-
-bool DbPersistance::readAllKeys(std::set<uint256>& keysSet) {
-    boost::scoped_ptr<leveldb::Iterator> it(_db->NewIterator());
-    for (it->SeekToFirst(); it->Valid(); it->Next())
-    {
-        boost::this_thread::interruption_point();
-
-        leveldb::Slice slKey = it->key();
-        CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
-        char chType;
-        uint256 keyScId;
-        ssKey >> chType;
-        ssKey >> keyScId;;
-
-        if (chType == DB_SC_INFO)
-        {
-            keysSet.insert(keyScId);
-            LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, keyScId.ToString() );
-        }
-        else
-        {
-            // should never happen
-            LogPrintf("%s():%d - Error: could not read from db, invalid record type %c\n", __func__, __LINE__, chType);
-            return false;
-        }
-    }
-
-    return true;
-}
-
-bool DbPersistance::persist(const uint256& scId, const ScInfo& info)
-{
-    CLevelDBBatch batch;
-    bool ret = true;
-
-    try {
-        batch.Write(std::make_pair(DB_SC_INFO, scId), info );
-        // do it synchronously (true)
-        ret = _db->WriteBatch(batch, true);
-        if (ret)
-        {
-            LogPrint("sc", "%s():%d - wrote scId=%s in db\n", __func__, __LINE__, scId.ToString() );
-        }
-        else
-        {
-            LogPrint("sc", "%s():%d - Error: could not write scId=%s in db\n", __func__, __LINE__, scId.ToString() );
-        }
-    }
-    catch (const std::exception& e)
-    {
-        LogPrintf("%s():%d - Error: could not write scId=%s in db - %s\n", __func__, __LINE__, scId.ToString(), e.what());
-        ret = false;
-    }
-    catch (...)
-    {
-        LogPrintf("%s():%d - Error: could not write scId=%s in db\n", __func__, __LINE__, scId.ToString());
-        ret = false;
-    }
-    return ret;
-
-}
-
-bool DbPersistance::erase(const uint256& scId)
-{
-    // erase from level db
-    CLevelDBBatch batch;
-    bool ret = false;
-
-    try {
-        batch.Erase(std::make_pair(DB_SC_INFO, scId));
-        ret = _db->WriteBatch(batch, true);
-        if (ret)
-        {
-            LogPrint("sc", "%s():%d - erased scId=%s from db\n", __func__, __LINE__, scId.ToString() );
-        }
-        else
-        {
-            LogPrint("sc", "%s():%d - Error: could not erase scId=%s from db\n", __func__, __LINE__, scId.ToString() );
-        }
-    }
-    catch (const std::exception& e)
-    {
-        LogPrintf("%s():%d - Error: could not erase scId=%s in db - %s\n", __func__, __LINE__, scId.ToString(), e.what());
-    }
-    catch (...)
-    {
-        LogPrintf("%s():%d - Error: could not erase scId=%s in db\n", __func__, __LINE__, scId.ToString());
-    }
-    return ret;
-}
-
-void DbPersistance::dump_info()
-{
-    // dump leveldb contents on stdout
-    boost::scoped_ptr<leveldb::Iterator> it(_db->NewIterator());
-
-    for (it->SeekToFirst(); it->Valid(); it->Next())
-    {
-        leveldb::Slice slKey = it->key();
-        CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
-        char chType;
-        uint256 keyScId;
-        ssKey >> chType;
-        ssKey >> keyScId;;
-
-        if (chType == DB_SC_INFO)
-        {
-            leveldb::Slice slValue = it->value();
-            CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
-            ScInfo info;
-            ssValue >> info;
-
-            std::cout
-                << "scId[" << keyScId.ToString() << "]" << std::endl
-                << "  ==> balance: " << FormatMoney(info.balance) << std::endl
-                << "  creating block hash: " << info.creationBlockHash.ToString() <<
-                   " (height: " << info.creationBlockHeight << ")" << std::endl
-                << "  creating tx hash: " << info.creationTxHash.ToString() << std::endl
-                // creation parameters
-                << "  withdrawalEpochLength: " << info.creationData.withdrawalEpochLength << std::endl;
-        }
-        else
-        {
-            std::cout << "unknown type " << chType << std::endl;
-        }
-    }
+    return Dump_info();
 }
