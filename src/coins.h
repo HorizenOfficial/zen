@@ -18,6 +18,7 @@
 #include <boost/foreach.hpp>
 #include <boost/unordered_map.hpp>
 #include "zcash/IncrementalMerkleTree.hpp"
+#include <sc/sidechaintypes.h>
 
 /** 
  * Pruned version of CTransaction: only retains metadata and unspent transaction outputs
@@ -368,7 +369,8 @@ public:
                             const uint256 &hashBlock,
                             const uint256 &hashAnchor,
                             CAnchorsMap &mapAnchors,
-                            CNullifiersMap &mapNullifiers);
+                            CNullifiersMap &mapNullifiers,
+                            Sidechain::CSidechainsMap& mapSidechains);
 
     //! Calculate statistics about the unspent transaction output set
     virtual bool GetStats(CCoinsStats &stats) const;
@@ -397,7 +399,8 @@ public:
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers);
+                    CNullifiersMap &mapNullifiers,
+                    Sidechain::CSidechainsMap& mapSidechains);
     bool GetStats(CCoinsStats &stats) const;
 };
 
@@ -461,7 +464,8 @@ public:
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers);
+                    CNullifiersMap &mapNullifiers,
+                    Sidechain::CSidechainsMap& mapSidechains);
 
 
     // Adds the tree to mapAnchors and sets the current commitment

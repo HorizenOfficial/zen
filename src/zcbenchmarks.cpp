@@ -390,7 +390,8 @@ public:
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers) {
+                    CNullifiersMap &mapNullifiers,
+                    Sidechain::CSidechainsMap& mapSidechains) {
         return false;
     }
 

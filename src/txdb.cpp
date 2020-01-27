@@ -14,12 +14,14 @@
 #include <stdint.h>
 
 #include <boost/thread.hpp>
+#include <sc/sidechaintypes.h>
 
 using namespace std;
 
 static const char DB_ANCHOR = 'A';
 static const char DB_NULLIFIER = 's';
 static const char DB_COINS = 'c';
+static const char DB_SIDECHAINS = 'i';
 static const char DB_BLOCK_FILES = 'f';
 static const char DB_TXINDEX = 't';
 static const char DB_BLOCK_INDEX = 'b';
@@ -55,6 +57,22 @@ void static BatchWriteCoins(CLevelDBBatch &batch, const uint256 &hash, const CCo
         batch.Erase(make_pair(DB_COINS, hash));
     else
         batch.Write(make_pair(DB_COINS, hash), coins);
+}
+
+void static BatchSidechains(CLevelDBBatch &batch, const uint256 &scId, const Sidechain::CSidechainsCacheEntry &sidechain) {
+    switch (sidechain.flag) {
+        case Sidechain::CSidechainsCacheEntry::Flags::FRESH:
+        case Sidechain::CSidechainsCacheEntry::Flags::DIRTY:
+            batch.Write(make_pair(DB_SIDECHAINS, scId), sidechain.scInfo);
+            break;
+        case Sidechain::CSidechainsCacheEntry::Flags::ERASED:
+            batch.Erase(make_pair(DB_SIDECHAINS, scId));
+            break;
+        case Sidechain::CSidechainsCacheEntry::Flags::DEFAULT:
+        default:
+            break;
+    }
+    return;
 }
 
 void static BatchWriteHashBestChain(CLevelDBBatch &batch, const uint256 &hash) {
@@ -99,6 +117,46 @@ bool CCoinsViewDB::HaveCoins(const uint256 &txid) const {
     return db.Exists(make_pair(DB_COINS, txid));
 }
 
+bool CCoinsViewDB::GetScInfo(const uint256& scId, Sidechain::ScInfo& info) const
+{
+    return db.Read(std::make_pair(DB_SIDECHAINS, scId), info);
+}
+
+bool CCoinsViewDB::HaveScInfo(const uint256& scId) const
+{
+    return db.Exists(std::make_pair(DB_SIDECHAINS, scId));
+}
+
+bool CCoinsViewDB::queryScIds(std::set<uint256>& scIdsList) const
+{
+    std::unique_ptr<leveldb::Iterator> it(const_cast<CLevelDBWrapper*>(&db)->NewIterator());
+    for (it->SeekToFirst(); it->Valid(); it->Next())
+    {
+        boost::this_thread::interruption_point(); //ABENEGIA: remove?
+
+        leveldb::Slice slKey = it->key();
+        CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
+        char chType;
+        uint256 keyScId;
+        ssKey >> chType;
+        ssKey >> keyScId;;
+
+        if (chType == DB_SIDECHAINS)
+        {
+            scIdsList.insert(keyScId);
+            LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, keyScId.ToString() );
+        }
+        else
+        {
+            // should never happen
+            LogPrintf("%s():%d - Error: could not read from db, invalid record type %c\n", __func__, __LINE__, chType);
+            return false;
+        }
+    }
+
+    return true;
+}
+
 uint256 CCoinsViewDB::GetBestBlock() const {
     uint256 hashBestChain;
     if (!db.Read(DB_BEST_BLOCK, hashBestChain))
@@ -117,7 +175,8 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
                               const uint256 &hashBlock,
                               const uint256 &hashAnchor,
                               CAnchorsMap &mapAnchors,
-                              CNullifiersMap &mapNullifiers) {
+                              CNullifiersMap &mapNullifiers,
+                              Sidechain::CSidechainsMap& mapSidechains) {
     CLevelDBBatch batch;
     size_t count = 0;
     size_t changed = 0;
@@ -147,6 +206,12 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
         }
         CNullifiersMap::iterator itOld = it++;
         mapNullifiers.erase(itOld);
+    }
+
+    for (Sidechain::CSidechainsMap::iterator it = mapSidechains.begin(); it != mapSidechains.end();) {
+        BatchSidechains(batch, it->first, it->second);
+        Sidechain::CSidechainsMap::iterator itOld = it++;
+        mapSidechains.erase(itOld);
     }
 
     if (!hashBlock.IsNull())

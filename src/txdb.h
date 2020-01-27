@@ -13,6 +13,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <sc/sidechain.h>
 
 class CBlockFileInfo;
 class CBlockIndex;
@@ -27,7 +28,7 @@ static const int64_t nMaxDbCache = sizeof(void*) > 4 ? 16384 : 1024;
 static const int64_t nMinDbCache = 4;
 
 /** CCoinsView backed by the LevelDB coin database (chainstate/) */
-class CCoinsViewDB : public CCoinsView
+class CCoinsViewDB : public CCoinsView, public Sidechain::CSidechainsView
 {
 protected:
     CLevelDBWrapper db;
@@ -39,13 +40,17 @@ public:
     bool GetNullifier(const uint256 &nf) const;
     bool GetCoins(const uint256 &txid, CCoins &coins) const;
     bool HaveCoins(const uint256 &txid) const;
+    bool GetScInfo(const uint256& scId, Sidechain::ScInfo& info) const;
+    bool HaveScInfo(const uint256& scId) const;
+    bool queryScIds(std::set<uint256>& scIdsList) const;
     uint256 GetBestBlock() const;
     uint256 GetBestAnchor() const;
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers);
+                    CNullifiersMap &mapNullifiers,
+                    Sidechain::CSidechainsMap& mapSidechains);
     bool GetStats(CCoinsStats &stats) const;
 };
 
