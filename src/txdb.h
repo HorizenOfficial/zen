@@ -52,6 +52,7 @@ public:
                     CNullifiersMap &mapNullifiers,
                     Sidechain::CSidechainsMap& mapSidechains);
     bool GetStats(CCoinsStats &stats) const;
+    void Dump_info() const;
 };
 
 /** Access to the block database (blocks/index/) */

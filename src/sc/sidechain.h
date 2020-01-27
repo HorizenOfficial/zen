@@ -110,12 +110,11 @@ protected:
 
     bool Persist(const uint256& scId, const ScInfo& info) const;
     bool Erase(const uint256& scId) const;
-    void Dump_info() const;
 
 private:
     mutable CCriticalSection sc_lock;
     CLevelDBWrapper* scDb;
-}; 
+};
 
 }; // end of namespace
 

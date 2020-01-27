@@ -777,41 +777,4 @@ bool CSidechainViewDB::Erase(const uint256& scId)  const
     return ret;
 }
 
-void CSidechainViewDB::Dump_info()  const
-{
-    // dump leveldb contents on stdout
-    std::unique_ptr<leveldb::Iterator> it(scDb->NewIterator());
-
-    for (it->SeekToFirst(); it->Valid(); it->Next())
-    {
-        leveldb::Slice slKey = it->key();
-        CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
-        char chType;
-        uint256 keyScId;
-        ssKey >> chType;
-        ssKey >> keyScId;;
-
-        if (chType == DB_SC_INFO)
-        {
-            leveldb::Slice slValue = it->value();
-            CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
-            ScInfo info;
-            ssValue >> info;
-
-            std::cout
-                << "scId[" << keyScId.ToString() << "]" << std::endl
-                << "  ==> balance: " << FormatMoney(info.balance) << std::endl
-                << "  creating block hash: " << info.creationBlockHash.ToString() <<
-                   " (height: " << info.creationBlockHeight << ")" << std::endl
-                << "  creating tx hash: " << info.creationTxHash.ToString() << std::endl
-                // creation parameters
-                << "  withdrawalEpochLength: " << info.creationData.withdrawalEpochLength << std::endl;
-        }
-        else
-        {
-            std::cout << "unknown type " << chType << std::endl;
-        }
-    }
-}
-
 } // end of namespace
