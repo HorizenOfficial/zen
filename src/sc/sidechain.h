@@ -107,7 +107,7 @@ public:
     virtual bool GetScInfo(const uint256& scId, ScInfo& info) const = 0;
     virtual bool queryScIds(std::set<uint256>& scIdsList) const = 0;
 
-    virtual bool BatchWrite(const CSidechainsMap& sidechainMap) = 0;
+    virtual bool BatchWrite(CSidechainsMap& sidechainMap) = 0;
 };
 
 class CSidechainsViewBacked : public CSidechainsView
@@ -117,7 +117,7 @@ public:
     bool HaveScInfo(const uint256& scId)              const {return baseView.HaveScInfo(scId);}
     bool GetScInfo(const uint256& scId, ScInfo& info) const {return baseView.GetScInfo(scId,info);}
     bool queryScIds(std::set<uint256>& scIdsList)     const {return baseView.queryScIds(scIdsList);}
-    bool BatchWrite(const CSidechainsMap& sidechainMap)     {return baseView.BatchWrite(sidechainMap);}
+    bool BatchWrite(CSidechainsMap& sidechainMap)           {return baseView.BatchWrite(sidechainMap);}
 
 protected:
     CSidechainsView &baseView;
@@ -135,11 +135,12 @@ public:
     bool queryScIds(std::set<uint256>& scIdsList) const; //Similar to queryHashes
 
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
-    bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
+
+    bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
-    bool BatchWrite(const CSidechainsMap& sidechainMap);
+    bool BatchWrite(CSidechainsMap& sidechainMap);
     bool Flush();
 
 private:
@@ -156,7 +157,7 @@ public:
     bool initPersistence(size_t cacheSize, bool fWipe);
     void reset(); //utility for dtor and unit tests, hence public
 
-    bool BatchWrite(const CSidechainsMap& sidechainMap);
+    bool BatchWrite(CSidechainsMap& sidechainMap);
 
     bool HaveScInfo(const uint256& scId) const;
     bool GetScInfo(const uint256& scId, ScInfo& info) const;

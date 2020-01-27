@@ -26,7 +26,7 @@ public:
         return true;
     }
 
-    bool BatchWrite(const Sidechain::CSidechainsMap& sidechainMap) {
+    bool BatchWrite(Sidechain::CSidechainsMap& sidechainMap) {
         for (auto& entry : sidechainMap)
             switch (entry.second.flag) {
                 case Sidechain::CSidechainsCacheEntry::Flags::FRESH:
@@ -40,8 +40,8 @@ public:
                     break; //nothing to do. entry is already persisted and has not been modified
                 default:
                     return false;
-
             }
+        sidechainMap.clear();
         return true;
     }
 

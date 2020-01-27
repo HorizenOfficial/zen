@@ -301,6 +301,63 @@ bool CSidechainsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& bl
     return true;
 }
 
+bool CSidechainsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo)
+{
+    LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
+
+    std::set<uint256> allKnowScIds;
+    if (!queryScIds(allKnowScIds))
+        return false;
+
+    for(auto it_set = allKnowScIds.begin(); it_set != allKnowScIds.end(); ++it_set)
+    {
+        const uint256& scId = *it_set;
+        ScInfo info;
+        assert(GetScInfo(scId, info));
+
+        for(auto it_ia_map = info.mImmatureAmounts.begin(); it_ia_map != info.mImmatureAmounts.end(); )
+        {
+            int maturityHeight = it_ia_map->first;
+            CAmount a = it_ia_map->second;
+
+            LogPrint("sc", "%s():%d - adding immature balance entry into blockundo (h=%d, amount=%s) for scid=%s\n",
+                __func__, __LINE__, maturityHeight, FormatMoney(a), scId.ToString());
+
+            // store immature balances into the blockundo obj
+            blockundo.msc_iaundo[scId][maturityHeight] = a;
+
+            if (maturityHeight == blockHeight)
+            {
+                LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
+                    __func__, __LINE__, scId.ToString(), FormatMoney(info.balance));
+
+                // if maturity has been reached apply it to balance in scview
+                info.balance += a;
+
+                LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
+                    __func__, __LINE__, scId.ToString(), FormatMoney(info.balance));
+
+                // scview balance has been updated, remove the entry in scview immature map
+                it_ia_map = info.mImmatureAmounts.erase(it_ia_map);
+                cacheSidechains[scId] = CSidechainsCacheEntry(info, CSidechainsCacheEntry::Flags::DIRTY);
+            }
+            else
+            if (maturityHeight < blockHeight)
+            {
+                // should not happen
+                LogPrint("sc", "ERROR: %s():%d - scId=%s maturuty(%d) < blockHeight(%d)\n",
+                    __func__, __LINE__, scId.ToString(), maturityHeight, blockHeight);
+                return false;
+            }
+            else
+            {
+                ++it_ia_map;
+            }
+        }
+    }
+    return true;
+}
+
 bool CSidechainsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 {
     static const int SC_COIN_MATURITY = getScCoinsMaturity();
@@ -388,63 +445,6 @@ bool CSidechainsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
     return true;
 }
 
-bool CSidechainsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo)
-{
-    LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
-
-    std::set<uint256> allKnowScIds;
-    if (!queryScIds(allKnowScIds))
-        return false;
-
-    for(auto it_set = allKnowScIds.begin(); it_set != allKnowScIds.end(); ++it_set)
-    {
-        const uint256& scId = *it_set;
-        ScInfo info;
-        assert(GetScInfo(scId, info));
-
-        for(auto it_ia_map = info.mImmatureAmounts.begin(); it_ia_map != info.mImmatureAmounts.end(); )
-        {
-            int maturityHeight = it_ia_map->first;
-            CAmount a = it_ia_map->second;
-
-            LogPrint("sc", "%s():%d - adding immature balance entry into blockundo (h=%d, amount=%s) for scid=%s\n",
-                __func__, __LINE__, maturityHeight, FormatMoney(a), scId.ToString());
-
-            // store immature balances into the blockundo obj
-            blockundo.msc_iaundo[scId][maturityHeight] = a;
-
-            if (maturityHeight == blockHeight)
-            {
-                LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
-                    __func__, __LINE__, scId.ToString(), FormatMoney(info.balance));
-
-                // if maturity has been reached apply it to balance in scview
-                info.balance += a;
-
-                LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
-                    __func__, __LINE__, scId.ToString(), FormatMoney(info.balance));
-
-                // scview balance has been updated, remove the entry in scview immature map
-                it_ia_map = info.mImmatureAmounts.erase(it_ia_map);
-                cacheSidechains[scId] = CSidechainsCacheEntry(info, CSidechainsCacheEntry::Flags::DIRTY);
-            }
-            else
-            if (maturityHeight < blockHeight)
-            {
-                // should not happen
-                LogPrint("sc", "ERROR: %s():%d - scId=%s maturuty(%d) < blockHeight(%d)\n",
-                    __func__, __LINE__, scId.ToString(), maturityHeight, blockHeight);
-                return false;
-            }
-            else
-            {
-                ++it_ia_map;
-            }
-        }
-    }
-    return true;
-}
-
 bool CSidechainsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo& blockundo)
 {
     LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
@@ -499,11 +499,12 @@ bool CSidechainsViewCache::RestoreImmatureBalances(int blockHeight, const CBlock
     return true;
 }
 
-bool CSidechainsViewCache::BatchWrite(const CSidechainsMap& sidechainMap)
+bool CSidechainsViewCache::BatchWrite(CSidechainsMap& sidechainMap)
 {
     if (!baseView.BatchWrite(sidechainMap))
         return false;
 
+    sidechainMap.clear();
     return true;
 }
 
@@ -568,7 +569,7 @@ void CSidechainViewDB::reset()
     scDb = nullptr;
 }
 
-bool CSidechainViewDB::BatchWrite(const CSidechainsMap& sidechainMap)
+bool CSidechainViewDB::BatchWrite(CSidechainsMap& sidechainMap)
 {
     LOCK(sc_lock);
     if (scDb == nullptr)
@@ -598,6 +599,8 @@ bool CSidechainViewDB::BatchWrite(const CSidechainsMap& sidechainMap)
                 return false;
         }
     }
+
+    sidechainMap.clear();
 
     return true;
 }
