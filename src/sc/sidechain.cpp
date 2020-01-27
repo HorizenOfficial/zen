@@ -12,9 +12,10 @@
 #include <main.h>
 #include "leveldbwrapper.h"
 
-static const char DB_SC_INFO = 'i';
+namespace Sidechain
+{
 
-using namespace Sidechain;
+static const char DB_SC_INFO = 'i';
 
 /*************************** CSidechainsView INTERFACE ****************************/
 std::string ScInfo::ToString() const
@@ -40,7 +41,7 @@ std::string ScInfo::ToString() const
 }
 
 /*************************** VALIDATION FUNCTIONS ****************************/
-bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
+bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
 {
     // check version consistency
     if (!tx.IsScVersion() )
@@ -107,7 +108,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
     return true;
 }
 
-bool Sidechain::anyForwardTransaction(const CTransaction& tx, const uint256& scId)
+bool anyForwardTransaction(const CTransaction& tx, const uint256& scId)
 {
     for (const auto& fwd: tx.vft_ccout)
     {
@@ -119,7 +120,7 @@ bool Sidechain::anyForwardTransaction(const CTransaction& tx, const uint256& scI
     return false;
 }
 
-bool Sidechain::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
+bool hasScCreationOutput(const CTransaction& tx, const uint256& scId)
 {
     for (const auto& sc: tx.vsc_ccout)
     {
@@ -131,7 +132,7 @@ bool Sidechain::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
     return false;
 }
 
-bool Sidechain::existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
+bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
 {
     //Check for conflicts in mempool
     for (const auto& sc: tx.vsc_ccout)
@@ -183,7 +184,7 @@ bool CSidechainsViewCache::HaveDependencies(const CTransaction& tx)
         if (!HaveScInfo(scId))
         {
             // return error unless we are creating this sc in the current tx
-            if (!Sidechain::hasScCreationOutput(tx, scId) )
+            if (!hasScCreationOutput(tx, scId) )
             {
                 LogPrint("sc", "%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",
                     __func__, __LINE__, txHash.ToString(), scId.ToString() );
@@ -812,3 +813,5 @@ void CSidechainViewDB::Dump_info()  const
         }
     }
 }
+
+} // end of namespace
