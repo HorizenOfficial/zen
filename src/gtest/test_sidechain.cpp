@@ -660,18 +660,148 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// BatchWrite ///////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainTestSuite, BatchWriteStoreNewSidechainsInCache) {
-    uint256 scId = uint256S("a1b2");
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1000));
-    CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+TEST_F(SidechainTestSuite, FRESHSidechainsGetWrittenInBackingCache) {
+    uint256 scId = uint256S("aaaa");
+    Sidechain::CSidechainsMap mapToWrite;
+    Sidechain::CSidechainsCacheEntry entry;
+    entry.scInfo = Sidechain::ScInfo();
+    entry.flag   = Sidechain::CSidechainsCacheEntry::Flags::FRESH;
 
-    //test
-    bool res = sidechainsView.Flush();
+    mapToWrite[scId] = entry;
+
+    //write new sidechain when backing view doesn't know about it
+    bool res = sidechainsView.BatchWrite(mapToWrite);
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_TRUE(sidechainsDb.HaveScInfo(scId));
+    EXPECT_TRUE(sidechainsView.HaveScInfo(scId));
+}
+
+TEST_F(SidechainTestSuite, FRESHSidechainsCanBeWrittenOnlyIfUnknownToBackingCache) {
+    //Prefill backing cache with sidechain
+    uint256 scId = uint256S("aaaa");
+    CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
+    sidechainsView.UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
+
+    //attempt to write new sidechain when backing view already knows about it
+    Sidechain::CSidechainsMap mapToWrite;
+    Sidechain::CSidechainsCacheEntry entry;
+    entry.scInfo = Sidechain::ScInfo();
+    entry.flag   = Sidechain::CSidechainsCacheEntry::Flags::FRESH;
+
+    mapToWrite[scId] = entry;
+
+    ASSERT_DEATH(sidechainsView.BatchWrite(mapToWrite),"");
+}
+
+TEST_F(SidechainTestSuite, DIRTYSidechainsAreStoredInBackingCache) {
+    uint256 scId = uint256S("aaaa");
+    Sidechain::CSidechainsMap mapToWrite;
+    Sidechain::CSidechainsCacheEntry entry;
+    entry.scInfo = Sidechain::ScInfo();
+    entry.flag   = Sidechain::CSidechainsCacheEntry::Flags::FRESH;
+
+    mapToWrite[scId] = entry;
+
+    //write dirty sidechain when backing view doesn't know about it
+    bool res = sidechainsView.BatchWrite(mapToWrite);
+
+    //checks
+    EXPECT_TRUE(res);
+    EXPECT_TRUE(sidechainsView.HaveScInfo(scId));
+}
+
+TEST_F(SidechainTestSuite, DIRTYSidechainsUpdatesDirtyOnesInBackingCache) {
+    uint256 scId = uint256S("aaaa");
+    CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
+    sidechainsView.UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
+
+    Sidechain::CSidechainsMap mapToWrite;
+    Sidechain::CSidechainsCacheEntry entry;
+    Sidechain::ScInfo updatedScInfo;
+    updatedScInfo.balance = CAmount(12);
+    entry.scInfo = updatedScInfo;
+    entry.flag   = Sidechain::CSidechainsCacheEntry::Flags::DIRTY;
+
+    mapToWrite[scId] = entry;
+
+    //write dirty sidechain when backing view already knows about it
+    bool res = sidechainsView.BatchWrite(mapToWrite);
+
+    //checks
+    EXPECT_TRUE(res);
+    Sidechain::ScInfo cachedSc;
+    EXPECT_TRUE(sidechainsView.GetScInfo(scId, cachedSc));
+    EXPECT_TRUE(cachedSc.balance == CAmount(12) );
+}
+
+TEST_F(SidechainTestSuite, DIRTYSidechainsOverwriteErasedOnesInBackingCache) {
+    //Create sidechain...
+    uint256 scId = uint256S("aaaa");
+    CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
+    sidechainsView.UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
+
+    //...then revert it to have it erased
+    sidechainsView.RevertTxOutputs(scTx, /*nHeight*/1000);
+    ASSERT_FALSE(sidechainsView.HaveScInfo(scId));
+
+    Sidechain::CSidechainsMap mapToWrite;
+    Sidechain::CSidechainsCacheEntry entry;
+    Sidechain::ScInfo updatedScInfo;
+    updatedScInfo.balance = CAmount(12);
+    entry.scInfo = updatedScInfo;
+    entry.flag   = Sidechain::CSidechainsCacheEntry::Flags::DIRTY;
+
+    mapToWrite[scId] = entry;
+
+    //write dirty sidechain when backing view have it erased
+    bool res = sidechainsView.BatchWrite(mapToWrite);
+
+    //checks
+    EXPECT_TRUE(res);
+    Sidechain::ScInfo cachedSc;
+    EXPECT_TRUE(sidechainsView.GetScInfo(scId, cachedSc));
+    EXPECT_TRUE(cachedSc.balance == CAmount(12) );
+}
+
+TEST_F(SidechainTestSuite, ERASEDSidechainsSetExistingOnesInBackingCacheasErased) {
+    uint256 scId = uint256S("aaaa");
+    CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
+    sidechainsView.UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
+
+    Sidechain::CSidechainsMap mapToWrite;
+    Sidechain::CSidechainsCacheEntry entry;
+    Sidechain::ScInfo updatedScInfo;
+    updatedScInfo.balance = CAmount(12);
+    entry.scInfo = updatedScInfo;
+    entry.flag   = Sidechain::CSidechainsCacheEntry::Flags::ERASED;
+
+    mapToWrite[scId] = entry;
+
+    //write dirty sidechain when backing view have it erased
+    bool res = sidechainsView.BatchWrite(mapToWrite);
+
+    //checks
+    EXPECT_TRUE(res);
+    EXPECT_FALSE(sidechainsView.HaveScInfo(scId));
+}
+
+TEST_F(SidechainTestSuite, DEFAULTSidechainsCanBeWrittenInBackingCacheasOnlyIfUnchanged) {
+    uint256 scId = uint256S("aaaa");
+    CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
+    sidechainsView.UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
+
+    Sidechain::CSidechainsMap mapToWrite;
+    Sidechain::CSidechainsCacheEntry entry;
+    Sidechain::ScInfo updatedScInfo;
+    updatedScInfo.balance = CAmount(12);
+    entry.scInfo = updatedScInfo;
+    entry.flag   = Sidechain::CSidechainsCacheEntry::Flags::DEFAULT;
+
+    mapToWrite[scId] = entry;
+
+    //write dirty sidechain when backing view have it erased
+    ASSERT_DEATH(sidechainsView.BatchWrite(mapToWrite),"");
 }
 
 ///////////////////////////////////////////////////////////////////////////////

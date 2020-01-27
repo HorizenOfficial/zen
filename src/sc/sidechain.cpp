@@ -518,7 +518,7 @@ bool CSidechainsViewCache::BatchWrite(CSidechainsMap& sidechainMap)
                 break;
             case CSidechainsCacheEntry::Flags::DEFAULT:
                 assert(itLocalCacheEntry != cacheSidechains.end());
-                assert(itLocalCacheEntry->second.scInfo == entryToWrite.second.scInfo);
+                assert(itLocalCacheEntry->second.scInfo == entryToWrite.second.scInfo); //entry declared default is indeed different from backed value
                 break; //nothing to do. entry is already persisted and has not been modified
             default:
                 assert(false);

@@ -99,8 +99,6 @@ class CSidechainsView
 {
 public:
     CSidechainsView() = default;
-    CSidechainsView(const CSidechainsView&) = delete;
-    CSidechainsView& operator=(const CSidechainsView &) = delete;
     virtual ~CSidechainsView() = default;
 
     virtual bool HaveScInfo(const uint256& scId) const = 0;
@@ -127,7 +125,8 @@ class CSidechainsViewCache : public CSidechainsViewBacked
 {
 public:
     CSidechainsViewCache(CSidechainsView& scView);
-
+    CSidechainsViewCache(const CSidechainsViewCache&) = delete;             //as in coins, forbid building cache on top of another
+    CSidechainsViewCache& operator=(const CSidechainsViewCache &) = delete;
     bool HaveDependencies(const CTransaction& tx);
 
     bool HaveScInfo(const uint256& scId) const;
