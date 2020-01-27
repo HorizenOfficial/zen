@@ -9,10 +9,10 @@
 #include <undo.h>
 #include <main.h>
 
-class CFakeSidechainDb final: public Sidechain::CSidechainsView {
+class CInMemorySidechainDb final: public Sidechain::CSidechainsView {
 public:
-    CFakeSidechainDb()  = default;
-    ~CFakeSidechainDb() = default;
+    CInMemorySidechainDb()  = default;
+    ~CInMemorySidechainDb() = default;
 
     bool HaveScInfo(const uint256& scId) const { return inMemoryMap.count(scId); }
     bool GetScInfo(const uint256& scId, Sidechain::ScInfo& info) const {
@@ -58,16 +58,17 @@ class SidechainTestSuite: public ::testing::Test {
 
 public:
     SidechainTestSuite():
-        pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path()),
-        chainStateDbSize(2 * 1024 * 1024),
-        chainStateDb(nullptr),
-        sidechainsView(nullptr) {};
+        pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path())
+        , chainStateDbSize(2 * 1024 * 1024)
+        , chainStateDb(nullptr)
+        , sidechainsView(nullptr) {};
 
     ~SidechainTestSuite() = default;
 
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
         chainStateDb   = new CCoinsViewDB(chainStateDbSize,/*fWipe*/true);
+        //chainStateDb   = new CInMemorySidechainDb; //Use this in alternative to CCoinsViewDB to avoid instantiating a db
         sidechainsView = new Sidechain::CSidechainsViewCache(*chainStateDb);
     };
 
@@ -83,6 +84,7 @@ protected:
     boost::filesystem::path         pathTemp;
     const unsigned int              chainStateDbSize;
     CCoinsViewDB                    *chainStateDb;
+    //CInMemorySidechainDb            *chainStateDb; //Use this in alternative to CCoinsViewDB to avoid instantiating a db
     Sidechain::CSidechainsViewCache *sidechainsView;
 
     //Helpers
