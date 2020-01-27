@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include "tx_creation_utils.h"
 #include <sc/sidechain.h>
+#include <boost/filesystem.hpp>
+#include <txdb.h>
 #include <chainparams.h>
 #include <consensus/validation.h>
 #include <txmempool.h>
@@ -55,20 +57,33 @@ private:
 class SidechainTestSuite: public ::testing::Test {
 
 public:
-    SidechainTestSuite(): sidechainsDb(), sidechainsView(sidechainsDb){};
+    SidechainTestSuite():
+        pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path()),
+        chainStateDbSize(2 * 1024 * 1024),
+        chainStateDb(nullptr),
+        sidechainsView(nullptr) {};
 
     ~SidechainTestSuite() = default;
 
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
+        chainStateDb   = new CCoinsViewDB(chainStateDbSize,/*fWipe*/true);
+        sidechainsView = new Sidechain::CSidechainsViewCache(*chainStateDb);
     };
 
-    void TearDown() override {};
+    void TearDown() override {
+        delete sidechainsView;
+        sidechainsView = nullptr;
+
+        delete chainStateDb;
+        chainStateDb = nullptr;
+    };
 
 protected:
-    //Subjects under test
-    CFakeSidechainDb                sidechainsDb;
-    Sidechain::CSidechainsViewCache sidechainsView;
+    boost::filesystem::path         pathTemp;
+    const unsigned int              chainStateDbSize;
+    CCoinsViewDB                    *chainStateDb;
+    Sidechain::CSidechainsViewCache *sidechainsView;
 
     //Helpers
     CBlockUndo   createBlockUndoWith(const uint256 & scId, int height, CAmount amount);
@@ -222,7 +237,7 @@ TEST_F(SidechainTestSuite, NewScCreationsHaveTheRightDependencies) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(uint256S("1492"), CAmount(1953));
 
     //test
-    bool res = sidechainsView.HaveDependencies(aTransaction);
+    bool res = sidechainsView->HaveDependencies(aTransaction);
 
     //checks
     EXPECT_TRUE(res);
@@ -232,12 +247,12 @@ TEST_F(SidechainTestSuite, DuplicatedScCreationsHaveNotTheRightDependencies) {
     uint256 scId = uint256S("1492");
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1953));
     CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
 
     CTransaction duplicatedTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1815));
 
     //test
-    bool res = sidechainsView.HaveDependencies(duplicatedTx);
+    bool res = sidechainsView->HaveDependencies(duplicatedTx);
 
     //checks
     EXPECT_FALSE(res);
@@ -247,12 +262,12 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsHaveTheRightDependencies
     uint256 scId = uint256S("1492");
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1953));
     CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
 
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
 
     //test
-    bool res = sidechainsView.HaveDependencies(aTransaction);
+    bool res = sidechainsView->HaveDependencies(aTransaction);
 
     //checks
     EXPECT_TRUE(res);
@@ -262,7 +277,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsHaveNotTheRightDepend
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(uint256S("1492"), CAmount(1815));
 
     //test
-    bool res = sidechainsView.HaveDependencies(aTransaction);
+    bool res = sidechainsView->HaveDependencies(aTransaction);
 
     //checks
     EXPECT_FALSE(res);
@@ -335,21 +350,21 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceBeforeCoins
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, initialAmount);
     int scCreationHeight = 5;
     CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
     int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
     int lookupBlockHeight = coinMaturityHeight - 1;
     CBlockUndo anEmptyBlockUndo;
 
     //test
-    bool res = sidechainsView.ApplyMatureBalances(lookupBlockHeight, anEmptyBlockUndo);
+    bool res = sidechainsView->ApplyMatureBalances(lookupBlockHeight, anEmptyBlockUndo);
 
     //check
     EXPECT_TRUE(res);
 
-    sidechainsView.Flush();
+    sidechainsView->Flush();
     Sidechain::ScInfo mgrInfos;
-    ASSERT_TRUE(sidechainsDb.GetScInfo(scId, mgrInfos));
+    ASSERT_TRUE(chainStateDb->GetScInfo(scId, mgrInfos));
     EXPECT_TRUE(mgrInfos.balance < initialAmount)
         <<"resulting balance is "<<mgrInfos.balance <<" while initial amount is "<<initialAmount;
 }
@@ -360,21 +375,21 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferModifiesScBalanceAtCoinMaturity) 
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, initialAmount);
     int scCreationHeight = 7;
     CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
     int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
     int lookupBlockHeight = coinMaturityHeight;
     CBlockUndo anEmptyBlockUndo;
 
     //test
-    bool res = sidechainsView.ApplyMatureBalances(lookupBlockHeight, anEmptyBlockUndo);
+    bool res = sidechainsView->ApplyMatureBalances(lookupBlockHeight, anEmptyBlockUndo);
 
     //checks
     EXPECT_TRUE(res);
 
-    sidechainsView.Flush();
+    sidechainsView->Flush();
     Sidechain::ScInfo mgrInfos;
-    ASSERT_TRUE(sidechainsDb.GetScInfo(scId, mgrInfos));
+    ASSERT_TRUE(chainStateDb->GetScInfo(scId, mgrInfos));
     EXPECT_TRUE(mgrInfos.balance == initialAmount)
         <<"resulting balance is "<<mgrInfos.balance <<" expected one is "<<initialAmount;
 }
@@ -385,21 +400,21 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceAfterCoinsM
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, initialAmount);
     int scCreationHeight = 11;
     CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
     int coinMaturityHeight = /*height*/int(1789) + Params().ScCoinsMaturity();
     int lookupBlockHeight = coinMaturityHeight + 1;
     CBlockUndo anEmptyBlockUndo;
 
     //test
-    bool res = sidechainsView.ApplyMatureBalances(lookupBlockHeight, anEmptyBlockUndo);
+    bool res = sidechainsView->ApplyMatureBalances(lookupBlockHeight, anEmptyBlockUndo);
 
     //check
     EXPECT_FALSE(res);
 
-    sidechainsView.Flush();
+    sidechainsView->Flush();
     Sidechain::ScInfo mgrInfos;
-    ASSERT_TRUE(sidechainsDb.GetScInfo(scId, mgrInfos));
+    ASSERT_TRUE(chainStateDb->GetScInfo(scId, mgrInfos));
     EXPECT_TRUE(mgrInfos.balance < initialAmount)
         <<"resulting balance is "<<mgrInfos.balance <<" while initial amount is "<<initialAmount;
 }
@@ -412,24 +427,24 @@ TEST_F(SidechainTestSuite, RestoreImmatureBalancesAffectsScBalance) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(34));
     int scCreationHeight = 71;
     CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, scCreationHeight);
     CBlockUndo aBlockUndo;
 
-    sidechainsView.ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity(), aBlockUndo);
+    sidechainsView->ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity(), aBlockUndo);
 
     Sidechain::ScInfo viewInfos;
-    ASSERT_TRUE(sidechainsView.GetScInfo(scId, viewInfos));
+    ASSERT_TRUE(sidechainsView->GetScInfo(scId, viewInfos));
     CAmount scBalance = viewInfos.balance;
 
     CAmount amountToUndo = 17;
     aBlockUndo = createBlockUndoWith(scId,scCreationHeight,amountToUndo);
 
     //test
-    bool res = sidechainsView.RestoreImmatureBalances(scCreationHeight, aBlockUndo);
+    bool res = sidechainsView->RestoreImmatureBalances(scCreationHeight, aBlockUndo);
 
     //checks
     EXPECT_TRUE(res);
-    ASSERT_TRUE(sidechainsView.GetScInfo(scId, viewInfos));
+    ASSERT_TRUE(sidechainsView->GetScInfo(scId, viewInfos));
     EXPECT_TRUE(viewInfos.balance == scBalance - amountToUndo)
         <<"balance after restore is "<<viewInfos.balance
         <<" instead of"<< scBalance - amountToUndo;
@@ -440,22 +455,22 @@ TEST_F(SidechainTestSuite, YouCannotRestoreMoreCoinsThanAvailableBalance) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(34));
     int scCreationHeight = 1991;
     CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, scCreationHeight);
     CBlockUndo aBlockUndo;
 
-    sidechainsView.ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity(), aBlockUndo);
+    sidechainsView->ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity(), aBlockUndo);
     Sidechain::ScInfo viewInfos;
-    ASSERT_TRUE(sidechainsView.GetScInfo(scId, viewInfos));
+    ASSERT_TRUE(sidechainsView->GetScInfo(scId, viewInfos));
     CAmount scBalance = viewInfos.balance;
 
     aBlockUndo = createBlockUndoWith(scId,scCreationHeight,CAmount(50));
 
     //test
-    bool res = sidechainsView.RestoreImmatureBalances(scCreationHeight, aBlockUndo);
+    bool res = sidechainsView->RestoreImmatureBalances(scCreationHeight, aBlockUndo);
 
     //checks
     EXPECT_FALSE(res);
-    ASSERT_TRUE(sidechainsView.GetScInfo(scId, viewInfos));
+    ASSERT_TRUE(sidechainsView->GetScInfo(scId, viewInfos));
     EXPECT_TRUE(viewInfos.balance == scBalance)
         <<"balance after restore is "<<viewInfos.balance <<" instead of"<< scBalance;
 }
@@ -465,20 +480,20 @@ TEST_F(SidechainTestSuite, RestoringBeforeBalanceMaturesHasNoEffects) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(34));
     int scCreationHeight = 71;
     CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, scCreationHeight);
     CBlockUndo aBlockUndo;
 
-    sidechainsView.ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity() -1, aBlockUndo);
+    sidechainsView->ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity() -1, aBlockUndo);
 
     aBlockUndo = createBlockUndoWith(scId,scCreationHeight,CAmount(17));
 
     //test
-    bool res = sidechainsView.RestoreImmatureBalances(scCreationHeight, aBlockUndo);
+    bool res = sidechainsView->RestoreImmatureBalances(scCreationHeight, aBlockUndo);
 
     //checks
     EXPECT_FALSE(res);
     Sidechain::ScInfo viewInfos;
-    ASSERT_TRUE(sidechainsView.GetScInfo(scId, viewInfos));
+    ASSERT_TRUE(sidechainsView->GetScInfo(scId, viewInfos));
     EXPECT_TRUE(viewInfos.balance == 0)
         <<"balance after restore is "<<viewInfos.balance <<" instead of 0";
 }
@@ -492,7 +507,7 @@ TEST_F(SidechainTestSuite, YouCannotRestoreCoinsFromInexistentSc) {
     CBlockUndo aBlockUndo = createBlockUndoWith(inexistentScId,scCreationHeight,amountToUndo);
 
     //test
-    bool res = sidechainsView.RestoreImmatureBalances(scCreationHeight, aBlockUndo);
+    bool res = sidechainsView->RestoreImmatureBalances(scCreationHeight, aBlockUndo);
 
     //checks
     EXPECT_FALSE(res);
@@ -506,14 +521,14 @@ TEST_F(SidechainTestSuite, RevertingScCreationTxRemovesTheSc) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     int scCreationHeight = 1;
     CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
     //test
-    bool res = sidechainsView.RevertTxOutputs(aTransaction, scCreationHeight);
+    bool res = sidechainsView->RevertTxOutputs(aTransaction, scCreationHeight);
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_FALSE(sidechainsView.HaveScInfo(scId));
+    EXPECT_FALSE(sidechainsView->HaveScInfo(scId));
 }
 
 TEST_F(SidechainTestSuite, RevertingFwdTransferRemovesCoinsFromImmatureBalance) {
@@ -521,19 +536,19 @@ TEST_F(SidechainTestSuite, RevertingFwdTransferRemovesCoinsFromImmatureBalance) 
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     int scCreationHeight = 1;
     CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
     int fwdTxHeight = 5;
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(7));
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, fwdTxHeight);
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, fwdTxHeight);
 
     //test
-    bool res = sidechainsView.RevertTxOutputs(aTransaction, fwdTxHeight);
+    bool res = sidechainsView->RevertTxOutputs(aTransaction, fwdTxHeight);
 
     //checks
     EXPECT_TRUE(res);
     Sidechain::ScInfo viewInfos;
-    ASSERT_TRUE(sidechainsView.GetScInfo(scId, viewInfos));
+    ASSERT_TRUE(sidechainsView->GetScInfo(scId, viewInfos));
     EXPECT_TRUE(viewInfos.mImmatureAmounts.count(fwdTxHeight + Params().ScCoinsMaturity()) == 0)
         <<"resulting immature amount is "<< viewInfos.mImmatureAmounts.count(fwdTxHeight + Params().ScCoinsMaturity());
 }
@@ -542,7 +557,7 @@ TEST_F(SidechainTestSuite, ScCreationTxCannotBeRevertedIfScIsNotPreviouslyCreate
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(uint256S("a1b2"),CAmount(15));
 
     //test
-    bool res = sidechainsView.RevertTxOutputs(aTransaction, /*height*/int(1789));
+    bool res = sidechainsView->RevertTxOutputs(aTransaction, /*height*/int(1789));
 
     //checks
     EXPECT_FALSE(res);
@@ -552,7 +567,7 @@ TEST_F(SidechainTestSuite, FwdTransferTxToUnexistingScCannotBeReverted) {
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(uint256S("a1b2"), CAmount(999));
 
     //test
-    bool res = sidechainsView.RevertTxOutputs(aTransaction, /*height*/int(1789));
+    bool res = sidechainsView->RevertTxOutputs(aTransaction, /*height*/int(1789));
 
     //checks
     EXPECT_FALSE(res);
@@ -563,21 +578,21 @@ TEST_F(SidechainTestSuite, RevertingAFwdTransferOnTheWrongHeightHasNoEffect) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     int scCreationHeight = 1;
     CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
     int fwdTxHeight = 5;
     CAmount fwdAmount = 7;
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount);
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, fwdTxHeight);
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, fwdTxHeight);
 
     //test
     int faultyHeight = fwdTxHeight -1;
-    bool res = sidechainsView.RevertTxOutputs(aTransaction, faultyHeight);
+    bool res = sidechainsView->RevertTxOutputs(aTransaction, faultyHeight);
 
     //checks
     EXPECT_FALSE(res);
     Sidechain::ScInfo viewInfos;
-    ASSERT_TRUE(sidechainsView.GetScInfo(scId, viewInfos));
+    ASSERT_TRUE(sidechainsView->GetScInfo(scId, viewInfos));
     EXPECT_TRUE(viewInfos.mImmatureAmounts.at(fwdTxHeight + Params().ScCoinsMaturity()) == fwdAmount)
         <<"Immature amount is "<<viewInfos.mImmatureAmounts.at(fwdTxHeight + Params().ScCoinsMaturity())
         <<"instead of "<<fwdAmount;
@@ -593,23 +608,23 @@ TEST_F(SidechainTestSuite, NewSCsAreRegistered) {
     CBlock aBlock;
 
     //test
-    bool res = sidechainsView.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+    bool res = sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
 
     //check
     EXPECT_TRUE(res);
-    EXPECT_TRUE(sidechainsView.HaveScInfo(newScId));
+    EXPECT_TRUE(sidechainsView->HaveScInfo(newScId));
 }
 
 TEST_F(SidechainTestSuite, DuplicatedSCsAreRejected) {
     uint256 scId = uint256S("1492");
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1));
     CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
 
     CTransaction duplicatedTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(999));
 
     //test
-    bool res = sidechainsView.UpdateScInfo(duplicatedTx, aBlock, /*height*/int(1789));
+    bool res = sidechainsView->UpdateScInfo(duplicatedTx, aBlock, /*height*/int(1789));
 
     //check
     EXPECT_FALSE(res);
@@ -624,12 +639,12 @@ TEST_F(SidechainTestSuite, NoRollbackIsPerformedOnceInvalidTransactionIsEncounte
     txCreationUtils::extendTransaction(aTransaction, secondScId, CAmount(30));
 
     //test
-    bool res = sidechainsView.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+    bool res = sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
 
     //check
     EXPECT_FALSE(res);
-    EXPECT_TRUE(sidechainsView.HaveScInfo(firstScId));
-    EXPECT_FALSE(sidechainsView.HaveScInfo(secondScId));
+    EXPECT_TRUE(sidechainsView->HaveScInfo(firstScId));
+    EXPECT_FALSE(sidechainsView->HaveScInfo(secondScId));
 }
 
 TEST_F(SidechainTestSuite, ForwardTransfersToNonExistentSCsAreRejected) {
@@ -638,23 +653,23 @@ TEST_F(SidechainTestSuite, ForwardTransfersToNonExistentSCsAreRejected) {
     CBlock aBlock;
 
     //test
-    bool res = sidechainsView.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+    bool res = sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
 
     //check
     EXPECT_FALSE(res);
-    EXPECT_FALSE(sidechainsView.HaveScInfo(nonExistentId));
+    EXPECT_FALSE(sidechainsView->HaveScInfo(nonExistentId));
 }
 
 TEST_F(SidechainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
     uint256 newScId = uint256S("1492");
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(newScId, CAmount(5));
     CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
 
     aTransaction = txCreationUtils::createFwdTransferTxWith(newScId, CAmount(15));
 
     //test
-    bool res = sidechainsView.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+    bool res = sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
 
     //check
     EXPECT_TRUE(res);
@@ -680,11 +695,11 @@ TEST_F(SidechainTestSuite, FRESHSidechainsGetWrittenInBackingCache) {
     mapToWrite[scId] = entry;
 
     //write new sidechain when backing view doesn't know about it
-    bool res = sidechainsView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
+    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_TRUE(sidechainsView.HaveScInfo(scId));
+    EXPECT_TRUE(sidechainsView->HaveScInfo(scId));
 }
 
 TEST_F(SidechainTestSuite, FRESHSidechainsCanBeWrittenOnlyIfUnknownToBackingCache) {
@@ -698,7 +713,7 @@ TEST_F(SidechainTestSuite, FRESHSidechainsCanBeWrittenOnlyIfUnknownToBackingCach
     //Prefill backing cache with sidechain
     uint256 scId = uint256S("aaaa");
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
-    sidechainsView.UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
+    sidechainsView->UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
 
     //attempt to write new sidechain when backing view already knows about it
     Sidechain::CSidechainsMap mapToWrite;
@@ -708,7 +723,7 @@ TEST_F(SidechainTestSuite, FRESHSidechainsCanBeWrittenOnlyIfUnknownToBackingCach
 
     mapToWrite[scId] = entry;
 
-    ASSERT_DEATH(sidechainsView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite),"");
+    ASSERT_DEATH(sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite),"");
 }
 
 TEST_F(SidechainTestSuite, DIRTYSidechainsAreStoredInBackingCache) {
@@ -728,11 +743,11 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsAreStoredInBackingCache) {
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view doesn't know about it
-    bool res = sidechainsView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
+    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_TRUE(sidechainsView.HaveScInfo(scId));
+    EXPECT_TRUE(sidechainsView->HaveScInfo(scId));
 }
 
 TEST_F(SidechainTestSuite, DIRTYSidechainsUpdatesDirtyOnesInBackingCache) {
@@ -745,7 +760,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsUpdatesDirtyOnesInBackingCache) {
 
     uint256 scId = uint256S("aaaa");
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
-    sidechainsView.UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
+    sidechainsView->UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
 
     Sidechain::CSidechainsMap mapToWrite;
     Sidechain::CSidechainsCacheEntry entry;
@@ -757,12 +772,12 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsUpdatesDirtyOnesInBackingCache) {
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view already knows about it
-    bool res = sidechainsView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
+    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
 
     //checks
     EXPECT_TRUE(res);
     Sidechain::ScInfo cachedSc;
-    EXPECT_TRUE(sidechainsView.GetScInfo(scId, cachedSc));
+    EXPECT_TRUE(sidechainsView->GetScInfo(scId, cachedSc));
     EXPECT_TRUE(cachedSc.balance == CAmount(12) );
 }
 
@@ -777,11 +792,11 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsOverwriteErasedOnesInBackingCache) {
     //Create sidechain...
     uint256 scId = uint256S("aaaa");
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
-    sidechainsView.UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
+    sidechainsView->UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
 
     //...then revert it to have it erased
-    sidechainsView.RevertTxOutputs(scTx, /*nHeight*/1000);
-    ASSERT_FALSE(sidechainsView.HaveScInfo(scId));
+    sidechainsView->RevertTxOutputs(scTx, /*nHeight*/1000);
+    ASSERT_FALSE(sidechainsView->HaveScInfo(scId));
 
     Sidechain::CSidechainsMap mapToWrite;
     Sidechain::CSidechainsCacheEntry entry;
@@ -793,12 +808,12 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsOverwriteErasedOnesInBackingCache) {
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view have it erased
-    bool res = sidechainsView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
+    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
 
     //checks
     EXPECT_TRUE(res);
     Sidechain::ScInfo cachedSc;
-    EXPECT_TRUE(sidechainsView.GetScInfo(scId, cachedSc));
+    EXPECT_TRUE(sidechainsView->GetScInfo(scId, cachedSc));
     EXPECT_TRUE(cachedSc.balance == CAmount(12) );
 }
 
@@ -812,7 +827,7 @@ TEST_F(SidechainTestSuite, ERASEDSidechainsSetExistingOnesInBackingCacheasErased
 
     uint256 scId = uint256S("aaaa");
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
-    sidechainsView.UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
+    sidechainsView->UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
 
     Sidechain::CSidechainsMap mapToWrite;
     Sidechain::CSidechainsCacheEntry entry;
@@ -824,11 +839,11 @@ TEST_F(SidechainTestSuite, ERASEDSidechainsSetExistingOnesInBackingCacheasErased
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view have it erased
-    bool res = sidechainsView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
+    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_FALSE(sidechainsView.HaveScInfo(scId));
+    EXPECT_FALSE(sidechainsView->HaveScInfo(scId));
 }
 
 TEST_F(SidechainTestSuite, DEFAULTSidechainsCanBeWrittenInBackingCacheasOnlyIfUnchanged) {
@@ -841,7 +856,7 @@ TEST_F(SidechainTestSuite, DEFAULTSidechainsCanBeWrittenInBackingCacheasOnlyIfUn
 
     uint256 scId = uint256S("aaaa");
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
-    sidechainsView.UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
+    sidechainsView->UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
 
     Sidechain::CSidechainsMap mapToWrite;
     Sidechain::CSidechainsCacheEntry entry;
@@ -853,7 +868,7 @@ TEST_F(SidechainTestSuite, DEFAULTSidechainsCanBeWrittenInBackingCacheasOnlyIfUn
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view have it erased
-    ASSERT_DEATH(sidechainsView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite),"");
+    ASSERT_DEATH(sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite),"");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -863,14 +878,14 @@ TEST_F(SidechainTestSuite, FlushPersistsNewSidechains) {
     uint256 scId = uint256S("a1b2");
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1000));
     CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
 
     //test
-    bool res = sidechainsView.Flush();
+    bool res = sidechainsView->Flush();
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_TRUE(sidechainsDb.HaveScInfo(scId));
+    EXPECT_TRUE(chainStateDb->HaveScInfo(scId));
 }
 
 TEST_F(SidechainTestSuite, FlushPersistsForwardTransfers) {
@@ -878,23 +893,23 @@ TEST_F(SidechainTestSuite, FlushPersistsForwardTransfers) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1));
     int scCreationHeight = 1;
     CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
-    sidechainsView.Flush();
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, scCreationHeight);
+    sidechainsView->Flush();
 
     CAmount fwdTxAmount = 1000;
     int fwdTxHeght = scCreationHeight + 10;
     int fwdTxMaturityHeight = fwdTxHeght + Params().ScCoinsMaturity();
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(1000));
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, fwdTxHeght);
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, fwdTxHeght);
 
     //test
-    bool res = sidechainsView.Flush();
+    bool res = sidechainsView->Flush();
 
     //checks
     EXPECT_TRUE(res);
 
     Sidechain::ScInfo persistedInfo;
-    ASSERT_TRUE(sidechainsDb.GetScInfo(scId, persistedInfo));
+    ASSERT_TRUE(chainStateDb->GetScInfo(scId, persistedInfo));
     ASSERT_TRUE(persistedInfo.mImmatureAmounts.at(fwdTxMaturityHeight) == fwdTxAmount)
         <<"Following flush, persisted fwd amount should equal the one in view";
 }
@@ -903,34 +918,34 @@ TEST_F(SidechainTestSuite, FlushPersistsScErasureToo) {
     uint256 scId = uint256S("a1b2");
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     CBlock aBlock;
-    sidechainsView.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
-    sidechainsView.Flush();
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+    sidechainsView->Flush();
 
-    sidechainsView.RevertTxOutputs(aTransaction, /*height*/int(1789));
+    sidechainsView->RevertTxOutputs(aTransaction, /*height*/int(1789));
 
     //test
-    bool res = sidechainsView.Flush();
+    bool res = sidechainsView->Flush();
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_FALSE(sidechainsDb.HaveScInfo(scId));
+    EXPECT_FALSE(chainStateDb->HaveScInfo(scId));
 }
 
 //TEST_F(SidechainTestSuite, FlushPropagatesErrorsInPersist) {
-//    sidechainsDb.reset();
-//    ASSERT_TRUE(sidechainsDb.initPersistence(new FaultyPersistance()));
+//    sidechainsDb->reset();
+//    ASSERT_TRUE(sidechainsDb->initPersistence(new FaultyPersistance()));
 //
 //    uint256 scId = uint256S("a1b2");
 //    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
 //    CBlock aBlock;
-//    sidechainsView.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+//    sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
 //
 //    //test
-//    bool res = sidechainsView.Flush();
+//    bool res = sidechainsView->Flush();
 //
 //    //checks
 //    EXPECT_FALSE(res);
-//    EXPECT_FALSE(sidechainsDb.HaveScInfo(scId));
+//    EXPECT_FALSE(sidechainsDb->HaveScInfo(scId));
 //}
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -942,24 +957,24 @@ TEST_F(SidechainTestSuite, queryScIdsReturnsNewSidechains) {
     uint256 scId1 = uint256S("aaaa");
     int sc1CreationHeight(11);
     CTransaction scTx1 = txCreationUtils::createNewSidechainTxWith(scId1, CAmount(1));
-    ASSERT_TRUE(sidechainsView.UpdateScInfo(scTx1, aBlock, sc1CreationHeight));
-    ASSERT_TRUE(sidechainsView.Flush());
+    ASSERT_TRUE(sidechainsView->UpdateScInfo(scTx1, aBlock, sc1CreationHeight));
+    ASSERT_TRUE(sidechainsView->Flush());
 
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId1, CAmount(3));
     int fwdTxHeight(22);
-    sidechainsView.UpdateScInfo(fwdTx, aBlock, fwdTxHeight);
+    sidechainsView->UpdateScInfo(fwdTx, aBlock, fwdTxHeight);
 
     uint256 scId2 = uint256S("bbbb");
     int sc2CreationHeight(33);
     CTransaction scTx2 = txCreationUtils::createNewSidechainTxWith(scId2, CAmount(2));
-    ASSERT_TRUE(sidechainsView.UpdateScInfo(scTx2, aBlock,sc2CreationHeight));
-    ASSERT_TRUE(sidechainsView.Flush());
+    ASSERT_TRUE(sidechainsView->UpdateScInfo(scTx2, aBlock,sc2CreationHeight));
+    ASSERT_TRUE(sidechainsView->Flush());
 
-    ASSERT_TRUE(sidechainsView.RevertTxOutputs(scTx2, sc2CreationHeight));
+    ASSERT_TRUE(sidechainsView->RevertTxOutputs(scTx2, sc2CreationHeight));
 
     //test
     std::set<uint256> knownScIdsSet;
-    sidechainsView.queryScIds(knownScIdsSet);
+    sidechainsView->queryScIds(knownScIdsSet);
 
     //check
     EXPECT_TRUE(knownScIdsSet.size() == 1)<<"Instead knowScIdSet size is "<<knownScIdsSet.size();
