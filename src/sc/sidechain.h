@@ -8,6 +8,7 @@
 #include "sync.h"
 
 #include "sc/sidechaintypes.h"
+#include <coins.h> //temp for merging sidechains with coins
 
 //------------------------------------------------------------------------------------
 class CTxMemPool;
@@ -77,7 +78,7 @@ struct CSidechainsCacheEntry
     enum class Flags {
         DEFAULT = 0,
         DIRTY   = (1 << 0), // This cache entry is potentially different from the version in the parent view.
-        FRESH   = (1 << 1), // The parent view does not have this entry //ABENEGIA: in coins this is used for erased too. TODO: eliminare erased flag in coins
+        FRESH   = (1 << 1), // The parent view does not have this entry
         ERASED  = (1 << 2), // Flag in sidechain only, to be removed to conform what happens in CCoinsCacheEntry
     } flag;
 
@@ -105,7 +106,9 @@ public:
     virtual bool GetScInfo(const uint256& scId, ScInfo& info) const = 0;
     virtual bool queryScIds(std::set<uint256>& scIdsList) const = 0;
 
-    virtual bool BatchWrite(CSidechainsMap& sidechainMap) = 0;
+    virtual bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
+                    const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
+                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap) = 0;
 };
 
 class CSidechainsViewBacked : public CSidechainsView
@@ -115,7 +118,10 @@ public:
     bool HaveScInfo(const uint256& scId)              const {return baseView.HaveScInfo(scId);}
     bool GetScInfo(const uint256& scId, ScInfo& info) const {return baseView.GetScInfo(scId,info);}
     bool queryScIds(std::set<uint256>& scIdsList)     const {return baseView.queryScIds(scIdsList);}
-    bool BatchWrite(CSidechainsMap& sidechainMap)           {return baseView.BatchWrite(sidechainMap);}
+    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
+                    const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
+                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap)
+                    {return baseView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, sidechainMap);}
 
 protected:
     CSidechainsView &baseView;
@@ -139,7 +145,9 @@ public:
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
-    bool BatchWrite(CSidechainsMap& sidechainMap);
+    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
+                    const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
+                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap);
     bool Flush();
 
 private:
@@ -156,7 +164,9 @@ public:
     bool initPersistence(size_t cacheSize, bool fWipe);
     void reset(); //utility for dtor and unit tests, hence public
 
-    bool BatchWrite(CSidechainsMap& sidechainMap);
+    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
+                    const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
+                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap);
 
     bool HaveScInfo(const uint256& scId) const;
     bool GetScInfo(const uint256& scId, ScInfo& info) const;

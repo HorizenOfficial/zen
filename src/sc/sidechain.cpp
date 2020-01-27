@@ -499,7 +499,9 @@ bool CSidechainsViewCache::RestoreImmatureBalances(int blockHeight, const CBlock
     return true;
 }
 
-bool CSidechainsViewCache::BatchWrite(CSidechainsMap& sidechainMap)
+bool CSidechainsViewCache::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
+        const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
+        CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap)
 {
     for (auto& entryToWrite : sidechainMap) {
         CSidechainsMap::iterator itLocalCacheEntry = cacheSidechains.find(entryToWrite.first);
@@ -533,7 +535,13 @@ bool CSidechainsViewCache::Flush()
 {
     LogPrint("sc", "%s():%d - called\n", __func__, __LINE__);
 
-    if (!baseView.BatchWrite(cacheSidechains))
+    CCoinsMap mapCoins;
+    const uint256 hashBlock;
+    const uint256 hashAnchor;
+    CAnchorsMap mapAnchors;
+    CNullifiersMap mapNullifiers;
+
+    if (!baseView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, cacheSidechains))
         return false;
 
     cacheSidechains.clear();
@@ -590,7 +598,9 @@ void CSidechainViewDB::reset()
     scDb = nullptr;
 }
 
-bool CSidechainViewDB::BatchWrite(CSidechainsMap& sidechainMap)
+bool CSidechainViewDB::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
+        const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
+        CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap)
 {
     LOCK(sc_lock);
     if (scDb == nullptr)

@@ -26,7 +26,10 @@ public:
         return true;
     }
 
-    bool BatchWrite(Sidechain::CSidechainsMap& sidechainMap) {
+    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
+                    const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
+                    CNullifiersMap &mapNullifiers, Sidechain::CSidechainsMap& sidechainMap)
+    {
         for (auto& entry : sidechainMap)
             switch (entry.second.flag) {
                 case Sidechain::CSidechainsCacheEntry::Flags::FRESH:
@@ -661,6 +664,13 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
 //////////////////////////////// BatchWrite ///////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainTestSuite, FRESHSidechainsGetWrittenInBackingCache) {
+    CCoinsMap mapCoins;
+    const uint256 hashBlock;
+    const uint256 hashAnchor;
+    CAnchorsMap mapAnchors;
+    CNullifiersMap mapNullifiers;
+
+
     uint256 scId = uint256S("aaaa");
     Sidechain::CSidechainsMap mapToWrite;
     Sidechain::CSidechainsCacheEntry entry;
@@ -670,7 +680,7 @@ TEST_F(SidechainTestSuite, FRESHSidechainsGetWrittenInBackingCache) {
     mapToWrite[scId] = entry;
 
     //write new sidechain when backing view doesn't know about it
-    bool res = sidechainsView.BatchWrite(mapToWrite);
+    bool res = sidechainsView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
 
     //checks
     EXPECT_TRUE(res);
@@ -678,6 +688,13 @@ TEST_F(SidechainTestSuite, FRESHSidechainsGetWrittenInBackingCache) {
 }
 
 TEST_F(SidechainTestSuite, FRESHSidechainsCanBeWrittenOnlyIfUnknownToBackingCache) {
+    CCoinsMap mapCoins;
+    const uint256 hashBlock;
+    const uint256 hashAnchor;
+    CAnchorsMap mapAnchors;
+    CNullifiersMap mapNullifiers;
+
+
     //Prefill backing cache with sidechain
     uint256 scId = uint256S("aaaa");
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
@@ -691,10 +708,17 @@ TEST_F(SidechainTestSuite, FRESHSidechainsCanBeWrittenOnlyIfUnknownToBackingCach
 
     mapToWrite[scId] = entry;
 
-    ASSERT_DEATH(sidechainsView.BatchWrite(mapToWrite),"");
+    ASSERT_DEATH(sidechainsView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite),"");
 }
 
 TEST_F(SidechainTestSuite, DIRTYSidechainsAreStoredInBackingCache) {
+    CCoinsMap mapCoins;
+    const uint256 hashBlock;
+    const uint256 hashAnchor;
+    CAnchorsMap mapAnchors;
+    CNullifiersMap mapNullifiers;
+
+
     uint256 scId = uint256S("aaaa");
     Sidechain::CSidechainsMap mapToWrite;
     Sidechain::CSidechainsCacheEntry entry;
@@ -704,7 +728,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsAreStoredInBackingCache) {
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view doesn't know about it
-    bool res = sidechainsView.BatchWrite(mapToWrite);
+    bool res = sidechainsView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
 
     //checks
     EXPECT_TRUE(res);
@@ -712,6 +736,13 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsAreStoredInBackingCache) {
 }
 
 TEST_F(SidechainTestSuite, DIRTYSidechainsUpdatesDirtyOnesInBackingCache) {
+    CCoinsMap mapCoins;
+    const uint256 hashBlock;
+    const uint256 hashAnchor;
+    CAnchorsMap mapAnchors;
+    CNullifiersMap mapNullifiers;
+
+
     uint256 scId = uint256S("aaaa");
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     sidechainsView.UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
@@ -726,7 +757,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsUpdatesDirtyOnesInBackingCache) {
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view already knows about it
-    bool res = sidechainsView.BatchWrite(mapToWrite);
+    bool res = sidechainsView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
 
     //checks
     EXPECT_TRUE(res);
@@ -736,6 +767,13 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsUpdatesDirtyOnesInBackingCache) {
 }
 
 TEST_F(SidechainTestSuite, DIRTYSidechainsOverwriteErasedOnesInBackingCache) {
+    CCoinsMap mapCoins;
+    const uint256 hashBlock;
+    const uint256 hashAnchor;
+    CAnchorsMap mapAnchors;
+    CNullifiersMap mapNullifiers;
+
+
     //Create sidechain...
     uint256 scId = uint256S("aaaa");
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
@@ -755,7 +793,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsOverwriteErasedOnesInBackingCache) {
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view have it erased
-    bool res = sidechainsView.BatchWrite(mapToWrite);
+    bool res = sidechainsView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
 
     //checks
     EXPECT_TRUE(res);
@@ -765,6 +803,13 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsOverwriteErasedOnesInBackingCache) {
 }
 
 TEST_F(SidechainTestSuite, ERASEDSidechainsSetExistingOnesInBackingCacheasErased) {
+    CCoinsMap mapCoins;
+    const uint256 hashBlock;
+    const uint256 hashAnchor;
+    CAnchorsMap mapAnchors;
+    CNullifiersMap mapNullifiers;
+
+
     uint256 scId = uint256S("aaaa");
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     sidechainsView.UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
@@ -779,7 +824,7 @@ TEST_F(SidechainTestSuite, ERASEDSidechainsSetExistingOnesInBackingCacheasErased
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view have it erased
-    bool res = sidechainsView.BatchWrite(mapToWrite);
+    bool res = sidechainsView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
 
     //checks
     EXPECT_TRUE(res);
@@ -787,6 +832,13 @@ TEST_F(SidechainTestSuite, ERASEDSidechainsSetExistingOnesInBackingCacheasErased
 }
 
 TEST_F(SidechainTestSuite, DEFAULTSidechainsCanBeWrittenInBackingCacheasOnlyIfUnchanged) {
+    CCoinsMap mapCoins;
+    const uint256 hashBlock;
+    const uint256 hashAnchor;
+    CAnchorsMap mapAnchors;
+    CNullifiersMap mapNullifiers;
+
+
     uint256 scId = uint256S("aaaa");
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     sidechainsView.UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
@@ -801,7 +853,7 @@ TEST_F(SidechainTestSuite, DEFAULTSidechainsCanBeWrittenInBackingCacheasOnlyIfUn
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view have it erased
-    ASSERT_DEATH(sidechainsView.BatchWrite(mapToWrite),"");
+    ASSERT_DEATH(sidechainsView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite),"");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
