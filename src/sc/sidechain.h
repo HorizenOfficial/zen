@@ -85,6 +85,7 @@ public:
 
     static bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
     static bool IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertificate& cert, CValidationState& state);
+    static void getScCreationChildrenInMempool(const CTransaction& tx, const CTxMemPool& pool, std::deque<uint256>& outTxList);
     bool IsTxApplicableToState(const CTransaction& tx);
     bool IsCertApplicableToState(const CScCertificate& cert);
 
@@ -109,7 +110,7 @@ public:
     bool getScInfo(const uint256 & scId, ScInfo& targetScInfo) const;
     std::set<uint256> getScIdSet() const;
     CAmount getSidechainBalance(const uint256& scId) const;
-    virtual CAmount getSidechainBalanceImmature(const uint256& scId) const;
+    CAmount getSidechainBalanceImmature(const uint256& scId) const;
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool UpdateScInfo(const CScCertificate& cert);
 
@@ -151,7 +152,7 @@ public:
     bool getScInfo(const uint256& scId, ScInfo& info) const;
     std::set<uint256> getScIdSet() const;
     CAmount getSidechainBalance(const uint256& scId) const;
-    virtual CAmount getSidechainBalanceImmature(const uint256& scId) const;
+    CAmount getSidechainBalanceImmature(const uint256& scId) const;
 
 
     // print functions

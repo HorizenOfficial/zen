@@ -1464,34 +1464,6 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pbl
     }
     return false;
 }
-
-bool CWallet::AddToWalletIfInvolvingMe(const CScCertificate& cert, const CBlock* pblock, bool fUpdate)
-{
-    LogPrint("cert", "%s():%d - called for cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString());
-    {
-        AssertLockHeld(cs_wallet);
-        bool fExisted = mapWallet.count(cert.GetHash()) != 0;
-        if (fExisted && !fUpdate)
-        {
-            return false;
-        }
-        if (fExisted || IsMine(cert) )
-        {
-            CWalletCert wcert(this, cert);
-
-            // Get merkle branch if transaction was found in a block
-            if (pblock)
-                wcert.SetMerkleBranch(*pblock);
-
-            // Do not flush the wallet here for performance reasons
-            // this is safe, as in case of a crash, we rescan the necessary blocks on startup through our SetBestChain-mechanism
-            CWalletDB walletdb(strWalletFile, "r+", false);
-
-            return AddToWallet(wcert, false, &walletdb);
-        }
-    }
-    return false;
-}
 #else
 bool CWallet::AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, bool fUpdate)
 {
@@ -1595,6 +1567,8 @@ void CWallet::EraseFromWallet(const uint256 &hash)
         return;
     {
         LOCK(cs_wallet);
+        LogPrint("cert", "%s():%d - called for obj[%s]\n", __func__, __LINE__, hash.ToString());
+
         if (mapWallet.erase(hash))
             CWalletDB(strWalletFile).EraseTx(hash);
     }
@@ -4782,8 +4756,17 @@ void CWalletCert::GetAmounts(std::list<COutputEntry>& listReceived, std::list<CO
 
 bool CWalletCert::IsTrusted() const 
 {
-    // certificateds are trusted
-    LogPrint("cert", "%s():%d - called for obj[%s] returning true\n", __func__, __LINE__, GetHash().ToString());
+    LogPrint("cert", "%s():%d - called for obj[%s]\n", __func__, __LINE__, GetHash().ToString());
+
+    int nDepth = GetDepthInMainChain();
+
+    if (nDepth < 0)
+    {
+        LogPrint("cert", "%s():%d - depth %d: returning false\n", __func__, __LINE__, nDepth);
+        return false;
+    }
+
+    LogPrint("cert", "%s():%d - depth %d: returning true\n", __func__, __LINE__, nDepth);
     return true;
 }
 

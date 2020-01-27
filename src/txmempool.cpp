@@ -191,12 +191,26 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                 txToRemove.push_back(it->second.ptx->GetHash());
             }
         }
+#if 1
+        if (fRecursive)
+        {
+            LogPrint("sc", "%s():%d - before getting sc creation children size=%d\n", __func__, __LINE__, txToRemove.size());
+            // if this tx is creating a SC, remove from mempoo all transactions referring to it
+            Sidechain::ScCoinsView::getScCreationChildrenInMempool(origTx, *this, txToRemove);
+            LogPrint("sc", "%s():%d - after getting sc creation children size=%d\n", __func__, __LINE__, txToRemove.size());
+        }
+#endif
         while (!txToRemove.empty())
         {
             uint256 hash = txToRemove.front();
             txToRemove.pop_front();
+#if 0
             if (!mapTx.count(hash))
                 continue;
+#else
+            if (mapTx.count(hash))
+            {
+#endif
             const CTransaction& tx = mapTx[hash].GetTx();
             if (fRecursive) {
                 for (unsigned int i = 0; i < tx.vout.size(); i++) {
@@ -222,6 +236,31 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
             mapTx.erase(hash);
             nTransactionsUpdated++;
             minerPolicyEstimator->removeTx(hash);
+#if 1
+            }
+            else
+            {
+                if (mapCertificate.count(hash))
+                {
+                    const CScCertificate& cert = mapCertificate[hash].GetCertificate();
+                    if (fRecursive)
+                    {
+                        for (unsigned int i = 0; i < cert.vout.size(); i++) {
+                            std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(cert.GetHash(), i));
+                            if (it == mapNextTx.end())
+                                continue;
+                            txToRemove.push_back(it->second.ptx->GetHash());
+                        }
+                    }
+
+                    totalTxSize -= mapCertificate[hash].GetCertificateSize();
+                    cachedInnerUsage -= mapCertificate[hash].DynamicMemoryUsage();
+                    LogPrint("cert", "%s():%d - removing cert [%s] from mempool\n", __func__, __LINE__, hash.ToString() );
+                    mapCertificate.erase(hash);
+                    nCertificatesUpdated++;
+                }
+            }
+#endif
         }
     }
 }
@@ -242,6 +281,7 @@ void CTxMemPool::remove(const CScCertificate &origCert, bool fRecursive)
                 std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(origCert.GetHash(), i));
                 if (it == mapNextTx.end())
                     continue;
+                LogPrint("sc", "%s():%d - adding tx [%s] to list for removing\n", __func__, __LINE__, it->second.ptx->GetHash().ToString());
                 objToRemove.push_back(it->second.ptx->GetHash());
             }
         }
@@ -551,7 +591,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         const auto& cert = it->second.GetCertificate();
         CValidationState state;
 #if 1
-        // TODO cert: check this is aimed at adding sidechain related mempool checks
+        // TODO cert: check this 
         if (!Sidechain::ScCoinsView::IsCertAllowedInMempool(*this, cert, state))
         {
             LogPrint("sc", "%s():%d - cert [%s] has conflicts in mempool\n", __func__, __LINE__, cert.GetHash().ToString());

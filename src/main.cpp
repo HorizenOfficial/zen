@@ -3296,7 +3296,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, txConflicted, !IsInitialBlockDownload());
 
 #if 1
-    // similar call but for conflicts, not applicable to certificates
+    // similar call but without conflicts handling, which are not applicable to certificates
     mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, !IsInitialBlockDownload());
 #endif
 

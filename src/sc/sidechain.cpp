@@ -202,7 +202,8 @@ bool ScCoinsView::IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertif
             // scid creation not found, should never happen
             LogPrintf("%s():%d - ERROR: cert[%s]: scid[%s] not found in db and is no tx in mempool are creating it\n",
                 __func__, __LINE__, certHash.ToString(), scId.ToString() );
-            return false;
+            return state.Invalid(error("certificate with invalid scid considering mempool"),
+                 REJECT_INVALID, "sidechain-certificate");
         }
     }
 
@@ -237,7 +238,7 @@ bool ScCoinsView::IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertif
             continue;
         }
 
-        // TODO cert: this should not be allowd since there can not be two cetrificates in mempool
+        // TODO cert: this should not be allowed since there can not be two certificates in mempool
         // referring to the same sc
         if (scId == mpCert.scId)
         {
@@ -323,6 +324,45 @@ bool ScCoinsView::IsTxApplicableToState(const CTransaction& tx)
             __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
     }
     return true;
+}
+
+void ScCoinsView::getScCreationChildrenInMempool(const CTransaction& tx, const CTxMemPool& pool, std::deque<uint256>& outTxList)
+{
+    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
+    {
+        for (auto it = pool.mapTx.begin(); it != pool.mapTx.end(); ++it)
+        {
+            const CTransaction& mpTx = it->second.GetTx();
+
+            if (mpTx.GetHash() == tx.GetHash())
+            {
+                // do not consider itself
+                continue;
+            }
+
+            BOOST_FOREACH(const auto& mpFt, mpTx.vft_ccout)
+            {
+                if (mpFt.scId == sc.scId)
+                {
+                    LogPrint("sc", "%s():%d - found tx[%s] fwding to scid[%s]\n",
+                        __func__, __LINE__, mpTx.GetHash().ToString(), sc.scId.ToString());
+                    outTxList.push_back(mpTx.GetHash());
+                }
+            }
+        }
+
+        for (auto it = pool.mapCertificate.begin(); it != pool.mapCertificate.end(); ++it)
+        {
+            const CScCertificate& mpCert = it->second.GetCertificate();
+
+            if (mpCert.scId == sc.scId)
+            {
+                LogPrint("sc", "%s():%d - found cert[%s] withdrawing from scid[%s]\n",
+                    __func__, __LINE__, mpCert.GetHash().ToString(), sc.scId.ToString());
+                outTxList.push_back(mpCert.GetHash());
+            }
+        }
+    }
 }
 
 bool ScCoinsView::IsCertApplicableToState(const CScCertificate& cert)

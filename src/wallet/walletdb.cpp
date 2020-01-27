@@ -64,8 +64,8 @@ bool CWalletDB::WriteTx(uint256 hash, const CWalletTx& wtx)
 #else
 bool CWalletDB::WriteTx(uint256 hash, const CWalletObjBase& obj)
 {
-//    LogPrint("cert", "%s():%d - called for %s[%s], writing to db\n", __func__, __LINE__,
-//        obj.IsCoinCertified()?"cert":"tx", obj.GetHash().ToString());
+    LogPrint("cert", "%s():%d - called for %s[%s], writing to db\n", __func__, __LINE__,
+        obj.IsCoinCertified()?"cert":"tx", obj.GetHash().ToString());
     
     nWalletDBUpdated++;
 
@@ -97,6 +97,7 @@ bool CWalletDB::WriteTx(uint256 hash, const CWalletObjBase& obj)
 bool CWalletDB::EraseTx(uint256 hash)
 {
     nWalletDBUpdated++;
+    LogPrint("cert", "%s():%d - called for obj[%s]\n", __func__, __LINE__, hash.ToString());
 #if 0
     return Erase(std::make_pair(std::string("tx"), hash));
 #else
@@ -989,6 +990,7 @@ DBErrors CWalletDB::FindWalletTx(CWallet* pwallet, std::vector<uint256>& vTxHash
                 vWtx.push_back(wtx);
 #else
                 vWtx.push_back(std::shared_ptr<CWalletObjBase>(new CWalletTx(wtx)));
+                LogPrint("cert", "%s():%d - adding tx[%s] to vec\n", __func__, __LINE__, hash.ToString());
             }
             else
             if (strType == "cert") {
