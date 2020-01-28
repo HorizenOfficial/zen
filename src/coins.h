@@ -357,6 +357,10 @@ public:
     //! This may (but cannot always) return true for fully spent transactions
     virtual bool HaveCoins(const uint256 &txid) const;
 
+    virtual bool HaveScInfo(const uint256& scId) const;
+    virtual bool GetScInfo(const uint256& scId, Sidechain::ScInfo& info) const;
+    virtual bool queryScIds(std::set<uint256>& scIdsList) const;
+
     //! Retrieve the block hash whose state this CCoinsView currently represents
     virtual uint256 GetBestBlock() const;
 

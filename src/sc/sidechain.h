@@ -21,25 +21,10 @@ bool hasScCreationOutput(const CTransaction& tx, const uint256& scId); // return
 bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
 // End of Validation functions
 
-class CSidechainsView
+class CSidechainsViewBacked : public CCoinsView
 {
 public:
-    CSidechainsView() = default;
-    virtual ~CSidechainsView() = default;
-
-    virtual bool HaveScInfo(const uint256& scId) const = 0;
-    virtual bool GetScInfo(const uint256& scId, ScInfo& info) const = 0;
-    virtual bool queryScIds(std::set<uint256>& scIdsList) const = 0;
-
-    virtual bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
-                    const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap) = 0;
-};
-
-class CSidechainsViewBacked : public CSidechainsView
-{
-public:
-    CSidechainsViewBacked(CSidechainsView* viewIn): baseView(viewIn) {}
+    CSidechainsViewBacked(CCoinsView* viewIn): baseView(viewIn) {}
     bool HaveScInfo(const uint256& scId)              const {return baseView->HaveScInfo(scId);}
     bool GetScInfo(const uint256& scId, ScInfo& info) const {return baseView->GetScInfo(scId,info);}
     bool queryScIds(std::set<uint256>& scIdsList)     const {return baseView->queryScIds(scIdsList);}
@@ -49,13 +34,13 @@ public:
                     {return baseView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, sidechainMap);}
 
 protected:
-    CSidechainsView *baseView;
+    CCoinsView *baseView;
 };
 
 class CSidechainsViewCache : public CSidechainsViewBacked
 {
 public:
-    CSidechainsViewCache(CSidechainsView *cView);
+    CSidechainsViewCache(CCoinsView *cView);
     CSidechainsViewCache(const CSidechainsViewCache&) = delete;             //as in coins, forbid building cache on top of another
     CSidechainsViewCache& operator=(const CSidechainsViewCache &) = delete;
     bool HaveDependencies(const CTransaction& tx);

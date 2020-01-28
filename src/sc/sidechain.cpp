@@ -153,7 +153,7 @@ bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidation
 }
 
 /********************** CSidechainsViewCache **********************/
-CSidechainsViewCache::CSidechainsViewCache(CSidechainsView* scView): CSidechainsViewBacked(scView) {}
+CSidechainsViewCache::CSidechainsViewCache(CCoinsView* scView): CSidechainsViewBacked(scView) {}
 
 bool CSidechainsViewCache::HaveDependencies(const CTransaction& tx)
 {

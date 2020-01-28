@@ -43,18 +43,21 @@ bool CCoins::Spend(uint32_t nPos)
     return true;
 }
 bool CCoinsView::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const { return false; }
-bool CCoinsView::GetNullifier(const uint256 &nullifier) const { return false; }
-bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins) const { return false; }
-bool CCoinsView::HaveCoins(const uint256 &txid) const { return false; }
-uint256 CCoinsView::GetBestBlock() const { return uint256(); }
-uint256 CCoinsView::GetBestAnchor() const { return uint256(); };
+bool CCoinsView::GetNullifier(const uint256 &nullifier)                        const { return false; }
+bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins)                  const { return false; }
+bool CCoinsView::HaveCoins(const uint256 &txid)                                const { return false; }
+bool CCoinsView::HaveScInfo(const uint256& scId)                               const { return false; }
+bool CCoinsView::GetScInfo(const uint256& scId, Sidechain::ScInfo& info)       const { return false; }
+bool CCoinsView::queryScIds(std::set<uint256>& scIdsList)                      const { return false; }
+uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
+uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins,
                             const uint256 &hashBlock,
                             const uint256 &hashAnchor,
                             CAnchorsMap &mapAnchors,
                             CNullifiersMap &mapNullifiers,
-                            Sidechain::CSidechainsMap& mapSidechains) { return false; }
-bool CCoinsView::GetStats(CCoinsStats &stats) const { return false; }
+                            Sidechain::CSidechainsMap& mapSidechains)                { return false; }
+bool CCoinsView::GetStats(CCoinsStats &stats)                                  const { return false; }
 
 
 CCoinsViewBacked::CCoinsViewBacked(CCoinsView *viewIn) : base(viewIn) { }

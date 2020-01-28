@@ -9,7 +9,7 @@
 #include <undo.h>
 #include <main.h>
 
-class CInMemorySidechainDb final: public Sidechain::CSidechainsView {
+class CInMemorySidechainDb final: public CCoinsView {
 public:
     CInMemorySidechainDb()  = default;
     ~CInMemorySidechainDb() = default;

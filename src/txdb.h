@@ -28,7 +28,7 @@ static const int64_t nMaxDbCache = sizeof(void*) > 4 ? 16384 : 1024;
 static const int64_t nMinDbCache = 4;
 
 /** CCoinsView backed by the LevelDB coin database (chainstate/) */
-class CCoinsViewDB : public CCoinsView, public Sidechain::CSidechainsView
+class CCoinsViewDB : public CCoinsView
 {
 protected:
     CLevelDBWrapper db;
