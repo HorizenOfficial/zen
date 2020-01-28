@@ -138,20 +138,13 @@ bool CCoinsViewDB::queryScIds(std::set<uint256>& scIdsList) const
         leveldb::Slice slKey = it->key();
         CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
         char chType;
-        uint256 keyScId;
         ssKey >> chType;
-        ssKey >> keyScId;;
-
         if (chType == DB_SIDECHAINS)
         {
+            uint256 keyScId;
+            ssKey >> keyScId;;
             scIdsList.insert(keyScId);
             LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, keyScId.ToString() );
-        }
-        else
-        {
-            // should never happen
-            LogPrintf("%s():%d - Error: could not read from db, invalid record type %c\n", __func__, __LINE__, chType);
-            return false;
         }
     }
 
