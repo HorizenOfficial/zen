@@ -5,7 +5,6 @@
 #include "txmempool.h"
 #include "chainparams.h"
 #include "base58.h"
-#include "script/standard.h"
 #include "consensus/validation.h"
 #include <boost/thread.hpp>
 #include <undo.h>
