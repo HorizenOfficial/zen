@@ -1,21 +1,18 @@
 #include "sc/sidechain.h"
+#include <amount.h>
 #include "primitives/transaction.h"
 #include "utilmoneystr.h"
 #include "txmempool.h"
 #include "chainparams.h"
 #include "base58.h"
 #include "script/standard.h"
-#include "univalue.h"
 #include "consensus/validation.h"
 #include <boost/thread.hpp>
 #include <undo.h>
 #include <main.h>
-#include "leveldbwrapper.h"
 
 namespace Sidechain
 {
-
-static const char DB_SC_INFO = 'i';
 
 /*************************** CSidechainsView INTERFACE ****************************/
 std::string ScInfo::ToString() const

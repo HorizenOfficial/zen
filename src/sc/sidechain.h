@@ -1,21 +1,15 @@
 #ifndef _SIDECHAIN_CORE_H
 #define _SIDECHAIN_CORE_H
 
-#include "amount.h"
-#include "chain.h"
-#include "hash.h"
-#include <boost/unordered_map.hpp>
-#include "sync.h"
-
 #include "sc/sidechaintypes.h"
-#include <coins.h> //temp for merging sidechains with coins
+#include <coins.h>
 
 //------------------------------------------------------------------------------------
+class CTransaction;
+class CValidationState;
+class uint256;
 class CTxMemPool;
 class CBlockUndo;
-class UniValue;
-class CValidationState;
-class CLevelDBWrapper;
 
 namespace Sidechain
 {
