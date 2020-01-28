@@ -15,6 +15,7 @@
 #include <consensus/validation.h>
 
 #include <sc/sidechain.h>
+#include <init.h>
 
 class CCoinsOnlyViewDB : public CCoinsViewDB
 {
@@ -39,7 +40,7 @@ public:
     SidechainsInMempoolTestSuite():
         pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path()),
         chainStateDbSize(2 * 1024 * 1024),
-        pChainStateDb(nullptr),
+        //pChainStateDb(nullptr),
         minimalHeightForSidechains(SidechainFork().getHeight(CBaseChainParams::REGTEST))
     {
         SelectParams(CBaseChainParams::REGTEST);
@@ -47,10 +48,10 @@ public:
         boost::filesystem::create_directories(pathTemp);
         mapArgs["-datadir"] = pathTemp.string();
 
-        pChainStateDb = new CCoinsOnlyViewDB(chainStateDbSize,/*fWipe*/true);
-        pcoinsTip     = new CCoinsViewCache(pChainStateDb);
+        pcoinsdbview = new CCoinsOnlyViewDB(chainStateDbSize,/*fWipe*/true);
+        pcoinsTip     = new CCoinsViewCache(pcoinsdbview);
 
-        assert(Sidechain::CSidechainViewDB::instance().initPersistence(/*cacheSize*/0, /*fWipe*/true));
+        //assert(Sidechain::CSidechainViewDB::instance().initPersistence(/*cacheSize*/0, /*fWipe*/true)); //NEEDED ONLY IF ACCEPT TO MEMORY POOL USES SCMGR AND NOT CHAINSTATEDB
 
         //fPrintToConsole = true;
     }
@@ -75,10 +76,10 @@ public:
         delete pcoinsTip;
         pcoinsTip = nullptr;
 
-        delete pChainStateDb;
-        pChainStateDb = nullptr;
+        delete pcoinsdbview;
+        pcoinsdbview = nullptr;
 
-        Sidechain::CSidechainViewDB::instance().reset();
+        //Sidechain::CSidechainViewDB::instance().reset(); //NEEDED ONLY IF ACCEPT TO MEMORY POOL USES SCMGR AND NOT CHAINSTATEDB
 
         ClearDatadirCache();
 
@@ -93,7 +94,7 @@ protected:
 private:
     boost::filesystem::path  pathTemp;
     const unsigned int       chainStateDbSize;
-    CCoinsOnlyViewDB*        pChainStateDb;
+    //CCoinsOnlyViewDB*        pChainStateDb;
 
     const unsigned int       minimalHeightForSidechains;
     std::vector<uint256>     blockHashes;
@@ -137,7 +138,7 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicationsOfConfirmedSidechainsAreNotAcce
     uint256 scId = uint256S("a1b2");
     CTransaction scTx = GenerateScTx(scId, CAmount(1));
     CBlock aBlock;
-    Sidechain::CSidechainsViewCache sidechainsView(&Sidechain::CSidechainViewDB::instance());
+    Sidechain::CSidechainsViewCache sidechainsView(pcoinsdbview);
     sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
     ASSERT_TRUE(sidechainsView.Flush());
 
@@ -153,7 +154,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed
     uint256 scId = uint256S("aaaa");
     CTransaction scTx = GenerateScTx(scId, CAmount(10));
     CBlock aBlock;
-    Sidechain::CSidechainsViewCache sidechainsView(&Sidechain::CSidechainViewDB::instance());
+    Sidechain::CSidechainsViewCache sidechainsView(pcoinsdbview);
     sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
     ASSERT_TRUE(sidechainsView.Flush());
 
@@ -241,9 +242,16 @@ void SidechainsInMempoolTestSuite::GenerateCoinsAmount(const CAmount & amountToG
 }
 
 bool SidechainsInMempoolTestSuite::PersistCoins() {
-    CCoinsViewCache view(pChainStateDb);
+    CCoinsViewCache view(pcoinsdbview);
     CCoinsMap tmpCopyConsumedOnWrite(initialCoinsSet);
-    pChainStateDb->BatchWrite(tmpCopyConsumedOnWrite);
+
+    const uint256 hashBlock;
+    const uint256 hashAnchor;
+    CAnchorsMap mapAnchors;
+    CNullifiersMap mapNullifiers;
+    Sidechain::CSidechainsMap mapSidechains;
+
+    pcoinsdbview->BatchWrite(tmpCopyConsumedOnWrite, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains);
 
     return view.HaveCoins(initialCoinsSet.begin()->first) == true;
 }

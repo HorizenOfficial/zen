@@ -40,6 +40,7 @@
 #endif
 #include <mutex>
 #include "sc/sidechain.h"
+#include <init.h>
 
 using namespace std;
 
@@ -349,7 +350,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             pblock->nVersion = GetArg("-blockversion", pblock->nVersion);
 
         CCoinsViewCache view(pcoinsTip);
-        Sidechain::CSidechainsViewCache scView(&Sidechain::CSidechainViewDB::instance());
+        Sidechain::CSidechainsViewCache scView(pcoinsdbview);
 
         // Priority order to process transactions
         list<COrphan> vOrphan; // list memory doesn't move

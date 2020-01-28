@@ -1365,7 +1365,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             LOCK(pool.cs);
             CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
             view.SetBackend(viewMemPool);
-            Sidechain::CSidechainsViewCache scView(&Sidechain::CSidechainViewDB::instance());
+            Sidechain::CSidechainsViewCache scView(pcoinsdbview);
  
             // do we already have it?
             if (view.HaveCoins(hash))
@@ -2841,7 +2841,7 @@ bool static DisconnectTip(CValidationState &state) {
     int64_t nStart = GetTimeMicros();
     {
         CCoinsViewCache view(pcoinsTip);
-        Sidechain::CSidechainsViewCache scView(&Sidechain::CSidechainViewDB::instance());
+        Sidechain::CSidechainsViewCache scView(pcoinsdbview);
         if (!DisconnectBlock(block, state, pindexDelete, view, NULL, &scView))
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         assert(view.Flush());
@@ -2919,7 +2919,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     LogPrint("bench", "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * 0.001, nTimeReadFromDisk * 0.000001);
     {
         CCoinsViewCache view(pcoinsTip);
-        Sidechain::CSidechainsViewCache scView(&Sidechain::CSidechainViewDB::instance());
+        Sidechain::CSidechainsViewCache scView(pcoinsdbview);
         static const bool JUST_CHECK_FALSE = false;
         bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, scView, JUST_CHECK_FALSE);
         GetMainSignals().BlockChecked(*pblock, state);
@@ -3953,7 +3953,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
     assert(pindexPrev == chainActive.Tip());
 
     CCoinsViewCache viewNew(pcoinsTip);
-    Sidechain::CSidechainsViewCache fakeScView(&Sidechain::CSidechainViewDB::instance());
+    Sidechain::CSidechainsViewCache fakeScView(pcoinsdbview);
     CBlockIndex indexDummy(block);
     indexDummy.pprev = pindexPrev;
     indexDummy.nHeight = pindexPrev->nHeight + 1;
@@ -4310,7 +4310,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     nCheckLevel = std::max(0, std::min(4, nCheckLevel));
     LogPrintf("Verifying last %i blocks at level %i\n", nCheckDepth, nCheckLevel);
     CCoinsViewCache coins(coinsview);
-    Sidechain::CSidechainsViewCache scView(&Sidechain::CSidechainViewDB::instance());
+    Sidechain::CSidechainsViewCache scView(pcoinsdbview);
     CBlockIndex* pindexState = chainActive.Tip();
     CBlockIndex* pindexFailure = NULL;
     int nGoodTransactions = 0;

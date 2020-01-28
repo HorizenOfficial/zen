@@ -6,13 +6,12 @@
 #ifndef BITCOIN_INIT_H
 #define BITCOIN_INIT_H
 
-#include <string>
-
 #include "zcash/JoinSplit.hpp"
+#include <txdb.h>
+#include <string>
 
 class CScheduler;
 class CWallet;
-class CCoinsViewDB;
 namespace boost { class thread_group; }
 
 extern CWallet*      pwalletMain;

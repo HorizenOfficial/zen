@@ -1462,13 +1462,6 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                     break;
                 }
 
-                // open sidechain db, read data and populate memory objects
-                if (!Sidechain::CSidechainViewDB::instance().initPersistence((size_t)nSideChainDBCache, fReindex) )
-                {
-                    strLoadError = _("Error loading sidechain database");
-                    break;
-                }
-
                 // If the loaded chain has a wrong genesis, bail out immediately
                 // (we're likely using a testnet datadir, or the other way around).
                 if (!mapBlockIndex.empty() && mapBlockIndex.count(chainparams.GetConsensus().hashGenesisBlock) == 0)

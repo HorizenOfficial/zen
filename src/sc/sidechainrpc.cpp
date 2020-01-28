@@ -1,3 +1,4 @@
+#include <init.h>
 #include "sc/sidechainrpc.h"
 #include "sc/sidechain.h"
 #include <univalue.h>
@@ -197,7 +198,7 @@ void AddScInfoToJSON(const uint256& scId, const ScInfo& info, UniValue& sc)
 bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
 {
     ScInfo info;
-    Sidechain::CSidechainsViewCache scView(&Sidechain::CSidechainViewDB::instance());
+    Sidechain::CSidechainsViewCache scView(pcoinsdbview);
     if (!scView.GetScInfo(scId, info) )
     {
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
@@ -210,7 +211,7 @@ bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
 
 void AddScInfoToJSON(UniValue& result)
 {
-    Sidechain::CSidechainsViewCache scView(&Sidechain::CSidechainViewDB::instance());
+    Sidechain::CSidechainsViewCache scView(pcoinsdbview);
     std::set<uint256> sScIds;
     scView.queryScIds(sScIds);
 
