@@ -157,7 +157,7 @@ bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidation
 }
 
 /********************** CSidechainsViewCache **********************/
-CSidechainsViewCache::CSidechainsViewCache(CSidechainsView& scView): CSidechainsViewBacked(scView) {}
+CSidechainsViewCache::CSidechainsViewCache(CSidechainsView* scView): CSidechainsViewBacked(scView) {}
 
 bool CSidechainsViewCache::HaveDependencies(const CTransaction& tx)
 {
@@ -203,7 +203,7 @@ CSidechainsMap::const_iterator CSidechainsViewCache::FetchSidechains(const uint2
         return candidateIt;
 
     ScInfo tmp;
-    if (!baseView.GetScInfo(scId, tmp))
+    if (!baseView->GetScInfo(scId, tmp))
         return cacheSidechains.end();
 
     //Fill cache and return iterator. The insert in cache below looks cumbersome. However
@@ -235,7 +235,7 @@ bool CSidechainsViewCache::GetScInfo(const uint256 & scId, ScInfo& targetScInfo)
 
 bool CSidechainsViewCache::queryScIds(std::set<uint256>& scIdsList) const
 {
-    if(!baseView.queryScIds(scIdsList))
+    if(!baseView->queryScIds(scIdsList))
         return false;
 
     // Note that some of the values above may have been erased in current cache.
@@ -542,7 +542,7 @@ bool CSidechainsViewCache::Flush()
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
 
-    if (!baseView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, cacheSidechains))
+    if (!baseView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, cacheSidechains))
         return false;
 
     cacheSidechains.clear();

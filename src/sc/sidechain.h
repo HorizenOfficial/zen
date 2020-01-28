@@ -45,23 +45,23 @@ public:
 class CSidechainsViewBacked : public CSidechainsView
 {
 public:
-    CSidechainsViewBacked(CSidechainsView &viewIn): baseView(viewIn) {}
-    bool HaveScInfo(const uint256& scId)              const {return baseView.HaveScInfo(scId);}
-    bool GetScInfo(const uint256& scId, ScInfo& info) const {return baseView.GetScInfo(scId,info);}
-    bool queryScIds(std::set<uint256>& scIdsList)     const {return baseView.queryScIds(scIdsList);}
+    CSidechainsViewBacked(CSidechainsView* viewIn): baseView(viewIn) {}
+    bool HaveScInfo(const uint256& scId)              const {return baseView->HaveScInfo(scId);}
+    bool GetScInfo(const uint256& scId, ScInfo& info) const {return baseView->GetScInfo(scId,info);}
+    bool queryScIds(std::set<uint256>& scIdsList)     const {return baseView->queryScIds(scIdsList);}
     bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                     const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap)
-                    {return baseView.BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, sidechainMap);}
+                    {return baseView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, sidechainMap);}
 
 protected:
-    CSidechainsView &baseView;
+    CSidechainsView *baseView;
 };
 
 class CSidechainsViewCache : public CSidechainsViewBacked
 {
 public:
-    CSidechainsViewCache(CSidechainsView& scView);
+    CSidechainsViewCache(CSidechainsView *cView);
     CSidechainsViewCache(const CSidechainsViewCache&) = delete;             //as in coins, forbid building cache on top of another
     CSidechainsViewCache& operator=(const CSidechainsViewCache &) = delete;
     bool HaveDependencies(const CTransaction& tx);

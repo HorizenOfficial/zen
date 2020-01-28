@@ -69,7 +69,7 @@ public:
         SelectParams(CBaseChainParams::REGTEST);
         chainStateDb   = new CCoinsViewDB(chainStateDbSize,/*fWipe*/true);
         //chainStateDb   = new CInMemorySidechainDb; //Use this in alternative to CCoinsViewDB to avoid instantiating a db
-        sidechainsView = new Sidechain::CSidechainsViewCache(*chainStateDb);
+        sidechainsView = new Sidechain::CSidechainsViewCache(chainStateDb);
     };
 
     void TearDown() override {
