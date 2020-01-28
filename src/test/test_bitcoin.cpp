@@ -28,6 +28,7 @@
 CClientUIInterface uiInterface; // Declared but not defined in ui_interface.h
 CWallet* pwalletMain;
 ZCJoinSplit *pzcashParams;
+CCoinsViewDB *pcoinsdbview;
 
 extern bool fPrintToConsole;
 extern void noui_connect();

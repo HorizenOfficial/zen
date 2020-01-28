@@ -12,11 +12,12 @@
 
 class CScheduler;
 class CWallet;
-
+class CCoinsViewDB;
 namespace boost { class thread_group; }
 
-extern CWallet* pwalletMain;
-extern ZCJoinSplit* pzcashParams;
+extern CWallet*      pwalletMain;
+extern ZCJoinSplit*  pzcashParams;
+extern CCoinsViewDB* pcoinsdbview;
 
 void StartShutdown();
 bool ShutdownRequested();

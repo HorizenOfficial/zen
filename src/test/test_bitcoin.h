@@ -28,7 +28,6 @@ struct JoinSplitTestingSetup: public BasicTestingSetup {
  * and wallet (if enabled) setup.
  */
 struct TestingSetup: public JoinSplitTestingSetup {
-    CCoinsViewDB *pcoinsdbview;
     boost::filesystem::path pathTemp;
     boost::thread_group threadGroup;
 
