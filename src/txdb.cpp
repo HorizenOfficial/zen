@@ -133,7 +133,7 @@ bool CCoinsViewDB::queryScIds(std::set<uint256>& scIdsList) const
     std::unique_ptr<leveldb::Iterator> it(const_cast<CLevelDBWrapper*>(&db)->NewIterator());
     for (it->SeekToFirst(); it->Valid(); it->Next())
     {
-        boost::this_thread::interruption_point(); //ABENEGIA: remove?
+        boost::this_thread::interruption_point();
 
         leveldb::Slice slKey = it->key();
         CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);

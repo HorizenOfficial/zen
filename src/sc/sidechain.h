@@ -87,35 +87,6 @@ private:
     void Dump_info() const;
 };
 
-class CSidechainViewDB : public CSidechainsView
-{
-public:
-    static CSidechainViewDB& instance();
-
-    bool initPersistence(size_t cacheSize, bool fWipe);
-    void reset(); //utility for dtor and unit tests, hence public
-
-    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
-                    const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap);
-
-    bool HaveScInfo(const uint256& scId) const;
-    bool GetScInfo(const uint256& scId, ScInfo& info) const;
-    bool queryScIds(std::set<uint256>& scIdsList) const;
-
-protected:
-    // Disallow instantiation outside of the class. Only UTs should be allowed to inherit and build a fakeDB
-    CSidechainViewDB();
-    ~CSidechainViewDB();
-
-    bool Persist(const uint256& scId, const ScInfo& info) const;
-    bool Erase(const uint256& scId) const;
-
-private:
-    mutable CCriticalSection sc_lock;
-    CLevelDBWrapper* scDb;
-};
-
 }; // end of namespace
 
 #endif // _SIDECHAIN_CORE_H
