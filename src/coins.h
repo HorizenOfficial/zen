@@ -20,6 +20,8 @@
 #include "zcash/IncrementalMerkleTree.hpp"
 #include <sc/sidechaintypes.h>
 
+class CBlockUndo;
+
 /** 
  * Pruned version of CTransaction: only retains metadata and unspent transaction outputs
  *
@@ -507,7 +509,9 @@ public:
     bool HaveScInfo(const uint256& scId)                                  const;
     bool GetScInfo(const uint256 & scId, Sidechain::ScInfo& targetScInfo) const;
     bool queryScIds(std::set<uint256>& scIdsList)                         const;
-
+    bool HaveDependencies(const CTransaction& tx);
+    bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
+    bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
     bool Flush();
 
     //! Calculate the size of the cache (in number of transactions)
@@ -542,6 +546,8 @@ public:
 private:
     CCoinsMap::iterator FetchCoins(const uint256 &txid);
     CCoinsMap::const_iterator FetchCoins(const uint256 &txid) const;
+    bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
+
 protected:
     Sidechain::CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
 private:
