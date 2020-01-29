@@ -153,7 +153,7 @@ bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidation
 }
 
 /********************** CSidechainsViewCache **********************/
-CSidechainsViewCache::CSidechainsViewCache(CCoinsView* scView): CCoinsViewBacked(scView) {}
+CSidechainsViewCache::CSidechainsViewCache(CCoinsView* scView): CCoinsViewCache(scView) {}
 
 bool CSidechainsViewCache::HaveDependencies(const CTransaction& tx)
 {
@@ -191,23 +191,6 @@ bool CSidechainsViewCache::HaveDependencies(const CTransaction& tx)
             __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
     }
     return true;
-}
-
-CSidechainsMap::const_iterator CSidechainsViewCache::FetchSidechains(const uint256& scId) const {
-    CSidechainsMap::iterator candidateIt = cacheSidechains.find(scId);
-    if (candidateIt != cacheSidechains.end())
-        return candidateIt;
-
-    ScInfo tmp;
-    if (!base->GetScInfo(scId, tmp))
-        return cacheSidechains.end();
-
-    //Fill cache and return iterator. The insert in cache below looks cumbersome. However
-    //it allows to insert ScInfo and keep iterator to inserted member without extra searches
-    CSidechainsMap::iterator ret =
-            cacheSidechains.insert(std::make_pair(scId, CSidechainsCacheEntry(tmp, CSidechainsCacheEntry::Flags::DEFAULT ))).first;
-
-    return ret;
 }
 
 bool CSidechainsViewCache::HaveScInfo(const uint256& scId) const

@@ -21,7 +21,7 @@ bool hasScCreationOutput(const CTransaction& tx, const uint256& scId); // return
 bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
 // End of Validation functions
 
-class CSidechainsViewCache : public CCoinsViewBacked
+class CSidechainsViewCache : public CCoinsViewCache
 {
 public:
     CSidechainsViewCache(CCoinsView *cView);
@@ -45,8 +45,6 @@ public:
     bool Flush();
 
 private:
-    mutable CSidechainsMap cacheSidechains;
-    CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
     void Dump_info() const;
 };
 

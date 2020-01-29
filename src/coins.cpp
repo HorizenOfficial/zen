@@ -112,6 +112,22 @@ CCoinsMap::const_iterator CCoinsViewCache::FetchCoins(const uint256 &txid) const
     return ret;
 }
 
+Sidechain::CSidechainsMap::const_iterator CCoinsViewCache::FetchSidechains(const uint256& scId) const {
+    Sidechain::CSidechainsMap::iterator candidateIt = cacheSidechains.find(scId);
+    if (candidateIt != cacheSidechains.end())
+        return candidateIt;
+
+    Sidechain::ScInfo tmp;
+    if (!base->GetScInfo(scId, tmp))
+        return cacheSidechains.end();
+
+    //Fill cache and return iterator. The insert in cache below looks cumbersome. However
+    //it allows to insert ScInfo and keep iterator to inserted member without extra searches
+    Sidechain::CSidechainsMap::iterator ret =
+            cacheSidechains.insert(std::make_pair(scId, Sidechain::CSidechainsCacheEntry(tmp, Sidechain::CSidechainsCacheEntry::Flags::DEFAULT ))).first;
+
+    return ret;
+}
 
 bool CCoinsViewCache::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const {
     CAnchorsMap::const_iterator it = cacheAnchors.find(rt);

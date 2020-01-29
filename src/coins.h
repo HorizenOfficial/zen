@@ -443,11 +443,12 @@ protected:
      * Make mutable so that we can "fill the cache" even from Get-methods
      * declared as "const".  
      */
-    mutable uint256 hashBlock;
-    mutable CCoinsMap cacheCoins;
-    mutable uint256 hashAnchor;
-    mutable CAnchorsMap cacheAnchors;
-    mutable CNullifiersMap cacheNullifiers;
+    mutable uint256                   hashBlock;
+    mutable CCoinsMap                 cacheCoins;
+    mutable Sidechain::CSidechainsMap cacheSidechains;
+    mutable uint256                   hashAnchor;
+    mutable CAnchorsMap               cacheAnchors;
+    mutable CNullifiersMap            cacheNullifiers;
 
     /* Cached dynamic memory usage for the inner CCoins objects. */
     mutable size_t cachedCoinsUsage;
@@ -536,7 +537,9 @@ public:
 private:
     CCoinsMap::iterator FetchCoins(const uint256 &txid);
     CCoinsMap::const_iterator FetchCoins(const uint256 &txid) const;
-
+protected:
+    Sidechain::CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
+private:
     /**
      * By making the copy constructor private, we prevent accidentally using it when one intends to create a cache on top of a base cache.
      */
