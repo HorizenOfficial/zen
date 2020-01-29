@@ -26,9 +26,6 @@ public:
     CSidechainsViewCache(const CSidechainsViewCache&) = delete;             //as in coins, forbid building cache on top of another
     CSidechainsViewCache& operator=(const CSidechainsViewCache &) = delete;
 
-    bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
-    bool RevertTxOutputs(const CTransaction& tx, int nHeight);
-
 private:
     void Dump_info() const;
 };

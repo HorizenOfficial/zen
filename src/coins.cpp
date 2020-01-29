@@ -12,6 +12,7 @@
 #include <assert.h>
 #include "utilmoneystr.h"
 #include <undo.h>
+#include <chainparams.h>
 
 /**
  * calculate number of bytes for the bitmask, and its number of non-zero bytes
@@ -488,6 +489,163 @@ bool CCoinsViewCache::HaveDependencies(const CTransaction& tx)
         }
         LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
+    }
+    return true;
+}
+
+
+int CCoinsViewCache::getInitScCoinsMaturity()
+{
+    if ( (Params().NetworkIDString() == "regtest") )
+    {
+        int val = (int)(GetArg("-sccoinsmaturity", Params().ScCoinsMaturity() ));
+        LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
+        return val;
+    }
+    return Params().ScCoinsMaturity();
+}
+
+int CCoinsViewCache::getScCoinsMaturity()
+{
+    // gets constructed just one time
+    static int retVal( getInitScCoinsMaturity() );
+    return retVal;
+}
+
+bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, int blockHeight)
+{
+    const uint256& txHash = tx.GetHash();
+    LogPrint("sc", "%s():%d - enter tx=%s\n", __func__, __LINE__, txHash.ToString() );
+
+    // creation ccout
+    for (const auto& cr: tx.vsc_ccout)
+    {
+        if (HaveScInfo(cr.scId))
+        {
+            LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, cr.scId.ToString() );
+            return false;
+        }
+
+        Sidechain::ScInfo scInfo;
+        scInfo.creationBlockHash = block.GetHash();
+        scInfo.creationBlockHeight = blockHeight;
+        scInfo.creationTxHash = txHash;
+        scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
+
+        cacheSidechains[cr.scId] = Sidechain::CSidechainsCacheEntry(scInfo, Sidechain::CSidechainsCacheEntry::Flags::FRESH);
+
+        LogPrint("sc", "%s():%d - scId[%s] added in scView\n", __func__, __LINE__, cr.scId.ToString() );
+    }
+
+    static const int SC_COIN_MATURITY = getScCoinsMaturity();
+    const int maturityHeight = blockHeight + SC_COIN_MATURITY;
+
+    // forward transfer ccout
+    for(auto& ft: tx.vft_ccout)
+    {
+        Sidechain::ScInfo targetScInfo;
+        if (!GetScInfo(ft.scId, targetScInfo))
+        {
+            // should not happen
+            LogPrint("sc", "%s():%d - Can not update balance, could not find scId=%s\n",
+                __func__, __LINE__, ft.scId.ToString() );
+            return false;
+        }
+
+        // add a new immature balance entry in sc info or increment it if already there
+        targetScInfo.mImmatureAmounts[maturityHeight] += ft.nValue;
+        cacheSidechains[ft.scId] = Sidechain::CSidechainsCacheEntry(targetScInfo, Sidechain::CSidechainsCacheEntry::Flags::DIRTY);
+
+        LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
+            __func__, __LINE__, maturityHeight, FormatMoney(ft.nValue), ft.scId.ToString());
+    }
+
+    return true;
+}
+
+bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
+{
+    static const int SC_COIN_MATURITY = getScCoinsMaturity();
+    const int maturityHeight = nHeight + SC_COIN_MATURITY;
+
+    // revert forward transfers
+    for(const auto& entry: tx.vft_ccout)
+    {
+        const uint256& scId = entry.scId;
+
+        LogPrint("sc", "%s():%d - removing fwt for scId=%s\n", __func__, __LINE__, scId.ToString());
+
+        Sidechain::ScInfo targetScInfo;
+        if (!GetScInfo(scId, targetScInfo))
+        {
+            // should not happen
+            LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
+            return false;
+        }
+
+        // get the map of immature amounts, they are indexed by height
+        auto& iaMap = targetScInfo.mImmatureAmounts;
+
+        if (!iaMap.count(maturityHeight) )
+        {
+            // should not happen
+            LogPrint("sc", "ERROR %s():%d - scId=%s could not find immature balance at height%d\n",
+                __func__, __LINE__, scId.ToString(), maturityHeight);
+            return false;
+        }
+
+        LogPrint("sc", "%s():%d - immature amount before: %s\n",
+            __func__, __LINE__, FormatMoney(iaMap[maturityHeight]));
+
+        if (iaMap[maturityHeight] < entry.nValue)
+        {
+            // should not happen either
+            LogPrint("sc", "ERROR %s():%d - scId=%s negative balance at height=%d\n",
+                __func__, __LINE__, scId.ToString(), maturityHeight);
+            return false;
+        }
+
+        iaMap[maturityHeight] -= entry.nValue;
+        cacheSidechains[scId] = Sidechain::CSidechainsCacheEntry(targetScInfo, Sidechain::CSidechainsCacheEntry::Flags::DIRTY);
+
+        LogPrint("sc", "%s():%d - immature amount after: %s\n",
+            __func__, __LINE__, FormatMoney(iaMap[maturityHeight]));
+
+        if (iaMap[maturityHeight] == 0)
+        {
+            iaMap.erase(maturityHeight);
+            cacheSidechains[scId] = Sidechain::CSidechainsCacheEntry(targetScInfo, Sidechain::CSidechainsCacheEntry::Flags::DIRTY);
+            LogPrint("sc", "%s():%d - removed entry height=%d from immature amounts in memory\n",
+                __func__, __LINE__, maturityHeight );
+        }
+    }
+
+    // remove sidechain if the case
+    for(const auto& entry: tx.vsc_ccout)
+    {
+        const uint256& scId = entry.scId;
+
+        LogPrint("sc", "%s():%d - removing scId=%s\n", __func__, __LINE__, scId.ToString());
+
+        Sidechain::ScInfo targetScInfo;
+        if (!GetScInfo(scId, targetScInfo))
+        {
+            // should not happen
+            LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
+            return false;
+        }
+
+        if (targetScInfo.balance > 0)
+        {
+            // should not happen either
+            LogPrint("sc", "ERROR %s():%d - scId=%s balance not null: %s\n",
+                __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
+            return false;
+        }
+
+        cacheSidechains[scId] = Sidechain::CSidechainsCacheEntry(targetScInfo, Sidechain::CSidechainsCacheEntry::Flags::ERASED);
+
+        LogPrint("sc", "%s():%d - scId=%s removed from scView\n", __func__, __LINE__, scId.ToString() );
     }
     return true;
 }

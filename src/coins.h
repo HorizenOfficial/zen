@@ -510,6 +510,8 @@ public:
     bool GetScInfo(const uint256 & scId, Sidechain::ScInfo& targetScInfo) const;
     bool queryScIds(std::set<uint256>& scIdsList)                         const;
     bool HaveDependencies(const CTransaction& tx);
+    bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
+    bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
     bool Flush();
@@ -547,6 +549,8 @@ private:
     CCoinsMap::iterator FetchCoins(const uint256 &txid);
     CCoinsMap::const_iterator FetchCoins(const uint256 &txid) const;
     bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
+    static int getInitScCoinsMaturity();
+    int getScCoinsMaturity();
 
 protected:
     Sidechain::CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;

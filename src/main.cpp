@@ -6991,28 +6991,10 @@ static int getInitCbhSafeDepth()
     return Params().CbhSafeDepth();
 }
 
-static int getInitScCoinsMaturity()
-{
-    if ( (Params().NetworkIDString() == "regtest") )
-    {
-        int val = (int)(GetArg("-sccoinsmaturity", Params().ScCoinsMaturity() ));
-        LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
-        return val;
-    }
-    return Params().ScCoinsMaturity();
-}
-
 int getCheckBlockAtHeightSafeDepth()
 {
     // gets constructed just one time
     static int retVal( getInitCbhSafeDepth() );
-    return retVal;
-}
-
-int getScCoinsMaturity()
-{
-    // gets constructed just one time
-    static int retVal( getInitScCoinsMaturity() );
     return retVal;
 }
 

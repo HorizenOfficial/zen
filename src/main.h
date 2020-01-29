@@ -244,7 +244,6 @@ bool updateGlobalForkTips(const CBlockIndex* pindex, bool lookForwardTips);
 bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, CBlockIndex** pindexReference);
 
 int getCheckBlockAtHeightSafeDepth();
-int getScCoinsMaturity();
 int getCheckBlockAtHeightMinAge();
 bool getRequireStandard();
 
