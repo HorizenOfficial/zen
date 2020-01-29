@@ -28,8 +28,6 @@ using namespace zen;
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 
-#include "sc/sidechain.h"
-
 using namespace std;
 using namespace libzcash;
 using namespace Sidechain;

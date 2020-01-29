@@ -23,7 +23,6 @@
 #include <regex>
 
 #include <init.h>
-#include "sc/sidechain.h"
 #include "sc/sidechainrpc.h"
 
 using namespace std;
@@ -1054,7 +1053,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     scId.SetHex(inputString);
  
     // sanity check of the side chain ID
-    Sidechain::CSidechainsViewCache scView(pcoinsdbview);
+    CCoinsViewCache scView(pcoinsdbview);
     if (!scView.HaveScInfo(scId) )
     {
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );

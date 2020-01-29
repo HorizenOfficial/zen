@@ -13,7 +13,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include <sc/sidechain.h>
 
 class CBlockFileInfo;
 class CBlockIndex;

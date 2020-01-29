@@ -1365,7 +1365,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             LOCK(pool.cs);
             CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
             view.SetBackend(viewMemPool);
-            Sidechain::CSidechainsViewCache scView(pcoinsdbview);
+            CCoinsViewCache scView(pcoinsdbview);
  
             // do we already have it?
             if (view.HaveCoins(hash))

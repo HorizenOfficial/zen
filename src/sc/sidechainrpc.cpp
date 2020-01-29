@@ -1,6 +1,5 @@
 #include <init.h>
 #include "sc/sidechainrpc.h"
-#include "sc/sidechain.h"
 #include <univalue.h>
 #include "primitives/transaction.h"
 #include <boost/foreach.hpp>
@@ -198,7 +197,7 @@ void AddScInfoToJSON(const uint256& scId, const ScInfo& info, UniValue& sc)
 bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
 {
     ScInfo info;
-    Sidechain::CSidechainsViewCache scView(pcoinsdbview);
+    CCoinsViewCache scView(pcoinsdbview);
     if (!scView.GetScInfo(scId, info) )
     {
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
@@ -211,7 +210,7 @@ bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
 
 void AddScInfoToJSON(UniValue& result)
 {
-    Sidechain::CSidechainsViewCache scView(pcoinsdbview);
+    CCoinsViewCache scView(pcoinsdbview);
     std::set<uint256> sScIds;
     scView.queryScIds(sScIds);
 

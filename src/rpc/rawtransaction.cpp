@@ -27,7 +27,6 @@
 #include <boost/assign/list_of.hpp>
 
 #include <univalue.h>
-#include "sc/sidechain.h"
 #include "sc/sidechainrpc.h"
 
 using namespace std;

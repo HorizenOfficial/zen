@@ -45,7 +45,6 @@ class CInv;
 class CScriptCheck;
 class CValidationInterface;
 class CValidationState;
-namespace Sidechain { class CSidechainsViewCache; }
 
 struct CNodeStateStats;
 

@@ -36,7 +36,6 @@
 
 #include <numeric>
 
-#include "sc/sidechain.h"
 #include "sc/sidechainrpc.h"
 
 using namespace std;
@@ -548,7 +547,7 @@ UniValue sc_send(const UniValue& params, bool fHelp)
     scId.SetHex(inputString);
 
     // sanity check of the side chain ID
-    Sidechain::CSidechainsViewCache scView(pcoinsdbview);
+    CCoinsViewCache scView(pcoinsdbview);
     if (!scView.HaveScInfo(scId) )
     {
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
@@ -696,7 +695,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     scId.SetHex(inputString);
 
     // sanity check of the side chain ID
-    Sidechain::CSidechainsViewCache scView(pcoinsdbview);
+    CCoinsViewCache scView(pcoinsdbview);
     if (scView.HaveScInfo(scId) )
     {
         LogPrint("sc", "scid[%s] already created\n", scId.ToString() );
@@ -3961,7 +3960,7 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
         scId.SetHex(inputString);
 
         // scid must already been created
-        Sidechain::CSidechainsViewCache scView(pcoinsdbview);
+        CCoinsViewCache scView(pcoinsdbview);
         if (!scView.HaveScInfo(scId) )
         {
             LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
@@ -4063,7 +4062,7 @@ UniValue sc_certlock_many(const UniValue& params, bool fHelp)
         uint256 scId;
         scId.SetHex(inputString);
 
-        Sidechain::CSidechainsViewCache scView(pcoinsdbview);
+        CCoinsViewCache scView(pcoinsdbview);
         if (!scView.HaveScInfo(scId) )
         {
             LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
