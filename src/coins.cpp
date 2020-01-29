@@ -381,6 +381,44 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
     return true;
 }
 
+bool CCoinsViewCache::HaveScInfo(const uint256& scId) const
+{
+    Sidechain::CSidechainsMap::const_iterator it = FetchSidechains(scId);
+    return (it != cacheSidechains.end()) && (it->second.flag != Sidechain::CSidechainsCacheEntry::Flags::ERASED);
+}
+
+bool CCoinsViewCache::GetScInfo(const uint256 & scId, Sidechain::ScInfo& targetScInfo) const
+{
+    Sidechain::CSidechainsMap::const_iterator it = FetchSidechains(scId);
+    if (it != cacheSidechains.end())
+        LogPrint("sc", "%s():%d - FetchedSidechain: scId[%s]\n", __func__, __LINE__, scId.ToString());
+
+    if (it != cacheSidechains.end() && it->second.flag != Sidechain::CSidechainsCacheEntry::Flags::ERASED) {
+        targetScInfo = it->second.scInfo;
+        return true;
+    }
+    return false;
+}
+
+bool CCoinsViewCache::queryScIds(std::set<uint256>& scIdsList) const
+{
+    if(!base->queryScIds(scIdsList))
+        return false;
+
+    // Note that some of the values above may have been erased in current cache.
+    // Also new id may be in current cache but not in persisted
+    for (const auto& entry: cacheSidechains)
+    {
+      if (entry.second.flag == Sidechain::CSidechainsCacheEntry::Flags::ERASED)
+          scIdsList.erase(entry.first);
+      else
+          scIdsList.insert(entry.first);
+    }
+
+    return true;
+}
+
+
 bool CCoinsViewCache::Flush() {
     Sidechain::CSidechainsMap mapSidechains;
     bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, mapSidechains);

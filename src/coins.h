@@ -503,6 +503,11 @@ public:
      * Failure to call this method before destruction will cause the changes to be forgotten.
      * If false is returned, the state of this cache (and its backing view) will be undefined.
      */
+
+    bool HaveScInfo(const uint256& scId)                                  const;
+    bool GetScInfo(const uint256 & scId, Sidechain::ScInfo& targetScInfo) const;
+    bool queryScIds(std::set<uint256>& scIdsList)                         const;
+
     bool Flush();
 
     //! Calculate the size of the cache (in number of transactions)

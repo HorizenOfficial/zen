@@ -29,10 +29,6 @@ public:
     CSidechainsViewCache& operator=(const CSidechainsViewCache &) = delete;
     bool HaveDependencies(const CTransaction& tx);
 
-    bool HaveScInfo(const uint256& scId) const;
-    bool GetScInfo(const uint256 & scId, ScInfo& targetScInfo) const;
-    bool queryScIds(std::set<uint256>& scIdsList) const; //Similar to queryHashes
-
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
 
