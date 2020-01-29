@@ -35,11 +35,6 @@ public:
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
-    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
-                    const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap);
-    bool Flush();
-
 private:
     void Dump_info() const;
 };

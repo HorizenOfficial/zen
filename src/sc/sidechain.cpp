@@ -442,55 +442,6 @@ bool CSidechainsViewCache::RestoreImmatureBalances(int blockHeight, const CBlock
     return true;
 }
 
-bool CSidechainsViewCache::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
-        const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
-        CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap)
-{
-    for (auto& entryToWrite : sidechainMap) {
-        CSidechainsMap::iterator itLocalCacheEntry = cacheSidechains.find(entryToWrite.first);
-
-        switch (entryToWrite.second.flag) {
-            case CSidechainsCacheEntry::Flags::FRESH:
-                assert(itLocalCacheEntry == cacheSidechains.end()); //A fresh entry should not exist in localCache
-                cacheSidechains[entryToWrite.first] = entryToWrite.second;
-                break;
-            case CSidechainsCacheEntry::Flags::DIRTY:               //A dirty entry may or may not exist in localCache
-                    cacheSidechains[entryToWrite.first] = entryToWrite.second;
-                break;
-            case CSidechainsCacheEntry::Flags::ERASED:
-                if (itLocalCacheEntry != cacheSidechains.end())
-                    itLocalCacheEntry->second.flag = CSidechainsCacheEntry::Flags::ERASED;
-                break;
-            case CSidechainsCacheEntry::Flags::DEFAULT:
-                assert(itLocalCacheEntry != cacheSidechains.end());
-                assert(itLocalCacheEntry->second.scInfo == entryToWrite.second.scInfo); //entry declared default is indeed different from backed value
-                break; //nothing to do. entry is already persisted and has not been modified
-            default:
-                assert(false);
-        }
-    }
-
-    sidechainMap.clear();
-    return true;
-}
-
-bool CSidechainsViewCache::Flush()
-{
-    LogPrint("sc", "%s():%d - called\n", __func__, __LINE__);
-
-    CCoinsMap mapCoins;
-    const uint256 hashBlock;
-    const uint256 hashAnchor;
-    CAnchorsMap mapAnchors;
-    CNullifiersMap mapNullifiers;
-
-    if (!base->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, cacheSidechains))
-        return false;
-
-    cacheSidechains.clear();
-    return true;
-}
-
 void CSidechainsViewCache::Dump_info() const
 {
     std::set<uint256> scIdsList;

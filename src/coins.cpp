@@ -376,6 +376,31 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
         mapNullifiers.erase(itOld);
     }
 
+    for (auto& entryToWrite : mapSidechains) {
+        Sidechain::CSidechainsMap::iterator itLocalCacheEntry = cacheSidechains.find(entryToWrite.first);
+
+        switch (entryToWrite.second.flag) {
+            case Sidechain::CSidechainsCacheEntry::Flags::FRESH:
+                assert(itLocalCacheEntry == cacheSidechains.end()); //A fresh entry should not exist in localCache
+                cacheSidechains[entryToWrite.first] = entryToWrite.second;
+                break;
+            case Sidechain::CSidechainsCacheEntry::Flags::DIRTY:               //A dirty entry may or may not exist in localCache
+                    cacheSidechains[entryToWrite.first] = entryToWrite.second;
+                break;
+            case Sidechain::CSidechainsCacheEntry::Flags::ERASED:
+                if (itLocalCacheEntry != cacheSidechains.end())
+                    itLocalCacheEntry->second.flag = Sidechain::CSidechainsCacheEntry::Flags::ERASED;
+                break;
+            case Sidechain::CSidechainsCacheEntry::Flags::DEFAULT:
+                assert(itLocalCacheEntry != cacheSidechains.end());
+                assert(itLocalCacheEntry->second.scInfo == entryToWrite.second.scInfo); //entry declared default is indeed different from backed value
+                break; //nothing to do. entry is already persisted and has not been modified
+            default:
+                assert(false);
+        }
+    }
+    mapSidechains.clear(); //ABENEGIA: Does this clear capacity?
+
     hashAnchor = hashAnchorIn;
     hashBlock = hashBlockIn;
     return true;
@@ -420,9 +445,9 @@ bool CCoinsViewCache::queryScIds(std::set<uint256>& scIdsList) const
 
 
 bool CCoinsViewCache::Flush() {
-    Sidechain::CSidechainsMap mapSidechains;
-    bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, mapSidechains);
+    bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, cacheSidechains);
     cacheCoins.clear();
+    cacheSidechains.clear();
     cacheAnchors.clear();
     cacheNullifiers.clear();
     cachedCoinsUsage = 0;
