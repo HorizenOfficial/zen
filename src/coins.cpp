@@ -50,7 +50,7 @@ bool CCoinsView::GetNullifier(const uint256 &nullifier)                        c
 bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins)                  const { return false; }
 bool CCoinsView::HaveCoins(const uint256 &txid)                                const { return false; }
 bool CCoinsView::HaveScInfo(const uint256& scId)                               const { return false; }
-bool CCoinsView::GetScInfo(const uint256& scId, Sidechain::ScInfo& info)       const { return false; }
+bool CCoinsView::GetScInfo(const uint256& scId, ScInfo& info)                  const { return false; }
 bool CCoinsView::queryScIds(std::set<uint256>& scIdsList)                      const { return false; }
 uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
 uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
@@ -59,7 +59,7 @@ bool CCoinsView::BatchWrite(CCoinsMap &mapCoins,
                             const uint256 &hashAnchor,
                             CAnchorsMap &mapAnchors,
                             CNullifiersMap &mapNullifiers,
-                            Sidechain::CSidechainsMap& mapSidechains)                { return false; }
+                            CSidechainsMap& mapSidechains)                           { return false; }
 bool CCoinsView::GetStats(CCoinsStats &stats)                                  const { return false; }
 
 
@@ -77,7 +77,7 @@ bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins,
                                   const uint256 &hashAnchor,
                                   CAnchorsMap &mapAnchors,
                                   CNullifiersMap &mapNullifiers,
-                                  Sidechain::CSidechainsMap& mapSidechains)
+                                  CSidechainsMap& mapSidechains)
                                 { return base->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains); }
 bool CCoinsViewBacked::GetStats(CCoinsStats &stats) const { return base->GetStats(stats); }
 
@@ -115,19 +115,19 @@ CCoinsMap::const_iterator CCoinsViewCache::FetchCoins(const uint256 &txid) const
     return ret;
 }
 
-Sidechain::CSidechainsMap::const_iterator CCoinsViewCache::FetchSidechains(const uint256& scId) const {
-    Sidechain::CSidechainsMap::iterator candidateIt = cacheSidechains.find(scId);
+CSidechainsMap::const_iterator CCoinsViewCache::FetchSidechains(const uint256& scId) const {
+    CSidechainsMap::iterator candidateIt = cacheSidechains.find(scId);
     if (candidateIt != cacheSidechains.end())
         return candidateIt;
 
-    Sidechain::ScInfo tmp;
+    ScInfo tmp;
     if (!base->GetScInfo(scId, tmp))
         return cacheSidechains.end();
 
     //Fill cache and return iterator. The insert in cache below looks cumbersome. However
     //it allows to insert ScInfo and keep iterator to inserted member without extra searches
-    Sidechain::CSidechainsMap::iterator ret =
-            cacheSidechains.insert(std::make_pair(scId, Sidechain::CSidechainsCacheEntry(tmp, Sidechain::CSidechainsCacheEntry::Flags::DEFAULT ))).first;
+    CSidechainsMap::iterator ret =
+            cacheSidechains.insert(std::make_pair(scId, CSidechainsCacheEntry(tmp, CSidechainsCacheEntry::Flags::DEFAULT ))).first;
 
     return ret;
 }
@@ -297,7 +297,7 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                                  const uint256 &hashAnchorIn,
                                  CAnchorsMap &mapAnchors,
                                  CNullifiersMap &mapNullifiers,
-                                 Sidechain::CSidechainsMap& mapSidechains) {
+                                 CSidechainsMap& mapSidechains) {
     assert(!hasModifier);
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) { // Ignore non-dirty entries (optimization).
@@ -380,21 +380,21 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
     }
 
     for (auto& entryToWrite : mapSidechains) {
-        Sidechain::CSidechainsMap::iterator itLocalCacheEntry = cacheSidechains.find(entryToWrite.first);
+        CSidechainsMap::iterator itLocalCacheEntry = cacheSidechains.find(entryToWrite.first);
 
         switch (entryToWrite.second.flag) {
-            case Sidechain::CSidechainsCacheEntry::Flags::FRESH:
+            case CSidechainsCacheEntry::Flags::FRESH:
                 assert(itLocalCacheEntry == cacheSidechains.end()); //A fresh entry should not exist in localCache
                 cacheSidechains[entryToWrite.first] = entryToWrite.second;
                 break;
-            case Sidechain::CSidechainsCacheEntry::Flags::DIRTY:               //A dirty entry may or may not exist in localCache
+            case CSidechainsCacheEntry::Flags::DIRTY:               //A dirty entry may or may not exist in localCache
                     cacheSidechains[entryToWrite.first] = entryToWrite.second;
                 break;
-            case Sidechain::CSidechainsCacheEntry::Flags::ERASED:
+            case CSidechainsCacheEntry::Flags::ERASED:
                 if (itLocalCacheEntry != cacheSidechains.end())
-                    itLocalCacheEntry->second.flag = Sidechain::CSidechainsCacheEntry::Flags::ERASED;
+                    itLocalCacheEntry->second.flag = CSidechainsCacheEntry::Flags::ERASED;
                 break;
-            case Sidechain::CSidechainsCacheEntry::Flags::DEFAULT:
+            case CSidechainsCacheEntry::Flags::DEFAULT:
                 assert(itLocalCacheEntry != cacheSidechains.end());
                 assert(itLocalCacheEntry->second.scInfo == entryToWrite.second.scInfo); //entry declared default is indeed different from backed value
                 break; //nothing to do. entry is already persisted and has not been modified
@@ -411,17 +411,17 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
 
 bool CCoinsViewCache::HaveScInfo(const uint256& scId) const
 {
-    Sidechain::CSidechainsMap::const_iterator it = FetchSidechains(scId);
-    return (it != cacheSidechains.end()) && (it->second.flag != Sidechain::CSidechainsCacheEntry::Flags::ERASED);
+    CSidechainsMap::const_iterator it = FetchSidechains(scId);
+    return (it != cacheSidechains.end()) && (it->second.flag != CSidechainsCacheEntry::Flags::ERASED);
 }
 
-bool CCoinsViewCache::GetScInfo(const uint256 & scId, Sidechain::ScInfo& targetScInfo) const
+bool CCoinsViewCache::GetScInfo(const uint256 & scId, ScInfo& targetScInfo) const
 {
-    Sidechain::CSidechainsMap::const_iterator it = FetchSidechains(scId);
+    CSidechainsMap::const_iterator it = FetchSidechains(scId);
     if (it != cacheSidechains.end())
         LogPrint("sc", "%s():%d - FetchedSidechain: scId[%s]\n", __func__, __LINE__, scId.ToString());
 
-    if (it != cacheSidechains.end() && it->second.flag != Sidechain::CSidechainsCacheEntry::Flags::ERASED) {
+    if (it != cacheSidechains.end() && it->second.flag != CSidechainsCacheEntry::Flags::ERASED) {
         targetScInfo = it->second.scInfo;
         return true;
     }
@@ -437,7 +437,7 @@ bool CCoinsViewCache::queryScIds(std::set<uint256>& scIdsList) const
     // Also new id may be in current cache but not in persisted
     for (const auto& entry: cacheSidechains)
     {
-      if (entry.second.flag == Sidechain::CSidechainsCacheEntry::Flags::ERASED)
+      if (entry.second.flag == CSidechainsCacheEntry::Flags::ERASED)
           scIdsList.erase(entry.first);
       else
           scIdsList.insert(entry.first);
@@ -526,13 +526,13 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
             return false;
         }
 
-        Sidechain::ScInfo scInfo;
+        ScInfo scInfo;
         scInfo.creationBlockHash = block.GetHash();
         scInfo.creationBlockHeight = blockHeight;
         scInfo.creationTxHash = txHash;
         scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
 
-        cacheSidechains[cr.scId] = Sidechain::CSidechainsCacheEntry(scInfo, Sidechain::CSidechainsCacheEntry::Flags::FRESH);
+        cacheSidechains[cr.scId] = CSidechainsCacheEntry(scInfo, CSidechainsCacheEntry::Flags::FRESH);
 
         LogPrint("sc", "%s():%d - scId[%s] added in scView\n", __func__, __LINE__, cr.scId.ToString() );
     }
@@ -543,7 +543,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
     // forward transfer ccout
     for(auto& ft: tx.vft_ccout)
     {
-        Sidechain::ScInfo targetScInfo;
+        ScInfo targetScInfo;
         if (!GetScInfo(ft.scId, targetScInfo))
         {
             // should not happen
@@ -554,7 +554,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
 
         // add a new immature balance entry in sc info or increment it if already there
         targetScInfo.mImmatureAmounts[maturityHeight] += ft.nValue;
-        cacheSidechains[ft.scId] = Sidechain::CSidechainsCacheEntry(targetScInfo, Sidechain::CSidechainsCacheEntry::Flags::DIRTY);
+        cacheSidechains[ft.scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
 
         LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
             __func__, __LINE__, maturityHeight, FormatMoney(ft.nValue), ft.scId.ToString());
@@ -575,7 +575,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
         LogPrint("sc", "%s():%d - removing fwt for scId=%s\n", __func__, __LINE__, scId.ToString());
 
-        Sidechain::ScInfo targetScInfo;
+        ScInfo targetScInfo;
         if (!GetScInfo(scId, targetScInfo))
         {
             // should not happen
@@ -606,7 +606,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         }
 
         iaMap[maturityHeight] -= entry.nValue;
-        cacheSidechains[scId] = Sidechain::CSidechainsCacheEntry(targetScInfo, Sidechain::CSidechainsCacheEntry::Flags::DIRTY);
+        cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
 
         LogPrint("sc", "%s():%d - immature amount after: %s\n",
             __func__, __LINE__, FormatMoney(iaMap[maturityHeight]));
@@ -614,7 +614,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         if (iaMap[maturityHeight] == 0)
         {
             iaMap.erase(maturityHeight);
-            cacheSidechains[scId] = Sidechain::CSidechainsCacheEntry(targetScInfo, Sidechain::CSidechainsCacheEntry::Flags::DIRTY);
+            cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
             LogPrint("sc", "%s():%d - removed entry height=%d from immature amounts in memory\n",
                 __func__, __LINE__, maturityHeight );
         }
@@ -627,7 +627,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
         LogPrint("sc", "%s():%d - removing scId=%s\n", __func__, __LINE__, scId.ToString());
 
-        Sidechain::ScInfo targetScInfo;
+        ScInfo targetScInfo;
         if (!GetScInfo(scId, targetScInfo))
         {
             // should not happen
@@ -643,7 +643,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
             return false;
         }
 
-        cacheSidechains[scId] = Sidechain::CSidechainsCacheEntry(targetScInfo, Sidechain::CSidechainsCacheEntry::Flags::ERASED);
+        cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::ERASED);
 
         LogPrint("sc", "%s():%d - scId=%s removed from scView\n", __func__, __LINE__, scId.ToString() );
     }
@@ -661,7 +661,7 @@ bool CCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo
     for(auto it_set = allKnowScIds.begin(); it_set != allKnowScIds.end(); ++it_set)
     {
         const uint256& scId = *it_set;
-        Sidechain::ScInfo info;
+        ScInfo info;
         assert(GetScInfo(scId, info));
 
         for(auto it_ia_map = info.mImmatureAmounts.begin(); it_ia_map != info.mImmatureAmounts.end(); )
@@ -688,7 +688,7 @@ bool CCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo
 
                 // scview balance has been updated, remove the entry in scview immature map
                 it_ia_map = info.mImmatureAmounts.erase(it_ia_map);
-                cacheSidechains[scId] = Sidechain::CSidechainsCacheEntry(info, Sidechain::CSidechainsCacheEntry::Flags::DIRTY);
+                cacheSidechains[scId] = CSidechainsCacheEntry(info, CSidechainsCacheEntry::Flags::DIRTY);
             }
             else
             if (maturityHeight < blockHeight)
@@ -716,7 +716,7 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
     {
         const uint256& scId = it_ia_undo_map->first;
 
-        Sidechain::ScInfo targetScInfo;
+        ScInfo targetScInfo;
         if (!GetScInfo(scId, targetScInfo))
         {
             // should not happen
@@ -749,7 +749,7 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
             }
 
             targetScInfo.balance -= a;
-            cacheSidechains[scId] = Sidechain::CSidechainsCacheEntry(targetScInfo, Sidechain::CSidechainsCacheEntry::Flags::DIRTY);
+            cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
 
             LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
                 __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
@@ -779,7 +779,7 @@ void CCoinsViewCache::Dump_info() const
     for(const auto& scId: scIdsList)
     {
         LogPrint("sc", "-- side chain [%s] ------------------------\n", scId.ToString());
-        Sidechain::ScInfo info;
+        ScInfo info;
         if (!GetScInfo(scId, info) )
         {
             LogPrint("sc", "===> No such side chain\n");

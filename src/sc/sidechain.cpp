@@ -10,10 +10,6 @@
 #include <undo.h>
 #include <main.h>
 
-namespace Sidechain
-{
-
-/*************************** CSidechainsView INTERFACE ****************************/
 std::string ScInfo::ToString() const
 {
     std::string str;
@@ -36,7 +32,8 @@ std::string ScInfo::ToString() const
     return str;
 }
 
-/*************************** VALIDATION FUNCTIONS ****************************/
+namespace Sidechain
+{
 bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
 {
     // check version consistency
@@ -139,8 +136,5 @@ bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidation
     }
     return true;
 }
-
-/********************** CSidechainsViewCache **********************/
-CSidechainsViewCache::CSidechainsViewCache(CCoinsView* scView): CCoinsViewCache(scView) {}
 
 } // end of namespace

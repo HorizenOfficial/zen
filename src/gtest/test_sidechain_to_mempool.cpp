@@ -29,7 +29,7 @@ public:
         const uint256 hashAnchor;
         CAnchorsMap mapAnchors;
         CNullifiersMap mapNullifiers;
-        Sidechain::CSidechainsMap mapSidechains;
+        CSidechainsMap mapSidechains;
 
         return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains);
     }
@@ -249,7 +249,7 @@ bool SidechainsInMempoolTestSuite::PersistCoins() {
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
-    Sidechain::CSidechainsMap mapSidechains;
+    CSidechainsMap mapSidechains;
 
     pcoinsdbview->BatchWrite(tmpCopyConsumedOnWrite, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains);
 

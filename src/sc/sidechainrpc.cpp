@@ -1,5 +1,5 @@
 #include <init.h>
-#include "sc/sidechainrpc.h"
+#include "sc/sidechain.h"
 #include <univalue.h>
 #include "primitives/transaction.h"
 #include <boost/foreach.hpp>

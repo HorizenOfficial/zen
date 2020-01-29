@@ -18,7 +18,7 @@
 #include <boost/foreach.hpp>
 #include <boost/unordered_map.hpp>
 #include "zcash/IncrementalMerkleTree.hpp"
-#include <sc/sidechaintypes.h>
+#include <sc/sidechain.h>
 
 class CBlockUndo;
 
@@ -299,6 +299,21 @@ struct CCoinsCacheEntry
     CCoinsCacheEntry() : coins(), flags(0) {}
 };
 
+struct CSidechainsCacheEntry
+{
+    ScInfo scInfo; // The actual cached data.
+
+    enum class Flags {
+        DEFAULT = 0,
+        DIRTY   = (1 << 0), // This cache entry is potentially different from the version in the parent view.
+        FRESH   = (1 << 1), // The parent view does not have this entry
+        ERASED  = (1 << 2), // The parent view does have this entry but current one have it erased
+    } flag;
+
+    CSidechainsCacheEntry() : scInfo(), flag(Flags::DEFAULT) {}
+    CSidechainsCacheEntry(const ScInfo & _scInfo, Flags _flag) : scInfo(_scInfo), flag(_flag) {}
+};
+
 struct CAnchorsCacheEntry
 {
     bool entered; // This will be false if the anchor is removed from the cache
@@ -324,8 +339,9 @@ struct CNullifiersCacheEntry
     CNullifiersCacheEntry() : entered(false), flags(0) {}
 };
 
-typedef boost::unordered_map<uint256, CCoinsCacheEntry, CCoinsKeyHasher> CCoinsMap;
-typedef boost::unordered_map<uint256, CAnchorsCacheEntry, CCoinsKeyHasher> CAnchorsMap;
+typedef boost::unordered_map<uint256, CCoinsCacheEntry, CCoinsKeyHasher>      CCoinsMap;
+typedef boost::unordered_map<uint256, CSidechainsCacheEntry, ObjectHasher>    CSidechainsMap;
+typedef boost::unordered_map<uint256, CAnchorsCacheEntry, CCoinsKeyHasher>    CAnchorsMap;
 typedef boost::unordered_map<uint256, CNullifiersCacheEntry, CCoinsKeyHasher> CNullifiersMap;
 
 struct CCoinsStats
@@ -360,7 +376,7 @@ public:
     virtual bool HaveCoins(const uint256 &txid) const;
 
     virtual bool HaveScInfo(const uint256& scId) const;
-    virtual bool GetScInfo(const uint256& scId, Sidechain::ScInfo& info) const;
+    virtual bool GetScInfo(const uint256& scId, ScInfo& info) const;
     virtual bool queryScIds(std::set<uint256>& scIdsList) const;
 
     //! Retrieve the block hash whose state this CCoinsView currently represents
@@ -376,7 +392,7 @@ public:
                             const uint256 &hashAnchor,
                             CAnchorsMap &mapAnchors,
                             CNullifiersMap &mapNullifiers,
-                            Sidechain::CSidechainsMap& mapSidechains);
+                            CSidechainsMap& mapSidechains);
 
     //! Calculate statistics about the unspent transaction output set
     virtual bool GetStats(CCoinsStats &stats) const;
@@ -406,7 +422,7 @@ public:
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
-                    Sidechain::CSidechainsMap& mapSidechains);
+                    CSidechainsMap& mapSidechains);
     bool GetStats(CCoinsStats &stats) const;
 };
 
@@ -447,7 +463,7 @@ protected:
      */
     mutable uint256                   hashBlock;
     mutable CCoinsMap                 cacheCoins;
-    mutable Sidechain::CSidechainsMap cacheSidechains;
+    mutable CSidechainsMap cacheSidechains;
     mutable uint256                   hashAnchor;
     mutable CAnchorsMap               cacheAnchors;
     mutable CNullifiersMap            cacheNullifiers;
@@ -472,7 +488,7 @@ public:
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
-                    Sidechain::CSidechainsMap& mapSidechains);
+                    CSidechainsMap& mapSidechains);
 
 
     // Adds the tree to mapAnchors and sets the current commitment
@@ -506,9 +522,9 @@ public:
      * If false is returned, the state of this cache (and its backing view) will be undefined.
      */
 
-    bool HaveScInfo(const uint256& scId)                                  const;
-    bool GetScInfo(const uint256 & scId, Sidechain::ScInfo& targetScInfo) const;
-    bool queryScIds(std::set<uint256>& scIdsList)                         const;
+    bool HaveScInfo(const uint256& scId)                       const;
+    bool GetScInfo(const uint256 & scId, ScInfo& targetScInfo) const;
+    bool queryScIds(std::set<uint256>& scIdsList)              const;
     bool HaveDependencies(const CTransaction& tx);
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
@@ -548,13 +564,12 @@ public:
 private:
     CCoinsMap::iterator FetchCoins(const uint256 &txid);
     CCoinsMap::const_iterator FetchCoins(const uint256 &txid) const;
+    CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
     bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
     static int getInitScCoinsMaturity();
     int getScCoinsMaturity();
     void Dump_info() const;
 
-protected:
-    Sidechain::CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
 private:
     /**
      * By making the copy constructor private, we prevent accidentally using it when one intends to create a cache on top of a base cache.

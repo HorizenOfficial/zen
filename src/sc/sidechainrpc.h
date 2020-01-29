@@ -13,8 +13,6 @@ class CMutableTransaction;
 
 namespace Sidechain
 {
-
-class ScInfo;
 class CRecipientFactory;
 
 class CcRecipientVisitor : public boost::static_visitor<bool>

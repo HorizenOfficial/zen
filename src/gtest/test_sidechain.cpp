@@ -15,7 +15,7 @@ public:
     ~CInMemorySidechainDb() = default;
 
     bool HaveScInfo(const uint256& scId) const { return inMemoryMap.count(scId); }
-    bool GetScInfo(const uint256& scId, Sidechain::ScInfo& info) const {
+    bool GetScInfo(const uint256& scId, ScInfo& info) const {
         if(!inMemoryMap.count(scId))
             return false;
         info = inMemoryMap[scId];
@@ -30,18 +30,18 @@ public:
 
     bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                     const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers, Sidechain::CSidechainsMap& sidechainMap)
+                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap)
     {
         for (auto& entry : sidechainMap)
             switch (entry.second.flag) {
-                case Sidechain::CSidechainsCacheEntry::Flags::FRESH:
-                case Sidechain::CSidechainsCacheEntry::Flags::DIRTY:
+                case CSidechainsCacheEntry::Flags::FRESH:
+                case CSidechainsCacheEntry::Flags::DIRTY:
                     inMemoryMap[entry.first] = entry.second.scInfo;
                     break;
-                case Sidechain::CSidechainsCacheEntry::Flags::ERASED:
+                case CSidechainsCacheEntry::Flags::ERASED:
                     inMemoryMap.erase(entry.first);
                     break;
-                case Sidechain::CSidechainsCacheEntry::Flags::DEFAULT:
+                case CSidechainsCacheEntry::Flags::DEFAULT:
                     break; //nothing to do. entry is already persisted and has not been modified
                 default:
                     return false;
@@ -51,7 +51,7 @@ public:
     }
 
 private:
-    mutable boost::unordered_map<uint256, Sidechain::ScInfo, ObjectHasher> inMemoryMap;
+    mutable boost::unordered_map<uint256, ScInfo, ObjectHasher> inMemoryMap;
 };
 
 class SidechainTestSuite: public ::testing::Test {
@@ -363,7 +363,7 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceBeforeCoins
     EXPECT_TRUE(res);
 
     sidechainsView->Flush();
-    Sidechain::ScInfo mgrInfos;
+    ScInfo mgrInfos;
     ASSERT_TRUE(chainStateDb->GetScInfo(scId, mgrInfos));
     EXPECT_TRUE(mgrInfos.balance < initialAmount)
         <<"resulting balance is "<<mgrInfos.balance <<" while initial amount is "<<initialAmount;
@@ -388,7 +388,7 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferModifiesScBalanceAtCoinMaturity) 
     EXPECT_TRUE(res);
 
     sidechainsView->Flush();
-    Sidechain::ScInfo mgrInfos;
+    ScInfo mgrInfos;
     ASSERT_TRUE(chainStateDb->GetScInfo(scId, mgrInfos));
     EXPECT_TRUE(mgrInfos.balance == initialAmount)
         <<"resulting balance is "<<mgrInfos.balance <<" expected one is "<<initialAmount;
@@ -413,7 +413,7 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceAfterCoinsM
     EXPECT_FALSE(res);
 
     sidechainsView->Flush();
-    Sidechain::ScInfo mgrInfos;
+    ScInfo mgrInfos;
     ASSERT_TRUE(chainStateDb->GetScInfo(scId, mgrInfos));
     EXPECT_TRUE(mgrInfos.balance < initialAmount)
         <<"resulting balance is "<<mgrInfos.balance <<" while initial amount is "<<initialAmount;
@@ -432,7 +432,7 @@ TEST_F(SidechainTestSuite, RestoreImmatureBalancesAffectsScBalance) {
 
     sidechainsView->ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity(), aBlockUndo);
 
-    Sidechain::ScInfo viewInfos;
+    ScInfo viewInfos;
     ASSERT_TRUE(sidechainsView->GetScInfo(scId, viewInfos));
     CAmount scBalance = viewInfos.balance;
 
@@ -459,7 +459,7 @@ TEST_F(SidechainTestSuite, YouCannotRestoreMoreCoinsThanAvailableBalance) {
     CBlockUndo aBlockUndo;
 
     sidechainsView->ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity(), aBlockUndo);
-    Sidechain::ScInfo viewInfos;
+    ScInfo viewInfos;
     ASSERT_TRUE(sidechainsView->GetScInfo(scId, viewInfos));
     CAmount scBalance = viewInfos.balance;
 
@@ -492,7 +492,7 @@ TEST_F(SidechainTestSuite, RestoringBeforeBalanceMaturesHasNoEffects) {
 
     //checks
     EXPECT_FALSE(res);
-    Sidechain::ScInfo viewInfos;
+    ScInfo viewInfos;
     ASSERT_TRUE(sidechainsView->GetScInfo(scId, viewInfos));
     EXPECT_TRUE(viewInfos.balance == 0)
         <<"balance after restore is "<<viewInfos.balance <<" instead of 0";
@@ -547,7 +547,7 @@ TEST_F(SidechainTestSuite, RevertingFwdTransferRemovesCoinsFromImmatureBalance) 
 
     //checks
     EXPECT_TRUE(res);
-    Sidechain::ScInfo viewInfos;
+    ScInfo viewInfos;
     ASSERT_TRUE(sidechainsView->GetScInfo(scId, viewInfos));
     EXPECT_TRUE(viewInfos.mImmatureAmounts.count(fwdTxHeight + Params().ScCoinsMaturity()) == 0)
         <<"resulting immature amount is "<< viewInfos.mImmatureAmounts.count(fwdTxHeight + Params().ScCoinsMaturity());
@@ -591,7 +591,7 @@ TEST_F(SidechainTestSuite, RevertingAFwdTransferOnTheWrongHeightHasNoEffect) {
 
     //checks
     EXPECT_FALSE(res);
-    Sidechain::ScInfo viewInfos;
+    ScInfo viewInfos;
     ASSERT_TRUE(sidechainsView->GetScInfo(scId, viewInfos));
     EXPECT_TRUE(viewInfos.mImmatureAmounts.at(fwdTxHeight + Params().ScCoinsMaturity()) == fwdAmount)
         <<"Immature amount is "<<viewInfos.mImmatureAmounts.at(fwdTxHeight + Params().ScCoinsMaturity())
@@ -687,10 +687,10 @@ TEST_F(SidechainTestSuite, FRESHSidechainsGetWrittenInBackingCache) {
 
 
     uint256 scId = uint256S("aaaa");
-    Sidechain::CSidechainsMap mapToWrite;
-    Sidechain::CSidechainsCacheEntry entry;
-    entry.scInfo = Sidechain::ScInfo();
-    entry.flag   = Sidechain::CSidechainsCacheEntry::Flags::FRESH;
+    CSidechainsMap mapToWrite;
+    CSidechainsCacheEntry entry;
+    entry.scInfo = ScInfo();
+    entry.flag   = CSidechainsCacheEntry::Flags::FRESH;
 
     mapToWrite[scId] = entry;
 
@@ -716,10 +716,10 @@ TEST_F(SidechainTestSuite, FRESHSidechainsCanBeWrittenOnlyIfUnknownToBackingCach
     sidechainsView->UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
 
     //attempt to write new sidechain when backing view already knows about it
-    Sidechain::CSidechainsMap mapToWrite;
-    Sidechain::CSidechainsCacheEntry entry;
-    entry.scInfo = Sidechain::ScInfo();
-    entry.flag   = Sidechain::CSidechainsCacheEntry::Flags::FRESH;
+    CSidechainsMap mapToWrite;
+    CSidechainsCacheEntry entry;
+    entry.scInfo = ScInfo();
+    entry.flag   = CSidechainsCacheEntry::Flags::FRESH;
 
     mapToWrite[scId] = entry;
 
@@ -735,10 +735,10 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsAreStoredInBackingCache) {
 
 
     uint256 scId = uint256S("aaaa");
-    Sidechain::CSidechainsMap mapToWrite;
-    Sidechain::CSidechainsCacheEntry entry;
-    entry.scInfo = Sidechain::ScInfo();
-    entry.flag   = Sidechain::CSidechainsCacheEntry::Flags::FRESH;
+    CSidechainsMap mapToWrite;
+    CSidechainsCacheEntry entry;
+    entry.scInfo = ScInfo();
+    entry.flag   = CSidechainsCacheEntry::Flags::FRESH;
 
     mapToWrite[scId] = entry;
 
@@ -762,12 +762,12 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsUpdatesDirtyOnesInBackingCache) {
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     sidechainsView->UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
 
-    Sidechain::CSidechainsMap mapToWrite;
-    Sidechain::CSidechainsCacheEntry entry;
-    Sidechain::ScInfo updatedScInfo;
+    CSidechainsMap mapToWrite;
+    CSidechainsCacheEntry entry;
+    ScInfo updatedScInfo;
     updatedScInfo.balance = CAmount(12);
     entry.scInfo = updatedScInfo;
-    entry.flag   = Sidechain::CSidechainsCacheEntry::Flags::DIRTY;
+    entry.flag   = CSidechainsCacheEntry::Flags::DIRTY;
 
     mapToWrite[scId] = entry;
 
@@ -776,7 +776,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsUpdatesDirtyOnesInBackingCache) {
 
     //checks
     EXPECT_TRUE(res);
-    Sidechain::ScInfo cachedSc;
+    ScInfo cachedSc;
     EXPECT_TRUE(sidechainsView->GetScInfo(scId, cachedSc));
     EXPECT_TRUE(cachedSc.balance == CAmount(12) );
 }
@@ -798,12 +798,12 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsOverwriteErasedOnesInBackingCache) {
     sidechainsView->RevertTxOutputs(scTx, /*nHeight*/1000);
     ASSERT_FALSE(sidechainsView->HaveScInfo(scId));
 
-    Sidechain::CSidechainsMap mapToWrite;
-    Sidechain::CSidechainsCacheEntry entry;
-    Sidechain::ScInfo updatedScInfo;
+    CSidechainsMap mapToWrite;
+    CSidechainsCacheEntry entry;
+    ScInfo updatedScInfo;
     updatedScInfo.balance = CAmount(12);
     entry.scInfo = updatedScInfo;
-    entry.flag   = Sidechain::CSidechainsCacheEntry::Flags::DIRTY;
+    entry.flag   = CSidechainsCacheEntry::Flags::DIRTY;
 
     mapToWrite[scId] = entry;
 
@@ -812,7 +812,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsOverwriteErasedOnesInBackingCache) {
 
     //checks
     EXPECT_TRUE(res);
-    Sidechain::ScInfo cachedSc;
+    ScInfo cachedSc;
     EXPECT_TRUE(sidechainsView->GetScInfo(scId, cachedSc));
     EXPECT_TRUE(cachedSc.balance == CAmount(12) );
 }
@@ -829,12 +829,12 @@ TEST_F(SidechainTestSuite, ERASEDSidechainsSetExistingOnesInBackingCacheasErased
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     sidechainsView->UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
 
-    Sidechain::CSidechainsMap mapToWrite;
-    Sidechain::CSidechainsCacheEntry entry;
-    Sidechain::ScInfo updatedScInfo;
+    CSidechainsMap mapToWrite;
+    CSidechainsCacheEntry entry;
+    ScInfo updatedScInfo;
     updatedScInfo.balance = CAmount(12);
     entry.scInfo = updatedScInfo;
-    entry.flag   = Sidechain::CSidechainsCacheEntry::Flags::ERASED;
+    entry.flag   = CSidechainsCacheEntry::Flags::ERASED;
 
     mapToWrite[scId] = entry;
 
@@ -858,12 +858,12 @@ TEST_F(SidechainTestSuite, DEFAULTSidechainsCanBeWrittenInBackingCacheasOnlyIfUn
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     sidechainsView->UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
 
-    Sidechain::CSidechainsMap mapToWrite;
-    Sidechain::CSidechainsCacheEntry entry;
-    Sidechain::ScInfo updatedScInfo;
+    CSidechainsMap mapToWrite;
+    CSidechainsCacheEntry entry;
+    ScInfo updatedScInfo;
     updatedScInfo.balance = CAmount(12);
     entry.scInfo = updatedScInfo;
-    entry.flag   = Sidechain::CSidechainsCacheEntry::Flags::DEFAULT;
+    entry.flag   = CSidechainsCacheEntry::Flags::DEFAULT;
 
     mapToWrite[scId] = entry;
 
@@ -908,7 +908,7 @@ TEST_F(SidechainTestSuite, FlushPersistsForwardTransfers) {
     //checks
     EXPECT_TRUE(res);
 
-    Sidechain::ScInfo persistedInfo;
+    ScInfo persistedInfo;
     ASSERT_TRUE(chainStateDb->GetScInfo(scId, persistedInfo));
     ASSERT_TRUE(persistedInfo.mImmatureAmounts.at(fwdTxMaturityHeight) == fwdTxAmount)
         <<"Following flush, persisted fwd amount should equal the one in view";

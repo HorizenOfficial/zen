@@ -39,7 +39,7 @@ public:
     bool GetNullifier(const uint256 &nf) const;
     bool GetCoins(const uint256 &txid, CCoins &coins) const;
     bool HaveCoins(const uint256 &txid) const;
-    bool GetScInfo(const uint256& scId, Sidechain::ScInfo& info) const;
+    bool GetScInfo(const uint256& scId, ScInfo& info) const;
     bool HaveScInfo(const uint256& scId) const;
     bool queryScIds(std::set<uint256>& scIdsList) const;
     uint256 GetBestBlock() const;
@@ -49,7 +49,7 @@ public:
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
-                    Sidechain::CSidechainsMap& mapSidechains);
+                    CSidechainsMap& mapSidechains);
     bool GetStats(CCoinsStats &stats) const;
     void Dump_info() const;
 };

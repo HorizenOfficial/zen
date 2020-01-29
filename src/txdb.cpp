@@ -60,16 +60,16 @@ void static BatchWriteCoins(CLevelDBBatch &batch, const uint256 &hash, const CCo
         batch.Write(make_pair(DB_COINS, hash), coins);
 }
 
-void static BatchSidechains(CLevelDBBatch &batch, const uint256 &scId, const Sidechain::CSidechainsCacheEntry &sidechain) {
+void static BatchSidechains(CLevelDBBatch &batch, const uint256 &scId, const CSidechainsCacheEntry &sidechain) {
     switch (sidechain.flag) {
-        case Sidechain::CSidechainsCacheEntry::Flags::FRESH:
-        case Sidechain::CSidechainsCacheEntry::Flags::DIRTY:
+        case CSidechainsCacheEntry::Flags::FRESH:
+        case CSidechainsCacheEntry::Flags::DIRTY:
             batch.Write(make_pair(DB_SIDECHAINS, scId), sidechain.scInfo);
             break;
-        case Sidechain::CSidechainsCacheEntry::Flags::ERASED:
+        case CSidechainsCacheEntry::Flags::ERASED:
             batch.Erase(make_pair(DB_SIDECHAINS, scId));
             break;
-        case Sidechain::CSidechainsCacheEntry::Flags::DEFAULT:
+        case CSidechainsCacheEntry::Flags::DEFAULT:
         default:
             break;
     }
@@ -118,7 +118,7 @@ bool CCoinsViewDB::HaveCoins(const uint256 &txid) const {
     return db.Exists(make_pair(DB_COINS, txid));
 }
 
-bool CCoinsViewDB::GetScInfo(const uint256& scId, Sidechain::ScInfo& info) const
+bool CCoinsViewDB::GetScInfo(const uint256& scId, ScInfo& info) const
 {
     return db.Read(std::make_pair(DB_SIDECHAINS, scId), info);
 }
@@ -170,7 +170,7 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
                               const uint256 &hashAnchor,
                               CAnchorsMap &mapAnchors,
                               CNullifiersMap &mapNullifiers,
-                              Sidechain::CSidechainsMap& mapSidechains) {
+                              CSidechainsMap& mapSidechains) {
     CLevelDBBatch batch;
     size_t count = 0;
     size_t changed = 0;
@@ -202,9 +202,9 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
         mapNullifiers.erase(itOld);
     }
 
-    for (Sidechain::CSidechainsMap::iterator it = mapSidechains.begin(); it != mapSidechains.end();) {
+    for (CSidechainsMap::iterator it = mapSidechains.begin(); it != mapSidechains.end();) {
         BatchSidechains(batch, it->first, it->second);
-        Sidechain::CSidechainsMap::iterator itOld = it++;
+        CSidechainsMap::iterator itOld = it++;
         mapSidechains.erase(itOld);
     }
 
@@ -313,7 +313,7 @@ void CCoinsViewDB::Dump_info()  const
         {
             leveldb::Slice slValue = it->value();
             CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
-            Sidechain::ScInfo info;
+            ScInfo info;
             ssValue >> info;
 
             std::cout
