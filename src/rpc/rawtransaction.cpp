@@ -195,6 +195,8 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
    
     UniValue x(UniValue::VOBJ);
     x.push_back(Pair("scid", cert.scId.GetHex()));
+    x.push_back(Pair("epochNumber", cert.epochNumber));
+    x.push_back(Pair("endEpochBlockHash", cert.endEpochBlockHash.GetHex()));
     x.push_back(Pair("totalAmount", ValueFromAmount(cert.totalAmount)));
     UniValue vbts(UniValue::VARR);
     for (unsigned int j = 0; j < cert.vbt_ccout.size(); j++) {

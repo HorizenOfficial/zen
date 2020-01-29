@@ -872,7 +872,10 @@ CBlockUndo SidechainTestSuite::createBlockUndoWith(const uint256 & scId, int hei
 #else
     CAmount AmountPerHeight = amount;
 #endif
-    retVal.msc_iaundo[scId] = AmountPerHeight;
+    ScUndoData data;
+    data.immAmount = AmountPerHeight;
+    data.certEpoch = Sidechain::EPOCH_NULL;
+    retVal.msc_iaundo[scId] = data;
 
     return retVal;
 }

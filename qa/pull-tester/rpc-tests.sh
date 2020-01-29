@@ -55,6 +55,7 @@ testScripts=(
     'sc_split.py'
     'sc_invalidate.py'
     'sc_cert_base.py'
+    'sc_cert_epoch.py'
     'sc_cert_invalidate.py'
     'sc_fwd_maturity.py'
 );

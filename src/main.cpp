@@ -2844,7 +2844,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 #if 0
             if (!scView.UpdateScInfo(tx, block, pindex->nHeight) )
 #else
-            if (!tx.UpdateScInfo(scView, block, pindex->nHeight) )
+            if (!tx.UpdateScInfo(scView, block, pindex->nHeight, blockundo) )
 #endif
             {
                 return state.DoS(100, error("ConnectBlock(): could not add sidechain in scView: tx[%s]", tx.GetHash().ToString()),
@@ -3213,6 +3213,10 @@ bool static DisconnectTip(CValidationState &state) {
         mempool.removeWithAnchor(anchorBeforeDisconnect);
     }
     mempool.removeCoinbaseSpends(pcoinsTip, pindexDelete->nHeight);
+#if 1
+    // remove any certificate, and possible dependancies, that refers to this block as end epoch
+    mempool.removeOutOfEpochCertificates(pindexDelete);
+#endif
     mempool.check(pcoinsTip);
     // Update chainActive and related variables.
     UpdateTip(pindexDelete->pprev);

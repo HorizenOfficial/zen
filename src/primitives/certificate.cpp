@@ -12,10 +12,14 @@
 #include "txmempool.h"
 #include "zen/forkmanager.h"
 
-CScCertificate::CScCertificate() : CTransactionBase(), scId(), totalAmount(), vbt_ccout(), nonce() { }
+#include "main.h"
+
+CScCertificate::CScCertificate() : CTransactionBase(),
+    scId(), epochNumber(0), endEpochBlockHash(), totalAmount(), vbt_ccout(), nonce() { }
 
 CScCertificate::CScCertificate(const CMutableScCertificate &cert) :
-    scId(cert.scId), totalAmount(cert.totalAmount), vbt_ccout(cert.vbt_ccout), nonce(cert.nonce)
+    scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash),
+    totalAmount(cert.totalAmount), vbt_ccout(cert.vbt_ccout), nonce(cert.nonce)
 {
     *const_cast<int*>(&nVersion) = cert.nVersion;
     *const_cast<std::vector<CTxOut>*>(&vout) = cert.vout;
@@ -26,19 +30,23 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert) {
     CTransactionBase::operator=(cert);
     //---
     *const_cast<uint256*>(&scId) = cert.scId;
+    *const_cast<int*>(&epochNumber) = cert.epochNumber;
+    *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     *const_cast<CAmount*>(&totalAmount) = cert.totalAmount;
     *const_cast<std::vector<CTxBackwardTransferCrosschainOut>*>(&vbt_ccout) = cert.vbt_ccout;
     *const_cast<uint256*>(&nonce) = cert.nonce;
     return *this;
 }
 
-CScCertificate::CScCertificate(const CScCertificate &cert) : totalAmount(0) {
+CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0), totalAmount(0) {
     // call explicitly the copy of members of virtual base class
     *const_cast<uint256*>(&hash) = cert.hash;
     *const_cast<int*>(&nVersion) = cert.nVersion;
     *const_cast<std::vector<CTxOut>*>(&vout) = cert.vout;
     //---
     *const_cast<uint256*>(&scId) = cert.scId;
+    *const_cast<int*>(&epochNumber) = cert.epochNumber;
+    *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     *const_cast<CAmount*>(&totalAmount) = cert.totalAmount;
     *const_cast<std::vector<CTxBackwardTransferCrosschainOut>*>(&vbt_ccout) = cert.vbt_ccout;
     *const_cast<uint256*>(&nonce) = cert.nonce;
@@ -141,7 +149,7 @@ double CScCertificate::GetPriority(const CCoinsViewCache &view, int nHeight) con
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
-bool CScCertificate::UpdateScInfo(Sidechain::ScCoinsViewCache& view, const CBlock& block, int nHeight) const { return true; }
+bool CScCertificate::UpdateScInfo(Sidechain::ScCoinsViewCache& view, const CBlock& block, int nHeight, CBlockUndo& bu) const { return true; }
 bool CScCertificate::RevertOutputs(Sidechain::ScCoinsViewCache& view, int nHeight) const { return true; }
 
 void CScCertificate::RemoveFromMemPool(CTxMemPool* pool) const {return;} 
@@ -156,16 +164,18 @@ bool CScCertificate::IsApplicableToState() const { return true; }
 bool CScCertificate::IsStandard(std::string& reason, int nHeight) const { return true; }
 bool CScCertificate::IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const { return true; }
 unsigned int CScCertificate::GetLegacySigOpCount() const { return 0; }
+bool CScCertificate::epochIsInMainchain() const { return true; }
+bool CScCertificate::checkEpochBlockHash() const { return true; }
 #else
-bool CScCertificate::UpdateScInfo(Sidechain::ScCoinsViewCache& scView, const CBlock& /*unused*/, int /*unused*/) const
+bool CScCertificate::UpdateScInfo(Sidechain::ScCoinsViewCache& scView, const CBlock& /*unused*/, int /*unused*/, CBlockUndo& bu) const
 {
-    LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
-    return scView.UpdateScInfo(*this);
+    //LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
+    return scView.UpdateScInfo(*this, bu);
 }
 
 bool CScCertificate::RevertOutputs(Sidechain::ScCoinsViewCache& scView, int nHeight) const
 {
-    LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
+    //LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
     return scView.RevertCertOutputs(*this, nHeight);
 }
 
@@ -254,6 +264,28 @@ unsigned int CScCertificate::GetLegacySigOpCount() const
     }
     return nSigOps;
 }
+
+bool CScCertificate::epochIsInMainchain() const
+{
+    LOCK(cs_main);
+    if (mapBlockIndex.count(endEpochBlockHash) == 0)
+    {
+        return false;
+    }
+
+    CBlockIndex* pblockindex = mapBlockIndex[hash];
+    if (!chainActive.Contains(pblockindex))
+    {
+        return false;
+    }
+    return true;
+}
+
+bool CScCertificate::checkEpochBlockHash() const
+{
+    // TODO
+    return true;
+}
 #endif
 
 void CScCertificate::getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& map) const
@@ -273,7 +305,8 @@ void CScCertificate::getCrosschainOutputs(std::map<uint256, std::vector<uint256>
 CMutableScCertificate::CMutableScCertificate() : totalAmount() {}
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert) :
-    scId(cert.scId), totalAmount(cert.totalAmount), vbt_ccout(cert.vbt_ccout), nonce(cert.nonce)
+    scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash),
+    totalAmount(cert.totalAmount), vbt_ccout(cert.vbt_ccout), nonce(cert.nonce)
 {
     nVersion = cert.nVersion;
     vout = cert.vout;

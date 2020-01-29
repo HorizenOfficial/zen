@@ -14,6 +14,8 @@ class CScCertificate : virtual public CTransactionBase
 
 public:
     const uint256 scId;
+    const int epochNumber;
+    const uint256 endEpochBlockHash;
     const CAmount totalAmount;
     const std::vector<CTxBackwardTransferCrosschainOut> vbt_ccout;
 
@@ -46,6 +48,8 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(*const_cast<int32_t*>(&this->nVersion));
         READWRITE(*const_cast<uint256*>(&scId));
+        READWRITE(*const_cast<int*>(&epochNumber));
+        READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
         READWRITE(*const_cast<CAmount*>(&totalAmount));
         READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
         READWRITE(*const_cast<std::vector<CTxBackwardTransferCrosschainOut>*>(&vbt_ccout));
@@ -60,6 +64,8 @@ public:
     bool IsNull() const override {
         return (
             scId == uint256() &&
+            epochNumber == 0 &&
+            endEpochBlockHash == uint256() &&
             totalAmount == 0 &&
             vout.empty() &&
             vbt_ccout.empty() &&
@@ -97,13 +103,18 @@ public:
     void UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const override;
     void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const override;
 
-    bool UpdateScInfo(Sidechain::ScCoinsViewCache& view, const CBlock& block, int nHeight) const override;
+    bool UpdateScInfo(Sidechain::ScCoinsViewCache& view, const CBlock& block, int nHeight, CBlockUndo& bu) const override;
     bool RevertOutputs(Sidechain::ScCoinsViewCache& view, int nHeight) const override;
 
     double GetPriority(const CCoinsViewCache &view, int nHeight) const override;
     unsigned int GetLegacySigOpCount() const override;
 
     bool IsCoinCertified() const override { return true; }
+
+    // return true if the block marking the end of the withdrawal epoch of this certificate is in the main chain
+    bool epochIsInMainchain() const;
+
+    bool checkEpochBlockHash() const;
 
  private:
     template <typename T>
@@ -175,6 +186,8 @@ public:
 struct CMutableScCertificate : public CMutableTransactionBase
 {
     uint256 scId;
+    int epochNumber;
+    uint256 endEpochBlockHash;
     CAmount totalAmount;
     std::vector<CTxBackwardTransferCrosschainOut> vbt_ccout;
     uint256 nonce;
@@ -188,6 +201,8 @@ struct CMutableScCertificate : public CMutableTransactionBase
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(this->nVersion);
         READWRITE(scId);
+        READWRITE(epochNumber);
+        READWRITE(endEpochBlockHash);
         READWRITE(totalAmount);
         READWRITE(vout);
         READWRITE(vbt_ccout);

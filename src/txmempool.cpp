@@ -194,10 +194,10 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
 #if 1
         if (fRecursive)
         {
-            LogPrint("sc", "%s():%d - before getting sc creation children size=%d\n", __func__, __LINE__, txToRemove.size());
-            // if this tx is creating a SC, remove from mempoo all transactions referring to it
-            Sidechain::ScCoinsView::getScCreationChildrenInMempool(origTx, *this, txToRemove);
-            LogPrint("sc", "%s():%d - after getting sc creation children size=%d\n", __func__, __LINE__, txToRemove.size());
+        LogPrint("sc", "%s():%d - before getting sc creation children size=%d\n", __func__, __LINE__, txToRemove.size());
+        // if this tx is creating a SC, remove from mempoo all transactions referring to it
+        Sidechain::ScCoinsView::getScCreationChildrenInMempool(origTx, *this, txToRemove);
+        LogPrint("sc", "%s():%d - after getting sc creation children size=%d\n", __func__, __LINE__, txToRemove.size());
         }
 #endif
         while (!txToRemove.empty())
@@ -373,6 +373,51 @@ void CTxMemPool::removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned in
     BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
         list<CTransaction> removed;
         remove(tx, removed, true);
+    }
+}
+
+void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
+{
+    LOCK(cs);
+    assert(pindexDelete);
+
+    list<CScCertificate> certificatesToRemove;
+    list<CTransaction> transactionsToRemove;
+
+    // Remove certificates referring to this block as end epoch
+    for (std::map<uint256, CCertificateMemPoolEntry>::const_iterator it = mapCertificate.begin(); it != mapCertificate.end(); it++)
+    {
+        const CScCertificate& cert = it->second.GetCertificate();
+
+        if (cert.endEpochBlockHash == pindexDelete->GetBlockHash() )
+        {
+            LogPrint("sc", "%s():%d - adding cert [%s] to list for removing (endEpochBlockHash %s)\n",
+                __func__, __LINE__, cert.GetHash().ToString(), pindexDelete->GetBlockHash().ToString());
+            certificatesToRemove.push_back(cert);
+
+            // Remove also txes that depend on such certificates
+            for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++)
+            {
+                const CTransaction& tx = it->second.GetTx();
+                BOOST_FOREACH(const CTxIn& txin, tx.vin)
+                {
+                    if (txin.prevout.hash == cert.GetHash() )
+                    {
+                        LogPrint("sc", "%s():%d - adding tx [%s] to list for removing\n", __func__, __LINE__, tx.GetHash().ToString());
+                        transactionsToRemove.push_back(tx);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
+        list<CTransaction> removed;
+        remove(tx, removed, true);
+    }
+    BOOST_FOREACH(const CScCertificate& cert, certificatesToRemove) {
+        remove(cert, true);
     }
 }
 

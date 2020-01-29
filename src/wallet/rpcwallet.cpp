@@ -4123,18 +4123,20 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
     return wtx.GetHash().GetHex();
 }
 
-UniValue sc_bwdtr(const UniValue& params, bool fHelp)
+UniValue send_certificate(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() != 2)
+    if (fHelp || params.size() != 4)
         throw runtime_error(
-            "sc_bwdtr scid [{\"address\":... ,\"amount\":...},...]\n"
+            "send_certificate scid epochNumber endEpochBlockHash [{\"address\":... ,\"amount\":...},...]\n"
             "\nSend cross chain backward transfers as a certificate."
             "\nArguments:\n"
             "scid                     (string, required) The uint256 side chain ID\n"
-            "amounts:                 (array, required) An array of json objects representing the amounts to send.\n"
+            "epochNumber              (numeric, required) The epoch number this certificate refers to\n"
+            "endEpochBlockHash        (string, required) The block hash determining the end of the referenced epoch\n"
+            "backward_transfers:      (array, required) An array of json objects representing the amounts of the backward transfers.\n"
             "    [{\n"                     
             "      \"address\":address  (string, required) The address is a taddr or zaddr\n"
             "      \"amount\":amount    (numeric, required) The numeric amount in " + CURRENCY_UNIT + "\n"
@@ -4142,18 +4144,18 @@ UniValue sc_bwdtr(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"certificateId\"          (string) The resulting tx id containing the certificate.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sc_bwdtr", "\"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" '[{\"address\": \"ztU36Ee2qAtyqskmi4PcBkZZiPBquR7ZYAR\" ,\"amount\": 5.0}]'")
+            + HelpExampleCli("send_certificate", "\"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 123 \"04a1527384c67d9fce3d091ababfc1de325dbac9b3b14025a53722ff6c53d40e\" '[{\"address\": \"ztU36Ee2qAtyqskmi4PcBkZZiPBquR7ZYAR\" ,\"amount\": 5.0}]'")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     // side chain id
-    const string& inputString = params[0].get_str();
-    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+    const string& scIdString = params[0].get_str();
+    if (scIdString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
 
     uint256 scId;
-    scId.SetHex(inputString);
+    scId.SetHex(scIdString);
 
     // sanity check of the side chain ID
     if (!ScMgr::instance().sidechainExists(scId) )
@@ -4162,7 +4164,54 @@ UniValue sc_bwdtr(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not exists: ") + scId.ToString());
     }
 
-    const UniValue& outputs = params[1].get_array();
+    int epochNumber = params[1].get_int(); 
+    if (epochNumber < 0)
+    {
+        LogPrint("sc", "epochNumber can not be negative\n", epochNumber);
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid epochNumber parameter");
+    }
+
+    // epoch block hash
+    const string& blockHashStr = params[2].get_str();
+    if (blockHashStr.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid block hash format: not an hex");
+
+    uint256 endEpochBlockHash;
+    endEpochBlockHash.SetHex(blockHashStr);
+
+    // sanity check of the epoch hash block: it must be a legal end epoch hash
+    if (!ScMgr::isLegalEpoch(scId, epochNumber, endEpochBlockHash) )
+    {
+        LogPrintf("ERROR: epochNumber[%d]/endEpochBlockHash[%s] are not legal\n", epochNumber, endEpochBlockHash.ToString() );
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid epoch data"));
+    }
+
+    // a certificate can not be received after a fixed amount of blocks (for the time being it is epoch length / 5) from the end of epoch (TODO)
+    int maxHeight = ScMgr::getCertificateMaxIncomingHeight(scId, epochNumber);
+    if (maxHeight < 0)
+    {
+        LogPrintf("ERROR: Invalid computed height value\n");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert data"));
+    }
+
+    if (maxHeight < chainActive.Height())
+    {
+        LogPrintf("ERROR: delayed certificate, max height for receiving = %d, iactive height = %d\n",
+            maxHeight, chainActive.Height());
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert height"));
+    }
+
+    // - there must not be another certificate for the same epoch (multiple certificates are not allowed)
+    // This also checks in mempool
+    uint256 conflictingCertHash;
+    if (ScMgr::epochAlreadyHasCertificate(scId, epochNumber, mempool, conflictingCertHash))
+    {
+        LogPrintf("ERROR: certificate %s for epoch %d is already been issued\n", 
+            (conflictingCertHash == uint256())?"":conflictingCertHash.ToString(), epochNumber);
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert epoch"));
+    }
+
+    const UniValue& outputs = params[3].get_array();
 
     if (outputs.size()==0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output array is empty.");
@@ -4230,6 +4279,8 @@ UniValue sc_bwdtr(const UniValue& params, bool fHelp)
     cert.totalAmount = nTotalOut;
     cert.nVersion = SC_TX_VERSION;
     cert.scId = scId;
+    cert.epochNumber = epochNumber;
+    cert.endEpochBlockHash = endEpochBlockHash;
     cert.nonce = uint256(GetRandHash() );
 
     BOOST_FOREACH (const auto& ccRecipient, vecSend)

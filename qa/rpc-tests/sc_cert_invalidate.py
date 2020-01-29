@@ -17,6 +17,10 @@ import logging
 import pprint
 
 import time
+
+
+EPOCH_LENGTH = 5
+
 class sc_cert_base(BitcoinTestFramework):
 
     alert_filename = None
@@ -72,7 +76,6 @@ class sc_cert_base(BitcoinTestFramework):
 
         #forward transfer amount
         creation_amount = Decimal("0.5")
-#        fwt_amount_1    = Decimal("10.0")
         fwt_amount_1    = Decimal("1000.0")
         bwt_amount_1    = Decimal("8.0")
         fwt_amount_2    = Decimal("1.0")
@@ -105,13 +108,14 @@ class sc_cert_base(BitcoinTestFramework):
         self.mark_logs("\nNode 1 creates the SC spending " + str(creation_amount) + " coins ...")
         amounts = []
         amounts.append( {"address":"dada", "amount": creation_amount})
-        creating_tx = self.nodes[0].sc_create(scid, 123, amounts);
+        creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, amounts);
         print "creating_tx = " + creating_tx
         self.sync_all()
 
         self.mark_logs("\nNode0 generating 1 block")
         blocks.extend(self.nodes[0].generate(1))
         sc_creating_block = blocks[-1]
+        sc_creating_height = self.nodes[0].getblockcount()
         self.sync_all()
         print "Node0 balance: ", self.nodes[0].getbalance("", 0)
         balance_node0.append(self.nodes[0].getbalance("", 0))
@@ -162,9 +166,27 @@ class sc_cert_base(BitcoinTestFramework):
         sc_info.append(self.nodes[0].getscinfo(scid))
         print "\nSC info:\n", pprint.pprint(sc_info[-1])
 
+        blocks.extend(self.nodes[0].generate(1))
+        self.sync_all()
+        print "Node0 balance: ", self.nodes[0].getbalance("", 0)
+        balance_node0.append(self.nodes[0].getbalance("", 0))
+
+        sc_info.append(self.nodes[0].getscinfo(scid))
+        print "\nSC info:\n", pprint.pprint(sc_info[-1])
+
+        current_height = self.nodes[0].getblockcount()
+
+        epn = int((current_height - sc_creating_height) / EPOCH_LENGTH)
+        print " h=", current_height
+        print "ch=", sc_creating_height
+        print "epn=", epn
+        eph = self.nodes[0].getblockhash(sc_creating_height + (epn*EPOCH_LENGTH))
+        print "epn = ", epn, ", eph = ", eph
+
+        
         self.mark_logs("\nNode 0 performs a bwd transfer of " + str(bwt_amount_1) + " coins to Node1 pkh[" + str(pkh_node1)+"]...")
         amounts.append( {"pubkeyhash":pkh_node1, "amount": bwt_amount_1})
-        cert = self.nodes[0].sc_bwdtr(scid, amounts);
+        cert = self.nodes[0].send_certificate(scid, epn, eph, amounts);
         print "cert = " + cert
         self.sync_all()
 
@@ -246,9 +268,18 @@ class sc_cert_base(BitcoinTestFramework):
 
         amounts = []
 
+        current_height = self.nodes[0].getblockcount()
+
+        epn = int((current_height - sc_creating_height) / EPOCH_LENGTH)
+        print " h=", current_height
+        print "ch=", sc_creating_height
+        print "epn=", epn
+        eph = self.nodes[0].getblockhash(sc_creating_height + (epn*EPOCH_LENGTH))
+        print "epn = ", epn, ", eph = ", eph
+
         self.mark_logs("\nNode 0 performs a bwd transfer of " + str(bwt_amount_2) + " coins to Node1 pkh[" + str(pkh_node2)+"]...")
         amounts.append( {"pubkeyhash":pkh_node2, "amount": bwt_amount_2})
-        cert = self.nodes[0].sc_bwdtr(scid, amounts);
+        cert = self.nodes[0].send_certificate(scid, epn, eph, amounts);
         print "cert = " + cert
         self.sync_all()
 
@@ -264,6 +295,7 @@ class sc_cert_base(BitcoinTestFramework):
         #print "Node0 balance: ", self.nodes[0].getbalance("", 0)
         print "Node1 balance: ", self.nodes[1].getbalance("", 0)
         print "Node2 balance: ", self.nodes[2].getbalance("", 0)
+#        print "Node3 balance: ", self.nodes[3].getbalance("", 0)
         print "=================================================="
         print 
 
@@ -272,9 +304,9 @@ class sc_cert_base(BitcoinTestFramework):
 
         # TODO loop on the whole range (currently fails on last cycle)
         #-------------------------------------------------------------
-        for j in range(0, len(sc_info) - 1):
-            if j > 12:
-                raw_input("press to invalidate...")
+        for j in range(0, len(sc_info)):
+            #if j > 12:
+            #    raw_input("press to invalidate...")
             invalidating = self.nodes[0].getbestblockhash()
             self.mark_logs("\nNode 0 invalidates last block...")
             print "Invalidating: ", invalidating
@@ -290,6 +322,7 @@ class sc_cert_base(BitcoinTestFramework):
             except JSONRPCException,e:
                 errorString = e.error['message']
                 print errorString
+                print pprint.pprint(sc_info[-1])
 
             try:
                 print "Node0 balance: ", self.nodes[0].getbalance("", 0)
@@ -313,11 +346,12 @@ class sc_cert_base(BitcoinTestFramework):
 
         print "Node1 balance: ", self.nodes[1].getbalance("", 0)
         print "Node2 balance: ", self.nodes[2].getbalance("", 0)
+#        print "Node3 balance: ", self.nodes[3].getbalance("", 0)
         print "=================================================="
         print 
 
-        self.mark_logs("\nNode0 generating 100 more blocks for achieving sc coins maturity")
-        blocks.extend(self.nodes[0].generate(100))
+        self.mark_logs("\nNode0 generating 150 more blocks for achieving sc coins maturity")
+        blocks.extend(self.nodes[0].generate(150))
         time.sleep(1)
 
         try:

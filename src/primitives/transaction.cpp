@@ -595,7 +595,7 @@ void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
 bool CTransaction::HaveInputs(const CCoinsViewCache& view) const { return true; }
 void CTransaction::UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const { return; }
 void CTransaction::UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo &undo, int nHeight) const { return; }
-bool CTransaction::UpdateScInfo(Sidechain::ScCoinsViewCache& scView, const CBlock& block, int nHeight) const { return true; }
+bool CTransaction::UpdateScInfo(Sidechain::ScCoinsViewCache& scView, const CBlock& block, int nHeight, CBlockUndo& bu) const { return true; }
 bool CTransaction::RevertOutputs(Sidechain::ScCoinsViewCache& view, int nHeight) const { return true; }
 bool CTransaction::AreInputsStandard(CCoinsViewCache& view) const { return true; }
 bool CTransaction::CheckInputs(CAmount& nValueIn, CTxMemPool& pool, CCoinsViewCache& view, CCoinsViewCache* pcoinsTip,
@@ -881,7 +881,7 @@ void CTransaction::UpdateCoins(CValidationState &state, CCoinsViewCache& view, C
     return ::UpdateCoins(*this, state, view, (IsCoinBase() ? undoDummy : blockundo.vtxundo.back()), nHeight);
 }
 
-bool CTransaction::UpdateScInfo(Sidechain::ScCoinsViewCache& scView, const CBlock& block, int nHeight) const
+bool CTransaction::UpdateScInfo(Sidechain::ScCoinsViewCache& scView, const CBlock& block, int nHeight, CBlockUndo& /*unused*/) const
 {
     return scView.UpdateScInfo(*this, block, nHeight);
 }

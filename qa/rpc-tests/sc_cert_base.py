@@ -17,6 +17,9 @@ import logging
 import pprint
 
 import time
+
+EPOCH_LENGTH = 5
+
 class sc_cert_base(BitcoinTestFramework):
 
     alert_filename = None
@@ -99,13 +102,14 @@ class sc_cert_base(BitcoinTestFramework):
         self.mark_logs("\nNode 1 creates the SC spending "+str(creation_amount)+" coins ...")
         amounts = []
         amounts.append( {"address":"dada", "amount": creation_amount})
-        creating_tx = self.nodes[1].sc_create(scid, 123, amounts);
+        creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, amounts);
         print "creating_tx = " + creating_tx
         self.sync_all()
 
         self.mark_logs("\nNode0 generating 1 block")
         blocks.extend(self.nodes[0].generate(1))
-        ownerBlock = blocks[-1]
+        sc_creating_block = blocks[-1]
+        sc_creating_height = self.nodes[0].getblockcount()
         self.sync_all()
 
         # fee can be seen on sender wallet (is a negative value)
@@ -128,35 +132,79 @@ class sc_cert_base(BitcoinTestFramework):
 
         print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
 
-        pkh_node1 = self.nodes[1].getnewaddress("", True);
-        amounts = []
-        cert = []
-
-        self.mark_logs("\nNode 0 tries to perform a bwd transfer of "+str(bwt_amount_bad)+" coins to Node1 pkh["+str(pkh_node1)+"]...")
-        amounts.append( {"pubkeyhash":pkh_node1, "amount": bwt_amount_bad})
-     
-        # check this is refused because sc has not balance enough
-        try:
-            cert = self.nodes[0].sc_bwdtr(scid, amounts);
-        except JSONRPCException,e:
-            errorString = e.error['message']
-            print "\n======> ", errorString
-
-        amounts = []
-        cert = []
-
         self.mark_logs("\nNode0 generating 3 more blocks for achieving sc coins maturity")
         blocks.extend(self.nodes[0].generate(3))
         self.sync_all()
 
         print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
 
-        self.mark_logs("\nNode 0 performs a bwd transfer of "+str(bwt_amount)+" coins to Node1 pkh["+str(pkh_node1)+"]...")
+        self.mark_logs("\nNode0 generating 1 more blocks for achieving end epoch")
+        blocks.extend(self.nodes[0].generate(1))
+        self.sync_all()
+
+        print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
+
+        current_height = self.nodes[0].getblockcount()
+
+        epn = int((current_height - sc_creating_height) / EPOCH_LENGTH)
+        print " h=", current_height
+        print "ch=", sc_creating_height
+        print "epn=", epn
+        eph = self.nodes[0].getblockhash(sc_creating_height + (epn*EPOCH_LENGTH))
+        eph_wrong = self.nodes[0].getblockhash(sc_creating_height)
+        print "epn = ", epn, ", eph = ", eph
+
+        pkh_node1 = self.nodes[1].getnewaddress("", True);
+        amounts = []
+        cert_bad = []
+
+        #----------------------------------------------------------------
+        self.mark_logs("\nNode 0 tries to perform a bwd transfer with insufficient sc balance...")
+        amounts.append( {"pubkeyhash":pkh_node1, "amount": bwt_amount_bad})
+     
+        # check this is refused because sc has not balance enough
+        try:
+            cert_bad = self.nodes[0].send_certificate(scid, epn, eph, amounts);
+            assert(False)
+        except JSONRPCException,e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+            print
+
+        amounts = []
+        cert_bad = []
+        cert_good = []
+
+        print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
+
+        self.mark_logs("\nNode 0 performs a bwd transfer with an invalid epoch number ...")
         amounts.append( {"pubkeyhash":pkh_node1, "amount": bwt_amount})
      
+        # check this is refused because epoch number is wrong
         try:
-            cert = self.nodes[0].sc_bwdtr(scid, amounts);
-            print "cert = ", cert
+            cert_bad = self.nodes[0].send_certificate(scid, epn+1, eph, amounts);
+            assert(False)
+        except JSONRPCException,e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+            print
+
+        self.mark_logs("\nNode 0 performs a bwd transfer with an invalid end epoch hash block ...")
+        # check this is refused because end epoch block hash is wrong
+        try:
+            cert_bad = self.nodes[0].send_certificate(scid, epn, eph_wrong, amounts);
+            assert(False)
+        except JSONRPCException,e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+            print
+
+        self.mark_logs("\nNode 0 performs a bwd transfer of "+str(bwt_amount)+" coins to Node1 pkh["+str(pkh_node1)+"]...")
+     
+        try:
+            cert_good = self.nodes[0].send_certificate(scid, epn, eph, amounts);
+            print "cert = ", cert_good
+            print "...OK"
         except JSONRPCException,e:
             errorString = e.error['message']
             print errorString
@@ -172,12 +220,34 @@ class sc_cert_base(BitcoinTestFramework):
         bal_before = self.nodes[1].getbalance("", 0)
         print "\nNode1 balance: ", bal_before
 
+        self.mark_logs("\nNode 0 performs a bwd transfer for the same epoch number as before before generating any block...")
+        # check this is refused because this epoch already has a certificate in mempool
+        try:
+            cert_bad = self.nodes[0].send_certificate(scid, epn, eph, amounts);
+            print "cert = ", cert_bad
+            assert(False)
+        except JSONRPCException,e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+            print
+
         print("\nNode0 generating 1 block")
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
+        self.mark_logs("\nNode 0 performs a bwd transfer for the same epoch number as before...")
+        # check this is refused because this epoch already has a certificate in sc info
+        try:
+            cert_bad = self.nodes[0].send_certificate(scid, epn, eph, amounts);
+            print "cert = ", cert_bad
+            assert(False)
+        except JSONRPCException,e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+            print
+
         # read the net value of the certificate amount (total amount - fee) on the receiver wallet
-        cert_net_amount = self.nodes[1].gettransaction(cert)['amount']
+        cert_net_amount = self.nodes[1].gettransaction(cert_good)['amount']
         print "Cert net amount: ", cert_net_amount
         print
 
@@ -202,7 +272,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         # check that input is formed using the certificate
         vin = self.nodes[1].getrawtransaction(tx, 1)['vin']
-        assert_equal(vin[0]['txid'], cert)
+        assert_equal(vin[0]['txid'], cert_good)
         self.sync_all()
 
         print("\nNode0 generating 1 block")

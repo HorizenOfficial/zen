@@ -68,12 +68,27 @@ public:
     }
 };
 
+struct ScUndoData
+{
+    CAmount immAmount;
+    int certEpoch;
+    
+    ScUndoData(): immAmount(0), certEpoch(0) {}
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(immAmount);
+        READWRITE(certEpoch);
+    }
+};
+
 /** Undo information for a CBlock */
 class CBlockUndo
 {
 public:
     std::vector<CTxUndo> vtxundo; // for all but the coinbase
-    std::map<uint256, CAmount> msc_iaundo; // key=scid, value=amount matured at block height
+    std::map<uint256, ScUndoData> msc_iaundo; // key=scid, value=amount matured at block height
     uint256 old_tree_root;
 
     std::string ToString() const;

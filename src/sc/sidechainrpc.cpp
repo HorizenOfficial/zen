@@ -181,6 +181,7 @@ void AddScInfoToJSON(const uint256& scId, const ScInfo& info, UniValue& sc)
     sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
     sc.push_back(Pair("created in block", info.creationBlockHash.ToString()));
     sc.push_back(Pair("created at block height", info.creationBlockHeight));
+    sc.push_back(Pair("last certificate epoch", info.lastReceivedCertificateEpoch));
     // creation parameters
     sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
 

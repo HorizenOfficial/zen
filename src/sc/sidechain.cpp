@@ -20,9 +20,10 @@ using namespace Sidechain;
 std::string ScInfo::ToString() const
 {
     std::string str;
-    str += strprintf("\nScInfo(balance=%s, creatingTxHash=%s, createdInBlock=%s, createdAtBlockHeight=%d, withdrawalEpochLength=%d)\n",
+    str += strprintf("\nScInfo(balance=%s, creatingTxHash=%s, lastReceivedCertEpoch=%d, createdInBlock=%s, createdAtBlockHeight=%d, withdrawalEpochLength=%d)\n",
             FormatMoney(balance),
             creationTxHash.ToString().substr(0,10),
+            lastReceivedCertificateEpoch,
             creationBlockHash.ToString().substr(0,10),
             creationBlockHeight,
             creationData.withdrawalEpochLength);
@@ -156,21 +157,39 @@ bool ScCoinsView::IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertif
     CAmount scBalance    = 0;
     CAmount scBalanceImm = 0;
 
-    // TODO cert: check that epoch data are consistent
+    // check that epoch data are consistent
+    if (!ScMgr::isLegalEpoch(cert.scId, cert.epochNumber, cert.endEpochBlockHash) )
+    {
+        LogPrint("sc", "%s():%d - invalid cert[%s], scId[%s] invalid epoch data\n",
+            __func__, __LINE__, certHash.ToString(), scId.ToString() );
+        return state.Invalid(error("certificate with invalid epoch considering mempool"),
+             REJECT_INVALID, "sidechain-certificate");
+    }
+
+    // when called for checking the contents of mempool we can find the certificate itself, which is OK
+    uint256 conflictingCertHash;
+    if (ScMgr::epochAlreadyHasCertificate(scId, cert.epochNumber, pool, conflictingCertHash)
+        && (conflictingCertHash != cert.GetHash() ))
+    {
+        LogPrintf("ERROR: certificate %s for epoch %d is already been issued\n", 
+            (conflictingCertHash == uint256())?"":conflictingCertHash.ToString(), cert.epochNumber);
+        return state.Invalid(error("A certificate with the same scId/epoch is already issued"),
+             REJECT_INVALID, "sidechain-certificate");
+    }
 
     if (ScMgr::instance().sidechainExists(cert.scId))
     {
         scBalance =    ScMgr::instance().getSidechainBalance(cert.scId);
         scBalanceImm = ScMgr::instance().getSidechainBalanceImmature(cert.scId);
-    LogPrint("cert", "%s():%d - scid balance mature[%s], immature[%s]\n",
-        __func__, __LINE__, FormatMoney(scBalance), FormatMoney(scBalanceImm) );
+        LogPrint("cert", "%s():%d - scId balance mature[%s], immature[%s]\n",
+            __func__, __LINE__, FormatMoney(scBalance), FormatMoney(scBalanceImm) );
 
         // we also consider immature amounts that will turn ito mature one in one of next blocks
         scBalance += scBalanceImm;
     }
     else
     {
-        LogPrint("sc", "%s():%d - cert[%s]: scid[%s] not found in db\n",
+        LogPrint("sc", "%s():%d - cert[%s]: scId[%s] not found in db\n",
             __func__, __LINE__, certHash.ToString(), cert.scId.ToString() );
 
         // maybe the creation is in the mempool (chain reorg)
@@ -189,7 +208,7 @@ bool ScCoinsView::IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertif
             {
                 if (mpSc.scId == scId)
                 {
-                    LogPrint("sc", "%s():%d - cert[%s]: scid[%s] is going to be created by tx [%s] which is still in mempool\n",
+                    LogPrint("sc", "%s():%d - cert[%s]: scId[%s] is going to be created by tx [%s] which is still in mempool\n",
                         __func__, __LINE__, certHash.ToString(), scId.ToString(), mpTx.GetHash().ToString() );
                     creationIsInMempool = true;
                     break;
@@ -199,15 +218,15 @@ bool ScCoinsView::IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertif
 
         if (!creationIsInMempool)
         {
-            // scid creation not found, should never happen
-            LogPrintf("%s():%d - ERROR: cert[%s]: scid[%s] not found in db and is no tx in mempool are creating it\n",
+            // scId creation not found, should never happen
+            LogPrintf("%s():%d - ERROR: cert[%s]: scId[%s] not found in db and no tx in mempool is creating it\n",
                 __func__, __LINE__, certHash.ToString(), scId.ToString() );
-            return state.Invalid(error("certificate with invalid scid considering mempool"),
+            return state.Invalid(error("certificate with invalid scId considering mempool"),
                  REJECT_INVALID, "sidechain-certificate");
         }
     }
 
-    LogPrint("cert", "%s():%d - scid balance: %s\n", __func__, __LINE__, FormatMoney(scBalance) );
+    LogPrint("cert", "%s():%d - scId balance: %s\n", __func__, __LINE__, FormatMoney(scBalance) );
  
     // consider fw transfers even if they can not be mature yet, and let a miner sort things
     // out in terms of dependancy
@@ -238,11 +257,11 @@ bool ScCoinsView::IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertif
             continue;
         }
 
-        // TODO cert: this should not be allowed since there can not be two certificates in mempool
+        // TODO cert: check if this should not be allowed instead, since there can not be two certificates in mempool
         // referring to the same sc
         if (scId == mpCert.scId)
         {
-            LogPrint("sc", "%s():%d - tx[%s]: bwd[%s]\n",
+            LogPrint("sc", "%s():%d - #### found cert[%s] for the same scId: amount[%s]\n",
                 __func__, __LINE__, mpCert.GetHash().ToString(), FormatMoney(mpCert.totalAmount) );
             scBalance -= mpCert.totalAmount;
         }
@@ -250,7 +269,7 @@ bool ScCoinsView::IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertif
  
     if (certAmount > scBalance)
     {
-        LogPrint("sc", "%s():%d - invalid cert[%s]: scid[%s] has not balance enough: %s\n",
+        LogPrint("sc", "%s():%d - invalid cert[%s]: scId[%s] has not balance enough: %s\n",
             __func__, __LINE__, certHash.ToString(), scId.ToString(), FormatMoney(scBalance) );
         return state.Invalid(error("certificate with no sc balance enough considering mempool"),
              REJECT_INVALID, "sidechain-certificate");
@@ -277,9 +296,9 @@ bool ScCoinsView::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransactio
             {
                 if (mpSc.scId == sc.scId)
                 {
-                    LogPrint("sc", "%s():%d - invalid tx[%s]: scid[%s] already created by tx[%s]\n",
+                    LogPrint("sc", "%s():%d - invalid tx[%s]: scId[%s] already created by tx[%s]\n",
                         __func__, __LINE__, tx.GetHash().ToString(), sc.scId.ToString(), mpTx.GetHash().ToString() );
-                            return state.Invalid(error("transaction tries to create scid already created in mempool"),
+                            return state.Invalid(error("transaction tries to create scId already created in mempool"),
                             REJECT_INVALID, "sidechain-creation");
                 }
             }
@@ -298,7 +317,7 @@ bool ScCoinsView::IsTxApplicableToState(const CTransaction& tx)
         const uint256& scId = sc.scId;
         if (sidechainExists(scId))
         {
-            LogPrint("sc", "%s():%d - Invalid tx[%s] : scid[%s] already created\n",
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : scId[%s] already created\n",
                 __func__, __LINE__, txHash.ToString(), scId.ToString());
             return false;
         }
@@ -344,7 +363,7 @@ void ScCoinsView::getScCreationChildrenInMempool(const CTransaction& tx, const C
             {
                 if (mpFt.scId == sc.scId)
                 {
-                    LogPrint("sc", "%s():%d - found tx[%s] fwding to scid[%s]\n",
+                    LogPrint("sc", "%s():%d - found tx[%s] fwding to scId[%s]\n",
                         __func__, __LINE__, mpTx.GetHash().ToString(), sc.scId.ToString());
                     outTxList.push_back(mpTx.GetHash());
                 }
@@ -357,7 +376,7 @@ void ScCoinsView::getScCreationChildrenInMempool(const CTransaction& tx, const C
 
             if (mpCert.scId == sc.scId)
             {
-                LogPrint("sc", "%s():%d - found cert[%s] withdrawing from scid[%s]\n",
+                LogPrint("sc", "%s():%d - found cert[%s] withdrawing from scId[%s]\n",
                     __func__, __LINE__, mpCert.GetHash().ToString(), sc.scId.ToString());
                 outTxList.push_back(mpCert.GetHash());
             }
@@ -377,11 +396,11 @@ bool ScCoinsView::IsCertApplicableToState(const CScCertificate& cert)
     CAmount curBalance = getSidechainBalance(cert.scId);
     if (cert.totalAmount > curBalance)
     {
-        LogPrint("sc", "%s():%d - insufficent balance in scid[%s]: balance[%s], cert amount[%s]\n",
+        LogPrint("sc", "%s():%d - insufficent balance in scId[%s]: balance[%s], cert amount[%s]\n",
             __func__, __LINE__, cert.scId.ToString(), FormatMoney(curBalance), FormatMoney(cert.totalAmount) );
         return false;
     }
-    LogPrint("sc", "%s():%d - ok, balance in scid[%s]: balance[%s], cert amount[%s]\n",
+    LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
         __func__, __LINE__, cert.scId.ToString(), FormatMoney(curBalance), FormatMoney(cert.totalAmount) );
 
     return true;
@@ -508,6 +527,7 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
         scInfo.creationBlockHash = block.GetHash();
         scInfo.creationBlockHeight = blockHeight;
         scInfo.creationTxHash = txHash;
+        scInfo.lastReceivedCertificateEpoch = EPOCH_NULL;
         scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
 
         mUpdatedOrNewScInfoList[cr.scId] = scInfo;
@@ -542,7 +562,7 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
     return true;
 }
 
-bool ScCoinsViewCache::UpdateScInfo(const CScCertificate& cert)
+bool ScCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& blockundo)
 {
     const uint256& certHash = cert.GetHash();
     LogPrint("cert", "%s():%d - cert=%s\n", __func__, __LINE__, certHash.ToString() );
@@ -567,7 +587,32 @@ bool ScCoinsViewCache::UpdateScInfo(const CScCertificate& cert)
         return false;
     }
 
+    // if there is no entry in blockundo for this scId, create it and store current cert epoch
+    if (blockundo.msc_iaundo.count(scId) )
+    {
+        LogPrint("sc", "%s():%d - scId=%s epoch before: %d\n",
+            __func__, __LINE__, scId.ToString(), blockundo.msc_iaundo[scId].certEpoch);
+
+        // entry already exists, update only cert epoch with current value
+        blockundo.msc_iaundo[scId].certEpoch = targetScInfo.lastReceivedCertificateEpoch;
+    }
+    else
+    {
+        LogPrint("sc", "%s():%d - scId=%s new entry in blockundo\n",
+            __func__, __LINE__, scId.ToString());
+
+        // new entry, initialize amount to 0
+        ScUndoData data;
+        data.immAmount = 0;
+        data.certEpoch = targetScInfo.lastReceivedCertificateEpoch;
+        blockundo.msc_iaundo[scId] = data;
+    }
+
+    LogPrint("sc", "%s():%d - scId=%s epoch after: %d\n",
+        __func__, __LINE__, scId.ToString(), blockundo.msc_iaundo[scId].certEpoch);
+
     targetScInfo.balance -= totalAmount;
+    targetScInfo.lastReceivedCertificateEpoch = cert.epochNumber;
     mUpdatedOrNewScInfoList[scId] = targetScInfo;
 
     LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",
@@ -690,7 +735,8 @@ bool ScCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, int nHeight
 
 bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo)
 {
-    LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
+    LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n",
+        __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
     std::set<uint256> allKnowScIds = getScIdSet();
     for(auto it_set = allKnowScIds.begin(); it_set != allKnowScIds.end(); ++it_set)
@@ -708,34 +754,33 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
             int maturityHeight = it_ia_map->first;
             CAmount a = it_ia_map->second;
 
-
             if (maturityHeight == blockHeight)
             {
                 LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
-                    __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
+                    __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
 
                 // if maturity has been reached apply it to balance in scview
                 targetScInfo.balance += a;
 
                 LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
-                    __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
+                    __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
 
                 // scview balance has been updated, remove the entry in scview immature map
                 it_ia_map = targetScInfo.mImmatureAmounts.erase(it_ia_map);
                 mUpdatedOrNewScInfoList[scId] = targetScInfo;
 
-                LogPrint("sc", "%s():%d - adding immature amount %s for scid=%s in blockundo\n",
+                LogPrint("sc", "%s():%d - adding immature amount %s for scId=%s in blockundo\n",
                     __func__, __LINE__, FormatMoney(a), scIdString);
           
                 // store immature balances into the blockundo obj
-                blockundo.msc_iaundo[scId] = a;
+                blockundo.msc_iaundo[scId].immAmount = a;
             }
             else
             if (maturityHeight < blockHeight)
             {
                 // should not happen
                 LogPrint("sc", "ERROR: %s():%d - scId=%s maturuty(%d) < blockHeight(%d)\n",
-                    __func__, __LINE__, scId.ToString(), maturityHeight, blockHeight);
+                    __func__, __LINE__, scIdString, maturityHeight, blockHeight);
                 return false;
             }
             else
@@ -749,7 +794,8 @@ bool ScCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockund
 
 bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo& blockundo)
 {
-    LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
+    LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n",
+        __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
     auto it_ia_undo_map = blockundo.msc_iaundo.begin();
 
@@ -767,23 +813,35 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
             return false;
         }
 
-        CAmount a = it_ia_undo_map->second;
+        CAmount a = it_ia_undo_map->second.immAmount;
+        int e = it_ia_undo_map->second.certEpoch;
 
-        LogPrint("sc", "%s():%d - adding immature amount %s into sc view for scid=%s\n",
-            __func__, __LINE__, FormatMoney(a), scIdString);
-        targetScInfo.mImmatureAmounts[blockHeight] += a;
-
-        if (targetScInfo.balance < a)
+        if (a > 0)
         {
-            LogPrint("sc", "%s():%d - Can not update balance with amount[%s] for scId=%s, would be negative\n",
-                __func__, __LINE__, FormatMoney(a), scId.ToString() );
-            return false;
+            LogPrint("sc", "%s():%d - adding immature amount %s into sc view for scId=%s\n",
+                __func__, __LINE__, FormatMoney(a), scIdString);
+
+            targetScInfo.mImmatureAmounts[blockHeight] += a;
+ 
+            if (targetScInfo.balance < a)
+            {
+                LogPrint("sc", "%s():%d - Can not update balance with amount[%s] for scId=%s, would be negative\n",
+                    __func__, __LINE__, FormatMoney(a), scId.ToString() );
+                return false;
+            }
+ 
+            LogPrint("sc", "%s():%d - scId=%s balance before: %s\n", __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
+            targetScInfo.balance -= a;
+            LogPrint("sc", "%s():%d - scId=%s balance after: %s\n", __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
         }
 
-        LogPrint("sc", "%s():%d - scId=%s balance before: %s\n", __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
-        targetScInfo.balance -= a;
+        if (e > 0 || e == EPOCH_NULL) // allow -1 which is the default value at sc creation
+        {
+            LogPrint("sc", "%s():%d - scId=%s epoch before: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastReceivedCertificateEpoch);
+            targetScInfo.lastReceivedCertificateEpoch = it_ia_undo_map->second.certEpoch;
+            LogPrint("sc", "%s():%d - scId=%s epoch after: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastReceivedCertificateEpoch);
+        }
 
-        LogPrint("sc", "%s():%d - scId=%s balance after: %s\n", __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
         mUpdatedOrNewScInfoList[scId] = targetScInfo;
 
         ++it_ia_undo_map;
@@ -914,6 +972,117 @@ bool ScMgr::sidechainExists(const uint256& scId) const
     return mManagerScInfoMap.count(scId);
 }
 
+int ScMgr::getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber)
+{
+    ScInfo info;
+    if (!instance().getScInfo(scId, info) )
+    {
+        LogPrint("cert", "%s():%d - scId[%s] not found, returning -1\n", __func__, __LINE__, scId.ToString() );
+        return -1;
+    }
+
+    // the safety margin from the end of referred epoch is computed as 20% of epoch length + 1
+    int val = info.creationBlockHeight + (epochNumber * info.creationData.withdrawalEpochLength) +
+        (int)(info.creationData.withdrawalEpochLength/5) + 1;
+
+    LogPrint("cert", "%s():%d - returning %d\n", __func__, __LINE__, val);
+    return val;
+}
+
+bool ScMgr::epochAlreadyHasCertificate(const uint256& scId, int epochNumber, const CTxMemPool& pool, uint256& certHash)
+{
+    certHash = uint256();
+
+    // check the mempool first
+    for (auto it = pool.mapCertificate.begin(); it != pool.mapCertificate.end(); ++it)
+    {
+        const CScCertificate& mpCert = it->second.GetCertificate();
+
+        if ((mpCert.scId == scId) && (mpCert.epochNumber == epochNumber))
+        {
+            LogPrint("sc", "%s():%d - cert[%s] in mempool already refers to scId[%s] and epoch[%d]\n",
+                __func__, __LINE__, mpCert.GetHash().ToString(), scId.ToString(), epochNumber);
+            certHash = mpCert.GetHash();
+            return true;
+        }
+    }
+
+    // check db
+    ScInfo info;
+    if (!instance().getScInfo(scId, info) )
+    {
+        LogPrint("cert", "%s():%d - scId[%s] not found\n", __func__, __LINE__, scId.ToString() );
+        return false;
+    }
+
+    if (info.lastReceivedCertificateEpoch == epochNumber)
+    {
+        LogPrint("sc", "%s():%d - a cert for scId[%s] and epoch[%d] has already been received\n",
+            __func__, __LINE__, scId.ToString(), epochNumber);
+        return true;
+    }
+
+    return false;
+}
+
+bool ScMgr::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash)
+{
+    if (epochNumber <= 0)
+    {
+        LogPrint("sc", "%s():%d - invalid epoch number %d\n",
+            __func__, __LINE__, epochNumber );
+        return false;
+    }
+
+    // 1. the referenced block must be in active chain
+    LOCK(cs_main);
+    if (mapBlockIndex.count(endEpochBlockHash) == 0)
+    {
+        LogPrint("sc", "%s():%d - endEpochBlockHash %s is not in block index map\n",
+            __func__, __LINE__, endEpochBlockHash.ToString() );
+        return false;
+    }
+
+    CBlockIndex* pblockindex = mapBlockIndex[endEpochBlockHash];
+    if (!chainActive.Contains(pblockindex))
+    {
+        LogPrint("sc", "%s():%d - endEpochBlockHash %s refers to a valid block but is not in active chain\n",
+            __func__, __LINE__, endEpochBlockHash.ToString() );
+        return false;
+    }
+
+    // 2. combination of epoch number and epoch length, specified in creating sc, must point to that block
+    ScInfo info;
+    if (!instance().getScInfo(scId, info) )
+    {
+        // should not happen
+        LogPrint("sc", "%s():%d - scId[%s] not found\n",
+            __func__, __LINE__, scId.ToString() );
+        return false;
+    }
+
+    int endEpochHeight = info.creationBlockHeight + (epochNumber * info.creationData.withdrawalEpochLength);
+    pblockindex = chainActive[endEpochHeight];
+
+    if (!pblockindex)
+    {
+        LogPrint("sc", "%s():%d - calculated height %d (createHeight=%d/epochNum=%d/epochLen=%d) is out of active chain\n",
+            __func__, __LINE__, endEpochHeight, info.creationBlockHeight, epochNumber, info.creationData.withdrawalEpochLength);
+        return false;
+    }
+
+    const uint256& hash = pblockindex->GetBlockHash();
+
+    bool ret = (hash == endEpochBlockHash);
+    if (!ret)
+    {
+        LogPrint("sc", "%s():%d - bock hash mismatch: endEpochBlockHash[%s] / calculated[%s]\n", 
+            __func__, __LINE__, endEpochBlockHash.ToString(), hash.ToString());
+    }
+
+    return ret;
+}
+
 bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const
 {
     LOCK(sc_lock);
@@ -925,7 +1094,7 @@ bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const
 
     // create a copy
     info = ScInfo(it->second);
-    LogPrint("sc", "scid[%s]: %s", scId.ToString(), info.ToString() );
+    LogPrint("sc", "scId[%s]: %s", scId.ToString(), info.ToString() );
     return true;
 }
 
@@ -984,6 +1153,7 @@ bool ScMgr::dump_info(const uint256& scId)
 
     LogPrint("sc", "  created in block[%s] (h=%d)\n", info.creationBlockHash.ToString(), info.creationBlockHeight );
     LogPrint("sc", "  creationTx[%s]\n", info.creationTxHash.ToString());
+    LogPrint("sc", "  lastReceivedCertEpoch[%d]\n", info.lastReceivedCertificateEpoch);
     LogPrint("sc", "  balance[%s]\n", FormatMoney(info.balance));
     LogPrint("sc", "  ----- creation data:\n");
     LogPrint("sc", "      withdrawalEpochLength[%d]\n", info.creationData.withdrawalEpochLength);
@@ -1140,6 +1310,7 @@ void DbPersistance::dump_info()
                 << "  creating block hash: " << info.creationBlockHash.ToString() <<
                    " (height: " << info.creationBlockHeight << ")" << std::endl
                 << "  creating tx hash: " << info.creationTxHash.ToString() << std::endl
+                << "  last recv cert epoch: " << info.lastReceivedCertificateEpoch << std::endl
                 // creation parameters
                 << "  withdrawalEpochLength: " << info.creationData.withdrawalEpochLength << std::endl;
         }
@@ -1157,7 +1328,8 @@ std::string CBlockUndo::ToString() const
     str += "______CBlockUndo(\n";
     BOOST_FOREACH(const auto& obj, msc_iaundo)
     {
-        str += strprintf("   scId=%s -> amount=%s\n", obj.first.ToString(), FormatMoney(obj.second));
+        str += strprintf("   scId=%s -> amount=%s, certEpoch=%d\n",
+            obj.first.ToString(), FormatMoney(obj.second.immAmount), obj.second.certEpoch);
     }
     str += ")_____";
     return str;
