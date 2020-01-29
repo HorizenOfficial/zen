@@ -25,9 +25,6 @@ public:
     CSidechainsViewCache(CCoinsView *cView);
     CSidechainsViewCache(const CSidechainsViewCache&) = delete;             //as in coins, forbid building cache on top of another
     CSidechainsViewCache& operator=(const CSidechainsViewCache &) = delete;
-
-private:
-    void Dump_info() const;
 };
 
 }; // end of namespace

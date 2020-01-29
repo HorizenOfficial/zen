@@ -143,30 +143,4 @@ bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidation
 /********************** CSidechainsViewCache **********************/
 CSidechainsViewCache::CSidechainsViewCache(CCoinsView* scView): CCoinsViewCache(scView) {}
 
-void CSidechainsViewCache::Dump_info() const
-{
-    std::set<uint256> scIdsList;
-    queryScIds(scIdsList);
-    LogPrint("sc", "-- number of side chains found [%d] ------------------------\n", scIdsList.size());
-    for(const auto& scId: scIdsList)
-    {
-        LogPrint("sc", "-- side chain [%s] ------------------------\n", scId.ToString());
-        ScInfo info;
-        if (!GetScInfo(scId, info) )
-        {
-            LogPrint("sc", "===> No such side chain\n");
-            return;
-        }
-
-        LogPrint("sc", "  created in block[%s] (h=%d)\n", info.creationBlockHash.ToString(), info.creationBlockHeight );
-        LogPrint("sc", "  creationTx[%s]\n", info.creationTxHash.ToString());
-        LogPrint("sc", "  balance[%s]\n", FormatMoney(info.balance));
-        LogPrint("sc", "  ----- creation data:\n");
-        LogPrint("sc", "      withdrawalEpochLength[%d]\n", info.creationData.withdrawalEpochLength);
-        LogPrint("sc", "  immature amounts size[%d]\n", info.mImmatureAmounts.size());
-    }
-
-    return;
-}
-
 } // end of namespace

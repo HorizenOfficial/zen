@@ -138,7 +138,7 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicationsOfConfirmedSidechainsAreNotAcce
     uint256 scId = uint256S("a1b2");
     CTransaction scTx = GenerateScTx(scId, CAmount(1));
     CBlock aBlock;
-    Sidechain::CSidechainsViewCache sidechainsView(pcoinsdbview);
+    CCoinsViewCache sidechainsView(pcoinsdbview);
     sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
     ASSERT_TRUE(sidechainsView.Flush());
 
@@ -154,7 +154,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed
     uint256 scId = uint256S("aaaa");
     CTransaction scTx = GenerateScTx(scId, CAmount(10));
     CBlock aBlock;
-    Sidechain::CSidechainsViewCache sidechainsView(pcoinsdbview);
+    CCoinsViewCache sidechainsView(pcoinsdbview);
     sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
     ASSERT_TRUE(sidechainsView.Flush());
 

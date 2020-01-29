@@ -68,8 +68,7 @@ public:
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
         chainStateDb   = new CCoinsViewDB(chainStateDbSize,/*fWipe*/true);
-        //chainStateDb   = new CInMemorySidechainDb; //Use this in alternative to CCoinsViewDB to avoid instantiating a db
-        sidechainsView = new Sidechain::CSidechainsViewCache(chainStateDb);
+        sidechainsView = new CCoinsViewCache(chainStateDb);
     };
 
     void TearDown() override {
@@ -84,8 +83,7 @@ protected:
     boost::filesystem::path         pathTemp;
     const unsigned int              chainStateDbSize;
     CCoinsViewDB                    *chainStateDb;
-    //CInMemorySidechainDb            *chainStateDb; //Use this in alternative to CCoinsViewDB to avoid instantiating a db
-    Sidechain::CSidechainsViewCache *sidechainsView;
+    CCoinsViewCache                 *sidechainsView;
 
     //Helpers
     CBlockUndo   createBlockUndoWith(const uint256 & scId, int height, CAmount amount);

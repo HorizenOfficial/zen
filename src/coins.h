@@ -551,6 +551,7 @@ private:
     bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
     static int getInitScCoinsMaturity();
     int getScCoinsMaturity();
+    void Dump_info() const;
 
 protected:
     Sidechain::CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
