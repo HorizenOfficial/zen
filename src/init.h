@@ -7,7 +7,6 @@
 #define BITCOIN_INIT_H
 
 #include "zcash/JoinSplit.hpp"
-#include <txdb.h>
 #include <string>
 
 class CScheduler;
@@ -16,7 +15,6 @@ namespace boost { class thread_group; }
 
 extern CWallet*      pwalletMain;
 extern ZCJoinSplit*  pzcashParams;
-extern CCoinsViewDB* pcoinsdbview;
 
 void StartShutdown();
 bool ShutdownRequested();
