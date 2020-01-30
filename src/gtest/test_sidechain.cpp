@@ -67,6 +67,10 @@ public:
 
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
+
+        boost::filesystem::create_directories(pathTemp);
+        mapArgs["-datadir"] = pathTemp.string();
+
         chainStateDb   = new CCoinsViewDB(chainStateDbSize,/*fWipe*/true);
         sidechainsView = new CCoinsViewCache(chainStateDb);
     };
@@ -77,10 +81,14 @@ public:
 
         delete chainStateDb;
         chainStateDb = nullptr;
+
+        ClearDatadirCache();
+        boost::system::error_code ec;
+        boost::filesystem::remove_all(pathTemp.string(), ec);
     };
 
 protected:
-    boost::filesystem::path         pathTemp;
+    boost::filesystem::path         pathTemp; //each test has its own dataDir
     const unsigned int              chainStateDbSize;
     CCoinsViewDB                    *chainStateDb;
     CCoinsViewCache                 *sidechainsView;
