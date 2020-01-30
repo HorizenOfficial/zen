@@ -128,7 +128,7 @@ bool CCoinsViewDB::HaveScInfo(const uint256& scId) const
     return db.Exists(std::make_pair(DB_SIDECHAINS, scId));
 }
 
-bool CCoinsViewDB::queryScIds(std::set<uint256>& scIdsList) const
+void CCoinsViewDB::queryScIds(std::set<uint256>& scIdsList) const
 {
     std::unique_ptr<leveldb::Iterator> it(const_cast<CLevelDBWrapper*>(&db)->NewIterator());
     for (it->SeekToFirst(); it->Valid(); it->Next())
@@ -148,7 +148,7 @@ bool CCoinsViewDB::queryScIds(std::set<uint256>& scIdsList) const
         }
     }
 
-    return true;
+    return;
 }
 
 uint256 CCoinsViewDB::GetBestBlock() const {

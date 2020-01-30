@@ -41,7 +41,7 @@ public:
     bool HaveCoins(const uint256 &txid) const;
     bool GetScInfo(const uint256& scId, ScInfo& info) const;
     bool HaveScInfo(const uint256& scId) const;
-    bool queryScIds(std::set<uint256>& scIdsList) const;
+    void queryScIds(std::set<uint256>& scIdsList) const;
     uint256 GetBestBlock() const;
     uint256 GetBestAnchor() const;
     bool BatchWrite(CCoinsMap &mapCoins,

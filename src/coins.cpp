@@ -51,7 +51,7 @@ bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins)                  c
 bool CCoinsView::HaveCoins(const uint256 &txid)                                const { return false; }
 bool CCoinsView::HaveScInfo(const uint256& scId)                               const { return false; }
 bool CCoinsView::GetScInfo(const uint256& scId, ScInfo& info)                  const { return false; }
-bool CCoinsView::queryScIds(std::set<uint256>& scIdsList)                      const { return true;/*ABENEGIA HACK FOR CHECKS*/ }
+void CCoinsView::queryScIds(std::set<uint256>& scIdsList)                      const { scIdsList.clear(); return; }
 uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
 uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins,
@@ -428,13 +428,9 @@ bool CCoinsViewCache::GetScInfo(const uint256 & scId, ScInfo& targetScInfo) cons
     return false;
 }
 
-bool CCoinsViewCache::queryScIds(std::set<uint256>& scIdsList) const
+void CCoinsViewCache::queryScIds(std::set<uint256>& scIdsList) const
 {
-    if(!base->queryScIds(scIdsList)) {
-        LogPrint("sc", "%s():%d - queryScIds returned false and scIdsList has %d elements\n", __func__, __LINE__, scIdsList.size());
-        return false;
-    }
-
+    base->queryScIds(scIdsList);
 
     // Note that some of the values above may have been erased in current cache.
     // Also new id may be in current cache but not in persisted
@@ -446,7 +442,7 @@ bool CCoinsViewCache::queryScIds(std::set<uint256>& scIdsList) const
           scIdsList.insert(entry.first);
     }
 
-    return true;
+    return;
 }
 
 bool CCoinsViewCache::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
@@ -658,8 +654,7 @@ bool CCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo
     LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n", __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
     std::set<uint256> allKnowScIds;
-    if (!queryScIds(allKnowScIds))
-        return false;
+    queryScIds(allKnowScIds);
 
     for(auto it_set = allKnowScIds.begin(); it_set != allKnowScIds.end(); ++it_set)
     {

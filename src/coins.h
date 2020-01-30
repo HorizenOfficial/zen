@@ -377,7 +377,7 @@ public:
 
     virtual bool HaveScInfo(const uint256& scId) const;
     virtual bool GetScInfo(const uint256& scId, ScInfo& info) const;
-    virtual bool queryScIds(std::set<uint256>& scIdsList) const;
+    virtual void queryScIds(std::set<uint256>& scIdsList) const;
 
     //! Retrieve the block hash whose state this CCoinsView currently represents
     virtual uint256 GetBestBlock() const;
@@ -524,7 +524,7 @@ public:
 
     bool HaveScInfo(const uint256& scId)                       const;
     bool GetScInfo(const uint256 & scId, ScInfo& targetScInfo) const;
-    bool queryScIds(std::set<uint256>& scIdsList)              const;
+    void queryScIds(std::set<uint256>& scIdsList)              const;
     bool HaveDependencies(const CTransaction& tx);
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);

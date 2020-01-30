@@ -22,10 +22,10 @@ public:
         return true;
     }
 
-    virtual bool queryScIds(std::set<uint256>& scIdsList) const {
+    virtual void queryScIds(std::set<uint256>& scIdsList) const {
         for (auto& entry : inMemoryMap)
             scIdsList.insert(entry.first);
-        return true;
+        return;
     }
 
     bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
