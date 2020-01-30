@@ -51,7 +51,7 @@ bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins)                  c
 bool CCoinsView::HaveCoins(const uint256 &txid)                                const { return false; }
 bool CCoinsView::HaveScInfo(const uint256& scId)                               const { return false; }
 bool CCoinsView::GetScInfo(const uint256& scId, ScInfo& info)                  const { return false; }
-bool CCoinsView::queryScIds(std::set<uint256>& scIdsList)                      const { return false; }
+bool CCoinsView::queryScIds(std::set<uint256>& scIdsList)                      const { return true;/*ABENEGIA HACK FOR CHECKS*/ }
 uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
 uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins,
@@ -430,8 +430,11 @@ bool CCoinsViewCache::GetScInfo(const uint256 & scId, ScInfo& targetScInfo) cons
 
 bool CCoinsViewCache::queryScIds(std::set<uint256>& scIdsList) const
 {
-    if(!base->queryScIds(scIdsList))
+    if(!base->queryScIds(scIdsList)) {
+        LogPrint("sc", "%s():%d - queryScIds returned false and scIdsList has %d elements\n", __func__, __LINE__, scIdsList.size());
         return false;
+    }
+
 
     // Note that some of the values above may have been erased in current cache.
     // Also new id may be in current cache but not in persisted

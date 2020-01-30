@@ -349,7 +349,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             pblock->nVersion = GetArg("-blockversion", pblock->nVersion);
 
         CCoinsViewCache view(pcoinsTip);
-        CCoinsViewCache scView(pcoinsdbview);
+        CCoinsViewCache scView(pcoinsTip);
 
         // Priority order to process transactions
         list<COrphan> vOrphan; // list memory doesn't move

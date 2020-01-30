@@ -414,7 +414,6 @@ double benchmark_connectblock_slow()
     auto hashPrev = uint256S("00000000159a41f468e22135942a567781c3f3dc7ad62257993eb3c69c3f95ef");
     FakeCoinsViewDB fakeDB("benchmark/block-107134-inputs", hashPrev);
     CCoinsViewCache view(&fakeDB);
-    CCoinsViewCache fakeScView(pcoinsdbview);
 
     // Fake the chain
     CBlockIndex index(block);
@@ -432,7 +431,7 @@ double benchmark_connectblock_slow()
     CValidationState state;
     struct timeval tv_start;
     timer_start(tv_start);
-    assert(ConnectBlock(block, state, &index, view, chain, fakeScView, true));
+    assert(ConnectBlock(block, state, &index, view, chain, true));
     auto duration = timer_stop(tv_start);
 
     // Undo alterations to global state

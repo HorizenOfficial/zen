@@ -452,11 +452,11 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex);
  *  will be true if no problems were found. Otherwise, the return value will be false in case
  *  of problems. Note that in any case, coins may be modified. */
 bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& coins,
-    bool* pfClean = NULL, CCoinsViewCache* scView = NULL);
+    bool* pfClean = NULL);
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins */
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-    CCoinsViewCache& coins, const CChain& chain, CCoinsViewCache& scView, bool fJustCheck = false);
+    CCoinsViewCache& coins, const CChain& chain, bool fJustCheck = false);
 
 /** Context-independent validity checks */
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW = true);

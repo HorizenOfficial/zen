@@ -1,4 +1,5 @@
 #include <init.h>
+#include <main.h>
 #include "sc/sidechain.h"
 #include <univalue.h>
 #include "primitives/transaction.h"
@@ -197,7 +198,7 @@ void AddScInfoToJSON(const uint256& scId, const ScInfo& info, UniValue& sc)
 bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
 {
     ScInfo info;
-    CCoinsViewCache scView(pcoinsdbview);
+    CCoinsViewCache scView(pcoinsTip);
     if (!scView.GetScInfo(scId, info) )
     {
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
@@ -210,7 +211,7 @@ bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
 
 void AddScInfoToJSON(UniValue& result)
 {
-    CCoinsViewCache scView(pcoinsdbview);
+    CCoinsViewCache scView(pcoinsTip);
     std::set<uint256> sScIds;
     scView.queryScIds(sScIds);
 

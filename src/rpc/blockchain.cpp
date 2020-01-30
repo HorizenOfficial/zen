@@ -1054,7 +1054,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     scId.SetHex(inputString);
  
     // sanity check of the side chain ID
-    CCoinsViewCache scView(pcoinsdbview);
+    CCoinsViewCache scView(pcoinsTip);
     if (!scView.HaveScInfo(scId) )
     {
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
@@ -1128,7 +1128,6 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
 
     std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
     return strHex;
-   
 }
 
 UniValue getblockfinalityindex(const UniValue& params, bool fHelp)

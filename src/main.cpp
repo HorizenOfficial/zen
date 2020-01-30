@@ -1365,7 +1365,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             LOCK(pool.cs);
             CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
             view.SetBackend(viewMemPool);
-            CCoinsViewCache scView(pcoinsdbview);
+            CCoinsViewCache scView(pcoinsTip);
  
             // do we already have it?
             if (view.HaveCoins(hash))
@@ -2166,7 +2166,7 @@ static bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const CO
 }
 
 bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
-    bool* pfClean, CCoinsViewCache* scView)
+    bool* pfClean)
 {
     assert(pindex->GetBlockHash() == view.GetBestBlock());
 
@@ -2185,14 +2185,11 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     if (blockUndo.vtxundo.size() + 1 != block.vtx.size())
         return error("DisconnectBlock(): block and undo data inconsistent");
 
-    if (scView)
+    LogPrint("sc", "%s():%d - restoring sc coins if any\n", __func__, __LINE__);
+    if (!view.RestoreImmatureBalances(pindex->nHeight, blockUndo) )
     {
-        LogPrint("sc", "%s():%d - restoring sc coins if any\n", __func__, __LINE__);
-        if (!scView->RestoreImmatureBalances(pindex->nHeight, blockUndo) )
-        {
-            LogPrint("sc", "%s():%d - ERROR updating sc maturity amounts\n", __func__, __LINE__);
-            return error("DisconnectBlock(): sc and undo data inconsistent");
-        }
+        LogPrint("sc", "%s():%d - ERROR updating sc maturity amounts\n", __func__, __LINE__);
+        return error("DisconnectBlock(): sc and undo data inconsistent");
     }
 
     // undo transactions in reverse order
@@ -2227,14 +2224,11 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             }
         }
 
-        if (scView)
+        LogPrint("sc", "%s():%d - undo sc outputs if any\n", __func__, __LINE__);
+        if (!view.RevertTxOutputs(tx, pindex->nHeight) )
         {
-            LogPrint("sc", "%s():%d - undo sc outputs if any\n", __func__, __LINE__);
-            if (!scView->RevertTxOutputs(tx, pindex->nHeight) )
-            {
-                LogPrint("sc", "%s():%d - ERROR undoing sc creation\n", __func__, __LINE__);
-                return error("DisconnectBlock(): sc creation can not be reverted: data inconsistent");
-            }
+            LogPrint("sc", "%s():%d - ERROR undoing sc creation\n", __func__, __LINE__);
+            return error("DisconnectBlock(): sc creation can not be reverted: data inconsistent");
         }
 
         // restore inputs
@@ -2411,7 +2405,7 @@ static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
-    const CChain& chain, CCoinsViewCache& scView, bool fJustCheck)
+    const CChain& chain, bool fJustCheck)
 {
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
@@ -2514,7 +2508,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
                              REJECT_INVALID, "bad-txns-inputs-missingorspent");
 
-        if (!scView.HaveDependencies(tx))
+        if (!view.HaveDependencies(tx))
             return state.Invalid(error("AcceptToMemoryPool: sidechain is redeclared or coins are forwarded to unknown sidechain"),
                                         REJECT_INVALID, "bad-sc-tx");
 
@@ -2549,9 +2543,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (!fJustCheck && i > 0)
         {
-            if (!scView.UpdateScInfo(tx, block, pindex->nHeight) )
+            if (!view.UpdateScInfo(tx, block, pindex->nHeight) )
             {
-                return state.DoS(100, error("ConnectBlock(): could not add sidechain in scView: tx[%s]", tx.GetHash().ToString()),
+                return state.DoS(100, error("ConnectBlock(): could not add sidechain in view: tx[%s]", tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
             }
         }
@@ -2570,7 +2564,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     if (!fJustCheck)
     {
-        if (!scView.ApplyMatureBalances(pindex->nHeight, blockundo) )
+        if (!view.ApplyMatureBalances(pindex->nHeight, blockundo) )
         {
             return state.DoS(100, error("ConnectBlock(): could not update sc immature amounts"),
                              REJECT_INVALID, "bad-sc-amounts");
@@ -2841,11 +2835,9 @@ bool static DisconnectTip(CValidationState &state) {
     int64_t nStart = GetTimeMicros();
     {
         CCoinsViewCache view(pcoinsTip);
-        CCoinsViewCache scView(pcoinsdbview);
-        if (!DisconnectBlock(block, state, pindexDelete, view, NULL, &scView))
+        if (!DisconnectBlock(block, state, pindexDelete, view, NULL))
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         assert(view.Flush());
-        assert(scView.Flush());
     }
     LogPrint("bench", "- Disconnect block: %.2fms\n", (GetTimeMicros() - nStart) * 0.001);
     uint256 anchorAfterDisconnect = pcoinsTip->GetBestAnchor();
@@ -2919,9 +2911,8 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     LogPrint("bench", "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * 0.001, nTimeReadFromDisk * 0.000001);
     {
         CCoinsViewCache view(pcoinsTip);
-        CCoinsViewCache scView(pcoinsdbview);
         static const bool JUST_CHECK_FALSE = false;
-        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, scView, JUST_CHECK_FALSE);
+        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, JUST_CHECK_FALSE);
         GetMainSignals().BlockChecked(*pblock, state);
         if (!rv) {
             if (state.IsInvalid())
@@ -2932,7 +2923,6 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint("bench", "  - Connect total: %.2fms [%.2fs]\n", (nTime3 - nTime2) * 0.001, nTimeConnectTotal * 0.000001);
         assert(view.Flush());
-        assert(scView.Flush());
     }
     int64_t nTime4 = GetTimeMicros(); nTimeFlush += nTime4 - nTime3;
     LogPrint("bench", "  - Flush: %.2fms [%.2fs]\n", (nTime4 - nTime3) * 0.001, nTimeFlush * 0.000001);
@@ -3953,7 +3943,6 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
     assert(pindexPrev == chainActive.Tip());
 
     CCoinsViewCache viewNew(pcoinsTip);
-    CCoinsViewCache fakeScView(pcoinsdbview);
     CBlockIndex indexDummy(block);
     indexDummy.pprev = pindexPrev;
     indexDummy.nHeight = pindexPrev->nHeight + 1;
@@ -3969,7 +3958,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
         return false;
 
     static const bool JUST_CHECK_TRUE = true;
-    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, fakeScView, JUST_CHECK_TRUE))
+    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, JUST_CHECK_TRUE))
         return false;
     assert(state.IsValid());
 
@@ -4310,7 +4299,6 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     nCheckLevel = std::max(0, std::min(4, nCheckLevel));
     LogPrintf("Verifying last %i blocks at level %i\n", nCheckDepth, nCheckLevel);
     CCoinsViewCache coins(coinsview);
-    CCoinsViewCache scView(pcoinsdbview);
     CBlockIndex* pindexState = chainActive.Tip();
     CBlockIndex* pindexFailure = NULL;
     int nGoodTransactions = 0;
@@ -4342,7 +4330,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
         // check level 3: check for inconsistencies during memory-only disconnect of tip blocks
         if (nCheckLevel >= 3 && pindex == pindexState && (coins.DynamicMemoryUsage() + pcoinsTip->DynamicMemoryUsage()) <= nCoinCacheUsage) {
             bool fClean = true;
-            if (!DisconnectBlock(block, state, pindex, coins, &fClean, &scView))
+            if (!DisconnectBlock(block, state, pindex, coins, &fClean))
                 return error("VerifyDB(): *** irrecoverable inconsistency in block data at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             pindexState = pindex->pprev;
             if (!fClean) {
@@ -4373,7 +4361,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             chainHistorical.SetHeight(pindex->nHeight - 1);
             static const bool JUST_CHECK_FALSE = false;
-            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, scView, JUST_CHECK_FALSE))
+            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, JUST_CHECK_FALSE))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         }
     }
