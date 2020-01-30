@@ -414,6 +414,9 @@ public:
     bool GetNullifier(const uint256 &nullifier) const;
     bool GetCoins(const uint256 &txid, CCoins &coins) const;
     bool HaveCoins(const uint256 &txid) const;
+    bool HaveScInfo(const uint256& scId) const;
+    bool GetScInfo(const uint256& scId, ScInfo& info) const;
+    void queryScIds(std::set<uint256>& scIdsList) const;
     uint256 GetBestBlock() const;
     uint256 GetBestAnchor() const;
     void SetBackend(CCoinsView &viewIn);

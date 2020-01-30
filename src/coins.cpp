@@ -66,11 +66,14 @@ bool CCoinsView::GetStats(CCoinsStats &stats)                                  c
 CCoinsViewBacked::CCoinsViewBacked(CCoinsView *viewIn) : base(viewIn) { }
 
 bool CCoinsViewBacked::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const { return base->GetAnchorAt(rt, tree); }
-bool CCoinsViewBacked::GetNullifier(const uint256 &nullifier) const { return base->GetNullifier(nullifier); }
-bool CCoinsViewBacked::GetCoins(const uint256 &txid, CCoins &coins) const { return base->GetCoins(txid, coins); }
-bool CCoinsViewBacked::HaveCoins(const uint256 &txid) const { return base->HaveCoins(txid); }
-uint256 CCoinsViewBacked::GetBestBlock() const { return base->GetBestBlock(); }
-uint256 CCoinsViewBacked::GetBestAnchor() const { return base->GetBestAnchor(); }
+bool CCoinsViewBacked::GetNullifier(const uint256 &nullifier)                        const { return base->GetNullifier(nullifier); }
+bool CCoinsViewBacked::GetCoins(const uint256 &txid, CCoins &coins)                  const { return base->GetCoins(txid, coins); }
+bool CCoinsViewBacked::HaveCoins(const uint256 &txid)                                const { return base->HaveCoins(txid); }
+bool CCoinsViewBacked::HaveScInfo(const uint256& scId)                               const { return base->HaveScInfo(scId); }
+bool CCoinsViewBacked::GetScInfo(const uint256& scId, ScInfo& info)                  const { return base->GetScInfo(scId,info); }
+void CCoinsViewBacked::queryScIds(std::set<uint256>& scIdsList)                      const { return base->queryScIds(scIdsList); }
+uint256 CCoinsViewBacked::GetBestBlock()                                             const { return base->GetBestBlock(); }
+uint256 CCoinsViewBacked::GetBestAnchor()                                            const { return base->GetBestAnchor(); }
 void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
 bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins,
                                   const uint256 &hashBlock,
@@ -79,7 +82,7 @@ bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins,
                                   CNullifiersMap &mapNullifiers,
                                   CSidechainsMap& mapSidechains)
                                 { return base->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains); }
-bool CCoinsViewBacked::GetStats(CCoinsStats &stats) const { return base->GetStats(stats); }
+bool CCoinsViewBacked::GetStats(CCoinsStats &stats)                                  const { return base->GetStats(stats); }
 
 CCoinsKeyHasher::CCoinsKeyHasher() : salt(GetRandHash()) {}
 

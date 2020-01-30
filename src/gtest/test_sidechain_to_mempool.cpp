@@ -59,7 +59,7 @@ public:
 
         InitCoinGeneration();
         GenerateCoinsAmount(1000);
-        ASSERT_TRUE(PersistCoins());
+        ASSERT_TRUE(StoreCoins());
     }
 
     void TearDown() override {
@@ -82,14 +82,13 @@ public:
     }
 
 protected:
-    CCoinsViewDB* pChainStateDb;
     CTransaction GenerateScTx(const uint256 & newScId, const CAmount & fwdTxAmount);
     CTransaction GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount);
 
 private:
     boost::filesystem::path  pathTemp;
     const unsigned int       chainStateDbSize;
-    //CCoinsOnlyViewDB*        pChainStateDb;
+    CCoinsOnlyViewDB*        pChainStateDb;
 
     const unsigned int       minimalHeightForSidechains;
     std::vector<uint256>     blockHashes;
@@ -102,7 +101,7 @@ private:
     CCoinsMap                initialCoinsSet;
     void InitCoinGeneration();
     void GenerateCoinsAmount(const CAmount & amountToGenerate);
-    bool PersistCoins();
+    bool StoreCoins();
 };
 
 TEST_F(SidechainsInMempoolTestSuite, NewSidechainsAreAcceptedToMempool) {
@@ -133,7 +132,7 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicationsOfConfirmedSidechainsAreNotAcce
     uint256 scId = uint256S("a1b2");
     CTransaction scTx = GenerateScTx(scId, CAmount(1));
     CBlock aBlock;
-    CCoinsViewCache sidechainsView(pChainStateDb);
+    CCoinsViewCache sidechainsView(pcoinsTip);
     sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
     ASSERT_TRUE(sidechainsView.Flush());
 
@@ -149,7 +148,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed
     uint256 scId = uint256S("aaaa");
     CTransaction scTx = GenerateScTx(scId, CAmount(10));
     CBlock aBlock;
-    CCoinsViewCache sidechainsView(pChainStateDb);
+    CCoinsViewCache sidechainsView(pcoinsTip);
     sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
     ASSERT_TRUE(sidechainsView.Flush());
 
@@ -219,7 +218,7 @@ void SidechainsInMempoolTestSuite::InitCoinGeneration() {
 void SidechainsInMempoolTestSuite::GenerateCoinsAmount(const CAmount & amountToGenerate) {
     unsigned int coinHeight = minimalHeightForSidechains;
     CCoinsCacheEntry entry;
-    entry.flags = CCoinsCacheEntry::DIRTY;
+    entry.flags = CCoinsCacheEntry::FRESH | CCoinsCacheEntry::DIRTY;
 
     entry.coins.fCoinBase = false;
     entry.coins.nVersion = TRANSPARENT_TX_VERSION;
@@ -236,8 +235,8 @@ void SidechainsInMempoolTestSuite::GenerateCoinsAmount(const CAmount & amountToG
     return;
 }
 
-bool SidechainsInMempoolTestSuite::PersistCoins() {
-    CCoinsViewCache view(pChainStateDb);
+bool SidechainsInMempoolTestSuite::StoreCoins() {
+    CCoinsViewCache view(pcoinsTip);
     CCoinsMap tmpCopyConsumedOnWrite(initialCoinsSet);
 
     const uint256 hashBlock;
@@ -246,7 +245,7 @@ bool SidechainsInMempoolTestSuite::PersistCoins() {
     CNullifiersMap mapNullifiers;
     CSidechainsMap mapSidechains;
 
-    pChainStateDb->BatchWrite(tmpCopyConsumedOnWrite, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains);
+    pcoinsTip->BatchWrite(tmpCopyConsumedOnWrite, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains);
 
     return view.HaveCoins(initialCoinsSet.begin()->first) == true;
 }

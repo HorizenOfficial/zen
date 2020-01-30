@@ -1365,7 +1365,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             LOCK(pool.cs);
             CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
             view.SetBackend(viewMemPool);
-            CCoinsViewCache scView(pcoinsTip);
  
             // do we already have it?
             if (view.HaveCoins(hash))
@@ -1399,7 +1398,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             }
 
             // are the sidechains dependencies available?
-            if (!scView.HaveDependencies(tx))
+            if (!view.HaveDependencies(tx))
             {
                 return state.Invalid(error("AcceptToMemoryPool: sidechain is redeclared or coins are forwarded to unknown sidechain"),
                                     REJECT_INVALID, "bad-sc-tx");
