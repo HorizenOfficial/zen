@@ -405,7 +405,7 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                 assert(false);
         }
     }
-    mapSidechains.clear(); //ABENEGIA: Does this clear capacity?
+    mapSidechains.clear();
 
     hashAnchor = hashAnchorIn;
     hashBlock = hashBlockIn;

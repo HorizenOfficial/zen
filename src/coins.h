@@ -375,8 +375,13 @@ public:
     //! This may (but cannot always) return true for fully spent transactions
     virtual bool HaveCoins(const uint256 &txid) const;
 
+    //! Just check whether we have data for a given sidechain id.
     virtual bool HaveScInfo(const uint256& scId) const;
+
+    //! Retrieve the Sidechain informations for a give sidechain id.
     virtual bool GetScInfo(const uint256& scId, ScInfo& info) const;
+
+    //! Retrieve all the known sidechain ids
     virtual void queryScIds(std::set<uint256>& scIdsList) const;
 
     //! Retrieve the block hash whose state this CCoinsView currently represents
@@ -411,14 +416,14 @@ protected:
 public:
     CCoinsViewBacked(CCoinsView *viewIn);
     bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const;
-    bool GetNullifier(const uint256 &nullifier) const;
-    bool GetCoins(const uint256 &txid, CCoins &coins) const;
-    bool HaveCoins(const uint256 &txid) const;
-    bool HaveScInfo(const uint256& scId) const;
-    bool GetScInfo(const uint256& scId, ScInfo& info) const;
-    void queryScIds(std::set<uint256>& scIdsList) const;
-    uint256 GetBestBlock() const;
-    uint256 GetBestAnchor() const;
+    bool GetNullifier(const uint256 &nullifier)                        const;
+    bool GetCoins(const uint256 &txid, CCoins &coins)                  const;
+    bool HaveCoins(const uint256 &txid)                                const;
+    bool HaveScInfo(const uint256& scId)                               const override;
+    bool GetScInfo(const uint256& scId, ScInfo& info)                  const override;
+    void queryScIds(std::set<uint256>& scIdsList)                      const override;
+    uint256 GetBestBlock()                                             const;
+    uint256 GetBestAnchor()                                            const;
     void SetBackend(CCoinsView &viewIn);
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
@@ -426,7 +431,7 @@ public:
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains);
-    bool GetStats(CCoinsStats &stats) const;
+    bool GetStats(CCoinsStats &stats)                                  const;
 };
 
 
@@ -525,9 +530,9 @@ public:
      * If false is returned, the state of this cache (and its backing view) will be undefined.
      */
 
-    bool HaveScInfo(const uint256& scId)                       const;
-    bool GetScInfo(const uint256 & scId, ScInfo& targetScInfo) const;
-    void queryScIds(std::set<uint256>& scIdsList)              const;
+    bool HaveScInfo(const uint256& scId)                       const override;
+    bool GetScInfo(const uint256 & scId, ScInfo& targetScInfo) const override;
+    void queryScIds(std::set<uint256>& scIdsList)              const override;
     bool HaveDependencies(const CTransaction& tx);
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
