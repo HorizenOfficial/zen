@@ -42,7 +42,7 @@ public:
                     inMemoryMap.erase(entry.first);
                     break;
                 case CSidechainsCacheEntry::Flags::DEFAULT:
-                    break; //nothing to do. entry is already persisted and has not been modified
+                    break;
                 default:
                     return false;
             }
@@ -58,9 +58,7 @@ class SidechainTestSuite: public ::testing::Test {
 
 public:
     SidechainTestSuite():
-        pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path())
-        , chainStateDbSize(2 * 1024 * 1024)
-        , chainStateDb(nullptr)
+          fakeChainStateDb(nullptr)
         , sidechainsView(nullptr) {};
 
     ~SidechainTestSuite() = default;
@@ -68,29 +66,20 @@ public:
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
 
-        boost::filesystem::create_directories(pathTemp);
-        mapArgs["-datadir"] = pathTemp.string();
-
-        chainStateDb   = new CCoinsViewDB(chainStateDbSize,/*fWipe*/true);
-        sidechainsView = new CCoinsViewCache(chainStateDb);
+        fakeChainStateDb   = new CInMemorySidechainDb();
+        sidechainsView     = new CCoinsViewCache(fakeChainStateDb);
     };
 
     void TearDown() override {
         delete sidechainsView;
         sidechainsView = nullptr;
 
-        delete chainStateDb;
-        chainStateDb = nullptr;
-
-        ClearDatadirCache();
-        boost::system::error_code ec;
-        boost::filesystem::remove_all(pathTemp.string(), ec);
+        delete fakeChainStateDb;
+        fakeChainStateDb = nullptr;
     };
 
 protected:
-    boost::filesystem::path         pathTemp; //each test has its own dataDir
-    const unsigned int              chainStateDbSize;
-    CCoinsViewDB                    *chainStateDb;
+    CInMemorySidechainDb            *fakeChainStateDb;
     CCoinsViewCache                 *sidechainsView;
 
     //Helpers
@@ -340,7 +329,7 @@ TEST_F(SidechainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
     CValidationState txState;
 
     //test
-    bool res = Sidechain::existsInMempool(aMemPool, aTransaction, txState);
+    bool res = Sidechain::existsInMempool(aMemPool, duplicatedTx, txState);
 
     //check
     EXPECT_FALSE(res);
@@ -372,7 +361,7 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceBeforeCoins
 
     sidechainsView->Flush();
     ScInfo mgrInfos;
-    ASSERT_TRUE(chainStateDb->GetScInfo(scId, mgrInfos));
+    ASSERT_TRUE(fakeChainStateDb->GetScInfo(scId, mgrInfos));
     EXPECT_TRUE(mgrInfos.balance < initialAmount)
         <<"resulting balance is "<<mgrInfos.balance <<" while initial amount is "<<initialAmount;
 }
@@ -397,7 +386,7 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferModifiesScBalanceAtCoinMaturity) 
 
     sidechainsView->Flush();
     ScInfo mgrInfos;
-    ASSERT_TRUE(chainStateDb->GetScInfo(scId, mgrInfos));
+    ASSERT_TRUE(fakeChainStateDb->GetScInfo(scId, mgrInfos));
     EXPECT_TRUE(mgrInfos.balance == initialAmount)
         <<"resulting balance is "<<mgrInfos.balance <<" expected one is "<<initialAmount;
 }
@@ -422,7 +411,7 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceAfterCoinsM
 
     sidechainsView->Flush();
     ScInfo mgrInfos;
-    ASSERT_TRUE(chainStateDb->GetScInfo(scId, mgrInfos));
+    ASSERT_TRUE(fakeChainStateDb->GetScInfo(scId, mgrInfos));
     EXPECT_TRUE(mgrInfos.balance < initialAmount)
         <<"resulting balance is "<<mgrInfos.balance <<" while initial amount is "<<initialAmount;
 }
@@ -893,7 +882,7 @@ TEST_F(SidechainTestSuite, FlushPersistsNewSidechains) {
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_TRUE(chainStateDb->HaveScInfo(scId));
+    EXPECT_TRUE(fakeChainStateDb->HaveScInfo(scId));
 }
 
 TEST_F(SidechainTestSuite, FlushPersistsForwardTransfers) {
@@ -917,7 +906,7 @@ TEST_F(SidechainTestSuite, FlushPersistsForwardTransfers) {
     EXPECT_TRUE(res);
 
     ScInfo persistedInfo;
-    ASSERT_TRUE(chainStateDb->GetScInfo(scId, persistedInfo));
+    ASSERT_TRUE(fakeChainStateDb->GetScInfo(scId, persistedInfo));
     ASSERT_TRUE(persistedInfo.mImmatureAmounts.at(fwdTxMaturityHeight) == fwdTxAmount)
         <<"Following flush, persisted fwd amount should equal the one in view";
 }
@@ -936,7 +925,7 @@ TEST_F(SidechainTestSuite, FlushPersistsScErasureToo) {
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_FALSE(chainStateDb->HaveScInfo(scId));
+    EXPECT_FALSE(fakeChainStateDb->HaveScInfo(scId));
 }
 
 //TEST_F(SidechainTestSuite, FlushPropagatesErrorsInPersist) {
@@ -959,7 +948,7 @@ TEST_F(SidechainTestSuite, FlushPersistsScErasureToo) {
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// queryScIds //////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainTestSuite, queryScIdsReturnsNewSidechains) {
+TEST_F(SidechainTestSuite, queryScIdsReturnsNonErasedSidechains) {
     CBlock aBlock;
 
     uint256 scId1 = uint256S("aaaa");
@@ -988,6 +977,56 @@ TEST_F(SidechainTestSuite, queryScIdsReturnsNewSidechains) {
     EXPECT_TRUE(knownScIdsSet.size() == 1)<<"Instead knowScIdSet size is "<<knownScIdsSet.size();
     EXPECT_TRUE(knownScIdsSet.count(scId1) == 1)<<"Actual count is "<<knownScIdsSet.count(scId1);
     EXPECT_TRUE(knownScIdsSet.count(scId2) == 0)<<"Actual count is "<<knownScIdsSet.count(scId2);
+}
+
+TEST_F(SidechainTestSuite, queryScIdsOnChainstateDbSelectOnlySidechains) {
+
+    //init a tmp chainstateDb
+    boost::filesystem::path pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path());
+    const unsigned int      chainStateDbSize(2 * 1024 * 1024);
+    boost::filesystem::create_directories(pathTemp);
+    mapArgs["-datadir"] = pathTemp.string();
+
+    CCoinsViewDB chainStateDb(chainStateDbSize,/*fWipe*/true);
+    sidechainsView->SetBackend(chainStateDb);
+
+    //prepare a sidechain
+    CBlock aBlock;
+    uint256 scId = uint256S("aaaa");
+    int sc1CreationHeight(11);
+    CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1));
+    ASSERT_TRUE(sidechainsView->UpdateScInfo(scTx, aBlock, sc1CreationHeight));
+
+    //prepare a coin
+    CCoinsCacheEntry aCoin;
+    aCoin.flags = CCoinsCacheEntry::FRESH | CCoinsCacheEntry::DIRTY;
+    aCoin.coins.fCoinBase = false;
+    aCoin.coins.nVersion = TRANSPARENT_TX_VERSION;
+    aCoin.coins.vout.resize(1);
+    aCoin.coins.vout[0].nValue = CAmount(10);
+
+    CCoinsMap mapCoins;
+    mapCoins[uint256S("aaaa")] = aCoin;
+    CAnchorsMap    emptyAnchorsMap;
+    CNullifiersMap emptyNullifiersMap;
+    CSidechainsMap emptySidechainsMap;
+
+    sidechainsView->BatchWrite(mapCoins, uint256(), uint256(), emptyAnchorsMap, emptyNullifiersMap, emptySidechainsMap);
+
+    //flush both the coin and the sidechain to the tmp chainstatedb
+    ASSERT_TRUE(sidechainsView->Flush());
+
+    //test
+    std::set<uint256> knownScIdsSet;
+    sidechainsView->queryScIds(knownScIdsSet);
+
+    //check
+    EXPECT_TRUE(knownScIdsSet.size() == 1)<<"Instead knowScIdSet size is "<<knownScIdsSet.size();
+    EXPECT_TRUE(knownScIdsSet.count(scId) == 1)<<"Actual count is "<<knownScIdsSet.count(scId);
+
+    ClearDatadirCache();
+    boost::system::error_code ec;
+    boost::filesystem::remove_all(pathTemp.string(), ec);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

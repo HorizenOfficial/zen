@@ -63,7 +63,6 @@ CTransaction txCreationUtils::createNewSidechainTxWith(const uint256 & newScId, 
     mtx.vjoinsplit.resize(0);
     signTx(mtx);
 
-    //assert(CheckTransactionWithoutProofVerification(mtx, txState));
     return CTransaction(mtx);
 }
 
@@ -75,7 +74,6 @@ CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, c
     mtx.vsc_ccout.resize(0);
     signTx(mtx);
 
-    //assert(CheckTransactionWithoutProofVerification(mtx, txState));
     return CTransaction(mtx);
 }
 
@@ -87,7 +85,6 @@ CTransaction txCreationUtils::createNewSidechainTxWithNoFwdTransfer(const uint25
     mtx.vft_ccout.resize(0);
     signTx(mtx);
 
-    //assert(CheckTransactionWithoutProofVerification(mtx, txState));
     return CTransaction(mtx);
 }
 
@@ -105,7 +102,6 @@ CTransaction txCreationUtils::createTransparentTx(bool ccIsNull)
     }
     signTx(mtx);
 
-    //assert(CheckTransactionWithoutProofVerification(mtx, txState));
     return CTransaction(mtx);
 }
 
@@ -124,7 +120,6 @@ CTransaction txCreationUtils::createSproutTx(bool ccIsNull)
     }
     signTx(mtx);
 
-    //assert(CheckTransactionWithoutProofVerification(mtx, txState));
     return CTransaction(mtx);
 }
 
