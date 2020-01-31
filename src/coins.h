@@ -340,7 +340,7 @@ struct CNullifiersCacheEntry
 };
 
 typedef boost::unordered_map<uint256, CCoinsCacheEntry, CCoinsKeyHasher>      CCoinsMap;
-typedef boost::unordered_map<uint256, CSidechainsCacheEntry, ObjectHasher>    CSidechainsMap;
+typedef boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> CSidechainsMap;
 typedef boost::unordered_map<uint256, CAnchorsCacheEntry, CCoinsKeyHasher>    CAnchorsMap;
 typedef boost::unordered_map<uint256, CNullifiersCacheEntry, CCoinsKeyHasher> CNullifiersMap;
 

@@ -23,7 +23,7 @@ std::string ScInfo::ToString() const
     if (mImmatureAmounts.size() )
     {
         str += "immature amounts:\n";
-        for (auto& entry : mImmatureAmounts)
+        for (const auto& entry : mImmatureAmounts)
         {
             str += strprintf("   maturityHeight=%d -> amount=%s\n", entry.first, FormatMoney(entry.second));
         }
@@ -115,6 +115,7 @@ bool anyForwardTransaction(const CTransaction& tx, const uint256& scId)
 
 bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
 {
+    LOCK(pool.cs);
     //Check for conflicts in mempool
     for (const auto& sc: tx.vsc_ccout)
     {
@@ -134,6 +135,7 @@ bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidation
             }
         }
     }
+
     return true;
 }
 

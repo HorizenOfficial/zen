@@ -462,6 +462,9 @@ bool CCoinsViewCache::hasScCreationOutput(const CTransaction& tx, const uint256&
 
 bool CCoinsViewCache::HaveDependencies(const CTransaction& tx)
 {
+    if (tx.IsCoinBase())
+        return true;
+
     const uint256& txHash = tx.GetHash();
 
     // check creation
