@@ -364,7 +364,8 @@ void CTxMemPool::removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned in
             if (fSanityCheck) assert(coins);
             if (!coins || (coins->IsCoinBase() && ((signed long)nMemPoolHeight) - coins->nHeight < COINBASE_MATURITY)) {
                 // TODO cert: what if a fw tx spends an immature coin? Cert might depend also on this
-                LogPrint("sc", "%s():%d - adding tx [%s] to list for removing\n", __func__, __LINE__, tx.GetHash().ToString());
+                LogPrint("sc", "%s():%d - adding tx [%s] to list for removing since it spends immature coinbase [%s]\n",
+                    __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
                 transactionsToRemove.push_back(tx);
                 break;
             }

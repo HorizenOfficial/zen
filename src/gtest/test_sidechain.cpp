@@ -314,7 +314,7 @@ TEST_F(SidechainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
     CValidationState txState;
 
     //test
-    bool res = sidechainManager.IsTxAllowedInMempool(aMemPool, aTransaction, txState);
+    bool res = sidechainManager.IsTxAllowedInMempool(aMemPool, duplicatedTx, txState);
 
     //check
     EXPECT_FALSE(res);

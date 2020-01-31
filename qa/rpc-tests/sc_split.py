@@ -12,7 +12,7 @@ from decimal import Decimal
 import time
 
 NUMB_OF_NODES = 3
-DEBUG_MODE = 0
+DEBUG_MODE = 1
 
 
 class ScSplitTest(BitcoinTestFramework):
@@ -241,8 +241,7 @@ class ScSplitTest(BitcoinTestFramework):
 
         assert_equal(scinfoNode0, scinfoNode1)
         assert_equal(scinfoNode0, scinfoNode2)
-        assert_equal(self.nodes[2].getscinfo(scid)["balance"], creation_amount)
-        #+ fwt_amount_1 + fwt_amount_2)
+        assert_equal(self.nodes[2].getscinfo(scid)["balance"], creation_amount + fwt_amount_1 + fwt_amount_2)
         assert_equal(self.nodes[2].getscinfo(scid)["created in block"], secondOwnerBlock)
         assert_equal(self.nodes[1].getscinfo(scid)["creating tx hash"], tx_create)
 

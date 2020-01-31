@@ -74,6 +74,9 @@ class sc_cert_base(BitcoinTestFramework):
         # side chain id
         scid = "1111111111111111111111111111111111111111111111111111111111111111"
 
+        sc_txes = []
+        certs = []
+
         #forward transfer amount
         creation_amount = Decimal("0.5")
         fwt_amount_1    = Decimal("1000.0")
@@ -110,6 +113,7 @@ class sc_cert_base(BitcoinTestFramework):
         amounts.append( {"address":"dada", "amount": creation_amount})
         creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, amounts);
         print "creating_tx = " + creating_tx
+        sc_txes.append(creating_tx)
         self.sync_all()
 
         self.mark_logs("\nNode0 generating 1 block")
@@ -126,6 +130,7 @@ class sc_cert_base(BitcoinTestFramework):
         self.mark_logs("\nNode 0 performs a fwd transfer of " + str(fwt_amount_1) + " coins to SC...")
         fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_1, scid);
         print "fwd_tx=" + fwd_tx
+        sc_txes.append(fwd_tx)
         self.sync_all()
 
         print("\nNode0 generating 1 block")
@@ -188,6 +193,7 @@ class sc_cert_base(BitcoinTestFramework):
         amounts.append( {"pubkeyhash":pkh_node1, "amount": bwt_amount_1})
         cert = self.nodes[0].send_certificate(scid, epn, eph, amounts);
         print "cert = " + cert
+        certs.append(cert)
         self.sync_all()
 
         print("\nNode0 generating 1 block")
@@ -202,6 +208,7 @@ class sc_cert_base(BitcoinTestFramework):
         self.mark_logs("\nNode 0 performs a fwd transfer of " + str(fwt_amount_2) + " coins to SC...")
         fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_2, scid);
         print "fwd_tx=" + fwd_tx
+        sc_txes.append(fwd_tx)
         self.sync_all()
 
         print("\nNode0 generating 1 block")
@@ -216,6 +223,7 @@ class sc_cert_base(BitcoinTestFramework):
         self.mark_logs("\nNode 0 performs a fwd transfer of " + str(fwt_amount_3) + " coins to SC...")
         fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_3, scid);
         print "fwd_tx=" + fwd_tx
+        sc_txes.append(fwd_tx)
         self.sync_all()
 
         print("\nNode0 generating 1 block")
@@ -229,6 +237,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         self.mark_logs("\nNode 0 performs a fwd transfer of " + str(fwt_amount_4) + " coins to SC...")
         fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_4, scid);
+        sc_txes.append(fwd_tx)
         print "fwd_tx=" + fwd_tx
         self.sync_all()
 
@@ -281,6 +290,7 @@ class sc_cert_base(BitcoinTestFramework):
         amounts.append( {"pubkeyhash":pkh_node2, "amount": bwt_amount_2})
         cert = self.nodes[0].send_certificate(scid, epn, eph, amounts);
         print "cert = " + cert
+        certs.append(cert)
         self.sync_all()
 
         print("\nNode0 generating 1 block")
@@ -299,23 +309,26 @@ class sc_cert_base(BitcoinTestFramework):
         print "=================================================="
         print 
 
+        assert_equal(len(sc_info), len(balance_node0))
         print "sc_info len       = ", len(sc_info)
         print "balance_node0 len = ", len(balance_node0)
 
-        # TODO loop on the whole range (currently fails on last cycle)
+        diff = Decimal(0.0)
         #-------------------------------------------------------------
         for j in range(0, len(sc_info)):
-            #if j > 12:
-            #    raw_input("press to invalidate...")
             invalidating = self.nodes[0].getbestblockhash()
             self.mark_logs("\nNode 0 invalidates last block...")
             print "Invalidating: ", invalidating
             self.nodes[0].invalidateblock(invalidating)
             time.sleep(1)
-            print "sc_info len       = ", len(sc_info)
-            print "balance_node0 len = ", len(balance_node0)
             sc_info.pop()
             balance_node0.pop()
+
+            print pprint.pprint(self.nodes[0].getrawmempool())
+
+            # list are empty
+            if (len(sc_info) == 0): break
+
             try:
                 assert_equal( self.nodes[0].getscinfo(scid), sc_info[-1])
                 print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
@@ -328,6 +341,7 @@ class sc_cert_base(BitcoinTestFramework):
                 print "Node0 balance: ", self.nodes[0].getbalance("", 0)
                 print "          was: ", balance_node0[-1]
                 print " diff: ", (self.nodes[0].getbalance("", 0) - balance_node0[-1])
+                diff = (self.nodes[0].getbalance("", 0) - balance_node0[-1])
             except JSONRPCException,e:
                 errorString = e.error['message']
                 print errorString
@@ -344,15 +358,51 @@ class sc_cert_base(BitcoinTestFramework):
             errorString = e.error['message']
             print errorString
 
+        time.sleep(1)
+
+        mempool = self.nodes[0].getrawmempool()
+
         print "Node1 balance: ", self.nodes[1].getbalance("", 0)
         print "Node2 balance: ", self.nodes[2].getbalance("", 0)
-#        print "Node3 balance: ", self.nodes[3].getbalance("", 0)
         print "=================================================="
         print 
+        print pprint.pprint(mempool)
+        print pprint.pprint(sc_txes)
+        print 
 
-        self.mark_logs("\nNode0 generating 150 more blocks for achieving sc coins maturity")
-        blocks.extend(self.nodes[0].generate(150))
-        time.sleep(1)
+        for k in mempool:
+            # check that mempool has only sc transactions (no certs)  
+            assert_equal((k in sc_txes), True)
+
+        # TODO if a coinbase used as input for a tx gets immature during invalidation, the tx is removed
+        # from mempool and the assert fails
+        for m in sc_txes:
+            # check that all sc transactions are in mempool
+            assert_equal((m in mempool), True)
+
+        sc_amount = Decimal(0.0)
+        for m in mempool:
+            a = self.nodes[0].gettransaction(m)['amount']
+            f = self.nodes[0].gettransaction(m)['fee']
+            print "amount=", a
+            print "fee=   ", f
+            print "___"
+            sc_amount += -(a+f)
+
+        # check that amounts related to sc txes in mempool (no certs) are the diff of the balances after reverting
+        # the whole serie of blocks
+        print "total sc amount in mempool: ", sc_amount
+        assert_equal(sc_amount, diff)
+
+        h0 = self.nodes[0].getblockcount()
+        h1 = self.nodes[1].getblockcount()
+        delta = h1-(h0)
+        numbofblocks = int(delta*(delta+1)/2)
+        print numbofblocks
+
+        self.mark_logs("\nNode0 generating some more blocks for reverting the other chains")
+        blocks.extend(self.nodes[0].generate(numbofblocks))
+        self.sync_all()
 
         try:
             print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
