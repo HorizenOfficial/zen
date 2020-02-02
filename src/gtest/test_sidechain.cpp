@@ -286,16 +286,14 @@ TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsHaveNotTheRightDepend
 
 TEST_F(SidechainTestSuite, ScCreationTxsAreAllowedInEmptyMemPool) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(uint256S("1492"), CAmount(1953));
-    CValidationState txState;
     CFeeRate   aFeeRate;
     CTxMemPool aMemPool(aFeeRate);
 
     //test
-    bool res = Sidechain::existsInMempool(aMemPool, aTransaction, txState);
+    bool res = Sidechain::existsInMempool(aMemPool, aTransaction);
 
     //check
-    EXPECT_TRUE(res);
-    EXPECT_TRUE(txState.IsValid());
+    EXPECT_FALSE(res);
 }
 
 TEST_F(SidechainTestSuite, NewScCreationTxsAreAllowedInMemPool) {
@@ -306,14 +304,12 @@ TEST_F(SidechainTestSuite, NewScCreationTxsAreAllowedInMemPool) {
     aMemPool.addUnchecked(aTransaction.GetHash(), memPoolEntry);
 
     CTransaction aNewTx = txCreationUtils::createNewSidechainTxWith(uint256S("1991"), CAmount(5));
-    CValidationState txState;
 
     //test
-    bool res = Sidechain::existsInMempool(aMemPool, aNewTx, txState);
+    bool res = Sidechain::existsInMempool(aMemPool, aNewTx);
 
     //check
-    EXPECT_TRUE(res);
-    EXPECT_TRUE(txState.IsValid());
+    EXPECT_FALSE(res);
 }
 
 TEST_F(SidechainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
@@ -326,16 +322,12 @@ TEST_F(SidechainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
     aMemPool.addUnchecked(aTransaction.GetHash(), memPoolEntry);
 
     CTransaction duplicatedTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(15));
-    CValidationState txState;
 
     //test
-    bool res = Sidechain::existsInMempool(aMemPool, duplicatedTx, txState);
+    bool res = Sidechain::existsInMempool(aMemPool, duplicatedTx);
 
     //check
-    EXPECT_FALSE(res);
-    EXPECT_FALSE(txState.IsValid());
-    EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
-        <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+    EXPECT_TRUE(res);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -113,7 +113,7 @@ bool anyForwardTransaction(const CTransaction& tx, const uint256& scId)
     return false;
 }
 
-bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state)
+bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx)
 {
     LOCK(pool.cs);
     //Check for conflicts in mempool
@@ -127,16 +127,16 @@ bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidation
             {
                 if (mpSc.scId == sc.scId)
                 {
-                    LogPrint("sc", "%s():%d - invalid tx[%s]: scid[%s] already created by tx[%s]\n",
-                        __func__, __LINE__, tx.GetHash().ToString(), sc.scId.ToString(), mpTx.GetHash().ToString() );
-                    return state.Invalid(error("transaction tries to create scid already created in mempool"),
-                    REJECT_INVALID, "sidechain-creation");
+                    LogPrint("sc", "%s():%d - scid[%s] already created by tx[%s]\n",
+                        __func__, __LINE__, sc.scId.ToString(), mpTx.GetHash().ToString() );
+
+                    return true;
                 }
             }
         }
     }
 
-    return true;
+    return false;
 }
 
 } // end of namespace

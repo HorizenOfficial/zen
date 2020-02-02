@@ -63,7 +63,7 @@ public:
 namespace Sidechain {
     bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
     bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
-    bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
+    bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx);
 }; // end of namespace
 
 #endif // _SIDECHAIN_CORE_H
