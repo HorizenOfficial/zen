@@ -107,9 +107,11 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
         }
     }
 
-    //No need to loop over sccreation as there is a fwd transfer for each sc creation
+    for(const auto& sidechain: tx.vsc_ccout)
+        listSidechains.insert(sidechain.scId);
+
     for(const auto& fwd: tx.vft_ccout)
-        mapSidechains[fwd.scId].insert(tx.GetHash());
+        mapFwdTransfers[fwd.scId].insert(tx.GetHash());
 
     nTransactionsUpdated++;
     totalTxSize += entry.GetTxSize();
@@ -156,8 +158,8 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                 }
 
                 for(const auto& sidechain : tx.vsc_ccout)
-                    if (mapSidechains.count(sidechain.scId))
-                        for(const auto& fwdTxHash : mapSidechains[sidechain.scId])
+                    if (mapFwdTransfers.count(sidechain.scId))
+                        for(const auto& fwdTxHash : mapFwdTransfers[sidechain.scId])
                             txToRemove.push_back(fwdTxHash);
             }
 
@@ -169,12 +171,15 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                     mapNullifiers.erase(nf);
 
             for(const auto& fwd: tx.vft_ccout) {
-                if (mapSidechains.count(fwd.scId))
-                    mapSidechains[fwd.scId].erase(tx.GetHash());
+                if (mapFwdTransfers.count(fwd.scId))
+                    mapFwdTransfers[fwd.scId].erase(tx.GetHash());
 
-                if (mapSidechains.count(fwd.scId) && mapSidechains[fwd.scId].size() == 0)
-                    mapSidechains.erase(fwd.scId);
+                if (mapFwdTransfers.count(fwd.scId) && mapFwdTransfers[fwd.scId].size() == 0)
+                    mapFwdTransfers.erase(fwd.scId);
             }
+
+            for(const auto& sc: tx.vsc_ccout)
+                listSidechains.erase(sc.scId);
 
             removed.push_back(tx);
             totalTxSize -= mapTx[hash].GetTxSize();
@@ -297,7 +302,8 @@ void CTxMemPool::clear()
     LOCK(cs);
     mapTx.clear();
     mapNextTx.clear();
-    mapSidechains.clear();
+    listSidechains.clear();
+    mapFwdTransfers.clear();
     totalTxSize = 0;
     cachedInnerUsage = 0;
     ++nTransactionsUpdated;
