@@ -102,6 +102,7 @@ public:
     mutable CCriticalSection cs;
     std::map<uint256, CTxMemPoolEntry>             mapTx;
     std::map<COutPoint, CInPoint>                  mapNextTx;
+    std::map<uint256, std::set<uint256>>           mapSidechains;
     std::map<uint256, const CTransaction*>         mapNullifiers;
     std::map<uint256, std::pair<double, CAmount> > mapDeltas;
 
@@ -156,6 +157,15 @@ public:
     {
         LOCK(cs);
         return (mapTx.count(hash) != 0);
+    }
+
+    bool sidechainExists(uint256 scId) const
+    {
+        LOCK(cs);
+        if(mapSidechains.count(scId))
+            return true;
+
+        return false;
     }
 
     bool lookup(uint256 hash, CTransaction& result) const;

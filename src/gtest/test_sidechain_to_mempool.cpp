@@ -178,7 +178,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSideChainAreNotAllowed
     EXPECT_FALSE(AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
 }
 
-TEST_F(SidechainsInMempoolTestSuite, ScCreationTxsSimpleRemoval) {
+TEST_F(SidechainsInMempoolTestSuite, SidechainIsRemovedFromMempoolWithTxCreatingIt) {
     CTxMemPool aMempool(::minRelayTxFee);
     uint256 scId = uint256S("1492");
     CTransaction scTx = GenerateScTx(scId, CAmount(10));
@@ -193,7 +193,7 @@ TEST_F(SidechainsInMempoolTestSuite, ScCreationTxsSimpleRemoval) {
     EXPECT_FALSE(Sidechain::existsInMempool(aMempool,scTx));
 }
 
-TEST_F(SidechainsInMempoolTestSuite, AllFwdTxAreRemovedFromMempoolUponScRemoval) {
+TEST_F(SidechainsInMempoolTestSuite, FwdTransfersAreRemovedFromMempoolUponScRemoval) {
     CTxMemPool aMempool(::minRelayTxFee);
     uint256 scId = uint256S("1492");
     CTransaction scTx = GenerateScTx(scId, CAmount(10));

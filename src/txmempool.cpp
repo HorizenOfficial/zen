@@ -102,11 +102,15 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     for (unsigned int i = 0; i < tx.vin.size(); i++)
         mapNextTx[tx.vin[i].prevout] = CInPoint(&tx, i);
 
-    BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
-        BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
+    for(const JSDescription &joinsplit: tx.vjoinsplit) {
+        for(const uint256 &nf: joinsplit.nullifiers) {
             mapNullifiers[nf] = &tx;
         }
     }
+
+    //No need to loop over sccreation as there is a fwd transfer for each sc creation
+    for(const auto& fwd: tx.vft_ccout)
+        mapSidechains[fwd.scId].insert(tx.GetHash());
 
     nTransactionsUpdated++;
     totalTxSize += entry.GetTxSize();
@@ -150,14 +154,25 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                         continue;
                     txToRemove.push_back(it->second.ptx->GetHash());
                 }
+
+                for(const auto& sidechain : tx.vsc_ccout)
+                    for(const auto& fwdTxHash : mapSidechains[sidechain.scId])
+                        txToRemove.push_back(fwdTxHash);
             }
-            BOOST_FOREACH(const CTxIn& txin, tx.vin)
+
+            for(const CTxIn& txin: tx.vin)
                 mapNextTx.erase(txin.prevout);
-            BOOST_FOREACH(const JSDescription& joinsplit, tx.vjoinsplit) {
-                BOOST_FOREACH(const uint256& nf, joinsplit.nullifiers) {
+
+            for(const JSDescription& joinsplit: tx.vjoinsplit)
+                for(const uint256& nf: joinsplit.nullifiers)
                     mapNullifiers.erase(nf);
-                }
-            }
+
+            for(const auto& fwd: tx.vft_ccout)
+                if (mapSidechains.count(fwd.scId))
+                    mapSidechains[fwd.scId].erase(tx.GetHash());
+
+            for(const auto& sc: tx.vsc_ccout)
+                mapSidechains.erase(sc.scId);
 
             removed.push_back(tx);
             totalTxSize -= mapTx[hash].GetTxSize();
@@ -280,6 +295,7 @@ void CTxMemPool::clear()
     LOCK(cs);
     mapTx.clear();
     mapNextTx.clear();
+    mapSidechains.clear();
     totalTxSize = 0;
     cachedInnerUsage = 0;
     ++nTransactionsUpdated;
