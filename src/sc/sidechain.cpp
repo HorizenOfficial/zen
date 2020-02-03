@@ -115,11 +115,33 @@ bool anyForwardTransaction(const CTransaction& tx, const uint256& scId)
 
 bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx)
 {
-    LOCK(pool.cs);
+//    LOCK(pool.cs);
+//    for(const auto& sidechain: tx.vsc_ccout)
+//        if(pool.sidechainExists(sidechain.scId))
+//            return true;
+//
+//    return false;
 
-    for(const auto& sidechain: tx.vsc_ccout)
-        if(pool.sidechainExists(sidechain.scId))
-            return true;
+    LOCK(pool.cs);
+    //Check for conflicts in mempool
+    for (const auto& sc: tx.vsc_ccout)
+    {
+        for (auto it = pool.mapTx.begin(); it != pool.mapTx.end(); ++it)
+        {
+            const CTransaction& mpTx = it->second.GetTx();
+
+            for (const auto& mpSc: mpTx.vsc_ccout)
+            {
+                if (mpSc.scId == sc.scId)
+                {
+                    LogPrint("sc", "%s():%d - scid[%s] already created by tx[%s]\n",
+                        __func__, __LINE__, sc.scId.ToString(), mpTx.GetHash().ToString() );
+
+                    return true;
+                }
+            }
+        }
+    }
 
     return false;
 }
