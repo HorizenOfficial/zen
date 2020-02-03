@@ -115,13 +115,6 @@ bool anyForwardTransaction(const CTransaction& tx, const uint256& scId)
 
 bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx)
 {
-//    LOCK(pool.cs);
-//    for(const auto& sidechain: tx.vsc_ccout)
-//        if(pool.sidechainExists(sidechain.scId))
-//            return true;
-//
-//    return false;
-
     LOCK(pool.cs);
     //Check for conflicts in mempool
     for (const auto& sc: tx.vsc_ccout)

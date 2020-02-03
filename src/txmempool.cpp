@@ -90,7 +90,6 @@ void CTxMemPool::AddTransactionsUpdated(unsigned int n)
     nTransactionsUpdated += n;
 }
 
-
 bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate)
 {
     // Add to memory pool without checking anything.
@@ -128,6 +127,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
         LOCK(cs);
         std::deque<uint256> txToRemove;
         txToRemove.push_back(origTx.GetHash());
+
         if (fRecursive && !mapTx.count(origTx.GetHash())) {
             // If recursively removing but origTx isn't in the mempool
             // be sure to remove any children that are in the pool. This can
@@ -156,8 +156,9 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                 }
 
                 for(const auto& sidechain : tx.vsc_ccout)
-                    for(const auto& fwdTxHash : mapSidechains[sidechain.scId])
-                        txToRemove.push_back(fwdTxHash);
+                    if (mapSidechains.count(sidechain.scId))
+                        for(const auto& fwdTxHash : mapSidechains[sidechain.scId])
+                            txToRemove.push_back(fwdTxHash);
             }
 
             for(const CTxIn& txin: tx.vin)
@@ -167,12 +168,13 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                 for(const uint256& nf: joinsplit.nullifiers)
                     mapNullifiers.erase(nf);
 
-            for(const auto& fwd: tx.vft_ccout)
+            for(const auto& fwd: tx.vft_ccout) {
                 if (mapSidechains.count(fwd.scId))
                     mapSidechains[fwd.scId].erase(tx.GetHash());
 
-            for(const auto& sc: tx.vsc_ccout)
-                mapSidechains.erase(sc.scId);
+                if (mapSidechains.count(fwd.scId) && mapSidechains[fwd.scId].size() == 0)
+                    mapSidechains.erase(fwd.scId);
+            }
 
             removed.push_back(tx);
             totalTxSize -= mapTx[hash].GetTxSize();

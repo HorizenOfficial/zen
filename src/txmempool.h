@@ -162,10 +162,7 @@ public:
     bool sidechainExists(uint256 scId) const
     {
         LOCK(cs);
-        if(mapSidechains.count(scId))
-            return true;
-
-        return false;
+        return (mapSidechains.count(scId) != 0);
     }
 
     bool lookup(uint256 hash, CTransaction& result) const;
