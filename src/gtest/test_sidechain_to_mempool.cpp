@@ -15,6 +15,7 @@
 #include <consensus/validation.h>
 
 #include <sc/sidechain.h>
+#include <txmempool.h>
 #include <init.h>
 
 class CCoinsOnlyViewDB : public CCoinsViewDB
@@ -76,7 +77,6 @@ public:
         pChainStateDb = nullptr;
 
         ClearDatadirCache();
-
         boost::system::error_code ec;
         boost::filesystem::remove_all(pathTemp.string(), ec);
     }
@@ -109,9 +109,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewSidechainsAreAcceptedToMempool) {
     CValidationState txState;
     bool missingInputs = false;
 
-    bool res = AcceptToMemoryPool(mempool, txState, scTx, false, &missingInputs);
-
-    EXPECT_TRUE(res);
+    EXPECT_TRUE(AcceptToMemoryPool(mempool, txState, scTx, false, &missingInputs));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, DuplicatedSidechainsAreNotAcceptedToMempool) {
@@ -119,13 +117,13 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicatedSidechainsAreNotAcceptedToMempool
     CTransaction scTx = GenerateScTx(scId, CAmount(1));
     CValidationState txState;
     bool missingInputs = false;
-    ASSERT_TRUE(AcceptToMemoryPool(mempool, txState, scTx, false, &missingInputs));
+    AcceptToMemoryPool(mempool, txState, scTx, false, &missingInputs);
 
     scTx = GenerateScTx(scId, CAmount(100));
     txState = CValidationState();
     missingInputs = false;
-    bool res = AcceptToMemoryPool(mempool, txState, scTx, false, &missingInputs);
-    EXPECT_FALSE(res);
+
+    EXPECT_FALSE(AcceptToMemoryPool(mempool, txState, scTx, false, &missingInputs));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, DuplicationsOfConfirmedSidechainsAreNotAcceptedToMempool) {
@@ -134,14 +132,13 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicationsOfConfirmedSidechainsAreNotAcce
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
     sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
-    ASSERT_TRUE(sidechainsView.Flush());
+    sidechainsView.Flush();
 
     scTx = GenerateScTx(scId, CAmount(12));
     CValidationState txState;
     bool missingInputs = false;
 
-    bool res = AcceptToMemoryPool(mempool, txState, scTx, false, &missingInputs);
-    EXPECT_FALSE(res);
+    EXPECT_FALSE(AcceptToMemoryPool(mempool, txState, scTx, false, &missingInputs));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed) {
@@ -150,27 +147,26 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
     sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
-    ASSERT_TRUE(sidechainsView.Flush());
+    sidechainsView.Flush();
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
     bool missingInputs = false;
-    bool res = AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs);
-    EXPECT_TRUE(res);
+
+    EXPECT_TRUE(AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
 }
 
 //ABENEGIA: commented out since it fails as per current implementation (github issue 215)
-//TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToSideChainInMempoolAreAllowed) {
+//TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToSideChainsInMempoolAreAllowed) {
 //    uint256 scId = uint256S("1492");
 //    CTransaction scTx = GenerateScTx(scId, CAmount(1));
 //    CValidationState scTxState;
 //    bool missingInputs = false;
-//    ASSERT_TRUE(AcceptToMemoryPool(mempool, scTxState, scTx, false, &missingInputs));
+//    AcceptToMemoryPool(mempool, scTxState, scTx, false, &missingInputs);
 //
 //    CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
 //    CValidationState fwdTxState;
-//    bool res = AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs);
-//    EXPECT_TRUE(res);
+//    EXPECT_TRUE(AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
 //}
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSideChainAreNotAllowed) {
@@ -178,8 +174,48 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSideChainAreNotAllowed
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
     bool missingInputs = false;
-    bool res = AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs);
-    EXPECT_FALSE(res);
+
+    EXPECT_FALSE(AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
+}
+
+TEST_F(SidechainsInMempoolTestSuite, ScCreationTxsSimpleRemoval) {
+    CTxMemPool aMempool(::minRelayTxFee);
+    uint256 scId = uint256S("1492");
+    CTransaction scTx = GenerateScTx(scId, CAmount(10));
+    CTxMemPoolEntry poolEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(scTx.GetHash(), poolEntry);
+    ASSERT_TRUE(Sidechain::existsInMempool(aMempool,scTx));
+
+    std::list<CTransaction> removedTxs;
+    aMempool.remove(scTx, removedTxs, /*fRecursive*/true);
+
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), scTx));
+    EXPECT_FALSE(Sidechain::existsInMempool(aMempool,scTx));
+}
+
+TEST_F(SidechainsInMempoolTestSuite, AllFwdTxAreRemovedFromMempoolUponScRemoval) {
+    CTxMemPool aMempool(::minRelayTxFee);
+    uint256 scId = uint256S("1492");
+    CTransaction scTx = GenerateScTx(scId, CAmount(10));
+    CTxMemPoolEntry scEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(scTx.GetHash(), scEntry);
+    ASSERT_TRUE(Sidechain::existsInMempool(aMempool,scTx));
+
+    CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
+    CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+
+    CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
+    CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+
+    std::list<CTransaction> removedTxs;
+    aMempool.remove(scTx, removedTxs, /*fRecursive*/true);
+
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), scTx));
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
+    EXPECT_FALSE(Sidechain::existsInMempool(aMempool,scTx));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
