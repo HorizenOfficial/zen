@@ -172,21 +172,22 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
             for(const CTxIn& txin: tx.vin)
                 mapNextTx.erase(txin.prevout);
 
-            for(const JSDescription& joinsplit: tx.vjoinsplit)
-                for(const uint256& nf: joinsplit.nullifiers)
-                    mapNullifiers.erase(nf);
-
-            for (const auto& fwd: tx.vft_ccout) {
+            for(const auto& fwd: tx.vft_ccout) {
                 if (mapSidechains.count(fwd.scId)) {
                     mapSidechains[fwd.scId].FwdTransfersSet.erase(tx.GetHash());
 
-                    if (!mapSidechains[fwd.scId].isScCreationInMempool && mapSidechains[fwd.scId].FwdTransfersSet.size() == 0)
+                    if (mapSidechains[fwd.scId].FwdTransfersSet.size() == 0 && !mapSidechains[fwd.scId].isScCreationInMempool)
                         mapSidechains.erase(fwd.scId);
                 }
             }
 
             for(const auto& sc: tx.vsc_ccout)
                 mapSidechains.erase(sc.scId);
+
+
+            for(const JSDescription& joinsplit: tx.vjoinsplit)
+                for(const uint256& nf: joinsplit.nullifiers)
+                    mapNullifiers.erase(nf);
 
             removed.push_back(tx);
             totalTxSize -= mapTx[hash].GetTxSize();
