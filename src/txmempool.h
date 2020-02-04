@@ -81,10 +81,19 @@ public:
 struct CSidechainMemPoolEntry
 {
     bool isScCreationInMempool;
+    uint256 scCreationTxHash;
+
     uint256 scId;
     std::set<uint256> FwdTransfersSet;
+
     CSidechainMemPoolEntry(): isScCreationInMempool(false) {};
-    CSidechainMemPoolEntry(const uint256& _scId, bool _scInMempool): isScCreationInMempool(_scInMempool), scId(_scId) {};
+    CSidechainMemPoolEntry(const uint256& _hash, const uint256& _scId, bool _scInMempool):
+        isScCreationInMempool(_scInMempool), scId(_scId) {
+        if (isScCreationInMempool)
+            scCreationTxHash = _hash;
+        else
+            FwdTransfersSet.insert(_hash);
+    };
 };
 
 /**
@@ -203,6 +212,8 @@ public:
     bool GetNullifier(const uint256 &txid) const;
     bool GetCoins(const uint256 &txid, CCoins &coins) const;
     bool HaveCoins(const uint256 &txid) const;
+    bool GetScInfo(const uint256& scId, ScInfo& info) const;
+    bool HaveScInfo(const uint256& scId) const;
 };
 
 #endif // BITCOIN_TXMEMPOOL_H

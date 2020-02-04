@@ -109,18 +109,18 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
 
     for(const auto& sc: tx.vsc_ccout) {
         if (mapSidechains.count(sc.scId)) {
-            assert(mapSidechains[sc.scId].isScCreationInMempool == false);
-            mapSidechains[sc.scId].isScCreationInMempool = true;
+            assert(mapSidechains.at(sc.scId).isScCreationInMempool == false);
+            mapSidechains.at(sc.scId).isScCreationInMempool = true;
         }
         else
-            mapSidechains[sc.scId] = CSidechainMemPoolEntry(sc.scId, true);
+            mapSidechains[sc.scId] = CSidechainMemPoolEntry(hash, sc.scId, true);
     }
 
     for(const auto& fwd: tx.vft_ccout) {
         if (!mapSidechains.count(fwd.scId))
-            mapSidechains[fwd.scId] = CSidechainMemPoolEntry(fwd.scId, false);
-
-        mapSidechains[fwd.scId].FwdTransfersSet.insert(tx.GetHash());
+            mapSidechains[fwd.scId] = CSidechainMemPoolEntry(hash, fwd.scId, false);
+        else
+            mapSidechains.at(fwd.scId).FwdTransfersSet.insert(hash);
     }
 
     nTransactionsUpdated++;
@@ -168,8 +168,8 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                 }
 
                 for(const auto& sc: tx.vsc_ccout)
-                    if (mapSidechains.count(sc.scId) && mapSidechains[sc.scId].isScCreationInMempool)
-                        for(const auto& fwdTxHash : mapSidechains[sc.scId].FwdTransfersSet)
+                    if (mapSidechains.count(sc.scId) && mapSidechains.at(sc.scId).isScCreationInMempool)
+                        for(const auto& fwdTxHash : mapSidechains.at(sc.scId).FwdTransfersSet)
                             txToRemove.push_back(fwdTxHash);
             }
 
@@ -178,9 +178,9 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
 
             for(const auto& fwd: tx.vft_ccout) {
                 if (mapSidechains.count(fwd.scId)) {
-                    mapSidechains[fwd.scId].FwdTransfersSet.erase(tx.GetHash());
+                    mapSidechains.at(fwd.scId).FwdTransfersSet.erase(tx.GetHash());
 
-                    if (mapSidechains[fwd.scId].FwdTransfersSet.size() == 0 && !mapSidechains[fwd.scId].isScCreationInMempool)
+                    if (mapSidechains.at(fwd.scId).FwdTransfersSet.size() == 0 && !mapSidechains.at(fwd.scId).isScCreationInMempool)
                         mapSidechains.erase(fwd.scId);
                 }
             }
@@ -550,6 +550,14 @@ bool CCoinsViewMemPool::GetCoins(const uint256 &txid, CCoins &coins) const {
 
 bool CCoinsViewMemPool::HaveCoins(const uint256 &txid) const {
     return mempool.exists(txid) || base->HaveCoins(txid);
+}
+
+bool CCoinsViewMemPool::GetScInfo(const uint256& scId, ScInfo& info) const {
+    return base->GetScInfo(scId, info); //ABENEGIA: Todo extend to retrieve sc info from mempool
+}
+
+bool CCoinsViewMemPool::HaveScInfo(const uint256& scId) const {
+    return mempool.sidechainExists(scId) || base->HaveScInfo(scId);
 }
 
 size_t CTxMemPool::DynamicMemoryUsage() const {
