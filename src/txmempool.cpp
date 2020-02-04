@@ -107,17 +107,21 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
         }
     }
 
-    for(const auto& sc: tx.vsc_ccout)
-        if (mapSidechains.count(sc.scId))
+    for(const auto& sc: tx.vsc_ccout) {
+        if (mapSidechains.count(sc.scId)) {
+            assert(mapSidechains[sc.scId].isScCreationInMempool == false);
             mapSidechains[sc.scId].isScCreationInMempool = true;
+        }
         else
             mapSidechains[sc.scId] = CSidechainMemPoolEntry(sc.scId, true);
+    }
 
-    for(const auto& fwd: tx.vft_ccout)
-        if (mapSidechains.count(fwd.scId))
-            mapSidechains[fwd.scId].FwdTransfersSet.insert(tx.GetHash());
-        else
+    for(const auto& fwd: tx.vft_ccout) {
+        if (!mapSidechains.count(fwd.scId))
             mapSidechains[fwd.scId] = CSidechainMemPoolEntry(fwd.scId, false);
+
+        mapSidechains[fwd.scId].FwdTransfersSet.insert(tx.GetHash());
+    }
 
     nTransactionsUpdated++;
     totalTxSize += entry.GetTxSize();
@@ -182,7 +186,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
             }
 
             for(const auto& sc: tx.vsc_ccout)
-                mapSidechains.erase(sc.scId);
+                assert(mapSidechains.erase(sc.scId));
 
 
             for(const JSDescription& joinsplit: tx.vjoinsplit)
