@@ -78,6 +78,15 @@ public:
     size_t DynamicMemoryUsage() const { return 0; }
 };
 
+struct CSidechainMemPoolEntry
+{
+    bool isScCreationInMempool;
+    uint256 scId;
+    std::set<uint256> FwdTransfersSet;
+    CSidechainMemPoolEntry(): isScCreationInMempool(false) {};
+    CSidechainMemPoolEntry(const uint256& _scId, bool _scInMempool): isScCreationInMempool(_scInMempool), scId(_scId) {};
+};
+
 /**
  * CTxMemPool stores valid-according-to-the-current-best-chain
  * transactions that may be included in the next block.
@@ -102,8 +111,7 @@ public:
     mutable CCriticalSection cs;
     std::map<uint256, CTxMemPoolEntry>             mapTx;
     std::map<COutPoint, CInPoint>                  mapNextTx;
-    std::set<uint256>                              listSidechains;
-    std::map<uint256, std::set<uint256>>           mapFwdTransfers;
+    std::map<uint256, CSidechainMemPoolEntry>      mapSidechains;
     std::map<uint256, const CTransaction*>         mapNullifiers;
     std::map<uint256, std::pair<double, CAmount> > mapDeltas;
 
@@ -163,7 +171,7 @@ public:
     bool sidechainExists(uint256 scId) const
     {
         LOCK(cs);
-        return (listSidechains.count(scId) != 0);
+        return (mapSidechains.count(scId) != 0) && (mapSidechains.at(scId).isScCreationInMempool);
     }
 
     bool lookup(uint256 hash, CTransaction& result) const;
