@@ -281,56 +281,6 @@ TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsHaveNotTheRightDepend
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-////////////////////////////// existsInMempool ////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-
-TEST_F(SidechainTestSuite, ScCreationTxsAreAllowedInEmptyMemPool) {
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(uint256S("1492"), CAmount(1953));
-    CFeeRate   aFeeRate;
-    CTxMemPool aMemPool(aFeeRate);
-
-    //test
-    bool res = Sidechain::existsInMempool(aMemPool, aTransaction);
-
-    //check
-    EXPECT_FALSE(res);
-}
-
-TEST_F(SidechainTestSuite, NewScCreationTxsAreAllowedInMemPool) {
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(uint256S("1987"), CAmount(1994));
-    CTxMemPoolEntry memPoolEntry(aTransaction, CAmount(), GetTime(), double(0.0), /*height*/int(1789));
-    CFeeRate   aFeeRate;
-    CTxMemPool aMemPool(aFeeRate);
-    aMemPool.addUnchecked(aTransaction.GetHash(), memPoolEntry);
-
-    CTransaction aNewTx = txCreationUtils::createNewSidechainTxWith(uint256S("1991"), CAmount(5));
-
-    //test
-    bool res = Sidechain::existsInMempool(aMemPool, aNewTx);
-
-    //check
-    EXPECT_FALSE(res);
-}
-
-TEST_F(SidechainTestSuite, DuplicatedScCreationTxsAreNotAllowedInMemPool) {
-    uint256 scId = uint256S("1987");
-
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
-    CTxMemPoolEntry memPoolEntry(aTransaction, CAmount(), GetTime(), double(0.0), /*height*/int(1789));
-    CFeeRate   aFeeRate;
-    CTxMemPool aMemPool(aFeeRate);
-    aMemPool.addUnchecked(aTransaction.GetHash(), memPoolEntry);
-
-    CTransaction duplicatedTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(15));
-
-    //test
-    bool res = Sidechain::existsInMempool(aMemPool, duplicatedTx);
-
-    //check
-    EXPECT_TRUE(res);
-}
-
-///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////// ApplyMatureBalances /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceBeforeCoinsMaturity) {

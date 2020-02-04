@@ -108,7 +108,10 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     }
 
     for(const auto& sc: tx.vsc_ccout)
-        mapSidechains[sc.scId] = CSidechainMemPoolEntry(sc.scId, true);
+        if (mapSidechains.count(sc.scId))
+            mapSidechains[sc.scId].isScCreationInMempool = true;
+        else
+            mapSidechains[sc.scId] = CSidechainMemPoolEntry(sc.scId, true);
 
     for(const auto& fwd: tx.vft_ccout)
         if (mapSidechains.count(fwd.scId))
@@ -161,8 +164,8 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                 }
 
                 for(const auto& sc: tx.vsc_ccout)
-                    if (mapSidechains.count(sc.scId) && mapSidechains [sc.scId].isScCreationInMempool )
-                        for(const auto& fwdTxHash :mapSidechains [sc.scId].FwdTransfersSet)
+                    if (mapSidechains.count(sc.scId) && mapSidechains[sc.scId].isScCreationInMempool)
+                        for(const auto& fwdTxHash : mapSidechains[sc.scId].FwdTransfersSet)
                             txToRemove.push_back(fwdTxHash);
             }
 

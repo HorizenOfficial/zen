@@ -113,13 +113,4 @@ bool anyForwardTransaction(const CTransaction& tx, const uint256& scId)
     return false;
 }
 
-bool existsInMempool(const CTxMemPool& pool, const CTransaction& tx)
-{
-    for(const auto& sc: tx.vsc_ccout)
-        if (pool.sidechainExists(sc.scId))
-            return true;
-
-    return false;
-}
-
 } // end of namespace

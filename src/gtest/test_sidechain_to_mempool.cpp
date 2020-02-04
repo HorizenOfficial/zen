@@ -178,6 +178,56 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSideChainAreNotAllowed
     EXPECT_FALSE(AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
 }
 
+TEST_F(SidechainsInMempoolTestSuite, sidechainExistsTest) {
+    CTxMemPool aMempool(::minRelayTxFee);
+    uint256 scId = uint256S("1492");
+
+    //Case 1: no sidechain related tx in mempool
+    bool res = aMempool.sidechainExists(scId);
+    EXPECT_FALSE(res);
+
+    bool loopRes = false;
+    for(const auto& tx : aMempool.mapTx)
+        for(const auto& sc: tx.second.GetTx().vsc_ccout)
+            if(sc.scId == scId) {
+                loopRes = true;
+                break;
+            }
+    EXPECT_TRUE(loopRes == res);
+
+    //Case 2: fwd transfer tx only in mempool
+    CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
+    CTxMemPoolEntry fwdPoolEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdPoolEntry.GetTx().GetHash(), fwdPoolEntry);
+    res = aMempool.sidechainExists(scId);
+    EXPECT_FALSE(res);
+
+    loopRes = false;
+    for(const auto& tx : aMempool.mapTx)
+        for(const auto& sc: tx.second.GetTx().vsc_ccout)
+            if(sc.scId == scId) {
+                loopRes = true;
+                break;
+            }
+    EXPECT_TRUE(loopRes == res);
+
+    //Case 3: sc creation tx in mempool
+    CTransaction scTx  = GenerateScTx(scId, CAmount(10));
+    CTxMemPoolEntry scPoolEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(scPoolEntry.GetTx().GetHash(), scPoolEntry);
+    res = aMempool.sidechainExists(scId);
+    EXPECT_TRUE(res);
+
+    loopRes = false;
+    for(const auto& tx : aMempool.mapTx)
+        for(const auto& sc: tx.second.GetTx().vsc_ccout)
+            if(sc.scId == scId) {
+                loopRes = true;
+                break;
+            }
+    EXPECT_TRUE(loopRes == res);
+}
+
 TEST_F(SidechainsInMempoolTestSuite, SidechainRemovalIsIneffectiveIfItisNotInMempool) {
     CTxMemPool aMempool(::minRelayTxFee);
     uint256 scId = uint256S("1492");
@@ -188,7 +238,6 @@ TEST_F(SidechainsInMempoolTestSuite, SidechainRemovalIsIneffectiveIfItisNotInMem
     aMempool.remove(scTx, removedTxs, /*fRecursive*/true);
 
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), scTx));
-    EXPECT_FALSE(Sidechain::existsInMempool(aMempool,scTx));
     EXPECT_FALSE(aMempool.sidechainExists(scId));
 }
 
