@@ -92,6 +92,7 @@ qrc_*.cpp
 # Mac specific
 .DS_Store
 build
+!contrib/ci-horizen/scripts/build
 
 #lcov
 *.gcno
