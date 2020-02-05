@@ -59,8 +59,6 @@ public:
         pindexBestHeader = chainActive.Tip();
 
         InitCoinGeneration();
-        GenerateCoinsAmount(1000);
-        ASSERT_TRUE(StoreCoins());
     }
 
     void TearDown() override {
@@ -98,10 +96,10 @@ private:
     CKey                     coinsKey;
     CBasicKeyStore           keystore;
     CScript                  coinsScript;
-    CCoinsMap                initialCoinsSet;
+
     void InitCoinGeneration();
-    void GenerateCoinsAmount(const CAmount & amountToGenerate);
-    bool StoreCoins();
+    std::pair<uint256, CCoinsCacheEntry> GenerateCoinsAmount(const CAmount & amountToGenerate);
+    bool StoreCoins(const std::pair<uint256, CCoinsCacheEntry>& entryToStore);
 };
 
 TEST_F(SidechainsInMempoolTestSuite, NewSidechainsAreAcceptedToMempool) {
@@ -156,18 +154,17 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed
     EXPECT_TRUE(AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
 }
 
-//ABENEGIA: commented out since it fails as per current implementation (github issue 215)
-//TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToSideChainsInMempoolAreAllowed) {
-//    uint256 scId = uint256S("1492");
-//    CTransaction scTx = GenerateScTx(scId, CAmount(1));
-//    CValidationState scTxState;
-//    bool missingInputs = false;
-//    AcceptToMemoryPool(mempool, scTxState, scTx, false, &missingInputs);
-//
-//    CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
-//    CValidationState fwdTxState;
-//    EXPECT_TRUE(AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
-//}
+TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToSideChainsInMempoolAreAllowed) {
+    uint256 scId = uint256S("1492");
+    CTransaction scTx = GenerateScTx(scId, CAmount(1));
+    CValidationState scTxState;
+    bool missingInputs = false;
+    AcceptToMemoryPool(mempool, scTxState, scTx, false, &missingInputs);
+
+    CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
+    CValidationState fwdTxState;
+    EXPECT_TRUE(AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
+}
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSideChainAreNotAllowed) {
     uint256 scId = uint256S("1492");
@@ -381,29 +378,29 @@ void SidechainsInMempoolTestSuite::InitCoinGeneration() {
     coinsScript << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
 }
 
-void SidechainsInMempoolTestSuite::GenerateCoinsAmount(const CAmount & amountToGenerate) {
-    unsigned int coinHeight = minimalHeightForSidechains;
+std::pair<uint256, CCoinsCacheEntry> SidechainsInMempoolTestSuite::GenerateCoinsAmount(const CAmount & amountToGenerate) {
+    static unsigned int hashSeed = 1987;
     CCoinsCacheEntry entry;
     entry.flags = CCoinsCacheEntry::FRESH | CCoinsCacheEntry::DIRTY;
 
     entry.coins.fCoinBase = false;
     entry.coins.nVersion = TRANSPARENT_TX_VERSION;
-    entry.coins.nHeight = coinHeight;
+    entry.coins.nHeight = minimalHeightForSidechains;
 
     entry.coins.vout.resize(1);
     entry.coins.vout[0].nValue = amountToGenerate;
     entry.coins.vout[0].scriptPubKey = coinsScript;
 
     std::stringstream num;
-    num << std::hex << coinHeight;
+    num << std::hex << ++hashSeed;
 
-    initialCoinsSet[uint256S(num.str())] = entry;
-    return;
+    return std::pair<uint256, CCoinsCacheEntry>(uint256S(num.str()), entry);
 }
 
-bool SidechainsInMempoolTestSuite::StoreCoins() {
+bool SidechainsInMempoolTestSuite::StoreCoins(const std::pair<uint256, CCoinsCacheEntry>& entryToStore) {
     CCoinsViewCache view(pcoinsTip);
-    CCoinsMap tmpCopyConsumedOnWrite(initialCoinsSet);
+    CCoinsMap tmpCoinsMap;
+    tmpCoinsMap[entryToStore.first] = entryToStore.second;
 
     const uint256 hashBlock;
     const uint256 hashAnchor;
@@ -411,16 +408,19 @@ bool SidechainsInMempoolTestSuite::StoreCoins() {
     CNullifiersMap mapNullifiers;
     CSidechainsMap mapSidechains;
 
-    pcoinsTip->BatchWrite(tmpCopyConsumedOnWrite, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains);
+    pcoinsTip->BatchWrite(tmpCoinsMap, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains);
 
-    return view.HaveCoins(initialCoinsSet.begin()->first) == true;
+    return view.HaveCoins(entryToStore.first) == true;
 }
 
 CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const uint256 & newScId, const CAmount & fwdTxAmount) {
+    std::pair<uint256, CCoinsCacheEntry> coinData = GenerateCoinsAmount(1000);
+    StoreCoins(coinData);
+
     CMutableTransaction scTx;
     scTx.nVersion = SC_TX_VERSION;
     scTx.vin.resize(1);
-    scTx.vin[0].prevout = COutPoint(initialCoinsSet.begin()->first, 0);
+    scTx.vin[0].prevout = COutPoint(coinData.first, 0);
 
     scTx.vsc_ccout.resize(1);
     scTx.vsc_ccout[0].scId = newScId;
@@ -429,22 +429,25 @@ CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const uint256 & newScId,
     scTx.vft_ccout[0].scId   = newScId;
     scTx.vft_ccout[0].nValue = fwdTxAmount;
 
-    SignSignature(keystore, initialCoinsSet.begin()->second.coins.vout[0].scriptPubKey, scTx, 0);
+    SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);
 
     return scTx;
 }
 
 CTransaction SidechainsInMempoolTestSuite::GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount) {
+    std::pair<uint256, CCoinsCacheEntry> coinData = GenerateCoinsAmount(1000);
+    StoreCoins(coinData);
+
     CMutableTransaction scTx;
     scTx.nVersion = SC_TX_VERSION;
     scTx.vin.resize(1);
-    scTx.vin[0].prevout = COutPoint(initialCoinsSet.begin()->first, 0);
+    scTx.vin[0].prevout = COutPoint(coinData.first, 0);
 
     scTx.vft_ccout.resize(1);
     scTx.vft_ccout[0].scId   = newScId;
     scTx.vft_ccout[0].nValue = fwdTxAmount;
 
-    SignSignature(keystore, initialCoinsSet.begin()->second.coins.vout[0].scriptPubKey, scTx, 0);
+    SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);
 
     return scTx;
 }

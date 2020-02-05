@@ -553,7 +553,29 @@ bool CCoinsViewMemPool::HaveCoins(const uint256 &txid) const {
 }
 
 bool CCoinsViewMemPool::GetScInfo(const uint256& scId, ScInfo& info) const {
-    return base->GetScInfo(scId, info); //ABENEGIA: Todo extend to retrieve sc info from mempool
+    if (mempool.sidechainExists(scId)) {
+        //build ScInfo from txs in mempool
+        const uint256& scCreationHash = mempool.mapSidechains.at(scId).scCreationTxHash;
+        const CTransaction & scCreationTx = mempool.mapTx.at(scCreationHash).GetTx();
+        for (const auto& scCreation : scCreationTx.vsc_ccout)
+            if (scId == scCreation.scId) {
+                //info.creationBlockHash doesn't exist here!
+                info.creationBlockHeight = -1; //default null value for creationBlockHeight
+                info.creationTxHash = scCreationHash;
+                info.creationData.withdrawalEpochLength = scCreation.withdrawalEpochLength;
+            }
+
+        //construct immature amount infos
+        for (const auto& fwdHash: mempool.mapSidechains.at(scId).FwdTransfersSet) {
+            const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
+            for (const auto& fwdAmount : fwdTx.vft_ccout)
+                if (scId == fwdAmount.scId)
+                    info.mImmatureAmounts[-1] += fwdAmount.nValue;
+        }
+        return true;
+    }
+
+    return base->GetScInfo(scId, info);
 }
 
 bool CCoinsViewMemPool::HaveScInfo(const uint256& scId) const {
