@@ -103,7 +103,7 @@ private:
 };
 
 TEST_F(SidechainsInMempoolTestSuite, NewSidechainsAreAcceptedToMempool) {
-    CTransaction scTx = GenerateScTx(uint256S("1492"), CAmount(1));
+    CTransaction scTx = GenerateScTx(uint256S("ababababab"), CAmount(1));
     CValidationState txState;
     bool missingInputs = false;
 
@@ -111,7 +111,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewSidechainsAreAcceptedToMempool) {
 }
 
 TEST_F(SidechainsInMempoolTestSuite, DuplicatedSidechainsAreNotAcceptedToMempool) {
-    uint256 scId = uint256S("1492");
+    uint256 scId = uint256S("bbbb");
     CTransaction scTx = GenerateScTx(scId, CAmount(1));
     CValidationState txState;
     bool missingInputs = false;
@@ -154,12 +154,14 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed
     EXPECT_TRUE(AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
 }
 
+//A proof that https://github.com/ZencashOfficial/zen/issues/215 is solved
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToSideChainsInMempoolAreAllowed) {
-    uint256 scId = uint256S("1492");
+    uint256 scId = uint256S("cccc");
     CTransaction scTx = GenerateScTx(scId, CAmount(1));
     CValidationState scTxState;
     bool missingInputs = false;
     AcceptToMemoryPool(mempool, scTxState, scTx, false, &missingInputs);
+    ASSERT_TRUE(mempool.sidechainExists(scId));
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
@@ -167,7 +169,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToSideChainsInMempoolAreAllowed
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSideChainAreNotAllowed) {
-    uint256 scId = uint256S("1492");
+    uint256 scId = uint256S("dddd");
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
     bool missingInputs = false;

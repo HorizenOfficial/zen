@@ -2507,7 +2507,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-txns-inputs-missingorspent");
 
         if (!view.HaveDependencies(tx))
-            return state.Invalid(error("AcceptToMemoryPool: sidechain is redeclared or coins are forwarded to unknown sidechain"),
+            return state.Invalid(error("ConnectBlock: sidechain is redeclared or coins are forwarded to unknown sidechain"),
                                         REJECT_INVALID, "bad-sc-tx");
 
         if (!tx.IsCoinBase())
