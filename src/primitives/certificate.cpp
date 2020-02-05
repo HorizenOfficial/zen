@@ -141,7 +141,7 @@ bool CScCertificate::CheckFinal(int flags) const
 double CScCertificate::GetPriority(const CCoinsViewCache &view, int nHeight) const
 {
     // TODO cert: for the time being return max prio, as shielded txes do
-    return MAX_PRIORITY;
+    return MAXIMUM_PRIORITY;
 }
 
 //--------------------------------------------------------------------------------------------

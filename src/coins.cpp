@@ -454,7 +454,7 @@ double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight) const
     // FIXME: this logic is partially duplicated between here and CreateNewBlock in miner.cpp.
 
     if (tx.vjoinsplit.size() > 0) {
-        return MAX_PRIORITY;
+        return MAXIMUM_PRIORITY;
     }
 
     double dResult = 0.0;

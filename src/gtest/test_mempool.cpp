@@ -92,7 +92,7 @@ TEST(Mempool, PriorityStatsDoNotCrash) {
     // Check it does not crash (ie. the death test fails)
     EXPECT_NONFATAL_FAILURE(EXPECT_DEATH(testPool.addUnchecked(tx.GetHash(), entry), ""), "");
 
-    EXPECT_EQ(dPriority, MAX_PRIORITY);
+    EXPECT_EQ(dPriority, MAXIMUM_PRIORITY);
 }
 
 TEST(Mempool, TxInputLimit) {

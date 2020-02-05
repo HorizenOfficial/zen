@@ -91,6 +91,7 @@ bool CWalletDB::WriteTx(uint256 hash, const CWalletObjBase& obj)
         LogPrintf("%s():%d - ERROR writing on DB: Unexpected exception caught\n", __func__, __LINE__);
         assert(false);
     }
+    return false;
 }
 #endif
 
@@ -460,7 +461,7 @@ bool
 ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
              CWalletScanState &wss, string& strType, string& strErr)
 {
-    static uint count = 0;
+    static unsigned int count = 0;
     uint256 hash;
     try {
         count++;
