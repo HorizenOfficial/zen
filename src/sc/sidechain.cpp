@@ -345,45 +345,6 @@ bool ScCoinsView::IsTxApplicableToState(const CTransaction& tx)
     return true;
 }
 
-void ScCoinsView::getScCreationChildrenInMempool(const CTransaction& tx, const CTxMemPool& pool, std::deque<uint256>& outTxList)
-{
-    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
-    {
-        for (auto it = pool.mapTx.begin(); it != pool.mapTx.end(); ++it)
-        {
-            const CTransaction& mpTx = it->second.GetTx();
-
-            if (mpTx.GetHash() == tx.GetHash())
-            {
-                // do not consider itself
-                continue;
-            }
-
-            BOOST_FOREACH(const auto& mpFt, mpTx.vft_ccout)
-            {
-                if (mpFt.scId == sc.scId)
-                {
-                    LogPrint("sc", "%s():%d - found tx[%s] fwding to scId[%s]\n",
-                        __func__, __LINE__, mpTx.GetHash().ToString(), sc.scId.ToString());
-                    outTxList.push_back(mpTx.GetHash());
-                }
-            }
-        }
-
-        for (auto it = pool.mapCertificate.begin(); it != pool.mapCertificate.end(); ++it)
-        {
-            const CScCertificate& mpCert = it->second.GetCertificate();
-
-            if (mpCert.scId == sc.scId)
-            {
-                LogPrint("sc", "%s():%d - found cert[%s] withdrawing from scId[%s]\n",
-                    __func__, __LINE__, mpCert.GetHash().ToString(), sc.scId.ToString());
-                outTxList.push_back(mpCert.GetHash());
-            }
-        }
-    }
-}
-
 bool ScCoinsView::IsCertApplicableToState(const CScCertificate& cert)
 {
     if (!sidechainExists(cert.scId) )

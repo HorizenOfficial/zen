@@ -44,7 +44,11 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates)
     for (unsigned int i = 0; i < 128; i++)
         garbage.push_back('X');
     CMutableTransaction tx;
+#if 0
     std::list<CTransaction> dummyConflicted;
+#else
+    std::list<std::shared_ptr<CTransactionBase>> dummyConflicted;
+#endif
     tx.vin.resize(1);
     tx.vin[0].scriptSig = garbage;
     tx.vout.resize(1);

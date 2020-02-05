@@ -53,7 +53,11 @@ BOOST_AUTO_TEST_CASE(MempoolRemoveTest)
 
 
     CTxMemPool testPool(CFeeRate(0));
+#if 0
     std::list<CTransaction> removed;
+#else
+    std::list<std::shared_ptr<CTransactionBase>> removed;
+#endif
 
     // Nothing in pool, remove should do nothing:
     testPool.remove(txParent, removed, true);

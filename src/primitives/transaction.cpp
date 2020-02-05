@@ -693,8 +693,8 @@ bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& st
 
 void CTransaction::RemoveFromMemPool(CTxMemPool* mempool) const 
 {
-    std::list<CTransaction> removed;
-    mempool->remove(*this, removed, true);
+    std::list<std::shared_ptr<CTransactionBase>> unused;
+    mempool->remove(*this, unused, true);
 } 
 
 bool CTransaction::AddUncheckedToMemPool(CTxMemPool* pool,

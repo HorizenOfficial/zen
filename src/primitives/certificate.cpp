@@ -181,7 +181,8 @@ bool CScCertificate::RevertOutputs(Sidechain::ScCoinsViewCache& scView, int nHei
 
 void CScCertificate::RemoveFromMemPool(CTxMemPool* mempool) const 
 {
-    mempool->remove(*this, true);
+    std::list<std::shared_ptr<CTransactionBase>> unused;
+    mempool->remove(*this, unused, true);
 } 
 
 bool CScCertificate::AddUncheckedToMemPool(CTxMemPool* pool,

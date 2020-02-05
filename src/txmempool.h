@@ -106,6 +106,25 @@ public:
     size_t DynamicMemoryUsage() const { return 0; }
 };
 
+struct CSidechainMemPoolEntry
+{
+    bool isScCreationInMempool;
+    uint256 scCreationTxHash;
+
+    uint256 scId;
+    std::set<uint256> CcTransfersSet;
+
+    CSidechainMemPoolEntry(): isScCreationInMempool(false) {};
+    CSidechainMemPoolEntry(const uint256& _hash, const uint256& _scId, bool _scInMempool):
+        isScCreationInMempool(_scInMempool), scId(_scId)
+    {
+        if (isScCreationInMempool)
+            scCreationTxHash = _hash;
+        else
+            CcTransfersSet.insert(_hash);
+    };
+};
+
 /**
  * CTxMemPool stores valid-according-to-the-current-best-chain
  * transactions that may be included in the next block.
@@ -128,11 +147,16 @@ private:
     uint64_t totalCertificateSize = 0; //! sum of all mempool tx' byte sizes
     uint64_t cachedInnerUsage; //! sum of dynamic memory usage of all the map elements (NOT the maps themselves)
 
+#if 1
+    void removeInternal(std::deque<uint256>& objToRemove, std::list<std::shared_ptr<CTransactionBase>>& removed, bool fRecursive);
+#endif
+
 public:
     mutable CCriticalSection cs;
     std::map<uint256, CTxMemPoolEntry> mapTx;
     std::map<uint256, CCertificateMemPoolEntry> mapCertificate;
     std::map<COutPoint, CInPoint> mapNextTx;
+    std::map<uint256, CSidechainMemPoolEntry> mapSidechains;
     std::map<uint256, const CTransaction*> mapNullifiers;
     std::map<uint256, std::pair<double, CAmount> > mapDeltas;
 
@@ -155,18 +179,24 @@ public:
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
+#if 0
     void remove(const CTransaction &tx, std::list<CTransaction>& removed, bool fRecursive = false);
-#if 1
-    void remove(const CScCertificate &cert, bool fRecursive = false);
+#else
+    void remove(const CTransaction &tx, std::list<std::shared_ptr<CTransactionBase>>& removed, bool fRecursive = false);
+    void remove(const CScCertificate &origCert, std::list<std::shared_ptr<CTransactionBase>>& removed, bool fRecursive = false);
 #endif
     void removeWithAnchor(const uint256 &invalidRoot);
     void removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
 #if 1
     void removeOutOfEpochCertificates(const CBlockIndex* pindexDelete);
-#endif
+    void removeConflicts(const CTransaction &tx, std::list<std::shared_ptr<CTransactionBase>>& removed);
+    void removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
+                        std::list<std::shared_ptr<CTransactionBase>>& conflicts, bool fCurrentEstimate = true);
+#else
     void removeConflicts(const CTransaction &tx, std::list<CTransaction>& removed);
     void removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
                         std::list<CTransaction>& conflicts, bool fCurrentEstimate = true);
+#endif
     // no conflicts for certs
     void removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight, bool fCurrentEstimate = true);
 
@@ -240,6 +270,12 @@ public:
         return (mapCertificate.count(hash) != 0 || mapTx.count(hash) != 0);
     }
 
+    bool sidechainExists(uint256 scId) const
+    {
+        LOCK(cs);
+        return (mapSidechains.count(scId) != 0) && (mapSidechains.at(scId).isScCreationInMempool);
+    }
+
     bool lookup(uint256 hash, CTransaction& result) const;
     bool lookup(uint256 hash, CScCertificate& result) const;
 
@@ -256,6 +292,8 @@ public:
     size_t DynamicMemoryUsage() const;
 };
 
+namespace Sidechain { class ScInfo; }
+
 /** 
  * CCoinsView that brings transactions from a memorypool into view.
  * It does not check for spendings by memory pool transactions.
@@ -270,6 +308,11 @@ public:
     bool GetNullifier(const uint256 &txid) const;
     bool GetCoins(const uint256 &txid, CCoins &coins) const;
     bool HaveCoins(const uint256 &txid) const;
+
+#if 0
+    bool GetScInfo(const uint256& scId, Sidechain::ScInfo& info) const;
+    bool HaveScInfo(const uint256& scId) const;
+#endif
 };
 
 #endif // BITCOIN_TXMEMPOOL_H
