@@ -84,7 +84,7 @@ struct CSidechainMemPoolEntry
     uint256 scCreationTxHash;
 
     uint256 scId;
-    std::set<uint256> FwdTransfersSet;
+    std::set<uint256> fwdTransfersSet;
 
     CSidechainMemPoolEntry(): isScCreationInMempool(false) {};
     CSidechainMemPoolEntry(const uint256& _hash, const uint256& _scId, bool _scInMempool):
@@ -92,7 +92,7 @@ struct CSidechainMemPoolEntry
         if (isScCreationInMempool)
             scCreationTxHash = _hash;
         else
-            FwdTransfersSet.insert(_hash);
+            fwdTransfersSet.insert(_hash);
     };
 };
 

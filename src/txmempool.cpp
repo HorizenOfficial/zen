@@ -120,7 +120,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
         if (!mapSidechains.count(fwd.scId))
             mapSidechains[fwd.scId] = CSidechainMemPoolEntry(hash, fwd.scId, false);
         else
-            mapSidechains.at(fwd.scId).FwdTransfersSet.insert(hash);
+            mapSidechains.at(fwd.scId).fwdTransfersSet.insert(hash);
     }
 
     nTransactionsUpdated++;
@@ -169,7 +169,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
 
                 for(const auto& sc: tx.vsc_ccout)
                     if (mapSidechains.count(sc.scId) && mapSidechains.at(sc.scId).isScCreationInMempool)
-                        for(const auto& fwdTxHash : mapSidechains.at(sc.scId).FwdTransfersSet)
+                        for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
                             txToRemove.push_back(fwdTxHash);
             }
 
@@ -178,9 +178,9 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
 
             for(const auto& fwd: tx.vft_ccout) {
                 if (mapSidechains.count(fwd.scId)) {
-                    mapSidechains.at(fwd.scId).FwdTransfersSet.erase(tx.GetHash());
+                    mapSidechains.at(fwd.scId).fwdTransfersSet.erase(tx.GetHash());
 
-                    if (mapSidechains.at(fwd.scId).FwdTransfersSet.size() == 0 && !mapSidechains.at(fwd.scId).isScCreationInMempool)
+                    if (mapSidechains.at(fwd.scId).fwdTransfersSet.size() == 0 && !mapSidechains.at(fwd.scId).isScCreationInMempool)
                         mapSidechains.erase(fwd.scId);
                 }
             }
@@ -566,7 +566,7 @@ bool CCoinsViewMemPool::GetScInfo(const uint256& scId, ScInfo& info) const {
             }
 
         //construct immature amount infos
-        for (const auto& fwdHash: mempool.mapSidechains.at(scId).FwdTransfersSet) {
+        for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet) {
             const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
             for (const auto& fwdAmount : fwdTx.vft_ccout)
                 if (scId == fwdAmount.scId)

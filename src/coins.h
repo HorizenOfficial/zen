@@ -469,12 +469,12 @@ protected:
      * Make mutable so that we can "fill the cache" even from Get-methods
      * declared as "const".  
      */
-    mutable uint256                   hashBlock;
-    mutable CCoinsMap                 cacheCoins;
+    mutable uint256        hashBlock;
+    mutable CCoinsMap      cacheCoins;
     mutable CSidechainsMap cacheSidechains;
-    mutable uint256                   hashAnchor;
-    mutable CAnchorsMap               cacheAnchors;
-    mutable CNullifiersMap            cacheNullifiers;
+    mutable uint256        hashAnchor;
+    mutable CAnchorsMap    cacheAnchors;
+    mutable CNullifiersMap cacheNullifiers;
 
     /* Cached dynamic memory usage for the inner CCoins objects. */
     mutable size_t cachedCoinsUsage;
