@@ -227,35 +227,72 @@ TEST_F(SidechainsInMempoolTestSuite, sidechainExistsTest) {
     EXPECT_TRUE(loopRes == res);
 }
 
-TEST_F(SidechainsInMempoolTestSuite, SidechainRemovalIsIneffectiveIfItisNotInMempool) {
+//non recursive removal happens, for instance, with ConnectBlock, to clean up mempool from txs already included in block
+TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScNonRecursiveRemoval_FwdsStillInMempool) {
     CTxMemPool aMempool(::minRelayTxFee);
-    uint256 scId = uint256S("1492");
+    uint256 scId = uint256S("aaaa");
     CTransaction scTx = GenerateScTx(scId, CAmount(10));
-    ASSERT_FALSE(aMempool.sidechainExists(scId));
-
-    std::list<CTransaction> removedTxs;
-    aMempool.remove(scTx, removedTxs, /*fRecursive*/true);
-
-    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), scTx));
-    EXPECT_FALSE(aMempool.sidechainExists(scId));
-}
-
-TEST_F(SidechainsInMempoolTestSuite, SidechainIsRemovedFromMempoolWithTxCreatingIt) {
-    CTxMemPool aMempool(::minRelayTxFee);
-    uint256 scId = uint256S("1492");
-    CTransaction scTx = GenerateScTx(scId, CAmount(10));
-    CTxMemPoolEntry poolEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(scTx.GetHash(), poolEntry);
+    CTxMemPoolEntry scEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(scTx.GetHash(), scEntry);
     ASSERT_TRUE(aMempool.sidechainExists(scId));
 
+    CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
+    CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+
+    CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
+    CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+
     std::list<CTransaction> removedTxs;
-    aMempool.remove(scTx, removedTxs, /*fRecursive*/true);
+    aMempool.remove(scTx, removedTxs, /*fRecursive*/false);
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), scTx));
-    EXPECT_FALSE(aMempool.sidechainExists(scId));
+    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
+    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
 }
 
-TEST_F(SidechainsInMempoolTestSuite, FwdTransfersAreRemovedFromMempoolWithTxSendindThem) {
+TEST_F(SidechainsInMempoolTestSuite, FwdsOnlyInMempool_ScNonRecursiveRemoval_FwdsStillInMempool) {
+    CTxMemPool aMempool(::minRelayTxFee);
+    uint256 scId = uint256S("bbbb");
+    CTransaction scTx = GenerateScTx(scId, CAmount(10));
+
+    CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
+    CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+
+    CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
+    CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+
+    std::list<CTransaction> removedTxs;
+    aMempool.remove(scTx, removedTxs, /*fRecursive*/false);
+
+    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
+    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
+}
+
+TEST_F(SidechainsInMempoolTestSuite, FwdsOnlyInMempool_FwdNonRecursiveRemoval_FwdRemovedFromMempool) {
+    CTxMemPool aMempool(::minRelayTxFee);
+    uint256 scId = uint256S("ababab");
+
+    CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
+    CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+
+    CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
+    CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+
+    std::list<CTransaction> removedTxs;
+    aMempool.remove(fwdTx1, removedTxs, /*fRecursive*/false);
+
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
+    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
+}
+
+//recursive removal happens, for instance, on conflicts resolution among newly persisted txs and others in mempool
+TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScRecursiveRemoval_FwdsRemovedFromMempool) {
     CTxMemPool aMempool(::minRelayTxFee);
     uint256 scId = uint256S("1492");
     CTransaction scTx = GenerateScTx(scId, CAmount(10));
@@ -266,20 +303,90 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersAreRemovedFromMempoolWithTxSend
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+
+    CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
+    CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+
+    std::list<CTransaction> removedTxs;
+    aMempool.remove(scTx, removedTxs, /*fRecursive*/true); //e.g. to be removed since it would double spend some UTXOs spent by a confirmed Tx
+
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), scTx));
+    EXPECT_FALSE(aMempool.sidechainExists(scId));
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
+}
+
+TEST_F(SidechainsInMempoolTestSuite,  FwdsOnlyInMempool_ScRecursiveRemoval_FwdsRemovedFromMempool) {
+    CTxMemPool aMempool(::minRelayTxFee);
+    uint256 scId = uint256S("cccc");
+    CTransaction scTx = GenerateScTx(scId, CAmount(10));
+
+    CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
+    CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+
+    CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
+    CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+
+    std::list<CTransaction> removedTxs;
+    aMempool.remove(scTx, removedTxs, /*fRecursive*/true);
+
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
+}
+
+TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_FwdRecursiveRemoval_FwdRemovedFromMempool) {
+    CTxMemPool aMempool(::minRelayTxFee);
+    uint256 scId = uint256S("1492");
+    CTransaction scTx = GenerateScTx(scId, CAmount(10));
+    CTxMemPoolEntry scEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(scTx.GetHash(), scEntry);
+    ASSERT_TRUE(aMempool.sidechainExists(scId));
+
+    CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
+    CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+
+    CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
+    CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+
+    std::list<CTransaction> removedTxs;
+    aMempool.remove(fwdTx2, removedTxs, /*fRecursive*/true);
+
+    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
+    EXPECT_TRUE(aMempool.sidechainExists(scId));
+}
+
+TEST_F(SidechainsInMempoolTestSuite,  FwdsOnlyInMempool_FwdRecursiveRemoval_FwdRemovedFromMempool) {
+    CTxMemPool aMempool(::minRelayTxFee);
+    uint256 scId = uint256S("cccc");
+
+    CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
+    CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+
+    CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
+    CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     std::list<CTransaction> removedTxs;
     aMempool.remove(fwdTx1, removedTxs, /*fRecursive*/true);
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
-    EXPECT_TRUE(aMempool.sidechainExists(scId));
+    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
 }
 
-TEST_F(SidechainsInMempoolTestSuite, FwdTransfersAreRemovedFromMempoolUponScRemoval) {
+//RemoveConflicts clear up mempool from tx attempting to redeclare sidechain
+TEST_F(SidechainsInMempoolTestSuite, RemoveConflictingSidechainDeclarations_SimpleCase) {
     CTxMemPool aMempool(::minRelayTxFee);
-    uint256 scId = uint256S("1492");
-    CTransaction scTx = GenerateScTx(scId, CAmount(10));
-    CTxMemPoolEntry scEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(scTx.GetHash(), scEntry);
+    uint256 scId = uint256S("aaaa");
+    CTransaction scTxInMempool = GenerateScTx(scId, CAmount(10));
+    CTxMemPoolEntry scEntry(scTxInMempool, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(scTxInMempool.GetHash(), scEntry);
     ASSERT_TRUE(aMempool.sidechainExists(scId));
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
@@ -291,60 +398,12 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersAreRemovedFromMempoolUponScRemo
     aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     std::list<CTransaction> removedTxs;
-    aMempool.remove(scTx, removedTxs, /*fRecursive*/true);
+    CTransaction scTxInBlock = GenerateScTx(scId, CAmount(10));
+    aMempool.removeConflicts(scTxInBlock, removedTxs);
 
-    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), scTx));
-    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
-    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
-    EXPECT_FALSE(aMempool.sidechainExists(scId));
-}
-
-TEST_F(SidechainsInMempoolTestSuite, NonRecursiveRemovalLeaveFwdTransfersInMempoolUponScRemoval) {
-    CTxMemPool aMempool(::minRelayTxFee);
-    uint256 scId = uint256S("1492");
-    CTransaction scTx = GenerateScTx(scId, CAmount(10));
-    CTxMemPoolEntry scEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(scTx.GetHash(), scEntry);
-    ASSERT_TRUE(aMempool.sidechainExists(scId));
-
-    CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
-    CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
-
-    CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
-    CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
-
-    std::list<CTransaction> removedTxs;
-    aMempool.remove(scTx, removedTxs, /*fRecursive*/false);
-
-    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), scTx));
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), scTxInMempool));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
-    EXPECT_FALSE(aMempool.sidechainExists(scId));
-}
-
-TEST_F(SidechainsInMempoolTestSuite, NonRecursiveRemovalLeaveFwdTransfersInMempoolIfScCreationIsMissing) {
-    CTxMemPool aMempool(::minRelayTxFee);
-    uint256 scId = uint256S("1492");
-    CTransaction scTx = GenerateScTx(scId, CAmount(10));
-    CTxMemPoolEntry scEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    ASSERT_FALSE(aMempool.sidechainExists(scId));
-
-    CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
-    CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
-
-    CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
-    CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
-
-    std::list<CTransaction> removedTxs;
-    aMempool.remove(scTx, removedTxs, /*fRecursive*/false);
-
-    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
-    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
-    EXPECT_FALSE(aMempool.sidechainExists(scId));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
