@@ -46,7 +46,8 @@ zen_gtest_SOURCES += \
 
 if ENABLE_WALLET
 zen_gtest_SOURCES += \
-	wallet/gtest/test_wallet.cpp
+	wallet/gtest/test_wallet.cpp \
+	wallet/gtest/test_deadlock.cpp
 endif
 
 # zen_gtest_CPPFLAGS = $(AM_CPPFLAGS) -DMULTICORE -fopenmp -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DSTATIC -DBITCOIN_TX $(BITCOIN_INCLUDES)
