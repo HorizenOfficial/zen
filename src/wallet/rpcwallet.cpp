@@ -49,6 +49,10 @@ extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
 
+// transaction.h comment: spending taddr output requires CTxIn >= 148 bytes and typical taddr txout is 34 bytes
+#define CTXIN_SPEND_DUST_SIZE   148
+#define CTXOUT_REGULAR_SIZE     34
+
 
 // Private method:
 UniValue z_getoperationstatus_IMPL(const UniValue&, bool);
@@ -758,6 +762,173 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     ScHandleTransaction(wtx, vecSend, nTotalOut);
 
     return wtx.GetHash().GetHex();
+}
+
+UniValue create_sidechain(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp ||  params.size() != 1)
+        throw runtime_error(
+            "create_sidechain {\"scid\":... , \"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":...}\n"
+            "\nCreate a Side chain.\n"
+            "\nArguments:\n"
+            "{\n"                     
+            "   \"scid\": id                      (string, optional) The uint256 side chain ID, if omitted a random value is generated\n"
+            "   \"withdrawalEpochLength\": epoch  (numeric, optional, default=100) length of the withdrawal epochs\n"
+            "   \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
+            "   \"toaddress\":scaddr              (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "   \"amount\":amount                 (numeric, required) Value expressed in " + CURRENCY_UNIT + "\n"
+            "   \"minconf\":conf                  (numeric, optional, default=1) Only use funds confirmed at least this many times.\n"
+            "   \"fee\":fee                       (numeric, optional, default="
+            + strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee amount to attach to this transaction.\n"
+            "}\n"
+            "\nResult:\n"
+            "\"transactionid\"    (string) The resulting transaction id.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("create_sidechain", "'{\"toaddress\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0}]'")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    // valid input keywords
+    static const std::set<std::string> validKeyArgs =
+        {"scid", "withdrawalEpochLength", "fromaddress", "toaddress", "amount", "minconf", "fee"};
+
+    UniValue inputObject = params[0].get_obj();
+
+    if (!inputObject.isObject())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
+
+    // keywords set in cmd
+    std::set<std::string> setKeyArgs;
+
+    // sanity check, report error if unknown/duplicate key-value pairs
+    for (const string& s : inputObject.getKeys())
+    {
+        if (!validKeyArgs.count(s))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
+
+        if (setKeyArgs.count(s))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Duplicate key in input: ") + s);
+
+        setKeyArgs.insert(s);
+    }
+
+    // ---------------------------------------------------------
+    uint256 scId;
+    if (setKeyArgs.count("scid"))
+    {
+        string inputString = find_value(inputObject, "scid").get_str();
+        if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+        scId.SetHex(inputString);
+    }
+    else
+    {
+        scId = GetRandHash();
+    }
+    // TODO no checks are made here on scid, they are left when trying to accept to mem pool
+
+    // ---------------------------------------------------------
+    int withdrawalEpochLength = SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH;
+    if (setKeyArgs.count("withdrawalEpochLength"))
+    {
+        withdrawalEpochLength = find_value(inputObject, "withdrawalEpochLength").get_int();
+        if (withdrawalEpochLength < 1 )
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid withdrawalEpochLength: must be greater that 1");
+    }
+
+    // ---------------------------------------------------------
+    CBitcoinAddress fromaddress;
+    bool hasFromAddr = false;
+    if (setKeyArgs.count("fromaddress"))
+    {
+        string inputString = find_value(inputObject, "fromaddress").get_str();
+        fromaddress = CBitcoinAddress(inputString);
+        if(!fromaddress.IsValid())
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown fromaddress format: ")+inputString );
+        }
+        hasFromAddr = true;
+    }
+
+    // ---------------------------------------------------------
+    uint256 toaddress;
+    if (setKeyArgs.count("toaddress"))
+    {
+        string inputString = find_value(inputObject, "toaddress").get_str();
+        if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid toaddress format: not an hex");
+
+        toaddress.SetHex(inputString);
+    }
+    else
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"toaddress\"" );
+    }
+
+    // ---------------------------------------------------------
+    CAmount nAmount = 0;
+    if (setKeyArgs.count("amount"))
+    {
+        UniValue av = find_value(inputObject, "amount");
+        nAmount = AmountFromValue( av );
+        if (nAmount <= 0)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
+        if (!MoneyRange(nAmount))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount out of range");
+    }
+    else
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"amount\"" );
+    }
+
+    // ---------------------------------------------------------
+    int nMinDepth = 1;
+    if (setKeyArgs.count("minconf"))
+    {
+        nMinDepth = find_value(inputObject, "minconf").get_int();
+        if (nMinDepth < 0)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid minconf: must be greater that 0");
+    }
+
+    // ---------------------------------------------------------
+    CAmount nFee = SC_RPC_OPERATION_DEFAULT_MINERS_FEE;
+    if (setKeyArgs.count("fee"))
+    {
+        UniValue val = find_value(inputObject, "fee");
+        if (val.get_real() == 0.0)
+        {
+            nFee = 0;
+        }
+        else
+        {
+            nFee = AmountFromValue(val);
+        }
+    }
+    if (nFee < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, fee must not be negative");
+    if (nFee > nAmount)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Fee %s is greater than outputs %s",
+            FormatMoney(nFee), FormatMoney(nAmount)));
+
+    CMutableTransaction tx_create;
+	tx_create.nVersion = SC_TX_VERSION;
+
+    Sidechain::ScRpcCreationCmd cmd(
+        tx_create, scId, withdrawalEpochLength,
+        fromaddress, toaddress, nAmount, nMinDepth, nFee);
+
+    cmd.addInputs();
+    cmd.addChange();
+    cmd.addCcOutputs();
+
+    cmd.signTx();
+    cmd.sendTx();
+        
+    return tx_create.GetHash().GetHex();
 }
 
 UniValue listaddressgroupings(const UniValue& params, bool fHelp)
@@ -3692,10 +3863,6 @@ UniValue z_getoperationstatus_IMPL(const UniValue& params, bool fRemoveFinishedO
 // For now though, we assume we use one joinsplit per zaddr output (and the second output note is change).
 // We reduce the result by 1 to ensure there is room for non-joinsplit CTransaction data.
 #define Z_SENDMANY_MAX_ZADDR_OUTPUTS(TX_VER)    ((MAX_TX_SIZE / JSDescription::getNewInstance(TX_VER == GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, TX_VER)) - 1)
-
-// transaction.h comment: spending taddr output requires CTxIn >= 148 bytes and typical taddr txout is 34 bytes
-#define CTXIN_SPEND_DUST_SIZE   148
-#define CTXOUT_REGULAR_SIZE     34
 
 UniValue z_sendmany(const UniValue& params, bool fHelp)
 {

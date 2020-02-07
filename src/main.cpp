@@ -1332,7 +1332,8 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // a not existing one and so on
     if (!scMgr.IsTxApplicableToState(tx) )
     {
-        return false;
+        LogPrint("sc", "%s():%d - tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString());
+        return state.DoS(100, error("AcceptToMemoryPool: tx not applicable"), REJECT_INVALID, "tx-sidechain-not-applicable");
     }
     LogPrint("sc", "%s():%d - tx [%s] is applicable\n", __func__, __LINE__, hash.ToString());
 
@@ -1361,7 +1362,8 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // If this tx creates a sc, no other tx must be doing the same in the mempool
         if (!scMgr.IsTxAllowedInMempool(pool, tx, state) )
         {
-            return false;
+            LogPrint("sc", "%s():%d - tx [%s] has conflicts in mempool\n", __func__, __LINE__, hash.ToString());
+            return state.DoS(100, error("AcceptToMemoryPool: tx has conflicts"), REJECT_INVALID, "tx-sidechain-has-conflicts");
         }
         LogPrint("sc", "%s():%d - tx [%s] has no conflicts in mempool\n", __func__, __LINE__, hash.ToString());
     }
@@ -1380,7 +1382,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             if (view.HaveCoins(hash))
             {
                 LogPrint("mempool", "Dropping txid %s : already have coins\n", hash.ToString());
-                return false;
+                return state.DoS(100, error("AcceptToMemoryPool: tx already has coins"), REJECT_INVALID, "tx-already-has-coins");
             }
  
             // do all inputs exist?
@@ -1395,7 +1397,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                         *pfMissingInputs = true;
                     }
                     LogPrint("mempool", "Dropping txid %s : no coins for vin\n", hash.ToString());
-                    return false;
+                    return state.DoS(100, error("AcceptToMemoryPool: no coins for vin"), REJECT_INVALID, "tx-vin-has-no-coins");
                 }
             }
  

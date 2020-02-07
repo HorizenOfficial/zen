@@ -4,8 +4,11 @@
 #include "amount.h"
 
 #include "sc/sidechaintypes.h"
+#include "base58.h"
 
 //------------------------------------------------------------------------------------
+#define SC_RPC_OPERATION_DEFAULT_MINERS_FEE    10000
+#define SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH    100
 
 class UniValue;
 class CTransaction;
@@ -77,6 +80,45 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant>& v
 void AddScInfoToJSON(UniValue& result);
 bool AddScInfoToJSON(const uint256& scId, UniValue& sc);
 void AddScInfoToJSON(const uint256& scId, const ScInfo& info, UniValue& sc);
+
+// Input UTXO is a tuple (triple) of txid, vout, amount)
+typedef std::tuple<uint256, int, CAmount> CmdUTXO;
+
+class ScRpcCreationCmd
+{
+  private:
+    // this is a reference to the tx that gets processed
+    CMutableTransaction& _tx;
+
+    // cmd params
+    uint256 _scid;
+    int _wel;
+    CBitcoinAddress _from;
+    uint256 _to;
+    CAmount _nAmount;
+    int _conf;
+    CAmount _fee;
+
+    // internal members
+    bool _hasFrom;
+    CAmount _dustThreshold;
+    CAmount _totalInputAmount;
+    std::string _signedTxHex;
+
+  public:
+    ScRpcCreationCmd(
+        CMutableTransaction& tx, const uint256& scId, int withdrawalEpochLength, const CBitcoinAddress& fromaddress,
+        const uint256& toaddress, const CAmount nAmount, int nMinDepth, const CAmount& nFee);
+
+    void addInputs();
+    void addCcOutputs();
+    void addChange();
+    void signTx();
+    void sendTx();    
+};
+
+bool FillCcOutput(CMutableTransaction& tx, std::vector<Sidechain::CcRecipientVariant> vecCcSend, std::string& strFailReason);
+
 }; // end of namespace
 
 #endif // _SIDECHAIN_RPC_H

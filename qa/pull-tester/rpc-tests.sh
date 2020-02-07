@@ -52,6 +52,7 @@ testScripts=(
     'blockdelay.py'
     'blockdelay_2.py'
     'sc_create.py'
+    'sc_create_2.py'
     'sc_split.py'
     'sc_invalidate.py'
 );

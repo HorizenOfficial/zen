@@ -409,6 +409,7 @@ static const CRPCCommand vRPCCommands[] =
     { "wallet",             "sc_certlock",            &sc_certlock,            false },
     { "wallet",             "sc_certlock_many",       &sc_certlock_many,       false },
     { "wallet",             "sc_create",              &sc_create,              false },
+    { "wallet",             "create_sidechain",       &create_sidechain,       false },
 
     // TODO: rearrange into another category 
     { "disclosure",         "z_getpaymentdisclosure", &z_getpaymentdisclosure, true  }, 
