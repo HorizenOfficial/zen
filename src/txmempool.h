@@ -80,20 +80,8 @@ public:
 
 struct CSidechainMemPoolEntry
 {
-    bool isScCreationInMempool;
     uint256 scCreationTxHash;
-
-    uint256 scId;
     std::set<uint256> fwdTransfersSet;
-
-    CSidechainMemPoolEntry(): isScCreationInMempool(false) {};
-    CSidechainMemPoolEntry(const uint256& _hash, const uint256& _scId, bool _scInMempool):
-        isScCreationInMempool(_scInMempool), scId(_scId) {
-        if (isScCreationInMempool)
-            scCreationTxHash = _hash;
-        else
-            fwdTransfersSet.insert(_hash);
-    };
 };
 
 /**
@@ -180,7 +168,7 @@ public:
     bool sidechainExists(uint256 scId) const
     {
         LOCK(cs);
-        return (mapSidechains.count(scId) != 0) && (mapSidechains.at(scId).isScCreationInMempool);
+        return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).scCreationTxHash.IsNull());
     }
 
     bool lookup(uint256 hash, CTransaction& result) const;

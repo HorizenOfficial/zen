@@ -108,19 +108,12 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     }
 
     for(const auto& sc: tx.vsc_ccout) {
-        if (mapSidechains.count(sc.scId)) {
-            assert(mapSidechains.at(sc.scId).isScCreationInMempool == false);
-            mapSidechains.at(sc.scId).isScCreationInMempool = true;
-        }
-        else
-            mapSidechains[sc.scId] = CSidechainMemPoolEntry(hash, sc.scId, true);
+        assert(mapSidechains[sc.scId].scCreationTxHash.IsNull());
+        mapSidechains[sc.scId].scCreationTxHash = hash;
     }
 
     for(const auto& fwd: tx.vft_ccout) {
-        if (!mapSidechains.count(fwd.scId))
-            mapSidechains[fwd.scId] = CSidechainMemPoolEntry(hash, fwd.scId, false);
-        else
-            mapSidechains.at(fwd.scId).fwdTransfersSet.insert(hash);
+        mapSidechains[fwd.scId].fwdTransfersSet.insert(hash);
     }
 
     nTransactionsUpdated++;
@@ -151,6 +144,18 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                     continue;
                 txToRemove.push_back(it->second.ptx->GetHash());
             }
+
+            for(const auto& sc: origTx.vsc_ccout) {
+                if (mapSidechains.count(sc.scId) == 0)
+                    continue;
+
+                if (mapSidechains[sc.scId].scCreationTxHash.IsNull()) {
+                    for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
+                        txToRemove.push_back(fwdTxHash);
+                } else
+                    txToRemove.push_back(mapSidechains[sc.scId].scCreationTxHash);
+            } //end of sc loop
+
         }
         while (!txToRemove.empty())
         {
@@ -167,10 +172,16 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                     txToRemove.push_back(it->second.ptx->GetHash());
                 }
 
-                for(const auto& sc: tx.vsc_ccout)
-                    if (mapSidechains.count(sc.scId) && mapSidechains.at(sc.scId).isScCreationInMempool)
+                for(const auto& sc: origTx.vsc_ccout) {
+                    if (mapSidechains.count(sc.scId) == 0)
+                        continue;
+
+                    if ( mapSidechains[sc.scId].scCreationTxHash.IsNull()) {
                         for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
                             txToRemove.push_back(fwdTxHash);
+                    } else
+                        txToRemove.push_back(mapSidechains[sc.scId].scCreationTxHash);
+                } //end of sc loop
             }
 
             for(const CTxIn& txin: tx.vin)
@@ -180,7 +191,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                 if (mapSidechains.count(fwd.scId)) {
                     mapSidechains.at(fwd.scId).fwdTransfersSet.erase(tx.GetHash());
 
-                    if (mapSidechains.at(fwd.scId).fwdTransfersSet.size() == 0 && !mapSidechains.at(fwd.scId).isScCreationInMempool)
+                    if (mapSidechains.at(fwd.scId).fwdTransfersSet.size() == 0 && mapSidechains.at(fwd.scId).scCreationTxHash.IsNull())
                         mapSidechains.erase(fwd.scId);
                 }
             }
@@ -281,6 +292,15 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
                 }
             }
         }
+    }
+
+    for(const auto& sc: tx.vsc_ccout) {
+        if(sidechainExists(sc.scId)) {
+            const uint256& scRedeclarationHash = mapSidechains[sc.scId].scCreationTxHash;
+            const CTransaction &scReDeclarationTx = mapTx[scRedeclarationHash].GetTx();
+            remove(scReDeclarationTx, removed, true);
+        }
+
     }
 }
 
