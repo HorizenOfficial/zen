@@ -86,7 +86,8 @@ https://github.com/ZencashOfficial/zencash-apple
 * Install for Windows (Cross-Compiled, building on Windows is not supported yet)
 
 ```
-./zcutil/build-win.sh -j$(nproc)
+export HOST=x86_64-w64-mingw32
+./zcutil/build.sh -j$(nproc)
 ```
 
 * Install for aarch64(ARM64)
@@ -102,8 +103,35 @@ ln -s /usr/bin/ranlib aarch64-unknown-linux-gnu-ranlib
 ln -s /usr/bin/strip aarch64-unknown-linux-gnu-strip
 PATH=$PATH:~/bin
 cd ~/zen/
-./zcutil/build-arm.sh -j$(nproc)
+export HOST=aarch64-unknown-linux
+./zcutil/build.sh -j$(nproc)
 ```
+Running Regression Tests
+----------------
+1. Get dependencies:
+    1. Debian
+    ```{r, engine='bash'}
+    sudo apt-get install \
+          python python-dev python-pip python-setuptools \
+          python-wheel python-wheel-common python-zmq
+    sudo pip install --upgrade pyblake2
+    ```
+    2. MacOS
+    ```{r, engine='bash'}
+    brew install python@2
+    sudo pip install --upgrade pyblake2 pyzmq
+    ```
+2. Start test suite
+    ```{r, engine='bash'}
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      TEST_ARGS="btest gtest sec-hard no-dot-so util-test secp256k1 libsnark univalue rpc --rpc-extended --rpc-exclude=rpcbind_test.py"
+    else
+      TEST_ARGS="--rpc-extended"
+    fi
+    export HOST=$(gcc -dumpmachine)
+    ./zcutil/fetch-params.sh
+    ./qa/zcash/full_test_suite.py ${TEST_ARGS}
+    ```
 Instructions to redeem pre-block 110,000 ZCL
 -------------
 1. Linux:
