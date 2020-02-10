@@ -2723,14 +2723,7 @@ bool CWallet::CreateTransaction(
                 }
 
                 // vccouts to the payees
-                BOOST_FOREACH (const auto& ccRecipient, vecCcSend)
-                {
-                    CRecipientFactory fac(&txNew, strFailReason);
-                    if (!fac.set(ccRecipient) )
-                    {
-                        return false;
-                    }
-                }
+                Sidechain::FillCcOutput(txNew, vecCcSend, strFailReason);
 
 /*
  * this check has moved before adding to mem pool

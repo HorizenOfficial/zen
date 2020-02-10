@@ -842,7 +842,6 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
     // ---------------------------------------------------------
     CBitcoinAddress fromaddress;
-    bool hasFromAddr = false;
     if (setKeyArgs.count("fromaddress"))
     {
         string inputString = find_value(inputObject, "fromaddress").get_str();
@@ -851,7 +850,6 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown fromaddress format: ")+inputString );
         }
-        hasFromAddr = true;
     }
 
     // ---------------------------------------------------------
