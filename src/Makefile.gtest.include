@@ -10,7 +10,6 @@ zen_gtest_SOURCES = \
 	gtest/test_checktransaction.cpp \
 	gtest/json_test_vectors.cpp \
 	gtest/json_test_vectors.h \
-	gtest/test_foundersreward.cpp \
         gtest/test_forkmanager.cpp \
         gtest/test_checkblockdelay.cpp
 # These tests are order-dependent, because they
@@ -47,7 +46,8 @@ zen_gtest_SOURCES += \
 
 if ENABLE_WALLET
 zen_gtest_SOURCES += \
-	wallet/gtest/test_wallet.cpp
+	wallet/gtest/test_wallet.cpp \
+	wallet/gtest/test_deadlock.cpp
 endif
 
 # zen_gtest_CPPFLAGS = $(AM_CPPFLAGS) -DMULTICORE -fopenmp -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DSTATIC -DBITCOIN_TX $(BITCOIN_INCLUDES)

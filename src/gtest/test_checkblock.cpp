@@ -446,6 +446,32 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     block.vtx[0] = CTransaction(mtx);;
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 
+    //Exceed the LastCommunityRewardBlockHeight
+    int exceedHeight=Params().GetConsensus()._deprecatedGetLastCommunityRewardBlockHeight()+1;
+
+    address_foundation.SetString(Params().GetCommunityFundAddressAtHeight(exceedHeight, Fork::CommunityFundType::FOUNDATION).c_str());
+    address_sec_node.SetString(Params().GetCommunityFundAddressAtHeight(exceedHeight, Fork::CommunityFundType::SECURENODE).c_str());
+    address_sup_node.SetString(Params().GetCommunityFundAddressAtHeight(exceedHeight, Fork::CommunityFundType::SUPERNODE).c_str());
+
+    scriptID_found    = boost::get<CScriptID>(address_foundation.Get());
+    scriptID_sec_node = boost::get<CScriptID>(address_sec_node.Get());
+    scriptID_sup_node = boost::get<CScriptID>(address_sup_node.Get());
+
+    mtx.vin[0].scriptSig = CScript() << exceedHeight << OP_0;
+
+    mtx.vout.resize(3);
+    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
+    mtx.vout[0].nValue = 1.25 * COIN;
+
+    mtx.vout[1].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+    mtx.vout[1].nValue = 0.625 * COIN;
+
+    mtx.vout[2].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+    mtx.vout[2].nValue = 0.625 * COIN;
+
+    indexPrev.nHeight = exceedHeight -1;
+    block.vtx[0] = CTransaction(mtx);;
+    EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 }
 
 TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {

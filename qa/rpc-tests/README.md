@@ -19,6 +19,12 @@ You can run a single test by calling `qa/pull-tester/rpc-tests.sh <testname>`.
 
 Run all possible tests with `qa/pull-tester/rpc-tests.sh -extended`.
 
+Run a subset of the tests with `qa/pull-tester/rpc-tests.sh -split=m:n`, this splits the list of tests into m parts and runs part n.
+E.g. given 30 enabled total tests `qa/pull-tester/rpc-tests.sh -split=3:2` would run tests 11-20.
+
+Exclude individual tests by calling `qa/pull-tester/rpc-tests.sh -exclude=<testname1>,<testname2>`,
+e.g. `-exclude=prioritizetransaction.py,paymentdisclosure`.
+
 Possible options:
 
 ```

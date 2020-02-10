@@ -974,7 +974,7 @@ public:
      * @return multimap of ordered transactions and accounting entries
      * @warning Returned pointers are *only* valid within the scope of passed acentries
      */
-    TxItems OrderedTxItems(std::list<CAccountingEntry>& acentries, std::string strAccount = "");
+    TxItems OrderedTxItems(std::list<CAccountingEntry>& acentries, const std::string& strAccount = "",const std::string& address="*");
 
     void MarkDirty();
     bool UpdateNullifierNoteMap();

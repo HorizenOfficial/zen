@@ -36,7 +36,7 @@ function fetch_aria2 {
     fi
 
     local filename="$1"
-    local dlname="$(basename $2)"
+    local dlname="$(basename "$2")"
 
     cat <<EOF
 
@@ -48,8 +48,8 @@ EOF
         --continue=true \
         --max-tries=3 \
         --retry-wait=2 \
-        --split=16 \
-        --max-connection-per-server=16 \
+        --split=4 \
+        --max-connection-per-server=4 \
         --timeout=90 \
         --auto-save-interval=5 \
         --always-resume=false \
