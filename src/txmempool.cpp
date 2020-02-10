@@ -154,7 +154,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                         txToRemove.push_back(fwdTxHash);
                 } else
                     txToRemove.push_back(mapSidechains[sc.scId].scCreationTxHash);
-            } //end of sc loop
+            }
 
         }
         while (!txToRemove.empty())
@@ -172,7 +172,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                     txToRemove.push_back(it->second.ptx->GetHash());
                 }
 
-                for(const auto& sc: origTx.vsc_ccout) {
+                for(const auto& sc: tx.vsc_ccout) {
                     if (mapSidechains.count(sc.scId) == 0)
                         continue;
 
@@ -181,7 +181,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                             txToRemove.push_back(fwdTxHash);
                     } else
                         txToRemove.push_back(mapSidechains[sc.scId].scCreationTxHash);
-                } //end of sc loop
+                }
             }
 
             for(const CTxIn& txin: tx.vin)
