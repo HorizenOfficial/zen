@@ -21,7 +21,8 @@ import subprocess
 import time
 import re
 
-from authproxy import AuthServiceProxy
+from authproxy import AuthServiceProxy, JSONRPCException
+
 
 def p2p_port(n):
     return 11000 + n + os.getpid()%999
@@ -432,3 +433,54 @@ def wait_and_assert_operationid_status(node, myopid, in_status='success', in_err
         return result # if there was an error return the result
     else:
         return txid # otherwise return the txid
+
+def dump_ordered_tips(tip_list,debug=0):
+    if debug == 0:
+        return
+    sorted_x = sorted(tip_list, key=lambda k: k['status'])
+    c = 0
+    for y in sorted_x:
+        if (c == 0):
+            print (y)
+        else:
+            print (" ", y)
+        c = 1
+def dump_sc_info_record(info, i, debug=0):
+    if debug == 0:
+        return
+    print ("  Node %d - balance: %f" % (i, info["balance"]))
+    print ("    created in block: %s (%d)" % (info["created in block"], info["created at block height"]))
+    print ("    created in tx:    %s" % info["creating tx hash"])
+    print ("    immature amounts:  ", info["immature amounts"])
+
+def dump_sc_info(nodes,nNodes,scId="",debug=0):
+    if debug == 0:
+        return
+    if scId != "":
+        print ("scid: " + scId)
+        print ("-------------------------------------------------------------------------------------")
+        for i in range(0, nNodes):
+            try:
+                dump_sc_info_record(nodes[i].getscinfo(scId), i,debug)
+            except JSONRPCException, e:
+                print "  Node %d: ### [no such scid: %s]" % (i, scId)
+    else:
+        for i in range(0, nNodes):
+            x = nodes[i].getscinfo()
+            for info in x:
+                dump_sc_info_record(info, i,nNodes)
+
+def mark_logs(msg,nodes,debug=0):
+    if debug == 0:
+        return
+    print (msg)
+    for node in nodes:
+        node.dbg_log(msg)
+
+def disconnect_nodes(from_connection, node_num):
+    ip_port = "127.0.0.1:" + str(p2p_port(node_num))
+    from_connection.disconnectnode(ip_port)
+    # poll until version handshake complete to avoid race conditions
+    # with transaction relaying
+    while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
+        time.sleep(0.1)
