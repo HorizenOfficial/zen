@@ -1,79 +1,241 @@
-# errata:
-# - A travis bug causes caches to trample eachother when using the same
-#   compiler key (which we don't use anyway). This is worked around for now by
-#   replacing the "compilers" with a build name prefixed by the no-op ":"
-#   command. See: https://github.com/travis-ci/travis-ci/issues/4393
-# - sudo/dist/group are set so as to get Blue Box VMs, necessary for [loopback]
-#   IPv6 support
-
-sudo: required
-dist: precise
-group: legacy
+language: shell
 
 os: linux
-language: cpp
-compiler: gcc
-env:
-  global:
-    - MAKEJOBS=-j3
-    - RUN_TESTS=false
-    - BOOST_TEST_RANDOM=1$TRAVIS_BUILD_ID
-    - CCACHE_SIZE=100M
-    - CCACHE_TEMPDIR=/tmp/.ccache-temp
-    - CCACHE_COMPRESS=1
-    - BASE_OUTDIR=$TRAVIS_BUILD_DIR/out
-    - SDK_URL=https://bitcoincore.org/depends-sources/sdks
-    - PYTHON_DEBUG=1
-    - WINEDEBUG=fixme-all
-cache:
-  apt: true
-  directories:
-  - depends/built
-  - depends/sdk-sources
-  - $HOME/.ccache
-matrix:
-  fast_finish: true
-  include:
-    - compiler: ": ARM"
-      env: HOST=arm-linux-gnueabihf PACKAGES="g++-arm-linux-gnueabihf" DEP_OPTS="" GOAL="install" BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports"
-    - compiler: ": Win32"
-      env: HOST=i686-w64-mingw32 PACKAGES="nsis gcc-mingw-w64-i686 g++-mingw-w64-i686 binutils-mingw-w64-i686 mingw-w64-dev wine bc" RUN_TESTS=true GOAL="deploy" BITCOIN_CONFIG="--enable-reduce-exports" MAKEJOBS="-j2"
-    - compiler: ": 32-bit + dash"
-      env: HOST=i686-pc-linux-gnu PACKAGES="g++-multilib bc python-zmq" PPA="ppa:chris-lea/zeromq" RUN_TESTS=true GOAL="install" BITCOIN_CONFIG="--enable-zmq --enable-glibc-back-compat --enable-reduce-exports LDFLAGS=-static-libstdc++" USE_SHELL="/bin/dash"
-    - compiler: ": Win64"
-      env: HOST=x86_64-w64-mingw32 PACKAGES="nsis gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 binutils-mingw-w64-x86-64 mingw-w64-dev wine bc" RUN_TESTS=true GOAL="deploy" BITCOIN_CONFIG="--enable-reduce-exports" MAKEJOBS="-j2"
-    - compiler: ": bitcoind"
-      env: HOST=x86_64-unknown-linux-gnu PACKAGES="bc python-zmq" PPA="ppa:chris-lea/zeromq" DEP_OPTS="DEBUG=1" RUN_TESTS=true GOAL="install" BITCOIN_CONFIG="--enable-zmq --enable-glibc-back-compat --enable-reduce-exports CPPFLAGS=-DDEBUG_LOCKORDER"
-    - compiler: ": No wallet"
-      env: HOST=x86_64-unknown-linux-gnu DEP_OPTS="NO_WALLET=1" RUN_TESTS=true GOAL="install" BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports"
-    - compiler: ": Cross-Mac"
-      env: HOST=x86_64-apple-darwin11 PACKAGES="cmake libcap-dev libz-dev libbz2-dev" BITCOIN_CONFIG="--enable-reduce-exports" OSX_SDK=10.9 GOAL="deploy"
-  exclude:
-    - compiler: gcc
+
+.com.github.zencashofficial.zen_ci_testing.env-definitions:
+  - &docker_amd64_linux_ubuntu_xenial
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_xenial
+      - DOCKER_IS_DEB=true
+  - &docker_amd64_linux_ubuntu_bionic
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_bionic
+      - DOCKER_IS_DEB=true
+  - &docker_amd64_windows_ubuntu_bionic
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=windows
+      - DOCKER_FROM=ubuntu_bionic
+      - DOCKER_IS_DEB=true
+  - &docker_amd64_linux_ubuntu_xenial_unit-tests
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_xenial
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="btest gtest sec-hard no-dot-so util-test secp256k1 libsnark univalue"
+  - &docker_amd64_linux_ubuntu_xenial_rpc-tests_1
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_xenial
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=3:1"
+  - &docker_amd64_linux_ubuntu_xenial_rpc-tests_2
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_xenial
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=3:2"
+  - &docker_amd64_linux_ubuntu_xenial_rpc-tests_3
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_xenial
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=3:3"
+  - &docker_amd64_linux_ubuntu_xenial_test-fetch-params
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_xenial
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zen/test-fetch-params.sh"
+  - &docker_amd64_linux_ubuntu_bionic_unit-tests
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_bionic
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="btest gtest sec-hard no-dot-so util-test secp256k1 libsnark univalue"
+  - &docker_amd64_linux_ubuntu_bionic_rpc-tests_1
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_bionic
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=3:1"
+  - &docker_amd64_linux_ubuntu_bionic_rpc-tests_2
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_bionic
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=3:2"
+  - &docker_amd64_linux_ubuntu_bionic_rpc-tests_3
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_bionic
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=3:3"
+  - &amd64_osx_xcode9_4_unit-tests
+    env:
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="btest gtest util-test secp256k1 libsnark univalue"
+  - &amd64_osx_xcode9_4_rpc-tests_1
+    env:
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py --rpc-split=3:1"
+  - &amd64_osx_xcode9_4_rpc-tests_2
+    env:
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py --rpc-split=3:2"
+  - &amd64_osx_xcode9_4_rpc-tests_3
+    env:
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py --rpc-split=3:3"
+
+.com.github.zencashofficial.zen_ci_testing.job-definitions:
+  - &prepare_docker_amd64
+    os: linux
+    dist: bionic
+    cache: false
+    script:
+      - bash "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/prepare/docker_image_build.sh"
+      - bash "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/prepare/docker_image_deploy.sh"
+  - &build_docker_amd64
+    os: linux
+    dist: bionic
+    cache:
+      directories:
+        - "$HOME/.ccache"
+    script:
+      - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/build/build_${TRAVIS_CPU_ARCH}_${DOCKER_TARGET_OS}_${DOCKER_FROM}.sh"
+      - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/push_archive.sh ${B2_UL_COMPRESS_FOLDER} ${B2_UL_FILENAME}"
+  - &test_docker_amd64
+    if: env(SKIP_TESTS) != true
+    os: linux
+    dist: bionic
+    cache:
+      directories:
+        - "$HOME/.zcash-params"
+    script:
+      - bash -c "RENAME_FOLDER='true' RENAME_SUFFIX='_clean' ${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/get_archive.sh ${B2_DL_DECOMPRESS_FOLDER} ${B2_DL_FILENAME}"
+      - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
+      - bash -c '${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/test/run_test.sh "${TEST_CMD}" "${TEST_ARGS}"'
+  - &test_osx_xcode9_4
+    if: (env(SKIP_TESTS) != true) OR (env(SKIP_OSX) != true)
+    os: osx
+    osx_image: xcode9.4
+    cache:
+      directories:
+        - "$HOME/Library/Application Support/ZcashParams"
+    script:
+      - bash -c "RENAME_FOLDER='true' RENAME_SUFFIX='_clean' ${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/get_archive.sh ${B2_DL_DECOMPRESS_FOLDER} ${B2_DL_FILENAME}"
+      - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
+      - bash -c '${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/test/run_test.sh "${TEST_CMD}" "${TEST_ARGS}"'
+
+before_install:
+  - source "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/setup_environment.sh"
+
 install:
-    - if [ -n "$PACKAGES" ]; then sudo rm -f /etc/apt/sources.list.d/travis_ci_zeromq3-source.list; fi
-    - if [ -n "$PACKAGES" ]; then travis_retry sudo apt-get update; fi
-    - if [ -n "$PACKAGES" ]; then travis_retry sudo apt-get install --no-install-recommends --no-upgrade -qq $PACKAGES; fi
-before_script:
-    - unset CC; unset CXX
-    - mkdir -p depends/SDKs depends/sdk-sources
-    - if [ -n "$OSX_SDK" -a ! -f depends/sdk-sources/MacOSX${OSX_SDK}.sdk.tar.gz ]; then curl --location --fail $SDK_URL/MacOSX${OSX_SDK}.sdk.tar.gz -o depends/sdk-sources/MacOSX${OSX_SDK}.sdk.tar.gz; fi
-    - if [ -n "$OSX_SDK" -a -f depends/sdk-sources/MacOSX${OSX_SDK}.sdk.tar.gz ]; then tar -C depends/SDKs -xf depends/sdk-sources/MacOSX${OSX_SDK}.sdk.tar.gz; fi
-    - make $MAKEJOBS -C depends HOST=$HOST $DEP_OPTS
-script:
-    - if [ -n "$USE_SHELL" ]; then export CONFIG_SHELL="$USE_SHELL"; fi
-    - OUTDIR=$BASE_OUTDIR/$TRAVIS_PULL_REQUEST/$TRAVIS_JOB_NUMBER-$HOST
-    - BITCOIN_CONFIG_ALL="--disable-dependency-tracking --prefix=$TRAVIS_BUILD_DIR/depends/$HOST --bindir=$OUTDIR/bin --libdir=$OUTDIR/lib"
-    - depends/$HOST/native/bin/ccache --max-size=$CCACHE_SIZE
-    - if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then export CCACHE_READONLY=1; fi
-    - test -n "$USE_SHELL" && eval '"$USE_SHELL" -c "./autogen.sh"' || ./autogen.sh
-    - ./configure --cache-file=config.cache $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG || ( cat config.log && false)
-    - make distdir PACKAGE=bitcoin VERSION=$HOST
-    - cd bitcoin-$HOST
-    - ./configure --cache-file=../config.cache $BITCOIN_CONFIG_ALL $BITCOIN_CONFIG || ( cat config.log && false)
-    - make $MAKEJOBS $GOAL || ( echo "Build failure. Verbose build follows." && make $GOAL V=1 ; false )
-    - export LD_LIBRARY_PATH=$TRAVIS_BUILD_DIR/depends/$HOST/lib
-    - if [ "$RUN_TESTS" = "true" ]; then make check; fi
-    - if [ "$RUN_TESTS" = "true" ]; then qa/pull-tester/rpc-tests.sh; fi
-after_script:
-    - if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then (echo "Upload goes here. Something like: scp -r $BASE_OUTDIR server" || echo "upload failed"); fi
+  - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/install.sh"
+
+jobs:
+  include:
+    # build and push docker build/test dependency images
+    - stage: Prepare
+      <<: *prepare_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_xenial
+    - stage: Prepare
+      <<: *prepare_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_bionic
+    - stage: Prepare
+      <<: *prepare_docker_amd64
+      <<: *docker_amd64_windows_ubuntu_bionic
+    # build zencash-apple toolchain
+    - stage: Prepare
+      if: env(SKIP_OSX) != true
+      os: osx
+      osx_image: xcode9.4
+      cache: false
+      script:
+        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/prepare/build_zencash-apple.sh"
+        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/push_archive.sh ${B2_UL_COMPRESS_FOLDER} ${B2_UL_FILENAME}"
+    # Docker based builds
+    - stage: Build
+      <<: *build_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_xenial
+    - stage: Build
+      <<: *build_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_bionic
+    - stage: Build
+      <<: *build_docker_amd64
+      <<: *docker_amd64_windows_ubuntu_bionic
+    # osx build
+    - stage: Build
+      if: env(SKIP_OSX) != true
+      os: osx
+      osx_image: xcode9.4
+      cache:
+        directories:
+          - "$HOME/.ccache"
+      script:
+        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/get_archive.sh ${B2_DL_DECOMPRESS_FOLDER} ${B2_DL_FILENAME}"
+        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/build/build_${TRAVIS_CPU_ARCH}_${TRAVIS_OS_NAME}_${TRAVIS_OSX_IMAGE}.sh"
+        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/push_archive.sh ${B2_UL_COMPRESS_FOLDER} ${B2_UL_FILENAME}"
+    # Docker based tests
+    - stage: Test
+      <<: *test_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_xenial_unit-tests
+    - stage: Test
+      <<: *test_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_xenial_rpc-tests_1
+    - stage: Test
+      <<: *test_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_xenial_rpc-tests_2
+    - stage: Test
+      <<: *test_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_xenial_rpc-tests_3
+    - stage: Test
+      <<: *test_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_xenial_test-fetch-params
+    - stage: Test
+      <<: *test_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_bionic_unit-tests
+    - stage: Test
+      <<: *test_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_bionic_rpc-tests_1
+    - stage: Test
+      <<: *test_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_bionic_rpc-tests_2
+    - stage: Test
+      <<: *test_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_bionic_rpc-tests_3
+    # osx based tests
+    - stage: Test
+      <<: *test_osx_xcode9_4
+      <<: *amd64_osx_xcode9_4_unit-tests
+    - stage: Test
+      <<: *test_osx_xcode9_4
+      <<: *amd64_osx_xcode9_4_rpc-tests_1
+    - stage: Test
+      <<: *test_osx_xcode9_4
+      <<: *amd64_osx_xcode9_4_rpc-tests_2
+    - stage: Test
+      <<: *test_osx_xcode9_4
+      <<: *amd64_osx_xcode9_4_rpc-tests_3

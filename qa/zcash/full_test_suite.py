@@ -156,15 +156,16 @@ STAGE_COMMANDS = {
 # Test driver
 #
 
-def run_stage(stage, option=None):
+def run_stage(stage, options=None):
     print('Running stage %s' % stage)
     print('=' * (len(stage) + 14))
     print
 
     cmd = STAGE_COMMANDS[stage]
     if type(cmd) == type([]):
-        if option:
-            cmd.append(option)
+        if options:
+            for option in options:
+                cmd.append(option)
         ret = subprocess.call(cmd) == 0
     else:
         ret = cmd()
@@ -183,6 +184,10 @@ def main():
                         help='One of %s'%STAGES)
     parser.add_argument('--rpc-extended', dest='extended',
                         action='store_true', help='run extended rpc tests')
+    parser.add_argument('--rpc-exclude', dest='exclude',
+                        action='store', help='comma separated string of rpc tests to exclude, see qa/rpc-tests/README.md for more')
+    parser.add_argument('--rpc-split', dest='split',
+                        action='store', help='string in format m:n, see qa/rpc-tests/README.md for more')
     args = parser.parse_args()
 
     # Check for list
@@ -200,9 +205,16 @@ def main():
     # Run the stages
     passed = True
     for s in args.stage:
-        # Check for extended rpc tests
-        if args.extended and s == 'rpc':
-            passed &= run_stage(s, '-extended')
+        # Check for rpc test args
+        if s == 'rpc':
+            options=[]
+            if args.extended:
+                options.append('-extended')
+            if args.exclude:
+                options.append('-exclude=' + args.exclude)
+            if args.split:
+                options.append('-split=' + args.split)
+            passed &= run_stage(s, options)
         else:
             passed &= run_stage(s)
 
