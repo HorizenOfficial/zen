@@ -7,14 +7,14 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
-    dump_sc_info_record
+    dump_sc_info, dump_sc_info_record
 import os
 import pprint
 from decimal import Decimal
 import json
 
 NUMB_OF_NODES = 2
-DEBUG_MODE = 1
+DEBUG_MODE = 0
 SC_COINS_MAT = 2
 
 
@@ -160,7 +160,7 @@ class SCCreateTest(BitcoinTestFramework):
         #------------------------------------------------------------------------------------------
         mark_logs("\nNode 1 create SC with valid input and a fromaddress key/value", self.nodes,DEBUG_MODE)
 
-        sc_id = "aaa"
+        sc_id = "95f5de0829fd3c5e45b63f67beab8c4cb8c1c359ef6e2787aaaf5442d6f4779f"
         wel = 5
         fromaddr = []
         toaddress = "abcdef"
@@ -176,7 +176,7 @@ class SCCreateTest(BitcoinTestFramework):
                     break
         
         mark_logs(("using fromaddress: %s "%fromaddr), self.nodes,DEBUG_MODE)
-        cmdInput = {"fromaddress": fromaddr, "toaddress": toaddress, "amount": amount, "fee": fee}
+        cmdInput = {"scid":sc_id, "fromaddress": fromaddr, "toaddress": toaddress, "amount": amount, "fee": fee}
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
         except JSONRPCException, e:
@@ -225,9 +225,16 @@ class SCCreateTest(BitcoinTestFramework):
         # check that in=out+fee
         assert_equal(totalOutAmount, totalInAmount - fee)
 
+        # get scid and check its value
+        scid = decoded_tx['vsc_ccout'][0]['scid']
+
         mark_logs("\nNode 0 generates 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
+
+        dump_sc_info(self.nodes, NUMB_OF_NODES, scid, DEBUG_MODE)
+        assert_equal(self.nodes[0].getscinfo(scid)['scid'], scid)
+        assert_equal(sc_id, scid)
 
         amount2 = 5.0
         mark_logs(("\nNode 0 sends %s to Node 1" % amount2), self.nodes, DEBUG_MODE)
@@ -238,11 +245,11 @@ class SCCreateTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        conf = 2
+        MIN_CONF = 2
 
         # create with a minconf value which led to an error
         #---------------------------------------------------
-        cmdInput = {'fromaddress':fromaddr, 'toaddress': toaddress, 'amount': 6.0, 'minconf': conf}
+        cmdInput = {'fromaddress':fromaddr, 'toaddress': toaddress, 'amount': 6.0, 'minconf': MIN_CONF}
 
         mark_logs("\nNode 1 create SC with an minconf value in input which gives an error", self.nodes, DEBUG_MODE)
         try:
@@ -254,19 +261,31 @@ class SCCreateTest(BitcoinTestFramework):
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true("minconf" in errorString)
 
-        conf = 1
+        MIN_CONF = 1
 
         # create with a minconf value which is ok
         #---------------------------------------------------
-        cmdInput = {'fromaddress':fromaddr, 'toaddress': toaddress, 'amount': 6.0, 'minconf': conf}
+        cmdInput = {'fromaddress':fromaddr, 'toaddress': toaddress, 'amount': 6.0, 'minconf': MIN_CONF}
 
-        mark_logs("\nNode 1 create SC with an minconf value in input which is OK", self.nodes, DEBUG_MODE)
+        mark_logs("\nNode 1 create SC with an minconf value in input which is OK and with scid auto generation", self.nodes, DEBUG_MODE)
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
+            self.sync_all()
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
+
+        # get scid
+        decoded_tx = self.nodes[1].getrawtransaction(tx, 1)
+        scid = decoded_tx['vsc_ccout'][0]['scid']
+
+        mark_logs("\nNode 0 generates 1 block", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        dump_sc_info(self.nodes, NUMB_OF_NODES, scid, DEBUG_MODE)
+        assert_equal(self.nodes[0].getscinfo(scid)['scid'], scid)
 
 if __name__ == '__main__':
     SCCreateTest().main()
