@@ -286,8 +286,8 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScNonRecursiveRemoval_Di
 
 TEST_F(SidechainsInMempoolTestSuite, RemoveConflictsHandlesConflictingSidechainDeclarations) {
     // Associated scenario: Sidechain creation and some fwds are in mempool.
-    // Sc Creation is confirmed, but ScCreation txs in mempool is different from confirmed one.
-    // removeConflicts removes takes care of it.
+    // Sc Creation is confirmed, but ScCreation tx in mempool is different from confirmed one.
+    // removeConflicts takes care of the duplicated sc creation.
 
     CTxMemPool aMempool(::minRelayTxFee);
     uint256 scId = uint256S("aaaa");
@@ -333,6 +333,34 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsOnlyInMempool_FwdNonRecursiveRemoval) {
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
+}
+
+TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScRecursiveRemoval) {
+    // Associated scenario: Sidechain creation and some fwds are in mempool, e.g. as a result of previous blocks disconnections
+    // One of the new blocks about to me mounted double spends the original fwdTx, hence scCreation is marked for recursive removal by removeForConflicts
+    // both scCreation and fwds must be cleared from mempool
+
+    CTxMemPool aMempool(::minRelayTxFee);
+    uint256 scId = uint256S("aaaa");
+    CTransaction scTx = GenerateScTx(scId, CAmount(10));
+    CTxMemPoolEntry scEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(scTx.GetHash(), scEntry);
+    ASSERT_TRUE(aMempool.sidechainExists(scId));
+
+    CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
+    CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+
+    CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
+    CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+
+    std::list<CTransaction> removedTxs;
+    aMempool.remove(scTx, removedTxs, /*fRecursive*/true);
+
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), scTx));
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdsOnlyInMempool_ScRecursiveRemoval) {

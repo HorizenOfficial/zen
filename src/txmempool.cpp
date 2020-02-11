@@ -149,14 +149,14 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                 if (mapSidechains.count(sc.scId) == 0)
                     continue;
 
-                if (mapSidechains[sc.scId].scCreationTxHash.IsNull()) {
+                if (mapSidechains.at(sc.scId).scCreationTxHash.IsNull()) {
                     for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
                         txToRemove.push_back(fwdTxHash);
                 } else
-                    txToRemove.push_back(mapSidechains[sc.scId].scCreationTxHash);
+                    txToRemove.push_back(mapSidechains.at(sc.scId).scCreationTxHash);
             }
-
         }
+
         while (!txToRemove.empty())
         {
             uint256 hash = txToRemove.front();
@@ -176,11 +176,11 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                     if (mapSidechains.count(sc.scId) == 0)
                         continue;
 
-                    if ( mapSidechains[sc.scId].scCreationTxHash.IsNull()) {
+                    if ( mapSidechains.at(sc.scId).scCreationTxHash.IsNull()) {
                         for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
                             txToRemove.push_back(fwdTxHash);
                     } else
-                        txToRemove.push_back(mapSidechains[sc.scId].scCreationTxHash);
+                        txToRemove.push_back(mapSidechains.at(sc.scId).scCreationTxHash);
                 }
             }
 
@@ -188,7 +188,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                 mapNextTx.erase(txin.prevout);
 
             for(const auto& fwd: tx.vft_ccout) {
-                if (mapSidechains.count(fwd.scId)) {
+                if (mapSidechains.count(fwd.scId)) { //this should be redundant. tx is guaranteed to be in mempool here, and any fwd tx should also be in mapSidechains
                     mapSidechains.at(fwd.scId).fwdTransfersSet.erase(tx.GetHash());
 
                     if (mapSidechains.at(fwd.scId).fwdTransfersSet.size() == 0 && mapSidechains.at(fwd.scId).scCreationTxHash.IsNull())
@@ -196,8 +196,15 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                 }
             }
 
-            for(const auto& sc: tx.vsc_ccout)
-                assert(mapSidechains.erase(sc.scId));
+            for(const auto& sc: tx.vsc_ccout) {
+                    if (mapSidechains.count(sc.scId)) { //this should be redundant. tx is guaranteed to be in mempool here, and any sc tx should also be in mapSidechains
+                        mapSidechains.at(sc.scId).scCreationTxHash.SetNull();
+
+                        if (mapSidechains.at(sc.scId).fwdTransfersSet.size() == 0)
+                            mapSidechains.erase(sc.scId);
+                    }
+            }
+
 
 
             for(const JSDescription& joinsplit: tx.vjoinsplit)
@@ -300,7 +307,6 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
             const CTransaction &scReDeclarationTx = mapTx[scRedeclarationHash].GetTx();
             remove(scReDeclarationTx, removed, true);
         }
-
     }
 }
 
