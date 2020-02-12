@@ -125,7 +125,7 @@ public:
     void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
 
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
-    void remove(const CTransaction &tx, std::list<CTransaction>& removed, bool fRecursive = false);
+    void remove(const CTransaction &tx, std::list<CTransaction>& removed, bool fRecursive = false, bool removeDependantFwds = true);
     void removeWithAnchor(const uint256 &invalidRoot);
     void removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
     void removeConflicts(const CTransaction &tx, std::list<CTransaction>& removed);

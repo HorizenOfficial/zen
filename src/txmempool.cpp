@@ -125,7 +125,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
 }
 
 
-void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& removed, bool fRecursive)
+void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& removed, bool fRecursive,  bool removeDependantFwds)
 {
     // Remove transaction from memory pool
     {
@@ -149,7 +149,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                 if (mapSidechains.count(sc.scId) == 0)
                     continue;
 
-                if (mapSidechains.at(sc.scId).scCreationTxHash.IsNull()) {
+                if (removeDependantFwds) {
                     for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
                         txToRemove.push_back(fwdTxHash);
                 } else
@@ -176,7 +176,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                     if (mapSidechains.count(sc.scId) == 0)
                         continue;
 
-                    if ( mapSidechains.at(sc.scId).scCreationTxHash.IsNull()) {
+                    if (removeDependantFwds) {
                         for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
                             txToRemove.push_back(fwdTxHash);
                     } else
@@ -305,7 +305,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
         if(sidechainExists(sc.scId)) {
             const uint256& scRedeclarationHash = mapSidechains[sc.scId].scCreationTxHash;
             const CTransaction &scReDeclarationTx = mapTx[scRedeclarationHash].GetTx();
-            remove(scReDeclarationTx, removed, true);
+            remove(scReDeclarationTx, removed, /*fRecursive*/true, /*removeDependantFwds*/false);
         }
     }
 }

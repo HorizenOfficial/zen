@@ -287,7 +287,7 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScNonRecursiveRemoval_Di
 TEST_F(SidechainsInMempoolTestSuite, RemoveConflictsHandlesConflictingSidechainDeclarations) {
     // Associated scenario: Sidechain creation and some fwds are in mempool.
     // Sc Creation is confirmed, but ScCreation tx in mempool is different from confirmed one.
-    // removeConflicts takes care of the duplicated sc creation.
+    // removeConflicts takes care of the duplicated sc creation, while keeping fwds in mempool
 
     CTxMemPool aMempool(::minRelayTxFee);
     uint256 scId = uint256S("aaaa");
