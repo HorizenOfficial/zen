@@ -546,13 +546,16 @@ UniValue sc_send(const UniValue& params, bool fHelp)
     uint256 scId;
     scId.SetHex(inputString);
 
-    // sanity check of the side chain ID
-    CCoinsViewCache scView(pcoinsTip);
-    if (!scView.HaveScInfo(scId) )
     {
-        LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+        LOCK(mempool.cs);
+        CCoinsViewMemPool scView(pcoinsTip, mempool);
+        if (!scView.HaveScInfo(scId) )
+        {
+            LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+        }
     }
+
 
 
     // Wallet comments
@@ -3959,12 +3962,14 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
         uint256 scId;
         scId.SetHex(inputString);
 
-        // scid must already been created
-        CCoinsViewCache scView(pcoinsTip);
-        if (!scView.HaveScInfo(scId) )
         {
-            LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+            LOCK(mempool.cs);
+            CCoinsViewMemPool scView(pcoinsTip, mempool);
+            if (!scView.HaveScInfo(scId) )
+            {
+                LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+            }
         }
 
         CRecipientForwardTransfer ft;
