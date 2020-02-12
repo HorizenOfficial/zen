@@ -55,7 +55,7 @@ public:
 
     void SetUp() override {
         GenerateChainActive();
-        pcoinsTip->SetBestBlock(blocks.back().GetBlockHash()); //ABENEGIA: This appear to be called in AcceptToMempool but relevance is unclear
+        pcoinsTip->SetBestBlock(blocks.back().GetBlockHash());
         pindexBestHeader = chainActive.Tip();
 
         InitCoinGeneration();

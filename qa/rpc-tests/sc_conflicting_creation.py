@@ -151,7 +151,6 @@ class ScConflictingCreation(BitcoinTestFramework):
 
         # Both nodes see the Sc created by creation tx coming from node 1
         mark_logs("Check that both Nodes see SC created by tx from Node1", self.nodes,DEBUG_MODE)
-        print(self.nodes[0].getscinfo(scid))
         assert_equal(sc_by_1, self.nodes[0].getscinfo(scid)['creating tx hash'])
         assert_equal(sc_by_1, self.nodes[1].getscinfo(scid)['creating tx hash'])
         if DEBUG_MODE != 0: print ("...OK")

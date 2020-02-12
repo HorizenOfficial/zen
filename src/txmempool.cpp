@@ -385,6 +385,28 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             i++;
         }
 
+        for(const auto& scCreation : tx.vsc_ccout) {
+            //sc creation must be duly recorded in mapSidechain
+            assert(mapSidechains.count(scCreation.scId) != 0);
+            assert(mapSidechains.at(scCreation.scId).scCreationTxHash == tx.GetHash());
+
+            //since sc creation is in mempool, there must not be in blockchain another sc re-declaring it
+            assert(!pcoins->HaveScInfo(scCreation.scId));
+        }
+
+        for(const auto& fwd: tx.vft_ccout) {
+            //fwd must be duly recorded in mapSidechain
+            assert(mapSidechains.count(fwd.scId) != 0);
+            const auto& fwdPos = mapSidechains.at(fwd.scId).fwdTransfersSet.find(tx.GetHash());
+            assert(fwdPos != mapSidechains.at(fwd.scId).fwdTransfersSet.end());
+
+            //there must be no dangling fwds, i.e. sc creation is either in mempool or in blockchain
+            if (!mapSidechains.at(fwd.scId).scCreationTxHash.IsNull())
+                assert(mapTx.count(mapSidechains.at(fwd.scId).scCreationTxHash));
+            else
+                assert(pcoins->HaveScInfo(fwd.scId));
+        }
+
         boost::unordered_map<uint256, ZCIncrementalMerkleTree, CCoinsKeyHasher> intermediates;
 
         BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
