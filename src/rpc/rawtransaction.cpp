@@ -738,6 +738,155 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
     return result;
 }
 
+UniValue createrawcertificate(const UniValue& params, bool fHelp)
+{   
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "createrawcertificate {\"pubkeyhash\":amount,...} {\"scid\":\"id\", \"withdrawalEpochNumber\":n, \"endEpochBlockHash\":\"blockHash\", \"totalAmount\":amount, \"nonce\":\"nonce\" })\n"
+            "\nCreate a SC certificate transferring funds to the given pubkey hash list.\n"
+            "Returns hex-encoded raw certificate.\n"
+            "It is not stored in the wallet or transmitted to the network.\n"
+
+            "\nArguments:\n"
+            "1. \"addresses\"                        (string, required) A json object with pubkeyhash as keys and amounts as values. The amounts must already take into account the certificate fee.\n"
+            "    {\n"                               
+            "      \"pubkeyhash\": x.xxx             (numeric, required) The public key hash corresponding to a Horizen address and the " + CURRENCY_UNIT + " amount to send to\n"
+            "      ,...\n"                          
+            "    }\n"                               
+            "2. \"certificate parameters\"           (string, required) A json object with a list of key/values\n"
+            "    {\n"
+            "      \"scid\":\"id\",                    (string, required) The side chain id\n"
+            "      \"withdrawalEpochNumber\":n       (numeric, required) The epoch number this certificate refers to\n"
+            "      \"endEpochBlockHash\":\"blockHash\" (string, required) The block hash determining the end of the referenced epoch\n"
+            "      \"totalAmount\":amount            (numeric, required) The total amount this certificate is transferring to MC (fee included)\n"
+            "      \"nonce\":\"nonce\",                (string, required) A nonce value in u256 hexadecimal string format\n"
+            "    }\n"
+            "\nResult:\n"
+            "\"certificate\"                         (string) hex string of the certificate\n"
+
+            "\nExamples\n"
+            + HelpExampleCli("createrawcertificate", " \"{\"be276f6905551b2a22548035766c7753e2f9a10c\":9.9999}\" \"{\"scid\":\"02c5e79e8090c32e01e2a8636bfee933fd63c0cc15a78f0888cdf2c25b4a5e5f\", \"withdrawalEpochNumber\":3, \"endEpochBlockHash\":\"0555e4e775ce3cf79d2c15b8981df46c7448e0b408ad0a7c30c043fe5341c04e\", \"totalAmount\":10.0}\" ")
+        );
+
+    LOCK(cs_main);
+    RPCTypeCheck(params, boost::assign::list_of (UniValue::VOBJ)(UniValue::VOBJ));
+
+    UniValue sendTo = params[0].get_obj();
+    UniValue cert_params = params[1].get_obj();
+
+    CMutableScCertificate rawCert;
+    rawCert.nVersion = SC_TX_VERSION;
+
+    // outputs
+    set<CBitcoinAddress> setAddress;
+    vector<string> addrList = sendTo.getKeys();
+    BOOST_FOREACH(const string& name_, addrList)
+    {
+        uint160 pkeyValue;
+        pkeyValue.SetHex(name_);
+
+        CKeyID keyID(pkeyValue);
+        CBitcoinAddress address(keyID);
+        if (!address.IsValid())
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Horizen address: ")+name_);
+
+        if (setAddress.count(address))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+name_);
+        setAddress.insert(address);
+
+        CScript scriptPubKey = GetScriptForDestination(address.Get());
+        CAmount nAmount = AmountFromValue(sendTo[name_]);
+
+        CTxOut out(nAmount, scriptPubKey);
+        rawCert.vout.push_back(out);
+    }
+
+    // valid input keywords
+    static const std::set<std::string> validKeyArgs =
+        {"scid", "withdrawalEpochNumber", "endEpochBlockHash", "totalAmount", "nonce"};
+
+    if (!cert_params.isObject())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
+
+    // keywords set in cmd
+    std::set<std::string> setKeyArgs;
+
+    // sanity check, report error if unknown/duplicate key-value pairs
+    for (const string& s : cert_params.getKeys())
+    {
+        if (!validKeyArgs.count(s))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
+
+        if (setKeyArgs.count(s))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Duplicate key in input: ") + s);
+
+        setKeyArgs.insert(s);
+    }
+
+    uint256 scId;
+    if (setKeyArgs.count("scid"))
+    {
+        string inputString = find_value(cert_params, "scid").get_str();
+        scId.SetHex(inputString);
+    }
+    else
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scid\"" );
+    }
+
+    int withdrawalEpochNumber = -1;
+    if (setKeyArgs.count("withdrawalEpochNumber"))
+    {
+        withdrawalEpochNumber = find_value(cert_params, "withdrawalEpochNumber").get_int();
+    }
+    else
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"withdrawalEpochNumber\"" );
+    }
+
+    uint256 endEpochBlockHash;
+    if (setKeyArgs.count("endEpochBlockHash"))
+    {
+        string inputString = find_value(cert_params, "endEpochBlockHash").get_str();
+        endEpochBlockHash.SetHex(inputString);
+    }
+    else
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"endEpochBlockHash\"" );
+    }
+
+    CAmount totalAmount = 0;
+    if (setKeyArgs.count("totalAmount"))
+    {
+        UniValue av = find_value(cert_params, "totalAmount");
+        totalAmount = AmountFromValue( av );
+    }
+    else
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"totalAmount\"" );
+    }
+
+    uint256 nonce;
+    if (setKeyArgs.count("nonce"))
+    {
+        string inputString = find_value(cert_params, "nonce").get_str();
+        nonce.SetHex(inputString);
+    }
+    else
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"nonce\"" );
+    }
+
+    rawCert.totalAmount = totalAmount;
+    rawCert.scId = scId;
+    rawCert.epochNumber = withdrawalEpochNumber;
+    rawCert.endEpochBlockHash = endEpochBlockHash;
+    rawCert.nonce = nonce;
+
+    return EncodeHexCert(rawCert);
+}
+
+
 UniValue decoderawcertificate(const UniValue& params, bool fHelp)
 {   
     if (fHelp || params.size() != 1)

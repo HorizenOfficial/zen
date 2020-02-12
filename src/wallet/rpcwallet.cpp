@@ -590,7 +590,6 @@ UniValue sc_send(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
     }
 
-
     // Wallet comments
     CWalletTx wtx;
 
@@ -4128,23 +4127,29 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() != 4)
+    if (fHelp || (params.size() < 4 || params.size() > 6) )
         throw runtime_error(
-            "send_certificate scid epochNumber endEpochBlockHash [{\"address\":... ,\"amount\":...},...]\n"
-            "\nSend cross chain backward transfers as a certificate."
+            "send_certificate scid epochNumber endEpochBlockHash [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
+            "\nSend cross chain backward transfers from SC to MC as a certificate."
             "\nArguments:\n"
-            "scid                     (string, required) The uint256 side chain ID\n"
-            "epochNumber              (numeric, required) The epoch number this certificate refers to\n"
-            "endEpochBlockHash        (string, required) The block hash determining the end of the referenced epoch\n"
-            "backward_transfers:      (array, required) An array of json objects representing the amounts of the backward transfers.\n"
+            "1. \"scid\"                  (string, required) The uint256 side chain ID\n"
+            "2. epochNumber             (numeric, required) The epoch number this certificate refers to\n"
+            "3. \"endEpochBlockHash\"     (string, required) The block hash determining the end of the referenced epoch\n"
+            "4. transfers:              (array, required) An array of json objects representing the amounts of the backward transfers.\n"
             "    [{\n"                     
-            "      \"address\":address  (string, required) The address is a taddr or zaddr\n"
-            "      \"amount\":amount    (numeric, required) The numeric amount in " + CURRENCY_UNIT + "\n"
+            "      \"pubkeyhash\":\"pkh\"    (string, required) The public key hash of the receiver\n"
+            "      \"amount\":amount       (numeric, required) The numeric amount in ZEN\n"
             "    }, ... ]\n"
+            "5. subtractfeefromamount   (boolean, optional, default=true) If true, the fee will be deducted equally from the transfer amounts being sent, and\n"
+            "                             the recipients will receive less ZEN than what is specified.\n"
+            "                             If false, the total amount of the certificate (sum of transfer amounts) will be increased by the fee amount.\n"
+            "6. fee                     (numeric, optional) The fee of the certificate in ZEN; if not specified, the fee is calculated internally and will depend on cert size in bytes\n"
             "\nResult:\n"
-            "\"certificateId\"          (string) The resulting tx id containing the certificate.\n"
+            "  \"certificateId\"   (string) The resulting certificate id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("send_certificate", "\"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 123 \"04a1527384c67d9fce3d091ababfc1de325dbac9b3b14025a53722ff6c53d40e\" '[{\"address\": \"ztU36Ee2qAtyqskmi4PcBkZZiPBquR7ZYAR\" ,\"amount\": 5.0}]'")
+            + HelpExampleCli("send_certificate", "\"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 12 \"04a1527384c67d9fce3d091ababfc1de325dbac9b3b14025a53722ff6c53d40e\" '[{\"pubkeyhash\":\"813551c928d41c0436ba7361850797d9b30ad4ed\" ,\"amount\": 5.0}]'")
+            + HelpExampleCli("send_certificate", "\"054671870079a64a491ea68e08ed7579ec2e0bd148c51c6e2fe6385b597540f4\" 10 \"0a85efb37d1130009f1b588dcddd26626bbb159ae4a19a703715277b51033144\" '[{\"pubkeyhash\":\"76fea046133b0acc74ebabbd17b80e99816228ab\", \"amount\":33.5}]' false 0.00001")
+
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -4262,6 +4267,24 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         nTotalOut += nAmount;
     }
 
+    // fee
+    bool fSubtractFeeFromAmount = true;
+    if (params.size() > 4)
+        fSubtractFeeFromAmount = params[4].get_bool();
+
+    CAmount nSpecifiedFee = 0;
+    if (params.size() > 5)
+    {
+        nSpecifiedFee = AmountFromValue(params[5]);
+        if (nSpecifiedFee <= 0)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for fee");
+    }
+
+    if (nSpecifiedFee != 0 && !fSubtractFeeFromAmount)
+    {
+        nTotalOut += nSpecifiedFee;
+    }
+
     CAmount curBalance = ScMgr::instance().getSidechainBalance(scId);
     if (nTotalOut > curBalance)
     {
@@ -4292,42 +4315,54 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         }
     }
 
-    // deduce fee as for tx
-    unsigned int nBytes = ::GetSerializeSize(cert, SER_NETWORK, PROTOCOL_VERSION);
-    CAmount nFeeRet = CWallet::GetMinimumFee(nBytes, DEFAULT_TX_CONFIRM_TARGET, mempool);
-    LogPrint("cert", "%s():%d - fee=%s\n", __func__, __LINE__, FormatMoney(nFeeRet));
-
-    const unsigned int numbOfReceivers = vecSend.size();
-    bool fFirst = true;
-
-    BOOST_FOREACH (auto& out, cert.vout)
+    CAmount nFeeRet = 0;
+    if (nSpecifiedFee == 0)
     {
-        out.nValue -= nFeeRet / numbOfReceivers; // Subtract fee equally from each selected recipient
+        // deduce fee as for tx
+        unsigned int nBytes = ::GetSerializeSize(cert, SER_NETWORK, PROTOCOL_VERSION);
+        nFeeRet = CWallet::GetMinimumFee(nBytes, DEFAULT_TX_CONFIRM_TARGET, mempool);
+    }
+    else
+    {
+        nFeeRet = nSpecifiedFee;
+    }
+    LogPrint("cert", "%s():%d - fee=%s, subtractFromAmonts=%d\n",
+        __func__, __LINE__, FormatMoney(nFeeRet), (int)fSubtractFeeFromAmount);
+
+    if (fSubtractFeeFromAmount)
+    {
+        const unsigned int numbOfReceivers = vecSend.size();
+        bool fFirst = true;
  
-        if (fFirst) // first receiver pays the remainder not divisible by output count
+        BOOST_FOREACH (auto& out, cert.vout)
         {
-            fFirst = false;
-            out.nValue -= nFeeRet % numbOfReceivers;
-        }
- 
-        if (out.IsDust(::minRelayTxFee))
-        {
-            if (nFeeRet > 0)
+            out.nValue -= nFeeRet / numbOfReceivers; // Subtract fee equally from each selected recipient
+  
+            if (fFirst) // first receiver pays the remainder not divisible by output count
             {
-                if (out.nValue < 0)
+                fFirst = false;
+                out.nValue -= nFeeRet % numbOfReceivers;
+            }
+  
+            if (out.IsDust(::minRelayTxFee))
+            {
+                if (nFeeRet > 0)
                 {
-                    strFailReason = _("The transaction amount is too small to pay the fee");
+                    if (out.nValue < 0)
+                    {
+                        strFailReason = _("The transaction amount is too small to pay the fee");
+                    }
+                    else
+                    {
+                        strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
+                    }
                 }
                 else
                 {
-                    strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
+                    strFailReason = _("Transaction amount too small");
                 }
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strFailReason );
             }
-            else
-            {
-                strFailReason = _("Transaction amount too small");
-            }
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strFailReason );
         }
     }
 

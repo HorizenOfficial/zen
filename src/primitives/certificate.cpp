@@ -201,9 +201,9 @@ void CScCertificate::SyncWithWallets(const CBlock* pblock) const
 
 bool CScCertificate::Check(CValidationState& state, libzcash::ProofVerifier& /*unused*/) const
 {
-    if (vout.empty())
+    if (vout.empty() && totalAmount <= 0)
     {
-        return state.DoS(10, error("vout empty"), REJECT_INVALID, "bad-cert-vout-empty");
+        return state.DoS(10, error("vout empty and totalAmount <= 0"), REJECT_INVALID, "bad-cert-empty");
     }
 
     BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_CERT_SIZE); // sanity

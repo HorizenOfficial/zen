@@ -163,7 +163,24 @@ bool ScCoinsView::IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertif
         LogPrint("sc", "%s():%d - invalid cert[%s], scId[%s] invalid epoch data\n",
             __func__, __LINE__, certHash.ToString(), scId.ToString() );
         return state.Invalid(error("certificate with invalid epoch considering mempool"),
-             REJECT_INVALID, "sidechain-certificate");
+             REJECT_INVALID, "sidechain-certificate-epoch");
+    }
+
+    // a certificate can not be received after a fixed amount of blocks (for the time being it is epoch length / 5) from the end of epoch (TODO)
+    int maxHeight = ScMgr::getCertificateMaxIncomingHeight(cert.scId, cert.epochNumber);
+    if (maxHeight < 0)
+    {
+        LogPrintf("ERROR: certificate %s, can not calculate max recv height\n", certHash.ToString());
+        return state.Invalid(error("can not calculate max recv height for cert"),
+             REJECT_INVALID, "sidechain-certificate-error");
+    }
+
+    if (maxHeight < chainActive.Height())
+    {
+        LogPrintf("ERROR: delayed certificate[%s], max height for receiving = %d, active height = %d\n",
+            certHash.ToString(), maxHeight, chainActive.Height());
+        return state.Invalid(error("received a delayed cert"),
+             REJECT_INVALID, "sidechain-certificate-delayed");
     }
 
     // when called for checking the contents of mempool we can find the certificate itself, which is OK
@@ -174,7 +191,7 @@ bool ScCoinsView::IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertif
         LogPrintf("ERROR: certificate %s for epoch %d is already been issued\n", 
             (conflictingCertHash == uint256())?"":conflictingCertHash.ToString(), cert.epochNumber);
         return state.Invalid(error("A certificate with the same scId/epoch is already issued"),
-             REJECT_INVALID, "sidechain-certificate");
+             REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
     if (ScMgr::instance().sidechainExists(cert.scId))
@@ -943,6 +960,7 @@ int ScMgr::getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber)
     }
 
     // the safety margin from the end of referred epoch is computed as 20% of epoch length + 1
+    // TODO move this in consensus params
     int val = info.creationBlockHeight + (epochNumber * info.creationData.withdrawalEpochLength) +
         (int)(info.creationData.withdrawalEpochLength/5) + 1;
 

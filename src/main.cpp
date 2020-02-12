@@ -1389,9 +1389,9 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // a not existing one and so on
     if (!tx.IsApplicableToState() )
     {
+        LogPrint("sc", "%s():%d - tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString());
         return false;
     }
-    LogPrint("sc", "%s():%d - tx [%s] is applicable\n", __func__, __LINE__, hash.ToString());
 
     // Check for conflicts with in-memory transactions
     {
@@ -1425,9 +1425,9 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // mempool nullifiers check has also been moved in this check, since it is specific for transaction (not cert)
         if(!tx.IsAllowedInMempool(state, pool) )
         {
+            LogPrint("sc", "%s():%d - tx [%s] is not allowed in mempool\n", __func__, __LINE__, hash.ToString());
             return false;
         }
-        LogPrint("sc", "%s():%d - tx [%s] has no conflicts in mempool\n", __func__, __LINE__, hash.ToString());
 #endif
     }
 
@@ -1439,6 +1439,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
         if (!tx.CheckInputs(nValueIn, pool, view, pcoinsTip, pfMissingInputs, state))
         {
+            LogPrint("sc", "%s():%d - tx [%s] inputs has failed check\n", __func__, __LINE__, hash.ToString());
             return false;
         }
 
