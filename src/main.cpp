@@ -2383,17 +2383,8 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     }
 
     // undo transactions in reverse order
-#if 0
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
         const CTransaction &tx = block.vtx[i];
-#else
-    std::vector<const CTransactionBase*> vTxBase;
-    block.GetTxAndCertsVector(vTxBase);
-
-    for (int i = vTxBase.size() - 1; i >= 0; i--)
-    {
-        const CTransactionBase &tx = *(vTxBase[i]);
-#endif
         uint256 hash = tx.GetHash();
 
         // Check that all outputs are available and match the outputs in the block itself
@@ -2408,38 +2399,25 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             // but it must be corrected before txout nversion ever influences a network rule.
             if (outsBlock.nVersion < 0)
                 outs->nVersion = outsBlock.nVersion;
-            if (*outs != outsBlock)
-#if 0
-                fClean = fClean && error("DisconnectBlock(): added transaction mismatch? database corrupted");
-#else
-            {
+            if (*outs != outsBlock) {
                 fClean = fClean && error("DisconnectBlock(): added transaction mismatch? database corrupted");
                 LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, hash.ToString());
             }
-#endif
  
             // remove outputs
             outs->Clear();
         }
 
-#if 0
         // unspend nullifiers
         BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
             BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
                 view.SetNullifier(nf, false);
             }
         }
-#else
-        tx.UnspendNullifiers(view);
-#endif
+
 
         LogPrint("sc", "%s():%d - undo sc outputs if any\n", __func__, __LINE__);
-#if 0
-        if (!scView.RevertTxOutputs(tx, pindex->nHeight) )
-#else
-        if (!tx.RevertOutputs(scView, pindex->nHeight) )
-#endif
-        {
+        if (!scView.RevertOutputs(tx, pindex->nHeight) ) {
             LogPrint("sc", "%s():%d - ERROR undoing sc creation\n", __func__, __LINE__);
             return error("DisconnectBlock(): sc creation can not be reverted: data inconsistent");
         }
@@ -2447,7 +2425,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         // restore inputs
         if (i > 0) { // not coinbases
             const CTxUndo &txundo = blockUndo.vtxundo[i-1];
-#if 0
             if (txundo.vprevout.size() != tx.vin.size())
                 return error("DisconnectBlock(): transaction and undo data inconsistent");
             for (unsigned int j = tx.vin.size(); j-- > 0;) {
@@ -2456,12 +2433,15 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 if (!ApplyTxInUndo(undo, view, out))
                     fClean = false;
             }
-#else
-            if (!tx.RestoreInputs(txundo, view, fClean) )
-            {
-                return error("DisconnectBlock(): transaction and undo data inconsistent");
-            }
-#endif
+        }
+    }
+
+    // undo transactions in reverse order
+    for (int i = block.vcert.size() - 1; i >= 0; i--) {
+        const CScCertificate& cert = block.vcert[i];
+        if (!scView.RevertOutputs(cert, pindex->nHeight) ) {
+            LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
+            return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
         }
     }
 

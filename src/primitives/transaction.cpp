@@ -586,8 +586,6 @@ bool CTransaction::CheckFinal(int flags) const { return true; }
 bool CTransaction::IsApplicableToState() const { return true; }
 bool CTransaction::IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const { return true; }
 bool CTransaction::HasNoInputsInMempool(const CTxMemPool& pool) const { return true; }
-bool CTransaction::RestoreInputs(const CTxUndo& txundo, CCoinsViewCache& view, bool& fClean) const { return true; };
-void CTransaction::UnspendNullifiers(CCoinsViewCache& view) const { return; }
 bool CTransaction::HaveJoinSplitRequirements(const CCoinsViewCache& view) const { return true; }
 void CTransaction::HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const { return; };
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
@@ -596,7 +594,6 @@ bool CTransaction::HaveInputs(const CCoinsViewCache& view) const { return true; 
 void CTransaction::UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const { return; }
 void CTransaction::UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo &undo, int nHeight) const { return; }
 bool CTransaction::UpdateScInfo(Sidechain::ScCoinsViewCache& scView, const CBlock& block, int nHeight, CBlockUndo& bu) const { return true; }
-bool CTransaction::RevertOutputs(Sidechain::ScCoinsViewCache& view, int nHeight) const { return true; }
 bool CTransaction::AreInputsStandard(CCoinsViewCache& view) const { return true; }
 bool CTransaction::CheckInputs(CAmount& nValueIn, CTxMemPool& pool, CCoinsViewCache& view, CCoinsViewCache* pcoinsTip,
         bool* pfMissingInputs, CValidationState &state) const { return true; }
@@ -811,32 +808,6 @@ bool CTransaction::HasNoInputsInMempool(const CTxMemPool& pool) const
     return true;
 }
 
-bool CTransaction::RestoreInputs(const CTxUndo& txundo, CCoinsViewCache& view, bool& fClean) const
-{
-    // restore inputs
-    if (!IsCoinBase())
-    {
-        if (txundo.vprevout.size() != vin.size())
-            return false;
-        for (unsigned int j = vin.size(); j-- > 0;) {
-            const COutPoint &out = vin[j].prevout;
-            const CTxInUndo &undo = txundo.vprevout[j];
-            if (!::ApplyTxInUndo(undo, view, out))
-                fClean = false;
-        }
-    }
-    return true;
-}
-
-void CTransaction::UnspendNullifiers(CCoinsViewCache& view) const
-{
-    BOOST_FOREACH(const JSDescription &joinsplit, vjoinsplit) {
-        BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
-            view.SetNullifier(nf, false);
-        }
-    }
-}
-
 bool CTransaction::HaveJoinSplitRequirements(const CCoinsViewCache& view) const
 {
     return view.HaveJoinSplitRequirements(*this);
@@ -884,11 +855,6 @@ void CTransaction::UpdateCoins(CValidationState &state, CCoinsViewCache& view, C
 bool CTransaction::UpdateScInfo(Sidechain::ScCoinsViewCache& scView, const CBlock& block, int nHeight, CBlockUndo& /*unused*/) const
 {
     return scView.UpdateScInfo(*this, block, nHeight);
-}
-
-bool CTransaction::RevertOutputs(Sidechain::ScCoinsViewCache& scView, int nHeight) const
-{
-    return scView.RevertTxOutputs(*this, nHeight);
 }
 
 bool CTransaction::AreInputsStandard(CCoinsViewCache& view) const 

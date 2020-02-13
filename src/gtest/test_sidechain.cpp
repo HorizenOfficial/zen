@@ -496,7 +496,7 @@ TEST_F(SidechainTestSuite, YouCannotRestoreCoinsFromInexistentSc) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-/////////////////////////////// RevertTxOutputs ///////////////////////////////
+/////////////////////////////// RevertOutputs ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainTestSuite, RevertingScCreationTxRemovesTheSc) {
     uint256 scId = uint256S("a1b2");
@@ -506,7 +506,7 @@ TEST_F(SidechainTestSuite, RevertingScCreationTxRemovesTheSc) {
     coinViewCache.UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
     //test
-    bool res = coinViewCache.RevertTxOutputs(aTransaction, scCreationHeight);
+    bool res = coinViewCache.RevertOutputs(aTransaction, scCreationHeight);
 
     //checks
     EXPECT_TRUE(res);
@@ -525,7 +525,7 @@ TEST_F(SidechainTestSuite, RevertingFwdTransferRemovesCoinsFromImmatureBalance) 
     coinViewCache.UpdateScInfo(aTransaction, aBlock, fwdTxHeight);
 
     //test
-    bool res = coinViewCache.RevertTxOutputs(aTransaction, fwdTxHeight);
+    bool res = coinViewCache.RevertOutputs(aTransaction, fwdTxHeight);
 
     //checks
     EXPECT_TRUE(res);
@@ -539,7 +539,7 @@ TEST_F(SidechainTestSuite, ScCreationTxCannotBeRevertedIfScIsNotPreviouslyCreate
     CTransaction aTransaction = createNewSidechainTxWith(uint256S("a1b2"),CAmount(15));
 
     //test
-    bool res = coinViewCache.RevertTxOutputs(aTransaction, /*height*/int(1789));
+    bool res = coinViewCache.RevertOutputs(aTransaction, /*height*/int(1789));
 
     //checks
     EXPECT_FALSE(res);
@@ -549,7 +549,7 @@ TEST_F(SidechainTestSuite, FwdTransferTxToUnexistingScCannotBeReverted) {
     CTransaction aTransaction = createFwdTransferTxWith(uint256S("a1b2"), CAmount(999));
 
     //test
-    bool res = coinViewCache.RevertTxOutputs(aTransaction, /*height*/int(1789));
+    bool res = coinViewCache.RevertOutputs(aTransaction, /*height*/int(1789));
 
     //checks
     EXPECT_FALSE(res);
@@ -569,7 +569,7 @@ TEST_F(SidechainTestSuite, RevertingAFwdTransferOnTheWrongHeightHasNoEffect) {
 
     //test
     int faultyHeight = fwdTxHeight -1;
-    bool res = coinViewCache.RevertTxOutputs(aTransaction, faultyHeight);
+    bool res = coinViewCache.RevertOutputs(aTransaction, faultyHeight);
 
     //checks
     EXPECT_FALSE(res);
@@ -707,7 +707,7 @@ TEST_F(SidechainTestSuite, FlushPersistScErasureToo) {
     coinViewCache.UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
     coinViewCache.Flush();
 
-    coinViewCache.RevertTxOutputs(aTransaction, /*height*/int(1789));
+    coinViewCache.RevertOutputs(aTransaction, /*height*/int(1789));
 
     //test
     bool res = coinViewCache.Flush();

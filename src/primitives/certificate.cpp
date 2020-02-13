@@ -150,7 +150,6 @@ double CScCertificate::GetPriority(const CCoinsViewCache &view, int nHeight) con
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
 bool CScCertificate::UpdateScInfo(Sidechain::ScCoinsViewCache& view, const CBlock& block, int nHeight, CBlockUndo& bu) const { return true; }
-bool CScCertificate::RevertOutputs(Sidechain::ScCoinsViewCache& view, int nHeight) const { return true; }
 
 void CScCertificate::RemoveFromMemPool(CTxMemPool* pool) const {return;} 
 
@@ -171,12 +170,6 @@ bool CScCertificate::UpdateScInfo(Sidechain::ScCoinsViewCache& scView, const CBl
 {
     //LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
     return scView.UpdateScInfo(*this, bu);
-}
-
-bool CScCertificate::RevertOutputs(Sidechain::ScCoinsViewCache& scView, int nHeight) const
-{
-    //LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
-    return scView.RevertCertOutputs(*this, nHeight);
 }
 
 void CScCertificate::RemoveFromMemPool(CTxMemPool* mempool) const 

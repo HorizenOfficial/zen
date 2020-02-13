@@ -722,7 +722,6 @@ public:
     virtual void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const = 0;
 
     virtual bool UpdateScInfo(Sidechain::ScCoinsViewCache& view, const CBlock& block, int nHeight, CBlockUndo& bu) const = 0;
-    virtual bool RevertOutputs(Sidechain::ScCoinsViewCache& view, int nHeight) const = 0;
 
     virtual double GetPriority(const CCoinsViewCache &view, int nHeight) const = 0;
     virtual unsigned int GetLegacySigOpCount() const = 0;
@@ -739,8 +738,6 @@ public:
     // Return sum of JoinSplit vpub_new if supported
     virtual CAmount GetJoinSplitValueIn() const { return 0; }
 
-    virtual bool RestoreInputs(const CTxUndo& txundo, CCoinsViewCache& view, bool& fClean) const { return true; }
-    virtual void UnspendNullifiers(CCoinsViewCache& view) const { return; }
     virtual bool HaveJoinSplitRequirements(const CCoinsViewCache& view) const { return true; }
     virtual void HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const { return; }
     virtual void AddJoinSplitToJSON(UniValue& entry) const { return; }
@@ -978,8 +975,6 @@ public:
     bool IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const override;
     bool HasNoInputsInMempool(const CTxMemPool& pool) const override;
     bool IsApplicableToState() const override;
-    bool RestoreInputs(const CTxUndo& txundo, CCoinsViewCache& view, bool& fClean) const override;
-    void UnspendNullifiers(CCoinsViewCache& view) const override;
     bool HaveJoinSplitRequirements(const CCoinsViewCache& view) const override;
     void HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const override;
     void AddJoinSplitToJSON(UniValue& entry) const override;
@@ -988,7 +983,6 @@ public:
     void UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const override;
     void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const override;
     bool UpdateScInfo(Sidechain::ScCoinsViewCache& view, const CBlock& block, int nHeight, CBlockUndo& bu) const override;
-    bool RevertOutputs(Sidechain::ScCoinsViewCache& view, int nHeight) const override;
     bool AreInputsStandard(CCoinsViewCache& view) const override;
     bool CheckInputs(CAmount& nValueIn, CTxMemPool& pool, CCoinsViewCache& view, CCoinsViewCache* pcoinsTip,
         bool* pfMissingInputs, CValidationState &state) const override;

@@ -122,8 +122,8 @@ public:
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& bu);
 
-    bool RevertTxOutputs(const CTransaction& tx, int nHeight);
-    bool RevertCertOutputs(const CScCertificate& cert, int nHeight);
+    template<typename TxType>
+    bool RevertOutputs(const TxType& tx, int nHeight);
     bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
     bool checkCertificateInMemPool(const CTxMemPool& pool, const CScCertificate& cert);
