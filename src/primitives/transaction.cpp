@@ -922,7 +922,22 @@ unsigned int CTransaction::GetP2SHSigOpCount(CCoinsViewCache& view) const
 
 unsigned int CTransaction::GetLegacySigOpCount() const 
 {
-    return ::GetLegacySigOpCount(*this);
+    /**
+     * Count ECDSA signature operations the old-fashioned (pre-0.6) way
+     * @return number of sigops this transaction's outputs will produce when spent
+     * @see CTransaction::FetchInputs
+     */
+    unsigned int nSigOps = 0;
+
+    for(const CTxIn& txin: vin) {
+        nSigOps += txin.scriptSig.GetSigOpCount(false);
+    }
+
+    for(const CTxOut& txout: vout) {
+        nSigOps += txout.scriptPubKey.GetSigOpCount(false);
+    }
+
+    return nSigOps;
 }
 
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,

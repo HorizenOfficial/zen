@@ -922,20 +922,6 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
     return true;
 }
 
-unsigned int GetLegacySigOpCount(const CTransaction& tx)
-{
-    unsigned int nSigOps = 0;
-    BOOST_FOREACH(const CTxIn& txin, tx.vin)
-    {
-        nSigOps += txin.scriptSig.GetSigOpCount(false);
-    }
-    BOOST_FOREACH(const CTxOut& txout, tx.vout)
-    {
-        nSigOps += txout.scriptPubKey.GetSigOpCount(false);
-    }
-    return nSigOps;
-}
-
 unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& inputs)
 {
     if (tx.IsCoinBase())
@@ -4001,11 +3987,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
     // because we receive the wrong transactions for it.
 
     // Size limits
-#if 0
-    if (block.vtx.empty() || block.vtx.size() > MAX_BLOCK_SIZE || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION) > MAX_BLOCK_SIZE)
-#else
     if (block.vtx.empty() || (block.vtx.size() + block.vcert.size()) > MAX_BLOCK_SIZE || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION) > MAX_BLOCK_SIZE)
-#endif
         return state.DoS(100, error("CheckBlock(): size limits failed"),
                          REJECT_INVALID, "bad-blk-length");
 
@@ -4018,36 +4000,28 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
             return state.DoS(100, error("CheckBlock(): more than one coinbase"),
                              REJECT_INVALID, "bad-cb-multiple");
 
-#if 0
-    // Check transactions
-    BOOST_FOREACH(const CTransaction& tx, block.vtx)
-    {
-        if (!CheckTransaction(tx, state, verifier))
-#else
     // Check transactions and certificates
-    std::vector<const CTransactionBase*> vTxBase;
-    block.GetTxAndCertsVector(vTxBase);
-
-    for (const CTransactionBase* obj: vTxBase)
-    {
-        if (!obj->Check(state, verifier) )
-#endif
-        {
+    for(const CTransaction& tx: block.vtx) {
+        if (!tx.Check(state, verifier)) {
             return error("CheckBlock(): CheckTransaction failed");
         }
     }
 
-    unsigned int nSigOps = 0;
-#if 0
-    BOOST_FOREACH(const CTransaction& tx, block.vtx)
-    {
-        nSigOps += GetLegacySigOpCount(tx);
-#else
-    for (const CTransactionBase* obj: vTxBase)
-    {
-        nSigOps += obj->GetLegacySigOpCount();
-#endif
+    for(const CScCertificate& cert: block.vcert) {
+        if (!cert.Check(state, verifier)) {
+            return error("CheckBlock(): Certificate check failed");
+        }
     }
+
+    unsigned int nSigOps = 0;
+    for(const CTransaction& tx: block.vtx) {
+        nSigOps += tx.GetLegacySigOpCount();
+    }
+
+    for(const CScCertificate& cert: block.vcert) {
+        nSigOps += cert.GetLegacySigOpCount();
+    }
+
     if (nSigOps > MAX_BLOCK_SIGOPS)
         return state.DoS(100, error("CheckBlock(): out-of-bounds SigOpCount"),
                          REJECT_INVALID, "bad-blk-sigops", true);
