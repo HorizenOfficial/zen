@@ -810,10 +810,8 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
         if (!validKeyArgs.count(s))
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
 
-        if (setKeyArgs.count(s))
+        if (!setKeyArgs.insert(s).second)
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Duplicate key in input: ") + s);
-
-        setKeyArgs.insert(s);
     }
 
     // ---------------------------------------------------------
@@ -873,10 +871,10 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     {
         UniValue av = find_value(inputObject, "amount");
         nAmount = AmountFromValue( av );
-        if (nAmount <= 0)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
         if (!MoneyRange(nAmount))
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount out of range");
+        if (nAmount == 0)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount can not be null");
     }
     else
     {
@@ -906,14 +904,14 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             nFee = AmountFromValue(val);
         }
     }
-    if (nFee < 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, fee must not be negative");
+    if (!MoneyRange(nFee))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, fee out of range");
     if (nFee > nAmount)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Fee %s is greater than outputs %s",
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Fee %s is greater than output %s",
             FormatMoney(nFee), FormatMoney(nAmount)));
 
     CMutableTransaction tx_create;
-	tx_create.nVersion = SC_TX_VERSION;
+    tx_create.nVersion = SC_TX_VERSION;
 
     Sidechain::ScRpcCreationCmd cmd(
         tx_create, scId, withdrawalEpochLength,
@@ -3006,7 +3004,7 @@ UniValue zc_sample_joinsplit(const UniValue& params, bool fHelp)
     uint256 pubKeyHash;
     uint256 anchor = ZCIncrementalMerkleTree().root();
     JSDescription samplejoinsplit(isGroth,
-								  *pzcashParams,
+                                  *pzcashParams,
                                   pubKeyHash,
                                   anchor,
                                   {JSInput(), JSInput()},
@@ -3344,7 +3342,7 @@ UniValue zc_raw_joinsplit(const UniValue& params, bool fHelp)
     mtx.nVersion = shieldedTxVersion;
     mtx.joinSplitPubKey = joinSplitPubKey;
     JSDescription jsdesc(mtx.nVersion == GROTH_TX_VERSION,
-						 *pzcashParams,
+                         *pzcashParams,
                          joinSplitPubKey,
                          anchor,
                          {vjsin[0], vjsin[1]},
@@ -4050,10 +4048,10 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
 
     CMutableTransaction contextualTx;
     bool isShielded = !fromTaddr || zaddrRecipients.size() > 0;
-	contextualTx.nVersion = 1;
-	if(isShielded) {
-		contextualTx.nVersion = shieldedTxVersion;
-	}    
+    contextualTx.nVersion = 1;
+    if(isShielded) {
+        contextualTx.nVersion = shieldedTxVersion;
+    }    
     // Create operation and add to global queue
     std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
     std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(contextualTx, fromaddress, taddrRecipients, zaddrRecipients, nMinDepth, nFee, contextInfo) );

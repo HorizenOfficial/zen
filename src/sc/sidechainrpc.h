@@ -7,8 +7,8 @@
 #include "base58.h"
 
 //------------------------------------------------------------------------------------
-#define SC_RPC_OPERATION_DEFAULT_MINERS_FEE    10000
-#define SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH    100
+static const CAmount SC_RPC_OPERATION_DEFAULT_MINERS_FEE(10000);
+static const int SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH(100);
 
 class UniValue;
 class CTransaction;
@@ -81,9 +81,6 @@ void AddScInfoToJSON(UniValue& result);
 bool AddScInfoToJSON(const uint256& scId, UniValue& sc);
 void AddScInfoToJSON(const uint256& scId, const ScInfo& info, UniValue& sc);
 
-// Input UTXO is a tuple (triple) of txid, vout, amount)
-typedef std::tuple<uint256, int, CAmount> CmdUTXO;
-
 class ScRpcCreationCmd
 {
   private:
@@ -104,6 +101,9 @@ class ScRpcCreationCmd
     CAmount _dustThreshold;
     CAmount _totalInputAmount;
     std::string _signedTxHex;
+
+    // Input UTXO is a tuple (triple) of txid, vout, amount)
+    typedef std::tuple<uint256, int, CAmount> SelectedUTXO;
 
   public:
     ScRpcCreationCmd(

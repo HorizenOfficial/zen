@@ -8,13 +8,13 @@
 
 #include <wallet/wallet.h>
 
+#include <core_io.h>
+#include <rpc/server.h>
+#include <main.h>
+#include <init.h>
+
 extern UniValue ValueFromAmount(const CAmount& amount);
 extern CAmount AmountFromValue(const UniValue& value);
-extern CWallet* pwalletMain;
-extern CFeeRate minRelayTxFee;
-extern std::string EncodeHexTx(const CTransaction& tx);
-extern UniValue signrawtransaction(const UniValue& params, bool fHelp);
-extern UniValue sendrawtransaction(const UniValue& params, bool fHelp);
 
 namespace Sidechain
 {
@@ -248,7 +248,7 @@ ScRpcCreationCmd::ScRpcCreationCmd(
 void ScRpcCreationCmd::addInputs()
 {
     std::vector<COutput> vAvailableCoins;
-    std::vector<CmdUTXO> vInputUtxo;
+    std::vector<SelectedUTXO> vInputUtxo;
 
     static const bool fOnlyConfirmed = false;
     static const bool fIncludeZeroValue = false;
@@ -280,38 +280,22 @@ void ScRpcCreationCmd::addInputs()
 
         CAmount nValue = out.tx->vout[out.i].nValue;
 
-        CmdUTXO utxo(out.tx->GetHash(), out.i, nValue);
+        SelectedUTXO utxo(out.tx->GetHash(), out.i, nValue);
         vInputUtxo.push_back(utxo);
     }
 
     // sort in ascending order, so smaller utxos appear first
-    std::sort(vInputUtxo.begin(), vInputUtxo.end(), [](CmdUTXO i, CmdUTXO j) -> bool {
+    std::sort(vInputUtxo.begin(), vInputUtxo.end(), [](SelectedUTXO i, SelectedUTXO j) -> bool {
         return ( std::get<2>(i) < std::get<2>(j));
     });
 
-    CAmount totUTXOAmount = 0;
-    for (const auto & t : vInputUtxo) {
-        totUTXOAmount += std::get<2>(t);
-    }
-
     CAmount targetAmount = _nAmount + _fee;
-
-    if (totUTXOAmount < targetAmount)
-    {
-        std::string addrDetails;
-        if (_hasFromAddress)
-            addrDetails = strprintf(" for taddr[%s]", _fromMcAddress.ToString());
-
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
-            strprintf("Insufficient transparent funds %s, have %s, need %s (minconf=%d)",
-            addrDetails, FormatMoney(totUTXOAmount), FormatMoney(targetAmount), _minConf));
-    }
 
     CAmount dustChange = -1;
 
-    std::vector<CmdUTXO> vSelectedInputUTXO;
+    std::vector<SelectedUTXO> vSelectedInputUTXO;
 
-    for (const CmdUTXO & t : vInputUtxo)
+    for (const SelectedUTXO & t : vInputUtxo)
     {
         _totalInputAmount += std::get<2>(t);
         vSelectedInputUTXO.push_back(t);
@@ -326,11 +310,22 @@ void ScRpcCreationCmd::addInputs()
         }
     }
 
+    if (_totalInputAmount < targetAmount)
+    {
+        std::string addrDetails;
+        if (_hasFromAddress)
+            addrDetails = strprintf(" for taddr[%s]", _fromMcAddress.ToString());
+
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
+            strprintf("Insufficient transparent funds %s, have %s, need %s (minconf=%d)",
+            addrDetails, FormatMoney(_totalInputAmount), FormatMoney(targetAmount), _minConf));
+    }
+
     // If there is transparent change, is it valid or is it dust?
     if (dustChange < _dustThreshold && dustChange != 0) {
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
             strprintf("Insufficient transparent funds, have %s, need %s more to avoid creating invalid change output %s (dust threshold is %s)",
-            FormatMoney(totUTXOAmount), FormatMoney(_dustThreshold - dustChange), FormatMoney(dustChange), FormatMoney(_dustThreshold)));
+            FormatMoney(_totalInputAmount), FormatMoney(_dustThreshold - dustChange), FormatMoney(dustChange), FormatMoney(_dustThreshold)));
     }
 
     // Check mempooltxinputlimit to avoid creating a transaction which the local mempool rejects
@@ -368,8 +363,16 @@ void ScRpcCreationCmd::addChange()
             throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Could not generate a taddr to use as a change address"); // should never fail, as we just unlocked
         }
 
-        // TODO: maybe we should send change to sender address if any?
-        CScript scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
+        // handle the address for the change: currently this is an open pon but we choose for the time being to use the sender address if it is specified
+        CScript scriptPubKey;
+        if (_hasFromAddress)
+        {
+            scriptPubKey = GetScriptForDestination(_fromMcAddress.Get());
+        }
+        else
+        {
+            scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
+        }
         CTxOut out(change, scriptPubKey);
         _tx.vout.push_back(out);
     }

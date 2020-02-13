@@ -28,7 +28,6 @@ class FakeDict(dict):
         return self.last_val
 
     def __iter__(self):
-        subiter = iter(self.items)
         def generator():
             for key, value in self.items:
                 self.last_val = value
@@ -47,19 +46,11 @@ class SCCreateTest(BitcoinTestFramework):
             pass  # Just open then close to create zero-length file
 
     def setup_network(self, split=False):
-        self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
                                  extra_args=[["-sccoinsmaturity=%d" % SC_COINS_MAT, '-logtimemicros=1', '-debug=sc',
                                               '-debug=py', '-debug=mempool', '-debug=net',
                                               '-debug=bench']] * NUMB_OF_NODES)
-
-        if not split:
-            # 1 and 2 are joint only if split==false
-            if NUMB_OF_NODES > 2:
-                connect_nodes_bi(self.nodes, 1, 2)
-            sync_blocks(self.nodes[1:NUMB_OF_NODES])
-            sync_mempools(self.nodes[1:NUMB_OF_NODES])
 
         connect_nodes_bi(self.nodes, 0, 1)
         self.is_network_split = split
@@ -162,7 +153,6 @@ class SCCreateTest(BitcoinTestFramework):
 
         sc_id = "95f5de0829fd3c5e45b63f67beab8c4cb8c1c359ef6e2787aaaf5442d6f4779f"
         wel = 5
-        fromaddr = []
         toaddress = "abcdef"
         amount = 20.0
         minconf = 1
