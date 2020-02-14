@@ -229,11 +229,12 @@ void AddScInfoToJSON(UniValue& result)
 
 ScRpcCreationCmd::ScRpcCreationCmd(
         CMutableTransaction& tx, const uint256& scid, int withdrawalEpochLength, const CBitcoinAddress& fromaddress,
-        const uint256& toaddress, const CAmount nAmount, int nMinConf, const CAmount& nFee):
-        _tx(tx), _scid(scid), _withdrawalEpochLength(withdrawalEpochLength), _fromMcAddress(fromaddress), _toScAddress(toaddress),
-        _nAmount(nAmount), _minConf(nMinConf), _fee(nFee)
+        const CBitcoinAddress& chaddr, const uint256& toaddress, const CAmount nAmount, int nMinConf, const CAmount& nFee):
+        _tx(tx), _scid(scid), _withdrawalEpochLength(withdrawalEpochLength), _fromMcAddress(fromaddress),
+        _changeMcAddress(chaddr), _toScAddress(toaddress), _nAmount(nAmount), _minConf(nMinConf), _fee(nFee)
 {
-    _hasFromAddress = !(fromaddress == CBitcoinAddress());
+    _hasFromAddress   = !(_fromMcAddress   == CBitcoinAddress());
+    _hasChangeAddress = !(_changeMcAddress == CBitcoinAddress());
 
     // Get dust threshold
     CKey secret;
@@ -321,7 +322,7 @@ void ScRpcCreationCmd::addInputs()
             addrDetails, FormatMoney(_totalInputAmount), FormatMoney(targetAmount), _minConf));
     }
 
-    // If there is transparent change, is it valid or is it dust?
+    // If there is transparent change, is it valid or is it dust? 
     if (dustChange < _dustThreshold && dustChange != 0) {
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
             strprintf("Insufficient transparent funds, have %s, need %s more to avoid creating invalid change output %s (dust threshold is %s)",
@@ -355,22 +356,25 @@ void ScRpcCreationCmd::addChange()
 
     if (change > 0)
     {
-        CReserveKey keyChange(pwalletMain);
-        CPubKey vchPubKey;
-
-        if (!keyChange.GetReservedKey(vchPubKey))
-        {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Could not generate a taddr to use as a change address"); // should never fail, as we just unlocked
-        }
-
-        // handle the address for the change: currently this is an open pon but we choose for the time being to use the sender address if it is specified
+        // handle the address for the change
         CScript scriptPubKey;
+        if (_hasChangeAddress)
+        {
+            scriptPubKey = GetScriptForDestination(_changeMcAddress.Get());
+        }
+        else
         if (_hasFromAddress)
         {
             scriptPubKey = GetScriptForDestination(_fromMcAddress.Get());
         }
         else
         {
+            CReserveKey keyChange(pwalletMain);
+            CPubKey vchPubKey;
+ 
+            if (!keyChange.GetReservedKey(vchPubKey))
+                throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Could not generate a taddr to use as a change address"); // should never fail, as we just unlocked
+
             scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
         }
         CTxOut out(change, scriptPubKey);

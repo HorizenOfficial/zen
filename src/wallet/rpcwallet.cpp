@@ -778,6 +778,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "   \"scid\": id                      (string, optional) The uint256 side chain ID, if omitted a random value is generated\n"
             "   \"withdrawalEpochLength\": epoch  (numeric, optional, default=100) length of the withdrawal epochs\n"
             "   \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
+            "   \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a new generated address will be used\n"
             "   \"toaddress\":scaddr              (string, required) The receiver PublicKey25519Proposition in the SC\n"
             "   \"amount\":amount                 (numeric, required) Value expressed in " + CURRENCY_UNIT + "\n"
             "   \"minconf\":conf                  (numeric, optional, default=1) Only use funds confirmed at least this many times.\n"
@@ -794,7 +795,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
     // valid input keywords
     static const std::set<std::string> validKeyArgs =
-        {"scid", "withdrawalEpochLength", "fromaddress", "toaddress", "amount", "minconf", "fee"};
+        {"scid", "withdrawalEpochLength", "fromaddress", "changeaddress", "toaddress", "amount", "minconf", "fee"};
 
     UniValue inputObject = params[0].get_obj();
 
@@ -848,6 +849,20 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown fromaddress format: ")+inputString );
         }
+    }
+
+    // ---------------------------------------------------------
+    CBitcoinAddress changeaddress;
+    if (setKeyArgs.count("changeaddress"))
+    {
+        string inputString = find_value(inputObject, "changeaddress").get_str();
+        changeaddress = CBitcoinAddress(inputString);
+        if(!changeaddress.IsValid())
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown changeaddress format: ")+inputString );
+        }
+        if (!IsMine(*pwalletMain, GetScriptForDestination(changeaddress.Get())))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, changeaddress is not mine: ")+inputString );
     }
 
     // ---------------------------------------------------------
@@ -915,7 +930,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
     Sidechain::ScRpcCreationCmd cmd(
         tx_create, scId, withdrawalEpochLength,
-        fromaddress, toaddress, nAmount, nMinDepth, nFee);
+        fromaddress, changeaddress, toaddress, nAmount, nMinDepth, nFee);
 
     cmd.addInputs();
     cmd.addChange();
@@ -1794,6 +1809,7 @@ static void MaybePushAddress(UniValue & entry, const CTxDestination &dest)
         entry.push_back(Pair("address", addr.ToString()));
 }
 
+
 void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDepth, bool fLong, UniValue& ret, const isminefilter& filter)
 {
     CAmount nFee;
@@ -1830,8 +1846,8 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
         BOOST_FOREACH(const CScOutputEntry& s, listScSent)
         {
             UniValue entry(UniValue::VOBJ);
-            entry.push_back(Pair("address", s.address.GetHex()));
-            entry.push_back(Pair("category", "send"));
+            entry.push_back(Pair("sc address", s.address.GetHex()));
+            entry.push_back(Pair("category", "crosschain"));
             entry.push_back(Pair("amount", ValueFromAmount(-s.amount)));
             entry.push_back(Pair("fee", ValueFromAmount(-nFee)));
             if (fLong)
@@ -1903,15 +1919,16 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() > 4)
+    if (fHelp || params.size() > 5)
         throw runtime_error(
             "listtransactions ( \"account\" count from includeWatchonly)\n"
-            "\nReturns up to 'count' most recent transactions skipping the first 'from' transactions for account 'account'.\n"
+            "\nReturns up to 'count' most recent transactions skipping the first 'from' transactions for address 'address'.\n"
             "\nArguments:\n"
             "1. \"account\"    (string, optional) DEPRECATED. The account name. Should be \"*\".\n"
             "2. count          (numeric, optional, default=10) The number of transactions to return\n"
             "3. from           (numeric, optional, default=0) The number of transactions to skip\n"
             "4. includeWatchonly (bool, optional, default=false) Include transactions to watchonly addresses (see 'importaddress')\n"
+            "5. address (string, optional) Include only transactions involving this address\n"
             "\nResult:\n"
             "[\n"
             "  {\n"
@@ -1958,51 +1975,60 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    string strAccount = "*";
+    string strAccount("*");
     if (params.size() > 0)
-        strAccount = params[0].get_str();
+        strAccount=params[0].get_str();
+
     int nCount = 10;
     if (params.size() > 1)
         nCount = params[1].get_int();
+    if (nCount < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
+
     int nFrom = 0;
     if (params.size() > 2)
         nFrom = params[2].get_int();
+    if (nFrom < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
+
     isminefilter filter = ISMINE_SPENDABLE;
     if(params.size() > 3)
         if(params[3].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
-
-    if (nCount < 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
-    if (nFrom < 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
+    string address("*");
+    if (params.size()>4) {
+        address=params[4].get_str();
+        if (address!=("*")) {
+            CBitcoinAddress baddress = CBitcoinAddress(address);
+            if (!baddress.IsValid())
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
+        }
+    }
 
     UniValue ret(UniValue::VARR);
-
     std::list<CAccountingEntry> acentries;
-    CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, strAccount);
+    CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, strAccount,address);
 
     // iterate backwards until we have nCount items to return:
     for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
     {
         CWalletTx *const pwtx = (*it).second.first;
-        if (pwtx != 0)
+        if (pwtx != nullptr)
             ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
         CAccountingEntry *const pacentry = (*it).second.second;
-        if (pacentry != 0)
+        if (pacentry != nullptr)
             AcentryToJSON(*pacentry, strAccount, ret);
 
         if ((int)ret.size() >= (nCount+nFrom)) break;
     }
-    // ret is newest to oldest
 
+    //getting all the specific Txes requested by nCount and nFrom
     if (nFrom > (int)ret.size())
         nFrom = ret.size();
     if ((nFrom + nCount) > (int)ret.size())
         nCount = ret.size() - nFrom;
 
     vector<UniValue> arrTmp = ret.getValues();
-
     vector<UniValue>::iterator first = arrTmp.begin();
     std::advance(first, nFrom);
     vector<UniValue>::iterator last = arrTmp.begin();
@@ -2016,7 +2042,6 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     ret.clear();
     ret.setArray();
     ret.push_backV(arrTmp);
-
     return ret;
 }
 
@@ -4051,7 +4076,7 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     contextualTx.nVersion = 1;
     if(isShielded) {
         contextualTx.nVersion = shieldedTxVersion;
-    }    
+    }
     // Create operation and add to global queue
     std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
     std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(contextualTx, fromaddress, taddrRecipients, zaddrRecipients, nMinDepth, nFee, contextInfo) );

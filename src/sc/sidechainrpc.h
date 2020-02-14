@@ -91,6 +91,7 @@ class ScRpcCreationCmd
     uint256 _scid;
     int _withdrawalEpochLength;
     CBitcoinAddress _fromMcAddress;
+    CBitcoinAddress _changeMcAddress;
     uint256 _toScAddress;
     CAmount _nAmount;
     int _minConf;
@@ -98,6 +99,7 @@ class ScRpcCreationCmd
 
     // internal members
     bool _hasFromAddress;
+    bool _hasChangeAddress;
     CAmount _dustThreshold;
     CAmount _totalInputAmount;
     std::string _signedTxHex;
@@ -108,7 +110,7 @@ class ScRpcCreationCmd
   public:
     ScRpcCreationCmd(
         CMutableTransaction& tx, const uint256& scId, int withdrawalEpochLength, const CBitcoinAddress& fromaddress,
-        const uint256& toaddress, const CAmount nAmount, int nMinConf, const CAmount& nFee);
+        const CBitcoinAddress& changeaddress, const uint256& toaddress, const CAmount nAmount, int nMinConf, const CAmount& nFee);
 
     void addInputs();
     void addCcOutputs();

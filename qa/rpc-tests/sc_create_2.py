@@ -14,7 +14,7 @@ from decimal import Decimal
 import json
 
 NUMB_OF_NODES = 2
-DEBUG_MODE = 0
+DEBUG_MODE = 1
 SC_COINS_MAT = 2
 
 
@@ -147,26 +147,82 @@ class SCCreateTest(BitcoinTestFramework):
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true("withdrawal" in errorString)
 
-        # Node 1 create the SC using a valid input and a fromaddress key/value
+        # create with a fromaddress expressed in a wrong format
+        #----------------------------------------------------------------
+        cmdInput = {'fromaddress': "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2", 'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee}
+
+        mark_logs("\nNode 1 create SC with a fromaddress expressed in a wrong format", self.nodes, DEBUG_MODE)
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            assert_true("format" in errorString)
+
+        # create with a changeaddress that does not belong to the node
+        #----------------------------------------------------------------
+        cmdInput = {'changeaddress': "zthWZsNRTykixeceqgifx18hMMLNrNCzCzj", 'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee}
+
+        mark_logs("\nNode 1 create SC with a changeaddress that does not belong to the node", self.nodes, DEBUG_MODE)
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            assert_true("not mine" in errorString)
+
+        # create with an amount that prevents a change above the dust threshold
+        #----------------------------------------------------------------
+        amount_below_dust_threshold = 0.00000001
+        bad_amount = float(self.nodes[1].getbalance()) -  fee - amount_below_dust_threshold
+
+        cmdInput = {'toaddress': toaddress, 'amount': bad_amount, 'scid': "1234", 'fee': fee}
+
+        mark_logs("\nNode 1 create SC with an amount that prevents a change above the dust threshold", self.nodes, DEBUG_MODE)
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(("bad amount: %f" % bad_amount), self.nodes, DEBUG_MODE)
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            assert_true("dust threshold" in errorString)
+
+        # Node 1 create the SC using a valid input and a fromaddress+changeaddress key/value
         #------------------------------------------------------------------------------------------
         mark_logs("\nNode 1 create SC with valid input and a fromaddress key/value", self.nodes,DEBUG_MODE)
 
         sc_id = "95f5de0829fd3c5e45b63f67beab8c4cb8c1c359ef6e2787aaaf5442d6f4779f"
         wel = 5
+        fromaddr = []
         toaddress = "abcdef"
         amount = 20.0
         minconf = 1
         fee = 0.000025
 
+        addr_found = False
         # select an address with an UTXO value large enough
         for groups in self.nodes[1].listaddressgroupings():
+            if addr_found:
+                break
             for entry in groups:
                 if entry[1] >= amount:
                     fromaddr = entry[0]
+                    addr_found = True
                     break
         
+        # check we have an address with enough coins
+        assert_true(len(fromaddr)>0)
+
+        changeaddress = self.nodes[1].getnewaddress()
+
         mark_logs(("using fromaddress: %s "%fromaddr), self.nodes,DEBUG_MODE)
-        cmdInput = {"scid":sc_id, "fromaddress": fromaddr, "toaddress": toaddress, "amount": amount, "fee": fee}
+        cmdInput = {"scid":sc_id, "fromaddress": fromaddr, "toaddress": toaddress, "amount": amount, "changeaddress":changeaddress, "fee": fee}
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
         except JSONRPCException, e:
@@ -198,8 +254,13 @@ class SCCreateTest(BitcoinTestFramework):
         change = 0.0;
         for i in decoded_tx['vout']:
             change = i['value']
+            chaddress = i['scriptPubKey']['addresses'][0]
             n = i['n']
             mark_logs((" change: %s" % change), self.nodes, DEBUG_MODE)
+
+        # check we are sending change to the proper address
+        mark_logs(("...check that we are sending change to the expected address"), self.nodes, DEBUG_MODE)
+        assert_equal(changeaddress, chaddress) 
 
         # get fwd amount
         fwd_amount = 0.0
@@ -269,6 +330,14 @@ class SCCreateTest(BitcoinTestFramework):
         # get scid
         decoded_tx = self.nodes[1].getrawtransaction(tx, 1)
         scid = decoded_tx['vsc_ccout'][0]['scid']
+
+        # check we are sending change to the proper address, which is fromaddr, since we have not set a change address
+        for i in decoded_tx['vout']:
+            chaddress = i['scriptPubKey']['addresses'][0]
+            n = i['n']
+
+        mark_logs(("...check that we are sending change to the proper address, which is fromaddr, since we have not set a change address"), self.nodes, DEBUG_MODE)
+        assert_equal(fromaddr, chaddress) 
 
         mark_logs("\nNode 0 generates 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
