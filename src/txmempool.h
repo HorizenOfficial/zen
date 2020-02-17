@@ -108,21 +108,8 @@ public:
 
 struct CSidechainMemPoolEntry
 {
-    bool isScCreationInMempool;
     uint256 scCreationTxHash;
-
-    uint256 scId;
     std::set<uint256> CcTransfersSet;
-
-    CSidechainMemPoolEntry(): isScCreationInMempool(false) {};
-    CSidechainMemPoolEntry(const uint256& _hash, const uint256& _scId, bool _scInMempool):
-        isScCreationInMempool(_scInMempool), scId(_scId)
-    {
-        if (isScCreationInMempool)
-            scCreationTxHash = _hash;
-        else
-            CcTransfersSet.insert(_hash);
-    };
 };
 
 /**
@@ -148,7 +135,7 @@ private:
     uint64_t cachedInnerUsage; //! sum of dynamic memory usage of all the map elements (NOT the maps themselves)
 
 #if 1
-    void removeInternal(std::deque<uint256>& objToRemove, std::list<std::shared_ptr<CTransactionBase>>& removed, bool fRecursive);
+    void removeInternal(std::deque<uint256>& objToRemove, std::list<std::shared_ptr<CTransactionBase>>& removed, bool fRecursive, bool removeDependantFwds = true);
 #endif
 
 public:
@@ -182,8 +169,8 @@ public:
 #if 0
     void remove(const CTransaction &tx, std::list<CTransaction>& removed, bool fRecursive = false);
 #else
-    void remove(const CTransaction &tx, std::list<std::shared_ptr<CTransactionBase>>& removed, bool fRecursive = false);
-    void remove(const CScCertificate &origCert, std::list<std::shared_ptr<CTransactionBase>>& removed, bool fRecursive = false);
+    void remove(const CTransaction &tx, std::list<std::shared_ptr<CTransactionBase>>& removed, bool fRecursive = false, bool removeDependantFwds = true);
+    void remove(const CScCertificate &origCert, std::list<std::shared_ptr<CTransactionBase>>& removed, bool fRecursive = false, bool removeDependantFwds = true);
 #endif
     void removeWithAnchor(const uint256 &invalidRoot);
     void removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
@@ -273,7 +260,7 @@ public:
     bool sidechainExists(uint256 scId) const
     {
         LOCK(cs);
-        return (mapSidechains.count(scId) != 0) && (mapSidechains.at(scId).isScCreationInMempool);
+        return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).scCreationTxHash.IsNull());
     }
 
     bool lookup(uint256 hash, CTransaction& result) const;
