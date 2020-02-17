@@ -2637,17 +2637,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     // Do not allow blocks that contain transactions which 'overwrite' older transactions,
     // unless those are already completely spent.
-#if 0
     BOOST_FOREACH(const CTransaction& tx, block.vtx) {
         const CCoins* coins = view.AccessCoins(tx.GetHash());
-#else
-    std::vector<const CTransactionBase*> vTxBase;
-    block.GetTxAndCertsVector(vTxBase);
-
-    for (const CTransactionBase* obj: vTxBase)
-    {
-        const CCoins* coins = view.AccessCoins(obj->GetHash());
-#endif
         if (coins && !coins->IsPruned())
             return state.DoS(100, error("ConnectBlock(): tried to overwrite transaction"),
                              REJECT_INVALID, "bad-txns-BIP30");
@@ -2694,67 +2685,36 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         assert(tree.root() == old_tree_root);
     }
 
-#if 0
-    for (unsigned int i = 0; i < block.vtx.size(); i++)
+    for (unsigned int i = 0; i < block.vtx.size(); i++) // Processing transactions loop
     {
         const CTransaction &tx = block.vtx[i];
 
         nInputs += tx.vin.size();
-        nSigOps += GetLegacySigOpCount(tx);
-#else
-    for (unsigned int i = 0; i < vTxBase.size(); i++)
-    {
-        const CTransactionBase &tx = *(vTxBase[i]);
-
-        nInputs += tx.GetNumbOfInputs();
         nSigOps += tx.GetLegacySigOpCount();
-#endif
         if (nSigOps > MAX_BLOCK_SIGOPS)
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
 
         if (!tx.IsCoinBase())
         {
-#if 0
             if (!view.HaveInputs(tx))
-#else
-            if (!tx.HaveInputs(view))
-            {
-                LogPrintf("%s():%d - ERROR: bad tx[%s]: input missing/spent\n",
-                    __func__, __LINE__, tx.GetHash().ToString());
-#endif
                 return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
                                  REJECT_INVALID, "bad-txns-inputs-missingorspent");
 
             // are the JoinSplit's requirements met?
-#if 0
             if (!view.HaveJoinSplitRequirements(tx))
-#else
-            }
-
-            if (!tx.HaveJoinSplitRequirements(view))
-#endif
                 return state.DoS(100, error("ConnectBlock(): JoinSplit requirements not met"),
                                  REJECT_INVALID, "bad-txns-joinsplit-requirements-not-met");
 
             // Add in sigops done by pay-to-script-hash inputs;
             // this is to prevent a "rogue miner" from creating
             // an incredibly-expensive-to-validate block.
-#if 0
-            nSigOps += GetP2SHSigOpCount(tx, view);
-#else
             nSigOps += tx.GetP2SHSigOpCount(view);
-#endif
             if (nSigOps > MAX_BLOCK_SIGOPS)
                 return state.DoS(100, error("ConnectBlock(): too many sigops"),
                                  REJECT_INVALID, "bad-blk-sigops");
 
-#if 0
-            nFees += view.GetValueIn(tx)-tx.GetValueOut();
-#else
-            CAmount valueIn = tx.GetValueIn(view);
-            CAmount nFee = tx.GetFeeAmount(valueIn);
-
+            CAmount nFee = view.GetValueIn(tx)-tx.GetValueOut();
             // These are also checked (for txes only) in the call below, but here we already have all needed parameters
             if (nFee < 0)
             {
@@ -2768,84 +2728,97 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-txns-fee-outofrange");
             }
             nFees += nFee;
-#endif
 
             std::vector<CScriptCheck> vChecks;
-#if 0
             if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
                 return false;
-#else
-            if (!tx.ContextualCheckInputs(state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
-            {
-                return false;
-            }
-#endif
+
             control.Add(vChecks);
         }
 
         // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
         // a not existing one and certificate amount against sc balance
-#if 0
         if (!scMgr.IsTxApplicableToState(tx) )
-#else
-        if (!tx.IsApplicableToState() )
-#endif
         {
             LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
             return state.DoS(100, error("ConnectBlock(): invalid sc transaction tx[%s]", tx.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-tx");
         }
 
-#if 0
         CTxUndo undoDummy;
         if (i > 0) {
             blockundo.vtxundo.push_back(CTxUndo());
         }
         UpdateCoins(tx, state, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
-#else
-        tx.UpdateCoins(state, view, blockundo, pindex->nHeight);
-#endif
 
         if (!fJustCheck && i > 0)
         {
-#if 0
             if (!scView.UpdateScInfo(tx, block, pindex->nHeight) )
-#else
-            if (!tx.UpdateScInfo(scView, block, pindex->nHeight, blockundo) )
-#endif
             {
                 return state.DoS(100, error("ConnectBlock(): could not add sidechain in scView: tx[%s]", tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
             }
         }
 
-#if 0
         BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
             BOOST_FOREACH(const uint256 &note_commitment, joinsplit.commitments) {
                 // Insert the note commitments into our temporary tree.
                 tree.append(note_commitment);
             }
         }
-#else
-        tx.HandleJoinSplitCommittments(tree);
-#endif
 
-#if 0
         vPos.push_back(std::make_pair(tx.GetHash(), pos));
         pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
-#else
-        if (i == block.vtx.size())
+    }  //end of Processing transactions loop
+
+
+    for (unsigned int certIdx = 0; certIdx < block.vcert.size(); certIdx++) // Processing certificates loop
+    {
+        const CScCertificate &cert = block.vcert[certIdx];
+        nSigOps += cert.GetLegacySigOpCount();
+        if (nSigOps > MAX_BLOCK_SIGOPS)
+            return state.DoS(100, error("ConnectBlock(): too many sigops"),
+                             REJECT_INVALID, "bad-blk-sigops");
+
+        CAmount nFee = cert.GetFeeAmount(CAmount());
+        // These are also checked (for txes only) in the call below, but here we already have all needed parameters
+        if (nFee < 0)
         {
+            // this tx/cert spends more than it can.
+            return state.DoS(100, error("ConnectBlock(): %s Fee < 0", cert.GetHash().ToString()),
+                         REJECT_INVALID, "bad-txns-fee-negative");
+        }
+        if (!MoneyRange(nFee))
+        {
+            return state.DoS(100, error("ConnectBlock(): fee out of range"),
+                         REJECT_INVALID, "bad-txns-fee-outofrange");
+        }
+        nFees += nFee;
+
+        if (!cert.IsApplicableToState() ) {
+            LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, cert.GetHash().ToString() );
+            return state.DoS(100, error("ConnectBlock(): invalid sc certificate [%s]", cert.GetHash().ToString()),
+                             REJECT_INVALID, "bad-sc-tx");
+        }
+
+        cert.UpdateCoins(state, view, blockundo, pindex->nHeight);
+
+        if (!fJustCheck && !cert.UpdateScInfo(scView, block, pindex->nHeight, blockundo) )
+        {
+            return state.DoS(100, error("ConnectBlock(): could not add sidechain in scView: tx[%s]", cert.GetHash().ToString()),
+                             REJECT_INVALID, "bad-sc-tx");
+        }
+
+        if (certIdx == 0) {
             // we are processing the first certificate, add the size of the vcert to the offset
             int sz = GetSizeOfCompactSize(block.vcert.size());
             LogPrint("cert", "%s():%d - adding %d to nTxOffset\n", __func__, __LINE__, sz );
             pos.nTxOffset += sz;
             LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
         }
-        vPos.push_back(std::make_pair(tx.GetHash(), pos));
-        pos.nTxOffset += tx.CalculateSize();
+        vPos.push_back(std::make_pair(cert.GetHash(), pos));
+        pos.nTxOffset += cert.CalculateSize();
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
-#endif
     }
 
     if (!fJustCheck)
@@ -2863,14 +2836,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     blockundo.old_tree_root = old_tree_root;
 
     int64_t nTime1 = GetTimeMicros(); nTimeConnect += nTime1 - nTimeStart;
-#if 0
-    LogPrint("bench", "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", (unsigned)block.vtx.size(), 0.001 * (nTime1 - nTimeStart), 0.001 * (nTime1 - nTimeStart) / block.vtx.size(), nInputs <= 1 ? 0 : 0.001 * (nTime1 - nTimeStart) / (nInputs-1), nTimeConnect * 0.000001);
-#else
     LogPrint("bench", "      - Connect %u txes, %u certs: %.2fms (%.3fms/(tx+cert), %.3fms/txin) [%.2fs]\n",
         (unsigned)block.vtx.size(), (unsigned)block.vcert.size(),
-         0.001 * (nTime1 - nTimeStart), 0.001 * (nTime1 - nTimeStart) / vTxBase.size(),
+         0.001 * (nTime1 - nTimeStart), 0.001 * (nTime1 - nTimeStart) / (block.vtx.size() + block.vcert.size()),
          nInputs <= 1 ? 0 : 0.001 * (nTime1 - nTimeStart) / (nInputs-1), nTimeConnect * 0.000001);
-#endif
 
     CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
     if (block.vtx[0].GetValueOut() > blockReward)
