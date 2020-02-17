@@ -764,7 +764,6 @@ public:
 
     virtual CAmount GetValueCcOut() const { return 0; }
 
-    virtual int GetNumbOfInputs() const { return 0; }
     virtual bool CheckInputsLimit(size_t limit, size_t& n) const { return true; }
 };
 
@@ -966,7 +965,6 @@ public:
     void AddToBlock(CBlock* pblock) const override;
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const override;
     CAmount GetJoinSplitValueIn() const override;
-    int GetNumbOfInputs() const override;
     bool CheckInputsLimit(size_t limit, size_t& n) const override;
     bool Check(CValidationState& state, libzcash::ProofVerifier& verifier) const override;
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;

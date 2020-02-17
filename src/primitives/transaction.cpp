@@ -577,7 +577,6 @@ bool CTransaction::AddUncheckedToMemPool(CTxMemPool* pool,
 void CTransaction::AddToBlock(CBlock* pblock) const { return; }
 void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const {return; }
 CAmount CTransaction::GetValueIn(const CCoinsViewCache& view) const { return 0; }
-int CTransaction::GetNumbOfInputs() const { return 0; }
 bool CTransaction::CheckInputsLimit(size_t limit, size_t& n) const { return true; }
 bool CTransaction::Check(CValidationState& state, libzcash::ProofVerifier& verifier) const { return true; }
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return true; }
@@ -731,11 +730,6 @@ CAmount CTransaction::GetValueIn(const CCoinsViewCache& view) const
     nResult += GetJoinSplitValueIn();
 
     return nResult;
-}
-
-int CTransaction::GetNumbOfInputs() const
-{
-    return vin.size();
 }
 
 bool CTransaction::CheckInputsLimit(size_t limit, size_t& n) const
