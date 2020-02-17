@@ -3108,40 +3108,37 @@ bool static DisconnectTip(CValidationState &state) {
     if (!FlushStateToDisk(state, FLUSH_STATE_IF_NEEDED))
         return false;
 
-#if 0
     // Resurrect mempool transactions and certificates from the disconnected block.
-    BOOST_FOREACH(const CTransaction &tx, block.vtx) {
+    for(const CTransaction &tx: block.vtx) {
         // ignore validation errors in resurrected transactions
-        list<CTransaction> removed;
         CValidationState stateDummy;
-        if (tx.IsScVersion() )
-        {
+        if (tx.IsScVersion()) {
             LogPrint("sc", "%s():%d - resurrecting tx [%s] to mempool\n", __func__, __LINE__, tx.GetHash().ToString());
         }
-        if (tx.IsCoinBase() || !AcceptToMemoryPool(mempool, stateDummy, tx, false, NULL))
-        {
-            mempool.remove(tx, removed, true);
-        }
-    }
-#else
-    std::vector<const CTransactionBase*> vTxBase;
-    block.GetTxAndCertsVector(vTxBase);
 
-    for (const CTransactionBase* obj: vTxBase)
-    {
-        CValidationState stateDummy;
-        if (obj->IsScVersion() )
-        {
-            LogPrint("sc", "%s():%d - resurrecting tx [%s] to mempool\n", __func__, __LINE__, obj->GetHash().ToString());
-        }
-        if (obj->IsCoinBase() || !AcceptToMemoryPool(mempool, stateDummy, *obj, false, NULL))
-        {
+        if (tx.IsCoinBase() || !AcceptToMemoryPool(mempool, stateDummy, tx, false, NULL)) {
             LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
-                __func__, __LINE__, obj->GetHash().ToString(), obj->ToString());
-            obj->RemoveFromMemPool(&mempool);
+                __func__, __LINE__, tx.GetHash().ToString(), tx.ToString());
+            std::list<std::shared_ptr<CTransactionBase>> unused;
+            mempool.remove(tx, unused, true);
         }
     }
-#endif
+
+    for (const CScCertificate& cert : block.vcert) {
+        // ignore validation errors in resurrected certificates
+        if (cert.IsScVersion()) {
+            LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
+        }
+
+        CValidationState stateDummy;
+        if (!AcceptToMemoryPool(mempool, stateDummy, cert, false, NULL)) {
+            LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
+                __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
+
+            std::list<std::shared_ptr<CTransactionBase>> unused;
+            mempool.remove(cert, unused, true);
+        }
+    }
 
     if (anchorBeforeDisconnect != anchorAfterDisconnect) {
         // The anchor may not change between block disconnects,
@@ -3168,6 +3165,8 @@ bool static DisconnectTip(CValidationState &state) {
 #else
     // and about certificates 
     // passig NULL for wallet means that the transaction does not belong to a block
+    std::vector<const CTransactionBase*> vTxBase;
+    block.GetTxAndCertsVector(vTxBase);
     for (const CTransactionBase* obj: vTxBase)
     {
         obj->SyncWithWallets(NULL);

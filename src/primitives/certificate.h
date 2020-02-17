@@ -82,8 +82,6 @@ public:
 
     void getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& map) const override;
 
-    void RemoveFromMemPool(CTxMemPool* pool) const override; 
-
     bool AddUncheckedToMemPool(CTxMemPool* pool,
         const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool poolHasNoInputsOf, bool fCurrentEstimate
     ) const override;

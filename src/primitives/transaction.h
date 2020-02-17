@@ -701,8 +701,6 @@ public:
     virtual std::string ToString() const = 0;
     virtual void getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& map) const = 0;
 
-    virtual void RemoveFromMemPool(CTxMemPool* pool) const = 0; 
-
     virtual bool AddUncheckedToMemPool(CTxMemPool* pool, 
         const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool poolHasNoInputsOf, bool fCurrentEstimate
     ) const = 0;
@@ -957,7 +955,6 @@ public:
     }
 
   public:
-    void RemoveFromMemPool(CTxMemPool* pool) const override; 
     bool AddUncheckedToMemPool(CTxMemPool* pool, 
         const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool poolHasNoInputsOf, bool fCurrentEstimate
     ) const override;

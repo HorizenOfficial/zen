@@ -570,7 +570,6 @@ void CTransaction::getCrosschainOutputs(std::map<uint256, std::vector<uint256> >
 bool CTransactionBase::CheckOutputsAreStandard(int nHeight, std::string& reason) const { return true; }
 bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const { return true; }
 
-void CTransaction::RemoveFromMemPool(CTxMemPool* pool) const { return; } 
 bool CTransaction::AddUncheckedToMemPool(CTxMemPool* pool,
     const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool poolHasNoInputsOf, bool fCurrentEstimate
 ) const { return true; }
@@ -686,12 +685,6 @@ bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& st
     }
     return true;
 }
-
-void CTransaction::RemoveFromMemPool(CTxMemPool* mempool) const 
-{
-    std::list<std::shared_ptr<CTransactionBase>> unused;
-    mempool->remove(*this, unused, true);
-} 
 
 bool CTransaction::AddUncheckedToMemPool(CTxMemPool* pool,
     const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool poolHasNoInputsOf, bool fCurrentEstimate

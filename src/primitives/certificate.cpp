@@ -151,7 +151,6 @@ double CScCertificate::GetPriority(const CCoinsViewCache &view, int nHeight) con
 #ifdef BITCOIN_TX
 bool CScCertificate::UpdateScInfo(Sidechain::ScCoinsViewCache& view, const CBlock& block, int nHeight, CBlockUndo& bu) const { return true; }
 
-void CScCertificate::RemoveFromMemPool(CTxMemPool* pool) const {return;} 
 
 bool CScCertificate::AddUncheckedToMemPool(CTxMemPool* pool,
     const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool, bool fCurrentEstimate
@@ -171,12 +170,6 @@ bool CScCertificate::UpdateScInfo(Sidechain::ScCoinsViewCache& scView, const CBl
     //LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
     return scView.UpdateScInfo(*this, bu);
 }
-
-void CScCertificate::RemoveFromMemPool(CTxMemPool* mempool) const 
-{
-    std::list<std::shared_ptr<CTransactionBase>> unused;
-    mempool->remove(*this, unused, true);
-} 
 
 bool CScCertificate::AddUncheckedToMemPool(CTxMemPool* pool,
     const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool /*unused*/, bool fCurrentEstimate
