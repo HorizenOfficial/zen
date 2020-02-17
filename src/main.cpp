@@ -2403,7 +2403,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
 
         LogPrint("sc", "%s():%d - undo sc outputs if any\n", __func__, __LINE__);
-        if (!scView.RevertOutputs(tx, pindex->nHeight) ) {
+        if (!scView.RevertTxOutputs(tx, pindex->nHeight) ) {
             LogPrint("sc", "%s():%d - ERROR undoing sc creation\n", __func__, __LINE__);
             return error("DisconnectBlock(): sc creation can not be reverted: data inconsistent");
         }
@@ -2425,7 +2425,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     // undo transactions in reverse order
     for (int i = block.vcert.size() - 1; i >= 0; i--) {
         const CScCertificate& cert = block.vcert[i];
-        if (!scView.RevertOutputs(cert, pindex->nHeight) ) {
+        if (!scView.RevertCertOutputs(cert, pindex->nHeight) ) {
             LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
             return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
         }

@@ -599,8 +599,7 @@ bool ScCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& bloc
     return true;
 }
 
-template<>
-bool ScCoinsViewCache::RevertOutputs(const CTransaction& tx, int nHeight)
+bool ScCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 {
     static const int SC_COIN_MATURITY = getScCoinsMaturity();
     const int maturityHeight = nHeight + SC_COIN_MATURITY;
@@ -688,8 +687,7 @@ bool ScCoinsViewCache::RevertOutputs(const CTransaction& tx, int nHeight)
     return true;
 }
 
-template<>
-bool ScCoinsViewCache::RevertOutputs(const CScCertificate& cert, int nHeight)
+bool ScCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, int nHeight)
 {
     const uint256& scId = cert.scId;
     const CAmount& totalAmount = cert.totalAmount;
