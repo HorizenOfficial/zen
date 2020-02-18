@@ -677,7 +677,7 @@ bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& st
         ::IsStandard(txout.scriptPubKey, whichType);
 
         // provide temporary replay protection for two minerconf windows during chainsplit
-        if ((!IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(),whichType)))
+        if (!IsCoinBase() && !ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(),whichType))
         {
             return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, ::GetTxnOutputType(whichType), chainActive.Height(), GetHash().ToString()),
                 REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");

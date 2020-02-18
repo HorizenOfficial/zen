@@ -1332,7 +1332,6 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         return false;
     }
 
-
     string reason; // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     if (getRequireStandard() && !cert.IsStandard(reason, nextBlockHeight))
         return state.DoS(0, error("AcceptToMemoryPool: nonstandard certificate: %s", reason),
@@ -3305,7 +3304,7 @@ bool static DisconnectTip(CValidationState &state) {
         }
 
         CValidationState stateDummy;
-        if (!AcceptToMemoryPool(mempool, stateDummy, cert, false, NULL)) {
+        if (!AcceptCertificateToMemoryPool(mempool, stateDummy, cert, false, NULL)) {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
 
@@ -6323,7 +6322,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         pfrom->setAskFor.erase(inv.hash);
         mapAlreadyAskedFor.erase(inv);
 
-        if (!AlreadyHave(inv) && AcceptToMemoryPool(mempool, state, cert, true, NULL /*&fMissingInputs*/))
+        if (!AlreadyHave(inv) && AcceptCertificateToMemoryPool(mempool, state, cert, true, NULL /*&fMissingInputs*/))
         {
             mempool.check(pcoinsTip);
             RelayCertificate(cert);

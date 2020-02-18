@@ -1314,7 +1314,7 @@ UniValue sendrawcertificate(const UniValue& params, bool fHelp)
         // push to local node and sync with wallets
         CValidationState state;
         bool fMissingInputs;
-        if (!AcceptToMemoryPool(mempool, state, cert, false, &fMissingInputs, !fOverrideFees))
+        if (!AcceptCertificateToMemoryPool(mempool, state, cert, false, &fMissingInputs, !fOverrideFees))
         {
             if (state.IsInvalid())
             {

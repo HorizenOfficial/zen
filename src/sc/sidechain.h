@@ -126,7 +126,6 @@ public:
     bool RevertCertOutputs(const CScCertificate& cert, int nHeight);
     bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
-    bool checkCertificateInMemPool(const CTxMemPool& pool, const CScCertificate& cert);
 
     bool Flush();
 
