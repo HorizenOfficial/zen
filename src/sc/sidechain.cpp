@@ -189,108 +189,11 @@ bool ScCoinsView::IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertif
         && (conflictingCertHash != cert.GetHash() ))
     {
         LogPrintf("ERROR: certificate %s for epoch %d is already been issued\n", 
-            (conflictingCertHash == uint256())?"":conflictingCertHash.ToString(), cert.epochNumber);
+            (conflictingCertHash.IsNull())?"":conflictingCertHash.ToString(), cert.epochNumber); //ABENEGIA: a cert with nullHash can make it to mempool or db???
         return state.Invalid(error("A certificate with the same scId/epoch is already issued"),
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
-    if (ScMgr::instance().sidechainExists(cert.scId))
-    {
-        scBalance =    ScMgr::instance().getSidechainBalance(cert.scId);
-        scBalanceImm = ScMgr::instance().getSidechainBalanceImmature(cert.scId);
-        LogPrint("cert", "%s():%d - scId balance mature[%s], immature[%s]\n",
-            __func__, __LINE__, FormatMoney(scBalance), FormatMoney(scBalanceImm) );
-
-        // we also consider immature amounts that will turn ito mature one in one of next blocks
-        scBalance += scBalanceImm;
-    }
-    else
-    {
-        LogPrint("sc", "%s():%d - cert[%s]: scId[%s] not found in db\n",
-            __func__, __LINE__, certHash.ToString(), cert.scId.ToString() );
-
-        // maybe the creation is in the mempool (chain reorg)
-        bool creationIsInMempool = false;
-
-        for (auto it = pool.mapTx.begin(); it != pool.mapTx.end(); ++it)
-        {
-            if (creationIsInMempool)
-            {
-                break;
-            }
-
-            const CTransaction& mpTx = it->second.GetTx();
-
-            BOOST_FOREACH(const auto& mpSc, mpTx.vsc_ccout)
-            {
-                if (mpSc.scId == scId)
-                {
-                    LogPrint("sc", "%s():%d - cert[%s]: scId[%s] is going to be created by tx [%s] which is still in mempool\n",
-                        __func__, __LINE__, certHash.ToString(), scId.ToString(), mpTx.GetHash().ToString() );
-                    creationIsInMempool = true;
-                    break;
-                }
-            }
-        }
-
-        if (!creationIsInMempool)
-        {
-            // scId creation not found, should never happen
-            LogPrintf("%s():%d - ERROR: cert[%s]: scId[%s] not found in db and no tx in mempool is creating it\n",
-                __func__, __LINE__, certHash.ToString(), scId.ToString() );
-            return state.Invalid(error("certificate with invalid scId considering mempool"),
-                 REJECT_INVALID, "sidechain-certificate");
-        }
-    }
-
-    LogPrint("cert", "%s():%d - scId balance: %s\n", __func__, __LINE__, FormatMoney(scBalance) );
- 
-    // consider fw transfers even if they can not be mature yet, and let a miner sort things
-    // out in terms of dependancy
-    for (auto it = pool.mapTx.begin(); it != pool.mapTx.end(); ++it)
-    {
-        const CTransaction& mpTx = it->second.GetTx();
-        if (mpTx.nVersion == SC_TX_VERSION)
-        {
-            BOOST_FOREACH(auto& ft, mpTx.vft_ccout)
-            {
-                if (scId == ft.scId)
-                {
-                    LogPrint("sc", "%s():%d - tx[%s]: fwd[%s]\n",
-                        __func__, __LINE__, mpTx.GetHash().ToString(), FormatMoney(ft.nValue) );
-                    scBalance += ft.nValue;
-                }
-            }
-        }
-    }
- 
-    for (auto it = pool.mapCertificate.begin(); it != pool.mapCertificate.end(); ++it)
-    {
-        const CScCertificate& mpCert = it->second.GetCertificate();
-
-        if (mpCert.GetHash() == cert.GetHash())
-        {
-            // this might happen when called for checking the contents of mempool
-            continue;
-        }
-
-        // TODO cert: check if this should not be allowed instead, since there can not be two certificates in mempool
-        // referring to the same sc
-        if (scId == mpCert.scId)
-        {
-            LogPrint("sc", "%s():%d - #### found cert[%s] for the same scId: amount[%s]\n",
-                __func__, __LINE__, mpCert.GetHash().ToString(), FormatMoney(mpCert.totalAmount) );
-            scBalance -= mpCert.totalAmount;
-        }
-    }
- 
-    if (certAmount > scBalance)
-    {
-        LogPrint("sc", "%s():%d - invalid cert[%s]: scId[%s] has not balance enough: %s\n",
-            __func__, __LINE__, certHash.ToString(), scId.ToString(), FormatMoney(scBalance) );
-        return state.Invalid(error("certificate with no sc balance enough considering mempool"),
-             REJECT_INVALID, "sidechain-certificate");
-    }
     return true;
 }
 
@@ -994,7 +897,7 @@ bool ScMgr::epochAlreadyHasCertificate(const uint256& scId, int epochNumber, con
         return false;
     }
 
-    if (info.lastReceivedCertificateEpoch == epochNumber)
+    if (info.lastReceivedCertificateEpoch == epochNumber) //ABENEGIA: I wonder if this shouldn't rather be >= epochNumber
     {
         LogPrint("sc", "%s():%d - a cert for scId[%s] and epoch[%d] has already been received\n",
             __func__, __LINE__, scId.ToString(), epochNumber);
