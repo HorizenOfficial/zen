@@ -1017,6 +1017,40 @@ bool ContextualCheckTransaction(
     return true;
 }
 
+bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
+{
+    if (cert.vout.empty() && cert.totalAmount <= 0) //ABENEGIA: is it fine to have a certificate with empty vout and non null total amount of viceversa?
+     {
+         return state.DoS(10, error("vout empty and totalAmount <= 0"), REJECT_INVALID, "bad-cert-empty");
+     }
+
+     BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_CERT_SIZE); // sanity
+     if (cert.CalculateSize() > MAX_CERT_SIZE)
+     {
+         return state.DoS(100, error("size limits failed"), REJECT_INVALID, "bad-cert-oversize");
+     }
+
+     // Check for negative or overflow output values
+     CAmount nValueOut = 0;
+     if (!cert.CheckVout(nValueOut, state))
+     {
+         return false;
+     }
+
+     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
+     if (!cert.CheckOutputsCheckBlockAtHeightOpCode(state) )
+     {
+         return false;
+     }
+
+     if (!Sidechain::ScMgr::checkCertSemanticValidity(cert, state) )
+     {
+         return false;
+     }
+
+     return true;
+}
+
 
 bool CheckTransaction(const CTransaction& tx, CValidationState &state,
                       libzcash::ProofVerifier& verifier)
@@ -1272,6 +1306,146 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
     if (!MoneyRange(nMinFee))
         nMinFee = MAX_MONEY;
     return nMinFee;
+}
+
+bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert, bool fLimitFree,
+                        bool* pfMissingInputs, bool fRejectAbsurdFee)
+{
+    AssertLockHeld(cs_main);
+    if (pfMissingInputs)
+        *pfMissingInputs = false;
+
+    int nextBlockHeight = chainActive.Height() + 1; // OR chainActive.Tip()->nHeight
+
+    //ABENEGIA: a node can reject txs with too many inputs. Nothing similar so far for certificates. Is is all right?
+
+    if(!CheckCertificate(cert,state))
+        return error("AcceptToMemoryPool: CheckCertificate failed");
+
+    //ABENEGIA: No ContextualCheckTransaction(cert, state, nextBlockHeight, 10): // as of now, there are no dependancies of contents from chain height.
+
+    // Silently drop pre-chainsplit certificates
+    if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight))
+    {
+        LogPrint("cert", "%s():%d - Dropping certificateId[%s]: chain height[%d] is before chain split\n",
+            __func__, __LINE__, cert.GetHash().ToString(), chainActive.Tip()->nHeight);
+        return false;
+    }
+
+
+    string reason; // Rather not work on nonstandard transactions (unless -testnet/-regtest)
+    if (getRequireStandard() && !cert.IsStandard(reason, nextBlockHeight))
+        return state.DoS(0, error("AcceptToMemoryPool: nonstandard certificate: %s", reason),
+                            REJECT_NONSTANDARD, reason);
+
+    //ABENEGIA: if (!tx.CheckFinal(STANDARD_LOCKTIME_VERIFY_FLAGS))// as of now certificate finality has yet to be defined
+
+    // is it already in the memory pool?
+    uint256 certHash = cert.GetHash();
+    if (pool.existsCert(certHash))
+    {
+        LogPrint("mempool", "Dropping certificateId %s : already in mempool\n", certHash.ToString());
+        return false;
+    }
+
+    // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
+    // a not existing one and so on
+    if (!Sidechain::ScMgr::instance().IsCertApplicableToState(cert) )
+    {
+        LogPrint("sc", "%s():%d - certificate [%s] is not applicable\n", __func__, __LINE__, certHash.ToString());
+        return false;
+    }
+
+    // Check for conflicts with in-memory transactions
+    {
+        LOCK(pool.cs);
+
+        if(!Sidechain::ScCoinsView::IsCertAllowedInMempool(pool, cert, state))
+        {
+            LogPrint("sc", "%s():%d - cert [%s] is not allowed in mempool\n", __func__, __LINE__, certHash.ToString());
+            return false;
+        }
+    }
+
+    {
+        CCoinsView dummy;
+        CCoinsViewCache view(&dummy);
+
+        CAmount nValueIn = 0;
+
+        //ABENEGIA: CheckInputs is useless for certificate. Is it correct?? Or Where the fuck is it checked???
+
+        unsigned int nSigOps = cert.GetLegacySigOpCount();
+        if (nSigOps > MAX_STANDARD_TX_SIGOPS)
+        {
+            return state.DoS(0, error("AcceptToMemoryPool: too many sigops %s, %d > %d",
+                                   certHash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
+                             REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
+        }
+
+        CAmount nUselessValueIn = 0;
+        CAmount nFees = cert.GetFeeAmount(nUselessValueIn); //ABENEGIA: nValueIn is useless for certificates
+        LogPrint("sc", "%s():%d - Computed fee=%lld\n", __func__, __LINE__, nFees);
+
+
+        double dPriority = cert.GetPriority(view, chainActive.Height()); // cert: for the time being return max prio, as shielded txes do
+
+        // entry is built and added below where addUnchecked is called
+        CCertificateMemPoolEntry certEntry(cert, nFees, GetTime(), dPriority, chainActive.Height());
+
+        unsigned int nSize = cert.CalculateSize();
+        LogPrint("sc", "%s():%d - Computed size=%lld\n", __func__, __LINE__, nSize);
+
+        // Don't accept it if it can't get into a block
+        CAmount txMinFee = GetMinRelayFee(cert, nSize, true);
+        LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
+        if (fLimitFree && nFees < txMinFee)
+            return state.DoS(0, error("AcceptToMemoryPool: not enough fees %s, %d < %d",
+                                    certHash.ToString(), nFees, txMinFee),
+                            REJECT_INSUFFICIENTFEE, "insufficient fee");
+
+        if (GetBoolArg("-relaypriority", false) && nFees < ::minRelayTxFee.GetFee(nSize) && !AllowFree(cert.GetPriority(view, chainActive.Height() + 1))) {
+            return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "insufficient priority");
+        }
+
+        // Continuously rate-limit free (really, very-low-fee) transactions
+        // This mitigates 'penny-flooding' -- sending thousands of free transactions just to
+        // be annoying or make others' transactions take longer to confirm.
+        if (fLimitFree && nFees < ::minRelayTxFee.GetFee(nSize))
+        {
+            static CCriticalSection csFreeLimiter;
+            static double dFreeCount;
+            static int64_t nLastTime;
+            int64_t nNow = GetTime();
+
+            LOCK(csFreeLimiter);
+
+            // Use an exponentially decaying ~10-minute window:
+            dFreeCount *= pow(1.0 - 1.0/600.0, (double)(nNow - nLastTime));
+            nLastTime = nNow;
+            // -limitfreerelay unit is thousand-bytes-per-minute
+            // At default rate it would take over a month to fill 1GB
+            if (dFreeCount >= GetArg("-limitfreerelay", 15)*10*1000)
+                return state.DoS(0, error("AcceptToMemoryPool: free transaction rejected by rate limiter"),
+                                 REJECT_INSUFFICIENTFEE, "rate limited free transaction");
+            LogPrint("mempool", "Rate limit dFreeCount: %g => %g\n", dFreeCount, dFreeCount+nSize);
+            dFreeCount += nSize;
+        }
+
+        if (fRejectAbsurdFee && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
+            return error("AcceptToMemoryPool: absurdly high fees %s, %d > %d",
+                         certHash.ToString(),
+                         nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
+
+        //ABENEGIA: ContextualCheckInputs always returns true for certificates
+
+        // Store transaction in memory
+        pool.addUnchecked(certHash, certEntry, !IsInitialBlockDownload());
+    }
+
+    LogPrint("cert", "%s():%d - sync with wallet cert[%s]\n", __func__, __LINE__, certHash.ToString());
+    SyncWithWallets(cert, nullptr);
+    return true;
 }
 
 
