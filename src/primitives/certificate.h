@@ -13,6 +13,7 @@ class CScCertificate : virtual public CTransactionBase
     void UpdateHash() const override;
 
 public:
+    virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) override final;
     const uint256 scId;
     const int epochNumber;
     const uint256 endEpochBlockHash;

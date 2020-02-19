@@ -570,6 +570,8 @@ void CTransaction::getCrosschainOutputs(std::map<uint256, std::vector<uint256> >
 bool CTransactionBase::CheckOutputsAreStandard(int nHeight, std::string& reason) const { return true; }
 bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const { return true; }
 
+
+bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
 bool CTransaction::AddUncheckedToMemPool(CTxMemPool* pool,
     const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool poolHasNoInputsOf, bool fCurrentEstimate
 ) const { return true; }
@@ -607,6 +609,12 @@ std::string CTransaction::EncodeHex() const { return ""; }
 
 #else
 //----- 
+bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
+{
+    CValidationState state;
+    return ::AcceptToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
+};
+
 bool CTransactionBase::CheckOutputsAreStandard(int nHeight, std::string& reason) const
 {
     unsigned int nDataOut = 0;

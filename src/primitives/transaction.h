@@ -645,6 +645,7 @@ protected:
     virtual void UpdateHash() const = 0;
 
 public:
+    virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) = 0;
     const int32_t nVersion;
     const std::vector<CTxOut> vout;
 
@@ -776,6 +777,7 @@ protected:
     void UpdateHash() const override;
 
 public:
+    virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) override final;
     typedef boost::array<unsigned char, 64> joinsplit_sig_t;
 
     // Transactions that include a list of JoinSplits are version 2.

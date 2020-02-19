@@ -151,7 +151,7 @@ double CScCertificate::GetPriority(const CCoinsViewCache &view, int nHeight) con
 #ifdef BITCOIN_TX
 bool CScCertificate::UpdateScInfo(Sidechain::ScCoinsViewCache& view, const CBlock& block, int nHeight, CBlockUndo& bu) const { return true; }
 
-
+bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
 bool CScCertificate::AddUncheckedToMemPool(CTxMemPool* pool,
     const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool, bool fCurrentEstimate
 ) const { return true; }
@@ -165,6 +165,12 @@ unsigned int CScCertificate::GetLegacySigOpCount() const { return 0; }
 bool CScCertificate::epochIsInMainchain() const { return true; }
 bool CScCertificate::checkEpochBlockHash() const { return true; }
 #else
+bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
+{
+    CValidationState state;
+    return ::AcceptCertificateToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
+}
+
 bool CScCertificate::UpdateScInfo(Sidechain::ScCoinsViewCache& scView, const CBlock& /*unused*/, int /*unused*/, CBlockUndo& bu) const
 {
     //LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());

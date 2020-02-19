@@ -4472,8 +4472,7 @@ bool CMerkleTx::AcceptToMemoryPool(bool fLimitFree, bool fRejectAbsurdFee)
 #else
 bool MerkleAbstractBase::AcceptToMemoryPool(bool fLimitFree, bool fRejectAbsurdFee)
 {
-    CValidationState state;
-    return ::AcceptToMemoryPool(mempool, state, *this, fLimitFree, NULL, fRejectAbsurdFee);
+    return TryPushToMempool(fLimitFree,fRejectAbsurdFee);
 }
 #endif
 
