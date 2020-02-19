@@ -546,7 +546,7 @@ public:
  * A transaction with a bunch of additional info that only the owner cares about.
  * It includes any unrecorded transactions needed to link it back to the block chain.
  */
-class CWalletTx : public CMerkleTx, virtual public CWalletObjBase
+class CWalletTx : public CMerkleTx, public CWalletObjBase
 {
 public:
     mapNoteData_t mapNoteData;
@@ -677,7 +677,7 @@ public:
     std::shared_ptr<CWalletObjBase> MakeWalletMapObject() const override;
 };
 
-class CWalletCert : public CMerkleCert, virtual public CWalletObjBase
+class CWalletCert : public CMerkleCert, public CWalletObjBase
 {
 public:
 
