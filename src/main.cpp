@@ -1320,7 +1320,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
     //ABENEGIA: a node can reject txs with too many inputs. Nothing similar so far for certificates. Is is all right?
 
     if(!CheckCertificate(cert,state))
-        return error("AcceptToMemoryPool: CheckCertificate failed");
+        return error("AcceptCertificateToMemoryPool: CheckCertificate failed");
 
     //ABENEGIA: No ContextualCheckTransaction(cert, state, nextBlockHeight, 10): // as of now, there are no dependancies of contents from chain height.
 
@@ -1334,7 +1334,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
     string reason; // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     if (getRequireStandard() && !cert.IsStandard(reason, nextBlockHeight))
-        return state.DoS(0, error("AcceptToMemoryPool: nonstandard certificate: %s", reason),
+        return state.DoS(0, error("AcceptCertificateToMemoryPool: nonstandard certificate: %s", reason),
                             REJECT_NONSTANDARD, reason);
 
     //ABENEGIA: if (!tx.CheckFinal(STANDARD_LOCKTIME_VERIFY_FLAGS))// as of now certificate finality has yet to be defined
@@ -1377,7 +1377,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         unsigned int nSigOps = cert.GetLegacySigOpCount();
         if (nSigOps > MAX_STANDARD_TX_SIGOPS)
         {
-            return state.DoS(0, error("AcceptToMemoryPool: too many sigops %s, %d > %d",
+            return state.DoS(0, error("AcceptCertificateToMemoryPool: too many sigops %s, %d > %d",
                                    certHash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
                              REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
         }
@@ -1389,9 +1389,6 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
         double dPriority = cert.GetPriority(view, chainActive.Height()); // cert: for the time being return max prio, as shielded txes do
 
-        // entry is built and added below where addUnchecked is called
-        CCertificateMemPoolEntry certEntry(cert, nFees, GetTime(), dPriority, chainActive.Height());
-
         unsigned int nSize = cert.CalculateSize();
         LogPrint("sc", "%s():%d - Computed size=%lld\n", __func__, __LINE__, nSize);
 
@@ -1399,7 +1396,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         CAmount txMinFee = GetMinRelayFee(cert, nSize, true);
         LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
         if (fLimitFree && nFees < txMinFee)
-            return state.DoS(0, error("AcceptToMemoryPool: not enough fees %s, %d < %d",
+            return state.DoS(0, error("AcceptCertificateToMemoryPool: not enough fees %s, %d < %d",
                                     certHash.ToString(), nFees, txMinFee),
                             REJECT_INSUFFICIENTFEE, "insufficient fee");
 
@@ -1425,20 +1422,21 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             // -limitfreerelay unit is thousand-bytes-per-minute
             // At default rate it would take over a month to fill 1GB
             if (dFreeCount >= GetArg("-limitfreerelay", 15)*10*1000)
-                return state.DoS(0, error("AcceptToMemoryPool: free transaction rejected by rate limiter"),
+                return state.DoS(0, error("AcceptCertificateToMemoryPool: free transaction rejected by rate limiter"),
                                  REJECT_INSUFFICIENTFEE, "rate limited free transaction");
             LogPrint("mempool", "Rate limit dFreeCount: %g => %g\n", dFreeCount, dFreeCount+nSize);
             dFreeCount += nSize;
         }
 
         if (fRejectAbsurdFee && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
-            return error("AcceptToMemoryPool: absurdly high fees %s, %d > %d",
+            return error("AcceptCertificateToMemoryPool: absurdly high fees %s, %d > %d",
                          certHash.ToString(),
                          nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
 
         //ABENEGIA: ContextualCheckInputs always returns true for certificates
 
         // Store transaction in memory
+        CCertificateMemPoolEntry certEntry(cert, nFees, GetTime(), dPriority, chainActive.Height());
         pool.addUnchecked(certHash, certEntry, !IsInitialBlockDownload());
     }
 
