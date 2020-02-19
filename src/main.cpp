@@ -922,6 +922,20 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
     return true;
 }
 
+unsigned int GetLegacySigOpCount(const CTransaction& tx)
+{
+    unsigned int nSigOps = 0;
+    BOOST_FOREACH(const CTxIn& txin, tx.vin)
+    {
+        nSigOps += txin.scriptSig.GetSigOpCount(false);
+    }
+    BOOST_FOREACH(const CTxOut& txout, tx.vout)
+    {
+        nSigOps += txout.scriptPubKey.GetSigOpCount(false);
+    }
+    return nSigOps;
+}
+
 unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& inputs)
 {
     if (tx.IsCoinBase())
@@ -1457,7 +1471,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // Node operator can choose to reject tx by number of transparent inputs
     static_assert(std::numeric_limits<size_t>::max() >= std::numeric_limits<int64_t>::max(), "size_t too small");
     size_t limit = (size_t) GetArg("-mempooltxinputlimit", 0);
-#if 0
     if (limit > 0) {
         size_t n = tx.vin.size();
         if (n > limit) {
@@ -1465,34 +1478,16 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             return false;
         }
     }
-#else
-    size_t n = 0;
-    if(!tx.CheckInputsLimit(limit, n) )
-    {
-        LogPrint("mempool", "Dropping txid %s : too many transparent inputs %zu > limit %zu\n",
-            tx.GetHash().ToString(), n, limit );
-        return false;
-    }
-#endif
 
 
     auto verifier = libzcash::ProofVerifier::Strict();
-#if 0
     if (!CheckTransaction(tx, state, verifier))
-#else
-    if (!tx.Check(state, verifier) )
-#endif
         return error("AcceptToMemoryPool: CheckTransaction failed");
 
 
         // DoS level set to 10 to be more forgiving.
         // Check transaction contextually against the set of consensus rules which apply in the next block to be mined.
-#if 0
-    if (!ContextualCheckTransaction(tx, state, nextBlockHeight, 10))
-#else
-    if (!tx.ContextualCheck(state, nextBlockHeight, 10))
-#endif
-    {
+        if (!ContextualCheckTransaction(tx, state, nextBlockHeight, 10)) {
             return error("AcceptToMemoryPool: ContextualCheckTransaction failed");
     }
 
@@ -1505,21 +1500,13 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     }
 
     // Coinbase is only valid in a block, not as a loose transaction
-#if 0
     if (tx.IsCoinBase())
-#else
-    if (!tx.IsValidLoose() )
-#endif
         return state.DoS(100, error("AcceptToMemoryPool: coinbase as individual tx"),
                          REJECT_INVALID, "coinbase");
 
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     string reason;
-#if 0
     if (getRequireStandard() && !IsStandardTx(tx, reason, nextBlockHeight))
-#else
-    if (getRequireStandard() && !tx.IsStandard(reason, nextBlockHeight))
-#endif
         return state.DoS(0,
                          error("AcceptToMemoryPool: nonstandard transaction: %s", reason),
                          REJECT_NONSTANDARD, reason);
@@ -1527,11 +1514,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // Only accept nLockTime-using transactions that can be mined in the next
     // block; we don't want our mempool filled up with transactions that can't
     // be mined yet.
-#if 0
     if (!CheckFinalTx(tx, STANDARD_LOCKTIME_VERIFY_FLAGS))
-#else
-    if (!tx.CheckFinal(STANDARD_LOCKTIME_VERIFY_FLAGS))
-#endif
         return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
 
     // is it already in the memory pool?
@@ -1553,7 +1536,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // Check for conflicts with in-memory transactions
     {
         LOCK(pool.cs); // protect pool.mapNextTx
-#if 0
         for (unsigned int i = 0; i < tx.vin.size(); i++)
         {
             COutPoint outpoint = tx.vin[i].prevout;
@@ -1578,29 +1560,13 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         {
             return false;
         }
-#else
-        // mempool nullifiers check has also been moved in this check, since it is specific for transaction (not cert)
-        if(!tx.IsAllowedInMempool(state, pool) )
-        {
-            LogPrint("sc", "%s():%d - tx [%s] is not allowed in mempool\n", __func__, __LINE__, hash.ToString());
-            return false;
-        }
-#endif
     }
 
     {
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
-        
+
         CAmount nValueIn = 0;
-
-        if (!tx.CheckInputs(nValueIn, pool, view, pcoinsTip, pfMissingInputs, state))
-        {
-            LogPrint("sc", "%s():%d - tx [%s] inputs has failed check\n", __func__, __LINE__, hash.ToString());
-            return false;
-        }
-
-#if 0 // moved in transaction
         {
             LOCK(pool.cs);
             CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
@@ -1612,7 +1578,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                 LogPrint("mempool", "Dropping txid %s : already have coins\n", hash.ToString());
                 return false;
             }
- 
+
             // do all inputs exist?
             // Note that this does not check for the presence of actual outputs (see the next check for that),
             // and only helps with filling in pfMissingInputs (to determine missing vs spent).
@@ -1656,20 +1622,14 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         {
             return error("AcceptToMemoryPool: nonstandard transaction input");
         }
-#endif// end move in transaction
 
         // Check that the transaction doesn't have an excessive number of
         // sigops, making it impossible to mine. Since the coinbase transaction
         // itself can contain sigops MAX_STANDARD_TX_SIGOPS is less than
         // MAX_BLOCK_SIGOPS; we still consider this an invalid rather than
         // merely non-standard transaction.
-#if 0
         unsigned int nSigOps = GetLegacySigOpCount(tx);
         nSigOps += GetP2SHSigOpCount(tx, view);
-#else
-        unsigned int nSigOps = tx.GetLegacySigOpCount();
-        nSigOps += tx.GetP2SHSigOpCount(view);
-#endif
         if (nSigOps > MAX_STANDARD_TX_SIGOPS)
         {
             return state.DoS(0,
@@ -1678,32 +1638,18 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                              REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
         }
 
-#if 0
         CAmount nValueOut = tx.GetValueOut();
         CAmount nFees = nValueIn-nValueOut;
-#else
-        CAmount nFees = tx.GetFeeAmount(nValueIn);
-#endif
 
         LogPrint("sc", "%s():%d - Computed fee=%lld\n", __func__, __LINE__, nFees);
 
-#if 0
         double dPriority = view.GetPriority(tx, chainActive.Height());
-#else
-        double dPriority = tx.GetPriority(view, chainActive.Height());
-#endif
 
-#if 0
         CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height(), mempool.HasNoInputsOf(tx));
         unsigned int nSize = entry.GetTxSize();
-#else
-        // entry is built and added below where addUnchecked is called
-        unsigned int nSize = tx.CalculateSize();
-        LogPrint("sc", "%s():%d - Computed size=%lld\n", __func__, __LINE__, nSize);
-#endif
 
         // Accept a tx if it contains joinsplits and has at least the default fee specified by z_sendmany.
-        if (tx.getVjoinsplitSize() > 0 && nFees >= ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE) {
+        if (tx.vjoinsplit.size() > 0 && nFees >= ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE) {
             // In future we will we have more accurate and dynamic computation of fees for tx with joinsplits.
         } else {
             // Don't accept it if it can't get into a block
@@ -1716,11 +1662,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
 
         // Require that free transactions have sufficient priority to be mined in the next block.
-#if 0
         if (GetBoolArg("-relaypriority", false) && nFees < ::minRelayTxFee.GetFee(nSize) && !AllowFree(view.GetPriority(tx, chainActive.Height() + 1))) {
-#else
-        if (GetBoolArg("-relaypriority", false) && nFees < ::minRelayTxFee.GetFee(nSize) && !AllowFree(tx.GetPriority(view, chainActive.Height() + 1))) {
-#endif
             return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "insufficient priority");
         }
 
@@ -1755,11 +1697,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
-#if 0
         if (!ContextualCheckInputs(tx, state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
-#else
-        if (!tx.ContextualCheckInputs(state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
-#endif
         {
             return error("AcceptToMemoryPool: ConnectInputs failed %s", hash.ToString());
         }
@@ -1773,24 +1711,13 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // There is a similar check in CreateNewBlock() to prevent creating
         // invalid blocks, however allowing such transactions into the mempool
         // can be exploited as a DoS attack.
-#if 0
         if (!ContextualCheckInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
-#else
-        if (!tx.ContextualCheckInputs(state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
-#endif
         {
             return error("AcceptToMemoryPool: BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", hash.ToString());
         }
 
         // Store transaction in memory
-#if 0
         pool.addUnchecked(hash, entry, !IsInitialBlockDownload());
-#else
-        pool.addUnchecked(
-            tx, nFees, GetTime(), dPriority, chainActive.Height(),
-            mempool.HasNoInputsOf(tx), !IsInitialBlockDownload()); 
-
-#endif
     }
 
 #if 0
