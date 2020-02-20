@@ -2185,19 +2185,11 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 {
         // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
         // for an attacker to attempt to split the network.
-#if 0
         if (!inputs.HaveInputs(tx))
-#else
-        if (!tx.HaveInputs(inputs))
-#endif
             return state.Invalid(error("CheckInputs(): %s inputs unavailable", tx.GetHash().ToString()));
 
         // are the JoinSplit's requirements met?
-#if 0
         if (!inputs.HaveJoinSplitRequirements(tx))
-#else
-        if (!tx.HaveJoinSplitRequirements(inputs))
-#endif
             return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", tx.GetHash().ToString()));
 
         CAmount nValueIn = 0;
