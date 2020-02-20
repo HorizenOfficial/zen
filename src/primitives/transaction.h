@@ -736,16 +736,12 @@ public:
     // Return sum of JoinSplit vpub_new if supported
     virtual CAmount GetJoinSplitValueIn() const { return 0; }
 
-    virtual bool HaveJoinSplitRequirements(const CCoinsViewCache& view) const { return true; }
     virtual void HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const { return; }
     virtual void AddJoinSplitToJSON(UniValue& entry) const { return; }
     virtual void AddSidechainOutsToJSON(UniValue& entry) const {return; }
     virtual bool HaveInputs(const CCoinsViewCache& view) const { return true; }
-    virtual bool CheckMissingInputs(const CCoinsViewCache &view, bool* pfMissingInputs) const { return true; };
     virtual bool HasNoInputsInMempool(const CTxMemPool& pool) const { return true; }
     virtual bool AreInputsStandard(CCoinsViewCache& view) const { return true; }
-    virtual bool CheckInputs(CAmount& nValueIn, CTxMemPool& pool, CCoinsViewCache& view, CCoinsViewCache* pcoinsTip,
-        bool* pfMissingInputs, CValidationState &state) const { return true; }
 
     virtual bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
         const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
@@ -970,7 +966,6 @@ public:
     bool IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const override;
     bool HasNoInputsInMempool(const CTxMemPool& pool) const override;
     bool IsApplicableToState() const override;
-    bool HaveJoinSplitRequirements(const CCoinsViewCache& view) const override;
     void HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const override;
     void AddJoinSplitToJSON(UniValue& entry) const override;
     void AddSidechainOutsToJSON(UniValue& entry) const override;
@@ -979,15 +974,12 @@ public:
     void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const override;
     bool UpdateScInfo(Sidechain::ScCoinsViewCache& view, const CBlock& block, int nHeight, CBlockUndo& bu) const override;
     bool AreInputsStandard(CCoinsViewCache& view) const override;
-    bool CheckInputs(CAmount& nValueIn, CTxMemPool& pool, CCoinsViewCache& view, CCoinsViewCache* pcoinsTip,
-        bool* pfMissingInputs, CValidationState &state) const override;
     bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
                            std::vector<CScriptCheck> *pvChecks = NULL) const override;
     unsigned int GetP2SHSigOpCount(CCoinsViewCache& view) const override;
     unsigned int GetLegacySigOpCount() const override;
     void SyncWithWallets(const CBlock* pblock = NULL) const override;
-    bool CheckMissingInputs(const CCoinsViewCache &view, bool* pfMissingInputs) const override;
     double GetPriority(const CCoinsViewCache &view, int nHeight) const override;
 };
 

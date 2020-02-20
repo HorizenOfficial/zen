@@ -581,7 +581,6 @@ bool CTransaction::CheckFinal(int flags) const { return true; }
 bool CTransaction::IsApplicableToState() const { return true; }
 bool CTransaction::IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const { return true; }
 bool CTransaction::HasNoInputsInMempool(const CTxMemPool& pool) const { return true; }
-bool CTransaction::HaveJoinSplitRequirements(const CCoinsViewCache& view) const { return true; }
 void CTransaction::HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const { return; };
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
@@ -590,15 +589,12 @@ void CTransaction::UpdateCoins(CValidationState &state, CCoinsViewCache& view, i
 void CTransaction::UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo &undo, int nHeight) const { return; }
 bool CTransaction::UpdateScInfo(Sidechain::ScCoinsViewCache& scView, const CBlock& block, int nHeight, CBlockUndo& bu) const { return true; }
 bool CTransaction::AreInputsStandard(CCoinsViewCache& view) const { return true; }
-bool CTransaction::CheckInputs(CAmount& nValueIn, CTxMemPool& pool, CCoinsViewCache& view, CCoinsViewCache* pcoinsTip,
-        bool* pfMissingInputs, CValidationState &state) const { return true; }
 unsigned int CTransaction::GetP2SHSigOpCount(CCoinsViewCache& view) const { return 0; }
 unsigned int CTransaction::GetLegacySigOpCount() const { return 0; }
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
           const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
           std::vector<CScriptCheck> *pvChecks) const { return true;}
 void CTransaction::SyncWithWallets(const CBlock* pblock) const { }
-bool CTransaction::CheckMissingInputs(const CCoinsViewCache &view, bool* pfMissingInputs) const { return true; }
 double CTransaction::GetPriority(const CCoinsViewCache &view, int nHeight) const { return 0.0; }
 std::string CTransaction::EncodeHex() const { return ""; }
 
@@ -798,11 +794,6 @@ bool CTransaction::HasNoInputsInMempool(const CTxMemPool& pool) const
     return true;
 }
 
-bool CTransaction::HaveJoinSplitRequirements(const CCoinsViewCache& view) const
-{
-    return view.HaveJoinSplitRequirements(*this);
-}
-
 void CTransaction::HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const
 {
     BOOST_FOREACH(const JSDescription &joinsplit, vjoinsplit) {
@@ -852,59 +843,6 @@ bool CTransaction::AreInputsStandard(CCoinsViewCache& view) const
     return ::AreInputsStandard(*this, view); 
 }
 
-bool CTransaction::CheckInputs(CAmount& nValueIn, CTxMemPool& pool, CCoinsViewCache& view, CCoinsViewCache* pcoinsTip,
-        bool* pfMissingInputs, CValidationState &state) const
-{
-    {
-        LOCK(pool.cs);
-        CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
-        view.SetBackend(viewMemPool);
- 
-        // do we already have it?
-        if (view.HaveCoins(hash))
-        {
-            LogPrint("mempool", "Dropping txid %s : already have coins\n", hash.ToString());
-            return false;
-        }
- 
-        // do all inputs exist?
-        if (!CheckMissingInputs(view, pfMissingInputs) )
-        {
-            return false;
-        }
- 
-        // are the actual inputs available?
-        if (!HaveInputs(view))
-        {
-            LogPrintf("%s():%d - tx[%s]\n", __func__, __LINE__, GetHash().ToString());
-            return state.Invalid(error("AcceptToMemoryPool: inputs already spent"),
-                                 REJECT_DUPLICATE, "bad-txns-inputs-spent");
-        }
- 
-        // are the joinsplit's requirements met?
-        if (!HaveJoinSplitRequirements(view))
-            return state.Invalid(error("AcceptToMemoryPool: joinsplit requirements not met"),
-                                 REJECT_DUPLICATE, "bad-txns-joinsplit-requirements-not-met");
- 
-        // Bring the best block into scope
-        view.GetBestBlock();
-        nValueIn = GetValueIn(view);
- 
-        // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
-        CCoinsView dummy;
-        view.SetBackend(dummy);
-    }
-
-    // Check for non-standard pay-to-script-hash in inputs
-    if (::getRequireStandard() && !AreInputsStandard(view))
-    {
-        return state.Invalid(error("AcceptToMemoryPool: nonstandard transaction input"),
-            REJECT_INVALID, "bad-txns-inputs-non-standard");
-    }
-
-    return true;
-}
-
 unsigned int CTransaction::GetP2SHSigOpCount(CCoinsViewCache& view) const 
 {
     return ::GetP2SHSigOpCount(*this, view);
@@ -940,23 +878,6 @@ bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsVi
 void CTransaction::SyncWithWallets(const CBlock* pblock) const
 {
     ::SyncWithWallets(*this, pblock);
-}
-
-bool CTransaction::CheckMissingInputs(const CCoinsViewCache &view, bool* pfMissingInputs) const
-{
-    BOOST_FOREACH(const CTxIn txin, vin)
-    {
-        if (!view.HaveCoins(txin.prevout.hash))
-        {
-            if (pfMissingInputs)
-            {
-                *pfMissingInputs = true;
-            }
-            LogPrint("mempool", "Dropping txid %s : no coins for vin\n", GetHash().ToString());
-            return false;
-        }
-    }
-    return true;
 }
 
 double CTransaction::GetPriority(const CCoinsViewCache &view, int nHeight) const
