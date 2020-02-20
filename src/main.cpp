@@ -1077,25 +1077,10 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
         }
     }
 
-#if 0
-    // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
-    BOOST_FOREACH(const CTxOut& txout, tx.vout)
-    {
-        txnouttype whichType;
-        ::IsStandard(txout.scriptPubKey, whichType);
-
-        // provide temporary replay protection for two minerconf windows during chainsplit
-        if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(),whichType))) {
-                return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, ::GetTxnOutputType(whichType), chainActive.Height(), tx.GetHash().ToString()),
-                             REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
-        }
-    }
-#else
     if (!tx.CheckOutputsCheckBlockAtHeightOpCode(state) )
     {
         return false;
     }
-#endif
 
     if (!Sidechain::ScMgr::checkTxSemanticValidity(tx, state) )
     {
@@ -1141,26 +1126,11 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
 
     // Check for negative or overflow output values
     CAmount nValueOut = 0;
-#if 0
-    BOOST_FOREACH(const CTxOut& txout, tx.vout)
-    {
-        if (txout.nValue < 0)
-            return state.DoS(100, error("CheckTransaction(): txout.nValue negative"),
-                             REJECT_INVALID, "bad-txns-vout-negative");
-        if (txout.nValue > MAX_MONEY)
-            return state.DoS(100, error("CheckTransaction(): txout.nValue too high"),
-                             REJECT_INVALID, "bad-txns-vout-toolarge");
-        nValueOut += txout.nValue;
-        if (!MoneyRange(nValueOut))
-            return state.DoS(100, error("CheckTransaction(): txout total out of range"),
-                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
-    }
-#else
+
     if (!tx.CheckVout(nValueOut, state))
     {
         return false;
     }
-#endif
 
     // Ensure that joinsplit values are well-formed
     BOOST_FOREACH(const JSDescription& joinsplit, tx.vjoinsplit)
@@ -1486,7 +1456,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // Silently drop pre-chainsplit transactions
     if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight))
     {
-        LogPrint("cert", "%s():%d - Dropping txid[%s]: chain height[%d] is before chain split\n",
+        LogPrint("tx", "%s():%d - Dropping txid[%s]: chain height[%d] is before chain split\n",
             __func__, __LINE__, tx.GetHash().ToString(), chainActive.Tip()->nHeight);
         return false;
     }
@@ -1712,11 +1682,8 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         pool.addUnchecked(hash, entry, !IsInitialBlockDownload());
     }
 
-#if 0
     SyncWithWallets(tx, NULL);
-#else
-    tx.SyncWithWallets(NULL);
-#endif
+
     return true;
 }
 
@@ -2483,7 +2450,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             }
         }
 
-
         LogPrint("sc", "%s():%d - undo sc outputs if any\n", __func__, __LINE__);
         if (!scView.RevertTxOutputs(tx, pindex->nHeight) ) {
             LogPrint("sc", "%s():%d - ERROR undoing sc creation\n", __func__, __LINE__);
@@ -2911,6 +2877,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-sc-amounts");
         }
     }
+
     view.PushAnchor(tree);
     if (!fJustCheck) {
         pindex->hashAnchorEnd = tree.root();
@@ -3240,20 +3207,15 @@ bool static DisconnectTip(CValidationState &state) {
     assert(pcoinsTip->GetAnchorAt(pcoinsTip->GetBestAnchor(), newTree));
     // Let wallets know transactions went from 1-confirmed to
     // 0-confirmed or conflicted:
-#if 0
-    BOOST_FOREACH(const CTransaction &tx, block.vtx) {
-        SyncWithWallets(tx, NULL);
+
+    for(const CTransaction &tx: block.vtx) {
+        SyncWithWallets(tx, nullptr);
     }
-#else
-    // and about certificates 
-    // passig NULL for wallet means that the transaction does not belong to a block
-    std::vector<const CTransactionBase*> vTxBase;
-    block.GetTxAndCertsVector(vTxBase);
-    for (const CTransactionBase* obj: vTxBase)
-    {
-        obj->SyncWithWallets(NULL);
+
+    for(const CScCertificate &cert: block.vcert) {
+        SyncWithWallets(cert, nullptr);
     }
-#endif
+
     // Update cached incremental witnesses
     GetMainSignals().ChainTip(pindexDelete, &block, newTree, false);
     return true;
