@@ -8,6 +8,8 @@
 from test_framework.test_framework import BitcoinTestFramework
 
 from decimal import Decimal
+from test_framework.authproxy import JSONRPCException
+from test_framework.util import assert_true, assert_equal
 
 
 def check_array_result(object_array, to_match, expected):
@@ -208,6 +210,61 @@ class ListTransactionsTest(BitcoinTestFramework):
                                {"txid": txes[i - 2]},
                                {"amount": Decimal("-"+str(i))})
 
+        self.nodes[0].generate(220)
+        self.sync_all()
+
+        # verify we can filter sc related transactions even with an empty vout
+        sc_creation_minimum_utxo = 5.0
+        fromaddr = []
+        sc_creation_amount = 0.0
+        addr_found = False
+
+        # select an address with an UTXO value large enough
+        for groups in self.nodes[1].listaddressgroupings():
+            if addr_found:
+                break
+            for entry in groups:
+                if entry[1] >= sc_creation_minimum_utxo:
+                    fromaddr = entry[0]
+                    sc_creation_amount = float(entry[1])
+                    addr_found = True
+                    break
+
+        assert_true(len(fromaddr))
+        result_node1_latest = self.nodes[1].listtransactions("*", 1, 0, False, fromaddr)
+        
+        sidechain_address = "0000000000000000000000000000000000000000000000000000000051dec4a1"
+        fee = 0.00025
+
+        # avoid creating change in the resulting tx
+        sc_creation_amount -= fee
+
+        cmdInput = {'fromaddress': fromaddr, 'toaddress': sidechain_address, 'amount': sc_creation_amount, 'fee': fee}
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            self.sync_all()
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print errorString
+            assert_true(False)
+
+        # check we have no vout since we should have arranged a null change
+        decoded_tx = self.nodes[1].getrawtransaction(tx, 1)
+        assert_equal(0, len(decoded_tx['vout']))
+
+        # get this last tx by filtering without the input address
+        result_node1_novin = self.nodes[1].listtransactions("*", 1, 0, False, fromaddr)
+
+        # get this last tx by filtering with the input address
+        result_node1 = self.nodes[1].listtransactions("*", 1, 0, False, fromaddr, True)
+
+        # verify the first result is the same as before creating the sc
+        assert_true(result_node1_novin == result_node1_latest)
+
+        # verify we have the expected result by filtering on vin
+        check_array_result([result_node1[0]], 
+                           {"txid": tx},
+                           {"category": "crosschain", "sc address": sidechain_address})
 
 if __name__ == '__main__':
     ListTransactionsTest().main()

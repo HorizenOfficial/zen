@@ -948,7 +948,7 @@ int64_t CWallet::IncOrderPosNext(CWalletDB *pwalletdb)
     return nRet;
 }
 
-CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries, const std::string& strAccount,const std::string& address)
+CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries, const std::string& strAccount,const std::string& address, bool includeFilteredVin)
 {
     AssertLockHeld(cs_wallet); // mapWallet
     CWalletDB walletdb(strWalletFile);
@@ -983,7 +983,7 @@ CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries,
                 }
             }
 
-            if (!wtx->IsCoinBase() && !outputFound)
+            if (includeFilteredVin && !wtx->IsCoinBase() && !outputFound)
             {
                 // found no output related to filtering address, check in the tx inputs
                 for(const CTxIn& txin: wtx->vin)
