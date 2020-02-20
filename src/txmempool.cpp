@@ -537,13 +537,6 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
 void CTxMemPool::removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight, bool fCurrentEstimate)
 {
     LOCK(cs);
-    std::vector<CCertificateMemPoolEntry> entries;
-    for (const auto& obj : vcert)
-    {
-        uint256 hash = obj.GetHash();
-        if (mapCertificate.count(hash))
-            entries.push_back(mapCertificate[hash]);
-    }
     for (const auto& obj : vcert)
     {
         std::list<std::shared_ptr<CTransactionBase>> removed;

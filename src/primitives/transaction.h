@@ -716,7 +716,6 @@ public:
     virtual bool IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const = 0;
     virtual bool IsApplicableToState() const = 0;
 
-    virtual void SyncWithWallets(const CBlock* pblock = NULL) const = 0;
     virtual void UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const = 0;
     virtual void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const = 0;
 
@@ -977,7 +976,6 @@ public:
                            std::vector<CScriptCheck> *pvChecks = NULL) const override;
     unsigned int GetP2SHSigOpCount(CCoinsViewCache& view) const override;
     unsigned int GetLegacySigOpCount() const override;
-    void SyncWithWallets(const CBlock* pblock = NULL) const override;
     double GetPriority(const CCoinsViewCache &view, int nHeight) const override;
 };
 

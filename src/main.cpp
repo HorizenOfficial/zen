@@ -3278,36 +3278,32 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     list<std::shared_ptr<CTransactionBase>> txConflicted;
     mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, txConflicted, !IsInitialBlockDownload());
 
-#if 1
     // similar call but without conflicts handling, which are not applicable to certificates
     mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, !IsInitialBlockDownload());
-#endif
 
     mempool.check(pcoinsTip);
     // Update chainActive & related variables.
     UpdateTip(pindexNew);
+
     // Tell wallet about transactions that went from mempool
     // to conflicted:
-#if 0
-    BOOST_FOREACH(const CTransaction &tx, txConflicted) {
-        SyncWithWallets(tx, NULL);
+    for(const std::shared_ptr<CTransactionBase> &obj: txConflicted) {
+        std::shared_ptr<CTransaction> ptrTmp = dynamic_pointer_cast<CTransaction>(obj);
+        SyncWithWallets(*ptrTmp, nullptr);
     }
-#else
-    BOOST_FOREACH(const auto &obj, txConflicted) {
-        obj->SyncWithWallets(NULL);
-    }
-#endif
+
     // ... and about transactions that got confirmed:
-    BOOST_FOREACH(const CTransaction &tx, pblock->vtx) {
+    for(const CTransaction &tx: pblock->vtx) {
         SyncWithWallets(tx, pblock);
     }
-#if 1
+
     // ... and about certificates that got confirmed:
     // note that a certificate having no inputs has no conflicts
-    BOOST_FOREACH(const CScCertificate &cert, pblock->vcert) {
-        cert.SyncWithWallets(pblock);
+    for(const CScCertificate &cert: pblock->vcert) {
+        LogPrint("cert", "%s():%d - sync with wallet cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString());
+        SyncWithWallets(cert, pblock);
     }
-#endif
+
     // Update cached incremental witnesses
     GetMainSignals().ChainTip(pindexNew, pblock, oldTree, true);
 

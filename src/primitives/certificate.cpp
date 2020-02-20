@@ -156,7 +156,6 @@ bool CScCertificate::AddUncheckedToMemPool(CTxMemPool* pool,
     const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool, bool fCurrentEstimate
 ) const { return true; }
 
-void CScCertificate::SyncWithWallets(const CBlock* pblock) const { return; }
 bool CScCertificate::Check(CValidationState& state, libzcash::ProofVerifier&) const { return true; }
 bool CScCertificate::IsApplicableToState() const { return true; }
 bool CScCertificate::IsStandard(std::string& reason, int nHeight) const { return true; }
@@ -183,12 +182,6 @@ bool CScCertificate::AddUncheckedToMemPool(CTxMemPool* pool,
 {
     CCertificateMemPoolEntry entry( *this, nFee, GetTime(), dPriority, nHeight);
     return pool->addUnchecked(GetHash(), entry, fCurrentEstimate);
-}
-
-void CScCertificate::SyncWithWallets(const CBlock* pblock) const
-{
-    LogPrint("cert", "%s():%d - sync with wallet cert[%s]\n", __func__, __LINE__, GetHash().ToString());
-    ::SyncWithWallets(*this, pblock);
 }
 
 bool CScCertificate::Check(CValidationState& state, libzcash::ProofVerifier& /*unused*/) const

@@ -98,7 +98,6 @@ public:
     bool IsStandard(std::string& reason, int nHeight) const override;
     bool IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const override;
     
-    void SyncWithWallets(const CBlock* pblock = NULL) const override;
     void UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const override;
     void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const override;
 
