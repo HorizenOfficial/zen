@@ -367,7 +367,7 @@ void CTxMemPool::removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned in
             std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(txin.prevout.hash);
             if (it2 != mapTx.end())
                 continue;
-#if 1
+
             // if input is a certificate skip as well, even if it can not be coinbase anyway
             std::map<uint256, CCertificateMemPoolEntry>::const_iterator it3 = mapCertificate.find(txin.prevout.hash);
             if (it3 != mapCertificate.end())
@@ -375,7 +375,7 @@ void CTxMemPool::removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned in
                 LogPrint("cert", "%s():%d - tx input is cert [%s] which is still in mempool\n", __func__, __LINE__, it3->first.ToString() );
                 continue;
             }
-#endif
+
             const CCoins *coins = pcoins->AccessCoins(txin.prevout.hash);
             if (fSanityCheck) assert(coins);
             if (!coins || (coins->IsCoinBase() && ((signed long)nMemPoolHeight) - coins->nHeight < COINBASE_MATURITY)) {
@@ -387,12 +387,9 @@ void CTxMemPool::removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned in
             }
         }
     }
+
     BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
-#if 0
-        list<CTransaction> removed;
-#else
         std::list<std::shared_ptr<CTransactionBase>> removed;
-#endif
         remove(tx, removed, true);
     }
 }
@@ -434,13 +431,10 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
     }
 
     BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
-#if 0
-        list<CTransaction> removed;
-#else
         std::list<std::shared_ptr<CTransactionBase>> removed;
-#endif
         remove(tx, removed, true);
     }
+
     BOOST_FOREACH(const CScCertificate& cert, certificatesToRemove) {
         std::list<std::shared_ptr<CTransactionBase>> removed;
         remove(cert, removed, true);
@@ -468,20 +462,12 @@ void CTxMemPool::removeWithAnchor(const uint256 &invalidRoot)
     }
 
     BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
-#if 0
-        list<CTransaction> removed;
-#else
         std::list<std::shared_ptr<CTransactionBase>> removed;
-#endif
         remove(tx, removed, true);
     }
 }
 
-#if 0
-void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>& removed)
-#else
 void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<std::shared_ptr<CTransactionBase>>& removed)
-#endif
 {
     // Remove transactions which depend on inputs of tx, recursively
     // not used
@@ -523,13 +509,8 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<std::shared_p
 /**
  * Called when a block is connected. Removes from mempool and updates the miner fee estimator.
  */
-#if 0
-void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
-                                std::list<CTransaction>& conflicts, bool fCurrentEstimate)
-#else
 void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
                                 std::list<std::shared_ptr<CTransactionBase>>& conflicts, bool fCurrentEstimate)
-#endif
 {
     LOCK(cs);
     std::vector<CTxMemPoolEntry> entries;
@@ -539,13 +520,10 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
         if (mapTx.count(hash))
             entries.push_back(mapTx[hash]);
     }
+
     BOOST_FOREACH(const CTransaction& tx, vtx)
     {
-#if 1
         std::list<std::shared_ptr<CTransactionBase>> dummy;
-#else
-        std::list<CTransaction> dummy;
-#endif
         remove(tx, dummy, false);
         removeConflicts(tx, conflicts);
         ClearPrioritisation(tx.GetHash());
@@ -605,15 +583,6 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         checkTotal += it->second.GetTxSize();
         innerUsage += it->second.DynamicMemoryUsage();
         const CTransaction& tx = it->second.GetTx();
-#if 0
-        // TODO cert: check this is aimed at adding sidechain related mempool checks
-        CValidationState state;
-        if (!Sidechain::ScCoinsView::IsTxAllowedInMempool(*this, tx, state))
-        {
-            LogPrint("sc", "%s():%d - tx [%s] has conflicts in mempool\n", __func__, __LINE__, tx.GetHash().ToString());
-            assert(false);
-        }
-#endif
 
         bool fDependsWait = false;
         BOOST_FOREACH(const CTxIn &txin, tx.vin) {
@@ -624,7 +593,6 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
                 assert(tx2.vout.size() > txin.prevout.n && !tx2.vout[txin.prevout.n].IsNull());
                 fDependsWait = true;
             } else {
-#if 1
                 // maybe our input is a certificate?
                 std::map<uint256, CCertificateMemPoolEntry>::const_iterator itCert = mapCertificate.find(txin.prevout.hash);
                 if (itCert != mapCertificate.end()) {
@@ -637,10 +605,6 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
                     const CCoins* coins = pcoins->AccessCoins(txin.prevout.hash);
                     assert(coins && coins->IsAvailable(txin.prevout.n));
                 }
-#else
-                const CCoins* coins = pcoins->AccessCoins(txin.prevout.hash);
-                assert(coins && coins->IsAvailable(txin.prevout.n));
-#endif
             }
             // Check whether its inputs are marked in mapNextTx.
             std::map<COutPoint, CInPoint>::const_iterator it3 = mapNextTx.find(txin.prevout);
@@ -707,27 +671,25 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         }
     }
 
-#if 1
     for (auto it = mapCertificate.begin(); it != mapCertificate.end(); it++)
     {
         checkTotal += it->second.GetCertificateSize();
         innerUsage += it->second.DynamicMemoryUsage();
         const auto& cert = it->second.GetCertificate();
         CValidationState state;
-#if 1
+
         // TODO cert: check this 
         if (!Sidechain::ScCoinsView::IsCertAllowedInMempool(*this, cert, state))
         {
             LogPrint("sc", "%s():%d - cert [%s] has conflicts in mempool\n", __func__, __LINE__, cert.GetHash().ToString());
             assert(false);
         }
-#endif
+
         assert(cert.ContextualCheckInputs(state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
         // updating coins with cert outputs because the cache is checked below for
         // any tx inputs and maybe some tx has a cert out as its input.
         cert.UpdateCoins(state, mempoolDuplicate, 1000000);
     }
-#endif
 
     unsigned int stepsSinceLastRemove = 0;
     while (!waitingOnDependants.empty()) {
@@ -787,7 +749,6 @@ bool CTxMemPool::lookup(uint256 hash, CTransaction& result) const
     return true;
 }
 
-#if 1
 bool CTxMemPool::lookup(uint256 hash, CScCertificate& result) const
 {
     LOCK(cs);
@@ -796,7 +757,6 @@ bool CTxMemPool::lookup(uint256 hash, CScCertificate& result) const
     result = i->second.GetCertificate();
     return true;
 }
-#endif
 
 CFeeRate CTxMemPool::estimateFee(int nBlocks) const
 {
@@ -916,49 +876,13 @@ bool CCoinsViewMemPool::HaveCoins(const uint256 &txid) const {
     return mempool.exists(txid) || base->HaveCoins(txid);
 }
 
-#if 0
-bool CCoinsViewMemPool::GetScInfo(const uint256& scId, Sidechain::ScInfo& info) const {
-    if (mempool.sidechainExists(scId)) {
-        //build ScInfo from txs in mempool
-        const uint256& scCreationHash = mempool.mapSidechains.at(scId).scCreationTxHash;
-        const CTransaction & scCreationTx = mempool.mapTx.at(scCreationHash).GetTx();
-        for (const auto& scCreation : scCreationTx.vsc_ccout)
-            if (scId == scCreation.scId) {
-                //info.creationBlockHash doesn't exist here!
-                info.creationBlockHeight = -1; //default null value for creationBlockHeight
-                info.creationTxHash = scCreationHash;
-                info.creationData.withdrawalEpochLength = scCreation.withdrawalEpochLength;
-            }
-
-            //construct immature amount infos
-            for (const auto& fwdHash: mempool.mapSidechains.at(scId).CcTransfersSet) {
-                const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
-                for (const auto& fwdAmount : fwdTx.vft_ccout)
-                    if (scId == fwdAmount.scId)
-                        info.mImmatureAmounts[-1] += fwdAmount.nValue;
-            }
-            return true;
-    }
-
-    return base->GetScInfo(scId, info);
-}
-
-bool CCoinsViewMemPool::HaveScInfo(const uint256& scId) const {
-        return mempool.sidechainExists(scId) || base->HaveScInfo(scId);
-}
-#endif
-
 size_t CTxMemPool::DynamicMemoryUsage() const {
     LOCK(cs);
-#if 0
-    return memusage::DynamicUsage(mapTx) + memusage::DynamicUsage(mapNextTx) + memusage::DynamicUsage(mapDeltas) + cachedInnerUsage;
-#else
     return
         ( memusage::DynamicUsage(mapTx) +
           memusage::DynamicUsage(mapNextTx) +
           memusage::DynamicUsage(mapDeltas) +
           memusage::DynamicUsage(mapCertificate) +
           cachedInnerUsage);
-#endif
 }
 
