@@ -82,6 +82,8 @@ struct CSidechainMemPoolEntry
 {
     uint256 scCreationTxHash;
     std::set<uint256> fwdTransfersSet;
+    // Note: if a fwdTx sends multiple found to a sidechain, the hash is registered only once
+    // Upon removal we will need to guard against double deletes.
 };
 
 /**

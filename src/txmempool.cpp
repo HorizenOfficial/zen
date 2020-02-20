@@ -163,6 +163,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
             txToRemove.pop_front();
             if (!mapTx.count(hash))
                 continue;
+
             const CTransaction& tx = mapTx[hash].GetTx();
             if (fRecursive) {
                 for (unsigned int i = 0; i < tx.vout.size(); i++) {
@@ -188,7 +189,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                 mapNextTx.erase(txin.prevout);
 
             for(const auto& fwd: tx.vft_ccout) {
-                if (mapSidechains.count(fwd.scId)) { //this should be redundant. tx is guaranteed to be in mempool here, and any fwd tx should also be in mapSidechains
+                if (mapSidechains.count(fwd.scId)) { //This if guards against double-delete on multiple fwds toward the same sidechain
                     mapSidechains.at(fwd.scId).fwdTransfersSet.erase(tx.GetHash());
 
                     if (mapSidechains.at(fwd.scId).fwdTransfersSet.size() == 0 && mapSidechains.at(fwd.scId).scCreationTxHash.IsNull())
@@ -197,15 +198,12 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
             }
 
             for(const auto& sc: tx.vsc_ccout) {
-                    if (mapSidechains.count(sc.scId)) { //this should be redundant. tx is guaranteed to be in mempool here, and any sc tx should also be in mapSidechains
-                        mapSidechains.at(sc.scId).scCreationTxHash.SetNull();
+                assert(mapSidechains.count(sc.scId) != 0);
+                mapSidechains.at(sc.scId).scCreationTxHash.SetNull();
 
-                        if (mapSidechains.at(sc.scId).fwdTransfersSet.size() == 0)
-                            mapSidechains.erase(sc.scId);
-                    }
+                if (mapSidechains.at(sc.scId).fwdTransfersSet.size() == 0)
+                    mapSidechains.erase(sc.scId);
             }
-
-
 
             for(const JSDescription& joinsplit: tx.vjoinsplit)
                 for(const uint256& nf: joinsplit.nullifiers)
