@@ -16,8 +16,6 @@
 #include "version.h"
 #include "main.h"
 
-using namespace std;
-
 CMemPoolEntry::CMemPoolEntry():
     nFee(0), nModSize(0), nUsageSize(0), nTime(0), dPriority(0.0)
 {
@@ -360,7 +358,7 @@ void CTxMemPool::removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned in
 {
     // Remove transactions spending a coinbase which are now immature
     LOCK(cs);
-    list<CTransaction> transactionsToRemove;
+    std::list<CTransaction> transactionsToRemove;
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         const CTransaction& tx = it->second.GetTx();
         BOOST_FOREACH(const CTxIn& txin, tx.vin) {
@@ -399,8 +397,8 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
     LOCK(cs);
     assert(pindexDelete);
 
-    list<CScCertificate> certificatesToRemove;
-    list<CTransaction> transactionsToRemove;
+    std::list<CScCertificate> certificatesToRemove;
+    std::list<CTransaction> transactionsToRemove;
 
     // Remove certificates referring to this block as end epoch
     for (std::map<uint256, CCertificateMemPoolEntry>::const_iterator it = mapCertificate.begin(); it != mapCertificate.end(); it++)
@@ -449,7 +447,7 @@ void CTxMemPool::removeWithAnchor(const uint256 &invalidRoot)
     // from that root -- almost as though they were spending coinbases
     // which are no longer valid to spend due to coinbase maturity.
     LOCK(cs);
-    list<CTransaction> transactionsToRemove;
+    std::list<CTransaction> transactionsToRemove;
 
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         const CTransaction& tx = it->second.GetTx();
@@ -570,7 +568,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     CCoinsViewCache mempoolDuplicate(const_cast<CCoinsViewCache*>(pcoins));
 
     LOCK(cs);
-    list<const CTxMemPoolEntry*> waitingOnDependants;
+    std::list<const CTxMemPoolEntry*> waitingOnDependants;
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         unsigned int i = 0;
         checkTotal += it->second.GetTxSize();
@@ -701,7 +699,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     }
     for (std::map<COutPoint, CInPoint>::const_iterator it = mapNextTx.begin(); it != mapNextTx.end(); it++) {
         uint256 hash = it->second.ptx->GetHash();
-        map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(hash);
+        std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(hash);
         const CTransaction& tx = it2->second.GetTx();
         assert(it2 != mapTx.end());
         assert(&tx == it->second.ptx);
@@ -711,7 +709,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
     for (std::map<uint256, const CTransaction*>::const_iterator it = mapNullifiers.begin(); it != mapNullifiers.end(); it++) {
         uint256 hash = it->second->GetHash();
-        map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(hash);
+        std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(hash);
         const CTransaction& tx = it2->second.GetTx();
         assert(it2 != mapTx.end());
         assert(&tx == it->second);
@@ -721,22 +719,22 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     assert(innerUsage == cachedInnerUsage);
 }
 
-void CTxMemPool::queryHashes(vector<uint256>& vtxid)
+void CTxMemPool::queryHashes(std::vector<uint256>& vtxid)
 {
     vtxid.clear();
 
     LOCK(cs);
     vtxid.reserve(mapTx.size() + mapCertificate.size());
-    for (map<uint256, CTxMemPoolEntry>::iterator mi = mapTx.begin(); mi != mapTx.end(); ++mi)
+    for (std::map<uint256, CTxMemPoolEntry>::iterator mi = mapTx.begin(); mi != mapTx.end(); ++mi)
         vtxid.push_back((*mi).first);
-    for (map<uint256, CCertificateMemPoolEntry>::iterator mi = mapCertificate.begin(); mi != mapCertificate.end(); ++mi)
+    for (std::map<uint256, CCertificateMemPoolEntry>::iterator mi = mapCertificate.begin(); mi != mapCertificate.end(); ++mi)
         vtxid.push_back((*mi).first);
 }
 
 bool CTxMemPool::lookup(uint256 hash, CTransaction& result) const
 {
     LOCK(cs);
-    map<uint256, CTxMemPoolEntry>::const_iterator i = mapTx.find(hash);
+    std::map<uint256, CTxMemPoolEntry>::const_iterator i = mapTx.find(hash);
     if (i == mapTx.end()) return false;
     result = i->second.GetTx();
     return true;
@@ -745,7 +743,7 @@ bool CTxMemPool::lookup(uint256 hash, CTransaction& result) const
 bool CTxMemPool::lookup(uint256 hash, CScCertificate& result) const
 {
     LOCK(cs);
-    map<uint256, CCertificateMemPoolEntry>::const_iterator i = mapCertificate.find(hash);
+    std::map<uint256, CCertificateMemPoolEntry>::const_iterator i = mapCertificate.find(hash);
     if (i == mapCertificate.end()) return false;
     result = i->second.GetCertificate();
     return true;
@@ -797,7 +795,7 @@ CTxMemPool::ReadFeeEstimates(CAutoFile& filein)
     return true;
 }
 
-void CTxMemPool::PrioritiseTransaction(const uint256& hash, const string& strHash, double dPriorityDelta, const CAmount& nFeeDelta)
+void CTxMemPool::PrioritiseTransaction(const uint256& hash, const std::string& strHash, double dPriorityDelta, const CAmount& nFeeDelta)
 {
     {
         LOCK(cs);
