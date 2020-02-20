@@ -3158,6 +3158,8 @@ bool static DisconnectTip(CValidationState &state) {
         return false;
 
     // Resurrect mempool transactions and certificates from the disconnected block.
+    std::list<CTransaction> dummyTxs;
+    std::list<CScCertificate> dummyCerts;
     for(const CTransaction &tx: block.vtx) {
         // ignore validation errors in resurrected transactions
         CValidationState stateDummy;
@@ -3168,8 +3170,6 @@ bool static DisconnectTip(CValidationState &state) {
         if (tx.IsCoinBase() || !AcceptToMemoryPool(mempool, stateDummy, tx, false, NULL)) {
             LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, tx.GetHash().ToString(), tx.ToString());
-            std::list<CTransaction> dummyTxs;
-            std::list<CScCertificate> dummyCerts;
             mempool.remove(tx, dummyTxs, dummyCerts, true);
         }
     }
@@ -3185,8 +3185,6 @@ bool static DisconnectTip(CValidationState &state) {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
 
-            std::list<CTransaction> dummyTxs;
-            std::list<CScCertificate> dummyCerts;
             mempool.remove(cert, dummyTxs, dummyCerts, true);
         }
     }
@@ -3197,10 +3195,10 @@ bool static DisconnectTip(CValidationState &state) {
         mempool.removeWithAnchor(anchorBeforeDisconnect);
     }
     mempool.removeCoinbaseSpends(pcoinsTip, pindexDelete->nHeight);
-#if 1
+
     // remove any certificate, and possible dependancies, that refers to this block as end epoch
     mempool.removeOutOfEpochCertificates(pindexDelete);
-#endif
+
     mempool.check(pcoinsTip);
     // Update chainActive and related variables.
     UpdateTip(pindexDelete->pprev);

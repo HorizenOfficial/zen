@@ -399,8 +399,8 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
     LOCK(cs);
     assert(pindexDelete);
 
-    std::list<CScCertificate> certificatesToRemove;
-    std::list<CTransaction> transactionsToRemove;
+    std::list<CScCertificate> certsToRemove;
+    std::list<CTransaction>   txsToRemove;
 
     // Remove certificates referring to this block as end epoch
     for (std::map<uint256, CCertificateMemPoolEntry>::const_iterator it = mapCertificate.begin(); it != mapCertificate.end(); it++)
@@ -411,7 +411,7 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
         {
             LogPrint("sc", "%s():%d - adding cert [%s] to list for removing (endEpochBlockHash %s)\n",
                 __func__, __LINE__, cert.GetHash().ToString(), pindexDelete->GetBlockHash().ToString());
-            certificatesToRemove.push_back(cert);
+            certsToRemove.push_back(cert);
 
             // Remove also txes that depend on such certificates
             for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++)
@@ -422,7 +422,7 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
                     if (txin.prevout.hash == cert.GetHash() )
                     {
                         LogPrint("sc", "%s():%d - adding tx [%s] to list for removing\n", __func__, __LINE__, tx.GetHash().ToString());
-                        transactionsToRemove.push_back(tx);
+                        txsToRemove.push_back(tx);
                         break;
                     }
                 }
@@ -430,16 +430,14 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
         }
     }
 
-    BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
-        std::list<CTransaction> conflictingTxs;
-        std::list<CScCertificate> conflictingCerts;
-        remove(tx, conflictingTxs, conflictingCerts, true);
+    std::list<CTransaction> dummyTxs;
+    std::list<CScCertificate> dummyCerts;
+    for(const CTransaction& tx: txsToRemove) {
+        remove(tx, dummyTxs, dummyCerts, true);
     }
 
-    BOOST_FOREACH(const CScCertificate& cert, certificatesToRemove) {
-        std::list<CTransaction> conflictingTxs;
-        std::list<CScCertificate> conflictingCerts;
-        remove(cert, conflictingTxs, conflictingCerts, true);
+    for(const CScCertificate& cert: certsToRemove) {
+        remove(cert, dummyTxs, dummyCerts, true);
     }
 }
 
@@ -463,10 +461,10 @@ void CTxMemPool::removeWithAnchor(const uint256 &invalidRoot)
         }
     }
 
+    std::list<CTransaction> dummyTxs;
+    std::list<CScCertificate> dummyCerts;
     BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
-        std::list<CTransaction> removedTxs;
-        std::list<CScCertificate> removedCerts;
-        remove(tx, removedTxs, removedCerts, true);
+        remove(tx, dummyTxs, dummyCerts, true);
     }
 }
 
@@ -517,17 +515,17 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
 {
     LOCK(cs);
     std::vector<CTxMemPoolEntry> entries;
-    BOOST_FOREACH(const CTransaction& tx, vtx)
+    for(const CTransaction& tx: vtx)
     {
         uint256 hash = tx.GetHash();
         if (mapTx.count(hash))
             entries.push_back(mapTx[hash]);
     }
 
-    BOOST_FOREACH(const CTransaction& tx, vtx)
+    std::list<CTransaction> dummyTxs;
+    std::list<CScCertificate> dummyCerts;
+    for(const CTransaction& tx: vtx)
     {
-        std::list<CTransaction> dummyTxs;
-        std::list<CScCertificate> dummyCerts;
         remove(tx, dummyTxs, dummyCerts, false);
         removeConflicts(tx, conflictingTxs, conflictingCerts);
         ClearPrioritisation(tx.GetHash());
@@ -541,11 +539,11 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
 void CTxMemPool::removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight, bool fCurrentEstimate)
 {
     LOCK(cs);
+    std::list<CTransaction> dummyTxs;
+    std::list<CScCertificate> dummyCert;
     for (const auto& obj : vcert)
     {
-        std::list<CTransaction> removedTxs;
-        std::list<CScCertificate> removedCert;
-        remove(obj, removedTxs, removedCert, true);
+        remove(obj, dummyTxs, dummyCert, true);
         ClearPrioritisation(obj.GetHash());
     }
 }
