@@ -729,7 +729,6 @@ public:
     // default values for derived classes which do not support specific data structures
 
     // return false when meaningful only in a block context. As of now only tx coin base returns false
-    virtual bool IsValidLoose() const { return true; }
 
     virtual bool IsCoinBase() const { return false; }
     virtual bool IsCoinCertified() const { return false; }
@@ -842,7 +841,6 @@ public:
     // Compute priority, given priority of inputs and (optionally) tx size
     double ComputePriority(double dPriorityInputs, unsigned int nTxSize=0) const;
 
-    bool IsValidLoose() const override;
     unsigned int CalculateSize() const override;
     unsigned int CalculateModifiedSize(unsigned int nTxSize) const override;
 

@@ -484,11 +484,6 @@ CAmount CTransaction::GetJoinSplitValueIn() const
     return nValue;
 }
 
-bool CTransaction::IsValidLoose() const
-{
-    return !IsCoinBase();
-}
-
 unsigned int CTransaction::CalculateSize() const
 {
     unsigned int sz = ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);
