@@ -185,13 +185,6 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     return true;
 }
 
-bool CTxMemPool::addUnchecked(
-    const CTransactionBase& tx, const CAmount& nFee, int64_t nTime, double dPriority, int nHeight,
-    bool poolHasNoInputsOf, bool fCurrentEstimate)
-{
-    return tx.AddUncheckedToMemPool(this, nFee, nTime, dPriority, nHeight, poolHasNoInputsOf, fCurrentEstimate);
-}
-
 void CTxMemPool::remove(const CTransaction &origTx, std::list<std::shared_ptr<CTransactionBase>>& removed, bool fRecursive, bool removeDependantFwds)
 {
     // Remove transaction from memory pool
@@ -561,7 +554,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
     minerPolicyEstimator->processBlock(nBlockHeight, entries, fCurrentEstimate);
 }
 
-#if 1
+
 // a certificate has no conflicting txes since it has no inputs
 void CTxMemPool::removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight, bool fCurrentEstimate)
 {
@@ -580,7 +573,6 @@ void CTxMemPool::removeForBlock(const std::vector<CScCertificate>& vcert, unsign
         ClearPrioritisation(obj.GetHash());
     }
 }
-#endif
 
 void CTxMemPool::clear()
 {

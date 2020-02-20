@@ -159,10 +159,6 @@ public:
     void check(const CCoinsViewCache *pcoins) const;
     void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
 
-    bool addUnchecked(
-        const CTransactionBase& tb, const CAmount& nFee, int64_t nTime, double dPriority, int nHeight,
-        bool poolHasNoInputsOf, bool fCurrentEstimate);
-
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
