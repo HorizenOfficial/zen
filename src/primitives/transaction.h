@@ -740,7 +740,6 @@ public:
     virtual void AddJoinSplitToJSON(UniValue& entry) const { return; }
     virtual void AddSidechainOutsToJSON(UniValue& entry) const {return; }
     virtual bool HaveInputs(const CCoinsViewCache& view) const { return true; }
-    virtual bool HasNoInputsInMempool(const CTxMemPool& pool) const { return true; }
     virtual bool AreInputsStandard(CCoinsViewCache& view) const { return true; }
 
     virtual bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
@@ -964,7 +963,6 @@ public:
     bool IsStandard(std::string& reason, int nHeight) const override;
     bool CheckFinal(int flags = -1) const override;
     bool IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const override;
-    bool HasNoInputsInMempool(const CTxMemPool& pool) const override;
     bool IsApplicableToState() const override;
     void HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const override;
     void AddJoinSplitToJSON(UniValue& entry) const override;

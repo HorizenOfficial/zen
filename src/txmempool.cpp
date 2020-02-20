@@ -832,16 +832,13 @@ void CTxMemPool::ClearPrioritisation(const uint256 hash)
     mapDeltas.erase(hash);
 }
 
-bool CTxMemPool::HasNoInputsOf(const CTransactionBase &tx) const
+bool CTxMemPool::HasNoInputsOf(const CTransaction &tx) const
 {
-#if 0
     for (unsigned int i = 0; i < tx.vin.size(); i++)
         if (exists(tx.vin[i].prevout.hash))
             return false;
     return true;
-#else
-    return tx.HasNoInputsInMempool(*this);
-#endif
+
 }
 
 CCoinsViewMemPool::CCoinsViewMemPool(CCoinsView *baseIn, CTxMemPool &mempoolIn) : CCoinsViewBacked(baseIn), mempool(mempoolIn) { }

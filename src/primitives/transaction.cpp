@@ -580,7 +580,6 @@ bool CTransaction::IsStandard(std::string& reason, int nHeight) const { return t
 bool CTransaction::CheckFinal(int flags) const { return true; }
 bool CTransaction::IsApplicableToState() const { return true; }
 bool CTransaction::IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const { return true; }
-bool CTransaction::HasNoInputsInMempool(const CTxMemPool& pool) const { return true; }
 void CTransaction::HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const { return; };
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
@@ -784,14 +783,6 @@ bool CTransaction::IsAllowedInMempool(CValidationState& state, const CTxMemPool&
     }
 
     return Sidechain::ScCoinsView::IsTxAllowedInMempool(pool, *this, state);
-}
-
-bool CTransaction::HasNoInputsInMempool(const CTxMemPool& pool) const
-{
-    for (unsigned int i = 0; i < vin.size(); i++)
-        if (pool.exists(vin[i].prevout.hash))
-            return false;
-    return true;
 }
 
 void CTransaction::HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const
