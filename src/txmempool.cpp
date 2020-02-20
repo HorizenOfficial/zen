@@ -183,7 +183,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     return true;
 }
 
-void CTxMemPool::remove(const CTransaction &origTx, std::list<std::shared_ptr<CTransactionBase>>& removed, bool fRecursive, bool removeDependantFwds)
+void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive, bool removeDependantFwds)
 {
     // Remove transaction from memory pool
     {
@@ -214,13 +214,14 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<std::shared_ptr<CT
             }
         }
 
-        removeInternal(objToRemove, removed, fRecursive, removeDependantFwds);
+        removeInternal(objToRemove, removedTxs, removedCerts, fRecursive, removeDependantFwds);
     }
 }
 
 void::CTxMemPool::removeInternal(
     std::deque<uint256>& objToRemove,
-    std::list<std::shared_ptr<CTransactionBase>>& removed,
+    std::list<CTransaction>& removedTxs,
+    std::list<CScCertificate>& removedCerts,
     bool fRecursive,
     bool removeDependantFwds)
 {
@@ -279,7 +280,7 @@ void::CTxMemPool::removeInternal(
                 }
             }
 
-            removed.push_back(std::shared_ptr<CTransactionBase>(new CTransaction(tx)));
+            removedTxs.push_back(tx);
             totalTxSize -= mapTx[hash].GetTxSize();
             cachedInnerUsage -= mapTx[hash].DynamicMemoryUsage();
 
@@ -317,7 +318,7 @@ void::CTxMemPool::removeInternal(
                 }
             }
 
-            removed.push_back(std::shared_ptr<CTransactionBase>(new CScCertificate(cert)));
+            removedCerts.push_back(cert);
             totalTxSize -= mapCertificate[hash].GetCertificateSize();
             cachedInnerUsage -= mapCertificate[hash].DynamicMemoryUsage();
             LogPrint("cert", "%s():%d - removing cert [%s] from mempool\n", __func__, __LINE__, hash.ToString() );
@@ -329,7 +330,7 @@ void::CTxMemPool::removeInternal(
     }
 }
 
-void CTxMemPool::remove(const CScCertificate &origCert, std::list<std::shared_ptr<CTransactionBase>>& removed, bool fRecursive, bool removeDependantFwds)
+void CTxMemPool::remove(const CScCertificate &origCert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive, bool removeDependantFwds)
 {
     // Remove certificate from memory pool
     {
@@ -350,7 +351,7 @@ void CTxMemPool::remove(const CScCertificate &origCert, std::list<std::shared_pt
             }
         }
 
-        removeInternal(objToRemove, removed, fRecursive, removeDependantFwds);
+        removeInternal(objToRemove, removedTxs, removedCerts, fRecursive, removeDependantFwds);
     }
 }
 
@@ -387,8 +388,9 @@ void CTxMemPool::removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned in
     }
 
     BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
-        std::list<std::shared_ptr<CTransactionBase>> removed;
-        remove(tx, removed, true);
+        std::list<CTransaction> removedTxs;
+        std::list<CScCertificate> removedCerts;
+        remove(tx, removedTxs, removedCerts, true);
     }
 }
 
@@ -429,13 +431,15 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
     }
 
     BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
-        std::list<std::shared_ptr<CTransactionBase>> removed;
-        remove(tx, removed, true);
+        std::list<CTransaction> conflictingTxs;
+        std::list<CScCertificate> conflictingCerts;
+        remove(tx, conflictingTxs, conflictingCerts, true);
     }
 
     BOOST_FOREACH(const CScCertificate& cert, certificatesToRemove) {
-        std::list<std::shared_ptr<CTransactionBase>> removed;
-        remove(cert, removed, true);
+        std::list<CTransaction> conflictingTxs;
+        std::list<CScCertificate> conflictingCerts;
+        remove(cert, conflictingTxs, conflictingCerts, true);
     }
 }
 
@@ -460,12 +464,13 @@ void CTxMemPool::removeWithAnchor(const uint256 &invalidRoot)
     }
 
     BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
-        std::list<std::shared_ptr<CTransactionBase>> removed;
-        remove(tx, removed, true);
+        std::list<CTransaction> removedTxs;
+        std::list<CScCertificate> removedCerts;
+        remove(tx, removedTxs, removedCerts, true);
     }
 }
 
-void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<std::shared_ptr<CTransactionBase>>& removed)
+void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts)
 {
     // Remove transactions which depend on inputs of tx, recursively
     // not used
@@ -477,7 +482,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<std::shared_p
             const CTransaction &txConflict = *it->second.ptx;
             if (txConflict != tx)
             {
-                remove(txConflict, removed, true);
+                remove(txConflict, removedTxs, removedCerts, true);
             }
         }
     }
@@ -489,7 +494,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<std::shared_p
                 const CTransaction &txConflict = *it->second;
                 if (txConflict != tx)
                 {
-                    remove(txConflict, removed, true);
+                    remove(txConflict, removedTxs, removedCerts, true);
                 }
             }
         }
@@ -499,7 +504,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<std::shared_p
         if(sidechainExists(sc.scId)) {
             const uint256& scRedeclarationHash = mapSidechains[sc.scId].scCreationTxHash;
             const CTransaction &scReDeclarationTx = mapTx[scRedeclarationHash].GetTx();
-            remove(scReDeclarationTx, removed, /*fRecursive*/true, /*removeDependantFwds*/false);
+            remove(scReDeclarationTx, removedTxs, removedCerts, /*fRecursive*/true, /*removeDependantFwds*/false);
         }
     }
 }
@@ -508,7 +513,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<std::shared_p
  * Called when a block is connected. Removes from mempool and updates the miner fee estimator.
  */
 void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
-                                std::list<std::shared_ptr<CTransactionBase>>& conflicts, bool fCurrentEstimate)
+                                std::list<CTransaction>& conflictingTxs, std::list<CScCertificate>& conflictingCerts, bool fCurrentEstimate)
 {
     LOCK(cs);
     std::vector<CTxMemPoolEntry> entries;
@@ -521,9 +526,10 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
 
     BOOST_FOREACH(const CTransaction& tx, vtx)
     {
-        std::list<std::shared_ptr<CTransactionBase>> dummy;
-        remove(tx, dummy, false);
-        removeConflicts(tx, conflicts);
+        std::list<CTransaction> dummyTxs;
+        std::list<CScCertificate> dummyCerts;
+        remove(tx, dummyTxs, dummyCerts, false);
+        removeConflicts(tx, conflictingTxs, conflictingCerts);
         ClearPrioritisation(tx.GetHash());
     }
     // After the txs in the new block have been removed from the mempool, update policy estimates
@@ -537,8 +543,9 @@ void CTxMemPool::removeForBlock(const std::vector<CScCertificate>& vcert, unsign
     LOCK(cs);
     for (const auto& obj : vcert)
     {
-        std::list<std::shared_ptr<CTransactionBase>> removed;
-        remove(obj, removed, true);
+        std::list<CTransaction> removedTxs;
+        std::list<CScCertificate> removedCert;
+        remove(obj, removedTxs, removedCert, true);
         ClearPrioritisation(obj.GetHash());
     }
 }

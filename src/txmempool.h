@@ -134,7 +134,7 @@ private:
     uint64_t totalCertificateSize = 0; //! sum of all mempool tx' byte sizes
     uint64_t cachedInnerUsage; //! sum of dynamic memory usage of all the map elements (NOT the maps themselves)
 
-    void removeInternal(std::deque<uint256>& objToRemove, std::list<std::shared_ptr<CTransactionBase>>& removed, bool fRecursive, bool removeDependantFwds = true);
+    void removeInternal(std::deque<uint256>& objToRemove, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive, bool removeDependantFwds = true);
 
 public:
     mutable CCriticalSection cs;
@@ -160,15 +160,15 @@ public:
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
-    void remove(const CTransaction &tx, std::list<std::shared_ptr<CTransactionBase>>& removed, bool fRecursive = false, bool removeDependantFwds = true);
-    void remove(const CScCertificate &origCert, std::list<std::shared_ptr<CTransactionBase>>& removed, bool fRecursive = false, bool removeDependantFwds = true);
+    void remove(const CTransaction &tx,         std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false, bool removeDependantFwds = true);
+    void remove(const CScCertificate &origCert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false, bool removeDependantFwds = true);
 
     void removeWithAnchor(const uint256 &invalidRoot);
     void removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
 
-    void removeConflicts(const CTransaction &tx, std::list<std::shared_ptr<CTransactionBase>>& removed);
+    void removeConflicts(const CTransaction &tx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
     void removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
-                        std::list<std::shared_ptr<CTransactionBase>>& conflicts, bool fCurrentEstimate = true);
+                        std::list<CTransaction>& conflictingTxs, std::list<CScCertificate>& conflictingCerts, bool fCurrentEstimate = true);
 
     // no conflicts for certs
     void removeOutOfEpochCertificates(const CBlockIndex* pindexDelete);

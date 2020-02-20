@@ -3168,8 +3168,9 @@ bool static DisconnectTip(CValidationState &state) {
         if (tx.IsCoinBase() || !AcceptToMemoryPool(mempool, stateDummy, tx, false, NULL)) {
             LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, tx.GetHash().ToString(), tx.ToString());
-            std::list<std::shared_ptr<CTransactionBase>> unused;
-            mempool.remove(tx, unused, true);
+            std::list<CTransaction> dummyTxs;
+            std::list<CScCertificate> dummyCerts;
+            mempool.remove(tx, dummyTxs, dummyCerts, true);
         }
     }
 
@@ -3184,8 +3185,9 @@ bool static DisconnectTip(CValidationState &state) {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
 
-            std::list<std::shared_ptr<CTransactionBase>> unused;
-            mempool.remove(cert, unused, true);
+            std::list<CTransaction> dummyTxs;
+            std::list<CScCertificate> dummyCerts;
+            mempool.remove(cert, dummyTxs, dummyCerts, true);
         }
     }
 
@@ -3275,8 +3277,9 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     LogPrint("bench", "  - Writing chainstate: %.2fms [%.2fs]\n", (nTime5 - nTime4) * 0.001, nTimeChainState * 0.000001);
 
     // Remove conflicting transactions from the mempool.
-    list<std::shared_ptr<CTransactionBase>> txConflicted;
-    mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, txConflicted, !IsInitialBlockDownload());
+    std::list<CTransaction> conflictingTxs;
+    std::list<CScCertificate> conflictingCerts;
+    mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, conflictingTxs, conflictingCerts, !IsInitialBlockDownload());
 
     // similar call but without conflicts handling, which are not applicable to certificates
     mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, !IsInitialBlockDownload());
@@ -3287,9 +3290,12 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
 
     // Tell wallet about transactions that went from mempool
     // to conflicted:
-    for(const std::shared_ptr<CTransactionBase> &obj: txConflicted) {
-        std::shared_ptr<CTransaction> ptrTmp = dynamic_pointer_cast<CTransaction>(obj);
-        SyncWithWallets(*ptrTmp, nullptr);
+    for(const CTransaction &tx: conflictingTxs) {
+        SyncWithWallets(tx, nullptr);
+    }
+
+    for(const CScCertificate & cert: conflictingCerts) {
+        SyncWithWallets(cert, nullptr);
     }
 
     // ... and about transactions that got confirmed:
