@@ -155,8 +155,6 @@ bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {r
 bool CScCertificate::IsApplicableToState() const { return true; }
 bool CScCertificate::IsStandard(std::string& reason, int nHeight) const { return true; }
 unsigned int CScCertificate::GetLegacySigOpCount() const { return 0; }
-bool CScCertificate::epochIsInMainchain() const { return true; }
-bool CScCertificate::checkEpochBlockHash() const { return true; }
 #else
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
 {
@@ -189,28 +187,6 @@ unsigned int CScCertificate::GetLegacySigOpCount() const
         nSigOps += txout.scriptPubKey.GetSigOpCount(false);
     }
     return nSigOps;
-}
-
-bool CScCertificate::epochIsInMainchain() const
-{
-    LOCK(cs_main);
-    if (mapBlockIndex.count(endEpochBlockHash) == 0)
-    {
-        return false;
-    }
-
-    CBlockIndex* pblockindex = mapBlockIndex[hash];
-    if (!chainActive.Contains(pblockindex))
-    {
-        return false;
-    }
-    return true;
-}
-
-bool CScCertificate::checkEpochBlockHash() const
-{
-    // TODO
-    return true;
 }
 #endif
 

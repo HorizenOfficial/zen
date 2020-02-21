@@ -674,7 +674,7 @@ public:
 
     friend bool operator!=(const CTransactionBase& a, const CTransactionBase& b)
     {
-        return a.hash != b.hash;
+        return !(a==b);
     }
 
     // Check for negative or overflow output values

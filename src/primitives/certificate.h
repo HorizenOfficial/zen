@@ -100,11 +100,6 @@ public:
 
     bool IsCoinCertified() const override { return true; }
 
-    // return true if the block marking the end of the withdrawal epoch of this certificate is in the main chain
-    bool epochIsInMainchain() const;
-
-    bool checkEpochBlockHash() const;
-
  private:
     template <typename T>
     inline void fillCrosschainOutput(const uint256& scid, const T& vOuts, unsigned int& nIdx, std::map<uint256, std::vector<uint256> >& map) const

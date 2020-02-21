@@ -2843,7 +2843,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
         nFees += nFee;
 
-        if (!cert.IsApplicableToState() ) {
+        if (!Sidechain::ScMgr::instance().IsCertApplicableToState(cert) ) {
             LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, cert.GetHash().ToString() );
             return state.DoS(100, error("ConnectBlock(): invalid sc certificate [%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-tx");
