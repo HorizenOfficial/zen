@@ -149,7 +149,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     }
 
     for(const auto& fwd: tx.vft_ccout) {
-        mapSidechains[fwd.scId].CcTransfersSet.insert(hash);
+        mapSidechains[fwd.scId].fwdTransfersSet.insert(hash);
     }
 
     nTransactionsUpdated++;
@@ -169,7 +169,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
 
     const CScCertificate& cert = mapCertificate[hash].GetCertificate();
 
-    mapSidechains[cert.scId].CcTransfersSet.insert(hash);
+    mapSidechains[cert.scId].currentEpochCertificate = hash;
            
     LogPrint("sc", "%s():%d - cert [%s] added in mapSidechains for sc [%s]\n",
         __func__, __LINE__, hash.ToString(), cert.scId.ToString() );
@@ -207,7 +207,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                     continue;
 
                 if (removeDependantFwds) {
-                    for(const auto& fwdTxHash : mapSidechains.at(sc.scId).CcTransfersSet)
+                    for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
                         objToRemove.push_back(fwdTxHash);
                 } else
                     objToRemove.push_back(mapSidechains.at(sc.scId).scCreationTxHash);
@@ -247,7 +247,7 @@ void::CTxMemPool::removeInternal(
                         continue;
 
                     if (removeDependantFwds) {
-                        for(const auto& ccObjHash : mapSidechains.at(sc.scId).CcTransfersSet)
+                        for(const auto& ccObjHash : mapSidechains.at(sc.scId).fwdTransfersSet)
                             objToRemove.push_back(ccObjHash);
                     } else
                         objToRemove.push_back(mapSidechains.at(sc.scId).scCreationTxHash);
@@ -264,9 +264,9 @@ void::CTxMemPool::removeInternal(
 
             for(const auto& fwd: tx.vft_ccout) {
                 if (mapSidechains.count(fwd.scId)) { //this should be redundant. tx is guaranteed to be in mempool here, and any fwd tx should also be in mapSidechains
-                    mapSidechains.at(fwd.scId).CcTransfersSet.erase(tx.GetHash());
+                    mapSidechains.at(fwd.scId).fwdTransfersSet.erase(tx.GetHash());
 
-                    if (mapSidechains.at(fwd.scId).CcTransfersSet.size() == 0 && mapSidechains.at(fwd.scId).scCreationTxHash.IsNull())
+                    if (mapSidechains.at(fwd.scId).fwdTransfersSet.size() == 0 && mapSidechains.at(fwd.scId).scCreationTxHash.IsNull())
                         mapSidechains.erase(fwd.scId);
                 }
             }
@@ -275,7 +275,7 @@ void::CTxMemPool::removeInternal(
                 if (mapSidechains.count(sc.scId)) { //this should be redundant. tx is guaranteed to be in mempool here, and any sc tx should also be in mapSidechains
                     mapSidechains.at(sc.scId).scCreationTxHash.SetNull();
                                                                 
-                    if (mapSidechains.at(sc.scId).CcTransfersSet.size() == 0)
+                    if (mapSidechains.at(sc.scId).fwdTransfersSet.size() == 0)
                         mapSidechains.erase(sc.scId);
                 }
             }
@@ -308,14 +308,7 @@ void::CTxMemPool::removeInternal(
             {
                 LogPrint("sc", "%s():%d - erasing cert [%s] in mapSidechains for sc [%s]\n",
                     __func__, __LINE__, hash.ToString(), cert.scId.ToString() );
-                mapSidechains.at(cert.scId).CcTransfersSet.erase(hash);
-
-                if (mapSidechains.at(cert.scId).CcTransfersSet.size() == 0 && mapSidechains.at(cert.scId).scCreationTxHash.IsNull())
-                {
-                    LogPrint("sc", "%s():%d - removing mapSidechains entry for sc [%s]\n",
-                        __func__, __LINE__, cert.scId.ToString() );
-                    mapSidechains.erase(cert.scId);
-                }
+                mapSidechains.at(cert.scId).currentEpochCertificate.SetNull();
             }
 
             removedCerts.push_back(cert);
@@ -623,8 +616,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         for(const auto& fwd: tx.vft_ccout) {
             //fwd must be duly recorded in mapSidechain
             assert(mapSidechains.count(fwd.scId) != 0);
-            const auto& fwdPos = mapSidechains.at(fwd.scId).CcTransfersSet.find(tx.GetHash());
-            assert(fwdPos != mapSidechains.at(fwd.scId).CcTransfersSet.end());
+            const auto& fwdPos = mapSidechains.at(fwd.scId).fwdTransfersSet.find(tx.GetHash());
+            assert(fwdPos != mapSidechains.at(fwd.scId).fwdTransfersSet.end());
 
             //there must be no dangling fwds, i.e. sc creation is either in mempool or in blockchain
             if (!mapSidechains.at(fwd.scId).scCreationTxHash.IsNull())
