@@ -151,13 +151,9 @@ double CScCertificate::GetPriority(const CCoinsViewCache &view, int nHeight) con
 #ifdef BITCOIN_TX
 
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
-bool CScCertificate::AddUncheckedToMemPool(CTxMemPool* pool,
-    const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool, bool fCurrentEstimate
-) const { return true; }
 
 bool CScCertificate::IsApplicableToState() const { return true; }
 bool CScCertificate::IsStandard(std::string& reason, int nHeight) const { return true; }
-bool CScCertificate::IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const { return true; }
 unsigned int CScCertificate::GetLegacySigOpCount() const { return 0; }
 bool CScCertificate::epochIsInMainchain() const { return true; }
 bool CScCertificate::checkEpochBlockHash() const { return true; }
@@ -166,14 +162,6 @@ bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
 {
     CValidationState state;
     return ::AcceptCertificateToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
-}
-
-bool CScCertificate::AddUncheckedToMemPool(CTxMemPool* pool,
-    const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool /*unused*/, bool fCurrentEstimate
-) const
-{
-    CCertificateMemPoolEntry entry( *this, nFee, GetTime(), dPriority, nHeight);
-    return pool->addUnchecked(GetHash(), entry, fCurrentEstimate);
 }
 
 bool CScCertificate::IsApplicableToState() const
@@ -191,12 +179,6 @@ bool CScCertificate::IsStandard(std::string& reason, int nHeight) const
     }
 
     return CheckOutputsAreStandard(nHeight, reason);
-}
-
-bool CScCertificate::IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const
-{
-    LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
-    return Sidechain::ScCoinsView::IsCertAllowedInMempool(pool, *this, state);
 }
 
 unsigned int CScCertificate::GetLegacySigOpCount() const 

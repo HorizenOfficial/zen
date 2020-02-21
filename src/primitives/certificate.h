@@ -83,10 +83,6 @@ public:
 
     void getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& map) const override;
 
-    bool AddUncheckedToMemPool(CTxMemPool* pool,
-        const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool poolHasNoInputsOf, bool fCurrentEstimate
-    ) const override;
-
     void AddToBlock(CBlock* pblock) const override; 
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int /* not used sigops */) const override;
 
@@ -95,7 +91,6 @@ public:
     bool IsApplicableToState() const override;
 
     bool IsStandard(std::string& reason, int nHeight) const override;
-    bool IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const override;
     
     void UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const override;
     void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const override;

@@ -567,9 +567,6 @@ bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& st
 
 
 bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
-bool CTransaction::AddUncheckedToMemPool(CTxMemPool* pool,
-    const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool poolHasNoInputsOf, bool fCurrentEstimate
-) const { return true; }
 void CTransaction::AddToBlock(CBlock* pblock) const { return; }
 void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const {return; }
 CAmount CTransaction::GetValueIn(const CCoinsViewCache& view) const { return 0; }
@@ -578,7 +575,6 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
 bool CTransaction::IsStandard(std::string& reason, int nHeight) const { return true; }
 bool CTransaction::CheckFinal(int flags) const { return true; }
 bool CTransaction::IsApplicableToState() const { return true; }
-bool CTransaction::IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const { return true; }
 void CTransaction::HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const { return; };
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
@@ -681,14 +677,6 @@ bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& st
     return true;
 }
 
-bool CTransaction::AddUncheckedToMemPool(CTxMemPool* pool,
-    const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool poolHasNoInputsOf, bool fCurrentEstimate
-) const
-{
-    CTxMemPoolEntry entry( *this, nFee, GetTime(), dPriority, nHeight, poolHasNoInputsOf);
-    return pool->addUnchecked(GetHash(), entry, fCurrentEstimate);
-}
-
 void CTransaction::AddToBlock(CBlock* pblock) const 
 {
     LogPrint("cert", "%s():%d - adding to block tx %s\n", __func__, __LINE__, GetHash().ToString());
@@ -751,32 +739,6 @@ bool CTransaction::IsApplicableToState() const
     return Sidechain::ScMgr::instance().IsTxApplicableToState(*this);
 }
     
-bool CTransaction::IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const
-{
-    for (unsigned int i = 0; i < vin.size(); i++)
-    {
-        COutPoint outpoint = vin[i].prevout;
-        if (pool.mapNextTx.count(outpoint))
-        {
-            // Disable replacement feature for now
-            return state.Invalid(error("conflict in mempool"),
-                 REJECT_INVALID, "conflict-in-mempool");
-        }
-    }
-
-    BOOST_FOREACH(const JSDescription &joinsplit, vjoinsplit) {
-        BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
-            if (pool.mapNullifiers.count(nf))
-            {
-                return state.Invalid(error("invalid nullifier in mempool"),
-                     REJECT_INVALID, "invalid-nullifier");
-            }
-        }
-    }
-
-    return Sidechain::ScCoinsView::IsTxAllowedInMempool(pool, *this, state);
-}
-
 void CTransaction::HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const
 {
     BOOST_FOREACH(const JSDescription &joinsplit, vjoinsplit) {

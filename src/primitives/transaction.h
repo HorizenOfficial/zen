@@ -702,17 +702,12 @@ public:
     virtual std::string ToString() const = 0;
     virtual void getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& map) const = 0;
 
-    virtual bool AddUncheckedToMemPool(CTxMemPool* pool, 
-        const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool poolHasNoInputsOf, bool fCurrentEstimate
-    ) const = 0;
-
     virtual void AddToBlock(CBlock* pblock) const = 0;
     virtual void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const = 0;
 
     virtual bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const = 0;
     virtual bool IsStandard(std::string& reason, int nHeight) const = 0;
     virtual bool CheckFinal(int flags = -1) const = 0;
-    virtual bool IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const = 0;
     virtual bool IsApplicableToState() const = 0;
 
     virtual void UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const = 0;
@@ -946,10 +941,6 @@ public:
     }
 
   public:
-    bool AddUncheckedToMemPool(CTxMemPool* pool, 
-        const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool poolHasNoInputsOf, bool fCurrentEstimate
-    ) const override;
-
     void AddToBlock(CBlock* pblock) const override;
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const override;
     CAmount GetJoinSplitValueIn() const override;
@@ -957,7 +948,6 @@ public:
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
     bool IsStandard(std::string& reason, int nHeight) const override;
     bool CheckFinal(int flags = -1) const override;
-    bool IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const override;
     bool IsApplicableToState() const override;
     void HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const override;
     void AddJoinSplitToJSON(UniValue& entry) const override;
