@@ -3185,7 +3185,13 @@ bool static DisconnectTip(CValidationState &state) {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
 
-            mempool.remove(cert, dummyTxs, dummyCerts, true);
+            std::list<CScCertificate> localDummyCerts;
+            mempool.remove(cert, dummyTxs, localDummyCerts, true);
+            if (localDummyCerts.size() > 1)
+                assert(false);
+            
+            if(localDummyCerts.size() == 1)
+                assert(cert.GetHash() ==  localDummyCerts.front().GetHash());
         }
     }
 
