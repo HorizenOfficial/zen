@@ -4010,13 +4010,13 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
 
     // Check transactions and certificates
     for(const CTransaction& tx: block.vtx) {
-        if (!tx.Check(state, verifier)) {
+        if (!CheckTransaction(tx, state, verifier)) {
             return error("CheckBlock(): CheckTransaction failed");
         }
     }
 
     for(const CScCertificate& cert: block.vcert) {
-        if (!cert.Check(state, verifier)) {
+        if (!CheckCertificate(cert, state)) {
             return error("CheckBlock(): Certificate check failed");
         }
     }

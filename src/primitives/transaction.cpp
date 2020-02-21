@@ -574,7 +574,6 @@ void CTransaction::AddToBlock(CBlock* pblock) const { return; }
 void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const {return; }
 CAmount CTransaction::GetValueIn(const CCoinsViewCache& view) const { return 0; }
 bool CTransaction::CheckInputsLimit(size_t limit, size_t& n) const { return true; }
-bool CTransaction::Check(CValidationState& state, libzcash::ProofVerifier& verifier) const { return true; }
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return true; }
 bool CTransaction::IsStandard(std::string& reason, int nHeight) const { return true; }
 bool CTransaction::CheckFinal(int flags) const { return true; }
@@ -730,11 +729,6 @@ bool CTransaction::CheckInputsLimit(size_t limit, size_t& n) const
         }
     }
     return true;
-}
-
-bool CTransaction::Check(CValidationState& state, libzcash::ProofVerifier& verifier) const
-{
-    return ::CheckTransaction(*this, state, verifier);
 }
 
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const

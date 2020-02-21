@@ -155,7 +155,6 @@ bool CScCertificate::AddUncheckedToMemPool(CTxMemPool* pool,
     const CAmount& nFee, int64_t nTime, double dPriority, int nHeight, bool, bool fCurrentEstimate
 ) const { return true; }
 
-bool CScCertificate::Check(CValidationState& state, libzcash::ProofVerifier&) const { return true; }
 bool CScCertificate::IsApplicableToState() const { return true; }
 bool CScCertificate::IsStandard(std::string& reason, int nHeight) const { return true; }
 bool CScCertificate::IsAllowedInMempool(CValidationState& state, const CTxMemPool& pool) const { return true; }
@@ -175,40 +174,6 @@ bool CScCertificate::AddUncheckedToMemPool(CTxMemPool* pool,
 {
     CCertificateMemPoolEntry entry( *this, nFee, GetTime(), dPriority, nHeight);
     return pool->addUnchecked(GetHash(), entry, fCurrentEstimate);
-}
-
-bool CScCertificate::Check(CValidationState& state, libzcash::ProofVerifier& /*unused*/) const
-{
-    if (vout.empty() && totalAmount <= 0)
-    {
-        return state.DoS(10, error("vout empty and totalAmount <= 0"), REJECT_INVALID, "bad-cert-empty");
-    }
-
-    BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_CERT_SIZE); // sanity
-    if (CalculateSize() > MAX_CERT_SIZE)
-    {
-        return state.DoS(100, error("size limits failed"), REJECT_INVALID, "bad-cert-oversize");
-    }
-
-    // Check for negative or overflow output values
-    CAmount nValueOut = 0;
-    if (!CheckVout(nValueOut, state))
-    {
-        return false;
-    }
-
-    // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
-    if (!CheckOutputsCheckBlockAtHeightOpCode(state) )
-    {
-        return false;
-    }
-
-    if (!Sidechain::ScMgr::checkCertSemanticValidity(*this, state) )
-    {
-        return false;
-    }
-
-    return true;
 }
 
 bool CScCertificate::IsApplicableToState() const

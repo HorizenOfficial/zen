@@ -709,7 +709,6 @@ public:
     virtual void AddToBlock(CBlock* pblock) const = 0;
     virtual void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const = 0;
 
-    virtual bool Check(CValidationState& state, libzcash::ProofVerifier& verifier) const = 0;
     virtual bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const = 0;
     virtual bool IsStandard(std::string& reason, int nHeight) const = 0;
     virtual bool CheckFinal(int flags = -1) const = 0;
@@ -955,7 +954,6 @@ public:
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const override;
     CAmount GetJoinSplitValueIn() const override;
     bool CheckInputsLimit(size_t limit, size_t& n) const override;
-    bool Check(CValidationState& state, libzcash::ProofVerifier& verifier) const override;
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
     bool IsStandard(std::string& reason, int nHeight) const override;
     bool CheckFinal(int flags = -1) const override;

@@ -90,7 +90,6 @@ public:
     void AddToBlock(CBlock* pblock) const override; 
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int /* not used sigops */) const override;
 
-    bool Check(CValidationState& state, libzcash::ProofVerifier& verifier) const override;
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
     bool CheckFinal(int flags) const override;
     bool IsApplicableToState() const override;
