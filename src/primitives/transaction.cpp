@@ -586,7 +586,6 @@ void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
 bool CTransaction::HaveInputs(const CCoinsViewCache& view) const { return true; }
 void CTransaction::UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const { return; }
 void CTransaction::UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo &undo, int nHeight) const { return; }
-bool CTransaction::UpdateScInfo(Sidechain::ScCoinsViewCache& scView, const CBlock& block, int nHeight, CBlockUndo& bu) const { return true; }
 bool CTransaction::AreInputsStandard(CCoinsViewCache& view) const { return true; }
 unsigned int CTransaction::GetP2SHSigOpCount(CCoinsViewCache& view) const { return 0; }
 unsigned int CTransaction::GetLegacySigOpCount() const { return 0; }
@@ -821,11 +820,6 @@ void CTransaction::UpdateCoins(CValidationState &state, CCoinsViewCache& view, C
         blockundo.vtxundo.push_back(CTxUndo());
     }
     return ::UpdateCoins(*this, state, view, (IsCoinBase() ? undoDummy : blockundo.vtxundo.back()), nHeight);
-}
-
-bool CTransaction::UpdateScInfo(Sidechain::ScCoinsViewCache& scView, const CBlock& block, int nHeight, CBlockUndo& /*unused*/) const
-{
-    return scView.UpdateScInfo(*this, block, nHeight);
 }
 
 bool CTransaction::AreInputsStandard(CCoinsViewCache& view) const 

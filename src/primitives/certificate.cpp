@@ -149,7 +149,6 @@ double CScCertificate::GetPriority(const CCoinsViewCache &view, int nHeight) con
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
-bool CScCertificate::UpdateScInfo(Sidechain::ScCoinsViewCache& view, const CBlock& block, int nHeight, CBlockUndo& bu) const { return true; }
 
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
 bool CScCertificate::AddUncheckedToMemPool(CTxMemPool* pool,
@@ -168,12 +167,6 @@ bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
 {
     CValidationState state;
     return ::AcceptCertificateToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
-}
-
-bool CScCertificate::UpdateScInfo(Sidechain::ScCoinsViewCache& scView, const CBlock& /*unused*/, int /*unused*/, CBlockUndo& bu) const
-{
-    //LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
-    return scView.UpdateScInfo(*this, bu);
 }
 
 bool CScCertificate::AddUncheckedToMemPool(CTxMemPool* pool,

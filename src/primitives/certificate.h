@@ -101,8 +101,6 @@ public:
     void UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const override;
     void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const override;
 
-    bool UpdateScInfo(Sidechain::ScCoinsViewCache& view, const CBlock& block, int nHeight, CBlockUndo& bu) const override;
-
     double GetPriority(const CCoinsViewCache &view, int nHeight) const override;
     unsigned int GetLegacySigOpCount() const override;
 

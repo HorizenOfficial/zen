@@ -2851,7 +2851,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         cert.UpdateCoins(state, view, blockundo, pindex->nHeight);
 
-        if (!fJustCheck && !cert.UpdateScInfo(scView, block, pindex->nHeight, blockundo) )
+        if (!fJustCheck && !scView.UpdateScInfo(cert, blockundo) )
         {
             return state.DoS(100, error("ConnectBlock(): could not add sidechain in scView: tx[%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-tx");

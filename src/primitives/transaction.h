@@ -719,8 +719,6 @@ public:
     virtual void UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const = 0;
     virtual void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const = 0;
 
-    virtual bool UpdateScInfo(Sidechain::ScCoinsViewCache& view, const CBlock& block, int nHeight, CBlockUndo& bu) const = 0;
-
     virtual double GetPriority(const CCoinsViewCache &view, int nHeight) const = 0;
     virtual unsigned int GetLegacySigOpCount() const = 0;
 
@@ -969,7 +967,6 @@ public:
     bool HaveInputs(const CCoinsViewCache& view) const override;
     void UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const override;
     void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const override;
-    bool UpdateScInfo(Sidechain::ScCoinsViewCache& view, const CBlock& block, int nHeight, CBlockUndo& bu) const override;
     bool AreInputsStandard(CCoinsViewCache& view) const override;
     bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,

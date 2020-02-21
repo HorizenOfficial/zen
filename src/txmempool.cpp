@@ -177,8 +177,8 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     nCertificatesUpdated++;
     totalCertificateSize += entry.GetCertificateSize();
     cachedInnerUsage += entry.DynamicMemoryUsage();
-// TODO cert: for the time being skip the part on policy estimator, certificates currently have maximum priority
-// minerPolicyEstimator->processTransaction(entry, fCurrentEstimate);
+    // TODO cert: for the time being skip the part on policy estimator, certificates currently have maximum priority
+    // minerPolicyEstimator->processTransaction(entry, fCurrentEstimate);
     LogPrint("cert", "%s():%d - cert [%s] added in mempool\n", __func__, __LINE__, hash.ToString() );
     return true;
 }
