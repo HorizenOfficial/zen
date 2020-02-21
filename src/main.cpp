@@ -3159,7 +3159,6 @@ bool static DisconnectTip(CValidationState &state) {
 
     // Resurrect mempool transactions and certificates from the disconnected block.
     std::list<CTransaction> dummyTxs;
-    std::list<CScCertificate> dummyCerts;
     for(const CTransaction &tx: block.vtx) {
         // ignore validation errors in resurrected transactions
         CValidationState stateDummy;
@@ -3170,7 +3169,9 @@ bool static DisconnectTip(CValidationState &state) {
         if (tx.IsCoinBase() || !AcceptToMemoryPool(mempool, stateDummy, tx, false, NULL)) {
             LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, tx.GetHash().ToString(), tx.ToString());
+            std::list<CScCertificate> dummyCerts;
             mempool.remove(tx, dummyTxs, dummyCerts, true);
+            assert(dummyCerts.size() == 0);
         }
     }
 
@@ -3185,13 +3186,7 @@ bool static DisconnectTip(CValidationState &state) {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
 
-            std::list<CScCertificate> localDummyCerts;
-            mempool.remove(cert, dummyTxs, localDummyCerts, true);
-            if (localDummyCerts.size() > 1)
-                assert(false);
-            
-            if(localDummyCerts.size() == 1)
-                assert(cert.GetHash() ==  localDummyCerts.front().GetHash());
+            mempool.remove(cert, dummyTxs, true);
         }
     }
 

@@ -162,8 +162,8 @@ public:
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
-    void remove(const CTransaction &tx,         std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false, bool removeDependantFwds = true);
-    void remove(const CScCertificate &origCert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false, bool removeDependantFwds = true);
+    void remove(const CTransaction   &origTx,   std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false, bool removeDependantFwds = true);
+    void remove(const CScCertificate &origCert, std::list<CTransaction>& removedTxs, bool fRecursive = false, bool removeDependantFwds = true);
 
     void removeWithAnchor(const uint256 &invalidRoot);
     void removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);

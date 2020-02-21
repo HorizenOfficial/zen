@@ -330,7 +330,7 @@ void::CTxMemPool::removeInternal(
     }
 }
 
-void CTxMemPool::remove(const CScCertificate &origCert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive, bool removeDependantFwds)
+void CTxMemPool::remove(const CScCertificate &origCert, std::list<CTransaction>& removedTxs, bool fRecursive, bool removeDependantFwds)
 {
     // Remove certificate from memory pool
     {
@@ -351,7 +351,8 @@ void CTxMemPool::remove(const CScCertificate &origCert, std::list<CTransaction>&
             }
         }
 
-        removeInternal(objToRemove, removedTxs, removedCerts, fRecursive, removeDependantFwds);
+        std::list<CScCertificate> dummyCerts;
+        removeInternal(objToRemove, removedTxs, dummyCerts, fRecursive, removeDependantFwds);
     }
 }
 
@@ -391,6 +392,7 @@ void CTxMemPool::removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned in
         std::list<CTransaction> removedTxs;
         std::list<CScCertificate> removedCerts;
         remove(tx, removedTxs, removedCerts, true);
+        assert(removedCerts.size() == 0);
     }
 }
 
@@ -434,16 +436,11 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
     std::list<CScCertificate> dummyCerts;
     for(const CTransaction& tx: txsToRemove) {
         remove(tx, dummyTxs, dummyCerts, true);
+        assert(dummyCerts.size() == 0);
     }
 
     for(const CScCertificate& cert: certsToRemove) {
-        std::list<CScCertificate> localDummyCerts;
-        remove(cert, dummyTxs, localDummyCerts, true);
-        if (localDummyCerts.size() > 1)
-            assert(false);
-
-        if(localDummyCerts.size() == 1)
-            assert(cert.GetHash() ==  localDummyCerts.front().GetHash());
+        remove(cert, dummyTxs, true);
     }
 }
 
@@ -468,9 +465,10 @@ void CTxMemPool::removeWithAnchor(const uint256 &invalidRoot)
     }
 
     std::list<CTransaction> dummyTxs;
-    std::list<CScCertificate> dummyCerts;
     BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
+        std::list<CScCertificate> dummyCerts;
         remove(tx, dummyTxs, dummyCerts, true);
+        assert(dummyCerts.size() == 0);
     }
 }
 
@@ -487,6 +485,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
             if (txConflict != tx)
             {
                 remove(txConflict, removedTxs, removedCerts, true);
+                assert(removedCerts.size() == 0);
             }
         }
     }
@@ -499,6 +498,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
                 if (txConflict != tx)
                 {
                     remove(txConflict, removedTxs, removedCerts, true);
+                    assert(removedCerts.size() == 0);
                 }
             }
         }
@@ -509,6 +509,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
             const uint256& scRedeclarationHash = mapSidechains[sc.scId].scCreationTxHash;
             const CTransaction &scReDeclarationTx = mapTx[scRedeclarationHash].GetTx();
             remove(scReDeclarationTx, removedTxs, removedCerts, /*fRecursive*/true, /*removeDependantFwds*/false);
+            assert(removedCerts.size() == 0);
         }
     }
 }
@@ -529,10 +530,11 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
     }
 
     std::list<CTransaction> dummyTxs;
-    std::list<CScCertificate> dummyCerts;
     for(const CTransaction& tx: vtx)
     {
+        std::list<CScCertificate> dummyCerts;
         remove(tx, dummyTxs, dummyCerts, false);
+        assert(dummyCerts.size() == 0);
         removeConflicts(tx, conflictingTxs, conflictingCerts);
         ClearPrioritisation(tx.GetHash());
     }
@@ -548,13 +550,7 @@ void CTxMemPool::removeForBlock(const std::vector<CScCertificate>& vcert, unsign
     std::list<CTransaction> dummyTxs;
     for (const auto& obj : vcert)
     {
-        std::list<CScCertificate> dummyCert;
-        remove(obj, dummyTxs, dummyCert, true);
-        if (dummyCert.size() > 1)
-            assert(false);
-
-        if(dummyCert.size() == 1)
-            assert(obj.GetHash() ==  dummyCert.front().GetHash());
+        remove(obj, dummyTxs, true);
         ClearPrioritisation(obj.GetHash());
     }
 }
