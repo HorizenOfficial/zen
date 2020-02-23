@@ -162,19 +162,20 @@ public:
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
-    void remove(const CTransaction   &origTx,   std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false, bool removeDependantFwds = true);
-    void remove(const CScCertificate &origCert, std::list<CTransaction>& removedTxs, bool fRecursive = false, bool removeDependantFwds = true);
+    void remove(const CTransaction   &origTx,   std::list<CTransaction>& removedTxs, bool fRecursive = false, bool removeDependantFwds = true);
+    void remove(const CScCertificate &origCert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false, bool removeDependantFwds = true);
 
     void removeWithAnchor(const uint256 &invalidRoot);
     void removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
 
-    void removeConflicts(const CTransaction &tx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
+    void removeConflicts(const CTransaction &tx, std::list<CTransaction>& removedTxs);
     void removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
-                        std::list<CTransaction>& conflictingTxs, std::list<CScCertificate>& conflictingCerts, bool fCurrentEstimate = true);
+                        std::list<CTransaction>& conflictingTxs, bool fCurrentEstimate = true);
 
     // no conflicts for certs
     void removeOutOfEpochCertificates(const CBlockIndex* pindexDelete);
-    void removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight, bool fCurrentEstimate = true);
+    void removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight,
+                        std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fCurrentEstimate = true);
 
     void clear();
     void queryHashes(std::vector<uint256>& vtxid);

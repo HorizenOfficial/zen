@@ -54,18 +54,16 @@ BOOST_AUTO_TEST_CASE(MempoolRemoveTest)
 
     CTxMemPool testPool(CFeeRate(0));
     std::list<CTransaction>   removedTxs;
-    std::list<CScCertificate> removedCerts;
 
     // Nothing in pool, remove should do nothing:
-    testPool.remove(txParent, removedTxs, removedCerts, true);
+    testPool.remove(txParent, removedTxs, true);
     BOOST_CHECK_EQUAL(removedTxs.size(), 0);
 
     // Just the parent:
     testPool.addUnchecked(txParent.GetHash(), CTxMemPoolEntry(txParent, 0, 0, 0.0, 1));
-    testPool.remove(txParent, removedTxs, removedCerts, true);
+    testPool.remove(txParent, removedTxs, true);
     BOOST_CHECK_EQUAL(removedTxs.size(), 1);
     removedTxs.clear();
-    removedCerts.clear();
     
     // Parent, children, grandchildren:
     testPool.addUnchecked(txParent.GetHash(), CTxMemPoolEntry(txParent, 0, 0, 0.0, 1));
@@ -75,20 +73,19 @@ BOOST_AUTO_TEST_CASE(MempoolRemoveTest)
         testPool.addUnchecked(txGrandChild[i].GetHash(), CTxMemPoolEntry(txGrandChild[i], 0, 0, 0.0, 1));
     }
     // Remove Child[0], GrandChild[0] should be removed:
-    testPool.remove(txChild[0], removedTxs, removedCerts, true);
+    testPool.remove(txChild[0], removedTxs, true);
     BOOST_CHECK_EQUAL(removedTxs.size(), 2);
     removedTxs.clear();
     // ... make sure grandchild and child are gone:
-    testPool.remove(txGrandChild[0], removedTxs, removedCerts, true);
+    testPool.remove(txGrandChild[0], removedTxs, true);
     BOOST_CHECK_EQUAL(removedTxs.size(), 0);
-    testPool.remove(txChild[0], removedTxs, removedCerts, true);
+    testPool.remove(txChild[0], removedTxs, true);
     BOOST_CHECK_EQUAL(removedTxs.size(), 0);
     // Remove parent, all children/grandchildren should go:
-    testPool.remove(txParent, removedTxs, removedCerts, true);
+    testPool.remove(txParent, removedTxs, true);
     BOOST_CHECK_EQUAL(removedTxs.size(), 5);
     BOOST_CHECK_EQUAL(testPool.size(), 0);
     removedTxs.clear();
-    removedCerts.clear();
 
     // Add children and grandchildren, but NOT the parent (simulate the parent being in a block)
     for (int i = 0; i < 3; i++)
@@ -98,11 +95,10 @@ BOOST_AUTO_TEST_CASE(MempoolRemoveTest)
     }
     // Now remove the parent, as might happen if a block-re-org occurs but the parent cannot be
     // put into the mempool (maybe because it is non-standard):
-    testPool.remove(txParent, removedTxs, removedCerts, true);
+    testPool.remove(txParent, removedTxs, true);
     BOOST_CHECK_EQUAL(removedTxs.size(), 6);
     BOOST_CHECK_EQUAL(testPool.size(), 0);
     removedTxs.clear();
-    removedCerts.clear();
 }
 
 BOOST_AUTO_TEST_SUITE_END()

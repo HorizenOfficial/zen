@@ -3169,12 +3169,11 @@ bool static DisconnectTip(CValidationState &state) {
         if (tx.IsCoinBase() || !AcceptToMemoryPool(mempool, stateDummy, tx, false, NULL)) {
             LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, tx.GetHash().ToString(), tx.ToString());
-            std::list<CScCertificate> dummyCerts;
-            mempool.remove(tx, dummyTxs, dummyCerts, true);
-            assert(dummyCerts.size() == 0);
+            mempool.remove(tx, dummyTxs, true);
         }
     }
 
+    std::list<CScCertificate> dummyCerts;
     for (const CScCertificate& cert : block.vcert) {
         // ignore validation errors in resurrected certificates
         if (cert.IsScVersion()) {
@@ -3186,7 +3185,7 @@ bool static DisconnectTip(CValidationState &state) {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
 
-            mempool.remove(cert, dummyTxs, true);
+            mempool.remove(cert, dummyTxs, dummyCerts, true);
         }
     }
 
@@ -3276,12 +3275,12 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     LogPrint("bench", "  - Writing chainstate: %.2fms [%.2fs]\n", (nTime5 - nTime4) * 0.001, nTimeChainState * 0.000001);
 
     // Remove conflicting transactions from the mempool.
-    std::list<CTransaction> conflictingTxs;
-    std::list<CScCertificate> conflictingCerts;
-    mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, conflictingTxs, conflictingCerts, !IsInitialBlockDownload());
+    std::list<CTransaction> removedTxs;
+    mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, removedTxs, !IsInitialBlockDownload());
 
     // similar call but without conflicts handling, which are not applicable to certificates
-    mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, !IsInitialBlockDownload());
+    std::list<CScCertificate> removedCerts;
+    mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, removedTxs, removedCerts, !IsInitialBlockDownload());
 
     mempool.check(pcoinsTip);
     // Update chainActive & related variables.
@@ -3289,12 +3288,8 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
 
     // Tell wallet about transactions that went from mempool
     // to conflicted:
-    for(const CTransaction &tx: conflictingTxs) {
+    for(const CTransaction &tx: removedTxs) {
         SyncWithWallets(tx, nullptr);
-    }
-
-    for(const CScCertificate & cert: conflictingCerts) {
-        SyncWithWallets(cert, nullptr);
     }
 
     // ... and about transactions that got confirmed:
@@ -3304,6 +3299,10 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
 
     // ... and about certificates that got confirmed:
     // note that a certificate having no inputs has no conflicts
+    for(const CScCertificate &cert: removedCerts) {
+        SyncWithWallets(cert, nullptr);
+    }
+
     for(const CScCertificate &cert: pblock->vcert) {
         LogPrint("cert", "%s():%d - sync with wallet cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString());
         SyncWithWallets(cert, pblock);
