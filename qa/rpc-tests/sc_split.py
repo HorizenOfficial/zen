@@ -6,13 +6,13 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, p2p_port, mark_logs
+    start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, p2p_port, mark_logs, disconnect_nodes
 import os
 from decimal import Decimal
 import time
 
 NUMB_OF_NODES = 3
-DEBUG_MODE = 1
+DEBUG_MODE = 0
 
 
 class ScSplitTest(BitcoinTestFramework):
@@ -42,19 +42,11 @@ class ScSplitTest(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
-    def disconnect_nodes(self, from_connection, node_num):
-        ip_port = "127.0.0.1:" + str(p2p_port(node_num))
-        from_connection.disconnectnode(ip_port)
-        # poll until version handshake complete to avoid race conditions
-        # with transaction relaying
-        while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
-            time.sleep(0.1)
-
     def split_network(self):
         # Split the network of three nodes into nodes 0-1 and 2.
         assert not self.is_network_split
-        self.disconnect_nodes(self.nodes[1], 2)
-        self.disconnect_nodes(self.nodes[2], 1)
+        disconnect_nodes(self.nodes[1], 2)
+        disconnect_nodes(self.nodes[2], 1)
         self.is_network_split = True
 
     def join_network(self):
@@ -101,6 +93,22 @@ class ScSplitTest(BitcoinTestFramework):
 
         txes = []
 
+        # Nodes 1 send 5.0 coins to a valid taddr to verify the network split
+        mark_logs("\nNode 1 send 5.0 coins to a valid taddr to verify the network split",self.nodes,DEBUG_MODE)
+
+        txes.append(self.nodes[1].sendtoaddress("zthXuPst7DVeePf2ZQvodgyMfQCrYf9oVx4", 5.0))
+        self.sync_all()
+
+        # Check the mempools of every nodes
+        mark_logs ("\nChecking mempools...",self.nodes,DEBUG_MODE)
+        for i in range(0, NUMB_OF_NODES):
+            txmem = self.nodes[i].getrawmempool()
+            if i == 2:
+                assert_equal(len(txmem), 0)
+            else:
+                assert_equal(sorted(txes), sorted(txmem))
+
+
         # ---------------------------------------------------------------------------------------
         # Nodes 1 creates the SC
         mark_logs("\nNode 1 creates the SC",self.nodes,DEBUG_MODE)
@@ -118,22 +126,6 @@ class ScSplitTest(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs (errorString,self.nodes,DEBUG_MODE)
         assert_equal("Transaction commit failed" in errorString, True)
-
-
-        # Nodes 1 send 5.0 coins to a valid taddr to verify the network split
-        mark_logs("\nNode 1 send 5.0 coins to a valid taddr to verify the network split",self.nodes,DEBUG_MODE)
-
-        txes.append(self.nodes[1].sendtoaddress("zthXuPst7DVeePf2ZQvodgyMfQCrYf9oVx4", 5.0))
-        self.sync_all()
-
-        # Check the mempools of every nodes
-        mark_logs ("\nChecking mempools...",self.nodes,DEBUG_MODE)
-        for i in range(0, NUMB_OF_NODES):
-            txmem = self.nodes[i].getrawmempool()
-            if i == 2:
-                assert_equal(len(txmem), 0)
-            else:
-                assert_equal(sorted(txes), sorted(txmem))
 
         mark_logs("\nNode0 generating 1 honest block",self.nodes,DEBUG_MODE)
 
@@ -207,12 +199,7 @@ class ScSplitTest(BitcoinTestFramework):
         # Node 1 try to reuse inputs of FT
         mark_logs("\nNode 1 try to reuse inputs of FT...",self.nodes,DEBUG_MODE)
 
-        try:
-            self.nodes[1].sendtoaddress("zthXuPst7DVeePf2ZQvodgyMfQCrYf9oVx4", 3.5)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs (errorString,self.nodes,DEBUG_MODE)
-        assert_equal("Insufficient funds" in errorString, True)
+        assert(self.nodes[1].getbalance()<1)
         # ---------------------------------------------------------------------------------------
         # Node 1 restores honest chain
         mark_logs("\nNode1 generating 1 honest block and restoring the SC creation...",self.nodes,DEBUG_MODE)

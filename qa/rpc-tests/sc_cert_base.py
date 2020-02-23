@@ -44,14 +44,6 @@ class sc_cert_base(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
-    def disconnect_nodes(self, from_connection, node_num):
-        ip_port = "127.0.0.1:"+str(p2p_port(node_num))
-        from_connection.disconnectnode(ip_port)
-        # poll until version handshake complete to avoid race conditions
-        # with transaction relaying
-        while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
-            time.sleep(0.1)
-
     def dump_ordered_tips(self, tip_list):
         sorted_x = sorted(tip_list, key=lambda k: k['status'])
         c = 0
