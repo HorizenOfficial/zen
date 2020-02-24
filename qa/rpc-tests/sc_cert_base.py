@@ -7,7 +7,8 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, start_node, connect_nodes, stop_node, stop_nodes, \
-    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision
+    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, \
+    check_json_precision, mark_logs
 import traceback
 import os,sys
 import shutil
@@ -17,7 +18,10 @@ import logging
 import pprint
 
 import time
+from setuptools.dist import assert_bool
 
+DEBUG_MODE = 1
+NUMB_OF_NODES = 3
 EPOCH_LENGTH = 5
 
 class sc_cert_base(BitcoinTestFramework):
@@ -26,7 +30,7 @@ class sc_cert_base(BitcoinTestFramework):
 
     def setup_chain(self, split=False):
         print("Initializing test directory "+self.options.tmpdir)
-        initialize_chain_clean(self.options.tmpdir, 3)
+        initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
         self.alert_filename = os.path.join(self.options.tmpdir, "alert.txt")
         with open(self.alert_filename, 'w'):
             pass  # Just open then close to create zero-length file
@@ -34,252 +38,210 @@ class sc_cert_base(BitcoinTestFramework):
     def setup_network(self, split=False):
         self.nodes = []
 
-        self.nodes = start_nodes(3, self.options.tmpdir, extra_args=
-            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1']] * 3 )
+        self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
+            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1']] * NUMB_OF_NODES )
 
         connect_nodes_bi(self.nodes, 0, 1)
         connect_nodes_bi(self.nodes, 1, 2)
-        sync_blocks(self.nodes[1:3])
-        sync_mempools(self.nodes[1:3])
+        sync_blocks(self.nodes[1:NUMB_OF_NODES])
+        sync_mempools(self.nodes[1:NUMB_OF_NODES])
         self.is_network_split = split
         self.sync_all()
-
-    def dump_ordered_tips(self, tip_list):
-        sorted_x = sorted(tip_list, key=lambda k: k['status'])
-        c = 0
-        for y in sorted_x:
-            if (c == 0):
-                print y 
-            else:
-                print " ",y 
-            c = 1
-
-    def mark_logs(self, msg):
-        print msg
-        self.nodes[0].dbg_log(msg)
-        self.nodes[1].dbg_log(msg)
-        self.nodes[2].dbg_log(msg)
+        
 
     def run_test(self):
 
         # side chain id
         scid = "1111111111111111111111111111111111111111111111111111111111111111"
 
-        #forward transfer amount
+        #forward transfer amounts
         creation_amount = Decimal("0.5")
         fwt_amount = Decimal("50")
         bwt_amount_bad = Decimal("100.0")
         bwt_amount = Decimal("50")
 
-        blocks = []
-        self.bl_count = 0
-
-        blocks.append(self.nodes[0].getblockhash(0))
+        blocks = [self.nodes[0].getblockhash(0)]
 
         # node 1 earns some coins, they would be available after 100 blocks 
-        self.mark_logs("Node 1 generates 1 block")
-
+        mark_logs("Node 1 generates 1 block",self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[1].generate(1))
         self.sync_all()
 
-        self.mark_logs("Node 0 generates 220 block")
-
+        mark_logs("Node 0 generates 220 block", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(220))
         self.sync_all()
 
-        # node 1 has just the coinbase which is now maturee
+        # node 1 has just the coinbase which is now mature
         bal_before = self.nodes[1].getbalance("", 0)
-        print "\nNode1 balance: ", bal_before
+        mark_logs("Node1 balance before SC creation: {}".format(bal_before), self.nodes, DEBUG_MODE)
 
-        self.mark_logs("\nNode 1 creates the SC spending "+str(creation_amount)+" coins ...")
-        amounts = []
-        amounts.append( {"address":"dada", "amount": creation_amount})
+        # node 1 creates a sidechain
+        amounts = [{"address":"dada", "amount": creation_amount}]
         creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, amounts);
-        print "creating_tx = " + creating_tx
+        mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
-        self.mark_logs("\nNode0 generating 1 block")
+        mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
-        sc_creating_block = blocks[-1]
-        sc_creating_height = self.nodes[0].getblockcount()
+        sc_creating_height = self.nodes[0].getblockcount() #Should not this be in SC info??'
         self.sync_all()
 
-        # fee can be seen on sender wallet (is a negative value)
+        # fee can be seen on sender wallet (it is a negative value)
         fee = self.nodes[1].gettransaction(creating_tx)['fee']
-        print "Fee = ",fee
+        mark_logs("Fee paid for SC creation: {}".format(fee), self.nodes, DEBUG_MODE)
 
         # node 1 has just the coinbase minus the sc creation amount
-        assert_equal(self.nodes[1].getbalance("", 0) + creation_amount - fee, bal_before) 
-        print "\nNode1 balance: ", self.nodes[1].getbalance("", 0)
-
-        self.mark_logs("\nNode 0 performs a fwd transfer of " + str(fwt_amount) + " coins to SC...")
+        assert_equal(bal_before, self.nodes[1].getbalance("", 0) + creation_amount - fee) 
+        mark_logs("Node1 balance after SC creation: {}".format(self.nodes[1].getbalance("", 0)), self.nodes, DEBUG_MODE)
 
         fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid);
-        print "fwd_tx=" + fwd_tx
+        mark_logs("Node 0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx) , self.nodes, DEBUG_MODE)
         self.sync_all()
 
-        self.mark_logs("\nNode0 generating 1 block")
+        mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
+        print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
+        mark_logs("Sc {} state: {}".format(scid, self.nodes[0].getscinfo(scid)), self.nodes, DEBUG_MODE)
 
-        self.mark_logs("\nNode0 generating 3 more blocks for achieving sc coins maturity")
+        mark_logs("Node0 generating 3 more blocks to achieve sc coins maturity", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(3))
         self.sync_all()
 
-        print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
+        print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
+        mark_logs("Sc {} state: {}".format(scid, self.nodes[0].getscinfo(scid)), self.nodes, DEBUG_MODE)
 
-        self.mark_logs("\nNode0 generating 1 more blocks for achieving end epoch")
+        mark_logs("Node0 generating 1 more blocks to achieve end epoch", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
+        print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
+        mark_logs("Sc {} state: {}".format(scid, self.nodes[0].getscinfo(scid)), self.nodes, DEBUG_MODE)
 
         current_height = self.nodes[0].getblockcount()
-
-        epn = int((current_height - sc_creating_height) / EPOCH_LENGTH)
-        print " h=", current_height
-        print "ch=", sc_creating_height
-        print "epn=", epn
-        eph = self.nodes[0].getblockhash(sc_creating_height + (epn*EPOCH_LENGTH))
+        epoch_number = (current_height - sc_creating_height) // EPOCH_LENGTH
+        mark_logs("Current height {}, Sc creation height {}, epoch length {} --> current epoch number {}"
+                  .format(current_height, sc_creating_height, EPOCH_LENGTH, epoch_number), self.nodes, DEBUG_MODE)
+        epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height + (epoch_number*EPOCH_LENGTH))
         eph_wrong = self.nodes[0].getblockhash(sc_creating_height)
-        print "epn = ", epn, ", eph = ", eph
+        print "epoch_number = ", epoch_number, ", epoch_block_hash = ", epoch_block_hash
 
         pkh_node1 = self.nodes[1].getnewaddress("", True);
-        amounts = []
-        cert_bad = []
-
+ 
         #----------------------------------------------------------------
-        self.mark_logs("\nNode 0 tries to perform a bwd transfer with insufficient sc balance...")
-        amounts.append( {"pubkeyhash":pkh_node1, "amount": bwt_amount_bad})
+        mark_logs("Node 0 tries to perform a bwd transfer with insufficient Sc balance...", self.nodes, DEBUG_MODE)
+        amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount_bad}]
      
         # check this is refused because sc has not balance enough
         try:
-            cert_bad = self.nodes[0].send_certificate(scid, epn, eph, amounts);
+            cert_bad = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts);
             assert(False)
         except JSONRPCException,e:
             errorString = e.error['message']
-            print "\n======> ", errorString
-            print
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
 
-        amounts = []
-        cert_bad = []
-        cert_good = []
+        assert_equal("sidechain has insufficient funds" in errorString, True)
+        print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
+        
+        mark_logs("Node 0 performs a bwd transfer with an invalid epoch number ...", self.nodes, DEBUG_MODE)
+        amounts = [{"pubkeyhash":pkh_node1, "amount": bwt_amount}]
 
-        print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
-
-        self.mark_logs("\nNode 0 performs a bwd transfer with an invalid epoch number ...")
-        amounts.append( {"pubkeyhash":pkh_node1, "amount": bwt_amount})
-     
-        # check this is refused because epoch number is wrong
         try:
-            cert_bad = self.nodes[0].send_certificate(scid, epn+1, eph, amounts);
+            cert_bad = self.nodes[0].send_certificate(scid, epoch_number+1, epoch_block_hash, amounts);
             assert(False)
         except JSONRPCException,e:
             errorString = e.error['message']
-            print "\n======> ", errorString
-            print
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
 
-        self.mark_logs("\nNode 0 performs a bwd transfer with an invalid end epoch hash block ...")
+        assert_equal("invalid epoch data" in errorString, True)
+        print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
+
+        mark_logs("Node 0 performs a bwd transfer with an invalid end epoch hash block ...", self.nodes, DEBUG_MODE)
         # check this is refused because end epoch block hash is wrong
         try:
-            cert_bad = self.nodes[0].send_certificate(scid, epn, eph_wrong, amounts);
+            cert_bad = self.nodes[0].send_certificate(scid, epoch_number, eph_wrong, amounts);
             assert(False)
         except JSONRPCException,e:
             errorString = e.error['message']
-            print "\n======> ", errorString
-            print
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
 
-        self.mark_logs("\nNode 0 performs a bwd transfer of "+str(bwt_amount)+" coins to Node1 pkh["+str(pkh_node1)+"]...")
-     
+        assert_equal("invalid epoch data" in errorString, True)
+        print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
+
+        mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(bwt_amount, pkh_node1), self.nodes, DEBUG_MODE)     
         try:
-            cert_good = self.nodes[0].send_certificate(scid, epn, eph, amounts);
-            print "cert = ", cert_good
-            print "...OK"
+            cert_good = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts);
+            assert(len(cert_good)>0)
+            mark_logs("Certificate is {}".format(cert_good), self.nodes, DEBUG_MODE)
         except JSONRPCException,e:
             errorString = e.error['message']
-            print errorString
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
 
+        # Check the mempools of every nodes
+        mark_logs ("Checking mempools alignement",self.nodes,DEBUG_MODE)
         self.sync_all()
-
-        print "\nChecking mempools..."
-        print "Node 0: ", self.nodes[0].getrawmempool()
-        print "Node 1: ", self.nodes[1].getrawmempool()
-        print "Node 2: ", self.nodes[2].getrawmempool()
-
+        for i in range(1, NUMB_OF_NODES):
+                assert_equal(sorted(self.nodes[0].getrawmempool()), sorted(self.nodes[i].getrawmempool()))
+        
+        
         bal_before = self.nodes[1].getbalance("", 0)
-        print "\nNode1 balance: ", bal_before
+        # print "Node1 balance: ", bal_before
 
-        self.mark_logs("\nNode 0 performs a bwd transfer for the same epoch number as before before generating any block...")
+        mark_logs("Node 0 performs a bwd transfer for the same epoch number as before before generating any block...", self.nodes, DEBUG_MODE)
         # check this is refused because this epoch already has a certificate in mempool
         try:
-            cert_bad = self.nodes[0].send_certificate(scid, epn, eph, amounts);
-            print "cert = ", cert_bad
+            cert_bad = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts);
             assert(False)
         except JSONRPCException,e:
             errorString = e.error['message']
-            print "\n======> ", errorString
-            print
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            
+        assert_equal("invalid cert epoch" in errorString, True)
 
-        print("\nNode0 generating 1 block")
+        print("Node0 generating 1 block")
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        self.mark_logs("\nNode 0 performs a bwd transfer for the same epoch number as before...")
+        mark_logs("Node 0 performs a bwd transfer for the same epoch number as before...", self.nodes, DEBUG_MODE)
         # check this is refused because this epoch already has a certificate in sc info
         try:
-            cert_bad = self.nodes[0].send_certificate(scid, epn, eph, amounts);
+            cert_bad = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts);
             print "cert = ", cert_bad
             assert(False)
         except JSONRPCException,e:
             errorString = e.error['message']
-            print "\n======> ", errorString
-            print
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            
+        assert_equal("invalid cert epoch" in errorString, True)
+
 
         # read the net value of the certificate amount (total amount - fee) on the receiver wallet
+        mark_logs("Checking that amount transferred by certificate reaches Node1 wallet", self.nodes, DEBUG_MODE)
         cert_net_amount = self.nodes[1].gettransaction(cert_good)['amount']
-        print "Cert net amount: ", cert_net_amount
-        print
-
         bal_after = self.nodes[1].getbalance("", 0)
         assert_equal(bal_after, bal_before + cert_net_amount) 
-        print "OK, Node1 balance has received the certificate net amount: ", bal_after
-        print
 
         bal_before = bal_after
 
-        # now Node1 use the UTXO related to certificate for sending coins to Node2
-        self.mark_logs("\nNode 1 sends "+str(bwt_amount/2)+" coins to node2...")
+        mark_logs("Checking that Node1 can spend coins received from bwd transfer", self.nodes, DEBUG_MODE)
+        mark_logs("Node 1 sends {} coins to node2...".format(bwt_amount/2), self.nodes, DEBUG_MODE)
         tx = self.nodes[1].sendtoaddress(self.nodes[2].getnewaddress(), bwt_amount/2)
-        print "this tx uses certificate as input:"
-        print "tx = ", tx
-        print
-
-        # fee can be seen on sender wallet
-        fee_node2 = self.nodes[1].gettransaction(tx)['fee']
-        print "fee: ", fee_node2
-        print
-
-        # check that input is formed using the certificate
+        assert(len(tx)>0)
         vin = self.nodes[1].getrawtransaction(tx, 1)['vin']
         assert_equal(vin[0]['txid'], cert_good)
-        self.sync_all()
 
-        print("\nNode0 generating 1 block")
+        mark_logs("Node 0 generates 1 block",self.nodes, DEBUG_MODE)
+        self.sync_all()
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
-
+        
+        mark_logs("Verify balances following Node1 spending bwd transfer to Node2.",self.nodes, DEBUG_MODE)
         bal_after = self.nodes[1].getbalance("", 0)
-
+        fee_node2 = self.nodes[1].gettransaction(tx)['fee']
         assert_equal(bal_after, bal_before - (bwt_amount/2) + fee_node2 ) 
-        print "OK, Node1 balance has spent the amount and has been charged with the fee: ", self.nodes[1].getbalance("", 0)
-
-        assert_equal(self.nodes[2].getbalance("", 0), (bwt_amount/2) ) 
-        print "OK, Node2 balance has received the amount spent by Node1: ", self.nodes[2].getbalance("", 0)
-        print
-
+        assert_equal(self.nodes[2].getbalance("", 0), (bwt_amount/2) )
 
 
 if __name__ == '__main__':
