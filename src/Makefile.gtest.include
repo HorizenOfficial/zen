@@ -7,6 +7,7 @@ noinst_PROGRAMS += zen-gtest
 zen_gtest_SOURCES = \
 	gtest/main.cpp \
 	gtest/utils.cpp \
+	gtest/tx_creation_utils.cpp \
 	gtest/test_checktransaction.cpp \
 	gtest/json_test_vectors.cpp \
 	gtest/json_test_vectors.h \
@@ -44,7 +45,8 @@ zen_gtest_SOURCES += \
 	gtest/test_paymentdisclosure.cpp \
 	gtest/test_checkblock.cpp       \
 	gtest/test_relayforks.cpp	\
-	gtest/test_sidechain.cpp
+	gtest/test_sidechain.cpp	\
+	gtest/test_sidechain_to_mempool.cpp
 
 if ENABLE_WALLET
 zen_gtest_SOURCES += \
