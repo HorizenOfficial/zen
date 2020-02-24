@@ -6,19 +6,10 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, start_node, connect_nodes, stop_node, stop_nodes, \
-    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, \
-    check_json_precision, mark_logs
-import traceback
-import os,sys
-import shutil
-from random import randint
+    start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs
+import os
 from decimal import Decimal
-import logging
 import pprint
-
-import time
-from setuptools.dist import assert_bool
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 3
