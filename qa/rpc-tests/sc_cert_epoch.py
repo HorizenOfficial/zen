@@ -5,21 +5,17 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, start_node, connect_nodes, stop_node, stop_nodes, \
-    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision
-import traceback
-import os,sys
-import shutil
-from random import randint
+from test_framework.util import initialize_chain_clean, \
+    start_nodes, stop_nodes, \
+    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs
+import os
 from decimal import Decimal
-import logging
-import pprint
-
 import time
 
-EPOCH_LENGTH = 5
 NUMB_OF_NODES = 4
+DEBUG_MODE = 1
+EPOCH_LENGTH = 5
+
 
 class sc_cert_epoch(BitcoinTestFramework):
 
@@ -38,8 +34,8 @@ class sc_cert_epoch(BitcoinTestFramework):
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
             [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1', '-zapwallettxes=2']] * NUMB_OF_NODES )
 
-        idx=0
-        for nod in self.nodes:
+        idx = 0
+        for _ in self.nodes:
             if idx < (NUMB_OF_NODES-1):
                 connect_nodes_bi(self.nodes, idx, idx+1)
                 idx += 1
@@ -49,209 +45,176 @@ class sc_cert_epoch(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
-    def disconnect_nodes(self, from_connection, node_num):
-        ip_port = "127.0.0.1:"+str(p2p_port(node_num))
-        from_connection.disconnectnode(ip_port)
-        # poll until version handshake complete to avoid race conditions
-        # with transaction relaying
-        while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
-            time.sleep(0.1)
-
-    def dump_ordered_tips(self, tip_list):
-        sorted_x = sorted(tip_list, key=lambda k: k['status'])
-        c = 0
-        for y in sorted_x:
-            if (c == 0):
-                print y 
-            else:
-                print " ",y 
-            c = 1
-
-    def mark_logs(self, msg):
-        print msg
-        for nod in self.nodes:
-            nod.dbg_log(msg)
-
     def run_test(self):
 
         # side chain id
         scid = "1111111111111111111111111111111111111111111111111111111111111111"
 
-        #forward transfer amount
+        # forward transfer amount
         creation_amount = Decimal("0.5")
         fwt_amount = Decimal("50")
         bwt_amount = Decimal("25")
 
-        blocks = []
-        self.bl_count = 0
+        blocks = [self.nodes[0].getblockhash(0)]
 
-        blocks.append(self.nodes[0].getblockhash(0))
-
-        # node 1 earns some coins, they would be available after 100 blocks 
-        self.mark_logs("Node 1 generates 1 block")
+        # node 1 earns some coins, they would be available after 100 blocks
+        mark_logs("Node 1 generates 1 block to prepare coins to spend", self.nodes, DEBUG_MODE)
 
         blocks.extend(self.nodes[1].generate(1))
         self.sync_all()
 
-        self.mark_logs("Node 0 generates 220 block")
-
+        mark_logs("Node 0 generates 220 block to reach sidechain height", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(220))
         self.sync_all()
 
-        # node 1 has just the coinbase which is now maturee
+        # node 1 has just the coinbase which is now mature
         bal_before = self.nodes[1].getbalance("", 0)
-        print "\nNode1 balance: ", bal_before
+        mark_logs("Node1 balance before SC creation: {}".format(bal_before), self.nodes, DEBUG_MODE)
 
-        self.mark_logs("\nNode 1 creates the SC spending " + str(creation_amount) + " coins ...")
-        amounts = []
-        amounts.append( {"address":"dada", "amount": creation_amount})
-        creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, amounts);
-        print "creating_tx = " + creating_tx
+        # node 1 creates a sidechain
+        amounts = [{"address": "dada", "amount": creation_amount}]
+        creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, amounts)
+        mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
-        self.mark_logs("\nNode0 generating 1 block")
-        blocks.extend(self.nodes[0].generate(1))
-        ownerBlock = blocks[-1]
-        self.sync_all()
-
-        self.mark_logs("\nNode 0 performs a fwd transfer of " + str(fwt_amount) + " coins to SC...")
-
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid);
-        print "fwd_tx=" + fwd_tx
-        self.sync_all()
-
-        self.mark_logs("\nNode0 generating 5 block")
-        blocks.extend(self.nodes[0].generate(5))
-        self.sync_all()
-
-        print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
-
-        epn = 1
-        eph = blocks[-1]
-
-        pkh_node2 = self.nodes[2].getnewaddress("", True);
-        amounts = []
-        amounts.append( {"pubkeyhash":pkh_node2, "amount": bwt_amount})
-        cert = []
-
-        self.mark_logs("\nNode0 generating 1 block")
+        mark_logs("Node0 confirms Sc creation generating 1 block", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        print "Node1 balance: ", self.nodes[1].getbalance()
-        print "Node2 balance: ", self.nodes[2].getbalance()
-        print "Node3 balance: ", self.nodes[3].getbalance()
+        mark_logs("Node 0 performs a fwd transfer of {} coins to Sc".format(fwt_amount), self.nodes, DEBUG_MODE)
+        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid)
+        assert(len(fwd_tx) > 0)
+        self.sync_all()
 
+        mark_logs("Node0 generats {} block, confirming fwd transfer and maturing first epoch".format(EPOCH_LENGTH), self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(EPOCH_LENGTH))
+        self.sync_all()
+
+        epoch_number = 1
+        epoch_height = blocks[-1]
+
+        pkh_node2 = self.nodes[2].getnewaddress("", True)
+        amounts = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
+
+        mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(1))
+        self.sync_all()
+
+        node1_initial_balance = self.nodes[1].getbalance()
+        node2_initial_balance = self.nodes[2].getbalance()
+        node3_initial_balance = self.nodes[3].getbalance()
+        mark_logs("Node 1 initial balance {}".format(node1_initial_balance), self.nodes, DEBUG_MODE)
+        mark_logs("Node 2 initial balance {}".format(node2_initial_balance), self.nodes, DEBUG_MODE)
+        mark_logs("Node 3 initial balance {}".format(node3_initial_balance), self.nodes, DEBUG_MODE)
+
+        mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
         try:
-            cert = self.nodes[0].send_certificate(scid, epn, eph, amounts);
-            print "cert=", cert
-        except JSONRPCException,e:
+            cert = self.nodes[0].send_certificate(scid, epoch_number, epoch_height, amounts)
+            assert(len(cert) > 0)
+        except JSONRPCException, e:
             errorString = e.error['message']
-            print "\n======> ", errorString
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         self.sync_all()
 
-        self.mark_logs("\nNode0 generating 1 block")
+        mark_logs("Node0 confims bwd transfer generating 1 block", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
+        mark_logs("Checking Nodes wallet's balances are duly updated", self.nodes, DEBUG_MODE)
+        assert(node1_initial_balance == self.nodes[1].getbalance())
+        assert(round(node2_initial_balance + bwt_amount, 5) == round(self.nodes[2].getbalance(), 5))  # Any wait to match it all??
+        assert(node3_initial_balance == self.nodes[3].getbalance())
 
-        print "Node1 balance: ", self.nodes[1].getbalance()
-        print "Node2 balance: ", self.nodes[2].getbalance()
-        print "Node3 balance: ", self.nodes[3].getbalance()
+        mark_logs("Checking Sc balance is duly decreased", self.nodes, DEBUG_MODE)
+        sc_post_bwd = self.nodes[0].getscinfo(scid)
+        assert(sc_post_bwd["balance"] == creation_amount + fwt_amount - bwt_amount)
 
-        # now Node2 use the UTXO related to certificate for sending coins to Node3
-        self.mark_logs("\nNode 2 sends " + str(bwt_amount/2) + " coins to Node3...")
-        tx = self.nodes[2].sendtoaddress(self.nodes[3].getnewaddress(), bwt_amount/2)
-        #tx_self = self.nodes[2].sendtoaddress(self.nodes[2].getnewaddress(), bwt_amount/4)
-        print "this tx uses certificate as input:"
-        print "tx = ", tx
-        #print "tx_self = ", tx_self
-        print
+        mark_logs("Checking that Node2 can spend coins received from bwd transfer", self.nodes, DEBUG_MODE)
+        mark_logs("Node 2 sends {}  coins to Node3".format(bwt_amount/2), self.nodes, DEBUG_MODE)
+        speding_bwd_tx = self.nodes[2].sendtoaddress(self.nodes[3].getnewaddress(), bwt_amount/2)
+        assert(len(speding_bwd_tx) > 0)
         self.sync_all()
 
-        self.mark_logs("\nNode0 generating 1 block")
+        mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        print "Node1 balance: ", self.nodes[1].getbalance()
-        print "Node2 balance: ", self.nodes[2].getbalance()
-        print "      z_balance: ", self.nodes[2].z_gettotalbalance()['transparent']
-        print "Node3 balance: ", self.nodes[3].getbalance()
-        print
+        mark_logs("Node0 invalidates latest block which confirmed bwd expenditure", self.nodes, DEBUG_MODE)
+        block_to_invalidate = self.nodes[0].getbestblockhash()
+        self.nodes[0].invalidateblock(block_to_invalidate)
+        time.sleep(1)  # Is there a better wait to settle?
 
-        #-------------------------------------------------------------
-        for j in range(0, 4):
-            #raw_input("press to invalidate...")
+        mark_logs("Checking tx speding bwd returns to mempool", self.nodes, DEBUG_MODE)
+        assert(speding_bwd_tx in self.nodes[0].getrawmempool())
 
-            invalidating = self.nodes[0].getbestblockhash()
-            self.mark_logs("\nNode 0 invalidates last block...")
-            print "Invalidating: ", invalidating
-            self.nodes[0].invalidateblock(invalidating)
-            time.sleep(1)
+        mark_logs("Node0 invalidates latest block which confirmed bwd", self.nodes, DEBUG_MODE)
+        block_to_invalidate = self.nodes[0].getbestblockhash()
+        self.nodes[0].invalidateblock(block_to_invalidate)
+        time.sleep(1)  # Is there a better wait to settle?
 
-            try:
-                print "Node0 mempool: ", self.nodes[0].getrawmempool()
-                print "Node0 SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
-                print
-            except JSONRPCException,e:
-                errorString = e.error['message']
-                print errorString
-       
-        self.mark_logs("\nNode0 generating 4 block")
+        mark_logs("Checking  bwd returns to mempool with tx spending it", self.nodes, DEBUG_MODE)
+        assert(cert in self.nodes[0].getrawmempool())
+        assert(speding_bwd_tx in self.nodes[0].getrawmempool())
+
+        mark_logs("Checking  Sc balance is duly update due to bwd removal", self.nodes, DEBUG_MODE)
+        assert(self.nodes[0].getscinfo(scid)["balance"] == creation_amount + fwt_amount)
+        # NOTE: CANNOT CHECK OTHER NODES BALANCES, SINCE I AM WORKING ON A SINGLE BRANCH
+
+        mark_logs("Node0 invalidates latest block which signaled end of epoch", self.nodes, DEBUG_MODE)
+        block_to_invalidate = self.nodes[0].getbestblockhash()
+        self.nodes[0].invalidateblock(block_to_invalidate)
+        time.sleep(1)  # Is there a better wait to settle?
+
+        mark_logs("Checking both bwd and dependant tx is still mempool", self.nodes, DEBUG_MODE)
+        assert(cert in self.nodes[0].getrawmempool())
+        assert(speding_bwd_tx in self.nodes[0].getrawmempool())
+
+        mark_logs("Node0 invalidates latest block going stricly into epoch 0", self.nodes, DEBUG_MODE)
+        block_to_invalidate = self.nodes[0].getbestblockhash()
+        self.nodes[0].invalidateblock(block_to_invalidate)
+        time.sleep(1)  # Is there a better wait to settle?
+
+        mark_logs("Checking both bwd and dependant tx is are cleared from mempool", self.nodes, DEBUG_MODE)
+        assert(cert not in self.nodes[0].getrawmempool())
+        assert(speding_bwd_tx not in self.nodes[0].getrawmempool())
+
+        mark_logs("Node0 generating 4 block to show bwd has disappeared from history", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(4))
+        sc_post_regeneration = self.nodes[0].getscinfo(scid)
+        assert(sc_post_regeneration["last certificate epoch"] == Decimal(-1))
+        assert(sc_post_regeneration["balance"] == creation_amount + fwt_amount)
+
+        mark_logs("Node0 generating 3 block to have longest chain and cause reorg on other nodes", self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(3))
         self.sync_all()
 
-        print 
-        for i in range(0, NUMB_OF_NODES):
-            self.dump_ordered_tips(self.nodes[i].getchaintips())
-            print "---"
-            print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
+        mark_logs("Checking that upon reorg, bwd is erased from other nodes too", self.nodes, DEBUG_MODE)
 
-        print "Node1 balance: ", self.nodes[1].getbalance()
-        print "Node2 balance: ", self.nodes[2].getbalance()
-        print "      z_balance: ", self.nodes[2].z_gettotalbalance()['transparent']
-        print "Node3 balance: ", self.nodes[3].getbalance()
-        print
+        for idx, node in enumerate(self.nodes):
+            mark_logs("Checking Node{} ScInfos".format(idx), self.nodes, DEBUG_MODE)
+            sc_post_regeneration = node.getscinfo(scid)
+            assert(sc_post_regeneration["last certificate epoch"] == Decimal(-1))
+            assert(sc_post_regeneration["balance"] == creation_amount + fwt_amount)
+            assert(cert not in self.nodes[0].getrawmempool())
+            assert(speding_bwd_tx not in self.nodes[0].getrawmempool())
+            mark_logs("Checking Node{} wallet's balances is back to initial one".format(idx), self.nodes, DEBUG_MODE)
+            assert(node1_initial_balance == self.nodes[1].getbalance())
+            assert(node2_initial_balance == self.nodes[2].getbalance())
+            assert(node3_initial_balance == self.nodes[3].getbalance())
 
-        self.mark_logs("\nNode0 generating 1 block")
-        blocks.extend(self.nodes[0].generate(1))
-        self.sync_all()
-
-        print 
-        for i in range(0, NUMB_OF_NODES):
-            self.dump_ordered_tips(self.nodes[i].getchaintips())
-            print "---"
-            print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
-
-        print "Node1 balance: ", self.nodes[1].getbalance()
-        print "Node2 balance: ", self.nodes[2].getbalance()
-        print "      z_balance: ", self.nodes[2].z_gettotalbalance()['transparent']
-        print "Node3 balance: ", self.nodes[3].getbalance()
-        print
-
-        self.mark_logs("\nNode 2 sends " + str(bwt_amount/2) + " coins to Node3...")
-        tx = []
-        try:
-            tx = self.nodes[2].sendtoaddress(self.nodes[3].getnewaddress(), bwt_amount/2)
-        except JSONRPCException,e:
-            errorString = e.error['message']
-            print errorString
-       
-        self.mark_logs("\nStopping nodes")
+        mark_logs("Checking certificates persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)
         stop_nodes(self.nodes)
         wait_bitcoinds()
-        print "\nRestarting nodes"
         self.setup_network(False)
-        self.mark_logs("\nRestarted nodes")
 
-        print "Node1 balance: ", self.nodes[1].getbalance()
-        print "Node2 balance: ", self.nodes[2].getbalance()
-        print "      z_balance: ", self.nodes[2].z_gettotalbalance()['transparent']
-        print "Node3 balance: ", self.nodes[3].getbalance()
-        print
-
+        for idx, node in enumerate(self.nodes):
+            mark_logs("Checking Node{} after restart".format(idx), self.nodes, DEBUG_MODE)
+            sc_post_regeneration = node.getscinfo(scid)
+            assert(sc_post_regeneration["last certificate epoch"] == Decimal(-1))
+            assert(sc_post_regeneration["balance"] == creation_amount + fwt_amount)
+            assert(cert not in self.nodes[0].getrawmempool())
+            assert(speding_bwd_tx not in self.nodes[0].getrawmempool())
 
 
 if __name__ == '__main__':

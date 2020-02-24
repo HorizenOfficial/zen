@@ -82,11 +82,11 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Fee paid for SC creation: {}".format(fee), self.nodes, DEBUG_MODE)
 
         # node 1 has just the coinbase minus the sc creation amount
-        assert_equal(bal_before, self.nodes[1].getbalance("", 0) + creation_amount - fee) 
+        assert_equal(bal_before, self.nodes[1].getbalance("", 0) + creation_amount - fee)
         mark_logs("Node1 balance after SC creation: {}".format(self.nodes[1].getbalance("", 0)), self.nodes, DEBUG_MODE)
 
         fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid)
-        mark_logs("Node 0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx) , self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
         mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
@@ -119,11 +119,10 @@ class sc_cert_base(BitcoinTestFramework):
         print "epoch_number = ", epoch_number, ", epoch_block_hash = ", epoch_block_hash
 
         pkh_node1 = self.nodes[1].getnewaddress("", True)
- 
-        #----------------------------------------------------------------
+
         mark_logs("Node 0 tries to perform a bwd transfer with insufficient Sc balance...", self.nodes, DEBUG_MODE)
         amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount_bad}]
-     
+
         # check this is refused because sc has not balance enough
         try:
             cert_bad = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts)
@@ -136,7 +135,7 @@ class sc_cert_base(BitcoinTestFramework):
         print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
         
         mark_logs("Node 0 performs a bwd transfer with an invalid epoch number ...", self.nodes, DEBUG_MODE)
-        amounts = [{"pubkeyhash":pkh_node1, "amount": bwt_amount}]
+        amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
 
         try:
             cert_bad = self.nodes[0].send_certificate(scid, epoch_number + 1, epoch_block_hash, amounts)
@@ -160,7 +159,7 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal("invalid epoch data" in errorString, True)
         print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
 
-        mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(bwt_amount, pkh_node1), self.nodes, DEBUG_MODE)     
+        mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(bwt_amount, pkh_node1), self.nodes, DEBUG_MODE)
         try:
             cert_good = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts)
             assert(len(cert_good) > 0)
@@ -171,11 +170,11 @@ class sc_cert_base(BitcoinTestFramework):
             assert(False)
 
         # Check the mempools of every nodes
-        mark_logs ("Checking mempools alignement", self.nodes, DEBUG_MODE)
+        mark_logs("Checking mempools alignement", self.nodes, DEBUG_MODE)
         self.sync_all()
         for i in range(1, NUMB_OF_NODES):
-                assert_equal(sorted(self.nodes[0].getrawmempool()), sorted(self.nodes[i].getrawmempool()))
-        
+            assert_equal(sorted(self.nodes[0].getrawmempool()), sorted(self.nodes[i].getrawmempool()))
+
         bal_before = self.nodes[1].getbalance("", 0)
         # print "Node1 balance: ", bal_before
 
@@ -187,7 +186,7 @@ class sc_cert_base(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-            
+
         assert_equal("invalid cert epoch" in errorString, True)
 
         print("Node0 generating 1 block")
@@ -203,14 +202,14 @@ class sc_cert_base(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-            
+
         assert_equal("invalid cert epoch" in errorString, True)
 
         # read the net value of the certificate amount (total amount - fee) on the receiver wallet
         mark_logs("Checking that amount transferred by certificate reaches Node1 wallet", self.nodes, DEBUG_MODE)
         cert_net_amount = self.nodes[1].gettransaction(cert_good)['amount']
         bal_after = self.nodes[1].getbalance("", 0)
-        assert_equal(bal_after, bal_before + cert_net_amount) 
+        assert_equal(bal_after, bal_before + cert_net_amount)
 
         bal_before = bal_after
 
@@ -225,11 +224,11 @@ class sc_cert_base(BitcoinTestFramework):
         self.sync_all()
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
-        
+
         mark_logs("Verify balances following Node1 spending bwd transfer to Node2.", self.nodes, DEBUG_MODE)
         bal_after = self.nodes[1].getbalance("", 0)
         fee_node2 = self.nodes[1].gettransaction(tx)['fee']
-        assert_equal(bal_after, bal_before - (bwt_amount / 2) + fee_node2) 
+        assert_equal(bal_after, bal_before - (bwt_amount / 2) + fee_node2)
         assert_equal(self.nodes[2].getbalance("", 0), (bwt_amount / 2))
 
 
