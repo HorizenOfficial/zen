@@ -94,25 +94,25 @@ class sc_cert_base(BitcoinTestFramework):
         print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
         mark_logs("Sc {} state: {}".format(scid, self.nodes[0].getscinfo(scid)), self.nodes, DEBUG_MODE)
 
-        mark_logs("Node0 generating 3 more blocks to achieve sc coins maturity", self.nodes, DEBUG_MODE)
+        mark_logs("Node0 generating 3 more blocks to achieve end of withdrawal epoch", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(3))
         self.sync_all()
 
         print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
         mark_logs("Sc {} state: {}".format(scid, self.nodes[0].getscinfo(scid)), self.nodes, DEBUG_MODE)
 
-        mark_logs("Node0 generating 1 more blocks to achieve end epoch", self.nodes, DEBUG_MODE)
-        blocks.extend(self.nodes[0].generate(1))
-        self.sync_all()
-
-        print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
-        mark_logs("Sc {} state: {}".format(scid, self.nodes[0].getscinfo(scid)), self.nodes, DEBUG_MODE)
+#         mark_logs("Node0 generating 1 more blocks to achieve end epoch", self.nodes, DEBUG_MODE)
+#         blocks.extend(self.nodes[0].generate(1))
+#         self.sync_all()
+# 
+#         print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
+#         mark_logs("Sc {} state: {}".format(scid, self.nodes[0].getscinfo(scid)), self.nodes, DEBUG_MODE)
 
         current_height = self.nodes[0].getblockcount()
-        epoch_number = (current_height - sc_creating_height) // EPOCH_LENGTH
+        epoch_number = (current_height - sc_creating_height + 1) // EPOCH_LENGTH
         mark_logs("Current height {}, Sc creation height {}, epoch length {} --> current epoch number {}"
                   .format(current_height, sc_creating_height, EPOCH_LENGTH, epoch_number), self.nodes, DEBUG_MODE)
-        epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height + (epoch_number * EPOCH_LENGTH))
+        epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height -1 + (epoch_number * EPOCH_LENGTH))
         eph_wrong = self.nodes[0].getblockhash(sc_creating_height)
         print "epoch_number = ", epoch_number, ", epoch_block_hash = ", epoch_block_hash
 
@@ -213,7 +213,7 @@ class sc_cert_base(BitcoinTestFramework):
         vin = self.nodes[1].getrawtransaction(tx, 1)['vin']
         assert_equal(vin[0]['txid'], cert_good)
 
-        mark_logs("Node0 confims spending bwd transfer founds generating 1 block", self.nodes, DEBUG_MODE)
+        mark_logs("Node0 confims spending of bwd transfer founds generating 1 block", self.nodes, DEBUG_MODE)
         self.sync_all()
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()

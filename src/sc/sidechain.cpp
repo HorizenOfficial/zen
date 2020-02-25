@@ -148,11 +148,8 @@ bool ScCoinsView::checkCertSemanticValidity(const CScCertificate& cert, CValidat
 bool ScCoinsView::IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertificate& cert, CValidationState& state)
 {
     const uint256& certHash = cert.GetHash();
-
     const uint256& scId = cert.scId;
     const CAmount& certAmount = cert.totalAmount;
- 
-    // do not use a sccoinsview since we are only reading
 
     // when called for checking the contents of mempool we can find the certificate itself, which is OK
     uint256 conflictingCertHash;
@@ -867,7 +864,7 @@ int ScMgr::getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber)
 
     // the safety margin from the end of referred epoch is computed as 20% of epoch length + 1
     // TODO move this in consensus params
-    int val = info.creationBlockHeight + (epochNumber * info.creationData.withdrawalEpochLength) +
+    int val = info.creationBlockHeight - 1 + (epochNumber * info.creationData.withdrawalEpochLength) +
         (int)(info.creationData.withdrawalEpochLength/5) + 1;
 
     LogPrint("cert", "%s():%d - returning %d\n", __func__, __LINE__, val);
@@ -946,7 +943,7 @@ bool ScMgr::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& en
         return false;
     }
 
-    int endEpochHeight = info.creationBlockHeight + (epochNumber * info.creationData.withdrawalEpochLength);
+    int endEpochHeight = info.creationBlockHeight -1 + (epochNumber * info.creationData.withdrawalEpochLength);
     pblockindex = chainActive[endEpochHeight];
 
     if (!pblockindex)
@@ -957,15 +954,14 @@ bool ScMgr::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& en
     }
 
     const uint256& hash = pblockindex->GetBlockHash();
-
-    bool ret = (hash == endEpochBlockHash);
-    if (!ret)
+    if (hash != endEpochBlockHash)
     {
         LogPrint("sc", "%s():%d - bock hash mismatch: endEpochBlockHash[%s] / calculated[%s]\n", 
             __func__, __LINE__, endEpochBlockHash.ToString(), hash.ToString());
+        return false;
     }
 
-    return ret;
+    return true;
 }
 
 bool ScMgr::getScInfo(const uint256& scId, ScInfo& info) const

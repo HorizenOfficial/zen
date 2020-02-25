@@ -53,7 +53,6 @@ class sc_cert_epoch(BitcoinTestFramework):
 
         blocks = [self.nodes[0].getblockhash(0)]
 
-        # node 1 earns some coins, they would be available after 100 blocks
         mark_logs("Node 1 generates 1 block to prepare coins to spend", self.nodes, DEBUG_MODE)
 
         blocks.extend(self.nodes[1].generate(1))
@@ -63,7 +62,6 @@ class sc_cert_epoch(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(220))
         self.sync_all()
 
-        # node 1 has just the coinbase which is now mature
         bal_before = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance before SC creation: {}".format(bal_before), self.nodes, DEBUG_MODE)
 
@@ -81,8 +79,8 @@ class sc_cert_epoch(BitcoinTestFramework):
         assert(len(fwd_tx) > 0)
         self.sync_all()
 
-        mark_logs("Node0 generates {} block, confirming fwd transfer and maturing first epoch".format(EPOCH_LENGTH), self.nodes, DEBUG_MODE)
-        blocks.extend(self.nodes[0].generate(EPOCH_LENGTH))
+        mark_logs("Node0 generates {} blocks, confirming fwd transfer and maturing first epoch".format(EPOCH_LENGTH - 1), self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(EPOCH_LENGTH - 1))
         self.sync_all()
 
         epoch_number = 1
@@ -132,7 +130,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         assert(len(speding_bwd_tx) > 0)
         self.sync_all()
 
-        mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
+        mark_logs("Node0 confims spending of bwd transfer founds generating 1 block", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 

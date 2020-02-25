@@ -147,13 +147,13 @@ class sc_cert_base(BitcoinTestFramework):
         amounts = []
 
         self.mark_logs("\nNode0 generating 3 more blocks for achieving sc coins maturity")
-        blocks.extend(self.nodes[0].generate(1))
-        self.sync_all()
-        print "Node0 balance: ", self.nodes[0].getbalance("", 0)
-        balance_node0.append(self.nodes[0].getbalance("", 0))
-
-        sc_info.append(self.nodes[0].getscinfo(scid))
-        print "\nSC info:\n", pprint.pprint(sc_info[-1])
+#        blocks.extend(self.nodes[0].generate(1))
+#        self.sync_all()
+#        print "Node0 balance: ", self.nodes[0].getbalance("", 0)
+#        balance_node0.append(self.nodes[0].getbalance("", 0))
+#
+#        sc_info.append(self.nodes[0].getscinfo(scid))
+#        print "\nSC info:\n", pprint.pprint(sc_info[-1])
 
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
@@ -181,11 +181,11 @@ class sc_cert_base(BitcoinTestFramework):
 
         current_height = self.nodes[0].getblockcount()
 
-        epn = int((current_height - sc_creating_height) / EPOCH_LENGTH)
+        epn = int((current_height - sc_creating_height + 1) / EPOCH_LENGTH)
         print " h=", current_height
         print "ch=", sc_creating_height
         print "epn=", epn
-        eph = self.nodes[0].getblockhash(sc_creating_height + (epn*EPOCH_LENGTH))
+        eph = self.nodes[0].getblockhash(sc_creating_height - 1 + (epn*EPOCH_LENGTH))
         print "epn = ", epn, ", eph = ", eph
 
         
@@ -279,11 +279,11 @@ class sc_cert_base(BitcoinTestFramework):
 
         current_height = self.nodes[0].getblockcount()
 
-        epn = int((current_height - sc_creating_height) / EPOCH_LENGTH)
+        epn = int((current_height - sc_creating_height + 1) / EPOCH_LENGTH)
         print " h=", current_height
         print "ch=", sc_creating_height
         print "epn=", epn
-        eph = self.nodes[0].getblockhash(sc_creating_height + (epn*EPOCH_LENGTH))
+        eph = self.nodes[0].getblockhash(sc_creating_height - 1 + (epn*EPOCH_LENGTH))
         print "epn = ", epn, ", eph = ", eph
 
         self.mark_logs("\nNode 0 performs a bwd transfer of " + str(bwt_amount_2) + " coins to Node1 pkh[" + str(pkh_node2)+"]...")
