@@ -189,7 +189,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                 mapNextTx.erase(txin.prevout);
 
             for(const auto& fwd: tx.vft_ccout) {
-                if (mapSidechains.count(fwd.scId)) { //This if guards against double-delete on multiple fwds toward the same sidechain
+                if (mapSidechains.count(fwd.scId)) { //Guard against double-delete on multiple fwds toward the same sc in same tx
                     mapSidechains.at(fwd.scId).fwdTransfersSet.erase(tx.GetHash());
 
                     if (mapSidechains.at(fwd.scId).fwdTransfersSet.size() == 0 && mapSidechains.at(fwd.scId).scCreationTxHash.IsNull())
