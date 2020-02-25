@@ -1049,7 +1049,7 @@ bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
          return false;
      }
 
-     if (!Sidechain::ScMgr::checkCertSemanticValidity(cert, state) )
+     if (!Sidechain::checkCertSemanticValidity(cert, state) )
      {
          return false;
      }
@@ -1082,7 +1082,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
         return false;
     }
 
-    if (!Sidechain::ScMgr::checkTxSemanticValidity(tx, state) )
+    if (!Sidechain::checkTxSemanticValidity(tx, state) )
     {
         return false;
     }

@@ -77,6 +77,11 @@ public:
 
 typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
 
+bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
+bool checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state);
+bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
+bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
+
 class ScCoinsView
 {
 public:
@@ -85,23 +90,18 @@ public:
     ScCoinsView& operator=(const ScCoinsView &) = delete;
     virtual ~ScCoinsView() = default;
 
-    static bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
-    static bool checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state);
-
     static bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
-    static bool IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertificate& cert, CValidationState& state);
     bool IsTxApplicableToState(const CTransaction& tx, CValidationState& state);
-    bool IsCertApplicableToState(const CScCertificate& cert, CValidationState& state);
 
     virtual bool sidechainExists(const uint256& scId) const = 0;
     virtual bool getScInfo(const uint256& scId, ScInfo& info) const = 0;
     virtual std::set<uint256> getScIdSet() const = 0;
+
+    bool IsCertApplicableToState(const CScCertificate& cert, CValidationState& state);
+    static bool IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertificate& cert, CValidationState& state);
     virtual CAmount getSidechainBalance(const uint256& scId) const = 0;
     virtual CAmount getSidechainBalanceImmature(const uint256& scId) const = 0;
 
-protected:
-    static bool hasScCreationOutput(const CTransaction& tx, const uint256& scId); // return true if the tx is creating the scid
-    static bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
 };
 
 class ScCoinsPersistedView;
@@ -119,11 +119,11 @@ public:
     bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& bu);
 
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
-    bool RevertCertOutputs(const CScCertificate& cert, int nHeight);
     bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
     bool Flush();
+    bool RevertCertOutputs(const CScCertificate& cert, int nHeight);
 
 private:
     ScCoinsPersistedView& persistedView;
@@ -154,16 +154,17 @@ public:
     bool sidechainExists(const uint256& scId) const;
     bool getScInfo(const uint256& scId, ScInfo& info) const;
     std::set<uint256> getScIdSet() const;
-    CAmount getSidechainBalance(const uint256& scId) const;
-    CAmount getSidechainBalanceImmature(const uint256& scId) const;
-
-    static bool isLegalEpoch(const uint256& scId, int epochNumber, const uint256& epochBlockHash);
-    static int getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber);
-    static bool epochAlreadyHasCertificate(const uint256& scId, int epochNumber, const CTxMemPool& pool, uint256& certHash);
 
     // print functions
     bool dump_info(const uint256& scId);
     void dump_info();
+
+    // certificate stuff
+    CAmount getSidechainBalance(const uint256& scId) const;
+    CAmount getSidechainBalanceImmature(const uint256& scId) const;
+    static bool isLegalEpoch(const uint256& scId, int epochNumber, const uint256& epochBlockHash);
+    static int getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber);
+    static bool epochAlreadyHasCertificate(const uint256& scId, int epochNumber, const CTxMemPool& pool, uint256& certHash);
 
 private:
     // Disallow instantiation outside of the class.
