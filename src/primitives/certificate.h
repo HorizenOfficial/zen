@@ -88,7 +88,7 @@ public:
 
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
     bool CheckFinal(int flags) const override;
-    bool IsApplicableToState() const override;
+    bool IsApplicableToState(CValidationState& state) const override;
 
     bool IsStandard(std::string& reason, int nHeight) const override;
     

@@ -1298,7 +1298,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
     if(!CheckCertificate(cert,state))
         return error("AcceptCertificateToMemoryPool: CheckCertificate failed");
 
-    //ABENEGIA: No ContextualCheckTransaction(cert, state, nextBlockHeight, 10): // as of now, there are no dependancies of contents from chain height.
+    if(!cert.ContextualCheck(state, nextBlockHeight, 10))
+        return error("AcceptCertificateToMemoryPool: CheckCertificate failed");
 
     // Silently drop pre-chainsplit certificates
     if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight))
@@ -1325,10 +1326,11 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
     // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
     // a not existing one and so on
-    if (!Sidechain::ScMgr::instance().IsCertApplicableToState(cert) )
+    if (!Sidechain::ScMgr::instance().IsCertApplicableToState(cert, state) )
     {
         LogPrint("sc", "%s():%d - certificate [%s] is not applicable\n", __func__, __LINE__, certHash.ToString());
-        return false;
+        return state.DoS(0, error("AcceptCertificateToMemoryPool: certificate not applicable"),
+                            REJECT_INVALID, "sidechain-certificate");
     }
 
     // Check for conflicts with in-memory transactions
@@ -1489,10 +1491,10 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
     // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
     // a not existing one and so on
-    if (!tx.IsApplicableToState() )
+    if (!tx.IsApplicableToState(state) )
     {
         LogPrint("sc", "%s():%d - tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString());
-        return false;
+        return state.DoS(0, false, REJECT_INVALID, "non-applicable");
     }
 
     // Check for conflicts with in-memory transactions
@@ -2786,7 +2788,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
         // a not existing one and certificate amount against sc balance
-        if (!scMgr.IsTxApplicableToState(tx) )
+        if (!scMgr.IsTxApplicableToState(tx, state) )
         {
             LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
             return state.DoS(100, error("ConnectBlock(): invalid sc transaction tx[%s]", tx.GetHash().ToString()),
@@ -2843,7 +2845,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
         nFees += nFee;
 
-        if (!Sidechain::ScMgr::instance().IsCertApplicableToState(cert) ) {
+        if (!Sidechain::ScMgr::instance().IsCertApplicableToState(cert, state) ) {
             LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, cert.GetHash().ToString() );
             return state.DoS(100, error("ConnectBlock(): invalid sc certificate [%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-tx");

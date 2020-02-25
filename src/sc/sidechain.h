@@ -93,8 +93,8 @@ public:
 
     static bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
     static bool IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertificate& cert, CValidationState& state);
-    bool IsTxApplicableToState(const CTransaction& tx);
-    bool IsCertApplicableToState(const CScCertificate& cert);
+    bool IsTxApplicableToState(const CTransaction& tx, CValidationState& state);
+    bool IsCertApplicableToState(const CScCertificate& cert, CValidationState& state);
 
     virtual bool sidechainExists(const uint256& scId) const = 0;
     virtual bool getScInfo(const uint256& scId, ScInfo& info) const = 0;

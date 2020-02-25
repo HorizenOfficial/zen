@@ -513,7 +513,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 #if 0
             if (!scMgr.IsTxApplicableToState(tx) )
 #else
-            if (!tx.IsApplicableToState() )
+            CValidationState state;
+            if (!tx.IsApplicableToState(state) )
 #endif
             {
                 LogPrint("sc", "%s():%d - tx=%s is not applicable, skipping it...\n", __func__, __LINE__, tx.GetHash().ToString() );
@@ -541,8 +542,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
                 continue;
 
-            CValidationState state;
-    
             // Note that flags: we don't want to set mempool/IsStandard()
             // policy here, but we still have to ensure that the block we
             // create only contains transactions that are valid in new blocks.

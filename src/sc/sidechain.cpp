@@ -154,35 +154,6 @@ bool ScCoinsView::IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertif
  
     // do not use a sccoinsview since we are only reading
 
-    CAmount scBalance    = 0;
-    CAmount scBalanceImm = 0;
-
-    // check that epoch data are consistent
-    if (!ScMgr::isLegalEpoch(cert.scId, cert.epochNumber, cert.endEpochBlockHash) )
-    {
-        LogPrint("sc", "%s():%d - invalid cert[%s], scId[%s] invalid epoch data\n",
-            __func__, __LINE__, certHash.ToString(), scId.ToString() );
-        return state.Invalid(error("certificate with invalid epoch considering mempool"),
-             REJECT_INVALID, "sidechain-certificate-epoch");
-    }
-
-    // a certificate can not be received after a fixed amount of blocks (for the time being it is epoch length / 5) from the end of epoch (TODO)
-    int maxHeight = ScMgr::getCertificateMaxIncomingHeight(cert.scId, cert.epochNumber);
-    if (maxHeight < 0)
-    {
-        LogPrintf("ERROR: certificate %s, can not calculate max recv height\n", certHash.ToString());
-        return state.Invalid(error("can not calculate max recv height for cert"),
-             REJECT_INVALID, "sidechain-certificate-error");
-    }
-
-    if (maxHeight < chainActive.Height())
-    {
-        LogPrintf("ERROR: delayed certificate[%s], max height for receiving = %d, active height = %d\n",
-            certHash.ToString(), maxHeight, chainActive.Height());
-        return state.Invalid(error("received a delayed cert"),
-             REJECT_INVALID, "sidechain-certificate-delayed");
-    }
-
     // when called for checking the contents of mempool we can find the certificate itself, which is OK
     uint256 conflictingCertHash;
     if (ScMgr::epochAlreadyHasCertificate(scId, cert.epochNumber, pool, conflictingCertHash)
@@ -218,16 +189,17 @@ bool ScCoinsView::IsTxAllowedInMempool(const CTxMemPool& pool, const CTransactio
                 {
                     LogPrint("sc", "%s():%d - invalid tx[%s]: scId[%s] already created by tx[%s]\n",
                         __func__, __LINE__, tx.GetHash().ToString(), sc.scId.ToString(), mpTx.GetHash().ToString() );
-                            return state.Invalid(error("transaction tries to create scId already created in mempool"),
-                            REJECT_INVALID, "sidechain-creation");
+                    return state.Invalid(error("transaction tries to create scId already created in mempool"),
+                        REJECT_INVALID, "sidechain-creation");
                 }
             }
         }
     }
+
     return true;
 }
 
-bool ScCoinsView::IsTxApplicableToState(const CTransaction& tx)
+bool ScCoinsView::IsTxApplicableToState(const CTransaction& tx, CValidationState& state)
 {
     const uint256& txHash = tx.GetHash();
 
@@ -239,7 +211,8 @@ bool ScCoinsView::IsTxApplicableToState(const CTransaction& tx)
         {
             LogPrint("sc", "%s():%d - Invalid tx[%s] : scId[%s] already created\n",
                 __func__, __LINE__, txHash.ToString(), scId.ToString());
-            return false;
+            return state.Invalid(error("A sidechain with the same scId already exists"),
+                REJECT_INVALID, "sidechain-scid");
         }
         LogPrint("sc", "%s():%d - OK: tx[%s] is creating scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), scId.ToString());
@@ -256,7 +229,8 @@ bool ScCoinsView::IsTxApplicableToState(const CTransaction& tx)
             {
                 LogPrint("sc", "%s():%d - tx[%s] tries to send funds to scId[%s] not yet created\n",
                     __func__, __LINE__, txHash.ToString(), scId.ToString() );
-                return false;
+                return state.Invalid(error("scid does not exist"),
+                     REJECT_INVALID, "sidechain-tx-scid");
             }
         }
         LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
@@ -265,13 +239,41 @@ bool ScCoinsView::IsTxApplicableToState(const CTransaction& tx)
     return true;
 }
 
-bool ScCoinsView::IsCertApplicableToState(const CScCertificate& cert)
+bool ScCoinsView::IsCertApplicableToState(const CScCertificate& cert, CValidationState& state)
 {
+    const uint256& certHash = cert.GetHash();
     if (!sidechainExists(cert.scId) )
     {
         LogPrint("sc", "%s():%d - cert[%s] refers to scId[%s] not yet created\n",
-            __func__, __LINE__, cert.GetHash().ToString(), cert.scId.ToString() );
-        return false;
+            __func__, __LINE__, certHash.ToString(), cert.scId.ToString() );
+        return state.Invalid(error("scid does not exist"),
+             REJECT_INVALID, "sidechain-certificate-scid");
+    }
+
+    // check that epoch data are consistent
+    if (!ScMgr::isLegalEpoch(cert.scId, cert.epochNumber, cert.endEpochBlockHash) )
+    {
+        LogPrint("sc", "%s():%d - invalid cert[%s], scId[%s] invalid epoch data\n",
+            __func__, __LINE__, certHash.ToString(), cert.scId.ToString() );
+        return state.Invalid(error("certificate with invalid epoch considering mempool"),
+             REJECT_INVALID, "sidechain-certificate-epoch");
+    }
+
+    // a certificate can not be received after a fixed amount of blocks (for the time being it is epoch length / 5) from the end of epoch (TODO)
+    int maxHeight = ScMgr::getCertificateMaxIncomingHeight(cert.scId, cert.epochNumber);
+    if (maxHeight < 0)
+    {
+        LogPrintf("ERROR: certificate %s, can not calculate max recv height\n", certHash.ToString());
+        return state.Invalid(error("can not calculate max recv height for cert"),
+                     REJECT_INVALID, "sidechain-certificate-error");
+    }
+
+    if (maxHeight < chainActive.Height())
+    {
+        LogPrintf("ERROR: delayed certificate[%s], max height for receiving = %d, active height = %d\n",
+            certHash.ToString(), maxHeight, chainActive.Height());
+        return state.Invalid(error("received a delayed cert"),
+                     REJECT_INVALID, "sidechain-certificate-delayed");
     }
 
     CAmount curBalance = getSidechainBalance(cert.scId);
@@ -279,7 +281,8 @@ bool ScCoinsView::IsCertApplicableToState(const CScCertificate& cert)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scId[%s]: balance[%s], cert amount[%s]\n",
             __func__, __LINE__, cert.scId.ToString(), FormatMoney(curBalance), FormatMoney(cert.totalAmount) );
-        return false;
+        return state.Invalid(error("insufficient balance"),
+                     REJECT_INVALID, "sidechain-insufficient-balance");
     }
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
         __func__, __LINE__, cert.scId.ToString(), FormatMoney(curBalance), FormatMoney(cert.totalAmount) );

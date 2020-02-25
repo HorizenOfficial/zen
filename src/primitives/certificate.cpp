@@ -127,7 +127,9 @@ void CScCertificate::UpdateCoins(CValidationState &state, CCoinsViewCache& view,
 
 bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const 
 {
-    // as of now, there are no dependancies of contents from chain height.
+    bool areScSupported = zen::ForkManager::getInstance().areSidechainsSupported(nHeight);
+    if (!areScSupported)
+         return state.DoS(dosLevel, error("Sidechain are not supported"), REJECT_INVALID, "bad-cert-version");
     return true;
 }
 
@@ -152,7 +154,7 @@ double CScCertificate::GetPriority(const CCoinsViewCache &view, int nHeight) con
 
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
 
-bool CScCertificate::IsApplicableToState() const { return true; }
+bool CScCertificate::IsApplicableToState(CValidationState& state) const { return true; }
 bool CScCertificate::IsStandard(std::string& reason, int nHeight) const { return true; }
 unsigned int CScCertificate::GetLegacySigOpCount() const { return 0; }
 #else
@@ -162,10 +164,10 @@ bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
     return ::AcceptCertificateToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
 }
 
-bool CScCertificate::IsApplicableToState() const
+bool CScCertificate::IsApplicableToState(CValidationState& state) const
 {
     LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
-    return Sidechain::ScMgr::instance().IsCertApplicableToState(*this);
+    return Sidechain::ScMgr::instance().IsCertApplicableToState(*this, state);
 }
     
 bool CScCertificate::IsStandard(std::string& reason, int nHeight) const
