@@ -181,11 +181,11 @@ class sc_cert_base(BitcoinTestFramework):
 
         current_height = self.nodes[0].getblockcount()
 
-        epn = int((current_height - sc_creating_height + 1) / EPOCH_LENGTH)
+        epn = int((current_height - sc_creating_height + 1) / EPOCH_LENGTH) - 1
         print " h=", current_height
         print "ch=", sc_creating_height
         print "epn=", epn
-        eph = self.nodes[0].getblockhash(sc_creating_height - 1 + (epn*EPOCH_LENGTH))
+        eph = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epn+1)*EPOCH_LENGTH))
         print "epn = ", epn, ", eph = ", eph
 
         
@@ -279,11 +279,11 @@ class sc_cert_base(BitcoinTestFramework):
 
         current_height = self.nodes[0].getblockcount()
 
-        epn = int((current_height - sc_creating_height + 1) / EPOCH_LENGTH)
+        epn = int((current_height - sc_creating_height + 1) / EPOCH_LENGTH) - 1
         print " h=", current_height
         print "ch=", sc_creating_height
         print "epn=", epn
-        eph = self.nodes[0].getblockhash(sc_creating_height - 1 + (epn*EPOCH_LENGTH))
+        eph = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epn + 1)*EPOCH_LENGTH))
         print "epn = ", epn, ", eph = ", eph
 
         self.mark_logs("\nNode 0 performs a bwd transfer of " + str(bwt_amount_2) + " coins to Node1 pkh[" + str(pkh_node2)+"]...")
@@ -330,7 +330,7 @@ class sc_cert_base(BitcoinTestFramework):
             if (len(sc_info) == 0): break
 
             try:
-                assert_equal( self.nodes[0].getscinfo(scid), sc_info[-1])
+                assert_equal( self.nodes[0].getscinfo(scid), sc_info[-1]) # TODO: fix, now test passes with 0
                 print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
             except JSONRPCException,e:
                 errorString = e.error['message']

@@ -4133,7 +4133,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             "\nSend cross chain backward transfers from SC to MC as a certificate."
             "\nArguments:\n"
             "1. \"scid\"                  (string, required) The uint256 side chain ID\n"
-            "2. epochNumber             (numeric, required) The epoch number this certificate refers to\n"
+            "2. epochNumber             (numeric, required) The epoch number this certificate refers to, zero-based numbered\n"
             "3. \"endEpochBlockHash\"     (string, required) The block hash determining the end of the referenced epoch\n"
             "4. transfers:              (array, required) An array of json objects representing the amounts of the backward transfers.\n"
             "    [{\n"                     

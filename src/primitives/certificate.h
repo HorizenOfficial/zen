@@ -13,6 +13,7 @@ class CScCertificate : virtual public CTransactionBase
     void UpdateHash() const override;
 
 public:
+    static const int EPOCH_NULL = -1;
     virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) override final;
     const uint256 scId;
     const int epochNumber;
@@ -64,13 +65,13 @@ public:
 
     bool IsNull() const override {
         return (
-            scId == uint256() &&
-            epochNumber == 0 &&
-            endEpochBlockHash == uint256() &&
+            scId.IsNull() &&
+            epochNumber == EPOCH_NULL &&
+            endEpochBlockHash.IsNull() &&
             totalAmount == 0 &&
             vout.empty() &&
             vbt_ccout.empty() &&
-            nonce == uint256() );
+            nonce.IsNull() );
     }
 
     CAmount GetFeeAmount(CAmount valueIn) const override;

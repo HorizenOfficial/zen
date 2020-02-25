@@ -878,7 +878,7 @@ CBlockUndo SidechainTestSuite::createBlockUndoWith(const uint256 & scId, int hei
 #endif
     ScUndoData data;
     data.immAmount = AmountPerHeight;
-    data.certEpoch = Sidechain::EPOCH_NULL;
+    data.certEpoch = CScCertificate::EPOCH_NULL;
     retVal.msc_iaundo[scId] = data;
 
     return retVal;

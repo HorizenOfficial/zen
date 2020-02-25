@@ -109,10 +109,10 @@ class sc_cert_base(BitcoinTestFramework):
 #         mark_logs("Sc {} state: {}".format(scid, self.nodes[0].getscinfo(scid)), self.nodes, DEBUG_MODE)
 
         current_height = self.nodes[0].getblockcount()
-        epoch_number = (current_height - sc_creating_height + 1) // EPOCH_LENGTH
+        epoch_number = (current_height - sc_creating_height + 1) // EPOCH_LENGTH - 1
         mark_logs("Current height {}, Sc creation height {}, epoch length {} --> current epoch number {}"
                   .format(current_height, sc_creating_height, EPOCH_LENGTH, epoch_number), self.nodes, DEBUG_MODE)
-        epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height -1 + (epoch_number * EPOCH_LENGTH))
+        epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height -1 + ((epoch_number + 1) * EPOCH_LENGTH))
         eph_wrong = self.nodes[0].getblockhash(sc_creating_height)
         print "epoch_number = ", epoch_number, ", epoch_block_hash = ", epoch_block_hash
 

@@ -18,14 +18,11 @@ class CLevelDBWrapper;
 
 namespace Sidechain
 {
-
-static const int EPOCH_NULL = -1;
-
 class ScInfo
 {
 public:
     ScInfo() : creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
-         lastReceivedCertificateEpoch(EPOCH_NULL), balance(0) {}
+         lastReceivedCertificateEpoch(CScCertificate::EPOCH_NULL), balance(0) {}
     
     // reference to the block containing the tx that created the side chain 
     uint256 creationBlockHash;

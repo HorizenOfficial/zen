@@ -408,7 +408,7 @@ bool ScCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block,
         scInfo.creationBlockHash = block.GetHash();
         scInfo.creationBlockHeight = blockHeight;
         scInfo.creationTxHash = txHash;
-        scInfo.lastReceivedCertificateEpoch = EPOCH_NULL;
+        scInfo.lastReceivedCertificateEpoch = CScCertificate::EPOCH_NULL;
         scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
 
         mUpdatedOrNewScInfoList[cr.scId] = scInfo;
@@ -716,7 +716,7 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
             LogPrint("sc", "%s():%d - scId=%s balance after: %s\n", __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
         }
 
-        if (e > 0 || e == EPOCH_NULL) // allow -1 which is the default value at sc creation
+        if (e >= 0 || e == CScCertificate::EPOCH_NULL) // allow -1 which is the default value at sc creation
         {
             LogPrint("sc", "%s():%d - scId=%s epoch before: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastReceivedCertificateEpoch);
             targetScInfo.lastReceivedCertificateEpoch = it_ia_undo_map->second.certEpoch;
@@ -864,7 +864,7 @@ int ScMgr::getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber)
 
     // the safety margin from the end of referred epoch is computed as 20% of epoch length + 1
     // TODO move this in consensus params
-    int val = info.creationBlockHeight - 1 + (epochNumber * info.creationData.withdrawalEpochLength) +
+    int val = info.creationBlockHeight - 1 + ((epochNumber+1) * info.creationData.withdrawalEpochLength) +
         (int)(info.creationData.withdrawalEpochLength/5) + 1;
 
     LogPrint("cert", "%s():%d - returning %d\n", __func__, __LINE__, val);
@@ -909,7 +909,7 @@ bool ScMgr::epochAlreadyHasCertificate(const uint256& scId, int epochNumber, con
 
 bool ScMgr::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash)
 {
-    if (epochNumber <= 0)
+    if (epochNumber < 0)
     {
         LogPrint("sc", "%s():%d - invalid epoch number %d\n",
             __func__, __LINE__, epochNumber );
@@ -943,7 +943,7 @@ bool ScMgr::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& en
         return false;
     }
 
-    int endEpochHeight = info.creationBlockHeight -1 + (epochNumber * info.creationData.withdrawalEpochLength);
+    int endEpochHeight = info.creationBlockHeight -1 + ((epochNumber+1) * info.creationData.withdrawalEpochLength);
     pblockindex = chainActive[endEpochHeight];
 
     if (!pblockindex)
