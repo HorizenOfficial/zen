@@ -62,17 +62,15 @@ class sc_cert_base(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(220))
         self.sync_all()
 
-        # node 1 has just the coinbase which is now mature
         bal_before = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance before SC creation: {}".format(bal_before), self.nodes, DEBUG_MODE)
 
-        # node 1 creates a sidechain
         amounts = [{"address": "dada", "amount": creation_amount}]
         creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, amounts)
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
-        mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
+        mark_logs("Node0 confirms Sc creation generating 1 block", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
         sc_creating_height = self.nodes[0].getblockcount()  # Should not this be in SC info??'
         self.sync_all()
@@ -89,7 +87,7 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node 0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
-        mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
+        mark_logs("Node0 confirms fwd transfer generating 1 block", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
@@ -123,7 +121,6 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node 0 tries to perform a bwd transfer with insufficient Sc balance...", self.nodes, DEBUG_MODE)
         amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount_bad}]
 
-        # check this is refused because sc has not balance enough
         try:
             cert_bad = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts)
             assert(False)
@@ -133,8 +130,8 @@ class sc_cert_base(BitcoinTestFramework):
 
         assert_equal("sidechain has insufficient funds" in errorString, True)
         print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
-        
-        mark_logs("Node 0 performs a bwd transfer with an invalid epoch number ...", self.nodes, DEBUG_MODE)
+
+        mark_logs("Node 0 tries to perform a bwd transfer with an invalid epoch number ...", self.nodes, DEBUG_MODE)
         amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
 
         try:
@@ -147,7 +144,7 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal("invalid epoch data" in errorString, True)
         print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
 
-        mark_logs("Node 0 performs a bwd transfer with an invalid end epoch hash block ...", self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 tries to perform a bwd transfer with an invalid end epoch hash block ...", self.nodes, DEBUG_MODE)
         # check this is refused because end epoch block hash is wrong
         try:
             cert_bad = self.nodes[0].send_certificate(scid, epoch_number, eph_wrong, amounts)
@@ -169,7 +166,6 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
 
-        # Check the mempools of every nodes
         mark_logs("Checking mempools alignement", self.nodes, DEBUG_MODE)
         self.sync_all()
         for i in range(1, NUMB_OF_NODES):
@@ -178,8 +174,7 @@ class sc_cert_base(BitcoinTestFramework):
         bal_before = self.nodes[1].getbalance("", 0)
         # print "Node1 balance: ", bal_before
 
-        mark_logs("Node 0 performs a bwd transfer for the same epoch number as before before generating any block...", self.nodes, DEBUG_MODE)
-        # check this is refused because this epoch already has a certificate in mempool
+        mark_logs("Node 0 try to generate a second bwd transfer for the same epoch number before first bwd is confirmed", self.nodes, DEBUG_MODE)
         try:
             cert_bad = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts)
             assert(False)
@@ -189,12 +184,11 @@ class sc_cert_base(BitcoinTestFramework):
 
         assert_equal("invalid cert epoch" in errorString, True)
 
-        print("Node0 generating 1 block")
+        print("Node0 confims bwd transfer generating 1 block")
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        mark_logs("Node 0 performs a bwd transfer for the same epoch number as before...", self.nodes, DEBUG_MODE)
-        # check this is refused because this epoch already has a certificate in sc info
+        mark_logs("Node 0 tries to performs a bwd transfer for the same epoch number as before...", self.nodes, DEBUG_MODE)
         try:
             cert_bad = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts)
             print "cert = ", cert_bad
@@ -205,7 +199,6 @@ class sc_cert_base(BitcoinTestFramework):
 
         assert_equal("invalid cert epoch" in errorString, True)
 
-        # read the net value of the certificate amount (total amount - fee) on the receiver wallet
         mark_logs("Checking that amount transferred by certificate reaches Node1 wallet", self.nodes, DEBUG_MODE)
         cert_net_amount = self.nodes[1].gettransaction(cert_good)['amount']
         bal_after = self.nodes[1].getbalance("", 0)
@@ -220,7 +213,7 @@ class sc_cert_base(BitcoinTestFramework):
         vin = self.nodes[1].getrawtransaction(tx, 1)['vin']
         assert_equal(vin[0]['txid'], cert_good)
 
-        mark_logs("Node 0 generates 1 block", self.nodes, DEBUG_MODE)
+        mark_logs("Node0 confims spending bwd transfer founds generating 1 block", self.nodes, DEBUG_MODE)
         self.sync_all()
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()

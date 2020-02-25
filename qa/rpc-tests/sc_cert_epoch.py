@@ -12,8 +12,8 @@ import os
 from decimal import Decimal
 import time
 
-NUMB_OF_NODES = 4
 DEBUG_MODE = 1
+NUMB_OF_NODES = 4
 EPOCH_LENGTH = 5
 
 
@@ -29,16 +29,12 @@ class sc_cert_epoch(BitcoinTestFramework):
             pass  # Just open then close to create zero-length file
 
     def setup_network(self, split=False):
-        self.nodes = []
-
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
             [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1', '-zapwallettxes=2']] * NUMB_OF_NODES )
 
-        idx = 0
-        for _ in self.nodes:
+        for idx, _ in enumerate(self.nodes):
             if idx < (NUMB_OF_NODES-1):
                 connect_nodes_bi(self.nodes, idx, idx+1)
-                idx += 1
 
         sync_blocks(self.nodes[1:NUMB_OF_NODES])
         sync_mempools(self.nodes[1:NUMB_OF_NODES])
@@ -71,7 +67,6 @@ class sc_cert_epoch(BitcoinTestFramework):
         bal_before = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance before SC creation: {}".format(bal_before), self.nodes, DEBUG_MODE)
 
-        # node 1 creates a sidechain
         amounts = [{"address": "dada", "amount": creation_amount}]
         creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, amounts)
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
@@ -86,7 +81,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         assert(len(fwd_tx) > 0)
         self.sync_all()
 
-        mark_logs("Node0 generats {} block, confirming fwd transfer and maturing first epoch".format(EPOCH_LENGTH), self.nodes, DEBUG_MODE)
+        mark_logs("Node0 generates {} block, confirming fwd transfer and maturing first epoch".format(EPOCH_LENGTH), self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(EPOCH_LENGTH))
         self.sync_all()
 
@@ -114,6 +109,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert(False)
 
         self.sync_all()
 
