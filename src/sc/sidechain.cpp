@@ -224,9 +224,7 @@ bool ScCoinsView::IsCertApplicableToState(const CScCertificate& cert, CValidatio
 
 bool ScCoinsView::IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertificate& cert, CValidationState& state)
 {
-    const uint256& certHash = cert.GetHash();
     const uint256& scId = cert.scId;
-    const CAmount& certAmount = cert.totalAmount;
 
     // when called for checking the contents of mempool we can find the certificate itself, which is OK
     uint256 conflictingCertHash;
@@ -470,32 +468,13 @@ bool ScCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& bloc
         return false;
     }
 
-    // if there is no entry in blockundo for this scId, create it and store current cert epoch
-    if (blockundo.msc_iaundo.count(scId) )
-    {
-        LogPrint("sc", "%s():%d - scId=%s epoch before: %d\n",
-            __func__, __LINE__, scId.ToString(), blockundo.msc_iaundo[scId].certEpoch);
-
-        // entry already exists, update only cert epoch with current value
-        blockundo.msc_iaundo[scId].certEpoch = targetScInfo.lastReceivedCertificateEpoch;
-    }
-    else
-    {
-        LogPrint("sc", "%s():%d - scId=%s new entry in blockundo\n",
-            __func__, __LINE__, scId.ToString());
-
-        // new entry, initialize amount to 0
-        ScUndoData data;
-        data.immAmount = 0;
-        data.certEpoch = targetScInfo.lastReceivedCertificateEpoch;
-        blockundo.msc_iaundo[scId] = data;
-    }
-
-    LogPrint("sc", "%s():%d - scId=%s epoch after: %d\n",
-        __func__, __LINE__, scId.ToString(), blockundo.msc_iaundo[scId].certEpoch);
+    // if an entry already exists, update only cert epoch with current value
+    // if it is a brand new entry, amount will be init as 0 by default
+    blockundo.msc_iaundo[scId].certEpoch = targetScInfo.lastReceivedCertificateEpoch;
 
     targetScInfo.balance -= totalAmount;
     targetScInfo.lastReceivedCertificateEpoch = cert.epochNumber;
+    
     mUpdatedOrNewScInfoList[scId] = targetScInfo;
 
     LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",
@@ -673,7 +652,7 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
         }
 
         CAmount a = it_ia_undo_map->second.immAmount;
-        int e = it_ia_undo_map->second.certEpoch;
+        int blockundoEpoch = it_ia_undo_map->second.certEpoch;
 
         if (a > 0)
         {
@@ -694,7 +673,7 @@ bool ScCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo
             LogPrint("sc", "%s():%d - scId=%s balance after: %s\n", __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
         }
 
-        if (e >= 0 || e == CScCertificate::EPOCH_NULL) // allow -1 which is the default value at sc creation
+        if (blockundoEpoch != CScCertificate::EPOCH_NOT_INITIALIZED)
         {
             LogPrint("sc", "%s():%d - scId=%s epoch before: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastReceivedCertificateEpoch);
             targetScInfo.lastReceivedCertificateEpoch = it_ia_undo_map->second.certEpoch;

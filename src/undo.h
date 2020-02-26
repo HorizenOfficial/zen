@@ -73,7 +73,7 @@ struct ScUndoData
     CAmount immAmount;
     int certEpoch;
     
-    ScUndoData(): immAmount(0), certEpoch(0) {}
+    ScUndoData(): immAmount(0), certEpoch(CScCertificate::EPOCH_NOT_INITIALIZED) {}
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>

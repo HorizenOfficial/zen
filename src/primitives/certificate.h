@@ -14,6 +14,8 @@ class CScCertificate : virtual public CTransactionBase
 
 public:
     static const int EPOCH_NULL = -1;
+    static const int EPOCH_NOT_INITIALIZED = -2;
+
     virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) override final;
     const uint256 scId;
     const int epochNumber;
