@@ -106,15 +106,14 @@ void UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, 
     pblock->nTime = std::max(pindexPrev->GetMedianTimePast()+1, GetAdjustedTime());
 }
 
-void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTimePast, const CCoinsViewCache& view,
-                               vector<TxPriority>& vecPriority, list<COrphan>& vOrphan, map<uint256, vector<COrphan*> >& mapDependers)
+void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, std::vector<TxPriority>& vecPriority)
 {
     for (auto it_cert = mempool.mapCertificate.begin();
          it_cert != mempool.mapCertificate.end(); ++it_cert)
     {
         const CScCertificate& cert = it_cert->second.GetCertificate();
 
-        uint256 hash = cert.GetHash();
+        const uint256& hash = cert.GetHash();
         double dPriority = it_cert->second.GetPriority(nHeight);
         CAmount nFee = it_cert->second.GetFee();
 
@@ -412,21 +411,15 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
         // This vector will be sorted into a priority queue:
         vector<TxPriority> vecPriority;
-#if 0
-        vecPriority.reserve(mempool.mapTx.size());
-#else
-        // both tx and cert
-        vecPriority.reserve(mempool.size());
-#endif
+        vecPriority.reserve(mempool.size()); // both tx and cert
+
         bool fDeprecatedGetBlockTemplate = GetBoolArg("-deprecatedgetblocktemplate", false);
         if (fDeprecatedGetBlockTemplate)
             GetBlockTxPriorityDataOld(pblock, nHeight, nMedianTimePast, view, vecPriority, vOrphan, mapDependers);
         else
             GetBlockTxPriorityData(pblock, nHeight, nMedianTimePast, view, vecPriority, vOrphan, mapDependers);
 
-#if 1
-        GetBlockCertPriorityData(pblock, nHeight, nMedianTimePast, view, vecPriority, vOrphan, mapDependers);
-#endif
+        GetBlockCertPriorityData(pblock, nHeight, vecPriority);
 
         // Collect transactions into block
         uint64_t nBlockSize = 1000;
