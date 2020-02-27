@@ -91,7 +91,8 @@ public:
                     const uint256& hashBlock,
                     const uint256& hashAnchor,
                     CAnchorsMap& mapAnchors,
-                    CNullifiersMap& mapNullifiers)
+                    CNullifiersMap& mapNullifiers,
+                    CSidechainsMap& mapSidechains)
     {
         for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end(); ) {
             map_[it->first] = it->second.coins;
