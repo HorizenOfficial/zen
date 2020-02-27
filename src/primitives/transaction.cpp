@@ -737,9 +737,7 @@ bool CTransaction::CheckFinal(int flags) const
 bool CTransaction::IsApplicableToState(CValidationState& state) const
 {
     //ABENEGIA: Fill state properly
-    LOCK(mempool.cs);
-    CCoinsViewMemPool viewMemPool(pcoinsTip, mempool);
-    CCoinsViewCache view(&viewMemPool);
+    CCoinsViewCache view(pcoinsTip);
     return view.HaveDependencies(*this);
 }
     

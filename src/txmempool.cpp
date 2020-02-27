@@ -884,14 +884,14 @@ bool CCoinsViewMemPool::GetScInfo(const uint256& scId, ScInfo& info) const {
                 info.creationData.withdrawalEpochLength = scCreation.withdrawalEpochLength;
             }
 
-        //ABENEGIA: THIS IS WRONG SINCE ALSO THE CERTIFICATE IS STORE IN CcTransfersSet and it should be subtracted
-        //construct immature amount infos
-        for (const auto& fwdHash: mempool.mapSidechains.at(scId).CcTransfersSet) {
-            const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
-            for (const auto& fwdAmount : fwdTx.vft_ccout)
-                if (scId == fwdAmount.scId)
-                    info.mImmatureAmounts[-1] += fwdAmount.nValue;
-        }
+//        //ABENEGIA: THIS IS WRONG SINCE ALSO THE CERTIFICATE IS STORE IN CcTransfersSet and it should be subtracted
+//        //construct immature amount infos
+//        for (const auto& fwdHash: mempool.mapSidechains.at(scId).CcTransfersSet) {
+//            const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
+//            for (const auto& fwdAmount : fwdTx.vft_ccout)
+//                if (scId == fwdAmount.scId)
+//                    info.mImmatureAmounts[-1] += fwdAmount.nValue;
+//        }
         return true;
     }
 

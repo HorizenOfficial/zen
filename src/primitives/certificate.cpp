@@ -167,10 +167,7 @@ bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
 bool CScCertificate::IsApplicableToState(CValidationState& state) const
 {
     LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
-    LOCK(mempool.cs);
-    CCoinsViewMemPool viewMemPool(pcoinsTip, mempool);
-    CCoinsViewCache view(&viewMemPool);
-
+    CCoinsViewCache view(pcoinsTip);
     return view.IsCertApplicableToState(*this, state);
 }
     

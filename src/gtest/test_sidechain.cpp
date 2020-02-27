@@ -386,7 +386,7 @@ TEST_F(SidechainTestSuite, RestoreImmatureBalancesAffectsScBalance) {
     ASSERT_TRUE(sidechainsView->GetScInfo(scId, viewInfos));
     EXPECT_TRUE(viewInfos.balance == scBalance - amountToUndo)
         <<"balance after restore is "<<viewInfos.balance
-        <<" instead of"<< scBalance - amountToUndo;
+        <<" instead of "<< scBalance - amountToUndo;
 }
 
 TEST_F(SidechainTestSuite, YouCannotRestoreMoreCoinsThanAvailableBalance) {
