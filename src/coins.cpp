@@ -765,7 +765,7 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
     return true;
 }
 
-bool CCoinsViewCache::HaveCertForEpoch(const uint256& scId, int epochNumber) {
+bool CCoinsViewCache::HaveCertForEpoch(const uint256& scId, int epochNumber) const {
     ScInfo info;
     if (!GetScInfo(scId, info) )
         return false;

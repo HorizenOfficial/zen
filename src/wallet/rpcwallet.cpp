@@ -4171,7 +4171,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     // sanity check of the side chain ID
     CCoinsViewCache scView(pcoinsTip);
-    if (scView.HaveScInfo(scId) )
+    if (!scView.HaveScInfo(scId) )
     {
         LogPrint("sc", "scid[%s] does not exists \n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not exists: ") + scId.ToString());
@@ -4221,8 +4221,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         uint256 conflictingCertHash;
 
         CCoinsViewMemPool viewMemPool(pcoinsTip, mempool);
-        scView.SetBackend(viewMemPool);
-        if (scView.HaveCertForEpoch(scId, epochNumber)) {
+
+        if (viewMemPool.HaveCertForEpoch(scId, epochNumber)) {
 
             //ABENEGIA: duplicated code here, while cleaning up class hyerarchy
             for (auto it = mempool.mapCertificate.begin(); it != mempool.mapCertificate.end(); ++it)
@@ -4241,8 +4241,6 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
                 (conflictingCertHash == uint256())?"":conflictingCertHash.ToString(), epochNumber);
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert epoch"));
         }
-
-        scView.SetBackend(*pcoinsTip);
     }
 
     const UniValue& outputs = params[3].get_array();

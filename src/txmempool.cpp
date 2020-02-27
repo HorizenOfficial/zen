@@ -931,7 +931,7 @@ bool CCoinsViewMemPool::IsCertAllowedInMempool(const CScCertificate& cert, CVali
          REJECT_INVALID, "sidechain-certificate-epoch");
 }
 
-bool CCoinsViewMemPool::HaveCertForEpoch(const uint256& scId, int epochNumber) {
+bool CCoinsViewMemPool::HaveCertForEpoch(const uint256& scId, int epochNumber) const {
 
     for (auto it = mempool.mapCertificate.begin(); it != mempool.mapCertificate.end(); ++it) {
         const CScCertificate& mpCert = it->second.GetCertificate();

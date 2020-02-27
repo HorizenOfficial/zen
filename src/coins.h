@@ -430,7 +430,7 @@ public:
     bool HaveScInfo(const uint256& scId)                               const override;
     bool GetScInfo(const uint256& scId, ScInfo& info)                  const override;
     void queryScIds(std::set<uint256>& scIdsList)                      const override;
-    bool HaveCertForEpoch(const uint256& scId, int epochNumber)        const;
+    bool HaveCertForEpoch(const uint256& scId, int epochNumber)        const override;
     uint256 GetBestBlock()                                             const;
     uint256 GetBestAnchor()                                            const;
     void SetBackend(CCoinsView &viewIn);
@@ -550,7 +550,7 @@ public:
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
     //CERTIFICATES RELATED PUBLIC MEMBERS - TO BE REFINED
-    bool HaveCertForEpoch(const uint256& scId, int epochNumber);
+    bool HaveCertForEpoch(const uint256& scId, int epochNumber) const override;
     bool IsCertApplicableToState(const CScCertificate& cert, CValidationState& state);
     bool isLegalEpoch(const uint256& scId, int epochNumber, const uint256& epochBlockHash);
     int getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber);
