@@ -717,7 +717,7 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
         __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
     // loop in the map of the blockundo and process each sidechain id
-    for (auto it_ia_undo_map = blockundo.msc_iaundo.begin(); it_ia_undo_map != blockundo.msc_iaundo.end(); )
+    for (auto it_ia_undo_map = blockundo.msc_iaundo.begin(); it_ia_undo_map != blockundo.msc_iaundo.end(); ++it_ia_undo_map)
     {
         const uint256& scId           = it_ia_undo_map->first;
         const std::string& scIdString = scId.ToString();
