@@ -248,7 +248,6 @@ class sc_cert_invalidate(BitcoinTestFramework):
             inv_hash   = self.nodes[0].getbestblockhash()
             inv_heigth = self.nodes[0].getblockcount()
             mark_logs("Node 0 invalidates last block of height = {}".format(inv_heigth), self.nodes, DEBUG_MODE)
-            raw_input("Press to continue...")
             self.nodes[0].invalidateblock(inv_hash)
             time.sleep(1)
             sc_info.pop()
