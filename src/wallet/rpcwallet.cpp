@@ -36,7 +36,6 @@
 
 #include <numeric>
 
-#include "sc/sidechain.h"
 #include "sc/sidechainrpc.h"
 
 using namespace std;
@@ -44,7 +43,6 @@ using namespace std;
 using namespace libzcash;
 using namespace Sidechain;
 
-extern CTxMemPool mempool;
 extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
 
 int64_t nWalletUnlockTime;
@@ -583,12 +581,17 @@ UniValue sc_send(const UniValue& params, bool fHelp)
     uint256 scId;
     scId.SetHex(inputString);
 
-    // sanity check of the side chain ID
-    if (!ScMgr::instance().sidechainExists(scId) )
     {
-        LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+        LOCK(mempool.cs);
+        CCoinsViewMemPool scView(pcoinsTip, mempool);
+        if (!scView.HaveScInfo(scId) )
+        {
+            LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+        }
     }
+
+
 
     // Wallet comments
     CWalletTx wtx;
@@ -730,7 +733,8 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     scId.SetHex(inputString);
 
     // sanity check of the side chain ID
-    if (ScMgr::instance().sidechainExists(scId) )
+    CCoinsViewCache scView(pcoinsTip);
+    if (scView.HaveScInfo(scId) )
     {
         LogPrint("sc", "scid[%s] already created\n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid already created: ") + scId.ToString());
@@ -4081,11 +4085,14 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
         uint256 scId;
         scId.SetHex(inputString);
 
-        // scid must already been created
-        if (!ScMgr::instance().sidechainExists(scId) )
         {
-            LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+            LOCK(mempool.cs);
+            CCoinsViewMemPool scView(pcoinsTip, mempool);
+            if (!scView.HaveScInfo(scId) )
+            {
+                LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+            }
         }
 
         CRecipientForwardTransfer ft;
@@ -4163,7 +4170,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     scId.SetHex(scIdString);
 
     // sanity check of the side chain ID
-    if (!ScMgr::instance().sidechainExists(scId) )
+    CCoinsViewCache scView(pcoinsTip);
+    if (scView.HaveScInfo(scId) )
     {
         LogPrint("sc", "scid[%s] does not exists \n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not exists: ") + scId.ToString());
@@ -4185,14 +4193,14 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     endEpochBlockHash.SetHex(blockHashStr);
 
     // sanity check of the epoch hash block: it must be a legal end epoch hash
-    if (!ScMgr::isLegalEpoch(scId, epochNumber, endEpochBlockHash) )
+    if (!scView.isLegalEpoch(scId, epochNumber, endEpochBlockHash) )
     {
         LogPrintf("ERROR: epochNumber[%d]/endEpochBlockHash[%s] are not legal\n", epochNumber, endEpochBlockHash.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid epoch data"));
     }
 
     // a certificate can not be received after a fixed amount of blocks (for the time being it is epoch length / 5) from the end of epoch (TODO)
-    int maxHeight = ScMgr::getCertificateMaxIncomingHeight(scId, epochNumber);
+    int maxHeight = scView.getCertificateMaxIncomingHeight(scId, epochNumber);
     if (maxHeight < 0)
     {
         LogPrintf("ERROR: Invalid computed height value\n");
@@ -4208,12 +4216,33 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     // - there must not be another certificate for the same epoch (multiple certificates are not allowed)
     // This also checks in mempool
-    uint256 conflictingCertHash;
-    if (ScMgr::epochAlreadyHasCertificate(scId, epochNumber, mempool, conflictingCertHash))
     {
-        LogPrintf("ERROR: certificate %s for epoch %d is already been issued\n", 
-            (conflictingCertHash == uint256())?"":conflictingCertHash.ToString(), epochNumber);
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert epoch"));
+        LOCK(mempool.cs);
+        uint256 conflictingCertHash;
+
+        CCoinsViewMemPool viewMemPool(pcoinsTip, mempool);
+        scView.SetBackend(viewMemPool);
+        if (scView.HaveCertForEpoch(scId, epochNumber)) {
+
+            //ABENEGIA: duplicated code here, while cleaning up class hyerarchy
+            for (auto it = mempool.mapCertificate.begin(); it != mempool.mapCertificate.end(); ++it)
+            {
+                const CScCertificate& mpCert = it->second.GetCertificate();
+
+                if ((mpCert.scId == scId) && (mpCert.epochNumber == epochNumber))
+                {
+                    conflictingCertHash = mpCert.GetHash();
+                    break;
+                }
+            }
+            //ABENEGIA: end of duplicated code
+
+            LogPrintf("ERROR: certificate %s for epoch %d is already been issued\n",
+                (conflictingCertHash == uint256())?"":conflictingCertHash.ToString(), epochNumber);
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert epoch"));
+        }
+
+        scView.SetBackend(*pcoinsTip);
     }
 
     const UniValue& outputs = params[3].get_array();
@@ -4285,7 +4314,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         nTotalOut += nSpecifiedFee;
     }
 
-    CAmount curBalance = ScMgr::instance().getSidechainBalance(scId);
+    CAmount curBalance = scView.getSidechainBalance(scId);
     if (nTotalOut > curBalance)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scid[%s]: balance[%s], cert amount[%s]\n",
@@ -4442,7 +4471,8 @@ UniValue sc_certlock_many(const UniValue& params, bool fHelp)
         uint256 scId;
         scId.SetHex(inputString);
 
-        if (!ScMgr::instance().sidechainExists(scId) )
+        CCoinsViewCache scView(pcoinsTip);
+        if (!scView.HaveScInfo(scId) )
         {
             LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());

@@ -1,5 +1,5 @@
 #include "sc/sidechainrpc.h"
-#include "sc/sidechain.h"
+//#include "sc/sidechain.h"
 #include <univalue.h>
 #include "primitives/transaction.h"
 #include <boost/foreach.hpp>
@@ -173,54 +173,6 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& 
         vecCcSend.push_back(CcRecipientVariant(ft));
     }
 }
-
-void AddScInfoToJSON(const uint256& scId, const ScInfo& info, UniValue& sc)
-{
-    sc.push_back(Pair("scid", scId.GetHex()));
-    sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
-    sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
-    sc.push_back(Pair("created in block", info.creationBlockHash.ToString()));
-    sc.push_back(Pair("created at block height", info.creationBlockHeight));
-    sc.push_back(Pair("last certificate epoch", info.lastReceivedCertificateEpoch));
-    // creation parameters
-    sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
-
-    UniValue ia(UniValue::VARR);
-    BOOST_FOREACH(const auto& entry, info.mImmatureAmounts)
-    {
-        UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("maturityHeight", entry.first));
-        o.push_back(Pair("amount", ValueFromAmount(entry.second)));
-        ia.push_back(o);
-    }
-    sc.push_back(Pair("immature amounts", ia));
-}
-
-bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
-{
-    ScInfo info;
-    if (!ScMgr::instance().getScInfo(scId, info) )
-    {
-        LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
-        return false; 
-    }
- 
-    AddScInfoToJSON(scId, info, sc);
-    return true;
-}
-
-void AddScInfoToJSON(UniValue& result)
-{
-    std::set<uint256> sScIds = ScMgr::instance().getScIdSet();
-
-    BOOST_FOREACH(const auto& entry, sScIds)
-    {
-        UniValue sc(UniValue::VOBJ);
-        AddScInfoToJSON(entry, sc);
-        result.push_back(sc);
-    }
-}
-
 
 //--------------------------------------------------------------------------------------------
 // Cross chain outputs

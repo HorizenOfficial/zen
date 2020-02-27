@@ -167,7 +167,11 @@ bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
 bool CScCertificate::IsApplicableToState(CValidationState& state) const
 {
     LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
-    return Sidechain::ScMgr::instance().IsCertApplicableToState(*this, state);
+    LOCK(mempool.cs);
+    CCoinsViewMemPool viewMemPool(pcoinsTip, mempool);
+    CCoinsViewCache view(&viewMemPool);
+
+    return view.IsCertApplicableToState(*this, state);
 }
     
 bool CScCertificate::IsStandard(std::string& reason, int nHeight) const

@@ -1017,6 +1017,56 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
+void AddScInfoToJSON(const uint256& scId, const ScInfo& info, UniValue& sc)
+{
+    sc.push_back(Pair("scid", scId.GetHex()));
+    sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
+    sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
+    sc.push_back(Pair("created in block", info.creationBlockHash.ToString()));
+    sc.push_back(Pair("created at block height", info.creationBlockHeight));
+    sc.push_back(Pair("last certificate epoch", info.lastReceivedCertificateEpoch));
+    // creation parameters
+    sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
+
+    UniValue ia(UniValue::VARR);
+    BOOST_FOREACH(const auto& entry, info.mImmatureAmounts)
+    {
+        UniValue o(UniValue::VOBJ);
+        o.push_back(Pair("maturityHeight", entry.first));
+        o.push_back(Pair("amount", ValueFromAmount(entry.second)));
+        ia.push_back(o);
+    }
+    sc.push_back(Pair("immature amounts", ia));
+}
+
+bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
+{
+    ScInfo info;
+    CCoinsViewCache scView(pcoinsTip);
+    if (!scView.GetScInfo(scId, info) )
+    {
+        LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+        return false;
+    }
+
+    AddScInfoToJSON(scId, info, sc);
+    return true;
+}
+
+void AddScInfoToJSON(UniValue& result)
+{
+    CCoinsViewCache scView(pcoinsTip);
+    std::set<uint256> sScIds;
+    scView.queryScIds(sScIds);
+
+    BOOST_FOREACH(const auto& entry, sScIds)
+    {
+        UniValue sc(UniValue::VOBJ);
+        AddScInfoToJSON(entry, sc);
+        result.push_back(sc);
+    }
+}
+
 UniValue getscinfo(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() > 1)
@@ -1099,7 +1149,8 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     scId.SetHex(inputString);
  
     // sanity check of the side chain ID
-    if (!ScMgr::instance().sidechainExists(scId) )
+    CCoinsViewCache scView(pcoinsTip);
+    if (!scView.HaveScInfo(scId) )
     {
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
@@ -1107,7 +1158,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
 
     // find the block where it has been created
     ScInfo info;
-    if (!ScMgr::instance().getScInfo(scId, info) )
+    if (!scView.GetScInfo(scId, info) )
     {
         LogPrint("sc", "cound not get info for scid[%s], probably not yet created\n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());

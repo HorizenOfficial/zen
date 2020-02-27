@@ -269,8 +269,6 @@ public:
     size_t DynamicMemoryUsage() const;
 };
 
-namespace Sidechain { class ScInfo; }
-
 /** 
  * CCoinsView that brings transactions from a memorypool into view.
  * It does not check for spendings by memory pool transactions.
@@ -285,9 +283,10 @@ public:
     bool GetNullifier(const uint256 &txid) const;
     bool GetCoins(const uint256 &txid, CCoins &coins) const;
     bool HaveCoins(const uint256 &txid) const;
-
-    bool GetScInfo(const uint256& scId, Sidechain::ScInfo& info) const {return false;};
-    bool HaveScInfo(const uint256& scId) const {return false;};
+    bool GetScInfo(const uint256& scId, ScInfo& info) const;
+    bool HaveScInfo(const uint256& scId) const;
+    bool IsCertAllowedInMempool(const CScCertificate& cert, CValidationState& state);
+    bool HaveCertForEpoch(const uint256& scId, int epochNumber);
 };
 
 #endif // BITCOIN_TXMEMPOOL_H

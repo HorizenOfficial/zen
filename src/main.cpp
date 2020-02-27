@@ -53,8 +53,6 @@ using namespace std;
 # error "Zen cannot be compiled without assertions."
 #endif
 
-static Sidechain::ScMgr& scMgr = Sidechain::ScMgr::instance();
-
 /**
  * Global state
  */
@@ -1077,9 +1075,17 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
         }
     }
 
-    if (!tx.CheckOutputsCheckBlockAtHeightOpCode(state) )
+    // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
+    BOOST_FOREACH(const CTxOut& txout, tx.vout)
     {
-        return false;
+        txnouttype whichType;
+        ::IsStandard(txout.scriptPubKey, whichType);
+
+        // provide temporary replay protection for two minerconf windows during chainsplit
+        if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(),whichType))) {
+                return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, ::GetTxnOutputType(whichType), chainActive.Height(), tx.GetHash().ToString()),
+                             REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
+        }
     }
 
     if (!Sidechain::checkTxSemanticValidity(tx, state) )
@@ -1126,10 +1132,18 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
 
     // Check for negative or overflow output values
     CAmount nValueOut = 0;
-
-    if (!tx.CheckVout(nValueOut, state))
+    BOOST_FOREACH(const CTxOut& txout, tx.vout)
     {
-        return false;
+        if (txout.nValue < 0)
+            return state.DoS(100, error("CheckTransaction(): txout.nValue negative"),
+                             REJECT_INVALID, "bad-txns-vout-negative");
+        if (txout.nValue > MAX_MONEY)
+            return state.DoS(100, error("CheckTransaction(): txout.nValue too high"),
+                             REJECT_INVALID, "bad-txns-vout-toolarge");
+        nValueOut += txout.nValue;
+        if (!MoneyRange(nValueOut))
+            return state.DoS(100, error("CheckTransaction(): txout total out of range"),
+                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
 
     // Ensure that joinsplit values are well-formed
@@ -1324,29 +1338,30 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         return false;
     }
 
-    // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
-    // a not existing one and so on
-    if (!Sidechain::ScMgr::instance().IsCertApplicableToState(cert, state) )
-    {
-        LogPrint("sc", "%s():%d - certificate [%s] is not applicable\n", __func__, __LINE__, certHash.ToString());
-        return state.DoS(0, error("AcceptCertificateToMemoryPool: certificate not applicable"),
-                            REJECT_INVALID, "sidechain-certificate");
-    }
-
-    // Check for conflicts with in-memory transactions
-    {
-        LOCK(pool.cs);
-
-        if(!Sidechain::ScCoinsView::IsCertAllowedInMempool(pool, cert, state))
-        {
-            LogPrint("sc", "%s():%d - cert [%s] is not allowed in mempool\n", __func__, __LINE__, certHash.ToString());
-            return false;
-        }
-    }
-
     {
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
+
+        {
+            LOCK(pool.cs);
+            CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
+            view.SetBackend(viewMemPool);
+
+            if(!viewMemPool.IsCertAllowedInMempool(cert, state))
+            {
+                LogPrint("sc", "%s():%d - cert [%s] is not allowed in mempool\n", __func__, __LINE__, certHash.ToString());
+                return false;
+            }
+
+            if (!view.IsCertApplicableToState(cert, state) )
+            {
+                LogPrint("sc", "%s():%d - certificate [%s] is not applicable\n", __func__, __LINE__, certHash.ToString());
+                return state.DoS(0, error("AcceptCertificateToMemoryPool: certificate not applicable"),
+                                    REJECT_INVALID, "sidechain-certificate");
+            }
+
+            view.SetBackend(dummy);
+        }
 
         CAmount nValueIn = 0;
 
@@ -1489,13 +1504,13 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         return false;
     }
 
-    // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
-    // a not existing one and so on
-    if (!tx.IsApplicableToState(state) )
-    {
-        LogPrint("sc", "%s():%d - tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString());
-        return state.DoS(0, false, REJECT_INVALID, "non-applicable");
-    }
+    // If this tx creates a sc, no other tx must be doing the same in the mempool
+    for(const auto& sc: tx.vsc_ccout)
+        if (pool.sidechainExists(sc.scId)) {
+            return state.Invalid(error("transaction tries to create scid already created in mempool"),
+            REJECT_INVALID, "sidechain-creation");
+        } else
+            LogPrint("sc", "%s():%d - tx [%s] has no conflicts in mempool\n", __func__, __LINE__, hash.ToString());
 
     // Check for conflicts with in-memory transactions
     {
@@ -1516,13 +1531,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                     return false;
                 }
             }
-        }
-
-        // beside the check performed in IsApplicableToState above, perform some more checks specific to mempool. 
-        // If this tx creates a sc, no other tx must be doing the same in the mempool
-        if (!scMgr.IsTxAllowedInMempool(pool, tx, state) )
-        {
-            return false;
         }
     }
 
@@ -1565,6 +1573,13 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                 LogPrintf("%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString());
                 return state.Invalid(error("AcceptToMemoryPool: inputs already spent"),
                                      REJECT_DUPLICATE, "bad-txns-inputs-spent");
+            }
+
+            // are the sidechains dependencies available?
+            if (!view.HaveDependencies(tx))
+            {
+                return state.Invalid(error("AcceptToMemoryPool: sidechain is redeclared or coins are forwarded to unknown sidechain"),
+                                    REJECT_INVALID, "bad-sc-tx");
             }
  
             // are the joinsplit's requirements met?
@@ -2362,10 +2377,7 @@ bool AbortNode(CValidationState& state, const std::string& strMessage, const std
  * @param out The out point that corresponds to the tx input.
  * @return True on success.
  */
-#if 0
-static
-#endif
-bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint& out)
+static bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint& out)
 {
     bool fClean = true;
 
@@ -2392,7 +2404,7 @@ bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint
 }
 
 bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
-    Sidechain::ScCoinsViewCache& scView, bool* pfClean)
+    bool* pfClean)
 {
     assert(pindex->GetBlockHash() == view.GetBestBlock());
 
@@ -2413,7 +2425,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         return error("DisconnectBlock(): block and undo data inconsistent");
 
     LogPrint("sc", "%s():%d - restoring sc coins if any\n", __func__, __LINE__);
-    if (!scView.RestoreImmatureBalances(pindex->nHeight, blockUndo) )
+    if (!view.RestoreImmatureBalances(pindex->nHeight, blockUndo) )
     {
         LogPrint("sc", "%s():%d - ERROR updating sc maturity amounts\n", __func__, __LINE__);
         return error("DisconnectBlock(): sc and undo data inconsistent");
@@ -2438,7 +2450,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             outs->nVersion = outsBlock.nVersion;
         if (*outs != outsBlock) {
             fClean = fClean && error("DisconnectBlock(): added transaction mismatch? database corrupted");
-            LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, hash.ToString());
+            LogPrint("tx", "%s():%d - tx[%s]\n", __func__, __LINE__, hash.ToString());
         }
  
         // remove outputs
@@ -2453,7 +2465,8 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
 
         LogPrint("sc", "%s():%d - undo sc outputs if any\n", __func__, __LINE__);
-        if (!scView.RevertTxOutputs(tx, pindex->nHeight) ) {
+        if (!view.RevertTxOutputs(tx, pindex->nHeight) )
+        {
             LogPrint("sc", "%s():%d - ERROR undoing sc creation\n", __func__, __LINE__);
             return error("DisconnectBlock(): sc creation can not be reverted: data inconsistent");
         }
@@ -2475,7 +2488,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     // undo transactions in reverse order
     for (int i = block.vcert.size() - 1; i >= 0; i--) {
         const CScCertificate& cert = block.vcert[i];
-        if (!scView.RevertCertOutputs(cert, pindex->nHeight) ) {
+        if (!view.RevertCertOutputs(cert, pindex->nHeight) ) {
             LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
             return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
         }
@@ -2646,7 +2659,7 @@ static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
-    const CChain& chain, Sidechain::ScCoinsViewCache& scView, bool fJustCheck)
+    const CChain& chain, bool fJustCheck)
 {
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
@@ -2712,7 +2725,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     int nInputs = 0;
     unsigned int nSigOps = 0;
     CDiskTxPos pos(pindex->GetBlockPos(), GetSizeOfCompactSize(block.vtx.size()));
-//    LogPrint("cert", "%s():%d - ############# starting nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     std::vector<std::pair<uint256, CDiskTxPos> > vPos;
     vPos.reserve(block.vtx.size());
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
@@ -2745,12 +2757,16 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
 
+        if (!view.HaveInputs(tx))
+            return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
+                             REJECT_INVALID, "bad-txns-inputs-missingorspent");
+
+        if (!view.HaveDependencies(tx))
+            return state.Invalid(error("ConnectBlock: sidechain is redeclared or coins are forwarded to unknown sidechain"),
+                                        REJECT_INVALID, "bad-sc-tx");
+
         if (!tx.IsCoinBase())
         {
-            if (!view.HaveInputs(tx))
-                return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
-                                 REJECT_INVALID, "bad-txns-inputs-missingorspent");
-
             // are the JoinSplit's requirements met?
             if (!view.HaveJoinSplitRequirements(tx))
                 return state.DoS(100, error("ConnectBlock(): JoinSplit requirements not met"),
@@ -2786,15 +2802,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             control.Add(vChecks);
         }
 
-        // perform some check related to sidechains state, e.g. creation of an existing scid, fw to
-        // a not existing one and certificate amount against sc balance
-        if (!scMgr.IsTxApplicableToState(tx, state) )
-        {
-            LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
-            return state.DoS(100, error("ConnectBlock(): invalid sc transaction tx[%s]", tx.GetHash().ToString()),
-                             REJECT_INVALID, "bad-sc-tx");
-        }
-
         CTxUndo undoDummy;
         if (i > 0) {
             blockundo.vtxundo.push_back(CTxUndo());
@@ -2803,9 +2810,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (!fJustCheck && i > 0)
         {
-            if (!scView.UpdateScInfo(tx, block, pindex->nHeight) )
+            if (!view.UpdateScInfo(tx, block, pindex->nHeight) )
             {
-                return state.DoS(100, error("ConnectBlock(): could not add sidechain in scView: tx[%s]", tx.GetHash().ToString()),
+                return state.DoS(100, error("ConnectBlock(): could not add sidechain in view: tx[%s]", tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
             }
         }
@@ -2845,7 +2852,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
         nFees += nFee;
 
-        if (!Sidechain::ScMgr::instance().IsCertApplicableToState(cert, state) ) {
+        if (!view.IsCertApplicableToState(cert, state) ) {
             LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, cert.GetHash().ToString() );
             return state.DoS(100, error("ConnectBlock(): invalid sc certificate [%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-tx");
@@ -2853,7 +2860,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         cert.UpdateCoins(state, view, blockundo, pindex->nHeight);
 
-        if (!fJustCheck && !scView.UpdateScInfo(cert, blockundo) )
+        if (!fJustCheck && !view.UpdateScInfo(cert, blockundo) )
         {
             return state.DoS(100, error("ConnectBlock(): could not add sidechain in scView: tx[%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-tx");
@@ -2873,7 +2880,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     if (!fJustCheck)
     {
-        if (!scView.ApplyMatureBalances(pindex->nHeight, blockundo) )
+        if (!view.ApplyMatureBalances(pindex->nHeight, blockundo) )
         {
             return state.DoS(100, error("ConnectBlock(): could not update sc immature amounts"),
                              REJECT_INVALID, "bad-sc-amounts");
@@ -3147,11 +3154,9 @@ bool static DisconnectTip(CValidationState &state) {
     int64_t nStart = GetTimeMicros();
     {
         CCoinsViewCache view(pcoinsTip);
-        Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
-        if (!DisconnectBlock(block, state, pindexDelete, view, scView, NULL))
+        if (!DisconnectBlock(block, state, pindexDelete, view, NULL))
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         assert(view.Flush());
-        assert(scView.Flush());
     }
     LogPrint("bench", "- Disconnect block: %.2fms\n", (GetTimeMicros() - nStart) * 0.001);
     uint256 anchorAfterDisconnect = pcoinsTip->GetBestAnchor();
@@ -3253,9 +3258,8 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     LogPrint("bench", "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * 0.001, nTimeReadFromDisk * 0.000001);
     {
         CCoinsViewCache view(pcoinsTip);
-        Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
         static const bool JUST_CHECK_FALSE = false;
-        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, scView, JUST_CHECK_FALSE);
+        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, JUST_CHECK_FALSE);
         GetMainSignals().BlockChecked(*pblock, state);
         if (!rv) {
             if (state.IsInvalid())
@@ -3266,7 +3270,6 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint("bench", "  - Connect total: %.2fms [%.2fs]\n", (nTime3 - nTime2) * 0.001, nTimeConnectTotal * 0.000001);
         assert(view.Flush());
-        assert(scView.Flush());
     }
     int64_t nTime4 = GetTimeMicros(); nTimeFlush += nTime4 - nTime3;
     LogPrint("bench", "  - Flush: %.2fms [%.2fs]\n", (nTime4 - nTime3) * 0.001, nTimeFlush * 0.000001);
@@ -3280,7 +3283,6 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     std::list<CTransaction> removedTxs;
     mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, removedTxs, !IsInitialBlockDownload());
 
-    // similar call but without conflicts handling, which are not applicable to certificates
     std::list<CScCertificate> removedCerts;
     mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, removedTxs, removedCerts, !IsInitialBlockDownload());
 
@@ -3773,11 +3775,7 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
 /** Mark a block as having its data received and checked (up to BLOCK_VALID_TRANSACTIONS). */
 bool ReceivedBlockTransactions(const CBlock &block, CValidationState& state, CBlockIndex *pindexNew, const CDiskBlockPos& pos, BlockSet* sForkTips)
 {
-#if 0
-    pindexNew->nTx = block.vtx.size();
-#else
     pindexNew->nTx = block.vtx.size() + block.vcert.size();
-#endif
     pindexNew->nChainTx = 0;
     CAmount sproutValue = 0;
     for (auto tx : block.vtx) {
@@ -4324,7 +4322,6 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
     assert(pindexPrev == chainActive.Tip());
 
     CCoinsViewCache viewNew(pcoinsTip);
-    Sidechain::ScCoinsViewCache fakeScView(Sidechain::ScMgr::instance());
     CBlockIndex indexDummy(block);
     indexDummy.pprev = pindexPrev;
     indexDummy.nHeight = pindexPrev->nHeight + 1;
@@ -4340,7 +4337,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
         return false;
 
     static const bool JUST_CHECK_TRUE = true;
-    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, fakeScView, JUST_CHECK_TRUE))
+    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, JUST_CHECK_TRUE))
         return false;
     assert(state.IsValid());
 
@@ -4681,7 +4678,6 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     nCheckLevel = std::max(0, std::min(4, nCheckLevel));
     LogPrintf("Verifying last %i blocks at level %i\n", nCheckDepth, nCheckLevel);
     CCoinsViewCache coins(coinsview);
-    Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
     CBlockIndex* pindexState = chainActive.Tip();
     CBlockIndex* pindexFailure = NULL;
     int nGoodTransactions = 0;
@@ -4713,18 +4709,14 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
         // check level 3: check for inconsistencies during memory-only disconnect of tip blocks
         if (nCheckLevel >= 3 && pindex == pindexState && (coins.DynamicMemoryUsage() + pcoinsTip->DynamicMemoryUsage()) <= nCoinCacheUsage) {
             bool fClean = true;
-            if (!DisconnectBlock(block, state, pindex, coins, scView, &fClean))
+            if (!DisconnectBlock(block, state, pindex, coins, &fClean))
                 return error("VerifyDB(): *** irrecoverable inconsistency in block data at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             pindexState = pindex->pprev;
             if (!fClean) {
                 nGoodTransactions = 0;
                 pindexFailure = pindex;
             } else
-#if 0
-                nGoodTransactions += block.vtx.size();
-#else
                 nGoodTransactions += block.vtx.size() + block.vcert.size();
-#endif
         }
 
         if (ShutdownRequested())
@@ -4748,7 +4740,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             chainHistorical.SetHeight(pindex->nHeight - 1);
             static const bool JUST_CHECK_FALSE = false;
-            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, scView, JUST_CHECK_FALSE))
+            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, JUST_CHECK_FALSE))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         }
     }
@@ -6964,7 +6956,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                     vInv.push_back(inv);
                     if (vInv.size() >= 1000)
                     {
-                        LogPrint("cert", "%s():%d - Pushing inv\n", __func__, __LINE__);
+                        LogPrint("forks", "%s():%d - Pushing inv\n", __func__, __LINE__);
                         pto->PushMessage("inv", vInv);
                         vInv.clear();
                     }
@@ -6974,7 +6966,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         }
         if (!vInv.empty())
         {
-            LogPrint("cert", "%s():%d - Pushing inv\n", __func__, __LINE__);
+            LogPrint("forks", "%s():%d - Pushing inv\n", __func__, __LINE__);
             pto->PushMessage("inv", vInv);
         }
 
@@ -7562,28 +7554,10 @@ static int getInitCbhSafeDepth()
     return Params().CbhSafeDepth();
 }
 
-static int getInitScCoinsMaturity()
-{
-    if ( (Params().NetworkIDString() == "regtest") )
-    {
-        int val = (int)(GetArg("-sccoinsmaturity", Params().ScCoinsMaturity() ));
-        LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
-        return val;
-    }
-    return Params().ScCoinsMaturity();
-}
-
 int getCheckBlockAtHeightSafeDepth()
 {
     // gets constructed just one time
     static int retVal( getInitCbhSafeDepth() );
-    return retVal;
-}
-
-int getScCoinsMaturity()
-{
-    // gets constructed just one time
-    static int retVal( getInitScCoinsMaturity() );
     return retVal;
 }
 

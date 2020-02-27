@@ -39,8 +39,7 @@
 #include <functional>
 #endif
 #include <mutex>
-#include "sc/sidechain.h"
-static Sidechain::ScMgr& scMgr = Sidechain::ScMgr::instance();
+#include <init.h>
 
 using namespace std;
 
@@ -430,9 +429,9 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         TxPriorityCompare comparer(fSortedByFee);
         std::make_heap(vecPriority.begin(), vecPriority.end(), comparer);
 
-        // TODO cert: vecPriority contains certs beforehand and after them all txes
+
         // considering certs having a higher priority than any possible tx.
-        // An alogorithm for managing tx/cert priorities could be devised
+        // An algorithm for managing tx/cert priorities could be devised
         while (!vecPriority.empty())
         {
             // Take highest priority transaction off the priority queue:
@@ -503,12 +502,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             // not yet in blockchain. This should happen only if a chain has been reverted and a mix of creation/transfers
             // has been placed back in the mem pool The skipped tx will be mined in the next block if the scid is found
 
-#if 0
-            if (!scMgr.IsTxApplicableToState(tx) )
-#else
             CValidationState state;
             if (!tx.IsApplicableToState(state) )
-#endif
             {
                 LogPrint("sc", "%s():%d - tx=%s is not applicable, skipping it...\n", __func__, __LINE__, tx.GetHash().ToString() );
                 continue;

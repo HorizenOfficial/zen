@@ -10,6 +10,9 @@
 #include "policy/fees.h"
 
 #include <assert.h>
+#include "utilmoneystr.h"
+#include <undo.h>
+#include <chainparams.h>
 
 /**
  * calculate number of bytes for the bitmask, and its number of non-zero bytes
@@ -43,34 +46,45 @@ bool CCoins::Spend(uint32_t nPos)
     return true;
 }
 bool CCoinsView::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const { return false; }
-bool CCoinsView::GetNullifier(const uint256 &nullifier) const { return false; }
-bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins) const { return false; }
-bool CCoinsView::HaveCoins(const uint256 &txid) const { return false; }
-uint256 CCoinsView::GetBestBlock() const { return uint256(); }
-uint256 CCoinsView::GetBestAnchor() const { return uint256(); };
+bool CCoinsView::GetNullifier(const uint256 &nullifier)                        const { return false; }
+bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins)                  const { return false; }
+bool CCoinsView::HaveCoins(const uint256 &txid)                                const { return false; }
+bool CCoinsView::HaveScInfo(const uint256& scId)                               const { return false; }
+bool CCoinsView::GetScInfo(const uint256& scId, ScInfo& info)                  const { return false; }
+void CCoinsView::queryScIds(std::set<uint256>& scIdsList)                      const { scIdsList.clear(); return; }
+bool CCoinsView::HaveCertForEpoch(const uint256& scId, int epochNumber)        const { return false; }
+uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
+uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins,
                             const uint256 &hashBlock,
                             const uint256 &hashAnchor,
                             CAnchorsMap &mapAnchors,
-                            CNullifiersMap &mapNullifiers) { return false; }
-bool CCoinsView::GetStats(CCoinsStats &stats) const { return false; }
+                            CNullifiersMap &mapNullifiers,
+                            CSidechainsMap& mapSidechains)                           { return false; }
+bool CCoinsView::GetStats(CCoinsStats &stats)                                  const { return false; }
 
 
 CCoinsViewBacked::CCoinsViewBacked(CCoinsView *viewIn) : base(viewIn) { }
 
 bool CCoinsViewBacked::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const { return base->GetAnchorAt(rt, tree); }
-bool CCoinsViewBacked::GetNullifier(const uint256 &nullifier) const { return base->GetNullifier(nullifier); }
-bool CCoinsViewBacked::GetCoins(const uint256 &txid, CCoins &coins) const { return base->GetCoins(txid, coins); }
-bool CCoinsViewBacked::HaveCoins(const uint256 &txid) const { return base->HaveCoins(txid); }
-uint256 CCoinsViewBacked::GetBestBlock() const { return base->GetBestBlock(); }
-uint256 CCoinsViewBacked::GetBestAnchor() const { return base->GetBestAnchor(); }
+bool CCoinsViewBacked::GetNullifier(const uint256 &nullifier)                        const { return base->GetNullifier(nullifier); }
+bool CCoinsViewBacked::GetCoins(const uint256 &txid, CCoins &coins)                  const { return base->GetCoins(txid, coins); }
+bool CCoinsViewBacked::HaveCoins(const uint256 &txid)                                const { return base->HaveCoins(txid); }
+bool CCoinsViewBacked::HaveScInfo(const uint256& scId)                               const { return base->HaveScInfo(scId); }
+bool CCoinsViewBacked::GetScInfo(const uint256& scId, ScInfo& info)                  const { return base->GetScInfo(scId,info); }
+void CCoinsViewBacked::queryScIds(std::set<uint256>& scIdsList)                      const { return base->queryScIds(scIdsList); }
+bool CCoinsViewBacked::HaveCertForEpoch(const uint256& scId, int epochNumber)        const { return base->HaveCertForEpoch(scId, epochNumber); }
+uint256 CCoinsViewBacked::GetBestBlock()                                             const { return base->GetBestBlock(); }
+uint256 CCoinsViewBacked::GetBestAnchor()                                            const { return base->GetBestAnchor(); }
 void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
 bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins,
                                   const uint256 &hashBlock,
                                   const uint256 &hashAnchor,
                                   CAnchorsMap &mapAnchors,
-                                  CNullifiersMap &mapNullifiers) { return base->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers); }
-bool CCoinsViewBacked::GetStats(CCoinsStats &stats) const { return base->GetStats(stats); }
+                                  CNullifiersMap &mapNullifiers,
+                                  CSidechainsMap& mapSidechains)
+                                { return base->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains); }
+bool CCoinsViewBacked::GetStats(CCoinsStats &stats)                                  const { return base->GetStats(stats); }
 
 CCoinsKeyHasher::CCoinsKeyHasher() : salt(GetRandHash()) {}
 
@@ -106,6 +120,22 @@ CCoinsMap::const_iterator CCoinsViewCache::FetchCoins(const uint256 &txid) const
     return ret;
 }
 
+CSidechainsMap::const_iterator CCoinsViewCache::FetchSidechains(const uint256& scId) const {
+    CSidechainsMap::iterator candidateIt = cacheSidechains.find(scId);
+    if (candidateIt != cacheSidechains.end())
+        return candidateIt;
+
+    ScInfo tmp;
+    if (!base->GetScInfo(scId, tmp))
+        return cacheSidechains.end();
+
+    //Fill cache and return iterator. The insert in cache below looks cumbersome. However
+    //it allows to insert ScInfo and keep iterator to inserted member without extra searches
+    CSidechainsMap::iterator ret =
+            cacheSidechains.insert(std::make_pair(scId, CSidechainsCacheEntry(tmp, CSidechainsCacheEntry::Flags::DEFAULT ))).first;
+
+    return ret;
+}
 
 bool CCoinsViewCache::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const {
     CAnchorsMap::const_iterator it = cacheAnchors.find(rt);
@@ -271,7 +301,8 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                                  const uint256 &hashBlockIn,
                                  const uint256 &hashAnchorIn,
                                  CAnchorsMap &mapAnchors,
-                                 CNullifiersMap &mapNullifiers) {
+                                 CNullifiersMap &mapNullifiers,
+                                 CSidechainsMap& mapSidechains) {
     assert(!hasModifier);
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) { // Ignore non-dirty entries (optimization).
@@ -353,18 +384,640 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
         mapNullifiers.erase(itOld);
     }
 
+    for (auto& entryToWrite : mapSidechains) {
+        CSidechainsMap::iterator itLocalCacheEntry = cacheSidechains.find(entryToWrite.first);
+
+        switch (entryToWrite.second.flag) {
+            case CSidechainsCacheEntry::Flags::FRESH:
+                assert(itLocalCacheEntry == cacheSidechains.end()); //A fresh entry should not exist in localCache
+                cacheSidechains[entryToWrite.first] = entryToWrite.second;
+                break;
+            case CSidechainsCacheEntry::Flags::DIRTY:               //A dirty entry may or may not exist in localCache
+                    cacheSidechains[entryToWrite.first] = entryToWrite.second;
+                break;
+            case CSidechainsCacheEntry::Flags::ERASED:
+                if (itLocalCacheEntry != cacheSidechains.end())
+                    itLocalCacheEntry->second.flag = CSidechainsCacheEntry::Flags::ERASED;
+                break;
+            case CSidechainsCacheEntry::Flags::DEFAULT:
+                assert(itLocalCacheEntry != cacheSidechains.end());
+                assert(itLocalCacheEntry->second.scInfo == entryToWrite.second.scInfo); //entry declared default is indeed different from backed value
+                break; //nothing to do. entry is already persisted and has not been modified
+            default:
+                assert(false);
+        }
+    }
+    mapSidechains.clear();
+
     hashAnchor = hashAnchorIn;
     hashBlock = hashBlockIn;
     return true;
 }
 
+bool CCoinsViewCache::HaveScInfo(const uint256& scId) const
+{
+    CSidechainsMap::const_iterator it = FetchSidechains(scId);
+    return (it != cacheSidechains.end()) && (it->second.flag != CSidechainsCacheEntry::Flags::ERASED);
+}
+
+bool CCoinsViewCache::GetScInfo(const uint256 & scId, ScInfo& targetScInfo) const
+{
+    CSidechainsMap::const_iterator it = FetchSidechains(scId);
+    if (it != cacheSidechains.end())
+        LogPrint("sc", "%s():%d - FetchedSidechain: scId[%s]\n", __func__, __LINE__, scId.ToString());
+
+    if (it != cacheSidechains.end() && it->second.flag != CSidechainsCacheEntry::Flags::ERASED) {
+        targetScInfo = it->second.scInfo;
+        return true;
+    }
+    return false;
+}
+
+void CCoinsViewCache::queryScIds(std::set<uint256>& scIdsList) const
+{
+    base->queryScIds(scIdsList);
+
+    // Note that some of the values above may have been erased in current cache.
+    // Also new id may be in current cache but not in persisted
+    for (const auto& entry: cacheSidechains)
+    {
+      if (entry.second.flag == CSidechainsCacheEntry::Flags::ERASED)
+          scIdsList.erase(entry.first);
+      else
+          scIdsList.insert(entry.first);
+    }
+
+    return;
+}
+
+bool CCoinsViewCache::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
+{
+    for (const auto& sc: tx.vsc_ccout)
+    {
+        if (sc.scId == scId)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool CCoinsViewCache::HaveDependencies(const CTransaction& tx)
+{
+    if (tx.IsCoinBase())
+        return true;
+
+    const uint256& txHash = tx.GetHash();
+
+    // check creation
+    for (const auto& sc: tx.vsc_ccout)
+    {
+        const uint256& scId = sc.scId;
+        if (HaveScInfo(scId))
+        {
+            LogPrint("sc", "%s():%d - ERROR: Invalid tx[%s] : scid[%s] already created\n",
+                __func__, __LINE__, txHash.ToString(), scId.ToString());
+            return false;
+        }
+        LogPrint("sc", "%s():%d - OK: tx[%s] is creating scId[%s]\n",
+            __func__, __LINE__, txHash.ToString(), scId.ToString());
+    }
+
+    // check fw tx
+    for (const auto& ft: tx.vft_ccout)
+    {
+        const uint256& scId = ft.scId;
+        if (!HaveScInfo(scId) && !hasScCreationOutput(tx, scId) )
+        {
+            LogPrint("sc", "%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",
+                __func__, __LINE__, txHash.ToString(), scId.ToString() );
+            return false;
+
+        }
+        LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
+            __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
+    }
+    return true;
+}
+
+
+int CCoinsViewCache::getInitScCoinsMaturity()
+{
+    if ( (Params().NetworkIDString() == "regtest") )
+    {
+        int val = (int)(GetArg("-sccoinsmaturity", Params().ScCoinsMaturity() ));
+        LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
+        return val;
+    }
+    return Params().ScCoinsMaturity();
+}
+
+int CCoinsViewCache::getScCoinsMaturity()
+{
+    // gets constructed just one time
+    static int retVal( getInitScCoinsMaturity() );
+    return retVal;
+}
+
+bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, int blockHeight)
+{
+    const uint256& txHash = tx.GetHash();
+    LogPrint("sc", "%s():%d - enter tx=%s\n", __func__, __LINE__, txHash.ToString() );
+
+    // creation ccout
+    for (const auto& cr: tx.vsc_ccout)
+    {
+        if (HaveScInfo(cr.scId))
+        {
+            LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, cr.scId.ToString() );
+            return false;
+        }
+
+        ScInfo scInfo;
+        scInfo.creationBlockHash = block.GetHash();
+        scInfo.creationBlockHeight = blockHeight;
+        scInfo.creationTxHash = txHash;
+        scInfo.lastReceivedCertificateEpoch = CScCertificate::EPOCH_NULL;
+        scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
+
+        cacheSidechains[cr.scId] = CSidechainsCacheEntry(scInfo, CSidechainsCacheEntry::Flags::FRESH);
+
+        LogPrint("sc", "%s():%d - scId[%s] added in scView\n", __func__, __LINE__, cr.scId.ToString() );
+    }
+
+    static const int SC_COIN_MATURITY = getScCoinsMaturity();
+    const int maturityHeight = blockHeight + SC_COIN_MATURITY;
+
+    // forward transfer ccout
+    for(auto& ft: tx.vft_ccout)
+    {
+        ScInfo targetScInfo;
+        if (!GetScInfo(ft.scId, targetScInfo))
+        {
+            // should not happen
+            LogPrint("sc", "%s():%d - Can not update balance, could not find scId=%s\n",
+                __func__, __LINE__, ft.scId.ToString() );
+            return false;
+        }
+
+        // add a new immature balance entry in sc info or increment it if already there
+        targetScInfo.mImmatureAmounts[maturityHeight] += ft.nValue;
+        cacheSidechains[ft.scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
+
+        LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
+            __func__, __LINE__, maturityHeight, FormatMoney(ft.nValue), ft.scId.ToString());
+    }
+
+    return true;
+}
+
+bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
+{
+    static const int SC_COIN_MATURITY = getScCoinsMaturity();
+    const int maturityHeight = nHeight + SC_COIN_MATURITY;
+
+    // revert forward transfers
+    for(const auto& entry: tx.vft_ccout)
+    {
+        const uint256& scId = entry.scId;
+
+        LogPrint("sc", "%s():%d - removing fwt for scId=%s\n", __func__, __LINE__, scId.ToString());
+
+        ScInfo targetScInfo;
+        if (!GetScInfo(scId, targetScInfo))
+        {
+            // should not happen
+            LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
+            return false;
+        }
+
+        // get the map of immature amounts, they are indexed by height
+        auto& iaMap = targetScInfo.mImmatureAmounts;
+
+        if (!iaMap.count(maturityHeight) )
+        {
+            // should not happen
+            LogPrint("sc", "ERROR %s():%d - scId=%s could not find immature balance at height%d\n",
+                __func__, __LINE__, scId.ToString(), maturityHeight);
+            return false;
+        }
+
+        LogPrint("sc", "%s():%d - immature amount before: %s\n",
+            __func__, __LINE__, FormatMoney(iaMap[maturityHeight]));
+
+        if (iaMap[maturityHeight] < entry.nValue)
+        {
+            // should not happen either
+            LogPrint("sc", "ERROR %s():%d - scId=%s negative balance at height=%d\n",
+                __func__, __LINE__, scId.ToString(), maturityHeight);
+            return false;
+        }
+
+        iaMap[maturityHeight] -= entry.nValue;
+        cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
+
+        LogPrint("sc", "%s():%d - immature amount after: %s\n",
+            __func__, __LINE__, FormatMoney(iaMap[maturityHeight]));
+
+        if (iaMap[maturityHeight] == 0)
+        {
+            iaMap.erase(maturityHeight);
+            cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
+            LogPrint("sc", "%s():%d - removed entry height=%d from immature amounts in memory\n",
+                __func__, __LINE__, maturityHeight );
+        }
+    }
+
+    // remove sidechain if the case
+    for(const auto& entry: tx.vsc_ccout)
+    {
+        const uint256& scId = entry.scId;
+
+        LogPrint("sc", "%s():%d - removing scId=%s\n", __func__, __LINE__, scId.ToString());
+
+        ScInfo targetScInfo;
+        if (!GetScInfo(scId, targetScInfo))
+        {
+            // should not happen
+            LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
+            return false;
+        }
+
+        if (targetScInfo.balance > 0)
+        {
+            // should not happen either
+            LogPrint("sc", "ERROR %s():%d - scId=%s balance not null: %s\n",
+                __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
+            return false;
+        }
+
+        cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::ERASED);
+
+        LogPrint("sc", "%s():%d - scId=%s removed from scView\n", __func__, __LINE__, scId.ToString() );
+    }
+    return true;
+}
+
+bool CCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo)
+{
+    LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n",
+         __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
+
+    std::set<uint256> allKnowScIds;
+    queryScIds(allKnowScIds);
+    for(auto it_set = allKnowScIds.begin(); it_set != allKnowScIds.end(); ++it_set)
+    {
+         const uint256& scId = *it_set;
+         const std::string& scIdString = scId.ToString();
+
+         ScInfo scInfo;
+         assert(GetScInfo(scId, scInfo));
+
+         for(auto it_ia_map = scInfo.mImmatureAmounts.begin(); it_ia_map != scInfo.mImmatureAmounts.end(); )
+         {
+             int maturityHeight = it_ia_map->first;
+             CAmount a = it_ia_map->second;
+
+             if (maturityHeight == blockHeight) {
+                 LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
+                     __func__, __LINE__, scIdString, FormatMoney(scInfo.balance));
+
+                 // if maturity has been reached apply it to balance in scview
+                 scInfo.balance += a;
+
+                 LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
+                     __func__, __LINE__, scIdString, FormatMoney(scInfo.balance));
+
+                 // scview balance has been updated, remove the entry in scview immature map
+                 it_ia_map = scInfo.mImmatureAmounts.erase(it_ia_map);
+                 cacheSidechains[scId] = CSidechainsCacheEntry(scInfo, CSidechainsCacheEntry::Flags::DIRTY);
+
+                 LogPrint("sc", "%s():%d - adding immature amount %s for scId=%s in blockundo\n",
+                     __func__, __LINE__, FormatMoney(a), scIdString);
+
+                 // store immature balances into the blockundo obj
+                 blockundo.msc_iaundo[scId].immAmount = a;
+
+             } else if (maturityHeight < blockHeight) {
+                 // should not happen
+                 LogPrint("sc", "ERROR: %s():%d - scId=%s maturuty(%d) < blockHeight(%d)\n",
+                     __func__, __LINE__, scIdString, maturityHeight, blockHeight);
+                 return false;
+             } else
+                 ++it_ia_map;
+         }
+     }
+
+     return true;
+}
+
+bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo& blockundo)
+{
+    LogPrint("sc", "%s():%d - blockHeight=%d, msc_iaundo size=%d\n",
+        __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
+
+    // loop in the map of the blockundo and process each sidechain id
+    for (auto it_ia_undo_map = blockundo.msc_iaundo.begin(); it_ia_undo_map != blockundo.msc_iaundo.end(); )
+    {
+        const uint256& scId           = it_ia_undo_map->first;
+        const std::string& scIdString = scId.ToString();
+
+        ScInfo targetScInfo;
+        if (!GetScInfo(scId, targetScInfo))
+        {
+            // should not happen
+            LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
+            return false;
+        }
+
+        CAmount a = it_ia_undo_map->second.immAmount;
+        int blockundoEpoch = it_ia_undo_map->second.certEpoch;
+
+        if (a > 0)
+        {
+            LogPrint("sc", "%s():%d - adding immature amount %s into sc view for scId=%s\n",
+                __func__, __LINE__, FormatMoney(a), scIdString);
+
+            if (targetScInfo.balance < a)
+            {
+                LogPrint("sc", "%s():%d - Can not update balance with amount[%s] for scId=%s, would be negative\n",
+                    __func__, __LINE__, FormatMoney(a), scId.ToString() );
+                return false;
+            }
+
+            targetScInfo.mImmatureAmounts[blockHeight] += a;
+
+            LogPrint("sc", "%s():%d - scId=%s balance before: %s\n", __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
+            targetScInfo.balance -= a;
+            LogPrint("sc", "%s():%d - scId=%s balance after: %s\n", __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
+        }
+
+        if (blockundoEpoch != CScCertificate::EPOCH_NOT_INITIALIZED)
+        {
+            LogPrint("sc", "%s():%d - scId=%s epoch before: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastReceivedCertificateEpoch);
+            targetScInfo.lastReceivedCertificateEpoch = it_ia_undo_map->second.certEpoch;
+            LogPrint("sc", "%s():%d - scId=%s epoch after: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastReceivedCertificateEpoch);
+        }
+
+        cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
+    }
+
+    return true;
+}
+
+bool CCoinsViewCache::HaveCertForEpoch(const uint256& scId, int epochNumber) {
+    ScInfo info;
+    if (!GetScInfo(scId, info) )
+        return false;
+
+    if (info.lastReceivedCertificateEpoch == epochNumber)
+        return true;
+
+    return false;
+}
+
+#ifdef BITCOIN_TX
+bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash) {return true;}
+bool IsCertApplicableToState(const CScCertificate& cert, CValidationState& state) {return true;}
+#else
+
+#include "consensus/validation.h"
+#include "main.h"
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, CValidationState& state)
+{
+    const uint256& certHash = cert.GetHash();
+    if (!HaveScInfo(cert.scId) )
+    {
+        LogPrint("sc", "%s():%d - cert[%s] refers to scId[%s] not yet created\n",
+            __func__, __LINE__, certHash.ToString(), cert.scId.ToString() );
+        return state.Invalid(error("scid does not exist"),
+             REJECT_INVALID, "sidechain-certificate-scid");
+    }
+
+    // check that epoch data are consistent
+    if (!isLegalEpoch(cert.scId, cert.epochNumber, cert.endEpochBlockHash) )
+    {
+        LogPrint("sc", "%s():%d - invalid cert[%s], scId[%s] invalid epoch data\n",
+            __func__, __LINE__, certHash.ToString(), cert.scId.ToString() );
+        return state.Invalid(error("certificate with invalid epoch considering mempool"),
+             REJECT_INVALID, "sidechain-certificate-epoch");
+    }
+
+    // a certificate can not be received after a fixed amount of blocks (for the time being it is epoch length / 5) from the end of epoch (TODO)
+    int maxHeight = getCertificateMaxIncomingHeight(cert.scId, cert.epochNumber);
+    if (maxHeight < 0)
+    {
+        LogPrintf("ERROR: certificate %s, can not calculate max recv height\n", certHash.ToString());
+        return state.Invalid(error("can not calculate max recv height for cert"),
+                     REJECT_INVALID, "sidechain-certificate-error");
+    }
+
+    if (maxHeight < chainActive.Height())
+    {
+        LogPrintf("ERROR: delayed certificate[%s], max height for receiving = %d, active height = %d\n",
+            certHash.ToString(), maxHeight, chainActive.Height());
+        return state.Invalid(error("received a delayed cert"),
+                     REJECT_INVALID, "sidechain-certificate-delayed");
+    }
+
+    CAmount curBalance = getSidechainBalance(cert.scId);
+    if (cert.totalAmount > curBalance)
+    {
+        LogPrint("sc", "%s():%d - insufficent balance in scId[%s]: balance[%s], cert amount[%s]\n",
+            __func__, __LINE__, cert.scId.ToString(), FormatMoney(curBalance), FormatMoney(cert.totalAmount) );
+        return state.Invalid(error("insufficient balance"),
+                     REJECT_INVALID, "sidechain-insufficient-balance");
+    }
+    LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
+        __func__, __LINE__, cert.scId.ToString(), FormatMoney(curBalance), FormatMoney(cert.totalAmount) );
+
+    return true;
+}
+
+bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash)
+{
+    if (epochNumber < 0)
+    {
+        LogPrint("sc", "%s():%d - invalid epoch number %d\n",
+            __func__, __LINE__, epochNumber );
+        return false;
+    }
+
+    // 1. the referenced block must be in active chain
+    LOCK(cs_main);
+    if (mapBlockIndex.count(endEpochBlockHash) == 0)
+    {
+        LogPrint("sc", "%s():%d - endEpochBlockHash %s is not in block index map\n",
+            __func__, __LINE__, endEpochBlockHash.ToString() );
+        return false;
+    }
+
+    CBlockIndex* pblockindex = mapBlockIndex[endEpochBlockHash];
+    if (!chainActive.Contains(pblockindex))
+    {
+        LogPrint("sc", "%s():%d - endEpochBlockHash %s refers to a valid block but is not in active chain\n",
+            __func__, __LINE__, endEpochBlockHash.ToString() );
+        return false;
+    }
+
+    // 2. combination of epoch number and epoch length, specified in creating sc, must point to that block
+    ScInfo info;
+    if (!GetScInfo(scId, info) )
+    {
+        // should not happen
+        LogPrint("sc", "%s():%d - scId[%s] not found\n",
+            __func__, __LINE__, scId.ToString() );
+        return false;
+    }
+
+    int endEpochHeight = info.creationBlockHeight -1 + ((epochNumber+1) * info.creationData.withdrawalEpochLength);
+    pblockindex = chainActive[endEpochHeight];
+
+    if (!pblockindex)
+    {
+        LogPrint("sc", "%s():%d - calculated height %d (createHeight=%d/epochNum=%d/epochLen=%d) is out of active chain\n",
+            __func__, __LINE__, endEpochHeight, info.creationBlockHeight, epochNumber, info.creationData.withdrawalEpochLength);
+        return false;
+    }
+
+    const uint256& hash = pblockindex->GetBlockHash();
+    if (hash != endEpochBlockHash)
+    {
+        LogPrint("sc", "%s():%d - bock hash mismatch: endEpochBlockHash[%s] / calculated[%s]\n",
+            __func__, __LINE__, endEpochBlockHash.ToString(), hash.ToString());
+        return false;
+    }
+
+    return true;
+}
+#endif
+
+int CCoinsViewCache::getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber)
+{
+    ScInfo info;
+    if (!GetScInfo(scId, info) )
+    {
+        LogPrint("cert", "%s():%d - scId[%s] not found, returning -1\n", __func__, __LINE__, scId.ToString() );
+        return -1;
+    }
+
+    // the safety margin from the end of referred epoch is computed as 20% of epoch length + 1
+    // TODO move this in consensus params
+    int val = info.creationBlockHeight - 1 + ((epochNumber+1) * info.creationData.withdrawalEpochLength) +
+        (int)(info.creationData.withdrawalEpochLength/5) + 1;
+
+    LogPrint("cert", "%s():%d - returning %d\n", __func__, __LINE__, val);
+    return val;
+}
+
+CAmount CCoinsViewCache::getSidechainBalance(const uint256& scId) const
+{
+    ScInfo targetScInfo;
+    if (!GetScInfo(scId, targetScInfo)) {
+        // caller should have checked it
+        return -1;
+    }
+
+    return targetScInfo.balance;
+}
+
+bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& blockundo)
+{
+    const uint256& certHash = cert.GetHash();
+    const uint256& scId = cert.scId;
+    const CAmount& totalAmount = cert.totalAmount;
+
+    LogPrint("cert", "%s():%d - cert=%s\n", __func__, __LINE__, certHash.ToString() );
+
+    ScInfo targetScInfo;
+    if (!GetScInfo(scId, targetScInfo))
+    {
+        // should not happen
+        LogPrint("cert", "%s():%d - Can not update balance, could not find scId=%s\n",
+            __func__, __LINE__, scId.ToString() );
+        return false;
+    }
+
+    if (targetScInfo.balance < totalAmount)
+    {
+        LogPrint("cert", "%s():%d - Can not update balance %s with amount[%s] for scId=%s, would be negative\n",
+            __func__, __LINE__, FormatMoney(targetScInfo.balance), FormatMoney(totalAmount), scId.ToString() );
+        return false;
+    }
+
+    // if an entry already exists, update only cert epoch with current value
+    // if it is a brand new entry, amount will be init as 0 by default
+    blockundo.msc_iaundo[scId].certEpoch = targetScInfo.lastReceivedCertificateEpoch;
+
+    targetScInfo.balance -= totalAmount;
+    targetScInfo.lastReceivedCertificateEpoch = cert.epochNumber;
+    cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
+
+    LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",
+        __func__, __LINE__, FormatMoney(totalAmount), FormatMoney(targetScInfo.balance), scId.ToString());
+
+    return true;
+}
+
+bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, int nHeight)
+{
+    const uint256& scId = cert.scId;
+    const CAmount& totalAmount = cert.totalAmount;
+
+    LogPrint("cert", "%s():%d - removing cert for scId=%s\n", __func__, __LINE__, scId.ToString());
+
+    ScInfo targetScInfo;
+    if (!GetScInfo(scId, targetScInfo))
+    {
+        // should not happen
+        LogPrint("cert", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
+        return false;
+    }
+
+    targetScInfo.balance += totalAmount;
+    cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
+
+    LogPrint("cert", "%s():%d - amount restored to scView (amount=%s, resulting bal=%s) %s\n",
+        __func__, __LINE__, FormatMoney(totalAmount), FormatMoney(targetScInfo.balance), scId.ToString());
+
+    return true;
+}
+
 bool CCoinsViewCache::Flush() {
-    bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers);
+    bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, cacheSidechains);
     cacheCoins.clear();
+    cacheSidechains.clear();
     cacheAnchors.clear();
     cacheNullifiers.clear();
     cachedCoinsUsage = 0;
     return fOk;
+}
+
+void CCoinsViewCache::Dump_info() const
+{
+    std::set<uint256> scIdsList;
+    queryScIds(scIdsList);
+    LogPrint("sc", "-- number of side chains found [%d] ------------------------\n", scIdsList.size());
+    for(const auto& scId: scIdsList)
+    {
+        LogPrint("sc", "-- side chain [%s] ------------------------\n", scId.ToString());
+        ScInfo info;
+        if (!GetScInfo(scId, info) )
+        {
+            LogPrint("sc", "===> No such side chain\n");
+            return;
+        }
+
+        LogPrint("sc", "  created in block[%s] (h=%d)\n", info.creationBlockHash.ToString(), info.creationBlockHeight );
+        LogPrint("sc", "  creationTx[%s]\n", info.creationTxHash.ToString());
+        LogPrint("sc", "  lastReceivedCertificateEpoch[%d]\n", info.lastReceivedCertificateEpoch);
+        LogPrint("sc", "  balance[%s]\n", FormatMoney(info.balance));
+        LogPrint("sc", "  ----- creation data:\n");
+        LogPrint("sc", "      withdrawalEpochLength[%d]\n", info.creationData.withdrawalEpochLength);
+        LogPrint("sc", "  immature amounts size[%d]\n", info.mImmatureAmounts.size());
+    }
+
+    return;
 }
 
 unsigned int CCoinsViewCache::GetCacheSize() const {
@@ -433,8 +1086,6 @@ bool CCoinsViewCache::HaveInputs(const CTransaction& tx) const
             const COutPoint &prevout = tx.vin[i].prevout;
             const CCoins* coins = AccessCoins(prevout.hash);
             if (!coins || !coins->IsAvailable(prevout.n)) {
-//                LogPrintf("%s():%d - ERROR: tx[%s]: input missing/spent: %d / %s\n",
-//                   __func__, __LINE__, tx.GetHash().ToString(), prevout.n, prevout.hash.ToString());
                 return false;
             }
         }

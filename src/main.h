@@ -38,8 +38,6 @@
 
 #include <boost/unordered_map.hpp>
 
-#include "sc/sidechain.h"
-
 class CBlockIndex;
 class CBlockTreeDB;
 class CBloomFilter;
@@ -247,7 +245,6 @@ bool updateGlobalForkTips(const CBlockIndex* pindex, bool lookForwardTips);
 bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, CBlockIndex** pindexReference);
 
 int getCheckBlockAtHeightSafeDepth();
-int getScCoinsMaturity();
 int getCheckBlockAtHeightMinAge();
 bool getRequireStandard();
 
@@ -457,11 +454,11 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex);
  *  will be true if no problems were found. Otherwise, the return value will be false in case
  *  of problems. Note that in any case, coins may be modified. */
 bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& coins,
-    Sidechain::ScCoinsViewCache& scView, bool* pfClean = NULL);
+    bool* pfClean = NULL);
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins */
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-    CCoinsViewCache& coins, const CChain& chain, Sidechain::ScCoinsViewCache& scView, bool fJustCheck = false);
+    CCoinsViewCache& coins, const CChain& chain, bool fJustCheck = false);
 
 /** Context-independent validity checks */
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW = true);
@@ -590,11 +587,5 @@ int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Para
 namespace Consensus {
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
 }
-#if 1
-class CTxInUndo;
-class COutPoint;
-// for certificates refactory
-bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint& out);
-#endif
 
 #endif // BITCOIN_MAIN_H

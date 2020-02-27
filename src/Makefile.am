@@ -507,6 +507,7 @@ zen_tx_SOURCES = \
     bitcoin-tx.cpp \
     primitives/transaction.cpp \
     primitives/certificate.cpp \
+    coins.cpp \
     script/interpreter.cpp \
     script/standard.cpp
 zen_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS) -DBITCOIN_TX

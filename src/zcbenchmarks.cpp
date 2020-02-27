@@ -6,7 +6,6 @@
 #include <boost/filesystem.hpp>
 
 #include "coins.h"
-#include "sc/sidechain.h"
 #include "util.h"
 #include "init.h"
 #include "primitives/transaction.h"
@@ -390,7 +389,8 @@ public:
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers) {
+                    CNullifiersMap &mapNullifiers,
+                    CSidechainsMap& mapSidechains) {
         return false;
     }
 
@@ -414,7 +414,6 @@ double benchmark_connectblock_slow()
     auto hashPrev = uint256S("00000000159a41f468e22135942a567781c3f3dc7ad62257993eb3c69c3f95ef");
     FakeCoinsViewDB fakeDB("benchmark/block-107134-inputs", hashPrev);
     CCoinsViewCache view(&fakeDB);
-    Sidechain::ScCoinsViewCache fakeScView(Sidechain::ScMgr::instance());
 
     // Fake the chain
     CBlockIndex index(block);
@@ -432,7 +431,7 @@ double benchmark_connectblock_slow()
     CValidationState state;
     struct timeval tv_start;
     timer_start(tv_start);
-    assert(ConnectBlock(block, state, &index, view, chain, fakeScView, true));
+    assert(ConnectBlock(block, state, &index, view, chain, true));
     auto duration = timer_stop(tv_start);
 
     // Undo alterations to global state

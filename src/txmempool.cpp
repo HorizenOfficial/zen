@@ -671,12 +671,17 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         const auto& cert = it->second.GetCertificate();
         CValidationState state;
 
-        // TODO cert: check this 
-        if (!Sidechain::ScCoinsView::IsCertAllowedInMempool(*this, cert, state))
+        //ABENEGIA: duplicated code here, while cleaning up class hyerarchy
+        for (auto it = mempool.mapCertificate.begin(); it != mempool.mapCertificate.end(); ++it)
         {
-            LogPrint("sc", "%s():%d - cert [%s] has conflicts in mempool\n", __func__, __LINE__, cert.GetHash().ToString());
-            assert(false);
-        }
+            const CScCertificate& loopCert = it->second.GetCertificate();
+
+            if ((loopCert.scId == cert.scId) && (loopCert.epochNumber == cert.epochNumber) && (loopCert.GetHash() != cert.GetHash()))
+            {
+                LogPrint("sc", "%s():%d - cert [%s] has conflicts in mempool\n", __func__, __LINE__, cert.GetHash().ToString());
+                assert(false);
+            }
+        } //ABENEGIA: end of duplicated code
 
         assert(cert.ContextualCheckInputs(state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
         // updating coins with cert outputs because the cache is checked below for
@@ -864,6 +869,78 @@ bool CCoinsViewMemPool::GetCoins(const uint256 &txid, CCoins &coins) const {
 
 bool CCoinsViewMemPool::HaveCoins(const uint256 &txid) const {
     return mempool.exists(txid) || base->HaveCoins(txid);
+}
+
+bool CCoinsViewMemPool::GetScInfo(const uint256& scId, ScInfo& info) const {
+    if (mempool.sidechainExists(scId)) {
+        //build ScInfo from txs in mempool
+        const uint256& scCreationHash = mempool.mapSidechains.at(scId).scCreationTxHash;
+        const CTransaction & scCreationTx = mempool.mapTx.at(scCreationHash).GetTx();
+        for (const auto& scCreation : scCreationTx.vsc_ccout)
+            if (scId == scCreation.scId) {
+                //info.creationBlockHash doesn't exist here!
+                info.creationBlockHeight = -1; //default null value for creationBlockHeight
+                info.creationTxHash = scCreationHash;
+                info.creationData.withdrawalEpochLength = scCreation.withdrawalEpochLength;
+            }
+
+        //ABENEGIA: THIS IS WRONG SINCE ALSO THE CERTIFICATE IS STORE IN CcTransfersSet and it should be subtracted
+        //construct immature amount infos
+        for (const auto& fwdHash: mempool.mapSidechains.at(scId).CcTransfersSet) {
+            const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
+            for (const auto& fwdAmount : fwdTx.vft_ccout)
+                if (scId == fwdAmount.scId)
+                    info.mImmatureAmounts[-1] += fwdAmount.nValue;
+        }
+        return true;
+    }
+
+    return base->GetScInfo(scId, info);
+}
+
+bool CCoinsViewMemPool::HaveScInfo(const uint256& scId) const {
+    return mempool.sidechainExists(scId) || base->HaveScInfo(scId);
+}
+
+
+bool CCoinsViewMemPool::IsCertAllowedInMempool(const CScCertificate& cert, CValidationState& state)
+{
+    if (!HaveCertForEpoch(cert.scId, cert.epochNumber))
+        return true;
+
+    // when called for checking the contents of mempool we can find the certificate itself, which is OK
+    uint256 conflictingCertHash;
+    //ABENEGIA: duplicated code here, while cleaning up class hyerarchy
+    for (auto it = mempool.mapCertificate.begin(); it != mempool.mapCertificate.end(); ++it)
+    {
+        const CScCertificate& loopCert = it->second.GetCertificate();
+
+        if ((loopCert.scId == cert.scId) && (loopCert.epochNumber == cert.epochNumber))
+        {
+            conflictingCertHash = loopCert.GetHash();
+            break;
+        }
+    } //ABENEGIA: end of duplicated code
+
+    if (conflictingCertHash == cert.GetHash()) //This currently happens with mempool.check
+        return true;
+
+    LogPrintf("ERROR: certificate %s for epoch %d is already been issued\n",
+        conflictingCertHash.ToString(), cert.epochNumber); //ABENEGIA: a cert with nullHash can make it to mempool or db???
+    return state.Invalid(error("A certificate with the same scId/epoch is already issued"),
+         REJECT_INVALID, "sidechain-certificate-epoch");
+}
+
+bool CCoinsViewMemPool::HaveCertForEpoch(const uint256& scId, int epochNumber) {
+
+    for (auto it = mempool.mapCertificate.begin(); it != mempool.mapCertificate.end(); ++it) {
+        const CScCertificate& mpCert = it->second.GetCertificate();
+
+        if ((mpCert.scId == scId) && (mpCert.epochNumber == epochNumber))
+            return true;
+    }
+
+    return base->HaveCertForEpoch(scId, epochNumber);
 }
 
 size_t CTxMemPool::DynamicMemoryUsage() const {

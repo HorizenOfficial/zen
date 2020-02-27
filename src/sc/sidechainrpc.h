@@ -12,11 +12,10 @@ class CTransaction;
 class CTransactionBase;
 class CMutableTransaction;
 class CMutableTransactionBase;
+class ScInfo;
 
 namespace Sidechain
 {
-
-class ScInfo;
 
 class CRecipientHandler
 {
@@ -70,11 +69,6 @@ bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std
 
 // used when funding a raw tx 
 void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant>& vecCcSend);
-
-// used in getscinfo rpc cmd
-void AddScInfoToJSON(UniValue& result);
-bool AddScInfoToJSON(const uint256& scId, UniValue& sc);
-void AddScInfoToJSON(const uint256& scId, const ScInfo& info, UniValue& sc);
 }; // end of namespace
 
 #endif // _SIDECHAIN_RPC_H

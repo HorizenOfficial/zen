@@ -16,15 +16,12 @@ class UniValue;
 class CValidationState;
 class CLevelDBWrapper;
 
-namespace Sidechain
-{
-class ScInfo
-{
+class ScInfo {
 public:
     ScInfo() : creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
          lastReceivedCertificateEpoch(CScCertificate::EPOCH_NULL), balance(0) {}
     
-    // reference to the block containing the tx that created the side chain 
+    // reference to the block containing the tx that created the side chain
     uint256 creationBlockHash;
 
     // We can not serialize a pointer value to block index, but can retrieve it from chainActive if we have height
@@ -40,11 +37,11 @@ public:
     CAmount balance;
 
     // creation data
-    ScCreationParameters creationData;
+    Sidechain::ScCreationParameters creationData;
 
     // immature amounts
     // key   = height at which amount will be considered as mature and will be part of the sc balance
-    // value = the immature amount  
+    // value = the immature amount
     std::map<int, CAmount> mImmatureAmounts;
 
     std::string ToString() const;
@@ -65,141 +62,22 @@ public:
 
     inline bool operator==(const ScInfo& rhs) const
     {
-        return (this->creationBlockHash            == rhs.creationBlockHash)   &&
-               (this->creationBlockHeight          == rhs.creationBlockHeight) &&
-               (this->creationTxHash               == rhs.creationTxHash)      &&
-               (this->lastReceivedCertificateEpoch == rhs.lastReceivedCertificateEpoch)      &&
-               (this->creationData                 == rhs.creationData)        &&
+        return (this->creationBlockHash            == rhs.creationBlockHash)            &&
+               (this->creationBlockHeight          == rhs.creationBlockHeight)          &&
+               (this->creationTxHash               == rhs.creationTxHash)               &&
+               (this->lastReceivedCertificateEpoch == rhs.lastReceivedCertificateEpoch) &&
+               (this->creationData                 == rhs.creationData)                 &&
                (this->mImmatureAmounts             == rhs.mImmatureAmounts);
     }
     inline bool operator!=(const ScInfo& rhs) const { return !(*this == rhs); }
 };
 
-typedef boost::unordered_map<uint256, ScInfo, ObjectHasher> ScInfoMap;
+namespace Sidechain {
+    bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
+    bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
+    bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
 
-bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
-bool checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state);
-bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
-bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
-
-class ScCoinsView
-{
-public:
-    ScCoinsView() = default;
-    ScCoinsView(const ScCoinsView&) = delete;
-    ScCoinsView& operator=(const ScCoinsView &) = delete;
-    virtual ~ScCoinsView() = default;
-
-    static bool IsTxAllowedInMempool(const CTxMemPool& pool, const CTransaction& tx, CValidationState& state);
-    bool IsTxApplicableToState(const CTransaction& tx, CValidationState& state);
-
-    virtual bool sidechainExists(const uint256& scId) const = 0;
-    virtual bool getScInfo(const uint256& scId, ScInfo& info) const = 0;
-    virtual std::set<uint256> getScIdSet() const = 0;
-
-    bool IsCertApplicableToState(const CScCertificate& cert, CValidationState& state);
-    static bool IsCertAllowedInMempool(const CTxMemPool& pool, const CScCertificate& cert, CValidationState& state);
-    virtual CAmount getSidechainBalance(const uint256& scId) const = 0;
-    virtual CAmount getSidechainBalanceImmature(const uint256& scId) const = 0;
-
-};
-
-class ScCoinsPersistedView;
-class ScCoinsViewCache : public ScCoinsView
-{
-public:
-    ScCoinsViewCache(ScCoinsPersistedView& _persistedView);
-
-    bool sidechainExists(const uint256& scId) const;
-    bool getScInfo(const uint256 & scId, ScInfo& targetScInfo) const;
-    std::set<uint256> getScIdSet() const;
-    CAmount getSidechainBalance(const uint256& scId) const;
-    CAmount getSidechainBalanceImmature(const uint256& scId) const;
-    bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
-    bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& bu);
-
-    bool RevertTxOutputs(const CTransaction& tx, int nHeight);
-    bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
-    bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
-
-    bool Flush();
-    bool RevertCertOutputs(const CScCertificate& cert, int nHeight);
-
-private:
-    ScCoinsPersistedView& persistedView;
-    ScInfoMap mUpdatedOrNewScInfoList;
-    std::set<uint256> sDeletedScList;
-};
-
-class ScCoinsPersistedView : public ScCoinsView
-{
-public:
-    virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
-    virtual bool erase(const uint256& scId) = 0;
-};
-
-class PersistenceLayer;
-class ScMgr : public ScCoinsPersistedView
-{
-public:
-    static ScMgr& instance();
-
-    bool initPersistence(size_t cacheSize, bool fWipe);
-    bool initPersistence(PersistenceLayer * pTestLayer); //utility for unit tests
-    void reset(); //utility for dtor and unit tests, hence public
-
-    bool persist(const uint256& scId, const ScInfo& info);
-    bool erase(const uint256& scId);
-
-    bool sidechainExists(const uint256& scId) const;
-    bool getScInfo(const uint256& scId, ScInfo& info) const;
-    std::set<uint256> getScIdSet() const;
-
-    // print functions
-    bool dump_info(const uint256& scId);
-    void dump_info();
-
-    // certificate stuff
-    CAmount getSidechainBalance(const uint256& scId) const;
-    CAmount getSidechainBalanceImmature(const uint256& scId) const;
-    static bool isLegalEpoch(const uint256& scId, int epochNumber, const uint256& epochBlockHash);
-    static int getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber);
-    static bool epochAlreadyHasCertificate(const uint256& scId, int epochNumber, const CTxMemPool& pool, uint256& certHash);
-
-private:
-    // Disallow instantiation outside of the class.
-    ScMgr(): pLayer(nullptr){}
-    ~ScMgr() { reset(); }
-
-    mutable CCriticalSection sc_lock;
-    ScInfoMap mManagerScInfoMap;
-    PersistenceLayer * pLayer;
-
-    bool loadInitialData();
-}; 
-
-class PersistenceLayer {
-public:
-    PersistenceLayer() = default;
-    virtual ~PersistenceLayer() = default;
-    virtual bool loadPersistedDataInto(ScInfoMap & _mapToFill) = 0;
-    virtual bool persist(const uint256& scId, const ScInfo& info) = 0;
-    virtual bool erase(const uint256& scId) = 0;
-    virtual void dump_info() = 0;
-};
-
-class DbPersistance final : public PersistenceLayer {
-public:
-    DbPersistance(const boost::filesystem::path& path, size_t nCacheSize, bool fMemory, bool fWipe);
-    ~DbPersistance();
-    bool loadPersistedDataInto(ScInfoMap & _mapToFill);
-    bool persist(const uint256& scId, const ScInfo& info);
-    bool erase(const uint256& scId);
-    void dump_info();
-private:
-    CLevelDBWrapper* _db;
-};
-
+    bool checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state);
 }; // end of namespace
 
 #endif // _SIDECHAIN_CORE_H

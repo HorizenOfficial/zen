@@ -56,7 +56,8 @@ public:
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers) {
+                    CNullifiersMap &mapNullifiers,
+                    CSidechainsMap& mapSidechains) {
         return false;
     }
 

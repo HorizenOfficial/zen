@@ -736,7 +736,11 @@ bool CTransaction::CheckFinal(int flags) const
 
 bool CTransaction::IsApplicableToState(CValidationState& state) const
 {
-    return Sidechain::ScMgr::instance().IsTxApplicableToState(*this, state);
+    //ABENEGIA: Fill state properly
+    LOCK(mempool.cs);
+    CCoinsViewMemPool viewMemPool(pcoinsTip, mempool);
+    CCoinsViewCache view(&viewMemPool);
+    return view.HaveDependencies(*this);
 }
     
 void CTransaction::HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const

@@ -30,20 +30,15 @@ public:
         const uint256 hashAnchor;
         CAnchorsMap mapAnchors;
         CNullifiersMap mapNullifiers;
-#if 0
         CSidechainsMap mapSidechains;
 
         return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains);
-#else
-        return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers);
-#endif
     }
 };
 
 class SidechainsInMempoolTestSuite: public ::testing::Test {
 public:
     SidechainsInMempoolTestSuite():
-        sidechainManager(Sidechain::ScMgr::instance()),
         pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path()),
         chainStateDbSize(2 * 1024 * 1024),
         pChainStateDb(nullptr),
@@ -64,7 +59,6 @@ public:
         pindexBestHeader = chainActive.Tip();
 
         InitCoinGeneration();
-        ASSERT_TRUE(sidechainManager.initPersistence(/*cacheSize*/0, /*fWipe*/true));
     }
 
     void TearDown() override {
@@ -83,12 +77,9 @@ public:
         ClearDatadirCache();
         boost::system::error_code ec;
         boost::filesystem::remove_all(pathTemp.string(), ec);
-        sidechainManager.reset();
     }
 
 protected:
-    Sidechain::ScMgr&           sidechainManager;
-
     CTransaction GenerateScTx(const uint256 & newScId, const CAmount & fwdTxAmount);
     CTransaction GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount);
 
@@ -137,15 +128,9 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicationsOfConfirmedSidechainsAreNotAcce
     uint256 scId = uint256S("a1b2");
     CTransaction scTx = GenerateScTx(scId, CAmount(1));
     CBlock aBlock;
-#if 0
     CCoinsViewCache sidechainsView(pcoinsTip);
     sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
     sidechainsView.Flush();
-#else
-    Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
-    scView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
-    scView.Flush();
-#endif
 
     scTx = GenerateScTx(scId, CAmount(12));
     CValidationState txState;
@@ -158,15 +143,9 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed
     uint256 scId = uint256S("aaaa");
     CTransaction scTx = GenerateScTx(scId, CAmount(10));
     CBlock aBlock;
-#if 0
     CCoinsViewCache sidechainsView(pcoinsTip);
     sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
     sidechainsView.Flush();
-#else
-    Sidechain::ScCoinsViewCache scView(Sidechain::ScMgr::instance());
-    scView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
-    scView.Flush();
-#endif
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
@@ -176,8 +155,6 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed
 }
 
 //A proof that https://github.com/ZencashOfficial/zen/issues/215 is solved
-// TODO: enable as soon as the fix is imported
-#if 0
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToSideChainsInMempoolAreAllowed) {
     uint256 scId = uint256S("cccc");
     CTransaction scTx = GenerateScTx(scId, CAmount(1));
@@ -190,7 +167,6 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToSideChainsInMempoolAreAllowed
     CValidationState fwdTxState;
     EXPECT_TRUE(AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
 }
-#endif
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSideChainAreNotAllowed) {
     uint256 scId = uint256S("dddd");
@@ -493,13 +469,9 @@ bool SidechainsInMempoolTestSuite::StoreCoins(const std::pair<uint256, CCoinsCac
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
-#if 0
     CSidechainsMap mapSidechains;
 
     pcoinsTip->BatchWrite(tmpCoinsMap, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains);
-#else
-    pcoinsTip->BatchWrite(tmpCoinsMap, hashBlock, hashAnchor, mapAnchors, mapNullifiers);
-#endif
 
     return view.HaveCoins(entryToStore.first) == true;
 }
