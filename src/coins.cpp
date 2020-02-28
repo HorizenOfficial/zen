@@ -450,57 +450,6 @@ void CCoinsViewCache::queryScIds(std::set<uint256>& scIdsList) const
     return;
 }
 
-bool CCoinsViewCache::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
-{
-    for (const auto& sc: tx.vsc_ccout)
-    {
-        if (sc.scId == scId)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool CCoinsViewCache::HaveDependencies(const CTransaction& tx)
-{
-    if (tx.IsCoinBase())
-        return true;
-
-    const uint256& txHash = tx.GetHash();
-
-    // check creation
-    for (const auto& sc: tx.vsc_ccout)
-    {
-        const uint256& scId = sc.scId;
-        if (HaveScInfo(scId))
-        {
-            LogPrint("sc", "%s():%d - ERROR: Invalid tx[%s] : scid[%s] already created\n",
-                __func__, __LINE__, txHash.ToString(), scId.ToString());
-            return false;
-        }
-        LogPrint("sc", "%s():%d - OK: tx[%s] is creating scId[%s]\n",
-            __func__, __LINE__, txHash.ToString(), scId.ToString());
-    }
-
-    // check fw tx
-    for (const auto& ft: tx.vft_ccout)
-    {
-        const uint256& scId = ft.scId;
-        if (!HaveScInfo(scId) && !hasScCreationOutput(tx, scId) )
-        {
-            LogPrint("sc", "%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",
-                __func__, __LINE__, txHash.ToString(), scId.ToString() );
-            return false;
-
-        }
-        LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
-            __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
-    }
-    return true;
-}
-
-
 int CCoinsViewCache::getInitScCoinsMaturity()
 {
     if ( (Params().NetworkIDString() == "regtest") )
@@ -777,7 +726,8 @@ bool CCoinsViewCache::HaveCertForEpoch(const uint256& scId, int epochNumber) con
 
 #ifdef BITCOIN_TX
 bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash) {return true;}
-bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state) {return true;}
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state) {return true;}
+bool CCoinsViewCache::HaveDependencies(const CTransaction& tx) { return true;}
 #else
 
 #include "consensus/validation.h"
@@ -893,6 +843,45 @@ bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const u
 
     return true;
 }
+
+bool CCoinsViewCache::HaveDependencies(const CTransaction& tx)
+{
+    if (tx.IsCoinBase())
+        return true;
+
+    const uint256& txHash = tx.GetHash();
+
+    // check creation
+    for (const auto& sc: tx.vsc_ccout)
+    {
+        const uint256& scId = sc.scId;
+        if (HaveScInfo(scId))
+        {
+            LogPrint("sc", "%s():%d - ERROR: Invalid tx[%s] : scid[%s] already created\n",
+                __func__, __LINE__, txHash.ToString(), scId.ToString());
+            return false;
+        }
+        LogPrint("sc", "%s():%d - OK: tx[%s] is creating scId[%s]\n",
+            __func__, __LINE__, txHash.ToString(), scId.ToString());
+    }
+
+    // check fw tx
+    for (const auto& ft: tx.vft_ccout)
+    {
+        const uint256& scId = ft.scId;
+        if (!HaveScInfo(scId) && !Sidechain::hasScCreationOutput(tx, scId) )
+        {
+            LogPrint("sc", "%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",
+                __func__, __LINE__, txHash.ToString(), scId.ToString() );
+            return false;
+
+        }
+        LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
+            __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
+    }
+    return true;
+}
+
 #endif
 
 int CCoinsViewCache::getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber)
