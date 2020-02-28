@@ -708,7 +708,7 @@ public:
     virtual bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const = 0;
     virtual bool IsStandard(std::string& reason, int nHeight) const = 0;
     virtual bool CheckFinal(int flags = -1) const = 0;
-    virtual bool IsApplicableToState(CValidationState& state) const = 0;
+    virtual bool IsApplicableToState(CValidationState& state, int nHeight = -1) const = 0;
 
     virtual void UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const = 0;
     virtual void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const = 0;
@@ -948,7 +948,7 @@ public:
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
     bool IsStandard(std::string& reason, int nHeight) const override;
     bool CheckFinal(int flags = -1) const override;
-    bool IsApplicableToState(CValidationState& state) const override;
+    bool IsApplicableToState(CValidationState& state, int nHeight = -1) const override;
     void HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const override;
     void AddJoinSplitToJSON(UniValue& entry) const override;
     void AddSidechainOutsToJSON(UniValue& entry) const override;

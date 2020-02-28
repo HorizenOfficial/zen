@@ -154,7 +154,7 @@ double CScCertificate::GetPriority(const CCoinsViewCache &view, int nHeight) con
 
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
 
-bool CScCertificate::IsApplicableToState(CValidationState& state) const { return true; }
+bool CScCertificate::IsApplicableToState(CValidationState& state, int nHeight) const { return true; }
 bool CScCertificate::IsStandard(std::string& reason, int nHeight) const { return true; }
 unsigned int CScCertificate::GetLegacySigOpCount() const { return 0; }
 #else
@@ -164,11 +164,11 @@ bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
     return ::AcceptCertificateToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
 }
 
-bool CScCertificate::IsApplicableToState(CValidationState& state) const
+bool CScCertificate::IsApplicableToState(CValidationState& state, int nHeight) const
 {
     LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
     CCoinsViewCache view(pcoinsTip);
-    return view.IsCertApplicableToState(*this, state);
+    return view.IsCertApplicableToState(*this, nHeight, state);
 }
     
 bool CScCertificate::IsStandard(std::string& reason, int nHeight) const

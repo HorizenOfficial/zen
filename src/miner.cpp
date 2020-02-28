@@ -503,7 +503,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             // has been placed back in the mem pool The skipped tx will be mined in the next block if the scid is found
 
             CValidationState state;
-            if (!tx.IsApplicableToState(state) )
+            if (!tx.IsApplicableToState(state, nHeight) )
             {
                 LogPrint("sc", "%s():%d - tx=%s is not applicable, skipping it...\n", __func__, __LINE__, tx.GetHash().ToString() );
                 continue;

@@ -1299,7 +1299,7 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
 }
 
 bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee)
+                        bool* pfMissingInputs, bool fRejectAbsurdFee, int epochSafeGuardHeight)
 {
     AssertLockHeld(cs_main);
     if (pfMissingInputs)
@@ -1353,13 +1353,14 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                 return false;
             }
 
-            if (!view.IsCertApplicableToState(cert, state) )
+            int sgHeight = (epochSafeGuardHeight > 0) ? epochSafeGuardHeight : nextBlockHeight;   
+            if (!view.IsCertApplicableToState(cert, sgHeight, state) )
             {
                 LogPrint("sc", "%s():%d - certificate [%s] is not applicable\n", __func__, __LINE__, certHash.ToString());
                 return state.DoS(0, error("AcceptCertificateToMemoryPool: certificate not applicable"),
-                                    REJECT_INVALID, "sidechain-certificate");
+                            REJECT_INVALID, "sidechain-certificate");
             }
-
+            
             view.SetBackend(dummy);
         }
 
@@ -2757,9 +2758,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
 
-        if (!view.HaveInputs(tx))
-            return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
-                             REJECT_INVALID, "bad-txns-inputs-missingorspent");
+            if (!view.HaveInputs(tx))
+                return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
+                                 REJECT_INVALID, "bad-txns-inputs-missingorspent");
 
         if (!view.HaveDependencies(tx))
             return state.Invalid(error("ConnectBlock: sidechain is redeclared or coins are forwarded to unknown sidechain"),
@@ -2852,7 +2853,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
         nFees += nFee;
 
-        if (!view.IsCertApplicableToState(cert, state) ) {
+        if (!view.IsCertApplicableToState(cert, pindex->nHeight, state) ) {
             LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, cert.GetHash().ToString() );
             return state.DoS(100, error("ConnectBlock(): invalid sc certificate [%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-tx");
@@ -3188,7 +3189,7 @@ bool static DisconnectTip(CValidationState &state) {
         }
 
         CValidationState stateDummy;
-        if (!AcceptCertificateToMemoryPool(mempool, stateDummy, cert, false, NULL)) {
+        if (!AcceptCertificateToMemoryPool(mempool, stateDummy, cert, false, NULL, false, pindexDelete->nHeight)) {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
 

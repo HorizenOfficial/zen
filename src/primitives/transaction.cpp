@@ -574,7 +574,7 @@ bool CTransaction::CheckInputsLimit(size_t limit, size_t& n) const { return true
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return true; }
 bool CTransaction::IsStandard(std::string& reason, int nHeight) const { return true; }
 bool CTransaction::CheckFinal(int flags) const { return true; }
-bool CTransaction::IsApplicableToState(CValidationState& state) const { return true; }
+bool CTransaction::IsApplicableToState(CValidationState& state, int nHeight) const { return true; }
 void CTransaction::HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const { return; };
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
@@ -734,7 +734,7 @@ bool CTransaction::CheckFinal(int flags) const
     return ::CheckFinalTx(*this, flags);
 }
 
-bool CTransaction::IsApplicableToState(CValidationState& state) const
+bool CTransaction::IsApplicableToState(CValidationState& state, int notUsed) const
 {
     //ABENEGIA: Fill state properly
     CCoinsViewCache view(pcoinsTip);

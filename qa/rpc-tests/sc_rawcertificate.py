@@ -107,8 +107,8 @@ class sc_rawcert(BitcoinTestFramework):
         pkh_node2 = self.nodes[2].getnewaddress("", True);
         cert_fee = Decimal("0.00025")
 
-        mark_logs("Node0 generating 1 block, remaining in safeguard", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
+        mark_logs("Node0 generating 2 block, overcoming safeguard", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(2)
         self.sync_all()
 
         raw_addresses = {pkh_node2:(bt_amount - cert_fee)}
@@ -126,7 +126,20 @@ class sc_rawcert(BitcoinTestFramework):
         decoded_cert_pre = self.nodes[0].decoderawcertificate(raw_cert)
         decoded_cert_pre_list = sorted(decoded_cert_pre.items(), key=operator.itemgetter(1))
 
-        mark_logs("Node0 sending raw certificate for epoch {}".format(epn), self.nodes, DEBUG_MODE)
+        mark_logs("Node0 sending raw certificate for epoch {}, expecting failure...".format(epn), self.nodes, DEBUG_MODE)
+        # we expect it to fail because beyond the safeguard
+        try:
+            cert = self.nodes[0].sendrawcertificate(raw_cert)
+            assert_true(False)
+        except JSONRPCException,e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+
+        mark_logs("Node0 invalidates last block, thus shortening the chain by one and returning in the safe margin", self.nodes, DEBUG_MODE)
+        self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
+        sync_mempools(self.nodes[1:3])
+
+        mark_logs("Node0 sending raw certificate for epoch {}, expecting success".format(epn), self.nodes, DEBUG_MODE)
         try:
             cert = self.nodes[0].sendrawcertificate(raw_cert)
         except JSONRPCException,e:
@@ -134,11 +147,11 @@ class sc_rawcert(BitcoinTestFramework):
             print "\n======> ", errorString
             assert_true(False)
 
-        self.sync_all()
+        sync_mempools(self.nodes[1:3])
 
-        mark_logs("Node0 generating 4 block", self.nodes, DEBUG_MODE)
+        mark_logs("Node0 generating 4 block, also reverting other chains", self.nodes, DEBUG_MODE)
         epn = 1
-        eph = self.nodes[2].generate(4)[-1]
+        eph = self.nodes[0].generate(4)[-1]
         self.sync_all()
 
         #-------------------------- end epoch

@@ -4207,10 +4207,10 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert data"));
     }
 
-    if (maxHeight < chainActive.Height())
+    if (maxHeight < chainActive.Height() + 1)
     {
-        LogPrintf("ERROR: delayed certificate, max height for receiving = %d, iactive height = %d\n",
-            maxHeight, chainActive.Height());
+        LogPrintf("%s():%d - ERROR: delayed certificate, max height for receiving = %d, next block height = %d\n",
+            __func__, __LINE__, maxHeight, chainActive.Height() + 1);
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert height"));
     }
 
@@ -4218,7 +4218,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     // This also checks in mempool
     {
         LOCK(mempool.cs);
-        uint256 conflictingCertHash;
+    uint256 conflictingCertHash;
 
         CCoinsViewMemPool viewMemPool(pcoinsTip, mempool);
 
@@ -4226,7 +4226,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
             //ABENEGIA: duplicated code here, while cleaning up class hyerarchy
             for (auto it = mempool.mapCertificate.begin(); it != mempool.mapCertificate.end(); ++it)
-            {
+    {
                 const CScCertificate& mpCert = it->second.GetCertificate();
 
                 if ((mpCert.scId == scId) && (mpCert.epochNumber == epochNumber))
@@ -4237,10 +4237,10 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             }
             //ABENEGIA: end of duplicated code
 
-            LogPrintf("ERROR: certificate %s for epoch %d is already been issued\n",
-                (conflictingCertHash == uint256())?"":conflictingCertHash.ToString(), epochNumber);
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert epoch"));
-        }
+        LogPrintf("ERROR: certificate %s for epoch %d is already been issued\n", 
+            (conflictingCertHash == uint256())?"":conflictingCertHash.ToString(), epochNumber);
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert epoch"));
+    }
     }
 
     const UniValue& outputs = params[3].get_array();

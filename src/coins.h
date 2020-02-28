@@ -551,7 +551,7 @@ public:
 
     //CERTIFICATES RELATED PUBLIC MEMBERS - TO BE REFINED
     bool HaveCertForEpoch(const uint256& scId, int epochNumber) const override;
-    bool IsCertApplicableToState(const CScCertificate& cert, CValidationState& state);
+    bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state);
     bool isLegalEpoch(const uint256& scId, int epochNumber, const uint256& epochBlockHash);
     int getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber);
     CAmount getSidechainBalance(const uint256& scId) const;

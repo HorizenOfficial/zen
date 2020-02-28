@@ -667,48 +667,47 @@ bool CCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo
     queryScIds(allKnowScIds);
     for(auto it_set = allKnowScIds.begin(); it_set != allKnowScIds.end(); ++it_set)
     {
-         const uint256& scId = *it_set;
-         const std::string& scIdString = scId.ToString();
+        const uint256& scId = *it_set;
+        const std::string& scIdString = scId.ToString();
 
-         ScInfo scInfo;
-         assert(GetScInfo(scId, scInfo));
+        ScInfo targetScInfo;
+        assert(GetScInfo(scId, targetScInfo));
 
-         for(auto it_ia_map = scInfo.mImmatureAmounts.begin(); it_ia_map != scInfo.mImmatureAmounts.end(); )
-         {
-             int maturityHeight = it_ia_map->first;
-             CAmount a = it_ia_map->second;
+        auto it_ia_map = targetScInfo.mImmatureAmounts.begin();
 
-             if (maturityHeight == blockHeight) {
-                 LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
-                     __func__, __LINE__, scIdString, FormatMoney(scInfo.balance));
+        // no entries in map, skip it
+        if (it_ia_map == targetScInfo.mImmatureAmounts.end())
+            continue;
 
-                 // if maturity has been reached apply it to balance in scview
-                 scInfo.balance += a;
+        int maturityHeight = it_ia_map->first;
+        CAmount a = it_ia_map->second;
 
-                 LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
-                     __func__, __LINE__, scIdString, FormatMoney(scInfo.balance));
+        assert(maturityHeight >= blockHeight);
 
-                 // scview balance has been updated, remove the entry in scview immature map
-                 it_ia_map = scInfo.mImmatureAmounts.erase(it_ia_map);
-                 cacheSidechains[scId] = CSidechainsCacheEntry(scInfo, CSidechainsCacheEntry::Flags::DIRTY);
+        if (maturityHeight == blockHeight)
+        {
+            LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
+                __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
 
-                 LogPrint("sc", "%s():%d - adding immature amount %s for scId=%s in blockundo\n",
-                     __func__, __LINE__, FormatMoney(a), scIdString);
+            // if maturity has been reached apply it to balance in scview
+            targetScInfo.balance += a;
 
-                 // store immature balances into the blockundo obj
-                 blockundo.msc_iaundo[scId].immAmount = a;
+            LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
+                __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
 
-             } else if (maturityHeight < blockHeight) {
-                 // should not happen
-                 LogPrint("sc", "ERROR: %s():%d - scId=%s maturuty(%d) < blockHeight(%d)\n",
-                     __func__, __LINE__, scIdString, maturityHeight, blockHeight);
-                 return false;
-             } else
-                 ++it_ia_map;
-         }
-     }
+            // scview balance has been updated, remove the entry in scview immature map
+            it_ia_map = targetScInfo.mImmatureAmounts.erase(it_ia_map);
+            cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
 
-     return true;
+            LogPrint("sc", "%s():%d - adding immature amount %s for scId=%s in blockundo\n",
+                __func__, __LINE__, FormatMoney(a), scIdString);
+        
+            // store immature balances into the blockundo obj
+            blockundo.msc_iaundo[scId].immAmount = a;
+        }
+    }
+
+    return true;
 }
 
 bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo& blockundo)
@@ -778,14 +777,18 @@ bool CCoinsViewCache::HaveCertForEpoch(const uint256& scId, int epochNumber) con
 
 #ifdef BITCOIN_TX
 bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash) {return true;}
-bool IsCertApplicableToState(const CScCertificate& cert, CValidationState& state) {return true;}
+bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state) {return true;}
 #else
 
 #include "consensus/validation.h"
 #include "main.h"
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, CValidationState& state)
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state)
 {
     const uint256& certHash = cert.GetHash();
+
+    LogPrint("cert", "%s():%d - called: cert[%s], scId[%s], height[%d]\n",
+        __func__, __LINE__, certHash.ToString(), cert.scId.ToString(), nHeight );
+
     if (!HaveScInfo(cert.scId) )
     {
         LogPrint("sc", "%s():%d - cert[%s] refers to scId[%s] not yet created\n",
@@ -812,7 +815,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, CValid
                      REJECT_INVALID, "sidechain-certificate-error");
     }
 
-    if (maxHeight < chainActive.Height())
+    if (maxHeight < nHeight)
     {
         LogPrintf("ERROR: delayed certificate[%s], max height for receiving = %d, active height = %d\n",
             certHash.ToString(), maxHeight, chainActive.Height());

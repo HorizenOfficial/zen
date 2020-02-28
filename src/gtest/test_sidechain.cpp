@@ -346,10 +346,7 @@ TEST_F(SidechainTestSuite, InitialCoinsTransferDoesNotModifyScBalanceAfterCoinsM
     CBlockUndo anEmptyBlockUndo;
 
     //test
-    bool res = sidechainsView->ApplyMatureBalances(lookupBlockHeight, anEmptyBlockUndo);
-
-    //check
-    EXPECT_FALSE(res);
+    EXPECT_DEATH(sidechainsView->ApplyMatureBalances(lookupBlockHeight, anEmptyBlockUndo), "maturityHeight >= blockHeight");
 
     sidechainsView->Flush();
     ScInfo mgrInfos;
