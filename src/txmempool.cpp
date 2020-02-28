@@ -612,9 +612,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             assert(mapSidechains.count(scCreation.scId) != 0);
             assert(mapSidechains.at(scCreation.scId).scCreationTxHash == tx.GetHash());
 
-            // TODO
             //since sc creation is in mempool, there must not be in blockchain another sc re-declaring it
-            //assert(!pcoins->HaveScInfo(scCreation.scId));
+            assert(!pcoins->HaveScInfo(scCreation.scId));
         }
 
         for(const auto& fwd: tx.vft_ccout) {
@@ -627,10 +626,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             if (!mapSidechains.at(fwd.scId).scCreationTxHash.IsNull())
                 assert(mapTx.count(mapSidechains.at(fwd.scId).scCreationTxHash));
             else
-            {
-                // TODO
-                // assert(pcoins->HaveScInfo(fwd.scId));
-            }
+                assert(pcoins->HaveScInfo(fwd.scId));
         }
 
         boost::unordered_map<uint256, ZCIncrementalMerkleTree, CCoinsKeyHasher> intermediates;
