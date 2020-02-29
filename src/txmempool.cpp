@@ -264,7 +264,7 @@ void::CTxMemPool::removeInternal(
             }
 
             for(const auto& fwd: tx.vft_ccout) {
-                if (mapSidechains.count(fwd.scId)) { //this should be redundant. tx is guaranteed to be in mempool here, and any fwd tx should also be in mapSidechains
+                if (mapSidechains.count(fwd.scId)) { //Guard against double-delete on multiple fwds toward the same sc in same tx
                     mapSidechains.at(fwd.scId).CcTransfersSet.erase(tx.GetHash());
 
                     if (mapSidechains.at(fwd.scId).CcTransfersSet.size() == 0 && mapSidechains.at(fwd.scId).scCreationTxHash.IsNull())
@@ -273,12 +273,11 @@ void::CTxMemPool::removeInternal(
             }
 
             for(const auto& sc: tx.vsc_ccout) {
-                if (mapSidechains.count(sc.scId)) { //this should be redundant. tx is guaranteed to be in mempool here, and any sc tx should also be in mapSidechains
-                    mapSidechains.at(sc.scId).scCreationTxHash.SetNull();
-                                                                
-                    if (mapSidechains.at(sc.scId).CcTransfersSet.size() == 0)
-                        mapSidechains.erase(sc.scId);
-                }
+                assert(mapSidechains.count(sc.scId) != 0);
+                mapSidechains.at(sc.scId).scCreationTxHash.SetNull();
+
+                if (mapSidechains.at(sc.scId).CcTransfersSet.size() == 0)
+                    mapSidechains.erase(sc.scId);
             }
 
             removedTxs.push_back(tx);
@@ -291,8 +290,7 @@ void::CTxMemPool::removeInternal(
             nTransactionsUpdated++;
             minerPolicyEstimator->removeTx(hash);
         }
-        else
-        if (mapCertificate.count(hash))
+        else if (mapCertificate.count(hash))
         {
             const CScCertificate& cert = mapCertificate[hash].GetCertificate();
             if (fRecursive)
@@ -325,8 +323,6 @@ void::CTxMemPool::removeInternal(
             LogPrint("cert", "%s():%d - removing cert [%s] from mempool\n", __func__, __LINE__, hash.ToString() );
             mapCertificate.erase(hash);
             nCertificatesUpdated++;
-// TODO cert: miner policy not handled for certificates
-//        minerPolicyEstimator->removeTx(hash);
         }
     }
 }
