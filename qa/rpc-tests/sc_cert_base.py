@@ -11,7 +11,7 @@ import os
 from decimal import Decimal
 import pprint
 
-DEBUG_MODE = 1
+DEBUG_MODE = 0
 NUMB_OF_NODES = 3
 EPOCH_LENGTH = 5
 

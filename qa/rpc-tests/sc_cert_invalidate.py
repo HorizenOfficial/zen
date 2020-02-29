@@ -19,7 +19,7 @@ import pprint
 import time
 
 
-DEBUG_MODE = 1
+DEBUG_MODE = 0
 EPOCH_LENGTH = 5
 
 class sc_cert_invalidate(BitcoinTestFramework):

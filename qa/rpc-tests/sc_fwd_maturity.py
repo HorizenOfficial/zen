@@ -17,7 +17,7 @@ import logging
 import time
 
 NUMB_OF_NODES = 3
-DEBUG_MODE = 1
+DEBUG_MODE = 0
 
 class headers(BitcoinTestFramework):
 

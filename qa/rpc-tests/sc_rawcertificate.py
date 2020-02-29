@@ -20,7 +20,7 @@ import operator
 
 import time
 
-DEBUG_MODE = 1
+DEBUG_MODE = 0
 EPOCH_LENGTH = 5
 NUMB_OF_NODES = 4
 

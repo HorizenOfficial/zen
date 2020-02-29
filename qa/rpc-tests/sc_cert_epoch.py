@@ -12,7 +12,7 @@ import os
 from decimal import Decimal
 import time
 
-DEBUG_MODE = 1
+DEBUG_MODE = 0
 NUMB_OF_NODES = 4
 EPOCH_LENGTH = 5
 

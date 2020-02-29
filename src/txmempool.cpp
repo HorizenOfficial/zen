@@ -876,19 +876,20 @@ bool CCoinsViewMemPool::GetScInfo(const uint256& scId, ScInfo& info) const {
                 info.creationTxHash = scCreationHash;
                 info.creationData.withdrawalEpochLength = scCreation.withdrawalEpochLength;
             }
+    } else if (!base->GetScInfo(scId, info))
+        return false;
 
-//        //ABENEGIA: THIS IS WRONG SINCE ALSO THE CERTIFICATE IS STORE IN CcTransfersSet and it should be subtracted
-//        //construct immature amount infos
-//        for (const auto& fwdHash: mempool.mapSidechains.at(scId).CcTransfersSet) {
-//            const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
-//            for (const auto& fwdAmount : fwdTx.vft_ccout)
-//                if (scId == fwdAmount.scId)
-//                    info.mImmatureAmounts[-1] += fwdAmount.nValue;
-//        }
-        return true;
+    //decorate scInfo with fwds in mempool
+    if (mempool.mapSidechains.count(scId)) {
+        for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet) {
+            const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
+            for (const auto& fwdAmount : fwdTx.vft_ccout)
+                if (scId == fwdAmount.scId)
+                    info.mImmatureAmounts[-1] += fwdAmount.nValue;
+        }
     }
 
-    return base->GetScInfo(scId, info);
+    return true;
 }
 
 bool CCoinsViewMemPool::HaveScInfo(const uint256& scId) const {

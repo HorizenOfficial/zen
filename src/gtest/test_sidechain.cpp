@@ -950,6 +950,37 @@ TEST_F(SidechainTestSuite, queryScIdsOnChainstateDbSelectOnlySidechains) {
     boost::system::error_code ec;
     boost::filesystem::remove_all(pathTemp.string(), ec);
 }
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////// getScInfo ///////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST_F(SidechainTestSuite, scInfoFromMempoolRetrievesUnconfirmedInformation) {
+    CTxMemPool aMempool(CFeeRate(1));
+
+    //Confirm a Sidechain
+    uint256 scId = uint256S("dead");
+    CAmount creationAmount = 10;
+    CTransaction scTx = txCreationUtils::createNewSidechainTxWith(scId, creationAmount);
+    int scCreationHeight(11);
+    CBlock aBlock;
+    ASSERT_TRUE(sidechainsView->UpdateScInfo(scTx, aBlock, scCreationHeight));
+    ASSERT_TRUE(sidechainsView->Flush());
+
+    //a fwd is accepted in mempool
+    CAmount fwdAmount = 20;
+    CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount);
+    CTxMemPoolEntry fwdPoolEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdPoolEntry.GetTx().GetHash(), fwdPoolEntry);
+
+    //test
+    CCoinsViewMemPool viewMemPool(sidechainsView, aMempool);
+    ScInfo retrievedInfo;
+    viewMemPool.GetScInfo(scId, retrievedInfo);
+
+    //check
+    EXPECT_TRUE(retrievedInfo.creationBlockHeight == scCreationHeight);
+    EXPECT_TRUE(retrievedInfo.mImmatureAmounts.at(scCreationHeight + Params().ScCoinsMaturity()) == creationAmount);
+    EXPECT_TRUE(retrievedInfo.mImmatureAmounts.at(-1) == fwdAmount);
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Test Fixture definitions ///////////////////////////
