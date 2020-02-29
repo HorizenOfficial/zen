@@ -109,7 +109,8 @@ public:
 struct CSidechainMemPoolEntry
 {
     uint256 scCreationTxHash;
-    std::set<uint256> CcTransfersSet;
+    std::set<uint256> fwdTransfersSet;
+    uint256 backwardCertificate;
     // Note: in CcTransfersSet, a tx is registered only once, even if if sends multiple fwd founds to a sidechain
     // Upon removal we will need to guard against potential double deletes.
 };
