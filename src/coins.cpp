@@ -951,7 +951,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
     return true;
 }
 
-bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, int nHeight)
+bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert)
 {
     const uint256& scId = cert.scId;
     const CAmount& totalAmount = cert.totalAmount;

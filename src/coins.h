@@ -556,7 +556,7 @@ public:
     int getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber);
     CAmount getSidechainBalance(const uint256& scId) const;
     bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& bu);
-    bool RevertCertOutputs(const CScCertificate& cert, int nHeight);
+    bool RevertCertOutputs(const CScCertificate& cert);
 
     bool Flush();
 

@@ -165,10 +165,10 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
 {
     LOCK(cs);
     mapCertificate[hash] = entry;
-    // no mapNextTx or mapNullifiers handling is necessary for certs since they have no inputs or joinsplits 
 
-    const CScCertificate& cert = mapCertificate[hash].GetCertificate();
+    const CScCertificate& cert = entry.GetCertificate();
 
+    assert(mapSidechains[cert.scId].backwardCertificate.IsNull());
     mapSidechains[cert.scId].backwardCertificate = hash;
            
     LogPrint("sc", "%s():%d - cert [%s] added in mapSidechains for sc [%s]\n",
@@ -664,18 +664,6 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         innerUsage += it->second.DynamicMemoryUsage();
         CValidationState state;
 
-        //ABENEGIA: duplicated code here, while cleaning up class hyerarchy
-        for (auto it = mempool.mapCertificate.begin(); it != mempool.mapCertificate.end(); ++it)
-        {
-            const CScCertificate& loopCert = it->second.GetCertificate();
-
-            if ((loopCert.scId == cert.scId) && (loopCert.epochNumber == cert.epochNumber) && (loopCert.GetHash() != cert.GetHash()))
-            {
-                LogPrint("sc", "%s():%d - cert [%s] has conflicts in mempool\n", __func__, __LINE__, cert.GetHash().ToString());
-                assert(false);
-            }
-        } //ABENEGIA: end of duplicated code
-
         assert(cert.ContextualCheckInputs(state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
         // updating coins with cert outputs because the cache is checked below for
         // any tx inputs and maybe some tx has a cert out as its input.
@@ -903,19 +891,7 @@ bool CCoinsViewMemPool::IsCertAllowedInMempool(const CScCertificate& cert, CVali
         return true;
 
     // when called for checking the contents of mempool we can find the certificate itself, which is OK
-    uint256 conflictingCertHash;
-    //ABENEGIA: duplicated code here, while cleaning up class hyerarchy
-    for (auto it = mempool.mapCertificate.begin(); it != mempool.mapCertificate.end(); ++it)
-    {
-        const CScCertificate& loopCert = it->second.GetCertificate();
-
-        if ((loopCert.scId == cert.scId) && (loopCert.epochNumber == cert.epochNumber))
-        {
-            conflictingCertHash = loopCert.GetHash();
-            break;
-        }
-    } //ABENEGIA: end of duplicated code
-
+    const uint256 & conflictingCertHash = mempool.mapSidechains.at(cert.scId).backwardCertificate;
     if (conflictingCertHash == cert.GetHash()) //This currently happens with mempool.check
         return true;
 
@@ -926,13 +902,8 @@ bool CCoinsViewMemPool::IsCertAllowedInMempool(const CScCertificate& cert, CVali
 }
 
 bool CCoinsViewMemPool::HaveCertForEpoch(const uint256& scId, int epochNumber) const {
-
-    for (auto it = mempool.mapCertificate.begin(); it != mempool.mapCertificate.end(); ++it) {
-        const CScCertificate& mpCert = it->second.GetCertificate();
-
-        if ((mpCert.scId == scId) && (mpCert.epochNumber == epochNumber))
-            return true;
-    }
+    if ((mempool.mapSidechains.count(scId) != 0) && (!mempool.mapSidechains.at(scId).backwardCertificate.IsNull()))
+        return true;
 
     return base->HaveCertForEpoch(scId, epochNumber);
 }
