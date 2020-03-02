@@ -891,13 +891,20 @@ bool CCoinsViewMemPool::IsCertAllowedInMempool(const CScCertificate& cert, CVali
         return true;
 
     // when called for checking the contents of mempool we can find the certificate itself, which is OK
-    const uint256 & conflictingCertHash = mempool.mapSidechains.at(cert.scId).backwardCertificate;
-    if (conflictingCertHash == cert.GetHash()) //This currently happens with mempool.check
-        return true;
+    if (mempool.mapSidechains.count(cert.scId)) {
+        const uint256 & conflictingCertHash = mempool.mapSidechains.at(cert.scId).backwardCertificate;
+        if (conflictingCertHash == cert.GetHash()) //This currently happens with mempool.check
+            return true;
 
-    LogPrintf("ERROR: certificate %s for epoch %d is already been issued\n",
-        conflictingCertHash.ToString(), cert.epochNumber); //ABENEGIA: a cert with nullHash can make it to mempool or db???
-    return state.Invalid(error("A certificate with the same scId/epoch is already issued"),
+        LogPrintf("ERROR: certificate %s for epoch %d is already in mempool\n",
+            conflictingCertHash.ToString(), cert.epochNumber);
+        return state.Invalid(error("A certificate with the same scId/epoch is already in mempool"),
+             REJECT_INVALID, "sidechain-certificate-epoch");
+    }
+
+    LogPrintf("ERROR: certificate for epoch %d is already confirmed\n",
+        cert.epochNumber);
+    return state.Invalid(error("A certificate with the same scId/epoch is already confirmed"),
          REJECT_INVALID, "sidechain-certificate-epoch");
 }
 
