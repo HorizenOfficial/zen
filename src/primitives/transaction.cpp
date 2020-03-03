@@ -181,14 +181,14 @@ std::string COutPoint::ToString() const
     return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0,10), n);
 }
 
-CTxIn::CTxIn(COutPoint prevoutIn, CScript scriptSigIn, uint32_t nSequenceIn)
+CTxIn::CTxIn(const COutPoint& prevoutIn, const CScript& scriptSigIn, uint32_t nSequenceIn)
 {
     prevout = prevoutIn;
     scriptSig = scriptSigIn;
     nSequence = nSequenceIn;
 }
 
-CTxIn::CTxIn(uint256 hashPrevTx, uint32_t nOut, CScript scriptSigIn, uint32_t nSequenceIn)
+CTxIn::CTxIn(const uint256& hashPrevTx, const uint32_t& nOut, const CScript& scriptSigIn, uint32_t nSequenceIn)
 {
     prevout = COutPoint(hashPrevTx, nOut);
     scriptSig = scriptSigIn;
@@ -251,6 +251,31 @@ std::string CTxCertifierLockOut::ToString() const
 }
 
 //----------------------------------------------------------------------------
+bool CTxCrosschainOut::CheckAmountRange(CAmount& cumulatedAmount) const
+{
+    if (nValue == CAmount(0) || !MoneyRange(nValue))
+    {
+        LogPrint("sc", "%s():%d - ERROR: invalid nValue %lld\n", __func__, __LINE__, nValue);
+        return false;
+    }
+
+    cumulatedAmount += nValue;
+
+    if (!MoneyRange(cumulatedAmount))
+    {
+        LogPrint("sc", "%s():%d - ERROR: invalid cumulated value %lld\n", __func__, __LINE__, cumulatedAmount);
+        return false;
+    }
+
+    return true;
+}
+
+CTxScCreationOut::CTxScCreationOut(
+    const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn,
+    const Sidechain::ScCreationParameters& paramsIn)
+    :CTxCrosschainOut(scIdIn, nValueIn, addressIn),
+     withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData) {}
+
 uint256 CTxScCreationOut::GetHash() const
 {
     return SerializeHash(*this);
@@ -258,8 +283,8 @@ uint256 CTxScCreationOut::GetHash() const
 
 std::string CTxScCreationOut::ToString() const
 {
-    return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d",
-        scId.ToString(), withdrawalEpochLength);
+    return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, customData=[%s]",
+        scId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData) );
 }
 
 
@@ -441,31 +466,7 @@ CAmount CTransaction::GetValueOut() const
             throw std::runtime_error("CTransaction::GetValueOut(): value out of range");
     }
 
-    nValueOut += (GetValueCertifierLockCcOut() + GetValueForwardTransferCcOut() );
-    return nValueOut;
-}
-
-CAmount CTransaction::GetValueCertifierLockCcOut() const
-{
-    CAmount nValueOut = 0;
-    for (std::vector<CTxCertifierLockOut>::const_iterator it(vcl_ccout.begin()); it != vcl_ccout.end(); ++it)
-    {
-        nValueOut += it->nValue;
-        if (!MoneyRange(it->nValue) || !MoneyRange(nValueOut))
-            throw std::runtime_error("CTransaction::GetValueCertifierLockCcOut(): value out of range");
-    }
-    return nValueOut;
-}
-
-CAmount CTransaction::GetValueForwardTransferCcOut() const
-{
-    CAmount nValueOut = 0;
-    for (std::vector<CTxForwardTransferOut>::const_iterator it(vft_ccout.begin()); it != vft_ccout.end(); ++it)
-    {
-        nValueOut += it->nValue;
-        if (!MoneyRange(it->nValue) || !MoneyRange(nValueOut))
-            throw std::runtime_error("CTransaction::GetValueForwardTransferCcOut(): value out of range");
-    }
+    nValueOut += (GetValueCcOut(vsc_ccout) + GetValueCcOut(vcl_ccout) + GetValueCcOut(vft_ccout));
     return nValueOut;
 }
 

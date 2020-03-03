@@ -1027,6 +1027,7 @@ void AddScInfoToJSON(const uint256& scId, const ScInfo& info, UniValue& sc)
     sc.push_back(Pair("last certificate epoch", info.lastReceivedCertificateEpoch));
     // creation parameters
     sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
+    sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
 
     UniValue ia(UniValue::VARR);
     BOOST_FOREACH(const auto& entry, info.mImmatureAmounts)

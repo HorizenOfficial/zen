@@ -12,7 +12,7 @@ import os
 from decimal import Decimal
 import time
 
-DEBUG_MODE = 0
+DEBUG_MODE = 1
 NUMB_OF_NODES = 4
 EPOCH_LENGTH = 5
 
@@ -65,8 +65,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         bal_before = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance before SC creation: {}".format(bal_before), self.nodes, DEBUG_MODE)
 
-        amounts = [{"address": "dada", "amount": creation_amount}]
-        creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, amounts)
+        creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "abcdef010101abcdef");
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 

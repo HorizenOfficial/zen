@@ -43,8 +43,6 @@ using namespace std;
 using namespace libzcash;
 using namespace Sidechain;
 
-extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
-
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
 
@@ -591,8 +589,6 @@ UniValue sc_send(const UniValue& params, bool fHelp)
         }
     }
 
-
-
     // Wallet comments
     CWalletTx wtx;
 
@@ -702,24 +698,23 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp ||  params.size() != 3 ) 
+    if (fHelp ||  params.size() < 4 ) 
         throw runtime_error(
             "sc_create \"scid\" withdrawalEpochLength [{\"address\":... ,\"amount\":...,...},...]\n"
             "\nCreate a Side chain with the given id staring from the given block. A fixed amount is charged to the creator\n"
             "\nIt also sends cross chain forward transfer of coins multiple times. Amounts are double-precision floating point numbers."
             "\nArguments:\n"
             "1. \"side chain ID\"          (string, required) The uint256 side chain ID\n"
-            "2. withdrawalEpochLength:   (numeric, length of the withdrawal epochs\n"
-            "3. \"amounts\"                (array, required, nonempty) An array of json objects representing the amounts to send.\n"
-            "    [{\n"                     
-            "      \"address\":address     (string, required) The receiver PublicKey25519Proposition in the SC\n"
-            "      \"amount\":amount       (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
-            "    }, ... ]\n"
+            "2. withdrawalEpochLength:   (numeric, required) Length of the withdrawal epochs\n"
+            "3. \"address\"                (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "4. amount:                  (numeric, required) The numeric amount in ZEN is the value\n"
+            "5. \"customData\"             (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                   hexadecimal format. A max limit of 1024 bytes will be checked\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sc_create", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 123456 '[{\"address\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0}]'")
+            + HelpExampleCli("sc_create", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 123456 \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" 5.0 \"abcd..ef\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -741,60 +736,57 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     }
 
     int withdrawalEpochLength = params[1].get_int(); 
+    if (withdrawalEpochLength < getScMinWithdrawalEpochLength())
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid withdrawalEpochLength, less that minimum value allowed\n");
 
-    UniValue outputs = params[2].get_array();
+    uint256 address;
+    inputString = params[2].get_str();
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address format: not an hex");
+    address.SetHex(inputString);
 
-    if (outputs.size()==0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output array is empty.");
+    CAmount nAmount = AmountFromValue(params[3]);
+    if (nAmount <= 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
 
     CRecipientScCreation sc;
     sc.scId = scId;
+    sc.address = address;
+    sc.nValue = nAmount;
     sc.creationData.withdrawalEpochLength = withdrawalEpochLength;
+
+    if (params.size() > 4)
+    {
+        inputString = params[4].get_str();
+        
+        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid customData format: not an hex");
+ 
+        const unsigned int cdLen = inputString.length();
+        // we prefer to avoid padding with 0 any odd hex string
+        if (cdLen%2)
+            throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Invalid customData length %d, must be even (byte string)", cdLen));
+ 
+        const unsigned int cdDataLen = cdLen/2;
+ 
+        if (cdDataLen > MAX_CUSTOM_DATA_LEN)
+            throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Invalid customData length %d, must be %d bytes at most",
+                cdDataLen, MAX_CUSTOM_DATA_LEN));
+        
+        CScCustomData cdBlob;
+        cdBlob.SetHex(inputString);
+        cdBlob.fill(sc.creationData.customData, cdDataLen);
+    }
 
     CcRecipientVariant r(sc);
 
-    vector<CcRecipientVariant> vecSend;
-    vecSend.push_back(r);
-
-    // Recipients
-    CAmount nTotalOut = 0;
-
-    for (const UniValue& o : outputs.getValues())
-    {
-        if (!o.isObject())
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
-
-        // sanity check, report error if unknown key-value pairs
-        for (const string& s : o.getKeys())
-        {
-            if (s != "address" && s != "amount")
-                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
-        }
-
-        uint256 address;
-        address.SetHex(find_value(o, "address").get_str() );
-
-        UniValue av = find_value(o, "amount");
-        CAmount nAmount = AmountFromValue( av );
-        if (nAmount <= 0)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
-
-        CRecipientForwardTransfer ft;
-        ft.address = address;
-        ft.nValue = nAmount;
-
-        // the scId we are creating
-        ft.scId = scId;
-
-        vecSend.push_back(CcRecipientVariant(ft));
-
-        nTotalOut += nAmount;
-    }
+    vector<CcRecipientVariant> vecCcSend;
+    vecCcSend.push_back(r);
 
     EnsureWalletIsUnlocked();
 
     CWalletTx wtx;
-    ScHandleTransaction(wtx, vecSend, nTotalOut);
+    ScHandleTransaction(wtx, vecCcSend, nAmount);
 
     return wtx.GetHash().GetHex();
 }

@@ -1,7 +1,8 @@
 #include "tx_creation_utils.h"
 #include <script/interpreter.h>
+#include <main.h>
 
-CMutableTransaction txCreationUtils::populateTx(int txVersion, const uint256 & newScId, const CAmount & fwdTxAmount)
+CMutableTransaction txCreationUtils::populateTx(int txVersion, const uint256 & newScId, const CAmount & creationTxAmount, const CAmount & fwdTxAmount)
 {
     CMutableTransaction mtx;
     mtx.nVersion = txVersion;
@@ -27,6 +28,8 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const uint256 & n
 
     mtx.vsc_ccout.resize(1);
     mtx.vsc_ccout[0].scId = newScId;
+    mtx.vsc_ccout[0].nValue = creationTxAmount;
+    mtx.vsc_ccout[0].withdrawalEpochLength = getScMinWithdrawalEpochLength();
 
     mtx.vft_ccout.resize(1);
     mtx.vft_ccout[0].scId = mtx.vsc_ccout[0].scId;
@@ -56,11 +59,12 @@ void txCreationUtils::signTx(CMutableTransaction& mtx)
     assert(crypto_sign_detached(&mtx.joinSplitSig[0], NULL, dataToBeSigned.begin(), 32, joinSplitPrivKey ) == 0);
 }
 
-CTransaction txCreationUtils::createNewSidechainTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
+CTransaction txCreationUtils::createNewSidechainTxWith(const uint256 & newScId, const CAmount & creationTxAmount)
 {
-    CMutableTransaction mtx = populateTx(SC_TX_VERSION, newScId, fwdTxAmount);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, newScId, creationTxAmount, CAmount(0));
     mtx.vout.resize(0);
     mtx.vjoinsplit.resize(0);
+    mtx.vft_ccout.resize(0);
     signTx(mtx);
 
     return CTransaction(mtx);
@@ -68,7 +72,7 @@ CTransaction txCreationUtils::createNewSidechainTxWith(const uint256 & newScId, 
 
 CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
 {
-    CMutableTransaction mtx = populateTx(SC_TX_VERSION, newScId, fwdTxAmount);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, newScId, CAmount(0), fwdTxAmount);
     mtx.vout.resize(0);
     mtx.vjoinsplit.resize(0);
     mtx.vsc_ccout.resize(0);

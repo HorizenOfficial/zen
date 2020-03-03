@@ -80,7 +80,7 @@ public:
     }
 
 protected:
-    CTransaction GenerateScTx(const uint256 & newScId, const CAmount & fwdTxAmount);
+    CTransaction GenerateScTx(const uint256 & newScId, const CAmount & creationTxAmount);
     CTransaction GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount);
 
 private:
@@ -476,7 +476,7 @@ bool SidechainsInMempoolTestSuite::StoreCoins(const std::pair<uint256, CCoinsCac
     return view.HaveCoins(entryToStore.first) == true;
 }
 
-CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const uint256 & newScId, const CAmount & fwdTxAmount) {
+CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const uint256 & newScId, const CAmount & creationTxAmount) {
     std::pair<uint256, CCoinsCacheEntry> coinData = GenerateCoinsAmount(1000);
     StoreCoins(coinData);
 
@@ -487,10 +487,8 @@ CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const uint256 & newScId,
 
     scTx.vsc_ccout.resize(1);
     scTx.vsc_ccout[0].scId = newScId;
-
-    scTx.vft_ccout.resize(1);
-    scTx.vft_ccout[0].scId   = newScId;
-    scTx.vft_ccout[0].nValue = fwdTxAmount;
+    scTx.vsc_ccout[0].nValue = creationTxAmount;
+    scTx.vsc_ccout[0].withdrawalEpochLength = getScMinWithdrawalEpochLength();
 
     SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);
 

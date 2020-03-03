@@ -31,8 +31,6 @@ inline bool AllowFree(double dPriority)
 /** Fake height value used in CCoins to signify they are only in the memory pool (since 0.8) */
 static const unsigned int MEMPOOL_HEIGHT = 0x7FFFFFFF;
 
-class CTxMemPool;
-
 class CMemPoolEntry
 {
 protected:
@@ -45,6 +43,7 @@ protected:
 public:
     CMemPoolEntry();
     CMemPoolEntry(const CAmount& _nFee, int64_t _nTime, double _dPriority, unsigned int _nHeight);
+    virtual ~CMemPoolEntry() = default;
     virtual double GetPriority(unsigned int currentHeight) const = 0;
     CAmount GetFee() const { return nFee; }
     int64_t GetTime() const { return nTime; }
@@ -111,7 +110,7 @@ struct CSidechainMemPoolEntry
     uint256 scCreationTxHash;
     std::set<uint256> fwdTransfersSet;
     uint256 backwardCertificate;
-    // Note: in CcTransfersSet, a tx is registered only once, even if if sends multiple fwd founds to a sidechain
+    // Note: in fwdTransfersSet, a tx is registered only once, even if if sends multiple fwd founds to a sidechain
     // Upon removal we will need to guard against potential double deletes.
 };
 

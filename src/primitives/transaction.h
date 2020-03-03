@@ -26,6 +26,7 @@
 #include "hash.h"
 
 #include "consensus/params.h"
+#include <sc/sidechaintypes.h>
 
 // uncomment for debugging some sc related hashing calculations
 //#define DEBUG_SC_HASH 1
@@ -266,7 +267,7 @@ public:
     uint32_t n;
 
     BaseOutPoint() { SetNull(); }
-    BaseOutPoint(uint256 hashIn, uint32_t nIn): hash(hashIn), n(nIn) {}
+    BaseOutPoint(const uint256& hashIn, uint32_t nIn): hash(hashIn), n(nIn) {}
 
     ADD_SERIALIZE_METHODS;
 
@@ -300,7 +301,7 @@ class COutPoint : public BaseOutPoint
 {
 public:
     COutPoint() : BaseOutPoint() {};
-    COutPoint(uint256 hashIn, uint32_t nIn) : BaseOutPoint(hashIn, nIn) {};
+    COutPoint(const uint256& hashIn, uint32_t nIn) : BaseOutPoint(hashIn, nIn) {};
     std::string ToString() const;
 };
 
@@ -322,8 +323,8 @@ public:
         nSequence = std::numeric_limits<unsigned int>::max();
     }
 
-    explicit CTxIn(COutPoint prevoutIn, CScript scriptSigIn=CScript(), uint32_t nSequenceIn=std::numeric_limits<unsigned int>::max());
-    CTxIn(uint256 hashPrevTx, uint32_t nOut, CScript scriptSigIn=CScript(), uint32_t nSequenceIn=std::numeric_limits<uint32_t>::max());
+    explicit CTxIn(const COutPoint& prevoutIn, const CScript& scriptSigIn=CScript(), uint32_t nSequenceIn=std::numeric_limits<unsigned int>::max());
+    CTxIn(const uint256& hashPrevTx, const uint32_t& nOut, const CScript& scriptSigIn=CScript(), uint32_t nSequenceIn=std::numeric_limits<uint32_t>::max());
 
     ADD_SERIALIZE_METHODS;
 
@@ -432,33 +433,30 @@ public:
 class CTxCrosschainOut
 {
 public:
-    // depending on child, it represents:
-    // -  the value to be sent to SC (fwd transf)
-    // -  a locked amount (cert lock)
+    uint256 scId;
     CAmount nValue;
-
     uint256 address;
 
-    uint256 scId;
-
-    CTxCrosschainOut(const CAmount& nValueIn, uint256 addressIn, uint256 scIdIn)
-        : nValue(nValueIn), address(addressIn), scId(scIdIn) { }
+    CTxCrosschainOut(const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn)
+        : scId(scIdIn), nValue(nValueIn), address(addressIn) { }
 
     virtual ~CTxCrosschainOut() {};
 
     CTxCrosschainOut() { SetNull(); }
 
-    void SetNull()
+    virtual void SetNull()
     {
+        scId.SetNull();
         nValue = -1;
-        address = uint256();
-        scId = uint256();
+        address.SetNull();
     }
 
     bool IsNull() const
     {
         return (nValue == -1);
     }
+
+    bool CheckAmountRange(CAmount& cumulatedAmount) const;
 
     CAmount GetDustThreshold(const CFeeRate &minRelayTxFee) const
     {
@@ -489,9 +487,9 @@ public:
 protected:
     static bool isBaseEqual(const CTxCrosschainOut& a, const CTxCrosschainOut& b)
     {
-        return (a.nValue  == b.nValue &&
-                a.address == b.address &&
-                a.scId    == b.scId);
+        return (a.scId    == b.scId &&
+                a.nValue  == b.nValue &&
+                a.address == b.address);
     }
 
 };
@@ -502,8 +500,8 @@ public:
 
     CTxForwardTransferOut() { SetNull(); }
 
-    CTxForwardTransferOut( const CAmount& nValueIn, uint256 addressIn, uint256 scIdIn):
-        CTxCrosschainOut(nValueIn, addressIn, scIdIn) {}
+    CTxForwardTransferOut(const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn):
+        CTxCrosschainOut(scIdIn, nValueIn, addressIn) {}
 
     ADD_SERIALIZE_METHODS;
 
@@ -528,11 +526,11 @@ public:
     }
 };
 
-class CTxScCreationOut
+class CTxScCreationOut : public CTxCrosschainOut
 {
 public:
-    uint256 scId;
     int withdrawalEpochLength; 
+    std::vector<unsigned char> customData;
 /*
     TODO check and add 
     ------------------
@@ -546,8 +544,7 @@ public:
 
     CTxScCreationOut() { SetNull(); }
 
-    CTxScCreationOut(uint256 scIdIn, int withdrawalEpochLengthIn)
-        :scId(scIdIn), withdrawalEpochLength(withdrawalEpochLengthIn) {}
+    CTxScCreationOut(const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn, const Sidechain::ScCreationParameters& params);
 
     ADD_SERIALIZE_METHODS;
 
@@ -555,21 +552,26 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(scId);
         READWRITE(withdrawalEpochLength);
+        READWRITE(nValue);
+        READWRITE(address);
+        READWRITE(customData);
     }
 
-    void SetNull()
+    virtual void SetNull() override
     {
-        scId = uint256();
+        CTxCrosschainOut::SetNull();
         withdrawalEpochLength = -1;
+        customData.clear();
     }
 
-    virtual uint256 GetHash() const;
-    virtual std::string ToString() const;
+    virtual uint256 GetHash() const override;
+    virtual std::string ToString() const override;
 
     friend bool operator==(const CTxScCreationOut& a, const CTxScCreationOut& b)
     {
-        return ( a.scId == b.scId &&
-                a.withdrawalEpochLength == b.withdrawalEpochLength);
+        return (isBaseEqual(a, b) &&
+                 a.withdrawalEpochLength == b.withdrawalEpochLength &&
+                 a.customData == b.customData);
     }
 
     friend bool operator!=(const CTxScCreationOut& a, const CTxScCreationOut& b)
@@ -586,8 +588,8 @@ public:
 
     CTxCertifierLockOut() { SetNull(); }
 
-    CTxCertifierLockOut(const CAmount& nValueIn, uint256 addressIn, uint256 scIdIn, int64_t epoch)
-        :CTxCrosschainOut(nValueIn, addressIn, scIdIn), activeFromWithdrawalEpoch(epoch) {}
+    CTxCertifierLockOut(const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn, int64_t epoch)
+        :CTxCrosschainOut(scIdIn, nValueIn, addressIn), activeFromWithdrawalEpoch(epoch) {}
 
     ADD_SERIALIZE_METHODS;
 
@@ -746,8 +748,6 @@ public:
     // inputs must be known to compute value in.
     virtual CAmount GetValueIn(const CCoinsViewCache& view) const { return 0; }
 
-    virtual CAmount GetValueCcOut() const { return 0; }
-
     virtual bool CheckInputsLimit(size_t limit, size_t& n) const { return true; }
 };
 
@@ -862,10 +862,6 @@ public:
     // value in should be computed via the method above using a proper coin view
     CAmount GetFeeAmount(CAmount valueIn) const override { return (valueIn - GetValueOut() ); }
 
-    // Return sum of txccouts.
-    CAmount GetValueCertifierLockCcOut() const;
-    CAmount GetValueForwardTransferCcOut() const;
-
     size_t getVjoinsplitSize() const override { return vjoinsplit.size(); }
     int GetComplexity() const override { return vin.size()*vin.size(); }
     const uint256 getJoinSplitPubKey() const override { return joinSplitPubKey; }
@@ -877,9 +873,22 @@ public:
 
  private:
     template <typename T>
+    inline CAmount GetValueCcOut(const T& ccout) const
+    {
+        CAmount nValueOut = 0;
+        for (const auto& it : ccout)
+        {
+            nValueOut += it.nValue;
+            if (!MoneyRange(it.nValue) || !MoneyRange(nValueOut))
+                throw std::runtime_error("CTransaction::GetValueCcOut(): value out of range");
+        }
+        return nValueOut;
+    }
+
+    template <typename T>
     inline void fillCrosschainOutput(const T& vOuts, unsigned int& nIdx, std::map<uint256, std::vector<uint256> >& map) const
     {
-        uint256 txHash = GetHash();
+        const uint256& txHash = GetHash();
  
         for(const auto& txccout : vOuts)
         {
@@ -890,13 +899,13 @@ public:
             LogPrint("sc", "%s():%d - processing scId[%s], vec size = %d\n",
                 __func__, __LINE__, txccout.scId.ToString(), vec.size());
  
-            uint256 ccoutHash = txccout.GetHash();
+            const uint256& ccoutHash = txccout.GetHash();
             unsigned int n = nIdx;
  
             LogPrint("sc", "%s():%d -Inputs: h1[%s], h2[%s], n[%d]\n",
                 __func__, __LINE__, ccoutHash.ToString(), txHash.ToString(), n);
 
-            uint256 entry = Hash(
+            const uint256& entry = Hash(
                 BEGIN(ccoutHash), END(ccoutHash),
                 BEGIN(txHash),    END(txHash),
                 BEGIN(n),         END(n) );
@@ -907,13 +916,13 @@ public:
             ss2 << txHash;
             ss2 << n;
             std::string ser2( HexStr(ss2.begin(), ss2.end()));
-            uint256 entry2 = Hash(ss2.begin(), ss2.begin() + (unsigned int)ss2.in_avail() );
+            const uint256& entry2 = Hash(ss2.begin(), ss2.begin() + (unsigned int)ss2.in_avail() );
 
             CHashWriter ss3(SER_GETHASH, PROTOCOL_VERSION);
             ss3 << ccoutHash;
             ss3 << txHash;
             ss3 << n;
-            uint256 entry3 = ss3.GetHash();
+            const uint256& entry3 = ss3.GetHash();
 
             CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
             ss << txccout;

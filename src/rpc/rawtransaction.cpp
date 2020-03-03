@@ -517,7 +517,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 {   
     if (fHelp || params.size() > 4)
         throw runtime_error(
-            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} ( [{\"scid\":\"id\", epoch_length\":h},...] ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id}] ) )\n"
+            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} ( [{\"scid\":\"id\", epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"customData\":hexstr},...] ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id}] ) )\n"
             "\nCreate a transaction spending the given inputs and sending to the given addresses.\n"
             "Returns hex-encoded raw transaction.\n"
             "Note that the transaction's inputs are not signed, and\n"
@@ -543,6 +543,9 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "       {\n"
             "         \"scid\":\"id\",   (string, required) The side chain id\n"
             "         \"epoch_length\":n (numeric, required) length of the withdrawal epochs"
+            "         \"address\":\"address\",  (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "         \"amount\":amount         (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
+            "         \"customData\":hexstr     (string, required) It is an arbitrary byte string of even length expressed in\n"
             "       }\n"
             "       ,...\n"
             "     ]\n"

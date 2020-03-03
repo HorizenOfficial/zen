@@ -120,7 +120,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "sc_sendmany", 0},
     { "sc_certlock_many", 0},
     { "sc_create", 1 },
-    { "sc_create", 2 },
+    { "sc_create", 3 },
     { "send_certificate", 1 },
     { "send_certificate", 3 },
     { "send_certificate", 4 },

@@ -118,7 +118,7 @@ public:
  
         for(const auto& vout : vOuts)
         {
-            uint256 ccoutHash = vout.GetHash();
+            const uint256& ccoutHash = vout.GetHash();
             unsigned int n = nIdx;
  
             LogPrint("sc", "%s():%d -Inputs: h1[%s], h2[%s], n[%d]\n",
@@ -197,7 +197,8 @@ struct CMutableScCertificate : public CMutableTransactionBase
     }
 
     template <typename Stream>
-    CMutableScCertificate(deserialize_type, Stream& s) : totalAmount(0) {
+    CMutableScCertificate(deserialize_type, Stream& s) :
+    scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), totalAmount(), vbt_ccout(), nonce() {
         Unserialize(s);
     }
 
@@ -211,6 +212,8 @@ struct CMutableScCertificate : public CMutableTransactionBase
 class CTxBackwardTransferCrosschainOut
 {
 public:
+    CTxBackwardTransferCrosschainOut() = default;
+    virtual ~CTxBackwardTransferCrosschainOut() = default;
 
     ADD_SERIALIZE_METHODS;
 

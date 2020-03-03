@@ -11,7 +11,7 @@ import os
 from decimal import Decimal
 import pprint
 
-DEBUG_MODE = 0
+DEBUG_MODE = 1
 NUMB_OF_NODES = 3
 EPOCH_LENGTH = 5
 
@@ -65,8 +65,7 @@ class sc_cert_base(BitcoinTestFramework):
         bal_before = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance before SC creation: {}".format(bal_before), self.nodes, DEBUG_MODE)
 
-        amounts = [{"address": "dada", "amount": creation_amount}]
-        creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, amounts)
+        creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "abcdef")
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
@@ -104,7 +103,7 @@ class sc_cert_base(BitcoinTestFramework):
 #         mark_logs("Node0 generating 1 more blocks to achieve end epoch", self.nodes, DEBUG_MODE)
 #         blocks.extend(self.nodes[0].generate(1))
 #         self.sync_all()
-# 
+#
 #         print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
 #         mark_logs("Sc {} state: {}".format(scid, self.nodes[0].getscinfo(scid)), self.nodes, DEBUG_MODE)
 
@@ -112,7 +111,7 @@ class sc_cert_base(BitcoinTestFramework):
         epoch_number = (current_height - sc_creating_height + 1) // EPOCH_LENGTH - 1
         mark_logs("Current height {}, Sc creation height {}, epoch length {} --> current epoch number {}"
                   .format(current_height, sc_creating_height, EPOCH_LENGTH, epoch_number), self.nodes, DEBUG_MODE)
-        epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height -1 + ((epoch_number + 1) * EPOCH_LENGTH))
+        epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * EPOCH_LENGTH))
         eph_wrong = self.nodes[0].getblockhash(sc_creating_height)
         print "epoch_number = ", epoch_number, ", epoch_block_hash = ", epoch_block_hash
 

@@ -12,7 +12,7 @@
 class CInMemorySidechainDb final: public CCoinsView {
 public:
     CInMemorySidechainDb()  = default;
-    ~CInMemorySidechainDb() = default;
+    virtual ~CInMemorySidechainDb() = default;
 
     bool HaveScInfo(const uint256& scId) const { return inMemoryMap.count(scId); }
     bool GetScInfo(const uint256& scId, ScInfo& info) const {
@@ -867,6 +867,30 @@ TEST_F(SidechainTestSuite, FlushPersistsScErasureToo) {
     EXPECT_FALSE(fakeChainStateDb->HaveScInfo(scId));
 }
 
+TEST_F(SidechainTestSuite, FlushPersistsNewScsOnTopOfErasedOnes) {
+    uint256 scId = uint256S("a1b2");
+    CBlock aBlock;
+
+    //Create new sidechain and flush it
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
+    sidechainsView->UpdateScInfo(scCreationTx, aBlock, /*height*/int(1789));
+    sidechainsView->Flush();
+    ASSERT_TRUE(fakeChainStateDb->HaveScInfo(scId));
+
+    //Remove it and flush again
+    sidechainsView->RevertTxOutputs(scCreationTx, /*height*/int(1789));
+    sidechainsView->Flush();
+    ASSERT_FALSE(fakeChainStateDb->HaveScInfo(scId));
+
+    //re-create sc with same scId as erased one
+    CTransaction scReCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(20));
+    sidechainsView->UpdateScInfo(scReCreationTx, aBlock, /*height*/int(1815));
+    bool res = sidechainsView->Flush();
+
+    //checks
+    EXPECT_TRUE(res);
+    EXPECT_TRUE(fakeChainStateDb->HaveScInfo(scId));
+}
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// queryScIds //////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////

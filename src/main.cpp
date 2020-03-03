@@ -7562,6 +7562,13 @@ int getCheckBlockAtHeightSafeDepth()
     return retVal;
 }
 
+int getScMinWithdrawalEpochLength()
+{
+    // gets constructed just one time
+    static int retVal(Params().ScMinWithdrawalEpochLength());
+    return retVal;
+}
+
 static int getInitCbhMinAge()
 {
     if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )

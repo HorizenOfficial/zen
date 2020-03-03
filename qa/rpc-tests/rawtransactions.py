@@ -172,33 +172,23 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
 
         sc_address="0000000000000000000000000000000000000000000000000000000000000abc"
-        scid="0000000000000000000000000000000000000000000000000000000000000022"
-        sc_epoch=123
-        sc_amount=Decimal('10.00000000')
-        sc=[{"scid": scid,"epoch_length": sc_epoch}]
+        scid = "0000000000000000000000000000000000000000000000000000000000000022"
+        sc_epoch = 123
+        sc_cr_amount = Decimal('3.00000000')
+        sc_ft_amount = Decimal('7.00000000')
+        sc_amount = sc_cr_amount + sc_ft_amount
+        sc_cr = [{"scid": scid,"epoch_length": sc_epoch, "amount":sc_cr_amount, "address":sc_address, "customData":"badcaffe"}]
 
         #Try create a SC with no inputs
         print("Try create a SC with no inputs...")
 
-        rawtx=self.nodes[0].createrawtransaction([],{},sc)
+        rawtx=self.nodes[0].createrawtransaction([],{},sc_cr)
         sigRawtx = self.nodes[0].signrawtransaction(rawtx)
         try:
             finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
         except JSONRPCException,e:
             errorString = e.error['message']
         assert_equal("vin-empty" in errorString, True)
-
-        #Try create a SC with no FT
-        print("Try create a SC with no FT...")
-
-        inputs = [{'txid': txid, 'vout': 1}]
-        rawtx=self.nodes[0].createrawtransaction(inputs,{},sc)
-        sigRawtx = self.nodes[0].signrawtransaction(rawtx)
-        try:
-            finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
-        except JSONRPCException,e:
-            errorString = e.error['message']
-        assert_equal("missing-fwd-transfer" in errorString, True)
 
         #Create a SC
         print("Create a SC of id: "+scid)
@@ -211,8 +201,8 @@ class RawTransactionsTest(BitcoinTestFramework):
                 break;
 
         inputs = [{'txid': txid, 'vout': vout['n']}]
-        sc_ft=[{"address": sc_address, "amount":sc_amount, "scid": scid}]
-        rawtx=self.nodes[0].createrawtransaction(inputs,{},sc,sc_ft)
+        sc_ft = [{"address": sc_address, "amount":sc_ft_amount, "scid": scid}]
+        rawtx=self.nodes[0].createrawtransaction(inputs,{},sc_cr,sc_ft)
         sigRawtx = self.nodes[0].signrawtransaction(rawtx)
         finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
 
@@ -239,31 +229,23 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert(len(decodedTx['vsc_ccout'])==1)
         assert_equal(decodedTx['vsc_ccout'][0]['scid'],scid)
         assert_equal(decodedTx['vsc_ccout'][0]['withdrawal epoch length'],sc_epoch)
+        assert_equal(decodedTx['vsc_ccout'][0]['value'],sc_cr_amount)
+        assert_equal(decodedTx['vsc_ccout'][0]['address'],sc_address)
 
         assert(len(decodedTx['vft_ccout'])==1)
         assert_equal(decodedTx['vft_ccout'][0]['scid'],scid)
-        assert_equal(decodedTx['vft_ccout'][0]['value'],sc_amount)
+        assert_equal(decodedTx['vft_ccout'][0]['value'],sc_ft_amount)
         assert_equal(decodedTx['vft_ccout'][0]['address'],sc_address)
 
         #Try create same SC
         print("Try create a SC with the same scid...")
 
-        txid2=self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(),10.0)
-        self.sync_all()
+        new_amount = Decimal("11.33")
 
-        self.nodes[0].generate(1)
-        self.sync_all()
-
-        decodedTx=self.nodes[0].decoderawtransaction(self.nodes[0].gettransaction(txid2)['hex'])
-        vout = {}
-        for outpoint in decodedTx['vout']:
-            if outpoint['value'] == Decimal('10.0'):
-                vout = outpoint
-                break;
-
-        inputs = [{'txid': txid2, 'vout': vout['n']}]
-        sc_ft=[{"address": sc_address, "amount": sc_amount, "scid": scid}]
-        rawtx=self.nodes[0].createrawtransaction(inputs,{},sc,sc_ft)
+        sc_amount = new_amount - Decimal("7.23456")
+        inputs = []
+        sc_ft = [{"address":sc_address, "amount":sc_amount, "scid": scid}]
+        rawtx=self.nodes[0].createrawtransaction(inputs,{},sc_cr,sc_ft)
         sigRawtx = self.nodes[0].signrawtransaction(rawtx)
 
         try:
@@ -274,10 +256,11 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert_true(error)
 
         #Try create a FT
-        print("Try create new FT of 10 coins")
+        print("Try create new FT of 11 coins using fund cmd")
 
         rawtx=self.nodes[0].createrawtransaction(inputs,{},[],sc_ft)
-        sigRawtx = self.nodes[0].signrawtransaction(rawtx)
+        funded_tx = self.nodes[0].fundrawtransaction(rawtx)
+        sigRawtx = self.nodes[0].signrawtransaction(funded_tx['hex'])
         finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
 
         self.sync_all()

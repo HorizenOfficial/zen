@@ -4,10 +4,10 @@
 #include <primitives/transaction.h>
 
 namespace txCreationUtils {
-CMutableTransaction populateTx(int txVersion, const uint256 & newScId = uint256S("0"), const CAmount & fwdTxAmount = CAmount(0));
+CMutableTransaction populateTx(int txVersion, const uint256 & newScId = uint256S("0"), const CAmount & creationTxAmount = CAmount(0), const CAmount & fwdTxAmount = CAmount(0));
 void signTx(CMutableTransaction& mtx);
 
-CTransaction createNewSidechainTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
+CTransaction createNewSidechainTxWith(const uint256 & newScId, const CAmount & creationTxAmount);
 CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
 
 CTransaction createNewSidechainTxWithNoFwdTransfer(const uint256 & newScId);

@@ -43,37 +43,37 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
 
     LogPrint("sc", "%s():%d - tx=%s\n", __func__, __LINE__, txHash.ToString() );
 
-    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
+    CAmount cumulatedAmount = 0;
+
+    static const int SC_MIN_WITHDRAWAL_EPOCH_LENGTH = getScMinWithdrawalEpochLength();
+
+    for (const auto& sc : tx.vsc_ccout)
     {
-        // check there is at least one fwt associated with this scId
-        if (!Sidechain::anyForwardTransaction(tx, sc.scId) )
+        if (sc.withdrawalEpochLength < SC_MIN_WITHDRAWAL_EPOCH_LENGTH)
         {
-            LogPrint("sc", "%s():%d - Invalid tx[%s] : no fwd transactions associated to this creation\n",
-                __func__, __LINE__, txHash.ToString() );
-            return state.DoS(100, error("%s: no fwd transactions associated to this creation",
-                __func__), REJECT_INVALID, "sidechain-creation-missing-fwd-transfer");
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : sc creation withdrawalEpochLength %d is non-positive\n",
+                __func__, __LINE__, txHash.ToString(), sc.withdrawalEpochLength);
+            return state.DoS(100, error("%s: sc creation withdrawalEpochLength is not valid",
+                __func__), REJECT_INVALID, "sidechain-sc-creation-epoch-not-valid");
+        }
+
+        if (!sc.CheckAmountRange(cumulatedAmount) )
+        {
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : sc creation amount is non-positive or larger than %s\n",
+                __func__, __LINE__, txHash.ToString(), FormatMoney(MAX_MONEY) );
+            return state.DoS(100, error("%s: sc creation amount is outside range",
+                __func__), REJECT_INVALID, "sidechain-sc-creation-amount-outside-range");
         }
     }
 
-    CAmount cumulatedFwdAmount = 0;
-    BOOST_FOREACH(const auto& sc, tx.vft_ccout)
+    for (const auto& ft : tx.vft_ccout)
     {
-        if (sc.nValue == CAmount(0) || !MoneyRange(sc.nValue))
+        if (!ft.CheckAmountRange(cumulatedAmount) )
         {
-            LogPrint("sc", "%s():%d - Invalid tx[%s] : fwd trasfer amount is non-positive or larger than %s\n",
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : sc creation amount is non-positive or larger than %s\n",
                 __func__, __LINE__, txHash.ToString(), FormatMoney(MAX_MONEY) );
-            return state.DoS(100, error("%s: fwd trasfer amount is outside range",
-                __func__), REJECT_INVALID, "sidechain-fwd-transfer-amount-outside-range");
-        }
-
-        cumulatedFwdAmount += sc.nValue;
-        if (!MoneyRange(cumulatedFwdAmount))
-        {
-            LogPrint("sc", "%s():%d - Invalid tx[%s] : cumulated fwd trasfers amount is outside range\n",
-                __func__, __LINE__, txHash.ToString() );
-            return state.DoS(100, error("%s: cumulated fwd trasfers amount is outside range",
-                __func__), REJECT_INVALID, "sidechain-fwd-transfer-amount-outside-range");
-
+            return state.DoS(100, error("%s: sc creation amount is outside range",
+                __func__), REJECT_INVALID, "sidechain-sc-creation-amount-outside-range");
         }
     }
 

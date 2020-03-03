@@ -207,7 +207,8 @@ void CScCertificate::getCrosschainOutputs(std::map<uint256, std::vector<uint256>
 
 // Mutable Certificate
 //-------------------------------------
-CMutableScCertificate::CMutableScCertificate() : totalAmount() {}
+CMutableScCertificate::CMutableScCertificate() :
+        scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), totalAmount(), vbt_ccout(), nonce() {}
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert) :
     scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash),

@@ -1,5 +1,4 @@
 #include "sc/sidechainrpc.h"
-//#include "sc/sidechain.h"
 #include <univalue.h>
 #include "primitives/transaction.h"
 #include <boost/foreach.hpp>
@@ -24,6 +23,9 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("scid", out.scId.GetHex()));
         o.push_back(Pair("n", (int64_t)nIdx));
         o.push_back(Pair("withdrawal epoch length", (int)out.withdrawalEpochLength));
+        o.push_back(Pair("value", ValueFromAmount(out.nValue)));
+        o.push_back(Pair("address", out.address.GetHex()));
+        o.push_back(Pair("customData", HexStr(out.customData)));
         vscs.push_back(o);
         nIdx++;
     }
@@ -63,6 +65,8 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
 
     for (size_t i = 0; i < sc_crs.size(); i++)
     {
+        ScCreationParameters sc;
+
         const UniValue& input = sc_crs[i];
         const UniValue& o = input.get_obj();
  
@@ -77,19 +81,78 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         scId.SetHex(inputString);
  
         const UniValue& sh_v = find_value(o, "epoch_length");
-        if (!sh_v.isNum())
+        if (sh_v.isNull() || !sh_v.isNum())
         {
-            error = "Invalid parameter, missing epoch_length key";
+            error = "Invalid parameter or missing epoch_length key";
             return false;
         }
-        int nHeight = sh_v.get_int();
-        if (nHeight < 0)
+        int el = sh_v.get_int();
+        if (el < 0)
         {
             error = "Invalid parameter, epoch_length must be positive";
             return false;
         }
  
-        CTxScCreationOut txccout(scId, nHeight);
+        sc.withdrawalEpochLength = el;
+
+        const UniValue& av = find_value(o, "amount");
+        if (av.isNull())
+        {
+            error = "Missing mandatory parameter amount";
+            return false;
+        }
+        CAmount nAmount = AmountFromValue( av );
+        if (nAmount < 0)
+        {
+            error = "Invalid parameter, amount must be positive";
+            return false;
+        }
+
+        const UniValue& adv = find_value(o, "address");
+        if (adv.isNull())
+        {
+            error = "Missing mandatory parameter address";
+            return false;
+        }
+
+        inputString = adv.get_str();
+        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        {
+            error = "Invalid address format: not an hex";
+            return false;
+        }
+    
+        uint256 address;
+        address.SetHex(inputString);
+
+        const UniValue& cd = find_value(o, "customData");
+        if (!cd.isNull()) 
+        {
+            inputString = cd.get_str();
+            if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            {
+                error = "Invalid scid format: not an hex";
+                return false;
+            }
+    
+            unsigned int cdLen = inputString.length();
+            // just add one if we have an odd number of chars, hex will be padded with a 0 this is
+            // better than refusing the raw creation
+            if (cdLen%2)
+                cdLen ++;
+         
+            unsigned int cdDataLen = cdLen/2;
+         
+            if (cdDataLen > MAX_CUSTOM_DATA_LEN)
+                cdDataLen = MAX_CUSTOM_DATA_LEN;
+     
+            CScCustomData cdBlob;
+            cdBlob.SetHex(inputString);
+            cdBlob.fill(sc.customData, cdDataLen);
+        }
+
+        CTxScCreationOut txccout(scId, nAmount, address, sc);
+
         rawTx.vsc_ccout.push_back(txccout);
     }
     
@@ -133,7 +196,7 @@ bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std
         uint256 address;
         address.SetHex(inputString);
 
-        CTxForwardTransferOut txccout(nAmount, address, scId);
+        CTxForwardTransferOut txccout(scId, nAmount, address);
         rawTx.vft_ccout.push_back(txccout);
     }
 
@@ -146,8 +209,10 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& 
     {
         CRecipientScCreation sc;
         sc.scId = entry.scId;
-        // when funding a tx with sc creation, the amount is already contained in vcout to foundation
+        sc.nValue = entry.nValue;
+        sc.address = entry.address;
         sc.creationData.withdrawalEpochLength = entry.withdrawalEpochLength;
+        sc.creationData.customData = entry.customData;
 
         vecCcSend.push_back(CcRecipientVariant(sc));
     }
@@ -185,14 +250,14 @@ bool CRecipientHandler::visit(const CcRecipientVariant& rec)
 
 bool CRecipientHandler::handle(const CRecipientScCreation& r)
 {
-    CTxScCreationOut txccout(r.scId, r.creationData.withdrawalEpochLength);
+    CTxScCreationOut txccout(r.scId, r.nValue, r.address, r.creationData);
     // no dust can be found in sc creation
     return txBase->add(txccout);
 };
 
 bool CRecipientHandler::handle(const CRecipientCertLock& r)
 {
-    CTxCertifierLockOut txccout(r.nValue, r.address, r.scId, r.epoch);
+    CTxCertifierLockOut txccout(r.scId, r.nValue, r.address, r.epoch);
     if (txccout.IsDust(::minRelayTxFee))
     {
         err = _("Transaction amount too small");
@@ -203,7 +268,7 @@ bool CRecipientHandler::handle(const CRecipientCertLock& r)
 
 bool CRecipientHandler::handle(const CRecipientForwardTransfer& r)
 {
-    CTxForwardTransferOut txccout(r.nValue, r.address, r.scId);
+    CTxForwardTransferOut txccout(r.scId, r.nValue, r.address);
     if (txccout.IsDust(::minRelayTxFee))
     {
         err = _("Transaction amount too small");
@@ -218,5 +283,19 @@ bool CRecipientHandler::handle(const CRecipientBackwardTransfer& r)
     CTxOut txout(r.nValue, r.scriptPubKey);
     return txBase->add(txout);
 };
+
+void CScCustomData::fill(std::vector<unsigned char>& vBytes, int nBytes) const
+{
+    if (nBytes > size())
+        nBytes = size();
+
+    unsigned char* ptr = const_cast<unsigned char*>(&data[0]);
+    ptr += (nBytes - 1);
+    for (int i = 0; i < nBytes; i++)
+    {
+        vBytes.push_back(*ptr);
+        ptr--;
+    }
+}
 
 }  // end of namespace

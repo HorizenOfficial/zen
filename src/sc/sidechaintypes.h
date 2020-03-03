@@ -32,30 +32,41 @@ typedef struct sPowRelatedData_tag
     }
 } ScPowRelatedData;
 
-typedef struct sCreationParameters_tag
+struct ScCreationParameters
 {
     int withdrawalEpochLength; 
     // all creation data follows...
-    // TODO
+    std::vector<unsigned char> customData;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(withdrawalEpochLength);
+        READWRITE(customData);
     }
-    sCreationParameters_tag() :withdrawalEpochLength(-1) {}
+    ScCreationParameters() :withdrawalEpochLength(-1) {}
 
-    inline bool operator==(const sCreationParameters_tag& rhs) const
+    inline bool operator==(const ScCreationParameters& rhs) const
     {
-        return (this->withdrawalEpochLength == rhs.withdrawalEpochLength);
+        return (withdrawalEpochLength == rhs.withdrawalEpochLength) &&
+               (customData == rhs.customData);
     }
-    inline bool operator!=(const sCreationParameters_tag& rhs) const { return !(*this == rhs); }
-} ScCreationParameters;
+    inline bool operator!=(const ScCreationParameters& rhs) const { return !(*this == rhs); }
+    inline ScCreationParameters& operator=(const ScCreationParameters& cp)
+    {
+        withdrawalEpochLength = cp.withdrawalEpochLength;
+        customData = cp.customData;
+        return *this;
+    }
+};
 
 struct CRecipientCrossChainBase
 {
     uint256 scId;
+    uint256 address;
+    CAmount nValue;
 
+    CRecipientCrossChainBase(): nValue(0) {};
     virtual ~CRecipientCrossChainBase() {}
 };
 
@@ -66,19 +77,11 @@ struct CRecipientScCreation : public CRecipientCrossChainBase
 
 struct CRecipientCertLock : public CRecipientCrossChainBase
 {
-    uint256 address;
-    CAmount nValue;
     int64_t epoch;
-    CRecipientCertLock() : nValue(0), epoch(-1) {}
+    CRecipientCertLock() : epoch(-1) {}
 };
 
-struct CRecipientForwardTransfer : public CRecipientCrossChainBase
-{
-    uint256 address;
-    CAmount nValue;
-
-    CRecipientForwardTransfer(): nValue(0) {};
-};
+typedef CRecipientCrossChainBase CRecipientForwardTransfer;
 
 struct CRecipientBackwardTransfer 
 {
@@ -95,6 +98,8 @@ typedef boost::variant<
         CRecipientBackwardTransfer
     > CcRecipientVariant;
 
+static const int MAX_CUSTOM_DATA_LEN = 1024;
+static const int MAX_CUSTOM_DATA_BITS = MAX_CUSTOM_DATA_LEN*8;
 
 }; // end of namespace
 

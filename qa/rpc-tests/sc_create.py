@@ -12,7 +12,7 @@ import os
 from decimal import Decimal
 
 NUMB_OF_NODES = 3
-DEBUG_MODE = 0
+DEBUG_MODE = 1
 SC_COINS_MAT = 2
 
 
@@ -54,7 +54,7 @@ class SCCreateTest(BitcoinTestFramework):
         # side chain id
         scid = "22"
 
-        mark_logs("Node 1 generates 220 block",self.nodes,DEBUG_MODE)
+        mark_logs("Node 1 generates 220 block", self.nodes, DEBUG_MODE)
         self.nodes[1].generate(220)
         self.sync_all()
 
@@ -66,147 +66,175 @@ class SCCreateTest(BitcoinTestFramework):
 
         # ---------------------------------------------------------------------------------------
         # Node 2 try create a SC with insufficient funds
-        mark_logs("\nNode 2 try creates a SC with insufficient funds",self.nodes,DEBUG_MODE)
+        mark_logs("\nNode 2 try creates a SC with insufficient funds", self.nodes, DEBUG_MODE)
 
         amounts = [{"address": "dada", "amount": creation_amount}]
-        errorString=""
+        errorString = ""
         try:
-            self.nodes[2].sc_create(scid, 123, amounts)
+            self.nodes[2].sc_create(scid, 123, "dada", creation_amount, "abcdef")
         except JSONRPCException, e:
             errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("insufficient funds" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
         # Node 2 try create a SC with immature funds
-        mark_logs("\nNode 2 try creates a SC with immature funds",self.nodes,DEBUG_MODE)
+        mark_logs("\nNode 2 try creates a SC with immature funds", self.nodes, DEBUG_MODE)
 
         self.nodes[2].generate(1)
         self.sync_all()
         try:
-            self.nodes[2].sc_create(scid, 123, amounts)
+            self.nodes[2].sc_create(scid, 123, "dada", creation_amount, "abcdef")
         except JSONRPCException, e:
             errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("insufficient funds" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with non hex id
-        mark_logs("\nNode 1 try creates a SC with non hex id",self.nodes,DEBUG_MODE)
+        mark_logs("\nNode 1 try creates a SC with non hex id", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create("azn", 123, amounts)
+            self.nodes[1].sc_create("azn", 123, "dada", creation_amount, "abcdef")
         except JSONRPCException, e:
             errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("Invalid scid format" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with null address
-        mark_logs("\nNode 1 try creates a SC with null address",self.nodes,DEBUG_MODE)
+        mark_logs("\nNode 1 try creates a SC with null address", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create("23", 123, [{"address": "", "amount": creation_amount}])
+            self.nodes[1].sc_create("23", 123, "", creation_amount, "abcdef")
         except JSONRPCException, e:
             errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with null amount
-        mark_logs("\nNode 1 try creates a SC with null amount",self.nodes,DEBUG_MODE)
+        mark_logs("\nNode 1 try creates a SC with null amount", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create("24", 123, [{"address": "ada", "amount": ""}])
+            self.nodes[1].sc_create("24", 123, "ada", "", "abcdef")
         except JSONRPCException, e:
             errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("Invalid amount" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with 0 amount
-        mark_logs("\nNode 1 try creates a SC with 0 amount",self.nodes,DEBUG_MODE)
+        mark_logs("\nNode 1 try creates a SC with 0 amount", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create("24", 123, [{"address": "ada", "amount": Decimal("0.0")}])
+            self.nodes[1].sc_create("24", 123, "ada", Decimal("0.0"), "abcdef")
         except JSONRPCException, e:
             errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("amount must be positive" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with no amount
-        mark_logs("\nNode 1 try creates a SC with no amount",self.nodes,DEBUG_MODE)
+        # Node 1 try create a SC with a bad custom data
+        mark_logs("\nNode 1 try creates a SC with a bad custom data", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create("24", 123, [{"address": "ada"}])
+            self.nodes[1].sc_create("24", 123, "ada", 0.1, "ciao")
         except JSONRPCException, e:
             errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
-        assert_equal("Amount is not a number or string" in errorString, True)
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal("customData format: not an hex" in errorString, True)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a bad custom data
+        mark_logs("\nNode 1 try creates a SC with a odd number of char in custom data string", self.nodes, DEBUG_MODE)
+
+        try:
+            self.nodes[1].sc_create("24", 123, "ada", 0.1, "eaf")
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal("must be even" in errorString, True)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a custom data too long
+        mark_logs("\nNode 1 try creates a SC with too long a custom data byte string", self.nodes, DEBUG_MODE)
+
+        cdlong = "a"*2050
+
+        try:
+            self.nodes[1].sc_create("24", 123, "ada", 0.1, cdlong)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal("Invalid customData length" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with negative epocLength
-        mark_logs("\nNode 1 try creates a SC with 0 epocLength",self.nodes,DEBUG_MODE)
+        mark_logs("\nNode 1 try creates a SC with 0 epocLength", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create("24", -1, [{"address": "ada", "amount": Decimal("1.0")}])
+            txbad = self.nodes[1].sc_create("24", -1, "ada", Decimal("1.0"), "101010101010")
+            print self.nodes[1].getrawtransaction(txbad, 1)['vsc_ccout']
         except JSONRPCException, e:
             errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         # ---------------------------------------------------------------------------------------
         # Node 1 create the SC
-        mark_logs("\nNode 1 creates SC",self.nodes,DEBUG_MODE)
+        mark_logs("\nNode 1 creates SC", self.nodes, DEBUG_MODE)
 
-        amounts = [{"address": "dada", "amount": creation_amount}]
-        self.nodes[1].sc_create(scid, 123, amounts)
+        cdField = "ccababababdd"
+        self.nodes[1].sc_create(scid, 123, "dada", creation_amount, cdField)
         self.sync_all()
 
-        mark_logs("\n...Node0 generating 1 block",self.nodes,DEBUG_MODE)
+        mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
 
-        mark_logs("Verify all nodes see the new SC...",self.nodes,DEBUG_MODE)
+        mark_logs("Verify all nodes see the new SC...", self.nodes, DEBUG_MODE)
         scinfo0 = self.nodes[0].getscinfo(scid)
         scinfo1 = self.nodes[1].getscinfo(scid)
         scinfo2 = self.nodes[2].getscinfo(scid)
         assert_equal(scinfo0, scinfo1)
         assert_equal(scinfo0, scinfo2)
-        mark_logs(str(scinfo0),self.nodes,DEBUG_MODE)
-        mark_logs(str(scinfo1),self.nodes,DEBUG_MODE)
-        mark_logs(str(scinfo2),self.nodes,DEBUG_MODE)
+
+        mark_logs("Verify custom data are set as expected...", self.nodes, DEBUG_MODE)
+        assert_equal(scinfo0['customData'], cdField)
+        mark_logs(str(scinfo0), self.nodes, DEBUG_MODE)
+        mark_logs(str(scinfo1), self.nodes, DEBUG_MODE)
+        mark_logs(str(scinfo2), self.nodes, DEBUG_MODE)
 
         # ---------------------------------------------------------------------------------------
         # Node 2 try create the SC with same id
-        mark_logs("\nNode 2 try create SC with same id",self.nodes,DEBUG_MODE)
+        mark_logs("\nNode 2 try create SC with same id", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[2].sc_create(scid, 123, amounts)
+            self.nodes[2].sc_create(scid, 123, "dada", creation_amount, "abababababab")
         except JSONRPCException, e:
             errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("scid already created" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
         # Check maturity of the coins
         curh = self.nodes[2].getblockcount()
-        mark_logs("\nCheck maturiy of the coins",self.nodes,DEBUG_MODE)
+        mark_logs("\nCheck maturiy of the coins", self.nodes, DEBUG_MODE)
 
-        dump_sc_info_record(self.nodes[2].getscinfo(scid), 2,DEBUG_MODE)
-        mark_logs ("Check that %f coins will be mature at h=%d" % (creation_amount, curh + 2),self.nodes,DEBUG_MODE)
+        dump_sc_info_record(self.nodes[2].getscinfo(scid), 2, DEBUG_MODE)
+        mark_logs("Check that %f coins will be mature at h=%d" % (creation_amount, curh + 2), self.nodes, DEBUG_MODE)
         ia = self.nodes[2].getscinfo(scid)["immature amounts"]
         for entry in ia:
             if entry["maturityHeight"] == curh + SC_COINS_MAT:
                 assert_equal(entry["amount"], creation_amount)
 
         # Node 1 sends 1 amount to SC
-        mark_logs("\nNode 1 sends " + str(fwt_amount_1) + " coins to SC",self.nodes,DEBUG_MODE)
+        mark_logs("\nNode 1 sends " + str(fwt_amount_1) + " coins to SC", self.nodes, DEBUG_MODE)
 
         self.nodes[1].sc_send("abcd", fwt_amount_1, scid)
         self.sync_all()
 
         # Node 1 sends 3 amounts to SC
-        mark_logs("\nNode 1 sends 3 amounts to SC (tot: " + str(fwt_amount_many) + ")",self.nodes,DEBUG_MODE)
+        mark_logs("\nNode 1 sends 3 amounts to SC (tot: " + str(fwt_amount_many) + ")", self.nodes, DEBUG_MODE)
 
         amounts = []
         amounts.append({"address": "add1", "amount": fwt_amount_1, "scid": scid})
@@ -215,17 +243,17 @@ class SCCreateTest(BitcoinTestFramework):
         self.nodes[1].sc_sendmany(amounts)
         self.sync_all()
 
-        mark_logs("\n...Node0 generating 1 block",self.nodes,DEBUG_MODE)
+        mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
 
         # Check maturity of the coins at actual height
         curh = self.nodes[2].getblockcount()
 
-        dump_sc_info_record(self.nodes[2].getscinfo(scid), 2,DEBUG_MODE)
+        dump_sc_info_record(self.nodes[2].getscinfo(scid), 2, DEBUG_MODE)
         count = 0
-        mark_logs("Check that %f coins will be mature at h=%d" % (creation_amount, curh + 1),self.nodes,DEBUG_MODE)
-        mark_logs ("Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 2),self.nodes,DEBUG_MODE)
+        mark_logs("Check that %f coins will be mature at h=%d" % (creation_amount, curh + 1), self.nodes, DEBUG_MODE)
+        mark_logs("Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 2), self.nodes, DEBUG_MODE)
         ia = self.nodes[2].getscinfo(scid)["immature amounts"]
         for entry in ia:
             count += 1
@@ -237,15 +265,15 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal(count, 2)
 
         # Check maturity of the coins at actual height+1
-        mark_logs("\n...Node0 generating 1 block",self.nodes,DEBUG_MODE)
+        mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
 
         self.nodes[0].generate(1)
         self.sync_all()
         curh = self.nodes[2].getblockcount()
 
-        dump_sc_info_record(self.nodes[2].getscinfo(scid), 2,DEBUG_MODE)
+        dump_sc_info_record(self.nodes[2].getscinfo(scid), 2, DEBUG_MODE)
         count = 0
-        mark_logs("Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 1),self.nodes,DEBUG_MODE)
+        mark_logs("Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 1), self.nodes, DEBUG_MODE)
         ia = self.nodes[2].getscinfo(scid)["immature amounts"]
         for entry in ia:
             if entry["maturityHeight"] == curh + SC_COINS_MAT - 1:
@@ -255,13 +283,13 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal(count, 1)
 
         # Check no immature coin at actual height+2
-        mark_logs("\n...Node0 generating 1 block",self.nodes,DEBUG_MODE)
+        mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
 
         self.nodes[0].generate(1)
         self.sync_all()
 
-        dump_sc_info_record(self.nodes[2].getscinfo(scid), 2,DEBUG_MODE)
-        mark_logs ("Check that there are no immature coins",self.nodes,DEBUG_MODE)
+        dump_sc_info_record(self.nodes[2].getscinfo(scid), 2, DEBUG_MODE)
+        mark_logs("Check that there are no immature coins", self.nodes, DEBUG_MODE)
         ia = self.nodes[2].getscinfo(scid)["immature amounts"]
         assert_equal(len(ia), 0)
 

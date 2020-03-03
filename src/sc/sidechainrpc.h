@@ -17,6 +17,16 @@ class ScInfo;
 namespace Sidechain
 {
 
+// utility class for handling custom data in sc
+class CScCustomData : public base_blob<MAX_CUSTOM_DATA_BITS> {
+public:
+    CScCustomData() {}
+    CScCustomData(const base_blob<MAX_CUSTOM_DATA_BITS>& b) : base_blob<MAX_CUSTOM_DATA_BITS>(b) {}
+    explicit CScCustomData(const std::vector<unsigned char>& vch) : base_blob<MAX_CUSTOM_DATA_BITS>(vch) {}
+
+    void fill(std::vector<unsigned char>& vBytes, int nBytes) const;
+};
+
 class CRecipientHandler
 {
     private:
@@ -49,12 +59,7 @@ class CcRecipientVisitor : public boost::static_visitor<bool>
 class CcRecipientAmountVisitor : public boost::static_visitor<CAmount>
 {
     public:
-    CAmount operator() (const CRecipientScCreation& r) const
-    {
-        // fwd contributions are in apposite obj below
-        return 0;
-    }
-
+    CAmount operator() (const CRecipientScCreation& r) const { return r.nValue; }
     CAmount operator() (const CRecipientCertLock& r) const { return r.nValue; }
     CAmount operator() (const CRecipientForwardTransfer& r) const { return r.nValue; }
     CAmount operator() (const CRecipientBackwardTransfer& r) const { return r.nValue; }
