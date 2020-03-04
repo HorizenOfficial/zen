@@ -867,13 +867,19 @@ bool CCoinsViewMemPool::GetScInfo(const uint256& scId, ScInfo& info) const {
     } else if (!base->GetScInfo(scId, info))
         return false;
 
-    //decorate scInfo with fwds in mempool
+    //decorate scInfo with fwds and bwt in mempool
     if (mempool.mapSidechains.count(scId)) {
         for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet) {
             const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
             for (const auto& fwdAmount : fwdTx.vft_ccout)
                 if (scId == fwdAmount.scId)
                     info.mImmatureAmounts[-1] += fwdAmount.nValue;
+        }
+
+        if (!mempool.mapSidechains.at(scId).backwardCertificate.IsNull()) {
+            const uint256& certHash = mempool.mapSidechains.at(scId).backwardCertificate;
+            const CScCertificate & cert = mempool.mapCertificate.at(certHash).GetCertificate();
+            info.balance -= cert.totalAmount;
         }
     }
 

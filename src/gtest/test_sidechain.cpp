@@ -989,11 +989,24 @@ TEST_F(SidechainTestSuite, scInfoFromMempoolRetrievesUnconfirmedInformation) {
     ASSERT_TRUE(sidechainsView->UpdateScInfo(scTx, aBlock, scCreationHeight));
     ASSERT_TRUE(sidechainsView->Flush());
 
+    //Fully mature initial Sc balance
+    int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
+    CBlockUndo anEmptyBlockUndo;
+    ASSERT_TRUE(sidechainsView->ApplyMatureBalances(coinMaturityHeight, anEmptyBlockUndo));
+
     //a fwd is accepted in mempool
     CAmount fwdAmount = 20;
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount);
     CTxMemPoolEntry fwdPoolEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(fwdPoolEntry.GetTx().GetHash(), fwdPoolEntry);
+
+    //a bwt cert is accepted in mempool too
+    CAmount certAmount = 4;
+    CMutableScCertificate cert = CScCertificate();
+    cert.scId = scId;
+    cert.totalAmount = certAmount;
+    CCertificateMemPoolEntry bwtPoolEntry(cert, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(bwtPoolEntry.GetCertificate().GetHash(), bwtPoolEntry);
 
     //test
     CCoinsViewMemPool viewMemPool(sidechainsView, aMempool);
@@ -1002,7 +1015,8 @@ TEST_F(SidechainTestSuite, scInfoFromMempoolRetrievesUnconfirmedInformation) {
 
     //check
     EXPECT_TRUE(retrievedInfo.creationBlockHeight == scCreationHeight);
-    EXPECT_TRUE(retrievedInfo.mImmatureAmounts.at(scCreationHeight + Params().ScCoinsMaturity()) == creationAmount);
+    EXPECT_TRUE(retrievedInfo.balance == creationAmount - certAmount);
+    EXPECT_TRUE(retrievedInfo.lastReceivedCertificateEpoch == -1); //certs in mempool do not affect lastReceivedCertificateEpoch
     EXPECT_TRUE(retrievedInfo.mImmatureAmounts.at(-1) == fwdAmount);
 }
 
