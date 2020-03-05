@@ -11,7 +11,7 @@
 #include "crypto/common.h"
 #include <boost/foreach.hpp>
 
-#define DEBUG_SC_HASH 1
+//#define DEBUG_SC_HASH 1
 
 uint256 CBlockHeader::GetHash() const
 {
@@ -92,8 +92,8 @@ uint256 CBlock::BuildMerkleTree(std::vector<uint256>& vMerkleTreeIn, size_t vtxS
 #ifdef DEBUG_SC_HASH
             std::cout << " -------------------------------------------" << std::endl;
             std::cout << i << ") mkl hash: " << vMerkleTreeIn.back().ToString() << std::endl;
-            std::cout << i << "    hash1: " << vMerkleTreeIn[j+i].ToString() << std::endl;
-            std::cout << i << "    hash2: " << vMerkleTreeIn[j+i2].ToString() << std::endl;
+            std::cout <<      "      hash1: " << vMerkleTreeIn[j+i].ToString() << std::endl;
+            std::cout <<      "      hash2: " << vMerkleTreeIn[j+i2].ToString() << std::endl;
 #endif
         }
         j += nSize;
@@ -173,13 +173,14 @@ uint256 CBlock::BuildScMerkleRootsMap()
             BEGIN(TxsHash),   END(TxsHash),
             BEGIN(WCertHash), END(WCertHash),
             BEGIN(scid),      END(scid) );
+
 #ifdef DEBUG_SC_HASH
         std::cout << " -------------------------------------------" << std::endl;
         std::cout << "  FtHash:  " << FtHash.ToString() << std::endl;
         std::cout << "  BtrHash: " << BtrHash.ToString() << std::endl;
-        std::cout << "  => TxsHash:  " << TxsHash.ToString() << std::endl;
-        std::cout << "     WCertHash:  " << WCertHash.ToString() << std::endl;
-        std::cout << "     scid:  " << scid.ToString() << std::endl;
+        std::cout << "  => TxsHash:   " << TxsHash.ToString() << std::endl;
+        std::cout << "     WCertHash: " << WCertHash.ToString() << std::endl;
+        std::cout << "     scid:      " << scid.ToString() << std::endl;
         std::cout << "     => ScsHash:  " << ScHash.ToString() << std::endl;
 #endif
         vSortedLeaves.push_back(ScHash);
