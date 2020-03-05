@@ -513,7 +513,7 @@ void FindNextBlocksToDownload(NodeId nodeid, unsigned int count, std::vector<CBl
         }
 
         // Iterate over those blocks in vToFetch (in forward direction), adding the ones that
-        // are not yet downloaded and not in flight to vBlocks. In the mean time, update
+        // are not yet downloaded and not in flight to vBlocks. In the meantime, update
         // pindexLastCommonBlock as long as all ancestors are already downloaded, or if it's
         // already part of our chain (and therefore don't need it even if pruned).
         BOOST_FOREACH(CBlockIndex* pindex, vToFetch) {
@@ -1366,7 +1366,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
         CAmount nValueIn = 0;
 
-        //ABENEGIA: CheckInputs is useless for certificate. Is it correct?? Or Where the fuck is it checked???
+        //ABENEGIA: CheckInputs is useless for certificate. Is it correct?? Or Where is it checked???
 
         unsigned int nSigOps = cert.GetLegacySigOpCount();
         if (nSigOps > MAX_STANDARD_TX_SIGOPS)

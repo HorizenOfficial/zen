@@ -4210,27 +4210,18 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     // This also checks in mempool
     {
         LOCK(mempool.cs);
-        uint256 conflictingCertHash;
-
         CCoinsViewMemPool viewMemPool(pcoinsTip, mempool);
 
-        if (viewMemPool.HaveCertForEpoch(scId, epochNumber)) {
+        if (viewMemPool.HaveCertForEpoch(scId, epochNumber))
+        {
+            uint256 conflictingCertHash;
+            if (mempool.mapSidechains.count(scId))
+                conflictingCertHash = mempool.mapSidechains.at(scId).backwardCertificate;
+            else
+                conflictingCertHash.SetNull();
 
-            //ABENEGIA: duplicated code here, while cleaning up class hyerarchy
-            for (auto it = mempool.mapCertificate.begin(); it != mempool.mapCertificate.end(); ++it)
-            {
-                const CScCertificate& mpCert = it->second.GetCertificate();
-
-                if ((mpCert.scId == scId) && (mpCert.epochNumber == epochNumber))
-                {
-                    conflictingCertHash = mpCert.GetHash();
-                    break;
-                }
-            }
-            //ABENEGIA: end of duplicated code
-
-            LogPrintf("ERROR: certificate %s for epoch %d is already been issued\n", 
-                (conflictingCertHash == uint256())?"":conflictingCertHash.ToString(), epochNumber);
+            LogPrintf("ERROR: certificate %s for epoch %d is already been issued\n",
+                (conflictingCertHash.IsNull())?"":conflictingCertHash.ToString(), epochNumber);
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert epoch"));
         }
     }
