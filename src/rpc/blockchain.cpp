@@ -1017,7 +1017,7 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
-void AddScInfoToJSON(const uint256& scId, const ScInfo& info, UniValue& sc)
+void AddScInfoToJSON(const uint256& scId, const CSidechain& info, UniValue& sc)
 {
     sc.push_back(Pair("scid", scId.GetHex()));
     sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
@@ -1042,7 +1042,7 @@ void AddScInfoToJSON(const uint256& scId, const ScInfo& info, UniValue& sc)
 
 bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
 {
-    ScInfo info;
+    CSidechain info;
     CCoinsViewCache scView(pcoinsTip);
     if (!scView.GetScInfo(scId, info) )
     {
@@ -1158,7 +1158,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     }
 
     // find the block where it has been created
-    ScInfo info;
+    CSidechain info;
     if (!scView.GetScInfo(scId, info) )
     {
         LogPrint("sc", "cound not get info for scid[%s], probably not yet created\n", scId.ToString() );

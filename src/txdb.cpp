@@ -118,7 +118,7 @@ bool CCoinsViewDB::HaveCoins(const uint256 &txid) const {
     return db.Exists(make_pair(DB_COINS, txid));
 }
 
-bool CCoinsViewDB::GetScInfo(const uint256& scId, ScInfo& info) const
+bool CCoinsViewDB::GetScInfo(const uint256& scId, CSidechain& info) const
 {
     return db.Read(std::make_pair(DB_SIDECHAINS, scId), info);
 }
@@ -313,7 +313,7 @@ void CCoinsViewDB::Dump_info()  const
         {
             leveldb::Slice slValue = it->value();
             CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
-            ScInfo info;
+            CSidechain info;
             ssValue >> info;
 
             std::cout

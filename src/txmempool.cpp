@@ -852,9 +852,9 @@ bool CCoinsViewMemPool::HaveCoins(const uint256 &txid) const {
     return mempool.exists(txid) || base->HaveCoins(txid);
 }
 
-bool CCoinsViewMemPool::GetScInfo(const uint256& scId, ScInfo& info) const {
+bool CCoinsViewMemPool::GetScInfo(const uint256& scId, CSidechain& info) const {
     if (mempool.sidechainExists(scId)) {
-        //build ScInfo from txs in mempool
+        //build sidechain from txs in mempool
         const uint256& scCreationHash = mempool.mapSidechains.at(scId).scCreationTxHash;
         const CTransaction & scCreationTx = mempool.mapTx.at(scCreationHash).GetTx();
         for (const auto& scCreation : scCreationTx.vsc_ccout)
@@ -867,7 +867,7 @@ bool CCoinsViewMemPool::GetScInfo(const uint256& scId, ScInfo& info) const {
     } else if (!base->GetScInfo(scId, info))
         return false;
 
-    //decorate scInfo with fwds and bwt in mempool
+    //decorate sidechain with fwds and bwt in mempool
     if (mempool.mapSidechains.count(scId)) {
         for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet) {
             const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();

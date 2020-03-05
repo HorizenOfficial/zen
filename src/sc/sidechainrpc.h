@@ -12,7 +12,7 @@ class CTransaction;
 class CTransactionBase;
 class CMutableTransaction;
 class CMutableTransactionBase;
-class ScInfo;
+class CSidechain;
 
 namespace Sidechain
 {

@@ -306,7 +306,7 @@ struct CCoinsCacheEntry
 
 struct CSidechainsCacheEntry
 {
-    ScInfo scInfo; // The actual cached data.
+    CSidechain scInfo; // The actual cached data.
 
     enum class Flags {
         DEFAULT = 0,
@@ -316,7 +316,7 @@ struct CSidechainsCacheEntry
     } flag;
 
     CSidechainsCacheEntry() : scInfo(), flag(Flags::DEFAULT) {}
-    CSidechainsCacheEntry(const ScInfo & _scInfo, Flags _flag) : scInfo(_scInfo), flag(_flag) {}
+    CSidechainsCacheEntry(const CSidechain & _scInfo, Flags _flag) : scInfo(_scInfo), flag(_flag) {}
 };
 
 struct CAnchorsCacheEntry
@@ -384,7 +384,7 @@ public:
     virtual bool HaveScInfo(const uint256& scId) const;
 
     //! Retrieve the Sidechain informations for a give sidechain id.
-    virtual bool GetScInfo(const uint256& scId, ScInfo& info) const;
+    virtual bool GetScInfo(const uint256& scId, CSidechain& info) const;
 
     //! Retrieve all the known sidechain ids
     virtual void queryScIds(std::set<uint256>& scIdsList) const;
@@ -428,7 +428,7 @@ public:
     bool GetCoins(const uint256 &txid, CCoins &coins)                  const;
     bool HaveCoins(const uint256 &txid)                                const;
     bool HaveScInfo(const uint256& scId)                               const override;
-    bool GetScInfo(const uint256& scId, ScInfo& info)                  const override;
+    bool GetScInfo(const uint256& scId, CSidechain& info)              const override;
     void queryScIds(std::set<uint256>& scIdsList)                      const override;
     bool HaveCertForEpoch(const uint256& scId, int epochNumber)        const override;
     uint256 GetBestBlock()                                             const;
@@ -540,9 +540,9 @@ public:
      */
 
     //SIDECHAIN RELATED PUBLIC MEMBERS
-    bool HaveScInfo(const uint256& scId)                       const override;
-    bool GetScInfo(const uint256 & scId, ScInfo& targetScInfo) const override;
-    void queryScIds(std::set<uint256>& scIdsList)              const override;
+    bool HaveScInfo(const uint256& scId)                           const override;
+    bool GetScInfo(const uint256 & scId, CSidechain& targetScInfo) const override;
+    void queryScIds(std::set<uint256>& scIdsList)                  const override;
     bool HaveDependencies(const CTransaction& tx);
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
@@ -596,7 +596,7 @@ private:
     static int getInitScCoinsMaturity();
     int getScCoinsMaturity();
 
-    bool DecrementImmatureAmount(const uint256& scId, ScInfo& targetScInfo, CAmount nValue, int maturityHeight);
+    bool DecrementImmatureAmount(const uint256& scId, CSidechain& targetScInfo, CAmount nValue, int maturityHeight);
     static void generateNewSidechainId(uint256& scId);
     void Dump_info() const;
 

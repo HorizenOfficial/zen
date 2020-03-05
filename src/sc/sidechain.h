@@ -16,9 +16,9 @@ class UniValue;
 class CValidationState;
 class CLevelDBWrapper;
 
-class ScInfo {
+class CSidechain {
 public:
-    ScInfo() : creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
+    CSidechain() : creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
          lastReceivedCertificateEpoch(CScCertificate::EPOCH_NULL), balance(0) {}
     
     // reference to the block containing the tx that created the side chain
@@ -60,7 +60,7 @@ public:
         READWRITE(mImmatureAmounts);
     }
 
-    inline bool operator==(const ScInfo& rhs) const
+    inline bool operator==(const CSidechain& rhs) const
     {
         return (this->creationBlockHash            == rhs.creationBlockHash)            &&
                (this->creationBlockHeight          == rhs.creationBlockHeight)          &&
@@ -69,7 +69,7 @@ public:
                (this->creationData                 == rhs.creationData)                 &&
                (this->mImmatureAmounts             == rhs.mImmatureAmounts);
     }
-    inline bool operator!=(const ScInfo& rhs) const { return !(*this == rhs); }
+    inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
 };
 
 namespace Sidechain {
