@@ -1507,7 +1507,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
     // If this tx creates a sc, no other tx must be doing the same in the mempool
     for(const auto& sc: tx.vsc_ccout)
-        if (pool.sidechainExists(sc.scId)) {
+        if (pool.hasSidechainCreationTx(sc.scId)) {
             return state.Invalid(error("transaction tries to create scid already created in mempool"),
             REJECT_INVALID, "sidechain-creation");
         } else

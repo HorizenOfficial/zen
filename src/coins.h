@@ -384,7 +384,7 @@ public:
     virtual bool HaveSidechain(const uint256& scId) const;
 
     //! Retrieve the Sidechain informations for a give sidechain id.
-    virtual bool GetScInfo(const uint256& scId, CSidechain& info) const;
+    virtual bool GetSidechain(const uint256& scId, CSidechain& info) const;
 
     //! Retrieve all the known sidechain ids
     virtual void queryScIds(std::set<uint256>& scIdsList) const;
@@ -428,7 +428,7 @@ public:
     bool GetCoins(const uint256 &txid, CCoins &coins)                  const;
     bool HaveCoins(const uint256 &txid)                                const;
     bool HaveSidechain(const uint256& scId)                            const override;
-    bool GetScInfo(const uint256& scId, CSidechain& info)              const override;
+    bool GetSidechain(const uint256& scId, CSidechain& info)           const override;
     void queryScIds(std::set<uint256>& scIdsList)                      const override;
     bool HaveCertForEpoch(const uint256& scId, int epochNumber)        const override;
     uint256 GetBestBlock()                                             const;
@@ -540,9 +540,9 @@ public:
      */
 
     //SIDECHAIN RELATED PUBLIC MEMBERS
-    bool HaveSidechain(const uint256& scId)                        const override;
-    bool GetScInfo(const uint256 & scId, CSidechain& targetScInfo) const override;
-    void queryScIds(std::set<uint256>& scIdsList)                  const override;
+    bool HaveSidechain(const uint256& scId)                           const override;
+    bool GetSidechain(const uint256 & scId, CSidechain& targetScInfo) const override;
+    void queryScIds(std::set<uint256>& scIdsList)                     const override;
     bool HaveDependencies(const CTransaction& tx);
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);

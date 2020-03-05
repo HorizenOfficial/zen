@@ -487,7 +487,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
     }
 
     for(const auto& sc: tx.vsc_ccout) {
-        if(sidechainExists(sc.scId)) {
+        if(hasSidechainCreationTx(sc.scId)) {
             const uint256& scRedeclarationHash = mapSidechains[sc.scId].scCreationTxHash;
             const CTransaction &scReDeclarationTx = mapTx[scRedeclarationHash].GetTx();
             remove(scReDeclarationTx, removedTxs, /*fRecursive*/true, /*removeDependantFwds*/false);
@@ -852,19 +852,22 @@ bool CCoinsViewMemPool::HaveCoins(const uint256 &txid) const {
     return mempool.exists(txid) || base->HaveCoins(txid);
 }
 
-bool CCoinsViewMemPool::GetScInfo(const uint256& scId, CSidechain& info) const {
-    if (mempool.sidechainExists(scId)) {
+bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) const {
+    if (mempool.hasSidechainCreationTx(scId)) {
         //build sidechain from txs in mempool
         const uint256& scCreationHash = mempool.mapSidechains.at(scId).scCreationTxHash;
         const CTransaction & scCreationTx = mempool.mapTx.at(scCreationHash).GetTx();
-        for (const auto& scCreation : scCreationTx.vsc_ccout)
+        for (const auto& scCreation : scCreationTx.vsc_ccout) {
             if (scId == scCreation.scId) {
                 //info.creationBlockHash doesn't exist here!
                 info.creationBlockHeight = -1; //default null value for creationBlockHeight
                 info.creationTxHash = scCreationHash;
                 info.creationData.withdrawalEpochLength = scCreation.withdrawalEpochLength;
             }
-    } else if (!base->GetScInfo(scId, info))
+            break;
+        }
+
+    } else if (!base->GetSidechain(scId, info))
         return false;
 
     //decorate sidechain with fwds and bwt in mempool
@@ -887,7 +890,7 @@ bool CCoinsViewMemPool::GetScInfo(const uint256& scId, CSidechain& info) const {
 }
 
 bool CCoinsViewMemPool::HaveSidechain(const uint256& scId) const {
-    return mempool.sidechainExists(scId) || base->HaveSidechain(scId);
+    return mempool.hasSidechainCreationTx(scId) || base->HaveSidechain(scId);
 }
 
 

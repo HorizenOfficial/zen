@@ -161,7 +161,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToSideChainsInMempoolAreAllowed
     CValidationState scTxState;
     bool missingInputs = false;
     AcceptToMemoryPool(mempool, scTxState, scTx, false, &missingInputs);
-    ASSERT_TRUE(mempool.sidechainExists(scId));
+    ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
@@ -177,12 +177,12 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSideChainAreNotAllowed
     EXPECT_FALSE(AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
 }
 
-TEST_F(SidechainsInMempoolTestSuite, sidechainExistsTest) {
+TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
     CTxMemPool aMempool(::minRelayTxFee);
     uint256 scId = uint256S("1492");
 
     //Case 1: no sidechain related tx in mempool
-    bool res = aMempool.sidechainExists(scId);
+    bool res = aMempool.hasSidechainCreationTx(scId);
     EXPECT_FALSE(res);
 
     bool loopRes = false;
@@ -198,7 +198,7 @@ TEST_F(SidechainsInMempoolTestSuite, sidechainExistsTest) {
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwdPoolEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(fwdPoolEntry.GetTx().GetHash(), fwdPoolEntry);
-    res = aMempool.sidechainExists(scId);
+    res = aMempool.hasSidechainCreationTx(scId);
     EXPECT_FALSE(res);
 
     loopRes = false;
@@ -214,7 +214,7 @@ TEST_F(SidechainsInMempoolTestSuite, sidechainExistsTest) {
     CTransaction scTx  = GenerateScTx(scId, CAmount(10));
     CTxMemPoolEntry scPoolEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(scPoolEntry.GetTx().GetHash(), scPoolEntry);
-    res = aMempool.sidechainExists(scId);
+    res = aMempool.hasSidechainCreationTx(scId);
     EXPECT_TRUE(res);
 
     loopRes = false;
@@ -236,7 +236,7 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScNonRecursiveRemoval) {
     CTransaction scTx = GenerateScTx(scId, CAmount(10));
     CTxMemPoolEntry scEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(scTx.GetHash(), scEntry);
-    ASSERT_TRUE(aMempool.sidechainExists(scId));
+    ASSERT_TRUE(aMempool.hasSidechainCreationTx(scId));
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -264,7 +264,7 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScNonRecursiveRemoval_Di
     CTransaction scTxInMempool = GenerateScTx(scId, CAmount(10));
     CTxMemPoolEntry scEntry(scTxInMempool, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(scTxInMempool.GetHash(), scEntry);
-    ASSERT_TRUE(aMempool.sidechainExists(scId));
+    ASSERT_TRUE(aMempool.hasSidechainCreationTx(scId));
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -279,7 +279,7 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScNonRecursiveRemoval_Di
     aMempool.remove(scTxConfirmed, removedTxs, /*fRecursive*/false);
 
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), scTxInMempool));
-    EXPECT_TRUE(aMempool.sidechainExists(scId));
+    EXPECT_TRUE(aMempool.hasSidechainCreationTx(scId));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
 }
@@ -294,7 +294,7 @@ TEST_F(SidechainsInMempoolTestSuite, RemoveConflictsHandlesConflictingSidechainD
     CTransaction scTxInMempool = GenerateScTx(scId, CAmount(10));
     CTxMemPoolEntry scEntry(scTxInMempool, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(scTxInMempool.GetHash(), scEntry);
-    ASSERT_TRUE(aMempool.sidechainExists(scId));
+    ASSERT_TRUE(aMempool.hasSidechainCreationTx(scId));
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -345,7 +345,7 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScRecursiveRemoval) {
     CTransaction scTx = GenerateScTx(scId, CAmount(10));
     CTxMemPoolEntry scEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(scTx.GetHash(), scEntry);
-    ASSERT_TRUE(aMempool.sidechainExists(scId));
+    ASSERT_TRUE(aMempool.hasSidechainCreationTx(scId));
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);

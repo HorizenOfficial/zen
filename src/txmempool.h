@@ -247,7 +247,7 @@ public:
         return (mapCertificate.count(hash) != 0 || mapTx.count(hash) != 0);
     }
 
-    bool sidechainExists(uint256 scId) const
+    bool hasSidechainCreationTx(uint256 scId) const
     {
         LOCK(cs);
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).scCreationTxHash.IsNull());
@@ -283,7 +283,7 @@ public:
     bool GetNullifier(const uint256 &txid) const;
     bool GetCoins(const uint256 &txid, CCoins &coins) const;
     bool HaveCoins(const uint256 &txid) const;
-    bool GetScInfo(const uint256& scId, CSidechain& info) const override;
+    bool GetSidechain(const uint256& scId, CSidechain& info) const override;
     bool HaveSidechain(const uint256& scId) const override;
     bool IsCertAllowedInMempool(const CScCertificate& cert, CValidationState& state);
     bool HaveCertForEpoch(const uint256& scId, int epochNumber) const override;

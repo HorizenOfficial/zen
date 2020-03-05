@@ -118,7 +118,7 @@ bool CCoinsViewDB::HaveCoins(const uint256 &txid) const {
     return db.Exists(make_pair(DB_COINS, txid));
 }
 
-bool CCoinsViewDB::GetScInfo(const uint256& scId, CSidechain& info) const
+bool CCoinsViewDB::GetSidechain(const uint256& scId, CSidechain& info) const
 {
     return db.Read(std::make_pair(DB_SIDECHAINS, scId), info);
 }

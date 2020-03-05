@@ -50,7 +50,7 @@ bool CCoinsView::GetNullifier(const uint256 &nullifier)                        c
 bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins)                  const { return false; }
 bool CCoinsView::HaveCoins(const uint256 &txid)                                const { return false; }
 bool CCoinsView::HaveSidechain(const uint256& scId)                            const { return false; }
-bool CCoinsView::GetScInfo(const uint256& scId, CSidechain& info)              const { return false; }
+bool CCoinsView::GetSidechain(const uint256& scId, CSidechain& info)           const { return false; }
 void CCoinsView::queryScIds(std::set<uint256>& scIdsList)                      const { scIdsList.clear(); return; }
 bool CCoinsView::HaveCertForEpoch(const uint256& scId, int epochNumber)        const { return false; }
 uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
@@ -71,7 +71,7 @@ bool CCoinsViewBacked::GetNullifier(const uint256 &nullifier)                   
 bool CCoinsViewBacked::GetCoins(const uint256 &txid, CCoins &coins)                  const { return base->GetCoins(txid, coins); }
 bool CCoinsViewBacked::HaveCoins(const uint256 &txid)                                const { return base->HaveCoins(txid); }
 bool CCoinsViewBacked::HaveSidechain(const uint256& scId)                            const { return base->HaveSidechain(scId); }
-bool CCoinsViewBacked::GetScInfo(const uint256& scId, CSidechain& info)              const { return base->GetScInfo(scId,info); }
+bool CCoinsViewBacked::GetSidechain(const uint256& scId, CSidechain& info)           const { return base->GetSidechain(scId,info); }
 void CCoinsViewBacked::queryScIds(std::set<uint256>& scIdsList)                      const { return base->queryScIds(scIdsList); }
 bool CCoinsViewBacked::HaveCertForEpoch(const uint256& scId, int epochNumber)        const { return base->HaveCertForEpoch(scId, epochNumber); }
 uint256 CCoinsViewBacked::GetBestBlock()                                             const { return base->GetBestBlock(); }
@@ -126,7 +126,7 @@ CSidechainsMap::const_iterator CCoinsViewCache::FetchSidechains(const uint256& s
         return candidateIt;
 
     CSidechain tmp;
-    if (!base->GetScInfo(scId, tmp))
+    if (!base->GetSidechain(scId, tmp))
         return cacheSidechains.end();
 
     //Fill cache and return iterator. The insert in cache below looks cumbersome. However
@@ -423,7 +423,7 @@ bool CCoinsViewCache::HaveSidechain(const uint256& scId) const
     return (it != cacheSidechains.end()) && (it->second.flag != CSidechainsCacheEntry::Flags::ERASED);
 }
 
-bool CCoinsViewCache::GetScInfo(const uint256 & scId, CSidechain& targetScInfo) const
+bool CCoinsViewCache::GetSidechain(const uint256 & scId, CSidechain& targetScInfo) const
 {
     CSidechainsMap::const_iterator it = FetchSidechains(scId);
     if (it != cacheSidechains.end())
@@ -540,7 +540,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         LogPrint("sc", "%s():%d - removing fwt for scId=%s\n", __func__, __LINE__, scId.ToString());
 
         CSidechain targetScInfo;
-        if (!GetScInfo(scId, targetScInfo))
+        if (!GetSidechain(scId, targetScInfo))
         {
             // should not happen
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
@@ -564,7 +564,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         LogPrint("sc", "%s():%d - removing scId=%s\n", __func__, __LINE__, scId.ToString());
 
         CSidechain targetScInfo;
-        if (!GetScInfo(scId, targetScInfo))
+        if (!GetSidechain(scId, targetScInfo))
         {
             // should not happen
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
@@ -607,7 +607,7 @@ bool CCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo
         const std::string& scIdString = scId.ToString();
 
         CSidechain targetScInfo;
-        assert(GetScInfo(scId, targetScInfo));
+        assert(GetSidechain(scId, targetScInfo));
 
         auto it_ia_map = targetScInfo.mImmatureAmounts.begin();
 
@@ -658,7 +658,7 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
         const std::string& scIdString = scId.ToString();
 
         CSidechain targetScInfo;
-        if (!GetScInfo(scId, targetScInfo))
+        if (!GetSidechain(scId, targetScInfo))
         {
             // should not happen
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
@@ -702,7 +702,7 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
 
 bool CCoinsViewCache::HaveCertForEpoch(const uint256& scId, int epochNumber) const {
     CSidechain info;
-    if (!GetScInfo(scId, info) )
+    if (!GetSidechain(scId, info))
         return false;
 
     if (info.lastReceivedCertificateEpoch == epochNumber)
@@ -802,7 +802,7 @@ bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const u
 
     // 2. combination of epoch number and epoch length, specified in creating sc, must point to that block
     CSidechain info;
-    if (!GetScInfo(scId, info) )
+    if (!GetSidechain(scId, info))
     {
         // should not happen
         LogPrint("sc", "%s():%d - scId[%s] not found\n",
@@ -874,7 +874,7 @@ bool CCoinsViewCache::HaveDependencies(const CTransaction& tx)
 int CCoinsViewCache::getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber)
 {
     CSidechain info;
-    if (!GetScInfo(scId, info) )
+    if (!GetSidechain(scId, info))
     {
         LogPrint("cert", "%s():%d - scId[%s] not found, returning -1\n", __func__, __LINE__, scId.ToString() );
         return -1;
@@ -892,7 +892,7 @@ int CCoinsViewCache::getCertificateMaxIncomingHeight(const uint256& scId, int ep
 CAmount CCoinsViewCache::getSidechainBalance(const uint256& scId) const
 {
     CSidechain targetScInfo;
-    if (!GetScInfo(scId, targetScInfo)) {
+    if (!GetSidechain(scId, targetScInfo)) {
         // caller should have checked it
         return -1;
     }
@@ -909,7 +909,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
     LogPrint("cert", "%s():%d - cert=%s\n", __func__, __LINE__, certHash.ToString() );
 
     CSidechain targetScInfo;
-    if (!GetScInfo(scId, targetScInfo))
+    if (!GetSidechain(scId, targetScInfo))
     {
         // should not happen
         LogPrint("cert", "%s():%d - Can not update balance, could not find scId=%s\n",
@@ -946,7 +946,7 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert)
     LogPrint("cert", "%s():%d - removing cert for scId=%s\n", __func__, __LINE__, scId.ToString());
 
     CSidechain targetScInfo;
-    if (!GetScInfo(scId, targetScInfo))
+    if (!GetSidechain(scId, targetScInfo))
     {
         // should not happen
         LogPrint("cert", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
@@ -1029,7 +1029,7 @@ void CCoinsViewCache::Dump_info() const
     {
         LogPrint("sc", "-- side chain [%s] ------------------------\n", scId.ToString());
         CSidechain info;
-        if (!GetScInfo(scId, info) )
+        if (!GetSidechain(scId, info))
         {
             LogPrint("sc", "===> No such side chain\n");
             return;

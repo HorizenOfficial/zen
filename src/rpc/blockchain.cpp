@@ -1044,7 +1044,7 @@ bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
 {
     CSidechain info;
     CCoinsViewCache scView(pcoinsTip);
-    if (!scView.GetScInfo(scId, info) )
+    if (!scView.GetSidechain(scId, info))
     {
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
         return false;
@@ -1159,7 +1159,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
 
     // find the block where it has been created
     CSidechain info;
-    if (!scView.GetScInfo(scId, info) )
+    if (!scView.GetSidechain(scId, info))
     {
         LogPrint("sc", "cound not get info for scid[%s], probably not yet created\n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
