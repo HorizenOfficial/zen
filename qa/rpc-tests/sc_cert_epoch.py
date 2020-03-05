@@ -101,7 +101,8 @@ class sc_cert_epoch(BitcoinTestFramework):
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
         try:
-            cert = self.nodes[0].send_certificate(scid, epoch_number, epoch_height, amounts)
+            RemoveFeeFromAmounts = True
+            cert = self.nodes[0].send_certificate(scid, epoch_number, epoch_height, amounts, RemoveFeeFromAmounts)
             assert(len(cert) > 0)
         except JSONRPCException, e:
             errorString = e.error['message']

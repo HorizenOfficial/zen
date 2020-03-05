@@ -11,6 +11,8 @@
 #include "crypto/common.h"
 #include <boost/foreach.hpp>
 
+#define DEBUG_SC_HASH 1
+
 uint256 CBlockHeader::GetHash() const
 {
     return SerializeHash(*this);
@@ -113,44 +115,74 @@ uint256 CBlock::BuildScMerkleRootsMap()
     // Key: the side chain ID
     // Value: the array of objs of type 'Hash( Hash(ccout) | txid | n)', where n is the index of the 
     // ccout in the tx pertaining to the current scid. Tx are ordered as they are included in the block  
-    std::map<uint256, std::vector<uint256> > mScMerkleTreeLeaves; 
+    std::map<uint256, std::vector<uint256> > mScMerkleTreeLeavesFt; 
 
-    BOOST_FOREACH(const CTransaction& tx, vtx)
+    // The same for BTR (to be implemented)
+    std::map<uint256, std::vector<uint256> > mScMerkleTreeLeavesBtr; 
+
+    // Certificate contribution
+    std::map<uint256, uint256 > mScCerts; 
+
+    // the catalog of scid
+    std::set<uint256> sScIds;
+
+    for (const auto& tx : vtx)
     {
-        tx.getCrosschainOutputs(mScMerkleTreeLeaves);
+        tx.getCrosschainOutputs(mScMerkleTreeLeavesFt, sScIds);
     }
 
-    BOOST_FOREACH(const CScCertificate& cert, vcert)
+    // TODO collect BTR contributions
+
+    for (const auto& cert : vcert)
     {
-        cert.getCrosschainOutputs(mScMerkleTreeLeaves);
+        cert.getCrosschainOutputs(mScCerts, sScIds);
     }
 
-    if (mScMerkleTreeLeaves.size() == 0)
-    {
-        return uint256();
-    }
-
-    // Note that by default the map is ordered by key value, therefore the entries in
-    // the vector will be sorted in the same way
     std::vector<uint256> vSortedLeaves;
 
-    BOOST_FOREACH(const auto& pair, mScMerkleTreeLeaves)
+    // set of scid is ordered
+    for (const auto& scid : sScIds)
     {
-        const uint256& scId = pair.first;
-        const uint256& mklHash = BuildMerkleRootHash(pair.second);
+        uint256 FtHash;
+        uint256 BtrHash;
+        uint256 WCertHash;
 
-        LogPrint("sc", "%s():%d built merkle root for sc[%s] with %d leaves: [%s]\n",
-            __func__, __LINE__, scId.ToString(), pair.second.size(), mklHash.ToString() );
+        auto itFt = mScMerkleTreeLeavesFt.find(scid);
+        if (itFt != mScMerkleTreeLeavesFt.end() )
+        {
+            FtHash = BuildMerkleRootHash(itFt->second);
+        }
 
-        const uint256& leaf = Hash( BEGIN(scId), END(scId), BEGIN(mklHash), END(mklHash) );
+        auto itBtr = mScMerkleTreeLeavesBtr.find(scid);
+        if (itBtr != mScMerkleTreeLeavesBtr.end() )
+        {
+            BtrHash = BuildMerkleRootHash(itBtr->second);
+        }
 
+        auto itCert = mScCerts.find(scid);
+        if (itCert != mScCerts.end() )
+        {
+            WCertHash = itCert->second;
+        }
+
+        const uint256& TxsHash = Hash(
+            BEGIN(FtHash),    END(FtHash),
+            BEGIN(BtrHash),   END(BtrHash) );
+
+        const uint256& ScHash = Hash(
+            BEGIN(TxsHash),   END(TxsHash),
+            BEGIN(WCertHash), END(WCertHash),
+            BEGIN(scid),      END(scid) );
 #ifdef DEBUG_SC_HASH
         std::cout << " -------------------------------------------" << std::endl;
-        std::cout << "  sc mkl hash:  " << mklHash.ToString() << std::endl;
-        std::cout << "  sc leaf hash: " << leaf.ToString() << std::endl;
+        std::cout << "  FtHash:  " << FtHash.ToString() << std::endl;
+        std::cout << "  BtrHash: " << BtrHash.ToString() << std::endl;
+        std::cout << "  => TxsHash:  " << TxsHash.ToString() << std::endl;
+        std::cout << "     WCertHash:  " << WCertHash.ToString() << std::endl;
+        std::cout << "     scid:  " << scid.ToString() << std::endl;
+        std::cout << "     => ScsHash:  " << ScHash.ToString() << std::endl;
 #endif
-
-        vSortedLeaves.push_back(leaf);
+        vSortedLeaves.push_back(ScHash);
     }
 
     return BuildMerkleRootHash(vSortedLeaves);

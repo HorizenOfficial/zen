@@ -702,7 +702,6 @@ public:
 
     virtual std::string EncodeHex() const = 0;
     virtual std::string ToString() const = 0;
-    virtual void getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& map) const = 0;
 
     virtual void AddToBlock(CBlock* pblock) const = 0;
     virtual void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const = 0;
@@ -869,7 +868,7 @@ public:
     std::string ToString() const override;
 
  public:
-    void getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& map) const override;
+    void getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& mLeaves, std::set<uint256>& sScIds) const ;
 
  private:
     template <typename T>
@@ -886,12 +885,14 @@ public:
     }
 
     template <typename T>
-    inline void fillCrosschainOutput(const T& vOuts, unsigned int& nIdx, std::map<uint256, std::vector<uint256> >& map) const
+    inline void fillCrosschainOutput(const T& vOuts, unsigned int& nIdx, std::map<uint256, std::vector<uint256> >& map, std::set<uint256>& sScIds) const
     {
         const uint256& txHash = GetHash();
  
         for(const auto& txccout : vOuts)
         {
+            sScIds.insert(txccout.scId);
+
             // if the mapped value exists, vec is a reference to it. If it does not, vec is
             // a reference to the new element inserted in the map with the scid as a key
             std::vector<uint256>& vec = map[txccout.scId];

@@ -84,7 +84,7 @@ public:
     std::string EncodeHex() const override;
     std::string ToString() const override;
 
-    void getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& map) const override;
+    void getCrosschainOutputs(std::map<uint256, uint256>& mLeaves, std::set<uint256>& sScIds) const;
 
     void AddToBlock(CBlock* pblock) const override; 
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int /* not used sigops */) const override;

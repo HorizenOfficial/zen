@@ -4134,12 +4134,12 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             "1. \"scid\"                  (string, required) The uint256 side chain ID\n"
             "2. epochNumber             (numeric, required) The epoch number this certificate refers to, zero-based numbered\n"
             "3. \"endEpochBlockHash\"     (string, required) The block hash determining the end of the referenced epoch\n"
-            "4. transfers:              (array, required) An array of json objects representing the amounts of the backward transfers.\n"
+            "4. transfers:              (array, required) An array of json objects representing the amounts of the backward transfers. Can also be empty\n"
             "    [{\n"                     
             "      \"pubkeyhash\":\"pkh\"    (string, required) The public key hash of the receiver\n"
             "      \"amount\":amount       (numeric, required) The numeric amount in ZEN\n"
             "    }, ... ]\n"
-            "5. subtractfeefromamount   (boolean, optional, default=true) If true, the fee will be deducted equally from the transfer amounts being sent, and\n"
+            "5. subtractfeefromamount   (boolean, optional, default=false) If true, the fee will be deducted equally from the transfer amounts being sent, and\n"
             "                             the recipients will receive less ZEN than what is specified.\n"
             "                             If false, the total amount of the certificate (sum of transfer amounts) will be increased by the fee amount.\n"
             "6. fee                     (numeric, optional) The fee of the certificate in ZEN; if not specified, the fee is calculated internally and will depend on cert size in bytes\n"
@@ -4210,7 +4210,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     // This also checks in mempool
     {
         LOCK(mempool.cs);
-    uint256 conflictingCertHash;
+        uint256 conflictingCertHash;
 
         CCoinsViewMemPool viewMemPool(pcoinsTip, mempool);
 
@@ -4218,7 +4218,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
             //ABENEGIA: duplicated code here, while cleaning up class hyerarchy
             for (auto it = mempool.mapCertificate.begin(); it != mempool.mapCertificate.end(); ++it)
-    {
+            {
                 const CScCertificate& mpCert = it->second.GetCertificate();
 
                 if ((mpCert.scId == scId) && (mpCert.epochNumber == epochNumber))
@@ -4229,16 +4229,14 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             }
             //ABENEGIA: end of duplicated code
 
-        LogPrintf("ERROR: certificate %s for epoch %d is already been issued\n", 
-            (conflictingCertHash == uint256())?"":conflictingCertHash.ToString(), epochNumber);
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert epoch"));
-    }
+            LogPrintf("ERROR: certificate %s for epoch %d is already been issued\n", 
+                (conflictingCertHash == uint256())?"":conflictingCertHash.ToString(), epochNumber);
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert epoch"));
+        }
     }
 
+    // can be empty
     const UniValue& outputs = params[3].get_array();
-
-    if (outputs.size()==0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output array is empty.");
 
     // Recipients
     CAmount nTotalOut = 0;
@@ -4287,9 +4285,15 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     }
 
     // fee
-    bool fSubtractFeeFromAmount = true;
+    bool fSubtractFeeFromAmount = false;
     if (params.size() > 4)
         fSubtractFeeFromAmount = params[4].get_bool();
+
+    if (fSubtractFeeFromAmount && nTotalOut == 0)
+    {
+        LogPrint("sc", "%s():%d - can not sbtract fee from a zero output sum\n", __func__, __LINE__);
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, can not subtract fee from a zero output amount");
+    }
 
     CAmount nSpecifiedFee = 0;
     if (params.size() > 5)
@@ -4299,26 +4303,12 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for fee");
     }
 
-    if (nSpecifiedFee != 0 && !fSubtractFeeFromAmount)
-    {
-        nTotalOut += nSpecifiedFee;
-    }
-
-    CAmount curBalance = scView.getSidechainBalance(scId);
-    if (nTotalOut > curBalance)
-    {
-        LogPrint("sc", "%s():%d - insufficent balance in scid[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, scId.ToString(), FormatMoney(curBalance), FormatMoney(nTotalOut) );
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "sidechain has insufficient funds");
-    }
-
     EnsureWalletIsUnlocked();
 
     std::string strFailReason;
 
     CMutableScCertificate cert;
     // cert data
-    cert.totalAmount = nTotalOut;
     cert.nVersion = SC_TX_VERSION;
     cert.scId = scId;
     cert.epochNumber = epochNumber;
@@ -4334,19 +4324,20 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         }
     }
 
-    CAmount nFeeRet = 0;
+    CAmount nCertFee = 0;
     if (nSpecifiedFee == 0)
     {
         // deduce fee as for tx
         unsigned int nBytes = ::GetSerializeSize(cert, SER_NETWORK, PROTOCOL_VERSION);
-        nFeeRet = CWallet::GetMinimumFee(nBytes, DEFAULT_TX_CONFIRM_TARGET, mempool);
+        nCertFee = CWallet::GetMinimumFee(nBytes, DEFAULT_TX_CONFIRM_TARGET, mempool);
     }
     else
     {
-        nFeeRet = nSpecifiedFee;
+        nCertFee = nSpecifiedFee;
     }
+
     LogPrint("cert", "%s():%d - fee=%s, subtractFromAmonts=%d\n",
-        __func__, __LINE__, FormatMoney(nFeeRet), (int)fSubtractFeeFromAmount);
+        __func__, __LINE__, FormatMoney(nCertFee), (int)fSubtractFeeFromAmount);
 
     if (fSubtractFeeFromAmount)
     {
@@ -4355,17 +4346,17 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
  
         BOOST_FOREACH (auto& out, cert.vout)
         {
-            out.nValue -= nFeeRet / numbOfReceivers; // Subtract fee equally from each selected recipient
+            out.nValue -= nCertFee / numbOfReceivers; // Subtract fee equally from each selected recipient
   
             if (fFirst) // first receiver pays the remainder not divisible by output count
             {
                 fFirst = false;
-                out.nValue -= nFeeRet % numbOfReceivers;
+                out.nValue -= nCertFee % numbOfReceivers;
             }
   
             if (out.IsDust(::minRelayTxFee))
             {
-                if (nFeeRet > 0)
+                if (nCertFee > 0)
                 {
                     if (out.nValue < 0)
                     {
@@ -4384,6 +4375,20 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             }
         }
     }
+    else
+    {
+        nTotalOut += nCertFee;
+    }
+
+    CAmount curBalance = scView.getSidechainBalance(scId);
+    if (nTotalOut > curBalance)
+    {
+        LogPrint("sc", "%s():%d - insufficent balance in scid[%s]: balance[%s], cert amount[%s]\n",
+            __func__, __LINE__, scId.ToString(), FormatMoney(curBalance), FormatMoney(nTotalOut) );
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "sidechain has insufficient funds");
+    }
+
+    cert.totalAmount = nTotalOut;
 
     CScCertificate constCert(cert);
     const uint256& hash = constCert.GetHash();

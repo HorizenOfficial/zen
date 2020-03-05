@@ -193,16 +193,10 @@ unsigned int CScCertificate::GetLegacySigOpCount() const
 }
 #endif
 
-void CScCertificate::getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& map) const
+void CScCertificate::getCrosschainOutputs(std::map<uint256, uint256>& map, std::set<uint256>& sScIds) const
 {
-    unsigned int nIdx = 0;
-    LogPrint("sc", "%s():%d -getting leaves for cert vout\n", __func__, __LINE__);
-    fillCrosschainOutput(scId, vout, nIdx, map);
-
-    LogPrint("sc", "%s():%d -getting leaves for cert vbt out\n", __func__, __LINE__);
-    fillCrosschainOutput(scId, vbt_ccout, nIdx, map);
-
-    LogPrint("sc", "%s():%d - nIdx[%d]\n", __func__, __LINE__, nIdx);
+    sScIds.insert(scId);
+    map[scId] = GetHash();
 }
 
 // Mutable Certificate

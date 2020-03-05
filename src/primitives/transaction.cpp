@@ -538,7 +538,7 @@ std::string CTransaction::ToString() const
     return str;
 }
 
-void CTransaction::getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& map) const
+void CTransaction::getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& mLeaves, std::set<uint256>& sScIds) const
 {
     if (!IsScVersion())
     {
@@ -547,13 +547,13 @@ void CTransaction::getCrosschainOutputs(std::map<uint256, std::vector<uint256> >
 
     unsigned int nIdx = 0;
     LogPrint("sc", "%s():%d -getting leaves for vsc out\n", __func__, __LINE__);
-    fillCrosschainOutput(vsc_ccout, nIdx, map);
+    fillCrosschainOutput(vsc_ccout, nIdx, mLeaves, sScIds);
 
     LogPrint("sc", "%s():%d -getting leaves for vcl out\n", __func__, __LINE__);
-    fillCrosschainOutput(vcl_ccout, nIdx, map);
+    fillCrosschainOutput(vcl_ccout, nIdx, mLeaves, sScIds);
 
     LogPrint("sc", "%s():%d -getting leaves for vft out\n", __func__, __LINE__);
-    fillCrosschainOutput(vft_ccout, nIdx, map);
+    fillCrosschainOutput(vft_ccout, nIdx, mLeaves, sScIds);
 
     LogPrint("sc", "%s():%d - nIdx[%d]\n", __func__, __LINE__, nIdx);
 }
