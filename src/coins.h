@@ -381,7 +381,7 @@ public:
     virtual bool HaveCoins(const uint256 &txid) const;
 
     //! Just check whether we have data for a given sidechain id.
-    virtual bool HaveScInfo(const uint256& scId) const;
+    virtual bool HaveSidechain(const uint256& scId) const;
 
     //! Retrieve the Sidechain informations for a give sidechain id.
     virtual bool GetScInfo(const uint256& scId, CSidechain& info) const;
@@ -427,7 +427,7 @@ public:
     bool GetNullifier(const uint256 &nullifier)                        const;
     bool GetCoins(const uint256 &txid, CCoins &coins)                  const;
     bool HaveCoins(const uint256 &txid)                                const;
-    bool HaveScInfo(const uint256& scId)                               const override;
+    bool HaveSidechain(const uint256& scId)                            const override;
     bool GetScInfo(const uint256& scId, CSidechain& info)              const override;
     void queryScIds(std::set<uint256>& scIdsList)                      const override;
     bool HaveCertForEpoch(const uint256& scId, int epochNumber)        const override;
@@ -540,7 +540,7 @@ public:
      */
 
     //SIDECHAIN RELATED PUBLIC MEMBERS
-    bool HaveScInfo(const uint256& scId)                           const override;
+    bool HaveSidechain(const uint256& scId)                        const override;
     bool GetScInfo(const uint256 & scId, CSidechain& targetScInfo) const override;
     void queryScIds(std::set<uint256>& scIdsList)                  const override;
     bool HaveDependencies(const CTransaction& tx);

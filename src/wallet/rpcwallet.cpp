@@ -582,7 +582,7 @@ UniValue sc_send(const UniValue& params, bool fHelp)
     {
         LOCK(mempool.cs);
         CCoinsViewMemPool scView(pcoinsTip, mempool);
-        if (!scView.HaveScInfo(scId) )
+        if (!scView.HaveSidechain(scId))
         {
             LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
@@ -729,7 +729,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     // sanity check of the side chain ID
     CCoinsViewCache scView(pcoinsTip);
-    if (scView.HaveScInfo(scId) )
+    if (scView.HaveSidechain(scId))
     {
         LogPrint("sc", "scid[%s] already created\n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid already created: ") + scId.ToString());
@@ -4080,7 +4080,7 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
         {
             LOCK(mempool.cs);
             CCoinsViewMemPool scView(pcoinsTip, mempool);
-            if (!scView.HaveScInfo(scId) )
+            if (!scView.HaveSidechain(scId))
             {
                 LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
                 throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
@@ -4163,7 +4163,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     // sanity check of the side chain ID
     CCoinsViewCache scView(pcoinsTip);
-    if (!scView.HaveScInfo(scId) )
+    if (!scView.HaveSidechain(scId))
     {
         LogPrint("sc", "scid[%s] does not exists \n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not exists: ") + scId.ToString());
@@ -4462,7 +4462,7 @@ UniValue sc_certlock_many(const UniValue& params, bool fHelp)
         scId.SetHex(inputString);
 
         CCoinsViewCache scView(pcoinsTip);
-        if (!scView.HaveScInfo(scId) )
+        if (!scView.HaveSidechain(scId))
         {
             LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());

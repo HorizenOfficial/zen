@@ -14,7 +14,7 @@ public:
     CInMemorySidechainDb()  = default;
     virtual ~CInMemorySidechainDb() = default;
 
-    bool HaveScInfo(const uint256& scId) const { return inMemoryMap.count(scId); }
+    bool HaveSidechain(const uint256& scId) const { return inMemoryMap.count(scId); }
     bool GetScInfo(const uint256& scId, CSidechain& info) const {
         if(!inMemoryMap.count(scId))
             return false;
@@ -464,7 +464,7 @@ TEST_F(SidechainTestSuite, RevertingScCreationTxRemovesTheSc) {
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_FALSE(sidechainsView->HaveScInfo(scId));
+    EXPECT_FALSE(sidechainsView->HaveSidechain(scId));
 }
 
 TEST_F(SidechainTestSuite, RevertingFwdTransferRemovesCoinsFromImmatureBalance) {
@@ -548,7 +548,7 @@ TEST_F(SidechainTestSuite, NewSCsAreRegistered) {
 
     //check
     EXPECT_TRUE(res);
-    EXPECT_TRUE(sidechainsView->HaveScInfo(newScId));
+    EXPECT_TRUE(sidechainsView->HaveSidechain(newScId));
 }
 
 TEST_F(SidechainTestSuite, DuplicatedSCsAreRejected) {
@@ -579,8 +579,8 @@ TEST_F(SidechainTestSuite, NoRollbackIsPerformedOnceInvalidTransactionIsEncounte
 
     //check
     EXPECT_FALSE(res);
-    EXPECT_TRUE(sidechainsView->HaveScInfo(firstScId));
-    EXPECT_FALSE(sidechainsView->HaveScInfo(secondScId));
+    EXPECT_TRUE(sidechainsView->HaveSidechain(firstScId));
+    EXPECT_FALSE(sidechainsView->HaveSidechain(secondScId));
 }
 
 TEST_F(SidechainTestSuite, ForwardTransfersToNonExistentSCsAreRejected) {
@@ -593,7 +593,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToNonExistentSCsAreRejected) {
 
     //check
     EXPECT_FALSE(res);
-    EXPECT_FALSE(sidechainsView->HaveScInfo(nonExistentId));
+    EXPECT_FALSE(sidechainsView->HaveSidechain(nonExistentId));
 }
 
 TEST_F(SidechainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
@@ -635,7 +635,7 @@ TEST_F(SidechainTestSuite, FRESHSidechainsGetWrittenInBackingCache) {
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_TRUE(sidechainsView->HaveScInfo(scId));
+    EXPECT_TRUE(sidechainsView->HaveSidechain(scId));
 }
 
 TEST_F(SidechainTestSuite, FRESHSidechainsCanBeWrittenOnlyIfUnknownToBackingCache) {
@@ -683,7 +683,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsAreStoredInBackingCache) {
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_TRUE(sidechainsView->HaveScInfo(scId));
+    EXPECT_TRUE(sidechainsView->HaveSidechain(scId));
 }
 
 TEST_F(SidechainTestSuite, DIRTYSidechainsUpdatesDirtyOnesInBackingCache) {
@@ -732,7 +732,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsOverwriteErasedOnesInBackingCache) {
 
     //...then revert it to have it erased
     sidechainsView->RevertTxOutputs(scTx, /*nHeight*/1000);
-    ASSERT_FALSE(sidechainsView->HaveScInfo(scId));
+    ASSERT_FALSE(sidechainsView->HaveSidechain(scId));
 
     CSidechainsMap mapToWrite;
     CSidechainsCacheEntry entry;
@@ -779,7 +779,7 @@ TEST_F(SidechainTestSuite, ERASEDSidechainsSetExistingOnesInBackingCacheasErased
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_FALSE(sidechainsView->HaveScInfo(scId));
+    EXPECT_FALSE(sidechainsView->HaveSidechain(scId));
 }
 
 TEST_F(SidechainTestSuite, DEFAULTSidechainsCanBeWrittenInBackingCacheasOnlyIfUnchanged) {
@@ -821,7 +821,7 @@ TEST_F(SidechainTestSuite, FlushPersistsNewSidechains) {
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_TRUE(fakeChainStateDb->HaveScInfo(scId));
+    EXPECT_TRUE(fakeChainStateDb->HaveSidechain(scId));
 }
 
 TEST_F(SidechainTestSuite, FlushPersistsForwardTransfers) {
@@ -864,7 +864,7 @@ TEST_F(SidechainTestSuite, FlushPersistsScErasureToo) {
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_FALSE(fakeChainStateDb->HaveScInfo(scId));
+    EXPECT_FALSE(fakeChainStateDb->HaveSidechain(scId));
 }
 
 TEST_F(SidechainTestSuite, FlushPersistsNewScsOnTopOfErasedOnes) {
@@ -875,12 +875,12 @@ TEST_F(SidechainTestSuite, FlushPersistsNewScsOnTopOfErasedOnes) {
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     sidechainsView->UpdateScInfo(scCreationTx, aBlock, /*height*/int(1789));
     sidechainsView->Flush();
-    ASSERT_TRUE(fakeChainStateDb->HaveScInfo(scId));
+    ASSERT_TRUE(fakeChainStateDb->HaveSidechain(scId));
 
     //Remove it and flush again
     sidechainsView->RevertTxOutputs(scCreationTx, /*height*/int(1789));
     sidechainsView->Flush();
-    ASSERT_FALSE(fakeChainStateDb->HaveScInfo(scId));
+    ASSERT_FALSE(fakeChainStateDb->HaveSidechain(scId));
 
     //re-create sc with same scId as erased one
     CTransaction scReCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(20));
@@ -889,7 +889,7 @@ TEST_F(SidechainTestSuite, FlushPersistsNewScsOnTopOfErasedOnes) {
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_TRUE(fakeChainStateDb->HaveScInfo(scId));
+    EXPECT_TRUE(fakeChainStateDb->HaveSidechain(scId));
 }
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// queryScIds //////////////////////////////////

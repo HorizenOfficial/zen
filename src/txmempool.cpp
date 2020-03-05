@@ -602,7 +602,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             assert(mapSidechains.at(scCreation.scId).scCreationTxHash == tx.GetHash());
 
             //since sc creation is in mempool, there must not be in blockchain another sc re-declaring it
-            assert(!pcoins->HaveScInfo(scCreation.scId));
+            assert(!pcoins->HaveSidechain(scCreation.scId));
 
             //there cannot be no certificates for unconfirmed sidechains
             assert(mapSidechains.at(scCreation.scId).backwardCertificate.IsNull());
@@ -618,7 +618,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             if (!mapSidechains.at(fwd.scId).scCreationTxHash.IsNull())
                 assert(mapTx.count(mapSidechains.at(fwd.scId).scCreationTxHash));
             else
-                assert(pcoins->HaveScInfo(fwd.scId));
+                assert(pcoins->HaveSidechain(fwd.scId));
         }
 
         boost::unordered_map<uint256, ZCIncrementalMerkleTree, CCoinsKeyHasher> intermediates;
@@ -886,8 +886,8 @@ bool CCoinsViewMemPool::GetScInfo(const uint256& scId, CSidechain& info) const {
     return true;
 }
 
-bool CCoinsViewMemPool::HaveScInfo(const uint256& scId) const {
-    return mempool.sidechainExists(scId) || base->HaveScInfo(scId);
+bool CCoinsViewMemPool::HaveSidechain(const uint256& scId) const {
+    return mempool.sidechainExists(scId) || base->HaveSidechain(scId);
 }
 
 

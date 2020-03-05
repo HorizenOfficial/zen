@@ -284,7 +284,7 @@ public:
     bool GetCoins(const uint256 &txid, CCoins &coins) const;
     bool HaveCoins(const uint256 &txid) const;
     bool GetScInfo(const uint256& scId, CSidechain& info) const override;
-    bool HaveScInfo(const uint256& scId) const override;
+    bool HaveSidechain(const uint256& scId) const override;
     bool IsCertAllowedInMempool(const CScCertificate& cert, CValidationState& state);
     bool HaveCertForEpoch(const uint256& scId, int epochNumber) const override;
 };

@@ -49,7 +49,7 @@ bool CCoinsView::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) c
 bool CCoinsView::GetNullifier(const uint256 &nullifier)                        const { return false; }
 bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins)                  const { return false; }
 bool CCoinsView::HaveCoins(const uint256 &txid)                                const { return false; }
-bool CCoinsView::HaveScInfo(const uint256& scId)                               const { return false; }
+bool CCoinsView::HaveSidechain(const uint256& scId)                            const { return false; }
 bool CCoinsView::GetScInfo(const uint256& scId, CSidechain& info)              const { return false; }
 void CCoinsView::queryScIds(std::set<uint256>& scIdsList)                      const { scIdsList.clear(); return; }
 bool CCoinsView::HaveCertForEpoch(const uint256& scId, int epochNumber)        const { return false; }
@@ -70,7 +70,7 @@ bool CCoinsViewBacked::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &t
 bool CCoinsViewBacked::GetNullifier(const uint256 &nullifier)                        const { return base->GetNullifier(nullifier); }
 bool CCoinsViewBacked::GetCoins(const uint256 &txid, CCoins &coins)                  const { return base->GetCoins(txid, coins); }
 bool CCoinsViewBacked::HaveCoins(const uint256 &txid)                                const { return base->HaveCoins(txid); }
-bool CCoinsViewBacked::HaveScInfo(const uint256& scId)                               const { return base->HaveScInfo(scId); }
+bool CCoinsViewBacked::HaveSidechain(const uint256& scId)                            const { return base->HaveSidechain(scId); }
 bool CCoinsViewBacked::GetScInfo(const uint256& scId, CSidechain& info)              const { return base->GetScInfo(scId,info); }
 void CCoinsViewBacked::queryScIds(std::set<uint256>& scIdsList)                      const { return base->queryScIds(scIdsList); }
 bool CCoinsViewBacked::HaveCertForEpoch(const uint256& scId, int epochNumber)        const { return base->HaveCertForEpoch(scId, epochNumber); }
@@ -417,7 +417,7 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
     return true;
 }
 
-bool CCoinsViewCache::HaveScInfo(const uint256& scId) const
+bool CCoinsViewCache::HaveSidechain(const uint256& scId) const
 {
     CSidechainsMap::const_iterator it = FetchSidechains(scId);
     return (it != cacheSidechains.end()) && (it->second.flag != CSidechainsCacheEntry::Flags::ERASED);
@@ -482,7 +482,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
     // creation ccout
     for (const auto& cr: tx.vsc_ccout)
     {
-        if (HaveScInfo(cr.scId))
+        if (HaveSidechain(cr.scId))
         {
             LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, cr.scId.ToString() );
             return false;
@@ -506,7 +506,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
     // forward transfer ccout
     for(auto& ft: tx.vft_ccout)
     {
-        if (!HaveScInfo(ft.scId))
+        if (!HaveSidechain(ft.scId))
         {
             // should not happen
             LogPrint("sc", "%s():%d - Can not update balance, could not find scId=%s\n",
@@ -726,7 +726,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     LogPrint("cert", "%s():%d - called: cert[%s], scId[%s], height[%d]\n",
         __func__, __LINE__, certHash.ToString(), cert.scId.ToString(), nHeight );
 
-    if (!HaveScInfo(cert.scId) )
+    if (!HaveSidechain(cert.scId))
     {
         LogPrint("sc", "%s():%d - cert[%s] refers to scId[%s] not yet created\n",
             __func__, __LINE__, certHash.ToString(), cert.scId.ToString() );
@@ -842,7 +842,7 @@ bool CCoinsViewCache::HaveDependencies(const CTransaction& tx)
     for (const auto& sc: tx.vsc_ccout)
     {
         const uint256& scId = sc.scId;
-        if (HaveScInfo(scId))
+        if (HaveSidechain(scId))
         {
             LogPrint("sc", "%s():%d - ERROR: Invalid tx[%s] : scid[%s] already created\n",
                 __func__, __LINE__, txHash.ToString(), scId.ToString());
@@ -856,7 +856,7 @@ bool CCoinsViewCache::HaveDependencies(const CTransaction& tx)
     for (const auto& ft: tx.vft_ccout)
     {
         const uint256& scId = ft.scId;
-        if (!HaveScInfo(scId) && !Sidechain::hasScCreationOutput(tx, scId) )
+        if (!HaveSidechain(scId) && !Sidechain::hasScCreationOutput(tx, scId))
         {
             LogPrint("sc", "%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",
                 __func__, __LINE__, txHash.ToString(), scId.ToString() );

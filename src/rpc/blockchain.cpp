@@ -1151,7 +1151,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
  
     // sanity check of the side chain ID
     CCoinsViewCache scView(pcoinsTip);
-    if (!scView.HaveScInfo(scId) )
+    if (!scView.HaveSidechain(scId))
     {
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());

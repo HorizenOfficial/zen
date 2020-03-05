@@ -123,7 +123,7 @@ bool CCoinsViewDB::GetScInfo(const uint256& scId, CSidechain& info) const
     return db.Read(std::make_pair(DB_SIDECHAINS, scId), info);
 }
 
-bool CCoinsViewDB::HaveScInfo(const uint256& scId) const
+bool CCoinsViewDB::HaveSidechain(const uint256& scId) const
 {
     return db.Exists(std::make_pair(DB_SIDECHAINS, scId));
 }
