@@ -78,6 +78,35 @@ public:
     }
 };
 
+class CBlockHeaderForNetwork : public CBlockHeader
+{
+    std::vector<CTransaction> vtx_dummy;
+public:
+
+    CBlockHeaderForNetwork()
+    {
+        SetNull();
+    }
+
+    explicit CBlockHeaderForNetwork(const CBlockHeader &header)
+    {
+        *static_cast<CBlockHeader*>(this) = header;
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(*(CBlockHeader*)this);
+        READWRITE(vtx_dummy);
+    }
+
+    void SetNull()
+    {
+        CBlockHeader::SetNull();
+        vtx_dummy.clear();
+    }
+};
 
 class CBlock : public CBlockHeader
 {
@@ -92,12 +121,6 @@ public:
     CBlock()
     {
         SetNull();
-    }
-
-    CBlock(const CBlockHeader &header)
-    {
-        SetNull();
-        *((CBlockHeader*)this) = header;
     }
 
     ADD_SERIALIZE_METHODS;

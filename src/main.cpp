@@ -5875,12 +5875,12 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             }
  
             // we must use CBlocks, as CBlockHeaders won't include the 0x00 nTx count at the end
-            vector<CBlock> vHeaders;
+            vector<CBlockHeaderForNetwork> vHeaders;
             int nLimit = MAX_HEADERS_RESULTS;
             LogPrint("net", "getheaders from h(%d) to %s from peer=%d\n", (pindex ? pindex->nHeight : -1), hashStop.ToString(), pfrom->id);
             for (; pindex; pindex = chainActive.Next(pindex))
             {
-                vHeaders.push_back(pindex->GetBlockHeader());
+                vHeaders.push_back(CBlockHeaderForNetwork(pindex->GetBlockHeader()) );
                 if (--nLimit <= 0 || pindex->GetBlockHash() == hashStop)
                     break;
             }
@@ -5909,14 +5909,14 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 LogPrint("forks", "%s():%d - peer is not using chain active! Starting from %s at h(%d)\n",
                     __func__, __LINE__, pindexReference->GetBlockHash().ToString(), pindexReference->nHeight );
  
-                std::deque<CBlock> dHeadersAlternative;
+                std::deque<CBlockHeaderForNetwork> dHeadersAlternative;
 
                 bool found = false;
 
                 // the reference is the block which triggered the getheader request (the hashStop)
                 while ( pindexReference )
                 {
-                    dHeadersAlternative.push_front(pindexReference->GetBlockHeader());
+                    dHeadersAlternative.push_front(CBlockHeaderForNetwork(pindexReference->GetBlockHeader()));
  
                     BOOST_FOREACH(const uint256& hash, locator.vHave)
                     {
@@ -5938,11 +5938,11 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                     pindexReference = pindexReference->pprev;
                 }
 
-                vector<CBlock> vHeaders;
+                vector<CBlockHeaderForNetwork> vHeaders;
                 int nLimit = MAX_HEADERS_RESULTS;
                 // we are on a fork: fill the vector rewinding the deque so that we have the correct ordering
                 LogPrint("forks", "%s():%d - Found %d headers to push to node[%s]:\n", __func__, __LINE__, dHeadersAlternative.size(), pfrom->addrName);
-                BOOST_FOREACH(const CBlock& cb, dHeadersAlternative) {
+                for(const auto& cb : dHeadersAlternative) {
                     LogPrint("forks", "%s():%d -- [%s]\n", __func__, __LINE__, cb.GetHash().ToString() );
                     vHeaders.push_back(cb);
                     if (--nLimit <= 0)
@@ -5958,7 +5958,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 // this is the case when we just sent 160 headers, reference is the header which the last getheader
                 // request has reached: more must be sent starting from this one
                 std::set<const CBlockIndex*> sProcessed;
-                std::vector<CBlock> vHeadersMulti;
+                std::vector<CBlockHeaderForNetwork> vHeadersMulti;
                 int nLimit = MAX_HEADERS_RESULTS;
 
                 int h = pindexReference->nHeight;
@@ -5977,7 +5977,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                         continue;
                     }
 
-                    std::deque<CBlock> dHeadersAlternativeMulti;
+                    std::deque<CBlockHeaderForNetwork> dHeadersAlternativeMulti;
 
                     LogPrint("forks", "%s():%d - tips %s h(%d)\n",
                         __func__, __LINE__, block->GetBlockHash().ToString(), block->nHeight);
@@ -5990,7 +5990,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                         {
                             LogPrint("forks", "%s():%d - adding %s h(%d)\n",
                                 __func__, __LINE__, block->GetBlockHash().ToString(), block->nHeight);
-                            dHeadersAlternativeMulti.push_front(block->GetBlockHeader());
+                            dHeadersAlternativeMulti.push_front(CBlockHeaderForNetwork(block->GetBlockHeader()));
                             sProcessed.insert(block);
                         }
                         block = block->pprev;
@@ -6004,7 +6004,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
                         // we must process each deque in order to have a resulting vector with headers in the correct order
                         // for all possible forks
-                        BOOST_FOREACH(const CBlock& cb, dHeadersAlternativeMulti)
+                        for(const auto& cb : dHeadersAlternativeMulti)
                         {
                             if (--nLimit > 0)
                             {
@@ -6316,10 +6316,6 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         for (unsigned int n = 0; n < nCount; n++) {
             vRecv >> headers[n];
             ReadCompactSize(vRecv); // ignore tx count; assume it is 0.
-            if (headers[n].nVersion == CBlockHeader::SC_CERT_BLOCK_VERSION)
-            {
-                ReadCompactSize(vRecv); // the same for certs
-            }
         }
 
         LOCK(cs_main);
