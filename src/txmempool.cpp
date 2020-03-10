@@ -403,18 +403,12 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
             certsToRemove.push_back(cert);
 
             // Remove also txes that depend on such certificates
-            for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++)
-            {
-                const CTransaction& tx = it->second.GetTx();
-                BOOST_FOREACH(const CTxIn& txin, tx.vin)
-                {
-                    if (txin.prevout.hash == cert.GetHash() )
-                    {
-                        LogPrint("sc", "%s():%d - adding tx [%s] to list for removing\n", __func__, __LINE__, tx.GetHash().ToString());
-                        txsToRemove.push_back(tx);
-                        break;
-                    }
-                }
+            for (unsigned int i = 0; i < cert.vout.size(); i++) {
+                std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(cert.GetHash(), i));
+                if (it == mapNextTx.end())
+                    continue;
+                LogPrint("sc", "%s():%d - marking tx [%s] for removal since it spends out-of-epoch cert\n", __func__, __LINE__, it->second.ptx->GetHash().ToString());
+                txsToRemove.push_back(*(it->second.ptx));
             }
         }
     }
