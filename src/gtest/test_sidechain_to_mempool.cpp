@@ -82,6 +82,7 @@ public:
 protected:
     CTransaction GenerateScTx(const uint256 & newScId, const CAmount & creationTxAmount);
     CTransaction GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount);
+    CScCertificate GenerateCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash, const CAmount& totalAmount);
 
 private:
     boost::filesystem::path  pathTemp;
@@ -408,6 +409,55 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_FwdRecursiveRemoval) {
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
 }
 
+TEST_F(SidechainsInMempoolTestSuite, SimpleCertRemovalFromMempool) {
+    //Create and persist sidechain
+    uint256 scId = uint256S("a1b2");
+    CTransaction scTx = GenerateScTx(scId, CAmount(10));
+    CBlock aBlock;
+    CCoinsViewCache sidechainsView(pcoinsTip);
+    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    sidechainsView.Flush();
+
+    //load certificate in mempool
+    CScCertificate cert = GenerateCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(), /*totalAmount*/CAmount(5));
+    CCertificateMemPoolEntry certEntry(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(cert.GetHash(), certEntry);
+
+    //Remove the certificate
+    std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
+    mempool.remove(cert, removedTxs, removedCerts, /*fRecursive*/false);
+
+    EXPECT_TRUE(removedTxs.size() == 0);
+    EXPECT_TRUE(std::count(removedCerts.begin(), removedCerts.end(), cert));
+    EXPECT_FALSE(mempool.existsCert(cert.GetHash()));
+}
+
+TEST_F(SidechainsInMempoolTestSuite, ConflictingCertRemovalFromMempool) {
+    //Create and persist sidechain
+    uint256 scId = uint256S("a1b2");
+    CTransaction scTx = GenerateScTx(scId, CAmount(10));
+    CBlock aBlock;
+    CCoinsViewCache sidechainsView(pcoinsTip);
+    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    sidechainsView.Flush();
+
+    //load a certificate in mempool
+    CScCertificate cert1 = GenerateCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(), /*totalAmount*/CAmount(5));
+    CCertificateMemPoolEntry certEntry1(cert1, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(cert1.GetHash(), certEntry1);
+
+    //Remove the certificate
+    std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
+    CScCertificate cert2 = GenerateCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(), /*totalAmount*/CAmount(4));
+    mempool.removeConflicts(cert2, removedTxs, removedCerts);
+
+    EXPECT_TRUE(removedTxs.size() == 0);
+    EXPECT_TRUE(std::count(removedCerts.begin(), removedCerts.end(), cert1));
+    EXPECT_FALSE(mempool.existsCert(cert1.GetHash()));
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Test Fixture definitions ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -515,4 +565,14 @@ CTransaction SidechainsInMempoolTestSuite::GenerateFwdTransferTx(const uint256 &
     SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);
 
     return scTx;
+}
+
+CScCertificate SidechainsInMempoolTestSuite::GenerateCertificate(const uint256 & scId, int epochNum,
+                                                                 const uint256 & endEpochBlockHash, const CAmount& totalAmount) {
+    CMutableScCertificate res;
+    res.scId = scId;
+    res.epochNumber = epochNum;
+    res.endEpochBlockHash = endEpochBlockHash;
+    res.totalAmount = totalAmount;
+    return res;
 }

@@ -521,15 +521,26 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
     minerPolicyEstimator->processBlock(nBlockHeight, entries, fCurrentEstimate);
 }
 
+void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts) {
+    //a certificate for a sidechain has been confirmed in a block. Any unconfirmed cert in mempool is deemed conflicting and removed
+    if (!mapSidechains.count(cert.scId))
+        return;
 
-// a certificate has no conflicting txes since it has no inputs
+    if (mapSidechains.at(cert.scId).backwardCertificate.IsNull())
+        return;
+
+    const CScCertificate& conflictingCert = mapCertificate.at(mapSidechains.at(cert.scId).backwardCertificate).GetCertificate();
+    remove(conflictingCert, removedTxs, removedCerts, true);
+}
+
 void CTxMemPool::removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight,
                                 std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fCurrentEstimate)
 {
     LOCK(cs);
     for (const auto& cert : vcert)
     {
-        remove(cert, removedTxs, removedCerts, true);
+        remove(cert, removedTxs, removedCerts, false);
+        removeConflicts(cert, removedTxs, removedCerts);
         ClearPrioritisation(cert.GetHash());
     }
 }
