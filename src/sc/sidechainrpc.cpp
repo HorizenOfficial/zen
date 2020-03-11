@@ -3,6 +3,15 @@
 #include "primitives/transaction.h"
 #include <boost/foreach.hpp>
 
+#include <rpc/protocol.h>
+#include "utilmoneystr.h"
+
+#include <wallet/wallet.h>
+
+#include <core_io.h>
+#include <rpc/server.h>
+#include <main.h>
+#include <init.h>
 
 extern UniValue ValueFromAmount(const CAmount& amount);
 extern CAmount AmountFromValue(const UniValue& value);
@@ -205,7 +214,7 @@ bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std
 
 void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& vecCcSend)
 {
-    BOOST_FOREACH(auto& entry, tx.vsc_ccout)
+    BOOST_FOREACH(const auto& entry, tx.vsc_ccout)
     {
         CRecipientScCreation sc;
         sc.scId = entry.scId;
@@ -217,7 +226,7 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& 
         vecCcSend.push_back(CcRecipientVariant(sc));
     }
 
-    BOOST_FOREACH(auto& entry, tx.vcl_ccout)
+    BOOST_FOREACH(const auto& entry, tx.vcl_ccout)
     {
         CRecipientCertLock cl;
         cl.scId = entry.scId;
@@ -228,7 +237,7 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& 
         vecCcSend.push_back(CcRecipientVariant(cl));
     }
 
-    BOOST_FOREACH(auto& entry, tx.vft_ccout)
+    BOOST_FOREACH(const auto& entry, tx.vft_ccout)
     {
         CRecipientForwardTransfer ft;
         ft.scId = entry.scId;
@@ -295,6 +304,253 @@ void CScCustomData::fill(std::vector<unsigned char>& vBytes, int nBytes) const
     {
         vBytes.push_back(*ptr);
         ptr--;
+    }
+}
+
+bool FillCcOutput(CMutableTransaction& tx, std::vector<Sidechain::CcRecipientVariant> vecCcSend, std::string& strFailReason)
+{
+    for (const auto& ccRecipient: vecCcSend)
+    {
+        CRecipientHandler handler(&tx, strFailReason);
+        if (!handler.visit(ccRecipient) )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+ScRpcCreationCmd::ScRpcCreationCmd(
+        CMutableTransaction& tx, const uint256& scid, const ScCreationParameters& cd, const CBitcoinAddress& fromaddress,
+        const CBitcoinAddress& chaddr, const uint256& toaddress, const CAmount nAmount, int nMinConf, const CAmount& nFee):
+        _tx(tx), _scid(scid), _creationData(cd), _fromMcAddress(fromaddress),
+        _changeMcAddress(chaddr), _toScAddress(toaddress), _nAmount(nAmount), _minConf(nMinConf), _fee(nFee)
+{
+    _hasFromAddress   = !(_fromMcAddress   == CBitcoinAddress());
+    _hasChangeAddress = !(_changeMcAddress == CBitcoinAddress());
+
+    // Get dust threshold
+    CKey secret;
+    secret.MakeNewKey(true);
+    CScript scriptPubKey = GetScriptForDestination(secret.GetPubKey().GetID());
+    CTxOut out(CAmount(1), scriptPubKey);
+    _dustThreshold = out.GetDustThreshold(minRelayTxFee);
+
+    _totalInputAmount = 0;
+} 
+
+void ScRpcCreationCmd::addInputs()
+{
+    std::vector<COutput> vAvailableCoins;
+    std::vector<SelectedUTXO> vInputUtxo;
+
+    static const bool fOnlyConfirmed = false;
+    static const bool fIncludeZeroValue = false;
+    static const bool fIncludeCoinBase = true;
+    static const bool fIncludeCommunityFund = true;
+
+    pwalletMain->AvailableCoins(vAvailableCoins, fOnlyConfirmed, NULL, fIncludeZeroValue, fIncludeCoinBase, fIncludeCommunityFund);
+
+    for (const auto& out: vAvailableCoins)
+    {
+        LogPrint("sc", "utxo %s depth: %d, val: %s, spendable: %s\n",
+            out.tx->GetHash().ToString(), out.nDepth, FormatMoney(out.tx->vout[out.i].nValue), out.fSpendable?"Y":"N");
+
+        if (!out.fSpendable || out.nDepth < _minConf) {
+            continue;
+        }
+
+        if (_hasFromAddress)
+        {
+            CTxDestination dest;
+            if (!ExtractDestination(out.tx->vout[out.i].scriptPubKey, dest)) {
+                continue;
+            }
+
+            if (!(CBitcoinAddress(dest) == _fromMcAddress)) {
+                continue;
+            }
+        }
+
+        CAmount nValue = out.tx->vout[out.i].nValue;
+
+        SelectedUTXO utxo(out.tx->GetHash(), out.i, nValue);
+        vInputUtxo.push_back(utxo);
+    }
+
+    // sort in ascending order, so smaller utxos appear first
+    std::sort(vInputUtxo.begin(), vInputUtxo.end(), [](SelectedUTXO i, SelectedUTXO j) -> bool {
+        return ( std::get<2>(i) < std::get<2>(j));
+    });
+
+    CAmount targetAmount = _nAmount + _fee;
+
+    CAmount dustChange = -1;
+
+    std::vector<SelectedUTXO> vSelectedInputUTXO;
+
+    for (const SelectedUTXO & t : vInputUtxo)
+    {
+        _totalInputAmount += std::get<2>(t);
+        vSelectedInputUTXO.push_back(t);
+
+        if (_totalInputAmount >= targetAmount)
+        {
+            // Select another utxo if there is change less than the dust threshold.
+            dustChange = _totalInputAmount - targetAmount;
+            if (dustChange == 0 || dustChange >= _dustThreshold) {
+                break;
+            }
+        }
+    }
+
+    if (_totalInputAmount < targetAmount)
+    {
+        std::string addrDetails;
+        if (_hasFromAddress)
+            addrDetails = strprintf(" for taddr[%s]", _fromMcAddress.ToString());
+
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
+            strprintf("Insufficient transparent funds %s, have %s, need %s (minconf=%d)",
+            addrDetails, FormatMoney(_totalInputAmount), FormatMoney(targetAmount), _minConf));
+    }
+
+    // If there is transparent change, is it valid or is it dust? 
+    if (dustChange < _dustThreshold && dustChange != 0) {
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
+            strprintf("Insufficient transparent funds, have %s, need %s more to avoid creating invalid change output %s (dust threshold is %s)",
+            FormatMoney(_totalInputAmount), FormatMoney(_dustThreshold - dustChange), FormatMoney(dustChange), FormatMoney(_dustThreshold)));
+    }
+
+    // Check mempooltxinputlimit to avoid creating a transaction which the local mempool rejects
+    size_t limit = (size_t)GetArg("-mempooltxinputlimit", 0);
+    if (limit > 0)
+    {
+        size_t n = vSelectedInputUTXO.size();
+        if (n > limit) {
+            throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Too many transparent inputs %zu > limit %zu", n, limit));
+        }
+    }
+
+    // update the transaction with these inputs
+    for (const auto& t : vSelectedInputUTXO)
+    {
+        uint256 txid = std::get<0>(t);
+        int vout = std::get<1>(t);
+
+        CTxIn in(COutPoint(txid, vout));
+        _tx.vin.push_back(in);
+    }
+}
+
+void ScRpcCreationCmd::addChange()
+{
+    CAmount change = _totalInputAmount - ( _nAmount + _fee);
+
+    if (change > 0)
+    {
+        // handle the address for the change
+        CScript scriptPubKey;
+        if (_hasChangeAddress)
+        {
+            scriptPubKey = GetScriptForDestination(_changeMcAddress.Get());
+        }
+        else
+        if (_hasFromAddress)
+        {
+            scriptPubKey = GetScriptForDestination(_fromMcAddress.Get());
+        }
+        else
+        {
+            CReserveKey keyChange(pwalletMain);
+            CPubKey vchPubKey;
+ 
+            if (!keyChange.GetReservedKey(vchPubKey))
+                throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Could not generate a taddr to use as a change address"); // should never fail, as we just unlocked
+
+            scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
+        }
+        CTxOut out(change, scriptPubKey);
+        _tx.vout.push_back(out);
+    }
+}
+
+void ScRpcCreationCmd::addCcOutputs()
+{
+    std::vector<CcRecipientVariant> vecCcSend;
+
+    // creation output
+    CRecipientScCreation sc;
+    sc.scId = _scid;
+    sc.address = _toScAddress;
+    sc.nValue = _nAmount;
+    sc.creationData = _creationData;
+
+    vecCcSend.push_back(CcRecipientVariant(sc));
+
+    std::string strFailReason;
+    if (!FillCcOutput(_tx, vecCcSend, strFailReason))
+    {
+        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output! %s", strFailReason.c_str()));
+    }
+}
+
+void ScRpcCreationCmd::signTx()
+{
+    std::string rawtxn;
+    try
+    {
+        rawtxn = EncodeHexTx(_tx);
+    }
+    catch(...)
+    {
+        throw JSONRPCError(RPC_WALLET_ENCRYPTION_FAILED, "Failed to encode transaction");
+    }
+
+    UniValue val = UniValue(UniValue::VARR);
+    val.push_back(rawtxn);
+
+    UniValue signResultValue = signrawtransaction(val, false);
+
+    UniValue signResultObject = signResultValue.get_obj();
+
+    UniValue completeValue = find_value(signResultObject, "complete");
+    if (!completeValue.get_bool())
+    {
+        throw JSONRPCError(RPC_WALLET_ENCRYPTION_FAILED, "Failed to sign transaction");
+    }
+
+    UniValue hexValue = find_value(signResultObject, "hex");
+    if (hexValue.isNull())
+    {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Missing hex data for signed transaction");
+    }
+    _signedTxHex = hexValue.get_str();
+
+    CTransaction txStreamed;
+    try
+    {
+        // Keep the signed transaction so we can hash to the same txid
+        CDataStream stream(ParseHex(_signedTxHex), SER_NETWORK, PROTOCOL_VERSION);
+        stream >> txStreamed;
+    }
+    catch(...)
+    {
+        throw JSONRPCError(RPC_WALLET_ENCRYPTION_FAILED, "Failed to parse transaction");
+    }
+    _tx = txStreamed;
+}
+
+void ScRpcCreationCmd::sendTx()
+{
+    UniValue val = UniValue(UniValue::VARR);
+    val.push_back(_signedTxHex);
+
+    UniValue sendResultValue = sendrawtransaction(val, false);
+    if (sendResultValue.isNull())
+    {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Send raw transaction did not return an error or a txid.");
     }
 }
 

@@ -29,10 +29,14 @@ using namespace zen;
 #include <boost/thread.hpp>
 
 #include "sc/sidechain.h"
+#include <univalue.h>
 
 using namespace std;
 using namespace libzcash;
 using namespace Sidechain;
+
+extern void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
+extern UniValue ValueFromAmount(const CAmount& amount);
 
 /**
  * Settings
@@ -1110,10 +1114,17 @@ int64_t CWallet::IncOrderPosNext(CWalletDB *pwalletdb)
     return nRet;
 }
 
-CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries, std::string strAccount)
+TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries, const std::string& strAccount,const std::string& address, bool includeFilteredVin)
 {
     AssertLockHeld(cs_wallet); // mapWallet
     CWalletDB walletdb(strWalletFile);
+
+    CScript scriptPubKey;
+    bool noFilter=address==std::string("*");
+    if(!noFilter) {
+         CBitcoinAddress baddress = CBitcoinAddress(address);
+         scriptPubKey = GetScriptForDestination(baddress.Get(), false);
+    }
 
     // First: get all CWalletTx and CAccountingEntry into a sorted-by-order multimap.
     TxItems txOrdered;
@@ -1129,8 +1140,29 @@ CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries,
     {
         CWalletObjBase* wtx = it->second.get();
 #endif
-        txOrdered.insert(make_pair(wtx->nOrderPos, TxPair(wtx, (CAccountingEntry*)0)));
+        if(noFilter)
+            txOrdered.insert(make_pair(wtx->nOrderPos, TxPair(wtx, (CAccountingEntry*)0)));
+        else
+        {
+            // search in the tx outputs
+            bool outputFound = false;
+
+            for(const CTxOut& txout : wtx->vout) {
+                auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
+                if (res == txout.scriptPubKey.begin()) {
+                    txOrdered.insert(make_pair(wtx->nOrderPos, TxPair(wtx, (CAccountingEntry*)0)));
+                    outputFound = true;
+                    break;
+                }
+            }
+
+            if (includeFilteredVin && !wtx->IsCoinBase() && !outputFound)
+            {
+                wtx->addOrderedInputTx(txOrdered, scriptPubKey);
+            }
+        }
     }
+
     acentries.clear();
     walletdb.ListAccountCreditDebit(strAccount, acentries);
     BOOST_FOREACH(CAccountingEntry& entry, acentries)
@@ -1139,6 +1171,67 @@ CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries,
     }
 
     return txOrdered;
+}
+
+MapTxWithInputs CWallet::OrderedTxWithInputsMap(const std::string& address)
+{
+    AssertLockHeld(cs_wallet);
+    CWalletDB walletdb(strWalletFile);
+
+    MapTxWithInputs mOrderedTxes;
+
+    CBitcoinAddress taddr = CBitcoinAddress(address);
+
+    if (!taddr.IsValid())
+    {
+        // taddr should be checked by the caller
+        return mOrderedTxes;
+    }
+
+    const CScript& scriptPubKey = GetScriptForDestination(taddr.Get(), false);
+
+    for (auto it : mapWallet)
+    {
+        auto& wtx = *(it.second.get());
+        std::vector<CWalletObjBase*> vtxIn;
+
+        std::pair<int64_t, TxWithInputsPair> entry = make_pair(wtx.nOrderPos, TxWithInputsPair(&wtx, vtxIn) );
+
+        bool outputFound = false;
+        bool inputFound = false;
+
+        for(const auto& txout : wtx.vout)
+        {
+            auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
+            if (res == txout.scriptPubKey.begin())
+            {
+                outputFound = true;
+                break;
+            }
+        }
+
+        if (!wtx.IsCoinBase())
+        {
+            wtx.addInputTx(entry, scriptPubKey, inputFound);
+        }
+
+        if (outputFound || inputFound)
+        {
+            auto ret = mOrderedTxes.insert(entry);
+            if (!ret.second)
+            {
+                // should not happen, since nOrderPos is unique
+                auto elementAlreadyThereIt = ret.first;
+                int64_t nPos = (*elementAlreadyThereIt).first;
+                const TxWithInputsPair& p = (*elementAlreadyThereIt).second;
+
+                LogPrintf("%s():%d - An element is already there at nOrderPos[%d]: tx[%s]\n",
+                    __func__, __LINE__, nPos, p.first->GetHash().ToString() );  
+            }
+        }
+    }
+
+    return mOrderedTxes;
 }
 
 void CWallet::MarkDirty()
@@ -2364,6 +2457,33 @@ void CWalletTx::GetConflicts(std::set<uint256>& result) const
     }
 }
 
+void CWalletTx::addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const
+{
+    for(const CTxIn& txin: vin)
+    {
+        auto mi = pwallet->mapWallet.find(txin.prevout.hash);
+        if (mi == pwallet->mapWallet.end())
+        {
+            continue;
+        }
+
+        const auto& inputTx = (*mi).second;
+        if (txin.prevout.n >= inputTx->vout.size())
+        {
+            continue;
+        }
+
+        const CTxOut& utxo = inputTx->vout[txin.prevout.n];
+
+        auto res = std::search(utxo.scriptPubKey.begin(), utxo.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
+        if (res == utxo.scriptPubKey.begin()) {
+            auto meAsObj = pwallet->mapWallet.at(GetHash());
+            txOrdered.insert(make_pair(nOrderPos, TxPair(meAsObj.get(), (CAccountingEntry*)0)));
+            return;
+        }
+    }
+}
+
 CAmount CWalletTx::GetDebit(const isminefilter& filter) const
 {
     if (vin.empty())
@@ -3341,14 +3461,7 @@ bool CWallet::CreateTransaction(
                 }
 
                 // vccouts to the payees
-                BOOST_FOREACH (const auto& ccRecipient, vecCcSend)
-                {
-                    CRecipientHandler handler(&txNew, strFailReason);
-                    if (!handler.visit(ccRecipient) )
-                    {
-                        return false;
-                    }
-                }
+                Sidechain::FillCcOutput(txNew, vecCcSend, strFailReason);
 
                 // Choose coins to use
 #if 0
@@ -4642,6 +4755,89 @@ void CWalletTx::GetNotesAmount(
         }
     }
 }
+
+void CWalletTx::AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletObjBase*> vtxIn) const
+{
+    entry.push_back(Pair("locktime", (int64_t)nLockTime));
+    UniValue vinArr(UniValue::VARR);
+    for (const CTxIn& txin : vin)
+    {
+        UniValue in(UniValue::VOBJ);
+        if (IsCoinBase())
+        {
+            in.push_back(Pair("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end())));
+        }
+        else
+        {
+            const uint256& inputTxHash = txin.prevout.hash;
+            bool inputFound = false;
+            in.push_back(Pair("txid", inputTxHash.GetHex()));
+
+            for (const auto& inputTx : vtxIn)
+            {
+                if (inputTx->GetHash() == inputTxHash)
+                {
+                    if (txin.prevout.n >= inputTx->vout.size())
+                        break;
+
+                    const CTxOut& txout = inputTx->vout[txin.prevout.n];
+
+                    UniValue vout(UniValue::VARR);
+                    UniValue out(UniValue::VOBJ);
+                    out.push_back(Pair("value", ValueFromAmount(txout.nValue)));
+                    out.push_back(Pair("valueZat", txout.nValue));
+                    out.push_back(Pair("n", (int64_t)txin.prevout.n));
+                    UniValue o(UniValue::VOBJ);
+                    ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
+                    out.push_back(Pair("scriptPubKey", o));
+                    vout.push_back(out);
+                    in.push_back(Pair("vout", vout));
+                    inputFound = true;
+                }
+            }
+
+            if (!inputFound)
+            {
+                in.push_back(Pair("vout", (int64_t)txin.prevout.n));
+            }
+            UniValue o(UniValue::VOBJ);
+            o.push_back(Pair("asm", txin.scriptSig.ToString()));
+            o.push_back(Pair("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end())));
+            in.push_back(Pair("scriptSig", o));
+        }
+        in.push_back(Pair("sequence", (int64_t)txin.nSequence));
+        vinArr.push_back(in);
+    }
+    entry.push_back(Pair("vin", vinArr));
+}
+
+void CWalletTx::addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const 
+{
+    for(const auto& txin: vin)
+    {
+        const auto mi = pwallet->mapWallet.find(txin.prevout.hash);
+        if (mi == pwallet->mapWallet.end())
+        {
+            continue;
+        }
+
+        const auto& inputTx = (*mi).second;
+        if (txin.prevout.n >= inputTx->vout.size())
+        {
+            continue;
+        }
+
+        const CTxOut& utxo = inputTx->vout[txin.prevout.n];
+ 
+        auto res = std::search(utxo.scriptPubKey.begin(), utxo.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
+        if (res == utxo.scriptPubKey.begin())
+        {
+            inputFound = true;
+            entry.second.second.push_back(inputTx.get());
+        }
+    }
+}
+
 
 int MerkleAbstractBase::SetMerkleBranch(const CBlock& block)
 {
