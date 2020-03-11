@@ -43,8 +43,14 @@ using namespace std;
 using namespace libzcash;
 using namespace Sidechain;
 
+extern void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
+
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
+
+// transaction.h comment: spending taddr output requires CTxIn >= 148 bytes and typical taddr txout is 34 bytes
+#define CTXIN_SPEND_DUST_SIZE   148
+#define CTXOUT_REGULAR_SIZE     34
 
 
 // Private method:
@@ -73,6 +79,46 @@ void EnsureWalletIsUnlocked()
 {
     if (pwalletMain->IsLocked())
         throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Please enter the wallet passphrase with walletpassphrase first.");
+}
+
+void TxExpandedToJSON(const CWalletObjBase& tx, const std::vector<CWalletObjBase*> vtxIn, UniValue& entry)
+{
+    entry.push_back(Pair("txid", tx.GetHash().GetHex()));
+    entry.push_back(Pair("version", tx.nVersion));
+
+    tx.AddVinExpandedToJSON(entry, vtxIn);
+
+    UniValue vout(UniValue::VARR);
+    for (unsigned int i = 0; i < tx.vout.size(); i++) {
+        const CTxOut& txout = tx.vout[i];
+        UniValue out(UniValue::VOBJ);
+        out.push_back(Pair("value", ValueFromAmount(txout.nValue)));
+        out.push_back(Pair("valueZat", txout.nValue));
+        out.push_back(Pair("n", (int64_t)i));
+        UniValue o(UniValue::VOBJ);
+        ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
+        out.push_back(Pair("scriptPubKey", o));
+        vout.push_back(out);
+    }
+    entry.push_back(Pair("vout", vout));
+
+    tx.AddSidechainOutsToJSON(entry);
+    tx.AddJoinSplitToJSON(entry);
+
+    if (!tx.hashBlock.IsNull()) {
+        entry.push_back(Pair("blockhash", tx.hashBlock.GetHex()));
+        BlockMap::iterator mi = mapBlockIndex.find(tx.hashBlock);
+        if (mi != mapBlockIndex.end() && (*mi).second) {
+            CBlockIndex* pindex = (*mi).second;
+            if (chainActive.Contains(pindex)) {
+                entry.push_back(Pair("confirmations", 1 + chainActive.Height() - pindex->nHeight));
+                entry.push_back(Pair("time", pindex->GetBlockTime()));
+                entry.push_back(Pair("blocktime", pindex->GetBlockTime()));
+            }
+            else
+                entry.push_back(Pair("confirmations", 0));
+        }
+    }
 }
 
 #if 0
@@ -541,8 +587,8 @@ UniValue sc_send(const UniValue& params, bool fHelp)
 
     if (fHelp || params.size() != 3)
         throw runtime_error(
-            "sc_send \"address\" amount ( \"comment\" \"comment-to\" subtractfeefromamount )\n"
-            "\nSend an amount to a given address. The amount is a real and is rounded to the nearest 0.00000001\n"
+            "sc_send \"address\" amount \"scid\"\n"
+            "\nSend a ZEN amount to an address of the given SC\n"
             + HelpRequiringPassphrase() +
             "\nArguments:\n"
             "1. \"address\"        (string, required) The uint256 hex representation of the PublicKey25519Proposition in the SC to send to.\n"
@@ -693,6 +739,27 @@ static void ScHandleTransaction(CWalletTx& wtx, std::vector<CcRecipientVariant>&
         throw JSONRPCError(RPC_WALLET_ERROR, "Transaction commit failed");
 }
 
+static void addCustomData(const std::string& inputString, std::vector<unsigned char>& vBytes)
+{ 
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid customData format: not an hex");
+ 
+    const unsigned int cdLen = inputString.length();
+    // we prefer to avoid padding with 0 any odd hex string
+    if (cdLen%2)
+        throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Invalid customData length %d, must be even (byte string)", cdLen));
+ 
+    const unsigned int cdDataLen = cdLen/2;
+ 
+    if (cdDataLen > MAX_CUSTOM_DATA_LEN)
+        throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Invalid customData length %d, must be %d bytes at most",
+            cdDataLen, MAX_CUSTOM_DATA_LEN));
+    
+    CScCustomData cdBlob;
+    cdBlob.SetHex(inputString);
+    cdBlob.fill(vBytes, cdDataLen);
+}
+
 UniValue sc_create(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -758,24 +825,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if (params.size() > 4)
     {
         inputString = params[4].get_str();
-        
-        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid customData format: not an hex");
- 
-        const unsigned int cdLen = inputString.length();
-        // we prefer to avoid padding with 0 any odd hex string
-        if (cdLen%2)
-            throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Invalid customData length %d, must be even (byte string)", cdLen));
- 
-        const unsigned int cdDataLen = cdLen/2;
- 
-        if (cdDataLen > MAX_CUSTOM_DATA_LEN)
-            throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Invalid customData length %d, must be %d bytes at most",
-                cdDataLen, MAX_CUSTOM_DATA_LEN));
-        
-        CScCustomData cdBlob;
-        cdBlob.SetHex(inputString);
-        cdBlob.fill(sc.creationData.customData, cdDataLen);
+        addCustomData(inputString, sc.creationData.customData);
     }
 
     CcRecipientVariant r(sc);
@@ -789,6 +839,197 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     ScHandleTransaction(wtx, vecCcSend, nAmount);
 
     return wtx.GetHash().GetHex();
+}
+
+UniValue create_sidechain(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp ||  params.size() != 1)
+        throw runtime_error(
+            "create_sidechain {\"scid\":... , \"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":...}\n"
+            "\nCreate a Side chain.\n"
+            "\nArguments:\n"
+            "{\n"                     
+            "   \"scid\": id                      (string, optional) The uint256 side chain ID, if omitted a random value is generated\n"
+            "   \"withdrawalEpochLength\": epoch  (numeric, optional, default=100) length of the withdrawal epochs\n"
+            "   \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
+            "   \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a new generated address will be used\n"
+            "   \"toaddress\":scaddr              (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "   \"amount\":amount                 (numeric, required) Value expressed in " + CURRENCY_UNIT + "\n"
+            "   \"minconf\":conf                  (numeric, optional, default=1) Only use funds confirmed at least this many times.\n"
+            "   \"fee\":fee                       (numeric, optional, default=" +
+                                                      strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) +
+                                                      ") The fee amount to attach to this transaction.\n"
+            "   \"customData\":data               (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                          hexadecimal format. A max limit of 1024 bytes will be checked\n"
+            "}\n"
+            "\nResult:\n"
+            "\"transactionid\"    (string) The resulting transaction id.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("create_sidechain", "'{\"toaddress\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0}]'")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    // valid input keywords
+    static const std::set<std::string> validKeyArgs =
+        {"scid", "withdrawalEpochLength", "fromaddress", "changeaddress",
+         "toaddress", "amount", "minconf", "fee", "customData"};
+
+    UniValue inputObject = params[0].get_obj();
+
+    if (!inputObject.isObject())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
+
+    // keywords set in cmd
+    std::set<std::string> setKeyArgs;
+
+    // sanity check, report error if unknown/duplicate key-value pairs
+    for (const string& s : inputObject.getKeys())
+    {
+        if (!validKeyArgs.count(s))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
+
+        if (!setKeyArgs.insert(s).second)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Duplicate key in input: ") + s);
+    }
+
+    // ---------------------------------------------------------
+    uint256 scId;
+    if (setKeyArgs.count("scid"))
+    {
+        string inputString = find_value(inputObject, "scid").get_str();
+        if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+        scId.SetHex(inputString);
+    }
+    else
+    {
+        scId = GetRandHash();
+    }
+    // TODO no checks are made here on scid, they are left when trying to accept to mem pool
+
+    // ---------------------------------------------------------
+    int withdrawalEpochLength = SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH;
+    if (setKeyArgs.count("withdrawalEpochLength"))
+    {
+        withdrawalEpochLength = find_value(inputObject, "withdrawalEpochLength").get_int();
+        if (withdrawalEpochLength < 1 )
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid withdrawalEpochLength: must be greater that 1");
+    }
+
+    ScCreationParameters creationData;
+    creationData.withdrawalEpochLength = withdrawalEpochLength;
+
+    // ---------------------------------------------------------
+    CBitcoinAddress fromaddress;
+    if (setKeyArgs.count("fromaddress"))
+    {
+        string inputString = find_value(inputObject, "fromaddress").get_str();
+        fromaddress = CBitcoinAddress(inputString);
+        if(!fromaddress.IsValid())
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown fromaddress format: ")+inputString );
+        }
+    }
+
+    // ---------------------------------------------------------
+    CBitcoinAddress changeaddress;
+    if (setKeyArgs.count("changeaddress"))
+    {
+        string inputString = find_value(inputObject, "changeaddress").get_str();
+        changeaddress = CBitcoinAddress(inputString);
+        if(!changeaddress.IsValid())
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown changeaddress format: ")+inputString );
+        }
+        if (!IsMine(*pwalletMain, GetScriptForDestination(changeaddress.Get())))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, changeaddress is not mine: ")+inputString );
+    }
+
+    // ---------------------------------------------------------
+    uint256 toaddress;
+    if (setKeyArgs.count("toaddress"))
+    {
+        string inputString = find_value(inputObject, "toaddress").get_str();
+        if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid toaddress format: not an hex");
+
+        toaddress.SetHex(inputString);
+    }
+    else
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"toaddress\"" );
+    }
+
+    // ---------------------------------------------------------
+    CAmount nAmount = 0;
+    if (setKeyArgs.count("amount"))
+    {
+        UniValue av = find_value(inputObject, "amount");
+        nAmount = AmountFromValue( av );
+        if (!MoneyRange(nAmount))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount out of range");
+        if (nAmount == 0)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount can not be null");
+    }
+    else
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"amount\"" );
+    }
+
+    // ---------------------------------------------------------
+    int nMinDepth = 1;
+    if (setKeyArgs.count("minconf"))
+    {
+        nMinDepth = find_value(inputObject, "minconf").get_int();
+        if (nMinDepth < 0)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid minconf: must be greater that 0");
+    }
+
+    // ---------------------------------------------------------
+    CAmount nFee = SC_RPC_OPERATION_DEFAULT_MINERS_FEE;
+    if (setKeyArgs.count("fee"))
+    {
+        UniValue val = find_value(inputObject, "fee");
+        if (val.get_real() == 0.0)
+        {
+            nFee = 0;
+        }
+        else
+        {
+            nFee = AmountFromValue(val);
+        }
+    }
+    if (!MoneyRange(nFee))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, fee out of range");
+    if (nFee > nAmount)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Fee %s is greater than output %s",
+            FormatMoney(nFee), FormatMoney(nAmount)));
+
+    // ---------------------------------------------------------
+    if (setKeyArgs.count("customData"))
+    {
+        string inputString = find_value(inputObject, "customData").get_str();
+        addCustomData(inputString, creationData.customData);
+    }
+
+    CMutableTransaction tx_create;
+    tx_create.nVersion = SC_TX_VERSION;
+
+    Sidechain::ScRpcCreationCmd cmd( tx_create, scId, creationData,
+        fromaddress, changeaddress, toaddress, nAmount, nMinDepth, nFee);
+
+    cmd.addInputs();
+    cmd.addChange();
+    cmd.addCcOutputs();
+
+    cmd.signTx();
+    cmd.sendTx();
+        
+    return tx_create.GetHash().GetHex();
 }
 
 UniValue listaddressgroupings(const UniValue& params, bool fHelp)
@@ -1736,8 +1977,8 @@ void ListTransactions(const CWalletObjBase& wtx, const string& strAccount, int n
         BOOST_FOREACH(const CScOutputEntry& s, listScSent)
         {
             UniValue entry(UniValue::VOBJ);
-            entry.push_back(Pair("address", s.address.GetHex()));
-            entry.push_back(Pair("category", "send"));
+            entry.push_back(Pair("sc address", s.address.GetHex()));
+            entry.push_back(Pair("category", "crosschain"));
             entry.push_back(Pair("amount", ValueFromAmount(-s.amount)));
             entry.push_back(Pair("fee", ValueFromAmount(-nFee)));
             if (fLong)
@@ -1817,15 +2058,17 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() > 4)
+    if (fHelp || params.size() > 6)
         throw runtime_error(
             "listtransactions ( \"account\" count from includeWatchonly)\n"
-            "\nReturns up to 'count' most recent transactions skipping the first 'from' transactions for account 'account'.\n"
+            "\nReturns up to 'count' most recent transactions skipping the first 'from' transactions for address 'address'.\n"
             "\nArguments:\n"
             "1. \"account\"    (string, optional) DEPRECATED. The account name. Should be \"*\".\n"
             "2. count          (numeric, optional, default=10) The number of transactions to return\n"
             "3. from           (numeric, optional, default=0) The number of transactions to skip\n"
             "4. includeWatchonly (bool, optional, default=false) Include transactions to watchonly addresses (see 'importaddress')\n"
+            "5. address (string, optional) Include only transactions involving this address\n"
+            "6. includeFilteredVin (bool, optional, default=false) Meaningful only if address is specified: include also transactions involving the address as input\n"
             "\nResult:\n"
             "[\n"
             "  {\n"
@@ -1872,55 +2115,70 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    string strAccount = "*";
+    string strAccount("*");
     if (params.size() > 0)
         strAccount = params[0].get_str();
+
     int nCount = 10;
     if (params.size() > 1)
         nCount = params[1].get_int();
+    if (nCount < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
+
     int nFrom = 0;
     if (params.size() > 2)
         nFrom = params[2].get_int();
+    if (nFrom < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
+
     isminefilter filter = ISMINE_SPENDABLE;
     if(params.size() > 3)
         if(params[3].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
+    string address("*");
+    if (params.size()>4) {
+        address=params[4].get_str();
+        if (address!=("*")) {
+            CBitcoinAddress baddress = CBitcoinAddress(address);
+            if (!baddress.IsValid())
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
+        }
+    }
 
-    if (nCount < 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
-    if (nFrom < 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
+    bool includeFilteredVin = false;
+    if(params.size() > 5)
+        if(params[5].get_bool())
+            includeFilteredVin = true;
 
     UniValue ret(UniValue::VARR);
 
     std::list<CAccountingEntry> acentries;
-    CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, strAccount);
+    TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, strAccount, address, includeFilteredVin);
 
     // iterate backwards until we have nCount items to return:
-    for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
+    for (TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
     {
 #if 0
         CWalletTx *const pwtx = (*it).second.first;
 #else
         CWalletObjBase *const pwtx = (*it).second.first;
 #endif
-        if (pwtx != 0)
+        if (pwtx != nullptr)
             ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
         CAccountingEntry *const pacentry = (*it).second.second;
-        if (pacentry != 0)
+        if (pacentry != nullptr)
             AcentryToJSON(*pacentry, strAccount, ret);
 
         if ((int)ret.size() >= (nCount+nFrom)) break;
     }
-    // ret is newest to oldest
 
+    //getting all the specific Txes requested by nCount and nFrom
     if (nFrom > (int)ret.size())
         nFrom = ret.size();
     if ((nFrom + nCount) > (int)ret.size())
         nCount = ret.size() - nFrom;
 
     vector<UniValue> arrTmp = ret.getValues();
-
     vector<UniValue>::iterator first = arrTmp.begin();
     std::advance(first, nFrom);
     vector<UniValue>::iterator last = arrTmp.begin();
@@ -1934,7 +2192,89 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     ret.clear();
     ret.setArray();
     ret.push_backV(arrTmp);
+    return ret;
+}
 
+UniValue listtxesbyaddress(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() > 3)
+        throw runtime_error(
+            "listtxesbyaddress ( \"address\" count)\n"
+            "\nReturns up to 'count' most recent transactions involving address 'address' bot for vin and vout.\n"
+            "\nArguments:\n"
+            "1. \"address\"     (string, mandatory) Include transactions involving this address\n"
+            "2. count          (numeric, optional, default=10) The number of transactions to return\n"
+            "3. from           (numeric, optional, default=0) The number of transactions to skip\n"
+            "\nResult:\n"
+            "[\n"
+            "  {\n"
+            "      TODO\n"
+            "  }\n"
+            "]\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("listtxesbyaddress", "\"ztZ5M1P9ucj3P5JaW5xtY2hWTkp6JsToiHP\" 20")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    string address = params[0].get_str();
+    CBitcoinAddress taddr = CBitcoinAddress(address);
+    if (!taddr.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
+
+    int nCount = 10;
+    if (params.size() > 1)
+        nCount = params[1].get_int();
+    if (nCount < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
+
+    int nFrom = 0;
+    if (params.size() > 2)
+        nFrom = params[2].get_int();
+    if (nFrom < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
+
+    UniValue ret(UniValue::VARR);
+    std::list<CAccountingEntry> unused;
+    static const bool FILTER_VIN = true;
+    MapTxWithInputs txOrdered = pwalletMain->OrderedTxWithInputsMap(address);
+
+    // iterate backwards until we have nCount items to return:
+    for (MapTxWithInputs::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
+    {
+        const CWalletObjBase& wtx = *((*it).second.first);
+        std::vector<CWalletObjBase*> vtxIn = (*it).second.second;
+        UniValue o(UniValue::VOBJ);
+        TxExpandedToJSON(wtx, vtxIn, o);
+        ret.push_back(o);
+
+        if ((int)ret.size() >= (nCount+nFrom)) break;
+    }
+
+    //getting all the specific Txes requested by nCount and nFrom
+    if (nFrom > (int)ret.size())
+        nFrom = ret.size();
+    if ((nFrom + nCount) > (int)ret.size())
+        nCount = ret.size() - nFrom;
+
+    vector<UniValue> arrTmp = ret.getValues();
+    vector<UniValue>::iterator first = arrTmp.begin();
+    std::advance(first, nFrom);
+    vector<UniValue>::iterator last = arrTmp.begin();
+    std::advance(last, nFrom+nCount);
+
+    if (last != arrTmp.end()) arrTmp.erase(last, arrTmp.end());
+    if (first != arrTmp.begin()) arrTmp.erase(arrTmp.begin(), first);
+
+    std::reverse(arrTmp.begin(), arrTmp.end()); // Return oldest to newest
+
+    ret.clear();
+    ret.setArray();
+    ret.push_backV(arrTmp);
     return ret;
 }
 
@@ -3811,10 +4151,6 @@ UniValue z_getoperationstatus_IMPL(const UniValue& params, bool fRemoveFinishedO
 // For now though, we assume we use one joinsplit per zaddr output (and the second output note is change).
 // We reduce the result by 1 to ensure there is room for non-joinsplit CTransaction data.
 #define Z_SENDMANY_MAX_ZADDR_OUTPUTS(TX_VER)    ((MAX_TX_SIZE / JSDescription::getNewInstance(TX_VER == GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, TX_VER)) - 1)
-
-// transaction.h comment: spending taddr output requires CTxIn >= 148 bytes and typical taddr txout is 34 bytes
-#define CTXIN_SPEND_DUST_SIZE   148
-#define CTXOUT_REGULAR_SIZE     34
 
 UniValue z_sendmany(const UniValue& params, bool fHelp)
 {

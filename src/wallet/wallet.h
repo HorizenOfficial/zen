@@ -129,6 +129,14 @@ struct CRecipient
 
 typedef std::map<std::string, std::string> mapValue_t;
 
+class CWalletObjBase;
+class CAccountingEntry;
+
+typedef std::pair<CWalletObjBase*, CAccountingEntry*> TxPair;
+typedef std::multimap<int64_t, TxPair > TxItems;
+
+typedef std::pair<CWalletObjBase*, std::vector<CWalletObjBase*> > TxWithInputsPair;
+typedef std::map<int64_t, TxWithInputsPair> MapTxWithInputs;
 
 static void ReadOrderPos(int64_t& nOrderPos, mapValue_t& mapValue)
 {
@@ -540,6 +548,11 @@ public:
 
     virtual std::shared_ptr<CWalletObjBase> MakeWalletMapObject() const = 0;
     static std::shared_ptr<CWalletObjBase> MakeWalletObjectBase(const CTransactionBase& obj, const CWallet* pwallet);
+
+    virtual void AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletObjBase*> vtxIn) const { return; }
+    virtual void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const { } // default is empty (certs has no inputs)
+    virtual void addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const  { return; }
+
 };
 
 /** 
@@ -675,6 +688,10 @@ public:
         }
     }
     std::shared_ptr<CWalletObjBase> MakeWalletMapObject() const override;
+
+    void AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletObjBase*> vtxIn) const override;
+    void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const override;
+    void addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const override;
 };
 
 class CWalletCert : public CMerkleCert, public CWalletObjBase
@@ -1244,17 +1261,15 @@ public:
 
 #if 0
     typedef std::pair<CWalletTx*, CAccountingEntry*> TxPair;
-#else
-    typedef std::pair<CWalletObjBase*, CAccountingEntry*> TxPair;
 #endif
-    typedef std::multimap<int64_t, TxPair > TxItems;
-
     /**
      * Get the wallet's activity log
      * @return multimap of ordered transactions and accounting entries
      * @warning Returned pointers are *only* valid within the scope of passed acentries
      */
-    TxItems OrderedTxItems(std::list<CAccountingEntry>& acentries, std::string strAccount = "");
+    TxItems OrderedTxItems(std::list<CAccountingEntry>& acentries, const std::string& strAccount = "",const std::string& address="*", bool includeFilteredVin = false);
+
+    MapTxWithInputs OrderedTxWithInputsMap(const std::string& address);
 
     void MarkDirty();
     bool UpdateNullifierNoteMap();

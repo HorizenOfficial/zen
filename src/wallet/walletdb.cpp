@@ -351,10 +351,7 @@ DBErrors CWalletDB::ReorderTransactions(CWallet* pwallet)
     // First: get all CWalletTx and CAccountingEntry into a sorted-by-time multimap.
 #if 0
     typedef pair<CWalletTx*, CAccountingEntry*> TxPair;
-#else
-    typedef pair<CWalletObjBase*, CAccountingEntry*> TxPair;
 #endif
-    typedef multimap<int64_t, TxPair > TxItems;
     TxItems txByTime;
 
 #if 0
