@@ -5,13 +5,24 @@
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
+from test_framework.util import assert_true, assert_false, assert_equal
 
 from binascii import a2b_hex, b2a_hex
 from hashlib import sha256
 from struct import pack
+from decimal import Decimal
+from struct import unpack, pack
 
-SC_CERTIFICATE_BLOCK_VERSION_HEX = "0x20000001"
+import binascii
+from test_framework.mininode import COIN
+
+SC_CERTIFICATE_BLOCK_VERSION_HEX = "0x3"
 SC_CERTIFICATE_BLOCK_VERSION = int(SC_CERTIFICATE_BLOCK_VERSION_HEX, 0)
+
+EPOCH_LENGTH = 5
+creation_amount = Decimal("1.0")
+cert_amount = Decimal("0.5")
+
 
 def check_array_result(object_array, to_match, expected):
     """
@@ -82,9 +93,9 @@ def template_to_bytes(tmpl, txlist, certlist):
     blk += varlenEncode(len(txlist))
     for tx in txlist:
         blk += tx
-    if tmpl['version'] >= SC_CERTIFICATE_BLOCK_VERSION:
+    if tmpl['version'] == SC_CERTIFICATE_BLOCK_VERSION:
         # fill vector of certificates from this version on 
-        # print "Block ver=", hex(tmpl['version'])
+        #print "Block ver=", hex(tmpl['version'])
         blk += varlenEncode(len(certlist))
         for cert in certlist:
             blk += cert
@@ -110,11 +121,44 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
     '''
 
     def run_test(self):
+        self.nodes[0].generate(1) # Mine a block to leave initial block download
+        self.sync_all()
+
+        print "active chain height = %d: testing before sidechain fork" %  self.nodes[0].getblockcount() 
+        self.doTest()
+
+        # reach the fork where certificates are supported
+        self.nodes[0].generate(20) 
+        self.sync_all()
+
+        print "active chain height = %d: testing after sidechain fork" %  self.nodes[0].getblockcount() 
+
+        # create a sidechain and a certificate for it in the mempool
+        scid = "22"
+
+        self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount)
+        self.sync_all()
+
+        block_list = self.nodes[0].generate(EPOCH_LENGTH) 
+        self.sync_all()
+
+        pkh = self.nodes[0].getnewaddress("", True)
+        amounts = [{"pubkeyhash": pkh, "amount": cert_amount}]
+        cert = self.nodes[0].send_certificate(scid, 0, block_list[-1], amounts)
+        self.sync_all()
+        assert_true(cert in self.nodes[0].getrawmempool() ) 
+
+        self.doTest()
+
+        self.nodes[0].generate(1) 
+        self.sync_all()
+
+
+    def doTest(self):
+
         node = self.nodes[0]
-        node.generate(1) # Mine a block to leave initial block download
+
         tmpl = node.getblocktemplate()
-        print tmpl
-        print
         if 'coinbasetxn' not in tmpl:
             rawcoinbase = encodeUNum(tmpl['height'])
             rawcoinbase += b'\x01-'
@@ -122,7 +166,11 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             hexoutval = b2x(pack('<Q', tmpl['coinbasevalue']))
             tmpl['coinbasetxn'] = {'data': '01000000' + '01' + '0000000000000000000000000000000000000000000000000000000000000000ffffffff' + ('%02x' % (len(rawcoinbase),)) + hexcoinbase + 'fffffffe' + '01' + hexoutval + '00' + '00000000'}
         txlist = list(bytearray(a2b_hex(a['data'])) for a in (tmpl['coinbasetxn'],) + tuple(tmpl['transactions']))
-        certlist = list(bytearray(a2b_hex(a['data'])) for a in tuple(tmpl['certificates']))
+        certlist = []
+
+        # if the block supports certificates, add them (if any)
+        if tmpl['version'] == SC_CERTIFICATE_BLOCK_VERSION:
+            certlist = list(bytearray(a2b_hex(a['data'])) for a in tuple(tmpl['certificates']))
 
         # Test 0: Capability advertised
         assert('proposal' in tmpl['capabilities'])
@@ -133,7 +181,6 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         #assert_template(node, tmpl, txlist, 'FIXME')
         #txlist[0][4+1+36+1+1] -= 1
 
-        #raw_input("Pres to continue 1...")
         # Test 2: Bad input hash for gen tx
         txlist[0][4+1] += 1
         assert_template(node, tmpl, txlist, certlist, 'bad-cb-missing')
@@ -147,10 +194,13 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             pass  # Expected
         txlist[-1].append(lastbyte)
 
-        # Test 4: Add an invalid tx to the end (duplicate of gen tx)
-        txlist.append(txlist[0])
-        assert_template(node, tmpl, txlist, certlist, 'bad-txns-duplicate')
-        txlist.pop()
+        # this tests merkel root malleability, if there are certs it will not work because
+        # repeated txes will not be detected in the end of leaf list (tx, tx, cert...)
+        if len(certlist) == 0:
+            # Test 4: Add an invalid tx to the end (duplicate of gen tx)
+            txlist.append(txlist[0])
+            assert_template(node, tmpl, txlist, certlist, 'bad-txns-duplicate')
+            txlist.pop()
 
         # Test 5: Add an invalid tx to the end (non-duplicate)
         txlist.append(bytearray(txlist[0]))
@@ -200,8 +250,71 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         assert_template(node, tmpl, txlist, certlist, None)
 
         # Test 12: Orphan block
+        orig_val = tmpl['previousblockhash']
         tmpl['previousblockhash'] = 'ff00' * 16
         assert_template(node, tmpl, txlist, certlist, 'inconclusive-not-best-prevblk')
+        tmpl['previousblockhash'] = orig_val
+
+        if len(certlist) != 0:
+            # cert specific tests
+
+            # Test 13: Bad scid in cert
+            # set scid to 0x21 (33)
+            orig_val = certlist[0][4]
+            certlist[0][4] = 33
+            assert_template(node, tmpl, txlist, certlist, 'bad-sc-cert-not-applicable')
+            certlist[0][4] = orig_val
+
+            # Test 14: Bad cert count
+            certlist.append(b'')
+            try:
+                assert_template(node, tmpl, txlist, certlist, 'n/a')
+            except JSONRPCException:
+                pass  # Expected
+                certlist.pop()
+
+            # Test 15: Truncated final cert
+            lastbyte = certlist[-1].pop()
+            try:
+                assert_template(node, tmpl, txlist, certlist, 'n/a')
+            except JSONRPCException:
+                pass  # Expected
+            certlist[-1].append(lastbyte)
+
+            # Test 16: change epoch number
+            orig_val = certlist[0][4 + 32]
+            certlist[0][4 + 32] = 33 
+            assert_template(node, tmpl, txlist, certlist, 'bad-sc-cert-not-applicable')
+            certlist[0][4 + 32] = orig_val 
+
+            # Test 17: change cert total amount so to exceed sc balance
+            amnt_offset = 4+32+4+32
+            post_offset = amnt_offset + 8
+
+            pre_arr  = certlist[0][:amnt_offset]
+            amnt_arr = certlist[0][amnt_offset:post_offset]
+            post_arr = certlist[0][post_offset:]
+
+            s = unpack('<q', amnt_arr)[0]
+            #amount_original = long(s)
+            #print "amount orig  = %s (%d SAT)" % ( binascii.hexlify(amnt_arr), amount_original)
+
+            amount_trick = 2 * creation_amount * COIN
+            amnt_trick_arr = pack('<q', amount_trick)
+            #print "amount trick = %s (%d SAT)" % ( binascii.hexlify(amnt_trick_arr), amount_trick)
+
+            certlist.pop()
+            c = pre_arr + amnt_trick_arr + post_arr
+            certlist.append(c)
+            assert_template(node, tmpl, txlist, certlist, 'bad-sc-cert-not-applicable')
+
+
+
+
+
+
+
+
 
 if __name__ == '__main__':
     GetBlockTemplateProposalTest().main()

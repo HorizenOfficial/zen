@@ -10,6 +10,7 @@
 #include "zen/forks/fork3_communityfundandrpfixfork.h"
 #include "zen/forks/fork4_nulltransactionfork.h"
 #include "zen/forks/fork5_shieldfork.h"
+#include "zen/forks/fork6_sidechainfork.h"
 using namespace zen;
 
 class MockCValidationState : public CValidationState {
@@ -36,7 +37,7 @@ TEST(CheckBlock, VersionTooLow) {
     block.nVersion = 1;
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "version-too-low", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "version-invalid", false)).Times(1);
     EXPECT_FALSE(CheckBlock(block, state, verifier, false, false));
 }
 
@@ -448,6 +449,48 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     block.vtx[0] = CTransaction(mtx);;
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 
+}
+
+TEST(ContextualCheckBlockHeader, CheckBlockVersion) {
+    SelectParams(CBaseChainParams::MAIN);
+
+    const CChainParams& chainParams = Params();
+    const Consensus::Params& consensusParams = chainParams.GetConsensus();
+
+    CBlock prev;
+    CBlockIndex indexPrev{prev};
+
+    SidechainFork scFork;
+
+    CBlock block;
+    block.nBits = GetNextWorkRequired(&indexPrev, &block, consensusParams);
+    block.nTime = scFork.getMinimumTime(CBaseChainParams::Network::MAIN);
+
+    MockCValidationState state;
+
+    // check that after sidechain fork, the only legal block version is SC_CERT_BLOCK_VERSION 
+    int hardForkHeight = scFork.getHeight(CBaseChainParams::MAIN);
+    indexPrev.nHeight = hardForkHeight -1;
+
+    block.nVersion = MIN_BLOCK_VERSION; // 4
+    EXPECT_CALL(state, Invalid(false, REJECT_INVALID, "bad-version")).Times(1);
+    EXPECT_FALSE(ContextualCheckBlockHeader(block, state, &indexPrev));
+
+    block.nVersion = VERSIONBITS_TOP_BITS; // 0x20000000
+    EXPECT_CALL(state, Invalid(false, REJECT_INVALID, "bad-version")).Times(1);
+    EXPECT_FALSE(ContextualCheckBlockHeader(block, state, &indexPrev));
+
+    block.nVersion = CBlock::SC_CERT_BLOCK_VERSION;
+    EXPECT_TRUE(ContextualCheckBlockHeader(block, state, &indexPrev));
+
+    // check that before sidechain fork, block version SC_CERT_BLOCK_VERSION is not valid 
+    // since is considered obsolete (<4)
+    EXPECT_TRUE(CBlock::SC_CERT_BLOCK_VERSION < MIN_BLOCK_VERSION);
+    hardForkHeight -= 1;
+    indexPrev.nHeight = hardForkHeight -1;
+    block.nVersion = CBlock::SC_CERT_BLOCK_VERSION;
+    EXPECT_CALL(state, Invalid(false, REJECT_OBSOLETE, "bad-version")).Times(1);
+    EXPECT_FALSE(ContextualCheckBlockHeader(block, state, &indexPrev));
 }
 
 TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {

@@ -1364,8 +1364,6 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             view.SetBackend(dummy);
         }
 
-        CAmount nValueIn = 0;
-
         //ABENEGIA: CheckInputs is useless for certificate. Is it correct?? Or Where is it checked???
 
         unsigned int nSigOps = cert.GetLegacySigOpCount();
@@ -2606,6 +2604,15 @@ void PartitionCheck(bool (*initialDownloadCheck)(), CCriticalSection& cs, const 
 // Protected by cs_main
 VersionBitsCache versionbitscache;
 
+int32_t ComputeBlockVersion(int nHeight)
+{
+    LOCK(cs_main);
+    int32_t nVersion = VERSIONBITS_TOP_BITS;
+    if (ForkManager::getInstance().areSidechainsSupported(nHeight))
+        nVersion = CBlockHeader::SC_CERT_BLOCK_VERSION;
+    return nVersion;
+}
+
 int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Params& params)
 {
     LOCK(cs_main);
@@ -2708,14 +2715,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-txns-BIP30");
     }
 
-    unsigned int flags = SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY;
+    // Started enforcing CHECKBLOCKATHEIGHT from block.nVersion=4, that means for all the blocks
+    unsigned int flags = SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT;
 
     // DERSIG (BIP66) is also always enforced, but does not have a flag.
-
-    // Start enforcing CHECKBLOCKATHEIGHT for block.nVersion=4
-    if (block.nVersion >= 4) {
-        flags |= SCRIPT_VERIFY_CHECKBLOCKATHEIGHT;
-    }
 
     CBlockUndo blockundo;
 
@@ -2844,19 +2847,19 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         {
             // this tx/cert spends more than it can.
             return state.DoS(100, error("ConnectBlock(): %s Fee < 0", cert.GetHash().ToString()),
-                         REJECT_INVALID, "bad-txns-fee-negative");
+                         REJECT_INVALID, "bad-cert-fee-negative");
         }
         if (!MoneyRange(nFee))
         {
             return state.DoS(100, error("ConnectBlock(): fee out of range"),
-                         REJECT_INVALID, "bad-txns-fee-outofrange");
+                         REJECT_INVALID, "bad-cert-fee-outofrange");
         }
         nFees += nFee;
 
         if (!view.IsCertApplicableToState(cert, pindex->nHeight, state) ) {
             LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, cert.GetHash().ToString() );
             return state.DoS(100, error("ConnectBlock(): invalid sc certificate [%s]", cert.GetHash().ToString()),
-                             REJECT_INVALID, "bad-sc-tx");
+                             REJECT_INVALID, "bad-sc-cert-not-applicable");
         }
 
         cert.UpdateCoins(state, view, blockundo, pindex->nHeight);
@@ -2864,7 +2867,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if (!fJustCheck && !view.UpdateScInfo(cert, blockundo) )
         {
             return state.DoS(100, error("ConnectBlock(): could not add sidechain in scView: tx[%s]", cert.GetHash().ToString()),
-                             REJECT_INVALID, "bad-sc-tx");
+                             REJECT_INVALID, "bad-sc-cert-not-updated");
         }
 
         if (certIdx == 0) {
@@ -3942,9 +3945,9 @@ bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, unsigne
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW)
 {
     // Check block version
-    if (block.nVersion < MIN_BLOCK_VERSION)
-        return state.DoS(100, error("CheckBlockHeader(): block version too low"),
-                         REJECT_INVALID, "version-too-low");
+    if (block.nVersion < MIN_BLOCK_VERSION && block.nVersion != CBlock::SC_CERT_BLOCK_VERSION )
+        return state.DoS(100, error("CheckBlockHeader(): block version not valid"),
+                         REJECT_INVALID, "version-invalid");
 
     // Check Equihash solution is valid
     if (fCheckPOW && !CheckEquihashSolution(&block, Params()))
@@ -4068,10 +4071,21 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
             return state.DoS(100, error("%s: forked chain older than last checkpoint (height %d)", __func__, nHeight));
     }
 
-    // Reject block.nVersion < 4 blocks
-    if (block.nVersion < 4)
+    if (ForkManager::getInstance().areSidechainsSupported(nHeight) )
+    {
+        // from this fork point on we accept only blocks version with certificate support
+        if (block.nVersion != CBlock::SC_CERT_BLOCK_VERSION)
+            return state.Invalid(error("%s : rejected nVersion block not supporting certificates: sidechains are enabled", __func__),
+                             REJECT_INVALID, "bad-version");
+    }
+    else
+    {
+        
+        // Reject block.nVersion < 4 blocks
+        if (block.nVersion < 4)
         return state.Invalid(error("%s : rejected nVersion<4 block", __func__),
-                             REJECT_OBSOLETE, "bad-version");
+                                 REJECT_OBSOLETE, "bad-version");
+    }
 
     return true;
 }

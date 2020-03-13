@@ -159,22 +159,25 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
         else
             txs.push_back(tx.GetHash().GetHex());
     }
-    UniValue certs(UniValue::VARR);
-    BOOST_FOREACH(const CScCertificate& cert, block.vcert)
-    {
-        if(txDetails)
-        {
-            UniValue objCert(UniValue::VOBJ);
-            CertToJSON(cert, uint256(), objCert);
-            certs.push_back(objCert);
-        }
-        else
-        {
-            certs.push_back(cert.GetHash().GetHex());
-        }
-    }
     result.push_back(Pair("tx", txs));
-    result.push_back(Pair("cert", certs));
+    if (block.nVersion == CBlock::SC_CERT_BLOCK_VERSION)
+    {
+        UniValue certs(UniValue::VARR);
+        BOOST_FOREACH(const CScCertificate& cert, block.vcert)
+        {
+            if(txDetails)
+            {
+                UniValue objCert(UniValue::VOBJ);
+                CertToJSON(cert, uint256(), objCert);
+                certs.push_back(objCert);
+            }
+            else
+            {
+                certs.push_back(cert.GetHash().GetHex());
+            }
+        }
+        result.push_back(Pair("cert", certs));
+    }
     result.push_back(Pair("time", block.GetBlockTime()));
     result.push_back(Pair("nonce", block.nNonce.GetHex()));
     result.push_back(Pair("solution", HexStr(block.nSolution)));

@@ -30,7 +30,7 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert) {
     CTransactionBase::operator=(cert);
     //---
     *const_cast<uint256*>(&scId) = cert.scId;
-    *const_cast<int*>(&epochNumber) = cert.epochNumber;
+    *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     *const_cast<CAmount*>(&totalAmount) = cert.totalAmount;
     *const_cast<std::vector<CTxBackwardTransferCrosschainOut>*>(&vbt_ccout) = cert.vbt_ccout;
@@ -41,11 +41,11 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert) {
 CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0), totalAmount(0) {
     // call explicitly the copy of members of virtual base class
     *const_cast<uint256*>(&hash) = cert.hash;
-    *const_cast<int*>(&nVersion) = cert.nVersion;
+    *const_cast<int32_t*>(&nVersion) = cert.nVersion;
     *const_cast<std::vector<CTxOut>*>(&vout) = cert.vout;
     //---
     *const_cast<uint256*>(&scId) = cert.scId;
-    *const_cast<int*>(&epochNumber) = cert.epochNumber;
+    *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     *const_cast<CAmount*>(&totalAmount) = cert.totalAmount;
     *const_cast<std::vector<CTxBackwardTransferCrosschainOut>*>(&vbt_ccout) = cert.vbt_ccout;

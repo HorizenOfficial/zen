@@ -584,6 +584,7 @@ extern VersionBitsCache versionbitscache;
 * Determine what nVersion a new block should use.
 */
 int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Params& params);
+int32_t ComputeBlockVersion(int nHeight);
 
 namespace Consensus {
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);

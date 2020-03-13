@@ -88,19 +88,19 @@ class CBlockUndo
 {
 public:
     std::vector<CTxUndo> vtxundo; // for all but the coinbase
-    std::map<uint256, ScUndoData> msc_iaundo; // key=scid, value=amount matured at block height
     uint256 old_tree_root;
-
-    std::string ToString() const;
+    std::map<uint256, ScUndoData> msc_iaundo; // key=scid, value=amount matured at block height
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(vtxundo);
-        READWRITE(msc_iaundo);
         READWRITE(old_tree_root);
+        READWRITE(msc_iaundo);
     }
+
+    std::string ToString() const;
 };
 
 #endif // BITCOIN_UNDO_H

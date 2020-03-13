@@ -13,12 +13,11 @@ class CScCertificate : virtual public CTransactionBase
     void UpdateHash() const override;
 
 public:
-    static const int EPOCH_NULL = -1;
-    static const int EPOCH_NOT_INITIALIZED = -2;
+    static const int32_t EPOCH_NULL = -1;
+    static const int32_t EPOCH_NOT_INITIALIZED = -2;
 
-    virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) override final;
     const uint256 scId;
-    const int epochNumber;
+    const int32_t epochNumber;
     const uint256 endEpochBlockHash;
     const CAmount totalAmount;
     const std::vector<CTxBackwardTransferCrosschainOut> vbt_ccout;
@@ -52,7 +51,7 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(*const_cast<int32_t*>(&this->nVersion));
         READWRITE(*const_cast<uint256*>(&scId));
-        READWRITE(*const_cast<int*>(&epochNumber));
+        READWRITE(*const_cast<int32_t*>(&epochNumber));
         READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
         READWRITE(*const_cast<CAmount*>(&totalAmount));
         READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
@@ -97,6 +96,8 @@ public:
     
     void UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const override;
     void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const override;
+
+    bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) override final;
 
     double GetPriority(const CCoinsViewCache &view, int nHeight) const override;
     unsigned int GetLegacySigOpCount() const override;
@@ -173,7 +174,7 @@ public:
 struct CMutableScCertificate : public CMutableTransactionBase
 {
     uint256 scId;
-    int epochNumber;
+    int32_t epochNumber;
     uint256 endEpochBlockHash;
     CAmount totalAmount;
     std::vector<CTxBackwardTransferCrosschainOut> vbt_ccout;

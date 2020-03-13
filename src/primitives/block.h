@@ -23,7 +23,7 @@ class CBlockHeader
 public:
     // header
     static const size_t HEADER_SIZE=4+32+32+32+4+4+32; // excluding Equihash solution
-    static const int32_t SC_CERT_BLOCK_VERSION = 0x20000001;
+    static const int32_t SC_CERT_BLOCK_VERSION = 3;
     int32_t nVersion;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
