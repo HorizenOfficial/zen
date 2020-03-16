@@ -2667,7 +2667,7 @@ static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
-    const CChain& chain, bool fJustCheck)
+    const CChain& chain, bool fJustCheck, bool fCheckScTxesCommitment)
 {
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
@@ -2751,6 +2751,11 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         assert(tree.root() == old_tree_root);
     }
 
+    std::map<uint256, std::vector<uint256> > mScMerkleTreeLeavesFt; 
+    std::map<uint256, std::vector<uint256> > mScMerkleTreeLeavesBtr; 
+    std::map<uint256, uint256 > mScCerts; 
+    std::set<uint256> sScIds;
+
     for (unsigned int i = 0; i < block.vtx.size(); i++) // Processing transactions loop
     {
         const CTransaction &tx = block.vtx[i];
@@ -2830,6 +2835,14 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         vPos.push_back(std::make_pair(tx.GetHash(), pos));
         pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
+
+        if (fCheckScTxesCommitment)
+        {
+            tx.getCrosschainOutputs(mScMerkleTreeLeavesFt, sScIds);
+            // TODO collect BTR contributions
+            // tx.getBTROutputs(mScMerkleTreeLeavesBtr, sScIds);
+        }
+
     }  //end of Processing transactions loop
 
 
@@ -2879,6 +2892,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
         vPos.push_back(std::make_pair(cert.GetHash(), pos));
         pos.nTxOffset += cert.CalculateSize();
+
+        if (fCheckScTxesCommitment)
+        {
+            cert.getCrosschainOutputs(mScCerts, sScIds);
+        }
+
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     }
 
@@ -2909,6 +2928,25 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                          error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",
                                block.vtx[0].GetValueOut(), blockReward),
                                REJECT_INVALID, "bad-cb-amount");
+
+    if (fCheckScTxesCommitment)
+    {
+        const uint256& scTxsCommittment =
+            CBlock::BuildSCTxsCommitment(sScIds, mScMerkleTreeLeavesFt, mScMerkleTreeLeavesBtr, mScCerts);
+
+        if (block.hashScMerkleRootsMap != scTxsCommittment)
+        {
+            LogPrint("cert", "%s():%d - failed verifying SCTxsCommitment: block[%s] vs computed[%s]\n",
+                __func__, __LINE__, block.hashScMerkleRootsMap.ToString(), scTxsCommittment.ToString());
+            return state.DoS(100, error("ConnectBlock(): SCTxsCommitment verification failed"),
+                               REJECT_INVALID, "bad-sc-txs-committment");
+        }
+        else
+        {
+            LogPrint("cert", "%s():%d - Successfully verified SCTxsCommitment %s\n",
+                __func__, __LINE__, block.hashScMerkleRootsMap.ToString());
+        }
+    }
 
     if (!control.Wait())
         return state.DoS(100, false);
@@ -4331,7 +4369,8 @@ bool ProcessNewBlock(CValidationState &state, CNode* pfrom, CBlock* pblock, bool
     return true;
 }
 
-bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex * const pindexPrev, bool fCheckPOW, bool fCheckMerkleRoot)
+bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex * const pindexPrev,
+    bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckScTxesCommitment)
 {
     AssertLockHeld(cs_main);
     assert(pindexPrev == chainActive.Tip());
@@ -4352,7 +4391,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
         return false;
 
     static const bool JUST_CHECK_TRUE = true;
-    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, JUST_CHECK_TRUE))
+    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, JUST_CHECK_TRUE, fCheckScTxesCommitment))
         return false;
     assert(state.IsValid());
 

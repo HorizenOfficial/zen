@@ -11,7 +11,8 @@
 #include "crypto/common.h"
 #include <boost/foreach.hpp>
 
-//#define DEBUG_SC_HASH 1
+// uncomment for debugging mkl root hash calculations
+//#define DEBUG_MKLTREE_HASH 1
 
 uint256 CBlockHeader::GetHash() const
 {
@@ -74,7 +75,7 @@ uint256 CBlock::BuildMerkleTree(bool* fMutated) const
 #endif
 }
 
-uint256 CBlock::BuildMerkleTree(std::vector<uint256>& vMerkleTreeIn, size_t vtxSize, bool* fMutated) const
+uint256 CBlock::BuildMerkleTree(std::vector<uint256>& vMerkleTreeIn, size_t vtxSize, bool* fMutated)
 {
     int j = 0;
     bool mutated = false;
@@ -89,7 +90,7 @@ uint256 CBlock::BuildMerkleTree(std::vector<uint256>& vMerkleTreeIn, size_t vtxS
             }
             vMerkleTreeIn.push_back(Hash(BEGIN(vMerkleTreeIn[j+i]),  END(vMerkleTreeIn[j+i]),
                                          BEGIN(vMerkleTreeIn[j+i2]), END(vMerkleTreeIn[j+i2])));
-#ifdef DEBUG_SC_HASH
+#ifdef DEBUG_MKLTREE_HASH
             std::cout << " -------------------------------------------" << std::endl;
             std::cout << i << ") mkl hash: " << vMerkleTreeIn.back().ToString() << std::endl;
             std::cout <<      "      hash1: " << vMerkleTreeIn[j+i].ToString() << std::endl;
@@ -112,40 +113,55 @@ uint256 CBlock::BuildMerkleRootHash(const std::vector<uint256>& vInput)
 
 uint256 CBlock::BuildScMerkleRootsMap()
 {
-    // Key: the side chain ID
+    // the final model will have a fixed-height merkle tree for 'SCTxsCommitment'.
+    // That will also imply having a limit per block to the number of crosschain outputs per SC
+    // and also to the number of SC
+    // ----------------------------- 
+
+    // Key:   the side chain ID
     // Value: the array of objs of type 'Hash( Hash(ccout) | txid | n)', where n is the index of the 
-    // ccout in the tx pertaining to the current scid. Tx are ordered as they are included in the block  
+    //        ccout in the tx pertaining to the key scid. Tx are ordered as they are included in the block  
     std::map<uint256, std::vector<uint256> > mScMerkleTreeLeavesFt; 
 
     // The same for BTR (to be implemented)
     std::map<uint256, std::vector<uint256> > mScMerkleTreeLeavesBtr; 
 
-    // Certificate contribution
+    // The same for the only Certificate contribution
     std::map<uint256, uint256 > mScCerts; 
 
-    // the catalog of scid
+    // the catalog of scid, resulting after having collected all above contributions
     std::set<uint256> sScIds;
 
     for (const auto& tx : vtx)
     {
         tx.getCrosschainOutputs(mScMerkleTreeLeavesFt, sScIds);
+        // TODO collect BTR contributions
+        // tx.getBTROutputs(mScMerkleTreeLeavesBtr, sScIds);
     }
 
-    // TODO collect BTR contributions
 
     for (const auto& cert : vcert)
     {
         cert.getCrosschainOutputs(mScCerts, sScIds);
     }
 
-    std::vector<uint256> vSortedLeaves;
+    return BuildSCTxsCommitment(sScIds, mScMerkleTreeLeavesFt, mScMerkleTreeLeavesBtr, mScCerts);
+}
+
+uint256 CBlock::BuildSCTxsCommitment(
+    const std::set<uint256>& sScIds,
+    const std::map<uint256, std::vector<uint256> >& mScMerkleTreeLeavesFt,
+    const std::map<uint256, std::vector<uint256> >& mScMerkleTreeLeavesBtr,
+    const std::map<uint256, uint256>& mScCerts)
+{
+    std::vector<uint256> vSortedScLeaves;
 
     // set of scid is ordered
     for (const auto& scid : sScIds)
     {
-        uint256 FtHash;
-        uint256 BtrHash;
-        uint256 WCertHash;
+        uint256 FtHash(getCrossChainNullHash());
+        uint256 BtrHash(getCrossChainNullHash());
+        uint256 WCertHash(getCrossChainNullHash());
 
         auto itFt = mScMerkleTreeLeavesFt.find(scid);
         if (itFt != mScMerkleTreeLeavesFt.end() )
@@ -174,7 +190,7 @@ uint256 CBlock::BuildScMerkleRootsMap()
             BEGIN(WCertHash), END(WCertHash),
             BEGIN(scid),      END(scid) );
 
-#ifdef DEBUG_SC_HASH
+#ifdef DEBUG_SC_COMMITMENT_HASH
         std::cout << " -------------------------------------------" << std::endl;
         std::cout << "  FtHash:  " << FtHash.ToString() << std::endl;
         std::cout << "  BtrHash: " << BtrHash.ToString() << std::endl;
@@ -183,10 +199,10 @@ uint256 CBlock::BuildScMerkleRootsMap()
         std::cout << "     scid:      " << scid.ToString() << std::endl;
         std::cout << "     => ScsHash:  " << ScHash.ToString() << std::endl;
 #endif
-        vSortedLeaves.push_back(ScHash);
+        vSortedScLeaves.push_back(ScHash);
     }
 
-    return BuildMerkleRootHash(vSortedLeaves);
+    return BuildMerkleRootHash(vSortedScLeaves);
 }
 
 //#define DEBUG_MERKLE_BRANCH 1
@@ -276,4 +292,22 @@ void CBlock::GetTxAndCertsVector(std::vector<const CTransactionBase*>& vBase) co
     {
         vBase.push_back(&(vcert[i]));
     }
+}
+
+const std::string CBlock::MAGIC_SC_STRING = "Horizen ScTxesCommitment null hash string";
+
+const uint256& CBlock::getCrossChainNullHash()
+{
+    static bool generated = false;
+    static uint256 theHash;
+
+    if (!generated)
+    {
+        CHashWriter ss(SER_GETHASH, 0);
+        ss << MAGIC_SC_STRING;
+        theHash = ss.GetHash();
+        LogPrintf("%s():%d - Generated sc null hash [%s]\n", __func__, __LINE__, theHash.ToString());
+        generated = true;
+    }
+    return theHash;
 }

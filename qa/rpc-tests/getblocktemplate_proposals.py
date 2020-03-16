@@ -5,24 +5,30 @@
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_true, assert_false, assert_equal
+from test_framework.util import assert_true, assert_false, assert_equal, mark_logs
+from test_framework.mininode import COIN, hash256, ser_string
 
 from binascii import a2b_hex, b2a_hex
 from hashlib import sha256
-from struct import pack
 from decimal import Decimal
 from struct import unpack, pack
 
 import binascii
-from test_framework.mininode import COIN
+import codecs
 
-SC_CERTIFICATE_BLOCK_VERSION_HEX = "0x3"
-SC_CERTIFICATE_BLOCK_VERSION = int(SC_CERTIFICATE_BLOCK_VERSION_HEX, 0)
+# this is defined in src/primitives/block.h
+SC_CERTIFICATE_BLOCK_VERSION = 3
 
-EPOCH_LENGTH = 5
-creation_amount = Decimal("1.0")
-cert_amount = Decimal("0.5")
+# this is defined in src/primitives/block.cpp
+SC_NULL_HASH = hash256(ser_string("Horizen ScTxesCommitment null hash string"))
 
+SC_EPOCH_LENGTH = 5
+SC_CREATION_AMOUNT = Decimal("1.0")
+SC_CERT_AMOUNT     = Decimal("0.5")
+
+DEBUG_MODE = 1
+
+NODE_LIST = []
 
 def check_array_result(object_array, to_match, expected):
     """
@@ -81,34 +87,39 @@ def genmrklroot(leaflist):
         cur = n
     return cur[0]
 
-def template_to_bytes(tmpl, txlist, certlist):
+def swap_bytes(hex_string):
+    return codecs.encode(codecs.decode(hex_string, 'hex')[::-1], 'hex').decode()
+
+def template_to_bytes(tmpl, txlist, certlist, input_sc_commitment = None):
     blkver = pack('<L', tmpl['version'])
     objlist = txlist + certlist
     mrklroot = genmrklroot(list(dblsha(a) for a in objlist))
-    reserved = b'\0'*32
+    sc_commitment = b'\0'*32
+    if input_sc_commitment != None:
+        sc_commitment = input_sc_commitment
+        mark_logs(("computed sc_commitment: %s" % swap_bytes(binascii.hexlify(sc_commitment))), NODE_LIST, DEBUG_MODE)
     timestamp = pack('<L', tmpl['curtime'])
     nonce = b'\0'*32
     soln = b'\0'
-    blk = blkver + a2b_hex(tmpl['previousblockhash'])[::-1] + mrklroot + reserved + timestamp + a2b_hex(tmpl['bits'])[::-1] + nonce + soln
+    blk = blkver + a2b_hex(tmpl['previousblockhash'])[::-1] + mrklroot + sc_commitment + timestamp + a2b_hex(tmpl['bits'])[::-1] + nonce + soln
     blk += varlenEncode(len(txlist))
     for tx in txlist:
         blk += tx
     if tmpl['version'] == SC_CERTIFICATE_BLOCK_VERSION:
         # fill vector of certificates from this version on 
-        #print "Block ver=", hex(tmpl['version'])
         blk += varlenEncode(len(certlist))
         for cert in certlist:
             blk += cert
     return blk
 
-def template_to_hex(tmpl, txlist, certlist):
-    return b2x(template_to_bytes(tmpl, txlist, certlist))
+def template_to_hex(tmpl, txlist, certlist, input_sc_commitment):
+    return b2x(template_to_bytes(tmpl, txlist, certlist, input_sc_commitment))
 
-def assert_template(node, tmpl, txlist, certlist, expect):
+def assert_template(node, tmpl, txlist, certlist, expect, input_sc_commitment = None):
 #    try:
 #        print "list=",template_to_hex(tmpl, txlist)
 #        raw_input("Pres to continue 1...")
-     rsp = node.getblocktemplate({'data':template_to_hex(tmpl, txlist, certlist),'mode':'proposal'})
+     rsp = node.getblocktemplate({'data':template_to_hex(tmpl, txlist, certlist, input_sc_commitment),'mode':'proposal'})
      if rsp != expect:
          print "rsp: ", rsp
          raise AssertionError('unexpected: %s' % (rsp,))
@@ -121,32 +132,39 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
     '''
 
     def run_test(self):
+        NODE_LIST = self.nodes
+
         self.nodes[0].generate(1) # Mine a block to leave initial block download
         self.sync_all()
 
-        print "active chain height = %d: testing before sidechain fork" %  self.nodes[0].getblockcount() 
+        mark_logs(("active chain height = %d: testing before sidechain fork" %  self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
         self.doTest()
 
         # reach the fork where certificates are supported
         self.nodes[0].generate(20) 
         self.sync_all()
 
-        print "active chain height = %d: testing after sidechain fork" %  self.nodes[0].getblockcount() 
+        mark_logs(("active chain height = %d: testing after sidechain fork" %  self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
 
         # create a sidechain and a certificate for it in the mempool
         scid = "22"
 
-        self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount)
+        self.nodes[1].sc_create(scid, SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT)
         self.sync_all()
 
-        block_list = self.nodes[0].generate(EPOCH_LENGTH) 
+        block_list = self.nodes[0].generate(SC_EPOCH_LENGTH) 
         self.sync_all()
 
         pkh = self.nodes[0].getnewaddress("", True)
-        amounts = [{"pubkeyhash": pkh, "amount": cert_amount}]
+        amounts = [{"pubkeyhash": pkh, "amount": SC_CERT_AMOUNT}]
         cert = self.nodes[0].send_certificate(scid, 0, block_list[-1], amounts)
         self.sync_all()
         assert_true(cert in self.nodes[0].getrawmempool() ) 
+
+        # just one more tx, for having 3 generic txobjs and testing malleability of cert (Test 4)
+        tx = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 0.01)
+        self.sync_all()
+        assert_true(tx in self.nodes[0].getrawmempool() ) 
 
         self.doTest()
 
@@ -194,13 +212,19 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             pass  # Expected
         txlist[-1].append(lastbyte)
 
-        # this tests merkel root malleability, if there are certs it will not work because
-        # repeated txes will not be detected in the end of leaf list (tx, tx, cert...)
+        # Check for merkle tree malleability (CVE-2012-2459): repeating sequences
+        # of transactions (or certificates) in a block without affecting the merkle root,
+        # while still invalidating it.
         if len(certlist) == 0:
             # Test 4: Add an invalid tx to the end (duplicate of gen tx)
             txlist.append(txlist[0])
             assert_template(node, tmpl, txlist, certlist, 'bad-txns-duplicate')
             txlist.pop()
+        else:
+            # Test 4: Add an invalid cert to the end (duplicate of cert)
+            certlist.append(certlist[0])
+            assert_template(node, tmpl, txlist, certlist, 'bad-txns-duplicate')
+            certlist.pop()
 
         # Test 5: Add an invalid tx to the end (non-duplicate)
         txlist.append(bytearray(txlist[0]))
@@ -246,8 +270,16 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         assert_template(node, tmpl, txlist, certlist, 'time-too-old')
         tmpl['curtime'] = realtime
 
-        # Test 11: Valid block
-        assert_template(node, tmpl, txlist, certlist, None)
+        if len(certlist) == 0:
+            # Test 11: Valid block
+            assert_template(node, tmpl, txlist, certlist, None)
+        else:
+            # compute commitment for the only contribution of certificate (we have no sctx/btr)
+            TxsHash = dblsha(SC_NULL_HASH + SC_NULL_HASH)
+            WCertHash = dblsha(certlist[0])
+            scid = certlist[0][4:4+32]
+            SCHash = dblsha(TxsHash + WCertHash + scid)
+            assert_template(node, tmpl, txlist, certlist, None, SCHash)
 
         # Test 12: Orphan block
         orig_val = tmpl['previousblockhash']
@@ -256,7 +288,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         tmpl['previousblockhash'] = orig_val
 
         if len(certlist) != 0:
-            # cert specific tests
+            # cert only specific tests
 
             # Test 13: Bad scid in cert
             # set scid to 0x21 (33)
@@ -299,21 +331,25 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             #amount_original = long(s)
             #print "amount orig  = %s (%d SAT)" % ( binascii.hexlify(amnt_arr), amount_original)
 
-            amount_trick = 2 * creation_amount * COIN
+            amount_trick = 2 * SC_CREATION_AMOUNT * COIN
             amnt_trick_arr = pack('<q', amount_trick)
             #print "amount trick = %s (%d SAT)" % ( binascii.hexlify(amnt_trick_arr), amount_trick)
 
+            save_cert = certlist[0]
             certlist.pop()
             c = pre_arr + amnt_trick_arr + post_arr
             certlist.append(c)
             assert_template(node, tmpl, txlist, certlist, 'bad-sc-cert-not-applicable')
 
+            # restore certlist
+            certlist.pop()
+            certlist.append(save_cert)
 
 
-
-
-
-
+            # Test 18: wrong commitment
+            # compute commitment for the only contribution of certificate (no tx/btr)
+            fake_commitment = dblsha(b'\w'*32)
+            assert_template(node, tmpl, txlist, certlist, 'bad-sc-txs-committment', fake_commitment)
 
 
 if __name__ == '__main__':

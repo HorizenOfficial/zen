@@ -11,6 +11,9 @@
 #include "serialize.h"
 #include "uint256.h"
 
+// uncomment for debugging some sc commitment related hashing calculations
+// #define DEBUG_SC_COMMITMENT_HASH 1
+
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
  * requirements.  When they solve the proof-of-work, they broadcast the block
@@ -162,16 +165,27 @@ public:
     // tree (a duplication of transactions in the block leading to an identical
     // merkle root).
     uint256 BuildMerkleTree(bool* mutated = NULL) const;
-    uint256 BuildMerkleTree(std::vector<uint256>& vMerkleTreeIn, size_t vtxSize, bool* mutated = NULL) const;
     uint256 BuildScMerkleRootsMap();
     
     std::vector<uint256> GetMerkleBranch(int nIndex) const;
-    static uint256 CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex);
-    uint256 BuildMerkleRootHash(const std::vector<uint256>& vInput);
+
     std::string ToString() const;
 
     // returns the vector of ptrs of tx and certs of the block (&tx1, .., &txn, &cert1, .., &certn).
     void GetTxAndCertsVector(std::vector<const CTransactionBase*>& vBase) const;
+
+    static uint256 BuildMerkleTree(std::vector<uint256>& vMerkleTreeIn, size_t vtxSize, bool* mutated = NULL);
+    static uint256 CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex);
+    static uint256 BuildMerkleRootHash(const std::vector<uint256>& vInput);
+
+    static const uint256& getCrossChainNullHash();
+
+    static uint256 BuildSCTxsCommitment( const std::set<uint256>& sScIds,
+        const std::map<uint256, std::vector<uint256> >& mScMerkleTreeLeavesFt,
+        const std::map<uint256, std::vector<uint256> >& mScMerkleTreeLeavesBtr,
+        const std::map<uint256, uint256>& mScCerts);
+
+    static const std::string MAGIC_SC_STRING;
 };
 
 

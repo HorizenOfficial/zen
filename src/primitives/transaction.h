@@ -28,9 +28,6 @@
 #include "consensus/params.h"
 #include <sc/sidechaintypes.h>
 
-// uncomment for debugging some sc related hashing calculations
-//#define DEBUG_SC_HASH 1
-
 static const int32_t SC_TX_BASE_VERSION = 0xFFFFFFFC; // -4
 static const int32_t SC_TX_VERSION = SC_TX_BASE_VERSION;
 static const int32_t SC_CERT_VERSION = SC_TX_BASE_VERSION;
@@ -911,7 +908,7 @@ public:
                 BEGIN(txHash),    END(txHash),
                 BEGIN(n),         END(n) );
 
-#ifdef DEBUG_SC_HASH
+#ifdef DEBUG_SC_COMMITMENT_HASH
             CDataStream ss2(SER_NETWORK, PROTOCOL_VERSION);
             ss2 << ccoutHash;
             ss2 << txHash;
