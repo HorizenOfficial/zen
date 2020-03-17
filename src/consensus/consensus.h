@@ -6,8 +6,26 @@
 #ifndef BITCOIN_CONSENSUS_CONSENSUS_H
 #define BITCOIN_CONSENSUS_CONSENSUS_H
 
+/** legacy block versions
+ *--------------------------
+ * this is the most recent block version before sidechain fork. Blocks mined up to such fork
+ * will still have this version */
+static const int32_t BLOCK_VERSION_0x2000000  = 0x20000000;
+
+/** old legacy fork */
+static const int32_t BLOCK_VERSION_4          = 0x4;
+
+/** new block version valid from sidechain fork on 
+ * We choose this value since:
+ * 1. it is a number < 4, this is to enforce that before the sidechain fork and deprecation
+ *    date, any block with that value is rejected by both legacy and update node
+ * 2. it is the larger number < 4, this is to update the MIN_BLOCK_VERSION macro below, which is
+ *    tested in the code for checking block validity  */
+static const int32_t BLOCK_VERSION_3          = 0x3;
+
 /** The minimum allowed block version (network rule) */
-static const int32_t MIN_BLOCK_VERSION = 4;
+static const int32_t MIN_BLOCK_VERSION = BLOCK_VERSION_3;
+
 /** The minimum allowed transaction version (network rule) */
 static const int32_t MIN_OLD_TX_VERSION = 1;
 /** The maximum allowed size for a serialized block, in bytes (network rule) */

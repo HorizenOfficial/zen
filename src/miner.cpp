@@ -623,7 +623,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
         // Fill in header
         pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
-        pblock->hashScMerkleRootsMap   = uint256();
+        pblock->hashScTxsCommitment = uint256();
         UpdateTime(pblock, Params().GetConsensus(), pindexPrev);
         pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock, Params().GetConsensus());
         pblock->nSolution.clear();
@@ -703,10 +703,10 @@ void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& 
 
     pblock->vtx[0] = txCoinbase;
     pblock->hashMerkleRoot = pblock->BuildMerkleTree();
-    pblock->hashScMerkleRootsMap = pblock->BuildScMerkleRootsMap();
-#ifdef DEBUG_SC_HASH
+    pblock->hashScTxsCommitment = pblock->BuildScTxsCommitment();
+#ifdef DEBUG_SC_COMMITMENT_HASH
     std::cout << "-------------------------------------------" << std::endl;
-    std::cout << "      ScMerkleRootMap: " << pblock->hashScMerkleRootsMap.ToString() << std::endl;
+    std::cout << "  hashScTxsCommitment: " << pblock->hashScTxsCommitment.ToString() << std::endl;
 #endif
 }
 

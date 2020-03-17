@@ -62,6 +62,17 @@ public:
 	 * @brief returns true sidechains are supported based on block height, false otherwise
 	 */
 	inline virtual bool areSidechainsSupported() const { return false; }
+
+    /**
+	 * @brief returns supported new block version based on block height
+	 */
+	inline virtual int getNewBlockVersion() const { return BLOCK_VERSION_4; }
+
+    /**
+     * @brief returns true if the nVersion is valid at input block height
+     */
+    inline virtual bool isValidBlockVersion(int nVersion) const { return (nVersion >= BLOCK_VERSION_4); }
+
 };
 
 }

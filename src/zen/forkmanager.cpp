@@ -129,6 +129,22 @@ bool ForkManager::areSidechainsSupported(int height) const {
     return getForkAtHeight(height)->areSidechainsSupported();
 }
 
+/**
+ * @param height height to test against
+ * @return returns new block version based on block height
+ */
+int ForkManager::getNewBlockVersion(int height) const {
+    return getForkAtHeight(height)->getNewBlockVersion();
+}
+
+/**
+ * @param height height to test against
+ * @return returns true if the nVersion is valid at input block height
+ */
+bool ForkManager::isValidBlockVersion(int height, int nVersion) const {
+    return getForkAtHeight(height)->isValidBlockVersion(nVersion);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// PRIVATE MEMBERS
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

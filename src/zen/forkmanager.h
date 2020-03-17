@@ -85,6 +85,16 @@ public:
 	 */
 	bool areSidechainsSupported(int height) const;
 
+    /**
+	 * @brief returns new block version based on block height
+	 */
+	int getNewBlockVersion(int height) const;
+
+    /**
+	 * @brief returns true is the nVersion is valid at input block height
+	 */
+    bool isValidBlockVersion(int height, int nVersion) const;
+
 private:
     
     /**

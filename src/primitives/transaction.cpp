@@ -538,7 +538,7 @@ std::string CTransaction::ToString() const
     return str;
 }
 
-void CTransaction::getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& mLeaves, std::set<uint256>& sScIds) const
+void CTransaction::addToScCommitment(std::map<uint256, std::vector<uint256> >& mLeaves, std::set<uint256>& sScIds) const
 {
     if (!IsScVersion())
     {

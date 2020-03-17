@@ -193,7 +193,7 @@ unsigned int CScCertificate::GetLegacySigOpCount() const
 }
 #endif
 
-void CScCertificate::getCrosschainOutputs(std::map<uint256, uint256>& map, std::set<uint256>& sScIds) const
+void CScCertificate::addToScCommitment(std::map<uint256, uint256>& map, std::set<uint256>& sScIds) const
 {
     sScIds.insert(scId);
     map[scId] = GetHash();

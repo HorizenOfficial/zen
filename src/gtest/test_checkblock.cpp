@@ -472,11 +472,14 @@ TEST(ContextualCheckBlockHeader, CheckBlockVersion) {
     int hardForkHeight = scFork.getHeight(CBaseChainParams::MAIN);
     indexPrev.nHeight = hardForkHeight -1;
 
-    block.nVersion = MIN_BLOCK_VERSION; // 4
+    int newBlockVersion = ForkManager::getInstance().getNewBlockVersion(hardForkHeight);
+    EXPECT_TRUE(newBlockVersion == CBlock::SC_CERT_BLOCK_VERSION);
+
+    block.nVersion = BLOCK_VERSION_4;
     EXPECT_CALL(state, Invalid(false, REJECT_INVALID, "bad-version")).Times(1);
     EXPECT_FALSE(ContextualCheckBlockHeader(block, state, &indexPrev));
 
-    block.nVersion = VERSIONBITS_TOP_BITS; // 0x20000000
+    block.nVersion = BLOCK_VERSION_0x2000000;
     EXPECT_CALL(state, Invalid(false, REJECT_INVALID, "bad-version")).Times(1);
     EXPECT_FALSE(ContextualCheckBlockHeader(block, state, &indexPrev));
 
@@ -485,12 +488,17 @@ TEST(ContextualCheckBlockHeader, CheckBlockVersion) {
 
     // check that before sidechain fork, block version SC_CERT_BLOCK_VERSION is not valid 
     // since is considered obsolete (<4)
-    EXPECT_TRUE(CBlock::SC_CERT_BLOCK_VERSION < MIN_BLOCK_VERSION);
+
+    EXPECT_TRUE(CBlock::SC_CERT_BLOCK_VERSION < BLOCK_VERSION_4);
     hardForkHeight -= 1;
     indexPrev.nHeight = hardForkHeight -1;
     block.nVersion = CBlock::SC_CERT_BLOCK_VERSION;
-    EXPECT_CALL(state, Invalid(false, REJECT_OBSOLETE, "bad-version")).Times(1);
+    EXPECT_CALL(state, Invalid(false, REJECT_INVALID, "bad-version")).Times(1);
     EXPECT_FALSE(ContextualCheckBlockHeader(block, state, &indexPrev));
+
+    // and before sidechain fork the new block version is the legacy BLOCK_VERSION_0x2000000
+    newBlockVersion = ForkManager::getInstance().getNewBlockVersion(hardForkHeight);
+    EXPECT_TRUE(newBlockVersion == BLOCK_VERSION_0x2000000);
 }
 
 TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {

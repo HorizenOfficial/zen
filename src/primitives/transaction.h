@@ -865,7 +865,7 @@ public:
     std::string ToString() const override;
 
  public:
-    void getCrosschainOutputs(std::map<uint256, std::vector<uint256> >& mLeaves, std::set<uint256>& sScIds) const ;
+    void addToScCommitment(std::map<uint256, std::vector<uint256> >& mLeaves, std::set<uint256>& sScIds) const ;
 
  private:
     template <typename T>

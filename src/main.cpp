@@ -2607,10 +2607,7 @@ VersionBitsCache versionbitscache;
 int32_t ComputeBlockVersion(int nHeight)
 {
     LOCK(cs_main);
-    int32_t nVersion = VERSIONBITS_TOP_BITS;
-    if (ForkManager::getInstance().areSidechainsSupported(nHeight))
-        nVersion = CBlockHeader::SC_CERT_BLOCK_VERSION;
-    return nVersion;
+    return ForkManager::getInstance().getNewBlockVersion(nHeight);
 }
 
 int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Params& params)
@@ -2751,11 +2748,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         assert(tree.root() == old_tree_root);
     }
 
-    std::map<uint256, std::vector<uint256> > mScMerkleTreeLeavesFt; 
-    std::map<uint256, std::vector<uint256> > mScMerkleTreeLeavesBtr; 
-    std::map<uint256, uint256 > mScCerts; 
-    std::set<uint256> sScIds;
-
+    SidechainTxsCommitmentBuilder scCommitmentBuilder;
+     
     for (unsigned int i = 0; i < block.vtx.size(); i++) // Processing transactions loop
     {
         const CTransaction &tx = block.vtx[i];
@@ -2766,8 +2760,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
 
-            if (!view.HaveInputs(tx))
-                return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
+        if (!view.HaveInputs(tx))
+            return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
                                  REJECT_INVALID, "bad-txns-inputs-missingorspent");
 
         if (!view.HaveDependencies(tx))
@@ -2789,20 +2783,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): too many sigops"),
                                  REJECT_INVALID, "bad-blk-sigops");
 
-            CAmount nFee = view.GetValueIn(tx)-tx.GetValueOut();
-            // These are also checked (for txes only) in the call below, but here we already have all needed parameters
-            if (nFee < 0)
-            {
-                // this tx/cert spends more than it can.
-                return state.DoS(100, error("ConnectBlock(): %s Fee < 0", tx.GetHash().ToString()),
-                             REJECT_INVALID, "bad-txns-fee-negative");
-            }
-            if (!MoneyRange(nFee))
-            {
-                return state.DoS(100, error("ConnectBlock(): fee out of range"),
-                             REJECT_INVALID, "bad-txns-fee-outofrange");
-            }
-            nFees += nFee;
+            nFees += view.GetValueIn(tx)-tx.GetValueOut();
 
             std::vector<CScriptCheck> vChecks;
             if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
@@ -2817,7 +2798,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
         UpdateCoins(tx, state, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
 
-        if (!fJustCheck && i > 0)
+        if ( i > 0)
         {
             if (!view.UpdateScInfo(tx, block, pindex->nHeight) )
             {
@@ -2838,9 +2819,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (fCheckScTxesCommitment)
         {
-            tx.getCrosschainOutputs(mScMerkleTreeLeavesFt, sScIds);
-            // TODO collect BTR contributions
-            // tx.getBTROutputs(mScMerkleTreeLeavesBtr, sScIds);
+            scCommitmentBuilder.add(tx);
         }
 
     }  //end of Processing transactions loop
@@ -2855,7 +2834,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-blk-sigops");
 
         CAmount nFee = cert.GetFeeAmount(CAmount());
-        // These are also checked (for txes only) in the call below, but here we already have all needed parameters
+        // TODO cert: check fee in CheckInputs (as for txes) when mc inputs will be used for fee handling
         if (nFee < 0)
         {
             // this tx/cert spends more than it can.
@@ -2877,7 +2856,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         cert.UpdateCoins(state, view, blockundo, pindex->nHeight);
 
-        if (!fJustCheck && !view.UpdateScInfo(cert, blockundo) )
+        if (!view.UpdateScInfo(cert, blockundo) )
         {
             return state.DoS(100, error("ConnectBlock(): could not add sidechain in scView: tx[%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-updated");
@@ -2895,19 +2874,16 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (fCheckScTxesCommitment)
         {
-            cert.getCrosschainOutputs(mScCerts, sScIds);
+            scCommitmentBuilder.add(cert);
         }
 
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     }
 
-    if (!fJustCheck)
+    if (!view.ApplyMatureBalances(pindex->nHeight, blockundo) )
     {
-        if (!view.ApplyMatureBalances(pindex->nHeight, blockundo) )
-        {
-            return state.DoS(100, error("ConnectBlock(): could not update sc immature amounts"),
-                             REJECT_INVALID, "bad-sc-amounts");
-        }
+        return state.DoS(100, error("ConnectBlock(): could not update sc immature amounts"),
+                         REJECT_INVALID, "bad-sc-amounts");
     }
 
     view.PushAnchor(tree);
@@ -2931,20 +2907,22 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     if (fCheckScTxesCommitment)
     {
-        const uint256& scTxsCommittment =
-            CBlock::BuildSCTxsCommitment(sScIds, mScMerkleTreeLeavesFt, mScMerkleTreeLeavesBtr, mScCerts);
+        const uint256& scTxsCommittment = scCommitmentBuilder.getCommitment();
 
-        if (block.hashScMerkleRootsMap != scTxsCommittment)
+        if (block.hashScTxsCommitment != scTxsCommittment)
         {
+            // If this check fails, we return validation state obj with a state.corruptionPossible=false attribute,
+            // which will mark this header as failed. This is because the previous check on merkel root was successful,
+            // that means sc txes/cert are verified, and yet their contribution to scTxsCommittment is not
             LogPrint("cert", "%s():%d - failed verifying SCTxsCommitment: block[%s] vs computed[%s]\n",
-                __func__, __LINE__, block.hashScMerkleRootsMap.ToString(), scTxsCommittment.ToString());
+                __func__, __LINE__, block.hashScTxsCommitment.ToString(), scTxsCommittment.ToString());
             return state.DoS(100, error("ConnectBlock(): SCTxsCommitment verification failed"),
                                REJECT_INVALID, "bad-sc-txs-committment");
         }
         else
         {
             LogPrint("cert", "%s():%d - Successfully verified SCTxsCommitment %s\n",
-                __func__, __LINE__, block.hashScMerkleRootsMap.ToString());
+                __func__, __LINE__, block.hashScTxsCommitment.ToString());
         }
     }
 
@@ -3983,7 +3961,7 @@ bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, unsigne
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW)
 {
     // Check block version
-    if (block.nVersion < MIN_BLOCK_VERSION && block.nVersion != CBlock::SC_CERT_BLOCK_VERSION )
+    if (block.nVersion < MIN_BLOCK_VERSION)
         return state.DoS(100, error("CheckBlockHeader(): block version not valid"),
                          REJECT_INVALID, "version-invalid");
 
@@ -4109,20 +4087,10 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
             return state.DoS(100, error("%s: forked chain older than last checkpoint (height %d)", __func__, nHeight));
     }
 
-    if (ForkManager::getInstance().areSidechainsSupported(nHeight) )
+    if (!ForkManager::getInstance().isValidBlockVersion(nHeight, block.nVersion) )
     {
-        // from this fork point on we accept only blocks version with certificate support
-        if (block.nVersion != CBlock::SC_CERT_BLOCK_VERSION)
-            return state.Invalid(error("%s : rejected nVersion block not supporting certificates: sidechains are enabled", __func__),
-                             REJECT_INVALID, "bad-version");
-    }
-    else
-    {
-        
-        // Reject block.nVersion < 4 blocks
-        if (block.nVersion < 4)
-        return state.Invalid(error("%s : rejected nVersion<4 block", __func__),
-                                 REJECT_OBSOLETE, "bad-version");
+        return state.Invalid(error("%s : rejected nVersion block %d not supported at height %d", __func__, block.nVersion, nHeight),
+            REJECT_INVALID, "bad-version");
     }
 
     return true;
