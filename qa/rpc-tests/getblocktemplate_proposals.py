@@ -20,7 +20,7 @@ import codecs
 SC_CERTIFICATE_BLOCK_VERSION = 3
 
 # this is defined in src/primitives/block.cpp
-SC_NULL_HASH = hash256(ser_string("Horizen ScTxesCommitment null hash string"))
+SC_NULL_HASH = hash256(ser_string("Horizen ScTxsCommitment null hash string"))
 
 SC_EPOCH_LENGTH = 5
 SC_CREATION_AMOUNT = Decimal("1.0")
