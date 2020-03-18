@@ -198,6 +198,7 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
     x.push_back(Pair("epochNumber", cert.epochNumber));
     x.push_back(Pair("endEpochBlockHash", cert.endEpochBlockHash.GetHex()));
     x.push_back(Pair("totalAmount", ValueFromAmount(cert.totalAmount)));
+    x.push_back(Pair("fee", ValueFromAmount(cert.fee)));
     UniValue vbts(UniValue::VARR);
     for (unsigned int j = 0; j < cert.vbt_ccout.size(); j++) {
         // TODO cert: fill cert contents when appropriate
@@ -745,13 +746,13 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
 {   
     if (fHelp || params.size() != 2)
         throw runtime_error(
-            "createrawcertificate {\"pubkeyhash\":amount,...} {\"scid\":\"id\", \"withdrawalEpochNumber\":n, \"endEpochBlockHash\":\"blockHash\", \"totalAmount\":amount, \"nonce\":\"nonce\" })\n"
+            "createrawcertificate {\"pubkeyhash\":amount,...} {\"scid\":\"id\", \"withdrawalEpochNumber\":n, \"endEpochBlockHash\":\"blockHash\", \"totalAmount\":amount, \"fee\":fee, \"nonce\":\"nonce\" })\n"
             "\nCreate a SC certificate transferring funds to the given pubkey hash list.\n"
             "Returns hex-encoded raw certificate.\n"
             "It is not stored in the wallet or transmitted to the network.\n"
 
             "\nArguments:\n"
-            "1. \"addresses\"                        (string, required) A json object with pubkeyhash as keys and amounts as values. The amounts must already take into account the certificate fee.\n"
+            "1. \"addresses\"                        (string, required) A json object with pubkeyhash as keys and amounts as values. Can be an empty obj if no amounts are trasferred (empty certificate)\n"
             "    {\n"                               
             "      \"pubkeyhash\": x.xxx             (numeric, required) The public key hash corresponding to a Horizen address and the " + CURRENCY_UNIT + " amount to send to\n"
             "      ,...\n"                          
@@ -761,14 +762,15 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             "      \"scid\":\"id\",                    (string, required) The side chain id\n"
             "      \"withdrawalEpochNumber\":n       (numeric, required) The epoch number this certificate refers to\n"
             "      \"endEpochBlockHash\":\"blockHash\" (string, required) The block hash determining the end of the referenced epoch\n"
-            "      \"totalAmount\":amount            (numeric, required) The total amount this certificate is transferring to MC (fee included)\n"
+            "      \"totalAmount\":amount            (numeric, required) The total amount this certificate is transferring to MC\n"
+            "      \"fee\":amount                    (numeric, required) The fee this certificate is charged with in MC\n"
             "      \"nonce\":\"nonce\",                (string, required) A nonce value in u256 hexadecimal string format\n"
             "    }\n"
             "\nResult:\n"
             "\"certificate\"                         (string) hex string of the certificate\n"
 
             "\nExamples\n"
-            + HelpExampleCli("createrawcertificate", " \"{\"be276f6905551b2a22548035766c7753e2f9a10c\":9.9999}\" \"{\"scid\":\"02c5e79e8090c32e01e2a8636bfee933fd63c0cc15a78f0888cdf2c25b4a5e5f\", \"withdrawalEpochNumber\":3, \"endEpochBlockHash\":\"0555e4e775ce3cf79d2c15b8981df46c7448e0b408ad0a7c30c043fe5341c04e\", \"totalAmount\":10.0}\" ")
+            + HelpExampleCli("createrawcertificate", " \'{\"be276f6905551b2a22548035766c7753e2f9a10c\":10.0}\' \'{\"scid\":\"02c5e79e8090c32e01e2a8636bfee933fd63c0cc15a78f0888cdf2c25b4a5e5f\", \"withdrawalEpochNumber\":3, \"endEpochBlockHash\":\"0555e4e775ce3cf79d2c15b8981df46c7448e0b408ad0a7c30c043fe5341c04e\", \"totalAmount\":10.0, \"fee\":0.0001, \"nonce\":\"03ff\"}\' ")
         );
 
     LOCK(cs_main);
@@ -806,7 +808,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
 
     // valid input keywords
     static const std::set<std::string> validKeyArgs =
-        {"scid", "withdrawalEpochNumber", "endEpochBlockHash", "totalAmount", "nonce"};
+        {"scid", "withdrawalEpochNumber", "endEpochBlockHash", "totalAmount", "fee", "nonce"};
 
     if (!cert_params.isObject())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
@@ -869,6 +871,17 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"totalAmount\"" );
     }
 
+    CAmount fee = 0;
+    if (setKeyArgs.count("fee"))
+    {
+        UniValue av = find_value(cert_params, "fee");
+        fee = AmountFromValue( av );
+    }
+    else
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"fee\"" );
+    }
+
     uint256 nonce;
     if (setKeyArgs.count("nonce"))
     {
@@ -881,6 +894,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     }
 
     rawCert.totalAmount = totalAmount;
+    rawCert.fee = fee;
     rawCert.scId = scId;
     rawCert.epochNumber = withdrawalEpochNumber;
     rawCert.endEpochBlockHash = endEpochBlockHash;

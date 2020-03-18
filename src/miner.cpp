@@ -460,18 +460,24 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
                 continue;
 
-            // Skip free transactions if we're past the minimum block size:
             const uint256& hash = tx.GetHash();
-            double dPriorityDelta = 0;
-            CAmount nFeeDelta = 0;
-            mempool.ApplyDeltas(hash, dPriorityDelta, nFeeDelta);
-            if (fSortedByFee && (dPriorityDelta <= 0) && (nFeeDelta <= 0) && (feeRate < ::minRelayTxFee) && (nBlockSize + nTxSize >= nBlockMinSize))
+
+            // Skip free transactions if we're past the minimum block size:
+            // TODO cert: this does not hold for certificate until MC owned fee will be handled
+            if (!tx.IsCoinCertified() )
             {
-                LogPrint("sc", "%s():%d - Skipping tx[%s] because it is free (feeDelta=%lld/feeRate=%s)\n",
-                    __func__, __LINE__, tx.GetHash().ToString(), nFeeDelta, feeRate.ToString() );
-                continue;
+                double dPriorityDelta = 0;
+                CAmount nFeeDelta = 0;
+                mempool.ApplyDeltas(hash, dPriorityDelta, nFeeDelta);
+                if (fSortedByFee && (dPriorityDelta <= 0) && (nFeeDelta <= 0) && (feeRate < ::minRelayTxFee) && (nBlockSize + nTxSize >= nBlockMinSize))
+                {
+                    LogPrint("sc", "%s():%d - Skipping tx[%s] because it is free (feeDelta=%lld/feeRate=%s)\n",
+                        __func__, __LINE__, tx.GetHash().ToString(), nFeeDelta, feeRate.ToString() );
+                    continue;
+                }
             }
 
+            // Certificates have highest priority
             // Prioritise by fee once past the priority size or we run out of high-priority
             // transactions:
             if (!fSortedByFee &&

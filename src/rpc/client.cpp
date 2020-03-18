@@ -127,7 +127,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "send_certificate", 1 },
     { "send_certificate", 3 },
     { "send_certificate", 4 },
-    { "send_certificate", 5 },
     { "z_shieldcoinbase", 2},
     { "z_shieldcoinbase", 3},
     { "z_getoperationstatus", 0},

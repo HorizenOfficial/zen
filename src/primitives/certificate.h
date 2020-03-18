@@ -20,6 +20,7 @@ public:
     const int32_t epochNumber;
     const uint256 endEpochBlockHash;
     const CAmount totalAmount;
+    const CAmount fee;
     const std::vector<CTxBackwardTransferCrosschainOut> vbt_ccout;
 
     const uint256 nonce;
@@ -54,6 +55,7 @@ public:
         READWRITE(*const_cast<int32_t*>(&epochNumber));
         READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
         READWRITE(*const_cast<CAmount*>(&totalAmount));
+        READWRITE(*const_cast<CAmount*>(&fee));
         READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
         READWRITE(*const_cast<std::vector<CTxBackwardTransferCrosschainOut>*>(&vbt_ccout));
         READWRITE(*const_cast<uint256*>(&nonce));
@@ -70,6 +72,7 @@ public:
             epochNumber == EPOCH_NULL &&
             endEpochBlockHash.IsNull() &&
             totalAmount == 0 &&
+            fee == 0 &&
             vout.empty() &&
             vbt_ccout.empty() &&
             nonce.IsNull() );
@@ -112,6 +115,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
     int32_t epochNumber;
     uint256 endEpochBlockHash;
     CAmount totalAmount;
+    CAmount fee;
     std::vector<CTxBackwardTransferCrosschainOut> vbt_ccout;
     uint256 nonce;
 
@@ -127,6 +131,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
         READWRITE(epochNumber);
         READWRITE(endEpochBlockHash);
         READWRITE(totalAmount);
+        READWRITE(fee);
         READWRITE(vout);
         READWRITE(vbt_ccout);
         READWRITE(nonce);
@@ -134,7 +139,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
 
     template <typename Stream>
     CMutableScCertificate(deserialize_type, Stream& s) :
-    scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), totalAmount(), vbt_ccout(), nonce() {
+    scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), totalAmount(), fee(), vbt_ccout(), nonce() {
         Unserialize(s);
     }
 

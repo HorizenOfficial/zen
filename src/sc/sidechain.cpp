@@ -125,8 +125,16 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
             __func__), REJECT_INVALID, "sidechain-bwd-transfer-amount-outside-range");
     }
 
+    if (cert.totalAmount != cert.GetValueOut())
+    {
+        LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate amount is different than the sum of outputs\n",
+            __func__, __LINE__, certHash.ToString() );
+        return state.DoS(100, error("%s: certificate amount is different than the sum of its outputs",
+            __func__), REJECT_INVALID, "sidechain-bwd-transfer-amount-invalid");
+    }
+
     CAmount minimumFee = ::minRelayTxFee.GetFee(cert.CalculateSize());
-    CAmount fee = cert.totalAmount - cert.GetValueOut();
+    CAmount fee = cert.fee;
 
     if ( fee < minimumFee)
     {

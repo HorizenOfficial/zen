@@ -98,6 +98,7 @@ class ListTransactionsTest(BitcoinTestFramework):
 
         # Below tests about filtering by address
         self.nodes[0].generate(10)
+        self.sync_all()
         address = self.nodes[1].getnewaddress()
 
         # simple send 1 to address and verify listtransaction returns this tx with address in input

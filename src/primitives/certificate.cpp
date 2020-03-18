@@ -15,11 +15,11 @@
 #include "main.h"
 
 CScCertificate::CScCertificate() : CTransactionBase(),
-    scId(), epochNumber(EPOCH_NULL), endEpochBlockHash(), totalAmount(), vbt_ccout(), nonce() { }
+    scId(), epochNumber(EPOCH_NULL), endEpochBlockHash(), totalAmount(), fee(), vbt_ccout(), nonce() { }
 
 CScCertificate::CScCertificate(const CMutableScCertificate &cert) :
     scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash),
-    totalAmount(cert.totalAmount), vbt_ccout(cert.vbt_ccout), nonce(cert.nonce)
+    totalAmount(cert.totalAmount), fee(cert.fee), vbt_ccout(cert.vbt_ccout), nonce(cert.nonce)
 {
     *const_cast<int*>(&nVersion) = cert.nVersion;
     *const_cast<std::vector<CTxOut>*>(&vout) = cert.vout;
@@ -33,12 +33,13 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert) {
     *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     *const_cast<CAmount*>(&totalAmount) = cert.totalAmount;
+    *const_cast<CAmount*>(&fee) = cert.fee;
     *const_cast<std::vector<CTxBackwardTransferCrosschainOut>*>(&vbt_ccout) = cert.vbt_ccout;
     *const_cast<uint256*>(&nonce) = cert.nonce;
     return *this;
 }
 
-CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0), totalAmount(0) {
+CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0), totalAmount(0), fee(0) {
     // call explicitly the copy of members of virtual base class
     *const_cast<uint256*>(&hash) = cert.hash;
     *const_cast<int32_t*>(&nVersion) = cert.nVersion;
@@ -48,6 +49,7 @@ CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0), tot
     *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     *const_cast<CAmount*>(&totalAmount) = cert.totalAmount;
+    *const_cast<CAmount*>(&fee) = cert.fee;
     *const_cast<std::vector<CTxBackwardTransferCrosschainOut>*>(&vbt_ccout) = cert.vbt_ccout;
     *const_cast<uint256*>(&nonce) = cert.nonce;
 }
@@ -59,8 +61,10 @@ void CScCertificate::UpdateHash() const
 
 CAmount CScCertificate::GetFeeAmount(CAmount /* unused */) const
 {
-    // this in principle might be a negative number, the caller must check if that is legal
-    return (totalAmount - GetValueOut());
+    // this is a signed uint64, the caller must check if that is legal
+    //    return (fee);
+    // TODO cert: return 0 until MC owned fee will be handled
+    return CAmount(0);
 }
 
 unsigned int CScCertificate::CalculateSize() const
@@ -83,11 +87,12 @@ std::string CScCertificate::EncodeHex() const
 std::string CScCertificate::ToString() const
 {
     std::string str;
-    str += strprintf("CScCertificate(hash=%s, ver=%d, vout.size=%u, totAmount=%d.%08d\n)",
+    str += strprintf("CScCertificate(hash=%s, ver=%d, vout.size=%u, totAmount=%d.%08d, fee=%d.%08d\n)",
         GetHash().ToString().substr(0,10),
         nVersion,
         vout.size(),
-        totalAmount / COIN, totalAmount % COIN);
+        totalAmount / COIN, totalAmount % COIN,
+        fee / COIN, fee % COIN);
     for (unsigned int i = 0; i < vout.size(); i++)
         str += "    " + vout[i].ToString() + "\n";
 // empty for the time being
@@ -202,11 +207,11 @@ void CScCertificate::addToScCommitment(std::map<uint256, uint256>& map, std::set
 // Mutable Certificate
 //-------------------------------------
 CMutableScCertificate::CMutableScCertificate() :
-        scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), totalAmount(), vbt_ccout(), nonce() {}
+        scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), totalAmount(), fee(), vbt_ccout(), nonce() {}
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert) :
     scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash),
-    totalAmount(cert.totalAmount), vbt_ccout(cert.vbt_ccout), nonce(cert.nonce)
+    totalAmount(cert.totalAmount), fee(cert.fee), vbt_ccout(cert.vbt_ccout), nonce(cert.nonce)
 {
     nVersion = cert.nVersion;
     vout = cert.vout;

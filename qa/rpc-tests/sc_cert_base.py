@@ -14,6 +14,7 @@ import pprint
 DEBUG_MODE = 1
 NUMB_OF_NODES = 3
 EPOCH_LENGTH = 5
+CERT_FEE = 0.0001
 
 
 class sc_cert_base(BitcoinTestFramework):
@@ -121,7 +122,7 @@ class sc_cert_base(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount_bad}]
 
         try:
-            cert_bad = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts)
+            cert_bad = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts, CERT_FEE)
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -134,7 +135,7 @@ class sc_cert_base(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
 
         try:
-            cert_bad = self.nodes[0].send_certificate(scid, epoch_number + 1, epoch_block_hash, amounts)
+            cert_bad = self.nodes[0].send_certificate(scid, epoch_number + 1, epoch_block_hash, amounts, CERT_FEE)
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -146,7 +147,7 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node 0 tries to perform a bwd transfer with an invalid end epoch hash block ...", self.nodes, DEBUG_MODE)
         # check this is refused because end epoch block hash is wrong
         try:
-            cert_bad = self.nodes[0].send_certificate(scid, epoch_number, eph_wrong, amounts)
+            cert_bad = self.nodes[0].send_certificate(scid, epoch_number, eph_wrong, amounts, CERT_FEE)
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -157,7 +158,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(bwt_amount, pkh_node1), self.nodes, DEBUG_MODE)
         try:
-            cert_good = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts)
+            cert_good = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts, CERT_FEE)
             assert(len(cert_good) > 0)
             mark_logs("Certificate is {}".format(cert_good), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -170,12 +171,15 @@ class sc_cert_base(BitcoinTestFramework):
         for i in range(1, NUMB_OF_NODES):
             assert_equal(sorted(self.nodes[0].getrawmempool()), sorted(self.nodes[i].getrawmempool()))
 
+        mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
+        assert_equal(True, cert_good in self.nodes[0].getrawmempool())
+
         bal_before = self.nodes[1].getbalance("", 0)
         # print "Node1 balance: ", bal_before
 
         mark_logs("Node 0 try to generate a second bwd transfer for the same epoch number before first bwd is confirmed", self.nodes, DEBUG_MODE)
         try:
-            cert_bad = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts)
+            cert_bad = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts, CERT_FEE)
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -189,7 +193,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         mark_logs("Node 0 tries to performs a bwd transfer for the same epoch number as before...", self.nodes, DEBUG_MODE)
         try:
-            cert_bad = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts)
+            cert_bad = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts, CERT_FEE)
             print "cert = ", cert_bad
             assert(False)
         except JSONRPCException, e:
@@ -200,6 +204,8 @@ class sc_cert_base(BitcoinTestFramework):
 
         mark_logs("Checking that amount transferred by certificate reaches Node1 wallet", self.nodes, DEBUG_MODE)
         cert_net_amount = self.nodes[1].gettransaction(cert_good)['amount']
+        assert_equal(cert_net_amount, bwt_amount)
+
         bal_after = self.nodes[1].getbalance("", 0)
         assert_equal(bal_after, bal_before + cert_net_amount)
 

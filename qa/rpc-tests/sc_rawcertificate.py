@@ -16,7 +16,7 @@ import time
 DEBUG_MODE = 1
 EPOCH_LENGTH = 5
 NUMB_OF_NODES = 4
-
+CERT_FEE = 0.0001
 
 class sc_rawcert(BitcoinTestFramework):
 
@@ -96,14 +96,13 @@ class sc_rawcert(BitcoinTestFramework):
         sc_funds_pre = self.nodes[3].getscinfo(scid)['balance']
 
         pkh_node2 = self.nodes[2].getnewaddress("", True)
-        cert_fee = Decimal("0.00025")
 
         mark_logs("Node0 generating 2 block, overcoming safeguard", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(2)
         self.sync_all()
 
-        raw_addresses = {pkh_node2: (bt_amount - cert_fee)}
-        raw_params = {"scid": scid, "endEpochBlockHash": eph, "totalAmount": bt_amount, "nonce": "abcd", "withdrawalEpochNumber": epn}
+        raw_addresses = {pkh_node2: bt_amount}
+        raw_params = {"scid": scid, "endEpochBlockHash": eph, "totalAmount": bt_amount, "fee": CERT_FEE, "nonce": "abcd", "withdrawalEpochNumber": epn}
         raw_cert = []
         cert = []
 
@@ -161,7 +160,7 @@ class sc_rawcert(BitcoinTestFramework):
         assert_equal(self.nodes[2].getscinfo(scid)['balance'], (sc_amount - bt_amount))
 
         raw_addresses = {}
-        raw_params = {"scid": scid, "endEpochBlockHash": eph, "totalAmount": cert_fee, "nonce": "abcd", "withdrawalEpochNumber": epn}
+        raw_params = {"scid": scid, "endEpochBlockHash": eph, "totalAmount": 0.0, "fee": CERT_FEE, "nonce": "abcd", "withdrawalEpochNumber": epn}
         raw_cert = []
         cert = []
 
@@ -196,7 +195,7 @@ class sc_rawcert(BitcoinTestFramework):
         mark_logs("check that cert contents are as expected", self.nodes, DEBUG_MODE)
         assert_equal(len(decoded_cert_post['vout']), 0)
         assert_equal(decoded_cert_post['certid'], cert)
-        assert_equal(Decimal(decoded_cert_post['cert']['totalAmount']), cert_fee)
+        assert_equal(Decimal(decoded_cert_post['cert']['totalAmount']), 0.0)
 
         del decoded_cert_post['hex']
         decoded_cert_post_list = sorted(decoded_cert_post.items(), key=operator.itemgetter(1))
@@ -209,12 +208,12 @@ class sc_rawcert(BitcoinTestFramework):
         decoded_coinbase = self.nodes[2].getrawtransaction(coinbase, 1)
         miner_quota = decoded_coinbase['vout'][0]['value']
         mark_logs("check that the miner has got the cert fee", self.nodes, DEBUG_MODE)
-        assert_equal(miner_quota, Decimal("7.5") + cert_fee)
+        assert_equal(miner_quota, Decimal("7.5"))
 
         # check sc has the same balance as before this cert but the latest fee
         sc_funds_post_2 = self.nodes[3].getscinfo(scid)['balance']
         mark_logs("check that the Node 0 has been charged with the cert fee", self.nodes, DEBUG_MODE)
-        assert_equal(sc_funds_post_2, sc_funds_post - cert_fee)
+        assert_equal(sc_funds_post_2, sc_funds_post)
 
 
 if __name__ == '__main__':

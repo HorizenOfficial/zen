@@ -4462,7 +4462,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || (params.size() < 4 || params.size() > 6) )
+    if (fHelp || params.size() != 5  )
         throw runtime_error(
             "send_certificate scid epochNumber endEpochBlockHash [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
             "\nSend cross chain backward transfers from SC to MC as a certificate."
@@ -4475,10 +4475,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             "      \"pubkeyhash\":\"pkh\"    (string, required) The public key hash of the receiver\n"
             "      \"amount\":amount       (numeric, required) The numeric amount in ZEN\n"
             "    }, ... ]\n"
-            "5. subtractfeefromamount   (boolean, optional, default=false) If true, the fee will be deducted equally from the transfer amounts being sent, and\n"
-            "                             the recipients will receive less ZEN than what is specified.\n"
-            "                             If false, the total amount of the certificate (sum of transfer amounts) will be increased by the fee amount.\n"
-            "6. fee                     (numeric, optional) The fee of the certificate in ZEN; if not specified, the fee is calculated internally and will depend on cert size in bytes\n"
+            "5. fee                     (numeric, required) The fee of the certificate in ZEN\n"
             "\nResult:\n"
             "  \"certificateId\"   (string) The resulting certificate id.\n"
             "\nExamples:\n"
@@ -4612,22 +4609,13 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     }
 
     // fee
-    bool fSubtractFeeFromAmount = false;
+    CAmount nCertFee = 0;
     if (params.size() > 4)
-        fSubtractFeeFromAmount = params[4].get_bool();
-
-    if (fSubtractFeeFromAmount && nTotalOut == 0)
     {
-        LogPrint("sc", "%s():%d - can not sbtract fee from a zero output sum\n", __func__, __LINE__);
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, can not subtract fee from a zero output amount");
-    }
-
-    CAmount nSpecifiedFee = 0;
-    if (params.size() > 5)
-    {
-        nSpecifiedFee = AmountFromValue(params[5]);
-        if (nSpecifiedFee <= 0)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for fee");
+        nCertFee = AmountFromValue(params[4]);
+        if (nCertFee <= 0)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for fee, must be positive");
+        // any check for upper threshold is left to cert processing
     }
 
     EnsureWalletIsUnlocked();
@@ -4641,6 +4629,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     cert.epochNumber = epochNumber;
     cert.endEpochBlockHash = endEpochBlockHash;
     cert.nonce = uint256(GetRandHash() );
+    cert.fee = nCertFee;
 
     BOOST_FOREACH (const auto& ccRecipient, vecSend)
     {
@@ -4649,62 +4638,6 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strFailReason );
         }
-    }
-
-    CAmount nCertFee = 0;
-    if (nSpecifiedFee == 0)
-    {
-        // deduce fee as for tx
-        unsigned int nBytes = ::GetSerializeSize(cert, SER_NETWORK, PROTOCOL_VERSION);
-        nCertFee = CWallet::GetMinimumFee(nBytes, DEFAULT_TX_CONFIRM_TARGET, mempool);
-    }
-    else
-    {
-        nCertFee = nSpecifiedFee;
-    }
-
-    LogPrint("cert", "%s():%d - fee=%s, subtractFromAmonts=%d\n",
-        __func__, __LINE__, FormatMoney(nCertFee), (int)fSubtractFeeFromAmount);
-
-    if (fSubtractFeeFromAmount)
-    {
-        const unsigned int numbOfReceivers = vecSend.size();
-        bool fFirst = true;
- 
-        BOOST_FOREACH (auto& out, cert.vout)
-        {
-            out.nValue -= nCertFee / numbOfReceivers; // Subtract fee equally from each selected recipient
-  
-            if (fFirst) // first receiver pays the remainder not divisible by output count
-            {
-                fFirst = false;
-                out.nValue -= nCertFee % numbOfReceivers;
-            }
-  
-            if (out.IsDust(::minRelayTxFee))
-            {
-                if (nCertFee > 0)
-                {
-                    if (out.nValue < 0)
-                    {
-                        strFailReason = _("The transaction amount is too small to pay the fee");
-                    }
-                    else
-                    {
-                        strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
-                    }
-                }
-                else
-                {
-                    strFailReason = _("Transaction amount too small");
-                }
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strFailReason );
-            }
-        }
-    }
-    else
-    {
-        nTotalOut += nCertFee;
     }
 
     CAmount curBalance = scView.getSidechainBalance(scId);
@@ -4719,7 +4652,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     CScCertificate constCert(cert);
     const uint256& hash = constCert.GetHash();
-    LogPrint("cert", "%s():%d - cert=%s ready to be encoded\n", __func__, __LINE__, hash.ToString() );
+    LogPrint("cert", "%s():%d - cert=%s ready to be encoded: amount[%s], fee[%s]\n",
+        __func__, __LINE__, hash.ToString(), FormatMoney(nTotalOut), FormatMoney(nCertFee) );
 
     const std::string& encStr = EncodeHexCert(constCert);
     UniValue inputVal(UniValue::VARR);

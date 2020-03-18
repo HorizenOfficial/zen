@@ -1023,36 +1023,37 @@ bool ContextualCheckTransaction(
 
 bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
 {
-    if (cert.vout.empty() && cert.totalAmount <= 0) //ABENEGIA: is it fine to have a certificate with empty vout and non null total amount of viceversa?
-     {
-         return state.DoS(10, error("vout empty and totalAmount <= 0"), REJECT_INVALID, "bad-cert-empty");
-     }
+    // we allow empty certificate, but if we have no vout the total amount must be 0
+    if (cert.vout.empty() && cert.totalAmount != 0) 
+    {
+        return state.DoS(10, error("vout empty and totalAmount != 0"), REJECT_INVALID, "bad-cert-invalid");
+    }
 
-     BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_CERT_SIZE); // sanity
-     if (cert.CalculateSize() > MAX_CERT_SIZE)
-     {
-         return state.DoS(100, error("size limits failed"), REJECT_INVALID, "bad-cert-oversize");
-     }
+    BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_CERT_SIZE); // sanity
+    if (cert.CalculateSize() > MAX_CERT_SIZE)
+    {
+        return state.DoS(100, error("size limits failed"), REJECT_INVALID, "bad-cert-oversize");
+    }
 
-     // Check for negative or overflow output values
-     CAmount nValueOut = 0;
-     if (!cert.CheckVout(nValueOut, state))
-     {
-         return false;
-     }
+    // Check for negative or overflow output values
+    CAmount nValueOut = 0;
+    if (!cert.CheckVout(nValueOut, state))
+    {
+        return false;
+    }
 
-     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
-     if (!cert.CheckOutputsCheckBlockAtHeightOpCode(state) )
-     {
-         return false;
-     }
+    // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
+    if (!cert.CheckOutputsCheckBlockAtHeightOpCode(state) )
+    {
+        return false;
+    }
 
-     if (!Sidechain::checkCertSemanticValidity(cert, state) )
-     {
-         return false;
-     }
+    if (!Sidechain::checkCertSemanticValidity(cert, state) )
+    {
+        return false;
+    }
 
-     return true;
+    return true;
 }
 
 
@@ -1358,7 +1359,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             {
                 LogPrint("sc", "%s():%d - certificate [%s] is not applicable\n", __func__, __LINE__, certHash.ToString());
                 return state.DoS(0, error("AcceptCertificateToMemoryPool: certificate not applicable"),
-                            REJECT_INVALID, "sidechain-certificate");
+                            REJECT_INVALID, "bad-sc-cert-not-applicable");
             }
             
             view.SetBackend(dummy);
@@ -1385,7 +1386,11 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         LogPrint("sc", "%s():%d - Computed size=%lld\n", __func__, __LINE__, nSize);
 
         // Don't accept it if it can't get into a block
-        CAmount txMinFee = GetMinRelayFee(cert, nSize, true);
+        //CAmount txMinFee = GetMinRelayFee(cert, nSize, true);
+
+        // TODO cert: allow certificates to be mined even if they have 0 fee until MC owned fee will be handled
+        CAmount txMinFee(0);
+
         LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
         if (fLimitFree && nFees < txMinFee)
             return state.DoS(0, error("AcceptCertificateToMemoryPool: not enough fees %s, %d < %d",

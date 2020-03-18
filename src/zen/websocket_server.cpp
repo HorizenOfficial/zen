@@ -338,8 +338,8 @@ private:
             }
             if (pblockindex == NULL)
             {
-                LogPrint("ws", "%s():%d - block index not found for hash[%s]\n", __func__, __LINE__, o.get_str());
-                return INVALID_PARAMETER;
+                LogPrint("ws", "%s():%d - block index not found for hash[%s], skipping it\n", __func__, __LINE__, o.get_str());
+                continue;
             }
             if (pblockindex->nHeight > lastH)
             {

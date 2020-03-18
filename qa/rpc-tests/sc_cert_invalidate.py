@@ -15,6 +15,7 @@ import time
 
 DEBUG_MODE = 1
 EPOCH_LENGTH = 5
+CERT_FEE = 0.0001
 
 
 class sc_cert_invalidate(BitcoinTestFramework):
@@ -142,7 +143,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         mark_logs(("Node 0 performs a bwd transfer of %s coins to Node1 epn=%d, eph[%s]..." % (str(bwt_amount_1), ep_n_0, ep_hash_0)), self.nodes, DEBUG_MODE)
         amounts = []
         amounts.append({"pubkeyhash": pkh_node1, "amount": bwt_amount_1})
-        cert = self.nodes[0].send_certificate(scid, ep_n_0, ep_hash_0, amounts)
+        cert = self.nodes[0].send_certificate(scid, ep_n_0, ep_hash_0, amounts, CERT_FEE)
         mark_logs("cert = {}".format(cert), self.nodes, DEBUG_MODE)
         certs.append(cert)
         self.sync_all()
@@ -217,7 +218,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         mark_logs(("Node 0 performs a bwd transfer of %s coins to Node1 epn=%d, eph[%s]..." % (str(bwt_amount_2), ep_n_1, ep_hash_1)), self.nodes, DEBUG_MODE)
         amounts = []
         amounts.append({"pubkeyhash": pkh_node2, "amount": bwt_amount_2})
-        cert = self.nodes[0].send_certificate(scid, ep_n_1, ep_hash_1, amounts)
+        cert = self.nodes[0].send_certificate(scid, ep_n_1, ep_hash_1, amounts, CERT_FEE)
         mark_logs("cert = {}".format(cert), self.nodes, DEBUG_MODE)
         certs.append(cert)
         self.sync_all()

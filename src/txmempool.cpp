@@ -77,10 +77,8 @@ CCertificateMemPoolEntry::CCertificateMemPoolEntry(const CCertificateMemPoolEntr
 double
 CCertificateMemPoolEntry::GetPriority(unsigned int currentHeight) const
 {
-    CAmount nValueIn = cert.GetValueOut()+nFee;
-    double deltaPriority = ((double)(currentHeight-nHeight)*nValueIn)/nModSize;
-    double dResult = dPriority + deltaPriority;
-    return dResult;
+    // TODO cert: certificates have max priority and MC fee is still to be handled
+    return dPriority;
 }
 
 CTxMemPool::CTxMemPool(const CFeeRate& _minRelayFee) :

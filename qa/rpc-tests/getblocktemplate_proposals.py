@@ -157,7 +157,8 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
 
         pkh = self.nodes[0].getnewaddress("", True)
         amounts = [{"pubkeyhash": pkh, "amount": SC_CERT_AMOUNT}]
-        cert = self.nodes[0].send_certificate(scid, 0, block_list[-1], amounts)
+        fee = 0.000023
+        cert = self.nodes[0].send_certificate(scid, 0, block_list[-1], amounts, fee)
         self.sync_all()
         assert_true(cert in self.nodes[0].getrawmempool() ) 
 
@@ -319,7 +320,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             assert_template(node, tmpl, txlist, certlist, 'bad-sc-cert-not-applicable')
             certlist[0][4 + 32] = orig_val 
 
-            # Test 17: change cert total amount so to exceed sc balance
+            # Test 17: change cert total amount so to fail check against sum of vouts
             amnt_offset = 4+32+4+32
             post_offset = amnt_offset + 8
 
@@ -328,18 +329,18 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             post_arr = certlist[0][post_offset:]
 
             s = unpack('<q', amnt_arr)[0]
-            #amount_original = long(s)
-            #print "amount orig  = %s (%d SAT)" % ( binascii.hexlify(amnt_arr), amount_original)
+            amount_original = long(s)
+            print "amount orig  = %s (%d SAT)" % ( binascii.hexlify(amnt_arr), amount_original)
 
             amount_trick = 2 * SC_CREATION_AMOUNT * COIN
             amnt_trick_arr = pack('<q', amount_trick)
-            #print "amount trick = %s (%d SAT)" % ( binascii.hexlify(amnt_trick_arr), amount_trick)
+            print "amount trick = %s (%d SAT)" % ( binascii.hexlify(amnt_trick_arr), amount_trick)
 
             save_cert = certlist[0]
             certlist.pop()
             c = pre_arr + amnt_trick_arr + post_arr
             certlist.append(c)
-            assert_template(node, tmpl, txlist, certlist, 'bad-sc-cert-not-applicable')
+            assert_template(node, tmpl, txlist, certlist, 'sidechain-bwd-transfer-amount-invalid')
 
             # restore certlist
             certlist.pop()
