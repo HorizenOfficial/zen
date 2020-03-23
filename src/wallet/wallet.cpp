@@ -1590,7 +1590,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock
                 // Do not flush the wallet here for performance reasons
                 // this is safe, as in case of a crash, we rescan the necessary blocks on startup through our SetBestChain-mechanism
                 CWalletDB walletdb(strWalletFile, "r+", false);
- 
+
                 return AddToWallet(*sobj, false, &walletdb);
             }
         }
@@ -4917,6 +4917,7 @@ void CWalletCert::GetAmounts(std::list<COutputEntry>& listReceived, std::list<CO
 {
     LogPrint("cert", "%s():%d - called for obj[%s]\n", __func__, __LINE__, GetHash().ToString());
 
+    // TODO cert: handle fee
     nFee = 0;
     listReceived.clear();
     listSent.clear();

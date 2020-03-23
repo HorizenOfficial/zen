@@ -288,7 +288,6 @@ bool CRecipientHandler::handle(const CRecipientForwardTransfer& r)
 
 bool CRecipientHandler::handle(const CRecipientBackwardTransfer& r)
 {
-    // fill vout here but later their amount will be reduced carving out the fee by the caller
     CTxOut txout(r.nValue, r.scriptPubKey);
     return txBase->add(txout);
 };
@@ -321,12 +320,19 @@ bool FillCcOutput(CMutableTransaction& tx, std::vector<Sidechain::CcRecipientVar
 }
 
 
-ScRpcCreationCmd::ScRpcCreationCmd(
-        CMutableTransaction& tx, const uint256& scid, const ScCreationParameters& cd, const CBitcoinAddress& fromaddress,
-        const CBitcoinAddress& chaddr, const uint256& toaddress, const CAmount nAmount, int nMinConf, const CAmount& nFee):
-        _tx(tx), _scid(scid), _creationData(cd), _fromMcAddress(fromaddress),
-        _changeMcAddress(chaddr), _toScAddress(toaddress), _nAmount(nAmount), _minConf(nMinConf), _fee(nFee)
+ScRpcCmd::ScRpcCmd(
+        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
+        int minConf, const CAmount& nFee): 
+        _tx(tx), _outParams(outParams),
+        _fromMcAddress(fromaddress), _changeMcAddress(changeaddress), _minConf(minConf), _fee(nFee)
 {
+    _totalOutputAmount = 0;
+    for (const auto& entry : _outParams)
+    {
+        _totalOutputAmount += entry._nAmount;
+    }
+
     _hasFromAddress   = !(_fromMcAddress   == CBitcoinAddress());
     _hasChangeAddress = !(_changeMcAddress == CBitcoinAddress());
 
@@ -340,7 +346,7 @@ ScRpcCreationCmd::ScRpcCreationCmd(
     _totalInputAmount = 0;
 } 
 
-void ScRpcCreationCmd::addInputs()
+void ScRpcCmd::addInputs()
 {
     std::vector<COutput> vAvailableCoins;
     std::vector<SelectedUTXO> vInputUtxo;
@@ -384,7 +390,7 @@ void ScRpcCreationCmd::addInputs()
         return ( std::get<2>(i) < std::get<2>(j));
     });
 
-    CAmount targetAmount = _nAmount + _fee;
+    CAmount targetAmount = _totalOutputAmount + _fee;
 
     CAmount dustChange = -1;
 
@@ -444,9 +450,9 @@ void ScRpcCreationCmd::addInputs()
     }
 }
 
-void ScRpcCreationCmd::addChange()
+void ScRpcCmd::addChange()
 {
-    CAmount change = _totalInputAmount - ( _nAmount + _fee);
+    CAmount change = _totalInputAmount - ( _totalOutputAmount + _fee);
 
     if (change > 0)
     {
@@ -476,27 +482,7 @@ void ScRpcCreationCmd::addChange()
     }
 }
 
-void ScRpcCreationCmd::addCcOutputs()
-{
-    std::vector<CcRecipientVariant> vecCcSend;
-
-    // creation output
-    CRecipientScCreation sc;
-    sc.scId = _scid;
-    sc.address = _toScAddress;
-    sc.nValue = _nAmount;
-    sc.creationData = _creationData;
-
-    vecCcSend.push_back(CcRecipientVariant(sc));
-
-    std::string strFailReason;
-    if (!FillCcOutput(_tx, vecCcSend, strFailReason))
-    {
-        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output! %s", strFailReason.c_str()));
-    }
-}
-
-void ScRpcCreationCmd::signTx()
+void ScRpcCmd::signTx()
 {
     std::string rawtxn;
     try
@@ -542,7 +528,7 @@ void ScRpcCreationCmd::signTx()
     _tx = txStreamed;
 }
 
-void ScRpcCreationCmd::sendTx()
+void ScRpcCmd::sendTx()
 {
     UniValue val = UniValue(UniValue::VARR);
     val.push_back(_signedTxHex);
@@ -554,4 +540,68 @@ void ScRpcCreationCmd::sendTx()
     }
 }
 
+ScRpcCreationCmd::ScRpcCreationCmd(
+        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
+        int minConf, const CAmount& nFee, const ScCreationParameters& cd):
+        ScRpcCmd(tx, outParams, fromaddress, changeaddress, minConf, nFee), _creationData(cd) { } 
+
+void ScRpcCreationCmd::addCcOutputs()
+{
+    if (_outParams.size() != 1)
+    {
+        // creation has just one output param
+        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("invalid number of output: %d!", _outParams.size()));
+    }
+
+    std::vector<CcRecipientVariant> vecCcSend;
+
+    // creation output
+    CRecipientScCreation sc;
+    sc.scId = _outParams[0]._scid;
+    sc.address = _outParams[0]._toScAddress;
+    sc.nValue = _outParams[0]._nAmount;
+    sc.creationData = _creationData;
+
+    vecCcSend.push_back(CcRecipientVariant(sc));
+
+    std::string strFailReason;
+    if (!FillCcOutput(_tx, vecCcSend, strFailReason))
+    {
+        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output! %s", strFailReason.c_str()));
+    }
+}
+
+ScRpcSendCmd::ScRpcSendCmd(
+        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
+        int minConf, const CAmount& nFee):
+        ScRpcCmd(tx, outParams, fromaddress, changeaddress, minConf, nFee) { } 
+
+void ScRpcSendCmd::addCcOutputs()
+{
+    if (_outParams.size() == 0)
+    {
+        // send cmd can not have empty output vector
+        throw JSONRPCError(RPC_WALLET_ERROR, "null number of output!");
+    }
+
+    std::vector<CcRecipientVariant> vecCcSend;
+
+    for (const auto& entry : _outParams)
+    {
+        CRecipientForwardTransfer ft;
+        ft.address = entry._toScAddress;
+        ft.nValue = entry._nAmount;
+        ft.scId = entry._scid;
+
+        vecCcSend.push_back(CcRecipientVariant(ft));
+    }
+
+    std::string strFailReason;
+    if (!FillCcOutput(_tx, vecCcSend, strFailReason))
+    {
+        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output! %s", strFailReason.c_str()));
+    }
+}
 }  // end of namespace

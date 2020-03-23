@@ -78,20 +78,29 @@ bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std
 // used when funding a raw tx 
 void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant>& vecCcSend);
 
-class ScRpcCreationCmd
+class ScRpcCmd
 {
-  private:
+  public:
+    struct sOutParams
+    {
+        uint256 _scid;
+        uint256 _toScAddress;
+        CAmount _nAmount;
+        sOutParams(): _scid(), _toScAddress(), _nAmount(0) {}
+
+        sOutParams(
+            const uint256& scId, const uint256& toaddress, const CAmount nAmount):
+            _scid(scId), _toScAddress(toaddress), _nAmount(nAmount) {}
+    };
+
+  protected:
     // this is a reference to the tx that gets processed
     CMutableTransaction& _tx;
 
     // cmd params
-    uint256 _scid;
-    ScCreationParameters _creationData;
-    //int _withdrawalEpochLength;
+    std::vector<sOutParams> _outParams;
     CBitcoinAddress _fromMcAddress;
     CBitcoinAddress _changeMcAddress;
-    uint256 _toScAddress;
-    CAmount _nAmount;
     int _minConf;
     CAmount _fee;
 
@@ -100,21 +109,51 @@ class ScRpcCreationCmd
     bool _hasChangeAddress;
     CAmount _dustThreshold;
     CAmount _totalInputAmount;
+    CAmount _totalOutputAmount;
+
     std::string _signedTxHex;
 
     // Input UTXO is a tuple (triple) of txid, vout, amount)
     typedef std::tuple<uint256, int, CAmount> SelectedUTXO;
 
   public:
-    ScRpcCreationCmd(
-        CMutableTransaction& tx, const uint256& scId, const ScCreationParameters& cd, const CBitcoinAddress& fromaddress,
-        const CBitcoinAddress& changeaddress, const uint256& toaddress, const CAmount nAmount, int nMinConf, const CAmount& nFee);
+    ScRpcCmd(
+        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
+        int minConf, const CAmount& nFee);
+
+    virtual void addCcOutputs() = 0;
 
     void addInputs();
-    void addCcOutputs();
     void addChange();
     void signTx();
     void sendTx();    
+};
+
+class ScRpcCreationCmd : public ScRpcCmd
+{
+  private:
+    // cmd params
+    ScCreationParameters _creationData;
+
+  public:
+    ScRpcCreationCmd(
+        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
+        int minConf, const CAmount& nFee, const ScCreationParameters& cd);
+
+    void addCcOutputs() override;
+};
+
+class ScRpcSendCmd : public ScRpcCmd
+{
+  public:
+    ScRpcSendCmd(
+        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
+        int minConf, const CAmount& nFee);
+
+    void addCcOutputs() override;
 };
 
 bool FillCcOutput(CMutableTransaction& tx, std::vector<Sidechain::CcRecipientVariant> vecCcSend, std::string& strFailReason);

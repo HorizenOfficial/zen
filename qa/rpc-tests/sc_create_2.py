@@ -351,6 +351,41 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal(scinfo0['scid'], scid)
         assert_equal(scinfo0['customData'], cdField)
 
+        # test sending funds to sicechain with sbh command
+        #--------------------------------------------------------------------------------------
+        outputs = []
+        tot_many = 0
+        bal_t0 = self.nodes[1].getbalance()
+        fee = Decimal('0.000123')
+        for i in range(0, 10):
+            outputs.append({'toaddress': toaddress, 'amount': Decimal("0.01")*(i+1), "scid":scid})
+            tot_many += outputs[-1]['amount']
+        cmdParms = {'minconf': MIN_CONF, 'fee':fee}
+
+        mark_logs("\nNode 1 sends funds in 10 transfers to sc", self.nodes, DEBUG_MODE)
+        try:
+            tx = self.nodes[1].send_to_sidechain(outputs, cmdParms)
+            self.sync_all()
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            assert_true(False)
+
+        decoded_tx = self.nodes[1].getrawtransaction(tx, 1)
+        if DEBUG_MODE:
+            pprint.pprint(decoded_tx)
+
+        mark_logs("\nNode 0 generates 2 block", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(2)
+        self.sync_all()
+
+        scinfo0 = self.nodes[0].getscinfo(scid)
+        if DEBUG_MODE:
+            pprint.pprint(scinfo0)
+
+        assert_equal(tot_many, scinfo0['immature amounts'][0]['amount'])
+        bal_t1 = self.nodes[1].getbalance()
+        assert_equal(bal_t0, bal_t1 + tot_many + fee)
 
 if __name__ == '__main__':
     SCCreateTest().main()

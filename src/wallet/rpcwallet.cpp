@@ -119,6 +119,20 @@ void TxExpandedToJSON(const CWalletObjBase& tx, const std::vector<CWalletObjBase
                 entry.push_back(Pair("confirmations", 0));
         }
     }
+    else
+    {
+        entry.push_back(Pair("confirmations", 0));
+        entry.push_back(Pair("time", tx.GetTxTime()));
+    }
+
+    if (tx.IsFromMe(ISMINE_ALL))
+    {
+        CAmount nOut = tx.GetValueOut();
+        CAmount nDebit = tx.GetDebit(ISMINE_ALL);
+        // with positive sign
+        CAmount nFee = nDebit - nOut;
+        entry.push_back(Pair("fees", ValueFromAmount(nFee)));
+    }
 }
 
 #if 0
@@ -868,7 +882,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"transactionid\"    (string) The resulting transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("create_sidechain", "'{\"toaddress\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0}]'")
+            + HelpExampleCli("create_sidechain", "'{\"toaddress\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0}'")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1019,8 +1033,10 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     CMutableTransaction tx_create;
     tx_create.nVersion = SC_TX_VERSION;
 
-    Sidechain::ScRpcCreationCmd cmd( tx_create, scId, creationData,
-        fromaddress, changeaddress, toaddress, nAmount, nMinDepth, nFee);
+    std::vector<ScRpcCmd::sOutParams> vOutputs;
+    vOutputs.push_back(ScRpcCmd::sOutParams(scId, toaddress, nAmount));
+
+    Sidechain::ScRpcCreationCmd cmd(tx_create, vOutputs, fromaddress, changeaddress, nMinDepth, nFee, creationData);
 
     cmd.addInputs();
     cmd.addChange();
@@ -1030,6 +1046,226 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     cmd.sendTx();
         
     return tx_create.GetHash().GetHex();
+}
+
+UniValue send_to_sidechain(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || (params.size() != 1 && params.size() != 2))
+        throw runtime_error(
+            "send_to_sidechain {...}\n"
+            "\nArguments:\n"
+            "1. \"outputs\"                       (string, required) A json array of json objects representing the amounts to send.\n"
+            "[{\n"
+            "   \"scid\": id                      (string, required) The uint256 side chain ID\n"
+            "   \"toaddress\":scaddr              (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "   \"amount\":amount                 (numeric, required) Value expressed in " + CURRENCY_UNIT + "\n"
+            "},...,]\n"
+            "2. \"params\"                        (string, optional) A json object with the command parameters\n"
+            "{\n"                     
+            "   \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
+            "   \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a new generated address will be used\n"
+            "   \"minconf\":conf                  (numeric, optional, default=1) Only use funds confirmed at least this many times.\n"
+            "   \"fee\":fee                       (numeric, optional, default=" +
+                                                      strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) +
+                                                      ") The fee amount to attach to this transaction.\n"
+            "}\n"
+            "\nResult:\n"
+            "\"transactionid\"    (string) The resulting transaction id.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("send_sidechain", "'{TODO}]'")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    RPCTypeCheck(params, boost::assign::list_of (UniValue::VARR)(UniValue::VOBJ));
+
+    // valid keywords in cmd
+    static const std::set<std::string> validKeyArgs =
+        {"fromaddress", "changeaddress", "minconf", "fee"};
+
+    // valid keywords in output array
+    static const std::set<std::string> validKeyOutputArray =
+        {"scid", "toaddress", "amount"};
+
+    UniValue outputsArr = params[0].get_array();
+
+    // ---------------------------------------------------------
+    std::vector<ScRpcCmd::sOutParams> vOutputs;
+    CAmount totalAmount = 0;
+
+    if (outputsArr.size()==0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output arrays is empty.");
+
+    // keywords set in output array
+    for (const UniValue& o : outputsArr.getValues())
+    {
+        if (!o.isObject())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
+
+        std::set<std::string> setKeyOutputArray;
+
+        // sanity check, report error if unknown/duplicate key-value pairs
+        for (const string& s : o.getKeys())
+        {
+            if (!validKeyOutputArray.count(s))
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
+  
+            if (!setKeyOutputArray.insert(s).second)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Duplicate key in input: ") + s);
+        }
+
+        // ---------------------------------------------------------
+        uint256 scId;
+        if (setKeyOutputArray.count("scid"))
+        {
+            string inputString = find_value(o, "scid").get_str();
+            if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+            scId.SetHex(inputString);
+        }
+        else
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"toaddress\"" );
+        }
+
+        // ---------------------------------------------------------
+        uint256 toaddress;
+        if (setKeyOutputArray.count("toaddress"))
+        {
+            string inputString = find_value(o, "toaddress").get_str();
+            if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid toaddress format: not an hex");
+  
+            toaddress.SetHex(inputString);
+        }
+        else
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"toaddress\"" );
+        }
+  
+        // ---------------------------------------------------------
+        CAmount nAmount = 0;
+        if (setKeyOutputArray.count("amount"))
+        {
+            UniValue av = find_value(o, "amount");
+            nAmount = AmountFromValue( av );
+            if (!MoneyRange(nAmount))
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount out of range");
+            if (nAmount == 0)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount can not be null");
+        }
+        else
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"amount\"" );
+        }
+
+        {
+            LOCK(mempool.cs);
+            CCoinsViewMemPool scView(pcoinsTip, mempool);
+            if (!scView.HaveSidechain(scId))
+            {
+                LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+            }
+        }
+ 
+        vOutputs.push_back(ScRpcCmd::sOutParams(scId, toaddress, nAmount));
+        totalAmount += nAmount;
+    }
+
+    // optional parametes
+    CBitcoinAddress fromaddress;
+    CBitcoinAddress changeaddress;
+    int nMinDepth = 1;
+    CAmount nFee = SC_RPC_OPERATION_DEFAULT_MINERS_FEE;
+
+    if (params.size() > 1 && !params[1].isNull())
+    {
+        UniValue cmdParams  = params[1].get_obj();
+
+        if (!cmdParams.isObject())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
+ 
+        // keywords set in cmd
+        std::set<std::string> setKeyArgs;
+ 
+        // sanity check, report error if unknown/duplicate key-value pairs
+        for (const string& s : cmdParams.getKeys())
+        {
+            if (!validKeyArgs.count(s))
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
+ 
+            if (!setKeyArgs.insert(s).second)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Duplicate key in input: ") + s);
+        }
+
+        // ---------------------------------------------------------
+        if (setKeyArgs.count("fromaddress"))
+        {
+            string inputString = find_value(cmdParams, "fromaddress").get_str();
+            fromaddress = CBitcoinAddress(inputString);
+            if(!fromaddress.IsValid())
+            {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown fromaddress format: ")+inputString );
+            }
+        }
+ 
+        // ---------------------------------------------------------
+        if (setKeyArgs.count("changeaddress"))
+        {
+            string inputString = find_value(cmdParams, "changeaddress").get_str();
+            changeaddress = CBitcoinAddress(inputString);
+            if(!changeaddress.IsValid())
+            {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown changeaddress format: ")+inputString );
+            }
+            if (!IsMine(*pwalletMain, GetScriptForDestination(changeaddress.Get())))
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, changeaddress is not mine: ")+inputString );
+        }
+ 
+        // ---------------------------------------------------------
+        if (setKeyArgs.count("minconf"))
+        {
+            nMinDepth = find_value(cmdParams, "minconf").get_int();
+            if (nMinDepth < 0)
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid minconf: must be greater that 0");
+        }
+ 
+        // ---------------------------------------------------------
+        if (setKeyArgs.count("fee"))
+        {
+            UniValue val = find_value(cmdParams, "fee");
+            if (val.get_real() == 0.0)
+            {
+                nFee = 0;
+            }
+            else
+            {
+                nFee = AmountFromValue(val);
+            }
+        }
+        if (!MoneyRange(nFee))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, fee out of range");
+        if (nFee > totalAmount)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Fee %s is greater than output %s",
+                FormatMoney(nFee), FormatMoney(totalAmount)));
+    }
+
+    CMutableTransaction tx_fwd;
+    tx_fwd.nVersion = SC_TX_VERSION;
+
+    Sidechain::ScRpcSendCmd cmd(tx_fwd, vOutputs, fromaddress, changeaddress, nMinDepth, nFee);
+
+    cmd.addInputs();
+    cmd.addChange();
+    cmd.addCcOutputs();
+
+    cmd.signTx();
+    cmd.sendTx();
+        
+    return tx_fwd.GetHash().GetHex();
 }
 
 UniValue listaddressgroupings(const UniValue& params, bool fHelp)
