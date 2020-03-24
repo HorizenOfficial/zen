@@ -142,11 +142,17 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     }
 
     for(const auto& sc: tx.vsc_ccout) {
-        assert(mapSidechains[sc.scId].scCreationTxHash.IsNull());
+        if (mapSidechains.count(sc.scId))
+            assert(mapSidechains[sc.scId].scCreationTxHash.IsNull());
+        else
+            LogPrint("cert", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, sc.scId.ToString() );
+
         mapSidechains[sc.scId].scCreationTxHash = hash;
     }
 
     for(const auto& fwd: tx.vft_ccout) {
+        if (mapSidechains.count(fwd.scId) == 0)
+            LogPrint("cert", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, fwd.scId.ToString() );
         mapSidechains[fwd.scId].fwdTransfersSet.insert(hash);
     }
 
@@ -166,12 +172,13 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
 
     const CScCertificate& cert = entry.GetCertificate();
 
-    assert(mapSidechains[cert.scId].backwardCertificate.IsNull());
+    if (mapSidechains.count(cert.scId) )
+        assert(mapSidechains[cert.scId].backwardCertificate.IsNull());
+    else
+        LogPrint("cert", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, cert.scId.ToString() );
+
     mapSidechains[cert.scId].backwardCertificate = hash;
            
-    LogPrint("sc", "%s():%d - cert [%s] added in mapSidechains for sc [%s]\n",
-        __func__, __LINE__, hash.ToString(), cert.scId.ToString() );
-
     nCertificatesUpdated++;
     totalCertificateSize += entry.GetCertificateSize();
     cachedInnerUsage += entry.DynamicMemoryUsage();
@@ -268,8 +275,13 @@ void::CTxMemPool::removeInternal(
                 if (mapSidechains.count(fwd.scId)) { //Guard against double-delete on multiple fwds toward the same sc in same tx
                     mapSidechains.at(fwd.scId).fwdTransfersSet.erase(tx.GetHash());
 
-                    if (mapSidechains.at(fwd.scId).fwdTransfersSet.size() == 0 && mapSidechains.at(fwd.scId).scCreationTxHash.IsNull())
+                    if (mapSidechains.at(fwd.scId).fwdTransfersSet.size() == 0 &&
+                        mapSidechains.at(fwd.scId).scCreationTxHash.IsNull() &&
+                        mapSidechains.at(fwd.scId).backwardCertificate.IsNull() )
+                    {
+                        LogPrint("cert", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, fwd.scId.ToString() );
                         mapSidechains.erase(fwd.scId);
+                    }
                 }
             }
 
@@ -278,7 +290,10 @@ void::CTxMemPool::removeInternal(
                 mapSidechains.at(sc.scId).scCreationTxHash.SetNull();
 
                 if (mapSidechains.at(sc.scId).fwdTransfersSet.size() == 0)
+                {
+                    LogPrint("cert", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, sc.scId.ToString() );
                     mapSidechains.erase(sc.scId);
+                }
             }
 
             removedTxs.push_back(tx);
@@ -305,8 +320,12 @@ void::CTxMemPool::removeInternal(
             }
 
             mapSidechains.at(cert.scId).backwardCertificate.SetNull();
-            if (mapSidechains.at(cert.scId).fwdTransfersSet.size() == 0 && mapSidechains.at(cert.scId).scCreationTxHash.IsNull())
+            if (mapSidechains.at(cert.scId).fwdTransfersSet.size() == 0 &&
+                mapSidechains.at(cert.scId).scCreationTxHash.IsNull() )
+            {
+                LogPrint("cert", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, cert.scId.ToString() );
                 mapSidechains.erase(cert.scId);
+            }
 
             removedCerts.push_back(cert);
             totalTxSize -= mapCertificate[hash].GetCertificateSize();
