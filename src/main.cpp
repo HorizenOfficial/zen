@@ -1508,14 +1508,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         return false;
     }
 
-    // If this tx creates a sc, no other tx must be doing the same in the mempool
-    for(const auto& sc: tx.vsc_ccout)
-        if (pool.hasSidechainCreationTx(sc.scId)) {
-            return state.Invalid(error("transaction tries to create scid already created in mempool"),
-            REJECT_INVALID, "sidechain-creation");
-        } else
-            LogPrint("sc", "%s():%d - tx [%s] has no conflicts in mempool\n", __func__, __LINE__, hash.ToString());
-
     // Check for conflicts with in-memory transactions
     {
         LOCK(pool.cs); // protect pool.mapNextTx
@@ -1528,6 +1520,15 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                 return false;
             }
         }
+
+        for(const CTxScCreationOut& sc: tx.vsc_ccout) { // If this tx creates a sc, no other tx must be doing the same in the mempool
+            if ((pool.mapSidechains.count(sc.scId) != 0) && (!pool.mapSidechains.at(sc.scId).scCreationTxHash.IsNull())) {
+                return false;
+            } else {
+                LogPrint("sc", "%s():%d - tx [%s] has no conflicts in mempool\n", __func__, __LINE__, hash.ToString());
+            }
+        }
+
         BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
             BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
                 if (pool.mapNullifiers.count(nf))
@@ -1580,7 +1581,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             }
 
             // are the sidechains dependencies available?
-            if (!view.HaveDependencies(tx))
+            if (!view.HaveScRequirements(tx))
             {
                 return state.Invalid(error("AcceptToMemoryPool: sidechain is redeclared or coins are forwarded to unknown sidechain"),
                                     REJECT_INVALID, "bad-sc-tx");
@@ -2769,7 +2770,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
                                  REJECT_INVALID, "bad-txns-inputs-missingorspent");
 
-        if (!view.HaveDependencies(tx))
+        if (!view.HaveScRequirements(tx))
             return state.Invalid(error("ConnectBlock: sidechain is redeclared or coins are forwarded to unknown sidechain"),
                                         REJECT_INVALID, "bad-sc-tx");
 

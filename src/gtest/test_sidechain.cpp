@@ -227,14 +227,14 @@ TEST_F(SidechainTestSuite, FwdTransferCumulatedAmountDoesNotOverFlow) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-/////////////////////////////// HaveDependencies //////////////////////////////
+////////////////////////////// HaveScRequirements /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 TEST_F(SidechainTestSuite, NewScCreationsHaveTheRightDependencies) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(uint256S("1492"), CAmount(1953));
 
     //test
-    bool res = sidechainsView->HaveDependencies(aTransaction);
+    bool res = sidechainsView->HaveScRequirements(aTransaction);
 
     //checks
     EXPECT_TRUE(res);
@@ -249,7 +249,7 @@ TEST_F(SidechainTestSuite, DuplicatedScCreationsHaveNotTheRightDependencies) {
     CTransaction duplicatedTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1815));
 
     //test
-    bool res = sidechainsView->HaveDependencies(duplicatedTx);
+    bool res = sidechainsView->HaveScRequirements(duplicatedTx);
 
     //checks
     EXPECT_FALSE(res);
@@ -264,7 +264,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsHaveTheRightDependencies
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
 
     //test
-    bool res = sidechainsView->HaveDependencies(aTransaction);
+    bool res = sidechainsView->HaveScRequirements(aTransaction);
 
     //checks
     EXPECT_TRUE(res);
@@ -274,7 +274,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsHaveNotTheRightDepend
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(uint256S("1492"), CAmount(1815));
 
     //test
-    bool res = sidechainsView->HaveDependencies(aTransaction);
+    bool res = sidechainsView->HaveScRequirements(aTransaction);
 
     //checks
     EXPECT_FALSE(res);

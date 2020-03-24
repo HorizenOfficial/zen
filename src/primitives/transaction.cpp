@@ -739,7 +739,7 @@ bool CTransaction::IsApplicableToState(CValidationState& state, int notUsed) con
 {
     //ABENEGIA: Fill state properly
     CCoinsViewCache view(pcoinsTip);
-    return view.HaveDependencies(*this);
+    return view.HaveScRequirements(*this);
 }
     
 void CTransaction::HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const

@@ -713,7 +713,7 @@ bool CCoinsViewCache::HaveCertForEpoch(const uint256& scId, int epochNumber) con
 #ifdef BITCOIN_TX
 bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash) {return true;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state) {return true;}
-bool CCoinsViewCache::HaveDependencies(const CTransaction& tx) { return true;}
+bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx) { return true;}
 #else
 
 #include "consensus/validation.h"
@@ -830,7 +830,7 @@ bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const u
     return true;
 }
 
-bool CCoinsViewCache::HaveDependencies(const CTransaction& tx)
+bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx)
 {
     if (tx.IsCoinBase())
         return true;
