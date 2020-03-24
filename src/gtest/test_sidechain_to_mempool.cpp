@@ -458,6 +458,72 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCertRemovalFromMempool) {
     EXPECT_FALSE(mempool.existsCert(cert1.GetHash()));
 }
 
+TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_CertRemovalDoesNotAffectFwt) {
+    //Create and persist sidechain
+    uint256 scId = uint256S("a1b2");
+    CTransaction scTx = GenerateScTx(scId, CAmount(10));
+    CBlock aBlock;
+    CCoinsViewCache sidechainsView(pcoinsTip);
+    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    sidechainsView.Flush();
+
+    //load a fwt in mempool
+    CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(20));
+    CTxMemPoolEntry fwdEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(fwdTx.GetHash(), fwdEntry);
+
+    //load a certificate in mempool
+    CScCertificate cert = GenerateCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(), /*totalAmount*/CAmount(5));
+    CCertificateMemPoolEntry certEntry1(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(cert.GetHash(), certEntry1);
+
+    //Remove the certificate
+    std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
+    mempool.remove(cert, removedTxs, removedCerts, /*fRecursive*/false);
+
+    EXPECT_TRUE(std::count(removedCerts.begin(), removedCerts.end(), cert));
+    EXPECT_FALSE(mempool.existsCert(cert.GetHash()));
+    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx));
+    EXPECT_TRUE(mempool.existsTx(fwdTx.GetHash()));
+    ASSERT_TRUE(mempool.mapSidechains.count(scId));
+    EXPECT_TRUE(mempool.mapSidechains.at(scId).fwdTransfersSet.count(fwdTx.GetHash()));
+    EXPECT_TRUE(mempool.mapSidechains.at(scId).backwardCertificate.IsNull());
+}
+
+TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffectCert) {
+    //Create and persist sidechain
+    uint256 scId = uint256S("a1b2");
+    CTransaction scTx = GenerateScTx(scId, CAmount(10));
+    CBlock aBlock;
+    CCoinsViewCache sidechainsView(pcoinsTip);
+    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    sidechainsView.Flush();
+
+    //load a fwd in mempool
+    CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(20));
+    CTxMemPoolEntry fwdEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(fwdTx.GetHash(), fwdEntry);
+
+    //load a certificate in mempool
+    CScCertificate cert = GenerateCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(), /*totalAmount*/CAmount(5));
+    CCertificateMemPoolEntry certEntry1(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(cert.GetHash(), certEntry1);
+
+    //Remove the certificate
+    std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
+    mempool.remove(fwdTx, removedTxs, /*fRecursive*/false);
+
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx));
+    EXPECT_FALSE(mempool.existsTx(fwdTx.GetHash()));
+    EXPECT_FALSE(std::count(removedCerts.begin(), removedCerts.end(), cert));
+    EXPECT_TRUE(mempool.existsCert(cert.GetHash()));
+    ASSERT_TRUE(mempool.mapSidechains.count(scId));
+    EXPECT_FALSE(mempool.mapSidechains.at(scId).fwdTransfersSet.count(fwdTx.GetHash()));
+    EXPECT_TRUE(mempool.mapSidechains.at(scId).backwardCertificate == cert.GetHash());
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Test Fixture definitions ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
