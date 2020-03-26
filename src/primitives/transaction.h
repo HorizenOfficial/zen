@@ -681,6 +681,10 @@ public:
     bool CheckOutputsAreStandard(int nHeight, std::string& reason) const;
     bool CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const;
 
+    virtual const std::vector<CTxIn>&         getVins()       const = 0;
+    virtual const std::vector<CTxOut>&        getVout()       const = 0;
+    virtual const std::vector<JSDescription>& getJoinsSplit() const = 0;
+
     // Return sum of txouts.
     virtual CAmount GetValueOut() const;
 
@@ -707,9 +711,6 @@ public:
     virtual bool IsStandard(std::string& reason, int nHeight) const = 0;
     virtual bool CheckFinal(int flags = -1) const = 0;
     virtual bool IsApplicableToState(CValidationState& state, int nHeight = -1) const = 0;
-
-    virtual void UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const = 0;
-    virtual void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const = 0;
 
     virtual double GetPriority(const CCoinsViewCache &view, int nHeight) const = 0;
     virtual unsigned int GetLegacySigOpCount() const = 0;
@@ -851,6 +852,10 @@ public:
         );
     }
     
+    const std::vector<CTxIn>&         getVins()       const override {return vin;};
+    const std::vector<CTxOut>&        getVout()       const override {return vout;};
+    const std::vector<JSDescription>& getJoinsSplit() const override {return vjoinsplit;};
+
     // Return sum of txouts.
     CAmount GetValueOut() const override;
     // Return sum of tx ins
@@ -960,8 +965,6 @@ public:
     void AddJoinSplitToJSON(UniValue& entry) const override;
     void AddSidechainOutsToJSON(UniValue& entry) const override;
     bool HaveInputs(const CCoinsViewCache& view) const override;
-    void UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const override;
-    void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const override;
     bool AreInputsStandard(CCoinsViewCache& view) const override;
     bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,

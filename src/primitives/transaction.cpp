@@ -580,8 +580,6 @@ void CTransaction::HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) co
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
 bool CTransaction::HaveInputs(const CCoinsViewCache& view) const { return true; }
-void CTransaction::UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const { return; }
-void CTransaction::UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo &undo, int nHeight) const { return; }
 bool CTransaction::AreInputsStandard(CCoinsViewCache& view) const { return true; }
 unsigned int CTransaction::GetP2SHSigOpCount(CCoinsViewCache& view) const { return 0; }
 unsigned int CTransaction::GetLegacySigOpCount() const { return 0; }
@@ -765,20 +763,6 @@ void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const
 bool CTransaction::HaveInputs(const CCoinsViewCache& view) const
 {
     return view.HaveInputs(*this);
-}
-
-void CTransaction::UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const
-{
-    return ::UpdateCoins(*this, state, view, nHeight);
-}
-
-void CTransaction::UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& blockundo, int nHeight) const
-{
-    CTxUndo undoDummy;
-    if (!IsCoinBase() ) {
-        blockundo.vtxundo.push_back(CTxUndo());
-    }
-    return ::UpdateCoins(*this, state, view, (IsCoinBase() ? undoDummy : blockundo.vtxundo.back()), nHeight);
 }
 
 bool CTransaction::AreInputsStandard(CCoinsViewCache& view) const 

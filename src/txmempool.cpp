@@ -689,7 +689,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         assert(cert.ContextualCheckInputs(state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
         // updating coins with cert outputs because the cache is checked below for
         // any tx inputs and maybe some tx has a cert out as its input.
-        cert.UpdateCoins(state, mempoolDuplicate, 1000000);
+        UpdateCoins(cert, state, mempoolDuplicate, 1000000);
     }
 
     unsigned int stepsSinceLastRemove = 0;

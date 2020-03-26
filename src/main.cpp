@@ -2084,12 +2084,12 @@ void static InvalidBlockFound(CBlockIndex *pindex, const CValidationState &state
     }
 }
 
-void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight)
+void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight)
 {
     // mark inputs spent
-    if (!tx.IsCoinBase()) {
-        txundo.vprevout.reserve(tx.vin.size());
-        BOOST_FOREACH(const CTxIn &txin, tx.vin) {
+    if (!txBase.IsCoinBase()) {
+        txundo.vprevout.reserve(txBase.getVins().size());
+        for(const CTxIn &txin: txBase.getVins()) {
             CCoinsModifier coins = inputs.ModifyCoins(txin.prevout.hash);
             unsigned nPos = txin.prevout.n;
 
@@ -2108,20 +2108,20 @@ void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCach
     }
 
     // spend nullifiers
-    BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
-        BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
+    for(const JSDescription &joinsplit: txBase.getJoinsSplit()) {
+        for(const uint256 &nf: joinsplit.nullifiers) {
             inputs.SetNullifier(nf, true);
         }
     }
 
     // add outputs
-    inputs.ModifyCoins(tx.GetHash())->FromTx(tx, nHeight);
+    inputs.ModifyCoins(txBase.GetHash())->FromTx(txBase, nHeight);
 }
 
-void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCache &inputs, int nHeight)
+void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoinsViewCache &inputs, int nHeight)
 {
     CTxUndo txundo;
-    UpdateCoins(tx, state, inputs, txundo, nHeight);
+    UpdateCoins(txBase, state, inputs, txundo, nHeight);
 }
 
 bool CScriptCheck::operator()() {
@@ -2860,7 +2860,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-sc-cert-not-applicable");
         }
 
-        cert.UpdateCoins(state, view, blockundo, pindex->nHeight);
+        CTxUndo undoDummy;
+        UpdateCoins(cert, state, view, undoDummy, pindex->nHeight);
 
         if (!view.UpdateScInfo(cert, blockundo) )
         {

@@ -546,11 +546,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 #endif
                 continue;
 
-#if 0
             UpdateCoins(tx, state, view, nHeight);
-#else
-            tx.UpdateCoins(state, view, nHeight);
-#endif
 
             // Added
 #if 0

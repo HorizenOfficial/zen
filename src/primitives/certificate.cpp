@@ -116,20 +116,6 @@ void CScCertificate::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount 
     pblocktemplate->vCertSigOps.push_back(sigops);
 }
 
-void CScCertificate::UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const
-{
-    // no inputs in cert, therefore no need to handle block undo
-    CBlockUndo dum;
-    UpdateCoins(state, view, dum, nHeight);
-}
-
-void CScCertificate::UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& unused, int nHeight) const
-{
-    // no inputs in cert, therefore no need to handle block undo
-    LogPrint("cert", "%s():%d - adding coins for cert [%s]\n", __func__, __LINE__, GetHash().ToString());
-    view.ModifyCoins(GetHash())->FromTx(*this, nHeight);
-}
-
 bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const 
 {
     bool areScSupported = zen::ForkManager::getInstance().areSidechainsSupported(nHeight);
