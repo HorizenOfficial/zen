@@ -34,9 +34,9 @@ static inline size_t RecursiveDynamicUsage(const CTxBackwardTransferCrosschainOu
 
 static inline size_t RecursiveDynamicUsage(const CTransaction& tx) {
     size_t mem = 0;
-    mem += memusage::DynamicUsage(tx.vin);
+    mem += memusage::DynamicUsage(tx.getVins());
     mem += memusage::DynamicUsage(tx.getVout());
-    for (std::vector<CTxIn>::const_iterator it = tx.vin.begin(); it != tx.vin.end(); it++) {
+    for (std::vector<CTxIn>::const_iterator it = tx.getVins().begin(); it != tx.getVins().end(); it++) {
         mem += RecursiveDynamicUsage(*it);
     }
     for (std::vector<CTxOut>::const_iterator it = tx.getVout().begin(); it != tx.getVout().end(); it++) {

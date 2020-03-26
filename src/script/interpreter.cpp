@@ -1038,7 +1038,7 @@ public:
         if (fAnyoneCanPay)
             nInput = nIn;
         // Serialize the prevout
-        ::Serialize(s, txTo.vin[nInput].prevout, nType, nVersion);
+        ::Serialize(s, txTo.getVins()[nInput].prevout, nType, nVersion);
         // Serialize the script
         assert(nInput != NOT_AN_INPUT);
         if (nInput != nIn)
@@ -1051,7 +1051,7 @@ public:
             // let the others update at will
             ::Serialize(s, (int)0, nType, nVersion);
         else
-            ::Serialize(s, txTo.vin[nInput].nSequence, nType, nVersion);
+            ::Serialize(s, txTo.getVins()[nInput].nSequence, nType, nVersion);
     }
 
     /** Serialize an output of txTo */
@@ -1086,7 +1086,7 @@ public:
         // Serialize nVersion
         ::Serialize(s, txTo.nVersion, nType, nVersion);
         // Serialize vin
-        unsigned int nInputs = fAnyoneCanPay ? 1 : txTo.vin.size();
+        unsigned int nInputs = fAnyoneCanPay ? 1 : txTo.getVins().size();
         ::WriteCompactSize(s, nInputs);
         for (unsigned int nInput = 0; nInput < nInputs; nInput++)
              SerializeInput(s, nInput, nType, nVersion);
@@ -1144,7 +1144,7 @@ public:
 
 uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType)
 {
-    if (nIn >= txTo.vin.size() && nIn != NOT_AN_INPUT) {
+    if (nIn >= txTo.getVins().size() && nIn != NOT_AN_INPUT) {
         //  nIn out of range
         throw logic_error("input index is out of range");
     }
@@ -1228,7 +1228,7 @@ bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime) con
     // prevent this condition. Alternatively we could test all
     // inputs, but testing just this input minimizes the data
     // required to prove correct CHECKLOCKTIMEVERIFY execution.
-    if (txTo->vin[nIn].IsFinal())
+    if (txTo->getVins()[nIn].IsFinal())
         return false;
 
     return true;

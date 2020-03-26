@@ -504,7 +504,7 @@ set<uint256> CWallet::GetConflicts(const uint256& txid) const
 #if 0
     std::pair<TxSpends::const_iterator, TxSpends::const_iterator> range;
 
-    BOOST_FOREACH(const CTxIn& txin, wtx.vin)
+    BOOST_FOREACH(const CTxIn& txin, wtx.getVins())
     {
         if (mapTxSpends.count(txin.prevout) <= 1)
             continue;  // No conflict if zero or one spends
@@ -725,7 +725,7 @@ void CWallet::AddToSpends(const uint256& wtxid)
     if (thisTx.IsCoinBase()) // Coinbases don't spend anything!
         return;
 
-    for (const CTxIn& txin : thisTx.vin) {
+    for (const CTxIn& txin : thisTx.getVins()) {
         AddToSpends(txin.prevout, wtxid);
     }
     for (const JSDescription& jsdesc : thisTx.vjoinsplit) {
@@ -746,7 +746,7 @@ void CWalletTx::AddToSpends(CWallet* pw)
     if (IsCoinBase()) // Coinbases don't spend anything!
         return;
 
-    for (const CTxIn& txin : vin) {
+    for (const CTxIn& txin : getVins()) {
         LogPrint("cert", "%s():%d - obj[%s] spends out %d of [%s]\n", __func__, __LINE__,
             GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
         pw->AddToSpends(txin.prevout, GetHash());
@@ -1631,7 +1631,7 @@ void CWallet::MarkAffectedTransactionsDirty(const CTransaction& tx)
     // If a transaction changes 'conflicted' state, that changes the balance
     // available of the outputs it spends. So force those to be
     // recomputed, also:
-    BOOST_FOREACH(const CTxIn& txin, tx.vin)
+    BOOST_FOREACH(const CTxIn& txin, tx.getVins())
     {
         if (mapWallet.count(txin.prevout.hash))
 #if 0
@@ -1920,7 +1920,7 @@ bool CWallet::IsFromMe(const CTransaction& tx) const
 CAmount CWallet::GetDebit(const CTransaction& tx, const isminefilter& filter) const
 {
     CAmount nDebit = 0;
-    BOOST_FOREACH(const CTxIn& txin, tx.vin)
+    BOOST_FOREACH(const CTxIn& txin, tx.getVins())
     {
         nDebit += GetDebit(txin, filter);
         if (!MoneyRange(nDebit))
@@ -2433,7 +2433,7 @@ void CWalletTx::GetConflicts(std::set<uint256>& result) const
 
     std::pair<CWallet::TxSpends::const_iterator, CWallet::TxSpends::const_iterator> range;
 
-    BOOST_FOREACH(const CTxIn& txin, vin)
+    BOOST_FOREACH(const CTxIn& txin, getVins())
     {
         if (pwallet->mapTxSpends.count(txin.prevout) <= 1)
             continue;  // No conflict if zero or one spends
@@ -2459,7 +2459,7 @@ void CWalletTx::GetConflicts(std::set<uint256>& result) const
 
 void CWalletTx::addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const
 {
-    for(const CTxIn& txin: vin)
+    for(const CTxIn& txin: getVins())
     {
         auto mi = pwallet->mapWallet.find(txin.prevout.hash);
         if (mi == pwallet->mapWallet.end())
@@ -2486,7 +2486,7 @@ void CWalletTx::addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKe
 
 CAmount CWalletTx::GetDebit(const isminefilter& filter) const
 {
-    if (vin.empty())
+    if (getVins().empty())
         return 0;
 
     CAmount debit = 0;
@@ -2718,7 +2718,7 @@ bool CWalletTx::IsTrusted() const
         return false;
 
     // Trusted if all inputs are from us and are in the mempool:
-    BOOST_FOREACH(const CTxIn& txin, vin)
+    BOOST_FOREACH(const CTxIn& txin, getVins())
     {
         // Transactions not sent by us: not trusted
 #if 0
@@ -3321,7 +3321,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
         tx.vout.insert(tx.vout.begin() + nChangePosRet, wtx.getVout()[nChangePosRet]);
 
     // Add new txins (keeping original txin scriptSig/order)
-    BOOST_FOREACH(const CTxIn& txin, wtx.vin)
+    BOOST_FOREACH(const CTxIn& txin, wtx.getVins())
     {
         bool found = false;
         BOOST_FOREACH(const CTxIn& origTxIn, tx.vin)
@@ -3702,7 +3702,7 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
             AddToWallet(wtxNew, false, pwalletdb);
 
             // Notify that old coins are spent
-            BOOST_FOREACH(const CTxIn& txin, wtxNew.vin)
+            BOOST_FOREACH(const CTxIn& txin, wtxNew.getVins())
             {
 #if 0
                 CWalletTx &coin = mapWallet[txin.prevout.hash];
@@ -4067,11 +4067,11 @@ void CWalletTx::HandleInputGrouping(std::set< std::set<CTxDestination> >& groupi
     // TODO pass as param insted
     CWallet* p = const_cast<CWallet*>(pwallet);
 
-    if (vin.size() > 0)
+    if (getVins().size() > 0)
     {
         bool any_mine = false;
         // group all input addresses with each other
-        BOOST_FOREACH(CTxIn txin, vin)
+        BOOST_FOREACH(CTxIn txin, getVins())
         {
             CTxDestination address;
             if(!pwallet->IsMine(txin)) /* If this input isn't mine, ignore it */
@@ -4760,7 +4760,7 @@ void CWalletTx::AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletO
 {
     entry.push_back(Pair("locktime", (int64_t)nLockTime));
     UniValue vinArr(UniValue::VARR);
-    for (const CTxIn& txin : vin)
+    for (const CTxIn& txin : getVins())
     {
         UniValue in(UniValue::VOBJ);
         if (IsCoinBase())
@@ -4813,7 +4813,7 @@ void CWalletTx::AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletO
 
 void CWalletTx::addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const 
 {
-    for(const auto& txin: vin)
+    for(const auto& txin: getVins())
     {
         const auto mi = pwallet->mapWallet.find(txin.prevout.hash);
         if (mi == pwallet->mapWallet.end())

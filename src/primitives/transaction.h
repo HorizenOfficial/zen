@@ -773,7 +773,9 @@ public:
     // actually immutable; deserialization and assignment are implemented,
     // and bypass the constness. This is safe, as they update the entire
     // structure, including the hash.
+private:
     const std::vector<CTxIn> vin;
+public:
     const std::vector<CTxScCreationOut> vsc_ccout;
     const std::vector<CTxCertifierLockOut> vcl_ccout;
     const std::vector<CTxForwardTransferOut> vft_ccout;

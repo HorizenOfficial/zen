@@ -1064,8 +1064,8 @@ CAmount CCoinsViewCache::GetValueIn(const CTransaction& tx) const
         return 0;
 
     CAmount nResult = 0;
-    for (unsigned int i = 0; i < tx.vin.size(); i++)
-        nResult += GetOutputFor(tx.vin[i]).nValue;
+    for (unsigned int i = 0; i < tx.getVins().size(); i++)
+        nResult += GetOutputFor(tx.getVins()[i]).nValue;
 
     nResult += tx.GetJoinSplitValueIn();
 
@@ -1109,8 +1109,8 @@ bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransaction& tx) const
 bool CCoinsViewCache::HaveInputs(const CTransaction& tx) const
 {
     if (!tx.IsCoinBase()) {
-        for (unsigned int i = 0; i < tx.vin.size(); i++) {
-            const COutPoint &prevout = tx.vin[i].prevout;
+        for (unsigned int i = 0; i < tx.getVins().size(); i++) {
+            const COutPoint &prevout = tx.getVins()[i].prevout;
             const CCoins* coins = AccessCoins(prevout.hash);
             if (!coins || !coins->IsAvailable(prevout.n)) {
                 return false;
@@ -1136,7 +1136,7 @@ double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight) const
     }
 
     double dResult = 0.0;
-    BOOST_FOREACH(const CTxIn& txin, tx.vin)
+    BOOST_FOREACH(const CTxIn& txin, tx.getVins())
     {
         const CCoins* coins = AccessCoins(txin.prevout.hash);
         assert(coins);

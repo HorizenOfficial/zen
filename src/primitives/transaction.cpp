@@ -298,7 +298,7 @@ CMutableTransaction::CMutableTransaction(const CTransaction& tx) :
     vjoinsplit(tx.vjoinsplit), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     nVersion = tx.nVersion;
-    vin = tx.vin;
+    vin = tx.getVins();
     vout = tx.getVout();
 }
     

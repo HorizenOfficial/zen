@@ -157,7 +157,7 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
         bool fMissingInputs = false;
 
         // Detect orphan transaction and its dependencies
-        BOOST_FOREACH(const CTxIn& txin, tx.vin)
+        BOOST_FOREACH(const CTxIn& txin, tx.getVins())
         {
 #if 0
             if (mempool.mapTx.count(txin.prevout.hash))
@@ -204,7 +204,7 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
         }
         else
         {
-            BOOST_FOREACH(const CTxIn& txin, tx.vin)
+            BOOST_FOREACH(const CTxIn& txin, tx.getVins())
             {
                 // Read prev transaction
                 // Skip transactions in mempool
@@ -278,7 +278,7 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
         double dPriority = 0;
         CAmount nTotalIn = 0;
         bool fMissingInputs = false;
-        BOOST_FOREACH(const CTxIn& txin, tx.vin)
+        BOOST_FOREACH(const CTxIn& txin, tx.getVins())
         {
             // Read prev transaction
             if (!view.HaveCoins(txin.prevout.hash))
@@ -490,7 +490,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
             // Skip transaction if max block complexity reached.
 #if 0
-            int nTxComplexity = tx.vin.size() * tx.vin.size();
+            int nTxComplexity = tx.getVins().size() * tx.getVins().size();
 #else
             int nTxComplexity = tx.GetComplexity();
 #endif
