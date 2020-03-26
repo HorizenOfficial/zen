@@ -803,11 +803,15 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
 
 bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
 {
+    /* A specified locktime indicates that the transaction is only valid at the given blockheight or later.*/
     if (tx.nLockTime == 0)
         return true;
     if ((int64_t)tx.nLockTime < ((int64_t)tx.nLockTime < LOCKTIME_THRESHOLD ? (int64_t)nBlockHeight : nBlockTime))
         return true;
     BOOST_FOREACH(const CTxIn& txin, tx.getVins())
+    /* According to BIP 68, setting nSequence value to 0xFFFFFFFF for every input in the transaction disables nLocktime.
+       So, whatever may be the value of nLocktime above, it will have no effect on the transaction as far as nSequence
+       value is 0xFFFFFFFF.*/
         if (!txin.IsFinal())
             return false;
     return true;
