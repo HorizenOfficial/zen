@@ -2431,12 +2431,47 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     return ret;
 }
 
+UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "getunconfirmedtxdata ( \"address\")\n"
+            "\nReturns the server's total unconfirmed data relevanto to the input address\n"
+            "\nArguments:\n"
+            " \"address\"     (string, mandatory) consider transactions involving this address\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("getunconfirmedtxdata", "\"ztZ5M1P9ucj3P5JaW5xtY2hWTkp6JsToiHP\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    string address = params[0].get_str();
+    CBitcoinAddress taddr = CBitcoinAddress(address);
+    if (!taddr.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
+
+    const CScript& script = GetScriptForDestination(taddr.Get(), false);
+
+    int n = 0;
+    CAmount amount = pwalletMain->GetUnconfirmedData(script, n);
+
+    UniValue ret(UniValue::VOBJ);
+    ret.push_back(Pair("unconfirmedBalance", ValueFromAmount(amount)));
+    ret.push_back(Pair("unconfirmedTxApperances", n));
+
+    return ret;
+}
+
 UniValue listtxesbyaddress(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() > 3)
+    if (fHelp || params.size() == 0 || params.size() > 4)
         throw runtime_error(
             "listtxesbyaddress ( \"address\" count)\n"
             "\nReturns up to 'count' most recent transactions involving address 'address' bot for vin and vout.\n"
@@ -2444,6 +2479,7 @@ UniValue listtxesbyaddress(const UniValue& params, bool fHelp)
             "1. \"address\"     (string, mandatory) Include transactions involving this address\n"
             "2. count          (numeric, optional, default=10) The number of transactions to return\n"
             "3. from           (numeric, optional, default=0) The number of transactions to skip\n"
+            "4. reverse_order  (bool, optional, default=true) sort from the most recent to the oldest\n"
             "\nResult:\n"
             "[\n"
             "  {\n"
@@ -2473,6 +2509,10 @@ UniValue listtxesbyaddress(const UniValue& params, bool fHelp)
         nFrom = params[2].get_int();
     if (nFrom < 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
+
+    bool reverse = false;
+    if (params.size() > 3)
+        reverse = params[3].get_bool();
 
     UniValue ret(UniValue::VARR);
     std::list<CAccountingEntry> unused;
@@ -2506,7 +2546,8 @@ UniValue listtxesbyaddress(const UniValue& params, bool fHelp)
     if (last != arrTmp.end()) arrTmp.erase(last, arrTmp.end());
     if (first != arrTmp.begin()) arrTmp.erase(arrTmp.begin(), first);
 
-    std::reverse(arrTmp.begin(), arrTmp.end()); // Return oldest to newest
+    if (reverse)
+        std::reverse(arrTmp.begin(), arrTmp.end()); // Return oldest to newest
 
     ret.clear();
     ret.setArray();

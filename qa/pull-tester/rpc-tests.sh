@@ -60,6 +60,7 @@ testScripts=(
     'sc_cert_invalidate.py'
     'sc_fwd_maturity.py'
     'sc_rawcertificate.py'
+    'getunconfirmedtxdata.py'
 );
 testScriptsExt=(
     'getblocktemplate_longpoll.py'

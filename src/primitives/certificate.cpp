@@ -140,7 +140,7 @@ bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int d
 
 bool CScCertificate::CheckFinal(int flags) const
 {
-    // as of now certificate finality has yet to be defined
+    // as of now certificate finality has yet to be defined (see tx.nLockTime)
     return true;
 }
 

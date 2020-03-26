@@ -1212,6 +1212,7 @@ MapTxWithInputs CWallet::OrderedTxWithInputsMap(const std::string& address)
 
         if (!wtx.IsCoinBase())
         {
+            // add to entry obj the txes whose outputs are  part of wtx input
             wtx.addInputTx(entry, scriptPubKey, inputFound);
         }
 
@@ -2845,6 +2846,33 @@ CAmount CWallet::GetUnconfirmedBalance() const
             if (!pcoin->CheckFinal() || (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0))
 #endif
                 nTotal += pcoin->GetAvailableCredit();
+        }
+    }
+    return nTotal;
+}
+
+CAmount CWallet::GetUnconfirmedData(const CScript& scriptToMatch, int& numbOfUnconfirmedTx) const
+{
+    CAmount nTotal = 0;
+    numbOfUnconfirmedTx = 0;
+    {
+        LOCK2(cs_main, cs_wallet);
+        for (MAP_WALLET_CONST_IT it = mapWallet.begin(); it != mapWallet.end(); ++it)
+        {
+            const CWalletObjBase* pcoin = it->second.get();
+
+            for(const auto& txout : pcoin->vout)
+            {
+                auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptToMatch.begin(), scriptToMatch.end());
+                if (res == txout.scriptPubKey.begin())
+                {
+                    if (!pcoin->CheckFinal() || (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0))
+                    {
+                        nTotal += pcoin->GetAvailableCredit();
+                        numbOfUnconfirmedTx++;
+                    }
+                }
+            }
         }
     }
     return nTotal;
