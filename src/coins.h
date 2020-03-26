@@ -92,7 +92,7 @@ public:
 
     void FromTx(const CTransactionBase &tx, int nHeightIn) {
         fCoinBase = tx.IsCoinBase() || tx.IsCoinCertified();
-        vout = tx.vout;
+        vout = tx.getVout();
         nHeight = nHeightIn;
         nVersion = tx.nVersion;
         ClearUnspendable();

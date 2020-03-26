@@ -640,13 +640,13 @@ class CTransactionBase
 protected:
     /** Memory only. */
     const uint256 hash;
+    const std::vector<CTxOut> vout;
 
     virtual void UpdateHash() const = 0;
 
 public:
     virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) = 0;
     const int32_t nVersion;
-    const std::vector<CTxOut> vout;
 
     CTransactionBase();
     CTransactionBase& operator=(const CTransactionBase& tx);
@@ -737,7 +737,6 @@ public:
         std::vector<CScriptCheck> *pvChecks = NULL) const { return true; }
 
     virtual unsigned int GetP2SHSigOpCount(CCoinsViewCache& view) const { return 0; }
-    virtual size_t getVjoinsplitSize() const { return 0; }
     virtual const uint256 getJoinSplitPubKey() const { return uint256(); }
     virtual int GetComplexity() const { return 0; }
 
@@ -863,7 +862,6 @@ public:
     // value in should be computed via the method above using a proper coin view
     CAmount GetFeeAmount(CAmount valueIn) const override { return (valueIn - GetValueOut() ); }
 
-    size_t getVjoinsplitSize() const override { return vjoinsplit.size(); }
     int GetComplexity() const override { return vin.size()*vin.size(); }
     const uint256 getJoinSplitPubKey() const override { return joinSplitPubKey; }
 

@@ -200,7 +200,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
             // be sure to remove any children that are in the pool. This can
             // happen during chain re-orgs if origTx isn't re-accepted into
             // the mempool for any reason.
-            for (unsigned int i = 0; i < origTx.vout.size(); i++) {
+            for (unsigned int i = 0; i < origTx.getVout().size(); i++) {
                 std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(origTx.GetHash(), i));
                 if (it == mapNextTx.end())
                     continue;
@@ -242,7 +242,7 @@ void::CTxMemPool::removeInternal(
         {
             const CTransaction& tx = mapTx[hash].GetTx();
             if (fRecursive) {
-                for (unsigned int i = 0; i < tx.vout.size(); i++) {
+                for (unsigned int i = 0; i < tx.getVout().size(); i++) {
                     std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(hash, i));
                     if (it == mapNextTx.end())
                         continue;
@@ -311,7 +311,7 @@ void::CTxMemPool::removeInternal(
             const CScCertificate& cert = mapCertificate[hash].GetCertificate();
             if (fRecursive)
             {
-                for (unsigned int i = 0; i < cert.vout.size(); i++) {
+                for (unsigned int i = 0; i < cert.getVout().size(); i++) {
                     std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(hash, i));
                     if (it == mapNextTx.end())
                         continue;
@@ -349,7 +349,7 @@ void CTxMemPool::remove(const CScCertificate &origCert, std::list<CTransaction>&
             // be sure to remove any children that are in the pool. This can
             // happen during chain re-orgs if origCert isn't re-accepted into
             // the mempool for any reason.
-            for (unsigned int i = 0; i < origCert.vout.size(); i++) {
+            for (unsigned int i = 0; i < origCert.getVout().size(); i++) {
                 std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(origCert.GetHash(), i));
                 if (it == mapNextTx.end())
                     continue;
@@ -420,7 +420,7 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
             certsToRemove.push_back(cert);
 
             // Remove also txes that depend on such certificates
-            for (unsigned int i = 0; i < cert.vout.size(); i++) {
+            for (unsigned int i = 0; i < cert.getVout().size(); i++) {
                 std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(cert.GetHash(), i));
                 if (it == mapNextTx.end())
                     continue;
@@ -594,14 +594,14 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(txin.prevout.hash);
             if (it2 != mapTx.end()) {
                 const CTransaction& tx2 = it2->second.GetTx();
-                assert(tx2.vout.size() > txin.prevout.n && !tx2.vout[txin.prevout.n].IsNull());
+                assert(tx2.getVout().size() > txin.prevout.n && !tx2.getVout()[txin.prevout.n].IsNull());
                 fDependsWait = true;
             } else {
                 // maybe our input is a certificate?
                 std::map<uint256, CCertificateMemPoolEntry>::const_iterator itCert = mapCertificate.find(txin.prevout.hash);
                 if (itCert != mapCertificate.end()) {
                     const CTransactionBase& cert = itCert->second.GetCertificate();
-                    assert(cert.vout.size() > txin.prevout.n && !cert.vout[txin.prevout.n].IsNull());
+                    assert(cert.getVout().size() > txin.prevout.n && !cert.getVout()[txin.prevout.n].IsNull());
                     fDependsWait = true;
                 }
                 else

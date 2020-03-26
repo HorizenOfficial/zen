@@ -146,9 +146,9 @@ bool CBloomFilter::IsRelevantAndUpdate(const CTransaction& tx)
     if (contains(hash))
         fFound = true;
 
-    for (unsigned int i = 0; i < tx.vout.size(); i++)
+    for (unsigned int i = 0; i < tx.getVout().size(); i++)
     {
-        const CTxOut& txout = tx.vout[i];
+        const CTxOut& txout = tx.getVout()[i];
         // Match if the filter contains any arbitrary script data element in any scriptPubKey in tx
         // If this matches, also add the specific output that was matched.
         // This means clients don't have to update the filter themselves when a new relevant tx 

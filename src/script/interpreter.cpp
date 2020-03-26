@@ -1061,7 +1061,7 @@ public:
             // Do not lock-in the txout payee at other indices as txin
             ::Serialize(s, CTxOut(), nType, nVersion);
         else
-            ::Serialize(s, txTo.vout[nOutput], nType, nVersion);
+            ::Serialize(s, txTo.getVout()[nOutput], nType, nVersion);
     }
 
     /** Serialize a cross chain outputs of txTo */
@@ -1091,7 +1091,7 @@ public:
         for (unsigned int nInput = 0; nInput < nInputs; nInput++)
              SerializeInput(s, nInput, nType, nVersion);
         // Serialize vout
-        unsigned int nOutputs = fHashNone ? 0 : (fHashSingle ? nIn+1 : txTo.vout.size());
+        unsigned int nOutputs = fHashNone ? 0 : (fHashSingle ? nIn+1 : txTo.getVout().size());
         ::WriteCompactSize(s, nOutputs);
         for (unsigned int nOutput = 0; nOutput < nOutputs; nOutput++)
              SerializeOutput(s, nOutput, nType, nVersion);
@@ -1151,7 +1151,7 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
 
     // Check for invalid use of SIGHASH_SINGLE
     if ((nHashType & 0x1f) == SIGHASH_SINGLE) {
-        if (nIn >= txTo.vout.size()) {
+        if (nIn >= txTo.getVout().size()) {
             //  nOut out of range
             throw logic_error("no matching output for SIGHASH_SINGLE");
         }

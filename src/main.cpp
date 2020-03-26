@@ -746,7 +746,7 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
 
     unsigned int nDataOut = 0;
     txnouttype whichType;
-    BOOST_FOREACH(const CTxOut& txout, tx.vout) {
+    BOOST_FOREACH(const CTxOut& txout, tx.getVout()) {
 
         CheckBlockResult checkBlockResult;
         if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
@@ -919,7 +919,7 @@ unsigned int GetLegacySigOpCount(const CTransaction& tx)
     {
         nSigOps += txin.scriptSig.GetSigOpCount(false);
     }
-    BOOST_FOREACH(const CTxOut& txout, tx.vout)
+    BOOST_FOREACH(const CTxOut& txout, tx.getVout())
     {
         nSigOps += txout.scriptPubKey.GetSigOpCount(false);
     }
@@ -1024,7 +1024,7 @@ bool ContextualCheckTransaction(
 bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
 {
     // we allow empty certificate, but if we have no vout the total amount must be 0
-    if (cert.vout.empty() && cert.totalAmount != 0) 
+    if (cert.getVout().empty() && cert.totalAmount != 0)
     {
         return state.DoS(10, error("vout empty and totalAmount != 0"), REJECT_INVALID, "bad-cert-invalid");
     }
@@ -1077,7 +1077,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
     }
 
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
-    BOOST_FOREACH(const CTxOut& txout, tx.vout)
+    BOOST_FOREACH(const CTxOut& txout, tx.getVout())
     {
         txnouttype whichType;
         ::IsStandard(txout.scriptPubKey, whichType);
@@ -1119,7 +1119,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
 
     // also allow the case when crosschain outputs are not empty. In that case there might be no vout at all
     // when utxo reminder is only dust, which is added to fee leaving no change for the sender
-    if (tx.vout.empty() && tx.vjoinsplit.empty() && tx.ccIsNull())
+    if (tx.getVout().empty() && tx.vjoinsplit.empty() && tx.ccIsNull())
     {
         return state.DoS(10, error("CheckTransaction(): vout empty"),
                          REJECT_INVALID, "bad-txns-vout-empty");
@@ -1133,7 +1133,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
 
     // Check for negative or overflow output values
     CAmount nValueOut = 0;
-    BOOST_FOREACH(const CTxOut& txout, tx.vout)
+    BOOST_FOREACH(const CTxOut& txout, tx.getVout())
     {
         if (txout.nValue < 0)
             return state.DoS(100, error("CheckTransaction(): txout.nValue negative"),
@@ -2193,7 +2193,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
                 // Disabled on regtest
                 if (fCoinbaseEnforcedProtectionEnabled &&
                     consensusParams.fCoinbaseMustBeProtected &&
-                    !tx.vout.empty()) {
+                    !tx.getVout().empty()) {
 
                     // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed
                     // to send them to the transparent addr.
@@ -4158,7 +4158,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
         if (communityReward > 0) {
             bool found = false;
 
-            BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
+            BOOST_FOREACH(const CTxOut& output, block.vtx[0].getVout()) {
                 if (output.scriptPubKey == Params().GetCommunityFundScriptAtHeight(nHeight, cfType)) {
                     if (output.nValue == communityReward) {
                         found = true;

@@ -35,11 +35,11 @@ static inline size_t RecursiveDynamicUsage(const CTxBackwardTransferCrosschainOu
 static inline size_t RecursiveDynamicUsage(const CTransaction& tx) {
     size_t mem = 0;
     mem += memusage::DynamicUsage(tx.vin);
-    mem += memusage::DynamicUsage(tx.vout);
+    mem += memusage::DynamicUsage(tx.getVout());
     for (std::vector<CTxIn>::const_iterator it = tx.vin.begin(); it != tx.vin.end(); it++) {
         mem += RecursiveDynamicUsage(*it);
     }
-    for (std::vector<CTxOut>::const_iterator it = tx.vout.begin(); it != tx.vout.end(); it++) {
+    for (std::vector<CTxOut>::const_iterator it = tx.getVout().begin(); it != tx.getVout().end(); it++) {
         mem += RecursiveDynamicUsage(*it);
     }
 // what about shielded components???
@@ -60,9 +60,9 @@ static inline size_t RecursiveDynamicUsage(const CTransaction& tx) {
 
 static inline size_t RecursiveDynamicUsage(const CScCertificate& cert) {
     size_t mem = 0;
-    mem += memusage::DynamicUsage(cert.vout);
+    mem += memusage::DynamicUsage(cert.getVout());
     mem += memusage::DynamicUsage(cert.vbt_ccout); 
-    for (std::vector<CTxOut>::const_iterator it = cert.vout.begin(); it != cert.vout.end(); it++) {
+    for (std::vector<CTxOut>::const_iterator it = cert.getVout().begin(); it != cert.getVout().end(); it++) {
         mem += RecursiveDynamicUsage(*it);
     }
     for (std::vector<CTxBackwardTransferCrosschainOut>::const_iterator it = cert.vbt_ccout.begin(); it != cert.vbt_ccout.end(); it++) {

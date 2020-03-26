@@ -686,12 +686,12 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
 
         if (tx.IsCoinBase()) {
             // Show community reward if it is required
-            if (pblock->vtx[0].vout.size() > 1) {
+            if (pblock->vtx[0].getVout().size() > 1) {
                 // Correct this if GetBlockTemplate changes the order
-                entry.push_back(Pair("communityfund", (int64_t)tx.vout[1].nValue));
-                if (pblock->vtx[0].vout.size() > 3) {
-                    entry.push_back(Pair("securenodes", (int64_t)tx.vout[2].nValue));
-                    entry.push_back(Pair("supernodes", (int64_t)tx.vout[3].nValue));
+                entry.push_back(Pair("communityfund", (int64_t)tx.getVout()[1].nValue));
+                if (pblock->vtx[0].getVout().size() > 3) {
+                    entry.push_back(Pair("securenodes", (int64_t)tx.getVout()[2].nValue));
+                    entry.push_back(Pair("supernodes", (int64_t)tx.getVout()[3].nValue));
                 }
             }
             entry.push_back(Pair("required", true));
@@ -748,7 +748,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         result.push_back(Pair("coinbasetxn", txCoinbase));
     } else {
         result.push_back(Pair("coinbaseaux", aux));
-        result.push_back(Pair("coinbasevalue", (int64_t)pblock->vtx[0].vout[0].nValue));
+        result.push_back(Pair("coinbasevalue", (int64_t)pblock->vtx[0].getVout()[0].nValue));
     }
     result.push_back(Pair("longpollid", chainActive.Tip()->GetBlockHash().GetHex() + i64tostr(nTransactionsUpdatedLast)));
     result.push_back(Pair("target", hashTarget.GetHex()));

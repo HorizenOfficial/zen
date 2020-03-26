@@ -119,8 +119,8 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry)
     entry.pushKV("vin", vin);
 
     UniValue vout(UniValue::VARR);
-    for (unsigned int i = 0; i < tx.vout.size(); i++) {
-        const CTxOut& txout = tx.vout[i];
+    for (unsigned int i = 0; i < tx.getVout().size(); i++) {
+        const CTxOut& txout = tx.getVout()[i];
 
         UniValue out(UniValue::VOBJ);
 

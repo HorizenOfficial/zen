@@ -200,7 +200,7 @@ CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert) :
     totalAmount(cert.totalAmount), fee(cert.fee), vbt_ccout(cert.vbt_ccout), nonce(cert.nonce)
 {
     nVersion = cert.nVersion;
-    vout = cert.vout;
+    vout = cert.getVout();
 }
 
 uint256 CMutableScCertificate::GetHash() const

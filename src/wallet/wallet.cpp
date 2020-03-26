@@ -80,7 +80,7 @@ std::string JSOutPoint::ToString() const
 
 std::string COutput::ToString() const
 {
-    return strprintf("COutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), i, nDepth, FormatMoney(tx->vout[i].nValue));
+    return strprintf("COutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), i, nDepth, FormatMoney(tx->getVout()[i].nValue));
 }
 
 #if 0
@@ -1147,7 +1147,7 @@ TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries, const st
             // search in the tx outputs
             bool outputFound = false;
 
-            for(const CTxOut& txout : wtx->vout) {
+            for(const CTxOut& txout : wtx->getVout()) {
                 auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
                 if (res == txout.scriptPubKey.begin()) {
                     txOrdered.insert(make_pair(wtx->nOrderPos, TxPair(wtx, (CAccountingEntry*)0)));
@@ -1200,7 +1200,7 @@ MapTxWithInputs CWallet::OrderedTxWithInputsMap(const std::string& address)
         bool outputFound = false;
         bool inputFound = false;
 
-        for(const auto& txout : wtx.vout)
+        for(const auto& txout : wtx.getVout())
         {
             auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
             if (res == txout.scriptPubKey.begin())
@@ -1823,8 +1823,8 @@ isminetype CWallet::IsMine(const CTxIn &txin) const
         {
             const CWalletObjBase& prev = *(mi->second);
 #endif
-            if (txin.prevout.n < prev.vout.size())
-                return IsMine(prev.vout[txin.prevout.n]);
+            if (txin.prevout.n < prev.getVout().size())
+                return IsMine(prev.getVout()[txin.prevout.n]);
         }
     }
     return ISMINE_NO;
@@ -1845,9 +1845,9 @@ CAmount CWallet::GetDebit(const CTxIn &txin, const isminefilter& filter) const
         {
             const CWalletObjBase& prev = *(mi->second);
 #endif
-            if (txin.prevout.n < prev.vout.size())
-                if (IsMine(prev.vout[txin.prevout.n]) & filter)
-                    return prev.vout[txin.prevout.n].nValue;
+            if (txin.prevout.n < prev.getVout().size())
+                if (IsMine(prev.getVout()[txin.prevout.n]) & filter)
+                    return prev.getVout()[txin.prevout.n].nValue;
         }
     }
     return 0;
@@ -1896,7 +1896,7 @@ CAmount CWallet::GetChange(const CTxOut& txout) const
 
 bool CWallet::IsMine(const CTransactionBase& tx) const
 {
-    BOOST_FOREACH(const CTxOut& txout, tx.vout)
+    BOOST_FOREACH(const CTxOut& txout, tx.getVout())
         if (IsMine(txout))
             return true;
     return false;
@@ -1936,7 +1936,7 @@ CAmount CWallet::GetCredit(const CTransactionBase& tx, const isminefilter& filte
 #endif
 {
     CAmount nCredit = 0;
-    BOOST_FOREACH(const CTxOut& txout, tx.vout)
+    BOOST_FOREACH(const CTxOut& txout, tx.getVout())
     {
         nCredit += GetCredit(txout, filter);
         if (!MoneyRange(nCredit))
@@ -1952,7 +1952,7 @@ CAmount CWallet::GetChange(const CTransactionBase& tx) const
 #endif
 {
     CAmount nChange = 0;
-    BOOST_FOREACH(const CTxOut& txout, tx.vout)
+    BOOST_FOREACH(const CTxOut& txout, tx.getVout())
     {
         nChange += GetChange(txout);
         if (!MoneyRange(nChange))
@@ -2468,12 +2468,12 @@ void CWalletTx::addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKe
         }
 
         const auto& inputTx = (*mi).second;
-        if (txin.prevout.n >= inputTx->vout.size())
+        if (txin.prevout.n >= inputTx->getVout().size())
         {
             continue;
         }
 
-        const CTxOut& utxo = inputTx->vout[txin.prevout.n];
+        const CTxOut& utxo = inputTx->getVout()[txin.prevout.n];
 
         auto res = std::search(utxo.scriptPubKey.begin(), utxo.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
         if (res == utxo.scriptPubKey.begin()) {
@@ -2728,7 +2728,7 @@ bool CWalletTx::IsTrusted() const
 #endif
         if (parent == NULL)
             return false;
-        const CTxOut& parentOut = parent->vout[txin.prevout.n];
+        const CTxOut& parentOut = parent->getVout()[txin.prevout.n];
         if (pwallet->IsMine(parentOut) != ISMINE_SPENDABLE)
             return false;
     }
@@ -2971,10 +2971,10 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
             if (nDepth < 0)
                 continue;
 
-            for (unsigned int i = 0; i < pcoin->vout.size(); i++) {
-                isminetype mine = IsMine(pcoin->vout[i]);
+            for (unsigned int i = 0; i < pcoin->getVout().size(); i++) {
+                isminetype mine = IsMine(pcoin->getVout()[i]);
                 if (!(IsSpent(wtxid, i)) && mine != ISMINE_NO &&
-                    !IsLockedCoin((*it).first, i) && (pcoin->vout[i].nValue > 0 || fIncludeZeroValue) &&
+                    !IsLockedCoin((*it).first, i) && (pcoin->getVout()[i].nValue > 0 || fIncludeZeroValue) &&
                     (!coinControl || !coinControl->HasSelected() || coinControl->fAllowOtherInputs || coinControl->IsSelected((*it).first, i)))
                 {
                     if (pcoin->IsCoinBase())
@@ -2996,7 +2996,7 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                     if (pcoin->IsCoinCertified() )
                     {
                         LogPrint("cert", "%s():%d - cert[%s] out[%d], amount=%s, spendable[%s]\n", __func__, __LINE__,
-                            pcoin->GetHash().ToString(), i, FormatMoney(pcoin->vout[i].nValue), ((mine & ISMINE_SPENDABLE) != ISMINE_NO)?"Y":"N");
+                            pcoin->GetHash().ToString(), i, FormatMoney(pcoin->getVout()[i].nValue), ((mine & ISMINE_SPENDABLE) != ISMINE_NO)?"Y":"N");
                     }
                     vCoins.push_back(COutput(pcoin, i, nDepth, (mine & ISMINE_SPENDABLE) != ISMINE_NO));
                 }
@@ -3101,7 +3101,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
             continue;
 
         int i = output.i;
-        CAmount n = pcoin->vout[i].nValue;
+        CAmount n = pcoin->getVout()[i].nValue;
 
 #if 0
         pair<CAmount,pair<const CWalletTx*,unsigned int> > coin = make_pair(n,make_pair(pcoin, i));
@@ -3209,7 +3209,7 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletObj
             if (!out.fSpendable) {
                 continue;
             }
-            value += out.tx->vout[out.i].nValue;
+            value += out.tx->getVout()[out.i].nValue;
         }
         if (value <= nTargetValue) {
             CAmount valueWithCoinbase = 0;
@@ -3217,7 +3217,7 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletObj
                 if (!out.fSpendable) {
                     continue;
                 }
-                valueWithCoinbase += out.tx->vout[out.i].nValue;
+                valueWithCoinbase += out.tx->getVout()[out.i].nValue;
             }
             fNeedCoinbaseCoinsRet = (valueWithCoinbase >= nTargetValue);
         }
@@ -3230,7 +3230,7 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletObj
         {
             if (!out.fSpendable)
                  continue;
-            nValueRet += out.tx->vout[out.i].nValue;
+            nValueRet += out.tx->getVout()[out.i].nValue;
             setCoinsRet.insert(make_pair(out.tx, out.i));
         }
         return (nValueRet >= nTargetValue);
@@ -3261,9 +3261,9 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletObj
             const CWalletObjBase* pcoin = it->second.get();
 #endif
             // Clearly invalid input, fail
-            if (pcoin->vout.size() <= outpoint.n)
+            if (pcoin->getVout().size() <= outpoint.n)
                 return false;
-            nValueFromPresetInputs += pcoin->vout[outpoint.n].nValue;
+            nValueFromPresetInputs += pcoin->getVout()[outpoint.n].nValue;
             setPresetCoins.insert(make_pair(pcoin, outpoint.n));
         } else
             return false; // TODO: Allow non-wallet inputs
@@ -3318,7 +3318,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
         return false;
 
     if (nChangePosRet != -1)
-        tx.vout.insert(tx.vout.begin() + nChangePosRet, wtx.vout[nChangePosRet]);
+        tx.vout.insert(tx.vout.begin() + nChangePosRet, wtx.getVout()[nChangePosRet]);
 
     // Add new txins (keeping original txin scriptSig/order)
     BOOST_FOREACH(const CTxIn& txin, wtx.vin)
@@ -3489,7 +3489,7 @@ bool CWallet::CreateTransaction(
                 for (auto& pcoin : setCoins)
 #endif
                 {
-                    CAmount nCredit = pcoin.first->vout[pcoin.second].nValue;
+                    CAmount nCredit = pcoin.first->getVout()[pcoin.second].nValue;
                     //The coin age after the next block (depth+1) is used instead of the current,
                     //reflecting an assumption the user would accept a bit more delay for
                     //a chance at a free transaction.
@@ -3608,7 +3608,7 @@ bool CWallet::CreateTransaction(
 #endif
                 {
                     bool signSuccess;
-                    const CScript& scriptPubKey = coin.first->vout[coin.second].scriptPubKey;
+                    const CScript& scriptPubKey = coin.first->getVout()[coin.second].scriptPubKey;
                     CScript& scriptSigRes = txNew.vin[nIn].scriptSig;
                     if (sign)
                         signSuccess = ProduceSignature(TransactionSignatureCreator(this, &txNewConst, nIn, SIGHASH_ALL), scriptPubKey, scriptSigRes);
@@ -4037,15 +4037,15 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances()
             if (nDepth < (pcoin->IsFromMe(ISMINE_ALL) ? 0 : 1))
                 continue;
 
-            for (unsigned int i = 0; i < pcoin->vout.size(); i++)
+            for (unsigned int i = 0; i < pcoin->getVout().size(); i++)
             {
                 CTxDestination addr;
-                if (!IsMine(pcoin->vout[i]))
+                if (!IsMine(pcoin->getVout()[i]))
                     continue;
-                if(!ExtractDestination(pcoin->vout[i].scriptPubKey, addr))
+                if(!ExtractDestination(pcoin->getVout()[i].scriptPubKey, addr))
                     continue;
 
-                CAmount n = IsSpent(walletEntry.first, i) ? 0 : pcoin->vout[i].nValue;
+                CAmount n = IsSpent(walletEntry.first, i) ? 0 : pcoin->getVout()[i].nValue;
 
                 if (!balances.count(addr))
                     balances[addr] = 0;
@@ -4076,7 +4076,7 @@ void CWalletTx::HandleInputGrouping(std::set< std::set<CTxDestination> >& groupi
             CTxDestination address;
             if(!pwallet->IsMine(txin)) /* If this input isn't mine, ignore it */
                 continue;
-            if(!ExtractDestination(p->mapWallet[txin.prevout.hash]->vout[txin.prevout.n].scriptPubKey, address))
+            if(!ExtractDestination(p->mapWallet[txin.prevout.hash]->getVout()[txin.prevout.n].scriptPubKey, address))
                 continue;
             grouping.insert(address);
             any_mine = true;
@@ -4129,9 +4129,9 @@ set< set<CTxDestination> > CWallet::GetAddressGroupings()
                 if(!IsMine(txin)) /* If this input isn't mine, ignore it */
                     continue;
 #if 0
-                if(!ExtractDestination(mapWallet[txin.prevout.hash].vout[txin.prevout.n].scriptPubKey, address))
+                if(!ExtractDestination(mapWallet[txin.prevout.hash].getVout()[txin.prevout.n].scriptPubKey, address))
 #else
-                if(!ExtractDestination(mapWallet[txin.prevout.hash]->vout[txin.prevout.n].scriptPubKey, address))
+                if(!ExtractDestination(mapWallet[txin.prevout.hash]->getVout()[txin.prevout.n].scriptPubKey, address))
 #endif
                     continue;
                 grouping.insert(address);
@@ -4141,7 +4141,7 @@ set< set<CTxDestination> > CWallet::GetAddressGroupings()
             // group change with input addresses
             if (any_mine)
             {
-               BOOST_FOREACH(CTxOut txout, pcoin->vout)
+               BOOST_FOREACH(CTxOut txout, pcoin->getVout())
                    if (IsChange(txout))
                    {
                        CTxDestination txoutAddr;
@@ -4161,11 +4161,11 @@ set< set<CTxDestination> > CWallet::GetAddressGroupings()
 #endif
 
         // group lone addrs by themselves
-        for (unsigned int i = 0; i < pcoin->vout.size(); i++)
-            if (IsMine(pcoin->vout[i]))
+        for (unsigned int i = 0; i < pcoin->getVout().size(); i++)
+            if (IsMine(pcoin->getVout()[i]))
             {
                 CTxDestination address;
-                if(!ExtractDestination(pcoin->vout[i].scriptPubKey, address))
+                if(!ExtractDestination(pcoin->getVout()[i].scriptPubKey, address))
                     continue;
                 grouping.insert(address);
                 groupings.insert(grouping);
@@ -4400,7 +4400,7 @@ void CWallet::GetKeyBirthTimes(std::map<CKeyID, int64_t> &mapKeyBirth) const {
         if (blit != mapBlockIndex.end() && chainActive.Contains(blit->second)) {
             // ... which are already in a block
             int nHeight = blit->second->nHeight;
-            BOOST_FOREACH(const CTxOut &txout, wtx.vout) {
+            BOOST_FOREACH(const CTxOut &txout, wtx.getVout()) {
                 // iterate over all their outputs
                 CAffectedKeysVisitor(*this, vAffected).Process(txout.scriptPubKey);
                 BOOST_FOREACH(const CKeyID &keyid, vAffected) {
@@ -4777,10 +4777,10 @@ void CWalletTx::AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletO
             {
                 if (inputTx->GetHash() == inputTxHash)
                 {
-                    if (txin.prevout.n >= inputTx->vout.size())
+                    if (txin.prevout.n >= inputTx->getVout().size())
                         break;
 
-                    const CTxOut& txout = inputTx->vout[txin.prevout.n];
+                    const CTxOut& txout = inputTx->getVout()[txin.prevout.n];
 
                     UniValue vout(UniValue::VARR);
                     UniValue out(UniValue::VOBJ);
@@ -4822,12 +4822,12 @@ void CWalletTx::addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CS
         }
 
         const auto& inputTx = (*mi).second;
-        if (txin.prevout.n >= inputTx->vout.size())
+        if (txin.prevout.n >= inputTx->getVout().size())
         {
             continue;
         }
 
-        const CTxOut& utxo = inputTx->vout[txin.prevout.n];
+        const CTxOut& utxo = inputTx->getVout()[txin.prevout.n];
  
         auto res = std::search(utxo.scriptPubKey.begin(), utxo.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
         if (res == utxo.scriptPubKey.begin())

@@ -299,7 +299,7 @@ CMutableTransaction::CMutableTransaction(const CTransaction& tx) :
 {
     nVersion = tx.nVersion;
     vin = tx.vin;
-    vout = tx.vout;
+    vout = tx.getVout();
 }
     
 uint256 CMutableTransaction::GetHash() const

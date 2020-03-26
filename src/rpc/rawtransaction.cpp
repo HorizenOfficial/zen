@@ -137,8 +137,8 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     }
     entry.push_back(Pair("vin", vin));
     UniValue vout(UniValue::VARR);
-    for (unsigned int i = 0; i < tx.vout.size(); i++) {
-        const CTxOut& txout = tx.vout[i];
+    for (unsigned int i = 0; i < tx.getVout().size(); i++) {
+        const CTxOut& txout = tx.getVout()[i];
         UniValue out(UniValue::VOBJ);
         out.push_back(Pair("value", ValueFromAmount(txout.nValue)));
         out.push_back(Pair("valueZat", txout.nValue));
@@ -178,8 +178,8 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
     entry.push_back(Pair("version", cert.nVersion));
     entry.push_back(Pair("nonce", cert.nonce.GetHex()));
     UniValue vout(UniValue::VARR);
-    for (unsigned int i = 0; i < cert.vout.size(); i++) {
-        const CTxOut& txout = cert.vout[i];
+    for (unsigned int i = 0; i < cert.getVout().size(); i++) {
+        const CTxOut& txout = cert.getVout()[i];
         UniValue out(UniValue::VOBJ);
         out.push_back(Pair("value", ValueFromAmount(txout.nValue)));
         out.push_back(Pair("valueZat", txout.nValue));

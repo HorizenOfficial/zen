@@ -182,7 +182,7 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
                 }
                 mapDependers[txin.prevout.hash].push_back(porphan);
                 porphan->setDependsOn.insert(txin.prevout.hash);
-                nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().vout[txin.prevout.n].nValue;
+                nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().getVout()[txin.prevout.n].nValue;
             }
         }
 #if 1
@@ -305,7 +305,7 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
                 }
                 mapDependers[txin.prevout.hash].push_back(porphan);
                 porphan->setDependsOn.insert(txin.prevout.hash);
-                nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().vout[txin.prevout.n].nValue;
+                nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().getVout()[txin.prevout.n].nValue;
                 continue;
             }
             const CCoins* coins = view.AccessCoins(txin.prevout.hash);
@@ -719,7 +719,7 @@ static bool ProcessBlockFound(CBlock* pblock)
 #endif // ENABLE_WALLET
 {
     LogPrintf("%s\n", pblock->ToString());
-    LogPrintf("generated %s\n", FormatMoney(pblock->vtx[0].vout[0].nValue));
+    LogPrintf("generated %s\n", FormatMoney(pblock->vtx[0].getVout()[0].nValue));
 
     // Found a solution
     {
