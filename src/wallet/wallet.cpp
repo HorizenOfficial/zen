@@ -2861,7 +2861,7 @@ CAmount CWallet::GetUnconfirmedData(const CScript& scriptToMatch, int& numbOfUnc
         {
             const CWalletObjBase* pcoin = it->second.get();
 
-            for(const auto& txout : pcoin->vout)
+            for(const auto& txout : pcoin->getVout())
             {
                 auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptToMatch.begin(), scriptToMatch.end());
                 if (res == txout.scriptPubKey.begin())
