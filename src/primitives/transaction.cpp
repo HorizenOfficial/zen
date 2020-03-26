@@ -295,7 +295,7 @@ CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(), nLockTim
 
 CMutableTransaction::CMutableTransaction(const CTransaction& tx) :
     vsc_ccout(tx.vsc_ccout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout), nLockTime(tx.nLockTime),
-    vjoinsplit(tx.vjoinsplit), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
+    vjoinsplit(tx.getJoinsSplit()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     nVersion = tx.nVersion;
     vin = tx.getVins();

@@ -60,8 +60,8 @@ void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fInclud
 UniValue TxJoinSplitToJSON(const CTransaction& tx) {
     bool useGroth = tx.nVersion == GROTH_TX_VERSION;
     UniValue vjoinsplit(UniValue::VARR);
-    for (unsigned int i = 0; i < tx.vjoinsplit.size(); i++) {
-        const JSDescription& jsdescription = tx.vjoinsplit[i];
+    for (unsigned int i = 0; i < tx.getJoinsSplit().size(); i++) {
+        const JSDescription& jsdescription = tx.getJoinsSplit()[i];
         UniValue joinsplit(UniValue::VOBJ);
 
         joinsplit.push_back(Pair("vpub_old", ValueFromAmount(jsdescription.vpub_old)));

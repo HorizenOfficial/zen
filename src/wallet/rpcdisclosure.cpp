@@ -111,7 +111,7 @@ UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp)
     // Check js_index
     int js_index = params[1].get_int();
 #if 0
-    if (js_index < 0 || js_index >= wtx.vjoinsplit.size()) {
+    if (js_index < 0 || js_index >= wtx.getJoinsSplit().size()) {
 #else
     if (js_index < 0 || js_index >= wtx.getJoinsSplit().size()) {
 #endif
@@ -233,7 +233,7 @@ UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp)
     }
 
     // Check if shielded tx
-    if (tx.vjoinsplit.empty()) {
+    if (tx.getJoinsSplit().empty()) {
         throw JSONRPCError(RPC_MISC_ERROR, "Transaction is not a shielded transaction");
     }
 
@@ -242,7 +242,7 @@ UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp)
     o.push_back(Pair("txid", pd.payload.txid.ToString()));
 
     // Check js_index
-    if (pd.payload.js >= tx.vjoinsplit.size()) {
+    if (pd.payload.js >= tx.getJoinsSplit().size()) {
         errs.push_back("Payment disclosure refers to an invalid joinsplit index");
     }
     o.push_back(Pair("jsIndex", pd.payload.js));
@@ -276,7 +276,7 @@ UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp)
 
         try {
             // Decrypt the note to get value and memo field
-            JSDescription jsdesc = tx.vjoinsplit[pd.payload.js];
+            JSDescription jsdesc = tx.getJoinsSplit()[pd.payload.js];
             uint256 h_sig = jsdesc.h_sig(*pzcashParams, tx.joinSplitPubKey);
 
             ZCPaymentDisclosureNoteDecryption decrypter;

@@ -1129,8 +1129,8 @@ public:
             // to the transaction.
             //
         	auto os = WithTxVersion(&s, txTo.nVersion);
-        	::Serialize(os, txTo.vjoinsplit, nType, nVersion);
-            if (txTo.vjoinsplit.size() > 0) {
+        	::Serialize(os, txTo.getJoinsSplit(), nType, nVersion);
+            if (txTo.getJoinsSplit().size() > 0) {
                 ::Serialize(s, txTo.joinSplitPubKey, nType, nVersion);
 
                 CTransaction::joinsplit_sig_t nullSig = {};

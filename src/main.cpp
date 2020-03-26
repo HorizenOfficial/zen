@@ -983,7 +983,7 @@ bool ContextualCheckTransaction(
             (areSidechainsSupported && (tx.nVersion == sidechainVersion) ) )
         {
             //enforce empty joinsplit for transparent txs and sidechain tx
-            if(!tx.vjoinsplit.empty()) {
+            if(!tx.getJoinsSplit().empty()) {
                 return state.DoS(dosLevel, error("ContextualCheckTransaction(): transparent or sc tx but vjoinsplit not empty"),
                                      REJECT_INVALID, "bad-txns-transparent-jsnotempty");
             }
@@ -1069,7 +1069,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
     }
 
     // Ensure that zk-SNARKs verify
-    BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
+    BOOST_FOREACH(const JSDescription &joinsplit, tx.getJoinsSplit()) {
         if (!joinsplit.Verify(*pzcashParams, verifier, tx.joinSplitPubKey)) {
             return state.DoS(100, error("CheckTransaction(): joinsplit does not verify"),
                                 REJECT_INVALID, "bad-txns-joinsplit-verification-failed");
@@ -1110,7 +1110,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
 
     // Transactions can contain empty `vin` and `vout` so long as
     // `vjoinsplit` is non-empty.
-    if (tx.getVins().empty() && tx.vjoinsplit.empty())
+    if (tx.getVins().empty() && tx.getJoinsSplit().empty())
     {
         LogPrint("sc", "%s():%d - Error: tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString() );
         return state.DoS(10, error("CheckTransaction(): vin empty"),
@@ -1119,7 +1119,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
 
     // also allow the case when crosschain outputs are not empty. In that case there might be no vout at all
     // when utxo reminder is only dust, which is added to fee leaving no change for the sender
-    if (tx.getVout().empty() && tx.vjoinsplit.empty() && tx.ccIsNull())
+    if (tx.getVout().empty() && tx.getJoinsSplit().empty() && tx.ccIsNull())
     {
         return state.DoS(10, error("CheckTransaction(): vout empty"),
                          REJECT_INVALID, "bad-txns-vout-empty");
@@ -1148,7 +1148,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
     }
 
     // Ensure that joinsplit values are well-formed
-    BOOST_FOREACH(const JSDescription& joinsplit, tx.vjoinsplit)
+    BOOST_FOREACH(const JSDescription& joinsplit, tx.getJoinsSplit())
     {
         if (joinsplit.vpub_old < 0) {
             return state.DoS(100, error("CheckTransaction(): joinsplit.vpub_old negative"),
@@ -1188,7 +1188,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
     // to the value pool.
     {
         CAmount nValueIn = 0;
-        for (std::vector<JSDescription>::const_iterator it(tx.vjoinsplit.begin()); it != tx.vjoinsplit.end(); ++it)
+        for (std::vector<JSDescription>::const_iterator it(tx.getJoinsSplit().begin()); it != tx.getJoinsSplit().end(); ++it)
         {
             nValueIn += it->vpub_new;
 
@@ -1212,7 +1212,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
 
     // Check for duplicate joinsplit nullifiers in this transaction
     set<uint256> vJoinSplitNullifiers;
-    BOOST_FOREACH(const JSDescription& joinsplit, tx.vjoinsplit)
+    BOOST_FOREACH(const JSDescription& joinsplit, tx.getJoinsSplit())
     {
         BOOST_FOREACH(const uint256& nf, joinsplit.nullifiers)
         {
@@ -1227,7 +1227,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
     if (tx.IsCoinBase())
     {
         // There should be no joinsplits in a coinbase transaction
-        if (tx.vjoinsplit.size() > 0)
+        if (tx.getJoinsSplit().size() > 0)
             return state.DoS(100, error("CheckTransaction(): coinbase has joinsplits"),
                              REJECT_INVALID, "bad-cb-has-joinsplits");
 
@@ -1242,7 +1242,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
                 return state.DoS(10, error("CheckTransaction(): prevout is null"),
                                  REJECT_INVALID, "bad-txns-prevout-null");
 
-        if (tx.vjoinsplit.size() > 0) {
+        if (tx.getJoinsSplit().size() > 0) {
             // Empty output script.
             CScript scriptCode;
             uint256 dataToBeSigned;
@@ -1529,7 +1529,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             }
         }
 
-        BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
+        BOOST_FOREACH(const JSDescription &joinsplit, tx.getJoinsSplit()) {
             BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
                 if (pool.mapNullifiers.count(nf))
                 {
@@ -1633,7 +1633,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         unsigned int nSize = entry.GetTxSize();
 
         // Accept a tx if it contains joinsplits and has at least the default fee specified by z_sendmany.
-        if (tx.vjoinsplit.size() > 0 && nFees >= ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE) {
+        if (tx.getJoinsSplit().size() > 0 && nFees >= ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE) {
             // In future we will we have more accurate and dynamic computation of fees for tx with joinsplits.
         } else {
             // Don't accept it if it can't get into a block
@@ -2463,7 +2463,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
 
         // unspend nullifiers
-        BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
+        BOOST_FOREACH(const JSDescription &joinsplit, tx.getJoinsSplit()) {
             BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
                 view.SetNullifier(nf, false);
             }
@@ -2813,7 +2813,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
         }
 
-        BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
+        BOOST_FOREACH(const JSDescription &joinsplit, tx.getJoinsSplit()) {
             BOOST_FOREACH(const uint256 &note_commitment, joinsplit.commitments) {
                 // Insert the note commitments into our temporary tree.
                 tree.append(note_commitment);
@@ -3806,7 +3806,7 @@ bool ReceivedBlockTransactions(const CBlock &block, CValidationState& state, CBl
     pindexNew->nChainTx = 0;
     CAmount sproutValue = 0;
     for (auto tx : block.vtx) {
-        for (auto js : tx.vjoinsplit) {
+        for (auto js : tx.getJoinsSplit()) {
             sproutValue += js.vpub_old;
             sproutValue -= js.vpub_new;
         }
@@ -6150,7 +6150,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 EraseOrphanTx(hash);
         }
         // TODO: currently, prohibit joinsplits from entering mapOrphans
-        else if (fMissingInputs && tx.vjoinsplit.size() == 0)
+        else if (fMissingInputs && tx.getJoinsSplit().size() == 0)
         {
             AddOrphanTx(tx, pfrom->GetId());
 

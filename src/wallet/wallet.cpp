@@ -515,7 +515,7 @@ set<uint256> CWallet::GetConflicts(const uint256& txid) const
 
     std::pair<TxNullifiers::const_iterator, TxNullifiers::const_iterator> range_n;
 
-    for (const JSDescription& jsdesc : wtx.vjoinsplit) {
+    for (const JSDescription& jsdesc : wtx.getJoinsSplit()) {
         for (const uint256& nullifier : jsdesc.nullifiers) {
             if (mapTxNullifiers.count(nullifier) <= 1) {
                 continue;  // No conflict if zero or one spends
@@ -728,7 +728,7 @@ void CWallet::AddToSpends(const uint256& wtxid)
     for (const CTxIn& txin : thisTx.getVins()) {
         AddToSpends(txin.prevout, wtxid);
     }
-    for (const JSDescription& jsdesc : thisTx.vjoinsplit) {
+    for (const JSDescription& jsdesc : thisTx.getJoinsSplit()) {
         for (const uint256& nullifier : jsdesc.nullifiers) {
             AddToSpends(nullifier, wtxid);
         }
@@ -751,7 +751,7 @@ void CWalletTx::AddToSpends(CWallet* pw)
             GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
         pw->AddToSpends(txin.prevout, GetHash());
     }
-    for (const JSDescription& jsdesc : vjoinsplit) {
+    for (const JSDescription& jsdesc : getJoinsSplit()) {
         for (const uint256& nullifier : jsdesc.nullifiers) {
             pw->AddToSpends(nullifier, GetHash());
         }
@@ -909,8 +909,8 @@ void CWallet::IncrementNoteWitnesses(const CBlockIndex* pindex,
         for (const CTransaction& tx : pblock->vtx) {
             auto hash = tx.GetHash();
             bool txIsOurs = mapWallet.count(hash);
-            for (size_t i = 0; i < tx.vjoinsplit.size(); i++) {
-                const JSDescription& jsdesc = tx.vjoinsplit[i];
+            for (size_t i = 0; i < tx.getJoinsSplit().size(); i++) {
+                const JSDescription& jsdesc = tx.getJoinsSplit()[i];
                 for (uint8_t j = 0; j < jsdesc.commitments.size(); j++) {
                     const uint256& note_commitment = jsdesc.commitments[j];
                     tree.append(note_commitment);
@@ -1272,10 +1272,10 @@ void CWalletTx::UpdateNullifierMap(CWallet* pw)
         if (!item.second.nullifier) {
             if (pw->GetNoteDecryptor(item.second.address, dec)) {
                 auto i = item.first.js;
-                auto hSig = vjoinsplit[i].h_sig(
+                auto hSig = getJoinsSplit()[i].h_sig(
                     *pzcashParams, joinSplitPubKey);
                 item.second.nullifier = pw->GetNoteNullifier(
-                    vjoinsplit[i],
+                    getJoinsSplit()[i],
                     item.second.address,
                     dec,
                     hSig,
@@ -1640,7 +1640,7 @@ void CWallet::MarkAffectedTransactionsDirty(const CTransaction& tx)
             mapWallet[txin.prevout.hash]->MarkDirty();
 #endif
     }
-    for (const JSDescription& jsdesc : tx.vjoinsplit) {
+    for (const JSDescription& jsdesc : tx.getJoinsSplit()) {
         for (const uint256& nullifier : jsdesc.nullifiers) {
             if (mapNullifiersToNotes.count(nullifier) &&
                     mapWallet.count(mapNullifiersToNotes[nullifier].hash)) {
@@ -1717,15 +1717,15 @@ mapNoteData_t CWallet::FindMyNotes(const CTransaction& tx) const
     uint256 hash = tx.GetHash();
 
     mapNoteData_t noteData;
-    for (size_t i = 0; i < tx.vjoinsplit.size(); i++) {
-        auto hSig = tx.vjoinsplit[i].h_sig(*pzcashParams, tx.joinSplitPubKey);
-        for (uint8_t j = 0; j < tx.vjoinsplit[i].ciphertexts.size(); j++) {
+    for (size_t i = 0; i < tx.getJoinsSplit().size(); i++) {
+        auto hSig = tx.getJoinsSplit()[i].h_sig(*pzcashParams, tx.joinSplitPubKey);
+        for (uint8_t j = 0; j < tx.getJoinsSplit()[i].ciphertexts.size(); j++) {
             for (const NoteDecryptorMap::value_type& item : mapNoteDecryptors) {
                 try {
                     auto address = item.first;
                     JSOutPoint jsoutpt {hash, i, j};
                     auto nullifier = GetNoteNullifier(
-                        tx.vjoinsplit[i],
+                        tx.getJoinsSplit()[i],
                         address,
                         item.second,
                         hSig, j);
@@ -1907,7 +1907,7 @@ bool CWallet::IsFromMe(const CTransaction& tx) const
     if (GetDebit(tx, ISMINE_ALL) > 0) {
         return true;
     }
-    for (const JSDescription& jsdesc : tx.vjoinsplit) {
+    for (const JSDescription& jsdesc : tx.getJoinsSplit()) {
         for (const uint256& nullifier : jsdesc.nullifiers) {
             if (IsFromMe(nullifier)) {
                 return true;
@@ -1965,8 +1965,8 @@ void CWalletTx::SetNoteData(mapNoteData_t &noteData)
 {
     mapNoteData.clear();
     for (const std::pair<JSOutPoint, CNoteData> nd : noteData) {
-        if (nd.first.js < vjoinsplit.size() &&
-                nd.first.n < vjoinsplit[nd.first.js].ciphertexts.size()) {
+        if (nd.first.js < getJoinsSplit().size() &&
+                nd.first.n < getJoinsSplit()[nd.first.js].ciphertexts.size()) {
             // Store the address and nullifier for the Note
             mapNoteData[nd.first] = nd.second;
         } else {
@@ -2047,7 +2047,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
 
     // Does this tx spend my notes?
     bool isFromMyZaddr = false;
-    for (const JSDescription& js : vjoinsplit) {
+    for (const JSDescription& js : getJoinsSplit()) {
         for (const uint256& nullifier : js.nullifiers) {
             if (pwallet->IsFromMe(nullifier)) {
                 isFromMyZaddr = true;
@@ -2063,7 +2063,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
     if (isFromMyTaddr) {
         CAmount nValueOut = GetValueOut();  // transparent outputs plus all vpub_old
         CAmount nValueIn = 0;
-        for (const JSDescription & js : vjoinsplit) {
+        for (const JSDescription & js : getJoinsSplit()) {
             nValueIn += js.vpub_new;
         }
         nFee = nDebit - nValueOut + nValueIn;
@@ -2073,7 +2073,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
     if (isFromMyTaddr) {
         CAmount myVpubOld = 0;
         CAmount myVpubNew = 0;
-        for (const JSDescription& js : vjoinsplit) {
+        for (const JSDescription& js : getJoinsSplit()) {
             bool fMyJSDesc = false;
 
             // Check input side
@@ -2087,7 +2087,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
             // Check output side
             if (!fMyJSDesc) {
                 for (const std::pair<JSOutPoint, CNoteData> nd : this->mapNoteData) {
-                    if (nd.first.js < vjoinsplit.size() && nd.first.n < vjoinsplit[nd.first.js].ciphertexts.size()) {
+                    if (nd.first.js < getJoinsSplit().size() && nd.first.n < getJoinsSplit()[nd.first.js].ciphertexts.size()) {
                         fMyJSDesc = true;
                         break;
                     }
@@ -2228,7 +2228,7 @@ void CWallet::WitnessNoteCommitment(std::vector<uint256> commitments,
 
         BOOST_FOREACH(const CTransaction& tx, block.vtx)
         {
-            BOOST_FOREACH(const JSDescription& jsdesc, tx.vjoinsplit)
+            BOOST_FOREACH(const JSDescription& jsdesc, tx.getJoinsSplit())
             {
                 BOOST_FOREACH(const uint256 &note_commitment, jsdesc.commitments)
                 {
@@ -2444,7 +2444,7 @@ void CWalletTx::GetConflicts(std::set<uint256>& result) const
 
     std::pair<CWallet::TxNullifiers::const_iterator, CWallet::TxNullifiers::const_iterator> range_n;
 
-    for (const JSDescription& jsdesc : vjoinsplit) {
+    for (const JSDescription& jsdesc : getJoinsSplit()) {
         for (const uint256& nullifier : jsdesc.nullifiers) {
             if (pwallet->mapTxNullifiers.count(nullifier) <= 1) {
                 continue;  // No conflict if zero or one spends
@@ -4650,7 +4650,7 @@ void CWallet::GetFilteredNotes(std::vector<CNotePlaintextEntry> & outEntries, st
                 continue;
             }
 
-            int i = jsop.js; // Index into CTransaction.vjoinsplit
+            int i = jsop.js; // Index into CTransaction.getJoinsSplit()
             int j = jsop.n; // Index into JSDescription.ciphertexts
 
             // Get cached decryptor
@@ -4661,12 +4661,12 @@ void CWallet::GetFilteredNotes(std::vector<CNotePlaintextEntry> & outEntries, st
             }
 
             // determine amount of funds in the note
-            auto hSig = wtx.vjoinsplit[i].h_sig(*pzcashParams, wtx.joinSplitPubKey);
+            auto hSig = wtx.getJoinsSplit()[i].h_sig(*pzcashParams, wtx.joinSplitPubKey);
             try {
                 NotePlaintext plaintext = NotePlaintext::decrypt(
                         decryptor,
-                        wtx.vjoinsplit[i].ciphertexts[j],
-                        wtx.vjoinsplit[i].ephemeralKey,
+                        wtx.getJoinsSplit()[i].ciphertexts[j],
+                        wtx.getJoinsSplit()[i].ephemeralKey,
                         hSig,
                         (unsigned char) j);
 
@@ -4722,7 +4722,7 @@ void CWalletTx::GetNotesAmount(
             continue;
         }
 
-        int i = jsop.js; // Index into CTransaction.vjoinsplit
+        int i = jsop.js; // Index into CTransaction.getJoinsSplit()
         int j = jsop.n; // Index into JSDescription.ciphertexts
 
         // Get cached decryptor
@@ -4733,13 +4733,13 @@ void CWalletTx::GetNotesAmount(
         }
 
         // determine amount of funds in the note
-        auto hSig = vjoinsplit[i].h_sig(*pzcashParams, joinSplitPubKey);
+        auto hSig = getJoinsSplit()[i].h_sig(*pzcashParams, joinSplitPubKey);
         try
         {
             NotePlaintext plaintext = NotePlaintext::decrypt(
                     decryptor,
-                    vjoinsplit[i].ciphertexts[j],
-                    vjoinsplit[i].ephemeralKey,
+                    getJoinsSplit()[i].ciphertexts[j],
+                    getJoinsSplit()[i].ephemeralKey,
                     hSig,
                     (unsigned char) j);
  

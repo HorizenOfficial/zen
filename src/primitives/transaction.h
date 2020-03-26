@@ -775,12 +775,12 @@ public:
     // structure, including the hash.
 private:
     const std::vector<CTxIn> vin;
+    const std::vector<JSDescription> vjoinsplit;
 public:
     const std::vector<CTxScCreationOut> vsc_ccout;
     const std::vector<CTxCertifierLockOut> vcl_ccout;
     const std::vector<CTxForwardTransferOut> vft_ccout;
     const uint32_t nLockTime;
-    const std::vector<JSDescription> vjoinsplit;
     const uint256 joinSplitPubKey;
     const joinsplit_sig_t joinSplitSig = {{0}};
 

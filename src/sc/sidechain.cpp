@@ -31,7 +31,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
     else
     {
         // we do not support joinsplit as of now
-        if (tx.vjoinsplit.size() > 0)
+        if (tx.getJoinsSplit().size() > 0)
         {
             return state.DoS(100,
                 error("mismatch between transaction version and joinsplit presence"),

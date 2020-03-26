@@ -1076,7 +1076,7 @@ bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransaction& tx) const
 {
     boost::unordered_map<uint256, ZCIncrementalMerkleTree, CCoinsKeyHasher> intermediates;
 
-    BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit)
+    BOOST_FOREACH(const JSDescription &joinsplit, tx.getJoinsSplit())
     {
         BOOST_FOREACH(const uint256& nullifier, joinsplit.nullifiers)
         {
@@ -1131,7 +1131,7 @@ double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight) const
     // (Note that coinbase transactions cannot contain JoinSplits.)
     // FIXME: this logic is partially duplicated between here and CreateNewBlock in miner.cpp.
 
-    if (tx.vjoinsplit.size() > 0) {
+    if (tx.getJoinsSplit().size() > 0) {
         return MAXIMUM_PRIORITY;
     }
 
