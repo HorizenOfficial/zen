@@ -94,11 +94,11 @@ libzcash::Note GetNote(ZCJoinSplit& params,
                        const libzcash::SpendingKey& sk,
                        const CTransaction& tx, size_t js, size_t n) {
     ZCNoteDecryption decryptor {sk.receiving_key()};
-    auto hSig = tx.getJoinsSplit()[js].h_sig(params, tx.joinSplitPubKey);
+    auto hSig = tx.GetJoinSplits()[js].h_sig(params, tx.joinSplitPubKey);
     auto note_pt = libzcash::NotePlaintext::decrypt(
         decryptor,
-        tx.getJoinsSplit()[js].ciphertexts[n],
-        tx.getJoinsSplit()[js].ephemeralKey,
+        tx.GetJoinSplits()[js].ciphertexts[n],
+        tx.GetJoinSplits()[js].ephemeralKey,
         hSig,
         (unsigned char) n);
     return note_pt.note(sk.address());

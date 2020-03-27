@@ -676,14 +676,26 @@ public:
         return !(a==b);
     }
 
-    // Check for negative or overflow output values
-    bool CheckVout(CAmount& nValueOut, CValidationState &state) const;
+    //GETTERS
+    virtual const std::vector<CTxIn>&         GetVins()       const = 0;
+    virtual const std::vector<CTxOut>&        GetVouts()      const = 0;
+    virtual const std::vector<JSDescription>& GetJoinSplits() const = 0;
+    //END OF GETTERS
+
+    //CHECK FUNCTIONS
+    virtual bool CheckVersionBasic        (CValidationState &state) const = 0;
+    virtual bool CheckInputsAvailability  (CValidationState &state) const = 0;
+    virtual bool CheckOutputsAvailability (CValidationState &state) const = 0;
+    virtual bool CheckSerializedSize      (CValidationState &state) const = 0;
+
+    bool CheckInputsAmount (CValidationState &state) const;
+    bool CheckOutputsAmount(CValidationState &state) const;
+    bool CheckInputsDuplication(CValidationState &state) const;
+    bool CheckInputsInteraction(CValidationState &state) const;
+
     bool CheckOutputsAreStandard(int nHeight, std::string& reason) const;
     bool CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const;
-
-    virtual const std::vector<CTxIn>&         getVins()       const = 0;
-    virtual const std::vector<CTxOut>&        getVout()       const = 0;
-    virtual const std::vector<JSDescription>& getJoinsSplit() const = 0;
+    //END OF CHECK FUNCTIONS
 
     // Return sum of txouts.
     virtual CAmount GetValueOut() const;
@@ -853,9 +865,18 @@ public:
         );
     }
     
-    const std::vector<CTxIn>&         getVins()       const override {return vin;};
-    const std::vector<CTxOut>&        getVout()       const override {return vout;};
-    const std::vector<JSDescription>& getJoinsSplit() const override {return vjoinsplit;};
+    //GETTERS
+    const std::vector<CTxIn>&         GetVins()       const override {return vin;};
+    const std::vector<CTxOut>&        GetVouts()       const override {return vout;};
+    const std::vector<JSDescription>& GetJoinSplits() const override {return vjoinsplit;};
+    //END OF GETTERS
+
+    //CHECK FUNCTIONS
+    bool CheckVersionBasic        (CValidationState &state) const override;
+    bool CheckInputsAvailability  (CValidationState &state) const override;
+    bool CheckOutputsAvailability (CValidationState &state) const override;
+    bool CheckSerializedSize      (CValidationState &state) const override;
+    //END OF CHECK FUNCTIONS
 
     // Return sum of txouts.
     CAmount GetValueOut() const override;

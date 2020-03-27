@@ -344,11 +344,11 @@ TEST(WalletTests, CheckNoteCommitmentAgainstNotePlaintext) {
     auto note = GetNote(sk, wtx, 0, 1);
     auto nullifier = note.nullifier(sk);
 
-    auto hSig = wtx.getJoinsSplit()[0].h_sig(
+    auto hSig = wtx.GetJoinSplits()[0].h_sig(
         *params, wtx.joinSplitPubKey);
 
     ASSERT_THROW(wallet.GetNoteNullifier(
-        wtx.getJoinsSplit()[0],
+        wtx.GetJoinSplits()[0],
         address,
         dec,
         hSig, 1), libzcash::note_decryption_failed);
@@ -365,11 +365,11 @@ TEST(WalletTests, GetNoteNullifier) {
     auto note = GetNote(sk, wtx, 0, 1);
     auto nullifier = note.nullifier(sk);
 
-    auto hSig = wtx.getJoinsSplit()[0].h_sig(
+    auto hSig = wtx.GetJoinSplits()[0].h_sig(
         *params, wtx.joinSplitPubKey);
 
     auto ret = wallet.GetNoteNullifier(
-        wtx.getJoinsSplit()[0],
+        wtx.GetJoinSplits()[0],
         address,
         dec,
         hSig, 1);
@@ -378,7 +378,7 @@ TEST(WalletTests, GetNoteNullifier) {
     wallet.AddSpendingKey(sk);
 
     ret = wallet.GetNoteNullifier(
-        wtx.getJoinsSplit()[0],
+        wtx.GetJoinSplits()[0],
         address,
         dec,
         hSig, 1);

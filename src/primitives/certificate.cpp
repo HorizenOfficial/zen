@@ -59,6 +59,44 @@ void CScCertificate::UpdateHash() const
     *const_cast<uint256*>(&hash) = SerializeHash(*this);
 }
 
+bool CScCertificate::CheckVersionBasic(CValidationState &state) const
+{
+    return true;
+}
+
+bool CScCertificate::CheckInputsAvailability(CValidationState &state) const
+{
+    //Currently there are no inputs for certificates
+    if (!GetVins().empty())
+    {
+        return state.DoS(10, error("vin not empty"), REJECT_INVALID, "bad-cert-invalid");
+    }
+
+    return true;
+}
+
+bool CScCertificate::CheckOutputsAvailability(CValidationState &state) const
+{
+    // we allow empty certificate, but if we have no vout the total amount must be 0
+    if (GetVouts().empty() && totalAmount != 0)
+    {
+        return state.DoS(10, error("vout empty and totalAmount != 0"), REJECT_INVALID, "bad-cert-invalid");
+    }
+
+    return true;
+}
+
+bool CScCertificate::CheckSerializedSize(CValidationState &state) const
+{
+    BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_CERT_SIZE); // sanity
+    if (CalculateSize() > MAX_CERT_SIZE)
+    {
+        return state.DoS(100, error("size limits failed"), REJECT_INVALID, "bad-cert-oversize");
+    }
+
+    return true;
+}
+
 CAmount CScCertificate::GetFeeAmount(CAmount /* unused */) const
 {
     // this is a signed uint64, the caller must check if that is legal
@@ -200,7 +238,7 @@ CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert) :
     totalAmount(cert.totalAmount), fee(cert.fee), vbt_ccout(cert.vbt_ccout), nonce(cert.nonce)
 {
     nVersion = cert.nVersion;
-    vout = cert.getVout();
+    vout = cert.GetVouts();
 }
 
 uint256 CMutableScCertificate::GetHash() const

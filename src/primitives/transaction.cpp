@@ -295,11 +295,11 @@ CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(), nLockTim
 
 CMutableTransaction::CMutableTransaction(const CTransaction& tx) :
     vsc_ccout(tx.vsc_ccout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout), nLockTime(tx.nLockTime),
-    vjoinsplit(tx.getJoinsSplit()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
+    vjoinsplit(tx.GetJoinSplits()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     nVersion = tx.nVersion;
-    vin = tx.getVins();
-    vout = tx.getVout();
+    vin = tx.GetVins();
+    vout = tx.GetVouts();
 }
     
 uint256 CMutableTransaction::GetHash() const
@@ -354,23 +354,132 @@ CAmount CTransactionBase::GetValueOut() const
     return nValueOut;
 }
 
-bool CTransactionBase::CheckVout(CAmount& nValueOut, CValidationState &state) const
+bool CTransactionBase::CheckInputsAmount(CValidationState &state) const
+{
+    // Ensure input values do not exceed MAX_MONEY
+    // We have not resolved the txin values at this stage,
+    // but we do know what the joinsplits claim to add
+    // to the value pool.
+    CAmount nCumulatedValueIn = 0;
+    for (std::vector<JSDescription>::const_iterator it(GetJoinSplits().begin()); it != GetJoinSplits().end(); ++it)
+    {
+        nCumulatedValueIn += it->vpub_new;
+
+        if (!MoneyRange(it->vpub_new) || !MoneyRange(nCumulatedValueIn)) {
+            return state.DoS(100, error("CheckTransaction(): txin total out of range"),
+                             REJECT_INVALID, "bad-txns-txintotal-toolarge");
+        }
+    }
+
+    return true;
+}
+
+bool CTransactionBase::CheckOutputsAmount(CValidationState &state) const
 {
     // Check for negative or overflow output values
-    nValueOut = 0;
-    BOOST_FOREACH(const CTxOut& txout, vout)
+    CAmount nCumulatedValueOut = 0;
+    for(const CTxOut& txout: GetVouts())
     {
         if (txout.nValue < 0)
-            return state.DoS(100, error("CheckVout(): txout.nValue negative"),
+            return state.DoS(100, error("CheckOutputAmounts(): txout.nValue negative"),
                              REJECT_INVALID, "bad-txns-vout-negative");
         if (txout.nValue > MAX_MONEY)
-            return state.DoS(100, error("CheckVout(): txout.nValue too high"),
+            return state.DoS(100, error("CheckOutputAmounts(): txout.nValue too high"),
                              REJECT_INVALID, "bad-txns-vout-toolarge");
-        nValueOut += txout.nValue;
-        if (!MoneyRange(nValueOut))
-            return state.DoS(100, error("CheckVout(): txout total out of range"),
+        nCumulatedValueOut += txout.nValue;
+        if (!MoneyRange(nCumulatedValueOut))
+            return state.DoS(100, error("CheckOutputAmounts(): txout total out of range"),
                              REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
+
+    // Ensure that joinsplit values are well-formed
+    for(const JSDescription& joinsplit: GetJoinSplits())
+    {
+        if (joinsplit.vpub_old < 0) {
+            return state.DoS(100, error("CheckOutputAmounts(): joinsplit.vpub_old negative"),
+                             REJECT_INVALID, "bad-txns-vpub_old-negative");
+        }
+
+        if (joinsplit.vpub_new < 0) {
+            return state.DoS(100, error("CheckOutputAmounts(): joinsplit.vpub_new negative"),
+                             REJECT_INVALID, "bad-txns-vpub_new-negative");
+        }
+
+        if (joinsplit.vpub_old > MAX_MONEY) {
+            return state.DoS(100, error("CheckOutputAmounts(): joinsplit.vpub_old too high"),
+                             REJECT_INVALID, "bad-txns-vpub_old-toolarge");
+        }
+
+        if (joinsplit.vpub_new > MAX_MONEY) {
+            return state.DoS(100, error("CheckOutputAmounts(): joinsplit.vpub_new too high"),
+                             REJECT_INVALID, "bad-txns-vpub_new-toolarge");
+        }
+
+        if (joinsplit.vpub_new != 0 && joinsplit.vpub_old != 0) {
+            return state.DoS(100, error("CheckOutputAmounts(): joinsplit.vpub_new and joinsplit.vpub_old both nonzero"),
+                             REJECT_INVALID, "bad-txns-vpubs-both-nonzero");
+        }
+
+        nCumulatedValueOut += joinsplit.vpub_old;
+        if (!MoneyRange(nCumulatedValueOut)) {
+            return state.DoS(100, error("CheckOutputAmounts(): txout total out of range"),
+                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+        }
+    }
+
+    return true;
+}
+
+bool CTransactionBase::CheckInputsDuplication(CValidationState &state) const
+{
+    // Check for duplicate inputs
+    std::set<COutPoint> vInOutPoints;
+    for(const CTxIn& txin: GetVins())
+    {
+        if (vInOutPoints.count(txin.prevout))
+            return state.DoS(100, error("CheckInputsDuplications(): duplicate inputs"),
+                             REJECT_INVALID, "bad-txns-inputs-duplicate");
+        vInOutPoints.insert(txin.prevout);
+    }
+
+    // Check for duplicate joinsplit nullifiers in this transaction
+    std::set<uint256> vJoinSplitNullifiers;
+    for(const JSDescription& joinsplit: GetJoinSplits())
+    {
+        for(const uint256& nf: joinsplit.nullifiers)
+        {
+            if (vJoinSplitNullifiers.count(nf))
+                return state.DoS(100, error("CheckInputsDuplications(): duplicate nullifiers"),
+                             REJECT_INVALID, "bad-joinsplits-nullifiers-duplicate");
+
+            vJoinSplitNullifiers.insert(nf);
+        }
+    }
+
+    return true;
+}
+
+bool CTransactionBase::CheckInputsInteraction(CValidationState &state) const
+{
+    if (IsCoinBase())
+    {
+        // There should be no joinsplits in a coinbase transaction
+        if (GetJoinSplits().size() > 0)
+            return state.DoS(100, error("CheckInputsInteraction(): coinbase has joinsplits"),
+                             REJECT_INVALID, "bad-cb-has-joinsplits");
+
+        if (GetVins()[0].scriptSig.size() < 2 || GetVins()[0].scriptSig.size() > 100)
+            return state.DoS(100, error("CheckInputsInteraction(): coinbase script size"),
+                             REJECT_INVALID, "bad-cb-length");
+    }
+    else
+    {
+        for(const CTxIn& txin: GetVins())
+            if (txin.prevout.IsNull())
+                return state.DoS(10, error("CheckInputsInteraction(): prevout is null"),
+                                 REJECT_INVALID, "bad-txns-prevout-null");
+    }
+
     return true;
 }
 
@@ -450,6 +559,56 @@ double CTransaction::ComputePriority(double dPriorityInputs, unsigned int nTxSiz
     if (nTxSize == 0) return 0.0;
 
     return dPriorityInputs / nTxSize;
+}
+
+bool CTransaction::CheckVersionBasic(CValidationState &state) const
+{
+    // Basic checks that don't depend on any context
+    // Check transaction version
+    if (nVersion < MIN_OLD_TX_VERSION && nVersion != GROTH_TX_VERSION && !IsScVersion() )
+    {
+        return state.DoS(100, error("BasicVersionCheck(): version too low"),
+                         REJECT_INVALID, "bad-txns-version-too-low");
+    }
+
+    return true;
+}
+
+bool CTransaction::CheckInputsAvailability(CValidationState &state) const
+{
+    // Transactions can contain empty `vin` and `vout` so long as
+    // `vjoinsplit` is non-empty.
+    if (GetVins().empty() && GetJoinSplits().empty())
+    {
+        LogPrint("sc", "%s():%d - Error: tx[%s]\n", __func__, __LINE__, GetHash().ToString() );
+        return state.DoS(10, error("CheckInputsAvailability(): vin empty"),
+                         REJECT_INVALID, "bad-txns-vin-empty");
+    }
+
+    return true;
+}
+
+bool CTransaction::CheckSerializedSize(CValidationState &state) const
+{
+    BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_TX_SIZE); // sanity
+    if (::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION) > MAX_TX_SIZE)
+        return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
+                         REJECT_INVALID, "bad-txns-oversize");
+
+    return true;
+}
+
+bool CTransaction::CheckOutputsAvailability(CValidationState &state) const
+{
+    // Allow the case when crosschain outputs are not empty. In that case there might be no vout at all
+    // when utxo reminder is only dust, which is added to fee leaving no change for the sender
+    if (GetVouts().empty() && GetJoinSplits().empty() && ccIsNull())
+    {
+        return state.DoS(10, error("CheckOutputsAvailability(): vout empty"),
+                         REJECT_INVALID, "bad-txns-vout-empty");
+    }
+
+    return true;
 }
 
 CAmount CTransaction::GetValueOut() const
@@ -673,6 +832,7 @@ bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& st
                 REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
     }
+
     return true;
 }
 

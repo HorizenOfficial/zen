@@ -1038,7 +1038,7 @@ public:
         if (fAnyoneCanPay)
             nInput = nIn;
         // Serialize the prevout
-        ::Serialize(s, txTo.getVins()[nInput].prevout, nType, nVersion);
+        ::Serialize(s, txTo.GetVins()[nInput].prevout, nType, nVersion);
         // Serialize the script
         assert(nInput != NOT_AN_INPUT);
         if (nInput != nIn)
@@ -1051,7 +1051,7 @@ public:
             // let the others update at will
             ::Serialize(s, (int)0, nType, nVersion);
         else
-            ::Serialize(s, txTo.getVins()[nInput].nSequence, nType, nVersion);
+            ::Serialize(s, txTo.GetVins()[nInput].nSequence, nType, nVersion);
     }
 
     /** Serialize an output of txTo */
@@ -1061,7 +1061,7 @@ public:
             // Do not lock-in the txout payee at other indices as txin
             ::Serialize(s, CTxOut(), nType, nVersion);
         else
-            ::Serialize(s, txTo.getVout()[nOutput], nType, nVersion);
+            ::Serialize(s, txTo.GetVouts()[nOutput], nType, nVersion);
     }
 
     /** Serialize a cross chain outputs of txTo */
@@ -1086,12 +1086,12 @@ public:
         // Serialize nVersion
         ::Serialize(s, txTo.nVersion, nType, nVersion);
         // Serialize vin
-        unsigned int nInputs = fAnyoneCanPay ? 1 : txTo.getVins().size();
+        unsigned int nInputs = fAnyoneCanPay ? 1 : txTo.GetVins().size();
         ::WriteCompactSize(s, nInputs);
         for (unsigned int nInput = 0; nInput < nInputs; nInput++)
              SerializeInput(s, nInput, nType, nVersion);
         // Serialize vout
-        unsigned int nOutputs = fHashNone ? 0 : (fHashSingle ? nIn+1 : txTo.getVout().size());
+        unsigned int nOutputs = fHashNone ? 0 : (fHashSingle ? nIn+1 : txTo.GetVouts().size());
         ::WriteCompactSize(s, nOutputs);
         for (unsigned int nOutput = 0; nOutput < nOutputs; nOutput++)
              SerializeOutput(s, nOutput, nType, nVersion);
@@ -1129,8 +1129,8 @@ public:
             // to the transaction.
             //
         	auto os = WithTxVersion(&s, txTo.nVersion);
-        	::Serialize(os, txTo.getJoinsSplit(), nType, nVersion);
-            if (txTo.getJoinsSplit().size() > 0) {
+        	::Serialize(os, txTo.GetJoinSplits(), nType, nVersion);
+            if (txTo.GetJoinSplits().size() > 0) {
                 ::Serialize(s, txTo.joinSplitPubKey, nType, nVersion);
 
                 CTransaction::joinsplit_sig_t nullSig = {};
@@ -1144,14 +1144,14 @@ public:
 
 uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType)
 {
-    if (nIn >= txTo.getVins().size() && nIn != NOT_AN_INPUT) {
+    if (nIn >= txTo.GetVins().size() && nIn != NOT_AN_INPUT) {
         //  nIn out of range
         throw logic_error("input index is out of range");
     }
 
     // Check for invalid use of SIGHASH_SINGLE
     if ((nHashType & 0x1f) == SIGHASH_SINGLE) {
-        if (nIn >= txTo.getVout().size()) {
+        if (nIn >= txTo.GetVouts().size()) {
             //  nOut out of range
             throw logic_error("no matching output for SIGHASH_SINGLE");
         }
@@ -1228,7 +1228,7 @@ bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime) con
     // prevent this condition. Alternatively we could test all
     // inputs, but testing just this input minimizes the data
     // required to prove correct CHECKLOCKTIMEVERIFY execution.
-    if (txTo->getVins()[nIn].IsFinal())
+    if (txTo->GetVins()[nIn].IsFinal())
         return false;
 
     return true;

@@ -66,9 +66,19 @@ public:
     template <typename Stream>
     CScCertificate(deserialize_type, Stream& s) : CScCertificate(CMutableScCertificate(deserialize, s)) {}
 
-    const std::vector<CTxIn>&         getVins()       const override {static const std::vector<CTxIn> noInputs; return noInputs;};
-    const std::vector<CTxOut>&        getVout()       const override {return vout;};
-    const std::vector<JSDescription>& getJoinsSplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
+    //GETTERS
+    const std::vector<CTxIn>&         GetVins()       const override {static const std::vector<CTxIn> noInputs; return noInputs;};
+    const std::vector<CTxOut>&        GetVouts()       const override {return vout;};
+    const std::vector<JSDescription>& GetJoinSplits() const override {static const std::vector<JSDescription> noJs; return noJs;};
+    //END OF GETTERS
+
+    //CHECK FUNCTIONS
+    bool CheckVersionBasic        (CValidationState &state) const override;
+    bool CheckInputsAvailability  (CValidationState &state) const override;
+    bool CheckOutputsAvailability (CValidationState &state) const override;
+    bool CheckSerializedSize      (CValidationState &state) const override;
+    //END OF CHECK FUNCTIONS
+
 
     bool IsNull() const override {
         return (
