@@ -224,8 +224,6 @@ class WalletTest (BitcoinTestFramework):
         self.sync_all()
 
         txIdNotBroadcasted  = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 2);
-        #print "tx = ", txIdNotBroadcasted
-        #raw_input("Press enter to continue...")
         txObjNotBroadcasted = self.nodes[0].gettransaction(txIdNotBroadcasted)
         self.sync_all()
         self.nodes[1].generate(1) #mine a block, tx should not be in there
