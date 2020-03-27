@@ -673,7 +673,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         entry.push_back(Pair("hash", txHash.GetHex()));
 
         UniValue deps(UniValue::VARR);
-        BOOST_FOREACH (const CTxIn &in, tx.GetVins())
+        BOOST_FOREACH (const CTxIn &in, tx.GetVin())
         {
             if (setTxIndex.count(in.prevout.hash))
                 deps.push_back(setTxIndex[in.prevout.hash]);
@@ -686,12 +686,12 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
 
         if (tx.IsCoinBase()) {
             // Show community reward if it is required
-            if (pblock->vtx[0].GetVouts().size() > 1) {
+            if (pblock->vtx[0].GetVout().size() > 1) {
                 // Correct this if GetBlockTemplate changes the order
-                entry.push_back(Pair("communityfund", (int64_t)tx.GetVouts()[1].nValue));
-                if (pblock->vtx[0].GetVouts().size() > 3) {
-                    entry.push_back(Pair("securenodes", (int64_t)tx.GetVouts()[2].nValue));
-                    entry.push_back(Pair("supernodes", (int64_t)tx.GetVouts()[3].nValue));
+                entry.push_back(Pair("communityfund", (int64_t)tx.GetVout()[1].nValue));
+                if (pblock->vtx[0].GetVout().size() > 3) {
+                    entry.push_back(Pair("securenodes", (int64_t)tx.GetVout()[2].nValue));
+                    entry.push_back(Pair("supernodes", (int64_t)tx.GetVout()[3].nValue));
                 }
             }
             entry.push_back(Pair("required", true));
@@ -748,7 +748,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         result.push_back(Pair("coinbasetxn", txCoinbase));
     } else {
         result.push_back(Pair("coinbaseaux", aux));
-        result.push_back(Pair("coinbasevalue", (int64_t)pblock->vtx[0].GetVouts()[0].nValue));
+        result.push_back(Pair("coinbasevalue", (int64_t)pblock->vtx[0].GetVout()[0].nValue));
     }
     result.push_back(Pair("longpollid", chainActive.Tip()->GetBlockHash().GetHex() + i64tostr(nTransactionsUpdatedLast)));
     result.push_back(Pair("target", hashTarget.GetHex()));

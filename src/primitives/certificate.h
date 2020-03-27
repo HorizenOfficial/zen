@@ -67,9 +67,9 @@ public:
     CScCertificate(deserialize_type, Stream& s) : CScCertificate(CMutableScCertificate(deserialize, s)) {}
 
     //GETTERS
-    const std::vector<CTxIn>&         GetVins()       const override {static const std::vector<CTxIn> noInputs; return noInputs;};
-    const std::vector<CTxOut>&        GetVouts()       const override {return vout;};
-    const std::vector<JSDescription>& GetJoinSplits() const override {static const std::vector<JSDescription> noJs; return noJs;};
+    const std::vector<CTxIn>&         GetVin()        const override {static const std::vector<CTxIn> noInputs; return noInputs;};
+    const std::vector<CTxOut>&        GetVout()       const override {return vout;};
+    const std::vector<JSDescription>& GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
     //END OF GETTERS
 
     //CHECK FUNCTIONS

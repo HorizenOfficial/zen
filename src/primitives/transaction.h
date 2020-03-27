@@ -677,9 +677,9 @@ public:
     }
 
     //GETTERS
-    virtual const std::vector<CTxIn>&         GetVins()       const = 0;
-    virtual const std::vector<CTxOut>&        GetVouts()      const = 0;
-    virtual const std::vector<JSDescription>& GetJoinSplits() const = 0;
+    virtual const std::vector<CTxIn>&         GetVin()        const = 0;
+    virtual const std::vector<CTxOut>&        GetVout()       const = 0;
+    virtual const std::vector<JSDescription>& GetVjoinsplit() const = 0;
     //END OF GETTERS
 
     //CHECK FUNCTIONS
@@ -866,9 +866,9 @@ public:
     }
     
     //GETTERS
-    const std::vector<CTxIn>&         GetVins()       const override {return vin;};
-    const std::vector<CTxOut>&        GetVouts()       const override {return vout;};
-    const std::vector<JSDescription>& GetJoinSplits() const override {return vjoinsplit;};
+    const std::vector<CTxIn>&         GetVin()        const override {return vin;};
+    const std::vector<CTxOut>&        GetVout()       const override {return vout;};
+    const std::vector<JSDescription>& GetVjoinsplit() const override {return vjoinsplit;};
     //END OF GETTERS
 
     //CHECK FUNCTIONS

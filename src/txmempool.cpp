@@ -132,10 +132,10 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     mapTx[hash] = entry;
     const CTransaction& tx = mapTx[hash].GetTx();
 
-    for (unsigned int i = 0; i < tx.GetVins().size(); i++)
-        mapNextTx[tx.GetVins()[i].prevout] = CInPoint(&tx, i);
+    for (unsigned int i = 0; i < tx.GetVin().size(); i++)
+        mapNextTx[tx.GetVin()[i].prevout] = CInPoint(&tx, i);
 
-    BOOST_FOREACH(const JSDescription &joinsplit, tx.GetJoinSplits()) {
+    BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
         BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
             mapNullifiers[nf] = &tx;
         }
@@ -200,7 +200,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
             // be sure to remove any children that are in the pool. This can
             // happen during chain re-orgs if origTx isn't re-accepted into
             // the mempool for any reason.
-            for (unsigned int i = 0; i < origTx.GetVouts().size(); i++) {
+            for (unsigned int i = 0; i < origTx.GetVout().size(); i++) {
                 std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(origTx.GetHash(), i));
                 if (it == mapNextTx.end())
                     continue;
@@ -242,7 +242,7 @@ void::CTxMemPool::removeInternal(
         {
             const CTransaction& tx = mapTx[hash].GetTx();
             if (fRecursive) {
-                for (unsigned int i = 0; i < tx.GetVouts().size(); i++) {
+                for (unsigned int i = 0; i < tx.GetVout().size(); i++) {
                     std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(hash, i));
                     if (it == mapNextTx.end())
                         continue;
@@ -263,9 +263,9 @@ void::CTxMemPool::removeInternal(
                 }
             }
 
-            BOOST_FOREACH(const CTxIn& txin, tx.GetVins())
+            BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
                 mapNextTx.erase(txin.prevout);
-            BOOST_FOREACH(const JSDescription& joinsplit, tx.GetJoinSplits()) {
+            BOOST_FOREACH(const JSDescription& joinsplit, tx.GetVjoinsplit()) {
                 BOOST_FOREACH(const uint256& nf, joinsplit.nullifiers) {
                     mapNullifiers.erase(nf);
                 }
@@ -311,7 +311,7 @@ void::CTxMemPool::removeInternal(
             const CScCertificate& cert = mapCertificate[hash].GetCertificate();
             if (fRecursive)
             {
-                for (unsigned int i = 0; i < cert.GetVouts().size(); i++) {
+                for (unsigned int i = 0; i < cert.GetVout().size(); i++) {
                     std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(hash, i));
                     if (it == mapNextTx.end())
                         continue;
@@ -349,7 +349,7 @@ void CTxMemPool::remove(const CScCertificate &origCert, std::list<CTransaction>&
             // be sure to remove any children that are in the pool. This can
             // happen during chain re-orgs if origCert isn't re-accepted into
             // the mempool for any reason.
-            for (unsigned int i = 0; i < origCert.GetVouts().size(); i++) {
+            for (unsigned int i = 0; i < origCert.GetVout().size(); i++) {
                 std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(origCert.GetHash(), i));
                 if (it == mapNextTx.end())
                     continue;
@@ -369,7 +369,7 @@ void CTxMemPool::removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned in
     std::list<CTransaction> transactionsToRemove;
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         const CTransaction& tx = it->second.GetTx();
-        BOOST_FOREACH(const CTxIn& txin, tx.GetVins()) {
+        BOOST_FOREACH(const CTxIn& txin, tx.GetVin()) {
             std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(txin.prevout.hash);
             if (it2 != mapTx.end())
                 continue;
@@ -420,7 +420,7 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
             certsToRemove.push_back(cert);
 
             // Remove also txes that depend on such certificates
-            for (unsigned int i = 0; i < cert.GetVouts().size(); i++) {
+            for (unsigned int i = 0; i < cert.GetVout().size(); i++) {
                 std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(cert.GetHash(), i));
                 if (it == mapNextTx.end())
                     continue;
@@ -453,7 +453,7 @@ void CTxMemPool::removeWithAnchor(const uint256 &invalidRoot)
 
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         const CTransaction& tx = it->second.GetTx();
-        BOOST_FOREACH(const JSDescription& joinsplit, tx.GetJoinSplits()) {
+        BOOST_FOREACH(const JSDescription& joinsplit, tx.GetVjoinsplit()) {
             if (joinsplit.anchor == invalidRoot) {
                 transactionsToRemove.push_back(tx);
                 break;
@@ -473,7 +473,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
     // not used
     // list<CTransaction> result;
     LOCK(cs);
-    BOOST_FOREACH(const CTxIn &txin, tx.GetVins()) {
+    BOOST_FOREACH(const CTxIn &txin, tx.GetVin()) {
         std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(txin.prevout);
         if (it != mapNextTx.end()) {
             const CTransaction &txConflict = *it->second.ptx;
@@ -484,7 +484,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
         }
     }
 
-    BOOST_FOREACH(const JSDescription &joinsplit, tx.GetJoinSplits()) {
+    BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
         BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
             std::map<uint256, const CTransaction*>::iterator it = mapNullifiers.find(nf);
             if (it != mapNullifiers.end()) {
@@ -589,19 +589,19 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         const CTransaction& tx = it->second.GetTx();
 
         bool fDependsWait = false;
-        BOOST_FOREACH(const CTxIn &txin, tx.GetVins()) {
+        BOOST_FOREACH(const CTxIn &txin, tx.GetVin()) {
             // Check that every mempool transaction's inputs refer to available coins, or other mempool tx's.
             std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(txin.prevout.hash);
             if (it2 != mapTx.end()) {
                 const CTransaction& tx2 = it2->second.GetTx();
-                assert(tx2.GetVouts().size() > txin.prevout.n && !tx2.GetVouts()[txin.prevout.n].IsNull());
+                assert(tx2.GetVout().size() > txin.prevout.n && !tx2.GetVout()[txin.prevout.n].IsNull());
                 fDependsWait = true;
             } else {
                 // maybe our input is a certificate?
                 std::map<uint256, CCertificateMemPoolEntry>::const_iterator itCert = mapCertificate.find(txin.prevout.hash);
                 if (itCert != mapCertificate.end()) {
                     const CTransactionBase& cert = itCert->second.GetCertificate();
-                    assert(cert.GetVouts().size() > txin.prevout.n && !cert.GetVouts()[txin.prevout.n].IsNull());
+                    assert(cert.GetVout().size() > txin.prevout.n && !cert.GetVout()[txin.prevout.n].IsNull());
                     fDependsWait = true;
                 }
                 else
@@ -645,7 +645,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
         boost::unordered_map<uint256, ZCIncrementalMerkleTree, CCoinsKeyHasher> intermediates;
 
-        BOOST_FOREACH(const JSDescription &joinsplit, tx.GetJoinSplits()) {
+        BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
             BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
                 assert(!pcoins->GetNullifier(nf));
             }
@@ -713,8 +713,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         const CTransaction& tx = it2->second.GetTx();
         assert(it2 != mapTx.end());
         assert(&tx == it->second.ptx);
-        assert(tx.GetVins().size() > it->second.n);
-        assert(it->first == it->second.ptx->GetVins()[it->second.n].prevout);
+        assert(tx.GetVin().size() > it->second.n);
+        assert(it->first == it->second.ptx->GetVin()[it->second.n].prevout);
     }
 
     for (std::map<uint256, const CTransaction*>::const_iterator it = mapNullifiers.begin(); it != mapNullifiers.end(); it++) {
@@ -835,8 +835,8 @@ void CTxMemPool::ClearPrioritisation(const uint256 hash)
 
 bool CTxMemPool::HasNoInputsOf(const CTransaction &tx) const
 {
-    for (unsigned int i = 0; i < tx.GetVins().size(); i++)
-        if (exists(tx.GetVins()[i].prevout.hash))
+    for (unsigned int i = 0; i < tx.GetVin().size(); i++)
+        if (exists(tx.GetVin()[i].prevout.hash))
             return false;
     return true;
 

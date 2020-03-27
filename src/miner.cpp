@@ -157,7 +157,7 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
         bool fMissingInputs = false;
 
         // Detect orphan transaction and its dependencies
-        BOOST_FOREACH(const CTxIn& txin, tx.GetVins())
+        BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
         {
 #if 0
             if (mempool.mapTx.count(txin.prevout.hash))
@@ -182,7 +182,7 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
                 }
                 mapDependers[txin.prevout.hash].push_back(porphan);
                 porphan->setDependsOn.insert(txin.prevout.hash);
-                nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().GetVouts()[txin.prevout.n].nValue;
+                nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().GetVout()[txin.prevout.n].nValue;
             }
         }
 #if 1
@@ -204,7 +204,7 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
         }
         else
         {
-            BOOST_FOREACH(const CTxIn& txin, tx.GetVins())
+            BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
             {
                 // Read prev transaction
                 // Skip transactions in mempool
@@ -278,7 +278,7 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
         double dPriority = 0;
         CAmount nTotalIn = 0;
         bool fMissingInputs = false;
-        BOOST_FOREACH(const CTxIn& txin, tx.GetVins())
+        BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
         {
             // Read prev transaction
             if (!view.HaveCoins(txin.prevout.hash))
@@ -305,7 +305,7 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
                 }
                 mapDependers[txin.prevout.hash].push_back(porphan);
                 porphan->setDependsOn.insert(txin.prevout.hash);
-                nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().GetVouts()[txin.prevout.n].nValue;
+                nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().GetVout()[txin.prevout.n].nValue;
                 continue;
             }
             const CCoins* coins = view.AccessCoins(txin.prevout.hash);
@@ -490,7 +490,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
             // Skip transaction if max block complexity reached.
 #if 0
-            int nTxComplexity = tx.GetVins().size() * tx.GetVins().size();
+            int nTxComplexity = tx.GetVin().size() * tx.GetVin().size();
 #else
             int nTxComplexity = tx.GetComplexity();
 #endif
@@ -719,7 +719,7 @@ static bool ProcessBlockFound(CBlock* pblock)
 #endif // ENABLE_WALLET
 {
     LogPrintf("%s\n", pblock->ToString());
-    LogPrintf("generated %s\n", FormatMoney(pblock->vtx[0].GetVouts()[0].nValue));
+    LogPrintf("generated %s\n", FormatMoney(pblock->vtx[0].GetVout()[0].nValue));
 
     // Found a solution
     {

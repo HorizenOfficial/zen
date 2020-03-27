@@ -103,7 +103,7 @@ UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp)
     const CWalletObjBase& wtx = *(pwalletMain->mapWallet[hash]);
 
     // Check if shielded tx
-    if (wtx.GetJoinSplits().size() == 0) {
+    if (wtx.GetVjoinsplit().size() == 0) {
 #endif
         throw JSONRPCError(RPC_MISC_ERROR, "Transaction is not a shielded transaction");
     }
@@ -111,9 +111,9 @@ UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp)
     // Check js_index
     int js_index = params[1].get_int();
 #if 0
-    if (js_index < 0 || js_index >= wtx.GetJoinSplits().size()) {
+    if (js_index < 0 || js_index >= wtx.GetVjoinsplit().size()) {
 #else
-    if (js_index < 0 || js_index >= wtx.GetJoinSplits().size()) {
+    if (js_index < 0 || js_index >= wtx.GetVjoinsplit().size()) {
 #endif
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid js_index");
     }
@@ -233,7 +233,7 @@ UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp)
     }
 
     // Check if shielded tx
-    if (tx.GetJoinSplits().empty()) {
+    if (tx.GetVjoinsplit().empty()) {
         throw JSONRPCError(RPC_MISC_ERROR, "Transaction is not a shielded transaction");
     }
 
@@ -242,7 +242,7 @@ UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp)
     o.push_back(Pair("txid", pd.payload.txid.ToString()));
 
     // Check js_index
-    if (pd.payload.js >= tx.GetJoinSplits().size()) {
+    if (pd.payload.js >= tx.GetVjoinsplit().size()) {
         errs.push_back("Payment disclosure refers to an invalid joinsplit index");
     }
     o.push_back(Pair("jsIndex", pd.payload.js));
@@ -276,7 +276,7 @@ UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp)
 
         try {
             // Decrypt the note to get value and memo field
-            JSDescription jsdesc = tx.GetJoinSplits()[pd.payload.js];
+            JSDescription jsdesc = tx.GetVjoinsplit()[pd.payload.js];
             uint256 h_sig = jsdesc.h_sig(*pzcashParams, tx.joinSplitPubKey);
 
             ZCPaymentDisclosureNoteDecryption decrypter;

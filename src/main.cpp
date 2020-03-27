@@ -627,7 +627,7 @@ bool AddOrphanTx(const CTransaction& tx, NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(c
 
     mapOrphanTransactions[hash].tx = tx;
     mapOrphanTransactions[hash].fromPeer = peer;
-    BOOST_FOREACH(const CTxIn& txin, tx.GetVins())
+    BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
         mapOrphanTransactionsByPrev[txin.prevout.hash].insert(hash);
 
     LogPrint("mempool", "stored orphan tx %s (mapsz %u prevsz %u)\n", hash.ToString(),
@@ -640,7 +640,7 @@ void static EraseOrphanTx(uint256 hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     map<uint256, COrphanTx>::iterator it = mapOrphanTransactions.find(hash);
     if (it == mapOrphanTransactions.end())
         return;
-    BOOST_FOREACH(const CTxIn& txin, it->second.tx.GetVins())
+    BOOST_FOREACH(const CTxIn& txin, it->second.tx.GetVin())
     {
         map<uint256, set<uint256> >::iterator itPrev = mapOrphanTransactionsByPrev.find(txin.prevout.hash);
         if (itPrev == mapOrphanTransactionsByPrev.end())
@@ -725,7 +725,7 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
     }
 
 
-    BOOST_FOREACH(const CTxIn& txin, tx.GetVins())
+    BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
     {
         // Biggest 'standard' txin is a 15-of-15 P2SH multisig with compressed
         // keys. (remember the 520 byte limit on redeemScript size) That works
@@ -746,7 +746,7 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
 
     unsigned int nDataOut = 0;
     txnouttype whichType;
-    BOOST_FOREACH(const CTxOut& txout, tx.GetVouts()) {
+    BOOST_FOREACH(const CTxOut& txout, tx.GetVout()) {
 
         CheckBlockResult checkBlockResult;
         if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
@@ -808,7 +808,7 @@ bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
         return true;
     if ((int64_t)tx.nLockTime < ((int64_t)tx.nLockTime < LOCKTIME_THRESHOLD ? (int64_t)nBlockHeight : nBlockTime))
         return true;
-    BOOST_FOREACH(const CTxIn& txin, tx.GetVins())
+    BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
     /* According to BIP 68, setting nSequence value to 0xFFFFFFFF for every input in the transaction disables nLocktime.
        So, whatever may be the value of nLocktime above, it will have no effect on the transaction as far as nSequence
        value is 0xFFFFFFFF.*/
@@ -862,9 +862,9 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
     if (tx.IsCoinBase())
         return true; // Coinbases don't use vin normally
 
-    for (unsigned int i = 0; i < tx.GetVins().size(); i++)
+    for (unsigned int i = 0; i < tx.GetVin().size(); i++)
     {
-        const CTxOut& prev = mapInputs.GetOutputFor(tx.GetVins()[i]);
+        const CTxOut& prev = mapInputs.GetOutputFor(tx.GetVin()[i]);
 
         vector<vector<unsigned char> > vSolutions;
         txnouttype whichType;
@@ -883,7 +883,7 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         // IsStandardTx() will have already returned false
         // and this method isn't called.
         vector<vector<unsigned char> > stack;
-        if (!EvalScript(stack, tx.GetVins()[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker()))
+        if (!EvalScript(stack, tx.GetVin()[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker()))
             return false;
 
         if (whichType == TX_SCRIPTHASH || whichType == TX_SCRIPTHASH_REPLAY)
@@ -919,11 +919,11 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 unsigned int GetLegacySigOpCount(const CTransaction& tx)
 {
     unsigned int nSigOps = 0;
-    BOOST_FOREACH(const CTxIn& txin, tx.GetVins())
+    BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
     {
         nSigOps += txin.scriptSig.GetSigOpCount(false);
     }
-    BOOST_FOREACH(const CTxOut& txout, tx.GetVouts())
+    BOOST_FOREACH(const CTxOut& txout, tx.GetVout())
     {
         nSigOps += txout.scriptPubKey.GetSigOpCount(false);
     }
@@ -936,11 +936,11 @@ unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& in
         return 0;
 
     unsigned int nSigOps = 0;
-    for (unsigned int i = 0; i < tx.GetVins().size(); i++)
+    for (unsigned int i = 0; i < tx.GetVin().size(); i++)
     {
-        const CTxOut &prevout = inputs.GetOutputFor(tx.GetVins()[i]);
+        const CTxOut &prevout = inputs.GetOutputFor(tx.GetVin()[i]);
         if (prevout.scriptPubKey.IsPayToScriptHash())
-            nSigOps += prevout.scriptPubKey.GetSigOpCount(tx.GetVins()[i].scriptSig);
+            nSigOps += prevout.scriptPubKey.GetSigOpCount(tx.GetVin()[i].scriptSig);
     }
     return nSigOps;
 }
@@ -987,7 +987,7 @@ bool ContextualCheckTransaction(
             (areSidechainsSupported && (tx.nVersion == sidechainVersion) ) )
         {
             //enforce empty joinsplit for transparent txs and sidechain tx
-            if(!tx.GetJoinSplits().empty()) {
+            if(!tx.GetVjoinsplit().empty()) {
                 return state.DoS(dosLevel, error("ContextualCheckTransaction(): transparent or sc tx but vjoinsplit not empty"),
                                      REJECT_INVALID, "bad-txns-transparent-jsnotempty");
             }
@@ -1073,7 +1073,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
     }
 
     // Ensure that zk-SNARKs verify
-    BOOST_FOREACH(const JSDescription &joinsplit, tx.GetJoinSplits()) {
+    BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
         if (!joinsplit.Verify(*pzcashParams, verifier, tx.joinSplitPubKey)) {
             return state.DoS(100, error("CheckTransaction(): joinsplit does not verify"),
                                 REJECT_INVALID, "bad-txns-joinsplit-verification-failed");
@@ -1117,7 +1117,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
 
     if (!tx.IsCoinBase())
     {
-        if (tx.GetJoinSplits().size() > 0) {
+        if (tx.GetVjoinsplit().size() > 0) {
             // Empty output script.
             CScript scriptCode;
             uint256 dataToBeSigned;
@@ -1330,7 +1330,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     static_assert(std::numeric_limits<size_t>::max() >= std::numeric_limits<int64_t>::max(), "size_t too small");
     size_t limit = (size_t) GetArg("-mempooltxinputlimit", 0);
     if (limit > 0) {
-        size_t n = tx.GetVins().size();
+        size_t n = tx.GetVin().size();
         if (n > limit) {
             LogPrint("mempool", "Dropping txid %s : too many transparent inputs %zu > limit %zu\n", tx.GetHash().ToString(), n, limit );
             return false;
@@ -1386,9 +1386,9 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // Check for conflicts with in-memory transactions
     {
         LOCK(pool.cs); // protect pool.mapNextTx
-        for (unsigned int i = 0; i < tx.GetVins().size(); i++)
+        for (unsigned int i = 0; i < tx.GetVin().size(); i++)
         {
-            COutPoint outpoint = tx.GetVins()[i].prevout;
+            COutPoint outpoint = tx.GetVin()[i].prevout;
             if (pool.mapNextTx.count(outpoint))
             {
                 // Disable replacement feature for now
@@ -1404,7 +1404,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             }
         }
 
-        BOOST_FOREACH(const JSDescription &joinsplit, tx.GetJoinSplits()) {
+        BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
             BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
                 if (pool.mapNullifiers.count(nf))
                 {
@@ -1434,7 +1434,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             // do all inputs exist?
             // Note that this does not check for the presence of actual outputs (see the next check for that),
             // and only helps with filling in pfMissingInputs (to determine missing vs spent).
-            BOOST_FOREACH(const CTxIn txin, tx.GetVins())
+            BOOST_FOREACH(const CTxIn txin, tx.GetVin())
             {
                 if (!view.HaveCoins(txin.prevout.hash))
                 {
@@ -1508,7 +1508,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         unsigned int nSize = entry.GetTxSize();
 
         // Accept a tx if it contains joinsplits and has at least the default fee specified by z_sendmany.
-        if (tx.GetJoinSplits().size() > 0 && nFees >= ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE) {
+        if (tx.GetVjoinsplit().size() > 0 && nFees >= ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE) {
             // In future we will we have more accurate and dynamic computation of fees for tx with joinsplits.
         } else {
             // Don't accept it if it can't get into a block
@@ -1963,8 +1963,8 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
 {
     // mark inputs spent
     if (!txBase.IsCoinBase()) {
-        txundo.vprevout.reserve(txBase.GetVins().size());
-        for(const CTxIn &txin: txBase.GetVins()) {
+        txundo.vprevout.reserve(txBase.GetVin().size());
+        for(const CTxIn &txin: txBase.GetVin()) {
             CCoinsModifier coins = inputs.ModifyCoins(txin.prevout.hash);
             unsigned nPos = txin.prevout.n;
 
@@ -1983,7 +1983,7 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
     }
 
     // spend nullifiers
-    for(const JSDescription &joinsplit: txBase.GetJoinSplits()) {
+    for(const JSDescription &joinsplit: txBase.GetVjoinsplit()) {
         for(const uint256 &nf: joinsplit.nullifiers) {
             inputs.SetNullifier(nf, true);
         }
@@ -2000,7 +2000,7 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
 }
 
 bool CScriptCheck::operator()() {
-    const CScript &scriptSig = ptxTo->GetVins()[nIn].scriptSig;
+    const CScript &scriptSig = ptxTo->GetVin()[nIn].scriptSig;
     if (!VerifyScript(scriptSig, scriptPubKey, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, chain, cacheStore), &error)) {
         return ::error("CScriptCheck(): %s:%d VerifySignature failed: %s", ptxTo->GetHash().ToString(), nIn, ScriptErrorString(error));
     }
@@ -2050,9 +2050,9 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 
         CAmount nValueIn = 0;
         CAmount nFees = 0;
-        for (unsigned int i = 0; i < tx.GetVins().size(); i++)
+        for (unsigned int i = 0; i < tx.GetVin().size(); i++)
         {
-            const COutPoint &prevout = tx.GetVins()[i].prevout;
+            const COutPoint &prevout = tx.GetVin()[i].prevout;
             const CCoins *coins = inputs.AccessCoins(prevout.hash);
             assert(coins);
 
@@ -2068,7 +2068,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
                 // Disabled on regtest
                 if (fCoinbaseEnforcedProtectionEnabled &&
                     consensusParams.fCoinbaseMustBeProtected &&
-                    !tx.GetVouts().empty()) {
+                    !tx.GetVout().empty()) {
 
                     // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed
                     // to send them to the transparent addr.
@@ -2122,7 +2122,7 @@ bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, cons
         }
 
         if (pvChecks)
-            pvChecks->reserve(tx.GetVins().size());
+            pvChecks->reserve(tx.GetVin().size());
 
         // The first loop above does all the inexpensive checks.
         // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
@@ -2132,8 +2132,8 @@ bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, cons
         // before the last block chain checkpoint. This is safe because block merkle hashes are
         // still computed and checked, and any change will be caught at the next checkpoint.
         if (fScriptChecks) {
-            for (unsigned int i = 0; i < tx.GetVins().size(); i++) {
-                const COutPoint &prevout = tx.GetVins()[i].prevout;
+            for (unsigned int i = 0; i < tx.GetVin().size(); i++) {
+                const COutPoint &prevout = tx.GetVin()[i].prevout;
                 const CCoins* coins = inputs.AccessCoins(prevout.hash);
                 assert(coins);
 
@@ -2338,7 +2338,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
 
         // unspend nullifiers
-        BOOST_FOREACH(const JSDescription &joinsplit, tx.GetJoinSplits()) {
+        BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
             BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
                 view.SetNullifier(nf, false);
             }
@@ -2354,10 +2354,10 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         // restore inputs
         if (i > 0) { // not coinbases
             const CTxUndo &txundo = blockUndo.vtxundo[i-1];
-            if (txundo.vprevout.size() != tx.GetVins().size())
+            if (txundo.vprevout.size() != tx.GetVin().size())
                 return error("DisconnectBlock(): transaction and undo data inconsistent");
-            for (unsigned int j = tx.GetVins().size(); j-- > 0;) {
-                const COutPoint &out = tx.GetVins()[j].prevout;
+            for (unsigned int j = tx.GetVin().size(); j-- > 0;) {
+                const COutPoint &out = tx.GetVin()[j].prevout;
                 const CTxInUndo &undo = txundo.vprevout[j];
                 if (!ApplyTxInUndo(undo, view, out))
                     fClean = false;
@@ -2635,7 +2635,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     {
         const CTransaction &tx = block.vtx[i];
 
-        nInputs += tx.GetVins().size();
+        nInputs += tx.GetVin().size();
         nSigOps += tx.GetLegacySigOpCount();
         if (nSigOps > MAX_BLOCK_SIGOPS)
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
@@ -2688,7 +2688,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
         }
 
-        BOOST_FOREACH(const JSDescription &joinsplit, tx.GetJoinSplits()) {
+        BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
             BOOST_FOREACH(const uint256 &note_commitment, joinsplit.commitments) {
                 // Insert the note commitments into our temporary tree.
                 tree.append(note_commitment);
@@ -3681,7 +3681,7 @@ bool ReceivedBlockTransactions(const CBlock &block, CValidationState& state, CBl
     pindexNew->nChainTx = 0;
     CAmount sproutValue = 0;
     for (auto tx : block.vtx) {
-        for (auto js : tx.GetJoinSplits()) {
+        for (auto js : tx.GetVjoinsplit()) {
             sproutValue += js.vpub_old;
             sproutValue -= js.vpub_new;
         }
@@ -4012,8 +4012,8 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     if (nHeight > 0)
     {
         CScript expect = CScript() << nHeight;
-        if (block.vtx[0].GetVins()[0].scriptSig.size() < expect.size() ||
-            !std::equal(expect.begin(), expect.end(), block.vtx[0].GetVins()[0].scriptSig.begin())) {
+        if (block.vtx[0].GetVin()[0].scriptSig.size() < expect.size() ||
+            !std::equal(expect.begin(), expect.end(), block.vtx[0].GetVin()[0].scriptSig.begin())) {
             return state.DoS(100, error("%s: block height mismatch in coinbase", __func__), REJECT_INVALID, "bad-cb-height");
         }
     }
@@ -4033,7 +4033,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
         if (communityReward > 0) {
             bool found = false;
 
-            BOOST_FOREACH(const CTxOut& output, block.vtx[0].GetVouts()) {
+            BOOST_FOREACH(const CTxOut& output, block.vtx[0].GetVout()) {
                 if (output.scriptPubKey == Params().GetCommunityFundScriptAtHeight(nHeight, cfType)) {
                     if (output.nValue == communityReward) {
                         found = true;
@@ -6025,7 +6025,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 EraseOrphanTx(hash);
         }
         // TODO: currently, prohibit joinsplits from entering mapOrphans
-        else if (fMissingInputs && tx.GetJoinSplits().size() == 0)
+        else if (fMissingInputs && tx.GetVjoinsplit().size() == 0)
         {
             AddOrphanTx(tx, pfrom->GetId());
 

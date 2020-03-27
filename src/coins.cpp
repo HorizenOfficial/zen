@@ -1064,8 +1064,8 @@ CAmount CCoinsViewCache::GetValueIn(const CTransaction& tx) const
         return 0;
 
     CAmount nResult = 0;
-    for (unsigned int i = 0; i < tx.GetVins().size(); i++)
-        nResult += GetOutputFor(tx.GetVins()[i]).nValue;
+    for (unsigned int i = 0; i < tx.GetVin().size(); i++)
+        nResult += GetOutputFor(tx.GetVin()[i]).nValue;
 
     nResult += tx.GetJoinSplitValueIn();
 
@@ -1076,7 +1076,7 @@ bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransaction& tx) const
 {
     boost::unordered_map<uint256, ZCIncrementalMerkleTree, CCoinsKeyHasher> intermediates;
 
-    BOOST_FOREACH(const JSDescription &joinsplit, tx.GetJoinSplits())
+    BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit())
     {
         BOOST_FOREACH(const uint256& nullifier, joinsplit.nullifiers)
         {
@@ -1109,8 +1109,8 @@ bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransaction& tx) const
 bool CCoinsViewCache::HaveInputs(const CTransaction& tx) const
 {
     if (!tx.IsCoinBase()) {
-        for (unsigned int i = 0; i < tx.GetVins().size(); i++) {
-            const COutPoint &prevout = tx.GetVins()[i].prevout;
+        for (unsigned int i = 0; i < tx.GetVin().size(); i++) {
+            const COutPoint &prevout = tx.GetVin()[i].prevout;
             const CCoins* coins = AccessCoins(prevout.hash);
             if (!coins || !coins->IsAvailable(prevout.n)) {
                 return false;
@@ -1131,12 +1131,12 @@ double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight) const
     // (Note that coinbase transactions cannot contain JoinSplits.)
     // FIXME: this logic is partially duplicated between here and CreateNewBlock in miner.cpp.
 
-    if (tx.GetJoinSplits().size() > 0) {
+    if (tx.GetVjoinsplit().size() > 0) {
         return MAXIMUM_PRIORITY;
     }
 
     double dResult = 0.0;
-    BOOST_FOREACH(const CTxIn& txin, tx.GetVins())
+    BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
     {
         const CCoins* coins = AccessCoins(txin.prevout.hash);
         assert(coins);

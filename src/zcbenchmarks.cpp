@@ -275,7 +275,7 @@ double benchmark_large_tx()
     timer_start(tv_start);
     for (size_t i = 0; i < NUM_INPUTS; i++) {
         ScriptError serror = SCRIPT_ERR_OK;
-        assert(VerifyScript(final_spending_tx.GetVins()[i].scriptSig,
+        assert(VerifyScript(final_spending_tx.GetVin()[i].scriptSig,
                             prevPubKey,
                             STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
                             TransactionSignatureChecker(&final_spending_tx, i, nullptr),

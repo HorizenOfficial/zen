@@ -101,7 +101,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry)
     entry.pushKV("locktime", (int64_t)tx.nLockTime);
 
     UniValue vin(UniValue::VARR);
-    BOOST_FOREACH(const CTxIn& txin, tx.GetVins()) {
+    BOOST_FOREACH(const CTxIn& txin, tx.GetVin()) {
         UniValue in(UniValue::VOBJ);
         if (tx.IsCoinBase())
             in.pushKV("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
@@ -119,8 +119,8 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry)
     entry.pushKV("vin", vin);
 
     UniValue vout(UniValue::VARR);
-    for (unsigned int i = 0; i < tx.GetVouts().size(); i++) {
-        const CTxOut& txout = tx.GetVouts()[i];
+    for (unsigned int i = 0; i < tx.GetVout().size(); i++) {
+        const CTxOut& txout = tx.GetVout()[i];
 
         UniValue out(UniValue::VOBJ);
 

@@ -67,7 +67,7 @@ bool CScCertificate::CheckVersionBasic(CValidationState &state) const
 bool CScCertificate::CheckInputsAvailability(CValidationState &state) const
 {
     //Currently there are no inputs for certificates
-    if (!GetVins().empty())
+    if (!GetVin().empty())
     {
         return state.DoS(10, error("vin not empty"), REJECT_INVALID, "bad-cert-invalid");
     }
@@ -78,7 +78,7 @@ bool CScCertificate::CheckInputsAvailability(CValidationState &state) const
 bool CScCertificate::CheckOutputsAvailability(CValidationState &state) const
 {
     // we allow empty certificate, but if we have no vout the total amount must be 0
-    if (GetVouts().empty() && totalAmount != 0)
+    if (GetVout().empty() && totalAmount != 0)
     {
         return state.DoS(10, error("vout empty and totalAmount != 0"), REJECT_INVALID, "bad-cert-invalid");
     }
@@ -238,7 +238,7 @@ CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert) :
     totalAmount(cert.totalAmount), fee(cert.fee), vbt_ccout(cert.vbt_ccout), nonce(cert.nonce)
 {
     nVersion = cert.nVersion;
-    vout = cert.GetVouts();
+    vout = cert.GetVout();
 }
 
 uint256 CMutableScCertificate::GetHash() const

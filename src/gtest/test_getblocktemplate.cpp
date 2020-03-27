@@ -314,12 +314,12 @@ void TestMaxWeight(int maxWeight, std::map<int,int> expectedInputTx)
         if(tx.IsCoinBase())
             continue;
 
-        ASSERT_TRUE(expectedInputTx.count(tx.GetVins().size()) > 0);
+        ASSERT_TRUE(expectedInputTx.count(tx.GetVin().size()) > 0);
 
-        expectedInputTx.at(tx.GetVins().size()) --;
+        expectedInputTx.at(tx.GetVin().size()) --;
 
-        if(expectedInputTx.at(tx.GetVins().size()) == 0) {
-            expectedInputTx.erase(tx.GetVins().size());
+        if(expectedInputTx.at(tx.GetVin().size()) == 0) {
+            expectedInputTx.erase(tx.GetVin().size());
         }
 
     }

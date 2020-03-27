@@ -60,8 +60,8 @@ void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fInclud
 UniValue TxJoinSplitToJSON(const CTransaction& tx) {
     bool useGroth = tx.nVersion == GROTH_TX_VERSION;
     UniValue vjoinsplit(UniValue::VARR);
-    for (unsigned int i = 0; i < tx.GetJoinSplits().size(); i++) {
-        const JSDescription& jsdescription = tx.GetJoinSplits()[i];
+    for (unsigned int i = 0; i < tx.GetVjoinsplit().size(); i++) {
+        const JSDescription& jsdescription = tx.GetVjoinsplit()[i];
         UniValue joinsplit(UniValue::VOBJ);
 
         joinsplit.push_back(Pair("vpub_old", ValueFromAmount(jsdescription.vpub_old)));
@@ -120,7 +120,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     entry.push_back(Pair("version", tx.nVersion));
     entry.push_back(Pair("locktime", (int64_t)tx.nLockTime));
     UniValue vin(UniValue::VARR);
-    BOOST_FOREACH(const CTxIn& txin, tx.GetVins()) {
+    BOOST_FOREACH(const CTxIn& txin, tx.GetVin()) {
         UniValue in(UniValue::VOBJ);
         if (tx.IsCoinBase())
             in.push_back(Pair("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end())));
@@ -137,8 +137,8 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     }
     entry.push_back(Pair("vin", vin));
     UniValue vout(UniValue::VARR);
-    for (unsigned int i = 0; i < tx.GetVouts().size(); i++) {
-        const CTxOut& txout = tx.GetVouts()[i];
+    for (unsigned int i = 0; i < tx.GetVout().size(); i++) {
+        const CTxOut& txout = tx.GetVout()[i];
         UniValue out(UniValue::VOBJ);
         out.push_back(Pair("value", ValueFromAmount(txout.nValue)));
         out.push_back(Pair("valueZat", txout.nValue));
@@ -178,8 +178,8 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
     entry.push_back(Pair("version", cert.nVersion));
     entry.push_back(Pair("nonce", cert.nonce.GetHex()));
     UniValue vout(UniValue::VARR);
-    for (unsigned int i = 0; i < cert.GetVouts().size(); i++) {
-        const CTxOut& txout = cert.GetVouts()[i];
+    for (unsigned int i = 0; i < cert.GetVout().size(); i++) {
+        const CTxOut& txout = cert.GetVout()[i];
         UniValue out(UniValue::VOBJ);
         out.push_back(Pair("value", ValueFromAmount(txout.nValue)));
         out.push_back(Pair("valueZat", txout.nValue));

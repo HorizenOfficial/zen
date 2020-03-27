@@ -295,11 +295,11 @@ CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(), nLockTim
 
 CMutableTransaction::CMutableTransaction(const CTransaction& tx) :
     vsc_ccout(tx.vsc_ccout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout), nLockTime(tx.nLockTime),
-    vjoinsplit(tx.GetJoinSplits()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
+    vjoinsplit(tx.GetVjoinsplit()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     nVersion = tx.nVersion;
-    vin = tx.GetVins();
-    vout = tx.GetVouts();
+    vin = tx.GetVin();
+    vout = tx.GetVout();
 }
     
 uint256 CMutableTransaction::GetHash() const
@@ -361,7 +361,7 @@ bool CTransactionBase::CheckInputsAmount(CValidationState &state) const
     // but we do know what the joinsplits claim to add
     // to the value pool.
     CAmount nCumulatedValueIn = 0;
-    for (std::vector<JSDescription>::const_iterator it(GetJoinSplits().begin()); it != GetJoinSplits().end(); ++it)
+    for (std::vector<JSDescription>::const_iterator it(GetVjoinsplit().begin()); it != GetVjoinsplit().end(); ++it)
     {
         nCumulatedValueIn += it->vpub_new;
 
@@ -378,7 +378,7 @@ bool CTransactionBase::CheckOutputsAmount(CValidationState &state) const
 {
     // Check for negative or overflow output values
     CAmount nCumulatedValueOut = 0;
-    for(const CTxOut& txout: GetVouts())
+    for(const CTxOut& txout: GetVout())
     {
         if (txout.nValue < 0)
             return state.DoS(100, error("CheckOutputAmounts(): txout.nValue negative"),
@@ -393,7 +393,7 @@ bool CTransactionBase::CheckOutputsAmount(CValidationState &state) const
     }
 
     // Ensure that joinsplit values are well-formed
-    for(const JSDescription& joinsplit: GetJoinSplits())
+    for(const JSDescription& joinsplit: GetVjoinsplit())
     {
         if (joinsplit.vpub_old < 0) {
             return state.DoS(100, error("CheckOutputAmounts(): joinsplit.vpub_old negative"),
@@ -434,7 +434,7 @@ bool CTransactionBase::CheckInputsDuplication(CValidationState &state) const
 {
     // Check for duplicate inputs
     std::set<COutPoint> vInOutPoints;
-    for(const CTxIn& txin: GetVins())
+    for(const CTxIn& txin: GetVin())
     {
         if (vInOutPoints.count(txin.prevout))
             return state.DoS(100, error("CheckInputsDuplications(): duplicate inputs"),
@@ -444,7 +444,7 @@ bool CTransactionBase::CheckInputsDuplication(CValidationState &state) const
 
     // Check for duplicate joinsplit nullifiers in this transaction
     std::set<uint256> vJoinSplitNullifiers;
-    for(const JSDescription& joinsplit: GetJoinSplits())
+    for(const JSDescription& joinsplit: GetVjoinsplit())
     {
         for(const uint256& nf: joinsplit.nullifiers)
         {
@@ -464,17 +464,17 @@ bool CTransactionBase::CheckInputsInteraction(CValidationState &state) const
     if (IsCoinBase())
     {
         // There should be no joinsplits in a coinbase transaction
-        if (GetJoinSplits().size() > 0)
+        if (GetVjoinsplit().size() > 0)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase has joinsplits"),
                              REJECT_INVALID, "bad-cb-has-joinsplits");
 
-        if (GetVins()[0].scriptSig.size() < 2 || GetVins()[0].scriptSig.size() > 100)
+        if (GetVin()[0].scriptSig.size() < 2 || GetVin()[0].scriptSig.size() > 100)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase script size"),
                              REJECT_INVALID, "bad-cb-length");
     }
     else
     {
-        for(const CTxIn& txin: GetVins())
+        for(const CTxIn& txin: GetVin())
             if (txin.prevout.IsNull())
                 return state.DoS(10, error("CheckInputsInteraction(): prevout is null"),
                                  REJECT_INVALID, "bad-txns-prevout-null");
@@ -578,7 +578,7 @@ bool CTransaction::CheckInputsAvailability(CValidationState &state) const
 {
     // Transactions can contain empty `vin` and `vout` so long as
     // `vjoinsplit` is non-empty.
-    if (GetVins().empty() && GetJoinSplits().empty())
+    if (GetVin().empty() && GetVjoinsplit().empty())
     {
         LogPrint("sc", "%s():%d - Error: tx[%s]\n", __func__, __LINE__, GetHash().ToString() );
         return state.DoS(10, error("CheckInputsAvailability(): vin empty"),
@@ -602,7 +602,7 @@ bool CTransaction::CheckOutputsAvailability(CValidationState &state) const
 {
     // Allow the case when crosschain outputs are not empty. In that case there might be no vout at all
     // when utxo reminder is only dust, which is added to fee leaving no change for the sender
-    if (GetVouts().empty() && GetJoinSplits().empty() && ccIsNull())
+    if (GetVout().empty() && GetVjoinsplit().empty() && ccIsNull())
     {
         return state.DoS(10, error("CheckOutputsAvailability(): vout empty"),
                          REJECT_INVALID, "bad-txns-vout-empty");
