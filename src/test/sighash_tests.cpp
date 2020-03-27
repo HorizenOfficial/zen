@@ -26,7 +26,7 @@ extern UniValue read_json(const std::string& jsondata);
 uint256 static SignatureHashOld(CScript scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType)
 {
     static const uint256 one(uint256S("0000000000000000000000000000000000000000000000000000000000000001"));
-    if (nIn >= txTo.vin.size())
+    if (nIn >= txTo.GetVin().size())
     {
         printf("ERROR: SignatureHash(): nIn=%d out of range\n", nIn);
         return one;

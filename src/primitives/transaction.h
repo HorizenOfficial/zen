@@ -640,13 +640,13 @@ class CTransactionBase
 protected:
     /** Memory only. */
     const uint256 hash;
+    const std::vector<CTxOut> vout;
 
     virtual void UpdateHash() const = 0;
 
 public:
     virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) = 0;
     const int32_t nVersion;
-    const std::vector<CTxOut> vout;
 
     CTransactionBase();
     CTransactionBase& operator=(const CTransactionBase& tx);
@@ -676,10 +676,26 @@ public:
         return !(a==b);
     }
 
-    // Check for negative or overflow output values
-    bool CheckVout(CAmount& nValueOut, CValidationState &state) const;
+    //GETTERS
+    virtual const std::vector<CTxIn>&         GetVin()        const = 0;
+    virtual const std::vector<CTxOut>&        GetVout()       const = 0;
+    virtual const std::vector<JSDescription>& GetVjoinsplit() const = 0;
+    //END OF GETTERS
+
+    //CHECK FUNCTIONS
+    virtual bool CheckVersionBasic        (CValidationState &state) const = 0;
+    virtual bool CheckInputsAvailability  (CValidationState &state) const = 0;
+    virtual bool CheckOutputsAvailability (CValidationState &state) const = 0;
+    virtual bool CheckSerializedSize      (CValidationState &state) const = 0;
+
+    bool CheckInputsAmount (CValidationState &state) const;
+    bool CheckOutputsAmount(CValidationState &state) const;
+    bool CheckInputsDuplication(CValidationState &state) const;
+    bool CheckInputsInteraction(CValidationState &state) const;
+
     bool CheckOutputsAreStandard(int nHeight, std::string& reason) const;
     bool CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const;
+    //END OF CHECK FUNCTIONS
 
     // Return sum of txouts.
     virtual CAmount GetValueOut() const;
@@ -708,9 +724,6 @@ public:
     virtual bool CheckFinal(int flags = -1) const = 0;
     virtual bool IsApplicableToState(CValidationState& state, int nHeight = -1) const = 0;
 
-    virtual void UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const = 0;
-    virtual void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const = 0;
-
     virtual double GetPriority(const CCoinsViewCache &view, int nHeight) const = 0;
     virtual unsigned int GetLegacySigOpCount() const = 0;
 
@@ -736,7 +749,6 @@ public:
         std::vector<CScriptCheck> *pvChecks = NULL) const { return true; }
 
     virtual unsigned int GetP2SHSigOpCount(CCoinsViewCache& view) const { return 0; }
-    virtual size_t getVjoinsplitSize() const { return 0; }
     virtual const uint256 getJoinSplitPubKey() const { return uint256(); }
     virtual int GetComplexity() const { return 0; }
 
@@ -773,12 +785,14 @@ public:
     // actually immutable; deserialization and assignment are implemented,
     // and bypass the constness. This is safe, as they update the entire
     // structure, including the hash.
+private:
     const std::vector<CTxIn> vin;
+    const std::vector<JSDescription> vjoinsplit;
+public:
     const std::vector<CTxScCreationOut> vsc_ccout;
     const std::vector<CTxCertifierLockOut> vcl_ccout;
     const std::vector<CTxForwardTransferOut> vft_ccout;
     const uint32_t nLockTime;
-    const std::vector<JSDescription> vjoinsplit;
     const uint256 joinSplitPubKey;
     const joinsplit_sig_t joinSplitSig = {{0}};
 
@@ -851,6 +865,19 @@ public:
         );
     }
     
+    //GETTERS
+    const std::vector<CTxIn>&         GetVin()        const override {return vin;};
+    const std::vector<CTxOut>&        GetVout()       const override {return vout;};
+    const std::vector<JSDescription>& GetVjoinsplit() const override {return vjoinsplit;};
+    //END OF GETTERS
+
+    //CHECK FUNCTIONS
+    bool CheckVersionBasic        (CValidationState &state) const override;
+    bool CheckInputsAvailability  (CValidationState &state) const override;
+    bool CheckOutputsAvailability (CValidationState &state) const override;
+    bool CheckSerializedSize      (CValidationState &state) const override;
+    //END OF CHECK FUNCTIONS
+
     // Return sum of txouts.
     CAmount GetValueOut() const override;
     // Return sum of tx ins
@@ -858,7 +885,6 @@ public:
     // value in should be computed via the method above using a proper coin view
     CAmount GetFeeAmount(CAmount valueIn) const override { return (valueIn - GetValueOut() ); }
 
-    size_t getVjoinsplitSize() const override { return vjoinsplit.size(); }
     int GetComplexity() const override { return vin.size()*vin.size(); }
     const uint256 getJoinSplitPubKey() const override { return joinSplitPubKey; }
 
@@ -960,8 +986,6 @@ public:
     void AddJoinSplitToJSON(UniValue& entry) const override;
     void AddSidechainOutsToJSON(UniValue& entry) const override;
     bool HaveInputs(const CCoinsViewCache& view) const override;
-    void UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const override;
-    void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const override;
     bool AreInputsStandard(CCoinsViewCache& view) const override;
     bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,

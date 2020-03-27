@@ -147,16 +147,16 @@ BOOST_AUTO_TEST_CASE(tx_valid)
             BOOST_CHECK_MESSAGE(CheckTransaction(tx, state, verifier), strTest + comment);
             BOOST_CHECK_MESSAGE(state.IsValid(), comment);
 
-            for (unsigned int i = 0; i < tx.vin.size(); i++)
+            for (unsigned int i = 0; i < tx.GetVin().size(); i++)
             {
-                if (!mapprevOutScriptPubKeys.count(tx.vin[i].prevout))
+                if (!mapprevOutScriptPubKeys.count(tx.GetVin()[i].prevout))
                 {
                     BOOST_ERROR("Bad test: " << strTest << comment);
                     break;
                 }
 
                 unsigned int verify_flags = ParseScriptFlags(test[2].get_str());
-                BOOST_CHECK_MESSAGE(VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
+                BOOST_CHECK_MESSAGE(VerifyScript(tx.GetVin()[i].scriptSig, mapprevOutScriptPubKeys[tx.GetVin()[i].prevout],
                                                  verify_flags, TransactionSignatureChecker(&tx, i, nullptr), &err),
                                     strTest);
                 BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
@@ -230,16 +230,16 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
             CValidationState state;
             fValid = CheckTransaction(tx, state, verifier) && state.IsValid();
 
-            for (unsigned int i = 0; i < tx.vin.size() && fValid; i++)
+            for (unsigned int i = 0; i < tx.GetVin().size() && fValid; i++)
             {
-                if (!mapprevOutScriptPubKeys.count(tx.vin[i].prevout))
+                if (!mapprevOutScriptPubKeys.count(tx.GetVin()[i].prevout))
                 {
                     BOOST_ERROR("Bad test: " << strTest << comment);
                     break;
                 }
 
                 unsigned int verify_flags = ParseScriptFlags(test[2].get_str());
-                fValid = VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
+                fValid = VerifyScript(tx.GetVin()[i].scriptSig, mapprevOutScriptPubKeys[tx.GetVin()[i].prevout],
                         verify_flags, TransactionSignatureChecker(&tx, i, nullptr), &err);
             }
             BOOST_CHECK_MESSAGE(!fValid, strTest + comment);

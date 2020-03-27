@@ -288,7 +288,7 @@ public:
     {
         TestBuilder copy = *this; // Make a copy so we can rollback the push.
         DoPush();
-        DoTest(creditTx.vout[0].scriptPubKey, spendTx.vin[0].scriptSig, flags, expect, comment);
+        DoTest(creditTx.GetVout()[0].scriptPubKey, spendTx.vin[0].scriptSig, flags, expect, comment);
         *this = copy;
         return *this;
     }
@@ -298,7 +298,7 @@ public:
         DoPush();
         UniValue array(UniValue::VARR);
         array.push_back(FormatScript(spendTx.vin[0].scriptSig));
-        array.push_back(FormatScript(creditTx.vout[0].scriptPubKey));
+        array.push_back(FormatScript(creditTx.GetVout()[0].scriptPubKey));
         array.push_back(FormatScriptFlags(flags));
         array.push_back(comment);
         return array;
@@ -311,7 +311,7 @@ public:
 
     const CScript& GetScriptPubKey()
     {
-        return creditTx.vout[0].scriptPubKey;
+        return creditTx.GetVout()[0].scriptPubKey;
     }
 };
 }

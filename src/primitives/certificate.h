@@ -66,6 +66,20 @@ public:
     template <typename Stream>
     CScCertificate(deserialize_type, Stream& s) : CScCertificate(CMutableScCertificate(deserialize, s)) {}
 
+    //GETTERS
+    const std::vector<CTxIn>&         GetVin()        const override {static const std::vector<CTxIn> noInputs; return noInputs;};
+    const std::vector<CTxOut>&        GetVout()       const override {return vout;};
+    const std::vector<JSDescription>& GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
+    //END OF GETTERS
+
+    //CHECK FUNCTIONS
+    bool CheckVersionBasic        (CValidationState &state) const override;
+    bool CheckInputsAvailability  (CValidationState &state) const override;
+    bool CheckOutputsAvailability (CValidationState &state) const override;
+    bool CheckSerializedSize      (CValidationState &state) const override;
+    //END OF CHECK FUNCTIONS
+
+
     bool IsNull() const override {
         return (
             scId.IsNull() &&
@@ -96,9 +110,6 @@ public:
     bool IsApplicableToState(CValidationState& state, int nHeight = -1) const override;
 
     bool IsStandard(std::string& reason, int nHeight) const override;
-    
-    void UpdateCoins(CValidationState &state, CCoinsViewCache& view, int nHeight) const override;
-    void UpdateCoins(CValidationState &state, CCoinsViewCache& view, CBlockUndo& txundo, int nHeight) const override;
 
     bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) override final;
 

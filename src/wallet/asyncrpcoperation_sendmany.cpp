@@ -512,12 +512,12 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         JSDescription prevJoinSplit;
 
         // Keep track of previous JoinSplit and its commitments
-        if (tx_.vjoinsplit.size() > 0) {
-            prevJoinSplit = tx_.vjoinsplit.back();
+        if (tx_.GetVjoinsplit().size() > 0) {
+            prevJoinSplit = tx_.GetVjoinsplit().back();
         }
 
         // If there is no change, the chain has terminated so we can reset the tracked treestate.
-        if (jsChange==0 && tx_.vjoinsplit.size() > 0) {
+        if (jsChange==0 && tx_.GetVjoinsplit().size() > 0) {
             intermediates.clear();
             previousCommitments.clear();
         }
@@ -839,7 +839,7 @@ bool AsyncRPCOperation_sendmany::find_utxos(bool fAcceptCoinbase=false) {
 
         if (setAddress.size()) {
             CTxDestination address;
-            if (!ExtractDestination(out.tx->vout[out.i].scriptPubKey, address)) {
+            if (!ExtractDestination(out.tx->GetVout()[out.i].scriptPubKey, address)) {
                 continue;
             }
 
@@ -854,7 +854,7 @@ bool AsyncRPCOperation_sendmany::find_utxos(bool fAcceptCoinbase=false) {
             continue;
         }
 
-        CAmount nValue = out.tx->vout[out.i].nValue;
+        CAmount nValue = out.tx->GetVout()[out.i].nValue;
         SendManyInputUTXO utxo(out.tx->GetHash(), out.i, nValue, isCoinbase);
         t_inputs_.push_back(utxo);
     }
@@ -958,7 +958,7 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
 
     LogPrint("zrpcunsafe", "%s: creating joinsplit at index %d (vpub_old=%s, vpub_new=%s, in[0]=%s, in[1]=%s, out[0]=%s, out[1]=%s)\n",
             getId(),
-            tx_.vjoinsplit.size(),
+            tx_.GetVjoinsplit().size(),
             FormatMoney(info.vpub_old), FormatMoney(info.vpub_new),
             FormatMoney(info.vjsin[0].note.value()), FormatMoney(info.vjsin[1].note.value()),
             FormatMoney(info.vjsout[0].value), FormatMoney(info.vjsout[1].value)
@@ -1066,7 +1066,7 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
     memcpy(&buffer[0], &joinSplitPrivKey_[0], 32); // private key in first half of 64 byte buffer
     std::vector<unsigned char> vch(&buffer[0], &buffer[0] + 32);
     uint256 joinSplitPrivKey = uint256(vch);
-    size_t js_index = tx_.vjoinsplit.size() - 1;
+    size_t js_index = tx_.GetVjoinsplit().size() - 1;
     uint256 placeholder;
     for (int i = 0; i < ZC_NUM_JS_OUTPUTS; i++) {
         uint8_t mapped_index = outputMap[i];
