@@ -1208,10 +1208,21 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
     // is it already in the memory pool?
     uint256 certHash = cert.GetHash();
-    if (pool.existsCert(certHash))
+
+    // Check if cert is already in mempool or if there are conflicts with in-memory certs
     {
-        LogPrint("mempool", "Dropping certificateId %s : already in mempool\n", certHash.ToString());
-        return false;
+        LOCK(pool.cs);
+        if (pool.mapCertificate.count(certHash) != 0) {
+            LogPrint("mempool", "Dropping cert %s : already in mempool\n", certHash.ToString());
+            return false;
+        }
+
+        if ((pool.mapSidechains.count(cert.GetScId()) != 0) &&
+            (!pool.mapSidechains.at(cert.GetScId()).backwardCertificate.IsNull())) {
+            LogPrint("mempool", "Dropping cert %s : another cert for same sc is already in mempool\n", certHash.ToString());
+            return false;
+        }
+
     }
 
     {
@@ -1223,10 +1234,11 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
             view.SetBackend(viewMemPool);
 
-            if(!viewMemPool.IsCertAllowedInMempool(cert, state))
+            if(viewMemPool.HaveCertForEpoch(cert.GetScId(), cert.epochNumber))
             {
-                LogPrint("sc", "%s():%d - cert [%s] is not allowed in mempool\n", __func__, __LINE__, certHash.ToString());
-                return false;
+                LogPrint("mempool", "Dropping cert %s : already have cert for same sc and epoch\n", certHash.ToString());
+                return state.DoS(0, error("AcceptCertificateToMemoryPool: certificate for same sc and epoch already received"),
+                            REJECT_INVALID, "bad-sc-cert-not-applicable");
             }
 
             int sgHeight = (epochSafeGuardHeight > 0) ? epochSafeGuardHeight : nextBlockHeight;   
@@ -1337,16 +1349,14 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
     }
 
-
     auto verifier = libzcash::ProofVerifier::Strict();
     if (!CheckTransaction(tx, state, verifier))
         return error("AcceptToMemoryPool: CheckTransaction failed");
 
-
-        // DoS level set to 10 to be more forgiving.
-        // Check transaction contextually against the set of consensus rules which apply in the next block to be mined.
-        if (!ContextualCheckTransaction(tx, state, nextBlockHeight, 10)) {
-            return error("AcceptToMemoryPool: ContextualCheckTransaction failed");
+    // DoS level set to 10 to be more forgiving.
+    // Check transaction contextually against the set of consensus rules which apply in the next block to be mined.
+    if (!ContextualCheckTransaction(tx, state, nextBlockHeight, 10)) {
+        return error("AcceptToMemoryPool: ContextualCheckTransaction failed");
     }
 
     // Silently drop pre-chainsplit transactions
@@ -1375,43 +1385,42 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     if (!CheckFinalTx(tx, STANDARD_LOCKTIME_VERIFY_FLAGS))
         return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
 
-    // is it already in the memory pool?
+
     uint256 hash = tx.GetHash();
-    if (pool.exists(hash))
-    {
-        LogPrint("mempool", "Dropping txid %s : already in mempool\n", hash.ToString());
-        return false;
-    }
 
-    // Check for conflicts with in-memory transactions
+    // Check if tx is already in mempool or if there are conflicts with in-memory transactions
     {
-        LOCK(pool.cs); // protect pool.mapNextTx
-        for (unsigned int i = 0; i < tx.GetVin().size(); i++)
-        {
+        LOCK(pool.cs);
+
+        if (pool.mapTx.count(hash) != 0) {
+            LogPrint("mempool", "Dropping txid %s : already in mempool\n", hash.ToString());
+            return false;
+        }
+
+        for (unsigned int i = 0; i < tx.GetVin().size(); i++) {
             COutPoint outpoint = tx.GetVin()[i].prevout;
-            if (pool.mapNextTx.count(outpoint))
-            {
-                // Disable replacement feature for now
-                return false;
+            if (pool.mapNextTx.count(outpoint)) {
+                LogPrint("mempool", "Dropping txid %s : it double spends another tx in mempool\n", hash.ToString());
+                return false; // Disable replacement feature for now
             }
         }
 
-        for(const CTxScCreationOut& sc: tx.vsc_ccout) { // If this tx creates a sc, no other tx must be doing the same in the mempool
+        // If this tx creates a sc, no other tx must be doing the same in the mempool
+        for(const CTxScCreationOut& sc: tx.vsc_ccout) {
             if ((pool.mapSidechains.count(sc.scId) != 0) && (!pool.mapSidechains.at(sc.scId).scCreationTxHash.IsNull())) {
+                LogPrint("sc", "%s():%d - Dropping txid [%s]: it tries to redeclare another sc in mempool\n",
+                        __func__, __LINE__, hash.ToString());
                 return false;
-            } else {
-                LogPrint("sc", "%s():%d - tx [%s] has no conflicts in mempool\n", __func__, __LINE__, hash.ToString());
             }
         }
 
-        BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
-            BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
+        for(const JSDescription &joinsplit: tx.GetVjoinsplit()) {
+            for(const uint256 &nf: joinsplit.nullifiers) {
                 if (pool.mapNullifiers.count(nf))
-                {
                     return false;
-                }
             }
         }
+
     }
 
     {

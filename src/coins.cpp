@@ -463,7 +463,7 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                 ); //A fresh entry should not exist in localCache or be already erased
                 cacheSidechains[entryToWrite.first] = entryToWrite.second;
                 break;
-            case CSidechainsCacheEntry::Flags::DIRTY:               //A dirty entry may or may not exist in localCache
+            case CSidechainsCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
                     cacheSidechains[entryToWrite.first] = entryToWrite.second;
                 break;
             case CSidechainsCacheEntry::Flags::ERASED:

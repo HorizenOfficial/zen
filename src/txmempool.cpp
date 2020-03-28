@@ -861,6 +861,7 @@ bool CCoinsViewMemPool::GetCoins(const uint256 &txid, CCoins &coins) const {
         coins = CCoins(tx, MEMPOOL_HEIGHT);
         return true;
     }
+
     CScCertificate cert;
     if (mempool.lookup(txid, cert)) {
         LogPrint("cert", "%s():%d - making coins for cert [%s]\n", __func__, __LINE__, txid.ToString() );
@@ -913,30 +914,6 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
 
 bool CCoinsViewMemPool::HaveSidechain(const uint256& scId) const {
     return mempool.hasSidechainCreationTx(scId) || base->HaveSidechain(scId);
-}
-
-
-bool CCoinsViewMemPool::IsCertAllowedInMempool(const CScCertificate& cert, CValidationState& state)
-{
-    if (!HaveCertForEpoch(cert.GetScId(), cert.epochNumber))
-        return true;
-
-    // when called for checking the contents of mempool we can find the certificate itself, which is OK
-    if (mempool.mapSidechains.count(cert.GetScId())) {
-        const uint256 & conflictingCertHash = mempool.mapSidechains.at(cert.GetScId()).backwardCertificate;
-        if (conflictingCertHash == cert.GetHash()) //This currently happens with mempool.check
-            return true;
-
-        LogPrintf("ERROR: certificate %s for epoch %d is already in mempool\n",
-            conflictingCertHash.ToString(), cert.epochNumber);
-        return state.Invalid(error("A certificate with the same scId/epoch is already in mempool"),
-             REJECT_INVALID, "sidechain-certificate-epoch");
-    }
-
-    LogPrintf("ERROR: certificate for epoch %d is already confirmed\n",
-        cert.epochNumber);
-    return state.Invalid(error("A certificate with the same scId/epoch is already confirmed"),
-         REJECT_INVALID, "sidechain-certificate-epoch");
 }
 
 bool CCoinsViewMemPool::HaveCertForEpoch(const uint256& scId, int epochNumber) const {
