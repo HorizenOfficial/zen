@@ -22,6 +22,7 @@ using namespace std;
 static const char DB_ANCHOR = 'A';
 static const char DB_NULLIFIER = 's';
 static const char DB_COINS = 'c';
+static const char DB_CERTS = 'd';
 static const char DB_SIDECHAINS = 'i';
 static const char DB_BLOCK_FILES = 'f';
 static const char DB_TXINDEX = 't';
@@ -58,6 +59,13 @@ void static BatchWriteCoins(CLevelDBBatch &batch, const uint256 &hash, const CCo
         batch.Erase(make_pair(DB_COINS, hash));
     else
         batch.Write(make_pair(DB_COINS, hash), coins);
+}
+
+void static BatchWriteCert(CLevelDBBatch &batch, const uint256 &hash, const CCoins &coins) {
+    if (coins.IsPruned())
+        batch.Erase(make_pair(DB_CERTS, hash));
+    else
+        batch.Write(make_pair(DB_CERTS, hash), coins);
 }
 
 void static BatchSidechains(CLevelDBBatch &batch, const uint256 &scId, const CSidechainsCacheEntry &sidechain) {
@@ -111,11 +119,11 @@ bool CCoinsViewDB::GetNullifier(const uint256 &nf) const {
 }
 
 bool CCoinsViewDB::GetCoins(const uint256 &txid, CCoins &coins) const {
-    return db.Read(make_pair(DB_COINS, txid), coins);
+    return db.Read(make_pair(DB_COINS, txid), coins) || db.Read(make_pair(DB_CERTS, txid), coins);
 }
 
 bool CCoinsViewDB::HaveCoins(const uint256 &txid) const {
-    return db.Exists(make_pair(DB_COINS, txid));
+    return db.Exists(make_pair(DB_COINS, txid)) || db.Exists(make_pair(DB_CERTS, txid));
 }
 
 bool CCoinsViewDB::GetSidechain(const uint256& scId, CSidechain& info) const
@@ -176,7 +184,11 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
     size_t changed = 0;
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) {
-            BatchWriteCoins(batch, it->first, it->second.coins);
+            if (!it->second.coins.IsCoinCertified())
+                BatchWriteCoins(batch, it->first, it->second.coins);
+            else
+                BatchWriteCert(batch, it->first, it->second.coins);
+
             changed++;
         }
         count++;
@@ -258,7 +270,7 @@ bool CCoinsViewDB::GetStats(CCoinsStats &stats) const {
             CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
             char chType;
             ssKey >> chType;
-            if (chType == DB_COINS) {
+            if ( (chType == DB_COINS) || (chType == DB_CERTS) ) {
                 leveldb::Slice slValue = pcursor->value();
                 CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
                 CCoins coins;
