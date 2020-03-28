@@ -284,10 +284,9 @@ public:
     bool GetNullifier(const uint256 &txid) const;
     bool GetCoins(const uint256 &txid, CCoins &coins) const;
     bool HaveCoins(const uint256 &txid) const;
-    bool GetSidechain(const uint256& scId, CSidechain& info) const override;
-    bool HaveSidechain(const uint256& scId) const override;
-    bool IsCertAllowedInMempool(const CScCertificate& cert, CValidationState& state);
-    bool HaveCertForEpoch(const uint256& scId, int epochNumber) const override;
+    bool GetSidechain(const uint256& scId, CSidechain& info)      const override;
+    bool HaveSidechain(const uint256& scId)                       const override;
+    bool HaveCertForEpoch(const uint256& scId, int epochNumber)   const override;
 };
 
 #endif // BITCOIN_TXMEMPOOL_H
