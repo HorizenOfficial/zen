@@ -64,6 +64,16 @@ bool CScCertificate::CheckVersionBasic(CValidationState &state) const
     return true;
 }
 
+bool CScCertificate::CheckVersionIsStandard(std::string& reason, const int nHeight) const {
+    if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
+    {
+        reason = "version";
+        return false;
+    }
+
+    return true;
+}
+
 bool CScCertificate::CheckInputsAvailability(CValidationState &state) const
 {
     //Currently there are no inputs for certificates
@@ -184,7 +194,6 @@ double CScCertificate::GetPriority(const CCoinsViewCache &view, int nHeight) con
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
 
 bool CScCertificate::IsApplicableToState(CValidationState& state, int nHeight) const { return true; }
-bool CScCertificate::IsStandard(std::string& reason, int nHeight) const { return true; }
 unsigned int CScCertificate::GetLegacySigOpCount() const { return 0; }
 #else
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
@@ -198,17 +207,6 @@ bool CScCertificate::IsApplicableToState(CValidationState& state, int nHeight) c
     LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
     CCoinsViewCache view(pcoinsTip);
     return view.IsCertApplicableToState(*this, nHeight, state);
-}
-    
-bool CScCertificate::IsStandard(std::string& reason, int nHeight) const
-{
-    if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
-    {
-        reason = "version";
-        return false;
-    }
-
-    return CheckOutputsAreStandard(nHeight, reason);
 }
 
 unsigned int CScCertificate::GetLegacySigOpCount() const 

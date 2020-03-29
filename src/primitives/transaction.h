@@ -685,6 +685,7 @@ public:
 
     //CHECK FUNCTIONS
     virtual bool CheckVersionBasic        (CValidationState &state) const = 0;
+    virtual bool CheckVersionIsStandard   (std::string& reason, const int nHeight) const = 0;
     virtual bool CheckInputsAvailability  (CValidationState &state) const = 0;
     virtual bool CheckOutputsAvailability (CValidationState &state) const = 0;
     virtual bool CheckSerializedSize      (CValidationState &state) const = 0;
@@ -694,7 +695,6 @@ public:
     bool CheckInputsDuplication(CValidationState &state) const;
     bool CheckInputsInteraction(CValidationState &state) const;
 
-    bool CheckOutputsAreStandard(int nHeight, std::string& reason) const;
     bool CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const;
 
     bool CheckInputsLimit() const;
@@ -725,7 +725,6 @@ public:
     virtual void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const = 0;
 
     virtual bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const = 0;
-    virtual bool IsStandard(std::string& reason, int nHeight) const = 0;
     virtual bool CheckFinal(int flags = -1) const = 0;
     virtual bool IsApplicableToState(CValidationState& state, int nHeight = -1) const = 0;
 
@@ -870,6 +869,7 @@ public:
 
     //CHECK FUNCTIONS
     bool CheckVersionBasic        (CValidationState &state) const override;
+    bool CheckVersionIsStandard   (std::string& reason, const int nHeight) const override;
     bool CheckInputsAvailability  (CValidationState &state) const override;
     bool CheckOutputsAvailability (CValidationState &state) const override;
     bool CheckSerializedSize      (CValidationState &state) const override;
@@ -973,7 +973,6 @@ public:
     void AddToBlock(CBlock* pblock) const override;
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const override;
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
-    bool IsStandard(std::string& reason, int nHeight) const override;
     bool CheckFinal(int flags = -1) const override;
     bool IsApplicableToState(CValidationState& state, int nHeight = -1) const override;
     void HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const override;

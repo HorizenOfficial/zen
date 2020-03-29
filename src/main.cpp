@@ -686,46 +686,13 @@ unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans) EXCLUSIVE_LOCKS_REQUIRE
 }
 
 
-bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
+bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHeight)
 {
-    // sidechain fork (happens after groth fork)
-    int sidechainVersion = 0; 
-    bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
-    if (areSidechainsSupported)
-    {
-        sidechainVersion = ForkManager::getInstance().getSidechainTxVersion(nHeight);
-    }
-
-    // groth fork
-    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
-    bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
-
-    if(!isGROTHActive)
-    {
-        // sidechain fork is after groth one
-        assert(!areSidechainsSupported);
-
-        if (tx.nVersion > CTransaction::MAX_OLD_VERSION || tx.nVersion < CTransaction::MIN_OLD_VERSION)
-        {
-            reason = "version";
-            return false;
-        }
-    }
-    else
-    {
-        if (tx.nVersion != TRANSPARENT_TX_VERSION && tx.nVersion != GROTH_TX_VERSION)
-        {
-            // check sidechain tx
-            if ( !(areSidechainsSupported && (tx.nVersion == sidechainVersion)) )
-            {
-                reason = "version";
-                return false;
-            }
-        }
-    }
+    if (!txBase.CheckVersionIsStandard(reason, nHeight))
+        return false;
 
 
-    BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
+    BOOST_FOREACH(const CTxIn& txin, txBase.GetVin())
     {
         // Biggest 'standard' txin is a 15-of-15 P2SH multisig with compressed
         // keys. (remember the 520 byte limit on redeemScript size) That works
@@ -746,7 +713,7 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
 
     unsigned int nDataOut = 0;
     txnouttype whichType;
-    BOOST_FOREACH(const CTxOut& txout, tx.GetVout()) {
+    BOOST_FOREACH(const CTxOut& txout, txBase.GetVout()) {
 
         CheckBlockResult checkBlockResult;
         if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
@@ -766,7 +733,8 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
         }
 
         // provide temporary replay protection for two minerconf windows during chainsplit
-        if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(), whichType))) {
+        if ((!txBase.IsCoinBase()) &&
+            (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(), whichType))) {
             reason = "op-checkblockatheight-needed";
             return false;
         }
@@ -1201,7 +1169,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
     }
 
     string reason; // Rather not work on nonstandard transactions (unless -testnet/-regtest)
-    if (getRequireStandard() && !cert.IsStandard(reason, nextBlockHeight))
+    if (getRequireStandard() &&  !IsStandardTx(cert, reason, nextBlockHeight))
         return state.DoS(0, error("AcceptCertificateToMemoryPool: nonstandard certificate: %s", reason),
                             REJECT_NONSTANDARD, reason);
 
