@@ -1126,16 +1126,16 @@ const CTxOut &CCoinsViewCache::GetOutputFor(const CTxIn& input) const
     return coins->vout[input.prevout.n];
 }
 
-CAmount CCoinsViewCache::GetValueIn(const CTransaction& tx) const
+CAmount CCoinsViewCache::GetValueIn(const CTransactionBase& txBase) const
 {
-    if (tx.IsCoinBase())
+    if (txBase.IsCoinBase())
         return 0;
 
     CAmount nResult = 0;
-    for (unsigned int i = 0; i < tx.GetVin().size(); i++)
-        nResult += GetOutputFor(tx.GetVin()[i]).nValue;
+    for (const CTxIn& vin : txBase.GetVin())
+        nResult += GetOutputFor(vin).nValue;
 
-    nResult += tx.GetJoinSplitValueIn();
+    nResult += txBase.GetJoinSplitValueIn();
 
     return nResult;
 }

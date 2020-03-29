@@ -22,6 +22,7 @@
 #include "miner.h"
 #include "utilmoneystr.h"
 #include <univalue.h>
+#include <limits.h>
 
 extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
 
@@ -354,6 +355,21 @@ CAmount CTransactionBase::GetValueOut() const
     return nValueOut;
 }
 
+CAmount CTransactionBase::GetJoinSplitValueIn() const
+{
+    CAmount nCumulatedValue = 0;
+    for(const JSDescription& js : GetVjoinsplit())
+    {
+        // NB: vpub_new "gives" money to the value pool just as inputs do
+        nCumulatedValue += js.vpub_new;
+
+        if (!MoneyRange(js.vpub_new) || !MoneyRange(nCumulatedValue))
+            throw std::runtime_error("CTransaction::GetJoinSplitValueIn(): value out of range");
+    }
+
+    return nCumulatedValue;
+}
+
 bool CTransactionBase::CheckInputsAmount(CValidationState &state) const
 {
     // Ensure input values do not exceed MAX_MONEY
@@ -629,21 +645,6 @@ CAmount CTransaction::GetValueOut() const
     return nValueOut;
 }
 
-CAmount CTransaction::GetJoinSplitValueIn() const
-{
-    CAmount nValue = 0;
-    for (std::vector<JSDescription>::const_iterator it(vjoinsplit.begin()); it != vjoinsplit.end(); ++it)
-    {
-        // NB: vpub_new "gives" money to the value pool just as inputs do
-        nValue += it->vpub_new;
-
-        if (!MoneyRange(it->vpub_new) || !MoneyRange(nValue))
-            throw std::runtime_error("CTransaction::GetJoinSplitValueIn(): value out of range");
-    }
-
-    return nValue;
-}
-
 unsigned int CTransaction::CalculateSize() const
 {
     unsigned int sz = ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);
@@ -729,8 +730,6 @@ bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& st
 bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
 void CTransaction::AddToBlock(CBlock* pblock) const { return; }
 void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const {return; }
-CAmount CTransaction::GetValueIn(const CCoinsViewCache& view) const { return 0; }
-bool CTransaction::CheckInputsLimit(size_t limit, size_t& n) const { return true; }
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return true; }
 bool CTransaction::IsStandard(std::string& reason, int nHeight) const { return true; }
 bool CTransaction::CheckFinal(int flags) const { return true; }
@@ -836,6 +835,21 @@ bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& st
     return true;
 }
 
+bool CTransactionBase::CheckInputsLimit() const {
+    // Node operator can choose to reject tx by number of transparent inputs
+    static_assert(std::numeric_limits<size_t>::max() >= std::numeric_limits<int64_t>::max(), "size_t too small");
+    size_t limit = (size_t) GetArg("-mempooltxinputlimit", 0);
+    if (limit > 0) {
+        size_t n = GetVin().size();
+        if (n > limit) {
+            LogPrint("mempool", "Dropping txid %s : too many transparent inputs %zu > limit %zu\n",
+                    GetHash().ToString(), n, limit );
+            return false;
+        }
+    }
+    return true;
+}
+
 void CTransaction::AddToBlock(CBlock* pblock) const 
 {
     LogPrint("cert", "%s():%d - adding to block tx %s\n", __func__, __LINE__, GetHash().ToString());
@@ -848,34 +862,6 @@ void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fe
         GetHash().ToString(), FormatMoney(fee), sigops);
     pblocktemplate->vTxFees.push_back(fee);
     pblocktemplate->vTxSigOps.push_back(sigops);
-}
-
-CAmount CTransaction::GetValueIn(const CCoinsViewCache& view) const
-{
-    if (IsCoinBase())
-        return 0;
-
-    CAmount nResult = 0;
-    for (unsigned int i = 0; i < vin.size(); i++)
-    {
-        const CTxIn& ctxin = vin[i];
-        nResult += view.GetOutputFor(ctxin).nValue;
-    }
-
-    nResult += GetJoinSplitValueIn();
-
-    return nResult;
-}
-
-bool CTransaction::CheckInputsLimit(size_t limit, size_t& n) const
-{
-    if (limit > 0) {
-        n = vin.size();
-        if (n > limit) {
-            return false;
-        }
-    }
-    return true;
 }
 
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const

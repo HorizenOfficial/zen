@@ -696,11 +696,15 @@ public:
 
     bool CheckOutputsAreStandard(int nHeight, std::string& reason) const;
     bool CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const;
+
+    bool CheckInputsLimit() const;
     //END OF CHECK FUNCTIONS
 
     // Return sum of txouts.
     virtual CAmount GetValueOut() const;
 
+    // Return sum of JoinSplit vpub_new if supported
+    virtual CAmount GetJoinSplitValueIn() const;
     //-----------------
     // pure virtual interfaces 
     virtual bool IsNull() const = 0;
@@ -736,9 +740,6 @@ public:
     virtual bool IsCoinBase() const { return false; }
     virtual bool IsCoinCertified() const { return false; }
 
-    // Return sum of JoinSplit vpub_new if supported
-    virtual CAmount GetJoinSplitValueIn() const { return 0; }
-
     virtual void HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const { return; }
     virtual void AddJoinSplitToJSON(UniValue& entry) const { return; }
     virtual void AddSidechainOutsToJSON(UniValue& entry) const {return; }
@@ -752,12 +753,6 @@ public:
     virtual unsigned int GetP2SHSigOpCount(CCoinsViewCache& view) const { return 0; }
     virtual const uint256 getJoinSplitPubKey() const { return uint256(); }
     virtual int GetComplexity() const { return 0; }
-
-    // return sum of txins, and needs CCoinsViewCache, because
-    // inputs must be known to compute value in.
-    virtual CAmount GetValueIn(const CCoinsViewCache& view) const { return 0; }
-
-    virtual bool CheckInputsLimit(size_t limit, size_t& n) const { return true; }
 };
 
 struct CMutableTransaction;
@@ -882,8 +877,7 @@ public:
 
     // Return sum of txouts.
     CAmount GetValueOut() const override;
-    // Return sum of tx ins
-    CAmount GetValueIn(const CCoinsViewCache& view) const override;
+
     // value in should be computed via the method above using a proper coin view
     CAmount GetFeeAmount(CAmount valueIn) const override { return (valueIn - GetValueOut() ); }
 
@@ -978,8 +972,6 @@ public:
   public:
     void AddToBlock(CBlock* pblock) const override;
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const override;
-    CAmount GetJoinSplitValueIn() const override;
-    bool CheckInputsLimit(size_t limit, size_t& n) const override;
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
     bool IsStandard(std::string& reason, int nHeight) const override;
     bool CheckFinal(int flags = -1) const override;

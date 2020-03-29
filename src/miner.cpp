@@ -518,7 +518,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 #if 0
             CAmount nTxFees = view.GetValueIn(tx)-tx.GetValueOut();
 #else
-            CAmount valueIn = tx.GetValueIn(view);
+            CAmount valueIn = view.GetValueIn(tx);
             CAmount nTxFees = tx.GetFeeAmount(valueIn);
             if (nTxFees < 0)
             {

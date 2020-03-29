@@ -1183,7 +1183,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
     int nextBlockHeight = chainActive.Height() + 1; // OR chainActive.Tip()->nHeight
 
-    //ABENEGIA: a node can reject txs with too many inputs. Nothing similar so far for certificates. Is is all right?
+    if (!cert.CheckInputsLimit())
+        return false;
 
     if(!CheckCertificate(cert,state))
         return error("AcceptCertificateToMemoryPool: CheckCertificate failed");
@@ -1338,16 +1339,9 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         *pfMissingInputs = false;
 
     int nextBlockHeight = chainActive.Height() + 1; // OR chainActive.Tip()->nHeight
-    // Node operator can choose to reject tx by number of transparent inputs
-    static_assert(std::numeric_limits<size_t>::max() >= std::numeric_limits<int64_t>::max(), "size_t too small");
-    size_t limit = (size_t) GetArg("-mempooltxinputlimit", 0);
-    if (limit > 0) {
-        size_t n = tx.GetVin().size();
-        if (n > limit) {
-            LogPrint("mempool", "Dropping txid %s : too many transparent inputs %zu > limit %zu\n", tx.GetHash().ToString(), n, limit );
-            return false;
-        }
-    }
+
+    if (!tx.CheckInputsLimit())
+        return false;
 
     auto verifier = libzcash::ProofVerifier::Strict();
     if (!CheckTransaction(tx, state, verifier))
@@ -1397,11 +1391,11 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             return false;
         }
 
-        for (unsigned int i = 0; i < tx.GetVin().size(); i++) {
-            COutPoint outpoint = tx.GetVin()[i].prevout;
-            if (pool.mapNextTx.count(outpoint)) {
+        for (const CTxIn & vin : tx.GetVin()) {
+            if (pool.mapNextTx.count(vin.prevout)) {
+                // Disable replacement feature for now
                 LogPrint("mempool", "Dropping txid %s : it double spends another tx in mempool\n", hash.ToString());
-                return false; // Disable replacement feature for now
+                return false;
             }
         }
 
