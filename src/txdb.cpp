@@ -54,11 +54,11 @@ void static BatchWriteNullifier(CLevelDBBatch &batch, const uint256 &nf, const b
         batch.Write(make_pair(DB_NULLIFIER, nf), true);
 }
 
-void static BatchWriteCoins(CLevelDBBatch &batch, const uint256 &hash, const CCoins &coins) {
-    if (coins.IsPruned())
+void static BatchWriteCoins(CLevelDBBatch &batch, const uint256 &hash, const CCoinsViewDB::CCoinsFromTx &coinFromTx) {
+    if (coinFromTx.coinToStore.IsPruned())
         batch.Erase(make_pair(DB_COINS, hash));
     else
-        batch.Write(make_pair(DB_COINS, hash), coins);
+        batch.Write(make_pair(DB_COINS, hash), coinFromTx);
 }
 
 void static BatchWriteCert(CLevelDBBatch &batch, const uint256 &hash, const CCoinsViewDB::CCoinsFromCert &coinFromCert) {
@@ -119,7 +119,8 @@ bool CCoinsViewDB::GetNullifier(const uint256 &nf) const {
 }
 
 bool CCoinsViewDB::GetCoins(const uint256 &txid, CCoins &coins) const {
-    if (db.Read(make_pair(DB_COINS, txid), coins))
+    CCoinsFromTx coinFromTx(coins);
+    if (db.Read(make_pair(DB_COINS, txid), coinFromTx))
         return true;
 
     CCoinsFromCert coinFromCert(coins);
@@ -191,7 +192,7 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
     size_t changed = 0;
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) {
-            if (!it->second.coins.IsCoinCertified())
+            if (!it->second.coins.IsCoinFromCert())
                 BatchWriteCoins(batch, it->first, it->second.coins);
             else {
                 CCoinsFromCert coinCert(it->second.coins);
@@ -283,17 +284,18 @@ bool CCoinsViewDB::GetStats(CCoinsStats &stats) const {
             if (chType == DB_COINS) {
                 leveldb::Slice slValue = pcursor->value();
                 CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
-                CCoins coins;
-                ssValue >> coins;
+                CCoins coin;
+                CCoinsFromTx coinFromTx(coin);
+                ssValue >> coinFromTx;
                 uint256 txhash;
                 ssKey >> txhash;
                 ss << txhash;
-                ss << VARINT(coins.nVersion);
-                ss << (coins.fCoinBase ? 'c' : 'n');
-                ss << VARINT(coins.nHeight);
+                ss << VARINT(coinFromTx.coinToStore.nVersion);
+                ss << (coinFromTx.coinToStore.fCoinBase ? 'c' : 'n');
+                ss << VARINT(coinFromTx.coinToStore.nHeight);
                 stats.nTransactions++;
-                for (unsigned int i=0; i<coins.vout.size(); i++) {
-                    const CTxOut &out = coins.vout[i];
+                for (unsigned int i=0; i<coinFromTx.coinToStore.vout.size(); i++) {
+                    const CTxOut &out = coinFromTx.coinToStore.vout[i];
                     if (!out.IsNull()) {
                         stats.nTransactionOutputs++;
                         ss << VARINT(i+1);

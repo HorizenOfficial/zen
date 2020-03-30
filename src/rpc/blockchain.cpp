@@ -652,7 +652,7 @@ UniValue gettxout(const UniValue& params, bool fHelp)
 #if 0
     ret.push_back(Pair("coinbase", coins.fCoinBase));
 #else
-    ret.push_back(Pair("certificate", coins.IsCoinCertified()));
+    ret.push_back(Pair("certificate", coins.IsCoinFromCert()));
     ret.push_back(Pair("coinbase", coins.IsCoinBase()));
 #endif
 

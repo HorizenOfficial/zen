@@ -53,6 +53,124 @@ public:
     bool GetStats(CCoinsStats &stats) const;
     void Dump_info() const;
 
+private:
+    template<typename Stream>
+    static void CCoinsCoreSerialize(const CCoins & coin, Stream &s, int nType, int nVersion) {
+        unsigned int nMaskSize = 0, nMaskCode = 0;
+        coin.CalcMaskSize(nMaskSize, nMaskCode);
+        bool fFirst = coin.vout.size() > 0 && !coin.vout[0].IsNull();
+        bool fSecond = coin.vout.size() > 1 && !coin.vout[1].IsNull();
+        assert(fFirst || fSecond || nMaskCode);
+        unsigned int nCode = 8*(nMaskCode - (fFirst || fSecond ? 0 : 1)) + (coin.fCoinBase ? 1 : 0) + (fFirst ? 2 : 0) + (fSecond ? 4 : 0);
+        // version
+        ::Serialize(s, VARINT(coin.nVersion), nType, nVersion);
+        // header code
+        ::Serialize(s, VARINT(nCode), nType, nVersion);
+        // spentness bitmask
+        for (unsigned int b = 0; b<nMaskSize; b++) {
+            unsigned char chAvail = 0;
+            for (unsigned int i = 0; i < 8 && 2+b*8+i < coin.vout.size(); i++)
+                if (!coin.vout[2+b*8+i].IsNull())
+                    chAvail |= (1 << i);
+            ::Serialize(s, chAvail, nType, nVersion);
+        }
+        // txouts themself
+        for (unsigned int i = 0; i < coin.vout.size(); i++) {
+            if (!coin.vout[i].IsNull())
+                ::Serialize(s, CTxOutCompressor(REF(coin.vout[i])), nType, nVersion);
+        }
+        // coinbase height
+        ::Serialize(s, VARINT(coin.nHeight), nType, nVersion);
+
+        // originScId is not serialized in CCoins
+    }
+
+    template<typename Stream>
+    static void CCoinsCoreUnserialize(CCoins & coin, Stream &s, int nType, int nVersion) {
+        unsigned int nCode = 0;
+        // version
+        ::Unserialize(s, VARINT(coin.nVersion), nType, nVersion);
+        // header code
+        ::Unserialize(s, VARINT(nCode), nType, nVersion);
+        coin.fCoinBase = nCode & 1;
+        std::vector<bool> vAvail(2, false);
+        vAvail[0] = (nCode & 2) != 0;
+        vAvail[1] = (nCode & 4) != 0;
+        unsigned int nMaskCode = (nCode / 8) + ((nCode & 6) != 0 ? 0 : 1);
+        // spentness bitmask
+        while (nMaskCode > 0) {
+            unsigned char chAvail = 0;
+            ::Unserialize(s, chAvail, nType, nVersion);
+            for (unsigned int p = 0; p < 8; p++) {
+                bool f = (chAvail & (1 << p)) != 0;
+                vAvail.push_back(f);
+            }
+            if (chAvail != 0)
+                nMaskCode--;
+        }
+        // txouts themself
+        coin.vout.assign(vAvail.size(), CTxOut());
+        for (unsigned int i = 0; i < vAvail.size(); i++) {
+            if (vAvail[i])
+                ::Unserialize(s, REF(CTxOutCompressor(coin.vout[i])), nType, nVersion);
+        }
+        // coinbase height
+        ::Unserialize(s, VARINT(coin.nHeight), nType, nVersion);
+        coin.Cleanup();
+
+        // originScId is set to null when CCoins is unserialized
+        coin.originScId.SetNull();
+    }
+
+    static unsigned int CCoinsCoreSerializedSize(const CCoins & coin, int nType, int nVersion) {
+        unsigned int nSize = 0;
+        unsigned int nMaskSize = 0, nMaskCode = 0;
+        coin.CalcMaskSize(nMaskSize, nMaskCode);
+        bool fFirst = coin.vout.size() > 0 && !coin.vout[0].IsNull();
+        bool fSecond = coin.vout.size() > 1 && !coin.vout[1].IsNull();
+        assert(fFirst || fSecond || nMaskCode);
+        unsigned int nCode = 8*(nMaskCode - (fFirst || fSecond ? 0 : 1)) + (coin.fCoinBase ? 1 : 0) + (fFirst ? 2 : 0) + (fSecond ? 4 : 0);
+        // version
+        nSize += ::GetSerializeSize(VARINT(coin.nVersion), nType, nVersion);
+        // size of header code
+        nSize += ::GetSerializeSize(VARINT(nCode), nType, nVersion);
+        // spentness bitmask
+        nSize += nMaskSize;
+        // txouts themself
+        for (unsigned int i = 0; i < coin.vout.size(); i++)
+            if (!coin.vout[i].IsNull())
+                nSize += ::GetSerializeSize(CTxOutCompressor(REF(coin.vout[i])), nType, nVersion);
+        // height
+        nSize += ::GetSerializeSize(VARINT(coin.nHeight), nType, nVersion);
+
+        // originScId is not serialized in CCoins, hence it is not accounted in GetSerializeSize
+        return nSize;
+    }
+
+public:
+
+    class CCoinsFromTx {
+    public:
+        CCoins& coinToStore;
+        CCoinsFromTx(CCoins& coin): coinToStore(coin) {};
+
+        template<typename Stream>
+        void Serialize(Stream &s, int nType, int nVersion) const {
+            CCoinsCoreSerialize(coinToStore, s, nType, nVersion);
+            return;
+        }
+
+        template<typename Stream>
+        void Unserialize(Stream &s, int nType, int nVersion) {
+            CCoinsCoreUnserialize(coinToStore, s, nType, nVersion);
+            return;
+        }
+
+        unsigned int GetSerializeSize(int nType, int nVersion) const {
+            return CCoinsCoreSerializedSize(coinToStore, nType, nVersion);
+        }
+    };
+
     // coins coming from certificates needs to be serialized with their originScid. CCoinsfromCerts takes care of it
     class CCoinsFromCert {
     public:
@@ -61,21 +179,23 @@ public:
 
         unsigned int GetSerializeSize(int nType, int nVersion) const {
             unsigned int nSize = 0;
-            nSize += ::GetSerializeSize(coinToStore, nType, nVersion);
+            nSize += CCoinsCoreSerializedSize(coinToStore, nType, nVersion);
             nSize += ::GetSerializeSize(coinToStore.originScId, nType , nVersion);
             return nSize;
         }
 
         template<typename Stream>
         void Serialize(Stream &s, int nType, int nVersion) const {
-            coinToStore,Serialize(s, nType, nVersion);
+            CCoinsCoreSerialize(coinToStore, s, nType, nVersion);
             ::Serialize(s, coinToStore.originScId, nType, nVersion);
+            return;
         }
 
         template<typename Stream>
         void Unserialize(Stream &s, int nType, int nVersion) {
-            coinToStore,Unserialize(s, nType, nVersion);
+            CCoinsCoreUnserialize(coinToStore, s, nType, nVersion);
             ::Unserialize(s, coinToStore.originScId, nType, nVersion);
+            return;
         }
     };
 };
