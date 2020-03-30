@@ -1028,7 +1028,7 @@ bool ContextualCheckTransaction(
 bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
 {
     // we allow empty certificate, but if we have no vout the total amount must be 0
-    if (cert.vout.empty() && cert.totalAmount != 0) 
+    if ((cert.GetNumbOfBackwardTransfers() == 0) && cert.totalAmount != 0) 
     {
         return state.DoS(10, error("vout empty and totalAmount != 0"), REJECT_INVALID, "bad-cert-invalid");
     }

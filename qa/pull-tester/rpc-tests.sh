@@ -60,6 +60,7 @@ testScripts=(
     'sc_cert_invalidate.py'
     'sc_fwd_maturity.py'
     'sc_rawcertificate.py'
+    'sc_cert_and_fwt_in_mempool.py'
     'getunconfirmedtxdata.py'
 );
 testScriptsExt=(

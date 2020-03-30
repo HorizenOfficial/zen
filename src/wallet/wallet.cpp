@@ -4984,7 +4984,8 @@ bool CWalletCert::IsTrusted() const
 
     int nDepth = GetDepthInMainChain();
 
-    if (nDepth < 0)
+    // a certificate must not be in mempool for being considered
+    if (nDepth <= 0)
     {
         LogPrint("cert", "%s():%d - depth %d: returning false\n", __func__, __LINE__, nDepth);
         return false;
