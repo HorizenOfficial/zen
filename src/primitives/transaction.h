@@ -360,12 +360,16 @@ public:
     CAmount nValue;
     CScript scriptPubKey;
 
+    /* mem only */
+    bool backwardTransfer;
+
     CTxOut()
     {
         SetNull();
     }
 
-    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn);
+    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn, bool backwardTransferIn = false) :
+        nValue(nValueIn), scriptPubKey(scriptPubKeyIn), backwardTransfer(backwardTransferIn) {}
 
     ADD_SERIALIZE_METHODS;
 
@@ -379,6 +383,7 @@ public:
     {
         nValue = -1;
         scriptPubKey.clear();
+        backwardTransfer = false;
     }
 
     bool IsNull() const
@@ -412,8 +417,9 @@ public:
 
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
-        return (a.nValue       == b.nValue &&
-                a.scriptPubKey == b.scriptPubKey);
+        return (a.nValue           == b.nValue &&
+                a.scriptPubKey     == b.scriptPubKey &&
+                a.backwardTransfer == b.backwardTransfer);
     }
 
     friend bool operator!=(const CTxOut& a, const CTxOut& b)

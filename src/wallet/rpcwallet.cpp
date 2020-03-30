@@ -4877,7 +4877,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
 
         CRecipientBackwardTransfer bt;
-        bt.scriptPubKey = GetScriptForDestination(taddr.Get());
+        bt.scriptPubKey = GetScriptForDestination(taddr.Get(), false);
         bt.nValue = nAmount;
 
         vecSend.push_back(CcRecipientVariant(bt));
