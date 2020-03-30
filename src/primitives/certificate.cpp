@@ -75,8 +75,8 @@ bool CScCertificate::CheckInputsAvailability(CValidationState &state) const
 
 bool CScCertificate::CheckOutputsAvailability(CValidationState &state) const
 {
-    // we allow empty certificate, but if we have no vout the total amount must be 0
-    if (GetVout().empty() && totalAmount != 0)
+    // we allow empty certificate, but if we have no bt in vout the total amount must be 0
+    if ((GetNumbOfBackwardTransfers() == 0) && totalAmount != 0) 
     {
         return state.DoS(10, error("vout empty and totalAmount != 0"), REJECT_INVALID, "bad-cert-invalid");
     }
