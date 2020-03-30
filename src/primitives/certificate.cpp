@@ -15,11 +15,11 @@
 #include "main.h"
 
 CScCertificate::CScCertificate() : CTransactionBase(),
-    scId(), epochNumber(EPOCH_NULL), endEpochBlockHash(), totalAmount(), fee(), vbt_ccout(), nonce() { }
+    scId(), epochNumber(EPOCH_NULL), endEpochBlockHash(), totalAmount(), fee(), nonce() { }
 
 CScCertificate::CScCertificate(const CMutableScCertificate &cert) :
     scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash),
-    totalAmount(cert.totalAmount), fee(cert.fee), vbt_ccout(cert.vbt_ccout), nonce(cert.nonce)
+    totalAmount(cert.totalAmount), fee(cert.fee), nonce(cert.nonce)
 {
     *const_cast<int*>(&nVersion) = cert.nVersion;
     *const_cast<std::vector<CTxOut>*>(&vout) = cert.vout;
@@ -34,7 +34,6 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert) {
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     *const_cast<CAmount*>(&totalAmount) = cert.totalAmount;
     *const_cast<CAmount*>(&fee) = cert.fee;
-    *const_cast<std::vector<CTxBackwardTransferCrosschainOut>*>(&vbt_ccout) = cert.vbt_ccout;
     *const_cast<uint256*>(&nonce) = cert.nonce;
     return *this;
 }
@@ -50,7 +49,6 @@ CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0), tot
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     *const_cast<CAmount*>(&totalAmount) = cert.totalAmount;
     *const_cast<CAmount*>(&fee) = cert.fee;
-    *const_cast<std::vector<CTxBackwardTransferCrosschainOut>*>(&vbt_ccout) = cert.vbt_ccout;
     *const_cast<uint256*>(&nonce) = cert.nonce;
 }
 
@@ -77,8 +75,8 @@ bool CScCertificate::CheckInputsAvailability(CValidationState &state) const
 
 bool CScCertificate::CheckOutputsAvailability(CValidationState &state) const
 {
-    // we allow empty certificate, but if we have no vout the total amount must be 0
-    if (GetVout().empty() && totalAmount != 0)
+    // we allow empty certificate, but if we have no bt in vout the total amount must be 0
+    if ((GetNumbOfBackwardTransfers() == 0) && totalAmount != 0) 
     {
         return state.DoS(10, error("vout empty and totalAmount != 0"), REJECT_INVALID, "bad-cert-invalid");
     }
@@ -133,9 +131,6 @@ std::string CScCertificate::ToString() const
         fee / COIN, fee % COIN);
     for (unsigned int i = 0; i < vout.size(); i++)
         str += "    " + vout[i].ToString() + "\n";
-// empty for the time being
-//    for (unsigned int i = 0; i < vbt_ccout.size(); i++)
-//        str += "    " + vbt_ccout[i].ToString() + "\n";
 
     return str;
 }
@@ -186,6 +181,8 @@ bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {r
 bool CScCertificate::IsApplicableToState(CValidationState& state, int nHeight) const { return true; }
 bool CScCertificate::IsStandard(std::string& reason, int nHeight) const { return true; }
 unsigned int CScCertificate::GetLegacySigOpCount() const { return 0; }
+void CScCertificate::UnserializeTranslate(const BackwardTransferData& btdata, CTxOut& txout)  { return; }
+void CScCertificate::SerializeTranslate(const CTxOut& txout, BackwardTransferData& btdata)  { return; }
 #else
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
 {
@@ -211,6 +208,30 @@ bool CScCertificate::IsStandard(std::string& reason, int nHeight) const
     return CheckOutputsAreStandard(nHeight, reason);
 }
 
+void CScCertificate::UnserializeTranslate(const BackwardTransferData& btdata, CTxOut& txout) 
+{
+    txout.nValue = btdata.nValue;
+    txout.scriptPubKey.clear();
+    std::vector<unsigned char> pkh(btdata.pubKeyHash.begin(), btdata.pubKeyHash.end());
+    txout.scriptPubKey << OP_DUP << OP_HASH160 << pkh << OP_EQUALVERIFY << OP_CHECKSIG;
+    txout.backwardTransfer = true;
+    LogPrint("cert", "%s():%d - script[%s]\n", __func__, __LINE__, txout.scriptPubKey.ToString());
+}
+
+void CScCertificate::SerializeTranslate(const CTxOut& txout, BackwardTransferData& btdata) 
+{
+    btdata.nValue = txout.nValue;
+    auto it = std::find(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), OP_HASH160);
+    assert(it != txout.scriptPubKey.end());
+    ++it; 
+    assert(*it == sizeof(uint160));
+    ++it;
+    std::vector<unsigned char>  pubKeyV(it, (it + sizeof(uint160)));
+
+    btdata.pubKeyHash = uint160(pubKeyV);
+    LogPrint("cert", "%s():%d - pkh[%s]\n", __func__, __LINE__, btdata.pubKeyHash.ToString());
+}
+
 unsigned int CScCertificate::GetLegacySigOpCount() const 
 {
     unsigned int nSigOps = 0;
@@ -228,14 +249,33 @@ void CScCertificate::addToScCommitment(std::map<uint256, uint256>& map, std::set
     map[scId] = GetHash();
 }
 
+CAmount CScCertificate::GetValueOfBackwardTransfers() const
+{
+    CAmount nValueOut = 0;
+    for (auto out : vout)
+        if (out.backwardTransfer)
+            nValueOut += out.nValue;
+    return nValueOut;
+}
+
+int CScCertificate::GetNumbOfBackwardTransfers() const
+{
+    int size = 0;
+    for (auto out : vout)
+        if (out.backwardTransfer)
+            size += 1;
+    return size;
+}
+
+
 // Mutable Certificate
 //-------------------------------------
 CMutableScCertificate::CMutableScCertificate() :
-        scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), totalAmount(), fee(), vbt_ccout(), nonce() {}
+        scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), totalAmount(), fee(), nonce() {}
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert) :
     scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash),
-    totalAmount(cert.totalAmount), fee(cert.fee), vbt_ccout(cert.vbt_ccout), nonce(cert.nonce)
+    totalAmount(cert.totalAmount), fee(cert.fee), nonce(cert.nonce)
 {
     nVersion = cert.nVersion;
     vout = cert.GetVout();
@@ -246,15 +286,4 @@ uint256 CMutableScCertificate::GetHash() const
     return SerializeHash(*this);
 }
 
-// Crosschain out
-//-------------------------------------
-std::string CTxBackwardTransferCrosschainOut::ToString() const
-{
-    return strprintf("CTxBackwardTransferCrosschainOut()");
-}
-
-uint256 CTxBackwardTransferCrosschainOut::GetHash() const
-{
-    return SerializeHash(*this);
-}
 

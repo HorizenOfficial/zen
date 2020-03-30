@@ -140,8 +140,9 @@ class sc_rawcert(BitcoinTestFramework):
         sync_mempools(self.nodes[1:3])
 
         mark_logs("Node0 generating 4 block, also reverting other chains", self.nodes, DEBUG_MODE)
+        mined = self.nodes[0].generate(1)[0]
         epn = 1
-        eph = self.nodes[0].generate(4)[-1]
+        eph = self.nodes[0].generate(3)[-1]
         self.sync_all()
 
         # -------------------------- end epoch
@@ -150,7 +151,15 @@ class sc_rawcert(BitcoinTestFramework):
         assert_equal(sc_funds_post, sc_funds_pre - bt_amount)
 
         decoded_cert_post = self.nodes[2].getrawcertificate(cert, 1)
+        assert_equal(decoded_cert_post['certid'], cert)
+        assert_equal(decoded_cert_post['hex'], raw_cert)
+        assert_equal(decoded_cert_post['blockhash'], mined)
+        assert_equal(decoded_cert_post['confirmations'], 4)
+        #remove fields not included in decoded_cert_pre_list
         del decoded_cert_post['hex']
+        del decoded_cert_post['blockhash']
+        del decoded_cert_post['confirmations']
+        del decoded_cert_post['blocktime']
         decoded_cert_post_list = sorted(decoded_cert_post.items(), key=operator.itemgetter(1))
 
         mark_logs("check that cert decodes correctly", self.nodes, DEBUG_MODE)
@@ -195,9 +204,15 @@ class sc_rawcert(BitcoinTestFramework):
         mark_logs("check that cert contents are as expected", self.nodes, DEBUG_MODE)
         assert_equal(len(decoded_cert_post['vout']), 0)
         assert_equal(decoded_cert_post['certid'], cert)
+        assert_equal(decoded_cert_post['hex'], raw_cert)
+        assert_equal(decoded_cert_post['blockhash'], mined)
+        assert_equal(decoded_cert_post['confirmations'], 1)
         assert_equal(Decimal(decoded_cert_post['cert']['totalAmount']), 0.0)
-
+        #remove fields not included in decoded_cert_pre_list
         del decoded_cert_post['hex']
+        del decoded_cert_post['blockhash']
+        del decoded_cert_post['confirmations']
+        del decoded_cert_post['blocktime']
         decoded_cert_post_list = sorted(decoded_cert_post.items(), key=operator.itemgetter(1))
 
         mark_logs("check that cert decodes correctly", self.nodes, DEBUG_MODE)
