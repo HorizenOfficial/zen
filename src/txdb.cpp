@@ -61,11 +61,11 @@ void static BatchWriteCoins(CLevelDBBatch &batch, const uint256 &hash, const CCo
         batch.Write(make_pair(DB_COINS, hash), coins);
 }
 
-void static BatchWriteCert(CLevelDBBatch &batch, const uint256 &hash, const CCoins &coins) {
-    if (coins.IsPruned())
+void static BatchWriteCert(CLevelDBBatch &batch, const uint256 &hash, const CCoinsViewDB::CCoinsFromCert &coinFromCert) {
+    if (coinFromCert.coinToStore.IsPruned())
         batch.Erase(make_pair(DB_CERTS, hash));
     else
-        batch.Write(make_pair(DB_CERTS, hash), coins);
+        batch.Write(make_pair(DB_CERTS, hash), coinFromCert);
 }
 
 void static BatchSidechains(CLevelDBBatch &batch, const uint256 &scId, const CSidechainsCacheEntry &sidechain) {
@@ -119,7 +119,14 @@ bool CCoinsViewDB::GetNullifier(const uint256 &nf) const {
 }
 
 bool CCoinsViewDB::GetCoins(const uint256 &txid, CCoins &coins) const {
-    return db.Read(make_pair(DB_COINS, txid), coins) || db.Read(make_pair(DB_CERTS, txid), coins);
+    if (db.Read(make_pair(DB_COINS, txid), coins))
+        return true;
+
+    CCoinsFromCert coinFromCert(coins);
+    if (db.Read(make_pair(DB_CERTS, txid), coinFromCert))
+        return true;
+
+    return false;
 }
 
 bool CCoinsViewDB::HaveCoins(const uint256 &txid) const {
@@ -186,8 +193,11 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
         if (it->second.flags & CCoinsCacheEntry::DIRTY) {
             if (!it->second.coins.IsCoinCertified())
                 BatchWriteCoins(batch, it->first, it->second.coins);
-            else
-                BatchWriteCert(batch, it->first, it->second.coins);
+            else {
+                CCoinsFromCert coinCert(it->second.coins);
+                BatchWriteCert(batch, it->first, coinCert);
+            }
+
 
             changed++;
         }
@@ -270,7 +280,7 @@ bool CCoinsViewDB::GetStats(CCoinsStats &stats) const {
             CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
             char chType;
             ssKey >> chType;
-            if ( (chType == DB_COINS) || (chType == DB_CERTS) ) {
+            if (chType == DB_COINS) {
                 leveldb::Slice slValue = pcursor->value();
                 CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
                 CCoins coins;
@@ -284,6 +294,30 @@ bool CCoinsViewDB::GetStats(CCoinsStats &stats) const {
                 stats.nTransactions++;
                 for (unsigned int i=0; i<coins.vout.size(); i++) {
                     const CTxOut &out = coins.vout[i];
+                    if (!out.IsNull()) {
+                        stats.nTransactionOutputs++;
+                        ss << VARINT(i+1);
+                        ss << out;
+                        nTotalAmount += out.nValue;
+                    }
+                }
+                stats.nSerializedSize += 32 + slValue.size();
+                ss << VARINT(0);
+            } else if (chType == DB_CERTS) { //TEMPORARY DUPLICATED CODE FOR POC
+                leveldb::Slice slValue = pcursor->value();
+                CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
+                CCoins coin;
+                CCoinsFromCert coinFromCert(coin);
+                ssValue >> coinFromCert;
+                uint256 txhash;
+                ssKey >> txhash;
+                ss << txhash;
+                ss << VARINT(coinFromCert.coinToStore.nVersion);
+                ss << (coinFromCert.coinToStore.fCoinBase ? 'c' : 'n');
+                ss << VARINT(coinFromCert.coinToStore.nHeight);
+                stats.nTransactions++;
+                for (unsigned int i=0; i<coinFromCert.coinToStore.vout.size(); i++) {
+                    const CTxOut &out = coinFromCert.coinToStore.vout[i];
                     if (!out.IsNull()) {
                         stats.nTransactionOutputs++;
                         ss << VARINT(i+1);

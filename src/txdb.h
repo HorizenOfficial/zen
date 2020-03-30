@@ -52,6 +52,32 @@ public:
                     CSidechainsMap& mapSidechains);
     bool GetStats(CCoinsStats &stats) const;
     void Dump_info() const;
+
+    // coins coming from certificates needs to be serialized with their originScid. CCoinsfromCerts takes care of it
+    class CCoinsFromCert {
+    public:
+        CCoins& coinToStore;
+        CCoinsFromCert(CCoins& coin): coinToStore(coin) {};
+
+        unsigned int GetSerializeSize(int nType, int nVersion) const {
+            unsigned int nSize = 0;
+            nSize += ::GetSerializeSize(coinToStore, nType, nVersion);
+            nSize += ::GetSerializeSize(coinToStore.originScId, nType , nVersion);
+            return nSize;
+        }
+
+        template<typename Stream>
+        void Serialize(Stream &s, int nType, int nVersion) const {
+            coinToStore,Serialize(s, nType, nVersion);
+            ::Serialize(s, coinToStore.originScId, nType, nVersion);
+        }
+
+        template<typename Stream>
+        void Unserialize(Stream &s, int nType, int nVersion) {
+            coinToStore,Unserialize(s, nType, nVersion);
+            ::Unserialize(s, coinToStore.originScId, nType, nVersion);
+        }
+    };
 };
 
 /** Access to the block database (blocks/index/) */

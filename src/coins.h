@@ -90,11 +90,16 @@ public:
     //! as new tx version will probably only be introduced at certain heights
     int nVersion;
 
+    //! if coin comes from a bwt, originScId will contain the associated ScId; otherwise it will be null
+    //! originScId will be serialized only for coins from bwt, which will be stored in chainstate db under different key
+    uint256 originScId;
+
     void FromTx(const CTransactionBase &tx, int nHeightIn) {
-        fCoinBase = tx.IsCoinBase() || tx.IsCoinCertified();
-        vout = tx.GetVout();
-        nHeight = nHeightIn;
-        nVersion = tx.nVersion;
+        fCoinBase  = tx.IsCoinBase() || tx.IsCoinCertified();
+        vout       = tx.GetVout();
+        nHeight    = nHeightIn;
+        nVersion   = tx.nVersion;
+        originScId = tx.GetScId();
         ClearUnspendable();
     }
 
@@ -108,10 +113,11 @@ public:
         std::vector<CTxOut>().swap(vout);
         nHeight = 0;
         nVersion = 0;
+        originScId.SetNull();
     }
 
     //! empty constructor
-    CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0) { }
+    CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), originScId() { }
 
     //!remove spent outputs at the end of vout
     void Cleanup() {
@@ -134,6 +140,7 @@ public:
         to.vout.swap(vout);
         std::swap(to.nHeight, nHeight);
         std::swap(to.nVersion, nVersion);
+        std::swap(to.originScId, originScId);
     }
 
     //! equality test
@@ -141,10 +148,11 @@ public:
          // Empty CCoins objects are always equal.
          if (a.IsPruned() && b.IsPruned())
              return true;
-         return a.fCoinBase == b.fCoinBase &&
-                a.nHeight == b.nHeight &&
-                a.nVersion == b.nVersion &&
-                a.vout == b.vout;
+         return a.fCoinBase  == b.fCoinBase &&
+                a.nHeight    == b.nHeight   &&
+                a.nVersion   == b.nVersion  &&
+                a.vout       == b.vout      &&
+                a.originScId == b.originScId;
     }
     friend bool operator!=(const CCoins &a, const CCoins &b) {
         return !(a == b);
@@ -181,6 +189,8 @@ public:
                 nSize += ::GetSerializeSize(CTxOutCompressor(REF(vout[i])), nType, nVersion);
         // height
         nSize += ::GetSerializeSize(VARINT(nHeight), nType, nVersion);
+
+        // originScId is not serialized in CCoins, hence it is not accounted in GetSerializeSize
         return nSize;
     }
 
@@ -211,6 +221,8 @@ public:
         }
         // coinbase height
         ::Serialize(s, VARINT(nHeight), nType, nVersion);
+
+        // originScId is not serialized in CCoins
     }
 
     template<typename Stream>
@@ -245,6 +257,9 @@ public:
         // coinbase height
         ::Unserialize(s, VARINT(nHeight), nType, nVersion);
         Cleanup();
+
+        // originScId is set to null when CCoins is unserialized
+        originScId.SetNull();
     }
 
     //! mark a vout spent
