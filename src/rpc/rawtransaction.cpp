@@ -194,7 +194,7 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
     // add to entry obj the cross chain outputs
    
     UniValue x(UniValue::VOBJ);
-    x.push_back(Pair("scid", cert.scId.GetHex()));
+    x.push_back(Pair("scid", cert.GetScId().GetHex()));
     x.push_back(Pair("epochNumber", cert.epochNumber));
     x.push_back(Pair("endEpochBlockHash", cert.endEpochBlockHash.GetHex()));
     x.push_back(Pair("totalAmount", ValueFromAmount(cert.totalAmount)));

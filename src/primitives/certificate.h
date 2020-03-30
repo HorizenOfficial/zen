@@ -16,7 +16,10 @@ public:
     static const int32_t EPOCH_NULL = -1;
     static const int32_t EPOCH_NOT_INITIALIZED = -2;
 
+private:
     const uint256 scId;
+
+public:
     const int32_t epochNumber;
     const uint256 endEpochBlockHash;
     const CAmount totalAmount;
@@ -70,6 +73,7 @@ public:
     const std::vector<CTxIn>&         GetVin()        const override {static const std::vector<CTxIn> noInputs; return noInputs;};
     const std::vector<CTxOut>&        GetVout()       const override {return vout;};
     const std::vector<JSDescription>& GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
+    const uint256&                    GetScId()       const override {return scId;};
     //END OF GETTERS
 
     //CHECK FUNCTIONS

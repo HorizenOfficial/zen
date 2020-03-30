@@ -172,12 +172,12 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
 
     const CScCertificate& cert = entry.GetCertificate();
 
-    if (mapSidechains.count(cert.scId) )
-        assert(mapSidechains[cert.scId].backwardCertificate.IsNull());
+    if (mapSidechains.count(cert.GetScId()) )
+        assert(mapSidechains[cert.GetScId()].backwardCertificate.IsNull());
     else
-        LogPrint("cert", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, cert.scId.ToString() );
+        LogPrint("cert", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, cert.GetScId().ToString() );
 
-    mapSidechains[cert.scId].backwardCertificate = hash;
+    mapSidechains[cert.GetScId()].backwardCertificate = hash;
            
     nCertificatesUpdated++;
     totalCertificateSize += entry.GetCertificateSize();
@@ -319,12 +319,12 @@ void::CTxMemPool::removeInternal(
                 }
             }
 
-            mapSidechains.at(cert.scId).backwardCertificate.SetNull();
-            if (mapSidechains.at(cert.scId).fwdTransfersSet.size() == 0 &&
-                mapSidechains.at(cert.scId).scCreationTxHash.IsNull() )
+            mapSidechains.at(cert.GetScId()).backwardCertificate.SetNull();
+            if (mapSidechains.at(cert.GetScId()).fwdTransfersSet.size() == 0 &&
+                mapSidechains.at(cert.GetScId()).scCreationTxHash.IsNull() )
             {
-                LogPrint("cert", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, cert.scId.ToString() );
-                mapSidechains.erase(cert.scId);
+                LogPrint("cert", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, cert.GetScId().ToString() );
+                mapSidechains.erase(cert.GetScId());
             }
 
             removedCerts.push_back(cert);
@@ -534,13 +534,13 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
 
 void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts) {
     //a certificate for a sidechain has been confirmed in a block. Any unconfirmed cert in mempool is deemed conflicting and removed
-    if (!mapSidechains.count(cert.scId))
+    if (!mapSidechains.count(cert.GetScId()))
         return;
 
-    if (mapSidechains.at(cert.scId).backwardCertificate.IsNull())
+    if (mapSidechains.at(cert.GetScId()).backwardCertificate.IsNull())
         return;
 
-    const CScCertificate& conflictingCert = mapCertificate.at(mapSidechains.at(cert.scId).backwardCertificate).GetCertificate();
+    const CScCertificate& conflictingCert = mapCertificate.at(mapSidechains.at(cert.GetScId()).backwardCertificate).GetCertificate();
     remove(conflictingCert, removedTxs, removedCerts, true);
 }
 
@@ -679,8 +679,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         const auto& cert = it->second.GetCertificate();
 
         //certificate must be duly recorded in mapSidechain
-        assert(mapSidechains.count(cert.scId) != 0);
-        assert(mapSidechains.at(cert.scId).backwardCertificate == cert.GetHash());
+        assert(mapSidechains.count(cert.GetScId()) != 0);
+        assert(mapSidechains.at(cert.GetScId()).backwardCertificate == cert.GetHash());
 
         checkTotal += it->second.GetCertificateSize();
         innerUsage += it->second.DynamicMemoryUsage();
@@ -918,12 +918,12 @@ bool CCoinsViewMemPool::HaveSidechain(const uint256& scId) const {
 
 bool CCoinsViewMemPool::IsCertAllowedInMempool(const CScCertificate& cert, CValidationState& state)
 {
-    if (!HaveCertForEpoch(cert.scId, cert.epochNumber))
+    if (!HaveCertForEpoch(cert.GetScId(), cert.epochNumber))
         return true;
 
     // when called for checking the contents of mempool we can find the certificate itself, which is OK
-    if (mempool.mapSidechains.count(cert.scId)) {
-        const uint256 & conflictingCertHash = mempool.mapSidechains.at(cert.scId).backwardCertificate;
+    if (mempool.mapSidechains.count(cert.GetScId())) {
+        const uint256 & conflictingCertHash = mempool.mapSidechains.at(cert.GetScId()).backwardCertificate;
         if (conflictingCertHash == cert.GetHash()) //This currently happens with mempool.check
             return true;
 

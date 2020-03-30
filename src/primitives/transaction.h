@@ -680,6 +680,7 @@ public:
     virtual const std::vector<CTxIn>&         GetVin()        const = 0;
     virtual const std::vector<CTxOut>&        GetVout()       const = 0;
     virtual const std::vector<JSDescription>& GetVjoinsplit() const = 0;
+    virtual const uint256&                    GetScId()       const = 0;
     //END OF GETTERS
 
     //CHECK FUNCTIONS
@@ -869,6 +870,7 @@ public:
     const std::vector<CTxIn>&         GetVin()        const override {return vin;};
     const std::vector<CTxOut>&        GetVout()       const override {return vout;};
     const std::vector<JSDescription>& GetVjoinsplit() const override {return vjoinsplit;};
+    const uint256&                    GetScId()       const override { static uint256 noScId; return noScId;};
     //END OF GETTERS
 
     //CHECK FUNCTIONS
