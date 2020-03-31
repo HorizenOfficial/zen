@@ -351,6 +351,8 @@ public:
     std::string ToString() const;
 };
 
+class CBackwardTransferOut;
+
 /** An output of a transaction.  It contains the public key that the next input
  * must be able to sign with to claim it.
  */
@@ -361,15 +363,17 @@ public:
     CScript scriptPubKey;
 
     /* mem only */
-    bool backwardTransfer;
+    bool isFromBackwardTransfer;
 
     CTxOut()
     {
         SetNull();
     }
 
-    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn, bool backwardTransferIn = false) :
-        nValue(nValueIn), scriptPubKey(scriptPubKeyIn), backwardTransfer(backwardTransferIn) {}
+    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn, bool isFromBackwardTransferIn = false) :
+        nValue(nValueIn), scriptPubKey(scriptPubKeyIn), isFromBackwardTransfer(isFromBackwardTransferIn) {}
+
+    explicit CTxOut(const CBackwardTransferOut& btdata);
 
     ADD_SERIALIZE_METHODS;
 
@@ -377,13 +381,18 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(nValue);
         READWRITE(scriptPubKey);
+        if (ser_action.ForRead())
+        {
+            // default value for memory data member
+            isFromBackwardTransfer = false;
+        }
     }
 
     void SetNull()
     {
         nValue = -1;
         scriptPubKey.clear();
-        backwardTransfer = false;
+        isFromBackwardTransfer = false;
     }
 
     bool IsNull() const
@@ -417,9 +426,9 @@ public:
 
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
-        return (a.nValue           == b.nValue &&
-                a.scriptPubKey     == b.scriptPubKey &&
-                a.backwardTransfer == b.backwardTransfer);
+        return (a.nValue                 == b.nValue &&
+                a.scriptPubKey           == b.scriptPubKey &&
+                a.isFromBackwardTransfer == b.isFromBackwardTransfer);
     }
 
     friend bool operator!=(const CTxOut& a, const CTxOut& b)
@@ -429,6 +438,25 @@ public:
 
     std::string ToString() const;
 };
+
+class CBackwardTransferOut
+{
+public:
+    CAmount nValue;
+    uint160 pubKeyHash;
+
+    CBackwardTransferOut(): nValue(0), pubKeyHash() {};
+    explicit CBackwardTransferOut(const CTxOut& txout);
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(nValue);
+        READWRITE(pubKeyHash);
+    }
+};
+
 
 /** An output of a transaction related to SideChain only.
  */
