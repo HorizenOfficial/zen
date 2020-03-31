@@ -684,7 +684,7 @@ public:
 
     //CHECK FUNCTIONS
     virtual bool CheckVersionBasic        (CValidationState &state) const = 0;
-    virtual bool CheckVersionIsStandard   (std::string& reason, const int nHeight) const = 0;
+    virtual bool CheckVersionIsStandard   (std::string& reason, int nHeight) const = 0;
     virtual bool CheckInputsAvailability  (CValidationState &state) const = 0;
     virtual bool CheckOutputsAvailability (CValidationState &state) const = 0;
     virtual bool CheckSerializedSize      (CValidationState &state) const = 0;
@@ -867,7 +867,7 @@ public:
 
     //CHECK FUNCTIONS
     bool CheckVersionBasic        (CValidationState &state) const override;
-    bool CheckVersionIsStandard   (std::string& reason, const int nHeight) const override;
+    bool CheckVersionIsStandard   (std::string& reason, int nHeight) const override;
     bool CheckInputsAvailability  (CValidationState &state) const override;
     bool CheckOutputsAvailability (CValidationState &state) const override;
     bool CheckSerializedSize      (CValidationState &state) const override;
