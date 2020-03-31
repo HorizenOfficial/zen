@@ -181,8 +181,6 @@ bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {r
 bool CScCertificate::IsApplicableToState(CValidationState& state, int nHeight) const { return true; }
 bool CScCertificate::IsStandard(std::string& reason, int nHeight) const { return true; }
 unsigned int CScCertificate::GetLegacySigOpCount() const { return 0; }
-void CScCertificate::UnserializeTranslate(const BackwardTransferData& btdata, CTxOut& txout)  { return; }
-void CScCertificate::SerializeTranslate(const CTxOut& txout, BackwardTransferData& btdata)  { return; }
 #else
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
 {
@@ -208,30 +206,6 @@ bool CScCertificate::IsStandard(std::string& reason, int nHeight) const
     return CheckOutputsAreStandard(nHeight, reason);
 }
 
-void CScCertificate::UnserializeTranslate(const BackwardTransferData& btdata, CTxOut& txout) 
-{
-    txout.nValue = btdata.nValue;
-    txout.scriptPubKey.clear();
-    std::vector<unsigned char> pkh(btdata.pubKeyHash.begin(), btdata.pubKeyHash.end());
-    txout.scriptPubKey << OP_DUP << OP_HASH160 << pkh << OP_EQUALVERIFY << OP_CHECKSIG;
-    txout.backwardTransfer = true;
-    LogPrint("cert", "%s():%d - script[%s]\n", __func__, __LINE__, txout.scriptPubKey.ToString());
-}
-
-void CScCertificate::SerializeTranslate(const CTxOut& txout, BackwardTransferData& btdata) 
-{
-    btdata.nValue = txout.nValue;
-    auto it = std::find(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), OP_HASH160);
-    assert(it != txout.scriptPubKey.end());
-    ++it; 
-    assert(*it == sizeof(uint160));
-    ++it;
-    std::vector<unsigned char>  pubKeyV(it, (it + sizeof(uint160)));
-
-    btdata.pubKeyHash = uint160(pubKeyV);
-    LogPrint("cert", "%s():%d - pkh[%s]\n", __func__, __LINE__, btdata.pubKeyHash.ToString());
-}
-
 unsigned int CScCertificate::GetLegacySigOpCount() const 
 {
     unsigned int nSigOps = 0;
@@ -253,7 +227,7 @@ CAmount CScCertificate::GetValueOfBackwardTransfers() const
 {
     CAmount nValueOut = 0;
     for (auto out : vout)
-        if (out.backwardTransfer)
+        if (out.isFromBackwardTransfer)
             nValueOut += out.nValue;
     return nValueOut;
 }
@@ -262,7 +236,7 @@ int CScCertificate::GetNumbOfBackwardTransfers() const
 {
     int size = 0;
     for (auto out : vout)
-        if (out.backwardTransfer)
+        if (out.isFromBackwardTransfer)
             size += 1;
     return size;
 }

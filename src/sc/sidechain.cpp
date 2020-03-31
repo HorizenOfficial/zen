@@ -117,7 +117,7 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
         return state.DoS(100, error("version too low"), REJECT_INVALID, "bad-cert-version-too-low");
     }
 
-    if (!MoneyRange(cert.totalAmount) || !MoneyRange(cert.GetValueOfBackwardTransfers()))
+    if (!MoneyRange(cert.totalAmount))
     {
         LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate amount is outside range\n",
             __func__, __LINE__, certHash.ToString() );

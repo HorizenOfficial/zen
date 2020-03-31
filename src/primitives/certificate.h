@@ -43,20 +43,6 @@ public:
 
     const uint256& GetHash() const { return hash; }
 
-    struct BackwardTransferData
-    {
-        CAmount nValue;
-        uint160 pubKeyHash;
-
-        ADD_SERIALIZE_METHODS;
- 
-        template <typename Stream, typename Operation>
-        inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-            READWRITE(nValue);
-            READWRITE(pubKeyHash);
-        }
-    };
-
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -70,33 +56,31 @@ public:
 
         if (ser_action.ForRead())
         {
-            std::vector<BackwardTransferData> vbt_ccout_ser;
+            std::vector<CBackwardTransferOut> vbt_ccout_ser;
 
             // reading from data stream to memory
             READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
-            READWRITE(*const_cast<std::vector<BackwardTransferData>*>(&vbt_ccout_ser));
+            READWRITE(*const_cast<std::vector<CBackwardTransferOut>*>(&vbt_ccout_ser));
 
-            for (auto& btdata : vbt_ccout_ser)
+            for (auto& btout : vbt_ccout_ser)
             {
-                CTxOut out;
-                UnserializeTranslate(btdata, out);
+                CTxOut out(btout);
                 (*const_cast<std::vector<CTxOut>*>(&vout)).push_back(out);
             }
         }
         else
         {
-            std::vector<BackwardTransferData> vbt_ccout_ser;
+            std::vector<CBackwardTransferOut> vbt_ccout_ser;
             // we must not modify vout
             std::vector<CTxOut> vout_ser;
 
             // reading from memory and writing to data stream
             for (auto it = vout.begin(); it != vout.end(); ++it)
             {
-                if ((*it).backwardTransfer)
+                if ((*it).isFromBackwardTransfer)
                 {
-                    BackwardTransferData btdata;
-                    SerializeTranslate((*it), btdata);
-                    vbt_ccout_ser.push_back(btdata);
+                    CBackwardTransferOut btout((*it));
+                    vbt_ccout_ser.push_back(btout);
                 }
                 else
                 {
@@ -104,7 +88,7 @@ public:
                 }
             }
             READWRITE(*const_cast<std::vector<CTxOut>*>(&vout_ser));
-            READWRITE(*const_cast<std::vector<BackwardTransferData>*>(&vbt_ccout_ser));
+            READWRITE(*const_cast<std::vector<CBackwardTransferOut>*>(&vbt_ccout_ser));
         }
 
         READWRITE(*const_cast<uint256*>(&nonce));
@@ -167,9 +151,6 @@ public:
     unsigned int GetLegacySigOpCount() const override;
 
     bool IsCoinCertified() const override { return true; }
-protected:
-    static void UnserializeTranslate(const BackwardTransferData& btdata, CTxOut& txout) ;
-    static void SerializeTranslate(const CTxOut& txout, BackwardTransferData& btdata) ;
 };
 
 /** A mutable version of CScCertificate. */
