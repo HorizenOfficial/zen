@@ -211,10 +211,23 @@ std::string CTxIn::ToString() const
     return str;
 }
 
-CTxOut::CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn)
+CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nValue)
 {
-    nValue = nValueIn;
-    scriptPubKey = scriptPubKeyIn;
+    auto it = std::find(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), OP_HASH160);
+    assert(it != txout.scriptPubKey.end());
+    ++it; 
+    assert(*it == sizeof(uint160));
+    ++it;
+    std::vector<unsigned char>  pubKeyV(it, (it + sizeof(uint160)));
+    pubKeyHash = uint160(pubKeyV);
+}
+
+CTxOut::CTxOut(const CBackwardTransferOut& btout) : nValue(btout.nValue)
+{
+    scriptPubKey.clear();
+    std::vector<unsigned char> pkh(btout.pubKeyHash.begin(), btout.pubKeyHash.end());
+    scriptPubKey << OP_DUP << OP_HASH160 << pkh << OP_EQUALVERIFY << OP_CHECKSIG;
+    isFromBackwardTransfer = true;
 }
 
 uint256 CTxOut::GetHash() const
@@ -762,13 +775,12 @@ bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& st
         ::IsStandard(txout.scriptPubKey, whichType);
 
         // provide temporary replay protection for two minerconf windows during chainsplit
-        if (!IsCoinBase() && !ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(),whichType))
-        {
+        if ( (!txout.isFromBackwardTransfer) && (!IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(), whichType)))        {
             return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, ::GetTxnOutputType(whichType), chainActive.Height(), GetHash().ToString()),
                 REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
     }
-
+  
     return true;
 }
 
@@ -784,7 +796,6 @@ bool CTransaction::CheckVersionIsStandard(std::string& reason, int nHeight) cons
     // groth fork
     const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
     bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
-
     if(!isGROTHActive)
     {
         // sidechain fork is after groth one

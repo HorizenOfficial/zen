@@ -30,8 +30,6 @@ static inline size_t RecursiveDynamicUsage(const CTxScCreationOut& ccout) { retu
 static inline size_t RecursiveDynamicUsage(const CTxCertifierLockOut& ccout) { return 0; }
 static inline size_t RecursiveDynamicUsage(const CTxForwardTransferOut& ccout) { return 0; }
 
-static inline size_t RecursiveDynamicUsage(const CTxBackwardTransferCrosschainOut& ccout) { return 0; }
-
 static inline size_t RecursiveDynamicUsage(const CTransaction& tx) {
     size_t mem = 0;
     mem += memusage::DynamicUsage(tx.GetVin());
@@ -61,11 +59,7 @@ static inline size_t RecursiveDynamicUsage(const CTransaction& tx) {
 static inline size_t RecursiveDynamicUsage(const CScCertificate& cert) {
     size_t mem = 0;
     mem += memusage::DynamicUsage(cert.GetVout());
-    mem += memusage::DynamicUsage(cert.vbt_ccout); 
     for (std::vector<CTxOut>::const_iterator it = cert.GetVout().begin(); it != cert.GetVout().end(); it++) {
-        mem += RecursiveDynamicUsage(*it);
-    }
-    for (std::vector<CTxBackwardTransferCrosschainOut>::const_iterator it = cert.vbt_ccout.begin(); it != cert.vbt_ccout.end(); it++) {
         mem += RecursiveDynamicUsage(*it);
     }
     return mem;
