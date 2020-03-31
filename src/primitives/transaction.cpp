@@ -772,7 +772,7 @@ bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& st
     return true;
 }
 
-bool CTransaction::CheckVersionIsStandard(std::string& reason, const int nHeight) const {
+bool CTransaction::CheckVersionIsStandard(std::string& reason, int nHeight) const {
     // sidechain fork (happens after groth fork)
     int sidechainVersion = 0;
     bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);

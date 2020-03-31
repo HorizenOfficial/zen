@@ -64,7 +64,7 @@ bool CScCertificate::CheckVersionBasic(CValidationState &state) const
     return true;
 }
 
-bool CScCertificate::CheckVersionIsStandard(std::string& reason, const int nHeight) const {
+bool CScCertificate::CheckVersionIsStandard(std::string& reason, int nHeight) const {
     if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
     {
         reason = "version";
