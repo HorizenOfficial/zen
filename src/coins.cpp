@@ -14,30 +14,77 @@
 #include <undo.h>
 #include <chainparams.h>
 
-/**
- * calculate number of bytes for the bitmask, and its number of non-zero bytes
- * each bit in the bitmask represents the availability of one output, but the
- * availabilities of the first two outputs are encoded separately
- */
-void CCoins::CalcMaskSize(unsigned int &nBytes, unsigned int &nNonzeroBytes) const {
-    unsigned int nLastUsedByte = 0;
-    for (unsigned int b = 0; 2+b*8 < vout.size(); b++) {
-        bool fZero = true;
-        for (unsigned int i = 0; i < 8 && 2+b*8+i < vout.size(); i++) {
-            if (!vout[2+b*8+i].IsNull()) {
-                fZero = false;
-                continue;
-            }
-        }
-        if (!fZero) {
-            nLastUsedByte = b + 1;
-            nNonzeroBytes++;
-        }
+CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), originScId() { }
+
+CCoins::CCoins(const CTransactionBase &tx, int nHeightIn) {
+        FromTx(tx, nHeightIn);
     }
-    nBytes += nLastUsedByte;
+
+void CCoins::FromTx(const CTransactionBase &tx, int nHeightIn) {
+    fCoinBase  = tx.IsCoinBase() || tx.IsCoinCertified();
+    vout       = tx.GetVout();
+    nHeight    = nHeightIn;
+    nVersion   = tx.nVersion;
+    originScId = tx.GetScId();
+    ClearUnspendable();
 }
 
-bool CCoins::Spend(uint32_t nPos) 
+void CCoins::Clear() {
+    fCoinBase = false;
+    std::vector<CTxOut>().swap(vout);
+    nHeight = 0;
+    nVersion = 0;
+    originScId.SetNull();
+}
+
+void CCoins::Cleanup() {
+    while (vout.size() > 0 && vout.back().IsNull())
+        vout.pop_back();
+    if (vout.empty())
+        std::vector<CTxOut>().swap(vout);
+}
+
+void CCoins::ClearUnspendable() {
+    BOOST_FOREACH(CTxOut &txout, vout) {
+        if (txout.scriptPubKey.IsUnspendable())
+            txout.SetNull();
+    }
+    Cleanup();
+}
+
+void CCoins::swap(CCoins &to) {
+    std::swap(to.fCoinBase, fCoinBase);
+    to.vout.swap(vout);
+    std::swap(to.nHeight, nHeight);
+    std::swap(to.nVersion, nVersion);
+    std::swap(to.originScId, originScId);
+}
+
+bool operator==(const CCoins &a, const CCoins &b) {
+     // Empty CCoins objects are always equal.
+     if (a.IsPruned() && b.IsPruned())
+         return true;
+     return a.fCoinBase  == b.fCoinBase &&
+            a.nHeight    == b.nHeight   &&
+            a.nVersion   == b.nVersion  &&
+            a.vout       == b.vout      &&
+            a.originScId == b.originScId;
+}
+
+bool operator!=(const CCoins &a, const CCoins &b) {
+    return !(a == b);
+}
+
+bool CCoins::IsCoinBase() const {
+    return fCoinBase && !IsCoinFromCert();
+}
+
+bool CCoins::IsCoinFromCert() const {
+    // when restored from serialization, nVersion is populated only with latest 7 bits of the original value!
+    return (fCoinBase && ( (nVersion & 0x7f) == (SC_TX_VERSION & 0x7f)) );
+}
+
+bool CCoins::Spend(uint32_t nPos)
 {
     if (nPos >= vout.size() || vout[nPos].IsNull())
         return false;
@@ -45,6 +92,27 @@ bool CCoins::Spend(uint32_t nPos)
     Cleanup();
     return true;
 }
+
+bool CCoins::IsAvailable(unsigned int nPos) const {
+    return (nPos < vout.size() && !vout[nPos].IsNull());
+}
+
+bool CCoins::IsPruned() const {
+    BOOST_FOREACH(const CTxOut &out, vout)
+        if (!out.IsNull())
+            return false;
+    return true;
+}
+
+size_t CCoins::DynamicMemoryUsage() const {
+    size_t ret = memusage::DynamicUsage(vout);
+    BOOST_FOREACH(const CTxOut &out, vout) {
+        ret += RecursiveDynamicUsage(out.scriptPubKey);
+    }
+    return ret;
+}
+
+
 bool CCoinsView::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const { return false; }
 bool CCoinsView::GetNullifier(const uint256 &nullifier)                        const { return false; }
 bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins)                  const { return false; }
