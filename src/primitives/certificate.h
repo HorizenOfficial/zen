@@ -5,7 +5,6 @@
 #include "policy/fees.h"
 
 struct CMutableScCertificate;
-class CTxBackwardTransferCrosschainOut;
 
 class CScCertificate : virtual public CTransactionBase
 {
@@ -21,8 +20,6 @@ public:
     const uint256 endEpochBlockHash;
     const CAmount totalAmount;
     const CAmount fee;
-    const std::vector<CTxBackwardTransferCrosschainOut> vbt_ccout;
-
     const uint256 nonce;
 
     /** Construct a CScCertificate that qualifies as IsNull() */
@@ -56,8 +53,44 @@ public:
         READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
         READWRITE(*const_cast<CAmount*>(&totalAmount));
         READWRITE(*const_cast<CAmount*>(&fee));
-        READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
-        READWRITE(*const_cast<std::vector<CTxBackwardTransferCrosschainOut>*>(&vbt_ccout));
+
+        if (ser_action.ForRead())
+        {
+            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+
+            // reading from data stream to memory
+            READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
+            READWRITE(*const_cast<std::vector<CBackwardTransferOut>*>(&vbt_ccout_ser));
+
+            for (auto& btout : vbt_ccout_ser)
+            {
+                CTxOut out(btout);
+                (*const_cast<std::vector<CTxOut>*>(&vout)).push_back(out);
+            }
+        }
+        else
+        {
+            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+            // we must not modify vout
+            std::vector<CTxOut> vout_ser;
+
+            // reading from memory and writing to data stream
+            for (auto it = vout.begin(); it != vout.end(); ++it)
+            {
+                if ((*it).isFromBackwardTransfer)
+                {
+                    CBackwardTransferOut btout((*it));
+                    vbt_ccout_ser.push_back(btout);
+                }
+                else
+                {
+                    vout_ser.push_back(*it);
+                }
+            }
+            READWRITE(*const_cast<std::vector<CTxOut>*>(&vout_ser));
+            READWRITE(*const_cast<std::vector<CBackwardTransferOut>*>(&vbt_ccout_ser));
+        }
+
         READWRITE(*const_cast<uint256*>(&nonce));
         if (ser_action.ForRead())
             UpdateHash();
@@ -88,7 +121,6 @@ public:
             totalAmount == 0 &&
             fee == 0 &&
             vout.empty() &&
-            vbt_ccout.empty() &&
             nonce.IsNull() );
     }
 
@@ -101,6 +133,8 @@ public:
     std::string ToString() const override;
 
     void addToScCommitment(std::map<uint256, uint256>& mLeaves, std::set<uint256>& sScIds) const;
+    CAmount GetValueOfBackwardTransfers() const;
+    int GetNumbOfBackwardTransfers() const;
 
     void AddToBlock(CBlock* pblock) const override; 
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int /* not used sigops */) const override;
@@ -127,7 +161,6 @@ struct CMutableScCertificate : public CMutableTransactionBase
     uint256 endEpochBlockHash;
     CAmount totalAmount;
     CAmount fee;
-    std::vector<CTxBackwardTransferCrosschainOut> vbt_ccout;
     uint256 nonce;
 
     CMutableScCertificate();
@@ -144,13 +177,12 @@ struct CMutableScCertificate : public CMutableTransactionBase
         READWRITE(totalAmount);
         READWRITE(fee);
         READWRITE(vout);
-        READWRITE(vbt_ccout);
         READWRITE(nonce);
     }
 
     template <typename Stream>
     CMutableScCertificate(deserialize_type, Stream& s) :
-    scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), totalAmount(), fee(), vbt_ccout(), nonce() {
+    scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), totalAmount(), fee(), nonce() {
         Unserialize(s);
     }
 
@@ -158,25 +190,13 @@ struct CMutableScCertificate : public CMutableTransactionBase
      * fly, as opposed to GetHash() in CScCertificate, which uses a cached result.
      */
     uint256 GetHash() const override;
-};
 
-// for the time being, this class is an empty place holder: attributes will be added in future as soon as they are designed
-class CTxBackwardTransferCrosschainOut
-{
-public:
-    CTxBackwardTransferCrosschainOut() = default;
-    virtual ~CTxBackwardTransferCrosschainOut() = default;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        // any attributes go here
-        //...
+    bool add(const CTxOut& out)
+    { 
+        vout.push_back(out);
+        return true;
     }
 
-    virtual uint256 GetHash() const;
-    virtual std::string ToString() const;
 };
 
 #endif // _CERTIFICATE_H

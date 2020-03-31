@@ -157,8 +157,8 @@ public:
     }
 
     bool IsCoinCertified() const {
-        // when restored from serialization, nVersion is populated only with latest 7 bits of the original value!
-        return (fCoinBase && ( (nVersion & 0x7f) == (SC_TX_VERSION & 0x7f)) );
+        // for negative numbers, when restored from serialization, nVersion is populated only with latest 7 bits of the original value!
+        return (fCoinBase && ( (nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f)) );
     }
 
     unsigned int GetSerializeSize(int nType, int nVersion) const {
