@@ -1173,7 +1173,7 @@ TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries, const st
     return txOrdered;
 }
 
-MapTxWithInputs CWallet::OrderedTxWithInputsMap(const std::string& address)
+MapTxWithInputs CWallet::OrderedTxWithInputsMap(const std::string& address) const
 {
     AssertLockHeld(cs_wallet);
     CWalletDB walletdb(strWalletFile);
@@ -2851,31 +2851,46 @@ CAmount CWallet::GetUnconfirmedBalance() const
     return nTotal;
 }
 
-CAmount CWallet::GetUnconfirmedData(const CScript& scriptToMatch, int& numbOfUnconfirmedTx) const
+void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput, CAmount& unconfOutput) const
 {
-    CAmount nTotal = 0;
+    unconfOutput = 0;
+    unconfInput = 0;
     numbOfUnconfirmedTx = 0;
+
+    MapTxWithInputs txOrdered = OrderedTxWithInputsMap(address);
+
+    CBitcoinAddress taddr = CBitcoinAddress(address);
+    if (!taddr.IsValid())
+    {
+        // taddr should be checked by the caller
+        return;
+    }
+
+    const CScript& scriptToMatch = GetScriptForDestination(taddr.Get(), false);
+
     {
         LOCK2(cs_main, cs_wallet);
-        for (MAP_WALLET_CONST_IT it = mapWallet.begin(); it != mapWallet.end(); ++it)
+
+        for (MapTxWithInputs::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
         {
-            const CWalletObjBase* pcoin = it->second.get();
+            const CWalletObjBase* pcoin = (*it).second.first;
 
-            int vout_idx = 0;
-            bool match_found = false;
-
-            for(const auto& txout : pcoin->GetVout())
+            if (!pcoin->CheckFinal() || (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0))
             {
-                auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptToMatch.begin(), scriptToMatch.end());
-                if (res == txout.scriptPubKey.begin())
+                int vout_idx = 0;
+                bool outputFound = false;
+                bool inputFound = false;
+             
+                for(const auto& txout : pcoin->GetVout())
                 {
-                    if (!pcoin->CheckFinal() || (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0))
+                    auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptToMatch.begin(), scriptToMatch.end());
+                    if (res == txout.scriptPubKey.begin())
                     {
-                        match_found = true;
-
+                        outputFound = true;
+                   
                         if (!IsSpent(pcoin->GetHash(), vout_idx))
                         {
-                            nTotal += GetCredit(txout, ISMINE_SPENDABLE);
+                            unconfOutput += GetCredit(txout, ISMINE_SPENDABLE);
                             LogPrint("cert", "%s():%d - found out of matching tx[%s] with credit\n",
                                 __func__, __LINE__, pcoin->GetHash().ToString());
                         }
@@ -2885,17 +2900,41 @@ CAmount CWallet::GetUnconfirmedData(const CScript& scriptToMatch, int& numbOfUnc
                                 __func__, __LINE__, pcoin->GetHash().ToString(), vout_idx, pcoin->ToString() );
                         }
                     }
+                    vout_idx++;
                 }
-                vout_idx++;
-            }
+             
+                std::vector<CWalletObjBase*> vtxIn = (*it).second.second;
+             
+                for (const CTxIn& txin : pcoin->GetVin())
+                {
+                    const uint256& inputTxHash = txin.prevout.hash;
+             
+                    for (const auto& inputTx : vtxIn)
+                    {
+                        if (inputTx->GetHash() == inputTxHash)
+                        {
+                            if (txin.prevout.n >= inputTx->GetVout().size())
+                                break;
+             
+                            const CTxOut& txout = inputTx->GetVout()[txin.prevout.n];
+                            auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptToMatch.begin(), scriptToMatch.end());
+                            if (res == txout.scriptPubKey.begin())
+                            {
+                                unconfInput += GetCredit(txout, ISMINE_SPENDABLE);
+                                inputFound = true;
+                            }
+                        }
+                    }
+                }
 
-            if (match_found)
-            {
-                numbOfUnconfirmedTx++;
+                if (inputFound || outputFound)
+                {
+                    numbOfUnconfirmedTx++;
+                }
+             
             }
         }
     }
-    return nTotal;
 }
 
 CAmount CWallet::GetImmatureBalance() const
