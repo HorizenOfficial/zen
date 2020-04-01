@@ -1269,7 +1269,7 @@ public:
      */
     TxItems OrderedTxItems(std::list<CAccountingEntry>& acentries, const std::string& strAccount = "",const std::string& address="*", bool includeFilteredVin = false);
 
-    MapTxWithInputs OrderedTxWithInputsMap(const std::string& address);
+    MapTxWithInputs OrderedTxWithInputsMap(const std::string& address) const;
 
     void MarkDirty();
     bool UpdateNullifierNoteMap();
@@ -1299,7 +1299,7 @@ public:
     std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime);
     CAmount GetBalance() const;
     CAmount GetUnconfirmedBalance() const;
-    CAmount GetUnconfirmedData(const CScript& scriptToMatch, int& numbOfUnconfirmedTx) const;
+    void GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput, CAmount& unconfOutput) const;
     CAmount GetImmatureBalance() const;
     CAmount GetWatchOnlyBalance() const;
     CAmount GetUnconfirmedWatchOnlyBalance() const;

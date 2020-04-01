@@ -2454,13 +2454,15 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
     if (!taddr.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
 
-    const CScript& script = GetScriptForDestination(taddr.Get(), false);
-
     int n = 0;
-    CAmount amount = pwalletMain->GetUnconfirmedData(script, n);
+    CAmount unconfInput = 0;
+    CAmount unconfOutput;
+    pwalletMain->GetUnconfirmedData(address, n, unconfInput, unconfOutput);
 
     UniValue ret(UniValue::VOBJ);
-    ret.push_back(Pair("unconfirmedBalance", ValueFromAmount(amount)));
+    ret.push_back(Pair("unconfirmedInput", ValueFromAmount(unconfInput)));
+//    ret.push_back(Pair("unconfirmedOutput", ValueFromAmount(unconfOutput)));
+    ret.push_back(Pair("unconfirmedBalance", ValueFromAmount(unconfOutput)));
     ret.push_back(Pair("unconfirmedTxApperances", n));
 
     return ret;
