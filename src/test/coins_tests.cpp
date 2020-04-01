@@ -771,7 +771,7 @@ BOOST_AUTO_TEST_CASE(coins_coinbase_spends)
     }
 }
 
-BOOST_AUTO_TEST_CASE(ccoins_serialization)
+BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
 {
     // Good example
     CDataStream ss1(ParseHex("0104835800816115944e077fe7c803cfa57f29b36bf87c1d358bb85e"), SER_DISK, CLIENT_VERSION);
@@ -847,6 +847,89 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization)
         ss5 >> coinFromTx5;
         BOOST_CHECK_MESSAGE(false, "We should have thrown");
     } catch (const std::ios_base::failure& e) {
+    }
+
+    //Coins from tx cannot be deserialized into coins from cert
+    CCoins coin;
+    coin.fCoinBase = false;
+    coin.vout.resize(2);
+    coin.vout[0].nValue = insecure_rand();
+    coin.vout[1].nValue = insecure_rand();
+    coin.nHeight = 220;
+    coin.nVersion = TRANSPARENT_TX_VERSION;
+    coin.originScId.SetNull();
+
+    CDataStream serCoinFromTx(SER_DISK, CLIENT_VERSION);
+    serCoinFromTx << CCoinsViewDB::CCoinsFromTx(coin);
+
+    try {
+        CCoins retrievedCoin;
+        CCoinsViewDB::CCoinsFromCert coinFromCert(retrievedCoin);
+        serCoinFromTx >> coinFromCert;
+        BOOST_CHECK_MESSAGE(false, "We should not be able to deselize a coin from tx into a coin from cert");
+    } catch (const std::ios_base::failure& e) {}
+}
+
+BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
+{
+    //Serielize and unserialize back a coin from cert
+    CCoins originalCoin;
+    originalCoin.fCoinBase = false;
+    originalCoin.vout.resize(2);
+    originalCoin.vout[0].nValue = insecure_rand();
+    originalCoin.vout[0].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))));
+    originalCoin.vout[1].nValue = insecure_rand();
+    originalCoin.vout[1].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("61b01caab50f1b8e9c50a5057eb43c2d9563a4ee"))));
+    originalCoin.nHeight = 220;
+    originalCoin.nVersion = TRANSPARENT_TX_VERSION;
+    originalCoin.originScId = uint256S("deadbeef1987");
+
+    CDataStream ss1(SER_DISK, CLIENT_VERSION);
+    ss1 << CCoinsViewDB::CCoinsFromCert(originalCoin);
+
+    CCoins retrievedCoin;
+    CCoinsViewDB::CCoinsFromCert coinFromCert(retrievedCoin);
+    ss1 >> coinFromCert;
+
+    BOOST_CHECK(retrievedCoin.fCoinBase ==            originalCoin.fCoinBase);
+    BOOST_CHECK(retrievedCoin.vout[0].nValue ==       originalCoin.vout[0].nValue);
+    BOOST_CHECK(retrievedCoin.vout[0].scriptPubKey == originalCoin.vout[0].scriptPubKey);
+    BOOST_CHECK(retrievedCoin.vout[1].nValue ==       originalCoin.vout[1].nValue);
+    BOOST_CHECK(retrievedCoin.vout[1].scriptPubKey == originalCoin.vout[1].scriptPubKey);
+    BOOST_CHECK(retrievedCoin.nHeight ==              originalCoin.nHeight);
+    BOOST_CHECK(retrievedCoin.nVersion ==             originalCoin.nVersion);
+    BOOST_CHECK(retrievedCoin.originScId ==           originalCoin.originScId);
+
+    //IT's STILL POSSIBLE TO unserilized into coin_from_tx a serialized coin_from_tx. originScId will be null
+    //Todo: Consider making it throw
+    CCoins coin;
+    coin.fCoinBase = false;
+    coin.vout.resize(2);
+    coin.vout[0].nValue = insecure_rand();
+    coin.vout[1].nValue = insecure_rand();
+    coin.nHeight = 220;
+    coin.nVersion = TRANSPARENT_TX_VERSION;
+    coin.originScId = uint256S("deadbeef1987");
+
+    CDataStream serCoinFromCert(SER_DISK, CLIENT_VERSION);
+    serCoinFromCert << CCoinsViewDB::CCoinsFromCert(coin);
+
+    try {
+        CCoins retrievedCoin;
+        CCoinsViewDB::CCoinsFromTx coinFromTx(retrievedCoin);
+        serCoinFromCert >> coinFromTx;
+
+        BOOST_CHECK(retrievedCoin.fCoinBase ==            coin.fCoinBase);
+        BOOST_CHECK(retrievedCoin.vout[0].nValue ==       coin.vout[0].nValue);
+        BOOST_CHECK(retrievedCoin.vout[0].scriptPubKey == coin.vout[0].scriptPubKey);
+        BOOST_CHECK(retrievedCoin.vout[1].nValue ==       coin.vout[1].nValue);
+        BOOST_CHECK(retrievedCoin.vout[1].scriptPubKey == coin.vout[1].scriptPubKey);
+        BOOST_CHECK(retrievedCoin.nHeight ==              coin.nHeight);
+        BOOST_CHECK(retrievedCoin.nVersion ==             coin.nVersion);
+        BOOST_CHECK(retrievedCoin.originScId.IsNull());
+
+    } catch (const std::ios_base::failure& e) {
+        BOOST_CHECK_MESSAGE(false, "Unserilizing a coin_from_cert into a coin_from_tx shouldn't throw");
     }
 }
 
