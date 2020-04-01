@@ -1521,12 +1521,12 @@ CAmount GetAccountBalance(CWalletDB& walletdb, const string& strAccount, int nMi
     for (map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
     {
         const CWalletTx& wtx = (*it).second;
-        if (!CheckFinalTx(wtx) || wtx.GetBlocksToMaturity() > 0 || wtx.GetDepthInMainChain() < 0)
+        if (!CheckFinalTx(wtx) || !wtx.IsMature() || wtx.GetDepthInMainChain() < 0)
 #else
     for (auto it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
     {
         const CWalletObjBase& wtx = *((*it).second);
-        if (!wtx.CheckFinal() || wtx.GetBlocksToMaturity() > 0 || wtx.GetDepthInMainChain() < 0)
+        if (!wtx.CheckFinal() || !wtx.IsMature() || wtx.GetDepthInMainChain() < 0)
 #endif
             continue;
 
@@ -1597,12 +1597,12 @@ UniValue getbalance(const UniValue& params, bool fHelp)
         for (map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
         {
             const CWalletTx& wtx = (*it).second;
-            if (!CheckFinalTx(wtx) || wtx.GetBlocksToMaturity() > 0 || wtx.GetDepthInMainChain() < 0)
+            if (!CheckFinalTx(wtx) || !wtx.IsMature() || wtx.GetDepthInMainChain() < 0)
 #else
         for (auto it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
         {
             const CWalletObjBase& wtx = *((*it).second);
-            if (!wtx.CheckFinal() || wtx.GetBlocksToMaturity() > 0 || wtx.GetDepthInMainChain() < 0)
+            if (!wtx.CheckFinal() || !wtx.IsMature() || wtx.GetDepthInMainChain() < 0)
 #endif
                 continue;
 
@@ -2247,7 +2247,7 @@ void ListTransactions(const CWalletObjBase& wtx, const string& strAccount, int n
                 {
                     if (wtx.GetDepthInMainChain() < 1)
                         entry.push_back(Pair("category", "orphan"));
-                    else if (wtx.GetBlocksToMaturity() > 0)
+                    else if (!wtx.IsMature())
                         entry.push_back(Pair("category", "immature"));
                     else
                         entry.push_back(Pair("category", "generate"));
@@ -2614,7 +2614,7 @@ UniValue listaccounts(const UniValue& params, bool fHelp)
         list<COutputEntry> listSent;
         list<CScOutputEntry> listScSent;
         int nDepth = wtx.GetDepthInMainChain();
-        if (wtx.GetBlocksToMaturity() > 0 || nDepth < 0)
+        if (!wtx.IsMature() || nDepth < 0)
             continue;
         wtx.GetAmounts(listReceived, listSent, listScSent, nFee, strSentAccount, includeWatchonly);
         mapAccountBalances[strSentAccount] -= nFee;
