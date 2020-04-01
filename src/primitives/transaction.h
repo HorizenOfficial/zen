@@ -734,7 +734,7 @@ public:
     // return false when meaningful only in a block context. As of now only tx coin base returns false
 
     virtual bool IsCoinBase() const { return false; }
-    virtual bool IsCoinCertified() const { return false; }
+    virtual bool IsCertificate() const { return false; }
 
     // Return sum of JoinSplit vpub_new if supported
     virtual CAmount GetJoinSplitValueIn() const { return 0; }

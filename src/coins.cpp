@@ -21,7 +21,7 @@ CCoins::CCoins(const CTransactionBase &tx, int nHeightIn) {
     }
 
 void CCoins::FromTx(const CTransactionBase &tx, int nHeightIn) {
-    fCoinBase  = tx.IsCoinBase() || tx.IsCoinCertified();
+    fCoinBase  = tx.IsCoinBase() || tx.IsCertificate();
     vout       = tx.GetVout();
     nHeight    = nHeightIn;
     nVersion   = tx.nVersion;

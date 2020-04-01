@@ -464,7 +464,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
             // Skip free transactions if we're past the minimum block size:
             // TODO cert: this does not hold for certificate until MC owned fee will be handled
-            if (!tx.IsCoinCertified() )
+            if (!tx.IsCertificate() )
             {
                 double dPriorityDelta = 0;
                 CAmount nFeeDelta = 0;

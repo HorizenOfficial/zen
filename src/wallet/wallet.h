@@ -308,7 +308,7 @@ public:
     }
 
     virtual uint256 GetObjHash() const = 0;
-    virtual int GetBlocksToMaturity() const = 0;
+    virtual bool IsMature() const = 0;
 
     /**
      * Return depth of transaction in blockchain:
@@ -354,7 +354,7 @@ public:
 
     uint256 GetObjHash() const override { return GetHash(); }
 
-    int GetBlocksToMaturity() const override;
+    bool IsMature() const override;
 };
 
 /** A certificate with a merkle branch linking it to the block chain. */
@@ -388,7 +388,7 @@ public:
 
     uint256 GetObjHash() const override { return GetHash(); }
 
-    int GetBlocksToMaturity() const override;
+    bool IsMature() const override;
 };
 
 class CWalletObjBase : virtual public MerkleAbstractBase
@@ -474,7 +474,7 @@ public:
     virtual void SetNoteData(mapNoteData_t &noteData) {}; // default is null
 
     //! filter decides which addresses will count towards the debit
-    virtual CAmount GetDebit(const isminefilter& filter) const { return 0; } // certs has no vin
+    virtual CAmount GetDebit(const isminefilter& filter) const;
     virtual CAmount GetImmatureCredit(bool fUseCache=true) const = 0;;
     virtual CAmount GetImmatureWatchOnlyCredit(const bool& fUseCache=true) const;
 
@@ -638,7 +638,6 @@ public:
     void SetNoteData(mapNoteData_t &noteData) override;
 
     //! filter decides which addresses will count towards the debit
-    CAmount GetDebit(const isminefilter& filter) const override;
     CAmount GetImmatureCredit(bool fUseCache=true) const override;
     CAmount GetImmatureWatchOnlyCredit(const bool& fUseCache=true) const override;
 
@@ -1357,14 +1356,10 @@ public:
     bool IsMine(const CTransactionBase& tx) const;
     /** should probably be renamed to IsRelevantToMe */
     bool IsFromMe(const CTransaction& tx) const;
-    CAmount GetDebit(const CTransaction& tx, const isminefilter& filter) const;
-#if 0
-    CAmount GetCredit(const CTransaction& tx, const isminefilter& filter) const;
-    CAmount GetChange(const CTransaction& tx) const;
-#else
-    CAmount GetCredit(const CTransactionBase& tx, const isminefilter& filter) const;
-    CAmount GetChange(const CTransactionBase& tx) const;
-#endif
+    CAmount GetDebit (const CTransactionBase& txBase, const isminefilter& filter) const;
+    CAmount GetCredit(const CTransactionBase& txBase, const isminefilter& filter) const;
+    CAmount GetChange(const CTransactionBase& txBase) const;
+
     void ChainTip(const CBlockIndex *pindex, const CBlock *pblock, ZCIncrementalMerkleTree tree, bool added) override;
     /** Saves witness caches and best block locator to disk. */
     void SetBestChain(const CBlockLocator& loc) override;
