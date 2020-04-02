@@ -349,7 +349,7 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
  * @param[in] mapInputs    Map of previous transactions that have outputs we're spending
  * @return True if all inputs (scriptSigs) use only standard transaction forms
  */
-bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& mapInputs);
 
 /**
  * Count ECDSA signature operations in pay-to-script-hash inputs.

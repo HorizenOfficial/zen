@@ -497,11 +497,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             if (!fDeprecatedGetBlockTemplate && nBlockMaxComplexitySize > 0 && nBlockComplexity + nTxComplexity >= nBlockMaxComplexitySize)
                 continue;
 
-#if 0
             if (!view.HaveInputs(tx))
-#else
-            if (!tx.HaveInputs(view))
-#endif
                 continue;
 
             // skip transactions that send forward crosschain amounts if the creation of the target sidechain is
