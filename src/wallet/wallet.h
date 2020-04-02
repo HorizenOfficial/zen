@@ -482,6 +482,7 @@ public:
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const = 0;
 
     virtual bool IsTrusted() const = 0;
+    virtual bool IsTrusted(bool spendZeroConfChangeIn) const = 0;
 
     virtual bool RelayWalletTransaction() = 0;
     virtual bool IsInvolvingMe(mapNoteData_t &noteData) const = 0;
@@ -647,6 +648,8 @@ public:
 
     bool IsTrusted() const override;
 
+    bool IsTrusted(bool spendZeroConfChangeIn) const override;
+
     bool RelayWalletTransaction() override;
     bool IsInvolvingMe(mapNoteData_t &noteData) const override;
 
@@ -771,6 +774,7 @@ public:
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const override;
 
     bool IsTrusted() const override;
+    bool IsTrusted(bool spendZeroConfChangeIn) const override;
 
     bool RelayWalletTransaction() override;
     bool IsInvolvingMe(mapNoteData_t &noteData) const override;
@@ -1299,7 +1303,14 @@ public:
     std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime);
     CAmount GetBalance() const;
     CAmount GetUnconfirmedBalance() const;
-    void GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput, CAmount& unconfOutput) const;
+
+    typedef enum {
+        ZCC_FALSE = 0,
+        ZCC_TRUE,
+        ZCC_UNDEF
+    } eZeroConfChangeUsage;
+
+    void GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput, CAmount& unconfOutput, eZeroConfChangeUsage zconfchangeusage) const;
     CAmount GetImmatureBalance() const;
     CAmount GetWatchOnlyBalance() const;
     CAmount GetUnconfirmedWatchOnlyBalance() const;
