@@ -691,6 +691,7 @@ public:
 
     bool CheckInputsAmount (CValidationState &state) const;
     bool CheckOutputsAmount(CValidationState &state) const;
+    virtual bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const = 0;
     bool CheckInputsDuplication(CValidationState &state) const;
     bool CheckInputsInteraction(CValidationState &state) const;
 
@@ -878,6 +879,7 @@ public:
     bool CheckInputsAvailability  (CValidationState &state) const override;
     bool CheckOutputsAvailability (CValidationState &state) const override;
     bool CheckSerializedSize      (CValidationState &state) const override;
+    bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     //END OF CHECK FUNCTIONS
 
     // Return sum of txouts.

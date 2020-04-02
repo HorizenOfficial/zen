@@ -1140,14 +1140,12 @@ CAmount CCoinsViewCache::GetValueIn(const CTransaction& tx) const
     return nResult;
 }
 
-bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransaction& tx) const
+bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransactionBase& txBase) const
 {
     boost::unordered_map<uint256, ZCIncrementalMerkleTree, CCoinsKeyHasher> intermediates;
 
-    BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit())
-    {
-        BOOST_FOREACH(const uint256& nullifier, joinsplit.nullifiers)
-        {
+    for(const JSDescription &joinsplit: txBase.GetVjoinsplit()) {
+        for(const uint256& nullifier: joinsplit.nullifiers) {
             if (GetNullifier(nullifier)) {
                 // If the nullifier is set, this transaction
                 // double-spends!
@@ -1163,8 +1161,7 @@ bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransaction& tx) const
             return false;
         }
 
-        BOOST_FOREACH(const uint256& commitment, joinsplit.commitments)
-        {
+        for(const uint256& commitment: joinsplit.commitments) {
             tree.append(commitment);
         }
 
@@ -1174,11 +1171,11 @@ bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransaction& tx) const
     return true;
 }
 
-bool CCoinsViewCache::HaveInputs(const CTransaction& tx) const
+bool CCoinsViewCache::HaveInputs(const CTransactionBase& txBase) const
 {
-    if (!tx.IsCoinBase()) {
-        for (unsigned int i = 0; i < tx.GetVin().size(); i++) {
-            const COutPoint &prevout = tx.GetVin()[i].prevout;
+    if (!txBase.IsCoinBase()) {
+        for(const CTxIn & in: txBase.GetVin()) {
+            const COutPoint &prevout = in.prevout;
             const CCoins* coins = AccessCoins(prevout.hash);
             if (!coins || !coins->IsAvailable(prevout.n)) {
                 return false;

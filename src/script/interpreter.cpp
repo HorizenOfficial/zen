@@ -1167,6 +1167,13 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
     return ss.GetHash();
 }
 
+TransactionSignatureChecker::TransactionSignatureChecker(const CTransaction* txToIn,
+                                                         unsigned int nInIn,
+                                                         const CChain* chainIn):
+                                                           txTo(txToIn),
+                                                           nIn(nInIn),
+                                                           chain(chainIn) {}
+
 bool TransactionSignatureChecker::VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& pubkey, const uint256& sighash) const
 {
     return pubkey.Verify(sighash, vchSig);
