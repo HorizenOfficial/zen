@@ -857,14 +857,13 @@ bool CheckFinalTx(const CTransaction &tx, int flags)
  * 2. P2SH scripts with a crazy number of expensive
  *    CHECKSIG/CHECKMULTISIG operations
  */
-bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
+bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& mapInputs)
 {
-    if (tx.IsCoinBase())
+    if (txBase.IsCoinBase())
         return true; // Coinbases don't use vin normally
 
-    for (unsigned int i = 0; i < tx.GetVin().size(); i++)
-    {
-        const CTxOut& prev = mapInputs.GetOutputFor(tx.GetVin()[i]);
+    for(const CTxIn& in : txBase.GetVin()) {
+        const CTxOut& prev = mapInputs.GetOutputFor(in);
 
         vector<vector<unsigned char> > vSolutions;
         txnouttype whichType;
@@ -883,7 +882,7 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         // IsStandardTx() will have already returned false
         // and this method isn't called.
         vector<vector<unsigned char> > stack;
-        if (!EvalScript(stack, tx.GetVin()[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker()))
+        if (!EvalScript(stack, in.scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker()))
             return false;
 
         if (whichType == TX_SCRIPTHASH || whichType == TX_SCRIPTHASH_REPLAY)
@@ -1240,7 +1239,10 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             view.SetBackend(dummy);
         }
 
-        //ABENEGIA: CheckInputs is useless for certificate. Is it correct?? Or Where is it checked???
+        // Check for non-standard pay-to-script-hash in inputs
+        if (getRequireStandard() && !AreInputsStandard(cert, view)) {
+            return error("AcceptCertificateToMemoryPool: nonstandard transaction input");
+        }
 
         unsigned int nSigOps = cert.GetLegacySigOpCount();
         if (nSigOps > MAX_STANDARD_TX_SIGOPS)
