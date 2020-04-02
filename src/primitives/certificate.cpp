@@ -107,6 +107,10 @@ bool CScCertificate::CheckSerializedSize(CValidationState &state) const
     return true;
 }
 
+bool CScCertificate::CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const {
+    return true;
+}
+
 CAmount CScCertificate::GetFeeAmount(CAmount /* unused */) const
 {
     // this is a signed uint64, the caller must check if that is legal

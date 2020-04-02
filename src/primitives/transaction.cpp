@@ -614,6 +614,32 @@ bool CTransaction::CheckSerializedSize(CValidationState &state) const
     return true;
 }
 
+bool CTransaction::CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const {
+    if (!MoneyRange(totalVinAmount))
+        return state.DoS(100, error("CheckFeeAmount(): total input amount out of range"),
+                         REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+
+    if (!CheckOutputsAmount(state))
+        return false;
+
+    if (totalVinAmount < GetValueOut() )
+        return state.DoS(100, error("CheckInputs(): %s value in (%s) < value out (%s)",
+                                    GetHash().ToString(),
+                                    FormatMoney(totalVinAmount), FormatMoney(GetValueOut()) ),
+                         REJECT_INVALID, "bad-txns-in-belowout");
+
+    CAmount nTxFee = totalVinAmount - GetValueOut();
+    if (nTxFee < 0)
+        return state.DoS(100, error("CheckFeeAmount(): %s nTxFee < 0", GetHash().ToString()),
+                         REJECT_INVALID, "bad-txns-fee-negative");
+
+    if (!MoneyRange(nTxFee))
+        return state.DoS(100, error("CheckFeeAmount(): nTxFee out of range"),
+                         REJECT_INVALID, "bad-txns-fee-outofrange");
+
+    return true;
+}
+
 bool CTransaction::CheckOutputsAvailability(CValidationState &state) const
 {
     // Allow the case when crosschain outputs are not empty. In that case there might be no vout at all
