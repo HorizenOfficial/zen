@@ -2736,6 +2736,33 @@ bool CWalletTx::IsTrusted() const
     return true;
 }
 
+bool CWalletTx::IsTrusted(bool spendZeroConfChangeIn) const
+{
+    // Quick answer in most cases
+    if (!CheckFinal())
+        return false;
+    int nDepth = GetDepthInMainChain();
+    if (nDepth >= 1)
+        return true;
+    if (nDepth < 0)
+        return false;
+    if (!spendZeroConfChangeIn || !IsFromMe(ISMINE_ALL)) // using wtx's cached debit
+        return false;
+
+    // Trusted if all inputs are from us and are in the mempool:
+    BOOST_FOREACH(const CTxIn& txin, GetVin())
+    {
+        // Transactions not sent by us: not trusted
+        const CWalletObjBase* parent = pwallet->GetWalletTx(txin.prevout.hash);
+        if (parent == NULL)
+            return false;
+        const CTxOut& parentOut = parent->GetVout()[txin.prevout.n];
+        if (pwallet->IsMine(parentOut) != ISMINE_SPENDABLE)
+            return false;
+    }
+    return true;
+}
+
 std::vector<uint256> CWallet::ResendWalletTransactionsBefore(int64_t nTime)
 {
     std::vector<uint256> result;
@@ -2851,7 +2878,7 @@ CAmount CWallet::GetUnconfirmedBalance() const
     return nTotal;
 }
 
-void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput, CAmount& unconfOutput) const
+void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput, CAmount& unconfOutput, eZeroConfChangeUsage zconfchangeusage) const
 {
     unconfOutput = 0;
     unconfInput = 0;
@@ -2875,7 +2902,17 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
         {
             const CWalletObjBase* pcoin = (*it).second.first;
 
-            if (!pcoin->CheckFinal() || (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0))
+            bool trusted = false;
+            if (zconfchangeusage == ZCC_UNDEF)
+            {
+                trusted = pcoin->IsTrusted();
+            }
+            else
+            {
+                trusted = pcoin->IsTrusted(zconfchangeusage == ZCC_TRUE);
+            }
+
+            if (!pcoin->CheckFinal() || (!trusted && pcoin->GetDepthInMainChain() == 0))
             {
                 int vout_idx = 0;
                 bool outputFound = false;
@@ -5035,6 +5072,11 @@ void CWalletCert::GetAmounts(std::list<COutputEntry>& listReceived, std::list<CO
         if (fIsMine & filter)
             listReceived.push_back(output);
     }
+}
+
+bool CWalletCert::IsTrusted(bool /*unused*/) const 
+{
+    return IsTrusted();
 }
 
 bool CWalletCert::IsTrusted() const 
