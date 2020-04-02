@@ -1500,9 +1500,8 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         CAmount nValueOut = tx.GetValueOut();
         CAmount nFees = nValueIn-nValueOut;
 
-        LogPrint("sc", "%s():%d - Computed fee=%lld\n", __func__, __LINE__, nFees);
-
         double dPriority = view.GetPriority(tx, chainActive.Height());
+        LogPrint("sc", "%s():%d - Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, nFees, dPriority);
 
         CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height(), mempool.HasNoInputsOf(tx));
         unsigned int nSize = entry.GetTxSize();

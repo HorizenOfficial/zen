@@ -660,10 +660,7 @@ CAmount CTransaction::GetJoinSplitValueIn() const
 unsigned int CTransaction::CalculateSize() const
 {
     unsigned int sz = ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);
-//    LogPrint("cert", "%s():%d -sz=%u\n", __func__, __LINE__, sz);
-    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-    ss << *this;
-//    LogPrint("cert", "%s():%d -hex=%s\n", __func__, __LINE__, HexStr(ss.begin(), ss.end()) );
+    //LogPrint("cert", "%s():%d - tx[%s]: sz=%u\n", __func__, __LINE__, GetHash().ToString(), sz);
     return sz;
 }
 

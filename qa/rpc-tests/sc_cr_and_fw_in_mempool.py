@@ -5,8 +5,8 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, dump_ordered_tips
+from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
+    start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, dump_ordered_tips
 import os
 from decimal import Decimal
 import pprint
@@ -15,6 +15,7 @@ DEBUG_MODE = 1
 NUMB_OF_NODES = 3
 EPOCH_LENGTH = 5
 CERT_FEE = 0.0001
+BUNCH_SIZE=5
 
 
 class sc_cr_fw(BitcoinTestFramework):
@@ -28,11 +29,11 @@ class sc_cr_fw(BitcoinTestFramework):
         with open(self.alert_filename, 'w'):
             pass  # Just open then close to create zero-length file
 
-    def setup_network(self, split=False):
+    def setup_network(self, split=False, bool_flag=False):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
-            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=bench', '-debug=net', '-debug=cert', '-logtimemicros=1']] * NUMB_OF_NODES)
+            [['-debug=py', '-debug=sc', '-debug=mempool', '-deprecatedgetblocktemplate=%d'%bool_flag, '-debug=cert', '-logtimemicros=1']] * NUMB_OF_NODES)
 
         connect_nodes_bi(self.nodes, 0, 1)
         connect_nodes_bi(self.nodes, 1, 2)
@@ -56,9 +57,8 @@ class sc_cr_fw(BitcoinTestFramework):
         scid = "1111111111111111111111111111111111111111111111111111111111111111"
 
         # forward transfer amounts
-        creation_amount = Decimal("4.99978")
-        fwt_amount = Decimal("1365.0")
-        bwt_amount = Decimal("0.03")
+        creation_amount = Decimal("1000")
+        fwt_amount = Decimal("3.0")
 
         # node 1 earns some coins, they would be available after 100 blocks
         mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
@@ -69,21 +69,28 @@ class sc_cr_fw(BitcoinTestFramework):
         self.nodes[0].generate(220)
         self.sync_all()
 
+        # generate a tx in mempool whose coins will be used by the tx creating the sc as input. This will make the creation tx orphan
+        # and with null prio (that is because its inputs have 0 conf). As a consequence it would be processed after the forward transfer, making the block invalid.
+        # Handling sc dependancies will prevent this scenario.
+        tx = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), creation_amount);
+        mark_logs("Node 0 sent {} coins to itself via {}".format(creation_amount, tx), self.nodes, DEBUG_MODE)
+        self.sync_all()
+
         totScAmount = 0
         # sidechain creation
         #-------------------
-        creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "abcdef")
-        mark_logs("Node 1 created a sidechain via {}".format(creating_tx), self.nodes, DEBUG_MODE)
+        creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "abcdef")
+        mark_logs("Node 0 created a sidechain via {}".format(creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
         totScAmount += creation_amount
 
         mark_logs("Node 0 sends to sidechain ", self.nodes, DEBUG_MODE)
         txes = []
-        for i in range(1,10):
+        for i in range(1, BUNCH_SIZE+1):
             amounts = []
             interm_amount = 0
-            for j in range(1,10):
+            for j in range(1, BUNCH_SIZE+1):
                 scaddr = str(hex(j*i)) 
                 amount = j*i*Decimal('0.01')
                 interm_amount += amount
@@ -97,16 +104,25 @@ class sc_cr_fw(BitcoinTestFramework):
         mark_logs("Check creation tx is in mempools", self.nodes, DEBUG_MODE)
         assert_equal(True, creating_tx in self.nodes[1].getrawmempool())
 
-        count = 0
-        for txm in self.nodes[1].getrawmempool():
-            count += 1
-            if (creating_tx == txm):
-                mark_logs("creation tx is at position {} in mempool".format(count), self.nodes, DEBUG_MODE)
-                break
+        #pprint.pprint(self.nodes[1].getrawmempool(True))
 
-        mark_logs("Check fw txes are in mempools", self.nodes, DEBUG_MODE)
+        mp = self.nodes[1].getrawmempool(True)
+        prio_cr_tx = mp[creating_tx]['currentpriority']
+        dep_cr_tx  = mp[creating_tx]['depends'][0]
+
+        mark_logs("creation tx prio {}".format(prio_cr_tx), self.nodes, DEBUG_MODE)
+        assert_equal(0, prio_cr_tx)
+        mark_logs("creation tx depends on {}".format(dep_cr_tx), self.nodes, DEBUG_MODE)
+        assert_equal(tx, dep_cr_tx)
+
+        mark_logs("Check fw txes are in mempools and their prio is greater than sc creation prio", self.nodes, DEBUG_MODE)
         for fwt in txes:
             assert_equal(True, fwt in self.nodes[1].getrawmempool())
+            prio_fwt = mp[fwt]['currentpriority']
+            dep_fwt  = mp[fwt]['depends'][-1]
+            assert_true(prio_fwt > prio_cr_tx)
+            assert_equal(dep_fwt, creating_tx)
+
 
         mark_logs("Node1 generates 1 block", self.nodes, DEBUG_MODE)
         bl_hash = self.nodes[1].generate(1)[0]
@@ -121,8 +137,15 @@ class sc_cr_fw(BitcoinTestFramework):
         for fwt in txes:
             assert_equal(True, fwt in vtx)
 
-        mark_logs("Check that creating tx is the second in list (after coinbase)", self.nodes, DEBUG_MODE)
-        assert_equal(creating_tx, vtx[1])
+        mark_logs("Check that creating tx is the third in list (after coinbase)", self.nodes, DEBUG_MODE)
+        assert_equal(creating_tx, vtx[2])
+
+
+        #-------------------------------------------------------
+        mark_logs("stopping and restarting nodes with '-deprecatedgetblocktemplate=1'", self.nodes, DEBUG_MODE)
+        stop_nodes(self.nodes)
+        wait_bitcoinds()
+        self.setup_network(False, True)
 
         mark_logs("Node 0 invalidates last block", self.nodes, DEBUG_MODE)
         self.nodes[0].invalidateblock(bl_hash)
@@ -130,16 +153,26 @@ class sc_cr_fw(BitcoinTestFramework):
         mark_logs("Check creation tx is in mempool", self.nodes, DEBUG_MODE)
         assert_equal(True, creating_tx in self.nodes[0].getrawmempool())
 
-        count = 0
-        for txm in self.nodes[0].getrawmempool():
-            count += 1
-            if (creating_tx == txm):
-                mark_logs("creation tx is at position {} in mempool".format(count), self.nodes, DEBUG_MODE)
-                break
-
         mark_logs("Check fw txes are in mempool", self.nodes, DEBUG_MODE)
         for fwt in txes:
             assert_equal(True, fwt in self.nodes[0].getrawmempool())
+
+        mp = self.nodes[0].getrawmempool(True)
+        prio_cr_tx = mp[creating_tx]['currentpriority']
+        dep_cr_tx  = mp[creating_tx]['depends'][0]
+
+        mark_logs("creation tx prio {}".format(prio_cr_tx), self.nodes, DEBUG_MODE)
+        #assert_equal(0, prio_cr_tx) TODO lower prio via rpc
+        mark_logs("creation tx depends on {}".format(dep_cr_tx), self.nodes, DEBUG_MODE)
+        assert_equal(tx, dep_cr_tx)
+
+        mark_logs("Check fw txes are in mempools and their prio is greater than sc creation prio", self.nodes, DEBUG_MODE)
+        for fwt in txes:
+            assert_equal(True, fwt in self.nodes[0].getrawmempool())
+            prio_fwt = mp[fwt]['currentpriority']
+            dep_fwt  = mp[fwt]['depends'][-1]
+            #assert_true(prio_fwt > prio_cr_tx) TODO see above
+            assert_equal(dep_fwt, creating_tx)
 
         mark_logs("Node0 generates 1 block", self.nodes, DEBUG_MODE)
         bl_hash = self.nodes[0].generate(1)[0]
@@ -154,8 +187,8 @@ class sc_cr_fw(BitcoinTestFramework):
         for fwt in txes:
             assert_equal(True, fwt in vtx)
 
-        mark_logs("Check that creating tx is the second in list (after coinbase)", self.nodes, DEBUG_MODE)
-        assert_equal(creating_tx, vtx[1])
+        mark_logs("Check that creating tx is the third in list (after coinbase)", self.nodes, DEBUG_MODE)
+        assert_equal(creating_tx, vtx[2])
 
         mark_logs("Node0 generates 5 more blocks", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(5)
