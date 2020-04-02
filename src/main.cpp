@@ -916,7 +916,7 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
     return true;
 }
 
-unsigned int GetLegacySigOpCount(const CTransaction& tx)
+unsigned int GetLegacySigOpCount(const CTransactionBase& tx)
 {
     unsigned int nSigOps = 0;
     BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
@@ -930,7 +930,7 @@ unsigned int GetLegacySigOpCount(const CTransaction& tx)
     return nSigOps;
 }
 
-unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& inputs)
+unsigned int GetP2SHSigOpCount(const CTransactionBase& tx, const CCoinsViewCache& inputs)
 {
     if (tx.IsCoinBase())
         return 0;
@@ -1242,7 +1242,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
         //ABENEGIA: CheckInputs is useless for certificate. Is it correct?? Or Where is it checked???
 
-        unsigned int nSigOps = cert.GetLegacySigOpCount();
+        unsigned int nSigOps = GetLegacySigOpCount(cert);
         if (nSigOps > MAX_STANDARD_TX_SIGOPS)
         {
             return state.DoS(0, error("AcceptCertificateToMemoryPool: too many sigops %s, %d > %d",
@@ -2636,7 +2636,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         const CTransaction &tx = block.vtx[i];
 
         nInputs += tx.GetVin().size();
-        nSigOps += tx.GetLegacySigOpCount();
+        nSigOps += GetLegacySigOpCount(tx);
         if (nSigOps > MAX_BLOCK_SIGOPS)
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
@@ -2659,7 +2659,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             // Add in sigops done by pay-to-script-hash inputs;
             // this is to prevent a "rogue miner" from creating
             // an incredibly-expensive-to-validate block.
-            nSigOps += tx.GetP2SHSigOpCount(view);
+            nSigOps += GetP2SHSigOpCount(tx, view);
             if (nSigOps > MAX_BLOCK_SIGOPS)
                 return state.DoS(100, error("ConnectBlock(): too many sigops"),
                                  REJECT_INVALID, "bad-blk-sigops");
@@ -2709,7 +2709,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     for (unsigned int certIdx = 0; certIdx < block.vcert.size(); certIdx++) // Processing certificates loop
     {
         const CScCertificate &cert = block.vcert[certIdx];
-        nSigOps += cert.GetLegacySigOpCount();
+        nSigOps += GetLegacySigOpCount(cert);
         if (nSigOps > MAX_BLOCK_SIGOPS)
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
@@ -3925,11 +3925,11 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
 
     unsigned int nSigOps = 0;
     for(const CTransaction& tx: block.vtx) {
-        nSigOps += tx.GetLegacySigOpCount();
+        nSigOps += GetLegacySigOpCount(tx);
     }
 
     for(const CScCertificate& cert: block.vcert) {
-        nSigOps += cert.GetLegacySigOpCount();
+        nSigOps += GetLegacySigOpCount(cert);
     }
 
     if (nSigOps > MAX_BLOCK_SIGOPS)

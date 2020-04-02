@@ -749,10 +749,7 @@ bool CTransaction::IsApplicableToState(CValidationState& state, int nHeight) con
 void CTransaction::HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const { return; };
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
-bool CTransaction::HaveInputs(const CCoinsViewCache& view) const { return true; }
 bool CTransaction::AreInputsStandard(CCoinsViewCache& view) const { return true; }
-unsigned int CTransaction::GetP2SHSigOpCount(CCoinsViewCache& view) const { return 0; }
-unsigned int CTransaction::GetLegacySigOpCount() const { return 0; }
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
           const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
           std::vector<CScriptCheck> *pvChecks) const { return true;}
@@ -936,39 +933,9 @@ void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const
     Sidechain::AddSidechainOutsToJSON(*this, entry);
 }
 
-bool CTransaction::HaveInputs(const CCoinsViewCache& view) const
-{
-    return view.HaveInputs(*this);
-}
-
 bool CTransaction::AreInputsStandard(CCoinsViewCache& view) const 
 {
     return ::AreInputsStandard(*this, view); 
-}
-
-unsigned int CTransaction::GetP2SHSigOpCount(CCoinsViewCache& view) const 
-{
-    return ::GetP2SHSigOpCount(*this, view);
-}
-
-unsigned int CTransaction::GetLegacySigOpCount() const 
-{
-    /**
-     * Count ECDSA signature operations the old-fashioned (pre-0.6) way
-     * @return number of sigops this transaction's outputs will produce when spent
-     * @see CTransaction::FetchInputs
-     */
-    unsigned int nSigOps = 0;
-
-    for(const CTxIn& txin: vin) {
-        nSigOps += txin.scriptSig.GetSigOpCount(false);
-    }
-
-    for(const CTxOut& txout: vout) {
-        nSigOps += txout.scriptPubKey.GetSigOpCount(false);
-    }
-
-    return nSigOps;
 }
 
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,

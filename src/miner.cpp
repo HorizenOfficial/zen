@@ -105,7 +105,7 @@ void UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, 
     pblock->nTime = std::max(pindexPrev->GetMedianTimePast()+1, GetAdjustedTime());
 }
 
-void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, std::vector<TxPriority>& vecPriority)
+void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, const CCoinsViewCache& view, std::vector<TxPriority>& vecPriority)
 {
     for (auto it_cert = mempool.mapCertificate.begin();
          it_cert != mempool.mapCertificate.end(); ++it_cert)
@@ -113,6 +113,18 @@ void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, std::vector<TxP
         const CScCertificate& cert = it_cert->second.GetCertificate();
 
         const uint256& hash = cert.GetHash();
+        // TODO add handling of dependancies when vin will be included in certificates
+
+        // a certificate has no dependancies, the creation of the sidechain it refers to has happened
+        // before the first epoch has even started, therefore the creating tx can not be in mempool
+        if (!view.HaveSidechain(cert.scId) )
+        {
+            // This should never happen also
+            LogPrintf("%s():%d - ERROR: mempool certificate missing sidechain\n", __func__, __LINE__);
+            if (fDebug) assert("mempool certificate missing sidechain" == 0);
+            continue;
+        }
+
         double dPriority = it_cert->second.GetPriority(nHeight);
         CAmount nFee = it_cert->second.GetFee();
 
@@ -135,9 +147,6 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
          mi != mempool.mapTx.end(); ++mi)
     {
         const CTransaction& tx = mi->second.GetTx();
-#if 1
-        bool dependsOnCertificate = false;
-#endif
 
         int64_t nLockTimeCutoff = (STANDARD_LOCKTIME_VERIFY_FLAGS & LOCKTIME_MEDIAN_TIME_PAST)
                 ? nMedianTimePast
@@ -155,6 +164,11 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
         unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
         uint256 hash = tx.GetHash();
         bool fMissingInputs = false;
+#if 1
+        bool missingSidechainCreation = false;
+        bool dependsOnCertificate = false;
+#endif
+
 
         // Detect orphan transaction and its dependencies
         BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
@@ -162,10 +176,11 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
 #if 0
             if (mempool.mapTx.count(txin.prevout.hash))
 #else
-            // in txmempool a tx input can not be a cert out, in other words they can not be in the same block
+            // an input of a tx in mempool can not be an out of a cert in the mempool, in other words they can not be found together in the mempool
+            // and surely can not be mined in the same block, even in the proper dependancy order
             if (mempool.mapCertificate.count(txin.prevout.hash))
             {
-                LogPrint("cert", "%s():%d - skipping txin of tx[%s] since s out of cert %s\n",
+                LogPrint("cert", "%s():%d - skipping tx[%s] since txin is out of cert[%s] in mempool\n",
                     __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString() ); 
                 dependsOnCertificate = true;
                 break;
@@ -188,10 +203,49 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
 #if 1
         if (dependsOnCertificate)
         {
-            // this tx must not be added to vecPriority nor in the vOrphan
+            // should never happen, but this tx must not be added to vecPriority nor in the vOrphan
             LogPrint("cert", "%s():%d - skipping tx[%s] since depends on cert in mempool\n",
                 __func__, __LINE__, tx.GetHash().ToString() ); 
             continue;
+        }
+
+        // detect dependancies from the sidechain point of view 
+        for (const auto& ft: tx.vft_ccout)
+        {
+            if (mempool.hasSidechainCreationTx(ft.scId))
+            {
+                const uint256& scCreationHash = mempool.mapSidechains.at(ft.scId).scCreationTxHash; 
+                assert(!scCreationHash.IsNull());
+
+                // check if tx is also creating the sc
+                if (scCreationHash == tx.GetHash())
+                    continue;
+
+                if (!porphan)
+                {
+                    vOrphan.push_back(COrphan(&tx));
+                    porphan = &vOrphan.back();
+                }
+                mapDependers[scCreationHash].push_back(porphan);
+                porphan->setDependsOn.insert(scCreationHash);
+                LogPrint("sc", "%s():%d - tx[%s] depends on tx[%s] for sc creation\n",
+                    __func__, __LINE__, tx.GetHash().ToString(), scCreationHash.ToString());
+
+                // do not update nTotalIn 
+                //nTotalIn += mempool.mapTx[txin.prevout.n].GetTx().GetVout()[txin.prevout.n].nValue;
+            }
+            else if (!view.HaveSidechain(ft.scId) )
+            {
+                // This should never happen; all sc fw transactions in the memory
+                // pool should connect to either sidechain in the chain or sidechain created by
+                // other transactions in the memory pool.
+                LogPrintf("ERROR: mempool transaction missing sidechain\n");
+                if (fDebug) assert("mempool transaction missing sidechain" == 0);
+                missingSidechainCreation = true;
+                if (porphan)
+                    vOrphan.pop_back();
+                break;
+            }
         }
 #endif
 
@@ -234,7 +288,11 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
             }
             nTotalIn += tx.GetJoinSplitValueIn();
 
+#if 0
             if (fMissingInputs) continue;
+#else
+            if (fMissingInputs || missingSidechainCreation) continue;
+#endif
 
             // Priority is sum(valuein * age) / modified_txsize
             dPriority = tx.ComputePriority(dPriority, nTxSize);
@@ -418,7 +476,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         else
             GetBlockTxPriorityData(pblock, nHeight, nMedianTimePast, view, vecPriority, vOrphan, mapDependers);
 
-        GetBlockCertPriorityData(pblock, nHeight, vecPriority);
+        GetBlockCertPriorityData(pblock, nHeight, view, vecPriority);
 
         // Collect transactions into block
         uint64_t nBlockSize = 1000;
@@ -452,11 +510,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 continue;
 
             // Legacy limits on sigOps:
-#if 0
             unsigned int nTxSigOps = GetLegacySigOpCount(tx);
-#else
-            unsigned int nTxSigOps = tx.GetLegacySigOpCount();
-#endif
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
                 continue;
 
@@ -489,31 +543,12 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             }
 
             // Skip transaction if max block complexity reached.
-#if 0
             int nTxComplexity = tx.GetVin().size() * tx.GetVin().size();
-#else
-            int nTxComplexity = tx.GetComplexity();
-#endif
             if (!fDeprecatedGetBlockTemplate && nBlockMaxComplexitySize > 0 && nBlockComplexity + nTxComplexity >= nBlockMaxComplexitySize)
                 continue;
 
-#if 0
             if (!view.HaveInputs(tx))
-#else
-            if (!tx.HaveInputs(view))
-#endif
                 continue;
-
-            // skip transactions that send forward crosschain amounts if the creation of the target sidechain is
-            // not yet in blockchain. This should happen only if a chain has been reverted and a mix of creation/transfers
-            // has been placed back in the mem pool The skipped tx will be mined in the next block if the scid is found
-
-            CValidationState state;
-            if (!tx.IsApplicableToState(state, nHeight) )
-            {
-                LogPrint("sc", "%s():%d - tx=%s is not applicable, skipping it...\n", __func__, __LINE__, tx.GetHash().ToString() );
-                continue;
-            }
 
 #if 0
             CAmount nTxFees = view.GetValueIn(tx)-tx.GetValueOut();
@@ -528,17 +563,14 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             }
 #endif
 
-#if 0
             nTxSigOps += GetP2SHSigOpCount(tx, view);
-#else
-            nTxSigOps += tx.GetP2SHSigOpCount(view);
-#endif
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
                 continue;
 
             // Note that flags: we don't want to set mempool/IsStandard()
             // policy here, but we still have to ensure that the block we
             // create only contains transactions that are valid in new blocks.
+            CValidationState state;
 #if 0
             if (!ContextualCheckInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
 #else
@@ -579,6 +611,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                         porphan->setDependsOn.erase(hash);
                         if (porphan->setDependsOn.empty())
                         {
+                            LogPrint("sc", "%s():%d - tx[%s] resolved all dependancies, adding to prio vec\n",
+                                __func__, __LINE__, porphan->ptx->GetHash().ToString());
                             vecPriority.push_back(TxPriority(porphan->dPriority, porphan->feeRate, porphan->ptx));
                             std::push_heap(vecPriority.begin(), vecPriority.end(), comparer);
                         }
@@ -629,7 +663,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         UpdateTime(pblock, Params().GetConsensus(), pindexPrev);
         pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock, Params().GetConsensus());
         pblock->nSolution.clear();
-        pblocktemplate->vTxSigOps[0] = pblock->vtx[0].GetLegacySigOpCount();
+        pblocktemplate->vTxSigOps[0] = GetLegacySigOpCount(pblock->vtx[0]);
 
         CValidationState state;
         if (!TestBlockValidity(state, *pblock, pindexPrev, false, false, false))

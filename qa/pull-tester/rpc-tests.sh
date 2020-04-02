@@ -61,6 +61,7 @@ testScripts=(
     'sc_fwd_maturity.py'
     'sc_rawcertificate.py'
     'getunconfirmedtxdata.py'
+    'sc_cr_and_fw_in_mempool.py'
 );
 testScriptsExt=(
     'getblocktemplate_longpoll.py'

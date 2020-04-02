@@ -1106,7 +1106,7 @@ bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransaction& tx) const
     return true;
 }
 
-bool CCoinsViewCache::HaveInputs(const CTransaction& tx) const
+bool CCoinsViewCache::HaveInputs(const CTransactionBase& tx) const
 {
     if (!tx.IsCoinBase()) {
         for (unsigned int i = 0; i < tx.GetVin().size(); i++) {
