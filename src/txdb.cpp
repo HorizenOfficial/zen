@@ -192,7 +192,7 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
     size_t changed = 0;
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) {
-            if (!it->second.coins.IsCoinFromCert())
+            if (!it->second.coins.IsFromCert())
                 BatchWriteCoins(batch, it->first, it->second.coins);
             else {
                 CCoinsFromCert coinCert(it->second.coins);

@@ -21,7 +21,7 @@ CCoins::CCoins(const CTransactionBase &tx, int nHeightIn) {
     }
 
 void CCoins::FromTx(const CTransactionBase &tx, int nHeightIn) {
-    fCoinBase  = tx.IsCoinBase() || tx.IsCertificate();
+    fCoinBase  = tx.IsCoinBase();
     vout       = tx.GetVout();
     nHeight    = nHeightIn;
     nVersion   = tx.nVersion;
@@ -76,12 +76,12 @@ bool operator!=(const CCoins &a, const CCoins &b) {
 }
 
 bool CCoins::IsCoinBase() const {
-    return fCoinBase && !IsCoinFromCert();
+    return fCoinBase;
 }
 
-bool CCoins::IsCoinFromCert() const {
+bool CCoins::IsFromCert() const {
     // when restored from serialization, nVersion is populated only with latest 7 bits of the original value!
-    return (fCoinBase && ( (nVersion & 0x7f) == (SC_TX_VERSION & 0x7f)) );
+    return !originScId.IsNull();
 }
 
 bool CCoins::Spend(uint32_t nPos)
