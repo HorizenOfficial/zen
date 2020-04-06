@@ -4901,7 +4901,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     CMutableScCertificate cert;
     // cert data
-    cert.nVersion = SC_TX_VERSION;
+    cert.nVersion = SC_CERT_VERSION;
     cert.scId = scId;
     cert.epochNumber = epochNumber;
     cert.endEpochBlockHash = endEpochBlockHash;

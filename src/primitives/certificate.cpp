@@ -212,6 +212,13 @@ bool CScCertificate::IsStandard(std::string& reason, int nHeight) const
         return false;
     }
 
+    // so far just one version is supported, but in future it might not be the case
+    if (zen::ForkManager::getInstance().getCertificateVersion(nHeight) != nVersion)
+    {
+        reason = "version";
+        return false;
+    }
+
     return CheckOutputsAreStandard(nHeight, reason);
 }
 

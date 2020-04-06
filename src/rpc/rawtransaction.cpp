@@ -780,7 +780,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     UniValue cert_params = params[1].get_obj();
 
     CMutableScCertificate rawCert;
-    rawCert.nVersion = SC_TX_VERSION;
+    rawCert.nVersion = SC_CERT_VERSION;
 
     // outputs
     set<CBitcoinAddress> setAddress;

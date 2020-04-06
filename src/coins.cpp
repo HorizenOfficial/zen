@@ -81,7 +81,9 @@ bool CCoins::IsCoinBase() const {
 
 bool CCoins::IsFromCert() const {
     // when restored from serialization, nVersion is populated only with latest 7 bits of the original value!
-    return !originScId.IsNull();
+    // we enforced that no tx/cert can have a version other than a list of well known ones
+    // therefore no other 4-bytes signed version will have this 7-bits ending
+    return (( (nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f)) );
 }
 
 bool CCoins::Spend(uint32_t nPos)

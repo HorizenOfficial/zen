@@ -28,9 +28,8 @@
 #include "consensus/params.h"
 #include <sc/sidechaintypes.h>
 
-static const int32_t SC_TX_BASE_VERSION = 0xFFFFFFFC; // -4
-static const int32_t SC_TX_VERSION = SC_TX_BASE_VERSION;
-static const int32_t SC_CERT_VERSION = SC_TX_BASE_VERSION;
+static const int32_t SC_CERT_VERSION = 0xFFFFFFFB; // -5
+static const int32_t SC_TX_VERSION = 0xFFFFFFFC; // -4
 static const int32_t GROTH_TX_VERSION = 0xFFFFFFFD; // -3
 static const int32_t PHGR_TX_VERSION = 2;
 static const int32_t TRANSPARENT_TX_VERSION = 1;
@@ -660,12 +659,6 @@ public:
         return hash;
     }
 
-    bool IsScVersion() const
-    {
-        // so far just one version
-        return (nVersion == SC_TX_BASE_VERSION);
-    }
-
     friend bool operator==(const CTransactionBase& a, const CTransactionBase& b)
     {
         return a.hash == b.hash;
@@ -675,6 +668,8 @@ public:
     {
         return !(a==b);
     }
+
+    virtual bool IsScVersion() const = 0;
 
     //GETTERS
     virtual const std::vector<CTxIn>&         GetVin()        const = 0;
@@ -864,6 +859,12 @@ public:
         );
     }
     
+    bool IsScVersion() const override
+    {
+        // so far just one version
+        return (nVersion == SC_TX_VERSION);
+    }
+
     //GETTERS
     const std::vector<CTxIn>&         GetVin()        const override {return vin;};
     const std::vector<CTxOut>&        GetVout()       const override {return vout;};
