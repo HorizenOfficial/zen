@@ -22,7 +22,6 @@ using namespace std;
 static const char DB_ANCHOR = 'A';
 static const char DB_NULLIFIER = 's';
 static const char DB_COINS = 'c';
-static const char DB_CERTS = 'd';
 static const char DB_SIDECHAINS = 'i';
 static const char DB_BLOCK_FILES = 'f';
 static const char DB_TXINDEX = 't';
@@ -54,18 +53,11 @@ void static BatchWriteNullifier(CLevelDBBatch &batch, const uint256 &nf, const b
         batch.Write(make_pair(DB_NULLIFIER, nf), true);
 }
 
-void static BatchWriteCoins(CLevelDBBatch &batch, const uint256 &hash, const CCoinsViewDB::CCoinsFromTx &coinFromTx) {
-    if (coinFromTx.coinToStore.IsPruned())
+void static BatchWriteCoins(CLevelDBBatch &batch, const uint256 &hash, const CCoins &coins) {
+    if (coins.IsPruned())
         batch.Erase(make_pair(DB_COINS, hash));
     else
-        batch.Write(make_pair(DB_COINS, hash), coinFromTx);
-}
-
-void static BatchWriteCert(CLevelDBBatch &batch, const uint256 &hash, const CCoinsViewDB::CCoinsFromCert &coinFromCert) {
-    if (coinFromCert.coinToStore.IsPruned())
-        batch.Erase(make_pair(DB_CERTS, hash));
-    else
-        batch.Write(make_pair(DB_CERTS, hash), coinFromCert);
+        batch.Write(make_pair(DB_COINS, hash), coins);
 }
 
 void static BatchSidechains(CLevelDBBatch &batch, const uint256 &scId, const CSidechainsCacheEntry &sidechain) {
@@ -119,19 +111,11 @@ bool CCoinsViewDB::GetNullifier(const uint256 &nf) const {
 }
 
 bool CCoinsViewDB::GetCoins(const uint256 &txid, CCoins &coins) const {
-    CCoinsFromTx coinFromTx(coins);
-    if (db.Read(make_pair(DB_COINS, txid), coinFromTx))
-        return true;
-
-    CCoinsFromCert coinFromCert(coins);
-    if (db.Read(make_pair(DB_CERTS, txid), coinFromCert))
-        return true;
-
-    return false;
+    return db.Read(make_pair(DB_COINS, txid), coins);
 }
 
 bool CCoinsViewDB::HaveCoins(const uint256 &txid) const {
-    return db.Exists(make_pair(DB_COINS, txid)) || db.Exists(make_pair(DB_CERTS, txid));
+    return db.Exists(make_pair(DB_COINS, txid));
 }
 
 bool CCoinsViewDB::GetSidechain(const uint256& scId, CSidechain& info) const
@@ -192,14 +176,7 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
     size_t changed = 0;
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) {
-            if (!it->second.coins.IsFromCert())
-                BatchWriteCoins(batch, it->first, it->second.coins);
-            else {
-                CCoinsFromCert coinCert(it->second.coins);
-                BatchWriteCert(batch, it->first, coinCert);
-            }
-
-
+            BatchWriteCoins(batch, it->first, it->second.coins);
             changed++;
         }
         count++;
@@ -281,26 +258,20 @@ bool CCoinsViewDB::GetStats(CCoinsStats &stats) const {
             CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
             char chType;
             ssKey >> chType;
-            if ((chType == DB_COINS) || (chType == DB_CERTS)) {
+            if (chType == DB_COINS) {
                 leveldb::Slice slValue = pcursor->value();
                 CDataStream ssValue(slValue.data(), slValue.data()+slValue.size(), SER_DISK, CLIENT_VERSION);
-                CCoins coin;
-                if (chType == DB_COINS) {
-                    CCoinsFromTx coinFromTx(coin);
-                    ssValue >> coinFromTx;
-                } else {
-                    CCoinsFromTx coinFromCert(coin);
-                    ssValue >> coinFromCert;
-                }
+                CCoins coins;
+                ssValue >> coins;
                 uint256 txhash;
                 ssKey >> txhash;
                 ss << txhash;
-                ss << VARINT(coin.nVersion);
-                ss << (coin.fCoinBase ? 'c' : 'n');
-                ss << VARINT(coin.nHeight);
+                ss << VARINT(coins.nVersion);
+                ss << (coins.fCoinBase ? 'c' : 'n');
+                ss << VARINT(coins.nHeight);
                 stats.nTransactions++;
-                for (unsigned int i=0; i<coin.vout.size(); i++) {
-                    const CTxOut &out = coin.vout[i];
+                for (unsigned int i=0; i<coins.vout.size(); i++) {
+                    const CTxOut &out = coins.vout[i];
                     if (!out.IsNull()) {
                         stats.nTransactionOutputs++;
                         ss << VARINT(i+1);
@@ -308,6 +279,10 @@ bool CCoinsViewDB::GetStats(CCoinsStats &stats) const {
                         nTotalAmount += out.nValue;
                     }
                 }
+
+                if (coins.IsFromCert())
+                    ss << coins.originScId;
+
                 stats.nSerializedSize += 32 + slValue.size();
                 ss << VARINT(0);
             }
