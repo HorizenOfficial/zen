@@ -8,6 +8,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs
 import os
 from decimal import Decimal
+import pprint
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 2
@@ -60,9 +61,9 @@ class getunconfirmedtxdata(BitcoinTestFramework):
         self.nodes[1].generate(101)
         self.sync_all()
 
+        # these two will be confirmed and must not take part in the final results
         self.nodes[1].sendtoaddress(taddr_0_a, QUOTA_A)
         self.sync_all()
-
         self.nodes[1].sendtoaddress(taddr_0_b, QUOTA_A)
         self.sync_all()
 

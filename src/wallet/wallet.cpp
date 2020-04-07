@@ -2843,6 +2843,9 @@ CAmount CWallet::GetUnconfirmedData(const CScript& scriptToMatch, int& numbOfUnc
         {
             const CWalletObjBase* pcoin = it->second.get();
 
+            int vout_idx = 0;
+            bool match_found = false;
+
             for(const auto& txout : pcoin->GetVout())
             {
                 auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptToMatch.begin(), scriptToMatch.end());
@@ -2850,10 +2853,27 @@ CAmount CWallet::GetUnconfirmedData(const CScript& scriptToMatch, int& numbOfUnc
                 {
                     if (!pcoin->CheckFinal() || (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0))
                     {
-                        nTotal += pcoin->GetAvailableCredit();
-                        numbOfUnconfirmedTx++;
+                        match_found = true;
+
+                        if (!IsSpent(pcoin->GetHash(), vout_idx))
+                        {
+                            nTotal += GetCredit(txout, ISMINE_SPENDABLE);
+                            LogPrint("cert", "%s():%d - found out of matching tx[%s] with credit\n",
+                                __func__, __LINE__, pcoin->GetHash().ToString());
+                        }
+                        else
+                        {
+                            LogPrint("cert", "%s():%d - found matching tx[%s] but out[%d] is spent: %s\n",
+                                __func__, __LINE__, pcoin->GetHash().ToString(), vout_idx, pcoin->ToString() );
+                        }
                     }
                 }
+                vout_idx++;
+            }
+
+            if (match_found)
+            {
+                numbOfUnconfirmedTx++;
             }
         }
     }
