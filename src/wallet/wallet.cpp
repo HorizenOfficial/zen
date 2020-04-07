@@ -1835,14 +1835,13 @@ CAmount CWallet::GetDebit(const CTxIn &txin, const isminefilter& filter) const
 {
     {
         LOCK(cs_wallet);
-
-        if (mapWallet.count(txin.prevout.hash) == 0)
-            return 0;
-
-        const CWalletObjBase& prev = *mapWallet.at(txin.prevout.hash);
-        if (txin.prevout.n < prev.GetVout().size())
-            if (IsMine(prev.GetVout()[txin.prevout.n]) & filter)
-                return prev.GetVout()[txin.prevout.n].nValue;
+        auto mi = mapWallet.find(txin.prevout.hash);
+        if (mi != mapWallet.end()) {
+            const CWalletObjBase& prev = *(mi->second);
+            if (txin.prevout.n < prev.GetVout().size())
+                if (IsMine(prev.GetVout()[txin.prevout.n]) & filter)
+                    return prev.GetVout()[txin.prevout.n].nValue;
+        }
     }
     return 0;
 }

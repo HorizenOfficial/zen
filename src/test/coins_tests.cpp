@@ -784,10 +784,11 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
     BOOST_CHECK_EQUAL(cc1.nHeight, 203998);
     BOOST_CHECK_EQUAL(cc1.vout.size(), 2);
     BOOST_CHECK_EQUAL(cc1.IsAvailable(0), false);
+    BOOST_CHECK_EQUAL(cc1.vout[0].isFromBackwardTransfer, false);
     BOOST_CHECK_EQUAL(cc1.IsAvailable(1), true);
     BOOST_CHECK_EQUAL(cc1.vout[1].nValue, 60000000000ULL);
     BOOST_CHECK_EQUAL(HexStr(cc1.vout[1].scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))))));
-
+    BOOST_CHECK_EQUAL(cc1.vout[0].isFromBackwardTransfer, false);
     // Good example
     CDataStream ss2(ParseHex("0109044086ef97d5790061b01caab50f1b8e9c50a5057eb43c2d9563a4eebbd123008c988f1a4a4de2161e0f50aac7f17e7f9555caa486af3b"), SER_DISK, CLIENT_VERSION);
 
@@ -800,12 +801,14 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
     BOOST_CHECK_EQUAL(cc2.vout.size(), 17);
     for (int i = 0; i < 17; i++) {
         BOOST_CHECK_EQUAL(cc2.IsAvailable(i), i == 4 || i == 16);
+        BOOST_CHECK_EQUAL(cc2.vout[i].isFromBackwardTransfer, false);
     }
     BOOST_CHECK_EQUAL(cc2.vout[4].nValue, 234925952);
     BOOST_CHECK_EQUAL(HexStr(cc2.vout[4].scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("61b01caab50f1b8e9c50a5057eb43c2d9563a4ee"))))));
+    BOOST_CHECK_EQUAL(cc2.vout[4].isFromBackwardTransfer, false);
     BOOST_CHECK_EQUAL(cc2.vout[16].nValue, 110397);
     BOOST_CHECK_EQUAL(HexStr(cc2.vout[16].scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("8c988f1a4a4de2161e0f50aac7f17e7f9555caa4"))))));
-
+    BOOST_CHECK_EQUAL(cc2.vout[16].isFromBackwardTransfer, false);
     // Smallest possible example
     CDataStream ssx(SER_DISK, CLIENT_VERSION);
     BOOST_CHECK_EQUAL(HexStr(ssx.begin(), ssx.end()), "");
@@ -822,6 +825,7 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
     BOOST_CHECK_EQUAL(cc3.IsAvailable(0), true);
     BOOST_CHECK_EQUAL(cc3.vout[0].nValue, 0);
     BOOST_CHECK_EQUAL(cc3.vout[0].scriptPubKey.size(), 0);
+    BOOST_CHECK_EQUAL(cc3.vout[0].isFromBackwardTransfer, false);
 
     // scriptPubKey that ends beyond the end of the stream
     CDataStream ss4(ParseHex("0002000800"), SER_DISK, CLIENT_VERSION);
@@ -870,13 +874,13 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
     originalCoin.vout.resize(3);
     originalCoin.vout[0].nValue = insecure_rand();
     originalCoin.vout[0].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))));
-    originalCoin.vout[0].isFromBackwardTransfer = true;
+    originalCoin.vout[0].isFromBackwardTransfer = false;
     originalCoin.vout[1].nValue = insecure_rand();
     originalCoin.vout[1].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("61b01caab50f1b8e9c50a5057eb43c2d9563a4ee"))));
-    originalCoin.vout[0].isFromBackwardTransfer = true;
+    originalCoin.vout[0].isFromBackwardTransfer = false;
     originalCoin.vout[2].nValue = insecure_rand();
     originalCoin.vout[2].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))));
-    originalCoin.vout[2].isFromBackwardTransfer = false;
+    originalCoin.vout[2].isFromBackwardTransfer = true;
     originalCoin.nHeight = 220;
     originalCoin.nVersion = SC_CERT_VERSION;
     originalCoin.originScId = uint256S("deadbeef1987");
@@ -921,8 +925,10 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
     BOOST_CHECK(retrievedFaultyCoin.fCoinBase            == faultyCoin.fCoinBase);
     BOOST_CHECK(retrievedFaultyCoin.vout[0].nValue       == faultyCoin.vout[0].nValue);
     BOOST_CHECK(retrievedFaultyCoin.vout[0].scriptPubKey == faultyCoin.vout[0].scriptPubKey);
+    BOOST_CHECK(retrievedFaultyCoin.vout[0].isFromBackwardTransfer ==  false);
     BOOST_CHECK(retrievedFaultyCoin.vout[1].nValue       == faultyCoin.vout[1].nValue);
     BOOST_CHECK(retrievedFaultyCoin.vout[1].scriptPubKey == faultyCoin.vout[1].scriptPubKey);
+    BOOST_CHECK(retrievedFaultyCoin.vout[1].isFromBackwardTransfer ==  false);
     BOOST_CHECK(retrievedFaultyCoin.nHeight              == faultyCoin.nHeight);
     BOOST_CHECK(retrievedFaultyCoin.nVersion             != faultyCoin.nVersion);
     BOOST_CHECK( (retrievedFaultyCoin.nVersion & 0x7f)   == (faultyCoin.nVersion & 0x7f));

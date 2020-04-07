@@ -280,9 +280,19 @@ bool CCoinsViewDB::GetStats(CCoinsStats &stats) const {
                     }
                 }
 
-                if (coins.IsFromCert())
+                if (coins.IsFromCert()) {
                     ss << coins.originScId;
 
+                    unsigned int changeOutputCounter = 0;
+                    for(const CTxOut& out: coins.vout) {
+                        if (!out.isFromBackwardTransfer)
+                            ++changeOutputCounter;
+                        else
+                            break;
+                    }
+
+                    ss << changeOutputCounter;
+                }
                 stats.nSerializedSize += 32 + slValue.size();
                 ss << VARINT(0);
             }

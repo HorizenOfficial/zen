@@ -474,7 +474,7 @@ public:
     virtual void SetNoteData(mapNoteData_t &noteData) {}; // default is null
 
     //! filter decides which addresses will count towards the debit
-    virtual CAmount GetDebit(const isminefilter& filter) const;
+    CAmount GetDebit(const isminefilter& filter) const;
     virtual CAmount GetImmatureCredit(bool fUseCache=true) const = 0;;
     virtual CAmount GetImmatureWatchOnlyCredit(const bool& fUseCache=true) const;
 

@@ -31,8 +31,8 @@ class CBlockUndo;
  * - unspentness bitvector, for vout[2] and further; least significant byte first
  * - the non-spent CTxOuts (via CTxOutCompressor)
  * - VARINT(nHeight)
- * - string(originSc);               serialized for coins from certificates only
- * - unsigned int(bwtOutputCounter); serialized for coins from certificates only
+ * - string(originSc);                  serialized for coins from certificates only
+ * - unsigned int(changeOutputCounter); serialized for coins from certificates only
  * The nCode value consists of:
  * - bit 1: IsCoinBase()
  * - bit 2: vout[0] is not spent
@@ -40,11 +40,11 @@ class CBlockUndo;
  * - The higher bits encode N, the number of non-zero bytes in the following bitvector.
  *   - In case both bit 2 and bit 4 are unset, they encode N-1, as there must be at
  *     least one non-spent output).
- * - bwtOutputCounteris introduced with certificates. It counts the number of vouts which
- * - originated from a backward transfer. It uniquely specifies which vouts come
- * - from backward transfers since we assume these vout are placed first, before all of other vouts.
- * - bwtOutputCounteris is serialized for coins coming from certificates only, along with originScid,
- * - in order to preserve backward compatibility
+ * - changeOutputCounteris introduced with certificates. It counts the number of vouts which do not
+ *   originate from a backward transfer. It uniquely specifies which vouts come
+ *   from backward transfers since we assume these vout are placed last, before all of other vouts.
+ *   changeOutputCounter is serialized for coins coming from certificates only, along with originScid,
+ *   in order to preserve backward compatibility
  *
  * Example: 0104835800816115944e077fe7c803cfa57f29b36bf87c1d358bb85e
  *          <><><--------------------------------------------><---->
@@ -160,15 +160,15 @@ public:
         if (this->IsFromCert()) {
             nSize += ::GetSerializeSize(originScId,      nType,nVersion);
 
-            unsigned int bwtOutputCounter = 0;
+            unsigned int changeOutputCounter = 0;
             for(const CTxOut& out: vout) {
-                if (out.isFromBackwardTransfer)
-                    ++bwtOutputCounter;
+                if (!out.isFromBackwardTransfer)
+                    ++changeOutputCounter;
                 else
                     break;
             }
 
-            nSize += ::GetSerializeSize(bwtOutputCounter,nType,nVersion);
+            nSize += ::GetSerializeSize(changeOutputCounter,nType,nVersion);
         }
 
 
@@ -207,15 +207,15 @@ public:
         if (this->IsFromCert()) {
             ::Serialize(s,originScId,      nType,nVersion);
 
-            unsigned int bwtOutputCounter = 0;
+            unsigned int changeOutputCounter = 0;
             for(const CTxOut& out: vout) {
-                if (out.isFromBackwardTransfer)
-                    ++bwtOutputCounter;
+                if (!out.isFromBackwardTransfer)
+                    ++changeOutputCounter;
                 else
                     break;
             }
 
-            ::Serialize(s,bwtOutputCounter,nType,nVersion);
+            ::Serialize(s,changeOutputCounter,nType,nVersion);
         }
     }
 
@@ -251,17 +251,17 @@ public:
         // coinbase height
         ::Unserialize(s, VARINT(nHeight), nType, nVersion);
 
-        unsigned int bwtOutputCounter = 0;
+        unsigned int changeOutputCounter = vout.size();
         if (this->IsFromCert()) {
             ::Unserialize(s, originScId,       nType,nVersion);
-            ::Unserialize(s, bwtOutputCounter, nType,nVersion);
+            ::Unserialize(s, changeOutputCounter, nType,nVersion);
         }
 
         for(unsigned int idx = 0; idx < vout.size(); ++idx)
-            if ( idx < bwtOutputCounter)
-                vout[idx].isFromBackwardTransfer = true;
-            else
+            if ( idx < changeOutputCounter)
                 vout[idx].isFromBackwardTransfer = false;
+            else
+                vout[idx].isFromBackwardTransfer = true;
 
 
         Cleanup();
