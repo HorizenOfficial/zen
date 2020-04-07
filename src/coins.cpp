@@ -40,6 +40,7 @@ void CCoins::Clear() {
 void CCoins::Cleanup() {
     while (vout.size() > 0 && vout.back().IsNull())
         vout.pop_back();
+
     if (vout.empty())
         std::vector<CTxOut>().swap(vout);
 }

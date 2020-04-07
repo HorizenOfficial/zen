@@ -31,7 +31,8 @@ class CBlockUndo;
  * - unspentness bitvector, for vout[2] and further; least significant byte first
  * - the non-spent CTxOuts (via CTxOutCompressor)
  * - VARINT(nHeight)
- *
+ * - string(originSc);               serialized for coins from certificates only
+ * - unsigned int(bwtOutputCounter); serialized for coins from certificates only
  * The nCode value consists of:
  * - bit 1: IsCoinBase()
  * - bit 2: vout[0] is not spent
@@ -39,6 +40,11 @@ class CBlockUndo;
  * - The higher bits encode N, the number of non-zero bytes in the following bitvector.
  *   - In case both bit 2 and bit 4 are unset, they encode N-1, as there must be at
  *     least one non-spent output).
+ * - bwtOutputCounteris introduced with certificates. It counts the number of vouts which
+ * - originated from a backward transfer. It uniquely specifies which vouts come
+ * - from backward transfers since we assume these vout are placed first, before all of other vouts.
+ * - bwtOutputCounteris is serialized for coins coming from certificates only, along with originScid,
+ * - in order to preserve backward compatibility
  *
  * Example: 0104835800816115944e077fe7c803cfa57f29b36bf87c1d358bb85e
  *          <><><--------------------------------------------><---->
@@ -151,8 +157,20 @@ public:
         // height
         nSize += ::GetSerializeSize(VARINT(nHeight), nType, nVersion);
 
-        if (this->IsFromCert())
-            nSize += ::GetSerializeSize(originScId,nType,nVersion);
+        if (this->IsFromCert()) {
+            nSize += ::GetSerializeSize(originScId,      nType,nVersion);
+
+            unsigned int bwtOutputCounter = 0;
+            for(const CTxOut& out: vout) {
+                if (out.isFromBackwardTransfer)
+                    ++bwtOutputCounter;
+                else
+                    break;
+            }
+
+            nSize += ::GetSerializeSize(bwtOutputCounter,nType,nVersion);
+        }
+
 
         return nSize;
     }
@@ -186,8 +204,19 @@ public:
         // coinbase height
         ::Serialize(s, VARINT(nHeight), nType, nVersion);
 
-        if (this->IsFromCert())
-            ::Serialize(s,originScId,nType,nVersion);
+        if (this->IsFromCert()) {
+            ::Serialize(s,originScId,      nType,nVersion);
+
+            unsigned int bwtOutputCounter = 0;
+            for(const CTxOut& out: vout) {
+                if (out.isFromBackwardTransfer)
+                    ++bwtOutputCounter;
+                else
+                    break;
+            }
+
+            ::Serialize(s,bwtOutputCounter,nType,nVersion);
+        }
     }
 
     template<typename Stream>
@@ -222,8 +251,18 @@ public:
         // coinbase height
         ::Unserialize(s, VARINT(nHeight), nType, nVersion);
 
-        if (this->IsFromCert())
-            ::Unserialize(s, originScId, nType,nVersion);
+        unsigned int bwtOutputCounter = 0;
+        if (this->IsFromCert()) {
+            ::Unserialize(s, originScId,       nType,nVersion);
+            ::Unserialize(s, bwtOutputCounter, nType,nVersion);
+        }
+
+        for(unsigned int idx = 0; idx < vout.size(); ++idx)
+            if ( idx < bwtOutputCounter)
+                vout[idx].isFromBackwardTransfer = true;
+            else
+                vout[idx].isFromBackwardTransfer = false;
+
 
         Cleanup();
     }

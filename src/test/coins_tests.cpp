@@ -867,11 +867,16 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
     //Serialize and unserialize back a coin from cert
     CCoins originalCoin;
     originalCoin.fCoinBase = false;
-    originalCoin.vout.resize(2);
+    originalCoin.vout.resize(3);
     originalCoin.vout[0].nValue = insecure_rand();
     originalCoin.vout[0].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))));
+    originalCoin.vout[0].isFromBackwardTransfer = true;
     originalCoin.vout[1].nValue = insecure_rand();
     originalCoin.vout[1].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("61b01caab50f1b8e9c50a5057eb43c2d9563a4ee"))));
+    originalCoin.vout[0].isFromBackwardTransfer = true;
+    originalCoin.vout[2].nValue = insecure_rand();
+    originalCoin.vout[2].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))));
+    originalCoin.vout[2].isFromBackwardTransfer = false;
     originalCoin.nHeight = 220;
     originalCoin.nVersion = SC_CERT_VERSION;
     originalCoin.originScId = uint256S("deadbeef1987");
@@ -882,15 +887,20 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
     CCoins retrievedCoin;
     ss1 >> retrievedCoin;
 
-    BOOST_CHECK(retrievedCoin.fCoinBase            == originalCoin.fCoinBase);
-    BOOST_CHECK(retrievedCoin.vout[0].nValue       == originalCoin.vout[0].nValue);
-    BOOST_CHECK(retrievedCoin.vout[0].scriptPubKey == originalCoin.vout[0].scriptPubKey);
-    BOOST_CHECK(retrievedCoin.vout[1].nValue       == originalCoin.vout[1].nValue);
-    BOOST_CHECK(retrievedCoin.vout[1].scriptPubKey == originalCoin.vout[1].scriptPubKey);
-    BOOST_CHECK(retrievedCoin.nHeight              == originalCoin.nHeight);
-    BOOST_CHECK(retrievedCoin.nVersion             != originalCoin.nVersion);
-    BOOST_CHECK( (retrievedCoin.nVersion & 0x7f)   == (originalCoin.nVersion & 0x7f));
-    BOOST_CHECK(retrievedCoin.originScId           == originalCoin.originScId);
+    BOOST_CHECK(retrievedCoin.fCoinBase                      == originalCoin.fCoinBase);
+    BOOST_CHECK(retrievedCoin.vout[0].nValue                 == originalCoin.vout[0].nValue);
+    BOOST_CHECK(retrievedCoin.vout[0].scriptPubKey           == originalCoin.vout[0].scriptPubKey);
+    BOOST_CHECK(retrievedCoin.vout[0].isFromBackwardTransfer == originalCoin.vout[0].isFromBackwardTransfer);
+    BOOST_CHECK(retrievedCoin.vout[1].nValue                 == originalCoin.vout[1].nValue);
+    BOOST_CHECK(retrievedCoin.vout[1].scriptPubKey           == originalCoin.vout[1].scriptPubKey);
+    BOOST_CHECK(retrievedCoin.vout[1].isFromBackwardTransfer == originalCoin.vout[1].isFromBackwardTransfer);
+    BOOST_CHECK(retrievedCoin.vout[2].nValue                 == originalCoin.vout[2].nValue);
+    BOOST_CHECK(retrievedCoin.vout[2].scriptPubKey           == originalCoin.vout[2].scriptPubKey);
+    BOOST_CHECK(retrievedCoin.vout[2].isFromBackwardTransfer == originalCoin.vout[2].isFromBackwardTransfer);
+    BOOST_CHECK(retrievedCoin.nHeight                        == originalCoin.nHeight);
+    BOOST_CHECK(retrievedCoin.nVersion                       != originalCoin.nVersion);
+    BOOST_CHECK( (retrievedCoin.nVersion & 0x7f)             == (originalCoin.nVersion & 0x7f));
+    BOOST_CHECK(retrievedCoin.originScId                     == originalCoin.originScId);
 
     //Coins from certificate with null originScId won't be correctly deserialized
     CCoins faultyCoin;
