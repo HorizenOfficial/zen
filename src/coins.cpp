@@ -14,11 +14,107 @@
 #include <undo.h>
 #include <chainparams.h>
 
-/**
- * calculate number of bytes for the bitmask, and its number of non-zero bytes
- * each bit in the bitmask represents the availability of one output, but the
- * availabilities of the first two outputs are encoded separately
- */
+CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), originScId() { }
+
+CCoins::CCoins(const CTransactionBase &tx, int nHeightIn) {
+        FromTx(tx, nHeightIn);
+    }
+
+void CCoins::FromTx(const CTransactionBase &tx, int nHeightIn) {
+    fCoinBase  = tx.IsCoinBase();
+    vout       = tx.GetVout();
+    nHeight    = nHeightIn;
+    nVersion   = tx.nVersion;
+    originScId = tx.GetScId();
+    ClearUnspendable();
+}
+
+void CCoins::Clear() {
+    fCoinBase = false;
+    std::vector<CTxOut>().swap(vout);
+    nHeight = 0;
+    nVersion = 0;
+    originScId.SetNull();
+}
+
+void CCoins::Cleanup() {
+    while (vout.size() > 0 && vout.back().IsNull())
+        vout.pop_back();
+
+    if (vout.empty())
+        std::vector<CTxOut>().swap(vout);
+}
+
+void CCoins::ClearUnspendable() {
+    BOOST_FOREACH(CTxOut &txout, vout) {
+        if (txout.scriptPubKey.IsUnspendable())
+            txout.SetNull();
+    }
+    Cleanup();
+}
+
+void CCoins::swap(CCoins &to) {
+    std::swap(to.fCoinBase, fCoinBase);
+    to.vout.swap(vout);
+    std::swap(to.nHeight, nHeight);
+    std::swap(to.nVersion, nVersion);
+    std::swap(to.originScId, originScId);
+}
+
+bool operator==(const CCoins &a, const CCoins &b) {
+     // Empty CCoins objects are always equal.
+     if (a.IsPruned() && b.IsPruned())
+         return true;
+     return a.fCoinBase  == b.fCoinBase &&
+            a.nHeight    == b.nHeight   &&
+            a.nVersion   == b.nVersion  &&
+            a.vout       == b.vout      &&
+            a.originScId == b.originScId;
+}
+
+bool operator!=(const CCoins &a, const CCoins &b) {
+    return !(a == b);
+}
+
+bool CCoins::IsCoinBase() const {
+    return fCoinBase;
+}
+
+bool CCoins::IsFromCert() const {
+    // when restored from serialization, nVersion, if negative, is populated only with latest 7 bits of the original value!
+    // we enforced that no tx/cert can have a version other than a list of well known ones
+    // therefore no other 4-bytes signed version will have this 7-bits ending
+    return (nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f);
+}
+
+bool CCoins::Spend(uint32_t nPos)
+{
+    if (nPos >= vout.size() || vout[nPos].IsNull())
+        return false;
+    vout[nPos].SetNull();
+    Cleanup();
+    return true;
+}
+
+bool CCoins::IsAvailable(unsigned int nPos) const {
+    return (nPos < vout.size() && !vout[nPos].IsNull());
+}
+
+bool CCoins::IsPruned() const {
+    BOOST_FOREACH(const CTxOut &out, vout)
+        if (!out.IsNull())
+            return false;
+    return true;
+}
+
+size_t CCoins::DynamicMemoryUsage() const {
+    size_t ret = memusage::DynamicUsage(vout);
+    BOOST_FOREACH(const CTxOut &out, vout) {
+        ret += RecursiveDynamicUsage(out.scriptPubKey);
+    }
+    return ret;
+}
+
 void CCoins::CalcMaskSize(unsigned int &nBytes, unsigned int &nNonzeroBytes) const {
     unsigned int nLastUsedByte = 0;
     for (unsigned int b = 0; 2+b*8 < vout.size(); b++) {
@@ -37,14 +133,6 @@ void CCoins::CalcMaskSize(unsigned int &nBytes, unsigned int &nNonzeroBytes) con
     nBytes += nLastUsedByte;
 }
 
-bool CCoins::Spend(uint32_t nPos) 
-{
-    if (nPos >= vout.size() || vout[nPos].IsNull())
-        return false;
-    vout[nPos].SetNull();
-    Cleanup();
-    return true;
-}
 bool CCoinsView::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const { return false; }
 bool CCoinsView::GetNullifier(const uint256 &nullifier)                        const { return false; }
 bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins)                  const { return false; }
@@ -723,27 +811,27 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     const uint256& certHash = cert.GetHash();
 
     LogPrint("cert", "%s():%d - called: cert[%s], scId[%s], height[%d]\n",
-        __func__, __LINE__, certHash.ToString(), cert.scId.ToString(), nHeight );
+        __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString(), nHeight );
 
-    if (!HaveSidechain(cert.scId))
+    if (!HaveSidechain(cert.GetScId()))
     {
         LogPrint("sc", "%s():%d - cert[%s] refers to scId[%s] not yet created\n",
-            __func__, __LINE__, certHash.ToString(), cert.scId.ToString() );
+            __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString() );
         return state.Invalid(error("scid does not exist"),
              REJECT_INVALID, "sidechain-certificate-scid");
     }
 
     // check that epoch data are consistent
-    if (!isLegalEpoch(cert.scId, cert.epochNumber, cert.endEpochBlockHash) )
+    if (!isLegalEpoch(cert.GetScId(), cert.epochNumber, cert.endEpochBlockHash) )
     {
         LogPrint("sc", "%s():%d - invalid cert[%s], scId[%s] invalid epoch data\n",
-            __func__, __LINE__, certHash.ToString(), cert.scId.ToString() );
+            __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString() );
         return state.Invalid(error("certificate with invalid epoch considering mempool"),
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
     // a certificate can not be received after a fixed amount of blocks (for the time being it is epoch length / 5) from the end of epoch (TODO)
-    int maxHeight = getCertificateMaxIncomingHeight(cert.scId, cert.epochNumber);
+    int maxHeight = getCertificateMaxIncomingHeight(cert.GetScId(), cert.epochNumber);
     if (maxHeight < 0)
     {
         LogPrintf("ERROR: certificate %s, can not calculate max recv height\n", certHash.ToString());
@@ -759,16 +847,16 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
                      REJECT_INVALID, "sidechain-certificate-delayed");
     }
 
-    CAmount curBalance = getSidechainBalance(cert.scId);
+    CAmount curBalance = getSidechainBalance(cert.GetScId());
     if (cert.totalAmount > curBalance)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scId[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, cert.scId.ToString(), FormatMoney(curBalance), FormatMoney(cert.totalAmount) );
+            __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(curBalance), FormatMoney(cert.totalAmount) );
         return state.Invalid(error("insufficient balance"),
                      REJECT_INVALID, "sidechain-insufficient-balance");
     }
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
-        __func__, __LINE__, cert.scId.ToString(), FormatMoney(curBalance), FormatMoney(cert.totalAmount) );
+        __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(curBalance), FormatMoney(cert.totalAmount) );
 
     return true;
 }
@@ -902,7 +990,7 @@ CAmount CCoinsViewCache::getSidechainBalance(const uint256& scId) const
 bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& blockundo)
 {
     const uint256& certHash = cert.GetHash();
-    const uint256& scId = cert.scId;
+    const uint256& scId = cert.GetScId();
     const CAmount& totalAmount = cert.totalAmount;
 
     LogPrint("cert", "%s():%d - cert=%s\n", __func__, __LINE__, certHash.ToString() );
@@ -939,7 +1027,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
 
 bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert)
 {
-    const uint256& scId = cert.scId;
+    const uint256& scId = cert.GetScId();
     const CAmount& totalAmount = cert.totalAmount;
 
     LogPrint("cert", "%s():%d - removing cert for scId=%s\n", __func__, __LINE__, scId.ToString());
@@ -1072,14 +1160,12 @@ CAmount CCoinsViewCache::GetValueIn(const CTransaction& tx) const
     return nResult;
 }
 
-bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransaction& tx) const
+bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransactionBase& txBase) const
 {
     boost::unordered_map<uint256, ZCIncrementalMerkleTree, CCoinsKeyHasher> intermediates;
 
-    BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit())
-    {
-        BOOST_FOREACH(const uint256& nullifier, joinsplit.nullifiers)
-        {
+    for(const JSDescription &joinsplit: txBase.GetVjoinsplit()) {
+        for(const uint256& nullifier: joinsplit.nullifiers) {
             if (GetNullifier(nullifier)) {
                 // If the nullifier is set, this transaction
                 // double-spends!
@@ -1095,8 +1181,7 @@ bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransaction& tx) const
             return false;
         }
 
-        BOOST_FOREACH(const uint256& commitment, joinsplit.commitments)
-        {
+        for(const uint256& commitment: joinsplit.commitments) {
             tree.append(commitment);
         }
 
@@ -1106,11 +1191,11 @@ bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransaction& tx) const
     return true;
 }
 
-bool CCoinsViewCache::HaveInputs(const CTransaction& tx) const
+bool CCoinsViewCache::HaveInputs(const CTransactionBase& txBase) const
 {
-    if (!tx.IsCoinBase()) {
-        for (unsigned int i = 0; i < tx.GetVin().size(); i++) {
-            const COutPoint &prevout = tx.GetVin()[i].prevout;
+    if (!txBase.IsCoinBase()) {
+        for(const CTxIn & in: txBase.GetVin()) {
+            const COutPoint &prevout = in.prevout;
             const CCoins* coins = AccessCoins(prevout.hash);
             if (!coins || !coins->IsAvailable(prevout.n)) {
                 return false;

@@ -22,7 +22,7 @@
 
 class CBlockUndo;
 
-/** 
+/**
  * Pruned version of CTransaction: only retains metadata and unspent transaction outputs
  *
  * Serialized format:
@@ -31,7 +31,8 @@ class CBlockUndo;
  * - unspentness bitvector, for vout[2] and further; least significant byte first
  * - the non-spent CTxOuts (via CTxOutCompressor)
  * - VARINT(nHeight)
- *
+ * - string(originSc);                  serialized for coins from certificates only
+ * - unsigned int(changeOutputCounter); serialized for coins from certificates only
  * The nCode value consists of:
  * - bit 1: IsCoinBase()
  * - bit 2: vout[0] is not spent
@@ -39,6 +40,11 @@ class CBlockUndo;
  * - The higher bits encode N, the number of non-zero bytes in the following bitvector.
  *   - In case both bit 2 and bit 4 are unset, they encode N-1, as there must be at
  *     least one non-spent output).
+ * - changeOutputCounteris introduced with certificates. It counts the number of vouts which do not
+ *   originate from a backward transfer. It uniquely specifies which vouts come
+ *   from backward transfers since we assume these vout are placed last, before all of other vouts.
+ *   changeOutputCounter is serialized for coins coming from certificates only, along with originScid,
+ *   in order to preserve backward compatibility
  *
  * Example: 0104835800816115944e077fe7c803cfa57f29b36bf87c1d358bb85e
  *          <><><--------------------------------------------><---->
@@ -90,76 +96,45 @@ public:
     //! as new tx version will probably only be introduced at certain heights
     int nVersion;
 
-    void FromTx(const CTransactionBase &tx, int nHeightIn) {
-        fCoinBase = tx.IsCoinBase() || tx.IsCoinCertified();
-        vout = tx.GetVout();
-        nHeight = nHeightIn;
-        nVersion = tx.nVersion;
-        ClearUnspendable();
-    }
-
-    //! construct a CCoins from a CTransaction, at a given height
-    CCoins(const CTransactionBase &tx, int nHeightIn) {
-        FromTx(tx, nHeightIn);
-    }
-
-    void Clear() {
-        fCoinBase = false;
-        std::vector<CTxOut>().swap(vout);
-        nHeight = 0;
-        nVersion = 0;
-    }
+    //! if coin comes from a bwt, originScId will contain the associated ScId; otherwise it will be null
+    //! originScId will be serialized only for coins from bwt, which will be stored in chainstate db under different key
+    uint256 originScId;
 
     //! empty constructor
-    CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0) { }
+    CCoins();
+
+    //! construct a CCoins from a CTransaction, at a given height
+    CCoins(const CTransactionBase &tx, int nHeightIn);
+
+    void FromTx(const CTransactionBase &tx, int nHeightIn);
+
+    void Clear();
 
     //!remove spent outputs at the end of vout
-    void Cleanup() {
-        while (vout.size() > 0 && vout.back().IsNull())
-            vout.pop_back();
-        if (vout.empty())
-            std::vector<CTxOut>().swap(vout);
-    }
+    void Cleanup();
 
-    void ClearUnspendable() {
-        BOOST_FOREACH(CTxOut &txout, vout) {
-            if (txout.scriptPubKey.IsUnspendable())
-                txout.SetNull();
-        }
-        Cleanup();
-    }
+    void ClearUnspendable();
 
-    void swap(CCoins &to) {
-        std::swap(to.fCoinBase, fCoinBase);
-        to.vout.swap(vout);
-        std::swap(to.nHeight, nHeight);
-        std::swap(to.nVersion, nVersion);
-    }
+    void swap(CCoins &to);
 
     //! equality test
-    friend bool operator==(const CCoins &a, const CCoins &b) {
-         // Empty CCoins objects are always equal.
-         if (a.IsPruned() && b.IsPruned())
-             return true;
-         return a.fCoinBase == b.fCoinBase &&
-                a.nHeight == b.nHeight &&
-                a.nVersion == b.nVersion &&
-                a.vout == b.vout;
-    }
-    friend bool operator!=(const CCoins &a, const CCoins &b) {
-        return !(a == b);
-    }
+    friend bool operator==(const CCoins &a, const CCoins &b);
+    friend bool operator!=(const CCoins &a, const CCoins &b);
 
-    void CalcMaskSize(unsigned int &nBytes, unsigned int &nNonzeroBytes) const;
+    bool IsCoinBase() const;
+    bool IsFromCert() const;
 
-    bool IsCoinBase() const {
-        return fCoinBase && !IsCoinCertified();
-    }
+    //! mark a vout spent
+    bool Spend(uint32_t nPos);
 
-    bool IsCoinCertified() const {
-        // for negative numbers, when restored from serialization, nVersion is populated only with latest 7 bits of the original value!
-        return (fCoinBase && ( (nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f)) );
-    }
+    //! check whether a particular output is still available
+    bool IsAvailable(unsigned int nPos) const;
+
+    //! check whether the entire CCoins is spent
+    //! note that only !IsPruned() CCoins can be serialized
+    bool IsPruned() const;
+
+    size_t DynamicMemoryUsage() const;
 
     unsigned int GetSerializeSize(int nType, int nVersion) const {
         unsigned int nSize = 0;
@@ -181,6 +156,22 @@ public:
                 nSize += ::GetSerializeSize(CTxOutCompressor(REF(vout[i])), nType, nVersion);
         // height
         nSize += ::GetSerializeSize(VARINT(nHeight), nType, nVersion);
+
+        if (this->IsFromCert()) {
+            nSize += ::GetSerializeSize(originScId,      nType,nVersion);
+
+            unsigned int changeOutputCounter = 0;
+            for(const CTxOut& out: vout) {
+                if (!out.isFromBackwardTransfer)
+                    ++changeOutputCounter;
+                else
+                    break;
+            }
+
+            nSize += ::GetSerializeSize(changeOutputCounter,nType,nVersion);
+        }
+
+
         return nSize;
     }
 
@@ -209,8 +200,23 @@ public:
             if (!vout[i].IsNull())
                 ::Serialize(s, CTxOutCompressor(REF(vout[i])), nType, nVersion);
         }
+
         // coinbase height
         ::Serialize(s, VARINT(nHeight), nType, nVersion);
+
+        if (this->IsFromCert()) {
+            ::Serialize(s,originScId,      nType,nVersion);
+
+            unsigned int changeOutputCounter = 0;
+            for(const CTxOut& out: vout) {
+                if (!out.isFromBackwardTransfer)
+                    ++changeOutputCounter;
+                else
+                    break;
+            }
+
+            ::Serialize(s,changeOutputCounter,nType,nVersion);
+        }
     }
 
     template<typename Stream>
@@ -244,33 +250,24 @@ public:
         }
         // coinbase height
         ::Unserialize(s, VARINT(nHeight), nType, nVersion);
+
+        unsigned int changeOutputCounter = vout.size();
+        if (this->IsFromCert()) {
+            ::Unserialize(s, originScId,       nType,nVersion);
+            ::Unserialize(s, changeOutputCounter, nType,nVersion);
+        }
+
+        for(unsigned int idx = 0; idx < vout.size(); ++idx)
+            if ( idx < changeOutputCounter)
+                vout[idx].isFromBackwardTransfer = false;
+            else
+                vout[idx].isFromBackwardTransfer = true;
+
+
         Cleanup();
     }
-
-    //! mark a vout spent
-    bool Spend(uint32_t nPos);
-
-    //! check whether a particular output is still available
-    bool IsAvailable(unsigned int nPos) const {
-        return (nPos < vout.size() && !vout[nPos].IsNull());
-    }
-
-    //! check whether the entire CCoins is spent
-    //! note that only !IsPruned() CCoins can be serialized
-    bool IsPruned() const {
-        BOOST_FOREACH(const CTxOut &out, vout)
-            if (!out.IsNull())
-                return false;
-        return true;
-    }
-
-    size_t DynamicMemoryUsage() const {
-        size_t ret = memusage::DynamicUsage(vout);
-        BOOST_FOREACH(const CTxOut &out, vout) {
-            ret += RecursiveDynamicUsage(out.scriptPubKey);
-        }
-        return ret;
-    }
+private:
+    void CalcMaskSize(unsigned int &nBytes, unsigned int &nNonzeroBytes) const;
 };
 
 class CCoinsKeyHasher
@@ -577,10 +574,10 @@ public:
     CAmount GetValueIn(const CTransaction& tx) const;
 
     //! Check whether all prevouts of the transaction are present in the UTXO set represented by this view
-    bool HaveInputs(const CTransaction& tx) const;
+    bool HaveInputs(const CTransactionBase& txBase) const;
 
     //! Check whether all joinsplit requirements (anchors/nullifiers) are satisfied
-    bool HaveJoinSplitRequirements(const CTransaction& tx) const;
+    bool HaveJoinSplitRequirements(const CTransactionBase& txBase) const;
 
     //! Return priority of tx at height nHeight
     double GetPriority(const CTransaction &tx, int nHeight) const;

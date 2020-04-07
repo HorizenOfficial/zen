@@ -857,14 +857,13 @@ bool CheckFinalTx(const CTransaction &tx, int flags)
  * 2. P2SH scripts with a crazy number of expensive
  *    CHECKSIG/CHECKMULTISIG operations
  */
-bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
+bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& mapInputs)
 {
-    if (tx.IsCoinBase())
+    if (txBase.IsCoinBase())
         return true; // Coinbases don't use vin normally
 
-    for (unsigned int i = 0; i < tx.GetVin().size(); i++)
-    {
-        const CTxOut& prev = mapInputs.GetOutputFor(tx.GetVin()[i]);
+    for(const CTxIn& in : txBase.GetVin()) {
+        const CTxOut& prev = mapInputs.GetOutputFor(in);
 
         vector<vector<unsigned char> > vSolutions;
         txnouttype whichType;
@@ -883,7 +882,7 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         // IsStandardTx() will have already returned false
         // and this method isn't called.
         vector<vector<unsigned char> > stack;
-        if (!EvalScript(stack, tx.GetVin()[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker()))
+        if (!EvalScript(stack, in.scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker()))
             return false;
 
         if (whichType == TX_SCRIPTHASH || whichType == TX_SCRIPTHASH_REPLAY)
@@ -1240,7 +1239,10 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             view.SetBackend(dummy);
         }
 
-        //ABENEGIA: CheckInputs is useless for certificate. Is it correct?? Or Where is it checked???
+        // Check for non-standard pay-to-script-hash in inputs
+        if (getRequireStandard() && !AreInputsStandard(cert, view)) {
+            return error("AcceptCertificateToMemoryPool: nonstandard transaction input");
+        }
 
         unsigned int nSigOps = cert.GetLegacySigOpCount();
         if (nSigOps > MAX_STANDARD_TX_SIGOPS)
@@ -1999,13 +2001,38 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
     UpdateCoins(txBase, state, inputs, txundo, nHeight);
 }
 
+CScriptCheck::CScriptCheck(): ptxTo(0), nIn(0), chain(nullptr),
+                              nFlags(0), cacheStore(false),
+                              error(SCRIPT_ERR_UNKNOWN_ERROR) {}
+CScriptCheck::CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn,
+                           unsigned int nInIn, const CChain* chainIn,
+                           unsigned int nFlagsIn, bool cacheIn):
+                            scriptPubKey(txFromIn.vout[txToIn.GetVin()[nInIn].prevout.n].scriptPubKey),
+                            ptxTo(&txToIn), nIn(nInIn), chain(chainIn), nFlags(nFlagsIn),
+                            cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR) { }
+
 bool CScriptCheck::operator()() {
     const CScript &scriptSig = ptxTo->GetVin()[nIn].scriptSig;
-    if (!VerifyScript(scriptSig, scriptPubKey, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, chain, cacheStore), &error)) {
-        return ::error("CScriptCheck(): %s:%d VerifySignature failed: %s", ptxTo->GetHash().ToString(), nIn, ScriptErrorString(error));
+    if (!VerifyScript(scriptSig, scriptPubKey, nFlags,
+                      CachingTransactionSignatureChecker(ptxTo, nIn, chain, cacheStore),
+                      &error)) {
+                        return ::error("CScriptCheck(): %s:%d VerifySignature failed: %s",
+                                       ptxTo->GetHash().ToString(), nIn, ScriptErrorString(error));
     }
     return true;
 }
+
+void CScriptCheck::swap(CScriptCheck &check) {
+    scriptPubKey.swap(check.scriptPubKey);
+    std::swap(ptxTo, check.ptxTo);
+    std::swap(nIn, check.nIn);
+    std::swap(chain, check.chain);
+    std::swap(nFlags, check.nFlags);
+    std::swap(cacheStore, check.cacheStore);
+    std::swap(error, check.error);
+}
+
+ScriptError CScriptCheck::GetScriptError() const { return error; }
 
 int GetSpendHeight(const CCoinsViewCache& inputs)
 {
@@ -2037,22 +2064,20 @@ bool IsCommunityFund(const CCoins *coins, int nIn)
 }
 
 namespace Consensus {
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
+bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
 {
         // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
         // for an attacker to attempt to split the network.
-        if (!inputs.HaveInputs(tx))
-            return state.Invalid(error("CheckInputs(): %s inputs unavailable", tx.GetHash().ToString()));
+        if (!inputs.HaveInputs(txBase))
+            return state.Invalid(error("CheckInputs(): %s inputs unavailable", txBase.GetHash().ToString()));
 
         // are the JoinSplit's requirements met?
-        if (!inputs.HaveJoinSplitRequirements(tx))
-            return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", tx.GetHash().ToString()));
+        if (!inputs.HaveJoinSplitRequirements(txBase))
+            return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", txBase.GetHash().ToString()));
 
         CAmount nValueIn = 0;
-        CAmount nFees = 0;
-        for (unsigned int i = 0; i < tx.GetVin().size(); i++)
-        {
-            const COutPoint &prevout = tx.GetVin()[i].prevout;
+       for(const CTxIn& in: txBase.GetVin()) {
+            const COutPoint &prevout = in.prevout;
             const CCoins *coins = inputs.AccessCoins(prevout.hash);
             assert(coins);
 
@@ -2068,7 +2093,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
                 // Disabled on regtest
                 if (fCoinbaseEnforcedProtectionEnabled &&
                     consensusParams.fCoinbaseMustBeProtected &&
-                    !tx.GetVout().empty()) {
+                    !txBase.GetVout().empty()) {
 
                     // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed
                     // to send them to the transparent addr.
@@ -2089,26 +2114,14 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 
         }
 
-        nValueIn += tx.GetJoinSplitValueIn();
-        if (!MoneyRange(nValueIn))
-            return state.DoS(100, error("CheckInputs(): vpub_old values out of range"),
-                             REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+    nValueIn += txBase.GetJoinSplitValueIn();
+    if (!MoneyRange(nValueIn))
+        return state.DoS(100, error("CheckInputs(): vpub_old values out of range"),
+                         REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
-        if (nValueIn < tx.GetValueOut() )
-            return state.DoS(100, error("CheckInputs(): %s value in (%s) < value out (%s)",
-                                        tx.GetHash().ToString(),
-                                        FormatMoney(nValueIn), FormatMoney(tx.GetValueOut()) ),
-                             REJECT_INVALID, "bad-txns-in-belowout");
+   if (!txBase.CheckFeeAmount(nValueIn, state))
+        return false;
 
-        // Tally transaction fees
-        CAmount nTxFee = nValueIn - tx.GetValueOut();
-        if (nTxFee < 0)
-            return state.DoS(100, error("CheckInputs(): %s nTxFee < 0", tx.GetHash().ToString()),
-                             REJECT_INVALID, "bad-txns-fee-negative");
-        nFees += nTxFee;
-        if (!MoneyRange(nFees))
-            return state.DoS(100, error("CheckInputs(): nFees out of range"),
-                             REJECT_INVALID, "bad-txns-fee-outofrange");
     return true;
 }
 }// namespace Consensus

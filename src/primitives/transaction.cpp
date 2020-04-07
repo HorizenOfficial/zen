@@ -611,6 +611,32 @@ bool CTransaction::CheckSerializedSize(CValidationState &state) const
     return true;
 }
 
+bool CTransaction::CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const {
+    if (!MoneyRange(totalVinAmount))
+        return state.DoS(100, error("CheckFeeAmount(): total input amount out of range"),
+                         REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+
+    if (!CheckOutputsAmount(state))
+        return false;
+
+    if (totalVinAmount < GetValueOut() )
+        return state.DoS(100, error("CheckInputs(): %s value in (%s) < value out (%s)",
+                                    GetHash().ToString(),
+                                    FormatMoney(totalVinAmount), FormatMoney(GetValueOut()) ),
+                         REJECT_INVALID, "bad-txns-in-belowout");
+
+    CAmount nTxFee = totalVinAmount - GetValueOut();
+    if (nTxFee < 0)
+        return state.DoS(100, error("CheckFeeAmount(): %s nTxFee < 0", GetHash().ToString()),
+                         REJECT_INVALID, "bad-txns-fee-negative");
+
+    if (!MoneyRange(nTxFee))
+        return state.DoS(100, error("CheckFeeAmount(): nTxFee out of range"),
+                         REJECT_INVALID, "bad-txns-fee-outofrange");
+
+    return true;
+}
+
 bool CTransaction::CheckOutputsAvailability(CValidationState &state) const
 {
     // Allow the case when crosschain outputs are not empty. In that case there might be no vout at all
@@ -746,11 +772,8 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
 bool CTransaction::IsStandard(std::string& reason, int nHeight) const { return true; }
 bool CTransaction::CheckFinal(int flags) const { return true; }
 bool CTransaction::IsApplicableToState(CValidationState& state, int nHeight) const { return true; }
-void CTransaction::HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const { return; };
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
-bool CTransaction::HaveInputs(const CCoinsViewCache& view) const { return true; }
-bool CTransaction::AreInputsStandard(CCoinsViewCache& view) const { return true; }
 unsigned int CTransaction::GetP2SHSigOpCount(CCoinsViewCache& view) const { return 0; }
 unsigned int CTransaction::GetLegacySigOpCount() const { return 0; }
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
@@ -915,16 +938,6 @@ bool CTransaction::IsApplicableToState(CValidationState& state, int notUsed) con
     CCoinsViewCache view(pcoinsTip);
     return view.HaveScRequirements(*this);
 }
-    
-void CTransaction::HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const
-{
-    BOOST_FOREACH(const JSDescription &joinsplit, vjoinsplit) {
-        BOOST_FOREACH(const uint256 &note_commitment, joinsplit.commitments) {
-            // Insert the note commitments into our temporary tree.
-            tree.append(note_commitment);
-        }
-    }
-}
 
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const
 {
@@ -934,16 +947,6 @@ void CTransaction::AddJoinSplitToJSON(UniValue& entry) const
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const
 {
     Sidechain::AddSidechainOutsToJSON(*this, entry);
-}
-
-bool CTransaction::HaveInputs(const CCoinsViewCache& view) const
-{
-    return view.HaveInputs(*this);
-}
-
-bool CTransaction::AreInputsStandard(CCoinsViewCache& view) const 
-{
-    return ::AreInputsStandard(*this, view); 
 }
 
 unsigned int CTransaction::GetP2SHSigOpCount(CCoinsViewCache& view) const 

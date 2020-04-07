@@ -94,6 +94,11 @@ public:
 	virtual int getSidechainTxVersion() const = 0;
 
     /**
+	 * @brief returns sidechain cert version based on block height
+	 */
+	virtual int getCertificateVersion() const = 0;
+
+    /**
 	 * @brief returns true sidechains are supported based on block height, false otherwise
 	 */
 	virtual bool areSidechainsSupported() const = 0;
