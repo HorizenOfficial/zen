@@ -715,6 +715,11 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
     txnouttype whichType;
     BOOST_FOREACH(const CTxOut& txout, txBase.GetVout()) {
 
+        // if the output comes from a backward transfer (when we are a certificate), skip this check
+        // but go on if the certificate txout is an ordinary one
+        if (txout.isFromBackwardTransfer)
+            continue;
+
         CheckBlockResult checkBlockResult;
         if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
             reason = "scriptpubkey";

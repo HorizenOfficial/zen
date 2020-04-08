@@ -176,7 +176,6 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
 {
     entry.push_back(Pair("certid", cert.GetHash().GetHex()));
     entry.push_back(Pair("version", cert.nVersion));
-    entry.push_back(Pair("nonce", cert.nonce.GetHex()));
     UniValue vout(UniValue::VARR);
     for (unsigned int i = 0; i < cert.GetVout().size(); i++) {
         const CTxOut& txout = cert.GetVout()[i];
@@ -187,24 +186,52 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
         out.push_back(Pair("scriptPubKey", o));
+        if (txout.isFromBackwardTransfer)
+        {
+            std::string pkhStr;
+            auto it = std::find(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), OP_HASH160);
+            if (it != txout.scriptPubKey.end())
+            {
+                it += 2;
+                std::vector<unsigned char> pkh(it, it + sizeof(uint160));
+                pkhStr = HexStr(pkh.rbegin(), pkh.rend());
+            }
+            else
+            {
+                pkhStr = "<<Decode error>>";
+            }
+            out.push_back(Pair("backward transfer", true));
+            out.push_back(Pair("pubkeyhash", pkhStr));
+        }
         vout.push_back(out);
     }
-    entry.push_back(Pair("vout", vout));
 
-    // add to entry obj the cross chain outputs
-   
     UniValue x(UniValue::VOBJ);
     x.push_back(Pair("scid", cert.GetScId().GetHex()));
     x.push_back(Pair("epochNumber", cert.epochNumber));
     x.push_back(Pair("endEpochBlockHash", cert.endEpochBlockHash.GetHex()));
     x.push_back(Pair("totalAmount", ValueFromAmount(cert.totalAmount)));
     x.push_back(Pair("fee", ValueFromAmount(cert.fee)));
-    UniValue vbts(UniValue::VARR);
-    for (unsigned int j = 0; j < cert.vbt_ccout.size(); j++) {
-        // TODO cert: fill cert contents when appropriate
-    }
-    x.push_back(Pair("vbt_ccout", vbts));
+    x.push_back(Pair("nonce", cert.nonce.GetHex()));
+
     entry.push_back(Pair("cert", x));
+    entry.push_back(Pair("vout", vout));
+
+    if (!hashBlock.IsNull()) {
+        entry.push_back(Pair("blockhash", hashBlock.GetHex()));
+        BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
+        if (mi != mapBlockIndex.end() && (*mi).second) {
+            CBlockIndex* pindex = (*mi).second;
+            if (chainActive.Contains(pindex)) {
+                entry.push_back(Pair("confirmations", 1 + chainActive.Height() - pindex->nHeight));
+                entry.push_back(Pair("blocktime", pindex->GetBlockTime()));
+            }
+            else
+            {
+                entry.push_back(Pair("confirmations", 0));
+            }
+        }
+    }
 }
 
 UniValue getrawtransaction(const UniValue& params, bool fHelp)
@@ -328,8 +355,8 @@ UniValue getrawcertificate(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
             "getrawcertificate \"certid\" ( verbose )\n"
-            "\nNOTE: By default this function only works sometimes. This is when the tx is in the mempool\n"
-            "or there is an unspent output in the utxo for this transaction. To make it always work,\n"
+            "\nNOTE: By default this function only works sometimes. This is when the certificate is in the mempool\n"
+            "or there is an unspent output in the utxo for this certificate. To make it always work,\n"
             "you need to maintain a transaction index, using the -txindex command line option.\n"
             "\nReturn the raw certificate data.\n"
             "\nIf verbose=0, returns a string that is serialized, hex-encoded data for 'certid'.\n"
@@ -344,31 +371,41 @@ UniValue getrawcertificate(const UniValue& params, bool fHelp)
 
             "\nResult (if verbose > 0):\n"
             "{\n"
-            "  \"hex\" : \"data\",       (string) The serialized, hex-encoded data for 'certid'\n"
+            "  \"hex\" : \"data\",         (string) The serialized, hex-encoded data for 'certid'\n"
             "  \"certid\" : \"id\",        (string) The transaction id (same as provided)\n"
             "  \"version\" : n,          (numeric) The version\n"
-            "  \"locktime\" : ttt,       (numeric) The lock time\n"
+            "  \"cert\" :                (json object)\n"
+            "     {\n"
+            "       \"scid\" : \"sc id\",              (string) the sidechain id\n"
+            "       \"epochNumber\": epn,            (numeric) the withdrawal epoch number this certificate refers to\n"
+            "       \"endEpochBlockHash\" : \"eph\"    (string) the hash of the block marking the end of the abovementioned epoch\n"
+            "       \"totalAmount\" : x.xxx,         (numeric) The total value of the certificate in " + CURRENCY_UNIT + "\n"
+            "       \"fee\" : x.xxx                  (numeric) The fee in " + CURRENCY_UNIT + "\n"
+            "       \"nonce\": \"nonce\"               (string) The nonce hex string\n"
+            "     }\n"
             "  \"vout\" : [              (array of json objects)\n"
             "     {\n"
             "       \"value\" : x.xxx,            (numeric) The value in " + CURRENCY_UNIT + "\n"
+            "       \"valueZat\" : xxxx,          (numeric) The value in Zat\n"
             "       \"n\" : n,                    (numeric) index\n"
             "       \"scriptPubKey\" : {          (json object)\n"
-            "         \"asm\" : \"asm\",          (string) the asm\n"
-            "         \"hex\" : \"hex\",          (string) the hex\n"
-            "         \"reqSigs\" : n,            (numeric) The required sigs\n"
-            "         \"type\" : \"pubkeyhash\",  (string) The type, eg 'pubkeyhash'\n"
+            "         \"asm\" : \"asm\",            (string) the asm\n"
+            "         \"hex\" : \"hex\",            (string) the hex\n"
+            "         \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
             "         \"addresses\" : [           (json array of string)\n"
-            "           \"horizenaddress\"          (string) Horizen address\n"
+            "           \"horizenaddress\"        (string) Horizen address\n"
             "           ,...\n"
             "         ]\n"
             "       }\n"
+            "       --- optional fields present only if this vout is a backward transfer:\n" 
+            "       \"backward transfer\" : true  (bool)\n" 
+            "       \"pubkeyhash\" : \"pkh\"        (string) public key hash this backward transfer refers to, it corresponds to the horizen address specified above"
             "     }\n"
             "     ,...\n"
             "  ],\n"
             "  \"blockhash\" : \"hash\",   (string) the block hash\n"
-            "  \"confirmations\" : n,      (numeric) The confirmations\n"
-            "  \"time\" : ttt,             (numeric) The transaction time in seconds since epoch (Jan 1 1970 GMT)\n"
-            "  \"blocktime\" : ttt         (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
+            "  \"confirmations\" : n,    (numeric) The confirmations\n"
+            "  \"blocktime\" : ttt       (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
             "}\n"
 
             "\nExamples:\n"
@@ -780,7 +817,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     UniValue cert_params = params[1].get_obj();
 
     CMutableScCertificate rawCert;
-    rawCert.nVersion = SC_TX_VERSION;
+    rawCert.nVersion = SC_CERT_VERSION;
 
     // outputs
     set<CBitcoinAddress> setAddress;
@@ -799,10 +836,10 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+name_);
         setAddress.insert(address);
 
-        CScript scriptPubKey = GetScriptForDestination(address.Get());
+        CScript scriptPubKey = GetScriptForDestination(address.Get(), false);
         CAmount nAmount = AmountFromValue(sendTo[name_]);
 
-        CTxOut out(nAmount, scriptPubKey);
+        CTxOut out(nAmount, scriptPubKey, true);
         rawCert.vout.push_back(out);
     }
 

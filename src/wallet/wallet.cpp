@@ -1562,7 +1562,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pbl
 bool CWallet::AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, bool fUpdate)
 {
     LogPrint("cert", "%s():%d - called for %s[%s]\n", __func__, __LINE__,
-        obj.IsCert()?"cert":"tx", obj.GetHash().ToString());
+        obj.IsCertificate()?"cert":"tx", obj.GetHash().ToString());
 
     {
         AssertLockHeld(cs_wallet);
@@ -1835,14 +1835,13 @@ CAmount CWallet::GetDebit(const CTxIn &txin, const isminefilter& filter) const
 {
     {
         LOCK(cs_wallet);
-
-        if (mapWallet.count(txin.prevout.hash) == 0)
-            return 0;
-
-        const CWalletObjBase& prev = *mapWallet.at(txin.prevout.hash);
-        if (txin.prevout.n < prev.GetVout().size())
-            if (IsMine(prev.GetVout()[txin.prevout.n]) & filter)
-                return prev.GetVout()[txin.prevout.n].nValue;
+        auto mi = mapWallet.find(txin.prevout.hash);
+        if (mi != mapWallet.end()) {
+            const CWalletObjBase& prev = *(mi->second);
+            if (txin.prevout.n < prev.GetVout().size())
+                if (IsMine(prev.GetVout()[txin.prevout.n]) & filter)
+                    return prev.GetVout()[txin.prevout.n].nValue;
+        }
     }
     return 0;
 }
@@ -2831,6 +2830,9 @@ CAmount CWallet::GetUnconfirmedData(const CScript& scriptToMatch, int& numbOfUnc
         {
             const CWalletObjBase* pcoin = it->second.get();
 
+            int vout_idx = 0;
+            bool match_found = false;
+
             for(const auto& txout : pcoin->GetVout())
             {
                 auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptToMatch.begin(), scriptToMatch.end());
@@ -2838,10 +2840,27 @@ CAmount CWallet::GetUnconfirmedData(const CScript& scriptToMatch, int& numbOfUnc
                 {
                     if (!pcoin->CheckFinal() || (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0))
                     {
-                        nTotal += pcoin->GetAvailableCredit();
-                        numbOfUnconfirmedTx++;
+                        match_found = true;
+
+                        if (!IsSpent(pcoin->GetHash(), vout_idx))
+                        {
+                            nTotal += GetCredit(txout, ISMINE_SPENDABLE);
+                            LogPrint("cert", "%s():%d - found out of matching tx[%s] with credit\n",
+                                __func__, __LINE__, pcoin->GetHash().ToString());
+                        }
+                        else
+                        {
+                            LogPrint("cert", "%s():%d - found matching tx[%s] but out[%d] is spent: %s\n",
+                                __func__, __LINE__, pcoin->GetHash().ToString(), vout_idx, pcoin->ToString() );
+                        }
                     }
                 }
+                vout_idx++;
+            }
+
+            if (match_found)
+            {
+                numbOfUnconfirmedTx++;
             }
         }
     }
@@ -2983,7 +3002,7 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                                 continue;
                         }
                     }
-                    if (pcoin->IsCert() )
+                    if (pcoin->IsCertificate() )
                     {
                         LogPrint("cert", "%s():%d - cert[%s] out[%d], amount=%s, spendable[%s]\n", __func__, __LINE__,
                             pcoin->GetHash().ToString(), i, FormatMoney(pcoin->GetVout()[i].nValue), ((mine & ISMINE_SPENDABLE) != ISMINE_NO)?"Y":"N");
@@ -4933,7 +4952,8 @@ bool CWalletCert::IsTrusted() const
 
     int nDepth = GetDepthInMainChain();
 
-    if (nDepth < 0)
+    // a certificate must not be in mempool for being considered
+    if (nDepth <= 0)
     {
         LogPrint("cert", "%s():%d - depth %d: returning false\n", __func__, __LINE__, nDepth);
         return false;
@@ -4973,7 +4993,7 @@ std::shared_ptr<CWalletObjBase> CWalletCert::MakeWalletMapObject() const
 
 std::shared_ptr<CWalletObjBase> CWalletObjBase::MakeWalletObjectBase(const CTransactionBase& obj, const CWallet* pwallet)
 {
-    if (obj.IsCert() )
+    if (obj.IsCertificate() )
     {
         return std::shared_ptr<CWalletObjBase>( new CWalletCert(pwallet, dynamic_cast<const CScCertificate&>(obj)) );
     }

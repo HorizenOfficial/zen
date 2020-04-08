@@ -28,9 +28,8 @@
 #include "consensus/params.h"
 #include <sc/sidechaintypes.h>
 
-static const int32_t SC_TX_BASE_VERSION = 0xFFFFFFFC; // -4
-static const int32_t SC_TX_VERSION = SC_TX_BASE_VERSION;
-static const int32_t SC_CERT_VERSION = SC_TX_BASE_VERSION;
+static const int32_t SC_CERT_VERSION = 0xFFFFFFFB; // -5
+static const int32_t SC_TX_VERSION = 0xFFFFFFFC; // -4
 static const int32_t GROTH_TX_VERSION = 0xFFFFFFFD; // -3
 static const int32_t PHGR_TX_VERSION = 2;
 static const int32_t TRANSPARENT_TX_VERSION = 1;
@@ -352,6 +351,8 @@ public:
     std::string ToString() const;
 };
 
+class CBackwardTransferOut;
+
 /** An output of a transaction.  It contains the public key that the next input
  * must be able to sign with to claim it.
  */
@@ -361,12 +362,18 @@ public:
     CAmount nValue;
     CScript scriptPubKey;
 
+    /* mem only */
+    bool isFromBackwardTransfer;
+
     CTxOut()
     {
         SetNull();
     }
 
-    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn);
+    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn, bool isFromBackwardTransferIn = false) :
+        nValue(nValueIn), scriptPubKey(scriptPubKeyIn), isFromBackwardTransfer(isFromBackwardTransferIn) {}
+
+    explicit CTxOut(const CBackwardTransferOut& btdata);
 
     ADD_SERIALIZE_METHODS;
 
@@ -374,12 +381,18 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(nValue);
         READWRITE(scriptPubKey);
+        if (ser_action.ForRead())
+        {
+            // default value for memory data member
+            isFromBackwardTransfer = false;
+        }
     }
 
     void SetNull()
     {
         nValue = -1;
         scriptPubKey.clear();
+        isFromBackwardTransfer = false;
     }
 
     bool IsNull() const
@@ -413,8 +426,9 @@ public:
 
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
-        return (a.nValue       == b.nValue &&
-                a.scriptPubKey == b.scriptPubKey);
+        return (a.nValue                 == b.nValue &&
+                a.scriptPubKey           == b.scriptPubKey &&
+                a.isFromBackwardTransfer == b.isFromBackwardTransfer);
     }
 
     friend bool operator!=(const CTxOut& a, const CTxOut& b)
@@ -424,6 +438,25 @@ public:
 
     std::string ToString() const;
 };
+
+class CBackwardTransferOut
+{
+public:
+    CAmount nValue;
+    uint160 pubKeyHash;
+
+    CBackwardTransferOut(): nValue(0), pubKeyHash() {};
+    explicit CBackwardTransferOut(const CTxOut& txout);
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(nValue);
+        READWRITE(pubKeyHash);
+    }
+};
+
 
 /** An output of a transaction related to SideChain only.
  */
@@ -660,12 +693,6 @@ public:
         return hash;
     }
 
-    bool IsScVersion() const
-    {
-        // so far just one version
-        return (nVersion == SC_TX_BASE_VERSION);
-    }
-
     friend bool operator==(const CTransactionBase& a, const CTransactionBase& b)
     {
         return a.hash == b.hash;
@@ -675,6 +702,8 @@ public:
     {
         return !(a==b);
     }
+
+    virtual bool IsScVersion() const = 0;
 
     //GETTERS
     virtual const std::vector<CTxIn>&         GetVin()        const = 0;
@@ -738,7 +767,7 @@ public:
     // return false when meaningful only in a block context. As of now only tx coin base returns false
 
     bool IsCoinBase() const { return GetVin().size() == 1 && GetVin()[0].prevout.IsNull(); }
-    bool IsCert() const { return !GetScId().IsNull(); }
+    virtual bool IsCertificate() const { return false; }
 
     virtual void AddJoinSplitToJSON(UniValue& entry) const { return; }
     virtual void AddSidechainOutsToJSON(UniValue& entry) const {return; }
@@ -853,6 +882,12 @@ public:
         );
     }
     
+    bool IsScVersion() const override
+    {
+        // so far just one version
+        return (nVersion == SC_TX_VERSION);
+    }
+
     //GETTERS
     const std::vector<CTxIn>&         GetVin()        const override {return vin;};
     const std::vector<CTxOut>&        GetVout()       const override {return vout;};

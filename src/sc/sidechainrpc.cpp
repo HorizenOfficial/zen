@@ -288,7 +288,7 @@ bool CRecipientHandler::handle(const CRecipientForwardTransfer& r)
 
 bool CRecipientHandler::handle(const CRecipientBackwardTransfer& r)
 {
-    CTxOut txout(r.nValue, r.scriptPubKey);
+    CTxOut txout(r.nValue, r.scriptPubKey, true);
     return txBase->add(txout);
 };
 

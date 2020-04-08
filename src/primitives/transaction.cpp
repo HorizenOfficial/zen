@@ -211,10 +211,23 @@ std::string CTxIn::ToString() const
     return str;
 }
 
-CTxOut::CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn)
+CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nValue)
 {
-    nValue = nValueIn;
-    scriptPubKey = scriptPubKeyIn;
+    auto it = std::find(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), OP_HASH160);
+    assert(it != txout.scriptPubKey.end());
+    ++it; 
+    assert(*it == sizeof(uint160));
+    ++it;
+    std::vector<unsigned char>  pubKeyV(it, (it + sizeof(uint160)));
+    pubKeyHash = uint160(pubKeyV);
+}
+
+CTxOut::CTxOut(const CBackwardTransferOut& btout) : nValue(btout.nValue)
+{
+    scriptPubKey.clear();
+    std::vector<unsigned char> pkh(btout.pubKeyHash.begin(), btout.pubKeyHash.end());
+    scriptPubKey << OP_DUP << OP_HASH160 << pkh << OP_EQUALVERIFY << OP_CHECKSIG;
+    isFromBackwardTransfer = true;
 }
 
 uint256 CTxOut::GetHash() const
@@ -781,6 +794,11 @@ bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& st
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
     BOOST_FOREACH(const CTxOut& txout, vout)
     {
+        // if the output comes from a backward transfer (when we are a certificate), skip this check
+        // but go on if the certificate txout is an ordinary one
+        if (txout.isFromBackwardTransfer)
+            continue;
+
         txnouttype whichType;
         ::IsStandard(txout.scriptPubKey, whichType);
 

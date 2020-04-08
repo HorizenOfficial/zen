@@ -777,24 +777,23 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
     CDataStream ss1(ParseHex("0104835800816115944e077fe7c803cfa57f29b36bf87c1d358bb85e"), SER_DISK, CLIENT_VERSION);
 
     CCoins cc1;
-    CCoinsViewDB::CCoinsFromTx coinFromTx1(cc1);
-    ss1 >> coinFromTx1;
+    ss1 >> cc1;
 
     BOOST_CHECK_EQUAL(cc1.nVersion, 1);
     BOOST_CHECK_EQUAL(cc1.fCoinBase, false);
     BOOST_CHECK_EQUAL(cc1.nHeight, 203998);
     BOOST_CHECK_EQUAL(cc1.vout.size(), 2);
     BOOST_CHECK_EQUAL(cc1.IsAvailable(0), false);
+    BOOST_CHECK_EQUAL(cc1.vout[0].isFromBackwardTransfer, false);
     BOOST_CHECK_EQUAL(cc1.IsAvailable(1), true);
     BOOST_CHECK_EQUAL(cc1.vout[1].nValue, 60000000000ULL);
     BOOST_CHECK_EQUAL(HexStr(cc1.vout[1].scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))))));
-
+    BOOST_CHECK_EQUAL(cc1.vout[0].isFromBackwardTransfer, false);
     // Good example
     CDataStream ss2(ParseHex("0109044086ef97d5790061b01caab50f1b8e9c50a5057eb43c2d9563a4eebbd123008c988f1a4a4de2161e0f50aac7f17e7f9555caa486af3b"), SER_DISK, CLIENT_VERSION);
 
     CCoins cc2;
-    CCoinsViewDB::CCoinsFromTx coinFromTx2(cc2);
-    ss2 >> coinFromTx2;
+    ss2 >> cc2;
 
     BOOST_CHECK_EQUAL(cc2.nVersion, 1);
     BOOST_CHECK_EQUAL(cc2.fCoinBase, true);
@@ -802,12 +801,14 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
     BOOST_CHECK_EQUAL(cc2.vout.size(), 17);
     for (int i = 0; i < 17; i++) {
         BOOST_CHECK_EQUAL(cc2.IsAvailable(i), i == 4 || i == 16);
+        BOOST_CHECK_EQUAL(cc2.vout[i].isFromBackwardTransfer, false);
     }
     BOOST_CHECK_EQUAL(cc2.vout[4].nValue, 234925952);
     BOOST_CHECK_EQUAL(HexStr(cc2.vout[4].scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("61b01caab50f1b8e9c50a5057eb43c2d9563a4ee"))))));
+    BOOST_CHECK_EQUAL(cc2.vout[4].isFromBackwardTransfer, false);
     BOOST_CHECK_EQUAL(cc2.vout[16].nValue, 110397);
     BOOST_CHECK_EQUAL(HexStr(cc2.vout[16].scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("8c988f1a4a4de2161e0f50aac7f17e7f9555caa4"))))));
-
+    BOOST_CHECK_EQUAL(cc2.vout[16].isFromBackwardTransfer, false);
     // Smallest possible example
     CDataStream ssx(SER_DISK, CLIENT_VERSION);
     BOOST_CHECK_EQUAL(HexStr(ssx.begin(), ssx.end()), "");
@@ -815,8 +816,7 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
     CDataStream ss3(ParseHex("0002000600"), SER_DISK, CLIENT_VERSION);
 
     CCoins cc3;
-    CCoinsViewDB::CCoinsFromTx coinFromTx3(cc3);
-    ss3 >> coinFromTx3;
+    ss3 >> cc3;
 
     BOOST_CHECK_EQUAL(cc3.nVersion, 0);
     BOOST_CHECK_EQUAL(cc3.fCoinBase, false);
@@ -825,13 +825,13 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
     BOOST_CHECK_EQUAL(cc3.IsAvailable(0), true);
     BOOST_CHECK_EQUAL(cc3.vout[0].nValue, 0);
     BOOST_CHECK_EQUAL(cc3.vout[0].scriptPubKey.size(), 0);
+    BOOST_CHECK_EQUAL(cc3.vout[0].isFromBackwardTransfer, false);
 
     // scriptPubKey that ends beyond the end of the stream
     CDataStream ss4(ParseHex("0002000800"), SER_DISK, CLIENT_VERSION);
     try {
         CCoins cc4;
-        CCoinsViewDB::CCoinsFromTx coinFromTx4(cc4);
-        ss4 >> coinFromTx4;
+        ss4 >> cc4;
         BOOST_CHECK_MESSAGE(false, "We should have thrown");
     } catch (const std::ios_base::failure& e) {}
 
@@ -843,94 +843,96 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
     CDataStream ss5(ParseHex("0002008a95c0bb0000"), SER_DISK, CLIENT_VERSION);
     try {
         CCoins cc5;
-        CCoinsViewDB::CCoinsFromTx coinFromTx5(cc5);
-        ss5 >> coinFromTx5;
+        ss5 >> cc5;
         BOOST_CHECK_MESSAGE(false, "We should have thrown");
     } catch (const std::ios_base::failure& e) {
     }
 
-    //Coins from tx cannot be deserialized into coins from cert
-    CCoins coin;
-    coin.fCoinBase = false;
-    coin.vout.resize(2);
-    coin.vout[0].nValue = insecure_rand();
-    coin.vout[1].nValue = insecure_rand();
-    coin.nHeight = 220;
-    coin.nVersion = TRANSPARENT_TX_VERSION;
-    coin.originScId.SetNull();
+    //Malformed coins with tx version by non-null originScId will have the latter reset upon deserialization
+    CCoins coinFromTx;
+    coinFromTx.fCoinBase = false;
+    coinFromTx.vout.resize(2);
+    coinFromTx.vout[0].nValue = insecure_rand();
+    coinFromTx.vout[1].nValue = insecure_rand();
+    coinFromTx.nHeight = 220;
+    coinFromTx.nVersion = TRANSPARENT_TX_VERSION;
+    coinFromTx.originScId = uint256S("deadbeef1987");
 
-    CDataStream serCoinFromTx(SER_DISK, CLIENT_VERSION);
-    serCoinFromTx << CCoinsViewDB::CCoinsFromTx(coin);
+    CDataStream ss6(SER_DISK, CLIENT_VERSION);
+    ss6 << coinFromTx;
 
-    try {
-        CCoins retrievedCoin;
-        CCoinsViewDB::CCoinsFromCert coinFromCert(retrievedCoin);
-        serCoinFromTx >> coinFromCert;
-        BOOST_CHECK_MESSAGE(false, "We should not be able to deselize a coin from tx into a coin from cert");
-    } catch (const std::ios_base::failure& e) {}
+    CCoins retrievedCoin;
+    ss6 >> retrievedCoin;
+    BOOST_CHECK(retrievedCoin.originScId.IsNull());
 }
 
 BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
 {
-    //Serielize and unserialize back a coin from cert
+    //Serialize and unserialize back a coin from cert
     CCoins originalCoin;
     originalCoin.fCoinBase = false;
-    originalCoin.vout.resize(2);
+    originalCoin.vout.resize(3);
     originalCoin.vout[0].nValue = insecure_rand();
     originalCoin.vout[0].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))));
+    originalCoin.vout[0].isFromBackwardTransfer = false;
     originalCoin.vout[1].nValue = insecure_rand();
     originalCoin.vout[1].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("61b01caab50f1b8e9c50a5057eb43c2d9563a4ee"))));
+    originalCoin.vout[0].isFromBackwardTransfer = false;
+    originalCoin.vout[2].nValue = insecure_rand();
+    originalCoin.vout[2].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))));
+    originalCoin.vout[2].isFromBackwardTransfer = true;
     originalCoin.nHeight = 220;
-    originalCoin.nVersion = TRANSPARENT_TX_VERSION;
+    originalCoin.nVersion = SC_CERT_VERSION;
     originalCoin.originScId = uint256S("deadbeef1987");
 
     CDataStream ss1(SER_DISK, CLIENT_VERSION);
-    ss1 << CCoinsViewDB::CCoinsFromCert(originalCoin);
+    ss1 << originalCoin;
 
     CCoins retrievedCoin;
-    CCoinsViewDB::CCoinsFromCert coinFromCert(retrievedCoin);
-    ss1 >> coinFromCert;
+    ss1 >> retrievedCoin;
 
-    BOOST_CHECK(retrievedCoin.fCoinBase ==            originalCoin.fCoinBase);
-    BOOST_CHECK(retrievedCoin.vout[0].nValue ==       originalCoin.vout[0].nValue);
-    BOOST_CHECK(retrievedCoin.vout[0].scriptPubKey == originalCoin.vout[0].scriptPubKey);
-    BOOST_CHECK(retrievedCoin.vout[1].nValue ==       originalCoin.vout[1].nValue);
-    BOOST_CHECK(retrievedCoin.vout[1].scriptPubKey == originalCoin.vout[1].scriptPubKey);
-    BOOST_CHECK(retrievedCoin.nHeight ==              originalCoin.nHeight);
-    BOOST_CHECK(retrievedCoin.nVersion ==             originalCoin.nVersion);
-    BOOST_CHECK(retrievedCoin.originScId ==           originalCoin.originScId);
+    BOOST_CHECK(retrievedCoin.fCoinBase                      == originalCoin.fCoinBase);
+    BOOST_CHECK(retrievedCoin.vout[0].nValue                 == originalCoin.vout[0].nValue);
+    BOOST_CHECK(retrievedCoin.vout[0].scriptPubKey           == originalCoin.vout[0].scriptPubKey);
+    BOOST_CHECK(retrievedCoin.vout[0].isFromBackwardTransfer == originalCoin.vout[0].isFromBackwardTransfer);
+    BOOST_CHECK(retrievedCoin.vout[1].nValue                 == originalCoin.vout[1].nValue);
+    BOOST_CHECK(retrievedCoin.vout[1].scriptPubKey           == originalCoin.vout[1].scriptPubKey);
+    BOOST_CHECK(retrievedCoin.vout[1].isFromBackwardTransfer == originalCoin.vout[1].isFromBackwardTransfer);
+    BOOST_CHECK(retrievedCoin.vout[2].nValue                 == originalCoin.vout[2].nValue);
+    BOOST_CHECK(retrievedCoin.vout[2].scriptPubKey           == originalCoin.vout[2].scriptPubKey);
+    BOOST_CHECK(retrievedCoin.vout[2].isFromBackwardTransfer == originalCoin.vout[2].isFromBackwardTransfer);
+    BOOST_CHECK(retrievedCoin.nHeight                        == originalCoin.nHeight);
+    BOOST_CHECK(retrievedCoin.nVersion                       != originalCoin.nVersion);
+    BOOST_CHECK( (retrievedCoin.nVersion & 0x7f)             == (originalCoin.nVersion & 0x7f));
+    BOOST_CHECK(retrievedCoin.originScId                     == originalCoin.originScId);
 
-    //IT's STILL POSSIBLE TO unserilized into coin_from_tx a serialized coin_from_tx. originScId will be null
-    //Todo: Consider making it throw
-    CCoins coin;
-    coin.fCoinBase = false;
-    coin.vout.resize(2);
-    coin.vout[0].nValue = insecure_rand();
-    coin.vout[1].nValue = insecure_rand();
-    coin.nHeight = 220;
-    coin.nVersion = TRANSPARENT_TX_VERSION;
-    coin.originScId = uint256S("deadbeef1987");
+    //Coins from certificate with null originScId won't be correctly deserialized
+    CCoins faultyCoin;
+    faultyCoin.fCoinBase = false;
+    faultyCoin.vout.resize(2);
+    faultyCoin.vout[0].nValue = insecure_rand();
+    faultyCoin.vout[1].nValue = insecure_rand();
+    faultyCoin.nHeight = 220;
+    faultyCoin.nVersion = SC_CERT_VERSION;
+    faultyCoin.originScId.SetNull();
 
-    CDataStream serCoinFromCert(SER_DISK, CLIENT_VERSION);
-    serCoinFromCert << CCoinsViewDB::CCoinsFromCert(coin);
+    CDataStream ss2(SER_DISK, CLIENT_VERSION);
+    ss2 << faultyCoin;
 
-    try {
-        CCoins retrievedCoin;
-        CCoinsViewDB::CCoinsFromTx coinFromTx(retrievedCoin);
-        serCoinFromCert >> coinFromTx;
+    CCoins retrievedFaultyCoin;
+    ss2 >> retrievedFaultyCoin;
 
-        BOOST_CHECK(retrievedCoin.fCoinBase ==            coin.fCoinBase);
-        BOOST_CHECK(retrievedCoin.vout[0].nValue ==       coin.vout[0].nValue);
-        BOOST_CHECK(retrievedCoin.vout[0].scriptPubKey == coin.vout[0].scriptPubKey);
-        BOOST_CHECK(retrievedCoin.vout[1].nValue ==       coin.vout[1].nValue);
-        BOOST_CHECK(retrievedCoin.vout[1].scriptPubKey == coin.vout[1].scriptPubKey);
-        BOOST_CHECK(retrievedCoin.nHeight ==              coin.nHeight);
-        BOOST_CHECK(retrievedCoin.nVersion ==             coin.nVersion);
-        BOOST_CHECK(retrievedCoin.originScId.IsNull());
-
-    } catch (const std::ios_base::failure& e) {
-        BOOST_CHECK_MESSAGE(false, "Unserilizing a coin_from_cert into a coin_from_tx shouldn't throw");
-    }
+    BOOST_CHECK(retrievedFaultyCoin.fCoinBase            == faultyCoin.fCoinBase);
+    BOOST_CHECK(retrievedFaultyCoin.vout[0].nValue       == faultyCoin.vout[0].nValue);
+    BOOST_CHECK(retrievedFaultyCoin.vout[0].scriptPubKey == faultyCoin.vout[0].scriptPubKey);
+    BOOST_CHECK(retrievedFaultyCoin.vout[0].isFromBackwardTransfer ==  false);
+    BOOST_CHECK(retrievedFaultyCoin.vout[1].nValue       == faultyCoin.vout[1].nValue);
+    BOOST_CHECK(retrievedFaultyCoin.vout[1].scriptPubKey == faultyCoin.vout[1].scriptPubKey);
+    BOOST_CHECK(retrievedFaultyCoin.vout[1].isFromBackwardTransfer ==  false);
+    BOOST_CHECK(retrievedFaultyCoin.nHeight              == faultyCoin.nHeight);
+    BOOST_CHECK(retrievedFaultyCoin.nVersion             != faultyCoin.nVersion);
+    BOOST_CHECK( (retrievedFaultyCoin.nVersion & 0x7f)   == (faultyCoin.nVersion & 0x7f));
+    BOOST_CHECK(retrievedFaultyCoin.originScId           == faultyCoin.originScId);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

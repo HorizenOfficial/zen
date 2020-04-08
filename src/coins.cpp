@@ -40,6 +40,7 @@ void CCoins::Clear() {
 void CCoins::Cleanup() {
     while (vout.size() > 0 && vout.back().IsNull())
         vout.pop_back();
+
     if (vout.empty())
         std::vector<CTxOut>().swap(vout);
 }
@@ -80,8 +81,10 @@ bool CCoins::IsCoinBase() const {
 }
 
 bool CCoins::IsFromCert() const {
-    // when restored from serialization, nVersion is populated only with latest 7 bits of the original value!
-    return !originScId.IsNull();
+    // when restored from serialization, nVersion, if negative, is populated only with latest 7 bits of the original value!
+    // we enforced that no tx/cert can have a version other than a list of well known ones
+    // therefore no other 4-bytes signed version will have this 7-bits ending
+    return (nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f);
 }
 
 bool CCoins::Spend(uint32_t nPos)
@@ -112,6 +115,23 @@ size_t CCoins::DynamicMemoryUsage() const {
     return ret;
 }
 
+void CCoins::CalcMaskSize(unsigned int &nBytes, unsigned int &nNonzeroBytes) const {
+    unsigned int nLastUsedByte = 0;
+    for (unsigned int b = 0; 2+b*8 < vout.size(); b++) {
+        bool fZero = true;
+        for (unsigned int i = 0; i < 8 && 2+b*8+i < vout.size(); i++) {
+            if (!vout[2+b*8+i].IsNull()) {
+                fZero = false;
+                continue;
+            }
+        }
+        if (!fZero) {
+            nLastUsedByte = b + 1;
+            nNonzeroBytes++;
+        }
+    }
+    nBytes += nLastUsedByte;
+}
 
 bool CCoinsView::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const { return false; }
 bool CCoinsView::GetNullifier(const uint256 &nullifier)                        const { return false; }

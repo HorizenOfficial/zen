@@ -17,6 +17,11 @@ public:
 	inline virtual int getSidechainTxVersion() const { return SC_TX_VERSION; }
 
     /**
+	 * @brief returns sidechain cert version based on block height, if sidechains are not supported return 0
+	 */
+	inline virtual int getCertificateVersion() const { return SC_CERT_VERSION; }
+
+    /**
 	 * @brief returns true if sidechains are supported
 	 */
 	inline virtual bool areSidechainsSupported() const { return true; }

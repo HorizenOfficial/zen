@@ -334,6 +334,8 @@ private:
                 if (mi != mapBlockIndex.end())
                 {
                     pblockindex = (*mi).second;
+                    if (!chainActive.Contains(pblockindex))
+                        pblockindex = NULL;
                 }
             }
             if (pblockindex == NULL)
@@ -347,18 +349,12 @@ private:
                 pblockindexStart = pblockindex;
             }
         }
-        if (pblockindexStart == NULL)
-        {
-            LogPrint("ws", "%s():%d - could not find start index\n", __func__, __LINE__);
-            return INVALID_PARAMETER;
-        }
-        listBlock.push_back(pblockindexStart);
         {
             LOCK(cs_main);
-            CBlockIndex* nextBlock = chainActive.Next(pblockindexStart);
+            CBlockIndex* nextBlock = pblockindexStart;
             if (nextBlock == NULL)
             {
-                LogPrint("ws", "%s():%d - next block index not found\n", __func__, __LINE__);
+                LogPrint("ws", "%s():%d - start block index not found\n", __func__, __LINE__);
                 return INVALID_PARAMETER;
             }
             int n = 0;

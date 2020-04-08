@@ -3436,7 +3436,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         const CScript& pk = out.tx->GetVout()[out.i].scriptPubKey;
         UniValue entry(UniValue::VOBJ);
 #if 1
-        if (out.tx->IsCert() )
+        if (out.tx->IsCertificate() )
         {
             entry.push_back(Pair("cert", out.tx->GetHash().GetHex()));
             entry.push_back(Pair("vout", out.i));
@@ -4856,7 +4856,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
 
         CRecipientBackwardTransfer bt;
-        bt.scriptPubKey = GetScriptForDestination(taddr.Get());
+        bt.scriptPubKey = GetScriptForDestination(taddr.Get(), false);
         bt.nValue = nAmount;
 
         vecSend.push_back(CcRecipientVariant(bt));
@@ -4880,7 +4880,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     CMutableScCertificate cert;
     // cert data
-    cert.nVersion = SC_TX_VERSION;
+    cert.nVersion = SC_CERT_VERSION;
     cert.scId = scId;
     cert.epochNumber = epochNumber;
     cert.endEpochBlockHash = endEpochBlockHash;
