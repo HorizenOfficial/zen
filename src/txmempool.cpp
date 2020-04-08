@@ -362,40 +362,57 @@ void CTxMemPool::remove(const CScCertificate &origCert, std::list<CTransaction>&
     }
 }
 
-void CTxMemPool::removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight)
+void CTxMemPool::removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight)
 {
     // Remove transactions spending a coinbase which are now immature
     LOCK(cs);
     std::list<CTransaction> transactionsToRemove;
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         const CTransaction& tx = it->second.GetTx();
-        BOOST_FOREACH(const CTxIn& txin, tx.GetVin()) {
+        for(const CTxIn& txin: tx.GetVin()) {
             std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(txin.prevout.hash);
             if (it2 != mapTx.end())
                 continue;
 
-            // if input is a certificate skip as well, even if it can not be coinbase anyway
             std::map<uint256, CCertificateMemPoolEntry>::const_iterator it3 = mapCertificate.find(txin.prevout.hash);
-            if (it3 != mapCertificate.end())
-            {
+            if (it3 != mapCertificate.end()) {
                 LogPrint("cert", "%s():%d - tx input is cert [%s] which is still in mempool\n", __func__, __LINE__, it3->first.ToString() );
                 continue;
             }
 
             const CCoins *coins = pcoins->AccessCoins(txin.prevout.hash);
             if (fSanityCheck) assert(coins);
-            if (!coins || (coins->IsCoinBase() && ((signed long)nMemPoolHeight) - coins->nHeight < COINBASE_MATURITY)) {
-                // TODO cert: what if a fw tx spends an immature coin? Cert might depend also on this
-                LogPrint("sc", "%s():%d - adding tx [%s] to list for removing since it spends immature coinbase [%s]\n",
-                    __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
+
+            if (!coins) {
                 transactionsToRemove.push_back(tx);
                 break;
+            }
+
+            if (coins->IsCoinBase()) {
+                if (((signed long)nMemPoolHeight) - coins->nHeight < COINBASE_MATURITY) {
+                    LogPrint("sc", "%s():%d - adding tx [%s] to list for removing since it spends immature coinbase [%s]\n",
+                        __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
+                    transactionsToRemove.push_back(tx);
+                    break;
+                }
+            } else if (coins->IsFromCert()) {
+                if (fSanityCheck) assert(pcoins->HaveSidechain(coins->originScId));
+
+                CSidechain originSc;
+                pcoins->GetSidechain(coins->originScId, originSc);
+                int coinEpoch = (coins->nHeight - originSc.creationBlockHeight + 1) / originSc.creationData.withdrawalEpochLength - 1;
+                int lastCertEpoch = originSc.lastReceivedCertificateEpoch;
+
+                if (coinEpoch >= lastCertEpoch) {
+                    transactionsToRemove.push_back(tx);
+                    break;
+                }
             }
         }
     }
 
     std::list<CTransaction> removedTxs;
-    BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
+    for(const CTransaction& tx: transactionsToRemove) {
         remove(tx, removedTxs, true);
     }
 }
@@ -687,6 +704,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         CValidationState state;
 
         assert(cert.ContextualCheckInputs(state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+        assert(Consensus::CheckTxInputs(cert, state, *pcoins, GetSpendHeight(*pcoins), Params().GetConsensus()));
+
         // updating coins with cert outputs because the cache is checked below for
         // any tx inputs and maybe some tx has a cert out as its input.
         UpdateCoins(cert, state, mempoolDuplicate, 1000000);

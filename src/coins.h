@@ -67,8 +67,7 @@ public:
     friend bool operator!=(const CCoins &a, const CCoins &b);
 
     bool IsCoinBase() const;
-
-    bool IsCoinFromCert() const;
+    bool IsFromCert() const;
 
     //! mark a vout spent
     bool Spend(uint32_t nPos);

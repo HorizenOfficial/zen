@@ -21,7 +21,7 @@ CCoins::CCoins(const CTransactionBase &tx, int nHeightIn) {
     }
 
 void CCoins::FromTx(const CTransactionBase &tx, int nHeightIn) {
-    fCoinBase  = tx.IsCoinBase() || tx.IsCoinCertified();
+    fCoinBase  = tx.IsCoinBase();
     vout       = tx.GetVout();
     nHeight    = nHeightIn;
     nVersion   = tx.nVersion;
@@ -76,12 +76,12 @@ bool operator!=(const CCoins &a, const CCoins &b) {
 }
 
 bool CCoins::IsCoinBase() const {
-    return fCoinBase && !IsCoinFromCert();
+    return fCoinBase;
 }
 
-bool CCoins::IsCoinFromCert() const {
+bool CCoins::IsFromCert() const {
     // when restored from serialization, nVersion is populated only with latest 7 bits of the original value!
-    return (fCoinBase && ( (nVersion & 0x7f) == (SC_TX_VERSION & 0x7f)) );
+    return !originScId.IsNull();
 }
 
 bool CCoins::Spend(uint32_t nPos)
@@ -581,9 +581,9 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
                 __func__, __LINE__, ft.scId.ToString() );
             return false;
         }
+        assert(cacheSidechains.count(ft.scId) != 0);
 
         // add a new immature balance entry in sc info or increment it if already there
-        assert(cacheSidechains.count(ft.scId) != 0);
         cacheSidechains[ft.scId].scInfo.mImmatureAmounts[maturityHeight] += ft.nValue;
         if (cacheSidechains[ft.scId].flag != CSidechainsCacheEntry::Flags::FRESH)
             cacheSidechains[ft.scId].flag = CSidechainsCacheEntry::Flags::DIRTY;

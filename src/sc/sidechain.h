@@ -20,7 +20,7 @@ class CSidechain {
 public:
     CSidechain() : creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
          lastReceivedCertificateEpoch(CScCertificate::EPOCH_NULL), balance(0) {}
-    
+
     // reference to the block containing the tx that created the side chain
     uint256 creationBlockHash;
 

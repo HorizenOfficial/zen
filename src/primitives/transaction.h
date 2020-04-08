@@ -737,8 +737,8 @@ public:
 
     // return false when meaningful only in a block context. As of now only tx coin base returns false
 
-    virtual bool IsCoinBase() const { return false; }
-    virtual bool IsCoinCertified() const { return false; }
+    bool IsCoinBase() const { return GetVin().size() == 1 && GetVin()[0].prevout.IsNull(); }
+    bool IsCert() const { return !GetScId().IsNull(); }
 
     virtual void AddJoinSplitToJSON(UniValue& entry) const { return; }
     virtual void AddSidechainOutsToJSON(UniValue& entry) const {return; }
@@ -834,11 +834,6 @@ public:
     unsigned int CalculateModifiedSize(unsigned int nTxSize) const override;
 
     std::string EncodeHex() const override;
-
-    bool IsCoinBase() const override
-    {
-        return (vin.size() == 1 && vin[0].prevout.IsNull());
-    }
 
     bool IsNull() const override
     {

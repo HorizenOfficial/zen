@@ -110,7 +110,7 @@ struct CSidechainMemPoolEntry
     uint256 scCreationTxHash;
     std::set<uint256> fwdTransfersSet;
     uint256 backwardCertificate;
-    // Note: in fwdTransfersSet, a tx is registered only once, even if if sends multiple fwd founds to a sidechain
+    // Note: in fwdTransfersSet, a tx is registered only once, even if sends multiple fwd founds to a sidechain
     // Upon removal we will need to guard against potential double deletes.
 };
 
@@ -166,7 +166,7 @@ public:
     void remove(const CScCertificate &origCert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false, bool removeDependantFwds = true);
 
     void removeWithAnchor(const uint256 &invalidRoot);
-    void removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
+    void removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
 
     void removeConflicts(const CTransaction &tx, std::list<CTransaction>& removedTxs);
     void removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,

@@ -1517,17 +1517,10 @@ CAmount GetAccountBalance(CWalletDB& walletdb, const string& strAccount, int nMi
     CAmount nBalance = 0;
 
     // Tally wallet transactions
-#if 0
-    for (map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
-    {
-        const CWalletTx& wtx = (*it).second;
-        if (!CheckFinalTx(wtx) || !wtx.IsMature() || wtx.GetDepthInMainChain() < 0)
-#else
     for (auto it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
     {
         const CWalletObjBase& wtx = *((*it).second);
         if (!wtx.CheckFinal() || !wtx.IsMature() || wtx.GetDepthInMainChain() < 0)
-#endif
             continue;
 
         CAmount nReceived, nSent, nFee;
@@ -1593,17 +1586,10 @@ UniValue getbalance(const UniValue& params, bool fHelp)
         // (GetBalance() sums up all unspent TxOuts)
         // getbalance and "getbalance * 1 true" should return the same number
         CAmount nBalance = 0;
-#if 0
-        for (map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
-        {
-            const CWalletTx& wtx = (*it).second;
-            if (!CheckFinalTx(wtx) || !wtx.IsMature() || wtx.GetDepthInMainChain() < 0)
-#else
         for (auto it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
         {
             const CWalletObjBase& wtx = *((*it).second);
             if (!wtx.CheckFinal() || !wtx.IsMature() || wtx.GetDepthInMainChain() < 0)
-#endif
                 continue;
 
             CAmount allFee;
@@ -2805,11 +2791,8 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
     UniValue entry(UniValue::VOBJ);
     if (!pwalletMain->mapWallet.count(hash))
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid or non-wallet transaction id");
-#if 0
-    const CWalletTx& wtx = pwalletMain->mapWallet[hash];
-#else
+
     const CWalletObjBase& wtx = *(pwalletMain->mapWallet[hash]);
-#endif
 
     CAmount nOut = wtx.GetValueOut();
 
@@ -2829,11 +2812,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
     ListTransactions(wtx, "*", 0, false, details, filter);
     entry.push_back(Pair("details", details));
 
-#if 0
-    string strHex = EncodeHexTx(static_cast<CTransaction>(wtx));
-#else
     string strHex = wtx.EncodeHex();
-#endif
     entry.push_back(Pair("hex", strHex));
 
     return entry;
@@ -3457,7 +3436,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         const CScript& pk = out.tx->GetVout()[out.i].scriptPubKey;
         UniValue entry(UniValue::VOBJ);
 #if 1
-        if (out.tx->IsCoinCertified() )
+        if (out.tx->IsCert() )
         {
             entry.push_back(Pair("cert", out.tx->GetHash().GetHex()));
             entry.push_back(Pair("vout", out.i));
@@ -4873,7 +4852,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
         const UniValue& av = find_value(o, "amount");
         CAmount nAmount = AmountFromValue(av);
-        if (nAmount <= 0)
+        if (nAmount < 0) //It is allowed to send certificates with zero amount
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
 
         CRecipientBackwardTransfer bt;

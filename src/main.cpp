@@ -1174,7 +1174,6 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
     //ABENEGIA: if (!tx.CheckFinal(STANDARD_LOCKTIME_VERIFY_FLAGS))// as of now certificate finality has yet to be defined
 
-    // is it already in the memory pool?
     uint256 certHash = cert.GetHash();
 
     // Check if cert is already in mempool or if there are conflicts with in-memory certs
@@ -1217,6 +1216,9 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                             REJECT_INVALID, "bad-sc-cert-not-applicable");
             }
             
+            // Bring the best block into scope: it's gonna be needed for CheckInputsTx hereinafter
+            view.GetBestBlock();
+
             view.SetBackend(dummy);
         }
 
@@ -1234,7 +1236,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         }
 
         CAmount nUselessValueIn = 0;
-        CAmount nFees = cert.GetFeeAmount(nUselessValueIn); //ABENEGIA: nValueIn is useless for certificates
+        CAmount nFees = cert.GetFeeAmount(view.GetValueIn(cert));
         LogPrint("sc", "%s():%d - Computed fee=%lld\n", __func__, __LINE__, nFees);
 
 
@@ -1288,7 +1290,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                          certHash.ToString(),
                          nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
 
-        //ABENEGIA: ContextualCheckInputs always returns true for certificates
+        if (!Consensus::CheckTxInputs(cert, state, view, GetSpendHeight(view), Params().GetConsensus()))
+            return false;
 
         // Store transaction in memory
         CCertificateMemPoolEntry certEntry(cert, nFees, GetTime(), dPriority, chainActive.Height());
@@ -1442,7 +1445,17 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
  
             // Bring the best block into scope
             view.GetBestBlock();
- 
+
+            // If any of the inputs comes from a certificate, we make sure to have its sidechain in cache
+            // before rotating backend view to dummy
+            for(const CTxIn& in: tx.GetVin()) {
+                const CCoins *coins = view.AccessCoins(in.prevout.hash);
+                assert(coins); //should have been validated before
+                if (coins->IsFromCert()) {
+                    assert(view.HaveSidechain(coins->originScId)); //should have been validated before
+                }
+            }
+
             nValueIn = view.GetValueIn(tx);
  
             // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
@@ -2074,6 +2087,25 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                                 error("CheckInputs(): tried to spend coinbase with transparent outputs"),
                                 REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
                     }
+                }
+            }
+
+            if(coins->IsFromCert()) {
+                CSidechain targetSc;
+                if (!inputs.GetSidechain(coins->originScId, targetSc)) {
+                    LogPrint("CheckInputs()", "%s():%d - current view does not contain sc [%s]\n", __func__, __LINE__, coins->originScId.ToString());
+                    //ABENEGIA: TODO: fix LogPrint above!
+                    return state.DoS(100, error("CheckInputs(): current view does not contain sc [%s]", coins->originScId.ToString()),
+                                     REJECT_INVALID, "cert-for-unknown-sc");
+                }
+
+                int coinEpoch = (coins->nHeight - targetSc.creationBlockHeight + 1) / targetSc.creationData.withdrawalEpochLength - 1;
+                int lastCertEpoch = targetSc.lastReceivedCertificateEpoch;
+
+                if (coinEpoch >= lastCertEpoch) {
+                    return state.Invalid(
+                        error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
+                        REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
                 }
             }
 
@@ -2719,6 +2751,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-sc-cert-not-applicable");
         }
 
+        if (!Consensus::CheckTxInputs(cert, state, view, GetSpendHeight(view), Params().GetConsensus()))
+            return false;
+
         CTxUndo undoDummy;
         UpdateCoins(cert, state, view, undoDummy, pindex->nHeight);
 
@@ -3069,9 +3104,7 @@ bool static DisconnectTip(CValidationState &state) {
     std::list<CScCertificate> dummyCerts;
     for (const CScCertificate& cert : block.vcert) {
         // ignore validation errors in resurrected certificates
-        if (cert.IsScVersion()) {
-            LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
-        }
+        LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
 
         CValidationState stateDummy;
         if (!AcceptCertificateToMemoryPool(mempool, stateDummy, cert, false, NULL, false, pindexDelete->nHeight)) {
@@ -3087,7 +3120,7 @@ bool static DisconnectTip(CValidationState &state) {
         // in which case we don't want to evict from the mempool yet!
         mempool.removeWithAnchor(anchorBeforeDisconnect);
     }
-    mempool.removeCoinbaseSpends(pcoinsTip, pindexDelete->nHeight);
+    mempool.removeImmatureExpenditures(pcoinsTip, pindexDelete->nHeight);
 
     // remove any certificate, and possible dependancies, that refers to this block as end epoch
     mempool.removeOutOfEpochCertificates(pindexDelete);

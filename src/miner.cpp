@@ -464,7 +464,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
             // Skip free transactions if we're past the minimum block size:
             // TODO cert: this does not hold for certificate until MC owned fee will be handled
-            if (!tx.IsCoinCertified() )
+            if (!tx.IsCert() )
             {
                 double dPriorityDelta = 0;
                 CAmount nFeeDelta = 0;
@@ -538,10 +538,14 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 #if 0
             if (!ContextualCheckInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
 #else
-            if (!tx.ContextualCheckInputs(state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
+                if (tx.IsCert()) {
+                    if (!Consensus::CheckTxInputs(tx, state, view, GetSpendHeight(view), Params().GetConsensus()))
+                        continue;
+                } else {
+                    if (!tx.ContextualCheckInputs(state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
+                        continue;
+                }
 #endif
-                continue;
-
             UpdateCoins(tx, state, view, nHeight);
 
             // Added

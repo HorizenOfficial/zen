@@ -119,8 +119,6 @@ public:
 
     double GetPriority(const CCoinsViewCache &view, int nHeight) const override;
     unsigned int GetLegacySigOpCount() const override;
-
-    bool IsCoinCertified() const override { return true; }
 };
 
 /** A mutable version of CScCertificate. */

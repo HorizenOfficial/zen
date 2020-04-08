@@ -1562,7 +1562,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pbl
 bool CWallet::AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, bool fUpdate)
 {
     LogPrint("cert", "%s():%d - called for %s[%s]\n", __func__, __LINE__,
-        obj.IsCoinCertified()?"cert":"tx", obj.GetHash().ToString());
+        obj.IsCert()?"cert":"tx", obj.GetHash().ToString());
 
     {
         AssertLockHeld(cs_wallet);
@@ -2498,14 +2498,10 @@ CAmount CWalletObjBase::GetDebit(const isminefilter& filter) const
     return debit;
 }
 
-#if 0
-CAmount CWalletTx::GetCredit(const isminefilter& filter) const
-#else
 CAmount CWalletObjBase::GetCredit(const isminefilter& filter) const
-#endif
 {
-    // Must wait until coinbase is safely deep enough in the chain before valuing it
-    if (IsCoinBase() && !IsMature())
+    // Must wait until coinbase and certs are safely deep enough in the chain before valuing them
+    if (!IsMature())
         return 0;
 
     int64_t credit = 0;
@@ -2569,17 +2565,13 @@ CAmount CWalletObjBase::GetImmatureCredit(bool fUseCache) const
 }
 #endif
 
-#if 0
-CAmount CWalletTx::GetAvailableCredit(bool fUseCache) const
-#else
 CAmount CWalletObjBase::GetAvailableCredit(bool fUseCache) const
-#endif
 {
     if (pwallet == 0)
         return 0;
 
     // Must wait until coinbase is safely deep enough in the chain before valuing it
-    if (IsCoinBase() && !IsMature())
+    if (!IsMature())
         return 0;
 
     if (fUseCache && fAvailableCreditCached)
@@ -2637,17 +2629,13 @@ CAmount CWalletObjBase::GetImmatureWatchOnlyCredit(const bool& fUseCache) const
 }
 #endif
 
-#if 0
-CAmount CWalletTx::GetAvailableWatchOnlyCredit(const bool& fUseCache) const
-#else
 CAmount CWalletObjBase::GetAvailableWatchOnlyCredit(const bool& fUseCache) const
-#endif
 {
     if (pwallet == 0)
         return 0;
 
-    // Must wait until coinbase is safely deep enough in the chain before valuing it
-    if (IsCoinBase() && !IsMature())
+    // Must wait until coinbase and certs Are safely deep enough in the chain before valuing them
+    if (!IsMature())
         return 0;
 
     if (fUseCache && fAvailableWatchCreditCached)
@@ -2953,19 +2941,11 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
 
     {
         LOCK2(cs_main, cs_wallet);
-#if 0
-        for (map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
-        {
-            const uint256& wtxid = it->first;
-            const CWalletTx* pcoin = &(*it).second;
-            if (!CheckFinalTx(*pcoin))
-#else
         for (MAP_WALLET_CONST_IT it = mapWallet.begin(); it != mapWallet.end(); ++it)
         {
             const uint256& wtxid = it->first;
             const CWalletObjBase* pcoin = (*it).second.get();
             if (!pcoin->CheckFinal())
-#endif
                 continue;
 
             if (fOnlyConfirmed && !pcoin->IsTrusted())
@@ -2974,7 +2954,7 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
             if (pcoin->IsCoinBase() && !fIncludeCoinBase && !fIncludeCommunityFund)
                 continue;
 
-            if (pcoin->IsCoinBase() && !pcoin->IsMature())
+            if (!pcoin->IsMature())
                 continue;
 
             int nDepth = pcoin->GetDepthInMainChain();
@@ -3003,7 +2983,7 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                                 continue;
                         }
                     }
-                    if (pcoin->IsCoinCertified() )
+                    if (pcoin->IsCert() )
                     {
                         LogPrint("cert", "%s():%d - cert[%s] out[%d], amount=%s, spendable[%s]\n", __func__, __LINE__,
                             pcoin->GetHash().ToString(), i, FormatMoney(pcoin->GetVout()[i].nValue), ((mine & ISMINE_SPENDABLE) != ISMINE_NO)?"Y":"N");
@@ -4027,20 +4007,13 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances()
 
     {
         LOCK(cs_wallet);
-#if 0
-        BOOST_FOREACH(PAIRTYPE(uint256, CWalletTx) walletEntry, mapWallet)
-        {
-            CWalletTx *pcoin = &walletEntry.second;
-            if (!CheckFinalTx(*pcoin) || !pcoin->IsTrusted())
-#else
         for (auto& walletEntry: mapWallet)
         {
             auto* pcoin = walletEntry.second.get();
             if (!pcoin->CheckFinal() || !pcoin->IsTrusted())
-#endif
                 continue;
 
-            if (pcoin->IsCoinBase() && !pcoin->IsMature())
+            if (!pcoin->IsMature())
                 continue;
 
             int nDepth = pcoin->GetDepthInMainChain();
@@ -4616,26 +4589,14 @@ void CWallet::GetFilteredNotes(std::vector<CNotePlaintextEntry> & outEntries, st
     LOCK2(cs_main, cs_wallet);
 
     for (auto & p : mapWallet) {
-#if 0
-        CWalletTx wtx = p.second;
-        // Filter the transactions before checking for notes
-        if (!CheckFinalTx(wtx) || !wtx.IsMature() || wtx.GetDepthInMainChain() < minDepth) {
-#else
         CWalletObjBase& wtx = *(p.second);
         // Filter the transactions before checking for notes
         if (!wtx.CheckFinal() || !wtx.IsMature() || wtx.GetDepthInMainChain() < minDepth) {
-#endif
-            //LogPrintf("%s():%d - skipping[%s]\n", __func__, __LINE__, wtx.GetHash().ToString());
             continue;
         }
 
-#if 0
-        if (wtx.mapNoteData.size() == 0) {
-#else
         const mapNoteData_t* mnd = wtx.GetMapNoteData();
         if (!mnd || mnd->size() == 0) {
-#endif
-            //LogPrintf("%s():%d - skipping[%s]\n", __func__, __LINE__, wtx.GetHash().ToString());
             continue;
         }
         LogPrintf("%s():%d - mnd.size=%d\n", __func__, __LINE__, mnd->size());
@@ -4900,9 +4861,14 @@ int CMerkleCert::GetIndexInBlock(const CBlock& block)
 
 bool CMerkleCert::IsMature() const
 {
-    static const int COIN_CERTIFICATE_MATURITY = 0;
-    assert(IsCert());
-    return max(0, (COIN_CERTIFICATE_MATURITY+1) - GetDepthInMainChain()) == 0;
+    CCoinsViewCache view(pcoinsTip);
+    //mempool not considered, which means we expect next epoch certo to be confirmed before coin from cert can be spent
+
+    CSidechain originSc;
+    if (!view.GetSidechain(this->GetScId(), originSc))
+        return false;
+
+    return (this->epochNumber < originSc.lastReceivedCertificateEpoch);
 }
 
 CAmount CWalletCert::GetImmatureCredit(bool fUseCache) const
@@ -5007,7 +4973,7 @@ std::shared_ptr<CWalletObjBase> CWalletCert::MakeWalletMapObject() const
 
 std::shared_ptr<CWalletObjBase> CWalletObjBase::MakeWalletObjectBase(const CTransactionBase& obj, const CWallet* pwallet)
 {
-    if (obj.IsCoinCertified() )
+    if (obj.IsCert() )
     {
         return std::shared_ptr<CWalletObjBase>( new CWalletCert(pwallet, dynamic_cast<const CScCertificate&>(obj)) );
     }

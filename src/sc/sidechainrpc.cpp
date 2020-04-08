@@ -24,7 +24,7 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
 {
     UniValue vscs(UniValue::VARR);
     // global idx
-    unsigned int nIdx = 0; 
+    unsigned int nIdx = 0;
 
     for (unsigned int i = 0; i < tx.vsc_ccout.size(); i++) {
         const CTxScCreationOut& out = tx.vsc_ccout[i];
@@ -78,17 +78,17 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
 
         const UniValue& input = sc_crs[i];
         const UniValue& o = input.get_obj();
- 
+
         std::string inputString = find_value(o, "scid").get_str();
         if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
         {
             error = "Invalid scid format: not an hex";
             return false;
         }
-    
+
         uint256 scId;
         scId.SetHex(inputString);
- 
+
         const UniValue& sh_v = find_value(o, "epoch_length");
         if (sh_v.isNull() || !sh_v.isNum())
         {
@@ -101,7 +101,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             error = "Invalid parameter, epoch_length must be positive";
             return false;
         }
- 
+
         sc.withdrawalEpochLength = el;
 
         const UniValue& av = find_value(o, "amount");
@@ -130,12 +130,12 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             error = "Invalid address format: not an hex";
             return false;
         }
-    
+
         uint256 address;
         address.SetHex(inputString);
 
         const UniValue& cd = find_value(o, "customData");
-        if (!cd.isNull()) 
+        if (!cd.isNull())
         {
             inputString = cd.get_str();
             if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
@@ -143,18 +143,18 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
                 error = "Invalid scid format: not an hex";
                 return false;
             }
-    
+
             unsigned int cdLen = inputString.length();
             // just add one if we have an odd number of chars, hex will be padded with a 0 this is
             // better than refusing the raw creation
             if (cdLen%2)
                 cdLen ++;
-         
+
             unsigned int cdDataLen = cdLen/2;
-         
+
             if (cdDataLen > MAX_CUSTOM_DATA_LEN)
                 cdDataLen = MAX_CUSTOM_DATA_LEN;
-     
+
             CScCustomData cdBlob;
             cdBlob.SetHex(inputString);
             cdBlob.fill(sc.customData, cdDataLen);
@@ -164,7 +164,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
 
         rawTx.vsc_ccout.push_back(txccout);
     }
-    
+
     return true;
 }
 
@@ -183,7 +183,7 @@ bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std
             error = "Invalid scid format: not an hex";
             return false;
         }
-    
+
         uint256 scId;
         scId.SetHex(inputString);
 
@@ -201,7 +201,7 @@ bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std
             error = "Invalid address format: not an hex";
             return false;
         }
-    
+
         uint256 address;
         address.SetHex(inputString);
 
@@ -344,7 +344,7 @@ ScRpcCmd::ScRpcCmd(
     _dustThreshold = out.GetDustThreshold(minRelayTxFee);
 
     _totalInputAmount = 0;
-} 
+}
 
 void ScRpcCmd::addInputs()
 {
@@ -422,7 +422,7 @@ void ScRpcCmd::addInputs()
             addrDetails, FormatMoney(_totalInputAmount), FormatMoney(targetAmount), _minConf));
     }
 
-    // If there is transparent change, is it valid or is it dust? 
+    // If there is transparent change, is it valid or is it dust?
     if (dustChange < _dustThreshold && dustChange != 0) {
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS,
             strprintf("Insufficient transparent funds, have %s, need %s more to avoid creating invalid change output %s (dust threshold is %s)",
@@ -471,7 +471,7 @@ void ScRpcCmd::addChange()
         {
             CReserveKey keyChange(pwalletMain);
             CPubKey vchPubKey;
- 
+
             if (!keyChange.GetReservedKey(vchPubKey))
                 throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Could not generate a taddr to use as a change address"); // should never fail, as we just unlocked
 
