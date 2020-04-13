@@ -594,7 +594,6 @@ private:
     int getScCoinsMaturity();
 
     bool DecrementImmatureAmount(const uint256& scId, CSidechain& targetScInfo, CAmount nValue, int maturityHeight);
-    static void generateNewSidechainId(uint256& scId);
     void Dump_info() const;
 
 private:

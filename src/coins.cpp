@@ -1099,14 +1099,6 @@ bool CCoinsViewCache::DecrementImmatureAmount(const uint256& scId, CSidechain& t
     return true;
 }
 
-void CCoinsViewCache::generateNewSidechainId(uint256& scId)
-{
-    // for the time being this is randomly generated
-    // in future a CMutableTransaction can be passed as input parameter in order to use its parts
-    // for generating it in a deterministic way
-    scId = GetRandHash();
-}
-
 void CCoinsViewCache::Dump_info() const
 {
     std::set<uint256> scIdsList;
@@ -1234,7 +1226,8 @@ double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight) const
     return tx.ComputePriority(dResult);
 }
 
-CCoinsModifier::CCoinsModifier(CCoinsViewCache& cache_, CCoinsMap::iterator it_, size_t usage) : cache(cache_), it(it_), cachedCoinUsage(usage) {
+CCoinsModifier::CCoinsModifier(CCoinsViewCache& cache_, CCoinsMap::iterator it_, size_t usage):
+        cache(cache_), it(it_), cachedCoinUsage(usage) {
     assert(!cache.hasModifier);
     cache.hasModifier = true;
 }

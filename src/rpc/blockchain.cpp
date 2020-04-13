@@ -1045,15 +1045,14 @@ void AddScInfoToJSON(const uint256& scId, const CSidechain& info, UniValue& sc)
 
 bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
 {
-    CSidechain info;
+    CSidechain scInfo;
     CCoinsViewCache scView(pcoinsTip);
-    if (!scView.GetSidechain(scId, info))
-    {
+    if (!scView.GetSidechain(scId, scInfo)) {
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
         return false;
     }
 
-    AddScInfoToJSON(scId, info, sc);
+    AddScInfoToJSON(scId, scInfo, sc);
     return true;
 }
 

@@ -1197,6 +1197,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
     }
 
+    CAmount nFees = 0;
     {
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
@@ -1224,6 +1225,9 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             // Bring the best block into scope: it's gonna be needed for CheckInputsTx hereinafter
             view.GetBestBlock();
 
+            nFees = cert.GetFeeAmount(view.GetValueIn(cert));
+            LogPrint("sc", "%s():%d - Computed fee=%lld\n", __func__, __LINE__, nFees);
+
             view.SetBackend(dummy);
         }
 
@@ -1239,11 +1243,6 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                                    certHash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
                              REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
         }
-
-        CAmount nUselessValueIn = 0;
-        CAmount nFees = cert.GetFeeAmount(view.GetValueIn(cert));
-        LogPrint("sc", "%s():%d - Computed fee=%lld\n", __func__, __LINE__, nFees);
-
 
         double dPriority = cert.GetPriority(view, chainActive.Height()); // cert: for the time being return max prio, as shielded txes do
 
@@ -1399,7 +1398,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
 
-        CAmount nValueIn = 0;
+        CAmount nFees = 0;
         {
             LOCK(pool.cs);
             CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
@@ -1461,7 +1460,8 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                 }
             }
 
-            nValueIn = view.GetValueIn(tx);
+            nFees = tx.GetFeeAmount(view.GetValueIn(tx));
+            LogPrint("sc", "%s():%d - Computed fee=%lld\n", __func__, __LINE__, nFees);
  
             // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
             view.SetBackend(dummy);
@@ -1487,11 +1487,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                                    hash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
                              REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
         }
-
-        CAmount nValueOut = tx.GetValueOut();
-        CAmount nFees = nValueIn-nValueOut;
-
-        LogPrint("sc", "%s():%d - Computed fee=%lld\n", __func__, __LINE__, nFees);
 
         double dPriority = view.GetPriority(tx, chainActive.Height());
 
@@ -1958,9 +1953,8 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
         for(const CTxIn &txin: txBase.GetVin()) {
             CCoinsModifier coins = inputs.ModifyCoins(txin.prevout.hash);
             unsigned nPos = txin.prevout.n;
+            assert(coins->IsAvailable(nPos));
 
-            if (nPos >= coins->vout.size() || coins->vout[nPos].IsNull())
-                assert(false);
             // mark an outpoint spent, and construct undo information
             txundo.vprevout.push_back(CTxInUndo(coins->vout[nPos]));
             coins->Spend(nPos);
@@ -2098,8 +2092,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
             if(coins->IsFromCert()) {
                 CSidechain targetSc;
                 if (!inputs.GetSidechain(coins->originScId, targetSc)) {
-                    LogPrint("CheckInputs()", "%s():%d - current view does not contain sc [%s]\n", __func__, __LINE__, coins->originScId.ToString());
-                    //ABENEGIA: TODO: fix LogPrint above!
+                    LogPrint("sc", "%s():%d - current view does not contain sc [%s]\n", __func__, __LINE__, coins->originScId.ToString());
                     return state.DoS(100, error("CheckInputs(): current view does not contain sc [%s]", coins->originScId.ToString()),
                                      REJECT_INVALID, "cert-for-unknown-sc");
                 }
@@ -2685,7 +2678,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): too many sigops"),
                                  REJECT_INVALID, "bad-blk-sigops");
 
-            nFees += view.GetValueIn(tx)-tx.GetValueOut();
+            nFees += tx.GetFeeAmount(view.GetValueIn(tx));
 
             std::vector<CScriptCheck> vChecks;
             if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))

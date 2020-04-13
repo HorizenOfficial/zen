@@ -83,24 +83,13 @@ std::string COutput::ToString() const
     return strprintf("COutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), i, nDepth, FormatMoney(tx->GetVout()[i].nValue));
 }
 
-#if 0
-const CWalletTx* CWallet::GetWalletTx(const uint256& hash) const
-#else
 const CWalletObjBase* CWallet::GetWalletTx(const uint256& hash) const
-#endif
 {
     LOCK(cs_wallet);
-#if 0
-    std::map<uint256, CWalletTx>::const_iterator it = mapWallet.find(hash);
-    if (it == mapWallet.end())
-        return NULL;
-    return &(it->second);
-#else
     const MAP_WALLET_CONST_IT it = mapWallet.find(hash);
     if (it == mapWallet.end())
-        return NULL;
+        return nullptr;
     return it->second.get();
-#endif
 }
 
 // Generate a new spending key and return its public payment address
@@ -2982,9 +2971,13 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
 
             for (unsigned int i = 0; i < pcoin->GetVout().size(); i++) {
                 isminetype mine = IsMine(pcoin->GetVout()[i]);
-                if (!(IsSpent(wtxid, i)) && mine != ISMINE_NO &&
-                    !IsLockedCoin((*it).first, i) && (pcoin->GetVout()[i].nValue > 0 || fIncludeZeroValue) &&
-                    (!coinControl || !coinControl->HasSelected() || coinControl->fAllowOtherInputs || coinControl->IsSelected((*it).first, i)))
+                if (!IsSpent(wtxid, i) &&
+                     mine != ISMINE_NO &&
+                    !IsLockedCoin((*it).first, i) &&
+                    (pcoin->GetVout()[i].nValue > 0 || fIncludeZeroValue) &&
+                    (!coinControl || !coinControl->HasSelected() ||
+                      coinControl->fAllowOtherInputs || coinControl->IsSelected((*it).first, i)
+                    ))
                 {
                     if (pcoin->IsCoinBase())
                     {

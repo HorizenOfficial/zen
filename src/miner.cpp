@@ -511,18 +511,12 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 continue;
             }
 
-#if 0
-            CAmount nTxFees = view.GetValueIn(tx)-tx.GetValueOut();
-#else
-            CAmount valueIn = view.GetValueIn(tx);
-            CAmount nTxFees = tx.GetFeeAmount(valueIn);
-            if (nTxFees < 0)
-            {
+            CAmount nTxFees = tx.GetFeeAmount(view.GetValueIn(tx));
+            if (nTxFees < 0) {
                 LogPrintf("%s():%d - tx=%s has a negative fee (fee=%s/valueOut=%s)\n",
                     __func__, __LINE__, tx.GetHash().ToString(), FormatMoney(nTxFees), FormatMoney(tx.GetValueOut()));
                 continue;
             }
-#endif
 
 #if 0
             nTxSigOps += GetP2SHSigOpCount(tx, view);

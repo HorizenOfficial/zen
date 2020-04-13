@@ -783,23 +783,13 @@ public:
 class COutput
 {
 public:
-#if 0
-    const CWalletTx *tx;
-#else
     const CWalletObjBase *tx;
-#endif
     int i;
     int nDepth;
     bool fSpendable;
 
-#if 0
-    COutput(const CWalletTx *txIn, int iIn, int nDepthIn, bool fSpendableIn)
-#else
-    COutput(const CWalletObjBase *txIn, int iIn, int nDepthIn, bool fSpendableIn)
-#endif
-    {
-        tx = txIn; i = iIn; nDepth = nDepthIn; fSpendable = fSpendableIn;
-    }
+    COutput(const CWalletObjBase *txIn, int iIn, int nDepthIn, bool fSpendableIn):
+        tx(txIn),i(iIn),nDepth(nDepthIn),fSpendable(fSpendableIn) {}
 
     std::string ToString() const;
 };
@@ -1144,12 +1134,8 @@ public:
      */
     std::map<uint256, JSOutPoint> mapNullifiersToNotes;
 
-#if 0
-    std::map<uint256, CWalletTx> mapWallet;
-#else
     std::map<uint256, std::shared_ptr<CWalletObjBase> > mapWallet;
     typedef std::map<uint256, std::shared_ptr<CWalletObjBase> >::const_iterator MAP_WALLET_CONST_IT;
-#endif
 
     int64_t nOrderPosNext;
     std::map<uint256, int> mapRequestCount;
@@ -1162,22 +1148,14 @@ public:
 
     int64_t nTimeFirstKey;
 
-#if 0
-    const CWalletTx* GetWalletTx(const uint256& hash) const;
-#else
     const CWalletObjBase* GetWalletTx(const uint256& hash) const;
-#endif
 
     //! check whether we are allowed to upgrade (or already support) to the named feature
     bool CanSupportFeature(enum WalletFeature wf) { AssertLockHeld(cs_wallet); return nWalletMaxVersion >= wf; }
 
     void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl = nullptr, bool fIncludeZeroValue=false, bool fIncludeCoinBase=true, bool fIncludeCommunityFund=true) const;
-#if 0
-    bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet) const;
-#else
     bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins,
         std::set<std::pair<const CWalletObjBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet) const;
-#endif
 
     bool IsSpent(const uint256& hash, unsigned int n) const;
     bool IsSpent(const uint256& nullifier) const;
