@@ -1187,9 +1187,8 @@ bool CCoinsViewCache::HaveInputs(const CTransactionBase& txBase) const
 {
     if (!txBase.IsCoinBase()) {
         for(const CTxIn & in: txBase.GetVin()) {
-            const COutPoint &prevout = in.prevout;
-            const CCoins* coins = AccessCoins(prevout.hash);
-            if (!coins || !coins->IsAvailable(prevout.n)) {
+            const CCoins* coins = AccessCoins(in.prevout.hash);
+            if (!coins || !coins->IsAvailable(in.prevout.n)) {
                 return false;
             }
         }

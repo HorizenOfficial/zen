@@ -486,14 +486,12 @@ public:
     virtual bool RelayWalletTransaction() = 0;
     virtual bool IsInvolvingMe(mapNoteData_t &noteData) const = 0;
 
-    virtual std::set<uint256> GetConflicts() const { return std::set<uint256>(); } // default is the empty set (certs has no conflcts)
-    virtual void GetConflicts(std::set<uint256>& result) const { } // default is empty (certs has no conflcts)
+    std::set<uint256> GetConflicts() const;
     virtual void GetNotesAmount(
         std::vector<CNotePlaintextEntry> & outEntries,
         bool fFilterAddress,
         libzcash::PaymentAddress filterPaymentAddress,
         bool ignoreSpent = true, bool ignoreUnspendable = true) {} // default empty (certs have no notes)
-    virtual void AddToSpends(CWallet* pw) {}; // certs do not spend anything
     virtual void ClearNoteWitnessCache() {};
 
     virtual void IncrementWitness(int64_t nWitnessCacheSize, int nHeight) { return; }
@@ -649,15 +647,11 @@ public:
     bool RelayWalletTransaction() override;
     bool IsInvolvingMe(mapNoteData_t &noteData) const override;
 
-    std::set<uint256> GetConflicts() const override;
-    void GetConflicts(std::set<uint256>& result) const override;
-
     void GetNotesAmount(
         std::vector<CNotePlaintextEntry> & outEntries,
         bool fFilterAddress,
         libzcash::PaymentAddress filterPaymentAddress,
         bool ignoreSpent = true, bool ignoreUnspendable = true) override; 
-    void AddToSpends(CWallet* pw) override;
     void ClearNoteWitnessCache() override;
     const mapNoteData_t* GetMapNoteData() const override;
     void SetMapNoteData(mapNoteData_t& m) override;
@@ -778,23 +772,19 @@ public:
 };
 
 
-
-
 class COutput
 {
 public:
     const CWalletObjBase *tx;
-    int i;
+    int pos;
     int nDepth;
     bool fSpendable;
 
-    COutput(const CWalletObjBase *txIn, int iIn, int nDepthIn, bool fSpendableIn):
-        tx(txIn),i(iIn),nDepth(nDepthIn),fSpendable(fSpendableIn) {}
+    COutput(const CWalletObjBase *txIn, int posIn, int nDepthIn, bool fSpendableIn):
+        tx(txIn),pos(posIn),nDepth(nDepthIn),fSpendable(fSpendableIn) {}
 
     std::string ToString() const;
 };
-
-
 
 
 /** Private key that includes an expiration date in case it never gets used. */

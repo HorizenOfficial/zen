@@ -3425,36 +3425,36 @@ UniValue listunspent(const UniValue& params, bool fHelp)
 
         if (setAddress.size()) {
             CTxDestination address;
-            if (!ExtractDestination(out.tx->GetVout()[out.i].scriptPubKey, address))
+            if (!ExtractDestination(out.tx->GetVout()[out.pos].scriptPubKey, address))
                 continue;
 
             if (!setAddress.count(address))
                 continue;
         }
 
-        CAmount nValue = out.tx->GetVout()[out.i].nValue;
-        const CScript& pk = out.tx->GetVout()[out.i].scriptPubKey;
+        CAmount nValue = out.tx->GetVout()[out.pos].nValue;
+        const CScript& pk = out.tx->GetVout()[out.pos].scriptPubKey;
         UniValue entry(UniValue::VOBJ);
 #if 1
         if (out.tx->IsCertificate() )
         {
             entry.push_back(Pair("cert", out.tx->GetHash().GetHex()));
-            entry.push_back(Pair("vout", out.i));
+            entry.push_back(Pair("vout", out.pos));
             entry.push_back(Pair("certified", true));
         }
         else
         {
             entry.push_back(Pair("txid", out.tx->GetHash().GetHex()));
-            entry.push_back(Pair("vout", out.i));
+            entry.push_back(Pair("vout", out.pos));
             entry.push_back(Pair("generated", out.tx->IsCoinBase()));
         }
 #else
         entry.push_back(Pair("txid", out.tx->GetHash().GetHex()));
-        entry.push_back(Pair("vout", out.i));
+        entry.push_back(Pair("vout", out.pos));
         entry.push_back(Pair("generated", out.tx->IsCoinBase()));
 #endif
         CTxDestination address;
-        if (ExtractDestination(out.tx->GetVout()[out.i].scriptPubKey, address)) {
+        if (ExtractDestination(out.tx->GetVout()[out.pos].scriptPubKey, address)) {
             entry.push_back(Pair("address", CBitcoinAddress(address).ToString()));
             if (pwalletMain->mapAddressBook.count(address))
                 entry.push_back(Pair("account", pwalletMain->mapAddressBook[address].name));
@@ -4085,7 +4085,7 @@ CAmount getBalanceTaddr(std::string transparentAddress, int minDepth=1, bool ign
 
         if (setAddress.size()) {
             CTxDestination address;
-            if (!ExtractDestination(out.tx->GetVout()[out.i].scriptPubKey, address)) {
+            if (!ExtractDestination(out.tx->GetVout()[out.pos].scriptPubKey, address)) {
                 continue;
             }
 
@@ -4094,7 +4094,7 @@ CAmount getBalanceTaddr(std::string transparentAddress, int minDepth=1, bool ign
             }
         }
 
-        CAmount nValue = out.tx->GetVout()[out.i].nValue;
+        CAmount nValue = out.tx->GetVout()[out.pos].nValue;
         balance += nValue;
     }
     return balance;
@@ -5151,7 +5151,7 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
         }
 
         CTxDestination address;
-        if (!ExtractDestination(out.tx->GetVout()[out.i].scriptPubKey, address)) {
+        if (!ExtractDestination(out.tx->GetVout()[out.pos].scriptPubKey, address)) {
             continue;
         }
         // If taddr is not wildcard "*", filter utxos
@@ -5164,7 +5164,7 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
         }
 
         utxoCounter++;
-        CAmount nValue = out.tx->GetVout()[out.i].nValue;
+        CAmount nValue = out.tx->GetVout()[out.pos].nValue;
 
         if (!maxedOutFlag) {
             CBitcoinAddress ba(address);
@@ -5175,7 +5175,7 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
                 maxedOutFlag = true;
             } else {
                 estimatedTxSize += increase;
-                ShieldCoinbaseUTXO utxo = {out.tx->GetHash(), out.i, nValue};
+                ShieldCoinbaseUTXO utxo = {out.tx->GetHash(), out.pos, nValue};
                 inputs.push_back(utxo);
                 shieldedValue += nValue;
             }

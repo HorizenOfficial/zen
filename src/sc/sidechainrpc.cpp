@@ -361,7 +361,7 @@ void ScRpcCmd::addInputs()
     for (const auto& out: vAvailableCoins)
     {
         LogPrint("sc", "utxo %s depth: %d, val: %s, spendable: %s\n",
-            out.tx->GetHash().ToString(), out.nDepth, FormatMoney(out.tx->GetVout()[out.i].nValue), out.fSpendable?"Y":"N");
+            out.tx->GetHash().ToString(), out.nDepth, FormatMoney(out.tx->GetVout()[out.pos].nValue), out.fSpendable?"Y":"N");
 
         if (!out.fSpendable || out.nDepth < _minConf) {
             continue;
@@ -370,7 +370,7 @@ void ScRpcCmd::addInputs()
         if (_hasFromAddress)
         {
             CTxDestination dest;
-            if (!ExtractDestination(out.tx->GetVout()[out.i].scriptPubKey, dest)) {
+            if (!ExtractDestination(out.tx->GetVout()[out.pos].scriptPubKey, dest)) {
                 continue;
             }
 
@@ -379,9 +379,9 @@ void ScRpcCmd::addInputs()
             }
         }
 
-        CAmount nValue = out.tx->GetVout()[out.i].nValue;
+        CAmount nValue = out.tx->GetVout()[out.pos].nValue;
 
-        SelectedUTXO utxo(out.tx->GetHash(), out.i, nValue);
+        SelectedUTXO utxo(out.tx->GetHash(), out.pos, nValue);
         vInputUtxo.push_back(utxo);
     }
 

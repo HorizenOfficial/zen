@@ -80,7 +80,7 @@ std::string JSOutPoint::ToString() const
 
 std::string COutput::ToString() const
 {
-    return strprintf("COutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), i, nDepth, FormatMoney(tx->GetVout()[i].nValue));
+    return strprintf("COutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), pos, nDepth, FormatMoney(tx->GetVout()[pos].nValue));
 }
 
 const CWalletObjBase* CWallet::GetWalletTx(const uint256& hash) const
@@ -478,23 +478,14 @@ set<uint256> CWallet::GetConflicts(const uint256& txid) const
     set<uint256> result;
     AssertLockHeld(cs_wallet);
 
-#if 0
-    std::map<uint256, CWalletTx>::const_iterator it = mapWallet.find(txid);
-    if (it == mapWallet.end())
-        return result;
-    const CWalletTx& wtx = it->second;
-#else
     const MAP_WALLET_CONST_IT it = mapWallet.find(txid);
     if (it == mapWallet.end())
         return result;
     const CWalletObjBase& wtx = *(it->second);
-#endif
 
-#if 0
     std::pair<TxSpends::const_iterator, TxSpends::const_iterator> range;
 
-    BOOST_FOREACH(const CTxIn& txin, wtx.GetVin())
-    {
+    for(const CTxIn& txin: wtx.GetVin()) {
         if (mapTxSpends.count(txin.prevout) <= 1)
             continue;  // No conflict if zero or one spends
         range = mapTxSpends.equal_range(txin.prevout);
@@ -515,9 +506,7 @@ set<uint256> CWallet::GetConflicts(const uint256& txid) const
             }
         }
     }
-#else
-    wtx.GetConflicts(result);
-#endif
+
     return result;
 }
 
@@ -638,28 +627,17 @@ bool CWallet::IsSpent(const uint256& hash, unsigned int n) const
     pair<TxSpends::const_iterator, TxSpends::const_iterator> range;
     range = mapTxSpends.equal_range(outpoint);
 
-    for (TxSpends::const_iterator it = range.first; it != range.second; ++it)
-    {
+    for (TxSpends::const_iterator it = range.first; it != range.second; ++it) {
         const uint256& wtxid = it->second;
-#if 0
-        std::map<uint256, CWalletTx>::const_iterator mit = mapWallet.find(wtxid);
-        if (mit != mapWallet.end() && mit->second.GetDepthInMainChain() >= 0)
-            return true; // Spent
-#else
-        const auto mit = mapWallet.find(wtxid);
-        if (mit != mapWallet.end() )
-        {
-            if (mit->second->GetDepthInMainChain() >= 0)
-            {
+        std::map<uint256, std::shared_ptr<CWalletObjBase> >::const_iterator mit = mapWallet.find(wtxid);
+        if (mit != mapWallet.end()) {
+            if (mit->second->GetDepthInMainChain() >= 0) {
                 return true; // Spent
-            }
-            else
-            {
+            } else {
                 LogPrint("cert", "%s():%d - obj[%s] has depth %d\n", __func__, __LINE__,
                     wtxid.ToString(), mit->second->GetDepthInMainChain());
             }
         }
-#endif
     }
     return false;
 }
@@ -675,13 +653,8 @@ bool CWallet::IsSpent(const uint256& nullifier) const
 
     for (TxNullifiers::const_iterator it = range.first; it != range.second; ++it) {
         const uint256& wtxid = it->second;
-#if 0
-        std::map<uint256, CWalletTx>::const_iterator mit = mapWallet.find(wtxid);
-        if (mit != mapWallet.end() && mit->second.GetDepthInMainChain() >= 0) {
-#else
-        const auto mit = mapWallet.find(wtxid);
+        std::map<uint256, std::shared_ptr<CWalletObjBase> >::const_iterator mit = mapWallet.find(wtxid);
         if (mit != mapWallet.end() && mit->second->GetDepthInMainChain() >= 0) {
-#endif
             return true; // Spent
         }
     }
@@ -709,43 +682,22 @@ void CWallet::AddToSpends(const uint256& nullifier, const uint256& wtxid)
 void CWallet::AddToSpends(const uint256& wtxid)
 {
     assert(mapWallet.count(wtxid));
-#if 0
-    CWalletTx& thisTx = mapWallet[wtxid];
+    CWalletObjBase& thisTx = *(mapWallet[wtxid]);
+
     if (thisTx.IsCoinBase()) // Coinbases don't spend anything!
         return;
 
     for (const CTxIn& txin : thisTx.GetVin()) {
+        LogPrint("cert", "%s():%d - obj[%s] spends out %d of [%s]\n", __func__, __LINE__,
+                thisTx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
         AddToSpends(txin.prevout, wtxid);
     }
+
     for (const JSDescription& jsdesc : thisTx.GetVjoinsplit()) {
         for (const uint256& nullifier : jsdesc.nullifiers) {
             AddToSpends(nullifier, wtxid);
         }
     }
-#else
-    CWalletObjBase& thisTx = *(mapWallet[wtxid]);
-    thisTx.AddToSpends(this);
-}
-
-void CWalletTx::AddToSpends(CWallet* pw)
-{
-    // wallet is explicitly passed along since pwallet ptr is const and t calls non-const method
-    assert(pw);
-
-    if (IsCoinBase()) // Coinbases don't spend anything!
-        return;
-
-    for (const CTxIn& txin : GetVin()) {
-        LogPrint("cert", "%s():%d - obj[%s] spends out %d of [%s]\n", __func__, __LINE__,
-            GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
-        pw->AddToSpends(txin.prevout, GetHash());
-    }
-    for (const JSDescription& jsdesc : GetVjoinsplit()) {
-        for (const uint256& nullifier : jsdesc.nullifiers) {
-            pw->AddToSpends(nullifier, GetHash());
-        }
-    }
-#endif
 }
 
 
@@ -2381,53 +2333,6 @@ bool CWalletTx::IsInvolvingMe(mapNoteData_t &noteData) const
     return (pwallet->IsMine(*this) || pwallet->IsFromMe(*this) || noteData.size() > 0);
 }
 
-
-set<uint256> CWalletTx::GetConflicts() const
-{
-    set<uint256> result;
-    if (pwallet != NULL)
-    {
-        uint256 myHash = GetHash();
-        result = pwallet->GetConflicts(myHash);
-        result.erase(myHash);
-    }
-    return result;
-}
-
-void CWalletTx::GetConflicts(std::set<uint256>& result) const
-{
-    if (!pwallet)
-    {
-        LogPrintf("%s():%d - null wallet ptr\n", __func__, __LINE__);
-        return;
-    }
-
-    std::pair<CWallet::TxSpends::const_iterator, CWallet::TxSpends::const_iterator> range;
-
-    BOOST_FOREACH(const CTxIn& txin, GetVin())
-    {
-        if (pwallet->mapTxSpends.count(txin.prevout) <= 1)
-            continue;  // No conflict if zero or one spends
-        range = pwallet->mapTxSpends.equal_range(txin.prevout);
-        for (auto it = range.first; it != range.second; ++it)
-            result.insert(it->second);
-    }
-
-    std::pair<CWallet::TxNullifiers::const_iterator, CWallet::TxNullifiers::const_iterator> range_n;
-
-    for (const JSDescription& jsdesc : GetVjoinsplit()) {
-        for (const uint256& nullifier : jsdesc.nullifiers) {
-            if (pwallet->mapTxNullifiers.count(nullifier) <= 1) {
-                continue;  // No conflict if zero or one spends
-            }
-            range_n = pwallet->mapTxNullifiers.equal_range(nullifier);
-            for (auto it = range_n.first; it != range_n.second; ++it) {
-                result.insert(it->second);
-            }
-        }
-    }
-}
-
 void CWalletTx::addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const
 {
     for(const CTxIn& txin: GetVin())
@@ -2616,6 +2521,17 @@ CAmount CWalletObjBase::GetImmatureWatchOnlyCredit(const bool& fUseCache) const
     return nImmatureWatchCreditCached;
 }
 #endif
+
+std::set<uint256> CWalletObjBase::GetConflicts() const
+{
+    set<uint256> result;
+    if (pwallet != nullptr) {
+        uint256 myHash = GetHash();
+        result = pwallet->GetConflicts(myHash);
+        result.erase(myHash);
+    }
+    return result;
+}
 
 CAmount CWalletObjBase::GetAvailableWatchOnlyCredit(const bool& fUseCache) const
 {
@@ -2969,14 +2885,14 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
             if (nDepth < 0)
                 continue;
 
-            for (unsigned int i = 0; i < pcoin->GetVout().size(); i++) {
-                isminetype mine = IsMine(pcoin->GetVout()[i]);
-                if (!IsSpent(wtxid, i) &&
+            for (unsigned int voutPos = 0; voutPos < pcoin->GetVout().size(); voutPos++) {
+                isminetype mine = IsMine(pcoin->GetVout()[voutPos]);
+                if (!IsSpent(wtxid, voutPos) &&
                      mine != ISMINE_NO &&
-                    !IsLockedCoin((*it).first, i) &&
-                    (pcoin->GetVout()[i].nValue > 0 || fIncludeZeroValue) &&
+                    !IsLockedCoin((*it).first, voutPos) &&
+                    (pcoin->GetVout()[voutPos].nValue > 0 || fIncludeZeroValue) &&
                     (!coinControl || !coinControl->HasSelected() ||
-                      coinControl->fAllowOtherInputs || coinControl->IsSelected((*it).first, i)
+                      coinControl->fAllowOtherInputs || coinControl->IsSelected((*it).first, voutPos)
                     ))
                 {
                     if (pcoin->IsCoinBase())
@@ -2984,7 +2900,7 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                         const CCoins *coins = pcoinsTip->AccessCoins(wtxid);
                         assert(coins);
 
-                        if (IsCommunityFund(coins, i))
+                        if (IsCommunityFund(coins, voutPos))
                         {
                             if(!fIncludeCommunityFund)
                                 continue;
@@ -2998,9 +2914,9 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                     if (pcoin->IsCertificate() )
                     {
                         LogPrint("cert", "%s():%d - cert[%s] out[%d], amount=%s, spendable[%s]\n", __func__, __LINE__,
-                            pcoin->GetHash().ToString(), i, FormatMoney(pcoin->GetVout()[i].nValue), ((mine & ISMINE_SPENDABLE) != ISMINE_NO)?"Y":"N");
+                            pcoin->GetHash().ToString(), voutPos, FormatMoney(pcoin->GetVout()[voutPos].nValue), ((mine & ISMINE_SPENDABLE) != ISMINE_NO)?"Y":"N");
                     }
-                    vCoins.push_back(COutput(pcoin, i, nDepth, (mine & ISMINE_SPENDABLE) != ISMINE_NO));
+                    vCoins.push_back(COutput(pcoin, voutPos, nDepth, (mine & ISMINE_SPENDABLE) != ISMINE_NO));
                 }
 
             }
@@ -3102,13 +3018,12 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
         if (output.nDepth < (pcoin->IsFromMe(ISMINE_ALL) ? nConfMine : nConfTheirs))
             continue;
 
-        int i = output.i;
-        CAmount n = pcoin->GetVout()[i].nValue;
+        CAmount n = pcoin->GetVout()[output.pos].nValue;
 
 #if 0
-        pair<CAmount,pair<const CWalletTx*,unsigned int> > coin = make_pair(n,make_pair(pcoin, i));
+        pair<CAmount,pair<const CWalletTx*,unsigned int> > coin = make_pair(n,make_pair(pcoin, output.pos));
 #else
-        pair<CAmount,pair<const CWalletObjBase*,unsigned int> > coin = make_pair(n,make_pair(pcoin, i));
+        pair<CAmount,pair<const CWalletObjBase*,unsigned int> > coin = make_pair(n,make_pair(pcoin, output.pos));
 #endif
 
         if (n == nTargetValue)
@@ -3211,7 +3126,7 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletObj
             if (!out.fSpendable) {
                 continue;
             }
-            value += out.tx->GetVout()[out.i].nValue;
+            value += out.tx->GetVout()[out.pos].nValue;
         }
         if (value <= nTargetValue) {
             CAmount valueWithCoinbase = 0;
@@ -3219,7 +3134,7 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletObj
                 if (!out.fSpendable) {
                     continue;
                 }
-                valueWithCoinbase += out.tx->GetVout()[out.i].nValue;
+                valueWithCoinbase += out.tx->GetVout()[out.pos].nValue;
             }
             fNeedCoinbaseCoinsRet = (valueWithCoinbase >= nTargetValue);
         }
@@ -3232,8 +3147,8 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletObj
         {
             if (!out.fSpendable)
                  continue;
-            nValueRet += out.tx->GetVout()[out.i].nValue;
-            setCoinsRet.insert(make_pair(out.tx, out.i));
+            nValueRet += out.tx->GetVout()[out.pos].nValue;
+            setCoinsRet.insert(make_pair(out.tx, out.pos));
         }
         return (nValueRet >= nTargetValue);
     }
@@ -3274,7 +3189,7 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletObj
     // remove preset inputs from vCoins
     for (vector<COutput>::iterator it = vCoins.begin(); it != vCoins.end() && coinControl && coinControl->HasSelected();)
     {
-        if (setPresetCoins.count(make_pair(it->tx, it->i)))
+        if (setPresetCoins.count(make_pair(it->tx, it->pos)))
             it = vCoins.erase(it);
         else
             ++it;
@@ -3466,11 +3381,7 @@ bool CWallet::CreateTransaction(
                 Sidechain::FillCcOutput(txNew, vecCcSend, strFailReason);
 
                 // Choose coins to use
-#if 0
-                set<pair<const CWalletTx*,unsigned int> > setCoins;
-#else
                 set<pair<const CWalletObjBase*,unsigned int> > setCoins;
-#endif
                 CAmount nValueIn = 0;
                 bool fOnlyCoinbaseCoins = false;
                 bool fNeedCoinbaseCoins = false;
