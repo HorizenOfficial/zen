@@ -355,11 +355,11 @@ DBErrors CWalletDB::ReorderTransactions(CWallet* pwallet)
     TxItems txByTime;
 
 #if 0
-    for (map<uint256, CWalletTx>::iterator it = pwallet->mapWallet.begin(); it != pwallet->mapWallet.end(); ++it)
+    for (map<uint256, CWalletTx>::iterator it = pwallet->getMapWallet().begin(); it != pwallet->getMapWallet().end(); ++it)
     {
         CWalletTx* wtx = &((*it).second);
 #else
-    for (auto it = pwallet->mapWallet.begin(); it != pwallet->mapWallet.end(); ++it)
+    for (auto it = pwallet->getMapWallet().begin(); it != pwallet->getMapWallet().end(); ++it)
     {
         auto* wtx = it->second.get();
 #endif
@@ -912,12 +912,9 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
     if ((wss.nKeys + wss.nCKeys) != wss.nKeyMeta)
         pwallet->nTimeFirstKey = 1; // 0 would be considered 'no value'
 
-    BOOST_FOREACH(uint256 hash, wss.vWalletUpgrade)
-#if 0
-        WriteTx(hash, pwallet->mapWallet[hash]);
-#else
-        WriteTx(hash, *(pwallet->mapWallet[hash]));
-#endif
+    for(uint256 hash: wss.vWalletUpgrade)
+        WriteTx(hash, *(pwallet->getMapWallet().at(hash)));
+
 
     // Rewrite encrypted wallets of versions 0.4.0 and 0.5.0rc:
     if (wss.fIsEncrypted && (wss.nFileVersion == 40000 || wss.nFileVersion == 50000))

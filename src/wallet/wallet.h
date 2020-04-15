@@ -901,7 +901,6 @@ private:
  */
 class CWallet : public CCryptoKeyStore, public CValidationInterface
 {
-    friend class CWalletTx;
 private:
 #if 0
     bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL) const;
@@ -1124,7 +1123,11 @@ public:
      */
     std::map<uint256, JSOutPoint> mapNullifiersToNotes;
 
+private:
     std::map<uint256, std::shared_ptr<CWalletObjBase> > mapWallet;
+public:
+    const std::map<uint256, std::shared_ptr<CWalletObjBase> > & getMapWallet() const  {return mapWallet;}
+    //No need for mapWallet setter, meaning that mapWallet is only read outside CWallet class
     typedef std::map<uint256, std::shared_ptr<CWalletObjBase> >::const_iterator MAP_WALLET_CONST_IT;
 
     int64_t nOrderPosNext;

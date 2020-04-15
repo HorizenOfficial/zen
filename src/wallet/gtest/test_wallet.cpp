@@ -876,9 +876,9 @@ TEST(wallet_tests, ClearNoteWitnessCache) {
     EXPECT_TRUE((bool) witnesses[0]);
     EXPECT_FALSE((bool) witnesses[1]);
 #if 0
-    EXPECT_EQ(1, wallet.mapWallet[hash].mapNoteData[jsoutpt].witnessHeight);
+    EXPECT_EQ(1, wallet.getMapWallet().at(hash).mapNoteData[jsoutpt].witnessHeight);
 #else
-    mapNoteData_t* m = const_cast<mapNoteData_t*>(wallet.mapWallet[hash]->GetMapNoteData());
+    mapNoteData_t* m = const_cast<mapNoteData_t*>(wallet.getMapWallet().at(hash)->GetMapNoteData());
     EXPECT_EQ(1, ((*m)[jsoutpt]).witnessHeight);
 #endif
     EXPECT_EQ(1, wallet.nWitnessCacheSize);
@@ -890,9 +890,9 @@ TEST(wallet_tests, ClearNoteWitnessCache) {
     EXPECT_FALSE((bool) witnesses[0]);
     EXPECT_FALSE((bool) witnesses[1]);
 #if 0
-    EXPECT_EQ(-1, wallet.mapWallet[hash].mapNoteData[jsoutpt].witnessHeight);
+    EXPECT_EQ(-1, wallet.getMapWallet().at(hash).mapNoteData[jsoutpt].witnessHeight);
 #else
-    mapNoteData_t* m2 = const_cast<mapNoteData_t*>(wallet.mapWallet[hash]->GetMapNoteData());
+    mapNoteData_t* m2 = const_cast<mapNoteData_t*>(wallet.getMapWallet().at(hash)->GetMapNoteData());
     EXPECT_EQ(-1, (*m2)[jsoutpt].witnessHeight);
 #endif
     EXPECT_EQ(0, wallet.nWitnessCacheSize);
@@ -1080,19 +1080,19 @@ TEST(wallet_tests, MarkAffectedTransactionsDirty) {
 
     // After getting a cached value, the first tx should be clean
 #if 0
-    wallet.mapWallet[hash].GetDebit(ISMINE_ALL);
-    EXPECT_TRUE(wallet.mapWallet[hash].fDebitCached);
+    wallet.getMapWallet().at(hash).GetDebit(ISMINE_ALL);
+    EXPECT_TRUE(wallet.getMapWallet().at(hash).fDebitCached);
 #else
-    wallet.mapWallet[hash]->GetDebit(ISMINE_ALL);
-    EXPECT_TRUE(wallet.mapWallet[hash]->fDebitCached);
+    wallet.getMapWallet().at(hash)->GetDebit(ISMINE_ALL);
+    EXPECT_TRUE(wallet.getMapWallet().at(hash)->fDebitCached);
 #endif
 
     // After adding the note spend, the first tx should be dirty
     wallet.AddToWallet(wtx2, true, NULL);
     wallet.MarkAffectedTransactionsDirty(wtx2);
 #if 0
-    EXPECT_FALSE(wallet.mapWallet[hash].fDebitCached);
+    EXPECT_FALSE(wallet.getMapWallet().at(hash).fDebitCached);
 #else
-    EXPECT_FALSE(wallet.mapWallet[hash]->fDebitCached);
+    EXPECT_FALSE(wallet.getMapWallet().at(hash)->fDebitCached);
 #endif
 }

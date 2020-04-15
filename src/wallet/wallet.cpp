@@ -2337,23 +2337,20 @@ void CWalletTx::addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKe
 {
     for(const CTxIn& txin: GetVin())
     {
-        auto mi = pwallet->mapWallet.find(txin.prevout.hash);
-        if (mi == pwallet->mapWallet.end())
-        {
+        auto mi = pwallet->getMapWallet().find(txin.prevout.hash);
+        if (mi == pwallet->getMapWallet().end()) {
             continue;
         }
-
         const auto& inputTx = (*mi).second;
-        if (txin.prevout.n >= inputTx->GetVout().size())
-        {
+
+        if (txin.prevout.n >= inputTx->GetVout().size()) {
             continue;
         }
-
         const CTxOut& utxo = inputTx->GetVout()[txin.prevout.n];
 
         auto res = std::search(utxo.scriptPubKey.begin(), utxo.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
         if (res == utxo.scriptPubKey.begin()) {
-            auto meAsObj = pwallet->mapWallet.at(GetHash());
+            auto meAsObj = pwallet->getMapWallet().at(GetHash());
             txOrdered.insert(make_pair(nOrderPos, TxPair(meAsObj.get(), (CAccountingEntry*)0)));
             return;
         }
@@ -3982,7 +3979,7 @@ void CWalletTx::HandleInputGrouping(std::set< std::set<CTxDestination> >& groupi
             CTxDestination address;
             if(!pwallet->IsMine(txin)) /* If this input isn't mine, ignore it */
                 continue;
-            if(!ExtractDestination(p->mapWallet[txin.prevout.hash]->GetVout()[txin.prevout.n].scriptPubKey, address))
+            if(!ExtractDestination(p->getMapWallet().at(txin.prevout.hash)->GetVout()[txin.prevout.n].scriptPubKey, address))
                 continue;
             grouping.insert(address);
             any_mine = true;
@@ -4710,23 +4707,20 @@ void CWalletTx::addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CS
 {
     for(const auto& txin: GetVin())
     {
-        const auto mi = pwallet->mapWallet.find(txin.prevout.hash);
-        if (mi == pwallet->mapWallet.end())
-        {
+        const auto mi = pwallet->getMapWallet().find(txin.prevout.hash);
+        if (mi == pwallet->getMapWallet().end()) {
             continue;
         }
 
         const auto& inputTx = (*mi).second;
-        if (txin.prevout.n >= inputTx->GetVout().size())
-        {
+        if (txin.prevout.n >= inputTx->GetVout().size()) {
             continue;
         }
 
         const CTxOut& utxo = inputTx->GetVout()[txin.prevout.n];
  
         auto res = std::search(utxo.scriptPubKey.begin(), utxo.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
-        if (res == utxo.scriptPubKey.begin())
-        {
+        if (res == utxo.scriptPubKey.begin()) {
             inputFound = true;
             entry.second.second.push_back(inputTx.get());
         }

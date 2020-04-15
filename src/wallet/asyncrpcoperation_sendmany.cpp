@@ -614,11 +614,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
             int wtxDepth = -1;
             {
                 LOCK2(cs_main, pwalletMain->cs_wallet);
-#if 0
-                const CWalletTx& wtx = pwalletMain->mapWallet[jso.hash];
-#else
-                const CWalletObjBase& wtx = *(pwalletMain->mapWallet[jso.hash]);
-#endif
+                const CWalletObjBase& wtx = *(pwalletMain->getMapWallet().at(jso.hash));
                 // Zero confirmaton notes belong to transactions which have not yet been mined
                 if (mapBlockIndex.find(wtx.hashBlock) == mapBlockIndex.end()) {
                     throw JSONRPCError(RPC_WALLET_ERROR, strprintf("mapBlockIndex does not contain block hash %s", wtx.hashBlock.ToString()));
