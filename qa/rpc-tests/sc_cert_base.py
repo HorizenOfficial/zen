@@ -201,7 +201,8 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Checking that amount transferred by certificate reaches Node1 wallet", self.nodes, DEBUG_MODE)
         retrieved_cert = self.nodes[1].gettransaction(cert_epoch_0)
         assert_equal(retrieved_cert['amount'], 0)        # Certificate amount is not mature yet
-        assert_equal(len(retrieved_cert['details']), 0)  # Where the bwt amount be retrieved?
+        assert_equal(retrieved_cert['details'][0]['category'], "immature")
+        assert_equal(retrieved_cert['details'][0]['amount'], amount_cert_1[0]["amount"])
 
         bal_after_bwt_confirmed = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance after bwt is confirmed: {}".format(bal_after_bwt_confirmed), self.nodes, DEBUG_MODE)
@@ -256,6 +257,7 @@ class sc_cert_base(BitcoinTestFramework):
         retrieved_cert = self.nodes[1].gettransaction(cert_epoch_0)
         # print "cert for epoch 0, following its maturity:\n", pprint.pprint(retrieved_cert)
         assert_equal(retrieved_cert['amount'],               amount_cert_1[0]["amount"])  # Certificate amount has matured
+        assert_equal(retrieved_cert['details'][0]['category'], "receive")
         assert_equal(retrieved_cert['details'][0]['amount'], amount_cert_1[0]["amount"])  # In cert details you can see the actual amount transferred
 
         mark_logs("Checking Node1 balance is duly updated,".format(epoch_number), self.nodes, DEBUG_MODE)

@@ -164,9 +164,14 @@ struct CScOutputEntry
 
 struct COutputEntry
 {
+    enum maturityState {
+        MATURE = 0,
+        IMMATURE
+    };
     CTxDestination destination;
-    CAmount amount;
-    int vout;
+    CAmount        amount;
+    maturityState  maturity;
+    int            vout;
 };
 
 /** An note outpoint */
@@ -389,9 +394,6 @@ public:
 
 class CWalletObjBase : virtual public MerkleAbstractBase
 {
-protected:
-    const CWallet* pwallet;
-
 private:
     // memory only
     mutable bool fDebitCached;
@@ -415,6 +417,10 @@ private:
 public:
     bool&    SetfDebitCached() {return fDebitCached;} //for UTs only
     CAmount& SetnDebitCached() {return nDebitCached;} //for UTs only
+
+protected:
+    const CWallet* pwallet;
+
 public:
     CWalletObjBase& operator=(const CWalletObjBase& o) = default;
     CWalletObjBase(const CWalletObjBase&) = default;
@@ -440,15 +446,19 @@ public:
         return (GetDebit(filter) > 0);
     }
 
-    void GetAccountAmounts(const std::string& strAccount, CAmount& nReceived,
+    void GetMatureAmountsForAccount(const std::string& strAccount, CAmount& nReceived,
                            CAmount& nSent, CAmount& nFee, const isminefilter& filter) const;
 
-    CAmount GetAvailableCredit(bool fUseCache=true) const;
     CAmount GetCredit(const isminefilter& filter) const;
-
+    CAmount GetImmatureCredit(bool fUseCache=true) const;
+    CAmount GetImmatureWatchOnlyCredit(const bool& fUseCache=true) const;
+    CAmount GetAvailableCredit(bool fUseCache=true) const;
     CAmount GetAvailableWatchOnlyCredit(const bool& fUseCache=true) const;
 
+    CAmount GetDebit(const isminefilter& filter) const;
+
     CAmount GetChange() const;
+
 
     bool WriteToDisk(CWalletDB *pwalletdb);
 
@@ -471,11 +481,6 @@ public:
 
     // virtuals
     virtual void SetNoteData(mapNoteData_t &noteData) {}; // default is null
-
-    //! filter decides which addresses will count towards the debit
-    CAmount GetDebit(const isminefilter& filter) const;
-    virtual CAmount GetImmatureCredit(bool fUseCache=true) const = 0;
-    virtual CAmount GetImmatureWatchOnlyCredit(const bool& fUseCache=true) const;
 
     virtual void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const = 0;
@@ -507,7 +512,7 @@ public:
     virtual void UpdateNullifierNoteMapWithTx(CWallet* pw) const { return; };
 
     // return false if the map is empty
-    virtual const mapNoteData_t* GetMapNoteData() const { return NULL; }
+    virtual const mapNoteData_t* GetMapNoteData() const { return nullptr; }
     virtual void SetMapNoteData(mapNoteData_t& m) {}
     virtual void HandleInputGrouping(std::set< std::set<CTxDestination> >& groupings, std::set<CTxDestination>& grouping) {};
 
@@ -634,10 +639,6 @@ public:
 
     void SetNoteData(mapNoteData_t &noteData) override;
 
-    //! filter decides which addresses will count towards the debit
-    CAmount GetImmatureCredit(bool fUseCache=true) const override;
-    CAmount GetImmatureWatchOnlyCredit(const bool& fUseCache=true) const override;
-
     void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const override;
 
@@ -755,9 +756,6 @@ public:
         mapValue.erase("n");
         mapValue.erase("timesmart");
     }
-
-    CAmount GetImmatureCredit(bool fUseCache=true) const override;
-    CAmount GetImmatureWatchOnlyCredit(const bool& fUseCache=true) const override;
 
     void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const override;
@@ -1327,7 +1325,8 @@ public:
     /** should probably be renamed to IsRelevantToMe */
     bool IsFromMe(const CTransaction& tx) const;
     CAmount GetDebit (const CTransactionBase& txBase, const isminefilter& filter) const;
-    CAmount GetCredit(const CTransactionBase& txBase, const isminefilter& filter, bool& fCanBeCached) const;
+    CAmount GetCredit(const CTransactionBase& txBase, const isminefilter& filter,
+                      bool& fCanBeCached, bool keepImmatureVoutsOnly) const;
     CAmount GetChange(const CTransactionBase& txBase) const;
 
     void ChainTip(const CBlockIndex *pindex, const CBlock *pblock, ZCIncrementalMerkleTree tree, bool added) override;

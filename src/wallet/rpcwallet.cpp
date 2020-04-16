@@ -1520,7 +1520,7 @@ CAmount GetAccountBalance(CWalletDB& walletdb, const string& strAccount, int nMi
             continue;
 
         CAmount nReceived, nSent, nFee;
-        wtx.GetAccountAmounts(strAccount, nReceived, nSent, nFee, filter);
+        wtx.GetMatureAmountsForAccount(strAccount, nReceived, nSent, nFee, filter);
 
         if (nReceived != 0 && wtx.GetDepthInMainChain() >= nMinDepth)
             nBalance += nReceived;
@@ -1594,15 +1594,17 @@ UniValue getbalance(const UniValue& params, bool fHelp)
             list<COutputEntry> listSent;
             list<CScOutputEntry> listScSent;
             wtx.GetAmounts(listReceived, listSent, listScSent, allFee, strSentAccount, filter);
-            if (wtx.GetDepthInMainChain() >= nMinDepth)
-            {
-                BOOST_FOREACH(const COutputEntry& r, listReceived)
-                    nBalance += r.amount;
+            if (wtx.GetDepthInMainChain() >= nMinDepth) {
+                for(const COutputEntry& r: listReceived)
+                    if (r.maturity == COutputEntry::MATURE)
+                        nBalance += r.amount;
             }
-            BOOST_FOREACH(const COutputEntry& s, listSent)
+
+            for(const COutputEntry& s: listSent)
                 nBalance -= s.amount;
-            BOOST_FOREACH(const CScOutputEntry& s, listScSent)
+            for(const CScOutputEntry& s: listScSent)
                 nBalance -= s.amount;
+
             nBalance -= allFee;
         }
         return  ValueFromAmount(nBalance);
@@ -2151,11 +2153,7 @@ static void MaybePushAddress(UniValue & entry, const CTxDestination &dest)
         entry.push_back(Pair("address", addr.ToString()));
 }
 
-#if 0
-void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDepth, bool fLong, UniValue& ret, const isminefilter& filter)
-#else
 void ListTransactions(const CWalletObjBase& wtx, const string& strAccount, int nMinDepth, bool fLong, UniValue& ret, const isminefilter& filter)
-#endif
 {
     CAmount nFee;
     string strSentAccount;
@@ -2185,11 +2183,8 @@ void ListTransactions(const CWalletObjBase& wtx, const string& strAccount, int n
             entry.push_back(Pair("fee", ValueFromAmount(-nFee)));
             if (fLong)
                 WalletTxToJSON(wtx, entry, filter);
-#if 0
-            entry.push_back(Pair("size", static_cast<CTransaction>(wtx).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)));
-#else
+
             entry.push_back(Pair("size", (int)(wtx.CalculateSize()) ));
-#endif
             ret.push_back(entry);
         }
         BOOST_FOREACH(const CScOutputEntry& s, listScSent)
@@ -2201,20 +2196,15 @@ void ListTransactions(const CWalletObjBase& wtx, const string& strAccount, int n
             entry.push_back(Pair("fee", ValueFromAmount(-nFee)));
             if (fLong)
                 WalletTxToJSON(wtx, entry, filter);
-#if 0
-            entry.push_back(Pair("size", static_cast<CTransaction>(wtx).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)));
-#else
+
             entry.push_back(Pair("size", (int)(wtx.CalculateSize()) ));
-#endif
             ret.push_back(entry);
         }
     }
 
     // Received
-    if (listReceived.size() > 0 && wtx.GetDepthInMainChain() >= nMinDepth)
-    {
-        BOOST_FOREACH(const COutputEntry& r, listReceived)
-        {
+    if (listReceived.size() > 0 && wtx.GetDepthInMainChain() >= nMinDepth) {
+        for(const COutputEntry& r: listReceived) {
             string account;
             if (pwalletMain->mapAddressBook.count(r.destination))
                 account = pwalletMain->mapAddressBook[r.destination].name;
@@ -2236,18 +2226,18 @@ void ListTransactions(const CWalletObjBase& wtx, const string& strAccount, int n
                 }
                 else
                 {
-                    entry.push_back(Pair("category", "receive"));
+                    if (r.maturity == COutputEntry::MATURE)
+                        entry.push_back(Pair("category", "receive"));
+                    else
+                        entry.push_back(Pair("category", "immature"));
                 }
                 entry.push_back(Pair("amount", ValueFromAmount(r.amount)));
                 if (r.vout != -1)
                    entry.push_back(Pair("vout", r.vout));
                 if (fLong)
                     WalletTxToJSON(wtx, entry, filter);
-#if 0
-                entry.push_back(Pair("size", static_cast<CTransaction>(wtx).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)));
-#else
+
                 entry.push_back(Pair("size", (int)(wtx.CalculateSize()) ));
-#endif
                 ret.push_back(entry);
             }
         }
@@ -2581,15 +2571,10 @@ UniValue listaccounts(const UniValue& params, bool fHelp)
             mapAccountBalances[entry.second.name] = 0;
     }
 
-#if 0
-    for (map<uint256, CWalletTx>::iterator it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
-    {
-        const CWalletTx& wtx = (*it).second;
-#else
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletObjBase& wtx = *((*it).second);
-#endif
+
         CAmount nFee;
         string strSentAccount;
         list<COutputEntry> listReceived;
@@ -2598,19 +2583,27 @@ UniValue listaccounts(const UniValue& params, bool fHelp)
         int nDepth = wtx.GetDepthInMainChain();
         if ((wtx.IsCoinBase() && !wtx.IsMature()) || nDepth < 0)
             continue;
+
         wtx.GetAmounts(listReceived, listSent, listScSent, nFee, strSentAccount, includeWatchonly);
+
         mapAccountBalances[strSentAccount] -= nFee;
-        BOOST_FOREACH(const COutputEntry& s, listSent)
+
+        for(const COutputEntry& s: listSent)
             mapAccountBalances[strSentAccount] -= s.amount;
-        BOOST_FOREACH(const CScOutputEntry& s, listScSent)
+
+        for(const CScOutputEntry& s: listScSent)
             mapAccountBalances[strSentAccount] -= s.amount;
-        if (nDepth >= nMinDepth)
-        {
-            BOOST_FOREACH(const COutputEntry& r, listReceived)
+
+        if (nDepth >= nMinDepth) {
+            for(const COutputEntry& r: listReceived) {
+                if (r.maturity == COutputEntry::IMMATURE)
+                    continue;
+
                 if (pwalletMain->mapAddressBook.count(r.destination))
                     mapAccountBalances[pwalletMain->mapAddressBook[r.destination].name] += r.amount;
                 else
                     mapAccountBalances[""] += r.amount;
+            }
         }
     }
 
@@ -3415,7 +3408,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
     assert(pwalletMain != NULL);
     LOCK2(cs_main, pwalletMain->cs_wallet);
     pwalletMain->AvailableCoins(vecOutputs, false, NULL, true, true);
-    BOOST_FOREACH(const COutput& out, vecOutputs) {
+    for(const COutput& out: vecOutputs) {
         if (out.nDepth < nMinDepth || out.nDepth > nMaxDepth)
             continue;
 
@@ -3431,7 +3424,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         CAmount nValue = out.tx->GetVout()[out.pos].nValue;
         const CScript& pk = out.tx->GetVout()[out.pos].scriptPubKey;
         UniValue entry(UniValue::VOBJ);
-#if 1
+
         if (out.tx->IsCertificate() )
         {
             entry.push_back(Pair("cert", out.tx->GetHash().GetHex()));
@@ -3444,11 +3437,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             entry.push_back(Pair("vout", out.pos));
             entry.push_back(Pair("generated", out.tx->IsCoinBase()));
         }
-#else
-        entry.push_back(Pair("txid", out.tx->GetHash().GetHex()));
-        entry.push_back(Pair("vout", out.pos));
-        entry.push_back(Pair("generated", out.tx->IsCoinBase()));
-#endif
+
         CTxDestination address;
         if (ExtractDestination(out.tx->GetVout()[out.pos].scriptPubKey, address)) {
             entry.push_back(Pair("address", CBitcoinAddress(address).ToString()));
