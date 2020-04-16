@@ -396,7 +396,7 @@ class CWalletObjBase : virtual public MerkleAbstractBase
 protected:
     const CWallet* pwallet;
 
-public:
+private:
     // memory only
     mutable bool fDebitCached;
     mutable bool fCreditCached;
@@ -416,7 +416,10 @@ public:
     mutable CAmount nImmatureWatchCreditCached;
     mutable CAmount nAvailableWatchCreditCached;
     mutable CAmount nChangeCached;
-
+public:
+    bool&    SetfDebitCached() {return fDebitCached;} //for UTs only
+    CAmount& SetnDebitCached() {return nDebitCached;} //for UTs only
+public:
     CWalletObjBase& operator=(const CWalletObjBase& o) = default;
     CWalletObjBase(const CWalletObjBase&) = default;
     CWalletObjBase() = default;

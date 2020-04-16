@@ -1081,18 +1081,18 @@ TEST(wallet_tests, MarkAffectedTransactionsDirty) {
     // After getting a cached value, the first tx should be clean
 #if 0
     wallet.getMapWallet().at(hash).GetDebit(ISMINE_ALL);
-    EXPECT_TRUE(wallet.getMapWallet().at(hash).fDebitCached);
+    EXPECT_TRUE(wallet.getMapWallet().at(hash).SetfDebitCached());
 #else
     wallet.getMapWallet().at(hash)->GetDebit(ISMINE_ALL);
-    EXPECT_TRUE(wallet.getMapWallet().at(hash)->fDebitCached);
+    EXPECT_TRUE(wallet.getMapWallet().at(hash)->SetfDebitCached());
 #endif
 
     // After adding the note spend, the first tx should be dirty
     wallet.AddToWallet(wtx2, true, NULL);
     wallet.MarkAffectedTransactionsDirty(wtx2);
 #if 0
-    EXPECT_FALSE(wallet.getMapWallet().at(hash).fDebitCached);
+    EXPECT_FALSE(wallet.getMapWallet().at(hash).SetfDebitCached());
 #else
-    EXPECT_FALSE(wallet.getMapWallet().at(hash)->fDebitCached);
+    EXPECT_FALSE(wallet.getMapWallet().at(hash)->SetfDebitCached());
 #endif
 }
