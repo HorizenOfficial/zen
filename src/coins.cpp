@@ -1025,6 +1025,35 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
     return true;
 }
 
+bool CCoinsViewCache::IsOutputMature(const uint256& txHash, unsigned int pos) const
+{
+    if (HaveCoins(txHash) == 0)
+        return false;
+
+    const CCoins* pRefCoin =  AccessCoins(txHash);
+
+    if (!pRefCoin->IsAvailable(pos))
+        return false;
+
+    if (!pRefCoin->vout[pos].isFromBackwardTransfer)
+        return true;
+
+    CSidechain targetSc;
+    if (!GetSidechain(pRefCoin->originScId, targetSc)) {
+        LogPrint("sc", "%s():%d - coin in current view reference unknown sidechain sc [%s]\n",
+                __func__, __LINE__, pRefCoin->originScId.ToString());
+        return false;
+    }
+
+    int coinEpoch = (pRefCoin->nHeight - targetSc.creationBlockHeight + 1) / targetSc.creationData.withdrawalEpochLength - 1;
+    int lastCertEpoch = targetSc.lastReceivedCertificateEpoch;
+
+    if (coinEpoch >= lastCertEpoch)
+        return false;
+
+    return true;
+}
+
 bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert)
 {
     const uint256& scId = cert.GetScId();

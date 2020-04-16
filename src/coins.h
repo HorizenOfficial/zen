@@ -554,6 +554,7 @@ public:
     CAmount getSidechainBalance(const uint256& scId) const;
     bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& bu);
     bool RevertCertOutputs(const CScCertificate& cert);
+    bool IsOutputMature(const uint256& txHash, unsigned int pos) const;
 
     bool Flush();
 

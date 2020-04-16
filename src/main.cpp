@@ -94,8 +94,8 @@ struct COrphanTx {
     CTransaction tx;
     NodeId fromPeer;
 };
-map<uint256, COrphanTx> mapOrphanTransactions GUARDED_BY(cs_main);;
-map<uint256, set<uint256> > mapOrphanTransactionsByPrev GUARDED_BY(cs_main);;
+map<uint256, COrphanTx> mapOrphanTransactions GUARDED_BY(cs_main);
+map<uint256, set<uint256> > mapOrphanTransactionsByPrev GUARDED_BY(cs_main);
 void EraseOrphansFor(NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 /**
@@ -1454,9 +1454,17 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             // before rotating backend view to dummy
             for(const CTxIn& in: tx.GetVin()) {
                 const CCoins *coins = view.AccessCoins(in.prevout.hash);
-                assert(coins); //should have been validated before
-                if (coins->IsFromCert()) {
-                    assert(view.HaveSidechain(coins->originScId)); //should have been validated before
+                assert(coins);
+
+                if (coins->IsFromCert()) { //This is just to avoid following assert for non-cert coins
+                    // HaveInputs above checks for utxos availability. So accessing vout[in.prevout.n] is safe
+                    assert(coins->IsAvailable(in.prevout.n));
+
+
+                    //check on vout is better than coins->IsFromCert() since it'll skip loading scInfo for zero bwt amount certs
+                    if (coins->vout[in.prevout.n].isFromBackwardTransfer) {
+                        assert(view.HaveSidechain(coins->originScId)); //minimal op to pull scinfo into view
+                    }
                 }
             }
 
@@ -2060,8 +2068,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
 
         CAmount nValueIn = 0;
         for(const CTxIn& in: txBase.GetVin()) {
-            const COutPoint &prevout = in.prevout;
-            const CCoins *coins = inputs.AccessCoins(prevout.hash);
+            const CCoins *coins = inputs.AccessCoins(in.prevout.hash);
             assert(coins);
 
             if (coins->IsCoinBase()) {
@@ -2081,35 +2088,23 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                     // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed
                     // to send them to the transparent addr.
                     bool fDisableProtectionForFR = ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(nSpendHeight);
-                    if (!fDisableProtectionForFR || !IsCommunityFund(coins, prevout.n)) {
+                    if (!fDisableProtectionForFR || !IsCommunityFund(coins, in.prevout.n)) {
                         return state.Invalid(
                                 error("CheckInputs(): tried to spend coinbase with transparent outputs"),
                                 REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
                     }
                 }
-            }
-
-            if(coins->IsFromCert()) {
-                CSidechain targetSc;
-                if (!inputs.GetSidechain(coins->originScId, targetSc)) {
-                    LogPrint("sc", "%s():%d - current view does not contain sc [%s]\n", __func__, __LINE__, coins->originScId.ToString());
-                    return state.DoS(100, error("CheckInputs(): current view does not contain sc [%s]", coins->originScId.ToString()),
-                                     REJECT_INVALID, "cert-for-unknown-sc");
-                }
-
-                int coinEpoch = (coins->nHeight - targetSc.creationBlockHeight + 1) / targetSc.creationData.withdrawalEpochLength - 1;
-                int lastCertEpoch = targetSc.lastReceivedCertificateEpoch;
-
-                if (coinEpoch >= lastCertEpoch) {
+            } else if (coins->IsFromCert()) {
+                if (!inputs.IsOutputMature(in.prevout.hash, in.prevout.n))
                     return state.Invalid(
                         error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
                         REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
-                }
             }
 
+
             // Check for negative or overflow input values
-            nValueIn += coins->vout[prevout.n].nValue;
-            if (!MoneyRange(coins->vout[prevout.n].nValue) || !MoneyRange(nValueIn))
+            nValueIn += coins->vout[in.prevout.n].nValue;
+            if (!MoneyRange(coins->vout[in.prevout.n].nValue) || !MoneyRange(nValueIn))
                 return state.DoS(100, error("CheckInputs(): txin values out of range"),
                                  REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 

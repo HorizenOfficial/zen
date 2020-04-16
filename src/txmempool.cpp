@@ -395,14 +395,12 @@ void CTxMemPool::removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsig
                     break;
                 }
             } else if (coins->IsFromCert()) {
-                if (fSanityCheck) assert(pcoins->HaveSidechain(coins->originScId));
+                if (fSanityCheck) {
+                    assert(coins->IsAvailable(txin.prevout.n));
+                    assert(pcoins->HaveSidechain(coins->originScId));
+                }
 
-                CSidechain originSc;
-                pcoins->GetSidechain(coins->originScId, originSc);
-                int coinEpoch = (coins->nHeight - originSc.creationBlockHeight + 1) / originSc.creationData.withdrawalEpochLength - 1;
-                int lastCertEpoch = originSc.lastReceivedCertificateEpoch;
-
-                if (coinEpoch >= lastCertEpoch) {
+                if (!pcoins->IsOutputMature(txin.prevout.hash, txin.prevout.n)) {
                     transactionsToRemove.push_back(tx);
                     break;
                 }

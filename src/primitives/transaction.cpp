@@ -359,12 +359,12 @@ CTransactionBase::CTransactionBase(const CTransactionBase &tx) : nVersion(TRANSP
 CAmount CTransactionBase::GetValueOut() const
 {
     CAmount nValueOut = 0;
-    for (std::vector<CTxOut>::const_iterator it(vout.begin()); it != vout.end(); ++it)
-    {
-        nValueOut += it->nValue;
-        if (!MoneyRange(it->nValue) || !MoneyRange(nValueOut))
+    for(const CTxOut& out: vout) {
+        nValueOut += out.nValue;
+        if (!MoneyRange(out.nValue) || !MoneyRange(nValueOut))
             throw std::runtime_error("CTransactionBase::GetValueOut(): value out of range");
     }
+
     return nValueOut;
 }
 

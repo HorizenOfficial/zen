@@ -1190,7 +1190,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     }
     char cNetwork = (char)network;
     LogPrint("sc", "ntw type[%d]\n", cNetwork);
-    ssBlock << cNetwork;;
+    ssBlock << cNetwork;
 
     // scid
     ssBlock << scId;

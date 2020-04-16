@@ -308,7 +308,7 @@ public:
     }
 
     virtual uint256 GetObjHash() const = 0;
-    virtual bool IsMature() const = 0;
+    virtual bool IsMature() const;
 
     /**
      * Return depth of transaction in blockchain:
@@ -353,8 +353,6 @@ public:
     }
 
     uint256 GetObjHash() const override { return GetHash(); }
-
-    bool IsMature() const override;
 };
 
 /** A certificate with a merkle branch linking it to the block chain. */
@@ -387,8 +385,6 @@ public:
     }
 
     uint256 GetObjHash() const override { return GetHash(); }
-
-    bool IsMature() const override;
 };
 
 class CWalletObjBase : virtual public MerkleAbstractBase
@@ -478,7 +474,7 @@ public:
 
     //! filter decides which addresses will count towards the debit
     CAmount GetDebit(const isminefilter& filter) const;
-    virtual CAmount GetImmatureCredit(bool fUseCache=true) const = 0;;
+    virtual CAmount GetImmatureCredit(bool fUseCache=true) const = 0;
     virtual CAmount GetImmatureWatchOnlyCredit(const bool& fUseCache=true) const;
 
     virtual void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
@@ -1331,7 +1327,7 @@ public:
     /** should probably be renamed to IsRelevantToMe */
     bool IsFromMe(const CTransaction& tx) const;
     CAmount GetDebit (const CTransactionBase& txBase, const isminefilter& filter) const;
-    CAmount GetCredit(const CTransactionBase& txBase, const isminefilter& filter) const;
+    CAmount GetCredit(const CTransactionBase& txBase, const isminefilter& filter, bool& fCanBeCached) const;
     CAmount GetChange(const CTransactionBase& txBase) const;
 
     void ChainTip(const CBlockIndex *pindex, const CBlock *pblock, ZCIncrementalMerkleTree tree, bool added) override;
