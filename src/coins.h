@@ -571,7 +571,7 @@ public:
      * @param[in] tx    transaction for which we are checking input total
      * @return    Sum of value of all inputs (scriptSigs)
      */
-    CAmount GetValueIn(const CTransaction& tx) const;
+    CAmount GetValueIn(const CTransactionBase& tx) const;
 
     //! Check whether all prevouts of the transaction are present in the UTXO set represented by this view
     bool HaveInputs(const CTransactionBase& txBase) const;
@@ -580,7 +580,7 @@ public:
     bool HaveJoinSplitRequirements(const CTransactionBase& txBase) const;
 
     //! Return priority of tx at height nHeight
-    double GetPriority(const CTransaction &tx, int nHeight) const;
+    double GetPriority(const CTransactionBase &tx, int nHeight) const;
 
     const CTxOut &GetOutputFor(const CTxIn& input) const;
 

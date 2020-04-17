@@ -759,6 +759,17 @@ void CWalletTx::AddToSpends(CWallet* pw)
 #endif
 }
 
+void CWalletCert::AddToSpends(CWallet* pw)
+{
+    // wallet is explicitly passed along since pwallet ptr is const and t calls non-const method
+    assert(pw);
+
+    for (const CTxIn& txin : GetVin()) {
+        LogPrint("cert", "%s():%d - obj[%s] spends out %d of [%s]\n", __func__, __LINE__,
+            GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
+        pw->AddToSpends(txin.prevout, GetHash());
+    }
+}
 
 void CWallet::ClearNoteWitnessCache()
 {
@@ -1623,11 +1634,10 @@ void CWallet::SyncCertificate(const CScCertificate& cert, const CBlock* pblock)
     if (!AddToWalletIfInvolvingMe(cert, pblock, true))
         return; // Not one of ours
 
-// not needed for cert
-//    MarkAffectedTransactionsDirty(tx);
+    MarkAffectedTransactionsDirty(cert);
 }
 
-void CWallet::MarkAffectedTransactionsDirty(const CTransaction& tx)
+void CWallet::MarkAffectedTransactionsDirty(const CTransactionBase& tx)
 {
     // If a transaction changes 'conflicted' state, that changes the balance
     // available of the outputs it spends. So force those to be
@@ -2393,7 +2403,7 @@ bool CWalletTx::IsInvolvingMe(mapNoteData_t &noteData) const
 }
 
 
-set<uint256> CWalletTx::GetConflicts() const
+set<uint256> CWalletObjBase::GetConflicts() const
 {
     set<uint256> result;
     if (pwallet != NULL)
@@ -2405,7 +2415,7 @@ set<uint256> CWalletTx::GetConflicts() const
     return result;
 }
 
-void CWalletTx::GetConflicts(std::set<uint256>& result) const
+void CWalletObjBase::GetConflicts(std::set<uint256>& result) const
 {
     if (!pwallet)
     {
@@ -2682,7 +2692,7 @@ CAmount CWalletObjBase::GetChange() const
     return nChangeCached;
 }
 
-bool CWalletTx::IsTrusted() const
+bool CWalletObjBase::IsTrusted() const
 {
     // Quick answer in most cases
 #if 0
@@ -4978,23 +4988,6 @@ void CWalletCert::GetAmounts(std::list<COutputEntry>& listReceived, std::list<CO
         if (fIsMine & filter)
             listReceived.push_back(output);
     }
-}
-
-bool CWalletCert::IsTrusted() const 
-{
-    LogPrint("cert", "%s():%d - called for obj[%s]\n", __func__, __LINE__, GetHash().ToString());
-
-    int nDepth = GetDepthInMainChain();
-
-    // a certificate must not be in mempool for being considered
-    if (nDepth <= 0)
-    {
-        LogPrint("cert", "%s():%d - depth %d: returning false\n", __func__, __LINE__, nDepth);
-        return false;
-    }
-
-    LogPrint("cert", "%s():%d - depth %d: returning true\n", __func__, __LINE__, nDepth);
-    return true;
 }
 
 bool CWalletCert::RelayWalletTransaction() 

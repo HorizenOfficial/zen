@@ -366,7 +366,7 @@ unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& ma
  * This does not modify the UTXO set. If pvChecks is not NULL, script checks are pushed onto it
  * instead of being performed inline.
  */
-bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
+bool ContextualCheckInputs(const CTransactionBase& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
                            std::vector<CScriptCheck> *pvChecks = NULL);
 
@@ -413,7 +413,7 @@ class CScriptCheck
 {
 private:
     CScript scriptPubKey;
-    const CTransaction *ptxTo;
+    const CTransactionBase *ptxTo;
     unsigned int nIn;
     const CChain *chain;
     unsigned int nFlags;
@@ -422,7 +422,7 @@ private:
 
 public:
     CScriptCheck();
-    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, const CChain* chainIn, unsigned int nFlagsIn, bool cacheIn);
+    CScriptCheck(const CCoins& txFromIn, const CTransactionBase& txToIn, unsigned int nInIn, const CChain* chainIn, unsigned int nFlagsIn, bool cacheIn);
     bool operator()();
     void swap(CScriptCheck &check);
     ScriptError GetScriptError() const;

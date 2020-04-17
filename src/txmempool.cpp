@@ -904,7 +904,7 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
         if (!mempool.mapSidechains.at(scId).backwardCertificate.IsNull()) {
             const uint256& certHash = mempool.mapSidechains.at(scId).backwardCertificate;
             const CScCertificate & cert = mempool.mapCertificate.at(certHash).GetCertificate();
-            info.balance -= cert.totalAmount;
+            info.balance -= cert.GetValueOfBackwardTransfers();
         }
     }
 

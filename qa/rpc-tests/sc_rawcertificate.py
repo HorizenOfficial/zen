@@ -102,7 +102,7 @@ class sc_rawcert(BitcoinTestFramework):
         self.sync_all()
 
         raw_addresses = {pkh_node2: bt_amount}
-        raw_params = {"scid": scid, "endEpochBlockHash": eph, "totalAmount": bt_amount, "fee": CERT_FEE, "nonce": "abcd", "withdrawalEpochNumber": epn}
+        raw_params = {"scid": scid, "endEpochBlockHash": eph, "fee": CERT_FEE, "withdrawalEpochNumber": epn}
         raw_cert = []
         cert = []
 
@@ -114,7 +114,7 @@ class sc_rawcert(BitcoinTestFramework):
             assert_true(False)
 
         decoded_cert_pre = self.nodes[0].decoderawcertificate(raw_cert)
-        decoded_cert_pre_list = sorted(decoded_cert_pre.items(), key=operator.itemgetter(1))
+        decoded_cert_pre_list = sorted(decoded_cert_pre.items())
 
         mark_logs("Node0 sending raw certificate for epoch {}, expecting failure...".format(epn), self.nodes, DEBUG_MODE)
         # we expect it to fail because beyond the safeguard
@@ -160,7 +160,7 @@ class sc_rawcert(BitcoinTestFramework):
         del decoded_cert_post['blockhash']
         del decoded_cert_post['confirmations']
         del decoded_cert_post['blocktime']
-        decoded_cert_post_list = sorted(decoded_cert_post.items(), key=operator.itemgetter(1))
+        decoded_cert_post_list = sorted(decoded_cert_post.items())
 
         mark_logs("check that cert decodes correctly", self.nodes, DEBUG_MODE)
         assert_equal(decoded_cert_pre_list, decoded_cert_post_list)
@@ -169,7 +169,7 @@ class sc_rawcert(BitcoinTestFramework):
         assert_equal(self.nodes[2].getscinfo(scid)['balance'], (sc_amount - bt_amount))
 
         raw_addresses = {}
-        raw_params = {"scid": scid, "endEpochBlockHash": eph, "totalAmount": 0.0, "fee": CERT_FEE, "nonce": "abcd", "withdrawalEpochNumber": epn}
+        raw_params = {"scid": scid, "endEpochBlockHash": eph, "fee": CERT_FEE, "withdrawalEpochNumber": epn}
         raw_cert = []
         cert = []
 
@@ -182,7 +182,7 @@ class sc_rawcert(BitcoinTestFramework):
             assert_true(False)
 
         decoded_cert_pre = self.nodes[0].decoderawcertificate(raw_cert)
-        decoded_cert_pre_list = sorted(decoded_cert_pre.items(), key=operator.itemgetter(1))
+        decoded_cert_pre_list = sorted(decoded_cert_pre.items())
 
         mark_logs("Node0 sending raw certificate with no outputs for epoch {}".format(epn), self.nodes, DEBUG_MODE)
         try:
@@ -213,7 +213,7 @@ class sc_rawcert(BitcoinTestFramework):
         del decoded_cert_post['blockhash']
         del decoded_cert_post['confirmations']
         del decoded_cert_post['blocktime']
-        decoded_cert_post_list = sorted(decoded_cert_post.items(), key=operator.itemgetter(1))
+        decoded_cert_post_list = sorted(decoded_cert_post.items())
 
         mark_logs("check that cert decodes correctly", self.nodes, DEBUG_MODE)
         assert_equal(decoded_cert_pre_list, decoded_cert_post_list)

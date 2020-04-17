@@ -481,19 +481,19 @@ public:
     virtual void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const = 0;
 
-    virtual bool IsTrusted() const = 0;
+    virtual bool IsTrusted() const;
 
     virtual bool RelayWalletTransaction() = 0;
     virtual bool IsInvolvingMe(mapNoteData_t &noteData) const = 0;
 
-    virtual std::set<uint256> GetConflicts() const { return std::set<uint256>(); } // default is the empty set (certs has no conflcts)
-    virtual void GetConflicts(std::set<uint256>& result) const { } // default is empty (certs has no conflcts)
+    std::set<uint256> GetConflicts() const;
+    void GetConflicts(std::set<uint256>& result) const;
     virtual void GetNotesAmount(
         std::vector<CNotePlaintextEntry> & outEntries,
         bool fFilterAddress,
         libzcash::PaymentAddress filterPaymentAddress,
         bool ignoreSpent = true, bool ignoreUnspendable = true) {} // default empty (certs have no notes)
-    virtual void AddToSpends(CWallet* pw) {}; // certs do not spend anything
+    virtual void AddToSpends(CWallet* pw)  = 0; 
     virtual void ClearNoteWitnessCache() {};
 
     virtual void IncrementWitness(int64_t nWitnessCacheSize, int nHeight) { return; }
@@ -644,13 +644,8 @@ public:
     void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const override;
 
-    bool IsTrusted() const override;
-
     bool RelayWalletTransaction() override;
     bool IsInvolvingMe(mapNoteData_t &noteData) const override;
-
-    std::set<uint256> GetConflicts() const override;
-    void GetConflicts(std::set<uint256>& result) const override;
 
     void GetNotesAmount(
         std::vector<CNotePlaintextEntry> & outEntries,
@@ -769,7 +764,7 @@ public:
     void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const override;
 
-    bool IsTrusted() const override;
+    void AddToSpends(CWallet* pw) override;
 
     bool RelayWalletTransaction() override;
     bool IsInvolvingMe(mapNoteData_t &noteData) const override;
@@ -922,6 +917,8 @@ private:
 class CWallet : public CCryptoKeyStore, public CValidationInterface
 {
     friend class CWalletTx;
+    friend class CWalletCert;
+    friend class CWalletObjBase;
 private:
 #if 0
     bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL) const;
@@ -1034,10 +1031,11 @@ private:
 protected:
 #if 0
     bool UpdatedNoteData(const CWalletTx& wtxIn, CWalletTx& wtx);
+    void MarkAffectedTransactionsDirty(const CTransaction& tx);
 #else
     bool UpdatedNoteData(const CWalletObjBase& wtxIn, CWalletObjBase& wtx);
+    void MarkAffectedTransactionsDirty(const CTransactionBase& tx);
 #endif
-    void MarkAffectedTransactionsDirty(const CTransaction& tx);
 
 public:
     /*

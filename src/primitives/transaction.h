@@ -27,6 +27,7 @@
 
 #include "consensus/params.h"
 #include <sc/sidechaintypes.h>
+#include <script/script_error.h>
 
 static const int32_t SC_CERT_VERSION = 0xFFFFFFFB; // -5
 static const int32_t SC_TX_VERSION = 0xFFFFFFFC; // -4
@@ -427,8 +428,8 @@ public:
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
         return (a.nValue                 == b.nValue &&
-                a.scriptPubKey           == b.scriptPubKey &&
-                a.isFromBackwardTransfer == b.isFromBackwardTransfer);
+                a.scriptPubKey           == b.scriptPubKey /* &&
+                a.isFromBackwardTransfer == b.isFromBackwardTransfer */);
     }
 
     friend bool operator!=(const CTxOut& a, const CTxOut& b)
@@ -666,6 +667,7 @@ class UniValue;
 
 namespace Sidechain { class ScCoinsViewCache; }
 
+class BaseSignatureChecker;
 
 // abstract interface for CTransaction and CScCertificate
 class CTransactionBase
@@ -673,6 +675,8 @@ class CTransactionBase
 protected:
     /** Memory only. */
     const uint256 hash;
+
+    const std::vector<CTxIn> vin;
     const std::vector<CTxOut> vout;
 
     virtual void UpdateHash() const = 0;
@@ -706,8 +710,9 @@ public:
     virtual bool IsScVersion() const = 0;
 
     //GETTERS
-    virtual const std::vector<CTxIn>&         GetVin()        const = 0;
-    virtual const std::vector<CTxOut>&        GetVout()       const = 0;
+    const std::vector<CTxIn>&         GetVin()        const {return vin;};
+    const std::vector<CTxOut>&        GetVout()       const {return vout;};
+
     virtual const std::vector<JSDescription>& GetVjoinsplit() const = 0;
     virtual const uint256&                    GetScId()       const = 0;
     //END OF GETTERS
@@ -731,18 +736,23 @@ public:
     // Return sum of txouts.
     virtual CAmount GetValueOut() const;
 
+    int GetComplexity() const { return vin.size()*vin.size(); }
+
+    // Compute modified tx size for priority calculation (optionally given tx size)
+    unsigned int CalculateModifiedSize(unsigned int nTxSize=0) const;
+
+    // Compute priority, given priority of inputs and (optionally) tx size
+    double ComputePriority(double dPriorityInputs, unsigned int nTxSize=0) const;
+
     //-----------------
     // pure virtual interfaces 
     virtual bool IsNull() const = 0;
 
     // return fee amount
-    virtual CAmount GetFeeAmount(CAmount valueIn) const = 0;
+    virtual CAmount GetFeeAmount(const CAmount& valueIn) const = 0;
 
     // Compute tx size
     virtual unsigned int CalculateSize() const = 0;
-
-    // Compute modified tx size for priority calculation (optionally given tx size)
-    virtual unsigned int CalculateModifiedSize(unsigned int nTxSize=0) const = 0;
 
     virtual std::string EncodeHex() const = 0;
     virtual std::string ToString() const = 0;
@@ -757,6 +767,13 @@ public:
 
     virtual double GetPriority(const CCoinsViewCache &view, int nHeight) const = 0;
     virtual unsigned int GetLegacySigOpCount() const = 0;
+
+    bool VerifyScript(
+        const CScript& scriptPubKey, unsigned int flags, unsigned int nIn, const CChain* chain,
+        bool cacheStore, ScriptError* serror) const;
+
+    virtual std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
+        unsigned int nIn, const CChain* chain, bool cacheStore) const = 0;
 
     //-----------------
     // default values for derived classes which do not support specific data structures
@@ -778,7 +795,6 @@ public:
 
     virtual unsigned int GetP2SHSigOpCount(CCoinsViewCache& view) const { return 0; }
     virtual const uint256 getJoinSplitPubKey() const { return uint256(); }
-    virtual int GetComplexity() const { return 0; }
 
     // return sum of txins, and needs CCoinsViewCache, because
     // inputs must be known to compute value in.
@@ -814,7 +830,6 @@ public:
     // and bypass the constness. This is safe, as they update the entire
     // structure, including the hash.
 private:
-    const std::vector<CTxIn> vin;
     const std::vector<JSDescription> vjoinsplit;
 public:
     const std::vector<CTxScCreationOut> vsc_ccout;
@@ -862,11 +877,7 @@ public:
     template <typename Stream>
     CTransaction(deserialize_type, Stream& s) : CTransaction(CMutableTransaction(deserialize, s)) {}
     
-    // Compute priority, given priority of inputs and (optionally) tx size
-    double ComputePriority(double dPriorityInputs, unsigned int nTxSize=0) const;
-
     unsigned int CalculateSize() const override;
-    unsigned int CalculateModifiedSize(unsigned int nTxSize) const override;
 
     std::string EncodeHex() const override;
 
@@ -900,8 +911,6 @@ public:
     }
 
     //GETTERS
-    const std::vector<CTxIn>&         GetVin()        const override {return vin;};
-    const std::vector<CTxOut>&        GetVout()       const override {return vout;};
     const std::vector<JSDescription>& GetVjoinsplit() const override {return vjoinsplit;};
     const uint256&                    GetScId()       const override { static uint256 noScId; return noScId;};
     //END OF GETTERS
@@ -919,9 +928,8 @@ public:
     // Return sum of tx ins
     CAmount GetValueIn(const CCoinsViewCache& view) const override;
     // value in should be computed via the method above using a proper coin view
-    CAmount GetFeeAmount(CAmount valueIn) const override { return (valueIn - GetValueOut() ); }
+    CAmount GetFeeAmount(const CAmount& valueIn) const override { return (valueIn - GetValueOut() ); }
 
-    int GetComplexity() const override { return vin.size()*vin.size(); }
     const uint256 getJoinSplitPubKey() const override { return joinSplitPubKey; }
 
     std::string ToString() const override;
@@ -1026,12 +1034,16 @@ public:
     unsigned int GetP2SHSigOpCount(CCoinsViewCache& view) const override;
     unsigned int GetLegacySigOpCount() const override;
     double GetPriority(const CCoinsViewCache &view, int nHeight) const override;
+
+    std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
+        unsigned int nIn, const CChain* chain, bool cacheStore) const override;
 };
 
 /** A mutable hierarchy version of CTransaction. */
 struct CMutableTransactionBase
 {
     int32_t nVersion;
+    std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
 
     CMutableTransactionBase();
@@ -1055,7 +1067,6 @@ struct CMutableTransactionBase
 
 struct CMutableTransaction : public CMutableTransactionBase
 {
-    std::vector<CTxIn> vin;
     std::vector<CTxScCreationOut> vsc_ccout;
     std::vector<CTxCertifierLockOut> vcl_ccout;
     std::vector<CTxForwardTransferOut> vft_ccout;

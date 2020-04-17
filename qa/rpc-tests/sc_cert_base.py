@@ -14,7 +14,7 @@ import pprint
 DEBUG_MODE = 1
 NUMB_OF_NODES = 3
 EPOCH_LENGTH = 5
-CERT_FEE = 0.0001
+CERT_FEE = Decimal('0.00015')
 
 
 class sc_cert_base(BitcoinTestFramework):
@@ -190,6 +190,16 @@ class sc_cert_base(BitcoinTestFramework):
         print("Node0 confims bwd transfer generating 1 block")
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
+
+        mark_logs("Check cert is not in mempool anymore", self.nodes, DEBUG_MODE)
+        assert_equal(False, cert_good in self.nodes[0].getrawmempool())
+
+        mark_logs("Check block coinbase contains the certificate fee", self.nodes, DEBUG_MODE)
+        mined = blocks[-1]
+        coinbase = self.nodes[0].getblock(mined, True)['tx'][0]
+        decoded_coinbase = self.nodes[2].getrawtransaction(coinbase, 1)
+        miner_quota = decoded_coinbase['vout'][0]['value']
+        assert_equal(miner_quota, (Decimal('7.5') + CERT_FEE))
 
         mark_logs("Node 0 tries to performs a bwd transfer for the same epoch number as before...", self.nodes, DEBUG_MODE)
         try:

@@ -20,6 +20,7 @@ static const unsigned char REJECT_CHECKPOINT = 0x43;
 static const unsigned char REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND = 0x44;
 static const unsigned char REJECT_SCID_NOT_FOUND = 0x45;
 static const unsigned char REJECT_INSUFFICIENT_SCID_FUNDS = 0x46;
+static const unsigned char REJECT_ABSURDLY_HIGH_FEE = 0x47;
 
 /** Capture information about block/transaction validation */
 class CValidationState {

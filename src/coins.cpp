@@ -848,15 +848,16 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     }
 
     CAmount curBalance = getSidechainBalance(cert.GetScId());
-    if (cert.totalAmount > curBalance)
+    CAmount totalAmount = cert.GetValueOfBackwardTransfers(); 
+    if (totalAmount > curBalance)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scId[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(curBalance), FormatMoney(cert.totalAmount) );
+            __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(curBalance), FormatMoney(totalAmount) );
         return state.Invalid(error("insufficient balance"),
                      REJECT_INVALID, "sidechain-insufficient-balance");
     }
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
-        __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(curBalance), FormatMoney(cert.totalAmount) );
+        __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(curBalance), FormatMoney(totalAmount) );
 
     return true;
 }
@@ -991,7 +992,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
 {
     const uint256& certHash = cert.GetHash();
     const uint256& scId = cert.GetScId();
-    const CAmount& totalAmount = cert.totalAmount;
+    const CAmount& totalAmount = cert.GetValueOfBackwardTransfers();
 
     LogPrint("cert", "%s():%d - cert=%s\n", __func__, __LINE__, certHash.ToString() );
 
@@ -1028,7 +1029,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
 bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert)
 {
     const uint256& scId = cert.GetScId();
-    const CAmount& totalAmount = cert.totalAmount;
+    const CAmount& totalAmount = cert.GetValueOfBackwardTransfers();
 
     LogPrint("cert", "%s():%d - removing cert for scId=%s\n", __func__, __LINE__, scId.ToString());
 
@@ -1146,7 +1147,7 @@ const CTxOut &CCoinsViewCache::GetOutputFor(const CTxIn& input) const
     return coins->vout[input.prevout.n];
 }
 
-CAmount CCoinsViewCache::GetValueIn(const CTransaction& tx) const
+CAmount CCoinsViewCache::GetValueIn(const CTransactionBase& tx) const
 {
     if (tx.IsCoinBase())
         return 0;
@@ -1205,7 +1206,7 @@ bool CCoinsViewCache::HaveInputs(const CTransactionBase& txBase) const
     return true;
 }
 
-double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight) const
+double CCoinsViewCache::GetPriority(const CTransactionBase &tx, int nHeight) const
 {
     if (tx.IsCoinBase())
         return 0.0;

@@ -1029,6 +1029,7 @@ bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
     if (!cert.CheckVersionBasic(state))
         return false;
 
+    // a certificate might also have empty vin if 0 fee
     if (!cert.CheckInputsAvailability(state))
         return false;
 
@@ -1217,6 +1218,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
 
+        CAmount nValueIn = 0;
         {
             LOCK(pool.cs);
             CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
@@ -1236,6 +1238,35 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                             REJECT_INVALID, "bad-sc-cert-not-applicable");
             }
             
+            // do all inputs exist?
+            // Note that this does not check for the presence of actual outputs (see the next check for that),
+            // and only helps with filling in pfMissingInputs (to determine missing vs spent).
+            BOOST_FOREACH(const CTxIn txin, cert.GetVin())
+            {
+                if (!view.HaveCoins(txin.prevout.hash))
+                {
+                    if (pfMissingInputs)
+                    {
+                        *pfMissingInputs = true;
+                    }
+                    LogPrint("mempool", "Dropping cert %s : no coins for vin (tx=%s)\n", certHash.ToString(), txin.prevout.hash.ToString());
+                    return false;
+                }
+            }
+ 
+            // are the actual inputs available?
+            if (!view.HaveInputs(cert))
+            {
+                LogPrintf("%s():%d - cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString());
+                return state.Invalid(error("AcceptCertToMemoryPool: inputs already spent"),
+                                     REJECT_DUPLICATE, "bad-sc-cert-inputs-spent");
+            }
+
+            // Bring the best block into scope
+            view.GetBestBlock();
+ 
+            nValueIn = view.GetValueIn(cert);
+ 
             view.SetBackend(dummy);
         }
 
@@ -1252,21 +1283,18 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                              REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
         }
 
-        CAmount nUselessValueIn = 0;
-        CAmount nFees = cert.GetFeeAmount(nUselessValueIn); //ABENEGIA: nValueIn is useless for certificates
+        CAmount nFees = cert.GetFeeAmount(nValueIn);
         LogPrint("sc", "%s():%d - Computed fee=%lld\n", __func__, __LINE__, nFees);
 
-
-        double dPriority = cert.GetPriority(view, chainActive.Height()); // cert: for the time being return max prio, as shielded txes do
+        // cert: this computes priority based on input amount and depth in blockchain, as transparent txes.
+        // another option would be to return max prio, as shielded txes do
+        double dPriority = view.GetPriority(cert, chainActive.Height());
 
         unsigned int nSize = cert.CalculateSize();
         LogPrint("sc", "%s():%d - Computed size=%lld\n", __func__, __LINE__, nSize);
 
         // Don't accept it if it can't get into a block
-        //CAmount txMinFee = GetMinRelayFee(cert, nSize, true);
-
-        // TODO cert: allow certificates to be mined even if they have 0 fee until MC owned fee will be handled
-        CAmount txMinFee(0);
+        CAmount txMinFee = GetMinRelayFee(cert, nSize, true);
 
         LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
         if (fLimitFree && nFees < txMinFee)
@@ -1274,7 +1302,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                                     certHash.ToString(), nFees, txMinFee),
                             REJECT_INSUFFICIENTFEE, "insufficient fee");
 
-        if (GetBoolArg("-relaypriority", false) && nFees < ::minRelayTxFee.GetFee(nSize) && !AllowFree(cert.GetPriority(view, chainActive.Height() + 1))) {
+        if (GetBoolArg("-relaypriority", false) && nFees < ::minRelayTxFee.GetFee(nSize) && !AllowFree(view.GetPriority(cert, chainActive.Height() + 1))) {
             return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "insufficient priority");
         }
 
@@ -1303,11 +1331,33 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         }
 
         if (fRejectAbsurdFee && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
-            return error("AcceptCertificateToMemoryPool: absurdly high fees %s, %d > %d",
-                         certHash.ToString(),
-                         nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
+        {
+            return state.DoS(0, error("AcceptCertificateToMemoryPool: absurdly high fees %s, %d > %d",
+                         certHash.ToString(), nFees, ::minRelayTxFee.GetFee(nSize) * 10000),
+                         REJECT_ABSURDLY_HIGH_FEE, "absurdly high fees");
+        }
 
-        //ABENEGIA: ContextualCheckInputs always returns true for certificates
+        // Check against previous transactions
+        // This is done last to help prevent CPU exhaustion denial-of-service attacks.
+        if (!ContextualCheckInputs(cert, state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+        {
+            return error("AcceptCertificateToMemoryPool: ConnectInputs failed %s", certHash.ToString());
+        }
+
+        // Check again against just the consensus-critical mandatory script
+        // verification flags, in case of bugs in the standard flags that cause
+        // transactions to pass as valid when they're actually invalid. For
+        // instance the STRICTENC flag was incorrectly allowing certain
+        // CHECKSIG NOT scripts to pass, even though they were invalid.
+        //
+        // There is a similar check in CreateNewBlock() to prevent creating
+        // invalid blocks, however allowing such transactions into the mempool
+        // can be exploited as a DoS attack.
+        if (!ContextualCheckInputs(cert, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+        {
+            return error("AcceptCertificateToMemoryPool: BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", certHash.ToString());
+        }
+
 
         // Store transaction in memory
         CCertificateMemPoolEntry certEntry(cert, nFees, GetTime(), dPriority, chainActive.Height());
@@ -1992,6 +2042,7 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
     }
 
     // add outputs
+    LogPrint("cert", "%s():%d - adding outputs of tx[%s] to coins\n", __func__, __LINE__, txBase.GetHash().ToString());
     inputs.ModifyCoins(txBase.GetHash())->FromTx(txBase, nHeight);
 }
 
@@ -2004,7 +2055,7 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
 CScriptCheck::CScriptCheck(): ptxTo(0), nIn(0), chain(nullptr),
                               nFlags(0), cacheStore(false),
                               error(SCRIPT_ERR_UNKNOWN_ERROR) {}
-CScriptCheck::CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn,
+CScriptCheck::CScriptCheck(const CCoins& txFromIn, const CTransactionBase& txToIn,
                            unsigned int nInIn, const CChain* chainIn,
                            unsigned int nFlagsIn, bool cacheIn):
                             scriptPubKey(txFromIn.vout[txToIn.GetVin()[nInIn].prevout.n].scriptPubKey),
@@ -2013,12 +2064,30 @@ CScriptCheck::CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn,
 
 bool CScriptCheck::operator()() {
     const CScript &scriptSig = ptxTo->GetVin()[nIn].scriptSig;
-    if (!VerifyScript(scriptSig, scriptPubKey, nFlags,
-                      CachingTransactionSignatureChecker(ptxTo, nIn, chain, cacheStore),
+#if 1
+    return ptxTo->VerifyScript(scriptPubKey, nFlags, nIn, chain, cacheStore, &error); 
+#else
+    if (!ptxTo->IsCertificate() )
+    {
+        const CTransaction* p = dynamic_cast<const CTransaction*>(ptxTo); 
+        if (!p || !VerifyScript(scriptSig, scriptPubKey, nFlags,
+                      CachingTransactionSignatureChecker(p, nIn, chain, cacheStore),
                       &error)) {
                         return ::error("CScriptCheck(): %s:%d VerifySignature failed: %s",
                                        ptxTo->GetHash().ToString(), nIn, ScriptErrorString(error));
+        }
     }
+    else
+    {
+        const CScCertificate* p = dynamic_cast<const CScCertificate*>(ptxTo); 
+        if (!p || !VerifyScript(scriptSig, scriptPubKey, nFlags,
+                      CachingCertificateSignatureChecker(p, nIn, chain, cacheStore),
+                      &error)) {
+                        return ::error("CScriptCheck(): %s:%d VerifySignature failed: %s",
+                                       ptxTo->GetHash().ToString(), nIn, ScriptErrorString(error));
+        }
+    }
+#endif
     return true;
 }
 
@@ -2066,67 +2135,67 @@ bool IsCommunityFund(const CCoins *coins, int nIn)
 namespace Consensus {
 bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
 {
-        // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
-        // for an attacker to attempt to split the network.
-        if (!inputs.HaveInputs(txBase))
-            return state.Invalid(error("CheckInputs(): %s inputs unavailable", txBase.GetHash().ToString()));
+    // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
+    // for an attacker to attempt to split the network.
+    if (!inputs.HaveInputs(txBase))
+        return state.Invalid(error("CheckInputs(): %s inputs unavailable", txBase.GetHash().ToString()));
 
-        // are the JoinSplit's requirements met?
-        if (!inputs.HaveJoinSplitRequirements(txBase))
-            return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", txBase.GetHash().ToString()));
+    // are the JoinSplit's requirements met?
+    if (!inputs.HaveJoinSplitRequirements(txBase))
+        return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", txBase.GetHash().ToString()));
 
-        CAmount nValueIn = 0;
-       for(const CTxIn& in: txBase.GetVin()) {
-            const COutPoint &prevout = in.prevout;
-            const CCoins *coins = inputs.AccessCoins(prevout.hash);
-            assert(coins);
+    CAmount nValueIn = 0;
+    for(const CTxIn& in: txBase.GetVin()) {
+        const COutPoint &prevout = in.prevout;
+        const CCoins *coins = inputs.AccessCoins(prevout.hash);
+        assert(coins);
 
-            if (coins->IsCoinBase()) {
-                // Ensure that coinbases are matured
-                if (nSpendHeight - coins->nHeight < COINBASE_MATURITY) {
-                    return state.Invalid(
-                        error("CheckInputs(): tried to spend coinbase at depth %d", nSpendHeight - coins->nHeight),
-                        REJECT_INVALID, "bad-txns-premature-spend-of-coinbase");
-                }
-
-                // Ensure that coinbases cannot be spent to transparent outputs
-                // Disabled on regtest
-                if (fCoinbaseEnforcedProtectionEnabled &&
-                    consensusParams.fCoinbaseMustBeProtected &&
-                    !txBase.GetVout().empty()) {
-
-                    // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed
-                    // to send them to the transparent addr.
-                    bool fDisableProtectionForFR = ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(nSpendHeight);
-                    if (!fDisableProtectionForFR || !IsCommunityFund(coins, prevout.n)) {
-                        return state.Invalid(
-                                error("CheckInputs(): tried to spend coinbase with transparent outputs"),
-                                REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
-                    }
-                }
+        if (coins->IsCoinBase()) {
+            // Ensure that coinbases are matured
+            if (nSpendHeight - coins->nHeight < COINBASE_MATURITY) {
+                return state.Invalid(
+                    error("CheckInputs(): tried to spend coinbase at depth %d", nSpendHeight - coins->nHeight),
+                    REJECT_INVALID, "bad-txns-premature-spend-of-coinbase");
             }
 
-            // Check for negative or overflow input values
-            nValueIn += coins->vout[prevout.n].nValue;
-            if (!MoneyRange(coins->vout[prevout.n].nValue) || !MoneyRange(nValueIn))
-                return state.DoS(100, error("CheckInputs(): txin values out of range"),
-                                 REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+            // Ensure that coinbases cannot be spent to transparent outputs
+            // Disabled on regtest
+            if (fCoinbaseEnforcedProtectionEnabled &&
+                consensusParams.fCoinbaseMustBeProtected &&
+                !txBase.GetVout().empty()) {
 
+            // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed
+            // to send them to the transparent addr.
+            bool fDisableProtectionForFR = ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(nSpendHeight);
+            if (!fDisableProtectionForFR || !IsCommunityFund(coins, prevout.n)) {
+                return state.Invalid(
+                    error("CheckInputs(): tried to spend coinbase with transparent outputs"),
+                    REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
+                }
+            }
         }
+
+        // Check for negative or overflow input values
+        nValueIn += coins->vout[prevout.n].nValue;
+        if (!MoneyRange(coins->vout[prevout.n].nValue) || !MoneyRange(nValueIn))
+            return state.DoS(100, error("CheckInputs(): txin values out of range"),
+                REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+
+    }
 
     nValueIn += txBase.GetJoinSplitValueIn();
     if (!MoneyRange(nValueIn))
         return state.DoS(100, error("CheckInputs(): vpub_old values out of range"),
                          REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
-   if (!txBase.CheckFeeAmount(nValueIn, state))
+    if (!txBase.CheckFeeAmount(nValueIn, state))
         return false;
 
     return true;
 }
 }// namespace Consensus
 
-bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams, std::vector<CScriptCheck> *pvChecks)
+bool ContextualCheckInputs(const CTransactionBase& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams, std::vector<CScriptCheck> *pvChecks)
 {
     if (!tx.IsCoinBase())
     {
@@ -2313,8 +2382,8 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     if (!UndoReadFromDisk(blockUndo, pos, pindex->pprev->GetBlockHash()))
         return error("DisconnectBlock(): failure reading undo data");
 
-    // no certs (and no coinbase) in blockundo
-    if (blockUndo.vtxundo.size() + 1 != block.vtx.size())
+    // no coinbase in blockundo
+    if (blockUndo.vtxundo.size() + 1 != block.vtx.size() + block.vcert.size() )
         return error("DisconnectBlock(): block and undo data inconsistent");
 
     LogPrint("sc", "%s():%d - restoring sc coins if any\n", __func__, __LINE__);
@@ -2332,22 +2401,23 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         // Check that all outputs are available and match the outputs in the block itself
         // exactly.
         {
-        CCoinsModifier outs = view.ModifyCoins(hash);
-        outs->ClearUnspendable();
-
-        CCoins outsBlock(tx, pindex->nHeight);
-        // The CCoins serialization does not serialize negative numbers.
-        // No network rules currently depend on the version here, so an inconsistency is harmless
-        // but it must be corrected before txout nversion ever influences a network rule.
-        if (outsBlock.nVersion < 0)
-            outs->nVersion = outsBlock.nVersion;
-        if (*outs != outsBlock) {
-            fClean = fClean && error("DisconnectBlock(): added transaction mismatch? database corrupted");
-            LogPrint("tx", "%s():%d - tx[%s]\n", __func__, __LINE__, hash.ToString());
-        }
+            CCoinsModifier outs = view.ModifyCoins(hash);
+            outs->ClearUnspendable();
  
-        // remove outputs
-        outs->Clear();
+            CCoins outsBlock(tx, pindex->nHeight);
+            // The CCoins serialization does not serialize negative numbers.
+            // No network rules currently depend on the version here, so an inconsistency is harmless
+            // but it must be corrected before txout nversion ever influences a network rule.
+            if (outsBlock.nVersion < 0)
+                outs->nVersion = outsBlock.nVersion;
+            if (*outs != outsBlock) {
+                fClean = fClean && error("DisconnectBlock(): added transaction mismatch? database corrupted");
+                LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, hash.ToString());
+            }
+  
+            // remove outputs
+            LogPrint("cert", "%s():%d - clearing outs of tx[%s]\n", __func__, __LINE__, hash.ToString());
+            outs->Clear();
         }
 
         // unspend nullifiers
@@ -2378,12 +2448,52 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
     }
 
+    // not including coinbase
+    const int certOffset = block.vtx.size() - 1;
+
     // undo certificates in reverse order
     for (int i = block.vcert.size() - 1; i >= 0; i--) {
         const CScCertificate& cert = block.vcert[i];
+        uint256 hash = cert.GetHash();
+
+        LogPrint("cert", "%s():%d - reverting outs of cert[%s]\n", __func__, __LINE__, hash.ToString());
+
+        // Check that all outputs are available and match the outputs in the block itself
+        // exactly.
+        {
+            CCoinsModifier outs = view.ModifyCoins(hash);
+            outs->ClearUnspendable();
+ 
+            CCoins outsBlock(cert, pindex->nHeight);
+            // The CCoins serialization does not serialize negative numbers.
+            // No network rules currently depend on the version here, so an inconsistency is harmless
+            // but it must be corrected before txout nversion ever influences a network rule.
+            if (outsBlock.nVersion < 0)
+                outs->nVersion = outsBlock.nVersion;
+            if (*outs != outsBlock) {
+                fClean = fClean && error("DisconnectBlock(): added transaction mismatch? database corrupted");
+                LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, hash.ToString());
+            }
+  
+            // remove outputs
+            LogPrint("cert", "%s():%d - clearing outs of tx[%s]\n", __func__, __LINE__, hash.ToString());
+            outs->Clear();
+        }
+
         if (!view.RevertCertOutputs(cert) ) {
             LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
             return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
+        }
+
+        // restore inputs
+        const CTxUndo &certundo = blockUndo.vtxundo[certOffset + i];
+        if (certundo.vprevout.size() != cert.GetVin().size())
+            return error("DisconnectBlock(): certificate and undo data inconsistent");
+        for (unsigned int j = cert.GetVin().size(); j-- > 0;) {
+            const COutPoint &out = cert.GetVin()[j].prevout;
+            const CTxInUndo &undo = certundo.vprevout[j];
+            if (!ApplyTxInUndo(undo, view, out))
+                fClean = false;
         }
     }
 
@@ -2622,7 +2732,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     CDiskTxPos pos(pindex->GetBlockPos(), GetSizeOfCompactSize(block.vtx.size()));
     std::vector<std::pair<uint256, CDiskTxPos> > vPos;
     vPos.reserve(block.vtx.size());
-    blockundo.vtxundo.reserve(block.vtx.size() - 1);
+    blockundo.vtxundo.reserve(block.vtx.size() - 1 + block.vcert.size());
 
     // Construct the incremental merkle tree at the current
     // block position,
@@ -2722,38 +2832,45 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     for (unsigned int certIdx = 0; certIdx < block.vcert.size(); certIdx++) // Processing certificates loop
     {
         const CScCertificate &cert = block.vcert[certIdx];
+        
         nSigOps += cert.GetLegacySigOpCount();
         if (nSigOps > MAX_BLOCK_SIGOPS)
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
 
-        CAmount nFee = cert.GetFeeAmount(CAmount());
-        // TODO cert: check fee in CheckInputs (as for txes) when mc inputs will be used for fee handling
-        if (nFee < 0)
-        {
-            // this tx/cert spends more than it can.
-            return state.DoS(100, error("ConnectBlock(): %s Fee < 0", cert.GetHash().ToString()),
-                         REJECT_INVALID, "bad-cert-fee-negative");
-        }
-        if (!MoneyRange(nFee))
-        {
-            return state.DoS(100, error("ConnectBlock(): fee out of range"),
-                         REJECT_INVALID, "bad-cert-fee-outofrange");
-        }
-        nFees += nFee;
+        if (!view.HaveInputs(cert))
+            return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
+                                 REJECT_INVALID, "bad-cert-inputs-missingorspent");
+
+        // Add in sigops done by pay-to-script-hash inputs;
+        // this is to prevent a "rogue miner" from creating
+        // an incredibly-expensive-to-validate block.
+        nSigOps += cert.GetP2SHSigOpCount(view);
+        if (nSigOps > MAX_BLOCK_SIGOPS)
+            return state.DoS(100, error("ConnectBlock(): too many sigops"),
+                             REJECT_INVALID, "bad-blk-sigops");
+
+        nFees += cert.GetFeeAmount(view.GetValueIn(cert));
+
+        std::vector<CScriptCheck> vChecks;
+        if (!ContextualCheckInputs(cert, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
+            return false;
+
+        control.Add(vChecks);
 
         if (!view.IsCertApplicableToState(cert, pindex->nHeight, state) ) {
-            LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, cert.GetHash().ToString() );
+            LogPrint("sc", "%s():%d - ERROR: cert=%s\n", __func__, __LINE__, cert.GetHash().ToString() );
             return state.DoS(100, error("ConnectBlock(): invalid sc certificate [%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-applicable");
         }
 
         CTxUndo undoDummy;
-        UpdateCoins(cert, state, view, undoDummy, pindex->nHeight);
+        blockundo.vtxundo.push_back(CTxUndo());
+        UpdateCoins(cert, state, view, blockundo.vtxundo.back(), pindex->nHeight);
 
         if (!view.UpdateScInfo(cert, blockundo) )
         {
-            return state.DoS(100, error("ConnectBlock(): could not add sidechain in scView: tx[%s]", cert.GetHash().ToString()),
+            return state.DoS(100, error("ConnectBlock(): could not add sidechain in scView: cert[%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-updated");
         }
 
@@ -5162,6 +5279,7 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
             }
  
             // a cert can not be in orphan map
+            // TODO cert: hanlde orphan when vin are added
             return recentRejects->contains(inv.hash) ||
                    mempool.existsCert(inv.hash) ||
                    pcoinsTip->HaveCoins(inv.hash);
@@ -6170,6 +6288,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             BOOST_FOREACH(uint256 hash, vEraseQueue)
                 EraseOrphanTx(hash);
 // a certificate can not be an orphan 
+// TODO cert: handle when vin is added
 #if 0
         }
         else if (fMissingInputs)

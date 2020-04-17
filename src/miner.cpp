@@ -387,7 +387,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
     // Collect memory pool transactions into the block
     CAmount nFees = 0;
-
     {
         LOCK2(cs_main, mempool.cs);
         CBlockIndex* pindexPrev = chainActive.Tip();
@@ -514,7 +513,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 #if 0
             CAmount nTxFees = view.GetValueIn(tx)-tx.GetValueOut();
 #else
-            CAmount valueIn = tx.GetValueIn(view);
+            CAmount valueIn = view.GetValueIn(tx);
             CAmount nTxFees = tx.GetFeeAmount(valueIn);
             if (nTxFees < 0)
             {
@@ -585,7 +584,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
         nLastBlockTx = nBlockTx;
         nLastBlockSize = nBlockSize;
-        LogPrintf("CreateNewBlock(): total size %u\n", nBlockSize);
+        LogPrintf("CreateNewBlock(): total size %u, tx/certs fee=%d\n", nBlockSize, nFees);
 
         // Create coinbase tx
         CMutableTransaction txNew;

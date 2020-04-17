@@ -11,17 +11,18 @@
 #include "sc/sidechain.h"
 #include "txmempool.h"
 #include "zen/forkmanager.h"
+#include "script/interpreter.h"
 
 #include "main.h"
 
 CScCertificate::CScCertificate() : CTransactionBase(),
-    scId(), epochNumber(EPOCH_NULL), endEpochBlockHash(), totalAmount(), fee(), nonce() { }
+    scId(), epochNumber(EPOCH_NULL), endEpochBlockHash() { }
 
 CScCertificate::CScCertificate(const CMutableScCertificate &cert) :
-    scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash),
-    totalAmount(cert.totalAmount), fee(cert.fee), nonce(cert.nonce)
+    scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash)
 {
     *const_cast<int*>(&nVersion) = cert.nVersion;
+    *const_cast<std::vector<CTxIn>*>(&vin) = cert.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = cert.vout;
     UpdateHash();
 }
@@ -32,24 +33,19 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert) {
     *const_cast<uint256*>(&scId) = cert.scId;
     *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
-    *const_cast<CAmount*>(&totalAmount) = cert.totalAmount;
-    *const_cast<CAmount*>(&fee) = cert.fee;
-    *const_cast<uint256*>(&nonce) = cert.nonce;
     return *this;
 }
 
-CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0), totalAmount(0), fee(0) {
+CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0) {
     // call explicitly the copy of members of virtual base class
     *const_cast<uint256*>(&hash) = cert.hash;
     *const_cast<int32_t*>(&nVersion) = cert.nVersion;
+    *const_cast<std::vector<CTxIn>*>(&vin) = cert.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = cert.vout;
     //---
     *const_cast<uint256*>(&scId) = cert.scId;
     *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
-    *const_cast<CAmount*>(&totalAmount) = cert.totalAmount;
-    *const_cast<CAmount*>(&fee) = cert.fee;
-    *const_cast<uint256*>(&nonce) = cert.nonce;
 }
 
 void CScCertificate::UpdateHash() const
@@ -64,23 +60,13 @@ bool CScCertificate::CheckVersionBasic(CValidationState &state) const
 
 bool CScCertificate::CheckInputsAvailability(CValidationState &state) const
 {
-    //Currently there are no inputs for certificates
-    if (!GetVin().empty())
-    {
-        return state.DoS(10, error("vin not empty"), REJECT_INVALID, "bad-cert-invalid");
-    }
-
+    // there might be no inputs if 0 fee, therefore this never fails
     return true;
 }
 
 bool CScCertificate::CheckOutputsAvailability(CValidationState &state) const
 {
-    // we allow empty certificate, but if we have no bt in vout the total amount must be 0
-    if ((GetNumbOfBackwardTransfers() == 0) && totalAmount != 0) 
-    {
-        return state.DoS(10, error("vout empty and totalAmount != 0"), REJECT_INVALID, "bad-cert-invalid");
-    }
-
+    // we allow empty certificate, that is with no backward transfers and no change
     return true;
 }
 
@@ -95,16 +81,37 @@ bool CScCertificate::CheckSerializedSize(CValidationState &state) const
     return true;
 }
 
-bool CScCertificate::CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const {
+bool CScCertificate::CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const
+{
+    if (!MoneyRange(totalVinAmount))
+        return state.DoS(100, error("CheckFeeAmount(): total input amount out of range"),
+                         REJECT_INVALID, "bad-cert-inputvalues-outofrange");
+
+    // check all of the outputs because change is computed subtracting bwd transfers from them
+    if (!CheckOutputsAmount(state))
+        return false;
+
+    if (totalVinAmount < GetValueOfChange() )
+        return state.DoS(100, error("CheckInputs(): %s value in (%s) < value out (%s)",
+                                    GetHash().ToString(),
+                                    FormatMoney(totalVinAmount), FormatMoney(GetValueOfChange()) ),
+                         REJECT_INVALID, "bad-cert-in-belowout");
+
+    CAmount nCertFee = totalVinAmount - GetValueOfChange();
+    if (nCertFee < 0)
+        return state.DoS(100, error("CheckFeeAmount(): %s nCertFee < 0", GetHash().ToString()),
+                         REJECT_INVALID, "bad-cert-fee-negative");
+
+    if (!MoneyRange(nCertFee))
+        return state.DoS(100, error("CheckFeeAmount(): nCertFee out of range"),
+                         REJECT_INVALID, "bad-cert-fee-outofrange");
+
     return true;
 }
 
-CAmount CScCertificate::GetFeeAmount(CAmount /* unused */) const
+CAmount CScCertificate::GetFeeAmount(const CAmount& valueIn) const
 {
-    // this is a signed uint64, the caller must check if that is legal
-    //    return (fee);
-    // TODO cert: return 0 until MC owned fee will be handled
-    return CAmount(0);
+    return (valueIn - GetValueOfChange());
 }
 
 unsigned int CScCertificate::CalculateSize() const
@@ -114,11 +121,6 @@ unsigned int CScCertificate::CalculateSize() const
     return sz;
 }
 
-unsigned int CScCertificate::CalculateModifiedSize(unsigned int /* unused nTxSize*/) const
-{
-    return CalculateSize();
-}
-
 std::string CScCertificate::EncodeHex() const
 {
     return EncodeHexCert(*this);
@@ -126,13 +128,16 @@ std::string CScCertificate::EncodeHex() const
 
 std::string CScCertificate::ToString() const
 {
+    CAmount total = GetValueOfBackwardTransfers();
     std::string str;
-    str += strprintf("CScCertificate(hash=%s, ver=%d, vout.size=%u, totAmount=%d.%08d, fee=%d.%08d\n)",
+    str += strprintf("CScCertificate(hash=%s, ver=%d, vin.size()=%s, vout.size=%u, totAmount=%d.%08d\n)",
         GetHash().ToString().substr(0,10),
         nVersion,
+        vin.size(),
         vout.size(),
-        totalAmount / COIN, totalAmount % COIN,
-        fee / COIN, fee % COIN);
+        total / COIN, total % COIN);
+    for (unsigned int i = 0; i < vin.size(); i++)
+        str += "    " + vin[i].ToString() + "\n";
     for (unsigned int i = 0; i < vout.size(); i++)
         str += "    " + vout[i].ToString() + "\n";
 
@@ -185,6 +190,12 @@ bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {r
 bool CScCertificate::IsApplicableToState(CValidationState& state, int nHeight) const { return true; }
 bool CScCertificate::IsStandard(std::string& reason, int nHeight) const { return true; }
 unsigned int CScCertificate::GetLegacySigOpCount() const { return 0; }
+
+std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
+{
+    return std::shared_ptr<BaseSignatureChecker>(NULL);
+}
+
 #else
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
 {
@@ -226,6 +237,12 @@ unsigned int CScCertificate::GetLegacySigOpCount() const
     }
     return nSigOps;
 }
+
+std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
+{
+    return std::shared_ptr<BaseSignatureChecker>(new CachingCertificateSignatureChecker(this, nIn, chain, cacheStore));
+}
+
 #endif
 
 void CScCertificate::addToScCommitment(std::map<uint256, uint256>& map, std::set<uint256>& sScIds) const
@@ -256,19 +273,35 @@ int CScCertificate::GetNumbOfBackwardTransfers() const
 // Mutable Certificate
 //-------------------------------------
 CMutableScCertificate::CMutableScCertificate() :
-        scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), totalAmount(), fee(), nonce() {}
+        scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash() {}
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert) :
-    scId(cert.GetScId()), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash),
-    totalAmount(cert.totalAmount), fee(cert.fee), nonce(cert.nonce)
+    scId(cert.GetScId()), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash)
 {
     nVersion = cert.nVersion;
+    vin  = cert.GetVin();
     vout = cert.GetVout();
 }
 
 uint256 CMutableScCertificate::GetHash() const
 {
     return SerializeHash(*this);
+}
+
+std::string CMutableScCertificate::ToString() const
+{
+    std::string str;
+    str += strprintf("CMutableScCertificate(hash=%s, ver=%d, vin.size()=%s, vout.size=%u\n)",
+        GetHash().ToString().substr(0,10),
+        nVersion,
+        vin.size(),
+        vout.size() );
+    for (unsigned int i = 0; i < vin.size(); i++)
+        str += "    " + vin[i].ToString() + "\n";
+    for (unsigned int i = 0; i < vout.size(); i++)
+        str += "    " + vout[i].ToString() + "\n";
+
+    return str;
 }
 
 

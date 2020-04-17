@@ -274,7 +274,6 @@ libbitcoin_server_a_SOURCES = \
   rpc/server.cpp \
   sc/sidechain.cpp \
   sc/sidechainrpc.cpp \
-  script/sigcache.cpp \
   timedata.cpp \
   torcontrol.cpp \
   txdb.cpp \
@@ -387,6 +386,7 @@ libbitcoin_common_a_SOURCES = \
   scheduler.cpp \
   script/interpreter.cpp \
   script/script.cpp \
+  script/sigcache.cpp \
   script/script_error.cpp \
   script/sign.cpp \
   script/standard.cpp \

@@ -320,6 +320,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             assert_template(node, tmpl, txlist, certlist, 'bad-sc-cert-not-applicable')
             certlist[0][4 + 32] = orig_val 
 
+            '''
             # Test 17: change cert total amount so to fail check against sum of vouts
             amnt_offset = 4+32+4+32
             post_offset = amnt_offset + 8
@@ -345,6 +346,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             # restore certlist
             certlist.pop()
             certlist.append(save_cert)
+            '''
 
 
             # Test 18: wrong commitment

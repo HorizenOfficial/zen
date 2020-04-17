@@ -113,14 +113,12 @@ CMutableScCertificate GetValidCertificate() {
 	mcert.nVersion = SC_CERT_VERSION;
 
     mcert.vout.resize(2);
-    mcert.vout[0].nValue = 0;
-    mcert.vout[1].nValue = 0;
+    mcert.vout[0].nValue = 0.5;
+    mcert.vout[1].nValue = 1.0;
 
-    mcert.totalAmount = 10.0;
     mcert.scId = GetRandHash();
     mcert.epochNumber = 3;
     mcert.endEpochBlockHash = GetRandHash();
-    mcert.nonce = uint256(GetRandHash() );
 
     return mcert;
 }
