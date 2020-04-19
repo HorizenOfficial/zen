@@ -1862,26 +1862,30 @@ CAmount CWallet::GetDebit(const CTransactionBase& txBase, const isminefilter& fi
     return nDebit;
 }
 
-CAmount CWallet::GetCredit(const CTransactionBase& txBase, const isminefilter& filter,
-                           bool& fCanBeCached, bool keepImmatureVoutsOnly = false) const
+CAmount CWallet::GetCredit(const CWalletObjBase& txWalletBase, const isminefilter& filter,
+                           bool& fCanBeCached, bool keepImmatureVoutsOnly) const
 {
     // If al least one vout is immature, result cannot be cached
     // Sum over mature vouts only or immature vouts only depending on keepImmatureVoutsOnly flag
 
     CAmount nCredit = 0;
     fCanBeCached = true;
-    for(unsigned int pos = 0; pos < txBase.GetVout().size(); ++pos) {
-        if (txBase.IsCertificate()) { //optimization since non-certs have mature vouts only
+    for(unsigned int pos = 0; pos < txWalletBase.GetVout().size(); ++pos) {
+        COutputEntry::maturityState outputMaturity = txWalletBase.IsOutputMature(pos);
 
-            if (!pcoinsTip->IsOutputMature(txBase.GetHash(), pos)) {
-                fCanBeCached = false;
-                if (!keepImmatureVoutsOnly) continue;
-            } else {
-                if (keepImmatureVoutsOnly) continue;
-            }
+        if (outputMaturity == COutputEntry::maturityState::NOT_APPLICABLE) {
+            fCanBeCached = false;
+            continue;
         }
 
-        nCredit += GetCredit(txBase.GetVout()[pos], filter);
+        if (outputMaturity == COutputEntry::maturityState::IMMATURE) {
+            fCanBeCached = false;
+            if (!keepImmatureVoutsOnly) continue;
+        } else {
+            if (keepImmatureVoutsOnly) continue;
+        }
+
+        nCredit += GetCredit(txWalletBase.GetVout()[pos], filter);
         if (!MoneyRange(nCredit))
             throw std::runtime_error("CWallet::GetCredit(): value out of range");
     }
@@ -2045,18 +2049,18 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
 
         // Create an output for the value taken from or added to the transparent value pool by JoinSplits
         if (myVpubOld > myVpubNew) {
-            COutputEntry output = {CNoDestination(), myVpubOld - myVpubNew, COutputEntry::MATURE, (int)vout.size()};
+            COutputEntry output = {CNoDestination(), myVpubOld - myVpubNew, COutputEntry::maturityState::MATURE, (int)vout.size()};
             listSent.push_back(output);
         } else if (myVpubNew > myVpubOld) {
-            COutputEntry output = {CNoDestination(), myVpubNew - myVpubOld, COutputEntry::MATURE, (int)vout.size()};
+            COutputEntry output = {CNoDestination(), myVpubNew - myVpubOld, COutputEntry::maturityState::MATURE, (int)vout.size()};
             listReceived.push_back(output);
         }
     }
 
     // Sent/received.
-    for (unsigned int i = 0; i < vout.size(); ++i)
+    for (unsigned int pos = 0; pos < vout.size(); ++pos)
     {
-        const CTxOut& txout = vout[i];
+        const CTxOut& txout = vout[pos];
         isminetype fIsMine = pwallet->IsMine(txout);
         // Only need to handle txouts if AT LEAST one of these is true:
         //   1) they debit from us (sent)
@@ -2079,7 +2083,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
             address = CNoDestination();
         }
 
-        COutputEntry output = {address, txout.nValue, COutputEntry::MATURE, (int)i};
+        COutputEntry output = {address, txout.nValue, COutputEntry::maturityState::MATURE, (int)pos};
 
         // If we are debited by the transaction, add the output as a "sent" entry
         if (nDebit > 0)
@@ -2128,10 +2132,10 @@ void CWalletObjBase::GetMatureAmountsForAccount(const string& strAccount, CAmoun
                 map<CTxDestination, CAddressBookData>::const_iterator mi = pwallet->mapAddressBook.find(r.destination);
                 if (mi != pwallet->mapAddressBook.end() &&
                     (*mi).second.name == strAccount &&
-                    r.maturity == COutputEntry::MATURE)
+                    r.maturity == COutputEntry::maturityState::MATURE)
                     nReceived += r.amount;
             }
-            else if (strAccount.empty() && r.maturity == COutputEntry::MATURE)
+            else if (strAccount.empty() && r.maturity == COutputEntry::maturityState::MATURE)
             {
                 nReceived += r.amount;
             }
@@ -2399,6 +2403,18 @@ CAmount CWalletObjBase::GetDebit(const isminefilter& filter) const
     return debit;
 }
 
+COutputEntry::maturityState CWalletObjBase::IsOutputMature(unsigned int vOutPos) const
+{
+    if (this->GetDepthInMainChain() < 0)
+        return COutputEntry::maturityState::NOT_APPLICABLE;
+
+    CCoinsViewMemPool scView(pcoinsTip, mempool);
+    if (scView.IsOutputMature(this->hash, vOutPos))
+        return COutputEntry::maturityState::MATURE;
+    else
+        return COutputEntry::maturityState::IMMATURE;
+}
+
 CAmount CWalletObjBase::GetCredit(const isminefilter& filter) const
 {
     // Must wait until coinbase is safely deep enough in the chain before valuing it
@@ -2433,14 +2449,26 @@ CAmount CWalletObjBase::GetImmatureCredit(bool fUseCache) const
     if (!IsInMainChain())
         return CAmount(0);
 
-    if (IsCoinBase() && IsMature())
-        return CAmount(0);
+    if (IsCoinBase()) {
+        if (IsMature())
+            return CAmount(0);
 
-    if (fUseCache && fImmatureCreditCached)
+        if (fUseCache && fImmatureCreditCached)
+            return nImmatureCreditCached;
+
+        nImmatureCreditCached = pwallet->GetCredit(*this, ISMINE_SPENDABLE, fImmatureCreditCached, /*keepImmatureVoutsOnly*/false);
         return nImmatureCreditCached;
+    }
 
-    nImmatureCreditCached = pwallet->GetCredit(*this, ISMINE_SPENDABLE, fImmatureCreditCached, /*keepImmatureVoutsOnly*/true);
-    return nImmatureCreditCached;
+    if (IsCertificate()) {
+        if (fUseCache && fImmatureCreditCached)
+            return nImmatureCreditCached;
+
+        nImmatureCreditCached = pwallet->GetCredit(*this, ISMINE_SPENDABLE, fImmatureCreditCached, /*keepImmatureVoutsOnly*/true);
+        return nImmatureCreditCached;
+    }
+
+    return CAmount(0);
 }
 
 CAmount CWalletObjBase::GetImmatureWatchOnlyCredit(const bool& fUseCache) const
@@ -2475,7 +2503,9 @@ CAmount CWalletObjBase::GetAvailableCredit(bool fUseCache) const
     for (unsigned int pos = 0; pos < vout.size(); pos++)
     {
         if (IsCertificate()) {
-            if (!pcoinsTip->IsOutputMature(GetHash(), pos)) {
+            COutputEntry::maturityState outputMaturity = this->IsOutputMature(pos);
+            if (outputMaturity == COutputEntry::maturityState::IMMATURE ||
+                outputMaturity == COutputEntry::maturityState::NOT_APPLICABLE) {
                 fAvailableCreditCached = false;
                 continue;
             }
@@ -2513,8 +2543,10 @@ CAmount CWalletObjBase::GetAvailableWatchOnlyCredit(const bool& fUseCache) const
     fAvailableWatchCreditCached = true;
     for (unsigned int pos = 0; pos < vout.size(); pos++) {
         if (IsCertificate()) {
-            if (!pcoinsTip->IsOutputMature(GetHash(), pos)) {
-                fAvailableWatchCreditCached = false;
+            COutputEntry::maturityState outputMaturity = this->IsOutputMature(pos);
+            if (outputMaturity == COutputEntry::maturityState::IMMATURE ||
+                outputMaturity == COutputEntry::maturityState::NOT_APPLICABLE) {
+                fAvailableCreditCached = false;
                 continue;
             }
         }
@@ -2877,8 +2909,8 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                                 continue;
                         }
                     } else if (pcoin->IsCertificate()) {
-                        if (!pcoinsTip->IsOutputMature(wtxid, voutPos))
-                            continue;
+                        if (pcoin->IsOutputMature(voutPos) == COutputEntry::maturityState::IMMATURE)
+                            continue; //availability in mainchain/mempool is chacked above
 
                         LogPrint("cert", "%s():%d - cert[%s] out[%d], amount=%s, spendable[%s]\n", __func__, __LINE__,
                             pcoin->GetHash().ToString(), voutPos, FormatMoney(pcoin->GetVout()[voutPos].nValue), ((mine & ISMINE_SPENDABLE) != ISMINE_NO)?"Y":"N");
@@ -3917,8 +3949,8 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances()
                     continue;
 
                 if (pcoin->IsCertificate()) {
-                    if (!pcoinsTip->IsOutputMature(walletEntry.first, pos))
-                        continue;
+                    if (pcoin->IsOutputMature(pos) == COutputEntry::maturityState::IMMATURE)
+                        continue; //availability in mainchain/mempool is chacked above
                 }
 
                 if(!ExtractDestination(pcoin->GetVout()[pos].scriptPubKey, addr))
@@ -4784,11 +4816,12 @@ void CWalletCert::GetAmounts(std::list<COutputEntry>& listReceived, std::list<CO
             address = CNoDestination();
         }
 
+        COutputEntry::maturityState outputMaturity = this->IsOutputMature(pos);
+        if (outputMaturity == COutputEntry::maturityState::NOT_APPLICABLE)
+            continue;
+
         COutputEntry output;
-        if (!pcoinsTip->IsOutputMature(GetHash(), pos))
-            output = {address, txout.nValue, COutputEntry::IMMATURE, (int)pos};
-        else
-            output = {address, txout.nValue, COutputEntry::MATURE, (int)pos};
+        output = {address, txout.nValue, outputMaturity, (int)pos};
 
         // If we are receiving the output, add it as a "received" entry
         if (fIsMine & filter)

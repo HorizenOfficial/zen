@@ -11,7 +11,6 @@ from test_framework.util import initialize_chain_clean, assert_equal, \
 import os
 from decimal import Decimal
 import time
-import pprint
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 4
@@ -147,7 +146,7 @@ class sc_cert_epoch(BitcoinTestFramework):
 
         mark_logs("Checking that Node2 cannot immediately spend coins received from bwd transfer", self.nodes, DEBUG_MODE)
         mark_logs("Node 2 tries to send {} coins to Node3".format(bwt_amount/2), self.nodes, DEBUG_MODE)
-        
+
         try:
             self.nodes[2].sendtoaddress(self.nodes[3].getnewaddress(), bwt_amount/2)
             assert(False)

@@ -164,8 +164,9 @@ struct CScOutputEntry
 
 struct COutputEntry
 {
-    enum maturityState {
-        MATURE = 0,
+    enum class maturityState {
+        NOT_APPLICABLE = 0,
+        MATURE,
         IMMATURE
     };
     CTxDestination destination;
@@ -449,6 +450,7 @@ public:
     void GetMatureAmountsForAccount(const std::string& strAccount, CAmount& nReceived,
                            CAmount& nSent, CAmount& nFee, const isminefilter& filter) const;
 
+    COutputEntry::maturityState IsOutputMature(unsigned int pos) const;
     CAmount GetCredit(const isminefilter& filter) const;
     CAmount GetImmatureCredit(bool fUseCache=true) const;
     CAmount GetImmatureWatchOnlyCredit(const bool& fUseCache=true) const;
@@ -1325,7 +1327,7 @@ public:
     /** should probably be renamed to IsRelevantToMe */
     bool IsFromMe(const CTransaction& tx) const;
     CAmount GetDebit (const CTransactionBase& txBase, const isminefilter& filter) const;
-    CAmount GetCredit(const CTransactionBase& txBase, const isminefilter& filter,
+    CAmount GetCredit(const CWalletObjBase& txWalletBase, const isminefilter& filter,
                       bool& fCanBeCached, bool keepImmatureVoutsOnly) const;
     CAmount GetChange(const CTransactionBase& txBase) const;
 

@@ -407,6 +407,9 @@ public:
     //! Calculate statistics about the unspent transaction output set
     virtual bool GetStats(CCoinsStats &stats) const;
 
+    //! Verify whether given output is mature according to current view
+    bool IsOutputMature(const uint256& txHash, unsigned int pos) const;
+
     //! As we use CCoinsViews polymorphically, have a virtual destructor
     virtual ~CCoinsView() {}
 };
@@ -554,7 +557,6 @@ public:
     CAmount getSidechainBalance(const uint256& scId) const;
     bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& bu);
     bool RevertCertOutputs(const CScCertificate& cert);
-    bool IsOutputMature(const uint256& txHash, unsigned int pos) const;
 
     bool Flush();
 
