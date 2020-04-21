@@ -25,7 +25,6 @@
 #include "tinyformat.h"
 #include "txmempool.h"
 #include "uint256.h"
-#include "versionbits.h"
 
 #include <algorithm>
 #include <exception>
@@ -290,12 +289,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
 bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert, bool fLimitFree,
                         bool* pfMissingInputs, bool fRejectAbsurdFee=false, int epochSafeGuardHeight = -1);
-
-/** Get the BIP9 state for a given deployment at the current tip. */
-ThresholdState VersionBitsTipState(const Consensus::Params& params, Consensus::DeploymentPos pos);
-
-/** Get the block height at which the BIP9 deployment switched into the state for the block building on the current tip. */
-int VersionBitsTipStateSinceHeight(const Consensus::Params& params, Consensus::DeploymentPos pos);
 
 struct CNodeStateStats {
     int nMisbehavior;
@@ -566,12 +559,9 @@ int GetSpendHeight(const CCoinsViewCache& inputs);
  */
 bool IsCommunityFund(const CCoins *coins, int nIn);
 
-extern VersionBitsCache versionbitscache;
-
 /**
 * Determine what nVersion a new block should use.
 */
-int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Params& params);
 int32_t ComputeBlockVersion(int nHeight);
 
 namespace Consensus {

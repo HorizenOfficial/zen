@@ -26,7 +26,7 @@ class CBlockHeader
 public:
     // header
     static const size_t HEADER_SIZE=4+32+32+32+4+4+32; // excluding Equihash solution
-    static const int32_t SC_CERT_BLOCK_VERSION = BLOCK_VERSION_3; // defined in consensus.h
+    static const int32_t SC_CERT_BLOCK_VERSION = BLOCK_VERSION_SC_SUPPORT; // defined in consensus.h
 
     int32_t nVersion;
     uint256 hashPrevBlock;
