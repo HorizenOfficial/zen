@@ -294,8 +294,14 @@ class sc_cert_base(BitcoinTestFramework):
         Node2_bal_before_cert_expenditure = self.nodes[2].getbalance("", 0)
         mark_logs("Checking that Node1 can spend coins received from bwd transfer in previous epoch", self.nodes, DEBUG_MODE)
         mark_logs("Node 1 sends {} coins to node2...".format(amount_cert_1[0]["amount"] / 2), self.nodes, DEBUG_MODE)
-        tx = self.nodes[1].sendtoaddress(self.nodes[2].getnewaddress(), amount_cert_1[0]["amount"] / 2)
-        assert(len(tx) > 0)
+        try:
+            tx = self.nodes[1].sendtoaddress(self.nodes[2].getnewaddress(), amount_cert_1[0]["amount"] / 2)
+            assert(len(tx) > 0)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("tx spending certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert(False)
+
         vin = self.nodes[1].getrawtransaction(tx, 1)['vin']
         assert_equal(vin[0]['txid'], cert_epoch_0)
 
