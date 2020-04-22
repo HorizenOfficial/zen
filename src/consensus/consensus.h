@@ -13,7 +13,7 @@
 static const int32_t BLOCK_VERSION_BEFORE_SC  = 0x20000000;
 
 /** old legacy fork */
-static const int32_t BLOCK_VERSION_OLD        = 0x4;
+static const int32_t BLOCK_VERSION_ORIGINAL   = 0x4;
 
 /** new block version valid from sidechain fork on 
  * We choose this value since:

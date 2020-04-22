@@ -29,12 +29,12 @@ public:
     /**
 	 * @brief returns new block version
 	 */
-	inline virtual int getNewBlockVersion() const { return CBlock::SC_CERT_BLOCK_VERSION; }
+	inline virtual int getNewBlockVersion() const { return BLOCK_VERSION_SC_SUPPORT; }
 
     /**
 	 * @brief returns true if the block version is valid at this fork
 	 */
-    inline virtual bool isValidBlockVersion(int nVersion) const { return (nVersion == CBlock::SC_CERT_BLOCK_VERSION); }
+    inline virtual bool isValidBlockVersion(int nVersion) const { return (nVersion == BLOCK_VERSION_SC_SUPPORT); }
 };
 
 }

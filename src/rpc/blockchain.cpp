@@ -160,7 +160,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
             txs.push_back(tx.GetHash().GetHex());
     }
     result.push_back(Pair("tx", txs));
-    if (block.nVersion == CBlock::SC_CERT_BLOCK_VERSION)
+    if (block.nVersion == BLOCK_VERSION_SC_SUPPORT)
     {
         UniValue certs(UniValue::VARR);
         BOOST_FOREACH(const CScCertificate& cert, block.vcert)

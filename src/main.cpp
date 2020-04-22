@@ -2494,11 +2494,6 @@ void PartitionCheck(bool (*initialDownloadCheck)(), CCriticalSection& cs, const 
     }
 }
 
-int32_t ComputeBlockVersion(int nHeight)
-{
-    LOCK(cs_main);
-    return ForkManager::getInstance().getNewBlockVersion(nHeight);
-}
 
 static int64_t nTimeVerify = 0;
 static int64_t nTimeConnect = 0;
