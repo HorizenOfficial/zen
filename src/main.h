@@ -559,11 +559,6 @@ int GetSpendHeight(const CCoinsViewCache& inputs);
  */
 bool IsCommunityFund(const CCoins *coins, int nIn);
 
-/**
-* Determine what nVersion a new block should use.
-*/
-int32_t ComputeBlockVersion(int nHeight);
-
 namespace Consensus {
 bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
 }

@@ -468,14 +468,14 @@ TEST(ContextualCheckBlockHeader, CheckBlockVersion) {
 
     MockCValidationState state;
 
-    // check that after sidechain fork, the only legal block version is SC_CERT_BLOCK_VERSION 
+    // check that after sidechain fork, the only legal block version is BLOCK_VERSION_SC_SUPPORT 
     int hardForkHeight = scFork.getHeight(CBaseChainParams::MAIN);
     indexPrev.nHeight = hardForkHeight -1;
 
     int newBlockVersion = ForkManager::getInstance().getNewBlockVersion(hardForkHeight);
-    EXPECT_TRUE(newBlockVersion == CBlock::SC_CERT_BLOCK_VERSION);
+    EXPECT_TRUE(newBlockVersion == BLOCK_VERSION_SC_SUPPORT);
 
-    block.nVersion = BLOCK_VERSION_OLD;
+    block.nVersion = BLOCK_VERSION_ORIGINAL;
     EXPECT_CALL(state, Invalid(false, REJECT_INVALID, "bad-version")).Times(1);
     EXPECT_FALSE(ContextualCheckBlockHeader(block, state, &indexPrev));
 
@@ -483,16 +483,16 @@ TEST(ContextualCheckBlockHeader, CheckBlockVersion) {
     EXPECT_CALL(state, Invalid(false, REJECT_INVALID, "bad-version")).Times(1);
     EXPECT_FALSE(ContextualCheckBlockHeader(block, state, &indexPrev));
 
-    block.nVersion = CBlock::SC_CERT_BLOCK_VERSION;
+    block.nVersion = BLOCK_VERSION_SC_SUPPORT;
     EXPECT_TRUE(ContextualCheckBlockHeader(block, state, &indexPrev));
 
-    // check that before sidechain fork, block version SC_CERT_BLOCK_VERSION is not valid 
+    // check that before sidechain fork, block version BLOCK_VERSION_SC_SUPPORT is not valid 
     // since is considered obsolete (<4)
 
-    EXPECT_TRUE(CBlock::SC_CERT_BLOCK_VERSION < BLOCK_VERSION_OLD);
+    EXPECT_TRUE(BLOCK_VERSION_SC_SUPPORT < BLOCK_VERSION_ORIGINAL);
     hardForkHeight -= 1;
     indexPrev.nHeight = hardForkHeight -1;
-    block.nVersion = CBlock::SC_CERT_BLOCK_VERSION;
+    block.nVersion = BLOCK_VERSION_SC_SUPPORT;
     EXPECT_CALL(state, Invalid(false, REJECT_INVALID, "bad-version")).Times(1);
     EXPECT_FALSE(ContextualCheckBlockHeader(block, state, &indexPrev));
 
