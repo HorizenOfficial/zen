@@ -273,6 +273,17 @@ UniValue mempoolToJSON(bool fVerbose = false)
                 if (mempool.exists(txin.prevout.hash))
                     setDepends.insert(txin.prevout.hash.ToString());
             }
+            for (const auto& ft: tx.vft_ccout)
+            {
+                if (mempool.hasSidechainCreationTx(ft.scId))
+                {
+                    const uint256& scCreationHash = mempool.mapSidechains.at(ft.scId).scCreationTxHash; 
+
+                    // check if tx is also creating the sc
+                    if (scCreationHash != tx.GetHash())
+                        setDepends.insert(scCreationHash.ToString());
+                }
+            }
 
             UniValue depends(UniValue::VARR);
             BOOST_FOREACH(const string& dep, setDepends)

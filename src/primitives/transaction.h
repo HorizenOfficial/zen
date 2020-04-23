@@ -766,7 +766,6 @@ public:
     virtual bool IsApplicableToState(CValidationState& state, int nHeight = -1) const = 0;
 
     virtual double GetPriority(const CCoinsViewCache &view, int nHeight) const = 0;
-    virtual unsigned int GetLegacySigOpCount() const = 0;
 
     bool VerifyScript(
         const CScript& scriptPubKey, unsigned int flags, unsigned int nIn, const CChain* chain,
@@ -793,7 +792,6 @@ public:
         const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
         std::vector<CScriptCheck> *pvChecks = NULL) const { return true; }
 
-    virtual unsigned int GetP2SHSigOpCount(CCoinsViewCache& view) const { return 0; }
     virtual const uint256 getJoinSplitPubKey() const { return uint256(); }
 
     // return sum of txins, and needs CCoinsViewCache, because
@@ -1031,8 +1029,6 @@ public:
     bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
                            std::vector<CScriptCheck> *pvChecks = NULL) const override;
-    unsigned int GetP2SHSigOpCount(CCoinsViewCache& view) const override;
-    unsigned int GetLegacySigOpCount() const override;
     double GetPriority(const CCoinsViewCache &view, int nHeight) const override;
 
     std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(

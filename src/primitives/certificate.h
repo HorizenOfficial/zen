@@ -150,7 +150,6 @@ public:
     bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) override final;
 
     double GetPriority(const CCoinsViewCache &view, int nHeight) const override;
-    unsigned int GetLegacySigOpCount() const override;
 
     std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
         unsigned int nIn, const CChain* chain, bool cacheStore) const override;
