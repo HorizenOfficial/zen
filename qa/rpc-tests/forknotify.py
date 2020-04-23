@@ -19,7 +19,6 @@ NUMB_OF_NODES = 3
 DEBUG_MODE = 1
 
 BLOCK_VERSION = 4
-
 UP_VERSION = 211
 ILLEGAL_VERSION = 2
 
@@ -79,30 +78,6 @@ class ForkNotifyTest(BitcoinTestFramework):
             v = self.nodes[0].getblock(str(i))['version']
             assert_equal(v, UP_VERSION)
 
-        # -alertnotify should trigger on the 51'st,
-        # but mine and sync another to give
-        # -alertnotify time to write
-        self.nodes[1].generate(1)
-        self.sync_all()
-
-        with open(self.alert_filename, 'r') as f:
-            alert_text = f.read()
-
-        if len(alert_text) == 0:
-            raise AssertionError("-alertnotify did not warn of up-version blocks")
-
-        # Mine more up-version blocks, should not get more alerts:
-        self.nodes[1].generate(1)
-        self.sync_all()
-        self.nodes[1].generate(1)
-        self.sync_all()
-
-        with open(self.alert_filename, 'r') as f:
-            alert_text2 = f.read()
-
-        if alert_text != alert_text2:
-            raise AssertionError("-alertnotify excessive warning of up-version blocks")
-
         try:
             self.nodes[0].generate(1)
             raise AssertionError("Can not generate blocks with version = 2")
@@ -116,7 +91,7 @@ class ForkNotifyTest(BitcoinTestFramework):
         delta = fork_height - active_height
 
         if delta > 0:
-            mark_logs(("Node 2 generates %d block" % delta), self.nodes, DEBUG_MODE)
+            mark_logs(("Node 2 generates %d block to reach sidechain fork" % delta), self.nodes, DEBUG_MODE)
             self.nodes[2].generate(delta)
             self.sync_all()
 

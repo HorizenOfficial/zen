@@ -27,7 +27,6 @@
 #include "util.h"
 #include "utilmoneystr.h"
 #include "validationinterface.h"
-#include "versionbits.h"
 #include "wallet/asyncrpcoperation_sendmany.h"
 #include "wallet/asyncrpcoperation_shieldcoinbase.h"
 
@@ -857,14 +856,13 @@ bool CheckFinalTx(const CTransaction &tx, int flags)
  * 2. P2SH scripts with a crazy number of expensive
  *    CHECKSIG/CHECKMULTISIG operations
  */
-bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
+bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& mapInputs)
 {
-    if (tx.IsCoinBase())
+    if (txBase.IsCoinBase())
         return true; // Coinbases don't use vin normally
 
-    for (unsigned int i = 0; i < tx.GetVin().size(); i++)
-    {
-        const CTxOut& prev = mapInputs.GetOutputFor(tx.GetVin()[i]);
+    for(const CTxIn& in : txBase.GetVin()) {
+        const CTxOut& prev = mapInputs.GetOutputFor(in);
 
         vector<vector<unsigned char> > vSolutions;
         txnouttype whichType;
@@ -883,7 +881,7 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         // IsStandardTx() will have already returned false
         // and this method isn't called.
         vector<vector<unsigned char> > stack;
-        if (!EvalScript(stack, tx.GetVin()[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker()))
+        if (!EvalScript(stack, in.scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker()))
             return false;
 
         if (whichType == TX_SCRIPTHASH || whichType == TX_SCRIPTHASH_REPLAY)
@@ -1240,7 +1238,10 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             view.SetBackend(dummy);
         }
 
-        //ABENEGIA: CheckInputs is useless for certificate. Is it correct?? Or Where is it checked???
+        // Check for non-standard pay-to-script-hash in inputs
+        if (getRequireStandard() && !AreInputsStandard(cert, view)) {
+            return error("AcceptCertificateToMemoryPool: nonstandard transaction input");
+        }
 
         unsigned int nSigOps = GetLegacySigOpCount(cert);
         if (nSigOps > MAX_STANDARD_TX_SIGOPS)
@@ -1998,13 +1999,38 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
     UpdateCoins(txBase, state, inputs, txundo, nHeight);
 }
 
+CScriptCheck::CScriptCheck(): ptxTo(0), nIn(0), chain(nullptr),
+                              nFlags(0), cacheStore(false),
+                              error(SCRIPT_ERR_UNKNOWN_ERROR) {}
+CScriptCheck::CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn,
+                           unsigned int nInIn, const CChain* chainIn,
+                           unsigned int nFlagsIn, bool cacheIn):
+                            scriptPubKey(txFromIn.vout[txToIn.GetVin()[nInIn].prevout.n].scriptPubKey),
+                            ptxTo(&txToIn), nIn(nInIn), chain(chainIn), nFlags(nFlagsIn),
+                            cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR) { }
+
 bool CScriptCheck::operator()() {
     const CScript &scriptSig = ptxTo->GetVin()[nIn].scriptSig;
-    if (!VerifyScript(scriptSig, scriptPubKey, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, chain, cacheStore), &error)) {
-        return ::error("CScriptCheck(): %s:%d VerifySignature failed: %s", ptxTo->GetHash().ToString(), nIn, ScriptErrorString(error));
+    if (!VerifyScript(scriptSig, scriptPubKey, nFlags,
+                      CachingTransactionSignatureChecker(ptxTo, nIn, chain, cacheStore),
+                      &error)) {
+                        return ::error("CScriptCheck(): %s:%d VerifySignature failed: %s",
+                                       ptxTo->GetHash().ToString(), nIn, ScriptErrorString(error));
     }
     return true;
 }
+
+void CScriptCheck::swap(CScriptCheck &check) {
+    scriptPubKey.swap(check.scriptPubKey);
+    std::swap(ptxTo, check.ptxTo);
+    std::swap(nIn, check.nIn);
+    std::swap(chain, check.chain);
+    std::swap(nFlags, check.nFlags);
+    std::swap(cacheStore, check.cacheStore);
+    std::swap(error, check.error);
+}
+
+ScriptError CScriptCheck::GetScriptError() const { return error; }
 
 int GetSpendHeight(const CCoinsViewCache& inputs)
 {
@@ -2036,22 +2062,20 @@ bool IsCommunityFund(const CCoins *coins, int nIn)
 }
 
 namespace Consensus {
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
+bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
 {
         // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
         // for an attacker to attempt to split the network.
-        if (!inputs.HaveInputs(tx))
-            return state.Invalid(error("CheckInputs(): %s inputs unavailable", tx.GetHash().ToString()));
+        if (!inputs.HaveInputs(txBase))
+            return state.Invalid(error("CheckInputs(): %s inputs unavailable", txBase.GetHash().ToString()));
 
         // are the JoinSplit's requirements met?
-        if (!inputs.HaveJoinSplitRequirements(tx))
-            return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", tx.GetHash().ToString()));
+        if (!inputs.HaveJoinSplitRequirements(txBase))
+            return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", txBase.GetHash().ToString()));
 
         CAmount nValueIn = 0;
-        CAmount nFees = 0;
-        for (unsigned int i = 0; i < tx.GetVin().size(); i++)
-        {
-            const COutPoint &prevout = tx.GetVin()[i].prevout;
+       for(const CTxIn& in: txBase.GetVin()) {
+            const COutPoint &prevout = in.prevout;
             const CCoins *coins = inputs.AccessCoins(prevout.hash);
             assert(coins);
 
@@ -2067,7 +2091,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
                 // Disabled on regtest
                 if (fCoinbaseEnforcedProtectionEnabled &&
                     consensusParams.fCoinbaseMustBeProtected &&
-                    !tx.GetVout().empty()) {
+                    !txBase.GetVout().empty()) {
 
                     // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed
                     // to send them to the transparent addr.
@@ -2088,26 +2112,14 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 
         }
 
-        nValueIn += tx.GetJoinSplitValueIn();
-        if (!MoneyRange(nValueIn))
-            return state.DoS(100, error("CheckInputs(): vpub_old values out of range"),
-                             REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+    nValueIn += txBase.GetJoinSplitValueIn();
+    if (!MoneyRange(nValueIn))
+        return state.DoS(100, error("CheckInputs(): vpub_old values out of range"),
+                         REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
-        if (nValueIn < tx.GetValueOut() )
-            return state.DoS(100, error("CheckInputs(): %s value in (%s) < value out (%s)",
-                                        tx.GetHash().ToString(),
-                                        FormatMoney(nValueIn), FormatMoney(tx.GetValueOut()) ),
-                             REJECT_INVALID, "bad-txns-in-belowout");
+   if (!txBase.CheckFeeAmount(nValueIn, state))
+        return false;
 
-        // Tally transaction fees
-        CAmount nTxFee = nValueIn - tx.GetValueOut();
-        if (nTxFee < 0)
-            return state.DoS(100, error("CheckInputs(): %s nTxFee < 0", tx.GetHash().ToString()),
-                             REJECT_INVALID, "bad-txns-fee-negative");
-        nFees += nTxFee;
-        if (!MoneyRange(nFees))
-            return state.DoS(100, error("CheckInputs(): nFees out of range"),
-                             REJECT_INVALID, "bad-txns-fee-outofrange");
     return true;
 }
 }// namespace Consensus
@@ -2481,61 +2493,6 @@ void PartitionCheck(bool (*initialDownloadCheck)(), CCriticalSection& cs, const 
     }
 }
 
-// Protected by cs_main
-VersionBitsCache versionbitscache;
-
-int32_t ComputeBlockVersion(int nHeight)
-{
-    LOCK(cs_main);
-    return ForkManager::getInstance().getNewBlockVersion(nHeight);
-}
-
-int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Params& params)
-{
-    LOCK(cs_main);
-    int32_t nVersion = VERSIONBITS_TOP_BITS;
-
-#if 0
-    for (int i = 0; i < (int)Consensus::MAX_VERSION_BITS_DEPLOYMENTS; i++) {
-        ThresholdState state = VersionBitsState(pindexPrev, params, (Consensus::DeploymentPos)i, versionbitscache);
-        if (state == THRESHOLD_LOCKED_IN || state == THRESHOLD_STARTED) {
-            nVersion |= VersionBitsMask(params, (Consensus::DeploymentPos)i);
-        }
-    }
-#else
-    // the for loop above actually is not entered and VERSIONBITS_TOP_BITS is returned.
-    nVersion = CBlockHeader::SC_CERT_BLOCK_VERSION;
-#endif
-
-    return nVersion;
-}
-
-/**
- * Threshold condition checker that triggers when unknown versionbits are seen on the network.
- */
-class WarningBitsConditionChecker : public AbstractThresholdConditionChecker
-{
-private:
-    int bit;
-
-public:
-    WarningBitsConditionChecker(int bitIn) : bit(bitIn) {}
-
-    int64_t BeginTime(const Consensus::Params& params) const { return 0; }
-    int64_t EndTime(const Consensus::Params& params) const { return std::numeric_limits<int64_t>::max(); }
-    int Period(const Consensus::Params& params) const { return params.nMinerConfirmationWindow; }
-    int Threshold(const Consensus::Params& params) const { return params.nRuleChangeActivationThreshold; }
-
-    bool Condition(const CBlockIndex* pindex, const Consensus::Params& params) const
-    {
-        return ((pindex->nVersion & VERSIONBITS_TOP_MASK) == VERSIONBITS_TOP_BITS) &&
-               ((pindex->nVersion >> bit) & 1) != 0 &&
-               ((ComputeBlockVersion(pindex->pprev, params) >> bit) & 1) == 0;
-    }
-};
-
-// Protected by cs_main
-static ThresholdConditionCache warningcache[VERSIONBITS_NUM_BITS];
 
 static int64_t nTimeVerify = 0;
 static int64_t nTimeConnect = 0;
@@ -2998,47 +2955,6 @@ void static UpdateTip(CBlockIndex *pindexNew) {
       syncProgress, pcoinsTip->DynamicMemoryUsage() * (1.0 / (1<<20)), pcoinsTip->GetCacheSize());
 
     cvBlockChange.notify_all();
-
-    // Check the version of the last 100 blocks to see if we need to upgrade:
-    static bool fWarned = false;
-    if (!IsInitialBlockDownload())
-    {
-        int nUpgraded = 0;
-        const CBlockIndex* pindex = chainActive.Tip();
-        for (int bit = 0; bit < VERSIONBITS_NUM_BITS; bit++) {
-            WarningBitsConditionChecker checker(bit);
-            ThresholdState state = checker.GetStateFor(pindex, chainParams.GetConsensus(), warningcache[bit]);
-            if (state == THRESHOLD_ACTIVE || state == THRESHOLD_LOCKED_IN) {
-                if (state == THRESHOLD_ACTIVE) {
-                    strMiscWarning = strprintf(_("Warning: unknown new rules activated (versionbit %i)"), bit);
-                    if (!fWarned) {
-                        CAlert::Notify(strMiscWarning, true);
-                        fWarned = true;
-                    }
-                } else {
-                    LogPrintf("%s: unknown new rules are about to activate (versionbit %i)\n", __func__, bit);
-                }
-            }
-        }
-        for (int i = 0; i < 100 && pindex != NULL; i++)
-        {
-            int32_t nExpectedVersion = ComputeBlockVersion(pindex->pprev, chainParams.GetConsensus());
-            if (pindex->nVersion > VERSIONBITS_LAST_OLD_BLOCK_VERSION && (pindex->nVersion & ~nExpectedVersion) != 0)
-                ++nUpgraded;
-            pindex = pindex->pprev;
-        }
-        if (nUpgraded > 0)
-            LogPrintf("%s: %d of last 100 blocks have unexpected version\n", __func__, nUpgraded);
-        if (nUpgraded > 100/2)
-        {
-            // strMiscWarning is read by GetWarnings(), called by Qt and the JSON-RPC code to warn the user:
-            strMiscWarning = _("Warning: Unknown block versions being mined! It's possible unknown rules are in effect");
-            if (!fWarned) {
-                CAlert::Notify(strMiscWarning, true);
-                fWarned = true;
-            }
-        }
-    }
 }
 
 /** Disconnect chainActive's tip. */
@@ -4676,10 +4592,6 @@ void UnloadBlockIndex()
     setDirtyFileInfo.clear();
     mapNodeState.clear();
     recentRejects.reset(NULL);
-    versionbitscache.Clear();
-    for (int b = 0; b < VERSIONBITS_NUM_BITS; b++) {
-        warningcache[b].clear();
-    }
 
     BOOST_FOREACH(BlockMap::value_type& entry, mapBlockIndex) {
         delete entry.second;
@@ -5031,17 +4943,6 @@ void static CheckBlockIndex()
     assert(nNodes == forward.size());
 }
 
-ThresholdState VersionBitsTipState(const Consensus::Params& params, Consensus::DeploymentPos pos)
-{
-    LOCK(cs_main);
-    return VersionBitsState(chainActive.Tip(), params, pos, versionbitscache);
-}
-
-int VersionBitsTipStateSinceHeight(const Consensus::Params& params, Consensus::DeploymentPos pos)
-{
-    LOCK(cs_main);
-    return VersionBitsStateSinceHeight(chainActive.Tip(), params, pos, versionbitscache);
-}
 
 //////////////////////////////////////////////////////////////////////////////
 //

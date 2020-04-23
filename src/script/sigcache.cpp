@@ -74,6 +74,11 @@ public:
 
 }
 
+CachingTransactionSignatureChecker::CachingTransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn,
+                                                                       const CChain* chainIn, bool storeIn):
+                                                                        TransactionSignatureChecker(txToIn, nInIn, chainIn),
+                                                                        store(storeIn) {}
+
 bool CachingTransactionSignatureChecker::VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& pubkey, const uint256& sighash) const
 {
     static CSignatureCache signatureCache;

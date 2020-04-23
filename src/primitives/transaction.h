@@ -28,9 +28,8 @@
 #include "consensus/params.h"
 #include <sc/sidechaintypes.h>
 
-static const int32_t SC_TX_BASE_VERSION = 0xFFFFFFFC; // -4
-static const int32_t SC_TX_VERSION = SC_TX_BASE_VERSION;
-static const int32_t SC_CERT_VERSION = SC_TX_BASE_VERSION;
+static const int32_t SC_CERT_VERSION = 0xFFFFFFFB; // -5
+static const int32_t SC_TX_VERSION = 0xFFFFFFFC; // -4
 static const int32_t GROTH_TX_VERSION = 0xFFFFFFFD; // -3
 static const int32_t PHGR_TX_VERSION = 2;
 static const int32_t TRANSPARENT_TX_VERSION = 1;
@@ -694,12 +693,6 @@ public:
         return hash;
     }
 
-    bool IsScVersion() const
-    {
-        // so far just one version
-        return (nVersion == SC_TX_BASE_VERSION);
-    }
-
     friend bool operator==(const CTransactionBase& a, const CTransactionBase& b)
     {
         return a.hash == b.hash;
@@ -710,10 +703,13 @@ public:
         return !(a==b);
     }
 
+    virtual bool IsScVersion() const = 0;
+
     //GETTERS
     virtual const std::vector<CTxIn>&         GetVin()        const = 0;
     virtual const std::vector<CTxOut>&        GetVout()       const = 0;
     virtual const std::vector<JSDescription>& GetVjoinsplit() const = 0;
+    virtual const uint256&                    GetScId()       const = 0;
     //END OF GETTERS
 
     //CHECK FUNCTIONS
@@ -724,6 +720,7 @@ public:
 
     bool CheckInputsAmount (CValidationState &state) const;
     bool CheckOutputsAmount(CValidationState &state) const;
+    virtual bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const = 0;
     bool CheckInputsDuplication(CValidationState &state) const;
     bool CheckInputsInteraction(CValidationState &state) const;
 
@@ -766,15 +763,13 @@ public:
     // return false when meaningful only in a block context. As of now only tx coin base returns false
 
     virtual bool IsCoinBase() const { return false; }
-    virtual bool IsCoinCertified() const { return false; }
+    virtual bool IsCertificate() const { return false; }
 
     // Return sum of JoinSplit vpub_new if supported
     virtual CAmount GetJoinSplitValueIn() const { return 0; }
 
-    virtual void HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const { return; }
     virtual void AddJoinSplitToJSON(UniValue& entry) const { return; }
     virtual void AddSidechainOutsToJSON(UniValue& entry) const {return; }
-    virtual bool AreInputsStandard(CCoinsViewCache& view) const { return true; }
 
     virtual bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
         const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
@@ -895,10 +890,17 @@ public:
         );
     }
     
+    bool IsScVersion() const override
+    {
+        // so far just one version
+        return (nVersion == SC_TX_VERSION);
+    }
+
     //GETTERS
     const std::vector<CTxIn>&         GetVin()        const override {return vin;};
     const std::vector<CTxOut>&        GetVout()       const override {return vout;};
     const std::vector<JSDescription>& GetVjoinsplit() const override {return vjoinsplit;};
+    const uint256&                    GetScId()       const override { static uint256 noScId; return noScId;};
     //END OF GETTERS
 
     //CHECK FUNCTIONS
@@ -906,6 +908,7 @@ public:
     bool CheckInputsAvailability  (CValidationState &state) const override;
     bool CheckOutputsAvailability (CValidationState &state) const override;
     bool CheckSerializedSize      (CValidationState &state) const override;
+    bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     //END OF CHECK FUNCTIONS
 
     // Return sum of txouts.
@@ -1011,10 +1014,8 @@ public:
     bool IsStandard(std::string& reason, int nHeight) const override;
     bool CheckFinal(int flags = -1) const override;
     bool IsApplicableToState(CValidationState& state, int nHeight = -1) const override;
-    void HandleJoinSplitCommittments(ZCIncrementalMerkleTree& tree) const override;
     void AddJoinSplitToJSON(UniValue& entry) const override;
     void AddSidechainOutsToJSON(UniValue& entry) const override;
-    bool AreInputsStandard(CCoinsViewCache& view) const override;
     bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
                            std::vector<CScriptCheck> *pvChecks = NULL) const override;

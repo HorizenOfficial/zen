@@ -17,6 +17,11 @@ public:
 	inline virtual int getSidechainTxVersion() const { return SC_TX_VERSION; }
 
     /**
+	 * @brief returns sidechain cert version based on block height, if sidechains are not supported return 0
+	 */
+	inline virtual int getCertificateVersion() const { return SC_CERT_VERSION; }
+
+    /**
 	 * @brief returns true if sidechains are supported
 	 */
 	inline virtual bool areSidechainsSupported() const { return true; }
@@ -24,12 +29,12 @@ public:
     /**
 	 * @brief returns new block version
 	 */
-	inline virtual int getNewBlockVersion() const { return CBlock::SC_CERT_BLOCK_VERSION; }
+	inline virtual int getNewBlockVersion() const { return BLOCK_VERSION_SC_SUPPORT; }
 
     /**
 	 * @brief returns true if the block version is valid at this fork
 	 */
-    inline virtual bool isValidBlockVersion(int nVersion) const { return (nVersion == CBlock::SC_CERT_BLOCK_VERSION); }
+    inline virtual bool isValidBlockVersion(int nVersion) const { return (nVersion == BLOCK_VERSION_SC_SUPPORT); }
 };
 
 }

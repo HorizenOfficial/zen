@@ -95,6 +95,10 @@ bool CScCertificate::CheckSerializedSize(CValidationState &state) const
     return true;
 }
 
+bool CScCertificate::CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const {
+    return true;
+}
+
 CAmount CScCertificate::GetFeeAmount(CAmount /* unused */) const
 {
     // this is a signed uint64, the caller must check if that is legal
@@ -202,6 +206,13 @@ bool CScCertificate::IsStandard(std::string& reason, int nHeight) const
         return false;
     }
 
+    // so far just one version is supported, but in future it might not be the case
+    if (zen::ForkManager::getInstance().getCertificateVersion(nHeight) != nVersion)
+    {
+        reason = "version";
+        return false;
+    }
+
     return CheckOutputsAreStandard(nHeight, reason);
 }
 #endif
@@ -237,7 +248,7 @@ CMutableScCertificate::CMutableScCertificate() :
         scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), totalAmount(), fee(), nonce() {}
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert) :
-    scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash),
+    scId(cert.GetScId()), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash),
     totalAmount(cert.totalAmount), fee(cert.fee), nonce(cert.nonce)
 {
     nVersion = cert.nVersion;

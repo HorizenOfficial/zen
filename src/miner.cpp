@@ -109,6 +109,8 @@ void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, const CCoinsVie
 {
     // TODO add handling of dependancies when vin will be included in certificates
 
+    AssertLockHeld(mempool.cs); 
+
     for (auto it_cert = mempool.mapCertificate.begin();
          it_cert != mempool.mapCertificate.end(); ++it_cert)
     {
@@ -116,9 +118,10 @@ void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, const CCoinsVie
 
         const uint256& hash = cert.GetHash();
 
-        // a certificate has no dependancies, the creation of the sidechain it refers to has happened
-        // before the first epoch has even started, therefore the creating tx can not be in mempool
-        if (!view.HaveSidechain(cert.scId) )
+        // a certificate has no dependancies but the creation of the sidechain (TODO handle vin)
+        // the creation of the sidechain it refers to has happened before the first epoch has even started
+        // therefore the creating tx could not actually be in mempool
+        if (mempool.mapSidechains.at(cert.GetScId()).scCreationTxHash.IsNull() && !view.HaveSidechain(cert.GetScId() ))
         {
             // This should never happen 
             LogPrintf("%s():%d - ERROR: mempool certificate missing sidechain\n", __func__, __LINE__);
@@ -203,7 +206,7 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
         CAmount nTotalIn = 0;
         CAmount nFee = 0;
         unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
-        uint256 hash = tx.GetHash();
+        const uint256& hash = tx.GetHash();
         bool fMissingInputs = false;
         bool dependsOnCertificateInMempool = false;
 
@@ -382,7 +385,6 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
 
         if (fMissingInputs) continue;
 
-#if 1
         if (!HandleScDependancy(tx, view, porphan, vOrphan, mapDependers) )
         {
             // should never happen because that means inconsistency in mempool, but this tx must not be
@@ -391,7 +393,6 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
                 __func__, __LINE__, tx.GetHash().ToString() ); 
             continue;
         }
-#endif
 
         // Priority is sum(valuein * age) / modified_txsize
         unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
@@ -466,7 +467,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         pblock->nTime = GetAdjustedTime();
         const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();
 
-        pblock->nVersion = ComputeBlockVersion(nHeight);
+        pblock->nVersion = ForkManager::getInstance().getNewBlockVersion(nHeight);
+
         // -regtest only: allow overriding block.nVersion with
         // -blockversion=N to test forking scenarios
         if (chainparams.MineBlocksOnDemand())
@@ -500,7 +502,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         TxPriorityCompare comparer(fSortedByFee);
         std::make_heap(vecPriority.begin(), vecPriority.end(), comparer);
 
-#if 1
+#if 0
         for (auto entry : vecPriority)
         {
             LogPrint("sc", "%s():%d - tx[%s] prio[%f], feerate[%s]\n",
@@ -538,7 +540,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
             // Skip free transactions if we're past the minimum block size:
             // TODO cert: this does not hold for certificate until MC owned fee will be handled
-            if (!tx.IsCoinCertified() )
+            if (!tx.IsCertificate() )
             {
                 double dPriorityDelta = 0;
                 CAmount nFeeDelta = 0;
@@ -638,7 +640,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                                 __func__, __LINE__, porphan->ptx->GetHash().ToString());
                             vecPriority.push_back(TxPriority(porphan->dPriority, porphan->feeRate, porphan->ptx));
                             std::push_heap(vecPriority.begin(), vecPriority.end(), comparer);
-#if 1
+#if 0
         for (auto entry : vecPriority)
         {
             LogPrint("sc", "%s():%d - tx[%s] prio[%20.6f], feerate[%12s]\n",
