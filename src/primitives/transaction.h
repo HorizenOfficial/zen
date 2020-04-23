@@ -756,7 +756,6 @@ public:
     virtual bool IsApplicableToState(CValidationState& state, int nHeight = -1) const = 0;
 
     virtual double GetPriority(const CCoinsViewCache &view, int nHeight) const = 0;
-    virtual unsigned int GetLegacySigOpCount() const = 0;
 
     //-----------------
     // default values for derived classes which do not support specific data structures
@@ -776,9 +775,7 @@ public:
         const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
         std::vector<CScriptCheck> *pvChecks = NULL) const { return true; }
 
-    virtual unsigned int GetP2SHSigOpCount(CCoinsViewCache& view) const { return 0; }
     virtual const uint256 getJoinSplitPubKey() const { return uint256(); }
-    virtual int GetComplexity() const { return 0; }
 
     // return sum of txins, and needs CCoinsViewCache, because
     // inputs must be known to compute value in.
@@ -921,7 +918,6 @@ public:
     // value in should be computed via the method above using a proper coin view
     CAmount GetFeeAmount(CAmount valueIn) const override { return (valueIn - GetValueOut() ); }
 
-    int GetComplexity() const override { return vin.size()*vin.size(); }
     const uint256 getJoinSplitPubKey() const override { return joinSplitPubKey; }
 
     std::string ToString() const override;
@@ -1023,8 +1019,6 @@ public:
     bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
                            std::vector<CScriptCheck> *pvChecks = NULL) const override;
-    unsigned int GetP2SHSigOpCount(CCoinsViewCache& view) const override;
-    unsigned int GetLegacySigOpCount() const override;
     double GetPriority(const CCoinsViewCache &view, int nHeight) const override;
 };
 

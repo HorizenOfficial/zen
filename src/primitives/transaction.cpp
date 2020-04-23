@@ -686,10 +686,7 @@ CAmount CTransaction::GetJoinSplitValueIn() const
 unsigned int CTransaction::CalculateSize() const
 {
     unsigned int sz = ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);
-//    LogPrint("cert", "%s():%d -sz=%u\n", __func__, __LINE__, sz);
-    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-    ss << *this;
-//    LogPrint("cert", "%s():%d -hex=%s\n", __func__, __LINE__, HexStr(ss.begin(), ss.end()) );
+    //LogPrint("cert", "%s():%d - tx[%s]: sz=%u\n", __func__, __LINE__, GetHash().ToString(), sz);
     return sz;
 }
 
@@ -774,8 +771,6 @@ bool CTransaction::CheckFinal(int flags) const { return true; }
 bool CTransaction::IsApplicableToState(CValidationState& state, int nHeight) const { return true; }
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
-unsigned int CTransaction::GetP2SHSigOpCount(CCoinsViewCache& view) const { return 0; }
-unsigned int CTransaction::GetLegacySigOpCount() const { return 0; }
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
           const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
           std::vector<CScriptCheck> *pvChecks) const { return true;}
@@ -947,31 +942,6 @@ void CTransaction::AddJoinSplitToJSON(UniValue& entry) const
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const
 {
     Sidechain::AddSidechainOutsToJSON(*this, entry);
-}
-
-unsigned int CTransaction::GetP2SHSigOpCount(CCoinsViewCache& view) const 
-{
-    return ::GetP2SHSigOpCount(*this, view);
-}
-
-unsigned int CTransaction::GetLegacySigOpCount() const 
-{
-    /**
-     * Count ECDSA signature operations the old-fashioned (pre-0.6) way
-     * @return number of sigops this transaction's outputs will produce when spent
-     * @see CTransaction::FetchInputs
-     */
-    unsigned int nSigOps = 0;
-
-    for(const CTxIn& txin: vin) {
-        nSigOps += txin.scriptSig.GetSigOpCount(false);
-    }
-
-    for(const CTxOut& txout: vout) {
-        nSigOps += txout.scriptPubKey.GetSigOpCount(false);
-    }
-
-    return nSigOps;
 }
 
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,

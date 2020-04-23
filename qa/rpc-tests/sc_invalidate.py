@@ -13,7 +13,7 @@ from decimal import Decimal
 import time
 
 NUMB_OF_NODES = 3
-DEBUG_MODE = 0
+DEBUG_MODE = 1
 SC_COINS_MAT = 2
 
 

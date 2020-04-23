@@ -159,7 +159,6 @@ public:
     bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) override final;
 
     double GetPriority(const CCoinsViewCache &view, int nHeight) const override;
-    unsigned int GetLegacySigOpCount() const override;
 
     bool IsCertificate() const override { return true; }
 };
