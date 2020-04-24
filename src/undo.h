@@ -145,21 +145,10 @@ public:
         else
         {
 #if 1
-            ::AddEntriesInVector(s, vtxundo, nType, nVersion, nSize);
+            s.Rewind(GetSizeOfCompactSize(nSize));
+            ::Unserialize(s, (vtxundo), nType, nVersion);
 #else
-            unsigned int i = 0;
-            unsigned int nMid = 0;
-            while (nMid < nSize)
-            {
-                nMid += 5000000 / sizeof(CTxUndo);
-                if (nMid > nSize)
-                    nMid = nSize;
-                vtxundo.resize(nMid);
-                for (; i < nMid; i++)
-                {
-                    ::Unserialize(s, vtxundo[i], nType, nVersion);
-                }
-            }
+            ::AddEntriesInVector(s, vtxundo, nType, nVersion, nSize);
 #endif
             ::Unserialize(s, (old_tree_root), nType, nVersion);
         }
@@ -176,7 +165,8 @@ public:
         return str;
     }
 
-    /** for testing */
-    void setOldVersion() { isNewVersion = false; }
+    /** for tresting */
+    bool IsNewVersion() const  { return isNewVersion; }
+
 };
 #endif // BITCOIN_UNDO_H
