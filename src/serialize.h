@@ -697,11 +697,9 @@ void Unserialize_impl(Stream& is, std::vector<T, A>& v, int nType, int nVersion,
     }
 }
 
-template<typename Stream, typename T, typename A, typename V>
-void Unserialize_impl(Stream& is, std::vector<T, A>& v, int nType, int nVersion, const V&)
+template<typename Stream, typename T, typename A>
+void AddEntriesInVector(Stream& is, std::vector<T, A>& v, int nType, int nVersion, unsigned int nSize)
 {
-    v.clear();
-    unsigned int nSize = ReadCompactSize(is);
     unsigned int i = 0;
     unsigned int nMid = 0;
     while (nMid < nSize)
@@ -714,6 +712,15 @@ void Unserialize_impl(Stream& is, std::vector<T, A>& v, int nType, int nVersion,
             Unserialize(is, v[i], nType, nVersion);
     }
 }
+
+template<typename Stream, typename T, typename A, typename V>
+void Unserialize_impl(Stream& is, std::vector<T, A>& v, int nType, int nVersion, const V&)
+{
+    v.clear();
+    unsigned int nSize = ReadCompactSize(is);
+    AddEntriesInVector(is, v, nType, nVersion, nSize);
+}
+
 
 template<typename Stream, typename T, typename A>
 inline void Unserialize(Stream& is, std::vector<T, A>& v, int nType, int nVersion)

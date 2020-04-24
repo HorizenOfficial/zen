@@ -2235,6 +2235,9 @@ bool UndoReadFromDisk(CBlockUndo& blockundo, const CDiskBlockPos& pos, const uin
     CHashWriter hasher(SER_GETHASH, PROTOCOL_VERSION);
     hasher << hashBlock;
     hasher << blockundo;
+
+    LogPrintf("%s\n", blockundo.ToString());
+
     if (hashChecksum != hasher.GetHash())
         return error("%s: Checksum mismatch", __func__);
 
