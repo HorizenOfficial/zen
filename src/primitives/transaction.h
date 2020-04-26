@@ -383,7 +383,9 @@ public:
         READWRITE(scriptPubKey);
         if (ser_action.ForRead())
         {
-            // default value for memory data member
+            // the in-memory attribute isFromBackwardTransfer is not serialized, to keep backward compatibility
+            // It is left up to object including CTxOut attributes in their serialization operations to track
+            // the isFromBackwardTransfer flag. Below the isFromBackwardTransfer flag is initialized to a default value.
             isFromBackwardTransfer = false;
         }
     }

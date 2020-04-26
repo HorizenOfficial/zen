@@ -14,7 +14,7 @@
  *
  *  Contains the prevout's CTxOut being spent, and if this was the
  *  last output of the affected transaction, its metadata as well
- *  (coinbase or not, height, transaction version)
+ *  (coinbase or not, height, transaction version, originScid and isFromBackwardTransfer)
  */
 class CTxInUndo
 {
@@ -23,14 +23,22 @@ public:
     bool fCoinBase;       // if the outpoint was the last unspent: whether it belonged to a coinbase
     unsigned int nHeight; // if the outpoint was the last unspent: its height
     int nVersion;         // if the outpoint was the last unspent: its version
+    uint256 originScId;   // if the outpoint was the last unspent: its originScId, introduced with certificates
 
-    CTxInUndo() : txout(), fCoinBase(false), nHeight(0), nVersion(0) {}
-    CTxInUndo(const CTxOut &txoutIn, bool fCoinBaseIn = false, unsigned int nHeightIn = 0, int nVersionIn = 0) : txout(txoutIn), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), nVersion(nVersionIn) { }
+    CTxInUndo() : txout(), fCoinBase(false), nHeight(0), nVersion(0), originScId() {}
+    CTxInUndo(const CTxOut &txoutIn, bool fCoinBaseIn = false, unsigned int nHeightIn = 0, int nVersionIn = 0, const uint256 & _scId = uint256() ):
+        txout(txoutIn), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), nVersion(nVersionIn), originScId(_scId) { }
 
     unsigned int GetSerializeSize(int nType, int nVersion) const {
-        return ::GetSerializeSize(VARINT(nHeight*2+(fCoinBase ? 1 : 0)), nType, nVersion) +
+        unsigned int totalSize = 0;
+        totalSize = ::GetSerializeSize(VARINT(nHeight*2+(fCoinBase ? 1 : 0)), nType, nVersion) +
                (nHeight > 0 ? ::GetSerializeSize(VARINT(this->nVersion), nType, nVersion) : 0) +
                ::GetSerializeSize(CTxOutCompressor(REF(txout)), nType, nVersion);
+        if ((nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f)) {
+            totalSize += ::GetSerializeSize(originScId, nType,nVersion);
+            totalSize += ::GetSerializeSize(txout.isFromBackwardTransfer, nType,nVersion);
+        }
+        return totalSize;
     }
 
     template<typename Stream>
@@ -39,6 +47,11 @@ public:
         if (nHeight > 0)
             ::Serialize(s, VARINT(this->nVersion), nType, nVersion);
         ::Serialize(s, CTxOutCompressor(REF(txout)), nType, nVersion);
+
+        if ((this->nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f)) {
+            ::Serialize(s,originScId, nType, nVersion);
+            ::Serialize(s,txout.isFromBackwardTransfer? true: false, nType, nVersion);
+        }
     }
 
     template<typename Stream>
@@ -50,6 +63,11 @@ public:
         if (nHeight > 0)
             ::Unserialize(s, VARINT(this->nVersion), nType, nVersion);
         ::Unserialize(s, REF(CTxOutCompressor(REF(txout))), nType, nVersion);
+
+        if ((this->nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f)) {
+            ::Unserialize(s, originScId, nType, nVersion);
+            ::Unserialize(s, txout.isFromBackwardTransfer, nType, nVersion);
+        }
     }
 };
 

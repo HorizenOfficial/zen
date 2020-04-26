@@ -1956,9 +1956,11 @@ void static InvalidBlockFound(CBlockIndex *pindex, const CValidationState &state
 void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight)
 {
     // mark inputs spent
-    if (!txBase.IsCoinBase()) {
+    if (!txBase.IsCoinBase())
+    {
         txundo.vprevout.reserve(txBase.GetVin().size());
-        for(const CTxIn &txin: txBase.GetVin()) {
+        for(const CTxIn &txin: txBase.GetVin())
+        {
             CCoinsModifier coins = inputs.ModifyCoins(txin.prevout.hash);
             unsigned nPos = txin.prevout.n;
             assert(coins->IsAvailable(nPos));
@@ -1971,6 +1973,7 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
                 undo.nHeight = coins->nHeight;
                 undo.fCoinBase = coins->fCoinBase;
                 undo.nVersion = coins->nVersion;
+                undo.originScId = coins->originScId;
             }
         }
     }
@@ -2279,6 +2282,7 @@ static bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const CO
         coins->fCoinBase = undo.fCoinBase;
         coins->nHeight = undo.nHeight;
         coins->nVersion = undo.nVersion;
+        coins->originScId = undo.originScId;
     } else {
         if (coins->IsPruned())
             fClean = fClean && error("%s: undo data adding output to missing transaction", __func__);
@@ -2328,22 +2332,22 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         // Check that all outputs are available and match the outputs in the block itself
         // exactly.
         {
-        CCoinsModifier outs = view.ModifyCoins(hash);
-        outs->ClearUnspendable();
+            CCoinsModifier outs = view.ModifyCoins(hash);
+            outs->ClearUnspendable();
 
-        CCoins outsBlock(tx, pindex->nHeight);
-        // The CCoins serialization does not serialize negative numbers.
-        // No network rules currently depend on the version here, so an inconsistency is harmless
-        // but it must be corrected before txout nversion ever influences a network rule.
-        if (outsBlock.nVersion < 0)
-            outs->nVersion = outsBlock.nVersion;
-        if (*outs != outsBlock) {
-            fClean = fClean && error("DisconnectBlock(): added transaction mismatch? database corrupted");
-            LogPrint("tx", "%s():%d - tx[%s]\n", __func__, __LINE__, hash.ToString());
-        }
- 
-        // remove outputs
-        outs->Clear();
+            CCoins outsBlock(tx, pindex->nHeight);
+            // The CCoins serialization does not serialize negative numbers.
+            // No network rules currently depend on the version here, so an inconsistency is harmless
+            // but it must be corrected before txout nversion ever influences a network rule.
+            if (outsBlock.nVersion < 0)
+                outs->nVersion = outsBlock.nVersion;
+            if (*outs != outsBlock) {
+                fClean = fClean && error("DisconnectBlock(): added transaction mismatch? database corrupted");
+                LogPrint("tx", "%s():%d - tx[%s]\n", __func__, __LINE__, hash.ToString());
+            }
+
+            // remove outputs
+            outs->Clear();
         }
 
         // unspend nullifiers
