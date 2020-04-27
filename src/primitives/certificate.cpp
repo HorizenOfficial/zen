@@ -193,7 +193,6 @@ bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {r
 
 bool CScCertificate::IsApplicableToState(CValidationState& state, int nHeight) const { return true; }
 bool CScCertificate::IsStandard(std::string& reason, int nHeight) const { return true; }
-unsigned int CScCertificate::GetLegacySigOpCount() const { return 0; }
 #else
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
 {
@@ -224,16 +223,6 @@ bool CScCertificate::IsStandard(std::string& reason, int nHeight) const
     }
 
     return CheckOutputsAreStandard(nHeight, reason);
-}
-
-unsigned int CScCertificate::GetLegacySigOpCount() const 
-{
-    unsigned int nSigOps = 0;
-    BOOST_FOREACH(const CTxOut& txout, vout)
-    {
-        nSigOps += txout.scriptPubKey.GetSigOpCount(false);
-    }
-    return nSigOps;
 }
 #endif
 

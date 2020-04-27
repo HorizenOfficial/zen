@@ -71,12 +71,12 @@ public:
     /**
 	 * @brief returns supported new block version based on block height
 	 */
-	inline virtual int getNewBlockVersion() const { return BLOCK_VERSION_4; }
+	inline virtual int getNewBlockVersion() const { return BLOCK_VERSION_ORIGINAL; }
 
     /**
      * @brief returns true if the nVersion is valid at input block height
      */
-    inline virtual bool isValidBlockVersion(int nVersion) const { return (nVersion >= BLOCK_VERSION_4); }
+    inline virtual bool isValidBlockVersion(int nVersion) const { return (nVersion >= BLOCK_VERSION_ORIGINAL); }
 
 };
 

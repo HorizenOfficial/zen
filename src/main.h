@@ -25,7 +25,6 @@
 #include "tinyformat.h"
 #include "txmempool.h"
 #include "uint256.h"
-#include "versionbits.h"
 
 #include <algorithm>
 #include <exception>
@@ -291,12 +290,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert, bool fLimitFree,
                         bool* pfMissingInputs, bool fRejectAbsurdFee=false, int epochSafeGuardHeight = -1);
 
-/** Get the BIP9 state for a given deployment at the current tip. */
-ThresholdState VersionBitsTipState(const Consensus::Params& params, Consensus::DeploymentPos pos);
-
-/** Get the block height at which the BIP9 deployment switched into the state for the block building on the current tip. */
-int VersionBitsTipStateSinceHeight(const Consensus::Params& params, Consensus::DeploymentPos pos);
-
 struct CNodeStateStats {
     int nMisbehavior;
     int nSyncHeight;
@@ -351,6 +344,13 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
  */
 bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& mapInputs);
 
+/** 
+ * Count ECDSA signature operations the old-fashioned (pre-0.6) way
+ * @return number of sigops this transaction's outputs will produce when spent
+ * @see CTransaction::FetchInputs
+ */
+unsigned int GetLegacySigOpCount(const CTransactionBase& tx);
+
 /**
  * Count ECDSA signature operations in pay-to-script-hash inputs.
  * 
@@ -358,7 +358,7 @@ bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& ma
  * @return maximum number of sigops required to validate this transaction's inputs
  * @see CTransaction::FetchInputs
  */
-unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+unsigned int GetP2SHSigOpCount(const CTransactionBase& tx, const CCoinsViewCache& mapInputs);
 
 
 /**
@@ -565,14 +565,6 @@ int GetSpendHeight(const CCoinsViewCache& inputs);
  * Check if the output nIn is CF Reward
  */
 bool IsCommunityFund(const CCoins *coins, int nIn);
-
-extern VersionBitsCache versionbitscache;
-
-/**
-* Determine what nVersion a new block should use.
-*/
-int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Params& params);
-int32_t ComputeBlockVersion(int nHeight);
 
 namespace Consensus {
 bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
