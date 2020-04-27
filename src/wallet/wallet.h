@@ -314,7 +314,6 @@ public:
     }
 
     virtual uint256 GetObjHash() const = 0;
-    virtual bool IsMature() const;
 
     /**
      * Return depth of transaction in blockchain:
@@ -450,6 +449,7 @@ public:
     void GetMatureAmountsForAccount(const std::string& strAccount, CAmount& nReceived,
                            CAmount& nSent, CAmount& nFee, const isminefilter& filter) const;
 
+    virtual bool HasMatureOutputs() const;
     COutputEntry::maturityState IsOutputMature(unsigned int pos) const;
     CAmount GetCredit(const isminefilter& filter) const;
     CAmount GetImmatureCredit(bool fUseCache=true) const;

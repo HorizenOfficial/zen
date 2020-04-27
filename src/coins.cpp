@@ -150,33 +150,7 @@ bool CCoinsView::BatchWrite(CCoinsMap &mapCoins,
                             CNullifiersMap &mapNullifiers,
                             CSidechainsMap& mapSidechains)                           { return false; }
 bool CCoinsView::GetStats(CCoinsStats &stats)                                  const { return false; }
-bool CCoinsView::IsOutputMature(const uint256& txHash, unsigned int pos) const
-{
-    // Note: we assume here that a missing coins has been already fully spent, hence it is deemed mature
-    // (it must have been when it was spent in order to be used).
-    // It is left up to caller to make sure that txHash belongs to a tx in mempool or blockchain
-    CCoins refCoin;
-    if(!GetCoins(txHash,refCoin))
-        return true; // must have been fully spent
 
-    if (!refCoin.IsAvailable(pos))
-        return true; // an output already spent must have been mature
-
-    if (!refCoin.vout[pos].isFromBackwardTransfer)
-        return true; // vout from coinbase are deemed mature here. Other methods estabish coinbase maturity as a whole
-
-    // Hereinafter, we have a certificate, hence we can assert existence of its sidechain
-    CSidechain targetSc;
-    assert(GetSidechain(refCoin.originScId, targetSc));
-
-    int coinEpoch = (refCoin.nHeight - targetSc.creationBlockHeight + 1) / targetSc.creationData.withdrawalEpochLength - 1;
-    int lastCertEpoch = targetSc.lastReceivedCertificateEpoch;
-
-    if (coinEpoch >= lastCertEpoch)
-        return false;
-
-    return true;
-}
 
 CCoinsViewBacked::CCoinsViewBacked(CCoinsView *viewIn) : base(viewIn) { }
 
@@ -605,7 +579,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         cacheSidechains[cr.scId].scInfo.creationBlockHash = block.GetHash();
         cacheSidechains[cr.scId].scInfo.creationBlockHeight = blockHeight;
         cacheSidechains[cr.scId].scInfo.creationTxHash = txHash;
-        cacheSidechains[cr.scId].scInfo.lastReceivedCertificateEpoch = CScCertificate::EPOCH_NULL;
+        cacheSidechains[cr.scId].scInfo.lastEpochReferencedByCertificate = CScCertificate::EPOCH_NULL;
         cacheSidechains[cr.scId].scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
         cacheSidechains[cr.scId].scInfo.creationData.customData = cr.customData;
         cacheSidechains[cr.scId].scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
@@ -802,9 +776,9 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
 
         if (blockundoEpoch != CScCertificate::EPOCH_NOT_INITIALIZED)
         {
-            LogPrint("sc", "%s():%d - scId=%s epoch before: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastReceivedCertificateEpoch);
-            targetScInfo.lastReceivedCertificateEpoch = it_ia_undo_map->second.certEpoch;
-            LogPrint("sc", "%s():%d - scId=%s epoch after: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastReceivedCertificateEpoch);
+            LogPrint("sc", "%s():%d - scId=%s epoch before: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastEpochReferencedByCertificate);
+            targetScInfo.lastEpochReferencedByCertificate = it_ia_undo_map->second.certEpoch;
+            LogPrint("sc", "%s():%d - scId=%s epoch after: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastEpochReferencedByCertificate);
 
             cacheSidechains.at(scId).flag = CSidechainsCacheEntry::Flags::DIRTY;
         }
@@ -818,7 +792,7 @@ bool CCoinsViewCache::HaveCertForEpoch(const uint256& scId, int epochNumber) con
     if (!GetSidechain(scId, info))
         return false;
 
-    if (info.lastReceivedCertificateEpoch == epochNumber)
+    if (info.lastEpochReferencedByCertificate == epochNumber)
         return true;
 
     return false;
@@ -984,7 +958,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx)
 
 #endif
 
-int CCoinsViewCache::getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber)
+int CCoinsViewCache::getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber) const
 {
     CSidechain info;
     if (!GetSidechain(scId, info))
@@ -1039,10 +1013,10 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
 
     // if an entry already exists, update only cert epoch with current value
     // if it is a brand new entry, amount will be init as 0 by default
-    blockundo.msc_iaundo[scId].certEpoch = targetScInfo.lastReceivedCertificateEpoch;
+    blockundo.msc_iaundo[scId].certEpoch = targetScInfo.lastEpochReferencedByCertificate;
 
     targetScInfo.balance -= totalAmount;
-    targetScInfo.lastReceivedCertificateEpoch = cert.epochNumber;
+    targetScInfo.lastEpochReferencedByCertificate = cert.epochNumber;
     cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
 
     LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",
@@ -1142,7 +1116,7 @@ void CCoinsViewCache::Dump_info() const
 
         LogPrint("sc", "  created in block[%s] (h=%d)\n", info.creationBlockHash.ToString(), info.creationBlockHeight );
         LogPrint("sc", "  creationTx[%s]\n", info.creationTxHash.ToString());
-        LogPrint("sc", "  lastReceivedCertificateEpoch[%d]\n", info.lastReceivedCertificateEpoch);
+        LogPrint("sc", "  lastEpochReferencedByCertificate[%d]\n", info.lastEpochReferencedByCertificate);
         LogPrint("sc", "  balance[%s]\n", FormatMoney(info.balance));
         LogPrint("sc", "  ----- creation data:\n");
         LogPrint("sc", "      withdrawalEpochLength[%d]\n", info.creationData.withdrawalEpochLength);
@@ -1176,6 +1150,36 @@ CAmount CCoinsViewCache::GetValueIn(const CTransactionBase& txBase) const
     nResult += txBase.GetJoinSplitValueIn();
 
     return nResult;
+}
+
+bool CCoinsViewCache::IsCertOutputMature(const uint256& txHash, unsigned int pos, int spendHeight) const
+{
+    // Note: we assume here that a missing coins has been already fully spent, hence it is deemed mature
+    // (it must have been when it was spent in order to be used).
+    // It is left up to caller to make sure that txHash belongs to a tx in active chain
+    CCoins refCoin;
+    if(!GetCoins(txHash,refCoin))
+        return true; // must have been fully spent
+
+    assert(refCoin.IsFromCert());
+
+    if (!refCoin.IsAvailable(pos))
+        return true; // an output already spent must have been mature
+
+    if (!refCoin.vout[pos].isFromBackwardTransfer)
+        return true; // vout from coinbase are deemed mature here. Other methods estabish coinbase maturity as a whole
+
+    // Hereinafter, we have a certificate, hence we can assert existence of its sidechain
+    CSidechain targetSc;
+    assert(GetSidechain(refCoin.originScId, targetSc));
+
+    int coinEpoch = (refCoin.nHeight - targetSc.creationBlockHeight + 1) / targetSc.creationData.withdrawalEpochLength;
+    int nextCertSafeguardHeight = getCertificateMaxIncomingHeight(refCoin.originScId, coinEpoch);
+
+    if (spendHeight > nextCertSafeguardHeight)
+        return true;
+
+    return false;
 }
 
 bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransactionBase& txBase) const

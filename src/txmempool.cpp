@@ -400,7 +400,7 @@ void CTxMemPool::removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsig
                     assert(pcoins->HaveSidechain(coins->originScId));
                 }
 
-                if (!pcoins->IsOutputMature(txin.prevout.hash, txin.prevout.n)) {
+                if (!pcoins->IsCertOutputMature(txin.prevout.hash, txin.prevout.n, nMemPoolHeight)) {
                     transactionsToRemove.push_back(tx);
                     break;
                 }

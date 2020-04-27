@@ -407,9 +407,6 @@ public:
     //! Calculate statistics about the unspent transaction output set
     virtual bool GetStats(CCoinsStats &stats) const;
 
-    //! Verify whether given output is mature according to current view
-    bool IsOutputMature(const uint256& txHash, unsigned int pos) const;
-
     //! As we use CCoinsViews polymorphically, have a virtual destructor
     virtual ~CCoinsView() {}
 };
@@ -553,7 +550,7 @@ public:
     bool HaveCertForEpoch(const uint256& scId, int epochNumber) const override;
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state);
     bool isLegalEpoch(const uint256& scId, int epochNumber, const uint256& epochBlockHash);
-    int getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber);
+    int getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber) const;
     CAmount getSidechainBalance(const uint256& scId) const;
     bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& bu);
     bool RevertCertOutputs(const CScCertificate& cert);
@@ -575,6 +572,9 @@ public:
      * @return    Sum of value of all inputs (scriptSigs)
      */
     CAmount GetValueIn(const CTransactionBase& tx) const;
+
+    //! Verify whether given output is mature according to current view
+    bool IsCertOutputMature(const uint256& txHash, unsigned int pos, int spendHeight) const;
 
     //! Check whether all prevouts of the transaction are present in the UTXO set represented by this view
     bool HaveInputs(const CTransactionBase& txBase) const;

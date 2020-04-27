@@ -19,7 +19,7 @@ class CLevelDBWrapper;
 class CSidechain {
 public:
     CSidechain() : creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
-         lastReceivedCertificateEpoch(CScCertificate::EPOCH_NULL), balance(0) {}
+         lastEpochReferencedByCertificate(CScCertificate::EPOCH_NULL), balance(0) {}
 
     // reference to the block containing the tx that created the side chain
     uint256 creationBlockHash;
@@ -30,8 +30,8 @@ public:
     // hash of the tx who created it
     uint256 creationTxHash;
 
-    // last epoch where a certificate has been received
-    int lastReceivedCertificateEpoch;
+    // last epoch for which a certificate have been received
+    int lastEpochReferencedByCertificate;
 
     // total amount given by sum(fw transfer)-sum(bkw transfer)
     CAmount balance;
@@ -54,7 +54,7 @@ public:
         READWRITE(creationBlockHash);
         READWRITE(creationBlockHeight);
         READWRITE(creationTxHash);
-        READWRITE(lastReceivedCertificateEpoch);
+        READWRITE(lastEpochReferencedByCertificate);
         READWRITE(balance);
         READWRITE(creationData);
         READWRITE(mImmatureAmounts);
@@ -65,7 +65,7 @@ public:
         return (this->creationBlockHash            == rhs.creationBlockHash)            &&
                (this->creationBlockHeight          == rhs.creationBlockHeight)          &&
                (this->creationTxHash               == rhs.creationTxHash)               &&
-               (this->lastReceivedCertificateEpoch == rhs.lastReceivedCertificateEpoch) &&
+               (this->lastEpochReferencedByCertificate == rhs.lastEpochReferencedByCertificate) &&
                (this->creationData                 == rhs.creationData)                 &&
                (this->mImmatureAmounts             == rhs.mImmatureAmounts);
     }

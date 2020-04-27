@@ -2098,7 +2098,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                     }
                 }
             } else if (coins->IsFromCert()) {
-                if (!inputs.IsOutputMature(in.prevout.hash, in.prevout.n))
+                if (!inputs.IsCertOutputMature(in.prevout.hash, in.prevout.n, nSpendHeight))
                     return state.Invalid(
                         error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
                         REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
