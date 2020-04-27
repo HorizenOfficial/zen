@@ -5,6 +5,9 @@
 #include "policy/fees.h"
 
 struct CMutableScCertificate;
+#if NO2
+struct CTransactionNetworkObj2;
+#endif
 
 class CScCertificate : virtual public CTransactionBase
 {
@@ -30,6 +33,10 @@ public:
 
     /** Convert a CMutableScCertificate into a CScCertificate.  */
     CScCertificate(const CMutableScCertificate &tx);
+
+#if NO2
+    CScCertificate(const CTransactionNetworkObj2 &tno);
+#endif
 
     CScCertificate& operator=(const CScCertificate& tx);
     CScCertificate(const CScCertificate& tx);
@@ -102,7 +109,7 @@ public:
     template <typename Stream>
     CScCertificate(deserialize_type, Stream& s) : CScCertificate(CMutableScCertificate(deserialize, s)) {}
 
-    bool IsScVersion() const override
+    bool IsCertificateVersion() const override
     {
         // so far just one version
         return (nVersion == SC_CERT_VERSION);

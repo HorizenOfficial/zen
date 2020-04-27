@@ -52,6 +52,15 @@ CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0), tot
     *const_cast<uint256*>(&nonce) = cert.nonce;
 }
 
+#if NO2
+// if dynamic_cast fails an exception is thrown
+CScCertificate::CScCertificate(const CTransactionNetworkObj2 &tno):
+    CScCertificate(dynamic_cast<const CScCertificate&>(tno.getRef()))
+{
+    UpdateHash();
+}
+#endif
+
 void CScCertificate::UpdateHash() const
 {
     *const_cast<uint256*>(&hash) = SerializeHash(*this);

@@ -703,7 +703,8 @@ public:
         return !(a==b);
     }
 
-    virtual bool IsScVersion() const = 0;
+    virtual bool IsCertificateVersion() const { return false; }
+    virtual bool IsScVersion() const { return false; }
 
     //GETTERS
     virtual const std::vector<CTxIn>&         GetVin()        const = 0;
@@ -788,6 +789,10 @@ public:
 };
 
 struct CMutableTransaction;
+//#define NO2 1
+#if NO2
+struct CTransactionNetworkObj2;
+#endif
 
 /** The basic transaction that is broadcasted on the network and contained in
  * blocks.  A transaction can contain multiple inputs and outputs.
@@ -829,6 +834,10 @@ public:
 
     /** Convert a CMutableTransaction into a CTransaction. */
     CTransaction(const CMutableTransaction &tx);
+
+#if NO2
+    CTransaction(const CTransactionNetworkObj2 &tno);
+#endif
 
     CTransaction& operator=(const CTransaction& tx);
     CTransaction(const CTransaction& tx);

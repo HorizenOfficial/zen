@@ -515,6 +515,15 @@ CTransaction::CTransaction(const CMutableTransaction &tx) :
     UpdateHash();
 }
 
+#if NO2
+// if dynamic_cast fails an exception is thrown
+CTransaction::CTransaction(const CTransactionNetworkObj2 &tno):
+    CTransaction(dynamic_cast<const CTransaction&>(tno.getRef()))
+{
+    UpdateHash();
+}
+#endif
+
 CTransaction& CTransaction::operator=(const CTransaction &tx) {
     CTransactionBase::operator=(tx);
     *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
