@@ -86,21 +86,83 @@ struct ScUndoData
 /** Undo information for a CBlock */
 class CBlockUndo
 {
+    /** Magic number read from the value expressing the size of vtxundo vector.
+     *  It is used for distinguish new version of CBlockUndo instance from old ones.
+     *  The maximum number of tx in a block is roughly MAX_BLOCK_SIZE / MIN_TX_SIZE, which is:
+     *   2M / 61bytes =~ 33K = 0x8012
+     * Therefore the magic number must be a number greater than this limit. */
+    static const uint16_t _marker = 0xfec1;
+
+    /** memory only */
+    bool includesSidechainAttributes;
+
 public:
     std::vector<CTxUndo> vtxundo; // for all but the coinbase
     uint256 old_tree_root;
     std::map<uint256, ScUndoData> msc_iaundo; // key=scid, value=amount matured at block height
 
-    ADD_SERIALIZE_METHODS;
+    /** create as new */
+    CBlockUndo() : includesSidechainAttributes(true) {}
 
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(vtxundo);
-        READWRITE(old_tree_root);
-        READWRITE(msc_iaundo);
+    size_t GetSerializeSize(int nType, int nVersion) const
+    {
+        CSizeComputer s(nType, nVersion);
+        NCONST_PTR(this)->Serialize(s, nType, nVersion);
+        return s.size();
+    }   
+
+    template<typename Stream> void Serialize(Stream& s, int nType, int nVersion) const
+    {
+        if (includesSidechainAttributes)
+        {
+            WriteCompactSize(s, _marker);
+            ::Serialize(s, (vtxundo), nType, nVersion);
+            ::Serialize(s, (old_tree_root), nType, nVersion);
+            ::Serialize(s, (msc_iaundo), nType, nVersion);
+        }
+        else
+        {
+            ::Serialize(s, (vtxundo), nType, nVersion);
+            ::Serialize(s, (old_tree_root), nType, nVersion);
+        }
+    }   
+
+    template<typename Stream> void Unserialize(Stream& s, int nType, int nVersion)
+    {
+        // reading from data stream to memory
+        vtxundo.clear();
+        includesSidechainAttributes = false;
+
+        unsigned int nSize = ReadCompactSize(s);
+        if (nSize == _marker)
+        {
+            // this is a new version of blockundo
+            ::Unserialize(s, (vtxundo), nType, nVersion);
+            ::Unserialize(s, (old_tree_root), nType, nVersion);
+            ::Unserialize(s, (msc_iaundo), nType, nVersion);
+            includesSidechainAttributes = true;
+        }
+        else
+        {
+            // vtxundo size has been already consumed in stream, add its entries
+            ::AddEntriesInVector(s, vtxundo, nType, nVersion, nSize);
+            ::Unserialize(s, (old_tree_root), nType, nVersion);
+        }
+    };
+
+    std::string ToString() const
+    {
+        std::string str;
+        str += strprintf("\nincludesSidechainAttributes=%u\n", includesSidechainAttributes);
+        str += strprintf("vtxundo.size %u\n", vtxundo.size());
+        str += strprintf("old_tree_root %s\n", old_tree_root.ToString().substr(0,10));
+        str += strprintf("msc_iaundo.size %u\n", msc_iaundo.size());
+        str += strprintf(" ===> tot size %u\n", GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION));
+        return str;
     }
 
-    std::string ToString() const;
-};
+    /** for testing */
+    bool IncludesSidechainAttributes() const  { return includesSidechainAttributes; }
 
+};
 #endif // BITCOIN_UNDO_H
