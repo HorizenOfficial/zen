@@ -26,13 +26,10 @@
 #include <boost/test/unit_test.hpp>
 
 // Tests this internal-to-main.cpp method:
-extern bool AddOrphanTx(const CTransaction& tx, NodeId peer);
+extern bool AddOrphanTx(const CTransactionBase& tx, NodeId peer);
 extern void EraseOrphansFor(NodeId peer);
 extern unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans);
-struct COrphanTx {
-    CTransaction tx;
-    NodeId fromPeer;
-};
+
 extern std::map<uint256, COrphanTx> mapOrphanTransactions;
 extern std::map<uint256, std::set<uint256> > mapOrphanTransactionsByPrev;
 
@@ -107,13 +104,13 @@ BOOST_AUTO_TEST_CASE(DoS_bantime)
     SetMockTime(0);
 }
 
-CTransaction RandomOrphan()
+const CTransactionBase* RandomOrphan()
 {
     std::map<uint256, COrphanTx>::iterator it;
     it = mapOrphanTransactions.lower_bound(GetRandHash());
     if (it == mapOrphanTransactions.end())
         it = mapOrphanTransactions.begin();
-    return it->second.tx;
+    return (it->second.tx).get();
 }
 
 BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
@@ -141,24 +138,33 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
     // ... and 50 that depend on other orphans:
     for (int i = 0; i < 50; i++)
     {
-        CTransaction txPrev = RandomOrphan();
+        const CTransactionBase* txPrev = RandomOrphan();
 
         CMutableTransaction tx;
         tx.vin.resize(1);
         tx.vin[0].prevout.n = 0;
-        tx.vin[0].prevout.hash = txPrev.GetHash();
+        tx.vin[0].prevout.hash = txPrev->GetHash();
         tx.vout.resize(1);
         tx.vout[0].nValue = 1*CENT;
         tx.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
-        SignSignature(keystore, txPrev, tx, 0);
+        if (dynamic_cast<const CTransaction*>(txPrev))
+        {
+            SignSignature(keystore, *dynamic_cast<const CTransaction*>(txPrev), tx, 0);
+        }
+        else
+        if (dynamic_cast<const CScCertificate*>(txPrev))
+        {
+            SignSignature(keystore, *dynamic_cast<const CScCertificate*>(txPrev), tx, 0);
+        }
 
         AddOrphanTx(tx, i);
     }
 
+
     // This really-big orphan should be ignored:
     for (int i = 0; i < 10; i++)
     {
-        CTransaction txPrev = RandomOrphan();
+        const CTransactionBase* txPrev = RandomOrphan();
 
         CMutableTransaction tx;
         tx.vout.resize(1);
@@ -168,9 +174,17 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         for (unsigned int j = 0; j < tx.vin.size(); j++)
         {
             tx.vin[j].prevout.n = j;
-            tx.vin[j].prevout.hash = txPrev.GetHash();
+            tx.vin[j].prevout.hash = txPrev->GetHash();
         }
-        SignSignature(keystore, txPrev, tx, 0);
+        if (dynamic_cast<const CTransaction*>(txPrev))
+        {
+            SignSignature(keystore, *dynamic_cast<const CTransaction*>(txPrev), tx, 0);
+        }
+        else
+        if (dynamic_cast<const CScCertificate*>(txPrev))
+        {
+            SignSignature(keystore, *dynamic_cast<const CScCertificate*>(txPrev), tx, 0);
+        }
         // Re-use same signature for other inputs
         // (they don't have to be valid for this test)
         for (unsigned int j = 1; j < tx.vin.size(); j++)

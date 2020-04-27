@@ -170,6 +170,17 @@ bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CMutabl
     return ProduceSignature(creator, fromPubKey, txin.scriptSig);
 }
 
+// used in test_bitcoin
+bool SignSignature(const CKeyStore& keystore, const CScCertificate& certFrom, CMutableTransaction& txTo, unsigned int nIn, int nHashType)
+{
+    assert(nIn < txTo.vin.size());
+    CTxIn& txin = txTo.vin[nIn];
+    assert(txin.prevout.n < certFrom.GetVout().size());
+    const CTxOut& txout = certFrom.GetVout()[txin.prevout.n];
+
+    return SignSignature(keystore, txout.scriptPubKey, txTo, nIn, nHashType);
+}
+
 bool SignSignature(const CKeyStore &keystore, const CTransaction& txFrom, CMutableTransaction& txTo, unsigned int nIn, int nHashType)
 {
     assert(nIn < txTo.vin.size());

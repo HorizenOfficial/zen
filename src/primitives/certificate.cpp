@@ -38,10 +38,10 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert) {
 
 CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0) {
     // call explicitly the copy of members of virtual base class
-    *const_cast<uint256*>(&hash) = cert.hash;
     *const_cast<int32_t*>(&nVersion) = cert.nVersion;
     *const_cast<std::vector<CTxIn>*>(&vin) = cert.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = cert.vout;
+    *const_cast<uint256*>(&hash) = cert.hash;
     //---
     *const_cast<uint256*>(&scId) = cert.scId;
     *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
@@ -193,6 +193,15 @@ std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsig
 {
     return std::shared_ptr<BaseSignatureChecker>(NULL);
 }
+
+bool CScCertificate::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
+    bool* pfMissingInputs, bool fRejectAbsurdFee) const { return true; }
+void CScCertificate::Relay() const {}
+unsigned int CScCertificate::GetSerializeSizeBase(int nType, int nVersion) const { return 0;}
+std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
+{
+    return std::shared_ptr<const CTransactionBase>();
+}
 #else
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
 {
@@ -229,6 +238,22 @@ std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsig
 {
     return std::shared_ptr<BaseSignatureChecker>(new CachingCertificateSignatureChecker(this, nIn, chain, cacheStore));
 }
+
+bool CScCertificate::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
+    bool* pfMissingInputs, bool fRejectAbsurdFee) const
+{
+    return ::AcceptCertificateToMemoryPool(pool, state, *this, fLimitFree, pfMissingInputs, fRejectAbsurdFee);
+}
+
+void CScCertificate::Relay() const { ::RelayCertificate(*this); }
+
+unsigned int CScCertificate::GetSerializeSizeBase(int nType, int nVersion) const { return this->GetSerializeSize(nType, nVersion);}
+
+std::shared_ptr<const CTransactionBase>
+CScCertificate::MakeShared() const {
+    return std::shared_ptr<const CTransactionBase>(new CScCertificate(*this));
+}
+
 #endif
 
 void CScCertificate::addToScCommitment(std::map<uint256, uint256>& map, std::set<uint256>& sScIds) const

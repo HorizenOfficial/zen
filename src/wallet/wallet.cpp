@@ -1223,7 +1223,7 @@ MapTxWithInputs CWallet::OrderedTxWithInputsMap(const std::string& address)
 
         if (!wtx.IsCoinBase())
         {
-            // add to entry obj the txes whose outputs are  part of wtx input
+            // add to entry obj the txes whose outputs are part of wtx input
             wtx.addInputTx(entry, scriptPubKey, inputFound);
         }
 
@@ -2449,7 +2449,7 @@ void CWalletObjBase::GetConflicts(std::set<uint256>& result) const
     }
 }
 
-void CWalletTx::addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const
+void CWalletObjBase::addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const
 {
     for(const CTxIn& txin: GetVin())
     {
@@ -4096,7 +4096,7 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances()
     return balances;
 }
 
-void CWalletTx::HandleInputGrouping(std::set< std::set<CTxDestination> >& groupings, std::set<CTxDestination>& grouping)
+void CWalletObjBase::HandleInputGrouping(std::set< std::set<CTxDestination> >& groupings, std::set<CTxDestination>& grouping)
 {
     if (!pwallet)
     {
@@ -4157,12 +4157,12 @@ set< set<CTxDestination> > CWallet::GetAddressGroupings()
         auto* pcoin = walletEntry.second.get();
 #endif
 
-#if 0
-        if (pcoin->vin.size() > 0)
+#if 1
+        if (pcoin->GetVin().size() > 0)
         {
             bool any_mine = false;
             // group all input addresses with each other
-            BOOST_FOREACH(CTxIn txin, pcoin->vin)
+            BOOST_FOREACH(CTxIn txin, pcoin->GetVin())
             {
                 CTxDestination address;
                 if(!IsMine(txin)) /* If this input isn't mine, ignore it */
@@ -4796,9 +4796,10 @@ void CWalletTx::GetNotesAmount(
     }
 }
 
-void CWalletTx::AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletObjBase*> vtxIn) const
+void CWalletObjBase::AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletObjBase*> vtxIn) const
 {
-    entry.push_back(Pair("locktime", (int64_t)nLockTime));
+    if (!IsCertificate() )
+        entry.push_back(Pair("locktime", (int64_t)GetLockTime()));
     UniValue vinArr(UniValue::VARR);
     for (const CTxIn& txin : GetVin())
     {
@@ -4851,7 +4852,7 @@ void CWalletTx::AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletO
     entry.push_back(Pair("vin", vinArr));
 }
 
-void CWalletTx::addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const 
+void CWalletObjBase::addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const 
 {
     for(const auto& txin: GetVin())
     {
@@ -4871,8 +4872,11 @@ void CWalletTx::addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CS
  
         auto res = std::search(utxo.scriptPubKey.begin(), utxo.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
         if (res == utxo.scriptPubKey.begin())
-        {
             inputFound = true;
+
+        // add input anyway if we can expand it
+        if (pwallet->IsMine(utxo))
+        {
             entry.second.second.push_back(inputTx.get());
         }
     }
@@ -4957,12 +4961,20 @@ void CWalletCert::GetAmounts(std::list<COutputEntry>& listReceived, std::list<CO
 {
     LogPrint("cert", "%s():%d - called for obj[%s]\n", __func__, __LINE__, GetHash().ToString());
 
-    // TODO cert: handle fee
     nFee = 0;
     listReceived.clear();
     listSent.clear();
     listScSent.clear();
     strSentAccount = strFromAccount;
+
+    // Is this tx sent/signed by me?
+    CAmount nDebit = GetDebit(filter);
+    bool isFromMyTaddr = nDebit > 0; // debit>0 means we signed/sent this transaction
+
+    // Compute fee if we sent this transaction.
+    if (isFromMyTaddr) {
+        nFee = GetFeeAmount(nDebit);
+    }
 
     // Sent/received.
     for (unsigned int i = 0; i < vout.size(); ++i)
@@ -4977,12 +4989,17 @@ void CWalletCert::GetAmounts(std::list<COutputEntry>& listReceived, std::list<CO
         CTxDestination address;
         if (!ExtractDestination(txout.scriptPubKey, address))
         {
-            LogPrintf("CWalletTx::GetAmounts: Unknown transaction type found, txid %s\n",
+            LogPrintf("CWalletCert::GetAmounts: Unknown transaction type found, txid %s\n",
                      this->GetHash().ToString());
             address = CNoDestination();
         }
 
         COutputEntry output = {address, txout.nValue, (int)i};
+
+        // If we are debited by the transaction, add the output as a "sent" entry
+        // unless it is a backward transfer output
+        if (nDebit > 0 && !txout.isFromBackwardTransfer)
+            listSent.push_back(output);
 
         // If we are receiving the output, add it as a "received" entry
         if (fIsMine & filter)

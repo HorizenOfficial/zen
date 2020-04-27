@@ -672,18 +672,19 @@ class BaseSignatureChecker;
 // abstract interface for CTransaction and CScCertificate
 class CTransactionBase
 {
+public:
+    const int32_t nVersion;
 protected:
-    /** Memory only. */
-    const uint256 hash;
-
     const std::vector<CTxIn> vin;
     const std::vector<CTxOut> vout;
+
+    /** Memory only. */
+    const uint256 hash;
 
     virtual void UpdateHash() const = 0;
 
 public:
     virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) = 0;
-    const int32_t nVersion;
 
     CTransactionBase();
     CTransactionBase& operator=(const CTransactionBase& tx);
@@ -715,6 +716,7 @@ public:
 
     virtual const std::vector<JSDescription>& GetVjoinsplit() const = 0;
     virtual const uint256&                    GetScId()       const = 0;
+    virtual const uint32_t&                   GetLockTime()   const = 0;
     //END OF GETTERS
 
     //CHECK FUNCTIONS
@@ -725,7 +727,6 @@ public:
 
     bool CheckInputsAmount (CValidationState &state) const;
     bool CheckOutputsAmount(CValidationState &state) const;
-    virtual bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const = 0;
     bool CheckInputsDuplication(CValidationState &state) const;
     bool CheckInputsInteraction(CValidationState &state) const;
 
@@ -746,6 +747,14 @@ public:
 
     //-----------------
     // pure virtual interfaces 
+    virtual bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
+        bool* pfMissingInputs, bool fRejectAbsurdFee=false) const = 0;
+    virtual void Relay() const = 0;
+    virtual unsigned int GetSerializeSizeBase(int nType, int nVersion) const = 0;
+    virtual std::shared_ptr<const CTransactionBase> MakeShared() const = 0;
+
+    virtual bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const = 0;
+
     virtual bool IsNull() const = 0;
 
     // return fee amount
@@ -829,11 +838,11 @@ public:
     // structure, including the hash.
 private:
     const std::vector<JSDescription> vjoinsplit;
+    const uint32_t nLockTime;
 public:
     const std::vector<CTxScCreationOut> vsc_ccout;
     const std::vector<CTxCertifierLockOut> vcl_ccout;
     const std::vector<CTxForwardTransferOut> vft_ccout;
-    const uint32_t nLockTime;
     const uint256 joinSplitPubKey;
     const joinsplit_sig_t joinSplitSig = {{0}};
 
@@ -911,6 +920,7 @@ public:
     //GETTERS
     const std::vector<JSDescription>& GetVjoinsplit() const override {return vjoinsplit;};
     const uint256&                    GetScId()       const override { static uint256 noScId; return noScId;};
+    const uint32_t&                   GetLockTime()   const override { return nLockTime;};
     //END OF GETTERS
 
     //CHECK FUNCTIONS
@@ -920,6 +930,12 @@ public:
     bool CheckSerializedSize      (CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     //END OF CHECK FUNCTIONS
+
+    bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
+        bool* pfMissingInputs, bool fRejectAbsurdFee=false) const override;
+    void Relay() const override;
+    unsigned int GetSerializeSizeBase(int nType, int nVersion) const override;
+    std::shared_ptr<const CTransactionBase> MakeShared() const override;
 
     // Return sum of txouts.
     CAmount GetValueOut() const override;

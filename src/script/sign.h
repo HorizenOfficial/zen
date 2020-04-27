@@ -72,6 +72,8 @@ bool ProduceSignature(const BaseSignatureCreator& creator, const CScript& script
 /** Produce a script signature for a transaction. */
 bool SignSignature(const CKeyStore& keystore, const CScript& fromPubKey, CMutableTransaction& txTo, unsigned int nIn, int nHashType=SIGHASH_ALL);
 bool SignSignature(const CKeyStore& keystore, const CTransaction& txFrom, CMutableTransaction& txTo, unsigned int nIn, int nHashType=SIGHASH_ALL);
+// used in test_bitcoin
+bool SignSignature(const CKeyStore& keystore, const CScCertificate& certFrom, CMutableTransaction& txTo, unsigned int nIn, int nHashType=SIGHASH_ALL);
 
 /** Produce a script signature for a certificate. */
 bool SignSignature(const CKeyStore& keystore, const CScript& fromPubKey, CMutableScCertificate& certTo, unsigned int nIn, int nHashType=SIGHASH_ALL);

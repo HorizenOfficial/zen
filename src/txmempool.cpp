@@ -77,7 +77,7 @@ CCertificateMemPoolEntry::CCertificateMemPoolEntry(const CCertificateMemPoolEntr
 double
 CCertificateMemPoolEntry::GetPriority(unsigned int currentHeight) const
 {
-    // TODO cert: certificates have max priority and MC fee is still to be handled
+    // certificates have max priority
     return dPriority;
 }
 

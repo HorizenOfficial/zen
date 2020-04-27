@@ -106,6 +106,7 @@ public:
     //GETTERS
     const std::vector<JSDescription>& GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
     const uint256&                    GetScId()       const override {return scId;};
+    const uint32_t&                   GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
     //END OF GETTERS
 
     //CHECK FUNCTIONS
@@ -116,6 +117,11 @@ public:
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     //END OF CHECK FUNCTIONS
 
+    bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
+        bool* pfMissingInputs, bool fRejectAbsurdFee=false) const override;
+    void Relay() const override;
+    unsigned int GetSerializeSizeBase(int nType, int nVersion) const override;
+    std::shared_ptr<const CTransactionBase> MakeShared() const override;
 
     bool IsNull() const override {
         return (

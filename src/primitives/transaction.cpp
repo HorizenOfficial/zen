@@ -307,7 +307,7 @@ CMutableTransactionBase::CMutableTransactionBase() :
 CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(), nLockTime(0) {}
 
 CMutableTransaction::CMutableTransaction(const CTransaction& tx) :
-    vsc_ccout(tx.vsc_ccout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout), nLockTime(tx.nLockTime),
+    vsc_ccout(tx.vsc_ccout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout), nLockTime(tx.GetLockTime()),
     vjoinsplit(tx.GetVjoinsplit()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     nVersion = tx.nVersion;
@@ -500,8 +500,9 @@ bool CTransactionBase::CheckInputsInteraction(CValidationState &state) const
 
 CTransaction::CTransaction() :
     CTransactionBase(),
+    vjoinsplit(), nLockTime(0),
     vsc_ccout(), vcl_ccout(), vft_ccout(),
-    nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() { }
+    joinSplitPubKey(), joinSplitSig() { }
 
 void CTransaction::UpdateHash() const
 {
@@ -509,8 +510,9 @@ void CTransaction::UpdateHash() const
 }
 
 CTransaction::CTransaction(const CMutableTransaction &tx) :
+    vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime),
     vsc_ccout(tx.vsc_ccout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout),
-    nLockTime(tx.nLockTime), vjoinsplit(tx.vjoinsplit), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
+    joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     *const_cast<int*>(&nVersion) = tx.nVersion;
     *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
@@ -520,7 +522,6 @@ CTransaction::CTransaction(const CMutableTransaction &tx) :
 
 CTransaction& CTransaction::operator=(const CTransaction &tx) {
     CTransactionBase::operator=(tx);
-    *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
     *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout) = tx.vsc_ccout;
     *const_cast<std::vector<CTxCertifierLockOut>*>(&vcl_ccout) = tx.vcl_ccout;
     *const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout) = tx.vft_ccout;
@@ -534,10 +535,10 @@ CTransaction& CTransaction::operator=(const CTransaction &tx) {
 CTransaction::CTransaction(const CTransaction &tx) : nLockTime(0)
 {
     // call explicitly the copy of members of virtual base class
-    *const_cast<uint256*>(&hash) = tx.hash;
     *const_cast<int*>(&nVersion) = tx.nVersion;
     *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
+    *const_cast<uint256*>(&hash) = tx.hash;
     //---
     *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout) = tx.vsc_ccout;
     *const_cast<std::vector<CTxCertifierLockOut>*>(&vcl_ccout) = tx.vcl_ccout;
@@ -781,8 +782,17 @@ double CTransaction::GetPriority(const CCoinsViewCache &view, int nHeight) const
 std::string CTransaction::EncodeHex() const { return ""; }
 std::shared_ptr<BaseSignatureChecker> CTransaction::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
 {
-    return std::shared_ptr<BaseSignatureChecker>(NULL);
+    return std::shared_ptr<BaseSignatureChecker>();
 }
+bool CTransaction::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
+    bool* pfMissingInputs, bool fRejectAbsurdFee) const { return true; }
+void CTransaction::Relay() const {}
+unsigned int CTransaction::GetSerializeSizeBase(int nType, int nVersion) const { return 0;}
+std::shared_ptr<const CTransactionBase> CTransaction::MakeShared() const
+{
+    return std::shared_ptr<const CTransactionBase>();
+}
+
 #else
 //----- 
 bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
@@ -991,6 +1001,21 @@ double CTransaction::GetPriority(const CCoinsViewCache &view, int nHeight) const
 std::string CTransaction::EncodeHex() const
 {
     return EncodeHexTx(*this);
+}
+
+bool CTransaction::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
+    bool* pfMissingInputs, bool fRejectAbsurdFee) const
+{
+    return ::AcceptToMemoryPool(pool, state, *this, fLimitFree, pfMissingInputs, fRejectAbsurdFee);
+}
+
+void CTransaction::Relay() const { ::RelayTransaction(*this); }
+
+unsigned int CTransaction::GetSerializeSizeBase(int nType, int nVersion) const { return this->GetSerializeSize(nType, nVersion);}
+
+std::shared_ptr<const CTransactionBase>
+CTransaction::MakeShared() const {
+    return std::shared_ptr<const CTransactionBase>(new CTransaction(*this));
 }
 
 #endif // BITCOIN_TX

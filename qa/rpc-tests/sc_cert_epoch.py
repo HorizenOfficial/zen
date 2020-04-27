@@ -165,7 +165,6 @@ class sc_cert_epoch(BitcoinTestFramework):
         assert(speding_bwd_tx in self.nodes[0].getrawmempool())
 
         mark_logs("Node0 invalidates latest block which confirmed bwd", self.nodes, DEBUG_MODE)
-        #raw_input("_______________________")
         block_to_invalidate = self.nodes[0].getbestblockhash()
         self.nodes[0].invalidateblock(block_to_invalidate)
         time.sleep(1)  # Is there a better wait to settle?

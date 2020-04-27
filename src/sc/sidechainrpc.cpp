@@ -292,14 +292,17 @@ bool CRecipientHandler::handle(const CRecipientBackwardTransfer& r)
     return txBase->add(txout);
 };
 
-void CScCustomData::fill(std::vector<unsigned char>& vBytes, int nBytes) const
+void CScCustomData::fill(std::vector<unsigned char>& vBytes, size_t nBytes) const
 {
+    if (nBytes == 0)
+        return;
+
     if (nBytes > size())
         nBytes = size();
 
     unsigned char* ptr = const_cast<unsigned char*>(&data[0]);
     ptr += (nBytes - 1);
-    for (int i = 0; i < nBytes; i++)
+    for (size_t i = 0; i < nBytes; i++)
     {
         vBytes.push_back(*ptr);
         ptr--;

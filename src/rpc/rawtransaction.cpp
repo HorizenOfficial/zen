@@ -118,7 +118,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
 {
     entry.push_back(Pair("txid", tx.GetHash().GetHex()));
     entry.push_back(Pair("version", tx.nVersion));
-    entry.push_back(Pair("locktime", (int64_t)tx.nLockTime));
+    entry.push_back(Pair("locktime", (int64_t)tx.GetLockTime()));
     UniValue vin(UniValue::VARR);
     BOOST_FOREACH(const CTxIn& txin, tx.GetVin()) {
         UniValue in(UniValue::VOBJ);
@@ -560,6 +560,48 @@ UniValue verifytxoutproof(const UniValue& params, bool fHelp)
     return res;
 }
 
+void AddInputsToRawObject(CMutableTransactionBase& rawTxObj, const UniValue& inputs)
+{
+    // inputs
+    for (size_t idx = 0; idx < inputs.size(); idx++) {
+        const UniValue& input = inputs[idx];
+        const UniValue& o = input.get_obj();
+
+        uint256 txid = ParseHashO(o, "txid");
+
+        const UniValue& vout_v = find_value(o, "vout");
+        if (!vout_v.isNum())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
+        int nOutput = vout_v.get_int();
+        if (nOutput < 0)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
+
+        CTxIn in(COutPoint(txid, nOutput));
+        rawTxObj.vin.push_back(in);
+    }
+}
+
+void AddOutputsToRawObject(CMutableTransactionBase& rawTxObj, const UniValue& sendTo)
+{
+    set<CBitcoinAddress> setAddress;
+    vector<string> addrList = sendTo.getKeys();
+    BOOST_FOREACH(const string& name_, addrList) {
+        CBitcoinAddress address(name_);
+        if (!address.IsValid())
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Horizen address: ")+name_);
+
+        if (setAddress.count(address))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+name_);
+        setAddress.insert(address);
+
+        CScript scriptPubKey = GetScriptForDestination(address.Get());
+        CAmount nAmount = AmountFromValue(sendTo[name_]);
+
+        CTxOut out(nAmount, scriptPubKey);
+        rawTxObj.vout.push_back(out);
+    }
+}
+
 UniValue createrawtransaction(const UniValue& params, bool fHelp)
 {   
     if (fHelp || params.size() > 4)
@@ -624,42 +666,8 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
     CMutableTransaction rawTx;
 
-    // inputs
-    for (size_t idx = 0; idx < inputs.size(); idx++) {
-        const UniValue& input = inputs[idx];
-        const UniValue& o = input.get_obj();
-
-        uint256 txid = ParseHashO(o, "txid");
-
-        const UniValue& vout_v = find_value(o, "vout");
-        if (!vout_v.isNum())
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
-        int nOutput = vout_v.get_int();
-        if (nOutput < 0)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
-
-        CTxIn in(COutPoint(txid, nOutput));
-        rawTx.vin.push_back(in);
-    }
-
-    // outputs
-    set<CBitcoinAddress> setAddress;
-    vector<string> addrList = sendTo.getKeys();
-    BOOST_FOREACH(const string& name_, addrList) {
-        CBitcoinAddress address(name_);
-        if (!address.IsValid())
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Horizen address: ")+name_);
-
-        if (setAddress.count(address))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+name_);
-        setAddress.insert(address);
-
-        CScript scriptPubKey = GetScriptForDestination(address.Get());
-        CAmount nAmount = AmountFromValue(sendTo[name_]);
-
-        CTxOut out(nAmount, scriptPubKey);
-        rawTx.vout.push_back(out);
-    }
+    AddInputsToRawObject(rawTx, inputs);
+    AddOutputsToRawObject(rawTx, sendTo);
 
     // crosschain creation
     if (params.size() > 2 && !params[2].isNull())
@@ -791,58 +799,70 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
 // TODO cert: handle inputs
 UniValue createrawcertificate(const UniValue& params, bool fHelp)
 {   
-    if (fHelp || params.size() != 2)
+    if (fHelp || params.size() != 4)
         throw runtime_error(
-            "createrawcertificate {\"pubkeyhash\":amount,...} {\"scid\":\"id\", \"withdrawalEpochNumber\":n, \"endEpochBlockHash\":\"blockHash\", \"fee\":fee })\n"
-            "\nCreate a SC certificate transferring funds to the given pubkey hash list.\n"
+            "createrawcertificate [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} {\"pubkeyhash\":amount,...} {\"scid\":\"id\", \"withdrawalEpochNumber\":n, \"endEpochBlockHash\":\"blockHash\"})\n"
+            "\nCreate a SC certificate spending the given inputs, sending to the given addresses and transferring funds from the specified SC to the given pubkey hash list.\n"
             "Returns hex-encoded raw certificate.\n"
             "It is not stored in the wallet or transmitted to the network.\n"
 
             "\nArguments:\n"
-            "1. \"transactions\"        (string, required) A json array of json objects\n"
-            "     [\n"
-            "       {\n"
-            "         \"txid\":\"id\",  (string, required) The transaction id\n"
-            "         \"vout\":n        (numeric, required) The output number\n"
-            "       }\n"
-            "       ,...\n"
-            "     ]\n"
-            "2. \"vout addresses\"           (string, required) a json object with addresses as keys and amounts as values\n"
-            "    {\n"
-            "      \"address\": x.xxx   (numeric, required) The key is the Horizen address, the value is the " + CURRENCY_UNIT + " amount\n"
-            "      ,...\n"
-            "    }\n"
-            "1. \"backward addresses\"                        (string, required) A json object with pubkeyhash as keys and amounts as values. Can be an empty obj if no amounts are trasferred (empty certificate)\n"
+            "1. \"transactions\"           (string, required) A json array of json objects. Can be an empty array\n"
+            "     [\n"                     
+            "       {\n"                   
+            "         \"txid\":\"id\",                 (string, required) The transaction id\n"
+            "         \"vout\":n                     (numeric, required) The output number\n"
+            "       }\n"                   
+            "       ,...\n"                
+            "     ]\n"                     
+            "2. \"vout addresses\"         (string, required) a json object with addresses as keys and amounts as values. Can also be an empty obj\n"
+            "    {\n"                      
+            "      \"address\": x.xxx                (numeric, required) The key is the Horizen address, the value is the " + CURRENCY_UNIT + " amount\n"
+            "      ,...\n"                            
+            "    }\n"                      
+            "3. \"backward addresses\"     (string, required) A json object with pubkeyhash as keys and amounts as values. Can be an empty obj if no amounts are trasferred (empty certificate)\n"
             "    {\n"                               
             "      \"pubkeyhash\": x.xxx             (numeric, required) The public key hash corresponding to a Horizen address and the " + CURRENCY_UNIT + " amount to send to\n"
-            "      ,...\n"                          
+            "      ,...\n"                                  
             "    }\n"                               
-            "2. \"certificate parameters\"           (string, required) A json object with a list of key/values\n"
+            "4. \"certificate parameters\" (string, required) A json object with a list of key/values\n"
             "    {\n"
             "      \"scid\":\"id\",                    (string, required) The side chain id\n"
             "      \"withdrawalEpochNumber\":n       (numeric, required) The epoch number this certificate refers to\n"
             "      \"endEpochBlockHash\":\"blockHash\" (string, required) The block hash determining the end of the referenced epoch\n"
-            "      \"fee\":amount,                    (numeric, required) The fee this certificate is charged with in MC\n"
             "    }\n"
             "\nResult:\n"
-            "\"certificate\"                         (string) hex string of the certificate\n"
+            "\"certificate\" (string) hex string of the certificate\n"
 
             "\nExamples\n"
-            + HelpExampleCli("createrawcertificate", " \'{\"be276f6905551b2a22548035766c7753e2f9a10c\":10.0}\' \'{\"scid\":\"02c5e79e8090c32e01e2a8636bfee933fd63c0cc15a78f0888cdf2c25b4a5e5f\", \"withdrawalEpochNumber\":3, \"endEpochBlockHash\":\"0555e4e775ce3cf79d2c15b8981df46c7448e0b408ad0a7c30c043fe5341c04e\", \"fee\":0.0001}\' ")
+            + HelpExampleCli("createrawcertificate",
+                "\'[{\"txid\":\"7e3caf89f5f56fa7466f41d869d48c17ed8148a5fc6cc4c5923664dd2e667afe\", \"vout\": 0}]\' "
+                "\'{\"ztmDWqXc2ZaMDGMhsgnVEmPKGLhi5GhsQok\":10.0}\' \'{\"fde10bda830e1d8590ca8bb8da8444cad953a852\":0.1}\' "
+                "\'{\"scid\":\"02c5e79e8090c32e01e2a8636bfee933fd63c0cc15a78f0888cdf2c25b4a5e5f\", \"withdrawalEpochNumber\":3, \"endEpochBlockHash\":\"0555e4e775ce3cf79d2c15b8981df46c7448e0b408ad0a7c30c043fe5341c04e\"}\'"
+                )
         );
 
     LOCK(cs_main);
-    RPCTypeCheck(params, boost::assign::list_of (UniValue::VOBJ)(UniValue::VOBJ));
+    RPCTypeCheck(params, boost::assign::list_of 
+        (UniValue::VARR)(UniValue::VOBJ) (UniValue::VOBJ)(UniValue::VOBJ));
 
-    UniValue sendTo = params[0].get_obj();
-    UniValue cert_params = params[1].get_obj();
+    UniValue inputs          = params[0].get_array();
+    UniValue standardOutputs = params[1].get_obj();
+    UniValue backwardOutputs = params[2].get_obj();
+    UniValue cert_params     = params[3].get_obj();
 
     CMutableScCertificate rawCert;
     rawCert.nVersion = SC_CERT_VERSION;
 
-    // outputs
+    // inputs
+    AddInputsToRawObject(rawCert, inputs);
+
+    // outputs: there should be just one of them accounting for the change, but we do not prevent a vector of outputs
+    AddOutputsToRawObject(rawCert, standardOutputs);
+
+    // backward transfer outputs
     set<CBitcoinAddress> setAddress;
-    vector<string> addrList = sendTo.getKeys();
+    vector<string> addrList = backwardOutputs.getKeys();
     BOOST_FOREACH(const string& name_, addrList)
     {
         uint160 pkeyValue;
@@ -858,21 +878,20 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
         setAddress.insert(address);
 
         CScript scriptPubKey = GetScriptForDestination(address.Get(), false);
-        CAmount nAmount = AmountFromValue(sendTo[name_]);
+        CAmount nAmount = AmountFromValue(backwardOutputs[name_]);
 
         CTxOut out(nAmount, scriptPubKey, true);
         rawCert.vout.push_back(out);
     }
-
-    // valid input keywords
-    static const std::set<std::string> validKeyArgs =
-        {"scid", "withdrawalEpochNumber", "endEpochBlockHash", "fee"};
 
     if (!cert_params.isObject())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
 
     // keywords set in cmd
     std::set<std::string> setKeyArgs;
+
+    // valid input keywords for certificate data
+    static const std::set<std::string> validKeyArgs = {"scid", "withdrawalEpochNumber", "endEpochBlockHash"};
 
     // sanity check, report error if unknown/duplicate key-value pairs
     for (const string& s : cert_params.getKeys())
@@ -916,17 +935,6 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     else
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"endEpochBlockHash\"" );
-    }
-
-    CAmount fee = 0;
-    if (setKeyArgs.count("fee"))
-    {
-        UniValue av = find_value(cert_params, "fee");
-        fee = AmountFromValue( av );
-    }
-    else
-    {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"fee\"" );
     }
 
     rawCert.scId = scId;
@@ -1018,13 +1026,11 @@ static void TxInErrorToJSON(const CTxIn& txin, UniValue& vErrorsRet, const std::
 
 UniValue signrawcertificate(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 || params.size() > 4)
+    if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
-            "TODO signrawcertificate \"hexstring\" ( [{\"txid\":\"id\",\"vout\":n,\"scriptPubKey\":\"hex\",\"redeemScript\":\"hex\"},...] [\"privatekey1\",...] sighashtype )\n"
-            "\nSign inputs for raw transaction (serialized, hex-encoded).\n"
-            "The second optional argument (may be null) is an array of previous transaction outputs that\n"
-            "this transaction depends on but may not yet be in the block chain.\n"
-            "The third optional argument (may be null) is an array of base58-encoded private\n"
+            "signrawcertificate \"hexstring\" ([\"privatekey1\",...] )\n"
+            "\nSign inputs for raw certificate (serialized, hex-encoded).\n"
+            "The second optional argument (may be null) is an array of base58-encoded private\n"
             "keys that, if given, will be the only keys used to sign the transaction.\n"
 #ifdef ENABLE_WALLET
             + HelpRequiringPassphrase() + "\n"
@@ -1032,28 +1038,11 @@ UniValue signrawcertificate(const UniValue& params, bool fHelp)
 
             "\nArguments:\n"
             "1. \"hexstring\"     (string, required) The transaction hex string\n"
-            "2. \"prevtxs\"       (string, optional) An json array of previous dependent transaction outputs\n"
-            "     [               (json array of json objects, or 'null' if none provided)\n"
-            "       {\n"
-            "         \"txid\":\"id\",             (string, required) The transaction id\n"
-            "         \"vout\":n,                  (numeric, required) The output number\n"
-            "         \"scriptPubKey\": \"hex\",   (string, required) script key\n"
-            "         \"redeemScript\": \"hex\"    (string, required for P2SH) redeem script\n"
-            "       }\n"
-            "       ,...\n"
-            "    ]\n"
-            "3. \"privatekeys\"     (string, optional) A json array of base58-encoded private keys for signing\n"
+            "2. \"privatekeys\"     (string, optional) A json array of base58-encoded private keys for signing\n"
             "    [                  (json array of strings, or 'null' if none provided)\n"
             "      \"privatekey\"   (string) private key in base58-encoding\n"
             "      ,...\n"
             "    ]\n"
-            "4. \"sighashtype\"     (string, optional, default=ALL) The signature hash type. Must be one of\n"
-            "       \"ALL\"\n"
-            "       \"NONE\"\n"
-            "       \"SINGLE\"\n"
-            "       \"ALL|ANYONECANPAY\"\n"
-            "       \"NONE|ANYONECANPAY\"\n"
-            "       \"SINGLE|ANYONECANPAY\"\n"
 
             "\nResult:\n"
             "{\n"
@@ -1061,7 +1050,7 @@ UniValue signrawcertificate(const UniValue& params, bool fHelp)
             "  \"complete\" : true|false,   (boolean) If the transaction has a complete set of signatures\n"
             "  \"errors\" : [                 (json array of objects) Script verification errors (if there are any)\n"
             "    {\n"
-            "      \"txid\" : \"hash\",           (string) The hash of the referenced, previous transaction\n"
+            "      \"txid\" : \"hash\",           (string) The hash of the referenced, previous input transaction\n"
             "      \"vout\" : n,                (numeric) The index of the output to spent and used as input\n"
             "      \"scriptSig\" : \"hex\",       (string) The hex-encoded signature script\n"
             "      \"sequence\" : n,            (numeric) Script sequence number\n"
@@ -1081,28 +1070,31 @@ UniValue signrawcertificate(const UniValue& params, bool fHelp)
 #else
     LOCK(cs_main);
 #endif
-    RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR)(UniValue::VARR)(UniValue::VARR)(UniValue::VSTR), true);
+    RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR)(UniValue::VARR), true);
 
     vector<unsigned char> certData(ParseHexV(params[0], "argument 1"));
     CDataStream ssData(certData, SER_NETWORK, PROTOCOL_VERSION);
-    vector<CMutableScCertificate> certVariants;
-    while (!ssData.empty()) {
-        try {
-            CMutableScCertificate cert;
-            ssData >> cert;
-            certVariants.push_back(cert);
-        }
-        catch (const std::exception&) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Cert decode failed");
-        }
+
+    if (ssData.empty())
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Missing input certificate");
+
+    CMutableScCertificate certVariants;
+    try {
+        ssData >> certVariants;
+    }
+    catch (const std::exception&) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Cert decode failed");
     }
 
-    if (certVariants.empty())
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Missing certificate");
+    if (!ssData.empty()) {
+        // just one and only one certificate expected
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("Found %d extra byte%safter certificate",
+            ssData.size(), ssData.size()>1?"s ":" "));
+    }
 
     // mergedCert will end up with all the signatures; it
     // starts as a clone of the rawcert:
-    CMutableScCertificate mergedCert(certVariants[0]);
+    CMutableScCertificate mergedCert(certVariants);
 
     // Fetch previous transactions (inputs):
     CCoinsView viewDummy;
@@ -1122,13 +1114,11 @@ UniValue signrawcertificate(const UniValue& params, bool fHelp)
         view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
     }
 
-// TODO cert: consider supporting optional arguments
-#if 0
     bool fGivenKeys = false;
     CBasicKeyStore tempKeystore;
-    if (params.size() > 2 && !params[2].isNull()) {
+    if (params.size() > 1 && !params[1].isNull()) {
         fGivenKeys = true;
-        UniValue keys = params[2].get_array();
+        UniValue keys = params[1].get_array();
         for (size_t idx = 0; idx < keys.size(); idx++) {
             UniValue k = keys[idx];
             CBitcoinSecret vchSecret;
@@ -1141,88 +1131,6 @@ UniValue signrawcertificate(const UniValue& params, bool fHelp)
             tempKeystore.AddKey(key);
         }
     }
-#ifdef ENABLE_WALLET
-    else if (pwalletMain)
-        EnsureWalletIsUnlocked();
-#endif
-
-    // Add previous txouts given in the RPC call:
-    if (params.size() > 1 && !params[1].isNull()) {
-        UniValue prevTxs = params[1].get_array();
-        for (size_t idx = 0; idx < prevTxs.size(); idx++) {
-            const UniValue& p = prevTxs[idx];
-            if (!p.isObject())
-                throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "expected object with {\"txid'\",\"vout\",\"scriptPubKey\"}");
-
-            UniValue prevOut = p.get_obj();
-
-            RPCTypeCheckObj(prevOut, boost::assign::map_list_of("txid", UniValue::VSTR)("vout", UniValue::VNUM)("scriptPubKey", UniValue::VSTR));
-
-            uint256 txid = ParseHashO(prevOut, "txid");
-
-            int nOut = find_value(prevOut, "vout").get_int();
-            if (nOut < 0)
-                throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "vout must be positive");
-
-            vector<unsigned char> pkData(ParseHexO(prevOut, "scriptPubKey"));
-            CScript scriptPubKey(pkData.begin(), pkData.end());
-
-            {
-                CCoinsModifier coins = view.ModifyCoins(txid);
-                if (coins->IsAvailable(nOut) && coins->vout[nOut].scriptPubKey != scriptPubKey) {
-                    string err("Previous output scriptPubKey mismatch:\n");
-                    err = err + coins->vout[nOut].scriptPubKey.ToString() + "\nvs:\n"+
-                        scriptPubKey.ToString();
-                    throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
-                }
-                if ((unsigned int)nOut >= coins->vout.size())
-                    coins->vout.resize(nOut+1);
-                coins->vout[nOut].scriptPubKey = scriptPubKey;
-                coins->vout[nOut].nValue = 0; // we don't know the actual output value
-            }
-
-            // if redeemScript given and not using the local wallet (private keys
-            // given), add redeemScript to the tempKeystore so it can be signed:
-            if (fGivenKeys && scriptPubKey.IsPayToScriptHash()) {
-                RPCTypeCheckObj(prevOut, boost::assign::map_list_of("txid", UniValue::VSTR)("vout", UniValue::VNUM)("scriptPubKey", UniValue::VSTR)("redeemScript",UniValue::VSTR));
-                UniValue v = find_value(prevOut, "redeemScript");
-                if (!v.isNull()) {
-                    vector<unsigned char> rsData(ParseHexV(v, "redeemScript"));
-                    CScript redeemScript(rsData.begin(), rsData.end());
-                    tempKeystore.AddCScript(redeemScript);
-                }
-            }
-        }
-    }
-
-#ifdef ENABLE_WALLET
-    const CKeyStore& keystore = ((fGivenKeys || !pwalletMain) ? tempKeystore : *pwalletMain);
-#else
-    const CKeyStore& keystore = tempKeystore;
-#endif
-
-    int nHashType = SIGHASH_ALL;
-    if (params.size() > 3 && !params[3].isNull()) {
-        static map<string, int> mapSigHashValues =
-            boost::assign::map_list_of
-            (string("ALL"), int(SIGHASH_ALL))
-            (string("ALL|ANYONECANPAY"), int(SIGHASH_ALL|SIGHASH_ANYONECANPAY))
-            (string("NONE"), int(SIGHASH_NONE))
-            (string("NONE|ANYONECANPAY"), int(SIGHASH_NONE|SIGHASH_ANYONECANPAY))
-            (string("SINGLE"), int(SIGHASH_SINGLE))
-            (string("SINGLE|ANYONECANPAY"), int(SIGHASH_SINGLE|SIGHASH_ANYONECANPAY))
-            ;
-        string strHashType = params[3].get_str();
-        if (mapSigHashValues.count(strHashType))
-            nHashType = mapSigHashValues[strHashType];
-        else
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid sighash param");
-    }
-
-    bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
-#else
-    bool fGivenKeys = false;
-    CBasicKeyStore tempKeystore;
 
     #ifdef ENABLE_WALLET
         EnsureWalletIsUnlocked();
@@ -1232,8 +1140,6 @@ UniValue signrawcertificate(const UniValue& params, bool fHelp)
     #endif
 
     int nHashType = SIGHASH_ALL;
-    bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
-#endif // TODO
 
     // Script verification errors
     UniValue vErrors(UniValue::VARR);
@@ -1249,14 +1155,8 @@ UniValue signrawcertificate(const UniValue& params, bool fHelp)
         const CScript& prevPubKey = coins->vout[txin.prevout.n].scriptPubKey;
 
         txin.scriptSig.clear();
-        // Only sign SIGHASH_SINGLE if there's a corresponding output:
-        if (!fHashSingle || (i < mergedCert.vout.size()))
-            SignSignature(keystore, prevPubKey, mergedCert, i, nHashType);
+        SignSignature(keystore, prevPubKey, mergedCert, i, nHashType);
 
-        // ... and merge in other signatures:
-        BOOST_FOREACH(const CMutableScCertificate& certv, certVariants) {
-            txin.scriptSig = CombineSignatures(prevPubKey, mergedCert, i, txin.scriptSig, certv.vin[i].scriptSig);
-        }
         ScriptError serror = SCRIPT_ERR_OK;
         if (!VerifyScript(
                 txin.scriptSig, prevPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,

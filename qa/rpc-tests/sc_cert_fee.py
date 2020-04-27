@@ -10,9 +10,10 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
 import os
 from decimal import Decimal
 import pprint
+import time
 
 DEBUG_MODE = 1
-NUMB_OF_NODES = 3
+NUMB_OF_NODES = 4
 EPOCH_LENGTH = 5
 CERT_FEE = Decimal('0.00015')
 
@@ -34,8 +35,9 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
             [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1']] * NUMB_OF_NODES)
 
-        connect_nodes_bi(self.nodes, 0, 1)
-        connect_nodes_bi(self.nodes, 1, 2)
+        for k in range(0, NUMB_OF_NODES-1):
+            connect_nodes_bi(self.nodes, k, k+1)
+
         sync_blocks(self.nodes[1:NUMB_OF_NODES])
         sync_mempools(self.nodes[1:NUMB_OF_NODES])
         self.is_network_split = split
@@ -134,6 +136,43 @@ class sc_cert_base(BitcoinTestFramework):
         cert_net_amount = self.nodes[2].gettransaction(cert_good)['amount']
         assert_equal(cert_net_amount, bwt_amount)
 
+        # Node2 sends a lot of small coins to Node3, who will use as input for certificate fee
+        taddr3 = self.nodes[3].getnewaddress()
+        small_amount = Decimal("0.0000123")
+        for n in range(0, 30):
+            self.nodes[2].sendtoaddress(taddr3, small_amount)
+
+        self.sync_all()
+
+        print "mempool Node3", self.nodes[3].getrawmempool()
+
+        print("Node0 generates 4 block")
+        self.nodes[0].generate(4)
+        self.sync_all()
+
+        bal3 = self.nodes[3].getbalance()
+        print "===> Node3 balance = ", bal3
+
+        current_height = self.nodes[0].getblockcount()
+        epoch_number = (current_height - sc_creating_height + 1) // EPOCH_LENGTH - 1
+        mark_logs("Current height {}, Sc creation height {}, epoch length {} --> current epoch number {}"
+                  .format(current_height, sc_creating_height, EPOCH_LENGTH, epoch_number), self.nodes, DEBUG_MODE)
+        epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * EPOCH_LENGTH))
+        print "epoch_number = ", epoch_number, ", epoch_block_hash = ", epoch_block_hash
+
+        bwt_amount = bal3/2
+        amounts = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
+        mark_logs("Node 3 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
+        try:
+            cert_good = self.nodes[3].send_certificate(scid, epoch_number, epoch_block_hash, amounts, CERT_FEE)
+            assert(len(cert_good) > 0)
+            mark_logs("Certificate is {}".format(cert_good), self.nodes, DEBUG_MODE)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert(False)
+
+        pprint.pprint(self.nodes[3].getrawcertificate(cert_good, 1))
 
 if __name__ == '__main__':
     sc_cert_base().main()

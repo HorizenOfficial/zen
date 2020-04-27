@@ -98,6 +98,8 @@ void TxExpandedToJSON(const CWalletObjBase& tx, const std::vector<CWalletObjBase
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
         out.push_back(Pair("scriptPubKey", o));
+        if (txout.isFromBackwardTransfer)
+            out.push_back(Pair("backwardTransfer", true));
         vout.push_back(out);
     }
     entry.push_back(Pair("vout", vout));
@@ -127,10 +129,10 @@ void TxExpandedToJSON(const CWalletObjBase& tx, const std::vector<CWalletObjBase
 
     if (tx.IsFromMe(ISMINE_ALL))
     {
-        CAmount nOut = tx.GetValueOut();
         CAmount nDebit = tx.GetDebit(ISMINE_ALL);
         // with positive sign
-        CAmount nFee = nDebit - nOut;
+        //CAmount nFee = nDebit - nOut;
+        CAmount nFee = tx.GetFeeAmount(nDebit);
         entry.push_back(Pair("fees", ValueFromAmount(nFee)));
     }
 }
@@ -2253,6 +2255,11 @@ void ListTransactions(const CWalletObjBase& wtx, const string& strAccount, int n
                         entry.push_back(Pair("category", "generate"));
                 }
                 else
+                if(wtx.IsCertificate())
+                {
+                    entry.push_back(Pair("category", "certificate"));
+                }
+                else
                 {
                     entry.push_back(Pair("category", "receive"));
                 }
@@ -2811,13 +2818,15 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
     const CWalletObjBase& wtx = *(pwalletMain->mapWallet[hash]);
 #endif
 
-    CAmount nOut = wtx.GetValueOut();
-
     CAmount nCredit = wtx.GetCredit(filter);
     CAmount nDebit = wtx.GetDebit(filter);
     
     CAmount nNet = nCredit - nDebit;
-    CAmount nFee = (wtx.IsFromMe(filter) ? nOut - nDebit : 0);
+    CAmount nFee = 0;
+    if (wtx.IsFromMe(filter))
+    {
+        nFee = -(wtx.GetFeeAmount(nDebit));
+    }
 
     entry.push_back(Pair("amount", ValueFromAmount(nNet - nFee)));
     if (wtx.IsFromMe(filter))
@@ -3456,22 +3465,19 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         CAmount nValue = out.tx->GetVout()[out.i].nValue;
         const CScript& pk = out.tx->GetVout()[out.i].scriptPubKey;
         UniValue entry(UniValue::VOBJ);
+        entry.push_back(Pair("txid", out.tx->GetHash().GetHex()));
+        entry.push_back(Pair("vout", out.i));
+
 #if 1
         if (out.tx->IsCertificate() )
         {
-            entry.push_back(Pair("cert", out.tx->GetHash().GetHex()));
-            entry.push_back(Pair("vout", out.i));
             entry.push_back(Pair("certified", true));
         }
         else
         {
-            entry.push_back(Pair("txid", out.tx->GetHash().GetHex()));
-            entry.push_back(Pair("vout", out.i));
             entry.push_back(Pair("generated", out.tx->IsCoinBase()));
         }
 #else
-        entry.push_back(Pair("txid", out.tx->GetHash().GetHex()));
-        entry.push_back(Pair("vout", out.i));
         entry.push_back(Pair("generated", out.tx->IsCoinBase()));
 #endif
         CTxDestination address;

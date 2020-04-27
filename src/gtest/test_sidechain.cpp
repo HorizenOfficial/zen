@@ -9,6 +9,23 @@
 #include <undo.h>
 #include <main.h>
 
+class CBlockUndo_OldVersion
+{
+    public:
+        std::vector<CTxUndo> vtxundo;
+        uint256 old_tree_root;
+
+        ADD_SERIALIZE_METHODS;
+
+        template <typename Stream, typename Operation>
+        inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+            READWRITE(vtxundo);
+            READWRITE(old_tree_root);
+        }   
+};
+
+
+
 class CInMemorySidechainDb final: public CCoinsView {
 public:
     CInMemorySidechainDb()  = default;
@@ -1025,6 +1042,94 @@ TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation)
     EXPECT_TRUE(retrievedInfo.mImmatureAmounts.at(-1) == fwdAmount);
 }
 
+#if 0 // enable when merged with code supporting it, otherwise this is expect to fail
+///////////////////////////////////////////////////////////////////////////////
+//////////////////////////////// UndoBlock versioning /////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST_F(SidechainTestSuite, CSidechainBlockUndoVersioning) {
+
+    static const std::string autofileName = "/tmp/test_block_undo_versioning.txt";
+    CAutoFile fileout(fopen(autofileName.c_str(), "w+") , SER_DISK, CLIENT_VERSION);
+    EXPECT_TRUE(fileout.Get() != NULL);
+
+    // write an old version undo block to the file
+    //----------------------------------------------
+    CBlockUndo_OldVersion buov;
+    buov.vtxundo.reserve(1);
+    buov.vtxundo.push_back(CTxUndo());
+
+    fileout << buov;;
+
+    uint256 h_buov;
+    {
+        CHashWriter hasher(SER_GETHASH, PROTOCOL_VERSION);
+        hasher << buov;
+        h_buov = hasher.GetHash();
+    }
+    fileout << h_buov;
+
+    fseek(fileout.Get(), 0, SEEK_END);
+    unsigned long len = (unsigned long)ftell(fileout.Get());
+
+    unsigned long buov_sz = buov.GetSerializeSize(SER_DISK, CLIENT_VERSION);
+    EXPECT_TRUE(len == buov_sz + sizeof(uint256));
+    
+    // write a new version undo block to the same file
+    //-----------------------------------------------
+    CBlockUndo buon;
+    buon.vtxundo.reserve(1);
+    buon.vtxundo.push_back(CTxUndo());
+
+    fileout << buon;;
+
+    uint256 h_buon;
+    {
+        CHashWriter hasher(SER_GETHASH, PROTOCOL_VERSION);
+        hasher << buon;
+        h_buon = hasher.GetHash();
+    }
+    fileout << h_buon;
+
+    fseek(fileout.Get(), 0, SEEK_END);
+    unsigned long len2 = (unsigned long)ftell(fileout.Get());
+
+    unsigned long buon_sz = buon.GetSerializeSize(SER_DISK, CLIENT_VERSION);
+    EXPECT_TRUE(len2 == len + buon_sz + sizeof(uint256));
+    
+    EXPECT_TRUE(buov_sz != buon_sz);
+
+    fileout.fclose();
+
+    // read both blocks and tell their version
+    //-----------------------------------------------
+    CAutoFile filein(fopen(autofileName.c_str(), "r+") , SER_DISK, CLIENT_VERSION);
+    EXPECT_TRUE(filein.Get() != NULL);
+
+    bool good_read = true;
+    CBlockUndo b1, b2;
+    uint256 h1, h2;
+    try {
+        filein >> b1;
+        filein >> h1;
+        filein >> b2;
+        filein >> h2;
+    }
+    catch (const std::exception& e) {
+        good_read = false;
+    }
+
+    EXPECT_TRUE(good_read == true);
+
+    //EXPECT_TRUE(b1.IsNewVersion() == false);
+    EXPECT_TRUE(h1 == h_buov);
+
+    //EXPECT_TRUE(b2.IsNewVersion() == true);
+    EXPECT_TRUE(h2 == h_buon);
+
+    filein.fclose();
+}
+#endif
+
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Test Fixture definitions ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -1039,3 +1144,4 @@ CBlockUndo SidechainTestSuite::createBlockUndoWith(const uint256 & scId, int hei
 
     return retVal;
 }
+

@@ -27,7 +27,7 @@ public:
     CScCustomData(const base_blob<MAX_CUSTOM_DATA_BITS>& b) : base_blob<MAX_CUSTOM_DATA_BITS>(b) {}
     explicit CScCustomData(const std::vector<unsigned char>& vch) : base_blob<MAX_CUSTOM_DATA_BITS>(vch) {}
 
-    void fill(std::vector<unsigned char>& vBytes, int nBytes) const;
+    void fill(std::vector<unsigned char>& vBytes, size_t nBytes) const;
 };
 
 class CRecipientHandler

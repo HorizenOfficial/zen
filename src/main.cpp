@@ -89,19 +89,10 @@ CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 
 CTxMemPool mempool(::minRelayTxFee);
 
-struct COrphanTx {
-    CTransaction tx;
-    NodeId fromPeer;
-};
 map<uint256, COrphanTx> mapOrphanTransactions GUARDED_BY(cs_main);;
 map<uint256, set<uint256> > mapOrphanTransactionsByPrev GUARDED_BY(cs_main);;
 void EraseOrphansFor(NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-/**
- * Returns true if there are nRequired or more blocks of minVersion or above
- * in the last Consensus::Params::nMajorityWindow blocks, starting at pstart and going backwards.
- */
-static bool IsSuperMajority(int minVersion, const CBlockIndex* pstart, unsigned nRequired, const Consensus::Params& consensusParams);
 static void CheckBlockIndex();
 
 /** Constant stuff for coinbase transactions we create: */
@@ -317,12 +308,6 @@ CNodeState *State(NodeId pnode) {
         return NULL;
     return &it->second;
 }
-
-bool IsStartupSyncing() {
-    LOCK(cs_main);
-    return fIsStartupSyncing;
-}
-
 
 int GetHeight()
 {
@@ -604,9 +589,9 @@ CBlockTreeDB *pblocktree = NULL;
 // mapOrphanTransactions
 //
 
-bool AddOrphanTx(const CTransaction& tx, NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+bool AddOrphanTx(const CTransactionBase& txObj, NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
-    uint256 hash = tx.GetHash();
+    uint256 hash = txObj.GetHash();
     if (mapOrphanTransactions.count(hash))
         return false;
 
@@ -617,16 +602,16 @@ bool AddOrphanTx(const CTransaction& tx, NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(c
     // have been mined or received.
     // 10,000 orphans, each of which is at most 5,000 bytes big is
     // at most 500 megabytes of orphans:
-    unsigned int sz = tx.GetSerializeSize(SER_NETWORK, tx.nVersion);
+    unsigned int sz = txObj.GetSerializeSizeBase(SER_NETWORK, txObj.nVersion);
     if (sz > 5000)
     {
         LogPrint("mempool", "ignoring large orphan tx (size: %u, hash: %s)\n", sz, hash.ToString());
         return false;
     }
 
-    mapOrphanTransactions[hash].tx = tx;
+    mapOrphanTransactions[hash].tx = txObj.MakeShared();
     mapOrphanTransactions[hash].fromPeer = peer;
-    BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
+    BOOST_FOREACH(const CTxIn& txin, txObj.GetVin())
         mapOrphanTransactionsByPrev[txin.prevout.hash].insert(hash);
 
     LogPrint("mempool", "stored orphan tx %s (mapsz %u prevsz %u)\n", hash.ToString(),
@@ -639,7 +624,7 @@ void static EraseOrphanTx(uint256 hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     map<uint256, COrphanTx>::iterator it = mapOrphanTransactions.find(hash);
     if (it == mapOrphanTransactions.end())
         return;
-    BOOST_FOREACH(const CTxIn& txin, it->second.tx.GetVin())
+    BOOST_FOREACH(const CTxIn& txin, it->second.tx->GetVin())
     {
         map<uint256, set<uint256> >::iterator itPrev = mapOrphanTransactionsByPrev.find(txin.prevout.hash);
         if (itPrev == mapOrphanTransactionsByPrev.end())
@@ -660,7 +645,7 @@ void EraseOrphansFor(NodeId peer)
         map<uint256, COrphanTx>::iterator maybeErase = iter++; // increment to avoid iterator becoming invalid
         if (maybeErase->second.fromPeer == peer)
         {
-            EraseOrphanTx(maybeErase->second.tx.GetHash());
+            EraseOrphanTx(maybeErase->second.tx->GetHash());
             ++nErased;
         }
     }
@@ -803,9 +788,9 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
 bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
 {
     /* A specified locktime indicates that the transaction is only valid at the given blockheight or later.*/
-    if (tx.nLockTime == 0)
+    if (tx.GetLockTime() == 0)
         return true;
-    if ((int64_t)tx.nLockTime < ((int64_t)tx.nLockTime < LOCKTIME_THRESHOLD ? (int64_t)nBlockHeight : nBlockTime))
+    if ((int64_t)tx.GetLockTime() < ((int64_t)tx.GetLockTime() < LOCKTIME_THRESHOLD ? (int64_t)nBlockHeight : nBlockTime))
         return true;
     BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
     /* According to BIP 68, setting nSequence value to 0xFFFFFFFF for every input in the transaction disables nLocktime.
@@ -1207,10 +1192,20 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
     // is it already in the memory pool?
     uint256 certHash = cert.GetHash();
-    if (pool.existsCert(certHash))
     {
-        LogPrint("mempool", "Dropping certificateId %s : already in mempool\n", certHash.ToString());
-        return false;
+        LOCK(pool.cs);
+        if (pool.existsCert(certHash))
+        {
+            LogPrint("mempool", "Dropping certificateId %s : already in mempool\n", certHash.ToString());
+            return false;
+        }
+ 
+        for (const CTxIn & vin : cert.GetVin()) {
+            if (pool.mapNextTx.count(vin.prevout)) {
+                LogPrint("mempool", "Dropping cert %s : it double spends another tx in mempool\n", certHash.ToString());
+                return false;
+            }
+        }
     }
 
     {
@@ -2061,32 +2056,7 @@ CScriptCheck::CScriptCheck(const CCoins& txFromIn, const CTransactionBase& txToI
                             cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR) { }
 
 bool CScriptCheck::operator()() {
-    const CScript &scriptSig = ptxTo->GetVin()[nIn].scriptSig;
-#if 1
     return ptxTo->VerifyScript(scriptPubKey, nFlags, nIn, chain, cacheStore, &error); 
-#else
-    if (!ptxTo->IsCertificate() )
-    {
-        const CTransaction* p = dynamic_cast<const CTransaction*>(ptxTo); 
-        if (!p || !VerifyScript(scriptSig, scriptPubKey, nFlags,
-                      CachingTransactionSignatureChecker(p, nIn, chain, cacheStore),
-                      &error)) {
-                        return ::error("CScriptCheck(): %s:%d VerifySignature failed: %s",
-                                       ptxTo->GetHash().ToString(), nIn, ScriptErrorString(error));
-        }
-    }
-    else
-    {
-        const CScCertificate* p = dynamic_cast<const CScCertificate*>(ptxTo); 
-        if (!p || !VerifyScript(scriptSig, scriptPubKey, nFlags,
-                      CachingCertificateSignatureChecker(p, nIn, chain, cacheStore),
-                      &error)) {
-                        return ::error("CScriptCheck(): %s:%d VerifySignature failed: %s",
-                                       ptxTo->GetHash().ToString(), nIn, ScriptErrorString(error));
-        }
-    }
-#endif
-    return true;
 }
 
 void CScriptCheck::swap(CScriptCheck &check) {
@@ -2113,7 +2083,7 @@ bool IsCommunityFund(const CCoins *coins, int nIn)
     if(coins != NULL &&
        coins->IsCoinBase() &&
        ForkManager::getInstance().isAfterChainsplit(coins->nHeight) &&
-       coins->vout.size() > nIn)
+       static_cast<int>(coins->vout.size()) > nIn)
     {
         const Consensus::Params& consensusParams = Params().GetConsensus();
         CAmount reward = GetBlockSubsidy(coins->nHeight, consensusParams);
@@ -2806,13 +2776,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-sc-cert-not-applicable");
         }
 
-        CTxUndo undoDummy;
         blockundo.vtxundo.push_back(CTxUndo());
         UpdateCoins(cert, state, view, blockundo.vtxundo.back(), pindex->nHeight);
 
         if (!view.UpdateScInfo(cert, blockundo) )
         {
-            return state.DoS(100, error("ConnectBlock(): could not add sidechain in scView: cert[%s]", cert.GetHash().ToString()),
+            return state.DoS(100, error("ConnectBlock(): could not add in scView: cert[%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-updated");
         }
 
@@ -4200,18 +4169,6 @@ bool AcceptBlock(CBlock& block, CValidationState& state, CBlockIndex** ppindex, 
         FlushStateToDisk(state, FLUSH_STATE_NONE); // we just allocated more disk space for block files
 
     return true;
-}
-
-static bool IsSuperMajority(int minVersion, const CBlockIndex* pstart, unsigned nRequired, const Consensus::Params& consensusParams)
-{
-    unsigned int nFound = 0;
-    for (int i = 0; i < consensusParams.nMajorityWindow && nFound < nRequired && pstart != NULL; i++)
-    {
-        if (pstart->nVersion >= minVersion)
-            ++nFound;
-        pstart = pstart->pprev;
-    }
-    return (nFound >= nRequired);
 }
 
 bool ProcessNewBlock(CValidationState &state, CNode* pfrom, CBlock* pblock, bool fForceProcessing, CDiskBlockPos *dbp)
@@ -5999,7 +5956,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                      ++mi)
                 {
                     const uint256& orphanHash = *mi;
-                    const CTransaction& orphanTx = mapOrphanTransactions[orphanHash].tx;
+                    const CTransactionBase& orphanTx = *mapOrphanTransactions[orphanHash].tx;
                     NodeId fromPeer = mapOrphanTransactions[orphanHash].fromPeer;
                     bool fMissingInputs2 = false;
                     // Use a dummy CValidationState so someone can't setup nodes to counter-DoS based on orphan
@@ -6010,10 +5967,10 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
                     if (setMisbehaving.count(fromPeer))
                         continue;
-                    if (AcceptToMemoryPool(mempool, stateDummy, orphanTx, true, &fMissingInputs2))
+                    if (orphanTx.AcceptTxBaseToMemoryPool(mempool, stateDummy, true, &fMissingInputs2))
                     {
                         LogPrint("mempool", "   accepted orphan tx %s\n", orphanHash.ToString());
-                        RelayTransaction(orphanTx);
+                        orphanTx.Relay();
                         vWorkQueue.push_back(orphanHash);
                         vEraseQueue.push_back(orphanHash);
                     }
@@ -6099,12 +6056,13 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
         LOCK(cs_main);
 
+        bool fMissingInputs = false;
         CValidationState state;
 
         pfrom->setAskFor.erase(inv.hash);
         mapAlreadyAskedFor.erase(inv);
 
-        if (!AlreadyHave(inv) && AcceptCertificateToMemoryPool(mempool, state, cert, true, NULL /*&fMissingInputs*/))
+        if (!AlreadyHave(inv) && AcceptCertificateToMemoryPool(mempool, state, cert, true, &fMissingInputs))
         {
             mempool.check(pcoinsTip);
             RelayCertificate(cert);
@@ -6127,7 +6085,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                      ++mi)
                 {
                     const uint256& orphanHash = *mi;
-                    const CTransaction& orphanTx = mapOrphanTransactions[orphanHash].tx;
+                    const CTransactionBase& orphanTx = *mapOrphanTransactions[orphanHash].tx;
                     NodeId fromPeer = mapOrphanTransactions[orphanHash].fromPeer;
                     bool fMissingInputs2 = false;
                     // Use a dummy CValidationState so someone can't setup nodes to counter-DoS based on orphan
@@ -6143,10 +6101,10 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
                     if (setMisbehaving.count(fromPeer))
                         continue;
-                    if (AcceptToMemoryPool(mempool, stateDummy, orphanTx, true, &fMissingInputs2))
+                    if (orphanTx.AcceptTxBaseToMemoryPool(mempool, stateDummy, true, &fMissingInputs2))
                     {
                         LogPrint("mempool", "   accepted orphan tx %s\n", orphanHash.ToString());
-                        RelayTransaction(orphanTx);
+                        orphanTx.Relay();
                         vWorkQueue.push_back(orphanHash);
                         vEraseQueue.push_back(orphanHash);
                     }
@@ -6173,20 +6131,16 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
             BOOST_FOREACH(uint256 hash, vEraseQueue)
                 EraseOrphanTx(hash);
-// a certificate can not be an orphan 
-// TODO cert: handle when vin is added
-#if 0
         }
         else if (fMissingInputs)
         {
-            AddOrphanTx(tx, pfrom->GetId());
+            AddOrphanTx(cert, pfrom->GetId());
 
             // DoS prevention: do not allow mapOrphanTransactions to grow unbounded
             unsigned int nMaxOrphanTx = (unsigned int)std::max((int64_t)0, GetArg("-maxorphantx", DEFAULT_MAX_ORPHAN_TRANSACTIONS));
             unsigned int nEvicted = LimitOrphanTxSize(nMaxOrphanTx);
             if (nEvicted > 0)
                 LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
-#endif
         } else {
             assert(recentRejects);
             recentRejects->insert(cert.GetHash());

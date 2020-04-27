@@ -1118,7 +1118,7 @@ public:
         }
 
         // Serialize nLockTime
-        ::Serialize(s, txTo.nLockTime, nType, nVersion);
+        ::Serialize(s, txTo.GetLockTime(), nType, nVersion);
 
         // Serialize vjoinsplit
         if (txTo.nVersion >= PHGR_TX_VERSION || txTo.nVersion == GROTH_TX_VERSION) {
@@ -1149,17 +1149,10 @@ private:
     const CScCertificate &certTo;  //! reference to the spending certificate (the one being serialized)
     const CScript &scriptCode; //! output script being consumed
     const unsigned int nIn;    //! input index of certTo being signed
-    const bool fAnyoneCanPay;  //! whether the hashtype has the SIGHASH_ANYONECANPAY flag set
-    const bool fHashSingle;    //! whether the hashtype is SIGHASH_SINGLE
-    const bool fHashNone;      //! whether the hashtype is SIGHASH_NONE
-    // TODO cert: SIGHASH flags can be simplified
 
 public:
-    CScCertificateSignatureSerializer(const CScCertificate &certToIn, const CScript &scriptCodeIn, unsigned int nInIn, int nHashTypeIn) :
-        certTo(certToIn), scriptCode(scriptCodeIn), nIn(nInIn),
-        fAnyoneCanPay(!!(nHashTypeIn & SIGHASH_ANYONECANPAY)),
-        fHashSingle((nHashTypeIn & 0x1f) == SIGHASH_SINGLE),
-        fHashNone((nHashTypeIn & 0x1f) == SIGHASH_NONE) {}
+    CScCertificateSignatureSerializer(const CScCertificate &certToIn, const CScript &scriptCodeIn, unsigned int nInIn) :
+        certTo(certToIn), scriptCode(scriptCodeIn), nIn(nInIn) {}
 
     /** Serialize the passed scriptCode */
     template<typename S>
@@ -1172,24 +1165,12 @@ public:
     /** Serialize an input of certTo */
     template<typename S>
     void SerializeInput(S &s, unsigned int nInput, int nType, int nVersion) const {
-        // In case of SIGHASH_ANYONECANPAY, only the input being signed is serialized
-        if (fAnyoneCanPay)
-            nInput = nIn;
         // Serialize the prevout
         ::Serialize(s, certTo.GetVin()[nInput].prevout, nType, nVersion);
         // Serialize the script
-        assert(nInput != NOT_AN_INPUT);
-        if (nInput != nIn)
-            // Blank out other inputs' signatures
-            ::Serialize(s, CScript(), nType, nVersion);
-        else
-            SerializeScriptCode(s, nType, nVersion);
+        SerializeScriptCode(s, nType, nVersion);
         // Serialize the nSequence
-        if (nInput != nIn && (fHashSingle || fHashNone))
-            // let the others update at will
-            ::Serialize(s, (int)0, nType, nVersion);
-        else
-            ::Serialize(s, certTo.GetVin()[nInput].nSequence, nType, nVersion);
+        ::Serialize(s, certTo.GetVin()[nInput].nSequence, nType, nVersion);
     }
 
     /** Serialize an output of certTo */
@@ -1214,19 +1195,13 @@ public:
         ::Serialize(s, certTo.endEpochBlockHash, nType, nVersion);
 
         // Serialize vin
-        unsigned int nInputs = fAnyoneCanPay ? 1 : certTo.GetVin().size();
+        unsigned int nInputs = certTo.GetVin().size();
         ::WriteCompactSize(s, nInputs);
         for (unsigned int nInput = 0; nInput < nInputs; nInput++)
              SerializeInput(s, nInput, nType, nVersion);
 
         // Serialize vout
         // split bwd transfer and change
-#if 0
-        unsigned int nOutputs = fHashNone ? 0 : (fHashSingle ? nIn+1 : certTo.GetVout().size());
-        ::WriteCompactSize(s, nOutputs);
-        for (unsigned int nOutput = 0; nOutput < nOutputs; nOutput++)
-             SerializeOutput(s, nOutput, nType, nVersion);
-#else
         std::vector<CBackwardTransferOut> vbt_ccout_ser;
         // we must not modify vout
         std::vector<CTxOut> vout_ser;
@@ -1253,7 +1228,6 @@ public:
         ::WriteCompactSize(s, voutBtSize);
         for (unsigned int nOutput = 0; nOutput < voutBtSize; nOutput++)
              SerializeOutput(s, vbt_ccout_ser[nOutput], nType, nVersion);
-#endif
     }
 };
 
@@ -1291,21 +1265,18 @@ uint256 SignatureHash(const CScript& scriptCode, const CScCertificate& certTo, u
         throw logic_error("input index is out of range");
     }
 
-    // Check for invalid use of SIGHASH_SINGLE
-    if ((nHashType & 0x1f) == SIGHASH_SINGLE) {
-        if (nIn >= certTo.GetVout().size()) {
-            //  nOut out of range
-            throw logic_error("no matching output for SIGHASH_SINGLE");
-        }
+    if (nHashType != SIGHASH_ALL)
+    {
+        throw logic_error("invalid hash type");
     }
 
     // Wrapper to serialize only the necessary parts of the transaction being signed
 
-
     // Serialize and hash
     CHashWriter ss(SER_GETHASH, 0);
-    CScCertificateSignatureSerializer certTmp(certTo, scriptCode, nIn, nHashType);
-    ss << certTmp << nHashType;
+    CScCertificateSignatureSerializer certTmp(certTo, scriptCode, nIn);
+    // hash type is always SIGHASH_ALL 
+    ss << certTmp << (int)SIGHASH_ALL;
     return ss.GetHash();
 }
 
@@ -1357,14 +1328,14 @@ bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime) con
     // unless the type of nLockTime being tested is the same as
     // the nLockTime in the transaction.
     if (!(
-        (txTo->nLockTime <  LOCKTIME_THRESHOLD && nLockTime <  LOCKTIME_THRESHOLD) ||
-        (txTo->nLockTime >= LOCKTIME_THRESHOLD && nLockTime >= LOCKTIME_THRESHOLD)
+        (txTo->GetLockTime() <  LOCKTIME_THRESHOLD && nLockTime <  LOCKTIME_THRESHOLD) ||
+        (txTo->GetLockTime() >= LOCKTIME_THRESHOLD && nLockTime >= LOCKTIME_THRESHOLD)
     ))
         return false;
 
     // Now that we know we're comparing apples-to-apples, the
     // comparison is a simple numeric one.
-    if (nLockTime > (int64_t)txTo->nLockTime)
+    if (nLockTime > (int64_t)txTo->GetLockTime())
         return false;
 
     // Finally the nLockTime feature can be disabled and thus
@@ -1442,6 +1413,13 @@ bool CertificateSignatureChecker::CheckSig(const vector<unsigned char>& vchSigIn
     if (vchSig.empty())
         return false;
     int nHashType = vchSig.back();
+
+    if (nHashType != (int)SIGHASH_ALL)
+    {
+        LogPrintf("%s: %s():%d - ERROR: hash type 0x%x not supported\n", __FILE__, __func__, __LINE__, nHashType);
+        return false;
+    }
+
     vchSig.pop_back();
 
     uint256 sighash;

@@ -512,7 +512,8 @@ public:
     // return false if the map is empty
     virtual const mapNoteData_t* GetMapNoteData() const { return NULL; }
     virtual void SetMapNoteData(mapNoteData_t& m) {}
-    virtual void HandleInputGrouping(std::set< std::set<CTxDestination> >& groupings, std::set<CTxDestination>& grouping) {};
+
+    void HandleInputGrouping(std::set< std::set<CTxDestination> >& groupings, std::set<CTxDestination>& grouping);
 
     void Init(const CWallet* pwalletIn)
     {
@@ -549,9 +550,9 @@ public:
     virtual std::shared_ptr<CWalletObjBase> MakeWalletMapObject() const = 0;
     static std::shared_ptr<CWalletObjBase> MakeWalletObjectBase(const CTransactionBase& obj, const CWallet* pwallet);
 
-    virtual void AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletObjBase*> vtxIn) const { return; }
-    virtual void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const { } // default is empty (certs has no inputs)
-    virtual void addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const  { return; }
+    void AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletObjBase*> vtxIn) const;
+    void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const;
+    void addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const;
 
 };
 
@@ -656,7 +657,6 @@ public:
     void ClearNoteWitnessCache() override;
     const mapNoteData_t* GetMapNoteData() const override;
     void SetMapNoteData(mapNoteData_t& m) override;
-    void HandleInputGrouping(std::set< std::set<CTxDestination> >& groupings, std::set<CTxDestination>& grouping) override;
 
     void IncrementWitness(int64_t nWitnessCacheSize, int nHeight) override;
     void IncrementExistingWitness(const uint256&, int64_t nWitnessCacheSize, int nHeight) override;
@@ -682,10 +682,6 @@ public:
         }
     }
     std::shared_ptr<CWalletObjBase> MakeWalletMapObject() const override;
-
-    void AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletObjBase*> vtxIn) const override;
-    void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const override;
-    void addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const override;
 };
 
 class CWalletCert : public CMerkleCert, public CWalletObjBase

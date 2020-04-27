@@ -322,6 +322,10 @@ struct CDiskTxPos : public CDiskBlockPos
     }
 };
 
+struct COrphanTx {
+    std::shared_ptr<const CTransactionBase> tx;
+    NodeId fromPeer;
+};
 
 CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAllowFree);
 
