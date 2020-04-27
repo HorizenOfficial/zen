@@ -1042,14 +1042,13 @@ TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation)
     EXPECT_TRUE(retrievedInfo.mImmatureAmounts.at(-1) == fwdAmount);
 }
 
-#if 0 // enable when merged with code supporting it, otherwise this is expect to fail
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// UndoBlock versioning /////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainTestSuite, CSidechainBlockUndoVersioning) {
 
     static const std::string autofileName = "/tmp/test_block_undo_versioning.txt";
-    CAutoFile fileout(fopen(autofileName.c_str(), "w+") , SER_DISK, CLIENT_VERSION);
+    CAutoFile fileout(fopen(autofileName.c_str(), "wb+") , SER_DISK, CLIENT_VERSION);
     EXPECT_TRUE(fileout.Get() != NULL);
 
     // write an old version undo block to the file
@@ -1120,15 +1119,14 @@ TEST_F(SidechainTestSuite, CSidechainBlockUndoVersioning) {
 
     EXPECT_TRUE(good_read == true);
 
-    //EXPECT_TRUE(b1.IsNewVersion() == false);
+    EXPECT_TRUE(b1.IncludesSidechainAttributes() == false);
     EXPECT_TRUE(h1 == h_buov);
 
-    //EXPECT_TRUE(b2.IsNewVersion() == true);
+    EXPECT_TRUE(b2.IncludesSidechainAttributes() == true);
     EXPECT_TRUE(h2 == h_buon);
 
     filein.fclose();
 }
-#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Test Fixture definitions ///////////////////////////
