@@ -92,6 +92,9 @@ class sc_cert_epoch(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
+        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount)
+        assert_equal(self.nodes[0].getscinfo(scid)['immature amounts'][0]['amount'], fwt_amount_immature_at_epoch)
+
         epoch_number = 0
         epoch_hash = blocks[-1]
 
@@ -117,8 +120,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-
-        assert_equal("sidechain has insufficient funds" in errorString, True)
+            assert_equal("sidechain has insufficient funds" in errorString, True)
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
         try:
@@ -153,14 +155,11 @@ class sc_cert_epoch(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert_equal("Insufficient funds" in errorString, True)
 
-        assert_equal("Insufficient funds" in errorString, True)
-
-        # print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
         mark_logs("Node0 generates {} blocks, coming to the end of epoch 1".format(EPOCH_LENGTH - 2), self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(EPOCH_LENGTH - 2))
         self.sync_all()
-        # print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
 
         mark_logs("Node 0 performs a bwd transfer of 0 coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
         try:
@@ -175,9 +174,14 @@ class sc_cert_epoch(BitcoinTestFramework):
 
         self.sync_all()
 
-        mark_logs("Node0 confims bwd transfer generating 1 block", self.nodes, DEBUG_MODE)
-        blocks.extend(self.nodes[0].generate(1))
+        mark_logs("Node0 confims bwd transfer and moves beyond safeguard", self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(3))
         self.sync_all()
+
+        mark_logs("Checking Nodes wallet's balances are duly updated", self.nodes, DEBUG_MODE)
+        assert_equal(node1_balance_ante_cert, self.nodes[1].getbalance())
+        assert_equal(node2_balance_ante_cert + bwt_amount, self.nodes[2].getbalance())  # Certificate amount has finally matured
+        assert_equal(node3_balance_ante_cert, self.nodes[3].getbalance())
 
         try:
             speding_bwd_tx = self.nodes[2].sendtoaddress(self.nodes[3].getnewaddress(), bwt_amount/2)
@@ -187,9 +191,15 @@ class sc_cert_epoch(BitcoinTestFramework):
             mark_logs("Spending bwt founds failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
 
+        self.sync_all()
         mark_logs("Node0 confims spending of bwd transfer founds generating 1 block", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
+
+        mark_logs("Checking Nodes wallet's balances are duly updated", self.nodes, DEBUG_MODE)
+        assert_equal(node1_balance_ante_cert, self.nodes[1].getbalance())
+        assert_equal(node2_balance_ante_cert + bwt_amount/2 + self.nodes[2].gettransaction(speding_bwd_tx)['fee'], self.nodes[2].getbalance())  # Certificate amount has finally matured
+        assert_equal(node3_balance_ante_cert + bwt_amount/2, self.nodes[3].getbalance())
 
         ### INVALIDATION PHASE 
         mark_logs("Node0 invalidates latest block which confirmed epoch 0 bwd expenditure", self.nodes, DEBUG_MODE)
@@ -200,12 +210,13 @@ class sc_cert_epoch(BitcoinTestFramework):
         mark_logs("Checking tx speding bwd returns to mempool", self.nodes, DEBUG_MODE)
         assert(speding_bwd_tx in self.nodes[0].getrawmempool())
 
-        mark_logs("Node0 invalidates latest block which confirmed bwd", self.nodes, DEBUG_MODE)
-        block_to_invalidate = self.nodes[0].getbestblockhash()
-        self.nodes[0].invalidateblock(block_to_invalidate)
-        time.sleep(1)  # Is there a better wait to settle?
+        mark_logs("Node0 invalidates enough blocks unconfirm epoch 1 certificate", self.nodes, DEBUG_MODE)
+        for num in range(1,4):
+            block_to_invalidate = self.nodes[0].getbestblockhash()
+            self.nodes[0].invalidateblock(block_to_invalidate)
+            time.sleep(1)  # Is there a better wait to settle?
 
-        mark_logs("Checking  bwd returns to mempool with tx spending it", self.nodes, DEBUG_MODE)
+        mark_logs("Checking bwd returns to mempool while tx spending epoch 0 certificate gets removed", self.nodes, DEBUG_MODE)
         assert(cert_epoch_1 in self.nodes[0].getrawmempool())
         assert(speding_bwd_tx not in self.nodes[0].getrawmempool()) # speding_bwd_tx would spend an immature cert now since epoch 1 cert is not confirmed anymore
 
@@ -217,7 +228,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         self.nodes[0].invalidateblock(block_to_invalidate)
         time.sleep(1)  # Is there a better wait to settle?
 
-        mark_logs("Checking both bwd and dependant tx is still mempool", self.nodes, DEBUG_MODE)
+        mark_logs("Checking both bwd is still mempool", self.nodes, DEBUG_MODE)
         assert(cert_epoch_1 not in self.nodes[0].getrawmempool())
         assert(speding_bwd_tx not in self.nodes[0].getrawmempool())
 
@@ -226,7 +237,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         self.nodes[0].invalidateblock(block_to_invalidate)
         time.sleep(1)  # Is there a better wait to settle?
 
-        mark_logs("Checking both bwd and dependant tx is are cleared from mempool", self.nodes, DEBUG_MODE)
+        mark_logs("Checking both bwd is cleared from mempool", self.nodes, DEBUG_MODE)
         assert(cert_epoch_1 not in self.nodes[0].getrawmempool())
         assert(speding_bwd_tx not in self.nodes[0].getrawmempool())
 
@@ -236,8 +247,8 @@ class sc_cert_epoch(BitcoinTestFramework):
         assert_equal(sc_post_regeneration["last certificate epoch"], Decimal(0))
         assert_equal(sc_post_regeneration["balance"], creation_amount + fwt_amount + fwt_amount_immature_at_epoch - bwt_amount)
 
-        mark_logs("Node0 generating 3 block to have longest chain and cause reorg on other nodes", self.nodes, DEBUG_MODE)
-        blocks.extend(self.nodes[0].generate(3))
+        mark_logs("Node0 generating 6 block to have longest chain and cause reorg on other nodes", self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(6))
         self.sync_all()
 
         mark_logs("Checking that upon reorg, bwd is erased from other nodes too", self.nodes, DEBUG_MODE)
@@ -249,9 +260,11 @@ class sc_cert_epoch(BitcoinTestFramework):
             assert_equal(sc_post_regeneration["balance"], creation_amount + fwt_amount + fwt_amount_immature_at_epoch - bwt_amount)
             assert(cert_epoch_1 not in self.nodes[0].getrawmempool())
             assert(speding_bwd_tx not in self.nodes[0].getrawmempool())
-            mark_logs("Checking Node{} wallet's balances is back to initial one".format(idx), self.nodes, DEBUG_MODE)
+            mark_logs("Checking Node{} wallet's balances is duly updated".format(idx), self.nodes, DEBUG_MODE)
             assert_equal(node1_balance_ante_cert, self.nodes[1].getbalance())
-            assert_equal(node2_balance_ante_cert, self.nodes[2].getbalance())
+            
+            # Until ceased sc are handled, coins from cert will mature passed next epoch safeguard
+            assert_equal(node2_balance_ante_cert + bwt_amount, self.nodes[2].getbalance())
             assert_equal(node3_balance_ante_cert, self.nodes[3].getbalance())
 
         mark_logs("Checking certificates persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)

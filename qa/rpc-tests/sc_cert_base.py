@@ -251,13 +251,13 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Current height {}, Sc creation height {}, epoch length {} --> current epoch number {}"
                .format(current_height, sc_creating_height, EPOCH_LENGTH, epoch_number), self.nodes, DEBUG_MODE)
         epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * EPOCH_LENGTH))
-        eph_wrong = self.nodes[0].getblockhash(sc_creating_height)
-        print "epoch_number = ", epoch_number, ", epoch_block_hash = ", epoch_block_hash
 
         amount_cert_2 = [{"pubkeyhash": pkh_node1, "amount": 0}]
 
         bal_before_cert_2 = self.nodes[1].getbalance("", 0)
-        mark_logs("Generate new certificate for epoch {}. No bwt is included".format(epoch_number), self.nodes, DEBUG_MODE)
+        mark_logs("Node1 balance before epoch 1 certificate is received: {}".format(bal_before_cert_2), self.nodes, DEBUG_MODE)        
+
+        # mark_logs("Generate new certificate for epoch {}. No bwt is included".format(epoch_number), self.nodes, DEBUG_MODE)
         try:
             cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amount_cert_2, CERT_FEE)
             assert(len(cert_epoch_1) > 0)
@@ -267,11 +267,12 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
 
-        mark_logs("Confirm the certificate for epoch {},".format(epoch_number), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
+        mark_logs("Confirm the certificate for epoch {} and move beyond safeguard,".format(epoch_number), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(3)
         self.sync_all()
 
         bal_after_cert_2 = self.nodes[1].getbalance("", 0)
+        mark_logs("Node1 balance after epoch 1 certificate is received nad safeguard passed: {}".format(bal_after_cert_2), self.nodes, DEBUG_MODE)        
 
         mark_logs("Checking that certificate received from previous epoch is spendable,".format(epoch_number), self.nodes, DEBUG_MODE)
         retrieved_cert = self.nodes[1].gettransaction(cert_epoch_0)
