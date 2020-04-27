@@ -94,7 +94,7 @@ class CBlockUndo
     static const uint16_t _marker = 0xfec1;
 
     /** memory only */
-    bool isNewVersion;
+    bool includesSidechainAttributes;
 
 public:
     std::vector<CTxUndo> vtxundo; // for all but the coinbase
@@ -102,7 +102,7 @@ public:
     std::map<uint256, ScUndoData> msc_iaundo; // key=scid, value=amount matured at block height
 
     /** create as new */
-    CBlockUndo() : isNewVersion(true) {}
+    CBlockUndo() : includesSidechainAttributes(true) {}
 
     size_t GetSerializeSize(int nType, int nVersion) const
     {
@@ -113,7 +113,7 @@ public:
 
     template<typename Stream> void Serialize(Stream& s, int nType, int nVersion) const
     {
-        if (isNewVersion)
+        if (includesSidechainAttributes)
         {
             WriteCompactSize(s, _marker);
             ::Serialize(s, (vtxundo), nType, nVersion);
@@ -131,7 +131,7 @@ public:
     {
         // reading from data stream to memory
         vtxundo.clear();
-        isNewVersion = false;
+        includesSidechainAttributes = false;
 
         unsigned int nSize = ReadCompactSize(s);
         if (nSize == _marker)
@@ -140,16 +140,12 @@ public:
             ::Unserialize(s, (vtxundo), nType, nVersion);
             ::Unserialize(s, (old_tree_root), nType, nVersion);
             ::Unserialize(s, (msc_iaundo), nType, nVersion);
-            isNewVersion = true;
+            includesSidechainAttributes = true;
         }
         else
         {
-#if 1
-            s.Rewind(GetSizeOfCompactSize(nSize));
-            ::Unserialize(s, (vtxundo), nType, nVersion);
-#else
+            // vtxundo size has been already consumed in stream, add its entries
             ::AddEntriesInVector(s, vtxundo, nType, nVersion, nSize);
-#endif
             ::Unserialize(s, (old_tree_root), nType, nVersion);
         }
     };
@@ -157,7 +153,7 @@ public:
     std::string ToString() const
     {
         std::string str;
-        str += strprintf("\nisNewVersion=%u\n", isNewVersion);
+        str += strprintf("\nincludesSidechainAttributes=%u\n", includesSidechainAttributes);
         str += strprintf("vtxundo.size %u\n", vtxundo.size());
         str += strprintf("old_tree_root %s\n", old_tree_root.ToString().substr(0,10));
         str += strprintf("msc_iaundo.size %u\n", msc_iaundo.size());
@@ -165,8 +161,8 @@ public:
         return str;
     }
 
-    /** for tresting */
-    bool IsNewVersion() const  { return isNewVersion; }
+    /** for testing */
+    bool IncludesSidechainAttributes() const  { return includesSidechainAttributes; }
 
 };
 #endif // BITCOIN_UNDO_H

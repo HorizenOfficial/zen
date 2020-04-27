@@ -456,15 +456,6 @@ public:
         return (*this);
     }
 
-    CAutoFile& Rewind(size_t nSize)
-    {
-        if (!file)
-            throw std::ios_base::failure("CAutoFile::Rewind: file handle is NULL");
-        if (fseek(file, -nSize, SEEK_CUR) != 0)
-            throw std::ios_base::failure("CAutoFile::Rewind: fseek failed"+std::string(strerror(errno)));
-        return (*this);
-    }
-
     CAutoFile& ignore(size_t nSize)
     {
         if (!file)

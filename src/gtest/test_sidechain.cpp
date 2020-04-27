@@ -1040,7 +1040,7 @@ TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation)
 TEST_F(SidechainTestSuite, CSidechainBlockUndoVersioning) {
 
     static const std::string autofileName = "/tmp/test_block_undo_versioning.txt";
-    CAutoFile fileout(fopen(autofileName.c_str(), "w+") , SER_DISK, CLIENT_VERSION);
+    CAutoFile fileout(fopen(autofileName.c_str(), "wb+") , SER_DISK, CLIENT_VERSION);
     EXPECT_TRUE(fileout.Get() != NULL);
 
     // write an old version undo block to the file
@@ -1111,29 +1111,11 @@ TEST_F(SidechainTestSuite, CSidechainBlockUndoVersioning) {
 
     EXPECT_TRUE(good_read == true);
 
-    EXPECT_TRUE(b1.IsNewVersion() == false);
+    EXPECT_TRUE(b1.IncludesSidechainAttributes() == false);
     EXPECT_TRUE(h1 == h_buov);
 
-    EXPECT_TRUE(b2.IsNewVersion() == true);
+    EXPECT_TRUE(b2.IncludesSidechainAttributes() == true);
     EXPECT_TRUE(h2 == h_buon);
-
-    // test Rewind method by reading the last hash again
-    filein.Rewind(sizeof(uint256));
-    uint256 h3;
-    EXPECT_TRUE(h2 != h3);
-    filein >> h3;
-    EXPECT_TRUE(h2 == h3);
-
-    // rewind by an impossible offset
-    try
-    {
-        filein.Rewind(len2+1);
-    }
-    catch(...)
-    {
-        good_read = false;
-    }
-    EXPECT_TRUE(good_read == false);
 
     filein.fclose();
 }
