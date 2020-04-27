@@ -714,12 +714,6 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
     unsigned int nDataOut = 0;
     txnouttype whichType;
     BOOST_FOREACH(const CTxOut& txout, txBase.GetVout()) {
-
-        // if the output comes from a backward transfer (when we are a certificate), skip this check
-        // but go on if the certificate txout is an ordinary one
-        if (txout.isFromBackwardTransfer)
-            continue;
-
         CheckBlockResult checkBlockResult;
         if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
             reason = "scriptpubkey";
@@ -738,7 +732,7 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
         }
 
         // provide temporary replay protection for two minerconf windows during chainsplit
-        if ((!txBase.IsCoinBase()) &&
+        if ((!txBase.IsCoinBase() && !txout.isFromBackwardTransfer) &&
             (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(), whichType))) {
             reason = "op-checkblockatheight-needed";
             return false;
