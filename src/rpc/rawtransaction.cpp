@@ -796,7 +796,6 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
     return result;
 }
 
-// TODO cert: handle inputs
 UniValue createrawcertificate(const UniValue& params, bool fHelp)
 {   
     if (fHelp || params.size() != 4)

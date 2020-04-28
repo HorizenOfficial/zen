@@ -513,8 +513,6 @@ public:
     virtual const mapNoteData_t* GetMapNoteData() const { return NULL; }
     virtual void SetMapNoteData(mapNoteData_t& m) {}
 
-    void HandleInputGrouping(std::set< std::set<CTxDestination> >& groupings, std::set<CTxDestination>& grouping);
-
     void Init(const CWallet* pwalletIn)
     {
         pwallet = pwalletIn;

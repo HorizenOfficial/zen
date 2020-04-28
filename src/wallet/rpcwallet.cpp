@@ -925,7 +925,6 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     {
         scId = GetRandHash();
     }
-    // TODO no checks are made here on scid, they are left when trying to accept to mem pool
 
     // ---------------------------------------------------------
     int withdrawalEpochLength = SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH;
@@ -4912,7 +4911,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     cert.epochNumber = epochNumber;
     cert.endEpochBlockHash = endEpochBlockHash;
 
-    // optional parametes (TODO to be handled probably)
+    // optional parameters (TODO to be handled since they will be probabl useful to SBH wallet)
     CBitcoinAddress fromaddress;
     CBitcoinAddress changeaddress;
     int nMinDepth = 1;

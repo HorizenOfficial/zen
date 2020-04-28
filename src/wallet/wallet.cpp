@@ -4096,51 +4096,6 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances()
     return balances;
 }
 
-void CWalletObjBase::HandleInputGrouping(std::set< std::set<CTxDestination> >& groupings, std::set<CTxDestination>& grouping)
-{
-    if (!pwallet)
-    {
-        LogPrintf("%s():%d - null wallet ptr\n", __func__, __LINE__);
-        return;
-    }
-    // TODO pass as param insted
-    CWallet* p = const_cast<CWallet*>(pwallet);
-
-    if (GetVin().size() > 0)
-    {
-        bool any_mine = false;
-        // group all input addresses with each other
-        BOOST_FOREACH(CTxIn txin, GetVin())
-        {
-            CTxDestination address;
-            if(!pwallet->IsMine(txin)) /* If this input isn't mine, ignore it */
-                continue;
-            if(!ExtractDestination(p->mapWallet[txin.prevout.hash]->GetVout()[txin.prevout.n].scriptPubKey, address))
-                continue;
-            grouping.insert(address);
-            any_mine = true;
-        }
-
-        // group change with input addresses
-        if (any_mine)
-        {
-           BOOST_FOREACH(CTxOut txout, vout)
-               if (p->IsChange(txout))
-               {
-                   CTxDestination txoutAddr;
-                   if(!ExtractDestination(txout.scriptPubKey, txoutAddr))
-                       continue;
-                   grouping.insert(txoutAddr);
-               }
-        }
-        if (grouping.size() > 0)
-        {
-            groupings.insert(grouping);
-            grouping.clear();
-        }
-    }
-}
-
 set< set<CTxDestination> > CWallet::GetAddressGroupings()
 {
     AssertLockHeld(cs_wallet); // mapWallet
@@ -4157,7 +4112,6 @@ set< set<CTxDestination> > CWallet::GetAddressGroupings()
         auto* pcoin = walletEntry.second.get();
 #endif
 
-#if 1
         if (pcoin->GetVin().size() > 0)
         {
             bool any_mine = false;
@@ -4195,9 +4149,6 @@ set< set<CTxDestination> > CWallet::GetAddressGroupings()
                 grouping.clear();
             }
         }
-#else
-        pcoin->HandleInputGrouping(groupings, grouping);
-#endif
 
         // group lone addrs by themselves
         for (unsigned int i = 0; i < pcoin->GetVout().size(); i++)
