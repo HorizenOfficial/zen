@@ -567,18 +567,13 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             if (!view.HaveInputs(tx))
                 continue;
 
-#if 0
-            CAmount nTxFees = view.GetValueIn(tx)-tx.GetValueOut();
-#else
             CAmount valueIn = view.GetValueIn(tx);
             CAmount nTxFees = tx.GetFeeAmount(valueIn);
-            if (nTxFees < 0)
-            {
+            if (nTxFees < 0) {
                 LogPrintf("%s():%d - tx=%s has a negative fee (fee=%s/valueOut=%s)\n",
                     __func__, __LINE__, tx.GetHash().ToString(), FormatMoney(nTxFees), FormatMoney(tx.GetValueOut()));
                 continue;
             }
-#endif
 
             nTxSigOps += GetP2SHSigOpCount(tx, view);
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
@@ -588,11 +583,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             // policy here, but we still have to ensure that the block we
             // create only contains transactions that are valid in new blocks.
             CValidationState state;
-#if 0
-            if (!ContextualCheckInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
-#else
+
             if (!tx.ContextualCheckInputs(state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
-#endif
                 continue;
 
             UpdateCoins(tx, state, view, nHeight);

@@ -58,6 +58,16 @@ bool CScCertificate::CheckVersionBasic(CValidationState &state) const
     return true;
 }
 
+bool CScCertificate::CheckVersionIsStandard(std::string& reason, int nHeight) const {
+    if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
+    {
+        reason = "version";
+        return false;
+    }
+
+    return true;
+}
+
 bool CScCertificate::CheckInputsAvailability(CValidationState &state) const
 {
     // there might be no inputs if 0 fee, therefore this never fails
@@ -184,11 +194,9 @@ double CScCertificate::GetPriority(const CCoinsViewCache &view, int nHeight) con
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
-
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
-
 bool CScCertificate::IsApplicableToState(CValidationState& state, int nHeight) const { return true; }
-bool CScCertificate::IsStandard(std::string& reason, int nHeight) const { return true; }
+//bool CScCertificate::IsStandard(std::string& reason, int nHeight) const { return true; }
 std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
 {
     return std::shared_ptr<BaseSignatureChecker>(NULL);
@@ -216,23 +224,23 @@ bool CScCertificate::IsApplicableToState(CValidationState& state, int nHeight) c
     return view.IsCertApplicableToState(*this, nHeight, state);
 }
     
-bool CScCertificate::IsStandard(std::string& reason, int nHeight) const
-{
-    if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
-    {
-        reason = "version";
-        return false;
-    }
-
-    // so far just one version is supported, but in future it might not be the case
-    if (zen::ForkManager::getInstance().getCertificateVersion(nHeight) != nVersion)
-    {
-        reason = "version";
-        return false;
-    }
-
-    return CheckOutputsAreStandard(nHeight, reason);
-}
+//bool CScCertificate::IsStandard(std::string& reason, int nHeight) const
+//{
+//    if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
+//    {
+//        reason = "version";
+//        return false;
+//    }
+//
+//    // so far just one version is supported, but in future it might not be the case
+//    if (zen::ForkManager::getInstance().getCertificateVersion(nHeight) != nVersion)
+//    {
+//        reason = "version";
+//        return false;
+//    }
+//
+//    return CheckOutputsAreStandard(nHeight, reason);
+//}
 
 std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
 {
@@ -253,7 +261,6 @@ std::shared_ptr<const CTransactionBase>
 CScCertificate::MakeShared() const {
     return std::shared_ptr<const CTransactionBase>(new CScCertificate(*this));
 }
-
 #endif
 
 void CScCertificate::addToScCommitment(std::map<uint256, uint256>& map, std::set<uint256>& sScIds) const

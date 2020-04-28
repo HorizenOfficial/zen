@@ -550,7 +550,7 @@ public:
     bool HaveCertForEpoch(const uint256& scId, int epochNumber) const override;
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state);
     bool isLegalEpoch(const uint256& scId, int epochNumber, const uint256& epochBlockHash);
-    int getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber);
+    int getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber) const;
     CAmount getSidechainBalance(const uint256& scId) const;
     bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& bu);
     bool RevertCertOutputs(const CScCertificate& cert);
@@ -573,6 +573,9 @@ public:
      */
     CAmount GetValueIn(const CTransactionBase& tx) const;
 
+    //! Verify whether given output is mature according to current view
+    bool IsCertOutputMature(const uint256& txHash, unsigned int pos, int spendHeight) const;
+
     //! Check whether all prevouts of the transaction are present in the UTXO set represented by this view
     bool HaveInputs(const CTransactionBase& txBase) const;
 
@@ -594,7 +597,6 @@ private:
     int getScCoinsMaturity();
 
     bool DecrementImmatureAmount(const uint256& scId, CSidechain& targetScInfo, CAmount nValue, int maturityHeight);
-    static void generateNewSidechainId(uint256& scId);
     void Dump_info() const;
 
 private:

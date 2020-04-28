@@ -111,6 +111,7 @@ public:
 
     //CHECK FUNCTIONS
     bool CheckVersionBasic        (CValidationState &state) const override;
+    bool CheckVersionIsStandard   (std::string& reason, int nHeight) const override;
     bool CheckInputsAvailability  (CValidationState &state) const override;
     bool CheckOutputsAvailability (CValidationState &state) const override;
     bool CheckSerializedSize      (CValidationState &state) const override;
@@ -150,8 +151,6 @@ public:
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
     bool CheckFinal(int flags) const override;
     bool IsApplicableToState(CValidationState& state, int nHeight = -1) const override;
-
-    bool IsStandard(std::string& reason, int nHeight) const override;
 
     bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) override final;
 

@@ -483,7 +483,7 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                 ); //A fresh entry should not exist in localCache or be already erased
                 cacheSidechains[entryToWrite.first] = entryToWrite.second;
                 break;
-            case CSidechainsCacheEntry::Flags::DIRTY:               //A dirty entry may or may not exist in localCache
+            case CSidechainsCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
                     cacheSidechains[entryToWrite.first] = entryToWrite.second;
                 break;
             case CSidechainsCacheEntry::Flags::ERASED:
@@ -579,7 +579,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         cacheSidechains[cr.scId].scInfo.creationBlockHash = block.GetHash();
         cacheSidechains[cr.scId].scInfo.creationBlockHeight = blockHeight;
         cacheSidechains[cr.scId].scInfo.creationTxHash = txHash;
-        cacheSidechains[cr.scId].scInfo.lastReceivedCertificateEpoch = CScCertificate::EPOCH_NULL;
+        cacheSidechains[cr.scId].scInfo.lastEpochReferencedByCertificate = CScCertificate::EPOCH_NULL;
         cacheSidechains[cr.scId].scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
         cacheSidechains[cr.scId].scInfo.creationData.customData = cr.customData;
         cacheSidechains[cr.scId].scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
@@ -601,9 +601,9 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
                 __func__, __LINE__, ft.scId.ToString() );
             return false;
         }
+        assert(cacheSidechains.count(ft.scId) != 0);
 
         // add a new immature balance entry in sc info or increment it if already there
-        assert(cacheSidechains.count(ft.scId) != 0);
         cacheSidechains[ft.scId].scInfo.mImmatureAmounts[maturityHeight] += ft.nValue;
         if (cacheSidechains[ft.scId].flag != CSidechainsCacheEntry::Flags::FRESH)
             cacheSidechains[ft.scId].flag = CSidechainsCacheEntry::Flags::DIRTY;
@@ -776,9 +776,9 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
 
         if (blockundoEpoch != CScCertificate::EPOCH_NOT_INITIALIZED)
         {
-            LogPrint("sc", "%s():%d - scId=%s epoch before: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastReceivedCertificateEpoch);
-            targetScInfo.lastReceivedCertificateEpoch = it_ia_undo_map->second.certEpoch;
-            LogPrint("sc", "%s():%d - scId=%s epoch after: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastReceivedCertificateEpoch);
+            LogPrint("sc", "%s():%d - scId=%s epoch before: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastEpochReferencedByCertificate);
+            targetScInfo.lastEpochReferencedByCertificate = it_ia_undo_map->second.certEpoch;
+            LogPrint("sc", "%s():%d - scId=%s epoch after: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastEpochReferencedByCertificate);
 
             cacheSidechains.at(scId).flag = CSidechainsCacheEntry::Flags::DIRTY;
         }
@@ -792,7 +792,7 @@ bool CCoinsViewCache::HaveCertForEpoch(const uint256& scId, int epochNumber) con
     if (!GetSidechain(scId, info))
         return false;
 
-    if (info.lastReceivedCertificateEpoch == epochNumber)
+    if (info.lastEpochReferencedByCertificate == epochNumber)
         return true;
 
     return false;
@@ -959,7 +959,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx)
 
 #endif
 
-int CCoinsViewCache::getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber)
+int CCoinsViewCache::getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber) const
 {
     CSidechain info;
     if (!GetSidechain(scId, info))
@@ -1014,10 +1014,10 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
 
     // if an entry already exists, update only cert epoch with current value
     // if it is a brand new entry, amount will be init as 0 by default
-    blockundo.msc_iaundo[scId].certEpoch = targetScInfo.lastReceivedCertificateEpoch;
+    blockundo.msc_iaundo[scId].certEpoch = targetScInfo.lastEpochReferencedByCertificate;
 
     targetScInfo.balance -= totalAmount;
-    targetScInfo.lastReceivedCertificateEpoch = cert.epochNumber;
+    targetScInfo.lastEpochReferencedByCertificate = cert.epochNumber;
     cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
 
     LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",
@@ -1100,14 +1100,6 @@ bool CCoinsViewCache::DecrementImmatureAmount(const uint256& scId, CSidechain& t
     return true;
 }
 
-void CCoinsViewCache::generateNewSidechainId(uint256& scId)
-{
-    // for the time being this is randomly generated
-    // in future a CMutableTransaction can be passed as input parameter in order to use its parts
-    // for generating it in a deterministic way
-    scId = GetRandHash();
-}
-
 void CCoinsViewCache::Dump_info() const
 {
     std::set<uint256> scIdsList;
@@ -1125,7 +1117,7 @@ void CCoinsViewCache::Dump_info() const
 
         LogPrint("sc", "  created in block[%s] (h=%d)\n", info.creationBlockHash.ToString(), info.creationBlockHeight );
         LogPrint("sc", "  creationTx[%s]\n", info.creationTxHash.ToString());
-        LogPrint("sc", "  lastReceivedCertificateEpoch[%d]\n", info.lastReceivedCertificateEpoch);
+        LogPrint("sc", "  lastEpochReferencedByCertificate[%d]\n", info.lastEpochReferencedByCertificate);
         LogPrint("sc", "  balance[%s]\n", FormatMoney(info.balance));
         LogPrint("sc", "  ----- creation data:\n");
         LogPrint("sc", "      withdrawalEpochLength[%d]\n", info.creationData.withdrawalEpochLength);
@@ -1147,18 +1139,48 @@ const CTxOut &CCoinsViewCache::GetOutputFor(const CTxIn& input) const
     return coins->vout[input.prevout.n];
 }
 
-CAmount CCoinsViewCache::GetValueIn(const CTransactionBase& tx) const
+CAmount CCoinsViewCache::GetValueIn(const CTransactionBase& txBase) const
 {
-    if (tx.IsCoinBase())
+    if (txBase.IsCoinBase())
         return 0;
 
     CAmount nResult = 0;
-    for (unsigned int i = 0; i < tx.GetVin().size(); i++)
-        nResult += GetOutputFor(tx.GetVin()[i]).nValue;
+    for (const CTxIn& in : txBase.GetVin())
+        nResult += GetOutputFor(in).nValue;
 
-    nResult += tx.GetJoinSplitValueIn();
+    nResult += txBase.GetJoinSplitValueIn();
 
     return nResult;
+}
+
+bool CCoinsViewCache::IsCertOutputMature(const uint256& txHash, unsigned int pos, int spendHeight) const
+{
+    // Note: we assume here that a missing coins has been already fully spent, hence it is deemed mature
+    // (it must have been when it was spent in order to be used).
+    // It is left up to caller to make sure that txHash belongs to a tx in active chain
+    CCoins refCoin;
+    if(!GetCoins(txHash,refCoin))
+        return true; // must have been fully spent
+
+    assert(refCoin.IsFromCert());
+
+    if (!refCoin.IsAvailable(pos))
+        return true; // an output already spent must have been mature
+
+    if (!refCoin.vout[pos].isFromBackwardTransfer)
+        return true; // vout from coinbase are deemed mature here. Other methods estabish coinbase maturity as a whole
+
+    // Hereinafter, we have a certificate, hence we can assert existence of its sidechain
+    CSidechain targetSc;
+    assert(GetSidechain(refCoin.originScId, targetSc));
+
+    int coinEpoch = (refCoin.nHeight - targetSc.creationBlockHeight + 1) / targetSc.creationData.withdrawalEpochLength;
+    int nextCertSafeguardHeight = getCertificateMaxIncomingHeight(refCoin.originScId, coinEpoch);
+
+    if (spendHeight > nextCertSafeguardHeight)
+        return true;
+
+    return false;
 }
 
 bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransactionBase& txBase) const
@@ -1196,9 +1218,8 @@ bool CCoinsViewCache::HaveInputs(const CTransactionBase& txBase) const
 {
     if (!txBase.IsCoinBase()) {
         for(const CTxIn & in: txBase.GetVin()) {
-            const COutPoint &prevout = in.prevout;
-            const CCoins* coins = AccessCoins(prevout.hash);
-            if (!coins || !coins->IsAvailable(prevout.n)) {
+            const CCoins* coins = AccessCoins(in.prevout.hash);
+            if (!coins || !coins->IsAvailable(in.prevout.n)) {
                 return false;
             }
         }
@@ -1235,7 +1256,8 @@ double CCoinsViewCache::GetPriority(const CTransactionBase &tx, int nHeight) con
     return tx.ComputePriority(dResult);
 }
 
-CCoinsModifier::CCoinsModifier(CCoinsViewCache& cache_, CCoinsMap::iterator it_, size_t usage) : cache(cache_), it(it_), cachedCoinUsage(usage) {
+CCoinsModifier::CCoinsModifier(CCoinsViewCache& cache_, CCoinsMap::iterator it_, size_t usage):
+        cache(cache_), it(it_), cachedCoinUsage(usage) {
     assert(!cache.hasModifier);
     cache.hasModifier = true;
 }

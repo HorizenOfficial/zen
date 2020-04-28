@@ -392,7 +392,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
 /** Check for standard transaction types
  * @return True if all outputs (scriptPubKeys) use only standard transaction forms
  */
-bool IsStandardTx(const CTransaction& tx, std::string& reason, int nHeight);
+bool IsStandardTx(const CTransactionBase& txBase, std::string& reason, int nHeight);
 
 /**
  * Check if transaction is final and can be included in a block with the

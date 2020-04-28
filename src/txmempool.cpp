@@ -47,8 +47,7 @@ CTxMemPoolEntry::CTxMemPoolEntry(const CTxMemPoolEntry& other)
     *this = other;
 }
 
-double
-CTxMemPoolEntry::GetPriority(unsigned int currentHeight) const
+double CTxMemPoolEntry::GetPriority(unsigned int currentHeight) const
 {
     CAmount nValueIn = tx.GetValueOut()+nFee;
     double deltaPriority = ((double)(currentHeight-nHeight)*nValueIn)/nModSize;
@@ -362,40 +361,55 @@ void CTxMemPool::remove(const CScCertificate &origCert, std::list<CTransaction>&
     }
 }
 
-void CTxMemPool::removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight)
+void CTxMemPool::removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight)
 {
     // Remove transactions spending a coinbase which are now immature
     LOCK(cs);
     std::list<CTransaction> transactionsToRemove;
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         const CTransaction& tx = it->second.GetTx();
-        BOOST_FOREACH(const CTxIn& txin, tx.GetVin()) {
+        for(const CTxIn& txin: tx.GetVin()) {
             std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(txin.prevout.hash);
             if (it2 != mapTx.end())
                 continue;
 
-            // if input is a certificate skip as well, even if it can not be coinbase anyway
             std::map<uint256, CCertificateMemPoolEntry>::const_iterator it3 = mapCertificate.find(txin.prevout.hash);
-            if (it3 != mapCertificate.end())
-            {
+            if (it3 != mapCertificate.end()) {
                 LogPrint("cert", "%s():%d - tx input is cert [%s] which is still in mempool\n", __func__, __LINE__, it3->first.ToString() );
                 continue;
             }
 
             const CCoins *coins = pcoins->AccessCoins(txin.prevout.hash);
             if (fSanityCheck) assert(coins);
-            if (!coins || (coins->IsCoinBase() && ((signed long)nMemPoolHeight) - coins->nHeight < COINBASE_MATURITY)) {
-                // TODO cert: what if a fw tx spends an immature coin? Cert might depend also on this
-                LogPrint("sc", "%s():%d - adding tx [%s] to list for removing since it spends immature coinbase [%s]\n",
-                    __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
+
+            if (!coins) {
                 transactionsToRemove.push_back(tx);
                 break;
+            }
+
+            if (coins->IsCoinBase()) {
+                if (((signed long)nMemPoolHeight) - coins->nHeight < COINBASE_MATURITY) {
+                    LogPrint("sc", "%s():%d - adding tx [%s] to list for removing since it spends immature coinbase [%s]\n",
+                        __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
+                    transactionsToRemove.push_back(tx);
+                    break;
+                }
+            } else if (coins->IsFromCert()) {
+                if (fSanityCheck) {
+                    assert(coins->IsAvailable(txin.prevout.n));
+                    assert(pcoins->HaveSidechain(coins->originScId));
+                }
+
+                if (!pcoins->IsCertOutputMature(txin.prevout.hash, txin.prevout.n, nMemPoolHeight)) {
+                    transactionsToRemove.push_back(tx);
+                    break;
+                }
             }
         }
     }
 
     std::list<CTransaction> removedTxs;
-    BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
+    for(const CTransaction& tx: transactionsToRemove) {
         remove(tx, removedTxs, true);
     }
 }
@@ -687,6 +701,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         CValidationState state;
 
         assert(cert.ContextualCheckInputs(state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+        assert(Consensus::CheckTxInputs(cert, state, *pcoins, GetSpendHeight(*pcoins), Params().GetConsensus()));
+
         // updating coins with cert outputs because the cache is checked below for
         // any tx inputs and maybe some tx has a cert out as its input.
         UpdateCoins(cert, state, mempoolDuplicate, 1000000);
@@ -861,6 +877,7 @@ bool CCoinsViewMemPool::GetCoins(const uint256 &txid, CCoins &coins) const {
         coins = CCoins(tx, MEMPOOL_HEIGHT);
         return true;
     }
+
     CScCertificate cert;
     if (mempool.lookup(txid, cert)) {
         LogPrint("cert", "%s():%d - making coins for cert [%s]\n", __func__, __LINE__, txid.ToString() );
@@ -913,30 +930,6 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
 
 bool CCoinsViewMemPool::HaveSidechain(const uint256& scId) const {
     return mempool.hasSidechainCreationTx(scId) || base->HaveSidechain(scId);
-}
-
-
-bool CCoinsViewMemPool::IsCertAllowedInMempool(const CScCertificate& cert, CValidationState& state)
-{
-    if (!HaveCertForEpoch(cert.GetScId(), cert.epochNumber))
-        return true;
-
-    // when called for checking the contents of mempool we can find the certificate itself, which is OK
-    if (mempool.mapSidechains.count(cert.GetScId())) {
-        const uint256 & conflictingCertHash = mempool.mapSidechains.at(cert.GetScId()).backwardCertificate;
-        if (conflictingCertHash == cert.GetHash()) //This currently happens with mempool.check
-            return true;
-
-        LogPrintf("ERROR: certificate %s for epoch %d is already in mempool\n",
-            conflictingCertHash.ToString(), cert.epochNumber);
-        return state.Invalid(error("A certificate with the same scId/epoch is already in mempool"),
-             REJECT_INVALID, "sidechain-certificate-epoch");
-    }
-
-    LogPrintf("ERROR: certificate for epoch %d is already confirmed\n",
-        cert.epochNumber);
-    return state.Invalid(error("A certificate with the same scId/epoch is already confirmed"),
-         REJECT_INVALID, "sidechain-certificate-epoch");
 }
 
 bool CCoinsViewMemPool::HaveCertForEpoch(const uint256& scId, int epochNumber) const {

@@ -91,6 +91,7 @@ CTxMemPool mempool(::minRelayTxFee);
 
 map<uint256, COrphanTx> mapOrphanTransactions GUARDED_BY(cs_main);;
 map<uint256, set<uint256> > mapOrphanTransactionsByPrev GUARDED_BY(cs_main);;
+
 void EraseOrphansFor(NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 static void CheckBlockIndex();
@@ -670,46 +671,13 @@ unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans) EXCLUSIVE_LOCKS_REQUIRE
 }
 
 
-bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
+bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHeight)
 {
-    // sidechain fork (happens after groth fork)
-    int sidechainVersion = 0; 
-    bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
-    if (areSidechainsSupported)
-    {
-        sidechainVersion = ForkManager::getInstance().getSidechainTxVersion(nHeight);
-    }
-
-    // groth fork
-    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
-    bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
-
-    if(!isGROTHActive)
-    {
-        // sidechain fork is after groth one
-        assert(!areSidechainsSupported);
-
-        if (tx.nVersion > CTransaction::MAX_OLD_VERSION || tx.nVersion < CTransaction::MIN_OLD_VERSION)
-        {
-            reason = "version";
-            return false;
-        }
-    }
-    else
-    {
-        if (tx.nVersion != TRANSPARENT_TX_VERSION && tx.nVersion != GROTH_TX_VERSION)
-        {
-            // check sidechain tx
-            if ( !(areSidechainsSupported && (tx.nVersion == sidechainVersion)) )
-            {
-                reason = "version";
-                return false;
-            }
-        }
-    }
+    if (!txBase.CheckVersionIsStandard(reason, nHeight))
+        return false;
 
 
-    BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
+    BOOST_FOREACH(const CTxIn& txin, txBase.GetVin())
     {
         // Biggest 'standard' txin is a 15-of-15 P2SH multisig with compressed
         // keys. (remember the 520 byte limit on redeemScript size) That works
@@ -730,8 +698,7 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
 
     unsigned int nDataOut = 0;
     txnouttype whichType;
-    BOOST_FOREACH(const CTxOut& txout, tx.GetVout()) {
-
+    BOOST_FOREACH(const CTxOut& txout, txBase.GetVout()) {
         CheckBlockResult checkBlockResult;
         if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
             reason = "scriptpubkey";
@@ -750,7 +717,8 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
         }
 
         // provide temporary replay protection for two minerconf windows during chainsplit
-        if ((!tx.IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(), whichType))) {
+        if ((!txBase.IsCoinBase() && !txout.isFromBackwardTransfer) &&
+            (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(), whichType))) {
             reason = "op-checkblockatheight-needed";
             return false;
         }
@@ -1167,7 +1135,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
     int nextBlockHeight = chainActive.Height() + 1; // OR chainActive.Tip()->nHeight
 
-    //ABENEGIA: a node can reject txs with too many inputs. Nothing similar so far for certificates. Is is all right?
+    if (!cert.CheckInputsLimit())
+        return false;
 
     if(!CheckCertificate(cert,state))
         return error("AcceptCertificateToMemoryPool: CheckCertificate failed");
@@ -1184,22 +1153,28 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
     }
 
     string reason; // Rather not work on nonstandard transactions (unless -testnet/-regtest)
-    if (getRequireStandard() && !cert.IsStandard(reason, nextBlockHeight))
+    if (getRequireStandard() &&  !IsStandardTx(cert, reason, nextBlockHeight))
         return state.DoS(0, error("AcceptCertificateToMemoryPool: nonstandard certificate: %s", reason),
                             REJECT_NONSTANDARD, reason);
 
     //ABENEGIA: if (!tx.CheckFinal(STANDARD_LOCKTIME_VERIFY_FLAGS))// as of now certificate finality has yet to be defined
 
-    // is it already in the memory pool?
     uint256 certHash = cert.GetHash();
+
+    // Check if cert is already in mempool or if there are conflicts with in-memory certs
     {
         LOCK(pool.cs);
-        if (pool.existsCert(certHash))
-        {
-            LogPrint("mempool", "Dropping certificateId %s : already in mempool\n", certHash.ToString());
+        if (pool.mapCertificate.count(certHash) != 0) {
+            LogPrint("mempool", "Dropping cert %s : already in mempool\n", certHash.ToString());
             return false;
         }
- 
+
+        if ((pool.mapSidechains.count(cert.GetScId()) != 0) &&
+            (!pool.mapSidechains.at(cert.GetScId()).backwardCertificate.IsNull())) {
+            LogPrint("mempool", "Dropping cert %s : another cert for same sc is already in mempool\n", certHash.ToString());
+            return false;
+        }
+
         for (const CTxIn & vin : cert.GetVin()) {
             if (pool.mapNextTx.count(vin.prevout)) {
                 LogPrint("mempool", "Dropping cert %s : it double spends another tx in mempool\n", certHash.ToString());
@@ -1218,10 +1193,11 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
             view.SetBackend(viewMemPool);
 
-            if(!viewMemPool.IsCertAllowedInMempool(cert, state))
+            if(viewMemPool.HaveCertForEpoch(cert.GetScId(), cert.epochNumber))
             {
-                LogPrint("sc", "%s():%d - cert [%s] is not allowed in mempool\n", __func__, __LINE__, certHash.ToString());
-                return false;
+                LogPrint("mempool", "Dropping cert %s : already have cert for same sc and epoch\n", certHash.ToString());
+                return state.DoS(0, error("AcceptCertificateToMemoryPool: certificate for same sc and epoch already received"),
+                            REJECT_INVALID, "bad-sc-cert-not-applicable");
             }
 
             int sgHeight = (epochSafeGuardHeight > 0) ? epochSafeGuardHeight : nextBlockHeight;   
@@ -1256,7 +1232,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                                      REJECT_DUPLICATE, "bad-sc-cert-inputs-spent");
             }
 
-            // Bring the best block into scope
+            // Bring the best block into scope: it's gonna be needed for CheckInputsTx hereinafter
             view.GetBestBlock();
  
             nValueIn = view.GetValueIn(cert);
@@ -1352,7 +1328,6 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             return error("AcceptCertificateToMemoryPool: BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", certHash.ToString());
         }
 
-
         // Store transaction in memory
         CCertificateMemPoolEntry certEntry(cert, nFees, GetTime(), dPriority, chainActive.Height());
         pool.addUnchecked(certHash, certEntry, !IsInitialBlockDownload());
@@ -1372,27 +1347,18 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         *pfMissingInputs = false;
 
     int nextBlockHeight = chainActive.Height() + 1; // OR chainActive.Tip()->nHeight
-    // Node operator can choose to reject tx by number of transparent inputs
-    static_assert(std::numeric_limits<size_t>::max() >= std::numeric_limits<int64_t>::max(), "size_t too small");
-    size_t limit = (size_t) GetArg("-mempooltxinputlimit", 0);
-    if (limit > 0) {
-        size_t n = tx.GetVin().size();
-        if (n > limit) {
-            LogPrint("mempool", "Dropping txid %s : too many transparent inputs %zu > limit %zu\n", tx.GetHash().ToString(), n, limit );
-            return false;
-        }
-    }
 
+    if (!tx.CheckInputsLimit())
+        return false;
 
     auto verifier = libzcash::ProofVerifier::Strict();
     if (!CheckTransaction(tx, state, verifier))
         return error("AcceptToMemoryPool: CheckTransaction failed");
 
-
-        // DoS level set to 10 to be more forgiving.
-        // Check transaction contextually against the set of consensus rules which apply in the next block to be mined.
-        if (!ContextualCheckTransaction(tx, state, nextBlockHeight, 10)) {
-            return error("AcceptToMemoryPool: ContextualCheckTransaction failed");
+    // DoS level set to 10 to be more forgiving.
+    // Check transaction contextually against the set of consensus rules which apply in the next block to be mined.
+    if (!ContextualCheckTransaction(tx, state, nextBlockHeight, 10)) {
+        return error("AcceptToMemoryPool: ContextualCheckTransaction failed");
     }
 
     // Silently drop pre-chainsplit transactions
@@ -1421,50 +1387,49 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     if (!CheckFinalTx(tx, STANDARD_LOCKTIME_VERIFY_FLAGS))
         return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
 
-    // is it already in the memory pool?
+
     uint256 hash = tx.GetHash();
-    if (pool.exists(hash))
-    {
-        LogPrint("mempool", "Dropping txid %s : already in mempool\n", hash.ToString());
-        return false;
-    }
 
-    // Check for conflicts with in-memory transactions
+    // Check if tx is already in mempool or if there are conflicts with in-memory transactions
     {
-        LOCK(pool.cs); // protect pool.mapNextTx
-        for (unsigned int i = 0; i < tx.GetVin().size(); i++)
-        {
-            COutPoint outpoint = tx.GetVin()[i].prevout;
-            if (pool.mapNextTx.count(outpoint))
-            {
+        LOCK(pool.cs);
+
+        if (pool.mapTx.count(hash) != 0) {
+            LogPrint("mempool", "Dropping txid %s : already in mempool\n", hash.ToString());
+            return false;
+        }
+
+        for (const CTxIn & vin : tx.GetVin()) {
+            if (pool.mapNextTx.count(vin.prevout)) {
                 // Disable replacement feature for now
+                LogPrint("mempool", "Dropping txid %s : it double spends another tx in mempool\n", hash.ToString());
                 return false;
             }
         }
 
-        for(const CTxScCreationOut& sc: tx.vsc_ccout) { // If this tx creates a sc, no other tx must be doing the same in the mempool
+        // If this tx creates a sc, no other tx must be doing the same in the mempool
+        for(const CTxScCreationOut& sc: tx.vsc_ccout) {
             if ((pool.mapSidechains.count(sc.scId) != 0) && (!pool.mapSidechains.at(sc.scId).scCreationTxHash.IsNull())) {
+                LogPrint("sc", "%s():%d - Dropping txid [%s]: it tries to redeclare another sc in mempool\n",
+                        __func__, __LINE__, hash.ToString());
                 return false;
-            } else {
-                LogPrint("sc", "%s():%d - tx [%s] has no conflicts in mempool\n", __func__, __LINE__, hash.ToString());
             }
         }
 
-        BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
-            BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
+        for(const JSDescription &joinsplit: tx.GetVjoinsplit()) {
+            for(const uint256 &nf: joinsplit.nullifiers) {
                 if (pool.mapNullifiers.count(nf))
-                {
                     return false;
-                }
             }
         }
+
     }
 
     {
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
 
-        CAmount nValueIn = 0;
+        CAmount nFees = 0;
         {
             LOCK(pool.cs);
             CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
@@ -1515,8 +1480,27 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
  
             // Bring the best block into scope
             view.GetBestBlock();
- 
-            nValueIn = view.GetValueIn(tx);
+
+            // If any of the inputs comes from a certificate, we make sure to have its sidechain in cache
+            // before rotating backend view to dummy
+            for(const CTxIn& in: tx.GetVin()) {
+                const CCoins *coins = view.AccessCoins(in.prevout.hash);
+                assert(coins);
+
+                if (coins->IsFromCert()) { //This is just to avoid following assert for non-cert coins
+                    // HaveInputs above checks for utxos availability. So accessing vout[in.prevout.n] is safe
+                    assert(coins->IsAvailable(in.prevout.n));
+
+
+                    //check on vout is better than coins->IsFromCert() since it'll skip loading scInfo for zero bwt amount certs
+                    if (coins->vout[in.prevout.n].isFromBackwardTransfer) {
+                        assert(view.HaveSidechain(coins->originScId)); //minimal op to pull scinfo into view
+                    }
+                }
+            }
+
+            nFees = tx.GetFeeAmount(view.GetValueIn(tx));
+            LogPrint("sc", "%s():%d - Computed fee=%lld\n", __func__, __LINE__, nFees);
  
             // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
             view.SetBackend(dummy);
@@ -1542,10 +1526,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                                    hash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
                              REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
         }
-
-        CAmount nValueOut = tx.GetValueOut();
-        CAmount nFees = nValueIn-nValueOut;
-
+      
         double dPriority = view.GetPriority(tx, chainActive.Height());
         LogPrint("sc", "%s():%d - Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, nFees, dPriority);
 
@@ -2007,14 +1988,15 @@ void static InvalidBlockFound(CBlockIndex *pindex, const CValidationState &state
 void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight)
 {
     // mark inputs spent
-    if (!txBase.IsCoinBase()) {
+    if (!txBase.IsCoinBase())
+    {
         txundo.vprevout.reserve(txBase.GetVin().size());
-        for(const CTxIn &txin: txBase.GetVin()) {
+        for(const CTxIn &txin: txBase.GetVin())
+        {
             CCoinsModifier coins = inputs.ModifyCoins(txin.prevout.hash);
             unsigned nPos = txin.prevout.n;
+            assert(coins->IsAvailable(nPos));
 
-            if (nPos >= coins->vout.size() || coins->vout[nPos].IsNull())
-                assert(false);
             // mark an outpoint spent, and construct undo information
             txundo.vprevout.push_back(CTxInUndo(coins->vout[nPos]));
             coins->Spend(nPos);
@@ -2023,6 +2005,7 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
                 undo.nHeight = coins->nHeight;
                 undo.fCoinBase = coins->fCoinBase;
                 undo.nVersion = coins->nVersion;
+                undo.originScId = coins->originScId;
             }
         }
     }
@@ -2140,6 +2123,11 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                     error("CheckInputs(): tried to spend coinbase with transparent outputs"),
                     REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
                 }
+            } else if (coins->IsFromCert()) {
+                if (!inputs.IsCertOutputMature(in.prevout.hash, in.prevout.n, nSpendHeight))
+                    return state.Invalid(
+                        error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
+                        REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
             }
         }
 
@@ -2148,7 +2136,6 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
         if (!MoneyRange(coins->vout[prevout.n].nValue) || !MoneyRange(nValueIn))
             return state.DoS(100, error("CheckInputs(): txin values out of range"),
                 REJECT_INVALID, "bad-txns-inputvalues-outofrange");
-
     }
 
     nValueIn += txBase.GetJoinSplitValueIn();
@@ -2323,6 +2310,7 @@ static bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const CO
         coins->fCoinBase = undo.fCoinBase;
         coins->nHeight = undo.nHeight;
         coins->nVersion = undo.nVersion;
+        coins->originScId = undo.originScId;
     } else {
         if (coins->IsPruned())
             fClean = fClean && error("%s: undo data adding output to missing transaction", __func__);
@@ -2374,7 +2362,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         {
             CCoinsModifier outs = view.ModifyCoins(hash);
             outs->ClearUnspendable();
- 
+
             CCoins outsBlock(tx, pindex->nHeight);
             // The CCoins serialization does not serialize negative numbers.
             // No network rules currently depend on the version here, so an inconsistency is harmless
@@ -2703,7 +2691,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): too many sigops"),
                                  REJECT_INVALID, "bad-blk-sigops");
 
-            nFees += view.GetValueIn(tx)-tx.GetValueOut();
+            nFees += tx.GetFeeAmount(view.GetValueIn(tx));
 
             std::vector<CScriptCheck> vChecks;
             if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
@@ -3088,9 +3076,7 @@ bool static DisconnectTip(CValidationState &state) {
     std::list<CScCertificate> dummyCerts;
     for (const CScCertificate& cert : block.vcert) {
         // ignore validation errors in resurrected certificates
-        if (cert.IsScVersion()) {
-            LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
-        }
+        LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
 
         CValidationState stateDummy;
         if (!AcceptCertificateToMemoryPool(mempool, stateDummy, cert, false, NULL, false, pindexDelete->nHeight)) {
@@ -3106,7 +3092,7 @@ bool static DisconnectTip(CValidationState &state) {
         // in which case we don't want to evict from the mempool yet!
         mempool.removeWithAnchor(anchorBeforeDisconnect);
     }
-    mempool.removeCoinbaseSpends(pcoinsTip, pindexDelete->nHeight);
+    mempool.removeImmatureExpenditures(pcoinsTip, pindexDelete->nHeight);
 
     // remove any certificate, and possible dependancies, that refers to this block as end epoch
     mempool.removeOutOfEpochCertificates(pindexDelete);
