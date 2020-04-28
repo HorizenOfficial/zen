@@ -1009,7 +1009,7 @@ void AddScInfoToJSON(const uint256& scId, const CSidechain& info, UniValue& sc)
     sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
     sc.push_back(Pair("created in block", info.creationBlockHash.ToString()));
     sc.push_back(Pair("created at block height", info.creationBlockHeight));
-    sc.push_back(Pair("last certificate epoch", info.lastReceivedCertificateEpoch));
+    sc.push_back(Pair("last certificate epoch", info.lastEpochReferencedByCertificate));
     // creation parameters
     sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
     sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
@@ -1027,15 +1027,14 @@ void AddScInfoToJSON(const uint256& scId, const CSidechain& info, UniValue& sc)
 
 bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
 {
-    CSidechain info;
+    CSidechain scInfo;
     CCoinsViewCache scView(pcoinsTip);
-    if (!scView.GetSidechain(scId, info))
-    {
+    if (!scView.GetSidechain(scId, scInfo)) {
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
         return false;
     }
 
-    AddScInfoToJSON(scId, info, sc);
+    AddScInfoToJSON(scId, scInfo, sc);
     return true;
 }
 
@@ -1173,7 +1172,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     }
     char cNetwork = (char)network;
     LogPrint("sc", "ntw type[%d]\n", cNetwork);
-    ssBlock << cNetwork;;
+    ssBlock << cNetwork;
 
     // scid
     ssBlock << scId;

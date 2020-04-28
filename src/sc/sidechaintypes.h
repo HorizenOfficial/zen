@@ -34,7 +34,7 @@ typedef struct sPowRelatedData_tag
 
 struct ScCreationParameters
 {
-    int withdrawalEpochLength; 
+    int withdrawalEpochLength;
     // all creation data follows...
     std::vector<unsigned char> customData;
 
@@ -83,7 +83,7 @@ struct CRecipientCertLock : public CRecipientCrossChainBase
 
 typedef CRecipientCrossChainBase CRecipientForwardTransfer;
 
-struct CRecipientBackwardTransfer 
+struct CRecipientBackwardTransfer
 {
     CScript scriptPubKey;
     CAmount nValue;

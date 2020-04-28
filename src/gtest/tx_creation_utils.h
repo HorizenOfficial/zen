@@ -2,6 +2,7 @@
 #define TX_CREATION_UTILS_H
 
 #include <primitives/transaction.h>
+#include <primitives/certificate.h>
 
 namespace txCreationUtils {
 CMutableTransaction populateTx(int txVersion, const uint256 & newScId = uint256S("0"), const CAmount & creationTxAmount = CAmount(0), const CAmount & fwdTxAmount = CAmount(0));
@@ -16,6 +17,7 @@ CTransaction createSproutTx(bool ccIsNull = true); //ccIsNull = false allows gen
 
 void extendTransaction(CTransaction & tx, const uint256 & scId, const CAmount & amount);
 
+CScCertificate createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash, const CAmount& totalAmount);
 };
 
 #endif

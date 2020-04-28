@@ -935,4 +935,55 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
     BOOST_CHECK(retrievedFaultyCoin.originScId           == faultyCoin.originScId);
 }
 
+BOOST_AUTO_TEST_CASE(Certificate_CTxUndo_serialization)
+{
+    // CTxUndo serialization has been updated following certificates introducation.
+    // This test verifies the serialization/deserialization pair allow retrival of complete CTxOut
+
+    CCoins coinFromCert;
+    coinFromCert.fCoinBase = false;
+    coinFromCert.vout.resize(1);
+    coinFromCert.vout[0].nValue = insecure_rand();
+    coinFromCert.vout[0].isFromBackwardTransfer = true;
+    coinFromCert.nHeight = 220;
+    coinFromCert.nVersion = SC_CERT_VERSION;
+    coinFromCert.originScId = uint256S("deadbeef1987");
+
+    CTxInUndo certInUndo(coinFromCert.vout[0], coinFromCert.fCoinBase, coinFromCert.nHeight, coinFromCert.nVersion, coinFromCert.originScId);
+    CDataStream ssCert(SER_DISK, CLIENT_VERSION);
+
+    ssCert << certInUndo;
+    CTxInUndo retrievedInCert;
+    ssCert >> retrievedInCert;
+
+    BOOST_CHECK(retrievedInCert.fCoinBase                 == coinFromCert.fCoinBase);
+    BOOST_CHECK_MESSAGE((retrievedInCert.nVersion & 0x7f) == (coinFromCert.nVersion & 0x7f),   retrievedInCert.nVersion);
+    BOOST_CHECK_MESSAGE(retrievedInCert.nHeight           == coinFromCert.nHeight,             retrievedInCert.nHeight);
+    BOOST_CHECK_MESSAGE(retrievedInCert.originScId        == coinFromCert.originScId,          retrievedInCert.originScId.ToString());
+    BOOST_CHECK(retrievedInCert.txout == coinFromCert.vout[0]);
+
+
+    CCoins coinFromTx;
+    coinFromTx.fCoinBase = false;
+    coinFromTx.vout.resize(1);
+    coinFromTx.vout[0].nValue = insecure_rand();
+    coinFromTx.vout[0].isFromBackwardTransfer = false;
+    coinFromTx.nHeight = 220;
+    coinFromTx.nVersion = TRANSPARENT_TX_VERSION;
+    coinFromTx.originScId.SetNull();
+
+    CTxInUndo txInUndo(coinFromTx.vout[0], coinFromTx.fCoinBase, coinFromTx.nHeight, coinFromTx.nVersion, coinFromTx.originScId);
+    CDataStream ssTx(SER_DISK, CLIENT_VERSION);
+
+    ssTx << txInUndo;
+    CTxInUndo retrievedCTx;
+    ssTx >> retrievedCTx;
+
+    BOOST_CHECK(retrievedCTx.fCoinBase                 == coinFromTx.fCoinBase);
+    BOOST_CHECK_MESSAGE(retrievedCTx.nVersion          == coinFromTx.nVersion,   retrievedCTx.nVersion);
+    BOOST_CHECK_MESSAGE(retrievedCTx.nHeight           == coinFromTx.nHeight,    retrievedCTx.nHeight);
+    BOOST_CHECK_MESSAGE(retrievedCTx.originScId        == coinFromTx.originScId, retrievedCTx.originScId.ToString());
+    BOOST_CHECK(txInUndo.txout == coinFromTx.vout[0]);
+}
+
 BOOST_AUTO_TEST_SUITE_END()

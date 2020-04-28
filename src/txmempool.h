@@ -110,7 +110,7 @@ struct CSidechainMemPoolEntry
     uint256 scCreationTxHash;
     std::set<uint256> fwdTransfersSet;
     uint256 backwardCertificate;
-    // Note: in fwdTransfersSet, a tx is registered only once, even if if sends multiple fwd founds to a sidechain
+    // Note: in fwdTransfersSet, a tx is registered only once, even if sends multiple fwd founds to a sidechain
     // Upon removal we will need to guard against potential double deletes.
 };
 
@@ -166,12 +166,11 @@ public:
     void remove(const CScCertificate &origCert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false, bool removeDependantFwds = true);
 
     void removeWithAnchor(const uint256 &invalidRoot);
-    void removeCoinbaseSpends(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
+    void removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
 
     void removeConflicts(const CTransaction &tx, std::list<CTransaction>& removedTxs);
     void removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
                         std::list<CTransaction>& conflictingTxs, bool fCurrentEstimate = true);
-
 
     void removeConflicts(const CScCertificate &cert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
     void removeOutOfEpochCertificates(const CBlockIndex* pindexDelete);
@@ -284,10 +283,9 @@ public:
     bool GetNullifier(const uint256 &txid) const;
     bool GetCoins(const uint256 &txid, CCoins &coins) const;
     bool HaveCoins(const uint256 &txid) const;
-    bool GetSidechain(const uint256& scId, CSidechain& info) const override;
-    bool HaveSidechain(const uint256& scId) const override;
-    bool IsCertAllowedInMempool(const CScCertificate& cert, CValidationState& state);
-    bool HaveCertForEpoch(const uint256& scId, int epochNumber) const override;
+    bool GetSidechain(const uint256& scId, CSidechain& info)      const override;
+    bool HaveSidechain(const uint256& scId)                       const override;
+    bool HaveCertForEpoch(const uint256& scId, int epochNumber)   const override;
 };
 
 #endif // BITCOIN_TXMEMPOOL_H

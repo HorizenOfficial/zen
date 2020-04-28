@@ -383,7 +383,9 @@ public:
         READWRITE(scriptPubKey);
         if (ser_action.ForRead())
         {
-            // default value for memory data member
+            // the in-memory attribute isFromBackwardTransfer is not serialized, to keep backward compatibility
+            // It is left up to object including CTxOut attributes in their serialization operations to track
+            // the isFromBackwardTransfer flag. Below the isFromBackwardTransfer flag is initialized to a default value.
             isFromBackwardTransfer = false;
         }
     }
@@ -714,6 +716,7 @@ public:
 
     //CHECK FUNCTIONS
     virtual bool CheckVersionBasic        (CValidationState &state) const = 0;
+    virtual bool CheckVersionIsStandard   (std::string& reason, int nHeight) const = 0;
     virtual bool CheckInputsAvailability  (CValidationState &state) const = 0;
     virtual bool CheckOutputsAvailability (CValidationState &state) const = 0;
     virtual bool CheckSerializedSize      (CValidationState &state) const = 0;
@@ -724,13 +727,16 @@ public:
     bool CheckInputsDuplication(CValidationState &state) const;
     bool CheckInputsInteraction(CValidationState &state) const;
 
-    bool CheckOutputsAreStandard(int nHeight, std::string& reason) const;
     bool CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const;
+
+    bool CheckInputsLimit() const;
     //END OF CHECK FUNCTIONS
 
     // Return sum of txouts.
     virtual CAmount GetValueOut() const;
 
+    // Return sum of JoinSplit vpub_new if supported
+    virtual CAmount GetJoinSplitValueIn() const;
     //-----------------
     // pure virtual interfaces 
     virtual bool IsNull() const = 0;
@@ -751,7 +757,6 @@ public:
     virtual void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const = 0;
 
     virtual bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const = 0;
-    virtual bool IsStandard(std::string& reason, int nHeight) const = 0;
     virtual bool CheckFinal(int flags = -1) const = 0;
     virtual bool IsApplicableToState(CValidationState& state, int nHeight = -1) const = 0;
 
@@ -762,11 +767,8 @@ public:
 
     // return false when meaningful only in a block context. As of now only tx coin base returns false
 
-    virtual bool IsCoinBase() const { return false; }
+    bool IsCoinBase() const { return GetVin().size() == 1 && GetVin()[0].prevout.IsNull(); }
     virtual bool IsCertificate() const { return false; }
-
-    // Return sum of JoinSplit vpub_new if supported
-    virtual CAmount GetJoinSplitValueIn() const { return 0; }
 
     virtual void AddJoinSplitToJSON(UniValue& entry) const { return; }
     virtual void AddSidechainOutsToJSON(UniValue& entry) const {return; }
@@ -776,12 +778,6 @@ public:
         std::vector<CScriptCheck> *pvChecks = NULL) const { return true; }
 
     virtual const uint256 getJoinSplitPubKey() const { return uint256(); }
-
-    // return sum of txins, and needs CCoinsViewCache, because
-    // inputs must be known to compute value in.
-    virtual CAmount GetValueIn(const CCoinsViewCache& view) const { return 0; }
-
-    virtual bool CheckInputsLimit(size_t limit, size_t& n) const { return true; }
 };
 
 struct CMutableTransaction;
@@ -867,11 +863,6 @@ public:
 
     std::string EncodeHex() const override;
 
-    bool IsCoinBase() const override
-    {
-        return (vin.size() == 1 && vin[0].prevout.IsNull());
-    }
-
     bool IsNull() const override
     {
         bool ret = vin.empty() && vout.empty();
@@ -905,6 +896,7 @@ public:
 
     //CHECK FUNCTIONS
     bool CheckVersionBasic        (CValidationState &state) const override;
+    bool CheckVersionIsStandard   (std::string& reason, int nHeight) const override;
     bool CheckInputsAvailability  (CValidationState &state) const override;
     bool CheckOutputsAvailability (CValidationState &state) const override;
     bool CheckSerializedSize      (CValidationState &state) const override;
@@ -913,8 +905,7 @@ public:
 
     // Return sum of txouts.
     CAmount GetValueOut() const override;
-    // Return sum of tx ins
-    CAmount GetValueIn(const CCoinsViewCache& view) const override;
+
     // value in should be computed via the method above using a proper coin view
     CAmount GetFeeAmount(CAmount valueIn) const override { return (valueIn - GetValueOut() ); }
 
@@ -1008,10 +999,7 @@ public:
   public:
     void AddToBlock(CBlock* pblock) const override;
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const override;
-    CAmount GetJoinSplitValueIn() const override;
-    bool CheckInputsLimit(size_t limit, size_t& n) const override;
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
-    bool IsStandard(std::string& reason, int nHeight) const override;
     bool CheckFinal(int flags = -1) const override;
     bool IsApplicableToState(CValidationState& state, int nHeight = -1) const override;
     void AddJoinSplitToJSON(UniValue& entry) const override;

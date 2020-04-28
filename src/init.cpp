@@ -1665,8 +1665,8 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 for(const auto& wtxOld: vWtx)
                 {
                     uint256 hash = wtxOld->GetHash();
-                    auto mi = pwalletMain->mapWallet.find(hash);
-                    if (mi != pwalletMain->mapWallet.end())
+                    auto mi = pwalletMain->getMapWallet().find(hash);
+                    if (mi != pwalletMain->getMapWallet().end())
                     {
                         const auto* copyFrom = wtxOld.get();
                         CWalletObjBase* copyTo = mi->second.get();
@@ -1765,7 +1765,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     LogPrintf("nBestHeight = %d\n",                   chainActive.Height());
 #ifdef ENABLE_WALLET
     LogPrintf("setKeyPool.size() = %u\n",      pwalletMain ? pwalletMain->setKeyPool.size() : 0);
-    LogPrintf("mapWallet.size() = %u\n",       pwalletMain ? pwalletMain->mapWallet.size() : 0);
+    LogPrintf("mapWallet.size() = %u\n",       pwalletMain ? pwalletMain->getMapWallet().size() : 0);
     LogPrintf("mapAddressBook.size() = %u\n",  pwalletMain ? pwalletMain->mapAddressBook.size() : 0);
 #endif
 
