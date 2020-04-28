@@ -17,7 +17,7 @@ CTransaction createSproutTx(bool ccIsNull = true); //ccIsNull = false allows gen
 
 void extendTransaction(CTransaction & tx, const uint256 & scId, const CAmount & amount);
 
-CScCertificate createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash, const CAmount& totalAmount);
+CScCertificate createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash);
 };
 
 #endif

@@ -146,11 +146,10 @@ void txCreationUtils::extendTransaction(CTransaction & tx, const uint256 & scId,
     return;
 }
 
-CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash, const CAmount& totalAmount) {
+CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash) {
     CMutableScCertificate res;
     res.scId = scId;
     res.epochNumber = epochNum;
     res.endEpochBlockHash = endEpochBlockHash;
-    res.totalAmount = totalAmount;
     return res;
 }
