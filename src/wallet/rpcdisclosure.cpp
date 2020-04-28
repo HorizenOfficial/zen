@@ -92,19 +92,14 @@ UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp)
     }
 
     // Check is mine
-    if (!pwalletMain->mapWallet.count(hash)) {
+    if (!pwalletMain->getMapWallet().count(hash)) {
         throw JSONRPCError(RPC_MISC_ERROR, "Transaction does not belong to the wallet");
     }
-#if 0
-    const CWalletTx& wtx = pwalletMain->mapWallet[hash];
-    // Check if shielded tx
-    if (wtx.vjoinsplit.empty()) {
-#else
-    const CWalletObjBase& wtx = *(pwalletMain->mapWallet[hash]);
+
+    const CWalletObjBase& wtx = *(pwalletMain->getMapWallet().at(hash));
 
     // Check if shielded tx
     if (wtx.GetVjoinsplit().size() == 0) {
-#endif
         throw JSONRPCError(RPC_MISC_ERROR, "Transaction is not a shielded transaction");
     }
 

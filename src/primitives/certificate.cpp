@@ -71,6 +71,16 @@ bool CScCertificate::CheckVersionBasic(CValidationState &state) const
     return true;
 }
 
+bool CScCertificate::CheckVersionIsStandard(std::string& reason, int nHeight) const {
+    if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
+    {
+        reason = "version";
+        return false;
+    }
+
+    return true;
+}
+
 bool CScCertificate::CheckInputsAvailability(CValidationState &state) const
 {
     //Currently there are no inputs for certificates
@@ -188,11 +198,8 @@ double CScCertificate::GetPriority(const CCoinsViewCache &view, int nHeight) con
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
-
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
-
 bool CScCertificate::IsApplicableToState(CValidationState& state, int nHeight) const { return true; }
-bool CScCertificate::IsStandard(std::string& reason, int nHeight) const { return true; }
 #else
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
 {
@@ -205,24 +212,6 @@ bool CScCertificate::IsApplicableToState(CValidationState& state, int nHeight) c
     LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
     CCoinsViewCache view(pcoinsTip);
     return view.IsCertApplicableToState(*this, nHeight, state);
-}
-    
-bool CScCertificate::IsStandard(std::string& reason, int nHeight) const
-{
-    if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
-    {
-        reason = "version";
-        return false;
-    }
-
-    // so far just one version is supported, but in future it might not be the case
-    if (zen::ForkManager::getInstance().getCertificateVersion(nHeight) != nVersion)
-    {
-        reason = "version";
-        return false;
-    }
-
-    return CheckOutputsAreStandard(nHeight, reason);
 }
 #endif
 

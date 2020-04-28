@@ -22,6 +22,7 @@
 #include "miner.h"
 #include "utilmoneystr.h"
 #include <univalue.h>
+#include <limits.h>
 
 extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
 
@@ -358,13 +359,28 @@ CTransactionBase::CTransactionBase(const CTransactionBase &tx) : nVersion(TRANSP
 CAmount CTransactionBase::GetValueOut() const
 {
     CAmount nValueOut = 0;
-    for (std::vector<CTxOut>::const_iterator it(vout.begin()); it != vout.end(); ++it)
-    {
-        nValueOut += it->nValue;
-        if (!MoneyRange(it->nValue) || !MoneyRange(nValueOut))
+    for(const CTxOut& out: vout) {
+        nValueOut += out.nValue;
+        if (!MoneyRange(out.nValue) || !MoneyRange(nValueOut))
             throw std::runtime_error("CTransactionBase::GetValueOut(): value out of range");
     }
+
     return nValueOut;
+}
+
+CAmount CTransactionBase::GetJoinSplitValueIn() const
+{
+    CAmount nCumulatedValue = 0;
+    for(const JSDescription& js : GetVjoinsplit())
+    {
+        // NB: vpub_new "gives" money to the value pool just as inputs do
+        nCumulatedValue += js.vpub_new;
+
+        if (!MoneyRange(js.vpub_new) || !MoneyRange(nCumulatedValue))
+            throw std::runtime_error("CTransaction::GetJoinSplitValueIn(): value out of range");
+    }
+
+    return nCumulatedValue;
 }
 
 bool CTransactionBase::CheckInputsAmount(CValidationState &state) const
@@ -677,21 +693,6 @@ CAmount CTransaction::GetValueOut() const
     return nValueOut;
 }
 
-CAmount CTransaction::GetJoinSplitValueIn() const
-{
-    CAmount nValue = 0;
-    for (std::vector<JSDescription>::const_iterator it(vjoinsplit.begin()); it != vjoinsplit.end(); ++it)
-    {
-        // NB: vpub_new "gives" money to the value pool just as inputs do
-        nValue += it->vpub_new;
-
-        if (!MoneyRange(it->vpub_new) || !MoneyRange(nValue))
-            throw std::runtime_error("CTransaction::GetJoinSplitValueIn(): value out of range");
-    }
-
-    return nValue;
-}
-
 unsigned int CTransaction::CalculateSize() const
 {
     unsigned int sz = ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);
@@ -767,15 +768,13 @@ void CTransaction::addToScCommitment(std::map<uint256, std::vector<uint256> >& m
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
-bool CTransactionBase::CheckOutputsAreStandard(int nHeight, std::string& reason) const { return true; }
+bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const { return true; }
+bool CTransaction::CheckVersionIsStandard(std::string& reason, const int nHeight) const {return true;}
 
 bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
 void CTransaction::AddToBlock(CBlock* pblock) const { return; }
 void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const {return; }
-CAmount CTransaction::GetValueIn(const CCoinsViewCache& view) const { return 0; }
-bool CTransaction::CheckInputsLimit(size_t limit, size_t& n) const { return true; }
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return true; }
-bool CTransaction::IsStandard(std::string& reason, int nHeight) const { return true; }
 bool CTransaction::CheckFinal(int flags) const { return true; }
 bool CTransaction::IsApplicableToState(CValidationState& state, int nHeight) const { return true; }
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
@@ -793,67 +792,6 @@ bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
     CValidationState state;
     return ::AcceptToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
 };
-
-bool CTransactionBase::CheckOutputsAreStandard(int nHeight, std::string& reason) const
-{
-    unsigned int nDataOut = 0;
-    txnouttype whichType;
-
-    BOOST_FOREACH(const CTxOut& txout, vout)
-    {
-        CheckBlockResult checkBlockResult;
-        if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult))
-        {
-            reason = "scriptpubkey";
-            return false;
-        }
-
-        if (checkBlockResult.referencedHeight > 0)
-        {
-            if ( (nHeight - checkBlockResult.referencedHeight) < ::getCheckBlockAtHeightMinAge())
-            {
-                LogPrintf("%s():%d - referenced block h[%d], chain.h[%d], minAge[%d]\n",
-                    __func__, __LINE__, checkBlockResult.referencedHeight, nHeight, ::getCheckBlockAtHeightMinAge() );
-                reason = "scriptpubkey checkblockatheight: referenced block too recent";
-                return false;
-            }
-        }
-
-        // provide temporary replay protection for two minerconf windows during chainsplit
-        if ( (!txout.isFromBackwardTransfer) && (!IsCoinBase()) && (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(), whichType))) {
-            reason = "op-checkblockatheight-needed";
-            return false;
-        }
-
-        if (whichType == TX_NULL_DATA || whichType == TX_NULL_DATA_REPLAY)
-            nDataOut++;
-        else if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
-            reason = "bare-multisig";
-            return false;
-        } else if (txout.IsDust(::minRelayTxFee)) {
-            if (Params().NetworkIDString() == "regtest")
-            {
-                // do not reject this tx in regtest, there are py tests intentionally using zero values
-                // and expecting this to be processable
-                LogPrintf("%s():%d - txout is dust, ignoring it because we are in regtest\n",
-                    __func__, __LINE__);
-            }
-            else
-            {
-                reason = "dust";
-                return false;
-            }
-        }
-    }
-
-    // only one OP_RETURN txout is permitted
-    if (nDataOut > 1) {
-        reason = "multi-op-return";
-        return false;
-    }
-
-    return true;
-}
 
 bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const
 {
@@ -879,6 +817,61 @@ bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& st
     return true;
 }
 
+bool CTransaction::CheckVersionIsStandard(std::string& reason, int nHeight) const {
+    // sidechain fork (happens after groth fork)
+    int sidechainVersion = 0;
+    bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
+    if (areSidechainsSupported)
+    {
+        sidechainVersion = ForkManager::getInstance().getSidechainTxVersion(nHeight);
+    }
+
+    // groth fork
+    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
+    bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
+
+    if(!isGROTHActive)
+    {
+        // sidechain fork is after groth one
+        assert(!areSidechainsSupported);
+
+        if (nVersion > CTransaction::MAX_OLD_VERSION || nVersion < CTransaction::MIN_OLD_VERSION)
+        {
+            reason = "version";
+            return false;
+        }
+    }
+    else
+    {
+        if (nVersion != TRANSPARENT_TX_VERSION && nVersion != GROTH_TX_VERSION)
+        {
+            // check sidechain tx
+            if ( !(areSidechainsSupported && (nVersion == sidechainVersion)) )
+            {
+                reason = "version";
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool CTransactionBase::CheckInputsLimit() const {
+    // Node operator can choose to reject tx by number of transparent inputs
+    static_assert(std::numeric_limits<size_t>::max() >= std::numeric_limits<int64_t>::max(), "size_t too small");
+    size_t limit = (size_t) GetArg("-mempooltxinputlimit", 0);
+    if (limit > 0) {
+        size_t n = GetVin().size();
+        if (n > limit) {
+            LogPrint("mempool", "Dropping txid %s : too many transparent inputs %zu > limit %zu\n",
+                    GetHash().ToString(), n, limit );
+            return false;
+        }
+    }
+    return true;
+}
+
 void CTransaction::AddToBlock(CBlock* pblock) const 
 {
     LogPrint("cert", "%s():%d - adding to block tx %s\n", __func__, __LINE__, GetHash().ToString());
@@ -893,42 +886,9 @@ void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fe
     pblocktemplate->vTxSigOps.push_back(sigops);
 }
 
-CAmount CTransaction::GetValueIn(const CCoinsViewCache& view) const
-{
-    if (IsCoinBase())
-        return 0;
-
-    CAmount nResult = 0;
-    for (unsigned int i = 0; i < vin.size(); i++)
-    {
-        const CTxIn& ctxin = vin[i];
-        nResult += view.GetOutputFor(ctxin).nValue;
-    }
-
-    nResult += GetJoinSplitValueIn();
-
-    return nResult;
-}
-
-bool CTransaction::CheckInputsLimit(size_t limit, size_t& n) const
-{
-    if (limit > 0) {
-        n = vin.size();
-        if (n > limit) {
-            return false;
-        }
-    }
-    return true;
-}
-
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const
 {
     return ::ContextualCheckTransaction(*this, state, nHeight, dosLevel);
-}
-
-bool CTransaction::IsStandard(std::string& reason, int nHeight) const
-{
-    return ::IsStandardTx(*this, reason, nHeight);
 }
 
 bool CTransaction::CheckFinal(int flags) const

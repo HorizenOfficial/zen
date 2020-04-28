@@ -75,7 +75,7 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj);
 bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, std::string& error);
 bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std::string& error);
 
-// used when funding a raw tx 
+// used when funding a raw tx
 void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant>& vecCcSend);
 
 class ScRpcCmd
@@ -127,7 +127,7 @@ class ScRpcCmd
     void addInputs();
     void addChange();
     void signTx();
-    void sendTx();    
+    void sendTx();
 };
 
 class ScRpcCreationCmd : public ScRpcCmd

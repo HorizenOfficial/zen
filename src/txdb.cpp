@@ -142,7 +142,7 @@ void CCoinsViewDB::queryScIds(std::set<uint256>& scIdsList) const
         if (chType == DB_SIDECHAINS)
         {
             uint256 keyScId;
-            ssKey >> keyScId;;
+            ssKey >> keyScId;
             scIdsList.insert(keyScId);
             LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, keyScId.ToString() );
         }
@@ -321,7 +321,7 @@ void CCoinsViewDB::Dump_info()  const
         char chType;
         uint256 keyScId;
         ssKey >> chType;
-        ssKey >> keyScId;;
+        ssKey >> keyScId;
 
         if (chType == DB_SIDECHAINS)
         {

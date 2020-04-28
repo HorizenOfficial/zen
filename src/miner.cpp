@@ -572,18 +572,23 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             if (!view.HaveInputs(tx))
                 continue;
 
-#if 0
-            CAmount nTxFees = view.GetValueIn(tx)-tx.GetValueOut();
-#else
-            CAmount valueIn = tx.GetValueIn(view);
-            CAmount nTxFees = tx.GetFeeAmount(valueIn);
-            if (nTxFees < 0)
+            // skip transactions that send forward crosschain amounts if the creation of the target sidechain is
+            // not yet in blockchain. This should happen only if a chain has been reverted and a mix of creation/transfers
+            // has been placed back in the mem pool The skipped tx will be mined in the next block if the scid is found
+
+            CValidationState state;
+            if (!tx.IsApplicableToState(state, nHeight) )
             {
+                LogPrint("sc", "%s():%d - tx=%s is not applicable, skipping it...\n", __func__, __LINE__, tx.GetHash().ToString() );
+                continue;
+            }
+
+            CAmount nTxFees = tx.GetFeeAmount(view.GetValueIn(tx));
+            if (nTxFees < 0) {
                 LogPrintf("%s():%d - tx=%s has a negative fee (fee=%s/valueOut=%s)\n",
                     __func__, __LINE__, tx.GetHash().ToString(), FormatMoney(nTxFees), FormatMoney(tx.GetValueOut()));
                 continue;
             }
-#endif
 
             nTxSigOps += GetP2SHSigOpCount(tx, view);
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
@@ -592,14 +597,17 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             // Note that flags: we don't want to set mempool/IsStandard()
             // policy here, but we still have to ensure that the block we
             // create only contains transactions that are valid in new blocks.
-            CValidationState state;
 #if 0
             if (!ContextualCheckInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
 #else
-            if (!tx.ContextualCheckInputs(state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
+                if (tx.IsCertificate()) {
+                    if (!Consensus::CheckTxInputs(tx, state, view, GetSpendHeight(view), Params().GetConsensus()))
+                        continue;
+                } else {
+                    if (!tx.ContextualCheckInputs(state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
+                        continue;
+                }
 #endif
-                continue;
-
             UpdateCoins(tx, state, view, nHeight);
 
             // Added
