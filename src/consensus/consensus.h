@@ -10,10 +10,10 @@
  *--------------------------
  * this is the most recent block version before sidechain fork. Blocks mined up to such fork
  * will still have this version */
-static const int32_t BLOCK_VERSION_0x2000000  = 0x20000000;
+static const int32_t BLOCK_VERSION_BEFORE_SC  = 0x20000000;
 
 /** old legacy fork */
-static const int32_t BLOCK_VERSION_4          = 0x4;
+static const int32_t BLOCK_VERSION_ORIGINAL   = 0x4;
 
 /** new block version valid from sidechain fork on 
  * We choose this value since:
@@ -21,10 +21,10 @@ static const int32_t BLOCK_VERSION_4          = 0x4;
  *    date, any block with that value is rejected by both legacy and update node
  * 2. it is the larger number < 4, this is to update the MIN_BLOCK_VERSION macro below, which is
  *    tested in the code for checking block validity  */
-static const int32_t BLOCK_VERSION_3          = 0x3;
+static const int32_t BLOCK_VERSION_SC_SUPPORT = 0x3;
 
 /** The minimum allowed block version (network rule) */
-static const int32_t MIN_BLOCK_VERSION = BLOCK_VERSION_3;
+static const int32_t MIN_BLOCK_VERSION = BLOCK_VERSION_SC_SUPPORT;
 
 /** The minimum allowed transaction version (network rule) */
 static const int32_t MIN_OLD_TX_VERSION = 1;

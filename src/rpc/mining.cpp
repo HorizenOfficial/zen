@@ -562,8 +562,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     if (vNodes.empty())
         throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Horizen is not connected!");
 
-    // from https://github.com/ZencashOfficial/zen/commit/e7a774e9a72fae1228ccbc764d520bd685860822
-    if (IsInitialBlockDownload() && ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight-(Params().GetConsensus().nMinerConfirmationWindow * 2)))
+    if (IsInitialBlockDownload())
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Horizen is downloading blocks...");
 
     static unsigned int nTransactionsUpdatedLast;
