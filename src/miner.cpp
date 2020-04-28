@@ -115,19 +115,7 @@ void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, const CCoinsVie
          it_cert != mempool.mapCertificate.end(); ++it_cert)
     {
         const CScCertificate& cert = it_cert->second.GetCertificate();
-
         const uint256& hash = cert.GetHash();
-
-        // a certificate has no dependancies but the creation of the sidechain (TODO handle vin)
-        // the creation of the sidechain it refers to has happened before the first epoch has even started
-        // therefore the creating tx could not actually be in mempool
-        if (mempool.mapSidechains.at(cert.GetScId()).scCreationTxHash.IsNull() && !view.HaveSidechain(cert.GetScId() ))
-        {
-            // This should never happen 
-            LogPrintf("%s():%d - ERROR: mempool certificate missing sidechain\n", __func__, __LINE__);
-            if (fDebug) assert("mempool certificate missing sidechain" == 0);
-            continue;
-        }
 
         double dPriority = it_cert->second.GetPriority(nHeight);
         CAmount nFee = it_cert->second.GetFee();
@@ -214,21 +202,38 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
         // Detect orphan transaction and its dependencies
         BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
         {
-#if 0
-            if (mempool.mapTx.count(txin.prevout.hash))
-#else
-            // an input of a tx in mempool can not be an out of a cert in the mempool, in other words they can not be found together in the mempool
-            // and surely can not be mined in the same block, even in the proper dependancy order
             if (mempool.mapCertificate.count(txin.prevout.hash))
             {
-                LogPrint("cert", "%s():%d - skipping tx[%s] since txin is out of cert[%s] in mempool\n",
-                    __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString() ); 
-                dependsOnCertificateInMempool = true;
-                break;
+                //only change outputs can be spent, while backward transfers must mature first
+                const CScCertificate & inputCert = mempool.mapCertificate[txin.prevout.hash].GetCertificate();
+                if (txin.prevout.n >= inputCert.GetVout().size() || inputCert.GetVout().at(txin.prevout.n).isFromBackwardTransfer)
+                {
+                    // This should never happen; an output from a certificate cannot be spent before next-epoch safeguard height has been reached.
+                    // We skip the entire transaction
+                    LogPrintf("ERROR: mempool transaction missing input\n");
+                    if (fDebug) assert("mempool transaction missing input" == 0);
+
+                    LogPrintf("%s():%d -ERROR: mempool tx[%s] spends backward transfer from certificate[%s] in mempool\n",
+                        __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString() );
+                    dependsOnCertificateInMempool = true;
+                    break;
+                } else
+                {
+                    if (!porphan)
+                    {
+                        // Use list for automatic deletion
+                        vOrphan.push_back(COrphan(&tx));
+                        porphan = &vOrphan.back();
+                    }
+                    mapDependers[txin.prevout.hash].push_back(porphan);
+                    porphan->setDependsOn.insert(txin.prevout.hash);
+                    nTotalIn += inputCert.GetVout()[txin.prevout.n].nValue;
+                    LogPrint("sc", "%s():%d - tx[%s] depends on cert[%s] for input\n",
+                        __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
+                }
             }
             else
             if (mempool.mapTx.count(txin.prevout.hash))
-#endif
             {
                 if (!porphan)
                 {
@@ -268,6 +273,8 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
                 // Read prev transaction
                 // Skip transactions in mempool
                 if (mempool.mapTx.count(txin.prevout.hash))
+                    continue;
+                else if(mempool.mapCertificate.count(txin.prevout.hash))
                     continue;
                 else if (!view.HaveCoins(txin.prevout.hash))
                 {
@@ -567,8 +574,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             if (!view.HaveInputs(tx))
                 continue;
 
-            CAmount valueIn = view.GetValueIn(tx);
-            CAmount nTxFees = tx.GetFeeAmount(valueIn);
+            CAmount nTxFees = tx.GetFeeAmount(view.GetValueIn(tx));
             if (nTxFees < 0) {
                 LogPrintf("%s():%d - tx=%s has a negative fee (fee=%s/valueOut=%s)\n",
                     __func__, __LINE__, tx.GetHash().ToString(), FormatMoney(nTxFees), FormatMoney(tx.GetValueOut()));
