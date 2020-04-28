@@ -2718,7 +2718,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
 
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
-    }
+    } //end of Processing certificates loop
 
     if (!view.ApplyMatureBalances(pindex->nHeight, blockundo) )
     {
