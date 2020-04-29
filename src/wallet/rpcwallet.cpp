@@ -4737,7 +4737,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     // sanity check of the side chain ID
     CCoinsViewCache scView(pcoinsTip);
-    if (!scView.HaveSidechain(scId))
+    CSidechain scInfo;
+    if (!scView.GetSidechain(scId,scInfo))
     {
         LogPrint("sc", "scid[%s] does not exists \n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not exists: ") + scId.ToString());
@@ -4766,7 +4767,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     }
 
     // a certificate can not be received after a fixed amount of blocks (for the time being it is epoch length / 5) from the end of epoch (TODO)
-    int maxHeight = scView.getCertificateMaxIncomingHeight(scId, epochNumber);
+    int maxHeight = scInfo.StartHeightForEpoch(epochNumber+1) + scInfo.SafeguardMargin();
     if (maxHeight < 0)
     {
         LogPrintf("ERROR: Invalid computed height value\n");
@@ -4881,11 +4882,10 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         }
     }
 
-    CAmount curBalance = scView.getSidechainBalance(scId);
-    if (nTotalOut > curBalance)
+    if (nTotalOut > scInfo.balance)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scid[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, scId.ToString(), FormatMoney(curBalance), FormatMoney(nTotalOut) );
+            __func__, __LINE__, scId.ToString(), FormatMoney(scInfo.balance), FormatMoney(nTotalOut) );
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "sidechain has insufficient funds");
     }
 

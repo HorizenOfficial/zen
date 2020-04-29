@@ -70,6 +70,10 @@ public:
                (this->mImmatureAmounts             == rhs.mImmatureAmounts);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
+
+    int EpochFor(int targetHeight) const;
+    int StartHeightForEpoch(int targetEpoch) const;
+    int SafeguardMargin() const;
 };
 
 namespace Sidechain {

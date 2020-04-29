@@ -799,6 +799,9 @@ bool CCoinsViewCache::HaveCertForEpoch(const uint256& scId, int epochNumber) con
 }
 
 #ifdef BITCOIN_TX
+int CSidechain::EpochFor(int targetHeight) const { return CScCertificate::EPOCH_NULL; }
+int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
+int CSidechain::SafeguardMargin() const { return -1; }
 bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash) {return true;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state) {return true;}
 bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx) { return true;}
@@ -813,7 +816,8 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     LogPrint("cert", "%s():%d - called: cert[%s], scId[%s], height[%d]\n",
         __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString(), nHeight );
 
-    if (!HaveSidechain(cert.GetScId()))
+    CSidechain scInfo;
+    if (!GetSidechain(cert.GetScId(), scInfo))
     {
         LogPrint("sc", "%s():%d - cert[%s] refers to scId[%s] not yet created\n",
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString() );
@@ -831,7 +835,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     }
 
     // a certificate can not be received after a fixed amount of blocks (for the time being it is epoch length / 5) from the end of epoch (TODO)
-    int maxHeight = getCertificateMaxIncomingHeight(cert.GetScId(), cert.epochNumber);
+    int maxHeight = scInfo.StartHeightForEpoch(cert.epochNumber+1) + scInfo.SafeguardMargin();
     if (maxHeight < 0)
     {
         LogPrintf("ERROR: certificate %s, can not calculate max recv height\n", certHash.ToString());
@@ -847,16 +851,15 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
                      REJECT_INVALID, "sidechain-certificate-delayed");
     }
 
-    CAmount curBalance = getSidechainBalance(cert.GetScId());
-    if (cert.totalAmount > curBalance)
+    if (cert.totalAmount > scInfo.balance)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scId[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(curBalance), FormatMoney(cert.totalAmount) );
+            __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scInfo.balance), FormatMoney(cert.totalAmount) );
         return state.Invalid(error("insufficient balance"),
                      REJECT_INVALID, "sidechain-insufficient-balance");
     }
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
-        __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(curBalance), FormatMoney(cert.totalAmount) );
+        __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scInfo.balance), FormatMoney(cert.totalAmount) );
 
     return true;
 }
@@ -897,7 +900,7 @@ bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const u
         return false;
     }
 
-    int endEpochHeight = info.creationBlockHeight -1 + ((epochNumber+1) * info.creationData.withdrawalEpochLength);
+    int endEpochHeight = info.StartHeightForEpoch(epochNumber+1) -1;
     pblockindex = chainActive[endEpochHeight];
 
     if (!pblockindex)
@@ -957,35 +960,6 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx)
 }
 
 #endif
-
-int CCoinsViewCache::getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber) const
-{
-    CSidechain info;
-    if (!GetSidechain(scId, info))
-    {
-        LogPrint("cert", "%s():%d - scId[%s] not found, returning -1\n", __func__, __LINE__, scId.ToString() );
-        return -1;
-    }
-
-    // the safety margin from the end of referred epoch is computed as 20% of epoch length + 1
-    // TODO move this in consensus params
-    int val = info.creationBlockHeight - 1 + ((epochNumber+1) * info.creationData.withdrawalEpochLength) +
-        (int)(info.creationData.withdrawalEpochLength/5) + 1;
-
-    LogPrint("cert", "%s():%d - returning %d\n", __func__, __LINE__, val);
-    return val;
-}
-
-CAmount CCoinsViewCache::getSidechainBalance(const uint256& scId) const
-{
-    CSidechain targetScInfo;
-    if (!GetSidechain(scId, targetScInfo)) {
-        // caller should have checked it
-        return -1;
-    }
-
-    return targetScInfo.balance;
-}
 
 bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& blockundo)
 {
@@ -1173,10 +1147,10 @@ bool CCoinsViewCache::IsCertOutputMature(const uint256& txHash, unsigned int pos
     CSidechain targetSc;
     assert(GetSidechain(refCoin.originScId, targetSc));
 
-    int coinEpoch = (refCoin.nHeight - targetSc.creationBlockHeight + 1) / targetSc.creationData.withdrawalEpochLength;
-    int nextCertSafeguardHeight = getCertificateMaxIncomingHeight(refCoin.originScId, coinEpoch);
+    int coinEpoch = targetSc.EpochFor(refCoin.nHeight);
+    int nextEpochSafeguardHeight = targetSc.StartHeightForEpoch(coinEpoch+1) + targetSc.SafeguardMargin();
 
-    if (spendHeight > nextCertSafeguardHeight)
+    if (spendHeight > nextEpochSafeguardHeight)
         return true;
 
     return false;

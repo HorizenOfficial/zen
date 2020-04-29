@@ -550,8 +550,6 @@ public:
     bool HaveCertForEpoch(const uint256& scId, int epochNumber) const override;
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state);
     bool isLegalEpoch(const uint256& scId, int epochNumber, const uint256& epochBlockHash);
-    int getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber) const;
-    CAmount getSidechainBalance(const uint256& scId) const;
     bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& bu);
     bool RevertCertOutputs(const CScCertificate& cert);
 
