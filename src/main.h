@@ -574,4 +574,37 @@ namespace Consensus {
 bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
 }
 
+struct CTransactionNetworkObj
+{
+    CTransaction tx;
+    CScCertificate cert;
+
+    int32_t nVersion;
+
+    bool IsCertificate() const { return (nVersion == SC_CERT_VERSION); }
+    bool IsTx() const { return !IsCertificate(); }
+
+    template<typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion) {
+        SerializationOp(s, CSerActionUnserialize(), nType, nVersion);
+    } 
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+
+        ::Unserialize(s, this->nVersion, nType, nVersion);
+        nVersion = this->nVersion;
+        s.Rewind(sizeof(nVersion));
+
+        if (this->IsCertificate())
+        {
+            ::Unserialize(s, *const_cast<CScCertificate*>(&cert), nType, nVersion);
+        }
+        else
+        {
+            ::Unserialize(s, *const_cast<CTransaction*>(&tx), nType, nVersion);
+        }
+    }
+};
+
 #endif // BITCOIN_MAIN_H

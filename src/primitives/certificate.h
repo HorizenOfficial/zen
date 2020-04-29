@@ -97,12 +97,6 @@ public:
     template <typename Stream>
     CScCertificate(deserialize_type, Stream& s) : CScCertificate(CMutableScCertificate(deserialize, s)) {}
 
-    bool IsScVersion() const override
-    {
-        // so far just one version
-        return (nVersion == SC_CERT_VERSION);
-    }
-
     //GETTERS
     const std::vector<JSDescription>& GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
     const uint256&                    GetScId()       const override {return scId;};

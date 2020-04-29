@@ -710,8 +710,6 @@ public:
         return !(a==b);
     }
 
-    virtual bool IsScVersion() const = 0;
-
     //GETTERS
     const std::vector<CTxIn>&         GetVin()        const {return vin;};
     const std::vector<CTxOut>&        GetVout()       const {return vout;};
@@ -903,7 +901,7 @@ public:
         );
     }
     
-    bool IsScVersion() const override
+    bool IsScVersion() const 
     {
         // so far just one version
         return (nVersion == SC_TX_VERSION);

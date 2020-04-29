@@ -110,7 +110,7 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
 
     LogPrint("sc", "%s():%d - cert=%s\n", __func__, __LINE__, certHash.ToString() );
 
-    if (!cert.IsScVersion() )
+    if (cert.nVersion != SC_CERT_VERSION )
     {
         LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate bad version %d\n",
             __func__, __LINE__, certHash.ToString(), cert.nVersion );
