@@ -20,4 +20,8 @@ void extendTransaction(CTransaction & tx, const uint256 & scId, const CAmount & 
 CScCertificate createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash, const CAmount& totalAmount);
 };
 
+namespace chainSettingUtils {
+    void GenerateChainActive(int targetHeight);
+};
+
 #endif

@@ -54,8 +54,8 @@ public:
     }
 
     void SetUp() override {
-        GenerateChainActive();
-        pcoinsTip->SetBestBlock(blocks.back().GetBlockHash());
+        chainSettingUtils::GenerateChainActive(minimalHeightForSidechains);
+        pcoinsTip->SetBestBlock(chainActive.Tip()->GetBlockHash());
         pindexBestHeader = chainActive.Tip();
 
         InitCoinGeneration();
@@ -89,9 +89,6 @@ private:
     CCoinsOnlyViewDB*        pChainStateDb;
 
     const unsigned int       minimalHeightForSidechains;
-    std::vector<uint256>     blockHashes;
-    std::vector<CBlockIndex> blocks;
-    void GenerateChainActive();
 
     CKey                     coinsKey;
     CBasicKeyStore           keystore;
@@ -526,29 +523,6 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffec
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Test Fixture definitions ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-void SidechainsInMempoolTestSuite::GenerateChainActive() {
-    chainActive.SetTip(NULL);
-    mapBlockIndex.clear();
-
-    blockHashes.resize(minimalHeightForSidechains);
-    blocks.resize(minimalHeightForSidechains);
-
-    for (unsigned int height=0; height<blocks.size(); ++height) {
-        blockHashes[height] = ArithToUint256(height);
-
-        blocks[height].nHeight = height+1;
-        blocks[height].pprev = height == 0? nullptr : &blocks[height - 1];
-        blocks[height].phashBlock = &blockHashes[height];
-        blocks[height].nTime = 1269211443 + height * Params().GetConsensus().nPowTargetSpacing;
-        blocks[height].nBits = 0x1e7fffff;
-        blocks[height].nChainWork = height == 0 ? arith_uint256(0) : blocks[height - 1].nChainWork + GetBlockProof(blocks[height - 1]);
-
-        mapBlockIndex[blockHashes[height]] = &blocks[height];
-    }
-
-    chainActive.SetTip(&blocks.back());
-}
-
 void SidechainsInMempoolTestSuite::InitCoinGeneration() {
     coinsKey.MakeNewKey(true);
     keystore.AddKey(coinsKey);
