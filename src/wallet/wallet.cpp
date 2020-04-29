@@ -2341,7 +2341,7 @@ bool CWalletTx::RelayWalletTransaction()
     {
         if (GetDepthInMainChain() == 0) {
             LogPrintf("Relaying wtx %s\n", GetHash().ToString());
-            RelayTransaction((CTransaction)*this);
+            Relay();
             return true;
         }
     }
@@ -4858,7 +4858,7 @@ bool CWalletCert::RelayWalletTransaction()
     assert(pwallet->GetBroadcastTransactions());
     if (GetDepthInMainChain() == 0) {
         LogPrintf("Relaying cert %s\n", GetHash().ToString());
-        RelayCertificate((CScCertificate)*this);
+        Relay();
         return true;
     }
     return false;

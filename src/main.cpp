@@ -5186,10 +5186,9 @@ void static ProcessGetData(CNode* pfrom)
                         LOCK(pfrom->cs_filter);
                         if (pfrom->pfilter)
                         {
-                            // TODO cert:  MSG_FILTERED_BLOCK to be tested 
                             CMerkleBlock merkleBlock(block, *pfrom->pfilter);
                             pfrom->PushMessage("merkleblock", merkleBlock);
-                            // CMerkleBlock just contains hashes, so also push any transactions in the block the client did not see
+                            // CMerkleBlock just contains hashes, so also push any transactions/certs in the block the client did not see
                             // This avoids hurting performance by pointlessly requiring a round-trip
                             // Note that there is currently no way for a node to request any single transactions we didn't send here -
                             // they must either disconnect and retry or request the full block.
@@ -5197,31 +5196,27 @@ void static ProcessGetData(CNode* pfrom)
                             // however we MUST always provide at least what the remote peer needs
                             typedef std::pair<unsigned int, uint256> PairType;
                             BOOST_FOREACH(PairType& pair, merkleBlock.vMatchedTxn)
-#if 0
-                                if (!pfrom->setInventoryKnown.count(CInv(MSG_TX, pair.second)))
-                                    pfrom->PushMessage("tx", block.vtx[pair.first]);
-#else
                             {
-                                if ( (0 <= pair.first) && (pair.first < block.vtx.size() ) )
+                                unsigned int pos = pair.first;
+                                if (pos < block.vtx.size() )
                                 {
                                     if (!pfrom->setInventoryKnown.count(CInv(MSG_TX, pair.second)))
-                                        pfrom->PushMessage("tx", block.vtx[pair.first]);
+                                        pfrom->PushMessage("tx", block.vtx[pos]);
                                 }
                                 else
-                                if ( (block.vtx.size() <= pair.first) && (pair.first < (block.vcert.size() + block.vtx.size())) )
+                                if ( pos < (block.vcert.size() + block.vtx.size()) )
                                 {
                                     if (!pfrom->setInventoryKnown.count(CInv(MSG_TX, pair.second)))
                                     {
-                                        unsigned int offset = pair.first - block.vtx.size();
+                                        unsigned int offset = pos - block.vtx.size();
                                         pfrom->PushMessage("tx", block.vcert[offset]);
                                     }
                                 }
                                 else
                                 {
-                                    LogPrintf("%s():%d -  tx index out of range=%d, can not handle merkle block\n", __func__, __LINE__, pair.first);
+                                    LogPrintf("%s():%d -  tx index out of range=%d, can not handle merkle block\n", __func__, __LINE__, pos);
                                 }
                             }
-#endif
                         }
                         // else
                             // no response
@@ -5314,13 +5309,13 @@ void static ProcessGetData(CNode* pfrom)
     }
 }
 
-void ProcessCertMsg(const CScCertificate& cert, CNode* pfrom)
+void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
 {
     vector<uint256> vWorkQueue;
     vector<uint256> vEraseQueue;
     std::string strCommand = "tx";
 
-    CInv inv(MSG_TX, cert.GetHash());
+    CInv inv(MSG_TX, txBase.GetHash());
     pfrom->AddInventoryKnown(inv);
 
     LOCK(cs_main);
@@ -5331,150 +5326,16 @@ void ProcessCertMsg(const CScCertificate& cert, CNode* pfrom)
     pfrom->setAskFor.erase(inv.hash);
     mapAlreadyAskedFor.erase(inv);
 
-    if (!AlreadyHave(inv) && AcceptCertificateToMemoryPool(mempool, state, cert, true, &fMissingInputs))
+    if (!AlreadyHave(inv) && txBase.AcceptTxBaseToMemoryPool(mempool, state, true, &fMissingInputs))
     {
         mempool.check(pcoinsTip);
-        RelayCertificate(cert);
-        vWorkQueue.push_back(inv.hash);
-
-        LogPrint("mempool", "AcceptToMemoryPool: peer=%d %s: accepted cert %s (poolsz %u)\n",
-            pfrom->id, pfrom->cleanSubVer,
-            cert.GetHash().ToString(),
-            mempool.sizeCert());
-
-        // Recursively process any orphan transactions that depended on this one
-        set<NodeId> setMisbehaving;
-        for (unsigned int i = 0; i < vWorkQueue.size(); i++)
-        {
-            map<uint256, set<uint256> >::iterator itByPrev = mapOrphanTransactionsByPrev.find(vWorkQueue[i]);
-            if (itByPrev == mapOrphanTransactionsByPrev.end())
-                continue;
-            for (set<uint256>::iterator mi = itByPrev->second.begin();
-                 mi != itByPrev->second.end();
-                 ++mi)
-            {
-                const uint256& orphanHash = *mi;
-                const CTransactionBase& orphanTx = *mapOrphanTransactions[orphanHash].tx;
-                NodeId fromPeer = mapOrphanTransactions[orphanHash].fromPeer;
-                bool fMissingInputs2 = false;
-                // Use a dummy CValidationState so someone can't setup nodes to counter-DoS based on orphan
-                // resolution (that is, feeding people an invalid transaction based on LegitTxX in order to get
-                // anyone relaying LegitTxX banned)
-                CValidationState stateDummy;
-
-                if (vWorkQueue[i] == cert.GetHash())
-                {
-                    LogPrint("cert", "%s():%d - processing orphan tx[%s], parent cert[%s]\n",
-                        __func__, __LINE__, orphanTx.GetHash().ToString(), cert.GetHash().ToString());
-                }
-
-                if (setMisbehaving.count(fromPeer))
-                    continue;
-                if (orphanTx.AcceptTxBaseToMemoryPool(mempool, stateDummy, true, &fMissingInputs2))
-                {
-                    LogPrint("mempool", "   accepted orphan tx %s\n", orphanHash.ToString());
-                    orphanTx.Relay();
-                    vWorkQueue.push_back(orphanHash);
-                    vEraseQueue.push_back(orphanHash);
-                }
-                else if (!fMissingInputs2)
-                {
-                    int nDos = 0;
-                    if (stateDummy.IsInvalid(nDos) && nDos > 0)
-                    {
-                        // Punish peer that gave us an invalid orphan tx
-                        Misbehaving(fromPeer, nDos);
-                        setMisbehaving.insert(fromPeer);
-                        LogPrint("mempool", "   invalid orphan tx %s\n", orphanHash.ToString());
-                    }
-                    // Has inputs but not accepted to mempool
-                    // Probably non-standard or insufficient fee/priority
-                    LogPrint("mempool", "   removed orphan tx %s\n", orphanHash.ToString());
-                    vEraseQueue.push_back(orphanHash);
-                    assert(recentRejects);
-                    recentRejects->insert(orphanHash);
-                }
-                mempool.check(pcoinsTip);
-            }
-        }
-
-        BOOST_FOREACH(uint256 hash, vEraseQueue)
-            EraseOrphanTx(hash);
-    }
-    else if (fMissingInputs)
-    {
-        AddOrphanTx(cert, pfrom->GetId());
-
-        // DoS prevention: do not allow mapOrphanTransactions to grow unbounded
-        unsigned int nMaxOrphanTx = (unsigned int)std::max((int64_t)0, GetArg("-maxorphantx", DEFAULT_MAX_ORPHAN_TRANSACTIONS));
-        unsigned int nEvicted = LimitOrphanTxSize(nMaxOrphanTx);
-        if (nEvicted > 0)
-            LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
-    }
-    else
-    {
-        assert(recentRejects);
-        recentRejects->insert(cert.GetHash());
-
-        if (pfrom->fWhitelisted) {
-            // Always relay transactions received from whitelisted peers, even
-            // if they were already in the mempool or rejected from it due
-            // to policy, allowing the node to function as a gateway for
-            // nodes hidden behind it.
-            //
-            // Never relay transactions that we would assign a non-zero DoS
-            // score for, as we expect peers to do the same with us in that
-            // case.
-            int nDoS = 0;
-            if (!state.IsInvalid(nDoS) || nDoS == 0) {
-                LogPrintf("Force relaying cert %s from whitelisted peer=%d\n", cert.GetHash().ToString(), pfrom->id);
-                RelayCertificate(cert);
-            } else {
-                LogPrintf("Not relaying invalid certificate %s from whitelisted peer=%d (%s (code %d))\n",
-                    cert.GetHash().ToString(), pfrom->id, state.GetRejectReason(), state.GetRejectCode());
-            }
-        }
-    }
-    int nDoS = 0;
-    if (state.IsInvalid(nDoS))
-    {
-        LogPrint("mempool", "%s from peer=%d %s was not accepted into the memory pool: %s\n", cert.GetHash().ToString(),
-            pfrom->id, pfrom->cleanSubVer,
-            state.GetRejectReason());
-        pfrom->PushMessage("reject", strCommand, state.GetRejectCode(),
-                           state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash);
-        if (nDoS > 0)
-            Misbehaving(pfrom->GetId(), nDoS);
-    }
-}
-
-void ProcessTxMsg(const CTransaction& tx, CNode* pfrom)
-{
-    vector<uint256> vWorkQueue;
-    vector<uint256> vEraseQueue;
-    std::string strCommand = "tx";
-
-    CInv inv(MSG_TX, tx.GetHash());
-    pfrom->AddInventoryKnown(inv);
-
-    LOCK(cs_main);
-
-    bool fMissingInputs = false;
-    CValidationState state;
-
-    pfrom->setAskFor.erase(inv.hash);
-    mapAlreadyAskedFor.erase(inv);
-
-    if (!AlreadyHave(inv) && AcceptToMemoryPool(mempool, state, tx, true, &fMissingInputs))
-    {
-        mempool.check(pcoinsTip);
-        RelayTransaction(tx);
+        txBase.Relay();
         vWorkQueue.push_back(inv.hash);
 
         LogPrint("mempool", "AcceptToMemoryPool: peer=%d %s: accepted %s (poolsz %u)\n",
             pfrom->id, pfrom->cleanSubVer,
-            tx.GetHash().ToString(),
-            mempool.sizeTx());
+            txBase.GetHash().ToString(),
+            mempool.size());
 
         // Recursively process any orphan transactions that depended on this one
         set<NodeId> setMisbehaving;
@@ -5495,7 +5356,6 @@ void ProcessTxMsg(const CTransaction& tx, CNode* pfrom)
                 // resolution (that is, feeding people an invalid transaction based on LegitTxX in order to get
                 // anyone relaying LegitTxX banned)
                 CValidationState stateDummy;
-
 
                 if (setMisbehaving.count(fromPeer))
                     continue;
@@ -5531,9 +5391,9 @@ void ProcessTxMsg(const CTransaction& tx, CNode* pfrom)
             EraseOrphanTx(hash);
     }
     // TODO: currently, prohibit joinsplits from entering mapOrphans
-    else if (fMissingInputs && tx.GetVjoinsplit().size() == 0)
+    else if (fMissingInputs && txBase.GetVjoinsplit().size() == 0)
     {
-        AddOrphanTx(tx, pfrom->GetId());
+        AddOrphanTx(txBase, pfrom->GetId());
 
         // DoS prevention: do not allow mapOrphanTransactions to grow unbounded
         unsigned int nMaxOrphanTx = (unsigned int)std::max((int64_t)0, GetArg("-maxorphantx", DEFAULT_MAX_ORPHAN_TRANSACTIONS));
@@ -5542,7 +5402,7 @@ void ProcessTxMsg(const CTransaction& tx, CNode* pfrom)
             LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
     } else {
         assert(recentRejects);
-        recentRejects->insert(tx.GetHash());
+        recentRejects->insert(txBase.GetHash());
 
         if (pfrom->fWhitelisted) {
             // Always relay transactions received from whitelisted peers, even
@@ -5555,18 +5415,18 @@ void ProcessTxMsg(const CTransaction& tx, CNode* pfrom)
             // case.
             int nDoS = 0;
             if (!state.IsInvalid(nDoS) || nDoS == 0) {
-                LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", tx.GetHash().ToString(), pfrom->id);
-                RelayTransaction(tx);
+                LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->id);
+                txBase.Relay();
             } else {
                 LogPrintf("Not relaying invalid transaction %s from whitelisted peer=%d (%s (code %d))\n",
-                    tx.GetHash().ToString(), pfrom->id, state.GetRejectReason(), state.GetRejectCode());
+                    txBase.GetHash().ToString(), pfrom->id, state.GetRejectReason(), state.GetRejectCode());
             }
         }
     }
     int nDoS = 0;
     if (state.IsInvalid(nDoS))
     {
-        LogPrint("mempool", "%s from peer=%d %s was not accepted into the memory pool: %s\n", tx.GetHash().ToString(),
+        LogPrint("mempool", "%s from peer=%d %s was not accepted into the memory pool: %s\n", txBase.GetHash().ToString(),
             pfrom->id, pfrom->cleanSubVer,
             state.GetRejectReason());
         pfrom->PushMessage("reject", strCommand, state.GetRejectCode(),
@@ -6164,14 +6024,14 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         {
             CScCertificate cert(txObj.cert);
             LogPrint("cert", "%s():%d - cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString() );
-            ProcessCertMsg(cert, pfrom);
+            ProcessTxBaseMsg(cert, pfrom);
         }
         else
         if(txObj.IsTx())
         {
             CTransaction tx(txObj.tx);
             LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString() );
-            ProcessTxMsg(tx, pfrom);
+            ProcessTxBaseMsg(tx, pfrom);
         }
         else
         {

@@ -253,7 +253,7 @@ bool CScCertificate::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState
     return ::AcceptCertificateToMemoryPool(pool, state, *this, fLimitFree, pfMissingInputs, fRejectAbsurdFee);
 }
 
-void CScCertificate::Relay() const { ::RelayCertificate(*this); }
+void CScCertificate::Relay() const { ::Relay(*this); }
 
 unsigned int CScCertificate::GetSerializeSizeBase(int nType, int nVersion) const { return this->GetSerializeSize(nType, nVersion);}
 

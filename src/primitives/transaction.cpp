@@ -969,7 +969,7 @@ bool CTransaction::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &
     return ::AcceptToMemoryPool(pool, state, *this, fLimitFree, pfMissingInputs, fRejectAbsurdFee);
 }
 
-void CTransaction::Relay() const { ::RelayTransaction(*this); }
+void CTransaction::Relay() const { ::Relay(*this); }
 
 unsigned int CTransaction::GetSerializeSizeBase(int nType, int nVersion) const { return this->GetSerializeSize(nType, nVersion);}
 

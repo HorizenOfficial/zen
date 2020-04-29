@@ -1477,7 +1477,7 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
     } else if (fHaveChain) {
         throw JSONRPCError(RPC_TRANSACTION_ALREADY_IN_CHAIN, "transaction already in block chain");
     }
-    RelayTransaction(tx);
+    tx.Relay();
 
     return hashTx.GetHex();
 }
@@ -1552,7 +1552,7 @@ UniValue sendrawcertificate(const UniValue& params, bool fHelp)
     }
 
     LogPrint("cert", "%s():%d - relaying certificate [%s]\n", __func__, __LINE__, hashCertificate.ToString());
-    RelayCertificate(cert);
+    cert.Relay();
 
     return hashCertificate.GetHex();
 }
