@@ -572,17 +572,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             if (!view.HaveInputs(tx))
                 continue;
 
-            // skip transactions that send forward crosschain amounts if the creation of the target sidechain is
-            // not yet in blockchain. This should happen only if a chain has been reverted and a mix of creation/transfers
-            // has been placed back in the mem pool The skipped tx will be mined in the next block if the scid is found
-
-            CValidationState state;
-            if (!tx.IsApplicableToState(state, nHeight) )
-            {
-                LogPrint("sc", "%s():%d - tx=%s is not applicable, skipping it...\n", __func__, __LINE__, tx.GetHash().ToString() );
-                continue;
-            }
-
             CAmount nTxFees = tx.GetFeeAmount(view.GetValueIn(tx));
             if (nTxFees < 0) {
                 LogPrintf("%s():%d - tx=%s has a negative fee (fee=%s/valueOut=%s)\n",
@@ -600,6 +589,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 #if 0
             if (!ContextualCheckInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
 #else
+            CValidationState state;
                 if (tx.IsCertificate()) {
                     if (!Consensus::CheckTxInputs(tx, state, view, GetSpendHeight(view), Params().GetConsensus()))
                         continue;

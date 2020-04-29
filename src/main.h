@@ -603,42 +603,4 @@ struct CTransactionNetworkObj
     }
 };
 
-#if NO2
-struct CTransactionNetworkObj2
-{
-    std::shared_ptr<CTransactionBase> _txObj;
-    const CTransactionBase& getRef() const { return *(_txObj.get()); }
-
-    int32_t nVersion;
-
-    bool IsCertificate() const { return (nVersion == SC_CERT_VERSION); }
-    bool IsTx() const { return !IsCertificate(); }
-
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion) {
-        SerializationOp(s, CSerActionUnserialize(), nType, nVersion);
-    } 
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-
-        ::Unserialize(s, this->nVersion, nType, nVersion);
-        nVersion = this->nVersion;
-        s.Rewind(sizeof(nVersion));
-
-        if (this->IsCertificate())
-        {
-            CScCertificate* p = new CScCertificate();
-            ::Unserialize(s, *const_cast<CScCertificate*>(p), nType, nVersion);
-            _txObj = std::shared_ptr<CTransactionBase>(p);
-        }
-        else
-        {
-            CTransaction* p = new CTransaction();
-            ::Unserialize(s, *const_cast<CTransaction*>(p), nType, nVersion);
-            _txObj = std::shared_ptr<CTransactionBase>(p);
-        }
-    }
-};
-#endif
 #endif // BITCOIN_MAIN_H

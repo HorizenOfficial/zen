@@ -1326,7 +1326,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // Silently drop pre-chainsplit transactions
     if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight))
     {
-        LogPrint("cert", "%s():%d - Dropping txid[%s]: chain height[%d] is before chain split\n",
+        LogPrint("mempool", "%s():%d - Dropping txid[%s]: chain height[%d] is before chain split\n",
             __func__, __LINE__, tx.GetHash().ToString(), chainActive.Tip()->nHeight);
         return false;
     }
@@ -6095,24 +6095,6 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         vector<uint256> vWorkQueue;
         vector<uint256> vEraseQueue;
 
-#if NO2
-        CTransactionNetworkObj2 txObj;
-        vRecv >> txObj;
-
-        if (txObj.IsCertificate())
-        {
-            CScCertificate cert(txObj);
-            LogPrint("cert", "%s():%d - cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString() );
-            ProcessCertMsg(cert, pfrom);
-        }
-        else
-        if(txObj.IsTx())
-        {
-            CTransaction tx(txObj);
-            LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString() );
-            ProcessTxMsg(tx, pfrom);
-        }
-#else
         CTransactionNetworkObj txObj;
         vRecv >> txObj;
 
@@ -6129,7 +6111,6 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString() );
             ProcessTxMsg(tx, pfrom);
         }
-#endif
         else
         {
             // This case should never happen. Consider that failing to read stream properly throws an exception
@@ -6582,14 +6563,6 @@ bool ProcessMessages(CNode* pfrom)
                 PrintExceptionContinue(&e, "ProcessMessages()");
             }
         }
-#if NO2
-        catch (const std::bad_cast& e)
-        {
-            pfrom->PushMessage("reject", strCommand, REJECT_MALFORMED, string("error parsing message"));
-            // Allow exceptions from bad cast when reading from vRecv tx obj
-            LogPrintf("%s(%s, %u bytes): Exception '%s' caught\n", __func__, SanitizeString(strCommand), nMessageSize, e.what());
-        }
-#endif
         catch (const boost::thread_interrupted&) {
             throw;
         }
