@@ -2123,7 +2123,7 @@ void RelayCertificate(const CScCertificate& cert)
 
 void RelayCertificate(const CScCertificate& cert, const CDataStream& ss)
 {
-    CInv inv(MSG_CERT, cert.GetHash());
+    CInv inv(MSG_TX, cert.GetHash());
     {
         LOCK(cs_mapRelay);
         // Expire old relay messages

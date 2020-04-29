@@ -102,12 +102,6 @@ public:
     template <typename Stream>
     CScCertificate(deserialize_type, Stream& s) : CScCertificate(CMutableScCertificate(deserialize, s)) {}
 
-    bool IsScVersion() const override
-    {
-        // so far just one version
-        return (nVersion == SC_CERT_VERSION);
-    }
-
     //GETTERS
     const std::vector<CTxIn>&         GetVin()        const override {static const std::vector<CTxIn> noInputs; return noInputs;};
     const std::vector<CTxOut>&        GetVout()       const override {return vout;};
