@@ -2226,11 +2226,6 @@ void ListTransactions(const CWalletObjBase& wtx, const string& strAccount, int n
                         entry.push_back(Pair("category", "generate"));
                 }
                 else
-                if(wtx.IsCertificate())
-                {
-                    entry.push_back(Pair("category", "certificate"));
-                }
-                else
                 {
                     if (r.maturity == COutputEntry::maturityState::MATURE)
                         entry.push_back(Pair("category", "receive"));
@@ -4840,16 +4835,12 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         }
 
         const UniValue& av = find_value(o, "amount");
+        // this throw an exception also if it is a legal value less than 1 ZAT
         CAmount nAmount = AmountFromValue(av);
         if (nAmount <= 0)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
 
         vBackwardTransfers.push_back(ScRpcCmdCert::sBwdParams(GetScriptForDestination(taddr.Get(), false), nAmount));
-//        CRecipientBackwardTransfer bt;
-//        bt.scriptPubKey = GetScriptForDestination(taddr.Get(), false);
-//        bt.nValue = nAmount;
-
-//        vecSend.push_back(CcRecipientVariant(bt));
 
         nTotalOut += nAmount;
     }

@@ -161,11 +161,11 @@ class sc_cert_epoch(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(EPOCH_LENGTH - 2))
         self.sync_all()
 
-        mark_logs("Node 0 performs a bwd transfer of 0 coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 send a certificate with no bwd transfers", self.nodes, DEBUG_MODE)
         try:
             epoch_number = 1
             epoch_hash = blocks[-1]
-            cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, epoch_hash, [{"pubkeyhash": pkh_node2, "amount": 0}], CERT_FEE)
+            cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, epoch_hash, [], CERT_FEE)
             assert(len(cert_epoch_1) > 0)
         except JSONRPCException, e:
             errorString = e.error['message']
