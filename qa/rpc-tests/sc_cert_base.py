@@ -9,7 +9,6 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
     assert_false, assert_true
 import os
-import pprint
 from decimal import Decimal
 
 DEBUG_MODE = 1
@@ -293,8 +292,7 @@ class sc_cert_base(BitcoinTestFramework):
         utxos_Node1 = self.nodes[1].listunspent()
         cert_epoch_0_availalble = False
         for utxo in utxos_Node1:
-            pprint.pprint(utxo)
-            if ("certificate" in utxo.keys()):
+            if ("certified" in utxo.keys()):
                 cert_epoch_0_availalble = True
                 assert_true(utxo["txid"] == cert_epoch_0)
         assert_true(cert_epoch_0_availalble)
