@@ -26,8 +26,8 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
     // global idx
     unsigned int nIdx = 0;
 
-    for (unsigned int i = 0; i < tx.vsc_ccout.size(); i++) {
-        const CTxScCreationOut& out = tx.vsc_ccout[i];
+    for (unsigned int i = 0; i < tx.GetVscCcOut().size(); i++) {
+        const CTxScCreationOut& out = tx.GetVscCcOut()[i];
         UniValue o(UniValue::VOBJ);
         o.push_back(Pair("scid", out.scId.GetHex()));
         o.push_back(Pair("n", (int64_t)nIdx));
@@ -41,8 +41,8 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
     parentObj.push_back(Pair("vsc_ccout", vscs));
 
     UniValue vcls(UniValue::VARR);
-    for (unsigned int i = 0; i < tx.vcl_ccout.size(); i++) {
-        const CTxCertifierLockOut& out = tx.vcl_ccout[i];
+    for (unsigned int i = 0; i < tx.GetVclCcOut().size(); i++) {
+        const CTxCertifierLockOut& out = tx.GetVclCcOut()[i];
         UniValue o(UniValue::VOBJ);
         o.push_back(Pair("scid", out.scId.GetHex()));
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
@@ -55,8 +55,8 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
     parentObj.push_back(Pair("vcl_ccout", vcls));
 
     UniValue vfts(UniValue::VARR);
-    for (unsigned int i = 0; i < tx.vft_ccout.size(); i++) {
-        const CTxForwardTransferOut& out = tx.vft_ccout[i];
+    for (unsigned int i = 0; i < tx.GetVftCcOut().size(); i++) {
+        const CTxForwardTransferOut& out = tx.GetVftCcOut()[i];
         UniValue o(UniValue::VOBJ);
         o.push_back(Pair("scid", out.scId.GetHex()));
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
@@ -214,7 +214,7 @@ bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std
 
 void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& vecCcSend)
 {
-    BOOST_FOREACH(const auto& entry, tx.vsc_ccout)
+    BOOST_FOREACH(const auto& entry, tx.GetVscCcOut())
     {
         CRecipientScCreation sc;
         sc.scId = entry.scId;
@@ -226,7 +226,7 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& 
         vecCcSend.push_back(CcRecipientVariant(sc));
     }
 
-    BOOST_FOREACH(const auto& entry, tx.vcl_ccout)
+    BOOST_FOREACH(const auto& entry, tx.GetVclCcOut())
     {
         CRecipientCertLock cl;
         cl.scId = entry.scId;
@@ -237,7 +237,7 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& 
         vecCcSend.push_back(CcRecipientVariant(cl));
     }
 
-    BOOST_FOREACH(const auto& entry, tx.vft_ccout)
+    BOOST_FOREACH(const auto& entry, tx.GetVftCcOut())
     {
         CRecipientForwardTransfer ft;
         ft.scId = entry.scId;

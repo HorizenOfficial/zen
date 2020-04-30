@@ -1147,12 +1147,13 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
     // Silently drop pre-chainsplit certificates
     if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight))
     {
-        LogPrint("cert", "%s():%d - Dropping certificateId[%s]: chain height[%d] is before chain split\n",
+        LogPrint("mempool", "%s():%d - Dropping certificateId[%s]: chain height[%d] is before chain split\n",
             __func__, __LINE__, cert.GetHash().ToString(), chainActive.Tip()->nHeight);
         return false;
     }
 
-    string reason; // Rather not work on nonstandard transactions (unless -testnet/-regtest)
+    // Rather not work on nonstandard transactions (unless -testnet/-regtest)
+    string reason;
     if (getRequireStandard() &&  !IsStandardTx(cert, reason, nextBlockHeight))
         return state.DoS(0, error("AcceptCertificateToMemoryPool: nonstandard certificate: %s", reason),
                             REJECT_NONSTANDARD, reason);
@@ -1187,11 +1188,18 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
 
-        CAmount nValueIn = 0;
+        CAmount nFees = 0;
         {
             LOCK(pool.cs);
             CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
             view.SetBackend(viewMemPool);
+
+            // do we already have it?
+            if (view.HaveCoins(certHash))
+            {
+                LogPrint("mempool", "Dropping cert %s : already have coins\n", certHash.ToString());
+                return false;
+            }
 
             if(viewMemPool.HaveCertForEpoch(cert.GetScId(), cert.epochNumber))
             {
@@ -1227,7 +1235,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             // are the actual inputs available?
             if (!view.HaveInputs(cert))
             {
-                LogPrintf("%s():%d - cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString());
+                LogPrintf("%s():%d - ERROR: cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString());
                 return state.Invalid(error("AcceptCertToMemoryPool: inputs already spent"),
                                      REJECT_DUPLICATE, "bad-sc-cert-inputs-spent");
             }
@@ -1235,8 +1243,27 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             // Bring the best block into scope: it's gonna be needed for CheckInputsTx hereinafter
             view.GetBestBlock();
  
-            nValueIn = view.GetValueIn(cert);
+            // If any of the inputs comes from a certificate, we make sure to have its sidechain in cache
+            // before rotating backend view to dummy
+            for(const CTxIn& in: cert.GetVin()) {
+                const CCoins *coins = view.AccessCoins(in.prevout.hash);
+                assert(coins);
+
+                if (coins->IsFromCert()) { //This is just to avoid following assert for non-cert coins
+                    // HaveInputs above checks for utxos availability. So accessing vout[in.prevout.n] is safe
+                    assert(coins->IsAvailable(in.prevout.n));
+
+
+                    //check on vout is better than coins->IsFromCert() since it'll skip loading scInfo for zero bwt amount certs
+                    if (coins->vout[in.prevout.n].isFromBackwardTransfer) {
+                        assert(view.HaveSidechain(coins->originScId)); //minimal op to pull scinfo into view
+                    }
+                }
+            }
+
+            nFees = cert.GetFeeAmount(view.GetValueIn(cert));
  
+            // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
             view.SetBackend(dummy);
         }
 
@@ -1253,15 +1280,13 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                              REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
         }
 
-        CAmount nFees = cert.GetFeeAmount(nValueIn);
-        LogPrint("sc", "%s():%d - Computed fee=%lld\n", __func__, __LINE__, nFees);
-
         // cert: this computes priority based on input amount and depth in blockchain, as transparent txes.
         // another option would be to return max prio, as shielded txes do
         double dPriority = view.GetPriority(cert, chainActive.Height());
+        LogPrint("mempool", "%s():%d - Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, nFees, dPriority);
 
-        unsigned int nSize = cert.CalculateSize();
-        LogPrint("sc", "%s():%d - Computed size=%lld\n", __func__, __LINE__, nSize);
+        CCertificateMemPoolEntry entry(cert, nFees, GetTime(), dPriority, chainActive.Height());
+        unsigned int nSize = entry.GetCertificateSize();
 
         // Don't accept it if it can't get into a block
         CAmount txMinFee = GetMinRelayFee(cert, nSize, true);
@@ -1272,6 +1297,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                                     certHash.ToString(), nFees, txMinFee),
                             REJECT_INSUFFICIENTFEE, "insufficient fee");
 
+        // Require that free transactions have sufficient priority to be mined in the next block.
         if (GetBoolArg("-relaypriority", false) && nFees < ::minRelayTxFee.GetFee(nSize) && !AllowFree(view.GetPriority(cert, chainActive.Height() + 1))) {
             return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "insufficient priority");
         }
@@ -1329,11 +1355,10 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         }
 
         // Store transaction in memory
-        CCertificateMemPoolEntry certEntry(cert, nFees, GetTime(), dPriority, chainActive.Height());
-        pool.addUnchecked(certHash, certEntry, !IsInitialBlockDownload());
+        pool.addUnchecked(certHash, entry, !IsInitialBlockDownload());
     }
 
-    LogPrint("cert", "%s():%d - sync with wallet cert[%s]\n", __func__, __LINE__, certHash.ToString());
+    LogPrint("mempool", "%s():%d - sync with wallet cert[%s]\n", __func__, __LINE__, certHash.ToString());
     SyncWithWallets(cert, nullptr);
     return true;
 }
@@ -1408,7 +1433,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
 
         // If this tx creates a sc, no other tx must be doing the same in the mempool
-        for(const CTxScCreationOut& sc: tx.vsc_ccout) {
+        for(const CTxScCreationOut& sc: tx.GetVscCcOut()) {
             if ((pool.mapSidechains.count(sc.scId) != 0) && (!pool.mapSidechains.at(sc.scId).scCreationTxHash.IsNull())) {
                 LogPrint("sc", "%s():%d - Dropping txid [%s]: it tries to redeclare another sc in mempool\n",
                         __func__, __LINE__, hash.ToString());
@@ -1461,7 +1486,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             // are the actual inputs available?
             if (!view.HaveInputs(tx))
             {
-                LogPrintf("%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString());
+                LogPrintf("%s():%d - ERROR: tx[%s]\n", __func__, __LINE__, hash.ToString());
                 return state.Invalid(error("AcceptToMemoryPool: inputs already spent"),
                                      REJECT_DUPLICATE, "bad-txns-inputs-spent");
             }
@@ -1500,7 +1525,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             }
 
             nFees = tx.GetFeeAmount(view.GetValueIn(tx));
-            LogPrint("sc", "%s():%d - Computed fee=%lld\n", __func__, __LINE__, nFees);
  
             // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
             view.SetBackend(dummy);
@@ -1528,7 +1552,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
       
         double dPriority = view.GetPriority(tx, chainActive.Height());
-        LogPrint("sc", "%s():%d - Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, nFees, dPriority);
+        LogPrint("mempool", "%s():%d - Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, nFees, dPriority);
 
         CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height(), mempool.HasNoInputsOf(tx));
         unsigned int nSize = entry.GetTxSize();
@@ -1605,6 +1629,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         pool.addUnchecked(hash, entry, !IsInitialBlockDownload());
     }
 
+    LogPrint("mempool", "%s():%d - sync with wallet tx[%s]\n", __func__, __LINE__, hash.ToString());
     SyncWithWallets(tx, NULL);
 
     return true;

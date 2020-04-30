@@ -1067,17 +1067,17 @@ public:
     /** Serialize a cross chain outputs of txTo */
     template<typename S>
     void SerializeScCreationCcOutput(S &s, unsigned int nCcOutput, int nType, int nVersion) const {
-            ::Serialize(s, txTo.vsc_ccout[nCcOutput], nType, nVersion);
+            ::Serialize(s, txTo.GetVscCcOut()[nCcOutput], nType, nVersion);
     }
 
     template<typename S>
     void SerializeCertifierLockCcOutput(S &s, unsigned int nCcOutput, int nType, int nVersion) const {
-            ::Serialize(s, txTo.vcl_ccout[nCcOutput], nType, nVersion);
+            ::Serialize(s, txTo.GetVclCcOut()[nCcOutput], nType, nVersion);
     }
 
     template<typename S>
     void SerializeForwardTransferCcOutput(S &s, unsigned int nCcOutput, int nType, int nVersion) const {
-            ::Serialize(s, txTo.vft_ccout[nCcOutput], nType, nVersion);
+            ::Serialize(s, txTo.GetVftCcOut()[nCcOutput], nType, nVersion);
     }
 
     /** Serialize txTo */
@@ -1101,17 +1101,17 @@ public:
             // Serialize vccouts
             unsigned int nCcOutputs = 0;
 
-            nCcOutputs = fHashNone ? 0 : (txTo.vsc_ccout.size());
+            nCcOutputs = fHashNone ? 0 : (txTo.GetVscCcOut().size());
             ::WriteCompactSize(s, nCcOutputs);
             for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
                  SerializeScCreationCcOutput(s, nCcOutput, nType, nVersion);
 
-            nCcOutputs = fHashNone ? 0 : (txTo.vcl_ccout.size());
+            nCcOutputs = fHashNone ? 0 : (txTo.GetVclCcOut().size());
             ::WriteCompactSize(s, nCcOutputs);
             for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
                  SerializeCertifierLockCcOutput(s, nCcOutput, nType, nVersion);
 
-            nCcOutputs = fHashNone ? 0 : (txTo.vft_ccout.size());
+            nCcOutputs = fHashNone ? 0 : (txTo.GetVftCcOut().size());
             ::WriteCompactSize(s, nCcOutputs);
             for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
                  SerializeForwardTransferCcOutput(s, nCcOutput, nType, nVersion);
@@ -1308,7 +1308,7 @@ bool TransactionSignatureChecker::CheckSig(const vector<unsigned char>& vchSigIn
     uint256 sighash;
     try {
         sighash = SignatureHash(scriptCode, *txTo, nIn, nHashType);
-    } catch (logic_error ex) {
+    } catch (const logic_error& ex) {
         return false;
     }
 
@@ -1425,7 +1425,7 @@ bool CertificateSignatureChecker::CheckSig(const vector<unsigned char>& vchSigIn
     uint256 sighash;
     try {
         sighash = SignatureHash(scriptCode, *certTo, nIn, nHashType);
-    } catch (logic_error ex) {
+    } catch (const logic_error& ex) {
         return false;
     }
 

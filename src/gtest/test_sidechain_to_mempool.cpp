@@ -187,7 +187,7 @@ TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
 
     bool loopRes = false;
     for(const auto& tx : aMempool.mapTx)
-        for(const auto& sc: tx.second.GetTx().vsc_ccout)
+        for(const auto& sc: tx.second.GetTx().GetVscCcOut())
             if(sc.scId == scId) {
                 loopRes = true;
                 break;
@@ -203,7 +203,7 @@ TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
 
     loopRes = false;
     for(const auto& tx : aMempool.mapTx)
-        for(const auto& sc: tx.second.GetTx().vsc_ccout)
+        for(const auto& sc: tx.second.GetTx().GetVscCcOut())
             if(sc.scId == scId) {
                 loopRes = true;
                 break;
@@ -219,7 +219,7 @@ TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
 
     loopRes = false;
     for(const auto& tx : aMempool.mapTx)
-        for(const auto& sc: tx.second.GetTx().vsc_ccout)
+        for(const auto& sc: tx.second.GetTx().GetVscCcOut())
             if(sc.scId == scId) {
                 loopRes = true;
                 break;

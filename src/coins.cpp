@@ -568,7 +568,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
     const int maturityHeight = blockHeight + SC_COIN_MATURITY;
 
     // creation ccout
-    for (const auto& cr: tx.vsc_ccout)
+    for (const auto& cr: tx.GetVscCcOut())
     {
         if (HaveSidechain(cr.scId))
         {
@@ -592,7 +592,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
     }
 
     // forward transfer ccout
-    for(auto& ft: tx.vft_ccout)
+    for(auto& ft: tx.GetVftCcOut())
     {
         if (!HaveSidechain(ft.scId))
         {
@@ -621,7 +621,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
     const int maturityHeight = nHeight + SC_COIN_MATURITY;
 
     // revert forward transfers
-    for(const auto& entry: tx.vft_ccout)
+    for(const auto& entry: tx.GetVftCcOut())
     {
         const uint256& scId = entry.scId;
 
@@ -645,7 +645,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
     }
 
     // remove sidechain if the case
-    for(const auto& entry: tx.vsc_ccout)
+    for(const auto& entry: tx.GetVscCcOut())
     {
         const uint256& scId = entry.scId;
 
@@ -927,7 +927,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx)
     const uint256& txHash = tx.GetHash();
 
     // check creation
-    for (const auto& sc: tx.vsc_ccout)
+    for (const auto& sc: tx.GetVscCcOut())
     {
         const uint256& scId = sc.scId;
         if (HaveSidechain(scId))
@@ -941,7 +941,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx)
     }
 
     // check fw tx
-    for (const auto& ft: tx.vft_ccout)
+    for (const auto& ft: tx.GetVftCcOut())
     {
         const uint256& scId = ft.scId;
         if (!HaveSidechain(scId) && !Sidechain::hasScCreationOutput(tx, scId))

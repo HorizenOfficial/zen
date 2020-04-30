@@ -2110,9 +2110,9 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
     {
         if (nDebit > 0)
         {
-            fillScSent(vsc_ccout, listScSent);
-            fillScSent(vcl_ccout, listScSent);
-            fillScSent(vft_ccout, listScSent);
+            fillScSent(GetVscCcOut(), listScSent);
+            fillScSent(GetVclCcOut(), listScSent);
+            fillScSent(GetVftCcOut(), listScSent);
         }
     }
 }

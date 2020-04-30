@@ -140,7 +140,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
         }
     }
 
-    for(const auto& sc: tx.vsc_ccout) {
+    for(const auto& sc: tx.GetVscCcOut()) {
         if (mapSidechains.count(sc.scId))
             assert(mapSidechains[sc.scId].scCreationTxHash.IsNull());
         else
@@ -149,7 +149,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
         mapSidechains[sc.scId].scCreationTxHash = hash;
     }
 
-    for(const auto& fwd: tx.vft_ccout) {
+    for(const auto& fwd: tx.GetVftCcOut()) {
         if (mapSidechains.count(fwd.scId) == 0)
             LogPrint("cert", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, fwd.scId.ToString() );
         mapSidechains[fwd.scId].fwdTransfersSet.insert(hash);
@@ -206,7 +206,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
                 objToRemove.push_back(it->second.ptx->GetHash());
             }
 
-            for(const auto& sc: origTx.vsc_ccout) {
+            for(const auto& sc: origTx.GetVscCcOut()) {
                 if (mapSidechains.count(sc.scId) == 0)
                     continue;
 
@@ -247,7 +247,7 @@ void::CTxMemPool::removeInternal(
                         continue;
                     objToRemove.push_back(it->second.ptx->GetHash());
                 }
-                for(const auto& sc: tx.vsc_ccout) {
+                for(const auto& sc: tx.GetVscCcOut()) {
                     if (mapSidechains.count(sc.scId) == 0)
                         continue;
 
@@ -270,7 +270,7 @@ void::CTxMemPool::removeInternal(
                 }
             }
 
-            for(const auto& fwd: tx.vft_ccout) {
+            for(const auto& fwd: tx.GetVftCcOut()) {
                 if (mapSidechains.count(fwd.scId)) { //Guard against double-delete on multiple fwds toward the same sc in same tx
                     mapSidechains.at(fwd.scId).fwdTransfersSet.erase(tx.GetHash());
 
@@ -284,7 +284,7 @@ void::CTxMemPool::removeInternal(
                 }
             }
 
-            for(const auto& sc: tx.vsc_ccout) {
+            for(const auto& sc: tx.GetVscCcOut()) {
                 assert(mapSidechains.count(sc.scId) != 0);
                 mapSidechains.at(sc.scId).scCreationTxHash.SetNull();
 
@@ -511,7 +511,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
         }
     }
 
-    for(const auto& sc: tx.vsc_ccout) {
+    for(const auto& sc: tx.GetVscCcOut()) {
         if(hasSidechainCreationTx(sc.scId)) {
             const uint256& scRedeclarationHash = mapSidechains[sc.scId].scCreationTxHash;
             const CTransaction &scReDeclarationTx = mapTx[scRedeclarationHash].GetTx();
@@ -632,7 +632,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             i++;
         }
 
-        for(const auto& scCreation : tx.vsc_ccout) {
+        for(const auto& scCreation : tx.GetVscCcOut()) {
             //sc creation must be duly recorded in mapSidechain
             assert(mapSidechains.count(scCreation.scId) != 0);
             assert(mapSidechains.at(scCreation.scId).scCreationTxHash == tx.GetHash());
@@ -644,7 +644,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             assert(mapSidechains.at(scCreation.scId).backwardCertificate.IsNull());
         }
 
-        for(const auto& fwd: tx.vft_ccout) {
+        for(const auto& fwd: tx.GetVftCcOut()) {
             //fwd must be duly recorded in mapSidechain
             assert(mapSidechains.count(fwd.scId) != 0);
             const auto& fwdPos = mapSidechains.at(fwd.scId).fwdTransfersSet.find(tx.GetHash());
@@ -896,7 +896,7 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
         //build sidechain from txs in mempool
         const uint256& scCreationHash = mempool.mapSidechains.at(scId).scCreationTxHash;
         const CTransaction & scCreationTx = mempool.mapTx.at(scCreationHash).GetTx();
-        for (const auto& scCreation : scCreationTx.vsc_ccout) {
+        for (const auto& scCreation : scCreationTx.GetVscCcOut()) {
             if (scId == scCreation.scId) {
                 //info.creationBlockHash doesn't exist here!
                 info.creationBlockHeight = -1; //default null value for creationBlockHeight
@@ -913,7 +913,7 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
     if (mempool.mapSidechains.count(scId)) {
         for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet) {
             const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
-            for (const auto& fwdAmount : fwdTx.vft_ccout)
+            for (const auto& fwdAmount : fwdTx.GetVftCcOut())
                 if (scId == fwdAmount.scId)
                     info.mImmatureAmounts[-1] += fwdAmount.nValue;
         }

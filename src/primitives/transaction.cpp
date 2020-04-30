@@ -308,7 +308,7 @@ CMutableTransactionBase::CMutableTransactionBase() :
 CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(), nLockTime(0) {}
 
 CMutableTransaction::CMutableTransaction(const CTransaction& tx) :
-    vsc_ccout(tx.vsc_ccout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout), nLockTime(tx.GetLockTime()),
+    vsc_ccout(tx.GetVscCcOut()), vcl_ccout(tx.GetVclCcOut()), vft_ccout(tx.GetVftCcOut()), nLockTime(tx.GetLockTime()),
     vjoinsplit(tx.GetVjoinsplit()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     nVersion = tx.nVersion;

@@ -273,7 +273,7 @@ UniValue mempoolToJSON(bool fVerbose = false)
                 if (mempool.exists(txin.prevout.hash))
                     setDepends.insert(txin.prevout.hash.ToString());
             }
-            for (const auto& ft: tx.vft_ccout)
+            for (const auto& ft: tx.GetVftCcOut())
             {
                 if (mempool.hasSidechainCreationTx(ft.scId))
                 {

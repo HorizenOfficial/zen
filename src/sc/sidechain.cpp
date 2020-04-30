@@ -47,7 +47,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
 
     static const int SC_MIN_WITHDRAWAL_EPOCH_LENGTH = getScMinWithdrawalEpochLength();
 
-    for (const auto& sc : tx.vsc_ccout)
+    for (const auto& sc : tx.GetVscCcOut())
     {
         if (sc.withdrawalEpochLength < SC_MIN_WITHDRAWAL_EPOCH_LENGTH)
         {
@@ -66,7 +66,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
         }
     }
 
-    for (const auto& ft : tx.vft_ccout)
+    for (const auto& ft : tx.GetVftCcOut())
     {
         if (!ft.CheckAmountRange(cumulatedAmount) )
         {
@@ -82,7 +82,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
 
 bool Sidechain::anyForwardTransaction(const CTransaction& tx, const uint256& scId)
 {
-    BOOST_FOREACH(const auto& fwd, tx.vft_ccout)
+    BOOST_FOREACH(const auto& fwd, tx.GetVftCcOut())
     {
         if (fwd.scId == scId)
         {
@@ -94,7 +94,7 @@ bool Sidechain::anyForwardTransaction(const CTransaction& tx, const uint256& scI
 
 bool Sidechain::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
 {
-    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
+    BOOST_FOREACH(const auto& sc, tx.GetVscCcOut())
     {
         if (sc.scId == scId)
         {
