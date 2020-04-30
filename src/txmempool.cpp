@@ -832,7 +832,7 @@ void CTxMemPool::PrioritiseTransaction(const uint256& hash, const std::string& s
     LogPrintf("PrioritiseTransaction: %s priority += %f, fee += %d\n", strHash, dPriorityDelta, FormatMoney(nFeeDelta));
 }
 
-void CTxMemPool::ApplyDeltas(const uint256 hash, double &dPriorityDelta, CAmount &nFeeDelta)
+void CTxMemPool::ApplyDeltas(const uint256& hash, double &dPriorityDelta, CAmount &nFeeDelta)
 {
     LOCK(cs);
     std::map<uint256, std::pair<double, CAmount> >::iterator pos = mapDeltas.find(hash);
@@ -843,7 +843,7 @@ void CTxMemPool::ApplyDeltas(const uint256 hash, double &dPriorityDelta, CAmount
     nFeeDelta += deltas.second;
 }
 
-void CTxMemPool::ClearPrioritisation(const uint256 hash)
+void CTxMemPool::ClearPrioritisation(const uint256& hash)
 {
     LOCK(cs);
     mapDeltas.erase(hash);
