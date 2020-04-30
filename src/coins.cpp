@@ -834,22 +834,14 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
-    // a certificate can not be received after a fixed amount of blocks (for the time being it is epoch length / 5) from the end of epoch (TODO)
-    int maxHeight = scInfo.StartHeightForEpoch(cert.epochNumber+1) + scInfo.SafeguardMargin();
-    if (maxHeight < 0)
-    {
-        LogPrintf("ERROR: certificate %s, can not calculate max recv height\n", certHash.ToString());
-        return state.Invalid(error("can not calculate max recv height for cert"),
-                     REJECT_INVALID, "sidechain-certificate-error");
-    }
-
-    if (maxHeight < nHeight)
-    {
-        LogPrintf("ERROR: delayed certificate[%s], max height for receiving = %d, active height = %d\n",
-            certHash.ToString(), maxHeight, chainActive.Height());
+    sidechainHandler.setView(*this);
+    if (sidechainHandler.isSidechainCeasedAtHeight(cert.GetScId(), nHeight)!= sidechainState::ALIVE) {
+        LogPrintf("ERROR: certificate[%s] cannot be accepted, sidechain [%s] already ceased at active height = %d\n",
+            certHash.ToString(), cert.GetScId().ToString(), chainActive.Height());
         return state.Invalid(error("received a delayed cert"),
                      REJECT_INVALID, "sidechain-certificate-delayed");
     }
+
 
     if (cert.totalAmount > scInfo.balance)
     {

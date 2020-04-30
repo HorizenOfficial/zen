@@ -63,6 +63,7 @@ BlockTimeMap mGlobalForkTips;
 
 BlockMap mapBlockIndex;
 CChain chainActive;
+CSidechainHandler sidechainHandler;
 CBlockIndex *pindexBestHeader = NULL;
 int64_t nTimeBestReceived = 0;
 CWaitableCriticalSection csBestBlock;
@@ -2641,6 +2642,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): could not add sidechain in view: tx[%s]", tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
             }
+
+            //Register newly created sidechains
+            sidechainHandler.setView(view);
+            for (const CTxScCreationOut& scCreation: tx.vsc_ccout) {
+                if (!sidechainHandler.registerSidechain(scCreation.scId, pindex->nHeight))
+                    return state.DoS(100, error("ConnectBlock(): error recording sidechain [%s] in scHandler", scCreation.scId.ToString()),
+                                     REJECT_INVALID, "bad-sc-not-recorded");
+            }
+
         }
 
         BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
@@ -2702,6 +2712,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-sc-cert-not-updated");
         }
 
+        //Register certificate for sidechain
+        if (!sidechainHandler.addCertificate(cert, pindex->nHeight)) {
+            return state.DoS(100, error("ConnectBlock(): Error recording certificate [%s] is scHandler", cert.GetHash().ToString()),
+                             REJECT_INVALID, "bad-sc-cert-not-recorded");
+        }
+
         if (certIdx == 0) {
             // we are processing the first certificate, add the size of the vcert to the offset
             int sz = GetSizeOfCompactSize(block.vcert.size());
@@ -2719,6 +2735,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     } //end of Processing certificates loop
+
+    //remove coiins from ceased sidechain and record them in blockUndo
+    //sidechainHandler.handleCeasingSidechains(blockundo, pindex->nHeight);
 
     if (!view.ApplyMatureBalances(pindex->nHeight, blockundo) )
     {

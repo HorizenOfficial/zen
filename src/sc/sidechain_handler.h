@@ -15,6 +15,7 @@
 class CCoinsViewCache;
 class CSidechain;
 class CScCertificate;
+class CBlockUndo;
 
 enum class sidechainState {
     NOT_APPLICABLE = 0,
@@ -25,25 +26,27 @@ enum class sidechainState {
 class CSidechainHandler
 {
 public:
-    CSidechainHandler(const CCoinsViewCache& _view);
+    CSidechainHandler();
     ~CSidechainHandler() = default;
+    void setView(CCoinsViewCache& _view);
 
-    bool registerSidechain(const uint256& scId);
-    bool addCertificate(const CScCertificate & cert);
+    bool registerSidechain(const uint256& scId, int height);
+    bool addCertificate(const CScCertificate & cert, int height);
 
-    void handleCeasingSidechains();
+    void handleCeasingSidechains(CBlockUndo& blockundo, int height);
+    void restoreCeasedSidechains();
 
     void removeCertificate(const CScCertificate & cert);
     void unregisterSidechain(const uint256& scId);
 
-    sidechainState isSidechainCeased(const uint256& scId);
+    sidechainState isSidechainCeasedAtHeight(const uint256& scId, int height);
 
 private:
-    const CCoinsViewCache & view;
+    CCoinsViewCache * view;
 
     std::set<uint256> registeredScIds;
-    std::map<int, std::set<uint256>> scByCeasingHeight;
-    std::map<uint256, uint256> lastEpochCertsBySc;
+    std::map<int, std::set<uint256>> CeasingSidechains;
+    std::map<uint256, uint256> lastEpochCerts;
 
     typedef std::map<uint256, std::set<uint256>>::const_iterator certMapIter;
     typedef std::map<int, std::set<uint256>>::iterator scMapIter;

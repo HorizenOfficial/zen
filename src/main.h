@@ -36,6 +36,7 @@
 #include <vector>
 
 #include <boost/unordered_map.hpp>
+#include <sc/sidechain_handler.h>
 
 class CBlockIndex;
 class CBlockTreeDB;
@@ -547,6 +548,9 @@ bool ReconsiderBlock(CValidationState& state, CBlockIndex *pindex);
 
 /** The currently-connected chain of blocks. */
 extern CChain chainActive;
+
+/** Global variable regulating coins from terminated sidechains. */
+extern CSidechainHandler sidechainHandler;
 
 /** Global variable that points to the active CCoinsView (protected by cs_main) */
 extern CCoinsViewCache *pcoinsTip;
