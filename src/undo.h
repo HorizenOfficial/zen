@@ -77,13 +77,49 @@ class CTxUndo
 public:
     // undo information for all txins
     std::vector<CTxInUndo> vprevout;
+    uint256 refTx;            //hash of coins from ceased sidechains. It's not needed for ordinary coins and certs
+    unsigned int firstBwtPos; //position of the first bwt.
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(vprevout);
+    size_t GetSerializeSize(int nType, int nVersion) const
+    {
+        CSizeComputer s(nType, nVersion);
+        NCONST_PTR(this)->Serialize(s, nType, nVersion);
+        return s.size();
     }
+
+    template<typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const
+    {
+        if (!refTx.IsNull()) {
+            WriteCompactSize(s, ceasedCoinsmarker);
+            ::Serialize(s, (vprevout), nType, nVersion);
+            ::Serialize(s, (refTx), nType, nVersion);
+            ::Serialize(s, (firstBwtPos), nType, nVersion);
+        } else {
+            ::Serialize(s, (vprevout), nType, nVersion);
+        }
+    }
+
+    template<typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion)
+    {
+        // reading from data stream to memory
+        vprevout.clear();
+        refTx.SetNull();
+
+        unsigned int nSize = ReadCompactSize(s);
+        if (nSize == ceasedCoinsmarker) {
+            ::Unserialize(s, (vprevout), nType, nVersion);
+            ::Unserialize(s, refTx, nType, nVersion);
+            ::Unserialize(s, (firstBwtPos), nType, nVersion);
+        } else {
+            ::AddEntriesInVector(s, vprevout, nType, nVersion, nSize);
+        }
+    };
+
+
+private:
+    static const uint16_t ceasedCoinsmarker = 0xfec1;
 };
 
 struct ScUndoData

@@ -124,6 +124,7 @@ void CSidechainHandler::handleCeasingSidechains(CBlockUndo& blockUndo, int heigh
         CCoinsModifier coins = view->ModifyCoins(certHash);
 
         //null all bwt outputs and add related txundo in block
+        bool foundFirstBwt = false;
         for(unsigned int pos = 0; pos < coins->vout.size(); ++pos)
         {
             if (!coins->IsAvailable(pos))
@@ -131,21 +132,70 @@ void CSidechainHandler::handleCeasingSidechains(CBlockUndo& blockUndo, int heigh
             if (!coins->vout[pos].isFromBackwardTransfer)
                 continue;
 
-            blockUndo.vtxundo.push_back(CTxUndo());
+            if (!foundFirstBwt) {
+                blockUndo.vtxundo.push_back(CTxUndo());
+                blockUndo.vtxundo.back().refTx = certHash;
+                blockUndo.vtxundo.back().firstBwtPos = pos;
+                foundFirstBwt = true;
+            }
+
             blockUndo.vtxundo.back().vprevout.push_back(CTxInUndo(coins->vout[pos]));
             coins->Spend(pos);
-            if (coins->vout.size() == 0)
-            {
+            if (coins->vout.size() == 0) {
                 CTxInUndo& undo = blockUndo.vtxundo.back().vprevout.back();
-                undo.nHeight = coins->nHeight;
-                undo.fCoinBase = coins->fCoinBase;
-                undo.nVersion = coins->nVersion;
+                undo.nHeight    = coins->nHeight;
+                undo.fCoinBase  = coins->fCoinBase;
+                undo.nVersion   = coins->nVersion;
                 undo.originScId = coins->originScId;
             }
         }
     }
 
     return;
+}
+
+bool CSidechainHandler::restoreCeasedSidechains(const CBlockUndo& blockundo)
+{
+    bool fClean = true;
+    if(blockundo.vtxundo.size() != 1)
+        fClean = fClean && error("%s: malformed undo data", __func__);
+
+    const uint256& coinHash = blockundo.vtxundo.at(0).refTx;
+    if(coinHash.IsNull())
+    {
+        fClean = fClean && error("%s: malformed undo data, ", __func__);
+        return fClean;
+    }
+    CCoinsModifier coins = view->ModifyCoins(coinHash);
+    unsigned int firstBwtPos = blockundo.vtxundo.at(0).firstBwtPos;
+
+    const std::vector<CTxInUndo>& outVec = blockundo.vtxundo.at(0).vprevout;
+
+    for (size_t bwtOutPos = outVec.size(); bwtOutPos-- > 0;)
+    {
+        if (outVec.at(bwtOutPos).nHeight != 0)
+        {
+            if(!coins->IsPruned())
+                fClean = fClean && error("%s: undo data overwriting existing transaction", __func__);
+            coins->Clear();
+            coins->fCoinBase  = outVec.at(bwtOutPos).fCoinBase;
+            coins->nHeight    = outVec.at(bwtOutPos).nHeight;
+            coins->nVersion   = outVec.at(bwtOutPos).nVersion;
+            coins->originScId = outVec.at(bwtOutPos).originScId;
+        } else
+        {
+            if(coins->IsPruned())
+                fClean = fClean && error("%s: undo data adding output to missing transaction", __func__);
+        }
+
+        if(coins->IsAvailable(firstBwtPos + bwtOutPos))
+            fClean = fClean && error("%s: undo data overwriting existing output", __func__);
+        if (coins->vout.size() < (firstBwtPos + bwtOutPos+1))
+            coins->vout.resize(firstBwtPos + bwtOutPos+1);
+        coins->vout.at(firstBwtPos + bwtOutPos) = outVec.at(bwtOutPos).txout;
+    }
+
+    return fClean;
 }
 
 sidechainState CSidechainHandler::isSidechainCeasedAtHeight(const uint256& scId, int height)

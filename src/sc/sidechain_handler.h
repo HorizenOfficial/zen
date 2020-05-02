@@ -34,7 +34,7 @@ public:
     bool addCertificate(const CScCertificate & cert, int height);
 
     void handleCeasingSidechains(CBlockUndo& blockundo, int height);
-    void restoreCeasedSidechains();
+    bool restoreCeasedSidechains(const CBlockUndo& blockundo);
 
     void removeCertificate(const CScCertificate & cert);
     void unregisterSidechain(const uint256& scId);
