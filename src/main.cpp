@@ -2322,6 +2322,20 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         return error("DisconnectBlock(): sc and undo data inconsistent");
     }
 
+//    sidechainHandler.setView(view);
+//    sidechainHandler.restoreCeasedSidechains(blockUndo);
+
+    // undo certificates in reverse order
+    for (int i = block.vcert.size() - 1; i >= 0; i--) {
+        const CScCertificate& cert = block.vcert[i];
+        //sidechainHandler.removeCertificate(cert);
+
+        if (!view.RevertCertOutputs(cert) ) {
+            LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
+            return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
+        }
+    }
+
     // undo transactions in reverse order
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
         const CTransaction &tx = block.vtx[i];
@@ -2362,6 +2376,10 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             return error("DisconnectBlock(): sc creation can not be reverted: data inconsistent");
         }
 
+//        for (const CTxScCreationOut& scCreation: tx.vsc_ccout) {
+//            sidechainHandler.unregisterSidechain(scCreation.scId);
+//        }
+
         // restore inputs
         if (i > 0) { // not coinbases
             const CTxUndo &txundo = blockUndo.vtxundo[i-1];
@@ -2373,15 +2391,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 if (!ApplyTxInUndo(undo, view, out))
                     fClean = false;
             }
-        }
-    }
-
-    // undo certificates in reverse order
-    for (int i = block.vcert.size() - 1; i >= 0; i--) {
-        const CScCertificate& cert = block.vcert[i];
-        if (!view.RevertCertOutputs(cert) ) {
-            LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
-            return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
         }
     }
 
@@ -2643,13 +2652,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  REJECT_INVALID, "bad-sc-tx");
             }
 
-            //Register newly created sidechains
-            sidechainHandler.setView(view);
-            for (const CTxScCreationOut& scCreation: tx.vsc_ccout) {
-                if (!sidechainHandler.registerSidechain(scCreation.scId, pindex->nHeight))
-                    return state.DoS(100, error("ConnectBlock(): error recording sidechain [%s] in scHandler", scCreation.scId.ToString()),
-                                     REJECT_INVALID, "bad-sc-not-recorded");
-            }
+//            //Register newly created sidechains
+//            sidechainHandler.setView(view);
+//            for (const CTxScCreationOut& scCreation: tx.vsc_ccout) {
+//                if (!sidechainHandler.registerSidechain(scCreation.scId, pindex->nHeight))
+//                    return state.DoS(100, error("ConnectBlock(): error recording sidechain [%s] in scHandler", scCreation.scId.ToString()),
+//                                     REJECT_INVALID, "bad-sc-not-recorded");
+//            }
 
         }
 
@@ -2712,11 +2721,11 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-sc-cert-not-updated");
         }
 
-        //Register certificate for sidechain
-        if (!sidechainHandler.addCertificate(cert, pindex->nHeight)) {
-            return state.DoS(100, error("ConnectBlock(): Error recording certificate [%s] is scHandler", cert.GetHash().ToString()),
-                             REJECT_INVALID, "bad-sc-cert-not-recorded");
-        }
+//        //Register certificate for sidechain
+//        if (!sidechainHandler.addCertificate(cert, pindex->nHeight)) {
+//            return state.DoS(100, error("ConnectBlock(): Error recording certificate [%s] is scHandler", cert.GetHash().ToString()),
+//                             REJECT_INVALID, "bad-sc-cert-not-recorded");
+//        }
 
         if (certIdx == 0) {
             // we are processing the first certificate, add the size of the vcert to the offset
