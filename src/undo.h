@@ -15,6 +15,9 @@
  *  Contains the prevout's CTxOut being spent, and if this was the
  *  last output of the affected transaction, its metadata as well
  *  (coinbase or not, height, transaction version, originScid and isFromBackwardTransfer)
+ *  Following the introduction of sidechain certificates and backward transfer, you need to
+ *  serialize the whole metadata in case of a backward transfer in order to be able to duly
+ *  reconstruct the isFromBackwardTransfer flag
  */
 class CTxInUndo
 {

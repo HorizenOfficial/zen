@@ -141,7 +141,7 @@ void CSidechainHandler::handleCeasingSidechains(CBlockUndo& blockUndo, int heigh
 
             blockUndo.vtxundo.back().vprevout.push_back(CTxInUndo(coins->vout[pos]));
             coins->Spend(pos);
-            if (coins->vout.size() == 0) {
+            if (coins->vout.size() == 0 || coins->vout[pos].isFromBackwardTransfer) {
                 CTxInUndo& undo = blockUndo.vtxundo.back().vprevout.back();
                 undo.nHeight    = coins->nHeight;
                 undo.fCoinBase  = coins->fCoinBase;

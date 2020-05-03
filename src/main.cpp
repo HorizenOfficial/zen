@@ -1963,7 +1963,7 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
             // mark an outpoint spent, and construct undo information
             txundo.vprevout.push_back(CTxInUndo(coins->vout[nPos]));
             coins->Spend(nPos);
-            if (coins->vout.size() == 0) {
+            if (coins->vout.size() == 0 || coins->vout[nPos].isFromBackwardTransfer) {
                 CTxInUndo& undo = txundo.vprevout.back();
                 undo.nHeight = coins->nHeight;
                 undo.fCoinBase = coins->fCoinBase;
