@@ -492,7 +492,8 @@ TEST_F(SidechainHandlerTestSuite, RestoreFullyNulledCeasedCoins) {
     ASSERT_FALSE(view->HaveCoins(cert.GetHash()));
 
     //test
-    scHandler->restoreCeasedSidechains(blockUndo);
+    for (const CTxUndo& ceasedCoinUndo: blockUndo.vtxundo)
+        scHandler->restoreCeasedSidechains(ceasedCoinUndo);
 
     //checks
     CCoins rebuiltCoin;
@@ -543,7 +544,8 @@ TEST_F(SidechainHandlerTestSuite, RestorePartiallyNulledCeasedCoins) {
     scHandler->handleCeasingSidechains(blockUndo, chainActive.Height());
 
     //test
-    scHandler->restoreCeasedSidechains(blockUndo);
+    for (const CTxUndo& ceasedCoinUndo: blockUndo.vtxundo)
+        scHandler->restoreCeasedSidechains(ceasedCoinUndo);
 
     //checks
     CCoins rebuiltCoin;

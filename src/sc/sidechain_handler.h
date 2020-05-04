@@ -16,6 +16,7 @@ class CCoinsViewCache;
 class CSidechain;
 class CScCertificate;
 class CBlockUndo;
+class CTxUndo;
 
 enum class sidechainState {
     NOT_APPLICABLE = 0,
@@ -34,7 +35,7 @@ public:
     bool addCertificate(const CScCertificate & cert, int height);
 
     void handleCeasingSidechains(CBlockUndo& blockundo, int height);
-    bool restoreCeasedSidechains(const CBlockUndo& blockundo);
+    bool restoreCeasedSidechains(const CTxUndo& ceasedCertUndo);
 
     void removeCertificate(const CScCertificate & cert);
     void unregisterSidechain(const uint256& scId);

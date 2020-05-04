@@ -2322,13 +2322,14 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         return error("DisconnectBlock(): sc and undo data inconsistent");
     }
 
-//    sidechainHandler.setView(view);
-//    sidechainHandler.restoreCeasedSidechains(blockUndo);
+    sidechainHandler.setView(view);
+    for (size_t idx = blockUndo.vtxundo.size(); idx-- > (block.vcert.size() + block.vtx.size());)
+        sidechainHandler.restoreCeasedSidechains(blockUndo.vtxundo[idx]);
 
     // undo certificates in reverse order
     for (int i = block.vcert.size() - 1; i >= 0; i--) {
         const CScCertificate& cert = block.vcert[i];
-        //sidechainHandler.removeCertificate(cert);
+        sidechainHandler.removeCertificate(cert);
 
         if (!view.RevertCertOutputs(cert) ) {
             LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
@@ -2652,13 +2653,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  REJECT_INVALID, "bad-sc-tx");
             }
 
-//            //Register newly created sidechains
-//            sidechainHandler.setView(view);
-//            for (const CTxScCreationOut& scCreation: tx.vsc_ccout) {
-//                if (!sidechainHandler.registerSidechain(scCreation.scId, pindex->nHeight))
-//                    return state.DoS(100, error("ConnectBlock(): error recording sidechain [%s] in scHandler", scCreation.scId.ToString()),
-//                                     REJECT_INVALID, "bad-sc-not-recorded");
-//            }
+            //Register newly created sidechains
+            sidechainHandler.setView(view);
+            for (const CTxScCreationOut& scCreation: tx.vsc_ccout) {
+                if (!sidechainHandler.registerSidechain(scCreation.scId, pindex->nHeight))
+                    return state.DoS(100, error("ConnectBlock(): error recording sidechain [%s] in sidechainHandler", scCreation.scId.ToString()),
+                                     REJECT_INVALID, "bad-sc-not-recorded");
+            }
 
         }
 
@@ -2721,11 +2722,11 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-sc-cert-not-updated");
         }
 
-//        //Register certificate for sidechain
-//        if (!sidechainHandler.addCertificate(cert, pindex->nHeight)) {
-//            return state.DoS(100, error("ConnectBlock(): Error recording certificate [%s] is scHandler", cert.GetHash().ToString()),
-//                             REJECT_INVALID, "bad-sc-cert-not-recorded");
-//        }
+        //Register certificate for sidechain
+        if (!sidechainHandler.addCertificate(cert, pindex->nHeight)) {
+            return state.DoS(100, error("ConnectBlock(): Error recording certificate [%s] is sidechainHandler", cert.GetHash().ToString()),
+                             REJECT_INVALID, "bad-sc-cert-not-recorded");
+        }
 
         if (certIdx == 0) {
             // we are processing the first certificate, add the size of the vcert to the offset

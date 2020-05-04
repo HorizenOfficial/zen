@@ -169,22 +169,20 @@ void CSidechainHandler::handleCeasingSidechains(CBlockUndo& blockUndo, int heigh
     return;
 }
 
-bool CSidechainHandler::restoreCeasedSidechains(const CBlockUndo& blockundo)
+bool CSidechainHandler::restoreCeasedSidechains(const CTxUndo& ceasedCertUndo)
 {
     bool fClean = true;
-    if(blockundo.vtxundo.size() != 1)
-        fClean = fClean && error("%s: malformed undo data", __func__);
 
-    const uint256& coinHash = blockundo.vtxundo.at(0).refTx;
+    const uint256& coinHash = ceasedCertUndo.refTx;
     if(coinHash.IsNull())
     {
         fClean = fClean && error("%s: malformed undo data, ", __func__);
         return fClean;
     }
     CCoinsModifier coins = view->ModifyCoins(coinHash);
-    unsigned int firstBwtPos = blockundo.vtxundo.at(0).firstBwtPos;
+    unsigned int firstBwtPos = ceasedCertUndo.firstBwtPos;
 
-    const std::vector<CTxInUndo>& outVec = blockundo.vtxundo.at(0).vprevout;
+    const std::vector<CTxInUndo>& outVec = ceasedCertUndo.vprevout;
 
     for (size_t bwtOutPos = outVec.size(); bwtOutPos-- > 0;)
     {
