@@ -251,7 +251,7 @@ TEST_F(SidechainTestSuite, NewScCreationsHaveTheRightDependencies) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(uint256S("1492"), CAmount(1953));
 
     //test
-    bool res = sidechainsView->HaveScRequirements(aTransaction);
+    bool res = sidechainsView->HaveScRequirements(aTransaction, int(1789));
 
     //checks
     EXPECT_TRUE(res);
@@ -261,12 +261,12 @@ TEST_F(SidechainTestSuite, DuplicatedScCreationsHaveNotTheRightDependencies) {
     uint256 scId = uint256S("1492");
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1953));
     CBlock aBlock;
-    sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, int(1789));
 
     CTransaction duplicatedTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1815));
 
     //test
-    bool res = sidechainsView->HaveScRequirements(duplicatedTx);
+    bool res = sidechainsView->HaveScRequirements(duplicatedTx, /*height*/int(1789));
 
     //checks
     EXPECT_FALSE(res);
@@ -274,24 +274,29 @@ TEST_F(SidechainTestSuite, DuplicatedScCreationsHaveNotTheRightDependencies) {
 
 TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsHaveTheRightDependencies) {
     uint256 scId = uint256S("1492");
+    int creationHeight = 1789;
+    chainSettingUtils::GenerateChainActive(creationHeight);
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1953));
     CBlock aBlock;
-    sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, creationHeight);
 
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
 
     //test
-    bool res = sidechainsView->HaveScRequirements(aTransaction);
+    bool res = sidechainsView->HaveScRequirements(aTransaction, creationHeight);
 
     //checks
     EXPECT_TRUE(res);
 }
 
 TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsHaveNotTheRightDependencies) {
+    int fwdHeight = 1789;
+    chainSettingUtils::GenerateChainActive(fwdHeight);
+
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(uint256S("1492"), CAmount(1815));
 
     //test
-    bool res = sidechainsView->HaveScRequirements(aTransaction);
+    bool res = sidechainsView->HaveScRequirements(aTransaction, fwdHeight);
 
     //checks
     EXPECT_FALSE(res);

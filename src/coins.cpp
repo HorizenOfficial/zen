@@ -804,7 +804,7 @@ int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
 int CSidechain::SafeguardMargin() const { return -1; }
 bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash) {return true;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state) {return true;}
-bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx) { return true;}
+bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height) { return true;}
 #else
 
 #include "consensus/validation.h"
@@ -913,7 +913,7 @@ bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const u
     return true;
 }
 
-bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx)
+bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
 {
     if (tx.IsCoinBase())
         return true;
@@ -938,16 +938,26 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx)
     for (const auto& ft: tx.vft_ccout)
     {
         const uint256& scId = ft.scId;
-        if (!HaveSidechain(scId) && !Sidechain::hasScCreationOutput(tx, scId))
+        if (HaveSidechain(scId))
         {
-            LogPrint("sc", "%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",
-                __func__, __LINE__, txHash.ToString(), scId.ToString() );
-            return false;
-
+            sidechainHandler.setView(*this);
+            if (sidechainHandler.isSidechainCeasedAtHeight(scId, height)!= sidechainState::ALIVE) {
+                LogPrintf("ERROR: tx[%s] tries to send funds to scId[%s] already ceased at height = %d\n",
+                            txHash.ToString(), scId.ToString(), height);
+                return false;
+                }
+        } else {
+            if (!Sidechain::hasScCreationOutput(tx, scId)) {
+                LogPrint("sc", "%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",
+                        __func__, __LINE__, txHash.ToString(), scId.ToString() );
+                return false;
+            }
         }
+
         LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
     }
+
     return true;
 }
 

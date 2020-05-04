@@ -1430,7 +1430,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             }
 
             // are the sidechains dependencies available?
-            if (!view.HaveScRequirements(tx))
+            if (!view.HaveScRequirements(tx, nextBlockHeight))
             {
                 return state.Invalid(error("AcceptToMemoryPool: sidechain is redeclared or coins are forwarded to unknown sidechain"),
                                     REJECT_INVALID, "bad-sc-tx");
@@ -2611,7 +2611,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
                                  REJECT_INVALID, "bad-txns-inputs-missingorspent");
 
-        if (!view.HaveScRequirements(tx))
+        if (!view.HaveScRequirements(tx, pindex->nHeight))
             return state.Invalid(error("ConnectBlock: sidechain is redeclared or coins are forwarded to unknown sidechain"),
                                         REJECT_INVALID, "bad-sc-tx");
 
