@@ -4868,7 +4868,9 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     // optional parameters (TODO to be handled since they will be probabl useful to SBH wallet)
     CBitcoinAddress fromaddress;
     CBitcoinAddress changeaddress;
-    int nMinDepth = 1;
+    
+    // allow use of unconfirmed coins
+    int nMinDepth = 0; //1; 
 
 #if 0        
     BOOST_FOREACH (const auto& ccRecipient, vecSend)

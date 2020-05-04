@@ -430,8 +430,8 @@ public:
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
         return (a.nValue                 == b.nValue &&
-                a.scriptPubKey           == b.scriptPubKey /* &&
-                a.isFromBackwardTransfer == b.isFromBackwardTransfer */);
+                a.scriptPubKey           == b.scriptPubKey &&
+                a.isFromBackwardTransfer == b.isFromBackwardTransfer);
     }
 
     friend bool operator!=(const CTxOut& a, const CTxOut& b)

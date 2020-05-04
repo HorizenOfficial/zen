@@ -2370,6 +2370,55 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     if (blockUndo.vtxundo.size() + 1 != block.vtx.size() + block.vcert.size() )
         return error("DisconnectBlock(): block and undo data inconsistent");
 
+    // not including coinbase
+    const int certOffset = block.vtx.size() - 1;
+
+    // undo certificates in reverse order
+    for (int i = block.vcert.size() - 1; i >= 0; i--) {
+        const CScCertificate& cert = block.vcert[i];
+        uint256 hash = cert.GetHash();
+
+        LogPrint("cert", "%s():%d - reverting outs of cert[%s]\n", __func__, __LINE__, hash.ToString());
+
+        // Check that all outputs are available and match the outputs in the block itself
+        // exactly.
+        {
+            CCoinsModifier outs = view.ModifyCoins(hash);
+            outs->ClearUnspendable();
+ 
+            CCoins outsBlock(cert, pindex->nHeight);
+            // The CCoins serialization does not serialize negative numbers.
+            // No network rules currently depend on the version here, so an inconsistency is harmless
+            // but it must be corrected before txout nversion ever influences a network rule.
+            if (outsBlock.nVersion < 0)
+                outs->nVersion = outsBlock.nVersion;
+            if (*outs != outsBlock) {
+                fClean = fClean && error("DisconnectBlock(): added transaction mismatch? database corrupted");
+                LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, hash.ToString());
+            }
+  
+            // remove outputs
+            LogPrint("cert", "%s():%d - clearing outs of tx[%s]\n", __func__, __LINE__, hash.ToString());
+            outs->Clear();
+        }
+
+        if (!view.RevertCertOutputs(cert) ) {
+            LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
+            return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
+        }
+
+        // restore inputs
+        const CTxUndo &certundo = blockUndo.vtxundo[certOffset + i];
+        if (certundo.vprevout.size() != cert.GetVin().size())
+            return error("DisconnectBlock(): certificate and undo data inconsistent");
+        for (unsigned int j = cert.GetVin().size(); j-- > 0;) {
+            const COutPoint &out = cert.GetVin()[j].prevout;
+            const CTxInUndo &undo = certundo.vprevout[j];
+            if (!ApplyTxInUndo(undo, view, out))
+                fClean = false;
+        }
+    }
+
     LogPrint("sc", "%s():%d - restoring sc coins if any\n", __func__, __LINE__);
     if (!view.RestoreImmatureBalances(pindex->nHeight, blockUndo) )
     {
@@ -2429,55 +2478,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 if (!ApplyTxInUndo(undo, view, out))
                     fClean = false;
             }
-        }
-    }
-
-    // not including coinbase
-    const int certOffset = block.vtx.size() - 1;
-
-    // undo certificates in reverse order
-    for (int i = block.vcert.size() - 1; i >= 0; i--) {
-        const CScCertificate& cert = block.vcert[i];
-        uint256 hash = cert.GetHash();
-
-        LogPrint("cert", "%s():%d - reverting outs of cert[%s]\n", __func__, __LINE__, hash.ToString());
-
-        // Check that all outputs are available and match the outputs in the block itself
-        // exactly.
-        {
-            CCoinsModifier outs = view.ModifyCoins(hash);
-            outs->ClearUnspendable();
- 
-            CCoins outsBlock(cert, pindex->nHeight);
-            // The CCoins serialization does not serialize negative numbers.
-            // No network rules currently depend on the version here, so an inconsistency is harmless
-            // but it must be corrected before txout nversion ever influences a network rule.
-            if (outsBlock.nVersion < 0)
-                outs->nVersion = outsBlock.nVersion;
-            if (*outs != outsBlock) {
-                fClean = fClean && error("DisconnectBlock(): added transaction mismatch? database corrupted");
-                LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, hash.ToString());
-            }
-  
-            // remove outputs
-            LogPrint("cert", "%s():%d - clearing outs of tx[%s]\n", __func__, __LINE__, hash.ToString());
-            outs->Clear();
-        }
-
-        if (!view.RevertCertOutputs(cert) ) {
-            LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
-            return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
-        }
-
-        // restore inputs
-        const CTxUndo &certundo = blockUndo.vtxundo[certOffset + i];
-        if (certundo.vprevout.size() != cert.GetVin().size())
-            return error("DisconnectBlock(): certificate and undo data inconsistent");
-        for (unsigned int j = cert.GetVin().size(); j-- > 0;) {
-            const COutPoint &out = cert.GetVin()[j].prevout;
-            const CTxInUndo &undo = certundo.vprevout[j];
-            if (!ApplyTxInUndo(undo, view, out))
-                fClean = false;
         }
     }
 
@@ -2596,6 +2596,98 @@ static int64_t nTimeIndex = 0;
 static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 
+bool VerifyTxDependanciesFromCerts(const CBlock& block, int nHeight, std::vector<CScCertificate>& vDepCerts)
+{
+    vDepCerts.clear();
+
+    // no checks if no certs
+    if (block.vcert.size() == 0)
+        return true;
+
+    // temporary cache for checking consistency of inpts
+    CCoinsViewCache viewTemp(pcoinsTip);
+
+    for (unsigned int txIdx = 0; txIdx < block.vtx.size(); txIdx++) // Processing transactions loop
+    {
+        const CTransaction &tx = block.vtx[txIdx];
+
+        for(const CTxIn& txin: tx.GetVin())
+        {
+            if (tx.IsCoinBase())
+                 continue;
+
+            LogPrint("sc", "%s():%d - processing  tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString());
+
+            const CCoins* coins = viewTemp.AccessCoins(txin.prevout.hash);
+            if (!coins || !coins->IsAvailable(txin.prevout.n))
+            {
+                // no inputs found for this tx, check among certificates in this block
+                bool depCertFound = false;
+
+                for (const CScCertificate& cert : block.vcert)
+                {
+                    LogPrint("sc", "%s():%d - processing cert[%s] for txin[%s/%d]\n",
+                        __func__, __LINE__, cert.GetHash().ToString(), txin.prevout.hash.ToString(), txin.prevout.n);
+
+                    if (txin.prevout.hash == cert.GetHash())
+                    {
+                        // provided that it is a regular output, check if this is the input we are looking for 
+                        if (txin.prevout.n < cert.GetVout().size() &&
+                            !cert.GetVout().at(txin.prevout.n).isFromBackwardTransfer)
+                        {
+                            // the right candidate, but just check that if this certificate misses some input, it can
+                            // not be the output of a tx which is this or past the one we are processing in the block.
+                            // We allow dependancies of this cert from other certs though
+                            for(const CTxIn& certIn: cert.GetVin())
+                            {
+                                const CCoins* certInputCoins = viewTemp.AccessCoins(certIn.prevout.hash);
+                                if (!certInputCoins || !certInputCoins->IsAvailable(certIn.prevout.n))
+                                {
+                                    for (unsigned int txNextIdx = txIdx; txNextIdx < block.vtx.size(); txNextIdx++)
+                                    {
+                                        const CTransaction &txNext = block.vtx[txNextIdx];
+                                        if (certIn.prevout.hash == txNext.GetHash())
+                                        {
+                                            LogPrint("sc", "%s():%d - ERROR: cert[%s] depends on tx[%s]\n",
+                                                __func__, __LINE__, cert.GetHash().ToString(), txNext.GetHash().ToString());
+                                            return false;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // ok we have a cert output spendable for this tx, add to the view
+                            LogPrint("sc", "%s():%d - Adding [%s] outputs to view\n", __func__, __LINE__, cert.GetHash().ToString());
+                            viewTemp.ModifyCoins(cert.GetHash())->FromTx(cert, nHeight);
+                            vDepCerts.push_back(cert);
+                            depCertFound = true;
+                            break;
+                        }
+                    }
+                }
+                if (!depCertFound)
+                {
+                    // nor in view or in cert set
+                    LogPrint("sc", "%s():%d - ERROR: could not find input of tx[%s]\n",
+                        __func__, __LINE__, tx.GetHash().ToString());
+                    return false;
+                }
+                else
+                {
+                    // we now have this input in view, go on with others
+                    const CCoins* c = viewTemp.AccessCoins(txin.prevout.hash);
+                    assert (c && c->IsAvailable(txin.prevout.n));
+                }
+            }
+        }
+        CValidationState unused;
+        // add the outputs of this tx to the view
+        UpdateCoins(tx, unused, viewTemp, nHeight);
+    }
+
+    return true;
+}
+
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
     const CChain& chain, bool fJustCheck, bool fCheckScTxesCommitment)
 {
@@ -2644,6 +2736,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             return state.DoS(100, error("ConnectBlock(): tried to overwrite transaction"),
                              REJECT_INVALID, "bad-txns-BIP30");
     }
+    BOOST_FOREACH(const CScCertificate& cert, block.vcert) {
+        const CCoins* coins = view.AccessCoins(cert.GetHash());
+        if (coins && !coins->IsPruned())
+            return state.DoS(100, error("ConnectBlock(): tried to overwrite certificate"),
+                             REJECT_INVALID, "bad-txns-BIP30");
+    }
+
 
     // Started enforcing CHECKBLOCKATHEIGHT from block.nVersion=4, that means for all the blocks
     unsigned int flags = SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT;
@@ -2683,6 +2782,17 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     SidechainTxsCommitmentBuilder scCommitmentBuilder;
      
+    std::vector<CScCertificate> vDepCerts;
+    if (!VerifyTxDependanciesFromCerts(block, pindex->nHeight, vDepCerts))
+    {
+        return state.DoS(100, error("ConnectBlock(): invalid block"),
+                            REJECT_INVALID, "bad-block");
+    }
+    for (auto& cert : vDepCerts)
+    {
+        view.ModifyCoins(cert.GetHash())->FromTx(cert, pindex->nHeight);
+    }
+
     for (unsigned int i = 0; i < block.vtx.size(); i++) // Processing transactions loop
     {
         const CTransaction &tx = block.vtx[i];
@@ -2694,7 +2804,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-blk-sigops");
 
         if (!view.HaveInputs(tx))
-            return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
+            return state.DoS(100, error("ConnectBlock(): tx inputs missing/spent"),
                                  REJECT_INVALID, "bad-txns-inputs-missingorspent");
 
         if (!view.HaveScRequirements(tx))
@@ -2767,7 +2877,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-blk-sigops");
 
         if (!view.HaveInputs(cert))
-            return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
+            return state.DoS(100, error("ConnectBlock(): certificate inputs missing/spent"),
                                  REJECT_INVALID, "bad-cert-inputs-missingorspent");
 
         // Add in sigops done by pay-to-script-hash inputs;

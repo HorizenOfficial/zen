@@ -76,8 +76,15 @@ CCertificateMemPoolEntry::CCertificateMemPoolEntry(const CCertificateMemPoolEntr
 double
 CCertificateMemPoolEntry::GetPriority(unsigned int currentHeight) const
 {
+#if 0
     // certificates have max priority
-    return dPriority;
+    // return dPriority;
+#else
+    CAmount nValueIn = cert.GetValueOfChange()+nFee;
+    double deltaPriority = ((double)(currentHeight-nHeight)*nValueIn)/nModSize;
+    double dResult = dPriority + deltaPriority;
+    return dResult;
+#endif
 }
 
 CTxMemPool::CTxMemPool(const CFeeRate& _minRelayFee) :
@@ -701,7 +708,6 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         CValidationState state;
 
         assert(cert.ContextualCheckInputs(state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
-        assert(Consensus::CheckTxInputs(cert, state, *pcoins, GetSpendHeight(*pcoins), Params().GetConsensus()));
 
         // updating coins with cert outputs because the cache is checked below for
         // any tx inputs and maybe some tx has a cert out as its input.
