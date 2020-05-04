@@ -1118,34 +1118,39 @@ CAmount CCoinsViewCache::GetValueIn(const CTransactionBase& txBase) const
     return nResult;
 }
 
-bool CCoinsViewCache::IsCertOutputMature(const uint256& txHash, unsigned int pos, int spendHeight) const
+CCoinsViewCache::outputMaturity CCoinsViewCache::IsCertOutputMature(const uint256& txHash, unsigned int pos, int spendHeight) const
 {
-    // Note: we assume here that a missing coins has been already fully spent, hence it is deemed mature
-    // (it must have been when it was spent in order to be used).
-    // It is left up to caller to make sure that txHash belongs to a tx in active chain
     CCoins refCoin;
     if(!GetCoins(txHash,refCoin))
-        return true; // must have been fully spent
+        return outputMaturity::NOT_APPLICABLE;
 
     assert(refCoin.IsFromCert());
 
     if (!refCoin.IsAvailable(pos))
-        return true; // an output already spent must have been mature
+        return outputMaturity::NOT_APPLICABLE;
 
-    if (!refCoin.vout[pos].isFromBackwardTransfer)
-        return true; // vout from coinbase are deemed mature here. Other methods estabish coinbase maturity as a whole
+    if (!refCoin.vout[pos].isFromBackwardTransfer) //change outputs are always mature
+        return outputMaturity::MATURE;
 
     // Hereinafter, we have a certificate, hence we can assert existence of its sidechain
     CSidechain targetSc;
     assert(GetSidechain(refCoin.originScId, targetSc));
 
     int coinEpoch = targetSc.EpochFor(refCoin.nHeight);
-    int nextEpochSafeguardHeight = targetSc.StartHeightForEpoch(coinEpoch+1) + targetSc.SafeguardMargin();
 
-    if (spendHeight > nextEpochSafeguardHeight)
-        return true;
+    if (coinEpoch <= targetSc.lastEpochReferencedByCertificate)
+        return outputMaturity::MATURE;
 
-    return false;
+    if (coinEpoch == (targetSc.lastEpochReferencedByCertificate+1)) {
+        int nextEpochSafeguardHeight = targetSc.StartHeightForEpoch(coinEpoch+1) + targetSc.SafeguardMargin();
+        if (spendHeight < nextEpochSafeguardHeight)
+            return outputMaturity::IMMATURE;
+        else
+            return outputMaturity::NOT_APPLICABLE; //coin is ceased, hence not mature nor immature
+    }
+
+    //This should never happen
+    return outputMaturity::NOT_APPLICABLE;
 }
 
 bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransactionBase& txBase) const

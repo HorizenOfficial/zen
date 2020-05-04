@@ -164,14 +164,10 @@ struct CScOutputEntry
 
 struct COutputEntry
 {
-    enum class maturityState {
-        NOT_APPLICABLE = 0,
-        MATURE,
-        IMMATURE
-    };
+
     CTxDestination destination;
     CAmount        amount;
-    maturityState  maturity;
+    CCoinsViewCache::outputMaturity  maturity;
     int            vout;
 };
 
@@ -450,7 +446,7 @@ public:
                            CAmount& nSent, CAmount& nFee, const isminefilter& filter) const;
 
     virtual bool HasMatureOutputs() const;
-    COutputEntry::maturityState IsOutputMature(unsigned int pos) const;
+    CCoinsViewCache::outputMaturity IsOutputMature(unsigned int pos) const;
     CAmount GetCredit(const isminefilter& filter) const;
     CAmount GetImmatureCredit(bool fUseCache=true) const;
     CAmount GetImmatureWatchOnlyCredit(const bool& fUseCache=true) const;

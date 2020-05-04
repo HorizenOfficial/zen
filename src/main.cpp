@@ -2093,7 +2093,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                     }
                 }
             } else if (coins->IsFromCert()) {
-                if (!inputs.IsCertOutputMature(in.prevout.hash, in.prevout.n, nSpendHeight))
+                if (inputs.IsCertOutputMature(in.prevout.hash, in.prevout.n, nSpendHeight) != CCoinsViewCache::outputMaturity::MATURE)
                     return state.Invalid(
                         error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
                         REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
@@ -3058,9 +3058,9 @@ bool static DisconnectTip(CValidationState &state) {
     // Get the current commitment tree
     ZCIncrementalMerkleTree newTree;
     assert(pcoinsTip->GetAnchorAt(pcoinsTip->GetBestAnchor(), newTree));
+
     // Let wallets know transactions went from 1-confirmed to
     // 0-confirmed or conflicted:
-
     for(const CTransaction &tx: block.vtx) {
         SyncWithWallets(tx, nullptr);
     }
