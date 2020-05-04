@@ -320,36 +320,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             assert_template(node, tmpl, txlist, certlist, 'bad-sc-cert-not-applicable')
             certlist[0][4 + 32] = orig_val 
 
-            '''
-            # Test 17: change cert total amount so to fail check against sum of vouts
-            amnt_offset = 4+32+4+32
-            post_offset = amnt_offset + 8
-
-            pre_arr  = certlist[0][:amnt_offset]
-            amnt_arr = certlist[0][amnt_offset:post_offset]
-            post_arr = certlist[0][post_offset:]
-
-            s = unpack('<q', amnt_arr)[0]
-            amount_original = long(s)
-            print "amount orig  = %s (%d SAT)" % ( binascii.hexlify(amnt_arr), amount_original)
-
-            amount_trick = 2 * SC_CREATION_AMOUNT * COIN
-            amnt_trick_arr = pack('<q', amount_trick)
-            print "amount trick = %s (%d SAT)" % ( binascii.hexlify(amnt_trick_arr), amount_trick)
-
-            save_cert = certlist[0]
-            certlist.pop()
-            c = pre_arr + amnt_trick_arr + post_arr
-            certlist.append(c)
-            assert_template(node, tmpl, txlist, certlist, 'sidechain-bwd-transfer-amount-invalid')
-
-            # restore certlist
-            certlist.pop()
-            certlist.append(save_cert)
-            '''
-
-
-            # Test 18: wrong commitment
+            # Test 17: wrong commitment
             # compute commitment for the only contribution of certificate (no tx/btr)
             fake_commitment = dblsha(b'\w'*32)
             assert_template(node, tmpl, txlist, certlist, 'bad-sc-txs-committment', fake_commitment)

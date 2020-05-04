@@ -222,8 +222,6 @@ void HandleDependancy(const CTransactionBase& txBase, int nHeight, double dPrior
         dPriority = dPriorityIn,
         nFee = nFeeIn;
         mempool.ApplyDeltas(hash, dPriority, nFee);
-        // TODO: for cert this wont work, add a virtual method ComputeInputVal() or sort of
-        nTotalIn = txBase.GetValueOut() - nFee;
     }
     else
     {
@@ -607,11 +605,13 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 continue;
 
             CAmount nTxFees = tx.GetFeeAmount(view.GetValueIn(tx));
+#if 0
             if (nTxFees < 0) {
-                LogPrintf("%s():%d - tx=%s has a negative fee (fee=%s/valueOut=%s)\n",
-                    __func__, __LINE__, tx.GetHash().ToString(), FormatMoney(nTxFees), FormatMoney(tx.GetValueOut()));
+                LogPrintf("%s():%d - tx=%s has a negative fee (fee=%s)\n",
+                    __func__, __LINE__, tx.GetHash().ToString(), FormatMoney(nTxFees));
                 continue;
             }
+#endif
 
             nTxSigOps += GetP2SHSigOpCount(tx, view);
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
