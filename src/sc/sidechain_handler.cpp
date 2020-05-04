@@ -95,13 +95,9 @@ void CSidechainHandler::unregisterSidechain(const uint256& scId)
         if(it->second.empty()) {
             CeasingSidechains.erase(it->first);
             break;
+        } else {
+            ++it;
         }
-
-
-        if(std::distance(CeasingSidechains.begin(),it) > scInfo.creationData.withdrawalEpochLength)
-            break;
-
-        ++it;
     }
 
     registeredScIds.erase(scId);
@@ -110,10 +106,10 @@ void CSidechainHandler::unregisterSidechain(const uint256& scId)
 
 void CSidechainHandler::handleCeasingSidechains(CBlockUndo& blockUndo, int height)
 {
-    assert(height <= CeasingSidechains.begin()->first);
-
     if (CeasingSidechains.count(height) == 0)
         return; //no sidechains terminating at current height
+
+    assert(height <= CeasingSidechains.begin()->first);
 
     for (const uint256& ceasingScId : CeasingSidechains.at(height))
     {

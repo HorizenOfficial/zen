@@ -415,6 +415,42 @@ TEST_F(SidechainHandlerTestSuite, ChangeOutputsArePreservedWhenSidechainCeases) 
     EXPECT_TRUE(cert.GetVout().size() == changeCounter+bwtCounter); //all cert outputs are handled
 }
 
+TEST_F(SidechainHandlerTestSuite, UnregisteredSidechainsAreNotAffectedByHandling) {
+    //Create sidechain without registering it
+    uint256 scId = uint256S("aaa");
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
+    CBlock aBlock;
+    view->UpdateScInfo(scCreationTx, aBlock, chainActive.Height());
+
+    //Generate certificate but do not add it
+    CSidechain scInfo;
+    view->GetSidechain(scId, scInfo);
+    int certReferencedEpoch = 0;
+    int Epoch1StartHeight = scInfo.StartHeightForEpoch(certReferencedEpoch+1);
+    chainSettingUtils::GenerateChainActive(Epoch1StartHeight);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, chainActive[Epoch1StartHeight-1]->GetBlockHash(), CAmount(0), /*bwtOnly*/ true);
+    CBlockUndo blockUndo;
+    ASSERT_TRUE(view->UpdateScInfo(cert, blockUndo));
+
+    //Generate coin from certificate
+    CValidationState state;
+    CTxUndo txundo;
+    EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
+    UpdateCoins(cert, state, *view, txundo, chainActive.Height());
+    EXPECT_TRUE(view->HaveCoins(cert.GetHash()));
+
+    //Make the sidechain cease
+    int minimalCeaseHeight = scInfo.StartHeightForEpoch(certReferencedEpoch+2)+scInfo.SafeguardMargin()+1;
+    chainSettingUtils::GenerateChainActive(minimalCeaseHeight);
+    EXPECT_TRUE(scHandler->isSidechainCeasedAtHeight(scId, chainActive.Height()) == sidechainState::CEASED);
+
+    //test
+    scHandler->handleCeasingSidechains(blockUndo, chainActive.Height());
+
+    //Checks
+    EXPECT_TRUE(view->HaveCoins(cert.GetHash()));
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////// restoreCeasedSidechains //////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -519,4 +555,95 @@ TEST_F(SidechainHandlerTestSuite, RestorePartiallyNulledCeasedCoins) {
     for (unsigned int pos = 0; pos < cert.GetVout().size(); ++pos) {
         EXPECT_TRUE(rebuiltCoin.vout[pos] == cert.GetVout()[pos]);
     }
+}
+///////////////////////////////////////////////////////////////////////////////
+////////////////////////// unregisterSidechain ////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST_F(SidechainHandlerTestSuite, UnregisteredSidechainsWontHaveTheirCeasedCoinsHandled) {
+    //Create and register sidechain
+    uint256 scId = uint256S("aaa");
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
+    CBlock aBlock;
+    view->UpdateScInfo(scCreationTx, aBlock, chainActive.Height());
+    ASSERT_TRUE(scHandler->registerSidechain(scId, chainActive.Height()));
+
+    //Generate certificate and register it
+    CSidechain scInfo;
+    view->GetSidechain(scId, scInfo);
+    int certReferencedEpoch = 0;
+    int Epoch1StartHeight = scInfo.StartHeightForEpoch(certReferencedEpoch+1);
+    chainSettingUtils::GenerateChainActive(Epoch1StartHeight);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, chainActive[Epoch1StartHeight-1]->GetBlockHash(), CAmount(0), /*bwtOnly*/ false);
+    CBlockUndo blockUndo;
+    ASSERT_TRUE(view->UpdateScInfo(cert, blockUndo));
+
+    //Generate coin from certificate
+    CValidationState state;
+    CTxUndo txundo;
+    EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
+    UpdateCoins(cert, state, *view, txundo, chainActive.Height());
+    EXPECT_TRUE(view->HaveCoins(cert.GetHash()));
+
+    //Register certificate
+    ASSERT_TRUE(scHandler->addCertificate(cert, chainActive.Height()));
+
+    //Unregister sidechain
+    scHandler->unregisterSidechain(scId);
+
+    //Show that ceased coins are not removed
+    int minimalCeaseHeight = scInfo.StartHeightForEpoch(certReferencedEpoch+2)+scInfo.SafeguardMargin()+1;
+    chainSettingUtils::GenerateChainActive(minimalCeaseHeight);
+    EXPECT_TRUE(scHandler->isSidechainCeasedAtHeight(scId, chainActive.Height()) == sidechainState::CEASED);
+
+    // Attempt to null the ceased coins
+    scHandler->handleCeasingSidechains(blockUndo, chainActive.Height());
+
+    EXPECT_TRUE(view->HaveCoins(cert.GetHash()));
+}
+
+TEST_F(SidechainHandlerTestSuite, ReregisteringSidechainsResumeCeasedSidechainsHandling) {
+    //Create and register sidechain
+    uint256 scId = uint256S("aaa");
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
+    CBlock aBlock;
+    view->UpdateScInfo(scCreationTx, aBlock, chainActive.Height());
+    ASSERT_TRUE(scHandler->registerSidechain(scId, chainActive.Height()));
+
+    //Generate certificate and register it
+    CSidechain scInfo;
+    view->GetSidechain(scId, scInfo);
+    int certReferencedEpoch = 0;
+    int Epoch1StartHeight = scInfo.StartHeightForEpoch(certReferencedEpoch+1);
+    chainSettingUtils::GenerateChainActive(Epoch1StartHeight);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, chainActive[Epoch1StartHeight-1]->GetBlockHash(), CAmount(0), /*bwtOnly*/ true);
+    CBlockUndo blockUndo;
+    ASSERT_TRUE(view->UpdateScInfo(cert, blockUndo));
+
+    //Generate coin from certificate
+    CValidationState state;
+    CTxUndo txundo;
+    EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
+    UpdateCoins(cert, state, *view, txundo, chainActive.Height());
+    EXPECT_TRUE(view->HaveCoins(cert.GetHash()));
+
+    //Register certificate
+    ASSERT_TRUE(scHandler->addCertificate(cert, chainActive.Height()));
+
+    //Unregister sidechain
+    scHandler->unregisterSidechain(scId);
+
+    //Move forward and re-register sidechain
+    chainSettingUtils::GenerateChainActive(chainActive.Height()+1);
+    ASSERT_TRUE(scHandler->registerSidechain(scId, chainActive.Height()));
+    ASSERT_TRUE(scHandler->addCertificate(cert, chainActive.Height()));
+
+    //Show that ceased coins are not removed
+    int minimalCeaseHeight = scInfo.StartHeightForEpoch(certReferencedEpoch+2)+scInfo.SafeguardMargin()+1;
+    chainSettingUtils::GenerateChainActive(minimalCeaseHeight);
+    EXPECT_TRUE(scHandler->isSidechainCeasedAtHeight(scId, chainActive.Height()) == sidechainState::CEASED);
+
+    // Attempt to null the ceased coins
+    scHandler->handleCeasingSidechains(blockUndo, chainActive.Height());
+
+    EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
 }
