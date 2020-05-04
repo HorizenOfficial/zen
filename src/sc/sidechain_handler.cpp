@@ -67,8 +67,27 @@ bool CSidechainHandler::addCertificate(const CScCertificate & cert, int height)
 
 void CSidechainHandler::removeCertificate(const CScCertificate & cert)
 {
+    if (registeredScIds.count(cert.GetScId()) == 0)
+        return;
+
+    CSidechain scInfo;
+    assert(view->GetSidechain(cert.GetScId(), scInfo));
+
     lastEpochCerts.erase(cert.GetScId());
-    //TODO:scByCeasingHeight should prolly be updated as a consequence??
+
+    int prevCeasingHeight = 0;
+    for(scMapIter it = CeasingSidechains.begin(); it != CeasingSidechains.end(); ++it ) {
+        if (it->second.count(cert.GetScId()) != 0) {
+            prevCeasingHeight = it->first;
+            break;
+        }
+    }
+
+    CeasingSidechains[prevCeasingHeight].erase(cert.GetScId());
+    if (CeasingSidechains[prevCeasingHeight].size() == 0)
+        CeasingSidechains.erase(prevCeasingHeight);
+
+    CeasingSidechains[prevCeasingHeight- scInfo.creationData.withdrawalEpochLength].insert(cert.GetScId());
     return;
 }
 
