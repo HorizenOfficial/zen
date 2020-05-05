@@ -95,11 +95,11 @@ class CBlockPolicyEstimator;
 class CInPoint
 {
 public:
-    const CTransaction* ptx;
+    std::shared_ptr<const CTransactionBase> ptx;
     uint32_t n;
 
     CInPoint() { SetNull(); }
-    CInPoint(const CTransaction* ptxIn, uint32_t nIn) { ptx = ptxIn; n = nIn; }
+    CInPoint(const CTransactionBase* ptxIn, uint32_t nIn): ptx(ptxIn->MakeShared()), n(nIn) { }
     void SetNull() { ptx = NULL; n = (uint32_t) -1; }
     bool IsNull() const { return (ptx == NULL && n == (uint32_t) -1); }
     size_t DynamicMemoryUsage() const { return 0; }
@@ -162,10 +162,10 @@ public:
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
-    void remove(const CTransaction   &origTx,   std::list<CTransaction>& removedTxs, bool fRecursive = false, bool removeDependantFwds = true);
-    void remove(const CScCertificate &origCert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false, bool removeDependantFwds = true);
+    void remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false, bool removeDependantFwds = true);
 
     void removeWithAnchor(const uint256 &invalidRoot);
+
     void removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
 
     void removeConflicts(const CTransaction &tx, std::list<CTransaction>& removedTxs);

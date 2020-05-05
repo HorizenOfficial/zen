@@ -1142,13 +1142,15 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         return error("AcceptCertificateToMemoryPool: CheckCertificate failed");
 
     if(!cert.ContextualCheck(state, nextBlockHeight, 10))
-        return error("AcceptCertificateToMemoryPool: CheckCertificate failed");
+        return error("AcceptCertificateToMemoryPool: ContextualCheck failed");
+
+    uint256 certHash = cert.GetHash();
 
     // Silently drop pre-chainsplit certificates
     if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight))
     {
         LogPrint("mempool", "%s():%d - Dropping certificateId[%s]: chain height[%d] is before chain split\n",
-            __func__, __LINE__, cert.GetHash().ToString(), chainActive.Tip()->nHeight);
+            __func__, __LINE__, certHash.ToString(), chainActive.Tip()->nHeight);
         return false;
     }
 
@@ -1157,10 +1159,6 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
     if (getRequireStandard() &&  !IsStandardTx(cert, reason, nextBlockHeight))
         return state.DoS(0, error("AcceptCertificateToMemoryPool: nonstandard certificate: %s", reason),
                             REJECT_NONSTANDARD, reason);
-
-    //ABENEGIA: if (!tx.CheckFinal(STANDARD_LOCKTIME_VERIFY_FLAGS))// as of now certificate finality has yet to be defined
-
-    uint256 certHash = cert.GetHash();
 
     // Check if cert is already in mempool or if there are conflicts with in-memory certs
     {
@@ -1235,7 +1233,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             // are the actual inputs available?
             if (!view.HaveInputs(cert))
             {
-                LogPrintf("%s():%d - ERROR: cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString());
+                LogPrintf("%s():%d - ERROR: cert[%s]\n", __func__, __LINE__, certHash.ToString());
                 return state.Invalid(error("AcceptCertToMemoryPool: inputs already spent"),
                                      REJECT_DUPLICATE, "bad-sc-cert-inputs-spent");
             }
@@ -3194,6 +3192,7 @@ bool static DisconnectTip(CValidationState &state) {
 
     // Resurrect mempool transactions and certificates from the disconnected block.
     std::list<CTransaction> dummyTxs;
+    std::list<CScCertificate> dummyCerts;
     for(const CTransaction &tx: block.vtx) {
         // ignore validation errors in resurrected transactions
         CValidationState stateDummy;
@@ -3204,11 +3203,12 @@ bool static DisconnectTip(CValidationState &state) {
         if (tx.IsCoinBase() || !AcceptToMemoryPool(mempool, stateDummy, tx, false, NULL)) {
             LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, tx.GetHash().ToString(), tx.ToString());
-            mempool.remove(tx, dummyTxs, true);
+            mempool.remove(tx, dummyTxs, dummyCerts, true);
         }
     }
 
-    std::list<CScCertificate> dummyCerts;
+    dummyTxs.clear();
+    dummyCerts.clear();
     for (const CScCertificate& cert : block.vcert) {
         // ignore validation errors in resurrected certificates
         LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
