@@ -3440,11 +3440,6 @@ bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool f
         return state.DoS(50, error("CheckBlockHeader(): proof of work failed"),
                          REJECT_INVALID, "high-hash");
 
-    // Check timestamp
-    if (block.GetBlockTime() > GetAdjustedTime() + 2 * 60 * 60)
-        return state.Invalid(error("CheckBlockHeader(): block timestamp too far in the future"),
-                             REJECT_INVALID, "time-too-new");
-
     return true;
 }
 
@@ -3527,10 +3522,53 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
         return state.DoS(100, error("%s: incorrect proof of work", __func__),
                          REJECT_INVALID, "bad-diffbits");
 
+
     // Check timestamp against prev
-    if (block.GetBlockTime() <= pindexPrev->GetMedianTimePast())
-        return state.Invalid(error("%s: block's timestamp is too early", __func__),
-                             REJECT_INVALID, "time-too-old");
+    auto medianTimePast = pindexPrev->GetMedianTimePast();
+    if (block.GetBlockTime() <= medianTimePast) {
+    	return state.Invalid(error("%s: block at height %d, timestamp %d is not later than median-time-past %d",
+    			__func__, nHeight, block.GetBlockTime(), medianTimePast),
+    			REJECT_INVALID, "time-too-old");
+    }
+
+	// Genesis blocks are hard-coded into the binary, and both testnet and
+	// regtest have now-ancient timestamps, so we need to handle the case
+	// where we might use the genesis block's timestamp as the median-time-past.
+	//
+	// GetMedianTimePast() is implemented such that the chosen block is the
+	// median of however many blocks we are able to select up to
+	// nMedianTimeSpan = 11. For example, if nHeight == 6:
+	//
+	//    ,-<pmedian  ,-<pbegin            ,-<pend
+	//   [-, -, -, -, 0, 1, 2, 3, 4, 5, 6] -
+	//
+	// and thus pbegin[(pend - pbegin)/2] will select block height 3, assuming
+	// that the block timestamps are all greater than the genesis block's
+	// timestamp.
+	//
+	// Therefore, we only risk using the regtest genesis block's timestamp for
+	// nHeight < 2 (as GetMedianTimePast() uses floor division).
+	//
+	// Separately, this is also necessary because there was a long time between
+	// starting to find the mainnet genesis block (which was mined with a single
+	// laptop) and mining the block at height 1.
+	//
+
+    if (ForkManager::getInstance().isFutureTimeStampActive(nHeight) &&
+    		block.GetBlockTime() > medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP) {
+		return state.Invalid(error("%s: block at height %d, timestamp %d is too far ahead of median-time-past, limit is %d",
+				__func__, nHeight, block.GetBlockTime(), medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP),
+				REJECT_INVALID, "time-too-far-ahead-of-mtp");
+	}
+
+
+    // Check timestamp
+    auto nTimeLimit = GetAdjustedTime() + MAX_FUTURE_BLOCK_TIME_ADJUSTED;
+    if (block.GetBlockTime() > nTimeLimit) {
+        return state.Invalid(error("%s: block at height %d, timestamp %d is too far ahead of adjusted time, limit is %d",
+        		__func__, nHeight, block.GetBlockTime(), nTimeLimit),
+        		REJECT_INVALID, "time-too-new");
+    }
 
     if (fCheckpointsEnabled)
     {
