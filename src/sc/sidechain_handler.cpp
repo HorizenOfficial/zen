@@ -20,8 +20,8 @@ bool CSidechainHandler::registerSidechain(const uint256& scId, int height)
     if (!view->HaveSidechain(scId))
        return false; //unknown sidechain
 
-    sidechainState scState = isSidechainCeasedAtHeight(scId, height);
-    if (scState != sidechainState::ALIVE)
+    Sidechain::state scState = Sidechain::isCeasedAtHeight(*view, scId, height);
+    if (scState != Sidechain::state::ALIVE)
         return false;
 
     registeredScIds.insert(scId);
@@ -40,8 +40,8 @@ bool CSidechainHandler::addCertificate(const CScCertificate & cert, int height)
     if (registeredScIds.count(cert.GetScId()) == 0)
         return false;
 
-    sidechainState scState = isSidechainCeasedAtHeight(cert.GetScId(), height);
-    if (scState != sidechainState::ALIVE)
+    Sidechain::state scState = Sidechain::isCeasedAtHeight(*view, cert.GetScId(), height);
+    if (scState != Sidechain::state::ALIVE)
         return false;
 
     CSidechain scInfo;
@@ -209,33 +209,4 @@ bool CSidechainHandler::restoreCeasedSidechains(const CTxUndo& ceasedCertUndo)
     }
 
     return fClean;
-}
-
-sidechainState CSidechainHandler::isSidechainCeasedAtHeight(const uint256& scId, int height)
-{
-    if (!view->HaveSidechain(scId))
-        return sidechainState::NOT_APPLICABLE;
-
-    if (height > chainActive.Height()+1)
-        return sidechainState::NOT_APPLICABLE; //too much in the future, can't tell
-
-    CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
-
-    if (height < scInfo.creationBlockHeight)
-        return sidechainState::NOT_APPLICABLE;
-
-    int currentEpoch = scInfo.EpochFor(height);
-
-    if (currentEpoch > scInfo.lastEpochReferencedByCertificate + 2)
-        return sidechainState::CEASED;
-
-    if (currentEpoch == scInfo.lastEpochReferencedByCertificate + 2)
-    {
-        int targetEpochSafeguardHeight = scInfo.StartHeightForEpoch(currentEpoch) + scInfo.SafeguardMargin();
-        if (height > targetEpochSafeguardHeight)
-            return sidechainState::CEASED;
-    }
-
-    return  sidechainState::ALIVE;
 }

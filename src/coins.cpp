@@ -889,8 +889,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
-    sidechainHandler.setView(*this);
-    if (sidechainHandler.isSidechainCeasedAtHeight(cert.GetScId(), nHeight)!= sidechainState::ALIVE) {
+    if (Sidechain::isCeasedAtHeight(*this, cert.GetScId(), nHeight)!= Sidechain::state::ALIVE) {
         LogPrintf("ERROR: certificate[%s] cannot be accepted, sidechain [%s] already ceased at active height = %d\n",
             certHash.ToString(), cert.GetScId().ToString(), chainActive.Height());
         return state.Invalid(error("received a delayed cert"),
@@ -995,8 +994,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
         const uint256& scId = ft.scId;
         if (HaveSidechain(scId))
         {
-            sidechainHandler.setView(*this);
-            if (sidechainHandler.isSidechainCeasedAtHeight(scId, height)!= sidechainState::ALIVE) {
+            if (Sidechain::isCeasedAtHeight(*this, scId, height)!= Sidechain::state::ALIVE) {
                 LogPrintf("ERROR: tx[%s] tries to send funds to scId[%s] already ceased at height = %d\n",
                             txHash.ToString(), scId.ToString(), height);
                 return false;

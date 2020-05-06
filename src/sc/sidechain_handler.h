@@ -18,12 +18,6 @@ class CScCertificate;
 class CBlockUndo;
 class CTxUndo;
 
-enum class sidechainState {
-    NOT_APPLICABLE = 0,
-    ALIVE,
-    CEASED
-};
-
 class CSidechainHandler
 {
 public:
@@ -39,8 +33,6 @@ public:
 
     void removeCertificate(const CScCertificate & cert);
     void unregisterSidechain(const uint256& scId);
-
-    sidechainState isSidechainCeasedAtHeight(const uint256& scId, int height);
 
 private:
     CCoinsViewCache * view;
