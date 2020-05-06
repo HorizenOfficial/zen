@@ -276,7 +276,7 @@ TEST_F(SidechainHandlerTestSuite, ChangeOutputsArePreservedWhenSidechainCeases) 
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, state, *view, txundo, scCreationHeight);
+    UpdateCoins(cert, state, *view, txundo, scInfo.StartHeightForEpoch(1));
     EXPECT_TRUE(view->HaveCoins(cert.GetHash()));
 
     //test
@@ -307,110 +307,102 @@ TEST_F(SidechainHandlerTestSuite, ChangeOutputsArePreservedWhenSidechainCeases) 
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-//////////////////////// restoreCeasedSidechains //////////////////////////////
+////////////////////////////// RevertCeasingScs ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainHandlerTestSuite, RestoreFullyNulledCeasedCoins) {
-    //Create and register sidechain
+    //Create sidechain
     uint256 scId = uint256S("aaa");
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
-    CBlock aBlock;
-    view->UpdateScInfo(scCreationTx, aBlock, chainActive.Height());
-    ASSERT_TRUE(scHandler->registerSidechain(scId, chainActive.Height()));
+    CBlock scCreationBlock;
+    view->UpdateScInfo(scCreationTx, scCreationBlock, /*height*/1789);
 
-    //Generate certificate and register it
+    //Generate certificate
     CSidechain scInfo;
     view->GetSidechain(scId, scInfo);
     int certReferencedEpoch = 0;
-    int Epoch1StartHeight = scInfo.StartHeightForEpoch(certReferencedEpoch+1);
-    chainSettingUtils::GenerateChainActive(Epoch1StartHeight);
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, chainActive[Epoch1StartHeight-1]->GetBlockHash(), CAmount(0), /*bwtOnly*/ true);
-    CBlockUndo blockUndo;
-    ASSERT_TRUE(view->UpdateScInfo(cert, blockUndo));
+    CBlock endEpochBlock;
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(), CAmount(0), /*bwtOnly*/ true);
+    CBlockUndo certBlockUndo;
+    ASSERT_TRUE(view->UpdateScInfo(cert, certBlockUndo));
 
     //Generate coin from certificate
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, state, *view, txundo, chainActive.Height());
-    EXPECT_TRUE(view->HaveCoins(cert.GetHash()));
-
-    //Register certificate
-    ASSERT_TRUE(scHandler->addCertificate(cert, chainActive.Height()));
+    UpdateCoins(cert, state, *view, txundo, scInfo.StartHeightForEpoch(1));
+    CCoins originalCoins;
+    EXPECT_TRUE(view->GetCoins(cert.GetHash(),originalCoins));
 
     //Make the sidechain cease
     int minimalCeaseHeight = scInfo.StartHeightForEpoch(certReferencedEpoch+2)+scInfo.SafeguardMargin()+1;
-    chainSettingUtils::GenerateChainActive(minimalCeaseHeight);
-    EXPECT_TRUE(Sidechain::isCeasedAtHeight(*view, scId, chainActive.Height()) == Sidechain::state::CEASED);
+    EXPECT_TRUE(Sidechain::isCeasedAtHeight(*view, scId, minimalCeaseHeight) == Sidechain::state::CEASED);
 
     // Null the coins
-    scHandler->handleCeasingSidechains(blockUndo, chainActive.Height());
+    CBlockUndo coinsBlockUndo;
+    view->HandleCeasingScs(minimalCeaseHeight, coinsBlockUndo);
     ASSERT_FALSE(view->HaveCoins(cert.GetHash()));
 
     //test
-    for (const CTxUndo& ceasedCoinUndo: blockUndo.vtxundo)
-        scHandler->restoreCeasedSidechains(ceasedCoinUndo);
+    for (const CTxUndo& ceasedCoinUndo: coinsBlockUndo.vtxundo)
+        view->RevertCeasingScs(ceasedCoinUndo);
 
     //checks
     CCoins rebuiltCoin;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),rebuiltCoin));
-    EXPECT_TRUE(rebuiltCoin.vout.size()       == cert.GetVout().size());
-    EXPECT_TRUE(rebuiltCoin.nHeight           == Epoch1StartHeight);
-    EXPECT_TRUE((rebuiltCoin.nVersion & 0x7f) == (cert.nVersion& 0x7f));
-    EXPECT_TRUE(rebuiltCoin.originScId        == cert.GetScId());
+    EXPECT_TRUE(rebuiltCoin.nHeight           == originalCoins.nHeight);
+    EXPECT_TRUE((rebuiltCoin.nVersion & 0x7f) == (originalCoins.nVersion& 0x7f));
+    EXPECT_TRUE(rebuiltCoin.originScId        == originalCoins.originScId);
+    EXPECT_TRUE(rebuiltCoin.vout.size()       == originalCoins.vout.size());
     for (unsigned int pos = 0; pos < cert.GetVout().size(); ++pos) {
-        EXPECT_TRUE(rebuiltCoin.vout[pos] == cert.GetVout()[pos]);
+        EXPECT_TRUE(rebuiltCoin.vout[pos] == originalCoins.vout[pos]);
     }
 }
 
 TEST_F(SidechainHandlerTestSuite, RestorePartiallyNulledCeasedCoins) {
-    //Create and register sidechain
+    //Create sidechain
     uint256 scId = uint256S("aaa");
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
-    CBlock aBlock;
-    view->UpdateScInfo(scCreationTx, aBlock, chainActive.Height());
-    ASSERT_TRUE(scHandler->registerSidechain(scId, chainActive.Height()));
+    CBlock scCreationBlock;
+    view->UpdateScInfo(scCreationTx, scCreationBlock, /*height*/1789);
 
-    //Generate certificate and register it
+    //Generate certificate
     CSidechain scInfo;
     view->GetSidechain(scId, scInfo);
     int certReferencedEpoch = 0;
-    int Epoch1StartHeight = scInfo.StartHeightForEpoch(certReferencedEpoch+1);
-    chainSettingUtils::GenerateChainActive(Epoch1StartHeight);
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, chainActive[Epoch1StartHeight-1]->GetBlockHash(), CAmount(0), /*bwtOnly*/ false);
-    CBlockUndo blockUndo;
-    ASSERT_TRUE(view->UpdateScInfo(cert, blockUndo));
+    CBlock endEpochBlock;
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(), CAmount(0), /*bwtOnly*/ false);
+    CBlockUndo certBlockUndo;
+    ASSERT_TRUE(view->UpdateScInfo(cert, certBlockUndo));
 
     //Generate coin from certificate
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, state, *view, txundo, chainActive.Height());
-    EXPECT_TRUE(view->HaveCoins(cert.GetHash()));
-
-    //Register certificate
-    ASSERT_TRUE(scHandler->addCertificate(cert, chainActive.Height()));
+    UpdateCoins(cert, state, *view, txundo, scInfo.StartHeightForEpoch(1));
+    CCoins originalCoins;
+    EXPECT_TRUE(view->GetCoins(cert.GetHash(),originalCoins));
 
     //Make the sidechain cease
     int minimalCeaseHeight = scInfo.StartHeightForEpoch(certReferencedEpoch+2)+scInfo.SafeguardMargin()+1;
-    chainSettingUtils::GenerateChainActive(minimalCeaseHeight);
-    EXPECT_TRUE(Sidechain::isCeasedAtHeight(*view, scId, chainActive.Height()) == Sidechain::state::CEASED);
+    EXPECT_TRUE(Sidechain::isCeasedAtHeight(*view, scId, minimalCeaseHeight) == Sidechain::state::CEASED);
 
     // Null the coins
-    scHandler->handleCeasingSidechains(blockUndo, chainActive.Height());
+    CBlockUndo coinsBlockUndo;
+    view->HandleCeasingScs(minimalCeaseHeight, coinsBlockUndo);
 
     //test
-    for (const CTxUndo& ceasedCoinUndo: blockUndo.vtxundo)
-        scHandler->restoreCeasedSidechains(ceasedCoinUndo);
+    for (const CTxUndo& ceasedCoinUndo: coinsBlockUndo.vtxundo)
+        view->RevertCeasingScs(ceasedCoinUndo);
 
     //checks
     CCoins rebuiltCoin;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),rebuiltCoin));
-    EXPECT_TRUE(rebuiltCoin.vout.size()       == cert.GetVout().size());
-    EXPECT_TRUE(rebuiltCoin.nHeight           == Epoch1StartHeight);
-    EXPECT_TRUE((rebuiltCoin.nVersion & 0x7f) == (cert.nVersion& 0x7f));
-    EXPECT_TRUE(rebuiltCoin.originScId        == cert.GetScId());
+    EXPECT_TRUE(rebuiltCoin.nHeight           == originalCoins.nHeight);
+    EXPECT_TRUE((rebuiltCoin.nVersion & 0x7f) == (originalCoins.nVersion& 0x7f));
+    EXPECT_TRUE(rebuiltCoin.originScId        == originalCoins.originScId);
+    EXPECT_TRUE(rebuiltCoin.vout.size()       == originalCoins.vout.size());
     for (unsigned int pos = 0; pos < cert.GetVout().size(); ++pos) {
-        EXPECT_TRUE(rebuiltCoin.vout[pos] == cert.GetVout()[pos]);
+        EXPECT_TRUE(rebuiltCoin.vout[pos] == originalCoins.vout[pos]);
     }
 }
 ///////////////////////////////////////////////////////////////////////////////

@@ -1149,6 +1149,48 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
     return true;
 }
 
+bool CCoinsViewCache::RevertCeasingScs(const CTxUndo& ceasedCertUndo)
+{
+    bool fClean = true;
+
+    const uint256& coinHash = ceasedCertUndo.refTx;
+    if(coinHash.IsNull())
+    {
+        fClean = fClean && error("%s: malformed undo data, ", __func__);
+        return fClean;
+    }
+    CCoinsModifier coins = this->ModifyCoins(coinHash);
+    unsigned int firstBwtPos = ceasedCertUndo.firstBwtPos;
+
+    const std::vector<CTxInUndo>& outVec = ceasedCertUndo.vprevout;
+
+    for (size_t bwtOutPos = outVec.size(); bwtOutPos-- > 0;)
+    {
+        if (outVec.at(bwtOutPos).nHeight != 0)
+        {
+            if(!coins->IsPruned())
+                fClean = fClean && error("%s: undo data overwriting existing transaction", __func__);
+            coins->Clear();
+            coins->fCoinBase  = outVec.at(bwtOutPos).fCoinBase;
+            coins->nHeight    = outVec.at(bwtOutPos).nHeight;
+            coins->nVersion   = outVec.at(bwtOutPos).nVersion;
+            coins->originScId = outVec.at(bwtOutPos).originScId;
+        } else
+        {
+            if(coins->IsPruned())
+                fClean = fClean && error("%s: undo data adding output to missing transaction", __func__);
+        }
+
+        if(coins->IsAvailable(firstBwtPos + bwtOutPos))
+            fClean = fClean && error("%s: undo data overwriting existing output", __func__);
+        if (coins->vout.size() < (firstBwtPos + bwtOutPos+1))
+            coins->vout.resize(firstBwtPos + bwtOutPos+1);
+        coins->vout.at(firstBwtPos + bwtOutPos) = outVec.at(bwtOutPos).txout;
+    }
+
+    return fClean;
+}
+
 bool CCoinsViewCache::UpdateCeasingScs(const CTxScCreationOut& scCreationOut) //ABENEGIA: is BlockUndo missing??
 {
     CSidechain scInfo;

@@ -2322,9 +2322,8 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         return error("DisconnectBlock(): sc and undo data inconsistent");
     }
 
-    sidechainHandler.setView(view);
     for (size_t idx = blockUndo.vtxundo.size(); idx-- > (block.vcert.size() + block.vtx.size());)
-        sidechainHandler.restoreCeasedSidechains(blockUndo.vtxundo[idx]);
+        view.RevertCeasingScs(blockUndo.vtxundo[idx]);
 
     // undo certificates in reverse order
     for (int i = block.vcert.size() - 1; i >= 0; i--) {

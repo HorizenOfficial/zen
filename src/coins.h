@@ -585,6 +585,7 @@ public:
     bool HaveCeasingScs(int height)                                const override;
     bool GetCeasingScs(int height, CCeasingSidechains& ceasingScs) const override;
     bool HandleCeasingScs(int height, CBlockUndo& blockUndo);
+    bool RevertCeasingScs(const CTxUndo& ceasedCertUndo);
 private:
     bool UpdateCeasingScs(const CTxScCreationOut& scCreationOut);
     bool UpdateCeasingScs(const CScCertificate& cert);
