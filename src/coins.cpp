@@ -1093,6 +1093,64 @@ bool CCoinsViewCache::GetCeasingScs(int height, CCeasingSidechains& ceasingScs) 
     return false;
 }
 
+bool CCoinsViewCache::UpdateCeasingScs(const CTxScCreationOut& scCreationOut) //ABENEGIA: is BlockUndo missing??
+{
+    CSidechain scInfo;
+    if (this->GetSidechain(scCreationOut.scId, scInfo)) {
+        LogPrint("cert", "%s():%d - attempt to update ceasing sidechain map with unknown scId[%s]\n",
+            __func__, __LINE__, scCreationOut.scId.ToString());
+        return false;
+    }
+
+    int currentEpoch = scInfo.EpochFor(scInfo.creationBlockHeight);
+    int nextCeasingHeight = scInfo.StartHeightForEpoch(currentEpoch + 1) + scInfo.SafeguardMargin() +1;
+
+    CCeasingSidechains ceasingScIdSet;
+    if (!GetCeasingScs(nextCeasingHeight,ceasingScIdSet)) {
+        ceasingScIdSet.ceasingScs.insert(scCreationOut.scId);
+        cacheCeasingScs[nextCeasingHeight] = CCeasingScsCacheEntry(ceasingScIdSet, CCeasingScsCacheEntry::Flags::FRESH);
+    } else {
+        ceasingScIdSet.ceasingScs.insert(scCreationOut.scId);
+        cacheCeasingScs[nextCeasingHeight] = CCeasingScsCacheEntry(ceasingScIdSet, CCeasingScsCacheEntry::Flags::DIRTY);
+    }
+
+    return true;
+}
+
+bool CCoinsViewCache::UpdateCeasingScs(const CScCertificate& cert)
+{
+    CSidechain scInfo;
+    if (this->GetSidechain(cert.GetScId(), scInfo)) {
+        LogPrint("cert", "%s():%d - attempt to update ceasing sidechain map with cert to unknown scId[%s]\n",
+            __func__, __LINE__, cert.GetScId().ToString());
+        return false;
+    }
+
+    //add next ceasing Height
+    int nextCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2) + scInfo.SafeguardMargin()+1;
+    CCeasingSidechains nextCeasingScId;
+    if (!GetCeasingScs(nextCeasingHeight,nextCeasingScId)) {
+        nextCeasingScId.ceasingScs.insert(cert.GetScId());
+        cacheCeasingScs[nextCeasingHeight] = CCeasingScsCacheEntry(nextCeasingScId, CCeasingScsCacheEntry::Flags::FRESH);
+    } else {
+        nextCeasingScId.ceasingScs.insert(cert.GetScId());
+        cacheCeasingScs[nextCeasingHeight] = CCeasingScsCacheEntry(nextCeasingScId, CCeasingScsCacheEntry::Flags::DIRTY);
+    }
+
+    //clear up next ceasing height, if any
+    int prevCeasingHeight = nextCeasingHeight - scInfo.creationData.withdrawalEpochLength;
+    CCeasingSidechains prevCeasingScId;
+    if (!GetCeasingScs(prevCeasingHeight,prevCeasingScId)) {
+        prevCeasingScId.ceasingScs.erase(cert.GetScId());
+        if (prevCeasingScId.ceasingScs.size() != 0) //still other sc ceasing at that height
+            cacheCeasingScs[prevCeasingHeight] = CCeasingScsCacheEntry(prevCeasingScId, CCeasingScsCacheEntry::Flags::DIRTY);
+        else
+            cacheCeasingScs[prevCeasingHeight] = CCeasingScsCacheEntry(prevCeasingScId, CCeasingScsCacheEntry::Flags::ERASED);
+    }
+
+    return true;
+}
+
 bool CCoinsViewCache::Flush() {
     bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, cacheSidechains, cacheCeasingScs);
     cacheCoins.clear();
