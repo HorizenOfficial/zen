@@ -580,6 +580,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         cacheSidechains[cr.scId].scInfo.creationBlockHeight = blockHeight;
         cacheSidechains[cr.scId].scInfo.creationTxHash = txHash;
         cacheSidechains[cr.scId].scInfo.lastEpochReferencedByCertificate = CScCertificate::EPOCH_NULL;
+        cacheSidechains[cr.scId].scInfo.lastCertificateHash.SetNull();
         cacheSidechains[cr.scId].scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
         cacheSidechains[cr.scId].scInfo.creationData.customData = cr.customData;
         cacheSidechains[cr.scId].scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
@@ -752,6 +753,7 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
 
         CAmount amountToRestore = it_ia_undo_map->second.immAmount;
         int blockundoEpoch = it_ia_undo_map->second.certEpoch;
+        const uint256& lastCertHash = it_ia_undo_map->second.lastCertificateHash;
 
         if (amountToRestore > 0)
         {
@@ -782,6 +784,9 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
 
             cacheSidechains.at(scId).flag = CSidechainsCacheEntry::Flags::DIRTY;
         }
+
+        cacheSidechains.at(scId).scInfo.lastCertificateHash = lastCertHash;
+        cacheSidechains.at(scId).flag = CSidechainsCacheEntry::Flags::DIRTY;
     }
 
     return true;
@@ -990,9 +995,11 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
     // if an entry already exists, update only cert epoch with current value
     // if it is a brand new entry, amount will be init as 0 by default
     blockundo.msc_iaundo[scId].certEpoch = targetScInfo.lastEpochReferencedByCertificate;
+    blockundo.msc_iaundo[scId].lastCertificateHash = targetScInfo.lastCertificateHash;
 
     targetScInfo.balance -= totalAmount;
     targetScInfo.lastEpochReferencedByCertificate = cert.epochNumber;
+    targetScInfo.lastCertificateHash = certHash;
     cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
 
     LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",

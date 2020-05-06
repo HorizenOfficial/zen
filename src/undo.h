@@ -129,14 +129,17 @@ struct ScUndoData
 {
     CAmount immAmount;
     int certEpoch;
+    uint256 lastCertificateHash;
     
-    ScUndoData(): immAmount(0), certEpoch(CScCertificate::EPOCH_NOT_INITIALIZED) {}
+    ScUndoData(): immAmount(0), certEpoch(CScCertificate::EPOCH_NOT_INITIALIZED),
+                  lastCertificateHash() {}
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(immAmount);
         READWRITE(certEpoch);
+        READWRITE(lastCertificateHash);
     }
 };
 

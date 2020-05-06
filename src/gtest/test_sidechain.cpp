@@ -633,6 +633,50 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
     EXPECT_TRUE(res);
 }
 
+TEST_F(SidechainTestSuite, NewSidechainsHaveNullLastCertificateHash) {
+    //Create Sc
+    uint256 scId = uint256S("1492");
+    int scCreationHeight = 1987;
+    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(5));
+    CBlock aBlock;
+    ASSERT_TRUE(sidechainsView->UpdateScInfo(aTransaction, aBlock, scCreationHeight));
+
+    CSidechain scInfo;
+    EXPECT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
+    EXPECT_TRUE(scInfo.lastCertificateHash.IsNull());
+
+    //Fully mature initial Sc balance
+    int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
+    CBlockUndo blockUndo;
+    EXPECT_TRUE(sidechainsView->ApplyMatureBalances(coinMaturityHeight, blockUndo));
+
+    //check
+    ASSERT_TRUE(blockUndo.msc_iaundo.count(scId) != 0);
+    EXPECT_TRUE(blockUndo.msc_iaundo.at(scId).lastCertificateHash.IsNull());
+}
+
+//TEST_F(SidechainTestSuite, NewSidechainsHaveNullLastCertificateHash) {
+//    //Create Sc
+//    uint256 scId = uint256S("1492");
+//    int scCreationHeight = 1987;
+//    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(5));
+//    CBlock aBlock;
+//    ASSERT_TRUE(sidechainsView->UpdateScInfo(aTransaction, aBlock, scCreationHeight));
+//
+//    CSidechain scInfo;
+//    EXPECT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
+//    EXPECT_TRUE(scInfo.lastCertificateHash.IsNull());
+//
+//    //Fully mature initial Sc balance
+//    int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
+//    CBlockUndo blockUndo;
+//    EXPECT_TRUE(sidechainsView->ApplyMatureBalances(coinMaturityHeight, blockUndo));
+//
+//    //check
+//    ASSERT_TRUE(blockUndo.msc_iaundo.count(scId) != 0);
+//    EXPECT_TRUE(blockUndo.msc_iaundo.at(scId).lastCertificateHash.IsNull());
+//}
+
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// BatchWrite ///////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////

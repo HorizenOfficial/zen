@@ -19,7 +19,8 @@ class CLevelDBWrapper;
 class CSidechain {
 public:
     CSidechain() : creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
-         lastEpochReferencedByCertificate(CScCertificate::EPOCH_NULL), balance(0) {}
+                   lastEpochReferencedByCertificate(CScCertificate::EPOCH_NULL),
+                   lastCertificateHash(), balance(0) {}
 
     // reference to the block containing the tx that created the side chain
     uint256 creationBlockHash;
@@ -32,6 +33,9 @@ public:
 
     // last epoch for which a certificate have been received
     int lastEpochReferencedByCertificate;
+
+    // hash of the last certificate received for this sidechain
+    uint256 lastCertificateHash;
 
     // total amount given by sum(fw transfer)-sum(bkw transfer)
     CAmount balance;
@@ -55,6 +59,7 @@ public:
         READWRITE(creationBlockHeight);
         READWRITE(creationTxHash);
         READWRITE(lastEpochReferencedByCertificate);
+        READWRITE(lastCertificateHash);
         READWRITE(balance);
         READWRITE(creationData);
         READWRITE(mImmatureAmounts);
@@ -62,12 +67,13 @@ public:
 
     inline bool operator==(const CSidechain& rhs) const
     {
-        return (this->creationBlockHash            == rhs.creationBlockHash)            &&
-               (this->creationBlockHeight          == rhs.creationBlockHeight)          &&
-               (this->creationTxHash               == rhs.creationTxHash)               &&
+        return (this->creationBlockHash                == rhs.creationBlockHash)                &&
+               (this->creationBlockHeight              == rhs.creationBlockHeight)              &&
+               (this->creationTxHash                   == rhs.creationTxHash)                   &&
                (this->lastEpochReferencedByCertificate == rhs.lastEpochReferencedByCertificate) &&
-               (this->creationData                 == rhs.creationData)                 &&
-               (this->mImmatureAmounts             == rhs.mImmatureAmounts);
+               (this->lastCertificateHash              == rhs.lastCertificateHash)              &&
+               (this->creationData                     == rhs.creationData)                     &&
+               (this->mImmatureAmounts                 == rhs.mImmatureAmounts);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
 
