@@ -481,13 +481,13 @@ public:
         fChangeCached = false;
     }
 
+    bool IsTrusted(bool canSpendZeroConfChange = bSpendZeroConfChange) const;
+
     // virtuals
     virtual void SetNoteData(mapNoteData_t &noteData) {}; // default is null
 
     virtual void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const = 0;
-
-    virtual bool IsTrusted() const;
 
     virtual bool RelayWalletTransaction() = 0;
     virtual bool IsInvolvingMe(mapNoteData_t &noteData) const = 0;
@@ -1230,7 +1230,7 @@ public:
      */
     TxItems OrderedTxItems(std::list<CAccountingEntry>& acentries, const std::string& strAccount = "",const std::string& address="*", bool includeFilteredVin = false);
 
-    MapTxWithInputs OrderedTxWithInputsMap(const std::string& address);
+    MapTxWithInputs OrderedTxWithInputsMap(const std::string& address) const;
 
     void MarkDirty();
     bool UpdateNullifierNoteMap();
@@ -1260,7 +1260,14 @@ public:
     std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime);
     CAmount GetBalance() const;
     CAmount GetUnconfirmedBalance() const;
-    CAmount GetUnconfirmedData(const CScript& scriptToMatch, int& numbOfUnconfirmedTx) const;
+
+    enum class eZeroConfChangeUsage {
+        ZCC_FALSE,
+        ZCC_TRUE,
+        ZCC_UNDEF
+    };
+
+    void GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput, CAmount& unconfOutput, eZeroConfChangeUsage zconfchangeusage) const;
     CAmount GetImmatureBalance() const;
     CAmount GetWatchOnlyBalance() const;
     CAmount GetUnconfirmedWatchOnlyBalance() const;
