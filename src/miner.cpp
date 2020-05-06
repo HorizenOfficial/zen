@@ -162,33 +162,14 @@ void HandleDependancy(const CTransactionBase& txBase, int nHeight, double dPrior
     {
         if (mempool.mapCertificate.count(txin.prevout.hash))
         {
-            //only change outputs can be spent, while backward transfers must mature first
-            const CScCertificate & inputCert = mempool.mapCertificate[txin.prevout.hash].GetCertificate();
-            if (txin.prevout.n >= inputCert.GetVout().size() || inputCert.GetVout().at(txin.prevout.n).isFromBackwardTransfer)
-            {
-                // This should never happen; an output from a certificate cannot be spent before next-epoch safeguard height has been reached.
-                // We skip the entire transaction
-                LogPrintf("ERROR: mempool transaction missing input\n");
-                if (fDebug) assert("mempool transaction missing input" == 0);
+            // no outputs of a certificate in mempool can be spent, that also apply to certificate change
+            LogPrintf("ERROR: mempool unspendable input that is an unconfirmed certificate output\n");
+            if (fDebug) assert("mempool transaction unspendable input that is an unconfirmed certificate output" == 0);
 
-                LogPrintf("%s():%d - ERROR: mempool [%s] spends backward transfer from certificate[%s] in mempool\n",
-                    __func__, __LINE__, txBase.GetHash().ToString(), txin.prevout.hash.ToString() );
-                dependsOnCertificateInMempool = true;
-                break;
-            } else
-            {
-                if (!porphan)
-                {
-                    // Use list for automatic deletion
-                    vOrphan.push_back(COrphan(&txBase));
-                    porphan = &vOrphan.back();
-                }
-                mapDependers[txin.prevout.hash].push_back(porphan);
-                porphan->setDependsOn.insert(txin.prevout.hash);
-                nTotalIn += inputCert.GetVout()[txin.prevout.n].nValue;
-                LogPrint("sc", "%s():%d - [%s] depends on cert[%s] for input\n",
-                    __func__, __LINE__, txBase.GetHash().ToString(), txin.prevout.hash.ToString());
-            }
+            LogPrintf("%s():%d - ERROR: mempool [%s] spends output from certificate[%s] in mempool\n",
+                __func__, __LINE__, txBase.GetHash().ToString(), txin.prevout.hash.ToString() );
+            dependsOnCertificateInMempool = true;
+            break;
         }
         else
         if (mempool.mapTx.count(txin.prevout.hash))

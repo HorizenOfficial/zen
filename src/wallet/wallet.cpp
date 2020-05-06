@@ -2493,8 +2493,9 @@ COutputEntry::maturityState CWalletObjBase::IsOutputMature(unsigned int vOutPos)
         if ((nDepth == 0) && vout[vOutPos].isFromBackwardTransfer)
             return COutputEntry::maturityState::IMMATURE;
 
+        // we do not allow even unconfirmed change output in a certificate
         if ((nDepth == 0) && !vout[vOutPos].isFromBackwardTransfer)
-            return COutputEntry::maturityState::MATURE;
+            return COutputEntry::maturityState::IMMATURE;
 
         if (pcoinsTip->IsCertOutputMature(hash, vOutPos, chainActive.Height()))
             return COutputEntry::maturityState::MATURE;
@@ -2532,7 +2533,7 @@ CAmount CWalletObjBase::GetCredit(const isminefilter& filter) const
 
 CAmount CWalletObjBase::GetImmatureCredit(bool fUseCache) const
 {
-    if (!IsInMainChain())
+    if (!IsInMainChain() && !IsCertificate())
         return CAmount(0);
 
     if (!IsCoinBase() && !IsCertificate())

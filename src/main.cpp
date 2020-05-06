@@ -1179,6 +1179,14 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                 LogPrint("mempool", "Dropping cert %s : it double spends another tx in mempool\n", certHash.ToString());
                 return false;
             }
+// TODO cert: enable when tested block mining
+#if 1
+            if (pool.existsCert(vin.prevout.hash)) {
+                LogPrint("mempool", "%s():%d - Dropping cert[%s]: it would spend the output %d of cert[%s] that is in mempool\n",
+                    __func__, __LINE__, certHash.ToString(), vin.prevout.n, vin.prevout.hash.ToString());
+                return false;
+            }
+#endif
         }
     }
 
@@ -1428,6 +1436,16 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                 LogPrint("mempool", "Dropping txid %s : it double spends another tx in mempool\n", hash.ToString());
                 return false;
             }
+#if 1
+            if (pool.existsCert(vin.prevout.hash)) {
+                LogPrint("mempool", "%s():%d - Dropping tx[%s]: it would spend the output %d of cert[%s] that is in mempool\n",
+                    __func__, __LINE__, hash.ToString(), vin.prevout.n, vin.prevout.hash.ToString());
+                return state.DoS(0,
+                         error("AcceptToMemoryPool: tx[%s]: it would spend the output %d of cert[%s] that is in mempool", 
+                         hash.ToString(), vin.prevout.n, vin.prevout.hash.ToString()),
+                         REJECT_NONSTANDARD, "certificate unconfirmed output");
+            }
+#endif
         }
 
         // If this tx creates a sc, no other tx must be doing the same in the mempool
@@ -1598,9 +1616,10 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
 
         if (fRejectAbsurdFee && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
-            return error("AcceptToMemoryPool: absurdly high fees %s, %d > %d",
+            return state.DoS(0, error("AcceptToMemoryPool: absurdly high fees %s, %d > %d",
                          hash.ToString(),
-                         nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
+                         nFees, ::minRelayTxFee.GetFee(nSize) * 10000),
+                         REJECT_ABSURDLY_HIGH_FEE, "absurdly high fees");
 
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
@@ -2594,98 +2613,6 @@ static int64_t nTimeIndex = 0;
 static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 
-bool VerifyTxDependanciesFromCerts(const CBlock& block, int nHeight, std::vector<CScCertificate>& vDepCerts)
-{
-    vDepCerts.clear();
-
-    // no checks if no certs
-    if (block.vcert.size() == 0)
-        return true;
-
-    // temporary cache for checking consistency of inpts
-    CCoinsViewCache viewTemp(pcoinsTip);
-
-    for (unsigned int txIdx = 0; txIdx < block.vtx.size(); txIdx++) // Processing transactions loop
-    {
-        const CTransaction &tx = block.vtx[txIdx];
-
-        for(const CTxIn& txin: tx.GetVin())
-        {
-            if (tx.IsCoinBase())
-                 continue;
-
-            LogPrint("sc", "%s():%d - processing  tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString());
-
-            const CCoins* coins = viewTemp.AccessCoins(txin.prevout.hash);
-            if (!coins || !coins->IsAvailable(txin.prevout.n))
-            {
-                // no inputs found for this tx, check among certificates in this block
-                bool depCertFound = false;
-
-                for (const CScCertificate& cert : block.vcert)
-                {
-                    LogPrint("sc", "%s():%d - processing cert[%s] for txin[%s/%d]\n",
-                        __func__, __LINE__, cert.GetHash().ToString(), txin.prevout.hash.ToString(), txin.prevout.n);
-
-                    if (txin.prevout.hash == cert.GetHash())
-                    {
-                        // provided that it is a regular output, check if this is the input we are looking for 
-                        if (txin.prevout.n < cert.GetVout().size() &&
-                            !cert.GetVout().at(txin.prevout.n).isFromBackwardTransfer)
-                        {
-                            // the right candidate, but just check that if this certificate misses some input, it can
-                            // not be the output of a tx which is this or past the one we are processing in the block.
-                            // We allow dependancies of this cert from other certs though
-                            for(const CTxIn& certIn: cert.GetVin())
-                            {
-                                const CCoins* certInputCoins = viewTemp.AccessCoins(certIn.prevout.hash);
-                                if (!certInputCoins || !certInputCoins->IsAvailable(certIn.prevout.n))
-                                {
-                                    for (unsigned int txNextIdx = txIdx; txNextIdx < block.vtx.size(); txNextIdx++)
-                                    {
-                                        const CTransaction &txNext = block.vtx[txNextIdx];
-                                        if (certIn.prevout.hash == txNext.GetHash())
-                                        {
-                                            LogPrint("sc", "%s():%d - ERROR: cert[%s] depends on tx[%s]\n",
-                                                __func__, __LINE__, cert.GetHash().ToString(), txNext.GetHash().ToString());
-                                            return false;
-                                        }
-                                    }
-                                }
-                            }
-
-                            // ok we have a cert output spendable for this tx, add to the view
-                            LogPrint("sc", "%s():%d - Adding [%s] outputs to view\n", __func__, __LINE__, cert.GetHash().ToString());
-                            viewTemp.ModifyCoins(cert.GetHash())->FromTx(cert, nHeight);
-                            vDepCerts.push_back(cert);
-                            depCertFound = true;
-                            break;
-                        }
-                    }
-                }
-                if (!depCertFound)
-                {
-                    // nor in view or in cert set
-                    LogPrint("sc", "%s():%d - ERROR: could not find input of tx[%s]\n",
-                        __func__, __LINE__, tx.GetHash().ToString());
-                    return false;
-                }
-                else
-                {
-                    // we now have this input in view, go on with others
-                    const CCoins* c = viewTemp.AccessCoins(txin.prevout.hash);
-                    assert (c && c->IsAvailable(txin.prevout.n));
-                }
-            }
-        }
-        CValidationState unused;
-        // add the outputs of this tx to the view
-        UpdateCoins(tx, unused, viewTemp, nHeight);
-    }
-
-    return true;
-}
-
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
     const CChain& chain, bool fJustCheck, bool fCheckScTxesCommitment)
 {
@@ -2780,17 +2707,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     SidechainTxsCommitmentBuilder scCommitmentBuilder;
      
-    std::vector<CScCertificate> vDepCerts;
-    if (!VerifyTxDependanciesFromCerts(block, pindex->nHeight, vDepCerts))
-    {
-        return state.DoS(100, error("ConnectBlock(): invalid block"),
-                            REJECT_INVALID, "bad-block");
-    }
-    for (auto& cert : vDepCerts)
-    {
-        view.ModifyCoins(cert.GetHash())->FromTx(cert, pindex->nHeight);
-    }
-
     for (unsigned int i = 0; i < block.vtx.size(); i++) // Processing transactions loop
     {
         const CTransaction &tx = block.vtx[i];
