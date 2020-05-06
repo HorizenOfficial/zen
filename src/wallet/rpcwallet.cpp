@@ -2408,12 +2408,15 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() != 1)
+    if (fHelp || params.size() > 2)
         throw runtime_error(
             "getunconfirmedtxdata ( \"address\")\n"
             "\nReturns the server's total unconfirmed data relevanto to the input address\n"
             "\nArguments:\n"
-            " \"address\"     (string, mandatory) consider transactions involving this address\n"
+            " \"address\"            (string, mandatory) consider transactions involving this address\n"
+            " spendzeroconfchange  (boolean, optional) If provided the command will force zero confirmation change\n"
+            "                         spendability as specified, otherwise the value set by zend option \'spendzeroconfchange\' \n"
+            "                         will be used instead\n"
 
             "\nExamples:\n"
             + HelpExampleCli("getunconfirmedtxdata", "\"ztZ5M1P9ucj3P5JaW5xtY2hWTkp6JsToiHP\"")
@@ -2426,13 +2429,27 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
     if (!taddr.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
 
-    const CScript& script = GetScriptForDestination(taddr.Get(), false);
+    CWallet::eZeroConfChangeUsage zconfchangeusage = CWallet::eZeroConfChangeUsage::ZCC_UNDEF; 
+    if (params.size() == 2 )
+    {
+        if (params[1].get_bool())
+        {
+            zconfchangeusage = CWallet::eZeroConfChangeUsage::ZCC_TRUE;
+        }
+        else
+        {
+            zconfchangeusage = CWallet::eZeroConfChangeUsage::ZCC_FALSE;
+        }
+    }
 
     int n = 0;
-    CAmount amount = pwalletMain->GetUnconfirmedData(script, n);
+    CAmount unconfInput = 0;
+    CAmount unconfOutput = 0;
+    pwalletMain->GetUnconfirmedData(address, n, unconfInput, unconfOutput, zconfchangeusage);
 
     UniValue ret(UniValue::VOBJ);
-    ret.push_back(Pair("unconfirmedBalance", ValueFromAmount(amount)));
+    ret.push_back(Pair("unconfirmedInput", ValueFromAmount(unconfInput)));
+    ret.push_back(Pair("unconfirmedOutput", ValueFromAmount(unconfOutput)));
     ret.push_back(Pair("unconfirmedTxApperances", n));
 
     return ret;
