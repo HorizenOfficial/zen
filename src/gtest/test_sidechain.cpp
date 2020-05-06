@@ -31,15 +31,15 @@ public:
     CInMemorySidechainDb()  = default;
     virtual ~CInMemorySidechainDb() = default;
 
-    bool HaveSidechain(const uint256& scId) const { return inMemoryMap.count(scId); }
-    bool GetSidechain(const uint256& scId, CSidechain& info) const {
+    bool HaveSidechain(const uint256& scId) const override { return inMemoryMap.count(scId); }
+    bool GetSidechain(const uint256& scId, CSidechain& info) const override {
         if(!inMemoryMap.count(scId))
             return false;
         info = inMemoryMap[scId];
         return true;
     }
 
-    virtual void queryScIds(std::set<uint256>& scIdsList) const {
+    virtual void queryScIds(std::set<uint256>& scIdsList) const override {
         for (auto& entry : inMemoryMap)
             scIdsList.insert(entry.first);
         return;
@@ -47,7 +47,7 @@ public:
 
     bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                     const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap, CCeasingScsMap mapCeasingScs)
+                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap, CCeasingScsMap& mapCeasingScs) override
     {
         for (auto& entry : sidechainMap)
             switch (entry.second.flag) {

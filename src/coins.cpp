@@ -616,11 +616,11 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
     // creation ccout
     for (const auto& cr: tx.vsc_ccout)
     {
-        if (HaveSidechain(cr.scId))
-        {
+        if (HaveSidechain(cr.scId)) {
             LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, cr.scId.ToString() );
             return false;
         }
+
         assert(cacheSidechains.count(cr.scId) == 0);
         cacheSidechains[cr.scId].scInfo.creationBlockHash = block.GetHash();
         cacheSidechains[cr.scId].scInfo.creationBlockHeight = blockHeight;
@@ -634,6 +634,11 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
 
         LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
             __func__, __LINE__, maturityHeight, FormatMoney(cr.nValue), cr.scId.ToString());
+
+        if (!UpdateCeasingScs(cr)) {
+            LogPrint("sc", "ERROR: %s():%d - CR: scId=%s failed updating CeasingScIds map\n", __func__, __LINE__, cr.scId.ToString() );
+            return false;
+        }
 
         LogPrint("sc", "%s():%d - scId[%s] added in scView\n", __func__, __LINE__, cr.scId.ToString() );
     }
@@ -1050,6 +1055,11 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
     LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",
         __func__, __LINE__, FormatMoney(totalAmount), FormatMoney(targetScInfo.balance), scId.ToString());
 
+    if (!UpdateCeasingScs(cert)) {
+        LogPrint("sc", "ERROR: %s():%d - CR: scId=%s failed updating CeasingScIds map\n", __func__, __LINE__, cert.GetScId().ToString() );
+        return false;
+    }
+
     return true;
 }
 
@@ -1096,7 +1106,7 @@ bool CCoinsViewCache::GetCeasingScs(int height, CCeasingSidechains& ceasingScs) 
 bool CCoinsViewCache::UpdateCeasingScs(const CTxScCreationOut& scCreationOut) //ABENEGIA: is BlockUndo missing??
 {
     CSidechain scInfo;
-    if (this->GetSidechain(scCreationOut.scId, scInfo)) {
+    if (!this->GetSidechain(scCreationOut.scId, scInfo)) {
         LogPrint("cert", "%s():%d - attempt to update ceasing sidechain map with unknown scId[%s]\n",
             __func__, __LINE__, scCreationOut.scId.ToString());
         return false;
@@ -1120,7 +1130,7 @@ bool CCoinsViewCache::UpdateCeasingScs(const CTxScCreationOut& scCreationOut) //
 bool CCoinsViewCache::UpdateCeasingScs(const CScCertificate& cert)
 {
     CSidechain scInfo;
-    if (this->GetSidechain(cert.GetScId(), scInfo)) {
+    if (!this->GetSidechain(cert.GetScId(), scInfo)) {
         LogPrint("cert", "%s():%d - attempt to update ceasing sidechain map with cert to unknown scId[%s]\n",
             __func__, __LINE__, cert.GetScId().ToString());
         return false;
@@ -1140,7 +1150,7 @@ bool CCoinsViewCache::UpdateCeasingScs(const CScCertificate& cert)
     //clear up next ceasing height, if any
     int prevCeasingHeight = nextCeasingHeight - scInfo.creationData.withdrawalEpochLength;
     CCeasingSidechains prevCeasingScId;
-    if (!GetCeasingScs(prevCeasingHeight,prevCeasingScId)) {
+    if (GetCeasingScs(prevCeasingHeight,prevCeasingScId)) {
         prevCeasingScId.ceasingScs.erase(cert.GetScId());
         if (prevCeasingScId.ceasingScs.size() != 0) //still other sc ceasing at that height
             cacheCeasingScs[prevCeasingHeight] = CCeasingScsCacheEntry(prevCeasingScId, CCeasingScsCacheEntry::Flags::DIRTY);
