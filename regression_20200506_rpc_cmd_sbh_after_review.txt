@@ -1,13 +1,0 @@
-Script started on Wed 06 May 2020 09:17:36 AM CEST
-]0;~/horizen/sc_dyn_wip/zen
-[32malberto@ubuntu [33m~/horizen/sc_dyn_wip/zen[0m
-$ exit[C[C./qa/zcash/full_test_suite.py --rpc-extended[C[C[13Pexport HOST=$(ls depends/built)[C[C
-]0;~/horizen/sc_dyn_wip/zen
-[32malberto@ubuntu [33m~/horizen/sc_dyn_wip/zen[0m
-$ export HOST=$(ls depends/built)[C[C[C[Cit[K[C[C./qa/zcash/full_test_suite.py --rpc-extended[C[C^C
-]0;~/horizen/sc_dyn_wip/zen
-[32malberto@ubuntu [33m~/horizen/sc_dyn_wip/zen[0m
-$ exit
-exit
-
-Script done on Wed 06 May 2020 09:19:44 AM CEST
