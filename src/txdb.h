@@ -41,6 +41,8 @@ public:
     bool HaveCoins(const uint256 &txid) const;
     bool GetSidechain(const uint256& scId, CSidechain& info) const;
     bool HaveSidechain(const uint256& scId) const;
+    bool HaveCeasingScs(int height) const;
+    bool GetCeasingScs(int height, CCeasingSidechains& ceasingScs) const;
     void queryScIds(std::set<uint256>& scIdsList) const;
     uint256 GetBestBlock() const;
     uint256 GetBestAnchor() const;
@@ -49,7 +51,8 @@ public:
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
-                    CSidechainsMap& mapSidechains);
+                    CSidechainsMap& mapSidechains,
+                    CCeasingScsMap& mapCeasedScs);
     bool GetStats(CCoinsStats &stats) const;
     void Dump_info() const;
 };

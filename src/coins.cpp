@@ -139,16 +139,16 @@ bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins)                  c
 bool CCoinsView::HaveCoins(const uint256 &txid)                                const { return false; }
 bool CCoinsView::HaveSidechain(const uint256& scId)                            const { return false; }
 bool CCoinsView::GetSidechain(const uint256& scId, CSidechain& info)           const { return false; }
+bool CCoinsView::HaveCeasingScs(int height)                                    const { return false; }
+bool CCoinsView::GetCeasingScs(int height, CCeasingSidechains& ceasingScs)     const { return false; }
 void CCoinsView::queryScIds(std::set<uint256>& scIdsList)                      const { scIdsList.clear(); return; }
 bool CCoinsView::HaveCertForEpoch(const uint256& scId, int epochNumber)        const { return false; }
 uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
 uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
-bool CCoinsView::BatchWrite(CCoinsMap &mapCoins,
-                            const uint256 &hashBlock,
-                            const uint256 &hashAnchor,
-                            CAnchorsMap &mapAnchors,
-                            CNullifiersMap &mapNullifiers,
-                            CSidechainsMap& mapSidechains)                           { return false; }
+bool CCoinsView::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
+                            const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
+                            CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
+                            CCeasingScsMap& mapCeasedScs) { return false; }
 bool CCoinsView::GetStats(CCoinsStats &stats)                                  const { return false; }
 
 
@@ -160,18 +160,18 @@ bool CCoinsViewBacked::GetCoins(const uint256 &txid, CCoins &coins)             
 bool CCoinsViewBacked::HaveCoins(const uint256 &txid)                                const { return base->HaveCoins(txid); }
 bool CCoinsViewBacked::HaveSidechain(const uint256& scId)                            const { return base->HaveSidechain(scId); }
 bool CCoinsViewBacked::GetSidechain(const uint256& scId, CSidechain& info)           const { return base->GetSidechain(scId,info); }
+bool CCoinsViewBacked::HaveCeasingScs(int height)                                    const { return base->HaveCeasingScs(height); }
+bool CCoinsViewBacked::GetCeasingScs(int height, CCeasingSidechains& ceasingScs)     const { return base->GetCeasingScs(height, ceasingScs); }
 void CCoinsViewBacked::queryScIds(std::set<uint256>& scIdsList)                      const { return base->queryScIds(scIdsList); }
 bool CCoinsViewBacked::HaveCertForEpoch(const uint256& scId, int epochNumber)        const { return base->HaveCertForEpoch(scId, epochNumber); }
 uint256 CCoinsViewBacked::GetBestBlock()                                             const { return base->GetBestBlock(); }
 uint256 CCoinsViewBacked::GetBestAnchor()                                            const { return base->GetBestAnchor(); }
 void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
-bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins,
-                                  const uint256 &hashBlock,
-                                  const uint256 &hashAnchor,
-                                  CAnchorsMap &mapAnchors,
-                                  CNullifiersMap &mapNullifiers,
-                                  CSidechainsMap& mapSidechains)
-                                { return base->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains); }
+bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
+                                  const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
+                                  CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
+                                  CCeasingScsMap& mapCeasedScs) { return base->BatchWrite(mapCoins, hashBlock, hashAnchor,
+                                                                                          mapAnchors, mapNullifiers, mapSidechains, mapCeasedScs); }
 bool CCoinsViewBacked::GetStats(CCoinsStats &stats)                                  const { return base->GetStats(stats); }
 
 CCoinsKeyHasher::CCoinsKeyHasher() : salt(GetRandHash()) {}
@@ -221,6 +221,23 @@ CSidechainsMap::const_iterator CCoinsViewCache::FetchSidechains(const uint256& s
     //it allows to insert CSidechain and keep iterator to inserted member without extra searches
     CSidechainsMap::iterator ret =
             cacheSidechains.insert(std::make_pair(scId, CSidechainsCacheEntry(tmp, CSidechainsCacheEntry::Flags::DEFAULT ))).first;
+
+    return ret;
+}
+
+CCeasingScsMap::const_iterator CCoinsViewCache::FetchCeasingScs(int height) const{
+    CCeasingScsMap::iterator candidateIt = cacheCeasingScs.find(height);
+    if (candidateIt != cacheCeasingScs.end())
+        return candidateIt;
+
+    CCeasingSidechains tmp;
+    if (!base->GetCeasingScs(height, tmp))
+        return cacheCeasingScs.end();
+
+    //Fill cache and return iterator. The insert in cache below looks cumbersome. However
+    //it allows to insert CCeasingSidechains and keep iterator to inserted member without extra searches
+    CCeasingScsMap::iterator ret =
+            cacheCeasingScs.insert(std::make_pair(height, CCeasingScsCacheEntry(tmp, CCeasingScsCacheEntry::Flags::DEFAULT ))).first;
 
     return ret;
 }
@@ -390,7 +407,8 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                                  const uint256 &hashAnchorIn,
                                  CAnchorsMap &mapAnchors,
                                  CNullifiersMap &mapNullifiers,
-                                 CSidechainsMap& mapSidechains) {
+                                 CSidechainsMap& mapSidechains,
+                                 CCeasingScsMap& mapCeasedScs) {
     assert(!hasModifier);
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) { // Ignore non-dirty entries (optimization).
@@ -484,7 +502,7 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                 cacheSidechains[entryToWrite.first] = entryToWrite.second;
                 break;
             case CSidechainsCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
-                    cacheSidechains[entryToWrite.first] = entryToWrite.second;
+                cacheSidechains[entryToWrite.first] = entryToWrite.second;
                 break;
             case CSidechainsCacheEntry::Flags::ERASED:
                 if (itLocalCacheEntry != cacheSidechains.end())
@@ -499,6 +517,34 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
         }
     }
     mapSidechains.clear();
+
+    for (auto& entryToWrite : mapCeasedScs) {
+        CCeasingScsMap::iterator itLocalCacheEntry = cacheCeasingScs.find(entryToWrite.first);
+
+        switch (entryToWrite.second.flag) {
+            case CCeasingScsCacheEntry::Flags::FRESH:
+                assert(
+                    itLocalCacheEntry == cacheCeasingScs.end() ||
+                    itLocalCacheEntry->second.flag == CCeasingScsCacheEntry::Flags::ERASED
+                ); //A fresh entry should not exist in localCache or be already erased
+                cacheCeasingScs[entryToWrite.first] = entryToWrite.second;
+                break;
+            case CCeasingScsCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
+                cacheCeasingScs[entryToWrite.first] = entryToWrite.second;
+                break;
+            case CCeasingScsCacheEntry::Flags::ERASED:
+                if (itLocalCacheEntry != cacheCeasingScs.end())
+                    itLocalCacheEntry->second.flag = CCeasingScsCacheEntry::Flags::ERASED;
+                break;
+            case CCeasingScsCacheEntry::Flags::DEFAULT:
+                assert(itLocalCacheEntry != cacheCeasingScs.end());
+                assert(itLocalCacheEntry->second.ceasingScs == entryToWrite.second.ceasingScs); //entry declared default is indeed different from backed value
+                break; //nothing to do. entry is already persisted and has not been modified
+            default:
+                assert(false);
+        }
+    }
+    mapCeasedScs.clear();
 
     hashAnchor = hashAnchorIn;
     hashBlock = hashBlockIn;
@@ -1031,10 +1077,27 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert)
     return true;
 }
 
+bool CCoinsViewCache::HaveCeasingScs(int height) const
+{
+    CCeasingScsMap::const_iterator it = FetchCeasingScs(height);
+    return (it != cacheCeasingScs.end()) && (it->second.flag != CCeasingScsCacheEntry::Flags::ERASED);
+}
+
+bool CCoinsViewCache::GetCeasingScs(int height, CCeasingSidechains& ceasingScs) const
+{
+    CCeasingScsMap::const_iterator it = FetchCeasingScs(height);
+    if (it != cacheCeasingScs.end() && it->second.flag != CCeasingScsCacheEntry::Flags::ERASED) {
+        ceasingScs = it->second.ceasingScs;
+        return true;
+    }
+    return false;
+}
+
 bool CCoinsViewCache::Flush() {
-    bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, cacheSidechains);
+    bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, cacheSidechains, cacheCeasingScs);
     cacheCoins.clear();
     cacheSidechains.clear();
+    cacheCeasingScs.clear();
     cacheAnchors.clear();
     cacheNullifiers.clear();
     cachedCoinsUsage = 0;

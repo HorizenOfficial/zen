@@ -16,6 +16,27 @@ class UniValue;
 class CValidationState;
 class CLevelDBWrapper;
 
+class CCeasingSidechains {
+public:
+    CCeasingSidechains() = default;
+    ~CCeasingSidechains() = default;
+
+    std::set<uint256> ceasingScs;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(ceasingScs);
+    }
+
+    inline bool operator==(const CCeasingSidechains& rhs) const {
+        return (this->ceasingScs                == rhs.ceasingScs);
+    }
+
+    inline bool operator!=(const CCeasingSidechains& rhs) const { return !(*this == rhs); }
+};
+
 class CSidechain {
 public:
     CSidechain() : creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
