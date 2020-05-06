@@ -2746,14 +2746,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     } //end of Processing certificates loop
 
-    //remove coiins from ceased sidechain and record them in blockUndo
-    //sidechainHandler.handleCeasingSidechains(blockundo, pindex->nHeight);
-
     if (!view.ApplyMatureBalances(pindex->nHeight, blockundo) )
     {
         return state.DoS(100, error("ConnectBlock(): could not update sc immature amounts"),
                          REJECT_INVALID, "bad-sc-amounts");
     }
+
+    //remove coiins from ceased sidechain and record them in blockUndo
+    //view.HandleCeasingScs(pindex->nHeight, blockUndo);
+
 
     view.PushAnchor(tree);
     if (!fJustCheck) {

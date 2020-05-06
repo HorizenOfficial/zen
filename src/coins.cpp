@@ -1101,6 +1101,54 @@ bool CCoinsViewCache::GetCeasingScs(int height, CCeasingSidechains& ceasingScs) 
     return false;
 }
 
+bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
+{
+    if (!HaveCeasingScs(height))
+        return true;
+
+    CCeasingSidechains ceasingScList;
+    GetCeasingScs(height, ceasingScList);
+
+    for (const uint256& ceasingScId : ceasingScList.ceasingScs)
+    {
+        CSidechain scInfo;
+        assert(GetSidechain(ceasingScId, scInfo));
+
+        //lastEpochCertsBySc have at least a bwt, hence they cannot be fully spent
+        assert(this->HaveCoins(scInfo.lastCertificateHash));
+        CCoinsModifier coins = this->ModifyCoins(scInfo.lastCertificateHash);
+
+        //null all bwt outputs and add related txundo in block
+        bool foundFirstBwt = false;
+        for(unsigned int pos = 0; pos < coins->vout.size(); ++pos)
+        {
+            if (!coins->IsAvailable(pos))
+                continue;
+            if (!coins->vout[pos].isFromBackwardTransfer)
+                continue;
+
+            if (!foundFirstBwt) {
+                blockUndo.vtxundo.push_back(CTxUndo());
+                blockUndo.vtxundo.back().refTx = scInfo.lastCertificateHash;
+                blockUndo.vtxundo.back().firstBwtPos = pos;
+                foundFirstBwt = true;
+            }
+
+            blockUndo.vtxundo.back().vprevout.push_back(CTxInUndo(coins->vout[pos]));
+            coins->Spend(pos);
+            if (coins->vout.size() == 0 || coins->vout[pos].isFromBackwardTransfer) {
+                CTxInUndo& undo = blockUndo.vtxundo.back().vprevout.back();
+                undo.nHeight    = coins->nHeight;
+                undo.fCoinBase  = coins->fCoinBase;
+                undo.nVersion   = coins->nVersion;
+                undo.originScId = coins->originScId;
+            }
+        }
+    }
+
+    return true;
+}
+
 bool CCoinsViewCache::UpdateCeasingScs(const CTxScCreationOut& scCreationOut) //ABENEGIA: is BlockUndo missing??
 {
     CSidechain scInfo;

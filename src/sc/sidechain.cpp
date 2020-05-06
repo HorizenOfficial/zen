@@ -177,9 +177,6 @@ Sidechain::state Sidechain::isCeasedAtHeight(CCoinsViewCache& view, const uint25
     if (!view.HaveSidechain(scId))
         return state::NOT_APPLICABLE;
 
-    if (height > chainActive.Height()+1)
-        return state::NOT_APPLICABLE; //too much in the future, can't tell
-
     CSidechain scInfo;
     view.GetSidechain(scId, scInfo);
 

@@ -584,6 +584,7 @@ public:
     //CEASING SIDECHAINS RELATED MEMBERS
     bool HaveCeasingScs(int height)                                const override;
     bool GetCeasingScs(int height, CCeasingSidechains& ceasingScs) const override;
+    bool HandleCeasingScs(int height, CBlockUndo& blockUndo);
 private:
     bool UpdateCeasingScs(const CTxScCreationOut& scCreationOut);
     bool UpdateCeasingScs(const CScCertificate& cert);
