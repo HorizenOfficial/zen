@@ -2457,22 +2457,22 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
     if (!taddr.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
 
-    CWallet::eZeroConfChangeUsage zconfchangeusage = CWallet::ZCC_UNDEF; 
+    CWallet::eZeroConfChangeUsage zconfchangeusage = CWallet::eZeroConfChangeUsage::ZCC_UNDEF; 
     if (params.size() == 2 )
     {
         if (params[1].get_bool())
         {
-            zconfchangeusage = CWallet::ZCC_TRUE;
+            zconfchangeusage = CWallet::eZeroConfChangeUsage::ZCC_TRUE;
         }
         else
         {
-            zconfchangeusage = CWallet::ZCC_FALSE;
+            zconfchangeusage = CWallet::eZeroConfChangeUsage::ZCC_FALSE;
         }
     }
 
     int n = 0;
     CAmount unconfInput = 0;
-    CAmount unconfOutput;
+    CAmount unconfOutput = 0;
     pwalletMain->GetUnconfirmedData(address, n, unconfInput, unconfOutput, zconfchangeusage);
 
     UniValue ret(UniValue::VOBJ);

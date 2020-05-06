@@ -481,8 +481,7 @@ public:
     virtual void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const = 0;
 
-    virtual bool IsTrusted() const = 0;
-    virtual bool IsTrusted(bool spendZeroConfChangeIn) const = 0;
+    virtual bool IsTrusted(bool canSpendZeroConfChange = bSpendZeroConfChange) const = 0;
 
     virtual bool RelayWalletTransaction() = 0;
     virtual bool IsInvolvingMe(mapNoteData_t &noteData) const = 0;
@@ -646,9 +645,7 @@ public:
     void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const override;
 
-    bool IsTrusted() const override;
-
-    bool IsTrusted(bool spendZeroConfChangeIn) const override;
+    bool IsTrusted(bool canSpendZeroConfChange = bSpendZeroConfChange) const override;
 
     bool RelayWalletTransaction() override;
     bool IsInvolvingMe(mapNoteData_t &noteData) const override;
@@ -773,8 +770,7 @@ public:
     void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const override;
 
-    bool IsTrusted() const override;
-    bool IsTrusted(bool spendZeroConfChangeIn) const override;
+    bool IsTrusted(bool canSpendZeroConfChange = bSpendZeroConfChange) const override;
 
     bool RelayWalletTransaction() override;
     bool IsInvolvingMe(mapNoteData_t &noteData) const override;
@@ -1304,11 +1300,11 @@ public:
     CAmount GetBalance() const;
     CAmount GetUnconfirmedBalance() const;
 
-    typedef enum {
-        ZCC_FALSE = 0,
+    enum class eZeroConfChangeUsage {
+        ZCC_FALSE,
         ZCC_TRUE,
         ZCC_UNDEF
-    } eZeroConfChangeUsage;
+    };
 
     void GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput, CAmount& unconfOutput, eZeroConfChangeUsage zconfchangeusage) const;
     CAmount GetImmatureBalance() const;

@@ -36,7 +36,7 @@ class getunconfirmedtxdata(BitcoinTestFramework):
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
             [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert',
-            '-logtimemicros=1', '-rescan', '-spendzeroconfchange=%d'%bool_flag]] * NUMB_OF_NODES)
+            '-spendzeroconfchange=%d'%bool_flag]] * NUMB_OF_NODES)
 
         connect_nodes_bi(self.nodes, 0, 1)
         sync_blocks(self.nodes[1:NUMB_OF_NODES])
