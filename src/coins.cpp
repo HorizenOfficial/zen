@@ -693,7 +693,6 @@ bool CCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo
     for(auto it_set = allKnowScIds.begin(); it_set != allKnowScIds.end(); ++it_set)
     {
         const uint256& scId = *it_set;
-        const std::string& scIdString = scId.ToString();
 
         assert(HaveSidechain(scId));
         CSidechain& targetScInfo = cacheSidechains.at(scId).scInfo; //in place modifications here
@@ -709,20 +708,20 @@ bool CCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo
         if (maturityHeight == blockHeight)
         {
             LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
-                __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
+                __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
 
             // if maturity has been reached apply it to balance in scview
             targetScInfo.balance += candidateAmount;
 
             LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
-                __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
+                __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
 
             // scview balance has been updated, remove the entry in scview immature map
             targetScInfo.mImmatureAmounts.erase(targetScInfo.mImmatureAmounts.begin());
             cacheSidechains.at(scId).flag = CSidechainsCacheEntry::Flags::DIRTY;
 
             LogPrint("sc", "%s():%d - adding immature amount %s for scId=%s in blockundo\n",
-                __func__, __LINE__, FormatMoney(candidateAmount), scIdString);
+                __func__, __LINE__, FormatMoney(candidateAmount), scId.ToString());
         
             // store immature balances into the blockundo obj
             blockundo.msc_iaundo[scId].immAmount = candidateAmount;
