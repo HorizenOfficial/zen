@@ -635,11 +635,6 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
             __func__, __LINE__, maturityHeight, FormatMoney(cr.nValue), cr.scId.ToString());
 
-        if (!UpdateCeasingScs(cr)) {
-            LogPrint("sc", "ERROR: %s():%d - CR: scId=%s failed updating CeasingScIds map\n", __func__, __LINE__, cr.scId.ToString() );
-            return false;
-        }
-
         LogPrint("sc", "%s():%d - scId[%s] added in scView\n", __func__, __LINE__, cr.scId.ToString() );
     }
 
@@ -1053,11 +1048,6 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
     LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",
         __func__, __LINE__, FormatMoney(totalAmount), FormatMoney(targetScInfo.balance), scId.ToString());
 
-    if (!UpdateCeasingScs(cert)) {
-        LogPrint("sc", "ERROR: %s():%d - CR: scId=%s failed updating CeasingScIds map\n", __func__, __LINE__, cert.GetScId().ToString() );
-        return false;
-    }
-
     return true;
 }
 
@@ -1135,11 +1125,11 @@ bool CCoinsViewCache::UndoCeasingScs(const CTxScCreationOut& scCreationOut)
     }
 
     int restoredEpoch = restoredScInfo.EpochFor(restoredScInfo.creationBlockHeight);
-    int currentCeasingHeight = restoredScInfo.StartHeightForEpoch(restoredEpoch) + restoredScInfo.SafeguardMargin() +1;
+    int currentCeasingHeight = restoredScInfo.StartHeightForEpoch(restoredEpoch + 1) + restoredScInfo.SafeguardMargin() +1;
 
     //remove current ceasing Height
     CCeasingSidechains currentCeasingScId;
-    if (GetCeasingScs(currentCeasingHeight,currentCeasingScId)) {
+    if (!GetCeasingScs(currentCeasingHeight,currentCeasingScId)) {
         LogPrint("cert", "%s():%d - missing current ceasing height; expected value was [%d]\n",
             __func__, __LINE__, currentCeasingHeight);
         return false;
@@ -1197,12 +1187,12 @@ bool CCoinsViewCache::UndoCeasingScs(const CScCertificate& cert)
         return false;
     }
 
-    int restoredCeasingHeight = restoredScInfo.StartHeightForEpoch(restoredScInfo.lastEpochReferencedByCertificate+2) + restoredScInfo.SafeguardMargin()+1;
-    int currentCeasingHeight = restoredCeasingHeight + restoredScInfo.creationData.withdrawalEpochLength;
+    int currentCeasingHeight = restoredScInfo.StartHeightForEpoch(restoredScInfo.lastEpochReferencedByCertificate+2) + restoredScInfo.SafeguardMargin()+1;
+    int restoredCeasingHeight = currentCeasingHeight - restoredScInfo.creationData.withdrawalEpochLength;
 
     //remove current ceasing Height
     CCeasingSidechains currentCeasingScId;
-    if (GetCeasingScs(currentCeasingHeight,currentCeasingScId)) {
+    if (!GetCeasingScs(currentCeasingHeight,currentCeasingScId)) {
         LogPrint("cert", "%s():%d - missing current ceasing height; expected value was [%d]\n",
             __func__, __LINE__, currentCeasingHeight);
         return false;
