@@ -1,40 +1,28 @@
 #include <gtest/gtest.h>
 #include <chainparams.h>
 #include <coins.h>
-#include <sc/sidechain_handler.h>
 #include "tx_creation_utils.h"
 #include <main.h>
 #include <undo.h>
 #include <consensus/validation.h>
 
-class SidechainHandlerTestSuite: public ::testing::Test {
+class CeasedSidechainsTestSuite: public ::testing::Test {
 
 public:
-    SidechainHandlerTestSuite():
+    CeasedSidechainsTestSuite():
         dummyBackingView(nullptr)
-        , view(nullptr)
-        , scHandler(nullptr) {};
+        , view(nullptr) {};
 
-    ~SidechainHandlerTestSuite() = default;
+    ~CeasedSidechainsTestSuite() = default;
 
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
 
         dummyBackingView = new CCoinsView();
         view = new CCoinsViewCache(dummyBackingView);
-        scHandler = new CSidechainHandler();
-        scHandler->setView(*view);
-
-        chainSettingUtils::GenerateChainActive(220);
     };
 
     void TearDown() override {
-        chainActive.SetTip(nullptr);
-        mapBlockIndex.clear();
-
-        delete scHandler;
-        scHandler = nullptr;
-
         delete view;
         view = nullptr;
 
@@ -45,14 +33,13 @@ public:
 protected:
     CCoinsView        *dummyBackingView;
     CCoinsViewCache   *view;
-    CSidechainHandler *scHandler;
 };
 
 
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////// isSidechainCeased /////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainHandlerTestSuite, UnknownSidechainIsNeitherAliveNorCeased) {
+TEST_F(CeasedSidechainsTestSuite, UnknownSidechainIsNeitherAliveNorCeased) {
     uint256 scId = uint256S("aaa");
     int creationHeight = 1912;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
@@ -63,7 +50,7 @@ TEST_F(SidechainHandlerTestSuite, UnknownSidechainIsNeitherAliveNorCeased) {
         <<"sc is in state "<<int(state);
 }
 
-TEST_F(SidechainHandlerTestSuite, SidechainInItsFirstEpochIsNotCeased) {
+TEST_F(CeasedSidechainsTestSuite, SidechainInItsFirstEpochIsNotCeased) {
     uint256 scId = uint256S("aaa");
     int creationHeight = 1912;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10), /*height*/10);
@@ -82,7 +69,7 @@ TEST_F(SidechainHandlerTestSuite, SidechainInItsFirstEpochIsNotCeased) {
     }
 }
 
-TEST_F(SidechainHandlerTestSuite, SidechainIsNotCeasedBeforeNextEpochSafeguard) {
+TEST_F(CeasedSidechainsTestSuite, SidechainIsNotCeasedBeforeNextEpochSafeguard) {
     uint256 scId = uint256S("aaa");
     int creationHeight = 1945;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10), /*epochLength*/11);
@@ -101,7 +88,7 @@ TEST_F(SidechainHandlerTestSuite, SidechainIsNotCeasedBeforeNextEpochSafeguard) 
     }
 }
 
-TEST_F(SidechainHandlerTestSuite, SidechainIsCeasedAftereNextEpochSafeguard) {
+TEST_F(CeasedSidechainsTestSuite, SidechainIsCeasedAftereNextEpochSafeguard) {
     uint256 scId = uint256S("aaa");
     int creationHeight = 1968;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10),/*epochLength*/100);
@@ -121,7 +108,7 @@ TEST_F(SidechainHandlerTestSuite, SidechainIsCeasedAftereNextEpochSafeguard) {
     }
 }
 
-TEST_F(SidechainHandlerTestSuite, CertificateMovesSidechainTerminationToNextEpochSafeguard) {
+TEST_F(CeasedSidechainsTestSuite, CertificateMovesSidechainTerminationToNextEpochSafeguard) {
     //Create Sidechain
     uint256 scId = uint256S("aaa");
     int creationHeight = 1968;
@@ -157,7 +144,7 @@ TEST_F(SidechainHandlerTestSuite, CertificateMovesSidechainTerminationToNextEpoc
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////// Ceasing Sidechain handling ////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainHandlerTestSuite, CeasingHeightUpdateForScCreation) {
+TEST_F(CeasedSidechainsTestSuite, CeasingHeightUpdateForScCreation) {
     uint256 scId = uint256S("aaa");
     int scCreationHeight = 1492;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
@@ -177,7 +164,7 @@ TEST_F(SidechainHandlerTestSuite, CeasingHeightUpdateForScCreation) {
     EXPECT_TRUE(ceasingScIds.ceasingScs.count(scId) != 0);
 }
 
-TEST_F(SidechainHandlerTestSuite, CeasingHeightUpdateForCertificate) {
+TEST_F(CeasedSidechainsTestSuite, CeasingHeightUpdateForCertificate) {
     //Create and register sidechain
     uint256 scId = uint256S("aaa");
     int creationHeight = 100;
@@ -217,7 +204,7 @@ TEST_F(SidechainHandlerTestSuite, CeasingHeightUpdateForCertificate) {
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// HandleCeasingScs ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainHandlerTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
+TEST_F(CeasedSidechainsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     //Create sidechain
     uint256 scId = uint256S("aaa");
     int scCreationHeight = 1987;
@@ -266,7 +253,7 @@ TEST_F(SidechainHandlerTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     EXPECT_TRUE(cert.GetVout().size() == bwtCounter); //all cert outputs are handled
 }
 
-TEST_F(SidechainHandlerTestSuite, ChangeOutputsArePreservedWhenSidechainCeases) {
+TEST_F(CeasedSidechainsTestSuite, ChangeOutputsArePreservedWhenSidechainCeases) {
     //Create sidechain
     uint256 scId = uint256S("aaa");
     int scCreationHeight = 1987;
@@ -322,7 +309,7 @@ TEST_F(SidechainHandlerTestSuite, ChangeOutputsArePreservedWhenSidechainCeases) 
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// RevertCeasingScs ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainHandlerTestSuite, RestoreFullyNulledCeasedCoins) {
+TEST_F(CeasedSidechainsTestSuite, RestoreFullyNulledCeasedCoins) {
     //Create sidechain
     uint256 scId = uint256S("aaa");
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
@@ -374,7 +361,7 @@ TEST_F(SidechainHandlerTestSuite, RestoreFullyNulledCeasedCoins) {
     }
 }
 
-TEST_F(SidechainHandlerTestSuite, RestorePartiallyNulledCeasedCoins) {
+TEST_F(CeasedSidechainsTestSuite, RestorePartiallyNulledCeasedCoins) {
     //Create sidechain
     uint256 scId = uint256S("aaa");
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
@@ -428,7 +415,7 @@ TEST_F(SidechainHandlerTestSuite, RestorePartiallyNulledCeasedCoins) {
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// UndoCeasingScs ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainHandlerTestSuite, UndoCeasingScs) {
+TEST_F(CeasedSidechainsTestSuite, UndoCeasingScs) {
     uint256 scId = uint256S("aaa");
     int scCreationHeight = 1492;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
@@ -454,7 +441,7 @@ TEST_F(SidechainHandlerTestSuite, UndoCeasingScs) {
     EXPECT_FALSE(view->HaveCeasingScs(ceasingHeight));
 }
 
-TEST_F(SidechainHandlerTestSuite, UndoCertUpdatesToCeasingScs) {
+TEST_F(CeasedSidechainsTestSuite, UndoCertUpdatesToCeasingScs) {
     //Create and register sidechain
     uint256 scId = uint256S("aaa");
     int creationHeight = 100;

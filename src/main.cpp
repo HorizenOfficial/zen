@@ -63,7 +63,6 @@ BlockTimeMap mGlobalForkTips;
 
 BlockMap mapBlockIndex;
 CChain chainActive;
-CSidechainHandler sidechainHandler;
 CBlockIndex *pindexBestHeader = NULL;
 int64_t nTimeBestReceived = 0;
 CWaitableCriticalSection csBestBlock;
@@ -2727,7 +2726,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
 
         if (!view.UpdateCeasingScs(cert))
-            return state.DoS(100, error("ConnectBlock(): Error recording certificate [%s] is sidechainHandler", cert.GetHash().ToString()),
+            return state.DoS(100, error("ConnectBlock(): Error updating ceasing heights with certificate [%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-recorded");
 
 

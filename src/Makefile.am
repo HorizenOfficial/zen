@@ -273,7 +273,6 @@ libbitcoin_server_a_SOURCES = \
   rpc/server.cpp \
   sc/sidechain.cpp \
   sc/sidechainrpc.cpp \
-  sc/sidechain_handler.cpp \
   script/sigcache.cpp \
   timedata.cpp \
   torcontrol.cpp \
