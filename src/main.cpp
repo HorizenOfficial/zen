@@ -2328,7 +2328,11 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     // undo certificates in reverse order
     for (int i = block.vcert.size() - 1; i >= 0; i--) {
         const CScCertificate& cert = block.vcert[i];
-        sidechainHandler.removeCertificate(cert);
+
+        if (!view.UndoCeasingScs(cert)) {
+            LogPrint("sc", "%s():%d - ERROR undoing ceasing height\n", __func__, __LINE__);
+            return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
+        }
 
         if (!view.RevertCertOutputs(cert) ) {
             LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
@@ -2369,16 +2373,19 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             }
         }
 
+        for (const CTxScCreationOut& scCreation: tx.vsc_ccout) {
+            if (!view.UndoCeasingScs(scCreation)) {
+                LogPrint("sc", "%s():%d - ERROR undoing ceasing height\n", __func__, __LINE__);
+                return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
+            }
+        }
+
         LogPrint("sc", "%s():%d - undo sc outputs if any\n", __func__, __LINE__);
         if (!view.RevertTxOutputs(tx, pindex->nHeight) )
         {
             LogPrint("sc", "%s():%d - ERROR undoing sc creation\n", __func__, __LINE__);
             return error("DisconnectBlock(): sc creation can not be reverted: data inconsistent");
         }
-
-//        for (const CTxScCreationOut& scCreation: tx.vsc_ccout) {
-//            sidechainHandler.unregisterSidechain(scCreation.scId);
-//        }
 
         // restore inputs
         if (i > 0) { // not coinbases
@@ -2652,11 +2659,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  REJECT_INVALID, "bad-sc-tx");
             }
 
-            //Register newly created sidechains
-            sidechainHandler.setView(view);
             for (const CTxScCreationOut& scCreation: tx.vsc_ccout) {
-                if (!sidechainHandler.registerSidechain(scCreation.scId, pindex->nHeight))
-                    return state.DoS(100, error("ConnectBlock(): error recording sidechain [%s] in sidechainHandler", scCreation.scId.ToString()),
+                if (!view.UpdateCeasingScs(scCreation))
+                    return state.DoS(100, error("ConnectBlock(): error updating ceasing height for sidechain [%s]", scCreation.scId.ToString()),
                                      REJECT_INVALID, "bad-sc-not-recorded");
             }
 
@@ -2721,11 +2726,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-sc-cert-not-updated");
         }
 
-        //Register certificate for sidechain
-        if (!sidechainHandler.addCertificate(cert, pindex->nHeight)) {
+        if (!view.UpdateCeasingScs(cert))
             return state.DoS(100, error("ConnectBlock(): Error recording certificate [%s] is sidechainHandler", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-recorded");
-        }
+
 
         if (certIdx == 0) {
             // we are processing the first certificate, add the size of the vcert to the offset
@@ -2746,13 +2750,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     } //end of Processing certificates loop
 
     if (!view.ApplyMatureBalances(pindex->nHeight, blockundo) )
-    {
         return state.DoS(100, error("ConnectBlock(): could not update sc immature amounts"),
                          REJECT_INVALID, "bad-sc-amounts");
-    }
 
-    //remove coiins from ceased sidechain and record them in blockUndo
-    //view.HandleCeasingScs(pindex->nHeight, blockUndo);
+    if (!view.HandleCeasingScs(pindex->nHeight, blockundo))
+        return state.DoS(100, error("ConnectBlock(): could not handle ceasing heights"),
+                         REJECT_INVALID, "bad-sc-ceasing-heights");
 
 
     view.PushAnchor(tree);
