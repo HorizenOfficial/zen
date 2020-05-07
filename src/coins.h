@@ -584,13 +584,14 @@ public:
     //CEASING SIDECHAINS RELATED MEMBERS
     bool HaveCeasingScs(int height)                                const override;
     bool GetCeasingScs(int height, CCeasingSidechains& ceasingScs) const override;
+    bool UpdateCeasingScs(const CTxScCreationOut& scCreationOut);
+    bool UndoCeasingScs(const CTxScCreationOut& scCreationOut);
+    bool UpdateCeasingScs(const CScCertificate& cert);
+    bool UndoCeasingScs(const CScCertificate& cert);
     bool HandleCeasingScs(int height, CBlockUndo& blockUndo);
     bool RevertCeasingScs(const CTxUndo& ceasedCertUndo);
-private:
-    bool UpdateCeasingScs(const CTxScCreationOut& scCreationOut);
-    bool UpdateCeasingScs(const CScCertificate& cert);
 
-public:
+
     bool Flush();
 
     //! Calculate the size of the cache (in number of transactions)
