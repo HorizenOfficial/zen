@@ -443,18 +443,18 @@ protected:
 
 public:
     CCoinsViewBacked(CCoinsView *viewIn);
-    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const;
-    bool GetNullifier(const uint256 &nullifier)                        const;
-    bool GetCoins(const uint256 &txid, CCoins &coins)                  const;
-    bool HaveCoins(const uint256 &txid)                                const;
+    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const override;
+    bool GetNullifier(const uint256 &nullifier)                        const override;
+    bool GetCoins(const uint256 &txid, CCoins &coins)                  const override;
+    bool HaveCoins(const uint256 &txid)                                const override;
     bool HaveSidechain(const uint256& scId)                            const override;
     bool GetSidechain(const uint256& scId, CSidechain& info)           const override;
     bool HaveCeasingScs(int height)                                    const override;
     bool GetCeasingScs(int height, CCeasingSidechains& ceasingScs)     const override;
     void queryScIds(std::set<uint256>& scIdsList)                      const override;
     bool HaveCertForEpoch(const uint256& scId, int epochNumber)        const override;
-    uint256 GetBestBlock()                                             const;
-    uint256 GetBestAnchor()                                            const;
+    uint256 GetBestBlock()                                             const override;
+    uint256 GetBestAnchor()                                            const override;
     void SetBackend(CCoinsView &viewIn);
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
@@ -462,8 +462,8 @@ public:
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CCeasingScsMap& mapCeasedScs);
-    bool GetStats(CCoinsStats &stats)                                  const;
+                    CCeasingScsMap& mapCeasedScs) override;
+    bool GetStats(CCoinsStats &stats)                                  const override;
 };
 
 

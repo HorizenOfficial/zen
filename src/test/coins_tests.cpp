@@ -34,7 +34,7 @@ public:
         hashBestAnchor_ = ZCIncrementalMerkleTree::empty_root();
     }
 
-    bool GetAnchorAt(const uint256& rt, ZCIncrementalMerkleTree &tree) const {
+    bool GetAnchorAt(const uint256& rt, ZCIncrementalMerkleTree &tree) const override {
         if (rt == ZCIncrementalMerkleTree::empty_root()) {
             ZCIncrementalMerkleTree new_tree;
             tree = new_tree;
@@ -50,7 +50,7 @@ public:
         }
     }
 
-    bool GetNullifier(const uint256 &nf) const
+    bool GetNullifier(const uint256 &nf) const override
     {
         std::map<uint256, bool>::const_iterator it = mapNullifiers_.find(nf);
 
@@ -63,9 +63,9 @@ public:
         }
     }
 
-    uint256 GetBestAnchor() const { return hashBestAnchor_; }
+    uint256 GetBestAnchor() const override { return hashBestAnchor_; }
 
-    bool GetCoins(const uint256& txid, CCoins& coins) const
+    bool GetCoins(const uint256& txid, CCoins& coins) const override
     {
         std::map<uint256, CCoins>::const_iterator it = map_.find(txid);
         if (it == map_.end()) {
@@ -79,20 +79,21 @@ public:
         return true;
     }
 
-    bool HaveCoins(const uint256& txid) const
+    bool HaveCoins(const uint256& txid) const override
     {
         CCoins coins;
         return GetCoins(txid, coins);
     }
 
-    uint256 GetBestBlock() const { return hashBestBlock_; }
+    uint256 GetBestBlock() const override { return hashBestBlock_; }
 
     bool BatchWrite(CCoinsMap& mapCoins,
                     const uint256& hashBlock,
                     const uint256& hashAnchor,
                     CAnchorsMap& mapAnchors,
                     CNullifiersMap& mapNullifiers,
-                    CSidechainsMap& mapSidechains)
+                    CSidechainsMap& mapSidechains,
+                    CCeasingScsMap& mapCeasedScs) override
     {
         for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end(); ) {
             map_[it->first] = it->second.coins;
@@ -129,7 +130,7 @@ public:
         return true;
     }
 
-    bool GetStats(CCoinsStats& stats) const { return false; }
+    bool GetStats(CCoinsStats& stats) const override { return false; }
 };
 
 class CCoinsViewCacheTest : public CCoinsViewCache
