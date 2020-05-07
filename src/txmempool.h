@@ -137,6 +137,9 @@ private:
     uint64_t cachedInnerUsage; //! sum of dynamic memory usage of all the map elements (NOT the maps themselves)
 
     void removeInternal(std::deque<uint256>& objToRemove, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive, bool removeDependantFwds = true);
+    bool addToListForRemovalImmatureExpenditures(
+        const CTransactionBase& txBase, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, 
+        std::list<const CTransactionBase*>& transactionsToRemove);
 
 public:
     mutable CCriticalSection cs;
@@ -149,6 +152,10 @@ public:
 
     CTxMemPool(const CFeeRate& _minRelayFee);
     ~CTxMemPool();
+
+    CTxMemPool(const CTxMemPool& ) = delete;
+    CTxMemPool(CTxMemPool& ) = delete;
+    CTxMemPool& operator=(const CTxMemPool& ) = delete;
 
     /**
      * If sanity-checking is turned on, check makes sure the pool is
@@ -168,14 +175,14 @@ public:
 
     void removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
 
-    void removeConflicts(const CTransaction &tx, std::list<CTransaction>& removedTxs);
+    void removeConflicts(const CTransaction &tx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
     void removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
-                        std::list<CTransaction>& conflictingTxs, bool fCurrentEstimate = true);
+                        std::list<CTransaction>& conflictingTxs, std::list<CScCertificate>& removedCerts, bool fCurrentEstimate = true);
 
     void removeConflicts(const CScCertificate &cert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
     void removeOutOfEpochCertificates(const CBlockIndex* pindexDelete);
     void removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight,
-                        std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fCurrentEstimate = true);
+                        std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
 
     void clear();
     void queryHashes(std::vector<uint256>& vtxid);

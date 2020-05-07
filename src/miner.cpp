@@ -163,7 +163,8 @@ void HandleDependancy(const CTransactionBase& txBase, int nHeight, double dPrior
         if (mempool.mapCertificate.count(txin.prevout.hash))
         {
             // no outputs of a certificate in mempool can be spent, that also apply to certificate change
-            LogPrintf("ERROR: mempool unspendable input that is an unconfirmed certificate output\n");
+            LogPrintf("ERROR: [%s] has unspendable input that is an unconfirmed certificate [%s] output %d\n",
+                hash.ToString(), txin.prevout.hash.ToString(), txin.prevout.n);
             if (fDebug) assert("mempool transaction unspendable input that is an unconfirmed certificate output" == 0);
 
             LogPrintf("%s():%d - ERROR: mempool [%s] spends output from certificate[%s] in mempool\n",
@@ -561,12 +562,11 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             mempool.ApplyDeltas(hash, dPriorityDelta, nFeeDelta);
             if (fSortedByFee && (dPriorityDelta <= 0) && (nFeeDelta <= 0) && (feeRate < ::minRelayTxFee) && (nBlockSize + nTxSize >= nBlockMinSize))
             {
-                LogPrint("sc", "%s():%d - Skipping [%s] because it is free (feeDelta=%lld/feeRate=%s)\n",
-                    __func__, __LINE__, tx.GetHash().ToString(), nFeeDelta, feeRate.ToString() );
+                LogPrint("sc", "%s():%d - Skipping [%s] because it is free (feeDelta=%lld/feeRate=%s, blsz=%u/txsz=%u/blminsz=%u)\n",
+                    __func__, __LINE__, tx.GetHash().ToString(), nFeeDelta, feeRate.ToString(), nBlockSize, nTxSize, nBlockMinSize );
                 continue;
             }
 
-            // Certificates have highest priority
             // Prioritise by fee once past the priority size or we run out of high-priority
             // transactions:
             if (!fSortedByFee &&

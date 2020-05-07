@@ -1242,6 +1242,10 @@ double CCoinsViewCache::GetPriority(const CTransactionBase &tx, int nHeight) con
         return MAXIMUM_PRIORITY;
     }
 
+    if (tx.IsCertificate() ) {
+        return MAXIMUM_PRIORITY;
+    }
+
     double dResult = 0.0;
     BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
     {

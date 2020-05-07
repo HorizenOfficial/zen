@@ -182,13 +182,6 @@ bool CScCertificate::CheckFinal(int flags) const
     return true;
 }
 
-
-double CScCertificate::GetPriority(const CCoinsViewCache &view, int nHeight) const
-{
-    // TODO cert: for the time being return max prio, as shielded txes do
-    return MAXIMUM_PRIORITY;
-}
-
 //--------------------------------------------------------------------------------------------
 // binaries other than zend that are produced in the build, do not call these members and therefore do not
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose

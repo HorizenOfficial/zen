@@ -307,8 +307,9 @@ TEST_F(SidechainsInMempoolTestSuite, RemoveConflictsHandlesConflictingSidechainD
     aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
     CTransaction scTxInBlock = GenerateScTx(scId, CAmount(20));
-    aMempool.removeConflicts(scTxInBlock, removedTxs);
+    aMempool.removeConflicts(scTxInBlock, removedTxs, removedCerts);
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), scTxInMempool));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));

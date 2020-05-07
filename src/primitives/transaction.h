@@ -475,7 +475,7 @@ public:
 
     virtual ~CTxCrosschainOut() {};
 
-    CTxCrosschainOut() { SetNull(); }
+    CTxCrosschainOut():nValue(-1) {}
 
     virtual void SetNull()
     {
@@ -531,7 +531,7 @@ class CTxForwardTransferOut : public CTxCrosschainOut
 {
 public:
 
-    CTxForwardTransferOut() { SetNull(); }
+    CTxForwardTransferOut() {}
 
     CTxForwardTransferOut(const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn):
         CTxCrosschainOut(scIdIn, nValueIn, addressIn) {}
@@ -575,7 +575,7 @@ public:
     CAmount minBkwTransferAmount;
 */
 
-    CTxScCreationOut() { SetNull(); }
+    CTxScCreationOut():withdrawalEpochLength(-1) { }
 
     CTxScCreationOut(const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn, const Sidechain::ScCreationParameters& params);
 
@@ -780,8 +780,6 @@ public:
     virtual bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const = 0;
     virtual bool CheckFinal(int flags = -1) const = 0;
     virtual bool IsApplicableToState(CValidationState& state, int nHeight = -1) const = 0;
-
-    virtual double GetPriority(const CCoinsViewCache &view, int nHeight) const = 0;
 
     bool VerifyScript(
         const CScript& scriptPubKey, unsigned int flags, unsigned int nIn, const CChain* chain,
@@ -1038,7 +1036,6 @@ public:
     bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
                            std::vector<CScriptCheck> *pvChecks = NULL) const override;
-    double GetPriority(const CCoinsViewCache &view, int nHeight) const override;
 
     std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
         unsigned int nIn, const CChain* chain, bool cacheStore) const override;

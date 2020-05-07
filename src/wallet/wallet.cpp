@@ -4714,7 +4714,7 @@ void CWalletTx::GetNotesAmount(
     }
 }
 
-void CWalletObjBase::AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletObjBase*> vtxIn) const
+void CWalletObjBase::AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletObjBase*>& vtxIn) const
 {
     if (!IsCertificate() )
         entry.push_back(Pair("locktime", (int64_t)GetLockTime()));

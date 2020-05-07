@@ -63,6 +63,8 @@ testScripts=(
     'sc_rawcertificate.py'
     'getunconfirmedtxdata.py'
     'sc_cr_and_fw_in_mempool.py'
+    'sc_cert_change.py'
+    'sc_cert_orphans.py'
 );
 testScriptsExt=(
     'getblocktemplate_longpoll.py'

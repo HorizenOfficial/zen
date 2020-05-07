@@ -777,7 +777,6 @@ void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
           const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
           std::vector<CScriptCheck> *pvChecks) const { return true;}
-double CTransaction::GetPriority(const CCoinsViewCache &view, int nHeight) const { return 0.0; }
 std::string CTransaction::EncodeHex() const { return ""; }
 std::shared_ptr<BaseSignatureChecker> CTransaction::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
 {
@@ -951,11 +950,6 @@ bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsVi
           std::vector<CScriptCheck> *pvChecks) const
 {
     return ::ContextualCheckInputs(*this, state, view, fScriptChecks, chain, flags, cacheStore, consensusParams, pvChecks);
-}
-
-double CTransaction::GetPriority(const CCoinsViewCache &view, int nHeight) const
-{
-    return view.GetPriority(*this, nHeight);
 }
 
 std::string CTransaction::EncodeHex() const

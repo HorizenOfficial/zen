@@ -1176,17 +1176,20 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
         for (const CTxIn & vin : cert.GetVin()) {
             if (pool.mapNextTx.count(vin.prevout)) {
-                LogPrint("mempool", "Dropping cert %s : it double spends another tx in mempool\n", certHash.ToString());
-                return false;
+                LogPrint("mempool", "%s():%d - Dropping cert %s : it double spends input of [%s] that is in mempool\n",
+                    __func__, __LINE__, certHash.ToString(), vin.prevout.hash.ToString());
+                return state.DoS(0,
+                         error("AcceptToMemoryPool: Dropping cert %s : it double spends input of another tx in mempool", certHash.ToString()),
+                         REJECT_INVALID, "double spend");
             }
-// TODO cert: enable when tested block mining
-#if 1
             if (pool.existsCert(vin.prevout.hash)) {
                 LogPrint("mempool", "%s():%d - Dropping cert[%s]: it would spend the output %d of cert[%s] that is in mempool\n",
                     __func__, __LINE__, certHash.ToString(), vin.prevout.n, vin.prevout.hash.ToString());
-                return false;
+                return state.DoS(0,
+                         error("AcceptToMemoryPool: cert[%s]: it would spend the output %d of cert[%s] that is in mempool", 
+                         certHash.ToString(), vin.prevout.n, vin.prevout.hash.ToString()),
+                         REJECT_INVALID, "certificate unconfirmed output");
             }
-#endif
         }
     }
 
@@ -1433,19 +1436,20 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         for (const CTxIn & vin : tx.GetVin()) {
             if (pool.mapNextTx.count(vin.prevout)) {
                 // Disable replacement feature for now
-                LogPrint("mempool", "Dropping txid %s : it double spends another tx in mempool\n", hash.ToString());
-                return false;
+                LogPrint("mempool", "%s():%d - Dropping txid %s : it double spends input of tx[%s] that is in mempool\n",
+                    __func__, __LINE__, hash.ToString(), vin.prevout.hash.ToString());
+                return state.DoS(0,
+                         error("AcceptToMemoryPool: Dropping txid %s : it double spends input of another tx in mempool", hash.ToString()),
+                         REJECT_INVALID, "double spend");
             }
-#if 1
             if (pool.existsCert(vin.prevout.hash)) {
                 LogPrint("mempool", "%s():%d - Dropping tx[%s]: it would spend the output %d of cert[%s] that is in mempool\n",
                     __func__, __LINE__, hash.ToString(), vin.prevout.n, vin.prevout.hash.ToString());
                 return state.DoS(0,
                          error("AcceptToMemoryPool: tx[%s]: it would spend the output %d of cert[%s] that is in mempool", 
                          hash.ToString(), vin.prevout.n, vin.prevout.hash.ToString()),
-                         REJECT_NONSTANDARD, "certificate unconfirmed output");
+                         REJECT_INVALID, "certificate unconfirmed output");
             }
-#endif
         }
 
         // If this tx creates a sc, no other tx must be doing the same in the mempool
@@ -3222,32 +3226,27 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
 
     // Remove conflicting transactions from the mempool.
     std::list<CTransaction> removedTxs;
-    mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, removedTxs, !IsInitialBlockDownload());
-
     std::list<CScCertificate> removedCerts;
-    mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, removedTxs, removedCerts, !IsInitialBlockDownload());
+    mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, removedTxs,  removedCerts, !IsInitialBlockDownload());
+    mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, removedTxs, removedCerts);
 
     mempool.check(pcoinsTip);
     // Update chainActive & related variables.
     UpdateTip(pindexNew);
 
-    // Tell wallet about transactions that went from mempool
-    // to conflicted:
+    // Tell wallet about transactions and certificates that went from mempool to conflicted:
     for(const CTransaction &tx: removedTxs) {
         SyncWithWallets(tx, nullptr);
     }
-
-    // ... and about transactions that got confirmed:
-    for(const CTransaction &tx: pblock->vtx) {
-        SyncWithWallets(tx, pblock);
-    }
-
-    // ... and about certificates that got confirmed:
-    // note that a certificate having no inputs has no conflicts
     for(const CScCertificate &cert: removedCerts) {
         SyncWithWallets(cert, nullptr);
     }
 
+    // ... and about ones that got confirmed:
+    for(const CTransaction &tx: pblock->vtx) {
+        LogPrint("cert", "%s():%d - sync with wallet tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString());
+        SyncWithWallets(tx, pblock);
+    }
     for(const CScCertificate &cert: pblock->vcert) {
         LogPrint("cert", "%s():%d - sync with wallet cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString());
         SyncWithWallets(cert, pblock);
