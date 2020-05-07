@@ -1255,6 +1255,14 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
         CSidechain scInfo;
         assert(GetSidechain(ceasingScId, scInfo));
 
+        LogPrint("cert", "%s():%d - CEASING HEIGHTS: lastCertEpoch [%d], lastCertHash [%s]\n",
+                __func__, __LINE__, scInfo.lastEpochReferencedByCertificate, scInfo.lastCertificateHash.ToString());
+
+        if (scInfo.lastEpochReferencedByCertificate == CScCertificate::EPOCH_NULL) {
+            assert(scInfo.lastCertificateHash.IsNull());
+            continue;
+        }
+
         //lastEpochCertsBySc have at least a bwt, hence they cannot be fully spent
         assert(this->HaveCoins(scInfo.lastCertificateHash));
         CCoinsModifier coins = this->ModifyCoins(scInfo.lastCertificateHash);
