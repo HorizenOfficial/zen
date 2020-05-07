@@ -2311,7 +2311,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         return error("DisconnectBlock(): failure reading undo data");
 
     // no certs (and no coinbase) in blockundo
-    if (blockUndo.vtxundo.size() + 1 != block.vtx.size())
+    if (blockUndo.vtxundo.size() < (block.vtx.size() - 1))
         return error("DisconnectBlock(): block and undo data inconsistent");
 
     LogPrint("sc", "%s():%d - restoring sc coins if any\n", __func__, __LINE__);
@@ -2321,7 +2321,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         return error("DisconnectBlock(): sc and undo data inconsistent");
     }
 
-    for (size_t idx = blockUndo.vtxundo.size(); idx-- > (block.vcert.size() + block.vtx.size());)
+    for (size_t idx = blockUndo.vtxundo.size(); idx-- > block.vtx.size();)
         view.RevertCeasingScs(blockUndo.vtxundo[idx]);
 
     // undo certificates in reverse order
