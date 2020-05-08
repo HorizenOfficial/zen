@@ -1024,6 +1024,11 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         fPruneMode = true;
     }
 
+    int64_t nMaxTimeAdjustment = GetArg("-maxtimeadjustment", DEFAULT_MAX_TIME_ADJUSTMENT);
+    if (nMaxTimeAdjustment < 0 || nMaxTimeAdjustment > LIMIT_MAX_TIME_ADJUSTMENT) {
+        return InitError(strprintf(_("-maxtimeadjustment must be in the range 0 to %u seconds"), LIMIT_MAX_TIME_ADJUSTMENT));
+    }
+
 #ifdef ENABLE_WALLET
     bool fDisableWallet = GetBoolArg("-disablewallet", false);
 #endif
