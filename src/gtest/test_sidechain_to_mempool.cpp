@@ -31,8 +31,9 @@ public:
         CAnchorsMap mapAnchors;
         CNullifiersMap mapNullifiers;
         CSidechainsMap mapSidechains;
+        CCeasingScsMap mapCeasingScs;
 
-        return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains);
+        return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapCeasingScs);
     }
 };
 
@@ -54,8 +55,8 @@ public:
     }
 
     void SetUp() override {
-        GenerateChainActive();
-        pcoinsTip->SetBestBlock(blocks.back().GetBlockHash());
+        chainSettingUtils::GenerateChainActive(minimalHeightForSidechains);
+        pcoinsTip->SetBestBlock(chainActive.Tip()->GetBlockHash());
         pindexBestHeader = chainActive.Tip();
 
         InitCoinGeneration();
@@ -89,9 +90,6 @@ private:
     CCoinsOnlyViewDB*        pChainStateDb;
 
     const unsigned int       minimalHeightForSidechains;
-    std::vector<uint256>     blockHashes;
-    std::vector<CBlockIndex> blocks;
-    void GenerateChainActive();
 
     CKey                     coinsKey;
     CBasicKeyStore           keystore;
@@ -140,11 +138,14 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicationsOfConfirmedSidechainsAreNotAcce
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed) {
+    int creationHeight = 1789;
+    chainSettingUtils::GenerateChainActive(creationHeight);
+
     uint256 scId = uint256S("aaaa");
     CTransaction scTx = GenerateScTx(scId, CAmount(10));
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    sidechainsView.UpdateScInfo(scTx, aBlock, creationHeight);
     sidechainsView.Flush();
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
@@ -526,29 +527,6 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffec
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Test Fixture definitions ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-void SidechainsInMempoolTestSuite::GenerateChainActive() {
-    chainActive.SetTip(NULL);
-    mapBlockIndex.clear();
-
-    blockHashes.resize(minimalHeightForSidechains);
-    blocks.resize(minimalHeightForSidechains);
-
-    for (unsigned int height=0; height<blocks.size(); ++height) {
-        blockHashes[height] = ArithToUint256(height);
-
-        blocks[height].nHeight = height+1;
-        blocks[height].pprev = height == 0? nullptr : &blocks[height - 1];
-        blocks[height].phashBlock = &blockHashes[height];
-        blocks[height].nTime = 1269211443 + height * Params().GetConsensus().nPowTargetSpacing;
-        blocks[height].nBits = 0x1e7fffff;
-        blocks[height].nChainWork = height == 0 ? arith_uint256(0) : blocks[height - 1].nChainWork + GetBlockProof(blocks[height - 1]);
-
-        mapBlockIndex[blockHashes[height]] = &blocks[height];
-    }
-
-    chainActive.SetTip(&blocks.back());
-}
-
 void SidechainsInMempoolTestSuite::InitCoinGeneration() {
     coinsKey.MakeNewKey(true);
     keystore.AddKey(coinsKey);
@@ -585,8 +563,9 @@ bool SidechainsInMempoolTestSuite::StoreCoins(const std::pair<uint256, CCoinsCac
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
     CSidechainsMap mapSidechains;
+    CCeasingScsMap mapCeasingScs;
 
-    pcoinsTip->BatchWrite(tmpCoinsMap, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains);
+    pcoinsTip->BatchWrite(tmpCoinsMap, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapCeasingScs);
 
     return view.HaveCoins(entryToStore.first) == true;
 }

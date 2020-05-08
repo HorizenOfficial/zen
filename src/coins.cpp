@@ -139,16 +139,16 @@ bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins)                  c
 bool CCoinsView::HaveCoins(const uint256 &txid)                                const { return false; }
 bool CCoinsView::HaveSidechain(const uint256& scId)                            const { return false; }
 bool CCoinsView::GetSidechain(const uint256& scId, CSidechain& info)           const { return false; }
+bool CCoinsView::HaveCeasingScs(int height)                                    const { return false; }
+bool CCoinsView::GetCeasingScs(int height, CCeasingSidechains& ceasingScs)     const { return false; }
 void CCoinsView::queryScIds(std::set<uint256>& scIdsList)                      const { scIdsList.clear(); return; }
 bool CCoinsView::HaveCertForEpoch(const uint256& scId, int epochNumber)        const { return false; }
 uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
 uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
-bool CCoinsView::BatchWrite(CCoinsMap &mapCoins,
-                            const uint256 &hashBlock,
-                            const uint256 &hashAnchor,
-                            CAnchorsMap &mapAnchors,
-                            CNullifiersMap &mapNullifiers,
-                            CSidechainsMap& mapSidechains)                           { return false; }
+bool CCoinsView::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
+                            const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
+                            CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
+                            CCeasingScsMap& mapCeasedScs) { return false; }
 bool CCoinsView::GetStats(CCoinsStats &stats)                                  const { return false; }
 
 
@@ -160,18 +160,18 @@ bool CCoinsViewBacked::GetCoins(const uint256 &txid, CCoins &coins)             
 bool CCoinsViewBacked::HaveCoins(const uint256 &txid)                                const { return base->HaveCoins(txid); }
 bool CCoinsViewBacked::HaveSidechain(const uint256& scId)                            const { return base->HaveSidechain(scId); }
 bool CCoinsViewBacked::GetSidechain(const uint256& scId, CSidechain& info)           const { return base->GetSidechain(scId,info); }
+bool CCoinsViewBacked::HaveCeasingScs(int height)                                    const { return base->HaveCeasingScs(height); }
+bool CCoinsViewBacked::GetCeasingScs(int height, CCeasingSidechains& ceasingScs)     const { return base->GetCeasingScs(height, ceasingScs); }
 void CCoinsViewBacked::queryScIds(std::set<uint256>& scIdsList)                      const { return base->queryScIds(scIdsList); }
 bool CCoinsViewBacked::HaveCertForEpoch(const uint256& scId, int epochNumber)        const { return base->HaveCertForEpoch(scId, epochNumber); }
 uint256 CCoinsViewBacked::GetBestBlock()                                             const { return base->GetBestBlock(); }
 uint256 CCoinsViewBacked::GetBestAnchor()                                            const { return base->GetBestAnchor(); }
 void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
-bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins,
-                                  const uint256 &hashBlock,
-                                  const uint256 &hashAnchor,
-                                  CAnchorsMap &mapAnchors,
-                                  CNullifiersMap &mapNullifiers,
-                                  CSidechainsMap& mapSidechains)
-                                { return base->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains); }
+bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
+                                  const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
+                                  CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
+                                  CCeasingScsMap& mapCeasedScs) { return base->BatchWrite(mapCoins, hashBlock, hashAnchor,
+                                                                                          mapAnchors, mapNullifiers, mapSidechains, mapCeasedScs); }
 bool CCoinsViewBacked::GetStats(CCoinsStats &stats)                                  const { return base->GetStats(stats); }
 
 CCoinsKeyHasher::CCoinsKeyHasher() : salt(GetRandHash()) {}
@@ -221,6 +221,23 @@ CSidechainsMap::const_iterator CCoinsViewCache::FetchSidechains(const uint256& s
     //it allows to insert CSidechain and keep iterator to inserted member without extra searches
     CSidechainsMap::iterator ret =
             cacheSidechains.insert(std::make_pair(scId, CSidechainsCacheEntry(tmp, CSidechainsCacheEntry::Flags::DEFAULT ))).first;
+
+    return ret;
+}
+
+CCeasingScsMap::const_iterator CCoinsViewCache::FetchCeasingScs(int height) const{
+    CCeasingScsMap::iterator candidateIt = cacheCeasingScs.find(height);
+    if (candidateIt != cacheCeasingScs.end())
+        return candidateIt;
+
+    CCeasingSidechains tmp;
+    if (!base->GetCeasingScs(height, tmp))
+        return cacheCeasingScs.end();
+
+    //Fill cache and return iterator. The insert in cache below looks cumbersome. However
+    //it allows to insert CCeasingSidechains and keep iterator to inserted member without extra searches
+    CCeasingScsMap::iterator ret =
+            cacheCeasingScs.insert(std::make_pair(height, CCeasingScsCacheEntry(tmp, CCeasingScsCacheEntry::Flags::DEFAULT ))).first;
 
     return ret;
 }
@@ -390,7 +407,8 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                                  const uint256 &hashAnchorIn,
                                  CAnchorsMap &mapAnchors,
                                  CNullifiersMap &mapNullifiers,
-                                 CSidechainsMap& mapSidechains) {
+                                 CSidechainsMap& mapSidechains,
+                                 CCeasingScsMap& mapCeasedScs) {
     assert(!hasModifier);
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) { // Ignore non-dirty entries (optimization).
@@ -484,7 +502,7 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                 cacheSidechains[entryToWrite.first] = entryToWrite.second;
                 break;
             case CSidechainsCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
-                    cacheSidechains[entryToWrite.first] = entryToWrite.second;
+                cacheSidechains[entryToWrite.first] = entryToWrite.second;
                 break;
             case CSidechainsCacheEntry::Flags::ERASED:
                 if (itLocalCacheEntry != cacheSidechains.end())
@@ -499,6 +517,34 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
         }
     }
     mapSidechains.clear();
+
+    for (auto& entryToWrite : mapCeasedScs) {
+        CCeasingScsMap::iterator itLocalCacheEntry = cacheCeasingScs.find(entryToWrite.first);
+
+        switch (entryToWrite.second.flag) {
+            case CCeasingScsCacheEntry::Flags::FRESH:
+                assert(
+                    itLocalCacheEntry == cacheCeasingScs.end() ||
+                    itLocalCacheEntry->second.flag == CCeasingScsCacheEntry::Flags::ERASED
+                ); //A fresh entry should not exist in localCache or be already erased
+                cacheCeasingScs[entryToWrite.first] = entryToWrite.second;
+                break;
+            case CCeasingScsCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
+                cacheCeasingScs[entryToWrite.first] = entryToWrite.second;
+                break;
+            case CCeasingScsCacheEntry::Flags::ERASED:
+                if (itLocalCacheEntry != cacheCeasingScs.end())
+                    itLocalCacheEntry->second.flag = CCeasingScsCacheEntry::Flags::ERASED;
+                break;
+            case CCeasingScsCacheEntry::Flags::DEFAULT:
+                assert(itLocalCacheEntry != cacheCeasingScs.end());
+                assert(itLocalCacheEntry->second.ceasingScs == entryToWrite.second.ceasingScs); //entry declared default is indeed different from backed value
+                break; //nothing to do. entry is already persisted and has not been modified
+            default:
+                assert(false);
+        }
+    }
+    mapCeasedScs.clear();
 
     hashAnchor = hashAnchorIn;
     hashBlock = hashBlockIn;
@@ -570,16 +616,17 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
     // creation ccout
     for (const auto& cr: tx.vsc_ccout)
     {
-        if (HaveSidechain(cr.scId))
-        {
+        if (HaveSidechain(cr.scId)) {
             LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, cr.scId.ToString() );
             return false;
         }
+
         assert(cacheSidechains.count(cr.scId) == 0);
         cacheSidechains[cr.scId].scInfo.creationBlockHash = block.GetHash();
         cacheSidechains[cr.scId].scInfo.creationBlockHeight = blockHeight;
         cacheSidechains[cr.scId].scInfo.creationTxHash = txHash;
         cacheSidechains[cr.scId].scInfo.lastEpochReferencedByCertificate = CScCertificate::EPOCH_NULL;
+        cacheSidechains[cr.scId].scInfo.lastCertificateHash.SetNull();
         cacheSidechains[cr.scId].scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
         cacheSidechains[cr.scId].scInfo.creationData.customData = cr.customData;
         cacheSidechains[cr.scId].scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
@@ -692,7 +739,6 @@ bool CCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo
     for(auto it_set = allKnowScIds.begin(); it_set != allKnowScIds.end(); ++it_set)
     {
         const uint256& scId = *it_set;
-        const std::string& scIdString = scId.ToString();
 
         assert(HaveSidechain(scId));
         CSidechain& targetScInfo = cacheSidechains.at(scId).scInfo; //in place modifications here
@@ -708,20 +754,20 @@ bool CCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo
         if (maturityHeight == blockHeight)
         {
             LogPrint("sc", "%s():%d - scId=%s balance before: %s\n",
-                __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
+                __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
 
             // if maturity has been reached apply it to balance in scview
             targetScInfo.balance += candidateAmount;
 
             LogPrint("sc", "%s():%d - scId=%s balance after: %s\n",
-                __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
+                __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
 
             // scview balance has been updated, remove the entry in scview immature map
             targetScInfo.mImmatureAmounts.erase(targetScInfo.mImmatureAmounts.begin());
             cacheSidechains.at(scId).flag = CSidechainsCacheEntry::Flags::DIRTY;
 
             LogPrint("sc", "%s():%d - adding immature amount %s for scId=%s in blockundo\n",
-                __func__, __LINE__, FormatMoney(candidateAmount), scIdString);
+                __func__, __LINE__, FormatMoney(candidateAmount), scId.ToString());
         
             // store immature balances into the blockundo obj
             blockundo.msc_iaundo[scId].immAmount = candidateAmount;
@@ -752,6 +798,7 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
 
         CAmount amountToRestore = it_ia_undo_map->second.immAmount;
         int blockundoEpoch = it_ia_undo_map->second.certEpoch;
+        const uint256& lastCertHash = it_ia_undo_map->second.lastCertificateHash;
 
         if (amountToRestore > 0)
         {
@@ -780,8 +827,10 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
             targetScInfo.lastEpochReferencedByCertificate = it_ia_undo_map->second.certEpoch;
             LogPrint("sc", "%s():%d - scId=%s epoch after: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastEpochReferencedByCertificate);
 
+            targetScInfo.lastCertificateHash = lastCertHash;
             cacheSidechains.at(scId).flag = CSidechainsCacheEntry::Flags::DIRTY;
         }
+
     }
 
     return true;
@@ -799,9 +848,12 @@ bool CCoinsViewCache::HaveCertForEpoch(const uint256& scId, int epochNumber) con
 }
 
 #ifdef BITCOIN_TX
+int CSidechain::EpochFor(int targetHeight) const { return CScCertificate::EPOCH_NULL; }
+int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
+int CSidechain::SafeguardMargin() const { return -1; }
 bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash) {return true;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state) {return true;}
-bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx) { return true;}
+bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height) { return true;}
 #else
 
 #include "consensus/validation.h"
@@ -813,7 +865,8 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     LogPrint("cert", "%s():%d - called: cert[%s], scId[%s], height[%d]\n",
         __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString(), nHeight );
 
-    if (!HaveSidechain(cert.GetScId()))
+    CSidechain scInfo;
+    if (!GetSidechain(cert.GetScId(), scInfo))
     {
         LogPrint("sc", "%s():%d - cert[%s] refers to scId[%s] not yet created\n",
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString() );
@@ -830,33 +883,23 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
-    // a certificate can not be received after a fixed amount of blocks (for the time being it is epoch length / 5) from the end of epoch (TODO)
-    int maxHeight = getCertificateMaxIncomingHeight(cert.GetScId(), cert.epochNumber);
-    if (maxHeight < 0)
-    {
-        LogPrintf("ERROR: certificate %s, can not calculate max recv height\n", certHash.ToString());
-        return state.Invalid(error("can not calculate max recv height for cert"),
-                     REJECT_INVALID, "sidechain-certificate-error");
-    }
-
-    if (maxHeight < nHeight)
-    {
-        LogPrintf("ERROR: delayed certificate[%s], max height for receiving = %d, active height = %d\n",
-            certHash.ToString(), maxHeight, chainActive.Height());
+    if (Sidechain::isCeasedAtHeight(*this, cert.GetScId(), nHeight)!= Sidechain::state::ALIVE) {
+        LogPrintf("ERROR: certificate[%s] cannot be accepted, sidechain [%s] already ceased at active height = %d\n",
+            certHash.ToString(), cert.GetScId().ToString(), chainActive.Height());
         return state.Invalid(error("received a delayed cert"),
                      REJECT_INVALID, "sidechain-certificate-delayed");
     }
 
-    CAmount curBalance = getSidechainBalance(cert.GetScId());
-    if (cert.totalAmount > curBalance)
+
+    if (cert.totalAmount > scInfo.balance)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scId[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(curBalance), FormatMoney(cert.totalAmount) );
+            __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scInfo.balance), FormatMoney(cert.totalAmount) );
         return state.Invalid(error("insufficient balance"),
                      REJECT_INVALID, "sidechain-insufficient-balance");
     }
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
-        __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(curBalance), FormatMoney(cert.totalAmount) );
+        __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scInfo.balance), FormatMoney(cert.totalAmount) );
 
     return true;
 }
@@ -897,7 +940,7 @@ bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const u
         return false;
     }
 
-    int endEpochHeight = info.creationBlockHeight -1 + ((epochNumber+1) * info.creationData.withdrawalEpochLength);
+    int endEpochHeight = info.StartHeightForEpoch(epochNumber+1) -1;
     pblockindex = chainActive[endEpochHeight];
 
     if (!pblockindex)
@@ -918,7 +961,7 @@ bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const u
     return true;
 }
 
-bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx)
+bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
 {
     if (tx.IsCoinBase())
         return true;
@@ -943,49 +986,29 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx)
     for (const auto& ft: tx.vft_ccout)
     {
         const uint256& scId = ft.scId;
-        if (!HaveSidechain(scId) && !Sidechain::hasScCreationOutput(tx, scId))
+        if (HaveSidechain(scId))
         {
-            LogPrint("sc", "%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",
-                __func__, __LINE__, txHash.ToString(), scId.ToString() );
-            return false;
-
+            if (Sidechain::isCeasedAtHeight(*this, scId, height)!= Sidechain::state::ALIVE) {
+                LogPrintf("ERROR: tx[%s] tries to send funds to scId[%s] already ceased at height = %d\n",
+                            txHash.ToString(), scId.ToString(), height);
+                return false;
+                }
+        } else {
+            if (!Sidechain::hasScCreationOutput(tx, scId)) {
+                LogPrint("sc", "%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",
+                        __func__, __LINE__, txHash.ToString(), scId.ToString() );
+                return false;
+            }
         }
+
         LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
     }
+
     return true;
 }
 
 #endif
-
-int CCoinsViewCache::getCertificateMaxIncomingHeight(const uint256& scId, int epochNumber) const
-{
-    CSidechain info;
-    if (!GetSidechain(scId, info))
-    {
-        LogPrint("cert", "%s():%d - scId[%s] not found, returning -1\n", __func__, __LINE__, scId.ToString() );
-        return -1;
-    }
-
-    // the safety margin from the end of referred epoch is computed as 20% of epoch length + 1
-    // TODO move this in consensus params
-    int val = info.creationBlockHeight - 1 + ((epochNumber+1) * info.creationData.withdrawalEpochLength) +
-        (int)(info.creationData.withdrawalEpochLength/5) + 1;
-
-    LogPrint("cert", "%s():%d - returning %d\n", __func__, __LINE__, val);
-    return val;
-}
-
-CAmount CCoinsViewCache::getSidechainBalance(const uint256& scId) const
-{
-    CSidechain targetScInfo;
-    if (!GetSidechain(scId, targetScInfo)) {
-        // caller should have checked it
-        return -1;
-    }
-
-    return targetScInfo.balance;
-}
 
 bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& blockundo)
 {
@@ -1014,9 +1037,11 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
     // if an entry already exists, update only cert epoch with current value
     // if it is a brand new entry, amount will be init as 0 by default
     blockundo.msc_iaundo[scId].certEpoch = targetScInfo.lastEpochReferencedByCertificate;
+    blockundo.msc_iaundo[scId].lastCertificateHash = targetScInfo.lastCertificateHash;
 
     targetScInfo.balance -= totalAmount;
     targetScInfo.lastEpochReferencedByCertificate = cert.epochNumber;
+    targetScInfo.lastCertificateHash = certHash;
     cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
 
     LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",
@@ -1049,10 +1074,276 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert)
     return true;
 }
 
+bool CCoinsViewCache::HaveCeasingScs(int height) const
+{
+    CCeasingScsMap::const_iterator it = FetchCeasingScs(height);
+    return (it != cacheCeasingScs.end()) && (it->second.flag != CCeasingScsCacheEntry::Flags::ERASED);
+}
+
+bool CCoinsViewCache::GetCeasingScs(int height, CCeasingSidechains& ceasingScs) const
+{
+    CCeasingScsMap::const_iterator it = FetchCeasingScs(height);
+    if (it != cacheCeasingScs.end() && it->second.flag != CCeasingScsCacheEntry::Flags::ERASED) {
+        ceasingScs = it->second.ceasingScs;
+        return true;
+    }
+    return false;
+}
+
+bool CCoinsViewCache::UpdateCeasingScs(const CTxScCreationOut& scCreationOut)
+{
+    CSidechain scInfo;
+    if (!this->GetSidechain(scCreationOut.scId, scInfo)) {
+        LogPrint("cert", "%s():%d - attempt to update ceasing sidechain map with unknown scId[%s]\n",
+            __func__, __LINE__, scCreationOut.scId.ToString());
+        return false;
+    }
+
+    int currentEpoch = scInfo.EpochFor(scInfo.creationBlockHeight);
+    int nextCeasingHeight = scInfo.StartHeightForEpoch(currentEpoch + 1) + scInfo.SafeguardMargin() +1;
+
+    CCeasingSidechains ceasingScIdSet;
+    if (!GetCeasingScs(nextCeasingHeight,ceasingScIdSet)) {
+        ceasingScIdSet.ceasingScs.insert(scCreationOut.scId);
+        cacheCeasingScs[nextCeasingHeight] = CCeasingScsCacheEntry(ceasingScIdSet, CCeasingScsCacheEntry::Flags::FRESH);
+    } else {
+        ceasingScIdSet.ceasingScs.insert(scCreationOut.scId);
+        cacheCeasingScs[nextCeasingHeight] = CCeasingScsCacheEntry(ceasingScIdSet, CCeasingScsCacheEntry::Flags::DIRTY);
+    }
+
+    LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s]: creation sets nextCeasingHeight to [%d]\n",
+            __func__, __LINE__, scCreationOut.scId.ToString(), nextCeasingHeight);
+
+    return true;
+}
+
+bool CCoinsViewCache::UndoCeasingScs(const CTxScCreationOut& scCreationOut)
+{
+    CSidechain restoredScInfo;
+    if (!this->GetSidechain(scCreationOut.scId, restoredScInfo)) {
+        LogPrint("cert", "%s():%d - attempt to undo ceasing sidechain map with unknown scId[%s]\n",
+            __func__, __LINE__, scCreationOut.scId.ToString());
+        return false;
+    }
+
+    int restoredEpoch = restoredScInfo.EpochFor(restoredScInfo.creationBlockHeight);
+    int currentCeasingHeight = restoredScInfo.StartHeightForEpoch(restoredEpoch + 1) + restoredScInfo.SafeguardMargin() +1;
+
+    //remove current ceasing Height
+    CCeasingSidechains currentCeasingScId;
+    if (!GetCeasingScs(currentCeasingHeight,currentCeasingScId)) {
+        LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s] misses current ceasing height; expected value was [%d]\n",
+            __func__, __LINE__, scCreationOut.scId.ToString(), currentCeasingHeight);
+        return false;
+    }
+
+    currentCeasingScId.ceasingScs.erase(scCreationOut.scId);
+    if (currentCeasingScId.ceasingScs.size() != 0)
+        cacheCeasingScs[currentCeasingHeight] = CCeasingScsCacheEntry(currentCeasingScId, CCeasingScsCacheEntry::Flags::DIRTY);
+    else
+        cacheCeasingScs[currentCeasingHeight] = CCeasingScsCacheEntry(currentCeasingScId, CCeasingScsCacheEntry::Flags::ERASED);
+
+    LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s]: undo of creation removes currentCeasingHeight [%d]\n",
+            __func__, __LINE__, scCreationOut.scId.ToString(), currentCeasingHeight);
+
+    return true;
+}
+
+bool CCoinsViewCache::UpdateCeasingScs(const CScCertificate& cert)
+{
+    CSidechain scInfo;
+    if (!this->GetSidechain(cert.GetScId(), scInfo)) {
+        LogPrint("cert", "%s():%d - attempt to update ceasing sidechain map with cert to unknown scId[%s]\n",
+            __func__, __LINE__, cert.GetScId().ToString());
+        return false;
+    }
+
+    int nextCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2) + scInfo.SafeguardMargin()+1;
+    int prevCeasingHeight = nextCeasingHeight - scInfo.creationData.withdrawalEpochLength;
+
+    //clear up prev ceasing height, if any
+    CCeasingSidechains prevCeasingScId;
+    if (GetCeasingScs(prevCeasingHeight,prevCeasingScId)) {
+        prevCeasingScId.ceasingScs.erase(cert.GetScId());
+        if (prevCeasingScId.ceasingScs.size() != 0) //still other sc ceasing at that height
+            cacheCeasingScs[prevCeasingHeight] = CCeasingScsCacheEntry(prevCeasingScId, CCeasingScsCacheEntry::Flags::DIRTY);
+        else
+            cacheCeasingScs[prevCeasingHeight] = CCeasingScsCacheEntry(prevCeasingScId, CCeasingScsCacheEntry::Flags::ERASED);
+
+        LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s]: cert [%s] removes prevCeasingHeight [%d]\n",
+                __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), prevCeasingHeight);
+    } else {
+        LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s]: cert [%s] finds not prevCeasingHeight [%d] to remove\n",
+                __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), prevCeasingHeight);
+    }
+
+    //add next ceasing Height
+    CCeasingSidechains nextCeasingScId;
+    if (!GetCeasingScs(nextCeasingHeight,nextCeasingScId)) {
+        nextCeasingScId.ceasingScs.insert(cert.GetScId());
+        cacheCeasingScs[nextCeasingHeight] = CCeasingScsCacheEntry(nextCeasingScId, CCeasingScsCacheEntry::Flags::FRESH);
+    } else {
+        nextCeasingScId.ceasingScs.insert(cert.GetScId());
+        cacheCeasingScs[nextCeasingHeight] = CCeasingScsCacheEntry(nextCeasingScId, CCeasingScsCacheEntry::Flags::DIRTY);
+    }
+
+    LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s]: cert [%s] sets nextCeasingHeight to [%d]\n",
+            __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), nextCeasingHeight);
+
+    return true;
+}
+
+bool CCoinsViewCache::UndoCeasingScs(const CScCertificate& cert)
+{
+    CSidechain restoredScInfo;
+    if (!this->GetSidechain(cert.GetScId(), restoredScInfo)) {
+        LogPrint("cert", "%s():%d - attempt to undo ceasing sidechain map with cert to unknown scId[%s]\n",
+            __func__, __LINE__, cert.GetScId().ToString());
+        return false;
+    }
+
+    int currentCeasingHeight = restoredScInfo.StartHeightForEpoch(cert.epochNumber+2) + restoredScInfo.SafeguardMargin()+1;
+    int restoredCeasingHeight = currentCeasingHeight - restoredScInfo.creationData.withdrawalEpochLength;
+
+    //remove current ceasing Height
+    CCeasingSidechains currentCeasingScId;
+    if (!GetCeasingScs(currentCeasingHeight,currentCeasingScId)) {
+        LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s] misses current ceasing height; expected value was [%d]\n",
+            __func__, __LINE__, cert.GetScId().ToString(), currentCeasingHeight);
+        return false;
+    }
+
+    currentCeasingScId.ceasingScs.erase(cert.GetScId());
+    if (currentCeasingScId.ceasingScs.size() != 0) //still other sc ceasing at that height
+        cacheCeasingScs[currentCeasingHeight] = CCeasingScsCacheEntry(currentCeasingScId, CCeasingScsCacheEntry::Flags::DIRTY);
+    else
+        cacheCeasingScs[currentCeasingHeight] = CCeasingScsCacheEntry(currentCeasingScId, CCeasingScsCacheEntry::Flags::ERASED);
+
+    LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s]: undo of cert [%s] removes currentCeasingHeight [%d]\n",
+            __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), currentCeasingHeight);
+
+    //restore previous ceasing Height
+    CCeasingSidechains restoredCeasingScId;
+    if (!GetCeasingScs(restoredCeasingHeight,restoredCeasingScId)) {
+        restoredCeasingScId.ceasingScs.insert(cert.GetScId());
+        cacheCeasingScs[restoredCeasingHeight] = CCeasingScsCacheEntry(restoredCeasingScId, CCeasingScsCacheEntry::Flags::FRESH);
+    } else {
+        restoredCeasingScId.ceasingScs.insert(cert.GetScId());
+        cacheCeasingScs[restoredCeasingHeight] = CCeasingScsCacheEntry(restoredCeasingScId, CCeasingScsCacheEntry::Flags::DIRTY);
+    }
+
+    LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s]: undo of cert [%s] set nextCeasingHeight to [%d]\n",
+            __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), restoredCeasingHeight);
+
+    return true;
+}
+
+bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
+{
+    if (!HaveCeasingScs(height))
+        return true;
+
+    CCeasingSidechains ceasingScList;
+    GetCeasingScs(height, ceasingScList);
+
+    for (const uint256& ceasingScId : ceasingScList.ceasingScs)
+    {
+        LogPrint("cert", "%s():%d - CEASING HEIGHTS: about to handle scId[%s] and ceasingHeight [%d]\n",
+                __func__, __LINE__, ceasingScId.ToString(), height);
+
+        CSidechain scInfo;
+        assert(GetSidechain(ceasingScId, scInfo));
+
+        LogPrint("cert", "%s():%d - CEASING HEIGHTS: lastCertEpoch [%d], lastCertHash [%s]\n",
+                __func__, __LINE__, scInfo.lastEpochReferencedByCertificate, scInfo.lastCertificateHash.ToString());
+
+        if (scInfo.lastEpochReferencedByCertificate == CScCertificate::EPOCH_NULL) {
+            assert(scInfo.lastCertificateHash.IsNull());
+            continue;
+        }
+
+        //lastEpochCertsBySc have at least a bwt, hence they cannot be fully spent
+        assert(this->HaveCoins(scInfo.lastCertificateHash));
+        CCoinsModifier coins = this->ModifyCoins(scInfo.lastCertificateHash);
+
+        //null all bwt outputs and add related txundo in block
+        bool foundFirstBwt = false;
+        for(unsigned int pos = 0; pos < coins->vout.size(); ++pos)
+        {
+            if (!coins->IsAvailable(pos))
+                continue;
+            if (!coins->vout[pos].isFromBackwardTransfer)
+                continue;
+
+            if (!foundFirstBwt) {
+                blockUndo.vtxundo.push_back(CTxUndo());
+                blockUndo.vtxundo.back().refTx = scInfo.lastCertificateHash;
+                blockUndo.vtxundo.back().firstBwtPos = pos;
+                foundFirstBwt = true;
+            }
+
+            blockUndo.vtxundo.back().vprevout.push_back(CTxInUndo(coins->vout[pos]));
+            coins->Spend(pos);
+            if (coins->vout.size() == 0 || coins->vout[pos].isFromBackwardTransfer) {
+                CTxInUndo& undo = blockUndo.vtxundo.back().vprevout.back();
+                undo.nHeight    = coins->nHeight;
+                undo.fCoinBase  = coins->fCoinBase;
+                undo.nVersion   = coins->nVersion;
+                undo.originScId = coins->originScId;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool CCoinsViewCache::RevertCeasingScs(const CTxUndo& ceasedCertUndo)
+{
+    bool fClean = true;
+
+    const uint256& coinHash = ceasedCertUndo.refTx;
+    if(coinHash.IsNull())
+    {
+        fClean = fClean && error("%s: malformed undo data, ", __func__);
+        return fClean;
+    }
+    CCoinsModifier coins = this->ModifyCoins(coinHash);
+    unsigned int firstBwtPos = ceasedCertUndo.firstBwtPos;
+
+    const std::vector<CTxInUndo>& outVec = ceasedCertUndo.vprevout;
+
+    for (size_t bwtOutPos = outVec.size(); bwtOutPos-- > 0;)
+    {
+        if (outVec.at(bwtOutPos).nHeight != 0)
+        {
+            if(!coins->IsPruned())
+                fClean = fClean && error("%s: undo data overwriting existing transaction", __func__);
+            coins->Clear();
+            coins->fCoinBase  = outVec.at(bwtOutPos).fCoinBase;
+            coins->nHeight    = outVec.at(bwtOutPos).nHeight;
+            coins->nVersion   = outVec.at(bwtOutPos).nVersion;
+            coins->originScId = outVec.at(bwtOutPos).originScId;
+        } else
+        {
+            if(coins->IsPruned())
+                fClean = fClean && error("%s: undo data adding output to missing transaction", __func__);
+        }
+
+        if(coins->IsAvailable(firstBwtPos + bwtOutPos))
+            fClean = fClean && error("%s: undo data overwriting existing output", __func__);
+        if (coins->vout.size() < (firstBwtPos + bwtOutPos+1))
+            coins->vout.resize(firstBwtPos + bwtOutPos+1);
+        coins->vout.at(firstBwtPos + bwtOutPos) = outVec.at(bwtOutPos).txout;
+    }
+
+    return fClean;
+}
+
 bool CCoinsViewCache::Flush() {
-    bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, cacheSidechains);
+    bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, cacheSidechains, cacheCeasingScs);
     cacheCoins.clear();
     cacheSidechains.clear();
+    cacheCeasingScs.clear();
     cacheAnchors.clear();
     cacheNullifiers.clear();
     cachedCoinsUsage = 0;
@@ -1152,34 +1443,39 @@ CAmount CCoinsViewCache::GetValueIn(const CTransactionBase& txBase) const
     return nResult;
 }
 
-bool CCoinsViewCache::IsCertOutputMature(const uint256& txHash, unsigned int pos, int spendHeight) const
+CCoinsViewCache::outputMaturity CCoinsViewCache::IsCertOutputMature(const uint256& txHash, unsigned int pos, int spendHeight) const
 {
-    // Note: we assume here that a missing coins has been already fully spent, hence it is deemed mature
-    // (it must have been when it was spent in order to be used).
-    // It is left up to caller to make sure that txHash belongs to a tx in active chain
     CCoins refCoin;
     if(!GetCoins(txHash,refCoin))
-        return true; // must have been fully spent
+        return outputMaturity::NOT_APPLICABLE;
 
     assert(refCoin.IsFromCert());
 
     if (!refCoin.IsAvailable(pos))
-        return true; // an output already spent must have been mature
+        return outputMaturity::NOT_APPLICABLE;
 
-    if (!refCoin.vout[pos].isFromBackwardTransfer)
-        return true; // vout from coinbase are deemed mature here. Other methods estabish coinbase maturity as a whole
+    if (!refCoin.vout[pos].isFromBackwardTransfer) //change outputs are always mature
+        return outputMaturity::MATURE;
 
     // Hereinafter, we have a certificate, hence we can assert existence of its sidechain
     CSidechain targetSc;
     assert(GetSidechain(refCoin.originScId, targetSc));
 
-    int coinEpoch = (refCoin.nHeight - targetSc.creationBlockHeight + 1) / targetSc.creationData.withdrawalEpochLength;
-    int nextCertSafeguardHeight = getCertificateMaxIncomingHeight(refCoin.originScId, coinEpoch);
+    int coinEpoch = targetSc.EpochFor(refCoin.nHeight);
 
-    if (spendHeight > nextCertSafeguardHeight)
-        return true;
+    if (coinEpoch <= targetSc.lastEpochReferencedByCertificate)
+        return outputMaturity::MATURE;
 
-    return false;
+    if (coinEpoch == (targetSc.lastEpochReferencedByCertificate+1)) {
+        int nextEpochSafeguardHeight = targetSc.StartHeightForEpoch(coinEpoch+1) + targetSc.SafeguardMargin();
+        if (spendHeight < nextEpochSafeguardHeight)
+            return outputMaturity::IMMATURE;
+        else
+            return outputMaturity::NOT_APPLICABLE; //coin is ceased, hence not mature nor immature
+    }
+
+    //This should never happen
+    return outputMaturity::NOT_APPLICABLE;
 }
 
 bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransactionBase& txBase) const

@@ -46,7 +46,8 @@ zen_gtest_SOURCES += \
 	gtest/test_checkblock.cpp       \
 	gtest/test_relayforks.cpp	\
 	gtest/test_sidechain.cpp	\
-	gtest/test_sidechain_to_mempool.cpp
+	gtest/test_sidechain_to_mempool.cpp \
+	gtest/test_sidechain_ceased.cpp
 
 if ENABLE_WALLET
 zen_gtest_SOURCES += \

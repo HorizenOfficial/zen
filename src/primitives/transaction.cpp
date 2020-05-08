@@ -767,7 +767,6 @@ void CTransaction::AddToBlock(CBlock* pblock) const { return; }
 void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const {return; }
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return true; }
 bool CTransaction::CheckFinal(int flags) const { return true; }
-bool CTransaction::IsApplicableToState(CValidationState& state, int nHeight) const { return true; }
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
@@ -885,13 +884,6 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
 bool CTransaction::CheckFinal(int flags) const
 {
     return ::CheckFinalTx(*this, flags);
-}
-
-bool CTransaction::IsApplicableToState(CValidationState& state, int notUsed) const
-{
-    //ABENEGIA: Fill state properly
-    CCoinsViewCache view(pcoinsTip);
-    return view.HaveScRequirements(*this);
 }
 
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const

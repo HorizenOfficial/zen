@@ -1596,7 +1596,7 @@ UniValue getbalance(const UniValue& params, bool fHelp)
             wtx.GetAmounts(listReceived, listSent, listScSent, allFee, strSentAccount, filter);
             if (wtx.GetDepthInMainChain() >= nMinDepth) {
                 for(const COutputEntry& r: listReceived)
-                    if (r.maturity == COutputEntry::maturityState::MATURE)
+                    if (r.maturity == CCoinsViewCache::outputMaturity::MATURE)
                         nBalance += r.amount;
             }
 
@@ -2226,7 +2226,7 @@ void ListTransactions(const CWalletObjBase& wtx, const string& strAccount, int n
                 }
                 else
                 {
-                    if (r.maturity == COutputEntry::maturityState::MATURE)
+                    if (r.maturity == CCoinsViewCache::outputMaturity::MATURE)
                         entry.push_back(Pair("category", "receive"));
                     else
                         entry.push_back(Pair("category", "immature"));
@@ -2613,7 +2613,7 @@ UniValue listaccounts(const UniValue& params, bool fHelp)
 
         if (wtx.GetDepthInMainChain() >= nMinDepth) {
             for(const COutputEntry& r: listReceived) {
-                if (r.maturity == COutputEntry::maturityState::IMMATURE)
+                if (r.maturity == CCoinsViewCache::outputMaturity::IMMATURE)
                     continue;
 
                 if (pwalletMain->mapAddressBook.count(r.destination))
@@ -4754,7 +4754,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     // sanity check of the side chain ID
     CCoinsViewCache scView(pcoinsTip);
-    if (!scView.HaveSidechain(scId))
+    CSidechain scInfo;
+    if (!scView.GetSidechain(scId,scInfo))
     {
         LogPrint("sc", "scid[%s] does not exists \n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not exists: ") + scId.ToString());
@@ -4782,18 +4783,9 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid epoch data"));
     }
 
-    // a certificate can not be received after a fixed amount of blocks (for the time being it is epoch length / 5) from the end of epoch (TODO)
-    int maxHeight = scView.getCertificateMaxIncomingHeight(scId, epochNumber);
-    if (maxHeight < 0)
-    {
-        LogPrintf("ERROR: Invalid computed height value\n");
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert data"));
-    }
-
-    if (maxHeight < chainActive.Height() + 1)
-    {
-        LogPrintf("%s():%d - ERROR: delayed certificate, max height for receiving = %d, next block height = %d\n",
-            __func__, __LINE__, maxHeight, chainActive.Height() + 1);
+    if (Sidechain::isCeasedAtHeight(scView, scId, chainActive.Height()+1)!= Sidechain::state::ALIVE) {
+        LogPrintf("ERROR: certificate cannot be accepted, sidechain [%s] already ceased at active height = %d\n",
+            scId.ToString(), chainActive.Height());
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert height"));
     }
 
@@ -4898,11 +4890,10 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         }
     }
 
-    CAmount curBalance = scView.getSidechainBalance(scId);
-    if (nTotalOut > curBalance)
+    if (nTotalOut > scInfo.balance)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scid[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, scId.ToString(), FormatMoney(curBalance), FormatMoney(nTotalOut) );
+            __func__, __LINE__, scId.ToString(), FormatMoney(scInfo.balance), FormatMoney(nTotalOut) );
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "sidechain has insufficient funds");
     }
 

@@ -190,19 +190,11 @@ double CScCertificate::GetPriority(const CCoinsViewCache &view, int nHeight) con
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
-bool CScCertificate::IsApplicableToState(CValidationState& state, int nHeight) const { return true; }
 #else
 bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
 {
     CValidationState state;
     return ::AcceptCertificateToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
-}
-
-bool CScCertificate::IsApplicableToState(CValidationState& state, int nHeight) const
-{
-    LogPrint("cert", "%s():%d - cert [%s]\n", __func__, __LINE__, GetHash().ToString());
-    CCoinsViewCache view(pcoinsTip);
-    return view.IsCertApplicableToState(*this, nHeight, state);
 }
 #endif
 

@@ -31,15 +31,15 @@ public:
     CInMemorySidechainDb()  = default;
     virtual ~CInMemorySidechainDb() = default;
 
-    bool HaveSidechain(const uint256& scId) const { return inMemoryMap.count(scId); }
-    bool GetSidechain(const uint256& scId, CSidechain& info) const {
+    bool HaveSidechain(const uint256& scId) const override { return inMemoryMap.count(scId); }
+    bool GetSidechain(const uint256& scId, CSidechain& info) const override {
         if(!inMemoryMap.count(scId))
             return false;
         info = inMemoryMap[scId];
         return true;
     }
 
-    virtual void queryScIds(std::set<uint256>& scIdsList) const {
+    virtual void queryScIds(std::set<uint256>& scIdsList) const override {
         for (auto& entry : inMemoryMap)
             scIdsList.insert(entry.first);
         return;
@@ -47,7 +47,7 @@ public:
 
     bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                     const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap)
+                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap, CCeasingScsMap& mapCeasingScs) override
     {
         for (auto& entry : sidechainMap)
             switch (entry.second.flag) {
@@ -100,7 +100,7 @@ protected:
     CCoinsViewCache                 *sidechainsView;
 
     //Helpers
-    CBlockUndo   createBlockUndoWith(const uint256 & scId, int height, CAmount amount);
+    CBlockUndo   createBlockUndoWith(const uint256 & scId, int height, CAmount amount, uint256 lastCertHash = uint256());
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -159,7 +159,7 @@ TEST_F(SidechainTestSuite, SproutNonCcNullTxsAreCurrentlySupported) {
 }
 
 TEST_F(SidechainTestSuite, SidechainCreationsWithoutForwardTransferAreNotSemanticallyValid) {
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWithNoFwdTransfer(uint256S("1492"));
+    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith( uint256S("1492"), CAmount(0));
     CValidationState txState;
 
     //test
@@ -251,7 +251,7 @@ TEST_F(SidechainTestSuite, NewScCreationsHaveTheRightDependencies) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(uint256S("1492"), CAmount(1953));
 
     //test
-    bool res = sidechainsView->HaveScRequirements(aTransaction);
+    bool res = sidechainsView->HaveScRequirements(aTransaction, int(1789));
 
     //checks
     EXPECT_TRUE(res);
@@ -261,12 +261,12 @@ TEST_F(SidechainTestSuite, DuplicatedScCreationsHaveNotTheRightDependencies) {
     uint256 scId = uint256S("1492");
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1953));
     CBlock aBlock;
-    sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, int(1789));
 
     CTransaction duplicatedTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1815));
 
     //test
-    bool res = sidechainsView->HaveScRequirements(duplicatedTx);
+    bool res = sidechainsView->HaveScRequirements(duplicatedTx, /*height*/int(1789));
 
     //checks
     EXPECT_FALSE(res);
@@ -274,24 +274,29 @@ TEST_F(SidechainTestSuite, DuplicatedScCreationsHaveNotTheRightDependencies) {
 
 TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsHaveTheRightDependencies) {
     uint256 scId = uint256S("1492");
+    int creationHeight = 1789;
+    chainSettingUtils::GenerateChainActive(creationHeight);
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1953));
     CBlock aBlock;
-    sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
+    sidechainsView->UpdateScInfo(aTransaction, aBlock, creationHeight);
 
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
 
     //test
-    bool res = sidechainsView->HaveScRequirements(aTransaction);
+    bool res = sidechainsView->HaveScRequirements(aTransaction, creationHeight);
 
     //checks
     EXPECT_TRUE(res);
 }
 
 TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsHaveNotTheRightDependencies) {
+    int fwdHeight = 1789;
+    chainSettingUtils::GenerateChainActive(fwdHeight);
+
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(uint256S("1492"), CAmount(1815));
 
     //test
-    bool res = sidechainsView->HaveScRequirements(aTransaction);
+    bool res = sidechainsView->HaveScRequirements(aTransaction, fwdHeight);
 
     //checks
     EXPECT_FALSE(res);
@@ -466,6 +471,43 @@ TEST_F(SidechainTestSuite, YouCannotRestoreCoinsFromInexistentSc) {
     EXPECT_FALSE(res);
 }
 
+TEST_F(SidechainTestSuite, RestoreImmatureBalancesRestoresLastCertHash) {
+    //Create sidechain and mature it to generate first block undo
+    uint256 scId = uint256S("ca1985");
+    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(34));
+    int scCreationHeight = 71;
+    CBlock dummyBlock;
+    sidechainsView->UpdateScInfo(aTransaction, dummyBlock, scCreationHeight);
+    CSidechain scInfoAtCreation;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, scInfoAtCreation));
+
+    CBlockUndo scCreationBlockUndo;
+    sidechainsView->ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity(), scCreationBlockUndo);
+    EXPECT_TRUE(scCreationBlockUndo.msc_iaundo.at(scId).lastCertificateHash.IsNull());
+
+    //Update sc with cert and create the associate blockUndo
+    int certEpoch = 19;
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(), CAmount(0));
+    CBlockUndo certBlockUndo;
+    sidechainsView->UpdateScInfo(cert, certBlockUndo);
+    CSidechain scInfoPostCert;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, scInfoPostCert));
+    EXPECT_TRUE(scInfoPostCert.lastEpochReferencedByCertificate == certEpoch);
+    EXPECT_TRUE(scInfoPostCert.lastCertificateHash == cert.GetHash());
+
+    //test
+    bool res = sidechainsView->RestoreImmatureBalances(scCreationHeight + Params().ScCoinsMaturity(),certBlockUndo);
+
+    //checks
+    EXPECT_TRUE(res);
+    CSidechain scInfoPostCertUndo;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, scInfoPostCertUndo));
+    EXPECT_TRUE(scInfoPostCertUndo.lastCertificateHash == scInfoAtCreation.lastCertificateHash);
+    EXPECT_TRUE(scInfoPostCertUndo.lastEpochReferencedByCertificate == scInfoAtCreation.lastEpochReferencedByCertificate);
+    //EXPECT_TRUE(scInfoPostCertUndo.mImmatureAmounts == scInfoAtCreation.mImmatureAmounts);
+
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// RevertTxOutputs ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -628,6 +670,56 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
     EXPECT_TRUE(res);
 }
 
+TEST_F(SidechainTestSuite, NewSidechainsHaveNullLastCertificateHash) {
+    //Create Sc
+    uint256 scId = uint256S("1492");
+    int scCreationHeight = 1987;
+    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(5));
+    CBlock aBlock;
+    ASSERT_TRUE(sidechainsView->UpdateScInfo(aTransaction, aBlock, scCreationHeight));
+
+    CSidechain scInfo;
+    EXPECT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
+    EXPECT_TRUE(scInfo.lastCertificateHash.IsNull());
+
+    //Fully mature initial Sc balance
+    int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
+    CBlockUndo blockUndo;
+    EXPECT_TRUE(sidechainsView->ApplyMatureBalances(coinMaturityHeight, blockUndo));
+
+    //check
+    ASSERT_TRUE(blockUndo.msc_iaundo.count(scId) != 0);
+    EXPECT_TRUE(blockUndo.msc_iaundo.at(scId).lastCertificateHash.IsNull());
+}
+
+TEST_F(SidechainTestSuite, CertificateUpdatesLastCertificateHash) {
+    //Create Sc
+    uint256 scId = uint256S("1492");
+    int scCreationHeight = 1987;
+    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(scId, CAmount(5));
+    CBlock aBlock;
+    ASSERT_TRUE(sidechainsView->UpdateScInfo(aTransaction, aBlock, scCreationHeight));
+
+    CSidechain scInfo;
+    EXPECT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
+    EXPECT_TRUE(scInfo.lastCertificateHash.IsNull());
+
+    //Fully mature initial Sc balance
+    int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
+    CBlockUndo dummyBlockUndo;
+    EXPECT_TRUE(sidechainsView->ApplyMatureBalances(coinMaturityHeight, dummyBlockUndo));
+
+    CBlockUndo blockUndo;
+    CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, aBlock.GetHash(), CAmount(0));
+    EXPECT_TRUE(sidechainsView->UpdateScInfo(aCertificate, blockUndo));
+
+    //check
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
+    EXPECT_TRUE(scInfo.lastCertificateHash == aCertificate.GetHash());
+    ASSERT_TRUE(blockUndo.msc_iaundo.count(scId) != 0);
+    EXPECT_TRUE(blockUndo.msc_iaundo.at(scId).lastCertificateHash.IsNull());
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// BatchWrite ///////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -637,6 +729,7 @@ TEST_F(SidechainTestSuite, FRESHSidechainsGetWrittenInBackingCache) {
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
+    CCeasingScsMap mapCeasingScs;
 
 
     uint256 scId = uint256S("aaaa");
@@ -648,7 +741,7 @@ TEST_F(SidechainTestSuite, FRESHSidechainsGetWrittenInBackingCache) {
     mapToWrite[scId] = entry;
 
     //write new sidechain when backing view doesn't know about it
-    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
+    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs);
 
     //checks
     EXPECT_TRUE(res);
@@ -661,6 +754,7 @@ TEST_F(SidechainTestSuite, FRESHSidechainsCanBeWrittenOnlyIfUnknownToBackingCach
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
+    CCeasingScsMap mapCeasingScs;
 
 
     //Prefill backing cache with sidechain
@@ -676,7 +770,7 @@ TEST_F(SidechainTestSuite, FRESHSidechainsCanBeWrittenOnlyIfUnknownToBackingCach
 
     mapToWrite[scId] = entry;
 
-    ASSERT_DEATH(sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite),"");
+    ASSERT_DEATH(sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite,mapCeasingScs),"");
 }
 
 TEST_F(SidechainTestSuite, DIRTYSidechainsAreStoredInBackingCache) {
@@ -685,6 +779,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsAreStoredInBackingCache) {
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
+    CCeasingScsMap mapCeasingScs;
 
 
     uint256 scId = uint256S("aaaa");
@@ -696,7 +791,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsAreStoredInBackingCache) {
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view doesn't know about it
-    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
+    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs);
 
     //checks
     EXPECT_TRUE(res);
@@ -709,6 +804,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsUpdatesDirtyOnesInBackingCache) {
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
+    CCeasingScsMap mapCeasingScs;
 
 
     uint256 scId = uint256S("aaaa");
@@ -725,7 +821,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsUpdatesDirtyOnesInBackingCache) {
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view already knows about it
-    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
+    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs);
 
     //checks
     EXPECT_TRUE(res);
@@ -740,6 +836,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsOverwriteErasedOnesInBackingCache) {
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
+    CCeasingScsMap mapCeasingScs;
 
 
     //Create sidechain...
@@ -761,7 +858,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsOverwriteErasedOnesInBackingCache) {
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view have it erased
-    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
+    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs);
 
     //checks
     EXPECT_TRUE(res);
@@ -776,6 +873,7 @@ TEST_F(SidechainTestSuite, ERASEDSidechainsSetExistingOnesInBackingCacheasErased
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
+    CCeasingScsMap mapCeasingScs;
 
 
     uint256 scId = uint256S("aaaa");
@@ -792,7 +890,7 @@ TEST_F(SidechainTestSuite, ERASEDSidechainsSetExistingOnesInBackingCacheasErased
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view have it erased
-    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite);
+    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs);
 
     //checks
     EXPECT_TRUE(res);
@@ -805,6 +903,7 @@ TEST_F(SidechainTestSuite, DEFAULTSidechainsCanBeWrittenInBackingCacheasOnlyIfUn
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
+    CCeasingScsMap mapCeasingScs;
 
 
     uint256 scId = uint256S("aaaa");
@@ -821,7 +920,7 @@ TEST_F(SidechainTestSuite, DEFAULTSidechainsCanBeWrittenInBackingCacheasOnlyIfUn
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view have it erased
-    ASSERT_DEATH(sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite),"");
+    ASSERT_DEATH(sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs),"");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -973,8 +1072,9 @@ TEST_F(SidechainTestSuite, queryScIdsOnChainstateDbSelectOnlySidechains) {
     CAnchorsMap    emptyAnchorsMap;
     CNullifiersMap emptyNullifiersMap;
     CSidechainsMap emptySidechainsMap;
+    CCeasingScsMap mapCeasingScs;
 
-    sidechainsView->BatchWrite(mapCoins, uint256(), uint256(), emptyAnchorsMap, emptyNullifiersMap, emptySidechainsMap);
+    sidechainsView->BatchWrite(mapCoins, uint256(), uint256(), emptyAnchorsMap, emptyNullifiersMap, emptySidechainsMap, mapCeasingScs);
 
     //flush both the coin and the sidechain to the tmp chainstatedb
     ASSERT_TRUE(sidechainsView->Flush());
@@ -1123,13 +1223,14 @@ TEST_F(SidechainTestSuite, CSidechainBlockUndoVersioning) {
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Test Fixture definitions ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-CBlockUndo SidechainTestSuite::createBlockUndoWith(const uint256 & scId, int height, CAmount amount)
+CBlockUndo SidechainTestSuite::createBlockUndoWith(const uint256 & scId, int height, CAmount amount, uint256 lastCertHash)
 {
     CBlockUndo retVal;
     CAmount AmountPerHeight = amount;
     ScUndoData data;
     data.immAmount = AmountPerHeight;
     data.certEpoch = CScCertificate::EPOCH_NULL;
+    data.lastCertificateHash = lastCertHash;
     retVal.msc_iaundo[scId] = data;
 
     return retVal;

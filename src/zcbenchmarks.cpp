@@ -365,7 +365,7 @@ class FakeCoinsViewDB : public CCoinsViewDB {
 public:
     FakeCoinsViewDB(std::string dbName, uint256& hash) : CCoinsViewDB(dbName, 100, false, false), hash(hash) {}
 
-    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const {
+    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const override {
         if (rt == t.root()) {
             tree = t;
             return true;
@@ -373,15 +373,15 @@ public:
         return false;
     }
 
-    bool GetNullifier(const uint256 &nf) const {
+    bool GetNullifier(const uint256 &nf) const override {
         return false;
     }
 
-    uint256 GetBestBlock() const {
+    uint256 GetBestBlock() const override {
         return hash;
     }
 
-    uint256 GetBestAnchor() const {
+    uint256 GetBestAnchor() const override {
         return t.root();
     }
 
@@ -390,11 +390,13 @@ public:
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
-                    CSidechainsMap& mapSidechains) {
+                    CSidechainsMap& mapSidechains,
+                    CCeasingScsMap& mapCeasedScs) override
+    {
         return false;
     }
 
-    bool GetStats(CCoinsStats &stats) const {
+    bool GetStats(CCoinsStats &stats) const override {
         return false;
     }
 };
