@@ -462,7 +462,7 @@ public:
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CCeasingScsMap& mapCeasedScs) override;
+                    CCeasingScsMap& mapCeasedScs)                            override;
     bool GetStats(CCoinsStats &stats)                                  const override;
 };
 
@@ -517,12 +517,12 @@ public:
     ~CCoinsViewCache();
 
     // Standard CCoinsView methods
-    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const;
-    bool GetNullifier(const uint256 &nullifier) const;
-    bool GetCoins(const uint256 &txid, CCoins &coins) const;
-    bool HaveCoins(const uint256 &txid) const;
-    uint256 GetBestBlock() const;
-    uint256 GetBestAnchor() const;
+    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const override;
+    bool GetNullifier(const uint256 &nullifier)                        const override;
+    bool GetCoins(const uint256 &txid, CCoins &coins)                  const override;
+    bool HaveCoins(const uint256 &txid)                                const override;
+    uint256 GetBestBlock()                                             const override;
+    uint256 GetBestAnchor()                                            const override;
     void SetBestBlock(const uint256 &hashBlock);
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
@@ -530,7 +530,7 @@ public:
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CCeasingScsMap& mapCeasedScs);
+                    CCeasingScsMap& mapCeasedScs)                            override;
 
 
     // Adds the tree to mapAnchors and sets the current commitment

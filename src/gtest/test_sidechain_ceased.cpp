@@ -42,7 +42,6 @@ protected:
 TEST_F(CeasedSidechainsTestSuite, UnknownSidechainIsNeitherAliveNorCeased) {
     uint256 scId = uint256S("aaa");
     int creationHeight = 1912;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     ASSERT_FALSE(view->HaveSidechain(scId));
 
     Sidechain::state state = Sidechain::isCeasedAtHeight(*view, scId, creationHeight);

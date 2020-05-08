@@ -827,11 +827,10 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
             targetScInfo.lastEpochReferencedByCertificate = it_ia_undo_map->second.certEpoch;
             LogPrint("sc", "%s():%d - scId=%s epoch after: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastEpochReferencedByCertificate);
 
+            targetScInfo.lastCertificateHash = lastCertHash;
             cacheSidechains.at(scId).flag = CSidechainsCacheEntry::Flags::DIRTY;
         }
 
-        cacheSidechains.at(scId).scInfo.lastCertificateHash = lastCertHash;
-        cacheSidechains.at(scId).flag = CSidechainsCacheEntry::Flags::DIRTY;
     }
 
     return true;

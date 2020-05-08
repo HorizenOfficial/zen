@@ -280,9 +280,9 @@ protected:
 
 public:
     CCoinsViewMemPool(CCoinsView *baseIn, CTxMemPool &mempoolIn);
-    bool GetNullifier(const uint256 &txid) const;
-    bool GetCoins(const uint256 &txid, CCoins &coins) const;
-    bool HaveCoins(const uint256 &txid) const;
+    bool GetNullifier(const uint256 &txid)                        const override;
+    bool GetCoins(const uint256 &txid, CCoins &coins)             const override;
+    bool HaveCoins(const uint256 &txid)                           const override;
     bool GetSidechain(const uint256& scId, CSidechain& info)      const override;
     bool HaveSidechain(const uint256& scId)                       const override;
     bool HaveCertForEpoch(const uint256& scId, int epochNumber)   const override;
