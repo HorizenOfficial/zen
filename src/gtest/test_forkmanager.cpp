@@ -175,3 +175,50 @@ TEST(ForkManager, GetMinimumTimeMainnet) {
     EXPECT_EQ(ForkManager::getInstance().getMinimumTime(110001),1496187000);
     EXPECT_EQ(ForkManager::getInstance().getMinimumTime(344700),1496187000);
 }
+
+TEST(ForkManager, FutureTimeStampMainet) {
+	SelectParams(CBaseChainParams::MAIN);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(0), false);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(2), false);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(110001), false);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(455555), false);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(899999), false);
+	int futureTimeStampActivation = 900000;
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation), true);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation+144), true);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation+576), true);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation+1152), true);
+	EXPECT_EQ(ForkManager::getInstance().isFutureTimeStampActive(futureTimeStampActivation), false);
+	EXPECT_EQ(ForkManager::getInstance().isFutureTimeStampActive(futureTimeStampActivation+144), false);
+	EXPECT_EQ(ForkManager::getInstance().isFutureTimeStampActive(futureTimeStampActivation+576), true);
+	EXPECT_EQ(ForkManager::getInstance().isFutureTimeStampActive(futureTimeStampActivation+1152), true);
+}
+
+TEST(ForkManager, FutureTimeStampTestnet) {
+	SelectParams(CBaseChainParams::TESTNET);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(0), false);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(2), false);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(70001), false);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(369900), false);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(499999), false);
+	int futureTimeStampActivation = 500000;
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation), true);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation+144), true);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation+576), true);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation+1152), true);
+	EXPECT_EQ(ForkManager::getInstance().isFutureTimeStampActive(futureTimeStampActivation), false);
+	EXPECT_EQ(ForkManager::getInstance().isFutureTimeStampActive(futureTimeStampActivation+144), false);
+	EXPECT_EQ(ForkManager::getInstance().isFutureTimeStampActive(futureTimeStampActivation+576), true);
+	EXPECT_EQ(ForkManager::getInstance().isFutureTimeStampActive(futureTimeStampActivation+1152), true);
+}
+
+TEST(ForkManager, FutureTimeStampRegtest) {
+	SelectParams(CBaseChainParams::REGTEST);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(0), false);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(2), false);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(200), false);
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(249), false);
+	int futureTimeStampActivation = 250;
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation), true);
+	EXPECT_EQ(ForkManager::getInstance().isFutureTimeStampActive(futureTimeStampActivation), true);
+}
