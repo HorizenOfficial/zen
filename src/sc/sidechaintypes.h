@@ -11,6 +11,8 @@
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
 
+#include<sc/proofverifier.h>
+
 //------------------------------------------------------------------------------------
 class CTxForwardTransferOut;
 
@@ -37,25 +39,29 @@ struct ScCreationParameters
     int withdrawalEpochLength;
     // all creation data follows...
     std::vector<unsigned char> customData;
+    libzendoomc::ScVk wCertVk;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(withdrawalEpochLength);
         READWRITE(customData);
+        READWRITE(wCertVk);
     }
     ScCreationParameters() :withdrawalEpochLength(-1) {}
 
     inline bool operator==(const ScCreationParameters& rhs) const
     {
         return (withdrawalEpochLength == rhs.withdrawalEpochLength) &&
-               (customData == rhs.customData);
+               (customData == rhs.customData) && 
+               (wCertVk == rhs.wCertVk) ;
     }
     inline bool operator!=(const ScCreationParameters& rhs) const { return !(*this == rhs); }
     inline ScCreationParameters& operator=(const ScCreationParameters& cp)
     {
         withdrawalEpochLength = cp.withdrawalEpochLength;
         customData = cp.customData;
+        wCertVk = cp.wCertVk;
         return *this;
     }
 };
