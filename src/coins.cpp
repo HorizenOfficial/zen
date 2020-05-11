@@ -883,7 +883,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
-    if (Sidechain::isCeasedAtHeight(*this, cert.GetScId(), nHeight)!= Sidechain::state::ALIVE) {
+    if (isCeasedAtHeight(cert.GetScId(), nHeight)!= CSidechain::state::ALIVE) {
         LogPrintf("ERROR: certificate[%s] cannot be accepted, sidechain [%s] already ceased at active height = %d\n",
             certHash.ToString(), cert.GetScId().ToString(), chainActive.Height());
         return state.Invalid(error("received a delayed cert"),
@@ -988,7 +988,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
         const uint256& scId = ft.scId;
         if (HaveSidechain(scId))
         {
-            if (Sidechain::isCeasedAtHeight(*this, scId, height)!= Sidechain::state::ALIVE) {
+            if (isCeasedAtHeight(scId, height)!= CSidechain::state::ALIVE) {
                 LogPrintf("ERROR: tx[%s] tries to send funds to scId[%s] already ceased at height = %d\n",
                             txHash.ToString(), scId.ToString(), height);
                 return false;
@@ -1339,6 +1339,32 @@ bool CCoinsViewCache::RevertCeasingScs(const CTxUndo& ceasedCertUndo)
     return fClean;
 }
 
+CSidechain::state CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int height) const
+{
+    if (!HaveSidechain(scId))
+        return CSidechain::state::NOT_APPLICABLE;
+
+    CSidechain scInfo;
+    GetSidechain(scId, scInfo);
+
+    if (height < scInfo.creationBlockHeight)
+        return CSidechain::state::NOT_APPLICABLE;
+
+    int currentEpoch = scInfo.EpochFor(height);
+
+    if (currentEpoch > scInfo.lastEpochReferencedByCertificate + 2)
+        return CSidechain::state::CEASED;
+
+    if (currentEpoch == scInfo.lastEpochReferencedByCertificate + 2)
+    {
+        int targetEpochSafeguardHeight = scInfo.StartHeightForEpoch(currentEpoch) + scInfo.SafeguardMargin();
+        if (height > targetEpochSafeguardHeight)
+            return CSidechain::state::CEASED;
+    }
+
+    return  CSidechain::state::ALIVE;
+}
+
 bool CCoinsViewCache::Flush() {
     bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, cacheSidechains, cacheCeasingScs);
     cacheCoins.clear();
@@ -1463,18 +1489,24 @@ CCoinsViewCache::outputMaturity CCoinsViewCache::IsCertOutputMature(const uint25
 
     int coinEpoch = targetSc.EpochFor(refCoin.nHeight);
 
-    if (coinEpoch <= targetSc.lastEpochReferencedByCertificate)
+    if (coinEpoch < targetSc.lastEpochReferencedByCertificate)
         return outputMaturity::MATURE;
 
-    if (coinEpoch == (targetSc.lastEpochReferencedByCertificate+1)) {
+    if (coinEpoch == (targetSc.lastEpochReferencedByCertificate)) {
         int nextEpochSafeguardHeight = targetSc.StartHeightForEpoch(coinEpoch+1) + targetSc.SafeguardMargin();
         if (spendHeight < nextEpochSafeguardHeight)
             return outputMaturity::IMMATURE;
         else
-            return outputMaturity::NOT_APPLICABLE; //coin is ceased, hence not mature nor immature
+            return outputMaturity::MATURE;
     }
 
-    //This should never happen
+    if (coinEpoch > targetSc.lastEpochReferencedByCertificate) {
+        if (isCeasedAtHeight(refCoin.originScId, spendHeight) == CSidechain::state::ALIVE)
+            return outputMaturity::IMMATURE;
+        else
+            return outputMaturity::NOT_APPLICABLE;
+    }
+
     return outputMaturity::NOT_APPLICABLE;
 }
 

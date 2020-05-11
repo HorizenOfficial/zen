@@ -4783,7 +4783,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid epoch data"));
     }
 
-    if (Sidechain::isCeasedAtHeight(scView, scId, chainActive.Height()+1)!= Sidechain::state::ALIVE) {
+    if (scView.isCeasedAtHeight(scId, chainActive.Height()+1)!= CSidechain::state::ALIVE) {
         LogPrintf("ERROR: certificate cannot be accepted, sidechain [%s] already ceased at active height = %d\n",
             scId.ToString(), chainActive.Height());
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert height"));

@@ -33,7 +33,7 @@ int CSidechain::SafeguardMargin() const
 {
     if ( creationData.withdrawalEpochLength == -1) //default value
         return -1;
-    return creationData.withdrawalEpochLength/ 5;
+    return creationData.withdrawalEpochLength/5;
 }
 
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
@@ -170,30 +170,4 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
     // TODO cert: add check on vbt_ccout whenever they have data
 
     return true;
-}
-
-Sidechain::state Sidechain::isCeasedAtHeight(CCoinsViewCache& view, const uint256& scId, int height)
-{
-    if (!view.HaveSidechain(scId))
-        return state::NOT_APPLICABLE;
-
-    CSidechain scInfo;
-    view.GetSidechain(scId, scInfo);
-
-    if (height < scInfo.creationBlockHeight)
-        return state::NOT_APPLICABLE;
-
-    int currentEpoch = scInfo.EpochFor(height);
-
-    if (currentEpoch > scInfo.lastEpochReferencedByCertificate + 2)
-        return state::CEASED;
-
-    if (currentEpoch == scInfo.lastEpochReferencedByCertificate + 2)
-    {
-        int targetEpochSafeguardHeight = scInfo.StartHeightForEpoch(currentEpoch) + scInfo.SafeguardMargin();
-        if (height > targetEpochSafeguardHeight)
-            return state::CEASED;
-    }
-
-    return  state::ALIVE;
 }

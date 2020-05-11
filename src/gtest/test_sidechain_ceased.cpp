@@ -44,8 +44,8 @@ TEST_F(CeasedSidechainsTestSuite, UnknownSidechainIsNeitherAliveNorCeased) {
     int creationHeight = 1912;
     ASSERT_FALSE(view->HaveSidechain(scId));
 
-    Sidechain::state state = Sidechain::isCeasedAtHeight(*view, scId, creationHeight);
-    EXPECT_TRUE(state == Sidechain::state::NOT_APPLICABLE)
+    CSidechain::state state = view->isCeasedAtHeight(scId, creationHeight);
+    EXPECT_TRUE(state == CSidechain::state::NOT_APPLICABLE)
         <<"sc is in state "<<int(state);
 }
 
@@ -62,8 +62,8 @@ TEST_F(CeasedSidechainsTestSuite, SidechainInItsFirstEpochIsNotCeased) {
     int endEpochHeight = scInfo.StartHeightForEpoch(currentEpoch+1)-1;
 
     for(int height = creationHeight; height <= endEpochHeight; ++height) {
-        Sidechain::state state = Sidechain::isCeasedAtHeight(*view, scId, height);
-        EXPECT_TRUE(state == Sidechain::state::ALIVE)
+        CSidechain::state state = view->isCeasedAtHeight(scId, height);
+        EXPECT_TRUE(state == CSidechain::state::ALIVE)
             <<"sc is in state "<<int(state)<<" at height "<<height;
     }
 }
@@ -81,8 +81,8 @@ TEST_F(CeasedSidechainsTestSuite, SidechainIsNotCeasedBeforeNextEpochSafeguard) 
     int nextEpochStart = scInfo.StartHeightForEpoch(currentEpoch+1);
 
     for(int height = nextEpochStart; height <= nextEpochStart + scInfo.SafeguardMargin(); ++height) {
-        Sidechain::state state = Sidechain::isCeasedAtHeight(*view, scId, height);
-        EXPECT_TRUE(state == Sidechain::state::ALIVE)
+        CSidechain::state state = view->isCeasedAtHeight(scId, height);
+        EXPECT_TRUE(state == CSidechain::state::ALIVE)
             <<"sc is in state "<<int(state)<<" at height "<<height;
     }
 }
@@ -101,8 +101,8 @@ TEST_F(CeasedSidechainsTestSuite, SidechainIsCeasedAftereNextEpochSafeguard) {
     int nextEpochEnd = scInfo.StartHeightForEpoch(currentEpoch+2)-1;
 
     for(int height = nextEpochStart + scInfo.SafeguardMargin()+1; height <= nextEpochEnd; ++height) {
-        Sidechain::state state = Sidechain::isCeasedAtHeight(*view, scId, height);
-        EXPECT_TRUE(state == Sidechain::state::CEASED)
+        CSidechain::state state = view->isCeasedAtHeight(scId, height);
+        EXPECT_TRUE(state == CSidechain::state::CEASED)
             <<"sc is in state "<<int(state)<<" at height "<<height;
     }
 }
@@ -122,8 +122,8 @@ TEST_F(CeasedSidechainsTestSuite, CertificateMovesSidechainTerminationToNextEpoc
     int nextEpochStart = scInfo.StartHeightForEpoch(currentEpoch+1);
     int nextEpochSafeguard = nextEpochStart + scInfo.SafeguardMargin();
 
-    Sidechain::state state = Sidechain::isCeasedAtHeight(*view, scId, nextEpochSafeguard+1);
-    ASSERT_TRUE(state == Sidechain::state::CEASED)
+    CSidechain::state state = view->isCeasedAtHeight(scId, nextEpochSafeguard+1);
+    ASSERT_TRUE(state == CSidechain::state::CEASED)
         <<"sc is in state "<<int(state)<<" at height "<<nextEpochSafeguard+1;
 
     //Prove that certificate reception keeps Sc alive for another epoch
@@ -134,8 +134,8 @@ TEST_F(CeasedSidechainsTestSuite, CertificateMovesSidechainTerminationToNextEpoc
 
     int certReceptionHeight = nextEpochSafeguard-1;
     for(int height = certReceptionHeight; height < certReceptionHeight +scInfo.creationData.withdrawalEpochLength; ++height) {
-        Sidechain::state state = Sidechain::isCeasedAtHeight(*view, scId, height);
-        EXPECT_TRUE(state == Sidechain::state::ALIVE)
+        CSidechain::state state = view->isCeasedAtHeight(scId, height);
+        EXPECT_TRUE(state == CSidechain::state::ALIVE)
             <<"sc is in state "<<int(state)<<" at height "<<height;
     }
 }
@@ -231,7 +231,7 @@ TEST_F(CeasedSidechainsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
 
     //test
     int minimalCeaseHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin()+1;
-    EXPECT_TRUE(Sidechain::isCeasedAtHeight(*view, scId, minimalCeaseHeight) == Sidechain::state::CEASED);
+    EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::state::CEASED);
     CBlockUndo coinsBlockUndo;
     EXPECT_TRUE(view->HandleCeasingScs(minimalCeaseHeight, coinsBlockUndo));
 
@@ -280,7 +280,7 @@ TEST_F(CeasedSidechainsTestSuite, ChangeOutputsArePreservedWhenSidechainCeases) 
 
     //test
     int minimalCeaseHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin()+1;
-    EXPECT_TRUE(Sidechain::isCeasedAtHeight(*view, scId, minimalCeaseHeight) == Sidechain::state::CEASED);
+    EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::state::CEASED);
     CBlockUndo coinsBlockUndo;
     EXPECT_TRUE(view->HandleCeasingScs(minimalCeaseHeight, coinsBlockUndo));
 
@@ -337,7 +337,7 @@ TEST_F(CeasedSidechainsTestSuite, RestoreFullyNulledCeasedCoins) {
 
     //Make the sidechain cease
     int minimalCeaseHeight = scInfo.StartHeightForEpoch(certReferencedEpoch+2)+scInfo.SafeguardMargin()+1;
-    EXPECT_TRUE(Sidechain::isCeasedAtHeight(*view, scId, minimalCeaseHeight) == Sidechain::state::CEASED);
+    EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::state::CEASED);
 
     // Null the coins
     CBlockUndo coinsBlockUndo;
@@ -389,7 +389,7 @@ TEST_F(CeasedSidechainsTestSuite, RestorePartiallyNulledCeasedCoins) {
 
     //Make the sidechain cease
     int minimalCeaseHeight = scInfo.StartHeightForEpoch(certReferencedEpoch+2)+scInfo.SafeguardMargin()+1;
-    EXPECT_TRUE(Sidechain::isCeasedAtHeight(*view, scId, minimalCeaseHeight) == Sidechain::state::CEASED);
+    EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::state::CEASED);
 
     // Null the coins
     CBlockUndo coinsBlockUndo;

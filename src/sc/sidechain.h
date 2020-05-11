@@ -69,6 +69,12 @@ public:
     // value = the immature amount
     std::map<int, CAmount> mImmatureAmounts;
 
+    enum class state {
+        NOT_APPLICABLE = 0,
+        ALIVE,
+        CEASED
+    };
+
     std::string ToString() const;
 
     ADD_SERIALIZE_METHODS;
@@ -109,15 +115,6 @@ namespace Sidechain {
     bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
 
     bool checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state);
-
-
-    enum class state {
-        NOT_APPLICABLE = 0,
-        ALIVE,
-        CEASED
-    };
-
-    state isCeasedAtHeight(CCoinsViewCache& view, const uint256& scId, int height);
 }; // end of namespace
 
 #endif // _SIDECHAIN_CORE_H
