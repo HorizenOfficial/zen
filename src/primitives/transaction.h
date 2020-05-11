@@ -779,7 +779,6 @@ public:
 
     virtual bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const = 0;
     virtual bool CheckFinal(int flags = -1) const = 0;
-    virtual bool IsApplicableToState(CValidationState& state, int nHeight = -1) const = 0;
 
     bool VerifyScript(
         const CScript& scriptPubKey, unsigned int flags, unsigned int nIn, const CChain* chain,
@@ -1030,7 +1029,6 @@ public:
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const override;
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
     bool CheckFinal(int flags = -1) const override;
-    bool IsApplicableToState(CValidationState& state, int nHeight = -1) const override;
     void AddJoinSplitToJSON(UniValue& entry) const override;
     void AddSidechainOutsToJSON(UniValue& entry) const override;
     bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,

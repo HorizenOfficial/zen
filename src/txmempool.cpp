@@ -416,7 +416,8 @@ bool CTxMemPool::addToListForRemovalImmatureExpenditures(
                 assert(pcoins->HaveSidechain(coins->originScId));
             }
  
-            if (!pcoins->IsCertOutputMature(txin.prevout.hash, txin.prevout.n, nMemPoolHeight)) {
+            if (pcoins->IsCertOutputMature(txin.prevout.hash, txin.prevout.n, nMemPoolHeight) !=
+                        CCoinsViewCache::outputMaturity::MATURE) {
                 LogPrint("mempool", "%s():%d - adding tx [%s] to list for removing since it spends immature cert output %d of [%s]\n",
                     __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
                 transactionsToRemove.push_back(&tx);

@@ -1512,7 +1512,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             }
 
             // are the sidechains dependencies available?
-            if (!view.HaveScRequirements(tx))
+            if (!view.HaveScRequirements(tx, nextBlockHeight))
             {
                 return state.Invalid(error("AcceptToMemoryPool: sidechain is redeclared or coins are forwarded to unknown sidechain"),
                                     REJECT_INVALID, "bad-sc-tx");
@@ -2045,8 +2045,9 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
 
             // mark an outpoint spent, and construct undo information
             txundo.vprevout.push_back(CTxInUndo(coins->vout[nPos]));
+            LogPrint("cert", "%s():%d - spending inputs from [%s]\n", __func__, __LINE__, txin.prevout.hash.ToString());
             coins->Spend(nPos);
-            if (coins->vout.size() == 0) {
+            if (coins->vout.size() == 0 || coins->vout[nPos].isFromBackwardTransfer) {
                 CTxInUndo& undo = txundo.vprevout.back();
                 undo.nHeight = coins->nHeight;
                 undo.fCoinBase = coins->fCoinBase;
@@ -2170,7 +2171,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                     REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
                 }
             } else if (coins->IsFromCert()) {
-                if (!inputs.IsCertOutputMature(in.prevout.hash, in.prevout.n, nSpendHeight))
+                if (inputs.IsCertOutputMature(in.prevout.hash, in.prevout.n, nSpendHeight) != CCoinsViewCache::outputMaturity::MATURE)
                     return state.Invalid(
                         error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
                         REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
@@ -2388,7 +2389,11 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         return error("DisconnectBlock(): failure reading undo data");
 
     // no coinbase in blockundo
+#if 0
     if (blockUndo.vtxundo.size() + 1 != block.vtx.size() + block.vcert.size() )
+#else
+    if (blockUndo.vtxundo.size() < (block.vtx.size() - 1))
+#endif
         return error("DisconnectBlock(): block and undo data inconsistent");
 
     // not including coinbase
@@ -2447,6 +2452,24 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         return error("DisconnectBlock(): sc and undo data inconsistent");
     }
 
+    for (size_t idx = blockUndo.vtxundo.size(); idx-- > block.vtx.size();)
+        view.RevertCeasingScs(blockUndo.vtxundo[idx]);
+
+    // undo certificates in reverse order
+    for (int i = block.vcert.size() - 1; i >= 0; i--) {
+        const CScCertificate& cert = block.vcert[i];
+
+        if (!view.UndoCeasingScs(cert)) {
+            LogPrint("sc", "%s():%d - ERROR undoing ceasing height\n", __func__, __LINE__);
+            return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
+        }
+
+        if (!view.RevertCertOutputs(cert) ) {
+            LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
+            return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
+        }
+    }
+
     // undo transactions in reverse order
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
         const CTransaction &tx = block.vtx[i];
@@ -2478,6 +2501,13 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
             BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
                 view.SetNullifier(nf, false);
+            }
+        }
+
+        for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
+            if (!view.UndoCeasingScs(scCreation)) {
+                LogPrint("sc", "%s():%d - ERROR undoing ceasing height\n", __func__, __LINE__);
+                return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
             }
         }
 
@@ -2725,7 +2755,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             return state.DoS(100, error("ConnectBlock(): tx inputs missing/spent"),
                                  REJECT_INVALID, "bad-txns-inputs-missingorspent");
 
-        if (!view.HaveScRequirements(tx))
+        if (!view.HaveScRequirements(tx, pindex->nHeight))
             return state.Invalid(error("ConnectBlock: sidechain is redeclared or coins are forwarded to unknown sidechain"),
                                         REJECT_INVALID, "bad-sc-tx");
 
@@ -2766,6 +2796,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): could not add sidechain in view: tx[%s]", tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
             }
+
+            for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
+                if (!view.UpdateCeasingScs(scCreation))
+                    return state.DoS(100, error("ConnectBlock(): error updating ceasing height for sidechain [%s]", scCreation.scId.ToString()),
+                                     REJECT_INVALID, "bad-sc-not-recorded");
+            }
+
         }
 
         BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
@@ -2829,6 +2866,11 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-sc-cert-not-updated");
         }
 
+        if (!view.UpdateCeasingScs(cert))
+            return state.DoS(100, error("ConnectBlock(): Error updating ceasing heights with certificate [%s]", cert.GetHash().ToString()),
+                             REJECT_INVALID, "bad-sc-cert-not-recorded");
+
+
         if (certIdx == 0) {
             // we are processing the first certificate, add the size of the vcert to the offset
             int sz = GetSizeOfCompactSize(block.vcert.size());
@@ -2845,13 +2887,16 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
 
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
-    }
+    } //end of Processing certificates loop
 
     if (!view.ApplyMatureBalances(pindex->nHeight, blockundo) )
-    {
         return state.DoS(100, error("ConnectBlock(): could not update sc immature amounts"),
                          REJECT_INVALID, "bad-sc-amounts");
-    }
+
+    if (!view.HandleCeasingScs(pindex->nHeight, blockundo))
+        return state.DoS(100, error("ConnectBlock(): could not handle ceasing heights"),
+                         REJECT_INVALID, "bad-sc-ceasing-heights");
+
 
     view.PushAnchor(tree);
     if (!fJustCheck) {
@@ -3157,9 +3202,9 @@ bool static DisconnectTip(CValidationState &state) {
     // Get the current commitment tree
     ZCIncrementalMerkleTree newTree;
     assert(pcoinsTip->GetAnchorAt(pcoinsTip->GetBestAnchor(), newTree));
+
     // Let wallets know transactions went from 1-confirmed to
     // 0-confirmed or conflicted:
-
     for(const CTransaction &tx: block.vtx) {
         SyncWithWallets(tx, nullptr);
     }

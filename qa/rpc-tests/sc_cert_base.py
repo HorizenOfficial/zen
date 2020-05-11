@@ -9,6 +9,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
     assert_false, assert_true
 import os
+import pprint
 from decimal import Decimal
 
 DEBUG_MODE = 1
@@ -280,7 +281,7 @@ class sc_cert_base(BitcoinTestFramework):
         self.sync_all()
 
         bal_after_cert_2 = self.nodes[1].getbalance("", 0)
-        mark_logs("Node1 balance after epoch 1 certificate is received nad safeguard passed: {}".format(bal_after_cert_2), self.nodes, DEBUG_MODE)        
+        mark_logs("Node1 balance after epoch 1 certificate is received and safeguard passed: {}".format(bal_after_cert_2), self.nodes, DEBUG_MODE)        
 
         mark_logs("Checking that certificate received from previous epoch is spendable,".format(epoch_number), self.nodes, DEBUG_MODE)
         retrieved_cert = self.nodes[1].gettransaction(cert_epoch_0)

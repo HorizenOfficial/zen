@@ -147,7 +147,6 @@ public:
 
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
     bool CheckFinal(int flags) const override;
-    bool IsApplicableToState(CValidationState& state, int nHeight = -1) const override;
 
     bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) override final;
 

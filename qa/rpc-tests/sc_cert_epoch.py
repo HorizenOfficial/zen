@@ -174,8 +174,8 @@ class sc_cert_epoch(BitcoinTestFramework):
 
         self.sync_all()
 
-        mark_logs("Node0 confims bwd transfer and moves beyond safeguard", self.nodes, DEBUG_MODE)
-        blocks.extend(self.nodes[0].generate(3))
+        mark_logs("Node0 confims bwd transfer and moves at safeguard", self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(2))
         self.sync_all()
 
         mark_logs("Checking Nodes wallet's balances are duly updated", self.nodes, DEBUG_MODE)
@@ -211,7 +211,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         assert(speding_bwd_tx in self.nodes[0].getrawmempool())
 
         mark_logs("Node0 invalidates enough blocks unconfirm epoch 1 certificate", self.nodes, DEBUG_MODE)
-        for num in range(1,4):
+        for num in range(1,3):
             block_to_invalidate = self.nodes[0].getbestblockhash()
             self.nodes[0].invalidateblock(block_to_invalidate)
             time.sleep(1)  # Is there a better wait to settle?
@@ -229,15 +229,6 @@ class sc_cert_epoch(BitcoinTestFramework):
         time.sleep(1)  # Is there a better wait to settle?
 
         mark_logs("Checking both bwd is still mempool", self.nodes, DEBUG_MODE)
-        assert(cert_epoch_1 not in self.nodes[0].getrawmempool())
-        assert(speding_bwd_tx not in self.nodes[0].getrawmempool())
-
-        mark_logs("Node0 invalidates latest block going stricly into epoch 1", self.nodes, DEBUG_MODE)
-        block_to_invalidate = self.nodes[0].getbestblockhash()
-        self.nodes[0].invalidateblock(block_to_invalidate)
-        time.sleep(1)  # Is there a better wait to settle?
-
-        mark_logs("Checking both bwd is cleared from mempool", self.nodes, DEBUG_MODE)
         assert(cert_epoch_1 not in self.nodes[0].getrawmempool())
         assert(speding_bwd_tx not in self.nodes[0].getrawmempool())
 
@@ -264,7 +255,7 @@ class sc_cert_epoch(BitcoinTestFramework):
             assert_equal(node1_balance_ante_cert, self.nodes[1].getbalance())
             
             # Until ceased sc are handled, coins from cert will mature passed next epoch safeguard
-            assert_equal(node2_balance_ante_cert + bwt_amount, self.nodes[2].getbalance())
+            assert_equal(node2_balance_ante_cert, self.nodes[2].getbalance())
             assert_equal(node3_balance_ante_cert, self.nodes[3].getbalance())
 
         mark_logs("Checking certificates persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)

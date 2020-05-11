@@ -160,8 +160,8 @@ class sc_cert_base(BitcoinTestFramework):
 
         self.sync_all()
 
-        mark_logs("Node 0 generates 2 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(2)
+        mark_logs("Node 0 generates 1 block", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
         self.sync_all()
 
         # check that Node2 has not yet matured the certificate balance received the previous epoch

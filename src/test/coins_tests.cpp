@@ -34,7 +34,7 @@ public:
         hashBestAnchor_ = ZCIncrementalMerkleTree::empty_root();
     }
 
-    bool GetAnchorAt(const uint256& rt, ZCIncrementalMerkleTree &tree) const {
+    bool GetAnchorAt(const uint256& rt, ZCIncrementalMerkleTree &tree) const override {
         if (rt == ZCIncrementalMerkleTree::empty_root()) {
             ZCIncrementalMerkleTree new_tree;
             tree = new_tree;
@@ -50,7 +50,7 @@ public:
         }
     }
 
-    bool GetNullifier(const uint256 &nf) const
+    bool GetNullifier(const uint256 &nf) const override
     {
         std::map<uint256, bool>::const_iterator it = mapNullifiers_.find(nf);
 
@@ -63,9 +63,9 @@ public:
         }
     }
 
-    uint256 GetBestAnchor() const { return hashBestAnchor_; }
+    uint256 GetBestAnchor() const override { return hashBestAnchor_; }
 
-    bool GetCoins(const uint256& txid, CCoins& coins) const
+    bool GetCoins(const uint256& txid, CCoins& coins) const override
     {
         std::map<uint256, CCoins>::const_iterator it = map_.find(txid);
         if (it == map_.end()) {
@@ -79,20 +79,21 @@ public:
         return true;
     }
 
-    bool HaveCoins(const uint256& txid) const
+    bool HaveCoins(const uint256& txid) const override
     {
         CCoins coins;
         return GetCoins(txid, coins);
     }
 
-    uint256 GetBestBlock() const { return hashBestBlock_; }
+    uint256 GetBestBlock() const override { return hashBestBlock_; }
 
     bool BatchWrite(CCoinsMap& mapCoins,
                     const uint256& hashBlock,
                     const uint256& hashAnchor,
                     CAnchorsMap& mapAnchors,
                     CNullifiersMap& mapNullifiers,
-                    CSidechainsMap& mapSidechains)
+                    CSidechainsMap& mapSidechains,
+                    CCeasingScsMap& mapCeasedScs) override
     {
         for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end(); ) {
             map_[it->first] = it->second.coins;
@@ -129,7 +130,7 @@ public:
         return true;
     }
 
-    bool GetStats(CCoinsStats& stats) const { return false; }
+    bool GetStats(CCoinsStats& stats) const override { return false; }
 };
 
 class CCoinsViewCacheTest : public CCoinsViewCache
@@ -935,10 +936,10 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
     BOOST_CHECK(retrievedFaultyCoin.originScId           == faultyCoin.originScId);
 }
 
-BOOST_AUTO_TEST_CASE(Certificate_CTxUndo_serialization)
+BOOST_AUTO_TEST_CASE(Certificate_CTxInUndo_serialization)
 {
-    // CTxUndo serialization has been updated following certificates introducation.
-    // This test verifies the serialization/deserialization pair allow retrival of complete CTxOut
+    // CTxInUndo serialization has been updated following certificates introduction.
+    // This test verifies the serialization/deserialization pair allow retrieval of complete CTxOut
 
     CCoins coinFromCert;
     coinFromCert.fCoinBase = false;
@@ -949,19 +950,35 @@ BOOST_AUTO_TEST_CASE(Certificate_CTxUndo_serialization)
     coinFromCert.nVersion = SC_CERT_VERSION;
     coinFromCert.originScId = uint256S("deadbeef1987");
 
-    CTxInUndo certInUndo(coinFromCert.vout[0], coinFromCert.fCoinBase, coinFromCert.nHeight, coinFromCert.nVersion, coinFromCert.originScId);
-    CDataStream ssCert(SER_DISK, CLIENT_VERSION);
+    //if the vin about to be written in undo is the last one, all metadata (fCoinBase, version, originScId) are noted
+    CTxInUndo fullCertInUndo(coinFromCert.vout[0], coinFromCert.fCoinBase, coinFromCert.nHeight, coinFromCert.nVersion, coinFromCert.originScId);
+    CDataStream ssFullCert(SER_DISK, CLIENT_VERSION);
 
-    ssCert << certInUndo;
-    CTxInUndo retrievedInCert;
-    ssCert >> retrievedInCert;
+    ssFullCert << fullCertInUndo;
+    CTxInUndo retrievedFullCertIn;
+    ssFullCert >> retrievedFullCertIn;
 
-    BOOST_CHECK(retrievedInCert.fCoinBase                 == coinFromCert.fCoinBase);
-    BOOST_CHECK_MESSAGE((retrievedInCert.nVersion & 0x7f) == (coinFromCert.nVersion & 0x7f),   retrievedInCert.nVersion);
-    BOOST_CHECK_MESSAGE(retrievedInCert.nHeight           == coinFromCert.nHeight,             retrievedInCert.nHeight);
-    BOOST_CHECK_MESSAGE(retrievedInCert.originScId        == coinFromCert.originScId,          retrievedInCert.originScId.ToString());
-    BOOST_CHECK(retrievedInCert.txout == coinFromCert.vout[0]);
+    BOOST_CHECK(retrievedFullCertIn.fCoinBase                 == coinFromCert.fCoinBase);
+    BOOST_CHECK_MESSAGE((retrievedFullCertIn.nVersion & 0x7f) == (coinFromCert.nVersion & 0x7f),   retrievedFullCertIn.nVersion);
+    BOOST_CHECK_MESSAGE(retrievedFullCertIn.nHeight           == coinFromCert.nHeight,             retrievedFullCertIn.nHeight);
+    BOOST_CHECK_MESSAGE(retrievedFullCertIn.originScId        == coinFromCert.originScId,          retrievedFullCertIn.originScId.ToString());
+    BOOST_CHECK(retrievedFullCertIn.txout == coinFromCert.vout[0]);
 
+    //if the vin about to be written in undo is NOT the last one only vout is noted
+    CTxInUndo partialCertInUndo(coinFromCert.vout[0]);
+    CDataStream ssPartialCert(SER_DISK, CLIENT_VERSION);
+
+    ssPartialCert << partialCertInUndo;
+    CTxInUndo retrievedPartialCertIn;
+    ssPartialCert >> retrievedPartialCertIn;
+    BOOST_CHECK_MESSAGE(retrievedPartialCertIn.txout != coinFromCert.vout[0],
+            "WE CANNOT RECONSTRUCT A BWT FROM A SINGLE CTxInUndo. You need to serilized nHeight to get the whole information");
+}
+
+BOOST_AUTO_TEST_CASE(Transaction_CTxInUndo_serialization)
+{
+    // CTxInUndo serialization has been updated following certificates introduction.
+    // This test verifies the serialization/deserialization pair allow retrieval of complete CTxOut
 
     CCoins coinFromTx;
     coinFromTx.fCoinBase = false;
@@ -972,18 +989,30 @@ BOOST_AUTO_TEST_CASE(Certificate_CTxUndo_serialization)
     coinFromTx.nVersion = TRANSPARENT_TX_VERSION;
     coinFromTx.originScId.SetNull();
 
-    CTxInUndo txInUndo(coinFromTx.vout[0], coinFromTx.fCoinBase, coinFromTx.nHeight, coinFromTx.nVersion, coinFromTx.originScId);
-    CDataStream ssTx(SER_DISK, CLIENT_VERSION);
+    //if the vin about to be written in undo is the last one, all metadata (fCoinBase, version, NOT originSc) are noted
+    CTxInUndo fullTxInUndo(coinFromTx.vout[0], coinFromTx.fCoinBase, coinFromTx.nHeight, coinFromTx.nVersion, coinFromTx.originScId);
+    CDataStream ssFullTx(SER_DISK, CLIENT_VERSION);
 
-    ssTx << txInUndo;
-    CTxInUndo retrievedCTx;
-    ssTx >> retrievedCTx;
+    ssFullTx << fullTxInUndo;
+    CTxInUndo retrievedFullTx;
+    ssFullTx >> retrievedFullTx;
 
-    BOOST_CHECK(retrievedCTx.fCoinBase                 == coinFromTx.fCoinBase);
-    BOOST_CHECK_MESSAGE(retrievedCTx.nVersion          == coinFromTx.nVersion,   retrievedCTx.nVersion);
-    BOOST_CHECK_MESSAGE(retrievedCTx.nHeight           == coinFromTx.nHeight,    retrievedCTx.nHeight);
-    BOOST_CHECK_MESSAGE(retrievedCTx.originScId        == coinFromTx.originScId, retrievedCTx.originScId.ToString());
-    BOOST_CHECK(txInUndo.txout == coinFromTx.vout[0]);
+    BOOST_CHECK(retrievedFullTx.fCoinBase                 == coinFromTx.fCoinBase);
+    BOOST_CHECK_MESSAGE(retrievedFullTx.nVersion          == coinFromTx.nVersion,   retrievedFullTx.nVersion);
+    BOOST_CHECK_MESSAGE(retrievedFullTx.nHeight           == coinFromTx.nHeight,    retrievedFullTx.nHeight);
+    BOOST_CHECK_MESSAGE(retrievedFullTx.originScId        == coinFromTx.originScId, retrievedFullTx.originScId.ToString());
+    BOOST_CHECK(retrievedFullTx.txout == coinFromTx.vout[0]);
+
+    //if the vin about to be written in undo is NOT the last one only vout is noted
+    CTxInUndo partialTxInUndo(coinFromTx.vout[0]);
+    CDataStream ssPartialTx(SER_DISK, CLIENT_VERSION);
+
+    ssPartialTx << partialTxInUndo;
+    CTxInUndo retrievedPartialTxIn;
+    ssPartialTx >> retrievedPartialTxIn;
+    BOOST_CHECK(retrievedPartialTxIn.txout == coinFromTx.vout[0]);
+
+    //Todo: missing proof of backward compatibility
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -1597,7 +1597,7 @@ UniValue getbalance(const UniValue& params, bool fHelp)
             wtx.GetAmounts(listReceived, listSent, listScSent, allFee, strSentAccount, filter);
             if (wtx.GetDepthInMainChain() >= nMinDepth) {
                 for(const COutputEntry& r: listReceived)
-                    if (r.maturity == COutputEntry::maturityState::MATURE)
+                    if (r.maturity == CCoinsViewCache::outputMaturity::MATURE)
                         nBalance += r.amount;
             }
 
@@ -2227,7 +2227,7 @@ void ListTransactions(const CWalletObjBase& wtx, const string& strAccount, int n
                 }
                 else
                 {
-                    if (r.maturity == COutputEntry::maturityState::MATURE)
+                    if (r.maturity == CCoinsViewCache::outputMaturity::MATURE)
                         entry.push_back(Pair("category", "receive"));
                     else
                         entry.push_back(Pair("category", "immature"));
@@ -2614,7 +2614,7 @@ UniValue listaccounts(const UniValue& params, bool fHelp)
 
         if (wtx.GetDepthInMainChain() >= nMinDepth) {
             for(const COutputEntry& r: listReceived) {
-                if (r.maturity == COutputEntry::maturityState::IMMATURE)
+                if (r.maturity == CCoinsViewCache::outputMaturity::IMMATURE)
                     continue;
 
                 if (pwalletMain->mapAddressBook.count(r.destination))
@@ -4753,7 +4753,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     // sanity check of the side chain ID
     CCoinsViewCache scView(pcoinsTip);
-    if (!scView.HaveSidechain(scId))
+    CSidechain scInfo;
+    if (!scView.GetSidechain(scId,scInfo))
     {
         LogPrint("sc", "scid[%s] does not exists \n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not exists: ") + scId.ToString());
@@ -4781,18 +4782,9 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid epoch data"));
     }
 
-    // a certificate can not be received after a fixed amount of blocks (for the time being it is epoch length / 5) from the end of epoch (TODO)
-    int maxHeight = scView.getCertificateMaxIncomingHeight(scId, epochNumber);
-    if (maxHeight < 0)
-    {
-        LogPrintf("ERROR: Invalid computed height value\n");
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert data"));
-    }
-
-    if (maxHeight < chainActive.Height() + 1)
-    {
-        LogPrintf("%s():%d - ERROR: delayed certificate, max height for receiving = %d, next block height = %d\n",
-            __func__, __LINE__, maxHeight, chainActive.Height() + 1);
+    if (scView.isCeasedAtHeight(scId, chainActive.Height()+1)!= CSidechain::state::ALIVE) {
+        LogPrintf("ERROR: certificate cannot be accepted, sidechain [%s] already ceased at active height = %d\n",
+            scId.ToString(), chainActive.Height());
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert height"));
     }
 
@@ -4889,22 +4881,10 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     // allow use of unconfirmed coins
     int nMinDepth = 0; //1; 
 
-#if 0        
-    BOOST_FOREACH (const auto& ccRecipient, vecSend)
-    {
-        CRecipientHandler handler(&cert, strFailReason);
-        if (!handler.visit(ccRecipient) )
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strFailReason );
-        }
-    }
-#endif
-
-    CAmount curBalance = scView.getSidechainBalance(scId);
-    if (nTotalOut > curBalance)
+    if (nTotalOut > scInfo.balance)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scid[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, scId.ToString(), FormatMoney(curBalance), FormatMoney(nTotalOut) );
+            __func__, __LINE__, scId.ToString(), FormatMoney(scInfo.balance), FormatMoney(nTotalOut) );
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "sidechain has insufficient funds");
     }
 
@@ -4918,227 +4898,6 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     cmd.send();
 
     return cert.GetHash().GetHex();
-#if 0
-    CScCertificate constCert(cert);
-    const uint256& hash = constCert.GetHash();
-    LogPrint("cert", "%s():%d - cert=%s ready to be encoded: amount[%s], fee[%s]\n",
-        __func__, __LINE__, hash.ToString(), FormatMoney(nTotalOut), FormatMoney(nCertFee) );
-
-    const std::string& encStr = EncodeHexCert(constCert);
-    UniValue inputVal(UniValue::VARR);
-    inputVal.push_back(encStr);
-    const UniValue& sendResultValue = sendrawcertificate(inputVal, false);
-    if (sendResultValue.isNull()) {
-        throw JSONRPCError(RPC_WALLET_ERROR, "sendrawcertificate did not return an error or a certificate id.");
-    }
-
-    return sendResultValue.get_str();
-#endif
-}
-
-UniValue send_certificate2(const UniValue& params, bool fHelp)
-{
-    if (!EnsureWalletIsAvailable(fHelp))
-        return NullUniValue;
-
-    if (fHelp || params.size() != 5  )
-        throw runtime_error(
-            "send_certificate scid epochNumber endEpochBlockHash [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
-            "\nSend cross chain backward transfers from SC to MC as a certificate."
-            "\nArguments:\n"
-            "1. \"scid\"                  (string, required) The uint256 side chain ID\n"
-            "2. epochNumber             (numeric, required) The epoch number this certificate refers to, zero-based numbered\n"
-            "3. \"endEpochBlockHash\"     (string, required) The block hash determining the end of the referenced epoch\n"
-            "4. transfers:              (array, required) An array of json objects representing the amounts of the backward transfers. Can also be empty\n"
-            "    [{\n"                     
-            "      \"pubkeyhash\":\"pkh\"    (string, required) The public key hash of the receiver\n"
-            "      \"amount\":amount       (numeric, required) The numeric amount in ZEN\n"
-            "    }, ... ]\n"
-            "5. fee                     (numeric, required) The fee of the certificate in ZEN\n"
-            "\nResult:\n"
-            "  \"certificateId\"   (string) The resulting certificate id.\n"
-            "\nExamples:\n"
-            + HelpExampleCli("send_certificate", "\"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 12 \"04a1527384c67d9fce3d091ababfc1de325dbac9b3b14025a53722ff6c53d40e\" '[{\"pubkeyhash\":\"813551c928d41c0436ba7361850797d9b30ad4ed\" ,\"amount\": 5.0}]'")
-            + HelpExampleCli("send_certificate", "\"054671870079a64a491ea68e08ed7579ec2e0bd148c51c6e2fe6385b597540f4\" 10 \"0a85efb37d1130009f1b588dcddd26626bbb159ae4a19a703715277b51033144\" '[{\"pubkeyhash\":\"76fea046133b0acc74ebabbd17b80e99816228ab\", \"amount\":33.5}]' false 0.00001")
-
-        );
-
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-
-    // side chain id
-    const string& scIdString = params[0].get_str();
-    if (scIdString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
-
-    uint256 scId;
-    scId.SetHex(scIdString);
-
-    // sanity check of the side chain ID
-    CCoinsViewCache scView(pcoinsTip);
-    if (!scView.HaveSidechain(scId))
-    {
-        LogPrint("sc", "scid[%s] does not exists \n", scId.ToString() );
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not exists: ") + scId.ToString());
-    }
-
-    int epochNumber = params[1].get_int(); 
-    if (epochNumber < 0)
-    {
-        LogPrint("sc", "epochNumber can not be negative\n", epochNumber);
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid epochNumber parameter");
-    }
-
-    // epoch block hash
-    const string& blockHashStr = params[2].get_str();
-    if (blockHashStr.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid block hash format: not an hex");
-
-    uint256 endEpochBlockHash;
-    endEpochBlockHash.SetHex(blockHashStr);
-
-    // sanity check of the epoch hash block: it must be a legal end epoch hash
-    if (!scView.isLegalEpoch(scId, epochNumber, endEpochBlockHash) )
-    {
-        LogPrintf("ERROR: epochNumber[%d]/endEpochBlockHash[%s] are not legal\n", epochNumber, endEpochBlockHash.ToString() );
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid epoch data"));
-    }
-
-    // a certificate can not be received after a fixed amount of blocks (for the time being it is epoch length / 5) from the end of epoch (TODO)
-    int maxHeight = scView.getCertificateMaxIncomingHeight(scId, epochNumber);
-    if (maxHeight < 0)
-    {
-        LogPrintf("ERROR: Invalid computed height value\n");
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert data"));
-    }
-
-    if (maxHeight < chainActive.Height() + 1)
-    {
-        LogPrintf("%s():%d - ERROR: delayed certificate, max height for receiving = %d, next block height = %d\n",
-            __func__, __LINE__, maxHeight, chainActive.Height() + 1);
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert height"));
-    }
-
-    // - there must not be another certificate for the same epoch (multiple certificates are not allowed)
-    // This also checks in mempool
-    {
-        LOCK(mempool.cs);
-        CCoinsViewMemPool viewMemPool(pcoinsTip, mempool);
-
-        if (viewMemPool.HaveCertForEpoch(scId, epochNumber))
-        {
-            uint256 conflictingCertHash;
-            if (mempool.mapSidechains.count(scId))
-                conflictingCertHash = mempool.mapSidechains.at(scId).backwardCertificate;
-            else
-                conflictingCertHash.SetNull();
-
-            LogPrintf("ERROR: certificate %s for epoch %d is already been issued\n",
-                (conflictingCertHash.IsNull())?"":conflictingCertHash.ToString(), epochNumber);
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert epoch"));
-        }
-    }
-
-    // can be empty
-    const UniValue& outputs = params[3].get_array();
-
-    // Recipients
-    CAmount nTotalOut = 0;
-    vector<CcRecipientVariant> vecSend;
-
-    for (const UniValue& o : outputs.getValues())
-    {
-        if (!o.isObject())
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
-
-        // sanity check, report error if unknown key-value pairs
-        for (const string& s : o.getKeys())
-        {
-            if (s != "amount" && s != "pubkeyhash")
-                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
-        }
-
-        const string& pkeyStr = find_value(o, "pubkeyhash").get_str();
-        if (pkeyStr.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid pkey format: not an hex");
-        if (pkeyStr.length() != 40)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid pkey format: len is not 20 bytes ");
-
-        uint160 pkeyValue;
-        pkeyValue.SetHex(pkeyStr);
-
-        CKeyID keyID(pkeyValue);
-        CBitcoinAddress taddr(keyID);
-
-        if (!taddr.IsValid()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, pubkeyhash does not give a valid address");
-        }
-
-        const UniValue& av = find_value(o, "amount");
-        CAmount nAmount = AmountFromValue(av);
-        if (nAmount < 0) //It is allowed to send certificates with zero amount
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
-
-        CRecipientBackwardTransfer bt;
-        bt.scriptPubKey = GetScriptForDestination(taddr.Get(), false);
-        bt.nValue = nAmount;
-
-        vecSend.push_back(CcRecipientVariant(bt));
-
-        nTotalOut += nAmount;
-    }
-
-    // fee
-    CAmount nCertFee = 0;
-    if (params.size() > 4)
-    {
-        nCertFee = AmountFromValue(params[4]);
-        if (nCertFee <= 0)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for fee, must be positive");
-        // any check for upper threshold is left to cert processing
-    }
-
-    EnsureWalletIsUnlocked();
-
-    std::string strFailReason;
-
-    CMutableScCertificate cert;
-    // cert data
-    cert.nVersion = SC_CERT_VERSION;
-    cert.scId = scId;
-    cert.epochNumber = epochNumber;
-    cert.endEpochBlockHash = endEpochBlockHash;
-
-    BOOST_FOREACH (const auto& ccRecipient, vecSend)
-    {
-        CRecipientHandler handler(&cert, strFailReason);
-        if (!handler.visit(ccRecipient) )
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strFailReason );
-        }
-    }
-
-    CAmount curBalance = scView.getSidechainBalance(scId);
-    if (nTotalOut > curBalance)
-    {
-        LogPrint("sc", "%s():%d - insufficent balance in scid[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, scId.ToString(), FormatMoney(curBalance), FormatMoney(nTotalOut) );
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "sidechain has insufficient funds");
-    }
-
-    CScCertificate constCert(cert);
-    const uint256& hash = constCert.GetHash();
-    LogPrint("cert", "%s():%d - cert=%s ready to be encoded: amount[%s], fee[%s]\n",
-        __func__, __LINE__, hash.ToString(), FormatMoney(nTotalOut), FormatMoney(nCertFee) );
-
-    const std::string& encStr = EncodeHexCert(constCert);
-    UniValue inputVal(UniValue::VARR);
-    inputVal.push_back(encStr);
-    const UniValue& sendResultValue = sendrawcertificate(inputVal, false);
-    if (sendResultValue.isNull()) {
-        throw JSONRPCError(RPC_WALLET_ERROR, "sendrawcertificate did not return an error or a certificate id.");
-    }
-
-    return sendResultValue.get_str();
 }
 
 UniValue sc_certlock_many(const UniValue& params, bool fHelp)
