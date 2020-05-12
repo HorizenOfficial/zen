@@ -136,29 +136,24 @@ void txCreationUtils::extendTransaction(CTransaction & tx, const uint256 & scId,
     return;
 }
 
-CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash, CAmount bwtAmount, bool bwtOnly) {
+CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash, unsigned int numChangeOut, CAmount bwTotaltAmount, unsigned int numBwt) {
     CMutableScCertificate res;
     res.nVersion = SC_CERT_VERSION;
     res.scId = scId;
     res.epochNumber = epochNum;
     res.endEpochBlockHash = endEpochBlockHash;
 
-    if (bwtOnly) {
-        res.vout.resize(1);
-        res.vout[0].nValue = bwtAmount;
-        res.vout[0].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
-        res.vout[0].isFromBackwardTransfer = true;
-    } else {
-        res.vout.resize(3);
-        res.vout[0].nValue = insecure_rand();
-        res.vout[0].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
-        res.vout[0].isFromBackwardTransfer = false;
-        res.vout[1].nValue = insecure_rand();
-        res.vout[1].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("61b01caab50f1b8e9c50a5057eb43c2d9563a4ee"))),/*withCheckBlockAtHeight*/false);
-        res.vout[0].isFromBackwardTransfer = false;
-        res.vout[2].nValue = bwtAmount;
-        res.vout[2].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
-        res.vout[2].isFromBackwardTransfer = true;
+    res.vout.resize(numChangeOut+numBwt);
+    for(unsigned int idx = 0; idx < numChangeOut; ++idx) {
+    res.vout[idx].nValue = insecure_rand();
+    res.vout[idx].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
+    res.vout[idx].isFromBackwardTransfer = false;
+    }
+
+    for(unsigned int idx = 0; idx < numBwt; ++idx) {
+        res.vout[numChangeOut+idx].nValue = bwTotaltAmount/numBwt;
+        res.vout[numChangeOut+idx].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
+        res.vout[numChangeOut+idx].isFromBackwardTransfer = true;
     }
 
     return res;

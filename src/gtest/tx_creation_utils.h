@@ -19,8 +19,9 @@ CTransaction createSproutTx(bool ccIsNull = true); //ccIsNull = false allows gen
 
 void extendTransaction(CTransaction & tx, const uint256 & scId, const CAmount & amount);
 
-CScCertificate createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash, CAmount bwtAmount = 1, bool bwtOnly = false);
-}; // end of namespace
+CScCertificate createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
+                                 unsigned int numChangeOut = 0, CAmount bwTotaltAmount = 1, unsigned int numBwt = 1);
+} // end of namespace
 
 namespace chainSettingUtils {
     void GenerateChainActive(int targetHeight);
