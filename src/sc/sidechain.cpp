@@ -1,4 +1,5 @@
 #include "sc/sidechain.h"
+#include "sc/proofverifier.h"
 #include "primitives/transaction.h"
 #include "utilmoneystr.h"
 #include "txmempool.h"

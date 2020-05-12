@@ -271,6 +271,7 @@ libbitcoin_server_a_SOURCES = \
   rpc/net.cpp \
   rpc/rawtransaction.cpp \
   rpc/server.cpp \
+  sc/proofverifier.cpp \
   sc/sidechain.cpp \
   sc/sidechainrpc.cpp \
   timedata.cpp \
