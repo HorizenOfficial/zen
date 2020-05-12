@@ -128,7 +128,7 @@ TEST_F(CeasedSidechainsTestSuite, CertificateMovesSidechainTerminationToNextEpoc
 
     //Prove that certificate reception keeps Sc alive for another epoch
     CBlock CertBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, CertBlock.GetHash());
+    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, CertBlock.GetHash(), /*bwtAmount*/CAmount(0));
     CBlockUndo blockUndo;
     view->UpdateScInfo(cert, blockUndo);
 
@@ -183,7 +183,7 @@ TEST_F(CeasedSidechainsTestSuite, CeasingHeightUpdateForCertificate) {
     EXPECT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
 
     uint256 epochZeroEndBlockHash = uint256S("aaa");
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, epochZeroEndBlockHash);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, epochZeroEndBlockHash,/*bwtAmount*/CAmount(0));
 
     CBlockUndo dummyUndo;
     EXPECT_TRUE(view->UpdateScInfo(cert, dummyUndo));
@@ -217,7 +217,7 @@ TEST_F(CeasedSidechainsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     CSidechain scInfo;
     view->GetSidechain(scId, scInfo);
     CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(), /*bwtOnly*/ true);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(), CAmount(0), /*bwtOnly*/ true);
     CBlockUndo certBlockUndo;
     view->UpdateScInfo(cert, certBlockUndo);
     view->UpdateCeasingScs(cert);
@@ -266,7 +266,7 @@ TEST_F(CeasedSidechainsTestSuite, ChangeOutputsArePreservedWhenSidechainCeases) 
     CSidechain scInfo;
     view->GetSidechain(scId, scInfo);
     CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(), /*bwtOnly*/ false);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(), CAmount(0), /*bwtOnly*/ false);
     CBlockUndo certBlockUndo;
     view->UpdateScInfo(cert, certBlockUndo);
     view->UpdateCeasingScs(cert);
@@ -322,7 +322,7 @@ TEST_F(CeasedSidechainsTestSuite, RestoreFullyNulledCeasedCoins) {
     view->GetSidechain(scId, scInfo);
     int certReferencedEpoch = 0;
     CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(), /*bwtOnly*/ true);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(), CAmount(0), /*bwtOnly*/ true);
     CBlockUndo certBlockUndo;
     view->UpdateScInfo(cert, certBlockUndo);
     view->UpdateCeasingScs(cert);
@@ -374,7 +374,7 @@ TEST_F(CeasedSidechainsTestSuite, RestorePartiallyNulledCeasedCoins) {
     view->GetSidechain(scId, scInfo);
     int certReferencedEpoch = 0;
     CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(), /*bwtOnly*/ false);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(), CAmount(0), /*bwtOnly*/ false);
     CBlockUndo certBlockUndo;
     view->UpdateScInfo(cert, certBlockUndo);
     view->UpdateCeasingScs(cert);

@@ -487,7 +487,7 @@ TEST_F(SidechainTestSuite, RestoreImmatureBalancesRestoresLastCertHash) {
 
     //Update sc with cert and create the associate blockUndo
     int certEpoch = 19;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(), CAmount(0));
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash());
     CBlockUndo certBlockUndo;
     sidechainsView->UpdateScInfo(cert, certBlockUndo);
     CSidechain scInfoPostCert;
@@ -710,7 +710,7 @@ TEST_F(SidechainTestSuite, CertificateUpdatesLastCertificateHash) {
     EXPECT_TRUE(sidechainsView->ApplyMatureBalances(coinMaturityHeight, dummyBlockUndo));
 
     CBlockUndo blockUndo;
-    CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, aBlock.GetHash(), CAmount(0));
+    CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, aBlock.GetHash());
     EXPECT_TRUE(sidechainsView->UpdateScInfo(aCertificate, blockUndo));
 
     //check
