@@ -3425,7 +3425,7 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
 
     if (fHelp || params.size() < 2 || params.size() > 5)
         throw runtime_error(
-            "z_sendmany \"fromaddress\" [{\"address\":... ,\"amount\":...},...] ( minconf ) ( fee )\n"
+            "z_sendmany \"fromaddress\" [{\"address\":... ,\"amount\":...},...] ( minconf ) ( fee ) (changeAddress)\n"
             "\nSend multiple times. Amounts are double-precision floating point numbers."
             "\nChange from a taddr flows to a new taddr address, while change from zaddr returns to itself."
             "\nWhen sending coinbase UTXOs to a zaddr, change is not allowed. The entire value of the UTXO(s) must be consumed."
@@ -3441,7 +3441,7 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
             "    }, ... ]\n"
             "3. minconf               (numeric, optional, default=1) Only use funds confirmed at least this many times.\n"
             "4. fee                   (numeric, optional, default=\n"
-			"5. changeAddress        (boolean, optional, default = false) If true and fromaddress is a taddress return the change to it"
+            "5. changeAddress        (boolean, optional, default = false) If true and fromaddress is a taddress return the change to it"
             + strprintf("%s", FormatMoney(ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee amount to attach to this transaction.\n"
             "\nResult:\n"
             "\"operationid\"          (string) An operationid to pass to z_getoperationstatus to get the result of the operation.\n"
