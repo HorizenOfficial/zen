@@ -139,7 +139,7 @@ public:
     
     // Delegated methods
     
-    void add_taddr_change_output_to_tx(CAmount amount, bool changeAddress=false) {
+    void add_taddr_change_output_to_tx(CAmount amount, bool changeAddress = false) {
         delegate->add_taddr_change_output_to_tx(amount, changeAddress);
     }
     

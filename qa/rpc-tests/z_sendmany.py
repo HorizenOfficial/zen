@@ -13,7 +13,6 @@ class ZSendmanyTest(BitcoinTestFramework):
         print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, 3)
 
-    # Start nodes with -regtestprotectcoinbase to set fCoinbaseMustBeProtected to true.
     def setup_network(self, split=False):
         self.nodes = start_nodes(3, self.options.tmpdir, extra_args=[['-debug=zrpcunsafe']] * 3 )
         connect_nodes_bi(self.nodes,0,1)
@@ -84,7 +83,7 @@ class ZSendmanyTest(BitcoinTestFramework):
         assert_equal(self.nodes[2].z_getbalance(ZDestAddress),10)
 
 
-        #Send 10 Zen to Taddress nd verify the change is returned back to the input address of the transaction
+        #Send 10 Zen to Taddress and verify the change is returned back to the input address of the transaction
         TDestAddress = self.nodes[2].getnewaddress()
         recipients= [{"address":TDestAddress, "amount": amount}]
         myopid = self.nodes[1].z_sendmany(fromAddress,recipients,1,self.FEE, True)
@@ -104,7 +103,7 @@ class ZSendmanyTest(BitcoinTestFramework):
         assert_equal(self.nodes[2].getbalance(),amount)
 
 
-        #Send 10 Zen to Taddress nd verify the change is sent to a new address
+        #Send 10 Zen to Taddress and verify the change is sent to a new address
         recipients= [{"address":TDestAddress, "amount": amount}]
         myopid = self.nodes[1].z_sendmany(fromAddress,recipients,1,self.FEE, False)
         txid = wait_and_assert_operationid_status(self.nodes[1], myopid)
@@ -123,7 +122,7 @@ class ZSendmanyTest(BitcoinTestFramework):
         assert_equal(self.nodes[2].getbalance(),amount*2)
 
 
-        #Send 10 Zen to Taddress nd verify the change is sent to a new address
+        #Send 10 Zen to Taddress and verify the change is sent to a new address
         recipients= [{"address":fromAddress, "amount": amount}]
         myopid = self.nodes[2].z_sendmany(TDestAddress,recipients)
         txid = wait_and_assert_operationid_status(self.nodes[2], myopid)
@@ -139,6 +138,35 @@ class ZSendmanyTest(BitcoinTestFramework):
             if (vout['scriptPubKey']['addresses'][0] == TDestAddress):
                 newAddress = False
         assert_equal(newAddress,True)
+
+        #Send 10 Zen from a multiSig address and verify the change is returned back to the input address of the transaction
+        Taddr1 = self.nodes[1].getnewaddress()
+        Taddr2 = self.nodes[1].getnewaddress()
+        addr1Obj = self.nodes[1].validateaddress(Taddr1)
+        addr2Obj = self.nodes[1].validateaddress(Taddr2)
+        mSigObj = self.nodes[1].addmultisigaddress(2, [addr1Obj['pubkey'], addr2Obj['pubkey']])
+        mSigObjValid = self.nodes[1].validateaddress(mSigObj)
+
+        self.nodes[0].sendtoaddress(mSigObj,15.0)
+        self.sync_all()
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        recipients= [{"address":TDestAddress, "amount": 10.0}]
+        myopid = self.nodes[1].z_sendmany(mSigObj,recipients,1,self.FEE, True)
+        txid = wait_and_assert_operationid_status(self.nodes[1], myopid)
+        self.sync_all()
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        hex = self.nodes[1].gettransaction(txid)['hex']
+        vouts = self.nodes[1].decoderawtransaction(hex)['vout']
+        assert_equal(len(vouts),2)
+        oldAddress = True
+        for vout in vouts:
+            if (vout['scriptPubKey']['addresses'][0] != mSigObj and vout['scriptPubKey']['addresses'][0] != TDestAddress):
+                oldAddress = False
+        assert_equal(oldAddress,True)
 
 if __name__ == '__main__':
     ZSendmanyTest().main()
