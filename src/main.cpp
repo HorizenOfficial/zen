@@ -1182,7 +1182,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                          error("AcceptToMemoryPool: Dropping cert %s : it double spends input of another tx in mempool", certHash.ToString()),
                          REJECT_INVALID, "double spend");
             }
-            if (pool.existsCert(vin.prevout.hash)) {
+            if (pool.mapCertificate.count(vin.prevout.hash)) {
                 LogPrint("mempool", "%s():%d - Dropping cert[%s]: it would spend the output %d of cert[%s] that is in mempool\n",
                     __func__, __LINE__, certHash.ToString(), vin.prevout.n, vin.prevout.hash.ToString());
                 return state.DoS(0,
@@ -1442,7 +1442,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                          error("AcceptToMemoryPool: Dropping txid %s : it double spends input of another tx in mempool", hash.ToString()),
                          REJECT_INVALID, "double spend");
             }
-            if (pool.existsCert(vin.prevout.hash)) {
+            if (pool.mapCertificate.count(vin.prevout.hash)) {
                 LogPrint("mempool", "%s():%d - Dropping tx[%s]: it would spend the output %d of cert[%s] that is in mempool\n",
                     __func__, __LINE__, hash.ToString(), vin.prevout.n, vin.prevout.hash.ToString());
                 return state.DoS(0,

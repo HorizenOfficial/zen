@@ -206,49 +206,32 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
         std::deque<uint256> objToRemove;
         objToRemove.push_back(origTx.GetHash());
 
-        if (origTx.IsCertificate())
-        {
-            if (fRecursive && !mapCertificate.count(origTx.GetHash())) {
-                // If recursively removing but origCert isn't in the mempool
-                // be sure to remove any children that are in the pool. This can
-                // happen during chain re-orgs if origCert isn't re-accepted into
-                // the mempool for any reason.
-                for (unsigned int i = 0; i < origTx.GetVout().size(); i++) {
-                    std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(origTx.GetHash(), i));
-                    if (it == mapNextTx.end())
-                        continue;
-                    LogPrint("sc", "%s():%d - adding tx [%s] to list for removing\n", __func__, __LINE__, it->second.ptx->GetHash().ToString());
-                    objToRemove.push_back(it->second.ptx->GetHash());
-                }
-            }
-        }
-        else
-        {
-            if (fRecursive && !mapTx.count(origTx.GetHash())) {
-                // If recursively removing but origTx isn't in the mempool
-                // be sure to remove any children that are in the pool. This can
-                // happen during chain re-orgs if origTx isn't re-accepted into
-                // the mempool for any reason.
-                for (unsigned int i = 0; i < origTx.GetVout().size(); i++) {
-                    std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(origTx.GetHash(), i));
-                    if (it == mapNextTx.end())
-                        continue;
-                    objToRemove.push_back(it->second.ptx->GetHash());
-                }
- 
-                for(const auto& sc: origTx.GetVscCcOut()) {
-                    if (mapSidechains.count(sc.scId) == 0)
-                        continue;
- 
-                    if (removeDependantFwds) {
-                        for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
-                            objToRemove.push_back(fwdTxHash);
-                    } else
-                        objToRemove.push_back(mapSidechains.at(sc.scId).scCreationTxHash);
-                }
-            }
-        }
+        if(!fRecursive)
+            return removeInternal(objToRemove, removedTxs, removedCerts, fRecursive, removeDependantFwds);
 
+        if (!mapCertificate.count(origTx.GetHash()) && !mapTx.count(origTx.GetHash())) {
+            // If recursively removing but origTx isn't in the mempool
+            // be sure to remove any children that are in the pool. This can
+            // happen during chain re-orgs if origCert isn't re-accepted into
+            // the mempool for any reason.
+            for (unsigned int i = 0; i < origTx.GetVout().size(); i++) {
+                std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(origTx.GetHash(), i));
+                if (it == mapNextTx.end())
+                    continue;
+                LogPrint("sc", "%s():%d - adding tx [%s] to list for removing\n", __func__, __LINE__, it->second.ptx->GetHash().ToString());
+                objToRemove.push_back(it->second.ptx->GetHash());
+            }
+
+            for(const auto& sc: origTx.GetVscCcOut()) {
+                if (mapSidechains.count(sc.scId) == 0)
+                    continue;
+                if (removeDependantFwds) {
+                    for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
+                        objToRemove.push_back(fwdTxHash);
+                } else
+                    objToRemove.push_back(mapSidechains.at(sc.scId).scCreationTxHash);
+            }
+        }
         removeInternal(objToRemove, removedTxs, removedCerts, fRecursive, removeDependantFwds);
     }
 }
@@ -369,7 +352,7 @@ void::CTxMemPool::removeInternal(
     }
 }
 
-bool CTxMemPool::addToListForRemovalImmatureExpenditures(
+inline bool CTxMemPool::addToListForRemovalImmatureExpenditures(
     const CTransactionBase& tx, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, 
     std::list<const CTransactionBase*>& transactionsToRemove)
 {
@@ -479,7 +462,7 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
                 if (it == mapNextTx.end())
                     continue;
                 LogPrint("mempool", "%s():%d - marking tx [%s] for removal since it spends out-of-epoch cert\n", __func__, __LINE__, it->second.ptx->GetHash().ToString());
-                txsToRemove.push_back(it->second.ptx.get());
+                txsToRemove.push_back(it->second.ptx);
             }
         }
     }
@@ -657,7 +640,6 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         const CTransaction& tx = it->second.GetTx();
 
         bool fDependsWait = false;
-        bool fDependsWaitCert = false;
         BOOST_FOREACH(const CTxIn &txin, tx.GetVin()) {
             // Check that every mempool transaction's inputs refer to available coins, or other mempool tx's.
             std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(txin.prevout.hash);
@@ -670,8 +652,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
                 std::map<uint256, CCertificateMemPoolEntry>::const_iterator itCert = mapCertificate.find(txin.prevout.hash);
                 if (itCert != mapCertificate.end()) {
                     const CTransactionBase& cert = itCert->second.GetCertificate();
-                    assert(cert.GetVout().size() > txin.prevout.n && !cert.GetVout()[txin.prevout.n].IsNull());
-                    fDependsWaitCert = true;
+                    LogPrintf("%s():%d - ERROR input is the output of cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString());
+                    assert(false);
                 }
                 else
                 {
@@ -682,7 +664,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             // Check whether its inputs are marked in mapNextTx.
             std::map<COutPoint, CInPoint>::const_iterator it3 = mapNextTx.find(txin.prevout);
             assert(it3 != mapNextTx.end());
-            assert(it3->second.ptx->GetHash() == tx.GetHash());
+            assert(it3->second.ptx == &tx);
             assert(it3->second.n == i);
             i++;
         }
@@ -738,14 +720,9 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         {
             waitingOnDependants.push_back(&it->second);
         }
-        else
-        if (fDependsWaitCert)
-        {
-            waitingOnDependantsCert.push_back(&it->second);
-        }
         else {
             CValidationState state;
-            assert(ContextualCheckInputs(tx, state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+            assert(::ContextualCheckInputs(tx, state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             UpdateCoins(tx, state, mempoolDuplicate, 1000000);
         }
     }
@@ -760,7 +737,6 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         assert(mapSidechains.at(cert.GetScId()).backwardCertificate == cert.GetHash());
 
         bool fDependsWait = false;
-        bool fDependsWaitCert = false;
         BOOST_FOREACH(const CTxIn &txin, cert.GetVin()) {
             // Check that every mempool transaction's inputs refer to available coins, or other mempool tx's.
             std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(txin.prevout.hash);
@@ -773,8 +749,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
                 std::map<uint256, CCertificateMemPoolEntry>::const_iterator itCert = mapCertificate.find(txin.prevout.hash);
                 if (itCert != mapCertificate.end()) {
                     const CTransactionBase& cert = itCert->second.GetCertificate();
-                    assert(cert.GetVout().size() > txin.prevout.n && !cert.GetVout()[txin.prevout.n].IsNull());
-                    fDependsWaitCert = true;
+                    LogPrintf("%s():%d - ERROR input is the output of cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString());
+                    assert(false);
                 }
                 else
                 {
@@ -785,7 +761,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             // Check whether its inputs are marked in mapNextTx.
             std::map<COutPoint, CInPoint>::const_iterator it3 = mapNextTx.find(txin.prevout);
             assert(it3 != mapNextTx.end());
-            assert(it3->second.ptx->GetHash() == cert.GetHash());
+            assert(it3->second.ptx == &cert);
             assert(it3->second.n == i);
             i++;
         }
@@ -794,14 +770,9 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         innerUsage += it->second.DynamicMemoryUsage();
         CValidationState state;
 
-        assert(cert.ContextualCheckInputs(state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+        assert(::ContextualCheckInputs(cert, state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
 
         if (fDependsWait)
-        {
-            waitingOnDependantsCert.push_back(&it->second);
-        }
-        else
-        if (fDependsWaitCert)
         {
             waitingOnDependantsCert.push_back(&it->second);
         }
@@ -823,7 +794,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             stepsSinceLastRemove++;
             assert(stepsSinceLastRemove < waitingOnDependants.size());
         } else {
-            assert(ContextualCheckInputs(entry->GetTx(), state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+            assert(::ContextualCheckInputs(entry->GetTx(), state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             UpdateCoins(entry->GetTx(), state, mempoolDuplicate, 1000000);
             stepsSinceLastRemove = 0;
         }
@@ -839,7 +810,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             stepsSinceLastRemoveCert++;
             assert(stepsSinceLastRemoveCert < waitingOnDependantsCert.size());
         } else {
-            assert(ContextualCheckInputs(entry->GetCertificate(), state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+            assert(::ContextualCheckInputs(entry->GetCertificate(), state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             UpdateCoins(entry->GetCertificate(), state, mempoolDuplicate, 1000000);
             stepsSinceLastRemoveCert = 0;
         }
@@ -851,7 +822,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         if (it2 != mapTx.end())
         {
             const CTransaction& tx = it2->second.GetTx();
-            assert(tx.GetHash() == it->second.ptx->GetHash());
+            assert(&tx == it->second.ptx);
             assert(tx.GetVin().size() > it->second.n);
             assert(it->first == it->second.ptx->GetVin()[it->second.n].prevout);
         }
@@ -859,7 +830,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         if (it3 != mapCertificate.end())
         {
             const CScCertificate& cert = it3->second.GetCertificate();
-            assert(cert.GetHash() == it->second.ptx->GetHash());
+            assert(&cert == it->second.ptx);
             assert(cert.GetVin().size() > it->second.n);
             assert(it->first == it->second.ptx->GetVin()[it->second.n].prevout);
         }

@@ -95,13 +95,13 @@ class CBlockPolicyEstimator;
 class CInPoint
 {
 public:
-    std::shared_ptr<const CTransactionBase> ptx;
+    const CTransactionBase* ptx;
     uint32_t n;
 
     CInPoint() { SetNull(); }
-    CInPoint(const CTransactionBase* ptxIn, uint32_t nIn): ptx(ptxIn->MakeShared()), n(nIn) { }
-    void SetNull() { ptx = NULL; n = (uint32_t) -1; }
-    bool IsNull() const { return (ptx == NULL && n == (uint32_t) -1); }
+    CInPoint(const CTransactionBase* ptxIn, uint32_t nIn): ptx(ptxIn), n(nIn) { }
+    void SetNull() { ptx = nullptr; n = (uint32_t) -1; }
+    bool IsNull() const { return (ptx == nullptr && n == (uint32_t) -1); }
     size_t DynamicMemoryUsage() const { return 0; }
 };
 

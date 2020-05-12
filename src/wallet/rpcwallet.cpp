@@ -81,7 +81,7 @@ void EnsureWalletIsUnlocked()
         throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Please enter the wallet passphrase with walletpassphrase first.");
 }
 
-void TxExpandedToJSON(const CWalletObjBase& tx, const std::vector<CWalletObjBase*> vtxIn, UniValue& entry)
+void TxExpandedToJSON(const CWalletObjBase& tx, const std::vector<CWalletObjBase*>& vtxIn, UniValue& entry)
 {
     entry.push_back(Pair("txid", tx.GetHash().GetHex()));
     entry.push_back(Pair("version", tx.nVersion));
