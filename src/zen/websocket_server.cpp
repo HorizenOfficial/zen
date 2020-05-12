@@ -29,7 +29,7 @@ namespace http = boost::beast::http;
 namespace net = boost::asio;
 net::io_context ioc;
 
-static int MAX_BLOCKS_REQUEST = 50;
+static int MAX_BLOCKS_REQUEST = 100;
 static int tot_connections = 0;
 
 class WsNotificationInterface;
