@@ -14,6 +14,20 @@
 #include <undo.h>
 #include <chainparams.h>
 
+std::string CCoins::ToString() const
+{
+    std::string ret;
+    ret += strprintf("originScId(%s)", originScId.ToString());
+    ret += strprintf("version(%d)", nVersion);
+    ret += strprintf("fCoinBase(%d)", fCoinBase);
+    ret += strprintf("height(%d)", nHeight);
+    for (auto o : vout)
+    {
+        ret += "    " + o.ToString() + "\n";
+    }
+    return ret;
+}
+
 CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), originScId() { }
 
 CCoins::CCoins(const CTransactionBase &tx, int nHeightIn) {
@@ -1267,6 +1281,7 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
         //lastEpochCertsBySc have at least a bwt, hence they cannot be fully spent
         assert(this->HaveCoins(scInfo.lastCertificateHash));
         CCoinsModifier coins = this->ModifyCoins(scInfo.lastCertificateHash);
+        assert(!coins->originScId.IsNull());
 
         //null all bwt outputs and add related txundo in block
         bool foundFirstBwt = false;
@@ -1281,20 +1296,24 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
                 blockUndo.vtxundo.push_back(CTxUndo());
                 blockUndo.vtxundo.back().refTx = scInfo.lastCertificateHash;
                 blockUndo.vtxundo.back().firstBwtPos = pos;
+                LogPrint("cert", "%s():%d - set refTx[%s], pos[%d]\n",
+                    __func__, __LINE__, scInfo.lastCertificateHash.ToString(), pos);
                 foundFirstBwt = true;
             }
 
             blockUndo.vtxundo.back().vprevout.push_back(CTxInUndo(coins->vout[pos]));
+            CTxInUndo& undo = blockUndo.vtxundo.back().vprevout.back();
+            undo.nHeight    = coins->nHeight;
+            undo.fCoinBase  = coins->fCoinBase;
+            undo.nVersion   = coins->nVersion;
+            undo.originScId = coins->originScId;
+
             coins->Spend(pos);
-            if (coins->vout.size() == 0 || coins->vout[pos].isFromBackwardTransfer) {
-                CTxInUndo& undo = blockUndo.vtxundo.back().vprevout.back();
-                undo.nHeight    = coins->nHeight;
-                undo.fCoinBase  = coins->fCoinBase;
-                undo.nVersion   = coins->nVersion;
-                undo.originScId = coins->originScId;
-            }
         }
     }
+
+    LogPrint("sc", "%s():%d Exiting: CBlockUndo: %s\n",
+        __func__, __LINE__, blockUndo.ToString());
 
     return true;
 }
@@ -1307,28 +1326,28 @@ bool CCoinsViewCache::RevertCeasingScs(const CTxUndo& ceasedCertUndo)
     if(coinHash.IsNull())
     {
         fClean = fClean && error("%s: malformed undo data, ", __func__);
+        LogPrint("cert", "%s():%d - returning fClean[%d]\n", __func__, __LINE__, fClean);
         return fClean;
     }
     CCoinsModifier coins = this->ModifyCoins(coinHash);
+    LogPrint("cert", "%s():%d - PRE :%s\n", __func__, __LINE__, coins->ToString());
     unsigned int firstBwtPos = ceasedCertUndo.firstBwtPos;
 
     const std::vector<CTxInUndo>& outVec = ceasedCertUndo.vprevout;
+    LogPrint("cert", "%s():%d - PRE : outVec.size() = %d\n", __func__, __LINE__, outVec.size());
 
     for (size_t bwtOutPos = outVec.size(); bwtOutPos-- > 0;)
     {
+        LogPrint("cert", "%s():%d - PRE : bwtOutPos= %d\n", __func__, __LINE__, bwtOutPos);
         if (outVec.at(bwtOutPos).nHeight != 0)
         {
-            if(!coins->IsPruned())
-                fClean = fClean && error("%s: undo data overwriting existing transaction", __func__);
-            coins->Clear();
             coins->fCoinBase  = outVec.at(bwtOutPos).fCoinBase;
             coins->nHeight    = outVec.at(bwtOutPos).nHeight;
             coins->nVersion   = outVec.at(bwtOutPos).nVersion;
             coins->originScId = outVec.at(bwtOutPos).originScId;
-        } else
-        {
-            if(coins->IsPruned())
-                fClean = fClean && error("%s: undo data adding output to missing transaction", __func__);
+        } else {
+            LogPrint("cert", "%s():%d - returning false\n", __func__, __LINE__);
+            return false;
         }
 
         if(coins->IsAvailable(firstBwtPos + bwtOutPos))
@@ -1338,6 +1357,7 @@ bool CCoinsViewCache::RevertCeasingScs(const CTxUndo& ceasedCertUndo)
         coins->vout.at(firstBwtPos + bwtOutPos) = outVec.at(bwtOutPos).txout;
     }
 
+    LogPrint("cert", "%s():%d - POST:%s\n", __func__, __LINE__, coins->ToString());
     return fClean;
 }
 

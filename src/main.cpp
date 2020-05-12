@@ -2067,6 +2067,8 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
     // add outputs
     LogPrint("cert", "%s():%d - adding outputs of tx[%s] to coins\n", __func__, __LINE__, txBase.GetHash().ToString());
     inputs.ModifyCoins(txBase.GetHash())->FromTx(txBase, nHeight);
+    LogPrint("cert", "%s():%d - Exiting: txBase[%s] - coins %s\n",
+        __func__, __LINE__, txBase.GetHash().ToString(), inputs.ModifyCoins(txBase.GetHash())->ToString() );
 }
 
 void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoinsViewCache &inputs, int nHeight)
@@ -2388,13 +2390,30 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     if (!UndoReadFromDisk(blockUndo, pos, pindex->pprev->GetBlockHash()))
         return error("DisconnectBlock(): failure reading undo data");
 
+    LogPrint("sc", "%s():%d - ===============> CBlockUndo red from DB:\n%s\n",
+        __func__, __LINE__, blockUndo.ToString());
     // no coinbase in blockundo
 #if 0
     if (blockUndo.vtxundo.size() + 1 != block.vtx.size() + block.vcert.size() )
 #else
-    if (blockUndo.vtxundo.size() < (block.vtx.size() - 1))
+    if (blockUndo.vtxundo.size() < (block.vtx.size() - 1 + block.vcert.size()))
 #endif
         return error("DisconnectBlock(): block and undo data inconsistent");
+
+    LogPrint("sc", "%s():%d - restoring sc coins if any\n", __func__, __LINE__);
+    if (!view.RestoreImmatureBalances(pindex->nHeight, blockUndo) )
+    {
+        LogPrint("sc", "%s():%d - ERROR updating sc maturity amounts\n", __func__, __LINE__);
+        return error("DisconnectBlock(): sc and undo data inconsistent");
+    }
+
+    for(int idx = block.vtx.size() - 1 + block.vcert.size(); idx < blockUndo.vtxundo.size(); idx++)
+    {
+        LogPrint("sc", "%s():%d - calling RevertCeasingScs idx[%d]\n", __func__, __LINE__, idx);
+        bool ret = view.RevertCeasingScs(blockUndo.vtxundo[idx]);
+        if (!ret)
+            return error("DisconnectBlock(): cannot revert ceasing sc");
+    }
 
     // not including coinbase
     const int certOffset = block.vtx.size() - 1;
@@ -2418,7 +2437,13 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             // but it must be corrected before txout nversion ever influences a network rule.
             if (outsBlock.nVersion < 0)
                 outs->nVersion = outsBlock.nVersion;
+
+
             if (*outs != outsBlock) {
+
+                LogPrint("cert", "%s():%d - outs     :%s\n", __func__, __LINE__, outs->ToString());
+                LogPrint("cert", "%s():%d - outsBlock:%s\n", __func__, __LINE__, outsBlock.ToString());
+
                 fClean = fClean && error("DisconnectBlock(): added transaction mismatch? database corrupted");
                 LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, hash.ToString());
             }
@@ -2426,6 +2451,11 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             // remove outputs
             LogPrint("cert", "%s():%d - clearing outs of tx[%s]\n", __func__, __LINE__, hash.ToString());
             outs->Clear();
+        }
+
+        if (!view.UndoCeasingScs(cert)) {
+            LogPrint("sc", "%s():%d - ERROR undoing ceasing height\n", __func__, __LINE__);
+            return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
         }
 
         if (!view.RevertCertOutputs(cert) ) {
@@ -2442,31 +2472,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             const CTxInUndo &undo = certundo.vprevout[j];
             if (!ApplyTxInUndo(undo, view, out))
                 fClean = false;
-        }
-    }
-
-    LogPrint("sc", "%s():%d - restoring sc coins if any\n", __func__, __LINE__);
-    if (!view.RestoreImmatureBalances(pindex->nHeight, blockUndo) )
-    {
-        LogPrint("sc", "%s():%d - ERROR updating sc maturity amounts\n", __func__, __LINE__);
-        return error("DisconnectBlock(): sc and undo data inconsistent");
-    }
-
-    for (size_t idx = blockUndo.vtxundo.size(); idx-- > block.vtx.size();)
-        view.RevertCeasingScs(blockUndo.vtxundo[idx]);
-
-    // undo certificates in reverse order
-    for (int i = block.vcert.size() - 1; i >= 0; i--) {
-        const CScCertificate& cert = block.vcert[i];
-
-        if (!view.UndoCeasingScs(cert)) {
-            LogPrint("sc", "%s():%d - ERROR undoing ceasing height\n", __func__, __LINE__);
-            return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
-        }
-
-        if (!view.RevertCertOutputs(cert) ) {
-            LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
-            return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
         }
     }
 
@@ -2945,6 +2950,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     if (fJustCheck)
         return true;
+
+    LogPrint("sc", "%s():%d Writing CBlockUndo into DB:\n%s\n",
+        __func__, __LINE__, blockundo.ToString());
 
     // Write undo information to disk
     if (pindex->GetUndoPos().IsNull() || !pindex->IsValid(BLOCK_VALID_SCRIPTS))
