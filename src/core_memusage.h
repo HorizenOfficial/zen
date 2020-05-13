@@ -41,16 +41,16 @@ static inline size_t RecursiveDynamicUsage(const CTransaction& tx) {
         mem += RecursiveDynamicUsage(*it);
     }
 // what about shielded components???
-    mem += memusage::DynamicUsage(tx.vsc_ccout);
-    mem += memusage::DynamicUsage(tx.vcl_ccout);
-    mem += memusage::DynamicUsage(tx.vft_ccout);
-    for (std::vector<CTxScCreationOut>::const_iterator it = tx.vsc_ccout.begin(); it != tx.vsc_ccout.end(); it++) {
+    mem += memusage::DynamicUsage(tx.GetVscCcOut());
+    mem += memusage::DynamicUsage(tx.GetVclCcOut());
+    mem += memusage::DynamicUsage(tx.GetVftCcOut());
+    for (std::vector<CTxScCreationOut>::const_iterator it = tx.GetVscCcOut().begin(); it != tx.GetVscCcOut().end(); it++) {
         mem += RecursiveDynamicUsage(*it);
     }
-    for (std::vector<CTxCertifierLockOut>::const_iterator it = tx.vcl_ccout.begin(); it != tx.vcl_ccout.end(); it++) {
+    for (std::vector<CTxCertifierLockOut>::const_iterator it = tx.GetVclCcOut().begin(); it != tx.GetVclCcOut().end(); it++) {
         mem += RecursiveDynamicUsage(*it);
     }
-    for (std::vector<CTxForwardTransferOut>::const_iterator it = tx.vft_ccout.begin(); it != tx.vft_ccout.end(); it++) {
+    for (std::vector<CTxForwardTransferOut>::const_iterator it = tx.GetVftCcOut().begin(); it != tx.GetVftCcOut().end(); it++) {
         mem += RecursiveDynamicUsage(*it);
     }
     return mem;

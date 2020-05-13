@@ -487,7 +487,7 @@ TEST_F(SidechainTestSuite, RestoreImmatureBalancesRestoresLastCertHash) {
 
     //Update sc with cert and create the associate blockUndo
     int certEpoch = 19;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(), CAmount(0));
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash());
     CBlockUndo certBlockUndo;
     sidechainsView->UpdateScInfo(cert, certBlockUndo);
     CSidechain scInfoPostCert;
@@ -710,7 +710,7 @@ TEST_F(SidechainTestSuite, CertificateUpdatesLastCertificateHash) {
     EXPECT_TRUE(sidechainsView->ApplyMatureBalances(coinMaturityHeight, dummyBlockUndo));
 
     CBlockUndo blockUndo;
-    CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, aBlock.GetHash(), CAmount(0));
+    CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, aBlock.GetHash());
     EXPECT_TRUE(sidechainsView->UpdateScInfo(aCertificate, blockUndo));
 
     //check
@@ -1121,7 +1121,12 @@ TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation)
     CAmount certAmount = 4;
     CMutableScCertificate cert = CScCertificate();
     cert.scId = scId;
-    cert.totalAmount = certAmount;
+
+    cert.vout.resize(1);
+    cert.vout[0].nValue = certAmount;
+    cert.vout[0].scriptPubKey << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    cert.vout[0].isFromBackwardTransfer = true;
+
     CCertificateMemPoolEntry bwtPoolEntry(cert, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(bwtPoolEntry.GetCertificate().GetHash(), bwtPoolEntry);
 
@@ -1137,6 +1142,9 @@ TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation)
     EXPECT_TRUE(retrievedInfo.mImmatureAmounts.at(-1) == fwdAmount);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+//////////////////////////////// UndoBlock versioning /////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainTestSuite, CSidechainBlockUndoVersioning) {
 
     static const std::string autofileName = "/tmp/test_block_undo_versioning.txt";

@@ -27,6 +27,7 @@
 
 #include "consensus/params.h"
 #include <sc/sidechaintypes.h>
+#include <script/script_error.h>
 
 static const int32_t SC_CERT_VERSION = 0xFFFFFFFB; // -5
 static const int32_t SC_TX_VERSION = 0xFFFFFFFC; // -4
@@ -474,7 +475,7 @@ public:
 
     virtual ~CTxCrosschainOut() {};
 
-    CTxCrosschainOut() { SetNull(); }
+    CTxCrosschainOut():nValue(-1) {}
 
     virtual void SetNull()
     {
@@ -530,7 +531,7 @@ class CTxForwardTransferOut : public CTxCrosschainOut
 {
 public:
 
-    CTxForwardTransferOut() { SetNull(); }
+    CTxForwardTransferOut() {}
 
     CTxForwardTransferOut(const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn):
         CTxCrosschainOut(scIdIn, nValueIn, addressIn) {}
@@ -574,7 +575,7 @@ public:
     CAmount minBkwTransferAmount;
 */
 
-    CTxScCreationOut() { SetNull(); }
+    CTxScCreationOut():withdrawalEpochLength(-1) { }
 
     CTxScCreationOut(const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn, const Sidechain::ScCreationParameters& params);
 
@@ -668,20 +669,24 @@ class UniValue;
 
 namespace Sidechain { class ScCoinsViewCache; }
 
+class BaseSignatureChecker;
 
 // abstract interface for CTransaction and CScCertificate
 class CTransactionBase
 {
+public:
+    const int32_t nVersion;
 protected:
+    const std::vector<CTxIn> vin;
+    const std::vector<CTxOut> vout;
+
     /** Memory only. */
     const uint256 hash;
-    const std::vector<CTxOut> vout;
 
     virtual void UpdateHash() const = 0;
 
 public:
     virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) = 0;
-    const int32_t nVersion;
 
     CTransactionBase();
     CTransactionBase& operator=(const CTransactionBase& tx);
@@ -706,10 +711,15 @@ public:
     }
 
     //GETTERS
-    virtual const std::vector<CTxIn>&         GetVin()        const = 0;
-    virtual const std::vector<CTxOut>&        GetVout()       const = 0;
-    virtual const std::vector<JSDescription>& GetVjoinsplit() const = 0;
-    virtual const uint256&                    GetScId()       const = 0;
+    const std::vector<CTxIn>&         GetVin()        const {return vin;};
+    const std::vector<CTxOut>&        GetVout()       const {return vout;};
+
+    virtual const std::vector<CTxScCreationOut>&      GetVscCcOut()   const = 0;
+    virtual const std::vector<CTxCertifierLockOut>&   GetVclCcOut()   const = 0;
+    virtual const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const = 0;
+    virtual const std::vector<JSDescription>&         GetVjoinsplit() const = 0;
+    virtual const uint256&                            GetScId()       const = 0;
+    virtual const uint32_t&                           GetLockTime()   const = 0;
     //END OF GETTERS
 
     //CHECK FUNCTIONS
@@ -721,7 +731,6 @@ public:
 
     bool CheckInputsAmount (CValidationState &state) const;
     bool CheckOutputsAmount(CValidationState &state) const;
-    virtual bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const = 0;
     bool CheckInputsDuplication(CValidationState &state) const;
     bool CheckInputsInteraction(CValidationState &state) const;
 
@@ -733,20 +742,34 @@ public:
     // Return sum of txouts.
     virtual CAmount GetValueOut() const;
 
+    int GetComplexity() const { return vin.size()*vin.size(); }
+
+    // Compute modified tx size for priority calculation (optionally given tx size)
+    unsigned int CalculateModifiedSize(unsigned int nTxSize=0) const;
+
+    // Compute priority, given priority of inputs and (optionally) tx size
+    double ComputePriority(double dPriorityInputs, unsigned int nTxSize=0) const;
+
     // Return sum of JoinSplit vpub_new if supported
     virtual CAmount GetJoinSplitValueIn() const;
+
     //-----------------
     // pure virtual interfaces 
+    virtual bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
+        bool* pfMissingInputs, bool fRejectAbsurdFee=false) const = 0;
+    virtual void Relay() const = 0;
+    virtual unsigned int GetSerializeSizeBase(int nType, int nVersion) const = 0;
+    virtual std::shared_ptr<const CTransactionBase> MakeShared() const = 0;
+
+    virtual bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const = 0;
+
     virtual bool IsNull() const = 0;
 
     // return fee amount
-    virtual CAmount GetFeeAmount(CAmount valueIn) const = 0;
+    virtual CAmount GetFeeAmount(const CAmount& valueIn) const = 0;
 
     // Compute tx size
     virtual unsigned int CalculateSize() const = 0;
-
-    // Compute modified tx size for priority calculation (optionally given tx size)
-    virtual unsigned int CalculateModifiedSize(unsigned int nTxSize=0) const = 0;
 
     virtual std::string EncodeHex() const = 0;
     virtual std::string ToString() const = 0;
@@ -757,7 +780,12 @@ public:
     virtual bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const = 0;
     virtual bool CheckFinal(int flags = -1) const = 0;
 
-    virtual double GetPriority(const CCoinsViewCache &view, int nHeight) const = 0;
+    bool VerifyScript(
+        const CScript& scriptPubKey, unsigned int flags, unsigned int nIn, const CChain* chain,
+        bool cacheStore, ScriptError* serror) const;
+
+    virtual std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
+        unsigned int nIn, const CChain* chain, bool cacheStore) const = 0;
 
     //-----------------
     // default values for derived classes which do not support specific data structures
@@ -804,13 +832,12 @@ public:
     // and bypass the constness. This is safe, as they update the entire
     // structure, including the hash.
 private:
-    const std::vector<CTxIn> vin;
     const std::vector<JSDescription> vjoinsplit;
-public:
-    const std::vector<CTxScCreationOut> vsc_ccout;
-    const std::vector<CTxCertifierLockOut> vcl_ccout;
-    const std::vector<CTxForwardTransferOut> vft_ccout;
     const uint32_t nLockTime;
+    const std::vector<CTxScCreationOut> vsc_ccout;
+    const std::vector<CTxForwardTransferOut> vft_ccout;
+    const std::vector<CTxCertifierLockOut> vcl_ccout;
+public:
     const uint256 joinSplitPubKey;
     const joinsplit_sig_t joinSplitSig = {{0}};
 
@@ -852,11 +879,7 @@ public:
     template <typename Stream>
     CTransaction(deserialize_type, Stream& s) : CTransaction(CMutableTransaction(deserialize, s)) {}
     
-    // Compute priority, given priority of inputs and (optionally) tx size
-    double ComputePriority(double dPriorityInputs, unsigned int nTxSize=0) const;
-
     unsigned int CalculateSize() const override;
-    unsigned int CalculateModifiedSize(unsigned int nTxSize) const override;
 
     std::string EncodeHex() const override;
 
@@ -885,10 +908,12 @@ public:
     }
 
     //GETTERS
-    const std::vector<CTxIn>&         GetVin()        const override {return vin;};
-    const std::vector<CTxOut>&        GetVout()       const override {return vout;};
-    const std::vector<JSDescription>& GetVjoinsplit() const override {return vjoinsplit;};
-    const uint256&                    GetScId()       const override { static uint256 noScId; return noScId;};
+    const std::vector<CTxScCreationOut>&      GetVscCcOut()   const override { return vsc_ccout; }
+    const std::vector<CTxCertifierLockOut>&   GetVclCcOut()   const override { return vcl_ccout; }
+    const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const override { return vft_ccout; }
+    const std::vector<JSDescription>&         GetVjoinsplit() const override { return vjoinsplit;};
+    const uint256&                            GetScId()       const override { static uint256 noScId; return noScId;};
+    const uint32_t&                           GetLockTime()   const override { return nLockTime;};
     //END OF GETTERS
 
     //CHECK FUNCTIONS
@@ -900,11 +925,17 @@ public:
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     //END OF CHECK FUNCTIONS
 
+    bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
+        bool* pfMissingInputs, bool fRejectAbsurdFee=false) const override;
+    void Relay() const override;
+    unsigned int GetSerializeSizeBase(int nType, int nVersion) const override;
+    std::shared_ptr<const CTransactionBase> MakeShared() const override;
+
     // Return sum of txouts.
     CAmount GetValueOut() const override;
 
     // value in should be computed via the method above using a proper coin view
-    CAmount GetFeeAmount(CAmount valueIn) const override { return (valueIn - GetValueOut() ); }
+    CAmount GetFeeAmount(const CAmount& valueIn) const override { return (valueIn - GetValueOut() ); }
 
     const uint256 getJoinSplitPubKey() const override { return joinSplitPubKey; }
 
@@ -1003,13 +1034,16 @@ public:
     bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
                            std::vector<CScriptCheck> *pvChecks = NULL) const override;
-    double GetPriority(const CCoinsViewCache &view, int nHeight) const override;
+
+    std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
+        unsigned int nIn, const CChain* chain, bool cacheStore) const override;
 };
 
 /** A mutable hierarchy version of CTransaction. */
 struct CMutableTransactionBase
 {
     int32_t nVersion;
+    std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
 
     CMutableTransactionBase();
@@ -1033,7 +1067,6 @@ struct CMutableTransactionBase
 
 struct CMutableTransaction : public CMutableTransactionBase
 {
-    std::vector<CTxIn> vin;
     std::vector<CTxScCreationOut> vsc_ccout;
     std::vector<CTxCertifierLockOut> vcl_ccout;
     std::vector<CTxForwardTransferOut> vft_ccout;

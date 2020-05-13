@@ -249,6 +249,36 @@ UniValue getdifficulty(const UniValue& params, bool fHelp)
     return GetNetworkDifficulty();
 }
 
+void AddDependancy(const CTransactionBase& txBase, UniValue& info)
+{
+    set<string> setDepends;
+    BOOST_FOREACH(const CTxIn& txin, txBase.GetVin())
+    {
+        if (mempool.exists(txin.prevout.hash))
+            setDepends.insert(txin.prevout.hash.ToString());
+    }
+    // the dependancy of a certificate from the sc creation is not considered
+    for (const auto& ft: txBase.GetVftCcOut())
+    {
+        if (mempool.hasSidechainCreationTx(ft.scId))
+        {
+            const uint256& scCreationHash = mempool.mapSidechains.at(ft.scId).scCreationTxHash; 
+
+            // check if tx is also creating the sc
+            if (scCreationHash != txBase.GetHash())
+                setDepends.insert(scCreationHash.ToString());
+        }
+    }
+
+    UniValue depends(UniValue::VARR);
+    BOOST_FOREACH(const string& dep, setDepends)
+    {
+        depends.push_back(dep);
+    }
+
+    info.push_back(Pair("depends", depends));
+}
+
 UniValue mempoolToJSON(bool fVerbose = false)
 {
     if (fVerbose)
@@ -267,31 +297,7 @@ UniValue mempoolToJSON(bool fVerbose = false)
             info.push_back(Pair("startingpriority", e.GetPriority(e.GetHeight())));
             info.push_back(Pair("currentpriority", e.GetPriority(chainActive.Height())));
             const CTransaction& tx = e.GetTx();
-            set<string> setDepends;
-            BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
-            {
-                if (mempool.exists(txin.prevout.hash))
-                    setDepends.insert(txin.prevout.hash.ToString());
-            }
-            for (const auto& ft: tx.vft_ccout)
-            {
-                if (mempool.hasSidechainCreationTx(ft.scId))
-                {
-                    const uint256& scCreationHash = mempool.mapSidechains.at(ft.scId).scCreationTxHash; 
-
-                    // check if tx is also creating the sc
-                    if (scCreationHash != tx.GetHash())
-                        setDepends.insert(scCreationHash.ToString());
-                }
-            }
-
-            UniValue depends(UniValue::VARR);
-            BOOST_FOREACH(const string& dep, setDepends)
-            {
-                depends.push_back(dep);
-            }
-
-            info.push_back(Pair("depends", depends));
+            AddDependancy(tx, info);
             o.push_back(Pair(hash.ToString(), info));
         }
         BOOST_FOREACH(const PAIRTYPE(uint256, CCertificateMemPoolEntry)& entry, mempool.mapCertificate)
@@ -305,6 +311,8 @@ UniValue mempoolToJSON(bool fVerbose = false)
             info.push_back(Pair("height", (int)e.GetHeight()));
             info.push_back(Pair("startingpriority", e.GetPriority(e.GetHeight())));
             info.push_back(Pair("currentpriority", e.GetPriority(chainActive.Height())));
+            const CScCertificate& cert = e.GetCertificate();
+            AddDependancy(cert, info);
             o.push_back(Pair(hash.ToString(), info));
         }
         BOOST_FOREACH(const auto& entry, mempool.mapDeltas)
@@ -1066,7 +1074,9 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "    \"creating tx hash\":        xxxxx,   (string)  txid of the creating transaction\n"
             "    \"created in block\":        xxxxx,   (string)  hash of the block containing the creatimg tx\n"
             "    \"created at block height\": xxxxx,   (numeric) height of the above block\n"
+            "    \"last certificate epoch\":  xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
             "    \"withdrawalEpochLength\":   xxxxx,   (numeric) length of the withdrawal epoch\n"
+            "    \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
             "    \"immature amounts\": [\n"
             "      {\n"
             "        \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"

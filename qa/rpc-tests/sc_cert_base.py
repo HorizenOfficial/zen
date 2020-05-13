@@ -9,12 +9,13 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
     assert_false, assert_true
 import os
+import pprint
 from decimal import Decimal
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 3
 EPOCH_LENGTH = 5
-CERT_FEE = 0.0001
+CERT_FEE = Decimal('0.00015')
 
 
 class sc_cert_base(BitcoinTestFramework):
@@ -196,9 +197,17 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal("invalid cert epoch" in errorString, True)
 
         mark_logs("Node0 confims bwd transfer generating 1 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
+        mined = self.nodes[0].generate(1)[0]
         self.sync_all()
 
+        mark_logs("Check cert is not in mempool anymore", self.nodes, DEBUG_MODE)
+        assert_equal(False, cert_epoch_0 in self.nodes[0].getrawmempool())
+
+        mark_logs("Check block coinbase contains the certificate fee", self.nodes, DEBUG_MODE)
+        coinbase = self.nodes[0].getblock(mined, True)['tx'][0]
+        decoded_coinbase = self.nodes[2].getrawtransaction(coinbase, 1)
+        miner_quota = decoded_coinbase['vout'][0]['value']
+        assert_equal(miner_quota, (Decimal('7.5') + CERT_FEE))
         assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount- amount_cert_1[0]["amount"])
         assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
 
@@ -252,12 +261,12 @@ class sc_cert_base(BitcoinTestFramework):
                .format(current_height, sc_creating_height, EPOCH_LENGTH, epoch_number), self.nodes, DEBUG_MODE)
         epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * EPOCH_LENGTH))
 
-        amount_cert_2 = [{"pubkeyhash": pkh_node1, "amount": 0}]
+        amount_cert_2 = []
 
         bal_before_cert_2 = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance before epoch 1 certificate is received: {}".format(bal_before_cert_2), self.nodes, DEBUG_MODE)        
 
-        # mark_logs("Generate new certificate for epoch {}. No bwt is included".format(epoch_number), self.nodes, DEBUG_MODE)
+        mark_logs("Generate new certificate for epoch {}. No bwt are included".format(epoch_number), self.nodes, DEBUG_MODE)
         try:
             cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amount_cert_2, CERT_FEE)
             assert(len(cert_epoch_1) > 0)
@@ -272,7 +281,7 @@ class sc_cert_base(BitcoinTestFramework):
         self.sync_all()
 
         bal_after_cert_2 = self.nodes[1].getbalance("", 0)
-        mark_logs("Node1 balance after epoch 1 certificate is received nad safeguard passed: {}".format(bal_after_cert_2), self.nodes, DEBUG_MODE)        
+        mark_logs("Node1 balance after epoch 1 certificate is received and safeguard passed: {}".format(bal_after_cert_2), self.nodes, DEBUG_MODE)        
 
         mark_logs("Checking that certificate received from previous epoch is spendable,".format(epoch_number), self.nodes, DEBUG_MODE)
         retrieved_cert = self.nodes[1].gettransaction(cert_epoch_0)
@@ -284,9 +293,9 @@ class sc_cert_base(BitcoinTestFramework):
         utxos_Node1 = self.nodes[1].listunspent()
         cert_epoch_0_availalble = False
         for utxo in utxos_Node1:
-            if ("cert" in utxo.keys()):
+            if ("certified" in utxo.keys()):
                 cert_epoch_0_availalble = True
-                assert_true(utxo["cert"] == cert_epoch_0)
+                assert_true(utxo["txid"] == cert_epoch_0)
         assert_true(cert_epoch_0_availalble)
 
         mark_logs("Checking Node1 balance is duly updated,".format(epoch_number), self.nodes, DEBUG_MODE)

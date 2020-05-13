@@ -27,7 +27,7 @@ public:
     CScCustomData(const base_blob<MAX_CUSTOM_DATA_BITS>& b) : base_blob<MAX_CUSTOM_DATA_BITS>(b) {}
     explicit CScCustomData(const std::vector<unsigned char>& vch) : base_blob<MAX_CUSTOM_DATA_BITS>(vch) {}
 
-    void fill(std::vector<unsigned char>& vBytes, int nBytes) const;
+    void fill(std::vector<unsigned char>& vBytes, size_t nBytes) const;
 };
 
 class CRecipientHandler
@@ -80,6 +80,43 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant>& v
 
 class ScRpcCmd
 {
+  protected:
+    // this is a reference to the tx that gets processed
+    CMutableTransactionBase& _tx;
+
+    // cmd params
+    CBitcoinAddress _fromMcAddress;
+    CBitcoinAddress _changeMcAddress;
+    int _minConf;
+    CAmount _fee;
+
+    // internal members
+    bool _hasFromAddress;
+    bool _hasChangeAddress;
+    CAmount _dustThreshold;
+    CAmount _totalInputAmount;
+    CAmount _totalOutputAmount;
+
+    std::string _signedObjHex;
+
+    // Input UTXO is a tuple (triple) of txid, vout, amount)
+    typedef std::tuple<uint256, int, CAmount> SelectedUTXO;
+
+  public:
+    ScRpcCmd(
+        CMutableTransactionBase& tx, 
+        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
+        int minConf, const CAmount& nFee);
+
+    virtual void sign() = 0;
+    virtual void send() = 0;    
+
+    void addInputs();
+    void addChange();
+};
+
+class ScRpcCmdTx : public ScRpcCmd
+{
   public:
     struct sOutParams
     {
@@ -93,44 +130,49 @@ class ScRpcCmd
             _scid(scId), _toScAddress(toaddress), _nAmount(nAmount) {}
     };
 
-  protected:
-    // this is a reference to the tx that gets processed
-    CMutableTransaction& _tx;
-
     // cmd params
     std::vector<sOutParams> _outParams;
-    CBitcoinAddress _fromMcAddress;
-    CBitcoinAddress _changeMcAddress;
-    int _minConf;
-    CAmount _fee;
 
-    // internal members
-    bool _hasFromAddress;
-    bool _hasChangeAddress;
-    CAmount _dustThreshold;
-    CAmount _totalInputAmount;
-    CAmount _totalOutputAmount;
-
-    std::string _signedTxHex;
-
-    // Input UTXO is a tuple (triple) of txid, vout, amount)
-    typedef std::tuple<uint256, int, CAmount> SelectedUTXO;
-
-  public:
-    ScRpcCmd(
+    ScRpcCmdTx(
         CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee);
 
-    virtual void addCcOutputs() = 0;
+    void sign() override;
+    void send() override;    
 
-    void addInputs();
-    void addChange();
-    void signTx();
-    void sendTx();
+    virtual void addCcOutputs() = 0;
 };
 
-class ScRpcCreationCmd : public ScRpcCmd
+class ScRpcCmdCert : public ScRpcCmd
+{
+    public:
+    struct sBwdParams
+    {
+        CScript _scriptPubKey;
+        CAmount _nAmount;
+        sBwdParams(): _scriptPubKey(), _nAmount(0) {}
+
+        sBwdParams(
+            const CScript& spk, const CAmount nAmount):
+            _scriptPubKey(spk), _nAmount(nAmount) {}
+    };
+
+    // cmd params
+    std::vector<sBwdParams> _bwdParams;
+
+    ScRpcCmdCert(
+        CMutableScCertificate& cert, const std::vector<sBwdParams>& bwdParams,
+        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
+        int minConf, const CAmount& nFee);
+
+    void sign() override;
+    void send() override;    
+
+    void addBackwardTransfers();
+};
+
+class ScRpcCreationCmd : public ScRpcCmdTx
 {
   private:
     // cmd params
@@ -145,7 +187,7 @@ class ScRpcCreationCmd : public ScRpcCmd
     void addCcOutputs() override;
 };
 
-class ScRpcSendCmd : public ScRpcCmd
+class ScRpcSendCmd : public ScRpcCmdTx
 {
   public:
     ScRpcSendCmd(

@@ -326,6 +326,7 @@ static const CRPCCommand vRPCCommands[] =
     { "rawtransactions",    "sendrawtransaction",     &sendrawtransaction,     false },
     { "rawtransactions",    "sendrawcertificate",     &sendrawcertificate,     false },
     { "rawtransactions",    "signrawtransaction",     &signrawtransaction,     false }, /* uses wallet if enabled */
+    { "rawtransactions",    "signrawcertificate",     &signrawcertificate,     false }, /* uses wallet if enabled */
 #ifdef ENABLE_WALLET
     { "rawtransactions",    "fundrawtransaction",     &fundrawtransaction,     false },
 #endif

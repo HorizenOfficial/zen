@@ -14,6 +14,20 @@
 #include <undo.h>
 #include <chainparams.h>
 
+std::string CCoins::ToString() const
+{
+    std::string ret;
+    ret += strprintf("originScId(%s)", originScId.ToString());
+    ret += strprintf("version(%d)", nVersion);
+    ret += strprintf("fCoinBase(%d)", fCoinBase);
+    ret += strprintf("height(%d)", nHeight);
+    for (auto o : vout)
+    {
+        ret += "    " + o.ToString() + "\n";
+    }
+    return ret;
+}
+
 CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), originScId() { }
 
 CCoins::CCoins(const CTransactionBase &tx, int nHeightIn) {
@@ -91,6 +105,7 @@ bool CCoins::Spend(uint32_t nPos)
 {
     if (nPos >= vout.size() || vout[nPos].IsNull())
         return false;
+    LogPrint("sc", "%s():%d - @@@@@@@ Spending out[%d], ver=%d, (%s)\n\n", __func__, __LINE__, nPos, nVersion, vout[nPos].ToString());
     vout[nPos].SetNull();
     Cleanup();
     return true;
@@ -614,7 +629,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
     const int maturityHeight = blockHeight + SC_COIN_MATURITY;
 
     // creation ccout
-    for (const auto& cr: tx.vsc_ccout)
+    for (const auto& cr: tx.GetVscCcOut())
     {
         if (HaveSidechain(cr.scId)) {
             LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, cr.scId.ToString() );
@@ -639,7 +654,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
     }
 
     // forward transfer ccout
-    for(auto& ft: tx.vft_ccout)
+    for(auto& ft: tx.GetVftCcOut())
     {
         if (!HaveSidechain(ft.scId))
         {
@@ -668,7 +683,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
     const int maturityHeight = nHeight + SC_COIN_MATURITY;
 
     // revert forward transfers
-    for(const auto& entry: tx.vft_ccout)
+    for(const auto& entry: tx.GetVftCcOut())
     {
         const uint256& scId = entry.scId;
 
@@ -692,7 +707,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
     }
 
     // remove sidechain if the case
-    for(const auto& entry: tx.vsc_ccout)
+    for(const auto& entry: tx.GetVscCcOut())
     {
         const uint256& scId = entry.scId;
 
@@ -890,16 +905,17 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
                      REJECT_INVALID, "sidechain-certificate-delayed");
     }
 
+    CAmount totalAmount = cert.GetValueOfBackwardTransfers(); 
 
-    if (cert.totalAmount > scInfo.balance)
+    if (totalAmount > scInfo.balance)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scId[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scInfo.balance), FormatMoney(cert.totalAmount) );
+            __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scInfo.balance), FormatMoney(totalAmount) );
         return state.Invalid(error("insufficient balance"),
                      REJECT_INVALID, "sidechain-insufficient-balance");
     }
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
-        __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scInfo.balance), FormatMoney(cert.totalAmount) );
+        __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scInfo.balance), FormatMoney(totalAmount) );
 
     return true;
 }
@@ -969,7 +985,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
     const uint256& txHash = tx.GetHash();
 
     // check creation
-    for (const auto& sc: tx.vsc_ccout)
+    for (const auto& sc: tx.GetVscCcOut())
     {
         const uint256& scId = sc.scId;
         if (HaveSidechain(scId))
@@ -983,7 +999,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
     }
 
     // check fw tx
-    for (const auto& ft: tx.vft_ccout)
+    for (const auto& ft: tx.GetVftCcOut())
     {
         const uint256& scId = ft.scId;
         if (HaveSidechain(scId))
@@ -1014,7 +1030,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
 {
     const uint256& certHash = cert.GetHash();
     const uint256& scId = cert.GetScId();
-    const CAmount& totalAmount = cert.totalAmount;
+    const CAmount& totalAmount = cert.GetValueOfBackwardTransfers();
 
     LogPrint("cert", "%s():%d - cert=%s\n", __func__, __LINE__, certHash.ToString() );
 
@@ -1053,7 +1069,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
 bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert)
 {
     const uint256& scId = cert.GetScId();
-    const CAmount& totalAmount = cert.totalAmount;
+    const CAmount& totalAmount = cert.GetValueOfBackwardTransfers();
 
     LogPrint("cert", "%s():%d - removing cert for scId=%s\n", __func__, __LINE__, scId.ToString());
 
@@ -1262,9 +1278,11 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
             continue;
         }
 
-        //lastEpochCertsBySc have at least a bwt, hence they cannot be fully spent
-        assert(this->HaveCoins(scInfo.lastCertificateHash));
+        if (!this->HaveCoins(scInfo.lastCertificateHash))
+            continue; //in case the cert had not bwt nor change, there won't be any coin generated by cert. Nothing to handle
+
         CCoinsModifier coins = this->ModifyCoins(scInfo.lastCertificateHash);
+        assert(!coins->originScId.IsNull());
 
         //null all bwt outputs and add related txundo in block
         bool foundFirstBwt = false;
@@ -1279,20 +1297,24 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
                 blockUndo.vtxundo.push_back(CTxUndo());
                 blockUndo.vtxundo.back().refTx = scInfo.lastCertificateHash;
                 blockUndo.vtxundo.back().firstBwtPos = pos;
+                LogPrint("cert", "%s():%d - set refTx[%s], pos[%d]\n",
+                    __func__, __LINE__, scInfo.lastCertificateHash.ToString(), pos);
                 foundFirstBwt = true;
             }
 
             blockUndo.vtxundo.back().vprevout.push_back(CTxInUndo(coins->vout[pos]));
+            CTxInUndo& undo = blockUndo.vtxundo.back().vprevout.back();
+            undo.nHeight    = coins->nHeight;
+            undo.fCoinBase  = coins->fCoinBase;
+            undo.nVersion   = coins->nVersion;
+            undo.originScId = coins->originScId;
+
             coins->Spend(pos);
-            if (coins->vout.size() == 0 || coins->vout[pos].isFromBackwardTransfer) {
-                CTxInUndo& undo = blockUndo.vtxundo.back().vprevout.back();
-                undo.nHeight    = coins->nHeight;
-                undo.fCoinBase  = coins->fCoinBase;
-                undo.nVersion   = coins->nVersion;
-                undo.originScId = coins->originScId;
-            }
         }
     }
+
+    LogPrint("sc", "%s():%d Exiting: CBlockUndo: %s\n",
+        __func__, __LINE__, blockUndo.ToString());
 
     return true;
 }
@@ -1305,28 +1327,28 @@ bool CCoinsViewCache::RevertCeasingScs(const CTxUndo& ceasedCertUndo)
     if(coinHash.IsNull())
     {
         fClean = fClean && error("%s: malformed undo data, ", __func__);
+        LogPrint("cert", "%s():%d - returning fClean[%d]\n", __func__, __LINE__, fClean);
         return fClean;
     }
     CCoinsModifier coins = this->ModifyCoins(coinHash);
+    LogPrint("cert", "%s():%d - PRE :%s\n", __func__, __LINE__, coins->ToString());
     unsigned int firstBwtPos = ceasedCertUndo.firstBwtPos;
 
     const std::vector<CTxInUndo>& outVec = ceasedCertUndo.vprevout;
+    LogPrint("cert", "%s():%d - PRE : outVec.size() = %d\n", __func__, __LINE__, outVec.size());
 
     for (size_t bwtOutPos = outVec.size(); bwtOutPos-- > 0;)
     {
+        LogPrint("cert", "%s():%d - PRE : bwtOutPos= %d\n", __func__, __LINE__, bwtOutPos);
         if (outVec.at(bwtOutPos).nHeight != 0)
         {
-            if(!coins->IsPruned())
-                fClean = fClean && error("%s: undo data overwriting existing transaction", __func__);
-            coins->Clear();
             coins->fCoinBase  = outVec.at(bwtOutPos).fCoinBase;
             coins->nHeight    = outVec.at(bwtOutPos).nHeight;
             coins->nVersion   = outVec.at(bwtOutPos).nVersion;
             coins->originScId = outVec.at(bwtOutPos).originScId;
-        } else
-        {
-            if(coins->IsPruned())
-                fClean = fClean && error("%s: undo data adding output to missing transaction", __func__);
+        } else {
+            LogPrint("cert", "%s():%d - returning false\n", __func__, __LINE__);
+            return false;
         }
 
         if(coins->IsAvailable(firstBwtPos + bwtOutPos))
@@ -1336,6 +1358,7 @@ bool CCoinsViewCache::RevertCeasingScs(const CTxUndo& ceasedCertUndo)
         coins->vout.at(firstBwtPos + bwtOutPos) = outVec.at(bwtOutPos).txout;
     }
 
+    LogPrint("cert", "%s():%d - POST:%s\n", __func__, __LINE__, coins->ToString());
     return fClean;
 }
 
@@ -1554,7 +1577,7 @@ bool CCoinsViewCache::HaveInputs(const CTransactionBase& txBase) const
     return true;
 }
 
-double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight) const
+double CCoinsViewCache::GetPriority(const CTransactionBase &tx, int nHeight) const
 {
     if (tx.IsCoinBase())
         return 0.0;
@@ -1566,6 +1589,10 @@ double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight) const
     // FIXME: this logic is partially duplicated between here and CreateNewBlock in miner.cpp.
 
     if (tx.GetVjoinsplit().size() > 0) {
+        return MAXIMUM_PRIORITY;
+    }
+
+    if (tx.IsCertificate() ) {
         return MAXIMUM_PRIORITY;
     }
 

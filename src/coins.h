@@ -100,6 +100,8 @@ public:
     //! originScId will be serialized only for coins from bwt, which will be stored in chainstate db under different key
     uint256 originScId;
 
+    std::string ToString() const;
+
     //! empty constructor
     CCoins();
 
@@ -626,7 +628,7 @@ public:
     bool HaveJoinSplitRequirements(const CTransactionBase& txBase) const;
 
     //! Return priority of tx at height nHeight
-    double GetPriority(const CTransaction &tx, int nHeight) const;
+    double GetPriority(const CTransactionBase &tx, int nHeight) const;
 
     const CTxOut &GetOutputFor(const CTxIn& input) const;
 

@@ -188,7 +188,7 @@ TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
 
     bool loopRes = false;
     for(const auto& tx : aMempool.mapTx)
-        for(const auto& sc: tx.second.GetTx().vsc_ccout)
+        for(const auto& sc: tx.second.GetTx().GetVscCcOut())
             if(sc.scId == scId) {
                 loopRes = true;
                 break;
@@ -204,7 +204,7 @@ TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
 
     loopRes = false;
     for(const auto& tx : aMempool.mapTx)
-        for(const auto& sc: tx.second.GetTx().vsc_ccout)
+        for(const auto& sc: tx.second.GetTx().GetVscCcOut())
             if(sc.scId == scId) {
                 loopRes = true;
                 break;
@@ -220,7 +220,7 @@ TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
 
     loopRes = false;
     for(const auto& tx : aMempool.mapTx)
-        for(const auto& sc: tx.second.GetTx().vsc_ccout)
+        for(const auto& sc: tx.second.GetTx().GetVscCcOut())
             if(sc.scId == scId) {
                 loopRes = true;
                 break;
@@ -248,7 +248,8 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScNonRecursiveRemoval) {
     aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     std::list<CTransaction> removedTxs;
-    aMempool.remove(scTx, removedTxs, /*fRecursive*/false);
+    std::list<CScCertificate> removedCerts;
+    aMempool.remove(scTx, removedTxs, removedCerts, /*fRecursive*/false);
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), scTx));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
@@ -276,8 +277,9 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScNonRecursiveRemoval_Di
     aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
     CTransaction scTxConfirmed = GenerateScTx(scId, CAmount(10));
-    aMempool.remove(scTxConfirmed, removedTxs, /*fRecursive*/false);
+    aMempool.remove(scTxConfirmed, removedTxs, removedCerts, /*fRecursive*/false);
 
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), scTxInMempool));
     EXPECT_TRUE(aMempool.hasSidechainCreationTx(scId));
@@ -306,8 +308,9 @@ TEST_F(SidechainsInMempoolTestSuite, RemoveConflictsHandlesConflictingSidechainD
     aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
     CTransaction scTxInBlock = GenerateScTx(scId, CAmount(20));
-    aMempool.removeConflicts(scTxInBlock, removedTxs);
+    aMempool.removeConflicts(scTxInBlock, removedTxs, removedCerts);
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), scTxInMempool));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
@@ -330,7 +333,8 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsOnlyInMempool_FwdNonRecursiveRemoval) {
     aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     std::list<CTransaction> removedTxs;
-    aMempool.remove(fwdTx1, removedTxs, /*fRecursive*/false);
+    std::list<CScCertificate> removedCerts;
+    aMempool.remove(fwdTx1, removedTxs, removedCerts, /*fRecursive*/false);
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
@@ -357,7 +361,8 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScRecursiveRemoval) {
     aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     std::list<CTransaction> removedTxs;
-    aMempool.remove(scTx, removedTxs, /*fRecursive*/true);
+    std::list<CScCertificate> removedCerts;
+    aMempool.remove(scTx, removedTxs, removedCerts, /*fRecursive*/true);
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), scTx));
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
@@ -380,8 +385,9 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsOnlyInMempool_ScRecursiveRemoval) {
     aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
     CTransaction scTx = GenerateScTx(scId, CAmount(10));
-    aMempool.remove(scTx, removedTxs, /*fRecursive*/true);
+    aMempool.remove(scTx, removedTxs, removedCerts, /*fRecursive*/true);
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
@@ -403,7 +409,8 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_FwdRecursiveRemoval) {
     aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
     std::list<CTransaction> removedTxs;
-    aMempool.remove(fwdTx2, removedTxs, /*fRecursive*/true);
+    std::list<CScCertificate> removedCerts;
+    aMempool.remove(fwdTx2, removedTxs, removedCerts, /*fRecursive*/true);
 
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
@@ -419,7 +426,7 @@ TEST_F(SidechainsInMempoolTestSuite, SimpleCertRemovalFromMempool) {
     sidechainsView.Flush();
 
     //load certificate in mempool
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(), /*totalAmount*/CAmount(5));
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256());
     CCertificateMemPoolEntry certEntry(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     mempool.addUnchecked(cert.GetHash(), certEntry);
 
@@ -443,14 +450,14 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCertRemovalFromMempool) {
     sidechainsView.Flush();
 
     //load a certificate in mempool
-    CScCertificate cert1 = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(), /*totalAmount*/CAmount(5));
+    CScCertificate cert1 = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256());
     CCertificateMemPoolEntry certEntry1(cert1, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     mempool.addUnchecked(cert1.GetHash(), certEntry1);
 
     //Remove the certificate
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    CScCertificate cert2 = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(), /*totalAmount*/CAmount(4));
+    CScCertificate cert2 = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256());
     mempool.removeConflicts(cert2, removedTxs, removedCerts);
 
     EXPECT_TRUE(removedTxs.size() == 0);
@@ -473,7 +480,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_CertRemovalDoesNotAffe
     mempool.addUnchecked(fwdTx.GetHash(), fwdEntry);
 
     //load a certificate in mempool
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(), /*totalAmount*/CAmount(5));
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256());
     CCertificateMemPoolEntry certEntry1(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     mempool.addUnchecked(cert.GetHash(), certEntry1);
 
@@ -506,14 +513,14 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffec
     mempool.addUnchecked(fwdTx.GetHash(), fwdEntry);
 
     //load a certificate in mempool
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(), /*totalAmount*/CAmount(5));
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256());
     CCertificateMemPoolEntry certEntry1(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     mempool.addUnchecked(cert.GetHash(), certEntry1);
 
     //Remove the certificate
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    mempool.remove(fwdTx, removedTxs, /*fRecursive*/false);
+    mempool.remove(fwdTx, removedTxs, removedCerts, /*fRecursive*/false);
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx));
     EXPECT_FALSE(mempool.existsTx(fwdTx.GetHash()));

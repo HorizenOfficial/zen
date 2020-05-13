@@ -133,7 +133,7 @@ bool CBloomFilter::IsWithinSizeConstraints() const
     return vData.size() <= MAX_BLOOM_FILTER_SIZE && nHashFuncs <= MAX_HASH_FUNCS;
 }
 
-bool CBloomFilter::IsRelevantAndUpdate(const CTransaction& tx)
+bool CBloomFilter::IsRelevantAndUpdate(const CTransactionBase& tx)
 {
     bool fFound = false;
     // Match if the filter contains the hash of tx

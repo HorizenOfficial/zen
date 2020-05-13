@@ -81,7 +81,7 @@ void EnsureWalletIsUnlocked()
         throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Please enter the wallet passphrase with walletpassphrase first.");
 }
 
-void TxExpandedToJSON(const CWalletObjBase& tx, const std::vector<CWalletObjBase*> vtxIn, UniValue& entry)
+void TxExpandedToJSON(const CWalletObjBase& tx, const std::vector<CWalletObjBase*>& vtxIn, UniValue& entry)
 {
     entry.push_back(Pair("txid", tx.GetHash().GetHex()));
     entry.push_back(Pair("version", tx.nVersion));
@@ -98,6 +98,8 @@ void TxExpandedToJSON(const CWalletObjBase& tx, const std::vector<CWalletObjBase
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
         out.push_back(Pair("scriptPubKey", o));
+        if (txout.isFromBackwardTransfer)
+            out.push_back(Pair("backwardTransfer", true));
         vout.push_back(out);
     }
     entry.push_back(Pair("vout", vout));
@@ -127,10 +129,10 @@ void TxExpandedToJSON(const CWalletObjBase& tx, const std::vector<CWalletObjBase
 
     if (tx.IsFromMe(ISMINE_ALL))
     {
-        CAmount nOut = tx.GetValueOut();
         CAmount nDebit = tx.GetDebit(ISMINE_ALL);
         // with positive sign
-        CAmount nFee = nDebit - nOut;
+        //CAmount nFee = nDebit - nOut;
+        CAmount nFee = tx.GetFeeAmount(nDebit);
         entry.push_back(Pair("fees", ValueFromAmount(nFee)));
     }
 }
@@ -919,7 +921,6 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     {
         scId = GetRandHash();
     }
-    // TODO no checks are made here on scid, they are left when trying to accept to mem pool
 
     // ---------------------------------------------------------
     int withdrawalEpochLength = SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH;
@@ -1029,8 +1030,8 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     CMutableTransaction tx_create;
     tx_create.nVersion = SC_TX_VERSION;
 
-    std::vector<ScRpcCmd::sOutParams> vOutputs;
-    vOutputs.push_back(ScRpcCmd::sOutParams(scId, toaddress, nAmount));
+    std::vector<ScRpcCmdTx::sOutParams> vOutputs;
+    vOutputs.push_back(ScRpcCmdTx::sOutParams(scId, toaddress, nAmount));
 
     Sidechain::ScRpcCreationCmd cmd(tx_create, vOutputs, fromaddress, changeaddress, nMinDepth, nFee, creationData);
 
@@ -1038,8 +1039,8 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     cmd.addChange();
     cmd.addCcOutputs();
 
-    cmd.signTx();
-    cmd.sendTx();
+    cmd.sign();
+    cmd.send();
         
     return tx_create.GetHash().GetHex();
 }
@@ -1071,7 +1072,7 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"transactionid\"    (string) The resulting transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("send_sidechain", "'{TODO}]'")
+            + HelpExampleCli("send_to_sidechain", "'{TODO}]'")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1088,7 +1089,7 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
     UniValue outputsArr = params[0].get_array();
 
     // ---------------------------------------------------------
-    std::vector<ScRpcCmd::sOutParams> vOutputs;
+    std::vector<ScRpcCmdTx::sOutParams> vOutputs;
     CAmount totalAmount = 0;
 
     if (outputsArr.size()==0)
@@ -1167,7 +1168,7 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
             }
         }
  
-        vOutputs.push_back(ScRpcCmd::sOutParams(scId, toaddress, nAmount));
+        vOutputs.push_back(ScRpcCmdTx::sOutParams(scId, toaddress, nAmount));
         totalAmount += nAmount;
     }
 
@@ -1258,8 +1259,8 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
     cmd.addChange();
     cmd.addCcOutputs();
 
-    cmd.signTx();
-    cmd.sendTx();
+    cmd.sign();
+    cmd.send();
         
     return tx_fwd.GetHash().GetHex();
 }
@@ -2800,13 +2801,15 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
 
     const CWalletObjBase& wtx = *(pwalletMain->getMapWallet().at(hash));
 
-    CAmount nOut = wtx.GetValueOut();
-
     CAmount nCredit = wtx.GetCredit(filter);
     CAmount nDebit = wtx.GetDebit(filter);
     
     CAmount nNet = nCredit - nDebit;
-    CAmount nFee = (wtx.IsFromMe(filter) ? nOut - nDebit : 0);
+    CAmount nFee = 0;
+    if (wtx.IsFromMe(filter))
+    {
+        nFee = -(wtx.GetFeeAmount(nDebit));
+    }
 
     entry.push_back(Pair("amount", ValueFromAmount(nNet - nFee)));
     if (wtx.IsFromMe(filter))
@@ -3441,20 +3444,16 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         CAmount nValue = out.tx->GetVout()[out.pos].nValue;
         const CScript& pk = out.tx->GetVout()[out.pos].scriptPubKey;
         UniValue entry(UniValue::VOBJ);
-
+        entry.push_back(Pair("txid", out.tx->GetHash().GetHex()));
+        entry.push_back(Pair("vout", out.pos));
         if (out.tx->IsCertificate() )
         {
-            entry.push_back(Pair("cert", out.tx->GetHash().GetHex()));
-            entry.push_back(Pair("vout", out.pos));
             entry.push_back(Pair("certified", true));
         }
         else
         {
-            entry.push_back(Pair("txid", out.tx->GetHash().GetHex()));
-            entry.push_back(Pair("vout", out.pos));
             entry.push_back(Pair("generated", out.tx->IsCoinBase()));
         }
-
         CTxDestination address;
         if (ExtractDestination(out.tx->GetVout()[out.pos].scriptPubKey, address)) {
             entry.push_back(Pair("address", CBitcoinAddress(address).ToString()));
@@ -4814,8 +4813,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     // Recipients
     CAmount nTotalOut = 0;
-    vector<CcRecipientVariant> vecSend;
 
+    std::vector<ScRpcCmdCert::sBwdParams> vBackwardTransfers;
     for (const UniValue& o : outputs.getValues())
     {
         if (!o.isObject())
@@ -4845,15 +4844,12 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         }
 
         const UniValue& av = find_value(o, "amount");
+        // this throw an exception also if it is a legal value less than 1 ZAT
         CAmount nAmount = AmountFromValue(av);
-        if (nAmount < 0) //It is allowed to send certificates with zero amount
+        if (nAmount <= 0)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
 
-        CRecipientBackwardTransfer bt;
-        bt.scriptPubKey = GetScriptForDestination(taddr.Get(), false);
-        bt.nValue = nAmount;
-
-        vecSend.push_back(CcRecipientVariant(bt));
+        vBackwardTransfers.push_back(ScRpcCmdCert::sBwdParams(GetScriptForDestination(taddr.Get(), false), nAmount));
 
         nTotalOut += nAmount;
     }
@@ -4873,22 +4869,17 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     std::string strFailReason;
 
     CMutableScCertificate cert;
-    // cert data
     cert.nVersion = SC_CERT_VERSION;
     cert.scId = scId;
     cert.epochNumber = epochNumber;
     cert.endEpochBlockHash = endEpochBlockHash;
-    cert.nonce = uint256(GetRandHash() );
-    cert.fee = nCertFee;
 
-    BOOST_FOREACH (const auto& ccRecipient, vecSend)
-    {
-        CRecipientHandler handler(&cert, strFailReason);
-        if (!handler.visit(ccRecipient) )
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strFailReason );
-        }
-    }
+    // optional parameters (TODO to be handled since they will be probabl useful to SBH wallet)
+    CBitcoinAddress fromaddress;
+    CBitcoinAddress changeaddress;
+    
+    // allow use of unconfirmed coins
+    int nMinDepth = 0; //1; 
 
     if (nTotalOut > scInfo.balance)
     {
@@ -4897,22 +4888,16 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "sidechain has insufficient funds");
     }
 
-    cert.totalAmount = nTotalOut;
+    Sidechain::ScRpcCmdCert cmd(cert, vBackwardTransfers, fromaddress, changeaddress, nMinDepth, nCertFee);
 
-    CScCertificate constCert(cert);
-    const uint256& hash = constCert.GetHash();
-    LogPrint("cert", "%s():%d - cert=%s ready to be encoded: amount[%s], fee[%s]\n",
-        __func__, __LINE__, hash.ToString(), FormatMoney(nTotalOut), FormatMoney(nCertFee) );
+    cmd.addInputs();
+    cmd.addChange();
+    cmd.addBackwardTransfers();
 
-    const std::string& encStr = EncodeHexCert(constCert);
-    UniValue inputVal(UniValue::VARR);
-    inputVal.push_back(encStr);
-    const UniValue& sendResultValue = sendrawcertificate(inputVal, false);
-    if (sendResultValue.isNull()) {
-        throw JSONRPCError(RPC_WALLET_ERROR, "sendrawcertificate did not return an error or a certificate id.");
-    }
+    cmd.sign();
+    cmd.send();
 
-    return sendResultValue.get_str();
+    return cert.GetHash().GetHex();
 }
 
 UniValue sc_certlock_many(const UniValue& params, bool fHelp)

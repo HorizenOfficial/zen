@@ -72,6 +72,18 @@ public:
             ::Unserialize(s, txout.isFromBackwardTransfer, nType, nVersion);
         }
     }
+
+    std::string ToString() const
+    {
+        std::string str;
+        str += strprintf("txout(%s)\n", txout.ToString());
+        str += strprintf("        fCoinBase=%d\n", fCoinBase);
+        str += strprintf("        nHeight=%d\n", nHeight);
+        str += strprintf("        nVersion=%d\n", nVersion);
+        str += strprintf("        originScId=%s\n", originScId.ToString());
+        return str;
+    }
+
 };
 
 /** Undo information for a CTransaction */
@@ -120,6 +132,17 @@ public:
         }
     };
 
+    std::string ToString() const
+    {
+        std::string str;
+        str += strprintf("    vprevout.size %u\n", vprevout.size());
+        for (unsigned int i = 0; i < vprevout.size(); i++)
+            str += "        " + vprevout[i].ToString() + "\n";
+        str += strprintf("    refTx %s\n", refTx.ToString());
+        str += strprintf("    firstBwtPos %u\n", firstBwtPos);
+        return str;
+    }
+
 
 private:
     static const uint16_t ceasedCoinsmarker = 0xfec1;
@@ -140,6 +163,15 @@ struct ScUndoData
         READWRITE(immAmount);
         READWRITE(certEpoch);
         READWRITE(lastCertificateHash);
+    }
+
+    std::string ToString() const
+    {
+        std::string str;
+        str += strprintf("  immAmount %d.%08d\n", immAmount / COIN, immAmount % COIN);
+        str += strprintf("  certEpoch %d\n", certEpoch);
+        str += strprintf("  lastCertificateHash %s\n", lastCertificateHash.ToString().substr(0,10));
+        return str;
     }
 };
 
@@ -212,12 +244,20 @@ public:
 
     std::string ToString() const
     {
-        std::string str;
-        str += strprintf("\nincludesSidechainAttributes=%u\n", includesSidechainAttributes);
+        std::string str = "\n=== CBlockUndo START ===========================================================================\n";
+        str += strprintf("includesSidechainAttributes=%u (mem only)\n", includesSidechainAttributes);
         str += strprintf("vtxundo.size %u\n", vtxundo.size());
+        for (unsigned int i = 0; i < vtxundo.size(); i++)
+            str += vtxundo[i].ToString() + "\n";
         str += strprintf("old_tree_root %s\n", old_tree_root.ToString().substr(0,10));
         str += strprintf("msc_iaundo.size %u\n", msc_iaundo.size());
-        str += strprintf(" ===> tot size %u\n", GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION));
+        for (auto entry : msc_iaundo)
+            str += strprintf("%s --> %s\n", entry.first.ToString().substr(0,10), entry.second.ToString());
+        str += strprintf(" ---> obj size %u\n", GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION));
+        CHashWriter hasher(SER_GETHASH, PROTOCOL_VERSION);
+        hasher << *this;
+        str += strprintf("      obj hash [%s]\n", hasher.GetHash().ToString());
+        str += "=== CBlockUndo END =============================================================================\n";
         return str;
     }
 

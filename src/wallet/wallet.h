@@ -477,13 +477,13 @@ public:
         fChangeCached = false;
     }
 
+    bool IsTrusted(bool canSpendZeroConfChange = bSpendZeroConfChange) const;
+
     // virtuals
     virtual void SetNoteData(mapNoteData_t &noteData) {}; // default is null
 
     virtual void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const = 0;
-
-    virtual bool IsTrusted(bool canSpendZeroConfChange = bSpendZeroConfChange) const = 0;
 
     virtual bool RelayWalletTransaction() = 0;
     virtual bool IsInvolvingMe(mapNoteData_t &noteData) const = 0;
@@ -494,6 +494,7 @@ public:
         bool fFilterAddress,
         libzcash::PaymentAddress filterPaymentAddress,
         bool ignoreSpent = true, bool ignoreUnspendable = true) {} // default empty (certs have no notes)
+
     virtual void ClearNoteWitnessCache() {};
 
     virtual void IncrementWitness(int64_t nWitnessCacheSize, int nHeight) { return; }
@@ -512,7 +513,6 @@ public:
     // return false if the map is empty
     virtual const mapNoteData_t* GetMapNoteData() const { return nullptr; }
     virtual void SetMapNoteData(mapNoteData_t& m) {}
-    virtual void HandleInputGrouping(std::set< std::set<CTxDestination> >& groupings, std::set<CTxDestination>& grouping) {};
 
     void Init(const CWallet* pwalletIn)
     {
@@ -549,9 +549,9 @@ public:
     virtual std::shared_ptr<CWalletObjBase> MakeWalletMapObject() const = 0;
     static std::shared_ptr<CWalletObjBase> MakeWalletObjectBase(const CTransactionBase& obj, const CWallet* pwallet);
 
-    virtual void AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletObjBase*> vtxIn) const { return; }
-    virtual void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const { } // default is empty (certs has no inputs)
-    virtual void addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const  { return; }
+    void AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletObjBase*>& vtxIn) const;
+    void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const;
+    void addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const;
 
 };
 
@@ -640,8 +640,6 @@ public:
     void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const override;
 
-    bool IsTrusted(bool canSpendZeroConfChange = bSpendZeroConfChange) const override;
-
     bool RelayWalletTransaction() override;
     bool IsInvolvingMe(mapNoteData_t &noteData) const override;
 
@@ -653,7 +651,6 @@ public:
     void ClearNoteWitnessCache() override;
     const mapNoteData_t* GetMapNoteData() const override;
     void SetMapNoteData(mapNoteData_t& m) override;
-    void HandleInputGrouping(std::set< std::set<CTxDestination> >& groupings, std::set<CTxDestination>& grouping) override;
 
     void IncrementWitness(int64_t nWitnessCacheSize, int nHeight) override;
     void IncrementExistingWitness(const uint256&, int64_t nWitnessCacheSize, int nHeight) override;
@@ -679,10 +676,6 @@ public:
         }
     }
     std::shared_ptr<CWalletObjBase> MakeWalletMapObject() const override;
-
-    void AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletObjBase*> vtxIn) const override;
-    void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const override;
-    void addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const override;
 };
 
 class CWalletCert : public CMerkleCert, public CWalletObjBase
@@ -757,8 +750,6 @@ public:
 
     void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const override;
-
-    bool IsTrusted(bool canSpendZeroConfChange = bSpendZeroConfChange) const override;
 
     bool RelayWalletTransaction() override;
     bool IsInvolvingMe(mapNoteData_t &noteData) const override;
@@ -1008,10 +999,11 @@ private:
 protected:
 #if 0
     bool UpdatedNoteData(const CWalletTx& wtxIn, CWalletTx& wtx);
+    void MarkAffectedTransactionsDirty(const CTransaction& tx);
 #else
     bool UpdatedNoteData(const CWalletObjBase& wtxIn, CWalletObjBase& wtx);
+    void MarkAffectedTransactionsDirty(const CTransactionBase& tx);
 #endif
-    void MarkAffectedTransactionsDirty(const CTransaction& tx);
 
 public:
     /*

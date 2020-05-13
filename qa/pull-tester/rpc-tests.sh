@@ -56,12 +56,15 @@ testScripts=(
     'sc_split.py'
     'sc_invalidate.py'
     'sc_cert_base.py'
+    'sc_cert_fee.py'
     'sc_cert_epoch.py'
     'sc_cert_invalidate.py'
     'sc_fwd_maturity.py'
     'sc_rawcertificate.py'
     'getunconfirmedtxdata.py'
     'sc_cr_and_fw_in_mempool.py'
+    'sc_cert_change.py'
+    'sc_cert_orphans.py'
 );
 testScriptsExt=(
     'getblocktemplate_longpoll.py'

@@ -21,9 +21,6 @@ private:
 public:
     const int32_t epochNumber;
     const uint256 endEpochBlockHash;
-    const CAmount totalAmount;
-    const CAmount fee;
-    const uint256 nonce;
 
     /** Construct a CScCertificate that qualifies as IsNull() */
     CScCertificate();
@@ -54,8 +51,7 @@ public:
         READWRITE(*const_cast<uint256*>(&scId));
         READWRITE(*const_cast<int32_t*>(&epochNumber));
         READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
-        READWRITE(*const_cast<CAmount*>(&totalAmount));
-        READWRITE(*const_cast<CAmount*>(&fee));
+        READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
 
         if (ser_action.ForRead())
         {
@@ -94,7 +90,6 @@ public:
             READWRITE(*const_cast<std::vector<CBackwardTransferOut>*>(&vbt_ccout_ser));
         }
 
-        READWRITE(*const_cast<uint256*>(&nonce));
         if (ser_action.ForRead())
             UpdateHash();
     }
@@ -103,10 +98,12 @@ public:
     CScCertificate(deserialize_type, Stream& s) : CScCertificate(CMutableScCertificate(deserialize, s)) {}
 
     //GETTERS
-    const std::vector<CTxIn>&         GetVin()        const override {static const std::vector<CTxIn> noInputs; return noInputs;};
-    const std::vector<CTxOut>&        GetVout()       const override {return vout;};
-    const std::vector<JSDescription>& GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
-    const uint256&                    GetScId()       const override {return scId;};
+    const std::vector<CTxScCreationOut>&      GetVscCcOut()   const override {static const  std::vector<CTxScCreationOut> noVsc; return noVsc; }
+    const std::vector<CTxCertifierLockOut>&   GetVclCcOut()   const override {static const  std::vector<CTxCertifierLockOut> noVcl; return noVcl; }
+    const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const override {static const  std::vector<CTxForwardTransferOut> noVft; return noVft; }
+    const std::vector<JSDescription>&         GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
+    const uint256&                            GetScId()       const override {return scId;};
+    const uint32_t&                           GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
     //END OF GETTERS
 
     //CHECK FUNCTIONS
@@ -118,22 +115,24 @@ public:
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     //END OF CHECK FUNCTIONS
 
+    bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
+        bool* pfMissingInputs, bool fRejectAbsurdFee=false) const override;
+    void Relay() const override;
+    unsigned int GetSerializeSizeBase(int nType, int nVersion) const override;
+    std::shared_ptr<const CTransactionBase> MakeShared() const override;
 
     bool IsNull() const override {
         return (
             scId.IsNull() &&
             epochNumber == EPOCH_NULL &&
             endEpochBlockHash.IsNull() &&
-            totalAmount == 0 &&
-            fee == 0 &&
-            vout.empty() &&
-            nonce.IsNull() );
+            vin.empty() &&
+            vout.empty() );
     }
 
-    CAmount GetFeeAmount(CAmount valueIn) const override;
+    CAmount GetFeeAmount(const CAmount& valueIn) const override;
 
     unsigned int CalculateSize() const override;
-    unsigned int CalculateModifiedSize(unsigned int /* unused nTxSize*/) const override;
 
     std::string EncodeHex() const override;
     std::string ToString() const override;
@@ -141,6 +140,7 @@ public:
     void addToScCommitment(std::map<uint256, uint256>& mLeaves, std::set<uint256>& sScIds) const;
     CAmount GetValueOfBackwardTransfers() const;
     int GetNumbOfBackwardTransfers() const;
+    CAmount GetValueOfChange() const { return (GetValueOut() - GetValueOfBackwardTransfers()); }
 
     void AddToBlock(CBlock* pblock) const override; 
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int /* not used sigops */) const override;
@@ -150,7 +150,8 @@ public:
 
     bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) override final;
 
-    double GetPriority(const CCoinsViewCache &view, int nHeight) const override;
+    std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
+        unsigned int nIn, const CChain* chain, bool cacheStore) const override;
 
     bool IsCertificate() const override { return true; }
 };
@@ -161,9 +162,6 @@ struct CMutableScCertificate : public CMutableTransactionBase
     uint256 scId;
     int32_t epochNumber;
     uint256 endEpochBlockHash;
-    CAmount totalAmount;
-    CAmount fee;
-    uint256 nonce;
 
     CMutableScCertificate();
     CMutableScCertificate(const CScCertificate& tx);
@@ -176,15 +174,49 @@ struct CMutableScCertificate : public CMutableTransactionBase
         READWRITE(scId);
         READWRITE(epochNumber);
         READWRITE(endEpochBlockHash);
-        READWRITE(totalAmount);
-        READWRITE(fee);
-        READWRITE(vout);
-        READWRITE(nonce);
+        READWRITE(vin);
+
+        if (ser_action.ForRead())
+        {
+            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+
+            // reading from data stream to memory
+            READWRITE(vout);
+            READWRITE(vbt_ccout_ser);
+
+            for (auto& btout : vbt_ccout_ser)
+            {
+                CTxOut out(btout);
+                vout.push_back(out);
+            }
+        }
+        else
+        {
+            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+            // we must not modify vout
+            std::vector<CTxOut> vout_ser;
+
+            // reading from memory and writing to data stream
+            for (auto it = vout.begin(); it != vout.end(); ++it)
+            {
+                if ((*it).isFromBackwardTransfer)
+                {
+                    CBackwardTransferOut btout((*it));
+                    vbt_ccout_ser.push_back(btout);
+                }
+                else
+                {
+                    vout_ser.push_back(*it);
+                }
+            }
+            READWRITE(vout_ser);
+            READWRITE(vbt_ccout_ser);
+        }
     }
 
     template <typename Stream>
     CMutableScCertificate(deserialize_type, Stream& s) :
-    scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), totalAmount(), fee(), nonce() {
+    scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash() {
         Unserialize(s);
     }
 
@@ -199,6 +231,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
         return true;
     }
 
+    std::string ToString() const;
 };
 
 #endif // _CERTIFICATE_H

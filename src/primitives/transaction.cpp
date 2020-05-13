@@ -237,7 +237,8 @@ uint256 CTxOut::GetHash() const
 
 std::string CTxOut::ToString() const
 {
-    return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s)", nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30));
+    return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s, isFromBackwardTransfer=%d)",
+        nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30), isFromBackwardTransfer);
 }
 
 //----------------------------------------------------------------------------
@@ -303,12 +304,12 @@ std::string CTxScCreationOut::ToString() const
 
 
 CMutableTransactionBase::CMutableTransactionBase() :
-    nVersion(TRANSPARENT_TX_VERSION), vout() {}
+    nVersion(TRANSPARENT_TX_VERSION), vin(), vout() {}
 
 CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(), nLockTime(0) {}
 
 CMutableTransaction::CMutableTransaction(const CTransaction& tx) :
-    vsc_ccout(tx.vsc_ccout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout), nLockTime(tx.nLockTime),
+    vsc_ccout(tx.GetVscCcOut()), vcl_ccout(tx.GetVclCcOut()), vft_ccout(tx.GetVftCcOut()), nLockTime(tx.GetLockTime()),
     vjoinsplit(tx.GetVjoinsplit()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     nVersion = tx.nVersion;
@@ -341,11 +342,12 @@ bool CMutableTransaction::add(const CTxForwardTransferOut& out)
 
 //--------------------------------------------------------------------------------------------------------
 CTransactionBase::CTransactionBase() :
-    nVersion(TRANSPARENT_TX_VERSION), vout() {}
+    nVersion(TRANSPARENT_TX_VERSION), vin(), vout() {}
 
 CTransactionBase& CTransactionBase::operator=(const CTransactionBase &tx) {
     *const_cast<uint256*>(&hash) = tx.hash;
     *const_cast<int*>(&nVersion) = tx.nVersion;
+    *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
     return *this;
 }
@@ -353,6 +355,7 @@ CTransactionBase& CTransactionBase::operator=(const CTransactionBase &tx) {
 CTransactionBase::CTransactionBase(const CTransactionBase &tx) : nVersion(TRANSPARENT_TX_VERSION) {
     *const_cast<uint256*>(&hash) = tx.hash;
     *const_cast<int*>(&nVersion) = tx.nVersion;
+    *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
 }
 
@@ -513,9 +516,10 @@ bool CTransactionBase::CheckInputsInteraction(CValidationState &state) const
 }
 
 CTransaction::CTransaction() :
-    CTransactionBase(), vin(),
+    CTransactionBase(),
+    vjoinsplit(), nLockTime(0),
     vsc_ccout(), vcl_ccout(), vft_ccout(),
-    nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() { }
+    joinSplitPubKey(), joinSplitSig() { }
 
 void CTransaction::UpdateHash() const
 {
@@ -523,17 +527,18 @@ void CTransaction::UpdateHash() const
 }
 
 CTransaction::CTransaction(const CMutableTransaction &tx) :
-    vin(tx.vin), vsc_ccout(tx.vsc_ccout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout),
-    nLockTime(tx.nLockTime), vjoinsplit(tx.vjoinsplit), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
+    vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime),
+    vsc_ccout(tx.vsc_ccout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout),
+    joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     *const_cast<int*>(&nVersion) = tx.nVersion;
+    *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
     UpdateHash();
 }
 
 CTransaction& CTransaction::operator=(const CTransaction &tx) {
     CTransactionBase::operator=(tx);
-    *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
     *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout) = tx.vsc_ccout;
     *const_cast<std::vector<CTxCertifierLockOut>*>(&vcl_ccout) = tx.vcl_ccout;
     *const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout) = tx.vft_ccout;
@@ -547,11 +552,11 @@ CTransaction& CTransaction::operator=(const CTransaction &tx) {
 CTransaction::CTransaction(const CTransaction &tx) : nLockTime(0)
 {
     // call explicitly the copy of members of virtual base class
-    *const_cast<uint256*>(&hash) = tx.hash;
     *const_cast<int*>(&nVersion) = tx.nVersion;
-    *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
-    //---
     *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
+    *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
+    *const_cast<uint256*>(&hash) = tx.hash;
+    //---
     *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout) = tx.vsc_ccout;
     *const_cast<std::vector<CTxCertifierLockOut>*>(&vcl_ccout) = tx.vcl_ccout;
     *const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout) = tx.vft_ccout;
@@ -561,7 +566,7 @@ CTransaction::CTransaction(const CTransaction &tx) : nLockTime(0)
     *const_cast<joinsplit_sig_t*>(&joinSplitSig) = tx.joinSplitSig;
 }
 
-unsigned int CTransaction::CalculateModifiedSize(unsigned int nTxSize) const
+unsigned int CTransactionBase::CalculateModifiedSize(unsigned int nTxSize) const
 {
     // In order to avoid disincentivizing cleaning up the UTXO set we don't count
     // the constant overhead for each txin and up to 110 bytes of scriptSig (which
@@ -582,7 +587,7 @@ unsigned int CTransaction::CalculateModifiedSize(unsigned int nTxSize) const
     return nTxSize;
 }
 
-double CTransaction::ComputePriority(double dPriorityInputs, unsigned int nTxSize) const
+double CTransactionBase::ComputePriority(double dPriorityInputs, unsigned int nTxSize) const
 {
     nTxSize = CalculateModifiedSize(nTxSize);
     if (nTxSize == 0) return 0.0;
@@ -772,8 +777,19 @@ void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
           const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
           std::vector<CScriptCheck> *pvChecks) const { return true;}
-double CTransaction::GetPriority(const CCoinsViewCache &view, int nHeight) const { return 0.0; }
 std::string CTransaction::EncodeHex() const { return ""; }
+std::shared_ptr<BaseSignatureChecker> CTransaction::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
+{
+    return std::shared_ptr<BaseSignatureChecker>();
+}
+bool CTransaction::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
+    bool* pfMissingInputs, bool fRejectAbsurdFee) const { return true; }
+void CTransaction::Relay() const {}
+unsigned int CTransaction::GetSerializeSizeBase(int nType, int nVersion) const { return 0;}
+std::shared_ptr<const CTransactionBase> CTransaction::MakeShared() const
+{
+    return std::shared_ptr<const CTransactionBase>();
+}
 
 #else
 //----- 
@@ -896,6 +912,32 @@ void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const
     Sidechain::AddSidechainOutsToJSON(*this, entry);
 }
 
+bool CTransactionBase::VerifyScript(
+        const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
+        bool cacheStore, ScriptError* serror) const
+{
+    if (nIn >= GetVin().size() )
+        return ::error("%s:%d can not verify Signature: nIn too large for vin size %d",
+                                       GetHash().ToString(), nIn, GetVin().size());
+
+    const CScript &scriptSig = GetVin()[nIn].scriptSig;
+
+    if (!::VerifyScript(scriptSig, scriptPubKey, nFlags,
+                      //CachingTransactionSignatureChecker(this, nIn, chain, cacheStore),
+                      *MakeSignatureChecker(nIn, chain, cacheStore),
+                      serror))
+    {
+        return ::error("%s:%d VerifySignature failed: %s", GetHash().ToString(), nIn, ScriptErrorString(*serror));
+    }
+
+    return true;
+}
+
+std::shared_ptr<BaseSignatureChecker> CTransaction::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
+{
+    return std::shared_ptr<BaseSignatureChecker>(new CachingTransactionSignatureChecker(this, nIn, chain, cacheStore));
+}
+
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
           const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
           std::vector<CScriptCheck> *pvChecks) const
@@ -903,14 +945,24 @@ bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsVi
     return ::ContextualCheckInputs(*this, state, view, fScriptChecks, chain, flags, cacheStore, consensusParams, pvChecks);
 }
 
-double CTransaction::GetPriority(const CCoinsViewCache &view, int nHeight) const
-{
-    return view.GetPriority(*this, nHeight);
-}
-
 std::string CTransaction::EncodeHex() const
 {
     return EncodeHexTx(*this);
+}
+
+bool CTransaction::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
+    bool* pfMissingInputs, bool fRejectAbsurdFee) const
+{
+    return ::AcceptToMemoryPool(pool, state, *this, fLimitFree, pfMissingInputs, fRejectAbsurdFee);
+}
+
+void CTransaction::Relay() const { ::Relay(*this); }
+
+unsigned int CTransaction::GetSerializeSizeBase(int nType, int nVersion) const { return this->GetSerializeSize(nType, nVersion);}
+
+std::shared_ptr<const CTransactionBase>
+CTransaction::MakeShared() const {
+    return std::shared_ptr<const CTransactionBase>(new CTransaction(*this));
 }
 
 #endif // BITCOIN_TX

@@ -70,7 +70,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
 
     static const int SC_MIN_WITHDRAWAL_EPOCH_LENGTH = getScMinWithdrawalEpochLength();
 
-    for (const auto& sc : tx.vsc_ccout)
+    for (const auto& sc : tx.GetVscCcOut())
     {
         if (sc.withdrawalEpochLength < SC_MIN_WITHDRAWAL_EPOCH_LENGTH)
         {
@@ -89,7 +89,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
         }
     }
 
-    for (const auto& ft : tx.vft_ccout)
+    for (const auto& ft : tx.GetVftCcOut())
     {
         if (!ft.CheckAmountRange(cumulatedAmount) )
         {
@@ -105,7 +105,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
 
 bool Sidechain::anyForwardTransaction(const CTransaction& tx, const uint256& scId)
 {
-    BOOST_FOREACH(const auto& fwd, tx.vft_ccout)
+    BOOST_FOREACH(const auto& fwd, tx.GetVftCcOut())
     {
         if (fwd.scId == scId)
         {
@@ -117,7 +117,7 @@ bool Sidechain::anyForwardTransaction(const CTransaction& tx, const uint256& scI
 
 bool Sidechain::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
 {
-    BOOST_FOREACH(const auto& sc, tx.vsc_ccout)
+    BOOST_FOREACH(const auto& sc, tx.GetVscCcOut())
     {
         if (sc.scId == scId)
         {
@@ -140,34 +140,13 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
         return state.DoS(100, error("version too low"), REJECT_INVALID, "bad-cert-version-too-low");
     }
 
-    if (!MoneyRange(cert.totalAmount))
+    if (!MoneyRange(cert.GetValueOfBackwardTransfers()))
     {
         LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate amount is outside range\n",
             __func__, __LINE__, certHash.ToString() );
         return state.DoS(100, error("%s: certificate amount is outside range",
             __func__), REJECT_INVALID, "sidechain-bwd-transfer-amount-outside-range");
     }
-
-    if (cert.totalAmount != cert.GetValueOfBackwardTransfers())
-    {
-        LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate amount %s is different than the sum of outputs %s\n",
-            __func__, __LINE__, certHash.ToString(), cert.totalAmount, cert.GetValueOfBackwardTransfers() );
-        return state.DoS(100, error("%s: certificate amount is different than the sum of its outputs",
-            __func__), REJECT_INVALID, "sidechain-bwd-transfer-amount-invalid");
-    }
-
-    CAmount minimumFee = ::minRelayTxFee.GetFee(cert.CalculateSize());
-    CAmount fee = cert.fee;
-
-    if ( fee < minimumFee)
-    {
-        LogPrint("sc", "%s():%d - Invalid cert[%s] : fee %s is less than minimum: %s\n",
-            __func__, __LINE__, cert.GetHash().ToString(), FormatMoney(fee), FormatMoney(minimumFee) );
-
-        return state.DoS(100, error("invalid amount or fee"), REJECT_INVALID, "bad-cert-amount-or-fee");
-    }
-
-    // TODO cert: add check on vbt_ccout whenever they have data
 
     return true;
 }

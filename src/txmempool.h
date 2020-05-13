@@ -95,13 +95,13 @@ class CBlockPolicyEstimator;
 class CInPoint
 {
 public:
-    const CTransaction* ptx;
+    const CTransactionBase* ptx;
     uint32_t n;
 
     CInPoint() { SetNull(); }
-    CInPoint(const CTransaction* ptxIn, uint32_t nIn) { ptx = ptxIn; n = nIn; }
-    void SetNull() { ptx = NULL; n = (uint32_t) -1; }
-    bool IsNull() const { return (ptx == NULL && n == (uint32_t) -1); }
+    CInPoint(const CTransactionBase* ptxIn, uint32_t nIn): ptx(ptxIn), n(nIn) { }
+    void SetNull() { ptx = nullptr; n = (uint32_t) -1; }
+    bool IsNull() const { return (ptx == nullptr && n == (uint32_t) -1); }
     size_t DynamicMemoryUsage() const { return 0; }
 };
 
@@ -137,6 +137,9 @@ private:
     uint64_t cachedInnerUsage; //! sum of dynamic memory usage of all the map elements (NOT the maps themselves)
 
     void removeInternal(std::deque<uint256>& objToRemove, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive, bool removeDependantFwds = true);
+    bool addToListForRemovalImmatureExpenditures(
+        const CTransactionBase& txBase, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, 
+        std::list<const CTransactionBase*>& transactionsToRemove);
 
 public:
     mutable CCriticalSection cs;
@@ -150,6 +153,10 @@ public:
     CTxMemPool(const CFeeRate& _minRelayFee);
     ~CTxMemPool();
 
+    CTxMemPool(const CTxMemPool& ) = delete;
+    CTxMemPool(CTxMemPool& ) = delete;
+    CTxMemPool& operator=(const CTxMemPool& ) = delete;
+
     /**
      * If sanity-checking is turned on, check makes sure the pool is
      * consistent (does not contain two transactions that spend the same inputs,
@@ -162,20 +169,20 @@ public:
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
-    void remove(const CTransaction   &origTx,   std::list<CTransaction>& removedTxs, bool fRecursive = false, bool removeDependantFwds = true);
-    void remove(const CScCertificate &origCert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false, bool removeDependantFwds = true);
+    void remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false, bool removeDependantFwds = true);
 
     void removeWithAnchor(const uint256 &invalidRoot);
+
     void removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
 
-    void removeConflicts(const CTransaction &tx, std::list<CTransaction>& removedTxs);
+    void removeConflicts(const CTransaction &tx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
     void removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
-                        std::list<CTransaction>& conflictingTxs, bool fCurrentEstimate = true);
+                        std::list<CTransaction>& conflictingTxs, std::list<CScCertificate>& removedCerts, bool fCurrentEstimate = true);
 
     void removeConflicts(const CScCertificate &cert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
     void removeOutOfEpochCertificates(const CBlockIndex* pindexDelete);
     void removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight,
-                        std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fCurrentEstimate = true);
+                        std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
 
     void clear();
     void queryHashes(std::vector<uint256>& vtxid);
@@ -190,8 +197,8 @@ public:
 
     /** Affect CreateNewBlock prioritisation of transactions */
     void PrioritiseTransaction(const uint256& hash, const std::string& strHash, double dPriorityDelta, const CAmount& nFeeDelta);
-    void ApplyDeltas(const uint256 hash, double &dPriorityDelta, CAmount &nFeeDelta);
-    void ClearPrioritisation(const uint256 hash);
+    void ApplyDeltas(const uint256& hash, double &dPriorityDelta, CAmount &nFeeDelta);
+    void ClearPrioritisation(const uint256& hash);
 
     unsigned long sizeTx()
     {
