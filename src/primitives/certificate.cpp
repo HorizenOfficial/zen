@@ -45,7 +45,7 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert) {
     return *this;
 }
 
-CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0) {
+CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0), quality(0) {
     // call explicitly the copy of members of virtual base class
     *const_cast<int32_t*>(&nVersion) = cert.nVersion;
     *const_cast<std::vector<CTxIn>*>(&vin) = cert.vin;

@@ -1,11 +1,10 @@
-#ifndef _VERIFIER_UTILS_H
-#define _VERIFIER_UTILS_H
+#ifndef _TEMP_ZENDOO_MC_H
+#define _TEMP_ZENDOO_MC_H
 
 #include <stdlib.h>
 #include <stdint.h>
 
-typedef struct backward_transfer
-{
+typedef struct backward_transfer{
   unsigned char pk_dest[20];
   uint64_t amount;
 } backward_transfer_t;
@@ -24,7 +23,9 @@ field_t* zendoo_deserialize_field(const unsigned char* field_bytes);
 
 void zendoo_field_free(field_t* field);
 
-sc_vk_t* zendoo_deserialize_sc_vk_from_file(const path_char_t* vk_path, size_t vk_path_len);
+sc_vk_t* zendoo_deserialize_sc_vk_from_file(
+        const path_char_t* vk_path,
+        size_t vk_path_len);
 
 void zendoo_sc_vk_free(sc_vk_t* sc_vk);
 
@@ -41,6 +42,7 @@ bool zendoo_verify_sc_proof(
     const field_t* constant,
     const field_t* proofdata,
     const sc_proof_t* sc_proof,
-    const sc_vk_t* sc_vk);
+    const sc_vk_t* sc_vk
+);
 
-#endif // _VERIFIER_UTILS_H
+#endif // _TEMP_ZENDOO_MC_H
