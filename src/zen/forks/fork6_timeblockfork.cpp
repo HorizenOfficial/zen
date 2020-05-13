@@ -7,9 +7,9 @@ namespace zen {
 
 TimeBlockFork::TimeBlockFork()
 {
-    setHeightMap({{CBaseChainParams::Network::MAIN,900000},
+    setHeightMap({{CBaseChainParams::Network::MAIN,740600},
                   {CBaseChainParams::Network::REGTEST,250},
-                  {CBaseChainParams::Network::TESTNET,500000}});
+                  {CBaseChainParams::Network::TESTNET,651100}});
 }
 
 

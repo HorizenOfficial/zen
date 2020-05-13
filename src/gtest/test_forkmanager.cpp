@@ -182,8 +182,8 @@ TEST(ForkManager, FutureTimeStampMainet) {
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(2), false);
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(110001), false);
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(455555), false);
-	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(899999), false);
-	int futureTimeStampActivation = 900000;
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(740599), false);
+	int futureTimeStampActivation = 740600;
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation), true);
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation+144), true);
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation+576), true);
@@ -200,8 +200,8 @@ TEST(ForkManager, FutureTimeStampTestnet) {
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(2), false);
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(70001), false);
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(369900), false);
-	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(499999), false);
-	int futureTimeStampActivation = 500000;
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(651099), false);
+	int futureTimeStampActivation = 651100;
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation), true);
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation+144), true);
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation+576), true);
