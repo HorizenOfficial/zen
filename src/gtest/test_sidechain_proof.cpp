@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 #include <sc/sidechain.h>
 #include <sc/proofverifier.h>
-#include <sc/verifierutils.h>
 #include <main.h>
 #include <primitives/certificate.h>
+#include <sc/TEMP_zendooInterface.h>
 
 ////////////// MOCKS
 class CFaultyVerifyClass : public libzendoomc::CVerifyFunction {

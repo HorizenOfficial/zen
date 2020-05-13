@@ -1,8 +1,8 @@
 #ifndef _SC_PROOF_VERIFIER_H
 #define _SC_PROOF_VERIFIER_H
 
+#include <sc/TEMP_zendooInterface.h>
 #include <vector>
-#include <sc/verifierutils.h>
 class CSidechain;
 class CScCertificate;
 
