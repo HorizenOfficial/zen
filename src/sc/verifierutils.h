@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-typedef struct backward_transfer{
+typedef struct backward_transfer
+{
   unsigned char pk_dest[20];
   uint64_t amount;
 } backward_transfer_t;
@@ -19,28 +20,17 @@ typedef struct sc_vk sc_vk_t;
     typedef uint8_t path_char_t;
 #endif
 
-field_t* zendoo_deserialize_field(const unsigned char* field_bytes) 
-{
-    return nullptr;
-}
+field_t* zendoo_deserialize_field(const unsigned char* field_bytes);
 
-void zendoo_field_free(field_t* field){ field = nullptr; }
+void zendoo_field_free(field_t* field);
 
-sc_vk_t* zendoo_deserialize_sc_vk_from_file(
-        const path_char_t* vk_path,
-        size_t vk_path_len)
-{    
-    return nullptr;
-}
+sc_vk_t* zendoo_deserialize_sc_vk_from_file(const path_char_t* vk_path, size_t vk_path_len);
 
-void zendoo_sc_vk_free(sc_vk_t* sc_vk) { sc_vk = nullptr; }
+void zendoo_sc_vk_free(sc_vk_t* sc_vk);
 
-sc_proof_t* zendoo_deserialize_sc_proof(const unsigned char* sc_proof_bytes)
-{
-    return nullptr;
-}
+sc_proof_t* zendoo_deserialize_sc_proof(const unsigned char* sc_proof_bytes);
 
-void zendoo_sc_proof_free(sc_proof_t* sc_proof){ sc_proof = nullptr; }
+void zendoo_sc_proof_free(sc_proof_t* sc_proof);
 
 bool zendoo_verify_sc_proof(
     const unsigned char* end_epoch_mc_b_hash,
@@ -51,7 +41,6 @@ bool zendoo_verify_sc_proof(
     const field_t* constant,
     const field_t* proofdata,
     const sc_proof_t* sc_proof,
-    const sc_vk_t* sc_vk
-) { return true; }
+    const sc_vk_t* sc_vk);
 
 #endif // _VERIFIER_UTILS_H

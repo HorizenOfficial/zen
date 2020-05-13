@@ -1,15 +1,14 @@
 #include <gtest/gtest.h>
 #include <sc/sidechain.h>
 #include <sc/proofverifier.h>
+#include <sc/verifierutils.h>
 #include <main.h>
 #include <primitives/certificate.h>
 
-using namespace libzendoomc;
-
 ////////////// MOCKS
-class CFaultyVerifyClass : public CVerifyFunction {
+class CFaultyVerifyClass : public libzendoomc::CVerifyFunction {
 public:
-    bool run(const CProofVerificationContext& params){
+    bool run(const libzendoomc::CProofVerificationContext& params){
         if (!checkInputsParameters(params))
             return false;
 
@@ -31,9 +30,9 @@ private:
     ) {return false;}
 } globalObj_FaultyProof;
 
-class CGoodVerifyClass : public CVerifyFunction {
+class CGoodVerifyClass : public libzendoomc::CVerifyFunction {
 public:
-    bool run(const CProofVerificationContext& params) {
+    bool run(const libzendoomc::CProofVerificationContext& params) {
         if (!checkInputsParameters(params))
             return false;
 
@@ -41,8 +40,6 @@ public:
                                          params.bt_list, params.bt_list_len, params.quality,
                                          params.constant, params.proofdata, params.sc_proof, params.sc_vk);
     }
-protected:
-   bool checkInputsParameters(const CProofVerificationContext& params) const { return true; }
 private:
     bool YES_zendoo_verify_sc_proof(
         const unsigned char* end_epoch_mc_b_hash,
@@ -60,7 +57,7 @@ private:
 
 ///////////////// TESTS
 TEST(ScVerification, Verifier_ChangeVerifyFunction) {
-    CProofVerifier verifier;
+    libzendoomc::CProofVerifier verifier;
     verifier.setVerifyFunction(&globalObj_GoodProof);
 
     CSidechain dummyInfo;
@@ -94,14 +91,14 @@ TEST(ScVerification, Verifier_HardcodedContext) {
     uint64_t quality = 2;
 
     //Create dummy bt
-    size_t bt_list_len = 10;
+    constexpr int bt_list_len = 10;
     const backward_transfer_t bt_list[bt_list_len] = { {0}, 0 };
 
-    const CProofVerificationContext& ctx = CProofVerificationContext(
+    const libzendoomc::CProofVerificationContext& ctx = libzendoomc::CProofVerificationContext(
         end_epoch_mc_b_hash, prev_end_epoch_mc_b_hash, bt_list, bt_list_len,
         quality, zendoo_deserialize_field(constant_bytes), nullptr, nullptr, nullptr);
 
-    CProofVerifier verifier;
+    libzendoomc::CProofVerifier verifier;
     verifier.setVerifyFunction(&globalObj_GoodProof);
     verifier.setVerificationContext(ctx);
 }
