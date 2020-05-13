@@ -18,59 +18,15 @@ namespace libzendoomc{
 
     typedef std::vector<unsigned char> ScProof;
     typedef std::vector<unsigned char> ScVk;
+    typedef boost::variant<CScCertificate> CScProofVerificationContext;
 
-    /* 
-     * Abstract class holding eveything needed to verify a specific kind of ScProof, including the proof
-     * and the verification key themselves. The class doesn't know how to verify the corresponding proof:
-     * the verification is delegated to a visitor class CScProofVerifier, to which this class must provide
-     * all the needed data to perform the verification itself.
-     */
-    class CScProofVerificationContext {
-        public:
-
-            /* Verifies the data provided by this class using the specified verifier */
-            virtual bool verify(const class CScProofVerifier& verifier) const = 0;
-    };
-
-    /* Class holding everything needed to verify a WCertScProof. The built-in struct is resettable
-     * in order to allow reusing the same instance to verify multiple proofs (TODO: Is this really needed ?)
-     */
-    class CWCertProofVerificationContext: public CScProofVerificationContext {
-        public:
-            struct CWCertProofParameters {
-                const unsigned char* end_epoch_mc_b_hash;
-                const unsigned char* prev_end_epoch_mc_b_hash;
-                const backward_transfer_t* bt_list;
-                size_t bt_list_len;
-                uint64_t quality;
-                const field_t* constant; 
-                const field_t* proofdata; 
-                const sc_proof_t* sc_proof; 
-                const sc_vk_t* sc_vk; 
-            } params;
-
-            ~CWCertProofVerificationContext();
-
-            /* Updates CWCertProofParameters according to scInfo and scCert */
-            bool updateParameters(CSidechain& scInfo, CScCertificate& scCert);
-
-            /* Validates correctness of CWCertProofParameters */
-            bool checkParameters() const;
-
-            /* Free the memory from CWCertProofParameters*/
-            void reset();
-
-            /* Verify CWCertProofParameters using verifier */
-            bool verify(const CScProofVerifier& verifier) const override;
-
-        private:
-            void setNull();
-    };
-
-    class CScProofVerifier {
+    class CScProofVerifier : public boost::static_visitor<bool> {
         private:
             bool perform_verification;
-            CScProofVerifier(bool perform_verification) : perform_verification(perform_verification) {}
+            CSidechain* scInfo;
+            CScProofVerifier(bool perform_verification): perform_verification(perform_verification), scInfo(nullptr) {}
+            CScProofVerifier(bool perform_verification, CSidechain* scInfo) :
+                perform_verification(perform_verification), scInfo(scInfo) {}
 
         public:
             // CScProofVerifier should never be copied
@@ -79,17 +35,22 @@ namespace libzendoomc{
             CScProofVerifier(CScProofVerifier&&);
             CScProofVerifier& operator=(CScProofVerifier&&);
 
-            // Creates a verification context that strictly verifies
-            // all proofs using zendoo-mc-cryptolib's API.
-            static CScProofVerifier Strict(){ return CScProofVerifier(true); }
+            // Creates a verification context that strictly verifies all proofs using zendoo-mc-cryptolib's API.
+            static CScProofVerifier Strict(CSidechain* scInfo){ return CScProofVerifier(true, scInfo); }
 
-            // Creates a verifier that performs no
-            // verification, used when avoiding duplicate effort
+            // Creates a verifier that performs no verification, used when avoiding duplicate effort
             // such as during reindexing.
             static CScProofVerifier Disabled() { return CScProofVerifier(false); }
 
             // Visitor functions
-            bool verify(const CWCertProofVerificationContext& wCertCtx) const;
+
+            // Returns false if proof verification has failed or deserialization of certificate's elements
+            // into libzendoomc's elements has failed. The error variable set by libzendoomc can be checked
+            // outside. The function assumes scInfo and scCert already checked to be non null and 
+            // "semantically valid". (The alternative is to pass a CValidationState to the constructor of
+            // this class and log both libzendoomc errors or errors related to scInfo and scCert be malformed;
+            // probably the easiest solution).
+            bool operator()(const CScCertificate& scCert) const;
     };
 
 }

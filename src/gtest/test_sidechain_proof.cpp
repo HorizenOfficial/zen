@@ -5,49 +5,40 @@
 #include <primitives/certificate.h>
 #include <sc/TEMP_zendooInterface.h>
 
+bool verify(const libzendoomc::CScProofVerifier& verifier, const libzendoomc::CScProofVerificationContext& ctx){
+    return boost::apply_visitor(verifier, ctx);
+}
+
 TEST(ScProofVerification, DISABLED_Verifier_WCertProof_PositiveVerification) {
-    auto verifier = libzendoomc::CScProofVerifier::Strict();
-    
     CSidechain realInfo;
     CScCertificate realCert;
-    libzendoomc::CWCertProofVerificationContext wCertCtx;
-
-    wCertCtx.updateParameters(realInfo, realCert);
-    EXPECT_TRUE(wCertCtx.checkParameters());
-    EXPECT_TRUE(wCertCtx.verify(verifier));
+    auto verifier = libzendoomc::CScProofVerifier::Strict(&realInfo);
+    EXPECT_TRUE(verify(verifier, realCert));
 }
 
 TEST(ScProofVerification, DISABLED_Verifier_WCertProof_NegativeVerification) {
-
-    auto verifier_strict = libzendoomc::CScProofVerifier::Strict();
-    auto verifier_disabled = libzendoomc::CScProofVerifier::Disabled();
-    
     CSidechain dummyInfo;
     CScCertificate dummyCert;
-    libzendoomc::CWCertProofVerificationContext wCertCtx;
 
-    wCertCtx.updateParameters(dummyInfo, dummyCert);
-    EXPECT_FALSE(wCertCtx.checkParameters());
-    EXPECT_FALSE(wCertCtx.verify(verifier_strict));
-    EXPECT_TRUE(wCertCtx.verify(verifier_disabled));
+    auto verifier_strict = libzendoomc::CScProofVerifier::Strict(&dummyInfo);
+    auto verifier_disabled = libzendoomc::CScProofVerifier::Disabled();
+    
+    EXPECT_FALSE(verify(verifier_strict, dummyCert));
+    EXPECT_TRUE(verify(verifier_disabled, dummyCert));
 }
 
 TEST(ScProofVerification, DISABLED_Verifier_WCertProof_MixedVerification) {
-
-    auto verifier_strict = libzendoomc::CScProofVerifier::Strict();
-    auto verifier_disabled = libzendoomc::CScProofVerifier::Disabled();
-    
     CSidechain dummyInfo, realInfo;
     CScCertificate dummyCert, realCert;
-    libzendoomc::CWCertProofVerificationContext wCertCtx;
 
-    wCertCtx.updateParameters(dummyInfo, realCert);
-    EXPECT_FALSE(wCertCtx.checkParameters());
-    EXPECT_FALSE(wCertCtx.verify(verifier_strict));
-    EXPECT_TRUE(wCertCtx.verify(verifier_disabled));
+    auto verifier_strict = libzendoomc::CScProofVerifier::Strict(&dummyInfo);
+    auto verifier_disabled = libzendoomc::CScProofVerifier::Disabled();
+    
+    EXPECT_FALSE(verify(verifier_strict, realCert));
+    EXPECT_TRUE(verify(verifier_disabled, realCert));
 
-    wCertCtx.updateParameters(realInfo, dummyCert);
-    EXPECT_FALSE(wCertCtx.checkParameters());
-    EXPECT_FALSE(wCertCtx.verify(verifier_strict));
-    EXPECT_TRUE(wCertCtx.verify(verifier_disabled));
+    auto verifier_strict_new = libzendoomc::CScProofVerifier::Strict(&realInfo);
+
+    EXPECT_FALSE(verify(verifier_strict_new, dummyCert));
+    EXPECT_TRUE(verify(verifier_disabled, dummyCert));
 }
