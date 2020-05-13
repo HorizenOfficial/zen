@@ -274,12 +274,7 @@ libbitcoin_server_a_SOURCES = \
   sc/proofverifier.cpp \
   sc/sidechain.cpp \
   sc/sidechainrpc.cpp \
-<<<<<<< HEAD
-=======
-  sc/proofverifier.cpp \
   sc/TEMP_zendooInterface.cpp \
-  script/sigcache.cpp \
->>>>>>> Minor include cleanup + filename refactoring
   timedata.cpp \
   torcontrol.cpp \
   txdb.cpp \
