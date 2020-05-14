@@ -556,7 +556,6 @@ public:
     int prepStageLength; 
     int certGroupSize;
     unsigned char feePct;
-    CAmount certLockAmount;
     CAmount minBkwTransferAmount;
 */
 
