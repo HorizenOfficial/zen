@@ -410,7 +410,7 @@ public:
     virtual bool GetCeasingScs(int height, CCeasingSidechains& ceasingScs) const;
 
     //! Retrieve all the known sidechain ids
-    virtual void queryScIds(std::set<uint256>& scIdsList) const;
+    virtual void GetScIds(std::set<uint256>& scIdsList) const;
 
     //! just check whether we have data for a certificate in a given epoch for given sidechain
     virtual bool HaveCertForEpoch(const uint256& scId, int epochNumber) const;
@@ -455,7 +455,7 @@ public:
     bool GetSidechain(const uint256& scId, CSidechain& info)           const override;
     bool HaveCeasingScs(int height)                                    const override;
     bool GetCeasingScs(int height, CCeasingSidechains& ceasingScs)     const override;
-    void queryScIds(std::set<uint256>& scIdsList)                      const override;
+    void GetScIds(std::set<uint256>& scIdsList)                        const override;
     bool HaveCertForEpoch(const uint256& scId, int epochNumber)        const override;
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
@@ -571,7 +571,7 @@ public:
     //SIDECHAIN RELATED PUBLIC MEMBERS
     bool HaveSidechain(const uint256& scId)                           const override;
     bool GetSidechain(const uint256 & scId, CSidechain& targetScInfo) const override;
-    void queryScIds(std::set<uint256>& scIdsList)                     const override;
+    void GetScIds(std::set<uint256>& scIdsList)                       const override;
     bool HaveScRequirements(const CTransaction& tx, int height);
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);

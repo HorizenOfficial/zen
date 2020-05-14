@@ -164,7 +164,7 @@ bool CCoinsView::HaveSidechain(const uint256& scId)                            c
 bool CCoinsView::GetSidechain(const uint256& scId, CSidechain& info)           const { return false; }
 bool CCoinsView::HaveCeasingScs(int height)                                    const { return false; }
 bool CCoinsView::GetCeasingScs(int height, CCeasingSidechains& ceasingScs)     const { return false; }
-void CCoinsView::queryScIds(std::set<uint256>& scIdsList)                      const { scIdsList.clear(); return; }
+void CCoinsView::GetScIds(std::set<uint256>& scIdsList)                        const { scIdsList.clear(); return; }
 bool CCoinsView::HaveCertForEpoch(const uint256& scId, int epochNumber)        const { return false; }
 uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
 uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
@@ -185,7 +185,7 @@ bool CCoinsViewBacked::HaveSidechain(const uint256& scId)                       
 bool CCoinsViewBacked::GetSidechain(const uint256& scId, CSidechain& info)           const { return base->GetSidechain(scId,info); }
 bool CCoinsViewBacked::HaveCeasingScs(int height)                                    const { return base->HaveCeasingScs(height); }
 bool CCoinsViewBacked::GetCeasingScs(int height, CCeasingSidechains& ceasingScs)     const { return base->GetCeasingScs(height, ceasingScs); }
-void CCoinsViewBacked::queryScIds(std::set<uint256>& scIdsList)                      const { return base->queryScIds(scIdsList); }
+void CCoinsViewBacked::GetScIds(std::set<uint256>& scIdsList)                        const { return base->GetScIds(scIdsList); }
 bool CCoinsViewBacked::HaveCertForEpoch(const uint256& scId, int epochNumber)        const { return base->HaveCertForEpoch(scId, epochNumber); }
 uint256 CCoinsViewBacked::GetBestBlock()                                             const { return base->GetBestBlock(); }
 uint256 CCoinsViewBacked::GetBestAnchor()                                            const { return base->GetBestAnchor(); }
@@ -593,9 +593,9 @@ bool CCoinsViewCache::GetSidechain(const uint256 & scId, CSidechain& targetScInf
     return false;
 }
 
-void CCoinsViewCache::queryScIds(std::set<uint256>& scIdsList) const
+void CCoinsViewCache::GetScIds(std::set<uint256>& scIdsList) const
 {
-    base->queryScIds(scIdsList);
+    base->GetScIds(scIdsList);
 
     // Note that some of the values above may have been erased in current cache.
     // Also new id may be in current cache but not in persisted
@@ -758,7 +758,7 @@ bool CCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo
          __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
     std::set<uint256> allKnowScIds;
-    queryScIds(allKnowScIds);
+    GetScIds(allKnowScIds);
     for(auto it_set = allKnowScIds.begin(); it_set != allKnowScIds.end(); ++it_set)
     {
         const uint256& scId = *it_set;
@@ -1450,7 +1450,7 @@ bool CCoinsViewCache::DecrementImmatureAmount(const uint256& scId, CSidechain& t
 void CCoinsViewCache::Dump_info() const
 {
     std::set<uint256> scIdsList;
-    queryScIds(scIdsList);
+    GetScIds(scIdsList);
     LogPrint("sc", "-- number of side chains found [%d] ------------------------\n", scIdsList.size());
     for(const auto& scId: scIdsList)
     {
