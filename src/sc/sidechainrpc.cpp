@@ -40,20 +40,6 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
     }
     parentObj.push_back(Pair("vsc_ccout", vscs));
 
-    UniValue vcls(UniValue::VARR);
-    for (unsigned int i = 0; i < tx.GetVclCcOut().size(); i++) {
-        const CTxCertifierLockOut& out = tx.GetVclCcOut()[i];
-        UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("scid", out.scId.GetHex()));
-        o.push_back(Pair("value", ValueFromAmount(out.nValue)));
-        o.push_back(Pair("n", (int64_t)nIdx));
-        o.push_back(Pair("address", out.address.GetHex()));
-        o.push_back(Pair("active from withdrawal epoch", out.activeFromWithdrawalEpoch));
-        vcls.push_back(o);
-        nIdx++;
-    }
-    parentObj.push_back(Pair("vcl_ccout", vcls));
-
     UniValue vfts(UniValue::VARR);
     for (unsigned int i = 0; i < tx.GetVftCcOut().size(); i++) {
         const CTxForwardTransferOut& out = tx.GetVftCcOut()[i];
@@ -226,17 +212,6 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& 
         vecCcSend.push_back(CcRecipientVariant(sc));
     }
 
-    BOOST_FOREACH(const auto& entry, tx.GetVclCcOut())
-    {
-        CRecipientCertLock cl;
-        cl.scId = entry.scId;
-        cl.nValue = entry.nValue;
-        cl.address = entry.address;
-        cl.epoch = entry.activeFromWithdrawalEpoch;
-
-        vecCcSend.push_back(CcRecipientVariant(cl));
-    }
-
     BOOST_FOREACH(const auto& entry, tx.GetVftCcOut())
     {
         CRecipientForwardTransfer ft;
@@ -261,17 +236,6 @@ bool CRecipientHandler::handle(const CRecipientScCreation& r)
 {
     CTxScCreationOut txccout(r.scId, r.nValue, r.address, r.creationData);
     // no dust can be found in sc creation
-    return txBase->add(txccout);
-};
-
-bool CRecipientHandler::handle(const CRecipientCertLock& r)
-{
-    CTxCertifierLockOut txccout(r.scId, r.nValue, r.address, r.epoch);
-    if (txccout.IsDust(::minRelayTxFee))
-    {
-        err = _("Transaction amount too small");
-        return false;
-    }
     return txBase->add(txccout);
 };
 

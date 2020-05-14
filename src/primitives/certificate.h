@@ -99,7 +99,6 @@ public:
 
     //GETTERS
     const std::vector<CTxScCreationOut>&      GetVscCcOut()   const override {static const  std::vector<CTxScCreationOut> noVsc; return noVsc; }
-    const std::vector<CTxCertifierLockOut>&   GetVclCcOut()   const override {static const  std::vector<CTxCertifierLockOut> noVcl; return noVcl; }
     const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const override {static const  std::vector<CTxForwardTransferOut> noVft; return noVft; }
     const std::vector<JSDescription>&         GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
     const uint256&                            GetScId()       const override {return scId;};
