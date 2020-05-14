@@ -2065,10 +2065,11 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
     }
 
     // add outputs
-    LogPrint("cert", "%s():%d - adding outputs of tx[%s] to coins\n", __func__, __LINE__, txBase.GetHash().ToString());
-    inputs.ModifyCoins(txBase.GetHash())->FromTx(txBase, nHeight);
-    LogPrint("cert", "%s():%d - Exiting: txBase[%s] - coins %s\n",
-        __func__, __LINE__, txBase.GetHash().ToString(), inputs.ModifyCoins(txBase.GetHash())->ToString() );
+    if (txBase.IsCertificate())
+        inputs.ModifyCoins(txBase.GetHash())->From(*dynamic_cast<const CScCertificate*>(&txBase), nHeight, /*bwtMaturityHeight*/0 );
+    else
+        inputs.ModifyCoins(txBase.GetHash())->From(*dynamic_cast<const CTransaction*>(&txBase), nHeight);
+
 }
 
 void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoinsViewCache &inputs, int nHeight)
