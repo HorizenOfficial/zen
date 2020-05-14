@@ -58,8 +58,8 @@ AsyncRPCOperation_sendmany::AsyncRPCOperation_sendmany(
         int minDepth,
         CAmount fee,
         UniValue contextInfo,
-        bool changeAddress) :
-        tx_(contextualTx), fromaddress_(fromAddress), t_outputs_(tOutputs), z_outputs_(zOutputs), mindepth_(minDepth), fee_(fee), contextinfo_(contextInfo), changeAddress_(changeAddress)
+        bool sendChangeToSource) :
+        tx_(contextualTx), fromaddress_(fromAddress), t_outputs_(tOutputs), z_outputs_(zOutputs), mindepth_(minDepth), fee_(fee), contextinfo_(contextInfo), sendChangeToSource_(sendChangeToSource)
 {
     assert(fee_ >= 0);
 
@@ -353,7 +353,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         CAmount change = funds - fundsSpent;
 
         if (change > 0) {
-            add_taddr_change_output_to_tx(change, changeAddress_);
+            add_taddr_change_output_to_tx(change, sendChangeToSource_);
 
             LogPrint("zrpc", "%s: transparent change in transaction output (amount=%s)\n",
                     getId(),
@@ -434,7 +434,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
                     "allow any change as there is currently no way to specify a change address "
                     "in z_sendmany.", FormatMoney(change)));
             } else {
-                add_taddr_change_output_to_tx(change, changeAddress_);
+                add_taddr_change_output_to_tx(change, sendChangeToSource_);
                 LogPrint("zrpc", "%s: transparent change in transaction output (amount=%s)\n",
                         getId(),
                         FormatMoney(change)
@@ -1110,13 +1110,13 @@ void AsyncRPCOperation_sendmany::add_taddr_outputs_to_tx() {
     tx_ = CTransaction(rawTx);
 }
 
-void AsyncRPCOperation_sendmany::add_taddr_change_output_to_tx(CAmount amount, bool change) {
+void AsyncRPCOperation_sendmany::add_taddr_change_output_to_tx(CAmount amount, bool sendChangeToSource) {
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     EnsureWalletIsUnlocked();
     CTxOut out;
-    if (change) {
+    if (sendChangeToSource) {
         CScript scriptPubKey = GetScriptForDestination(fromtaddr_.Get());
         out = CTxOut(amount, scriptPubKey);
     }
