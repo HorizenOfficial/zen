@@ -96,6 +96,10 @@ public:
     //! as new tx version will probably only be introduced at certain heights
     int nVersion;
 
+    //! if coin comes from a certificate, nBwtMaturityHeight signals the height at which these output will be mature
+    //! nBwtMaturityHeight will be serialized only for coins from certificate
+    int nBwtMaturityHeight;
+
     //! if coin comes from a bwt, originScId will contain the associated ScId; otherwise it will be null
     //! originScId will be serialized only for coins from bwt, which will be stored in chainstate db under different key
     uint256 originScId;
@@ -107,10 +111,10 @@ public:
 
     //! construct a CCoins from a CTransaction, at a given height
     CCoins(const CTransaction &tx, int nHeightIn);
-    CCoins(const CScCertificate &cert, int nHeightIn);
+    CCoins(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeight = 0);
 
     void From(const CTransaction &tx, int nHeightIn);
-    void From(const CScCertificate &tx, int nHeightIn);
+    void From(const CScCertificate &tx, int nHeightIn, int bwtMaturityHeight = 0);
 
     void Clear();
 
@@ -162,7 +166,8 @@ public:
         nSize += ::GetSerializeSize(VARINT(nHeight), nType, nVersion);
 
         if (this->IsFromCert()) {
-            nSize += ::GetSerializeSize(originScId,      nType,nVersion);
+            nSize += ::GetSerializeSize(originScId, nType,nVersion);
+            nSize += ::GetSerializeSize(nBwtMaturityHeight, nType,nVersion);
 
             unsigned int changeOutputCounter = 0;
             for(const CTxOut& out: vout) {
@@ -171,7 +176,6 @@ public:
                 else
                     break;
             }
-
             nSize += ::GetSerializeSize(changeOutputCounter,nType,nVersion);
         }
 
@@ -209,7 +213,8 @@ public:
         ::Serialize(s, VARINT(nHeight), nType, nVersion);
 
         if (this->IsFromCert()) {
-            ::Serialize(s,originScId,      nType,nVersion);
+            ::Serialize(s,originScId, nType,nVersion);
+            ::Serialize(s,nBwtMaturityHeight, nType,nVersion);
 
             unsigned int changeOutputCounter = 0;
             for(const CTxOut& out: vout) {
@@ -218,7 +223,6 @@ public:
                 else
                     break;
             }
-
             ::Serialize(s,changeOutputCounter,nType,nVersion);
         }
     }
@@ -257,7 +261,8 @@ public:
 
         unsigned int changeOutputCounter = vout.size();
         if (this->IsFromCert()) {
-            ::Unserialize(s, originScId,       nType,nVersion);
+            ::Unserialize(s, originScId, nType,nVersion);
+            ::Unserialize(s, nBwtMaturityHeight, nType,nVersion);
             ::Unserialize(s, changeOutputCounter, nType,nVersion);
         }
 
@@ -266,7 +271,6 @@ public:
                 vout[idx].isFromBackwardTransfer = false;
             else
                 vout[idx].isFromBackwardTransfer = true;
-
 
         Cleanup();
     }

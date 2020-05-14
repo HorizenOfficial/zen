@@ -21,6 +21,7 @@ std::string CCoins::ToString() const
     ret += strprintf("version(%d)", nVersion);
     ret += strprintf("fCoinBase(%d)", fCoinBase);
     ret += strprintf("height(%d)", nHeight);
+    ret += strprintf("nBwtMaturityHeight(%d)", nBwtMaturityHeight);
     for (auto o : vout)
     {
         ret += "    " + o.ToString() + "\n";
@@ -28,11 +29,11 @@ std::string CCoins::ToString() const
     return ret;
 }
 
-CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), originScId() { }
+CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), nBwtMaturityHeight(0), originScId() { }
 
 CCoins::CCoins(const CTransaction &tx, int nHeightIn) { From(tx, nHeightIn); }
 
-CCoins::CCoins(const CScCertificate &cert, int nHeightIn) { From(cert, nHeightIn); }
+CCoins::CCoins(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeight) { From(cert, nHeightIn, bwtMaturityHeight); }
 
 void CCoins::From(const CTransaction &tx, int nHeightIn) {
     fCoinBase          = tx.IsCoinBase();
@@ -42,11 +43,12 @@ void CCoins::From(const CTransaction &tx, int nHeightIn) {
     ClearUnspendable();
 }
 
-void CCoins::From(const CScCertificate &cert, int nHeightIn) {
+void CCoins::From(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeight) {
     fCoinBase          = cert.IsCoinBase();
     vout               = cert.GetVout();
     nHeight            = nHeightIn;
     nVersion           = cert.nVersion;
+    nBwtMaturityHeight = bwtMaturityHeight;
     originScId         = cert.GetScId();
     ClearUnspendable();
 }
@@ -56,6 +58,7 @@ void CCoins::Clear() {
     std::vector<CTxOut>().swap(vout);
     nHeight = 0;
     nVersion = 0;
+    nBwtMaturityHeight = 0;
     originScId.SetNull();
 }
 
@@ -80,6 +83,7 @@ void CCoins::swap(CCoins &to) {
     to.vout.swap(vout);
     std::swap(to.nHeight, nHeight);
     std::swap(to.nVersion, nVersion);
+    std::swap(to.nBwtMaturityHeight, nBwtMaturityHeight);
     std::swap(to.originScId, originScId);
 }
 
@@ -87,11 +91,12 @@ bool operator==(const CCoins &a, const CCoins &b) {
      // Empty CCoins objects are always equal.
      if (a.IsPruned() && b.IsPruned())
          return true;
-     return a.fCoinBase  == b.fCoinBase &&
-            a.nHeight    == b.nHeight   &&
-            a.nVersion   == b.nVersion  &&
-            a.vout       == b.vout      &&
-            a.originScId == b.originScId;
+     return a.fCoinBase          == b.fCoinBase &&
+            a.nHeight            == b.nHeight   &&
+            a.nVersion           == b.nVersion  &&
+            a.vout               == b.vout      &&
+            a.nBwtMaturityHeight == b.nBwtMaturityHeight &&
+            a.originScId         == b.originScId;
 }
 
 bool operator!=(const CCoins &a, const CCoins &b) {
@@ -113,7 +118,7 @@ bool CCoins::Spend(uint32_t nPos)
 {
     if (nPos >= vout.size() || vout[nPos].IsNull())
         return false;
-    LogPrint("sc", "%s():%d - @@@@@@@ Spending out[%d], ver=%d, (%s)\n\n", __func__, __LINE__, nPos, nVersion, vout[nPos].ToString());
+
     vout[nPos].SetNull();
     Cleanup();
     return true;
@@ -124,7 +129,7 @@ bool CCoins::IsAvailable(unsigned int nPos) const {
 }
 
 bool CCoins::IsPruned() const {
-    BOOST_FOREACH(const CTxOut &out, vout)
+    for(const CTxOut &out: vout)
         if (!out.IsNull())
             return false;
     return true;
@@ -132,7 +137,7 @@ bool CCoins::IsPruned() const {
 
 size_t CCoins::DynamicMemoryUsage() const {
     size_t ret = memusage::DynamicUsage(vout);
-    BOOST_FOREACH(const CTxOut &out, vout) {
+    for(const CTxOut &out: vout) {
         ret += RecursiveDynamicUsage(out.scriptPubKey);
     }
     return ret;
