@@ -43,7 +43,6 @@ class CRecipientHandler
     bool visit(const CcRecipientVariant& rec);
 
     bool handle(const CRecipientScCreation& r);
-    bool handle(const CRecipientCertLock& r);
     bool handle(const CRecipientForwardTransfer& r);
     bool handle(const CRecipientBackwardTransfer& r);
 };
@@ -63,7 +62,6 @@ class CcRecipientAmountVisitor : public boost::static_visitor<CAmount>
 {
     public:
     CAmount operator() (const CRecipientScCreation& r) const { return r.nValue; }
-    CAmount operator() (const CRecipientCertLock& r) const { return r.nValue; }
     CAmount operator() (const CRecipientForwardTransfer& r) const { return r.nValue; }
     CAmount operator() (const CRecipientBackwardTransfer& r) const { return r.nValue; }
 };

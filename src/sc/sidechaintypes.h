@@ -75,12 +75,6 @@ struct CRecipientScCreation : public CRecipientCrossChainBase
     ScCreationParameters creationData;
 };
 
-struct CRecipientCertLock : public CRecipientCrossChainBase
-{
-    int64_t epoch;
-    CRecipientCertLock() : epoch(-1) {}
-};
-
 typedef CRecipientCrossChainBase CRecipientForwardTransfer;
 
 struct CRecipientBackwardTransfer
@@ -93,7 +87,6 @@ struct CRecipientBackwardTransfer
 
 typedef boost::variant<
         CRecipientScCreation,
-        CRecipientCertLock,
         CRecipientForwardTransfer,
         CRecipientBackwardTransfer
     > CcRecipientVariant;
