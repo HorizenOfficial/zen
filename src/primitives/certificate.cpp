@@ -17,12 +17,7 @@
 
 CScCertificate::CScCertificate() : CTransactionBase(),
     scId(), epochNumber(EPOCH_NULL), quality(QUALITY_NULL), 
-    endEpochBlockHash()
-    { 
-        libzendoomc::ScProof proof;
-        proof.reserve(libzendoomc::GROTH_PROOF_SIZE);
-        *const_cast<libzendoomc::ScProof*>(&scProof) = proof;
-    }
+    endEpochBlockHash(), scProof() { }
 
 CScCertificate::CScCertificate(const CMutableScCertificate &cert) :
     scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
@@ -269,11 +264,7 @@ int CScCertificate::GetNumbOfBackwardTransfers() const
 //-------------------------------------
 CMutableScCertificate::CMutableScCertificate() :
     scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL),
-    endEpochBlockHash() {
-        libzendoomc::ScProof proof;
-        proof.reserve(libzendoomc::GROTH_PROOF_SIZE);
-        scProof = proof;
-    }
+    endEpochBlockHash(), scProof() { }
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert) :
     scId(cert.GetScId()), epochNumber(cert.epochNumber), quality(cert.quality), 

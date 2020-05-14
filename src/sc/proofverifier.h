@@ -2,7 +2,6 @@
 #define _SC_PROOF_VERIFIER_H
 
 #include <vector>
-#include <sc/TEMP_zendooInterface.h>
 #include <boost/foreach.hpp>
 #include <boost/variant.hpp>
 
@@ -10,11 +9,6 @@ class CSidechain;
 class CScCertificate;
 
 namespace libzendoomc{
-
-    static constexpr size_t GROTH_PROOF_SIZE = (
-        193 +  // π_A
-        385 +  // π_B
-        193);  // π_C
 
     typedef std::vector<unsigned char> ScProof;
     typedef std::vector<unsigned char> ScVk;
@@ -45,11 +39,7 @@ namespace libzendoomc{
             // Visitor functions
 
             // Returns false if proof verification has failed or deserialization of certificate's elements
-            // into libzendoomc's elements has failed. The error variable set by libzendoomc can be checked
-            // outside. The function assumes scInfo and scCert already checked to be non null and 
-            // "semantically valid". (The alternative is to pass a CValidationState to the constructor of
-            // this class and log both libzendoomc errors or errors related to scInfo and scCert be malformed;
-            // probably the easiest solution).
+            // into libzendoomc's elements has failed.
             bool operator()(const CScCertificate& scCert) const;
     };
 

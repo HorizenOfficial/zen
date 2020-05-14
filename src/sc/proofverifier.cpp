@@ -1,20 +1,57 @@
 #include "sc/proofverifier.h"
+#include "sc/TEMP_zendooInterface.h"
 #include "primitives/certificate.h"
+
 #include "main.h"
+
+#include "util.h"
 
 namespace libzendoomc{
 
     bool CScProofVerifier::operator()(const CScCertificate& scCert) const{
         if(perform_verification){
 
-            //Deserialize needed field elements, proof and vk.
-            auto constant = zendoo_deserialize_field(scInfo->creationData.customData.data());
-            auto sc_proof = zendoo_deserialize_sc_proof(scCert.scProof.data());
-            //TODO: Logic for saving vk on file
+            //Deserialize constant
+            field_t* constant;
+            auto constant_bytes = scInfo->creationData.customData;
+            if (!constant_bytes.size() == 0){ //Constant can be optional
+
+                constant = zendoo_deserialize_field(constant_bytes.data()); 
+                if (constant_bytes.size() != zendoo_get_field_size_in_bytes() || //For now constant must be just a single field element
+                    constant == nullptr) {
+
+                    LogPrint("zendoo_mc_cryptolib",
+                            "%s():%d - failed to deserialize \"constant\" from vector of size: %d \n", 
+                            __func__, __LINE__, constant_bytes.size());
+                    return false;
+                }
+            } else {
+                constant = nullptr;
+            }
+
+            //Deserialize proof
+            auto sc_proof_bytes = scCert.scProof;
+            auto sc_proof = zendoo_deserialize_sc_proof(sc_proof_bytes.data());
+            if (sc_proof_bytes.size() != zendoo_get_sc_proof_size() ||
+                sc_proof == nullptr) {
+
+                    LogPrint("zendoo_mc_cryptolib",
+                        "%s():%d - failed to deserialize \"sc_proof\" from vector of size: %d \n", 
+                        __func__, __LINE__, sc_proof_bytes.size());
+                return false;
+            }
+
+            //Deserialize sc_vk
+            //TODO: Insert correct data after having built logic to handle vks
             auto sc_vk = zendoo_deserialize_sc_vk_from_file((path_char_t*)"", 0);
 
-            if (constant == nullptr || sc_proof == nullptr || sc_vk == nullptr)
+            if (sc_vk == nullptr){
+
+                LogPrint("zendoo_mc_cryptolib",
+                    "%s():%d - failed to deserialize \"sc_vk\" \n", 
+                    __func__, __LINE__);
                 return false;
+            }
 
             //Retrieve previous end epoch MC block hash
             //LOCK(cs_main); TODO: Is LOCK needed here ?
@@ -39,6 +76,9 @@ namespace libzendoomc{
                     btListLen += 1;
                 }
             }
+
+            //Retrieve proofdata
+            auto proofdata = nullptr; //Note: For now proofdata is not present in WCert
 
             return zendoo_verify_sc_proof(
                 scCert.endEpochBlockHash.begin(), prev_end_epoch_mc_b_hash, btList.data(),

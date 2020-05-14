@@ -19,6 +19,8 @@ typedef struct sc_vk sc_vk_t;
     typedef uint8_t path_char_t;
 #endif
 
+size_t zendoo_get_field_size_in_bytes(void);
+
 field_t* zendoo_deserialize_field(const unsigned char* field_bytes);
 
 void zendoo_field_free(field_t* field);
@@ -28,6 +30,8 @@ sc_vk_t* zendoo_deserialize_sc_vk_from_file(
         size_t vk_path_len);
 
 void zendoo_sc_vk_free(sc_vk_t* sc_vk);
+
+size_t zendoo_get_sc_proof_size(void);
 
 sc_proof_t* zendoo_deserialize_sc_proof(const unsigned char* sc_proof_bytes);
 
