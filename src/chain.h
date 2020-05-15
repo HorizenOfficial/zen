@@ -18,6 +18,29 @@
 
 static const int SPROUT_VALUE_VERSION = 2001400;
 
+/**
+ * Maximum amount of time that a block timestamp is allowed to be ahead of the
+ * current local time.
+ */
+static const int64_t MAX_FUTURE_BLOCK_TIME_LOCAL = 2 * 60 * 60;
+
+/**
+ * Maximum amount of time that a block timestamp is allowed to be ahead of the
+ * median-time-past of the previous block.
+ */
+static const int64_t MAX_FUTURE_BLOCK_TIME_MTP = 90 * 60;
+
+/**
+ * Timestamp window used as a grace period by code that compares external
+ * timestamps (such as timestamps passed to RPCs, or wallet key creation times)
+ * to block timestamps.
+ */
+static const int64_t TIMESTAMP_WINDOW = MAX_FUTURE_BLOCK_TIME_LOCAL + 60;
+
+BOOST_STATIC_ASSERT(MAX_FUTURE_BLOCK_TIME_LOCAL > MAX_FUTURE_BLOCK_TIME_MTP);
+BOOST_STATIC_ASSERT(TIMESTAMP_WINDOW > MAX_FUTURE_BLOCK_TIME_LOCAL);
+
+
 struct CDiskBlockPos
 {
     int nFile;
