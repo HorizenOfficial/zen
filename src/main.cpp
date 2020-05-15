@@ -2031,13 +2031,13 @@ void static InvalidBlockFound(CBlockIndex *pindex, const CValidationState &state
     }
 }
 
-void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight)
+void UpdateCoins(const CTransaction& tx, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight)
 {
     // mark inputs spent
-    if (!txBase.IsCoinBase())
+    if (!tx.IsCoinBase())
     {
-        txundo.vprevout.reserve(txBase.GetVin().size());
-        for(const CTxIn &txin: txBase.GetVin())
+        txundo.vprevout.reserve(tx.GetVin().size());
+        for(const CTxIn &txin: tx.GetVin())
         {
             CCoinsModifier coins = inputs.ModifyCoins(txin.prevout.hash);
             unsigned nPos = txin.prevout.n;
@@ -2058,17 +2058,44 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
     }
 
     // spend nullifiers
-    for(const JSDescription &joinsplit: txBase.GetVjoinsplit()) {
+    for(const JSDescription &joinsplit: tx.GetVjoinsplit()) {
         for(const uint256 &nf: joinsplit.nullifiers) {
             inputs.SetNullifier(nf, true);
         }
     }
 
     // add outputs
-    if (txBase.IsCertificate())
-        inputs.ModifyCoins(txBase.GetHash())->From(*dynamic_cast<const CScCertificate*>(&txBase), nHeight);
-    else
-        inputs.ModifyCoins(txBase.GetHash())->From(*dynamic_cast<const CTransaction*>(&txBase), nHeight);
+    inputs.ModifyCoins(tx.GetHash())->From(tx, nHeight);
+}
+
+void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight)
+{
+    // mark inputs spent
+    if (!cert.IsCoinBase())
+    {
+        txundo.vprevout.reserve(cert.GetVin().size());
+        for(const CTxIn &txin: cert.GetVin())
+        {
+            CCoinsModifier coins = inputs.ModifyCoins(txin.prevout.hash);
+            unsigned nPos = txin.prevout.n;
+            assert(coins->IsAvailable(nPos));
+
+            // mark an outpoint spent, and construct undo information
+            txundo.vprevout.push_back(CTxInUndo(coins->vout[nPos]));
+            LogPrint("cert", "%s():%d - spending inputs from [%s]\n", __func__, __LINE__, txin.prevout.hash.ToString());
+            coins->Spend(nPos);
+            if (coins->vout.size() == 0 || coins->vout[nPos].isFromBackwardTransfer) {
+                CTxInUndo& undo = txundo.vprevout.back();
+                undo.nHeight = coins->nHeight;
+                undo.fCoinBase = coins->fCoinBase;
+                undo.nVersion = coins->nVersion;
+                undo.originScId = coins->originScId;
+            }
+        }
+    }
+
+    // add outputs
+    inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight);
 
 }
 
@@ -2787,7 +2814,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if (i > 0) {
             blockundo.vtxundo.push_back(CTxUndo());
         }
-        UpdateCoins(tx, state, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
+        UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
 
         if ( i > 0)
         {
@@ -2858,7 +2885,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
 
         blockundo.vtxundo.push_back(CTxUndo());
-        UpdateCoins(cert, state, view, blockundo.vtxundo.back(), pindex->nHeight);
+        UpdateCoins(cert, view, blockundo.vtxundo.back(), pindex->nHeight);
 
         if (!view.UpdateScInfo(cert, blockundo) )
         {

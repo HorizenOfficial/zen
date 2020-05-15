@@ -379,7 +379,8 @@ bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state,
                                 bool (*isInitBlockDownload)() = IsInitialBlockDownload);
 
 /** Apply the effects of this transaction on the UTXO set represented by view */
-void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoinsViewCache &inputs, CTxUndo& txundo, int nHeight);
+void UpdateCoins(const CTransaction& tx, CCoinsViewCache &inputs, CTxUndo& txundo, int nHeight);
+void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo& txundo, int nHeight);
 
 /** Context-independent validity checks */
 bool CheckTransaction(const CTransaction& tx, CValidationState& state, libzcash::ProofVerifier& verifier);

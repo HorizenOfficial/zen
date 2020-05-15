@@ -748,7 +748,7 @@ BOOST_AUTO_TEST_CASE(coins_coinbase_spends)
 
     CValidationState state;
     CTxUndo dummyUndo;
-    UpdateCoins(tx, state, cache, dummyUndo, 100);
+    UpdateCoins(tx, cache, dummyUndo, 100);
 
     // Create coinbase spend
     CMutableTransaction mtx2;

@@ -607,7 +607,10 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 continue;
 
             CTxUndo dummyUndo;
-            UpdateCoins(tx, state, view, dummyUndo, nHeight);
+            if (tx.IsCertificate())
+                UpdateCoins(*dynamic_cast<const CScCertificate*>(&tx), view, dummyUndo, nHeight);
+            else
+                UpdateCoins(*dynamic_cast<const CTransaction*>(&tx), view, dummyUndo, nHeight);
 
             // Added
 #if 0

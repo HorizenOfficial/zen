@@ -725,7 +725,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             CValidationState state;
             assert(::ContextualCheckInputs(tx, state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            UpdateCoins(tx, state, mempoolDuplicate, dummyUndo, 1000000);
+            UpdateCoins(tx, mempoolDuplicate, dummyUndo, 1000000);
         }
     }
 
@@ -782,7 +782,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             // updating coins with cert outputs because the cache is checked below for
             // any tx inputs and maybe some tx has a cert out as its input.
             CTxUndo dummyUndo;
-            UpdateCoins(cert, state, mempoolDuplicate, dummyUndo, 1000000);
+            UpdateCoins(cert, mempoolDuplicate, dummyUndo, 1000000);
         }
     }
 
@@ -799,7 +799,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         } else {
             assert(::ContextualCheckInputs(entry->GetTx(), state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            UpdateCoins(entry->GetTx(), state, mempoolDuplicate, dummyUndo, 1000000);
+            UpdateCoins(entry->GetTx(), mempoolDuplicate, dummyUndo, 1000000);
             stepsSinceLastRemove = 0;
         }
     }
@@ -816,7 +816,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         } else {
             assert(::ContextualCheckInputs(entry->GetCertificate(), state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            UpdateCoins(entry->GetCertificate(), state, mempoolDuplicate, dummyUndo, 1000000);
+            UpdateCoins(entry->GetCertificate(), mempoolDuplicate, dummyUndo, 1000000);
             stepsSinceLastRemoveCert = 0;
         }
     }
