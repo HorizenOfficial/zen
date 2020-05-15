@@ -222,14 +222,26 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                 objToRemove.push_back(it->second.ptx->GetHash());
             }
 
-            for(const auto& sc: origTx.GetVscCcOut()) {
-                if (mapSidechains.count(sc.scId) == 0)
-                    continue;
-                if (removeDependantFwds) {
-                    for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
-                        objToRemove.push_back(fwdTxHash);
-                } else
-                    objToRemove.push_back(mapSidechains.at(sc.scId).scCreationTxHash);
+            if (!origTx.IsCertificate() )
+            {
+                try
+                {
+                    const CTransaction& tx = dynamic_cast<const CTransaction&>(origTx);
+                    for(const auto& sc: tx.GetVscCcOut()) {
+                        if (mapSidechains.count(sc.scId) == 0)
+                            continue;
+                        if (removeDependantFwds) {
+                            for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
+                                objToRemove.push_back(fwdTxHash);
+                        } else
+                            objToRemove.push_back(mapSidechains.at(sc.scId).scCreationTxHash);
+                    }
+                }
+                catch(...)
+                {
+                    // should never happen
+                    LogPrintf("%s():%d - could not make a tx from obj[%s]\n", __func__, __LINE__, origTx.GetHash().ToString());
+                }
             }
         }
         removeInternal(objToRemove, removedTxs, removedCerts, fRecursive, removeDependantFwds);
