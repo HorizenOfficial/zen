@@ -51,18 +51,19 @@ namespace libzendoomc{
     class CScWCertProofVerificationParameters: public CScProofVerificationParameters {
         public:
             CScWCertProofVerificationParameters(const CSidechain& scInfo, const CScCertificate& scCert): 
-                scInfo(scInfo), scCert(scCert) { }
+                scInfo(scInfo), scCert(scCert), end_epoch_mc_b_hash(nullptr), prev_end_epoch_mc_b_hash(nullptr),
+                bt_list(), quality(0), constant(nullptr),
+                proofdata(nullptr), sc_proof(nullptr), sc_vk(nullptr) { };
 
         protected:
-            const unsigned char* end_epoch_mc_b_hash;
-            const unsigned char* prev_end_epoch_mc_b_hash;
-            const backward_transfer_t* bt_list;
-            size_t bt_list_len;
+            unsigned char* end_epoch_mc_b_hash;
+            unsigned char* prev_end_epoch_mc_b_hash;
+            std::vector<backward_transfer_t> bt_list;
             uint64_t quality;
-            const field_t* constant;
-            const field_t* proofdata;
-            const sc_proof_t* sc_proof;
-            const sc_vk_t* sc_vk;
+            field_t* constant;
+            field_t* proofdata;
+            sc_proof_t* sc_proof;
+            sc_vk_t* sc_vk;
 
             const CSidechain& scInfo;
             const CScCertificate& scCert;

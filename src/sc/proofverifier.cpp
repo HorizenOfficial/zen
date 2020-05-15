@@ -30,7 +30,6 @@ namespace libzendoomc{
                 LogPrint("zendoo_mc_cryptolib",
                         "%s():%d - failed to deserialize \"constant\" \n", 
                         __func__, __LINE__);
-                
                 return false;
             }
         }
@@ -76,13 +75,12 @@ namespace libzendoomc{
 
         //Retrieve MC block hashes
         //LOCK(cs_main); TODO: Is LOCK needed here ?
-        end_epoch_mc_b_hash = scCert.endEpochBlockHash.begin();
+        end_epoch_mc_b_hash = const_cast<unsigned char*>(scCert.endEpochBlockHash.begin());
         int targetHeight = scInfo.StartHeightForEpoch(scCert.epochNumber) - 1; //Is this ok ? Can epochNumber be 0 or 1 ?
         prev_end_epoch_mc_b_hash = (chainActive[targetHeight] -> GetBlockHash()).begin();
 
         //Retrieve BT list
-        std::vector<backward_transfer_t> btList;
-        int btListLen = 0; //What if BTList is 0 in the certificate ?
+        std::vector<backward_transfer_t> btList; //Does this gets dropped after exiting function ?
         for (auto out : scCert.GetVout()){
             if (out.isFromBackwardTransfer){
                 CBackwardTransferOut btout(out);
@@ -95,41 +93,40 @@ namespace libzendoomc{
                 bt.amount = btout.nValue;
 
                 btList.push_back(bt);
-                btListLen += 1;
             }
         }
-        bt_list = btList.data();
-        bt_list_len = btListLen;
+        bt_list = btList;
         return true;
     }
 
     bool CScWCertProofVerificationParameters::verifierCall() const {
         return verify_sc_proof(
-            end_epoch_mc_b_hash, prev_end_epoch_mc_b_hash, bt_list,
-            bt_list_len, quality, constant, proofdata, sc_proof, sc_vk
+            end_epoch_mc_b_hash, prev_end_epoch_mc_b_hash, bt_list.data(),
+            bt_list.size(), quality, constant, proofdata, sc_proof, sc_vk
         );
     }
 
     void CScWCertProofVerificationParameters::freeParameters() {
-        free(const_cast<unsigned char*>(this->end_epoch_mc_b_hash));
+        
+        /*
+         * These are pointers to data in SCInfo to which this class holds a reference.
+         * Probably is not my job to free them here, but I can at least set the ptrs to null.
+         * free(end_epoch_mc_b_hash);
+         * free(prev_end_epoch_mc_b_hash);
+        */
         end_epoch_mc_b_hash = nullptr;
-
-        free(const_cast<unsigned char*>(this->prev_end_epoch_mc_b_hash));
         prev_end_epoch_mc_b_hash = nullptr;
 
-        free(const_cast<backward_transfer_t*>(this->bt_list));
-        bt_list = nullptr;
-
-        zendoo_field_free(const_cast<field_t*>(this->constant));
+        zendoo_field_free(constant); //Does the const_cast mess up stuff ?
         constant = nullptr;
 
-        zendoo_field_free(const_cast<field_t*>(this->proofdata));
+        zendoo_field_free(proofdata);
         proofdata = nullptr;
 
-        zendoo_sc_proof_free(const_cast<sc_proof_t*>(this->sc_proof));
+        zendoo_sc_proof_free(sc_proof);
         sc_proof = nullptr;
 
-        zendoo_sc_vk_free(const_cast<sc_vk_t*>(this->sc_vk));
+        zendoo_sc_vk_free(sc_vk);
         sc_vk = nullptr;
     }
 }
