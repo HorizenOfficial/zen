@@ -40,6 +40,7 @@
 #endif
 #include <mutex>
 #include <init.h>
+#include <undo.h>
 
 using namespace std;
 
@@ -605,7 +606,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             if (!tx.ContextualCheckInputs(state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
                 continue;
 
-            UpdateCoins(tx, state, view, nHeight);
+            CTxUndo dummyUndo;
+            UpdateCoins(tx, state, view, dummyUndo, nHeight);
 
             // Added
 #if 0

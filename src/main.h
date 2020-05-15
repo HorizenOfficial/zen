@@ -44,7 +44,7 @@ class CInv;
 class CScriptCheck;
 class CValidationInterface;
 class CValidationState;
-
+class CTxUndo;
 struct CNodeStateStats;
 
 /** Default for -blockmaxsize and -blockminsize, which control the range of sizes the mining code will create **/
@@ -379,9 +379,6 @@ bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state,
                                 bool (*isInitBlockDownload)() = IsInitialBlockDownload);
 
 /** Apply the effects of this transaction on the UTXO set represented by view */
-void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoinsViewCache &inputs, int nHeight);
-
-class CTxUndo;
 void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoinsViewCache &inputs, CTxUndo& txundo, int nHeight);
 
 /** Context-independent validity checks */

@@ -42,7 +42,7 @@ void CCoins::From(const CTransaction &tx, int nHeightIn) {
     ClearUnspendable();
 }
 
-void CCoins::From(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeight) {
+void CCoins::From(const CScCertificate &cert, int nHeightIn) {
     fCoinBase          = cert.IsCoinBase();
     vout               = cert.GetVout();
     nHeight            = nHeightIn;

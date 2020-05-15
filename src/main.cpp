@@ -2066,16 +2066,10 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
 
     // add outputs
     if (txBase.IsCertificate())
-        inputs.ModifyCoins(txBase.GetHash())->From(*dynamic_cast<const CScCertificate*>(&txBase), nHeight, /*bwtMaturityHeight*/0 );
+        inputs.ModifyCoins(txBase.GetHash())->From(*dynamic_cast<const CScCertificate*>(&txBase), nHeight);
     else
         inputs.ModifyCoins(txBase.GetHash())->From(*dynamic_cast<const CTransaction*>(&txBase), nHeight);
 
-}
-
-void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoinsViewCache &inputs, int nHeight)
-{
-    CTxUndo txundo;
-    UpdateCoins(txBase, state, inputs, txundo, nHeight);
 }
 
 CScriptCheck::CScriptCheck(): ptxTo(0), nIn(0), chain(nullptr),

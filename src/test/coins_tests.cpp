@@ -747,7 +747,8 @@ BOOST_AUTO_TEST_CASE(coins_coinbase_spends)
     BOOST_CHECK(tx.IsCoinBase());
 
     CValidationState state;
-    UpdateCoins(tx, state, cache, 100);
+    CTxUndo dummyUndo;
+    UpdateCoins(tx, state, cache, dummyUndo, 100);
 
     // Create coinbase spend
     CMutableTransaction mtx2;
