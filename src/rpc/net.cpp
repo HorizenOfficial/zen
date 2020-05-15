@@ -10,7 +10,6 @@
 #include "netbase.h"
 #include "protocol.h"
 #include "sync.h"
-#include "timedata.h"
 #include "util.h"
 #include "version.h"
 #include "zen/utiltls.h"
@@ -415,7 +414,7 @@ UniValue getnetworkinfo(const UniValue& params, bool fHelp)
             "  \"subversion\": \"/MagicBean:x.y.z[-v]/\",     (string) the server subversion string\n"
             "  \"protocolversion\": xxxxx,              (numeric) the protocol version\n"
             "  \"localservices\": \"xxxxxxxxxxxxxxxx\", (string) the services we offer to the network\n"
-            "  \"timeoffset\": xxxxx,                   (numeric) the time offset\n"
+            "  \"timeoffset\": xxxxx,                   (numeric) the time offset (deprecated; always 0)\n"
             "  \"connections\": xxxxx,                  (numeric) the number of connections\n"
             "  \"tls_cert_verified\": true|flase,       (boolean) true if the certificate of the current node is verified\n"
             "  \"networks\": [                          (array) information per network\n"
@@ -451,7 +450,7 @@ UniValue getnetworkinfo(const UniValue& params, bool fHelp)
         FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, std::vector<string>())));
     obj.push_back(Pair("protocolversion",PROTOCOL_VERSION));
     obj.push_back(Pair("localservices",       strprintf("%016x", nLocalServices)));
-    obj.push_back(Pair("timeoffset",    GetTimeOffset()));
+    obj.push_back(Pair("timeoffset", 0));
     obj.push_back(Pair("connections",   (int)vNodes.size()));
     obj.push_back(Pair("tls_cert_verified", ValidateCertificate(tls_ctx_server)));
     obj.push_back(Pair("networks",      GetNetworksInfo()));
