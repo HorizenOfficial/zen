@@ -10,19 +10,29 @@ namespace libzendoomc{
     bool CScWCertProofVerificationParameters::createParameters() {
         //Deserialize constant
         auto constant_bytes = scInfo.creationData.customData;
-        if (!constant_bytes.size() == 0){ //Constant can be optional
+        if (constant_bytes.size() == 0){ //Constant can be optional
+           
+            constant = nullptr;
+       
+        } else if (constant_bytes.size() != zendoo_get_field_size_in_bytes()){ //For now constant must be just a single field element
+            
+            LogPrint("zendoo_mc_cryptolib",
+                    "%s():%d - failed to deserialize \"constant\": expected vector of size: %d, found vector of size %d instead \n", 
+                    __func__, __LINE__, constant_bytes.size(), zendoo_get_field_size_in_bytes());
+            return false;
 
-            constant = zendoo_deserialize_field(constant_bytes.data()); 
-            if (constant_bytes.size() != zendoo_get_field_size_in_bytes() || //For now constant must be just a single field element
-                constant == nullptr) {
-
+        } else { 
+            
+            constant = deserialize_field(constant_bytes.data()); 
+            
+            if (constant == nullptr) {
+                
                 LogPrint("zendoo_mc_cryptolib",
-                        "%s():%d - failed to deserialize \"constant\" from vector of size: %d \n", 
-                        __func__, __LINE__, constant_bytes.size());
+                        "%s():%d - failed to deserialize \"constant\" \n", 
+                        __func__, __LINE__);
+                
                 return false;
             }
-        } else {
-            constant = nullptr;
         }
 
         //Initialize quality and proofdata
@@ -31,19 +41,30 @@ namespace libzendoomc{
 
         //Deserialize proof
         auto sc_proof_bytes = scCert.scProof;
-        sc_proof = zendoo_deserialize_sc_proof(sc_proof_bytes.data());
-        if (sc_proof_bytes.size() != zendoo_get_sc_proof_size() ||
-            sc_proof == nullptr) {
+        if (sc_proof_bytes.size() != zendoo_get_sc_proof_size()){
+
+            LogPrint("zendoo_mc_cryptolib",
+                "%s():%d - failed to deserialize \"sc_proof\": expected vector of size: %d, found vector of size %d instead \n", 
+                __func__, __LINE__, sc_proof_bytes.size(), zendoo_get_sc_proof_size());
+            return false;
+
+        } else {
+
+            sc_proof = deserialize_sc_proof(sc_proof_bytes.data());
+
+            if(sc_proof == nullptr) {
 
                 LogPrint("zendoo_mc_cryptolib",
-                    "%s():%d - failed to deserialize \"sc_proof\" from vector of size: %d \n", 
-                    __func__, __LINE__, sc_proof_bytes.size());
-            return false;
+                    "%s():%d - failed to deserialize \"sc_proof\" \n", 
+                    __func__, __LINE__);
+                return false;
+
+            }
         }
 
         //Deserialize sc_vk
         //TODO: Insert correct data after having built logic to handle vks
-        sc_vk = zendoo_deserialize_sc_vk_from_file((path_char_t*)"", 0);
+        sc_vk = deserialize_sc_vk_from_file((path_char_t*)"", 0);
 
         if (sc_vk == nullptr){
 
@@ -83,7 +104,7 @@ namespace libzendoomc{
     }
 
     bool CScWCertProofVerificationParameters::verifierCall() const {
-        return zendoo_verify_sc_proof(
+        return verify_sc_proof(
             end_epoch_mc_b_hash, prev_end_epoch_mc_b_hash, bt_list,
             bt_list_len, quality, constant, proofdata, sc_proof, sc_vk
         );

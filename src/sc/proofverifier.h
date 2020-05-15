@@ -24,6 +24,24 @@ namespace libzendoomc{
      */
     class CScProofVerificationParameters {
         public:
+            //Template method
+            bool run(bool perform_verification) {
+                if(!perform_verification){
+                    return true;
+                } else {                    
+                    if(!createParameters()){
+                        freeParameters(); //Free memory from parameters allocated up to the error point
+                        return false;
+                    }
+
+                    bool result = verifierCall();
+                    freeParameters();
+                    return result;
+                }
+            }
+
+        protected:
+            //Hooks for subclasses
             virtual bool createParameters() = 0;
             virtual bool verifierCall() const = 0;
             virtual void freeParameters() = 0;
@@ -34,10 +52,6 @@ namespace libzendoomc{
         public:
             CScWCertProofVerificationParameters(const CSidechain& scInfo, const CScCertificate& scCert): 
                 scInfo(scInfo), scCert(scCert) { }
-            
-            bool createParameters() override;
-            bool verifierCall() const override;
-            void freeParameters() override;
 
         protected:
             const unsigned char* end_epoch_mc_b_hash;
@@ -49,8 +63,47 @@ namespace libzendoomc{
             const field_t* proofdata;
             const sc_proof_t* sc_proof;
             const sc_vk_t* sc_vk;
+
             const CSidechain& scInfo;
             const CScCertificate& scCert;
+
+            bool createParameters() override;
+            bool verifierCall() const override;
+            void freeParameters() override;
+
+            /* 
+             * Wrappers for function calls to zendoo-mc-cryptolib. Useful for testing purposes,
+             * enabling to mock the behaviour of each function.
+             */
+            virtual field_t* deserialize_field(const unsigned char* field_bytes) const {
+                return zendoo_deserialize_field(field_bytes);
+            }
+
+            virtual sc_proof_t* deserialize_sc_proof(const unsigned char* sc_proof_bytes) const {
+                return zendoo_deserialize_sc_proof(sc_proof_bytes);
+            }
+
+            virtual sc_vk_t* deserialize_sc_vk_from_file(const path_char_t* vk_path, size_t vk_path_len) const {
+                return zendoo_deserialize_sc_vk_from_file(vk_path, vk_path_len);
+            }
+
+            virtual bool verify_sc_proof(
+                const unsigned char* end_epoch_mc_b_hash,
+                const unsigned char* prev_end_epoch_mc_b_hash,
+                const backward_transfer_t* bt_list,
+                size_t bt_list_len,
+                uint64_t quality,
+                const field_t* constant,
+                const field_t* proofdata,
+                const sc_proof_t* sc_proof,
+                const sc_vk_t* sc_vk
+            ) const
+            {
+                return zendoo_verify_sc_proof(
+                    end_epoch_mc_b_hash, prev_end_epoch_mc_b_hash, bt_list,
+                    bt_list_len, quality, constant, proofdata, sc_proof, sc_vk
+                );
+            }
     };
 
     /* Visitor class able to verify different kind of ScProof for different CScProofVerificationContext(s) */
@@ -62,21 +115,6 @@ namespace libzendoomc{
             CScProofVerifier(bool perform_verification): perform_verification(perform_verification), scInfo(nullptr) {}
             CScProofVerifier(bool perform_verification, const CSidechain* scInfo) :
                 perform_verification(perform_verification), scInfo(scInfo) {}
-
-            bool performVerification(CScProofVerificationParameters& params) const {
-                if(!perform_verification){
-                    return true;
-                } else {                    
-                    if(!params.createParameters()){
-                        params.freeParameters(); //Free memory from parameters allocated up to the error point
-                        return false;
-                    }
-
-                    bool result = params.verifierCall();
-                    params.freeParameters();
-                    return result;
-                }
-            }
 
         public:
             // CScProofVerifier should never be copied
@@ -97,8 +135,7 @@ namespace libzendoomc{
             // Returns false if proof verification has failed or deserialization of certificate's elements
             // into libzendoomc's elements has failed.
             bool operator()(const CScCertificate& scCert) const {
-                auto params = CScWCertProofVerificationParameters(*scInfo, scCert);
-                return performVerification(params);
+                return CScWCertProofVerificationParameters(*scInfo, scCert).run(perform_verification);
             }
     };
 }

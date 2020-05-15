@@ -1,18 +1,18 @@
 #include <sc/TEMP_zendooInterface.h>
 
-field_t* zendoo_deserialize_field(const unsigned char* field_bytes)  { return nullptr; }
+field_t* zendoo_deserialize_field(const unsigned char* field_bytes)  { return new field_t(); }
 
-size_t zendoo_get_field_size_in_bytes(void) { return 0; }
+size_t zendoo_get_field_size_in_bytes(void) { return 1; } //For optional parameters
 
 void zendoo_field_free(field_t* field){ field = nullptr; }
 
-sc_vk_t* zendoo_deserialize_sc_vk_from_file(const path_char_t* vk_path, size_t vk_path_len) { return nullptr; }
+sc_vk_t* zendoo_deserialize_sc_vk_from_file(const path_char_t* vk_path, size_t vk_path_len) { return new sc_vk_t(); }
 
 void zendoo_sc_vk_free(sc_vk_t* sc_vk) { sc_vk = nullptr; }
 
 size_t zendoo_get_sc_proof_size(void) { return 0; }
 
-sc_proof_t* zendoo_deserialize_sc_proof(const unsigned char* sc_proof_bytes) { return nullptr; }
+sc_proof_t* zendoo_deserialize_sc_proof(const unsigned char* sc_proof_bytes) { return new sc_proof_t(); }
 
 void zendoo_sc_proof_free(sc_proof_t* sc_proof){ sc_proof = nullptr; }
 
