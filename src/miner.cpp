@@ -607,10 +607,17 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 continue;
 
             CTxUndo dummyUndo;
-            if (tx.IsCertificate())
-                UpdateCoins(*dynamic_cast<const CScCertificate*>(&tx), view, dummyUndo, nHeight);
-            else
-                UpdateCoins(*dynamic_cast<const CTransaction*>(&tx), view, dummyUndo, nHeight);
+            try {
+                if (tx.IsCertificate())
+                    UpdateCoins(dynamic_cast<const CScCertificate&>(tx), view, dummyUndo, nHeight);
+                else
+                    UpdateCoins(dynamic_cast<const CTransaction&>(tx), view, dummyUndo, nHeight);
+            } catch (...) {
+                LogPrintf("%s():%d - ERROR: tx [%s] cast error\n",
+                    __func__, __LINE__, hash.ToString());
+                assert("could not cast txbase obj" == 0);
+            }
+
 
             // Added
 #if 0
