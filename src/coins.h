@@ -106,9 +106,11 @@ public:
     CCoins();
 
     //! construct a CCoins from a CTransaction, at a given height
-    CCoins(const CTransactionBase &tx, int nHeightIn);
+    CCoins(const CTransaction &tx, int nHeightIn);
+    CCoins(const CScCertificate &cert, int nHeightIn);
 
-    void FromTx(const CTransactionBase &tx, int nHeightIn);
+    void From(const CTransaction &tx, int nHeightIn);
+    void From(const CScCertificate &tx, int nHeightIn);
 
     void Clear();
 

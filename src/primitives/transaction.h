@@ -659,7 +659,6 @@ public:
     virtual const std::vector<CTxScCreationOut>&      GetVscCcOut()   const = 0;
     virtual const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const = 0;
     virtual const std::vector<JSDescription>&         GetVjoinsplit() const = 0;
-    virtual const uint256&                            GetScId()       const = 0;
     virtual const uint32_t&                           GetLockTime()   const = 0;
     //END OF GETTERS
 
@@ -849,7 +848,6 @@ public:
     const std::vector<CTxScCreationOut>&      GetVscCcOut()   const override { return vsc_ccout; }
     const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const override { return vft_ccout; }
     const std::vector<JSDescription>&         GetVjoinsplit() const override { return vjoinsplit;};
-    const uint256&                            GetScId()       const override { static uint256 noScId; return noScId;};
     const uint32_t&                           GetLockTime()   const override { return nLockTime;};
     //END OF GETTERS
 

@@ -335,7 +335,7 @@ BOOST_AUTO_TEST_CASE(AreInputsStandard)
     txFrom.vout[6].scriptPubKey = GetScriptForDestination(CScriptID(twentySigops));
     txFrom.vout[6].nValue = 6000;
 
-    coins.ModifyCoins(txFrom.GetHash())->FromTx(txFrom, 0);
+    coins.ModifyCoins(txFrom.GetHash())->From(txFrom, 0);
 
     CMutableTransaction txTo;
     txTo.vout.resize(1);

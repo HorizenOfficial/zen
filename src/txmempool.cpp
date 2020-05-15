@@ -15,6 +15,7 @@
 #include "utilmoneystr.h"
 #include "version.h"
 #include "main.h"
+#include <undo.h>
 
 CMemPoolEntry::CMemPoolEntry():
     nFee(0), nModSize(0), nUsageSize(0), nTime(0), dPriority(0.0)
@@ -723,7 +724,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         else {
             CValidationState state;
             assert(::ContextualCheckInputs(tx, state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
-            UpdateCoins(tx, state, mempoolDuplicate, 1000000);
+            CTxUndo dummyUndo;
+            UpdateCoins(tx, mempoolDuplicate, dummyUndo, 1000000);
         }
     }
 
@@ -779,7 +781,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         else {
             // updating coins with cert outputs because the cache is checked below for
             // any tx inputs and maybe some tx has a cert out as its input.
-            UpdateCoins(cert, state, mempoolDuplicate, 1000000);
+            CTxUndo dummyUndo;
+            UpdateCoins(cert, mempoolDuplicate, dummyUndo, 1000000);
         }
     }
 
@@ -795,7 +798,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             assert(stepsSinceLastRemove < waitingOnDependants.size());
         } else {
             assert(::ContextualCheckInputs(entry->GetTx(), state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
-            UpdateCoins(entry->GetTx(), state, mempoolDuplicate, 1000000);
+            CTxUndo dummyUndo;
+            UpdateCoins(entry->GetTx(), mempoolDuplicate, dummyUndo, 1000000);
             stepsSinceLastRemove = 0;
         }
     }
@@ -811,7 +815,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             assert(stepsSinceLastRemoveCert < waitingOnDependantsCert.size());
         } else {
             assert(::ContextualCheckInputs(entry->GetCertificate(), state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
-            UpdateCoins(entry->GetCertificate(), state, mempoolDuplicate, 1000000);
+            CTxUndo dummyUndo;
+            UpdateCoins(entry->GetCertificate(), mempoolDuplicate, dummyUndo, 1000000);
             stepsSinceLastRemoveCert = 0;
         }
     }
