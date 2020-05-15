@@ -434,7 +434,7 @@ TEST_F(CeasedSidechainsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCe
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, state, *view, txundo, scCreationHeight);
+    UpdateCoins(cert, *view, txundo, scCreationHeight);
     EXPECT_TRUE(view->HaveCoins(cert.GetHash()));
 
     //test
@@ -487,7 +487,7 @@ TEST_F(CeasedSidechainsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, state, *view, txundo, scCreationHeight);
+    UpdateCoins(cert, *view, txundo, scCreationHeight);
     EXPECT_TRUE(view->HaveCoins(cert.GetHash()));
 
     //test
@@ -537,7 +537,7 @@ TEST_F(CeasedSidechainsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSi
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, state, *view, txundo, scCreationHeight);
+    UpdateCoins(cert, *view, txundo, scCreationHeight);
     EXPECT_TRUE(view->HaveCoins(cert.GetHash()));
 
     //test
@@ -583,7 +583,7 @@ TEST_F(CeasedSidechainsTestSuite, EmptyCertificatesCoinsAreNotAffectedByCeasedSi
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, state, *view, txundo, scCreationHeight);
+    UpdateCoins(cert, *view, txundo, scCreationHeight);
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
 
     //test
@@ -621,7 +621,7 @@ TEST_F(CeasedSidechainsTestSuite, RestoreFullCertCeasedCoins) {
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, state, *view, txundo, scInfo.StartHeightForEpoch(1));
+    UpdateCoins(cert, *view, txundo, scInfo.StartHeightForEpoch(1));
     CCoins originalCoins;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),originalCoins));
 
@@ -672,7 +672,7 @@ TEST_F(CeasedSidechainsTestSuite, RestorePureBwtCeasedCoins) {
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, state, *view, txundo, scInfo.StartHeightForEpoch(1));
+    UpdateCoins(cert, *view, txundo, scInfo.StartHeightForEpoch(1));
     CCoins originalCoins;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),originalCoins));
 
@@ -724,7 +724,7 @@ TEST_F(CeasedSidechainsTestSuite, RestoreNoBwtCeasedCoins) {
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, state, *view, txundo, scInfo.StartHeightForEpoch(1));
+    UpdateCoins(cert, *view, txundo, scInfo.StartHeightForEpoch(1));
     CCoins originalCoins;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),originalCoins));
 
@@ -775,7 +775,7 @@ TEST_F(CeasedSidechainsTestSuite, RestoreEmptyCertCeasedCoins) {
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, state, *view, txundo, scInfo.StartHeightForEpoch(1));
+    UpdateCoins(cert, *view, txundo, scInfo.StartHeightForEpoch(1));
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
 
     //Make the sidechain cease

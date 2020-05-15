@@ -40,6 +40,7 @@
 #endif
 #include <mutex>
 #include <init.h>
+#include <undo.h>
 
 using namespace std;
 
@@ -612,7 +613,18 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             if (!tx.ContextualCheckInputs(state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
                 continue;
 
-            UpdateCoins(tx, state, view, nHeight);
+            CTxUndo dummyUndo;
+            try {
+                if (tx.IsCertificate())
+                    UpdateCoins(dynamic_cast<const CScCertificate&>(tx), view, dummyUndo, nHeight);
+                else
+                    UpdateCoins(dynamic_cast<const CTransaction&>(tx), view, dummyUndo, nHeight);
+            } catch (...) {
+                LogPrintf("%s():%d - ERROR: tx [%s] cast error\n",
+                    __func__, __LINE__, hash.ToString());
+                assert("could not cast txbase obj" == 0);
+            }
+
 
             // Added
 #if 0

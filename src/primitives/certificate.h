@@ -99,7 +99,7 @@ public:
 
     //GETTERS
     const std::vector<JSDescription>&         GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
-    const uint256&                            GetScId()       const override {return scId;};
+    const uint256&                            GetScId()       const          {return scId;};
     const uint32_t&                           GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
     //END OF GETTERS
 
