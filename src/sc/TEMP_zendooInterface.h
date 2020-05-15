@@ -9,9 +9,9 @@ typedef struct backward_transfer{
   uint64_t amount;
 } backward_transfer_t;
 
-typedef struct field field_t;
-typedef struct sc_proof sc_proof_t;
-typedef struct sc_vk sc_vk_t;
+typedef struct field {} field_t;
+typedef struct sc_proof {} sc_proof_t;
+typedef struct sc_vk {} sc_vk_t;
 
 #ifdef WIN32
     typedef uint16_t path_char_t;
