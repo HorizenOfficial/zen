@@ -75,12 +75,12 @@ namespace libzendoomc{
 
         //Retrieve MC block hashes
         //LOCK(cs_main); TODO: Is LOCK needed here ?
-        end_epoch_mc_b_hash = const_cast<unsigned char*>(scCert.endEpochBlockHash.begin());
-        int targetHeight = scInfo.StartHeightForEpoch(scCert.epochNumber) - 1; //Is this ok ? Can epochNumber be 0 or 1 ?
+        end_epoch_mc_b_hash = scCert.endEpochBlockHash.begin();
+        int targetHeight = scInfo.StartHeightForEpoch(scCert.epochNumber) - 1;
         prev_end_epoch_mc_b_hash = (chainActive[targetHeight] -> GetBlockHash()).begin();
 
         //Retrieve BT list
-        std::vector<backward_transfer_t> btList; //Does this gets dropped after exiting function ?
+        std::vector<backward_transfer_t> btList;
         for (auto out : scCert.GetVout()){
             if (out.isFromBackwardTransfer){
                 CBackwardTransferOut btout(out);
@@ -108,16 +108,10 @@ namespace libzendoomc{
 
     void CScWCertProofVerificationParameters::freeParameters() {
         
-        /*
-         * These are pointers to data in SCInfo to which this class holds a reference.
-         * Probably is not my job to free them here, but I can at least set the ptrs to null.
-         * free(end_epoch_mc_b_hash);
-         * free(prev_end_epoch_mc_b_hash);
-        */
         end_epoch_mc_b_hash = nullptr;
         prev_end_epoch_mc_b_hash = nullptr;
 
-        zendoo_field_free(constant); //Does the const_cast mess up stuff ?
+        zendoo_field_free(constant);
         constant = nullptr;
 
         zendoo_field_free(proofdata);

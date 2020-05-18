@@ -56,8 +56,8 @@ namespace libzendoomc{
                 proofdata(nullptr), sc_proof(nullptr), sc_vk(nullptr) { };
 
         protected:
-            unsigned char* end_epoch_mc_b_hash;
-            unsigned char* prev_end_epoch_mc_b_hash;
+            const unsigned char* end_epoch_mc_b_hash;
+            const unsigned char* prev_end_epoch_mc_b_hash;
             std::vector<backward_transfer_t> bt_list;
             uint64_t quality;
             field_t* constant;
