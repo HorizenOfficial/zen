@@ -1296,6 +1296,7 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
 
         CCoinsModifier coins = this->ModifyCoins(scInfo.lastCertificateHash);
         assert(!coins->originScId.IsNull());
+        assert(coins->nBwtMaturityHeight != 0);
 
         //null all bwt outputs and add related txundo in block
         bool foundFirstBwt = false;
@@ -1355,10 +1356,11 @@ bool CCoinsViewCache::RevertCeasingScs(const CTxUndo& ceasedCertUndo)
         LogPrint("cert", "%s():%d - PRE : bwtOutPos= %d\n", __func__, __LINE__, bwtOutPos);
         if (outVec.at(bwtOutPos).nHeight != 0)
         {
-            coins->fCoinBase  = outVec.at(bwtOutPos).fCoinBase;
-            coins->nHeight    = outVec.at(bwtOutPos).nHeight;
-            coins->nVersion   = outVec.at(bwtOutPos).nVersion;
-            coins->originScId = outVec.at(bwtOutPos).originScId;
+            coins->fCoinBase          = outVec.at(bwtOutPos).fCoinBase;
+            coins->nHeight            = outVec.at(bwtOutPos).nHeight;
+            coins->nVersion           = outVec.at(bwtOutPos).nVersion;
+            coins->originScId         = outVec.at(bwtOutPos).originScId;
+            coins->nBwtMaturityHeight = outVec.at(bwtOutPos).nBwtMaturityHeight;
         } else {
             LogPrint("cert", "%s():%d - returning false\n", __func__, __LINE__);
             return false;
@@ -1521,7 +1523,7 @@ CCoinsViewCache::outputMaturity CCoinsViewCache::IsCertOutputMature(const uint25
 
     // Hereinafter, we have a certificate, hence we can assert existence of its sidechain
     CSidechain targetSc;
-    assert(GetSidechain(refCoin.originScId, targetSc));
+    assert(GetSidechain(refCoin.originScId, targetSc)); //This should be restructured to avoid scInfo lookup
 
     int coinEpoch = targetSc.EpochFor(refCoin.nHeight);
 
