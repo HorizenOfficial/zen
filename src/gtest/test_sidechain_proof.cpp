@@ -89,7 +89,7 @@ class TestCScProofVerifier: public boost::static_visitor<bool> {
 
 class CScProofTestSuite: public ::testing::Test {
     public:
-        CScProofTestSuite(): scInfo(nullptr), scCert(nullptr) {}
+        CScProofTestSuite(): scInfo(nullptr), scCert(nullptr), verifier(TestCScProofVerifier::Disabled()) {}
         ~CScProofTestSuite() = default;
 
         void SetUp() override {
@@ -99,6 +99,8 @@ class CScProofTestSuite: public ::testing::Test {
             scInfo->creationData.customData.push_back('0');
             
             scCert = new CScCertificate();
+
+            verifier = TestCScProofVerifier::Strict(scInfo);
         }
 
         void TearDown() override {
@@ -111,46 +113,49 @@ class CScProofTestSuite: public ::testing::Test {
     
         CSidechain* scInfo;
         CScCertificate* scCert;
+        TestCScProofVerifier verifier;
 
         bool verifyCert(
             bool okDeserializeField,
             bool okDeserializeScVk,
             bool okDeserializeScProof,
-            bool okVerifyScProof,
-            const TestCScProofVerifier& verifier
+            bool okVerifyScProof
         )
         {
             CScWCertProofVerificationParametersMock::okDeserializeField = okDeserializeField;
             CScWCertProofVerificationParametersMock::okDeserializeScVk = okDeserializeScVk;
             CScWCertProofVerificationParametersMock::okDeserializeScProof = okDeserializeScProof;
             CScWCertProofVerificationParametersMock::okVerifyScProof = okVerifyScProof;
-            return verify(verifier, *scCert);
+            return verify(*scCert);
         }
 
         void setScInfo(CSidechain* newScInfo) { delete scInfo; scInfo = newScInfo; }
         void setScCert(CScCertificate* newScCert) { delete scCert; scCert = newScCert; }
+        void setVerifier(bool strict){
+            if(strict)
+                verifier = TestCScProofVerifier::Strict(scInfo);
+            else
+                verifier = TestCScProofVerifier::Disabled();
+        }
         
     protected:
-        bool verify(const TestCScProofVerifier& verifier, const libzendoomc::CScProofVerificationContext& ctx){
+        bool verify(const libzendoomc::CScProofVerificationContext& ctx){
             return boost::apply_visitor(verifier, ctx);
         }
 };
 
 TEST_F(CScProofTestSuite, StrictVerifier_WCertProof_WrongInputs) {
-    auto verifier = TestCScProofVerifier::Strict(scInfo);
-    EXPECT_FALSE(verifyCert(false, true, true, true, verifier)); //Failed to deserialize constant, assuming it's present
-    EXPECT_FALSE(verifyCert(true, false, true, true, verifier)); //Failed to deserialize sc_vk
-    EXPECT_FALSE(verifyCert(true, true, false, true, verifier)); //Failed to deserialize proof
+    EXPECT_FALSE(verifyCert(false, true, true, true)); //Failed to deserialize constant, assuming it's present
+    EXPECT_FALSE(verifyCert(true, false, true, true)); //Failed to deserialize sc_vk
+    EXPECT_FALSE(verifyCert(true, true, false, true)); //Failed to deserialize proof
 }
 
 TEST_F(CScProofTestSuite, StrictVerifier_WCertProof_PositiveVerification) {
-    auto verifier = TestCScProofVerifier::Strict(scInfo);
-    EXPECT_TRUE(verifyCert(true, true, true, true, verifier));
+    EXPECT_TRUE(verifyCert(true, true, true, true));
 }
 
 TEST_F(CScProofTestSuite, StrictVerifier_WCertProof_NegativeVerification) {
-    auto verifier = TestCScProofVerifier::Strict(scInfo);
-    EXPECT_FALSE(verifyCert(true, true, true, false, verifier));
+    EXPECT_FALSE(verifyCert(true, true, true, false));
 }
 
 //More of a test with semantic meaning, probably it's not the time for this
@@ -161,24 +166,24 @@ TEST_F(CScProofTestSuite, DISABLED_StrictVerifier_WCertProof_MixedVerification) 
     //ScInfo is wrong for the actual ScCertificate
     setScInfo(&infoFaulty);
     setScCert(&certGood);
-    auto verifier1 = TestCScProofVerifier::Strict(scInfo);
-    EXPECT_FALSE(verifyCert(true, true, true, false, verifier1));
+    setVerifier(true);
+    EXPECT_FALSE(verifyCert(true, true, true, false));
 
     //ScCertificate is wrong for the actual ScInfo
     setScInfo(&infoGood);
     setScCert(&certFaulty);
-    auto verifier2 = TestCScProofVerifier::Strict(scInfo);
-    EXPECT_FALSE(verifyCert(true, true, true, false, verifier2));
+    setVerifier(true);
+    EXPECT_FALSE(verifyCert(true, true, true, false));
 }
 
 TEST_F(CScProofTestSuite, DisabledVerifier_WCertProof_AlwaysPositiveVerification) {
-    auto verifier = TestCScProofVerifier::Disabled();
     std::vector<bool> b = {true, false};
+    setVerifier(false);
 
     //Any combination is allowed
     for(bool var1: b)
         for(bool var2: b)
             for(bool var3: b)
                 for(bool var4: b)
-                    EXPECT_TRUE(verifyCert(var1, var2, var3, var4, verifier));
+                    EXPECT_TRUE(verifyCert(var1, var2, var3, var4));
 }

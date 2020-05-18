@@ -528,7 +528,18 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssValue >> wcert;
             CValidationState state;
             auto verifier = libzcash::ProofVerifier::Strict();
-            if (!(CheckCertificate(wcert, state) && (wcert.GetHash() == hash) && state.IsValid()))
+            
+            // Get CScProofVerifier
+            CSidechain scInfo;
+            if (!pcoinsTip->GetSidechain(wcert.GetScId(), scInfo))
+            {
+                LogPrint("cert", "%s():%d - cert[%s] refers to unknown sidechain with id: %s\n"
+                , __func__, __LINE__, wcert.GetHash().ToString(), wcert.GetScId().ToString());
+                return false;
+            }
+            auto scVerifier = libzendoomc::CScProofVerifier::Strict(&scInfo);
+
+            if (!(CheckCertificate(wcert, state, scVerifier) && (wcert.GetHash() == hash) && state.IsValid()))
             {
                 LogPrint("cert", "%s():%d - cert[%s] is invalid\n", __func__, __LINE__, wcert.GetHash().ToString());
                 return false;

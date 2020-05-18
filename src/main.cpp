@@ -976,7 +976,11 @@ bool ContextualCheckTransaction(
     return true;
 }
 
-bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
+bool CheckScProof(const libzendoomc::CScProofVerifier& scVerifier, libzendoomc::CScProofVerificationContext ctx){
+    return boost::apply_visitor(scVerifier, ctx);
+}
+
+bool CheckCertificate(const CScCertificate& cert, CValidationState& state, const libzendoomc::CScProofVerifier& scVerifier)
 {
     if (!cert.CheckVersionBasic(state))
         return false;
@@ -1007,6 +1011,9 @@ bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
         return false;
 
     if (!Sidechain::checkCertSemanticValidity(cert, state))
+        return false;
+
+    if (!CheckScProof(scVerifier, cert))
         return false;
 
     return true;
@@ -1138,7 +1145,18 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
     if (!cert.CheckInputsLimit())
         return false;
 
-    if(!CheckCertificate(cert,state))
+    // Get CScProofVerifier
+    CSidechain scInfo;
+    if (!pcoinsTip->GetSidechain(cert.GetScId(), scInfo)){
+        return state.DoS(0, 
+            error("AcceptToMemoryPool: Dropping cert %s it refers to an unknown sidechain with id [%s]", 
+            cert.GetHash().ToString(),
+            cert.GetScId().ToString()),
+            REJECT_INVALID, "bad-sc-not-recorded");
+    }
+    auto verifier = libzendoomc::CScProofVerifier::Strict(&scInfo);
+
+    if(!CheckCertificate(cert, state, verifier))
         return error("AcceptCertificateToMemoryPool: CheckCertificate failed");
 
     if(!cert.ContextualCheck(state, nextBlockHeight, 10))
@@ -2670,9 +2688,32 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     auto verifier = libzcash::ProofVerifier::Strict();
     auto disabledVerifier = libzcash::ProofVerifier::Disabled();
 
+    auto scVerifier = libzendoomc::CScProofVerifier::Strict(new CSidechain());
+    auto disabledScVerifier = libzendoomc::CScProofVerifier::Disabled();
+
     // Check it again to verify JoinSplit proofs, and in case a previous version let a bad block in
-    if (!CheckBlock(block, state, fExpensiveChecks ? verifier : disabledVerifier, !fJustCheck, !fJustCheck))
+    if (!CheckBlock(block, state, fExpensiveChecks ? verifier : disabledVerifier, fExpensiveChecks ? scVerifier : disabledScVerifier, !fJustCheck, !fJustCheck))
         return false;
+
+    //Check proofs for each WCert
+
+    BOOST_FOREACH(const CScCertificate& cert, block.vcert) {
+        CSidechain scInfo;
+        if(!view.GetSidechain(cert.GetScId(), scInfo)){
+            return state.DoS(100, 
+                error("ConnectBlock(): certificate refers to unknown sidechain id [%s]", cert.GetScId().ToString()),
+                REJECT_INVALID, "bad-sc-not-recorded");
+        };
+
+        auto scVerifier = libzendoomc::CScProofVerifier::Strict(&scInfo);
+        auto disabledScVerifier = libzendoomc::CScProofVerifier::Disabled();
+        if (!CheckScProof(fExpensiveChecks ? scVerifier : disabledScVerifier, cert))
+            return state.DoS(100, 
+                error("ConnectBlock(): withdrawal certificate %s 's proof for sidechain [%s] not verified", 
+                cert.GetHash().ToString(),
+                cert.GetScId().ToString()),
+                REJECT_INVALID, "bad-sc-wcert-proof-not-verified");
+    }
 
     // verify that the view's current state corresponds to the previous block
     uint256 hashPrevBlock = pindex->pprev == NULL ? uint256() : pindex->pprev->GetBlockHash();
@@ -3958,6 +3999,7 @@ bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool f
 
 bool CheckBlock(const CBlock& block, CValidationState& state,
                 libzcash::ProofVerifier& verifier,
+                libzendoomc::CScProofVerifier& scVerifier,
                 bool fCheckPOW, bool fCheckMerkleRoot)
 {
     // These are checks that are independent of context.
@@ -4009,7 +4051,17 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
     }
 
     for(const CScCertificate& cert: block.vcert) {
-        if (!CheckCertificate(cert, state)) {
+        // Get CSidechain instance from vcert
+        CSidechain scInfo;
+        if (!pcoinsTip->GetSidechain(cert.GetScId(), scInfo)){
+            return state.DoS(100, 
+            error("CheckBlock(): wcert %s refers to an unknown sidechain with id [%s]", 
+            cert.GetHash().ToString(),
+            cert.GetScId().ToString()),
+            REJECT_INVALID, "bad-sc-not-recorded");
+        }
+        scVerifier.setScInfo(&scInfo);
+        if (!CheckCertificate(cert, state, scVerifier)) {
             return error("CheckBlock(): Certificate check failed");
         }
     }
@@ -4229,7 +4281,8 @@ bool AcceptBlock(CBlock& block, CValidationState& state, CBlockIndex** ppindex, 
 
     // See method docstring for why this is always disabled
     auto verifier = libzcash::ProofVerifier::Disabled();
-    if ((!CheckBlock(block, state, verifier)) || !ContextualCheckBlock(block, state, pindex->pprev)) {
+    auto scVerifier = libzendoomc::CScProofVerifier::Disabled();
+    if ((!CheckBlock(block, state, verifier, scVerifier)) || !ContextualCheckBlock(block, state, pindex->pprev)) {
         if (state.IsInvalid() && !state.CorruptionPossible()) {
             pindex->nStatus |= BLOCK_FAILED_VALID;
             setDirtyBlockIndex.insert(pindex);
@@ -4266,7 +4319,8 @@ bool ProcessNewBlock(CValidationState &state, CNode* pfrom, CBlock* pblock, bool
 {
     // Preliminary checks
     auto verifier = libzcash::ProofVerifier::Disabled();
-    bool checked = CheckBlock(*pblock, state, verifier);
+    auto scVerifier = libzendoomc::CScProofVerifier::Disabled();
+    bool checked = CheckBlock(*pblock, state, verifier, scVerifier);
 
     BlockSet sForkTips;
 
@@ -4308,13 +4362,14 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
     CBlockIndex indexDummy(block);
     indexDummy.pprev = pindexPrev;
     indexDummy.nHeight = pindexPrev->nHeight + 1;
-    // JoinSplit proofs are verified in ConnectBlock
+    // JoinSplit and Sidechains proofs are verified in ConnectBlock
     auto verifier = libzcash::ProofVerifier::Disabled();
+    auto scVerifier = libzendoomc::CScProofVerifier::Disabled();
 
     // NOTE: CheckBlockHeader is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, pindexPrev))
         return false;
-    if (!CheckBlock(block, state, verifier, fCheckPOW, fCheckMerkleRoot))
+    if (!CheckBlock(block, state, verifier, scVerifier, fCheckPOW, fCheckMerkleRoot))
         return false;
     if (!ContextualCheckBlock(block, state, pindexPrev))
         return false;
@@ -4667,6 +4722,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
     CValidationState state;
     // No need to verify JoinSplits twice
     auto verifier = libzcash::ProofVerifier::Disabled();
+    auto scVerifier = libzendoomc::CScProofVerifier::Disabled();
     for (CBlockIndex* pindex = chainActive.Tip(); pindex && pindex->pprev; pindex = pindex->pprev)
     {
         boost::this_thread::interruption_point();
@@ -4678,7 +4734,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
         if (!ReadBlockFromDisk(block, pindex))
             return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         // check level 1: verify block validity
-        if (nCheckLevel >= 1 && !CheckBlock(block, state, verifier))
+        if (nCheckLevel >= 1 && !CheckBlock(block, state, verifier, scVerifier))
             return error("VerifyDB(): *** found bad block at %d, hash=%s\n", pindex->nHeight, pindex->GetBlockHash().ToString());
         // check level 2: verify undo validity
         if (nCheckLevel >= 2 && pindex) {

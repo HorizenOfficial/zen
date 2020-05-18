@@ -32,13 +32,14 @@ public:
 
 TEST(CheckBlock, VersionTooLow) {
     auto verifier = libzcash::ProofVerifier::Strict();
+    auto scVerifier = libzendoomc::CScProofVerifier::Strict(new CSidechain());
 
     CBlock block;
     block.nVersion = 1;
 
     MockCValidationState state;
     EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "version-invalid", false)).Times(1);
-    EXPECT_FALSE(CheckBlock(block, state, verifier, false, false));
+    EXPECT_FALSE(CheckBlock(block, state, verifier, scVerifier, false, false));
 }
 
 
@@ -66,9 +67,10 @@ TEST(CheckBlock, BlockRejectsBadVersion) {
     MockCValidationState state;
 
     auto verifier = libzcash::ProofVerifier::Strict();
+    auto scVerifier = libzendoomc::CScProofVerifier::Strict(new CSidechain());
 
     EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-version-too-low", false)).Times(1);
-    EXPECT_FALSE(CheckBlock(block, state, verifier, false, false));
+    EXPECT_FALSE(CheckBlock(block, state, verifier, scVerifier, false, false));
 }
 
 
@@ -153,9 +155,10 @@ TEST(CheckBlock, BlockRejectsNoCbh) {
     MockCValidationState state;
 
     auto verifier = libzcash::ProofVerifier::Strict();
+    auto scVerifier = libzendoomc::CScProofVerifier::Strict(new CSidechain());
 
     EXPECT_CALL(state, DoS(0, false, REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed", false)).Times(1);
-    EXPECT_FALSE(CheckBlock(block, state, verifier, false, false));
+    EXPECT_FALSE(CheckBlock(block, state, verifier, scVerifier, false, false));
 
     CleanUpAll();
 }

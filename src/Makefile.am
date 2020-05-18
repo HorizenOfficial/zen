@@ -274,6 +274,7 @@ libbitcoin_server_a_SOURCES = \
   sc/proofverifier.cpp \
   sc/sidechain.cpp \
   sc/sidechainrpc.cpp \
+  sc/TEMP_zendooError.cpp \
   sc/TEMP_zendooInterface.cpp \
   timedata.cpp \
   torcontrol.cpp \

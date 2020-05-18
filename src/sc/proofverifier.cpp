@@ -1,4 +1,5 @@
 #include "sc/proofverifier.h"
+#include "sc/TEMP_zendooError.h"
 #include "primitives/certificate.h"
 
 #include "main.h"
@@ -30,6 +31,7 @@ namespace libzendoomc{
                 LogPrint("zendoo_mc_cryptolib",
                         "%s():%d - failed to deserialize \"constant\" \n", 
                         __func__, __LINE__);
+                print_error("Failed to deserialize \"constant\"");
                 return false;
             }
         }
@@ -56,6 +58,7 @@ namespace libzendoomc{
                 LogPrint("zendoo_mc_cryptolib",
                     "%s():%d - failed to deserialize \"sc_proof\" \n", 
                     __func__, __LINE__);
+                print_error("Failed to deserialize \"sc_proof\"");
                 return false;
 
             }
@@ -70,6 +73,7 @@ namespace libzendoomc{
             LogPrint("zendoo_mc_cryptolib",
                 "%s():%d - failed to deserialize \"sc_vk\" \n", 
                 __func__, __LINE__);
+            print_error("Failed to deserialize \"sc_vk\"");
             return false;
         }
 
@@ -100,10 +104,19 @@ namespace libzendoomc{
     }
 
     bool CScWCertProofVerificationParameters::verifierCall() const {
-        return verify_sc_proof(
-            end_epoch_mc_b_hash, prev_end_epoch_mc_b_hash, bt_list.data(),
-            bt_list.size(), quality, constant, proofdata, sc_proof, sc_vk
-        );
+        if (!verify_sc_proof(end_epoch_mc_b_hash, prev_end_epoch_mc_b_hash, bt_list.data(),
+                             bt_list.size(), quality, constant, proofdata, sc_proof, sc_vk))
+        {
+            Error err = zendoo_get_last_error();
+            if (err.category == CRYPTO_ERROR){ // Proof verification returned false due to an error, we must log it
+                LogPrint("zendoo_mc_cryptolib",
+                "%s():%d - failed to verify \"sc_proof\" \n", 
+                __func__, __LINE__);
+                print_error("Failed to verify sc_proof");
+            }
+            return false;
+        }
+        return true;
     }
 
     void CScWCertProofVerificationParameters::freeParameters() {
@@ -122,5 +135,7 @@ namespace libzendoomc{
 
         zendoo_sc_vk_free(sc_vk);
         sc_vk = nullptr;
+
+        zendoo_clear_error();
     }
 }

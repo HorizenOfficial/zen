@@ -111,10 +111,10 @@ namespace libzendoomc{
     class CScProofVerifier : public boost::static_visitor<bool> {
         protected:
             bool perform_verification;
-            const CSidechain* scInfo;
+            CSidechain* scInfo;
 
             CScProofVerifier(bool perform_verification): perform_verification(perform_verification), scInfo(nullptr) {}
-            CScProofVerifier(bool perform_verification, const CSidechain* scInfo) :
+            CScProofVerifier(bool perform_verification, CSidechain* scInfo) :
                 perform_verification(perform_verification), scInfo(scInfo) {}
 
         public:
@@ -125,11 +125,14 @@ namespace libzendoomc{
             CScProofVerifier& operator=(CScProofVerifier&&);
 
             // Creates a verification context that strictly verifies all proofs using zendoo-mc-cryptolib's API.
-            static CScProofVerifier Strict(const CSidechain* scInfo){ return CScProofVerifier(true, scInfo); }
+            static CScProofVerifier Strict(CSidechain* scInfo){ return CScProofVerifier(true, scInfo); }
 
             // Creates a verifier that performs no verification, used when avoiding duplicate effort
             // such as during reindexing.
             static CScProofVerifier Disabled() { return CScProofVerifier(false); }
+
+            // For verifying multiple certificates at the same time, without the need to create another instance 
+            void setScInfo(CSidechain* scInfo) { this->scInfo = scInfo; }
 
             // Visitor functions
 
