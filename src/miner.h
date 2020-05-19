@@ -14,6 +14,7 @@
 
 class CBlockIndex;
 class CScript;
+class CCoinsViewCache;
 #ifdef ENABLE_WALLET
 class CReserveKey;
 class CWallet;
@@ -29,8 +30,25 @@ struct CBlockTemplate
     std::vector<int64_t> vCertSigOps;
 };
 
-class CCoinsViewCache;
-class COrphan;
+//
+// Unconfirmed transactions in the memory pool often depend on other
+// transactions in the memory pool. When we select transactions from the
+// pool, we select by highest priority or fee rate, so we might consider
+// transactions that depend on transactions that aren't yet in the block.
+// The COrphan class keeps track of these 'temporary orphans' while
+// CreateBlock is figuring out which transactions to include.
+//
+class COrphan
+{
+public:
+    const CTransactionBase* ptx;
+    std::set<uint256> setDependsOn;
+    CFeeRate feeRate;
+    double dPriority;
+
+    COrphan(const CTransactionBase* ptxIn) : ptx(ptxIn), feeRate(0), dPriority(0) {}
+};
+
 typedef boost::tuple<double, CFeeRate, const CTransactionBase*> TxPriority;
 /** Retrieve mempool transactions priority info */
 void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTimePast, const CCoinsViewCache& view,
