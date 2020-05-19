@@ -399,7 +399,6 @@ inline bool CTxMemPool::addToListForRemovalImmatureExpenditures(
         {
             if (fSanityCheck) {
                 assert(coins->IsAvailable(txin.prevout.n));
-                assert(pcoins->HaveSidechain(coins->originScId));
                 assert(coins->nBwtMaturityHeight != 0);
             }
  

@@ -3022,7 +3022,7 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                                 continue;
                         }
                     } else if (pcoin->IsCertificate()) {
-                        if (pcoin->IsOutputMature(voutPos) == CCoinsViewCache::outputMaturity::IMMATURE)
+                        if (pcoin->IsOutputMature(voutPos) != CCoinsViewCache::outputMaturity::MATURE)
                             continue;
 
                         LogPrint("cert", "%s():%d - cert[%s] out[%d], amount=%s, spendable[%s]\n", __func__, __LINE__,
@@ -4061,7 +4061,7 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances()
                     continue;
 
                 if (pcoin->IsCertificate()) {
-                    if (pcoin->IsOutputMature(pos) == CCoinsViewCache::outputMaturity::IMMATURE)
+                    if (pcoin->IsOutputMature(pos) != CCoinsViewCache::outputMaturity::MATURE)
                         continue;
                 }
 

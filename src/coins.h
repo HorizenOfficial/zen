@@ -100,10 +100,6 @@ public:
     //! nBwtMaturityHeight will be serialized only for coins from certificate
     int nBwtMaturityHeight;
 
-    //! if coin comes from a bwt, originScId will contain the associated ScId; otherwise it will be null
-    //! originScId will be serialized only for coins from bwt, which will be stored in chainstate db under different key
-    uint256 originScId;
-
     std::string ToString() const;
 
     //! empty constructor
@@ -166,7 +162,6 @@ public:
         nSize += ::GetSerializeSize(VARINT(nHeight), nType, nVersion);
 
         if (this->IsFromCert()) {
-            nSize += ::GetSerializeSize(originScId, nType,nVersion);
             nSize += ::GetSerializeSize(nBwtMaturityHeight, nType,nVersion);
 
             unsigned int changeOutputCounter = 0;
@@ -213,7 +208,6 @@ public:
         ::Serialize(s, VARINT(nHeight), nType, nVersion);
 
         if (this->IsFromCert()) {
-            ::Serialize(s,originScId, nType,nVersion);
             ::Serialize(s,nBwtMaturityHeight, nType,nVersion);
 
             unsigned int changeOutputCounter = 0;
@@ -261,7 +255,6 @@ public:
 
         unsigned int changeOutputCounter = vout.size();
         if (this->IsFromCert()) {
-            ::Unserialize(s, originScId, nType,nVersion);
             ::Unserialize(s, nBwtMaturityHeight, nType,nVersion);
             ::Unserialize(s, changeOutputCounter, nType,nVersion);
         }

@@ -315,7 +315,6 @@ bool CCoinsViewDB::GetStats(CCoinsStats &stats) const {
                 }
 
                 if (coins.IsFromCert()) {
-                    ss << coins.originScId;
                     ss << coins.nBwtMaturityHeight;
 
                     unsigned int changeOutputCounter = 0;

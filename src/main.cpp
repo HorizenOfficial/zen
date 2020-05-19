@@ -1251,25 +1251,6 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
             // Bring the best block into scope: it's gonna be needed for CheckInputsTx hereinafter
             view.GetBestBlock();
- 
-            // If any of the inputs comes from a certificate, we make sure to have its sidechain in cache
-            // before rotating backend view to dummy
-            for(const CTxIn& in: cert.GetVin()) {
-                const CCoins *coins = view.AccessCoins(in.prevout.hash);
-                assert(coins);
-
-                if (coins->IsFromCert()) { //This is just to avoid following assert for non-cert coins
-                    // HaveInputs above checks for utxos availability. So accessing vout[in.prevout.n] is safe
-                    assert(coins->IsAvailable(in.prevout.n));
-
-
-                    //check on vout is better than coins->IsFromCert() since it'll skip loading scInfo for zero bwt amount certs
-                    if (coins->vout[in.prevout.n].isFromBackwardTransfer) {
-                        assert(view.HaveSidechain(coins->originScId)); //minimal op to pull scinfo into view
-                    }
-                }
-            }
-
             nFees = cert.GetFeeAmount(view.GetValueIn(cert));
  
             // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
@@ -1525,24 +1506,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
  
             // Bring the best block into scope
             view.GetBestBlock();
-
-            // If any of the inputs comes from a certificate, we make sure to have its sidechain in cache
-            // before rotating backend view to dummy
-            for(const CTxIn& in: tx.GetVin()) {
-                const CCoins *coins = view.AccessCoins(in.prevout.hash);
-                assert(coins);
-
-                if (coins->IsFromCert()) { //This is just to avoid following assert for non-cert coins
-                    // HaveInputs above checks for utxos availability. So accessing vout[in.prevout.n] is safe
-                    assert(coins->IsAvailable(in.prevout.n));
-
-
-                    //check on vout is better than coins->IsFromCert() since it'll skip loading scInfo for zero bwt amount certs
-                    if (coins->vout[in.prevout.n].isFromBackwardTransfer) {
-                        assert(view.HaveSidechain(coins->originScId)); //minimal op to pull scinfo into view
-                    }
-                }
-            }
 
             nFees = tx.GetFeeAmount(view.GetValueIn(tx));
  
@@ -2052,7 +2015,6 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache &inputs, CTxUndo &txund
                 undo.nHeight            = coins->nHeight;
                 undo.fCoinBase          = coins->fCoinBase;
                 undo.nVersion           = coins->nVersion;
-                undo.originScId         = coins->originScId;
                 undo.nBwtMaturityHeight = coins->nBwtMaturityHeight;
             }
         }
@@ -2088,7 +2050,6 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
             undo.nHeight            = coins->nHeight;
             undo.fCoinBase          = coins->fCoinBase;
             undo.nVersion           = coins->nVersion;
-            undo.originScId         = coins->originScId;
             undo.nBwtMaturityHeight = coins->nBwtMaturityHeight;
         }
     }
@@ -2097,7 +2058,7 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
     CSidechain sidechain;
     assert(inputs.GetSidechain(cert.GetScId(), sidechain));
     int currentEpoch = sidechain.EpochFor(nHeight);
-    int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch) + sidechain.SafeguardMargin();
+    int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
     inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight, bwtMaturityHeight);
 
 }
@@ -2385,7 +2346,6 @@ static bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const CO
         coins->fCoinBase          = undo.fCoinBase;
         coins->nHeight            = undo.nHeight;
         coins->nVersion           = undo.nVersion;
-        coins->originScId         = undo.originScId;
         coins->nBwtMaturityHeight = undo.nBwtMaturityHeight;
     } else
     {
@@ -2462,7 +2422,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             CSidechain sidechain;
             assert(view.GetSidechain(cert.GetScId(), sidechain));
             int currentEpoch = sidechain.EpochFor(pindex->nHeight);
-            int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch) + sidechain.SafeguardMargin();
+            int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
             CCoins outsBlock(cert, pindex->nHeight, bwtMaturityHeight);
             // The CCoins serialization does not serialize negative numbers.
             // No network rules currently depend on the version here, so an inconsistency is harmless
