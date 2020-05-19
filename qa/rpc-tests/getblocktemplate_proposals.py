@@ -295,7 +295,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             # set scid to 0x21 (33)
             orig_val = certlist[0][4]
             certlist[0][4] = 33
-            assert_template(node, tmpl, txlist, certlist, 'bad-sc-cert-not-applicable')
+            assert_template(node, tmpl, txlist, certlist, 'bad-sc-not-recorded')
             certlist[0][4] = orig_val
 
             # Test 14: Bad cert count

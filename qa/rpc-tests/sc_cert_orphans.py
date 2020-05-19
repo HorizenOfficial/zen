@@ -33,7 +33,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
-            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1']] * NUMB_OF_NODES)
+            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib', '-logtimemicros=1']] * NUMB_OF_NODES)
 
         for k in range(0, NUMB_OF_NODES-1):
             connect_nodes_bi(self.nodes, k, k+1)
@@ -85,8 +85,8 @@ class sc_cert_orphans(BitcoinTestFramework):
 
         # (1) node0 create sidechains with 10.0 coins each
         mark_logs("Node0 creates SC {} and {}".format(scid_1, scid_2), self.nodes, DEBUG_MODE)
-        creating_tx_1 = self.nodes[0].sc_create(scid_1, EPOCH_LENGTH, "dada", creation_amount, "abcdef")
-        creating_tx_2 = self.nodes[0].sc_create(scid_2, EPOCH_LENGTH, "baba", creation_amount, "101010")
+        creating_tx_1 = self.nodes[0].sc_create(scid_1, EPOCH_LENGTH, "dada", creation_amount)
+        creating_tx_2 = self.nodes[0].sc_create(scid_2, EPOCH_LENGTH, "baba", creation_amount)
         self.sync_all()
 
         mark_logs("Node0 generates 5 blocks to achieve end of epoch", self.nodes, DEBUG_MODE)

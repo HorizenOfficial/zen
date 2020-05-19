@@ -31,7 +31,7 @@ class sc_cert_epoch(BitcoinTestFramework):
 
     def setup_network(self, split=False):
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
-            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1', '-zapwallettxes=2']] * NUMB_OF_NODES )
+            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib',  '-logtimemicros=1', '-zapwallettxes=2']] * NUMB_OF_NODES )
 
         for idx, _ in enumerate(self.nodes):
             if idx < (NUMB_OF_NODES-1):
@@ -66,7 +66,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         bal_before_sc_creation = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance before SC creation: {}".format(bal_before_sc_creation), self.nodes, DEBUG_MODE)
 
-        sc_creation_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "abcdef010101abcdef");
+        sc_creation_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount);
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, sc_creation_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 

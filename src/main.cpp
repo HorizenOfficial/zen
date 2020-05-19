@@ -4055,10 +4055,10 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
         CSidechain scInfo;
         if (!pcoinsTip->GetSidechain(cert.GetScId(), scInfo)){
             return state.DoS(100, 
-            error("CheckBlock(): wcert %s refers to an unknown sidechain with id [%s]", 
-            cert.GetHash().ToString(),
-            cert.GetScId().ToString()),
-            REJECT_INVALID, "bad-sc-not-recorded");
+                error("CheckBlock(): wcert %s refers to an unknown sidechain with id [%s]", 
+                cert.GetHash().ToString(),
+                cert.GetScId().ToString()),
+                REJECT_INVALID, "bad-sc-not-recorded");
         }
         scVerifier.setScInfo(&scInfo);
         if (!CheckCertificate(cert, state, scVerifier)) {

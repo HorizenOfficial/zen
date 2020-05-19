@@ -33,7 +33,7 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
-            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1']] * NUMB_OF_NODES)
+            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib', '-logtimemicros=1']] * NUMB_OF_NODES)
 
         for k in range(0, NUMB_OF_NODES-1):
             connect_nodes_bi(self.nodes, k, k+1)
@@ -69,7 +69,7 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes[0].generate(220)
         self.sync_all()
 
-        creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "abcdef")
+        creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount)
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
