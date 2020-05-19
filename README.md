@@ -1,4 +1,4 @@
-Zen 2.0.20-bitcore
+Zen 2.0.21-bitcore
 ==============
 
 What is Horizen?

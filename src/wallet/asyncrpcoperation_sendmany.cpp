@@ -57,8 +57,9 @@ AsyncRPCOperation_sendmany::AsyncRPCOperation_sendmany(
         std::vector<SendManyRecipient> zOutputs,
         int minDepth,
         CAmount fee,
-        UniValue contextInfo) :
-        tx_(contextualTx), fromaddress_(fromAddress), t_outputs_(tOutputs), z_outputs_(zOutputs), mindepth_(minDepth), fee_(fee), contextinfo_(contextInfo)
+        UniValue contextInfo,
+        bool sendChangeToSource) :
+        tx_(contextualTx), fromaddress_(fromAddress), t_outputs_(tOutputs), z_outputs_(zOutputs), mindepth_(minDepth), fee_(fee), contextinfo_(contextInfo), sendChangeToSource_(sendChangeToSource)
 {
     assert(fee_ >= 0);
 
@@ -352,7 +353,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         CAmount change = funds - fundsSpent;
 
         if (change > 0) {
-            add_taddr_change_output_to_tx(change);
+            add_taddr_change_output_to_tx(change, sendChangeToSource_);
 
             LogPrint("zrpc", "%s: transparent change in transaction output (amount=%s)\n",
                     getId(),
@@ -433,7 +434,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
                     "allow any change as there is currently no way to specify a change address "
                     "in z_sendmany.", FormatMoney(change)));
             } else {
-                add_taddr_change_output_to_tx(change);
+                add_taddr_change_output_to_tx(change, sendChangeToSource_);
                 LogPrint("zrpc", "%s: transparent change in transaction output (amount=%s)\n",
                         getId(),
                         FormatMoney(change)
@@ -1109,19 +1110,27 @@ void AsyncRPCOperation_sendmany::add_taddr_outputs_to_tx() {
     tx_ = CTransaction(rawTx);
 }
 
-void AsyncRPCOperation_sendmany::add_taddr_change_output_to_tx(CAmount amount) {
+void AsyncRPCOperation_sendmany::add_taddr_change_output_to_tx(CAmount amount, bool sendChangeToSource) {
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     EnsureWalletIsUnlocked();
-    CReserveKey keyChange(pwalletMain);
-    CPubKey vchPubKey;
-    bool ret = keyChange.GetReservedKey(vchPubKey);
-    if (!ret) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Could not generate a taddr to use as a change address"); // should never fail, as we just unlocked
+    CTxOut out;
+    if (sendChangeToSource) {
+        CScript scriptPubKey = GetScriptForDestination(fromtaddr_.Get());
+        out = CTxOut(amount, scriptPubKey);
     }
-    CScript scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
-    CTxOut out(amount, scriptPubKey);
+    else {
+        CReserveKey keyChange(pwalletMain);
+        CPubKey vchPubKey;
+        bool ret = keyChange.GetReservedKey(vchPubKey);
+        if (!ret) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Could not generate a taddr to use as a change address"); // should never fail, as we just unlocked
+        }
+        CScript scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
+        out =  CTxOut(amount, scriptPubKey);
+    }
+
 
     CMutableTransaction rawTx(tx_);
     rawTx.vout.push_back(out);

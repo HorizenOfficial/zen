@@ -51,7 +51,7 @@ struct WitnessAnchorData {
 
 class AsyncRPCOperation_sendmany : public AsyncRPCOperation {
 public:
-    AsyncRPCOperation_sendmany(CMutableTransaction contextualTx, std::string fromAddress, std::vector<SendManyRecipient> tOutputs, std::vector<SendManyRecipient> zOutputs, int minDepth, CAmount fee = ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE, UniValue contextInfo = NullUniValue);
+    AsyncRPCOperation_sendmany(CMutableTransaction contextualTx, std::string fromAddress, std::vector<SendManyRecipient> tOutputs, std::vector<SendManyRecipient> zOutputs, int minDepth, CAmount fee = ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE, UniValue contextInfo = NullUniValue, bool sendChangeToSource = false);
     virtual ~AsyncRPCOperation_sendmany();
     
     // We don't want to be copied or moved around
@@ -72,6 +72,7 @@ private:
     friend class TEST_FRIEND_AsyncRPCOperation_sendmany;    // class for unit testing
 
     UniValue contextinfo_;     // optional data to include in return value from getStatus()
+    bool sendChangeToSource_;
 
     CAmount fee_;
     int mindepth_;
@@ -95,7 +96,7 @@ private:
     
     CTransaction tx_;
    
-    void add_taddr_change_output_to_tx(CAmount amount);
+    void add_taddr_change_output_to_tx(CAmount amount, bool sendChangeToSource = false);
     void add_taddr_outputs_to_tx();
     bool find_unspent_notes();
     bool find_utxos(bool fAcceptCoinbase);
@@ -138,8 +139,8 @@ public:
     
     // Delegated methods
     
-    void add_taddr_change_output_to_tx(CAmount amount) {
-        delegate->add_taddr_change_output_to_tx(amount);
+    void add_taddr_change_output_to_tx(CAmount amount, bool sendCangeToSource = false) {
+        delegate->add_taddr_change_output_to_tx(amount, sendCangeToSource);
     }
     
     void add_taddr_outputs_to_tx() {

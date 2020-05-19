@@ -76,6 +76,7 @@ testScripts=(
   'nulldata.py'
   'blockdelay.py'
   'blockdelay_2.py'
+  'z_sendmany.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
