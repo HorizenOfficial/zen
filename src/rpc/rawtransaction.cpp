@@ -684,8 +684,6 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         }
     }
 
-    // crosschain c.locks not handled 
-
     // crosschain forward transfers
     if (params.size() > 3 && !params[3].isNull())
     {

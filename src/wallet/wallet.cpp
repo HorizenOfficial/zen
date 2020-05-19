@@ -2111,7 +2111,6 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
         if (nDebit > 0)
         {
             fillScSent(GetVscCcOut(), listScSent);
-            fillScSent(GetVclCcOut(), listScSent);
             fillScSent(GetVftCcOut(), listScSent);
         }
     }
@@ -3449,7 +3448,6 @@ bool CWallet::CreateTransaction(
                 txNew.vin.clear();
                 txNew.vout.clear();
                 txNew.vsc_ccout.clear();
-                txNew.vcl_ccout.clear();
                 txNew.vft_ccout.clear();
                 wtxNew.fFromMe = true;
                 nChangePosRet = -1;

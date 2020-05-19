@@ -30,16 +30,24 @@ std::string CCoins::ToString() const
 
 CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), originScId() { }
 
-CCoins::CCoins(const CTransactionBase &tx, int nHeightIn) {
-        FromTx(tx, nHeightIn);
-    }
+CCoins::CCoins(const CTransaction &tx, int nHeightIn) { From(tx, nHeightIn); }
 
-void CCoins::FromTx(const CTransactionBase &tx, int nHeightIn) {
-    fCoinBase  = tx.IsCoinBase();
-    vout       = tx.GetVout();
-    nHeight    = nHeightIn;
-    nVersion   = tx.nVersion;
-    originScId = tx.GetScId();
+CCoins::CCoins(const CScCertificate &cert, int nHeightIn) { From(cert, nHeightIn); }
+
+void CCoins::From(const CTransaction &tx, int nHeightIn) {
+    fCoinBase          = tx.IsCoinBase();
+    vout               = tx.GetVout();
+    nHeight            = nHeightIn;
+    nVersion           = tx.nVersion;
+    ClearUnspendable();
+}
+
+void CCoins::From(const CScCertificate &cert, int nHeightIn) {
+    fCoinBase          = cert.IsCoinBase();
+    vout               = cert.GetVout();
+    nHeight            = nHeightIn;
+    nVersion           = cert.nVersion;
+    originScId         = cert.GetScId();
     ClearUnspendable();
 }
 
