@@ -631,6 +631,7 @@ public:
     virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) = 0;
 
     CTransactionBase();
+    explicit CTransactionBase(int nVersionIn) : nVersion(nVersionIn) {}
     CTransactionBase& operator=(const CTransactionBase& tx);
     CTransactionBase(const CTransactionBase& tx);
     virtual ~CTransactionBase() {};
@@ -743,6 +744,18 @@ public:
         std::vector<CScriptCheck> *pvChecks = NULL) const { return true; }
 
     virtual const uint256 getJoinSplitPubKey() const { return uint256(); }
+
+    static bool IsCertificateVersion(int nVersion) {
+        return (nVersion == SC_CERT_VERSION);
+    }
+    static bool IsTransactionVersion(int nVersion) {
+        return (
+            nVersion == TRANSPARENT_TX_VERSION ||
+            nVersion == PHGR_TX_VERSION        ||
+            nVersion == GROTH_TX_VERSION ||
+            nVersion == SC_TX_VERSION 
+        );
+    }
 };
 
 struct CMutableTransaction;
@@ -782,6 +795,7 @@ public:
 
     /** Construct a CTransaction that qualifies as IsNull() */
     CTransaction();
+    explicit CTransaction(int nVersionIn) : nLockTime(0), CTransactionBase(nVersionIn) {}
 
     /** Convert a CMutableTransaction into a CTransaction. */
     CTransaction(const CMutableTransaction &tx);
@@ -792,9 +806,7 @@ public:
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(*const_cast<int32_t*>(&this->nVersion));
-        nVersion = this->nVersion;
+    inline void SerializationOpInternal(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
         READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
         if (this->IsScVersion())
@@ -814,6 +826,14 @@ public:
         if (ser_action.ForRead())
             UpdateHash();
     }
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(*const_cast<int32_t*>(&this->nVersion));
+        nVersion = this->nVersion;
+        SerializationOpInternal(s, ser_action, nType, nVersion);
+    }
+
     template <typename Stream>
     CTransaction(deserialize_type, Stream& s) : CTransaction(CMutableTransaction(deserialize, s)) {}
     
