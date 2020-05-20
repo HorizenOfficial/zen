@@ -1,10 +1,13 @@
 #ifndef _SC_PROOF_VERIFIER_H
 #define _SC_PROOF_VERIFIER_H
 
-#include <sc/TEMP_zendooInterface.h>
+#include "sc/TEMP_zendooInterface.h"
+
 #include <vector>
+#include <string>
 #include <boost/foreach.hpp>
 #include <boost/variant.hpp>
+#include <boost/filesystem.hpp>
 
 class CSidechain;
 class CScCertificate;
@@ -15,7 +18,13 @@ namespace libzendoomc{
     typedef std::vector<unsigned char> ScVk;
     
     /* Visitable classes, one for each element of the CCTP that requires a SNARK proof verification. */
-    typedef boost::variant<CScCertificate> CScProofVerificationContext; 
+    typedef boost::variant<CScCertificate> CScProofVerificationContext;
+
+    /* Write scVk to file in vkPath. Returns true if operation succeeds, false otherwise. */
+    bool SaveScVkToFile(const boost::filesystem::path& vkPath, const ScVk& scVk);
+
+    /* Read scVk from file in vkPath to scVk. Returns true if operation succeeds, false otherwise. Useful for test */
+    bool LoadScVkFromFile(const boost::filesystem::path& vkPath, ScVk& scVk);
 
     /* 
      * Abstract class for handling all the needed data to verify a specific kind of ScProof,

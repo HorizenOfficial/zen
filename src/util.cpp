@@ -491,6 +491,7 @@ boost::filesystem::path GetDefaultDataDir()
 static boost::filesystem::path pathCached;
 static boost::filesystem::path pathCachedNetSpecific;
 static boost::filesystem::path zc_paramsPathCached;
+static boost::filesystem::path sc_paramsPathCached;
 static CCriticalSection csPathCached;
 
 static boost::filesystem::path ZC_GetBaseParamsDir()
@@ -588,6 +589,23 @@ const boost::filesystem::path &GetDataDir(bool fNetSpecific)
         path /= BaseParams().DataDir();
 
     fs::create_directories(path);
+
+    return path;
+}
+
+const boost::filesystem::path &SC_GetParamsDir() {
+    namespace fs = boost::filesystem;
+
+    LOCK(csPathCached); // Reuse the same lock as upstream.
+
+    fs::path &path = sc_paramsPathCached;
+
+    // This can be called during exceptions by LogPrintf(), so we cache the
+    // value so we don't have to do memory allocations after that.
+    if (!path.empty())
+        return path;
+
+    path = GetDataDir() / "sc_params";
 
     return path;
 }

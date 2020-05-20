@@ -96,7 +96,7 @@ class CScProofTestSuite: public ::testing::Test {
             scInfo = new CSidechain();
 
             //Needed to avoid passing checks that shouldn't pass, because customData is optional
-            scInfo->creationData.customData.push_back('0');
+            scInfo->creationData.constant.push_back('0');
             
             scCert = new CScCertificate();
 

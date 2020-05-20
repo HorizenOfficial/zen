@@ -2,6 +2,7 @@
 #define _SIDECHAIN_TYPES_H
 
 #include <vector>
+#include <string>
 
 #include "uint256.h"
 #include "hash.h"
@@ -10,6 +11,7 @@
 #include "serialize.h"
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
+#include <boost/filesystem.hpp>
 
 #include<sc/proofverifier.h>
 
@@ -39,6 +41,7 @@ struct ScCreationParameters
     int withdrawalEpochLength;
     // all creation data follows...
     std::vector<unsigned char> customData;
+    std::vector<unsigned char> constant;
     libzendoomc::ScVk wCertVk;
 
     ADD_SERIALIZE_METHODS;
@@ -46,6 +49,7 @@ struct ScCreationParameters
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(withdrawalEpochLength);
         READWRITE(customData);
+        READWRITE(constant);
         READWRITE(wCertVk);
     }
     ScCreationParameters() :withdrawalEpochLength(-1) {}
@@ -53,7 +57,8 @@ struct ScCreationParameters
     inline bool operator==(const ScCreationParameters& rhs) const
     {
         return (withdrawalEpochLength == rhs.withdrawalEpochLength) &&
-               (customData == rhs.customData) && 
+               (customData == rhs.customData) &&
+               (constant == rhs.constant) &&
                (wCertVk == rhs.wCertVk) ;
     }
     inline bool operator!=(const ScCreationParameters& rhs) const { return !(*this == rhs); }
@@ -61,7 +66,32 @@ struct ScCreationParameters
     {
         withdrawalEpochLength = cp.withdrawalEpochLength;
         customData = cp.customData;
+        constant = cp.constant;
         wCertVk = cp.wCertVk;
+        return *this;
+    }
+};
+
+struct ScVksPaths{
+    std::string wCertVkPath;
+
+    ScVksPaths(): wCertVkPath() {}
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(wCertVkPath);
+    }
+
+    inline bool operator==(const ScVksPaths& rhs) const
+    {
+        return (wCertVkPath == rhs.wCertVkPath);
+    }
+    inline bool operator!=(const ScVksPaths& rhs) const { return !(*this == rhs); }
+
+    inline ScVksPaths& operator=(const ScVksPaths& cp)
+    {
+        wCertVkPath = cp.wCertVkPath;
         return *this;
     }
 };

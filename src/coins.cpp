@@ -8,8 +8,12 @@
 #include "random.h"
 #include "version.h"
 #include "policy/fees.h"
+#include "sc/proofverifier.h"
+#include "util.h"
+#include "tinyformat.h"
 
 #include <assert.h>
+#include <boost/filesystem.hpp>
 #include "utilmoneystr.h"
 #include <undo.h>
 #include <chainparams.h>
@@ -652,6 +656,15 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         cacheSidechains[cr.scId].scInfo.lastCertificateHash.SetNull();
         cacheSidechains[cr.scId].scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
         cacheSidechains[cr.scId].scInfo.creationData.customData = cr.customData;
+        cacheSidechains[cr.scId].scInfo.creationData.wCertVk = cr.wCertVk;
+
+        // Save WCertVk on file and store vk path in creationData
+        boost::filesystem::path wCertVkPath = SC_GetParamsDir() / strprintf("wcert_sc_%s.vk", cr.scId.ToString());
+        if(!libzendoomc::SaveScVkToFile(wCertVkPath, cr.wCertVk)){
+            return false;
+        }
+        cacheSidechains[cr.scId].scInfo.vksPaths.wCertVkPath = wCertVkPath.string();
+        
         cacheSidechains[cr.scId].scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
         cacheSidechains[cr.scId].flag = CSidechainsCacheEntry::Flags::FRESH;
 
@@ -742,6 +755,17 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
             // should not happen either
             LogPrint("sc", "ERROR %s():%d - scId=%s balance not null: %s\n",
                 __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
+            return false;
+        }
+
+        try 
+        {
+            boost::filesystem::remove(targetScInfo.vksPaths.wCertVkPath);
+        } catch (const boost::filesystem::filesystem_error& e) 
+        {
+            // should not happen
+            LogPrint("sc", "ERROR %s():%d - scId=%s Unable to remove wCertVkFile: %s\n",
+                __func__, __LINE__, scId.ToString(), e.what());
             return false;
         }
 
@@ -877,6 +901,7 @@ int CSidechain::SafeguardMargin() const { return -1; }
 bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash) {return true;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state) {return true;}
 bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height) { return true;}
+bool libzendoomc::SaveScVkToFile(const boost::filesystem::path& vkPath, const libzendoomc::ScVk& scVk) { return true; }
 #else
 
 #include "consensus/validation.h"
