@@ -6152,7 +6152,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         if (CTransactionBase::IsTransactionVersion(txVers) )
         {
             CTransaction tx(txVers);
-            tx.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, txVers);
+            tx.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
             LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString() );
             ProcessTxBaseMsg(tx, pfrom);
         }
@@ -6160,7 +6160,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         if (CTransactionBase::IsCertificateVersion(txVers) )
         {
             CScCertificate cert(txVers);
-            cert.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, txVers);
+            cert.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
             LogPrint("cert", "%s():%d - cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString() );
             ProcessTxBaseMsg(cert, pfrom);
         }
