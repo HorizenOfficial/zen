@@ -764,7 +764,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         } catch (const boost::filesystem::filesystem_error& e) 
         {
             // should not happen
-            LogPrint("sc", "ERROR %s():%d - scId=%s Unable to remove wCertVkFile: %s\n",
+            LogPrint("sc", "ERROR %s():%d - scId=%s Unable to remove SC Vks: %s\n",
                 __func__, __LINE__, scId.ToString(), e.what());
             return false;
         }

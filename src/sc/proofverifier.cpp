@@ -12,44 +12,37 @@
 
 namespace libzendoomc{
 
-    //TODO: Is this mutex needed ? Theoretically: 
-    // 1) We create separate files once on the same directory, so no need to synchronize creation on the single file;
-    // 2) The file wouldn't be modified for the whole lifetime of the sidechain so no need to synchronize on loading;
-    // 3) Maybe conflict when reverting ?
-    static CCriticalSection cs_ScParamsIO;
-
     bool SaveScVkToFile(const boost::filesystem::path& vkPath, const ScVk& scVk) {
-        LOCK(cs_ScParamsIO);
 
-        std::ofstream fh(vkPath.string(), std::ios_base::out|std::ios::binary);
-        fh.exceptions(std::ios_base::failbit | std::ios_base::badbit);
+        try
+        {
+            std::ofstream os (vkPath.string(), std::ios_base::out|std::ios::binary);
+            os.exceptions(std::ios_base::failbit | std::ios_base::badbit);
 
-        try{
-            std::copy(scVk.cbegin(), scVk.cend(), std::ostream_iterator<unsigned char>(fh));
-        } catch (std::ios_base::failure& e) {
-            fh.close();
+            std::copy(scVk.cbegin(), scVk.cend(), std::ostream_iterator<unsigned char>(os));
+
+            os.flush();
+            os.close();
+        } catch (std::ios_base::failure& e) 
+        {
             return error(strprintf("SaveScVkToFile(): error writing to file: %s", e.what()).data());
         }
-
-        fh.flush();
-        fh.close();
 
         return true;
     }
 
     bool LoadScVkFromFile(const boost::filesystem::path& vkPath, ScVk& scVk){
-        LOCK(cs_ScParamsIO);
 
-        std::ifstream is (vkPath.string(), std::ifstream::binary);
-        is.exceptions(std::ios_base::failbit | std::ios_base::badbit);
-        try{
+        try
+        {
+            std::ifstream is (vkPath.string(), std::ifstream::binary);
+            is.exceptions(std::ios_base::failbit | std::ios_base::badbit);
             std::copy(std::istream_iterator<unsigned char>(is), std::istream_iterator<unsigned char>(), std::back_inserter(scVk));
-        } catch (std::ios_base::failure& e) {
             is.close();
+        } catch (std::ios_base::failure& e) 
+        {
             return error(strprintf("LoadScVkFromFile(): error reading from file: %s", e.what()).data());
         }
-
-        is.close();
 
         return true;
     }
@@ -113,15 +106,6 @@ namespace libzendoomc{
         //Deserialize sc_vk
         {
             auto wCertVkPath = scInfo.vksPaths.wCertVkPath;
-            LOCK(cs_ScParamsIO);
-            // Already performed in deserialize_sc_vk_from_file
-            /*if(!boost::filesystem::exists(boost::filesystem::path(wCertVkPath))){
-
-                LogPrint("zendoo_mc_cryptolib",
-                "%s():%d - failed to deserialize \"sc_vk\": file %s doesn't exist. \n", 
-                __func__, __LINE__, wCertVkPath);
-                return false;
-            }*/
             sc_vk = deserialize_sc_vk_from_file(reinterpret_cast<const path_char_t*>(wCertVkPath.c_str()), wCertVkPath.size());
 
             if (sc_vk == nullptr){
@@ -149,10 +133,7 @@ namespace libzendoomc{
                 CBackwardTransferOut btout(out);
                 backward_transfer bt;
 
-                //TODO: Find a better way
-                for(int i = 0; i < 20; i++)
-                    bt.pk_dest[i] = btout.pubKeyHash.begin()[i];
-
+                std::copy(btout.pubKeyHash.begin(), btout.pubKeyHash.end(), std::begin(bt.pk_dest));
                 bt.amount = btout.nValue;
 
                 btList.push_back(bt);
