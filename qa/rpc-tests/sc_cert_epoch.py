@@ -66,7 +66,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         bal_before_sc_creation = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance before SC creation: {}".format(bal_before_sc_creation), self.nodes, DEBUG_MODE)
 
-        sc_creation_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount);
+        sc_creation_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "abcdef010101abcdef");
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, sc_creation_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 

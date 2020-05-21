@@ -85,8 +85,8 @@ class sc_cert_orphans(BitcoinTestFramework):
 
         # (1) node0 create sidechains with 10.0 coins each
         mark_logs("Node0 creates SC {} and {}".format(scid_1, scid_2), self.nodes, DEBUG_MODE)
-        creating_tx_1 = self.nodes[0].sc_create(scid_1, EPOCH_LENGTH, "dada", creation_amount)
-        creating_tx_2 = self.nodes[0].sc_create(scid_2, EPOCH_LENGTH, "baba", creation_amount)
+        creating_tx_1 = self.nodes[0].sc_create(scid_1, EPOCH_LENGTH, "dada", creation_amount, "abcdef")
+        creating_tx_2 = self.nodes[0].sc_create(scid_2, EPOCH_LENGTH, "baba", creation_amount, "101010")
         self.sync_all()
 
         mark_logs("Node0 generates 5 blocks to achieve end of epoch", self.nodes, DEBUG_MODE)

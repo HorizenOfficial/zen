@@ -78,7 +78,7 @@ class sc_cert_change(BitcoinTestFramework):
         self.sync_all()
 
         # (1) node0 create sidechain with 10.0 coins
-        creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount)
+        creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "abcdef")
         mark_logs("Node 0 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 

@@ -83,7 +83,7 @@ class sc_rawcert(BitcoinTestFramework):
         # create a sc via createraw cmd
         mark_logs("Node 1 creates the SC spending " + str(sc_amount) + " coins ...", self.nodes, DEBUG_MODE)
         sc_address = "fade"
-        sc_cr = [{"scid": scid, "epoch_length": EPOCH_LENGTH, "amount": cr_amount, "address": sc_address}]
+        sc_cr = [{"scid": scid, "epoch_length": EPOCH_LENGTH, "amount": cr_amount, "address": sc_address, "customData": "badcaffe"}]
         sc_ft = [{"address": sc_address, "amount":ft_amount, "scid": scid}]
         raw_tx = self.nodes[1].createrawtransaction([], {}, sc_cr, sc_ft)
         funded_tx = self.nodes[1].fundrawtransaction(raw_tx)
