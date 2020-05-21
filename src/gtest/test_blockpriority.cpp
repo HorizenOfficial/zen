@@ -21,7 +21,7 @@ public:
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
 
-        chainSettingUtils::GenerateChainActive(100);
+        chainSettingUtils::GenerateChainActive(201);
 
         pcoinsTip = new CCoinsViewCache(&dummyBackingView);
 
@@ -37,7 +37,7 @@ public:
         mapMultiArgs["-debug"].push_back("sc");
         mapMultiArgs["-debug"].push_back("mempool");
         mapArgs["-allownonstandardtx"] = "1";
-
+        mapArgs["-deprecatedgetblocktemplate"] = "1";
 
         //Joinsplit
         boost::filesystem::path pk_path = ZC_GetParamsDir() / "sprout-proving.key";
@@ -79,7 +79,7 @@ protected:
 
     CTransaction makeTransparentTx(const CTxIn& input1, const CTxIn& input2, const CTxOut& output1, const CTxOut& output2);
 
-    CTransaction makeJoinSplit();
+    CTransaction makeJoinSplit(const uint256& jsPubKey);
     ZCIncrementalMerkleTree merkleTree;
     libzcash::SpendingKey k;
     libzcash::PaymentAddress addr;
@@ -99,36 +99,34 @@ TEST_F(BlockPriorityTestSuite, ShieldedTxFaultyPriorityInBlockFormation)
     //Generate coins in Mempool, enough to fill a block
     unsigned int txCounter = 0;
     unsigned int txTotalSize = 0;
-//    for(unsigned int round = 1; ; ++round)
-//    {
-//        //Generate input coin
-//        CTransaction inputTx = makeTransparentTx(CTxIn(), CTxIn(), CTxOut(CAmount(300000000), CScript()<<round<< OP_ADD<< round+1<< OP_EQUAL), CTxOut());
-//        UpdateCoins(inputTx, dummyState, *pcoinsTip, dummyTxundo, /*inputHeight*/100);
-//        ASSERT_TRUE(pcoinsTip->HaveCoins(inputTx.GetHash()));
-//
-//        //Add Tx in mempool spending it
-//        CTransaction txForBlock = makeTransparentTx(CTxIn(inputTx.GetHash(), 0, CScript() << 1), CTxIn(), CTxOut(CAmount(100000000), CScript()<<OP_TRUE), CTxOut());
-//        if (txTotalSize + txForBlock.CalculateSize() > DEFAULT_BLOCK_MAX_SIZE -2000)
-//            break;
-//
-//        ASSERT_TRUE(AcceptToMemoryPool(mempool, dummyState, txForBlock, false, nullptr));
-//
-//        txTotalSize += txForBlock.CalculateSize();
-//        ++txCounter;
-//    }
+    for(unsigned int round = 1; ; ++round)
+    {
+        //Generate input coin
+        CTransaction inputTx = makeTransparentTx(CTxIn(), CTxIn(), CTxOut(CAmount(300000000), CScript()<<round<< OP_ADD<< round+1<< OP_EQUAL), CTxOut());
+        UpdateCoins(inputTx, dummyState, *pcoinsTip, dummyTxundo, /*inputHeight*/100);
+        ASSERT_TRUE(pcoinsTip->HaveCoins(inputTx.GetHash()));
+
+        //Add Tx in mempool spending it
+        CTransaction txForBlock = makeTransparentTx(CTxIn(inputTx.GetHash(), 0, CScript() << 1), CTxIn(), CTxOut(CAmount(100000000), CScript()<<OP_TRUE), CTxOut());
+        if (txTotalSize + txForBlock.CalculateSize() > DEFAULT_BLOCK_MAX_SIZE -2000)
+            break;
+
+        ASSERT_TRUE(AcceptToMemoryPool(mempool, dummyState, txForBlock, false, nullptr));
+
+        txTotalSize += txForBlock.CalculateSize();
+        ++txCounter;
+    }
 
     //Try push a max priority joinsplit
-    CMutableTransaction joinpsplitTx = makeJoinSplit();
-
-    CScript scriptCode;
-    CTransaction signTx(joinpsplitTx);
-
-    uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL);
-
     unsigned char joinSplitPrivKey_[crypto_sign_SECRETKEYBYTES];
     uint256 joinSplitPubKey;
     crypto_sign_keypair(joinSplitPubKey.begin(), joinSplitPrivKey_);
+    CMutableTransaction joinpsplitTx = makeJoinSplit(joinSplitPubKey);
     joinpsplitTx.joinSplitPubKey = joinSplitPubKey;
+
+    CScript scriptCode;
+    CTransaction signTx(joinpsplitTx);
+    uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL);
 
     // Add the signature
     if (!(crypto_sign_detached(&joinpsplitTx.joinSplitSig[0], NULL,
@@ -156,19 +154,19 @@ TEST_F(BlockPriorityTestSuite, ShieldedTxFaultyPriorityInBlockFormation)
     //Try to create the block and check if it is filled
     CBlockTemplate* res = CreateNewBlock(/*scriptPubKeyIn*/CScript());
     ASSERT_TRUE(res != nullptr);
-    EXPECT_TRUE(res->block.vtx.size() == txCounter + 1)<<res->block.vtx.size() <<" at txCounter " << txCounter;
+    EXPECT_FALSE(res->block.vtx.size() == txCounter + 1)<<res->block.vtx.size() <<" at txCounter " << txCounter;
+    //EXPECT_TRUE(false)<<"BLOCK VTX SIZE IS "<<res->block.vtx.size();
     EXPECT_TRUE(std::find(res->block.vtx.begin(),res->block.vtx.end(),CTransaction(joinpsplitTx)) != res->block.vtx.end());
     //EXPECT_TRUE(res->block.vtx[1] == joinpsplitTx)<<res->block.vtx[1].ToString();
     delete res;
     res = nullptr;
 }
 
-CTransaction BlockPriorityTestSuite::makeJoinSplit() {
+CTransaction BlockPriorityTestSuite::makeJoinSplit(const uint256& jsPubKey) {
     uint256 rt = merkleTree.root();
     auto witness = merkleTree.witness();
 
     // create JSDescription
-    uint256 pubKeyHash;
     std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS> inputs = {
         libzcash::JSInput(witness, note, k),
         libzcash::JSInput() // dummy input of zero value
@@ -179,10 +177,9 @@ CTransaction BlockPriorityTestSuite::makeJoinSplit() {
     };
 
     auto verifier = libzcash::ProofVerifier::Strict();
-    JSDescription jsdesc(/*isGroth*/true, *pzcashParams, pubKeyHash, rt, inputs, outputs, 0, 0);
-    jsdesc.Verify(*pzcashParams, verifier, pubKeyHash);
+    JSDescription jsdesc(/*isGroth*/true, *pzcashParams, jsPubKey, rt, inputs, outputs, 0, 0);
+    jsdesc.Verify(*pzcashParams, verifier, jsPubKey);
 
-    //////////////77777
     CMutableTransaction joinsplitTx;
     joinsplitTx.nVersion = GROTH_TX_VERSION;
     joinsplitTx.vjoinsplit.push_back(jsdesc);
