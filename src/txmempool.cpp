@@ -225,23 +225,21 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
 
             if (!origTx.IsCertificate() )
             {
-                try
-                {
-                    const CTransaction& tx = dynamic_cast<const CTransaction&>(origTx);
-                    for(const auto& sc: tx.GetVscCcOut()) {
-                        if (mapSidechains.count(sc.scId) == 0)
-                            continue;
-                        if (removeDependantFwds) {
-                            for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
-                                objToRemove.push_back(fwdTxHash);
-                        } else
-                            objToRemove.push_back(mapSidechains.at(sc.scId).scCreationTxHash);
-                    }
-                }
-                catch(...)
+                const CTransaction* tx = dynamic_cast<const CTransaction*>(&origTx);
+                if (tx == nullptr)
                 {
                     // should never happen
                     LogPrintf("%s():%d - could not make a tx from obj[%s]\n", __func__, __LINE__, origTx.GetHash().ToString());
+                    assert(false);
+                }
+                for(const auto& sc: tx->GetVscCcOut()) {
+                    if (mapSidechains.count(sc.scId) == 0)
+                        continue;
+                    if (removeDependantFwds) {
+                        for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
+                            objToRemove.push_back(fwdTxHash);
+                    } else
+                        objToRemove.push_back(mapSidechains.at(sc.scId).scCreationTxHash);
                 }
             }
         }

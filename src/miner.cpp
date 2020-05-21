@@ -138,8 +138,6 @@ bool VerifyForwardTransfersDependencies(const CTransaction& tx, const CCoinsView
             // other transactions in the memory pool.
             LogPrintf("ERROR: mempool transaction missing sidechain\n");
             if (fDebug) assert("mempool transaction missing sidechain" == 0);
-            if (porphan)
-                vOrphan.pop_back();
             return false;
         }
     }
@@ -160,11 +158,6 @@ bool GetTxInputsDependencies(const CTransactionBase& txBase, CAmount& nTotalIn, 
             LogPrintf("ERROR: [%s] has unspendable input that is an unconfirmed certificate [%s] output %d\n",
                 hash.ToString(), txin.prevout.hash.ToString(), txin.prevout.n);
             if (fDebug) assert("mempool transaction unspendable input that is an unconfirmed certificate output" == 0);
-
-            LogPrintf("%s():%d - ERROR: mempool [%s] spends output from certificate[%s] in mempool\n",
-                __func__, __LINE__, hash.ToString(), txin.prevout.hash.ToString() );
-            if (porphan)
-                vOrphan.pop_back();
             return false;
         }
         else
@@ -187,7 +180,7 @@ bool GetTxInputsDependencies(const CTransactionBase& txBase, CAmount& nTotalIn, 
 }
 
 bool AddTxToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& view, CAmount& nTotalIn,
-                       int nHeight, double dPriorityIn, CAmount nFeeIn, list<COrphan>& vOrphan, COrphan*& porphan, vector<TxPriority>& vecPriority)
+                       int nHeight, double dPriorityIn, CAmount nFeeIn, COrphan* porphan, vector<TxPriority>& vecPriority)
 {
     const uint256& hash = txBase.GetHash();
     unsigned int nTxSize = txBase.GetSerializeSizeBase(SER_NETWORK, PROTOCOL_VERSION);
@@ -200,6 +193,13 @@ bool AddTxToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& vi
         dPriority = dPriorityIn,
         nFee = nFeeIn;
         mempool.ApplyDeltas(hash, dPriority, nFee);
+
+        CFeeRate feeRate(nFee, nTxSize);
+
+        LogPrint("sc", "%s():%d - adding to prio vec txObj = %s, prio=%f, feeRate=%s\n",
+            __func__, __LINE__, hash.ToString(), dPriority, feeRate.ToString());
+ 
+        vecPriority.push_back(TxPriority(dPriority, feeRate, &txBase));
     }
     else
     {
@@ -218,8 +218,6 @@ bool AddTxToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& vi
                 // or other transactions in the memory pool (not certificates in mempool, see above).
                 LogPrintf("ERROR: mempool transaction missing input\n");
                 if (fDebug) assert("mempool transaction missing input" == 0);
-                if (porphan)
-                    vOrphan.pop_back();
                 return false;
             }
             const CCoins* coins = view.AccessCoins(txin.prevout.hash);
@@ -239,21 +237,11 @@ bool AddTxToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& vi
         mempool.ApplyDeltas(hash, dPriority, nTotalIn);
         //nFee = nTotalIn - tx.GetValueOut();
         nFee = txBase.GetFeeAmount(nTotalIn);
-    }
 
-    CFeeRate feeRate(nFee, nTxSize);
+        CFeeRate feeRate(nFee, nTxSize);
 
-    if (porphan)
-    {
         porphan->dPriority = dPriority;
         porphan->feeRate = feeRate;
-    }
-    else
-    {
-        LogPrint("sc", "%s():%d - adding to prio vec txObj = %s, prio=%f, feeRate=%s\n",
-            __func__, __LINE__, hash.ToString(), dPriority, feeRate.ToString());
- 
-        vecPriority.push_back(TxPriority(dPriority, feeRate, &txBase));
     }
     return true;
 }
@@ -273,13 +261,21 @@ void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, const CCoinsVie
         COrphan* porphan = NULL;
 
         if (!GetTxInputsDependencies(cert, nTotalIn, nHeight, vOrphan, mapDependers, porphan) )
+        {
+            if (porphan)
+                vOrphan.pop_back();
             continue;
+        }
 
         double dPriorityIn = it_cert->second.GetPriority(nHeight);
         CAmount nFeeIn = it_cert->second.GetFee();
 
-        if (!AddTxToPriorities(cert, view, nTotalIn, nHeight, dPriorityIn, nFeeIn, vOrphan, porphan, vecPriority) )
+        if (!AddTxToPriorities(cert, view, nTotalIn, nHeight, dPriorityIn, nFeeIn, porphan, vecPriority) )
+        {
+            if (porphan)
+                vOrphan.pop_back();
             continue;
+        }
     }
 }
 
@@ -304,16 +300,28 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
         COrphan* porphan = NULL;
 
         if (!GetTxInputsDependencies(tx, nTotalIn, nHeight, vOrphan, mapDependers, porphan) )
+        {
+            if (porphan)
+                vOrphan.pop_back();
             continue;
+        }
 
         if (!VerifyForwardTransfersDependencies(tx, view, porphan, vOrphan, mapDependers) )
+        {
+            if (porphan)
+                vOrphan.pop_back();
             continue;
+        }
 
         double dPriorityIn =  mi->second.GetPriority(nHeight);
         CAmount nFeeIn =  mi->second.GetFee();
 
-        if (!AddTxToPriorities(tx, view, nTotalIn, nHeight, dPriorityIn, nFeeIn, vOrphan, porphan, vecPriority) )
+        if (!AddTxToPriorities(tx, view, nTotalIn, nHeight, dPriorityIn, nFeeIn, porphan, vecPriority) )
+        {
+            if (porphan)
+                vOrphan.pop_back();
             continue;
+        }
     }
 }
 
