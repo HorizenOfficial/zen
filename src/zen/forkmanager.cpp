@@ -10,6 +10,7 @@
 #include "forks/fork3_communityfundandrpfixfork.h"
 #include "forks/fork4_nulltransactionfork.h"
 #include "forks/fork5_shieldfork.h"
+#include "forks/fork6_timeblockfork.h"
 
 namespace zen {
 
@@ -112,6 +113,22 @@ int ForkManager::getShieldedTxVersion(int height) const {
     return getForkAtHeight(height)->getShieldedTxVersion();
 }
 
+
+/**
+ * @brief
+ */
+bool ForkManager::isFutureMiningTimeStampActive(int height) const {
+	return getForkAtHeight(height)->isFutureMiningTimeStampActive();
+}
+
+/**
+ * @brief
+ */
+bool ForkManager::isFutureTimeStampActive(int height) const {
+	return getForkAtHeight(height)->isFutureTimeStampActive(height, currentNetwork);
+}
+
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// PRIVATE MEMBERS
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -128,6 +145,7 @@ ForkManager::ForkManager() {
     registerFork(new CommunityFundAndRPFixFork());
     registerFork(new NullTransactionFork());
     registerFork(new ShieldFork());
+    registerFork(new TimeBlockFork());
 }
 
 /**

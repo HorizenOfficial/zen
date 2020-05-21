@@ -20,11 +20,13 @@ zen_gtest_SOURCES += \
 endif
 zen_gtest_SOURCES += \
 	gtest/test_tautology.cpp \
+	gtest/test_checkblock.cpp \
 	gtest/test_deprecation.cpp \
 	gtest/test_equihash.cpp \
 	gtest/test_httprpc.cpp \
 	gtest/test_joinsplit.cpp \
 	gtest/test_keystore.cpp \
+	gtest/test_libzcash_utils.cpp \	
 	gtest/test_noteencryption.cpp \
 	gtest/test_mempool.cpp \
 	gtest/test_merkletree.cpp \
@@ -34,15 +36,14 @@ zen_gtest_SOURCES += \
 	gtest/test_random.cpp \
 	gtest/test_rpc.cpp \
 	gtest/test_getblocktemplate.cpp \
+	gtest/test_timedata.cpp \
 	gtest/test_transaction.cpp \
+	gtest/test_txid.cpp \
 	gtest/test_validation.cpp \
 	gtest/test_circuit.cpp \
-	gtest/test_txid.cpp \
-	gtest/test_libzcash_utils.cpp \
 	gtest/test_proofs.cpp \
 	gtest/test_paymentdisclosure.cpp \
-	gtest/test_checkblock.cpp       \
-	gtest/test_relayforks.cpp
+	gtest/test_relayforks.cpp 
 
 if ENABLE_WALLET
 zen_gtest_SOURCES += \

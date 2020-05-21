@@ -74,6 +74,18 @@ public:
 	 * @brief returns phpgr,groth,... tx version based on block height
 	 */
 	int getShieldedTxVersion(int height) const;
+
+    /**
+	 * @brief
+	 */
+	bool isFutureMiningTimeStampActive(int height) const;
+
+    /**
+	 * @brief
+	 */
+	bool isFutureTimeStampActive(int height) const;
+
+
 private:
     
     /**

@@ -887,7 +887,7 @@ UniValue movecmd(const UniValue& params, bool fHelp)
     if (!walletdb.TxnBegin())
         throw JSONRPCError(RPC_DATABASE_ERROR, "database error");
 
-    int64_t nNow = GetAdjustedTime();
+    int64_t nNow = GetTime();
 
     // Debit
     CAccountingEntry debit;
@@ -3420,9 +3420,9 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(chainActive.Height() + 1);
     LogPrintf("z_sendmany shieldedTxVersion: %d\n", shieldedTxVersion);
 
-    if (fHelp || params.size() < 2 || params.size() > 4)
+    if (fHelp || params.size() < 2 || params.size() > 5)
         throw runtime_error(
-            "z_sendmany \"fromaddress\" [{\"address\":... ,\"amount\":...},...] ( minconf ) ( fee )\n"
+            "z_sendmany \"fromaddress\" [{\"address\":... ,\"amount\":...},...] ( minconf ) ( fee ) (sendChangeToSource)\n"
             "\nSend multiple times. Amounts are double-precision floating point numbers."
             "\nChange from a taddr flows to a new taddr address, while change from zaddr returns to itself."
             "\nWhen sending coinbase UTXOs to a zaddr, change is not allowed. The entire value of the UTXO(s) must be consumed."
@@ -3439,6 +3439,7 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
             "3. minconf               (numeric, optional, default=1) Only use funds confirmed at least this many times.\n"
             "4. fee                   (numeric, optional, default="
             + strprintf("%s", FormatMoney(ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee amount to attach to this transaction.\n"
+            "5. sendChangeToSource    (boolean, optional, default = false) If true and fromaddress is a taddress return the change to it\n"
             "\nResult:\n"
             "\"operationid\"          (string) An operationid to pass to z_getoperationstatus to get the result of the operation.\n"
             "\nExamples:\n"
@@ -3483,6 +3484,13 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     std::vector<SendManyRecipient> taddrRecipients;
     std::vector<SendManyRecipient> zaddrRecipients;
     CAmount nTotalOut = 0;
+
+    bool sendChangeToSource = false;
+    if (params.size() > 4) {
+        if (params[4].get_bool() == true) {
+            sendChangeToSource = true;
+        }
+    }
 
     for (const UniValue& o : outputs.getValues()) {
         if (!o.isObject())
@@ -3590,6 +3598,7 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
         }
     }
 
+
     // Use input parameters as the optional context info to be returned by z_getoperationstatus and z_getoperationresult.
     UniValue o(UniValue::VOBJ);
     o.push_back(Pair("fromaddress", params[0]));
@@ -3606,7 +3615,7 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     }
     // Create operation and add to global queue
     std::shared_ptr<AsyncRPCQueue> q = getAsyncRPCQueue();
-    std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(contextualTx, fromaddress, taddrRecipients, zaddrRecipients, nMinDepth, nFee, contextInfo) );
+    std::shared_ptr<AsyncRPCOperation> operation( new AsyncRPCOperation_sendmany(contextualTx, fromaddress, taddrRecipients, zaddrRecipients, nMinDepth, nFee, contextInfo, sendChangeToSource) );
     q->addOperation(operation);
     AsyncRPCOperationId operationId = operation->getId();
     return operationId;

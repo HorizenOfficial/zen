@@ -115,7 +115,11 @@ def initialize_chain(test_dir):
     4 wallets.
     zend and zen-cli must be in search path.
     """
-
+    if os.path.isdir(os.path.join("cache", "node0")):
+        if os.stat("cache").st_mtime + (60 * 60) < time.time():
+            print("initialize_chain(): Removing stale cache")
+            shutil.rmtree("cache")
+            
     if not os.path.isdir(os.path.join("cache", "node0")):
         devnull = open("/dev/null", "w+")
         # Create cache directories, run bitcoinds:
@@ -145,16 +149,20 @@ def initialize_chain(test_dir):
         # gets 25 mature blocks and 25 immature.
         # blocks are created with timestamps 10 minutes apart, starting
         # at Fri, 12 May 2017 00:15:50 GMT (genesis block time)
-        block_time = 1494548150
+        # block_time = 1494548150
+        block_time = int(time.time()) - (200 * 150) # 200 is number of blocks and 150 is blocktime target spacing 150 / 60 = 2.5 min
         for i in range(2):
             for peer in range(4):
                 for j in range(25):
                     set_node_times(rpcs, block_time)
                     rpcs[peer].generate(1)
-                    block_time += 10*60
+                    # block_time += 10*60 # this was BTC target spacing ??
+                    block_time += 150   # ZEN blocktime target spacing
                 # Must sync before next peer starts generating blocks
                 sync_blocks(rpcs)
-
+        # Check that local time isn't going backwards                
+        assert_greater_than(time.time() + 1, block_time)
+                
         # Shut them down, and clean up cache directories:
         stop_nodes(rpcs)
         wait_bitcoinds()
