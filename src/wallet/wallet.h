@@ -317,24 +317,6 @@ public:
     bool IsInMainChain() const { const CBlockIndex *pindexRet; return GetDepthInMainChainINTERNAL(pindexRet) > 0; }
 };
 
-/** A transaction with a merkle branch linking it to the block chain. */
-class CMerkleTx : public CTransaction
-{
-public:
-    CMerkleTx(const CMerkleTx&) = default;
-    CMerkleTx(): CTransaction() {}
-    CMerkleTx(const CTransaction& txIn) : CTransaction(txIn) {}
-};
-
-/** A certificate with a merkle branch linking it to the block chain. */
-class CMerkleCert : public CScCertificate
-{
-public:
-    CMerkleCert(const CMerkleCert&) = default;
-    CMerkleCert(): CScCertificate() {}
-    CMerkleCert(const CScCertificate& certIn) : CScCertificate(certIn) {}
-};
-
 class CWalletObjBase : virtual public MerkleAbstractBase
 {
 private:
@@ -508,7 +490,7 @@ public:
  * A transaction with a bunch of additional info that only the owner cares about.
  * It includes any unrecorded transactions needed to link it back to the block chain.
  */
-class CWalletTx : public CMerkleTx, public CWalletObjBase
+class CWalletTx : public CTransaction, public CWalletObjBase
 {
 protected:
     int GetIndexInBlock(const CBlock& block) override final;
@@ -524,20 +506,14 @@ public:
         mapNoteData.clear();
     }
 
-    CWalletTx(const CWallet* pwalletIn) : CMerkleTx()
+    CWalletTx(const CWallet* pwalletIn) : CTransaction()
     {
         CWalletObjBase::Init(pwalletIn);
         mapNoteData.clear();
     }
 
-    CWalletTx(const CWallet* pwalletIn, const CMerkleTx& txIn) : CMerkleTx(txIn)
+    CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CTransaction(txIn)
     {    
-        CWalletObjBase::Init(pwalletIn);
-        mapNoteData.clear();
-    }
-
-    CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CMerkleTx(txIn)
-    {
         CWalletObjBase::Init(pwalletIn);
         mapNoteData.clear();
     }
@@ -565,7 +541,7 @@ public:
         READWRITE(hashBlock);
         READWRITE(vMerkleBranch);
         READWRITE(nIndex);
-        std::vector<CMerkleTx> vUnused; //! Used to be vtxPrev
+        std::vector<CTransaction> vUnused; //! Used to be vtxPrev
         READWRITE(vUnused);
         READWRITE(mapValue);
         READWRITE(mapNoteData);
@@ -634,7 +610,7 @@ public:
     std::shared_ptr<CWalletObjBase> MakeWalletMapObject() const override;
 };
 
-class CWalletCert : public CMerkleCert, public CWalletObjBase
+class CWalletCert : public CScCertificate, public CWalletObjBase
 {
 protected:
     int GetIndexInBlock(const CBlock& block) override final;
@@ -642,23 +618,18 @@ protected:
 public:
     CWalletCert(const CWalletCert&) = default;
 
-    CWalletCert(): CMerkleCert()
+    CWalletCert(): CScCertificate()
     {
         CWalletObjBase::Init(nullptr);
     }
 
-    CWalletCert(const CWallet* pwalletIn) : CMerkleCert()
+    CWalletCert(const CWallet* pwalletIn) : CScCertificate()
     {
         CWalletObjBase::Init(pwalletIn);
     }
 
-    CWalletCert(const CWallet* pwalletIn, const CMerkleCert& certIn) : CMerkleCert(certIn)
+    CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn) : CScCertificate(certIn)
     {    
-        CWalletObjBase::Init(pwalletIn);
-    }
-
-    CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn) : CMerkleCert(certIn)
-    {
         CWalletObjBase::Init(pwalletIn);
     }
 
@@ -685,7 +656,7 @@ public:
         READWRITE(hashBlock);
         READWRITE(vMerkleBranch);
         READWRITE(nIndex);
-        std::vector<CMerkleCert> vUnused; //! Used to be vtxPrev
+        std::vector<CScCertificate> vUnused; //! Used to be vtxPrev
         READWRITE(vUnused);
         READWRITE(mapValue);
         READWRITE(vOrderForm);
