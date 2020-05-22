@@ -81,7 +81,7 @@ void EnsureWalletIsUnlocked()
         throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Please enter the wallet passphrase with walletpassphrase first.");
 }
 
-void TxExpandedToJSON(const CWalletObjBase& tx, const std::vector<CWalletObjBase*>& vtxIn, UniValue& entry)
+void TxExpandedToJSON(const CWalletTransactionBase& tx, const std::vector<CWalletTransactionBase*>& vtxIn, UniValue& entry)
 {
     entry.push_back(Pair("txid", tx.GetHash().GetHex()));
     entry.push_back(Pair("version", tx.nVersion));
@@ -140,7 +140,7 @@ void TxExpandedToJSON(const CWalletObjBase& tx, const std::vector<CWalletObjBase
 #if 0
 void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry, isminefilter filter)
 #else
-void WalletTxToJSON(const CWalletObjBase& wtx, UniValue& entry, isminefilter filter)
+void WalletTxToJSON(const CWalletTransactionBase& wtx, UniValue& entry, isminefilter filter)
 #endif
 {
     int confirms = wtx.GetDepthInMainChain();
@@ -261,7 +261,7 @@ CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew=false)
 #if 0
             const CWalletTx& wtx = (*it).second;
 #else
-            const CWalletObjBase& wtx = *((*it).second);
+            const CWalletTransactionBase& wtx = *((*it).second);
 #endif
             BOOST_FOREACH(const CTxOut& txout, wtx.GetVout())
             {
@@ -1357,7 +1357,7 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
 #else
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
-        const CWalletObjBase& wtx = *((*it).second);
+        const CWalletTransactionBase& wtx = *((*it).second);
         if (wtx.IsCoinBase() || !wtx.CheckFinal())
 #endif
             continue;
@@ -1424,7 +1424,7 @@ UniValue getreceivedbyaccount(const UniValue& params, bool fHelp)
 #else
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
-        const CWalletObjBase& wtx = *((*it).second);
+        const CWalletTransactionBase& wtx = *((*it).second);
         if (wtx.IsCoinBase() || !wtx.CheckFinal())
 #endif
             continue;
@@ -1449,7 +1449,7 @@ CAmount GetAccountBalance(CWalletDB& walletdb, const string& strAccount, int nMi
     // Tally wallet transactions
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
-        const CWalletObjBase& wtx = *((*it).second);
+        const CWalletTransactionBase& wtx = *((*it).second);
         if (!wtx.CheckFinal() || (wtx.IsCoinBase() && !wtx.HasMatureOutputs()))
             continue;
 
@@ -1518,7 +1518,7 @@ UniValue getbalance(const UniValue& params, bool fHelp)
         CAmount nBalance = 0;
         for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
         {
-            const CWalletObjBase& wtx = *((*it).second);
+            const CWalletTransactionBase& wtx = *((*it).second);
             if (!wtx.CheckFinal() || !wtx.HasMatureOutputs())
                 continue;
 
@@ -1910,7 +1910,7 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
 #else
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
-        const CWalletObjBase& wtx = *((*it).second);
+        const CWalletTransactionBase& wtx = *((*it).second);
         if (wtx.IsCoinBase() || !wtx.CheckFinal())
 #endif
             continue;
@@ -2087,7 +2087,7 @@ static void MaybePushAddress(UniValue & entry, const CTxDestination &dest)
         entry.push_back(Pair("address", addr.ToString()));
 }
 
-void ListTransactions(const CWalletObjBase& wtx, const string& strAccount, int nMinDepth, bool fLong, UniValue& ret, const isminefilter& filter)
+void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccount, int nMinDepth, bool fLong, UniValue& ret, const isminefilter& filter)
 {
     CAmount nFee;
     string strSentAccount;
@@ -2303,7 +2303,7 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
 #if 0
         CWalletTx *const pwtx = (*it).second.first;
 #else
-        CWalletObjBase *const pwtx = (*it).second.first;
+        CWalletTransactionBase *const pwtx = (*it).second.first;
 #endif
         if (pwtx != nullptr)
             ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
@@ -2445,8 +2445,8 @@ UniValue listtxesbyaddress(const UniValue& params, bool fHelp)
     // iterate backwards until we have nCount items to return:
     for (MapTxWithInputs::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
     {
-        const CWalletObjBase& wtx = *((*it).second.first);
-        std::vector<CWalletObjBase*> vtxIn = (*it).second.second;
+        const CWalletTransactionBase& wtx = *((*it).second.first);
+        std::vector<CWalletTransactionBase*> vtxIn = (*it).second.second;
         UniValue o(UniValue::VOBJ);
         TxExpandedToJSON(wtx, vtxIn, o);
         ret.push_back(o);
@@ -2524,7 +2524,7 @@ UniValue listaccounts(const UniValue& params, bool fHelp)
 
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
-        const CWalletObjBase& wtx = *((*it).second);
+        const CWalletTransactionBase& wtx = *((*it).second);
 
         CAmount nFee;
         string strSentAccount;
@@ -2650,7 +2650,7 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
 #else
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
-        const CWalletObjBase& tx = *((*it).second);
+        const CWalletTransactionBase& tx = *((*it).second);
 #endif
         if (depth == -1 || tx.GetDepthInMainChain() < depth)
             ListTransactions(tx, "*", 0, true, transactions, filter);
@@ -2732,7 +2732,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
     if (!pwalletMain->getMapWallet().count(hash))
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid or non-wallet transaction id");
 
-    const CWalletObjBase& wtx = *(pwalletMain->getMapWallet().at(hash));
+    const CWalletTransactionBase& wtx = *(pwalletMain->getMapWallet().at(hash));
 
     CAmount nCredit = wtx.GetCredit(filter);
     CAmount nDebit = wtx.GetDebit(filter);

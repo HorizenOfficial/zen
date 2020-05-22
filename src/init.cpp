@@ -1547,7 +1547,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     } else {
 
         // needed to restore wallet transaction meta data after -zapwallettxes
-        std::vector<std::shared_ptr<CWalletObjBase>> vWtx;
+        std::vector<std::shared_ptr<CWalletTransactionBase>> vWtx;
 
         if (GetBoolArg("-zapwallettxes", false)) {
             uiInterface.InitMessage(_("Zapping all transactions from wallet..."));
@@ -1669,7 +1669,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                     if (mi != pwalletMain->getMapWallet().end())
                     {
                         const auto* copyFrom = wtxOld.get();
-                        CWalletObjBase* copyTo = mi->second.get();
+                        CWalletTransactionBase* copyTo = mi->second.get();
                         copyTo->mapValue = copyFrom->mapValue;
                         copyTo->vOrderForm = copyFrom->vOrderForm;
                         copyTo->nTimeReceived = copyFrom->nTimeReceived;

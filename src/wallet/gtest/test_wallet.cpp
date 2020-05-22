@@ -34,7 +34,7 @@ public:
 #if 0
     MOCK_METHOD2(WriteTx, bool(uint256 hash, const CWalletTx& wtx));
 #else
-    MOCK_METHOD2(WriteTx, bool(uint256 hash, const CWalletObjBase& wtx));
+    MOCK_METHOD2(WriteTx, bool(uint256 hash, const CWalletTransactionBase& wtx));
 #endif
     MOCK_METHOD1(WriteWitnessCacheSize, bool(int64_t nWitnessCacheSize));
     MOCK_METHOD1(WriteBestBlock, bool(const CBlockLocator& loc));

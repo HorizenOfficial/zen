@@ -129,13 +129,13 @@ struct CRecipient
 
 typedef std::map<std::string, std::string> mapValue_t;
 
-class CWalletObjBase;
+class CWalletTransactionBase;
 class CAccountingEntry;
 
-typedef std::pair<CWalletObjBase*, CAccountingEntry*> TxPair;
+typedef std::pair<CWalletTransactionBase*, CAccountingEntry*> TxPair;
 typedef std::multimap<int64_t, TxPair > TxItems;
 
-typedef std::pair<CWalletObjBase*, std::vector<CWalletObjBase*> > TxWithInputsPair;
+typedef std::pair<CWalletTransactionBase*, std::vector<CWalletTransactionBase*> > TxWithInputsPair;
 typedef std::map<int64_t, TxWithInputsPair> MapTxWithInputs;
 
 static void ReadOrderPos(int64_t& nOrderPos, mapValue_t& mapValue)
@@ -289,7 +289,7 @@ struct CNotePlaintextEntry
     libzcash::NotePlaintext plaintext;
 };
 
-class CWalletObjBase : virtual public CTransactionBase
+class CWalletTransactionBase : virtual public CTransactionBase
 {
 protected:
     virtual int GetIndexInBlock(const CBlock& block) = 0;
@@ -343,9 +343,9 @@ protected:
     const CWallet* pwallet;
 
 public:
-    CWalletObjBase& operator=(const CWalletObjBase& o) = default;
-    CWalletObjBase(const CWalletObjBase&) = default;
-    CWalletObjBase() = default;
+    CWalletTransactionBase& operator=(const CWalletTransactionBase& o) = default;
+    CWalletTransactionBase(const CWalletTransactionBase&) = default;
+    CWalletTransactionBase() = default;
 
     bool AcceptToMemoryPool(bool fLimitFree=true, bool fRejectAbsurdFee=true);
 
@@ -472,10 +472,10 @@ public:
         nOrderPos = -1;
     }
 
-    virtual std::shared_ptr<CWalletObjBase> MakeWalletMapObject() const = 0;
-    static std::shared_ptr<CWalletObjBase> MakeWalletObjectBase(const CTransactionBase& obj, const CWallet* pwallet);
+    virtual std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const = 0;
+    static std::shared_ptr<CWalletTransactionBase> MakeWalletObjectBase(const CTransactionBase& obj, const CWallet* pwallet);
 
-    void AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletObjBase*>& vtxIn) const;
+    void AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletTransactionBase*>& vtxIn) const;
     void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const;
     void addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const;
 };
@@ -484,7 +484,7 @@ public:
  * A transaction with a bunch of additional info that only the owner cares about.
  * It includes any unrecorded transactions needed to link it back to the block chain.
  */
-class CWalletTx : public CTransaction, public CWalletObjBase
+class CWalletTx : public CTransaction, public CWalletTransactionBase
 {
 protected:
     int GetIndexInBlock(const CBlock& block) override final;
@@ -494,21 +494,21 @@ public:
 
     CWalletTx(const CWalletTx&) = default;
 
-    CWalletTx() : CTransaction(), CWalletObjBase()
+    CWalletTx() : CTransaction(), CWalletTransactionBase()
     {
-        CWalletObjBase::Init(nullptr);
+        CWalletTransactionBase::Init(nullptr);
         mapNoteData.clear();
     }
 
-    CWalletTx(const CWallet* pwalletIn) : CTransaction(), CWalletObjBase()
+    CWalletTx(const CWallet* pwalletIn) : CTransaction(), CWalletTransactionBase()
     {
-        CWalletObjBase::Init(pwalletIn);
+        CWalletTransactionBase::Init(pwalletIn);
         mapNoteData.clear();
     }
 
-    CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CTransaction(txIn), CWalletObjBase()
+    CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CTransaction(txIn), CWalletTransactionBase()
     {    
-        CWalletObjBase::Init(pwalletIn);
+        CWalletTransactionBase::Init(pwalletIn);
         mapNoteData.clear();
     }
 
@@ -601,10 +601,10 @@ public:
             listScSent.push_back(output);
         }
     }
-    std::shared_ptr<CWalletObjBase> MakeWalletMapObject() const override;
+    std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const override;
 };
 
-class CWalletCert : public CScCertificate, public CWalletObjBase
+class CWalletCert : public CScCertificate, public CWalletTransactionBase
 {
 protected:
     int GetIndexInBlock(const CBlock& block) override final;
@@ -612,19 +612,19 @@ protected:
 public:
     CWalletCert(const CWalletCert&) = default;
 
-    CWalletCert(): CScCertificate(), CWalletObjBase()
+    CWalletCert(): CScCertificate(), CWalletTransactionBase()
     {
-        CWalletObjBase::Init(nullptr);
+        CWalletTransactionBase::Init(nullptr);
     }
 
-    CWalletCert(const CWallet* pwalletIn) : CScCertificate(), CWalletObjBase()
+    CWalletCert(const CWallet* pwalletIn) : CScCertificate(), CWalletTransactionBase()
     {
-        CWalletObjBase::Init(pwalletIn);
+        CWalletTransactionBase::Init(pwalletIn);
     }
 
-    CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn) : CScCertificate(certIn), CWalletObjBase()
+    CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn) : CScCertificate(certIn), CWalletTransactionBase()
     {    
-        CWalletObjBase::Init(pwalletIn);
+        CWalletTransactionBase::Init(pwalletIn);
     }
 
     ADD_SERIALIZE_METHODS;
@@ -681,19 +681,19 @@ public:
     bool RelayWalletTransaction() override;
     bool IsInvolvingMe(mapNoteData_t &noteData) const override;
 
-    std::shared_ptr<CWalletObjBase> MakeWalletMapObject() const override;
+    std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const override;
 };
 
 
 class COutput
 {
 public:
-    const CWalletObjBase *tx;
+    const CWalletTransactionBase *tx;
     int pos;
     int nDepth;
     bool fSpendable;
 
-    COutput(const CWalletObjBase *txIn, int posIn, int nDepthIn, bool fSpendableIn):
+    COutput(const CWalletTransactionBase *txIn, int posIn, int nDepthIn, bool fSpendableIn):
         tx(txIn),pos(posIn),nDepth(nDepthIn),fSpendable(fSpendableIn) {}
 
     std::string ToString() const;
@@ -818,7 +818,7 @@ private:
 #if 0
     bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL) const;
 #else
-    bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletObjBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL) const;
+    bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL) const;
 #endif
 
     CWalletDB *pwalletdbEncryption;
@@ -928,7 +928,7 @@ protected:
     bool UpdatedNoteData(const CWalletTx& wtxIn, CWalletTx& wtx);
     void MarkAffectedTransactionsDirty(const CTransaction& tx);
 #else
-    bool UpdatedNoteData(const CWalletObjBase& wtxIn, CWalletObjBase& wtx);
+    bool UpdatedNoteData(const CWalletTransactionBase& wtxIn, CWalletTransactionBase& wtx);
     void MarkAffectedTransactionsDirty(const CTransactionBase& tx);
 #endif
 
@@ -1038,11 +1038,11 @@ public:
     std::map<uint256, JSOutPoint> mapNullifiersToNotes;
 
 private:
-    std::map<uint256, std::shared_ptr<CWalletObjBase> > mapWallet;
+    std::map<uint256, std::shared_ptr<CWalletTransactionBase> > mapWallet;
 public:
-    const std::map<uint256, std::shared_ptr<CWalletObjBase> > & getMapWallet() const  {return mapWallet;}
+    const std::map<uint256, std::shared_ptr<CWalletTransactionBase> > & getMapWallet() const  {return mapWallet;}
     //No need for mapWallet setter, meaning that mapWallet is only read outside CWallet class
-    typedef std::map<uint256, std::shared_ptr<CWalletObjBase> >::const_iterator MAP_WALLET_CONST_IT;
+    typedef std::map<uint256, std::shared_ptr<CWalletTransactionBase> >::const_iterator MAP_WALLET_CONST_IT;
 
     int64_t nOrderPosNext;
     std::map<uint256, int> mapRequestCount;
@@ -1055,14 +1055,14 @@ public:
 
     int64_t nTimeFirstKey;
 
-    const CWalletObjBase* GetWalletTx(const uint256& hash) const;
+    const CWalletTransactionBase* GetWalletTx(const uint256& hash) const;
 
     //! check whether we are allowed to upgrade (or already support) to the named feature
     bool CanSupportFeature(enum WalletFeature wf) { AssertLockHeld(cs_wallet); return nWalletMaxVersion >= wf; }
 
     void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl = nullptr, bool fIncludeZeroValue=false, bool fIncludeCoinBase=true, bool fIncludeCommunityFund=true) const;
     bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins,
-        std::set<std::pair<const CWalletObjBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet) const;
+        std::set<std::pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet) const;
 
     bool IsSpent(const uint256& hash, unsigned int n) const;
     bool IsSpent(const uint256& nullifier) const;
@@ -1161,8 +1161,8 @@ public:
     void UpdateNullifierNoteMapWithTx(const CWalletTx& wtx);
     bool AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletDB* pwalletdb);
 #else
-    void UpdateNullifierNoteMapWithTx(const CWalletObjBase& wtx);
-    bool AddToWallet(const CWalletObjBase& wtxIn, bool fFromLoadWallet, CWalletDB* pwalletdb);
+    void UpdateNullifierNoteMapWithTx(const CWalletTransactionBase& wtx);
+    bool AddToWallet(const CWalletTransactionBase& wtxIn, bool fFromLoadWallet, CWalletDB* pwalletdb);
 #endif
     void SyncTransaction(const CTransaction& tx, const CBlock* pblock) override;
     void SyncCertificate(const CScCertificate& cert, const CBlock* pblock) override;
@@ -1249,7 +1249,7 @@ public:
     /** should probably be renamed to IsRelevantToMe */
     bool IsFromMe(const CTransaction& tx) const;
     CAmount GetDebit (const CTransactionBase& txBase, const isminefilter& filter) const;
-    CAmount GetCredit(const CWalletObjBase& txWalletBase, const isminefilter& filter,
+    CAmount GetCredit(const CWalletTransactionBase& txWalletBase, const isminefilter& filter,
                       bool& fCanBeCached, bool keepImmatureVoutsOnly) const;
     CAmount GetChange(const CTransactionBase& txBase) const;
 
@@ -1261,7 +1261,7 @@ public:
 #if 0
     DBErrors ZapWalletTx(std::vector<CWalletTx>& vWtx);
 #else
-    DBErrors ZapWalletTx(std::vector<std::shared_ptr<CWalletObjBase> >& vWtx);
+    DBErrors ZapWalletTx(std::vector<std::shared_ptr<CWalletTransactionBase> >& vWtx);
 #endif
 
 

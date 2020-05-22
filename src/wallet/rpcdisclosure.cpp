@@ -96,7 +96,7 @@ UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_MISC_ERROR, "Transaction does not belong to the wallet");
     }
 
-    const CWalletObjBase& wtx = *(pwalletMain->getMapWallet().at(hash));
+    const CWalletTransactionBase& wtx = *(pwalletMain->getMapWallet().at(hash));
 
     // Check if shielded tx
     if (wtx.GetVjoinsplit().size() == 0) {
