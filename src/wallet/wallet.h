@@ -343,9 +343,9 @@ protected:
     const CWallet* pwallet;
 
 public:
+    explicit CWalletTransactionBase(const CWallet* pwalletIn) { Reset(pwalletIn); }
     CWalletTransactionBase& operator=(const CWalletTransactionBase& o) = default;
     CWalletTransactionBase(const CWalletTransactionBase&) = default;
-    CWalletTransactionBase() = default;
 
     bool AcceptToMemoryPool(bool fLimitFree=true, bool fRejectAbsurdFee=true);
 
@@ -441,7 +441,8 @@ public:
     virtual const mapNoteData_t* GetMapNoteData() const { return nullptr; }
     virtual void SetMapNoteData(mapNoteData_t& m) {}
 
-    void Init(const CWallet* pwalletIn)
+protected:
+    void Reset(const CWallet* pwalletIn)
     {
         pwallet = pwalletIn;
         mapValue.clear();
@@ -472,6 +473,7 @@ public:
         nOrderPos = -1;
     }
 
+public:
     virtual std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const = 0;
     static std::shared_ptr<CWalletTransactionBase> MakeWalletObjectBase(const CTransactionBase& obj, const CWallet* pwallet);
 
@@ -492,32 +494,16 @@ protected:
 public:
     mapNoteData_t mapNoteData;
 
+    explicit CWalletTx() : CTransaction(), CWalletTransactionBase(nullptr) {}
+    explicit CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CTransaction(txIn), CWalletTransactionBase(pwalletIn) {}
     CWalletTx(const CWalletTx&) = default;
-
-    CWalletTx() : CTransaction(), CWalletTransactionBase()
-    {
-        CWalletTransactionBase::Init(nullptr);
-        mapNoteData.clear();
-    }
-
-    CWalletTx(const CWallet* pwalletIn) : CTransaction(), CWalletTransactionBase()
-    {
-        CWalletTransactionBase::Init(pwalletIn);
-        mapNoteData.clear();
-    }
-
-    CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CTransaction(txIn), CWalletTransactionBase()
-    {    
-        CWalletTransactionBase::Init(pwalletIn);
-        mapNoteData.clear();
-    }
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         if (ser_action.ForRead())
-            Init(NULL);
+            CWalletTransactionBase::Reset(nullptr);
         char fSpent = false;
 
         if (!ser_action.ForRead())
@@ -610,29 +596,16 @@ protected:
     int GetIndexInBlock(const CBlock& block) override final;
 
 public:
+    explicit CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn) : CScCertificate(certIn), CWalletTransactionBase(pwalletIn) {}
+    explicit CWalletCert(): CScCertificate(), CWalletTransactionBase(nullptr) {}
     CWalletCert(const CWalletCert&) = default;
-
-    CWalletCert(): CScCertificate(), CWalletTransactionBase()
-    {
-        CWalletTransactionBase::Init(nullptr);
-    }
-
-    CWalletCert(const CWallet* pwalletIn) : CScCertificate(), CWalletTransactionBase()
-    {
-        CWalletTransactionBase::Init(pwalletIn);
-    }
-
-    CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn) : CScCertificate(certIn), CWalletTransactionBase()
-    {    
-        CWalletTransactionBase::Init(pwalletIn);
-    }
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         if (ser_action.ForRead())
-            Init(NULL);
+            CWalletTransactionBase::Reset(nullptr);
         char fSpent = false;
 
         if (!ser_action.ForRead())
