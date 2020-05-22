@@ -302,12 +302,7 @@ public:
     // memory only
     mutable bool fMerkleVerified;
 
-    void Init()
-    {
-        hashBlock = uint256();
-        nIndex = -1;
-        fMerkleVerified = false;
-    }
+    MerkleAbstractBase(): hashBlock(), vMerkleBranch(), nIndex(-1), fMerkleVerified(false) {};
 
     /**
      * Return depth of transaction in blockchain:
@@ -328,16 +323,8 @@ class CMerkleTx : public CTransaction, virtual public MerkleAbstractBase
     int GetIndexInBlock(const CBlock& block) override;
 public:
     CMerkleTx(const CMerkleTx&) = default;
-
-    CMerkleTx()
-    {
-        Init();
-    }
-
-    CMerkleTx(const CTransaction& txIn) : CTransaction(txIn)
-    {
-        Init();
-    }
+    CMerkleTx(): CTransaction(), MerkleAbstractBase() {}
+    CMerkleTx(const CTransaction& txIn) : CTransaction(txIn), MerkleAbstractBase() {}
 
     ADD_SERIALIZE_METHODS;
 
@@ -358,16 +345,8 @@ class CMerkleCert : public CScCertificate, virtual public MerkleAbstractBase
 
 public:
     CMerkleCert(const CMerkleCert&) = default;
-
-    CMerkleCert()
-    {
-        Init();
-    }
-
-    CMerkleCert(const CScCertificate& certIn) : CScCertificate(certIn)
-    {
-        Init();
-    }
+    CMerkleCert(): CScCertificate(), MerkleAbstractBase() {}
+    CMerkleCert(const CScCertificate& certIn) : CScCertificate(certIn), MerkleAbstractBase() {}
 
     ADD_SERIALIZE_METHODS;
 
