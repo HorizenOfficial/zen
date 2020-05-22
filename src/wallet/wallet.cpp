@@ -2492,9 +2492,10 @@ CCoinsViewCache::outputMaturity CWalletObjBase::IsOutputMature(unsigned int vOut
 
     if (IsCertificate())
     {
-        // we do not consider even an unconfirmed change output in a certificate as mature
-        if ((nDepth == 0))
-            return CCoinsViewCache::outputMaturity::IMMATURE;
+        // we consider an unconfirmed change output in a certificate as mature
+        // even if that can only be spent by a certificate (not by a transaction)
+        if ((nDepth == 0) && !GetVout()[vOutPos].isFromBackwardTransfer)
+            return CCoinsViewCache::outputMaturity::MATURE;
 
         return pcoinsTip->IsCertOutputMature(hash, vOutPos, chainActive.Height());
     }

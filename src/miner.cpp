@@ -154,11 +154,31 @@ bool GetTxInputsDependencies(const CTransactionBase& txBase, CAmount& nTotalIn, 
     {
         if (mempool.mapCertificate.count(txin.prevout.hash))
         {
-            // no outputs of a certificate in mempool can be spent, that also apply to certificate change
-            LogPrintf("ERROR: [%s] has unspendable input that is an unconfirmed certificate [%s] output %d\n",
-                hash.ToString(), txin.prevout.hash.ToString(), txin.prevout.n);
-            if (fDebug) assert("mempool transaction unspendable input that is an unconfirmed certificate output" == 0);
-            return false;
+            // - tx can not spend any output of a certificate in mempool, both change an backward transfer
+            // - certificate can only spend change outputs of a certificate in mempool, while backward transfers must mature first
+            const CScCertificate & inputCert = mempool.mapCertificate[txin.prevout.hash].GetCertificate();
+
+            if (!txBase.IsCertificate() || // this is a tx
+                inputCert.GetVout()[txin.prevout.n].isFromBackwardTransfer ) // out is a backward transfer 
+            {
+                // This should never happen
+                LogPrintf("%s():%d - ERROR: [%s] has unspendable input that is an unconfirmed certificate [%s] output %d\n",
+                    __func__, __LINE__, hash.ToString(), txin.prevout.hash.ToString(), txin.prevout.n);
+
+                if (fDebug) assert("mempool transaction unspendable input that is an unconfirmed certificate output" == 0);
+                return false;
+            }
+            if (!porphan)
+            {
+                // Use list for automatic deletion
+                vOrphan.push_back(COrphan(&txBase));
+                porphan = &vOrphan.back();
+            }
+            mapDependers[txin.prevout.hash].push_back(porphan);
+            porphan->setDependsOn.insert(txin.prevout.hash);
+            nTotalIn += mempool.mapCertificate[txin.prevout.hash].GetCertificate().GetVout()[txin.prevout.n].nValue;
+            LogPrint("sc", "%s():%d - [%s] depends on [%s] for input\n",
+                __func__, __LINE__, txBase.GetHash().ToString(), txin.prevout.hash.ToString());
         }
         else
         if (mempool.mapTx.count(txin.prevout.hash))
@@ -180,7 +200,7 @@ bool GetTxInputsDependencies(const CTransactionBase& txBase, CAmount& nTotalIn, 
 }
 
 bool AddTxToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& view, CAmount& nTotalIn,
-                       int nHeight, double dPriorityIn, CAmount nFeeIn, COrphan* porphan, vector<TxPriority>& vecPriority)
+                       int nHeight, const CMemPoolEntry& mpEntry, COrphan* porphan, vector<TxPriority>& vecPriority)
 {
     const uint256& hash = txBase.GetHash();
     unsigned int nTxSize = txBase.GetSerializeSizeBase(SER_NETWORK, PROTOCOL_VERSION);
@@ -190,8 +210,8 @@ bool AddTxToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& vi
     // Has to wait for dependencies
     if (!porphan)
     {
-        dPriority = dPriorityIn,
-        nFee = nFeeIn;
+        dPriority = mpEntry.GetPriority(nHeight);
+        nFee = mpEntry.GetFee();
         mempool.ApplyDeltas(hash, dPriority, nFee);
 
         CFeeRate feeRate(nFee, nTxSize);
@@ -251,10 +271,10 @@ void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, const CCoinsVie
 {
     AssertLockHeld(mempool.cs); 
 
-    for (auto it_cert = mempool.mapCertificate.begin();
-         it_cert != mempool.mapCertificate.end(); ++it_cert)
+    for (auto mi = mempool.mapCertificate.begin();
+         mi != mempool.mapCertificate.end(); ++mi)
     {
-        const CScCertificate& cert = it_cert->second.GetCertificate();
+        const CScCertificate& cert = mi->second.GetCertificate();
         const uint256& hash = cert.GetHash();
 
         CAmount nTotalIn = 0;
@@ -267,10 +287,8 @@ void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, const CCoinsVie
             continue;
         }
 
-        double dPriorityIn = it_cert->second.GetPriority(nHeight);
-        CAmount nFeeIn = it_cert->second.GetFee();
-
-        if (!AddTxToPriorities(cert, view, nTotalIn, nHeight, dPriorityIn, nFeeIn, porphan, vecPriority) )
+        const CMemPoolEntry& mpEntry = mi->second;
+        if (!AddTxToPriorities(cert, view, nTotalIn, nHeight, mpEntry, porphan, vecPriority) )
         {
             if (porphan)
                 vOrphan.pop_back();
@@ -313,10 +331,8 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
             continue;
         }
 
-        double dPriorityIn =  mi->second.GetPriority(nHeight);
-        CAmount nFeeIn =  mi->second.GetFee();
-
-        if (!AddTxToPriorities(tx, view, nTotalIn, nHeight, dPriorityIn, nFeeIn, porphan, vecPriority) )
+        const CMemPoolEntry& mpEntry = mi->second;
+        if (!AddTxToPriorities(tx, view, nTotalIn, nHeight, mpEntry, porphan, vecPriority) )
         {
             if (porphan)
                 vOrphan.pop_back();
@@ -354,7 +370,8 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
                 // This should never happen; all transactions in the memory
                 // pool should connect to either transactions in the chain
                 // or other transactions in the memory pool.
-                if (!mempool.exists(txin.prevout.hash))
+                // This also consider that the tx input can not be any output of a certificate in mempool
+                if (!mempool.mapTx.count(txin.prevout.hash))
                 {
                     LogPrintf("ERROR: mempool transaction missing input\n");
                     if (fDebug) assert("mempool transaction missing input" == 0);
@@ -371,39 +388,9 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
                     vOrphan.push_back(COrphan(&tx));
                     porphan = &vOrphan.back();
                 }
-                if (mempool.mapTx.count(txin.prevout.hash))
-                {
-                    mapDependers[txin.prevout.hash].push_back(porphan);
-                    porphan->setDependsOn.insert(txin.prevout.hash);
-                    nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().GetVout()[txin.prevout.n].nValue;
-                    LogPrint("sc", "%s():%d - tx[%s] depends on tx[%s] for input\n",
-                        __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
-                }
-                else
-                {
-                    //only change outputs can be spent, while backward transfers must mature first
-                    const CScCertificate & inputCert = mempool.mapCertificate[txin.prevout.hash].GetCertificate();
-                    if (txin.prevout.n >= inputCert.GetVout().size() || inputCert.GetVout().at(txin.prevout.n).isFromBackwardTransfer)
-                    {
-                        // This should never happen; an output from a certificate cannot be spent before next-epoch safeguard height has been reached.
-                        // We skip the entire transaction
-                        LogPrintf("ERROR: mempool transaction missing input\n");
-                        if (fDebug) assert("mempool transaction missing input" == 0);
-  
-                        LogPrintf("%s():%d - ERROR: mempool [%s] spends backward transfer from certificate[%s] in mempool\n",
-                            __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString() );
-                        fMissingInputs = true;
-                        break;
-                    }
-                    else
-                    {
-                        mapDependers[txin.prevout.hash].push_back(porphan);
-                        porphan->setDependsOn.insert(txin.prevout.hash);
-                        nTotalIn += inputCert.GetVout()[txin.prevout.n].nValue;
-                        LogPrint("sc", "%s():%d - [%s] depends on cert[%s] for input\n",
-                            __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
-                    }
-                }
+                mapDependers[txin.prevout.hash].push_back(porphan);
+                porphan->setDependsOn.insert(txin.prevout.hash);
+                nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().GetVout()[txin.prevout.n].nValue;
                 continue;
             }
             const CCoins* coins = view.AccessCoins(txin.prevout.hash);
@@ -599,7 +586,11 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 continue;
 
             if (!view.HaveInputs(tx))
+            {
+                LogPrint("sc", "%s():%d - Skipping [%s] because it has no inputs\n",
+                    __func__, __LINE__, tx.GetHash().ToString() );
                 continue;
+            }
 
             CAmount nTxFees = tx.GetFeeAmount(view.GetValueIn(tx));
 #if 0
@@ -612,7 +603,11 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
             nTxSigOps += GetP2SHSigOpCount(tx, view);
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
+            {
+                LogPrint("sc", "%s():%d - Skipping [%s] because too many sigops in block\n",
+                    __func__, __LINE__, tx.GetHash().ToString() );
                 continue;
+            }
 
             // Note that flags: we don't want to set mempool/IsStandard()
             // policy here, but we still have to ensure that the block we
