@@ -542,25 +542,25 @@ public:
 
     CWalletTx()
     {
-        Init(NULL);
+        CWalletObjBase::Init(nullptr);
         mapNoteData.clear();
     }
 
-    CWalletTx(const CWallet* pwalletIn)
+    CWalletTx(const CWallet* pwalletIn) : CMerkleTx()
     {
-        Init(pwalletIn);
+        CWalletObjBase::Init(pwalletIn);
         mapNoteData.clear();
     }
 
     CWalletTx(const CWallet* pwalletIn, const CMerkleTx& txIn) : CMerkleTx(txIn)
     {    
-        Init(pwalletIn);
+        CWalletObjBase::Init(pwalletIn);
         mapNoteData.clear();
     }
 
     CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CMerkleTx(txIn)
     {
-        Init(pwalletIn);
+        CWalletObjBase::Init(pwalletIn);
         mapNoteData.clear();
     }
 
@@ -658,24 +658,24 @@ public:
 
     CWalletCert(const CWalletCert&) = default;
 
-    CWalletCert()
+    CWalletCert(): CMerkleCert()
     {
-        Init(NULL);
+        CWalletObjBase::Init(nullptr);
     }
 
-    CWalletCert(const CWallet* pwalletIn)
+    CWalletCert(const CWallet* pwalletIn) : CMerkleCert()
     {
-        Init(pwalletIn);
+        CWalletObjBase::Init(pwalletIn);
     }
 
     CWalletCert(const CWallet* pwalletIn, const CMerkleCert& certIn) : CMerkleCert(certIn)
     {    
-        Init(pwalletIn);
+        CWalletObjBase::Init(pwalletIn);
     }
 
     CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn) : CMerkleCert(certIn)
     {
-        Init(pwalletIn);
+        CWalletObjBase::Init(pwalletIn);
     }
 
     ADD_SERIALIZE_METHODS;
