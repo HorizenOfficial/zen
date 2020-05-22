@@ -99,7 +99,7 @@ UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp)
     const CWalletTransactionBase& wtx = *(pwalletMain->getMapWallet().at(hash));
 
     // Check if shielded tx
-    if (wtx.GetVjoinsplit().size() == 0) {
+    if (wtx.getTxBase().GetVjoinsplit().size() == 0) {
         throw JSONRPCError(RPC_MISC_ERROR, "Transaction is not a shielded transaction");
     }
 
@@ -108,7 +108,7 @@ UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp)
 #if 0
     if (js_index < 0 || js_index >= wtx.GetVjoinsplit().size()) {
 #else
-    if (js_index < 0 || js_index >= wtx.GetVjoinsplit().size()) {
+    if (js_index < 0 || js_index >= wtx.getTxBase().GetVjoinsplit().size()) {
 #endif
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid js_index");
     }
@@ -138,7 +138,7 @@ UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp)
 #if 0
     PaymentDisclosure pd( wtx.joinSplitPubKey, key, info, msg );
 #else
-    PaymentDisclosure pd( wtx.getJoinSplitPubKey(), key, info, msg );
+    PaymentDisclosure pd( wtx.getTxBase().getJoinSplitPubKey(), key, info, msg );
 #endif
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << pd;

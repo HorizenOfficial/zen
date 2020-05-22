@@ -289,7 +289,7 @@ struct CNotePlaintextEntry
     libzcash::NotePlaintext plaintext;
 };
 
-class CWalletTransactionBase : virtual public CTransactionBase
+class CWalletTransactionBase
 {
 protected:
     virtual int GetIndexInBlock(const CBlock& block) = 0;
@@ -341,11 +341,16 @@ public:
 
 protected:
     const CWallet* pwallet;
+    CTransactionBase& txBase;
+public:
+    const CTransactionBase& getTxBase() const {return txBase;}
+
 
 public:
-    explicit CWalletTransactionBase(const CWallet* pwalletIn) { Reset(pwalletIn); }
+    explicit CWalletTransactionBase(const CWallet* pwalletIn, CTransactionBase& refTxBase): pwallet(pwalletIn), txBase(refTxBase) { Reset(pwalletIn); }
     CWalletTransactionBase& operator=(const CWalletTransactionBase& o) = default;
     CWalletTransactionBase(const CWalletTransactionBase&) = default;
+    virtual ~CWalletTransactionBase() = default;
 
     bool AcceptToMemoryPool(bool fLimitFree=true, bool fRejectAbsurdFee=true);
 
@@ -494,8 +499,8 @@ protected:
 public:
     mapNoteData_t mapNoteData;
 
-    explicit CWalletTx() : CTransaction(), CWalletTransactionBase(nullptr) {}
-    explicit CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CTransaction(txIn), CWalletTransactionBase(pwalletIn) {}
+    explicit CWalletTx() : CTransaction(), CWalletTransactionBase(nullptr, *this) {}
+    explicit CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CTransaction(txIn), CWalletTransactionBase(pwalletIn, *this) {}
     CWalletTx(const CWalletTx&) = default;
 
     ADD_SERIALIZE_METHODS;
@@ -596,8 +601,8 @@ protected:
     int GetIndexInBlock(const CBlock& block) override final;
 
 public:
-    explicit CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn) : CScCertificate(certIn), CWalletTransactionBase(pwalletIn) {}
-    explicit CWalletCert(): CScCertificate(), CWalletTransactionBase(nullptr) {}
+    explicit CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn) : CScCertificate(certIn), CWalletTransactionBase(pwalletIn, *this) {}
+    explicit CWalletCert(): CScCertificate(), CWalletTransactionBase(nullptr, *this) {}
     CWalletCert(const CWalletCert&) = default;
 
     ADD_SERIALIZE_METHODS;

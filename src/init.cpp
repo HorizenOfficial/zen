@@ -1664,7 +1664,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
                 for(const auto& wtxOld: vWtx)
                 {
-                    uint256 hash = wtxOld->GetHash();
+                    uint256 hash = wtxOld->getTxBase().GetHash();
                     auto mi = pwalletMain->getMapWallet().find(hash);
                     if (mi != pwalletMain->getMapWallet().end())
                     {

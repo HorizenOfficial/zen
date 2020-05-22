@@ -835,7 +835,7 @@ bool AsyncRPCOperation_sendmany::find_utxos(bool fAcceptCoinbase=false) {
 
         if (setAddress.size()) {
             CTxDestination address;
-            if (!ExtractDestination(out.tx->GetVout()[out.pos].scriptPubKey, address)) {
+            if (!ExtractDestination(out.tx->getTxBase().GetVout()[out.pos].scriptPubKey, address)) {
                 continue;
             }
 
@@ -845,13 +845,13 @@ bool AsyncRPCOperation_sendmany::find_utxos(bool fAcceptCoinbase=false) {
         }
 
         // By default we ignore coinbase outputs
-        bool isCoinbase = out.tx->IsCoinBase();
+        bool isCoinbase = out.tx->getTxBase().IsCoinBase();
         if (isCoinbase && fAcceptCoinbase==false) {
             continue;
         }
 
-        CAmount nValue = out.tx->GetVout()[out.pos].nValue;
-        SendManyInputUTXO utxo(out.tx->GetHash(), out.pos, nValue, isCoinbase);
+        CAmount nValue = out.tx->getTxBase().GetVout()[out.pos].nValue;
+        SendManyInputUTXO utxo(out.tx->getTxBase().GetHash(), out.pos, nValue, isCoinbase);
         t_inputs_.push_back(utxo);
     }
 

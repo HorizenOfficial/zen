@@ -65,13 +65,13 @@ bool CWalletDB::WriteTx(uint256 hash, const CWalletTx& wtx)
 bool CWalletDB::WriteTx(uint256 hash, const CWalletTransactionBase& obj)
 {
     LogPrint("cert", "%s():%d - called for %s[%s], writing to db\n", __func__, __LINE__,
-        obj.IsCertificate()?"cert":"tx", obj.GetHash().ToString());
+        obj.getTxBase().IsCertificate()?"cert":"tx", obj.getTxBase().GetHash().ToString());
     
     nWalletDBUpdated++;
 
     try
     {
-        if (obj.IsCertificate() )
+        if (obj.getTxBase().IsCertificate() )
         {
             LogPrint("cert", "%s():%d - called for cert[%s], writing to db\n", __func__, __LINE__, obj.GetHash().ToString());
             return Write(std::make_pair(std::string("cert"), hash), dynamic_cast<const CWalletCert&>(obj));
