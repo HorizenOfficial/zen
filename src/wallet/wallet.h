@@ -289,11 +289,12 @@ struct CNotePlaintextEntry
     libzcash::NotePlaintext plaintext;
 };
 
-class MerkleAbstractBase : virtual public CTransactionBase
+class CWalletObjBase : virtual public CTransactionBase
 {
 protected:
     virtual int GetIndexInBlock(const CBlock& block) = 0;
     int GetDepthInMainChainINTERNAL(const CBlockIndex* &pindexRet) const;
+
 public:
     uint256 hashBlock;
     std::vector<uint256> vMerkleBranch;
@@ -302,8 +303,6 @@ public:
     // memory only
     mutable bool fMerkleVerified;
 
-    MerkleAbstractBase(): hashBlock(), vMerkleBranch(), nIndex(-1), fMerkleVerified(false) {};
-
     /**
      * Return depth of transaction in blockchain:
      * -1  : not in blockchain, and not in memory pool (conflicted transaction)
@@ -311,14 +310,11 @@ public:
      * >=1 : this many blocks deep in the main chain
      */
     int GetDepthInMainChain(const CBlockIndex* &pindexRet) const;
-    int GetDepthInMainChain() const { const CBlockIndex *pindexRet; return GetDepthInMainChain(pindexRet); }
-
     int SetMerkleBranch(const CBlock& block);
-    bool IsInMainChain() const { const CBlockIndex *pindexRet; return GetDepthInMainChainINTERNAL(pindexRet) > 0; }
-};
 
-class CWalletObjBase : virtual public MerkleAbstractBase
-{
+    int GetDepthInMainChain() const { const CBlockIndex *pindexRet; return GetDepthInMainChain(pindexRet); }
+    bool IsInMainChain() const { const CBlockIndex *pindexRet; return GetDepthInMainChainINTERNAL(pindexRet) > 0; }
+
 private:
     // memory only
     mutable bool fDebitCached;
@@ -449,7 +445,6 @@ public:
     {
         pwallet = pwalletIn;
         mapValue.clear();
-        //mapNoteData.clear();
         vOrderForm.clear();
         fTimeReceivedIsTxTime = false;
         nTimeReceived = 0;
@@ -483,7 +478,6 @@ public:
     void AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletObjBase*>& vtxIn) const;
     void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const;
     void addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const;
-
 };
 
 /** 
@@ -500,19 +494,19 @@ public:
 
     CWalletTx(const CWalletTx&) = default;
 
-    CWalletTx()
+    CWalletTx() : CTransaction(), CWalletObjBase()
     {
         CWalletObjBase::Init(nullptr);
         mapNoteData.clear();
     }
 
-    CWalletTx(const CWallet* pwalletIn) : CTransaction()
+    CWalletTx(const CWallet* pwalletIn) : CTransaction(), CWalletObjBase()
     {
         CWalletObjBase::Init(pwalletIn);
         mapNoteData.clear();
     }
 
-    CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CTransaction(txIn)
+    CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CTransaction(txIn), CWalletObjBase()
     {    
         CWalletObjBase::Init(pwalletIn);
         mapNoteData.clear();
@@ -618,17 +612,17 @@ protected:
 public:
     CWalletCert(const CWalletCert&) = default;
 
-    CWalletCert(): CScCertificate()
+    CWalletCert(): CScCertificate(), CWalletObjBase()
     {
         CWalletObjBase::Init(nullptr);
     }
 
-    CWalletCert(const CWallet* pwalletIn) : CScCertificate()
+    CWalletCert(const CWallet* pwalletIn) : CScCertificate(), CWalletObjBase()
     {
         CWalletObjBase::Init(pwalletIn);
     }
 
-    CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn) : CScCertificate(certIn)
+    CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn) : CScCertificate(certIn), CWalletObjBase()
     {    
         CWalletObjBase::Init(pwalletIn);
     }

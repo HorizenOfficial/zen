@@ -4509,11 +4509,7 @@ CWalletKey::CWalletKey(int64_t nExpires)
     nTimeExpires = nExpires;
 }
 
-#if 0
-int CMerkleTx::GetDepthInMainChainINTERNAL(const CBlockIndex* &pindexRet) const
-#else
-int MerkleAbstractBase::GetDepthInMainChainINTERNAL(const CBlockIndex* &pindexRet) const
-#endif
+int CWalletObjBase::GetDepthInMainChainINTERNAL(const CBlockIndex* &pindexRet) const
 {
     if (hashBlock.IsNull() || nIndex == -1)
         return 0;
@@ -4539,11 +4535,7 @@ int MerkleAbstractBase::GetDepthInMainChainINTERNAL(const CBlockIndex* &pindexRe
     return chainActive.Height() - pindex->nHeight + 1;
 }
 
-#if 0
-int CMerkleTx::GetDepthInMainChain(const CBlockIndex* &pindexRet) const
-#else
-int MerkleAbstractBase::GetDepthInMainChain(const CBlockIndex* &pindexRet) const
-#endif
+int CWalletObjBase::GetDepthInMainChain(const CBlockIndex* &pindexRet) const
 {
     AssertLockHeld(cs_main);
     int nResult = GetDepthInMainChainINTERNAL(pindexRet);
@@ -4793,7 +4785,7 @@ void CWalletObjBase::addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, con
 }
 
 
-int MerkleAbstractBase::SetMerkleBranch(const CBlock& block)
+int CWalletObjBase::SetMerkleBranch(const CBlock& block)
 {
     AssertLockHeld(cs_main);
 
