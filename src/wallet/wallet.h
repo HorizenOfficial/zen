@@ -325,17 +325,6 @@ public:
     CMerkleTx(const CMerkleTx&) = default;
     CMerkleTx(): CTransaction(), MerkleAbstractBase() {}
     CMerkleTx(const CTransaction& txIn) : CTransaction(txIn), MerkleAbstractBase() {}
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(*(CTransaction*)this);
-        nVersion = this->nVersion;
-        READWRITE(hashBlock);
-        READWRITE(vMerkleBranch);
-        READWRITE(nIndex);
-    }
 };
 
 /** A certificate with a merkle branch linking it to the block chain. */
@@ -347,17 +336,6 @@ public:
     CMerkleCert(const CMerkleCert&) = default;
     CMerkleCert(): CScCertificate(), MerkleAbstractBase() {}
     CMerkleCert(const CScCertificate& certIn) : CScCertificate(certIn), MerkleAbstractBase() {}
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(*(CScCertificate*)this);
-        nVersion = this->nVersion;
-        READWRITE(hashBlock);
-        READWRITE(vMerkleBranch);
-        READWRITE(nIndex);
-    }
 };
 
 class CWalletObjBase : virtual public MerkleAbstractBase
@@ -582,7 +560,11 @@ public:
                 mapValue["timesmart"] = strprintf("%u", nTimeSmart);
         }
 
-        READWRITE(*(CMerkleTx*)this);
+        READWRITE(*(CTransaction*)this);
+        nVersion = this->nVersion;
+        READWRITE(hashBlock);
+        READWRITE(vMerkleBranch);
+        READWRITE(nIndex);
         std::vector<CMerkleTx> vUnused; //! Used to be vtxPrev
         READWRITE(vUnused);
         READWRITE(mapValue);
@@ -696,7 +678,11 @@ public:
                 mapValue["timesmart"] = strprintf("%u", nTimeSmart);
         }
 
-        READWRITE(*(CMerkleCert*)this);
+        READWRITE(*(CScCertificate*)this);
+        nVersion = this->nVersion;
+        READWRITE(hashBlock);
+        READWRITE(vMerkleBranch);
+        READWRITE(nIndex);
         std::vector<CMerkleCert> vUnused; //! Used to be vtxPrev
         READWRITE(vUnused);
         READWRITE(mapValue);
