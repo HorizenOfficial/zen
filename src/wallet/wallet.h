@@ -318,24 +318,21 @@ public:
 };
 
 /** A transaction with a merkle branch linking it to the block chain. */
-class CMerkleTx : public CTransaction, virtual public MerkleAbstractBase
+class CMerkleTx : public CTransaction
 {
-    int GetIndexInBlock(const CBlock& block) override;
 public:
     CMerkleTx(const CMerkleTx&) = default;
-    CMerkleTx(): CTransaction(), MerkleAbstractBase() {}
-    CMerkleTx(const CTransaction& txIn) : CTransaction(txIn), MerkleAbstractBase() {}
+    CMerkleTx(): CTransaction() {}
+    CMerkleTx(const CTransaction& txIn) : CTransaction(txIn) {}
 };
 
 /** A certificate with a merkle branch linking it to the block chain. */
-class CMerkleCert : public CScCertificate, virtual public MerkleAbstractBase
+class CMerkleCert : public CScCertificate
 {
-    int GetIndexInBlock(const CBlock& block) override;
-
 public:
     CMerkleCert(const CMerkleCert&) = default;
-    CMerkleCert(): CScCertificate(), MerkleAbstractBase() {}
-    CMerkleCert(const CScCertificate& certIn) : CScCertificate(certIn), MerkleAbstractBase() {}
+    CMerkleCert(): CScCertificate() {}
+    CMerkleCert(const CScCertificate& certIn) : CScCertificate(certIn) {}
 };
 
 class CWalletObjBase : virtual public MerkleAbstractBase
@@ -513,6 +510,9 @@ public:
  */
 class CWalletTx : public CMerkleTx, public CWalletObjBase
 {
+protected:
+    int GetIndexInBlock(const CBlock& block) override final;
+
 public:
     mapNoteData_t mapNoteData;
 
@@ -636,8 +636,10 @@ public:
 
 class CWalletCert : public CMerkleCert, public CWalletObjBase
 {
-public:
+protected:
+    int GetIndexInBlock(const CBlock& block) override final;
 
+public:
     CWalletCert(const CWalletCert&) = default;
 
     CWalletCert(): CMerkleCert()
