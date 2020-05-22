@@ -345,6 +345,35 @@ protected:
 public:
     const CTransactionBase& getTxBase() const {return txBase;}
 
+    // useful in gtest
+    friend bool operator==(const CWalletTransactionBase& a, const CWalletTransactionBase& b) {
+        return (
+            a.hashBlock                   == b.hashBlock                    &&
+            a.vMerkleBranch               == b.vMerkleBranch                &&
+            a.nIndex                      == b.nIndex                       &&
+            a.fMerkleVerified             == b.fMerkleVerified              &&
+            a.fDebitCached                == b.fDebitCached                 &&
+            a.fCreditCached               == b.fCreditCached                &&
+            a.fImmatureCreditCached       == b.fImmatureCreditCached        &&
+            a.fAvailableCreditCached      == b.fAvailableCreditCached       &&
+            a.fWatchDebitCached           == b.fWatchDebitCached            &&
+            a.fWatchCreditCached          == b.fWatchCreditCached           &&
+            a.fImmatureWatchCreditCached  == b.fImmatureWatchCreditCached   &&
+            a.fAvailableWatchCreditCached == b.fAvailableWatchCreditCached  &&
+            a.nDebitCached                == b.nDebitCached                 &&
+            a.nCreditCached               == b.nCreditCached                &&
+            a.nImmatureCreditCached       == b.nImmatureCreditCached        &&
+            a.nAvailableCreditCached      == b.nAvailableCreditCached       &&
+            a.nWatchDebitCached           == b.nWatchDebitCached            &&
+            a.nWatchCreditCached          == b.nWatchCreditCached           &&
+            a.nImmatureWatchCreditCached  == b.nImmatureWatchCreditCached   &&
+            a.nAvailableWatchCreditCached == b.nAvailableWatchCreditCached  &&
+            a.nChangeCached               == b.nChangeCached                &&
+            a.pwallet                     == b.pwallet                       &&
+            a.txBase                      == b.txBase
+        );
+    }
+
 
 public:
     explicit CWalletTransactionBase(const CWallet* pwalletIn, CTransactionBase& refTxBase): pwallet(pwalletIn), txBase(refTxBase) { Reset(pwalletIn); }
@@ -502,6 +531,7 @@ public:
     explicit CWalletTx() : CTransaction(), CWalletTransactionBase(nullptr, *this) {}
     explicit CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CTransaction(txIn), CWalletTransactionBase(pwalletIn, *this) {}
     CWalletTx(const CWalletTx&) = default;
+    CWalletTx& operator=(const CWalletTx&) = default;
 
     ADD_SERIALIZE_METHODS;
 

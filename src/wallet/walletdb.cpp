@@ -69,16 +69,17 @@ bool CWalletDB::WriteTx(uint256 hash, const CWalletTransactionBase& obj)
     
     nWalletDBUpdated++;
 
+    const CTransactionBase& ref = obj.getTxBase();
     try
     {
-        if (obj.getTxBase().IsCertificate() )
+        if (ref.IsCertificate() )
         {
-            LogPrint("cert", "%s():%d - called for cert[%s], writing to db\n", __func__, __LINE__, obj.GetHash().ToString());
-            return Write(std::make_pair(std::string("cert"), hash), dynamic_cast<const CWalletCert&>(obj));
+            LogPrint("cert", "%s():%d - called for cert[%s], writing to db\n", __func__, __LINE__, ref.GetHash().ToString());
+            return Write(std::make_pair(std::string("cert"), hash), dynamic_cast<const CWalletCert&>(ref));
         }
         else
         {
-            return Write(std::make_pair(std::string("tx"), hash), dynamic_cast<const CWalletTx&>(obj));
+            return Write(std::make_pair(std::string("tx"), hash), dynamic_cast<const CWalletTx&>(ref));
         }
     }
     catch (const std::exception &exc)
@@ -396,7 +397,7 @@ DBErrors CWalletDB::ReorderTransactions(CWallet* pwallet)
 
             if (pwtx)
             {
-                if (!WriteTx(pwtx->GetHash(), *pwtx))
+                if (!WriteTx(pwtx->getTxBase().GetHash(), *pwtx))
                     return DB_LOAD_FAIL;
             }
             else
@@ -420,7 +421,7 @@ DBErrors CWalletDB::ReorderTransactions(CWallet* pwallet)
             // Since we're changing the order, write it back
             if (pwtx)
             {
-                if (!WriteTx(pwtx->GetHash(), *pwtx))
+                if (!WriteTx(pwtx->getTxBase().GetHash(), *pwtx))
                     return DB_LOAD_FAIL;
             }
             else

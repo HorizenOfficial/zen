@@ -244,7 +244,7 @@ TEST(wallet_tests, find_unspent_notes) {
 
 
     // Let's receive a new note
-    CWalletTx wtx3;
+    std::unique_ptr<CWalletTx> wtx3;
     {
         auto wtx = GetValidReceive(sk, 20, true);
         auto note = GetNote(sk, wtx, 0, 1);
@@ -259,13 +259,13 @@ TEST(wallet_tests, find_unspent_notes) {
         wallet.AddToWallet(wtx, true, NULL);
         EXPECT_FALSE(wallet.IsSpent(nullifier));
 
-        wtx3 = wtx;
+        wtx3 = std::unique_ptr<CWalletTx>(new CWalletTx(wtx));
     }
 
     // Fake-mine the new transaction
     EXPECT_EQ(1, chainActive.Height());
     CBlock block3;
-    block3.vtx.push_back(wtx3);
+    block3.vtx.push_back(*wtx3);
     block3.hashMerkleRoot = block3.BuildMerkleTree();
     block3.hashPrevBlock = blockHash2;
     auto blockHash3 = block3.GetHash();
@@ -276,8 +276,8 @@ TEST(wallet_tests, find_unspent_notes) {
     EXPECT_TRUE(chainActive.Contains(&fakeIndex3));
     EXPECT_EQ(2, chainActive.Height());
 
-    wtx3.SetMerkleBranch(block3);
-    wallet.AddToWallet(wtx3, true, NULL);
+    wtx3->SetMerkleBranch(block3);
+    wallet.AddToWallet(*wtx3, true, NULL);
 
     // We now have an unspent note which has one confirmation, in addition to our spent note.
     wallet.GetFilteredNotes(entries, "", 1);

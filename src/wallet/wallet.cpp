@@ -80,7 +80,8 @@ std::string JSOutPoint::ToString() const
 
 std::string COutput::ToString() const
 {
-    return strprintf("COutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), pos, nDepth, FormatMoney(tx->GetVout()[pos].nValue));
+    return strprintf("COutput(%s, %d, %d) [%s]",
+        tx->getTxBase().GetHash().ToString(), pos, nDepth, FormatMoney(tx->getTxBase().GetVout()[pos].nValue));
 }
 
 const CWalletTransactionBase* CWallet::GetWalletTx(const uint256& hash) const
@@ -485,7 +486,7 @@ set<uint256> CWallet::GetConflicts(const uint256& txid) const
 
     std::pair<TxSpends::const_iterator, TxSpends::const_iterator> range;
 
-    for(const CTxIn& txin: wtx.GetVin()) {
+    for(const CTxIn& txin: wtx.getTxBase().GetVin()) {
         if (mapTxSpends.count(txin.prevout) <= 1)
             continue;  // No conflict if zero or one spends
         range = mapTxSpends.equal_range(txin.prevout);
@@ -495,7 +496,7 @@ set<uint256> CWallet::GetConflicts(const uint256& txid) const
 
     std::pair<TxNullifiers::const_iterator, TxNullifiers::const_iterator> range_n;
 
-    for (const JSDescription& jsdesc : wtx.GetVjoinsplit()) {
+    for (const JSDescription& jsdesc : wtx.getTxBase().GetVjoinsplit()) {
         for (const uint256& nullifier : jsdesc.nullifiers) {
             if (mapTxNullifiers.count(nullifier) <= 1) {
                 continue;  // No conflict if zero or one spends
@@ -684,16 +685,16 @@ void CWallet::AddToSpends(const uint256& wtxid)
     assert(mapWallet.count(wtxid));
     CWalletTransactionBase& thisTx = *(mapWallet[wtxid]);
 
-    if (thisTx.IsCoinBase()) // Coinbases don't spend anything!
+    if (thisTx.getTxBase().IsCoinBase()) // Coinbases don't spend anything!
         return;
 
-    for (const CTxIn& txin : thisTx.GetVin()) {
+    for (const CTxIn& txin : thisTx.getTxBase().GetVin()) {
         LogPrint("cert", "%s():%d - obj[%s] spends out %d of [%s]\n", __func__, __LINE__,
-                thisTx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
+                thisTx.getTxBase().GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
         AddToSpends(txin.prevout, wtxid);
     }
 
-    for (const JSDescription& jsdesc : thisTx.GetVjoinsplit()) {
+    for (const JSDescription& jsdesc : thisTx.getTxBase().GetVjoinsplit()) {
         for (const uint256& nullifier : jsdesc.nullifiers) {
             AddToSpends(nullifier, wtxid);
         }
@@ -2217,7 +2218,7 @@ bool CWalletTx::WriteToDisk(CWalletDB *pwalletdb)
 bool CWalletTransactionBase::WriteToDisk(CWalletDB *pwalletdb)
 #endif
 {
-    return pwalletdb->WriteTx(txBase.GetHash(), txBase);
+    return pwalletdb->WriteTx(txBase.GetHash(), *this);
 }
 
 void CWallet::WitnessNoteCommitment(std::vector<uint256> commitments,
@@ -2517,7 +2518,7 @@ CCoinsViewCache::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned 
         if ((nDepth == 0))
             return CCoinsViewCache::outputMaturity::IMMATURE;
 
-        return pcoinsTip->IsCertOutputMature(txBase.hash, vOutPos, chainActive.Height());
+        return pcoinsTip->IsCertOutputMature(txBase.GetHash(), vOutPos, chainActive.Height());
     }
 
     return CCoinsViewCache::outputMaturity::NOT_APPLICABLE;
