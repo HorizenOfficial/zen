@@ -2116,6 +2116,11 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
     }
 }
 
+bool CWalletObjBase::AcceptToMemoryPool(bool fLimitFree, bool fRejectAbsurdFee)
+{
+    return TryPushToMempool(fLimitFree,fRejectAbsurdFee);
+}
+
 void CWalletObjBase::GetMatureAmountsForAccount(const string& strAccount, CAmount& nReceived,
                                   CAmount& nSent, CAmount& nFee, const isminefilter& filter) const
 {
@@ -4541,20 +4546,11 @@ int MerkleAbstractBase::GetDepthInMainChain(const CBlockIndex* &pindexRet) const
 {
     AssertLockHeld(cs_main);
     int nResult = GetDepthInMainChainINTERNAL(pindexRet);
-    if (nResult == 0 && !mempool.exists(GetObjHash()))
+    if (nResult == 0 && !mempool.exists(this->GetHash()))
         return -1; // Not in chain, not in mempool
 
     return nResult;
 }
-
-#if 0
-bool CMerkleTx::AcceptToMemoryPool(bool fLimitFree, bool fRejectAbsurdFee)
-#else
-bool MerkleAbstractBase::AcceptToMemoryPool(bool fLimitFree, bool fRejectAbsurdFee)
-{
-    return TryPushToMempool(fLimitFree,fRejectAbsurdFee);
-}
-#endif
 
 /**
  * Find notes in the wallet filtered by payment address, min depth and ability to spend.

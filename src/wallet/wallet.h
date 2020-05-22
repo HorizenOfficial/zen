@@ -309,8 +309,6 @@ public:
         fMerkleVerified = false;
     }
 
-    virtual uint256 GetObjHash() const = 0;
-
     /**
      * Return depth of transaction in blockchain:
      * -1  : not in blockchain, and not in memory pool (conflicted transaction)
@@ -322,7 +320,6 @@ public:
 
     int SetMerkleBranch(const CBlock& block);
     bool IsInMainChain() const { const CBlockIndex *pindexRet; return GetDepthInMainChainINTERNAL(pindexRet) > 0; }
-    bool AcceptToMemoryPool(bool fLimitFree=true, bool fRejectAbsurdFee=true);
 };
 
 /** A transaction with a merkle branch linking it to the block chain. */
@@ -352,8 +349,6 @@ public:
         READWRITE(vMerkleBranch);
         READWRITE(nIndex);
     }
-
-    uint256 GetObjHash() const override { return GetHash(); }
 };
 
 /** A certificate with a merkle branch linking it to the block chain. */
@@ -384,8 +379,6 @@ public:
         READWRITE(vMerkleBranch);
         READWRITE(nIndex);
     }
-
-    uint256 GetObjHash() const override { return GetHash(); }
 };
 
 class CWalletObjBase : virtual public MerkleAbstractBase
@@ -421,6 +414,8 @@ public:
     CWalletObjBase& operator=(const CWalletObjBase& o) = default;
     CWalletObjBase(const CWalletObjBase&) = default;
     CWalletObjBase() = default;
+
+    bool AcceptToMemoryPool(bool fLimitFree=true, bool fRejectAbsurdFee=true);
 
     mapValue_t mapValue;
     std::vector<std::pair<std::string, std::string> > vOrderForm; // ???
