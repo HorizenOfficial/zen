@@ -20,12 +20,12 @@ class CSidechain;
 namespace Sidechain
 {
 
-// utility class for handling custom data in sc
-class CScCustomData : public base_blob<MAX_CUSTOM_DATA_BITS> {
+// utility class for handling data related to sc
+class CScData : public base_blob<MAX_SC_DATA_BITS> {
 public:
-    CScCustomData() {}
-    CScCustomData(const base_blob<MAX_CUSTOM_DATA_BITS>& b) : base_blob<MAX_CUSTOM_DATA_BITS>(b) {}
-    explicit CScCustomData(const std::vector<unsigned char>& vch) : base_blob<MAX_CUSTOM_DATA_BITS>(vch) {}
+    CScData() {}
+    CScData(const base_blob<MAX_SC_DATA_BITS>& b) : base_blob<MAX_SC_DATA_BITS>(b) {}
+    explicit CScData(const std::vector<unsigned char>& vch) : base_blob<MAX_SC_DATA_BITS>(vch) {}
 
     void fill(std::vector<unsigned char>& vBytes, size_t nBytes) const;
 };
@@ -68,6 +68,7 @@ class CcRecipientAmountVisitor : public boost::static_visitor<CAmount>
 
 // used in get tx family of rpc commands
 void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj);
+bool AddScData(const std::string& inputString, std::vector<unsigned char>& vBytes, std::string& error);
 
 // used when creating a raw transaction with cc outputs
 bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, std::string& error);

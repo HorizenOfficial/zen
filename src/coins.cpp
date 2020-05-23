@@ -656,6 +656,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         cacheSidechains[cr.scId].scInfo.lastCertificateHash.SetNull();
         cacheSidechains[cr.scId].scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
         cacheSidechains[cr.scId].scInfo.creationData.customData = cr.customData;
+        cacheSidechains[cr.scId].scInfo.creationData.constant = cr.constant;
         cacheSidechains[cr.scId].scInfo.creationData.wCertVk = cr.wCertVk;
 
         // Save WCertVk on file and store vk path in creationData
@@ -1494,6 +1495,8 @@ void CCoinsViewCache::Dump_info() const
         LogPrint("sc", "  ----- creation data:\n");
         LogPrint("sc", "      withdrawalEpochLength[%d]\n", info.creationData.withdrawalEpochLength);
         LogPrint("sc", "      customData[%s]\n", HexStr(info.creationData.customData));
+        LogPrint("sc", "      constant[%s]\n", HexStr(info.creationData.constant));
+        LogPrint("sc", "      wCertVk[%s]\n", HexStr(info.creationData.wCertVk));
         LogPrint("sc", "  immature amounts size[%d]\n", info.mImmatureAmounts.size());
     }
 

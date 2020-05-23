@@ -684,35 +684,14 @@ static void ScHandleTransaction(CWalletTx& wtx, std::vector<CcRecipientVariant>&
         throw JSONRPCError(RPC_WALLET_ERROR, "Transaction commit failed");
 }
 
-static void addCustomData(const std::string& inputString, std::vector<unsigned char>& vBytes)
-{ 
-    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid customData format: not an hex");
- 
-    const unsigned int cdLen = inputString.length();
-    // we prefer to avoid padding with 0 any odd hex string
-    if (cdLen%2)
-        throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Invalid customData length %d, must be even (byte string)", cdLen));
- 
-    const unsigned int cdDataLen = cdLen/2;
- 
-    if (cdDataLen > MAX_CUSTOM_DATA_LEN)
-        throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Invalid customData length %d, must be %d bytes at most",
-            cdDataLen, MAX_CUSTOM_DATA_LEN));
-    
-    CScCustomData cdBlob;
-    cdBlob.SetHex(inputString);
-    cdBlob.fill(vBytes, cdDataLen);
-}
-
 UniValue sc_create(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp ||  params.size() < 4 ) 
+    if (fHelp ||  params.size() < 5 ) 
         throw runtime_error(
-            "sc_create \"scid\" withdrawalEpochLength [{\"address\":... ,\"amount\":...,...},...]\n"
+            "sc_create \"scid\" withdrawalEpochLength [{\"address\":... ,\"amount\":...,\"wCertVk\":...,...},...]\n"
             "\nCreate a Side chain with the given id staring from the given block. A fixed amount is charged to the creator\n"
             "\nIt also sends cross chain forward transfer of coins multiple times. Amounts are double-precision floating point numbers."
             "\nArguments:\n"
@@ -720,13 +699,17 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "2. withdrawalEpochLength:   (numeric, required) Length of the withdrawal epochs\n"
             "3. \"address\"                (string, required) The receiver PublicKey25519Proposition in the SC\n"
             "4. amount:                  (numeric, required) The numeric amount in ZEN is the value\n"
-            "5. \"customData\"             (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                   hexadecimal format. A max limit of 1024 bytes will be checked\n"
+            "5. \"wCertVk\"                (string, required) It is an arbitrary byte string of even length expressed in\n"
+            "                                   hexadecimal format. Required to verify a WCert SC proof. A max limit of 2048 bytes will be checked\n"
+            "6. \"customData\"             (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                   hexadecimal format. A max limit of 2048 bytes will be checked\n"
+            "7. \"constant\"               (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                   hexadecimal format. Used as public input for WCert proof verification. A max limit of 2048 bytes will be checked\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sc_create", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 123456 \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" 5.0 \"abcd..ef\"")
+            + HelpExampleCli("sc_create", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 123456 \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" 5.0 \"abcd..ef\" \"ghij..kl\" \"mnop..qr\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -767,10 +750,26 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     sc.nValue = nAmount;
     sc.creationData.withdrawalEpochLength = withdrawalEpochLength;
 
-    if (params.size() > 4)
+    std::string error;
+
+    inputString = params[4].get_str();
+    if (!Sidechain::AddScData(inputString, sc.creationData.wCertVk, error)){
+        throw JSONRPCError(RPC_TYPE_ERROR, string("wCertVk: ") + error);
+    }
+
+    if (params.size() > 5)
     {
-        inputString = params[4].get_str();
-        addCustomData(inputString, sc.creationData.customData);
+        inputString = params[5].get_str();
+        if(!Sidechain::AddScData(inputString, sc.creationData.customData, error))
+            throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
+    }
+
+    if (params.size() > 6)
+    {
+        inputString = params[6].get_str();
+        if (!Sidechain::AddScData(inputString, sc.creationData.constant, error)){
+            throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
+        }
     }
 
     CcRecipientVariant r(sc);
@@ -793,7 +792,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
     if (fHelp ||  params.size() != 1)
         throw runtime_error(
-            "create_sidechain {\"scid\":... , \"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":...}\n"
+            "create_sidechain {\"scid\":... , \"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":..., \"wCertVk\":..., \"customData\":..., \"constant\":...}\n"
             "\nCreate a Side chain.\n"
             "\nArguments:\n"
             "{\n"                     
@@ -807,13 +806,17 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "   \"fee\":fee                       (numeric, optional, default=" +
                                                       strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) +
                                                       ") The fee amount to attach to this transaction.\n"
+            "   \"wCertVk\":data                  (string, required) It is an arbitrary byte string of even length expressed in\n"
+            "                                          hexadecimal format. Required to verify a WCert SC proof. A max limit of 2048 bytes will be checked\n"
             "   \"customData\":data               (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. A max limit of 1024 bytes will be checked\n"
+            "                                          hexadecimal format. A max limit of 2048 bytes will be checked\n"
+            "   \"constant\":data                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                          hexadecimal format. Used as public input for WCert proof verification. A max limit of 2048 bytes will be checked\n"
             "}\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The resulting transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("create_sidechain", "'{\"toaddress\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0}'")
+            + HelpExampleCli("create_sidechain", "'{\"toaddress\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0, \"wCertVk\": abcd..ef}'")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -821,7 +824,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     // valid input keywords
     static const std::set<std::string> validKeyArgs =
         {"scid", "withdrawalEpochLength", "fromaddress", "changeaddress",
-         "toaddress", "amount", "minconf", "fee", "customData"};
+         "toaddress", "amount", "minconf", "fee", "wCertVk", "customData", "constant"};
 
     UniValue inputObject = params[0].get_obj();
 
@@ -954,10 +957,42 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             FormatMoney(nFee), FormatMoney(nAmount)));
 
     // ---------------------------------------------------------
+
+    std::string error;
+
+    if (setKeyArgs.count("wCertVk"))
+    {
+        string inputString = find_value(inputObject, "wCertVk").get_str();
+        if (!Sidechain::AddScData(inputString, creationData.wCertVk, error))
+        {
+            throw JSONRPCError(RPC_TYPE_ERROR, string("wCertVk: ") + error);
+        }
+    }
+    else
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"wCertVk\"" );
+    }
+
+    // ---------------------------------------------------------
+
     if (setKeyArgs.count("customData"))
     {
         string inputString = find_value(inputObject, "customData").get_str();
-        addCustomData(inputString, creationData.customData);
+        if (!Sidechain::AddScData(inputString, creationData.customData, error))
+        {
+            throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
+        }
+    }
+
+    // ---------------------------------------------------------
+
+    if (setKeyArgs.count("constant"))
+    {
+        string inputString = find_value(inputObject, "constant").get_str();
+        if (!Sidechain::AddScData(inputString, creationData.constant, error))
+        {
+            throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
+        }
     }
 
     CMutableTransaction tx_create;
@@ -4652,25 +4687,27 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() != 5  )
+    if (fHelp || params.size() != 7  )
         throw runtime_error(
-            "send_certificate scid epochNumber endEpochBlockHash [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
+            "send_certificate scid epochNumber quality endEpochBlockHash scProof [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
             "\nSend cross chain backward transfers from SC to MC as a certificate."
             "\nArguments:\n"
             "1. \"scid\"                  (string, required) The uint256 side chain ID\n"
             "2. epochNumber             (numeric, required) The epoch number this certificate refers to, zero-based numbered\n"
-            "3. \"endEpochBlockHash\"     (string, required) The block hash determining the end of the referenced epoch\n"
-            "4. transfers:              (array, required) An array of json objects representing the amounts of the backward transfers. Can also be empty\n"
+            "3. quality                 (numeric, required) The quality of this withdrawal certificate. \n"
+            "4. \"endEpochBlockHash\"     (string, required) The block hash determining the end of the referenced epoch\n"
+            "5. \"scProof\"               (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. A max limit of 2048 bytes will be checked\n"
+            "6. transfers:              (array, required) An array of json objects representing the amounts of the backward transfers. Can also be empty\n"
             "    [{\n"                     
             "      \"pubkeyhash\":\"pkh\"    (string, required) The public key hash of the receiver\n"
             "      \"amount\":amount       (numeric, required) The numeric amount in ZEN\n"
             "    }, ... ]\n"
-            "5. fee                     (numeric, required) The fee of the certificate in ZEN\n"
+            "7. fee                     (numeric, optional) The fee of the certificate in ZEN\n"
             "\nResult:\n"
             "  \"certificateId\"   (string) The resulting certificate id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("send_certificate", "\"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 12 \"04a1527384c67d9fce3d091ababfc1de325dbac9b3b14025a53722ff6c53d40e\" '[{\"pubkeyhash\":\"813551c928d41c0436ba7361850797d9b30ad4ed\" ,\"amount\": 5.0}]'")
-            + HelpExampleCli("send_certificate", "\"054671870079a64a491ea68e08ed7579ec2e0bd148c51c6e2fe6385b597540f4\" 10 \"0a85efb37d1130009f1b588dcddd26626bbb159ae4a19a703715277b51033144\" '[{\"pubkeyhash\":\"76fea046133b0acc74ebabbd17b80e99816228ab\", \"amount\":33.5}]' false 0.00001")
+            + HelpExampleCli("send_certificate", "\"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 12 5 \"04a1527384c67d9fce3d091ababfc1de325dbac9b3b14025a53722ff6c53d40e\" \"abcd..ef\" '[{\"pubkeyhash\":\"813551c928d41c0436ba7361850797d9b30ad4ed\" ,\"amount\": 5.0}]'")
+            + HelpExampleCli("send_certificate", "\"054671870079a64a491ea68e08ed7579ec2e0bd148c51c6e2fe6385b597540f4\" 10 7 \"0a85efb37d1130009f1b588dcddd26626bbb159ae4a19a703715277b51033144\" \"abcd..ef\" '[{\"pubkeyhash\":\"76fea046133b0acc74ebabbd17b80e99816228ab\", \"amount\":33.5}]' false 0.00001")
 
         );
 
@@ -4700,8 +4737,15 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid epochNumber parameter");
     }
 
+    int64_t quality = params[2].get_int64();
+    if (quality < 0)
+    {
+        LogPrint("sc", "quality can not be negative\n", quality);
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid quality parameter");
+    }
+
     // epoch block hash
-    const string& blockHashStr = params[2].get_str();
+    const string& blockHashStr = params[3].get_str();
     if (blockHashStr.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid block hash format: not an hex");
 
@@ -4741,8 +4785,16 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         }
     }
 
+    //scProof
+    string inputString = params[4].get_str();
+    libzendoomc::ScProof scProof;
+    std::string error;
+    if (!Sidechain::AddScData(inputString, scProof, error)){
+        throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + error);
+    }
+
     // can be empty
-    const UniValue& outputs = params[3].get_array();
+    const UniValue& outputs = params[5].get_array();
 
     // Recipients
     CAmount nTotalOut = 0;
@@ -4789,9 +4841,9 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     // fee
     CAmount nCertFee = 0;
-    if (params.size() > 4)
+    if (params.size() > 6)
     {
-        nCertFee = AmountFromValue(params[4]);
+        nCertFee = AmountFromValue(params[6]);
         if (nCertFee <= 0)
             throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for fee, must be positive");
         // any check for upper threshold is left to cert processing
@@ -4805,7 +4857,9 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     cert.nVersion = SC_CERT_VERSION;
     cert.scId = scId;
     cert.epochNumber = epochNumber;
+    cert.quality = quality;
     cert.endEpochBlockHash = endEpochBlockHash;
+    cert.scProof = scProof;
 
     // optional parameters (TODO to be handled since they will be probabl useful to SBH wallet)
     CBitcoinAddress fromaddress;

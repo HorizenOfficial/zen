@@ -575,6 +575,7 @@ public:
         READWRITE(nValue);
         READWRITE(address);
         READWRITE(customData);
+        READWRITE(constant);
         READWRITE(wCertVk);
     }
 

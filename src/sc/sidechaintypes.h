@@ -127,8 +127,8 @@ typedef boost::variant<
         CRecipientBackwardTransfer
     > CcRecipientVariant;
 
-static const int MAX_CUSTOM_DATA_LEN = 1024;
-static const int MAX_CUSTOM_DATA_BITS = MAX_CUSTOM_DATA_LEN*8;
+static const int MAX_SC_DATA_LEN = 2048;
+static const int MAX_SC_DATA_BITS = MAX_SC_DATA_LEN*8;
 
 }; // end of namespace
 

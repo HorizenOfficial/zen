@@ -34,7 +34,9 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("withdrawal epoch length", (int)out.withdrawalEpochLength));
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
         o.push_back(Pair("address", out.address.GetHex()));
+        o.push_back(Pair("wCertVk", HexStr(out.wCertVk)));
         o.push_back(Pair("customData", HexStr(out.customData)));
+        o.push_back(Pair("constant", HexStr(out.constant)));
         vscs.push_back(o);
         nIdx++;
     }
@@ -52,6 +54,35 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
         nIdx++;
     }
     parentObj.push_back(Pair("vft_ccout", vfts));
+}
+
+bool AddScData(const std::string& inputString, std::vector<unsigned char>& vBytes, std::string& error)
+{ 
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+    {
+        error = std::string("Invalid format: not an hex");
+        return false;
+    }
+
+    unsigned int scDataLen = inputString.length();
+
+    if (scDataLen%2)
+    {
+        error = strprintf("Invalid length %d, must be even (byte string)", scDataLen);
+        return false;
+    }
+
+    unsigned int cdDataLen = scDataLen/2;
+
+    if (cdDataLen > MAX_SC_DATA_LEN)
+    {
+        error = strprintf("Invalid length %d, must be %d bytes at most", cdDataLen, MAX_SC_DATA_LEN);
+        return false;
+    }
+
+    CScData scBlob;
+    scBlob.SetHex(inputString);
+    scBlob.fill(vBytes, cdDataLen);
 }
 
 bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, std::string& error)
@@ -120,30 +151,42 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         uint256 address;
         address.SetHex(inputString);
 
+        const UniValue& wCertVk = find_value(o, "wCertVk");
+        if (wCertVk.isNull())
+        {
+            error = "Missing mandatory parameter wCertVk";
+            return false;
+        }
+        else
+        {
+            inputString = wCertVk.get_str();
+            if (!AddScData(inputString, sc.wCertVk, error))
+            {
+                error = "wCertVk: " + error;
+                return false;
+            }
+        }
+        
         const UniValue& cd = find_value(o, "customData");
         if (!cd.isNull())
         {
             inputString = cd.get_str();
-            if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            if (!AddScData(inputString, sc.customData, error))
             {
-                error = "Invalid scid format: not an hex";
+                error = "customData: " + error;
                 return false;
             }
+        }
 
-            unsigned int cdLen = inputString.length();
-            // just add one if we have an odd number of chars, hex will be padded with a 0 this is
-            // better than refusing the raw creation
-            if (cdLen%2)
-                cdLen ++;
-
-            unsigned int cdDataLen = cdLen/2;
-
-            if (cdDataLen > MAX_CUSTOM_DATA_LEN)
-                cdDataLen = MAX_CUSTOM_DATA_LEN;
-
-            CScCustomData cdBlob;
-            cdBlob.SetHex(inputString);
-            cdBlob.fill(sc.customData, cdDataLen);
+        const UniValue& constant = find_value(o, "constant");
+        if (!constant.isNull())
+        {
+            inputString = constant.get_str();
+            if (!AddScData(inputString, sc.constant, error))
+            {
+                error = "constant: " + error;
+                return false;
+            }
         }
 
         CTxScCreationOut txccout(scId, nAmount, address, sc);
@@ -207,7 +250,9 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& 
         sc.nValue = entry.nValue;
         sc.address = entry.address;
         sc.creationData.withdrawalEpochLength = entry.withdrawalEpochLength;
+        sc.creationData.wCertVk = entry.wCertVk;
         sc.creationData.customData = entry.customData;
+        sc.creationData.constant = entry.constant;
 
         vecCcSend.push_back(CcRecipientVariant(sc));
     }
@@ -256,7 +301,7 @@ bool CRecipientHandler::handle(const CRecipientBackwardTransfer& r)
     return txBase->add(txout);
 };
 
-void CScCustomData::fill(std::vector<unsigned char>& vBytes, size_t nBytes) const
+void CScData::fill(std::vector<unsigned char>& vBytes, size_t nBytes) const
 {
     if (nBytes == 0)
         return;

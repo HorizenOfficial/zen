@@ -2717,26 +2717,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     if (!CheckBlock(block, state, fExpensiveChecks ? verifier : disabledVerifier, fExpensiveChecks ? scVerifier : disabledScVerifier, !fJustCheck, !fJustCheck))
         return false;
 
-    //Check proofs for each WCert
-
-    BOOST_FOREACH(const CScCertificate& cert, block.vcert) {
-        CSidechain scInfo;
-        if(!view.GetSidechain(cert.GetScId(), scInfo)){
-            return state.DoS(100, 
-                error("ConnectBlock(): certificate refers to unknown sidechain id [%s]", cert.GetScId().ToString()),
-                REJECT_INVALID, "bad-sc-not-recorded");
-        };
-
-        auto scVerifier = libzendoomc::CScProofVerifier::Strict(&scInfo);
-        auto disabledScVerifier = libzendoomc::CScProofVerifier::Disabled();
-        if (!CheckScProof(fExpensiveChecks ? scVerifier : disabledScVerifier, cert))
-            return state.DoS(100, 
-                error("ConnectBlock(): withdrawal certificate %s 's proof for sidechain [%s] not verified", 
-                cert.GetHash().ToString(),
-                cert.GetScId().ToString()),
-                REJECT_INVALID, "bad-sc-wcert-proof-not-verified");
-    }
-
     // verify that the view's current state corresponds to the previous block
     uint256 hashPrevBlock = pindex->pprev == NULL ? uint256() : pindex->pprev->GetBlockHash();
     assert(hashPrevBlock == view.GetBestBlock());
