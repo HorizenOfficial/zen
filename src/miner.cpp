@@ -151,7 +151,7 @@ void HandleDependancy(const CTransactionBase& txBase, int nHeight, double dPrior
     double dPriority = 0;
     CAmount nTotalIn = 0;
     CAmount nFee = 0;
-    unsigned int nTxSize = txBase.GetSerializeSizeBase(SER_NETWORK, PROTOCOL_VERSION);
+    unsigned int nTxSize = txBase.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     const uint256& hash = txBase.GetHash();
     bool fMissingInputs = false;
     bool dependsOnCertificateInMempool = false;
@@ -542,11 +542,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             vecPriority.pop_back();
 
             // Size limits
-#if 0
-            unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
-#else
-            unsigned int nTxSize = tx.CalculateSize();
-#endif
+            unsigned int nTxSize = tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
             if (nBlockSize + nTxSize >= nBlockMaxSize)
                 continue;
 
