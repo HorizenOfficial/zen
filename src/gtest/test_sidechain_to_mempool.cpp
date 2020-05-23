@@ -46,7 +46,6 @@ public:
         minimalHeightForSidechains(SidechainFork().getHeight(CBaseChainParams::REGTEST))
     {
         SelectParams(CBaseChainParams::REGTEST);
-        TryCreateDirectory(SC_GetParamsDir());
 
         boost::filesystem::create_directories(pathTemp);
         mapArgs["-datadir"] = pathTemp.string();

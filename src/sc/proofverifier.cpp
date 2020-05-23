@@ -1,5 +1,4 @@
 #include "sc/proofverifier.h"
-#include "sc/TEMP_zendooError.h"
 #include "primitives/certificate.h"
 
 #include "main.h"
@@ -11,6 +10,14 @@
 #include <fstream>
 
 namespace libzendoomc{
+
+    std::string ToString(Error err){
+        return strprintf(
+            "%s: [%d - %s]\n",
+            err.msg,
+            err.category,
+            zendoo_get_category_name(err.category));
+    }
 
     bool SaveScVkToFile(const boost::filesystem::path& vkPath, const ScVk& scVk) {
 
@@ -68,9 +75,8 @@ namespace libzendoomc{
             if (constant == nullptr) {
                 
                 LogPrint("zendoo_mc_cryptolib",
-                        "%s():%d - failed to deserialize \"constant\" \n", 
-                        __func__, __LINE__);
-                print_error("Failed to deserialize \"constant\"");
+                        "%s():%d - failed to deserialize \"constant\": %s \n", 
+                        __func__, __LINE__, ToString(zendoo_get_last_error()));
                 return false;
             }
         }
@@ -81,11 +87,11 @@ namespace libzendoomc{
 
         //Deserialize proof
         auto sc_proof_bytes = scCert.scProof;
-        if (sc_proof_bytes.size() != zendoo_get_sc_proof_size()){
+        if (sc_proof_bytes.size() != zendoo_get_sc_proof_size_in_bytes()){
 
             LogPrint("zendoo_mc_cryptolib",
                 "%s():%d - failed to deserialize \"sc_proof\": expected vector of size: %d, found vector of size %d instead \n", 
-                __func__, __LINE__, sc_proof_bytes.size(), zendoo_get_sc_proof_size());
+                __func__, __LINE__, sc_proof_bytes.size(), zendoo_get_sc_proof_size_in_bytes());
             return false;
 
         } else {
@@ -95,25 +101,31 @@ namespace libzendoomc{
             if(sc_proof == nullptr) {
 
                 LogPrint("zendoo_mc_cryptolib",
-                    "%s():%d - failed to deserialize \"sc_proof\" \n", 
-                    __func__, __LINE__);
-                print_error("Failed to deserialize \"sc_proof\"");
+                    "%s():%d - failed to deserialize \"sc_proof\": %s \n", 
+                    __func__, __LINE__, ToString(zendoo_get_last_error()));
                 return false;
 
             }
         }
 
         //Deserialize sc_vk
-        {
-            auto wCertVkPath = scInfo.vksPaths.wCertVkPath;
-            sc_vk = deserialize_sc_vk_from_file(reinterpret_cast<const path_char_t*>(wCertVkPath.c_str()), wCertVkPath.size());
+        auto wCertVkBytes = scInfo.creationData.wCertVk;
+        if (sc_proof_bytes.size() != zendoo_get_sc_proof_size_in_bytes()){
+
+            LogPrint("zendoo_mc_cryptolib",
+                "%s():%d - failed to deserialize \"wCertVk\": expected vector of size: %d, found vector of size %d instead \n", 
+                __func__, __LINE__, wCertVkBytes.size(), zendoo_get_sc_vk_size_in_bytes());
+            return false;
+
+        } else {
+
+            sc_vk = deserialize_sc_vk(wCertVkBytes.data());
 
             if (sc_vk == nullptr){
 
                 LogPrint("zendoo_mc_cryptolib",
-                    "%s():%d - failed to deserialize \"sc_vk\" \n", 
-                    __func__, __LINE__);
-                print_error("Failed to deserialize \"sc_vk\"");
+                    "%s():%d - failed to deserialize \"wCertVk\": %s \n", 
+                    __func__, __LINE__, ToString(zendoo_get_last_error()));
                 return false;
             }
         }
@@ -150,9 +162,8 @@ namespace libzendoomc{
             Error err = zendoo_get_last_error();
             if (err.category == CRYPTO_ERROR){ // Proof verification returned false due to an error, we must log it
                 LogPrint("zendoo_mc_cryptolib",
-                "%s():%d - failed to verify \"sc_proof\" \n", 
-                __func__, __LINE__);
-                print_error("Failed to verify sc_proof");
+                "%s():%d - failed to verify \"sc_proof\": %s \n", 
+                __func__, __LINE__, ToString(err));
             }
             return false;
         }
@@ -177,5 +188,9 @@ namespace libzendoomc{
         sc_vk = nullptr;
 
         zendoo_clear_error();
+    }
+
+    bool CScProofVerifier::verifyCScCertificate(const CSidechain& scInfo, const CScCertificate& scCert) const {
+        return CScWCertProofVerificationParameters(scInfo, scCert).run(perform_verification);
     }
 }

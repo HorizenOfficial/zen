@@ -82,7 +82,6 @@ public:
 
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
-        TryCreateDirectory(SC_GetParamsDir());
 
         fakeChainStateDb   = new CInMemorySidechainDb();
         sidechainsView     = new CCoinsViewCache(fakeChainStateDb);

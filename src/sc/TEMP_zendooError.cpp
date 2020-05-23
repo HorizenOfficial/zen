@@ -1,4 +1,5 @@
 #include <sc/TEMP_zendooError.h>
+#include <tinyformat.h>
 
 /*
 * Get a short description of an error's category.
@@ -31,14 +32,4 @@ Error zendoo_get_last_error(void) {
     err.category = GENERAL_ERROR;
     err.msg = "";
     return err; 
-}
-
-void print_error(const char *msg) {
-    Error e = zendoo_get_last_error();
-        fprintf(stderr,
-            "%s: %s [%d - %s]\n",
-            msg,
-            e.msg,
-            e.category,
-            zendoo_get_category_name(e.category));
 }

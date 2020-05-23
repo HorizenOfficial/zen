@@ -385,7 +385,7 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo& t
 
 /** Context-independent validity checks */
 bool CheckTransaction(const CTransaction& tx, CValidationState& state, libzcash::ProofVerifier& verifier);
-bool CheckCertificate(const CScCertificate& cert, CValidationState& state, const libzendoomc::CScProofVerifier& verifier);
+bool CheckCertificate(const CScCertificate& cert, CValidationState& state);
 bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidationState &state);
 
 /** Check for standard transaction types
@@ -455,7 +455,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW = true);
 bool CheckBlock(const CBlock& block, CValidationState& state,
                 libzcash::ProofVerifier& verifier,
-                libzendoomc::CScProofVerifier& scVerifier,
                 bool fCheckPOW = true, bool fCheckMerkleRoot = true);
 
 /** Context-dependent validity checks */

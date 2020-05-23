@@ -658,14 +658,6 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         cacheSidechains[cr.scId].scInfo.creationData.customData = cr.customData;
         cacheSidechains[cr.scId].scInfo.creationData.constant = cr.constant;
         cacheSidechains[cr.scId].scInfo.creationData.wCertVk = cr.wCertVk;
-
-        // Save WCertVk on file and store vk path in creationData
-        boost::filesystem::path wCertVkPath = SC_GetParamsDir() / strprintf("wcert_sc_%s.vk", cr.scId.ToString());
-        if(!libzendoomc::SaveScVkToFile(wCertVkPath, cr.wCertVk)){
-            return false;
-        }
-        cacheSidechains[cr.scId].scInfo.vksPaths.wCertVkPath = wCertVkPath.string();
-        
         cacheSidechains[cr.scId].scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
         cacheSidechains[cr.scId].flag = CSidechainsCacheEntry::Flags::FRESH;
 
@@ -756,17 +748,6 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
             // should not happen either
             LogPrint("sc", "ERROR %s():%d - scId=%s balance not null: %s\n",
                 __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
-            return false;
-        }
-
-        try 
-        {
-            boost::filesystem::remove(targetScInfo.vksPaths.wCertVkPath);
-        } catch (const boost::filesystem::filesystem_error& e) 
-        {
-            // should not happen
-            LogPrint("sc", "ERROR %s():%d - scId=%s Unable to remove SC Vks: %s\n",
-                __func__, __LINE__, scId.ToString(), e.what());
             return false;
         }
 
@@ -900,14 +881,14 @@ int CSidechain::EpochFor(int targetHeight) const { return CScCertificate::EPOCH_
 int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
 int CSidechain::SafeguardMargin() const { return -1; }
 bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash) {return true;}
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state) {return true;}
-bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height) { return true;}
-bool libzendoomc::SaveScVkToFile(const boost::filesystem::path& vkPath, const libzendoomc::ScVk& scVk) { return true; }
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) {return true;}
+bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height) { return true; }
+bool libzendoomc::CScProofVerifier::verifyCScCertificate(const CSidechain& scInfo, const CScCertificate& scCert) const { return true; }
 #else
 
 #include "consensus/validation.h"
 #include "main.h"
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state)
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier)
 {
     const uint256& certHash = cert.GetHash();
 
@@ -950,6 +931,13 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     }
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
         __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scInfo.balance), FormatMoney(totalAmount) );
+
+    if (!scVerifier.verifyCScCertificate(scInfo, cert)){
+        LogPrintf("ERROR: certificate[%s] cannot be accepted for sidechain [%s]: proof verification failed\n",
+            certHash.ToString(), cert.GetScId().ToString(), chainActive.Height());
+        return state.Invalid(error("proof not verified"),
+                     REJECT_INVALID, "sidechain-certificate-proof-not-verified");
+    }
 
     return true;
 }

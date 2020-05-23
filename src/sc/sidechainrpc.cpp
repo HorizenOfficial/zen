@@ -83,6 +83,8 @@ bool AddScData(const std::string& inputString, std::vector<unsigned char>& vByte
     CScData scBlob;
     scBlob.SetHex(inputString);
     scBlob.fill(vBytes, cdDataLen);
+
+    return true;
 }
 
 bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, std::string& error)

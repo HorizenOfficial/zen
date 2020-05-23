@@ -17,7 +17,6 @@ public:
 
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
-        TryCreateDirectory(SC_GetParamsDir());
 
         dummyBackingView = new CCoinsView();
         view = new CCoinsViewCache(dummyBackingView);

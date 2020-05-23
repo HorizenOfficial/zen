@@ -33,9 +33,9 @@ class CScWCertProofVerificationParametersMock: public libzendoomc::CScWCertProof
                 return nullptr;
         }
 
-        sc_vk_t* deserialize_sc_vk_from_file(const path_char_t* vk_path, size_t vk_path_len) const override {
+        sc_vk_t* deserialize_sc_vk(const unsigned char* sc_vk_bytes) const override {
             if(okDeserializeScVk)
-                return zendoo_deserialize_sc_vk_from_file(vk_path, vk_path_len);
+                return zendoo_deserialize_sc_vk(sc_vk_bytes);
             else
                 return nullptr;
         }
@@ -65,31 +65,11 @@ bool CScWCertProofVerificationParametersMock::okDeserializeScVk;
 bool CScWCertProofVerificationParametersMock::okDeserializeScProof;
 bool CScWCertProofVerificationParametersMock::okVerifyScProof;
 
-// Cannot inherit from CScProofVerifier and directly override the operator().
-// The easiest solution is to create a new one which inherits boost::static_visitor too.
-class TestCScProofVerifier: public boost::static_visitor<bool> {
-    protected:
-        const CSidechain* scInfo;
-
-        TestCScProofVerifier(bool perform_verification): perform_verification(perform_verification), scInfo(nullptr) {}
-        TestCScProofVerifier(bool perform_verification, const CSidechain* scInfo) :
-            perform_verification(perform_verification), scInfo(scInfo) {}
-
-    public:
-        bool perform_verification;
-        static TestCScProofVerifier Strict(const CSidechain* scInfo){ return TestCScProofVerifier(true, scInfo); }
-        static TestCScProofVerifier Disabled() { return TestCScProofVerifier(false); }
-
-        bool operator()(const CScCertificate& scCert) const {
-            return CScWCertProofVerificationParametersMock(*scInfo, scCert).run(perform_verification);
-        }
-};
-
 ////////////////////////////////////////////////////END MOCKS
 
 class CScProofTestSuite: public ::testing::Test {
     public:
-        CScProofTestSuite(): scInfo(nullptr), scCert(nullptr), verifier(TestCScProofVerifier::Disabled()) {}
+        CScProofTestSuite(): scInfo(nullptr), scCert(nullptr), strictVerifier(true) {}
         ~CScProofTestSuite() = default;
 
         void SetUp() override {
@@ -99,8 +79,6 @@ class CScProofTestSuite: public ::testing::Test {
             scInfo->creationData.constant.push_back('0');
             
             scCert = new CScCertificate();
-
-            verifier = TestCScProofVerifier::Strict(scInfo);
         }
 
         void TearDown() override {
@@ -113,8 +91,10 @@ class CScProofTestSuite: public ::testing::Test {
     
         CSidechain* scInfo;
         CScCertificate* scCert;
-        TestCScProofVerifier verifier;
+        bool strictVerifier;
 
+        // CScProofVerifier is troublesome to extend and mock, therefore we call directly the run() function on the correct class
+        // and use the strictVerifier class member to simulate a Strict/Disabled verifier.
         bool verifyCert(
             bool okDeserializeField,
             bool okDeserializeScVk,
@@ -126,22 +106,13 @@ class CScProofTestSuite: public ::testing::Test {
             CScWCertProofVerificationParametersMock::okDeserializeScVk = okDeserializeScVk;
             CScWCertProofVerificationParametersMock::okDeserializeScProof = okDeserializeScProof;
             CScWCertProofVerificationParametersMock::okVerifyScProof = okVerifyScProof;
-            return verify(*scCert);
+            return CScWCertProofVerificationParametersMock(*scInfo, *scCert).run(strictVerifier);
+
         }
 
         void setScInfo(CSidechain* newScInfo) { delete scInfo; scInfo = newScInfo; }
         void setScCert(CScCertificate* newScCert) { delete scCert; scCert = newScCert; }
-        void setVerifier(bool strict){
-            if(strict)
-                verifier = TestCScProofVerifier::Strict(scInfo);
-            else
-                verifier = TestCScProofVerifier::Disabled();
-        }
-        
-    protected:
-        bool verify(const libzendoomc::CScProofVerificationContext& ctx){
-            return boost::apply_visitor(verifier, ctx);
-        }
+        void setVerifier(bool strict){ strictVerifier = strict; }
 };
 
 TEST_F(CScProofTestSuite, StrictVerifier_WCertProof_WrongInputs) {

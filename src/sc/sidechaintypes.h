@@ -72,30 +72,6 @@ struct ScCreationParameters
     }
 };
 
-struct ScVksPaths{
-    std::string wCertVkPath;
-
-    ScVksPaths(): wCertVkPath() {}
-
-    ADD_SERIALIZE_METHODS;
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(wCertVkPath);
-    }
-
-    inline bool operator==(const ScVksPaths& rhs) const
-    {
-        return (wCertVkPath == rhs.wCertVkPath);
-    }
-    inline bool operator!=(const ScVksPaths& rhs) const { return !(*this == rhs); }
-
-    inline ScVksPaths& operator=(const ScVksPaths& cp)
-    {
-        wCertVkPath = cp.wCertVkPath;
-        return *this;
-    }
-};
-
 struct CRecipientCrossChainBase
 {
     uint256 scId;

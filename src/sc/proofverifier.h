@@ -2,6 +2,7 @@
 #define _SC_PROOF_VERIFIER_H
 
 #include "sc/TEMP_zendooInterface.h"
+#include "sc/TEMP_zendooError.h"
 
 #include <vector>
 #include <string>
@@ -16,9 +17,9 @@ namespace libzendoomc{
 
     typedef std::vector<unsigned char> ScProof;
     typedef std::vector<unsigned char> ScVk;
-    
-    /* Visitable classes, one for each element of the CCTP that requires a SNARK proof verification. */
-    typedef boost::variant<CScCertificate> CScProofVerificationContext;
+
+    /* Convert to std::string a zendoo-mc-cryptolib Error. Useful for logging */
+    std::string ToString(Error err);
 
     /* Write scVk to file in vkPath. Returns true if operation succeeds, false otherwise. */
     bool SaveScVkToFile(const boost::filesystem::path& vkPath, const ScVk& scVk);
@@ -97,6 +98,10 @@ namespace libzendoomc{
                 return zendoo_deserialize_sc_vk_from_file(vk_path, vk_path_len);
             }
 
+            virtual sc_vk_t* deserialize_sc_vk(const unsigned char* sc_vk_bytes) const {
+                return zendoo_deserialize_sc_vk(sc_vk_bytes);
+            }
+
             virtual bool verify_sc_proof(
                 const unsigned char* end_epoch_mc_b_hash,
                 const unsigned char* prev_end_epoch_mc_b_hash,
@@ -116,15 +121,12 @@ namespace libzendoomc{
             }
     };
 
-    /* Visitor class able to verify different kind of ScProof for different CScProofVerificationContext(s) */
-    class CScProofVerifier : public boost::static_visitor<bool> {
+    /* Visitor class able to verify different kind of ScProof for different kind of ScProof(s) */
+    class CScProofVerifier {
         protected:
             bool perform_verification;
-            CSidechain* scInfo;
 
-            CScProofVerifier(bool perform_verification): perform_verification(perform_verification), scInfo(nullptr) {}
-            CScProofVerifier(bool perform_verification, CSidechain* scInfo) :
-                perform_verification(perform_verification), scInfo(scInfo) {}
+            CScProofVerifier(bool perform_verification): perform_verification(perform_verification) {}
 
         public:
             // CScProofVerifier should never be copied
@@ -134,22 +136,15 @@ namespace libzendoomc{
             CScProofVerifier& operator=(CScProofVerifier&&);
 
             // Creates a verification context that strictly verifies all proofs using zendoo-mc-cryptolib's API.
-            static CScProofVerifier Strict(CSidechain* scInfo){ return CScProofVerifier(true, scInfo); }
+            static CScProofVerifier Strict(){ return CScProofVerifier(true); }
 
             // Creates a verifier that performs no verification, used when avoiding duplicate effort
             // such as during reindexing.
             static CScProofVerifier Disabled() { return CScProofVerifier(false); }
 
-            // For verifying multiple certificates at the same time, without the need to create another instance 
-            void setScInfo(CSidechain* scInfo) { this->scInfo = scInfo; }
-
-            // Visitor functions
-
             // Returns false if proof verification has failed or deserialization of certificate's elements
             // into libzendoomc's elements has failed.
-            bool operator()(const CScCertificate& scCert) const {
-                return CScWCertProofVerificationParameters(*scInfo, scCert).run(perform_verification);
-            }
+            bool verifyCScCertificate(const CSidechain& scInfo, const CScCertificate& cert) const;
     };
 }
 

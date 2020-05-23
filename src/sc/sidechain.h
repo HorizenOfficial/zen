@@ -58,9 +58,6 @@ public:
     // creation data
     Sidechain::ScCreationParameters creationData;
 
-    // paths where vks for this SC are stored
-    Sidechain::ScVksPaths vksPaths;
-
     // immature amounts
     // key   = height at which amount will be considered as mature and will be part of the sc balance
     // value = the immature amount
@@ -86,7 +83,6 @@ public:
         READWRITE(lastCertificateHash);
         READWRITE(balance);
         READWRITE(creationData);
-        READWRITE(vksPaths);
         READWRITE(mImmatureAmounts);
     }
 
@@ -98,7 +94,6 @@ public:
                (this->lastEpochReferencedByCertificate == rhs.lastEpochReferencedByCertificate) &&
                (this->lastCertificateHash              == rhs.lastCertificateHash)              &&
                (this->creationData                     == rhs.creationData)                     &&
-               (this -> vksPaths                       == rhs.vksPaths)                         &&
                (this->mImmatureAmounts                 == rhs.mImmatureAmounts);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }

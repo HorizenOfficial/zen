@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string>
 
 #define GENERAL_ERROR 0
 
@@ -43,7 +44,5 @@ void zendoo_clear_error(void);
 * calling any function which may set `LAST_ERROR`.
 */
 Error zendoo_get_last_error(void);
-
-void print_error(const char *msg);
 
 #endif // _TEMP_ZENDOO_ERROR_H
