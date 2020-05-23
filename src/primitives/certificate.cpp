@@ -187,7 +187,7 @@ bool CScCertificate::CheckFinal(int flags) const
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
-bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
+bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const {return true;}
 std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
 {
     return std::shared_ptr<BaseSignatureChecker>(NULL);
@@ -202,7 +202,7 @@ std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
     return std::shared_ptr<const CTransactionBase>();
 }
 #else
-bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
+bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const
 {
     CValidationState state;
     return ::AcceptCertificateToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);

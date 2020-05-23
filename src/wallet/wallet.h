@@ -341,47 +341,13 @@ public:
 
 protected:
     const CWallet* pwallet;
-    CTransactionBase& txBase;
+    const CTransactionBase* pTxBase;
 public:
-    const CTransactionBase& getTxBase() const {return txBase;}
-
-    // useful in gtest
-    friend bool operator==(const CWalletTransactionBase& a, const CWalletTransactionBase& b) {
-        return (
-            a.hashBlock                   == b.hashBlock                    &&
-            a.vMerkleBranch               == b.vMerkleBranch                &&
-            a.nIndex                      == b.nIndex                       &&
-            a.fMerkleVerified             == b.fMerkleVerified              &&
-            a.fDebitCached                == b.fDebitCached                 &&
-            a.fCreditCached               == b.fCreditCached                &&
-            a.fImmatureCreditCached       == b.fImmatureCreditCached        &&
-            a.fAvailableCreditCached      == b.fAvailableCreditCached       &&
-            a.fWatchDebitCached           == b.fWatchDebitCached            &&
-            a.fWatchCreditCached          == b.fWatchCreditCached           &&
-            a.fImmatureWatchCreditCached  == b.fImmatureWatchCreditCached   &&
-            a.fAvailableWatchCreditCached == b.fAvailableWatchCreditCached  &&
-            a.nDebitCached                == b.nDebitCached                 &&
-            a.nCreditCached               == b.nCreditCached                &&
-            a.nImmatureCreditCached       == b.nImmatureCreditCached        &&
-            a.nAvailableCreditCached      == b.nAvailableCreditCached       &&
-            a.nWatchDebitCached           == b.nWatchDebitCached            &&
-            a.nWatchCreditCached          == b.nWatchCreditCached           &&
-            a.nImmatureWatchCreditCached  == b.nImmatureWatchCreditCached   &&
-            a.nAvailableWatchCreditCached == b.nAvailableWatchCreditCached  &&
-            a.nChangeCached               == b.nChangeCached                &&
-            a.pwallet                     == b.pwallet                       &&
-            a.txBase                      == b.txBase
-        );
-    }
-
-
-public:
-    explicit CWalletTransactionBase(const CWallet* pwalletIn, CTransactionBase& refTxBase): pwallet(pwalletIn), txBase(refTxBase) { Reset(pwalletIn); }
+    explicit CWalletTransactionBase(const CWallet* pwalletIn, const CTransactionBase& refTxBase): pwallet(pwalletIn), pTxBase(&refTxBase) { Reset(pwalletIn); }
     CWalletTransactionBase& operator=(const CWalletTransactionBase& o) = default;
     CWalletTransactionBase(const CWalletTransactionBase&) = default;
     virtual ~CWalletTransactionBase() = default;
-
-    bool AcceptToMemoryPool(bool fLimitFree=true, bool fRejectAbsurdFee=true);
+    const CTransactionBase* const getTxBase() const {return pTxBase;}
 
     mapValue_t mapValue;
     std::vector<std::pair<std::string, std::string> > vOrderForm; // ???
@@ -391,6 +357,19 @@ public:
     char fFromMe;
     std::string strFromAccount;
     int64_t nOrderPos; //! position in ordered transaction list
+
+    // useful in gtest
+    friend bool operator==(const CWalletTransactionBase& a, const CWalletTransactionBase& b) {
+        if (a.pTxBase->IsCertificate() && !b.pTxBase->IsCertificate())
+            return false;
+        if (!a.pTxBase->IsCertificate() && b.pTxBase->IsCertificate())
+            return false;
+
+        if (a.pTxBase->IsCertificate())
+            return (*dynamic_cast<const CScCertificate*>(a.pTxBase) == *dynamic_cast<const CScCertificate*>(b.pTxBase));
+        else
+            return (*dynamic_cast<const CTransaction*>(a.pTxBase) == *dynamic_cast<const CTransaction*>(b.pTxBase));
+    }
 
     void BindWallet(CWallet *pwalletIn)
     {
@@ -478,6 +457,10 @@ public:
 protected:
     void Reset(const CWallet* pwalletIn)
     {
+        hashBlock.SetNull();
+        vMerkleBranch.clear();
+        nIndex = -1;
+        fMerkleVerified = false;
         pwallet = pwalletIn;
         mapValue.clear();
         vOrderForm.clear();
@@ -530,8 +513,13 @@ public:
 
     explicit CWalletTx() : CTransaction(), CWalletTransactionBase(nullptr, *this) {}
     explicit CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CTransaction(txIn), CWalletTransactionBase(pwalletIn, *this) {}
-    CWalletTx(const CWalletTx&) = default;
-    CWalletTx& operator=(const CWalletTx&) = default;
+    CWalletTx(const CWalletTx& rhs);
+    CWalletTx& operator=(const CWalletTx& rhs);
+
+    // useful in gtest
+    friend bool operator==(const CWalletTx& a, const CWalletTx& b) {
+        return (CTransaction&)a == (CTransaction&)b;
+    }
 
     ADD_SERIALIZE_METHODS;
 
@@ -633,7 +621,13 @@ protected:
 public:
     explicit CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn) : CScCertificate(certIn), CWalletTransactionBase(pwalletIn, *this) {}
     explicit CWalletCert(): CScCertificate(), CWalletTransactionBase(nullptr, *this) {}
-    CWalletCert(const CWalletCert&) = default;
+    CWalletCert(const CWalletCert&);
+    CWalletCert& operator=(const CWalletCert& rhs);
+
+    // useful in gtest
+    friend bool operator==(const CWalletCert& a, const CWalletCert& b) {
+        return (CScCertificate&)a == (CScCertificate&)b;
+    }
 
     ADD_SERIALIZE_METHODS;
 

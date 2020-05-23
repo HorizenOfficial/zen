@@ -64,22 +64,23 @@ bool CWalletDB::WriteTx(uint256 hash, const CWalletTx& wtx)
 #else
 bool CWalletDB::WriteTx(uint256 hash, const CWalletTransactionBase& obj)
 {
+    const CTransactionBase* const pRef = obj.getTxBase();
+
     LogPrint("cert", "%s():%d - called for %s[%s], writing to db\n", __func__, __LINE__,
-        obj.getTxBase().IsCertificate()?"cert":"tx", obj.getTxBase().GetHash().ToString());
+            pRef->IsCertificate()?"cert":"tx", pRef->GetHash().ToString());
     
     nWalletDBUpdated++;
 
-    const CTransactionBase& ref = obj.getTxBase();
     try
     {
-        if (ref.IsCertificate() )
+        if (pRef->IsCertificate() )
         {
-            LogPrint("cert", "%s():%d - called for cert[%s], writing to db\n", __func__, __LINE__, ref.GetHash().ToString());
-            return Write(std::make_pair(std::string("cert"), hash), dynamic_cast<const CWalletCert&>(ref));
+            LogPrint("cert", "%s():%d - called for cert[%s], writing to db\n", __func__, __LINE__, pRef->GetHash().ToString());
+            return Write(std::make_pair(std::string("cert"), hash), dynamic_cast<const CWalletCert&>(*pRef));
         }
         else
         {
-            return Write(std::make_pair(std::string("tx"), hash), dynamic_cast<const CWalletTx&>(ref));
+            return Write(std::make_pair(std::string("tx"), hash), dynamic_cast<const CWalletTx&>(*pRef));
         }
     }
     catch (const std::exception &exc)
@@ -397,7 +398,7 @@ DBErrors CWalletDB::ReorderTransactions(CWallet* pwallet)
 
             if (pwtx)
             {
-                if (!WriteTx(pwtx->getTxBase().GetHash(), *pwtx))
+                if (!WriteTx(pwtx->getTxBase()->GetHash(), *pwtx))
                     return DB_LOAD_FAIL;
             }
             else
@@ -421,7 +422,7 @@ DBErrors CWalletDB::ReorderTransactions(CWallet* pwallet)
             // Since we're changing the order, write it back
             if (pwtx)
             {
-                if (!WriteTx(pwtx->getTxBase().GetHash(), *pwtx))
+                if (!WriteTx(pwtx->getTxBase()->GetHash(), *pwtx))
                     return DB_LOAD_FAIL;
             }
             else

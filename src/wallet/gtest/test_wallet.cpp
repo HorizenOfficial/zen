@@ -906,8 +906,9 @@ TEST(wallet_tests, WriteWitnessCache) {
     auto sk = libzcash::SpendingKey::random();
     wallet.AddSpendingKey(sk);
 
-    auto wtx = GetValidReceive(sk, 10, true);
-    wallet.AddToWallet(wtx, true, NULL);
+    CWalletTx wtx = GetValidReceive(sk, 10, true);
+    CWalletTransactionBase& refWtx(wtx);
+    wallet.AddToWallet(refWtx, true, NULL);
 
     // TxnBegin fails
     EXPECT_CALL(walletdb, TxnBegin())
@@ -917,19 +918,19 @@ TEST(wallet_tests, WriteWitnessCache) {
         .WillRepeatedly(Return(true));
 
     // WriteTx fails
-    EXPECT_CALL(walletdb, WriteTx(wtx.GetHash(), Eq(ByRef(wtx))))
-        .WillOnce(Return(false));                   
-    EXPECT_CALL(walletdb, TxnAbort())               
-        .Times(1);                                  
+    EXPECT_CALL(walletdb, WriteTx(wtx.GetHash(), Eq(ByRef(refWtx))))
+        .WillOnce(Return(false));
+    EXPECT_CALL(walletdb, TxnAbort())
+        .Times(1);
     wallet.SetBestChain(walletdb, loc);             
                                                     
-    // WriteTx throws                               
-    EXPECT_CALL(walletdb, WriteTx(wtx.GetHash(), Eq(ByRef(wtx))))
-        .WillOnce(ThrowLogicError());               
-    EXPECT_CALL(walletdb, TxnAbort())               
-        .Times(1);                                  
-    wallet.SetBestChain(walletdb, loc);             
-    EXPECT_CALL(walletdb, WriteTx(wtx.GetHash(), Eq(ByRef(wtx))))
+    // WriteTx throws
+    EXPECT_CALL(walletdb, WriteTx(wtx.GetHash(), Eq(ByRef(refWtx))))
+        .WillOnce(ThrowLogicError());
+    EXPECT_CALL(walletdb, TxnAbort())
+        .Times(1);
+    wallet.SetBestChain(walletdb, loc);
+    EXPECT_CALL(walletdb, WriteTx(wtx.GetHash(), Eq(ByRef(refWtx))))
         .WillRepeatedly(Return(true));
 
     // WriteWitnessCacheSize fails

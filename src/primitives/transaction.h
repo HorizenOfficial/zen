@@ -628,7 +628,7 @@ protected:
     virtual void UpdateHash() const = 0;
 
 public:
-    virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) = 0;
+    virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const = 0;
 
     CTransactionBase();
     CTransactionBase& operator=(const CTransactionBase& tx);
@@ -756,7 +756,7 @@ protected:
     void UpdateHash() const override;
 
 public:
-    virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) override final;
+    virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const override final;
     typedef boost::array<unsigned char, 64> joinsplit_sig_t;
 
     // Transactions that include a list of JoinSplits are version 2.
