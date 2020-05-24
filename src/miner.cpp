@@ -106,13 +106,14 @@ void UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, 
     pblock->nTime = std::max(pindexPrev->GetMedianTimePast()+1, GetAdjustedTime());
 }
 
-bool VerifyForwardTransfersDependencies(const CTransaction& tx, const CCoinsViewCache& view, COrphan*& porphan, list<COrphan>& vOrphan, map<uint256, vector<COrphan*> >& mapDependers)
+bool VerifyForwardTransfersDependencies(const CTransaction& tx, const CCoinsViewCache& view, list<COrphan>& vOrphan, map<uint256, vector<COrphan*> >& mapDependers, COrphan*& porphan)
 {
-    // detect dependancies from the sidechain point of view 
+    // detect dependencies from the sidechain point of view
     for (const auto& ft: tx.GetVftCcOut())
     {
-        if (mempool.hasSidechainCreationTx(ft.scId))
-        {
+        if (view.HaveSidechain(ft.scId) )
+            continue;
+        else if (mempool.hasSidechainCreationTx(ft.scId)) {
             const uint256& scCreationHash = mempool.mapSidechains.at(ft.scId).scCreationTxHash; 
             assert(!scCreationHash.IsNull());
             assert(mempool.exists(scCreationHash));
@@ -130,9 +131,7 @@ bool VerifyForwardTransfersDependencies(const CTransaction& tx, const CCoinsView
             porphan->setDependsOn.insert(scCreationHash);
             LogPrint("sc", "%s():%d - tx[%s] depends on tx[%s] for sc creation\n",
                 __func__, __LINE__, tx.GetHash().ToString(), scCreationHash.ToString());
-        }
-        else if (!view.HaveSidechain(ft.scId) )
-        {
+        } else {
             // This should never happen; all sc fw transactions in the memory
             // pool should connect to either sidechain in the chain or sidechain created by
             // other transactions in the memory pool.
@@ -154,8 +153,8 @@ bool GetTxInputsDependencies(const CTransactionBase& txBase, CAmount& nTotalIn, 
     {
         if (mempool.mapCertificate.count(txin.prevout.hash))
         {
-            // - tx can not spend any output of a certificate in mempool, both change an backward transfer
-            // - certificate can only spend change outputs of a certificate in mempool, while backward transfers must mature first
+            // - tx cannot spend any output of a certificate in mempool, neither change nor backward transfer
+            // - certificate can only spend change outputs of another certificate in mempool, while backward transfers must mature first
             const CScCertificate & inputCert = mempool.mapCertificate[txin.prevout.hash].GetCertificate();
 
             if (!txBase.IsCertificate() || // this is a tx
@@ -200,7 +199,7 @@ bool GetTxInputsDependencies(const CTransactionBase& txBase, CAmount& nTotalIn, 
 }
 
 bool AddTxToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& view, CAmount& nTotalIn,
-                       int nHeight, const CMemPoolEntry& mpEntry, COrphan* porphan, vector<TxPriority>& vecPriority)
+                       int nHeight, const CMemPoolEntry& mpEntry, vector<TxPriority>& vecPriority, COrphan* porphan)
 {
     const uint256& hash = txBase.GetHash();
     unsigned int nTxSize = txBase.GetSerializeSizeBase(SER_NETWORK, PROTOCOL_VERSION);
@@ -269,8 +268,6 @@ bool AddTxToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& vi
 void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, const CCoinsViewCache& view, 
                                vector<TxPriority>& vecPriority, list<COrphan>& vOrphan, map<uint256, vector<COrphan*> >& mapDependers)
 {
-    AssertLockHeld(mempool.cs); 
-
     for (auto mi = mempool.mapCertificate.begin();
          mi != mempool.mapCertificate.end(); ++mi)
     {
@@ -278,7 +275,7 @@ void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, const CCoinsVie
         const uint256& hash = cert.GetHash();
 
         CAmount nTotalIn = 0;
-        COrphan* porphan = NULL;
+        COrphan* porphan = nullptr;
 
         if (!GetTxInputsDependencies(cert, nTotalIn, nHeight, vOrphan, mapDependers, porphan) )
         {
@@ -288,7 +285,7 @@ void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, const CCoinsVie
         }
 
         const CMemPoolEntry& mpEntry = mi->second;
-        if (!AddTxToPriorities(cert, view, nTotalIn, nHeight, mpEntry, porphan, vecPriority) )
+        if (!AddTxToPriorities(cert, view, nTotalIn, nHeight, mpEntry, vecPriority, porphan) )
         {
             if (porphan)
                 vOrphan.pop_back();
@@ -310,12 +307,10 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
                 : pblock->GetBlockTime();
 
         if (tx.IsCoinBase() || !IsFinalTx(tx, nHeight, nLockTimeCutoff))
-        {
             continue;
-        }
 
         CAmount nTotalIn = 0;
-        COrphan* porphan = NULL;
+        COrphan* porphan = nullptr;
 
         if (!GetTxInputsDependencies(tx, nTotalIn, nHeight, vOrphan, mapDependers, porphan) )
         {
@@ -324,7 +319,7 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
             continue;
         }
 
-        if (!VerifyForwardTransfersDependencies(tx, view, porphan, vOrphan, mapDependers) )
+        if (!VerifyForwardTransfersDependencies(tx, view, vOrphan, mapDependers, porphan) )
         {
             if (porphan)
                 vOrphan.pop_back();
@@ -332,7 +327,7 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
         }
 
         const CMemPoolEntry& mpEntry = mi->second;
-        if (!AddTxToPriorities(tx, view, nTotalIn, nHeight, mpEntry, porphan, vecPriority) )
+        if (!AddTxToPriorities(tx, view, nTotalIn, nHeight, mpEntry, vecPriority, porphan) )
         {
             if (porphan)
                 vOrphan.pop_back();
@@ -358,7 +353,7 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
         if (tx.IsCoinBase() || !IsFinalTx(tx, nHeight, nLockTimeCutoff))
             continue;
 
-        COrphan* porphan = NULL;
+        COrphan* porphan = nullptr;
         double dPriority = 0;
         CAmount nTotalIn = 0;
         bool fMissingInputs = false;
@@ -407,11 +402,11 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
 
         if (fMissingInputs) continue;
 
-        if (!VerifyForwardTransfersDependencies(tx, view, porphan, vOrphan, mapDependers) )
+        if (!VerifyForwardTransfersDependencies(tx, view, vOrphan, mapDependers, porphan))
         {
             // should never happen because that means inconsistency in mempool, but this tx must not be
             // added to vecPriority nor in the vOrphan
-            LogPrint("cert", "%s():%d - skipping tx[%s] for invalid dependancies\n",
+            LogPrint("cert", "%s():%d - skipping tx[%s] for invalid dependencies\n",
                 __func__, __LINE__, tx.GetHash().ToString() ); 
             continue;
         }
@@ -663,7 +658,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                         LogPrint("sc", "%s():%d - erasing tx[%s] frim orphan %p\n", __func__, __LINE__, hash.ToString(), porphan);
                         if (porphan->setDependsOn.empty())
                         {
-                            LogPrint("sc", "%s():%d - tx[%s] resolved all dependancies, adding to prio vec\n",
+                            LogPrint("sc", "%s():%d - tx[%s] resolved all dependencies, adding to prio vec\n",
                                 __func__, __LINE__, porphan->ptx->GetHash().ToString());
                             vecPriority.push_back(TxPriority(porphan->dPriority, porphan->feeRate, porphan->ptx));
                             std::push_heap(vecPriority.begin(), vecPriority.end(), comparer);
@@ -722,7 +717,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
         // Fill in header
         pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
-        pblock->hashScTxsCommitment = uint256();
+        pblock->hashScTxsCommitment = pblock->BuildScTxsCommitment();
         UpdateTime(pblock, Params().GetConsensus(), pindexPrev);
         pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock, Params().GetConsensus());
         pblock->nSolution.clear();
@@ -802,7 +797,6 @@ void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& 
 
     pblock->vtx[0] = txCoinbase;
     pblock->hashMerkleRoot = pblock->BuildMerkleTree();
-    pblock->hashScTxsCommitment = pblock->BuildScTxsCommitment();
 #ifdef DEBUG_SC_COMMITMENT_HASH
     std::cout << "-------------------------------------------" << std::endl;
     std::cout << "  hashScTxsCommitment: " << pblock->hashScTxsCommitment.ToString() << std::endl;
