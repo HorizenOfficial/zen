@@ -631,7 +631,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "     [\n"
             "       {\n"
             "         \"scid\":\"id\",   (string, required) The side chain id\n"
-            "         \"epoch_length\":n (numeric, required) length of the withdrawal epochs"
+            "         \"epoch_length\":n (numeric, required) length of the withdrawal epochs\n"
             "         \"address\":\"address\",  (string, required) The receiver PublicKey25519Proposition in the SC\n"
             "         \"amount\":amount         (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
             "         \"customData\":hexstr     (string, required) It is an arbitrary byte string of even length expressed in\n"

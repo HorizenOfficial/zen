@@ -60,17 +60,19 @@ class sc_cert_orphans(BitcoinTestFramework):
         #  (2) Node0 sends fund to node1 ---> tx1
         #  (3) Node1 create a certificate using the unconfirmed coins of tx1 in mempool  ---> cert1
         #  (4) Node1 tries to use unconfirmed cert1 change for sending funds to node2, but will fail since an unconfirmed
+        #      cert change can not be spent by a tx
         #  (5) Node1 tries to do it via a rawtransaction, but that will result by a refusal to be added in mempool
-        #  (6) Node1 tries to create a cert using the same unconfirmed cert1 change, but fails too 
-        #  (7) Node1 tries to do it via a rawcertificate, but that again will result by a refusal to be added in mempool
+        #  (6) Node1 creates a cert2 using the same unconfirmed cert1 change, this is ok
+        #  (7) Node1 tries to do the same via a rawcertificate, but it will be dropped since a cert for that SC is already in mempool
            -  a block is mined
-        #  (8) Node1 retries to send the same rawtransaction, this time should succeed because cert change is now confirmed --> tx2
-        #  (9) Node1 retries to send the same rawcertificate, this time will fail because double spends the same UTXO of tx2
-        # (10) Node1 retries once more with the proper UTXO from tx2 ---> cert2
+
+        #  (8) Node1 send coins to Node2 ---> tx2 using confirmed change of cert2
            -  a block is mined
-        # (11) Node0 invalidates the latest block, tx2 and cert2 are restored in mempool
-        # (12) Node0 invalidates one more block, tx1 and cert1 are restored in mempool but this will make tx2 and cert2 disappear
-        # (13) Node0 reconsiders last invalidated block in order to allow network alignemnt when other nodes will prevail 
+
+        #  (9) Node0 invalidates the latest block, tx2 is restored in mempool
+        # (10) Node0 invalidates one more block, tx1, cert1, cert2 are restored in mempool but tx2 disappears
+        # (11) Node0 reconsiders last invalidated block in order to allow network alignemnt when other nodes will prevail 
+        # (12) Node3  generates 2 blocks prevailing over Node0 and realigning the network 
         '''
         # side chain id
         scid_1 = "1111"
@@ -137,12 +139,12 @@ class sc_cert_orphans(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("{}".format(errorString), self.nodes, DEBUG_MODE)
-            assert_true("Insufficient funds" in errorString)
+            assert_true("The transaction was rejected" in errorString)
 
         # (5) try to do it via a rawtransaction, but that will result by a refusal to be added in mempool
         inputs  = [{'txid' : cert1, 'vout' : 0}]
-        change = amount1 - amount2 - Decimal("0.0002")
-        outputs = { taddr2 : amount2, self.nodes[1].getnewaddress() : change  }
+        change1 = amount1 - amount2 - Decimal("0.0002")
+        outputs = { taddr2 : amount2, self.nodes[1].getnewaddress() : change1  }
         mark_logs("Node1 try to do the same using a raw transaction, expecting failure".format(amount2), self.nodes, DEBUG_MODE)
         try:
             rawtx = self.nodes[1].createrawtransaction(inputs, outputs)
@@ -154,20 +156,24 @@ class sc_cert_orphans(BitcoinTestFramework):
             mark_logs("{}".format(errorString), self.nodes, DEBUG_MODE)
             assert_true("unconfirmed output" in errorString)
 
-        # (6) node1 tries to create a cert2 using the same unconfirmed change 
+        # (6) node1 create a cert2 using the same unconfirmed change 
         amounts = []
-        mark_logs("Node1 tries to sends a certificate for SC {} using unconfirmed change from cert1, expecting failure".format(scid_2), self.nodes, DEBUG_MODE)
+        mark_logs("Node1 sends a certificate for SC {} using unconfirmed change from cert1".format(scid_2), self.nodes, DEBUG_MODE)
         try:
             cert2 = self.nodes[1].send_certificate(scid_2, epoch_number, epoch_block_hash, amounts, CERT_FEE)
-            assert(False)
+            mark_logs("======> cert2 = {}".format(cert2), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert(False)
+
+        self.sync_all()
 
         # (7) try to do it via a rawcertificate, but that again will result by a refusal to be added in mempool
-        mark_logs("Node1 try to do the same using a raw certificate, expecting failure".format(amount2), self.nodes, DEBUG_MODE)
+        mark_logs("Node1 try to do the same using a raw certificate, expecting failure since a certificate for this sc is already in mempool".format(amount2), self.nodes, DEBUG_MODE)
         inputs  = [{'txid' : cert1, 'vout' : 0}]
-        outputs = { self.nodes[1].getnewaddress() : change }
+        change_dum = amount1 - CERT_FEE
+        outputs = { self.nodes[1].getnewaddress() : change_dum }
         params = {"scid": scid_2, "endEpochBlockHash": epoch_block_hash, "withdrawalEpochNumber": epoch_number}
         try:
             rawcert    = self.nodes[1].createrawcertificate(inputs, outputs, {}, params)
@@ -176,18 +182,39 @@ class sc_cert_orphans(BitcoinTestFramework):
             rawcert = self.nodes[1].sendrawcertificate(signed_cert['hex'])
             assert_true(False)
         except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            mark_logs("Send certificate failed as expected", self.nodes, DEBUG_MODE)
 
         self.sync_all()
+
+        mark_logs("Check tx1, cert1 and cert2 are in mempools", self.nodes, DEBUG_MODE)
+        assert_equal(True, tx1 in self.nodes[2].getrawmempool())
+        assert_equal(True, cert1 in self.nodes[2].getrawmempool())
+        assert_equal(True, cert2 in self.nodes[2].getrawmempool())
+        mp = self.nodes[1].getrawmempool(True)
+        #pprint.pprint(mp)
+
+        dep_cert1 = mp[cert1]['depends']
+        dep_cert2 = mp[cert2]['depends']
+
+        mark_logs("check that cert1 depends on tx1 {}".format(cert1), self.nodes, DEBUG_MODE)
+        assert_true(tx1 in dep_cert1)
+
+        mark_logs("check that cert2 depends on cert1 {}".format(cert1), self.nodes, DEBUG_MODE)
+        assert_true(cert1 in dep_cert2)
 
         mark_logs("Node0 generates 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
 
-        # (8) retry to send the same rawtransaction, this time should succeed because cert change is now confirmed
-        mark_logs("Node1 retry to send {} coins to Node2 via the raw transaction that was failing before".format(amount2), self.nodes, DEBUG_MODE)
+        # (8) Node1 send coins to Node2 using confirmed change of cert2
+        mark_logs("Node1 sends {} coins to Node2 using confirmed change from cert2".format(amount2), self.nodes, DEBUG_MODE)
+        inputs  = [{'txid' : cert2, 'vout' : 0}]
+        change2 = change1 - Decimal("0.0002")
+        outputs = { taddr2 : amount2, self.nodes[1].getnewaddress() : change2  }
+        mark_logs("Node1 try to do the same using a raw transaction, expecting failure".format(amount2), self.nodes, DEBUG_MODE)
         try:
+            rawtx = self.nodes[1].createrawtransaction(inputs, outputs)
+            rawtx = self.nodes[1].signrawtransaction(rawtx)
             tx2 = self.nodes[1].sendrawtransaction(rawtx['hex'])
             mark_logs("======> tx2 = {}".format(tx2), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -197,45 +224,6 @@ class sc_cert_orphans(BitcoinTestFramework):
 
         self.sync_all()
 
-        # (9) retry to send the same rawcertificate, this time will fail because double spends the same UTXO of the tx2
-        mark_logs("Node1 retry to send the same raw certificate that was failig before, expecting failure because it now would double spend", self.nodes, DEBUG_MODE)
-        try:
-            rawcert = self.nodes[1].sendrawcertificate(signed_cert['hex'])
-            assert(False)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs("{}".format(errorString), self.nodes, DEBUG_MODE)
-
-        # (10) retry once more with the proper UTXO
-        mark_logs("Node1 sends a certificate for SC {} using unconfirmed UTXO from tx2 change".format(scid_2), self.nodes, DEBUG_MODE)
-        listunspent = self.nodes[1].listunspent(0)
-        assert_equal(listunspent[0]['txid'], tx2)
-        #pprint.pprint(listunspent)
-        change = listunspent[0]['amount'] - CERT_FEE
-        inputs  = [{'txid' : tx2, 'vout' : listunspent[0]['vout']}]
-        outputs = { self.nodes[1].getnewaddress() : change }
-        params = {"scid": scid_2, "endEpochBlockHash": epoch_block_hash, "withdrawalEpochNumber": epoch_number}
-        try:
-            rawcert    = self.nodes[1].createrawcertificate(inputs, outputs, {}, params)
-            signed_cert = self.nodes[1].signrawcertificate(rawcert)
-            #pprint.pprint(self.nodes[1].decoderawcertificate(signed_cert['hex']))
-            cert2 = self.nodes[1].sendrawcertificate(signed_cert['hex'])
-            mark_logs("======> cert2 = {}".format(cert2), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
-            assert_true(False)
-
-        self.sync_all()
-
-        mark_logs("Check tx2 and cert2 are in mempools", self.nodes, DEBUG_MODE)
-        assert_equal(True, tx2 in self.nodes[2].getrawmempool())
-        assert_equal(True, cert2 in self.nodes[2].getrawmempool())
-        mp = self.nodes[1].getrawmempool(True)
-        dep_cert = mp[cert2]['depends']
-        mark_logs("check that cert2 depends on tx2 {}".format(tx2), self.nodes, DEBUG_MODE)
-        assert_true(tx2 in dep_cert)
-
         mark_logs("Node0 generates 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
@@ -244,34 +232,37 @@ class sc_cert_orphans(BitcoinTestFramework):
         assert_equal(0, len(self.nodes[0].getrawmempool()))
         assert_equal(0, len(self.nodes[3].getrawmempool()))
 
-        # (11) Node0 invalidates the latest block, tx2 and cert2 are restored in mempool
+        # (9) Node0 invalidates the latest block, tx2 is restored in mempool
         block_inv = self.nodes[0].getbestblockhash()
         mark_logs("Node 0 invalidates latest block with height = {}".format(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
         self.nodes[0].invalidateblock(block_inv)
         sync_mempools(self.nodes[0:1])
-        mark_logs("Check tx2 and cert2 are back in mempool of Node0", self.nodes, DEBUG_MODE)
-        assert_equal(True, tx2 in self.nodes[0].getrawmempool())
-        assert_equal(True, cert2 in self.nodes[0].getrawmempool())
+        mp = self.nodes[0].getrawmempool(True)
+        pprint.pprint(mp)
 
-        # (12) Node0 invalidates one more block, tx1 and cert1 are restored in mempool but this will make tx2 and cert2 disappear
-        # tx2 is removed from mempool because it spends cert1 change that is is now unconfirmed, and cert2 is removed
-        # since it spends output from tx2 
+        mark_logs("Check tx2 is back in mempool of Node0", self.nodes, DEBUG_MODE)
+        assert_equal(True, tx2 in self.nodes[0].getrawmempool())
+
+        # (10) Node0 invalidates one more block, tx1, cert1, cert2 are restored in mempool but tx2 disappears
+        # tx2 is removed from mempool because it spends cert2 change that is is now unconfirmed
         block_inv = self.nodes[0].getbestblockhash()
         mark_logs("Node 0 invalidates latest block with height = {}".format(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
         self.nodes[0].invalidateblock(block_inv)
         sync_mempools(self.nodes[0:1])
-        mark_logs("Check tx1 and cert1 are back in mempool of Node0", self.nodes, DEBUG_MODE)
+        #pprint.pprint(mp)
+        mark_logs("Check tx1, cert1 and cert2 are back in mempool of Node0", self.nodes, DEBUG_MODE)
         assert_equal(True, tx1 in self.nodes[0].getrawmempool())
         assert_equal(True, cert1 in self.nodes[0].getrawmempool())
-        mark_logs("Check tx2 and cert2 are no more in mempool of Node0", self.nodes, DEBUG_MODE)
+        assert_equal(True, cert2 in self.nodes[0].getrawmempool())
+
+        mark_logs("Check tx2 is no more in mempool of Node0", self.nodes, DEBUG_MODE)
         assert_equal(False, tx2 in self.nodes[0].getrawmempool())
-        assert_equal(False, cert2 in self.nodes[0].getrawmempool())
 
         mark_logs("Node0 generates 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         sync_mempools(self.nodes[0:1])
 
-        # (13) Node0 reconsiders last invalidated block in order to allow network alignemnt when other nodes will prevail 
+        # (11) Node0 reconsiders last invalidated block in order to allow network alignemnt when other nodes will prevail 
         mark_logs("Node 0 reconsider last invalidated block", self.nodes, DEBUG_MODE)
         self.nodes[0].reconsiderblock(block_inv)
         self.sync_all()
@@ -280,6 +271,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         assert_equal(0, len(self.nodes[0].getrawmempool()))
         assert_equal(0, len(self.nodes[3].getrawmempool()))
 
+        # (12) Node3  generates 2 blocks prevailing over Node0 and realigning the network 
         mark_logs("Node3 generates 2 blocks prevailing over Node0 and realigning the network", self.nodes, DEBUG_MODE)
         self.nodes[3].generate(2)
         self.sync_all()

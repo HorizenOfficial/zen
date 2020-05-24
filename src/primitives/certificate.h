@@ -98,8 +98,6 @@ public:
     CScCertificate(deserialize_type, Stream& s) : CScCertificate(CMutableScCertificate(deserialize, s)) {}
 
     //GETTERS
-    const std::vector<CTxScCreationOut>&      GetVscCcOut()   const override {static const  std::vector<CTxScCreationOut> noVsc; return noVsc; }
-    const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const override {static const  std::vector<CTxForwardTransferOut> noVft; return noVft; }
     const std::vector<JSDescription>&         GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
     const uint256&                            GetScId()       const          {return scId;};
     const uint32_t&                           GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};

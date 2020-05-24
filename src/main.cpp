@@ -1171,7 +1171,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         if ((pool.mapSidechains.count(cert.GetScId()) != 0) &&
             (!pool.mapSidechains.at(cert.GetScId()).backwardCertificate.IsNull())) {
             LogPrint("mempool", "Dropping cert %s : another cert for same sc is already in mempool\n", certHash.ToString());
-            return false;
+            return error("another cert for same sc is already in mempool");
         }
 
         for (const CTxIn & vin : cert.GetVin()) {
@@ -1183,12 +1183,17 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                          REJECT_INVALID, "double spend");
             }
             if (pool.mapCertificate.count(vin.prevout.hash)) {
-                LogPrint("mempool", "%s():%d - Dropping cert[%s]: it would spend the output %d of cert[%s] that is in mempool\n",
-                    __func__, __LINE__, certHash.ToString(), vin.prevout.n, vin.prevout.hash.ToString());
-                return state.DoS(0,
+                const CScCertificate & inputCert = pool.mapCertificate[vin.prevout.hash].GetCertificate();
+                // certificates can only spend change outputs of another certificate in mempool, while backward transfers must mature first
+                if (inputCert.GetVout()[vin.prevout.n].isFromBackwardTransfer ) 
+                {
+                    LogPrint("mempool", "%s():%d - Dropping cert[%s]: it would spend the backward transfer output %d of cert[%s] that is in mempool\n",
+                        __func__, __LINE__, certHash.ToString(), vin.prevout.n, vin.prevout.hash.ToString());
+                    return state.DoS(0,
                          error("AcceptToMemoryPool: cert[%s]: it would spend the output %d of cert[%s] that is in mempool", 
                          certHash.ToString(), vin.prevout.n, vin.prevout.hash.ToString()),
                          REJECT_INVALID, "certificate unconfirmed output");
+                }
             }
         }
     }

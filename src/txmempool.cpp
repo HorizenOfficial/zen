@@ -223,14 +223,24 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                 objToRemove.push_back(it->second.ptx->GetHash());
             }
 
-            for(const auto& sc: origTx.GetVscCcOut()) {
-                if (mapSidechains.count(sc.scId) == 0)
-                    continue;
-                if (removeDependantFwds) {
-                    for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
-                        objToRemove.push_back(fwdTxHash);
-                } else
-                    objToRemove.push_back(mapSidechains.at(sc.scId).scCreationTxHash);
+            if (!origTx.IsCertificate() )
+            {
+                const CTransaction* tx = dynamic_cast<const CTransaction*>(&origTx);
+                if (tx == nullptr)
+                {
+                    // should never happen
+                    LogPrintf("%s():%d - could not make a tx from obj[%s]\n", __func__, __LINE__, origTx.GetHash().ToString());
+                    assert(false);
+                }
+                for(const auto& sc: tx->GetVscCcOut()) {
+                    if (mapSidechains.count(sc.scId) == 0)
+                        continue;
+                    if (removeDependantFwds) {
+                        for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
+                            objToRemove.push_back(fwdTxHash);
+                    } else
+                        objToRemove.push_back(mapSidechains.at(sc.scId).scCreationTxHash);
+                }
             }
         }
         removeInternal(objToRemove, removedTxs, removedCerts, fRecursive, removeDependantFwds);
@@ -364,16 +374,24 @@ inline bool CTxMemPool::addToListForRemovalImmatureExpenditures(
             continue;
  
         // if input is the out of a cert in mempool, it must be the case when the output is the change,
-        // and can happen only after a chain reorg. The tx must be removed because unconfirmed certificate change 
-        // can not be spent
+        // and can happen for instance after a chain reorg.
+        //  - tx must be removed because unconfirmed certificate change can not be spent
+        //  - certificate is legal instead
         std::map<uint256, CCertificateMemPoolEntry>::const_iterator it3 = mapCertificate.find(txin.prevout.hash);
         if (it3 != mapCertificate.end()) {
-            LogPrint("mempool", "%s():%d - adding tx[%s] to list for removing since spends output %d of cert[%s] in mempool\n",
-                __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
-            // can not be anything but change
+            // check this is the cert change
             assert(!it3->second.GetCertificate().GetVout()[txin.prevout.n].isFromBackwardTransfer);
-            transactionsToRemove.push_back(&tx);
-            return true;
+
+            // remove only if a tx
+            if (!tx.IsCertificate() )
+            {
+                LogPrint("mempool", "%s():%d - adding tx[%s] to list for removing since spends output %d of cert[%s] in mempool\n",
+                    __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
+                // can not be anything but change
+                transactionsToRemove.push_back(&tx);
+                return true;
+            }
+            continue;
         }
  
         // the tx input has not been found in the mempool, therefore must be in blockchain
@@ -622,7 +640,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     if (!fSanityCheck)
         return;
 
-    LogPrint("mempool", "Checking mempool with %u transactions and %u inputs\n", (unsigned int)mapTx.size(), (unsigned int)mapNextTx.size());
+    LogPrint("mempool", "Checking mempool with %u transactions %u certificates and %u inputs\n",
+        (unsigned int)mapTx.size(), (unsigned int)mapCertificate.size(), (unsigned int)mapNextTx.size());
 
     uint64_t checkTotal = 0;
     uint64_t innerUsage = 0;
@@ -750,9 +769,15 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
                 // maybe our input is a certificate?
                 std::map<uint256, CCertificateMemPoolEntry>::const_iterator itCert = mapCertificate.find(txin.prevout.hash);
                 if (itCert != mapCertificate.end()) {
-                    const CTransactionBase& cert = itCert->second.GetCertificate();
-                    LogPrintf("%s():%d - ERROR input is the output of cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString());
-                    assert(false);
+                    // certificates can only spend change outputs of another certificate in mempool, while backward transfers must mature first
+                    const CTransactionBase& inputCert = itCert->second.GetCertificate();
+                    if (inputCert.GetVout()[txin.prevout.n].isFromBackwardTransfer ) 
+                    {
+                        LogPrintf("%s():%d - ERROR input is the output of cert[%s]\n", __func__, __LINE__, inputCert.GetHash().ToString());
+                        assert(false);
+                    }
+                    assert(inputCert.GetVout().size() > txin.prevout.n && !inputCert.GetVout()[txin.prevout.n].IsNull());
+                    fDependsWait = true;
                 }
                 else
                 {
@@ -772,15 +797,13 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         innerUsage += it->second.DynamicMemoryUsage();
         CValidationState state;
 
-        assert(::ContextualCheckInputs(cert, state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
-
         if (fDependsWait)
         {
             waitingOnDependantsCert.push_back(&it->second);
         }
         else {
-            // updating coins with cert outputs because the cache is checked below for
-            // any tx inputs and maybe some tx has a cert out as its input.
+            CValidationState state;
+            assert(::ContextualCheckInputs(cert, state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
             UpdateCoins(cert, mempoolDuplicate, dummyUndo, 1000000);
         }
