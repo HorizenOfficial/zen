@@ -202,7 +202,7 @@ bool AddTxToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& vi
                        int nHeight, const CMemPoolEntry& mpEntry, vector<TxPriority>& vecPriority, COrphan* porphan)
 {
     const uint256& hash = txBase.GetHash();
-    unsigned int nTxSize = txBase.GetSerializeSizeBase(SER_NETWORK, PROTOCOL_VERSION);
+    unsigned int nTxSize = txBase.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     double dPriority = 0;
     CAmount nFee = 0;
 
