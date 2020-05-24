@@ -89,6 +89,14 @@ template std::string base_blob<Sidechain::MAX_SC_DATA_BITS>::ToString() const;
 template void base_blob<Sidechain::MAX_SC_DATA_BITS>::SetHex(const char*);
 template void base_blob<Sidechain::MAX_SC_DATA_BITS>::SetHex(const std::string&);
 
+// Other explicit instantiations
+template void base_blob<SC_PROOF_SIZE>::SetHex(const char*);
+template void base_blob<SC_PROOF_SIZE>::SetHex(const std::string&);
+template void base_blob<SC_VK_SIZE>::SetHex(const char*);
+template void base_blob<SC_VK_SIZE>::SetHex(const std::string&);
+template void base_blob<SC_FIELD_SIZE>::SetHex(const char*);
+template void base_blob<SC_FIELD_SIZE>::SetHex(const std::string&);
+
 static void inline HashMix(uint32_t& a, uint32_t& b, uint32_t& c)
 {
     // Taken from lookup3, by Bob Jenkins.

@@ -550,7 +550,7 @@ class CTxScCreationOut : public CTxCrosschainOut
 public:
     int withdrawalEpochLength; 
     std::vector<unsigned char> customData;
-    std::vector<unsigned char> constant;
+    libzendoomc::ScConstant constant;
     libzendoomc::ScVk wCertVk;
 /*
     TODO check and add 
@@ -584,8 +584,8 @@ public:
         CTxCrosschainOut::SetNull();
         withdrawalEpochLength = -1;
         customData.clear();
-        constant.clear();
-        wCertVk.clear();
+        constant.SetNull();
+        wCertVk.SetNull();
     }
 
     virtual uint256 GetHash() const override;

@@ -4,6 +4,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+static const size_t SC_PROOF_SIZE = 771;
+static const size_t SC_VK_SIZE = 1544;
+static const size_t SC_FIELD_SIZE = 96;
+
 typedef struct backward_transfer{ 
   unsigned char pk_dest[20];
   uint64_t amount;
@@ -52,5 +56,7 @@ bool zendoo_verify_sc_proof(
     const sc_proof_t* sc_proof,
     const sc_vk_t* sc_vk
 );
+
+extern constexpr void test();
 
 #endif // _TEMP_ZENDOO_MC_H

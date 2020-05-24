@@ -68,7 +68,35 @@ class CcRecipientAmountVisitor : public boost::static_visitor<CAmount>
 
 // used in get tx family of rpc commands
 void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj);
-bool AddScData(const std::string& inputString, std::vector<unsigned char>& vBytes, std::string& error);
+bool AddVariableSizeScData(const std::string& inputString, std::vector<unsigned char>& vBytes, std::string& error);
+
+template<unsigned int EXACT_SC_DATA_LEN>
+bool AddFixedSizeScData(const std::string& inputString, base_blob<EXACT_SC_DATA_LEN> scBlob, std::string& error){
+    
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+    {
+        error = std::string("Invalid format: not an hex");
+        return false;
+    }
+
+    unsigned int scDataLen = inputString.length();
+
+    if (scDataLen%2)
+    {
+        error = strprintf("Invalid length %d, must be even (byte string)", scDataLen);
+        return false;
+    }
+
+    if (scDataLen != EXACT_SC_DATA_LEN)
+    {
+        error = strprintf("Invalid length %d, must be %d bytes", scDataLen, EXACT_SC_DATA_LEN);
+        return false;
+    }
+
+    scBlob.SetHex(inputString);
+
+    return true;
+}
 
 // used when creating a raw transaction with cc outputs
 bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, std::string& error);

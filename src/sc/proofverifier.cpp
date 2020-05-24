@@ -11,6 +11,36 @@
 
 namespace libzendoomc{
 
+    bool IsValidScProof(const ScProof& scProof)
+    {
+        bool result = true;
+        auto scProofDeserialized = zendoo_deserialize_sc_proof(scProof.begin());
+        if (scProofDeserialized == nullptr)
+            result = false;
+        zendoo_sc_proof_free(scProofDeserialized);
+        return result;
+    }
+
+    bool IsValidScVk(const ScVk& scVk)
+    {
+        bool result = true;
+        auto scVkDeserialized = zendoo_deserialize_sc_vk(scVk.begin());
+        if (scVkDeserialized == nullptr)
+            result = false;
+        zendoo_sc_vk_free(scVkDeserialized);
+        return result;
+    }
+
+    bool IsValidScConstant(const ScConstant& scConstant)
+    {
+        bool result = true;
+        auto scConstantDeserialized = zendoo_deserialize_field(scConstant.begin());
+        if (scConstantDeserialized == nullptr)
+            result = false;
+        zendoo_field_free(scConstantDeserialized);
+        return result;
+    }
+
     std::string ToString(Error err){
         return strprintf(
             "%s: [%d - %s]\n",
@@ -26,29 +56,13 @@ namespace libzendoomc{
             std::ofstream os (vkPath.string(), std::ios_base::out|std::ios::binary);
             os.exceptions(std::ios_base::failbit | std::ios_base::badbit);
 
-            std::copy(scVk.cbegin(), scVk.cend(), std::ostream_iterator<unsigned char>(os));
+            std::copy(scVk.begin(), scVk.end(), std::ostream_iterator<unsigned char>(os));
 
             os.flush();
             os.close();
         } catch (std::ios_base::failure& e) 
         {
             return error(strprintf("SaveScVkToFile(): error writing to file: %s", e.what()).data());
-        }
-
-        return true;
-    }
-
-    bool LoadScVkFromFile(const boost::filesystem::path& vkPath, ScVk& scVk){
-
-        try
-        {
-            std::ifstream is (vkPath.string(), std::ifstream::binary);
-            is.exceptions(std::ios_base::failbit | std::ios_base::badbit);
-            std::copy(std::istream_iterator<unsigned char>(is), std::istream_iterator<unsigned char>(), std::back_inserter(scVk));
-            is.close();
-        } catch (std::ios_base::failure& e) 
-        {
-            return error(strprintf("LoadScVkFromFile(): error reading from file: %s", e.what()).data());
         }
 
         return true;
@@ -61,16 +75,9 @@ namespace libzendoomc{
            
             constant = nullptr;
        
-        } else if (constant_bytes.size() != zendoo_get_field_size_in_bytes()){ //For now constant must be just a single field element
+        } else {
             
-            LogPrint("zendoo_mc_cryptolib",
-                    "%s():%d - failed to deserialize \"constant\": expected vector of size: %d, found vector of size %d instead \n", 
-                    __func__, __LINE__, constant_bytes.size(), zendoo_get_field_size_in_bytes());
-            return false;
-
-        } else { 
-            
-            constant = deserialize_field(constant_bytes.data()); 
+            constant = deserialize_field(constant_bytes.begin()); 
             
             if (constant == nullptr) {
                 
@@ -87,47 +94,28 @@ namespace libzendoomc{
 
         //Deserialize proof
         auto sc_proof_bytes = scCert.scProof;
-        if (sc_proof_bytes.size() != zendoo_get_sc_proof_size_in_bytes()){
+
+        sc_proof = deserialize_sc_proof(sc_proof_bytes.begin());
+
+        if(sc_proof == nullptr) {
 
             LogPrint("zendoo_mc_cryptolib",
-                "%s():%d - failed to deserialize \"sc_proof\": expected vector of size: %d, found vector of size %d instead \n", 
-                __func__, __LINE__, sc_proof_bytes.size(), zendoo_get_sc_proof_size_in_bytes());
+                "%s():%d - failed to deserialize \"sc_proof\": %s \n", 
+                __func__, __LINE__, ToString(zendoo_get_last_error()));
             return false;
 
-        } else {
-
-            sc_proof = deserialize_sc_proof(sc_proof_bytes.data());
-
-            if(sc_proof == nullptr) {
-
-                LogPrint("zendoo_mc_cryptolib",
-                    "%s():%d - failed to deserialize \"sc_proof\": %s \n", 
-                    __func__, __LINE__, ToString(zendoo_get_last_error()));
-                return false;
-
-            }
         }
 
         //Deserialize sc_vk
         auto wCertVkBytes = scInfo.creationData.wCertVk;
-        if (sc_proof_bytes.size() != zendoo_get_sc_proof_size_in_bytes()){
+        sc_vk = deserialize_sc_vk(wCertVkBytes.begin());
+
+        if (sc_vk == nullptr){
 
             LogPrint("zendoo_mc_cryptolib",
-                "%s():%d - failed to deserialize \"wCertVk\": expected vector of size: %d, found vector of size %d instead \n", 
-                __func__, __LINE__, wCertVkBytes.size(), zendoo_get_sc_vk_size_in_bytes());
+                "%s():%d - failed to deserialize \"wCertVk\": %s \n", 
+                __func__, __LINE__, ToString(zendoo_get_last_error()));
             return false;
-
-        } else {
-
-            sc_vk = deserialize_sc_vk(wCertVkBytes.data());
-
-            if (sc_vk == nullptr){
-
-                LogPrint("zendoo_mc_cryptolib",
-                    "%s():%d - failed to deserialize \"wCertVk\": %s \n", 
-                    __func__, __LINE__, ToString(zendoo_get_last_error()));
-                return false;
-            }
         }
 
         //Retrieve MC block hashes

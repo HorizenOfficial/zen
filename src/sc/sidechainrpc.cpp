@@ -5,6 +5,7 @@
 
 #include <rpc/protocol.h>
 #include "utilmoneystr.h"
+#include "uint256.h"
 
 #include <wallet/wallet.h>
 
@@ -56,8 +57,10 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
     parentObj.push_back(Pair("vft_ccout", vfts));
 }
 
-bool AddScData(const std::string& inputString, std::vector<unsigned char>& vBytes, std::string& error)
+
+bool AddVariableSizeScData(const std::string& inputString, std::vector<unsigned char>& vBytes, std::string& error)
 { 
+
     if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
     {
         error = std::string("Invalid format: not an hex");
@@ -72,17 +75,15 @@ bool AddScData(const std::string& inputString, std::vector<unsigned char>& vByte
         return false;
     }
 
-    unsigned int cdDataLen = scDataLen/2;
-
-    if (cdDataLen > MAX_SC_DATA_LEN)
+    if (scDataLen > MAX_SC_DATA_LEN)
     {
-        error = strprintf("Invalid length %d, must be %d bytes at most", cdDataLen, MAX_SC_DATA_LEN);
+        error = strprintf("Invalid length %d, must be %d bytes at most", scDataLen, MAX_SC_DATA_LEN);
         return false;
     }
 
     CScData scBlob;
     scBlob.SetHex(inputString);
-    scBlob.fill(vBytes, cdDataLen);
+    scBlob.fill(vBytes, scDataLen);
 
     return true;
 }
@@ -162,9 +163,15 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         else
         {
             inputString = wCertVk.get_str();
-            if (!AddScData(inputString, sc.wCertVk, error))
+            if (!AddFixedSizeScData(inputString, sc.wCertVk, error))
             {
                 error = "wCertVk: " + error;
+                return false;
+            }
+
+            if (!libzendoomc::IsValidScVk(sc.wCertVk))
+            {
+                error = "invalid wCertVk";
                 return false;
             }
         }
@@ -173,7 +180,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         if (!cd.isNull())
         {
             inputString = cd.get_str();
-            if (!AddScData(inputString, sc.customData, error))
+            if (!AddVariableSizeScData(inputString, sc.customData, error))
             {
                 error = "customData: " + error;
                 return false;
@@ -184,9 +191,14 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         if (!constant.isNull())
         {
             inputString = constant.get_str();
-            if (!AddScData(inputString, sc.constant, error))
+            if (!AddFixedSizeScData(inputString, sc.constant, error))
             {
                 error = "constant: " + error;
+                return false;
+            }
+            if (!libzendoomc::IsValidScConstant(sc.constant))
+            {
+                error = "invalid constant";
                 return false;
             }
         }

@@ -1,9 +1,11 @@
 #include <gtest/gtest.h>
+
+#include <primitives/certificate.h>
 #include <sc/sidechain.h>
 #include <sc/proofverifier.h>
-#include <main.h>
-#include <primitives/certificate.h>
 #include <sc/TEMP_zendooInterface.h>
+
+#include <main.h>
 
 ///////////////////////////////////////////////////MOCKS
 
@@ -75,8 +77,10 @@ class CScProofTestSuite: public ::testing::Test {
         void SetUp() override {
             scInfo = new CSidechain();
 
-            //Needed to avoid passing checks that shouldn't pass, because customData is optional
-            scInfo->creationData.constant.push_back('0');
+            //Needed to avoid passing checks that shouldn't pass, because constant is optional
+            std::vector<unsigned char> randomConstant;
+            GetRandBytes(randomConstant.data(), SC_FIELD_SIZE);
+            scInfo->creationData.constant.SetHex(HexStr(randomConstant));
             
             scCert = new CScCertificate();
         }

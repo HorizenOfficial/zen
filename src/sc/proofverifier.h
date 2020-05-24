@@ -3,8 +3,8 @@
 
 #include "sc/TEMP_zendooInterface.h"
 #include "sc/TEMP_zendooError.h"
+#include "uint256.h"
 
-#include <vector>
 #include <string>
 #include <boost/foreach.hpp>
 #include <boost/variant.hpp>
@@ -15,8 +15,20 @@ class CScCertificate;
 
 namespace libzendoomc{
 
-    typedef std::vector<unsigned char> ScProof;
-    typedef std::vector<unsigned char> ScVk;
+    typedef base_blob<SC_PROOF_SIZE * 8> ScProof;
+
+    /* Check if scProof is a valid zendoo-mc-cryptolib's sc_proof */
+    bool IsValidScProof(const ScProof& scProof);
+
+    typedef base_blob<SC_VK_SIZE * 8> ScVk;
+    
+    /* Check if scVk is a valid zendoo-mc-cryptolib's sc_vk */
+    bool IsValidScVk(const ScVk& scVk);
+
+    typedef base_blob<SC_FIELD_SIZE * 8> ScConstant;
+    
+    /* Check if scConstant is a valid zendoo-mc-cryptolib's field */
+    bool IsValidScConstant(const ScConstant& scConstant);
 
     /* Convert to std::string a zendoo-mc-cryptolib Error. Useful for logging */
     std::string ToString(Error err);

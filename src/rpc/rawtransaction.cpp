@@ -18,11 +18,13 @@
 #include "script/sign.h"
 #include "script/standard.h"
 #include "uint256.h"
+#include "tinyformat.h"
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
 #endif
 
 #include <stdint.h>
+#include <string>
 
 #include <boost/assign/list_of.hpp>
 
@@ -639,11 +641,11 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "         \"address\":\"address\",  (string, required) The receiver PublicKey25519Proposition in the SC\n"
             "         \"amount\":amount         (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
             "         \"wCertVk\":hexstr          (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "                                       hexadecimal format. Required to verify a WCert SC proof. A max limit of 2048 bytes will be checked\n"
+            "                                       hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             "         \"customData\":hexstr       (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                       hexadecimal format. A max limit of 2048 bytes will be checked\n"
+            "                                       hexadecimal format. A max limit of 1024 bytes will be checked\n"
             "         \"constant\":hexstr         (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                       hexadecimal format. Used as public input for WCert proof verification. A max limit of 2048 bytes will be checked\n"            "       }\n"
+            "                                       hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"            "       }\n"
             "       ,...\n"
             "     ]\n"
             "4. \"forward transfers\"   (string, optional) A json array of json objects\n"
@@ -834,9 +836,9 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             "    {\n"
             "      \"scid\":\"id\",                    (string, required) The side chain id\n"
             "      \"withdrawalEpochNumber\":n       (numeric, required) The epoch number this certificate refers to\n"
-            "      \"quality\":n                     (numeric, required) The quality of this withdrawal certificate. \n"
+            "      \"quality\":n                     (numeric, required) A positive number specifying the quality of this withdrawal certificate. \n"
             "      \"endEpochBlockHash\":\"blockHash\" (string, required) The block hash determining the end of the referenced epoch\n"
-            "      \"scProof\":\"scProof\"             (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. A max limit of 2048 bytes will be checked\n"
+            "      \"scProof\":\"scProof\"             (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + "bytes \n"
             "    }\n"
             "\nResult:\n"
             "\"certificate\" (string) hex string of the certificate\n"
@@ -937,6 +939,10 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("quality"))
     {
         quality = find_value(cert_params, "quality").get_int64();
+        if (quality < 0)
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter \"quality\": must be a positive number");
+        }
     }
     else
     {
@@ -959,9 +965,11 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     {
         string inputString = find_value(cert_params, "scProof").get_str();
         std::string error;
-        if (!Sidechain::AddScData(inputString, scProof, error)){
+        if (!Sidechain::AddFixedSizeScData(inputString, scProof, error))
             throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + error);
-        }
+        
+        if (!libzendoomc::IsValidScProof(scProof))
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid cert \"scProof\"");
     }
     else
     {

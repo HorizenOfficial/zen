@@ -700,11 +700,11 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "3. \"address\"                (string, required) The receiver PublicKey25519Proposition in the SC\n"
             "4. amount:                  (numeric, required) The numeric amount in ZEN is the value\n"
             "5. \"wCertVk\"                (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "                                   hexadecimal format. Required to verify a WCert SC proof. A max limit of 2048 bytes will be checked\n"
+            "                                   hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             "6. \"customData\"             (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                   hexadecimal format. A max limit of 2048 bytes will be checked\n"
+            "                                   hexadecimal format. A max limit of 1024 bytes will be checked\n"
             "7. \"constant\"               (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                   hexadecimal format. Used as public input for WCert proof verification. A max limit of 2048 bytes will be checked\n"
+            "                                   hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
@@ -753,22 +753,36 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     std::string error;
 
     inputString = params[4].get_str();
-    if (!Sidechain::AddScData(inputString, sc.creationData.wCertVk, error)){
+    if (!Sidechain::AddFixedSizeScData(inputString, sc.creationData.wCertVk, error))
+    {
         throw JSONRPCError(RPC_TYPE_ERROR, string("wCertVk: ") + error);
+    }
+
+    if (!libzendoomc::IsValidScVk(sc.creationData.wCertVk))
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCertVk");
     }
 
     if (params.size() > 5)
     {
         inputString = params[5].get_str();
-        if(!Sidechain::AddScData(inputString, sc.creationData.customData, error))
+        if(!Sidechain::AddVariableSizeScData(inputString, sc.creationData.customData, error))
+        {
             throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
+        }
     }
 
     if (params.size() > 6)
     {
         inputString = params[6].get_str();
-        if (!Sidechain::AddScData(inputString, sc.creationData.constant, error)){
+        if (!Sidechain::AddFixedSizeScData(inputString, sc.creationData.constant, error))
+        {
             throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
+        }
+
+        if(!libzendoomc::IsValidScConstant(sc.creationData.constant))
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid constant");
         }
     }
 
@@ -807,11 +821,11 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
                                                       strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) +
                                                       ") The fee amount to attach to this transaction.\n"
             "   \"wCertVk\":data                  (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. Required to verify a WCert SC proof. A max limit of 2048 bytes will be checked\n"
+            "                                          hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             "   \"customData\":data               (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. A max limit of 2048 bytes will be checked\n"
             "   \"constant\":data                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. Used as public input for WCert proof verification. A max limit of 2048 bytes will be checked\n"
+            "                                          hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
             "}\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The resulting transaction id.\n"
@@ -963,10 +977,14 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("wCertVk"))
     {
         string inputString = find_value(inputObject, "wCertVk").get_str();
-        if (!Sidechain::AddScData(inputString, creationData.wCertVk, error))
+        if (!Sidechain::AddFixedSizeScData(inputString, creationData.wCertVk, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("wCertVk: ") + error);
         }
+
+        if (!libzendoomc::IsValidScVk(creationData.wCertVk))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCertVk");
+
     }
     else
     {
@@ -978,7 +996,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("customData"))
     {
         string inputString = find_value(inputObject, "customData").get_str();
-        if (!Sidechain::AddScData(inputString, creationData.customData, error))
+        if (!Sidechain::AddVariableSizeScData(inputString, creationData.customData, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
         }
@@ -989,9 +1007,13 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("constant"))
     {
         string inputString = find_value(inputObject, "constant").get_str();
-        if (!Sidechain::AddScData(inputString, creationData.constant, error))
+        if (!Sidechain::AddFixedSizeScData(inputString, creationData.constant, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
+        }
+        if (!libzendoomc::IsValidScConstant(creationData.constant))
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid constant");
         }
     }
 
@@ -4696,7 +4718,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             "2. epochNumber             (numeric, required) The epoch number this certificate refers to, zero-based numbered\n"
             "3. quality                 (numeric, required) The quality of this withdrawal certificate. \n"
             "4. \"endEpochBlockHash\"     (string, required) The block hash determining the end of the referenced epoch\n"
-            "5. \"scProof\"               (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. A max limit of 2048 bytes will be checked\n"
+            "5. \"scProof\"               (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
             "6. transfers:              (array, required) An array of json objects representing the amounts of the backward transfers. Can also be empty\n"
             "    [{\n"                     
             "      \"pubkeyhash\":\"pkh\"    (string, required) The public key hash of the receiver\n"
@@ -4789,9 +4811,11 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     string inputString = params[4].get_str();
     libzendoomc::ScProof scProof;
     std::string error;
-    if (!Sidechain::AddScData(inputString, scProof, error)){
+    if (!Sidechain::AddFixedSizeScData(inputString, scProof, error))
         throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + error);
-    }
+
+    if(!libzendoomc::IsValidScProof(scProof))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert scProof"));
 
     // can be empty
     const UniValue& outputs = params[5].get_array();

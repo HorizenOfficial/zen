@@ -132,7 +132,7 @@ public:
             epochNumber == EPOCH_NULL &&
             quality == QUALITY_NULL &&
             endEpochBlockHash.IsNull() &&
-            scProof.empty() &&
+            scProof.IsNull() &&
             vin.empty() &&
             vout.empty() );
     }

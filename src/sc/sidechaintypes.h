@@ -41,7 +41,7 @@ struct ScCreationParameters
     int withdrawalEpochLength;
     // all creation data follows...
     std::vector<unsigned char> customData;
-    std::vector<unsigned char> constant;
+    libzendoomc::ScConstant constant;
     libzendoomc::ScVk wCertVk;
 
     ADD_SERIALIZE_METHODS;
@@ -103,7 +103,7 @@ typedef boost::variant<
         CRecipientBackwardTransfer
     > CcRecipientVariant;
 
-static const int MAX_SC_DATA_LEN = 2048;
+static const int MAX_SC_DATA_LEN = 1024;
 static const int MAX_SC_DATA_BITS = MAX_SC_DATA_LEN*8;
 
 }; // end of namespace
