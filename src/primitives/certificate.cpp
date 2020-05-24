@@ -80,17 +80,6 @@ bool CScCertificate::CheckOutputsAvailability(CValidationState &state) const
     return true;
 }
 
-bool CScCertificate::CheckSerializedSize(CValidationState &state) const
-{
-    BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_CERT_SIZE); // sanity
-    if (CalculateSize() > MAX_CERT_SIZE)
-    {
-        return state.DoS(100, error("size limits failed"), REJECT_INVALID, "bad-cert-oversize");
-    }
-
-    return true;
-}
-
 bool CScCertificate::CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const
 {
     if (!MoneyRange(totalVinAmount))
@@ -122,13 +111,6 @@ bool CScCertificate::CheckFeeAmount(const CAmount& totalVinAmount, CValidationSt
 CAmount CScCertificate::GetFeeAmount(const CAmount& valueIn) const
 {
     return (valueIn - GetValueOfChange());
-}
-
-unsigned int CScCertificate::CalculateSize() const
-{
-    unsigned int sz = ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);
-//    LogPrint("cert", "%s():%d -sz=%u\n", __func__, __LINE__, sz);
-    return sz;
 }
 
 std::string CScCertificate::EncodeHex() const
@@ -196,7 +178,6 @@ std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsig
 bool CScCertificate::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
     bool* pfMissingInputs, bool fRejectAbsurdFee) const { return true; }
 void CScCertificate::Relay() const {}
-unsigned int CScCertificate::GetSerializeSizeBase(int nType, int nVersion) const { return 0;}
 std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
 {
     return std::shared_ptr<const CTransactionBase>();
@@ -220,8 +201,6 @@ bool CScCertificate::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState
 }
 
 void CScCertificate::Relay() const { ::Relay(*this); }
-
-unsigned int CScCertificate::GetSerializeSizeBase(int nType, int nVersion) const { return this->GetSerializeSize(nType, nVersion);}
 
 std::shared_ptr<const CTransactionBase>
 CScCertificate::MakeShared() const {

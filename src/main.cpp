@@ -603,7 +603,7 @@ bool AddOrphanTx(const CTransactionBase& txObj, NodeId peer) EXCLUSIVE_LOCKS_REQ
     // have been mined or received.
     // 10,000 orphans, each of which is at most 5,000 bytes big is
     // at most 500 megabytes of orphans:
-    unsigned int sz = txObj.GetSerializeSizeBase(SER_NETWORK, txObj.nVersion);
+    unsigned int sz = txObj.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     if (sz > 5000)
     {
         LogPrint("mempool", "ignoring large orphan tx (size: %u, hash: %s)\n", sz, hash.ToString());
@@ -1171,7 +1171,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         if ((pool.mapSidechains.count(cert.GetScId()) != 0) &&
             (!pool.mapSidechains.at(cert.GetScId()).backwardCertificate.IsNull())) {
             LogPrint("mempool", "Dropping cert %s : another cert for same sc is already in mempool\n", certHash.ToString());
-            return false;
+            return error("another cert for same sc is already in mempool");
         }
 
         for (const CTxIn & vin : cert.GetVin()) {
@@ -1183,12 +1183,17 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                          REJECT_INVALID, "double spend");
             }
             if (pool.mapCertificate.count(vin.prevout.hash)) {
-                LogPrint("mempool", "%s():%d - Dropping cert[%s]: it would spend the output %d of cert[%s] that is in mempool\n",
-                    __func__, __LINE__, certHash.ToString(), vin.prevout.n, vin.prevout.hash.ToString());
-                return state.DoS(0,
+                const CScCertificate & inputCert = pool.mapCertificate[vin.prevout.hash].GetCertificate();
+                // certificates can only spend change outputs of another certificate in mempool, while backward transfers must mature first
+                if (inputCert.GetVout()[vin.prevout.n].isFromBackwardTransfer ) 
+                {
+                    LogPrint("mempool", "%s():%d - Dropping cert[%s]: it would spend the backward transfer output %d of cert[%s] that is in mempool\n",
+                        __func__, __LINE__, certHash.ToString(), vin.prevout.n, vin.prevout.hash.ToString());
+                    return state.DoS(0,
                          error("AcceptToMemoryPool: cert[%s]: it would spend the output %d of cert[%s] that is in mempool", 
                          certHash.ToString(), vin.prevout.n, vin.prevout.hash.ToString()),
                          REJECT_INVALID, "certificate unconfirmed output");
+                }
             }
         }
     }
@@ -2906,7 +2911,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
         }
         vPos.push_back(std::make_pair(cert.GetHash(), pos));
-        pos.nTxOffset += cert.CalculateSize();
+        pos.nTxOffset += cert.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
 
         if (fCheckScTxesCommitment)
         {

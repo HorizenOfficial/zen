@@ -626,8 +626,9 @@ protected:
     const uint256 hash;
 
     virtual void UpdateHash() const = 0;
-
 public:
+
+    virtual size_t GetSerializeSize(int nType, int nVersion) const = 0;
     virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const = 0;
 
     CTransactionBase();
@@ -656,8 +657,6 @@ public:
     const std::vector<CTxIn>&         GetVin()        const {return vin;};
     const std::vector<CTxOut>&        GetVout()       const {return vout;};
 
-    virtual const std::vector<CTxScCreationOut>&      GetVscCcOut()   const = 0;
-    virtual const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const = 0;
     virtual const std::vector<JSDescription>&         GetVjoinsplit() const = 0;
     virtual const uint32_t&                           GetLockTime()   const = 0;
     //END OF GETTERS
@@ -667,8 +666,8 @@ public:
     virtual bool CheckVersionIsStandard   (std::string& reason, int nHeight) const = 0;
     virtual bool CheckInputsAvailability  (CValidationState &state) const = 0;
     virtual bool CheckOutputsAvailability (CValidationState &state) const = 0;
-    virtual bool CheckSerializedSize      (CValidationState &state) const = 0;
 
+    bool CheckSerializedSize (CValidationState &state) const;
     bool CheckInputsAmount (CValidationState &state) const;
     bool CheckOutputsAmount(CValidationState &state) const;
     bool CheckInputsDuplication(CValidationState &state) const;
@@ -698,7 +697,6 @@ public:
     virtual bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
         bool* pfMissingInputs, bool fRejectAbsurdFee=false) const = 0;
     virtual void Relay() const = 0;
-    virtual unsigned int GetSerializeSizeBase(int nType, int nVersion) const = 0;
     virtual std::shared_ptr<const CTransactionBase> MakeShared() const = 0;
 
     virtual bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const = 0;
@@ -707,9 +705,6 @@ public:
 
     // return fee amount
     virtual CAmount GetFeeAmount(const CAmount& valueIn) const = 0;
-
-    // Compute tx size
-    virtual unsigned int CalculateSize() const = 0;
 
     virtual std::string EncodeHex() const = 0;
     virtual std::string ToString() const = 0;
@@ -789,7 +784,21 @@ public:
     CTransaction& operator=(const CTransaction& tx);
     CTransaction(const CTransaction& tx);
 
-    ADD_SERIALIZE_METHODS;
+    size_t GetSerializeSize(int nType, int nVersion) const override {
+        CSizeComputer s(nType, nVersion);
+        NCONST_PTR(this)->SerializationOp(s, CSerActionSerialize(), nType, nVersion);
+        return s.size();
+    };
+
+    template<typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const {
+        NCONST_PTR(this)->SerializationOp(s, CSerActionSerialize(), nType, nVersion);
+    }
+    template<typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion) {
+        SerializationOp(s, CSerActionUnserialize(), nType, nVersion);
+    }
+
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
@@ -817,8 +826,6 @@ public:
     template <typename Stream>
     CTransaction(deserialize_type, Stream& s) : CTransaction(CMutableTransaction(deserialize, s)) {}
     
-    unsigned int CalculateSize() const override;
-
     std::string EncodeHex() const override;
 
     bool IsNull() const override
@@ -845,8 +852,8 @@ public:
     }
 
     //GETTERS
-    const std::vector<CTxScCreationOut>&      GetVscCcOut()   const override { return vsc_ccout; }
-    const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const override { return vft_ccout; }
+    const std::vector<CTxScCreationOut>&      GetVscCcOut()   const { return vsc_ccout; }
+    const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const { return vft_ccout; }
     const std::vector<JSDescription>&         GetVjoinsplit() const override { return vjoinsplit;};
     const uint32_t&                           GetLockTime()   const override { return nLockTime;};
     //END OF GETTERS
@@ -856,14 +863,12 @@ public:
     bool CheckVersionIsStandard   (std::string& reason, int nHeight) const override;
     bool CheckInputsAvailability  (CValidationState &state) const override;
     bool CheckOutputsAvailability (CValidationState &state) const override;
-    bool CheckSerializedSize      (CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     //END OF CHECK FUNCTIONS
 
     bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
         bool* pfMissingInputs, bool fRejectAbsurdFee=false) const override;
     void Relay() const override;
-    unsigned int GetSerializeSizeBase(int nType, int nVersion) const override;
     std::shared_ptr<const CTransactionBase> MakeShared() const override;
 
     // Return sum of txouts.

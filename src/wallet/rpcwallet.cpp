@@ -2118,7 +2118,7 @@ void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccoun
             if (fLong)
                 WalletTxToJSON(wtx, entry, filter);
 
-            entry.push_back(Pair("size", (int)(wtx.getTxBase()->CalculateSize()) ));
+            entry.push_back(Pair("size", (int)(wtx.getTxBase()->GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)) ));
             ret.push_back(entry);
         }
         BOOST_FOREACH(const CScOutputEntry& s, listScSent)
@@ -2131,7 +2131,7 @@ void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccoun
             if (fLong)
                 WalletTxToJSON(wtx, entry, filter);
 
-            entry.push_back(Pair("size", (int)(wtx.getTxBase()->CalculateSize()) ));
+            entry.push_back(Pair("size", (int)(wtx.getTxBase()->GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)) ));
             ret.push_back(entry);
         }
     }
@@ -2171,7 +2171,7 @@ void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccoun
                 if (fLong)
                     WalletTxToJSON(wtx, entry, filter);
 
-                entry.push_back(Pair("size", (int)(wtx.getTxBase()->CalculateSize()) ));
+                entry.push_back(Pair("size", (int)(wtx.getTxBase()->GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)) ));
                 ret.push_back(entry);
             }
         }
