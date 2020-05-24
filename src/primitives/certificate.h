@@ -43,7 +43,20 @@ public:
 
     const uint256& GetHash() const { return hash; }
 
-    ADD_SERIALIZE_METHODS;
+    size_t GetSerializeSize(int nType, int nVersion) const override {
+        CSizeComputer s(nType, nVersion);
+        NCONST_PTR(this)->SerializationOp(s, CSerActionSerialize(), nType, nVersion);
+        return s.size();
+    };
+
+    template<typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const {
+        NCONST_PTR(this)->SerializationOp(s, CSerActionSerialize(), nType, nVersion);
+    }
+    template<typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion) {
+        SerializationOp(s, CSerActionUnserialize(), nType, nVersion);
+    }
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
@@ -108,14 +121,12 @@ public:
     bool CheckVersionIsStandard   (std::string& reason, int nHeight) const override;
     bool CheckInputsAvailability  (CValidationState &state) const override;
     bool CheckOutputsAvailability (CValidationState &state) const override;
-    bool CheckSerializedSize      (CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     //END OF CHECK FUNCTIONS
 
     bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
         bool* pfMissingInputs, bool fRejectAbsurdFee=false) const override;
     void Relay() const override;
-    unsigned int GetSerializeSizeBase(int nType, int nVersion) const override;
     std::shared_ptr<const CTransactionBase> MakeShared() const override;
 
     bool IsNull() const override {
@@ -128,8 +139,6 @@ public:
     }
 
     CAmount GetFeeAmount(const CAmount& valueIn) const override;
-
-    unsigned int CalculateSize() const override;
 
     std::string EncodeHex() const override;
     std::string ToString() const override;
