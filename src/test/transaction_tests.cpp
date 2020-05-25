@@ -624,7 +624,7 @@ void verifyTx(CMutableTransaction &t, int height, bool expectResultStd, bool exp
 	string reason;
 	CValidationState state;
 	BOOST_CHECK_MESSAGE(IsStandardTx(t, reason, height) == expectResultStd, "IsStandardTx unexpected (" << !expectResultStd << ") result for tx version " << t.nVersion << ", height " << height);
-	BOOST_CHECK_MESSAGE(ContextualCheckTransaction(t, state, height, 100) == expectResultCtx, "ContextualCheckTransaction unexpected (" << !expectResultCtx << ") result for tx version " << t.nVersion << ", height " << height );
+	BOOST_CHECK_MESSAGE(CTransaction(t).ContextualCheck(state, height, 100) == expectResultCtx, "ContextualCheckTransaction unexpected (" << !expectResultCtx << ") result for tx version " << t.nVersion << ", height " << height );
 }
 
 void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHeight)
