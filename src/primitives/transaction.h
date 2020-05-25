@@ -662,19 +662,16 @@ public:
     //END OF GETTERS
 
     //CHECK FUNCTIONS
-    virtual bool CheckVersionBasic        (CValidationState &state) const = 0;
-    virtual bool CheckVersionIsStandard   (std::string& reason, int nHeight) const = 0;
-    virtual bool CheckInputsAvailability  (CValidationState &state) const = 0;
-    virtual bool CheckOutputsAvailability (CValidationState &state) const = 0;
+    virtual bool IsValidVersion   (CValidationState &state) const = 0;
+    virtual bool IsStandardVersion(int nHeight)             const = 0;
 
     bool CheckSerializedSize (CValidationState &state) const;
-    bool CheckInputsAmount (CValidationState &state) const;
-    bool CheckOutputsAmount(CValidationState &state) const;
+    bool CheckAmounts        (CValidationState &state) const;
     bool CheckInputsDuplication(CValidationState &state) const;
     bool CheckInputsInteraction(CValidationState &state) const;
 
-    bool CheckBlockAtHeight(int height, CValidationState& state) const;
     /** Check a transaction contextually against a set of consensus rules */
+    bool CheckBlockAtHeight(int height, CValidationState& state) const;
     virtual bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const = 0;
 
     bool CheckInputsLimit() const;
@@ -728,8 +725,8 @@ public:
 
     // return false when meaningful only in a block context. As of now only tx coin base returns false
 
-    bool IsCoinBase() const { return GetVin().size() == 1 && GetVin()[0].prevout.IsNull(); }
-    virtual bool IsCertificate() const { return false; }
+    virtual bool IsCoinBase()    const = 0;
+    virtual bool IsCertificate() const = 0;
 
     virtual void AddJoinSplitToJSON(UniValue& entry) const { return; }
     virtual void AddSidechainOutsToJSON(UniValue& entry) const {return; }
@@ -847,6 +844,9 @@ public:
     
     std::string EncodeHex() const override;
 
+    bool IsCoinBase()    const override final { return GetVin().size() == 1 && GetVin()[0].prevout.IsNull(); }
+    bool IsCertificate() const override final { return false; }
+
     bool IsNull() const override
     {
         bool ret = vin.empty() && vout.empty();
@@ -878,10 +878,9 @@ public:
     //END OF GETTERS
 
     //CHECK FUNCTIONS
-    bool CheckVersionBasic        (CValidationState &state) const override;
-    bool CheckVersionIsStandard   (std::string& reason, int nHeight) const override;
-    bool CheckInputsAvailability  (CValidationState &state) const override;
-    bool CheckOutputsAvailability (CValidationState &state) const override;
+    bool IsValidVersion   (CValidationState &state) const override;
+    bool IsStandardVersion(int nHeight)             const override;
+    bool CheckNonEmpty    (CValidationState &state) const;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     //END OF CHECK FUNCTIONS
 

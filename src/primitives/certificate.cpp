@@ -53,30 +53,17 @@ void CScCertificate::UpdateHash() const
     *const_cast<uint256*>(&hash) = SerializeHash(*this);
 }
 
-bool CScCertificate::CheckVersionBasic(CValidationState &state) const
+bool CScCertificate::IsValidVersion(CValidationState &state) const
 {
     return true;
 }
 
-bool CScCertificate::CheckVersionIsStandard(std::string& reason, int nHeight) const {
+bool CScCertificate::IsStandardVersion(int nHeight) const {
     if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
     {
-        reason = "version";
         return false;
     }
 
-    return true;
-}
-
-bool CScCertificate::CheckInputsAvailability(CValidationState &state) const
-{
-    // there might be no inputs if 0 fee, therefore this never fails
-    return true;
-}
-
-bool CScCertificate::CheckOutputsAvailability(CValidationState &state) const
-{
-    // we allow empty certificate, that is with no backward transfers and no change
     return true;
 }
 
@@ -87,7 +74,7 @@ bool CScCertificate::CheckFeeAmount(const CAmount& totalVinAmount, CValidationSt
                          REJECT_INVALID, "bad-cert-inputvalues-outofrange");
 
     // check all of the outputs because change is computed subtracting bwd transfers from them
-    if (!CheckOutputsAmount(state))
+    if (!CheckAmounts(state))
         return false;
 
     if (totalVinAmount < GetValueOfChange() )

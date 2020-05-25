@@ -368,41 +368,21 @@ CAmount CTransactionBase::GetJoinSplitValueIn() const
     return nCumulatedValue;
 }
 
-bool CTransactionBase::CheckInputsAmount(CValidationState &state) const
-{
-    // Ensure input values do not exceed MAX_MONEY
-    // We have not resolved the txin values at this stage,
-    // but we do know what the joinsplits claim to add
-    // to the value pool.
-    CAmount nCumulatedValueIn = 0;
-    for (std::vector<JSDescription>::const_iterator it(GetVjoinsplit().begin()); it != GetVjoinsplit().end(); ++it)
-    {
-        nCumulatedValueIn += it->vpub_new;
-
-        if (!MoneyRange(it->vpub_new) || !MoneyRange(nCumulatedValueIn)) {
-            return state.DoS(100, error("CheckTransaction(): txin total out of range"),
-                             REJECT_INVALID, "bad-txns-txintotal-toolarge");
-        }
-    }
-
-    return true;
-}
-
-bool CTransactionBase::CheckOutputsAmount(CValidationState &state) const
+bool CTransactionBase::CheckAmounts(CValidationState &state) const
 {
     // Check for negative or overflow output values
     CAmount nCumulatedValueOut = 0;
     for(const CTxOut& txout: GetVout())
     {
         if (txout.nValue < 0)
-            return state.DoS(100, error("CheckOutputAmounts(): txout.nValue negative"),
+            return state.DoS(100, error("CheckAmounts(): txout.nValue negative"),
                              REJECT_INVALID, "bad-txns-vout-negative");
         if (txout.nValue > MAX_MONEY)
-            return state.DoS(100, error("CheckOutputAmounts(): txout.nValue too high"),
+            return state.DoS(100, error("CheckAmounts(): txout.nValue too high"),
                              REJECT_INVALID, "bad-txns-vout-toolarge");
         nCumulatedValueOut += txout.nValue;
         if (!MoneyRange(nCumulatedValueOut))
-            return state.DoS(100, error("CheckOutputAmounts(): txout total out of range"),
+            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
                              REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
 
@@ -410,34 +390,50 @@ bool CTransactionBase::CheckOutputsAmount(CValidationState &state) const
     for(const JSDescription& joinsplit: GetVjoinsplit())
     {
         if (joinsplit.vpub_old < 0) {
-            return state.DoS(100, error("CheckOutputAmounts(): joinsplit.vpub_old negative"),
+            return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_old negative"),
                              REJECT_INVALID, "bad-txns-vpub_old-negative");
         }
 
         if (joinsplit.vpub_new < 0) {
-            return state.DoS(100, error("CheckOutputAmounts(): joinsplit.vpub_new negative"),
+            return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_new negative"),
                              REJECT_INVALID, "bad-txns-vpub_new-negative");
         }
 
         if (joinsplit.vpub_old > MAX_MONEY) {
-            return state.DoS(100, error("CheckOutputAmounts(): joinsplit.vpub_old too high"),
+            return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_old too high"),
                              REJECT_INVALID, "bad-txns-vpub_old-toolarge");
         }
 
         if (joinsplit.vpub_new > MAX_MONEY) {
-            return state.DoS(100, error("CheckOutputAmounts(): joinsplit.vpub_new too high"),
+            return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_new too high"),
                              REJECT_INVALID, "bad-txns-vpub_new-toolarge");
         }
 
         if (joinsplit.vpub_new != 0 && joinsplit.vpub_old != 0) {
-            return state.DoS(100, error("CheckOutputAmounts(): joinsplit.vpub_new and joinsplit.vpub_old both nonzero"),
+            return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_new and joinsplit.vpub_old both nonzero"),
                              REJECT_INVALID, "bad-txns-vpubs-both-nonzero");
         }
 
         nCumulatedValueOut += joinsplit.vpub_old;
         if (!MoneyRange(nCumulatedValueOut)) {
-            return state.DoS(100, error("CheckOutputAmounts(): txout total out of range"),
+            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
                              REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+        }
+    }
+
+    return true;
+
+    // Ensure input values do not exceed MAX_MONEY
+    // We have not resolved the txin values at this stage, but we do know what the joinsplits claim to add
+    // to the value pool.
+    CAmount nCumulatedValueIn = 0;
+    for (std::vector<JSDescription>::const_iterator it(GetVjoinsplit().begin()); it != GetVjoinsplit().end(); ++it)
+    {
+        nCumulatedValueIn += it->vpub_new;
+
+        if (!MoneyRange(it->vpub_new) || !MoneyRange(nCumulatedValueIn)) {
+            return state.DoS(100, error("CheckAmounts(): txin total out of range"),
+                             REJECT_INVALID, "bad-txns-txintotal-toolarge");
         }
     }
 
@@ -575,7 +571,7 @@ double CTransactionBase::ComputePriority(double dPriorityInputs, unsigned int nT
     return dPriorityInputs / nTxSize;
 }
 
-bool CTransaction::CheckVersionBasic(CValidationState &state) const
+bool CTransaction::IsValidVersion(CValidationState &state) const
 {
     // Basic checks that don't depend on any context
     // Check transaction version
@@ -588,15 +584,23 @@ bool CTransaction::CheckVersionBasic(CValidationState &state) const
     return true;
 }
 
-bool CTransaction::CheckInputsAvailability(CValidationState &state) const
+bool CTransaction::CheckNonEmpty(CValidationState &state) const
 {
     // Transactions can contain empty `vin` and `vout` so long as
     // `vjoinsplit` is non-empty.
     if (GetVin().empty() && GetVjoinsplit().empty())
     {
         LogPrint("sc", "%s():%d - Error: tx[%s]\n", __func__, __LINE__, GetHash().ToString() );
-        return state.DoS(10, error("CheckInputsAvailability(): vin empty"),
+        return state.DoS(10, error("CheckNonEmpty(): vin empty"),
                          REJECT_INVALID, "bad-txns-vin-empty");
+    }
+
+    // Allow the case when crosschain outputs are not empty. In that case there might be no vout at all
+    // when utxo reminder is only dust, which is added to fee leaving no change for the sender
+    if (GetVout().empty() && GetVjoinsplit().empty() && ccIsNull())
+    {
+        return state.DoS(10, error("CheckNonEmpty(): vout empty"),
+                         REJECT_INVALID, "bad-txns-vout-empty");
     }
 
     return true;
@@ -617,7 +621,7 @@ bool CTransaction::CheckFeeAmount(const CAmount& totalVinAmount, CValidationStat
         return state.DoS(100, error("CheckFeeAmount(): total input amount out of range"),
                          REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
-    if (!CheckOutputsAmount(state))
+    if (!CheckAmounts(state))
         return false;
 
     if (totalVinAmount < GetValueOut() )
@@ -634,19 +638,6 @@ bool CTransaction::CheckFeeAmount(const CAmount& totalVinAmount, CValidationStat
     if (!MoneyRange(nTxFee))
         return state.DoS(100, error("CheckFeeAmount(): nTxFee out of range"),
                          REJECT_INVALID, "bad-txns-fee-outofrange");
-
-    return true;
-}
-
-bool CTransaction::CheckOutputsAvailability(CValidationState &state) const
-{
-    // Allow the case when crosschain outputs are not empty. In that case there might be no vout at all
-    // when utxo reminder is only dust, which is added to fee leaving no change for the sender
-    if (GetVout().empty() && GetVjoinsplit().empty() && ccIsNull())
-    {
-        return state.DoS(10, error("CheckOutputsAvailability(): vout empty"),
-                         REJECT_INVALID, "bad-txns-vout-empty");
-    }
 
     return true;
 }
@@ -731,7 +722,7 @@ void CTransaction::addToScCommitment(std::map<uint256, std::vector<uint256> >& m
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
-bool CTransaction::CheckVersionIsStandard(std::string& reason, const int nHeight) const {return true;}
+bool CTransaction::IsStandardVersion(int nHeight) const {return true;}
 
 bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const {return true;}
 void CTransaction::AddToBlock(CBlock* pblock) const { return; }
@@ -790,7 +781,7 @@ bool CTransactionBase::CheckBlockAtHeight(int height, CValidationState& state) c
     return true;
 }
 
-bool CTransaction::CheckVersionIsStandard(std::string& reason, int nHeight) const {
+bool CTransaction::IsStandardVersion(int nHeight) const {
     // sidechain fork (happens after groth fork)
     int sidechainVersion = 0;
     bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
@@ -810,7 +801,6 @@ bool CTransaction::CheckVersionIsStandard(std::string& reason, int nHeight) cons
 
         if (nVersion > CTransaction::MAX_OLD_VERSION || nVersion < CTransaction::MIN_OLD_VERSION)
         {
-            reason = "version";
             return false;
         }
     }
@@ -821,7 +811,6 @@ bool CTransaction::CheckVersionIsStandard(std::string& reason, int nHeight) cons
             // check sidechain tx
             if ( !(areSidechainsSupported && (nVersion == sidechainVersion)) )
             {
-                reason = "version";
                 return false;
             }
         }

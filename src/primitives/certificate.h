@@ -122,10 +122,8 @@ public:
     //END OF GETTERS
 
     //CHECK FUNCTIONS
-    bool CheckVersionBasic        (CValidationState &state) const override;
-    bool CheckVersionIsStandard   (std::string& reason, int nHeight) const override;
-    bool CheckInputsAvailability  (CValidationState &state) const override;
-    bool CheckOutputsAvailability (CValidationState &state) const override;
+    bool IsValidVersion   (CValidationState &state) const override;
+    bool IsStandardVersion(int nHeight)             const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     //END OF CHECK FUNCTIONS
 
@@ -133,6 +131,9 @@ public:
         bool* pfMissingInputs, bool fRejectAbsurdFee=false) const override;
     void Relay() const override;
     std::shared_ptr<const CTransactionBase> MakeShared() const override;
+
+    bool IsCoinBase()    const override final { return false; }
+    bool IsCertificate() const override final { return true; }
 
     bool IsNull() const override {
         return (
@@ -163,8 +164,6 @@ public:
 
     std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
         unsigned int nIn, const CChain* chain, bool cacheStore) const override;
-
-    bool IsCertificate() const override { return true; }
 };
 
 /** A mutable version of CScCertificate. */
