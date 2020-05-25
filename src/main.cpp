@@ -6147,21 +6147,27 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         vector<uint256> vWorkQueue;
         vector<uint256> vEraseQueue;
 
-        CTransactionNetworkObj txObj;
-        vRecv >> txObj;
+        int nType = vRecv.nType;
+        int nVersion = vRecv.nVersion;
 
-        if (txObj.IsCertificate())
+        int txVers = 0;
+        ::Unserialize(vRecv, txVers, nType, nVersion);
+        LogPrint("cert", "%s():%d - ############################### txVers[%d]\n", __func__, __LINE__, txVers );
+
+        if (CTransactionBase::IsTransaction(txVers) )
         {
-            CScCertificate cert(txObj.cert);
-            LogPrint("cert", "%s():%d - cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString() );
-            ProcessTxBaseMsg(cert, pfrom);
-        }
-        else
-        if(txObj.IsTx())
-        {
-            CTransaction tx(txObj.tx);
+            CTransaction tx(txVers);
+            tx.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
             LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString() );
             ProcessTxBaseMsg(tx, pfrom);
+        }
+        else
+        if (CTransactionBase::IsCertificate(txVers) )
+        {
+            CScCertificate cert(txVers);
+            cert.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
+            LogPrint("cert", "%s():%d - cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString() );
+            ProcessTxBaseMsg(cert, pfrom);
         }
         else
         {

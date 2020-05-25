@@ -23,7 +23,7 @@ public:
     const uint256 endEpochBlockHash;
 
     /** Construct a CScCertificate that qualifies as IsNull() */
-    CScCertificate();
+    CScCertificate(int versionIn = SC_CERT_VERSION);
 
     /** Convert a CMutableScCertificate into a CScCertificate.  */
     CScCertificate(const CMutableScCertificate &tx);
@@ -59,8 +59,7 @@ public:
     }
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(*const_cast<int32_t*>(&this->nVersion));
+    inline void SerializationOpInternal(Stream& s, Operation ser_action, int nType, int unused) {
         READWRITE(*const_cast<uint256*>(&scId));
         READWRITE(*const_cast<int32_t*>(&epochNumber));
         READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
@@ -105,6 +104,12 @@ public:
 
         if (ser_action.ForRead())
             UpdateHash();
+    }
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int unused) {
+        READWRITE(*const_cast<int32_t*>(&nVersion));
+        SerializationOpInternal(s, ser_action, nType, unused);
     }
 
     template <typename Stream>

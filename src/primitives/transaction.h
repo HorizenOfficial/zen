@@ -631,7 +631,7 @@ public:
     virtual size_t GetSerializeSize(int nType, int nVersion) const = 0;
     virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const = 0;
 
-    CTransactionBase();
+    CTransactionBase(int versionIn = TRANSPARENT_TX_VERSION);
     CTransactionBase& operator=(const CTransactionBase& tx);
     CTransactionBase(const CTransactionBase& tx);
     virtual ~CTransactionBase() {};
@@ -738,6 +738,19 @@ public:
         std::vector<CScriptCheck> *pvChecks = NULL) const { return true; }
 
     virtual const uint256 getJoinSplitPubKey() const { return uint256(); }
+
+    static bool IsCertificate(int nVersion) {
+        return (nVersion == SC_CERT_VERSION);
+    }
+
+    static bool IsTransaction(int nVersion) {
+        return (
+            nVersion == TRANSPARENT_TX_VERSION ||
+            nVersion == PHGR_TX_VERSION        ||
+            nVersion == GROTH_TX_VERSION       ||
+            nVersion == SC_TX_VERSION 
+        );
+    }
 };
 
 struct CMutableTransaction;
@@ -776,7 +789,7 @@ public:
     const joinsplit_sig_t joinSplitSig = {{0}};
 
     /** Construct a CTransaction that qualifies as IsNull() */
-    CTransaction();
+    CTransaction(int nVersionIn = TRANSPARENT_TX_VERSION);
 
     /** Convert a CMutableTransaction into a CTransaction. */
     CTransaction(const CMutableTransaction &tx);
@@ -801,9 +814,7 @@ public:
 
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(*const_cast<int32_t*>(&this->nVersion));
-        nVersion = this->nVersion;
+    inline void SerializationOpInternal(Stream& s, Operation ser_action, int nType, int unused) {
         READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
         READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
         if (this->IsScVersion())
@@ -813,7 +824,7 @@ public:
         }
         READWRITE(*const_cast<uint32_t*>(&nLockTime));
         if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {
-            auto os = WithTxVersion(&s, static_cast<int>(this->nVersion));
+            auto os = WithTxVersion(&s, static_cast<int>(nVersion));
             ::SerReadWrite(os, *const_cast<std::vector<JSDescription>*>(&vjoinsplit), nType, nVersion, ser_action);
             if (vjoinsplit.size() > 0) {
                 READWRITE(*const_cast<uint256*>(&joinSplitPubKey));
@@ -823,6 +834,13 @@ public:
         if (ser_action.ForRead())
             UpdateHash();
     }
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int unused) {
+        READWRITE(*const_cast<int32_t*>(&nVersion));
+        SerializationOpInternal(s, ser_action, nType, unused);
+    }
+
     template <typename Stream>
     CTransaction(deserialize_type, Stream& s) : CTransaction(CMutableTransaction(deserialize, s)) {}
     

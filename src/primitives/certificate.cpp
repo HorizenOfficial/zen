@@ -15,8 +15,8 @@
 
 #include "main.h"
 
-CScCertificate::CScCertificate() : CTransactionBase(),
-    scId(), epochNumber(EPOCH_NULL), endEpochBlockHash() { }
+CScCertificate::CScCertificate(int versionIn) :CTransactionBase(versionIn),
+        scId(), epochNumber(EPOCH_NOT_INITIALIZED), endEpochBlockHash() {}
 
 CScCertificate::CScCertificate(const CMutableScCertificate &cert) :
     scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash)
