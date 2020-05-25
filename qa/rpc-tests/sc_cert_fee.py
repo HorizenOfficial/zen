@@ -69,7 +69,7 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes[0].generate(220)
         self.sync_all()
 
-        creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "abcdef")
+        creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "aa" * 1544)
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
@@ -96,7 +96,7 @@ class sc_cert_base(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
         try:
-            cert_good = self.nodes[1].send_certificate(scid, epoch_number, epoch_block_hash, amounts, CERT_FEE)
+            cert_good = self.nodes[1].send_certificate(scid, epoch_number, 0, epoch_block_hash, "bb" * 771, amounts, CERT_FEE)
             assert(len(cert_good) > 0)
             mark_logs("Certificate is {}".format(cert_good), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -150,7 +150,7 @@ class sc_cert_base(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node2, "amount": bwt_amount_2}]
         mark_logs("Node 3 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount_2, pkh_node2), self.nodes, DEBUG_MODE)
         try:
-            cert = self.nodes[3].send_certificate(scid, epoch_number, epoch_block_hash, amounts, CERT_FEE)
+            cert = self.nodes[3].send_certificate(scid, epoch_number, 0, epoch_block_hash, "bb" * 771, amounts, CERT_FEE)
             assert(len(cert) > 0)
             mark_logs("Certificate is {}".format(cert), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:

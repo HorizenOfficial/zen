@@ -177,7 +177,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         sc_cr_amount = Decimal('3.00000000')
         sc_ft_amount = Decimal('7.00000000')
         sc_amount = sc_cr_amount + sc_ft_amount
-        sc_cr = [{"scid": scid,"epoch_length": sc_epoch, "amount":sc_cr_amount, "address":sc_address, "customData":"badcaffe"}]
+        sc_cr = [{"scid": scid,"epoch_length": sc_epoch, "amount":sc_cr_amount, "address":sc_address, "wCertVk":"aa" * 1544}]
 
         #Try create a SC with no inputs
         print("Try create a SC with no inputs...")

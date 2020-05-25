@@ -120,7 +120,7 @@ class ScInvalidateTest(BitcoinTestFramework):
         sc_cr_amount = Decimal('5.00000000')
         sc_ft_amount = Decimal('5.00000000')
         sc_amount = sc_cr_amount + sc_ft_amount
-        sc = [{"scid": scid, "epoch_length": sc_epoch, "amount": sc_cr_amount, "address": sc_address}]
+        sc = [{"scid": scid, "epoch_length": sc_epoch, "amount": sc_cr_amount, "address": sc_address, "wCertVk": "aa" * 1544}]
         inputs = [{'txid': txid, 'vout': vout['n']}]
         sc_ft = [{"address": sc_address, "amount": sc_ft_amount, "scid": scid}]
 

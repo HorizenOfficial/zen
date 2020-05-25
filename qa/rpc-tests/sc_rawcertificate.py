@@ -83,7 +83,7 @@ class sc_rawcert(BitcoinTestFramework):
         # create a sc via createraw cmd
         mark_logs("Node 1 creates the SC spending " + str(sc_amount) + " coins ...", self.nodes, DEBUG_MODE)
         sc_address = "fade"
-        sc_cr = [{"scid": scid, "epoch_length": EPOCH_LENGTH, "amount": cr_amount, "address": sc_address, "customData": "badcaffe"}]
+        sc_cr = [{"scid": scid, "epoch_length": EPOCH_LENGTH, "amount": cr_amount, "address": sc_address, "wCertVk": "aa" * 1544}]
         sc_ft = [{"address": sc_address, "amount":ft_amount, "scid": scid}]
         raw_tx = self.nodes[1].createrawtransaction([], {}, sc_cr, sc_ft)
         funded_tx = self.nodes[1].fundrawtransaction(raw_tx)
@@ -109,7 +109,7 @@ class sc_rawcert(BitcoinTestFramework):
         raw_inputs   = []
         raw_outs     = {}
         raw_bwt_outs = {pkh_node2: bt_amount}
-        raw_params = {"scid": scid, "endEpochBlockHash": eph, "withdrawalEpochNumber": epn}
+        raw_params = {"scid": scid, "quality": 0, "endEpochBlockHash": eph, "scProof": "bb" * 771, "withdrawalEpochNumber": epn}
         raw_cert = []
         cert = []
 
@@ -183,7 +183,7 @@ class sc_rawcert(BitcoinTestFramework):
         raw_inputs   = []
         raw_outs     = {}
         raw_bwt_outs = {}
-        raw_params = {"scid": scid, "endEpochBlockHash": eph, "withdrawalEpochNumber": epn}
+        raw_params = {"scid": scid, "quality": 1, "endEpochBlockHash": eph, "scProof": "cc" * 771, "withdrawalEpochNumber": epn}
         raw_cert = []
         cert = []
 
@@ -271,7 +271,7 @@ class sc_rawcert(BitcoinTestFramework):
         raw_inputs   = []
         raw_outs     = {}
         raw_bwt_outs = {}
-        raw_params = {"scid": scid, "endEpochBlockHash": eph, "withdrawalEpochNumber": epn}
+        raw_params = {"scid": scid, "quality": 2, "endEpochBlockHash": eph, "scProof": "dd" * 771, "withdrawalEpochNumber": epn}
         raw_cert = []
         cert = []
 
@@ -349,7 +349,7 @@ class sc_rawcert(BitcoinTestFramework):
         raw_inputs   = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         raw_outs     = { self.nodes[0].getnewaddress() : change }
         raw_bwt_outs = {}
-        raw_params   = {"scid": scid, "endEpochBlockHash": eph, "withdrawalEpochNumber": epn}
+        raw_params = {"scid": scid, "quality": 3, "endEpochBlockHash": eph, "scProof": "ee" * 771, "withdrawalEpochNumber": epn}
         raw_cert     = []
         pk_arr       = []
 

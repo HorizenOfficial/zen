@@ -78,7 +78,7 @@ class sc_cert_change(BitcoinTestFramework):
         self.sync_all()
 
         # (1) node0 create sidechain with 10.0 coins
-        creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "abcdef")
+        creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "aa" * 1544)
         mark_logs("Node 0 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
@@ -93,7 +93,7 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(bwt_amount, pkh_node1), self.nodes, DEBUG_MODE)
         try:
-            cert_ep0 = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts, CERT_FEE)
+            cert_ep0 = self.nodes[0].send_certificate(scid, epoch_number, 0, epoch_block_hash, "bb" * 771, amounts, CERT_FEE)
             assert(len(cert_ep0) > 0)
             mark_logs("Certificate is {}".format(cert_ep0), self.nodes, DEBUG_MODE)
             self.sync_all()
@@ -113,7 +113,7 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
         try:
-            cert_ep1 = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amounts, CERT_FEE)
+            cert_ep1 = self.nodes[0].send_certificate(scid, epoch_number, 0, epoch_block_hash, "bb" * 771, amounts, CERT_FEE)
             assert(len(cert_ep1) > 0)
             mark_logs("Certificate is {}".format(cert_ep1), self.nodes, DEBUG_MODE)
             self.sync_all()
@@ -133,7 +133,7 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node3, "amount": bwt_amount}]
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node3 pkh".format(bwt_amount, pkh_node3), self.nodes, DEBUG_MODE)
         try:
-            cert_ep2 = self.nodes[1].send_certificate(scid, epoch_number, epoch_block_hash, amounts, CERT_FEE)
+            cert_ep2 = self.nodes[1].send_certificate(scid, epoch_number, 0, epoch_block_hash, "bb" * 771, amounts, CERT_FEE)
             assert(len(cert_ep2) > 0)
             mark_logs("Certificate is {}".format(cert_ep2), self.nodes, DEBUG_MODE)
             self.sync_all()

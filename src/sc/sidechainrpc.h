@@ -71,7 +71,7 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj);
 bool AddVariableSizeScData(const std::string& inputString, std::vector<unsigned char>& vBytes, std::string& error);
 
 template<unsigned int EXACT_SC_DATA_LEN>
-bool AddFixedSizeScData(const std::string& inputString, base_blob<EXACT_SC_DATA_LEN> scBlob, std::string& error){
+bool AddFixedSizeScData(const std::string& inputString, base_blob<EXACT_SC_DATA_LEN>& scBlob, std::string& error){
     
     if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
     {
@@ -79,17 +79,19 @@ bool AddFixedSizeScData(const std::string& inputString, base_blob<EXACT_SC_DATA_
         return false;
     }
 
-    unsigned int scDataLen = inputString.length();
+    unsigned int dataLen = inputString.length();
 
-    if (scDataLen%2)
+    if (dataLen%2)
     {
-        error = strprintf("Invalid length %d, must be even (byte string)", scDataLen);
+        error = strprintf("Invalid length %d, must be even (byte string)", dataLen);
         return false;
     }
 
-    if (scDataLen != EXACT_SC_DATA_LEN)
+    unsigned int scDataLen = dataLen/2;
+
+    if (scDataLen != EXACT_SC_DATA_LEN/8)
     {
-        error = strprintf("Invalid length %d, must be %d bytes", scDataLen, EXACT_SC_DATA_LEN);
+        error = strprintf("Invalid length %d, must be %d bytes", scDataLen, EXACT_SC_DATA_LEN/8);
         return false;
     }
 

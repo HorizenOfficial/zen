@@ -118,7 +118,7 @@ class headers(BitcoinTestFramework):
         mark_logs("\nNode 1 creates SC 1 with " + str(creation_amount) + " coins", self.nodes, DEBUG_MODE)
         amounts = []
         amounts.append({"address": "dada", "amount": creation_amount})
-        self.nodes[1].sc_create(scid_1, 123, "dada", creation_amount, "123ffffffff123")
+        self.nodes[1].sc_create(scid_1, 123, "dada", creation_amount, "aa" * 1544)
         self.sync_all()
 
         mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
@@ -154,9 +154,9 @@ class headers(BitcoinTestFramework):
         mark_logs("\nNode 1 creates SC 2,3,4, all with " + str(creation_amount) + " coins", self.nodes, DEBUG_MODE)
         amounts = []
         amounts.append({"address": "dada", "amount": creation_amount})
-        self.nodes[1].sc_create(scid_2, 123, "dada", creation_amount, "cdcdcd")
-        self.nodes[1].sc_create(scid_3, 123, "dada", creation_amount, "ababab")
-        self.nodes[1].sc_create(scid_4, 123, "dada", creation_amount, "efefef")
+        self.nodes[1].sc_create(scid_2, 123, "dada", creation_amount, "bb" * 1544)
+        self.nodes[1].sc_create(scid_3, 123, "dada", creation_amount, "cc" * 1544)
+        self.nodes[1].sc_create(scid_4, 123, "dada", creation_amount, "dd" * 1544)
         self.sync_all()
 
         mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)

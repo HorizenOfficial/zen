@@ -112,14 +112,14 @@ class ScSplitTest(BitcoinTestFramework):
         # Nodes 1 creates the SC
         mark_logs("\nNode 1 creates the SC", self.nodes, DEBUG_MODE)
 
-        tx_create = self.nodes[1].sc_create(scid, 123, "dada", creation_amount)
+        tx_create = self.nodes[1].sc_create(scid, 123, "dada", creation_amount, "aa" * 1544)
         txes.append(tx_create)
         self.sync_all()
 
         # Node 0 try create a SC with same id
         mark_logs("\nNode 0 try creating the same SC", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[0].sc_create(scid, 123, "dada", creation_amount)
+            self.nodes[0].sc_create(scid, 123, "dada", creation_amount, "aa" * 1544)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)

@@ -79,7 +79,7 @@ class sc_cr_fw(BitcoinTestFramework):
         totScAmount = 0
         # sidechain creation
         #-------------------
-        creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "abcdef")
+        creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "aa" * 1544)
         mark_logs("Node 0 created a sidechain via {}".format(creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 

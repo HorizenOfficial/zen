@@ -241,7 +241,7 @@ class ListTransactionsTest(BitcoinTestFramework):
         # avoid creating change in the resulting tx
         sc_creation_amount -= fee
 
-        cmdInput = {'fromaddress': fromaddr, 'toaddress': sidechain_address, 'amount': sc_creation_amount, 'fee': fee}
+        cmdInput = {'fromaddress': fromaddr, 'toaddress': sidechain_address, 'amount': sc_creation_amount, 'fee': fee, 'wCertVk': "aa" * 1544}
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
             self.sync_all()

@@ -66,7 +66,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         bal_before_sc_creation = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance before SC creation: {}".format(bal_before_sc_creation), self.nodes, DEBUG_MODE)
 
-        sc_creation_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "abcdef010101abcdef");
+        sc_creation_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "aa" * 1544);
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, sc_creation_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
@@ -115,7 +115,7 @@ class sc_cert_epoch(BitcoinTestFramework):
 
         mark_logs("Node 0 try to perform a bwd transfer of {} coins to Node2 pkh".format(bwt_amount + fwt_amount_immature_at_epoch, pkh_node2), self.nodes, DEBUG_MODE)
         try:
-            self.nodes[0].send_certificate(scid, epoch_number, epoch_hash, amounts_bad, CERT_FEE)
+            self.nodes[0].send_certificate(scid, epoch_number, 0, epoch_hash, "bb" * 771, amounts_bad, CERT_FEE)
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -124,7 +124,7 @@ class sc_cert_epoch(BitcoinTestFramework):
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
         try:
-            cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, epoch_hash, amounts, CERT_FEE)
+            cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, 0, epoch_hash, "bb" * 771, amounts, CERT_FEE)
             assert(len(cert_epoch_0) > 0)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -165,7 +165,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         try:
             epoch_number = 1
             epoch_hash = blocks[-1]
-            cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, epoch_hash, [], CERT_FEE)
+            cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, 0, epoch_hash, "bb" * 771, [], CERT_FEE)
             assert(len(cert_epoch_1) > 0)
         except JSONRPCException, e:
             errorString = e.error['message']

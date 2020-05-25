@@ -702,7 +702,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "5. \"wCertVk\"                (string, required) It is an arbitrary byte string of even length expressed in\n"
             "                                   hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             "6. \"customData\"             (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                   hexadecimal format. A max limit of 1024 bytes will be checked\n"
+            "                                   hexadecimal format. A max limit of 1024 bytes will be checked. If not specified, an empty string \"\" must be passed.\n"
             "7. \"constant\"               (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                   hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
             "\nResult:\n"
@@ -763,7 +763,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCertVk");
     }
 
-    if (params.size() > 5)
+    if ((params.size() > 5) && (!params[5].get_str().size() == 0))
     {
         inputString = params[5].get_str();
         if(!Sidechain::AddVariableSizeScData(inputString, sc.creationData.customData, error))
@@ -4755,14 +4755,14 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     int epochNumber = params[1].get_int(); 
     if (epochNumber < 0)
     {
-        LogPrint("sc", "epochNumber can not be negative\n", epochNumber);
+        LogPrint("sc", "epochNumber can not be negative\n");
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid epochNumber parameter");
     }
 
     int64_t quality = params[2].get_int64();
     if (quality < 0)
     {
-        LogPrint("sc", "quality can not be negative\n", quality);
+        LogPrint("sc", "quality can not be negative\n");
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid quality parameter");
     }
 

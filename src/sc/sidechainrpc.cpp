@@ -67,13 +67,15 @@ bool AddVariableSizeScData(const std::string& inputString, std::vector<unsigned 
         return false;
     }
 
-    unsigned int scDataLen = inputString.length();
+    unsigned int dataLen = inputString.length();
 
-    if (scDataLen%2)
+    if (dataLen%2)
     {
-        error = strprintf("Invalid length %d, must be even (byte string)", scDataLen);
+        error = strprintf("Invalid length %d, must be even (byte string)", dataLen);
         return false;
     }
+
+     unsigned int scDataLen = dataLen/2;
 
     if (scDataLen > MAX_SC_DATA_LEN)
     {
