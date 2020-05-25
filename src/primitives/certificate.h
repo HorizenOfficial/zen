@@ -154,7 +154,7 @@ public:
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
     bool CheckFinal(int flags) const override;
 
-    bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) override final;
+    bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const override final;
 
     std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
         unsigned int nIn, const CChain* chain, bool cacheStore) const override;
