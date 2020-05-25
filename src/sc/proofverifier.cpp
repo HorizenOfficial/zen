@@ -71,8 +71,7 @@ namespace libzendoomc{
     bool CScWCertProofVerificationParameters::createParameters() {
         //Deserialize constant
         auto constant_bytes = scInfo.creationData.constant;
-        if (constant_bytes.size() == 0){ //Constant can be optional
-           
+        if (constant_bytes.IsNull()){ //Constant can be optional
             constant = nullptr;
        
         } else {

@@ -78,9 +78,7 @@ class CScProofTestSuite: public ::testing::Test {
             scInfo = new CSidechain();
 
             //Needed to avoid passing checks that shouldn't pass, because constant is optional
-            std::vector<unsigned char> randomConstant;
-            GetRandBytes(randomConstant.data(), SC_FIELD_SIZE);
-            scInfo->creationData.constant.SetHex(HexStr(randomConstant));
+            scInfo->creationData.constant.SetHex("1");
             
             scCert = new CScCertificate();
         }
