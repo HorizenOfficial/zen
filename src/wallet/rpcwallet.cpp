@@ -1528,14 +1528,19 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
         if(params[3].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
     string address("*");
+    CBitcoinAddress baddress;
+    CScript scriptPubKey;
     if (params.size()>4) {
         address=params[4].get_str();
         if (address!=("*")) {
-            CBitcoinAddress baddress = CBitcoinAddress(address);
+            baddress = CBitcoinAddress(address);
             if (!baddress.IsValid())
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
+            else
+                scriptPubKey = GetScriptForDestination(baddress.Get(), false);
         }
     }
+
 
     UniValue ret(UniValue::VARR);
     const CWallet::TxItems & txOrdered = pwalletMain->wtxOrdered;
@@ -1543,8 +1548,20 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     for (CWallet::TxItems::const_reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
     {
         CWalletTx *const pwtx = (*it).second.first;
-        if (pwtx != nullptr)
-            ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
+        if (pwtx != nullptr){
+            if(baddress.IsValid()) {
+                for(const CTxOut& txout : pwtx->vout) {
+                    auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
+                    if (res == txout.scriptPubKey.begin()) {
+                        ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
+                        break;
+                    }
+                }
+            }
+            else {
+                ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
+            }
+        }
         CAccountingEntry *const pacentry = (*it).second.second;
         if (pacentry != nullptr)
             AcentryToJSON(*pacentry, strAccount, ret);

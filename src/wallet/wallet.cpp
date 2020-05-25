@@ -1015,6 +1015,7 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
         CWalletTx& wtx = mapWallet[hash];
         wtx.BindWallet(this);
         wtxOrdered.insert(make_pair(wtx.nOrderPos, TxPair(&wtx, (CAccountingEntry*)0)));
+        UpdateNullifierNoteMapWithTx(mapWallet[hash]);
         AddToSpends(hash);
     }
     else
