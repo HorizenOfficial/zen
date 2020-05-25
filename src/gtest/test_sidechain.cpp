@@ -39,7 +39,7 @@ public:
         return true;
     }
 
-    virtual void GetScIds(std::set<uint256>& scIdsList) const override {
+    virtual void queryScIds(std::set<uint256>& scIdsList) const override {
         for (auto& entry : inMemoryMap)
             scIdsList.insert(entry.first);
         return;
@@ -1008,9 +1008,9 @@ TEST_F(SidechainTestSuite, FlushPersistsNewScsOnTopOfErasedOnes) {
     EXPECT_TRUE(fakeChainStateDb->HaveSidechain(scId));
 }
 ///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////// GetScIds //////////////////////////////////
+///////////////////////////////// queryScIds //////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainTestSuite, GetScIdsReturnsNonErasedSidechains) {
+TEST_F(SidechainTestSuite, queryScIdsReturnsNonErasedSidechains) {
     CBlock aBlock;
 
     uint256 scId1 = uint256S("aaaa");
@@ -1033,7 +1033,7 @@ TEST_F(SidechainTestSuite, GetScIdsReturnsNonErasedSidechains) {
 
     //test
     std::set<uint256> knownScIdsSet;
-    sidechainsView->GetScIds(knownScIdsSet);
+    sidechainsView->queryScIds(knownScIdsSet);
 
     //check
     EXPECT_TRUE(knownScIdsSet.size() == 1)<<"Instead knowScIdSet size is "<<knownScIdsSet.size();
@@ -1041,7 +1041,7 @@ TEST_F(SidechainTestSuite, GetScIdsReturnsNonErasedSidechains) {
     EXPECT_TRUE(knownScIdsSet.count(scId2) == 0)<<"Actual count is "<<knownScIdsSet.count(scId2);
 }
 
-TEST_F(SidechainTestSuite, GetScIdsOnChainstateDbSelectOnlySidechains) {
+TEST_F(SidechainTestSuite, queryScIdsOnChainstateDbSelectOnlySidechains) {
 
     //init a tmp chainstateDb
     boost::filesystem::path pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path());
@@ -1081,7 +1081,7 @@ TEST_F(SidechainTestSuite, GetScIdsOnChainstateDbSelectOnlySidechains) {
 
     //test
     std::set<uint256> knownScIdsSet;
-    sidechainsView->GetScIds(knownScIdsSet);
+    sidechainsView->queryScIds(knownScIdsSet);
 
     //check
     EXPECT_TRUE(knownScIdsSet.size() == 1)<<"Instead knowScIdSet size is "<<knownScIdsSet.size();
