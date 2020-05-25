@@ -1050,7 +1050,7 @@ void AddScInfoToJSON(UniValue& result)
 {
     CCoinsViewCache scView(pcoinsTip);
     std::set<uint256> sScIds;
-    scView.GetScIds(sScIds);
+    scView.queryScIds(sScIds);
 
     BOOST_FOREACH(const auto& entry, sScIds)
     {

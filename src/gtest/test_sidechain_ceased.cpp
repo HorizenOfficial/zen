@@ -434,7 +434,7 @@ TEST_F(CeasedSidechainsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCe
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, scCreationHeight);
+    UpdateCoins(cert, state, *view, txundo, scCreationHeight);
     EXPECT_TRUE(view->HaveCoins(cert.GetHash()));
 
     //test
@@ -487,9 +487,8 @@ TEST_F(CeasedSidechainsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, scCreationHeight);
-    CCoins coinFromCert;
-    EXPECT_TRUE(view->GetCoins(cert.GetHash(),coinFromCert));
+    UpdateCoins(cert, state, *view, txundo, scCreationHeight);
+    EXPECT_TRUE(view->HaveCoins(cert.GetHash()));
 
     //test
     int minimalCeaseHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin()+1;
@@ -506,7 +505,7 @@ TEST_F(CeasedSidechainsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
         if (out.isFromBackwardTransfer) {
             EXPECT_TRUE( (coinsBlockUndo.vtxundo[0].vprevout[bwtCounter].nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f))
                          <<coinsBlockUndo.vtxundo[0].vprevout[bwtCounter].nVersion;
-            EXPECT_TRUE(coinsBlockUndo.vtxundo[0].vprevout[bwtCounter].nBwtMaturityHeight == coinFromCert.nBwtMaturityHeight);
+            EXPECT_TRUE(coinsBlockUndo.vtxundo[0].vprevout[bwtCounter].originScId == scId);
             EXPECT_TRUE(out == coinsBlockUndo.vtxundo[0].vprevout[bwtCounter].txout);
             ++bwtCounter;
         }
@@ -538,7 +537,7 @@ TEST_F(CeasedSidechainsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSi
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, scCreationHeight);
+    UpdateCoins(cert, state, *view, txundo, scCreationHeight);
     EXPECT_TRUE(view->HaveCoins(cert.GetHash()));
 
     //test
@@ -584,7 +583,7 @@ TEST_F(CeasedSidechainsTestSuite, EmptyCertificatesCoinsAreNotAffectedByCeasedSi
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, scCreationHeight);
+    UpdateCoins(cert, state, *view, txundo, scCreationHeight);
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
 
     //test
@@ -622,7 +621,7 @@ TEST_F(CeasedSidechainsTestSuite, RestoreFullCertCeasedCoins) {
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, scInfo.StartHeightForEpoch(1));
+    UpdateCoins(cert, state, *view, txundo, scInfo.StartHeightForEpoch(1));
     CCoins originalCoins;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),originalCoins));
 
@@ -641,10 +640,10 @@ TEST_F(CeasedSidechainsTestSuite, RestoreFullCertCeasedCoins) {
     //checks
     CCoins rebuiltCoin;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),rebuiltCoin));
-    EXPECT_TRUE(rebuiltCoin.nHeight            == originalCoins.nHeight);
-    EXPECT_TRUE((rebuiltCoin.nVersion & 0x7f)  == (originalCoins.nVersion& 0x7f));
-    EXPECT_TRUE(rebuiltCoin.nBwtMaturityHeight == originalCoins.nBwtMaturityHeight);
-    EXPECT_TRUE(rebuiltCoin.vout.size()        == originalCoins.vout.size());
+    EXPECT_TRUE(rebuiltCoin.nHeight           == originalCoins.nHeight);
+    EXPECT_TRUE((rebuiltCoin.nVersion & 0x7f) == (originalCoins.nVersion& 0x7f));
+    EXPECT_TRUE(rebuiltCoin.originScId        == originalCoins.originScId);
+    EXPECT_TRUE(rebuiltCoin.vout.size()       == originalCoins.vout.size());
     for (unsigned int pos = 0; pos < cert.GetVout().size(); ++pos) {
         EXPECT_TRUE(rebuiltCoin.vout[pos] == originalCoins.vout[pos]);
     }
@@ -673,7 +672,7 @@ TEST_F(CeasedSidechainsTestSuite, RestorePureBwtCeasedCoins) {
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, scInfo.StartHeightForEpoch(1));
+    UpdateCoins(cert, state, *view, txundo, scInfo.StartHeightForEpoch(1));
     CCoins originalCoins;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),originalCoins));
 
@@ -693,10 +692,10 @@ TEST_F(CeasedSidechainsTestSuite, RestorePureBwtCeasedCoins) {
     //checks
     CCoins rebuiltCoin;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),rebuiltCoin));
-    EXPECT_TRUE(rebuiltCoin.nHeight            == originalCoins.nHeight);
-    EXPECT_TRUE((rebuiltCoin.nVersion & 0x7f)  == (originalCoins.nVersion& 0x7f));
-    EXPECT_TRUE(rebuiltCoin.nBwtMaturityHeight == originalCoins.nBwtMaturityHeight);
-    EXPECT_TRUE(rebuiltCoin.vout.size()        == originalCoins.vout.size());
+    EXPECT_TRUE(rebuiltCoin.nHeight           == originalCoins.nHeight);
+    EXPECT_TRUE((rebuiltCoin.nVersion & 0x7f) == (originalCoins.nVersion& 0x7f));
+    EXPECT_TRUE(rebuiltCoin.originScId        == originalCoins.originScId);
+    EXPECT_TRUE(rebuiltCoin.vout.size()       == originalCoins.vout.size());
     for (unsigned int pos = 0; pos < cert.GetVout().size(); ++pos) {
         EXPECT_TRUE(rebuiltCoin.vout[pos] == originalCoins.vout[pos]);
     }
@@ -725,7 +724,7 @@ TEST_F(CeasedSidechainsTestSuite, RestoreNoBwtCeasedCoins) {
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, scInfo.StartHeightForEpoch(1));
+    UpdateCoins(cert, state, *view, txundo, scInfo.StartHeightForEpoch(1));
     CCoins originalCoins;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),originalCoins));
 
@@ -744,10 +743,10 @@ TEST_F(CeasedSidechainsTestSuite, RestoreNoBwtCeasedCoins) {
     //checks
     CCoins rebuiltCoin;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),rebuiltCoin));
-    EXPECT_TRUE(rebuiltCoin.nHeight            == originalCoins.nHeight);
-    EXPECT_TRUE((rebuiltCoin.nVersion & 0x7f)  == (originalCoins.nVersion& 0x7f));
-    EXPECT_TRUE(rebuiltCoin.nBwtMaturityHeight == originalCoins.nBwtMaturityHeight);
-    EXPECT_TRUE(rebuiltCoin.vout.size()        == originalCoins.vout.size());
+    EXPECT_TRUE(rebuiltCoin.nHeight           == originalCoins.nHeight);
+    EXPECT_TRUE((rebuiltCoin.nVersion & 0x7f) == (originalCoins.nVersion& 0x7f));
+    EXPECT_TRUE(rebuiltCoin.originScId        == originalCoins.originScId);
+    EXPECT_TRUE(rebuiltCoin.vout.size()       == originalCoins.vout.size());
     for (unsigned int pos = 0; pos < cert.GetVout().size(); ++pos) {
         EXPECT_TRUE(rebuiltCoin.vout[pos] == originalCoins.vout[pos]);
     }
@@ -776,7 +775,7 @@ TEST_F(CeasedSidechainsTestSuite, RestoreEmptyCertCeasedCoins) {
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, scInfo.StartHeightForEpoch(1));
+    UpdateCoins(cert, state, *view, txundo, scInfo.StartHeightForEpoch(1));
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
 
     //Make the sidechain cease

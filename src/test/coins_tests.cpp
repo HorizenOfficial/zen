@@ -747,8 +747,7 @@ BOOST_AUTO_TEST_CASE(coins_coinbase_spends)
     BOOST_CHECK(tx.IsCoinBase());
 
     CValidationState state;
-    CTxUndo dummyUndo;
-    UpdateCoins(tx, cache, dummyUndo, 100);
+    UpdateCoins(tx, state, cache, 100);
 
     // Create coinbase spend
     CMutableTransaction mtx2;
@@ -858,14 +857,14 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
     coinFromTx.vout[1].nValue = insecure_rand();
     coinFromTx.nHeight = 220;
     coinFromTx.nVersion = TRANSPARENT_TX_VERSION;
-    coinFromTx.nBwtMaturityHeight = 250;
+    coinFromTx.originScId = uint256S("deadbeef1987");
 
     CDataStream ss6(SER_DISK, CLIENT_VERSION);
     ss6 << coinFromTx;
 
     CCoins retrievedCoin;
     ss6 >> retrievedCoin;
-    BOOST_CHECK(retrievedCoin.nBwtMaturityHeight == 0);
+    BOOST_CHECK(retrievedCoin.originScId.IsNull());
 }
 
 BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
@@ -885,7 +884,7 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
     originalCoin.vout[2].isFromBackwardTransfer = true;
     originalCoin.nHeight = 220;
     originalCoin.nVersion = SC_CERT_VERSION;
-    originalCoin.nBwtMaturityHeight = 250;
+    originalCoin.originScId = uint256S("deadbeef1987");
 
     CDataStream ss1(SER_DISK, CLIENT_VERSION);
     ss1 << originalCoin;
@@ -906,7 +905,35 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
     BOOST_CHECK(retrievedCoin.nHeight                        == originalCoin.nHeight);
     BOOST_CHECK(retrievedCoin.nVersion                       != originalCoin.nVersion);
     BOOST_CHECK( (retrievedCoin.nVersion & 0x7f)             == (originalCoin.nVersion & 0x7f));
-    BOOST_CHECK(retrievedCoin.nBwtMaturityHeight             == originalCoin.nBwtMaturityHeight);
+    BOOST_CHECK(retrievedCoin.originScId                     == originalCoin.originScId);
+
+    //Coins from certificate with null originScId won't be correctly deserialized
+    CCoins faultyCoin;
+    faultyCoin.fCoinBase = false;
+    faultyCoin.vout.resize(2);
+    faultyCoin.vout[0].nValue = insecure_rand();
+    faultyCoin.vout[1].nValue = insecure_rand();
+    faultyCoin.nHeight = 220;
+    faultyCoin.nVersion = SC_CERT_VERSION;
+    faultyCoin.originScId.SetNull();
+
+    CDataStream ss2(SER_DISK, CLIENT_VERSION);
+    ss2 << faultyCoin;
+
+    CCoins retrievedFaultyCoin;
+    ss2 >> retrievedFaultyCoin;
+
+    BOOST_CHECK(retrievedFaultyCoin.fCoinBase            == faultyCoin.fCoinBase);
+    BOOST_CHECK(retrievedFaultyCoin.vout[0].nValue       == faultyCoin.vout[0].nValue);
+    BOOST_CHECK(retrievedFaultyCoin.vout[0].scriptPubKey == faultyCoin.vout[0].scriptPubKey);
+    BOOST_CHECK(retrievedFaultyCoin.vout[0].isFromBackwardTransfer ==  false);
+    BOOST_CHECK(retrievedFaultyCoin.vout[1].nValue       == faultyCoin.vout[1].nValue);
+    BOOST_CHECK(retrievedFaultyCoin.vout[1].scriptPubKey == faultyCoin.vout[1].scriptPubKey);
+    BOOST_CHECK(retrievedFaultyCoin.vout[1].isFromBackwardTransfer ==  false);
+    BOOST_CHECK(retrievedFaultyCoin.nHeight              == faultyCoin.nHeight);
+    BOOST_CHECK(retrievedFaultyCoin.nVersion             != faultyCoin.nVersion);
+    BOOST_CHECK( (retrievedFaultyCoin.nVersion & 0x7f)   == (faultyCoin.nVersion & 0x7f));
+    BOOST_CHECK(retrievedFaultyCoin.originScId           == faultyCoin.originScId);
 }
 
 BOOST_AUTO_TEST_CASE(Certificate_CTxInUndo_serialization)
@@ -921,21 +948,20 @@ BOOST_AUTO_TEST_CASE(Certificate_CTxInUndo_serialization)
     coinFromCert.vout[0].isFromBackwardTransfer = true;
     coinFromCert.nHeight = 220;
     coinFromCert.nVersion = SC_CERT_VERSION;
-    coinFromCert.nBwtMaturityHeight = 230;
+    coinFromCert.originScId = uint256S("deadbeef1987");
 
     //if the vin about to be written in undo is the last one, all metadata (fCoinBase, version, originScId) are noted
-    CTxInUndo fullCertInUndo(coinFromCert.vout[0], coinFromCert.fCoinBase,
-                             coinFromCert.nHeight, coinFromCert.nVersion, coinFromCert.nBwtMaturityHeight);
+    CTxInUndo fullCertInUndo(coinFromCert.vout[0], coinFromCert.fCoinBase, coinFromCert.nHeight, coinFromCert.nVersion, coinFromCert.originScId);
     CDataStream ssFullCert(SER_DISK, CLIENT_VERSION);
 
     ssFullCert << fullCertInUndo;
     CTxInUndo retrievedFullCertIn;
     ssFullCert >> retrievedFullCertIn;
 
-    BOOST_CHECK(retrievedFullCertIn.fCoinBase                  == coinFromCert.fCoinBase);
-    BOOST_CHECK_MESSAGE((retrievedFullCertIn.nVersion & 0x7f)  == (coinFromCert.nVersion & 0x7f),   retrievedFullCertIn.nVersion);
-    BOOST_CHECK_MESSAGE(retrievedFullCertIn.nHeight            == coinFromCert.nHeight,             retrievedFullCertIn.nHeight);
-    BOOST_CHECK_MESSAGE(retrievedFullCertIn.nBwtMaturityHeight == coinFromCert.nBwtMaturityHeight,  retrievedFullCertIn.nBwtMaturityHeight);
+    BOOST_CHECK(retrievedFullCertIn.fCoinBase                 == coinFromCert.fCoinBase);
+    BOOST_CHECK_MESSAGE((retrievedFullCertIn.nVersion & 0x7f) == (coinFromCert.nVersion & 0x7f),   retrievedFullCertIn.nVersion);
+    BOOST_CHECK_MESSAGE(retrievedFullCertIn.nHeight           == coinFromCert.nHeight,             retrievedFullCertIn.nHeight);
+    BOOST_CHECK_MESSAGE(retrievedFullCertIn.originScId        == coinFromCert.originScId,          retrievedFullCertIn.originScId.ToString());
     BOOST_CHECK(retrievedFullCertIn.txout == coinFromCert.vout[0]);
 
     //if the vin about to be written in undo is NOT the last one only vout is noted
@@ -961,19 +987,20 @@ BOOST_AUTO_TEST_CASE(Transaction_CTxInUndo_serialization)
     coinFromTx.vout[0].isFromBackwardTransfer = false;
     coinFromTx.nHeight = 220;
     coinFromTx.nVersion = TRANSPARENT_TX_VERSION;
+    coinFromTx.originScId.SetNull();
 
     //if the vin about to be written in undo is the last one, all metadata (fCoinBase, version, NOT originSc) are noted
-    CTxInUndo fullTxInUndo(coinFromTx.vout[0], coinFromTx.fCoinBase, coinFromTx.nHeight, coinFromTx.nVersion);
+    CTxInUndo fullTxInUndo(coinFromTx.vout[0], coinFromTx.fCoinBase, coinFromTx.nHeight, coinFromTx.nVersion, coinFromTx.originScId);
     CDataStream ssFullTx(SER_DISK, CLIENT_VERSION);
 
     ssFullTx << fullTxInUndo;
     CTxInUndo retrievedFullTx;
     ssFullTx >> retrievedFullTx;
 
-    BOOST_CHECK(retrievedFullTx.fCoinBase                  == coinFromTx.fCoinBase);
-    BOOST_CHECK_MESSAGE(retrievedFullTx.nVersion           == coinFromTx.nVersion,   retrievedFullTx.nVersion);
-    BOOST_CHECK_MESSAGE(retrievedFullTx.nHeight            == coinFromTx.nHeight,    retrievedFullTx.nHeight);
-    BOOST_CHECK_MESSAGE(retrievedFullTx.nBwtMaturityHeight == 0,  retrievedFullTx.nBwtMaturityHeight);
+    BOOST_CHECK(retrievedFullTx.fCoinBase                 == coinFromTx.fCoinBase);
+    BOOST_CHECK_MESSAGE(retrievedFullTx.nVersion          == coinFromTx.nVersion,   retrievedFullTx.nVersion);
+    BOOST_CHECK_MESSAGE(retrievedFullTx.nHeight           == coinFromTx.nHeight,    retrievedFullTx.nHeight);
+    BOOST_CHECK_MESSAGE(retrievedFullTx.originScId        == coinFromTx.originScId, retrievedFullTx.originScId.ToString());
     BOOST_CHECK(retrievedFullTx.txout == coinFromTx.vout[0]);
 
     //if the vin about to be written in undo is NOT the last one only vout is noted
