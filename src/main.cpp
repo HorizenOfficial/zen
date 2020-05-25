@@ -2062,12 +2062,13 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                     error("CheckInputs(): tried to spend coinbase with transparent outputs"),
                     REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
                 }
-            } else if (coins->IsFromCert()) {
+            }
+        }
+        else if (coins->IsFromCert()) {
                 if (inputs.IsCertOutputMature(in.prevout.hash, in.prevout.n, nSpendHeight) != CCoinsViewCache::outputMaturity::MATURE)
                     return state.Invalid(
                         error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
                         REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
-            }
         }
 
         // Check for negative or overflow input values
