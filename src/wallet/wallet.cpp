@@ -2504,7 +2504,11 @@ CCoinsViewCache::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned 
 
     if (pTxBase->IsCertificate())
     {
-        if (nDepth == 0)
+        if (vOutPos >= pTxBase->GetVout().size())
+            return CCoinsViewCache::outputMaturity::NOT_APPLICABLE;
+        if ((nDepth == 0) && !pTxBase->GetVout()[vOutPos].isFromBackwardTransfer)
+            return CCoinsViewCache::outputMaturity::MATURE;
+        if ((nDepth == 0) && pTxBase->GetVout()[vOutPos].isFromBackwardTransfer)
             return CCoinsViewCache::outputMaturity::IMMATURE;
 
         return pcoinsTip->IsCertOutputMature(pTxBase->GetHash(), vOutPos, chainActive.Height());
