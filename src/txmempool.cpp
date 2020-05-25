@@ -53,7 +53,7 @@ double CTxMemPoolEntry::GetPriority(unsigned int currentHeight) const
     CAmount nValueIn = tx.GetValueOut()+nFee;
     double deltaPriority = ((double)(currentHeight-nHeight)*nValueIn)/nModSize;
     double dResult = dPriority + deltaPriority;
-    LogPrint("cert", "%s():%d - prioIn[%22.8f] + delta[%22.8f] = prioOut[%22.8f]\n",
+    LogPrint("mempool", "%s():%d - prioIn[%22.8f] + delta[%22.8f] = prioOut[%22.8f]\n",
         __func__, __LINE__, dPriority, deltaPriority, dResult);
     return dResult;
 }
@@ -151,17 +151,13 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     }
 
     for(const auto& sc: tx.GetVscCcOut()) {
-        if (mapSidechains.count(sc.scId))
-            assert(mapSidechains[sc.scId].scCreationTxHash.IsNull());
-        else
-            LogPrint("cert", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, sc.scId.ToString() );
-
+        LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, sc.scId.ToString() );
         mapSidechains[sc.scId].scCreationTxHash = hash;
     }
 
     for(const auto& fwd: tx.GetVftCcOut()) {
         if (mapSidechains.count(fwd.scId) == 0)
-            LogPrint("cert", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, fwd.scId.ToString() );
+            LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, fwd.scId.ToString() );
         mapSidechains[fwd.scId].fwdTransfersSet.insert(hash);
     }
 
@@ -183,11 +179,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     for (unsigned int i = 0; i < cert.GetVin().size(); i++)
         mapNextTx[cert.GetVin()[i].prevout] = CInPoint(&cert, i);
 
-    if (mapSidechains.count(cert.GetScId()) )
-        assert(mapSidechains[cert.GetScId()].backwardCertificate.IsNull());
-    else
-        LogPrint("cert", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, cert.GetScId().ToString() );
-
+    LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, cert.GetScId().ToString() );
     mapSidechains[cert.GetScId()].backwardCertificate = hash;
            
     nCertificatesUpdated++;
@@ -195,7 +187,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     cachedInnerUsage += entry.DynamicMemoryUsage();
     // TODO cert: for the time being skip the part on policy estimator, certificates currently have maximum priority
     // minerPolicyEstimator->processTransaction(entry, fCurrentEstimate);
-    LogPrint("cert", "%s():%d - cert [%s] added in mempool\n", __func__, __LINE__, hash.ToString() );
+    LogPrint("mempool", "%s():%d - cert [%s] added in mempool\n", __func__, __LINE__, hash.ToString() );
     return true;
 }
 
@@ -238,8 +230,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                     if (removeDependantFwds) {
                         for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
                             objToRemove.push_back(fwdTxHash);
-                    } else
-                        objToRemove.push_back(mapSidechains.at(sc.scId).scCreationTxHash);
+                    }
                 }
             }
         }
@@ -354,7 +345,7 @@ void::CTxMemPool::removeInternal(
             }
 
             removedCerts.push_back(cert);
-            totalTxSize -= mapCertificate[hash].GetCertificateSize();
+            totalCertificateSize -= mapCertificate[hash].GetCertificateSize();
             cachedInnerUsage -= mapCertificate[hash].DynamicMemoryUsage();
             LogPrint("mempool", "%s():%d - removing cert [%s] from mempool\n", __func__, __LINE__, hash.ToString() );
             mapCertificate.erase(hash);
@@ -629,6 +620,7 @@ void CTxMemPool::clear()
 {
     LOCK(cs);
     mapTx.clear();
+    mapCertificate.clear();
     mapNextTx.clear();
     mapSidechains.clear();
     totalTxSize = 0;
@@ -642,8 +634,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     if (!fSanityCheck)
         return;
 
-    LogPrint("mempool", "Checking mempool with %u transactions %u certificates and %u inputs\n",
-        (unsigned int)mapTx.size(), (unsigned int)mapCertificate.size(), (unsigned int)mapNextTx.size());
+    LogPrint("mempool", "Checking mempool with %u transactions, %u certificates, %u sidechains, and %u inputs\n",
+        (unsigned int)mapTx.size(), (unsigned int)mapCertificate.size(), (unsigned int)mapSidechains.size(), (unsigned int)mapNextTx.size());
 
     uint64_t checkTotal = 0;
     uint64_t innerUsage = 0;
@@ -652,8 +644,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
     LOCK(cs);
 
-    std::list<const CMemPoolEntry*> waitingOnDependants;
-    std::list<const CMemPoolEntry*> waitingOnDependantsCert;
+    std::list<const CTxMemPoolEntry*> waitingOnDependantsTx;
+    std::list<const CCertificateMemPoolEntry*> waitingOnDependantsCert;
 
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         unsigned int i = 0;
@@ -740,7 +732,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         }
         if (fDependsWait)
         {
-            waitingOnDependants.push_back(&it->second);
+            waitingOnDependantsTx.push_back(&it->second);
         }
         else {
             CValidationState state;
@@ -812,15 +804,14 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     }
 
     unsigned int stepsSinceLastRemove = 0;
-    while (!waitingOnDependants.empty()) {
-        const CMemPoolEntry* entryBase = waitingOnDependants.front();
-        waitingOnDependants.pop_front();
+    while (!waitingOnDependantsTx.empty()) {
+        const CTxMemPoolEntry* entry = waitingOnDependantsTx.front();
+        waitingOnDependantsTx.pop_front();
         CValidationState state;
-        const CTxMemPoolEntry* entry = (const CTxMemPoolEntry*)entryBase;
         if (!mempoolDuplicate.HaveInputs(entry->GetTx())) {
-            waitingOnDependants.push_back(entry);
+            waitingOnDependantsTx.push_back(entry);
             stepsSinceLastRemove++;
-            assert(stepsSinceLastRemove < waitingOnDependants.size());
+            assert(stepsSinceLastRemove < waitingOnDependantsTx.size());
         } else {
             assert(::ContextualCheckInputs(entry->GetTx(), state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
@@ -830,10 +821,9 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     }
     unsigned int stepsSinceLastRemoveCert = 0;
     while (!waitingOnDependantsCert.empty()) {
-        const CMemPoolEntry* entryBase = waitingOnDependantsCert.front();
+        const CCertificateMemPoolEntry* entry = waitingOnDependantsCert.front();
         waitingOnDependantsCert.pop_front();
         CValidationState state;
-        const CCertificateMemPoolEntry* entry = (const CCertificateMemPoolEntry*)entryBase;
         if (!mempoolDuplicate.HaveInputs(entry->GetCertificate())) {
             waitingOnDependantsCert.push_back(entry);
             stepsSinceLastRemoveCert++;
@@ -1010,14 +1000,14 @@ bool CCoinsViewMemPool::GetCoins(const uint256 &txid, CCoins &coins) const {
     // transactions. First checking the underlying cache risks returning a pruned entry instead.
     CTransaction tx;
     if (mempool.lookup(txid, tx)) {
-        LogPrint("cert", "%s():%d - making coins for tx [%s]\n", __func__, __LINE__, txid.ToString() );
+        LogPrint("mempool", "%s():%d - making coins for tx [%s]\n", __func__, __LINE__, txid.ToString() );
         coins = CCoins(tx, MEMPOOL_HEIGHT);
         return true;
     }
 
     CScCertificate cert;
     if (mempool.lookup(txid, cert)) {
-        LogPrint("cert", "%s():%d - making coins for cert [%s]\n", __func__, __LINE__, txid.ToString() );
+        LogPrint("mempool", "%s():%d - making coins for cert [%s]\n", __func__, __LINE__, txid.ToString() );
         coins = CCoins(cert, MEMPOOL_HEIGHT, MEMPOOL_HEIGHT);
         return true;
     }
@@ -1083,6 +1073,7 @@ size_t CTxMemPool::DynamicMemoryUsage() const {
           memusage::DynamicUsage(mapNextTx) +
           memusage::DynamicUsage(mapDeltas) +
           memusage::DynamicUsage(mapCertificate) +
+          memusage::DynamicUsage(mapSidechains) +
           cachedInnerUsage);
 }
 
