@@ -673,7 +673,9 @@ public:
     bool CheckInputsDuplication(CValidationState &state) const;
     bool CheckInputsInteraction(CValidationState &state) const;
 
-    bool CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const;
+    bool CheckBlockAtHeight(int height, CValidationState& state) const;
+    /** Check a transaction contextually against a set of consensus rules */
+    virtual bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const = 0;
 
     bool CheckInputsLimit() const;
     //END OF CHECK FUNCTIONS
@@ -712,7 +714,6 @@ public:
     virtual void AddToBlock(CBlock* pblock) const = 0;
     virtual void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const = 0;
 
-    virtual bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const = 0;
     virtual bool CheckFinal(int flags = -1) const = 0;
 
     bool VerifyScript(

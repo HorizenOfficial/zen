@@ -896,86 +896,6 @@ unsigned int GetP2SHSigOpCount(const CTransactionBase& tx, const CCoinsViewCache
     return nSigOps;
 }
 
-/**
- * Check a transaction contextually against a set of consensus rules valid at a given block height.
- *
- * Notes:
- * 1. AcceptToMemoryPool calls CheckTransaction and this function.
- * 2. ProcessNewBlock calls AcceptBlock, which calls CheckBlock (which calls CheckTransaction)
- *    and ContextualCheckBlock (which calls this function).
- * 3. The isInitBlockDownload argument is only to assist with testing.
- */
-bool ContextualCheckTransaction(
-        const CTransaction& tx,
-        CValidationState &state,
-        const int nHeight,
-        const int dosLevel,
-        bool (*isInitBlockDownload)())
-{
-
-    //Valid txs are:
-    // at any height
-    // at height < groth_fork v>=1 txs with PHGR proofs
-    // at height >= groth_fork v=-3 shielded with GROTH proofs and v=1 transparent with joinsplit empty
-    // at height >= sidechain_fork same as above but also v=-4 with joinsplit empty
-
-    // sidechain fork (happens after groth fork)
-    int sidechainVersion = 0; 
-    bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
-    if (areSidechainsSupported)
-    {
-        sidechainVersion = ForkManager::getInstance().getSidechainTxVersion(nHeight);
-    }
-
-    // groth fork
-    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
-    bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
-
-    if(isGROTHActive)
-    {
-        //verify if transaction is transparent or related to sidechain...
-        if (tx.nVersion == TRANSPARENT_TX_VERSION  ||
-            (areSidechainsSupported && (tx.nVersion == sidechainVersion) ) )
-        {
-            //enforce empty joinsplit for transparent txs and sidechain tx
-            if(!tx.GetVjoinsplit().empty()) {
-                return state.DoS(dosLevel, error("ContextualCheckTransaction(): transparent or sc tx but vjoinsplit not empty"),
-                                     REJECT_INVALID, "bad-txns-transparent-jsnotempty");
-            }
-            return true;
-        }
-
-        // ... or the actual shielded version
-        if(tx.nVersion != GROTH_TX_VERSION)
-        {
-            LogPrintf("ContextualCheckTransaction: rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
-                tx.nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
-            return state.DoS(dosLevel,
-                             error("ContextualCheckTransaction(): unexpected tx version"),
-                             REJECT_INVALID, "bad-tx-version-unexpected");
-        }
-        return true;
-    }
-    else
-    {
-        // sidechain fork is after groth one
-        assert(!areSidechainsSupported);
-
-        if(tx.nVersion < TRANSPARENT_TX_VERSION)
-        {
-            LogPrintf("ContextualCheckTransaction: rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
-                tx.nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
-            return state.DoS(0,
-                             error("ContextualCheckTransaction(): unexpected tx version"),
-                             REJECT_INVALID, "bad-tx-version-unexpected");
-        }
-        return true;
-    }
-
-
-    return true;
-}
-
 bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
 {
     if (!cert.CheckVersionBasic(state))
@@ -1003,9 +923,6 @@ bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
     if (!cert.CheckInputsInteraction(state))
         return false;
 
-    if (!cert.CheckOutputsCheckBlockAtHeightOpCode(state))
-        return false;
-
     if (!Sidechain::checkCertSemanticValidity(cert, state))
         return false;
 
@@ -1031,9 +948,6 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
                                 REJECT_INVALID, "bad-txns-joinsplit-verification-failed");
         }
     }
-
-    if (!tx.CheckOutputsCheckBlockAtHeightOpCode(state))
-        return false;
 
     if (!Sidechain::checkTxSemanticValidity(tx, state))
         return false;

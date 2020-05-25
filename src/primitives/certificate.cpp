@@ -155,6 +155,10 @@ bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int d
     bool areScSupported = zen::ForkManager::getInstance().areSidechainsSupported(nHeight);
     if (!areScSupported)
          return state.DoS(dosLevel, error("Sidechain are not supported"), REJECT_INVALID, "bad-cert-version");
+
+    if (!CheckBlockAtHeight(nHeight, state))
+        return false;
+
     return true;
 }
 
