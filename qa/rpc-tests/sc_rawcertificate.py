@@ -157,6 +157,18 @@ class sc_rawcert(BitcoinTestFramework):
 
         # -------------------------- end epoch
 
+        mark_logs("Node2 tries to send to Node1 spending immature backward transfers, expecting failure", self.nodes, DEBUG_MODE)
+        inputs = [{'txid': cert, 'vout': 0}]
+        rawtx_amount = Decimal("3.99995")
+        outputs = { self.nodes[1].getnewaddress() : rawtx_amount }
+        rawtx=self.nodes[2].createrawtransaction(inputs, outputs)
+        sigRawtx = self.nodes[2].signrawtransaction(rawtx)
+        try:
+            rawtx = self.nodes[2].sendrawtransaction(sigRawtx['hex'])
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+
         sc_funds_post = self.nodes[3].getscinfo(scid)['balance']
         assert_equal(sc_funds_post, sc_funds_pre - bt_amount)
 
@@ -391,8 +403,27 @@ class sc_rawcert(BitcoinTestFramework):
 
         self.sync_all()
 
+        mark_logs("Node2 retries to send the same failed tx to Node1 spending now matured backward transfers", self.nodes, DEBUG_MODE)
+        try:
+            rawtx = self.nodes[2].sendrawtransaction(sigRawtx['hex'])
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
 
+        self.sync_all()
 
+        mark_logs("Check tx is in mempool", self.nodes, DEBUG_MODE)
+        assert_equal(True, rawtx in self.nodes[2].getrawmempool())
+
+        bal_1_pre = self.nodes[1].getbalance()
+
+        mark_logs("Node 0 generates 1 block", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        bal_1_post = self.nodes[1].getbalance()
+        mark_logs("Verify Node 1 balance", self.nodes, DEBUG_MODE)
+        assert_equal(bal_1_post - bal_1_pre, rawtx_amount)
 
 if __name__ == '__main__':
     sc_rawcert().main()
