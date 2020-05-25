@@ -15,6 +15,17 @@
 
 #include "main.h"
 
+CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nValue)
+{
+    auto it = std::find(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), OP_HASH160);
+    assert(it != txout.scriptPubKey.end());
+    ++it;
+    assert(*it == sizeof(uint160));
+    ++it;
+    std::vector<unsigned char>  pubKeyV(it, (it + sizeof(uint160)));
+    pubKeyHash = uint160(pubKeyV);
+}
+
 CScCertificate::CScCertificate(int versionIn) :CTransactionBase(versionIn),
         scId(), epochNumber(EPOCH_NOT_INITIALIZED), endEpochBlockHash() {}
 

@@ -6,6 +6,24 @@
 
 struct CMutableScCertificate;
 
+class CBackwardTransferOut
+{
+public:
+    CAmount nValue;
+    uint160 pubKeyHash;
+
+    CBackwardTransferOut(): nValue(0), pubKeyHash() {};
+    explicit CBackwardTransferOut(const CTxOut& txout);
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(nValue);
+        READWRITE(pubKeyHash);
+    }
+};
+
 class CScCertificate : virtual public CTransactionBase
 {
     /** Memory only. */

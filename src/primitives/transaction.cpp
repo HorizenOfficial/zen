@@ -211,17 +211,6 @@ std::string CTxIn::ToString() const
     return str;
 }
 
-CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nValue)
-{
-    auto it = std::find(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), OP_HASH160);
-    assert(it != txout.scriptPubKey.end());
-    ++it; 
-    assert(*it == sizeof(uint160));
-    ++it;
-    std::vector<unsigned char>  pubKeyV(it, (it + sizeof(uint160)));
-    pubKeyHash = uint160(pubKeyV);
-}
-
 CTxOut::CTxOut(const CBackwardTransferOut& btout) : nValue(btout.nValue)
 {
     scriptPubKey.clear();
@@ -421,17 +410,15 @@ bool CTransactionBase::CheckAmounts(CValidationState &state) const
         }
     }
 
-    return true;
-
     // Ensure input values do not exceed MAX_MONEY
     // We have not resolved the txin values at this stage, but we do know what the joinsplits claim to add
     // to the value pool.
     CAmount nCumulatedValueIn = 0;
-    for (std::vector<JSDescription>::const_iterator it(GetVjoinsplit().begin()); it != GetVjoinsplit().end(); ++it)
+    for(const JSDescription& joinsplit: GetVjoinsplit())
     {
-        nCumulatedValueIn += it->vpub_new;
+        nCumulatedValueIn += joinsplit.vpub_new;
 
-        if (!MoneyRange(it->vpub_new) || !MoneyRange(nCumulatedValueIn)) {
+        if (!MoneyRange(joinsplit.vpub_new) || !MoneyRange(nCumulatedValueIn)) {
             return state.DoS(100, error("CheckAmounts(): txin total out of range"),
                              REJECT_INVALID, "bad-txns-txintotal-toolarge");
         }
