@@ -254,18 +254,6 @@ std::string CTxForwardTransferOut::ToString() const
 }
 
 //----------------------------------------------------------------------------
-uint256 CTxCertifierLockOut::GetHash() const
-{
-    return SerializeHash(*this);
-}
-
-std::string CTxCertifierLockOut::ToString() const
-{
-    return strprintf("CTxCertifierLockOut(nValue=%d.%08d, address=%s, scId=%s, activeFromWithdrawalEpoch=%lld",
-        nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), scId.ToString(), activeFromWithdrawalEpoch);
-}
-
-//----------------------------------------------------------------------------
 bool CTxCrosschainOut::CheckAmountRange(CAmount& cumulatedAmount) const
 {
     if (nValue == CAmount(0) || !MoneyRange(nValue))
@@ -309,7 +297,7 @@ CMutableTransactionBase::CMutableTransactionBase() :
 CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(), nLockTime(0) {}
 
 CMutableTransaction::CMutableTransaction(const CTransaction& tx) :
-    vsc_ccout(tx.GetVscCcOut()), vcl_ccout(tx.GetVclCcOut()), vft_ccout(tx.GetVftCcOut()), nLockTime(tx.GetLockTime()),
+    vsc_ccout(tx.GetVscCcOut()), vft_ccout(tx.GetVftCcOut()), nLockTime(tx.GetLockTime()),
     vjoinsplit(tx.GetVjoinsplit()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     nVersion = tx.nVersion;
@@ -325,12 +313,6 @@ uint256 CMutableTransaction::GetHash() const
 bool CMutableTransaction::add(const CTxScCreationOut& out) 
 {
     vsc_ccout.push_back(out);
-    return true;
-}
-
-bool CMutableTransaction::add(const CTxCertifierLockOut& out) 
-{
-    vcl_ccout.push_back(out);
     return true;
 }
 
@@ -518,7 +500,7 @@ bool CTransactionBase::CheckInputsInteraction(CValidationState &state) const
 CTransaction::CTransaction() :
     CTransactionBase(),
     vjoinsplit(), nLockTime(0),
-    vsc_ccout(), vcl_ccout(), vft_ccout(),
+    vsc_ccout(), vft_ccout(),
     joinSplitPubKey(), joinSplitSig() { }
 
 void CTransaction::UpdateHash() const
@@ -528,7 +510,7 @@ void CTransaction::UpdateHash() const
 
 CTransaction::CTransaction(const CMutableTransaction &tx) :
     vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime),
-    vsc_ccout(tx.vsc_ccout), vcl_ccout(tx.vcl_ccout), vft_ccout(tx.vft_ccout),
+    vsc_ccout(tx.vsc_ccout), vft_ccout(tx.vft_ccout),
     joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     *const_cast<int*>(&nVersion) = tx.nVersion;
@@ -540,7 +522,6 @@ CTransaction::CTransaction(const CMutableTransaction &tx) :
 CTransaction& CTransaction::operator=(const CTransaction &tx) {
     CTransactionBase::operator=(tx);
     *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout) = tx.vsc_ccout;
-    *const_cast<std::vector<CTxCertifierLockOut>*>(&vcl_ccout) = tx.vcl_ccout;
     *const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout) = tx.vft_ccout;
     *const_cast<uint32_t*>(&nLockTime) = tx.nLockTime;
     *const_cast<std::vector<JSDescription>*>(&vjoinsplit) = tx.vjoinsplit;
@@ -558,7 +539,6 @@ CTransaction::CTransaction(const CTransaction &tx) : nLockTime(0)
     *const_cast<uint256*>(&hash) = tx.hash;
     //---
     *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout) = tx.vsc_ccout;
-    *const_cast<std::vector<CTxCertifierLockOut>*>(&vcl_ccout) = tx.vcl_ccout;
     *const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout) = tx.vft_ccout;
     *const_cast<uint32_t*>(&nLockTime) = tx.nLockTime;
     *const_cast<std::vector<JSDescription>*>(&vjoinsplit) = tx.vjoinsplit;
@@ -685,7 +665,7 @@ CAmount CTransaction::GetValueOut() const
             throw std::runtime_error("CTransaction::GetValueOut(): value out of range");
     }
 
-    nValueOut += (GetValueCcOut(vsc_ccout) + GetValueCcOut(vcl_ccout) + GetValueCcOut(vft_ccout));
+    nValueOut += (GetValueCcOut(vsc_ccout) + GetValueCcOut(vft_ccout));
     return nValueOut;
 }
 
@@ -702,13 +682,12 @@ std::string CTransaction::ToString() const
 
     if (IsScVersion())
     {
-        str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%u, vout.size=%u, vsc_ccout.size=%u, vcl_ccout.size=%u, vft_ccout.size=%u, nLockTime=%u)\n",
+        str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%u, vout.size=%u, vsc_ccout.size=%u, vft_ccout.size=%u, nLockTime=%u)\n",
             GetHash().ToString().substr(0,10),
             nVersion,
             vin.size(),
             vout.size(),
             vsc_ccout.size(),
-            vcl_ccout.size(),
             vft_ccout.size(),
             nLockTime);
 
@@ -718,8 +697,6 @@ std::string CTransaction::ToString() const
             str += "    " + vout[i].ToString() + "\n";
         for (unsigned int i = 0; i < vsc_ccout.size(); i++)
             str += "    " + vsc_ccout[i].ToString() + "\n";
-        for (unsigned int i = 0; i < vcl_ccout.size(); i++)
-            str += "    " + vcl_ccout[i].ToString() + "\n";
         for (unsigned int i = 0; i < vft_ccout.size(); i++)
             str += "    " + vft_ccout[i].ToString() + "\n";
     }
@@ -749,9 +726,6 @@ void CTransaction::addToScCommitment(std::map<uint256, std::vector<uint256> >& m
     unsigned int nIdx = 0;
     LogPrint("sc", "%s():%d -getting leaves for vsc out\n", __func__, __LINE__);
     fillCrosschainOutput(vsc_ccout, nIdx, mLeaves, sScIds);
-
-    LogPrint("sc", "%s():%d -getting leaves for vcl out\n", __func__, __LINE__);
-    fillCrosschainOutput(vcl_ccout, nIdx, mLeaves, sScIds);
 
     LogPrint("sc", "%s():%d -getting leaves for vft out\n", __func__, __LINE__);
     fillCrosschainOutput(vft_ccout, nIdx, mLeaves, sScIds);

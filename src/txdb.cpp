@@ -155,7 +155,7 @@ bool CCoinsViewDB::GetCeasingScs(int height, CCeasingSidechains& ceasingScs) con
     return db.Read(std::make_pair(DB_CEASEDSCS, height), ceasingScs);
 }
 
-void CCoinsViewDB::queryScIds(std::set<uint256>& scIdsList) const
+void CCoinsViewDB::GetScIds(std::set<uint256>& scIdsList) const
 {
     std::unique_ptr<leveldb::Iterator> it(const_cast<CLevelDBWrapper*>(&db)->NewIterator());
     for (it->SeekToFirst(); it->Valid(); it->Next())
@@ -315,7 +315,7 @@ bool CCoinsViewDB::GetStats(CCoinsStats &stats) const {
                 }
 
                 if (coins.IsFromCert()) {
-                    ss << coins.originScId;
+                    ss << coins.nBwtMaturityHeight;
 
                     unsigned int changeOutputCounter = 0;
                     for(const CTxOut& out: coins.vout) {

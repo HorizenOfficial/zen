@@ -2111,7 +2111,6 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
         if (nDebit > 0)
         {
             fillScSent(GetVscCcOut(), listScSent);
-            fillScSent(GetVclCcOut(), listScSent);
             fillScSent(GetVftCcOut(), listScSent);
         }
     }
@@ -3023,7 +3022,7 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                                 continue;
                         }
                     } else if (pcoin->IsCertificate()) {
-                        if (pcoin->IsOutputMature(voutPos) == CCoinsViewCache::outputMaturity::IMMATURE)
+                        if (pcoin->IsOutputMature(voutPos) != CCoinsViewCache::outputMaturity::MATURE)
                             continue;
 
                         LogPrint("cert", "%s():%d - cert[%s] out[%d], amount=%s, spendable[%s]\n", __func__, __LINE__,
@@ -3449,7 +3448,6 @@ bool CWallet::CreateTransaction(
                 txNew.vin.clear();
                 txNew.vout.clear();
                 txNew.vsc_ccout.clear();
-                txNew.vcl_ccout.clear();
                 txNew.vft_ccout.clear();
                 wtxNew.fFromMe = true;
                 nChangePosRet = -1;
@@ -4063,7 +4061,7 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances()
                     continue;
 
                 if (pcoin->IsCertificate()) {
-                    if (pcoin->IsOutputMature(pos) == CCoinsViewCache::outputMaturity::IMMATURE)
+                    if (pcoin->IsOutputMature(pos) != CCoinsViewCache::outputMaturity::MATURE)
                         continue;
                 }
 

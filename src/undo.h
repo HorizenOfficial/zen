@@ -22,15 +22,17 @@
 class CTxInUndo
 {
 public:
-    CTxOut txout;         // the txout data before being spent
-    bool fCoinBase;       // if the outpoint was the last unspent: whether it belonged to a coinbase
-    unsigned int nHeight; // if the outpoint was the last unspent: its height
-    int nVersion;         // if the outpoint was the last unspent: its version
-    uint256 originScId;   // if the outpoint was the last unspent: its originScId, introduced with certificates
+    CTxOut txout;           // the txout data before being spent
+    bool fCoinBase;         // if the outpoint was the last unspent: whether it belonged to a coinbase
+    unsigned int nHeight;   // if the outpoint was the last unspent: its height
+    int nVersion;           // if the outpoint was the last unspent: its version
+    int nBwtMaturityHeight; // if the outpoint was the last unspent: its nBwtMaturityHeight, introduced with certificates
 
-    CTxInUndo() : txout(), fCoinBase(false), nHeight(0), nVersion(0), originScId() {}
-    CTxInUndo(const CTxOut &txoutIn, bool fCoinBaseIn = false, unsigned int nHeightIn = 0, int nVersionIn = 0, const uint256 & _scId = uint256() ):
-        txout(txoutIn), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), nVersion(nVersionIn), originScId(_scId) { }
+    CTxInUndo() : txout(), fCoinBase(false), nHeight(0), nVersion(0), nBwtMaturityHeight(0) {}
+    CTxInUndo(const CTxOut &txoutIn, bool fCoinBaseIn = false,
+              unsigned int nHeightIn = 0, int nVersionIn = 0,
+              int bwtMaturityHeight = 0):
+        txout(txoutIn), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), nVersion(nVersionIn), nBwtMaturityHeight(bwtMaturityHeight) { }
 
     unsigned int GetSerializeSize(int nType, int nVersion) const {
         unsigned int totalSize = 0;
@@ -38,7 +40,7 @@ public:
                (nHeight > 0 ? ::GetSerializeSize(VARINT(this->nVersion), nType, nVersion) : 0) +
                ::GetSerializeSize(CTxOutCompressor(REF(txout)), nType, nVersion);
         if ((nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f)) {
-            totalSize += ::GetSerializeSize(originScId, nType,nVersion);
+            totalSize += ::GetSerializeSize(nBwtMaturityHeight, nType,nVersion);
             totalSize += ::GetSerializeSize(txout.isFromBackwardTransfer, nType,nVersion);
         }
         return totalSize;
@@ -52,7 +54,7 @@ public:
         ::Serialize(s, CTxOutCompressor(REF(txout)), nType, nVersion);
 
         if ((this->nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f)) {
-            ::Serialize(s,originScId, nType, nVersion);
+            ::Serialize(s,nBwtMaturityHeight, nType, nVersion);
             ::Serialize(s,txout.isFromBackwardTransfer? true: false, nType, nVersion);
         }
     }
@@ -68,7 +70,7 @@ public:
         ::Unserialize(s, REF(CTxOutCompressor(REF(txout))), nType, nVersion);
 
         if ((this->nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f)) {
-            ::Unserialize(s, originScId, nType, nVersion);
+            ::Unserialize(s, nBwtMaturityHeight, nType, nVersion);
             ::Unserialize(s, txout.isFromBackwardTransfer, nType, nVersion);
         }
     }
@@ -80,7 +82,7 @@ public:
         str += strprintf("        fCoinBase=%d\n", fCoinBase);
         str += strprintf("        nHeight=%d\n", nHeight);
         str += strprintf("        nVersion=%d\n", nVersion);
-        str += strprintf("        originScId=%s\n", originScId.ToString());
+        str += strprintf("        nBwtMaturityHeight=%d\n", nBwtMaturityHeight);
         return str;
     }
 

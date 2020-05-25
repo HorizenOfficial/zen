@@ -1071,11 +1071,6 @@ public:
     }
 
     template<typename S>
-    void SerializeCertifierLockCcOutput(S &s, unsigned int nCcOutput, int nType, int nVersion) const {
-            ::Serialize(s, txTo.GetVclCcOut()[nCcOutput], nType, nVersion);
-    }
-
-    template<typename S>
     void SerializeForwardTransferCcOutput(S &s, unsigned int nCcOutput, int nType, int nVersion) const {
             ::Serialize(s, txTo.GetVftCcOut()[nCcOutput], nType, nVersion);
     }
@@ -1105,11 +1100,6 @@ public:
             ::WriteCompactSize(s, nCcOutputs);
             for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
                  SerializeScCreationCcOutput(s, nCcOutput, nType, nVersion);
-
-            nCcOutputs = fHashNone ? 0 : (txTo.GetVclCcOut().size());
-            ::WriteCompactSize(s, nCcOutputs);
-            for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
-                 SerializeCertifierLockCcOutput(s, nCcOutput, nType, nVersion);
 
             nCcOutputs = fHashNone ? 0 : (txTo.GetVftCcOut().size());
             ::WriteCompactSize(s, nCcOutputs);

@@ -1251,25 +1251,6 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
             // Bring the best block into scope: it's gonna be needed for CheckInputsTx hereinafter
             view.GetBestBlock();
- 
-            // If any of the inputs comes from a certificate, we make sure to have its sidechain in cache
-            // before rotating backend view to dummy
-            for(const CTxIn& in: cert.GetVin()) {
-                const CCoins *coins = view.AccessCoins(in.prevout.hash);
-                assert(coins);
-
-                if (coins->IsFromCert()) { //This is just to avoid following assert for non-cert coins
-                    // HaveInputs above checks for utxos availability. So accessing vout[in.prevout.n] is safe
-                    assert(coins->IsAvailable(in.prevout.n));
-
-
-                    //check on vout is better than coins->IsFromCert() since it'll skip loading scInfo for zero bwt amount certs
-                    if (coins->vout[in.prevout.n].isFromBackwardTransfer) {
-                        assert(view.HaveSidechain(coins->originScId)); //minimal op to pull scinfo into view
-                    }
-                }
-            }
-
             nFees = cert.GetFeeAmount(view.GetValueIn(cert));
  
             // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
@@ -1525,24 +1506,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
  
             // Bring the best block into scope
             view.GetBestBlock();
-
-            // If any of the inputs comes from a certificate, we make sure to have its sidechain in cache
-            // before rotating backend view to dummy
-            for(const CTxIn& in: tx.GetVin()) {
-                const CCoins *coins = view.AccessCoins(in.prevout.hash);
-                assert(coins);
-
-                if (coins->IsFromCert()) { //This is just to avoid following assert for non-cert coins
-                    // HaveInputs above checks for utxos availability. So accessing vout[in.prevout.n] is safe
-                    assert(coins->IsAvailable(in.prevout.n));
-
-
-                    //check on vout is better than coins->IsFromCert() since it'll skip loading scInfo for zero bwt amount certs
-                    if (coins->vout[in.prevout.n].isFromBackwardTransfer) {
-                        assert(view.HaveSidechain(coins->originScId)); //minimal op to pull scinfo into view
-                    }
-                }
-            }
 
             nFees = tx.GetFeeAmount(view.GetValueIn(tx));
  
@@ -2031,13 +1994,13 @@ void static InvalidBlockFound(CBlockIndex *pindex, const CValidationState &state
     }
 }
 
-void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight)
+void UpdateCoins(const CTransaction& tx, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight)
 {
     // mark inputs spent
-    if (!txBase.IsCoinBase())
+    if (!tx.IsCoinBase())
     {
-        txundo.vprevout.reserve(txBase.GetVin().size());
-        for(const CTxIn &txin: txBase.GetVin())
+        txundo.vprevout.reserve(tx.GetVin().size());
+        for(const CTxIn &txin: tx.GetVin())
         {
             CCoinsModifier coins = inputs.ModifyCoins(txin.prevout.hash);
             unsigned nPos = txin.prevout.n;
@@ -2049,32 +2012,55 @@ void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoins
             coins->Spend(nPos);
             if (coins->vout.size() == 0 || coins->vout[nPos].isFromBackwardTransfer) {
                 CTxInUndo& undo = txundo.vprevout.back();
-                undo.nHeight = coins->nHeight;
-                undo.fCoinBase = coins->fCoinBase;
-                undo.nVersion = coins->nVersion;
-                undo.originScId = coins->originScId;
+                undo.nHeight            = coins->nHeight;
+                undo.fCoinBase          = coins->fCoinBase;
+                undo.nVersion           = coins->nVersion;
+                undo.nBwtMaturityHeight = coins->nBwtMaturityHeight;
             }
         }
     }
 
     // spend nullifiers
-    for(const JSDescription &joinsplit: txBase.GetVjoinsplit()) {
+    for(const JSDescription &joinsplit: tx.GetVjoinsplit()) {
         for(const uint256 &nf: joinsplit.nullifiers) {
             inputs.SetNullifier(nf, true);
         }
     }
 
     // add outputs
-    LogPrint("cert", "%s():%d - adding outputs of tx[%s] to coins\n", __func__, __LINE__, txBase.GetHash().ToString());
-    inputs.ModifyCoins(txBase.GetHash())->FromTx(txBase, nHeight);
-    LogPrint("cert", "%s():%d - Exiting: txBase[%s] - coins %s\n",
-        __func__, __LINE__, txBase.GetHash().ToString(), inputs.ModifyCoins(txBase.GetHash())->ToString() );
+    inputs.ModifyCoins(tx.GetHash())->From(tx, nHeight);
 }
 
-void UpdateCoins(const CTransactionBase& txBase, CValidationState &state, CCoinsViewCache &inputs, int nHeight)
+void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight)
 {
-    CTxUndo txundo;
-    UpdateCoins(txBase, state, inputs, txundo, nHeight);
+    // mark inputs spent
+    txundo.vprevout.reserve(cert.GetVin().size());
+    for(const CTxIn &txin: cert.GetVin())
+    {
+        CCoinsModifier coins = inputs.ModifyCoins(txin.prevout.hash);
+        unsigned nPos = txin.prevout.n;
+        assert(coins->IsAvailable(nPos));
+
+        // mark an outpoint spent, and construct undo information
+        txundo.vprevout.push_back(CTxInUndo(coins->vout[nPos]));
+        LogPrint("cert", "%s():%d - spending inputs from [%s]\n", __func__, __LINE__, txin.prevout.hash.ToString());
+        coins->Spend(nPos);
+        if (coins->vout.size() == 0 || coins->vout[nPos].isFromBackwardTransfer) {
+            CTxInUndo& undo = txundo.vprevout.back();
+            undo.nHeight            = coins->nHeight;
+            undo.fCoinBase          = coins->fCoinBase;
+            undo.nVersion           = coins->nVersion;
+            undo.nBwtMaturityHeight = coins->nBwtMaturityHeight;
+        }
+    }
+
+    // add outputs
+    CSidechain sidechain;
+    assert(inputs.GetSidechain(cert.GetScId(), sidechain));
+    int currentEpoch = sidechain.EpochFor(nHeight);
+    int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
+    inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight, bwtMaturityHeight);
+
 }
 
 CScriptCheck::CScriptCheck(): ptxTo(0), nIn(0), chain(nullptr),
@@ -2351,16 +2337,18 @@ static bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const CO
     bool fClean = true;
 
     CCoinsModifier coins = view.ModifyCoins(out.hash);
-    if (undo.nHeight != 0) {
+    if (undo.nHeight != 0)
+    {
         // undo data contains height: this is the last output of the prevout tx being spent
         if (!coins->IsPruned())
             fClean = fClean && error("%s: undo data overwriting existing transaction", __func__);
         coins->Clear();
-        coins->fCoinBase = undo.fCoinBase;
-        coins->nHeight = undo.nHeight;
-        coins->nVersion = undo.nVersion;
-        coins->originScId = undo.originScId;
-    } else {
+        coins->fCoinBase          = undo.fCoinBase;
+        coins->nHeight            = undo.nHeight;
+        coins->nVersion           = undo.nVersion;
+        coins->nBwtMaturityHeight = undo.nBwtMaturityHeight;
+    } else
+    {
         if (coins->IsPruned())
             fClean = fClean && error("%s: undo data adding output to missing transaction", __func__);
     }
@@ -2430,8 +2418,12 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         {
             CCoinsModifier outs = view.ModifyCoins(hash);
             outs->ClearUnspendable();
- 
-            CCoins outsBlock(cert, pindex->nHeight);
+
+            CSidechain sidechain;
+            assert(view.GetSidechain(cert.GetScId(), sidechain));
+            int currentEpoch = sidechain.EpochFor(pindex->nHeight);
+            int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
+            CCoins outsBlock(cert, pindex->nHeight, bwtMaturityHeight);
             // The CCoins serialization does not serialize negative numbers.
             // No network rules currently depend on the version here, so an inconsistency is harmless
             // but it must be corrected before txout nversion ever influences a network rule.
@@ -2792,7 +2784,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if (i > 0) {
             blockundo.vtxundo.push_back(CTxUndo());
         }
-        UpdateCoins(tx, state, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
+        UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
 
         if ( i > 0)
         {
@@ -2863,7 +2855,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
 
         blockundo.vtxundo.push_back(CTxUndo());
-        UpdateCoins(cert, state, view, blockundo.vtxundo.back(), pindex->nHeight);
+        UpdateCoins(cert, view, blockundo.vtxundo.back(), pindex->nHeight);
 
         if (!view.UpdateScInfo(cert, blockundo) )
         {
