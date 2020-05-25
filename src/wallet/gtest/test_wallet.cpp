@@ -1089,7 +1089,6 @@ TEST(wallet_tests, SetBestChainIgnoresTxsWithoutShieldedData) {
 
     // Set up transparent address
 	CKey tsk;
-	CBasicKeyStore m_keystore;
 	tsk.MakeNewKey(true);
     //CKey tsk = DecodeSecret(tSecretRegtest);
     wallet.AddKey(tsk);
