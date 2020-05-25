@@ -249,25 +249,43 @@ UniValue getdifficulty(const UniValue& params, bool fHelp)
     return GetNetworkDifficulty();
 }
 
-void AddDependancy(const CTransactionBase& txBase, UniValue& info)
+void AddDependancy(const CTransaction& tx, UniValue& info)
 {
     set<string> setDepends;
-    BOOST_FOREACH(const CTxIn& txin, txBase.GetVin())
+    BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
     {
         if (mempool.exists(txin.prevout.hash))
             setDepends.insert(txin.prevout.hash.ToString());
     }
     // the dependancy of a certificate from the sc creation is not considered
-    for (const auto& ft: txBase.GetVftCcOut())
+    for (const auto& ft: tx.GetVftCcOut())
     {
         if (mempool.hasSidechainCreationTx(ft.scId))
         {
             const uint256& scCreationHash = mempool.mapSidechains.at(ft.scId).scCreationTxHash; 
 
             // check if tx is also creating the sc
-            if (scCreationHash != txBase.GetHash())
+            if (scCreationHash != tx.GetHash())
                 setDepends.insert(scCreationHash.ToString());
         }
+    }
+
+    UniValue depends(UniValue::VARR);
+    BOOST_FOREACH(const string& dep, setDepends)
+    {
+        depends.push_back(dep);
+    }
+
+    info.push_back(Pair("depends", depends));
+}
+
+void AddDependancy(const CScCertificate& cert, UniValue& info)
+{
+    set<string> setDepends;
+    BOOST_FOREACH(const CTxIn& txin, cert.GetVin())
+    {
+        if (mempool.exists(txin.prevout.hash))
+            setDepends.insert(txin.prevout.hash.ToString());
     }
 
     UniValue depends(UniValue::VARR);

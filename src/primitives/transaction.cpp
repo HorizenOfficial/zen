@@ -323,8 +323,8 @@ bool CMutableTransaction::add(const CTxForwardTransferOut& out)
 }
 
 //--------------------------------------------------------------------------------------------------------
-CTransactionBase::CTransactionBase() :
-    nVersion(TRANSPARENT_TX_VERSION), vin(), vout() {}
+CTransactionBase::CTransactionBase(int nVersionIn) :
+        nVersion(nVersionIn), vin(), vout() {}
 
 CTransactionBase& CTransactionBase::operator=(const CTransactionBase &tx) {
     *const_cast<uint256*>(&hash) = tx.hash;
@@ -497,8 +497,8 @@ bool CTransactionBase::CheckInputsInteraction(CValidationState &state) const
     return true;
 }
 
-CTransaction::CTransaction() :
-    CTransactionBase(),
+CTransaction::CTransaction(int nVersionIn):
+    CTransactionBase(nVersionIn),
     vjoinsplit(), nLockTime(0),
     vsc_ccout(), vft_ccout(),
     joinSplitPubKey(), joinSplitSig() { }
@@ -556,7 +556,7 @@ unsigned int CTransactionBase::CalculateModifiedSize(unsigned int nTxSize) const
     if (nTxSize == 0)
     {
         // polymorphic call
-        nTxSize = CalculateSize();
+        nTxSize = GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     }
     for (std::vector<CTxIn>::const_iterator it(vin.begin()); it != vin.end(); ++it)
     {
@@ -602,10 +602,10 @@ bool CTransaction::CheckInputsAvailability(CValidationState &state) const
     return true;
 }
 
-bool CTransaction::CheckSerializedSize(CValidationState &state) const
+bool CTransactionBase::CheckSerializedSize(CValidationState &state) const
 {
     BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_TX_SIZE); // sanity
-    if (::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION) > MAX_TX_SIZE)
+    if (GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION) > MAX_TX_SIZE)
         return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
                          REJECT_INVALID, "bad-txns-oversize");
 
@@ -667,13 +667,6 @@ CAmount CTransaction::GetValueOut() const
 
     nValueOut += (GetValueCcOut(vsc_ccout) + GetValueCcOut(vft_ccout));
     return nValueOut;
-}
-
-unsigned int CTransaction::CalculateSize() const
-{
-    unsigned int sz = ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);
-    //LogPrint("cert", "%s():%d - tx[%s]: sz=%u\n", __func__, __LINE__, GetHash().ToString(), sz);
-    return sz;
 }
 
 std::string CTransaction::ToString() const
@@ -741,7 +734,7 @@ void CTransaction::addToScCommitment(std::map<uint256, std::vector<uint256> >& m
 bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const { return true; }
 bool CTransaction::CheckVersionIsStandard(std::string& reason, const int nHeight) const {return true;}
 
-bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
+bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const {return true;}
 void CTransaction::AddToBlock(CBlock* pblock) const { return; }
 void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const {return; }
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return true; }
@@ -759,7 +752,6 @@ std::shared_ptr<BaseSignatureChecker> CTransaction::MakeSignatureChecker(unsigne
 bool CTransaction::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
     bool* pfMissingInputs, bool fRejectAbsurdFee) const { return true; }
 void CTransaction::Relay() const {}
-unsigned int CTransaction::GetSerializeSizeBase(int nType, int nVersion) const { return 0;}
 std::shared_ptr<const CTransactionBase> CTransaction::MakeShared() const
 {
     return std::shared_ptr<const CTransactionBase>();
@@ -767,7 +759,7 @@ std::shared_ptr<const CTransactionBase> CTransaction::MakeShared() const
 
 #else
 //----- 
-bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
+bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const
 {
     CValidationState state;
     return ::AcceptToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
@@ -931,8 +923,6 @@ bool CTransaction::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &
 }
 
 void CTransaction::Relay() const { ::Relay(*this); }
-
-unsigned int CTransaction::GetSerializeSizeBase(int nType, int nVersion) const { return this->GetSerializeSize(nType, nVersion);}
 
 std::shared_ptr<const CTransactionBase>
 CTransaction::MakeShared() const {

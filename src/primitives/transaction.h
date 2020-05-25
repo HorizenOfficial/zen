@@ -626,11 +626,12 @@ protected:
     const uint256 hash;
 
     virtual void UpdateHash() const = 0;
-
 public:
-    virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) = 0;
 
-    CTransactionBase();
+    virtual size_t GetSerializeSize(int nType, int nVersion) const = 0;
+    virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const = 0;
+
+    CTransactionBase(int versionIn = TRANSPARENT_TX_VERSION);
     CTransactionBase& operator=(const CTransactionBase& tx);
     CTransactionBase(const CTransactionBase& tx);
     virtual ~CTransactionBase() {};
@@ -656,8 +657,6 @@ public:
     const std::vector<CTxIn>&         GetVin()        const {return vin;};
     const std::vector<CTxOut>&        GetVout()       const {return vout;};
 
-    virtual const std::vector<CTxScCreationOut>&      GetVscCcOut()   const = 0;
-    virtual const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const = 0;
     virtual const std::vector<JSDescription>&         GetVjoinsplit() const = 0;
     virtual const uint32_t&                           GetLockTime()   const = 0;
     //END OF GETTERS
@@ -667,8 +666,8 @@ public:
     virtual bool CheckVersionIsStandard   (std::string& reason, int nHeight) const = 0;
     virtual bool CheckInputsAvailability  (CValidationState &state) const = 0;
     virtual bool CheckOutputsAvailability (CValidationState &state) const = 0;
-    virtual bool CheckSerializedSize      (CValidationState &state) const = 0;
 
+    bool CheckSerializedSize (CValidationState &state) const;
     bool CheckInputsAmount (CValidationState &state) const;
     bool CheckOutputsAmount(CValidationState &state) const;
     bool CheckInputsDuplication(CValidationState &state) const;
@@ -698,7 +697,6 @@ public:
     virtual bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
         bool* pfMissingInputs, bool fRejectAbsurdFee=false) const = 0;
     virtual void Relay() const = 0;
-    virtual unsigned int GetSerializeSizeBase(int nType, int nVersion) const = 0;
     virtual std::shared_ptr<const CTransactionBase> MakeShared() const = 0;
 
     virtual bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const = 0;
@@ -707,9 +705,6 @@ public:
 
     // return fee amount
     virtual CAmount GetFeeAmount(const CAmount& valueIn) const = 0;
-
-    // Compute tx size
-    virtual unsigned int CalculateSize() const = 0;
 
     virtual std::string EncodeHex() const = 0;
     virtual std::string ToString() const = 0;
@@ -743,6 +738,19 @@ public:
         std::vector<CScriptCheck> *pvChecks = NULL) const { return true; }
 
     virtual const uint256 getJoinSplitPubKey() const { return uint256(); }
+
+    static bool IsCertificate(int nVersion) {
+        return (nVersion == SC_CERT_VERSION);
+    }
+
+    static bool IsTransaction(int nVersion) {
+        return (
+            nVersion == TRANSPARENT_TX_VERSION ||
+            nVersion == PHGR_TX_VERSION        ||
+            nVersion == GROTH_TX_VERSION       ||
+            nVersion == SC_TX_VERSION 
+        );
+    }
 };
 
 struct CMutableTransaction;
@@ -756,7 +764,7 @@ protected:
     void UpdateHash() const override;
 
 public:
-    virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) override final;
+    virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const override final;
     typedef boost::array<unsigned char, 64> joinsplit_sig_t;
 
     // Transactions that include a list of JoinSplits are version 2.
@@ -781,7 +789,7 @@ public:
     const joinsplit_sig_t joinSplitSig = {{0}};
 
     /** Construct a CTransaction that qualifies as IsNull() */
-    CTransaction();
+    CTransaction(int nVersionIn = TRANSPARENT_TX_VERSION);
 
     /** Convert a CMutableTransaction into a CTransaction. */
     CTransaction(const CMutableTransaction &tx);
@@ -789,12 +797,24 @@ public:
     CTransaction& operator=(const CTransaction& tx);
     CTransaction(const CTransaction& tx);
 
-    ADD_SERIALIZE_METHODS;
+    size_t GetSerializeSize(int nType, int nVersion) const override {
+        CSizeComputer s(nType, nVersion);
+        NCONST_PTR(this)->SerializationOp(s, CSerActionSerialize(), nType, nVersion);
+        return s.size();
+    };
+
+    template<typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const {
+        NCONST_PTR(this)->SerializationOp(s, CSerActionSerialize(), nType, nVersion);
+    }
+    template<typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion) {
+        SerializationOp(s, CSerActionUnserialize(), nType, nVersion);
+    }
+
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(*const_cast<int32_t*>(&this->nVersion));
-        nVersion = this->nVersion;
+    inline void SerializationOpInternal(Stream& s, Operation ser_action, int nType, int unused) {
         READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
         READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
         if (this->IsScVersion())
@@ -804,7 +824,7 @@ public:
         }
         READWRITE(*const_cast<uint32_t*>(&nLockTime));
         if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {
-            auto os = WithTxVersion(&s, static_cast<int>(this->nVersion));
+            auto os = WithTxVersion(&s, static_cast<int>(nVersion));
             ::SerReadWrite(os, *const_cast<std::vector<JSDescription>*>(&vjoinsplit), nType, nVersion, ser_action);
             if (vjoinsplit.size() > 0) {
                 READWRITE(*const_cast<uint256*>(&joinSplitPubKey));
@@ -814,11 +834,16 @@ public:
         if (ser_action.ForRead())
             UpdateHash();
     }
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int unused) {
+        READWRITE(*const_cast<int32_t*>(&nVersion));
+        SerializationOpInternal(s, ser_action, nType, unused);
+    }
+
     template <typename Stream>
     CTransaction(deserialize_type, Stream& s) : CTransaction(CMutableTransaction(deserialize, s)) {}
     
-    unsigned int CalculateSize() const override;
-
     std::string EncodeHex() const override;
 
     bool IsNull() const override
@@ -845,8 +870,8 @@ public:
     }
 
     //GETTERS
-    const std::vector<CTxScCreationOut>&      GetVscCcOut()   const override { return vsc_ccout; }
-    const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const override { return vft_ccout; }
+    const std::vector<CTxScCreationOut>&      GetVscCcOut()   const { return vsc_ccout; }
+    const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const { return vft_ccout; }
     const std::vector<JSDescription>&         GetVjoinsplit() const override { return vjoinsplit;};
     const uint32_t&                           GetLockTime()   const override { return nLockTime;};
     //END OF GETTERS
@@ -856,14 +881,12 @@ public:
     bool CheckVersionIsStandard   (std::string& reason, int nHeight) const override;
     bool CheckInputsAvailability  (CValidationState &state) const override;
     bool CheckOutputsAvailability (CValidationState &state) const override;
-    bool CheckSerializedSize      (CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     //END OF CHECK FUNCTIONS
 
     bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
         bool* pfMissingInputs, bool fRejectAbsurdFee=false) const override;
     void Relay() const override;
-    unsigned int GetSerializeSizeBase(int nType, int nVersion) const override;
     std::shared_ptr<const CTransactionBase> MakeShared() const override;
 
     // Return sum of txouts.

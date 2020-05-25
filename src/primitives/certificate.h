@@ -23,7 +23,7 @@ public:
     const uint256 endEpochBlockHash;
 
     /** Construct a CScCertificate that qualifies as IsNull() */
-    CScCertificate();
+    CScCertificate(int versionIn = SC_CERT_VERSION);
 
     /** Convert a CMutableScCertificate into a CScCertificate.  */
     CScCertificate(const CMutableScCertificate &tx);
@@ -43,11 +43,23 @@ public:
 
     const uint256& GetHash() const { return hash; }
 
-    ADD_SERIALIZE_METHODS;
+    size_t GetSerializeSize(int nType, int nVersion) const override {
+        CSizeComputer s(nType, nVersion);
+        NCONST_PTR(this)->SerializationOp(s, CSerActionSerialize(), nType, nVersion);
+        return s.size();
+    };
+
+    template<typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const {
+        NCONST_PTR(this)->SerializationOp(s, CSerActionSerialize(), nType, nVersion);
+    }
+    template<typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion) {
+        SerializationOp(s, CSerActionUnserialize(), nType, nVersion);
+    }
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(*const_cast<int32_t*>(&this->nVersion));
+    inline void SerializationOpInternal(Stream& s, Operation ser_action, int nType, int unused) {
         READWRITE(*const_cast<uint256*>(&scId));
         READWRITE(*const_cast<int32_t*>(&epochNumber));
         READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
@@ -94,12 +106,16 @@ public:
             UpdateHash();
     }
 
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int unused) {
+        READWRITE(*const_cast<int32_t*>(&nVersion));
+        SerializationOpInternal(s, ser_action, nType, unused);
+    }
+
     template <typename Stream>
     CScCertificate(deserialize_type, Stream& s) : CScCertificate(CMutableScCertificate(deserialize, s)) {}
 
     //GETTERS
-    const std::vector<CTxScCreationOut>&      GetVscCcOut()   const override {static const  std::vector<CTxScCreationOut> noVsc; return noVsc; }
-    const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const override {static const  std::vector<CTxForwardTransferOut> noVft; return noVft; }
     const std::vector<JSDescription>&         GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
     const uint256&                            GetScId()       const          {return scId;};
     const uint32_t&                           GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
@@ -110,14 +126,12 @@ public:
     bool CheckVersionIsStandard   (std::string& reason, int nHeight) const override;
     bool CheckInputsAvailability  (CValidationState &state) const override;
     bool CheckOutputsAvailability (CValidationState &state) const override;
-    bool CheckSerializedSize      (CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     //END OF CHECK FUNCTIONS
 
     bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
         bool* pfMissingInputs, bool fRejectAbsurdFee=false) const override;
     void Relay() const override;
-    unsigned int GetSerializeSizeBase(int nType, int nVersion) const override;
     std::shared_ptr<const CTransactionBase> MakeShared() const override;
 
     bool IsNull() const override {
@@ -130,8 +144,6 @@ public:
     }
 
     CAmount GetFeeAmount(const CAmount& valueIn) const override;
-
-    unsigned int CalculateSize() const override;
 
     std::string EncodeHex() const override;
     std::string ToString() const override;
@@ -147,7 +159,7 @@ public:
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
     bool CheckFinal(int flags) const override;
 
-    bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) override final;
+    bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const override final;
 
     std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
         unsigned int nIn, const CChain* chain, bool cacheStore) const override;

@@ -129,13 +129,13 @@ struct CRecipient
 
 typedef std::map<std::string, std::string> mapValue_t;
 
-class CWalletObjBase;
+class CWalletTransactionBase;
 class CAccountingEntry;
 
-typedef std::pair<CWalletObjBase*, CAccountingEntry*> TxPair;
+typedef std::pair<CWalletTransactionBase*, CAccountingEntry*> TxPair;
 typedef std::multimap<int64_t, TxPair > TxItems;
 
-typedef std::pair<CWalletObjBase*, std::vector<CWalletObjBase*> > TxWithInputsPair;
+typedef std::pair<CWalletTransactionBase*, std::vector<CWalletTransactionBase*> > TxWithInputsPair;
 typedef std::map<int64_t, TxWithInputsPair> MapTxWithInputs;
 
 static void ReadOrderPos(int64_t& nOrderPos, mapValue_t& mapValue)
@@ -289,11 +289,12 @@ struct CNotePlaintextEntry
     libzcash::NotePlaintext plaintext;
 };
 
-class MerkleAbstractBase : virtual public CTransactionBase
+class CWalletTransactionBase
 {
 protected:
     virtual int GetIndexInBlock(const CBlock& block) = 0;
     int GetDepthInMainChainINTERNAL(const CBlockIndex* &pindexRet) const;
+
 public:
     uint256 hashBlock;
     std::vector<uint256> vMerkleBranch;
@@ -302,15 +303,6 @@ public:
     // memory only
     mutable bool fMerkleVerified;
 
-    void Init()
-    {
-        hashBlock = uint256();
-        nIndex = -1;
-        fMerkleVerified = false;
-    }
-
-    virtual uint256 GetObjHash() const = 0;
-
     /**
      * Return depth of transaction in blockchain:
      * -1  : not in blockchain, and not in memory pool (conflicted transaction)
@@ -318,78 +310,11 @@ public:
      * >=1 : this many blocks deep in the main chain
      */
     int GetDepthInMainChain(const CBlockIndex* &pindexRet) const;
-    int GetDepthInMainChain() const { const CBlockIndex *pindexRet; return GetDepthInMainChain(pindexRet); }
-
     int SetMerkleBranch(const CBlock& block);
+
+    int GetDepthInMainChain() const { const CBlockIndex *pindexRet; return GetDepthInMainChain(pindexRet); }
     bool IsInMainChain() const { const CBlockIndex *pindexRet; return GetDepthInMainChainINTERNAL(pindexRet) > 0; }
-    bool AcceptToMemoryPool(bool fLimitFree=true, bool fRejectAbsurdFee=true);
-};
 
-/** A transaction with a merkle branch linking it to the block chain. */
-class CMerkleTx : public CTransaction, virtual public MerkleAbstractBase
-{
-    int GetIndexInBlock(const CBlock& block) override;
-public:
-    CMerkleTx(const CMerkleTx&) = default;
-
-    CMerkleTx()
-    {
-        Init();
-    }
-
-    CMerkleTx(const CTransaction& txIn) : CTransaction(txIn)
-    {
-        Init();
-    }
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(*(CTransaction*)this);
-        nVersion = this->nVersion;
-        READWRITE(hashBlock);
-        READWRITE(vMerkleBranch);
-        READWRITE(nIndex);
-    }
-
-    uint256 GetObjHash() const override { return GetHash(); }
-};
-
-/** A certificate with a merkle branch linking it to the block chain. */
-class CMerkleCert : public CScCertificate, virtual public MerkleAbstractBase
-{
-    int GetIndexInBlock(const CBlock& block) override;
-
-public:
-    CMerkleCert(const CMerkleCert&) = default;
-
-    CMerkleCert()
-    {
-        Init();
-    }
-
-    CMerkleCert(const CScCertificate& certIn) : CScCertificate(certIn)
-    {
-        Init();
-    }
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(*(CScCertificate*)this);
-        nVersion = this->nVersion;
-        READWRITE(hashBlock);
-        READWRITE(vMerkleBranch);
-        READWRITE(nIndex);
-    }
-
-    uint256 GetObjHash() const override { return GetHash(); }
-};
-
-class CWalletObjBase : virtual public MerkleAbstractBase
-{
 private:
     // memory only
     mutable bool fDebitCached;
@@ -416,11 +341,13 @@ public:
 
 protected:
     const CWallet* pwallet;
-
+    const CTransactionBase* pTxBase;
 public:
-    CWalletObjBase& operator=(const CWalletObjBase& o) = default;
-    CWalletObjBase(const CWalletObjBase&) = default;
-    CWalletObjBase() = default;
+    explicit CWalletTransactionBase(const CWallet* pwalletIn, const CTransactionBase& refTxBase): pwallet(pwalletIn), pTxBase(&refTxBase) { Reset(pwalletIn); }
+    CWalletTransactionBase& operator=(const CWalletTransactionBase& o) = default;
+    CWalletTransactionBase(const CWalletTransactionBase&) = default;
+    virtual ~CWalletTransactionBase() = default;
+    const CTransactionBase* const getTxBase() const {return pTxBase;}
 
     mapValue_t mapValue;
     std::vector<std::pair<std::string, std::string> > vOrderForm; // ???
@@ -430,6 +357,19 @@ public:
     char fFromMe;
     std::string strFromAccount;
     int64_t nOrderPos; //! position in ordered transaction list
+
+    // useful in gtest
+    friend bool operator==(const CWalletTransactionBase& a, const CWalletTransactionBase& b) {
+        if (a.pTxBase->IsCertificate() && !b.pTxBase->IsCertificate())
+            return false;
+        if (!a.pTxBase->IsCertificate() && b.pTxBase->IsCertificate())
+            return false;
+
+        if (a.pTxBase->IsCertificate())
+            return (*dynamic_cast<const CScCertificate*>(a.pTxBase) == *dynamic_cast<const CScCertificate*>(b.pTxBase));
+        else
+            return (*dynamic_cast<const CTransaction*>(a.pTxBase) == *dynamic_cast<const CTransaction*>(b.pTxBase));
+    }
 
     void BindWallet(CWallet *pwalletIn)
     {
@@ -514,11 +454,15 @@ public:
     virtual const mapNoteData_t* GetMapNoteData() const { return nullptr; }
     virtual void SetMapNoteData(mapNoteData_t& m) {}
 
-    void Init(const CWallet* pwalletIn)
+protected:
+    void Reset(const CWallet* pwalletIn)
     {
+        hashBlock.SetNull();
+        vMerkleBranch.clear();
+        nIndex = -1;
+        fMerkleVerified = false;
         pwallet = pwalletIn;
         mapValue.clear();
-        //mapNoteData.clear();
         vOrderForm.clear();
         fTimeReceivedIsTxTime = false;
         nTimeReceived = 0;
@@ -546,48 +490,35 @@ public:
         nOrderPos = -1;
     }
 
-    virtual std::shared_ptr<CWalletObjBase> MakeWalletMapObject() const = 0;
-    static std::shared_ptr<CWalletObjBase> MakeWalletObjectBase(const CTransactionBase& obj, const CWallet* pwallet);
+public:
+    virtual std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const = 0;
+    static std::shared_ptr<CWalletTransactionBase> MakeWalletObjectBase(const CTransactionBase& obj, const CWallet* pwallet);
 
-    void AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletObjBase*>& vtxIn) const;
+    void AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletTransactionBase*>& vtxIn) const;
     void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const;
     void addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const;
-
 };
 
 /** 
  * A transaction with a bunch of additional info that only the owner cares about.
  * It includes any unrecorded transactions needed to link it back to the block chain.
  */
-class CWalletTx : public CMerkleTx, public CWalletObjBase
+class CWalletTx : public CTransaction, public CWalletTransactionBase
 {
+protected:
+    int GetIndexInBlock(const CBlock& block) override final;
+
 public:
     mapNoteData_t mapNoteData;
 
-    CWalletTx(const CWalletTx&) = default;
+    explicit CWalletTx() : CTransaction(), CWalletTransactionBase(nullptr, *this) {}
+    explicit CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CTransaction(txIn), CWalletTransactionBase(pwalletIn, *this) {}
+    CWalletTx(const CWalletTx& rhs);
+    CWalletTx& operator=(const CWalletTx& rhs);
 
-    CWalletTx()
-    {
-        Init(NULL);
-        mapNoteData.clear();
-    }
-
-    CWalletTx(const CWallet* pwalletIn)
-    {
-        Init(pwalletIn);
-        mapNoteData.clear();
-    }
-
-    CWalletTx(const CWallet* pwalletIn, const CMerkleTx& txIn) : CMerkleTx(txIn)
-    {    
-        Init(pwalletIn);
-        mapNoteData.clear();
-    }
-
-    CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CMerkleTx(txIn)
-    {
-        Init(pwalletIn);
-        mapNoteData.clear();
+    // useful in gtest
+    friend bool operator==(const CWalletTx& a, const CWalletTx& b) {
+        return (CTransaction&)a == (CTransaction&)b;
     }
 
     ADD_SERIALIZE_METHODS;
@@ -595,7 +526,7 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         if (ser_action.ForRead())
-            Init(NULL);
+            CWalletTransactionBase::Reset(nullptr);
         char fSpent = false;
 
         if (!ser_action.ForRead())
@@ -608,8 +539,12 @@ public:
                 mapValue["timesmart"] = strprintf("%u", nTimeSmart);
         }
 
-        READWRITE(*(CMerkleTx*)this);
-        std::vector<CMerkleTx> vUnused; //! Used to be vtxPrev
+        READWRITE(*(CTransaction*)this);
+        nVersion = this->nVersion;
+        READWRITE(hashBlock);
+        READWRITE(vMerkleBranch);
+        READWRITE(nIndex);
+        std::vector<CTransaction> vUnused; //! Used to be vtxPrev
         READWRITE(vUnused);
         READWRITE(mapValue);
         READWRITE(mapNoteData);
@@ -675,33 +610,23 @@ public:
             listScSent.push_back(output);
         }
     }
-    std::shared_ptr<CWalletObjBase> MakeWalletMapObject() const override;
+    std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const override;
 };
 
-class CWalletCert : public CMerkleCert, public CWalletObjBase
+class CWalletCert : public CScCertificate, public CWalletTransactionBase
 {
+protected:
+    int GetIndexInBlock(const CBlock& block) override final;
+
 public:
+    explicit CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn) : CScCertificate(certIn), CWalletTransactionBase(pwalletIn, *this) {}
+    explicit CWalletCert(): CScCertificate(), CWalletTransactionBase(nullptr, *this) {}
+    CWalletCert(const CWalletCert&);
+    CWalletCert& operator=(const CWalletCert& rhs);
 
-    CWalletCert(const CWalletCert&) = default;
-
-    CWalletCert()
-    {
-        Init(NULL);
-    }
-
-    CWalletCert(const CWallet* pwalletIn)
-    {
-        Init(pwalletIn);
-    }
-
-    CWalletCert(const CWallet* pwalletIn, const CMerkleCert& certIn) : CMerkleCert(certIn)
-    {    
-        Init(pwalletIn);
-    }
-
-    CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn) : CMerkleCert(certIn)
-    {
-        Init(pwalletIn);
+    // useful in gtest
+    friend bool operator==(const CWalletCert& a, const CWalletCert& b) {
+        return (CScCertificate&)a == (CScCertificate&)b;
     }
 
     ADD_SERIALIZE_METHODS;
@@ -709,7 +634,7 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         if (ser_action.ForRead())
-            Init(NULL);
+            CWalletTransactionBase::Reset(nullptr);
         char fSpent = false;
 
         if (!ser_action.ForRead())
@@ -722,8 +647,12 @@ public:
                 mapValue["timesmart"] = strprintf("%u", nTimeSmart);
         }
 
-        READWRITE(*(CMerkleCert*)this);
-        std::vector<CMerkleCert> vUnused; //! Used to be vtxPrev
+        READWRITE(*(CScCertificate*)this);
+        nVersion = this->nVersion;
+        READWRITE(hashBlock);
+        READWRITE(vMerkleBranch);
+        READWRITE(nIndex);
+        std::vector<CScCertificate> vUnused; //! Used to be vtxPrev
         READWRITE(vUnused);
         READWRITE(mapValue);
         READWRITE(vOrderForm);
@@ -754,19 +683,19 @@ public:
     bool RelayWalletTransaction() override;
     bool IsInvolvingMe(mapNoteData_t &noteData) const override;
 
-    std::shared_ptr<CWalletObjBase> MakeWalletMapObject() const override;
+    std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const override;
 };
 
 
 class COutput
 {
 public:
-    const CWalletObjBase *tx;
+    const CWalletTransactionBase *tx;
     int pos;
     int nDepth;
     bool fSpendable;
 
-    COutput(const CWalletObjBase *txIn, int posIn, int nDepthIn, bool fSpendableIn):
+    COutput(const CWalletTransactionBase *txIn, int posIn, int nDepthIn, bool fSpendableIn):
         tx(txIn),pos(posIn),nDepth(nDepthIn),fSpendable(fSpendableIn) {}
 
     std::string ToString() const;
@@ -891,7 +820,7 @@ private:
 #if 0
     bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL) const;
 #else
-    bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletObjBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL) const;
+    bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL) const;
 #endif
 
     CWalletDB *pwalletdbEncryption;
@@ -1001,7 +930,7 @@ protected:
     bool UpdatedNoteData(const CWalletTx& wtxIn, CWalletTx& wtx);
     void MarkAffectedTransactionsDirty(const CTransaction& tx);
 #else
-    bool UpdatedNoteData(const CWalletObjBase& wtxIn, CWalletObjBase& wtx);
+    bool UpdatedNoteData(const CWalletTransactionBase& wtxIn, CWalletTransactionBase& wtx);
     void MarkAffectedTransactionsDirty(const CTransactionBase& tx);
 #endif
 
@@ -1111,11 +1040,11 @@ public:
     std::map<uint256, JSOutPoint> mapNullifiersToNotes;
 
 private:
-    std::map<uint256, std::shared_ptr<CWalletObjBase> > mapWallet;
+    std::map<uint256, std::shared_ptr<CWalletTransactionBase> > mapWallet;
 public:
-    const std::map<uint256, std::shared_ptr<CWalletObjBase> > & getMapWallet() const  {return mapWallet;}
+    const std::map<uint256, std::shared_ptr<CWalletTransactionBase> > & getMapWallet() const  {return mapWallet;}
     //No need for mapWallet setter, meaning that mapWallet is only read outside CWallet class
-    typedef std::map<uint256, std::shared_ptr<CWalletObjBase> >::const_iterator MAP_WALLET_CONST_IT;
+    typedef std::map<uint256, std::shared_ptr<CWalletTransactionBase> >::const_iterator MAP_WALLET_CONST_IT;
 
     int64_t nOrderPosNext;
     std::map<uint256, int> mapRequestCount;
@@ -1128,14 +1057,14 @@ public:
 
     int64_t nTimeFirstKey;
 
-    const CWalletObjBase* GetWalletTx(const uint256& hash) const;
+    const CWalletTransactionBase* GetWalletTx(const uint256& hash) const;
 
     //! check whether we are allowed to upgrade (or already support) to the named feature
     bool CanSupportFeature(enum WalletFeature wf) { AssertLockHeld(cs_wallet); return nWalletMaxVersion >= wf; }
 
     void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl = nullptr, bool fIncludeZeroValue=false, bool fIncludeCoinBase=true, bool fIncludeCommunityFund=true) const;
     bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins,
-        std::set<std::pair<const CWalletObjBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet) const;
+        std::set<std::pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet) const;
 
     bool IsSpent(const uint256& hash, unsigned int n) const;
     bool IsSpent(const uint256& nullifier) const;
@@ -1234,8 +1163,8 @@ public:
     void UpdateNullifierNoteMapWithTx(const CWalletTx& wtx);
     bool AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletDB* pwalletdb);
 #else
-    void UpdateNullifierNoteMapWithTx(const CWalletObjBase& wtx);
-    bool AddToWallet(const CWalletObjBase& wtxIn, bool fFromLoadWallet, CWalletDB* pwalletdb);
+    void UpdateNullifierNoteMapWithTx(const CWalletTransactionBase& wtx);
+    bool AddToWallet(const CWalletTransactionBase& wtxIn, bool fFromLoadWallet, CWalletDB* pwalletdb);
 #endif
     void SyncTransaction(const CTransaction& tx, const CBlock* pblock) override;
     void SyncCertificate(const CScCertificate& cert, const CBlock* pblock) override;
@@ -1322,7 +1251,7 @@ public:
     /** should probably be renamed to IsRelevantToMe */
     bool IsFromMe(const CTransaction& tx) const;
     CAmount GetDebit (const CTransactionBase& txBase, const isminefilter& filter) const;
-    CAmount GetCredit(const CWalletObjBase& txWalletBase, const isminefilter& filter,
+    CAmount GetCredit(const CWalletTransactionBase& txWalletBase, const isminefilter& filter,
                       bool& fCanBeCached, bool keepImmatureVoutsOnly) const;
     CAmount GetChange(const CTransactionBase& txBase) const;
 
@@ -1334,7 +1263,7 @@ public:
 #if 0
     DBErrors ZapWalletTx(std::vector<CWalletTx>& vWtx);
 #else
-    DBErrors ZapWalletTx(std::vector<std::shared_ptr<CWalletObjBase> >& vWtx);
+    DBErrors ZapWalletTx(std::vector<std::shared_ptr<CWalletTransactionBase> >& vWtx);
 #endif
 
 

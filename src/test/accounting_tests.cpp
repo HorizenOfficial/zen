@@ -36,7 +36,7 @@ BOOST_AUTO_TEST_CASE(acc_orderupgrade)
 #if 0
     std::vector<CWalletTx*> vpwtx;
 #else
-    std::vector<CWalletObjBase*> vpwtx;
+    std::vector<CWalletTransactionBase*> vpwtx;
 #endif
     CWalletTx wtx;
     CAccountingEntry ae;

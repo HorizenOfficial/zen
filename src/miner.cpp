@@ -106,13 +106,14 @@ void UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, 
     pblock->nTime = std::max(pindexPrev->GetMedianTimePast()+1, GetAdjustedTime());
 }
 
-bool HandleScDependancy(const CTransactionBase& tx, const CCoinsViewCache& view, COrphan*& porphan, list<COrphan>& vOrphan, map<uint256, vector<COrphan*> >& mapDependers)
+bool VerifyForwardTransfersDependencies(const CTransaction& tx, const CCoinsViewCache& view, list<COrphan>& vOrphan, map<uint256, vector<COrphan*> >& mapDependers, COrphan*& porphan)
 {
-    // detect dependancies from the sidechain point of view 
+    // detect dependencies from the sidechain point of view
     for (const auto& ft: tx.GetVftCcOut())
     {
-        if (mempool.hasSidechainCreationTx(ft.scId))
-        {
+        if (view.HaveSidechain(ft.scId) )
+            continue;
+        else if (mempool.hasSidechainCreationTx(ft.scId)) {
             const uint256& scCreationHash = mempool.mapSidechains.at(ft.scId).scCreationTxHash; 
             assert(!scCreationHash.IsNull());
             assert(mempool.exists(scCreationHash));
@@ -130,48 +131,53 @@ bool HandleScDependancy(const CTransactionBase& tx, const CCoinsViewCache& view,
             porphan->setDependsOn.insert(scCreationHash);
             LogPrint("sc", "%s():%d - tx[%s] depends on tx[%s] for sc creation\n",
                 __func__, __LINE__, tx.GetHash().ToString(), scCreationHash.ToString());
-        }
-        else if (!view.HaveSidechain(ft.scId) )
-        {
+        } else {
             // This should never happen; all sc fw transactions in the memory
             // pool should connect to either sidechain in the chain or sidechain created by
             // other transactions in the memory pool.
             LogPrintf("ERROR: mempool transaction missing sidechain\n");
             if (fDebug) assert("mempool transaction missing sidechain" == 0);
-            if (porphan)
-                vOrphan.pop_back();
             return false;
         }
     }
     return true;
 }
 
-void HandleDependancy(const CTransactionBase& txBase, int nHeight, double dPriorityIn, CAmount nFeeIn, const CCoinsViewCache& view, list<COrphan>& vOrphan, map<uint256, vector<COrphan*> >& mapDependers, vector<TxPriority>& vecPriority)
+bool GetTxInputsDependencies(const CTransactionBase& txBase, CAmount& nTotalIn, int nHeight, list<COrphan>& vOrphan,
+                             map<uint256, vector<COrphan*> >& mapDependers, COrphan*& porphan)
 {
-    double dPriority = 0;
-    CAmount nTotalIn = 0;
-    CAmount nFee = 0;
-    unsigned int nTxSize = txBase.GetSerializeSizeBase(SER_NETWORK, PROTOCOL_VERSION);
     const uint256& hash = txBase.GetHash();
-    bool fMissingInputs = false;
-    bool dependsOnCertificateInMempool = false;
-
-    COrphan* porphan = NULL;
 
     // Detect orphan transaction and its dependencies
     BOOST_FOREACH(const CTxIn& txin, txBase.GetVin())
     {
         if (mempool.mapCertificate.count(txin.prevout.hash))
         {
-            // no outputs of a certificate in mempool can be spent, that also apply to certificate change
-            LogPrintf("ERROR: [%s] has unspendable input that is an unconfirmed certificate [%s] output %d\n",
-                hash.ToString(), txin.prevout.hash.ToString(), txin.prevout.n);
-            if (fDebug) assert("mempool transaction unspendable input that is an unconfirmed certificate output" == 0);
+            // - tx cannot spend any output of a certificate in mempool, neither change nor backward transfer
+            // - certificate can only spend change outputs of another certificate in mempool, while backward transfers must mature first
+            const CScCertificate & inputCert = mempool.mapCertificate[txin.prevout.hash].GetCertificate();
 
-            LogPrintf("%s():%d - ERROR: mempool [%s] spends output from certificate[%s] in mempool\n",
-                __func__, __LINE__, txBase.GetHash().ToString(), txin.prevout.hash.ToString() );
-            dependsOnCertificateInMempool = true;
-            break;
+            if (!txBase.IsCertificate() || // this is a tx
+                inputCert.GetVout()[txin.prevout.n].isFromBackwardTransfer ) // out is a backward transfer 
+            {
+                // This should never happen
+                LogPrintf("%s():%d - ERROR: [%s] has unspendable input that is an unconfirmed certificate [%s] output %d\n",
+                    __func__, __LINE__, hash.ToString(), txin.prevout.hash.ToString(), txin.prevout.n);
+
+                if (fDebug) assert("mempool transaction unspendable input that is an unconfirmed certificate output" == 0);
+                return false;
+            }
+            if (!porphan)
+            {
+                // Use list for automatic deletion
+                vOrphan.push_back(COrphan(&txBase));
+                porphan = &vOrphan.back();
+            }
+            mapDependers[txin.prevout.hash].push_back(porphan);
+            porphan->setDependsOn.insert(txin.prevout.hash);
+            nTotalIn += mempool.mapCertificate[txin.prevout.hash].GetCertificate().GetVout()[txin.prevout.n].nValue;
+            LogPrint("sc", "%s():%d - [%s] depends on [%s] for input\n",
+                __func__, __LINE__, txBase.GetHash().ToString(), txin.prevout.hash.ToString());
         }
         else
         if (mempool.mapTx.count(txin.prevout.hash))
@@ -189,22 +195,30 @@ void HandleDependancy(const CTransactionBase& txBase, int nHeight, double dPrior
                 __func__, __LINE__, txBase.GetHash().ToString(), txin.prevout.hash.ToString());
         }
     }
+    return true;
+}
 
-    if (dependsOnCertificateInMempool || !HandleScDependancy(txBase, view, porphan, vOrphan, mapDependers) )
-    {
-        // should never happen because that means inconsistency in mempool, but this tx must not be
-        // added to vecPriority nor in the vOrphan
-        LogPrint("cert", "%s():%d - skipping [%s] for invalid dependancies\n",
-            __func__, __LINE__, txBase.GetHash().ToString() ); 
-        return;
-    }
+bool AddTxToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& view, CAmount& nTotalIn,
+                       int nHeight, const CMemPoolEntry& mpEntry, vector<TxPriority>& vecPriority, COrphan* porphan)
+{
+    const uint256& hash = txBase.GetHash();
+    unsigned int nTxSize = txBase.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    double dPriority = 0;
+    CAmount nFee = 0;
 
     // Has to wait for dependencies
     if (!porphan)
     {
-        dPriority = dPriorityIn,
-        nFee = nFeeIn;
+        dPriority = mpEntry.GetPriority(nHeight);
+        nFee = mpEntry.GetFee();
         mempool.ApplyDeltas(hash, dPriority, nFee);
+
+        CFeeRate feeRate(nFee, nTxSize);
+
+        LogPrint("sc", "%s():%d - adding to prio vec txObj = %s, prio=%f, feeRate=%s\n",
+            __func__, __LINE__, hash.ToString(), dPriority, feeRate.ToString());
+ 
+        vecPriority.push_back(TxPriority(dPriority, feeRate, &txBase));
     }
     else
     {
@@ -223,10 +237,7 @@ void HandleDependancy(const CTransactionBase& txBase, int nHeight, double dPrior
                 // or other transactions in the memory pool (not certificates in mempool, see above).
                 LogPrintf("ERROR: mempool transaction missing input\n");
                 if (fDebug) assert("mempool transaction missing input" == 0);
-                fMissingInputs = true;
-                if (porphan)
-                    vOrphan.pop_back();
-                break;
+                return false;
             }
             const CCoins* coins = view.AccessCoins(txin.prevout.hash);
             assert(coins);
@@ -240,49 +251,46 @@ void HandleDependancy(const CTransactionBase& txBase, int nHeight, double dPrior
         }
         nTotalIn += txBase.GetJoinSplitValueIn();
 
-        if (fMissingInputs)
-        {
-            return;
-        }
-
         // Priority is sum(valuein * age) / modified_txsize
         dPriority = txBase.ComputePriority(dPriority, nTxSize);
         mempool.ApplyDeltas(hash, dPriority, nTotalIn);
         //nFee = nTotalIn - tx.GetValueOut();
         nFee = txBase.GetFeeAmount(nTotalIn);
-    }
 
-    CFeeRate feeRate(nFee, nTxSize);
+        CFeeRate feeRate(nFee, nTxSize);
 
-    if (porphan)
-    {
         porphan->dPriority = dPriority;
         porphan->feeRate = feeRate;
     }
-    else
-    {
-        LogPrint("sc", "%s():%d - adding to prio vec txObj = %s, prio=%f, feeRate=%s\n",
-            __func__, __LINE__, hash.ToString(), dPriority, feeRate.ToString());
- 
-        vecPriority.push_back(TxPriority(dPriority, feeRate, &txBase));
-    }
+    return true;
 }
 
 void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, const CCoinsViewCache& view, 
                                vector<TxPriority>& vecPriority, list<COrphan>& vOrphan, map<uint256, vector<COrphan*> >& mapDependers)
 {
-    AssertLockHeld(mempool.cs); 
-
-    for (auto it_cert = mempool.mapCertificate.begin();
-         it_cert != mempool.mapCertificate.end(); ++it_cert)
+    for (auto mi = mempool.mapCertificate.begin();
+         mi != mempool.mapCertificate.end(); ++mi)
     {
-        const CScCertificate& cert = it_cert->second.GetCertificate();
+        const CScCertificate& cert = mi->second.GetCertificate();
         const uint256& hash = cert.GetHash();
 
-        double dPriorityIn = it_cert->second.GetPriority(nHeight);
-        CAmount nFeeIn = it_cert->second.GetFee();
+        CAmount nTotalIn = 0;
+        COrphan* porphan = nullptr;
 
-        HandleDependancy(cert, nHeight, dPriorityIn, nFeeIn, view, vOrphan, mapDependers, vecPriority);
+        if (!GetTxInputsDependencies(cert, nTotalIn, nHeight, vOrphan, mapDependers, porphan) )
+        {
+            if (porphan)
+                vOrphan.pop_back();
+            continue;
+        }
+
+        const CMemPoolEntry& mpEntry = mi->second;
+        if (!AddTxToPriorities(cert, view, nTotalIn, nHeight, mpEntry, vecPriority, porphan) )
+        {
+            if (porphan)
+                vOrphan.pop_back();
+            continue;
+        }
     }
 }
 
@@ -299,14 +307,32 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
                 : pblock->GetBlockTime();
 
         if (tx.IsCoinBase() || !IsFinalTx(tx, nHeight, nLockTimeCutoff))
+            continue;
+
+        CAmount nTotalIn = 0;
+        COrphan* porphan = nullptr;
+
+        if (!GetTxInputsDependencies(tx, nTotalIn, nHeight, vOrphan, mapDependers, porphan) )
         {
+            if (porphan)
+                vOrphan.pop_back();
             continue;
         }
 
-        double dPriorityIn =  mi->second.GetPriority(nHeight);
-        CAmount nFeeIn =  mi->second.GetFee();
+        if (!VerifyForwardTransfersDependencies(tx, view, vOrphan, mapDependers, porphan) )
+        {
+            if (porphan)
+                vOrphan.pop_back();
+            continue;
+        }
 
-        HandleDependancy(tx, nHeight, dPriorityIn, nFeeIn, view, vOrphan, mapDependers, vecPriority);
+        const CMemPoolEntry& mpEntry = mi->second;
+        if (!AddTxToPriorities(tx, view, nTotalIn, nHeight, mpEntry, vecPriority, porphan) )
+        {
+            if (porphan)
+                vOrphan.pop_back();
+            continue;
+        }
     }
 }
 
@@ -327,7 +353,7 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
         if (tx.IsCoinBase() || !IsFinalTx(tx, nHeight, nLockTimeCutoff))
             continue;
 
-        COrphan* porphan = NULL;
+        COrphan* porphan = nullptr;
         double dPriority = 0;
         CAmount nTotalIn = 0;
         bool fMissingInputs = false;
@@ -339,7 +365,8 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
                 // This should never happen; all transactions in the memory
                 // pool should connect to either transactions in the chain
                 // or other transactions in the memory pool.
-                if (!mempool.exists(txin.prevout.hash))
+                // This also consider that the tx input can not be any output of a certificate in mempool
+                if (!mempool.mapTx.count(txin.prevout.hash))
                 {
                     LogPrintf("ERROR: mempool transaction missing input\n");
                     if (fDebug) assert("mempool transaction missing input" == 0);
@@ -356,39 +383,9 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
                     vOrphan.push_back(COrphan(&tx));
                     porphan = &vOrphan.back();
                 }
-                if (mempool.mapTx.count(txin.prevout.hash))
-                {
-                    mapDependers[txin.prevout.hash].push_back(porphan);
-                    porphan->setDependsOn.insert(txin.prevout.hash);
-                    nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().GetVout()[txin.prevout.n].nValue;
-                    LogPrint("sc", "%s():%d - tx[%s] depends on tx[%s] for input\n",
-                        __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
-                }
-                else
-                {
-                    //only change outputs can be spent, while backward transfers must mature first
-                    const CScCertificate & inputCert = mempool.mapCertificate[txin.prevout.hash].GetCertificate();
-                    if (txin.prevout.n >= inputCert.GetVout().size() || inputCert.GetVout().at(txin.prevout.n).isFromBackwardTransfer)
-                    {
-                        // This should never happen; an output from a certificate cannot be spent before next-epoch safeguard height has been reached.
-                        // We skip the entire transaction
-                        LogPrintf("ERROR: mempool transaction missing input\n");
-                        if (fDebug) assert("mempool transaction missing input" == 0);
-  
-                        LogPrintf("%s():%d - ERROR: mempool [%s] spends backward transfer from certificate[%s] in mempool\n",
-                            __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString() );
-                        fMissingInputs = true;
-                        break;
-                    }
-                    else
-                    {
-                        mapDependers[txin.prevout.hash].push_back(porphan);
-                        porphan->setDependsOn.insert(txin.prevout.hash);
-                        nTotalIn += inputCert.GetVout()[txin.prevout.n].nValue;
-                        LogPrint("sc", "%s():%d - [%s] depends on cert[%s] for input\n",
-                            __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
-                    }
-                }
+                mapDependers[txin.prevout.hash].push_back(porphan);
+                porphan->setDependsOn.insert(txin.prevout.hash);
+                nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().GetVout()[txin.prevout.n].nValue;
                 continue;
             }
             const CCoins* coins = view.AccessCoins(txin.prevout.hash);
@@ -405,11 +402,11 @@ void GetBlockTxPriorityDataOld(const CBlock *pblock, int nHeight, int64_t nMedia
 
         if (fMissingInputs) continue;
 
-        if (!HandleScDependancy(tx, view, porphan, vOrphan, mapDependers) )
+        if (!VerifyForwardTransfersDependencies(tx, view, vOrphan, mapDependers, porphan))
         {
             // should never happen because that means inconsistency in mempool, but this tx must not be
             // added to vecPriority nor in the vOrphan
-            LogPrint("cert", "%s():%d - skipping tx[%s] for invalid dependancies\n",
+            LogPrint("cert", "%s():%d - skipping tx[%s] for invalid dependencies\n",
                 __func__, __LINE__, tx.GetHash().ToString() ); 
             continue;
         }
@@ -542,11 +539,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             vecPriority.pop_back();
 
             // Size limits
-#if 0
-            unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
-#else
-            unsigned int nTxSize = tx.CalculateSize();
-#endif
+            unsigned int nTxSize = tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
             if (nBlockSize + nTxSize >= nBlockMaxSize)
                 continue;
 
@@ -584,7 +577,11 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 continue;
 
             if (!view.HaveInputs(tx))
+            {
+                LogPrint("sc", "%s():%d - Skipping [%s] because it has no inputs\n",
+                    __func__, __LINE__, tx.GetHash().ToString() );
                 continue;
+            }
 
             CAmount nTxFees = tx.GetFeeAmount(view.GetValueIn(tx));
 #if 0
@@ -597,7 +594,11 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
             nTxSigOps += GetP2SHSigOpCount(tx, view);
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
+            {
+                LogPrint("sc", "%s():%d - Skipping [%s] because too many sigops in block\n",
+                    __func__, __LINE__, tx.GetHash().ToString() );
                 continue;
+            }
 
             // Note that flags: we don't want to set mempool/IsStandard()
             // policy here, but we still have to ensure that the block we
@@ -653,7 +654,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                         LogPrint("sc", "%s():%d - erasing tx[%s] frim orphan %p\n", __func__, __LINE__, hash.ToString(), porphan);
                         if (porphan->setDependsOn.empty())
                         {
-                            LogPrint("sc", "%s():%d - tx[%s] resolved all dependancies, adding to prio vec\n",
+                            LogPrint("sc", "%s():%d - tx[%s] resolved all dependencies, adding to prio vec\n",
                                 __func__, __LINE__, porphan->ptx->GetHash().ToString());
                             vecPriority.push_back(TxPriority(porphan->dPriority, porphan->feeRate, porphan->ptx));
                             std::push_heap(vecPriority.begin(), vecPriority.end(), comparer);
@@ -712,7 +713,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
         // Fill in header
         pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
-        pblock->hashScTxsCommitment = uint256();
+        pblock->hashScTxsCommitment = pblock->BuildScTxsCommitment();
         UpdateTime(pblock, Params().GetConsensus(), pindexPrev);
         pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock, Params().GetConsensus());
         pblock->nSolution.clear();
@@ -792,7 +793,6 @@ void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& 
 
     pblock->vtx[0] = txCoinbase;
     pblock->hashMerkleRoot = pblock->BuildMerkleTree();
-    pblock->hashScTxsCommitment = pblock->BuildScTxsCommitment();
 #ifdef DEBUG_SC_COMMITMENT_HASH
     std::cout << "-------------------------------------------" << std::endl;
     std::cout << "  hashScTxsCommitment: " << pblock->hashScTxsCommitment.ToString() << std::endl;

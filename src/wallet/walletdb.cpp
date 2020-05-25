@@ -62,23 +62,25 @@ bool CWalletDB::WriteTx(uint256 hash, const CWalletTx& wtx)
     return Write(std::make_pair(std::string("tx"), hash), wtx);
 }
 #else
-bool CWalletDB::WriteTx(uint256 hash, const CWalletObjBase& obj)
+bool CWalletDB::WriteTx(uint256 hash, const CWalletTransactionBase& obj)
 {
+    const CTransactionBase* const pRef = obj.getTxBase();
+
     LogPrint("cert", "%s():%d - called for %s[%s], writing to db\n", __func__, __LINE__,
-        obj.IsCertificate()?"cert":"tx", obj.GetHash().ToString());
+            pRef->IsCertificate()?"cert":"tx", pRef->GetHash().ToString());
     
     nWalletDBUpdated++;
 
     try
     {
-        if (obj.IsCertificate() )
+        if (pRef->IsCertificate() )
         {
-            LogPrint("cert", "%s():%d - called for cert[%s], writing to db\n", __func__, __LINE__, obj.GetHash().ToString());
-            return Write(std::make_pair(std::string("cert"), hash), dynamic_cast<const CWalletCert&>(obj));
+            LogPrint("cert", "%s():%d - called for cert[%s], writing to db\n", __func__, __LINE__, pRef->GetHash().ToString());
+            return Write(std::make_pair(std::string("cert"), hash), dynamic_cast<const CWalletCert&>(*pRef));
         }
         else
         {
-            return Write(std::make_pair(std::string("tx"), hash), dynamic_cast<const CWalletTx&>(obj));
+            return Write(std::make_pair(std::string("tx"), hash), dynamic_cast<const CWalletTx&>(*pRef));
         }
     }
     catch (const std::exception &exc)
@@ -372,7 +374,7 @@ DBErrors CWalletDB::ReorderTransactions(CWallet* pwallet)
 #if 0
         txByTime.insert(make_pair(entry.nTime, TxPair((CWalletTx*)0, &entry)));
 #else
-        txByTime.insert(make_pair(entry.nTime, TxPair((CWalletObjBase*)0, &entry)));
+        txByTime.insert(make_pair(entry.nTime, TxPair((CWalletTransactionBase*)0, &entry)));
 #endif
     }
 
@@ -396,7 +398,7 @@ DBErrors CWalletDB::ReorderTransactions(CWallet* pwallet)
 
             if (pwtx)
             {
-                if (!WriteTx(pwtx->GetHash(), *pwtx))
+                if (!WriteTx(pwtx->getTxBase()->GetHash(), *pwtx))
                     return DB_LOAD_FAIL;
             }
             else
@@ -420,7 +422,7 @@ DBErrors CWalletDB::ReorderTransactions(CWallet* pwallet)
             // Since we're changing the order, write it back
             if (pwtx)
             {
-                if (!WriteTx(pwtx->GetHash(), *pwtx))
+                if (!WriteTx(pwtx->getTxBase()->GetHash(), *pwtx))
                     return DB_LOAD_FAIL;
             }
             else
@@ -932,7 +934,7 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
 #if 0
 DBErrors CWalletDB::FindWalletTx(CWallet* pwallet, vector<uint256>& vTxHash, vector<CWalletTx>& vWtx)
 #else
-DBErrors CWalletDB::FindWalletTx(CWallet* pwallet, std::vector<uint256>& vTxHash, std::vector<std::shared_ptr<CWalletObjBase> >& vWtx)
+DBErrors CWalletDB::FindWalletTx(CWallet* pwallet, std::vector<uint256>& vTxHash, std::vector<std::shared_ptr<CWalletTransactionBase> >& vWtx)
 #endif
 {
     pwallet->vchDefaultKey = CPubKey();
@@ -984,7 +986,7 @@ DBErrors CWalletDB::FindWalletTx(CWallet* pwallet, std::vector<uint256>& vTxHash
 #if 0
                 vWtx.push_back(wtx);
 #else
-                vWtx.push_back(std::shared_ptr<CWalletObjBase>(new CWalletTx(wtx)));
+                vWtx.push_back(std::shared_ptr<CWalletTransactionBase>(new CWalletTx(wtx)));
                 LogPrint("cert", "%s():%d - adding tx[%s] to vec\n", __func__, __LINE__, hash.ToString());
             }
             else
@@ -996,7 +998,7 @@ DBErrors CWalletDB::FindWalletTx(CWallet* pwallet, std::vector<uint256>& vTxHash
                 ssValue >> wcert;
 
                 vTxHash.push_back(hash);
-                vWtx.push_back(std::shared_ptr<CWalletObjBase>(new CWalletCert(wcert)));
+                vWtx.push_back(std::shared_ptr<CWalletTransactionBase>(new CWalletCert(wcert)));
                 LogPrint("cert", "%s():%d - adding cert[%s] to vec\n", __func__, __LINE__, hash.ToString());
 #endif
             }
@@ -1019,7 +1021,7 @@ DBErrors CWalletDB::FindWalletTx(CWallet* pwallet, std::vector<uint256>& vTxHash
 #if 0
 DBErrors CWalletDB::ZapWalletTx(CWallet* pwallet, vector<CWalletTx>& vWtx)
 #else
-DBErrors CWalletDB::ZapWalletTx(CWallet* pwallet, std::vector<std::shared_ptr<CWalletObjBase> >& vWtx)
+DBErrors CWalletDB::ZapWalletTx(CWallet* pwallet, std::vector<std::shared_ptr<CWalletTransactionBase> >& vWtx)
 #endif
 {
     // build list of wallet TXs
