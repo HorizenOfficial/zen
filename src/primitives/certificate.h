@@ -23,11 +23,7 @@ public:
     const uint256 endEpochBlockHash;
 
     /** Construct a CScCertificate that qualifies as IsNull() */
-    CScCertificate();
-    explicit CScCertificate(int nVersionIn) :
-       epochNumber(EPOCH_NOT_INITIALIZED),
-       endEpochBlockHash(),
-       CTransactionBase(nVersionIn) {}
+    CScCertificate(int versionIn = SC_CERT_VERSION);
 
     /** Convert a CMutableScCertificate into a CScCertificate.  */
     CScCertificate(const CMutableScCertificate &tx);

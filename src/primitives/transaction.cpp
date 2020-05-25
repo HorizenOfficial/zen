@@ -323,8 +323,8 @@ bool CMutableTransaction::add(const CTxForwardTransferOut& out)
 }
 
 //--------------------------------------------------------------------------------------------------------
-CTransactionBase::CTransactionBase() :
-    nVersion(TRANSPARENT_TX_VERSION), vin(), vout() {}
+CTransactionBase::CTransactionBase(int nVersionIn) :
+        nVersion(nVersionIn), vin(), vout() {}
 
 CTransactionBase& CTransactionBase::operator=(const CTransactionBase &tx) {
     *const_cast<uint256*>(&hash) = tx.hash;
@@ -497,8 +497,8 @@ bool CTransactionBase::CheckInputsInteraction(CValidationState &state) const
     return true;
 }
 
-CTransaction::CTransaction() :
-    CTransactionBase(),
+CTransaction::CTransaction(int nVersionIn):
+    CTransactionBase(nVersionIn),
     vjoinsplit(), nLockTime(0),
     vsc_ccout(), vft_ccout(),
     joinSplitPubKey(), joinSplitSig() { }

@@ -630,8 +630,7 @@ protected:
 public:
     virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) = 0;
 
-    CTransactionBase();
-    explicit CTransactionBase(int nVersionIn) : nVersion(nVersionIn) {}
+    CTransactionBase(int versionIn = TRANSPARENT_TX_VERSION);
     CTransactionBase& operator=(const CTransactionBase& tx);
     CTransactionBase(const CTransactionBase& tx);
     virtual ~CTransactionBase() {};
@@ -745,14 +744,15 @@ public:
 
     virtual const uint256 getJoinSplitPubKey() const { return uint256(); }
 
-    static bool IsCertificateVersion(int nVersion) {
+    static bool IsCertificate(int nVersion) {
         return (nVersion == SC_CERT_VERSION);
     }
-    static bool IsTransactionVersion(int nVersion) {
+
+    static bool IsTransaction(int nVersion) {
         return (
             nVersion == TRANSPARENT_TX_VERSION ||
             nVersion == PHGR_TX_VERSION        ||
-            nVersion == GROTH_TX_VERSION ||
+            nVersion == GROTH_TX_VERSION       ||
             nVersion == SC_TX_VERSION 
         );
     }
@@ -794,8 +794,7 @@ public:
     const joinsplit_sig_t joinSplitSig = {{0}};
 
     /** Construct a CTransaction that qualifies as IsNull() */
-    CTransaction();
-    explicit CTransaction(int nVersionIn) : nLockTime(0), CTransactionBase(nVersionIn) {}
+    CTransaction(int nVersionIn = TRANSPARENT_TX_VERSION);
 
     /** Convert a CMutableTransaction into a CTransaction. */
     CTransaction(const CMutableTransaction &tx);
