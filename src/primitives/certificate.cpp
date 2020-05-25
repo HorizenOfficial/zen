@@ -132,6 +132,16 @@ bool CScCertificate::CheckFeeAmount(const CAmount& totalVinAmount, CValidationSt
     return true;
 }
 
+bool CScCertificate::CheckInputsInteraction(CValidationState &state) const
+{
+    for(const CTxIn& txin: vin)
+        if (txin.prevout.IsNull())
+            return state.DoS(10, error("CheckInputsInteraction(): prevout is null"),
+                             REJECT_INVALID, "bad-txns-prevout-null");
+
+    return true;
+}
+
 CAmount CScCertificate::GetFeeAmount(const CAmount& valueIn) const
 {
     return (valueIn - GetValueOfChange());

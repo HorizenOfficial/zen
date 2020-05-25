@@ -484,22 +484,26 @@ bool CTransactionBase::CheckInputsDuplication(CValidationState &state) const
     return true;
 }
 
-bool CTransactionBase::CheckInputsInteraction(CValidationState &state) const
+bool CTransaction::CheckInputsInteraction(CValidationState &state) const
 {
     if (IsCoinBase())
     {
         // There should be no joinsplits in a coinbase transaction
-        if (GetVjoinsplit().size() > 0)
+        if (vjoinsplit.size() > 0)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase has joinsplits"),
                              REJECT_INVALID, "bad-cb-has-joinsplits");
 
-        if (GetVin()[0].scriptSig.size() < 2 || GetVin()[0].scriptSig.size() > 100)
+        if (vin[0].scriptSig.size() < 2 || vin[0].scriptSig.size() > 100)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase script size"),
                              REJECT_INVALID, "bad-cb-length");
+
+        if (vsc_ccout.size() != 0 || vft_ccout.size() != 0)
+            return state.DoS(100, error("CheckInputsInteraction(): coinbase destined to sidechains"),
+                                         REJECT_INVALID, "bad-cb-destination");
     }
     else
     {
-        for(const CTxIn& txin: GetVin())
+        for(const CTxIn& txin: vin)
             if (txin.prevout.IsNull())
                 return state.DoS(10, error("CheckInputsInteraction(): prevout is null"),
                                  REJECT_INVALID, "bad-txns-prevout-null");

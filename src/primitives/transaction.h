@@ -650,7 +650,7 @@ public:
     bool CheckSerializedSize (CValidationState &state) const;
     virtual bool CheckAmounts(CValidationState &state) const = 0;
     bool CheckInputsDuplication(CValidationState &state) const;
-    bool CheckInputsInteraction(CValidationState &state) const;
+    virtual bool CheckInputsInteraction(CValidationState &state) const = 0;
 
     bool CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state, int nHeight) const;
 
@@ -861,6 +861,7 @@ public:
     bool CheckAmounts     (CValidationState &state) const override;
     bool CheckNonEmpty    (CValidationState &state) const;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
+    bool CheckInputsInteraction(CValidationState &state) const override;
     //END OF CHECK FUNCTIONS
 
     void Relay() const override;
