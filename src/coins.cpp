@@ -17,10 +17,10 @@
 std::string CCoins::ToString() const
 {
     std::string ret;
-    ret += strprintf("originScId(%s)", originScId.ToString());
     ret += strprintf("version(%d)", nVersion);
     ret += strprintf("fCoinBase(%d)", fCoinBase);
     ret += strprintf("height(%d)", nHeight);
+    ret += strprintf("nBwtMaturityHeight(%d)", nBwtMaturityHeight);
     for (auto o : vout)
     {
         ret += "    " + o.ToString() + "\n";
@@ -28,26 +28,27 @@ std::string CCoins::ToString() const
     return ret;
 }
 
-CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), originScId() { }
+CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), nBwtMaturityHeight(0) { }
 
 CCoins::CCoins(const CTransaction &tx, int nHeightIn) { From(tx, nHeightIn); }
 
-CCoins::CCoins(const CScCertificate &cert, int nHeightIn) { From(cert, nHeightIn); }
+CCoins::CCoins(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeight) { From(cert, nHeightIn, bwtMaturityHeight); }
 
 void CCoins::From(const CTransaction &tx, int nHeightIn) {
     fCoinBase          = tx.IsCoinBase();
     vout               = tx.GetVout();
     nHeight            = nHeightIn;
     nVersion           = tx.nVersion;
+    nBwtMaturityHeight = 0;
     ClearUnspendable();
 }
 
-void CCoins::From(const CScCertificate &cert, int nHeightIn) {
+void CCoins::From(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeight) {
     fCoinBase          = cert.IsCoinBase();
     vout               = cert.GetVout();
     nHeight            = nHeightIn;
     nVersion           = cert.nVersion;
-    originScId         = cert.GetScId();
+    nBwtMaturityHeight = bwtMaturityHeight;
     ClearUnspendable();
 }
 
@@ -56,7 +57,7 @@ void CCoins::Clear() {
     std::vector<CTxOut>().swap(vout);
     nHeight = 0;
     nVersion = 0;
-    originScId.SetNull();
+    nBwtMaturityHeight = 0;
 }
 
 void CCoins::Cleanup() {
@@ -80,18 +81,18 @@ void CCoins::swap(CCoins &to) {
     to.vout.swap(vout);
     std::swap(to.nHeight, nHeight);
     std::swap(to.nVersion, nVersion);
-    std::swap(to.originScId, originScId);
+    std::swap(to.nBwtMaturityHeight, nBwtMaturityHeight);
 }
 
 bool operator==(const CCoins &a, const CCoins &b) {
      // Empty CCoins objects are always equal.
      if (a.IsPruned() && b.IsPruned())
          return true;
-     return a.fCoinBase  == b.fCoinBase &&
-            a.nHeight    == b.nHeight   &&
-            a.nVersion   == b.nVersion  &&
-            a.vout       == b.vout      &&
-            a.originScId == b.originScId;
+     return a.fCoinBase          == b.fCoinBase &&
+            a.nHeight            == b.nHeight   &&
+            a.nVersion           == b.nVersion  &&
+            a.vout               == b.vout      &&
+            a.nBwtMaturityHeight == b.nBwtMaturityHeight;
 }
 
 bool operator!=(const CCoins &a, const CCoins &b) {
@@ -113,7 +114,7 @@ bool CCoins::Spend(uint32_t nPos)
 {
     if (nPos >= vout.size() || vout[nPos].IsNull())
         return false;
-    LogPrint("sc", "%s():%d - @@@@@@@ Spending out[%d], ver=%d, (%s)\n\n", __func__, __LINE__, nPos, nVersion, vout[nPos].ToString());
+
     vout[nPos].SetNull();
     Cleanup();
     return true;
@@ -124,7 +125,7 @@ bool CCoins::IsAvailable(unsigned int nPos) const {
 }
 
 bool CCoins::IsPruned() const {
-    BOOST_FOREACH(const CTxOut &out, vout)
+    for(const CTxOut &out: vout)
         if (!out.IsNull())
             return false;
     return true;
@@ -132,7 +133,7 @@ bool CCoins::IsPruned() const {
 
 size_t CCoins::DynamicMemoryUsage() const {
     size_t ret = memusage::DynamicUsage(vout);
-    BOOST_FOREACH(const CTxOut &out, vout) {
+    for(const CTxOut &out: vout) {
         ret += RecursiveDynamicUsage(out.scriptPubKey);
     }
     return ret;
@@ -164,7 +165,7 @@ bool CCoinsView::HaveSidechain(const uint256& scId)                            c
 bool CCoinsView::GetSidechain(const uint256& scId, CSidechain& info)           const { return false; }
 bool CCoinsView::HaveCeasingScs(int height)                                    const { return false; }
 bool CCoinsView::GetCeasingScs(int height, CCeasingSidechains& ceasingScs)     const { return false; }
-void CCoinsView::queryScIds(std::set<uint256>& scIdsList)                      const { scIdsList.clear(); return; }
+void CCoinsView::GetScIds(std::set<uint256>& scIdsList)                        const { scIdsList.clear(); return; }
 bool CCoinsView::HaveCertForEpoch(const uint256& scId, int epochNumber)        const { return false; }
 uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
 uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
@@ -185,7 +186,7 @@ bool CCoinsViewBacked::HaveSidechain(const uint256& scId)                       
 bool CCoinsViewBacked::GetSidechain(const uint256& scId, CSidechain& info)           const { return base->GetSidechain(scId,info); }
 bool CCoinsViewBacked::HaveCeasingScs(int height)                                    const { return base->HaveCeasingScs(height); }
 bool CCoinsViewBacked::GetCeasingScs(int height, CCeasingSidechains& ceasingScs)     const { return base->GetCeasingScs(height, ceasingScs); }
-void CCoinsViewBacked::queryScIds(std::set<uint256>& scIdsList)                      const { return base->queryScIds(scIdsList); }
+void CCoinsViewBacked::GetScIds(std::set<uint256>& scIdsList)                        const { return base->GetScIds(scIdsList); }
 bool CCoinsViewBacked::HaveCertForEpoch(const uint256& scId, int epochNumber)        const { return base->HaveCertForEpoch(scId, epochNumber); }
 uint256 CCoinsViewBacked::GetBestBlock()                                             const { return base->GetBestBlock(); }
 uint256 CCoinsViewBacked::GetBestAnchor()                                            const { return base->GetBestAnchor(); }
@@ -593,9 +594,9 @@ bool CCoinsViewCache::GetSidechain(const uint256 & scId, CSidechain& targetScInf
     return false;
 }
 
-void CCoinsViewCache::queryScIds(std::set<uint256>& scIdsList) const
+void CCoinsViewCache::GetScIds(std::set<uint256>& scIdsList) const
 {
-    base->queryScIds(scIdsList);
+    base->GetScIds(scIdsList);
 
     // Note that some of the values above may have been erased in current cache.
     // Also new id may be in current cache but not in persisted
@@ -758,7 +759,7 @@ bool CCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo
          __func__, __LINE__, blockHeight,  blockundo.msc_iaundo.size() );
 
     std::set<uint256> allKnowScIds;
-    queryScIds(allKnowScIds);
+    GetScIds(allKnowScIds);
     for(auto it_set = allKnowScIds.begin(); it_set != allKnowScIds.end(); ++it_set)
     {
         const uint256& scId = *it_set;
@@ -1290,7 +1291,7 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
             continue; //in case the cert had not bwt nor change, there won't be any coin generated by cert. Nothing to handle
 
         CCoinsModifier coins = this->ModifyCoins(scInfo.lastCertificateHash);
-        assert(!coins->originScId.IsNull());
+        assert(coins->nBwtMaturityHeight != 0);
 
         //null all bwt outputs and add related txundo in block
         bool foundFirstBwt = false;
@@ -1312,10 +1313,10 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
 
             blockUndo.vtxundo.back().vprevout.push_back(CTxInUndo(coins->vout[pos]));
             CTxInUndo& undo = blockUndo.vtxundo.back().vprevout.back();
-            undo.nHeight    = coins->nHeight;
-            undo.fCoinBase  = coins->fCoinBase;
-            undo.nVersion   = coins->nVersion;
-            undo.originScId = coins->originScId;
+            undo.nHeight            = coins->nHeight;
+            undo.fCoinBase          = coins->fCoinBase;
+            undo.nVersion           = coins->nVersion;
+            undo.nBwtMaturityHeight = coins->nBwtMaturityHeight;
 
             coins->Spend(pos);
         }
@@ -1350,10 +1351,10 @@ bool CCoinsViewCache::RevertCeasingScs(const CTxUndo& ceasedCertUndo)
         LogPrint("cert", "%s():%d - PRE : bwtOutPos= %d\n", __func__, __LINE__, bwtOutPos);
         if (outVec.at(bwtOutPos).nHeight != 0)
         {
-            coins->fCoinBase  = outVec.at(bwtOutPos).fCoinBase;
-            coins->nHeight    = outVec.at(bwtOutPos).nHeight;
-            coins->nVersion   = outVec.at(bwtOutPos).nVersion;
-            coins->originScId = outVec.at(bwtOutPos).originScId;
+            coins->fCoinBase          = outVec.at(bwtOutPos).fCoinBase;
+            coins->nHeight            = outVec.at(bwtOutPos).nHeight;
+            coins->nVersion           = outVec.at(bwtOutPos).nVersion;
+            coins->nBwtMaturityHeight = outVec.at(bwtOutPos).nBwtMaturityHeight;
         } else {
             LogPrint("cert", "%s():%d - returning false\n", __func__, __LINE__);
             return false;
@@ -1450,7 +1451,7 @@ bool CCoinsViewCache::DecrementImmatureAmount(const uint256& scId, CSidechain& t
 void CCoinsViewCache::Dump_info() const
 {
     std::set<uint256> scIdsList;
-    queryScIds(scIdsList);
+    GetScIds(scIdsList);
     LogPrint("sc", "-- number of side chains found [%d] ------------------------\n", scIdsList.size());
     for(const auto& scId: scIdsList)
     {
@@ -1514,31 +1515,10 @@ CCoinsViewCache::outputMaturity CCoinsViewCache::IsCertOutputMature(const uint25
     if (!refCoin.vout[pos].isFromBackwardTransfer) //change outputs are always mature
         return outputMaturity::MATURE;
 
-    // Hereinafter, we have a certificate, hence we can assert existence of its sidechain
-    CSidechain targetSc;
-    assert(GetSidechain(refCoin.originScId, targetSc));
-
-    int coinEpoch = targetSc.EpochFor(refCoin.nHeight);
-
-    if (coinEpoch < targetSc.lastEpochReferencedByCertificate)
+    if (spendHeight < refCoin.nBwtMaturityHeight)
+        return outputMaturity::IMMATURE;
+    else
         return outputMaturity::MATURE;
-
-    if (coinEpoch == (targetSc.lastEpochReferencedByCertificate)) {
-        int nextEpochSafeguardHeight = targetSc.StartHeightForEpoch(coinEpoch+1) + targetSc.SafeguardMargin();
-        if (spendHeight < nextEpochSafeguardHeight)
-            return outputMaturity::IMMATURE;
-        else
-            return outputMaturity::MATURE;
-    }
-
-    if (coinEpoch > targetSc.lastEpochReferencedByCertificate) {
-        if (isCeasedAtHeight(refCoin.originScId, spendHeight) == CSidechain::state::ALIVE)
-            return outputMaturity::IMMATURE;
-        else
-            return outputMaturity::NOT_APPLICABLE;
-    }
-
-    return outputMaturity::NOT_APPLICABLE;
 }
 
 bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransactionBase& txBase) const

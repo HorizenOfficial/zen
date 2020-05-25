@@ -405,17 +405,19 @@ inline bool CTxMemPool::addToListForRemovalImmatureExpenditures(
             return true;
         }
  
-        if (coins->IsCoinBase()) {
+        if (coins->IsCoinBase())
+        {
             if (((signed long)nMemPoolHeight) - coins->nHeight < COINBASE_MATURITY) {
                 LogPrint("mempool", "%s():%d - adding tx [%s] to list for removing since it spends immature coinbase [%s]\n",
                     __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
                 transactionsToRemove.push_back(&tx);
                 return true;
             }
-        } else if (coins->IsFromCert()) {
+        } else if (coins->IsFromCert())
+        {
             if (fSanityCheck) {
                 assert(coins->IsAvailable(txin.prevout.n));
-                assert(pcoins->HaveSidechain(coins->originScId));
+                assert(coins->nBwtMaturityHeight != 0);
             }
  
             if (pcoins->IsCertOutputMature(txin.prevout.hash, txin.prevout.n, nMemPoolHeight) !=
@@ -1016,7 +1018,7 @@ bool CCoinsViewMemPool::GetCoins(const uint256 &txid, CCoins &coins) const {
     CScCertificate cert;
     if (mempool.lookup(txid, cert)) {
         LogPrint("cert", "%s():%d - making coins for cert [%s]\n", __func__, __LINE__, txid.ToString() );
-        coins = CCoins(cert, MEMPOOL_HEIGHT);
+        coins = CCoins(cert, MEMPOOL_HEIGHT, MEMPOOL_HEIGHT);
         return true;
     }
     return (base->GetCoins(txid, coins) && !coins.IsPruned());

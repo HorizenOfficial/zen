@@ -43,7 +43,7 @@ public:
     bool HaveSidechain(const uint256& scId)                            const override;
     bool HaveCeasingScs(int height)                                    const override;
     bool GetCeasingScs(int height, CCeasingSidechains& ceasingScs)     const override;
-    void queryScIds(std::set<uint256>& scIdsList)                      const override;
+    void GetScIds(std::set<uint256>& scIdsList)                      const override;
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
     bool BatchWrite(CCoinsMap &mapCoins,

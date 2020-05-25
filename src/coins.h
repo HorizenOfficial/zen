@@ -96,9 +96,9 @@ public:
     //! as new tx version will probably only be introduced at certain heights
     int nVersion;
 
-    //! if coin comes from a bwt, originScId will contain the associated ScId; otherwise it will be null
-    //! originScId will be serialized only for coins from bwt, which will be stored in chainstate db under different key
-    uint256 originScId;
+    //! if coin comes from a certificate, nBwtMaturityHeight signals the height at which these output will be mature
+    //! nBwtMaturityHeight will be serialized only for coins from certificate
+    int nBwtMaturityHeight;
 
     std::string ToString() const;
 
@@ -107,10 +107,10 @@ public:
 
     //! construct a CCoins from a CTransaction, at a given height
     CCoins(const CTransaction &tx, int nHeightIn);
-    CCoins(const CScCertificate &cert, int nHeightIn);
+    CCoins(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeight);
 
     void From(const CTransaction &tx, int nHeightIn);
-    void From(const CScCertificate &tx, int nHeightIn);
+    void From(const CScCertificate &tx, int nHeightIn, int bwtMaturityHeight);
 
     void Clear();
 
@@ -162,7 +162,7 @@ public:
         nSize += ::GetSerializeSize(VARINT(nHeight), nType, nVersion);
 
         if (this->IsFromCert()) {
-            nSize += ::GetSerializeSize(originScId,      nType,nVersion);
+            nSize += ::GetSerializeSize(nBwtMaturityHeight, nType,nVersion);
 
             unsigned int changeOutputCounter = 0;
             for(const CTxOut& out: vout) {
@@ -171,7 +171,6 @@ public:
                 else
                     break;
             }
-
             nSize += ::GetSerializeSize(changeOutputCounter,nType,nVersion);
         }
 
@@ -209,7 +208,7 @@ public:
         ::Serialize(s, VARINT(nHeight), nType, nVersion);
 
         if (this->IsFromCert()) {
-            ::Serialize(s,originScId,      nType,nVersion);
+            ::Serialize(s,nBwtMaturityHeight, nType,nVersion);
 
             unsigned int changeOutputCounter = 0;
             for(const CTxOut& out: vout) {
@@ -218,7 +217,6 @@ public:
                 else
                     break;
             }
-
             ::Serialize(s,changeOutputCounter,nType,nVersion);
         }
     }
@@ -257,7 +255,7 @@ public:
 
         unsigned int changeOutputCounter = vout.size();
         if (this->IsFromCert()) {
-            ::Unserialize(s, originScId,       nType,nVersion);
+            ::Unserialize(s, nBwtMaturityHeight, nType,nVersion);
             ::Unserialize(s, changeOutputCounter, nType,nVersion);
         }
 
@@ -266,7 +264,6 @@ public:
                 vout[idx].isFromBackwardTransfer = false;
             else
                 vout[idx].isFromBackwardTransfer = true;
-
 
         Cleanup();
     }
@@ -410,7 +407,7 @@ public:
     virtual bool GetCeasingScs(int height, CCeasingSidechains& ceasingScs) const;
 
     //! Retrieve all the known sidechain ids
-    virtual void queryScIds(std::set<uint256>& scIdsList) const;
+    virtual void GetScIds(std::set<uint256>& scIdsList) const;
 
     //! just check whether we have data for a certificate in a given epoch for given sidechain
     virtual bool HaveCertForEpoch(const uint256& scId, int epochNumber) const;
@@ -455,7 +452,7 @@ public:
     bool GetSidechain(const uint256& scId, CSidechain& info)           const override;
     bool HaveCeasingScs(int height)                                    const override;
     bool GetCeasingScs(int height, CCeasingSidechains& ceasingScs)     const override;
-    void queryScIds(std::set<uint256>& scIdsList)                      const override;
+    void GetScIds(std::set<uint256>& scIdsList)                        const override;
     bool HaveCertForEpoch(const uint256& scId, int epochNumber)        const override;
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
@@ -571,7 +568,7 @@ public:
     //SIDECHAIN RELATED PUBLIC MEMBERS
     bool HaveSidechain(const uint256& scId)                           const override;
     bool GetSidechain(const uint256 & scId, CSidechain& targetScInfo) const override;
-    void queryScIds(std::set<uint256>& scIdsList)                     const override;
+    void GetScIds(std::set<uint256>& scIdsList)                       const override;
     bool HaveScRequirements(const CTransaction& tx, int height);
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
