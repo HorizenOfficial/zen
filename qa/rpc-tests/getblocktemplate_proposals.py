@@ -149,7 +149,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         # create a sidechain and a certificate for it in the mempool
         scid = "22"
 
-        self.nodes[1].sc_create(scid, SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT)
+        self.nodes[1].sc_create(scid, SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT, "aa" * 1544)
         self.sync_all()
 
         block_list = self.nodes[0].generate(SC_EPOCH_LENGTH) 
@@ -158,7 +158,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         pkh = self.nodes[0].getnewaddress("", True)
         amounts = [{"pubkeyhash": pkh, "amount": SC_CERT_AMOUNT}]
         fee = 0.000023
-        cert = self.nodes[0].send_certificate(scid, 0, block_list[-1], amounts, fee)
+        cert = self.nodes[0].send_certificate(scid, 0, 0, block_list[-1], "bb" * 771, amounts, fee)
         self.sync_all()
         assert_true(cert in self.nodes[0].getrawmempool() ) 
 
@@ -295,7 +295,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             # set scid to 0x21 (33)
             orig_val = certlist[0][4]
             certlist[0][4] = 33
-            assert_template(node, tmpl, txlist, certlist, 'bad-sc-not-recorded')
+            assert_template(node, tmpl, txlist, certlist, 'bad-sc-cert-not-applicable')
             certlist[0][4] = orig_val
 
             # Test 14: Bad cert count
