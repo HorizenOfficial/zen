@@ -898,23 +898,13 @@ unsigned int GetP2SHSigOpCount(const CTransactionBase& tx, const CCoinsViewCache
 
 bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
 {
-    if (!cert.CheckVersionBasic(state))
-        return false;
-
-    // a certificate might also have empty vin if 0 fee
-    if (!cert.CheckInputsAvailability(state))
-        return false;
-
-    if (!cert.CheckOutputsAvailability(state))
+    if (!cert.IsValidVersion(state))
         return false;
 
     if (!cert.CheckSerializedSize(state))
         return false;
 
-    if (!cert.CheckOutputsAmount(state))
-        return false;
-
-    if (!cert.CheckInputsAmount(state))
+    if (!cert.CheckAmounts(state))
         return false;
 
     if (!cert.CheckInputsDuplication(state))
@@ -957,22 +947,16 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
 
 bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidationState &state)
 {
-    if (!tx.CheckVersionBasic(state))
+    if (!tx.IsValidVersion(state))
         return false;
 
-    if (!tx.CheckInputsAvailability(state))
-        return false;
-
-    if (!tx.CheckOutputsAvailability(state))
+    if (!tx.CheckNonEmpty(state))
         return false;
 
     if (!tx.CheckSerializedSize(state))
         return false;
 
-    if (!tx.CheckOutputsAmount(state))
-        return false;
-
-    if (!tx.CheckInputsAmount(state))
+    if (!tx.CheckAmounts(state))
         return false;
 
     if (!tx.CheckInputsDuplication(state))
