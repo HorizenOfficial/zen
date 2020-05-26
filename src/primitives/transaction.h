@@ -44,6 +44,10 @@ static_assert(PHGR_TX_VERSION >= MIN_OLD_TX_VERSION,
 static_assert(TRANSPARENT_TX_VERSION >= MIN_OLD_TX_VERSION,
     "TRANSPARENT tx version must not be lower than minimum");
 
+static const unsigned char SC_CREATION_TYPE = 0x1;
+static const unsigned char SC_CERTIFIER_LOCK_TYPE = 0x2;
+static const unsigned char SC_FORWARD_TRANSFER_TYPE = 0x3;
+
 //Many static casts to int * of Tx nVersion (int32_t *) are performed. Verify at compile time that they are equivalent.
 static_assert(sizeof(int32_t) == sizeof(int), "int size differs from 4 bytes. This may lead to unexpected behaviors on static casts");
 
@@ -503,6 +507,17 @@ public:
 
     virtual std::string ToString() const = 0;
 
+    static const char* type2str(unsigned char type)
+    {
+        switch(type)
+        {
+            case SC_CREATION_TYPE:         return "SC_CREATION_TYPE"; break; 
+            case SC_CERTIFIER_LOCK_TYPE:   return "CERTIFIER_LOCK_TYPE";   break; 
+            case SC_FORWARD_TRANSFER_TYPE: return "FORWARD_TRANSFER_TYPE";   break; 
+            default: return "UNKNOWN_TYPE";
+        }
+    }
+
 protected:
     static bool isBaseEqual(const CTxCrosschainOut& a, const CTxCrosschainOut& b)
     {
@@ -559,6 +574,7 @@ public:
     int prepStageLength; 
     int certGroupSize;
     unsigned char feePct;
+    CAmount certLockAmount;
     CAmount minBkwTransferAmount;
 */
 
@@ -601,6 +617,48 @@ public:
     }
 
     friend bool operator!=(const CTxScCreationOut& a, const CTxScCreationOut& b)
+    {
+        return !(a == b);
+    }
+};
+
+class CTxCertifierLockOut : public CTxCrosschainOut
+{
+public:
+
+    int64_t activeFromWithdrawalEpoch; 
+
+    CTxCertifierLockOut() { SetNull(); }
+
+    CTxCertifierLockOut(const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn, int64_t epoch)
+        :CTxCrosschainOut(scIdIn, nValueIn, addressIn), activeFromWithdrawalEpoch(epoch) {}
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(nValue);
+        READWRITE(address);
+        READWRITE(scId);
+        READWRITE(activeFromWithdrawalEpoch);
+    }
+
+    void SetNull()
+    {
+        CTxCrosschainOut::SetNull();
+        activeFromWithdrawalEpoch = -1;
+    }
+
+    virtual uint256 GetHash() const override;
+    virtual std::string ToString() const override;
+
+    friend bool operator==(const CTxCertifierLockOut& a, const CTxCertifierLockOut& b)
+    {
+        return (isBaseEqual(a, b) &&
+                a.activeFromWithdrawalEpoch == b.activeFromWithdrawalEpoch);
+    }
+
+    friend bool operator!=(const CTxCertifierLockOut& a, const CTxCertifierLockOut& b)
     {
         return !(a == b);
     }
@@ -666,8 +724,10 @@ public:
     const std::vector<CTxOut>&        GetVout()       const {return vout;};
 
     virtual const std::vector<CTxScCreationOut>&      GetVscCcOut()   const = 0;
+    virtual const std::vector<CTxCertifierLockOut>&   GetVclCcOut()   const = 0;
     virtual const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const = 0;
     virtual const std::vector<JSDescription>&         GetVjoinsplit() const = 0;
+    virtual const uint256&                            GetScId()       const = 0;
     virtual const uint32_t&                           GetLockTime()   const = 0;
     //END OF GETTERS
 
@@ -785,6 +845,7 @@ private:
     const uint32_t nLockTime;
     const std::vector<CTxScCreationOut> vsc_ccout;
     const std::vector<CTxForwardTransferOut> vft_ccout;
+    const std::vector<CTxCertifierLockOut> vcl_ccout;
 public:
     const uint256 joinSplitPubKey;
     const joinsplit_sig_t joinSplitSig = {{0}};
@@ -809,6 +870,7 @@ public:
         if (this->IsScVersion())
         {
             READWRITE(*const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout));
+            READWRITE(*const_cast<std::vector<CTxCertifierLockOut>*>(&vcl_ccout));
             READWRITE(*const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout));
         }
         READWRITE(*const_cast<uint32_t*>(&nLockTime));
@@ -843,6 +905,7 @@ public:
     bool ccIsNull() const {
         return (
             vsc_ccout.empty() &&
+            vcl_ccout.empty() &&
             vft_ccout.empty()
         );
     }
@@ -855,8 +918,10 @@ public:
 
     //GETTERS
     const std::vector<CTxScCreationOut>&      GetVscCcOut()   const override { return vsc_ccout; }
+    const std::vector<CTxCertifierLockOut>&   GetVclCcOut()   const override { return vcl_ccout; }
     const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const override { return vft_ccout; }
     const std::vector<JSDescription>&         GetVjoinsplit() const override { return vjoinsplit;};
+    const uint256&                            GetScId()       const override { static uint256 noScId; return noScId;};
     const uint32_t&                           GetLockTime()   const override { return nLockTime;};
     //END OF GETTERS
 
@@ -1004,6 +1069,7 @@ struct CMutableTransactionBase
         return true;
     }
     virtual bool add(const CTxScCreationOut& out) { return false; }
+    virtual bool add(const CTxCertifierLockOut& out) { return false; }
     virtual bool add(const CTxForwardTransferOut& out) { return false; }
 };
 
@@ -1011,6 +1077,7 @@ struct CMutableTransactionBase
 struct CMutableTransaction : public CMutableTransactionBase
 {
     std::vector<CTxScCreationOut> vsc_ccout;
+    std::vector<CTxCertifierLockOut> vcl_ccout;
     std::vector<CTxForwardTransferOut> vft_ccout;
     uint32_t nLockTime;
     std::vector<JSDescription> vjoinsplit;
@@ -1032,6 +1099,7 @@ struct CMutableTransaction : public CMutableTransactionBase
         if (this->IsScVersion())
         {
             READWRITE(vsc_ccout);
+            READWRITE(vcl_ccout);
             READWRITE(vft_ccout);
         }
         READWRITE(nLockTime);
@@ -1062,6 +1130,7 @@ struct CMutableTransaction : public CMutableTransactionBase
     }
 
     bool add(const CTxScCreationOut& out) override;
+    bool add(const CTxCertifierLockOut& out) override;
     bool add(const CTxForwardTransferOut& out) override;
 };
 
