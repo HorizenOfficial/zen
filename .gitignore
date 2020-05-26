@@ -118,4 +118,3 @@ qa/pull-tester/test.*/*
 libzcashconsensus.pc
 
 contrib/debian/files
-contrib/debian/substvars

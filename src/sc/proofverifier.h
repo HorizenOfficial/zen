@@ -25,7 +25,7 @@ namespace libzendoomc{
     /* Check if scVk is a valid zendoo-mc-cryptolib's sc_vk */
     bool IsValidScVk(const ScVk& scVk);
 
-    typedef base_blob<SC_FIELD_SIZE * 8> ScConstant;
+    typedef std::vector<unsigned char> ScConstant;
     
     /* Check if scConstant is a valid zendoo-mc-cryptolib's field */
     bool IsValidScConstant(const ScConstant& scConstant);

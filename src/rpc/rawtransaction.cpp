@@ -962,16 +962,19 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"endEpochBlockHash\"" );
     }
 
-    libzendoomc::ScProof scProof;
     if (setKeyArgs.count("scProof"))
     {
         string inputString = find_value(cert_params, "scProof").get_str();
         std::string error;
-        if (!Sidechain::AddFixedSizeScData(inputString, scProof, error))
+        std::vector<unsigned char> scProofVec;
+        if (!Sidechain::AddScData(inputString, scProofVec, SC_PROOF_SIZE, true, error))
             throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + error);
-        
+
+        libzendoomc::ScProof scProof(scProofVec);
         if (!libzendoomc::IsValidScProof(scProof))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid cert \"scProof\"");
+        
+        rawCert.scProof = scProof;
     }
     else
     {
@@ -982,7 +985,6 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     rawCert.epochNumber = withdrawalEpochNumber;
     rawCert.quality = quality;
     rawCert.endEpochBlockHash = endEpochBlockHash;
-    rawCert.scProof = scProof;
 
     return EncodeHexCert(rawCert);
 }

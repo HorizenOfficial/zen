@@ -97,7 +97,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                 __func__), REJECT_INVALID, "sidechain-sc-creation-invalid-wcert-vk");
         }
 
-        if(!sc.constant.IsNull())
+        if(!sc.constant.size() == 0)
         {
             if(!libzendoomc::IsValidScConstant(sc.constant))
             {

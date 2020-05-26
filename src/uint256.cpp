@@ -90,12 +90,9 @@ template void base_blob<Sidechain::MAX_SC_DATA_BITS>::SetHex(const char*);
 template void base_blob<Sidechain::MAX_SC_DATA_BITS>::SetHex(const std::string&);
 
 // Other explicit instantiations
-template void base_blob<SC_PROOF_SIZE * 8>::SetHex(const char*);
-template void base_blob<SC_PROOF_SIZE * 8>::SetHex(const std::string&);
-template void base_blob<SC_VK_SIZE * 8>::SetHex(const char*);
-template void base_blob<SC_VK_SIZE * 8>::SetHex(const std::string&);
-template void base_blob<SC_FIELD_SIZE * 8>::SetHex(const char*);
-template void base_blob<SC_FIELD_SIZE * 8>::SetHex(const std::string&);
+template base_blob<SC_PROOF_SIZE * 8>::base_blob(const std::vector<unsigned char>&);
+template base_blob<SC_VK_SIZE * 8>::base_blob(const std::vector<unsigned char>&);
+template base_blob<SC_FIELD_SIZE * 8>::base_blob(const std::vector<unsigned char>&);
 
 static void inline HashMix(uint32_t& a, uint32_t& b, uint32_t& c)
 {

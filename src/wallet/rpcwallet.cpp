@@ -820,10 +820,12 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     std::string error;
 
     inputString = params[4].get_str();
-    if (!Sidechain::AddFixedSizeScData(inputString, sc.creationData.wCertVk, error))
+    std::vector<unsigned char> wCertVkVec;
+    if (!Sidechain::AddScData(inputString, wCertVkVec, SC_VK_SIZE, true, error))
     {
         throw JSONRPCError(RPC_TYPE_ERROR, string("wCertVk: ") + error);
     }
+    sc.creationData.wCertVk = libzendoomc::ScVk(wCertVkVec);
 
     if (!libzendoomc::IsValidScVk(sc.creationData.wCertVk))
     {
@@ -833,7 +835,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if ((params.size() > 5) && (!params[5].get_str().size() == 0))
     {
         inputString = params[5].get_str();
-        if(!Sidechain::AddVariableSizeScData(inputString, sc.creationData.customData, error))
+        if(!Sidechain::AddScData(inputString, sc.creationData.customData, MAX_SC_DATA_LEN, false, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
         }
@@ -842,7 +844,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if (params.size() > 6)
     {
         inputString = params[6].get_str();
-        if (!Sidechain::AddFixedSizeScData(inputString, sc.creationData.constant, error))
+        if (!Sidechain::AddScData(inputString, sc.creationData.constant, SC_FIELD_SIZE, true, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
         }
@@ -1044,13 +1046,18 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("wCertVk"))
     {
         string inputString = find_value(inputObject, "wCertVk").get_str();
-        if (!Sidechain::AddFixedSizeScData(inputString, creationData.wCertVk, error))
+        std::vector<unsigned char> wCertVkVec;
+        if (!Sidechain::AddScData(inputString, wCertVkVec, SC_VK_SIZE, true, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("wCertVk: ") + error);
         }
 
+        creationData.wCertVk = libzendoomc::ScVk(wCertVkVec);
+
         if (!libzendoomc::IsValidScVk(creationData.wCertVk))
+        {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCertVk");
+        }
 
     }
     else
@@ -1063,7 +1070,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("customData"))
     {
         string inputString = find_value(inputObject, "customData").get_str();
-        if (!Sidechain::AddVariableSizeScData(inputString, creationData.customData, error))
+        if (!Sidechain::AddScData(inputString, creationData.customData, MAX_SC_DATA_LEN, false, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
         }
@@ -1074,10 +1081,11 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("constant"))
     {
         string inputString = find_value(inputObject, "constant").get_str();
-        if (!Sidechain::AddFixedSizeScData(inputString, creationData.constant, error))
+        if (!Sidechain::AddScData(inputString, creationData.constant, SC_FIELD_SIZE, true, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
         }
+
         if (!libzendoomc::IsValidScConstant(creationData.constant))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid constant");
@@ -4876,10 +4884,12 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     //scProof
     string inputString = params[4].get_str();
-    libzendoomc::ScProof scProof;
     std::string error;
-    if (!Sidechain::AddFixedSizeScData(inputString, scProof, error))
+    std::vector<unsigned char> scProofVec;
+    if (!Sidechain::AddScData(inputString, scProofVec, SC_PROOF_SIZE, true ,error))
         throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + error);
+
+    auto scProof = libzendoomc::ScProof(scProofVec);
 
     if(!libzendoomc::IsValidScProof(scProof))
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert scProof"));

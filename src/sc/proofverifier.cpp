@@ -34,7 +34,7 @@ namespace libzendoomc{
     bool IsValidScConstant(const ScConstant& scConstant)
     {
         bool result = true;
-        auto scConstantDeserialized = zendoo_deserialize_field(scConstant.begin());
+        auto scConstantDeserialized = zendoo_deserialize_field(scConstant.data());
         if (scConstantDeserialized == nullptr)
             result = false;
         zendoo_field_free(scConstantDeserialized);
@@ -71,12 +71,12 @@ namespace libzendoomc{
     bool CScWCertProofVerificationParameters::createParameters() {
         //Deserialize constant
         auto constant_bytes = scInfo.creationData.constant;
-        if (constant_bytes.IsNull()){ //Constant can be optional
+        if (constant_bytes.size() == 0){ //Constant can be optional
             constant = nullptr;
        
         } else {
             
-            constant = deserialize_field(constant_bytes.begin()); 
+            constant = deserialize_field(constant_bytes.data()); 
             
             if (constant == nullptr) {
                 

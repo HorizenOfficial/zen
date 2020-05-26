@@ -72,7 +72,7 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
 }
 
 
-bool AddVariableSizeScData(const std::string& inputString, std::vector<unsigned char>& vBytes, std::string& error)
+bool AddScData(const std::string& inputString, std::vector<unsigned char>& vBytes, unsigned int vSize, bool enforceStrictSize, std::string& error)
 { 
 
     if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
@@ -89,17 +89,22 @@ bool AddVariableSizeScData(const std::string& inputString, std::vector<unsigned 
         return false;
     }
 
-     unsigned int scDataLen = dataLen/2;
+    unsigned int scDataLen = dataLen/2;
 
-    if (scDataLen > MAX_SC_DATA_LEN)
+    if(enforceStrictSize && (scDataLen != vSize))
     {
-        error = strprintf("Invalid length %d, must be %d bytes at most", scDataLen, MAX_SC_DATA_LEN);
+        error = strprintf("Invalid length %d, must be %d bytes", scDataLen, vSize);
         return false;
     }
 
-    CScData scBlob;
-    scBlob.SetHex(inputString);
-    scBlob.fill(vBytes, scDataLen);
+    if (!enforceStrictSize && (scDataLen > vSize))
+    {
+        error = strprintf("Invalid length %d, must be %d bytes at most", scDataLen, vSize);
+        return false;
+    }
+
+    vBytes = ParseHex(inputString);
+    assert(vBytes.size() == scDataLen);
 
     return true;
 }
@@ -179,7 +184,8 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         else
         {
             inputString = wCertVk.get_str();
-            if (!AddFixedSizeScData(inputString, sc.wCertVk, error))
+            std::vector<unsigned char> wCertVkVec;
+            if (!AddScData(inputString, wCertVkVec, SC_VK_SIZE, true, error))
             {
                 error = "wCertVk: " + error;
                 return false;
@@ -190,13 +196,14 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
                 error = "invalid wCertVk";
                 return false;
             }
+            sc.wCertVk = libzendoomc::ScVk(wCertVkVec);
         }
         
         const UniValue& cd = find_value(o, "customData");
         if (!cd.isNull())
         {
             inputString = cd.get_str();
-            if (!AddVariableSizeScData(inputString, sc.customData, error))
+            if (!AddScData(inputString, sc.customData, MAX_SC_DATA_LEN, false, error))
             {
                 error = "customData: " + error;
                 return false;
@@ -207,11 +214,12 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         if (!constant.isNull())
         {
             inputString = constant.get_str();
-            if (!AddFixedSizeScData(inputString, sc.constant, error))
+            if (!AddScData(inputString, sc.constant, SC_FIELD_SIZE, false, error))
             {
                 error = "constant: " + error;
                 return false;
             }
+
             if (!libzendoomc::IsValidScConstant(sc.constant))
             {
                 error = "invalid constant";
@@ -352,23 +360,6 @@ bool CRecipientHandler::handle(const CRecipientBackwardTransfer& r)
     CTxOut txout(r.nValue, r.scriptPubKey, true);
     return txBase->add(txout);
 };
-
-void CScData::fill(std::vector<unsigned char>& vBytes, size_t nBytes) const
-{
-    if (nBytes == 0)
-        return;
-
-    if (nBytes > size())
-        nBytes = size();
-
-    unsigned char* ptr = const_cast<unsigned char*>(&data[0]);
-    ptr += (nBytes - 1);
-    for (size_t i = 0; i < nBytes; i++)
-    {
-        vBytes.push_back(*ptr);
-        ptr--;
-    }
-}
 
 bool FillCcOutput(CMutableTransaction& tx, std::vector<Sidechain::CcRecipientVariant> vecCcSend, std::string& strFailReason)
 {

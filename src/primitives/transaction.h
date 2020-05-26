@@ -600,7 +600,7 @@ public:
         CTxCrosschainOut::SetNull();
         withdrawalEpochLength = -1;
         customData.clear();
-        constant.SetNull();
+        constant.clear();
         wCertVk.SetNull();
     }
 

@@ -78,7 +78,7 @@ class CScProofTestSuite: public ::testing::Test {
             scInfo = new CSidechain();
 
             //Needed to avoid passing checks that shouldn't pass, because constant is optional
-            scInfo->creationData.constant.SetHex("1");
+            scInfo->creationData.constant.push_back(0);
             
             scCert = new CScCertificate();
         }
