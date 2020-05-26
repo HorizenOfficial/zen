@@ -152,10 +152,8 @@ TEST(CheckBlock, BlockRejectsNoCbh) {
 
     MockCValidationState state;
 
-    auto verifier = libzcash::ProofVerifier::Strict();
-
     EXPECT_CALL(state, DoS(0, false, REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed", false)).Times(1);
-    EXPECT_FALSE(CheckBlock(block, state, verifier, false, false));
+    EXPECT_FALSE(ContextualCheckBlock(block, state, fm->pprev));
 
     CleanUpAll();
 }

@@ -86,6 +86,36 @@ string FormatScriptFlags(unsigned int flags)
     return ret.substr(0, ret.size() - 1);
 }
 
+void GenerateChainActive(int targetHeight) {
+    chainActive.SetTip(nullptr);
+    mapBlockIndex.clear();
+
+    static std::vector<uint256> blockHashes;
+    blockHashes.clear();
+    blockHashes.resize(targetHeight+1);
+    std::vector<CBlockIndex> blocks(targetHeight+1);
+
+    ZCIncrementalMerkleTree dummyTree;
+    dummyTree.append(GetRandHash());
+
+    for (unsigned int height=0; height<blocks.size(); ++height) {
+        blockHashes[height] = ArithToUint256(height);
+
+        blocks[height].nHeight = height;
+        blocks[height].pprev = height == 0? nullptr : mapBlockIndex[blockHashes[height-1]];
+        blocks[height].phashBlock = &blockHashes[height];
+        blocks[height].nTime = 1269211443 + height * Params().GetConsensus().nPowTargetSpacing;
+        blocks[height].nBits = 0x1e7fffff;
+        blocks[height].nChainWork = height == 0 ? arith_uint256(0) : blocks[height - 1].nChainWork + GetBlockProof(blocks[height - 1]);
+
+        blocks[height].hashAnchor = dummyTree.root();
+
+        mapBlockIndex[blockHashes[height]] = new CBlockIndex(blocks[height]);
+        mapBlockIndex[blockHashes[height]]->phashBlock = &blockHashes[height];
+        chainActive.SetTip(mapBlockIndex[blockHashes[height]]);
+    }
+}
+
 BOOST_FIXTURE_TEST_SUITE(transaction_tests, JoinSplitTestingSetup)
 
 BOOST_AUTO_TEST_CASE(tx_valid)
@@ -620,11 +650,11 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
 }
 
 
-void verifyTx(CMutableTransaction &t, int height, bool expectResultStd, bool expectResultCtx) {
+void verifyTx(const CTransaction &tx, int height, bool expectResultStd, bool expectResultCtx) {
 	string reason;
 	CValidationState state;
-	BOOST_CHECK_MESSAGE(IsStandardTx(t, reason, height) == expectResultStd, "IsStandardTx unexpected (" << !expectResultStd << ") result for tx version " << t.nVersion << ", height " << height);
-	BOOST_CHECK_MESSAGE(CTransaction(t).ContextualCheck(state, height, 100) == expectResultCtx, "ContextualCheckTransaction unexpected (" << !expectResultCtx << ") result for tx version " << t.nVersion << ", height " << height );
+	BOOST_CHECK_MESSAGE(IsStandardTx(tx, reason, height) == expectResultStd, "IsStandardTx unexpected (" << !expectResultStd << ") result for tx version " << tx.nVersion << ", height " << height);
+	BOOST_CHECK_MESSAGE(tx.ContextualCheck(state, height, 100) == expectResultCtx, "ContextualCheck() unexpected (" << !expectResultCtx << ") result for tx version " << tx.nVersion << ", height " << height );
 }
 
 void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHeight)
@@ -638,7 +668,6 @@ void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHe
     CCoinsViewCache coins(&coinsDummy);
     std::vector<CMutableTransaction> dummyTransactions = SetupDummyInputs(keystore, coins);
 
-
     CMutableTransaction t;
     t.vin.resize(1);
     t.vin[0].prevout.hash = dummyTransactions[0].GetHash();
@@ -648,6 +677,11 @@ void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHe
     t.vout[0].nValue = 90*CENT;
     CKey key;
     key.MakeNewKey(true);
+
+    // we need to generate a chain active with at least genesis 
+    // following the moving of check block at height into the contextual check 
+    GenerateChainActive(0);
+
     t.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
 
 
