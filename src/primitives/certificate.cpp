@@ -69,10 +69,36 @@ bool CScCertificate::IsValidVersion(CValidationState &state) const
     return true;
 }
 
-bool CScCertificate::IsStandardVersion(int nHeight) const {
+bool CScCertificate::CheckVersionIsStandard(std::string& reason, int nHeight) const {
     if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
     {
+        reason = "version";
         return false;
+    }
+
+    return true;
+}
+
+bool CScCertificate::CheckAmounts(CValidationState &state) const
+{
+    // Check for negative or overflow output values
+    CAmount nCumulatedValueOut = 0;
+    for(const CTxOut& txout: vout)
+    {
+        if (txout.nValue < 0)
+            return state.DoS(100, error("CheckAmounts(): txout.nValue negative"),
+                             REJECT_INVALID, "bad-txns-vout-negative");
+        if (txout.nValue > MAX_MONEY)
+            return state.DoS(100, error("CheckAmounts(): txout.nValue too high"),
+                             REJECT_INVALID, "bad-txns-vout-toolarge");
+
+        if (txout.isFromBackwardTransfer && txout.nValue == 0)
+            return state.DoS(100, error("CheckAmounts(): backward transfer has zero amount"),
+                             REJECT_INVALID, "bad-txns-bwd-vout-zero");
+        nCumulatedValueOut += txout.nValue;
+        if (!MoneyRange(nCumulatedValueOut))
+            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
+                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
 
     return true;
@@ -151,10 +177,11 @@ void CScCertificate::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount 
 bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const 
 {
     bool areScSupported = zen::ForkManager::getInstance().areSidechainsSupported(nHeight);
+
     if (!areScSupported)
          return state.DoS(dosLevel, error("Sidechain are not supported"), REJECT_INVALID, "bad-cert-version");
 
-    if (!CheckBlockAtHeight(nHeight, state))
+    if (!CheckOutputsCheckBlockAtHeightOpCode(state, nHeight))
         return false;
 
     return true;
@@ -177,8 +204,6 @@ std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsig
     return std::shared_ptr<BaseSignatureChecker>(NULL);
 }
 
-bool CScCertificate::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-    bool* pfMissingInputs, bool fRejectAbsurdFee) const { return true; }
 void CScCertificate::Relay() const {}
 std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
 {
@@ -194,12 +219,6 @@ bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) co
 std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
 {
     return std::shared_ptr<BaseSignatureChecker>(new CachingCertificateSignatureChecker(this, nIn, chain, cacheStore));
-}
-
-bool CScCertificate::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-    bool* pfMissingInputs, bool fRejectAbsurdFee) const
-{
-    return ::AcceptCertificateToMemoryPool(pool, state, *this, fLimitFree, pfMissingInputs, fRejectAbsurdFee);
 }
 
 void CScCertificate::Relay() const { ::Relay(*this); }

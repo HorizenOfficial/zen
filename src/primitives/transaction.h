@@ -644,16 +644,15 @@ public:
 
     //CHECK FUNCTIONS
     virtual bool IsValidVersion   (CValidationState &state) const = 0;
-    virtual bool IsStandardVersion(int nHeight)             const = 0;
+    virtual bool CheckVersionIsStandard   (std::string& reason, int nHeight) const = 0;
+    virtual bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const = 0;
 
     bool CheckSerializedSize (CValidationState &state) const;
-    bool CheckAmounts        (CValidationState &state) const;
+    virtual bool CheckAmounts(CValidationState &state) const = 0;
     bool CheckInputsDuplication(CValidationState &state) const;
     bool CheckInputsInteraction(CValidationState &state) const;
 
-    /** Check a transaction contextually against a set of consensus rules */
-    bool CheckBlockAtHeight(int height, CValidationState& state) const;
-    virtual bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const = 0;
+    bool CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state, int nHeight) const;
 
     bool CheckInputsLimit() const;
     //END OF CHECK FUNCTIONS
@@ -674,8 +673,6 @@ public:
 
     //-----------------
     // pure virtual interfaces 
-    virtual bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-        bool* pfMissingInputs, bool fRejectAbsurdFee=false) const = 0;
     virtual void Relay() const = 0;
     virtual std::shared_ptr<const CTransactionBase> MakeShared() const = 0;
 
@@ -860,13 +857,12 @@ public:
 
     //CHECK FUNCTIONS
     bool IsValidVersion   (CValidationState &state) const override;
-    bool IsStandardVersion(int nHeight)             const override;
+    bool CheckVersionIsStandard   (std::string& reason, int nHeight) const override;
+    bool CheckAmounts     (CValidationState &state) const override;
     bool CheckNonEmpty    (CValidationState &state) const;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     //END OF CHECK FUNCTIONS
 
-    bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-        bool* pfMissingInputs, bool fRejectAbsurdFee=false) const override;
     void Relay() const override;
     std::shared_ptr<const CTransactionBase> MakeShared() const override;
 

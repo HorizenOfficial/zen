@@ -357,11 +357,11 @@ CAmount CTransactionBase::GetJoinSplitValueIn() const
     return nCumulatedValue;
 }
 
-bool CTransactionBase::CheckAmounts(CValidationState &state) const
+bool CTransaction::CheckAmounts(CValidationState &state) const
 {
     // Check for negative or overflow output values
     CAmount nCumulatedValueOut = 0;
-    for(const CTxOut& txout: GetVout())
+    for(const CTxOut& txout: vout)
     {
         if (txout.nValue < 0)
             return state.DoS(100, error("CheckAmounts(): txout.nValue negative"),
@@ -376,7 +376,7 @@ bool CTransactionBase::CheckAmounts(CValidationState &state) const
     }
 
     // Ensure that joinsplit values are well-formed
-    for(const JSDescription& joinsplit: GetVjoinsplit())
+    for(const JSDescription& joinsplit: vjoinsplit)
     {
         if (joinsplit.vpub_old < 0) {
             return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_old negative"),
@@ -408,6 +408,34 @@ bool CTransactionBase::CheckAmounts(CValidationState &state) const
             return state.DoS(100, error("CheckAmounts(): txout total out of range"),
                              REJECT_INVALID, "bad-txns-txouttotal-toolarge");
         }
+    }
+
+    for(const CTxScCreationOut& scOut: vsc_ccout)
+    {
+        if (scOut.nValue < 0)
+            return state.DoS(100, error("CheckAmounts(): scOut.nValue negative"),
+                             REJECT_INVALID, "bad-txns-vout-negative");
+        if (scOut.nValue > MAX_MONEY)
+            return state.DoS(100, error("CheckAmounts(): scOut.nValue too high"),
+                             REJECT_INVALID, "bad-txns-vout-toolarge");
+        nCumulatedValueOut += scOut.nValue;
+        if (!MoneyRange(nCumulatedValueOut))
+            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
+                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+    }
+
+    for(const CTxForwardTransferOut& fwdOut: vft_ccout)
+    {
+        if (fwdOut.nValue < 0)
+            return state.DoS(100, error("CheckAmounts(): fwdOut.nValue negative"),
+                             REJECT_INVALID, "bad-txns-vout-negative");
+        if (fwdOut.nValue > MAX_MONEY)
+            return state.DoS(100, error("CheckAmounts(): fwdOut.nValue too high"),
+                             REJECT_INVALID, "bad-txns-vout-toolarge");
+        nCumulatedValueOut += fwdOut.nValue;
+        if (!MoneyRange(nCumulatedValueOut))
+            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
+                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
 
     // Ensure input values do not exceed MAX_MONEY
@@ -644,6 +672,9 @@ CAmount CTransaction::GetValueOut() const
     }
 
     nValueOut += (GetValueCcOut(vsc_ccout) + GetValueCcOut(vft_ccout));
+    if (!MoneyRange(nValueOut))
+        throw std::runtime_error("CTransaction::GetValueOut(): value out of range");
+
     return nValueOut;
 }
 
@@ -709,12 +740,12 @@ void CTransaction::addToScCommitment(std::map<uint256, std::vector<uint256> >& m
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
-bool CTransaction::IsStandardVersion(int nHeight) const {return true;}
+bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state, int unused) const { return true; }
+bool CTransaction::CheckVersionIsStandard(std::string& reason, const int nHeight) const {return true;}
 
 bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const {return true;}
 void CTransaction::AddToBlock(CBlock* pblock) const { return; }
 void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const {return; }
-bool CTransactionBase::CheckBlockAtHeight(int height, CValidationState& state) const { return true; };
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return true; }
 bool CTransaction::CheckFinal(int flags) const { return true; }
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
@@ -727,8 +758,6 @@ std::shared_ptr<BaseSignatureChecker> CTransaction::MakeSignatureChecker(unsigne
 {
     return std::shared_ptr<BaseSignatureChecker>();
 }
-bool CTransaction::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-    bool* pfMissingInputs, bool fRejectAbsurdFee) const { return true; }
 void CTransaction::Relay() const {}
 std::shared_ptr<const CTransactionBase> CTransaction::MakeShared() const
 {
@@ -740,10 +769,10 @@ std::shared_ptr<const CTransactionBase> CTransaction::MakeShared() const
 bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const
 {
     CValidationState state;
-    return ::AcceptToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
+    return AcceptTxToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
 };
 
-bool CTransactionBase::CheckBlockAtHeight(int height, CValidationState& state) const
+bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state, int nHeight) const
 {
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
     BOOST_FOREACH(const CTxOut& txout, vout)
@@ -757,10 +786,10 @@ bool CTransactionBase::CheckBlockAtHeight(int height, CValidationState& state) c
         ::IsStandard(txout.scriptPubKey, whichType);
 
         // provide temporary replay protection for two minerconf windows during chainsplit
-        if (!IsCoinBase() && !ForkManager::getInstance().isTransactionTypeAllowedAtHeight(height, whichType))
+        if (!IsCoinBase() && !ForkManager::getInstance().isTransactionTypeAllowedAtHeight(nHeight, whichType))
         {
             return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s",
-                    __FILE__, __func__, ::GetTxnOutputType(whichType), height, GetHash().ToString()),
+                    __FILE__, __func__, ::GetTxnOutputType(whichType), nHeight, GetHash().ToString()),
                 REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
     }
@@ -768,7 +797,7 @@ bool CTransactionBase::CheckBlockAtHeight(int height, CValidationState& state) c
     return true;
 }
 
-bool CTransaction::IsStandardVersion(int nHeight) const {
+bool CTransaction::CheckVersionIsStandard(std::string& reason, int nHeight) const {
     // sidechain fork (happens after groth fork)
     int sidechainVersion = 0;
     bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
@@ -788,6 +817,7 @@ bool CTransaction::IsStandardVersion(int nHeight) const {
 
         if (nVersion > CTransaction::MAX_OLD_VERSION || nVersion < CTransaction::MIN_OLD_VERSION)
         {
+            reason = "version";
             return false;
         }
     }
@@ -798,6 +828,7 @@ bool CTransaction::IsStandardVersion(int nHeight) const {
             // check sidechain tx
             if ( !(areSidechainsSupported && (nVersion == sidechainVersion)) )
             {
+                reason = "version";
                 return false;
             }
         }
@@ -837,14 +868,8 @@ void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fe
 
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const
 {
-    /**
-     * Check a transaction contextually against a set of consensus rules valid at a given block height.
-     *
-     * Notes:
-     * 1. AcceptToMemoryPool calls CheckTransaction and this function.
-     * 2. ProcessNewBlock calls AcceptBlock, which calls CheckBlock (which calls CheckTransaction)
-     *    and ContextualCheckBlock (which calls this function).
-     */
+    if (!CheckOutputsCheckBlockAtHeightOpCode(state, nHeight))
+        return false;
 
     //Valid txs are:
     // at any height
@@ -853,7 +878,7 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
     // at height >= sidechain_fork same as above but also v=-4 with joinsplit empty
 
     // sidechain fork (happens after groth fork)
-    int sidechainVersion = 0;
+    int sidechainVersion = 0; 
     bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
     if (areSidechainsSupported)
     {
@@ -871,8 +896,8 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
             (areSidechainsSupported && (nVersion == sidechainVersion) ) )
         {
             //enforce empty joinsplit for transparent txs and sidechain tx
-            if(!vjoinsplit.empty()) {
-                return state.DoS(dosLevel, error("ContextualCheckTransaction(): transparent or sc tx but vjoinsplit not empty"),
+            if(!GetVjoinsplit().empty()) {
+                return state.DoS(dosLevel, error("ContextualCheck(): transparent or sc tx but vjoinsplit not empty"),
                                      REJECT_INVALID, "bad-txns-transparent-jsnotempty");
             }
             return true;
@@ -881,10 +906,10 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
         // ... or the actual shielded version
         if(nVersion != GROTH_TX_VERSION)
         {
-            LogPrintf("ContextualCheckTransaction: rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
+            LogPrintf("ContextualCheck(): rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
                 nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
             return state.DoS(dosLevel,
-                             error("ContextualCheckTransaction(): unexpected tx version"),
+                             error("ContextualCheck(): unexpected tx version"),
                              REJECT_INVALID, "bad-tx-version-unexpected");
         }
         return true;
@@ -896,17 +921,14 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
 
         if(nVersion < TRANSPARENT_TX_VERSION)
         {
-            LogPrintf("ContextualCheckTransaction: rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
+            LogPrintf("ContextualCheck(): rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
                 nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
             return state.DoS(0,
-                             error("ContextualCheckTransaction(): unexpected tx version"),
+                             error("ContextualCheck(): unexpected tx version"),
                              REJECT_INVALID, "bad-tx-version-unexpected");
         }
         return true;
     }
-
-    if (!CheckBlockAtHeight(nHeight, state))
-        return false;
 
     return true;
 }
@@ -962,12 +984,6 @@ bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsVi
 std::string CTransaction::EncodeHex() const
 {
     return EncodeHexTx(*this);
-}
-
-bool CTransaction::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-    bool* pfMissingInputs, bool fRejectAbsurdFee) const
-{
-    return ::AcceptToMemoryPool(pool, state, *this, fLimitFree, pfMissingInputs, fRejectAbsurdFee);
 }
 
 void CTransaction::Relay() const { ::Relay(*this); }

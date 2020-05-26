@@ -141,12 +141,11 @@ public:
 
     //CHECK FUNCTIONS
     bool IsValidVersion   (CValidationState &state) const override;
-    bool IsStandardVersion(int nHeight)             const override;
+    bool CheckVersionIsStandard   (std::string& reason, int nHeight) const override;
+    bool CheckAmounts     (CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     //END OF CHECK FUNCTIONS
 
-    bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-        bool* pfMissingInputs, bool fRejectAbsurdFee=false) const override;
     void Relay() const override;
     std::shared_ptr<const CTransactionBase> MakeShared() const override;
 

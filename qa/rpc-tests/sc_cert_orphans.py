@@ -154,7 +154,6 @@ class sc_cert_orphans(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("{}".format(errorString), self.nodes, DEBUG_MODE)
-            assert_true("unconfirmed output" in errorString)
 
         # (6) node1 create a cert2 using the same unconfirmed change 
         amounts = []
