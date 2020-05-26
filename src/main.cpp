@@ -2060,14 +2060,24 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
         const CCoins *coins = inputs.AccessCoins(prevout.hash);
         assert(coins);
 
-        if (coins->IsCoinBase()) {
-            // Ensure that coinbases are matured
-            if (nSpendHeight - coins->nHeight < COINBASE_MATURITY) {
+        // Ensure that coinbases and certificates outputs are matured
+        if (coins->IsOutputMature(in.prevout.n, nSpendHeight) != CCoins::outputMaturity::MATURE)
+        {
+            if (coins->IsCoinBase())
                 return state.Invalid(
                     error("CheckInputs(): tried to spend coinbase at depth %d", nSpendHeight - coins->nHeight),
                     REJECT_INVALID, "bad-txns-premature-spend-of-coinbase");
-            }
+            if (coins->IsFromCert())
+                return state.Invalid(
+                    error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
+                    REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
 
+            assert(error("Output from coins which is not coinbase, nor certificate is declared immature"));
+        }
+
+
+        if (coins->IsCoinBase())
+        {
             // Ensure that coinbases cannot be spent to transparent outputs
             // Disabled on regtest
             if (fCoinbaseEnforcedProtectionEnabled &&
@@ -2083,12 +2093,6 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                     REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
                 }
             }
-        }
-        else if (coins->IsFromCert()) {
-                if (inputs.IsCertOutputMature(in.prevout.hash, in.prevout.n, nSpendHeight) != CCoinsViewCache::outputMaturity::MATURE)
-                    return state.Invalid(
-                        error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
-                        REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
         }
 
         // Check for negative or overflow input values

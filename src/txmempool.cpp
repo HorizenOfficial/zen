@@ -367,7 +367,8 @@ inline bool CTxMemPool::addToListForRemovalImmatureExpenditures(
     const CTransactionBase& tx, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, 
     std::list<const CTransactionBase*>& transactionsToRemove)
 {
-    for(const CTxIn& txin: tx.GetVin()) {
+    for(const CTxIn& txin: tx.GetVin())
+    {
         // if input is the output of a tx in mempool, skip it
         std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(txin.prevout.hash);
         if (it2 != mapTx.end())
@@ -405,23 +406,14 @@ inline bool CTxMemPool::addToListForRemovalImmatureExpenditures(
             return true;
         }
  
-        if (coins->IsCoinBase())
+        if (coins->IsOutputMature(txin.prevout.n, nMemPoolHeight) != CCoins::outputMaturity::MATURE)
         {
-            if (((signed long)nMemPoolHeight) - coins->nHeight < COINBASE_MATURITY) {
+            if (coins->IsCoinBase()) {
                 LogPrint("mempool", "%s():%d - adding tx [%s] to list for removing since it spends immature coinbase [%s]\n",
                     __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
                 transactionsToRemove.push_back(&tx);
                 return true;
-            }
-        } else if (coins->IsFromCert())
-        {
-            if (fSanityCheck) {
-                assert(coins->IsAvailable(txin.prevout.n));
-                assert(coins->nBwtMaturityHeight != 0);
-            }
- 
-            if (pcoins->IsCertOutputMature(txin.prevout.hash, txin.prevout.n, nMemPoolHeight) !=
-                        CCoinsViewCache::outputMaturity::MATURE) {
+            } else {
                 LogPrint("mempool", "%s():%d - adding tx [%s] to list for removing since it spends immature cert output %d of [%s]\n",
                     __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
                 transactionsToRemove.push_back(&tx);

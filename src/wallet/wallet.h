@@ -164,10 +164,9 @@ struct CScOutputEntry
 
 struct COutputEntry
 {
-
     CTxDestination destination;
     CAmount        amount;
-    CCoinsViewCache::outputMaturity  maturity;
+    CCoins::outputMaturity  maturity;
     int            vout;
 };
 
@@ -386,7 +385,7 @@ public:
                            CAmount& nSent, CAmount& nFee, const isminefilter& filter) const;
 
     virtual bool HasMatureOutputs() const;
-    CCoinsViewCache::outputMaturity IsOutputMature(unsigned int pos) const;
+    CCoins::outputMaturity IsOutputMature(unsigned int pos) const;
     CAmount GetCredit(const isminefilter& filter) const;
     CAmount GetImmatureCredit(bool fUseCache=true) const;
     CAmount GetImmatureWatchOnlyCredit(const bool& fUseCache=true) const;

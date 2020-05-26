@@ -110,6 +110,36 @@ bool CCoins::IsFromCert() const {
     return (nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f);
 }
 
+CCoins::outputMaturity CCoins::IsOutputMature(unsigned int outPos, int spendHeight) const {
+    if (!IsAvailable(outPos))
+        return outputMaturity::NOT_APPLICABLE;
+    if (spendHeight < nHeight)
+        return outputMaturity::NOT_APPLICABLE;
+
+    if (!IsCoinBase() && !IsFromCert())
+        return outputMaturity::MATURE;
+
+    if (IsCoinBase())
+    {
+        if (spendHeight < nHeight + COINBASE_MATURITY)
+            return outputMaturity::IMMATURE;
+        else
+            return outputMaturity::MATURE;
+    }
+
+    if (IsFromCert())
+    {
+        if (!vout[outPos].isFromBackwardTransfer)
+            return outputMaturity::MATURE;
+        if (spendHeight < nBwtMaturityHeight)
+            return outputMaturity::IMMATURE;
+        else
+            return outputMaturity::MATURE;
+    }
+
+    return outputMaturity::NOT_APPLICABLE;
+}
+
 bool CCoins::Spend(uint32_t nPos)
 {
     if (nPos >= vout.size() || vout[nPos].IsNull())
@@ -1499,26 +1529,6 @@ CAmount CCoinsViewCache::GetValueIn(const CTransactionBase& txBase) const
     nResult += txBase.GetJoinSplitValueIn();
 
     return nResult;
-}
-
-CCoinsViewCache::outputMaturity CCoinsViewCache::IsCertOutputMature(const uint256& txHash, unsigned int pos, int spendHeight) const
-{
-    CCoins refCoin;
-    if(!GetCoins(txHash,refCoin))
-        return outputMaturity::NOT_APPLICABLE;
-
-    assert(refCoin.IsFromCert());
-
-    if (!refCoin.IsAvailable(pos))
-        return outputMaturity::NOT_APPLICABLE;
-
-    if (!refCoin.vout[pos].isFromBackwardTransfer) //change outputs are always mature
-        return outputMaturity::MATURE;
-
-    if (spendHeight < refCoin.nBwtMaturityHeight)
-        return outputMaturity::IMMATURE;
-    else
-        return outputMaturity::MATURE;
 }
 
 bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransactionBase& txBase) const
