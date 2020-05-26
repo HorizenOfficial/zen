@@ -568,11 +568,13 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
             entries.push_back(mapTx[hash]);
     }
 
+    // dummy lists: dummyCerts must be empty, dummyTxs contains exactly the txes that were in the mempool
+    // and now are in the block. The caller is not interested in them because they will be synced with the block
     std::list<CTransaction> dummyTxs;
     std::list<CScCertificate> dummyCerts;
     for(const CTransaction& tx: vtx)
     {
-        remove(tx, dummyTxs, dummyCerts, false);
+        remove(tx, dummyTxs, dummyCerts, /*fRecursive*/false, /*removeDependantFwds*/false);
         removeConflicts(tx, conflictingTxs, conflictingCerts);
         ClearPrioritisation(tx.GetHash());
     }
@@ -608,9 +610,14 @@ void CTxMemPool::removeForBlock(const std::vector<CScCertificate>& vcert, unsign
                                 std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts)
 {
     LOCK(cs);
+
+    // dummy lists: dummyTxs must be empty, dummyCerts contains exactly the certs that were in the mempool
+    // and now are in the block. The caller is not interested in them because they will be synced with the block
+    std::list<CTransaction> dummyTxs;
+    std::list<CScCertificate> dummyCerts;
     for (const auto& cert : vcert)
     {
-        remove(cert, removedTxs, removedCerts, false);
+        remove(cert, dummyTxs, dummyCerts, /*fRecursive*/false, /*removeDependantFwds*/false);
         removeConflicts(cert, removedTxs, removedCerts);
         ClearPrioritisation(cert.GetHash());
     }
