@@ -129,8 +129,6 @@ public:
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     //END OF CHECK FUNCTIONS
 
-    bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-        bool* pfMissingInputs, bool fRejectAbsurdFee=false) const override;
     void Relay() const override;
     std::shared_ptr<const CTransactionBase> MakeShared() const override;
 

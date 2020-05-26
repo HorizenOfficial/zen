@@ -463,9 +463,9 @@ TEST(checktransaction_tests, TransparentTxVersionWithJoinsplit) {
 	CTransaction tx(mtx);
 	MockCValidationState state;
 	EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
-	EXPECT_TRUE(ContextualCheckTransaction(tx, state, 1, 100));
+	EXPECT_TRUE(tx.ContextualCheck(state, 1, 100));
 	EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-transparent-jsnotempty", false)).Times(1);
-	EXPECT_FALSE(ContextualCheckTransaction(tx, state, 200, 100));
+	EXPECT_FALSE(tx.ContextualCheck(state, 200, 100));
 }
 
 TEST(checktransaction_tests, GrothTxVersion) {
@@ -475,8 +475,8 @@ TEST(checktransaction_tests, GrothTxVersion) {
 	MockCValidationState state;
 	EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
 	EXPECT_CALL(state, DoS(0, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
-	EXPECT_FALSE(ContextualCheckTransaction(tx, state, 1, 100));
-	EXPECT_TRUE(ContextualCheckTransaction(tx, state, 200, 100));
+	EXPECT_FALSE(tx.ContextualCheck(state, 1, 100));
+	EXPECT_TRUE(tx.ContextualCheck(state, 200, 100));
 }
 
 TEST(checktransaction_tests, PhgrTxVersion) {
@@ -485,9 +485,9 @@ TEST(checktransaction_tests, PhgrTxVersion) {
 	CTransaction tx(mtx);
 	MockCValidationState state;
 	EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
-	EXPECT_TRUE(ContextualCheckTransaction(tx, state, 1, 100));
+	EXPECT_TRUE(tx.ContextualCheck(state, 1, 100));
 	EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
-	EXPECT_FALSE(ContextualCheckTransaction(tx, state, 200, 100));
+	EXPECT_FALSE(tx.ContextualCheck(state, 200, 100));
 }
 
 TEST(checktransaction_tests, ScTxVersion) {
@@ -498,9 +498,9 @@ TEST(checktransaction_tests, ScTxVersion) {
 	CTransaction tx(mtx);
 	MockCValidationState state;
 	EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
-	EXPECT_TRUE(ContextualCheckTransaction(tx, state, 220, 100));
+	EXPECT_TRUE(tx.ContextualCheck(state, 220, 100));
 	EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
-	EXPECT_FALSE(ContextualCheckTransaction(tx, state, 219, 100));
+	EXPECT_FALSE(tx.ContextualCheck(state, 219, 100));
 }
 
 TEST(checktransaction_tests, ScCertVersion) {

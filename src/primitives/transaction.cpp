@@ -731,7 +731,7 @@ void CTransaction::addToScCommitment(std::map<uint256, std::vector<uint256> >& m
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
-bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const { return true; }
+bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state, int unused) const { return true; }
 bool CTransaction::CheckVersionIsStandard(std::string& reason, const int nHeight) const {return true;}
 
 bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const {return true;}
@@ -749,8 +749,6 @@ std::shared_ptr<BaseSignatureChecker> CTransaction::MakeSignatureChecker(unsigne
 {
     return std::shared_ptr<BaseSignatureChecker>();
 }
-bool CTransaction::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-    bool* pfMissingInputs, bool fRejectAbsurdFee) const { return true; }
 void CTransaction::Relay() const {}
 std::shared_ptr<const CTransactionBase> CTransaction::MakeShared() const
 {
@@ -762,10 +760,10 @@ std::shared_ptr<const CTransactionBase> CTransaction::MakeShared() const
 bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const
 {
     CValidationState state;
-    return ::AcceptToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
+    return AcceptTxToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
 };
 
-bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const
+bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state, int nHeight) const
 {
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
     BOOST_FOREACH(const CTxOut& txout, vout)
@@ -779,7 +777,7 @@ bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& st
         ::IsStandard(txout.scriptPubKey, whichType);
 
         // provide temporary replay protection for two minerconf windows during chainsplit
-        if (!IsCoinBase() && !ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(),whichType))
+        if (!IsCoinBase() && !ForkManager::getInstance().isTransactionTypeAllowedAtHeight(nHeight, whichType))
         {
             return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, ::GetTxnOutputType(whichType), chainActive.Height(), GetHash().ToString()),
                 REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
@@ -860,7 +858,69 @@ void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fe
 
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const
 {
-    return ::ContextualCheckTransaction(*this, state, nHeight, dosLevel);
+    if (!CheckOutputsCheckBlockAtHeightOpCode(state, nHeight))
+        return false;
+
+    //Valid txs are:
+    // at any height
+    // at height < groth_fork v>=1 txs with PHGR proofs
+    // at height >= groth_fork v=-3 shielded with GROTH proofs and v=1 transparent with joinsplit empty
+    // at height >= sidechain_fork same as above but also v=-4 with joinsplit empty
+
+    // sidechain fork (happens after groth fork)
+    int sidechainVersion = 0; 
+    bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
+    if (areSidechainsSupported)
+    {
+        sidechainVersion = ForkManager::getInstance().getSidechainTxVersion(nHeight);
+    }
+
+    // groth fork
+    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
+    bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
+
+    if(isGROTHActive)
+    {
+        //verify if transaction is transparent or related to sidechain...
+        if (nVersion == TRANSPARENT_TX_VERSION  ||
+            (areSidechainsSupported && (nVersion == sidechainVersion) ) )
+        {
+            //enforce empty joinsplit for transparent txs and sidechain tx
+            if(!GetVjoinsplit().empty()) {
+                return state.DoS(dosLevel, error("ContextualCheck(): transparent or sc tx but vjoinsplit not empty"),
+                                     REJECT_INVALID, "bad-txns-transparent-jsnotempty");
+            }
+            return true;
+        }
+
+        // ... or the actual shielded version
+        if(nVersion != GROTH_TX_VERSION)
+        {
+            LogPrintf("ContextualCheck(): rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
+                nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
+            return state.DoS(dosLevel,
+                             error("ContextualCheck(): unexpected tx version"),
+                             REJECT_INVALID, "bad-tx-version-unexpected");
+        }
+        return true;
+    }
+    else
+    {
+        // sidechain fork is after groth one
+        assert(!areSidechainsSupported);
+
+        if(nVersion < TRANSPARENT_TX_VERSION)
+        {
+            LogPrintf("ContextualCheck(): rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
+                nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
+            return state.DoS(0,
+                             error("ContextualCheck(): unexpected tx version"),
+                             REJECT_INVALID, "bad-tx-version-unexpected");
+        }
+        return true;
+    }
+
+    return true;
 }
 
 bool CTransaction::CheckFinal(int flags) const
@@ -914,12 +974,6 @@ bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsVi
 std::string CTransaction::EncodeHex() const
 {
     return EncodeHexTx(*this);
-}
-
-bool CTransaction::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-    bool* pfMissingInputs, bool fRejectAbsurdFee) const
-{
-    return ::AcceptToMemoryPool(pool, state, *this, fLimitFree, pfMissingInputs, fRejectAbsurdFee);
 }
 
 void CTransaction::Relay() const { ::Relay(*this); }

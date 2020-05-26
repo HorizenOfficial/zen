@@ -105,7 +105,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewSidechainsAreAcceptedToMempool) {
     CValidationState txState;
     bool missingInputs = false;
 
-    EXPECT_TRUE(AcceptToMemoryPool(mempool, txState, scTx, false, &missingInputs));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, txState, scTx, false, &missingInputs));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, DuplicatedSidechainsAreNotAcceptedToMempool) {
@@ -113,13 +113,13 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicatedSidechainsAreNotAcceptedToMempool
     CTransaction scTx = GenerateScTx(scId, CAmount(1));
     CValidationState txState;
     bool missingInputs = false;
-    AcceptToMemoryPool(mempool, txState, scTx, false, &missingInputs);
+    AcceptTxToMemoryPool(mempool, txState, scTx, false, &missingInputs);
 
     scTx = GenerateScTx(scId, CAmount(100));
     txState = CValidationState();
     missingInputs = false;
 
-    EXPECT_FALSE(AcceptToMemoryPool(mempool, txState, scTx, false, &missingInputs));
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, txState, scTx, false, &missingInputs));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, DuplicationsOfConfirmedSidechainsAreNotAcceptedToMempool) {
@@ -134,7 +134,7 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicationsOfConfirmedSidechainsAreNotAcce
     CValidationState txState;
     bool missingInputs = false;
 
-    EXPECT_FALSE(AcceptToMemoryPool(mempool, txState, scTx, false, &missingInputs));
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, txState, scTx, false, &missingInputs));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed) {
@@ -152,7 +152,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed
     CValidationState fwdTxState;
     bool missingInputs = false;
 
-    EXPECT_TRUE(AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
 }
 
 //A proof that https://github.com/ZencashOfficial/zen/issues/215 is solved
@@ -161,12 +161,12 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToSideChainsInMempoolAreAllowed
     CTransaction scTx = GenerateScTx(scId, CAmount(1));
     CValidationState scTxState;
     bool missingInputs = false;
-    AcceptToMemoryPool(mempool, scTxState, scTx, false, &missingInputs);
+    AcceptTxToMemoryPool(mempool, scTxState, scTx, false, &missingInputs);
     ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
-    EXPECT_TRUE(AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSideChainAreNotAllowed) {
@@ -175,7 +175,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSideChainAreNotAllowed
     CValidationState fwdTxState;
     bool missingInputs = false;
 
-    EXPECT_FALSE(AcceptToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {

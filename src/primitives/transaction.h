@@ -673,7 +673,7 @@ public:
     bool CheckInputsDuplication(CValidationState &state) const;
     bool CheckInputsInteraction(CValidationState &state) const;
 
-    bool CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const;
+    bool CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state, int nHeight) const;
 
     bool CheckInputsLimit() const;
     //END OF CHECK FUNCTIONS
@@ -694,8 +694,6 @@ public:
 
     //-----------------
     // pure virtual interfaces 
-    virtual bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-        bool* pfMissingInputs, bool fRejectAbsurdFee=false) const = 0;
     virtual void Relay() const = 0;
     virtual std::shared_ptr<const CTransactionBase> MakeShared() const = 0;
 
@@ -884,8 +882,6 @@ public:
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     //END OF CHECK FUNCTIONS
 
-    bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-        bool* pfMissingInputs, bool fRejectAbsurdFee=false) const override;
     void Relay() const override;
     std::shared_ptr<const CTransactionBase> MakeShared() const override;
 

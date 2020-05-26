@@ -153,8 +153,13 @@ void CScCertificate::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount 
 bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const 
 {
     bool areScSupported = zen::ForkManager::getInstance().areSidechainsSupported(nHeight);
+
     if (!areScSupported)
          return state.DoS(dosLevel, error("Sidechain are not supported"), REJECT_INVALID, "bad-cert-version");
+
+    if (!CheckOutputsCheckBlockAtHeightOpCode(state, nHeight))
+        return false;
+
     return true;
 }
 
@@ -175,8 +180,6 @@ std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsig
     return std::shared_ptr<BaseSignatureChecker>(NULL);
 }
 
-bool CScCertificate::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-    bool* pfMissingInputs, bool fRejectAbsurdFee) const { return true; }
 void CScCertificate::Relay() const {}
 std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
 {
@@ -192,12 +195,6 @@ bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) co
 std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
 {
     return std::shared_ptr<BaseSignatureChecker>(new CachingCertificateSignatureChecker(this, nIn, chain, cacheStore));
-}
-
-bool CScCertificate::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-    bool* pfMissingInputs, bool fRejectAbsurdFee) const
-{
-    return ::AcceptCertificateToMemoryPool(pool, state, *this, fLimitFree, pfMissingInputs, fRejectAbsurdFee);
 }
 
 void CScCertificate::Relay() const { ::Relay(*this); }
