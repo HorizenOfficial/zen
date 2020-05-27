@@ -1090,7 +1090,6 @@ TEST(wallet_tests, SetBestChainIgnoresTxsWithoutShieldedData) {
     // Set up transparent address
 	CKey tsk;
 	tsk.MakeNewKey(true);
-    //CKey tsk = DecodeSecret(tSecretRegtest);
     wallet.AddKey(tsk);
     auto scriptPubKey = GetScriptForDestination(tsk.GetPubKey().GetID());
 
