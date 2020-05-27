@@ -647,12 +647,11 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     uint64_t checkTotal = 0;
     uint64_t innerUsage = 0;
 
-    CCoinsViewCache mempoolDuplicate(const_cast<CCoinsViewCache*>(pcoins));
+    CCoinsViewCache mempoolDuplicateTx(const_cast<CCoinsViewCache*>(pcoins));
 
     LOCK(cs);
 
     std::list<const CTxMemPoolEntry*> waitingOnDependantsTx;
-    std::list<const CCertificateMemPoolEntry*> waitingOnDependantsCert;
 
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         unsigned int i = 0;
@@ -743,11 +742,31 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         }
         else {
             CValidationState state;
-            assert(::ContextualCheckInputs(tx, state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+            assert(::ContextualCheckInputs(tx, state, mempoolDuplicateTx, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            UpdateCoins(tx, mempoolDuplicate, dummyUndo, 1000000);
+            UpdateCoins(tx, mempoolDuplicateTx, dummyUndo, 1000000);
         }
     }
+
+    unsigned int stepsSinceLastRemove = 0;
+    while (!waitingOnDependantsTx.empty()) {
+        const CTxMemPoolEntry* entry = waitingOnDependantsTx.front();
+        waitingOnDependantsTx.pop_front();
+        CValidationState state;
+        if (!mempoolDuplicateTx.HaveInputs(entry->GetTx())) {
+            waitingOnDependantsTx.push_back(entry);
+            stepsSinceLastRemove++;
+            assert(stepsSinceLastRemove < waitingOnDependantsTx.size());
+        } else {
+            assert(::ContextualCheckInputs(entry->GetTx(), state, mempoolDuplicateTx, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+            CTxUndo dummyUndo;
+            UpdateCoins(entry->GetTx(), mempoolDuplicateTx, dummyUndo, 1000000);
+            stepsSinceLastRemove = 0;
+        }
+    }
+
+    CCoinsViewCache mempoolDuplicateCert(const_cast<CCoinsViewCache*>(&mempoolDuplicateTx));
+    std::list<const CCertificateMemPoolEntry*> waitingOnDependantsCert;
 
     for (auto it = mapCertificate.begin(); it != mapCertificate.end(); it++)
     {
@@ -760,31 +779,23 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
         bool fDependsWait = false;
         BOOST_FOREACH(const CTxIn &txin, cert.GetVin()) {
-            // Check that every mempool transaction's inputs refer to available coins, or other mempool tx's.
-            std::map<uint256, CTxMemPoolEntry>::const_iterator it2 = mapTx.find(txin.prevout.hash);
-            if (it2 != mapTx.end()) {
-                const CTransaction& tx2 = it2->second.GetTx();
-                assert(tx2.GetVout().size() > txin.prevout.n && !tx2.GetVout()[txin.prevout.n].IsNull());
-                fDependsWait = true;
-            } else {
-                // maybe our input is a certificate?
-                std::map<uint256, CCertificateMemPoolEntry>::const_iterator itCert = mapCertificate.find(txin.prevout.hash);
-                if (itCert != mapCertificate.end()) {
-                    // certificates can only spend change outputs of another certificate in mempool, while backward transfers must mature first
-                    const CTransactionBase& inputCert = itCert->second.GetCertificate();
-                    if (inputCert.GetVout()[txin.prevout.n].isFromBackwardTransfer ) 
-                    {
-                        LogPrintf("%s():%d - ERROR input is the output of cert[%s]\n", __func__, __LINE__, inputCert.GetHash().ToString());
-                        assert(false);
-                    }
-                    assert(inputCert.GetVout().size() > txin.prevout.n && !inputCert.GetVout()[txin.prevout.n].IsNull());
-                    fDependsWait = true;
-                }
-                else
+            // Check that every mempool certificate's inputs refer to available coins (tx have been processed above), or other mempool certs's.
+            std::map<uint256, CCertificateMemPoolEntry>::const_iterator itCert = mapCertificate.find(txin.prevout.hash);
+            if (itCert != mapCertificate.end()) {
+                // certificates can only spend change outputs of another certificate in mempool, while backward transfers must mature first
+                const CTransactionBase& inputCert = itCert->second.GetCertificate();
+                if (inputCert.GetVout()[txin.prevout.n].isFromBackwardTransfer ) 
                 {
-                    const CCoins* coins = pcoins->AccessCoins(txin.prevout.hash);
-                    assert(coins && coins->IsAvailable(txin.prevout.n));
+                    LogPrintf("%s():%d - ERROR input is the output of cert[%s]\n", __func__, __LINE__, inputCert.GetHash().ToString());
+                    assert(false);
                 }
+                assert(inputCert.GetVout().size() > txin.prevout.n && !inputCert.GetVout()[txin.prevout.n].IsNull());
+                fDependsWait = true;
+            }
+            else
+            {
+                const CCoins* coins = mempoolDuplicateTx.AccessCoins(txin.prevout.hash);
+                assert(coins && coins->IsAvailable(txin.prevout.n));
             }
             // Check whether its inputs are marked in mapNextTx.
             std::map<COutPoint, CInPoint>::const_iterator it3 = mapNextTx.find(txin.prevout);
@@ -804,41 +815,25 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         }
         else {
             CValidationState state;
-            assert(::ContextualCheckInputs(cert, state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+            assert(::ContextualCheckInputs(cert, state, mempoolDuplicateCert, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            UpdateCoins(cert, mempoolDuplicate, dummyUndo, 1000000);
+            UpdateCoins(cert, mempoolDuplicateCert, dummyUndo, 1000000);
         }
     }
 
-    unsigned int stepsSinceLastRemove = 0;
-    while (!waitingOnDependantsTx.empty()) {
-        const CTxMemPoolEntry* entry = waitingOnDependantsTx.front();
-        waitingOnDependantsTx.pop_front();
-        CValidationState state;
-        if (!mempoolDuplicate.HaveInputs(entry->GetTx())) {
-            waitingOnDependantsTx.push_back(entry);
-            stepsSinceLastRemove++;
-            assert(stepsSinceLastRemove < waitingOnDependantsTx.size());
-        } else {
-            assert(::ContextualCheckInputs(entry->GetTx(), state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
-            CTxUndo dummyUndo;
-            UpdateCoins(entry->GetTx(), mempoolDuplicate, dummyUndo, 1000000);
-            stepsSinceLastRemove = 0;
-        }
-    }
     unsigned int stepsSinceLastRemoveCert = 0;
     while (!waitingOnDependantsCert.empty()) {
         const CCertificateMemPoolEntry* entry = waitingOnDependantsCert.front();
         waitingOnDependantsCert.pop_front();
         CValidationState state;
-        if (!mempoolDuplicate.HaveInputs(entry->GetCertificate())) {
+        if (!mempoolDuplicateCert.HaveInputs(entry->GetCertificate())) {
             waitingOnDependantsCert.push_back(entry);
             stepsSinceLastRemoveCert++;
             assert(stepsSinceLastRemoveCert < waitingOnDependantsCert.size());
         } else {
-            assert(::ContextualCheckInputs(entry->GetCertificate(), state, mempoolDuplicate, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+            assert(::ContextualCheckInputs(entry->GetCertificate(), state, mempoolDuplicateCert, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            UpdateCoins(entry->GetCertificate(), mempoolDuplicate, dummyUndo, 1000000);
+            UpdateCoins(entry->GetCertificate(), mempoolDuplicateCert, dummyUndo, 1000000);
             stepsSinceLastRemoveCert = 0;
         }
     }
