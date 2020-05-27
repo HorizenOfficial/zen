@@ -1985,6 +1985,8 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
     int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
     inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight, bwtMaturityHeight);
 
+    LogPrint("cert", "%s():%d - CREATED COIN FROM HASH [%s] GIVEN HEIGHT [%d]\n", __func__, __LINE__, cert.GetHash().ToString(), nHeight);
+    LogPrint("cert", "%s():%d - COIN IS [%s]]\n", __func__, __LINE__, inputs.ModifyCoins(cert.GetHash())->ToString());
 }
 
 CScriptCheck::CScriptCheck(): ptxTo(0), nIn(0), chain(nullptr),
@@ -2061,8 +2063,13 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
         assert(coins);
 
         // Ensure that coinbases and certificates outputs are matured
-        if (coins->IsOutputMature(in.prevout.n, nSpendHeight) != CCoins::outputMaturity::MATURE)
+        int maturityHeight = coins->GetMaturityHeightForOutput(in.prevout.n);
+        if ((maturityHeight != MEMPOOL_HEIGHT) && (nSpendHeight < maturityHeight))
         {
+            LogPrintf("%s():%d - Error: txBase [%s] attempts to spend immature output [%d] of tx [%s]\n",
+                    __func__, __LINE__, txBase.GetHash().ToString(), in.prevout.n, in.prevout.hash.ToString());
+            LogPrintf("%s():%d - Error: Immature coin info: coin creation height [%d], output maturity height [%d], spend height [%d]\n",
+                    __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, nSpendHeight);
             if (coins->IsCoinBase())
                 return state.Invalid(
                     error("CheckInputs(): tried to spend coinbase at depth %d", nSpendHeight - coins->nHeight),
@@ -2071,8 +2078,6 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                 return state.Invalid(
                     error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
                     REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
-
-            assert(error("Output from coins which is not coinbase, nor certificate is declared immature"));
         }
 
 

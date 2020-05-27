@@ -110,36 +110,24 @@ bool CCoins::IsFromCert() const {
     return (nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f);
 }
 
-CCoins::outputMaturity CCoins::IsOutputMature(unsigned int outPos, int spendHeight) const {
+int CCoins::GetMaturityHeightForOutput(unsigned int outPos) const
+{
     if (!IsCoinBase() && !IsFromCert())
-        return outputMaturity::MATURE;
+        return nHeight;
 
     if (IsCoinBase())
-    {
-        if (spendHeight < nHeight + COINBASE_MATURITY)
-            return outputMaturity::IMMATURE;
-        else
-            return outputMaturity::MATURE;
-    }
+        return nHeight + COINBASE_MATURITY;
 
-    if (IsFromCert())
-    {
-        if (!IsAvailable(outPos))
-            return outputMaturity::NOT_APPLICABLE;
-
-        // Note: nHeight may be much larger than spendHeight for coins generated in mempool.
-        // Change from certs in mempool will be mature while bwt from certs in mempool will
-        // be immature, since nHeight == nBwtMaturityHeight.
-
-        if (!vout[outPos].isFromBackwardTransfer)
-            return outputMaturity::MATURE;
-        if (spendHeight < nBwtMaturityHeight)
-            return outputMaturity::IMMATURE;
-        else
-            return outputMaturity::MATURE;
-    }
-
-    return outputMaturity::NOT_APPLICABLE;
+    //Hereinafter a cert
+    // We check output availability only for certs since spent outputs for other txs 
+    // are handled in wallet in their own way
+    if(!IsAvailable(outPos))
+        return -1; //This may happen in wallet when you check credit on certificate whose bwt has been erased
+                   
+    if (vout.at(outPos).isFromBackwardTransfer)
+        return nBwtMaturityHeight;
+    else
+        return nHeight;
 }
 
 bool CCoins::Spend(uint32_t nPos)

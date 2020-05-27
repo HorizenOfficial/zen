@@ -2506,7 +2506,15 @@ CCoins::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned int vOutP
 
     CCoins coins;
     pcoinsTip->GetCoins(pTxBase->GetHash(), coins);
-    return coins.IsOutputMature(vOutPos, chainActive.Height());
+    int maturityHeight = coins.GetMaturityHeightForOutput(vOutPos);
+
+    if (maturityHeight < 0)
+        return CCoins::outputMaturity::NOT_APPLICABLE;
+
+    if (chainActive.Height() < maturityHeight)
+        return CCoins::outputMaturity::IMMATURE;
+    else
+        return CCoins::outputMaturity::MATURE;
 }
 
 CAmount CWalletTransactionBase::GetCredit(const isminefilter& filter) const
