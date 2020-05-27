@@ -111,11 +111,6 @@ bool CCoins::IsFromCert() const {
 }
 
 CCoins::outputMaturity CCoins::IsOutputMature(unsigned int outPos, int spendHeight) const {
-    if (!IsAvailable(outPos))
-        return outputMaturity::NOT_APPLICABLE;
-    if (spendHeight < nHeight)
-        return outputMaturity::NOT_APPLICABLE;
-
     if (!IsCoinBase() && !IsFromCert())
         return outputMaturity::MATURE;
 
@@ -129,6 +124,13 @@ CCoins::outputMaturity CCoins::IsOutputMature(unsigned int outPos, int spendHeig
 
     if (IsFromCert())
     {
+        if (!IsAvailable(outPos))
+            return outputMaturity::NOT_APPLICABLE;
+
+        // Note: nHeight may be much larger than spendHeight for coins generated in mempool.
+        // Change from certs in mempool will be mature while bwt from certs in mempool will
+        // be immature, since nHeight == nBwtMaturityHeight.
+
         if (!vout[outPos].isFromBackwardTransfer)
             return outputMaturity::MATURE;
         if (spendHeight < nBwtMaturityHeight)

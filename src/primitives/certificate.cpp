@@ -191,7 +191,7 @@ bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int d
     if (!areScSupported)
          return state.DoS(dosLevel, error("Sidechain are not supported"), REJECT_INVALID, "bad-cert-version");
 
-    if (!CheckOutputsCheckBlockAtHeightOpCode(state, nHeight))
+    if (!CheckBlockAtHeight(state, nHeight, dosLevel))
         return false;
 
     return true;

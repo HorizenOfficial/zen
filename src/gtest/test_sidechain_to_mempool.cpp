@@ -128,6 +128,7 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicationsOfConfirmedSidechainsAreNotAcce
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
     sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    sidechainsView.SetBestBlock(pcoinsTip->GetBestBlock()); //do not alter BestBlock, as set in test fixture
     sidechainsView.Flush();
 
     scTx = GenerateScTx(scId, CAmount(12));
@@ -146,6 +147,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
     sidechainsView.UpdateScInfo(scTx, aBlock, creationHeight);
+    sidechainsView.SetBestBlock(pcoinsTip->GetBestBlock()); //do not alter BestBlock, as set in test fixture
     sidechainsView.Flush();
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
@@ -565,7 +567,7 @@ bool SidechainsInMempoolTestSuite::StoreCoins(const std::pair<uint256, CCoinsCac
     CCoinsMap tmpCoinsMap;
     tmpCoinsMap[entryToStore.first] = entryToStore.second;
 
-    const uint256 hashBlock;
+    const uint256 hashBlock = pcoinsTip->GetBestBlock(); //keep same best block as set in Fixture setup
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;

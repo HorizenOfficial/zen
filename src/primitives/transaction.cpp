@@ -744,7 +744,7 @@ void CTransaction::addToScCommitment(std::map<uint256, std::vector<uint256> >& m
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
-bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state, int unused) const { return true; }
+bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int unused, int dosLevel) const { return true; }
 bool CTransaction::CheckVersionIsStandard(std::string& reason, const int nHeight) const {return true;}
 
 bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const {return true;}
@@ -776,7 +776,7 @@ bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) cons
     return AcceptTxToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
 };
 
-bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state, int nHeight) const
+bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int nHeight, int dosLevel) const
 {
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
     BOOST_FOREACH(const CTxOut& txout, vout)
@@ -792,7 +792,7 @@ bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& st
         // provide temporary replay protection for two minerconf windows during chainsplit
         if (!IsCoinBase() && !ForkManager::getInstance().isTransactionTypeAllowedAtHeight(nHeight, whichType))
         {
-            return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s",
+            return state.DoS(dosLevel, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s",
                     __FILE__, __func__, ::GetTxnOutputType(whichType), nHeight, GetHash().ToString()),
                 REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
@@ -872,7 +872,7 @@ void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fe
 
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const
 {
-    if (!CheckOutputsCheckBlockAtHeightOpCode(state, nHeight))
+    if (!CheckBlockAtHeight(state, nHeight, dosLevel))
         return false;
 
     //Valid txs are:

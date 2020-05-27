@@ -652,7 +652,7 @@ public:
     bool CheckInputsDuplication(CValidationState &state) const;
     virtual bool CheckInputsInteraction(CValidationState &state) const = 0;
 
-    bool CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state, int nHeight) const;
+    bool CheckBlockAtHeight(CValidationState& state, int nHeight, int dosLevel) const;
 
     bool CheckInputsLimit() const;
     //END OF CHECK FUNCTIONS
