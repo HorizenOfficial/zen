@@ -67,66 +67,92 @@ namespace libzendoomc{
 
         return true;
     }
-          
-    bool CScWCertProofVerificationParameters::createParameters() {
-        //Deserialize constant
-        auto constant_bytes = scInfo.creationData.constant;
-        if (constant_bytes.size() == 0){ //Constant can be optional
+
+    // Let's define a struct to hold the inputs, with a function to free the memory Rust-side
+    struct WCertVerifierInputs {
+        std::vector<backward_transfer_t> bt_list;
+        field_t* constant;
+        field_t* proofdata;
+        sc_proof_t* sc_proof;
+        sc_vk_t* sc_vk;
+
+        ~WCertVerifierInputs(){
+
+            zendoo_field_free(constant);
             constant = nullptr;
+
+            zendoo_field_free(proofdata);
+            proofdata = nullptr;
+
+            zendoo_sc_proof_free(sc_proof);
+            sc_proof = nullptr;
+
+            zendoo_sc_vk_free(sc_vk);
+            sc_vk = nullptr;
+        }
+    };
+
+    bool CScWCertProofVerification::verifyScCert(                
+        const ScConstant& constant,
+        const ScVk& wCertVk,
+        const uint256& prev_end_epoch_block_hash,
+        const CScCertificate& scCert) const
+    {
+        // Collect verifier inputs
+
+        WCertVerifierInputs inputs;
+
+        //Deserialize constant
+        if (constant.size() == 0){ //Constant can be optional
+            inputs.constant = nullptr;
        
         } else {
             
-            constant = deserialize_field(constant_bytes.data()); 
+            inputs.constant = deserialize_field(constant.data()); 
             
-            if (constant == nullptr) {
+            if (inputs.constant == nullptr) {
                 
                 LogPrint("zendoo_mc_cryptolib",
                         "%s():%d - failed to deserialize \"constant\": %s \n", 
                         __func__, __LINE__, ToString(zendoo_get_last_error()));
+                zendoo_clear_error();
+
                 return false;
             }
         }
 
         //Initialize quality and proofdata
-        quality = scCert.quality;
-        proofdata = nullptr; //Note: For now proofdata is not present in WCert
+        inputs.proofdata = nullptr; //Note: For now proofdata is not present in WCert
 
         //Deserialize proof
         auto sc_proof_bytes = scCert.scProof;
 
-        sc_proof = deserialize_sc_proof(sc_proof_bytes.begin());
+        inputs.sc_proof = deserialize_sc_proof(sc_proof_bytes.begin());
 
-        if(sc_proof == nullptr) {
+        if(inputs.sc_proof == nullptr) {
 
             LogPrint("zendoo_mc_cryptolib",
                 "%s():%d - failed to deserialize \"sc_proof\": %s \n", 
                 __func__, __LINE__, ToString(zendoo_get_last_error()));
+            zendoo_clear_error();
+            
             return false;
-
         }
 
         //Deserialize sc_vk
-        auto wCertVkBytes = scInfo.creationData.wCertVk;
-        sc_vk = deserialize_sc_vk(wCertVkBytes.begin());
+        inputs.sc_vk = deserialize_sc_vk(wCertVk.begin());
 
-        if (sc_vk == nullptr){
+        if (inputs.sc_vk == nullptr){
 
             LogPrint("zendoo_mc_cryptolib",
                 "%s():%d - failed to deserialize \"wCertVk\": %s \n", 
                 __func__, __LINE__, ToString(zendoo_get_last_error()));
+            zendoo_clear_error();
+
             return false;
         }
 
-        //Retrieve MC block hashes
-        {
-            //LOCK(cs_main); TODO: Is LOCK needed here ?
-            end_epoch_mc_b_hash = scCert.endEpochBlockHash.begin();
-            int targetHeight = scInfo.StartHeightForEpoch(scCert.epochNumber) - 1;
-            prev_end_epoch_mc_b_hash = (chainActive[targetHeight] -> GetBlockHash()).begin();
-        }
-
         //Retrieve BT list
-        std::vector<backward_transfer_t> btList;
         for (auto out : scCert.GetVout()){
             if (out.isFromBackwardTransfer){
                 CBackwardTransferOut btout(out);
@@ -135,49 +161,37 @@ namespace libzendoomc{
                 std::copy(btout.pubKeyHash.begin(), btout.pubKeyHash.end(), std::begin(bt.pk_dest));
                 bt.amount = btout.nValue;
 
-                btList.push_back(bt);
+                inputs.bt_list.push_back(bt);
             }
         }
-        bt_list = btList;
-        return true;
-    }
 
-    bool CScWCertProofVerificationParameters::verifierCall() const {
-        if (!verify_sc_proof(end_epoch_mc_b_hash, prev_end_epoch_mc_b_hash, bt_list.data(),
-                             bt_list.size(), quality, constant, proofdata, sc_proof, sc_vk))
+        // Call verifier
+        if (!verify_sc_proof(scCert.endEpochBlockHash.begin(), prev_end_epoch_block_hash.begin(),
+                            inputs.bt_list.data(), inputs.bt_list.size(), scCert.quality,
+                            inputs.constant, inputs.proofdata, inputs.sc_proof, inputs.sc_vk))
         {
             Error err = zendoo_get_last_error();
             if (err.category == CRYPTO_ERROR){ // Proof verification returned false due to an error, we must log it
                 LogPrint("zendoo_mc_cryptolib",
                 "%s():%d - failed to verify \"sc_proof\": %s \n", 
                 __func__, __LINE__, ToString(err));
+                zendoo_clear_error();
             }
             return false;
         }
         return true;
     }
 
-    void CScWCertProofVerificationParameters::freeParameters() {
-        
-        end_epoch_mc_b_hash = nullptr;
-        prev_end_epoch_mc_b_hash = nullptr;
-
-        zendoo_field_free(constant);
-        constant = nullptr;
-
-        zendoo_field_free(proofdata);
-        proofdata = nullptr;
-
-        zendoo_sc_proof_free(sc_proof);
-        sc_proof = nullptr;
-
-        zendoo_sc_vk_free(sc_vk);
-        sc_vk = nullptr;
-
-        zendoo_clear_error();
-    }
-
-    bool CScProofVerifier::verifyCScCertificate(const CSidechain& scInfo, const CScCertificate& scCert) const {
-        return CScWCertProofVerificationParameters(scInfo, scCert).run(perform_verification);
+    bool CScProofVerifier::verifyCScCertificate(
+        const ScConstant& constant,
+        const ScVk& wCertVk,
+        const uint256& prev_end_epoch_block_hash,
+        const CScCertificate& cert
+    ) const 
+    {
+        if(!perform_verification)
+            return true;
+        else
+            return CScWCertProofVerification().verifyScCert(constant, wCertVk, prev_end_epoch_block_hash, cert);
     }
 }
