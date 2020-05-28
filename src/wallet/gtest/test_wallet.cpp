@@ -891,6 +891,14 @@ TEST(wallet_tests, WriteWitnessCache) {
     wallet.AddSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
+    auto note = GetNote(sk, wtx, 0, 1);
+    auto nullifier = note.nullifier(sk);
+
+    mapNoteData_t noteData;
+    JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+    CNoteData nd {sk.address(), nullifier};
+    noteData[jsoutpt] = nd;
+    wtx.SetNoteData(noteData);
     wallet.AddToWallet(wtx, true, NULL);
 
     // TxnBegin fails
@@ -1070,4 +1078,62 @@ TEST(wallet_tests, MarkAffectedTransactionsDirty) {
     wallet.AddToWallet(wtx2, true, NULL);
     wallet.MarkAffectedTransactionsDirty(wtx2);
     EXPECT_FALSE(wallet.mapWallet[hash].fDebitCached);
+}
+
+TEST(wallet_tests, SetBestChainIgnoresTxsWithoutShieldedData) {
+    SelectParams(CBaseChainParams::REGTEST);
+
+    TestWallet wallet;
+    MockWalletDB walletdb;
+    CBlockLocator loc;
+
+    // Set up transparent address
+	CKey tsk;
+	tsk.MakeNewKey(true);
+    wallet.AddKey(tsk);
+    auto scriptPubKey = GetScriptForDestination(tsk.GetPubKey().GetID());
+
+    // Set up a Sprout address
+    auto sk = libzcash::SpendingKey::random();
+    wallet.AddSpendingKey(sk);
+
+    // Generate a transparent transaction that is ours
+    CMutableTransaction t;
+    t.vout.resize(1);
+    t.vout[0].nValue = 90*CENT;
+    t.vout[0].scriptPubKey = scriptPubKey;
+    CWalletTx wtxTransparent {nullptr, t};
+    wallet.AddToWallet(wtxTransparent, true, nullptr);
+
+    // Generate a Sprout transaction that is ours
+    auto wtxSprout = GetValidReceive(sk, 10, true);
+    auto noteMap = wallet.FindMyNotes(wtxSprout);
+    wtxSprout.SetNoteData(noteMap);
+    wallet.AddToWallet(wtxSprout, true, nullptr);
+
+    // Generate a Sprout transaction that only involves our transparent address
+    auto sk2 = libzcash::SpendingKey::random();
+    auto wtxInput = GetValidReceive(sk2, 10, true);
+    auto note = GetNote(sk2, wtxInput, 0, 0);
+    auto wtxTmp = GetValidSpend(sk2, note, 5);
+    CMutableTransaction mtx {wtxTmp};
+    mtx.vout[0].scriptPubKey = scriptPubKey;
+    CWalletTx wtxSproutTransparent {nullptr, mtx};
+    wallet.AddToWallet(wtxSproutTransparent, true, nullptr);
+
+    EXPECT_CALL(walletdb, TxnBegin())
+        .WillOnce(Return(true));
+    EXPECT_CALL(walletdb, WriteTx(wtxTransparent.GetHash(), wtxTransparent))
+        .Times(0);
+    EXPECT_CALL(walletdb, WriteTx(wtxSprout.GetHash(), wtxSprout))
+        .Times(1).WillOnce(Return(true));
+    EXPECT_CALL(walletdb, WriteTx(wtxSproutTransparent.GetHash(), wtxSproutTransparent))
+        .Times(0);
+    EXPECT_CALL(walletdb, WriteWitnessCacheSize(0))
+        .WillOnce(Return(true));
+    EXPECT_CALL(walletdb, WriteBestBlock(loc))
+        .WillOnce(Return(true));
+    EXPECT_CALL(walletdb, TxnCommit())
+        .WillOnce(Return(true));
+    wallet.SetBestChain(walletdb, loc);
 }
