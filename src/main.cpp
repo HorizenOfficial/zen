@@ -2064,6 +2064,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
 
         // Ensure that coinbases and certificates outputs are matured
         int maturityHeight = coins->GetMaturityHeightForOutput(in.prevout.n);
+        assert(maturityHeight >= 0);
         if ((maturityHeight != MEMPOOL_HEIGHT) && (nSpendHeight < maturityHeight))
         {
             LogPrintf("%s():%d - Error: txBase [%s] attempts to spend immature output [%d] of tx [%s]\n",
