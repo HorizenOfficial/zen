@@ -2313,11 +2313,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     LogPrint("sc", "%s():%d - ===============> CBlockUndo red from DB:\n%s\n",
         __func__, __LINE__, blockUndo.ToString());
     // no coinbase in blockundo
-#if 0
-    if (blockUndo.vtxundo.size() + 1 != block.vtx.size() + block.vcert.size() )
-#else
     if (blockUndo.vtxundo.size() < (block.vtx.size() - 1 + block.vcert.size()))
-#endif
         return error("DisconnectBlock(): block and undo data inconsistent");
 
     for(int idx = block.vtx.size() - 1 + block.vcert.size(); idx < blockUndo.vtxundo.size(); idx++)

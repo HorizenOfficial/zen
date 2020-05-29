@@ -145,9 +145,9 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
 
     res.vout.resize(numChangeOut+numBwt);
     for(unsigned int idx = 0; idx < numChangeOut; ++idx) {
-    res.vout[idx].nValue = insecure_rand();
-    res.vout[idx].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
-    res.vout[idx].isFromBackwardTransfer = false;
+        res.vout[idx].nValue = insecure_rand();
+        res.vout[idx].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
+        res.vout[idx].isFromBackwardTransfer = false;
     }
 
     for(unsigned int idx = 0; idx < numBwt; ++idx) {

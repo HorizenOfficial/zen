@@ -2496,20 +2496,24 @@ CCoins::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned int vOutP
         if (!pTxBase->IsCoinBase() && !pTxBase->IsCertificate())
             return CCoins::outputMaturity::MATURE;
 
-        if (vOutPos >= pTxBase->GetVout().size())
-            return CCoins::outputMaturity::NOT_APPLICABLE;
-        if (!pTxBase->GetVout()[vOutPos].isFromBackwardTransfer)
+        if (!pTxBase->GetVout().at(vOutPos).isFromBackwardTransfer)
             return CCoins::outputMaturity::MATURE;
-        if (pTxBase->GetVout()[vOutPos].isFromBackwardTransfer)
+        else
             return CCoins::outputMaturity::IMMATURE;
     }
 
-    CCoins coins;
-    pcoinsTip->GetCoins(pTxBase->GetHash(), coins);
-    int maturityHeight = coins.GetMaturityHeightForOutput(vOutPos);
+    if (pTxBase->IsCertificate())
+    {
+        //Certs may have bwts stripped away. Currently we need to recheck
+        CCoins coins;
+        if (!pcoinsTip->GetCoins(pTxBase->GetHash(), coins))
+            return CCoins::outputMaturity::NOT_APPLICABLE;
+        if (!coins.IsAvailable(vOutPos))
+            return CCoins::outputMaturity::NOT_APPLICABLE;
+    }
 
-    if (maturityHeight < 0)
-        return CCoins::outputMaturity::NOT_APPLICABLE;
+    int maturityHeight = pTxBase->GetVout().at(vOutPos).isFromBackwardTransfer?
+            bwtMaturityHeight : outMaturityHeight;
 
     if (chainActive.Height() < maturityHeight)
         return CCoins::outputMaturity::IMMATURE;
@@ -2649,6 +2653,92 @@ CAmount CWalletTransactionBase::GetAvailableWatchOnlyCredit(const bool& fUseCach
     return nCredit;
 }
 
+void CWalletTransactionBase::MarkDirty()
+{
+    fCreditCached = false;
+    fAvailableCreditCached = false;
+    fWatchDebitCached = false;
+    fWatchCreditCached = false;
+    fAvailableWatchCreditCached = false;
+    fImmatureWatchCreditCached = false;
+    fDebitCached = false;
+    fChangeCached = false;
+
+    outMaturityHeight = -1;
+    bwtMaturityHeight = -1;
+
+    if (!hashBlock.IsNull())
+    {
+        CCoins coins;
+        pcoinsTip->GetCoins(pTxBase->GetHash(), coins);
+
+        bool fOutSet = false;
+        bool fBwtSet = false;
+        for(size_t outPos = 0; outPos < pTxBase->GetVout().size(); ++outPos)
+        {
+            if (!fOutSet && !pTxBase->GetVout()[outPos].isFromBackwardTransfer)
+            {
+                int maturityHeight = coins.GetMaturityHeightForOutput(outPos);
+                if (maturityHeight >= 0) {
+                    outMaturityHeight = maturityHeight;
+                    fOutSet = true;
+                }
+            }
+
+            if (!fBwtSet && pTxBase->GetVout()[outPos].isFromBackwardTransfer)
+            {
+                int maturityHeight = coins.GetMaturityHeightForOutput(outPos);
+                if (maturityHeight >= 0) {
+                    bwtMaturityHeight = maturityHeight;
+                    fBwtSet = true;
+                }
+            }
+
+            if (fOutSet && fBwtSet)
+                break;
+        }
+    }
+    LogPrintf("%s: outMaturityHeight --> [%d], bwtMaturityHeight--> [%d]\n", __func__, outMaturityHeight, bwtMaturityHeight);
+}
+
+void CWalletTransactionBase::Reset(const CWallet* pwalletIn)
+{
+    hashBlock.SetNull();
+    vMerkleBranch.clear();
+    nIndex = -1;
+    fMerkleVerified = false;
+    pwallet = pwalletIn;
+    mapValue.clear();
+    vOrderForm.clear();
+    fTimeReceivedIsTxTime = false;
+    nTimeReceived = 0;
+    nTimeSmart = 0;
+    fFromMe = false;
+    strFromAccount.clear();
+    fDebitCached = false;
+    fCreditCached = false;
+    fImmatureCreditCached = false;
+    fAvailableCreditCached = false;
+    fWatchDebitCached = false;
+    fWatchCreditCached = false;
+    fImmatureWatchCreditCached = false;
+    fAvailableWatchCreditCached = false;
+    fChangeCached = false;
+    nDebitCached = 0;
+    nCreditCached = 0;
+    nImmatureCreditCached = 0;
+    nAvailableCreditCached = 0;
+    nWatchDebitCached = 0;
+    nWatchCreditCached = 0;
+    nAvailableWatchCreditCached = 0;
+    nImmatureWatchCreditCached = 0;
+    nChangeCached = 0;
+    nOrderPos = -1;
+
+    outMaturityHeight = -1;
+    bwtMaturityHeight = -1;
+}
+
 std::set<uint256> CWalletTransactionBase::GetConflicts() const
 {
     set<uint256> result;
@@ -2676,12 +2766,9 @@ CAmount CWalletTransactionBase::GetChange() const
 bool CWalletTransactionBase::IsTrusted(bool canSpendZeroConfChange) const
 {
     // Quick answer in most cases
-#if 0
-    if (!CheckFinalTx(*this))
-#else
     if (!pTxBase->CheckFinal())
-#endif
         return false;
+
     int nDepth = GetDepthInMainChain();
     if (nDepth >= 1)
         return true;
@@ -2694,12 +2781,8 @@ bool CWalletTransactionBase::IsTrusted(bool canSpendZeroConfChange) const
     BOOST_FOREACH(const CTxIn& txin, pTxBase->GetVin())
     {
         // Transactions not sent by us: not trusted
-#if 0
-        const CWalletTx* parent = pwallet->GetWalletTx(txin.prevout.hash);
-#else
         const CWalletTransactionBase* parent = pwallet->GetWalletTx(txin.prevout.hash);
-#endif
-        if (parent == NULL)
+        if (parent == nullptr)
             return false;
         const CTxOut& parentOut = parent->getTxBase()->GetVout()[txin.prevout.n];
         if (pwallet->IsMine(parentOut) != ISMINE_SPENDABLE)
@@ -2931,15 +3014,9 @@ CAmount CWallet::GetWatchOnlyBalance() const
     CAmount nTotal = 0;
     {
         LOCK2(cs_main, cs_wallet);
-#if 0
-        for (map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
-        {
-            const CWalletTx* pcoin = &(*it).second;
-#else
         for (MAP_WALLET_CONST_IT it = mapWallet.begin(); it != mapWallet.end(); ++it)
         {
             const CWalletTransactionBase* pcoin = it->second.get();
-#endif
             if (pcoin->IsTrusted())
                 nTotal += pcoin->GetAvailableWatchOnlyCredit();
         }

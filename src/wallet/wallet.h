@@ -356,6 +356,8 @@ public:
     char fFromMe;
     std::string strFromAccount;
     int64_t nOrderPos; //! position in ordered transaction list
+    int outMaturityHeight;
+    int bwtMaturityHeight;
 
     // useful in gtest
     friend bool operator==(const CWalletTransactionBase& a, const CWalletTransactionBase& b) {
@@ -403,19 +405,6 @@ public:
 
     int GetRequestCount() const;
 
-
-    void MarkDirty()
-    {
-        fCreditCached = false;
-        fAvailableCreditCached = false;
-        fWatchDebitCached = false;
-        fWatchCreditCached = false;
-        fAvailableWatchCreditCached = false;
-        fImmatureWatchCreditCached = false;
-        fDebitCached = false;
-        fChangeCached = false;
-    }
-
     bool IsTrusted(bool canSpendZeroConfChange = bSpendZeroConfChange) const;
 
     // virtuals
@@ -453,41 +442,9 @@ public:
     virtual const mapNoteData_t* GetMapNoteData() const { return nullptr; }
     virtual void SetMapNoteData(mapNoteData_t& m) {}
 
+    void MarkDirty();
 protected:
-    void Reset(const CWallet* pwalletIn)
-    {
-        hashBlock.SetNull();
-        vMerkleBranch.clear();
-        nIndex = -1;
-        fMerkleVerified = false;
-        pwallet = pwalletIn;
-        mapValue.clear();
-        vOrderForm.clear();
-        fTimeReceivedIsTxTime = false;
-        nTimeReceived = 0;
-        nTimeSmart = 0;
-        fFromMe = false;
-        strFromAccount.clear();
-        fDebitCached = false;
-        fCreditCached = false;
-        fImmatureCreditCached = false;
-        fAvailableCreditCached = false;
-        fWatchDebitCached = false;
-        fWatchCreditCached = false;
-        fImmatureWatchCreditCached = false;
-        fAvailableWatchCreditCached = false;
-        fChangeCached = false;
-        nDebitCached = 0;
-        nCreditCached = 0;
-        nImmatureCreditCached = 0;
-        nAvailableCreditCached = 0;
-        nWatchDebitCached = 0;
-        nWatchCreditCached = 0;
-        nAvailableWatchCreditCached = 0;
-        nImmatureWatchCreditCached = 0;
-        nChangeCached = 0;
-        nOrderPos = -1;
-    }
+    void Reset(const CWallet* pwalletIn);
 
 public:
     virtual std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const = 0;
