@@ -1,10 +1,9 @@
-
-package=crate_lazy_static
-$(package)_crate_name=lazy_static
-$(package)_version=1.0.0
+package=crate_crossbeam-utils
+$(package)_crate_name=crossbeam-utils
+$(package)_version=0.2.2
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=c8f31047daa365f19be14b47c29df4f7c3b581832407daabe6ae77397619237d
+$(package)_sha256_hash=2760899e32a1d58d5abb31129f8fae5de75220bc2176e77ff7c627ae45c918d9
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

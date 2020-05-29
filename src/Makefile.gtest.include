@@ -49,7 +49,8 @@ zen_gtest_SOURCES += \
 	gtest/test_sidechain_to_mempool.cpp \
 	gtest/test_sidechain_ceased.cpp \
 	gtest/test_sidechain_proof.cpp \
-	gtest/test_blockpriority.cpp
+	gtest/test_blockpriority.cpp \
+	gtest/test_libzendoo.cpp
 
 if ENABLE_WALLET
 zen_gtest_SOURCES += \
@@ -74,7 +75,7 @@ if ENABLE_WALLET
 zen_gtest_LDADD += $(LIBBITCOIN_WALLET)
 endif
 
-zen_gtest_LDADD += $(LIBZCASH_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(LIBZCASH) $(LIBZENCASH) $(LIBSNARK) $(LIBZCASH_LIBS)
+zen_gtest_LDADD += $(LIBZCASH_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(LIBZCASH) $(LIBZENCASH) $(LIBSNARK) $(LIBZCASH_LIBS) $(LIBRUSTZENDOO) -lpthread -ldl
 
 if ENABLE_PROTON
 zen_gtest_LDADD += $(LIBBITCOIN_PROTON) $(PROTON_LIBS)

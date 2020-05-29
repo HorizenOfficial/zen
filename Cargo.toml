@@ -1,0 +1,39 @@
+[package]
+name = "zendoo-mc-crypto"
+version = "0.1.0"
+authors = ["DanieleDiBenedetto <daniele@horizenlabs.io>", "ark2038 <ark2038@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "zendoo_mc"
+path = "src/zendoo/src/lib.rs"
+crate-type = ["staticlib"]
+
+
+[dependencies]
+# zendoo-mc-crypto = {version = "0.1.0", git = "https://github.com/ark2038/zendoo-mc-cryptolib.git", branch = "development"}
+# librustzcash = { version = "0.1.0", git= "https://github.com/ark2038/librustzcash.git", branch = "master" }
+algebra = {version = "0.1.0", git = "https://github.com/ZencashOfficial/ginger-lib.git", branch = "development"}
+#algebra = {version = "0.1.0", git = "https://github.com/ark2038/ginger-lib.git", branch = "development"}
+primitives = {version = "0.1.0", features = ["merkle_tree"], git = "https://github.com/ZencashOfficial/ginger-lib.git", branch = "development"}
+#primitives = {version = "0.1.0", features = ["merkle_tree"], git = "https://github.com/ark2038/ginger-lib.git", branch = "development"}
+proof-systems = {version = "0.1.0", features = ["groth16"], git = "https://github.com/ZencashOfficial/ginger-lib.git", branch = "development"}
+#proof-systems = {version = "0.1.0", features = ["groth16"], git = "https://github.com/ark2038/ginger-lib.git", branch = "development"}
+maybe-uninit = "=2.0.0"
+rand = "0.7.3"
+winapi = "=0.3.6"
+lazy_static = "=1.2.0"
+libc = "0.2"
+
+[patch.crates-io]
+maybe-uninit = {version = "2.0.0", git = "https://github.com/est31/maybe-uninit.git" }
+rand = { version = "0.7.3", git = "https://github.com/rust-lang-nursery/rand", tag = "0.7.3" }
+getrandom = {version = "0.1.1", git = "https://github.com/rust-random/getrandom.git", tag = "v0.1.1" }
+winapi = { version = "0.3.6", git = "https://github.com/retep998/winapi-rs.git", tag = "0.3.6" }
+lazy_static = { version = "1.2.0", git = "https://github.com/rust-lang-nursery/lazy-static.rs.git", tag = "1.2.0" }
+libc = { version = "0.2", git = "https://github.com/rust-lang/libc.git", tag = "0.2.70" }
+
+[profile.release]
+#lto = true
+#panic = 'abort'
+codegen-units = 1
