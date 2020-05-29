@@ -64,10 +64,6 @@ namespace libzendoomc{
                 return zendoo_deserialize_sc_proof(sc_proof_bytes);
             }
 
-            virtual sc_vk_t* deserialize_sc_vk_from_file(const path_char_t* vk_path, size_t vk_path_len) const {
-                return zendoo_deserialize_sc_vk_from_file(vk_path, vk_path_len);
-            }
-
             virtual sc_vk_t* deserialize_sc_vk(const unsigned char* sc_vk_bytes) const {
                 return zendoo_deserialize_sc_vk(sc_vk_bytes);
             }

@@ -4810,6 +4810,9 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
+    CMutableScCertificate cert;
+    cert.nVersion = SC_CERT_VERSION;
+
     // side chain id
     const string& scIdString = params[0].get_str();
     if (scIdString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
@@ -4826,6 +4829,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         LogPrint("sc", "scid[%s] does not exists \n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not exists: ") + scId.ToString());
     }
+    cert.scId = scId;
 
     int epochNumber = params[1].get_int(); 
     if (epochNumber < 0)
@@ -4833,6 +4837,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         LogPrint("sc", "epochNumber can not be negative\n");
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid epochNumber parameter");
     }
+    cert.epochNumber = epochNumber;
 
     int64_t quality = params[2].get_int64();
     if (quality < 0)
@@ -4840,6 +4845,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         LogPrint("sc", "quality can not be negative\n");
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid quality parameter");
     }
+    cert.quality = quality;
 
     // epoch block hash
     const string& blockHashStr = params[3].get_str();
@@ -4881,18 +4887,21 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert epoch"));
         }
     }
+    cert.endEpochBlockHash = endEpochBlockHash;
 
     //scProof
     string inputString = params[4].get_str();
-    std::string error;
-    std::vector<unsigned char> scProofVec;
-    if (!Sidechain::AddScData(inputString, scProofVec, SC_PROOF_SIZE, true ,error))
-        throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + error);
+    {
+        std::string error;
+        std::vector<unsigned char> scProofVec;
+        if (!Sidechain::AddScData(inputString, scProofVec, SC_PROOF_SIZE, true ,error))
+            throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + error);
 
-    auto scProof = libzendoomc::ScProof(scProofVec);
+        cert.scProof = libzendoomc::ScProof(scProofVec);
 
-    if(!libzendoomc::IsValidScProof(scProof))
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert scProof"));
+        if(!libzendoomc::IsValidScProof(cert.scProof))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert scProof"));
+    }
 
     // can be empty
     const UniValue& outputs = params[5].get_array();
@@ -4953,14 +4962,6 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     EnsureWalletIsUnlocked();
 
     std::string strFailReason;
-
-    CMutableScCertificate cert;
-    cert.nVersion = SC_CERT_VERSION;
-    cert.scId = scId;
-    cert.epochNumber = epochNumber;
-    cert.quality = quality;
-    cert.endEpochBlockHash = endEpochBlockHash;
-    cert.scProof = scProof;
 
     // optional parameters (TODO to be handled since they will be probabl useful to SBH wallet)
     CBitcoinAddress fromaddress;
