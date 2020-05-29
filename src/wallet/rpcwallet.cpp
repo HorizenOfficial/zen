@@ -897,7 +897,7 @@ UniValue movecmd(const UniValue& params, bool fHelp)
     debit.nTime = nNow;
     debit.strOtherAccount = strTo;
     debit.strComment = strComment;
-    walletdb.WriteAccountingEntry(debit);
+    pwalletMain->AddAccountingEntry(debit, walletdb);
 
     // Credit
     CAccountingEntry credit;
@@ -907,7 +907,7 @@ UniValue movecmd(const UniValue& params, bool fHelp)
     credit.nTime = nNow;
     credit.strOtherAccount = strFrom;
     credit.strComment = strComment;
-    walletdb.WriteAccountingEntry(credit);
+    pwalletMain->AddAccountingEntry(credit, walletdb);
 
     if (!walletdb.TxnCommit())
         throw JSONRPCError(RPC_DATABASE_ERROR, "database error");
@@ -1528,25 +1528,40 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
         if(params[3].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
     string address("*");
+    CBitcoinAddress baddress;
+    CScript scriptPubKey;
     if (params.size()>4) {
         address=params[4].get_str();
         if (address!=("*")) {
-            CBitcoinAddress baddress = CBitcoinAddress(address);
+            baddress = CBitcoinAddress(address);
             if (!baddress.IsValid())
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
+            else
+                scriptPubKey = GetScriptForDestination(baddress.Get(), false);
         }
     }
 
-    UniValue ret(UniValue::VARR);
-    std::list<CAccountingEntry> acentries;
-    CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, strAccount,address);
 
+    UniValue ret(UniValue::VARR);
+    const CWallet::TxItems & txOrdered = pwalletMain->wtxOrdered;
     // iterate backwards until we have nCount items to return:
-    for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
+    for (CWallet::TxItems::const_reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
     {
         CWalletTx *const pwtx = (*it).second.first;
-        if (pwtx != nullptr)
-            ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
+        if (pwtx != nullptr){
+            if(baddress.IsValid()) {
+                for(const CTxOut& txout : pwtx->vout) {
+                    auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
+                    if (res == txout.scriptPubKey.begin()) {
+                        ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
+                        break;
+                    }
+                }
+            }
+            else {
+                ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
+            }
+        }
         CAccountingEntry *const pacentry = (*it).second.second;
         if (pacentry != nullptr)
             AcentryToJSON(*pacentry, strAccount, ret);
@@ -1645,8 +1660,7 @@ UniValue listaccounts(const UniValue& params, bool fHelp)
         }
     }
 
-    list<CAccountingEntry> acentries;
-    CWalletDB(pwalletMain->strWalletFile).ListAccountCreditDebit("*", acentries);
+    const list<CAccountingEntry> & acentries = pwalletMain->laccentries;
     BOOST_FOREACH(const CAccountingEntry& entry, acentries)
         mapAccountBalances[entry.strAccount] += entry.nCreditDebit;
 
