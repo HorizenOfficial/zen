@@ -11,15 +11,14 @@
 
 ////////PROOF VERIFIER MOCKS
 
-class CScWCertProofVerificationParametersMock: public libzendoomc::CScWCertProofVerificationParameters {
+class CScWCertProofVerificationMock: public libzendoomc::CScWCertProofVerification {
     public:
         static bool okDeserializeField;
         static bool okDeserializeScVk;
         static bool okDeserializeScProof;
         static bool okVerifyScProof;
 
-        CScWCertProofVerificationParametersMock(const CSidechain& scInfo, const CScCertificate& scCert):
-            libzendoomc::CScWCertProofVerificationParameters(scInfo, scCert) {}
+        CScWCertProofVerificationMock(): libzendoomc::CScWCertProofVerification() {}
 
         field_t* deserialize_field(const unsigned char* field_bytes) const override {
             if(okDeserializeField)
@@ -62,10 +61,10 @@ class CScWCertProofVerificationParametersMock: public libzendoomc::CScWCertProof
 };
 
 //Static variables declaration
-bool CScWCertProofVerificationParametersMock::okDeserializeField;
-bool CScWCertProofVerificationParametersMock::okDeserializeScVk;
-bool CScWCertProofVerificationParametersMock::okDeserializeScProof;
-bool CScWCertProofVerificationParametersMock::okVerifyScProof;
+bool CScWCertProofVerificationMock::okDeserializeField;
+bool CScWCertProofVerificationMock::okDeserializeScVk;
+bool CScWCertProofVerificationMock::okDeserializeScProof;
+bool CScWCertProofVerificationMock::okVerifyScProof;
 
 ////////////////////////////////////////////////////END MOCKS
 
@@ -104,12 +103,19 @@ class CScProofTestSuite: public ::testing::Test {
             bool okVerifyScProof
         )
         {
-            CScWCertProofVerificationParametersMock::okDeserializeField = okDeserializeField;
-            CScWCertProofVerificationParametersMock::okDeserializeScVk = okDeserializeScVk;
-            CScWCertProofVerificationParametersMock::okDeserializeScProof = okDeserializeScProof;
-            CScWCertProofVerificationParametersMock::okVerifyScProof = okVerifyScProof;
-            return CScWCertProofVerificationParametersMock(*scInfo, *scCert).run(strictVerifier);
-
+            CScWCertProofVerificationMock::okDeserializeField = okDeserializeField;
+            CScWCertProofVerificationMock::okDeserializeScVk = okDeserializeScVk;
+            CScWCertProofVerificationMock::okDeserializeScProof = okDeserializeScProof;
+            CScWCertProofVerificationMock::okVerifyScProof = okVerifyScProof;
+            if(strictVerifier)
+                return CScWCertProofVerificationMock().verifyScCert(
+                    scInfo->creationData.constant,
+                    scInfo->creationData.wCertVk,
+                    uint256(),
+                    *scCert
+                );
+            else
+                return true;
         }
 
         void setScInfo(CSidechain* newScInfo) { delete scInfo; scInfo = newScInfo; }

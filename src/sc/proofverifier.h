@@ -36,64 +36,22 @@ namespace libzendoomc{
     /* Write scVk to file in vkPath. Returns true if operation succeeds, false otherwise. */
     bool SaveScVkToFile(const boost::filesystem::path& vkPath, const ScVk& scVk);
 
-    /* Read scVk from file in vkPath to scVk. Returns true if operation succeeds, false otherwise. Useful for test */
-    bool LoadScVkFromFile(const boost::filesystem::path& vkPath, ScVk& scVk);
-
-    /* 
-     * Abstract class for handling all the needed data to verify a specific kind of ScProof,
-     * including allocation/deallocation of proof inputs, the proof and the vk themselves,
-     * as well as the specific zendoo-mc-cryptolib function to be called.
-     */
-    class CScProofVerificationParameters {
+    /* Support class for WCert SNARK proof verification. */
+    class CScWCertProofVerification {
         public:
-            //Template method
-            bool run(bool perform_verification) {
-                if(!perform_verification){
-                    return true;
-                } else {                    
-                    if(!createParameters()){
-                        freeParameters(); //Free memory from parameters allocated up to the error point
-                        return false;
-                    }
+            CScWCertProofVerification(){ };
 
-                    bool result = verifierCall();
-                    freeParameters();
-                    return result;
-                }
-            }
+            // Returns false if proof verification has failed or deserialization of certificate's elements
+            // into libzendoomc's elements has failed.
+            bool verifyScCert(
+                const ScConstant& constant,
+                const ScVk& wCertVk,
+                const uint256& prev_end_epoch_block_hash,
+                const CScCertificate& scCert
+            ) const;
 
         protected:
-            //Hooks for subclasses
-            virtual bool createParameters() = 0;
-            virtual bool verifierCall() const = 0;
-            virtual void freeParameters() = 0;
-    };
-
-    /* Implementation of CScProofVerificationParameters for WCert SNARK proof verification. */
-    class CScWCertProofVerificationParameters: public CScProofVerificationParameters {
-        public:
-            CScWCertProofVerificationParameters(const CSidechain& scInfo, const CScCertificate& scCert): 
-                scInfo(scInfo), scCert(scCert), end_epoch_mc_b_hash(nullptr), prev_end_epoch_mc_b_hash(nullptr),
-                bt_list(), quality(0), constant(nullptr),
-                proofdata(nullptr), sc_proof(nullptr), sc_vk(nullptr) { };
-
-        protected:
-            const unsigned char* end_epoch_mc_b_hash;
-            const unsigned char* prev_end_epoch_mc_b_hash;
-            std::vector<backward_transfer_t> bt_list;
-            uint64_t quality;
-            field_t* constant;
-            field_t* proofdata;
-            sc_proof_t* sc_proof;
-            sc_vk_t* sc_vk;
-
-            const CSidechain& scInfo;
-            const CScCertificate& scCert;
-
-            bool createParameters() override;
-            bool verifierCall() const override;
-            void freeParameters() override;
-
+        
             /* 
              * Wrappers for function calls to zendoo-mc-cryptolib. Useful for testing purposes,
              * enabling to mock the behaviour of each function.
@@ -104,10 +62,6 @@ namespace libzendoomc{
 
             virtual sc_proof_t* deserialize_sc_proof(const unsigned char* sc_proof_bytes) const {
                 return zendoo_deserialize_sc_proof(sc_proof_bytes);
-            }
-
-            virtual sc_vk_t* deserialize_sc_vk_from_file(const path_char_t* vk_path, size_t vk_path_len) const {
-                return zendoo_deserialize_sc_vk_from_file(vk_path, vk_path_len);
             }
 
             virtual sc_vk_t* deserialize_sc_vk(const unsigned char* sc_vk_bytes) const {
@@ -133,7 +87,7 @@ namespace libzendoomc{
             }
     };
 
-    /* Visitor class able to verify different kind of ScProof for different kind of ScProof(s) */
+    /* Class for instantiating a verifier able to verify different kind of ScProof for different kind of ScProof(s) */
     class CScProofVerifier {
         protected:
             bool perform_verification;
@@ -156,7 +110,12 @@ namespace libzendoomc{
 
             // Returns false if proof verification has failed or deserialization of certificate's elements
             // into libzendoomc's elements has failed.
-            bool verifyCScCertificate(const CSidechain& scInfo, const CScCertificate& cert) const;
+            bool verifyCScCertificate(
+                const ScConstant& constant,
+                const ScVk& wCertVk,
+                const uint256& prev_end_epoch_block_hash,
+                const CScCertificate& scCert
+            ) const;
     };
 }
 
