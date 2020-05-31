@@ -358,6 +358,7 @@ public:
     int64_t nOrderPos; //! position in ordered transaction list
     int outMaturityHeight;
     int bwtMaturityHeight;
+    bool areBwtCeased;
 
     // useful in gtest
     friend bool operator==(const CWalletTransactionBase& a, const CWalletTransactionBase& b) {
@@ -1115,21 +1116,12 @@ public:
 
     void MarkDirty();
     bool UpdateNullifierNoteMap();
-#if 0
-    void UpdateNullifierNoteMapWithTx(const CWalletTx& wtx);
-    bool AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletDB* pwalletdb);
-#else
     void UpdateNullifierNoteMapWithTx(const CWalletTransactionBase& wtx);
     bool AddToWallet(const CWalletTransactionBase& wtxIn, bool fFromLoadWallet, CWalletDB* pwalletdb);
-#endif
     void SyncTransaction(const CTransaction& tx, const CBlock* pblock) override;
     void SyncCertificate(const CScCertificate& cert, const CBlock* pblock) override;
-#if 0
-    bool AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pblock, bool fUpdate);
-    bool AddToWalletIfInvolvingMe(const CScCertificate& cert, const CBlock* pblock, bool fUpdate);
-#else
+    void SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped) override;
     bool AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, bool fUpdate);
-#endif
     void EraseFromWallet(const uint256 &hash) override;
     void WitnessNoteCommitment(
          std::vector<uint256> commitments,

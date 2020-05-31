@@ -13,6 +13,7 @@
 #include "utilmoneystr.h"
 #include <undo.h>
 #include <chainparams.h>
+#include <validationinterface.h>
 
 std::string CCoins::ToString() const
 {
@@ -898,6 +899,7 @@ int CSidechain::SafeguardMargin() const { return -1; }
 bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash) {return true;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state) {return true;}
 bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height) { return true;}
+void SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped) {};
 #else
 
 #include "consensus/validation.h"
@@ -1340,6 +1342,8 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
 
             coins->Spend(pos);
         }
+
+        SyncBwtCeasing(scInfo.lastCertificateHash, true);
     }
 
     LogPrint("sc", "%s():%d Exiting: CBlockUndo: %s\n",
@@ -1386,6 +1390,8 @@ bool CCoinsViewCache::RevertCeasingScs(const CTxUndo& ceasedCertUndo)
             coins->vout.resize(firstBwtPos + bwtOutPos+1);
         coins->vout.at(firstBwtPos + bwtOutPos) = outVec.at(bwtOutPos).txout;
     }
+
+    SyncBwtCeasing(ceasedCertUndo.refTx, false);
 
     LogPrint("cert", "%s():%d - POST:%s\n", __func__, __LINE__, coins->ToString());
     return fClean;

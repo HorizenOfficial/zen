@@ -1581,29 +1581,37 @@ void CWallet::SyncCertificate(const CScCertificate& cert, const CBlock* pblock)
     MarkAffectedTransactionsDirty(cert);
 }
 
+void CWallet::SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped)
+{
+    LOCK2(cs_main, cs_wallet);
+
+    std::map<uint256, std::shared_ptr<CWalletTransactionBase>>::iterator itCert = mapWallet.find(certHash);
+    if (itCert == mapWallet.end())
+        return; //maybe log
+
+    assert(itCert->second.get()->getTxBase()->IsCertificate());
+
+    itCert->second.get()->areBwtCeased = bwtAreStripped;
+
+    MarkAffectedTransactionsDirty(*(itCert->second.get()->getTxBase()));
+}
+
 void CWallet::MarkAffectedTransactionsDirty(const CTransactionBase& tx)
 {
     // If a transaction changes 'conflicted' state, that changes the balance
     // available of the outputs it spends. So force those to be
     // recomputed, also:
-    BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
+    for(const CTxIn& txin: tx.GetVin())
     {
         if (mapWallet.count(txin.prevout.hash))
-#if 0
-            mapWallet[txin.prevout.hash].MarkDirty();
-#else
             mapWallet[txin.prevout.hash]->MarkDirty();
-#endif
     }
+
     for (const JSDescription& jsdesc : tx.GetVjoinsplit()) {
         for (const uint256& nullifier : jsdesc.nullifiers) {
             if (mapNullifiersToNotes.count(nullifier) &&
                     mapWallet.count(mapNullifiersToNotes[nullifier].hash)) {
-#if 0
-                mapWallet[mapNullifiersToNotes[nullifier].hash].MarkDirty();
-#else
                 mapWallet[mapNullifiersToNotes[nullifier].hash]->MarkDirty();
-#endif
             }
         }
     }
@@ -2502,15 +2510,9 @@ CCoins::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned int vOutP
             return CCoins::outputMaturity::IMMATURE;
     }
 
-    if (pTxBase->IsCertificate())
-    {
-        //Certs may have bwts stripped away. Currently we need to recheck
-        CCoins coins;
-        if (!pcoinsTip->GetCoins(pTxBase->GetHash(), coins))
-            return CCoins::outputMaturity::NOT_APPLICABLE;
-        if (!coins.IsAvailable(vOutPos))
-            return CCoins::outputMaturity::NOT_APPLICABLE;
-    }
+
+    if (pTxBase->GetVout().at(vOutPos).isFromBackwardTransfer && areBwtCeased)
+        return CCoins::outputMaturity::NOT_APPLICABLE;
 
     int maturityHeight = pTxBase->GetVout().at(vOutPos).isFromBackwardTransfer?
             bwtMaturityHeight : outMaturityHeight;
@@ -2687,6 +2689,8 @@ void CWalletTransactionBase::MarkDirty()
 
             if (!fBwtSet && pTxBase->GetVout()[outPos].isFromBackwardTransfer)
             {
+                if (areBwtCeased)
+                    fOutSet = true;
                 int maturityHeight = coins.GetMaturityHeightForOutput(outPos);
                 if (maturityHeight >= 0) {
                     bwtMaturityHeight = maturityHeight;
@@ -2698,7 +2702,6 @@ void CWalletTransactionBase::MarkDirty()
                 break;
         }
     }
-    LogPrintf("%s: outMaturityHeight --> [%d], bwtMaturityHeight--> [%d]\n", __func__, outMaturityHeight, bwtMaturityHeight);
 }
 
 void CWalletTransactionBase::Reset(const CWallet* pwalletIn)
@@ -2737,6 +2740,7 @@ void CWalletTransactionBase::Reset(const CWallet* pwalletIn)
 
     outMaturityHeight = -1;
     bwtMaturityHeight = -1;
+    areBwtCeased = false;
 }
 
 std::set<uint256> CWalletTransactionBase::GetConflicts() const
