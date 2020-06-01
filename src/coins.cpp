@@ -936,7 +936,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     // Verify certificate proof
     if (!scVerifier.verifyCScCertificate(scInfo.creationData.constant, scInfo.creationData.wCertVk, prev_end_epoch_block_hash, cert)){
         LogPrintf("ERROR: certificate[%s] cannot be accepted for sidechain [%s]: proof verification failed\n",
-            certHash.ToString(), cert.GetScId().ToString(), chainActive.Height());
+            certHash.ToString(), cert.GetScId().ToString());
         return state.Invalid(error("proof not verified"),
                      REJECT_INVALID, "sidechain-certificate-proof-not-verified");
     }
