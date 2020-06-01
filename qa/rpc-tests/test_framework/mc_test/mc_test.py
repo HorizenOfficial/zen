@@ -7,6 +7,7 @@ SC_FIELD_SIZE = 96
 SC_FIELD_SAFE_SIZE = 94
 SC_PROOF_SIZE = 771
 SC_VK_SIZE = 1544
+COIN = 100000000
 
 
 def generate_params(datadir, scid):
@@ -39,7 +40,7 @@ def create_test_proof(
     args += [str(end_epoch_block_hash), str(prev_end_epoch_block_hash), str(quality), str(constant)]
     for (pk, amount) in zip(pks, amounts):
         args.append(str(pk))
-        args.append(str(amount))
+        args.append(str(int(amount * COIN))) #codebase works in satoshi
     subprocess.check_call(args)
     return _get_proof(proof_path)
 
