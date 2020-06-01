@@ -3222,7 +3222,11 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     }
     for(const CScCertificate &cert: pblock->vcert) {
         LogPrint("cert", "%s():%d - sync with wallet cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString());
-        SyncWithWallets(cert, pblock);
+        CSidechain sidechain;
+        assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
+        int currentEpoch = sidechain.EpochFor(chainActive.Height());
+        int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
+        SyncWithWallets(cert, pblock, bwtMaturityHeight);
     }
 
     // Update cached incremental witnesses
