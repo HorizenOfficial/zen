@@ -191,12 +191,13 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
                 return false;
             }
 
+            sc.wCertVk = libzendoomc::ScVk(wCertVkVec);
+
             if (!libzendoomc::IsValidScVk(sc.wCertVk))
             {
                 error = "invalid wCertVk";
                 return false;
             }
-            sc.wCertVk = libzendoomc::ScVk(wCertVkVec);
         }
         
         const UniValue& cd = find_value(o, "customData");
