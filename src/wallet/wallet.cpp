@@ -1587,7 +1587,7 @@ void CWallet::SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped)
 
     std::map<uint256, std::shared_ptr<CWalletTransactionBase>>::iterator itCert = mapWallet.find(certHash);
     if (itCert == mapWallet.end())
-        return; //maybe log
+        return;
 
     assert(itCert->second.get()->getTxBase()->IsCertificate());
 
@@ -2510,14 +2510,22 @@ CCoins::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned int vOutP
             return CCoins::outputMaturity::IMMATURE;
     }
 
+    //Hereinafter tx in pTxBase in mainchain
+    if (!pTxBase->IsCoinBase() && !pTxBase->IsCertificate())
+        return CCoins::outputMaturity::MATURE;
+
+    if (pTxBase->IsCoinBase())
+    {
+        if (nDepth < COINBASE_MATURITY)
+            return CCoins::outputMaturity::MATURE;
+        else
+            return CCoins::outputMaturity::IMMATURE;
+    }
 
     if (pTxBase->GetVout().at(vOutPos).isFromBackwardTransfer && areBwtCeased)
         return CCoins::outputMaturity::NOT_APPLICABLE;
 
-    int maturityHeight = pTxBase->GetVout().at(vOutPos).isFromBackwardTransfer?
-            bwtMaturityHeight : outMaturityHeight;
-
-    if (chainActive.Height() < maturityHeight)
+    if (chainActive.Height() < bwtMaturityHeight)
         return CCoins::outputMaturity::IMMATURE;
     else
         return CCoins::outputMaturity::MATURE;
@@ -2666,7 +2674,6 @@ void CWalletTransactionBase::MarkDirty()
     fDebitCached = false;
     fChangeCached = false;
 
-    outMaturityHeight = -1;
     bwtMaturityHeight = -1;
 
     if (!hashBlock.IsNull())
@@ -2674,23 +2681,13 @@ void CWalletTransactionBase::MarkDirty()
         CCoins coins;
         pcoinsTip->GetCoins(pTxBase->GetHash(), coins);
 
-        bool fOutSet = false;
         bool fBwtSet = false;
         for(size_t outPos = 0; outPos < pTxBase->GetVout().size(); ++outPos)
         {
-            if (!fOutSet && !pTxBase->GetVout()[outPos].isFromBackwardTransfer)
-            {
-                int maturityHeight = coins.GetMaturityHeightForOutput(outPos);
-                if (maturityHeight >= 0) {
-                    outMaturityHeight = maturityHeight;
-                    fOutSet = true;
-                }
-            }
-
             if (!fBwtSet && pTxBase->GetVout()[outPos].isFromBackwardTransfer)
             {
                 if (areBwtCeased)
-                    fOutSet = true;
+                    fBwtSet = true;
                 int maturityHeight = coins.GetMaturityHeightForOutput(outPos);
                 if (maturityHeight >= 0) {
                     bwtMaturityHeight = maturityHeight;
@@ -2698,8 +2695,7 @@ void CWalletTransactionBase::MarkDirty()
                 }
             }
 
-            if (fOutSet && fBwtSet)
-                break;
+            if (fBwtSet) break;
         }
     }
 }
@@ -2738,7 +2734,6 @@ void CWalletTransactionBase::Reset(const CWallet* pwalletIn)
     nChangeCached = 0;
     nOrderPos = -1;
 
-    outMaturityHeight = -1;
     bwtMaturityHeight = -1;
     areBwtCeased = false;
 }

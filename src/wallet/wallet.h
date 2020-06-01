@@ -356,7 +356,6 @@ public:
     char fFromMe;
     std::string strFromAccount;
     int64_t nOrderPos; //! position in ordered transaction list
-    int outMaturityHeight;
     int bwtMaturityHeight;
     bool areBwtCeased;
 
