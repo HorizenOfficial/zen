@@ -58,8 +58,8 @@ void SyncWithWallets(const CTransaction &tx, const CBlock *pblock) {
     g_signals.SyncTransaction(tx, pblock);
 }
 
-void SyncWithWallets(const CScCertificate &cert, const CBlock *pblock, int bwtMaturityHeight) {
-    g_signals.SyncCertificate(cert, pblock, bwtMaturityHeight);
+void SyncWithWallets(const CScCertificate &cert, const CBlock *pblock, int bwtMaturityDepth) {
+    g_signals.SyncCertificate(cert, pblock, bwtMaturityDepth);
 }
 
 void SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped) {

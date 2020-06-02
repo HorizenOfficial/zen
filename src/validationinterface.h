@@ -30,7 +30,7 @@ void UnregisterAllValidationInterfaces();
 /** Push an updated transaction to all registered wallets */
 void SyncWithWallets(const CTransaction& tx, const CBlock* pblock = NULL);
 /** Push an updated certificate to all registered wallets */
-void SyncWithWallets(const CScCertificate& cert, const CBlock* pblock = NULL, int bwtMaturityHeight = -1);
+void SyncWithWallets(const CScCertificate& cert, const CBlock* pblock = NULL, int bwtMaturityDepth = -1);
 /** Push to wallets that bwt have been stripped */
 void SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped);
 
@@ -40,7 +40,7 @@ protected:
     virtual ~CValidationInterface() {}
     virtual void UpdatedBlockTip(const CBlockIndex *pindex) {}
     virtual void SyncTransaction(const CTransaction &tx, const CBlock *pblock) {}
-    virtual void SyncCertificate(const CScCertificate &tx, const CBlock *pblock, int bwtMaturityHeight) {}
+    virtual void SyncCertificate(const CScCertificate &tx, const CBlock *pblock, int bwtMaturityDepth) {}
     virtual void SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped) {}
     virtual void EraseFromWallet(const uint256 &hash) {}
     virtual void ChainTip(const CBlockIndex *pindex, const CBlock *pblock, ZCIncrementalMerkleTree tree, bool added) {}
@@ -74,7 +74,7 @@ struct CMainSignals {
     /** Notifies listeners of a block validation result */
     boost::signals2::signal<void (const CBlock&, const CValidationState&)> BlockChecked;
     /** Notifies listeners of updated certificate data (certificate, and optionally the block it is found in. */
-    boost::signals2::signal<void (const CScCertificate &, const CBlock *, int bwtMaturityHeight)> SyncCertificate;
+    boost::signals2::signal<void (const CScCertificate &, const CBlock *, int bwtMaturityDepth)> SyncCertificate;
     /** Notifies listeners of updated bwts for given certificate.*/
     boost::signals2::signal<void (const uint256& certHash, bool bwtAreStripped)> SyncBwtCeasing;
 };

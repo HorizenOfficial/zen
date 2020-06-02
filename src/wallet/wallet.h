@@ -356,7 +356,7 @@ public:
     char fFromMe;
     std::string strFromAccount;
     int64_t nOrderPos; //! position in ordered transaction list
-    int bwtMaturityHeight;
+    int bwtMaturityDepth;
     bool areBwtCeased;
 
     // useful in gtest
@@ -608,6 +608,8 @@ public:
         READWRITE(hashBlock);
         READWRITE(vMerkleBranch);
         READWRITE(nIndex);
+        READWRITE(bwtMaturityDepth);
+        READWRITE(areBwtCeased);
         std::vector<CScCertificate> vUnused; //! Used to be vtxPrev
         READWRITE(vUnused);
         READWRITE(mapValue);
@@ -1118,7 +1120,7 @@ public:
     void UpdateNullifierNoteMapWithTx(const CWalletTransactionBase& wtx);
     bool AddToWallet(const CWalletTransactionBase& wtxIn, bool fFromLoadWallet, CWalletDB* pwalletdb);
     void SyncTransaction(const CTransaction& tx, const CBlock* pblock) override;
-    void SyncCertificate(const CScCertificate& cert, const CBlock* pblock, int bwtMaturityHeight = -1) override;
+    void SyncCertificate(const CScCertificate& cert, const CBlock* pblock, int bwtMaturityDepth = -1) override;
     void SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped) override;
     bool AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, bool fUpdate);
     void EraseFromWallet(const uint256 &hash) override;

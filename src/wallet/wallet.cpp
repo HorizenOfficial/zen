@@ -1581,7 +1581,7 @@ void CWallet::SyncCertificate(const CScCertificate& cert, const CBlock* pblock, 
     MarkAffectedTransactionsDirty(cert);
     std::map<uint256, std::shared_ptr<CWalletTransactionBase>>::iterator itCert = mapWallet.find(cert.GetHash());
     if (itCert != mapWallet.end())
-        itCert->second.get()->bwtMaturityHeight = bwtMaturityHeight;
+        itCert->second.get()->bwtMaturityDepth = bwtMaturityHeight;
 }
 
 void CWallet::SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped)
@@ -2532,7 +2532,7 @@ CCoins::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned int vOutP
     if (pTxBase->GetVout().at(vOutPos).isFromBackwardTransfer && areBwtCeased)
         return CCoins::outputMaturity::NOT_APPLICABLE;
 
-    if (chainActive.Height() < bwtMaturityHeight)
+    if (nDepth <= bwtMaturityDepth)
         return CCoins::outputMaturity::IMMATURE;
     else
         return CCoins::outputMaturity::MATURE;
@@ -2716,7 +2716,7 @@ void CWalletTransactionBase::Reset(const CWallet* pwalletIn)
     nChangeCached = 0;
     nOrderPos = -1;
 
-    bwtMaturityHeight = -1;
+    bwtMaturityDepth = -1;
     areBwtCeased = false;
 }
 
