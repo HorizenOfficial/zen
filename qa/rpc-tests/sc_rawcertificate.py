@@ -96,6 +96,10 @@ class sc_rawcert(BitcoinTestFramework):
         eph = self.nodes[3].generate(EPOCH_LENGTH)[-1]
         self.sync_all()
 
+        # save them for the last test
+        epn_0 = epn
+        eph_0 = eph
+
         # -------------------------- end epoch
 
         sc_funds_pre = self.nodes[3].getscinfo(scid)['balance']
@@ -409,6 +413,7 @@ class sc_rawcert(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             print "\n======> ", errorString
+            assert_true(False)
 
         self.sync_all()
 
@@ -424,6 +429,23 @@ class sc_rawcert(BitcoinTestFramework):
         bal_1_post = self.nodes[1].getbalance()
         mark_logs("Verify Node 1 balance", self.nodes, DEBUG_MODE)
         assert_equal(bal_1_post - bal_1_pre, rawtx_amount)
+
+        mark_logs("Node 0 tries to send a certificate for old epoch {}, expecting failure...".format(epn_0), self.nodes, DEBUG_MODE)
+        raw_inputs   = []
+        raw_outs     = {}
+        raw_bwt_outs = {}
+        raw_params = {"scid": scid, "endEpochBlockHash": eph_0, "withdrawalEpochNumber": epn_0}
+        try:
+            raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
+            signed_cert = self.nodes[0].signrawcertificate(raw_cert)
+            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            assert_true(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+
+
+
 
 if __name__ == '__main__':
     sc_rawcert().main()
