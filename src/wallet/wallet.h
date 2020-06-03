@@ -510,8 +510,8 @@ protected:
 public:
     mapNoteData_t mapNoteData;
 
-    explicit CWalletTx() : CTransaction(), CWalletTransactionBase(nullptr, *this) {}
-    explicit CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CTransaction(txIn), CWalletTransactionBase(pwalletIn, *this) {}
+    explicit CWalletTx();
+    explicit CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn);
     CWalletTx(const CWalletTx& rhs);
     CWalletTx& operator=(const CWalletTx& rhs);
 
@@ -618,8 +618,8 @@ protected:
     int GetIndexInBlock(const CBlock& block) override final;
 
 public:
-    explicit CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn) : CScCertificate(certIn), CWalletTransactionBase(pwalletIn, *this) {}
-    explicit CWalletCert(): CScCertificate(), CWalletTransactionBase(nullptr, *this) {}
+    explicit CWalletCert();
+    explicit CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn);
     CWalletCert(const CWalletCert&);
     CWalletCert& operator=(const CWalletCert& rhs);
 

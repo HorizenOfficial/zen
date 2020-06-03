@@ -280,12 +280,17 @@ std::string CTxScCreationOut::ToString() const
 }
 
 
-CMutableTransactionBase::CMutableTransactionBase() :
+CMutableTransactionBase::CMutableTransactionBase():
     nVersion(TRANSPARENT_TX_VERSION), vin(), vout() {}
 
-CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(), nLockTime(0) {}
+bool CMutableTransactionBase::add(const CTxOut& out) { vout.push_back(out); return true; }
+bool CMutableTransactionBase::add(const CTxScCreationOut& out) { return false; }
+bool CMutableTransactionBase::add(const CTxForwardTransferOut& out) { return false; }
 
-CMutableTransaction::CMutableTransaction(const CTransaction& tx) :
+CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(),
+    vsc_ccout(), vft_ccout(), nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() {}
+
+CMutableTransaction::CMutableTransaction(const CTransaction& tx): CMutableTransactionBase(),
     vsc_ccout(tx.GetVscCcOut()), vft_ccout(tx.GetVftCcOut()), nLockTime(tx.GetLockTime()),
     vjoinsplit(tx.GetVjoinsplit()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
@@ -312,23 +317,22 @@ bool CMutableTransaction::add(const CTxForwardTransferOut& out)
 }
 
 //--------------------------------------------------------------------------------------------------------
-CTransactionBase::CTransactionBase(int nVersionIn) :
-        nVersion(nVersionIn), vin(), vout() {}
+CTransactionBase::CTransactionBase(int nVersionIn):
+    nVersion(nVersionIn), vin(), vout(), hash() {}
+
+CTransactionBase::CTransactionBase(const CTransactionBase &tx):
+    nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), hash(tx.hash) {}
 
 CTransactionBase& CTransactionBase::operator=(const CTransactionBase &tx) {
-    *const_cast<uint256*>(&hash) = tx.hash;
-    *const_cast<int*>(&nVersion) = tx.nVersion;
-    *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
+    *const_cast<uint256*>(&hash)             = tx.hash;
+    *const_cast<int*>(&nVersion)             = tx.nVersion;
+    *const_cast<std::vector<CTxIn>*>(&vin)   = tx.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
     return *this;
 }
 
-CTransactionBase::CTransactionBase(const CTransactionBase &tx) : nVersion(TRANSPARENT_TX_VERSION) {
-    *const_cast<uint256*>(&hash) = tx.hash;
-    *const_cast<int*>(&nVersion) = tx.nVersion;
-    *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
-    *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
-}
+CTransactionBase::CTransactionBase(const CMutableTransactionBase& mutTxBase):
+    nVersion(mutTxBase.nVersion), vin(mutTxBase.vin), vout(mutTxBase.vout), hash(mutTxBase.GetHash()) {}
 
 CAmount CTransactionBase::GetValueOut() const
 {
@@ -512,53 +516,36 @@ bool CTransaction::CheckInputsInteraction(CValidationState &state) const
     return true;
 }
 
-CTransaction::CTransaction(int nVersionIn):
-    CTransactionBase(nVersionIn),
-    vjoinsplit(), nLockTime(0),
-    vsc_ccout(), vft_ccout(),
-    joinSplitPubKey(), joinSplitSig() { }
+CTransaction::CTransaction(int nVersionIn): CTransactionBase(nVersionIn),
+    vjoinsplit(), nLockTime(0), vsc_ccout(), vft_ccout(),
+    joinSplitPubKey(), joinSplitSig() {}
+
+CTransaction::CTransaction(const CTransaction &tx) : CTransactionBase(tx),
+    vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime),
+    vsc_ccout(tx.vsc_ccout), vft_ccout(tx.vft_ccout),
+    joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig) {}
+
+CTransaction& CTransaction::operator=(const CTransaction &tx) {
+    CTransactionBase::operator=(tx);
+    *const_cast<std::vector<JSDescription>*>(&vjoinsplit)        = tx.vjoinsplit;
+    *const_cast<uint32_t*>(&nLockTime)                           = tx.nLockTime;
+    *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout)      = tx.vsc_ccout;
+    *const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout) = tx.vft_ccout;
+    *const_cast<uint256*>(&joinSplitPubKey)                      = tx.joinSplitPubKey;
+    *const_cast<joinsplit_sig_t*>(&joinSplitSig)                 = tx.joinSplitSig;
+    return *this;
+}
 
 void CTransaction::UpdateHash() const
 {
     *const_cast<uint256*>(&hash) = SerializeHash(*this);
 }
 
-CTransaction::CTransaction(const CMutableTransaction &tx) :
-    vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime),
-    vsc_ccout(tx.vsc_ccout), vft_ccout(tx.vft_ccout),
-    joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
+CTransaction::CTransaction(const CMutableTransaction &tx): CTransactionBase(tx),
+    vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime), vsc_ccout(tx.vsc_ccout),
+    vft_ccout(tx.vft_ccout), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
-    *const_cast<int*>(&nVersion) = tx.nVersion;
-    *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
-    *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
     UpdateHash();
-}
-
-CTransaction& CTransaction::operator=(const CTransaction &tx) {
-    CTransactionBase::operator=(tx);
-    *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout) = tx.vsc_ccout;
-    *const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout) = tx.vft_ccout;
-    *const_cast<uint32_t*>(&nLockTime) = tx.nLockTime;
-    *const_cast<std::vector<JSDescription>*>(&vjoinsplit) = tx.vjoinsplit;
-    *const_cast<uint256*>(&joinSplitPubKey) = tx.joinSplitPubKey;
-    *const_cast<joinsplit_sig_t*>(&joinSplitSig) = tx.joinSplitSig;
-    return *this;
-}
-
-CTransaction::CTransaction(const CTransaction &tx) : nLockTime(0)
-{
-    // call explicitly the copy of members of virtual base class
-    *const_cast<int*>(&nVersion) = tx.nVersion;
-    *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
-    *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
-    *const_cast<uint256*>(&hash) = tx.hash;
-    //---
-    *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout) = tx.vsc_ccout;
-    *const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout) = tx.vft_ccout;
-    *const_cast<uint32_t*>(&nLockTime) = tx.nLockTime;
-    *const_cast<std::vector<JSDescription>*>(&vjoinsplit) = tx.vjoinsplit;
-    *const_cast<uint256*>(&joinSplitPubKey) = tx.joinSplitPubKey;
-    *const_cast<joinsplit_sig_t*>(&joinSplitSig) = tx.joinSplitSig;
 }
 
 unsigned int CTransactionBase::CalculateModifiedSize(unsigned int nTxSize) const
