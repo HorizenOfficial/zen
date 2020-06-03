@@ -52,14 +52,6 @@ class sc_cert_base(BitcoinTestFramework):
         epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * EPOCH_LENGTH))
         return epoch_block_hash, epoch_number
 
-    def getPreviousEpochData(self, sc_creating_height):
-        current_height = self.nodes[0].getblockcount()
-        prev_epoch_number = ((current_height - sc_creating_height + 1) // EPOCH_LENGTH - 1) - 1
-        mark_logs("Current height {}, Sc creation height {}, epoch length {} --> previous epoch number {}"
-                  .format(current_height, sc_creating_height, EPOCH_LENGTH, prev_epoch_number), self.nodes, DEBUG_MODE)
-        prev_epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((prev_epoch_number + 1) * EPOCH_LENGTH))
-        return prev_epoch_block_hash, prev_epoch_number
-
     def run_test(self):
 
         # side chain id
@@ -87,6 +79,7 @@ class sc_cert_base(BitcoinTestFramework):
         self.sync_all()
 
         mark_logs("Node0 confirms Sc creation generating 1 block", self.nodes, DEBUG_MODE)
+        prev_epoch_block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         self.nodes[0].generate(1)
         sc_creating_height = self.nodes[0].getblockcount()  # Should not this be in SC info??'
         self.sync_all()
@@ -109,7 +102,6 @@ class sc_cert_base(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
         
         #Create proof for WCert
-        prev_epoch_block_hash, prev_epoch_number = self.getPreviousEpochData(sc_creating_height)
         quality = 1
         proof = create_test_proof(
             self.options.tmpdir, scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
@@ -163,6 +155,7 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes[0].generate(4)
         self.sync_all()
 
+        prev_epoch_block_hash = epoch_block_hash
         epoch_block_hash, epoch_number = self.getEpochData(sc_creating_height);
 
         bal3 = self.nodes[3].getbalance()
@@ -171,7 +164,6 @@ class sc_cert_base(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node2, "amount": bwt_amount_2}]
 
         #Create proof for WCert
-        prev_epoch_block_hash, prev_epoch_number = self.getPreviousEpochData(sc_creating_height)
         quality = 2
         proof = create_test_proof(
             self.options.tmpdir, scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
