@@ -62,6 +62,7 @@ CMutableTransaction GetValidTransaction(int txVersion) {
 	    mtx.vjoinsplit.clear();
 
         CTxScCreationOut cr_ccout;
+        cr_ccout.nValue = 1.0;
         cr_ccout.scId = GetRandHash();
         cr_ccout.withdrawalEpochLength = 111;
         mtx.vsc_ccout.push_back(cr_ccout);

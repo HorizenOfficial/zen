@@ -128,6 +128,14 @@ public:
     bool IsCoinBase() const;
     bool IsFromCert() const;
 
+    enum class outputMaturity {
+        NOT_APPLICABLE = 0,
+        MATURE,
+        IMMATURE
+    };
+
+    int GetMaturityHeightForOutput(unsigned int outPos) const;
+
     //! mark a vout spent
     bool Spend(uint32_t nPos);
 
@@ -611,14 +619,6 @@ public:
      * @return    Sum of value of all inputs (scriptSigs)
      */
     CAmount GetValueIn(const CTransactionBase& tx) const;
-
-    //! Verify whether given output is mature according to current view
-    enum class outputMaturity {
-        NOT_APPLICABLE = 0,
-        MATURE,
-        IMMATURE
-    };
-    outputMaturity IsCertOutputMature(const uint256& txHash, unsigned int pos, int spendHeight) const;
 
     //! Check whether all prevouts of the transaction are present in the UTXO set represented by this view
     bool HaveInputs(const CTransactionBase& txBase) const;

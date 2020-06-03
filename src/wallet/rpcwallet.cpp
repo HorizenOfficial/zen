@@ -1530,7 +1530,7 @@ UniValue getbalance(const UniValue& params, bool fHelp)
             wtx.GetAmounts(listReceived, listSent, listScSent, allFee, strSentAccount, filter);
             if (wtx.GetDepthInMainChain() >= nMinDepth) {
                 for(const COutputEntry& r: listReceived)
-                    if (r.maturity == CCoinsViewCache::outputMaturity::MATURE)
+                    if (r.maturity == CCoins::outputMaturity::MATURE)
                         nBalance += r.amount;
             }
 
@@ -2160,7 +2160,7 @@ void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccoun
                 }
                 else
                 {
-                    if (r.maturity == CCoinsViewCache::outputMaturity::MATURE)
+                    if (r.maturity == CCoins::outputMaturity::MATURE)
                         entry.push_back(Pair("category", "receive"));
                     else
                         entry.push_back(Pair("category", "immature"));
@@ -2547,7 +2547,7 @@ UniValue listaccounts(const UniValue& params, bool fHelp)
 
         if (wtx.GetDepthInMainChain() >= nMinDepth) {
             for(const COutputEntry& r: listReceived) {
-                if (r.maturity == CCoinsViewCache::outputMaturity::IMMATURE)
+                if (r.maturity == CCoins::outputMaturity::IMMATURE)
                     continue;
 
                 if (pwalletMain->mapAddressBook.count(r.destination))

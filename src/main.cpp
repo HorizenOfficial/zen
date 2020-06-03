@@ -1985,6 +1985,8 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
     int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
     inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight, bwtMaturityHeight);
 
+    LogPrint("cert", "%s():%d - CREATED COIN FROM HASH [%s] GIVEN HEIGHT [%d]\n", __func__, __LINE__, cert.GetHash().ToString(), nHeight);
+    LogPrint("cert", "%s():%d - COIN IS [%s]]\n", __func__, __LINE__, inputs.ModifyCoins(cert.GetHash())->ToString());
 }
 
 CScriptCheck::CScriptCheck(): ptxTo(0), nIn(0), chain(nullptr),
@@ -2060,14 +2062,27 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
         const CCoins *coins = inputs.AccessCoins(prevout.hash);
         assert(coins);
 
-        if (coins->IsCoinBase()) {
-            // Ensure that coinbases are matured
-            if (nSpendHeight - coins->nHeight < COINBASE_MATURITY) {
+        // Ensure that coinbases and certificates outputs are matured
+        int maturityHeight = coins->GetMaturityHeightForOutput(in.prevout.n);
+        if ((maturityHeight != MEMPOOL_HEIGHT) && (nSpendHeight < maturityHeight))
+        {
+            LogPrintf("%s():%d - Error: txBase [%s] attempts to spend immature output [%d] of tx [%s]\n",
+                    __func__, __LINE__, txBase.GetHash().ToString(), in.prevout.n, in.prevout.hash.ToString());
+            LogPrintf("%s():%d - Error: Immature coin info: coin creation height [%d], output maturity height [%d], spend height [%d]\n",
+                    __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, nSpendHeight);
+            if (coins->IsCoinBase())
                 return state.Invalid(
                     error("CheckInputs(): tried to spend coinbase at depth %d", nSpendHeight - coins->nHeight),
                     REJECT_INVALID, "bad-txns-premature-spend-of-coinbase");
-            }
+            if (coins->IsFromCert())
+                return state.Invalid(
+                    error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
+                    REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
+        }
 
+
+        if (coins->IsCoinBase())
+        {
             // Ensure that coinbases cannot be spent to transparent outputs
             // Disabled on regtest
             if (fCoinbaseEnforcedProtectionEnabled &&
@@ -2083,12 +2098,6 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                     REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
                 }
             }
-        }
-        else if (coins->IsFromCert()) {
-                if (inputs.IsCertOutputMature(in.prevout.hash, in.prevout.n, nSpendHeight) != CCoinsViewCache::outputMaturity::MATURE)
-                    return state.Invalid(
-                        error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
-                        REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
         }
 
         // Check for negative or overflow input values

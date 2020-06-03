@@ -74,8 +74,8 @@ class sc_cert_epoch(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        mark_logs("Node 0 performs a fwd transfer of {} coins to Sc".format(fwt_amount), self.nodes, DEBUG_MODE)
         fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid)
+        mark_logs("Node 0 performs a fwd transfer of {} coins to Sc via tx {}.".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         assert(len(fwd_tx) > 0)
         self.sync_all()
 
@@ -83,8 +83,8 @@ class sc_cert_epoch(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(EPOCH_LENGTH - 2))
         self.sync_all()
 
-        mark_logs("Node 0 performs a fwd transfer of {} coins to Sc".format(fwt_amount_immature_at_epoch), self.nodes, DEBUG_MODE)
         fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_immature_at_epoch, scid)
+        mark_logs("Node 0 performs a fwd transfer of {} coins to Sc via tx {}.".format(fwt_amount_immature_at_epoch, fwd_tx), self.nodes, DEBUG_MODE)
         assert(len(fwd_tx) > 0)
         self.sync_all()
 
@@ -122,9 +122,9 @@ class sc_cert_epoch(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
             assert_equal("sidechain has insufficient funds" in errorString, True)
 
-        mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
         try:
             cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, epoch_hash, amounts, CERT_FEE)
+            mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh via cert {}.".format(bwt_amount, cert_epoch_0), self.nodes, DEBUG_MODE)
             assert(len(cert_epoch_0) > 0)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -161,11 +161,11 @@ class sc_cert_epoch(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(EPOCH_LENGTH - 2))
         self.sync_all()
 
-        mark_logs("Node 0 send a certificate with no bwd transfers", self.nodes, DEBUG_MODE)
         try:
             epoch_number = 1
             epoch_hash = blocks[-1]
             cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, epoch_hash, [], CERT_FEE)
+            mark_logs("Node 0 send a certificate {} with no bwd transfers".format(cert_epoch_1), self.nodes, DEBUG_MODE)
             assert(len(cert_epoch_1) > 0)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -251,12 +251,9 @@ class sc_cert_epoch(BitcoinTestFramework):
             assert_equal(sc_post_regeneration["balance"], creation_amount + fwt_amount + fwt_amount_immature_at_epoch - bwt_amount)
             assert(cert_epoch_1 not in self.nodes[0].getrawmempool())
             assert(speding_bwd_tx not in self.nodes[0].getrawmempool())
-            mark_logs("Checking Node{} wallet's balances is duly updated".format(idx), self.nodes, DEBUG_MODE)
-            assert_equal(node1_balance_ante_cert, self.nodes[1].getbalance())
-            
-            # Until ceased sc are handled, coins from cert will mature passed next epoch safeguard
-            assert_equal(node2_balance_ante_cert, self.nodes[2].getbalance())
-            assert_equal(node3_balance_ante_cert, self.nodes[3].getbalance())
+
+        assert_equal(node2_balance_ante_cert, self.nodes[2].getbalance())
+        assert_equal(node3_balance_ante_cert, self.nodes[3].getbalance())
 
         mark_logs("Checking certificates persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)
         stop_nodes(self.nodes)

@@ -357,11 +357,11 @@ CAmount CTransactionBase::GetJoinSplitValueIn() const
     return nCumulatedValue;
 }
 
-bool CTransactionBase::CheckAmounts(CValidationState &state) const
+bool CTransaction::CheckAmounts(CValidationState &state) const
 {
     // Check for negative or overflow output values
     CAmount nCumulatedValueOut = 0;
-    for(const CTxOut& txout: GetVout())
+    for(const CTxOut& txout: vout)
     {
         if (txout.nValue < 0)
             return state.DoS(100, error("CheckAmounts(): txout.nValue negative"),
@@ -376,7 +376,7 @@ bool CTransactionBase::CheckAmounts(CValidationState &state) const
     }
 
     // Ensure that joinsplit values are well-formed
-    for(const JSDescription& joinsplit: GetVjoinsplit())
+    for(const JSDescription& joinsplit: vjoinsplit)
     {
         if (joinsplit.vpub_old < 0) {
             return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_old negative"),
@@ -408,6 +408,34 @@ bool CTransactionBase::CheckAmounts(CValidationState &state) const
             return state.DoS(100, error("CheckAmounts(): txout total out of range"),
                              REJECT_INVALID, "bad-txns-txouttotal-toolarge");
         }
+    }
+
+    for(const CTxScCreationOut& scOut: vsc_ccout)
+    {
+        if (scOut.nValue < 0)
+            return state.DoS(100, error("CheckAmounts(): scOut.nValue negative"),
+                             REJECT_INVALID, "bad-txns-vout-negative");
+        if (scOut.nValue > MAX_MONEY)
+            return state.DoS(100, error("CheckAmounts(): scOut.nValue too high"),
+                             REJECT_INVALID, "bad-txns-vout-toolarge");
+        nCumulatedValueOut += scOut.nValue;
+        if (!MoneyRange(nCumulatedValueOut))
+            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
+                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+    }
+
+    for(const CTxForwardTransferOut& fwdOut: vft_ccout)
+    {
+        if (fwdOut.nValue < 0)
+            return state.DoS(100, error("CheckAmounts(): fwdOut.nValue negative"),
+                             REJECT_INVALID, "bad-txns-vout-negative");
+        if (fwdOut.nValue > MAX_MONEY)
+            return state.DoS(100, error("CheckAmounts(): fwdOut.nValue too high"),
+                             REJECT_INVALID, "bad-txns-vout-toolarge");
+        nCumulatedValueOut += fwdOut.nValue;
+        if (!MoneyRange(nCumulatedValueOut))
+            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
+                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
 
     // Ensure input values do not exceed MAX_MONEY
@@ -456,22 +484,26 @@ bool CTransactionBase::CheckInputsDuplication(CValidationState &state) const
     return true;
 }
 
-bool CTransactionBase::CheckInputsInteraction(CValidationState &state) const
+bool CTransaction::CheckInputsInteraction(CValidationState &state) const
 {
     if (IsCoinBase())
     {
         // There should be no joinsplits in a coinbase transaction
-        if (GetVjoinsplit().size() > 0)
+        if (vjoinsplit.size() > 0)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase has joinsplits"),
                              REJECT_INVALID, "bad-cb-has-joinsplits");
 
-        if (GetVin()[0].scriptSig.size() < 2 || GetVin()[0].scriptSig.size() > 100)
+        if (vin[0].scriptSig.size() < 2 || vin[0].scriptSig.size() > 100)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase script size"),
                              REJECT_INVALID, "bad-cb-length");
+
+        if (vsc_ccout.size() != 0 || vft_ccout.size() != 0)
+            return state.DoS(100, error("CheckInputsInteraction(): coinbase destined to sidechains"),
+                                         REJECT_INVALID, "bad-cb-destination");
     }
     else
     {
-        for(const CTxIn& txin: GetVin())
+        for(const CTxIn& txin: vin)
             if (txin.prevout.IsNull())
                 return state.DoS(10, error("CheckInputsInteraction(): prevout is null"),
                                  REJECT_INVALID, "bad-txns-prevout-null");
@@ -644,6 +676,9 @@ CAmount CTransaction::GetValueOut() const
     }
 
     nValueOut += (GetValueCcOut(vsc_ccout) + GetValueCcOut(vft_ccout));
+    if (!MoneyRange(nValueOut))
+        throw std::runtime_error("CTransaction::GetValueOut(): value out of range");
+
     return nValueOut;
 }
 
@@ -709,7 +744,7 @@ void CTransaction::addToScCommitment(std::map<uint256, std::vector<uint256> >& m
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
-bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state, int unused) const { return true; }
+bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int unused, int dosLevel) const { return true; }
 bool CTransaction::CheckVersionIsStandard(std::string& reason, const int nHeight) const {return true;}
 
 bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const {return true;}
@@ -741,7 +776,7 @@ bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) cons
     return AcceptTxToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
 };
 
-bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state, int nHeight) const
+bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int nHeight, int dosLevel) const
 {
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
     BOOST_FOREACH(const CTxOut& txout, vout)
@@ -757,7 +792,7 @@ bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& st
         // provide temporary replay protection for two minerconf windows during chainsplit
         if (!IsCoinBase() && !ForkManager::getInstance().isTransactionTypeAllowedAtHeight(nHeight, whichType))
         {
-            return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s",
+            return state.DoS(dosLevel, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s",
                     __FILE__, __func__, ::GetTxnOutputType(whichType), nHeight, GetHash().ToString()),
                 REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
@@ -837,7 +872,7 @@ void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fe
 
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const
 {
-    if (!CheckOutputsCheckBlockAtHeightOpCode(state, nHeight))
+    if (!CheckBlockAtHeight(state, nHeight, dosLevel))
         return false;
 
     //Valid txs are:

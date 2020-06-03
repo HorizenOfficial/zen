@@ -110,6 +110,26 @@ bool CCoins::IsFromCert() const {
     return (nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f);
 }
 
+int CCoins::GetMaturityHeightForOutput(unsigned int outPos) const
+{
+    if (!IsCoinBase() && !IsFromCert())
+        return nHeight;
+
+    if (IsCoinBase())
+        return nHeight + COINBASE_MATURITY;
+
+    //Hereinafter a cert
+    // We check output availability only for certs since spent outputs for other txs 
+    // are handled in wallet in their own way
+    if(!IsAvailable(outPos))
+        return -1; //This may happen in wallet when you check credit on certificate whose bwt has been erased
+                   
+    if (vout.at(outPos).isFromBackwardTransfer)
+        return nBwtMaturityHeight;
+    else
+        return nHeight;
+}
+
 bool CCoins::Spend(uint32_t nPos)
 {
     if (nPos >= vout.size() || vout[nPos].IsNull())
@@ -1499,26 +1519,6 @@ CAmount CCoinsViewCache::GetValueIn(const CTransactionBase& txBase) const
     nResult += txBase.GetJoinSplitValueIn();
 
     return nResult;
-}
-
-CCoinsViewCache::outputMaturity CCoinsViewCache::IsCertOutputMature(const uint256& txHash, unsigned int pos, int spendHeight) const
-{
-    CCoins refCoin;
-    if(!GetCoins(txHash,refCoin))
-        return outputMaturity::NOT_APPLICABLE;
-
-    assert(refCoin.IsFromCert());
-
-    if (!refCoin.IsAvailable(pos))
-        return outputMaturity::NOT_APPLICABLE;
-
-    if (!refCoin.vout[pos].isFromBackwardTransfer) //change outputs are always mature
-        return outputMaturity::MATURE;
-
-    if (spendHeight < refCoin.nBwtMaturityHeight)
-        return outputMaturity::IMMATURE;
-    else
-        return outputMaturity::MATURE;
 }
 
 bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransactionBase& txBase) const

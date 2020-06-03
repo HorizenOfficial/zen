@@ -79,6 +79,31 @@ bool CScCertificate::CheckVersionIsStandard(std::string& reason, int nHeight) co
     return true;
 }
 
+bool CScCertificate::CheckAmounts(CValidationState &state) const
+{
+    // Check for negative or overflow output values
+    CAmount nCumulatedValueOut = 0;
+    for(const CTxOut& txout: vout)
+    {
+        if (txout.nValue < 0)
+            return state.DoS(100, error("CheckAmounts(): txout.nValue negative"),
+                             REJECT_INVALID, "bad-txns-vout-negative");
+        if (txout.nValue > MAX_MONEY)
+            return state.DoS(100, error("CheckAmounts(): txout.nValue too high"),
+                             REJECT_INVALID, "bad-txns-vout-toolarge");
+
+        if (txout.isFromBackwardTransfer && txout.nValue == 0)
+            return state.DoS(100, error("CheckAmounts(): backward transfer has zero amount"),
+                             REJECT_INVALID, "bad-txns-bwd-vout-zero");
+        nCumulatedValueOut += txout.nValue;
+        if (!MoneyRange(nCumulatedValueOut))
+            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
+                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+    }
+
+    return true;
+}
+
 bool CScCertificate::CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const
 {
     if (!MoneyRange(totalVinAmount))
@@ -103,6 +128,16 @@ bool CScCertificate::CheckFeeAmount(const CAmount& totalVinAmount, CValidationSt
     if (!MoneyRange(nCertFee))
         return state.DoS(100, error("CheckFeeAmount(): nCertFee out of range"),
                          REJECT_INVALID, "bad-cert-fee-outofrange");
+
+    return true;
+}
+
+bool CScCertificate::CheckInputsInteraction(CValidationState &state) const
+{
+    for(const CTxIn& txin: vin)
+        if (txin.prevout.IsNull())
+            return state.DoS(10, error("CheckInputsInteraction(): prevout is null"),
+                             REJECT_INVALID, "bad-txns-prevout-null");
 
     return true;
 }
@@ -156,7 +191,7 @@ bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int d
     if (!areScSupported)
          return state.DoS(dosLevel, error("Sidechain are not supported"), REJECT_INVALID, "bad-cert-version");
 
-    if (!CheckOutputsCheckBlockAtHeightOpCode(state, nHeight))
+    if (!CheckBlockAtHeight(state, nHeight, dosLevel))
         return false;
 
     return true;

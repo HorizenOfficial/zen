@@ -152,7 +152,7 @@ TEST(CheckBlock, BlockRejectsNoCbh) {
 
     MockCValidationState state;
 
-    EXPECT_CALL(state, DoS(0, false, REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, fm->pprev));
 
     CleanUpAll();

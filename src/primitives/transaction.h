@@ -648,11 +648,11 @@ public:
     virtual bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const = 0;
 
     bool CheckSerializedSize (CValidationState &state) const;
-    bool CheckAmounts        (CValidationState &state) const;
+    virtual bool CheckAmounts(CValidationState &state) const = 0;
     bool CheckInputsDuplication(CValidationState &state) const;
-    bool CheckInputsInteraction(CValidationState &state) const;
+    virtual bool CheckInputsInteraction(CValidationState &state) const = 0;
 
-    bool CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state, int nHeight) const;
+    bool CheckBlockAtHeight(CValidationState& state, int nHeight, int dosLevel) const;
 
     bool CheckInputsLimit() const;
     //END OF CHECK FUNCTIONS
@@ -858,8 +858,10 @@ public:
     //CHECK FUNCTIONS
     bool IsValidVersion   (CValidationState &state) const override;
     bool CheckVersionIsStandard   (std::string& reason, int nHeight) const override;
+    bool CheckAmounts     (CValidationState &state) const override;
     bool CheckNonEmpty    (CValidationState &state) const;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
+    bool CheckInputsInteraction(CValidationState &state) const override;
     //END OF CHECK FUNCTIONS
 
     void Relay() const override;
