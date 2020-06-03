@@ -820,16 +820,18 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     std::string error;
 
     inputString = params[4].get_str();
-    std::vector<unsigned char> wCertVkVec;
-    if (!Sidechain::AddScData(inputString, wCertVkVec, SC_VK_SIZE, true, error))
     {
-        throw JSONRPCError(RPC_TYPE_ERROR, string("wCertVk: ") + error);
-    }
-    sc.creationData.wCertVk = libzendoomc::ScVk(wCertVkVec);
+        std::vector<unsigned char> wCertVkVec;
+        if (!Sidechain::AddScData(inputString, wCertVkVec, SC_VK_SIZE, true, error))
+        {
+            throw JSONRPCError(RPC_TYPE_ERROR, string("wCertVk: ") + error);
+        }
+        sc.creationData.wCertVk = libzendoomc::ScVk(wCertVkVec);
 
-    if (!libzendoomc::IsValidScVk(sc.creationData.wCertVk))
-    {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCertVk");
+        if (!libzendoomc::IsValidScVk(sc.creationData.wCertVk))
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCertVk");
+        }
     }
 
     if ((params.size() > 5) && (!params[5].get_str().size() == 0))
