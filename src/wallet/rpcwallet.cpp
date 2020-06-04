@@ -894,7 +894,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "   \"wCertVk\":data                  (string, required) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             "   \"customData\":data               (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. A max limit of 2048 bytes will be checked\n"
+            "                                          hexadecimal format. A max limit of 1024 bytes will be checked\n"
             "   \"constant\":data                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
             "}\n"

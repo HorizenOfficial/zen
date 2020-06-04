@@ -9,11 +9,8 @@
 #include "version.h"
 #include "policy/fees.h"
 #include "sc/proofverifier.h"
-#include "util.h"
-#include "tinyformat.h"
 
 #include <assert.h>
-#include <boost/filesystem.hpp>
 #include "utilmoneystr.h"
 #include <undo.h>
 #include <chainparams.h>

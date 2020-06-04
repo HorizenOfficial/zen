@@ -395,7 +395,7 @@ UniValue getrawcertificate(const UniValue& params, bool fHelp)
             "       \"epochNumber\": epn,            (numeric) the withdrawal epoch number this certificate refers to\n"
             "       \"quality\": n,                  (numeric) the quality of this withdrawal certificate. \n"
             "       \"endEpochBlockHash\" : \"eph\"    (string) the hash of the block marking the end of the abovementioned epoch\n"
-            "       \"scProof\": \"scp\"               (string) SNARK proof whose verification key wCertVk was set upon sidechain registration. A max limit of 2048 bytes will be checked\n"
+            "       \"scProof\": \"scp\"               (string) SNARK proof whose verification key wCertVk was set upon sidechain registration\n"
             "       \"totalAmount\" : x.xxx         (numeric) The total value of the certificate in " + CURRENCY_UNIT + "\n"
             "     }\n"
             "  \"vout\" : [              (array of json objects)\n"

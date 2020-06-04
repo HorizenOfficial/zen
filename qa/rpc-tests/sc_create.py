@@ -184,7 +184,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creates a SC with a bad customData", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create("24", 123, "ada", 0.1, "aa" * 1544, "zz" * 2048)
+            self.nodes[1].sc_create("24", 123, "ada", 0.1, "aa" * 1544, "zz" * 1024)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
@@ -195,7 +195,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creates a SC with a odd number of char in customData", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create("24", 123, "ada", 0.1, "aa" * 1544, "b" * 2047)
+            self.nodes[1].sc_create("24", 123, "ada", 0.1, "aa" * 1544, "b" * 1023)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
@@ -206,7 +206,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creates a SC with too long customData byte string", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create("24", 123, "ada", 0.1, "aa" * 1544, "bb" * 2049)
+            self.nodes[1].sc_create("24", 123, "ada", 0.1, "aa" * 1544, "bb" * 1025)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
@@ -274,7 +274,7 @@ class SCCreateTest(BitcoinTestFramework):
         # Node 1 create the SC
         mark_logs("\nNode 1 creates SC", self.nodes, DEBUG_MODE)
 
-        self.nodes[1].sc_create(scid, 123, "dada", creation_amount, "aa" * 1544, "bb" * 771, "cc" * 96)
+        self.nodes[1].sc_create(scid, 123, "dada", creation_amount, "aa" * 1544, "bb" * 1024, "cc" * 96)
         self.sync_all()
 
         mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
@@ -290,7 +290,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         mark_logs("Verify fields are set as expected...", self.nodes, DEBUG_MODE)
         assert_equal(scinfo0['wCertVk'], "aa" * 1544)
-        assert_equal(scinfo0['customData'], "bb" * 771)
+        assert_equal(scinfo0['customData'], "bb" * 1024)
         assert_equal(scinfo0['constant'], "cc" * 96)
         mark_logs(str(scinfo0), self.nodes, DEBUG_MODE)
         mark_logs(str(scinfo1), self.nodes, DEBUG_MODE)
