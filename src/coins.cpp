@@ -9,6 +9,7 @@
 #include "version.h"
 #include "policy/fees.h"
 #include "sc/proofverifier.h"
+
 #include <assert.h>
 #include "utilmoneystr.h"
 #include <undo.h>

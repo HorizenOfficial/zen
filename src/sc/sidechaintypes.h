@@ -11,7 +11,6 @@
 #include "serialize.h"
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
-#include <boost/filesystem.hpp>
 
 #include<sc/proofverifier.h>
 
@@ -111,7 +110,6 @@ typedef boost::variant<
     > CcRecipientVariant;
 
 static const int MAX_SC_DATA_LEN = 1024;
-static const int MAX_SC_DATA_BITS = MAX_SC_DATA_LEN*8;
 
 }; // end of namespace
 

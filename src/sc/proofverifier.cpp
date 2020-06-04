@@ -13,32 +13,29 @@ namespace libzendoomc{
 
     bool IsValidScProof(const ScProof& scProof)
     {
-        bool result = true;
         auto scProofDeserialized = zendoo_deserialize_sc_proof(scProof.begin());
         if (scProofDeserialized == nullptr)
-            result = false;
+            return false;
         zendoo_sc_proof_free(scProofDeserialized);
-        return result;
+        return true;
     }
 
     bool IsValidScVk(const ScVk& scVk)
     {
-        bool result = true;
         auto scVkDeserialized = zendoo_deserialize_sc_vk(scVk.begin());
         if (scVkDeserialized == nullptr)
-            result = false;
+            return false;
         zendoo_sc_vk_free(scVkDeserialized);
-        return result;
+        return true;
     }
 
     bool IsValidScConstant(const ScConstant& scConstant)
     {
-        bool result = true;
         auto scConstantDeserialized = zendoo_deserialize_field(scConstant.data());
         if (scConstantDeserialized == nullptr)
-            result = false;
+            return false;
         zendoo_field_free(scConstantDeserialized);
-        return result;
+        return true;
     }
 
     std::string ToString(Error err){
