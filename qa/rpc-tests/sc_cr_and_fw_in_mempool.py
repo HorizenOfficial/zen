@@ -81,7 +81,7 @@ class sc_cr_fw(BitcoinTestFramework):
         # sidechain creation
         #-------------------
         # generate wCertVk and constant
-        vk = generate_params(self.options.tmpdir, scid)
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
         constant = generate_random_field_element_hex()
 
         creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)

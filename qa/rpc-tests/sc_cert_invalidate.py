@@ -87,7 +87,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         mark_logs("Node 1 creates the SC spending {} coins ...".format(creation_amount), self.nodes, DEBUG_MODE)
 
         #generate wCertVk and constant
-        vk = generate_params(self.options.tmpdir, scid)
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
         constant = generate_random_field_element_hex()
 
         creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
@@ -154,7 +154,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         #Create proof for WCert
         quality = 0
         proof = create_test_proof(
-            self.options.tmpdir, scid, ep_n_0, ep_hash_0, prev_ep_hash_0,
+            self.options.tmpdir, self.options.srcdir,  scid, ep_n_0, ep_hash_0, prev_ep_hash_0,
             quality, constant, [pkh_node1], [bwt_amount_1])
 
         cert = self.nodes[0].send_certificate(scid, ep_n_0, quality, ep_hash_0, proof, amounts, CERT_FEE)
@@ -237,7 +237,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         #Create proof for WCert
         quality = 1
         proof = create_test_proof(
-            self.options.tmpdir, scid, ep_n_1, ep_hash_1, prev_ep_hash_1,
+            self.options.tmpdir, self.options.srcdir,  scid, ep_n_1, ep_hash_1, prev_ep_hash_1,
             quality, constant, [pkh_node2], [bwt_amount_2])
 
         cert = self.nodes[0].send_certificate(scid, ep_n_1, quality, ep_hash_1, proof, amounts, CERT_FEE)

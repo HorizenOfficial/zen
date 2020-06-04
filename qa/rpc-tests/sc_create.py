@@ -66,7 +66,7 @@ class SCCreateTest(BitcoinTestFramework):
         fwt_amount_many = fwt_amount_1 + fwt_amount_2 + fwt_amount_3
 
         #generate wCertVk and constant
-        vk = generate_params(self.options.tmpdir, scid)
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
         constant = generate_random_field_element_hex()
 
         # ---------------------------------------------------------------------------------------

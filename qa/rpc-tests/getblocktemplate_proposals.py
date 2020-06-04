@@ -150,7 +150,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         # create a sidechain and a certificate for it in the mempool
         scid = "22"
 
-        vk = generate_params(self.options.tmpdir, scid)
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
         constant = generate_random_field_element_hex()
 
         self.nodes[1].sc_create(scid, SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT, vk, "bb" * 1024, constant)
@@ -167,7 +167,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         #create wCert proof
         eph = block_list[-1]
         proof = create_test_proof(
-        self.options.tmpdir, scid, 0, eph, pebh,
+        self.options.tmpdir, self.options.srcdir,  scid, 0, eph, pebh,
         0, constant, [pkh], [SC_CERT_AMOUNT])
 
         fee = 0.000023

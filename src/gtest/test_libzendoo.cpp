@@ -1,13 +1,11 @@
 #include <gtest/gtest.h>
+#include <gtest/libzendoo_test_files.h>
 #include <util.h>
 #include "zendoo/zendoo_mc.h"
 #include "zendoo/error.h"
 #include <stdio.h>
-#include <iostream>
-#include <fstream>
 #include <cstring>
-#include <boost/filesystem.hpp>
-#include <string>
+#include <utilstrencodings.h>
 
 TEST(ZendooLib, FieldTest)
 {
@@ -121,24 +119,10 @@ TEST(ZendooLib, PoseidonMerkleTreeTest)  {
 TEST(ZendooLib, TestProof)
 {
     //Deserialize zero knowledge proof
-    //Read proof from file
-    std::ifstream is ("test_files/sample_proof", std::ifstream::binary);
-    is.seekg (0, is.end);
-    int length = is.tellg();
-
-    //Check correct length
-    ASSERT_TRUE(length == SC_PROOF_SIZE);
-
-    is.seekg (0, is.beg);
-    char* proof_bytes = new char [SC_PROOF_SIZE];
-    is.read(proof_bytes, SC_PROOF_SIZE);
-    is.close();
-
-    //Deserialize proof
-    auto proof = zendoo_deserialize_sc_proof((unsigned char *)proof_bytes);
+    auto proof_serialized = ParseHex(SAMPLE_PROOF);
+    ASSERT_EQ(proof_serialized.size(), zendoo_get_sc_proof_size_in_bytes());
+    auto proof = zendoo_deserialize_sc_proof(proof_serialized.data());
     ASSERT_TRUE(proof != NULL);
-
-    delete[] proof_bytes;
 
     //Inputs
     unsigned char end_epoch_mc_b_hash[32] = {
@@ -166,34 +150,11 @@ TEST(ZendooLib, TestProof)
     //Create dummy bt
     const backward_transfer_t bt_list[10] = { {0}, 0 };
 
-    //Read vk from file
-    std::ifstream is1 ("test_files/sample_vk", std::ifstream::binary);
-    is1.seekg (0, is1.end);
-    length = is1.tellg();
-
-    //Check correct length
-    ASSERT_TRUE(length == SC_VK_SIZE);
-
-    is1.seekg (0, is1.beg);
-    char* vk_bytes = new char [SC_VK_SIZE];
-    is1.read(vk_bytes, SC_VK_SIZE);
-    is1.close();
-
     //Deserialize vk
-    auto vk_from_buffer = zendoo_deserialize_sc_vk((unsigned char*)vk_bytes);
-    ASSERT_TRUE(vk_from_buffer != NULL);
-
-
-    delete[] vk_bytes;
-
-    //Deserialize vk directly from file
-    sc_vk_t* vk_from_file = zendoo_deserialize_sc_vk_from_file(
-        (path_char_t*)"test_files/sample_vk",
-        20
-    );
-
-    //Check equality
-    ASSERT_TRUE(zendoo_sc_vk_assert_eq(vk_from_buffer, vk_from_file));
+    auto vk_serialized = ParseHex(SAMPLE_VK);
+    ASSERT_EQ(vk_serialized.size(), zendoo_get_sc_vk_size_in_bytes());
+    auto vk = zendoo_deserialize_sc_vk(vk_serialized.data());
+    ASSERT_TRUE(vk != NULL);
 
     //Verify zkproof
     ASSERT_TRUE(zendoo_verify_sc_proof(
@@ -205,7 +166,7 @@ TEST(ZendooLib, TestProof)
             constant,
             NULL,
             proof,
-            vk_from_buffer
+            vk
         ));
 
     //Negative test: change quality (for instance) and ASSERT_TRUE proof failure
@@ -218,13 +179,12 @@ TEST(ZendooLib, TestProof)
             constant,
             NULL,
             proof,
-            vk_from_buffer
+            vk
         ));
 
     //Free proof
     zendoo_sc_proof_free(proof);
-    zendoo_sc_vk_free(vk_from_buffer);
-    zendoo_sc_vk_free(vk_from_file);
+    zendoo_sc_vk_free(vk);
     zendoo_field_free(constant);
 
 }
@@ -232,24 +192,10 @@ TEST(ZendooLib, TestProof)
 // Execute the test from zen directory
 TEST(ZendooLib, TestProofNoBwt){
     //Deserialize zero knowledge proof
-    //Read proof from file
-    std::ifstream is ("test_files/sample_proof_no_bwt", std::ifstream::binary);
-    is.seekg (0, is.end);
-    int length = is.tellg();
-
-    //Check correct length
-    ASSERT_EQ(length, zendoo_get_sc_proof_size_in_bytes());
-
-    is.seekg (0, is.beg);
-    char* proof_bytes = new char [length];
-    is.read(proof_bytes,length);
-    is.close();
-
-    //Deserialize proof
-    auto proof = zendoo_deserialize_sc_proof((unsigned char *)proof_bytes);
+    auto proof_serialized = ParseHex(SAMPLE_PROOF_NO_BWT);
+    ASSERT_EQ(proof_serialized.size(), zendoo_get_sc_proof_size_in_bytes());
+    auto proof = zendoo_deserialize_sc_proof(proof_serialized.data());
     ASSERT_TRUE(proof != NULL);
-
-    delete[] proof_bytes;
 
     //Inputs
     unsigned char end_epoch_mc_b_hash[32] = {
@@ -277,11 +223,11 @@ TEST(ZendooLib, TestProofNoBwt){
     //Create empty bt_list
     std::vector<backward_transfer_t> bt_list;
 
-    //Read vk from file
-    sc_vk_t* vk = zendoo_deserialize_sc_vk_from_file(
-        (path_char_t*)"test_files/sample_vk_no_bwt",
-        27
-    );
+    //Deserialize vk
+    auto vk_serialized = ParseHex(SAMPLE_VK_NO_BWT);
+    ASSERT_EQ(vk_serialized.size(), zendoo_get_sc_vk_size_in_bytes());
+    auto vk = zendoo_deserialize_sc_vk(vk_serialized.data());
+    ASSERT_TRUE(vk != NULL);
 
     //Verify zkproof
     ASSERT_TRUE(zendoo_verify_sc_proof(

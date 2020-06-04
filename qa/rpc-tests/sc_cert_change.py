@@ -79,7 +79,7 @@ class sc_cert_change(BitcoinTestFramework):
         self.sync_all()
 
         # (1) node0 create sidechain with 10.0 coins
-        vk = generate_params(self.options.tmpdir, scid)
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
         constant = generate_random_field_element_hex()
         creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         mark_logs("Node 0 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
@@ -98,7 +98,7 @@ class sc_cert_change(BitcoinTestFramework):
 
         quality = 0
         proof = create_test_proof(
-        self.options.tmpdir, scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+        self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
         quality, constant, [pkh_node1], [bwt_amount])
         
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(bwt_amount, pkh_node1), self.nodes, DEBUG_MODE)
@@ -125,7 +125,7 @@ class sc_cert_change(BitcoinTestFramework):
 
         quality = 1
         proof = create_test_proof(
-        self.options.tmpdir, scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+        self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
         quality, constant, [pkh_node2], [bwt_amount])
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
@@ -152,7 +152,7 @@ class sc_cert_change(BitcoinTestFramework):
 
         quality = 2
         proof = create_test_proof(
-        self.options.tmpdir, scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+        self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
         quality, constant, [pkh_node3], [bwt_amount])
 
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node3 pkh".format(bwt_amount, pkh_node3), self.nodes, DEBUG_MODE)

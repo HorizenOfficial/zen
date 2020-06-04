@@ -180,7 +180,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         sc_amount = sc_cr_amount + sc_ft_amount
 
         #generate wCertVk and constant
-        vk = generate_params(self.options.tmpdir, scid)
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
         constant = generate_random_field_element_hex()
 
         sc_cr = [{"scid": scid,"epoch_length": sc_epoch, "amount":sc_cr_amount, "address":sc_address, "wCertVk": vk, "constant": constant}]

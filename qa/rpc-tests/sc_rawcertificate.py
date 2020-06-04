@@ -86,7 +86,7 @@ class sc_rawcert(BitcoinTestFramework):
         sc_address = "fade"
 
         #generate vk and constant for this sidechain
-        vk = generate_params(self.options.tmpdir, scid)
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
         constant = generate_random_field_element_hex()
         
         sc_cr = [{"scid": scid, "epoch_length": EPOCH_LENGTH, "amount": cr_amount, "address": sc_address, "wCertVk": vk, "constant": constant}]
@@ -118,7 +118,7 @@ class sc_rawcert(BitcoinTestFramework):
         # create wCert proof
         quality = 0
         proof = create_test_proof(
-        self.options.tmpdir, scid, epn, eph, pebh,
+        self.options.tmpdir, self.options.srcdir,  scid, epn, eph, pebh,
         quality, constant, [pkh_node2], [bt_amount])
 
         raw_inputs   = []
@@ -199,7 +199,7 @@ class sc_rawcert(BitcoinTestFramework):
         # create wCert proof
         quality = 1
         proof = create_test_proof(
-        self.options.tmpdir, scid, epn, eph, pebh,
+        self.options.tmpdir, self.options.srcdir,  scid, epn, eph, pebh,
         quality, constant, [], [])
 
         raw_inputs   = []
@@ -342,7 +342,7 @@ class sc_rawcert(BitcoinTestFramework):
             amounts.append(amount)
 
         proof = create_test_proof(
-        self.options.tmpdir, scid, epn, eph, pebh,
+        self.options.tmpdir, self.options.srcdir,  scid, epn, eph, pebh,
         quality, constant, pks, amounts)
 
         raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
@@ -392,7 +392,7 @@ class sc_rawcert(BitcoinTestFramework):
         # create wCert proof
         quality = 3
         proof = create_test_proof(
-        self.options.tmpdir, scid, epn, eph, pebh,
+        self.options.tmpdir, self.options.srcdir,  scid, epn, eph, pebh,
         quality, constant, [], [])
 
         raw_inputs   = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
