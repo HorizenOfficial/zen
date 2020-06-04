@@ -27,6 +27,7 @@ void RegisterValidationInterface(CValidationInterface* pwalletIn) {
 }
 
 void UnregisterValidationInterface(CValidationInterface* pwalletIn) {
+    g_signals.SyncBwtCeasing.disconnect(boost::bind(&CValidationInterface::SyncBwtCeasing, pwalletIn, _1, _2));
     g_signals.SyncCertificate.disconnect(boost::bind(&CValidationInterface::SyncCertificate, pwalletIn, _1, _2, _3));
     g_signals.BlockChecked.disconnect(boost::bind(&CValidationInterface::BlockChecked, pwalletIn, _1, _2));
     g_signals.Broadcast.disconnect(boost::bind(&CValidationInterface::ResendWalletTransactions, pwalletIn, _1));
@@ -37,7 +38,6 @@ void UnregisterValidationInterface(CValidationInterface* pwalletIn) {
     g_signals.EraseTransaction.disconnect(boost::bind(&CValidationInterface::EraseFromWallet, pwalletIn, _1));
     g_signals.SyncTransaction.disconnect(boost::bind(&CValidationInterface::SyncTransaction, pwalletIn, _1, _2));
     g_signals.UpdatedBlockTip.disconnect(boost::bind(&CValidationInterface::UpdatedBlockTip, pwalletIn, _1));
-    g_signals.SyncBwtCeasing.disconnect(boost::bind(&CValidationInterface::SyncBwtCeasing, pwalletIn, _1, _2));
 }
 
 void UnregisterAllValidationInterfaces() {

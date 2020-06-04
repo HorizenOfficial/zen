@@ -1578,10 +1578,12 @@ void CWallet::SyncCertificate(const CScCertificate& cert, const CBlock* pblock, 
     if (!AddToWalletIfInvolvingMe(cert, pblock, true))
         return; // Not one of ours
 
-    MarkAffectedTransactionsDirty(cert);
     std::map<uint256, std::shared_ptr<CWalletTransactionBase>>::iterator itCert = mapWallet.find(cert.GetHash());
-    if (itCert != mapWallet.end())
-        itCert->second.get()->bwtMaturityDepth = bwtMaturityHeight;
+    assert(itCert != mapWallet.end());
+    assert(itCert->second.get()->getTxBase()->IsCertificate());
+    itCert->second.get()->bwtMaturityDepth = bwtMaturityHeight;
+
+    MarkAffectedTransactionsDirty(cert);
 }
 
 void CWallet::SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped)
@@ -1593,7 +1595,6 @@ void CWallet::SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped)
         return;
 
     assert(itCert->second.get()->getTxBase()->IsCertificate());
-
     itCert->second.get()->areBwtCeased = bwtAreStripped;
 
     MarkAffectedTransactionsDirty(*(itCert->second.get()->getTxBase()));

@@ -1009,7 +1009,7 @@ TEST_F(CeasedSidechainsTestSuite, SpendChangeOutput_CoinReconstructionFromBlockU
 {
     //Create sidechain
     uint256 scId = uint256S("aaa");
-    int dummyHeight = 100;
+    static const int dummyHeight = 100;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     CBlock dummyCreationBlock;
     EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyCreationBlock, dummyHeight));
@@ -1020,13 +1020,13 @@ TEST_F(CeasedSidechainsTestSuite, SpendChangeOutput_CoinReconstructionFromBlockU
 
     //Generate coin from cert, to check it is fully reconstructed from BlockUndo
     CTxUndo dummyTxUndo;
-    int certHeight = 1987;
+    static const int certHeight = 1987;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
     UpdateCoins(cert, *view, dummyTxUndo, certHeight);
     CCoins coinFromCert;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),coinFromCert));
 
-    //Create Tx spending first change from the certificate
+    //Create Tx spending the change output from the certificate
     CMutableTransaction txSpendingCert;
     txSpendingCert.vin.resize(1);
     txSpendingCert.vin.at(0).prevout.hash = cert.GetHash();
@@ -1034,7 +1034,7 @@ TEST_F(CeasedSidechainsTestSuite, SpendChangeOutput_CoinReconstructionFromBlockU
 
     //Create block undo to rebuild cert output
     CTxUndo certTxUndo;
-    int spendTxHeight = 2020;
+    static const int spendTxHeight = 2020;
     UpdateCoins(txSpendingCert, *view, certTxUndo, spendTxHeight);
 
     //Test
@@ -1055,7 +1055,7 @@ TEST_F(CeasedSidechainsTestSuite, SpendBwtOutput_CoinReconstructionFromBlockUndo
 {
     //Create sidechain
     uint256 scId = uint256S("aaa");
-    int dummyHeight = 100;
+    static const int dummyHeight = 100;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     CBlock dummyCreationBlock;
     EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyCreationBlock, dummyHeight));
@@ -1066,13 +1066,13 @@ TEST_F(CeasedSidechainsTestSuite, SpendBwtOutput_CoinReconstructionFromBlockUndo
 
     //Generate coin from cert, to check it is fully reconstructed from BlockUndo
     CTxUndo dummyTxUndo;
-    int certHeight = 1987;
+    static const int certHeight = 1987;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
     UpdateCoins(cert, *view, dummyTxUndo, certHeight);
     CCoins coinFromCert;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),coinFromCert));
 
-    //Create Tx spending first change from the certificate
+    //Create Tx spending only the bwt from the certificate
     CMutableTransaction txSpendingCert;
     txSpendingCert.vin.resize(1);
     txSpendingCert.vin.at(0).prevout.hash = cert.GetHash();
@@ -1080,7 +1080,7 @@ TEST_F(CeasedSidechainsTestSuite, SpendBwtOutput_CoinReconstructionFromBlockUndo
 
     //Create block undo to rebuild cert output
     CTxUndo certTxUndo;
-    int spendTxHeight = 2020;
+    static const int spendTxHeight = 2020;
     UpdateCoins(txSpendingCert, *view, certTxUndo, spendTxHeight);
 
     //Test
@@ -1101,7 +1101,7 @@ TEST_F(CeasedSidechainsTestSuite, SpendFullCoinsByChangeOutput_CoinReconstructio
 {
     //Create sidechain
     uint256 scId = uint256S("aaa");
-    int dummyHeight = 100;
+    static const int dummyHeight = 100;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     CBlock dummyCreationBlock;
     EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyCreationBlock, dummyHeight));
@@ -1112,13 +1112,13 @@ TEST_F(CeasedSidechainsTestSuite, SpendFullCoinsByChangeOutput_CoinReconstructio
 
     //Generate coin from cert, to check it is fully reconstructed from BlockUndo
     CTxUndo dummyTxUndo;
-    int certHeight = 1987;
+    static const int certHeight = 1987;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
     UpdateCoins(cert, *view, dummyTxUndo, certHeight);
     CCoins coinFromCert;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),coinFromCert));
 
-    //Create Tx spending first change from the certificate
+    //Create Tx spending the change output (the only output) from the certificate
     CMutableTransaction txSpendingCert;
     txSpendingCert.vin.resize(1);
     txSpendingCert.vin.at(0).prevout.hash = cert.GetHash();
@@ -1126,7 +1126,7 @@ TEST_F(CeasedSidechainsTestSuite, SpendFullCoinsByChangeOutput_CoinReconstructio
 
     //Create block undo to rebuild cert output
     CTxUndo certTxUndo;
-    int spendTxHeight = 2020;
+    static const int spendTxHeight = 2020;
     UpdateCoins(txSpendingCert, *view, certTxUndo, spendTxHeight);
 
     //Test
@@ -1147,7 +1147,7 @@ TEST_F(CeasedSidechainsTestSuite, SpendFullCoinsByBwt_CoinReconstructionFromBloc
 {
     //Create sidechain
     uint256 scId = uint256S("aaa");
-    int dummyHeight = 100;
+    static const int dummyHeight = 100;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     CBlock dummyCreationBlock;
     EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyCreationBlock, dummyHeight));
@@ -1158,13 +1158,13 @@ TEST_F(CeasedSidechainsTestSuite, SpendFullCoinsByBwt_CoinReconstructionFromBloc
 
     //Generate coin from cert, to check it is fully reconstructed from BlockUndo
     CTxUndo dummyTxUndo;
-    int certHeight = 1987;
+    static const int certHeight = 1987;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
     UpdateCoins(cert, *view, dummyTxUndo, certHeight);
     CCoins coinFromCert;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),coinFromCert));
 
-    //Create Tx spending first change from the certificate
+    //Create Tx spending the bwt (the only output) from the certificate
     CMutableTransaction txSpendingCert;
     txSpendingCert.vin.resize(1);
     txSpendingCert.vin.at(0).prevout.hash = cert.GetHash();
@@ -1172,7 +1172,7 @@ TEST_F(CeasedSidechainsTestSuite, SpendFullCoinsByBwt_CoinReconstructionFromBloc
 
     //Create block undo to rebuild cert output
     CTxUndo certTxUndo;
-    int spendTxHeight = 2020;
+    static const int spendTxHeight = 2020;
     UpdateCoins(txSpendingCert, *view, certTxUndo, spendTxHeight);
 
     //Test
