@@ -182,7 +182,6 @@ class SCCreateTest(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("bytes" in errorString, True)
 
-        '''
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with an invalid wCertVk
         mark_logs("\nNode 1 try creates a SC with an invalid wCertVk", self.nodes, DEBUG_MODE)
@@ -195,7 +194,7 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("Invalid wCertVk" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        '''
+
         # Node 1 try create a SC with a bad customData
         mark_logs("\nNode 1 try creates a SC with a bad customData", self.nodes, DEBUG_MODE)
 
@@ -272,7 +271,6 @@ class SCCreateTest(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("bytes" in errorString, True)
 
-        '''
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with a bad constant
         mark_logs("\nNode 1 try creates a SC with an invalid constant", self.nodes, DEBUG_MODE)
@@ -285,7 +283,6 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("Invalid constant" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        '''
         
         # Node 1 try create a SC with negative epocLength
         mark_logs("\nNode 1 try creates a SC with 0 epochLength", self.nodes, DEBUG_MODE)

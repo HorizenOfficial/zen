@@ -1,8 +1,8 @@
 #ifndef _SC_PROOF_VERIFIER_H
 #define _SC_PROOF_VERIFIER_H
 
-#include "sc/TEMP_zendooInterface.h"
-#include "sc/TEMP_zendooError.h"
+#include <zendoo/error.h>
+#include <zendoo/zendoo_mc.h>
 #include "uint256.h"
 
 #include <string>

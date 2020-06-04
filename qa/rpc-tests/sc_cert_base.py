@@ -209,7 +209,7 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
 
         #--------------------------------------------------------------------------------------
-        '''
+
         mark_logs("Node 0 tries to perform a bwd transfer with an invalid scProof ...", self.nodes, DEBUG_MODE)
 
         try:
@@ -369,7 +369,7 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
 
         #---------------------end scProof tests-------------------------
-        '''
+
         mark_logs("Node 0 tries to perform a bwd transfer with an invalid end epoch hash block ...", self.nodes, DEBUG_MODE)
         try:
             self.nodes[0].send_certificate(scid, epoch_number, quality, eph_wrong, proof, amount_cert_1, CERT_FEE)
