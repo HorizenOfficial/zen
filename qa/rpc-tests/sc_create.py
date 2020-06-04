@@ -210,7 +210,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creates a SC with a odd number of char in customData", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create("24", 123, "ada", 0.1, vk, "b" * 1024)
+            self.nodes[1].sc_create("24", 123, "ada", 0.1, vk, "b" * 1023)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
