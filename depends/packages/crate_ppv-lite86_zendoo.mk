@@ -1,9 +1,9 @@
-package=crate_lazy_static
-$(package)_crate_name=lazy_static
-$(package)_version=1.0.0
+package=crate_ppv-lite86_zendoo
+$(package)_crate_name=ppv-lite86
+$(package)_version=0.2.8
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=c8f31047daa365f19be14b47c29df4f7c3b581832407daabe6ae77397619237d
+$(package)_sha256_hash=237a5ed80e274dbc66f86bd59c1e25edc039660be53194b5fe0a482e0f2612ea
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

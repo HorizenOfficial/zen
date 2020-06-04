@@ -1,9 +1,9 @@
-package=crate_lazy_static
-$(package)_crate_name=lazy_static
-$(package)_version=1.0.0
+package=crate_scopeguard_zendoo
+$(package)_crate_name=scopeguard
+$(package)_version=1.1.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=c8f31047daa365f19be14b47c29df4f7c3b581832407daabe6ae77397619237d
+$(package)_sha256_hash=d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

@@ -1,9 +1,9 @@
-package=crate_lazy_static
-$(package)_crate_name=lazy_static
-$(package)_version=1.0.0
+package=crate_rayon-core_zendoo
+$(package)_crate_name=rayon-core
+$(package)_version=1.7.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=c8f31047daa365f19be14b47c29df4f7c3b581832407daabe6ae77397619237d
+$(package)_sha256_hash=08a89b46efaf957e52b18062fb2f4660f8b8a4dde1807ca002690868ef2c85a9
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

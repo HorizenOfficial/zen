@@ -1,9 +1,9 @@
-package=crate_lazy_static
-$(package)_crate_name=lazy_static
-$(package)_version=1.0.0
+package=crate_hermit-abi_zendoo
+$(package)_crate_name=hermit-abi
+$(package)_version=0.1.13
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=c8f31047daa365f19be14b47c29df4f7c3b581832407daabe6ae77397619237d
+$(package)_sha256_hash=91780f809e750b0a89f5544be56617ff6b1227ee485bcb06ebe10cdf89bd3b71
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

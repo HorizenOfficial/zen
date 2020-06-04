@@ -27,7 +27,6 @@ BITCOIN_INCLUDES += -I$(srcdir)/secp256k1/include
 BITCOIN_INCLUDES += -I$(srcdir)/snark
 BITCOIN_INCLUDES += -I$(srcdir)/snark/libsnark
 BITCOIN_INCLUDES += -I$(srcdir)/univalue/include
-BITCOIN_INCLUDES += -I$(srcdir)/zendoo/include
 
 LIBBITCOIN_SERVER=libbitcoin_server.a
 LIBBITCOIN_WALLET=libbitcoin_wallet.a
@@ -40,9 +39,6 @@ LIBSNARK=snark/libsnark.a
 LIBUNIVALUE=univalue/libunivalue.la
 LIBZCASH=libzcash.a
 LIBZENCASH=libzencash.a
-# LIBRUSTZENDOO=$(top_srcdir)/target/$(RUST_TARGET)/release/libzendoo.a 
-LIBRUSTZENDOO=../target/$(RUST_TARGET)/release/libzendoo_mc.a 
-
 
 $(LIBSECP256K1): $(wildcard secp256k1/src/*) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
@@ -67,32 +63,6 @@ libsnark-tests: $(wildcard snark/src/*)
 $(LIBUNIVALUE): $(wildcard univalue/lib/*) $(wildcard univalue/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
 
-RUST_ENV_VARS = RUSTC="$(RUSTC)" TERM=dumb
-RUST_BUILD_OPTS = --release --target $(RUST_TARGET) 
-if ENABLE_ONLINE_RUST
-# Ensure that .cargo/config does not exist
-CARGO_CONFIGURED = $(top_srcdir)/.cargo/.configured-for-online
-$(CARGO_CONFIGURED):
-	$(AM_V_at)rm -f $(top_srcdir)/.cargo/.configured-for-offline $(top_srcdir)/.cargo/config
-	$(AM_V_at)touch $@
-
-else
-# Enable dependency vendoring
-RUST_BUILD_OPTS += 
-
-CARGO_CONFIGURED = $(top_srcdir)/.cargo/.configured-for-offline
-$(CARGO_CONFIGURED): $(top_srcdir)/.cargo/config.offline
-	$(AM_V_at)rm -f $(top_srcdir)/.cargo/.configured-for-online
-	$(AM_V_at)cp $< $(top_srcdir)/.cargo/config
-	$(AM_V_at)echo "directory = \"$(RUST_VENDORED_SOURCES)\"" >>$(top_srcdir)/.cargo/config
-	$(AM_V_at)touch $@
-endif
-
-cargo-build: $(CARGO_CONFIGURED)
-	$(RUST_ENV_VARS) $(CARGO) build $(RUST_BUILD_OPTS) --manifest-path $(top_srcdir)/Cargo.toml
-
-
-$(LIBRUSTZENDOO): cargo-build
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
@@ -484,8 +454,7 @@ zend_LDADD = \
   $(LIBSNARK) \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
-  $(LIBSECP256K1) \
-  $(LIBRUSTZENDOO) 
+  $(LIBSECP256K1) 
 
 if ENABLE_ZMQ
 zend_LDADD += $(LIBBITCOIN_ZMQ) $(ZMQ_LIBS)
@@ -531,8 +500,7 @@ zen_cli_LDADD = \
   $(LIBZENCASH) \
   $(LIBSNARK) \
   $(LIBBITCOIN_CRYPTO) \
-  $(LIBZCASH_LIBS) \
-  $(LIBRUSTZENDOO) 
+  $(LIBZCASH_LIBS) 
 
 
 # zen-tx binary #
@@ -561,8 +529,7 @@ zen_tx_LDADD = \
   $(LIBZENCASH) \
   $(LIBSNARK) \
   $(LIBBITCOIN_CRYPTO) \
-  $(LIBZCASH_LIBS) \
-  $(LIBRUSTZENDOO) 
+  $(LIBZCASH_LIBS) 
 
 zen_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
 
@@ -649,6 +616,19 @@ libzencash_a_LDFLAGS = $(HARDENED_LDFLAGS)
 libzencash_a_CPPFLAGS += -DMONTGOMERY_OUTPUT
 
 
+#noinst_PROGRAMS += \
+#  zendoo/mcTest
+  
+# tool for testing sidechain
+#zendoo_mcTest_SOURCES = zendoo/mcTestCall.cpp \
+#	zendoo_mc.h \
+#	hex_utils.h
+#zendoo_mcTest_CPPFLAGS = $(AM_CPPFLAGS) 
+#zendoo_mcTest_CXXFLAGS = $(AM_CXXFLAGS)
+#zendoo_mcTest_LDADD = -lgmp -lgmpxx -lboost_system -lcrypto -lsodium -lzendoo_mc -ldl -lpthread
+
+
+
 
 CLEANFILES = leveldb/libleveldb.a leveldb/libmemenv.a *.gcda *.gcno */*.gcno wallet/*/*.gcno
 
@@ -657,8 +637,6 @@ DISTCLEANFILES = obj/build.h
 EXTRA_DIST = leveldb snark
 
 clean-local:
-	rm -f .cargo/config .cargo/.configured-for-online .cargo/.configured-for-offline
-	rm -f -r ../target/*
 	-$(MAKE) -C leveldb clean
 	-$(MAKE) -C secp256k1 clean
 	-$(MAKE) -C snark clean

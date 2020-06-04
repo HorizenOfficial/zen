@@ -1,9 +1,9 @@
-package=crate_lazy_static
-$(package)_crate_name=lazy_static
-$(package)_version=1.0.0
+package=crate_maybe-uninit_zendoo
+$(package)_crate_name=maybe-uninit
+$(package)_version=2.0.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=c8f31047daa365f19be14b47c29df4f7c3b581832407daabe6ae77397619237d
+$(package)_sha256_hash=60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

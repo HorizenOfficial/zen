@@ -25,7 +25,8 @@ endef
 
 define $(package)_preprocess_cmds
   mkdir .cargo && \
-  cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' > .cargo/config
+  cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' > .cargo/config && \
+  cat  .cargo/config
 endef
 
 define $(package)_build_cmds
