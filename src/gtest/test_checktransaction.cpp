@@ -63,13 +63,12 @@ CMutableTransaction GetValidTransaction(int txVersion) {
 
         CTxScCreationOut cr_ccout;
         cr_ccout.nValue = 1.0;
-        cr_ccout.scId = GetRandHash();
         cr_ccout.withdrawalEpochLength = 111;
         mtx.vsc_ccout.push_back(cr_ccout);
 
         CTxForwardTransferOut ft_ccout;
         ft_ccout.nValue = 10.0;
-        ft_ccout.scId = cr_ccout.scId;
+        ft_ccout.scId = GetRandHash();
         mtx.vft_ccout.push_back(ft_ccout);
     }
     else

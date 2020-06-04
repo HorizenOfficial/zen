@@ -119,7 +119,7 @@ bool Sidechain::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
 {
     BOOST_FOREACH(const auto& sc, tx.GetVscCcOut())
     {
-        if (sc.scId == scId)
+        if (sc.GetScId() == scId)
         {
             return true;
         }

@@ -1334,7 +1334,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
 
         // If this tx creates a sc, no other tx must be doing the same in the mempool
         for(const CTxScCreationOut& sc: tx.GetVscCcOut()) {
-            if ((pool.mapSidechains.count(sc.scId) != 0) && (!pool.mapSidechains.at(sc.scId).scCreationTxHash.IsNull())) {
+            if ((pool.mapSidechains.count(sc.GetScId()) != 0) && (!pool.mapSidechains.at(sc.GetScId()).scCreationTxHash.IsNull())) {
                 LogPrint("sc", "%s():%d - Dropping txid [%s]: it tries to redeclare another sc in mempool\n",
                         __func__, __LINE__, hash.ToString());
                 return false;
@@ -2730,7 +2730,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
             for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
                 if (!view.UpdateCeasingScs(scCreation))
-                    return state.DoS(100, error("ConnectBlock(): error updating ceasing height for sidechain [%s]", scCreation.scId.ToString()),
+                    return state.DoS(100, error("ConnectBlock(): error updating ceasing height for sidechain [%s]", scCreation.GetScId().ToString()),
                                      REJECT_INVALID, "bad-sc-not-recorded");
             }
 

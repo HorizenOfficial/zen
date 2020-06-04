@@ -29,7 +29,7 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
     for (unsigned int i = 0; i < tx.GetVscCcOut().size(); i++) {
         const CTxScCreationOut& out = tx.GetVscCcOut()[i];
         UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("scid", out.scId.GetHex()));
+        o.push_back(Pair("scid", out.GetScId().GetHex()));
         o.push_back(Pair("n", (int64_t)nIdx));
         o.push_back(Pair("withdrawal epoch length", (int)out.withdrawalEpochLength));
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
@@ -146,7 +146,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             cdBlob.fill(sc.customData, cdDataLen);
         }
 
-        CTxScCreationOut txccout(scId, nAmount, address, sc);
+        CTxScCreationOut txccout(nAmount, address, sc);
 
         rawTx.vsc_ccout.push_back(txccout);
     }
@@ -203,7 +203,6 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& 
     BOOST_FOREACH(const auto& entry, tx.GetVscCcOut())
     {
         CRecipientScCreation sc;
-        sc.scId = entry.scId;
         sc.nValue = entry.nValue;
         sc.address = entry.address;
         sc.creationData.withdrawalEpochLength = entry.withdrawalEpochLength;
@@ -234,7 +233,7 @@ bool CRecipientHandler::visit(const CcRecipientVariant& rec)
 
 bool CRecipientHandler::handle(const CRecipientScCreation& r)
 {
-    CTxScCreationOut txccout(r.scId, r.nValue, r.address, r.creationData);
+    CTxScCreationOut txccout(r.nValue, r.address, r.creationData);
     // no dust can be found in sc creation
     return txBase->add(txccout);
 };
@@ -461,16 +460,11 @@ void ScRpcCmd::addChange()
 }
 
 ScRpcCmdTx::ScRpcCmdTx(
-        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        CMutableTransaction& tx,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee):
-        ScRpcCmd(tx, fromaddress, changeaddress, minConf, nFee),
-        _outParams(outParams)
+        ScRpcCmd(tx, fromaddress, changeaddress, minConf, nFee)
 {
-    for (const auto& entry : _outParams)
-    {
-        _totalOutputAmount += entry._nAmount;
-    }
 }
 
 ScRpcCmdCert::ScRpcCmdCert(
@@ -627,10 +621,16 @@ void ScRpcCmdTx::send()
 }
 
 ScRpcCreationCmd::ScRpcCreationCmd(
-        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        CMutableTransaction& tx, const std::vector<sCrOutParams>& outParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee, const ScCreationParameters& cd):
-        ScRpcCmdTx(tx, outParams, fromaddress, changeaddress, minConf, nFee), _creationData(cd) { } 
+        ScRpcCmdTx(tx, fromaddress, changeaddress, minConf, nFee), _creationData(cd), _outParams(outParams)
+{
+    for (const auto& entry : _outParams)
+    {
+        _totalOutputAmount += entry._nAmount;
+    }
+} 
 
 void ScRpcCreationCmd::addCcOutputs()
 {
@@ -644,7 +644,6 @@ void ScRpcCreationCmd::addCcOutputs()
 
     // creation output
     CRecipientScCreation sc;
-    sc.scId = _outParams[0]._scid;
     sc.address = _outParams[0]._toScAddress;
     sc.nValue = _outParams[0]._nAmount;
     sc.creationData = _creationData;
@@ -659,10 +658,17 @@ void ScRpcCreationCmd::addCcOutputs()
 }
 
 ScRpcSendCmd::ScRpcSendCmd(
-        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        CMutableTransaction& tx, const std::vector<sFtOutParams>& outParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee):
-        ScRpcCmdTx(tx, outParams, fromaddress, changeaddress, minConf, nFee) { } 
+        ScRpcCmdTx(tx, fromaddress, changeaddress, minConf, nFee), _outParams(outParams)
+{
+    for (const auto& entry : _outParams)
+    {
+        _totalOutputAmount += entry._nAmount;
+    }
+} 
+
 
 void ScRpcSendCmd::addCcOutputs()
 {

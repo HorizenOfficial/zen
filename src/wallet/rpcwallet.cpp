@@ -762,7 +762,6 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
 
     CRecipientScCreation sc;
-    sc.scId = scId;
     sc.address = address;
     sc.nValue = nAmount;
     sc.creationData.withdrawalEpochLength = withdrawalEpochLength;
@@ -793,11 +792,10 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
     if (fHelp ||  params.size() != 1)
         throw runtime_error(
-            "create_sidechain {\"scid\":... , \"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":...}\n"
+            "create_sidechain {\"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":...}\n"
             "\nCreate a Side chain.\n"
             "\nArguments:\n"
             "{\n"                     
-            "   \"scid\": id                      (string, optional) The uint256 side chain ID, if omitted a random value is generated\n"
             "   \"withdrawalEpochLength\": epoch  (numeric, optional, default=100) length of the withdrawal epochs\n"
             "   \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
             "   \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a new generated address will be used\n"
@@ -820,7 +818,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
     // valid input keywords
     static const std::set<std::string> validKeyArgs =
-        {"scid", "withdrawalEpochLength", "fromaddress", "changeaddress",
+        {"withdrawalEpochLength", "fromaddress", "changeaddress",
          "toaddress", "amount", "minconf", "fee", "customData"};
 
     UniValue inputObject = params[0].get_obj();
@@ -839,20 +837,6 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
         if (!setKeyArgs.insert(s).second)
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Duplicate key in input: ") + s);
-    }
-
-    // ---------------------------------------------------------
-    uint256 scId;
-    if (setKeyArgs.count("scid"))
-    {
-        string inputString = find_value(inputObject, "scid").get_str();
-        if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
-        scId.SetHex(inputString);
-    }
-    else
-    {
-        scId = GetRandHash();
     }
 
     // ---------------------------------------------------------
@@ -963,8 +947,8 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     CMutableTransaction tx_create;
     tx_create.nVersion = SC_TX_VERSION;
 
-    std::vector<ScRpcCmdTx::sOutParams> vOutputs;
-    vOutputs.push_back(ScRpcCmdTx::sOutParams(scId, toaddress, nAmount));
+    std::vector<ScRpcCreationCmd::sCrOutParams> vOutputs;
+    vOutputs.push_back(ScRpcCreationCmd::sCrOutParams(toaddress, nAmount));
 
     Sidechain::ScRpcCreationCmd cmd(tx_create, vOutputs, fromaddress, changeaddress, nMinDepth, nFee, creationData);
 
@@ -1022,7 +1006,7 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
     UniValue outputsArr = params[0].get_array();
 
     // ---------------------------------------------------------
-    std::vector<ScRpcCmdTx::sOutParams> vOutputs;
+    std::vector<ScRpcSendCmd::sFtOutParams> vOutputs;
     CAmount totalAmount = 0;
 
     if (outputsArr.size()==0)
@@ -1101,7 +1085,7 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
             }
         }
  
-        vOutputs.push_back(ScRpcCmdTx::sOutParams(scId, toaddress, nAmount));
+        vOutputs.push_back(ScRpcSendCmd::sFtOutParams(scId, toaddress, nAmount));
         totalAmount += nAmount;
     }
 

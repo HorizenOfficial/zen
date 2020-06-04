@@ -263,9 +263,9 @@ bool CTxCrosschainOut::CheckAmountRange(CAmount& cumulatedAmount) const
 }
 
 CTxScCreationOut::CTxScCreationOut(
-    const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn,
+    const CAmount& nValueIn, const uint256& addressIn,
     const Sidechain::ScCreationParameters& paramsIn)
-    :CTxCrosschainOut(scIdIn, nValueIn, addressIn),
+    :CTxCrosschainOut(nValueIn, addressIn), generatedScId(),
      withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData) {}
 
 uint256 CTxScCreationOut::GetHash() const
@@ -275,8 +275,32 @@ uint256 CTxScCreationOut::GetHash() const
 
 std::string CTxScCreationOut::ToString() const
 {
-    return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, customData=[%s]",
-        scId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData) );
+    return strprintf("CTxScCreationOut(withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, customData=[%s]",
+        withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData) );
+}
+
+void CTxScCreationOut::GenerateScId(const CTransaction& txIn, int pos) const
+{
+    const uint256& txid  = txIn.GetHash();
+    const uint256& ccout = GetHash();
+
+    const uint256& scid = Hash(
+            BEGIN(txid),    END(txid),
+            BEGIN(ccout),   END(ccout), // TODO with respect to the comments of CR this could be added as well
+            BEGIN(pos),     END(pos) );
+
+    LogPrint("sc", "%s():%d - updating scid=%s - tx[%s], ccout[%s], pos[%d]\n",
+        __func__, __LINE__, scid.ToString(), txIn.GetHash().ToString(), GetHash().ToString(), pos);
+
+    *const_cast<uint256*>(&generatedScId) = scid;
+}
+
+CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
+    CTxCrosschainOut::operator=(ccout);
+    *const_cast<uint256*>(&generatedScId) = ccout.generatedScId;
+    withdrawalEpochLength = ccout.withdrawalEpochLength;
+    customData = ccout.customData;
+    return *this;
 }
 
 
@@ -532,6 +556,9 @@ CTransaction::CTransaction(const CMutableTransaction &tx) :
     *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
     UpdateHash();
+    if (IsScVersion())
+        for(int pos = 0; pos < vsc_ccout.size(); pos++)
+            vsc_ccout[pos].GenerateScId(*this, pos);
 }
 
 CTransaction& CTransaction::operator=(const CTransaction &tx) {
@@ -588,6 +615,23 @@ double CTransactionBase::ComputePriority(double dPriorityInputs, unsigned int nT
     if (nTxSize == 0) return 0.0;
 
     return dPriorityInputs / nTxSize;
+}
+
+uint256 CTransaction::GetScIdFromScCcOut(int pos) const
+{
+    if (pos >= GetVscCcOut().size())
+    {
+        LogPrint("sc", "%s():%d - tx[%s] pos %d out of range (vsc_ccout size %d)\n",
+            __func__, __LINE__, GetHash().ToString(), pos, GetVscCcOut().size());
+        return uint256();
+    }
+
+    const uint256& scid = GetVscCcOut().at(pos).GetScId();
+
+    LogPrint("sc", "%s():%d - tx[%s] has scid[%s] for ccout[%s] (pos[%d])\n",
+        __func__, __LINE__, GetHash().ToString(), scid.ToString(), GetVscCcOut().at(pos).GetHash().ToString(), pos);
+
+    return scid;
 }
 
 bool CTransaction::IsValidVersion(CValidationState &state) const
