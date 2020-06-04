@@ -22,11 +22,13 @@ void RegisterValidationInterface(CValidationInterface* pwalletIn) {
     g_signals.Inventory.connect(boost::bind(&CValidationInterface::Inventory, pwalletIn, _1));
     g_signals.Broadcast.connect(boost::bind(&CValidationInterface::ResendWalletTransactions, pwalletIn, _1));
     g_signals.BlockChecked.connect(boost::bind(&CValidationInterface::BlockChecked, pwalletIn, _1, _2));
-    g_signals.SyncCertificate.connect(boost::bind(&CValidationInterface::SyncCertificate, pwalletIn, _1, _2));
+    g_signals.SyncCertificate.connect(boost::bind(&CValidationInterface::SyncCertificate, pwalletIn, _1, _2, _3));
+    g_signals.SyncBwtCeasing.connect(boost::bind(&CValidationInterface::SyncBwtCeasing, pwalletIn, _1, _2));
 }
 
 void UnregisterValidationInterface(CValidationInterface* pwalletIn) {
-    g_signals.SyncCertificate.disconnect(boost::bind(&CValidationInterface::SyncCertificate, pwalletIn, _1, _2));
+    g_signals.SyncBwtCeasing.disconnect(boost::bind(&CValidationInterface::SyncBwtCeasing, pwalletIn, _1, _2));
+    g_signals.SyncCertificate.disconnect(boost::bind(&CValidationInterface::SyncCertificate, pwalletIn, _1, _2, _3));
     g_signals.BlockChecked.disconnect(boost::bind(&CValidationInterface::BlockChecked, pwalletIn, _1, _2));
     g_signals.Broadcast.disconnect(boost::bind(&CValidationInterface::ResendWalletTransactions, pwalletIn, _1));
     g_signals.Inventory.disconnect(boost::bind(&CValidationInterface::Inventory, pwalletIn, _1));
@@ -40,6 +42,7 @@ void UnregisterValidationInterface(CValidationInterface* pwalletIn) {
 
 void UnregisterAllValidationInterfaces() {
     g_signals.SyncCertificate.disconnect_all_slots();
+    g_signals.SyncBwtCeasing.disconnect_all_slots();
     g_signals.BlockChecked.disconnect_all_slots();
     g_signals.Broadcast.disconnect_all_slots();
     g_signals.Inventory.disconnect_all_slots();
@@ -55,6 +58,10 @@ void SyncWithWallets(const CTransaction &tx, const CBlock *pblock) {
     g_signals.SyncTransaction(tx, pblock);
 }
 
-void SyncWithWallets(const CScCertificate &cert, const CBlock *pblock) {
-    g_signals.SyncCertificate(cert, pblock);
+void SyncWithWallets(const CScCertificate &cert, const CBlock *pblock, int bwtMaturityDepth) {
+    g_signals.SyncCertificate(cert, pblock, bwtMaturityDepth);
+}
+
+void SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped) {
+    g_signals.SyncBwtCeasing(certHash, bwtAreStripped);
 }

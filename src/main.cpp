@@ -1918,6 +1918,40 @@ void static InvalidBlockFound(CBlockIndex *pindex, const CValidationState &state
     }
 }
 
+/**
+ * Apply the undo operation of a CTxInUndo to the given chain state.
+ * @param undo The undo object.
+ * @param view The coins view to which to apply the changes.
+ * @param out The out point that corresponds to the tx input.
+ * @return True on success.
+ */
+bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint& out)
+{
+    bool fClean = true;
+
+    CCoinsModifier coins = view.ModifyCoins(out.hash);
+    if (undo.nHeight != 0)
+    {
+        coins->fCoinBase          = undo.fCoinBase;
+        coins->nHeight            = undo.nHeight;
+        coins->nVersion           = undo.nVersion;
+        coins->nBwtMaturityHeight = undo.nBwtMaturityHeight;
+    } else
+    {
+        if (coins->IsPruned())
+            fClean = fClean && error("%s: undo data adding output to missing transaction", __func__);
+    }
+
+    if (coins->IsAvailable(out.n))
+        fClean = fClean && error("%s: undo data overwriting existing output", __func__);
+    if (coins->vout.size() < out.n+1)
+        coins->vout.resize(out.n+1);
+
+    coins->vout[out.n] = undo.txout;
+
+    return fClean;
+}
+
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight)
 {
     // mark inputs spent
@@ -1932,10 +1966,11 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache &inputs, CTxUndo &txund
 
             // mark an outpoint spent, and construct undo information
             txundo.vprevout.push_back(CTxInUndo(coins->vout[nPos]));
-            LogPrint("cert", "%s():%d - spending inputs from [%s]\n", __func__, __LINE__, txin.prevout.hash.ToString());
+            bool isBwt = coins->vout[nPos].isFromBackwardTransfer;
             coins->Spend(nPos);
-            if (coins->vout.size() == 0 || coins->vout[nPos].isFromBackwardTransfer) {
-                CTxInUndo& undo = txundo.vprevout.back();
+            if (coins->vout.size() == 0 || isBwt)
+            {
+                CTxInUndo& undo         = txundo.vprevout.back();
                 undo.nHeight            = coins->nHeight;
                 undo.fCoinBase          = coins->fCoinBase;
                 undo.nVersion           = coins->nVersion;
@@ -1967,9 +2002,10 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
 
         // mark an outpoint spent, and construct undo information
         txundo.vprevout.push_back(CTxInUndo(coins->vout[nPos]));
-        LogPrint("cert", "%s():%d - spending inputs from [%s]\n", __func__, __LINE__, txin.prevout.hash.ToString());
+        bool isBwt = coins->vout[nPos].isFromBackwardTransfer;
         coins->Spend(nPos);
-        if (coins->vout.size() == 0 || coins->vout[nPos].isFromBackwardTransfer) {
+        if (coins->vout.size() == 0 || coins->vout[nPos].isFromBackwardTransfer)
+        {
             CTxInUndo& undo = txundo.vprevout.back();
             undo.nHeight            = coins->nHeight;
             undo.fCoinBase          = coins->fCoinBase;
@@ -1984,9 +2020,6 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
     int currentEpoch = sidechain.EpochFor(nHeight);
     int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
     inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight, bwtMaturityHeight);
-
-    LogPrint("cert", "%s():%d - CREATED COIN FROM HASH [%s] GIVEN HEIGHT [%d]\n", __func__, __LINE__, cert.GetHash().ToString(), nHeight);
-    LogPrint("cert", "%s():%d - COIN IS [%s]]\n", __func__, __LINE__, inputs.ModifyCoins(cert.GetHash())->ToString());
 }
 
 CScriptCheck::CScriptCheck(): ptxTo(0), nIn(0), chain(nullptr),
@@ -2064,6 +2097,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
 
         // Ensure that coinbases and certificates outputs are matured
         int maturityHeight = coins->GetMaturityHeightForOutput(in.prevout.n);
+        assert(maturityHeight >= 0);
         if ((maturityHeight != MEMPOOL_HEIGHT) && (nSpendHeight < maturityHeight))
         {
             LogPrintf("%s():%d - Error: txBase [%s] attempts to spend immature output [%d] of tx [%s]\n",
@@ -2259,42 +2293,6 @@ bool AbortNode(CValidationState& state, const std::string& strMessage, const std
 
 } // anon namespace
 
-/**
- * Apply the undo operation of a CTxInUndo to the given chain state.
- * @param undo The undo object.
- * @param view The coins view to which to apply the changes.
- * @param out The out point that corresponds to the tx input.
- * @return True on success.
- */
-static bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint& out)
-{
-    bool fClean = true;
-
-    CCoinsModifier coins = view.ModifyCoins(out.hash);
-    if (undo.nHeight != 0)
-    {
-        // undo data contains height: this is the last output of the prevout tx being spent
-        if (!coins->IsPruned())
-            fClean = fClean && error("%s: undo data overwriting existing transaction", __func__);
-        coins->Clear();
-        coins->fCoinBase          = undo.fCoinBase;
-        coins->nHeight            = undo.nHeight;
-        coins->nVersion           = undo.nVersion;
-        coins->nBwtMaturityHeight = undo.nBwtMaturityHeight;
-    } else
-    {
-        if (coins->IsPruned())
-            fClean = fClean && error("%s: undo data adding output to missing transaction", __func__);
-    }
-    if (coins->IsAvailable(out.n))
-        fClean = fClean && error("%s: undo data overwriting existing output", __func__);
-    if (coins->vout.size() < out.n+1)
-        coins->vout.resize(out.n+1);
-    coins->vout[out.n] = undo.txout;
-
-    return fClean;
-}
-
 bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
     bool* pfClean)
 {
@@ -2315,11 +2313,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     LogPrint("sc", "%s():%d - ===============> CBlockUndo red from DB:\n%s\n",
         __func__, __LINE__, blockUndo.ToString());
     // no coinbase in blockundo
-#if 0
-    if (blockUndo.vtxundo.size() + 1 != block.vtx.size() + block.vcert.size() )
-#else
     if (blockUndo.vtxundo.size() < (block.vtx.size() - 1 + block.vcert.size()))
-#endif
         return error("DisconnectBlock(): block and undo data inconsistent");
 
     for(int idx = block.vtx.size() - 1 + block.vcert.size(); idx < blockUndo.vtxundo.size(); idx++)
@@ -3228,7 +3222,11 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     }
     for(const CScCertificate &cert: pblock->vcert) {
         LogPrint("cert", "%s():%d - sync with wallet cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString());
-        SyncWithWallets(cert, pblock);
+        CSidechain sidechain;
+        assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
+        int currentEpoch = sidechain.EpochFor(chainActive.Height());
+        int bwtMaturityDepth = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin() - chainActive.Height();
+        SyncWithWallets(cert, pblock, bwtMaturityDepth);
     }
 
     // Update cached incremental witnesses
