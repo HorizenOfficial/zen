@@ -15,7 +15,7 @@ $(package)_library_file=target/release/libzendoo_mc.a
 endif
 
 define $(package)_set_vars
-$(package)_build_opts=  --release
+$(package)_build_opts=  --release  --all-features
 $(package)_build_opts_mingw32=--target=x86_64-pc-windows-gnu
 endef
 

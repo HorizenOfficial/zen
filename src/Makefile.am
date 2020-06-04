@@ -614,17 +614,15 @@ libzencash_a_LDFLAGS = $(HARDENED_LDFLAGS)
 libzencash_a_CPPFLAGS += -DMONTGOMERY_OUTPUT
 
 
-#noinst_PROGRAMS += \
-#  zendoo/mcTest
+noinst_PROGRAMS += \
+  zendoo/mcTest
   
 # tool for testing sidechain
-#zendoo_mcTest_SOURCES = zendoo/mcTestCall.cpp \
-#	zendoo_mc.h \
-#	hex_utils.h
-#zendoo_mcTest_CPPFLAGS = $(AM_CPPFLAGS) 
-#zendoo_mcTest_CXXFLAGS = $(AM_CXXFLAGS)
-#zendoo_mcTest_LDADD = -lgmp -lgmpxx -lboost_system -lcrypto -lsodium -lzendoo_mc -ldl -lpthread
+zendoo_mcTest_SOURCES = zendoo/mcTestCall.cpp 
 
+zendoo_mcTest_CPPFLAGS = $(AM_CPPFLAGS) 
+zendoo_mcTest_CXXFLAGS = $(AM_CXXFLAGS)  
+zendoo_mcTest_LDADD =  -lzendoo_mc -ldl -lpthread
 
 
 
