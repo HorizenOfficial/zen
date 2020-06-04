@@ -253,7 +253,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
      */
     uint256 GetHash() const override;
 
-    bool add(const CTxOut& out)
+    bool add(const CTxOut& out) override
     { 
         vout.push_back(out);
         return true;

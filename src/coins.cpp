@@ -953,14 +953,28 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
 
 bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash)
 {
-    if (epochNumber < 0)
+    if (epochNumber < 0 || endEpochBlockHash.IsNull())
     {
-        LogPrint("sc", "%s():%d - invalid epoch number %d\n",
-            __func__, __LINE__, epochNumber );
+        LogPrint("sc", "%s():%d - invalid epoch data %d/%s\n", __func__, __LINE__, epochNumber, endEpochBlockHash.ToString() );
         return false;
     }
 
-    // 1. the referenced block must be in active chain
+    CSidechain info;
+    if (!GetSidechain(scId, info))
+    {
+        LogPrint("sc", "%s():%d - scId[%s] not found\n", __func__, __LINE__, scId.ToString() );
+        return false;
+    }
+
+    // 1. the epoch number must be consistent with the sc certificate history (no old epoch allowed)
+    if (epochNumber != info.lastEpochReferencedByCertificate+1)
+    {
+        LogPrint("sc", "%s():%d - can not receive a certificate for epoch %d (expected: %d)\n",
+            __func__, __LINE__, epochNumber, info.lastEpochReferencedByCertificate+1 );
+        return false;
+    }
+
+    // 2. the referenced end-epoch block must be in active chain
     LOCK(cs_main);
     if (mapBlockIndex.count(endEpochBlockHash) == 0)
     {
@@ -977,16 +991,7 @@ bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const u
         return false;
     }
 
-    // 2. combination of epoch number and epoch length, specified in creating sc, must point to that block
-    CSidechain info;
-    if (!GetSidechain(scId, info))
-    {
-        // should not happen
-        LogPrint("sc", "%s():%d - scId[%s] not found\n",
-            __func__, __LINE__, scId.ToString() );
-        return false;
-    }
-
+    // 3. combination of epoch number and epoch length, specified in sc info, must point to that end-epoch block
     int endEpochHeight = info.StartHeightForEpoch(epochNumber+1) -1;
     pblockindex = chainActive[endEpochHeight];
 

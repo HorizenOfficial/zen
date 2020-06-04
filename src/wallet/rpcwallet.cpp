@@ -4709,7 +4709,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     uint256 endEpochBlockHash;
     endEpochBlockHash.SetHex(blockHashStr);
 
-    // sanity check of the epoch hash block: it must be a legal end epoch hash
+    // sanity check of the epoch number and epoch hash block: it must be a legal end-epoch hash and epoch number must
+    // be consistent with the current epoch (no old epoch certificates allowed)
     if (!scView.isLegalEpoch(scId, epochNumber, endEpochBlockHash) )
     {
         LogPrintf("ERROR: epochNumber[%d]/endEpochBlockHash[%s] are not legal\n", epochNumber, endEpochBlockHash.ToString() );

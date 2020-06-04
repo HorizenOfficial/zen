@@ -165,6 +165,9 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
         assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
 
+        epoch_number_0     = epoch_number
+        epoch_block_hash_0 = epoch_block_hash
+
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(amount_cert_1[0]["pubkeyhash"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
         try:
             cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, epoch_block_hash, amount_cert_1, CERT_FEE)
@@ -219,7 +222,7 @@ class sc_cert_base(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
-        assert_equal("invalid cert epoch" in errorString, True)
+        assert_equal("invalid" in errorString, True)
 
         mark_logs("Checking that amount transferred by certificate reaches Node1 wallet", self.nodes, DEBUG_MODE)
         retrieved_cert = self.nodes[1].gettransaction(cert_epoch_0)
@@ -324,6 +327,17 @@ class sc_cert_base(BitcoinTestFramework):
 
         mark_logs("Verify balances following Node1 spending bwd transfer to Node2.", self.nodes, DEBUG_MODE)
         assert_equal(Node2_bal_before_cert_expenditure + amount_cert_1[0]["amount"] / 2, Node2_bal_after_cert_expenditure)
+
+        mark_logs("Node 0 tries to send a certificate for old epoch {}...".format(epoch_number_0), self.nodes, DEBUG_MODE)
+        amounts = []
+        try:
+            self.nodes[0].send_certificate(scid, epoch_number_0, epoch_block_hash_0, amounts, CERT_FEE)
+            assert(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+
+
 
 
 if __name__ == '__main__':
