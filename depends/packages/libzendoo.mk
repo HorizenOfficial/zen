@@ -1,6 +1,6 @@
 package=libzendoo
 $(package)_version=0.1.0
-$(package)_download_path=https://github.com/ark2038/zendoo-mc-cryptolib/archive/
+$(package)_download_path=https://github.com/ZencashOfficial/zendoo-mc-cryptolib/archive/
 $(package)_file_name=$(package)-$($(package)_git_commit).tar.gz
 $(package)_download_file=$($(package)_git_commit).tar.gz
 $(package)_sha256_hash=5c620ee5be7b5f869740d013740a6a536ba15d22b5a27a1c91227b0fbad316fd

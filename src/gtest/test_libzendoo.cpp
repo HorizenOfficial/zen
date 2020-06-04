@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstring>
+#include <boost/filesystem.hpp>
 #include <string>
 
 TEST(ZendooLib, FieldTest)
@@ -21,7 +22,7 @@ TEST(ZendooLib, FieldTest)
     zendoo_serialize_field(field, field_bytes);
 
     auto field_deserialized = zendoo_deserialize_field(field_bytes);
-    ASSERT_NE(field_deserialized, NULL);
+    ASSERT_TRUE(field_deserialized != NULL);
 
     ASSERT_TRUE(zendoo_field_assert_eq(field, field_deserialized));
 
@@ -54,18 +55,18 @@ TEST(ZendooLib, PoseidonHashTest)
     };
 
     auto lhs_field = zendoo_deserialize_field(lhs);
-    ASSERT_NE(lhs_field, NULL);
+    ASSERT_TRUE(lhs_field != NULL);
 
     auto rhs_field = zendoo_deserialize_field(rhs);
-    ASSERT_NE(rhs_field, NULL);
+    ASSERT_TRUE(rhs_field != NULL);
 
     auto expected_hash = zendoo_deserialize_field(hash);
-    ASSERT_NE(expected_hash, NULL);
+    ASSERT_TRUE(expected_hash != NULL);
 
     const field_t* hash_input[] = {lhs_field, rhs_field};
 
     auto actual_hash = zendoo_compute_poseidon_hash(hash_input, 2);
-    ASSERT_NE(actual_hash, NULL);
+    ASSERT_TRUE(actual_hash != NULL);
 
     ASSERT_TRUE(zendoo_field_assert_eq(expected_hash, actual_hash));
 
@@ -86,7 +87,7 @@ TEST(ZendooLib, PoseidonMerkleTreeTest)  {
 
     //Create Merkle Tree and get the root
     auto tree = ginger_mt_new(leaves, leaves_len);
-    ASSERT_NE(tree, NULL);
+    ASSERT_TRUE(tree != NULL);
 
     auto root = ginger_mt_get_root(tree);
 
@@ -95,10 +96,10 @@ TEST(ZendooLib, PoseidonMerkleTreeTest)  {
 
         //Create Merkle Path for the i-th leaf
         auto path = ginger_mt_get_merkle_path(leaves[i], i, tree);
-        ASSERT_NE(path, NULL);
+        ASSERT_TRUE(path != NULL);
 
         //Verify Merkle Path for the i-th leaf
-        ASSERT_TRUE(ginger_mt_verify_merkle_path(leaves[i], root, path))
+        ASSERT_TRUE(ginger_mt_verify_merkle_path(leaves[i], root, path));
 
         //Free Merkle Path
         ginger_mt_path_free(path);
@@ -126,7 +127,7 @@ TEST(ZendooLib, TestProof)
     int length = is.tellg();
 
     //Check correct length
-    ASSERT_TRUE(("Unexpected size", length == SC_PROOF_SIZE));
+    ASSERT_TRUE(length == SC_PROOF_SIZE);
 
     is.seekg (0, is.beg);
     char* proof_bytes = new char [SC_PROOF_SIZE];
@@ -135,7 +136,7 @@ TEST(ZendooLib, TestProof)
 
     //Deserialize proof
     auto proof = zendoo_deserialize_sc_proof((unsigned char *)proof_bytes);
-    ASSERT_NE(proof, NULL);
+    ASSERT_TRUE(proof != NULL);
 
     delete[] proof_bytes;
 
@@ -158,7 +159,7 @@ TEST(ZendooLib, TestProof)
     };
 
     auto constant = zendoo_deserialize_field(constant_bytes);
-    ASSERT_NE(constant, NULL);
+    ASSERT_TRUE(constant != NULL);
 
     uint64_t quality = 2;
 
@@ -171,7 +172,7 @@ TEST(ZendooLib, TestProof)
     length = is1.tellg();
 
     //Check correct length
-    ASSERT_TRUE(("Unexpected size", length == SC_VK_SIZE));
+    ASSERT_TRUE(length == SC_VK_SIZE);
 
     is1.seekg (0, is1.beg);
     char* vk_bytes = new char [SC_VK_SIZE];
@@ -180,7 +181,7 @@ TEST(ZendooLib, TestProof)
 
     //Deserialize vk
     auto vk_from_buffer = zendoo_deserialize_sc_vk((unsigned char*)vk_bytes);
-    ASSERT_NE(vk_from_buffer, NULL);
+    ASSERT_TRUE(vk_from_buffer != NULL);
 
 
     delete[] vk_bytes;
@@ -195,8 +196,7 @@ TEST(ZendooLib, TestProof)
     ASSERT_TRUE(zendoo_sc_vk_assert_eq(vk_from_buffer, vk_from_file));
 
     //Verify zkproof
-    ASSERT_TRUE(
-        zendoo_verify_sc_proof(
+    ASSERT_TRUE(zendoo_verify_sc_proof(
             end_epoch_mc_b_hash,
             prev_end_epoch_mc_b_hash,
             bt_list,
@@ -206,12 +206,10 @@ TEST(ZendooLib, TestProof)
             NULL,
             proof,
             vk_from_buffer
-        )
-    );
+        ));
 
     //Negative test: change quality (for instance) and ASSERT_TRUE proof failure
-    ASSERT_FALSE(
-        zendoo_verify_sc_proof(
+    ASSERT_FALSE(zendoo_verify_sc_proof(
             end_epoch_mc_b_hash,
             prev_end_epoch_mc_b_hash,
             bt_list,
@@ -221,8 +219,7 @@ TEST(ZendooLib, TestProof)
             NULL,
             proof,
             vk_from_buffer
-        )
-    );
+        ));
 
     //Free proof
     zendoo_sc_proof_free(proof);
@@ -250,7 +247,7 @@ TEST(ZendooLib, TestProofNoBwt){
 
     //Deserialize proof
     auto proof = zendoo_deserialize_sc_proof((unsigned char *)proof_bytes);
-    ASSERT_NE(proof, NULL);
+    ASSERT_TRUE(proof != NULL);
 
     delete[] proof_bytes;
 
@@ -273,7 +270,7 @@ TEST(ZendooLib, TestProofNoBwt){
     };
 
     auto constant = zendoo_deserialize_field(constant_bytes);
-    ASSERT_NE(constant, NULL);
+    ASSERT_TRUE(constant != NULL);
 
     uint64_t quality = 2;
 
@@ -287,8 +284,7 @@ TEST(ZendooLib, TestProofNoBwt){
     );
 
     //Verify zkproof
-    ASSERT_TRUE(
-        zendoo_verify_sc_proof(
+    ASSERT_TRUE(zendoo_verify_sc_proof(
             end_epoch_mc_b_hash,
             prev_end_epoch_mc_b_hash,
             bt_list.data(),
@@ -298,12 +294,10 @@ TEST(ZendooLib, TestProofNoBwt){
             NULL,
             proof,
             vk
-        )
-    );
+        ));
 
     //Negative test: change quality (for instance) and ASSERT_TRUE proof failure
-    ASSERT_FALSE(
-        zendoo_verify_sc_proof(
+    ASSERT_FALSE(zendoo_verify_sc_proof(
             end_epoch_mc_b_hash,
             prev_end_epoch_mc_b_hash,
             bt_list.data(),
@@ -313,8 +307,7 @@ TEST(ZendooLib, TestProofNoBwt){
             NULL,
             proof,
             vk
-        );
-    );
+        ));
 
     //Free proof
     zendoo_sc_proof_free(proof);
