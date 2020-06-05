@@ -527,7 +527,7 @@ private:
     /** Memory only. */
     const uint256 generatedScId;
 
-    void GenerateScId(const CTransaction& txIn, int pos) const;
+    void GenerateScId(const uint256& txHash, unsigned int pos) const;
 
 public:
     int withdrawalEpochLength; 
@@ -796,12 +796,7 @@ public:
             }
         }
         if (ser_action.ForRead())
-        {
             UpdateHash();
-            if (this->IsScVersion())
-                for(int pos = 0; pos < vsc_ccout.size(); pos++)
-                    vsc_ccout[pos].GenerateScId(*this, pos);
-        }
     }
 
     template <typename Stream, typename Operation>

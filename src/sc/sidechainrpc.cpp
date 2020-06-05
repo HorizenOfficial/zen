@@ -65,16 +65,6 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         const UniValue& input = sc_crs[i];
         const UniValue& o = input.get_obj();
 
-        std::string inputString = find_value(o, "scid").get_str();
-        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-        {
-            error = "Invalid scid format: not an hex";
-            return false;
-        }
-
-        uint256 scId;
-        scId.SetHex(inputString);
-
         const UniValue& sh_v = find_value(o, "epoch_length");
         if (sh_v.isNull() || !sh_v.isNum())
         {
@@ -110,7 +100,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             return false;
         }
 
-        inputString = adv.get_str();
+        const std::string& inputString = adv.get_str();
         if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
         {
             error = "Invalid address format: not an hex";
@@ -123,14 +113,14 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         const UniValue& cd = find_value(o, "customData");
         if (!cd.isNull())
         {
-            inputString = cd.get_str();
-            if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            const std::string& inputStringCd = cd.get_str();
+            if (inputStringCd.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
             {
                 error = "Invalid scid format: not an hex";
                 return false;
             }
 
-            unsigned int cdLen = inputString.length();
+            unsigned int cdLen = inputStringCd.length();
             // just add one if we have an odd number of chars, hex will be padded with a 0 this is
             // better than refusing the raw creation
             if (cdLen%2)
@@ -142,7 +132,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
                 cdDataLen = MAX_CUSTOM_DATA_LEN;
 
             CScCustomData cdBlob;
-            cdBlob.SetHex(inputString);
+            cdBlob.SetHex(inputStringCd);
             cdBlob.fill(sc.customData, cdDataLen);
         }
 

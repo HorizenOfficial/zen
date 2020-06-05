@@ -191,7 +191,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     return true;
 }
 
-void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive, bool removeDependantFwds)
+void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive)
 {
     // Remove transaction from memory pool
     {
@@ -199,10 +199,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
         std::deque<uint256> objToRemove;
         objToRemove.push_back(origTx.GetHash());
 
-        if(!fRecursive)
-            return removeInternal(objToRemove, removedTxs, removedCerts, fRecursive, removeDependantFwds);
-
-        if (!mapCertificate.count(origTx.GetHash()) && !mapTx.count(origTx.GetHash())) {
+        if (fRecursive && !mapCertificate.count(origTx.GetHash()) && !mapTx.count(origTx.GetHash())) {
             // If recursively removing but origTx isn't in the mempool
             // be sure to remove any children that are in the pool. This can
             // happen during chain re-orgs if origCert isn't re-accepted into
@@ -227,14 +224,12 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                 for(const auto& sc: tx->GetVscCcOut()) {
                     if (mapSidechains.count(sc.GetScId()) == 0)
                         continue;
-                    if (removeDependantFwds) {
-                        for(const auto& fwdTxHash : mapSidechains.at(sc.GetScId()).fwdTransfersSet)
-                            objToRemove.push_back(fwdTxHash);
-                    }
+                    for(const auto& fwdTxHash : mapSidechains.at(sc.GetScId()).fwdTransfersSet)
+                        objToRemove.push_back(fwdTxHash);
                 }
             }
         }
-        removeInternal(objToRemove, removedTxs, removedCerts, fRecursive, removeDependantFwds);
+        removeInternal(objToRemove, removedTxs, removedCerts, fRecursive);
     }
 }
 
@@ -242,8 +237,7 @@ void::CTxMemPool::removeInternal(
     std::deque<uint256>& objToRemove,
     std::list<CTransaction>& removedTxs,
     std::list<CScCertificate>& removedCerts,
-    bool fRecursive,
-    bool removeDependantFwds)
+    bool fRecursive)
 {
     // called with lock taken
     AssertLockHeld(cs);
@@ -266,11 +260,8 @@ void::CTxMemPool::removeInternal(
                     if (mapSidechains.count(sc.GetScId()) == 0)
                         continue;
 
-                    if (removeDependantFwds) {
-                        for(const auto& ccObjHash : mapSidechains.at(sc.GetScId()).fwdTransfersSet)
-                            objToRemove.push_back(ccObjHash);
-                    } else
-                        objToRemove.push_back(mapSidechains.at(sc.GetScId()).scCreationTxHash);
+                    for(const auto& ccObjHash : mapSidechains.at(sc.GetScId()).fwdTransfersSet)
+                        objToRemove.push_back(ccObjHash);
 
                     //no backward cert for unconfirmed sidechain can be in mempool
                     assert(mapSidechains.at(sc.GetScId()).backwardCertificate.IsNull());
@@ -545,7 +536,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
             const uint256& scRedeclarationHash = mapSidechains[sc.GetScId()].scCreationTxHash;
             const CTransactionBase &scReDeclarationTx = mapTx[scRedeclarationHash].GetTx();
             std::list<CScCertificate> dummyCerts;
-            remove(scReDeclarationTx, removedTxs, removedCerts, /*fRecursive*/true, /*removeDependantFwds*/false);
+            remove(scReDeclarationTx, removedTxs, removedCerts, /*fRecursive*/true);
         }
     }
 }
@@ -571,7 +562,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
     std::list<CScCertificate> dummyCerts;
     for(const CTransaction& tx: vtx)
     {
-        remove(tx, dummyTxs, dummyCerts, /*fRecursive*/false, /*removeDependantFwds*/false);
+        remove(tx, dummyTxs, dummyCerts, /*fRecursive*/false);
         removeConflicts(tx, conflictingTxs, conflictingCerts);
         ClearPrioritisation(tx.GetHash());
     }
@@ -614,7 +605,7 @@ void CTxMemPool::removeForBlock(const std::vector<CScCertificate>& vcert, unsign
     std::list<CScCertificate> dummyCerts;
     for (const auto& cert : vcert)
     {
-        remove(cert, dummyTxs, dummyCerts, /*fRecursive*/false, /*removeDependantFwds*/false);
+        remove(cert, dummyTxs, dummyCerts, /*fRecursive*/false);
         removeConflicts(cert, removedTxs, removedCerts);
         ClearPrioritisation(cert.GetHash());
     }

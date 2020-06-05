@@ -53,9 +53,6 @@ class sc_cert_base(BitcoinTestFramework):
 
     def run_test(self):
 
-        # side chain id
-        scid = "1111111111111111111111111111111111111111111111111111111111111111"
-
         # cross chain transfer amounts
         creation_amount = Decimal("0.5")
         bwt_amount = Decimal("0.4")
@@ -69,9 +66,13 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes[0].generate(220)
         self.sync_all()
 
-        creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "abcdef")
+        creating_tx = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, "abcdef")
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
+
+        decoded_tx = self.nodes[1].getrawtransaction(creating_tx, 1)
+        scid = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         mark_logs("Node0 confirms Sc creation generating 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)

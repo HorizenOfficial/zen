@@ -279,18 +279,18 @@ std::string CTxScCreationOut::ToString() const
         withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData) );
 }
 
-void CTxScCreationOut::GenerateScId(const CTransaction& txIn, int pos) const
+void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const
 {
-    const uint256& txid  = txIn.GetHash();
-    const uint256& ccout = GetHash();
+    // TODO with respect to the comments of CR this could be added as well
+    const uint256& ccoutHash = GetHash();
 
     const uint256& scid = Hash(
-            BEGIN(txid),    END(txid),
-            BEGIN(ccout),   END(ccout), // TODO with respect to the comments of CR this could be added as well
-            BEGIN(pos),     END(pos) );
+            BEGIN(txHash),    END(txHash),
+            BEGIN(ccoutHash), END(ccoutHash),
+            BEGIN(pos),       END(pos) );
 
-    LogPrint("sc", "%s():%d - updating scid=%s - tx[%s], ccout[%s], pos[%d]\n",
-        __func__, __LINE__, scid.ToString(), txIn.GetHash().ToString(), GetHash().ToString(), pos);
+    LogPrint("sc", "%s():%d - updating scid=%s - tx[%s], ccout[%s], pos[%u]\n",
+        __func__, __LINE__, scid.ToString(), txHash.ToString(), ccoutHash.ToString(), pos);
 
     *const_cast<uint256*>(&generatedScId) = scid;
 }
@@ -545,6 +545,9 @@ CTransaction::CTransaction(int nVersionIn):
 void CTransaction::UpdateHash() const
 {
     *const_cast<uint256*>(&hash) = SerializeHash(*this);
+    // if any sidechain creation is taking place within this transaction, we generate the sidechain id
+    for(unsigned int pos = 0; pos < vsc_ccout.size(); pos++)
+        vsc_ccout[pos].GenerateScId(hash, pos);
 }
 
 CTransaction::CTransaction(const CMutableTransaction &tx) :
@@ -556,9 +559,6 @@ CTransaction::CTransaction(const CMutableTransaction &tx) :
     *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
     UpdateHash();
-    if (IsScVersion())
-        for(int pos = 0; pos < vsc_ccout.size(); pos++)
-            vsc_ccout[pos].GenerateScId(*this, pos);
 }
 
 CTransaction& CTransaction::operator=(const CTransaction &tx) {

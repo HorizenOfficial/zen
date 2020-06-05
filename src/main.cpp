@@ -2862,11 +2862,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             return state.DoS(100, error("ConnectBlock(): SCTxsCommitment verification failed"),
                                REJECT_INVALID, "bad-sc-txs-committment");
         }
-        else
-        {
-            LogPrint("cert", "%s():%d - Successfully verified SCTxsCommitment %s\n",
-                __func__, __LINE__, block.hashScTxsCommitment.ToString());
-        }
+        LogPrint("cert", "%s():%d - Successfully verified SCTxsCommitment %s\n",
+            __func__, __LINE__, block.hashScTxsCommitment.ToString());
     }
 
     if (!control.Wait())

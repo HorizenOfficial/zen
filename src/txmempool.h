@@ -136,7 +136,7 @@ private:
     uint64_t totalCertificateSize = 0; //! sum of all mempool tx' byte sizes
     uint64_t cachedInnerUsage; //! sum of dynamic memory usage of all the map elements (NOT the maps themselves)
 
-    void removeInternal(std::deque<uint256>& objToRemove, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive, bool removeDependantFwds = true);
+    void removeInternal(std::deque<uint256>& objToRemove, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive);
     bool addToListForRemovalImmatureExpenditures(
         const CTransactionBase& txBase, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, 
         std::list<const CTransactionBase*>& transactionsToRemove);
@@ -169,7 +169,7 @@ public:
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
-    void remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false, bool removeDependantFwds = true);
+    void remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false);
 
     void removeWithAnchor(const uint256 &invalidRoot);
 
