@@ -531,15 +531,6 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
             }
         }
     }
-
-    for(const auto& sc: tx.GetVscCcOut()) {
-        if(hasSidechainCreationTx(sc.GetScId())) {
-            const uint256& scRedeclarationHash = mapSidechains[sc.GetScId()].scCreationTxHash;
-            const CTransactionBase &scReDeclarationTx = mapTx[scRedeclarationHash].GetTx();
-            std::list<CScCertificate> dummyCerts;
-            remove(scReDeclarationTx, removedTxs, removedCerts, /*fRecursive*/true);
-        }
-    }
 }
 
 /**

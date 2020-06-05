@@ -281,16 +281,12 @@ std::string CTxScCreationOut::ToString() const
 
 void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const
 {
-    // TODO with respect to the comments of CR this could be added as well
-    const uint256& ccoutHash = GetHash();
-
     const uint256& scid = Hash(
             BEGIN(txHash),    END(txHash),
-            BEGIN(ccoutHash), END(ccoutHash),
             BEGIN(pos),       END(pos) );
 
-    LogPrint("sc", "%s():%d - updating scid=%s - tx[%s], ccout[%s], pos[%u]\n",
-        __func__, __LINE__, scid.ToString(), txHash.ToString(), ccoutHash.ToString(), pos);
+    LogPrint("sc", "%s():%d - updating scid=%s - tx[%s], pos[%u]\n",
+        __func__, __LINE__, scid.ToString(), txHash.ToString(), pos);
 
     *const_cast<uint256*>(&generatedScId) = scid;
 }
