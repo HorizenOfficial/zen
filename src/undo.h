@@ -94,8 +94,10 @@ class CTxUndo
 public:
     // undo information for all txins
     std::vector<CTxInUndo> vprevout;
-    uint256 refTx;            //hash of coins from ceased sidechains. It's not needed for ordinary coins and certs
-    unsigned int firstBwtPos; //position of the first bwt.
+    uint256 refTx;   //hash of coins from ceased sidechains. It's not needed for ordinary coins and certs
+    int firstBwtPos; //position of the first bwt.
+
+    CTxUndo(): vprevout(), refTx(), firstBwtPos(-1) {};
 
     size_t GetSerializeSize(int nType, int nVersion) const
     {

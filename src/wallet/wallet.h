@@ -356,6 +356,8 @@ public:
     char fFromMe;
     std::string strFromAccount;
     int64_t nOrderPos; //! position in ordered transaction list
+    int bwtMaturityDepth;
+    bool areBwtCeased;
 
     // useful in gtest
     friend bool operator==(const CWalletTransactionBase& a, const CWalletTransactionBase& b) {
@@ -403,19 +405,6 @@ public:
 
     int GetRequestCount() const;
 
-
-    void MarkDirty()
-    {
-        fCreditCached = false;
-        fAvailableCreditCached = false;
-        fWatchDebitCached = false;
-        fWatchCreditCached = false;
-        fAvailableWatchCreditCached = false;
-        fImmatureWatchCreditCached = false;
-        fDebitCached = false;
-        fChangeCached = false;
-    }
-
     bool IsTrusted(bool canSpendZeroConfChange = bSpendZeroConfChange) const;
 
     // virtuals
@@ -453,41 +442,9 @@ public:
     virtual const mapNoteData_t* GetMapNoteData() const { return nullptr; }
     virtual void SetMapNoteData(mapNoteData_t& m) {}
 
+    void MarkDirty();
 protected:
-    void Reset(const CWallet* pwalletIn)
-    {
-        hashBlock.SetNull();
-        vMerkleBranch.clear();
-        nIndex = -1;
-        fMerkleVerified = false;
-        pwallet = pwalletIn;
-        mapValue.clear();
-        vOrderForm.clear();
-        fTimeReceivedIsTxTime = false;
-        nTimeReceived = 0;
-        nTimeSmart = 0;
-        fFromMe = false;
-        strFromAccount.clear();
-        fDebitCached = false;
-        fCreditCached = false;
-        fImmatureCreditCached = false;
-        fAvailableCreditCached = false;
-        fWatchDebitCached = false;
-        fWatchCreditCached = false;
-        fImmatureWatchCreditCached = false;
-        fAvailableWatchCreditCached = false;
-        fChangeCached = false;
-        nDebitCached = 0;
-        nCreditCached = 0;
-        nImmatureCreditCached = 0;
-        nAvailableCreditCached = 0;
-        nWatchDebitCached = 0;
-        nWatchCreditCached = 0;
-        nAvailableWatchCreditCached = 0;
-        nImmatureWatchCreditCached = 0;
-        nChangeCached = 0;
-        nOrderPos = -1;
-    }
+    void Reset(const CWallet* pwalletIn);
 
 public:
     virtual std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const = 0;
@@ -510,8 +467,8 @@ protected:
 public:
     mapNoteData_t mapNoteData;
 
-    explicit CWalletTx() : CTransaction(), CWalletTransactionBase(nullptr, *this) {}
-    explicit CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn) : CTransaction(txIn), CWalletTransactionBase(pwalletIn, *this) {}
+    explicit CWalletTx();
+    explicit CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn);
     CWalletTx(const CWalletTx& rhs);
     CWalletTx& operator=(const CWalletTx& rhs);
 
@@ -618,8 +575,8 @@ protected:
     int GetIndexInBlock(const CBlock& block) override final;
 
 public:
-    explicit CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn) : CScCertificate(certIn), CWalletTransactionBase(pwalletIn, *this) {}
-    explicit CWalletCert(): CScCertificate(), CWalletTransactionBase(nullptr, *this) {}
+    explicit CWalletCert();
+    explicit CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn);
     CWalletCert(const CWalletCert&);
     CWalletCert& operator=(const CWalletCert& rhs);
 
@@ -651,6 +608,8 @@ public:
         READWRITE(hashBlock);
         READWRITE(vMerkleBranch);
         READWRITE(nIndex);
+        READWRITE(bwtMaturityDepth);
+        READWRITE(areBwtCeased);
         std::vector<CScCertificate> vUnused; //! Used to be vtxPrev
         READWRITE(vUnused);
         READWRITE(mapValue);
@@ -1158,21 +1117,12 @@ public:
 
     void MarkDirty();
     bool UpdateNullifierNoteMap();
-#if 0
-    void UpdateNullifierNoteMapWithTx(const CWalletTx& wtx);
-    bool AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletDB* pwalletdb);
-#else
     void UpdateNullifierNoteMapWithTx(const CWalletTransactionBase& wtx);
     bool AddToWallet(const CWalletTransactionBase& wtxIn, bool fFromLoadWallet, CWalletDB* pwalletdb);
-#endif
     void SyncTransaction(const CTransaction& tx, const CBlock* pblock) override;
-    void SyncCertificate(const CScCertificate& cert, const CBlock* pblock) override;
-#if 0
-    bool AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pblock, bool fUpdate);
-    bool AddToWalletIfInvolvingMe(const CScCertificate& cert, const CBlock* pblock, bool fUpdate);
-#else
+    void SyncCertificate(const CScCertificate& cert, const CBlock* pblock, int bwtMaturityDepth = -1) override;
+    void SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped) override;
     bool AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, bool fUpdate);
-#endif
     void EraseFromWallet(const uint256 &hash) override;
     void WitnessNoteCommitment(
          std::vector<uint256> commitments,

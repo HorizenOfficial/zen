@@ -1478,15 +1478,16 @@ UniValue getbalance(const UniValue& params, bool fHelp)
         if(params[2].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
 
-    if (params[0].get_str() == "*") {
+    if (params[0].get_str() == "*")
+    {
         // Calculate total balance a different way from GetBalance()
         // (GetBalance() sums up all unspent TxOuts)
         // getbalance and "getbalance * 1 true" should return the same number
         CAmount nBalance = 0;
         for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
         {
-            const CWalletTransactionBase& wtx = *((*it).second);
-            if (!wtx.getTxBase()->CheckFinal() || !wtx.HasMatureOutputs())
+            const CWalletTransactionBase* wtx = it->second.get();
+            if (!wtx->getTxBase()->CheckFinal() || !wtx->HasMatureOutputs())
                 continue;
 
             CAmount allFee;
@@ -1494,8 +1495,8 @@ UniValue getbalance(const UniValue& params, bool fHelp)
             list<COutputEntry> listReceived;
             list<COutputEntry> listSent;
             list<CScOutputEntry> listScSent;
-            wtx.GetAmounts(listReceived, listSent, listScSent, allFee, strSentAccount, filter);
-            if (wtx.GetDepthInMainChain() >= nMinDepth) {
+            wtx->GetAmounts(listReceived, listSent, listScSent, allFee, strSentAccount, filter);
+            if (wtx->GetDepthInMainChain() >= nMinDepth) {
                 for(const COutputEntry& r: listReceived)
                     if (r.maturity == CCoins::outputMaturity::MATURE)
                         nBalance += r.amount;
@@ -4675,7 +4676,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     uint256 endEpochBlockHash;
     endEpochBlockHash.SetHex(blockHashStr);
 
-    // sanity check of the epoch hash block: it must be a legal end epoch hash
+    // sanity check of the epoch number and epoch hash block: it must be a legal end-epoch hash and epoch number must
+    // be consistent with the current epoch (no old epoch certificates allowed)
     if (!scView.isLegalEpoch(scId, epochNumber, endEpochBlockHash) )
     {
         LogPrintf("ERROR: epochNumber[%d]/endEpochBlockHash[%s] are not legal\n", epochNumber, endEpochBlockHash.ToString() );

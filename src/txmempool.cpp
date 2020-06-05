@@ -389,6 +389,7 @@ inline bool CTxMemPool::addToListForRemovalImmatureExpenditures(
         }
  
         int maturityHeight = coins->GetMaturityHeightForOutput(txin.prevout.n);
+        assert(maturityHeight >= 0);
         if ((maturityHeight != MEMPOOL_HEIGHT) && (nMemPoolHeight < (unsigned int)maturityHeight))
         {
             LogPrintf("%s():%d - Error: txBase [%s] attempts to spend immature output [%d] of tx [%s]\n",

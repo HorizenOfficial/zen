@@ -42,12 +42,12 @@ public:
 
     /** Construct a CScCertificate that qualifies as IsNull() */
     CScCertificate(int versionIn = SC_CERT_VERSION);
+    CScCertificate(const CScCertificate& tx);
+    CScCertificate& operator=(const CScCertificate& tx);
+    ~CScCertificate() = default;
 
     /** Convert a CMutableScCertificate into a CScCertificate.  */
     CScCertificate(const CMutableScCertificate &tx);
-
-    CScCertificate& operator=(const CScCertificate& tx);
-    CScCertificate(const CScCertificate& tx);
 
     friend bool operator==(const CScCertificate& a, const CScCertificate& b)
     {
@@ -253,7 +253,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
      */
     uint256 GetHash() const override;
 
-    bool add(const CTxOut& out)
+    bool add(const CTxOut& out) override
     { 
         vout.push_back(out);
         return true;

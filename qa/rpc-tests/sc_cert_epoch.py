@@ -186,6 +186,7 @@ class sc_cert_epoch(BitcoinTestFramework):
 
         try:
             speding_bwd_tx = self.nodes[2].sendtoaddress(self.nodes[3].getnewaddress(), bwt_amount/2)
+            mark_logs("Node 2 spends epoch 0 certificate with tx {}".format(speding_bwd_tx), self.nodes, DEBUG_MODE)
             assert(len(speding_bwd_tx) > 0)
         except JSONRPCException, e:
             errorString = e.error['message']
