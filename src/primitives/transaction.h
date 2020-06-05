@@ -593,6 +593,7 @@ class UniValue;
 namespace Sidechain { class ScCoinsViewCache; }
 
 class BaseSignatureChecker;
+class CMutableTransactionBase;
 
 // abstract interface for CTransaction and CScCertificate
 class CTransactionBase
@@ -612,13 +613,16 @@ public:
     virtual size_t GetSerializeSize(int nType, int nVersion) const = 0;
     virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const = 0;
 
-    CTransactionBase(int versionIn = TRANSPARENT_TX_VERSION);
-    CTransactionBase& operator=(const CTransactionBase& tx);
+    CTransactionBase(int versionIn);
     CTransactionBase(const CTransactionBase& tx);
-    virtual ~CTransactionBase() {};
+    CTransactionBase& operator=(const CTransactionBase& tx);
+
+    explicit CTransactionBase(const CMutableTransactionBase& mutTxBase);
+
+    virtual ~CTransactionBase() = default;
 
     template <typename Stream>
-    CTransactionBase(deserialize_type, Stream& s) : CTransactionBase(CMutableTransactionBase(deserialize, s)) {}
+    CTransactionBase(deserialize_type, Stream& s): CTransactionBase(CMutableTransactionBase(deserialize, s)) {}
 
     const uint256& GetHash() const {
         return hash;
@@ -766,12 +770,12 @@ public:
 
     /** Construct a CTransaction that qualifies as IsNull() */
     CTransaction(int nVersionIn = TRANSPARENT_TX_VERSION);
+    CTransaction& operator=(const CTransaction& tx);
+    CTransaction(const CTransaction& tx);
+    ~CTransaction() = default;
 
     /** Convert a CMutableTransaction into a CTransaction. */
     CTransaction(const CMutableTransaction &tx);
-
-    CTransaction& operator=(const CTransaction& tx);
-    CTransaction(const CTransaction& tx);
 
     size_t GetSerializeSize(int nType, int nVersion) const override {
         CSizeComputer s(nType, nVersion);
@@ -983,20 +987,16 @@ struct CMutableTransactionBase
     std::vector<CTxOut> vout;
 
     CMutableTransactionBase();
-    virtual ~CMutableTransactionBase() {};
+    virtual ~CMutableTransactionBase() = default;
 
     /** Compute the hash of this CMutableTransaction. This is computed on the
      * fly, as opposed to GetHash() in CTransaction, which uses a cached result.
      */
     virtual uint256 GetHash() const = 0;
 
-    virtual bool add(const CTxOut& out)
-    { 
-        vout.push_back(out);
-        return true;
-    }
-    virtual bool add(const CTxScCreationOut& out) { return false; }
-    virtual bool add(const CTxForwardTransferOut& out) { return false; }
+    virtual bool add(const CTxOut& out);
+    virtual bool add(const CTxScCreationOut& out);
+    virtual bool add(const CTxForwardTransferOut& out);
 };
 
 

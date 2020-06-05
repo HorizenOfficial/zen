@@ -1981,12 +1981,37 @@ int CWalletTx::SetMerkleBranch(const CBlock& block)
 }
 #endif
 
-CWalletTx::CWalletTx(const CWalletTx& rhs): CTransaction(rhs), CWalletTransactionBase(rhs), mapNoteData(rhs.mapNoteData)
+CWalletTx::CWalletTx():
+    CTransactionBase(0), CTransaction(),
+    CWalletTransactionBase(nullptr, *this), mapNoteData()
 {
+    // Note explitic call to CTransactionBase is needed since
+    // in multiple inheritance virtual classes are initialized first
+    // and CTransactionBase has not default ctor
     CWalletTransactionBase::pTxBase = this;
 }
 
-CWalletTx& CWalletTx::operator=(const CWalletTx& rhs) {
+CWalletTx::CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn):
+    CTransactionBase(txIn), CTransaction(txIn),
+    CWalletTransactionBase(pwalletIn, *this), mapNoteData()
+{
+    // Note explitic call to CTransactionBase is needed since
+    // in multiple inheritance virtual classes are initialized first
+    // and CTransactionBase has not default ctor
+    CWalletTransactionBase::pTxBase = this;
+}
+
+CWalletTx::CWalletTx(const CWalletTx& rhs):
+    CTransactionBase(rhs), CTransaction(rhs), CWalletTransactionBase(rhs), mapNoteData(rhs.mapNoteData)
+{
+    // Note explitic call to CTransactionBase is needed since
+    // in multiple inheritance virtual classes are initialized first
+    // and CTransactionBase has not default ctor
+    CWalletTransactionBase::pTxBase = this;
+}
+
+CWalletTx& CWalletTx::operator=(const CWalletTx& rhs)
+{
     CTransaction::operator=(rhs);
     CWalletTransactionBase::operator=(rhs);
     this->mapNoteData = rhs.mapNoteData;
@@ -4850,12 +4875,37 @@ int CWalletCert::GetIndexInBlock(const CBlock& block)
     return nIndex;
 }
 
-CWalletCert::CWalletCert(const CWalletCert& rhs): CScCertificate(rhs), CWalletTransactionBase(rhs)
+CWalletCert::CWalletCert():
+    CTransactionBase(0), CScCertificate(),
+    CWalletTransactionBase(nullptr, *this)
 {
+    // Note explitic call to CTransactionBase is needed since
+    // in multiple inheritance virtual classes are initialized first
+    // and CTransactionBase has not default ctor
     CWalletTransactionBase::pTxBase = this;
 }
 
-CWalletCert& CWalletCert::operator=(const CWalletCert& rhs) {
+CWalletCert::CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn):
+    CTransactionBase(certIn), CScCertificate(certIn),
+    CWalletTransactionBase(pwalletIn, *this)
+{
+    // Note explitic call to CTransactionBase is needed since
+    // in multiple inheritance virtual classes are initialized first
+    // and CTransactionBase has not default ctor
+    CWalletTransactionBase::pTxBase = this;
+}
+
+CWalletCert::CWalletCert(const CWalletCert& rhs):
+    CTransactionBase(rhs), CScCertificate(rhs), CWalletTransactionBase(rhs)
+{
+    // Note explitic call to CTransactionBase is needed since
+    // in multiple inheritance virtual classes are initialized first
+    // and CTransactionBase has not default ctor
+    CWalletTransactionBase::pTxBase = this;
+}
+
+CWalletCert& CWalletCert::operator=(const CWalletCert& rhs)
+{
     CScCertificate::operator=(rhs);
     CWalletTransactionBase::operator=(rhs);
     CWalletTransactionBase::pTxBase = this;

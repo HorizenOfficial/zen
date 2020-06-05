@@ -26,37 +26,26 @@ CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nV
     pubKeyHash = uint160(pubKeyV);
 }
 
-CScCertificate::CScCertificate(int versionIn) :CTransactionBase(versionIn),
-        scId(), epochNumber(EPOCH_NOT_INITIALIZED), endEpochBlockHash() {}
+CScCertificate::CScCertificate(int versionIn): CTransactionBase(versionIn),
+    scId(), epochNumber(EPOCH_NOT_INITIALIZED), endEpochBlockHash() {}
 
-CScCertificate::CScCertificate(const CMutableScCertificate &cert) :
-    scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash)
+CScCertificate::CScCertificate(const CScCertificate &cert): CTransactionBase(cert),
+    scId(cert.scId), epochNumber(cert.epochNumber),
+    endEpochBlockHash(cert.endEpochBlockHash) {}
+
+CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
 {
-    *const_cast<int*>(&nVersion) = cert.nVersion;
-    *const_cast<std::vector<CTxIn>*>(&vin) = cert.vin;
-    *const_cast<std::vector<CTxOut>*>(&vout) = cert.vout;
-    UpdateHash();
-}
-
-CScCertificate& CScCertificate::operator=(const CScCertificate &cert) {
     CTransactionBase::operator=(cert);
-    //---
     *const_cast<uint256*>(&scId) = cert.scId;
     *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     return *this;
 }
 
-CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0) {
-    // call explicitly the copy of members of virtual base class
-    *const_cast<int32_t*>(&nVersion) = cert.nVersion;
-    *const_cast<std::vector<CTxIn>*>(&vin) = cert.vin;
-    *const_cast<std::vector<CTxOut>*>(&vout) = cert.vout;
-    *const_cast<uint256*>(&hash) = cert.hash;
-    //---
-    *const_cast<uint256*>(&scId) = cert.scId;
-    *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
-    *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
+CScCertificate::CScCertificate(const CMutableScCertificate &cert): CTransactionBase(cert),
+    scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash)
+{
+    UpdateHash();
 }
 
 void CScCertificate::UpdateHash() const
