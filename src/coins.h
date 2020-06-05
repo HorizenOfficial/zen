@@ -600,7 +600,7 @@ public:
     bool HandleCeasingScs(int height, CBlockUndo& blockUndo);
     bool RevertCeasingScs(const CTxUndo& ceasedCertUndo);
 
-    CSidechain::state isCeasedAtHeight(const uint256& scId, int height) const;
+    CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
 
     bool Flush();
 
