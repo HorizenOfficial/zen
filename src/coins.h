@@ -97,6 +97,11 @@ public:
     //! as new tx version will probably only be introduced at certain heights
     int nVersion;
 
+    //| If coins comes from a certificate, nFirstBwtPos represents the position of the first backward transfer;
+    //! All outputs after nFirstBwtPos, including nFirstBwtPos, are backward transfers
+    //! If coins comes from a tx, it is currently set to zero and not used
+    int nFirstBwtPos;
+
     //! if coin comes from a certificate, nBwtMaturityHeight signals the height at which these output will be mature
     //! nBwtMaturityHeight will be serialized only for coins from certificate
     int nBwtMaturityHeight;
@@ -171,18 +176,9 @@ public:
         nSize += ::GetSerializeSize(VARINT(nHeight), nType, nVersion);
 
         if (this->IsFromCert()) {
-            nSize += ::GetSerializeSize(nBwtMaturityHeight, nType,nVersion);
-
-            unsigned int nFirstBwtPos = this->vout.size();
-            for(unsigned int idx = 0; idx < this->vout.size(); ++idx) {
-                if (this->vout[idx].isFromBackwardTransfer) {
-                    nFirstBwtPos = idx;
-                    break;
-                }
-            }
-            nSize += ::GetSerializeSize(nFirstBwtPos,nType,nVersion);
+            nSize += ::GetSerializeSize(nFirstBwtPos, nType, nVersion);
+            nSize += ::GetSerializeSize(nBwtMaturityHeight, nType, nVersion);
         }
-
 
         return nSize;
     }
@@ -217,16 +213,8 @@ public:
         ::Serialize(s, VARINT(nHeight), nType, nVersion);
 
         if (this->IsFromCert()) {
-            ::Serialize(s,nBwtMaturityHeight, nType,nVersion);
-
-            unsigned int nFirstBwtPos = this->vout.size();
-            for(unsigned int idx = 0; idx < this->vout.size(); ++idx) {
-                if (this->vout[idx].isFromBackwardTransfer) {
-                    nFirstBwtPos = idx;
-                    break;
-                }
-            }
-            ::Serialize(s,nFirstBwtPos,nType,nVersion);
+            ::Serialize(s, nFirstBwtPos, nType, nVersion);
+            ::Serialize(s, nBwtMaturityHeight, nType, nVersion);
         }
     }
 
@@ -262,14 +250,14 @@ public:
         // coinbase height
         ::Unserialize(s, VARINT(nHeight), nType, nVersion);
 
-        unsigned int nFirstBwtPos = vout.size();
+        nFirstBwtPos = 0;
         if (this->IsFromCert()) {
-            ::Unserialize(s, nBwtMaturityHeight, nType,nVersion);
             ::Unserialize(s, nFirstBwtPos, nType,nVersion);
-        }
+            ::Unserialize(s, nBwtMaturityHeight, nType,nVersion);
 
-        for(unsigned int idx = nFirstBwtPos; idx < vout.size(); ++idx)
-            vout[idx].isFromBackwardTransfer = true;
+            for(int idx = nFirstBwtPos; idx < vout.size(); ++idx)
+                vout[idx].isFromBackwardTransfer = true;
+        }
 
         Cleanup();
     }

@@ -18,18 +18,19 @@
 std::string CCoins::ToString() const
 {
     std::string ret;
-    ret += strprintf("version(%d)", nVersion);
-    ret += strprintf("fCoinBase(%d)", fCoinBase);
-    ret += strprintf("height(%d)", nHeight);
-    ret += strprintf("nBwtMaturityHeight(%d)", nBwtMaturityHeight);
-    for (auto o : vout)
+    ret += strprintf("\n version           (%d)", nVersion);
+    ret += strprintf("\n fCoinBase         (%d)", fCoinBase);
+    ret += strprintf("\n height            (%d)", nHeight);
+    ret += strprintf("\n nFirstBwtPos      (%d)", nFirstBwtPos);
+    ret += strprintf("\n nBwtMaturityHeight(%d)", nBwtMaturityHeight);
+    for (const CTxOut& out : vout)
     {
-        ret += "    " + o.ToString() + "\n";
+        ret += "\n    " + out.ToString();
     }
     return ret;
 }
 
-CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), nBwtMaturityHeight(0) { }
+CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), nFirstBwtPos(0), nBwtMaturityHeight(0) { }
 
 CCoins::CCoins(const CTransaction &tx, int nHeightIn) { From(tx, nHeightIn); }
 
@@ -40,6 +41,7 @@ void CCoins::From(const CTransaction &tx, int nHeightIn) {
     vout               = tx.GetVout();
     nHeight            = nHeightIn;
     nVersion           = tx.nVersion;
+    nFirstBwtPos       = 0;
     nBwtMaturityHeight = 0;
     ClearUnspendable();
 }
@@ -51,6 +53,13 @@ void CCoins::From(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeig
     nVersion           = cert.nVersion;
     nBwtMaturityHeight = bwtMaturityHeight;
     ClearUnspendable();
+    nFirstBwtPos = vout.size();
+    for(int idx = 0; idx < this->vout.size(); ++idx) {
+        if (this->vout[idx].isFromBackwardTransfer) {
+            nFirstBwtPos = idx;
+            break;
+        }
+    }
 }
 
 void CCoins::Clear() {
@@ -58,6 +67,7 @@ void CCoins::Clear() {
     std::vector<CTxOut>().swap(vout);
     nHeight = 0;
     nVersion = 0;
+    nFirstBwtPos = 0;
     nBwtMaturityHeight = 0;
 }
 
@@ -82,6 +92,7 @@ void CCoins::swap(CCoins &to) {
     to.vout.swap(vout);
     std::swap(to.nHeight, nHeight);
     std::swap(to.nVersion, nVersion);
+    std::swap(to.nFirstBwtPos, nFirstBwtPos);
     std::swap(to.nBwtMaturityHeight, nBwtMaturityHeight);
 }
 
@@ -89,10 +100,11 @@ bool operator==(const CCoins &a, const CCoins &b) {
      // Empty CCoins objects are always equal.
      if (a.IsPruned() && b.IsPruned())
          return true;
-     return a.fCoinBase          == b.fCoinBase &&
-            a.nHeight            == b.nHeight   &&
-            a.nVersion           == b.nVersion  &&
-            a.vout               == b.vout      &&
+     return a.fCoinBase          == b.fCoinBase          &&
+            a.nHeight            == b.nHeight            &&
+            a.nVersion           == b.nVersion           &&
+            a.vout               == b.vout               &&
+            a.nFirstBwtPos       == b.nFirstBwtPos       &&
             a.nBwtMaturityHeight == b.nBwtMaturityHeight;
 }
 
@@ -1340,9 +1352,6 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
 
         SyncBwtCeasing(scInfo.lastCertificateHash, true);
     }
-
-    LogPrint("sc", "%s():%d Exiting: CBlockUndo: %s\n",
-        __func__, __LINE__, blockUndo.ToString());
 
     return true;
 }

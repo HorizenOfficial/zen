@@ -26,13 +26,15 @@ public:
     bool fCoinBase;         // if the outpoint was the last unspent: whether it belonged to a coinbase
     unsigned int nHeight;   // if the outpoint was the last unspent: its height
     int nVersion;           // if the outpoint was the last unspent: its version
+    int nFirstBwtPos;       // if the outpoint was the last unspent: its nFirstBwtPos, introduced with certificates
     int nBwtMaturityHeight; // if the outpoint was the last unspent: its nBwtMaturityHeight, introduced with certificates
 
-    CTxInUndo() : txout(), fCoinBase(false), nHeight(0), nVersion(0), nBwtMaturityHeight(0) {}
+    CTxInUndo() : txout(), fCoinBase(false), nHeight(0), nVersion(0), nFirstBwtPos(0), nBwtMaturityHeight(0) {}
     CTxInUndo(const CTxOut &txoutIn, bool fCoinBaseIn = false,
               unsigned int nHeightIn = 0, int nVersionIn = 0,
-              int bwtMaturityHeight = 0):
-        txout(txoutIn), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), nVersion(nVersionIn), nBwtMaturityHeight(bwtMaturityHeight) { }
+              int firstBwtPos = 0, int bwtMaturityHeight = 0):
+        txout(txoutIn), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), nVersion(nVersionIn),
+        nFirstBwtPos(firstBwtPos), nBwtMaturityHeight(bwtMaturityHeight) {}
 
     unsigned int GetSerializeSize(int nType, int nVersion) const {
         unsigned int totalSize = 0;
@@ -40,8 +42,8 @@ public:
                (nHeight > 0 ? ::GetSerializeSize(VARINT(this->nVersion), nType, nVersion) : 0) +
                ::GetSerializeSize(CTxOutCompressor(REF(txout)), nType, nVersion);
         if ((nHeight > 0) && ((this->nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f))) {
+            totalSize += ::GetSerializeSize(nFirstBwtPos, nType,nVersion);
             totalSize += ::GetSerializeSize(nBwtMaturityHeight, nType,nVersion);
-            totalSize += ::GetSerializeSize(txout.isFromBackwardTransfer, nType,nVersion);
         }
         return totalSize;
     }
@@ -54,8 +56,8 @@ public:
         ::Serialize(s, CTxOutCompressor(REF(txout)), nType, nVersion);
 
         if ((nHeight > 0) && ((this->nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f))) {
-            ::Serialize(s,nBwtMaturityHeight, nType, nVersion);
-            ::Serialize(s,txout.isFromBackwardTransfer? true: false, nType, nVersion);
+            ::Serialize(s, nFirstBwtPos, nType, nVersion);
+            ::Serialize(s, nBwtMaturityHeight, nType, nVersion);
         }
     }
 
@@ -70,8 +72,8 @@ public:
         ::Unserialize(s, REF(CTxOutCompressor(REF(txout))), nType, nVersion);
 
         if ((nHeight > 0) && ((this->nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f))) {
+            ::Unserialize(s, nFirstBwtPos, nType, nVersion);
             ::Unserialize(s, nBwtMaturityHeight, nType, nVersion);
-            ::Unserialize(s, txout.isFromBackwardTransfer, nType, nVersion);
         }
     }
 
@@ -79,10 +81,11 @@ public:
     {
         std::string str;
         str += strprintf("txout(%s)\n", txout.ToString());
-        str += strprintf("        fCoinBase=%d\n", fCoinBase);
-        str += strprintf("        nHeight=%d\n", nHeight);
-        str += strprintf("        nVersion=%d\n", nVersion);
-        str += strprintf("        nBwtMaturityHeight=%d\n", nBwtMaturityHeight);
+        str += strprintf("        fCoinBase         = %d\n", fCoinBase);
+        str += strprintf("        nHeight           = %d\n", nHeight);
+        str += strprintf("        nVersion          = %d\n", nVersion);
+        str += strprintf("        nFirstBwtPos      = %d\n", nFirstBwtPos);
+        str += strprintf("        nBwtMaturityHeight= %d\n", nBwtMaturityHeight);
         return str;
     }
 
@@ -165,6 +168,14 @@ public:
         else
             ::AddEntriesInVector(s, vprevout, nType, nVersion, nSize);
     };
+
+    std::string ToString() const
+    {
+        std::string str;
+        for(const CTxInUndo& in: vprevout)
+            str += strprintf("\n[%s]", in.ToString());
+        return str;
+    }
 
 private:
     static const uint16_t certAttributesMarker = 0xffff;
@@ -265,9 +276,12 @@ public:
     {
         std::string str = "\n=== CBlockUndo START ===========================================================================\n";
         str += strprintf("includesSidechainAttributes=%u (mem only)\n", includesSidechainAttributes);
-        str += strprintf("vVoidedCertUndo.size %u\n", vtxundo.size());
-        for (unsigned int i = 0; i < vVoidedCertUndo.size(); i++)
-            str += vVoidedCertUndo[i].ToString() + "\n";
+        str += strprintf("vtxundo.size %u\n", vtxundo.size());
+        for(const CTxUndo& txUndo: vtxundo)
+            str += txUndo.ToString() + "\n";
+        str += strprintf("vVoidedCertUndo.size %u\n", vVoidedCertUndo.size());
+        for(const CVoidedCertUndo& voidCertUndo: vVoidedCertUndo)
+            str += voidCertUndo.ToString() + "\n";
         str += strprintf("old_tree_root %s\n", old_tree_root.ToString().substr(0,10));
         str += strprintf("msc_iaundo.size %u\n", scUndoMap.size());
         for (auto entry : scUndoMap)
