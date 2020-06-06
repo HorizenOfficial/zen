@@ -453,10 +453,10 @@ TEST_F(CeasedSidechainsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCe
     }
 
     unsigned int bwtCounter = 0;
-    EXPECT_TRUE(coinsBlockUndo.vtxundo.size() == 1);
+    ASSERT_TRUE(coinsBlockUndo.vVoidedCertUndo.size() == 1);
     for(const CTxOut& out: cert.GetVout()) { //outputs in blockUndo are bwt
         if (out.isFromBackwardTransfer) {
-            EXPECT_TRUE(out == coinsBlockUndo.vtxundo[0].vprevout[bwtCounter].txout);
+            EXPECT_TRUE(out == coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].txout);
             ++bwtCounter;
         }
     }
@@ -501,13 +501,13 @@ TEST_F(CeasedSidechainsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
 
     unsigned int bwtCounter = 0;
-    EXPECT_TRUE(coinsBlockUndo.vtxundo.size() == 1);
+    ASSERT_TRUE(coinsBlockUndo.vVoidedCertUndo.size() == 1);
     for(const CTxOut& out: cert.GetVout()) { //outputs in blockUndo are bwt
         if (out.isFromBackwardTransfer) {
-            EXPECT_TRUE( (coinsBlockUndo.vtxundo[0].vprevout[bwtCounter].nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f))
-                         <<coinsBlockUndo.vtxundo[0].vprevout[bwtCounter].nVersion;
-            EXPECT_TRUE(coinsBlockUndo.vtxundo[0].vprevout[bwtCounter].nBwtMaturityHeight == coinFromCert.nBwtMaturityHeight);
-            EXPECT_TRUE(out == coinsBlockUndo.vtxundo[0].vprevout[bwtCounter].txout);
+            EXPECT_TRUE( (coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f))
+                         <<coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].nVersion;
+            EXPECT_TRUE(coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].nBwtMaturityHeight == coinFromCert.nBwtMaturityHeight);
+            EXPECT_TRUE(out == coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].txout);
             ++bwtCounter;
         }
     }
@@ -557,7 +557,7 @@ TEST_F(CeasedSidechainsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSi
     }
 
     unsigned int bwtCounter = 0;
-    EXPECT_TRUE(coinsBlockUndo.vtxundo.size() == 0);
+    EXPECT_TRUE(coinsBlockUndo.vVoidedCertUndo.size() == 0);
     EXPECT_TRUE(cert.GetVout().size() == changeCounter+bwtCounter); //all cert outputs are handled
 }
 
@@ -635,8 +635,8 @@ TEST_F(CeasedSidechainsTestSuite, RestoreFullCertCeasedCoins) {
     view->HandleCeasingScs(minimalCeaseHeight, coinsBlockUndo);
 
     //test
-    for (const CTxUndo& ceasedCoinUndo: coinsBlockUndo.vtxundo)
-        view->RevertCeasingScs(ceasedCoinUndo);
+    for (const CVoidedCertUndo& voidCertUndo: coinsBlockUndo.vVoidedCertUndo)
+        view->RevertCeasingScs(voidCertUndo);
 
     //checks
     CCoins rebuiltCoin;
@@ -687,8 +687,8 @@ TEST_F(CeasedSidechainsTestSuite, RestorePureBwtCeasedCoins) {
     ASSERT_FALSE(view->HaveCoins(cert.GetHash()));
 
     //test
-    for (const CTxUndo& ceasedCoinUndo: coinsBlockUndo.vtxundo)
-        view->RevertCeasingScs(ceasedCoinUndo);
+    for (const CVoidedCertUndo& voidCertUndo: coinsBlockUndo.vVoidedCertUndo)
+        view->RevertCeasingScs(voidCertUndo);
 
     //checks
     CCoins rebuiltCoin;
@@ -738,8 +738,8 @@ TEST_F(CeasedSidechainsTestSuite, RestoreNoBwtCeasedCoins) {
     view->HandleCeasingScs(minimalCeaseHeight, coinsBlockUndo);
 
     //test
-    for (const CTxUndo& ceasedCoinUndo: coinsBlockUndo.vtxundo)
-        view->RevertCeasingScs(ceasedCoinUndo);
+    for (const CVoidedCertUndo& voidCertUndo: coinsBlockUndo.vVoidedCertUndo)
+        view->RevertCeasingScs(voidCertUndo);
 
     //checks
     CCoins rebuiltCoin;
@@ -788,8 +788,8 @@ TEST_F(CeasedSidechainsTestSuite, RestoreEmptyCertCeasedCoins) {
     view->HandleCeasingScs(minimalCeaseHeight, coinsBlockUndo);
 
     //test
-    for (const CTxUndo& ceasedCoinUndo: coinsBlockUndo.vtxundo)
-        view->RevertCeasingScs(ceasedCoinUndo);
+    for (const CVoidedCertUndo& voidCertUndo: coinsBlockUndo.vVoidedCertUndo)
+        view->RevertCeasingScs(voidCertUndo);
 
     //checks
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
