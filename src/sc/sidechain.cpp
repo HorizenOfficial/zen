@@ -36,6 +36,14 @@ int CSidechain::SafeguardMargin() const
     return creationData.withdrawalEpochLength/5;
 }
 
+size_t CSidechain::DynamicMemoryUsage() const {
+    return memusage::DynamicUsage(mImmatureAmounts);
+}
+
+size_t CCeasingSidechains::DynamicMemoryUsage() const {
+    return memusage::DynamicUsage(ceasingScs);
+}
+
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
 {
     // check version consistency

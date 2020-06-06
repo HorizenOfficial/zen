@@ -35,6 +35,9 @@ public:
     }
 
     inline bool operator!=(const CCeasingSidechains& rhs) const { return !(*this == rhs); }
+
+    // Calculate the size of the cache (in bytes)
+    size_t DynamicMemoryUsage() const;
 };
 
 class CSidechain {
@@ -107,6 +110,9 @@ public:
     int EpochFor(int targetHeight) const;
     int StartHeightForEpoch(int targetEpoch) const;
     int SafeguardMargin() const;
+
+    // Calculate the size of the cache (in bytes)
+    size_t DynamicMemoryUsage() const;
 };
 
 namespace Sidechain {
