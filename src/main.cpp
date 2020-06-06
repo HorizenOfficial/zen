@@ -2316,11 +2316,10 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     if (blockUndo.vtxundo.size() != (block.vtx.size() - 1 + block.vcert.size()))
         return error("DisconnectBlock(): block and undo data inconsistent");
 
-    for(int idx = 0; idx < blockUndo.vVoidedCertUndo.size(); idx++)
+    for(int idx = blockUndo.vVoidedCertUndo.size() - 1; idx >= 0; --idx)
     {
         LogPrint("sc", "%s():%d - calling RevertCeasingScs idx[%d]\n", __func__, __LINE__, idx);
-        bool ret = view.RevertCeasingScs(blockUndo.vVoidedCertUndo[idx]);
-        if (!ret)
+        if (!view.RevertCeasingScs(blockUndo.vVoidedCertUndo[idx]))
             return error("DisconnectBlock(): cannot revert ceasing sc");
     }
 

@@ -1333,7 +1333,7 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
                 blockUndo.vVoidedCertUndo.push_back(CVoidedCertUndo());
                 blockUndo.vVoidedCertUndo.back().voidedCertHash = scInfo.lastCertificateHash;
                 blockUndo.vVoidedCertUndo.back().firstBwtPos = pos;
-                LogPrint("cert", "%s():%d - set refTx[%s], pos[%d]\n",
+                LogPrint("cert", "%s():%d - set voidedCertHash[%s], firstBwtPos[%d]\n",
                     __func__, __LINE__, scInfo.lastCertificateHash.ToString(), pos);
                 foundFirstBwt = true;
             }

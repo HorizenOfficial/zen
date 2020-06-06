@@ -175,11 +175,11 @@ class CBlockUndo
     bool includesSidechainAttributes;
 
 public:
-    std::vector<CTxUndo>                vtxundo;         // for all txs and certs but the coinbase
+    std::vector<CTxUndo> vtxundo; // for all txs and certs but the coinbase
     uint256 old_tree_root;
-    std::vector<CVoidedCertUndo> vVoidedCertUndo; // for all but the coinbase
-    std::map<uint256, ScUndoData> msc_iaundo;            // key=scid, value=amount matured at block height
 
+    std::map<uint256, ScUndoData> msc_iaundo;     // key=scid, value=amount matured at block height
+    std::vector<CVoidedCertUndo> vVoidedCertUndo; // for all but the coinbase
     /** create as new */
     CBlockUndo() : includesSidechainAttributes(true) {}
 
