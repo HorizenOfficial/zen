@@ -2004,7 +2004,7 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
         txundo.vprevout.push_back(CTxInUndo(coins->vout[nPos]));
         bool isBwt = coins->vout[nPos].isFromBackwardTransfer;
         coins->Spend(nPos);
-        if (coins->vout.size() == 0 || coins->vout[nPos].isFromBackwardTransfer)
+        if (coins->vout.size() == 0 || isBwt)
         {
             CTxInUndo& undo = txundo.vprevout.back();
             undo.nHeight            = coins->nHeight;
