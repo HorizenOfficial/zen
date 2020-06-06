@@ -815,7 +815,7 @@ bool CCoinsViewCache::ApplyMatureBalances(int blockHeight, CBlockUndo& blockundo
                 __func__, __LINE__, FormatMoney(candidateAmount), scId.ToString());
         
             // store immature balances into the blockundo obj
-            blockundo.scUndoMap[scId].immAmount = candidateAmount;
+            blockundo.scUndoMap[scId].appliedMaturedAmount = candidateAmount;
         }
     }
 
@@ -841,10 +841,7 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
         }
         CSidechain& targetScInfo = cacheSidechains.at(scId).scInfo;
 
-        CAmount amountToRestore = it_ia_undo_map->second.immAmount;
-        int blockundoEpoch = it_ia_undo_map->second.replacedLastCertEpoch;
-        const uint256& lastCertHash = it_ia_undo_map->second.replacedLastCertHash;
-
+        CAmount amountToRestore = it_ia_undo_map->second.appliedMaturedAmount;
         if (amountToRestore > 0)
         {
             LogPrint("sc", "%s():%d - adding immature amount %s into sc view for scId=%s\n",
@@ -865,17 +862,6 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
 
             cacheSidechains.at(scId).flag = CSidechainsCacheEntry::Flags::DIRTY;
         }
-
-        if (blockundoEpoch != CScCertificate::EPOCH_NOT_INITIALIZED)
-        {
-            LogPrint("sc", "%s():%d - scId=%s epoch before: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastEpochReferencedByCertificate);
-            targetScInfo.lastEpochReferencedByCertificate = it_ia_undo_map->second.replacedLastCertEpoch;
-            LogPrint("sc", "%s():%d - scId=%s epoch after: %d\n", __func__, __LINE__, scIdString, targetScInfo.lastEpochReferencedByCertificate);
-
-            targetScInfo.lastCertificateHash = lastCertHash;
-            cacheSidechains.at(scId).flag = CSidechainsCacheEntry::Flags::DIRTY;
-        }
-
     }
 
     return true;
@@ -1062,7 +1048,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
 
 #endif
 
-bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& blockundo)
+bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry)
 {
     const uint256& certHash = cert.GetHash();
     const uint256& scId = cert.GetScId();
@@ -1086,10 +1072,8 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
         return false;
     }
 
-    // if an entry already exists, update only cert epoch with current value
-    // if it is a brand new entry, amount will be init as 0 by default
-    blockundo.scUndoMap[scId].replacedLastCertEpoch = targetScInfo.lastEpochReferencedByCertificate;
-    blockundo.scUndoMap[scId].replacedLastCertHash = targetScInfo.lastCertificateHash;
+    certUndoEntry.replacedLastCertEpoch = targetScInfo.lastEpochReferencedByCertificate;
+    certUndoEntry.replacedLastCertHash = targetScInfo.lastCertificateHash;
 
     targetScInfo.balance -= totalAmount;
     targetScInfo.lastEpochReferencedByCertificate = cert.epochNumber;
@@ -1102,7 +1086,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
     return true;
 }
 
-bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert)
+bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry)
 {
     const uint256& scId = cert.GetScId();
     const CAmount& totalAmount = cert.GetValueOfBackwardTransfers();
@@ -1118,6 +1102,10 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert)
     }
 
     targetScInfo.balance += totalAmount;
+    targetScInfo.lastEpochReferencedByCertificate = certUndoEntry.replacedLastCertEpoch;
+    targetScInfo.lastCertificateHash = certUndoEntry.replacedLastCertHash;
+    cacheSidechains.at(scId).flag = CSidechainsCacheEntry::Flags::DIRTY;
+
     cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
 
     LogPrint("cert", "%s():%d - amount restored to scView (amount=%s, resulting bal=%s) %s\n",

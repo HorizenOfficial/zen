@@ -120,43 +120,71 @@ public:
 class CTxUndo
 {
 public:
-    // undo information for all txins
-    std::vector<CTxInUndo> vprevout;
-    CTxUndo(): vprevout() {};
+    std::vector<CTxInUndo> vprevout; // undo information for all txins
+    int replacedLastCertEpoch;       //for cert only, to restore ScInfo
+    uint256 replacedLastCertHash;    //for cert only, to restore ScInfo
+    CTxUndo(): vprevout(), replacedLastCertEpoch(CScCertificate::EPOCH_NOT_INITIALIZED),
+            replacedLastCertHash() {}
 
-    ADD_SERIALIZE_METHODS;
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(vprevout);
-    }
+    size_t GetSerializeSize(int nType, int nVersion) const
+    {
+        CSizeComputer s(nType, nVersion);
+        NCONST_PTR(this)->Serialize(s, nType, nVersion);
+        return s.size();
+    };
 
-//private:
-//    static const uint16_t ceasedCoinsmarker = 0xfec1;
+    template<typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const
+    {
+        if (replacedLastCertEpoch != CScCertificate::EPOCH_NOT_INITIALIZED) {
+            WriteCompactSize(s, certAttributesMarker);
+            ::Serialize(s, vprevout,              nType, nVersion);
+            ::Serialize(s, replacedLastCertEpoch, nType, nVersion);
+            ::Serialize(s, replacedLastCertHash,  nType, nVersion);
+        }
+        else {
+            ::Serialize(s, vprevout, nType, nVersion);
+        }
+    };
+
+    template<typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion)
+    {
+        // reading from data stream to memory
+        vprevout.clear();
+        replacedLastCertEpoch = CScCertificate::EPOCH_NOT_INITIALIZED;
+        replacedLastCertHash.SetNull();
+
+        unsigned int nSize = ReadCompactSize(s);
+        if (nSize == certAttributesMarker)
+        {
+            ::Unserialize(s, vprevout, nType, nVersion);
+            ::Unserialize(s, replacedLastCertEpoch, nType, nVersion);
+            ::Unserialize(s, replacedLastCertHash, nType, nVersion);
+        }
+        else
+            ::AddEntriesInVector(s, vprevout, nType, nVersion, nSize);
+    };
+
+private:
+    static const uint16_t certAttributesMarker = 0xffff;
 };
 
 struct ScUndoData
 {
-    CAmount immAmount;
-    int replacedLastCertEpoch;
-    uint256 replacedLastCertHash;
-    
-    ScUndoData(): immAmount(0), replacedLastCertEpoch(CScCertificate::EPOCH_NOT_INITIALIZED),
-                  replacedLastCertHash() {}
+    CAmount appliedMaturedAmount;
+    ScUndoData(): appliedMaturedAmount(0) {}
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(immAmount);
-        READWRITE(replacedLastCertEpoch);
-        READWRITE(replacedLastCertHash);
+        READWRITE(appliedMaturedAmount);
     }
 
     std::string ToString() const
     {
         std::string str;
-        str += strprintf("  immAmount %d.%08d\n", immAmount / COIN, immAmount % COIN);
-        str += strprintf("  certEpoch %d\n", replacedLastCertEpoch);
-        str += strprintf("  lastCertificateHash %s\n", replacedLastCertHash.ToString().substr(0,10));
+        str += strprintf("  immAmount %d.%08d\n", appliedMaturedAmount / COIN, appliedMaturedAmount % COIN);
         return str;
     }
 };
@@ -190,7 +218,8 @@ public:
         return s.size();
     }   
 
-    template<typename Stream> void Serialize(Stream& s, int nType, int nVersion) const
+    template<typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const
     {
         if (includesSidechainAttributes)
         {
@@ -207,7 +236,8 @@ public:
         }
     }   
 
-    template<typename Stream> void Unserialize(Stream& s, int nType, int nVersion)
+    template<typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion)
     {
         // reading from data stream to memory
         vtxundo.clear();

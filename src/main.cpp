@@ -2377,18 +2377,18 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
         }
 
-        if (!view.RevertCertOutputs(cert) ) {
+        const CTxUndo &certUndo = blockUndo.vtxundo[certOffset + i];
+        if (!view.RevertCertOutputs(cert, certUndo) ) {
             LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
             return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
         }
 
         // restore inputs
-        const CTxUndo &certundo = blockUndo.vtxundo[certOffset + i];
-        if (certundo.vprevout.size() != cert.GetVin().size())
+        if (certUndo.vprevout.size() != cert.GetVin().size())
             return error("DisconnectBlock(): certificate and undo data inconsistent");
         for (unsigned int j = cert.GetVin().size(); j-- > 0;) {
             const COutPoint &out = cert.GetVin()[j].prevout;
-            const CTxInUndo &undo = certundo.vprevout[j];
+            const CTxInUndo &undo = certUndo.vprevout[j];
             if (!ApplyTxInUndo(undo, view, out))
                 fClean = false;
         }
@@ -2784,7 +2784,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         blockundo.vtxundo.push_back(CTxUndo());
         UpdateCoins(cert, view, blockundo.vtxundo.back(), pindex->nHeight);
 
-        if (!view.UpdateScInfo(cert, blockundo) )
+        if (!view.UpdateScInfo(cert, blockundo.vtxundo.back()) )
         {
             return state.DoS(100, error("ConnectBlock(): could not add in scView: cert[%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-updated");
