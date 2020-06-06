@@ -172,14 +172,14 @@ public:
         if (this->IsFromCert()) {
             nSize += ::GetSerializeSize(nBwtMaturityHeight, nType,nVersion);
 
-            unsigned int changeOutputCounter = 0;
-            for(const CTxOut& out: vout) {
-                if (!out.isFromBackwardTransfer)
-                    ++changeOutputCounter;
-                else
+            unsigned int nFirstBwtPos = this->vout.size();
+            for(unsigned int idx = 0; idx < this->vout.size(); ++idx) {
+                if (this->vout[idx].isFromBackwardTransfer) {
+                    nFirstBwtPos = idx;
                     break;
+                }
             }
-            nSize += ::GetSerializeSize(changeOutputCounter,nType,nVersion);
+            nSize += ::GetSerializeSize(nFirstBwtPos,nType,nVersion);
         }
 
 
@@ -218,14 +218,14 @@ public:
         if (this->IsFromCert()) {
             ::Serialize(s,nBwtMaturityHeight, nType,nVersion);
 
-            unsigned int changeOutputCounter = 0;
-            for(const CTxOut& out: vout) {
-                if (!out.isFromBackwardTransfer)
-                    ++changeOutputCounter;
-                else
+            unsigned int nFirstBwtPos = this->vout.size();
+            for(unsigned int idx = 0; idx < this->vout.size(); ++idx) {
+                if (this->vout[idx].isFromBackwardTransfer) {
+                    nFirstBwtPos = idx;
                     break;
+                }
             }
-            ::Serialize(s,changeOutputCounter,nType,nVersion);
+            ::Serialize(s,nFirstBwtPos,nType,nVersion);
         }
     }
 
@@ -261,17 +261,14 @@ public:
         // coinbase height
         ::Unserialize(s, VARINT(nHeight), nType, nVersion);
 
-        unsigned int changeOutputCounter = vout.size();
+        unsigned int nFirstBwtPos = vout.size();
         if (this->IsFromCert()) {
             ::Unserialize(s, nBwtMaturityHeight, nType,nVersion);
-            ::Unserialize(s, changeOutputCounter, nType,nVersion);
+            ::Unserialize(s, nFirstBwtPos, nType,nVersion);
         }
 
-        for(unsigned int idx = 0; idx < vout.size(); ++idx)
-            if ( idx < changeOutputCounter)
-                vout[idx].isFromBackwardTransfer = false;
-            else
-                vout[idx].isFromBackwardTransfer = true;
+        for(unsigned int idx = nFirstBwtPos; idx < vout.size(); ++idx)
+            vout[idx].isFromBackwardTransfer = true;
 
         Cleanup();
     }
