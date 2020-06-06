@@ -21,6 +21,7 @@
 #include <sc/sidechain.h>
 
 class CBlockUndo;
+class CVoidedCertUndo;
 
 /**
  * Pruned version of CTransaction: only retains metadata and unspent transaction outputs
@@ -595,7 +596,7 @@ public:
     bool UpdateCeasingScs(const CScCertificate& cert);
     bool UndoCeasingScs(const CScCertificate& cert);
     bool HandleCeasingScs(int height, CBlockUndo& blockUndo);
-    bool RevertCeasingScs(const CTxUndo& ceasedCertUndo);
+    bool RevertCeasingScs(const CVoidedCertUndo & voidedCertUndo);
 
     CSidechain::state isCeasedAtHeight(const uint256& scId, int height) const;
 

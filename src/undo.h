@@ -39,7 +39,7 @@ public:
         totalSize = ::GetSerializeSize(VARINT(nHeight*2+(fCoinBase ? 1 : 0)), nType, nVersion) +
                (nHeight > 0 ? ::GetSerializeSize(VARINT(this->nVersion), nType, nVersion) : 0) +
                ::GetSerializeSize(CTxOutCompressor(REF(txout)), nType, nVersion);
-        if ((nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f)) {
+        if ((nHeight > 0) && ((this->nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f))) {
             totalSize += ::GetSerializeSize(nBwtMaturityHeight, nType,nVersion);
             totalSize += ::GetSerializeSize(txout.isFromBackwardTransfer, nType,nVersion);
         }
@@ -53,7 +53,7 @@ public:
             ::Serialize(s, VARINT(this->nVersion), nType, nVersion);
         ::Serialize(s, CTxOutCompressor(REF(txout)), nType, nVersion);
 
-        if ((this->nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f)) {
+        if ((nHeight > 0) && ((this->nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f))) {
             ::Serialize(s,nBwtMaturityHeight, nType, nVersion);
             ::Serialize(s,txout.isFromBackwardTransfer? true: false, nType, nVersion);
         }
@@ -69,7 +69,7 @@ public:
             ::Unserialize(s, VARINT(this->nVersion), nType, nVersion);
         ::Unserialize(s, REF(CTxOutCompressor(REF(txout))), nType, nVersion);
 
-        if ((this->nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f)) {
+        if ((nHeight > 0) && ((this->nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f))) {
             ::Unserialize(s, nBwtMaturityHeight, nType, nVersion);
             ::Unserialize(s, txout.isFromBackwardTransfer, nType, nVersion);
         }
@@ -88,68 +88,50 @@ public:
 
 };
 
+class CVoidedCertUndo {
+public:
+    std::vector<CTxInUndo> voidedOuts;
+    uint256 voidedCertHash;
+    int firstBwtPos;
+
+    CVoidedCertUndo(): voidedOuts(), voidedCertHash(), firstBwtPos(-1) {};
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(voidedOuts);
+        READWRITE(voidedCertHash);
+        READWRITE(firstBwtPos);
+    }
+
+    std::string ToString() const
+    {
+        std::string str;
+        str += strprintf("    voidedOuts.size %u\n", voidedOuts.size());
+        for (unsigned int i = 0; i < voidedOuts.size(); i++)
+            str += "        " + voidedOuts[i].ToString() + "\n";
+        str += strprintf("    refTx       %s\n", voidedCertHash.ToString());
+        str += strprintf("    firstBwtPos %u\n", firstBwtPos);
+        return str;
+    }
+};
+
 /** Undo information for a CTransaction */
 class CTxUndo
 {
 public:
     // undo information for all txins
     std::vector<CTxInUndo> vprevout;
-    uint256 refTx;   //hash of coins from ceased sidechains. It's not needed for ordinary coins and certs
-    int firstBwtPos; //position of the first bwt.
+    CTxUndo(): vprevout() {};
 
-    CTxUndo(): vprevout(), refTx(), firstBwtPos(-1) {};
-
-    size_t GetSerializeSize(int nType, int nVersion) const
-    {
-        CSizeComputer s(nType, nVersion);
-        NCONST_PTR(this)->Serialize(s, nType, nVersion);
-        return s.size();
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(vprevout);
     }
 
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const
-    {
-        if (!refTx.IsNull()) {
-            WriteCompactSize(s, ceasedCoinsmarker);
-            ::Serialize(s, (vprevout), nType, nVersion);
-            ::Serialize(s, (refTx), nType, nVersion);
-            ::Serialize(s, (firstBwtPos), nType, nVersion);
-        } else {
-            ::Serialize(s, (vprevout), nType, nVersion);
-        }
-    }
-
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion)
-    {
-        // reading from data stream to memory
-        vprevout.clear();
-        refTx.SetNull();
-
-        unsigned int nSize = ReadCompactSize(s);
-        if (nSize == ceasedCoinsmarker) {
-            ::Unserialize(s, (vprevout), nType, nVersion);
-            ::Unserialize(s, refTx, nType, nVersion);
-            ::Unserialize(s, (firstBwtPos), nType, nVersion);
-        } else {
-            ::AddEntriesInVector(s, vprevout, nType, nVersion, nSize);
-        }
-    };
-
-    std::string ToString() const
-    {
-        std::string str;
-        str += strprintf("    vprevout.size %u\n", vprevout.size());
-        for (unsigned int i = 0; i < vprevout.size(); i++)
-            str += "        " + vprevout[i].ToString() + "\n";
-        str += strprintf("    refTx %s\n", refTx.ToString());
-        str += strprintf("    firstBwtPos %u\n", firstBwtPos);
-        return str;
-    }
-
-
-private:
-    static const uint16_t ceasedCoinsmarker = 0xfec1;
+//private:
+//    static const uint16_t ceasedCoinsmarker = 0xfec1;
 };
 
 struct ScUndoData
@@ -193,9 +175,10 @@ class CBlockUndo
     bool includesSidechainAttributes;
 
 public:
-    std::vector<CTxUndo> vtxundo; // for all but the coinbase
+    std::vector<CTxUndo>                vtxundo;         // for all txs and certs but the coinbase
     uint256 old_tree_root;
-    std::map<uint256, ScUndoData> msc_iaundo; // key=scid, value=amount matured at block height
+    std::vector<CVoidedCertUndo> vVoidedCertUndo; // for all but the coinbase
+    std::map<uint256, ScUndoData> msc_iaundo;            // key=scid, value=amount matured at block height
 
     /** create as new */
     CBlockUndo() : includesSidechainAttributes(true) {}
@@ -215,6 +198,7 @@ public:
             ::Serialize(s, (vtxundo), nType, nVersion);
             ::Serialize(s, (old_tree_root), nType, nVersion);
             ::Serialize(s, (msc_iaundo), nType, nVersion);
+            ::Serialize(s, (vVoidedCertUndo), nType, nVersion);
         }
         else
         {
@@ -236,6 +220,7 @@ public:
             ::Unserialize(s, (vtxundo), nType, nVersion);
             ::Unserialize(s, (old_tree_root), nType, nVersion);
             ::Unserialize(s, (msc_iaundo), nType, nVersion);
+            ::Unserialize(s, (vVoidedCertUndo), nType, nVersion);
             includesSidechainAttributes = true;
         }
         else
@@ -250,9 +235,9 @@ public:
     {
         std::string str = "\n=== CBlockUndo START ===========================================================================\n";
         str += strprintf("includesSidechainAttributes=%u (mem only)\n", includesSidechainAttributes);
-        str += strprintf("vtxundo.size %u\n", vtxundo.size());
-        for (unsigned int i = 0; i < vtxundo.size(); i++)
-            str += vtxundo[i].ToString() + "\n";
+        str += strprintf("vVoidedCertUndo.size %u\n", vtxundo.size());
+        for (unsigned int i = 0; i < vVoidedCertUndo.size(); i++)
+            str += vVoidedCertUndo[i].ToString() + "\n";
         str += strprintf("old_tree_root %s\n", old_tree_root.ToString().substr(0,10));
         str += strprintf("msc_iaundo.size %u\n", msc_iaundo.size());
         for (auto entry : msc_iaundo)

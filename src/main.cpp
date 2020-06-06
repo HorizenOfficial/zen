@@ -2313,13 +2313,13 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     LogPrint("sc", "%s():%d - ===============> CBlockUndo red from DB:\n%s\n",
         __func__, __LINE__, blockUndo.ToString());
     // no coinbase in blockundo
-    if (blockUndo.vtxundo.size() < (block.vtx.size() - 1 + block.vcert.size()))
+    if (blockUndo.vtxundo.size() != (block.vtx.size() - 1 + block.vcert.size()))
         return error("DisconnectBlock(): block and undo data inconsistent");
 
-    for(int idx = block.vtx.size() - 1 + block.vcert.size(); idx < blockUndo.vtxundo.size(); idx++)
+    for(int idx = 0; idx < blockUndo.vVoidedCertUndo.size(); idx++)
     {
         LogPrint("sc", "%s():%d - calling RevertCeasingScs idx[%d]\n", __func__, __LINE__, idx);
-        bool ret = view.RevertCeasingScs(blockUndo.vtxundo[idx]);
+        bool ret = view.RevertCeasingScs(blockUndo.vVoidedCertUndo[idx]);
         if (!ret)
             return error("DisconnectBlock(): cannot revert ceasing sc");
     }
