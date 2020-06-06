@@ -483,7 +483,7 @@ TEST_F(SidechainTestSuite, RestoreImmatureBalancesRestoresLastCertHash) {
 
     CBlockUndo scCreationBlockUndo;
     sidechainsView->ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity(), scCreationBlockUndo);
-    EXPECT_TRUE(scCreationBlockUndo.msc_iaundo.at(scId).lastCertificateHash.IsNull());
+    EXPECT_TRUE(scCreationBlockUndo.scUndoMap.at(scId).replacedLastCertHash.IsNull());
 
     //Update sc with cert and create the associate blockUndo
     int certEpoch = 19;
@@ -688,8 +688,8 @@ TEST_F(SidechainTestSuite, NewSidechainsHaveNullLastCertificateHash) {
     EXPECT_TRUE(sidechainsView->ApplyMatureBalances(coinMaturityHeight, blockUndo));
 
     //check
-    ASSERT_TRUE(blockUndo.msc_iaundo.count(scId) != 0);
-    EXPECT_TRUE(blockUndo.msc_iaundo.at(scId).lastCertificateHash.IsNull());
+    ASSERT_TRUE(blockUndo.scUndoMap.count(scId) != 0);
+    EXPECT_TRUE(blockUndo.scUndoMap.at(scId).replacedLastCertHash.IsNull());
 }
 
 TEST_F(SidechainTestSuite, CertificateUpdatesLastCertificateHash) {
@@ -716,8 +716,8 @@ TEST_F(SidechainTestSuite, CertificateUpdatesLastCertificateHash) {
     //check
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
     EXPECT_TRUE(scInfo.lastCertificateHash == aCertificate.GetHash());
-    ASSERT_TRUE(blockUndo.msc_iaundo.count(scId) != 0);
-    EXPECT_TRUE(blockUndo.msc_iaundo.at(scId).lastCertificateHash.IsNull());
+    ASSERT_TRUE(blockUndo.scUndoMap.count(scId) != 0);
+    EXPECT_TRUE(blockUndo.scUndoMap.at(scId).replacedLastCertHash.IsNull());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1237,9 +1237,9 @@ CBlockUndo SidechainTestSuite::createBlockUndoWith(const uint256 & scId, int hei
     CAmount AmountPerHeight = amount;
     ScUndoData data;
     data.immAmount = AmountPerHeight;
-    data.certEpoch = CScCertificate::EPOCH_NULL;
-    data.lastCertificateHash = lastCertHash;
-    retVal.msc_iaundo[scId] = data;
+    data.replacedLastCertEpoch = CScCertificate::EPOCH_NULL;
+    data.replacedLastCertHash = lastCertHash;
+    retVal.scUndoMap[scId] = data;
 
     return retVal;
 }
