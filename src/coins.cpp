@@ -1332,7 +1332,6 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
             if (!foundFirstBwt) {
                 blockUndo.vVoidedCertUndo.push_back(CVoidedCertUndo());
                 blockUndo.vVoidedCertUndo.back().voidedCertHash = scInfo.lastCertificateHash;
-                blockUndo.vVoidedCertUndo.back().firstBwtPos = pos;
                 LogPrint("cert", "%s():%d - set voidedCertHash[%s], firstBwtPos[%d]\n",
                     __func__, __LINE__, scInfo.lastCertificateHash.ToString(), pos);
                 foundFirstBwt = true;
@@ -1346,6 +1345,7 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
                 undo.nHeight            = coins->nHeight;
                 undo.fCoinBase          = coins->fCoinBase;
                 undo.nVersion           = coins->nVersion;
+                undo.nFirstBwtPos       = coins->nFirstBwtPos;
                 undo.nBwtMaturityHeight = coins->nBwtMaturityHeight;
             }
         }
@@ -1367,29 +1367,25 @@ bool CCoinsViewCache::RevertCeasingScs(const CVoidedCertUndo& voidedCertUndo)
         return fClean;
     }
 
-    int firstBwtPos = voidedCertUndo.firstBwtPos;
-    if (firstBwtPos >= 0)
+    CCoinsModifier coins = this->ModifyCoins(coinHash);
+    const std::vector<CTxInUndo>& voidedOuts = voidedCertUndo.voidedOuts;
+    for (size_t idx = voidedOuts.size(); idx-- > 0;)
     {
-        CCoinsModifier coins = this->ModifyCoins(coinHash);
-
-        const std::vector<CTxInUndo>& voidedOuts = voidedCertUndo.voidedOuts;
-        for (size_t idx = voidedOuts.size(); idx-- > 0;)
+        if (voidedOuts.at(idx).nHeight != 0)
         {
-            if (voidedOuts.at(idx).nHeight != 0)
-            {
-                coins->fCoinBase          = voidedOuts.at(idx).fCoinBase;
-                coins->nHeight            = voidedOuts.at(idx).nHeight;
-                coins->nVersion           = voidedOuts.at(idx).nVersion;
-                coins->nBwtMaturityHeight = voidedOuts.at(idx).nBwtMaturityHeight;
-            }
-
-            if(coins->IsAvailable(firstBwtPos + idx))
-                fClean = fClean && error("%s: undo data overwriting existing output", __func__);
-            if (coins->vout.size() < (firstBwtPos + idx+1))
-                coins->vout.resize(firstBwtPos + idx+1);
-            coins->vout.at(firstBwtPos + idx) = voidedOuts.at(idx).txout;
-            coins->vout.at(firstBwtPos + idx).isFromBackwardTransfer = true;
+            coins->fCoinBase          = voidedOuts.at(idx).fCoinBase;
+            coins->nHeight            = voidedOuts.at(idx).nHeight;
+            coins->nVersion           = voidedOuts.at(idx).nVersion;
+            coins->nFirstBwtPos       = voidedOuts.at(idx).nFirstBwtPos;
+            coins->nBwtMaturityHeight = voidedOuts.at(idx).nBwtMaturityHeight;
         }
+
+        if(coins->IsAvailable(coins->nFirstBwtPos + idx))
+            fClean = fClean && error("%s: undo data overwriting existing output", __func__);
+        if (coins->vout.size() < (coins->nFirstBwtPos + idx+1))
+            coins->vout.resize(coins->nFirstBwtPos + idx+1);
+        coins->vout.at(coins->nFirstBwtPos + idx) = voidedOuts.at(idx).txout;
+        coins->vout.at(coins->nFirstBwtPos + idx).isFromBackwardTransfer = true;
     }
 
     SyncBwtCeasing(voidedCertUndo.voidedCertHash, false);
