@@ -1364,10 +1364,30 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo)
     if (!HaveSidechainEvents(height))
         return true;
 
-    CSidechainEvents ceasingScList;
-    GetSidechainEvents(height, ceasingScList);
+    CSidechainEvents scEvents;
+    GetSidechainEvents(height, scEvents);
 
-    for (const uint256& ceasingScId : ceasingScList.ceasingScs)
+    //Handle Maturing amounts
+    for (const uint256& maturingScId : scEvents.maturingScs)
+    {
+        CSidechain scInfo;
+        assert(GetSidechain(maturingScId, scInfo));
+        assert(scInfo.mImmatureAmounts.count(height));
+
+        scInfo.balance += scInfo.mImmatureAmounts[height];
+        LogPrint("sc", "%s():%d - scId=%s balance updated to: %s\n",
+            __func__, __LINE__, maturingScId.ToString(), FormatMoney(scInfo.balance));
+
+        blockUndo.scUndoMap[maturingScId].appliedMaturedAmount = scInfo.mImmatureAmounts[height];
+        LogPrint("sc", "%s():%d - adding immature amount %s for scId=%s in blockundo\n",
+            __func__, __LINE__, FormatMoney(scInfo.mImmatureAmounts[height]), maturingScId.ToString());
+
+        scInfo.mImmatureAmounts.erase(height);
+        cacheSidechains.at(maturingScId).flag = CSidechainsCacheEntry::Flags::DIRTY;
+    }
+
+    //Handle Ceasing Sidechain
+    for (const uint256& ceasingScId : scEvents.ceasingScs)
     {
         LogPrint("cert", "%s():%d - CEASING HEIGHTS: about to handle scId[%s] and ceasingHeight [%d]\n",
                 __func__, __LINE__, ceasingScId.ToString(), height);
