@@ -16,10 +16,10 @@ class UniValue;
 class CValidationState;
 class CLevelDBWrapper;
 
-class CCeasingSidechains {
+class CSidechainEvents {
 public:
-    CCeasingSidechains() = default;
-    ~CCeasingSidechains() = default;
+    CSidechainEvents() = default;
+    ~CSidechainEvents() = default;
 
     std::set<uint256> ceasingScs;
 
@@ -30,11 +30,11 @@ public:
         READWRITE(ceasingScs);
     }
 
-    inline bool operator==(const CCeasingSidechains& rhs) const {
+    inline bool operator==(const CSidechainEvents& rhs) const {
         return (this->ceasingScs                == rhs.ceasingScs);
     }
 
-    inline bool operator!=(const CCeasingSidechains& rhs) const { return !(*this == rhs); }
+    inline bool operator!=(const CSidechainEvents& rhs) const { return !(*this == rhs); }
 
     // Calculate the size of the cache (in bytes)
     size_t DynamicMemoryUsage() const;

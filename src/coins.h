@@ -311,9 +311,9 @@ struct CSidechainsCacheEntry
     CSidechainsCacheEntry(const CSidechain & _scInfo, Flags _flag) : scInfo(_scInfo), flag(_flag) {}
 };
 
-struct CCeasingScsCacheEntry
+struct CSidechainEventsCacheEntry
 {
-    CCeasingSidechains ceasingScs; // The actual cached data.
+    CSidechainEvents scEvents; // The actual cached data.
 
     enum class Flags {
         DEFAULT = 0,
@@ -322,8 +322,8 @@ struct CCeasingScsCacheEntry
         ERASED  = (1 << 2), // The parent view does have this entry but current one have it erased
     } flag;
 
-    CCeasingScsCacheEntry() : ceasingScs(), flag(Flags::DEFAULT) {}
-    CCeasingScsCacheEntry(const CCeasingSidechains & _scList, Flags _flag) : ceasingScs(_scList), flag(_flag) {}
+    CSidechainEventsCacheEntry() : scEvents(), flag(Flags::DEFAULT) {}
+    CSidechainEventsCacheEntry(const CSidechainEvents & _scList, Flags _flag) : scEvents(_scList), flag(_flag) {}
 };
 
 struct CAnchorsCacheEntry
@@ -353,7 +353,7 @@ struct CNullifiersCacheEntry
 
 typedef boost::unordered_map<uint256, CCoinsCacheEntry, CCoinsKeyHasher>      CCoinsMap;
 typedef boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> CSidechainsMap;
-typedef boost::unordered_map<int, CCeasingScsCacheEntry>                      CCeasingScsMap;
+typedef boost::unordered_map<int, CSidechainEventsCacheEntry>                 CCeasingScsMap;
 typedef boost::unordered_map<uint256, CAnchorsCacheEntry, CCoinsKeyHasher>    CAnchorsMap;
 typedef boost::unordered_map<uint256, CNullifiersCacheEntry, CCoinsKeyHasher> CNullifiersMap;
 
@@ -395,10 +395,10 @@ public:
     virtual bool GetSidechain(const uint256& scId, CSidechain& info) const;
 
     //! Just check whether we have ceasing sidechains at given height
-    virtual bool HaveCeasingScs(int height) const;
+    virtual bool HaveSidechainEvents(int height) const;
 
     //! Retrieve the scId list of sidechain ceasing at given height.
-    virtual bool GetCeasingScs(int height, CCeasingSidechains& ceasingScs) const;
+    virtual bool GetSidechainEvents(int height, CSidechainEvents& scEvent) const;
 
     //! Retrieve all the known sidechain ids
     virtual void GetScIds(std::set<uint256>& scIdsList) const;
@@ -444,8 +444,8 @@ public:
     bool HaveCoins(const uint256 &txid)                                const override;
     bool HaveSidechain(const uint256& scId)                            const override;
     bool GetSidechain(const uint256& scId, CSidechain& info)           const override;
-    bool HaveCeasingScs(int height)                                    const override;
-    bool GetCeasingScs(int height, CCeasingSidechains& ceasingScs)     const override;
+    bool HaveSidechainEvents(int height)                               const override;
+    bool GetSidechainEvents(int height, CSidechainEvents& scEvents)    const override;
     void GetScIds(std::set<uint256>& scIdsList)                        const override;
     bool HaveCertForEpoch(const uint256& scId, int epochNumber)        const override;
     uint256 GetBestBlock()                                             const override;
@@ -576,14 +576,14 @@ public:
     bool RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry);
 
     //CEASING SIDECHAINS RELATED MEMBERS
-    bool HaveCeasingScs(int height)                                const override;
-    bool GetCeasingScs(int height, CCeasingSidechains& ceasingScs) const override;
-    bool UpdateCeasingScs(const CTxScCreationOut& scCreationOut);
-    bool UndoCeasingScs(const CTxScCreationOut& scCreationOut);
-    bool UpdateCeasingScs(const CScCertificate& cert);
-    bool UndoCeasingScs(const CScCertificate& cert);
-    bool HandleCeasingScs(int height, CBlockUndo& blockUndo);
-    bool RevertCeasingScs(const CVoidedCertUndo & voidedCertUndo);
+    bool HaveSidechainEvents(int height)                            const override;
+    bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override;
+    bool ScheduleSidechainEvent(const CTxScCreationOut& scCreationOut);
+    bool CancelSidechainEvent(const CTxScCreationOut& scCreationOut);
+    bool ScheduleSidechainEvent(const CScCertificate& cert);
+    bool CancelSidechainEvent(const CScCertificate& cert);
+    bool HandleSidechainEvents(int height, CBlockUndo& blockUndo);
+    bool RevertSidechainEvents(const CVoidedCertUndo & voidedCertUndo);
 
     CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
 
@@ -622,7 +622,7 @@ private:
     CCoinsMap::iterator            FetchCoins(const uint256 &txid);
     CCoinsMap::const_iterator      FetchCoins(const uint256 &txid)      const;
     CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
-    CCeasingScsMap::const_iterator FetchCeasingScs(int height)          const;
+    CCeasingScsMap::const_iterator FetchSidechainEvents(int height)     const;
 
     static int getInitScCoinsMaturity();
     int getScCoinsMaturity();

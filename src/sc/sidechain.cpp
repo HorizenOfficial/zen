@@ -57,7 +57,7 @@ size_t CSidechain::DynamicMemoryUsage() const {
     return memusage::DynamicUsage(mImmatureAmounts);
 }
 
-size_t CCeasingSidechains::DynamicMemoryUsage() const {
+size_t CSidechainEvents::DynamicMemoryUsage() const {
     return memusage::DynamicUsage(ceasingScs);
 }
 

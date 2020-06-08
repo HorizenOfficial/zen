@@ -2322,7 +2322,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     for(int idx = blockUndo.vVoidedCertUndo.size() - 1; idx >= 0; --idx)
     {
         LogPrint("sc", "%s():%d - calling RevertCeasingScs idx[%d]\n", __func__, __LINE__, idx);
-        if (!view.RevertCeasingScs(blockUndo.vVoidedCertUndo[idx]))
+        if (!view.RevertSidechainEvents(blockUndo.vVoidedCertUndo[idx]))
             return error("DisconnectBlock(): cannot revert ceasing sc");
     }
 
@@ -2375,7 +2375,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             outs->Clear();
         }
 
-        if (!view.UndoCeasingScs(cert)) {
+        if (!view.CancelSidechainEvent(cert)) {
             LogPrint("sc", "%s():%d - ERROR undoing ceasing height\n", __func__, __LINE__);
             return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
         }
@@ -2435,7 +2435,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
 
         for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
-            if (!view.UndoCeasingScs(scCreation)) {
+            if (!view.CancelSidechainEvent(scCreation)) {
                 LogPrint("sc", "%s():%d - ERROR undoing ceasing height\n", __func__, __LINE__);
                 return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
             }
@@ -2731,7 +2731,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
 
             for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
-                if (!view.UpdateCeasingScs(scCreation))
+                if (!view.ScheduleSidechainEvent(scCreation))
                     return state.DoS(100, error("ConnectBlock(): error updating ceasing height for sidechain [%s]", scCreation.scId.ToString()),
                                      REJECT_INVALID, "bad-sc-not-recorded");
             }
@@ -2799,7 +2799,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-sc-cert-not-updated");
         }
 
-        if (!view.UpdateCeasingScs(cert))
+        if (!view.ScheduleSidechainEvent(cert))
             return state.DoS(100, error("ConnectBlock(): Error updating ceasing heights with certificate [%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-recorded");
 
@@ -2826,7 +2826,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         return state.DoS(100, error("ConnectBlock(): could not update sc immature amounts"),
                          REJECT_INVALID, "bad-sc-amounts");
 
-    if (!view.HandleCeasingScs(pindex->nHeight, blockundo))
+    if (!view.HandleSidechainEvents(pindex->nHeight, blockundo))
         return state.DoS(100, error("ConnectBlock(): could not handle ceasing heights"),
                          REJECT_INVALID, "bad-sc-ceasing-heights");
 

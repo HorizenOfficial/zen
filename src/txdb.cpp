@@ -77,16 +77,16 @@ void static BatchSidechains(CLevelDBBatch &batch, const uint256 &scId, const CSi
     return;
 }
 
-void static BatchCeasedScs(CLevelDBBatch &batch, int height, const CCeasingScsCacheEntry &ceasedScs) {
+void static BatchCeasedScs(CLevelDBBatch &batch, int height, const CSidechainEventsCacheEntry &ceasedScs) {
     switch (ceasedScs.flag) {
-        case CCeasingScsCacheEntry::Flags::FRESH:
-        case CCeasingScsCacheEntry::Flags::DIRTY:
-            batch.Write(make_pair(DB_CEASEDSCS, height), ceasedScs.ceasingScs);
+        case CSidechainEventsCacheEntry::Flags::FRESH:
+        case CSidechainEventsCacheEntry::Flags::DIRTY:
+            batch.Write(make_pair(DB_CEASEDSCS, height), ceasedScs.scEvents);
             break;
-        case CCeasingScsCacheEntry::Flags::ERASED:
+        case CSidechainEventsCacheEntry::Flags::ERASED:
             batch.Erase(make_pair(DB_CEASEDSCS, height));
             break;
-        case CCeasingScsCacheEntry::Flags::DEFAULT:
+        case CSidechainEventsCacheEntry::Flags::DEFAULT:
         default:
             break;
     }
@@ -145,12 +145,12 @@ bool CCoinsViewDB::HaveSidechain(const uint256& scId) const
     return db.Exists(std::make_pair(DB_SIDECHAINS, scId));
 }
 
-bool CCoinsViewDB::HaveCeasingScs(int height) const
+bool CCoinsViewDB::HaveSidechainEvents(int height) const
 {
     return db.Exists(std::make_pair(DB_CEASEDSCS, height));
 }
 
-bool CCoinsViewDB::GetCeasingScs(int height, CCeasingSidechains& ceasingScs) const
+bool CCoinsViewDB::GetSidechainEvents(int height, CSidechainEvents& ceasingScs) const
 {
     return db.Read(std::make_pair(DB_CEASEDSCS, height), ceasingScs);
 }
