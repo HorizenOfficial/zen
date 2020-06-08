@@ -58,7 +58,7 @@ size_t CSidechain::DynamicMemoryUsage() const {
 }
 
 size_t CSidechainEvents::DynamicMemoryUsage() const {
-    return memusage::DynamicUsage(ceasingScs);
+    return memusage::DynamicUsage(maturingScs) + memusage::DynamicUsage(ceasingScs);
 }
 
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)

@@ -250,7 +250,7 @@ TEST_F(CeasedSidechainsTestSuite, CeasingHeightUpdateForScCreation) {
 
     //test
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationOut));
+        EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationOut, scCreationHeight));
 
     //Checks
     CSidechain scInfo;
@@ -269,7 +269,7 @@ TEST_F(CeasedSidechainsTestSuite, CeasingHeightUpdateForFullCert) {
     CBlock creationBlock;
     view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut);
+        view->ScheduleSidechainEvent(scCreationOut, creationHeight);
 
 
     CSidechain scInfo;
@@ -306,7 +306,7 @@ TEST_F(CeasedSidechainsTestSuite, CeasingHeightUpdateForPureBwtCert) {
     CBlock creationBlock;
     view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut);
+        view->ScheduleSidechainEvent(scCreationOut, creationHeight);
 
 
     CSidechain scInfo;
@@ -343,7 +343,7 @@ TEST_F(CeasedSidechainsTestSuite, CeasingHeightUpdateForNoBwtCert) {
     CBlock creationBlock;
     view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut);
+        view->ScheduleSidechainEvent(scCreationOut, creationHeight);
 
 
     CSidechain scInfo;
@@ -380,7 +380,7 @@ TEST_F(CeasedSidechainsTestSuite, CeasingHeightUpdateForEmptyCertificate) {
     CBlock creationBlock;
     view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut);
+        view->ScheduleSidechainEvent(scCreationOut, creationHeight);
 
 
     CSidechain scInfo;
@@ -419,7 +419,7 @@ TEST_F(CeasedSidechainsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCe
     CBlock creationBlock;
     view->UpdateScInfo(scCreationTx, creationBlock, scCreationHeight);
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut);
+        view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
 
     //Generate certificate
     CSidechain scInfo;
@@ -472,7 +472,7 @@ TEST_F(CeasedSidechainsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     CBlock creationBlock;
     view->UpdateScInfo(scCreationTx, creationBlock, scCreationHeight);
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut);
+        view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
 
     //Generate certificate
     CSidechain scInfo;
@@ -523,7 +523,7 @@ TEST_F(CeasedSidechainsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSi
     CBlock creationBlock;
     view->UpdateScInfo(scCreationTx, creationBlock, scCreationHeight);
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut);
+        view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
 
     //Generate certificate
     CSidechain scInfo;
@@ -569,7 +569,7 @@ TEST_F(CeasedSidechainsTestSuite, EmptyCertificatesCoinsAreNotAffectedByCeasedSi
     CBlock creationBlock;
     view->UpdateScInfo(scCreationTx, creationBlock, scCreationHeight);
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut);
+        view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
 
     //Generate certificate
     CSidechain scInfo;
@@ -604,9 +604,10 @@ TEST_F(CeasedSidechainsTestSuite, RestoreFullCertCeasedCoins) {
     uint256 scId = uint256S("aaa");
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     CBlock scCreationBlock;
-    view->UpdateScInfo(scCreationTx, scCreationBlock, /*height*/1789);
+    int scCreationHeight = 1789;
+    view->UpdateScInfo(scCreationTx, scCreationBlock, scCreationHeight);
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut);
+        view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
 
     //Generate certificate
     CSidechain scInfo;
@@ -655,9 +656,10 @@ TEST_F(CeasedSidechainsTestSuite, RestorePureBwtCeasedCoins) {
     uint256 scId = uint256S("aaa");
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     CBlock scCreationBlock;
-    view->UpdateScInfo(scCreationTx, scCreationBlock, /*height*/1789);
+    int scCreationHeight = 1789;
+    view->UpdateScInfo(scCreationTx, scCreationBlock, scCreationHeight);
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut);
+        view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
 
     //Generate certificate
     CSidechain scInfo;
@@ -707,9 +709,10 @@ TEST_F(CeasedSidechainsTestSuite, RestoreNoBwtCeasedCoins) {
     uint256 scId = uint256S("aaa");
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     CBlock scCreationBlock;
-    view->UpdateScInfo(scCreationTx, scCreationBlock, /*height*/1789);
+    int scCreationHeight = 1789;
+    view->UpdateScInfo(scCreationTx, scCreationBlock, scCreationHeight);
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut);
+        view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
 
     //Generate certificate
     CSidechain scInfo;
@@ -758,9 +761,10 @@ TEST_F(CeasedSidechainsTestSuite, RestoreEmptyCertCeasedCoins) {
     uint256 scId = uint256S("aaa");
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
     CBlock scCreationBlock;
-    view->UpdateScInfo(scCreationTx, scCreationBlock, /*height*/1789);
+    int scCreationHeight = 1789;
+    view->UpdateScInfo(scCreationTx, scCreationBlock, scCreationHeight);
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut);
+        view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
 
     //Generate certificate
     CSidechain scInfo;
@@ -805,7 +809,7 @@ TEST_F(CeasedSidechainsTestSuite, CancelSidechainEvent) {
     ASSERT_TRUE(view->UpdateScInfo(scCreationTx, creationBlock, scCreationHeight));
 
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationOut));
+        EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationOut, scCreationHeight));
 
     CSidechain scInfo;
     ASSERT_TRUE(view->GetSidechain(scId, scInfo));
@@ -831,7 +835,7 @@ TEST_F(CeasedSidechainsTestSuite, UndoFullCertUpdatesToCeasingScs) {
     CBlock creationBlock;
     view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut);
+        view->ScheduleSidechainEvent(scCreationOut, creationHeight);
 
 
     CSidechain scInfo;
@@ -876,7 +880,7 @@ TEST_F(CeasedSidechainsTestSuite, UndoPureBwtCertUpdatesToCeasingScs) {
     CBlock creationBlock;
     view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut);
+        view->ScheduleSidechainEvent(scCreationOut, creationHeight);
 
 
     CSidechain scInfo;
@@ -921,7 +925,7 @@ TEST_F(CeasedSidechainsTestSuite, UndoNoBwtCertUpdatesToCeasingScs) {
     CBlock creationBlock;
     view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut);
+        view->ScheduleSidechainEvent(scCreationOut, creationHeight);
 
 
     CSidechain scInfo;
@@ -966,7 +970,7 @@ TEST_F(CeasedSidechainsTestSuite, UndoEmptyCertUpdatesToCeasingScs) {
     CBlock creationBlock;
     view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut);
+        view->ScheduleSidechainEvent(scCreationOut, creationHeight);
 
 
     CSidechain scInfo;

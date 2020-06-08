@@ -499,7 +499,7 @@ protected:
     mutable uint256        hashBlock;
     mutable CCoinsMap      cacheCoins;
     mutable CSidechainsMap cacheSidechains;
-    mutable CCeasingScsMap cacheCeasingScs;
+    mutable CCeasingScsMap cacheSidechainEvents;
     mutable uint256        hashAnchor;
     mutable CAnchorsMap    cacheAnchors;
     mutable CNullifiersMap cacheNullifiers;
@@ -578,7 +578,7 @@ public:
     //CEASING SIDECHAINS RELATED MEMBERS
     bool HaveSidechainEvents(int height)                            const override;
     bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override;
-    bool ScheduleSidechainEvent(const CTxScCreationOut& scCreationOut);
+    bool ScheduleSidechainEvent(const CTxScCreationOut& scCreationOut, int creationHeight);
     bool CancelSidechainEvent(const CTxScCreationOut& scCreationOut);
     bool ScheduleSidechainEvent(const CScCertificate& cert);
     bool CancelSidechainEvent(const CScCertificate& cert);

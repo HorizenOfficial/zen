@@ -2731,7 +2731,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
 
             for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
-                if (!view.ScheduleSidechainEvent(scCreation))
+                if (!view.ScheduleSidechainEvent(scCreation, pindex->nHeight))
                     return state.DoS(100, error("ConnectBlock(): error updating ceasing height for sidechain [%s]", scCreation.scId.ToString()),
                                      REJECT_INVALID, "bad-sc-not-recorded");
             }

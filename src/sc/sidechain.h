@@ -22,16 +22,19 @@ public:
     ~CSidechainEvents() = default;
 
     std::set<uint256> ceasingScs;
+    std::set<uint256> maturingScs;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(ceasingScs);
+        READWRITE(maturingScs);
     }
 
     inline bool operator==(const CSidechainEvents& rhs) const {
-        return (this->ceasingScs                == rhs.ceasingScs);
+        return ((this->ceasingScs  == rhs.ceasingScs) &&
+                (this->maturingScs == rhs.maturingScs));
     }
 
     inline bool operator!=(const CSidechainEvents& rhs) const { return !(*this == rhs); }

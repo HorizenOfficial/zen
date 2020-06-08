@@ -145,7 +145,7 @@ public:
                      memusage::DynamicUsage(cacheAnchors) +
                      memusage::DynamicUsage(cacheNullifiers) +
                      memusage::DynamicUsage(cacheSidechains) +
-                     memusage::DynamicUsage(cacheCeasingScs);
+                     memusage::DynamicUsage(cacheSidechainEvents);
         for (CCoinsMap::iterator it = cacheCoins.begin(); it != cacheCoins.end(); it++) {
             ret += it->second.coins.DynamicMemoryUsage();
         }
