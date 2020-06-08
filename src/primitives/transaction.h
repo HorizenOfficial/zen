@@ -881,9 +881,6 @@ public:
 
     std::string ToString() const override;
 
- public:
-    void addToScCommitment(std::map<uint256, std::vector<uint256> >& mLeaves, std::set<uint256>& sScIds) const ;
-
  private:
     template <typename T>
     inline CAmount GetValueCcOut(const T& ccout) const
@@ -898,6 +895,7 @@ public:
         return nValueOut;
     }
 
+ public:
     template <typename T>
     inline void fillCrosschainOutput(const T& vOuts, unsigned int& nIdx, std::map<uint256, std::vector<uint256> >& map, std::set<uint256>& sScIds) const
     {
@@ -964,7 +962,6 @@ public:
         }
     }
 
-  public:
     void AddToBlock(CBlock* pblock) const override;
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const override;
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;

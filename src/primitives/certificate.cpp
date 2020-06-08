@@ -228,12 +228,6 @@ CScCertificate::MakeShared() const {
 }
 #endif
 
-void CScCertificate::addToScCommitment(std::map<uint256, uint256>& map, std::set<uint256>& sScIds) const
-{
-    sScIds.insert(scId);
-    map[scId] = GetHash();
-}
-
 CAmount CScCertificate::GetValueOfBackwardTransfers() const
 {
     CAmount nValueOut = 0;

@@ -60,13 +60,7 @@ uint256 CBlock::BuildMerkleTree(bool* fMutated) const
        root.
     */
     vMerkleTree.clear();
-#if 0
-    vMerkleTree.reserve(vtx.size() * 2 + 16); // Safe upper bound for the number of total nodes.
-    for (std::vector<CTransaction>::const_iterator it(vtx.begin()); it != vtx.end(); ++it)
-        vMerkleTree.push_back(it->GetHash());
 
-    return BuildMerkleTree(vMerkleTree, vtx.size(), fMutated);
-#else
     std::vector<const CTransactionBase*> vTxBase;
     GetTxAndCertsVector(vTxBase);
 
@@ -75,7 +69,6 @@ uint256 CBlock::BuildMerkleTree(bool* fMutated) const
         vMerkleTree.push_back((*it)->GetHash());
 
     return BuildMerkleTree(vMerkleTree, vTxBase.size(), fMutated);
-#endif
 }
 
 uint256 CBlock::BuildMerkleTree(std::vector<uint256>& vMerkleTreeIn, size_t vtxSize, bool* fMutated)
@@ -137,11 +130,7 @@ std::vector<uint256> CBlock::GetMerkleBranch(int nIndex) const
         BuildMerkleTree();
     std::vector<uint256> vMerkleBranch;
     int j = 0;
-#if 0
-    for (int nSize = vtx.size(); nSize > 1; nSize = (nSize + 1) / 2)
-#else
     for (int nSize = (vtx.size() + vcert.size()); nSize > 1; nSize = (nSize + 1) / 2)
-#endif
     {
         int i = std::min(nIndex^1, nSize-1);
         vMerkleBranch.push_back(vMerkleTree[j+i]);
@@ -238,13 +227,23 @@ const uint256& SidechainTxsCommitmentBuilder::getCrossChainNullHash()
 
 void SidechainTxsCommitmentBuilder::add(const CTransaction& tx)
 {
-    tx.addToScCommitment(mScMerkleTreeLeavesFt, sScIds);
-    // TODO btr to be implemented
+    if (!tx.IsScVersion())
+        return;
+
+    unsigned int nIdx = 0;
+    LogPrint("sc", "%s():%d -getting leaves for vsc out\n", __func__, __LINE__);
+    tx.fillCrosschainOutput(tx.GetVscCcOut(), nIdx, mScMerkleTreeLeavesFt, sScIds);
+
+    LogPrint("sc", "%s():%d -getting leaves for vft out\n", __func__, __LINE__);
+    tx.fillCrosschainOutput(tx.GetVftCcOut(), nIdx, mScMerkleTreeLeavesFt, sScIds);
+
+    LogPrint("sc", "%s():%d - nIdx[%d]\n", __func__, __LINE__, nIdx);
 }
 
 void SidechainTxsCommitmentBuilder::add(const CScCertificate& cert)
 {
-    cert.addToScCommitment(mScCerts, sScIds);
+    sScIds.insert(cert.GetScId());
+    mScCerts[cert.GetScId()] = cert.GetHash();
 }
 
 uint256 SidechainTxsCommitmentBuilder::getCommitment()

@@ -167,7 +167,6 @@ public:
     std::string EncodeHex() const override;
     std::string ToString() const override;
 
-    void addToScCommitment(std::map<uint256, uint256>& mLeaves, std::set<uint256>& sScIds) const;
     CAmount GetValueOfBackwardTransfers() const;
     int GetNumbOfBackwardTransfers() const;
     CAmount GetValueOfChange() const { return (GetValueOut() - GetValueOfBackwardTransfers()); }

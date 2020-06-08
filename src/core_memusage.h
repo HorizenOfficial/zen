@@ -25,58 +25,42 @@ static inline size_t RecursiveDynamicUsage(const CTxOut& out) {
     return RecursiveDynamicUsage(out.scriptPubKey);
 }
 
+static inline size_t RecursiveDynamicUsage(const CTxScCreationOut& ccout)
+{
+    return memusage::DynamicUsage(ccout.customData);
+}
+
 // no dynamic fields
-static inline size_t RecursiveDynamicUsage(const CTxScCreationOut& ccout) { return 0; }
 static inline size_t RecursiveDynamicUsage(const CTxForwardTransferOut& ccout) { return 0; }
 
 static inline size_t RecursiveDynamicUsage(const CTransaction& tx) {
     size_t mem = 0;
     mem += memusage::DynamicUsage(tx.GetVin());
-    mem += memusage::DynamicUsage(tx.GetVout());
     for (std::vector<CTxIn>::const_iterator it = tx.GetVin().begin(); it != tx.GetVin().end(); it++) {
         mem += RecursiveDynamicUsage(*it);
     }
+    mem += memusage::DynamicUsage(tx.GetVout());
     for (std::vector<CTxOut>::const_iterator it = tx.GetVout().begin(); it != tx.GetVout().end(); it++) {
         mem += RecursiveDynamicUsage(*it);
     }
 // what about shielded components???
     mem += memusage::DynamicUsage(tx.GetVscCcOut());
-    mem += memusage::DynamicUsage(tx.GetVftCcOut());
     for (std::vector<CTxScCreationOut>::const_iterator it = tx.GetVscCcOut().begin(); it != tx.GetVscCcOut().end(); it++) {
         mem += RecursiveDynamicUsage(*it);
     }
-    for (std::vector<CTxForwardTransferOut>::const_iterator it = tx.GetVftCcOut().begin(); it != tx.GetVftCcOut().end(); it++) {
-        mem += RecursiveDynamicUsage(*it);
-    }
+    mem += memusage::DynamicUsage(tx.GetVftCcOut());
+    // no dynamic fields for ft
     return mem;
 }
 
 static inline size_t RecursiveDynamicUsage(const CScCertificate& cert) {
     size_t mem = 0;
+    mem += memusage::DynamicUsage(cert.GetVin());
+    for (std::vector<CTxIn>::const_iterator it = cert.GetVin().begin(); it != cert.GetVin().end(); it++) {
+        mem += RecursiveDynamicUsage(*it);
+    }
     mem += memusage::DynamicUsage(cert.GetVout());
     for (std::vector<CTxOut>::const_iterator it = cert.GetVout().begin(); it != cert.GetVout().end(); it++) {
-        mem += RecursiveDynamicUsage(*it);
-    }
-    return mem;
-}
-
-// these symbols seem not to be referenced by anyone
-//--------------------------------------------------
-static inline size_t RecursiveDynamicUsage(const CMutableTransaction& tx) {
-    size_t mem = memusage::DynamicUsage(tx.vin) + memusage::DynamicUsage(tx.vout);
-    for (std::vector<CTxIn>::const_iterator it = tx.vin.begin(); it != tx.vin.end(); it++) {
-        mem += RecursiveDynamicUsage(*it);
-    }
-    for (std::vector<CTxOut>::const_iterator it = tx.vout.begin(); it != tx.vout.end(); it++) {
-        mem += RecursiveDynamicUsage(*it);
-    }
-// what about shielded components???
-    mem += memusage::DynamicUsage(tx.vsc_ccout);
-    mem += memusage::DynamicUsage(tx.vft_ccout);
-    for (std::vector<CTxScCreationOut>::const_iterator it = tx.vsc_ccout.begin(); it != tx.vsc_ccout.end(); it++) {
-        mem += RecursiveDynamicUsage(*it);
-    }
-    for (std::vector<CTxForwardTransferOut>::const_iterator it = tx.vft_ccout.begin(); it != tx.vft_ccout.end(); it++) {
         mem += RecursiveDynamicUsage(*it);
     }
     return mem;
