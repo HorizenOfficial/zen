@@ -1935,6 +1935,7 @@ bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint
         coins->fCoinBase          = undo.fCoinBase;
         coins->nHeight            = undo.nHeight;
         coins->nVersion           = undo.nVersion;
+        coins->nFirstBwtPos       = undo.nFirstBwtPos;
         coins->nBwtMaturityHeight = undo.nBwtMaturityHeight;
     } else
     {
@@ -1948,6 +1949,8 @@ bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint
         coins->vout.resize(out.n+1);
 
     coins->vout[out.n] = undo.txout;
+    if (coins->IsFromCert() && (out.n >= coins->nFirstBwtPos))
+        coins->vout[out.n].isFromBackwardTransfer = true;
 
     return fClean;
 }
@@ -1966,14 +1969,14 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache &inputs, CTxUndo &txund
 
             // mark an outpoint spent, and construct undo information
             txundo.vprevout.push_back(CTxInUndo(coins->vout[nPos]));
-            bool isBwt = coins->vout[nPos].isFromBackwardTransfer;
             coins->Spend(nPos);
-            if (coins->vout.size() == 0 || isBwt)
+            if (coins->vout.size() == 0)
             {
                 CTxInUndo& undo         = txundo.vprevout.back();
                 undo.nHeight            = coins->nHeight;
                 undo.fCoinBase          = coins->fCoinBase;
                 undo.nVersion           = coins->nVersion;
+                undo.nFirstBwtPos       = coins->nFirstBwtPos;
                 undo.nBwtMaturityHeight = coins->nBwtMaturityHeight;
             }
         }
@@ -2002,14 +2005,14 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
 
         // mark an outpoint spent, and construct undo information
         txundo.vprevout.push_back(CTxInUndo(coins->vout[nPos]));
-        bool isBwt = coins->vout[nPos].isFromBackwardTransfer;
         coins->Spend(nPos);
-        if (coins->vout.size() == 0 || isBwt)
+        if (coins->vout.size() == 0)
         {
             CTxInUndo& undo = txundo.vprevout.back();
             undo.nHeight            = coins->nHeight;
             undo.fCoinBase          = coins->fCoinBase;
             undo.nVersion           = coins->nVersion;
+            undo.nFirstBwtPos       = coins->nFirstBwtPos;
             undo.nBwtMaturityHeight = coins->nBwtMaturityHeight;
         }
     }
@@ -2310,8 +2313,8 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     if (!UndoReadFromDisk(blockUndo, pos, pindex->pprev->GetBlockHash()))
         return error("DisconnectBlock(): failure reading undo data");
 
-    LogPrint("sc", "%s():%d - ===============> CBlockUndo red from DB:\n%s\n",
-        __func__, __LINE__, blockUndo.ToString());
+//    LogPrint("sc", "%s():%d - ===============> CBlockUndo red from DB:\n%s\n",
+//        __func__, __LINE__, blockUndo.ToString());
     // no coinbase in blockundo
     if (blockUndo.vtxundo.size() != (block.vtx.size() - 1 + block.vcert.size()))
         return error("DisconnectBlock(): block and undo data inconsistent");
@@ -2363,8 +2366,8 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 LogPrint("cert", "%s():%d - outs     :%s\n", __func__, __LINE__, outs->ToString());
                 LogPrint("cert", "%s():%d - outsBlock:%s\n", __func__, __LINE__, outsBlock.ToString());
 
-                fClean = fClean && error("DisconnectBlock(): added transaction mismatch? database corrupted");
-                LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, hash.ToString());
+                fClean = fClean && error("DisconnectBlock(): added certificate mismatch? database corrupted");
+                //LogPrint("cert", "%s():%d - mismatched cert hash [%s]\n", __func__, __LINE__, hash.ToString());
             }
   
             // remove outputs
@@ -2389,8 +2392,11 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         for (unsigned int j = cert.GetVin().size(); j-- > 0;) {
             const COutPoint &out = cert.GetVin()[j].prevout;
             const CTxInUndo &undo = certUndo.vprevout[j];
-            if (!ApplyTxInUndo(undo, view, out))
+            if (!ApplyTxInUndo(undo, view, out)) {
+                LogPrint("cert", "%s():%d ApplyTxInUndo returned FALSE on cert [%s] \n", __func__, __LINE__, cert.GetHash().ToString());
                 fClean = false;
+            }
+
         }
     }
 
@@ -2450,8 +2456,11 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             for (unsigned int j = tx.GetVin().size(); j-- > 0;) {
                 const COutPoint &out = tx.GetVin()[j].prevout;
                 const CTxInUndo &undo = txundo.vprevout[j];
-                if (!ApplyTxInUndo(undo, view, out))
+                if (!ApplyTxInUndo(undo, view, out)) {
+                    LogPrint("cert", "%s():%d ApplyTxInUndo returned FALSE on tx [%s] \n", __func__, __LINE__, tx.GetHash().ToString());
                     fClean = false;
+                }
+
             }
         }
     }
