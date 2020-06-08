@@ -570,9 +570,8 @@ public:
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    bool HaveCertForEpoch(const uint256& scId, int epochNumber) const override;
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state);
-    bool isLegalEpoch(const uint256& scId, int epochNumber, const uint256& epochBlockHash);
+    bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash);
     bool UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry);
     bool RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry);
 
@@ -586,7 +585,7 @@ public:
     bool HandleCeasingScs(int height, CBlockUndo& blockUndo);
     bool RevertCeasingScs(const CVoidedCertUndo & voidedCertUndo);
 
-    CSidechain::state isCeasedAtHeight(const uint256& scId, int height) const;
+    CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
 
     bool Flush();
 

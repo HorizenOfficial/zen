@@ -36,6 +36,31 @@ int CSidechain::SafeguardMargin() const
     return creationData.withdrawalEpochLength/5;
 }
 
+int CSidechain::GetCeasingHeight() const
+{
+    if ( creationData.withdrawalEpochLength == -1) //default value
+        return -1;
+    return StartHeightForEpoch(lastEpochReferencedByCertificate+2) + SafeguardMargin();
+}
+
+std::string CSidechain::stateToString(State s)
+{
+    switch(s)
+    {
+        case State::ALIVE:  return "ALIVE";          break;
+        case State::CEASED: return "CEASED";         break;
+        default:            return "NOT_APPLICABLE"; break;
+    }
+}
+
+size_t CSidechain::DynamicMemoryUsage() const {
+    return memusage::DynamicUsage(mImmatureAmounts);
+}
+
+size_t CCeasingSidechains::DynamicMemoryUsage() const {
+    return memusage::DynamicUsage(ceasingScs);
+}
+
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
 {
     // check version consistency

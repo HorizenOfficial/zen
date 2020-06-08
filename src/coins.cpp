@@ -244,6 +244,8 @@ size_t CCoinsViewCache::DynamicMemoryUsage() const {
     return memusage::DynamicUsage(cacheCoins) +
            memusage::DynamicUsage(cacheAnchors) +
            memusage::DynamicUsage(cacheNullifiers) +
+           memusage::DynamicUsage(cacheSidechains) +
+           memusage::DynamicUsage(cacheCeasingScs) +
            cachedCoinsUsage;
 }
 
@@ -279,6 +281,7 @@ CSidechainsMap::const_iterator CCoinsViewCache::FetchSidechains(const uint256& s
     CSidechainsMap::iterator ret =
             cacheSidechains.insert(std::make_pair(scId, CSidechainsCacheEntry(tmp, CSidechainsCacheEntry::Flags::DEFAULT ))).first;
 
+    cachedCoinsUsage += ret->second.scInfo.DynamicMemoryUsage();
     return ret;
 }
 
@@ -296,6 +299,7 @@ CCeasingScsMap::const_iterator CCoinsViewCache::FetchCeasingScs(int height) cons
     CCeasingScsMap::iterator ret =
             cacheCeasingScs.insert(std::make_pair(height, CCeasingScsCacheEntry(tmp, CCeasingScsCacheEntry::Flags::DEFAULT ))).first;
 
+    cachedCoinsUsage += ret->second.ceasingScs.DynamicMemoryUsage();
     return ret;
 }
 
@@ -879,25 +883,17 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
     return true;
 }
 
-bool CCoinsViewCache::HaveCertForEpoch(const uint256& scId, int epochNumber) const {
-    CSidechain info;
-    if (!GetSidechain(scId, info))
-        return false;
-
-    if (info.lastEpochReferencedByCertificate == epochNumber)
-        return true;
-
-    return false;
-}
-
 #ifdef BITCOIN_TX
 int CSidechain::EpochFor(int targetHeight) const { return CScCertificate::EPOCH_NULL; }
 int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
 int CSidechain::SafeguardMargin() const { return -1; }
-bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash) {return true;}
+size_t CSidechain::DynamicMemoryUsage() const { return 0; }
+bool CCoinsViewCache::isEpochDataValid(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) {return true;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state) {return true;}
 bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height) { return true;}
 void SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped) {};
+size_t CCeasingSidechains::DynamicMemoryUsage() const { return 0;}
+
 #else
 
 #include "consensus/validation.h"
@@ -919,7 +915,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     }
 
     // check that epoch data are consistent
-    if (!isLegalEpoch(cert.GetScId(), cert.epochNumber, cert.endEpochBlockHash) )
+    if (!isEpochDataValid(scInfo, cert.epochNumber, cert.endEpochBlockHash) )
     {
         LogPrint("sc", "%s():%d - invalid cert[%s], scId[%s] invalid epoch data\n",
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString() );
@@ -927,7 +923,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
-    if (isCeasedAtHeight(cert.GetScId(), nHeight)!= CSidechain::state::ALIVE) {
+    if (isCeasedAtHeight(cert.GetScId(), nHeight)!= CSidechain::State::ALIVE) {
         LogPrintf("ERROR: certificate[%s] cannot be accepted, sidechain [%s] already ceased at active height = %d\n",
             certHash.ToString(), cert.GetScId().ToString(), chainActive.Height());
         return state.Invalid(error("received a delayed cert"),
@@ -949,7 +945,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     return true;
 }
 
-bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash)
+bool CCoinsViewCache::isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& endEpochBlockHash)
 {
     if (epochNumber < 0 || endEpochBlockHash.IsNull())
     {
@@ -957,18 +953,11 @@ bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const u
         return false;
     }
 
-    CSidechain info;
-    if (!GetSidechain(scId, info))
-    {
-        LogPrint("sc", "%s():%d - scId[%s] not found\n", __func__, __LINE__, scId.ToString() );
-        return false;
-    }
-
     // 1. the epoch number must be consistent with the sc certificate history (no old epoch allowed)
-    if (epochNumber != info.lastEpochReferencedByCertificate+1)
+    if (epochNumber != scInfo.lastEpochReferencedByCertificate+1)
     {
         LogPrint("sc", "%s():%d - can not receive a certificate for epoch %d (expected: %d)\n",
-            __func__, __LINE__, epochNumber, info.lastEpochReferencedByCertificate+1 );
+            __func__, __LINE__, epochNumber, scInfo.lastEpochReferencedByCertificate+1 );
         return false;
     }
 
@@ -990,13 +979,13 @@ bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const u
     }
 
     // 3. combination of epoch number and epoch length, specified in sc info, must point to that end-epoch block
-    int endEpochHeight = info.StartHeightForEpoch(epochNumber+1) -1;
+    int endEpochHeight = scInfo.StartHeightForEpoch(epochNumber+1) -1;
     pblockindex = chainActive[endEpochHeight];
 
     if (!pblockindex)
     {
         LogPrint("sc", "%s():%d - calculated height %d (createHeight=%d/epochNum=%d/epochLen=%d) is out of active chain\n",
-            __func__, __LINE__, endEpochHeight, info.creationBlockHeight, epochNumber, info.creationData.withdrawalEpochLength);
+            __func__, __LINE__, endEpochHeight, scInfo.creationBlockHeight, epochNumber, scInfo.creationData.withdrawalEpochLength);
         return false;
     }
 
@@ -1038,7 +1027,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
         const uint256& scId = ft.scId;
         if (HaveSidechain(scId))
         {
-            if (isCeasedAtHeight(scId, height)!= CSidechain::state::ALIVE) {
+            if (isCeasedAtHeight(scId, height)!= CSidechain::State::ALIVE) {
                 LogPrintf("ERROR: tx[%s] tries to send funds to scId[%s] already ceased at height = %d\n",
                             txHash.ToString(), scId.ToString(), height);
                 return false;
@@ -1210,7 +1199,8 @@ bool CCoinsViewCache::UpdateCeasingScs(const CScCertificate& cert)
         return false;
     }
 
-    int nextCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2) + scInfo.SafeguardMargin()+1;
+    int curCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+1) + scInfo.SafeguardMargin()+1;
+    int nextCeasingHeight = curCeasingHeight + scInfo.creationData.withdrawalEpochLength;
     int prevCeasingHeight = nextCeasingHeight - scInfo.creationData.withdrawalEpochLength;
 
     //clear up prev ceasing height, if any
@@ -1227,6 +1217,8 @@ bool CCoinsViewCache::UpdateCeasingScs(const CScCertificate& cert)
     } else {
         LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s]: cert [%s] finds not prevCeasingHeight [%d] to remove\n",
                 __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), prevCeasingHeight);
+        // we always must have previous ceasing height record (at list one for current cert sc id).
+        return false;
     }
 
     //add next ceasing Height
@@ -1322,6 +1314,7 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
 
         //null all bwt outputs and add related txundo in block
         bool foundFirstBwt = false;
+
         for(int pos = coins->nFirstBwtPos; pos < coins->vout.size(); ++pos)
         {
             if (!foundFirstBwt)
@@ -1388,30 +1381,30 @@ bool CCoinsViewCache::RevertCeasingScs(const CVoidedCertUndo& voidedCertUndo)
     return fClean;
 }
 
-CSidechain::state CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int height) const
+CSidechain::State CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int height) const
 {
     if (!HaveSidechain(scId))
-        return CSidechain::state::NOT_APPLICABLE;
+        return CSidechain::State::NOT_APPLICABLE;
 
     CSidechain scInfo;
     GetSidechain(scId, scInfo);
 
     if (height < scInfo.creationBlockHeight)
-        return CSidechain::state::NOT_APPLICABLE;
+        return CSidechain::State::NOT_APPLICABLE;
 
     int currentEpoch = scInfo.EpochFor(height);
 
     if (currentEpoch > scInfo.lastEpochReferencedByCertificate + 2)
-        return CSidechain::state::CEASED;
+        return CSidechain::State::CEASED;
 
     if (currentEpoch == scInfo.lastEpochReferencedByCertificate + 2)
     {
         int targetEpochSafeguardHeight = scInfo.StartHeightForEpoch(currentEpoch) + scInfo.SafeguardMargin();
         if (height > targetEpochSafeguardHeight)
-            return CSidechain::state::CEASED;
+            return CSidechain::State::CEASED;
     }
 
-    return  CSidechain::state::ALIVE;
+    return  CSidechain::State::ALIVE;
 }
 
 bool CCoinsViewCache::Flush() {
