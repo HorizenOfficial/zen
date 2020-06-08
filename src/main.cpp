@@ -2319,12 +2319,8 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     if (blockUndo.vtxundo.size() != (block.vtx.size() - 1 + block.vcert.size()))
         return error("DisconnectBlock(): block and undo data inconsistent");
 
-    for(int idx = blockUndo.vVoidedCertUndo.size() - 1; idx >= 0; --idx)
-    {
-        LogPrint("sc", "%s():%d - calling RevertCeasingScs idx[%d]\n", __func__, __LINE__, idx);
-        if (!view.RevertSidechainEvents(blockUndo.vVoidedCertUndo[idx]))
-            return error("DisconnectBlock(): cannot revert ceasing sc");
-    }
+    if (!view.RevertSidechainEvents(blockUndo, pindex->nHeight))
+        return error("DisconnectBlock(): cannot revert sidechains scheduled events");
 
     LogPrint("sc", "%s():%d - restoring sc coins if any\n", __func__, __LINE__);
     if (!view.RestoreImmatureBalances(pindex->nHeight, blockUndo) )

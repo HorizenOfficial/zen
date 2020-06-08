@@ -636,8 +636,7 @@ TEST_F(CeasedSidechainsTestSuite, RestoreFullCertCeasedCoins) {
     view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo);
 
     //test
-    for (const CVoidedCertUndo& voidCertUndo: coinsBlockUndo.vVoidedCertUndo)
-        view->RevertSidechainEvents(voidCertUndo);
+    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight);
 
     //checks
     CCoins rebuiltCoin;
@@ -689,8 +688,7 @@ TEST_F(CeasedSidechainsTestSuite, RestorePureBwtCeasedCoins) {
     ASSERT_FALSE(view->HaveCoins(cert.GetHash()));
 
     //test
-    for (const CVoidedCertUndo& voidCertUndo: coinsBlockUndo.vVoidedCertUndo)
-        view->RevertSidechainEvents(voidCertUndo);
+    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight);
 
     //checks
     CCoins rebuiltCoin;
@@ -741,8 +739,7 @@ TEST_F(CeasedSidechainsTestSuite, RestoreNoBwtCeasedCoins) {
     view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo);
 
     //test
-    for (const CVoidedCertUndo& voidCertUndo: coinsBlockUndo.vVoidedCertUndo)
-        view->RevertSidechainEvents(voidCertUndo);
+    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight);
 
     //checks
     CCoins rebuiltCoin;
@@ -792,8 +789,7 @@ TEST_F(CeasedSidechainsTestSuite, RestoreEmptyCertCeasedCoins) {
     view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo);
 
     //test
-    for (const CVoidedCertUndo& voidCertUndo: coinsBlockUndo.vVoidedCertUndo)
-        view->RevertSidechainEvents(voidCertUndo);
+    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight);
 
     //checks
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));

@@ -1370,19 +1370,18 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo)
     //Handle Maturing amounts
     for (const uint256& maturingScId : scEvents.maturingScs)
     {
-        CSidechain scInfo;
-        assert(GetSidechain(maturingScId, scInfo));
-        assert(scInfo.mImmatureAmounts.count(height));
+        assert(HaveSidechain(maturingScId));
+        assert(cacheSidechains.at(maturingScId).scInfo.mImmatureAmounts.count(height));
 
-        scInfo.balance += scInfo.mImmatureAmounts[height];
+        cacheSidechains.at(maturingScId).scInfo.balance += cacheSidechains.at(maturingScId).scInfo.mImmatureAmounts[height];
         LogPrint("sc", "%s():%d - scId=%s balance updated to: %s\n",
-            __func__, __LINE__, maturingScId.ToString(), FormatMoney(scInfo.balance));
+            __func__, __LINE__, maturingScId.ToString(), FormatMoney(cacheSidechains.at(maturingScId).scInfo.balance));
 
-        blockUndo.scUndoMap[maturingScId].appliedMaturedAmount = scInfo.mImmatureAmounts[height];
+        blockUndo.scUndoMap[maturingScId].appliedMaturedAmount = cacheSidechains.at(maturingScId).scInfo.mImmatureAmounts[height];
         LogPrint("sc", "%s():%d - adding immature amount %s for scId=%s in blockundo\n",
-            __func__, __LINE__, FormatMoney(scInfo.mImmatureAmounts[height]), maturingScId.ToString());
+            __func__, __LINE__, FormatMoney(cacheSidechains.at(maturingScId).scInfo.mImmatureAmounts[height]), maturingScId.ToString());
 
-        scInfo.mImmatureAmounts.erase(height);
+        cacheSidechains.at(maturingScId).scInfo.mImmatureAmounts.erase(height);
         cacheSidechains.at(maturingScId).flag = CSidechainsCacheEntry::Flags::DIRTY;
     }
 
@@ -1442,40 +1441,85 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo)
     return true;
 }
 
-bool CCoinsViewCache::RevertSidechainEvents(const CVoidedCertUndo& voidedCertUndo)
+bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int height)
 {
-    bool fClean = true;
-
-    const uint256& coinHash = voidedCertUndo.voidedCertHash;
-    if(coinHash.IsNull())
+    // Reverting amount maturing
+    for (std::map<uint256, ScUndoData>::const_iterator it = blockUndo.scUndoMap.begin(); it != blockUndo.scUndoMap.end(); ++it)
     {
-        fClean = fClean && error("%s: malformed undo data, missing voided certificate hash ", __func__);
-        return fClean;
+        const uint256& scId = it->first;
+        const std::string& scIdString = scId.ToString();
+
+        if (!HaveSidechain(scId))
+        {
+            // should not happen
+            LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
+            return false;
+        }
+        CSidechain& targetScInfo = cacheSidechains.at(scId).scInfo;
+
+        CAmount amountToRestore = it->second.appliedMaturedAmount;
+        if (amountToRestore > 0)
+        {
+            LogPrint("sc", "%s():%d - adding immature amount %s into sc view for scId=%s\n",
+                __func__, __LINE__, FormatMoney(amountToRestore), scIdString);
+
+            if (targetScInfo.balance < amountToRestore)
+            {
+                LogPrint("sc", "%s():%d - Can not update balance with amount[%s] for scId=%s, would be negative\n",
+                    __func__, __LINE__, FormatMoney(amountToRestore), scId.ToString() );
+                return false;
+            }
+
+            targetScInfo.mImmatureAmounts[height] += amountToRestore;
+
+            LogPrint("sc", "%s():%d - scId=%s balance before: %s\n", __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
+            targetScInfo.balance -= amountToRestore;
+            LogPrint("sc", "%s():%d - scId=%s balance after: %s\n", __func__, __LINE__, scIdString, FormatMoney(targetScInfo.balance));
+
+            cacheSidechains.at(scId).flag = CSidechainsCacheEntry::Flags::DIRTY;
+        }
     }
 
-    CCoinsModifier coins = this->ModifyCoins(coinHash);
-    const std::vector<CTxInUndo>& voidedOuts = voidedCertUndo.voidedOuts;
-    for (size_t idx = voidedOuts.size(); idx-- > 0;)
+    // Reverting ceasing sidechains
+    for(const CVoidedCertUndo& voidedCertUndo: blockUndo.vVoidedCertUndo)
     {
-        if (voidedOuts.at(idx).nHeight != 0)
+        bool fClean = true;
+
+        const uint256& coinHash = voidedCertUndo.voidedCertHash;
+        if(coinHash.IsNull())
         {
-            coins->fCoinBase          = voidedOuts.at(idx).fCoinBase;
-            coins->nHeight            = voidedOuts.at(idx).nHeight;
-            coins->nVersion           = voidedOuts.at(idx).nVersion;
-            coins->nFirstBwtPos       = voidedOuts.at(idx).nFirstBwtPos;
-            coins->nBwtMaturityHeight = voidedOuts.at(idx).nBwtMaturityHeight;
+            fClean = fClean && error("%s: malformed undo data, missing voided certificate hash ", __func__);
+            return fClean;
+        }
+        LogPrint("sc", "%s():%d - reverting voiding of bwt for certificate [%s]\n", __func__, __LINE__, coinHash.ToString());
+
+        CCoinsModifier coins = this->ModifyCoins(coinHash);
+        const std::vector<CTxInUndo>& voidedOuts = voidedCertUndo.voidedOuts;
+        for (size_t idx = voidedOuts.size(); idx-- > 0;)
+        {
+            if (voidedOuts.at(idx).nHeight != 0)
+            {
+                coins->fCoinBase          = voidedOuts.at(idx).fCoinBase;
+                coins->nHeight            = voidedOuts.at(idx).nHeight;
+                coins->nVersion           = voidedOuts.at(idx).nVersion;
+                coins->nFirstBwtPos       = voidedOuts.at(idx).nFirstBwtPos;
+                coins->nBwtMaturityHeight = voidedOuts.at(idx).nBwtMaturityHeight;
+            }
+
+            if(coins->IsAvailable(coins->nFirstBwtPos + idx))
+                fClean = fClean && error("%s: undo data overwriting existing output", __func__);
+            if (coins->vout.size() < (coins->nFirstBwtPos + idx+1))
+                coins->vout.resize(coins->nFirstBwtPos + idx+1);
+            coins->vout.at(coins->nFirstBwtPos + idx) = voidedOuts.at(idx).txout;
+            coins->vout.at(coins->nFirstBwtPos + idx).isFromBackwardTransfer = true;
         }
 
-        if(coins->IsAvailable(coins->nFirstBwtPos + idx))
-            fClean = fClean && error("%s: undo data overwriting existing output", __func__);
-        if (coins->vout.size() < (coins->nFirstBwtPos + idx+1))
-            coins->vout.resize(coins->nFirstBwtPos + idx+1);
-        coins->vout.at(coins->nFirstBwtPos + idx) = voidedOuts.at(idx).txout;
-        coins->vout.at(coins->nFirstBwtPos + idx).isFromBackwardTransfer = true;
+        SyncBwtCeasing(voidedCertUndo.voidedCertHash, false);
+
+        if (!fClean) return false;
     }
 
-    SyncBwtCeasing(voidedCertUndo.voidedCertHash, false);
-    return fClean;
+    return true;
 }
 
 CSidechain::State CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int height) const
