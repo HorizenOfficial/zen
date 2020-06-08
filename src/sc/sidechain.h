@@ -72,11 +72,12 @@ public:
     // value = the immature amount
     std::map<int, CAmount> mImmatureAmounts;
 
-    enum class state {
+    enum class State {
         NOT_APPLICABLE = 0,
         ALIVE,
         CEASED
     };
+    static std::string stateToString(State s);
 
     std::string ToString() const;
 
@@ -110,6 +111,7 @@ public:
     int EpochFor(int targetHeight) const;
     int StartHeightForEpoch(int targetEpoch) const;
     int SafeguardMargin() const;
+    int GetCeasingHeight() const;
 
     // Calculate the size of the cache (in bytes)
     size_t DynamicMemoryUsage() const;
