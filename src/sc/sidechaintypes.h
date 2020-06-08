@@ -2,6 +2,7 @@
 #define _SIDECHAIN_TYPES_H
 
 #include <vector>
+#include <string>
 
 #include "uint256.h"
 #include "hash.h"
@@ -10,6 +11,8 @@
 #include "serialize.h"
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
+
+#include<sc/proofverifier.h>
 
 //------------------------------------------------------------------------------------
 class CTxForwardTransferOut;
@@ -37,25 +40,33 @@ struct ScCreationParameters
     int withdrawalEpochLength;
     // all creation data follows...
     std::vector<unsigned char> customData;
+    libzendoomc::ScConstant constant;
+    libzendoomc::ScVk wCertVk;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(withdrawalEpochLength);
         READWRITE(customData);
+        READWRITE(constant);
+        READWRITE(wCertVk);
     }
     ScCreationParameters() :withdrawalEpochLength(-1) {}
 
     inline bool operator==(const ScCreationParameters& rhs) const
     {
         return (withdrawalEpochLength == rhs.withdrawalEpochLength) &&
-               (customData == rhs.customData);
+               (customData == rhs.customData) &&
+               (constant == rhs.constant) &&
+               (wCertVk == rhs.wCertVk) ;
     }
     inline bool operator!=(const ScCreationParameters& rhs) const { return !(*this == rhs); }
     inline ScCreationParameters& operator=(const ScCreationParameters& cp)
     {
         withdrawalEpochLength = cp.withdrawalEpochLength;
         customData = cp.customData;
+        constant = cp.constant;
+        wCertVk = cp.wCertVk;
         return *this;
     }
 };
@@ -91,8 +102,7 @@ typedef boost::variant<
         CRecipientBackwardTransfer
     > CcRecipientVariant;
 
-static const int MAX_CUSTOM_DATA_LEN = 1024;
-static const int MAX_CUSTOM_DATA_BITS = MAX_CUSTOM_DATA_LEN*8;
+static const int MAX_SC_DATA_LEN = 1024;
 
 }; // end of namespace
 

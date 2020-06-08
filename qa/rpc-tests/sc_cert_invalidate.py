@@ -7,6 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_false, assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, dump_ordered_tips
+from test_framework.mc_test.mc_test import *
 import os
 from decimal import Decimal
 import pprint
@@ -84,13 +85,19 @@ class sc_cert_invalidate(BitcoinTestFramework):
         sc_info.append("No SC")
 
         mark_logs("Node 1 creates the SC spending {} coins ...".format(creation_amount), self.nodes, DEBUG_MODE)
-        creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount)
+
+        #generate wCertVk and constant
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
+        constant = generate_random_field_element_hex()
+
+        creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
 
         mark_logs("creating_tx = {}".format(creating_tx), self.nodes, DEBUG_MODE)
         sc_txes.append(creating_tx)
         self.sync_all()
 
         mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
+        prev_ep_hash_0 = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         sc_creating_block = self.nodes[0].generate(1)[0]
         self.sync_all()
         mark_logs("  ==> height {}".format(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
@@ -143,7 +150,14 @@ class sc_cert_invalidate(BitcoinTestFramework):
         mark_logs(("Node 0 performs a bwd transfer of %s coins to Node1 epn=%d, eph[%s]..." % (str(bwt_amount_1), ep_n_0, ep_hash_0)), self.nodes, DEBUG_MODE)
         amounts = []
         amounts.append({"pubkeyhash": pkh_node1, "amount": bwt_amount_1})
-        cert = self.nodes[0].send_certificate(scid, ep_n_0, ep_hash_0, amounts, CERT_FEE)
+
+        #Create proof for WCert
+        quality = 0
+        proof = create_test_proof(
+            self.options.tmpdir, self.options.srcdir,  scid, ep_n_0, ep_hash_0, prev_ep_hash_0,
+            quality, constant, [pkh_node1], [bwt_amount_1])
+
+        cert = self.nodes[0].send_certificate(scid, ep_n_0, quality, ep_hash_0, proof, amounts, CERT_FEE)
         mark_logs("cert = {}".format(cert), self.nodes, DEBUG_MODE)
         certs.append(cert)
         self.sync_all()
@@ -211,6 +225,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
 
         current_height = self.nodes[0].getblockcount()
 
+        prev_ep_hash_1 = ep_hash_0
         ep_n_1 = int((current_height - sc_creating_height + 1) / EPOCH_LENGTH) - 1
         ep_height_1 = sc_creating_height - 1 + ((ep_n_1 + 1) * EPOCH_LENGTH)
         ep_hash_1 = self.nodes[0].getblockhash(ep_height_1)
@@ -218,7 +233,14 @@ class sc_cert_invalidate(BitcoinTestFramework):
         mark_logs(("Node 0 performs a bwd transfer of %s coins to Node1 epn=%d, eph[%s]..." % (str(bwt_amount_2), ep_n_1, ep_hash_1)), self.nodes, DEBUG_MODE)
         amounts = []
         amounts.append({"pubkeyhash": pkh_node2, "amount": bwt_amount_2})
-        cert = self.nodes[0].send_certificate(scid, ep_n_1, ep_hash_1, amounts, CERT_FEE)
+
+        #Create proof for WCert
+        quality = 1
+        proof = create_test_proof(
+            self.options.tmpdir, self.options.srcdir,  scid, ep_n_1, ep_hash_1, prev_ep_hash_1,
+            quality, constant, [pkh_node2], [bwt_amount_2])
+
+        cert = self.nodes[0].send_certificate(scid, ep_n_1, quality, ep_hash_1, proof, amounts, CERT_FEE)
         mark_logs("cert = {}".format(cert), self.nodes, DEBUG_MODE)
         certs.append(cert)
         self.sync_all()

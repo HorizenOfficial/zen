@@ -19,6 +19,7 @@
 #include <boost/unordered_map.hpp>
 #include "zcash/IncrementalMerkleTree.hpp"
 #include <sc/sidechain.h>
+#include <sc/proofverifier.h>
 
 class CBlockUndo;
 
@@ -578,7 +579,7 @@ public:
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
     bool HaveCertForEpoch(const uint256& scId, int epochNumber) const override;
-    bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state);
+    bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier);
     bool isLegalEpoch(const uint256& scId, int epochNumber, const uint256& epochBlockHash);
     bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& bu);
     bool RevertCertOutputs(const CScCertificate& cert);

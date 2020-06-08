@@ -7,6 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs
+from test_framework.mc_test.mc_test import *
 import os
 from decimal import Decimal
 import pprint
@@ -33,7 +34,7 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
-            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1']] * NUMB_OF_NODES)
+            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib', '-logtimemicros=1']] * NUMB_OF_NODES)
 
         for k in range(0, NUMB_OF_NODES-1):
             connect_nodes_bi(self.nodes, k, k+1)
@@ -69,11 +70,16 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes[0].generate(220)
         self.sync_all()
 
-        creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "abcdef")
+        #generate wCertVk and constant
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
+        constant = generate_random_field_element_hex()
+
+        creating_tx = self.nodes[1].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
         mark_logs("Node0 confirms Sc creation generating 1 block", self.nodes, DEBUG_MODE)
+        prev_epoch_block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         self.nodes[0].generate(1)
         sc_creating_height = self.nodes[0].getblockcount()  # Should not this be in SC info??'
         self.sync_all()
@@ -94,9 +100,16 @@ class sc_cert_base(BitcoinTestFramework):
         pkh_node2 = self.nodes[2].getnewaddress("", True)
 
         amounts = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
+        
+        #Create proof for WCert
+        quality = 1
+        proof = create_test_proof(
+            self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            quality, constant, [pkh_node2], [bwt_amount])
+        
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
         try:
-            cert_good = self.nodes[1].send_certificate(scid, epoch_number, epoch_block_hash, amounts, CERT_FEE)
+            cert_good = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
             assert(len(cert_good) > 0)
             mark_logs("Certificate is {}".format(cert_good), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -142,15 +155,23 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes[0].generate(4)
         self.sync_all()
 
+        prev_epoch_block_hash = epoch_block_hash
         epoch_block_hash, epoch_number = self.getEpochData(sc_creating_height);
 
         bal3 = self.nodes[3].getbalance()
         bwt_amount_2 = bal3/2
 
         amounts = [{"pubkeyhash": pkh_node2, "amount": bwt_amount_2}]
+
+        #Create proof for WCert
+        quality = 2
+        proof = create_test_proof(
+            self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            quality, constant, [pkh_node2], [bwt_amount_2])
+        
         mark_logs("Node 3 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount_2, pkh_node2), self.nodes, DEBUG_MODE)
         try:
-            cert = self.nodes[3].send_certificate(scid, epoch_number, epoch_block_hash, amounts, CERT_FEE)
+            cert = self.nodes[3].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
             assert(len(cert) > 0)
             mark_logs("Certificate is {}".format(cert), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:

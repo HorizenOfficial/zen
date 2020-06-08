@@ -7,6 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, dump_ordered_tips
+from test_framework.mc_test.mc_test import *
 import os
 from decimal import Decimal
 import pprint
@@ -33,7 +34,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
-            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1']] * NUMB_OF_NODES)
+            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib', '-logtimemicros=1']] * NUMB_OF_NODES)
 
         for k in range(0, NUMB_OF_NODES-1):
             connect_nodes_bi(self.nodes, k, k+1)
@@ -84,12 +85,19 @@ class sc_cert_orphans(BitcoinTestFramework):
         self.sync_all()
 
         # (1) node0 create sidechains with 10.0 coins each
+        vk_1 = generate_params(self.options.tmpdir, self.options.srcdir, scid_1)
+        constant_1 = generate_random_field_element_hex()
+
+        vk_2 = generate_params(self.options.tmpdir, self.options.srcdir, scid_2)
+        constant_2 = generate_random_field_element_hex()
+
         mark_logs("Node0 creates SC {} and {}".format(scid_1, scid_2), self.nodes, DEBUG_MODE)
-        creating_tx_1 = self.nodes[0].sc_create(scid_1, EPOCH_LENGTH, "dada", creation_amount, "abcdef")
-        creating_tx_2 = self.nodes[0].sc_create(scid_2, EPOCH_LENGTH, "baba", creation_amount, "101010")
+        creating_tx_1 = self.nodes[0].sc_create(scid_1, EPOCH_LENGTH, "dada", creation_amount, vk_1, "", constant_1)
+        creating_tx_2 = self.nodes[0].sc_create(scid_2, EPOCH_LENGTH, "baba", creation_amount, vk_2, "", constant_2)
         self.sync_all()
 
         mark_logs("Node0 generates 5 blocks to achieve end of epoch", self.nodes, DEBUG_MODE)
+        prev_epoch_block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         self.nodes[0].generate(5)
         self.sync_all()
         epoch_block_hash, epoch_number = self.getEpochData(scid_1);
@@ -106,9 +114,16 @@ class sc_cert_orphans(BitcoinTestFramework):
         pkh_node2 = self.nodes[2].getnewaddress("", True)
         bwt_amount = Decimal("1.0")
         amounts = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
+
+        #Create proof for WCert
+        quality = 0
+        proof = create_test_proof(
+            self.options.tmpdir, self.options.srcdir,  scid_1, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            quality, constant_1, [pkh_node2], [bwt_amount])
+
         mark_logs("Node1 sends a certificate for SC {} using unconfirmed UTXO from tx1".format(scid_1), self.nodes, DEBUG_MODE)
         try:
-            cert1 = self.nodes[1].send_certificate(scid_1, epoch_number, epoch_block_hash, amounts, CERT_FEE)
+            cert1 = self.nodes[1].send_certificate(scid_1, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
             mark_logs("======> cert1 = {}".format(cert1), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -156,9 +171,16 @@ class sc_cert_orphans(BitcoinTestFramework):
 
         # (6) node1 tries to create a cert2 using the same unconfirmed change 
         amounts = []
+
+        #Create proof for WCert
+        quality = 0
+        proof = create_test_proof(
+            self.options.tmpdir, self.options.srcdir,  scid_2, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            quality, constant_2, [], [])
+
         mark_logs("Node1 tries to sends a certificate for SC {} using unconfirmed change from cert1, expecting failure".format(scid_2), self.nodes, DEBUG_MODE)
         try:
-            cert2 = self.nodes[1].send_certificate(scid_2, epoch_number, epoch_block_hash, amounts, CERT_FEE)
+            cert2 = self.nodes[1].send_certificate(scid_2, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -168,7 +190,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         mark_logs("Node1 try to do the same using a raw certificate, expecting failure".format(amount2), self.nodes, DEBUG_MODE)
         inputs  = [{'txid' : cert1, 'vout' : 0}]
         outputs = { self.nodes[1].getnewaddress() : change }
-        params = {"scid": scid_2, "endEpochBlockHash": epoch_block_hash, "withdrawalEpochNumber": epoch_number}
+        params = {"scid": scid_2, "quality": quality, "endEpochBlockHash": epoch_block_hash, "scProof": proof, "withdrawalEpochNumber": epoch_number}
         try:
             rawcert    = self.nodes[1].createrawcertificate(inputs, outputs, {}, params)
             signed_cert = self.nodes[1].signrawcertificate(rawcert)
@@ -214,7 +236,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         change = listunspent[0]['amount'] - CERT_FEE
         inputs  = [{'txid' : tx2, 'vout' : listunspent[0]['vout']}]
         outputs = { self.nodes[1].getnewaddress() : change }
-        params = {"scid": scid_2, "endEpochBlockHash": epoch_block_hash, "withdrawalEpochNumber": epoch_number}
+        params = {"scid": scid_2, "quality": quality, "endEpochBlockHash": epoch_block_hash, "scProof": proof, "withdrawalEpochNumber": epoch_number}
         try:
             rawcert    = self.nodes[1].createrawcertificate(inputs, outputs, {}, params)
             signed_cert = self.nodes[1].signrawcertificate(rawcert)

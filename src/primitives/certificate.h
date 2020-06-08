@@ -2,6 +2,7 @@
 #define _CERTIFICATE_H
 
 #include "transaction.h"
+#include "sc/proofverifier.h"
 #include "policy/fees.h"
 
 struct CMutableScCertificate;
@@ -14,13 +15,16 @@ class CScCertificate : virtual public CTransactionBase
 public:
     static const int32_t EPOCH_NULL = -1;
     static const int32_t EPOCH_NOT_INITIALIZED = -2;
+    static const int64_t QUALITY_NULL = -1;
 
 private:
     const uint256 scId;
 
 public:
     const int32_t epochNumber;
+    const int64_t quality;
     const uint256 endEpochBlockHash;
+    const libzendoomc::ScProof scProof;
 
     /** Construct a CScCertificate that qualifies as IsNull() */
     CScCertificate();
@@ -50,7 +54,9 @@ public:
         READWRITE(*const_cast<int32_t*>(&this->nVersion));
         READWRITE(*const_cast<uint256*>(&scId));
         READWRITE(*const_cast<int32_t*>(&epochNumber));
+        READWRITE(*const_cast<int64_t*>(&quality));
         READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
+        READWRITE(*const_cast<libzendoomc::ScProof*>(&scProof));
         READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
 
         if (ser_action.ForRead())
@@ -124,7 +130,9 @@ public:
         return (
             scId.IsNull() &&
             epochNumber == EPOCH_NULL &&
+            quality == QUALITY_NULL &&
             endEpochBlockHash.IsNull() &&
+            scProof.IsNull() &&
             vin.empty() &&
             vout.empty() );
     }
@@ -160,7 +168,9 @@ struct CMutableScCertificate : public CMutableTransactionBase
 {
     uint256 scId;
     int32_t epochNumber;
+    int64_t quality;
     uint256 endEpochBlockHash;
+    libzendoomc::ScProof scProof;
 
     CMutableScCertificate();
     CMutableScCertificate(const CScCertificate& tx);
@@ -172,7 +182,9 @@ struct CMutableScCertificate : public CMutableTransactionBase
         READWRITE(this->nVersion);
         READWRITE(scId);
         READWRITE(epochNumber);
+        READWRITE(quality);
         READWRITE(endEpochBlockHash);
+        READWRITE(scProof);
         READWRITE(vin);
 
         if (ser_action.ForRead())
@@ -215,7 +227,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
 
     template <typename Stream>
     CMutableScCertificate(deserialize_type, Stream& s) :
-    scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash() {
+    scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL), endEpochBlockHash(), scProof() {
         Unserialize(s);
     }
 
