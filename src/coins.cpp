@@ -137,7 +137,7 @@ int CCoins::GetMaturityHeightForOutput(unsigned int outPos) const
     if(!IsAvailable(outPos))
         return -1; //This may happen in wallet when you check credit on certificate whose bwt has been erased
                    
-    if (vout.at(outPos).isFromBackwardTransfer)
+    if (outPos >= nFirstBwtPos)
         return nBwtMaturityHeight;
     else
         return nHeight;
@@ -1322,14 +1322,10 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
 
         //null all bwt outputs and add related txundo in block
         bool foundFirstBwt = false;
-        for(int pos = 0; pos < coins->vout.size(); ++pos)
+        for(int pos = coins->nFirstBwtPos; pos < coins->vout.size(); ++pos)
         {
-            if (!coins->IsAvailable(pos))
-                continue;
-            if (!coins->vout[pos].isFromBackwardTransfer)
-                continue;
-
-            if (!foundFirstBwt) {
+            if (!foundFirstBwt)
+            {
                 blockUndo.vVoidedCertUndo.push_back(CVoidedCertUndo());
                 blockUndo.vVoidedCertUndo.back().voidedCertHash = scInfo.lastCertificateHash;
                 LogPrint("cert", "%s():%d - set voidedCertHash[%s], firstBwtPos[%d]\n",
@@ -1337,7 +1333,7 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
                 foundFirstBwt = true;
             }
 
-            blockUndo.vVoidedCertUndo.back().voidedOuts.push_back(CTxInUndo(coins->vout[pos]));
+            blockUndo.vVoidedCertUndo.back().voidedOuts.push_back(CTxInUndo(coins->vout.at(pos)));
             coins->Spend(pos);
             if (coins->vout.size() == 0)
             {
