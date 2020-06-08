@@ -2435,7 +2435,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
 
         for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
-            if (!view.CancelSidechainEvent(scCreation)) {
+            if (!view.CancelSidechainEvent(scCreation, pindex->nHeight)) {
                 LogPrint("sc", "%s():%d - ERROR undoing ceasing height\n", __func__, __LINE__);
                 return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
             }

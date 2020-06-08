@@ -820,7 +820,7 @@ TEST_F(CeasedSidechainsTestSuite, CancelSidechainEvent) {
 
     //test
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        EXPECT_TRUE(view->CancelSidechainEvent(scCreationOut));
+        EXPECT_TRUE(view->CancelSidechainEvent(scCreationOut, scCreationHeight));
 
     //checks
     CSidechainEvents restoredCeasingScIds;

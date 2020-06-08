@@ -1173,7 +1173,7 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CTxScCreationOut& scCreationO
     return true;
 }
 
-bool CCoinsViewCache::CancelSidechainEvent(const CTxScCreationOut& scCreationOut)
+bool CCoinsViewCache::CancelSidechainEvent(const CTxScCreationOut& scCreationOut, int creationHeight)
 {
     CSidechain restoredScInfo;
     if (!this->GetSidechain(scCreationOut.scId, restoredScInfo)) {
@@ -1183,11 +1183,25 @@ bool CCoinsViewCache::CancelSidechainEvent(const CTxScCreationOut& scCreationOut
     }
 
     // Cancel maturing amount
+    static const int SC_COIN_MATURITY = getScCoinsMaturity();
+    const int maturityHeight = creationHeight + SC_COIN_MATURITY;
 
-    int restoredEpoch = restoredScInfo.EpochFor(restoredScInfo.creationBlockHeight);
-    int currentCeasingHeight = restoredScInfo.StartHeightForEpoch(restoredEpoch + 1) + restoredScInfo.SafeguardMargin() +1;
+    if (!HaveSidechainEvents(maturityHeight)) {
+        LogPrint("cert", "%s():%d - Maturing heights: scId[%s] misses maturing height for creation amount. Expected height [%d]\n",
+            __func__, __LINE__, scCreationOut.scId.ToString(), maturityHeight);
+        return false;
+    }
+
+    cacheSidechainEvents[maturityHeight].scEvents.ceasingScs.erase(scCreationOut.scId);
+    if (!cacheSidechainEvents[maturityHeight].scEvents.IsNull()) //still other sc ceasing at that height or fwds
+        cacheSidechainEvents[maturityHeight].flag = CSidechainEventsCacheEntry::Flags::DIRTY;
+    else
+        cacheSidechainEvents[maturityHeight].flag = CSidechainEventsCacheEntry::Flags::ERASED;
+
 
     //remove current ceasing Height
+    int restoredEpoch = restoredScInfo.EpochFor(restoredScInfo.creationBlockHeight);
+    int currentCeasingHeight = restoredScInfo.StartHeightForEpoch(restoredEpoch + 1) + restoredScInfo.SafeguardMargin() +1;
 
     // Cancel Ceasing Sidechains
     if (!HaveSidechainEvents(currentCeasingHeight)) {
