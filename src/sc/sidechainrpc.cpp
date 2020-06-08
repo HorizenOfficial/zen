@@ -35,7 +35,9 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("withdrawal epoch length", (int)out.withdrawalEpochLength));
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
         o.push_back(Pair("address", out.address.GetHex()));
+        o.push_back(Pair("wCertVk", HexStr(out.wCertVk)));
         o.push_back(Pair("customData", HexStr(out.customData)));
+        o.push_back(Pair("constant", HexStr(out.constant)));
         vscs.push_back(o);
         nIdx++;
     }
