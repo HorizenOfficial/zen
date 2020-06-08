@@ -51,6 +51,7 @@ std::string CSidechain::stateToString(State s)
         case State::CEASED: return "CEASED";         break;
         default:            return "NOT_APPLICABLE"; break;
     }
+}
 
 size_t CSidechain::DynamicMemoryUsage() const {
     return memusage::DynamicUsage(mImmatureAmounts);
