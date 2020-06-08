@@ -578,10 +578,16 @@ public:
     //CEASING SIDECHAINS RELATED MEMBERS
     bool HaveSidechainEvents(int height)                            const override;
     bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override;
+
     bool ScheduleSidechainEvent(const CTxScCreationOut& scCreationOut, int creationHeight);
     bool CancelSidechainEvent(const CTxScCreationOut& scCreationOut, int creationHeight);
+
+    bool ScheduleSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight);
+    bool CancelSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight);
+
     bool ScheduleSidechainEvent(const CScCertificate& cert);
     bool CancelSidechainEvent(const CScCertificate& cert);
+
     bool HandleSidechainEvents(int height, CBlockUndo& blockUndo);
     bool RevertSidechainEvents(const CVoidedCertUndo & voidedCertUndo);
 

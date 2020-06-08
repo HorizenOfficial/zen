@@ -1135,7 +1135,7 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CTxScCreationOut& scCreationO
 {
     CSidechain scInfo;
     if (!this->GetSidechain(scCreationOut.scId, scInfo)) {
-        LogPrint("cert", "%s():%d - attempt to update ceasing sidechain map with unknown scId[%s]\n",
+        LogPrint("cert", "%s():%d - attempt to update sidechain event with unknown scId[%s]\n",
             __func__, __LINE__, scCreationOut.scId.ToString());
         return false;
     }
@@ -1218,6 +1218,54 @@ bool CCoinsViewCache::CancelSidechainEvent(const CTxScCreationOut& scCreationOut
 
     LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s]: undo of creation removes currentCeasingHeight [%d]\n",
             __func__, __LINE__, scCreationOut.scId.ToString(), currentCeasingHeight);
+
+    return true;
+}
+
+bool CCoinsViewCache::ScheduleSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight)
+{
+    CSidechain scInfo;
+    if (!this->GetSidechain(forwardOut.scId, scInfo)) {
+        LogPrint("cert", "%s():%d - attempt to update sidechain event with unknown scId[%s]\n",
+            __func__, __LINE__, forwardOut.scId.ToString());
+        return false;
+    }
+
+    // Schedule maturing amount
+    static const int SC_COIN_MATURITY = getScCoinsMaturity();
+    const int maturityHeight = fwdHeight + SC_COIN_MATURITY;
+
+    if (!HaveSidechainEvents(maturityHeight)) {
+        cacheSidechainEvents[maturityHeight].scEvents.maturingScs.insert(forwardOut.scId);
+        cacheSidechainEvents[maturityHeight].flag = CSidechainEventsCacheEntry::Flags::FRESH;
+    } else {
+        cacheSidechainEvents[maturityHeight].scEvents.maturingScs.insert(forwardOut.scId);
+        cacheSidechainEvents[maturityHeight].flag = CSidechainEventsCacheEntry::Flags::DIRTY;
+    }
+
+    LogPrint("cert", "%s():%d - Maturing amounts: scId[%s]: fwd sets next amount to mature at height [%d]\n",
+             __func__, __LINE__, forwardOut.scId.ToString(), maturityHeight);
+
+    return true;
+}
+
+bool CCoinsViewCache::CancelSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight)
+{
+    // Cancel maturing amount
+    static const int SC_COIN_MATURITY = getScCoinsMaturity();
+    const int maturityHeight = fwdHeight + SC_COIN_MATURITY;
+
+    if (!HaveSidechainEvents(maturityHeight)) {
+        LogPrint("cert", "%s():%d - Maturing heights: scId[%s] misses maturing height for fwd amount. Expected height [%d]\n",
+            __func__, __LINE__, forwardOut.scId.ToString(), maturityHeight);
+        return false;
+    }
+
+    cacheSidechainEvents[maturityHeight].scEvents.ceasingScs.erase(forwardOut.scId);
+    if (!cacheSidechainEvents[maturityHeight].scEvents.IsNull()) //still other sc ceasing at that height or fwds
+        cacheSidechainEvents[maturityHeight].flag = CSidechainEventsCacheEntry::Flags::DIRTY;
+    else
+        cacheSidechainEvents[maturityHeight].flag = CSidechainEventsCacheEntry::Flags::ERASED;
 
     return true;
 }
