@@ -2004,7 +2004,7 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
         txundo.vprevout.push_back(CTxInUndo(coins->vout[nPos]));
         bool isBwt = coins->vout[nPos].isFromBackwardTransfer;
         coins->Spend(nPos);
-        if (coins->vout.size() == 0 || coins->vout[nPos].isFromBackwardTransfer)
+        if (coins->vout.size() == 0 || isBwt)
         {
             CTxInUndo& undo = txundo.vprevout.back();
             undo.nHeight            = coins->nHeight;
@@ -2313,14 +2313,13 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     LogPrint("sc", "%s():%d - ===============> CBlockUndo red from DB:\n%s\n",
         __func__, __LINE__, blockUndo.ToString());
     // no coinbase in blockundo
-    if (blockUndo.vtxundo.size() < (block.vtx.size() - 1 + block.vcert.size()))
+    if (blockUndo.vtxundo.size() != (block.vtx.size() - 1 + block.vcert.size()))
         return error("DisconnectBlock(): block and undo data inconsistent");
 
-    for(int idx = block.vtx.size() - 1 + block.vcert.size(); idx < blockUndo.vtxundo.size(); idx++)
+    for(int idx = blockUndo.vVoidedCertUndo.size() - 1; idx >= 0; --idx)
     {
         LogPrint("sc", "%s():%d - calling RevertCeasingScs idx[%d]\n", __func__, __LINE__, idx);
-        bool ret = view.RevertCeasingScs(blockUndo.vtxundo[idx]);
-        if (!ret)
+        if (!view.RevertCeasingScs(blockUndo.vVoidedCertUndo[idx]))
             return error("DisconnectBlock(): cannot revert ceasing sc");
     }
 

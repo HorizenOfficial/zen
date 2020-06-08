@@ -51,6 +51,13 @@ std::string CSidechain::stateToString(State s)
         case State::CEASED: return "CEASED";         break;
         default:            return "NOT_APPLICABLE"; break;
     }
+
+size_t CSidechain::DynamicMemoryUsage() const {
+    return memusage::DynamicUsage(mImmatureAmounts);
+}
+
+size_t CCeasingSidechains::DynamicMemoryUsage() const {
+    return memusage::DynamicUsage(ceasingScs);
 }
 
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)

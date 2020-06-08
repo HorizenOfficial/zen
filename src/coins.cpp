@@ -232,6 +232,8 @@ size_t CCoinsViewCache::DynamicMemoryUsage() const {
     return memusage::DynamicUsage(cacheCoins) +
            memusage::DynamicUsage(cacheAnchors) +
            memusage::DynamicUsage(cacheNullifiers) +
+           memusage::DynamicUsage(cacheSidechains) +
+           memusage::DynamicUsage(cacheCeasingScs) +
            cachedCoinsUsage;
 }
 
@@ -267,6 +269,7 @@ CSidechainsMap::const_iterator CCoinsViewCache::FetchSidechains(const uint256& s
     CSidechainsMap::iterator ret =
             cacheSidechains.insert(std::make_pair(scId, CSidechainsCacheEntry(tmp, CSidechainsCacheEntry::Flags::DEFAULT ))).first;
 
+    cachedCoinsUsage += ret->second.scInfo.DynamicMemoryUsage();
     return ret;
 }
 
@@ -284,6 +287,7 @@ CCeasingScsMap::const_iterator CCoinsViewCache::FetchCeasingScs(int height) cons
     CCeasingScsMap::iterator ret =
             cacheCeasingScs.insert(std::make_pair(height, CCeasingScsCacheEntry(tmp, CCeasingScsCacheEntry::Flags::DEFAULT ))).first;
 
+    cachedCoinsUsage += ret->second.ceasingScs.DynamicMemoryUsage();
     return ret;
 }
 
@@ -881,25 +885,17 @@ bool CCoinsViewCache::RestoreImmatureBalances(int blockHeight, const CBlockUndo&
     return true;
 }
 
-bool CCoinsViewCache::HaveCertForEpoch(const uint256& scId, int epochNumber) const {
-    CSidechain info;
-    if (!GetSidechain(scId, info))
-        return false;
-
-    if (info.lastEpochReferencedByCertificate == epochNumber)
-        return true;
-
-    return false;
-}
-
 #ifdef BITCOIN_TX
 int CSidechain::EpochFor(int targetHeight) const { return CScCertificate::EPOCH_NULL; }
 int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
 int CSidechain::SafeguardMargin() const { return -1; }
-bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash) {return true;}
+size_t CSidechain::DynamicMemoryUsage() const { return 0; }
+bool CCoinsViewCache::isEpochDataValid(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) {return true;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state) {return true;}
 bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height) { return true;}
 void SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped) {};
+size_t CCeasingSidechains::DynamicMemoryUsage() const { return 0;}
+
 #else
 
 #include "consensus/validation.h"
@@ -921,7 +917,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     }
 
     // check that epoch data are consistent
-    if (!isLegalEpoch(cert.GetScId(), cert.epochNumber, cert.endEpochBlockHash) )
+    if (!isEpochDataValid(scInfo, cert.epochNumber, cert.endEpochBlockHash) )
     {
         LogPrint("sc", "%s():%d - invalid cert[%s], scId[%s] invalid epoch data\n",
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString() );
@@ -951,7 +947,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     return true;
 }
 
-bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const uint256& endEpochBlockHash)
+bool CCoinsViewCache::isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& endEpochBlockHash)
 {
     if (epochNumber < 0 || endEpochBlockHash.IsNull())
     {
@@ -959,18 +955,11 @@ bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const u
         return false;
     }
 
-    CSidechain info;
-    if (!GetSidechain(scId, info))
-    {
-        LogPrint("sc", "%s():%d - scId[%s] not found\n", __func__, __LINE__, scId.ToString() );
-        return false;
-    }
-
     // 1. the epoch number must be consistent with the sc certificate history (no old epoch allowed)
-    if (epochNumber != info.lastEpochReferencedByCertificate+1)
+    if (epochNumber != scInfo.lastEpochReferencedByCertificate+1)
     {
         LogPrint("sc", "%s():%d - can not receive a certificate for epoch %d (expected: %d)\n",
-            __func__, __LINE__, epochNumber, info.lastEpochReferencedByCertificate+1 );
+            __func__, __LINE__, epochNumber, scInfo.lastEpochReferencedByCertificate+1 );
         return false;
     }
 
@@ -992,13 +981,13 @@ bool CCoinsViewCache::isLegalEpoch(const uint256& scId, int epochNumber, const u
     }
 
     // 3. combination of epoch number and epoch length, specified in sc info, must point to that end-epoch block
-    int endEpochHeight = info.StartHeightForEpoch(epochNumber+1) -1;
+    int endEpochHeight = scInfo.StartHeightForEpoch(epochNumber+1) -1;
     pblockindex = chainActive[endEpochHeight];
 
     if (!pblockindex)
     {
         LogPrint("sc", "%s():%d - calculated height %d (createHeight=%d/epochNum=%d/epochLen=%d) is out of active chain\n",
-            __func__, __LINE__, endEpochHeight, info.creationBlockHeight, epochNumber, info.creationData.withdrawalEpochLength);
+            __func__, __LINE__, endEpochHeight, scInfo.creationBlockHeight, epochNumber, scInfo.creationData.withdrawalEpochLength);
         return false;
     }
 
@@ -1210,7 +1199,8 @@ bool CCoinsViewCache::UpdateCeasingScs(const CScCertificate& cert)
         return false;
     }
 
-    int nextCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2) + scInfo.SafeguardMargin()+1;
+    int curCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+1) + scInfo.SafeguardMargin()+1;
+    int nextCeasingHeight = curCeasingHeight + scInfo.creationData.withdrawalEpochLength;
     int prevCeasingHeight = nextCeasingHeight - scInfo.creationData.withdrawalEpochLength;
 
     //clear up prev ceasing height, if any
@@ -1227,6 +1217,8 @@ bool CCoinsViewCache::UpdateCeasingScs(const CScCertificate& cert)
     } else {
         LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s]: cert [%s] finds not prevCeasingHeight [%d] to remove\n",
                 __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), prevCeasingHeight);
+        // we always must have previous ceasing height record (at list one for current cert sc id).
+        return false;
     }
 
     //add next ceasing Height
@@ -1330,22 +1322,24 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
                 continue;
 
             if (!foundFirstBwt) {
-                blockUndo.vtxundo.push_back(CTxUndo());
-                blockUndo.vtxundo.back().refTx = scInfo.lastCertificateHash;
-                blockUndo.vtxundo.back().firstBwtPos = pos;
-                LogPrint("cert", "%s():%d - set refTx[%s], pos[%d]\n",
+                blockUndo.vVoidedCertUndo.push_back(CVoidedCertUndo());
+                blockUndo.vVoidedCertUndo.back().voidedCertHash = scInfo.lastCertificateHash;
+                blockUndo.vVoidedCertUndo.back().firstBwtPos = pos;
+                LogPrint("cert", "%s():%d - set voidedCertHash[%s], firstBwtPos[%d]\n",
                     __func__, __LINE__, scInfo.lastCertificateHash.ToString(), pos);
                 foundFirstBwt = true;
             }
 
-            blockUndo.vtxundo.back().vprevout.push_back(CTxInUndo(coins->vout[pos]));
-            CTxInUndo& undo = blockUndo.vtxundo.back().vprevout.back();
-            undo.nHeight            = coins->nHeight;
-            undo.fCoinBase          = coins->fCoinBase;
-            undo.nVersion           = coins->nVersion;
-            undo.nBwtMaturityHeight = coins->nBwtMaturityHeight;
-
+            blockUndo.vVoidedCertUndo.back().voidedOuts.push_back(CTxInUndo(coins->vout[pos]));
             coins->Spend(pos);
+            if (coins->vout.size() == 0)
+            {
+                CTxInUndo& undo = blockUndo.vVoidedCertUndo.back().voidedOuts.back();
+                undo.nHeight            = coins->nHeight;
+                undo.fCoinBase          = coins->fCoinBase;
+                undo.nVersion           = coins->nVersion;
+                undo.nBwtMaturityHeight = coins->nBwtMaturityHeight;
+            }
         }
 
         SyncBwtCeasing(scInfo.lastCertificateHash, true);
@@ -1357,51 +1351,43 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
     return true;
 }
 
-bool CCoinsViewCache::RevertCeasingScs(const CTxUndo& ceasedCertUndo)
+bool CCoinsViewCache::RevertCeasingScs(const CVoidedCertUndo& voidedCertUndo)
 {
     bool fClean = true;
 
-    const uint256& coinHash = ceasedCertUndo.refTx;
+    const uint256& coinHash = voidedCertUndo.voidedCertHash;
     if(coinHash.IsNull())
     {
-        fClean = fClean && error("%s: malformed undo data, ", __func__);
-        LogPrint("cert", "%s():%d - returning fClean[%d]\n", __func__, __LINE__, fClean);
+        fClean = fClean && error("%s: malformed undo data, missing voided certificate hash ", __func__);
         return fClean;
     }
-    CCoinsModifier coins = this->ModifyCoins(coinHash);
-    LogPrint("cert", "%s():%d - PRE :%s\n", __func__, __LINE__, coins->ToString());
-    int firstBwtPos = ceasedCertUndo.firstBwtPos;
 
+    int firstBwtPos = voidedCertUndo.firstBwtPos;
     if (firstBwtPos >= 0)
     {
-        const std::vector<CTxInUndo>& outVec = ceasedCertUndo.vprevout;
-        LogPrint("cert", "%s():%d - PRE : outVec.size() = %d\n", __func__, __LINE__, outVec.size());
+        CCoinsModifier coins = this->ModifyCoins(coinHash);
 
-        for (size_t bwtOutPos = outVec.size(); bwtOutPos-- > 0;)
+        const std::vector<CTxInUndo>& voidedOuts = voidedCertUndo.voidedOuts;
+        for (size_t idx = voidedOuts.size(); idx-- > 0;)
         {
-            LogPrint("cert", "%s():%d - PRE : bwtOutPos= %d\n", __func__, __LINE__, bwtOutPos);
-            if (outVec.at(bwtOutPos).nHeight != 0)
+            if (voidedOuts.at(idx).nHeight != 0)
             {
-                coins->fCoinBase          = outVec.at(bwtOutPos).fCoinBase;
-                coins->nHeight            = outVec.at(bwtOutPos).nHeight;
-                coins->nVersion           = outVec.at(bwtOutPos).nVersion;
-                coins->nBwtMaturityHeight = outVec.at(bwtOutPos).nBwtMaturityHeight;
-            } else {
-                LogPrint("cert", "%s():%d - returning false\n", __func__, __LINE__);
-                return false;
+                coins->fCoinBase          = voidedOuts.at(idx).fCoinBase;
+                coins->nHeight            = voidedOuts.at(idx).nHeight;
+                coins->nVersion           = voidedOuts.at(idx).nVersion;
+                coins->nBwtMaturityHeight = voidedOuts.at(idx).nBwtMaturityHeight;
             }
 
-            if(coins->IsAvailable(firstBwtPos + bwtOutPos))
+            if(coins->IsAvailable(firstBwtPos + idx))
                 fClean = fClean && error("%s: undo data overwriting existing output", __func__);
-            if (coins->vout.size() < (firstBwtPos + bwtOutPos+1))
-                coins->vout.resize(firstBwtPos + bwtOutPos+1);
-            coins->vout.at(firstBwtPos + bwtOutPos) = outVec.at(bwtOutPos).txout;
+            if (coins->vout.size() < (firstBwtPos + idx+1))
+                coins->vout.resize(firstBwtPos + idx+1);
+            coins->vout.at(firstBwtPos + idx) = voidedOuts.at(idx).txout;
+            coins->vout.at(firstBwtPos + idx).isFromBackwardTransfer = true;
         }
     }
 
-    SyncBwtCeasing(ceasedCertUndo.refTx, false);
-
-    LogPrint("cert", "%s():%d - POST:%s\n", __func__, __LINE__, coins->ToString());
+    SyncBwtCeasing(voidedCertUndo.voidedCertHash, false);
     return fClean;
 }
 
