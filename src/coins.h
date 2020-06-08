@@ -99,7 +99,7 @@ public:
 
     //| If coins comes from a certificate, nFirstBwtPos represents the position of the first backward transfer;
     //! All outputs after nFirstBwtPos, including nFirstBwtPos, are backward transfers
-    //! If coins comes from a tx, it is currently set to zero and not used
+    //! If coins comes from a tx, it is currently set to BWT_POS_UNSET and not used
     int nFirstBwtPos;
 
     //! if coin comes from a certificate, nBwtMaturityHeight signals the height at which these output will be mature
@@ -250,7 +250,7 @@ public:
         // coinbase height
         ::Unserialize(s, VARINT(nHeight), nType, nVersion);
 
-        nFirstBwtPos = -1;
+        nFirstBwtPos = BWT_POS_UNSET;
         if (this->IsFromCert()) {
             ::Unserialize(s, nFirstBwtPos, nType,nVersion);
             ::Unserialize(s, nBwtMaturityHeight, nType,nVersion);

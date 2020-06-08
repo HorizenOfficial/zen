@@ -30,7 +30,7 @@ std::string CCoins::ToString() const
     return ret;
 }
 
-CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), nFirstBwtPos(-1), nBwtMaturityHeight(0) { }
+CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), nFirstBwtPos(BWT_POS_UNSET), nBwtMaturityHeight(0) { }
 
 CCoins::CCoins(const CTransaction &tx, int nHeightIn) { From(tx, nHeightIn); }
 
@@ -41,7 +41,7 @@ void CCoins::From(const CTransaction &tx, int nHeightIn) {
     vout               = tx.GetVout();
     nHeight            = nHeightIn;
     nVersion           = tx.nVersion;
-    nFirstBwtPos       = -1;
+    nFirstBwtPos       = BWT_POS_UNSET;
     nBwtMaturityHeight = 0;
     ClearUnspendable();
 }
@@ -54,7 +54,7 @@ void CCoins::From(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeig
     nBwtMaturityHeight = bwtMaturityHeight;
     ClearUnspendable();
     nFirstBwtPos = vout.size();
-    for(int idx = 0; idx < this->vout.size(); ++idx) {
+    for(unsigned int idx = 0; idx < this->vout.size(); ++idx) {
         if (this->vout[idx].isFromBackwardTransfer) {
             nFirstBwtPos = idx;
             break;
@@ -67,7 +67,7 @@ void CCoins::Clear() {
     std::vector<CTxOut>().swap(vout);
     nHeight = 0;
     nVersion = 0;
-    nFirstBwtPos = -1;
+    nFirstBwtPos = BWT_POS_UNSET;
     nBwtMaturityHeight = 0;
 }
 
