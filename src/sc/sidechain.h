@@ -24,6 +24,8 @@ public:
     std::set<uint256> ceasingScs;
     std::set<uint256> maturingScs;
 
+    bool IsNull() const {return ceasingScs.empty() && maturingScs.empty();}
+
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>

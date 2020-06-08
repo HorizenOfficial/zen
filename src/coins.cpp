@@ -1182,22 +1182,25 @@ bool CCoinsViewCache::CancelSidechainEvent(const CTxScCreationOut& scCreationOut
         return false;
     }
 
+    // Cancel maturing amount
+
     int restoredEpoch = restoredScInfo.EpochFor(restoredScInfo.creationBlockHeight);
     int currentCeasingHeight = restoredScInfo.StartHeightForEpoch(restoredEpoch + 1) + restoredScInfo.SafeguardMargin() +1;
 
     //remove current ceasing Height
-    CSidechainEvents currentCeasingScId;
-    if (!GetSidechainEvents(currentCeasingHeight,currentCeasingScId)) {
+
+    // Cancel Ceasing Sidechains
+    if (!HaveSidechainEvents(currentCeasingHeight)) {
         LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s] misses current ceasing height; expected value was [%d]\n",
             __func__, __LINE__, scCreationOut.scId.ToString(), currentCeasingHeight);
         return false;
     }
 
-    currentCeasingScId.ceasingScs.erase(scCreationOut.scId);
-    if (currentCeasingScId.ceasingScs.size() != 0)
-        cacheSidechainEvents[currentCeasingHeight] = CSidechainEventsCacheEntry(currentCeasingScId, CSidechainEventsCacheEntry::Flags::DIRTY);
+    cacheSidechainEvents[currentCeasingHeight].scEvents.ceasingScs.erase(scCreationOut.scId);
+    if (!cacheSidechainEvents[currentCeasingHeight].scEvents.IsNull())
+        cacheSidechainEvents[currentCeasingHeight].flag = CSidechainEventsCacheEntry::Flags::DIRTY;
     else
-        cacheSidechainEvents[currentCeasingHeight] = CSidechainEventsCacheEntry(currentCeasingScId, CSidechainEventsCacheEntry::Flags::ERASED);
+        cacheSidechainEvents[currentCeasingHeight].flag = CSidechainEventsCacheEntry::Flags::ERASED;
 
     LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s]: undo of creation removes currentCeasingHeight [%d]\n",
             __func__, __LINE__, scCreationOut.scId.ToString(), currentCeasingHeight);
@@ -1219,9 +1222,10 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CScCertificate& cert)
     int prevCeasingHeight = nextCeasingHeight - scInfo.creationData.withdrawalEpochLength;
 
     //clear up prev ceasing height, if any
-    if (HaveSidechainEvents(prevCeasingHeight)) {
+    if (HaveSidechainEvents(prevCeasingHeight))
+    {
         cacheSidechainEvents[prevCeasingHeight].scEvents.ceasingScs.erase(cert.GetScId());
-        if (cacheSidechainEvents[prevCeasingHeight].scEvents.ceasingScs.size() != 0) //still other sc ceasing at that height
+        if (!cacheSidechainEvents[prevCeasingHeight].scEvents.IsNull()) //still other sc ceasing at that height or fwds maturing
             cacheSidechainEvents[prevCeasingHeight].flag = CSidechainEventsCacheEntry::Flags::DIRTY;
         else
             cacheSidechainEvents[prevCeasingHeight].flag = CSidechainEventsCacheEntry::Flags::ERASED;
@@ -1263,30 +1267,28 @@ bool CCoinsViewCache::CancelSidechainEvent(const CScCertificate& cert)
     int restoredCeasingHeight = currentCeasingHeight - restoredScInfo.creationData.withdrawalEpochLength;
 
     //remove current ceasing Height
-    CSidechainEvents currentCeasingScId;
-    if (!GetSidechainEvents(currentCeasingHeight,currentCeasingScId)) {
+    if (!HaveSidechainEvents(currentCeasingHeight)) {
         LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s] misses current ceasing height; expected value was [%d]\n",
             __func__, __LINE__, cert.GetScId().ToString(), currentCeasingHeight);
         return false;
     }
 
-    currentCeasingScId.ceasingScs.erase(cert.GetScId());
-    if (currentCeasingScId.ceasingScs.size() != 0) //still other sc ceasing at that height
-        cacheSidechainEvents[currentCeasingHeight] = CSidechainEventsCacheEntry(currentCeasingScId, CSidechainEventsCacheEntry::Flags::DIRTY);
+    cacheSidechainEvents[currentCeasingHeight].scEvents.ceasingScs.erase(cert.GetScId());
+    if (!cacheSidechainEvents[currentCeasingHeight].scEvents.IsNull()) //still other sc ceasing at that height or fwds
+        cacheSidechainEvents[currentCeasingHeight].flag = CSidechainEventsCacheEntry::Flags::DIRTY;
     else
-        cacheSidechainEvents[currentCeasingHeight] = CSidechainEventsCacheEntry(currentCeasingScId, CSidechainEventsCacheEntry::Flags::ERASED);
+        cacheSidechainEvents[currentCeasingHeight].flag = CSidechainEventsCacheEntry::Flags::ERASED;
 
     LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s]: undo of cert [%s] removes currentCeasingHeight [%d]\n",
             __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), currentCeasingHeight);
 
     //restore previous ceasing Height
-    CSidechainEvents restoredCeasingScId;
-    if (!GetSidechainEvents(restoredCeasingHeight,restoredCeasingScId)) {
-        restoredCeasingScId.ceasingScs.insert(cert.GetScId());
-        cacheSidechainEvents[restoredCeasingHeight] = CSidechainEventsCacheEntry(restoredCeasingScId, CSidechainEventsCacheEntry::Flags::FRESH);
+    if (!HaveSidechainEvents(restoredCeasingHeight)) {
+        cacheSidechainEvents[restoredCeasingHeight].scEvents.ceasingScs.insert(cert.GetScId());
+        cacheSidechainEvents[restoredCeasingHeight].flag = CSidechainEventsCacheEntry::Flags::FRESH;
     } else {
-        restoredCeasingScId.ceasingScs.insert(cert.GetScId());
-        cacheSidechainEvents[restoredCeasingHeight] = CSidechainEventsCacheEntry(restoredCeasingScId, CSidechainEventsCacheEntry::Flags::DIRTY);
+        cacheSidechainEvents[restoredCeasingHeight].scEvents.ceasingScs.insert(cert.GetScId());
+        cacheSidechainEvents[restoredCeasingHeight].flag = CSidechainEventsCacheEntry::Flags::DIRTY;
     }
 
     LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s]: undo of cert [%s] set nextCeasingHeight to [%d]\n",
