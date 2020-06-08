@@ -250,7 +250,7 @@ public:
         // coinbase height
         ::Unserialize(s, VARINT(nHeight), nType, nVersion);
 
-        nFirstBwtPos = 0;
+        nFirstBwtPos = -1;
         if (this->IsFromCert()) {
             ::Unserialize(s, nFirstBwtPos, nType,nVersion);
             ::Unserialize(s, nBwtMaturityHeight, nType,nVersion);

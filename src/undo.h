@@ -26,13 +26,13 @@ public:
     bool fCoinBase;         // if the outpoint was the last unspent: whether it belonged to a coinbase
     unsigned int nHeight;   // if the outpoint was the last unspent: its height
     int nVersion;           // if the outpoint was the last unspent: its version
-    int nFirstBwtPos;       // if the outpoint was the last unspent: its nFirstBwtPos, introduced with certificates
+    int nFirstBwtPos;       // if the outpoint was the last unspent: its nFirstBwtPos, serialized only for certificates
     int nBwtMaturityHeight; // if the outpoint was the last unspent: its nBwtMaturityHeight, introduced with certificates
 
-    CTxInUndo() : txout(), fCoinBase(false), nHeight(0), nVersion(0), nFirstBwtPos(0), nBwtMaturityHeight(0) {}
+    CTxInUndo() : txout(), fCoinBase(false), nHeight(0), nVersion(0), nFirstBwtPos(-1), nBwtMaturityHeight(0) {}
     CTxInUndo(const CTxOut &txoutIn, bool fCoinBaseIn = false,
               unsigned int nHeightIn = 0, int nVersionIn = 0,
-              int firstBwtPos = 0, int bwtMaturityHeight = 0):
+              int firstBwtPos = -1, int bwtMaturityHeight = 0):
         txout(txoutIn), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), nVersion(nVersionIn),
         nFirstBwtPos(firstBwtPos), nBwtMaturityHeight(bwtMaturityHeight) {}
 

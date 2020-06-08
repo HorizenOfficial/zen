@@ -30,7 +30,7 @@ std::string CCoins::ToString() const
     return ret;
 }
 
-CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), nFirstBwtPos(0), nBwtMaturityHeight(0) { }
+CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), nFirstBwtPos(-1), nBwtMaturityHeight(0) { }
 
 CCoins::CCoins(const CTransaction &tx, int nHeightIn) { From(tx, nHeightIn); }
 
@@ -41,7 +41,7 @@ void CCoins::From(const CTransaction &tx, int nHeightIn) {
     vout               = tx.GetVout();
     nHeight            = nHeightIn;
     nVersion           = tx.nVersion;
-    nFirstBwtPos       = 0;
+    nFirstBwtPos       = -1;
     nBwtMaturityHeight = 0;
     ClearUnspendable();
 }
@@ -67,7 +67,7 @@ void CCoins::Clear() {
     std::vector<CTxOut>().swap(vout);
     nHeight = 0;
     nVersion = 0;
-    nFirstBwtPos = 0;
+    nFirstBwtPos = -1;
     nBwtMaturityHeight = 0;
 }
 
