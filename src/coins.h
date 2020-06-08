@@ -584,8 +584,8 @@ public:
     //CERTIFICATES RELATED PUBLIC MEMBERS
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state);
     bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash);
-    bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& bu);
-    bool RevertCertOutputs(const CScCertificate& cert);
+    bool UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry);
+    bool RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry);
 
     //CEASING SIDECHAINS RELATED MEMBERS
     bool HaveCeasingScs(int height)                                const override;
