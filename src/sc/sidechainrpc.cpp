@@ -27,19 +27,19 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
     // global idx
     unsigned int nIdx = 0;
 
-    UniValue vcls(UniValue::VARR);
-    for (unsigned int i = 0; i < tx.GetVclCcOut().size(); i++) {
-        const CTxCertifierLockOut& out = tx.GetVclCcOut()[i];
+    for (unsigned int i = 0; i < tx.GetVscCcOut().size(); i++) {
+        const CTxScCreationOut& out = tx.GetVscCcOut()[i];
         UniValue o(UniValue::VOBJ);
         o.push_back(Pair("scid", out.scId.GetHex()));
-        o.push_back(Pair("value", ValueFromAmount(out.nValue)));
         o.push_back(Pair("n", (int64_t)nIdx));
+        o.push_back(Pair("withdrawal epoch length", (int)out.withdrawalEpochLength));
+        o.push_back(Pair("value", ValueFromAmount(out.nValue)));
         o.push_back(Pair("address", out.address.GetHex()));
-        o.push_back(Pair("active from withdrawal epoch", out.activeFromWithdrawalEpoch));
-        vcls.push_back(o);
+        o.push_back(Pair("customData", HexStr(out.customData)));
+        vscs.push_back(o);
         nIdx++;
     }
-    parentObj.push_back(Pair("vcl_ccout", vcls));
+    parentObj.push_back(Pair("vsc_ccout", vscs));
 
     UniValue vfts(UniValue::VARR);
     for (unsigned int i = 0; i < tx.GetVftCcOut().size(); i++) {
