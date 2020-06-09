@@ -634,6 +634,8 @@ public:
     virtual const uint32_t&                           GetLockTime()   const = 0;
     //END OF GETTERS
 
+    virtual bool IsBackwardTransfer(int pos) const = 0;
+
     //CHECK FUNCTIONS
     virtual bool IsValidVersion   (CValidationState &state) const = 0;
     virtual bool CheckVersionIsStandard   (std::string& reason, int nHeight) const = 0;
@@ -847,6 +849,8 @@ public:
     const uint32_t&                           GetLockTime()   const override { return nLockTime;};
     const uint256&                            GetScIdFromScCcOut(int pos) const;
     //END OF GETTERS
+
+    bool IsBackwardTransfer(int pos) const override final { return false; };
 
     //CHECK FUNCTIONS
     bool IsValidVersion   (CValidationState &state) const override;

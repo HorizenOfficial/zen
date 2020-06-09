@@ -27,11 +27,11 @@ CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nV
 }
 
 CScCertificate::CScCertificate(int versionIn): CTransactionBase(versionIn),
-    scId(), epochNumber(EPOCH_NOT_INITIALIZED), endEpochBlockHash() {}
+    scId(), epochNumber(EPOCH_NOT_INITIALIZED), endEpochBlockHash(), nFirstBwtPos(-1) {}
 
 CScCertificate::CScCertificate(const CScCertificate &cert): CTransactionBase(cert),
     scId(cert.scId), epochNumber(cert.epochNumber),
-    endEpochBlockHash(cert.endEpochBlockHash) {}
+    endEpochBlockHash(cert.endEpochBlockHash), nFirstBwtPos(cert.nFirstBwtPos) {}
 
 CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
 {
@@ -39,18 +39,33 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
     *const_cast<uint256*>(&scId) = cert.scId;
     *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
+    *const_cast<int*>(&nFirstBwtPos) = cert.nFirstBwtPos;
     return *this;
 }
 
 CScCertificate::CScCertificate(const CMutableScCertificate &cert): CTransactionBase(cert),
-    scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash)
+    scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash), nFirstBwtPos(0)
 {
+    for(const CTxOut& out: cert.vout)
+    {
+        if (!out.isFromBackwardTransfer)
+            ++(*const_cast<int*>(&nFirstBwtPos));
+        else
+            break;
+    }
+
     UpdateHash();
 }
 
 void CScCertificate::UpdateHash() const
 {
     *const_cast<uint256*>(&hash) = SerializeHash(*this);
+}
+
+bool CScCertificate::IsBackwardTransfer(int pos) const
+{
+    assert(pos >= 0 && pos < vout.size());
+    return pos >= nFirstBwtPos;
 }
 
 bool CScCertificate::IsValidVersion(CValidationState &state) const

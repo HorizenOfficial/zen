@@ -39,6 +39,7 @@ private:
 public:
     const int32_t epochNumber;
     const uint256 endEpochBlockHash;
+    const int nFirstBwtPos;
 
     /** Construct a CScCertificate that qualifies as IsNull() */
     CScCertificate(int versionIn = SC_CERT_VERSION);
@@ -138,6 +139,8 @@ public:
     const uint256&                            GetScId()       const          {return scId;};
     const uint32_t&                           GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
     //END OF GETTERS
+
+    bool IsBackwardTransfer(int pos) const override final;
 
     //CHECK FUNCTIONS
     bool IsValidVersion   (CValidationState &state) const override;
