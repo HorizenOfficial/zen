@@ -1,14 +1,10 @@
 package=librustzcash
 $(package)_version=0.1
-#$(package)_download_path=https://github.com/zcash/$(package)/archive/
-#$(package)_file_name=$(package)-$($(package)_git_commit).tar.gz
-$(package)_download_path=https://github.com/ark2038/librustzcash/archive/
-$(package)_file_name=master.tar.gz
+$(package)_download_path=https://github.com/zcash/$(package)/archive/
+$(package)_file_name=$(package)-$($(package)_git_commit).tar.gz
 $(package)_download_file=$($(package)_git_commit).tar.gz
-#$(package)_sha256_hash=e9a488a8bbecf7fb237a32dadd65133211ef61616d44cf55609e029837a41004
-$(package)_sha256_hash=49b1c008b2255ba7125514cc48f4457b9fa2de6447e28bb16bf2db26223ccf4c
-#$(package)_git_commit=f5e5cb24e1bd756a02fc4a3fd2b824238ccd15ad
-$(package)_git_commit=master
+$(package)_sha256_hash=e9a488a8bbecf7fb237a32dadd65133211ef61616d44cf55609e029837a41004
+$(package)_git_commit=f5e5cb24e1bd756a02fc4a3fd2b824238ccd15ad
 $(package)_dependencies=rust $(rust_crates)
 $(package)_patches=cargo.config
 
@@ -26,7 +22,9 @@ endef
 define $(package)_preprocess_cmds
   mkdir .cargo && \
   cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' > .cargo/config && \
-  cat  .cargo/config
+  cat Cargo.toml | sed '/lto/d' | sed '/panic/d' > toml.temp && \
+  cat toml.temp >  Cargo.toml && \
+  rm toml.temp 
 endef
 
 define $(package)_build_cmds
