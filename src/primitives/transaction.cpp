@@ -720,7 +720,7 @@ bool CTransaction::CheckVersionIsStandard(std::string& reason, const int nHeight
 void CTransaction::AddToBlock(CBlock* pblock) const { return; }
 void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const {return; }
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return true; }
-bool CTransaction::CheckFinal(int flags) const { return true; }
+//bool CTransaction::CheckFinal(int flags) const { return true; }
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
@@ -900,10 +900,12 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
     return true;
 }
 
+#if 0
 bool CTransaction::CheckFinal(int flags) const
 {
     return ::CheckFinalTx(*this, flags);
 }
+#endif
 
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const
 {

@@ -630,7 +630,7 @@ bool CWallet::IsSpent(const uint256& hash, unsigned int n) const
 
     for (TxSpends::const_iterator it = range.first; it != range.second; ++it) {
         const uint256& wtxid = it->second;
-        std::map<uint256, std::shared_ptr<CWalletTransactionBase> >::const_iterator mit = mapWallet.find(wtxid);
+        const MAP_WALLET_CONST_IT mit = mapWallet.find(wtxid);
         if (mit != mapWallet.end()) {
             if (mit->second->GetDepthInMainChain() >= 0) {
                 return true; // Spent
@@ -654,7 +654,7 @@ bool CWallet::IsSpent(const uint256& nullifier) const
 
     for (TxNullifiers::const_iterator it = range.first; it != range.second; ++it) {
         const uint256& wtxid = it->second;
-        std::map<uint256, std::shared_ptr<CWalletTransactionBase> >::const_iterator mit = mapWallet.find(wtxid);
+        const MAP_WALLET_CONST_IT mit = mapWallet.find(wtxid);
         if (mit != mapWallet.end() && mit->second->GetDepthInMainChain() >= 0) {
             return true; // Spent
         }
@@ -701,35 +701,198 @@ void CWallet::AddToSpends(const uint256& wtxid)
     }
 }
 
-/*
-void CWalletCert::AddToSpends(CWallet* pw)
-{
-    // wallet is explicitly passed along since pwallet ptr is const and t calls non-const method
-    assert(pw);
-
-    for (const CTxIn& txin : GetVin()) {
-        LogPrint("cert", "%s():%d - obj[%s] spends out %d of [%s]\n", __func__, __LINE__,
-            GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
-        pw->AddToSpends(txin.prevout, GetHash());
-    }
-}
-*/
-
 void CWallet::ClearNoteWitnessCache()
 {
     LOCK(cs_wallet);
-#if 0
-    for (std::pair<const uint256, CWalletTx>& wtxItem : mapWallet) {
-        for (mapNoteData_t::value_type& item : wtxItem.second.mapNoteData) {
+    for (std::pair<const uint256, std::shared_ptr<CWalletTransactionBase> >& wtxItem : mapWallet) {
+        for (mapNoteData_t::value_type& item : wtxItem.second->mapNoteData) {
             item.second.witnesses.clear();
             item.second.witnessHeight = -1;
         }
-#else
-    for (auto& wtxItem : mapWallet) {
-        wtxItem.second->ClearNoteWitnessCache();
-#endif
     }
     nWitnessCacheSize = 0;
+}
+
+#if 1
+void CWallet::IncrementNoteWitnesses(const CBlockIndex* pindex,
+                                     const CBlock* pblockIn,
+                                     ZCIncrementalMerkleTree& tree)
+{
+    {
+        LOCK(cs_wallet);
+        for (auto& wtxItem : mapWallet)
+        {
+            for (mapNoteData_t::value_type& item : wtxItem.second->mapNoteData) {
+                CNoteData* nd = &(item.second);
+                // Only increment witnesses that are behind the current height
+                if (nd->witnessHeight < pindex->nHeight) {
+                    // Check the validity of the cache
+                    // The only time a note witnessed above the current height
+                    // would be invalid here is during a reindex when blocks
+                    // have been decremented, and we are incrementing the blocks
+                    // immediately after.
+                    assert(nWitnessCacheSize >= nd->witnesses.size());
+                    // Witnesses being incremented should always be either -1
+                    // (never incremented or decremented) or one below pindex
+                    assert((nd->witnessHeight == -1) ||
+                           (nd->witnessHeight == pindex->nHeight - 1));
+                    // Copy the witness for the previous block if we have one
+                    if (nd->witnesses.size() > 0) {
+                        nd->witnesses.push_front(nd->witnesses.front());
+                    }
+                    if (nd->witnesses.size() > WITNESS_CACHE_SIZE) {
+                        nd->witnesses.pop_back();
+                    }
+                }
+            }
+        }
+        if (nWitnessCacheSize < WITNESS_CACHE_SIZE) {
+            nWitnessCacheSize += 1;
+        }
+
+        const CBlock* pblock {pblockIn};
+        CBlock block;
+        if (!pblock) {
+            ReadBlockFromDisk(block, pindex);
+            pblock = &block;
+        }
+
+        for (const CTransaction& tx : pblock->vtx) {
+            auto hash = tx.GetHash();
+            bool txIsOurs = mapWallet.count(hash);
+            for (size_t i = 0; i < tx.GetVjoinsplit().size(); i++) {
+                const JSDescription& jsdesc = tx.GetVjoinsplit()[i];
+                for (uint8_t j = 0; j < jsdesc.commitments.size(); j++) {
+                    const uint256& note_commitment = jsdesc.commitments[j];
+                    tree.append(note_commitment);
+
+                    // Increment existing witnesses
+                    for (auto& wtxItem : mapWallet)
+                    {
+                        for (mapNoteData_t::value_type& item : wtxItem.second->mapNoteData) {
+                            CNoteData* nd = &(item.second);
+                            if (nd->witnessHeight < pindex->nHeight &&
+                                    nd->witnesses.size() > 0) {
+                                // Check the validity of the cache
+                                // See earlier comment about validity.
+                                assert(nWitnessCacheSize >= nd->witnesses.size());
+                                nd->witnesses.front().append(note_commitment);
+                            }
+                        }
+                    }
+
+                    // If this is our note, witness it
+                    if (txIsOurs) {
+                        JSOutPoint jsoutpt {hash, i, j};
+                        if (mapWallet[hash]->mapNoteData.count(jsoutpt) &&
+                                mapWallet[hash]->mapNoteData[jsoutpt].witnessHeight < pindex->nHeight) {
+                            CNoteData* nd = &(mapWallet[hash]->mapNoteData[jsoutpt]);
+                            if (nd->witnesses.size() > 0) {
+                                // We think this can happen because we write out the
+                                // witness cache state after every block increment or
+                                // decrement, but the block index itself is written in
+                                // batches. So if the node crashes in between these two
+                                // operations, it is possible for IncrementNoteWitnesses
+                                // to be called again on previously-cached blocks. This
+                                // doesn't affect existing cached notes because of the
+                                // CNoteData::witnessHeight checks. See #1378 for details.
+                                LogPrintf("Inconsistent witness cache state found for %s\n- Cache size: %d\n- Top (height %d): %s\n- New (height %d): %s\n",
+                                          jsoutpt.ToString(), nd->witnesses.size(),
+                                          nd->witnessHeight,
+                                          nd->witnesses.front().root().GetHex(),
+                                          pindex->nHeight,
+                                          tree.witness().root().GetHex());
+                                nd->witnesses.clear();
+                            }
+                            nd->witnesses.push_front(tree.witness());
+                            // Set height to one less than pindex so it gets incremented
+                            nd->witnessHeight = pindex->nHeight - 1;
+                            // Check the validity of the cache
+                            assert(nWitnessCacheSize >= nd->witnesses.size());
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update witness heights
+        for (auto& wtxItem : mapWallet)
+        {
+            for (mapNoteData_t::value_type& item : wtxItem.second->mapNoteData) {
+                CNoteData* nd = &(item.second);
+                if (nd->witnessHeight < pindex->nHeight) {
+                    nd->witnessHeight = pindex->nHeight;
+                    // Check the validity of the cache
+                    // See earlier comment about validity.
+                    assert(nWitnessCacheSize >= nd->witnesses.size());
+                }
+            }
+        }
+
+        // For performance reasons, we write out the witness cache in
+        // CWallet::SetBestChain() (which also ensures that overall consistency
+        // of the wallet.dat is maintained).
+    }
+}
+
+#else
+void CWallet::IncrementNoteWitnesses(const CBlockIndex* pindex,
+                                     const CBlock* pblockIn,
+                                     ZCIncrementalMerkleTree& tree)
+{
+    {
+        LOCK(cs_wallet);
+
+        for (auto& obj : mapWallet)
+        {
+            obj.second->IncrementWitness(nWitnessCacheSize, pindex->nHeight);
+        }
+
+        if (nWitnessCacheSize < WITNESS_CACHE_SIZE) {
+            nWitnessCacheSize += 1;
+        }
+
+        const CBlock* pblock {pblockIn};
+        CBlock block;
+        if (!pblock) {
+            ReadBlockFromDisk(block, pindex);
+            pblock = &block;
+        }
+
+        for (const CTransaction& tx : pblock->vtx) {
+            auto hash = tx.GetHash();
+            bool txIsOurs = mapWallet.count(hash);
+            for (size_t i = 0; i < tx.GetVjoinsplit().size(); i++) {
+                const JSDescription& jsdesc = tx.GetVjoinsplit()[i];
+                for (uint8_t j = 0; j < jsdesc.commitments.size(); j++) {
+                    const uint256& note_commitment = jsdesc.commitments[j];
+                    tree.append(note_commitment);
+
+                    // Increment existing witnesses
+                    for (auto& obj : mapWallet)
+                    {
+                        obj.second->IncrementExistingWitness(note_commitment, nWitnessCacheSize, pindex->nHeight);
+                    }
+
+                    // If this is our note, witness it
+                    if (txIsOurs) {
+                        JSOutPoint jsoutpt {hash, i, j};
+                        mapWallet[hash]->WitnessThisNote(tree, nWitnessCacheSize, jsoutpt, pindex->nHeight);
+                    }
+                }
+            }
+        }
+
+        // Update witness heights
+        for (auto& obj : mapWallet)
+        {
+            obj.second->UpdateWitnessHeights(nWitnessCacheSize, pindex->nHeight);
+        }
+
+        // For performance reasons, we write out the witness cache in
+        // CWallet::SetBestChain() (which also ensures that overall consistency
+        // of the wallet.dat is maintained).
+    }
 }
 
 void CWalletTx::ClearNoteWitnessCache()
@@ -738,16 +901,6 @@ void CWalletTx::ClearNoteWitnessCache()
         item.second.witnesses.clear();
         item.second.witnessHeight = -1;
     }
-}
-
-void CWalletTx::SetMapNoteData(mapNoteData_t& m)
-{
-    mapNoteData = m;
-}
-
-const mapNoteData_t* CWalletTx::GetMapNoteData() const
-{
-    return &mapNoteData;
 }
 
 void CWalletTx::IncrementWitness(int64_t nWitnessCacheSize, int nHeight)
@@ -838,65 +991,6 @@ void CWalletTx::UpdateWitnessHeights(int64_t nWitnessCacheSize, int nHeight)
     }
 }
 
-void CWallet::IncrementNoteWitnesses(const CBlockIndex* pindex,
-                                     const CBlock* pblockIn,
-                                     ZCIncrementalMerkleTree& tree)
-{
-    {
-        LOCK(cs_wallet);
-
-        for (auto& obj : mapWallet)
-        {
-            obj.second->IncrementWitness(nWitnessCacheSize, pindex->nHeight);
-        }
-
-        if (nWitnessCacheSize < WITNESS_CACHE_SIZE) {
-            nWitnessCacheSize += 1;
-        }
-
-        const CBlock* pblock {pblockIn};
-        CBlock block;
-        if (!pblock) {
-            ReadBlockFromDisk(block, pindex);
-            pblock = &block;
-        }
-
-        for (const CTransaction& tx : pblock->vtx) {
-            auto hash = tx.GetHash();
-            bool txIsOurs = mapWallet.count(hash);
-            for (size_t i = 0; i < tx.GetVjoinsplit().size(); i++) {
-                const JSDescription& jsdesc = tx.GetVjoinsplit()[i];
-                for (uint8_t j = 0; j < jsdesc.commitments.size(); j++) {
-                    const uint256& note_commitment = jsdesc.commitments[j];
-                    tree.append(note_commitment);
-
-                    // Increment existing witnesses
-                    for (auto& obj : mapWallet)
-                    {
-                        obj.second->IncrementExistingWitness(note_commitment, nWitnessCacheSize, pindex->nHeight);
-                    }
-
-                    // If this is our note, witness it
-                    if (txIsOurs) {
-                        JSOutPoint jsoutpt {hash, i, j};
-                        mapWallet[hash]->WitnessThisNote(tree, nWitnessCacheSize, jsoutpt, pindex->nHeight);
-                    }
-                }
-            }
-        }
-
-        // Update witness heights
-        for (auto& obj : mapWallet)
-        {
-            obj.second->UpdateWitnessHeights(nWitnessCacheSize, pindex->nHeight);
-        }
-
-        // For performance reasons, we write out the witness cache in
-        // CWallet::SetBestChain() (which also ensures that overall consistency
-        // of the wallet.dat is maintained).
-    }
-}
-
 void CWalletTx::DecrementWitness(int64_t nWitnessCacheSize, int nHeight)
 {
     for (mapNoteData_t::value_type& item : mapNoteData) {
@@ -941,7 +1035,65 @@ void CWalletTx::CheckWitnessHeight(int64_t nWitnessCacheSize, int nHeight)
         }
     }
 }
+#endif
 
+#if 1
+void CWallet::DecrementNoteWitnesses(const CBlockIndex* pindex)
+{
+    {
+        LOCK(cs_wallet);
+        for (auto& wtxItem : mapWallet)
+        {
+            for (mapNoteData_t::value_type& item : wtxItem.second->mapNoteData) {
+                CNoteData* nd = &(item.second);
+                // Only increment witnesses that are not above the current height
+                if (nd->witnessHeight <= pindex->nHeight) {
+                    // Check the validity of the cache
+                    // See comment below (this would be invalid if there was a
+                    // prior decrement).
+                    assert(nWitnessCacheSize >= nd->witnesses.size());
+                    // Witnesses being decremented should always be either -1
+                    // (never incremented or decremented) or equal to pindex
+                    assert((nd->witnessHeight == -1) ||
+                           (nd->witnessHeight == pindex->nHeight));
+                    if (nd->witnesses.size() > 0) {
+                        nd->witnesses.pop_front();
+                    }
+                    // pindex is the block being removed, so the new witness cache
+                    // height is one below it.
+                    nd->witnessHeight = pindex->nHeight - 1;
+                }
+            }
+        }
+        nWitnessCacheSize -= 1;
+        for (auto& wtxItem : mapWallet)
+        {
+            for (mapNoteData_t::value_type& item : wtxItem.second->mapNoteData) {
+                CNoteData* nd = &(item.second);
+                // Check the validity of the cache
+                // Technically if there are notes witnessed above the current
+                // height, their cache will now be invalid (relative to the new
+                // value of nWitnessCacheSize). However, this would only occur
+                // during a reindex, and by the time the reindex reaches the tip
+                // of the chain again, the existing witness caches will be valid
+                // again.
+                // We don't set nWitnessCacheSize to zero at the start of the
+                // reindex because the on-disk blocks had already resulted in a
+                // chain that didn't trigger the assertion below.
+                if (nd->witnessHeight < pindex->nHeight) {
+                    assert(nWitnessCacheSize >= nd->witnesses.size());
+                }
+            }
+        }
+        // TODO: If nWitnessCache is zero, we need to regenerate the caches (#1302)
+        assert(nWitnessCacheSize > 0);
+
+        // For performance reasons, we write out the witness cache in
+        // CWallet::SetBestChain() (which also ensures that overall consistency
+        // of the wallet.dat is maintained).
+    }
+}
+#else
 void CWallet::DecrementNoteWitnesses(const CBlockIndex* pindex)
 {
     {
@@ -965,6 +1117,7 @@ void CWallet::DecrementNoteWitnesses(const CBlockIndex* pindex)
         // of the wallet.dat is maintained).
     }
 }
+#endif
 
 bool CWallet::EncryptWallet(const SecureString& strWalletPassphrase)
 {
@@ -1204,6 +1357,7 @@ void CWallet::MarkDirty()
     }
 }
 
+#if 0
 /**
  * Ensure that every note in the wallet (for which we possess a spending key)
  * has a cached nullifier.
@@ -1242,6 +1396,7 @@ void CWalletTx::UpdateNullifierMap(CWallet* pw)
 
     UpdateNullifierNoteMapWithTx(pw);
 }
+#endif
 
 bool CWallet::UpdateNullifierNoteMap()
 {
@@ -1251,9 +1406,31 @@ bool CWallet::UpdateNullifierNoteMap()
         if (IsLocked())
             return false;
 
-        for (auto& obj : mapWallet)
+        ZCNoteDecryption dec;
+        for (auto& wtxItem : mapWallet)
         {
-            obj.second->UpdateNullifierMap(this);
+#if 0
+            wtxItem.second->UpdateNullifierMap(this);
+#else
+            for (mapNoteData_t::value_type& item : wtxItem.second->mapNoteData)
+            {
+                if (!item.second.nullifier) {
+                    if (GetNoteDecryptor(item.second.address, dec)) {
+                        auto i = item.first.js;
+                        auto hSig = wtxItem.second->getTxBase()->GetVjoinsplit()[i].h_sig(
+                            *pzcashParams, wtxItem.second->getTxBase()->GetJoinSplitPubKey());
+                        item.second.nullifier = GetNoteNullifier(
+                            wtxItem.second->getTxBase()->GetVjoinsplit()[i],
+                            item.second.address,
+                            dec,
+                            hSig,
+                            item.first.n);
+                    }
+                }
+            }
+  
+            UpdateNullifierNoteMapWithTx(*(wtxItem.second));
+#endif
         }
     }
     return true;
@@ -1270,10 +1447,10 @@ void CWallet::UpdateNullifierNoteMapWithTx(const CWalletTransactionBase& obj)
 {
     {
         LOCK(cs_wallet);
-#if 1
+#if 0
         obj.UpdateNullifierNoteMapWithTx(this);
 #else
-        for (const mapNoteData_t::value_type& item : wtx.mapNoteData) {
+        for (const mapNoteData_t::value_type& item : obj.mapNoteData) {
             if (item.second.nullifier) {
                 mapNullifiersToNotes[*item.second.nullifier] = item.first;
             }
@@ -1432,8 +1609,8 @@ bool CWallet::AddToWallet(const CWalletTransactionBase& wtxIn, bool fFromLoadWal
     return true;
 }
 
-#if 0
-bool CWallet::UpdatedNoteData(const CWalletTx& wtxIn, CWalletTx& wtx)
+#if 1
+bool CWallet::UpdatedNoteData(const CWalletTransactionBase& wtxIn, CWalletTransactionBase& wtx)
 {
     if (wtxIn.mapNoteData.empty() || wtxIn.mapNoteData == wtx.mapNoteData) {
         return false;
@@ -1471,7 +1648,7 @@ bool CWallet::UpdatedNoteData(const CWalletTransactionBase& wtxIn, CWalletTransa
         tmp.at(nd.first).witnessHeight = nd.second.witnessHeight;
     }
     // Now copy over the updated note data
-#if 0
+#if 1
     wtx.mapNoteData = tmp;
 #else
     wtx.SetMapNoteData(tmp);
@@ -1484,14 +1661,46 @@ bool CWallet::UpdatedNoteData(const CWalletTransactionBase& wtxIn, CWalletTransa
  * pblock is optional, but should be provided if the transaction is known to be in a block.
  * If fUpdate is true, existing transactions will be updated.
  */
-#if 0
-bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pblock, bool fUpdate)
+#if 1
+bool CWallet::AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, bool fUpdate)
 {
     {
         AssertLockHeld(cs_wallet);
-        bool fExisted = mapWallet.count(tx.GetHash()) != 0;
+        bool fExisted = mapWallet.count(obj.GetHash()) != 0;
         if (fExisted && !fUpdate) return false;
-        auto noteData = FindMyNotes(tx);
+        auto noteData = FindMyNotes(obj);
+        try
+        {
+//            bool isInvolvingMe = sobj->IsInvolvingMe(noteData);
+ 
+//            if (fExisted || isInvolvingMe )
+            if (fExisted || IsMine(obj) || IsFromMe(obj) || noteData.size() > 0)
+            {
+                std::shared_ptr<CWalletTransactionBase> sobj = CWalletTransactionBase::MakeWalletObjectBase(obj, this);
+                if (noteData.size() > 0) {
+                    sobj->SetNoteData(noteData);
+                }
+ 
+                // Get merkle branch if transaction was found in a block
+                if (pblock)
+                    sobj->SetMerkleBranch(*pblock);
+ 
+                // Do not flush the wallet here for performance reasons
+                // this is safe, as in case of a crash, we rescan the necessary blocks on startup through our SetBestChain-mechanism
+                CWalletDB walletdb(strWalletFile, "r+", false);
+
+                return AddToWallet(*sobj, false, &walletdb);
+            }
+        }
+        catch (const std::exception &exc)
+        {
+            LogPrintf("%s():%d - %s\n", __func__, __LINE__, exc.what());
+        }
+        catch(...)
+        {
+            LogPrintf("%s():%d - Unexpected exception caught\n", __func__, __LINE__);
+        }
+#if 0
         if (fExisted || IsMine(tx) || IsFromMe(tx) || noteData.size() > 0)
         {
             CWalletTx wtx(this,tx);
@@ -1510,6 +1719,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pbl
 
             return AddToWallet(wtx, false, &walletdb);
         }
+#endif
     }
     return false;
 }
@@ -1678,14 +1888,14 @@ boost::optional<uint256> CWallet::GetNoteNullifier(const JSDescription& jsdesc,
  * the result of FindMyNotes (for the addresses available at the time) will
  * already have been cached in CWalletTx.mapNoteData.
  */
-mapNoteData_t CWallet::FindMyNotes(const CTransaction& tx) const
+mapNoteData_t CWallet::FindMyNotes(const CTransactionBase& tx) const
 {
     LOCK(cs_SpendingKeyStore);
     uint256 hash = tx.GetHash();
 
     mapNoteData_t noteData;
     for (size_t i = 0; i < tx.GetVjoinsplit().size(); i++) {
-        auto hSig = tx.GetVjoinsplit()[i].h_sig(*pzcashParams, tx.joinSplitPubKey);
+        auto hSig = tx.GetVjoinsplit()[i].h_sig(*pzcashParams, tx.GetJoinSplitPubKey());
         for (uint8_t j = 0; j < tx.GetVjoinsplit()[i].ciphertexts.size(); j++) {
             for (const NoteDecryptorMap::value_type& item : mapNoteDecryptors) {
                 try {
@@ -1739,11 +1949,11 @@ void CWallet::GetNoteWitnesses(std::vector<JSOutPoint> notes,
         boost::optional<uint256> rt;
         int i = 0;
         for (JSOutPoint note : notes) {
-#if 0
+#if 1
             if (mapWallet.count(note.hash) &&
-                    mapWallet[note.hash].mapNoteData.count(note) &&
-                    mapWallet[note.hash].mapNoteData[note].witnesses.size() > 0) {
-                witnesses[i] = mapWallet[note.hash].mapNoteData[note].witnesses.front();
+                    mapWallet[note.hash]->mapNoteData.count(note) &&
+                    mapWallet[note.hash]->mapNoteData[note].witnesses.size() > 0) {
+                witnesses[i] = mapWallet[note.hash]->mapNoteData[note].witnesses.front();
                 if (!rt) {
                     rt = witnesses[i]->root();
                 } else {
@@ -1861,7 +2071,7 @@ bool CWallet::IsMine(const CTransactionBase& tx) const
     return false;
 }
 
-bool CWallet::IsFromMe(const CTransaction& tx) const
+bool CWallet::IsFromMe(const CTransactionBase& tx) const
 {
     if (GetDebit(tx, ISMINE_ALL) > 0) {
         return true;
@@ -1983,7 +2193,7 @@ int CWalletTx::SetMerkleBranch(const CBlock& block)
 
 CWalletTx::CWalletTx():
     CTransactionBase(0), CTransaction(),
-    CWalletTransactionBase(nullptr, *this), mapNoteData()
+    CWalletTransactionBase(nullptr, *this)
 {
     // Note explitic call to CTransactionBase is needed since
     // in multiple inheritance virtual classes are initialized first
@@ -1993,7 +2203,7 @@ CWalletTx::CWalletTx():
 
 CWalletTx::CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn):
     CTransactionBase(txIn), CTransaction(txIn),
-    CWalletTransactionBase(pwalletIn, *this), mapNoteData()
+    CWalletTransactionBase(pwalletIn, *this)
 {
     // Note explitic call to CTransactionBase is needed since
     // in multiple inheritance virtual classes are initialized first
@@ -2002,7 +2212,7 @@ CWalletTx::CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn):
 }
 
 CWalletTx::CWalletTx(const CWalletTx& rhs):
-    CTransactionBase(rhs), CTransaction(rhs), CWalletTransactionBase(rhs), mapNoteData(rhs.mapNoteData)
+    CTransactionBase(rhs), CTransaction(rhs), CWalletTransactionBase(rhs)
 {
     // Note explitic call to CTransactionBase is needed since
     // in multiple inheritance virtual classes are initialized first
@@ -2775,7 +2985,11 @@ CAmount CWalletTransactionBase::GetChange() const
 bool CWalletTransactionBase::IsTrusted(bool canSpendZeroConfChange) const
 {
     // Quick answer in most cases
+#if 0
     if (!pTxBase->CheckFinal())
+#else
+    if (!CheckFinalTx(*pTxBase))
+#endif
         return false;
 
     int nDepth = GetDepthInMainChain();
@@ -2902,7 +3116,8 @@ CAmount CWallet::GetUnconfirmedBalance() const
         for (MAP_WALLET_CONST_IT it = mapWallet.begin(); it != mapWallet.end(); ++it)
         {
             const CWalletTransactionBase* pcoin = it->second.get();
-            if (!pcoin->getTxBase()->CheckFinal() || (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0))
+//            if (!pcoin->getTxBase()->CheckFinal() || (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0))
+            if (!CheckFinalTx(*pcoin->getTxBase()) || (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0))
 #endif
                 nTotal += pcoin->GetAvailableCredit();
         }
@@ -2944,7 +3159,8 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
                 trusted = pcoin->IsTrusted(zconfchangeusage == eZeroConfChangeUsage::ZCC_TRUE);
             }
 
-            if (!pcoin->getTxBase()->CheckFinal() || (!trusted && pcoin->GetDepthInMainChain() == 0))
+//            if (!pcoin->getTxBase()->CheckFinal() || (!trusted && pcoin->GetDepthInMainChain() == 0))
+            if (!CheckFinalTx(*pcoin->getTxBase()) || (!trusted && pcoin->GetDepthInMainChain() == 0))
             {
                 int vout_idx = 0;
                 bool outputFound = false;
@@ -3048,7 +3264,8 @@ CAmount CWallet::GetUnconfirmedWatchOnlyBalance() const
         for (MAP_WALLET_CONST_IT it = mapWallet.begin(); it != mapWallet.end(); ++it)
         {
             const CWalletTransactionBase* pcoin = it->second.get();
-            if (!pcoin->getTxBase()->CheckFinal() || (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0))
+//            if (!pcoin->getTxBase()->CheckFinal() || (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0))
+            if (!CheckFinalTx(*pcoin->getTxBase()) || (!pcoin->IsTrusted() && pcoin->GetDepthInMainChain() == 0))
 #endif
                 nTotal += pcoin->GetAvailableWatchOnlyCredit();
         }
@@ -3089,7 +3306,8 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
         {
             const uint256& wtxid = it->first;
             const CWalletTransactionBase* pcoin = (*it).second.get();
-            if (!pcoin->getTxBase()->CheckFinal())
+//            if (!pcoin->getTxBase()->CheckFinal())
+            if (!CheckFinalTx(*pcoin->getTxBase()))
                 continue;
 
             if (fOnlyConfirmed && !pcoin->IsTrusted())
@@ -4147,7 +4365,8 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances()
         for (auto& walletEntry: mapWallet)
         {
             auto* pcoin = walletEntry.second.get();
-            if (!pcoin->getTxBase()->CheckFinal() || !pcoin->IsTrusted())
+//            if (!pcoin->getTxBase()->CheckFinal() || !pcoin->IsTrusted())
+            if (!CheckFinalTx(*pcoin->getTxBase()) || !pcoin->IsTrusted() )
                 continue;
 
             if (!pcoin->HasMatureOutputs())
@@ -4608,17 +4827,16 @@ void CWallet::GetFilteredNotes(std::vector<CNotePlaintextEntry> & outEntries, st
     for (auto & p : mapWallet) {
         CWalletTransactionBase& wtx = *(p.second);
         // Filter the transactions before checking for notes
-        if (!wtx.getTxBase()->CheckFinal() || (wtx.getTxBase()->IsCoinBase() && !wtx.HasMatureOutputs()) || wtx.GetDepthInMainChain() < minDepth) {
+//        if (!wtx.getTxBase()->CheckFinal() || (wtx.getTxBase()->IsCoinBase() && !wtx.HasMatureOutputs()) || wtx.GetDepthInMainChain() < minDepth) {
+        if (!CheckFinalTx(*wtx.getTxBase()) || (wtx.getTxBase()->IsCoinBase() && !wtx.HasMatureOutputs()) || wtx.GetDepthInMainChain() < minDepth) {
             continue;
         }
 
-        const mapNoteData_t* mnd = wtx.GetMapNoteData();
-        if (!mnd || mnd->size() == 0) {
+        if (wtx.mapNoteData.size() == 0) {
             continue;
         }
-        LogPrintf("%s():%d - mnd.size=%d\n", __func__, __LINE__, mnd->size());
 
-#if 0
+#if 1
         for (auto & pair : wtx.mapNoteData) {
             JSOutPoint jsop = pair.first;
             CNoteData nd = pair.second;
@@ -4650,12 +4868,12 @@ void CWallet::GetFilteredNotes(std::vector<CNotePlaintextEntry> & outEntries, st
             }
 
             // determine amount of funds in the note
-            auto hSig = wtx.GetVjoinsplit()[i].h_sig(*pzcashParams, wtx.joinSplitPubKey);
+            auto hSig = wtx.getTxBase()->GetVjoinsplit()[i].h_sig(*pzcashParams, wtx.getTxBase()->GetJoinSplitPubKey());
             try {
                 NotePlaintext plaintext = NotePlaintext::decrypt(
                         decryptor,
-                        wtx.GetVjoinsplit()[i].ciphertexts[j],
-                        wtx.GetVjoinsplit()[i].ephemeralKey,
+                        wtx.getTxBase()->GetVjoinsplit()[i].ciphertexts[j],
+                        wtx.getTxBase()->GetVjoinsplit()[i].ephemeralKey,
                         hSig,
                         (unsigned char) j);
 

@@ -295,6 +295,8 @@ protected:
     int GetDepthInMainChainINTERNAL(const CBlockIndex* &pindexRet) const;
 
 public:
+    mapNoteData_t mapNoteData;
+
     uint256 hashBlock;
     std::vector<uint256> vMerkleBranch;
     int nIndex;
@@ -335,8 +337,10 @@ private:
     mutable CAmount nAvailableWatchCreditCached;
     mutable CAmount nChangeCached;
 public:
-    bool&    SetfDebitCached() {return fDebitCached;} //for UTs only
-    CAmount& SetnDebitCached() {return nDebitCached;} //for UTs only
+    void SetfDebitCached(bool val) {fDebitCached = val;} //for UTs only
+    void SetnDebitCached(CAmount val) {nDebitCached = val;} //for UTs only
+    bool    GetfDebitCached() { return fDebitCached;} //for UTs only
+    CAmount GetnDebitCached() { return nDebitCached;} //for UTs only
 
 protected:
     const CWallet* pwallet;
@@ -423,6 +427,7 @@ public:
         libzcash::PaymentAddress filterPaymentAddress,
         bool ignoreSpent = true, bool ignoreUnspendable = true) {} // default empty (certs have no notes)
 
+#if 0
     virtual void ClearNoteWitnessCache() {};
 
     virtual void IncrementWitness(int64_t nWitnessCacheSize, int nHeight) { return; }
@@ -436,12 +441,10 @@ public:
     virtual void CheckWitnessHeight(int64_t nWitnessCacheSize, int nHeight) { return; }
 
     virtual void UpdateNullifierMap(CWallet* pw) { return; };
-    virtual void UpdateNullifierNoteMapWithTx(CWallet* pw) const { return; };
+//    virtual void UpdateNullifierNoteMapWithTx(CWallet* pw) const { return; };
+#endif
 
     // return false if the map is empty
-    virtual const mapNoteData_t* GetMapNoteData() const { return nullptr; }
-    virtual void SetMapNoteData(mapNoteData_t& m) {}
-
     void MarkDirty();
 protected:
     void Reset(const CWallet* pwalletIn);
@@ -465,8 +468,6 @@ protected:
     int GetIndexInBlock(const CBlock& block) override final;
 
 public:
-    mapNoteData_t mapNoteData;
-
     explicit CWalletTx();
     explicit CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn);
     CWalletTx(const CWalletTx& rhs);
@@ -539,9 +540,8 @@ public:
         bool fFilterAddress,
         libzcash::PaymentAddress filterPaymentAddress,
         bool ignoreSpent = true, bool ignoreUnspendable = true) override; 
+#if 0
     void ClearNoteWitnessCache() override;
-    const mapNoteData_t* GetMapNoteData() const override;
-    void SetMapNoteData(mapNoteData_t& m) override;
 
     void IncrementWitness(int64_t nWitnessCacheSize, int nHeight) override;
     void IncrementExistingWitness(const uint256&, int64_t nWitnessCacheSize, int nHeight) override;
@@ -554,7 +554,8 @@ public:
     void CheckWitnessHeight(int64_t nWitnessCacheSize, int nHeight) override;
 
     void UpdateNullifierMap(CWallet* pw) override;
-    void UpdateNullifierNoteMapWithTx(CWallet* pw) const override;
+//    void UpdateNullifierNoteMapWithTx(CWallet* pw) const override;
+#endif
 
     // fill the crosschain output
     template <typename T>
@@ -613,6 +614,7 @@ public:
         std::vector<CScCertificate> vUnused; //! Used to be vtxPrev
         READWRITE(vUnused);
         READWRITE(mapValue);
+        READWRITE(mapNoteData);
         READWRITE(vOrderForm);
         READWRITE(fTimeReceivedIsTxTime);
         READWRITE(nTimeReceived);
@@ -1183,7 +1185,7 @@ public:
         const ZCNoteDecryption& dec,
         const uint256& hSig,
         uint8_t n) const;
-    mapNoteData_t FindMyNotes(const CTransaction& tx) const;
+    mapNoteData_t FindMyNotes(const CTransactionBase& tx) const;
     bool IsFromMe(const uint256& nullifier) const;
     void GetNoteWitnesses(
          std::vector<JSOutPoint> notes,
@@ -1198,7 +1200,7 @@ public:
     CAmount GetChange(const CTxOut& txout) const;
     bool IsMine(const CTransactionBase& tx) const;
     /** should probably be renamed to IsRelevantToMe */
-    bool IsFromMe(const CTransaction& tx) const;
+    bool IsFromMe(const CTransactionBase& tx) const;
     CAmount GetDebit (const CTransactionBase& txBase, const isminefilter& filter) const;
     CAmount GetCredit(const CWalletTransactionBase& txWalletBase, const isminefilter& filter,
                       bool& fCanBeCached, bool keepImmatureVoutsOnly) const;

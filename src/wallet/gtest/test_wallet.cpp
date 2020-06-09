@@ -875,8 +875,8 @@ TEST(wallet_tests, ClearNoteWitnessCache) {
     wallet.GetNoteWitnesses(notes, witnesses, anchor2);
     EXPECT_TRUE((bool) witnesses[0]);
     EXPECT_FALSE((bool) witnesses[1]);
-#if 0
-    EXPECT_EQ(1, wallet.getMapWallet().at(hash).mapNoteData[jsoutpt].witnessHeight);
+#if 1
+    EXPECT_EQ(1, wallet.getMapWallet().at(hash)->mapNoteData[jsoutpt].witnessHeight);
 #else
     mapNoteData_t* m = const_cast<mapNoteData_t*>(wallet.getMapWallet().at(hash)->GetMapNoteData());
     EXPECT_EQ(1, ((*m)[jsoutpt]).witnessHeight);
@@ -889,8 +889,8 @@ TEST(wallet_tests, ClearNoteWitnessCache) {
     wallet.GetNoteWitnesses(notes, witnesses, anchor2);
     EXPECT_FALSE((bool) witnesses[0]);
     EXPECT_FALSE((bool) witnesses[1]);
-#if 0
-    EXPECT_EQ(-1, wallet.getMapWallet().at(hash).mapNoteData[jsoutpt].witnessHeight);
+#if 1
+    EXPECT_EQ(-1, wallet.getMapWallet().at(hash)->mapNoteData[jsoutpt].witnessHeight);
 #else
     mapNoteData_t* m2 = const_cast<mapNoteData_t*>(wallet.getMapWallet().at(hash)->GetMapNoteData());
     EXPECT_EQ(-1, (*m2)[jsoutpt].witnessHeight);
@@ -1085,7 +1085,7 @@ TEST(wallet_tests, MarkAffectedTransactionsDirty) {
     EXPECT_TRUE(wallet.getMapWallet().at(hash).SetfDebitCached());
 #else
     wallet.getMapWallet().at(hash)->GetDebit(ISMINE_ALL);
-    EXPECT_TRUE(wallet.getMapWallet().at(hash)->SetfDebitCached());
+    EXPECT_TRUE(wallet.getMapWallet().at(hash)->GetfDebitCached());
 #endif
 
     // After adding the note spend, the first tx should be dirty
@@ -1094,6 +1094,6 @@ TEST(wallet_tests, MarkAffectedTransactionsDirty) {
 #if 0
     EXPECT_FALSE(wallet.getMapWallet().at(hash).SetfDebitCached());
 #else
-    EXPECT_FALSE(wallet.getMapWallet().at(hash)->SetfDebitCached());
+    EXPECT_FALSE(wallet.getMapWallet().at(hash)->GetfDebitCached());
 #endif
 }

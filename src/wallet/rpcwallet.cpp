@@ -1358,7 +1358,8 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletTransactionBase& wtx = *((*it).second);
-        if (wtx.getTxBase()->IsCoinBase() || !wtx.getTxBase()->CheckFinal())
+//        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()))
+        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()))
 #endif
             continue;
 
@@ -1425,7 +1426,8 @@ UniValue getreceivedbyaccount(const UniValue& params, bool fHelp)
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletTransactionBase& wtx = *((*it).second);
-        if (wtx.getTxBase()->IsCoinBase() || !wtx.getTxBase()->CheckFinal())
+//        if (wtx.getTxBase()->IsCoinBase() || !wtx.getTxBase()->CheckFinal())
+        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()))
 #endif
             continue;
 
@@ -1450,7 +1452,8 @@ CAmount GetAccountBalance(CWalletDB& walletdb, const string& strAccount, int nMi
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletTransactionBase& wtx = *((*it).second);
-        if (!wtx.getTxBase()->CheckFinal() || (wtx.getTxBase()->IsCoinBase() && !wtx.HasMatureOutputs()))
+//        if (!wtx.getTxBase()->CheckFinal() || (wtx.getTxBase()->IsCoinBase() && !wtx.HasMatureOutputs()))
+        if (!CheckFinalTx(*wtx.getTxBase()) || (wtx.getTxBase()->IsCoinBase() && !wtx.HasMatureOutputs()))
             continue;
 
         CAmount nReceived, nSent, nFee;
@@ -1520,7 +1523,8 @@ UniValue getbalance(const UniValue& params, bool fHelp)
         for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
         {
             const CWalletTransactionBase* wtx = it->second.get();
-            if (!wtx->getTxBase()->CheckFinal() || !wtx->HasMatureOutputs())
+//            if (!wtx->getTxBase()->CheckFinal() || !wtx->HasMatureOutputs())
+            if (!CheckFinalTx(*wtx->getTxBase()) || !wtx->HasMatureOutputs())
                 continue;
 
             CAmount allFee;
@@ -1912,7 +1916,8 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletTransactionBase& wtx = *((*it).second);
-        if (wtx.getTxBase()->IsCoinBase() || !wtx.getTxBase()->CheckFinal())
+//        if (wtx.getTxBase()->IsCoinBase() || !wtx.getTxBase()->CheckFinal())
+        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()) )
 #endif
             continue;
 

@@ -134,6 +134,7 @@ public:
     CScCertificate(deserialize_type, Stream& s) : CScCertificate(CMutableScCertificate(deserialize, s)) {}
 
     //GETTERS
+    const uint256&                            GetJoinSplitPubKey() const override { static const uint256 nullKey; return nullKey;}
     const std::vector<JSDescription>&         GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
     const uint256&                            GetScId()       const          {return scId;};
     const uint32_t&                           GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
@@ -175,7 +176,7 @@ public:
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int /* not used sigops */) const override;
 
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
-    bool CheckFinal(int flags) const override;
+//    bool CheckFinal(int flags) const override;
 
     std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
         unsigned int nIn, const CChain* chain, bool cacheStore) const override;

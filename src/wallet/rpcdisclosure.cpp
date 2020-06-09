@@ -138,7 +138,7 @@ UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp)
 #if 0
     PaymentDisclosure pd( wtx.joinSplitPubKey, key, info, msg );
 #else
-    PaymentDisclosure pd( wtx.getTxBase()->getJoinSplitPubKey(), key, info, msg );
+    PaymentDisclosure pd( wtx.getTxBase()->GetJoinSplitPubKey(), key, info, msg );
 #endif
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << pd;

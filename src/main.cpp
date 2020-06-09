@@ -753,7 +753,7 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
     return true;
 }
 
-bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
+bool IsFinalTx(const CTransactionBase &tx, int nBlockHeight, int64_t nBlockTime)
 {
     /* A specified locktime indicates that the transaction is only valid at the given blockheight or later.*/
     if (tx.GetLockTime() == 0)
@@ -769,7 +769,7 @@ bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
     return true;
 }
 
-bool CheckFinalTx(const CTransaction &tx, int flags)
+bool CheckFinalTx(const CTransactionBase &tx, int flags)
 {
     AssertLockHeld(cs_main);
 
