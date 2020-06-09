@@ -44,14 +44,13 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
 }
 
 CScCertificate::CScCertificate(const CMutableScCertificate &cert): CTransactionBase(cert),
-    scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash), nFirstBwtPos(0)
+    scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash), nFirstBwtPos(vout.size())
 {
-    for(const CTxOut& out: cert.vout)
-    {
-        if (!out.isFromBackwardTransfer)
-            ++(*const_cast<int*>(&nFirstBwtPos));
-        else
+    for(unsigned int idx = 0; idx < this->vout.size(); ++idx) {
+        if (this->vout[idx].isFromBackwardTransfer) {
+            *const_cast<int*>(&nFirstBwtPos) = idx;
             break;
+        }
     }
 
     UpdateHash();
@@ -87,8 +86,9 @@ bool CScCertificate::CheckAmounts(CValidationState &state) const
 {
     // Check for negative or overflow output values
     CAmount nCumulatedValueOut = 0;
-    for(const CTxOut& txout: vout)
+    for(unsigned int pos = 0; pos < vout.size(); ++pos)
     {
+        const CTxOut & txout = vout[pos];
         if (txout.nValue < 0)
             return state.DoS(100, error("CheckAmounts(): txout.nValue negative"),
                              REJECT_INVALID, "bad-txns-vout-negative");
@@ -96,7 +96,7 @@ bool CScCertificate::CheckAmounts(CValidationState &state) const
             return state.DoS(100, error("CheckAmounts(): txout.nValue too high"),
                              REJECT_INVALID, "bad-txns-vout-toolarge");
 
-        if (txout.isFromBackwardTransfer && txout.nValue == 0)
+        if (pos >= nFirstBwtPos && txout.nValue == 0)
             return state.DoS(100, error("CheckAmounts(): backward transfer has zero amount"),
                              REJECT_INVALID, "bad-txns-bwd-vout-zero");
         nCumulatedValueOut += txout.nValue;
@@ -246,19 +246,14 @@ CScCertificate::MakeShared() const {
 CAmount CScCertificate::GetValueOfBackwardTransfers() const
 {
     CAmount nValueOut = 0;
-    for (auto out : vout)
-        if (out.isFromBackwardTransfer)
-            nValueOut += out.nValue;
+    for(int pos = nFirstBwtPos; pos < vout.size(); ++pos)
+        nValueOut += vout[pos].nValue;
+
     return nValueOut;
 }
 
-int CScCertificate::GetNumbOfBackwardTransfers() const
-{
-    int size = 0;
-    for (auto out : vout)
-        if (out.isFromBackwardTransfer)
-            size += 1;
-    return size;
+int CScCertificate::GetNumbOfBackwardTransfers() const {
+    return vout.size() - nFirstBwtPos;
 }
 
 

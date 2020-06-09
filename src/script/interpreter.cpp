@@ -1197,18 +1197,14 @@ public:
         std::vector<CTxOut> vout_ser;
 
         // reading from memory and writing to data stream
-        for (auto it = certTo.GetVout().begin(); it != certTo.GetVout().end(); ++it)
+        for(int pos = 0; pos < certTo.GetVout().size(); ++pos)
         {
-            if ((*it).isFromBackwardTransfer)
-            {
-                CBackwardTransferOut btout((*it));
-                vbt_ccout_ser.push_back(btout);
-            }
+            if (pos < certTo.nFirstBwtPos)
+                vout_ser.push_back(certTo.GetVout()[pos]);
             else
-            {
-                vout_ser.push_back(*it);
-            }
+                vbt_ccout_ser.push_back(CBackwardTransferOut(certTo.GetVout()[pos]));
         }
+
         unsigned int voutSize = vout_ser.size();
         ::WriteCompactSize(s, voutSize);
         for (unsigned int nOutput = 0; nOutput < voutSize; nOutput++)

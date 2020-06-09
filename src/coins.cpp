@@ -51,15 +51,9 @@ void CCoins::From(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeig
     vout               = cert.GetVout();
     nHeight            = nHeightIn;
     nVersion           = cert.nVersion;
+    nFirstBwtPos       = cert.nFirstBwtPos;
     nBwtMaturityHeight = bwtMaturityHeight;
     ClearUnspendable();
-    nFirstBwtPos = vout.size();
-    for(unsigned int idx = 0; idx < this->vout.size(); ++idx) {
-        if (this->vout[idx].isFromBackwardTransfer) {
-            nFirstBwtPos = idx;
-            break;
-        }
-    }
 }
 
 void CCoins::Clear() {

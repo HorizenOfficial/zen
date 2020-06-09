@@ -98,7 +98,7 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx, const std::vector<CWalle
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
         out.push_back(Pair("scriptPubKey", o));
-        if (txout.isFromBackwardTransfer)
+        if (tx.getTxBase()->IsBackwardTransfer(i))
             out.push_back(Pair("backwardTransfer", true));
         vout.push_back(out);
     }

@@ -1140,7 +1140,7 @@ TEST_F(SidechainsEventsTestSuite, SpendFullCoinsByChangeOutput_CoinReconstructio
     //Checks
     CCoins reconstructedCoinFromCert;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),reconstructedCoinFromCert));
-    EXPECT_TRUE(coinFromCert == reconstructedCoinFromCert)<<coinFromCert.ToString() << "|||" << reconstructedCoinFromCert.ToString();
+    EXPECT_TRUE(coinFromCert == reconstructedCoinFromCert)<<coinFromCert.ToString() + reconstructedCoinFromCert.ToString();
 }
 
 TEST_F(SidechainsEventsTestSuite, SpendFullCoinsByBwt_CoinReconstructionFromBlockUndo)

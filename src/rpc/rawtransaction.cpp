@@ -199,7 +199,7 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
         out.push_back(Pair("scriptPubKey", o));
-        if (txout.isFromBackwardTransfer)
+        if (cert.IsBackwardTransfer(i))
         {
             std::string pkhStr;
             auto it = std::find(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), OP_HASH160);

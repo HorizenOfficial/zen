@@ -92,6 +92,8 @@ public:
             READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
             READWRITE(*const_cast<std::vector<CBackwardTransferOut>*>(&vbt_ccout_ser));
 
+            *const_cast<int*>(&nFirstBwtPos) = vout.size();
+
             for (auto& btout : vbt_ccout_ser)
             {
                 CTxOut out(btout);

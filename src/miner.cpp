@@ -158,7 +158,7 @@ bool GetTxInputsDependencies(const CTransactionBase& txBase, CAmount& nTotalIn, 
             const CScCertificate & inputCert = mempool.mapCertificate[txin.prevout.hash].GetCertificate();
 
             if (!txBase.IsCertificate() || // this is a tx
-                inputCert.GetVout()[txin.prevout.n].isFromBackwardTransfer ) // out is a backward transfer 
+                inputCert.IsBackwardTransfer(txin.prevout.n)) // out is a backward transfer
             {
                 // This should never happen
                 LogPrintf("%s():%d - ERROR: [%s] has unspendable input that is an unconfirmed certificate [%s] output %d\n",

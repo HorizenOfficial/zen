@@ -2533,7 +2533,7 @@ CCoins::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned int vOutP
         if (!pTxBase->IsCoinBase() && !pTxBase->IsCertificate())
             return CCoins::outputMaturity::MATURE;
 
-        if (!pTxBase->GetVout().at(vOutPos).isFromBackwardTransfer)
+        if (!pTxBase->IsBackwardTransfer(vOutPos))
             return CCoins::outputMaturity::MATURE;
         else
             return CCoins::outputMaturity::IMMATURE;
@@ -2552,10 +2552,10 @@ CCoins::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned int vOutP
     }
 
     //Hereinafter cert in mainchain
-    if (!pTxBase->GetVout().at(vOutPos).isFromBackwardTransfer)
+    if (!pTxBase->IsBackwardTransfer(vOutPos))
         return CCoins::outputMaturity::MATURE;
 
-    if (pTxBase->GetVout().at(vOutPos).isFromBackwardTransfer && areBwtCeased)
+    if (pTxBase->IsBackwardTransfer(vOutPos) && areBwtCeased)
         return CCoins::outputMaturity::NOT_APPLICABLE;
 
     if (nDepth <= bwtMaturityDepth)
@@ -4960,7 +4960,7 @@ void CWalletCert::GetAmounts(std::list<COutputEntry>& listReceived, std::list<CO
 
         // If we are debited by the transaction, add the output as a "sent" entry
         // unless it is a backward transfer output
-        if (nDebit > 0 && !txout.isFromBackwardTransfer)
+        if (nDebit > 0 && !IsBackwardTransfer(pos))
             listSent.push_back(output);
 
         // If we are receiving the output, add it as a "received" entry

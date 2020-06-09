@@ -790,13 +790,15 @@ bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) cons
 bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int nHeight, int dosLevel) const
 {
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
-    BOOST_FOREACH(const CTxOut& txout, vout)
+    //BOOST_FOREACH(const CTxOut& txout, vout)
+    for(int pos = 0; pos < GetVout().size(); ++pos)
     {
         // if the output comes from a backward transfer (when we are a certificate), skip this check
         // but go on if the certificate txout is an ordinary one
-        if (txout.isFromBackwardTransfer)
+        if (IsBackwardTransfer(pos))
             continue;
 
+        const CTxOut& txout = GetVout()[pos];
         txnouttype whichType;
         ::IsStandard(txout.scriptPubKey, whichType);
 
