@@ -1,5 +1,6 @@
 #include <zendoo/zendoo_mc.h>
-#include <zendoo/hex_utils.h>
+#include <utilstrencodings.h>
+#include <uint256.h>
 #include <iostream>
 #include <cassert>
 #include <string>
@@ -31,10 +32,10 @@ void create_verify(int argc, char** argv)
     size_t vk_path_len = pk_path_len;
 
     assert(IsHex(argv[arg]));
-    auto end_epoch_mc_b_hash = SetHex(argv[arg++], 32);
+    auto end_epoch_mc_b_hash = uint256S(argv[arg++]);
 
     assert(IsHex(argv[arg]));
-    auto prev_end_epoch_mc_b_hash = SetHex(argv[arg++], 32);
+    auto prev_end_epoch_mc_b_hash = uint256S(argv[arg++]);
 
     uint64_t quality = strtoull(argv[arg++], NULL, 0);
     assert(quality >= 0);
@@ -58,7 +59,8 @@ void create_verify(int argc, char** argv)
         backward_transfer_t bt;
 
         assert(IsHex(argv[arg]));
-        auto pk_dest = SetHex(argv[arg++], 20);
+        uint160 pk_dest;
+        pk_dest.SetHex(argv[arg++]);
         std::copy(pk_dest.begin(), pk_dest.end(), std::begin(bt.pk_dest));
 
         uint64_t amount = strtoull(argv[arg++], NULL, 0);
@@ -70,8 +72,8 @@ void create_verify(int argc, char** argv)
 
     // Generate proof and vk
     assert(zendoo_create_mc_test_proof(
-        end_epoch_mc_b_hash.data(),
-        prev_end_epoch_mc_b_hash.data(),
+        end_epoch_mc_b_hash.begin(),
+        prev_end_epoch_mc_b_hash.begin(),
         bt_list.data(),
         bt_list_length,
         quality,
@@ -101,8 +103,8 @@ void create_verify(int argc, char** argv)
 
         // Verify proof
         assert(zendoo_verify_sc_proof(
-            end_epoch_mc_b_hash.data(),
-            prev_end_epoch_mc_b_hash.data(),
+            end_epoch_mc_b_hash.begin(),
+            prev_end_epoch_mc_b_hash.begin(),
             bt_list.data(),
             bt_list_length,
             quality,

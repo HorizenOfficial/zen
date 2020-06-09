@@ -35,6 +35,5 @@ define $(package)_stage_cmds
   mkdir $($(package)_staging_dir)$(host_prefix)/include/zendoo/ && \
   cp $($(package)_library_file) $($(package)_staging_dir)$(host_prefix)/lib/ && \
   cp include/zendoo_mc.h $($(package)_staging_dir)$(host_prefix)/include/zendoo && \
-  cp include/error.h $($(package)_staging_dir)$(host_prefix)/include/zendoo && \
-  cp include/hex_utils.h $($(package)_staging_dir)$(host_prefix)/include/zendoo 
+  cp include/error.h $($(package)_staging_dir)$(host_prefix)/include/zendoo
 endef

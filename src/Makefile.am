@@ -618,7 +618,10 @@ noinst_PROGRAMS += \
   zendoo/mcTest
   
 # tool for testing sidechain
-zendoo_mcTest_SOURCES = zendoo/mcTestCall.cpp 
+zendoo_mcTest_SOURCES = \
+    zendoo/mcTestCall.cpp \ 
+    uint256.cpp \
+    utilstrencodings.cpp 
 
 zendoo_mcTest_CPPFLAGS = $(AM_CPPFLAGS) 
 zendoo_mcTest_CXXFLAGS = $(AM_CXXFLAGS)  

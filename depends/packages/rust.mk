@@ -30,7 +30,7 @@ $(package)_build_subdir=buildos
 $(package)_extra_sources=$($(package)_file_name_$(build_os))
 
 define $(package)_fetch_cmds
-$(call fetch_file,$(package),$($(package)_download_path),$($(package)_download_file),$($(package)_file_name),$($(package)_sha256_hash)) && \
+$(call fetch_file,$(package),$($(package)_download_path),$($(package)_file_name),$($(package)_sha256_hash)) && \
 $(call fetch_file,$(package),$($(package)_download_path),$($(package)_file_name_$(build_os)),$($(package)_file_name_$(build_os)),$($(package)_sha256_hash_$(build_os)))
 endef
 
