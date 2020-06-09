@@ -3,7 +3,7 @@
 #include <pubkey.h>
 #include "tx_creation_utils.h"
 
-CMutableTransaction txCreationUtils::populateTx(int txVersion, const uint256 & newScId, const CAmount & creationTxAmount, const CAmount & fwdTxAmount, int epochLength)
+CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, const CAmount & fwdTxAmount, int epochLength)
 {
     CMutableTransaction mtx;
     mtx.nVersion = txVersion;
@@ -28,13 +28,8 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const uint256 & n
     mtx.vjoinsplit[1].nullifiers.at(1) = uint256S("3");
 
     mtx.vsc_ccout.resize(1);
-    mtx.vsc_ccout[0].scId = newScId;
     mtx.vsc_ccout[0].nValue = creationTxAmount;
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
-
-    mtx.vft_ccout.resize(1);
-    mtx.vft_ccout[0].scId = mtx.vsc_ccout[0].scId;
-    mtx.vft_ccout[0].nValue = fwdTxAmount;
 
     return mtx;
 }
@@ -60,9 +55,9 @@ void txCreationUtils::signTx(CMutableTransaction& mtx)
     assert(crypto_sign_detached(&mtx.joinSplitSig[0], NULL, dataToBeSigned.begin(), 32, joinSplitPrivKey ) == 0);
 }
 
-CTransaction txCreationUtils::createNewSidechainTxWith(const uint256 & newScId, const CAmount & creationTxAmount, int epochLength)
+CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength)
 {
-    CMutableTransaction mtx = populateTx(SC_TX_VERSION, newScId, creationTxAmount, CAmount(0), epochLength);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, creationTxAmount, CAmount(0), epochLength);
     mtx.vout.resize(0);
     mtx.vjoinsplit.resize(0);
     mtx.vft_ccout.resize(0);
@@ -73,10 +68,15 @@ CTransaction txCreationUtils::createNewSidechainTxWith(const uint256 & newScId, 
 
 CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
 {
-    CMutableTransaction mtx = populateTx(SC_TX_VERSION, newScId, CAmount(0), fwdTxAmount);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, CAmount(0), fwdTxAmount);
     mtx.vout.resize(0);
     mtx.vjoinsplit.resize(0);
     mtx.vsc_ccout.resize(0);
+
+    mtx.vft_ccout.resize(1);
+    mtx.vft_ccout[0].scId = newScId;
+    mtx.vft_ccout[0].nValue = fwdTxAmount;
+
     signTx(mtx);
 
     return CTransaction(mtx);
@@ -124,11 +124,10 @@ void txCreationUtils::extendTransaction(CTransaction & tx, const uint256 & scId,
     mtx.nVersion = SC_TX_VERSION;
 
     CTxScCreationOut aSidechainCreationTx;
-    aSidechainCreationTx.scId = scId;
     mtx.vsc_ccout.push_back(aSidechainCreationTx);
 
     CTxForwardTransferOut aForwardTransferTx;
-    aForwardTransferTx.scId = aSidechainCreationTx.scId;
+    aForwardTransferTx.scId = scId;
     aForwardTransferTx.nValue = amount;
     mtx.vft_ccout.push_back(aForwardTransferTx);
 

@@ -62,7 +62,6 @@ struct ScCreationParameters
 
 struct CRecipientCrossChainBase
 {
-    uint256 scId;
     uint256 address;
     CAmount nValue;
 
@@ -75,7 +74,11 @@ struct CRecipientScCreation : public CRecipientCrossChainBase
     ScCreationParameters creationData;
 };
 
-typedef CRecipientCrossChainBase CRecipientForwardTransfer;
+struct CRecipientForwardTransfer : public CRecipientCrossChainBase
+{
+    uint256 scId;
+};
+
 
 struct CRecipientBackwardTransfer
 {

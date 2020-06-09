@@ -52,9 +52,6 @@ class sc_cert_invalidate(BitcoinTestFramework):
 
     def run_test(self):
 
-        # side chain id
-        scid = "1111111111111111111111111111111111111111111111111111111111111111"
-
         sc_txes = []
         certs = []
 
@@ -72,8 +69,8 @@ class sc_cert_invalidate(BitcoinTestFramework):
         balance_node0 = []
 
         # node 1 earns some coins, they would be available after 100 blocks
-        mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)  # TODO this is not 1
+        mark_logs("Node 0 generates 1 block", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
         self.sync_all()
 
         mark_logs("Node 0 generates 220 block", self.nodes, DEBUG_MODE)
@@ -84,7 +81,11 @@ class sc_cert_invalidate(BitcoinTestFramework):
         sc_info.append("No SC")
 
         mark_logs("Node 1 creates the SC spending {} coins ...".format(creation_amount), self.nodes, DEBUG_MODE)
-        creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount)
+        creating_tx = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount)
+
+        decoded_tx = self.nodes[0].getrawtransaction(creating_tx, 1)
+        scid = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         mark_logs("creating_tx = {}".format(creating_tx), self.nodes, DEBUG_MODE)
         sc_txes.append(creating_tx)

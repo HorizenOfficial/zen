@@ -99,11 +99,6 @@ class headers(BitcoinTestFramework):
         self.nodes[1].generate(220)
         self.sync_all()
 
-        # side chain id
-        scid_1 = "11"
-        scid_2 = "22"
-        scid_3 = "33"
-        scid_4 = "44"
         errorString = ""
 
         creation_amount = Decimal("1.0")
@@ -118,8 +113,12 @@ class headers(BitcoinTestFramework):
         mark_logs("\nNode 1 creates SC 1 with " + str(creation_amount) + " coins", self.nodes, DEBUG_MODE)
         amounts = []
         amounts.append({"address": "dada", "amount": creation_amount})
-        self.nodes[1].sc_create(scid_1, 123, "dada", creation_amount, "123ffffffff123")
+        tx1 = self.nodes[1].sc_create(123, "dada", creation_amount, "123ffffffff123")
         self.sync_all()
+
+        decoded_tx = self.nodes[1].getrawtransaction(tx1, 1)
+        scid_1 = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid_1), self.nodes, DEBUG_MODE)
 
         mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
@@ -154,10 +153,22 @@ class headers(BitcoinTestFramework):
         mark_logs("\nNode 1 creates SC 2,3,4, all with " + str(creation_amount) + " coins", self.nodes, DEBUG_MODE)
         amounts = []
         amounts.append({"address": "dada", "amount": creation_amount})
-        self.nodes[1].sc_create(scid_2, 123, "dada", creation_amount, "cdcdcd")
-        self.nodes[1].sc_create(scid_3, 123, "dada", creation_amount, "ababab")
-        self.nodes[1].sc_create(scid_4, 123, "dada", creation_amount, "efefef")
+        tx2 = self.nodes[1].sc_create(123, "dada", creation_amount, "cdcdcd")
+        tx3 = self.nodes[1].sc_create(123, "dada", creation_amount, "ababab")
+        tx4 = self.nodes[1].sc_create(123, "dada", creation_amount, "efefef")
         self.sync_all()
+
+        decoded_tx = self.nodes[1].getrawtransaction(tx2, 1)
+        scid_2 = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid_2), self.nodes, DEBUG_MODE)
+
+        decoded_tx = self.nodes[1].getrawtransaction(tx3, 1)
+        scid_3 = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid_3), self.nodes, DEBUG_MODE)
+
+        decoded_tx = self.nodes[1].getrawtransaction(tx4, 1)
+        scid_4 = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid_4), self.nodes, DEBUG_MODE)
 
         mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)

@@ -606,7 +606,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 {   
     if (fHelp || params.size() > 4)
         throw runtime_error(
-            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} ( [{\"scid\":\"id\", epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"customData\":hexstr},...] ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id}] ) )\n"
+            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} ( [{epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"customData\":hexstr},...] ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id}] ) )\n"
             "\nCreate a transaction spending the given inputs and sending to the given addresses.\n"
             "Returns hex-encoded raw transaction.\n"
             "Note that the transaction's inputs are not signed, and\n"
@@ -630,7 +630,6 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "3. \"sc creations\"        (string, optional but required if 4 is also given) A json array of json objects\n"
             "     [\n"
             "       {\n"
-            "         \"scid\":\"id\",   (string, required) The side chain id\n"
             "         \"epoch_length\":n (numeric, required) length of the withdrawal epochs\n"
             "         \"address\":\"address\",  (string, required) The receiver PublicKey25519Proposition in the SC\n"
             "         \"amount\":amount         (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
@@ -654,7 +653,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "\nExamples\n"
             + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"address\\\":0.01}\"")
             + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"address\\\":0.01}\"")
-            + HelpExampleRpc("createrawtransaction", "\"[]\" \"{}\" \"[{\\\"scid\\\" :\\\"myscid\\\", \\\"epoch_length\\\" :300}]\" \"{\\\"address\\\": \\\"myaddress\\\", \\\"amount\\\": 4.0, \\\"scid\\\": \\\"myscid\\\"}]\"")
+            + HelpExampleRpc("createrawtransaction", "\"[]\" \"{}\" \"[{\\\"epoch_length\\\" :300}]\" \"{\\\"address\\\": \\\"myaddress\\\", \\\"amount\\\": 4.0, \\\"scid\\\": \\\"myscid\\\"}]\"")
         );
 
     LOCK(cs_main);

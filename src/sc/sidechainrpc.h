@@ -116,23 +116,8 @@ class ScRpcCmd
 class ScRpcCmdTx : public ScRpcCmd
 {
   public:
-    struct sOutParams
-    {
-        uint256 _scid;
-        uint256 _toScAddress;
-        CAmount _nAmount;
-        sOutParams(): _scid(), _toScAddress(), _nAmount(0) {}
-
-        sOutParams(
-            const uint256& scId, const uint256& toaddress, const CAmount nAmount):
-            _scid(scId), _toScAddress(toaddress), _nAmount(nAmount) {}
-    };
-
-    // cmd params
-    std::vector<sOutParams> _outParams;
-
     ScRpcCmdTx(
-        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        CMutableTransaction& tx,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee);
 
@@ -172,13 +157,25 @@ class ScRpcCmdCert : public ScRpcCmd
 
 class ScRpcCreationCmd : public ScRpcCmdTx
 {
-  private:
+  public:
+    struct sCrOutParams
+    {
+        uint256 _toScAddress;
+        CAmount _nAmount;
+        sCrOutParams(): _toScAddress(), _nAmount(0) {}
+
+        sCrOutParams(
+            const uint256& toaddress, const CAmount nAmount):
+            _toScAddress(toaddress), _nAmount(nAmount) {}
+    };
+
     // cmd params
+    std::vector<sCrOutParams> _outParams;
     ScCreationParameters _creationData;
 
   public:
     ScRpcCreationCmd(
-        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        CMutableTransaction& tx, const std::vector<sCrOutParams>& outParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee, const ScCreationParameters& cd);
 
@@ -188,8 +185,23 @@ class ScRpcCreationCmd : public ScRpcCmdTx
 class ScRpcSendCmd : public ScRpcCmdTx
 {
   public:
+    struct sFtOutParams
+    {
+        uint256 _scid;
+        uint256 _toScAddress;
+        CAmount _nAmount;
+        sFtOutParams(): _scid(), _toScAddress(), _nAmount(0) {}
+
+        sFtOutParams(
+            const uint256& scId, const uint256& toaddress, const CAmount nAmount):
+            _scid(scId), _toScAddress(toaddress), _nAmount(nAmount) {}
+    };
+
+    // cmd params
+    std::vector<sFtOutParams> _outParams;
+
     ScRpcSendCmd(
-        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        CMutableTransaction& tx, const std::vector<sFtOutParams>& outParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee);
 

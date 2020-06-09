@@ -263,9 +263,9 @@ bool CTxCrosschainOut::CheckAmountRange(CAmount& cumulatedAmount) const
 }
 
 CTxScCreationOut::CTxScCreationOut(
-    const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn,
+    const CAmount& nValueIn, const uint256& addressIn,
     const Sidechain::ScCreationParameters& paramsIn)
-    :CTxCrosschainOut(scIdIn, nValueIn, addressIn),
+    :CTxCrosschainOut(nValueIn, addressIn), generatedScId(),
      withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData) {}
 
 uint256 CTxScCreationOut::GetHash() const
@@ -276,7 +276,27 @@ uint256 CTxScCreationOut::GetHash() const
 std::string CTxScCreationOut::ToString() const
 {
     return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, customData=[%s]",
-        scId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData) );
+        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData) );
+}
+
+void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const
+{
+    const uint256& scid = Hash(
+            BEGIN(txHash),    END(txHash),
+            BEGIN(pos),       END(pos) );
+
+    LogPrint("sc", "%s():%d - updating scid=%s - tx[%s], pos[%u]\n",
+        __func__, __LINE__, scid.ToString(), txHash.ToString(), pos);
+
+    *const_cast<uint256*>(&generatedScId) = scid;
+}
+
+CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
+    CTxCrosschainOut::operator=(ccout);
+    *const_cast<uint256*>(&generatedScId) = ccout.generatedScId;
+    withdrawalEpochLength = ccout.withdrawalEpochLength;
+    customData = ccout.customData;
+    return *this;
 }
 
 
@@ -539,6 +559,9 @@ CTransaction& CTransaction::operator=(const CTransaction &tx) {
 void CTransaction::UpdateHash() const
 {
     *const_cast<uint256*>(&hash) = SerializeHash(*this);
+    // if any sidechain creation is taking place within this transaction, we generate the sidechain id
+    for(unsigned int pos = 0; pos < vsc_ccout.size(); pos++)
+        vsc_ccout[pos].GenerateScId(hash, pos);
 }
 
 CTransaction::CTransaction(const CMutableTransaction &tx): CTransactionBase(tx),
@@ -575,6 +598,24 @@ double CTransactionBase::ComputePriority(double dPriorityInputs, unsigned int nT
     if (nTxSize == 0) return 0.0;
 
     return dPriorityInputs / nTxSize;
+}
+
+const uint256& CTransaction::GetScIdFromScCcOut(int pos) const
+{
+    static const uint256 nullHash;
+    if (pos < 0 ||pos >= GetVscCcOut().size())
+    {
+        LogPrint("sc", "%s():%d - tx[%s] pos %d out of range (vsc_ccout size %d)\n",
+            __func__, __LINE__, GetHash().ToString(), pos, GetVscCcOut().size());
+        return nullHash;
+    }
+
+    const uint256& scid = GetVscCcOut().at(pos).GetScId();
+
+    LogPrint("sc", "%s():%d - tx[%s] has scid[%s] for ccout[%s] (pos[%d])\n",
+        __func__, __LINE__, GetHash().ToString(), scid.ToString(), GetVscCcOut().at(pos).GetHash().ToString(), pos);
+
+    return scid;
 }
 
 bool CTransaction::IsValidVersion(CValidationState &state) const

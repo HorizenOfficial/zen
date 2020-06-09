@@ -53,9 +53,6 @@ class sc_cr_fw(BitcoinTestFramework):
             epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epoch_length))
             return epoch_number, epoch_block_hash
 
-        # side chain id
-        scid = "1111111111111111111111111111111111111111111111111111111111111111"
-
         # forward transfer amounts
         creation_amount = Decimal("1000")
         fwt_amount = Decimal("3.0")
@@ -79,9 +76,13 @@ class sc_cr_fw(BitcoinTestFramework):
         totScAmount = 0
         # sidechain creation
         #-------------------
-        creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "abcdef")
+        creating_tx = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, "abcdef")
         mark_logs("Node 0 created a sidechain via {}".format(creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
+
+        decoded_tx = self.nodes[0].getrawtransaction(creating_tx, 1)
+        scid = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         totScAmount += creation_amount
 
