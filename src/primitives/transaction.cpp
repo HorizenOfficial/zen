@@ -717,7 +717,6 @@ std::string CTransaction::ToString() const
 bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int unused, int dosLevel) const { return true; }
 bool CTransaction::CheckVersionIsStandard(std::string& reason, const int nHeight) const {return true;}
 
-bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const {return true;}
 void CTransaction::AddToBlock(CBlock* pblock) const { return; }
 void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const {return; }
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return true; }
@@ -740,12 +739,6 @@ std::shared_ptr<const CTransactionBase> CTransaction::MakeShared() const
 
 #else
 //----- 
-bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const
-{
-    CValidationState state;
-    return AcceptTxToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
-};
-
 bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int nHeight, int dosLevel) const
 {
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode

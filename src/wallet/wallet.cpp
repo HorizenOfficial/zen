@@ -2410,11 +2410,13 @@ void CWallet::ReacceptWalletTransactions()
         }
     }
 
+    CValidationState stateDummy;
+        
     for (auto& item : mapSorted)
     {
         CWalletTransactionBase& wtx = *(item.second);
         LOCK(mempool.cs);
-        wtx.getTxBase()->TryPushToMempool(/*fLimitFree*/false, /*fRejectAbsurdFee*/true);
+        AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtx.getTxBase(), false, nullptr, true);
     }
 }
 
@@ -3848,7 +3850,8 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
         if (fBroadcastTransactions)
         {
             // Broadcast
-            if (!wtxNew.getTxBase()->TryPushToMempool(/*fLimitFree*/false, /*fRejectAbsurdFee*/true))
+            CValidationState stateDummy;
+            if (!AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtxNew.getTxBase(), false, nullptr, true))
             {
                 // This must not fail. The transaction has already been signed and recorded.
                 LogPrintf("CommitTransaction(): Error: Transaction not valid\n");

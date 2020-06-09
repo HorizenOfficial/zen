@@ -611,7 +611,6 @@ protected:
 public:
 
     virtual size_t GetSerializeSize(int nType, int nVersion) const = 0;
-    virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const = 0;
 
     CTransactionBase(int versionIn);
     CTransactionBase(const CTransactionBase& tx);
@@ -744,7 +743,6 @@ protected:
     void UpdateHash() const override;
 
 public:
-    virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const override final;
     typedef boost::array<unsigned char, 64> joinsplit_sig_t;
 
     // Transactions that include a list of JoinSplits are version 2.
