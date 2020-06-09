@@ -418,7 +418,6 @@ public:
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const = 0;
 
     virtual bool RelayWalletTransaction() = 0;
-    virtual bool IsInvolvingMe(mapNoteData_t &noteData) const = 0;
 
     std::set<uint256> GetConflicts() const;
 
@@ -511,7 +510,6 @@ public:
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const override;
 
     bool RelayWalletTransaction() override;
-    bool IsInvolvingMe(mapNoteData_t &noteData) const override;
 
     // fill the crosschain output
     template <typename T>
@@ -597,7 +595,6 @@ public:
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const override;
 
     bool RelayWalletTransaction() override;
-    bool IsInvolvingMe(mapNoteData_t &noteData) const override;
 
     std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const override;
 };

@@ -183,8 +183,7 @@ bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey)
 
 bool CWallet::AddCryptedKey(const CPubKey &vchPubKey,
                             const vector<unsigned char> &vchCryptedSecret)
-{
-    
+{ 
     if (!CCryptoKeyStore::AddCryptedKey(vchPubKey, vchCryptedSecret))
         return false;
     if (!fFileBacked)
@@ -502,7 +501,6 @@ set<uint256> CWallet::GetConflicts(const uint256& txid) const
             }
         }
     }
-
     return result;
 }
 
@@ -523,8 +521,7 @@ bool CWallet::Verify(const string& walletFile, string& warningString, string& er
             LogPrintf("Moved old %s to %s. Retrying.\n", pathDatabase.string(), pathDatabaseBak.string());
         } catch (const boost::filesystem::filesystem_error&) {
             // failure is ok (well, not really, but it's not worse than what we started with)
-        }
-        
+        }      
         // try again
         if (!bitdb.Open(GetDataDir())) {
             // if it still fails, it probably means we can't even create the database env
@@ -532,15 +529,13 @@ bool CWallet::Verify(const string& walletFile, string& warningString, string& er
             errorString += msg;
             return true;
         }
-    }
-    
+    }   
     if (GetBoolArg("-salvagewallet", false))
     {
         // Recover readable keypairs:
         if (!CWalletDB::Recover(bitdb, walletFile, true))
             return false;
-    }
-    
+    }  
     if (boost::filesystem::exists(GetDataDir() / walletFile))
     {
         CDBEnv::VerifyResult r = bitdb.Verify(walletFile, CWalletDB::Recover);
@@ -553,8 +548,7 @@ bool CWallet::Verify(const string& walletFile, string& warningString, string& er
         }
         if (r == CDBEnv::RECOVER_FAIL)
             errorString += _("wallet.dat corrupt, salvage failed");
-    }
-    
+    } 
     return true;
 }
 
@@ -1096,6 +1090,10 @@ void CWallet::MarkDirty()
     }
 }
 
+/**
+ * Ensure that every note in the wallet (for which we possess a spending key)
+ * has a cached nullifier.
+ */
 bool CWallet::UpdateNullifierNoteMap()
 {
     {
@@ -1123,7 +1121,6 @@ bool CWallet::UpdateNullifierNoteMap()
                     }
                 }
             }
-  
             UpdateNullifierNoteMapWithTx(*(wtxItem.second));
         }
     }
@@ -1946,7 +1943,6 @@ void CWalletTransactionBase::GetMatureAmountsForAccount(const string& strAccount
             nSent += s.amount;
         nFee = allFee;
     }
-
     {
         LOCK(pwallet->cs_wallet);
         for(const COutputEntry& r: listReceived) {
@@ -2128,18 +2124,6 @@ bool CWalletTx::RelayWalletTransaction()
         }
     }
     return false;
-}
-
-bool CWalletTx::IsInvolvingMe(mapNoteData_t &noteData) const
-{
-    if (!pwallet)
-    {
-        LogPrintf("%s():%d - null wallet ptr\n", __func__, __LINE__);
-        return false;
-    }
-
-    noteData = pwallet->FindMyNotes(*this);
-    return (pwallet->IsMine(*this) || pwallet->IsFromMe(*this) || noteData.size() > 0);
 }
 
 void CWalletTransactionBase::addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const
@@ -4485,17 +4469,6 @@ bool CWalletCert::RelayWalletTransaction()
     }
     return false;
 }
-
-bool CWalletCert::IsInvolvingMe(mapNoteData_t &noteData) const
-{
-    if (!pwallet)
-    {
-        LogPrintf("%s():%d - null wallet ptr\n", __func__, __LINE__);
-        return false;
-    }
-    return (pwallet->IsMine(*this));
-}
-
 
 std::shared_ptr<CWalletTransactionBase> CWalletCert::MakeWalletMapObject() const
 {
