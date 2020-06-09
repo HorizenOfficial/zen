@@ -1188,3 +1188,165 @@ TEST_F(CeasedSidechainsTestSuite, SpendFullCoinsByBwt_CoinReconstructionFromBloc
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),reconstructedCoinFromCert));
     EXPECT_TRUE(coinFromCert == reconstructedCoinFromCert);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/////////////////////////// Mature sidechain balance //////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST_F(CeasedSidechainsTestSuite, UponScCreationMaturingEventForCreationAmountIsScheduled) {
+    uint256 scId = uint256S("a1b2");
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
+    int scCreationHeight = 5;
+    CBlock dummyBlock;
+    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
+
+    //test
+    EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationTx.GetVscCcOut()[0], scCreationHeight));
+
+    //Checks
+    int creationMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
+    CSidechainEvents scheduledEvent;
+    EXPECT_TRUE(view->GetSidechainEvents(creationMaturityHeight, scheduledEvent));
+    EXPECT_TRUE(scheduledEvent.maturingScs.count(scId));
+
+    CSidechain sidechain;
+    EXPECT_TRUE(view->GetSidechain(scId, sidechain));
+    EXPECT_TRUE(sidechain.balance == 0);
+    EXPECT_TRUE(sidechain.mImmatureAmounts[creationMaturityHeight] == scCreationTx.GetVscCcOut()[0].nValue);
+}
+
+TEST_F(CeasedSidechainsTestSuite, UponFwdMaturingEventForFwdAmountIsScheduled) {
+    uint256 scId = uint256S("a1b2");
+    int scCreationHeight = 5;
+    CBlock dummyBlock;
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(1));
+    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
+
+    CAmount fwdAmount = 200;
+    CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount);
+    int fwdHeight = 20;
+
+    EXPECT_TRUE(view->UpdateScInfo(fwdTx, dummyBlock, fwdHeight));
+
+    //test
+    EXPECT_TRUE(view->ScheduleSidechainEvent(fwdTx.GetVftCcOut()[0], fwdHeight));
+
+    //Checks
+    int fwdMaturityHeight = fwdHeight + Params().ScCoinsMaturity();
+    CSidechainEvents scheduledEvent;
+    EXPECT_TRUE(view->GetSidechainEvents(fwdMaturityHeight, scheduledEvent));
+    EXPECT_TRUE(scheduledEvent.maturingScs.count(scId));
+
+    CSidechain sidechain;
+    EXPECT_TRUE(view->GetSidechain(scId, sidechain));
+    EXPECT_TRUE(sidechain.balance == 0);
+    EXPECT_TRUE(sidechain.mImmatureAmounts[fwdMaturityHeight] == fwdTx.GetVftCcOut()[0].nValue);
+}
+
+TEST_F(CeasedSidechainsTestSuite, ScCreationAmountMaturesAtHeight) {
+    uint256 scId = uint256S("a1b2");
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
+    int scCreationHeight = 5;
+    CBlock dummyBlock;
+    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
+    EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationTx.GetVscCcOut()[0], scCreationHeight));
+
+    //test
+    int creationMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
+    CBlockUndo blockUndo;
+    EXPECT_TRUE(view->HandleSidechainEvents(creationMaturityHeight, blockUndo));
+
+    //Checks
+    CSidechain sidechain;
+    EXPECT_TRUE(view->GetSidechain(scId, sidechain));
+    EXPECT_TRUE(sidechain.balance == scCreationTx.GetVscCcOut()[0].nValue);
+    EXPECT_TRUE(sidechain.mImmatureAmounts.count(creationMaturityHeight) == 0);
+
+    ASSERT_TRUE(blockUndo.scUndoMap.count(scId) != 0);
+    EXPECT_TRUE(blockUndo.scUndoMap.at(scId).appliedMaturedAmount == scCreationTx.GetVscCcOut()[0].nValue);
+}
+
+TEST_F(CeasedSidechainsTestSuite, FwdAmountMaturesAtHeight) {
+    //Create a sidechain
+    uint256 scId = uint256S("a1b2");
+    CTransaction dummyScCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
+    CBlock dummyBlock;
+    EXPECT_TRUE(view->UpdateScInfo(dummyScCreationTx, dummyBlock, /*creationHeight*/5));
+
+    // create a fwd
+    CAmount fwdAmount = 200;
+    CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount);
+    int fwdHeight = 20;
+    EXPECT_TRUE(view->UpdateScInfo(fwdTx, dummyBlock, fwdHeight));
+    EXPECT_TRUE(view->ScheduleSidechainEvent(fwdTx.GetVftCcOut()[0], fwdHeight));
+
+    //test
+    int fwdMaturityHeight = fwdHeight + Params().ScCoinsMaturity();
+    CBlockUndo blockUndo;
+    EXPECT_TRUE(view->HandleSidechainEvents(fwdMaturityHeight, blockUndo));
+
+    //Checks
+    CSidechain sidechain;
+    EXPECT_TRUE(view->GetSidechain(scId, sidechain));
+    EXPECT_TRUE(sidechain.balance == fwdTx.GetVftCcOut()[0].nValue);
+    EXPECT_TRUE(sidechain.mImmatureAmounts.count(fwdMaturityHeight) == 0);
+
+    ASSERT_TRUE(blockUndo.scUndoMap.count(scId) != 0);
+    EXPECT_TRUE(blockUndo.scUndoMap.at(scId).appliedMaturedAmount == fwdTx.GetVftCcOut()[0].nValue);
+}
+
+TEST_F(CeasedSidechainsTestSuite, CreationAmountDoesNotMatureUponRevertSidechainEvents) {
+    uint256 scId = uint256S("a1b2");
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
+    int scCreationHeight = 5;
+    CBlock dummyBlock;
+    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
+    EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationTx.GetVscCcOut()[0], scCreationHeight));
+
+    int creationMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
+    CBlockUndo blockUndo;
+    EXPECT_TRUE(view->HandleSidechainEvents(creationMaturityHeight, blockUndo));
+
+    //test
+    EXPECT_TRUE(view->RevertSidechainEvents(blockUndo, creationMaturityHeight));
+
+    //Checks
+    CSidechain sidechain;
+    EXPECT_TRUE(view->GetSidechain(scId, sidechain));
+    EXPECT_TRUE(sidechain.balance == 0);
+    EXPECT_TRUE(sidechain.mImmatureAmounts.count(creationMaturityHeight) != 0);
+    EXPECT_TRUE(sidechain.mImmatureAmounts.at(creationMaturityHeight) == scCreationTx.GetVscCcOut()[0].nValue);
+}
+
+TEST_F(CeasedSidechainsTestSuite, FwdAmountsDoNotMatureUponRevertSidechainEvents) {
+    //Create and mature fwd amount
+    uint256 scId = uint256S("a1b2");
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(scId, CAmount(10));
+    int scCreationHeight = 5;
+    CBlock dummyBlock;
+    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
+    EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationTx.GetVscCcOut()[0], scCreationHeight));
+
+    CBlockUndo dummyBlockUndo;
+    EXPECT_TRUE(view->HandleSidechainEvents(scCreationHeight + Params().ScCoinsMaturity(), dummyBlockUndo));
+
+    // create and mature a fwd
+    CAmount fwdAmount = 200;
+    CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount);
+    int fwdHeight = 20;
+    EXPECT_TRUE(view->UpdateScInfo(fwdTx, dummyBlock, fwdHeight));
+    EXPECT_TRUE(view->ScheduleSidechainEvent(fwdTx.GetVftCcOut()[0], fwdHeight));
+
+    int fwdMaturityHeight = fwdHeight + Params().ScCoinsMaturity();
+    CBlockUndo blockUndo;
+    EXPECT_TRUE(view->HandleSidechainEvents(fwdMaturityHeight, blockUndo));
+
+    //test
+    EXPECT_TRUE(view->RevertSidechainEvents(blockUndo, fwdMaturityHeight));
+
+    //Checks
+    CSidechain sidechain;
+    EXPECT_TRUE(view->GetSidechain(scId, sidechain));
+    EXPECT_TRUE(sidechain.balance == scCreationTx.GetVscCcOut()[0].nValue);
+    EXPECT_TRUE(sidechain.mImmatureAmounts.count(fwdMaturityHeight) != 0);
+    EXPECT_TRUE(sidechain.mImmatureAmounts.at(fwdMaturityHeight) == fwdTx.GetVftCcOut()[0].nValue);
+}

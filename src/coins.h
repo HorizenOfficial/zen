@@ -566,8 +566,6 @@ public:
     bool HaveScRequirements(const CTransaction& tx, int height);
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
-    bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
-    bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state);
@@ -575,7 +573,7 @@ public:
     bool UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry);
     bool RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry);
 
-    //CEASING SIDECHAINS RELATED MEMBERS
+    //SIDECHAINS EVENTS RELATED MEMBERS
     bool HaveSidechainEvents(int height)                            const override;
     bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override;
 

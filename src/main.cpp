@@ -2322,13 +2322,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     if (!view.RevertSidechainEvents(blockUndo, pindex->nHeight))
         return error("DisconnectBlock(): cannot revert sidechains scheduled events");
 
-    LogPrint("sc", "%s():%d - restoring sc coins if any\n", __func__, __LINE__);
-    if (!view.RestoreImmatureBalances(pindex->nHeight, blockUndo) )
-    {
-        LogPrint("sc", "%s():%d - ERROR updating sc maturity amounts\n", __func__, __LINE__);
-        return error("DisconnectBlock(): sc and undo data inconsistent");
-    }
-
     // not including coinbase
     const int certOffset = block.vtx.size() - 1;
 
@@ -2430,9 +2423,16 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             }
         }
 
+        for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
+            if (!view.CancelSidechainEvent(fwdTransfer, pindex->nHeight)) {
+                LogPrint("sc", "%s():%d - ERROR cancelling maturing amount for sidechain [%s]\n", __func__, __LINE__, fwdTransfer.scId.ToString());
+                return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
+            }
+        }
+
         for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
             if (!view.CancelSidechainEvent(scCreation, pindex->nHeight)) {
-                LogPrint("sc", "%s():%d - ERROR undoing ceasing height\n", __func__, __LINE__);
+                LogPrint("sc", "%s():%d - ERROR cancelling maturing amount for sidechain [%s]\n", __func__, __LINE__, scCreation.scId.ToString());
                 return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
             }
         }
@@ -2728,8 +2728,14 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
             for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
                 if (!view.ScheduleSidechainEvent(scCreation, pindex->nHeight))
-                    return state.DoS(100, error("ConnectBlock(): error updating ceasing height for sidechain [%s]", scCreation.scId.ToString()),
+                    return state.DoS(100, error("ConnectBlock(): error scheduling maturing height for sidechain [%s]", scCreation.scId.ToString()),
                                      REJECT_INVALID, "bad-sc-not-recorded");
+            }
+
+            for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
+                if (!view.ScheduleSidechainEvent(fwdTransfer, pindex->nHeight))
+                    return state.DoS(100, error("ConnectBlock(): error scheduling maturing height for sidechain [%s]", fwdTransfer.scId.ToString()),
+                                     REJECT_INVALID, "bad-fwd-not-recorded");
             }
 
         }
@@ -2818,14 +2824,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     } //end of Processing certificates loop
 
-    if (!view.ApplyMatureBalances(pindex->nHeight, blockundo) )
-        return state.DoS(100, error("ConnectBlock(): could not update sc immature amounts"),
-                         REJECT_INVALID, "bad-sc-amounts");
-
     if (!view.HandleSidechainEvents(pindex->nHeight, blockundo))
         return state.DoS(100, error("ConnectBlock(): could not handle ceasing heights"),
-                         REJECT_INVALID, "bad-sc-ceasing-heights");
-
+                         REJECT_INVALID, "bad-sc-events-handling");
 
     view.PushAnchor(tree);
     if (!fJustCheck) {
