@@ -29,7 +29,7 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
     for (unsigned int i = 0; i < tx.GetVscCcOut().size(); i++) {
         const CTxScCreationOut& out = tx.GetVscCcOut()[i];
         UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("scid", out.scId.GetHex()));
+        o.push_back(Pair("scid", out.GetScId().GetHex()));
         o.push_back(Pair("n", (int64_t)nIdx));
         o.push_back(Pair("withdrawal epoch length", (int)out.withdrawalEpochLength));
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
@@ -64,16 +64,6 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
 
         const UniValue& input = sc_crs[i];
         const UniValue& o = input.get_obj();
-
-        std::string inputString = find_value(o, "scid").get_str();
-        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-        {
-            error = "Invalid scid format: not an hex";
-            return false;
-        }
-
-        uint256 scId;
-        scId.SetHex(inputString);
 
         const UniValue& sh_v = find_value(o, "epoch_length");
         if (sh_v.isNull() || !sh_v.isNum())
@@ -110,7 +100,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             return false;
         }
 
-        inputString = adv.get_str();
+        const std::string& inputString = adv.get_str();
         if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
         {
             error = "Invalid address format: not an hex";
@@ -123,14 +113,14 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         const UniValue& cd = find_value(o, "customData");
         if (!cd.isNull())
         {
-            inputString = cd.get_str();
-            if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            const std::string& inputStringCd = cd.get_str();
+            if (inputStringCd.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
             {
                 error = "Invalid scid format: not an hex";
                 return false;
             }
 
-            unsigned int cdLen = inputString.length();
+            unsigned int cdLen = inputStringCd.length();
             // just add one if we have an odd number of chars, hex will be padded with a 0 this is
             // better than refusing the raw creation
             if (cdLen%2)
@@ -142,11 +132,11 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
                 cdDataLen = MAX_CUSTOM_DATA_LEN;
 
             CScCustomData cdBlob;
-            cdBlob.SetHex(inputString);
+            cdBlob.SetHex(inputStringCd);
             cdBlob.fill(sc.customData, cdDataLen);
         }
 
-        CTxScCreationOut txccout(scId, nAmount, address, sc);
+        CTxScCreationOut txccout(nAmount, address, sc);
 
         rawTx.vsc_ccout.push_back(txccout);
     }
@@ -203,7 +193,6 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& 
     BOOST_FOREACH(const auto& entry, tx.GetVscCcOut())
     {
         CRecipientScCreation sc;
-        sc.scId = entry.scId;
         sc.nValue = entry.nValue;
         sc.address = entry.address;
         sc.creationData.withdrawalEpochLength = entry.withdrawalEpochLength;
@@ -234,7 +223,7 @@ bool CRecipientHandler::visit(const CcRecipientVariant& rec)
 
 bool CRecipientHandler::handle(const CRecipientScCreation& r)
 {
-    CTxScCreationOut txccout(r.scId, r.nValue, r.address, r.creationData);
+    CTxScCreationOut txccout(r.nValue, r.address, r.creationData);
     // no dust can be found in sc creation
     return txBase->add(txccout);
 };
@@ -461,16 +450,11 @@ void ScRpcCmd::addChange()
 }
 
 ScRpcCmdTx::ScRpcCmdTx(
-        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        CMutableTransaction& tx,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee):
-        ScRpcCmd(tx, fromaddress, changeaddress, minConf, nFee),
-        _outParams(outParams)
+        ScRpcCmd(tx, fromaddress, changeaddress, minConf, nFee)
 {
-    for (const auto& entry : _outParams)
-    {
-        _totalOutputAmount += entry._nAmount;
-    }
 }
 
 ScRpcCmdCert::ScRpcCmdCert(
@@ -627,10 +611,16 @@ void ScRpcCmdTx::send()
 }
 
 ScRpcCreationCmd::ScRpcCreationCmd(
-        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        CMutableTransaction& tx, const std::vector<sCrOutParams>& outParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee, const ScCreationParameters& cd):
-        ScRpcCmdTx(tx, outParams, fromaddress, changeaddress, minConf, nFee), _creationData(cd) { } 
+        ScRpcCmdTx(tx, fromaddress, changeaddress, minConf, nFee), _creationData(cd), _outParams(outParams)
+{
+    for (const auto& entry : _outParams)
+    {
+        _totalOutputAmount += entry._nAmount;
+    }
+} 
 
 void ScRpcCreationCmd::addCcOutputs()
 {
@@ -644,7 +634,6 @@ void ScRpcCreationCmd::addCcOutputs()
 
     // creation output
     CRecipientScCreation sc;
-    sc.scId = _outParams[0]._scid;
     sc.address = _outParams[0]._toScAddress;
     sc.nValue = _outParams[0]._nAmount;
     sc.creationData = _creationData;
@@ -659,10 +648,17 @@ void ScRpcCreationCmd::addCcOutputs()
 }
 
 ScRpcSendCmd::ScRpcSendCmd(
-        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        CMutableTransaction& tx, const std::vector<sFtOutParams>& outParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee):
-        ScRpcCmdTx(tx, outParams, fromaddress, changeaddress, minConf, nFee) { } 
+        ScRpcCmdTx(tx, fromaddress, changeaddress, minConf, nFee), _outParams(outParams)
+{
+    for (const auto& entry : _outParams)
+    {
+        _totalOutputAmount += entry._nAmount;
+    }
+} 
+
 
 void ScRpcSendCmd::addCcOutputs()
 {

@@ -151,8 +151,8 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     }
 
     for(const auto& sc: tx.GetVscCcOut()) {
-        LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, sc.scId.ToString() );
-        mapSidechains[sc.scId].scCreationTxHash = hash;
+        LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, sc.GetScId().ToString() );
+        mapSidechains[sc.GetScId()].scCreationTxHash = hash;
     }
 
     for(const auto& fwd: tx.GetVftCcOut()) {
@@ -191,7 +191,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     return true;
 }
 
-void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive, bool removeDependantFwds)
+void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive)
 {
     // Remove transaction from memory pool
     {
@@ -199,10 +199,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
         std::deque<uint256> objToRemove;
         objToRemove.push_back(origTx.GetHash());
 
-        if(!fRecursive)
-            return removeInternal(objToRemove, removedTxs, removedCerts, fRecursive, removeDependantFwds);
-
-        if (!mapCertificate.count(origTx.GetHash()) && !mapTx.count(origTx.GetHash())) {
+        if (fRecursive && !mapCertificate.count(origTx.GetHash()) && !mapTx.count(origTx.GetHash())) {
             // If recursively removing but origTx isn't in the mempool
             // be sure to remove any children that are in the pool. This can
             // happen during chain re-orgs if origCert isn't re-accepted into
@@ -225,16 +222,14 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                     assert(false);
                 }
                 for(const auto& sc: tx->GetVscCcOut()) {
-                    if (mapSidechains.count(sc.scId) == 0)
+                    if (mapSidechains.count(sc.GetScId()) == 0)
                         continue;
-                    if (removeDependantFwds) {
-                        for(const auto& fwdTxHash : mapSidechains.at(sc.scId).fwdTransfersSet)
-                            objToRemove.push_back(fwdTxHash);
-                    }
+                    for(const auto& fwdTxHash : mapSidechains.at(sc.GetScId()).fwdTransfersSet)
+                        objToRemove.push_back(fwdTxHash);
                 }
             }
         }
-        removeInternal(objToRemove, removedTxs, removedCerts, fRecursive, removeDependantFwds);
+        removeInternal(objToRemove, removedTxs, removedCerts, fRecursive);
     }
 }
 
@@ -242,8 +237,7 @@ void::CTxMemPool::removeInternal(
     std::deque<uint256>& objToRemove,
     std::list<CTransaction>& removedTxs,
     std::list<CScCertificate>& removedCerts,
-    bool fRecursive,
-    bool removeDependantFwds)
+    bool fRecursive)
 {
     // called with lock taken
     AssertLockHeld(cs);
@@ -263,17 +257,14 @@ void::CTxMemPool::removeInternal(
                     objToRemove.push_back(it->second.ptx->GetHash());
                 }
                 for(const auto& sc: tx.GetVscCcOut()) {
-                    if (mapSidechains.count(sc.scId) == 0)
+                    if (mapSidechains.count(sc.GetScId()) == 0)
                         continue;
 
-                    if (removeDependantFwds) {
-                        for(const auto& ccObjHash : mapSidechains.at(sc.scId).fwdTransfersSet)
-                            objToRemove.push_back(ccObjHash);
-                    } else
-                        objToRemove.push_back(mapSidechains.at(sc.scId).scCreationTxHash);
+                    for(const auto& ccObjHash : mapSidechains.at(sc.GetScId()).fwdTransfersSet)
+                        objToRemove.push_back(ccObjHash);
 
                     //no backward cert for unconfirmed sidechain can be in mempool
-                    assert(mapSidechains.at(sc.scId).backwardCertificate.IsNull());
+                    assert(mapSidechains.at(sc.GetScId()).backwardCertificate.IsNull());
                 }
             }
 
@@ -300,13 +291,13 @@ void::CTxMemPool::removeInternal(
             }
 
             for(const auto& sc: tx.GetVscCcOut()) {
-                assert(mapSidechains.count(sc.scId) != 0);
-                mapSidechains.at(sc.scId).scCreationTxHash.SetNull();
+                assert(mapSidechains.count(sc.GetScId()) != 0);
+                mapSidechains.at(sc.GetScId()).scCreationTxHash.SetNull();
 
-                if (mapSidechains.at(sc.scId).fwdTransfersSet.size() == 0)
+                if (mapSidechains.at(sc.GetScId()).fwdTransfersSet.size() == 0)
                 {
-                    LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, sc.scId.ToString() );
-                    mapSidechains.erase(sc.scId);
+                    LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, sc.GetScId().ToString() );
+                    mapSidechains.erase(sc.GetScId());
                 }
             }
 
@@ -540,15 +531,6 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
             }
         }
     }
-
-    for(const auto& sc: tx.GetVscCcOut()) {
-        if(hasSidechainCreationTx(sc.scId)) {
-            const uint256& scRedeclarationHash = mapSidechains[sc.scId].scCreationTxHash;
-            const CTransactionBase &scReDeclarationTx = mapTx[scRedeclarationHash].GetTx();
-            std::list<CScCertificate> dummyCerts;
-            remove(scReDeclarationTx, removedTxs, removedCerts, /*fRecursive*/true, /*removeDependantFwds*/false);
-        }
-    }
 }
 
 /**
@@ -572,7 +554,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
     std::list<CScCertificate> dummyCerts;
     for(const CTransaction& tx: vtx)
     {
-        remove(tx, dummyTxs, dummyCerts, /*fRecursive*/false, /*removeDependantFwds*/false);
+        remove(tx, dummyTxs, dummyCerts, /*fRecursive*/false);
         removeConflicts(tx, conflictingTxs, conflictingCerts);
         ClearPrioritisation(tx.GetHash());
     }
@@ -615,7 +597,7 @@ void CTxMemPool::removeForBlock(const std::vector<CScCertificate>& vcert, unsign
     std::list<CScCertificate> dummyCerts;
     for (const auto& cert : vcert)
     {
-        remove(cert, dummyTxs, dummyCerts, /*fRecursive*/false, /*removeDependantFwds*/false);
+        remove(cert, dummyTxs, dummyCerts, /*fRecursive*/false);
         removeConflicts(cert, removedTxs, removedCerts);
         ClearPrioritisation(cert.GetHash());
     }
@@ -689,14 +671,14 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
         for(const auto& scCreation : tx.GetVscCcOut()) {
             //sc creation must be duly recorded in mapSidechain
-            assert(mapSidechains.count(scCreation.scId) != 0);
-            assert(mapSidechains.at(scCreation.scId).scCreationTxHash == tx.GetHash());
+            assert(mapSidechains.count(scCreation.GetScId()) != 0);
+            assert(mapSidechains.at(scCreation.GetScId()).scCreationTxHash == tx.GetHash());
 
             //since sc creation is in mempool, there must not be in blockchain another sc re-declaring it
-            assert(!pcoins->HaveSidechain(scCreation.scId));
+            assert(!pcoins->HaveSidechain(scCreation.GetScId()));
 
             //there cannot be no certificates for unconfirmed sidechains
-            assert(mapSidechains.at(scCreation.scId).backwardCertificate.IsNull());
+            assert(mapSidechains.at(scCreation.GetScId()).backwardCertificate.IsNull());
         }
 
         for(const auto& fwd: tx.GetVftCcOut()) {
@@ -1024,7 +1006,7 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
         const uint256& scCreationHash = mempool.mapSidechains.at(scId).scCreationTxHash;
         const CTransaction & scCreationTx = mempool.mapTx.at(scCreationHash).GetTx();
         for (const auto& scCreation : scCreationTx.GetVscCcOut()) {
-            if (scId == scCreation.scId) {
+            if (scId == scCreation.GetScId()) {
                 //info.creationBlockHash doesn't exist here!
                 info.creationBlockHeight = -1; //default null value for creationBlockHeight
                 info.creationTxHash = scCreationHash;

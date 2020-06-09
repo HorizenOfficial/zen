@@ -65,9 +65,6 @@ class ScSplitTest(BitcoinTestFramework):
         '''
         # network topology: (0)--(1)--(2)
 
-        # side chain id
-        scid = "22"
-
         # forward transfer amount
         creation_amount = Decimal("0.5")
         fwt_amount_1 = Decimal("4.0")
@@ -112,18 +109,13 @@ class ScSplitTest(BitcoinTestFramework):
         # Nodes 1 creates the SC
         mark_logs("\nNode 1 creates the SC", self.nodes, DEBUG_MODE)
 
-        tx_create = self.nodes[1].sc_create(scid, 123, "dada", creation_amount)
+        tx_create = self.nodes[1].sc_create(123, "dada", creation_amount)
         txes.append(tx_create)
         self.sync_all()
 
-        # Node 0 try create a SC with same id
-        mark_logs("\nNode 0 try creating the same SC", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[0].sc_create(scid, 123, "dada", creation_amount)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("Transaction commit failed" in errorString, True)
+        decoded_tx = self.nodes[1].getrawtransaction(tx_create, 1)
+        scid = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         mark_logs("\nNode0 generating 1 honest block", self.nodes, DEBUG_MODE)
 

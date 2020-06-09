@@ -677,26 +677,27 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
     // creation ccout
     for (const auto& cr: tx.GetVscCcOut())
     {
-        if (HaveSidechain(cr.scId)) {
-            LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, cr.scId.ToString() );
+        const uint256& scId = cr.GetScId();
+        if (HaveSidechain(scId)) {
+            LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
 
-        assert(cacheSidechains.count(cr.scId) == 0);
-        cacheSidechains[cr.scId].scInfo.creationBlockHash = block.GetHash();
-        cacheSidechains[cr.scId].scInfo.creationBlockHeight = blockHeight;
-        cacheSidechains[cr.scId].scInfo.creationTxHash = txHash;
-        cacheSidechains[cr.scId].scInfo.lastEpochReferencedByCertificate = CScCertificate::EPOCH_NULL;
-        cacheSidechains[cr.scId].scInfo.lastCertificateHash.SetNull();
-        cacheSidechains[cr.scId].scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
-        cacheSidechains[cr.scId].scInfo.creationData.customData = cr.customData;
-        cacheSidechains[cr.scId].scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
-        cacheSidechains[cr.scId].flag = CSidechainsCacheEntry::Flags::FRESH;
+        assert(cacheSidechains.count(scId) == 0);
+        cacheSidechains[scId].scInfo.creationBlockHash = block.GetHash();
+        cacheSidechains[scId].scInfo.creationBlockHeight = blockHeight;
+        cacheSidechains[scId].scInfo.creationTxHash = txHash;
+        cacheSidechains[scId].scInfo.lastEpochReferencedByCertificate = CScCertificate::EPOCH_NULL;
+        cacheSidechains[scId].scInfo.lastCertificateHash.SetNull();
+        cacheSidechains[scId].scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
+        cacheSidechains[scId].scInfo.creationData.customData = cr.customData;
+        cacheSidechains[scId].scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
+        cacheSidechains[scId].flag = CSidechainsCacheEntry::Flags::FRESH;
 
         LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
-            __func__, __LINE__, maturityHeight, FormatMoney(cr.nValue), cr.scId.ToString());
+            __func__, __LINE__, maturityHeight, FormatMoney(cr.nValue), scId.ToString());
 
-        LogPrint("sc", "%s():%d - scId[%s] added in scView\n", __func__, __LINE__, cr.scId.ToString() );
+        LogPrint("sc", "%s():%d - scId[%s] added in scView\n", __func__, __LINE__, scId.ToString() );
     }
 
     // forward transfer ccout
@@ -755,7 +756,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
     // remove sidechain if the case
     for(const auto& entry: tx.GetVscCcOut())
     {
-        const uint256& scId = entry.scId;
+        const uint256& scId = entry.GetScId();
 
         LogPrint("sc", "%s():%d - removing scId=%s\n", __func__, __LINE__, scId.ToString());
 
@@ -917,7 +918,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
     // check creation
     for (const auto& sc: tx.GetVscCcOut())
     {
-        const uint256& scId = sc.scId;
+        const uint256& scId = sc.GetScId();
         if (HaveSidechain(scId))
         {
             LogPrint("sc", "%s():%d - ERROR: Invalid tx[%s] : scid[%s] already created\n",
@@ -1041,9 +1042,9 @@ bool CCoinsViewCache::GetSidechainEvents(int height, CSidechainEvents& scEvents)
 bool CCoinsViewCache::ScheduleSidechainEvent(const CTxScCreationOut& scCreationOut, int creationHeight)
 {
     CSidechain scInfo;
-    if (!this->GetSidechain(scCreationOut.scId, scInfo)) {
+    if (!this->GetSidechain(scCreationOut.GetScId(), scInfo)) {
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: attempt schedule maturing scCreation for unknown scId\n",
-            __func__, __LINE__, scCreationOut.scId.ToString());
+            __func__, __LINE__, scCreationOut.GetScId().ToString());
         return false;
     }
 
@@ -1052,29 +1053,29 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CTxScCreationOut& scCreationO
     const int maturityHeight = creationHeight + SC_COIN_MATURITY;
 
     if (!HaveSidechainEvents(maturityHeight)) {
-        cacheSidechainEvents[maturityHeight].scEvents.maturingScs.insert(scCreationOut.scId);
+        cacheSidechainEvents[maturityHeight].scEvents.maturingScs.insert(scCreationOut.GetScId());
         cacheSidechainEvents[maturityHeight].flag = CSidechainEventsCacheEntry::Flags::FRESH;
     } else {
-        cacheSidechainEvents[maturityHeight].scEvents.maturingScs.insert(scCreationOut.scId);
+        cacheSidechainEvents[maturityHeight].scEvents.maturingScs.insert(scCreationOut.GetScId());
         cacheSidechainEvents[maturityHeight].flag = CSidechainEventsCacheEntry::Flags::DIRTY;
     }
 
     LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: scCreation next maturing height [%d]\n",
-             __func__, __LINE__, scCreationOut.scId.ToString(), maturityHeight);
+             __func__, __LINE__, scCreationOut.GetScId().ToString(), maturityHeight);
 
     // Schedule Ceasing Sidechains
     int nextCeasingHeight = scInfo.StartHeightForEpoch(1) + scInfo.SafeguardMargin() +1;
 
     if (!HaveSidechainEvents(nextCeasingHeight)) {
-        cacheSidechainEvents[nextCeasingHeight].scEvents.ceasingScs.insert(scCreationOut.scId);
+        cacheSidechainEvents[nextCeasingHeight].scEvents.ceasingScs.insert(scCreationOut.GetScId());
         cacheSidechainEvents[nextCeasingHeight].flag = CSidechainEventsCacheEntry::Flags::FRESH;
     } else {
-        cacheSidechainEvents[nextCeasingHeight].scEvents.ceasingScs.insert(scCreationOut.scId);
+        cacheSidechainEvents[nextCeasingHeight].scEvents.ceasingScs.insert(scCreationOut.GetScId());
         cacheSidechainEvents[nextCeasingHeight].flag = CSidechainEventsCacheEntry::Flags::DIRTY;
     }
 
     LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: scCreation next ceasing height [%d]\n",
-            __func__, __LINE__, scCreationOut.scId.ToString(), nextCeasingHeight);
+            __func__, __LINE__, scCreationOut.GetScId().ToString(), nextCeasingHeight);
 
     return true;
 }
@@ -1082,7 +1083,7 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CTxScCreationOut& scCreationO
 bool CCoinsViewCache::ScheduleSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight)
 {
     CSidechain scInfo;
-    if (!this->GetSidechain(forwardOut.scId, scInfo)) {
+    if (!this->GetSidechain(forwardOut.GetScId(), scInfo)) {
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: attempt to undo schedule maturing fwd for unknown scId[%s]\n",
             __func__, __LINE__, forwardOut.scId.ToString());
         return false;
@@ -1093,10 +1094,10 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CTxForwardTransferOut& forwar
     const int maturityHeight = fwdHeight + SC_COIN_MATURITY;
 
     if (!HaveSidechainEvents(maturityHeight)) {
-        cacheSidechainEvents[maturityHeight].scEvents.maturingScs.insert(forwardOut.scId);
+        cacheSidechainEvents[maturityHeight].scEvents.maturingScs.insert(forwardOut.GetScId());
         cacheSidechainEvents[maturityHeight].flag = CSidechainEventsCacheEntry::Flags::FRESH;
     } else {
-        cacheSidechainEvents[maturityHeight].scEvents.maturingScs.insert(forwardOut.scId);
+        cacheSidechainEvents[maturityHeight].scEvents.maturingScs.insert(forwardOut.GetScId());
         cacheSidechainEvents[maturityHeight].flag = CSidechainEventsCacheEntry::Flags::DIRTY;
     }
 
@@ -1155,9 +1156,9 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CScCertificate& cert)
 bool CCoinsViewCache::CancelSidechainEvent(const CTxScCreationOut& scCreationOut, int creationHeight)
 {
     CSidechain restoredScInfo;
-    if (!this->GetSidechain(scCreationOut.scId, restoredScInfo)) {
+    if (!this->GetSidechain(scCreationOut.GetScId(), restoredScInfo)) {
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: attempt to undo ScCreation amount maturing for unknown scId[%s]\n",
-            __func__, __LINE__, scCreationOut.scId.ToString());
+            __func__, __LINE__, scCreationOut.GetScId().ToString());
         return false;
     }
 
@@ -1167,17 +1168,17 @@ bool CCoinsViewCache::CancelSidechainEvent(const CTxScCreationOut& scCreationOut
 
     if (HaveSidechainEvents(maturityHeight))
     {
-        cacheSidechainEvents[maturityHeight].scEvents.maturingScs.erase(scCreationOut.scId);
+        cacheSidechainEvents[maturityHeight].scEvents.maturingScs.erase(scCreationOut.GetScId());
         if (!cacheSidechainEvents[maturityHeight].scEvents.IsNull()) //still other sc ceasing at that height or fwds
             cacheSidechainEvents[maturityHeight].flag = CSidechainEventsCacheEntry::Flags::DIRTY;
         else
             cacheSidechainEvents[maturityHeight].flag = CSidechainEventsCacheEntry::Flags::ERASED;
 
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s] deleted maturing height [%d] for creation amount.\n",
-            __func__, __LINE__, scCreationOut.scId.ToString(), maturityHeight);
+            __func__, __LINE__, scCreationOut.GetScId().ToString(), maturityHeight);
     } else
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s] nothing to do for scCreation amount maturing canceling at height [%d].\n",
-            __func__, __LINE__, scCreationOut.scId.ToString(), maturityHeight);
+            __func__, __LINE__, scCreationOut.GetScId().ToString(), maturityHeight);
 
 
     //remove current ceasing Height
@@ -1187,21 +1188,21 @@ bool CCoinsViewCache::CancelSidechainEvent(const CTxScCreationOut& scCreationOut
     // Cancel Ceasing Sidechains
     if (!HaveSidechainEvents(currentCeasingHeight)) {
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s] misses current ceasing height; expected value was [%d]\n",
-            __func__, __LINE__, scCreationOut.scId.ToString(), currentCeasingHeight);
+            __func__, __LINE__, scCreationOut.GetScId().ToString(), currentCeasingHeight);
         return false;
     } else
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s] maturing height [%d] already deleted. This may happen in case of concurrent fwd\n",
-            __func__, __LINE__, scCreationOut.scId.ToString(), maturityHeight);
+            __func__, __LINE__, scCreationOut.GetScId().ToString(), maturityHeight);
 
 
-    cacheSidechainEvents[currentCeasingHeight].scEvents.ceasingScs.erase(scCreationOut.scId);
+    cacheSidechainEvents[currentCeasingHeight].scEvents.ceasingScs.erase(scCreationOut.GetScId());
     if (!cacheSidechainEvents[currentCeasingHeight].scEvents.IsNull())
         cacheSidechainEvents[currentCeasingHeight].flag = CSidechainEventsCacheEntry::Flags::DIRTY;
     else
         cacheSidechainEvents[currentCeasingHeight].flag = CSidechainEventsCacheEntry::Flags::ERASED;
 
     LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: undo of creation removes currentCeasingHeight [%d]\n",
-            __func__, __LINE__, scCreationOut.scId.ToString(), currentCeasingHeight);
+            __func__, __LINE__, scCreationOut.GetScId().ToString(), currentCeasingHeight);
 
     return true;
 }

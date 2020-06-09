@@ -56,14 +56,10 @@ class sc_rawcert(BitcoinTestFramework):
 
     def run_test(self):
 
-        # side chain id
-        scid = "1111111111111111111111111111111111111111111111111111111111111111"
-
         # forward transfer amount
-        cr_amount = Decimal("2.0")
-        ft_amount = Decimal("3.0")
+        cr_amount = Decimal("5.0")
         bt_amount = Decimal("4.0")
-        sc_amount = cr_amount + ft_amount
+        sc_amount = cr_amount 
 
         # node 1 earns some coins, they would be available after 100 blocks
         mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
@@ -83,13 +79,17 @@ class sc_rawcert(BitcoinTestFramework):
         # create a sc via createraw cmd
         mark_logs("Node 1 creates the SC spending " + str(sc_amount) + " coins ...", self.nodes, DEBUG_MODE)
         sc_address = "fade"
-        sc_cr = [{"scid": scid, "epoch_length": EPOCH_LENGTH, "amount": cr_amount, "address": sc_address, "customData": "badcaffe"}]
-        sc_ft = [{"address": sc_address, "amount":ft_amount, "scid": scid}]
+        sc_cr = [{"epoch_length": EPOCH_LENGTH, "amount": cr_amount, "address": sc_address, "customData": "badcaffe"}]
+        sc_ft = []
         raw_tx = self.nodes[1].createrawtransaction([], {}, sc_cr, sc_ft)
         funded_tx = self.nodes[1].fundrawtransaction(raw_tx)
         signed_tx = self.nodes[1].signrawtransaction(funded_tx['hex'])
         creating_tx = self.nodes[1].sendrawtransaction(signed_tx['hex'])
         self.sync_all()
+
+        decoded_tx = self.nodes[1].getrawtransaction(creating_tx, 1)
+        scid = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         mark_logs("Node3 generating 5 block", self.nodes, DEBUG_MODE)
         epn = 0

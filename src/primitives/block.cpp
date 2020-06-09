@@ -253,47 +253,47 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
     // set of scid is ordered
     for (const auto& scid : sScIds)
     {
-        uint256 FtHash(getCrossChainNullHash());
-        uint256 BtrHash(getCrossChainNullHash());
-        uint256 WCertHash(getCrossChainNullHash());
+        uint256 ftHash(getCrossChainNullHash());
+        uint256 btrHash(getCrossChainNullHash());
+        uint256 wCertHash(getCrossChainNullHash());
 
         auto itFt = mScMerkleTreeLeavesFt.find(scid);
         if (itFt != mScMerkleTreeLeavesFt.end() )
         {
-            FtHash = getMerkleRootHash(itFt->second);
+            ftHash = getMerkleRootHash(itFt->second);
         }
 
         auto itBtr = mScMerkleTreeLeavesBtr.find(scid);
         if (itBtr != mScMerkleTreeLeavesBtr.end() )
         {
-            BtrHash = getMerkleRootHash(itBtr->second);
+            btrHash = getMerkleRootHash(itBtr->second);
         }
 
         auto itCert = mScCerts.find(scid);
         if (itCert != mScCerts.end() )
         {
-            WCertHash = itCert->second;
+            wCertHash = itCert->second;
         }
 
-        const uint256& TxsHash = Hash(
-            BEGIN(FtHash),    END(FtHash),
-            BEGIN(BtrHash),   END(BtrHash) );
+        const uint256& txsHash = Hash(
+            BEGIN(ftHash),    END(ftHash),
+            BEGIN(btrHash),   END(btrHash) );
 
-        const uint256& ScHash = Hash(
-            BEGIN(TxsHash),   END(TxsHash),
-            BEGIN(WCertHash), END(WCertHash),
+        const uint256& scHash = Hash(
+            BEGIN(txsHash),   END(txsHash),
+            BEGIN(wCertHash), END(wCertHash),
             BEGIN(scid),      END(scid) );
 
 #ifdef DEBUG_SC_COMMITMENT_HASH
         std::cout << " -------------------------------------------" << std::endl;
-        std::cout << "  FtHash:  " << FtHash.ToString() << std::endl;
-        std::cout << "  BtrHash: " << BtrHash.ToString() << std::endl;
-        std::cout << "  => TxsHash:   " << TxsHash.ToString() << std::endl;
-        std::cout << "     WCertHash: " << WCertHash.ToString() << std::endl;
+        std::cout << "  FtHash:  " << ftHash.ToString() << std::endl;
+        std::cout << "  BtrHash: " << btrHash.ToString() << std::endl;
+        std::cout << "  => TxsHash:   " << txsHash.ToString() << std::endl;
+        std::cout << "     WCertHash: " << wCertHash.ToString() << std::endl;
         std::cout << "     scid:      " << scid.ToString() << std::endl;
-        std::cout << "     => ScsHash:  " << ScHash.ToString() << std::endl;
+        std::cout << "     => ScsHash:  " << scHash.ToString() << std::endl;
 #endif
-        vSortedScLeaves.push_back(ScHash);
+        vSortedScLeaves.push_back(scHash);
     }
 
     return getMerkleRootHash(vSortedScLeaves);
