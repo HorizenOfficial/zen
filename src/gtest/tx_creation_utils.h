@@ -5,13 +5,13 @@
 #include <primitives/certificate.h>
 
 namespace txCreationUtils {
-CMutableTransaction populateTx(int txVersion, const uint256 & newScId = uint256S("0"),
+CMutableTransaction populateTx(int txVersion,
                                const CAmount & creationTxAmount = CAmount(0),
                                const CAmount & fwdTxAmount = CAmount(0),
                                int epochLength = 5);
 void signTx(CMutableTransaction& mtx);
 
-CTransaction createNewSidechainTxWith(const uint256 & newScId, const CAmount & creationTxAmount, int epochLength = 15);
+CTransaction createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength = 15);
 CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
 
 CTransaction createTransparentTx(bool ccIsNull = true); //ccIsNull = false allows generation of faulty tx with non-empty cross chain output

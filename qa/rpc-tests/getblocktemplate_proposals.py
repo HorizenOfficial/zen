@@ -147,10 +147,12 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         mark_logs(("active chain height = %d: testing after sidechain fork" %  self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
 
         # create a sidechain and a certificate for it in the mempool
-        scid = "22"
-
-        self.nodes[1].sc_create(scid, SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT)
+        creating_tx = self.nodes[1].sc_create(SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT)
         self.sync_all()
+
+        decoded_tx = self.nodes[1].getrawtransaction(creating_tx, 1)
+        scid = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         block_list = self.nodes[0].generate(SC_EPOCH_LENGTH) 
         self.sync_all()

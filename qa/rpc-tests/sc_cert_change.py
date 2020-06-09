@@ -67,8 +67,6 @@ class sc_cert_change(BitcoinTestFramework):
            node0 mine a new block
         6) node3 has 0.5 balance and 3.0 immature from cert_ep2
         '''
-        # side chain id
-        scid = "1111111111111111111111111111111111111111111111111111111111111111"
 
         # cross chain transfer amounts
         creation_amount = Decimal("10.0")
@@ -78,9 +76,13 @@ class sc_cert_change(BitcoinTestFramework):
         self.sync_all()
 
         # (1) node0 create sidechain with 10.0 coins
-        creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, "abcdef")
+        creating_tx = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, "abcdef")
         mark_logs("Node 0 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
+
+        decoded_tx = self.nodes[0].getrawtransaction(creating_tx, 1)
+        scid = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         mark_logs("Node0 generates 5 blocks to achieve end of epoch", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(5)

@@ -887,6 +887,7 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
     originalCoin.vout[2].isFromBackwardTransfer = true;
     originalCoin.nHeight = 220;
     originalCoin.nVersion = SC_CERT_VERSION;
+    originalCoin.nFirstBwtPos = 2;
     originalCoin.nBwtMaturityHeight = 250;
 
     CDataStream ss1(SER_DISK, CLIENT_VERSION);
@@ -908,6 +909,7 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
     BOOST_CHECK(retrievedCoin.nHeight                        == originalCoin.nHeight);
     BOOST_CHECK(retrievedCoin.nVersion                       != originalCoin.nVersion);
     BOOST_CHECK( (retrievedCoin.nVersion & 0x7f)             == (originalCoin.nVersion & 0x7f));
+    BOOST_CHECK(retrievedCoin.nFirstBwtPos                   == originalCoin.nFirstBwtPos);
     BOOST_CHECK(retrievedCoin.nBwtMaturityHeight             == originalCoin.nBwtMaturityHeight);
 }
 
@@ -923,11 +925,12 @@ BOOST_AUTO_TEST_CASE(Certificate_CTxInUndo_serialization)
     coinFromCert.vout[0].isFromBackwardTransfer = true;
     coinFromCert.nHeight = 220;
     coinFromCert.nVersion = SC_CERT_VERSION;
+    coinFromCert.nFirstBwtPos = 0;
     coinFromCert.nBwtMaturityHeight = 230;
 
     //if the vin about to be written in undo is the last one, all metadata (fCoinBase, version, originScId) are noted
     CTxInUndo fullCertInUndo(coinFromCert.vout[0], coinFromCert.fCoinBase,
-                             coinFromCert.nHeight, coinFromCert.nVersion, coinFromCert.nBwtMaturityHeight);
+                             coinFromCert.nHeight, coinFromCert.nVersion, coinFromCert.nFirstBwtPos, coinFromCert.nBwtMaturityHeight);
     CDataStream ssFullCert(SER_DISK, CLIENT_VERSION);
 
     ssFullCert << fullCertInUndo;
@@ -937,8 +940,9 @@ BOOST_AUTO_TEST_CASE(Certificate_CTxInUndo_serialization)
     BOOST_CHECK(retrievedFullCertIn.fCoinBase                  == coinFromCert.fCoinBase);
     BOOST_CHECK_MESSAGE((retrievedFullCertIn.nVersion & 0x7f)  == (coinFromCert.nVersion & 0x7f),   retrievedFullCertIn.nVersion);
     BOOST_CHECK_MESSAGE(retrievedFullCertIn.nHeight            == coinFromCert.nHeight,             retrievedFullCertIn.nHeight);
+    BOOST_CHECK_MESSAGE(retrievedFullCertIn.nFirstBwtPos       == coinFromCert.nFirstBwtPos,        retrievedFullCertIn.nFirstBwtPos);
     BOOST_CHECK_MESSAGE(retrievedFullCertIn.nBwtMaturityHeight == coinFromCert.nBwtMaturityHeight,  retrievedFullCertIn.nBwtMaturityHeight);
-    BOOST_CHECK(retrievedFullCertIn.txout == coinFromCert.vout[0]);
+    BOOST_CHECK_MESSAGE(retrievedFullCertIn.txout.isFromBackwardTransfer == 0, "isFromBwt flag is not serialized. It must be reconstructed from nFirstBwtPos");
 
     //if the vin about to be written in undo is NOT the last one only vout is noted
     CTxInUndo partialCertInUndo(coinFromCert.vout[0]);

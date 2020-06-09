@@ -46,6 +46,8 @@ static_assert(TRANSPARENT_TX_VERSION >= MIN_OLD_TX_VERSION,
 //Many static casts to int * of Tx nVersion (int32_t *) are performed. Verify at compile time that they are equivalent.
 static_assert(sizeof(int32_t) == sizeof(int), "int size differs from 4 bytes. This may lead to unexpected behaviors on static casts");
 
+static const int BWT_POS_UNSET = -1;
+
 template <typename Stream>
 class SproutProofSerializer : public boost::static_visitor<>
 {
@@ -443,23 +445,15 @@ public:
 class CTxCrosschainOut
 {
 public:
-    uint256 scId;
     CAmount nValue;
     uint256 address;
 
-    CTxCrosschainOut(const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn)
-        : scId(scIdIn), nValue(nValueIn), address(addressIn) { }
+    CTxCrosschainOut(const CAmount& nValueIn, const uint256& addressIn)
+        : nValue(nValueIn), address(addressIn) { }
 
     virtual ~CTxCrosschainOut() {};
 
-    CTxCrosschainOut():nValue(-1) {}
-
-    virtual void SetNull()
-    {
-        scId.SetNull();
-        nValue = -1;
-        address.SetNull();
-    }
+    CTxCrosschainOut():nValue(-1), address() {}
 
     bool IsNull() const
     {
@@ -479,6 +473,7 @@ public:
         return (nValue < GetDustThreshold(minRelayTxFee));
     }
 
+    virtual const uint256& GetScId() const = 0; 
     virtual uint256 GetHash() const = 0;
 
     virtual std::string ToString() const = 0;
@@ -486,9 +481,7 @@ public:
 protected:
     static bool isBaseEqual(const CTxCrosschainOut& a, const CTxCrosschainOut& b)
     {
-        return (a.scId    == b.scId &&
-                a.nValue  == b.nValue &&
-                a.address == b.address);
+        return ( a.nValue  == b.nValue && a.address == b.address);
     }
 
 };
@@ -496,11 +489,12 @@ protected:
 class CTxForwardTransferOut : public CTxCrosschainOut
 {
 public:
+    uint256 scId;
 
     CTxForwardTransferOut() {}
 
     CTxForwardTransferOut(const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn):
-        CTxCrosschainOut(scIdIn, nValueIn, addressIn) {}
+        CTxCrosschainOut(nValueIn, addressIn), scId(scIdIn) {}
 
     ADD_SERIALIZE_METHODS;
 
@@ -511,12 +505,13 @@ public:
         READWRITE(scId);
     }
 
+    virtual const uint256& GetScId() const override { return scId;}; 
     virtual uint256 GetHash() const override;
     virtual std::string ToString() const override;
 
     friend bool operator==(const CTxForwardTransferOut& a, const CTxForwardTransferOut& b)
     {
-        return (isBaseEqual(a, b));
+        return (isBaseEqual(a, b) && a.scId == b.scId);
     }
 
     friend bool operator!=(const CTxForwardTransferOut& a, const CTxForwardTransferOut& b)
@@ -527,47 +522,40 @@ public:
 
 class CTxScCreationOut : public CTxCrosschainOut
 {
+friend class CTransaction;
+private:
+    /** Memory only. */
+    const uint256 generatedScId;
+
+    void GenerateScId(const uint256& txHash, unsigned int pos) const;
+
 public:
     int withdrawalEpochLength; 
     std::vector<unsigned char> customData;
-/*
-    TODO check and add 
-    ------------------
-    int startBlockHeight; 
-    int prepStageLength; 
-    int certGroupSize;
-    unsigned char feePct;
-    CAmount minBkwTransferAmount;
-*/
 
     CTxScCreationOut():withdrawalEpochLength(-1) { }
 
-    CTxScCreationOut(const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn, const Sidechain::ScCreationParameters& params);
+    CTxScCreationOut(const CAmount& nValueIn, const uint256& addressIn, const Sidechain::ScCreationParameters& params);
+    CTxScCreationOut& operator=(const CTxScCreationOut &ccout);
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(scId);
         READWRITE(withdrawalEpochLength);
         READWRITE(nValue);
         READWRITE(address);
         READWRITE(customData);
     }
 
-    virtual void SetNull() override
-    {
-        CTxCrosschainOut::SetNull();
-        withdrawalEpochLength = -1;
-        customData.clear();
-    }
-
+    virtual const uint256& GetScId() const override { return generatedScId;}; 
     virtual uint256 GetHash() const override;
     virtual std::string ToString() const override;
 
     friend bool operator==(const CTxScCreationOut& a, const CTxScCreationOut& b)
     {
         return (isBaseEqual(a, b) &&
+                 a.generatedScId == b.generatedScId &&
                  a.withdrawalEpochLength == b.withdrawalEpochLength &&
                  a.customData == b.customData);
     }
@@ -855,6 +843,7 @@ public:
     const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const { return vft_ccout; }
     const std::vector<JSDescription>&         GetVjoinsplit() const override { return vjoinsplit;};
     const uint32_t&                           GetLockTime()   const override { return nLockTime;};
+    const uint256&                            GetScIdFromScCcOut(int pos) const;
     //END OF GETTERS
 
     //CHECK FUNCTIONS
@@ -901,14 +890,14 @@ public:
  
         for(const auto& txccout : vOuts)
         {
-            sScIds.insert(txccout.scId);
+            sScIds.insert(txccout.GetScId());
 
             // if the mapped value exists, vec is a reference to it. If it does not, vec is
             // a reference to the new element inserted in the map with the scid as a key
-            std::vector<uint256>& vec = map[txccout.scId];
+            std::vector<uint256>& vec = map[txccout.GetScId()];
  
             LogPrint("sc", "%s():%d - processing scId[%s], vec size = %d\n",
-                __func__, __LINE__, txccout.scId.ToString(), vec.size());
+                __func__, __LINE__, txccout.GetScId().ToString(), vec.size());
  
             const uint256& ccoutHash = txccout.GetHash();
             unsigned int n = nIdx;

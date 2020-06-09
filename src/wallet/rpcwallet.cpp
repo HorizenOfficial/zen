@@ -710,67 +710,49 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp ||  params.size() < 4 ) 
+    if (fHelp ||  params.size() < 3 ) 
         throw runtime_error(
-            "sc_create \"scid\" withdrawalEpochLength [{\"address\":... ,\"amount\":...,...},...]\n"
+            "sc_create withdrawalEpochLength [{\"address\":... ,\"amount\":...,...},...]\n"
             "\nCreate a Side chain with the given id staring from the given block. A fixed amount is charged to the creator\n"
             "\nIt also sends cross chain forward transfer of coins multiple times. Amounts are double-precision floating point numbers."
             "\nArguments:\n"
-            "1. \"side chain ID\"          (string, required) The uint256 side chain ID\n"
-            "2. withdrawalEpochLength:   (numeric, required) Length of the withdrawal epochs\n"
-            "3. \"address\"                (string, required) The receiver PublicKey25519Proposition in the SC\n"
-            "4. amount:                  (numeric, required) The numeric amount in ZEN is the value\n"
-            "5. \"customData\"             (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "1. withdrawalEpochLength:   (numeric, required) Length of the withdrawal epochs\n"
+            "2. \"address\"                (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "3. amount:                  (numeric, required) The numeric amount in ZEN is the value\n"
+            "4. \"customData\"             (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                   hexadecimal format. A max limit of 1024 bytes will be checked\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sc_create", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 123456 \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" 5.0 \"abcd..ef\"")
+            + HelpExampleCli("sc_create"," 123456 \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" 5.0 \"abcd..ef\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    // side chain id
-    string inputString = params[0].get_str();
-    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
-
-    uint256 scId;
-    scId.SetHex(inputString);
-
-    // sanity check of the side chain ID
-    CCoinsViewCache scView(pcoinsTip);
-    if (scView.HaveSidechain(scId))
-    {
-        LogPrint("sc", "scid[%s] already created\n", scId.ToString() );
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid already created: ") + scId.ToString());
-    }
-
-    int withdrawalEpochLength = params[1].get_int(); 
+    int withdrawalEpochLength = params[0].get_int(); 
     if (withdrawalEpochLength < getScMinWithdrawalEpochLength())
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid withdrawalEpochLength, less that minimum value allowed\n");
 
     uint256 address;
-    inputString = params[2].get_str();
+    const std::string& inputString = params[1].get_str();
     if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address format: not an hex");
     address.SetHex(inputString);
 
-    CAmount nAmount = AmountFromValue(params[3]);
+    CAmount nAmount = AmountFromValue(params[2]);
     if (nAmount <= 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
 
     CRecipientScCreation sc;
-    sc.scId = scId;
     sc.address = address;
     sc.nValue = nAmount;
     sc.creationData.withdrawalEpochLength = withdrawalEpochLength;
 
-    if (params.size() > 4)
+    if (params.size() > 3)
     {
-        inputString = params[4].get_str();
-        addCustomData(inputString, sc.creationData.customData);
+        const std::string& inputStringCd = params[3].get_str();
+        addCustomData(inputStringCd, sc.creationData.customData);
     }
 
     CcRecipientVariant r(sc);
@@ -793,11 +775,10 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
     if (fHelp ||  params.size() != 1)
         throw runtime_error(
-            "create_sidechain {\"scid\":... , \"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":...}\n"
+            "create_sidechain {\"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":...}\n"
             "\nCreate a Side chain.\n"
             "\nArguments:\n"
             "{\n"                     
-            "   \"scid\": id                      (string, optional) The uint256 side chain ID, if omitted a random value is generated\n"
             "   \"withdrawalEpochLength\": epoch  (numeric, optional, default=100) length of the withdrawal epochs\n"
             "   \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
             "   \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a new generated address will be used\n"
@@ -820,7 +801,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
     // valid input keywords
     static const std::set<std::string> validKeyArgs =
-        {"scid", "withdrawalEpochLength", "fromaddress", "changeaddress",
+        {"withdrawalEpochLength", "fromaddress", "changeaddress",
          "toaddress", "amount", "minconf", "fee", "customData"};
 
     UniValue inputObject = params[0].get_obj();
@@ -839,20 +820,6 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
         if (!setKeyArgs.insert(s).second)
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Duplicate key in input: ") + s);
-    }
-
-    // ---------------------------------------------------------
-    uint256 scId;
-    if (setKeyArgs.count("scid"))
-    {
-        string inputString = find_value(inputObject, "scid").get_str();
-        if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
-        scId.SetHex(inputString);
-    }
-    else
-    {
-        scId = GetRandHash();
     }
 
     // ---------------------------------------------------------
@@ -963,8 +930,8 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     CMutableTransaction tx_create;
     tx_create.nVersion = SC_TX_VERSION;
 
-    std::vector<ScRpcCmdTx::sOutParams> vOutputs;
-    vOutputs.push_back(ScRpcCmdTx::sOutParams(scId, toaddress, nAmount));
+    std::vector<ScRpcCreationCmd::sCrOutParams> vOutputs;
+    vOutputs.push_back(ScRpcCreationCmd::sCrOutParams(toaddress, nAmount));
 
     Sidechain::ScRpcCreationCmd cmd(tx_create, vOutputs, fromaddress, changeaddress, nMinDepth, nFee, creationData);
 
@@ -1022,7 +989,7 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
     UniValue outputsArr = params[0].get_array();
 
     // ---------------------------------------------------------
-    std::vector<ScRpcCmdTx::sOutParams> vOutputs;
+    std::vector<ScRpcSendCmd::sFtOutParams> vOutputs;
     CAmount totalAmount = 0;
 
     if (outputsArr.size()==0)
@@ -1101,7 +1068,7 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
             }
         }
  
-        vOutputs.push_back(ScRpcCmdTx::sOutParams(scId, toaddress, nAmount));
+        vOutputs.push_back(ScRpcSendCmd::sFtOutParams(scId, toaddress, nAmount));
         totalAmount += nAmount;
     }
 

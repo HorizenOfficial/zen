@@ -18,18 +18,19 @@
 std::string CCoins::ToString() const
 {
     std::string ret;
-    ret += strprintf("version(%d)", nVersion);
-    ret += strprintf("fCoinBase(%d)", fCoinBase);
-    ret += strprintf("height(%d)", nHeight);
-    ret += strprintf("nBwtMaturityHeight(%d)", nBwtMaturityHeight);
-    for (auto o : vout)
+    ret += strprintf("\n version           (%d)", nVersion);
+    ret += strprintf("\n fCoinBase         (%d)", fCoinBase);
+    ret += strprintf("\n height            (%d)", nHeight);
+    ret += strprintf("\n nFirstBwtPos      (%d)", nFirstBwtPos);
+    ret += strprintf("\n nBwtMaturityHeight(%d)", nBwtMaturityHeight);
+    for (const CTxOut& out : vout)
     {
-        ret += "    " + o.ToString() + "\n";
+        ret += "\n    " + out.ToString();
     }
     return ret;
 }
 
-CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), nBwtMaturityHeight(0) { }
+CCoins::CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0), nFirstBwtPos(BWT_POS_UNSET), nBwtMaturityHeight(0) { }
 
 CCoins::CCoins(const CTransaction &tx, int nHeightIn) { From(tx, nHeightIn); }
 
@@ -40,6 +41,7 @@ void CCoins::From(const CTransaction &tx, int nHeightIn) {
     vout               = tx.GetVout();
     nHeight            = nHeightIn;
     nVersion           = tx.nVersion;
+    nFirstBwtPos       = BWT_POS_UNSET;
     nBwtMaturityHeight = 0;
     ClearUnspendable();
 }
@@ -51,6 +53,13 @@ void CCoins::From(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeig
     nVersion           = cert.nVersion;
     nBwtMaturityHeight = bwtMaturityHeight;
     ClearUnspendable();
+    nFirstBwtPos = vout.size();
+    for(unsigned int idx = 0; idx < this->vout.size(); ++idx) {
+        if (this->vout[idx].isFromBackwardTransfer) {
+            nFirstBwtPos = idx;
+            break;
+        }
+    }
 }
 
 void CCoins::Clear() {
@@ -58,6 +67,7 @@ void CCoins::Clear() {
     std::vector<CTxOut>().swap(vout);
     nHeight = 0;
     nVersion = 0;
+    nFirstBwtPos = BWT_POS_UNSET;
     nBwtMaturityHeight = 0;
 }
 
@@ -82,6 +92,7 @@ void CCoins::swap(CCoins &to) {
     to.vout.swap(vout);
     std::swap(to.nHeight, nHeight);
     std::swap(to.nVersion, nVersion);
+    std::swap(to.nFirstBwtPos, nFirstBwtPos);
     std::swap(to.nBwtMaturityHeight, nBwtMaturityHeight);
 }
 
@@ -89,10 +100,11 @@ bool operator==(const CCoins &a, const CCoins &b) {
      // Empty CCoins objects are always equal.
      if (a.IsPruned() && b.IsPruned())
          return true;
-     return a.fCoinBase          == b.fCoinBase &&
-            a.nHeight            == b.nHeight   &&
-            a.nVersion           == b.nVersion  &&
-            a.vout               == b.vout      &&
+     return a.fCoinBase          == b.fCoinBase          &&
+            a.nHeight            == b.nHeight            &&
+            a.nVersion           == b.nVersion           &&
+            a.vout               == b.vout               &&
+            a.nFirstBwtPos       == b.nFirstBwtPos       &&
             a.nBwtMaturityHeight == b.nBwtMaturityHeight;
 }
 
@@ -125,7 +137,7 @@ int CCoins::GetMaturityHeightForOutput(unsigned int outPos) const
     if(!IsAvailable(outPos))
         return -1; //This may happen in wallet when you check credit on certificate whose bwt has been erased
                    
-    if (vout.at(outPos).isFromBackwardTransfer)
+    if (outPos >= nFirstBwtPos)
         return nBwtMaturityHeight;
     else
         return nHeight;
@@ -665,26 +677,27 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
     // creation ccout
     for (const auto& cr: tx.GetVscCcOut())
     {
-        if (HaveSidechain(cr.scId)) {
-            LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, cr.scId.ToString() );
+        const uint256& scId = cr.GetScId();
+        if (HaveSidechain(scId)) {
+            LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
 
-        assert(cacheSidechains.count(cr.scId) == 0);
-        cacheSidechains[cr.scId].scInfo.creationBlockHash = block.GetHash();
-        cacheSidechains[cr.scId].scInfo.creationBlockHeight = blockHeight;
-        cacheSidechains[cr.scId].scInfo.creationTxHash = txHash;
-        cacheSidechains[cr.scId].scInfo.lastEpochReferencedByCertificate = CScCertificate::EPOCH_NULL;
-        cacheSidechains[cr.scId].scInfo.lastCertificateHash.SetNull();
-        cacheSidechains[cr.scId].scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
-        cacheSidechains[cr.scId].scInfo.creationData.customData = cr.customData;
-        cacheSidechains[cr.scId].scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
-        cacheSidechains[cr.scId].flag = CSidechainsCacheEntry::Flags::FRESH;
+        assert(cacheSidechains.count(scId) == 0);
+        cacheSidechains[scId].scInfo.creationBlockHash = block.GetHash();
+        cacheSidechains[scId].scInfo.creationBlockHeight = blockHeight;
+        cacheSidechains[scId].scInfo.creationTxHash = txHash;
+        cacheSidechains[scId].scInfo.lastEpochReferencedByCertificate = CScCertificate::EPOCH_NULL;
+        cacheSidechains[scId].scInfo.lastCertificateHash.SetNull();
+        cacheSidechains[scId].scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
+        cacheSidechains[scId].scInfo.creationData.customData = cr.customData;
+        cacheSidechains[scId].scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
+        cacheSidechains[scId].flag = CSidechainsCacheEntry::Flags::FRESH;
 
         LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
-            __func__, __LINE__, maturityHeight, FormatMoney(cr.nValue), cr.scId.ToString());
+            __func__, __LINE__, maturityHeight, FormatMoney(cr.nValue), scId.ToString());
 
-        LogPrint("sc", "%s():%d - scId[%s] added in scView\n", __func__, __LINE__, cr.scId.ToString() );
+        LogPrint("sc", "%s():%d - scId[%s] added in scView\n", __func__, __LINE__, scId.ToString() );
     }
 
     // forward transfer ccout
@@ -743,7 +756,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
     // remove sidechain if the case
     for(const auto& entry: tx.GetVscCcOut())
     {
-        const uint256& scId = entry.scId;
+        const uint256& scId = entry.GetScId();
 
         LogPrint("sc", "%s():%d - removing scId=%s\n", __func__, __LINE__, scId.ToString());
 
@@ -998,7 +1011,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
     // check creation
     for (const auto& sc: tx.GetVscCcOut())
     {
-        const uint256& scId = sc.scId;
+        const uint256& scId = sc.GetScId();
         if (HaveSidechain(scId))
         {
             LogPrint("sc", "%s():%d - ERROR: Invalid tx[%s] : scid[%s] already created\n",
@@ -1122,9 +1135,9 @@ bool CCoinsViewCache::GetCeasingScs(int height, CCeasingSidechains& ceasingScs) 
 bool CCoinsViewCache::UpdateCeasingScs(const CTxScCreationOut& scCreationOut)
 {
     CSidechain scInfo;
-    if (!this->GetSidechain(scCreationOut.scId, scInfo)) {
+    if (!this->GetSidechain(scCreationOut.GetScId(), scInfo)) {
         LogPrint("cert", "%s():%d - attempt to update ceasing sidechain map with unknown scId[%s]\n",
-            __func__, __LINE__, scCreationOut.scId.ToString());
+            __func__, __LINE__, scCreationOut.GetScId().ToString());
         return false;
     }
 
@@ -1133,15 +1146,15 @@ bool CCoinsViewCache::UpdateCeasingScs(const CTxScCreationOut& scCreationOut)
 
     CCeasingSidechains ceasingScIdSet;
     if (!GetCeasingScs(nextCeasingHeight,ceasingScIdSet)) {
-        ceasingScIdSet.ceasingScs.insert(scCreationOut.scId);
+        ceasingScIdSet.ceasingScs.insert(scCreationOut.GetScId());
         cacheCeasingScs[nextCeasingHeight] = CCeasingScsCacheEntry(ceasingScIdSet, CCeasingScsCacheEntry::Flags::FRESH);
     } else {
-        ceasingScIdSet.ceasingScs.insert(scCreationOut.scId);
+        ceasingScIdSet.ceasingScs.insert(scCreationOut.GetScId());
         cacheCeasingScs[nextCeasingHeight] = CCeasingScsCacheEntry(ceasingScIdSet, CCeasingScsCacheEntry::Flags::DIRTY);
     }
 
     LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s]: creation sets nextCeasingHeight to [%d]\n",
-            __func__, __LINE__, scCreationOut.scId.ToString(), nextCeasingHeight);
+            __func__, __LINE__, scCreationOut.GetScId().ToString(), nextCeasingHeight);
 
     return true;
 }
@@ -1149,9 +1162,9 @@ bool CCoinsViewCache::UpdateCeasingScs(const CTxScCreationOut& scCreationOut)
 bool CCoinsViewCache::UndoCeasingScs(const CTxScCreationOut& scCreationOut)
 {
     CSidechain restoredScInfo;
-    if (!this->GetSidechain(scCreationOut.scId, restoredScInfo)) {
+    if (!this->GetSidechain(scCreationOut.GetScId(), restoredScInfo)) {
         LogPrint("cert", "%s():%d - attempt to undo ceasing sidechain map with unknown scId[%s]\n",
-            __func__, __LINE__, scCreationOut.scId.ToString());
+            __func__, __LINE__, scCreationOut.GetScId().ToString());
         return false;
     }
 
@@ -1162,18 +1175,18 @@ bool CCoinsViewCache::UndoCeasingScs(const CTxScCreationOut& scCreationOut)
     CCeasingSidechains currentCeasingScId;
     if (!GetCeasingScs(currentCeasingHeight,currentCeasingScId)) {
         LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s] misses current ceasing height; expected value was [%d]\n",
-            __func__, __LINE__, scCreationOut.scId.ToString(), currentCeasingHeight);
+            __func__, __LINE__, scCreationOut.GetScId().ToString(), currentCeasingHeight);
         return false;
     }
 
-    currentCeasingScId.ceasingScs.erase(scCreationOut.scId);
+    currentCeasingScId.ceasingScs.erase(scCreationOut.GetScId());
     if (currentCeasingScId.ceasingScs.size() != 0)
         cacheCeasingScs[currentCeasingHeight] = CCeasingScsCacheEntry(currentCeasingScId, CCeasingScsCacheEntry::Flags::DIRTY);
     else
         cacheCeasingScs[currentCeasingHeight] = CCeasingScsCacheEntry(currentCeasingScId, CCeasingScsCacheEntry::Flags::ERASED);
 
     LogPrint("cert", "%s():%d - CEASING HEIGHTS: scId[%s]: undo of creation removes currentCeasingHeight [%d]\n",
-            __func__, __LINE__, scCreationOut.scId.ToString(), currentCeasingHeight);
+            __func__, __LINE__, scCreationOut.GetScId().ToString(), currentCeasingHeight);
 
     return true;
 }
@@ -1302,23 +1315,19 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
 
         //null all bwt outputs and add related txundo in block
         bool foundFirstBwt = false;
-        for(unsigned int pos = 0; pos < coins->vout.size(); ++pos)
-        {
-            if (!coins->IsAvailable(pos))
-                continue;
-            if (!coins->vout[pos].isFromBackwardTransfer)
-                continue;
 
-            if (!foundFirstBwt) {
+        for(int pos = coins->nFirstBwtPos; pos < coins->vout.size(); ++pos)
+        {
+            if (!foundFirstBwt)
+            {
                 blockUndo.vVoidedCertUndo.push_back(CVoidedCertUndo());
                 blockUndo.vVoidedCertUndo.back().voidedCertHash = scInfo.lastCertificateHash;
-                blockUndo.vVoidedCertUndo.back().firstBwtPos = pos;
                 LogPrint("cert", "%s():%d - set voidedCertHash[%s], firstBwtPos[%d]\n",
                     __func__, __LINE__, scInfo.lastCertificateHash.ToString(), pos);
                 foundFirstBwt = true;
             }
 
-            blockUndo.vVoidedCertUndo.back().voidedOuts.push_back(CTxInUndo(coins->vout[pos]));
+            blockUndo.vVoidedCertUndo.back().voidedOuts.push_back(CTxInUndo(coins->vout.at(pos)));
             coins->Spend(pos);
             if (coins->vout.size() == 0)
             {
@@ -1326,15 +1335,13 @@ bool CCoinsViewCache::HandleCeasingScs(int height, CBlockUndo& blockUndo)
                 undo.nHeight            = coins->nHeight;
                 undo.fCoinBase          = coins->fCoinBase;
                 undo.nVersion           = coins->nVersion;
+                undo.nFirstBwtPos       = coins->nFirstBwtPos;
                 undo.nBwtMaturityHeight = coins->nBwtMaturityHeight;
             }
         }
 
         SyncBwtCeasing(scInfo.lastCertificateHash, true);
     }
-
-    LogPrint("sc", "%s():%d Exiting: CBlockUndo: %s\n",
-        __func__, __LINE__, blockUndo.ToString());
 
     return true;
 }
@@ -1350,29 +1357,25 @@ bool CCoinsViewCache::RevertCeasingScs(const CVoidedCertUndo& voidedCertUndo)
         return fClean;
     }
 
-    int firstBwtPos = voidedCertUndo.firstBwtPos;
-    if (firstBwtPos >= 0)
+    CCoinsModifier coins = this->ModifyCoins(coinHash);
+    const std::vector<CTxInUndo>& voidedOuts = voidedCertUndo.voidedOuts;
+    for (size_t idx = voidedOuts.size(); idx-- > 0;)
     {
-        CCoinsModifier coins = this->ModifyCoins(coinHash);
-
-        const std::vector<CTxInUndo>& voidedOuts = voidedCertUndo.voidedOuts;
-        for (size_t idx = voidedOuts.size(); idx-- > 0;)
+        if (voidedOuts.at(idx).nHeight != 0)
         {
-            if (voidedOuts.at(idx).nHeight != 0)
-            {
-                coins->fCoinBase          = voidedOuts.at(idx).fCoinBase;
-                coins->nHeight            = voidedOuts.at(idx).nHeight;
-                coins->nVersion           = voidedOuts.at(idx).nVersion;
-                coins->nBwtMaturityHeight = voidedOuts.at(idx).nBwtMaturityHeight;
-            }
-
-            if(coins->IsAvailable(firstBwtPos + idx))
-                fClean = fClean && error("%s: undo data overwriting existing output", __func__);
-            if (coins->vout.size() < (firstBwtPos + idx+1))
-                coins->vout.resize(firstBwtPos + idx+1);
-            coins->vout.at(firstBwtPos + idx) = voidedOuts.at(idx).txout;
-            coins->vout.at(firstBwtPos + idx).isFromBackwardTransfer = true;
+            coins->fCoinBase          = voidedOuts.at(idx).fCoinBase;
+            coins->nHeight            = voidedOuts.at(idx).nHeight;
+            coins->nVersion           = voidedOuts.at(idx).nVersion;
+            coins->nFirstBwtPos       = voidedOuts.at(idx).nFirstBwtPos;
+            coins->nBwtMaturityHeight = voidedOuts.at(idx).nBwtMaturityHeight;
         }
+
+        if(coins->IsAvailable(coins->nFirstBwtPos + idx))
+            fClean = fClean && error("%s: undo data overwriting existing output", __func__);
+        if (coins->vout.size() < (coins->nFirstBwtPos + idx+1))
+            coins->vout.resize(coins->nFirstBwtPos + idx+1);
+        coins->vout.at(coins->nFirstBwtPos + idx) = voidedOuts.at(idx).txout;
+        coins->vout.at(coins->nFirstBwtPos + idx).isFromBackwardTransfer = true;
     }
 
     SyncBwtCeasing(voidedCertUndo.voidedCertHash, false);
