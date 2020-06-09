@@ -1263,6 +1263,8 @@ TEST_F(CeasedSidechainsTestSuite, ScCreationAmountMaturesAtHeight) {
 
     ASSERT_TRUE(blockUndo.scUndoMap.count(scId) != 0);
     EXPECT_TRUE(blockUndo.scUndoMap.at(scId).appliedMaturedAmount == scCreationTx.GetVscCcOut()[0].nValue);
+
+    EXPECT_FALSE(view->HaveSidechainEvents(creationMaturityHeight));
 }
 
 TEST_F(CeasedSidechainsTestSuite, FwdAmountMaturesAtHeight) {

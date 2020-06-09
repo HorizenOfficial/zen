@@ -32,7 +32,7 @@ class headers(BitcoinTestFramework):
 
         self.nodes = start_nodes(
             NUMB_OF_NODES, self.options.tmpdir,
-            extra_args=[['-sccoinsmaturity=2', '-logtimemicros=1', '-debug=sc',
+            extra_args=[['-sccoinsmaturity=2', '-logtimemicros=1', '-debug=sc', '-debug=cert',
                          '-debug=py', '-debug=mempool', '-debug=net',
                          '-debug=bench']] * NUMB_OF_NODES)
 

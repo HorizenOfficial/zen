@@ -1193,7 +1193,10 @@ bool CCoinsViewCache::CancelSidechainEvent(const CTxScCreationOut& scCreationOut
         LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: scId[%s] misses current ceasing height; expected value was [%d]\n",
             __func__, __LINE__, scCreationOut.scId.ToString(), currentCeasingHeight);
         return false;
-    }
+    } else
+        LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: scId[%s] maturing height [%d] already deleted. This may happen in case of concurrent fwd\n",
+            __func__, __LINE__, scCreationOut.scId.ToString(), maturityHeight);
+
 
     cacheSidechainEvents[currentCeasingHeight].scEvents.ceasingScs.erase(scCreationOut.scId);
     if (!cacheSidechainEvents[currentCeasingHeight].scEvents.IsNull())
@@ -1214,9 +1217,9 @@ bool CCoinsViewCache::CancelSidechainEvent(const CTxForwardTransferOut& forwardO
     const int maturityHeight = fwdHeight + SC_COIN_MATURITY;
 
     if (!HaveSidechainEvents(maturityHeight)) {
-        LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: scId[%s] misses maturing height for fwd amount. Expected height [%d]\n",
+        LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: scId[%s] maturing height [%d] already deleted. This may happen in case of concurrent fwd\n",
             __func__, __LINE__, forwardOut.scId.ToString(), maturityHeight);
-        return false;
+        return true;
     }
 
     cacheSidechainEvents[maturityHeight].scEvents.maturingScs.erase(forwardOut.scId);
