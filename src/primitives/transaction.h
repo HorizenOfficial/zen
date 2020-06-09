@@ -453,7 +453,7 @@ public:
 
     virtual ~CTxCrosschainOut() {};
 
-    CTxCrosschainOut():nValue(-1) {}
+    CTxCrosschainOut():nValue(-1), address() {}
 
     bool IsNull() const
     {

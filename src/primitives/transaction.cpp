@@ -275,8 +275,8 @@ uint256 CTxScCreationOut::GetHash() const
 
 std::string CTxScCreationOut::ToString() const
 {
-    return strprintf("CTxScCreationOut(withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, customData=[%s]",
-        withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData) );
+    return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, customData=[%s]",
+        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData) );
 }
 
 void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const
@@ -603,7 +603,7 @@ double CTransactionBase::ComputePriority(double dPriorityInputs, unsigned int nT
 const uint256& CTransaction::GetScIdFromScCcOut(int pos) const
 {
     static const uint256 nullHash;
-    if (pos >= GetVscCcOut().size())
+    if (pos < 0 ||pos >= GetVscCcOut().size())
     {
         LogPrint("sc", "%s():%d - tx[%s] pos %d out of range (vsc_ccout size %d)\n",
             __func__, __LINE__, GetHash().ToString(), pos, GetVscCcOut().size());
