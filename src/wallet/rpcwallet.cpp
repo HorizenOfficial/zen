@@ -1316,18 +1316,10 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
 
     // Tally
     CAmount nAmount = 0;
-#if 0
-    for (map<uint256, CWalletTx>::iterator it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
-    {
-        const CWalletTx& wtx = (*it).second;
-        if (wtx.IsCoinBase() || !CheckFinalTx(wtx))
-#else
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletTransactionBase& wtx = *((*it).second);
-//        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()))
         if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()))
-#endif
             continue;
 
         BOOST_FOREACH(const CTxOut& txout, wtx.getTxBase()->GetVout())
@@ -1384,18 +1376,11 @@ UniValue getreceivedbyaccount(const UniValue& params, bool fHelp)
 
     // Tally
     CAmount nAmount = 0;
-#if 0
-    for (map<uint256, CWalletTx>::iterator it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
-    {
-        const CWalletTx& wtx = (*it).second;
-        if (wtx.IsCoinBase() || !CheckFinalTx(wtx))
-#else
+
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletTransactionBase& wtx = *((*it).second);
-//        if (wtx.getTxBase()->IsCoinBase() || !wtx.getTxBase()->CheckFinal())
         if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()))
-#endif
             continue;
 
         BOOST_FOREACH(const CTxOut& txout, wtx.getTxBase()->GetVout())
@@ -1419,7 +1404,6 @@ CAmount GetAccountBalance(CWalletDB& walletdb, const string& strAccount, int nMi
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletTransactionBase& wtx = *((*it).second);
-//        if (!wtx.getTxBase()->CheckFinal() || (wtx.getTxBase()->IsCoinBase() && !wtx.HasMatureOutputs()))
         if (!CheckFinalTx(*wtx.getTxBase()) || (wtx.getTxBase()->IsCoinBase() && !wtx.HasMatureOutputs()))
             continue;
 
@@ -1490,7 +1474,6 @@ UniValue getbalance(const UniValue& params, bool fHelp)
         for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
         {
             const CWalletTransactionBase* wtx = it->second.get();
-//            if (!wtx->getTxBase()->CheckFinal() || !wtx->HasMatureOutputs())
             if (!CheckFinalTx(*wtx->getTxBase()) || !wtx->HasMatureOutputs())
                 continue;
 
@@ -1874,18 +1857,10 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
 
     // Tally
     map<CBitcoinAddress, tallyitem> mapTally;
-#if 0
-    for (map<uint256, CWalletTx>::iterator it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
-    {
-        const CWalletTx& wtx = (*it).second;
-        if (wtx.IsCoinBase() || !CheckFinalTx(wtx))
-#else
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletTransactionBase& wtx = *((*it).second);
-//        if (wtx.getTxBase()->IsCoinBase() || !wtx.getTxBase()->CheckFinal())
         if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()) )
-#endif
             continue;
 
         int nDepth = wtx.GetDepthInMainChain();

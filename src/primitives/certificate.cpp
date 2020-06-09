@@ -186,14 +186,6 @@ bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int d
     return true;
 }
 
-#if 0
-bool CScCertificate::CheckFinal(int flags) const
-{
-    // as of now certificate finality has yet to be defined (see tx.nLockTime)
-    return true;
-}
-#endif
-
 //--------------------------------------------------------------------------------------------
 // binaries other than zend that are produced in the build, do not call these members and therefore do not
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose

@@ -135,11 +135,7 @@ UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_DATABASE_ERROR, "Could not find payment disclosure info for the given joinsplit output");
     }
 
-#if 0
-    PaymentDisclosure pd( wtx.joinSplitPubKey, key, info, msg );
-#else
     PaymentDisclosure pd( wtx.getTxBase()->GetJoinSplitPubKey(), key, info, msg );
-#endif
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << pd;
     string strHex = HexStr(ss.begin(), ss.end());

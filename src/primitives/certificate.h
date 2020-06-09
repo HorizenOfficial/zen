@@ -176,7 +176,6 @@ public:
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int /* not used sigops */) const override;
 
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
-//    bool CheckFinal(int flags) const override;
 
     std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
         unsigned int nIn, const CChain* chain, bool cacheStore) const override;

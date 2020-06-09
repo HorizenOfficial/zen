@@ -421,28 +421,6 @@ public:
     virtual bool IsInvolvingMe(mapNoteData_t &noteData) const = 0;
 
     std::set<uint256> GetConflicts() const;
-    virtual void GetNotesAmount(
-        std::vector<CNotePlaintextEntry> & outEntries,
-        bool fFilterAddress,
-        libzcash::PaymentAddress filterPaymentAddress,
-        bool ignoreSpent = true, bool ignoreUnspendable = true) {} // default empty (certs have no notes)
-
-#if 0
-    virtual void ClearNoteWitnessCache() {};
-
-    virtual void IncrementWitness(int64_t nWitnessCacheSize, int nHeight) { return; }
-    virtual void IncrementExistingWitness(const uint256& note_commitment, int64_t nWitnessCacheSize, int nHeight) { return; }
-    virtual void WitnessThisNote(
-        ZCIncrementalMerkleTree& tree, int64_t nWitnessCacheSize,
-        const JSOutPoint& jsoutpt, int nHeight) { return; }
-    virtual void UpdateWitnessHeights(int64_t nWitnessCacheSize, int nHeight) { return; }
-
-    virtual void DecrementWitness(int64_t nWitnessCacheSize, int nHeight) { return; }
-    virtual void CheckWitnessHeight(int64_t nWitnessCacheSize, int nHeight) { return; }
-
-    virtual void UpdateNullifierMap(CWallet* pw) { return; };
-//    virtual void UpdateNullifierNoteMapWithTx(CWallet* pw) const { return; };
-#endif
 
     // return false if the map is empty
     void MarkDirty();
@@ -534,28 +512,6 @@ public:
 
     bool RelayWalletTransaction() override;
     bool IsInvolvingMe(mapNoteData_t &noteData) const override;
-
-    void GetNotesAmount(
-        std::vector<CNotePlaintextEntry> & outEntries,
-        bool fFilterAddress,
-        libzcash::PaymentAddress filterPaymentAddress,
-        bool ignoreSpent = true, bool ignoreUnspendable = true) override; 
-#if 0
-    void ClearNoteWitnessCache() override;
-
-    void IncrementWitness(int64_t nWitnessCacheSize, int nHeight) override;
-    void IncrementExistingWitness(const uint256&, int64_t nWitnessCacheSize, int nHeight) override;
-    void WitnessThisNote(
-        ZCIncrementalMerkleTree& tree, int64_t nWitnessCacheSize,
-        const JSOutPoint& jsoutpt, int nHeight) override;
-    void UpdateWitnessHeights(int64_t nWitnessCacheSize, int nHeight) override;
-
-    void DecrementWitness(int64_t nWitnessCacheSize, int nHeight) override;
-    void CheckWitnessHeight(int64_t nWitnessCacheSize, int nHeight) override;
-
-    void UpdateNullifierMap(CWallet* pw) override;
-//    void UpdateNullifierNoteMapWithTx(CWallet* pw) const override;
-#endif
 
     // fill the crosschain output
     template <typename T>
@@ -777,11 +733,7 @@ private:
 class CWallet : public CCryptoKeyStore, public CValidationInterface
 {
 private:
-#if 0
-    bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL) const;
-#else
     bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTransactionBase*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL) const;
-#endif
 
     CWalletDB *pwalletdbEncryption;
 
@@ -845,13 +797,8 @@ protected:
             return;
         }
         try {
-#if 0
-            for (std::pair<const uint256, CWalletTx>& wtxItem : mapWallet) {
-                if (!walletdb.WriteTx(wtxItem.first, wtxItem.second)) {
-#else
             for (auto& wtxItem : mapWallet) {
                 if (!walletdb.WriteTx(wtxItem.first, *(wtxItem.second))) {
-#endif
                     LogPrintf("SetBestChain(): Failed to write CWalletTx, aborting atomic write\n");
                     walletdb.TxnAbort();
                     return;
@@ -886,13 +833,8 @@ private:
     void SyncMetaData(std::pair<typename TxSpendMap<T>::iterator, typename TxSpendMap<T>::iterator>);
 
 protected:
-#if 0
-    bool UpdatedNoteData(const CWalletTx& wtxIn, CWalletTx& wtx);
-    void MarkAffectedTransactionsDirty(const CTransaction& tx);
-#else
     bool UpdatedNoteData(const CWalletTransactionBase& wtxIn, CWalletTransactionBase& wtx);
     void MarkAffectedTransactionsDirty(const CTransactionBase& tx);
-#endif
 
 public:
     /*
@@ -1105,9 +1047,6 @@ public:
      */
     int64_t IncOrderPosNext(CWalletDB *pwalletdb = NULL);
 
-#if 0
-    typedef std::pair<CWalletTx*, CAccountingEntry*> TxPair;
-#endif
     /**
      * Get the wallet's activity log
      * @return multimap of ordered transactions and accounting entries
@@ -1211,12 +1150,7 @@ public:
     void SetBestChain(const CBlockLocator& loc) override;
 
     DBErrors LoadWallet(bool& fFirstRunRet);
-#if 0
-    DBErrors ZapWalletTx(std::vector<CWalletTx>& vWtx);
-#else
     DBErrors ZapWalletTx(std::vector<std::shared_ptr<CWalletTransactionBase> >& vWtx);
-#endif
-
 
     bool SetAddressBook(const CTxDestination& address, const std::string& strName, const std::string& purpose);
 
