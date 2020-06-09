@@ -2320,7 +2320,11 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         return error("DisconnectBlock(): block and undo data inconsistent");
 
     if (!view.RevertSidechainEvents(blockUndo, pindex->nHeight))
+    {
+        LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed reverting scheduled event\n", __func__, __LINE__);
         return error("DisconnectBlock(): cannot revert sidechains scheduled events");
+    }
+
 
     // not including coinbase
     const int certOffset = block.vtx.size() - 1;
@@ -2365,7 +2369,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
 
         if (!view.CancelSidechainEvent(cert)) {
-            LogPrint("sc", "%s():%d - ERROR undoing ceasing height\n", __func__, __LINE__);
+            LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
             return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
         }
 
@@ -2425,14 +2429,14 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
         for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
             if (!view.CancelSidechainEvent(fwdTransfer, pindex->nHeight)) {
-                LogPrint("sc", "%s():%d - ERROR cancelling maturing amount for sidechain [%s]\n", __func__, __LINE__, fwdTransfer.scId.ToString());
+                LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
                 return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
             }
         }
 
         for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
             if (!view.CancelSidechainEvent(scCreation, pindex->nHeight)) {
-                LogPrint("sc", "%s():%d - ERROR cancelling maturing amount for sidechain [%s]\n", __func__, __LINE__, scCreation.scId.ToString());
+                LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
                 return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
             }
         }
@@ -2728,14 +2732,21 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
             for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
                 if (!view.ScheduleSidechainEvent(scCreation, pindex->nHeight))
+                {
+                    LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
                     return state.DoS(100, error("ConnectBlock(): error scheduling maturing height for sidechain [%s]", scCreation.scId.ToString()),
-                                     REJECT_INVALID, "bad-sc-not-recorded");
+                                                         REJECT_INVALID, "bad-sc-not-recorded");
+                }
+
             }
 
             for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
                 if (!view.ScheduleSidechainEvent(fwdTransfer, pindex->nHeight))
+                {
+                    LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
                     return state.DoS(100, error("ConnectBlock(): error scheduling maturing height for sidechain [%s]", fwdTransfer.scId.ToString()),
                                      REJECT_INVALID, "bad-fwd-not-recorded");
+                }
             }
 
         }
@@ -2802,8 +2813,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
 
         if (!view.ScheduleSidechainEvent(cert))
+        {
+            LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
             return state.DoS(100, error("ConnectBlock(): Error updating ceasing heights with certificate [%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-recorded");
+
+        }
 
 
         if (certIdx == 0) {
@@ -2825,8 +2840,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     } //end of Processing certificates loop
 
     if (!view.HandleSidechainEvents(pindex->nHeight, blockundo))
-        return state.DoS(100, error("ConnectBlock(): could not handle ceasing heights"),
-                         REJECT_INVALID, "bad-sc-events-handling");
+    {
+        LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed handling scheduled event\n", __func__, __LINE__);
+        return state.DoS(100, error("ConnectBlock(): could not handle scheduled event"),
+                                 REJECT_INVALID, "bad-sc-events-handling");
+    }
+
 
     view.PushAnchor(tree);
     if (!fJustCheck) {

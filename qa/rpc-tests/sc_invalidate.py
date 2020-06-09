@@ -32,7 +32,7 @@ class ScInvalidateTest(BitcoinTestFramework):
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
                                  extra_args=[["-sccoinsmaturity=%d" % SC_COINS_MAT, '-logtimemicros=1', '-debug=sc',
-                                              '-debug=py', '-debug=mempool', '-debug=net',
+                                              '-debug=py', '-debug=mempool', '-debug=net', '-debug=cert',
                                               '-debug=bench']] * NUMB_OF_NODES)
 
         if not split:
