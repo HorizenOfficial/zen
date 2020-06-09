@@ -108,13 +108,13 @@ bool DecodeHexTx(CTransaction& tx, const std::string& strHexTx)
     return true;
 }
 
-bool DecodeHexCert(CScCertificate& cert, const std::string& strHexTx)
+bool DecodeHexCert(CScCertificate& cert, const std::string& strHexCert)
 {
-    if (!IsHex(strHexTx))
+    if (!IsHex(strHexCert))
         return false;
 
-    vector<unsigned char> txData(ParseHex(strHexTx));
-    CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
+    vector<unsigned char> certData(ParseHex(strHexCert));
+    CDataStream ssData(certData, SER_NETWORK, PROTOCOL_VERSION);
     try {
         ssData >> cert;
     }
@@ -129,8 +129,6 @@ bool DecodeHexBlk(CBlock& block, const std::string& strHexBlk)
 {
     if (!IsHex(strHexBlk))
         return false;
-
-//    std::cout << "[" << strHexBlk << "]" << std::endl;
 
     std::vector<unsigned char> blockData(ParseHex(strHexBlk));
     CDataStream ssBlock(blockData, SER_NETWORK, PROTOCOL_VERSION);

@@ -1028,14 +1028,20 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
-void AddScInfoToJSON(const uint256& scId, const CSidechain& info, UniValue& sc)
+void AddScInfoToJSON(const uint256& scId, const CSidechain& info, CSidechain::State scState, UniValue& sc)
 {
+    int currentEpoch = info.EpochFor(chainActive.Height());
     sc.push_back(Pair("scid", scId.GetHex()));
     sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
+    sc.push_back(Pair("epoch", currentEpoch));
+    sc.push_back(Pair("end epoch height", info.StartHeightForEpoch(currentEpoch +1) - 1));
+    sc.push_back(Pair("state", CSidechain::stateToString(scState)));
+    sc.push_back(Pair("ceasing height", info.GetCeasingHeight()));
     sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
     sc.push_back(Pair("created in block", info.creationBlockHash.ToString()));
     sc.push_back(Pair("created at block height", info.creationBlockHeight));
     sc.push_back(Pair("last certificate epoch", info.lastEpochReferencedByCertificate));
+    sc.push_back(Pair("last certificate hash", info.lastCertificateHash.GetHex()));
     // creation parameters
     sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
     sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
@@ -1059,8 +1065,9 @@ bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
         return false;
     }
+    CSidechain::State scState = scView.isCeasedAtHeight(scId, chainActive.Height() + 1);
 
-    AddScInfoToJSON(scId, scInfo, sc);
+    AddScInfoToJSON(scId, scInfo, scState, sc);
     return true;
 }
 
@@ -1089,10 +1096,15 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "  {\n"
             "    \"scid\":                    xxxxx,   (string)  sidechain ID\n"
             "    \"balance\":                 xxxxx,   (numeric) available balance\n"
+            "    \"epoch\":                   xxxxx,   (numeric) current epoch for this sidechain\n"
+            "    \"end epoch height\":        xxxxx,   (numeric) height of the last block of the current epoch\n"
+            "    \"state\":                   xxxxx,   (string)  state of the sidechain at the current chain height\n"
+            "    \"ceasing height\":          xxxxx,   (numeric) height at which the sidechain is considered ceased if a certificate has not been received\n"
             "    \"creating tx hash\":        xxxxx,   (string)  txid of the creating transaction\n"
             "    \"created in block\":        xxxxx,   (string)  hash of the block containing the creatimg tx\n"
             "    \"created at block height\": xxxxx,   (numeric) height of the above block\n"
             "    \"last certificate epoch\":  xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
+            "    \"last certificate hash\":   xxxxx,   (numeric) the hash of the last certificate that has been received\n"
             "    \"withdrawalEpochLength\":   xxxxx,   (numeric) length of the withdrawal epoch\n"
             "    \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
             "    \"immature amounts\": [\n"

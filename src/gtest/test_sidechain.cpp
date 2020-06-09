@@ -456,44 +456,7 @@ TEST_F(SidechainTestSuite, YouCannotRestoreCoinsFromInexistentSc) {
     EXPECT_FALSE(res);
 }
 
-TEST_F(SidechainTestSuite, RestoreImmatureBalancesRestoresLastCertHash) {
-    //Create sidechain and mature it to generate first block undo
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(34));
-    const uint256& scId = aTransaction.GetScIdFromScCcOut(0);
-    int scCreationHeight = 71;
-    CBlock dummyBlock;
-    sidechainsView->UpdateScInfo(aTransaction, dummyBlock, scCreationHeight);
-    CSidechain scInfoAtCreation;
-    ASSERT_TRUE(sidechainsView->GetSidechain(scId, scInfoAtCreation));
-
-    CBlockUndo scCreationBlockUndo;
-    sidechainsView->ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity(), scCreationBlockUndo);
-    EXPECT_TRUE(scCreationBlockUndo.msc_iaundo.at(scId).lastCertificateHash.IsNull());
-
-    //Update sc with cert and create the associate blockUndo
-    int certEpoch = 19;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash());
-    CBlockUndo certBlockUndo;
-    sidechainsView->UpdateScInfo(cert, certBlockUndo);
-    CSidechain scInfoPostCert;
-    ASSERT_TRUE(sidechainsView->GetSidechain(scId, scInfoPostCert));
-    EXPECT_TRUE(scInfoPostCert.lastEpochReferencedByCertificate == certEpoch);
-    EXPECT_TRUE(scInfoPostCert.lastCertificateHash == cert.GetHash());
-
-    //test
-    bool res = sidechainsView->RestoreImmatureBalances(scCreationHeight + Params().ScCoinsMaturity(),certBlockUndo);
-
-    //checks
-    EXPECT_TRUE(res);
-    CSidechain scInfoPostCertUndo;
-    ASSERT_TRUE(sidechainsView->GetSidechain(scId, scInfoPostCertUndo));
-    EXPECT_TRUE(scInfoPostCertUndo.lastCertificateHash == scInfoAtCreation.lastCertificateHash);
-    EXPECT_TRUE(scInfoPostCertUndo.lastEpochReferencedByCertificate == scInfoAtCreation.lastEpochReferencedByCertificate);
-    //EXPECT_TRUE(scInfoPostCertUndo.mImmatureAmounts == scInfoAtCreation.mImmatureAmounts);
-
-}
-
-///////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// RevertTxOutputs ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainTestSuite, RevertingScCreationTxRemovesTheSc) {
@@ -578,6 +541,39 @@ TEST_F(SidechainTestSuite, RevertingAFwdTransferOnTheWrongHeightHasNoEffect) {
         <<"instead of "<<fwdAmount;
 }
 
+TEST_F(SidechainTestSuite, RevertCertOutputsRestoresLastCertHash) {
+    //Create sidechain and mature it to generate first block undo
+    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(34));
+    const uint256& scId = aTransaction.GetScIdFromScCcOut(0);
+    int scCreationHeight = 71;
+    CBlock dummyBlock;
+    sidechainsView->UpdateScInfo(aTransaction, dummyBlock, scCreationHeight);
+    CSidechain scInfoAtCreation;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, scInfoAtCreation));
+
+    CBlockUndo scCreationBlockUndo;
+    sidechainsView->ApplyMatureBalances(scCreationHeight + Params().ScCoinsMaturity(), scCreationBlockUndo);
+
+    //Update sc with cert and create the associate blockUndo
+    int certEpoch = 19;
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash());
+    CTxUndo certUndoEntry;
+    sidechainsView->UpdateScInfo(cert, certUndoEntry);
+    CSidechain scInfoPostCert;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, scInfoPostCert));
+    EXPECT_TRUE(scInfoPostCert.lastEpochReferencedByCertificate == certEpoch);
+    EXPECT_TRUE(scInfoPostCert.lastCertificateHash == cert.GetHash());
+
+    //test
+    bool res = sidechainsView->RevertCertOutputs(cert,certUndoEntry);
+
+    //checks
+    EXPECT_TRUE(res);
+    CSidechain scInfoPostCertUndo;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, scInfoPostCertUndo));
+    EXPECT_TRUE(scInfoPostCertUndo.lastCertificateHash == scInfoAtCreation.lastCertificateHash);
+    EXPECT_TRUE(scInfoPostCertUndo.lastEpochReferencedByCertificate == scInfoAtCreation.lastEpochReferencedByCertificate);
+}
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// UpdateScInfo ////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -640,28 +636,6 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
     EXPECT_TRUE(res);
 }
 
-TEST_F(SidechainTestSuite, NewSidechainsHaveNullLastCertificateHash) {
-    //Create Sc
-    int scCreationHeight = 1987;
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(5));
-    const uint256& scId = aTransaction.GetScIdFromScCcOut(0);
-    CBlock aBlock;
-    ASSERT_TRUE(sidechainsView->UpdateScInfo(aTransaction, aBlock, scCreationHeight));
-
-    CSidechain scInfo;
-    EXPECT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
-    EXPECT_TRUE(scInfo.lastCertificateHash.IsNull());
-
-    //Fully mature initial Sc balance
-    int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
-    CBlockUndo blockUndo;
-    EXPECT_TRUE(sidechainsView->ApplyMatureBalances(coinMaturityHeight, blockUndo));
-
-    //check
-    ASSERT_TRUE(blockUndo.msc_iaundo.count(scId) != 0);
-    EXPECT_TRUE(blockUndo.msc_iaundo.at(scId).lastCertificateHash.IsNull());
-}
-
 TEST_F(SidechainTestSuite, CertificateUpdatesLastCertificateHash) {
     //Create Sc
     int scCreationHeight = 1987;
@@ -679,15 +653,15 @@ TEST_F(SidechainTestSuite, CertificateUpdatesLastCertificateHash) {
     CBlockUndo dummyBlockUndo;
     EXPECT_TRUE(sidechainsView->ApplyMatureBalances(coinMaturityHeight, dummyBlockUndo));
 
-    CBlockUndo blockUndo;
+    CTxUndo certUndoEntry;
     CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, aBlock.GetHash());
-    EXPECT_TRUE(sidechainsView->UpdateScInfo(aCertificate, blockUndo));
+    EXPECT_TRUE(sidechainsView->UpdateScInfo(aCertificate, certUndoEntry));
 
     //check
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
     EXPECT_TRUE(scInfo.lastCertificateHash == aCertificate.GetHash());
-    ASSERT_TRUE(blockUndo.msc_iaundo.count(scId) != 0);
-    EXPECT_TRUE(blockUndo.msc_iaundo.at(scId).lastCertificateHash.IsNull());
+    EXPECT_TRUE(certUndoEntry.replacedLastCertEpoch == -1);
+    EXPECT_TRUE(certUndoEntry.replacedLastCertHash.IsNull());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1204,10 +1178,8 @@ CBlockUndo SidechainTestSuite::createBlockUndoWith(const uint256 & scId, int hei
     CBlockUndo retVal;
     CAmount AmountPerHeight = amount;
     ScUndoData data;
-    data.immAmount = AmountPerHeight;
-    data.certEpoch = CScCertificate::EPOCH_NULL;
-    data.lastCertificateHash = lastCertHash;
-    retVal.msc_iaundo[scId] = data;
+    data.appliedMaturedAmount = AmountPerHeight;
+    retVal.scUndoMap[scId] = data;
 
     return retVal;
 }

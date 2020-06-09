@@ -750,23 +750,6 @@ std::string CTransaction::ToString() const
     return str;
 }
 
-void CTransaction::addToScCommitment(std::map<uint256, std::vector<uint256> >& mLeaves, std::set<uint256>& sScIds) const
-{
-    if (!IsScVersion())
-    {
-        return;
-    }
-
-    unsigned int nIdx = 0;
-    LogPrint("sc", "%s():%d -getting leaves for vsc out\n", __func__, __LINE__);
-    fillCrosschainOutput(vsc_ccout, nIdx, mLeaves, sScIds);
-
-    LogPrint("sc", "%s():%d -getting leaves for vft out\n", __func__, __LINE__);
-    fillCrosschainOutput(vft_ccout, nIdx, mLeaves, sScIds);
-
-    LogPrint("sc", "%s():%d - nIdx[%d]\n", __func__, __LINE__, nIdx);
-}
-
 //--------------------------------------------------------------------------------------------
 // binaries other than zend that are produced in the build, do not call these members and therefore do not
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose

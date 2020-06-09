@@ -21,6 +21,7 @@
 #include <sc/sidechain.h>
 
 class CBlockUndo;
+class CVoidedCertUndo;
 
 /**
  * Pruned version of CTransaction: only retains metadata and unspent transaction outputs
@@ -96,6 +97,11 @@ public:
     //! as new tx version will probably only be introduced at certain heights
     int nVersion;
 
+    //| If coins comes from a certificate, nFirstBwtPos represents the position of the first backward transfer;
+    //! All outputs after nFirstBwtPos, including nFirstBwtPos, are backward transfers
+    //! If coins comes from a tx, it is currently set to BWT_POS_UNSET and not used
+    int nFirstBwtPos;
+
     //! if coin comes from a certificate, nBwtMaturityHeight signals the height at which these output will be mature
     //! nBwtMaturityHeight will be serialized only for coins from certificate
     int nBwtMaturityHeight;
@@ -170,18 +176,9 @@ public:
         nSize += ::GetSerializeSize(VARINT(nHeight), nType, nVersion);
 
         if (this->IsFromCert()) {
-            nSize += ::GetSerializeSize(nBwtMaturityHeight, nType,nVersion);
-
-            unsigned int changeOutputCounter = 0;
-            for(const CTxOut& out: vout) {
-                if (!out.isFromBackwardTransfer)
-                    ++changeOutputCounter;
-                else
-                    break;
-            }
-            nSize += ::GetSerializeSize(changeOutputCounter,nType,nVersion);
+            nSize += ::GetSerializeSize(nFirstBwtPos, nType, nVersion);
+            nSize += ::GetSerializeSize(nBwtMaturityHeight, nType, nVersion);
         }
-
 
         return nSize;
     }
@@ -216,16 +213,8 @@ public:
         ::Serialize(s, VARINT(nHeight), nType, nVersion);
 
         if (this->IsFromCert()) {
-            ::Serialize(s,nBwtMaturityHeight, nType,nVersion);
-
-            unsigned int changeOutputCounter = 0;
-            for(const CTxOut& out: vout) {
-                if (!out.isFromBackwardTransfer)
-                    ++changeOutputCounter;
-                else
-                    break;
-            }
-            ::Serialize(s,changeOutputCounter,nType,nVersion);
+            ::Serialize(s, nFirstBwtPos, nType, nVersion);
+            ::Serialize(s, nBwtMaturityHeight, nType, nVersion);
         }
     }
 
@@ -261,17 +250,14 @@ public:
         // coinbase height
         ::Unserialize(s, VARINT(nHeight), nType, nVersion);
 
-        unsigned int changeOutputCounter = vout.size();
+        nFirstBwtPos = BWT_POS_UNSET;
         if (this->IsFromCert()) {
+            ::Unserialize(s, nFirstBwtPos, nType,nVersion);
             ::Unserialize(s, nBwtMaturityHeight, nType,nVersion);
-            ::Unserialize(s, changeOutputCounter, nType,nVersion);
-        }
 
-        for(unsigned int idx = 0; idx < vout.size(); ++idx)
-            if ( idx < changeOutputCounter)
-                vout[idx].isFromBackwardTransfer = false;
-            else
+            for(int idx = nFirstBwtPos; idx < vout.size(); ++idx)
                 vout[idx].isFromBackwardTransfer = true;
+        }
 
         Cleanup();
     }
@@ -584,11 +570,10 @@ public:
     bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    bool HaveCertForEpoch(const uint256& scId, int epochNumber) const override;
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state);
-    bool isLegalEpoch(const uint256& scId, int epochNumber, const uint256& epochBlockHash);
-    bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& bu);
-    bool RevertCertOutputs(const CScCertificate& cert);
+    bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash);
+    bool UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry);
+    bool RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry);
 
     //CEASING SIDECHAINS RELATED MEMBERS
     bool HaveCeasingScs(int height)                                const override;
@@ -598,9 +583,9 @@ public:
     bool UpdateCeasingScs(const CScCertificate& cert);
     bool UndoCeasingScs(const CScCertificate& cert);
     bool HandleCeasingScs(int height, CBlockUndo& blockUndo);
-    bool RevertCeasingScs(const CTxUndo& ceasedCertUndo);
+    bool RevertCeasingScs(const CVoidedCertUndo & voidedCertUndo);
 
-    CSidechain::state isCeasedAtHeight(const uint256& scId, int height) const;
+    CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
 
     bool Flush();
 
