@@ -607,9 +607,6 @@ bool CWallet::IsSpent(const uint256& hash, unsigned int n) const
         if (mit != mapWallet.end()) {
             if (mit->second->GetDepthInMainChain() >= 0) {
                 return true; // Spent
-            } else {
-                LogPrint("cert", "%s():%d - obj[%s] has depth %d\n", __func__, __LINE__,
-                    wtxid.ToString(), mit->second->GetDepthInMainChain());
             }
         }
     }
@@ -1361,6 +1358,8 @@ void CWallet::SyncCertificate(const CScCertificate& cert, const CBlock* pblock, 
 
 void CWallet::SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped)
 {
+    LogPrint("cert", "%s():%d - called for cert[%s] (flag=%d)\n",
+        __func__, __LINE__, certHash.ToString(), bwtAreStripped);
     LOCK2(cs_main, cs_wallet);
 
     std::map<uint256, std::shared_ptr<CWalletTransactionBase>>::iterator itCert = mapWallet.find(certHash);
@@ -1370,7 +1369,8 @@ void CWallet::SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped)
     assert(itCert->second.get()->getTxBase()->IsCertificate());
     itCert->second.get()->areBwtCeased = bwtAreStripped;
 
-    MarkAffectedTransactionsDirty(*(itCert->second.get()->getTxBase()));
+    itCert->second.get()->MarkDirty();
+    MarkAffectedTransactionsDirty(*itCert->second.get()->getTxBase());
 }
 
 void CWallet::MarkAffectedTransactionsDirty(const CTransactionBase& tx)
@@ -2307,8 +2307,26 @@ CAmount CWalletTransactionBase::GetAvailableCredit(bool fUseCache) const
     if (pwallet == 0)
         return 0;
 
+#if 0
     if (fUseCache && fAvailableCreditCached)
         return nAvailableCreditCached;
+#else
+    // Must wait until coinbase is safely deep enough in the chain before valuing it
+    if (pTxBase->IsCoinBase() && (GetDepthInMainChain() <= COINBASE_MATURITY))
+        return 0;
+
+    // For the time being do not use cached values for certificates
+    if (!pTxBase->IsCertificate())
+    {
+        if (fUseCache && fAvailableCreditCached)
+            return nAvailableCreditCached;
+    }
+    else
+    {
+        LogPrint("cert", "%s():%d - not using cached values for cert[%s]\n",
+            __func__, __LINE__, getTxBase()->GetHash().ToString());
+    }
+#endif
 
     CAmount nCredit = 0;
     fAvailableCreditCached = true;
@@ -2380,6 +2398,9 @@ CAmount CWalletTransactionBase::GetAvailableWatchOnlyCredit(const bool& fUseCach
 
 void CWalletTransactionBase::MarkDirty()
 {
+    LogPrint("cert", "%s():%d - called for[%s]\n",
+        __func__, __LINE__, getTxBase()->GetHash().ToString());
+
     fCreditCached = false;
     fAvailableCreditCached = false;
     fWatchDebitCached = false;
