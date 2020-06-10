@@ -55,15 +55,20 @@ void CScCertificate::UpdateHash() const
 
 bool CScCertificate::IsValidVersion(CValidationState &state) const
 {
+    if (nVersion != SC_CERT_VERSION )
+    {
+        LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate bad version %d\n",
+            __func__, __LINE__, GetHash().ToString(), nVersion );
+        return state.DoS(100, error("cert version"), REJECT_INVALID, "bad-cert-version");
+    }
+
     return true;
 }
 
-bool CScCertificate::CheckVersionIsStandard(std::string& reason, int nHeight) const {
+bool CScCertificate::IsVersionStandard(int nHeight) const
+{
     if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
-    {
-        reason = "version";
         return false;
-    }
 
     return true;
 }
@@ -88,6 +93,14 @@ bool CScCertificate::CheckAmounts(CValidationState &state) const
         if (!MoneyRange(nCumulatedValueOut))
             return state.DoS(100, error("CheckAmounts(): txout total out of range"),
                              REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+    }
+
+    if (!MoneyRange(GetValueOfBackwardTransfers()))
+    {
+        LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate amount is outside range\n",
+            __func__, __LINE__, GetHash().ToString() );
+        return state.DoS(100, error("%s: certificate amount is outside range",
+            __func__), REJECT_INVALID, "bwd-transfer-amount-outside-range");
     }
 
     return true;
@@ -221,6 +234,15 @@ CAmount CScCertificate::GetValueOfBackwardTransfers() const
     CAmount nValueOut = 0;
     for (auto out : vout)
         if (out.isFromBackwardTransfer)
+            nValueOut += out.nValue;
+    return nValueOut;
+}
+
+CAmount CScCertificate::GetValueOfChange() const
+{
+    CAmount nValueOut = 0;
+    for (auto out : vout)
+        if (!out.isFromBackwardTransfer)
             nValueOut += out.nValue;
     return nValueOut;
 }

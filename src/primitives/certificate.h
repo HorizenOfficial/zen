@@ -142,7 +142,7 @@ public:
 
     //CHECK FUNCTIONS
     bool IsValidVersion   (CValidationState &state) const override;
-    bool CheckVersionIsStandard   (std::string& reason, int nHeight) const override;
+    bool IsVersionStandard(int nHeight) const override;
     bool CheckAmounts     (CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     bool CheckInputsInteraction(CValidationState &state) const override;
@@ -169,8 +169,8 @@ public:
     std::string ToString() const override;
 
     CAmount GetValueOfBackwardTransfers() const;
+    CAmount GetValueOfChange() const;
     int GetNumbOfBackwardTransfers() const;
-    CAmount GetValueOfChange() const { return (GetValueOut() - GetValueOfBackwardTransfers()); }
 
     void AddToBlock(CBlock* pblock) const override; 
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int /* not used sigops */) const override;
