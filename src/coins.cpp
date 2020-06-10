@@ -198,7 +198,7 @@ uint256 CCoinsView::GetBestAnchor()                                            c
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                             const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                             CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
-                            CCeasingScsMap& mapCeasedScs) { return false; }
+                            CSidechainEventsMap& mapSidechainEvents)                 { return false; }
 bool CCoinsView::GetStats(CCoinsStats &stats)                                  const { return false; }
 
 
@@ -219,8 +219,8 @@ void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
 bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                                   const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                                   CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
-                                  CCeasingScsMap& mapCeasedScs) { return base->BatchWrite(mapCoins, hashBlock, hashAnchor,
-                                                                                          mapAnchors, mapNullifiers, mapSidechains, mapCeasedScs); }
+                                  CSidechainEventsMap& mapSidechainEvents) { return base->BatchWrite(mapCoins, hashBlock, hashAnchor,
+                                                                                          mapAnchors, mapNullifiers, mapSidechains, mapSidechainEvents); }
 bool CCoinsViewBacked::GetStats(CCoinsStats &stats)                                  const { return base->GetStats(stats); }
 
 CCoinsKeyHasher::CCoinsKeyHasher() : salt(GetRandHash()) {}
@@ -277,8 +277,8 @@ CSidechainsMap::const_iterator CCoinsViewCache::FetchSidechains(const uint256& s
     return ret;
 }
 
-CCeasingScsMap::const_iterator CCoinsViewCache::FetchSidechainEvents(int height) const {
-    CCeasingScsMap::iterator candidateIt = cacheSidechainEvents.find(height);
+CSidechainEventsMap::const_iterator CCoinsViewCache::FetchSidechainEvents(int height) const {
+    CSidechainEventsMap::iterator candidateIt = cacheSidechainEvents.find(height);
     if (candidateIt != cacheSidechainEvents.end())
         return candidateIt;
 
@@ -288,7 +288,7 @@ CCeasingScsMap::const_iterator CCoinsViewCache::FetchSidechainEvents(int height)
 
     //Fill cache and return iterator. The insert in cache below looks cumbersome. However
     //it allows to insert CCeasingSidechains and keep iterator to inserted member without extra searches
-    CCeasingScsMap::iterator ret =
+    CSidechainEventsMap::iterator ret =
             cacheSidechainEvents.insert(std::make_pair(height, CSidechainEventsCacheEntry(tmp, CSidechainEventsCacheEntry::Flags::DEFAULT ))).first;
 
     cachedCoinsUsage += ret->second.scEvents.DynamicMemoryUsage();
@@ -461,7 +461,7 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                                  CAnchorsMap &mapAnchors,
                                  CNullifiersMap &mapNullifiers,
                                  CSidechainsMap& mapSidechains,
-                                 CCeasingScsMap& mapCeasedScs) {
+                                 CSidechainEventsMap& mapSidechainEvents) {
     assert(!hasModifier);
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) { // Ignore non-dirty entries (optimization).
@@ -571,8 +571,8 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
     }
     mapSidechains.clear();
 
-    for (auto& entryToWrite : mapCeasedScs) {
-        CCeasingScsMap::iterator itLocalCacheEntry = cacheSidechainEvents.find(entryToWrite.first);
+    for (auto& entryToWrite : mapSidechainEvents) {
+        CSidechainEventsMap::iterator itLocalCacheEntry = cacheSidechainEvents.find(entryToWrite.first);
 
         switch (entryToWrite.second.flag) {
             case CSidechainEventsCacheEntry::Flags::FRESH:
@@ -597,7 +597,7 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                 assert(false);
         }
     }
-    mapCeasedScs.clear();
+    mapSidechainEvents.clear();
 
     hashAnchor = hashAnchorIn;
     hashBlock = hashBlockIn;
@@ -1017,13 +1017,13 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CTxUnd
 
 bool CCoinsViewCache::HaveSidechainEvents(int height) const
 {
-    CCeasingScsMap::const_iterator it = FetchSidechainEvents(height);
+    CSidechainEventsMap::const_iterator it = FetchSidechainEvents(height);
     return (it != cacheSidechainEvents.end()) && (it->second.flag != CSidechainEventsCacheEntry::Flags::ERASED);
 }
 
 bool CCoinsViewCache::GetSidechainEvents(int height, CSidechainEvents& scEvents) const
 {
-    CCeasingScsMap::const_iterator it = FetchSidechainEvents(height);
+    CSidechainEventsMap::const_iterator it = FetchSidechainEvents(height);
     if (it != cacheSidechainEvents.end() && it->second.flag != CSidechainEventsCacheEntry::Flags::ERASED) {
         scEvents = it->second.scEvents;
         return true;

@@ -47,7 +47,7 @@ public:
 
     bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                     const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap, CCeasingScsMap& mapCeasingScs) override
+                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap, CSidechainEventsMap& mapSidechainEvents) override
     {
         for (auto& entry : sidechainMap)
             switch (entry.second.flag) {
@@ -510,7 +510,7 @@ TEST_F(SidechainTestSuite, FRESHSidechainsGetWrittenInBackingCache) {
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
 
     uint256 scId = uint256S("aaaa");
@@ -535,7 +535,7 @@ TEST_F(SidechainTestSuite, FRESHSidechainsCanBeWrittenOnlyIfUnknownToBackingCach
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
 
     //Prefill backing cache with sidechain
@@ -560,7 +560,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsAreStoredInBackingCache) {
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
 
     uint256 scId = uint256S("aaaa");
@@ -585,7 +585,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsUpdatesDirtyOnesInBackingCache) {
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
 
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
@@ -617,7 +617,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsOverwriteErasedOnesInBackingCache) {
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
 
     //Create sidechain...
@@ -654,7 +654,7 @@ TEST_F(SidechainTestSuite, ERASEDSidechainsSetExistingOnesInBackingCacheasErased
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
@@ -683,7 +683,7 @@ TEST_F(SidechainTestSuite, DEFAULTSidechainsCanBeWrittenInBackingCacheasOnlyIfUn
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
@@ -851,7 +851,7 @@ TEST_F(SidechainTestSuite, GetScIdsOnChainstateDbSelectOnlySidechains) {
     CAnchorsMap    emptyAnchorsMap;
     CNullifiersMap emptyNullifiersMap;
     CSidechainsMap emptySidechainsMap;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
     sidechainsView->BatchWrite(mapCoins, uint256(), uint256(), emptyAnchorsMap, emptyNullifiersMap, emptySidechainsMap, mapCeasingScs);
 

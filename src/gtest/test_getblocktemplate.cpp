@@ -72,9 +72,9 @@ public:
         CAnchorsMap mapAnchors;
         CNullifiersMap mapNullifiers;
         CSidechainsMap mapSidechains;
-        CCeasingScsMap mapCeasingScs;
+        CSidechainEventsMap mapSidechainEvents;
 
-        return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapCeasingScs);
+        return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapSidechainEvents);
     }
 };
 

@@ -31,9 +31,9 @@ public:
         CAnchorsMap mapAnchors;
         CNullifiersMap mapNullifiers;
         CSidechainsMap mapSidechains;
-        CCeasingScsMap mapCeasingScs;
+        CSidechainEventsMap mapSidechainEvents;
 
-        return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapCeasingScs);
+        return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapSidechainEvents);
     }
 };
 
@@ -483,7 +483,7 @@ bool SidechainsInMempoolTestSuite::StoreCoins(const std::pair<uint256, CCoinsCac
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
     CSidechainsMap mapSidechains;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
     pcoinsTip->BatchWrite(tmpCoinsMap, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapCeasingScs);
 

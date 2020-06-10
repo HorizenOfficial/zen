@@ -93,7 +93,7 @@ public:
                     CAnchorsMap& mapAnchors,
                     CNullifiersMap& mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CCeasingScsMap& mapCeasedScs) override
+                    CSidechainEventsMap& mapSidechainEvents) override
     {
         for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end(); ) {
             map_[it->first] = it->second.coins;
