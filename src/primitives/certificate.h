@@ -102,24 +102,18 @@ public:
         }
         else
         {
-            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+            // reading from memory and writing to data stream
             // we must not modify vout
             std::vector<CTxOut> vout_ser;
+            for(int pos = 0; pos < nFirstBwtPos; ++pos)
+                vout_ser.push_back(vout[pos]);
 
-            // reading from memory and writing to data stream
-            for (auto it = vout.begin(); it != vout.end(); ++it)
-            {
-                if ((*it).isFromBackwardTransfer)
-                {
-                    CBackwardTransferOut btout((*it));
-                    vbt_ccout_ser.push_back(btout);
-                }
-                else
-                {
-                    vout_ser.push_back(*it);
-                }
-            }
             READWRITE(*const_cast<std::vector<CTxOut>*>(&vout_ser));
+
+            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+            for(int pos = nFirstBwtPos; pos < vout.size(); ++pos)
+                vbt_ccout_ser.push_back(CBackwardTransferOut(vout[pos]));
+
             READWRITE(*const_cast<std::vector<CBackwardTransferOut>*>(&vbt_ccout_ser));
         }
 

@@ -304,7 +304,7 @@ ScRpcCmd::ScRpcCmd(
     CKey secret;
     secret.MakeNewKey(true);
     CScript scriptPubKey = GetScriptForDestination(secret.GetPubKey().GetID());
-    CTxOut out(CAmount(1), scriptPubKey);
+    CTxOut out(CAmount(1), scriptPubKey, false);
     _dustThreshold = out.GetDustThreshold(minRelayTxFee);
 
     _totalInputAmount = 0;
@@ -444,7 +444,7 @@ void ScRpcCmd::addChange()
 
             scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
         }
-        CTxOut out(change, scriptPubKey);
+        CTxOut out(change, scriptPubKey, false);
         _tx.vout.push_back(out);
     }
 }

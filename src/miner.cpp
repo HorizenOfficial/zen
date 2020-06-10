@@ -695,7 +695,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 // Take some reward away from miners
                 txNew.vout[0].nValue -= vCommunityFund;
                 // And give it to the community
-                txNew.vout.push_back(CTxOut(vCommunityFund, chainparams.GetCommunityFundScriptAtHeight(nHeight, cfType)));
+                txNew.vout.push_back(CTxOut(vCommunityFund, chainparams.GetCommunityFundScriptAtHeight(nHeight, cfType), false));
             }
         }
         // Add fees

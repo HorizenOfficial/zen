@@ -227,7 +227,7 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
     CScript scriptPubKey = GetScriptForDestination(addr.Get());
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
+    CTxOut txout(value, scriptPubKey, false);
     tx.vout.push_back(txout);
 }
 
@@ -250,7 +250,7 @@ static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput
     CScript scriptPubKey = ParseScript(strScript); // throws on err
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
+    CTxOut txout(value, scriptPubKey, false);
     tx.vout.push_back(txout);
 }
 

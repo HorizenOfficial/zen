@@ -445,23 +445,10 @@ TEST_F(SidechainsEventsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCe
 
     //Checks
     CCoins updatedCoin;
-    unsigned int changeCounter = 0;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),updatedCoin));
-    for (const CTxOut& out: updatedCoin.vout) {//outputs in coin are changes
-        EXPECT_TRUE(out.isFromBackwardTransfer == false);
-        ++changeCounter;
-    }
-
-    unsigned int bwtCounter = 0;
-    ASSERT_TRUE(coinsBlockUndo.vVoidedCertUndo.size() == 1);
-    for(const CTxOut& out: cert.GetVout()) { //outputs in blockUndo are bwt
-        if (out.isFromBackwardTransfer) {
-            EXPECT_TRUE(out == coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].txout);
-            ++bwtCounter;
-        }
-    }
-
-    EXPECT_TRUE(cert.GetVout().size() == changeCounter+bwtCounter); //all cert outputs are handled
+    updatedCoin.ClearUnspendable();
+    EXPECT_TRUE(updatedCoin.vout.size() == cert.nFirstBwtPos);
+    EXPECT_TRUE(updatedCoin.nFirstBwtPos == cert.nFirstBwtPos);
 }
 
 TEST_F(SidechainsEventsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
@@ -502,14 +489,13 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
 
     unsigned int bwtCounter = 0;
     ASSERT_TRUE(coinsBlockUndo.vVoidedCertUndo.size() == 1);
-    for(const CTxOut& out: cert.GetVout()) { //outputs in blockUndo are bwt
-        if (out.isFromBackwardTransfer) {
-            EXPECT_TRUE( (coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f))
-                         <<coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].nVersion;
-            EXPECT_TRUE(coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].nBwtMaturityHeight == coinFromCert.nBwtMaturityHeight);
-            EXPECT_TRUE(out == coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].txout);
-            ++bwtCounter;
-        }
+    for(int pos =  cert.nFirstBwtPos; pos < cert.GetVout().size(); ++pos) {
+        const CTxOut& out = cert.GetVout()[pos];
+        EXPECT_TRUE( (coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f))
+                     <<coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].nVersion;
+        EXPECT_TRUE(coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].nBwtMaturityHeight == coinFromCert.nBwtMaturityHeight);
+        EXPECT_TRUE(out == coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].txout);
+        ++bwtCounter;
     }
 
     EXPECT_TRUE(cert.GetVout().size() == bwtCounter); //all cert outputs are handled
@@ -549,16 +535,10 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSi
 
     //Checks
     CCoins updatedCoin;
-    unsigned int changeCounter = 0;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),updatedCoin));
-    for (const CTxOut& out: updatedCoin.vout) {//outputs in coin are changes
-        EXPECT_TRUE(out.isFromBackwardTransfer == false);
-        ++changeCounter;
-    }
-
-    unsigned int bwtCounter = 0;
-    EXPECT_TRUE(coinsBlockUndo.vVoidedCertUndo.size() == 0);
-    EXPECT_TRUE(cert.GetVout().size() == changeCounter+bwtCounter); //all cert outputs are handled
+    updatedCoin.ClearUnspendable();
+    EXPECT_TRUE(updatedCoin.vout.size() == cert.GetVout().size());
+    EXPECT_TRUE(updatedCoin.nFirstBwtPos == cert.nFirstBwtPos);
 }
 
 TEST_F(SidechainsEventsTestSuite, EmptyCertificatesCoinsAreNotAffectedByCeasedSidechainHandling) {

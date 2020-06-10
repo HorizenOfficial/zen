@@ -146,7 +146,7 @@ TEST(CheckBlock, BlockRejectsNoCbh) {
 
     //std::cout << "Script: " << scriptPubKey.ToString() << std::endl;
 
-    mtx.vout.push_back( CTxOut(0.5, scriptPubKey));
+    mtx.vout.push_back( CTxOut(0.5, scriptPubKey, false));
 
     block.vtx.push_back(mtx);
 
@@ -188,7 +188,7 @@ protected:
 				// Take some reward away from miners
 				mtx.vout[0].nValue -= vCommunityFund;
 				// And give it to the community
-				mtx.vout.push_back(CTxOut(vCommunityFund, Params().GetCommunityFundScriptAtHeight(height, cfType)));
+				mtx.vout.push_back(CTxOut(vCommunityFund, Params().GetCommunityFundScriptAtHeight(height, cfType), false));
 			}
 		}
         return mtx;

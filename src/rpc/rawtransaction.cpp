@@ -597,7 +597,7 @@ void AddOutputsToRawObject(CMutableTransactionBase& rawTxObj, const UniValue& se
         CScript scriptPubKey = GetScriptForDestination(address.Get());
         CAmount nAmount = AmountFromValue(sendTo[name_]);
 
-        CTxOut out(nAmount, scriptPubKey);
+        CTxOut out(nAmount, scriptPubKey, false);
         rawTxObj.vout.push_back(out);
     }
 }
