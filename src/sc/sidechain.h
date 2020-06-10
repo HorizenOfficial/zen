@@ -16,25 +16,30 @@ class UniValue;
 class CValidationState;
 class CLevelDBWrapper;
 
-class CCeasingSidechains {
+class CSidechainEvents {
 public:
-    CCeasingSidechains() = default;
-    ~CCeasingSidechains() = default;
+    CSidechainEvents() = default;
+    ~CSidechainEvents() = default;
 
     std::set<uint256> ceasingScs;
+    std::set<uint256> maturingScs;
+
+    bool IsNull() const {return ceasingScs.empty() && maturingScs.empty();}
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(ceasingScs);
+        READWRITE(maturingScs);
     }
 
-    inline bool operator==(const CCeasingSidechains& rhs) const {
-        return (this->ceasingScs                == rhs.ceasingScs);
+    inline bool operator==(const CSidechainEvents& rhs) const {
+        return ((this->ceasingScs  == rhs.ceasingScs) &&
+                (this->maturingScs == rhs.maturingScs));
     }
 
-    inline bool operator!=(const CCeasingSidechains& rhs) const { return !(*this == rhs); }
+    inline bool operator!=(const CSidechainEvents& rhs) const { return !(*this == rhs); }
 
     // Calculate the size of the cache (in bytes)
     size_t DynamicMemoryUsage() const;
