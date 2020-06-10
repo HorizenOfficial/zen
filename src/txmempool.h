@@ -110,7 +110,6 @@ struct CSidechainMemPoolEntry
     uint256 scCreationTxHash;
     std::set<uint256> fwdTransfersSet;
     uint256 backwardCertificate;
-
     // Note: in fwdTransfersSet, a tx is registered only once, even if sends multiple fwd founds to a sidechain
     // Upon removal we will need to guard against potential double deletes.
     bool IsNull() const {
@@ -142,7 +141,6 @@ private:
     uint64_t totalCertificateSize = 0; //! sum of all mempool tx' byte sizes
     uint64_t cachedInnerUsage; //! sum of dynamic memory usage of all the map elements (NOT the maps themselves)
 
-//    void removeInternal(std::deque<uint256>& objToRemove, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive);
     bool addToListForRemovalImmatureExpenditures(
         const CTransactionBase& txBase, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, 
         std::list<const CTransactionBase*>& transactionsToRemove);
@@ -298,7 +296,6 @@ public:
     bool HaveCoins(const uint256 &txid)                           const override;
     bool GetSidechain(const uint256& scId, CSidechain& info)      const override;
     bool HaveSidechain(const uint256& scId)                       const override;
-    bool HaveCertForEpoch(const uint256& scId, int epochNumber)   const override;
 };
 
 #endif // BITCOIN_TXMEMPOOL_H

@@ -916,11 +916,6 @@ bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
     if (!cert.CheckInputsInteraction(state))
         return false;
 
-#if 0
-    if (!Sidechain::checkCertSemanticValidity(cert, state))
-        return false;
-#endif
-
     return true;
 }
 
@@ -1067,7 +1062,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
         if ((pool.mapSidechains.count(cert.GetScId()) != 0) &&
             (!pool.mapSidechains.at(cert.GetScId()).backwardCertificate.IsNull())) {
-            LogPrint("mempool", "Dropping cert %s : another cert for same sc is already in mempool\n", certHash.ToString());
+            LogPrintf("mempool", "%s():%d - Dropping cert %s : another cert for same sc is already in mempool\n",
+                __func__, __LINE__, certHash.ToString());
             return error("another cert for same sc is already in mempool");
         }
 
@@ -1111,13 +1107,6 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             {
                 LogPrint("mempool", "Dropping cert %s : already have coins\n", certHash.ToString());
                 return false;
-            }
-
-            if(viewMemPool.HaveCertForEpoch(cert.GetScId(), cert.epochNumber))
-            {
-                LogPrint("mempool", "Dropping cert %s : already have cert for same sc and epoch\n", certHash.ToString());
-                return state.DoS(0, error("%s(): certificate for same sc and epoch already received", __func__),
-                            REJECT_INVALID, "bad-sc-cert-not-applicable");
             }
 
             if (!view.IsCertApplicableToState(cert, nextBlockHeight, state) )

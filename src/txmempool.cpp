@@ -229,9 +229,6 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                 }
             }
         }
-#if 0
-        removeInternal(objToRemove, removedTxs, removedCerts, fRecursive);
-#else
         while (!objToRemove.empty())
         {
             uint256 hash = objToRemove.front();
@@ -270,13 +267,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                     if (mapSidechains.count(fwd.scId)) { //Guard against double-delete on multiple fwds toward the same sc in same tx
                         mapSidechains.at(fwd.scId).fwdTransfersSet.erase(tx.GetHash());
 
-#if 0
-                        if (mapSidechains.at(fwd.scId).fwdTransfersSet.size() == 0 &&
-                            mapSidechains.at(fwd.scId).scCreationTxHash.IsNull() &&
-                            mapSidechains.at(fwd.scId).backwardCertificate.IsNull() )
-#else
                         if (mapSidechains.at(fwd.GetScId()).IsNull())
-#endif
                         {
                             LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, fwd.scId.ToString() );
                             mapSidechains.erase(fwd.scId);
@@ -288,11 +279,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                     assert(mapSidechains.count(sc.GetScId()) != 0);
                     mapSidechains.at(sc.GetScId()).scCreationTxHash.SetNull();
 
-#if 0
-                    if (mapSidechains.at(sc.GetScId()).fwdTransfersSet.size() == 0)
-#else
                     if (mapSidechains.at(sc.GetScId()).IsNull())
-#endif
                     {
                         LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, sc.GetScId().ToString() );
                         mapSidechains.erase(sc.GetScId());
@@ -326,12 +313,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                     mapNextTx.erase(txin.prevout);
  
                 mapSidechains.at(cert.GetScId()).backwardCertificate.SetNull();
-#if 0
-                if (mapSidechains.at(cert.GetScId()).fwdTransfersSet.size() == 0 &&
-                    mapSidechains.at(cert.GetScId()).scCreationTxHash.IsNull() )
-#else
                 if (mapSidechains.at(cert.GetScId()).IsNull())
-#endif
                 {
                     LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, cert.GetScId().ToString() );
                     mapSidechains.erase(cert.GetScId());
@@ -345,135 +327,8 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                 nCertificatesUpdated++;
             }
         }
-#endif
     }
 }
-
-#if 0
-void::CTxMemPool::removeInternal(
-    std::deque<uint256>& objToRemove,
-    std::list<CTransaction>& removedTxs,
-    std::list<CScCertificate>& removedCerts,
-    bool fRecursive)
-{
-    // called with lock taken
-    AssertLockHeld(cs);
-
-    while (!objToRemove.empty())
-    {
-        uint256 hash = objToRemove.front();
-        objToRemove.pop_front();
-        if (mapTx.count(hash))
-        {
-            const CTransaction& tx = mapTx[hash].GetTx();
-            if (fRecursive) {
-                for (unsigned int i = 0; i < tx.GetVout().size(); i++) {
-                    std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(hash, i));
-                    if (it == mapNextTx.end())
-                        continue;
-                    objToRemove.push_back(it->second.ptx->GetHash());
-                }
-                for(const auto& sc: tx.GetVscCcOut()) {
-                    if (mapSidechains.count(sc.GetScId()) == 0)
-                        continue;
-
-                    for(const auto& ccObjHash : mapSidechains.at(sc.GetScId()).fwdTransfersSet)
-                        objToRemove.push_back(ccObjHash);
-
-                    //no backward cert for unconfirmed sidechain can be in mempool
-                    assert(mapSidechains.at(sc.GetScId()).backwardCertificate.IsNull());
-                }
-            }
-
-            BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
-                mapNextTx.erase(txin.prevout);
-            BOOST_FOREACH(const JSDescription& joinsplit, tx.GetVjoinsplit()) {
-                BOOST_FOREACH(const uint256& nf, joinsplit.nullifiers) {
-                    mapNullifiers.erase(nf);
-                }
-            }
-
-            for(const auto& fwd: tx.GetVftCcOut()) {
-                if (mapSidechains.count(fwd.scId)) { //Guard against double-delete on multiple fwds toward the same sc in same tx
-                    mapSidechains.at(fwd.scId).fwdTransfersSet.erase(tx.GetHash());
-
-#if 0
-                    if (mapSidechains.at(fwd.scId).fwdTransfersSet.size() == 0 &&
-                        mapSidechains.at(fwd.scId).scCreationTxHash.IsNull() &&
-                        mapSidechains.at(fwd.scId).backwardCertificate.IsNull() )
-#else
-                    if (mapSidechains.at(fwd.GetScId()).IsNull())
-#endif
-                    {
-                        LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, fwd.scId.ToString() );
-                        mapSidechains.erase(fwd.scId);
-                    }
-                }
-            }
-
-            for(const auto& sc: tx.GetVscCcOut()) {
-                assert(mapSidechains.count(sc.GetScId()) != 0);
-                mapSidechains.at(sc.GetScId()).scCreationTxHash.SetNull();
-
-#if 0
-                if (mapSidechains.at(sc.GetScId()).fwdTransfersSet.size() == 0)
-#else
-                if (mapSidechains.at(sc.GetScId()).IsNull())
-#endif
-                {
-                    LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, sc.GetScId().ToString() );
-                    mapSidechains.erase(sc.GetScId());
-                }
-            }
-
-            removedTxs.push_back(tx);
-            totalTxSize -= mapTx[hash].GetTxSize();
-            cachedInnerUsage -= mapTx[hash].DynamicMemoryUsage();
-
-            LogPrint("mempool", "%s():%d - removing tx [%s] from mempool\n", __func__, __LINE__, hash.ToString() );
-            mapTx.erase(hash);
-
-            nTransactionsUpdated++;
-            minerPolicyEstimator->removeTx(hash);
-        }
-        else if (mapCertificate.count(hash))
-        {
-            const CScCertificate& cert = mapCertificate[hash].GetCertificate();
-            if (fRecursive)
-            {
-                for (unsigned int i = 0; i < cert.GetVout().size(); i++) {
-                    std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(hash, i));
-                    if (it == mapNextTx.end())
-                        continue;
-                    objToRemove.push_back(it->second.ptx->GetHash());
-                }
-            }
-
-            BOOST_FOREACH(const CTxIn& txin, cert.GetVin())
-                mapNextTx.erase(txin.prevout);
-
-            mapSidechains.at(cert.GetScId()).backwardCertificate.SetNull();
-#if 0
-            if (mapSidechains.at(cert.GetScId()).fwdTransfersSet.size() == 0 &&
-                mapSidechains.at(cert.GetScId()).scCreationTxHash.IsNull() )
-#else
-            if (mapSidechains.at(cert.GetScId()).IsNull())
-#endif
-            {
-                LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, cert.GetScId().ToString() );
-                mapSidechains.erase(cert.GetScId());
-            }
-
-            removedCerts.push_back(cert);
-            totalCertificateSize -= mapCertificate[hash].GetCertificateSize();
-            cachedInnerUsage -= mapCertificate[hash].DynamicMemoryUsage();
-            LogPrint("mempool", "%s():%d - removing cert [%s] from mempool\n", __func__, __LINE__, hash.ToString() );
-            mapCertificate.erase(hash);
-            nCertificatesUpdated++;
-        }
-    }
-}
-#endif
 
 inline bool CTxMemPool::addToListForRemovalImmatureExpenditures(
     const CTransactionBase& tx, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, 
@@ -598,9 +453,10 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
         }
     }
 
-    std::list<CTransaction> dummyTxs;
-    std::list<CScCertificate> dummyCerts;
+
     for(const CTransactionBase* tx: txsToRemove) {
+        std::list<CTransaction> dummyTxs;
+        std::list<CScCertificate> dummyCerts;
         remove(*tx, dummyTxs, dummyCerts, true);
     }
 }
@@ -625,9 +481,9 @@ void CTxMemPool::removeWithAnchor(const uint256 &invalidRoot)
         }
     }
 
-    std::list<CTransaction> dummyTxs;
-    std::list<CScCertificate> dummyCerts;
     BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
+        std::list<CTransaction> dummyTxs;
+        std::list<CScCertificate> dummyCerts;
         remove(tx, dummyTxs, dummyCerts, true);
     }
 }
@@ -680,10 +536,10 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
 
     // dummy lists: dummyCerts must be empty, dummyTxs contains exactly the txes that were in the mempool
     // and now are in the block. The caller is not interested in them because they will be synced with the block
-    std::list<CTransaction> dummyTxs;
-    std::list<CScCertificate> dummyCerts;
     for(const CTransaction& tx: vtx)
     {
+        std::list<CTransaction> dummyTxs;
+        std::list<CScCertificate> dummyCerts;
         remove(tx, dummyTxs, dummyCerts, /*fRecursive*/false);
         removeConflicts(tx, conflictingTxs, conflictingCerts);
         ClearPrioritisation(tx.GetHash());
@@ -1170,13 +1026,6 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
 
 bool CCoinsViewMemPool::HaveSidechain(const uint256& scId) const {
     return mempool.hasSidechainCreationTx(scId) || base->HaveSidechain(scId);
-}
-
-bool CCoinsViewMemPool::HaveCertForEpoch(const uint256& scId, int epochNumber) const {
-    if ((mempool.mapSidechains.count(scId) != 0) && (!mempool.mapSidechains.at(scId).backwardCertificate.IsNull()))
-        return true;
-
-    return base->HaveCertForEpoch(scId, epochNumber);
 }
 
 size_t CTxMemPool::DynamicMemoryUsage() const {
