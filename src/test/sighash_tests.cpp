@@ -42,7 +42,7 @@ uint256 static SignatureHashOld(CScript scriptCode, const CTransaction& txTo, un
     if ((nHashType & 0x1f) == SIGHASH_NONE)
     {
         // Wildcard payee
-        txTmp.getVout().clear();
+        txTmp.resizeOut(0);
 
         // Let the others update at will
         for (unsigned int i = 0; i < txTmp.vin.size(); i++)
@@ -58,9 +58,9 @@ uint256 static SignatureHashOld(CScript scriptCode, const CTransaction& txTo, un
             printf("ERROR: SignatureHash(): nOut=%d out of range\n", nOut);
             return one;
         }
-        txTmp.getVout().resize(nOut+1);
+        txTmp.resizeOut(nOut+1);
         for (unsigned int i = 0; i < nOut; i++)
-            txTmp.getVout()[i].SetNull();
+            txTmp.getOut(i).SetNull();
 
         // Let the others update at will
         for (unsigned int i = 0; i < txTmp.vin.size(); i++)
@@ -103,7 +103,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
 	}
 
     tx.vin.clear();
-    tx.getVout().clear();
+    tx.resizeOut(0);
     tx.nLockTime = (insecure_rand() % 2) ? insecure_rand() : 0;
     int ins = (insecure_rand() % 4) + 1;
     int outs = fSingle ? ins : (insecure_rand() % 4) + 1;
@@ -121,8 +121,8 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
         txin.nSequence = (insecure_rand() % 2) ? insecure_rand() : (unsigned int)-1;
     }
     for (int out = 0; out < outs; out++) {
-        tx.getVout().push_back(CTxOut());
-        CTxOut &txout = tx.getVout().back();
+        tx.addOut(CTxOut());
+        CTxOut &txout = tx.getOut(tx.getVout().size()-1);
         txout.nValue = insecure_rand() % 100000000;
         RandomScript(txout.scriptPubKey);
     }

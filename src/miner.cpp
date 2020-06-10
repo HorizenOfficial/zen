@@ -692,13 +692,13 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight, reward, cfType);
             if (vCommunityFund > 0) {
                 // Take some reward away from miners
-                txNew.getVout()[0].nValue -= vCommunityFund;
+                txNew.getOut(0).nValue -= vCommunityFund;
                 // And give it to the community
                 txNew.addOut(CTxOut(vCommunityFund, chainparams.GetCommunityFundScriptAtHeight(nHeight, cfType), false));
             }
         }
         // Add fees
-        txNew.getVout()[0].nValue += nFees;
+        txNew.getOut(0).nValue += nFees;
         txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;        
         pblock->vtx[0] = txNew;
         pblocktemplate->vTxFees[0] = -nFees;

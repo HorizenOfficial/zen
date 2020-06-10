@@ -138,9 +138,9 @@ private:
                 tx.vin[inputIndex].prevout = COutPoint(pos->first, 0);
                 amount += GetCacheEntryTxOut(pos->second, 0).nValue;
             }
-            tx.getVout().resize(1);
-            tx.getVout()[0].nValue = amount*0.9;
-            tx.getVout()[0].scriptPubKey = GetScriptPubKey();
+            tx.resizeOut(1);
+            tx.getOut(0).nValue = amount*0.9;
+            tx.getOut(0).scriptPubKey = GetScriptPubKey();
 
             for(unsigned int inputNum = 0; inputNum < tx.vin.size(); ++inputNum, ++txPos)
             {
@@ -282,7 +282,7 @@ protected:
         for(const CMutableTransaction& tx : transactions)
         {
             //To be able to control the order of adding transactions in the blocktemplate based on the number of inputs we provide different fees.
-            ASSERT_TRUE(mempool.addUnchecked(tx.GetHash(), CTxMemPoolEntry(tx, tx.getVout()[0].nValue/0.9 *0.1, 0, 0.00, 1)));
+            ASSERT_TRUE(mempool.addUnchecked(tx.GetHash(), CTxMemPoolEntry(tx, tx.getOut(0).nValue/0.9 *0.1, 0, 0.00, 1)));
 
         }
 

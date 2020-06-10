@@ -275,7 +275,7 @@ static void MutateTxDelOutput(CMutableTransaction& tx, const string& strOutIdx)
     }
 
     // delete output from transaction
-    tx.getVout().erase(tx.getVout().begin() + outIdx);
+    tx.eraseAtPos(outIdx);
 }
 
 static const unsigned int N_SIGHASH_OPTS = 6;

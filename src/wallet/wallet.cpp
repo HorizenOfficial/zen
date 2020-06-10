@@ -3447,7 +3447,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
         return false;
 
     if (nChangePosRet != -1)
-        tx.getVout().insert(tx.getVout().begin() + nChangePosRet, wtx.GetVout()[nChangePosRet]);
+        tx.insertAtPos(nChangePosRet, wtx.GetVout()[nChangePosRet]);
 
     // Add new txins (keeping original txin scriptSig/order)
     BOOST_FOREACH(const CTxIn& txin, wtx.GetVin())
@@ -3545,7 +3545,7 @@ bool CWallet::CreateTransaction(
             while (true)
             {
                 txNew.vin.clear();
-                txNew.getVout().clear();
+                txNew.resizeOut(0);
                 txNew.vsc_ccout.clear();
                 txNew.vft_ccout.clear();
                 wtxNew.fFromMe = true;
@@ -3671,7 +3671,7 @@ bool CWallet::CreateTransaction(
                         {
                             if (vecSend[i].fSubtractFeeFromAmount)
                             {
-                                txNew.getVout()[i].nValue -= nDust;
+                                txNew.getOut(i).nValue -= nDust;
                                 if (txNew.getVout()[i].IsDust(::minRelayTxFee))
                                 {
                                     strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
@@ -3693,8 +3693,7 @@ bool CWallet::CreateTransaction(
                     {
                         // Insert change txn at random position:
                         nChangePosRet = GetRandInt(txNew.getVout().size()+1);
-                        vector<CTxOut>::iterator position = txNew.getVout().begin()+nChangePosRet;
-                        txNew.getVout().insert(position, newTxOut);
+                        txNew.insertAtPos(nChangePosRet, newTxOut);
                     }
                 }
                 else

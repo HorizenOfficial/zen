@@ -164,7 +164,7 @@ TEST(checktransaction_tests, bad_txns_vin_empty) {
 TEST(checktransaction_tests, bad_txns_vout_empty) {
     CMutableTransaction mtx = GetValidTransaction();
     mtx.vjoinsplit.resize(0);
-    mtx.getVout().resize(0);
+    mtx.resizeOut(0);
 
     CTransaction tx(mtx);
 
@@ -206,7 +206,7 @@ TEST(checktransaction_tests, bad_txns_oversize) {
 
 TEST(checktransaction_tests, bad_txns_vout_negative) {
     CMutableTransaction mtx = GetValidTransaction();
-    mtx.getVout()[0].nValue = -1;
+    mtx.getOut(0).nValue = -1;
 
     CTransaction tx(mtx);
 
@@ -217,7 +217,7 @@ TEST(checktransaction_tests, bad_txns_vout_negative) {
 
 TEST(checktransaction_tests, bad_txns_vout_toolarge) {
     CMutableTransaction mtx = GetValidTransaction();
-    mtx.getVout()[0].nValue = MAX_MONEY + 1;
+    mtx.getOut(0).nValue = MAX_MONEY + 1;
 
     CTransaction tx(mtx);
 
@@ -228,8 +228,8 @@ TEST(checktransaction_tests, bad_txns_vout_toolarge) {
 
 TEST(checktransaction_tests, bad_txns_txouttotal_toolarge_outputs) {
     CMutableTransaction mtx = GetValidTransaction();
-    mtx.getVout()[0].nValue = MAX_MONEY;
-    mtx.getVout()[1].nValue = 1;
+    mtx.getOut(0).nValue = MAX_MONEY;
+    mtx.getOut(1).nValue = 1;
 
     CTransaction tx(mtx);
 
@@ -240,7 +240,7 @@ TEST(checktransaction_tests, bad_txns_txouttotal_toolarge_outputs) {
 
 TEST(checktransaction_tests, bad_txns_txouttotal_toolarge_joinsplit) {
     CMutableTransaction mtx = GetValidTransaction();
-    mtx.getVout()[0].nValue = 1;
+    mtx.getOut(0).nValue = 1;
     mtx.vjoinsplit[0].vpub_old = MAX_MONEY;
 
     CTransaction tx(mtx);

@@ -61,19 +61,19 @@ BOOST_AUTO_TEST_CASE(multisig_verify)
     escrow << OP_2 << ToByteVector(key[0].GetPubKey()) << ToByteVector(key[1].GetPubKey()) << ToByteVector(key[2].GetPubKey()) << OP_3 << OP_CHECKMULTISIG;
 
     CMutableTransaction txFrom;  // Funding transaction
-    txFrom.getVout().resize(3);
-    txFrom.getVout()[0].scriptPubKey = a_and_b;
-    txFrom.getVout()[1].scriptPubKey = a_or_b;
-    txFrom.getVout()[2].scriptPubKey = escrow;
+    txFrom.resizeOut(3);
+    txFrom.getOut(0).scriptPubKey = a_and_b;
+    txFrom.getOut(1).scriptPubKey = a_or_b;
+    txFrom.getOut(2).scriptPubKey = escrow;
 
     CMutableTransaction txTo[3]; // Spending transaction
     for (int i = 0; i < 3; i++)
     {
         txTo[i].vin.resize(1);
-        txTo[i].getVout().resize(1);
+        txTo[i].resizeOut(1);
         txTo[i].vin[0].prevout.n = i;
         txTo[i].vin[0].prevout.hash = txFrom.GetHash();
-        txTo[i].getVout()[0].nValue = 1;
+        txTo[i].getOut(0).nValue = 1;
     }
 
     vector<CKey> keys;
@@ -295,19 +295,19 @@ BOOST_AUTO_TEST_CASE(multisig_Sign)
     escrow << OP_2 << ToByteVector(key[0].GetPubKey()) << ToByteVector(key[1].GetPubKey()) << ToByteVector(key[2].GetPubKey()) << OP_3 << OP_CHECKMULTISIG;
 
     CMutableTransaction txFrom;  // Funding transaction
-    txFrom.getVout().resize(3);
-    txFrom.getVout()[0].scriptPubKey = a_and_b;
-    txFrom.getVout()[1].scriptPubKey = a_or_b;
-    txFrom.getVout()[2].scriptPubKey = escrow;
+    txFrom.resizeOut(3);
+    txFrom.getOut(0).scriptPubKey = a_and_b;
+    txFrom.getOut(1).scriptPubKey = a_or_b;
+    txFrom.getOut(2).scriptPubKey = escrow;
 
     CMutableTransaction txTo[3]; // Spending transaction
     for (int i = 0; i < 3; i++)
     {
         txTo[i].vin.resize(1);
-        txTo[i].getVout().resize(1);
         txTo[i].vin[0].prevout.n = i;
         txTo[i].vin[0].prevout.hash = txFrom.GetHash();
-        txTo[i].getVout()[0].nValue = 1;
+        txTo[i].resizeOut(1);
+        txTo[i].getOut(0).nValue = 1;
     }
 
     for (int i = 0; i < 3; i++)

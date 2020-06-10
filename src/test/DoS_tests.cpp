@@ -128,9 +128,9 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         tx.vin[0].prevout.n = 0;
         tx.vin[0].prevout.hash = GetRandHash();
         tx.vin[0].scriptSig << OP_1;
-        tx.getVout().resize(1);
-        tx.getVout()[0].nValue = 1*CENT;
-        tx.getVout()[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
+        tx.resizeOut(1);
+        tx.getOut(0).nValue = 1*CENT;
+        tx.getOut(0).scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
 
         AddOrphanTx(tx, i);
     }
@@ -144,9 +144,9 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         tx.vin.resize(1);
         tx.vin[0].prevout.n = 0;
         tx.vin[0].prevout.hash = txPrev->GetHash();
-        tx.getVout().resize(1);
-        tx.getVout()[0].nValue = 1*CENT;
-        tx.getVout()[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
+        tx.resizeOut(1);
+        tx.getOut(0).nValue = 1*CENT;
+        tx.getOut(0).scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
         if (dynamic_cast<const CTransaction*>(txPrev))
         {
             SignSignature(keystore, *dynamic_cast<const CTransaction*>(txPrev), tx, 0);
@@ -167,9 +167,9 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         const CTransactionBase* txPrev = RandomOrphan();
 
         CMutableTransaction tx;
-        tx.getVout().resize(1);
-        tx.getVout()[0].nValue = 1*CENT;
-        tx.getVout()[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
+        tx.resizeOut(1);
+        tx.getOut(0).nValue = 1*CENT;
+        tx.getOut(0).scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
         tx.vin.resize(500);
         for (unsigned int j = 0; j < tx.vin.size(); j++)
         {

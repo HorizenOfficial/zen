@@ -762,7 +762,7 @@ BOOST_AUTO_TEST_CASE(coins_coinbase_spends)
         BOOST_CHECK(Consensus::CheckTxInputs(tx2, state, cache, 100+COINBASE_MATURITY, Params().GetConsensus()));
     }
 
-    mtx.addOut(CTxOut(500, CScript() << OP_1, false));
+    mtx2.addOut(CTxOut(500, CScript() << OP_1, false));
 
     {
         CTransaction tx2(mtx2);

@@ -60,12 +60,12 @@ CMutableTransaction BuildCreditingTransaction(const CScript& scriptPubKey)
     txCredit.nVersion = 1;
     txCredit.nLockTime = 0;
     txCredit.vin.resize(1);
-    txCredit.getVout().resize(1);
+    txCredit.resizeOut(1);
     txCredit.vin[0].prevout.SetNull();
     txCredit.vin[0].scriptSig = CScript() << CScriptNum(0) << CScriptNum(0);
     txCredit.vin[0].nSequence = std::numeric_limits<unsigned int>::max();
-    txCredit.getVout()[0].scriptPubKey = scriptPubKey;
-    txCredit.getVout()[0].nValue = 0;
+    txCredit.getOut(0).scriptPubKey = scriptPubKey;
+    txCredit.getOut(0).nValue = 0;
 
     return txCredit;
 }
@@ -76,13 +76,13 @@ CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, const CMu
     txSpend.nVersion = 1;
     txSpend.nLockTime = 0;
     txSpend.vin.resize(1);
-    txSpend.getVout().resize(1);
+    txSpend.resizeOut(1);
     txSpend.vin[0].prevout.hash = txCredit.GetHash();
     txSpend.vin[0].prevout.n = 0;
     txSpend.vin[0].scriptSig = scriptSig;
     txSpend.vin[0].nSequence = std::numeric_limits<unsigned int>::max();
-    txSpend.getVout()[0].scriptPubKey = CScript();
-    txSpend.getVout()[0].nValue = 0;
+    txSpend.getOut(0).scriptPubKey = CScript();
+    txSpend.getOut(0).nValue = 0;
 
     return txSpend;
 }
@@ -717,7 +717,7 @@ BOOST_AUTO_TEST_CASE(script_CHECKMULTISIG12)
     CScript goodsig1 = sign_multisig(scriptPubKey12, key1, txTo12);
     BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey12, flags, MutableTransactionSignatureChecker(&txTo12, 0), &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
-    txTo12.getVout()[0].nValue = 2;
+    txTo12.getOut(0).nValue = 2;
     BOOST_CHECK(!VerifyScript(goodsig1, scriptPubKey12, flags, MutableTransactionSignatureChecker(&txTo12, 0), &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
 
@@ -816,7 +816,7 @@ BOOST_AUTO_TEST_CASE(script_combineSigs)
 
     CMutableTransaction txFrom = BuildCreditingTransaction(GetScriptForDestination(keys[0].GetPubKey().GetID()));
     CMutableTransaction txTo = BuildSpendingTransaction(CScript(), txFrom);
-    CScript& scriptPubKey = txFrom.getVout()[0].scriptPubKey;
+    CScript& scriptPubKey = txFrom.getOut(0).scriptPubKey;
     CScript& scriptSig = txTo.vin[0].scriptSig;
 
     CScript empty;

@@ -986,8 +986,13 @@ public:
      */
     virtual uint256 GetHash() const = 0;
 
-          std::vector<CTxOut>& getVout()       { return vout; }
+//          std::vector<CTxOut>& getVout()       { return vout; }
     const std::vector<CTxOut>& getVout() const { return vout; }
+            void insertAtPos(unsigned int pos, const CTxOut& out) { vout.insert(vout.begin() + pos, out);}
+            void eraseAtPos(unsigned int pos) { vout.erase(vout.begin() + pos); }
+            void resizeOut(unsigned int newSize) { vout.resize(newSize); }
+         CTxOut& getOut(unsigned int pos)       { return vout[pos]; }
+   const CTxOut& getOut(unsigned int pos) const { return vout[pos]; }
             bool addOut(const CTxOut& out) { vout.push_back(out); return true;}
     virtual bool addBwt(const CTxOut& out)             = 0;
     virtual bool add(const CTxScCreationOut& out)      = 0;

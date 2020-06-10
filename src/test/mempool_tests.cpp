@@ -22,11 +22,11 @@ BOOST_AUTO_TEST_CASE(MempoolRemoveTest)
     CMutableTransaction txParent;
     txParent.vin.resize(1);
     txParent.vin[0].scriptSig = CScript() << OP_11;
-    txParent.getVout().resize(3);
+    txParent.resizeOut(3);
     for (int i = 0; i < 3; i++)
     {
-        txParent.getVout()[i].scriptPubKey = CScript() << OP_11 << OP_EQUAL;
-        txParent.getVout()[i].nValue = 33000LL;
+        txParent.getOut(i).scriptPubKey = CScript() << OP_11 << OP_EQUAL;
+        txParent.getOut(i).nValue = 33000LL;
     }
     CMutableTransaction txChild[3];
     for (int i = 0; i < 3; i++)
@@ -35,9 +35,9 @@ BOOST_AUTO_TEST_CASE(MempoolRemoveTest)
         txChild[i].vin[0].scriptSig = CScript() << OP_11;
         txChild[i].vin[0].prevout.hash = txParent.GetHash();
         txChild[i].vin[0].prevout.n = i;
-        txChild[i].getVout().resize(1);
-        txChild[i].getVout()[0].scriptPubKey = CScript() << OP_11 << OP_EQUAL;
-        txChild[i].getVout()[0].nValue = 11000LL;
+        txChild[i].resizeOut(1);
+        txChild[i].getOut(0).scriptPubKey = CScript() << OP_11 << OP_EQUAL;
+        txChild[i].getOut(0).nValue = 11000LL;
     }
     CMutableTransaction txGrandChild[3];
     for (int i = 0; i < 3; i++)
@@ -46,9 +46,9 @@ BOOST_AUTO_TEST_CASE(MempoolRemoveTest)
         txGrandChild[i].vin[0].scriptSig = CScript() << OP_11;
         txGrandChild[i].vin[0].prevout.hash = txChild[i].GetHash();
         txGrandChild[i].vin[0].prevout.n = 0;
-        txGrandChild[i].getVout().resize(1);
-        txGrandChild[i].getVout()[0].scriptPubKey = CScript() << OP_11 << OP_EQUAL;
-        txGrandChild[i].getVout()[0].nValue = 11000LL;
+        txGrandChild[i].resizeOut(1);
+        txGrandChild[i].getOut(0).scriptPubKey = CScript() << OP_11 << OP_EQUAL;
+        txGrandChild[i].getOut(0).nValue = 11000LL;
     }
 
 

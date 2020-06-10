@@ -904,10 +904,10 @@ TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation)
     CMutableScCertificate cert = CScCertificate();
     cert.scId = scId;
 
-    cert.getVout().resize(1);
-    cert.getVout()[0].nValue = certAmount;
-    cert.getVout()[0].scriptPubKey << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
-    cert.getVout()[0].isFromBackwardTransfer = true;
+    cert.resizeOut(1);
+    cert.getOut(0).nValue = certAmount;
+    cert.getOut(0).scriptPubKey << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    cert.getOut(0).isFromBackwardTransfer = true;
 
     CCertificateMemPoolEntry bwtPoolEntry(cert, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(bwtPoolEntry.GetCertificate().GetHash(), bwtPoolEntry);
