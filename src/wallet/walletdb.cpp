@@ -482,7 +482,6 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
         }
         else if (strType == "tx")
         {
-//            uint256 hash;
             ssKey >> hash;
             CWalletTx wtx;
             ssValue >> wtx;
@@ -521,15 +520,12 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
 
             pwallet->AddToWallet(wtx, true, NULL);
         }
-#if 1
         else if (strType == "cert")
         {
-            uint256 hash;
             ssKey >> hash;
             CWalletCert wcert;
             ssValue >> wcert;
             CValidationState state;
-            auto verifier = libzcash::ProofVerifier::Strict();
             if (!(CheckCertificate(wcert, state) && (wcert.GetHash() == hash) && state.IsValid()))
             {
                 LogPrint("cert", "%s():%d - cert[%s] is invalid\n", __func__, __LINE__, wcert.GetHash().ToString());
@@ -545,7 +541,6 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             LogPrint("cert", "%s():%d - adding cert[%s] to wallet\n", __func__, __LINE__, wcert.GetHash().ToString());
             pwallet->AddToWallet(wcert, true, NULL);
         }
-#endif
         else if (strType == "acentry")
         {
             string strAccount;

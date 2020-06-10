@@ -756,7 +756,7 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
     return true;
 }
 
-bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
+bool IsFinalTx(const CTransactionBase &tx, int nBlockHeight, int64_t nBlockTime)
 {
     /* A specified locktime indicates that the transaction is only valid at the given blockheight or later.*/
     if (tx.GetLockTime() == 0)
@@ -772,7 +772,7 @@ bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
     return true;
 }
 
-bool CheckFinalTx(const CTransaction &tx, int flags)
+bool CheckFinalTx(const CTransactionBase &tx, int flags)
 {
     AssertLockHeld(cs_main);
 
@@ -1030,13 +1030,15 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
 }
 
 bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee, int epochSafeGuardHeight)
+                        bool* pfMissingInputs, bool fRejectAbsurdFee, bool disconnecting)
 {
     AssertLockHeld(cs_main);
     if (pfMissingInputs)
         *pfMissingInputs = false;
 
     int nextBlockHeight = chainActive.Height() + 1; // OR chainActive.Tip()->nHeight
+    if (disconnecting)
+        nextBlockHeight -= 1;
 
     if (!cert.CheckInputsLimit())
         return false;
@@ -1048,14 +1050,6 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         return error("%s(): ContextualCheck failed", __func__);
 
     uint256 certHash = cert.GetHash();
-
-    // Silently drop pre-chainsplit certificates
-    if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight))
-    {
-        LogPrint("mempool", "%s():%d - Dropping certificateId[%s]: chain height[%d] is before chain split\n",
-            __func__, __LINE__, certHash.ToString(), chainActive.Tip()->nHeight);
-        return false;
-    }
 
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     string reason;
@@ -1126,8 +1120,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                             REJECT_INVALID, "bad-sc-cert-not-applicable");
             }
 
-            int sgHeight = (epochSafeGuardHeight > 0) ? epochSafeGuardHeight : nextBlockHeight;   
-            if (!view.IsCertApplicableToState(cert, sgHeight, state) )
+            if (!view.IsCertApplicableToState(cert, nextBlockHeight, state) )
             {
                 LogPrint("sc", "%s():%d - certificate [%s] is not applicable\n", __func__, __LINE__, certHash.ToString());
                 return state.DoS(0, error("%s(): certificate not applicable", __func__),
@@ -1264,13 +1257,15 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
 
 bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee)
+                        bool* pfMissingInputs, bool fRejectAbsurdFee, bool disconnecting)
 {
     AssertLockHeld(cs_main);
     if (pfMissingInputs)
         *pfMissingInputs = false;
 
     int nextBlockHeight = chainActive.Height() + 1; // OR chainActive.Tip()->nHeight
+    if (disconnecting)
+        nextBlockHeight -= 1;
 
     if (!tx.CheckInputsLimit())
         return false;
@@ -1286,10 +1281,10 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
     }
 
     // Silently drop pre-chainsplit transactions
-    if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight))
+    if (!ForkManager::getInstance().isAfterChainsplit(nextBlockHeight))
     {
         LogPrint("mempool", "%s():%d - Dropping txid[%s]: chain height[%d] is before chain split\n",
-            __func__, __LINE__, tx.GetHash().ToString(), chainActive.Tip()->nHeight);
+            __func__, __LINE__, tx.GetHash().ToString(), nextBlockHeight);
         return false;
     }
 
@@ -1525,19 +1520,19 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
 }
 
 bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee, int epochSafeGuardHeight)
+                        bool* pfMissingInputs, bool fRejectAbsurdFee, bool disconnecting)
 {
     try
     {
         if (txBase.IsCertificate())
         {
             return AcceptCertificateToMemoryPool(pool, state, dynamic_cast<const CScCertificate&>(txBase), fLimitFree,
-                pfMissingInputs, fRejectAbsurdFee, epochSafeGuardHeight);
+                pfMissingInputs, fRejectAbsurdFee, disconnecting);
         }
         else
         {
             return AcceptTxToMemoryPool(pool, state, dynamic_cast<const CTransaction&>(txBase), fLimitFree,
-                pfMissingInputs, fRejectAbsurdFee);
+                pfMissingInputs, fRejectAbsurdFee, disconnecting);
         }
     }
     catch (...)
@@ -2324,19 +2319,12 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     if (blockUndo.vtxundo.size() != (block.vtx.size() - 1 + block.vcert.size()))
         return error("DisconnectBlock(): block and undo data inconsistent");
 
-    for(int idx = blockUndo.vVoidedCertUndo.size() - 1; idx >= 0; --idx)
+    if (!view.RevertSidechainEvents(blockUndo, pindex->nHeight))
     {
-        LogPrint("sc", "%s():%d - calling RevertCeasingScs idx[%d]\n", __func__, __LINE__, idx);
-        if (!view.RevertCeasingScs(blockUndo.vVoidedCertUndo[idx]))
-            return error("DisconnectBlock(): cannot revert ceasing sc");
+        LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed reverting scheduled event\n", __func__, __LINE__);
+        return error("DisconnectBlock(): cannot revert sidechains scheduled events");
     }
 
-    LogPrint("sc", "%s():%d - restoring sc coins if any\n", __func__, __LINE__);
-    if (!view.RestoreImmatureBalances(pindex->nHeight, blockUndo) )
-    {
-        LogPrint("sc", "%s():%d - ERROR updating sc maturity amounts\n", __func__, __LINE__);
-        return error("DisconnectBlock(): sc and undo data inconsistent");
-    }
 
     // not including coinbase
     const int certOffset = block.vtx.size() - 1;
@@ -2380,8 +2368,8 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             outs->Clear();
         }
 
-        if (!view.UndoCeasingScs(cert)) {
-            LogPrint("sc", "%s():%d - ERROR undoing ceasing height\n", __func__, __LINE__);
+        if (!view.CancelSidechainEvent(cert)) {
+            LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
             return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
         }
 
@@ -2439,9 +2427,16 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             }
         }
 
+        for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
+            if (!view.CancelSidechainEvent(fwdTransfer, pindex->nHeight)) {
+                LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
+                return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
+            }
+        }
+
         for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
-            if (!view.UndoCeasingScs(scCreation)) {
-                LogPrint("sc", "%s():%d - ERROR undoing ceasing height\n", __func__, __LINE__);
+            if (!view.CancelSidechainEvent(scCreation, pindex->nHeight)) {
+                LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
                 return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
             }
         }
@@ -2689,16 +2684,16 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
 
-        if (!view.HaveInputs(tx))
-            return state.DoS(100, error("ConnectBlock(): tx inputs missing/spent"),
-                                 REJECT_INVALID, "bad-txns-inputs-missingorspent");
-
-        if (!view.HaveScRequirements(tx, pindex->nHeight))
-            return state.Invalid(error("ConnectBlock: sidechain is redeclared or coins are forwarded to unknown sidechain"),
-                                        REJECT_INVALID, "bad-sc-tx");
-
         if (!tx.IsCoinBase())
         {
+            if (!view.HaveInputs(tx))
+                return state.DoS(100, error("ConnectBlock(): tx inputs missing/spent"),
+                                     REJECT_INVALID, "bad-txns-inputs-missingorspent");
+ 
+            if (!view.HaveScRequirements(tx, pindex->nHeight))
+                return state.Invalid(error("ConnectBlock: sidechain is redeclared or coins are forwarded to unknown sidechain"),
+                                            REJECT_INVALID, "bad-sc-tx");
+
             // are the JoinSplit's requirements met?
             if (!view.HaveJoinSplitRequirements(tx))
                 return state.DoS(100, error("ConnectBlock(): JoinSplit requirements not met"),
@@ -2736,9 +2731,22 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
 
             for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
-                if (!view.UpdateCeasingScs(scCreation))
-                    return state.DoS(100, error("ConnectBlock(): error updating ceasing height for sidechain [%s]", scCreation.GetScId().ToString()),
-                                     REJECT_INVALID, "bad-sc-not-recorded");
+                if (!view.ScheduleSidechainEvent(scCreation, pindex->nHeight))
+                {
+                    LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
+                    return state.DoS(100, error("ConnectBlock(): error scheduling maturing height for sidechain [%s]", scCreation.GetScId().ToString()),
+                                                         REJECT_INVALID, "bad-sc-not-recorded");
+                }
+
+            }
+
+            for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
+                if (!view.ScheduleSidechainEvent(fwdTransfer, pindex->nHeight))
+                {
+                    LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
+                    return state.DoS(100, error("ConnectBlock(): error scheduling maturing height for sidechain [%s]", fwdTransfer.GetScId().ToString()),
+                                     REJECT_INVALID, "bad-fwd-not-recorded");
+                }
             }
 
         }
@@ -2804,9 +2812,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-sc-cert-not-updated");
         }
 
-        if (!view.UpdateCeasingScs(cert))
+        if (!view.ScheduleSidechainEvent(cert))
+        {
+            LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
             return state.DoS(100, error("ConnectBlock(): Error updating ceasing heights with certificate [%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-recorded");
+
+        }
 
 
         if (certIdx == 0) {
@@ -2827,13 +2839,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     } //end of Processing certificates loop
 
-    if (!view.ApplyMatureBalances(pindex->nHeight, blockundo) )
-        return state.DoS(100, error("ConnectBlock(): could not update sc immature amounts"),
-                         REJECT_INVALID, "bad-sc-amounts");
-
-    if (!view.HandleCeasingScs(pindex->nHeight, blockundo))
-        return state.DoS(100, error("ConnectBlock(): could not handle ceasing heights"),
-                         REJECT_INVALID, "bad-sc-ceasing-heights");
+    if (!view.HandleSidechainEvents(pindex->nHeight, blockundo))
+    {
+        LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed handling scheduled event\n", __func__, __LINE__);
+        return state.DoS(100, error("ConnectBlock(): could not handle scheduled event"),
+                                 REJECT_INVALID, "bad-sc-events-handling");
+    }
 
 
     view.PushAnchor(tree);
@@ -3103,7 +3114,7 @@ bool static DisconnectTip(CValidationState &state) {
             LogPrint("sc", "%s():%d - resurrecting tx [%s] to mempool\n", __func__, __LINE__, tx.GetHash().ToString());
         }
 
-        if (tx.IsCoinBase() || !AcceptTxToMemoryPool(mempool, stateDummy, tx, false, NULL)) {
+        if (tx.IsCoinBase() || !AcceptTxToMemoryPool(mempool, stateDummy, tx, false, NULL, false, /*disconnecting*/true)) {
             LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, tx.GetHash().ToString(), tx.ToString());
             mempool.remove(tx, dummyTxs, dummyCerts, true);
@@ -3116,7 +3127,7 @@ bool static DisconnectTip(CValidationState &state) {
         // ignore validation errors in resurrected certificates
         LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
         CValidationState stateDummy;
-        if (!AcceptCertificateToMemoryPool(mempool, stateDummy, cert, false, NULL, false, pindexDelete->nHeight)) {
+        if (!AcceptCertificateToMemoryPool(mempool, stateDummy, cert, false, NULL, false, /*disconnecting*/true)) {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
 

@@ -200,18 +200,11 @@ bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int d
     return true;
 }
 
-bool CScCertificate::CheckFinal(int flags) const
-{
-    // as of now certificate finality has yet to be defined (see tx.nLockTime)
-    return true;
-}
-
 //--------------------------------------------------------------------------------------------
 // binaries other than zend that are produced in the build, do not call these members and therefore do not
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
-bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const {return true;}
 std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
 {
     return std::shared_ptr<BaseSignatureChecker>(NULL);
@@ -223,11 +216,6 @@ std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
     return std::shared_ptr<const CTransactionBase>();
 }
 #else
-bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const
-{
-    CValidationState state;
-    return ::AcceptCertificateToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
-}
 
 std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
 {

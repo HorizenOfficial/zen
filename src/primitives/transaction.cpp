@@ -758,11 +758,9 @@ std::string CTransaction::ToString() const
 bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int unused, int dosLevel) const { return true; }
 bool CTransaction::IsVersionStandard(int nHeight) const {return true;}
 
-bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const {return true;}
 void CTransaction::AddToBlock(CBlock* pblock) const { return; }
 void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const {return; }
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return true; }
-bool CTransaction::CheckFinal(int flags) const { return true; }
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
@@ -781,12 +779,6 @@ std::shared_ptr<const CTransactionBase> CTransaction::MakeShared() const
 
 #else
 //----- 
-bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const
-{
-    CValidationState state;
-    return AcceptTxToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
-};
-
 bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int nHeight, int dosLevel) const
 {
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
@@ -944,11 +936,6 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
     }
 
     return true;
-}
-
-bool CTransaction::CheckFinal(int flags) const
-{
-    return ::CheckFinalTx(*this, flags);
 }
 
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const
