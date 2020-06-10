@@ -901,13 +901,10 @@ TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation)
 
     //a bwt cert is accepted in mempool too
     CAmount certAmount = 4;
-    CMutableScCertificate cert = CScCertificate();
+    CMutableScCertificate cert;
     cert.scId = scId;
-
-    cert.vout.resize(1);
-    cert.vout[0].nValue = certAmount;
-    cert.vout[0].scriptPubKey << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
-    cert.vout[0].isFromBackwardTransfer = true;
+    CScript scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    cert.addBwt(CTxOut(certAmount, scriptPubKey));
 
     CCertificateMemPoolEntry bwtPoolEntry(cert, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(bwtPoolEntry.GetCertificate().GetHash(), bwtPoolEntry);

@@ -14,9 +14,9 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
     mtx.vin[1].prevout.hash = uint256S("2");
     mtx.vin[1].prevout.n = 0;
 
-    mtx.vout.resize(2);
-    mtx.vout[0].nValue = 0;
-    mtx.vout[1].nValue = 0;
+    mtx.resizeOut(2);
+    mtx.getOut(0).nValue = 0;
+    mtx.getOut(1).nValue = 0;
 
     mtx.vjoinsplit.push_back(
             JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
@@ -58,7 +58,7 @@ void txCreationUtils::signTx(CMutableTransaction& mtx)
 CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength)
 {
     CMutableTransaction mtx = populateTx(SC_TX_VERSION, creationTxAmount, CAmount(0), epochLength);
-    mtx.vout.resize(0);
+    mtx.resizeOut(0);
     mtx.vjoinsplit.resize(0);
     mtx.vft_ccout.resize(0);
     signTx(mtx);
@@ -69,7 +69,7 @@ CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationT
 CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
 {
     CMutableTransaction mtx = populateTx(SC_TX_VERSION, CAmount(0), fwdTxAmount);
-    mtx.vout.resize(0);
+    mtx.resizeOut(0);
     mtx.vjoinsplit.resize(0);
     mtx.vsc_ccout.resize(0);
 
@@ -142,18 +142,13 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
     res.epochNumber = epochNum;
     res.endEpochBlockHash = endEpochBlockHash;
 
-    res.vout.resize(numChangeOut+numBwt);
-    for(unsigned int idx = 0; idx < numChangeOut; ++idx) {
-        res.vout[idx].nValue = insecure_rand();
-        res.vout[idx].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
-        res.vout[idx].isFromBackwardTransfer = false;
-    }
+    CScript dummyScriptPubKey =
+            GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
+    for(unsigned int idx = 0; idx < numChangeOut; ++idx)
+        res.addOut(CTxOut(insecure_rand(),dummyScriptPubKey));
 
-    for(unsigned int idx = 0; idx < numBwt; ++idx) {
-        res.vout[numChangeOut+idx].nValue = bwTotaltAmount/numBwt;
-        res.vout[numChangeOut+idx].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
-        res.vout[numChangeOut+idx].isFromBackwardTransfer = true;
-    }
+    for(unsigned int idx = 0; idx < numBwt; ++idx)
+        res.addBwt(CTxOut(bwTotaltAmount/numBwt, dummyScriptPubKey));
 
     return res;
 }

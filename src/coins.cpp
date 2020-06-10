@@ -51,15 +51,9 @@ void CCoins::From(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeig
     vout               = cert.GetVout();
     nHeight            = nHeightIn;
     nVersion           = cert.nVersion;
+    nFirstBwtPos       = cert.nFirstBwtPos;
     nBwtMaturityHeight = bwtMaturityHeight;
     ClearUnspendable();
-    nFirstBwtPos = vout.size();
-    for(unsigned int idx = 0; idx < this->vout.size(); ++idx) {
-        if (this->vout[idx].isFromBackwardTransfer) {
-            nFirstBwtPos = idx;
-            break;
-        }
-    }
 }
 
 void CCoins::Clear() {
@@ -1432,7 +1426,6 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
             if (coins->vout.size() < (coins->nFirstBwtPos + idx+1))
                 coins->vout.resize(coins->nFirstBwtPos + idx+1);
             coins->vout.at(coins->nFirstBwtPos + idx) = voidedOuts.at(idx).txout;
-            coins->vout.at(coins->nFirstBwtPos + idx).isFromBackwardTransfer = true;
         }
 
         SyncBwtCeasing(voidedCertUndo.voidedCertHash, false);

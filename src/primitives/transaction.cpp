@@ -216,7 +216,6 @@ CTxOut::CTxOut(const CBackwardTransferOut& btout) : nValue(btout.nValue)
     scriptPubKey.clear();
     std::vector<unsigned char> pkh(btout.pubKeyHash.begin(), btout.pubKeyHash.end());
     scriptPubKey << OP_DUP << OP_HASH160 << pkh << OP_EQUALVERIFY << OP_CHECKSIG;
-    isFromBackwardTransfer = true;
 }
 
 uint256 CTxOut::GetHash() const
@@ -226,8 +225,8 @@ uint256 CTxOut::GetHash() const
 
 std::string CTxOut::ToString() const
 {
-    return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s, isFromBackwardTransfer=%d)",
-        nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30), isFromBackwardTransfer);
+    return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s)",
+        nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30));
 }
 
 //----------------------------------------------------------------------------
@@ -303,10 +302,6 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
 CMutableTransactionBase::CMutableTransactionBase():
     nVersion(TRANSPARENT_TX_VERSION), vin(), vout() {}
 
-bool CMutableTransactionBase::add(const CTxOut& out) { vout.push_back(out); return true; }
-bool CMutableTransactionBase::add(const CTxScCreationOut& out) { return false; }
-bool CMutableTransactionBase::add(const CTxForwardTransferOut& out) { return false; }
-
 CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(),
     vsc_ccout(), vft_ccout(), nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() {}
 
@@ -324,17 +319,13 @@ uint256 CMutableTransaction::GetHash() const
     return SerializeHash(*this);
 }
 
-bool CMutableTransaction::add(const CTxScCreationOut& out) 
-{
-    vsc_ccout.push_back(out);
-    return true;
-}
-
-bool CMutableTransaction::add(const CTxForwardTransferOut& out)
-{
-    vft_ccout.push_back(out);
-    return true;
-}
+void CMutableTransaction::insertAtPos(unsigned int pos, const CTxOut& out) { vout.insert(vout.begin() + pos, out);}
+void CMutableTransaction::eraseAtPos(unsigned int pos) { vout.erase(vout.begin() + pos); }
+void CMutableTransaction::resizeOut(unsigned int newSize) { vout.resize(newSize); }
+bool CMutableTransaction::addOut(const CTxOut& out) { vout.push_back(out); return true;}
+bool CMutableTransaction::addBwt(const CTxOut& out) { return false; }
+bool CMutableTransaction::add(const CTxScCreationOut& out)  { vsc_ccout.push_back(out); return true; }
+bool CMutableTransaction::add(const CTxForwardTransferOut& out) { vft_ccout.push_back(out); return true; }
 
 //--------------------------------------------------------------------------------------------------------
 CTransactionBase::CTransactionBase(int nVersionIn):
@@ -352,7 +343,7 @@ CTransactionBase& CTransactionBase::operator=(const CTransactionBase &tx) {
 }
 
 CTransactionBase::CTransactionBase(const CMutableTransactionBase& mutTxBase):
-    nVersion(mutTxBase.nVersion), vin(mutTxBase.vin), vout(mutTxBase.vout), hash(mutTxBase.GetHash()) {}
+    nVersion(mutTxBase.nVersion), vin(mutTxBase.vin), vout(mutTxBase.getVout()), hash(mutTxBase.GetHash()) {}
 
 CAmount CTransactionBase::GetValueOut() const
 {
@@ -782,13 +773,15 @@ std::shared_ptr<const CTransactionBase> CTransaction::MakeShared() const
 bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int nHeight, int dosLevel) const
 {
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
-    BOOST_FOREACH(const CTxOut& txout, vout)
+    //BOOST_FOREACH(const CTxOut& txout, vout)
+    for(int pos = 0; pos < GetVout().size(); ++pos)
     {
         // if the output comes from a backward transfer (when we are a certificate), skip this check
         // but go on if the certificate txout is an ordinary one
-        if (txout.isFromBackwardTransfer)
+        if (IsBackwardTransfer(pos))
             continue;
 
+        const CTxOut& txout = GetVout()[pos];
         txnouttype whichType;
         ::IsStandard(txout.scriptPubKey, whichType);
 

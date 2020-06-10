@@ -254,9 +254,6 @@ public:
         if (this->IsFromCert()) {
             ::Unserialize(s, nFirstBwtPos, nType,nVersion);
             ::Unserialize(s, nBwtMaturityHeight, nType,nVersion);
-
-            for(int idx = nFirstBwtPos; idx < vout.size(); ++idx)
-                vout[idx].isFromBackwardTransfer = true;
         }
 
         Cleanup();

@@ -348,7 +348,7 @@ inline bool CTxMemPool::addToListForRemovalImmatureExpenditures(
         std::map<uint256, CCertificateMemPoolEntry>::const_iterator it3 = mapCertificate.find(txin.prevout.hash);
         if (it3 != mapCertificate.end()) {
             // check this is the cert change
-            assert(!it3->second.GetCertificate().GetVout()[txin.prevout.n].isFromBackwardTransfer);
+            assert(!it3->second.GetCertificate().IsBackwardTransfer(txin.prevout.n));
 
             // remove only if a tx
             if (!tx.IsCertificate() )
@@ -751,7 +751,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             if (itCert != mapCertificate.end()) {
                 // certificates can only spend change outputs of another certificate in mempool, while backward transfers must mature first
                 const CTransactionBase& inputCert = itCert->second.GetCertificate();
-                if (inputCert.GetVout()[txin.prevout.n].isFromBackwardTransfer ) 
+                if (inputCert.IsBackwardTransfer(txin.prevout.n))
                 {
                     LogPrintf("%s():%d - ERROR input is the output of cert[%s]\n", __func__, __LINE__, inputCert.GetHash().ToString());
                     assert(false);

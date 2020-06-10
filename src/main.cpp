@@ -701,7 +701,8 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
 
     unsigned int nDataOut = 0;
     txnouttype whichType;
-    BOOST_FOREACH(const CTxOut& txout, txBase.GetVout()) {
+    for(int pos = 0; pos < txBase.GetVout().size(); ++pos) {
+        const CTxOut & txout = txBase.GetVout()[pos];
         CheckBlockResult checkBlockResult;
         if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
             reason = "scriptpubkey";
@@ -720,7 +721,7 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
         }
 
         // provide temporary replay protection for two minerconf windows during chainsplit
-        if ((!txBase.IsCoinBase() && !txout.isFromBackwardTransfer) &&
+        if ((!txBase.IsCoinBase() && !txBase.IsBackwardTransfer(pos)) &&
             (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(), whichType))) {
             reason = "op-checkblockatheight-needed";
             return false;
@@ -1079,7 +1080,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             if (pool.mapCertificate.count(vin.prevout.hash)) {
                 const CScCertificate & inputCert = pool.mapCertificate[vin.prevout.hash].GetCertificate();
                 // certificates can only spend change outputs of another certificate in mempool, while backward transfers must mature first
-                if (inputCert.GetVout()[vin.prevout.n].isFromBackwardTransfer ) 
+                if (inputCert.IsBackwardTransfer(vin.prevout.n))
                 {
                     LogPrint("mempool", "%s():%d - Dropping cert[%s]: it would spend the backward transfer output %d of cert[%s] that is in mempool\n",
                         __func__, __LINE__, certHash.ToString(), vin.prevout.n, vin.prevout.hash.ToString());
@@ -1938,8 +1939,6 @@ bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint
         coins->vout.resize(out.n+1);
 
     coins->vout[out.n] = undo.txout;
-    if (coins->IsFromCert() && (out.n >= coins->nFirstBwtPos))
-        coins->vout[out.n].isFromBackwardTransfer = true;
 
     return fClean;
 }

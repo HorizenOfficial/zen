@@ -241,8 +241,8 @@ bool CRecipientHandler::handle(const CRecipientForwardTransfer& r)
 
 bool CRecipientHandler::handle(const CRecipientBackwardTransfer& r)
 {
-    CTxOut txout(r.nValue, r.scriptPubKey, true);
-    return txBase->add(txout);
+    CTxOut txout(r.nValue, r.scriptPubKey);
+    return txBase->addBwt(txout);
 };
 
 void CScCustomData::fill(std::vector<unsigned char>& vBytes, size_t nBytes) const
@@ -444,8 +444,8 @@ void ScRpcCmd::addChange()
 
             scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
         }
-        CTxOut out(change, scriptPubKey);
-        _tx.vout.push_back(out);
+
+        _tx.addOut(CTxOut(change, scriptPubKey));
     }
 }
 

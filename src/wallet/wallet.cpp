@@ -2215,7 +2215,7 @@ CCoins::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned int vOutP
         if (!pTxBase->IsCoinBase() && !pTxBase->IsCertificate())
             return CCoins::outputMaturity::MATURE;
 
-        if (!pTxBase->GetVout().at(vOutPos).isFromBackwardTransfer)
+        if (!pTxBase->IsBackwardTransfer(vOutPos))
             return CCoins::outputMaturity::MATURE;
         else
             return CCoins::outputMaturity::IMMATURE;
@@ -2234,10 +2234,10 @@ CCoins::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned int vOutP
     }
 
     //Hereinafter cert in mainchain
-    if (!pTxBase->GetVout().at(vOutPos).isFromBackwardTransfer)
+    if (!pTxBase->IsBackwardTransfer(vOutPos))
         return CCoins::outputMaturity::MATURE;
 
-    if (pTxBase->GetVout().at(vOutPos).isFromBackwardTransfer && areBwtCeased)
+    if (pTxBase->IsBackwardTransfer(vOutPos) && areBwtCeased)
         return CCoins::outputMaturity::NOT_APPLICABLE;
 
     if (nDepth <= bwtMaturityDepth)
@@ -3030,7 +3030,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
     vector<CRecipient> vecSend;
 
     // Turn the txout set into a CRecipient vector
-    BOOST_FOREACH(const CTxOut& txOut, tx.vout)
+    for(const CTxOut& txOut: tx.getVout())
     {
         CRecipient recipient = {txOut.scriptPubKey, txOut.nValue, false};
         vecSend.push_back(recipient);
@@ -3051,7 +3051,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
         return false;
 
     if (nChangePosRet != -1)
-        tx.vout.insert(tx.vout.begin() + nChangePosRet, wtx.GetVout()[nChangePosRet]);
+        tx.insertAtPos(nChangePosRet, wtx.GetVout()[nChangePosRet]);
 
     // Add new txins (keeping original txin scriptSig/order)
     BOOST_FOREACH(const CTxIn& txin, wtx.GetVin())
@@ -3149,7 +3149,7 @@ bool CWallet::CreateTransaction(
             while (true)
             {
                 txNew.vin.clear();
-                txNew.vout.clear();
+                txNew.resizeOut(0);
                 txNew.vsc_ccout.clear();
                 txNew.vft_ccout.clear();
                 wtxNew.fFromMe = true;
@@ -3189,7 +3189,7 @@ bool CWallet::CreateTransaction(
                             strFailReason = _("Transaction amount too small");
                         return false;
                     }
-                    txNew.vout.push_back(txout);
+                    txNew.addOut(txout);
                 }
 
                 // vccouts to the payees
@@ -3271,8 +3271,8 @@ bool CWallet::CreateTransaction(
                         {
                             if (vecSend[i].fSubtractFeeFromAmount)
                             {
-                                txNew.vout[i].nValue -= nDust;
-                                if (txNew.vout[i].IsDust(::minRelayTxFee))
+                                txNew.getOut(i).nValue -= nDust;
+                                if (txNew.getVout()[i].IsDust(::minRelayTxFee))
                                 {
                                     strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
                                     return false;
@@ -3292,9 +3292,8 @@ bool CWallet::CreateTransaction(
                     else
                     {
                         // Insert change txn at random position:
-                        nChangePosRet = GetRandInt(txNew.vout.size()+1);
-                        vector<CTxOut>::iterator position = txNew.vout.begin()+nChangePosRet;
-                        txNew.vout.insert(position, newTxOut);
+                        nChangePosRet = GetRandInt(txNew.getVout().size()+1);
+                        txNew.insertAtPos(nChangePosRet, newTxOut);
                     }
                 }
                 else
@@ -4449,7 +4448,7 @@ void CWalletCert::GetAmounts(std::list<COutputEntry>& listReceived, std::list<CO
 
         // If we are debited by the transaction, add the output as a "sent" entry
         // unless it is a backward transfer output
-        if (nDebit > 0 && !txout.isFromBackwardTransfer)
+        if (nDebit > 0 && !IsBackwardTransfer(pos))
             listSent.push_back(output);
 
         // If we are receiving the output, add it as a "received" entry

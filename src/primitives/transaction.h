@@ -361,39 +361,26 @@ public:
     CAmount nValue;
     CScript scriptPubKey;
 
-    /* mem only */
-    bool isFromBackwardTransfer;
+    CTxOut(): nValue(-1), scriptPubKey() {}
 
-    CTxOut()
-    {
-        SetNull();
-    }
-
-    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn, bool isFromBackwardTransferIn = false) :
-        nValue(nValueIn), scriptPubKey(scriptPubKeyIn), isFromBackwardTransfer(isFromBackwardTransferIn) {}
+    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn) :
+        nValue(nValueIn), scriptPubKey(scriptPubKeyIn) {}
 
     explicit CTxOut(const CBackwardTransferOut& btdata);
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
         READWRITE(nValue);
         READWRITE(scriptPubKey);
-        if (ser_action.ForRead())
-        {
-            // the in-memory attribute isFromBackwardTransfer is not serialized, to keep backward compatibility
-            // It is left up to object including CTxOut attributes in their serialization operations to track
-            // the isFromBackwardTransfer flag. Below the isFromBackwardTransfer flag is initialized to a default value.
-            isFromBackwardTransfer = false;
-        }
     }
 
     void SetNull()
     {
         nValue = -1;
         scriptPubKey.clear();
-        isFromBackwardTransfer = false;
     }
 
     bool IsNull() const
@@ -428,8 +415,7 @@ public:
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
         return (a.nValue                 == b.nValue &&
-                a.scriptPubKey           == b.scriptPubKey &&
-                a.isFromBackwardTransfer == b.isFromBackwardTransfer);
+                a.scriptPubKey           == b.scriptPubKey);
     }
 
     friend bool operator!=(const CTxOut& a, const CTxOut& b)
@@ -632,6 +618,8 @@ public:
     virtual const std::vector<JSDescription>&         GetVjoinsplit() const = 0;
     virtual const uint32_t&                           GetLockTime()   const = 0;
     //END OF GETTERS
+
+    virtual bool IsBackwardTransfer(int pos) const = 0;
 
     //CHECK FUNCTIONS
     virtual bool IsValidVersion   (CValidationState &state) const = 0;
@@ -844,6 +832,8 @@ public:
     const uint256&                            GetScIdFromScCcOut(int pos) const;
     //END OF GETTERS
 
+    bool IsBackwardTransfer(int pos) const override final { return false; };
+
     //CHECK FUNCTIONS
     bool IsValidVersion   (CValidationState &state) const override;
     bool IsVersionStandard(int nHeight) const override;
@@ -965,8 +955,10 @@ struct CMutableTransactionBase
 {
     int32_t nVersion;
     std::vector<CTxIn> vin;
-    std::vector<CTxOut> vout;
 
+protected:
+    std::vector<CTxOut> vout;
+public:
     CMutableTransactionBase();
     virtual ~CMutableTransactionBase() = default;
 
@@ -975,9 +967,17 @@ struct CMutableTransactionBase
      */
     virtual uint256 GetHash() const = 0;
 
-    virtual bool add(const CTxOut& out);
-    virtual bool add(const CTxScCreationOut& out);
-    virtual bool add(const CTxForwardTransferOut& out);
+    const std::vector<CTxOut>& getVout() const                { return vout; }
+                       CTxOut& getOut(unsigned int pos)       { return vout[pos]; }
+                 const CTxOut& getOut(unsigned int pos) const { return vout[pos]; }
+
+    virtual void insertAtPos(unsigned int pos, const CTxOut& out) = 0;
+    virtual void eraseAtPos(unsigned int pos)                     = 0;
+    virtual void resizeOut(unsigned int newSize)                  = 0;
+    virtual bool addOut(const CTxOut& out)                        = 0;
+    virtual bool addBwt(const CTxOut& out)                        = 0;
+    virtual bool add(const CTxScCreationOut& out)                 = 0;
+    virtual bool add(const CTxForwardTransferOut& out)            = 0;
 };
 
 
@@ -1034,8 +1034,13 @@ struct CMutableTransaction : public CMutableTransactionBase
         return (nVersion == SC_TX_VERSION);
     }
 
-    bool add(const CTxScCreationOut& out) override;
-    bool add(const CTxForwardTransferOut& out) override;
+    void insertAtPos(unsigned int pos, const CTxOut& out) override final;
+    void eraseAtPos(unsigned int pos)                     override final;
+    void resizeOut(unsigned int newSize)                  override final;
+    bool addOut(const CTxOut& out)                        override final;
+    bool addBwt(const CTxOut& out)                        override final;
+    bool add(const CTxScCreationOut& out)                 override final;
+    bool add(const CTxForwardTransferOut& out)            override final;
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

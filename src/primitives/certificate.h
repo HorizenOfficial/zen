@@ -39,6 +39,7 @@ private:
 public:
     const int32_t epochNumber;
     const uint256 endEpochBlockHash;
+    const int nFirstBwtPos;
 
     /** Construct a CScCertificate that qualifies as IsNull() */
     CScCertificate(int versionIn = SC_CERT_VERSION);
@@ -85,38 +86,29 @@ public:
 
         if (ser_action.ForRead())
         {
-            std::vector<CBackwardTransferOut> vbt_ccout_ser;
-
             // reading from data stream to memory
             READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
-            READWRITE(*const_cast<std::vector<CBackwardTransferOut>*>(&vbt_ccout_ser));
+            *const_cast<int*>(&nFirstBwtPos) = vout.size();
 
+            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+            READWRITE(*const_cast<std::vector<CBackwardTransferOut>*>(&vbt_ccout_ser));
             for (auto& btout : vbt_ccout_ser)
-            {
-                CTxOut out(btout);
-                (*const_cast<std::vector<CTxOut>*>(&vout)).push_back(out);
-            }
+                (*const_cast<std::vector<CTxOut>*>(&vout)).push_back(CTxOut(btout));
         }
         else
         {
-            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+            // reading from memory and writing to data stream
             // we must not modify vout
             std::vector<CTxOut> vout_ser;
+            for(int pos = 0; pos < nFirstBwtPos; ++pos)
+                vout_ser.push_back(vout[pos]);
 
-            // reading from memory and writing to data stream
-            for (auto it = vout.begin(); it != vout.end(); ++it)
-            {
-                if ((*it).isFromBackwardTransfer)
-                {
-                    CBackwardTransferOut btout((*it));
-                    vbt_ccout_ser.push_back(btout);
-                }
-                else
-                {
-                    vout_ser.push_back(*it);
-                }
-            }
             READWRITE(*const_cast<std::vector<CTxOut>*>(&vout_ser));
+
+            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+            for(int pos = nFirstBwtPos; pos < vout.size(); ++pos)
+                vbt_ccout_ser.push_back(CBackwardTransferOut(vout[pos]));
+
             READWRITE(*const_cast<std::vector<CBackwardTransferOut>*>(&vbt_ccout_ser));
         }
 
@@ -139,6 +131,8 @@ public:
     const uint256&                            GetScId()       const          {return scId;};
     const uint32_t&                           GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
     //END OF GETTERS
+
+    bool IsBackwardTransfer(int pos) const override final;
 
     //CHECK FUNCTIONS
     bool IsValidVersion   (CValidationState &state) const override;
@@ -170,7 +164,6 @@ public:
 
     CAmount GetValueOfBackwardTransfers() const;
     CAmount GetValueOfChange() const;
-    int GetNumbOfBackwardTransfers() const;
 
     void AddToBlock(CBlock* pblock) const override; 
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int /* not used sigops */) const override;
@@ -187,6 +180,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
     uint256 scId;
     int32_t epochNumber;
     uint256 endEpochBlockHash;
+    const int nFirstBwtPos;
 
     CMutableScCertificate();
     CMutableScCertificate(const CScCertificate& tx);
@@ -203,38 +197,29 @@ struct CMutableScCertificate : public CMutableTransactionBase
 
         if (ser_action.ForRead())
         {
-            std::vector<CBackwardTransferOut> vbt_ccout_ser;
-
             // reading from data stream to memory
             READWRITE(vout);
-            READWRITE(vbt_ccout_ser);
+            *const_cast<int*>(&nFirstBwtPos) = vout.size();
 
+            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+            READWRITE(vbt_ccout_ser);
             for (auto& btout : vbt_ccout_ser)
-            {
-                CTxOut out(btout);
-                vout.push_back(out);
-            }
+                vout.push_back(CTxOut(btout));
         }
         else
         {
-            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+            // reading from memory and writing to data stream
             // we must not modify vout
             std::vector<CTxOut> vout_ser;
+            for(int pos = 0; pos < nFirstBwtPos; ++pos)
+                vout_ser.push_back(vout[pos]);
 
-            // reading from memory and writing to data stream
-            for (auto it = vout.begin(); it != vout.end(); ++it)
-            {
-                if ((*it).isFromBackwardTransfer)
-                {
-                    CBackwardTransferOut btout((*it));
-                    vbt_ccout_ser.push_back(btout);
-                }
-                else
-                {
-                    vout_ser.push_back(*it);
-                }
-            }
             READWRITE(vout_ser);
+
+            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+            for(int pos = nFirstBwtPos; pos < vout.size(); ++pos)
+                vbt_ccout_ser.push_back(CBackwardTransferOut(vout[pos]));
+
             READWRITE(vbt_ccout_ser);
         }
     }
@@ -250,11 +235,13 @@ struct CMutableScCertificate : public CMutableTransactionBase
      */
     uint256 GetHash() const override;
 
-    bool add(const CTxOut& out) override
-    { 
-        vout.push_back(out);
-        return true;
-    }
+    void insertAtPos(unsigned int pos, const CTxOut& out) override final;
+    void eraseAtPos(unsigned int pos)                     override final;
+    void resizeOut(unsigned int newSize)                  override final;
+    bool addOut(const CTxOut& out)                        override final;
+    bool addBwt(const CTxOut& out)                        override final;
+    bool add(const CTxScCreationOut& out)                 override final;
+    bool add(const CTxForwardTransferOut& out)            override final;
 
     std::string ToString() const;
 };
