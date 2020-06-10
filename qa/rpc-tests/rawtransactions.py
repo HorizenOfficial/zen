@@ -235,6 +235,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert(len(decodedTx['vsc_ccout'])==1)
         assert_equal(decodedTx['vsc_ccout'][0]['scid'],scid)
         assert_equal(decodedTx['vsc_ccout'][0]['withdrawal epoch length'],sc_epoch)
+        assert_equal(decodedTx['vsc_ccout'][0]['wCertVk'],vk)
+        assert_equal(decodedTx['vsc_ccout'][0]['constant'],constant)
         assert_equal(decodedTx['vsc_ccout'][0]['value'],sc_cr_amount)
         assert_equal(decodedTx['vsc_ccout'][0]['address'],sc_address)
 
