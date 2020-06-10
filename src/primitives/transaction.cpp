@@ -350,7 +350,7 @@ CTransactionBase& CTransactionBase::operator=(const CTransactionBase &tx) {
 }
 
 CTransactionBase::CTransactionBase(const CMutableTransactionBase& mutTxBase):
-    nVersion(mutTxBase.nVersion), vin(mutTxBase.vin), vout(mutTxBase.vout), hash(mutTxBase.GetHash()) {}
+    nVersion(mutTxBase.nVersion), vin(mutTxBase.vin), vout(mutTxBase.getVout()), hash(mutTxBase.GetHash()) {}
 
 CAmount CTransactionBase::GetValueOut() const
 {

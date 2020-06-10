@@ -740,9 +740,7 @@ BOOST_AUTO_TEST_CASE(coins_coinbase_spends)
     mtx.vin.resize(1);
     mtx.vin[0].scriptSig = CScript() << OP_1;
     mtx.vin[0].nSequence = 0;
-    mtx.vout.resize(1);
-    mtx.vout[0].nValue = 500;
-    mtx.vout[0].scriptPubKey = CScript() << OP_1;
+    mtx.addOut(CTxOut(500, CScript() << OP_1, false));
 
     CTransaction tx(mtx);
 
@@ -764,9 +762,7 @@ BOOST_AUTO_TEST_CASE(coins_coinbase_spends)
         BOOST_CHECK(Consensus::CheckTxInputs(tx2, state, cache, 100+COINBASE_MATURITY, Params().GetConsensus()));
     }
 
-    mtx2.vout.resize(1);
-    mtx2.vout[0].nValue = 500;
-    mtx2.vout[0].scriptPubKey = CScript() << OP_1;
+    mtx.addOut(CTxOut(500, CScript() << OP_1, false));
 
     {
         CTransaction tx2(mtx2);

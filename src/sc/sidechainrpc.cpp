@@ -444,8 +444,8 @@ void ScRpcCmd::addChange()
 
             scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
         }
-        CTxOut out(change, scriptPubKey, false);
-        _tx.vout.push_back(out);
+
+        _tx.addOut(CTxOut(change, scriptPubKey, false));
     }
 }
 

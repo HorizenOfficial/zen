@@ -323,18 +323,18 @@ SetupDummyInputs(CBasicKeyStore& keystoreRet, CCoinsViewCache& coinsRet)
     }
 
     // Create some dummy input transactions
-    dummyTransactions[0].vout.resize(2);
-    dummyTransactions[0].vout[0].nValue = 11*CENT;
-    dummyTransactions[0].vout[0].scriptPubKey << ToByteVector(key[0].GetPubKey()) << OP_CHECKSIG;
-    dummyTransactions[0].vout[1].nValue = 50*CENT;
-    dummyTransactions[0].vout[1].scriptPubKey << ToByteVector(key[1].GetPubKey()) << OP_CHECKSIG;
+    dummyTransactions[0].getVout().resize(2);
+    dummyTransactions[0].getVout()[0].nValue = 11*CENT;
+    dummyTransactions[0].getVout()[0].scriptPubKey << ToByteVector(key[0].GetPubKey()) << OP_CHECKSIG;
+    dummyTransactions[0].getVout()[1].nValue = 50*CENT;
+    dummyTransactions[0].getVout()[1].scriptPubKey << ToByteVector(key[1].GetPubKey()) << OP_CHECKSIG;
     coinsRet.ModifyCoins(dummyTransactions[0].GetHash())->From(dummyTransactions[0], 0);
 
-    dummyTransactions[1].vout.resize(2);
-    dummyTransactions[1].vout[0].nValue = 21*CENT;
-    dummyTransactions[1].vout[0].scriptPubKey = GetScriptForDestination(key[2].GetPubKey().GetID());
-    dummyTransactions[1].vout[1].nValue = 22*CENT;
-    dummyTransactions[1].vout[1].scriptPubKey = GetScriptForDestination(key[3].GetPubKey().GetID());
+    dummyTransactions[1].getVout().resize(2);
+    dummyTransactions[1].getVout()[0].nValue = 21*CENT;
+    dummyTransactions[1].getVout()[0].scriptPubKey = GetScriptForDestination(key[2].GetPubKey().GetID());
+    dummyTransactions[1].getVout()[1].nValue = 22*CENT;
+    dummyTransactions[1].getVout()[1].scriptPubKey = GetScriptForDestination(key[3].GetPubKey().GetID());
     coinsRet.ModifyCoins(dummyTransactions[1].GetHash())->From(dummyTransactions[1], 0);
 
     return dummyTransactions;
@@ -574,9 +574,9 @@ BOOST_AUTO_TEST_CASE(test_Get)
     t1.vin[2].prevout.hash = dummyTransactions[1].GetHash();
     t1.vin[2].prevout.n = 1;
     t1.vin[2].scriptSig << std::vector<unsigned char>(65, 0) << std::vector<unsigned char>(33, 4);
-    t1.vout.resize(2);
-    t1.vout[0].nValue = 90*CENT;
-    t1.vout[0].scriptPubKey << OP_1;
+    t1.getVout().resize(2);
+    t1.getVout()[0].nValue = 90*CENT;
+    t1.getVout()[0].scriptPubKey << OP_1;
 
     BOOST_CHECK(AreInputsStandard(t1, coins));
     BOOST_CHECK_EQUAL(coins.GetValueIn(t1), (50+21+22)*CENT);
@@ -603,49 +603,49 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     t.vin[0].prevout.hash = dummyTransactions[0].GetHash();
     t.vin[0].prevout.n = 1;
     t.vin[0].scriptSig << std::vector<unsigned char>(65, 0);
-    t.vout.resize(1);
-    t.vout[0].nValue = 90*CENT;
+    t.getVout().resize(1);
+    t.getVout()[0].nValue = 90*CENT;
     CKey key;
     key.MakeNewKey(true);
-    t.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
+    t.getVout()[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
 
     string reason;
     BOOST_CHECK(IsStandardTx(t, reason, 0));
 
-    t.vout[0].nValue = 53; // dust
+    t.getVout()[0].nValue = 53; // dust
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
-    t.vout[0].nValue = 2730; // not dust
+    t.getVout()[0].nValue = 2730; // not dust
     BOOST_CHECK(IsStandardTx(t, reason, 0));
 
-    t.vout[0].scriptPubKey = CScript() << OP_1;
+    t.getVout()[0].scriptPubKey = CScript() << OP_1;
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
     // 80-byte TX_NULL_DATA (standard)
-    t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
+    t.getVout()[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
     BOOST_CHECK(IsStandardTx(t, reason, 0));
 
     // 81-byte TX_NULL_DATA (non-standard)
-    t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3800");
+    t.getVout()[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3800");
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
     // TX_NULL_DATA w/o PUSHDATA
-    t.vout.resize(1);
-    t.vout[0].scriptPubKey = CScript() << OP_RETURN;
+    t.getVout().resize(1);
+    t.getVout()[0].scriptPubKey = CScript() << OP_RETURN;
     BOOST_CHECK(IsStandardTx(t, reason, 0));
 
     // Only one TX_NULL_DATA permitted in all cases
-    t.vout.resize(2);
-    t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
-    t.vout[1].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
+    t.getVout().resize(2);
+    t.getVout()[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
+    t.getVout()[1].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
-    t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
-    t.vout[1].scriptPubKey = CScript() << OP_RETURN;
+    t.getVout()[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
+    t.getVout()[1].scriptPubKey = CScript() << OP_RETURN;
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
-    t.vout[0].scriptPubKey = CScript() << OP_RETURN;
-    t.vout[1].scriptPubKey = CScript() << OP_RETURN;
+    t.getVout()[0].scriptPubKey = CScript() << OP_RETURN;
+    t.getVout()[1].scriptPubKey = CScript() << OP_RETURN;
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 }
 
@@ -673,8 +673,8 @@ void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHe
     t.vin[0].prevout.hash = dummyTransactions[0].GetHash();
     t.vin[0].prevout.n = 1;
     t.vin[0].scriptSig << std::vector<unsigned char>(65, 0);
-    t.vout.resize(1);
-    t.vout[0].nValue = 90*CENT;
+    t.getVout().resize(1);
+    t.getVout()[0].nValue = 90*CENT;
     CKey key;
     key.MakeNewKey(true);
 
@@ -682,7 +682,7 @@ void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHe
     // following the moving of check block at height into the contextual check 
     GenerateChainActive(0);
 
-    t.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
+    t.getVout()[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
 
 
     // A v2 transaction with no JoinSplits is still standard.
@@ -696,20 +696,20 @@ void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHe
     // ... and when that JoinSplit takes from a transparent input.
     JSDescription *jsdesc = &t.vjoinsplit[0];
     jsdesc->vpub_old = 10*CENT;
-    t.vout[0].nValue -= 10*CENT;
+    t.getVout()[0].nValue -= 10*CENT;
     verifyTx(t, grothIntroductionHeight - 1, true, true);
 
     // A v2 transaction with JoinSplits but no transparent inputs is standard.
     jsdesc->vpub_old = 0;
     jsdesc->vpub_new = 100*CENT;
-    t.vout[0].nValue = 90*CENT;
+    t.getVout()[0].nValue = 90*CENT;
     t.vin.resize(0);
     verifyTx(t, grothIntroductionHeight - 1, true, true);
     // but is not standard if Groth is active
     verifyTx(t, grothIntroductionHeight, false, false);
 
     // v2 transactions can still be non-standard for the same reasons as v1.
-    t.vout[0].nValue = 53; // dust
+    t.getVout()[0].nValue = 53; // dust
     verifyTx(t, grothIntroductionHeight, false, false);
 
 
@@ -720,7 +720,7 @@ void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHe
     jsdesc = &t.vjoinsplit[0];
     jsdesc->vpub_old = 0;
     jsdesc->vpub_new = 100*CENT;
-    t.vout[0].nValue = 90*CENT;
+    t.getVout()[0].nValue = 90*CENT;
     t.vin.resize(0);
     verifyTx(t, grothIntroductionHeight - 1, false, false);
     // v3 with Groth is standard when Groth is active
@@ -733,7 +733,7 @@ void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHe
 	jsdesc = &t.vjoinsplit[0];
 	jsdesc->vpub_old = 0;
 	jsdesc->vpub_new = 100*CENT;
-	t.vout[0].nValue = 90*CENT;
+	t.getVout()[0].nValue = 90*CENT;
     verifyTx(t, grothIntroductionHeight, false, false);
 
 	// v1 is still standard after Groth is active but should be refused by contextual checks if joinsplit is not empty

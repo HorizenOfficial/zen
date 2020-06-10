@@ -108,9 +108,8 @@ CWalletTx GetValidSpend(ZCJoinSplit& params,
                         const libzcash::SpendingKey& sk,
                         const libzcash::Note& note, CAmount value) {
     CMutableTransaction mtx;
-    mtx.vout.resize(2);
-    mtx.vout[0].nValue = value;
-    mtx.vout[1].nValue = 0;
+    mtx.addOut(CTxOut(value,CScript(),false));
+    mtx.addOut(CTxOut(0,CScript(),false));
 
     // Generate an ephemeral keypair.
     uint256 joinSplitPubKey;

@@ -597,8 +597,7 @@ void AddOutputsToRawObject(CMutableTransactionBase& rawTxObj, const UniValue& se
         CScript scriptPubKey = GetScriptForDestination(address.Get());
         CAmount nAmount = AmountFromValue(sendTo[name_]);
 
-        CTxOut out(nAmount, scriptPubKey, false);
-        rawTxObj.vout.push_back(out);
+        rawTxObj.addOut(CTxOut(nAmount, scriptPubKey, false));
     }
 }
 
@@ -876,8 +875,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
         CScript scriptPubKey = GetScriptForDestination(address.Get(), false);
         CAmount nAmount = AmountFromValue(backwardOutputs[name_]);
 
-        CTxOut out(nAmount, scriptPubKey, true);
-        rawCert.vout.push_back(out);
+        rawCert.addBwt(CTxOut(nAmount, scriptPubKey, true));
     }
 
     if (!cert_params.isObject())
@@ -1393,7 +1391,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
 
         txin.scriptSig.clear();
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
-        if (!fHashSingle || (i < mergedTx.vout.size()))
+        if (!fHashSingle || (i < mergedTx.getVout().size()))
             SignSignature(keystore, prevPubKey, mergedTx, i, nHashType);
 
         // ... and merge in other signatures:

@@ -1101,9 +1101,7 @@ void AsyncRPCOperation_sendmany::add_taddr_outputs_to_tx() {
         }
 
         CScript scriptPubKey = GetScriptForDestination(address.Get());
-
-        CTxOut out(nAmount, scriptPubKey, false);
-        rawTx.vout.push_back(out);
+        rawTx.addOut(CTxOut(nAmount, scriptPubKey, false));
     }
 
     tx_ = CTransaction(rawTx);
@@ -1121,10 +1119,9 @@ void AsyncRPCOperation_sendmany::add_taddr_change_output_to_tx(CAmount amount) {
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Could not generate a taddr to use as a change address"); // should never fail, as we just unlocked
     }
     CScript scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
-    CTxOut out(amount, scriptPubKey, false);
 
     CMutableTransaction rawTx(tx_);
-    rawTx.vout.push_back(out);
+    rawTx.addOut(CTxOut(amount, scriptPubKey, false));
     tx_ = CTransaction(rawTx);
 }
 

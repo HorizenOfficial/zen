@@ -974,8 +974,10 @@ struct CMutableTransactionBase
 {
     int32_t nVersion;
     std::vector<CTxIn> vin;
-    std::vector<CTxOut> vout;
 
+protected:
+    std::vector<CTxOut> vout;
+public:
     CMutableTransactionBase();
     virtual ~CMutableTransactionBase() = default;
 
@@ -984,6 +986,9 @@ struct CMutableTransactionBase
      */
     virtual uint256 GetHash() const = 0;
 
+          std::vector<CTxOut>& getVout()       { return vout; }
+    const std::vector<CTxOut>& getVout() const { return vout; }
+            bool addOut(const CTxOut& out) { vout.push_back(out); return true;}
     virtual bool addBwt(const CTxOut& out)             = 0;
     virtual bool add(const CTxScCreationOut& out)      = 0;
     virtual bool add(const CTxForwardTransferOut& out) = 0;

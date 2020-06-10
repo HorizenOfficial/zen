@@ -237,10 +237,8 @@ double benchmark_large_tx()
     // The "original" transaction that the spending transaction will spend
     // from.
     CMutableTransaction m_orig_tx;
-    m_orig_tx.vout.resize(1);
-    m_orig_tx.vout[0].nValue = 1000000;
     CScript prevPubKey = GetScriptForDestination(pub.GetID());
-    m_orig_tx.vout[0].scriptPubKey = prevPubKey;
+    m_orig_tx.addOut(CTxOut(1000000, prevPubKey, false));
 
     auto orig_tx = CTransaction(m_orig_tx);
 
