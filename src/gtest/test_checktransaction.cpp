@@ -52,8 +52,8 @@ CMutableTransaction GetValidTransaction(int txVersion) {
     mtx.vin[0].prevout.n = 0;
     mtx.vin[1].prevout.hash = uint256S("0000000000000000000000000000000000000000000000000000000000000002");
     mtx.vin[1].prevout.n = 0;
-    mtx.addOut(CTxOut(0,CScript(),false));
-    mtx.addOut(CTxOut(0,CScript(),false));
+    mtx.addOut(CTxOut(0,CScript()));
+    mtx.addOut(CTxOut(0,CScript()));
 
     if (txVersion == SC_TX_VERSION)
     {     
@@ -110,8 +110,8 @@ CMutableScCertificate GetValidCertificate() {
     CMutableScCertificate mcert;
 	mcert.nVersion = SC_CERT_VERSION;
 
-    mcert.addOut(CTxOut(0.5,CScript(),false));
-    mcert.addOut(CTxOut(1,CScript(),false));
+    mcert.addOut(CTxOut(0.5,CScript()));
+    mcert.addOut(CTxOut(1,CScript()));
 
     mcert.scId = GetRandHash();
     mcert.epochNumber = 3;

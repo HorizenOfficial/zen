@@ -146,7 +146,7 @@ TEST(CheckBlock, BlockRejectsNoCbh) {
 
     //std::cout << "Script: " << scriptPubKey.ToString() << std::endl;
 
-    mtx.addOut(CTxOut(0.5, scriptPubKey, false));
+    mtx.addOut(CTxOut(0.5, scriptPubKey));
 
     block.vtx.push_back(mtx);
 
@@ -176,7 +176,7 @@ protected:
         // Set height
         mtx.vin[0].scriptSig = CScript() << height << OP_0;
 
-        mtx.addOut(CTxOut(0, CScript() << OP_TRUE, false));
+        mtx.addOut(CTxOut(0, CScript() << OP_TRUE));
         CAmount reward = GetBlockSubsidy(height, Params().GetConsensus());
 
 		for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
@@ -185,7 +185,7 @@ protected:
 				// Take some reward away from miners
 				mtx.getOut(0).nValue -= vCommunityFund;
 				// And give it to the community
-				mtx.addOut(CTxOut(vCommunityFund, Params().GetCommunityFundScriptAtHeight(height, cfType), false));
+				mtx.addOut(CTxOut(vCommunityFund, Params().GetCommunityFundScriptAtHeight(height, cfType)));
 			}
 		}
         return mtx;

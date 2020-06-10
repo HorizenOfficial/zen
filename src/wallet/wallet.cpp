@@ -3559,7 +3559,7 @@ bool CWallet::CreateTransaction(
                 // vouts to the payees
                 BOOST_FOREACH (const CRecipient& recipient, vecSend)
                 {
-                    CTxOut txout(recipient.nAmount, recipient.scriptPubKey, false);
+                    CTxOut txout(recipient.nAmount, recipient.scriptPubKey);
 
                     if (recipient.fSubtractFeeFromAmount)
                     {
@@ -3658,7 +3658,7 @@ bool CWallet::CreateTransaction(
                         scriptChange = GetScriptForDestination(vchPubKey.GetID());
                     }
 
-                    CTxOut newTxOut(nChange, scriptChange, false);
+                    CTxOut newTxOut(nChange, scriptChange);
 
                     // We do not move dust-change to fees, because the sender would end up paying more than requested.
                     // This would be against the purpose of the all-inclusive feature.

@@ -142,18 +142,13 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
     res.epochNumber = epochNum;
     res.endEpochBlockHash = endEpochBlockHash;
 
-    res.resizeOut(numChangeOut+numBwt);
-    for(unsigned int idx = 0; idx < numChangeOut; ++idx) {
-        res.getOut(idx).nValue = insecure_rand();
-        res.getOut(idx).scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
-        res.getOut(idx).isFromBackwardTransfer = false;
-    }
+    CScript dummyScriptPubKey =
+            GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
+    for(unsigned int idx = 0; idx < numChangeOut; ++idx)
+        res.addOut(CTxOut(insecure_rand(),dummyScriptPubKey));
 
-    for(unsigned int idx = 0; idx < numBwt; ++idx) {
-        res.getOut(numChangeOut+idx).nValue = bwTotaltAmount/numBwt;
-        res.getOut(numChangeOut+idx).scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
-        res.getOut(numChangeOut+idx).isFromBackwardTransfer = true;
-    }
+    for(unsigned int idx = 0; idx < numBwt; ++idx)
+        res.addBwt(CTxOut(bwTotaltAmount/numBwt, dummyScriptPubKey));
 
     return res;
 }

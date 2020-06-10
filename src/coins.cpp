@@ -1423,7 +1423,6 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
             if (coins->vout.size() < (coins->nFirstBwtPos + idx+1))
                 coins->vout.resize(coins->nFirstBwtPos + idx+1);
             coins->vout.at(coins->nFirstBwtPos + idx) = voidedOuts.at(idx).txout;
-            coins->vout.at(coins->nFirstBwtPos + idx).isFromBackwardTransfer = true;
         }
 
         SyncBwtCeasing(voidedCertUndo.voidedCertHash, false);

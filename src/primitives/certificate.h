@@ -86,19 +86,14 @@ public:
 
         if (ser_action.ForRead())
         {
-            std::vector<CBackwardTransferOut> vbt_ccout_ser;
-
             // reading from data stream to memory
             READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
-            READWRITE(*const_cast<std::vector<CBackwardTransferOut>*>(&vbt_ccout_ser));
-
             *const_cast<int*>(&nFirstBwtPos) = vout.size();
 
+            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+            READWRITE(*const_cast<std::vector<CBackwardTransferOut>*>(&vbt_ccout_ser));
             for (auto& btout : vbt_ccout_ser)
-            {
-                CTxOut out(btout);
-                (*const_cast<std::vector<CTxOut>*>(&vout)).push_back(out);
-            }
+                (*const_cast<std::vector<CTxOut>*>(&vout)).push_back(CTxOut(btout));
         }
         else
         {
@@ -205,38 +200,29 @@ struct CMutableScCertificate : public CMutableTransactionBase
 
         if (ser_action.ForRead())
         {
-            std::vector<CBackwardTransferOut> vbt_ccout_ser;
-
             // reading from data stream to memory
             READWRITE(vout);
-            READWRITE(vbt_ccout_ser);
+            *const_cast<int*>(&nFirstBwtPos) = vout.size();
 
+            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+            READWRITE(vbt_ccout_ser);
             for (auto& btout : vbt_ccout_ser)
-            {
-                CTxOut out(btout);
-                vout.push_back(out);
-            }
+                vout.push_back(CTxOut(btout));
         }
         else
         {
-            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+            // reading from memory and writing to data stream
             // we must not modify vout
             std::vector<CTxOut> vout_ser;
+            for(int pos = 0; pos < nFirstBwtPos; ++pos)
+                vout_ser.push_back(vout[pos]);
 
-            // reading from memory and writing to data stream
-            for (auto it = vout.begin(); it != vout.end(); ++it)
-            {
-                if ((*it).isFromBackwardTransfer)
-                {
-                    CBackwardTransferOut btout((*it));
-                    vbt_ccout_ser.push_back(btout);
-                }
-                else
-                {
-                    vout_ser.push_back(*it);
-                }
-            }
             READWRITE(vout_ser);
+
+            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+            for(int pos = nFirstBwtPos; pos < vout.size(); ++pos)
+                vbt_ccout_ser.push_back(CBackwardTransferOut(vout[pos]));
+
             READWRITE(vbt_ccout_ser);
         }
     }

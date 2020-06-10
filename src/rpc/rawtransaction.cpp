@@ -597,7 +597,7 @@ void AddOutputsToRawObject(CMutableTransactionBase& rawTxObj, const UniValue& se
         CScript scriptPubKey = GetScriptForDestination(address.Get());
         CAmount nAmount = AmountFromValue(sendTo[name_]);
 
-        rawTxObj.addOut(CTxOut(nAmount, scriptPubKey, false));
+        rawTxObj.addOut(CTxOut(nAmount, scriptPubKey));
     }
 }
 
@@ -875,7 +875,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
         CScript scriptPubKey = GetScriptForDestination(address.Get(), false);
         CAmount nAmount = AmountFromValue(backwardOutputs[name_]);
 
-        rawCert.addBwt(CTxOut(nAmount, scriptPubKey, true));
+        rawCert.addBwt(CTxOut(nAmount, scriptPubKey));
     }
 
     if (!cert_params.isObject())

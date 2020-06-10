@@ -740,7 +740,7 @@ BOOST_AUTO_TEST_CASE(coins_coinbase_spends)
     mtx.vin.resize(1);
     mtx.vin[0].scriptSig = CScript() << OP_1;
     mtx.vin[0].nSequence = 0;
-    mtx.addOut(CTxOut(500, CScript() << OP_1, false));
+    mtx.addOut(CTxOut(500, CScript() << OP_1));
 
     CTransaction tx(mtx);
 
@@ -762,7 +762,7 @@ BOOST_AUTO_TEST_CASE(coins_coinbase_spends)
         BOOST_CHECK(Consensus::CheckTxInputs(tx2, state, cache, 100+COINBASE_MATURITY, Params().GetConsensus()));
     }
 
-    mtx2.addOut(CTxOut(500, CScript() << OP_1, false));
+    mtx2.addOut(CTxOut(500, CScript() << OP_1));
 
     {
         CTransaction tx2(mtx2);
@@ -784,11 +784,9 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
     BOOST_CHECK_EQUAL(cc1.nHeight, 203998);
     BOOST_CHECK_EQUAL(cc1.vout.size(), 2);
     BOOST_CHECK_EQUAL(cc1.IsAvailable(0), false);
-    BOOST_CHECK_EQUAL(cc1.vout[0].isFromBackwardTransfer, false);
     BOOST_CHECK_EQUAL(cc1.IsAvailable(1), true);
     BOOST_CHECK_EQUAL(cc1.vout[1].nValue, 60000000000ULL);
     BOOST_CHECK_EQUAL(HexStr(cc1.vout[1].scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))))));
-    BOOST_CHECK_EQUAL(cc1.vout[0].isFromBackwardTransfer, false);
     // Good example
     CDataStream ss2(ParseHex("0109044086ef97d5790061b01caab50f1b8e9c50a5057eb43c2d9563a4eebbd123008c988f1a4a4de2161e0f50aac7f17e7f9555caa486af3b"), SER_DISK, CLIENT_VERSION);
 
@@ -801,14 +799,11 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
     BOOST_CHECK_EQUAL(cc2.vout.size(), 17);
     for (int i = 0; i < 17; i++) {
         BOOST_CHECK_EQUAL(cc2.IsAvailable(i), i == 4 || i == 16);
-        BOOST_CHECK_EQUAL(cc2.vout[i].isFromBackwardTransfer, false);
     }
     BOOST_CHECK_EQUAL(cc2.vout[4].nValue, 234925952);
     BOOST_CHECK_EQUAL(HexStr(cc2.vout[4].scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("61b01caab50f1b8e9c50a5057eb43c2d9563a4ee"))))));
-    BOOST_CHECK_EQUAL(cc2.vout[4].isFromBackwardTransfer, false);
     BOOST_CHECK_EQUAL(cc2.vout[16].nValue, 110397);
     BOOST_CHECK_EQUAL(HexStr(cc2.vout[16].scriptPubKey), HexStr(GetScriptForDestination(CKeyID(uint160(ParseHex("8c988f1a4a4de2161e0f50aac7f17e7f9555caa4"))))));
-    BOOST_CHECK_EQUAL(cc2.vout[16].isFromBackwardTransfer, false);
     // Smallest possible example
     CDataStream ssx(SER_DISK, CLIENT_VERSION);
     BOOST_CHECK_EQUAL(HexStr(ssx.begin(), ssx.end()), "");
@@ -825,7 +820,6 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_tx)
     BOOST_CHECK_EQUAL(cc3.IsAvailable(0), true);
     BOOST_CHECK_EQUAL(cc3.vout[0].nValue, 0);
     BOOST_CHECK_EQUAL(cc3.vout[0].scriptPubKey.size(), 0);
-    BOOST_CHECK_EQUAL(cc3.vout[0].isFromBackwardTransfer, false);
 
     // scriptPubKey that ends beyond the end of the stream
     CDataStream ss4(ParseHex("0002000800"), SER_DISK, CLIENT_VERSION);
@@ -874,13 +868,10 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
     originalCoin.vout.resize(3);
     originalCoin.vout[0].nValue = insecure_rand();
     originalCoin.vout[0].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))));
-    originalCoin.vout[0].isFromBackwardTransfer = false;
     originalCoin.vout[1].nValue = insecure_rand();
     originalCoin.vout[1].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("61b01caab50f1b8e9c50a5057eb43c2d9563a4ee"))));
-    originalCoin.vout[0].isFromBackwardTransfer = false;
     originalCoin.vout[2].nValue = insecure_rand();
     originalCoin.vout[2].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))));
-    originalCoin.vout[2].isFromBackwardTransfer = true;
     originalCoin.nHeight = 220;
     originalCoin.nVersion = SC_CERT_VERSION;
     originalCoin.nFirstBwtPos = 2;
@@ -895,13 +886,10 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization_from_certs)
     BOOST_CHECK(retrievedCoin.fCoinBase                      == originalCoin.fCoinBase);
     BOOST_CHECK(retrievedCoin.vout[0].nValue                 == originalCoin.vout[0].nValue);
     BOOST_CHECK(retrievedCoin.vout[0].scriptPubKey           == originalCoin.vout[0].scriptPubKey);
-    BOOST_CHECK(retrievedCoin.vout[0].isFromBackwardTransfer == originalCoin.vout[0].isFromBackwardTransfer);
     BOOST_CHECK(retrievedCoin.vout[1].nValue                 == originalCoin.vout[1].nValue);
     BOOST_CHECK(retrievedCoin.vout[1].scriptPubKey           == originalCoin.vout[1].scriptPubKey);
-    BOOST_CHECK(retrievedCoin.vout[1].isFromBackwardTransfer == originalCoin.vout[1].isFromBackwardTransfer);
     BOOST_CHECK(retrievedCoin.vout[2].nValue                 == originalCoin.vout[2].nValue);
     BOOST_CHECK(retrievedCoin.vout[2].scriptPubKey           == originalCoin.vout[2].scriptPubKey);
-    BOOST_CHECK(retrievedCoin.vout[2].isFromBackwardTransfer == originalCoin.vout[2].isFromBackwardTransfer);
     BOOST_CHECK(retrievedCoin.nHeight                        == originalCoin.nHeight);
     BOOST_CHECK(retrievedCoin.nVersion                       != originalCoin.nVersion);
     BOOST_CHECK( (retrievedCoin.nVersion & 0x7f)             == (originalCoin.nVersion & 0x7f));
@@ -918,7 +906,6 @@ BOOST_AUTO_TEST_CASE(Certificate_CTxInUndo_serialization)
     coinFromCert.fCoinBase = false;
     coinFromCert.vout.resize(1);
     coinFromCert.vout[0].nValue = insecure_rand();
-    coinFromCert.vout[0].isFromBackwardTransfer = true;
     coinFromCert.nHeight = 220;
     coinFromCert.nVersion = SC_CERT_VERSION;
     coinFromCert.nFirstBwtPos = 0;
@@ -938,7 +925,6 @@ BOOST_AUTO_TEST_CASE(Certificate_CTxInUndo_serialization)
     BOOST_CHECK_MESSAGE(retrievedFullCertIn.nHeight            == coinFromCert.nHeight,             retrievedFullCertIn.nHeight);
     BOOST_CHECK_MESSAGE(retrievedFullCertIn.nFirstBwtPos       == coinFromCert.nFirstBwtPos,        retrievedFullCertIn.nFirstBwtPos);
     BOOST_CHECK_MESSAGE(retrievedFullCertIn.nBwtMaturityHeight == coinFromCert.nBwtMaturityHeight,  retrievedFullCertIn.nBwtMaturityHeight);
-    BOOST_CHECK_MESSAGE(retrievedFullCertIn.txout.isFromBackwardTransfer == 0, "isFromBwt flag is not serialized. It must be reconstructed from nFirstBwtPos");
 
     //if the vin about to be written in undo is NOT the last one only vout is noted
     CTxInUndo partialCertInUndo(coinFromCert.vout[0]);
@@ -947,8 +933,7 @@ BOOST_AUTO_TEST_CASE(Certificate_CTxInUndo_serialization)
     ssPartialCert << partialCertInUndo;
     CTxInUndo retrievedPartialCertIn;
     ssPartialCert >> retrievedPartialCertIn;
-    BOOST_CHECK_MESSAGE(retrievedPartialCertIn.txout != coinFromCert.vout[0],
-            "WE CANNOT RECONSTRUCT A BWT FROM A SINGLE CTxInUndo. You need to serilized nHeight to get the whole information");
+    BOOST_CHECK(retrievedPartialCertIn.txout == coinFromCert.vout[0]);
 }
 
 BOOST_AUTO_TEST_CASE(Transaction_CTxInUndo_serialization)
@@ -960,9 +945,9 @@ BOOST_AUTO_TEST_CASE(Transaction_CTxInUndo_serialization)
     coinFromTx.fCoinBase = false;
     coinFromTx.vout.resize(1);
     coinFromTx.vout[0].nValue = insecure_rand();
-    coinFromTx.vout[0].isFromBackwardTransfer = false;
     coinFromTx.nHeight = 220;
     coinFromTx.nVersion = TRANSPARENT_TX_VERSION;
+    coinFromTx.nFirstBwtPos = BWT_POS_UNSET;
 
     //if the vin about to be written in undo is the last one, all metadata (fCoinBase, version, NOT originSc) are noted
     CTxInUndo fullTxInUndo(coinFromTx.vout[0], coinFromTx.fCoinBase, coinFromTx.nHeight, coinFromTx.nVersion);

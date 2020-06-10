@@ -216,7 +216,6 @@ CTxOut::CTxOut(const CBackwardTransferOut& btout) : nValue(btout.nValue)
     scriptPubKey.clear();
     std::vector<unsigned char> pkh(btout.pubKeyHash.begin(), btout.pubKeyHash.end());
     scriptPubKey << OP_DUP << OP_HASH160 << pkh << OP_EQUALVERIFY << OP_CHECKSIG;
-    isFromBackwardTransfer = true;
 }
 
 uint256 CTxOut::GetHash() const
@@ -226,8 +225,8 @@ uint256 CTxOut::GetHash() const
 
 std::string CTxOut::ToString() const
 {
-    return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s, isFromBackwardTransfer=%d)",
-        nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30), isFromBackwardTransfer);
+    return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s)",
+        nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30));
 }
 
 //----------------------------------------------------------------------------

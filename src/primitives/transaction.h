@@ -361,39 +361,26 @@ public:
     CAmount nValue;
     CScript scriptPubKey;
 
-    /* mem only */
-    bool isFromBackwardTransfer;
+    CTxOut(): nValue(-1), scriptPubKey() {}
 
-    CTxOut()
-    {
-        SetNull();
-    }
-
-    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn, bool isFromBackwardTransferIn) :
-        nValue(nValueIn), scriptPubKey(scriptPubKeyIn), isFromBackwardTransfer(isFromBackwardTransferIn) {}
+    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn) :
+        nValue(nValueIn), scriptPubKey(scriptPubKeyIn) {}
 
     explicit CTxOut(const CBackwardTransferOut& btdata);
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
         READWRITE(nValue);
         READWRITE(scriptPubKey);
-        if (ser_action.ForRead())
-        {
-            // the in-memory attribute isFromBackwardTransfer is not serialized, to keep backward compatibility
-            // It is left up to object including CTxOut attributes in their serialization operations to track
-            // the isFromBackwardTransfer flag. Below the isFromBackwardTransfer flag is initialized to a default value.
-            isFromBackwardTransfer = false;
-        }
     }
 
     void SetNull()
     {
         nValue = -1;
         scriptPubKey.clear();
-        isFromBackwardTransfer = false;
     }
 
     bool IsNull() const
@@ -428,8 +415,7 @@ public:
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
         return (a.nValue                 == b.nValue &&
-                a.scriptPubKey           == b.scriptPubKey &&
-                a.isFromBackwardTransfer == b.isFromBackwardTransfer);
+                a.scriptPubKey           == b.scriptPubKey);
     }
 
     friend bool operator!=(const CTxOut& a, const CTxOut& b)

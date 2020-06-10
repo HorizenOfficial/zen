@@ -27,7 +27,7 @@ CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nV
 }
 
 CScCertificate::CScCertificate(int versionIn): CTransactionBase(versionIn),
-    scId(), epochNumber(EPOCH_NOT_INITIALIZED), endEpochBlockHash(), nFirstBwtPos(-1) {}
+    scId(), epochNumber(EPOCH_NOT_INITIALIZED), endEpochBlockHash(), nFirstBwtPos(BWT_POS_UNSET) {}
 
 CScCertificate::CScCertificate(const CScCertificate &cert): CTransactionBase(cert),
     scId(cert.scId), epochNumber(cert.epochNumber),
@@ -44,15 +44,8 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
 }
 
 CScCertificate::CScCertificate(const CMutableScCertificate &cert): CTransactionBase(cert),
-    scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash), nFirstBwtPos(vout.size())
+    scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash), nFirstBwtPos(cert.nFirstBwtPos)
 {
-    for(unsigned int idx = 0; idx < this->vout.size(); ++idx) {
-        if (this->vout[idx].isFromBackwardTransfer) {
-            *const_cast<int*>(&nFirstBwtPos) = idx;
-            break;
-        }
-    }
-
     UpdateHash();
 }
 
@@ -160,11 +153,12 @@ std::string CScCertificate::ToString() const
 {
     CAmount total = GetValueOfBackwardTransfers();
     std::string str;
-    str += strprintf("CScCertificate(hash=%s, ver=%d, vin.size()=%s, vout.size=%u, totAmount=%d.%08d\n)",
+    str += strprintf("CScCertificate(hash=%s, ver=%d, vin.size()=%s, vout.size=%u, nFirstBwtPos=%d, totAmount=%d.%08d,\n)",
         GetHash().ToString().substr(0,10),
         nVersion,
         vin.size(),
         vout.size(),
+        nFirstBwtPos,
         total / COIN, total % COIN);
     for (unsigned int i = 0; i < vin.size(); i++)
         str += "    " + vin[i].ToString() + "\n";
@@ -260,7 +254,7 @@ int CScCertificate::GetNumbOfBackwardTransfers() const {
 // Mutable Certificate
 //-------------------------------------
 CMutableScCertificate::CMutableScCertificate() :
-        scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), nFirstBwtPos(0) {}
+        scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), nFirstBwtPos(BWT_POS_UNSET) {}
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert) :
     scId(cert.GetScId()), epochNumber(cert.epochNumber),
@@ -277,12 +271,18 @@ uint256 CMutableScCertificate::GetHash() const
 }
 
 void CMutableScCertificate::insertAtPos(unsigned int pos, const CTxOut& out) {
+    if (nFirstBwtPos == BWT_POS_UNSET)
+        (*const_cast<int*>(&nFirstBwtPos)) = 0;
+
     if (pos < nFirstBwtPos)
         ++(*const_cast<int*>(&nFirstBwtPos));
 
     vout.insert(vout.begin() + pos, out);
 }
 void CMutableScCertificate::eraseAtPos(unsigned int pos) {
+    if (nFirstBwtPos == BWT_POS_UNSET)
+        (*const_cast<int*>(&nFirstBwtPos)) = 0;
+
     if (pos < nFirstBwtPos)
         --(*const_cast<int*>(&nFirstBwtPos));
 
@@ -295,11 +295,17 @@ void CMutableScCertificate::resizeOut(unsigned int newSize) {
     vout.resize(newSize);
 }
 bool CMutableScCertificate::addOut(const CTxOut& out) {
+    if (nFirstBwtPos == BWT_POS_UNSET)
+        (*const_cast<int*>(&nFirstBwtPos)) = 0;
+
     ++(*const_cast<int*>(&nFirstBwtPos));
     vout.push_back(out);
     return true;
 }
 bool CMutableScCertificate::addBwt(const CTxOut& out) {
+    if (nFirstBwtPos == BWT_POS_UNSET)
+        (*const_cast<int*>(&nFirstBwtPos)) = 0;
+
     vout.push_back(out);
     return true;
 }

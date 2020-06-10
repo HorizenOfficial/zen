@@ -238,7 +238,7 @@ double benchmark_large_tx()
     // from.
     CMutableTransaction m_orig_tx;
     CScript prevPubKey = GetScriptForDestination(pub.GetID());
-    m_orig_tx.addOut(CTxOut(1000000, prevPubKey, false));
+    m_orig_tx.addOut(CTxOut(1000000, prevPubKey));
 
     auto orig_tx = CTransaction(m_orig_tx);
 

@@ -277,7 +277,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         CKey secret;
         secret.MakeNewKey(true);
         CScript scriptPubKey = GetScriptForDestination(secret.GetPubKey().GetID());
-        CTxOut out(CAmount(1), scriptPubKey, false);
+        CTxOut out(CAmount(1), scriptPubKey);
         CAmount dustThreshold = out.GetDustThreshold(minRelayTxFee);
         CAmount dustChange = -1;
 
@@ -1101,7 +1101,7 @@ void AsyncRPCOperation_sendmany::add_taddr_outputs_to_tx() {
         }
 
         CScript scriptPubKey = GetScriptForDestination(address.Get());
-        rawTx.addOut(CTxOut(nAmount, scriptPubKey, false));
+        rawTx.addOut(CTxOut(nAmount, scriptPubKey));
     }
 
     tx_ = CTransaction(rawTx);
@@ -1121,7 +1121,7 @@ void AsyncRPCOperation_sendmany::add_taddr_change_output_to_tx(CAmount amount) {
     CScript scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
 
     CMutableTransaction rawTx(tx_);
-    rawTx.addOut(CTxOut(amount, scriptPubKey, false));
+    rawTx.addOut(CTxOut(amount, scriptPubKey));
     tx_ = CTransaction(rawTx);
 }
 

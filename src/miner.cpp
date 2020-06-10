@@ -685,7 +685,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         txNew.vin[0].prevout.SetNull();
 
         CAmount reward = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
-        CTxOut out(reward, scriptPubKeyIn, false);
+        CTxOut out(reward, scriptPubKeyIn);
         txNew.addOut(out);
 
         for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
@@ -694,7 +694,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 // Take some reward away from miners
                 txNew.getOut(0).nValue -= vCommunityFund;
                 // And give it to the community
-                txNew.addOut(CTxOut(vCommunityFund, chainparams.GetCommunityFundScriptAtHeight(nHeight, cfType), false));
+                txNew.addOut(CTxOut(vCommunityFund, chainparams.GetCommunityFundScriptAtHeight(nHeight, cfType)));
             }
         }
         // Add fees

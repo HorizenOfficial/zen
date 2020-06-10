@@ -241,7 +241,7 @@ bool CRecipientHandler::handle(const CRecipientForwardTransfer& r)
 
 bool CRecipientHandler::handle(const CRecipientBackwardTransfer& r)
 {
-    CTxOut txout(r.nValue, r.scriptPubKey, true);
+    CTxOut txout(r.nValue, r.scriptPubKey);
     return txBase->addBwt(txout);
 };
 
@@ -304,7 +304,7 @@ ScRpcCmd::ScRpcCmd(
     CKey secret;
     secret.MakeNewKey(true);
     CScript scriptPubKey = GetScriptForDestination(secret.GetPubKey().GetID());
-    CTxOut out(CAmount(1), scriptPubKey, false);
+    CTxOut out(CAmount(1), scriptPubKey);
     _dustThreshold = out.GetDustThreshold(minRelayTxFee);
 
     _totalInputAmount = 0;
@@ -445,7 +445,7 @@ void ScRpcCmd::addChange()
             scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
         }
 
-        _tx.addOut(CTxOut(change, scriptPubKey, false));
+        _tx.addOut(CTxOut(change, scriptPubKey));
     }
 }
 

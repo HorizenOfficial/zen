@@ -1950,8 +1950,6 @@ bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint
         coins->vout.resize(out.n+1);
 
     coins->vout[out.n] = undo.txout;
-    if (coins->IsFromCert() && (out.n >= coins->nFirstBwtPos))
-        coins->vout[out.n].isFromBackwardTransfer = true;
 
     return fClean;
 }
