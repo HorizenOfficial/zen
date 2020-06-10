@@ -8,6 +8,7 @@
 #include "random.h"
 #include "version.h"
 #include "policy/fees.h"
+#include "sc/proofverifier.h"
 
 #include <assert.h>
 #include "utilmoneystr.h"
@@ -691,6 +692,8 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         cacheSidechains[scId].scInfo.lastCertificateHash.SetNull();
         cacheSidechains[scId].scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
         cacheSidechains[scId].scInfo.creationData.customData = cr.customData;
+        cacheSidechains[scId].scInfo.creationData.constant = cr.constant;
+        cacheSidechains[scId].scInfo.creationData.wCertVk = cr.wCertVk;
         cacheSidechains[scId].scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
         cacheSidechains[scId].flag = CSidechainsCacheEntry::Flags::FRESH;
 
@@ -797,7 +800,13 @@ int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
 int CSidechain::SafeguardMargin() const { return -1; }
 size_t CSidechain::DynamicMemoryUsage() const { return 0; }
 bool CCoinsViewCache::isEpochDataValid(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) {return true;}
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state) {return true;}
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) {return true;}
+bool libzendoomc::CScProofVerifier::verifyCScCertificate(              
+    const libzendoomc::ScConstant& constant,
+    const libzendoomc::ScVk& wCertVk,
+    const uint256& prev_end_epoch_block_hash,
+    const CScCertificate& scCert
+) const { return true; }
 bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height) { return true;}
 void SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped) {};
 size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
@@ -806,7 +815,7 @@ size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
 
 #include "consensus/validation.h"
 #include "main.h"
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state)
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier)
 {
     const uint256& certHash = cert.GetHash();
 
@@ -849,6 +858,18 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     }
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
         __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scInfo.balance), FormatMoney(totalAmount) );
+
+    // Retrieve previous end epoch block hash for certificate proof verification
+    int targetHeight = scInfo.StartHeightForEpoch(cert.epochNumber) - 1;
+    uint256 prev_end_epoch_block_hash = chainActive[targetHeight] -> GetBlockHash();
+
+    // Verify certificate proof
+    if (!scVerifier.verifyCScCertificate(scInfo.creationData.constant, scInfo.creationData.wCertVk, prev_end_epoch_block_hash, cert)){
+        LogPrintf("ERROR: certificate[%s] cannot be accepted for sidechain [%s]: proof verification failed\n",
+            certHash.ToString(), cert.GetScId().ToString());
+        return state.Invalid(error("proof not verified"),
+                     REJECT_INVALID, "sidechain-certificate-proof-not-verified");
+    }
 
     return true;
 }
@@ -1544,6 +1565,8 @@ void CCoinsViewCache::Dump_info() const
         LogPrint("sc", "  ----- creation data:\n");
         LogPrint("sc", "      withdrawalEpochLength[%d]\n", info.creationData.withdrawalEpochLength);
         LogPrint("sc", "      customData[%s]\n", HexStr(info.creationData.customData));
+        LogPrint("sc", "      constant[%s]\n", HexStr(info.creationData.constant));
+        LogPrint("sc", "      wCertVk[%s]\n", HexStr(info.creationData.wCertVk));
         LogPrint("sc", "  immature amounts size[%d]\n", info.mImmatureAmounts.size());
     }
 

@@ -1182,7 +1182,9 @@ public:
         ::Serialize(s, certTo.nVersion, nType, nVersion);
         ::Serialize(s, certTo.GetScId(), nType, nVersion);
         ::Serialize(s, certTo.epochNumber, nType, nVersion);
+        ::Serialize(s, certTo.quality, nType, nVersion);
         ::Serialize(s, certTo.endEpochBlockHash, nType, nVersion);
+        ::Serialize(s, certTo.scProof, nType, nVersion);
 
         // Serialize vin
         unsigned int nInputs = certTo.GetVin().size();

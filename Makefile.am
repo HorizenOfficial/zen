@@ -17,6 +17,7 @@ BITCOIN_QT_BIN=$(top_builddir)/src/qt/bitcoin-qt$(EXEEXT)
 BITCOIN_CLI_BIN=$(top_builddir)/src/zen-cli$(EXEEXT)
 BITCOIN_WIN_INSTALLER=$(PACKAGE)-$(PACKAGE_VERSION)-win$(WINDOWS_BITS)-setup$(EXEEXT)
 
+
 ##OSX_APP=Bitcoin-Qt.app
 ##OSX_DMG=Bitcoin-Core.dmg
 ##OSX_BACKGROUND_IMAGE=background.tiff
@@ -144,6 +145,7 @@ $(BITCOIND_BIN): FORCE
 
 $(BITCOIN_CLI_BIN): FORCE
 	$(MAKE) -C src $(@F)
+
 
 if USE_LCOV
 

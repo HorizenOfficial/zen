@@ -5,6 +5,7 @@
 
 #include <rpc/protocol.h>
 #include "utilmoneystr.h"
+#include "uint256.h"
 
 #include <wallet/wallet.h>
 
@@ -34,7 +35,9 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("withdrawal epoch length", (int)out.withdrawalEpochLength));
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
         o.push_back(Pair("address", out.address.GetHex()));
+        o.push_back(Pair("wCertVk", HexStr(out.wCertVk)));
         o.push_back(Pair("customData", HexStr(out.customData)));
+        o.push_back(Pair("constant", HexStr(out.constant)));
         vscs.push_back(o);
         nIdx++;
     }
@@ -52,6 +55,44 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
         nIdx++;
     }
     parentObj.push_back(Pair("vft_ccout", vfts));
+}
+
+
+bool AddScData(const std::string& inputString, std::vector<unsigned char>& vBytes, unsigned int vSize, bool enforceStrictSize, std::string& error)
+{ 
+
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+    {
+        error = std::string("Invalid format: not an hex");
+        return false;
+    }
+
+    unsigned int dataLen = inputString.length();
+
+    if (dataLen%2)
+    {
+        error = strprintf("Invalid length %d, must be even (byte string)", dataLen);
+        return false;
+    }
+
+    unsigned int scDataLen = dataLen/2;
+
+    if(enforceStrictSize && (scDataLen != vSize))
+    {
+        error = strprintf("Invalid length %d, must be %d bytes", scDataLen, vSize);
+        return false;
+    }
+
+    if (!enforceStrictSize && (scDataLen > vSize))
+    {
+        error = strprintf("Invalid length %d, must be %d bytes at most", scDataLen, vSize);
+        return false;
+    }
+
+    vBytes = ParseHex(inputString);
+    assert(vBytes.size() == scDataLen);
+
+    return true;
 }
 
 bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, std::string& error)
@@ -110,30 +151,57 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         uint256 address;
         address.SetHex(inputString);
 
-        const UniValue& cd = find_value(o, "customData");
-        if (!cd.isNull())
+        const UniValue& wCertVk = find_value(o, "wCertVk");
+        if (wCertVk.isNull())
         {
-            const std::string& inputStringCd = cd.get_str();
-            if (inputStringCd.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            error = "Missing mandatory parameter wCertVk";
+            return false;
+        }
+        else
+        {
+            inputString = wCertVk.get_str();
+            std::vector<unsigned char> wCertVkVec;
+            if (!AddScData(inputString, wCertVkVec, SC_VK_SIZE, true, error))
             {
-                error = "Invalid scid format: not an hex";
+                error = "wCertVk: " + error;
                 return false;
             }
 
-            unsigned int cdLen = inputStringCd.length();
-            // just add one if we have an odd number of chars, hex will be padded with a 0 this is
-            // better than refusing the raw creation
-            if (cdLen%2)
-                cdLen ++;
+            sc.wCertVk = libzendoomc::ScVk(wCertVkVec);
 
-            unsigned int cdDataLen = cdLen/2;
+            if (!libzendoomc::IsValidScVk(sc.wCertVk))
+            {
+                error = "invalid wCertVk";
+                return false;
+            }
+        }
+        
+        const UniValue& cd = find_value(o, "customData");
+        if (!cd.isNull())
+        {
+            inputString = cd.get_str();
+            if (!AddScData(inputString, sc.customData, MAX_SC_DATA_LEN, false, error))
+            {
+                error = "customData: " + error;
+                return false;
+            }
+        }
 
-            if (cdDataLen > MAX_CUSTOM_DATA_LEN)
-                cdDataLen = MAX_CUSTOM_DATA_LEN;
+        const UniValue& constant = find_value(o, "constant");
+        if (!constant.isNull())
+        {
+            inputString = constant.get_str();
+            if (!AddScData(inputString, sc.constant, SC_FIELD_SIZE, false, error))
+            {
+                error = "constant: " + error;
+                return false;
+            }
 
-            CScCustomData cdBlob;
-            cdBlob.SetHex(inputStringCd);
-            cdBlob.fill(sc.customData, cdDataLen);
+            if (!libzendoomc::IsValidScConstant(sc.constant))
+            {
+                error = "invalid constant";
+                return false;
+            }
         }
 
         CTxScCreationOut txccout(nAmount, address, sc);
@@ -196,7 +264,9 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& 
         sc.nValue = entry.nValue;
         sc.address = entry.address;
         sc.creationData.withdrawalEpochLength = entry.withdrawalEpochLength;
+        sc.creationData.wCertVk = entry.wCertVk;
         sc.creationData.customData = entry.customData;
+        sc.creationData.constant = entry.constant;
 
         vecCcSend.push_back(CcRecipientVariant(sc));
     }
@@ -244,23 +314,6 @@ bool CRecipientHandler::handle(const CRecipientBackwardTransfer& r)
     CTxOut txout(r.nValue, r.scriptPubKey, true);
     return txBase->add(txout);
 };
-
-void CScCustomData::fill(std::vector<unsigned char>& vBytes, size_t nBytes) const
-{
-    if (nBytes == 0)
-        return;
-
-    if (nBytes > size())
-        nBytes = size();
-
-    unsigned char* ptr = const_cast<unsigned char*>(&data[0]);
-    ptr += (nBytes - 1);
-    for (size_t i = 0; i < nBytes; i++)
-    {
-        vBytes.push_back(*ptr);
-        ptr--;
-    }
-}
 
 bool FillCcOutput(CMutableTransaction& tx, std::vector<Sidechain::CcRecipientVariant> vecCcSend, std::string& strFailReason)
 {

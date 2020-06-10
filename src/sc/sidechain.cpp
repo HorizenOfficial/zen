@@ -1,4 +1,5 @@
 #include "sc/sidechain.h"
+#include "sc/proofverifier.h"
 #include "primitives/transaction.h"
 #include "utilmoneystr.h"
 #include "txmempool.h"
@@ -112,6 +113,25 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             return state.DoS(100, error("%s: sc creation amount is outside range",
                 __func__), REJECT_INVALID, "sidechain-sc-creation-amount-outside-range");
         }
+
+        if (!libzendoomc::IsValidScVk(sc.wCertVk))
+        {
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : invalid wCert verification key\n",
+                __func__, __LINE__, txHash.ToString());
+            return state.DoS(100, error("%s: wCertVk is invalid",
+                __func__), REJECT_INVALID, "sidechain-sc-creation-invalid-wcert-vk");
+        }
+
+        if(!sc.constant.size() == 0)
+        {
+            if(!libzendoomc::IsValidScConstant(sc.constant))
+            {
+                LogPrint("sc", "%s():%d - Invalid tx[%s] : invalid constant\n",
+                    __func__, __LINE__, txHash.ToString());
+                return state.DoS(100, error("%s: constant is invalid",
+                    __func__), REJECT_INVALID, "sidechain-sc-creation-invalid-constant");
+            }
+        }
     }
 
     for (const auto& ft : tx.GetVftCcOut())
@@ -171,6 +191,22 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
             __func__, __LINE__, certHash.ToString() );
         return state.DoS(100, error("%s: certificate amount is outside range",
             __func__), REJECT_INVALID, "sidechain-bwd-transfer-amount-outside-range");
+    }
+
+    if (cert.quality < 0)
+    {
+        LogPrint("sc", "%s():%d - Invalid cert[%s] : negative quality\n",
+            __func__, __LINE__, certHash.ToString() );
+        return state.DoS(100, error("%s: certificate quality is negative",
+            __func__), REJECT_INVALID, "bad-cert-quality-negative");
+    }
+
+    if(!libzendoomc::IsValidScProof(cert.scProof))
+    {
+        LogPrint("sc", "%s():%d - Invalid cert[%s] : invalid scProof\n",
+            __func__, __LINE__, certHash.ToString() );
+        return state.DoS(100, error("%s: certificate scProof is not valid",
+            __func__), REJECT_INVALID, "bad-cert-invalid-sc-proof");
     }
 
     return true;

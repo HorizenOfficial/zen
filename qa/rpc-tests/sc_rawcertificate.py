@@ -7,6 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, p2p_port, mark_logs
+from test_framework.mc_test.mc_test import *
 import os
 from decimal import *
 import operator
@@ -35,7 +36,7 @@ class sc_rawcert(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
-            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1', '-txindex=1', '-zapwallettxes=2']] * NUMB_OF_NODES)
+            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib', '-logtimemicros=1', '-txindex=1', '-zapwallettxes=2']] * NUMB_OF_NODES)
 
         for idx, _ in enumerate(self.nodes):
             if idx < (NUMB_OF_NODES - 1):
@@ -79,7 +80,12 @@ class sc_rawcert(BitcoinTestFramework):
         # create a sc via createraw cmd
         mark_logs("Node 1 creates the SC spending " + str(sc_amount) + " coins ...", self.nodes, DEBUG_MODE)
         sc_address = "fade"
-        sc_cr = [{"epoch_length": EPOCH_LENGTH, "amount": cr_amount, "address": sc_address, "customData": "badcaffe"}]
+
+        #generate vk and constant for this sidechain
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
+        constant = generate_random_field_element_hex()
+        
+        sc_cr = [{"epoch_length": EPOCH_LENGTH, "amount": cr_amount, "address": sc_address, "wCertVk": vk, "constant": constant}]
         sc_ft = []
         raw_tx = self.nodes[1].createrawtransaction([], {}, sc_cr, sc_ft)
         funded_tx = self.nodes[1].fundrawtransaction(raw_tx)
@@ -91,6 +97,9 @@ class sc_rawcert(BitcoinTestFramework):
         scid = decoded_tx['vsc_ccout'][0]['scid']
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
+        #retrieve previous_end_epoch_mc_b_hash
+        current_height = self.nodes[3].getblockcount()
+        pebh = self.nodes[3].getblockhash(current_height)
         mark_logs("Node3 generating 5 block", self.nodes, DEBUG_MODE)
         epn = 0
         eph = self.nodes[3].generate(EPOCH_LENGTH)[-1]
@@ -110,10 +119,16 @@ class sc_rawcert(BitcoinTestFramework):
         self.nodes[3].generate(2)
         self.sync_all()
 
+        # create wCert proof
+        quality = 0
+        proof = create_test_proof(
+        self.options.tmpdir, self.options.srcdir,  scid, epn, eph, pebh,
+        quality, constant, [pkh_node2], [bt_amount])
+
         raw_inputs   = []
         raw_outs     = {}
         raw_bwt_outs = {pkh_node2: bt_amount}
-        raw_params = {"scid": scid, "endEpochBlockHash": eph, "withdrawalEpochNumber": epn}
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
         raw_cert = []
         cert = []
 
@@ -156,6 +171,7 @@ class sc_rawcert(BitcoinTestFramework):
         mark_logs("Node0 generating 4 block, also reverting other chains", self.nodes, DEBUG_MODE)
         mined = self.nodes[0].generate(1)[0]
         epn = 1
+        pebh = eph
         eph = self.nodes[0].generate(3)[-1]
         self.sync_all()
 
@@ -196,10 +212,16 @@ class sc_rawcert(BitcoinTestFramework):
 
         node0_bal_before = self.nodes[0].getbalance()
 
+        # create wCert proof
+        quality = 1
+        proof = create_test_proof(
+        self.options.tmpdir, self.options.srcdir,  scid, epn, eph, pebh,
+        quality, constant, [], [])
+
         raw_inputs   = []
         raw_outs     = {}
         raw_bwt_outs = {}
-        raw_params = {"scid": scid, "endEpochBlockHash": eph, "withdrawalEpochNumber": epn}
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
         raw_cert = []
         cert = []
 
@@ -278,6 +300,7 @@ class sc_rawcert(BitcoinTestFramework):
         assert_equal(node0_bal_after, node0_bal_before - CERT_FEE)
 
         mark_logs("Node0 generating 4 block reaching next epoch", self.nodes, DEBUG_MODE)
+        pebh = eph
         eph = self.nodes[0].generate(4)[-1]
         epn = 2
         self.sync_all()
@@ -287,7 +310,6 @@ class sc_rawcert(BitcoinTestFramework):
         raw_inputs   = []
         raw_outs     = {}
         raw_bwt_outs = {}
-        raw_params = {"scid": scid, "endEpochBlockHash": eph, "withdrawalEpochNumber": epn}
         raw_cert = []
         cert = []
 
@@ -309,7 +331,7 @@ class sc_rawcert(BitcoinTestFramework):
 
         numbOfChunks = 50
         chunkValueBt  = Decimal(sc_funds_post/numbOfChunks) 
-        chunkValueOut = Decimal(change/numbOfChunks) 
+        chunkValueOut = Decimal(change/numbOfChunks)
 
         for k in range(0, numbOfChunks):
             pkh_node1 = self.nodes[1].getnewaddress("", True)
@@ -320,6 +342,26 @@ class sc_rawcert(BitcoinTestFramework):
         totBwtOuts = len(raw_bwt_outs)*chunkValueBt
         totOuts    = len(raw_outs)*chunkValueOut
         certFee    = totalUtxoAmount - Decimal(totOuts)
+
+        # create wCert proof
+        quality = 2
+
+        '''
+            we need to put pks and amounts in the corresponding lists in the same order
+            as the one generated by iterating over raw_bwt_outs dict, otherwise the
+            bwt merkle root computed in the SNARK prover and the verifier won't match
+        '''
+        pks = []
+        amounts = []
+        for pk, amount in raw_bwt_outs.items(): 
+            pks.append(pk)
+            amounts.append(amount)
+
+        proof = create_test_proof(
+        self.options.tmpdir, self.options.srcdir,  scid, epn, eph, pebh,
+        quality, constant, pks, amounts)
+
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
 
         # generate a certificate with some backward transfer, several vin vout and a fee
         try:
@@ -347,6 +389,7 @@ class sc_rawcert(BitcoinTestFramework):
         assert_equal(self.nodes[3].gettransaction(cert)['fee'], -certFee)
 
         mark_logs("Node0 generating 5 block reaching next epoch", self.nodes, DEBUG_MODE)
+        pebh = eph
         eph = self.nodes[0].generate(5)[-1]
         epn = 3
         self.sync_all()
@@ -362,10 +405,16 @@ class sc_rawcert(BitcoinTestFramework):
 
         assert_equal(utx!=False, True)
 
+        # create wCert proof
+        quality = 3
+        proof = create_test_proof(
+        self.options.tmpdir, self.options.srcdir,  scid, epn, eph, pebh,
+        quality, constant, [], [])
+
         raw_inputs   = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         raw_outs     = { self.nodes[0].getnewaddress() : change }
         raw_bwt_outs = {}
-        raw_params   = {"scid": scid, "endEpochBlockHash": eph, "withdrawalEpochNumber": epn}
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
         raw_cert     = []
         pk_arr       = []
 

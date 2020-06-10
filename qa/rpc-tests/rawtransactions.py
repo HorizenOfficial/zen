@@ -12,6 +12,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, assert_true
+from test_framework.mc_test.mc_test import generate_params, generate_random_field_element_hex
 
 from decimal import Decimal
 
@@ -174,7 +175,12 @@ class RawTransactionsTest(BitcoinTestFramework):
         sc_address="0000000000000000000000000000000000000000000000000000000000000abc"
         sc_epoch = 123
         sc_cr_amount = Decimal('10.00000000')
-        sc_cr = [{"epoch_length": sc_epoch, "amount":sc_cr_amount, "address":sc_address, "customData":"badcaffe"}]
+
+        #generate wCertVk and constant
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
+        constant = generate_random_field_element_hex()
+
+        sc_cr = [{"epoch_length": sc_epoch, "amount":sc_cr_amount, "address":sc_address, "wCertVk": vk, "constant": constant}]
 
         #Try create a SC with no inputs
         print("Try create a SC with no inputs...")
@@ -230,6 +236,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert(len(decodedTx['vsc_ccout'])==1)
         assert_equal(decodedTx['vsc_ccout'][0]['scid'],scid)
         assert_equal(decodedTx['vsc_ccout'][0]['withdrawal epoch length'],sc_epoch)
+        assert_equal(decodedTx['vsc_ccout'][0]['wCertVk'],vk)
+        assert_equal(decodedTx['vsc_ccout'][0]['constant'],constant)
         assert_equal(decodedTx['vsc_ccout'][0]['value'],sc_cr_amount)
         assert_equal(decodedTx['vsc_ccout'][0]['address'],sc_address)
 
