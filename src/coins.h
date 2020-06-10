@@ -400,9 +400,6 @@ public:
     //! Retrieve all the known sidechain ids
     virtual void GetScIds(std::set<uint256>& scIdsList) const;
 
-    //! just check whether we have data for a certificate in a given epoch for given sidechain
-    virtual bool HaveCertForEpoch(const uint256& scId, int epochNumber) const;
-
     //! Retrieve the block hash whose state this CCoinsView currently represents
     virtual uint256 GetBestBlock() const;
 
@@ -444,7 +441,6 @@ public:
     bool HaveSidechainEvents(int height)                               const override;
     bool GetSidechainEvents(int height, CSidechainEvents& scEvents)    const override;
     void GetScIds(std::set<uint256>& scIdsList)                        const override;
-    bool HaveCertForEpoch(const uint256& scId, int epochNumber)        const override;
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
     void SetBackend(CCoinsView &viewIn);

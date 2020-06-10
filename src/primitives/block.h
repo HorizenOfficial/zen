@@ -266,12 +266,12 @@ private:
     // The same for BTR (to be implemented)
     std::map<uint256, std::vector<uint256> > mScMerkleTreeLeavesBtr; 
 
-    // The same for the only Certificate contribution
+    // Key:   the side chain ID
+    // Value: the hash of the certificate related to this scid
     std::map<uint256, uint256 > mScCerts; 
 
     // the catalog of scid, resulting after having collected all above contributions
     std::set<uint256> sScIds;
-
 
     static const std::string MAGIC_SC_STRING;
 

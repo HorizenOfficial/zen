@@ -62,15 +62,20 @@ bool CScCertificate::IsBackwardTransfer(int pos) const
 
 bool CScCertificate::IsValidVersion(CValidationState &state) const
 {
+    if (nVersion != SC_CERT_VERSION )
+    {
+        LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate bad version %d\n",
+            __func__, __LINE__, GetHash().ToString(), nVersion );
+        return state.DoS(100, error("cert version"), REJECT_INVALID, "bad-cert-version");
+    }
+
     return true;
 }
 
-bool CScCertificate::CheckVersionIsStandard(std::string& reason, int nHeight) const {
+bool CScCertificate::IsVersionStandard(int nHeight) const
+{
     if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
-    {
-        reason = "version";
         return false;
-    }
 
     return true;
 }
@@ -96,6 +101,14 @@ bool CScCertificate::CheckAmounts(CValidationState &state) const
         if (!MoneyRange(nCumulatedValueOut))
             return state.DoS(100, error("CheckAmounts(): txout total out of range"),
                              REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+    }
+
+    if (!MoneyRange(GetValueOfBackwardTransfers()))
+    {
+        LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate amount is outside range\n",
+            __func__, __LINE__, GetHash().ToString() );
+        return state.DoS(100, error("%s: certificate amount is outside range",
+            __func__), REJECT_INVALID, "bwd-transfer-amount-outside-range");
     }
 
     return true;
@@ -195,18 +208,11 @@ bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int d
     return true;
 }
 
-bool CScCertificate::CheckFinal(int flags) const
-{
-    // as of now certificate finality has yet to be defined (see tx.nLockTime)
-    return true;
-}
-
 //--------------------------------------------------------------------------------------------
 // binaries other than zend that are produced in the build, do not call these members and therefore do not
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
-bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const {return true;}
 std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
 {
     return std::shared_ptr<BaseSignatureChecker>(NULL);
@@ -218,11 +224,6 @@ std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
     return std::shared_ptr<const CTransactionBase>();
 }
 #else
-bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const
-{
-    CValidationState state;
-    return ::AcceptCertificateToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
-}
 
 std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
 {
@@ -246,10 +247,13 @@ CAmount CScCertificate::GetValueOfBackwardTransfers() const
     return nValueOut;
 }
 
-int CScCertificate::GetNumbOfBackwardTransfers() const {
-    return vout.size() - nFirstBwtPos;
+CAmount CScCertificate::GetValueOfChange() const
+{
+    CAmount nValueOut = 0;
+    for(unsigned int pos = 0; pos < nFirstBwtPos; ++pos)
+        nValueOut += vout[pos].nValue;
+    return nValueOut;
 }
-
 
 // Mutable Certificate
 //-------------------------------------

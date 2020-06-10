@@ -193,7 +193,6 @@ bool CCoinsView::GetSidechain(const uint256& scId, CSidechain& info)           c
 bool CCoinsView::HaveSidechainEvents(int height)                               const { return false; }
 bool CCoinsView::GetSidechainEvents(int height, CSidechainEvents& scEvent)     const { return false; }
 void CCoinsView::GetScIds(std::set<uint256>& scIdsList)                        const { scIdsList.clear(); return; }
-bool CCoinsView::HaveCertForEpoch(const uint256& scId, int epochNumber)        const { return false; }
 uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
 uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
@@ -214,7 +213,6 @@ bool CCoinsViewBacked::GetSidechain(const uint256& scId, CSidechain& info)      
 bool CCoinsViewBacked::HaveSidechainEvents(int height)                               const { return base->HaveSidechainEvents(height); }
 bool CCoinsViewBacked::GetSidechainEvents(int height, CSidechainEvents& scEvents)    const { return base->GetSidechainEvents(height, scEvents); }
 void CCoinsViewBacked::GetScIds(std::set<uint256>& scIdsList)                        const { return base->GetScIds(scIdsList); }
-bool CCoinsViewBacked::HaveCertForEpoch(const uint256& scId, int epochNumber)        const { return base->HaveCertForEpoch(scId, epochNumber); }
 uint256 CCoinsViewBacked::GetBestBlock()                                             const { return base->GetBestBlock(); }
 uint256 CCoinsViewBacked::GetBestAnchor()                                            const { return base->GetBestAnchor(); }
 void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
@@ -1367,11 +1365,12 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
-        CSidechain& targetScInfo = cacheSidechains.at(scId).scInfo;
 
         CAmount amountToRestore = it->second.appliedMaturedAmount;
         if (amountToRestore > 0)
         {
+            CSidechain& targetScInfo = cacheSidechains.at(scId).scInfo;
+
             LogPrint("sc", "%s():%d - adding immature amount %s into sc view for scId=%s\n",
                 __func__, __LINE__, FormatMoney(amountToRestore), scIdString);
 
@@ -1416,6 +1415,10 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
                 coins->nVersion           = voidedOuts.at(idx).nVersion;
                 coins->nFirstBwtPos       = voidedOuts.at(idx).nFirstBwtPos;
                 coins->nBwtMaturityHeight = voidedOuts.at(idx).nBwtMaturityHeight;
+            } else
+            {
+                if (coins->IsPruned())
+                    fClean = fClean && error("%s: undo data adding output to missing transaction", __func__);
             }
 
             if(coins->IsAvailable(coins->nFirstBwtPos + idx))

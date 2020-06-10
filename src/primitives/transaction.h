@@ -585,7 +585,6 @@ protected:
 public:
 
     virtual size_t GetSerializeSize(int nType, int nVersion) const = 0;
-    virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const = 0;
 
     CTransactionBase(int versionIn);
     CTransactionBase(const CTransactionBase& tx);
@@ -624,8 +623,8 @@ public:
 
     //CHECK FUNCTIONS
     virtual bool IsValidVersion   (CValidationState &state) const = 0;
-    virtual bool CheckVersionIsStandard   (std::string& reason, int nHeight) const = 0;
-    virtual bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const = 0;
+    virtual bool IsVersionStandard(int nHeight) const = 0;
+    virtual bool ContextualCheck  (CValidationState& state, int nHeight, int dosLevel) const = 0;
 
     bool CheckSerializedSize (CValidationState &state) const;
     virtual bool CheckAmounts(CValidationState &state) const = 0;
@@ -669,8 +668,6 @@ public:
     virtual void AddToBlock(CBlock* pblock) const = 0;
     virtual void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const = 0;
 
-    virtual bool CheckFinal(int flags = -1) const = 0;
-
     bool VerifyScript(
         const CScript& scriptPubKey, unsigned int flags, unsigned int nIn, const CChain* chain,
         bool cacheStore, ScriptError* serror) const;
@@ -693,7 +690,7 @@ public:
         const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
         std::vector<CScriptCheck> *pvChecks = NULL) const { return true; }
 
-    virtual const uint256 getJoinSplitPubKey() const { return uint256(); }
+    virtual const uint256& GetJoinSplitPubKey() const = 0;
 
     static bool IsCertificate(int nVersion) {
         return (nVersion == SC_CERT_VERSION);
@@ -720,7 +717,6 @@ protected:
     void UpdateHash() const override;
 
 public:
-    virtual bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const override final;
     typedef boost::array<unsigned char, 64> joinsplit_sig_t;
 
     // Transactions that include a list of JoinSplits are version 2.
@@ -840,7 +836,7 @@ public:
 
     //CHECK FUNCTIONS
     bool IsValidVersion   (CValidationState &state) const override;
-    bool CheckVersionIsStandard   (std::string& reason, int nHeight) const override;
+    bool IsVersionStandard(int nHeight) const override;
     bool CheckAmounts     (CValidationState &state) const override;
     bool CheckNonEmpty    (CValidationState &state) const;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
@@ -856,7 +852,7 @@ public:
     // value in should be computed via the method above using a proper coin view
     CAmount GetFeeAmount(const CAmount& valueIn) const override { return (valueIn - GetValueOut() ); }
 
-    const uint256 getJoinSplitPubKey() const override { return joinSplitPubKey; }
+    const uint256& GetJoinSplitPubKey() const override { return joinSplitPubKey; }
 
     std::string ToString() const override;
 
@@ -944,7 +940,6 @@ public:
     void AddToBlock(CBlock* pblock) const override;
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const override;
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
-    bool CheckFinal(int flags = -1) const override;
     void AddJoinSplitToJSON(UniValue& entry) const override;
     void AddSidechainOutsToJSON(UniValue& entry) const override;
     bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,

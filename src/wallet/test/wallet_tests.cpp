@@ -49,8 +49,8 @@ static void add_coin(const CAmount& nValue, int nAge = 6*24, bool fIsFromMe = fa
     CWalletTx* wtx = new CWalletTx(&wallet, tx);
     if (fIsFromMe)
     {
-        wtx->SetfDebitCached() = true;
-        wtx->SetnDebitCached() = 1;
+        wtx->SetfDebitCached(true);
+        wtx->SetnDebitCached(1);
     }
     COutput output(wtx, nInput, nAge, true);
     vCoins.push_back(output);

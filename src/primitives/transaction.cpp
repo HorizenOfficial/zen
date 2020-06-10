@@ -747,13 +747,11 @@ std::string CTransaction::ToString() const
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
 bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int unused, int dosLevel) const { return true; }
-bool CTransaction::CheckVersionIsStandard(std::string& reason, const int nHeight) const {return true;}
+bool CTransaction::IsVersionStandard(int nHeight) const {return true;}
 
-bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const {return true;}
 void CTransaction::AddToBlock(CBlock* pblock) const { return; }
 void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const {return; }
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return true; }
-bool CTransaction::CheckFinal(int flags) const { return true; }
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
@@ -772,12 +770,6 @@ std::shared_ptr<const CTransactionBase> CTransaction::MakeShared() const
 
 #else
 //----- 
-bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const
-{
-    CValidationState state;
-    return AcceptTxToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
-};
-
 bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int nHeight, int dosLevel) const
 {
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
@@ -805,7 +797,7 @@ bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int nHeight, 
     return true;
 }
 
-bool CTransaction::CheckVersionIsStandard(std::string& reason, int nHeight) const {
+bool CTransaction::IsVersionStandard(int nHeight) const {
     // sidechain fork (happens after groth fork)
     int sidechainVersion = 0;
     bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
@@ -825,7 +817,6 @@ bool CTransaction::CheckVersionIsStandard(std::string& reason, int nHeight) cons
 
         if (nVersion > CTransaction::MAX_OLD_VERSION || nVersion < CTransaction::MIN_OLD_VERSION)
         {
-            reason = "version";
             return false;
         }
     }
@@ -836,7 +827,6 @@ bool CTransaction::CheckVersionIsStandard(std::string& reason, int nHeight) cons
             // check sidechain tx
             if ( !(areSidechainsSupported && (nVersion == sidechainVersion)) )
             {
-                reason = "version";
                 return false;
             }
         }
@@ -862,13 +852,13 @@ bool CTransactionBase::CheckInputsLimit() const {
 
 void CTransaction::AddToBlock(CBlock* pblock) const 
 {
-    LogPrint("cert", "%s():%d - adding to block tx %s\n", __func__, __LINE__, GetHash().ToString());
+    LogPrint("sc", "%s():%d - adding to block tx %s\n", __func__, __LINE__, GetHash().ToString());
     pblock->vtx.push_back(*this);
 }
 
 void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const
 {
-    LogPrint("cert", "%s():%d - adding to block templ tx %s, fee=%s, sigops=%u\n", __func__, __LINE__,
+    LogPrint("sc", "%s():%d - adding to block templ tx %s, fee=%s, sigops=%u\n", __func__, __LINE__,
         GetHash().ToString(), FormatMoney(fee), sigops);
     pblocktemplate->vTxFees.push_back(fee);
     pblocktemplate->vTxSigOps.push_back(sigops);
@@ -939,11 +929,6 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
     }
 
     return true;
-}
-
-bool CTransaction::CheckFinal(int flags) const
-{
-    return ::CheckFinalTx(*this, flags);
 }
 
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const

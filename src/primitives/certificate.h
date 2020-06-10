@@ -126,6 +126,7 @@ public:
     CScCertificate(deserialize_type, Stream& s) : CScCertificate(CMutableScCertificate(deserialize, s)) {}
 
     //GETTERS
+    const uint256&                            GetJoinSplitPubKey() const override { static const uint256 nullKey; return nullKey;}
     const std::vector<JSDescription>&         GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
     const uint256&                            GetScId()       const          {return scId;};
     const uint32_t&                           GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
@@ -135,7 +136,7 @@ public:
 
     //CHECK FUNCTIONS
     bool IsValidVersion   (CValidationState &state) const override;
-    bool CheckVersionIsStandard   (std::string& reason, int nHeight) const override;
+    bool IsVersionStandard(int nHeight) const override;
     bool CheckAmounts     (CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     bool CheckInputsInteraction(CValidationState &state) const override;
@@ -162,16 +163,12 @@ public:
     std::string ToString() const override;
 
     CAmount GetValueOfBackwardTransfers() const;
-    int GetNumbOfBackwardTransfers() const;
-    CAmount GetValueOfChange() const { return (GetValueOut() - GetValueOfBackwardTransfers()); }
+    CAmount GetValueOfChange() const;
 
     void AddToBlock(CBlock* pblock) const override; 
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int /* not used sigops */) const override;
 
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
-    bool CheckFinal(int flags) const override;
-
-    bool TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) const override final;
 
     std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
         unsigned int nIn, const CChain* chain, bool cacheStore) const override;
