@@ -623,9 +623,10 @@ zendoo_mcTest_SOURCES = \
     uint256.cpp \
     utilstrencodings.cpp 
 
-zendoo_mcTest_CPPFLAGS = $(AM_CPPFLAGS) 
-zendoo_mcTest_CXXFLAGS = $(AM_CXXFLAGS)  
-zendoo_mcTest_LDADD =  -lzendoo_mc -lpthread
+zendoo_mcTest_CPPFLAGS = $(AM_CPPFLAGS) $(EVENT_CFLAGS)
+zendoo_mcTest_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+zendoo_mcTest_LDADD = $(ZENDOO_MCTEST_LIBS)
+zendoo_mcTest_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 
 
