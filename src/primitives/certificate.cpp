@@ -31,7 +31,7 @@ CScCertificate::CScCertificate(int versionIn): CTransactionBase(versionIn),
     endEpochBlockHash(), scProof() {}
 
 CScCertificate::CScCertificate(const CScCertificate &cert): CTransactionBase(cert),
-    scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality)
+    scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
     endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof) {}
 
 CScCertificate& CScCertificate::operator=(const CScCertificate &cert)

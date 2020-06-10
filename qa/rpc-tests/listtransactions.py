@@ -243,11 +243,10 @@ class ListTransactionsTest(BitcoinTestFramework):
         sc_creation_amount -= fee
 
         # generate vk and constant for this sidechain
-        scid = "1111111111111111111111111111111111111111111111111111111111111111"
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, "sc1")
         constant = generate_random_field_element_hex()
 
-        cmdInput = {'scid': scid, 'fromaddress': fromaddr, 'toaddress': sidechain_address, 'amount': sc_creation_amount, 'fee': fee, 'wCertVk': vk, "constant": constant}
+        cmdInput = {'fromaddress': fromaddr, 'toaddress': sidechain_address, 'amount': sc_creation_amount, 'fee': fee, 'wCertVk': vk, "constant": constant}
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
             self.sync_all()

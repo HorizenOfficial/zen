@@ -67,7 +67,7 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node1 balance before SC creation: {}".format(bal_before_sc_creation), self.nodes, DEBUG_MODE)
 
         #generate wCertVk and constant
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, "sc1")
         constant = generate_random_field_element_hex()
 
         creating_tx = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
@@ -136,7 +136,7 @@ class sc_cert_base(BitcoinTestFramework):
         #Create proof for WCert
         quality = 0
         proof = create_test_proof(
-            self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            self.options.tmpdir, self.options.srcdir, "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node1], [bwt_amount])
 
         mark_logs("Node 0 tries to perform a bwd transfer with insufficient Sc balance...", self.nodes, DEBUG_MODE)
@@ -230,7 +230,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         #Create wrong proof for WCert
         proof_wrong = create_test_proof(
-            self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            self.options.tmpdir, self.options.srcdir,  "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node1], [bwt_amount_bad])
         
         try:
@@ -251,7 +251,7 @@ class sc_cert_base(BitcoinTestFramework):
         #Create wrong proof for WCert
         pkh_node1_bad = self.nodes[1].getnewaddress("", True)
         proof_wrong = create_test_proof(
-            self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            self.options.tmpdir, self.options.srcdir, "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node1_bad], [bwt_amount])
         
         try:
@@ -271,7 +271,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         #Create wrong proof for WCert
         proof_wrong = create_test_proof(
-            self.options.tmpdir, self.options.srcdir,  scid, epoch_number, prev_epoch_block_hash, prev_epoch_block_hash,
+            self.options.tmpdir, self.options.srcdir,  "sc1", epoch_number, prev_epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node1], [bwt_amount])
         
         try:
@@ -291,7 +291,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         #Create wrong proof for WCert
         proof_wrong = create_test_proof(
-            self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_block_hash, epoch_block_hash,
+            self.options.tmpdir, self.options.srcdir,  "sc1", epoch_number, epoch_block_hash, epoch_block_hash,
             quality, constant, [pkh_node1], [bwt_amount])
         
         try:
@@ -311,7 +311,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         #Create wrong proof for WCert
         proof_wrong = create_test_proof(
-            self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            self.options.tmpdir, self.options.srcdir,  "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality + 1, constant, [pkh_node1], [bwt_amount])
         
         try:
@@ -332,7 +332,7 @@ class sc_cert_base(BitcoinTestFramework):
         #Create wrong proof for WCert
         constant_bad = generate_random_field_element_hex()
         proof_wrong = create_test_proof(
-            self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            self.options.tmpdir, self.options.srcdir,  "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant_bad, [pkh_node1], [bwt_amount])
         
         try:
@@ -351,11 +351,10 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node 0 tries to perform a bwd transfer using a wrong vk for the scProof...", self.nodes, DEBUG_MODE)
         
         # let's generate new params and create a correct proof with them 
-        temp_scid = "2222222222222222222222222222222222222222222222222222222222222222"
-        generate_params(self.options.tmpdir, self.options.srcdir, temp_scid)
+        generate_params(self.options.tmpdir, self.options.srcdir, "sc_temp")
 
         wrong_proof = create_test_proof(
-            self.options.tmpdir, self.options.srcdir,  temp_scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            self.options.tmpdir, self.options.srcdir,  "sc_temp", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node1], [bwt_amount])
 
         try:
@@ -494,7 +493,7 @@ class sc_cert_base(BitcoinTestFramework):
         # Create new proof for WCert
         quality = 1
         proof = create_test_proof(
-            self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            self.options.tmpdir, self.options.srcdir,  "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [], [])
 
         try:
@@ -558,11 +557,12 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node 0 tries to send a certificate for old epoch {}...".format(epoch_number_0), self.nodes, DEBUG_MODE)
         amounts = []
         try:
-            self.nodes[0].send_certificate(scid, epoch_number_0, epoch_block_hash_0, amounts, CERT_FEE)
+            self.nodes[0].send_certificate(scid, epoch_number_0, 0, epoch_block_hash_0, proof, amounts, CERT_FEE)
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal("invalid epoch data" in errorString, True)
 
 
 

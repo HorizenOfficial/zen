@@ -159,7 +159,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         }
         else
         {
-            inputString = wCertVk.get_str();
+            const std::string& inputString = wCertVk.get_str();
             std::vector<unsigned char> wCertVkVec;
             if (!AddScData(inputString, wCertVkVec, SC_VK_SIZE, true, error))
             {
@@ -179,7 +179,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         const UniValue& cd = find_value(o, "customData");
         if (!cd.isNull())
         {
-            inputString = cd.get_str();
+            const std::string& inputString = cd.get_str();
             if (!AddScData(inputString, sc.customData, MAX_SC_DATA_LEN, false, error))
             {
                 error = "customData: " + error;
@@ -190,7 +190,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         const UniValue& constant = find_value(o, "constant");
         if (!constant.isNull())
         {
-            inputString = constant.get_str();
+            const std::string& inputString = constant.get_str();
             if (!AddScData(inputString, sc.constant, SC_FIELD_SIZE, false, error))
             {
                 error = "constant: " + error;

@@ -82,7 +82,7 @@ class sc_rawcert(BitcoinTestFramework):
         sc_address = "fade"
 
         #generate vk and constant for this sidechain
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, "sc1")
         constant = generate_random_field_element_hex()
         
         sc_cr = [{"epoch_length": EPOCH_LENGTH, "amount": cr_amount, "address": sc_address, "wCertVk": vk, "constant": constant}]
@@ -122,7 +122,7 @@ class sc_rawcert(BitcoinTestFramework):
         # create wCert proof
         quality = 0
         proof = create_test_proof(
-        self.options.tmpdir, self.options.srcdir,  scid, epn, eph, pebh,
+        self.options.tmpdir, self.options.srcdir,  "sc1", epn, eph, pebh,
         quality, constant, [pkh_node2], [bt_amount])
 
         raw_inputs   = []
@@ -215,7 +215,7 @@ class sc_rawcert(BitcoinTestFramework):
         # create wCert proof
         quality = 1
         proof = create_test_proof(
-        self.options.tmpdir, self.options.srcdir,  scid, epn, eph, pebh,
+        self.options.tmpdir, self.options.srcdir, "sc1", epn, eph, pebh,
         quality, constant, [], [])
 
         raw_inputs   = []
@@ -358,7 +358,7 @@ class sc_rawcert(BitcoinTestFramework):
             amounts.append(amount)
 
         proof = create_test_proof(
-        self.options.tmpdir, self.options.srcdir,  scid, epn, eph, pebh,
+        self.options.tmpdir, self.options.srcdir,  "sc1", epn, eph, pebh,
         quality, constant, pks, amounts)
 
         raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
@@ -408,7 +408,7 @@ class sc_rawcert(BitcoinTestFramework):
         # create wCert proof
         quality = 3
         proof = create_test_proof(
-        self.options.tmpdir, self.options.srcdir,  scid, epn, eph, pebh,
+        self.options.tmpdir, self.options.srcdir,  "sc1", epn, eph, pebh,
         quality, constant, [], [])
 
         raw_inputs   = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
@@ -483,7 +483,7 @@ class sc_rawcert(BitcoinTestFramework):
         raw_inputs   = []
         raw_outs     = {}
         raw_bwt_outs = {}
-        raw_params = {"scid": scid, "endEpochBlockHash": eph_0, "withdrawalEpochNumber": epn_0}
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph_0, "scProof": proof, "withdrawalEpochNumber": epn_0}
         try:
             raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
             signed_cert = self.nodes[0].signrawcertificate(raw_cert)

@@ -713,29 +713,32 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
+    CRecipientScCreation sc;
+
     int withdrawalEpochLength = params[0].get_int(); 
     if (withdrawalEpochLength < getScMinWithdrawalEpochLength())
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid withdrawalEpochLength, less that minimum value allowed\n");
+    sc.creationData.withdrawalEpochLength = withdrawalEpochLength;
 
-    uint256 address;
-    const std::string& inputString = params[1].get_str();
-    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address format: not an hex");
-    address.SetHex(inputString);
+    {
+        uint256 address;
+        const std::string& inputString = params[1].get_str();
+        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address format: not an hex");
+        address.SetHex(inputString);
+        sc.address = address;
+    }
 
     CAmount nAmount = AmountFromValue(params[2]);
     if (nAmount <= 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
 
-    CRecipientScCreation sc;
-    sc.address = address;
     sc.nValue = nAmount;
-    sc.creationData.withdrawalEpochLength = withdrawalEpochLength;
 
     std::string error;
 
-    inputString = params[3].get_str();
     {
+        const std::string& inputString = params[3].get_str();
         std::vector<unsigned char> wCertVkVec;
         if (!Sidechain::AddScData(inputString, wCertVkVec, SC_VK_SIZE, true, error))
         {
@@ -751,7 +754,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     if ((params.size() > 4) && (!params[4].get_str().size() == 0))
     {
-        inputString = params[4].get_str();
+        const std::string& inputString = params[4].get_str();
         if(!Sidechain::AddScData(inputString, sc.creationData.customData, MAX_SC_DATA_LEN, false, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
@@ -760,7 +763,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     if (params.size() > 5)
     {
-        inputString = params[5].get_str();
+        const std::string& inputString = params[5].get_str();
         if (!Sidechain::AddScData(inputString, sc.creationData.constant, SC_FIELD_SIZE, true, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);

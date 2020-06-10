@@ -554,14 +554,6 @@ public:
     }
 
     virtual const uint256& GetScId() const override { return generatedScId;}; 
-    virtual void SetNull() override
-    {
-        CTxCrosschainOut::SetNull();
-        withdrawalEpochLength = -1;
-        customData.clear();
-        constant.clear();
-        wCertVk.SetNull();
-    }
 
     virtual uint256 GetHash() const override;
     virtual std::string ToString() const override;

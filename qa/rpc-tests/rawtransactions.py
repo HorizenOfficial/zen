@@ -177,7 +177,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         sc_cr_amount = Decimal('10.00000000')
 
         #generate wCertVk and constant
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, "sc1")
         constant = generate_random_field_element_hex()
 
         sc_cr = [{"epoch_length": sc_epoch, "amount":sc_cr_amount, "address":sc_address, "wCertVk": vk, "constant": constant}]

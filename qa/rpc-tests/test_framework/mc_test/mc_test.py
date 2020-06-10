@@ -10,8 +10,8 @@ SC_VK_SIZE = 1544
 COIN = 100000000
 
 
-def generate_params(datadir, srcdir, scid):
-    params_dir = _get_params_dir(datadir, scid)
+def generate_params(datadir, srcdir, id):
+    params_dir = _get_params_dir(datadir, id)
     if os.path.isfile(params_dir + "test_mc_pk") and os.path.isfile(params_dir + "test_mc_vk"):
         return
     args = []
@@ -25,13 +25,13 @@ def generate_params(datadir, srcdir, scid):
     return _get_vk(params_dir + "test_mc_vk")
 
 def create_test_proof(
-    datadir, srcdir, scid, epoch_number, end_epoch_block_hash, prev_end_epoch_block_hash,
+    datadir, srcdir, id, epoch_number, end_epoch_block_hash, prev_end_epoch_block_hash,
     quality, constant, pks, amounts):
 
-    params_dir = _get_params_dir(datadir, scid)
+    params_dir = _get_params_dir(datadir, id)
     if not os.path.isfile(params_dir + "test_mc_pk") or not os.path.isfile(params_dir + "test_mc_vk"):
         return
-    proof_path = "{}epoch_{}_wcert_proof".format(_get_proofs_dir(datadir, scid), epoch_number)
+    proof_path = "{}epoch_{}_wcert_proof".format(_get_proofs_dir(datadir, id), epoch_number)
     args = []
     args.append(os.path.join(srcdir, "zendoo/mcTest"))
     args.append("create")
@@ -47,14 +47,14 @@ def create_test_proof(
 def generate_random_field_element_hex():
     return (binascii.b2a_hex(os.urandom(SC_FIELD_SAFE_SIZE)) + "00" * (SC_FIELD_SIZE - SC_FIELD_SAFE_SIZE))
 
-def _get_params_dir(datadir, scid):
-    target_dir = "{}/sc_{}_params/".format(datadir, scid)
+def _get_params_dir(datadir, id):
+    target_dir = "{}/sc_{}_params/".format(datadir, id)
     if not os.path.isdir(target_dir):
         os.makedirs(target_dir)
     return target_dir
 
-def _get_proofs_dir(datadir, scid):
-    target_dir = "{}/sc_{}_proofs/".format(datadir, scid)
+def _get_proofs_dir(datadir, id):
+    target_dir = "{}/sc_{}_proofs/".format(datadir, id)
     if not os.path.isdir(target_dir):
         os.makedirs(target_dir)
     return target_dir

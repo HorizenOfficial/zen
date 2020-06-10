@@ -65,7 +65,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         mark_logs("Node1 balance before SC creation: {}".format(bal_before_sc_creation), self.nodes, DEBUG_MODE)
 
         #generate wCertVk and constant
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, "sc1")
         constant = generate_random_field_element_hex()
 
         sc_creation_tx = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant);
@@ -125,7 +125,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         #Create proof for WCert
         quality = 0
         proof_bad = create_test_proof(
-            self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_hash, prev_epoch_hash,
+            self.options.tmpdir, self.options.srcdir,  "sc1", epoch_number, epoch_hash, prev_epoch_hash,
             quality, constant, [pkh_node2], [bwt_amount + fwt_amount_immature_at_epoch])
 
         try:
@@ -140,7 +140,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         #Create proof for WCert
         quality = 0
         proof = create_test_proof(
-            self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_hash, prev_epoch_hash,
+            self.options.tmpdir, self.options.srcdir,  "sc1", epoch_number, epoch_hash, prev_epoch_hash,
             quality, constant, [pkh_node2], [bwt_amount])
         
         try:
@@ -190,7 +190,7 @@ class sc_cert_epoch(BitcoinTestFramework):
             #Create proof for WCert
             quality = 1
             proof = create_test_proof(
-            self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_hash, prev_epoch_hash,
+            self.options.tmpdir, self.options.srcdir,  "sc1", epoch_number, epoch_hash, prev_epoch_hash,
             quality, constant, [], [])
 
             cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_hash, proof, [], CERT_FEE)
