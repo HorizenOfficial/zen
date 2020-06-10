@@ -16,10 +16,12 @@
 #include "main.h"
 
 CScCertificate::CScCertificate() : CTransactionBase(),
-    scId(), epochNumber(EPOCH_NULL), endEpochBlockHash() { }
+    scId(), epochNumber(EPOCH_NULL), quality(QUALITY_NULL), 
+    endEpochBlockHash(), scProof() { }
 
 CScCertificate::CScCertificate(const CMutableScCertificate &cert) :
-    scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash)
+    scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
+    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof)
 {
     *const_cast<int*>(&nVersion) = cert.nVersion;
     *const_cast<std::vector<CTxIn>*>(&vin) = cert.vin;
@@ -32,11 +34,13 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert) {
     //---
     *const_cast<uint256*>(&scId) = cert.scId;
     *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
+    *const_cast<int64_t*>(&quality) = cert.quality;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
+    *const_cast<libzendoomc::ScProof*>(&scProof) = cert.scProof;
     return *this;
 }
 
-CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0) {
+CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0), quality(0) {
     // call explicitly the copy of members of virtual base class
     *const_cast<int32_t*>(&nVersion) = cert.nVersion;
     *const_cast<std::vector<CTxIn>*>(&vin) = cert.vin;
@@ -45,7 +49,9 @@ CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0) {
     //---
     *const_cast<uint256*>(&scId) = cert.scId;
     *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
+    *const_cast<int64_t*>(&quality) = cert.quality;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
+    *const_cast<libzendoomc::ScProof*>(&scProof) = cert.scProof;
 }
 
 void CScCertificate::UpdateHash() const
@@ -257,10 +263,12 @@ int CScCertificate::GetNumbOfBackwardTransfers() const
 // Mutable Certificate
 //-------------------------------------
 CMutableScCertificate::CMutableScCertificate() :
-        scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash() {}
+    scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL),
+    endEpochBlockHash(), scProof() { }
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert) :
-    scId(cert.GetScId()), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash)
+    scId(cert.GetScId()), epochNumber(cert.epochNumber), quality(cert.quality), 
+    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof)
 {
     nVersion = cert.nVersion;
     vin  = cert.GetVin();

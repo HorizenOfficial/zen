@@ -8,6 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     mark_logs, start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
     disconnect_nodes
+from test_framework.mc_test.mc_test import generate_params, generate_random_field_element_hex
 import os
 from decimal import Decimal
 import time
@@ -118,7 +119,12 @@ class headers(BitcoinTestFramework):
         mark_logs("\nNode 1 creates SC 1 with " + str(creation_amount) + " coins", self.nodes, DEBUG_MODE)
         amounts = []
         amounts.append({"address": "dada", "amount": creation_amount})
-        self.nodes[1].sc_create(scid_1, 123, "dada", creation_amount, "123ffffffff123")
+        
+        #generate wCertVk and constant
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid_1)
+        constant = generate_random_field_element_hex()
+
+        self.nodes[1].sc_create(scid_1, 123, "dada", creation_amount, vk, "", constant)
         self.sync_all()
 
         mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
@@ -154,9 +160,10 @@ class headers(BitcoinTestFramework):
         mark_logs("\nNode 1 creates SC 2,3,4, all with " + str(creation_amount) + " coins", self.nodes, DEBUG_MODE)
         amounts = []
         amounts.append({"address": "dada", "amount": creation_amount})
-        self.nodes[1].sc_create(scid_2, 123, "dada", creation_amount, "cdcdcd")
-        self.nodes[1].sc_create(scid_3, 123, "dada", creation_amount, "ababab")
-        self.nodes[1].sc_create(scid_4, 123, "dada", creation_amount, "efefef")
+        
+        self.nodes[1].sc_create(scid_2, 123, "dada", creation_amount, generate_params(self.options.tmpdir, self.options.srcdir, scid_2), "", generate_random_field_element_hex())
+        self.nodes[1].sc_create(scid_3, 123, "dada", creation_amount, generate_params(self.options.tmpdir, self.options.srcdir, scid_3), "", generate_random_field_element_hex())
+        self.nodes[1].sc_create(scid_4, 123, "dada", creation_amount, generate_params(self.options.tmpdir, self.options.srcdir, scid_4), "", generate_random_field_element_hex())
         self.sync_all()
 
         mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)

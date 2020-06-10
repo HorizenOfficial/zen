@@ -1138,7 +1138,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
     if (!cert.CheckInputsLimit())
         return false;
 
-    if(!CheckCertificate(cert,state))
+    if(!CheckCertificate(cert, state))
         return error("AcceptCertificateToMemoryPool: CheckCertificate failed");
 
     if(!cert.ContextualCheck(state, nextBlockHeight, 10))
@@ -1217,8 +1217,9 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                             REJECT_INVALID, "bad-sc-cert-not-applicable");
             }
 
-            int sgHeight = (epochSafeGuardHeight > 0) ? epochSafeGuardHeight : nextBlockHeight;   
-            if (!view.IsCertApplicableToState(cert, sgHeight, state) )
+            int sgHeight = (epochSafeGuardHeight > 0) ? epochSafeGuardHeight : nextBlockHeight;
+            auto scVerifier = libzendoomc::CScProofVerifier::Strict();   
+            if (!view.IsCertApplicableToState(cert, sgHeight, state, scVerifier))
             {
                 LogPrint("sc", "%s():%d - certificate [%s] is not applicable\n", __func__, __LINE__, certHash.ToString());
                 return state.DoS(0, error("AcceptCertificateToMemoryPool: certificate not applicable"),
@@ -2856,7 +2857,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         control.Add(vChecks);
 
-        if (!view.IsCertApplicableToState(cert, pindex->nHeight, state) ) {
+        auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+        if (!view.IsCertApplicableToState(cert, pindex->nHeight, state, scVerifier) ) {
             LogPrint("sc", "%s():%d - ERROR: cert=%s\n", __func__, __LINE__, cert.GetHash().ToString() );
             return state.DoS(100, error("ConnectBlock(): invalid sc certificate [%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-applicable");
@@ -4308,7 +4310,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
     CBlockIndex indexDummy(block);
     indexDummy.pprev = pindexPrev;
     indexDummy.nHeight = pindexPrev->nHeight + 1;
-    // JoinSplit proofs are verified in ConnectBlock
+    // JoinSplit and Sidechains proofs are verified in ConnectBlock
     auto verifier = libzcash::ProofVerifier::Disabled();
 
     // NOTE: CheckBlockHeader is called by CheckBlock

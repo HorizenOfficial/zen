@@ -527,7 +527,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             CWalletCert wcert;
             ssValue >> wcert;
             CValidationState state;
-            auto verifier = libzcash::ProofVerifier::Strict();
+
             if (!(CheckCertificate(wcert, state) && (wcert.GetHash() == hash) && state.IsValid()))
             {
                 LogPrint("cert", "%s():%d - cert[%s] is invalid\n", __func__, __LINE__, wcert.GetHash().ToString());

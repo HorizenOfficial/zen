@@ -1009,6 +1009,9 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 info.creationBlockHeight = -1; //default null value for creationBlockHeight
                 info.creationTxHash = scCreationHash;
                 info.creationData.withdrawalEpochLength = scCreation.withdrawalEpochLength;
+                info.creationData.customData = scCreation.customData;
+                info.creationData.constant = scCreation.constant;
+                info.creationData.wCertVk = scCreation.wCertVk;
             }
             break;
         }

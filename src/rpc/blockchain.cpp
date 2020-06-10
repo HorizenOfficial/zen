@@ -1020,7 +1020,9 @@ void AddScInfoToJSON(const uint256& scId, const CSidechain& info, UniValue& sc)
     sc.push_back(Pair("last certificate epoch", info.lastEpochReferencedByCertificate));
     // creation parameters
     sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
+    sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
     sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
+    sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
 
     UniValue ia(UniValue::VARR);
     BOOST_FOREACH(const auto& entry, info.mImmatureAmounts)
@@ -1076,7 +1078,9 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "    \"created at block height\": xxxxx,   (numeric) height of the above block\n"
             "    \"last certificate epoch\":  xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
             "    \"withdrawalEpochLength\":   xxxxx,   (numeric) length of the withdrawal epoch\n"
+            "    \"wCertVk\":                 xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
             "    \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
+            "    \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
             "    \"immature amounts\": [\n"
             "      {\n"
             "        \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"
