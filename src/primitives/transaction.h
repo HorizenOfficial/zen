@@ -986,17 +986,17 @@ public:
      */
     virtual uint256 GetHash() const = 0;
 
-//          std::vector<CTxOut>& getVout()       { return vout; }
-    const std::vector<CTxOut>& getVout() const { return vout; }
-            void insertAtPos(unsigned int pos, const CTxOut& out) { vout.insert(vout.begin() + pos, out);}
-            void eraseAtPos(unsigned int pos) { vout.erase(vout.begin() + pos); }
-            void resizeOut(unsigned int newSize) { vout.resize(newSize); }
-         CTxOut& getOut(unsigned int pos)       { return vout[pos]; }
-   const CTxOut& getOut(unsigned int pos) const { return vout[pos]; }
-            bool addOut(const CTxOut& out) { vout.push_back(out); return true;}
-    virtual bool addBwt(const CTxOut& out)             = 0;
-    virtual bool add(const CTxScCreationOut& out)      = 0;
-    virtual bool add(const CTxForwardTransferOut& out) = 0;
+    const std::vector<CTxOut>& getVout() const                { return vout; }
+                       CTxOut& getOut(unsigned int pos)       { return vout[pos]; }
+                 const CTxOut& getOut(unsigned int pos) const { return vout[pos]; }
+
+    virtual void insertAtPos(unsigned int pos, const CTxOut& out) = 0;
+    virtual void eraseAtPos(unsigned int pos)                     = 0;
+    virtual void resizeOut(unsigned int newSize)                  = 0;
+    virtual bool addOut(const CTxOut& out)                        = 0;
+    virtual bool addBwt(const CTxOut& out)                        = 0;
+    virtual bool add(const CTxScCreationOut& out)                 = 0;
+    virtual bool add(const CTxForwardTransferOut& out)            = 0;
 };
 
 
@@ -1053,9 +1053,13 @@ struct CMutableTransaction : public CMutableTransactionBase
         return (nVersion == SC_TX_VERSION);
     }
 
-    bool addBwt(const CTxOut& out)             override final;
-    bool add(const CTxScCreationOut& out)      override final;
-    bool add(const CTxForwardTransferOut& out) override final;
+    void insertAtPos(unsigned int pos, const CTxOut& out) override final;
+    void eraseAtPos(unsigned int pos)                     override final;
+    void resizeOut(unsigned int newSize)                  override final;
+    bool addOut(const CTxOut& out)                        override final;
+    bool addBwt(const CTxOut& out)                        override final;
+    bool add(const CTxScCreationOut& out)                 override final;
+    bool add(const CTxForwardTransferOut& out)            override final;
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

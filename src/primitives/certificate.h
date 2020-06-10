@@ -188,6 +188,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
     uint256 scId;
     int32_t epochNumber;
     uint256 endEpochBlockHash;
+    const int nFirstBwtPos;
 
     CMutableScCertificate();
     CMutableScCertificate(const CScCertificate& tx);
@@ -251,9 +252,13 @@ struct CMutableScCertificate : public CMutableTransactionBase
      */
     uint256 GetHash() const override;
 
-    bool addBwt(const CTxOut& out)             override final;
-    bool add(const CTxScCreationOut& out)      override final;
-    bool add(const CTxForwardTransferOut& out) override final;
+    void insertAtPos(unsigned int pos, const CTxOut& out) override final;
+    void eraseAtPos(unsigned int pos)                     override final;
+    void resizeOut(unsigned int newSize)                  override final;
+    bool addOut(const CTxOut& out)                        override final;
+    bool addBwt(const CTxOut& out)                        override final;
+    bool add(const CTxScCreationOut& out)                 override final;
+    bool add(const CTxForwardTransferOut& out)            override final;
 
     std::string ToString() const;
 };

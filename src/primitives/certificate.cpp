@@ -260,10 +260,11 @@ int CScCertificate::GetNumbOfBackwardTransfers() const {
 // Mutable Certificate
 //-------------------------------------
 CMutableScCertificate::CMutableScCertificate() :
-        scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash() {}
+        scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), nFirstBwtPos(0) {}
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert) :
-    scId(cert.GetScId()), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash)
+    scId(cert.GetScId()), epochNumber(cert.epochNumber),
+    endEpochBlockHash(cert.endEpochBlockHash), nFirstBwtPos(cert.nFirstBwtPos)
 {
     nVersion = cert.nVersion;
     vin  = cert.GetVin();
@@ -275,8 +276,30 @@ uint256 CMutableScCertificate::GetHash() const
     return SerializeHash(*this);
 }
 
-bool CMutableScCertificate::addBwt(const CTxOut& out)
-{
+void CMutableScCertificate::insertAtPos(unsigned int pos, const CTxOut& out) {
+    if (pos < nFirstBwtPos)
+        ++(*const_cast<int*>(&nFirstBwtPos));
+
+    vout.insert(vout.begin() + pos, out);
+}
+void CMutableScCertificate::eraseAtPos(unsigned int pos) {
+    if (pos < nFirstBwtPos)
+        --(*const_cast<int*>(&nFirstBwtPos));
+
+    vout.erase(vout.begin() + pos);
+}
+void CMutableScCertificate::resizeOut(unsigned int newSize) {
+    if (newSize > nFirstBwtPos)
+        (*const_cast<int*>(&nFirstBwtPos)) = newSize;
+
+    vout.resize(newSize);
+}
+bool CMutableScCertificate::addOut(const CTxOut& out) {
+    ++(*const_cast<int*>(&nFirstBwtPos));
+    vout.push_back(out);
+    return true;
+}
+bool CMutableScCertificate::addBwt(const CTxOut& out) {
     vout.push_back(out);
     return true;
 }
