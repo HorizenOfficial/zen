@@ -128,6 +128,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
     return true;
 }
 
+#if 0
 bool Sidechain::anyForwardTransaction(const CTransaction& tx, const uint256& scId)
 {
     BOOST_FOREACH(const auto& fwd, tx.GetVftCcOut())
@@ -139,6 +140,7 @@ bool Sidechain::anyForwardTransaction(const CTransaction& tx, const uint256& scI
     }
     return false;
 }
+#endif
 
 bool Sidechain::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
 {
@@ -152,6 +154,7 @@ bool Sidechain::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
     return false;
 }
 
+#if 0
 bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state)
 {
     const uint256& certHash = cert.GetHash();
@@ -175,3 +178,4 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
 
     return true;
 }
+#endif

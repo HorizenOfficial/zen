@@ -67,7 +67,7 @@ public:
     CTxMemPoolEntry(const CTxMemPoolEntry& other);
 
     const CTransaction& GetTx() const { return this->tx; }
-    double GetPriority(unsigned int currentHeight) const;
+    double GetPriority(unsigned int currentHeight) const override;
     size_t GetTxSize() const { return nTxSize; }
     bool WasClearAtEntry() const { return hadNoDependencies; }
 };
@@ -85,7 +85,7 @@ public:
     CCertificateMemPoolEntry(const CCertificateMemPoolEntry& other);
 
     const CScCertificate& GetCertificate() const { return this->cert; }
-    double GetPriority(unsigned int currentHeight) const;
+    double GetPriority(unsigned int currentHeight) const override;
     size_t GetCertificateSize() const { return nCertificateSize; }
 };
 
@@ -110,8 +110,14 @@ struct CSidechainMemPoolEntry
     uint256 scCreationTxHash;
     std::set<uint256> fwdTransfersSet;
     uint256 backwardCertificate;
+
     // Note: in fwdTransfersSet, a tx is registered only once, even if sends multiple fwd founds to a sidechain
     // Upon removal we will need to guard against potential double deletes.
+    bool IsNull() const {
+        return (fwdTransfersSet.size() == 0 &&
+                scCreationTxHash.IsNull()   &&
+                backwardCertificate.IsNull());
+    }
 };
 
 /**
@@ -136,7 +142,7 @@ private:
     uint64_t totalCertificateSize = 0; //! sum of all mempool tx' byte sizes
     uint64_t cachedInnerUsage; //! sum of dynamic memory usage of all the map elements (NOT the maps themselves)
 
-    void removeInternal(std::deque<uint256>& objToRemove, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive);
+//    void removeInternal(std::deque<uint256>& objToRemove, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive);
     bool addToListForRemovalImmatureExpenditures(
         const CTransactionBase& txBase, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, 
         std::list<const CTransactionBase*>& transactionsToRemove);

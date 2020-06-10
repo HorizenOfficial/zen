@@ -119,10 +119,10 @@ public:
 
 namespace Sidechain {
     bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
-    bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
+//    bool anyForwardTransaction(const CTransaction& tx, const uint256& scId);
     bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
 
-    bool checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state);
+//    bool checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state);
 }; // end of namespace
 
 #endif // _SIDECHAIN_CORE_H

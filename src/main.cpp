@@ -673,8 +673,11 @@ unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans) EXCLUSIVE_LOCKS_REQUIRE
 
 bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHeight)
 {
-    if (!txBase.CheckVersionIsStandard(reason, nHeight))
+    if (!txBase.IsVersionStandard(nHeight))
+    {
+        reason = "version";
         return false;
+    }
 
 
     BOOST_FOREACH(const CTxIn& txin, txBase.GetVin())
@@ -913,8 +916,10 @@ bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
     if (!cert.CheckInputsInteraction(state))
         return false;
 
+#if 0
     if (!Sidechain::checkCertSemanticValidity(cert, state))
         return false;
+#endif
 
     return true;
 }

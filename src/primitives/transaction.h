@@ -636,8 +636,8 @@ public:
 
     //CHECK FUNCTIONS
     virtual bool IsValidVersion   (CValidationState &state) const = 0;
-    virtual bool CheckVersionIsStandard   (std::string& reason, int nHeight) const = 0;
-    virtual bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const = 0;
+    virtual bool IsVersionStandard(int nHeight) const = 0;
+    virtual bool ContextualCheck  (CValidationState& state, int nHeight, int dosLevel) const = 0;
 
     bool CheckSerializedSize (CValidationState &state) const;
     virtual bool CheckAmounts(CValidationState &state) const = 0;
@@ -850,7 +850,7 @@ public:
 
     //CHECK FUNCTIONS
     bool IsValidVersion   (CValidationState &state) const override;
-    bool CheckVersionIsStandard   (std::string& reason, int nHeight) const override;
+    bool IsVersionStandard(int nHeight) const override;
     bool CheckAmounts     (CValidationState &state) const override;
     bool CheckNonEmpty    (CValidationState &state) const;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
