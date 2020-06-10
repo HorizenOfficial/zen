@@ -625,7 +625,7 @@ zendoo_mcTest_SOURCES = \
 
 zendoo_mcTest_CPPFLAGS = $(AM_CPPFLAGS) 
 zendoo_mcTest_CXXFLAGS = $(AM_CXXFLAGS)  
-zendoo_mcTest_LDADD =  -lzendoo_mc -ldl -lpthread
+zendoo_mcTest_LDADD =  -lzendoo_mc -lpthread
 
 
 
