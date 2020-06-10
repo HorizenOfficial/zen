@@ -1373,11 +1373,12 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
-        CSidechain& targetScInfo = cacheSidechains.at(scId).scInfo;
 
         CAmount amountToRestore = it->second.appliedMaturedAmount;
         if (amountToRestore > 0)
         {
+            CSidechain& targetScInfo = cacheSidechains.at(scId).scInfo;
+
             LogPrint("sc", "%s():%d - adding immature amount %s into sc view for scId=%s\n",
                 __func__, __LINE__, FormatMoney(amountToRestore), scIdString);
 
@@ -1422,6 +1423,10 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
                 coins->nVersion           = voidedOuts.at(idx).nVersion;
                 coins->nFirstBwtPos       = voidedOuts.at(idx).nFirstBwtPos;
                 coins->nBwtMaturityHeight = voidedOuts.at(idx).nBwtMaturityHeight;
+            } else
+            {
+                if (coins->IsPruned())
+                    fClean = fClean && error("%s: undo data adding output to missing transaction", __func__);
             }
 
             if(coins->IsAvailable(coins->nFirstBwtPos + idx))
