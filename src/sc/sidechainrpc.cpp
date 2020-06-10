@@ -242,7 +242,7 @@ bool CRecipientHandler::handle(const CRecipientForwardTransfer& r)
 bool CRecipientHandler::handle(const CRecipientBackwardTransfer& r)
 {
     CTxOut txout(r.nValue, r.scriptPubKey, true);
-    return txBase->add(txout);
+    return txBase->addBwt(txout);
 };
 
 void CScCustomData::fill(std::vector<unsigned char>& vBytes, size_t nBytes) const

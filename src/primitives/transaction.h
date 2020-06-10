@@ -984,9 +984,9 @@ struct CMutableTransactionBase
      */
     virtual uint256 GetHash() const = 0;
 
-    virtual bool add(const CTxOut& out);
-    virtual bool add(const CTxScCreationOut& out);
-    virtual bool add(const CTxForwardTransferOut& out);
+    virtual bool addBwt(const CTxOut& out)             = 0;
+    virtual bool add(const CTxScCreationOut& out)      = 0;
+    virtual bool add(const CTxForwardTransferOut& out) = 0;
 };
 
 
@@ -1043,8 +1043,9 @@ struct CMutableTransaction : public CMutableTransactionBase
         return (nVersion == SC_TX_VERSION);
     }
 
-    bool add(const CTxScCreationOut& out) override;
-    bool add(const CTxForwardTransferOut& out) override;
+    bool addBwt(const CTxOut& out)             override final;
+    bool add(const CTxScCreationOut& out)      override final;
+    bool add(const CTxForwardTransferOut& out) override final;
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

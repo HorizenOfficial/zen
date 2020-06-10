@@ -303,10 +303,6 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
 CMutableTransactionBase::CMutableTransactionBase():
     nVersion(TRANSPARENT_TX_VERSION), vin(), vout() {}
 
-bool CMutableTransactionBase::add(const CTxOut& out) { vout.push_back(out); return true; }
-bool CMutableTransactionBase::add(const CTxScCreationOut& out) { return false; }
-bool CMutableTransactionBase::add(const CTxForwardTransferOut& out) { return false; }
-
 CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(),
     vsc_ccout(), vft_ccout(), nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() {}
 
@@ -323,6 +319,8 @@ uint256 CMutableTransaction::GetHash() const
 {
     return SerializeHash(*this);
 }
+
+bool CMutableTransaction::addBwt(const CTxOut& out) { return false; }
 
 bool CMutableTransaction::add(const CTxScCreationOut& out) 
 {
