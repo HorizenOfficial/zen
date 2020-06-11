@@ -578,7 +578,7 @@ public:
     bool CancelSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight);
     bool CancelSidechainEvent(const CScCertificate& cert);
 
-    bool HandleSidechainEvents(int height, CBlockUndo& blockUndo);
+    bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<uint256>* pVoidedCertsList);
     bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height);
 
     CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;

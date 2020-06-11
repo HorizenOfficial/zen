@@ -2569,7 +2569,7 @@ static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
-    const CChain& chain, bool fJustCheck, bool fCheckScTxesCommitment)
+    const CChain& chain, bool fJustCheck, bool fCheckScTxesCommitment, std::vector<uint256>* pVoidedCertList)
 {
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
@@ -2827,7 +2827,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     } //end of Processing certificates loop
 
-    if (!view.HandleSidechainEvents(pindex->nHeight, blockundo))
+    if (!view.HandleSidechainEvents(pindex->nHeight, blockundo, pVoidedCertList))
     {
         LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed handling scheduled event\n", __func__, __LINE__);
         return state.DoS(100, error("ConnectBlock(): could not handle scheduled event"),
@@ -3183,10 +3183,12 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     int64_t nTime2 = GetTimeMicros(); nTimeReadFromDisk += nTime2 - nTime1;
     int64_t nTime3;
     LogPrint("bench", "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * 0.001, nTimeReadFromDisk * 0.000001);
+    std::vector<uint256> voidedCertList;
     {
         CCoinsViewCache view(pcoinsTip);
         static const bool JUST_CHECK_FALSE = false;
-        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, JUST_CHECK_FALSE);
+        static const bool CHECK_SC_TXES_COMMITMENT = true;
+        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, JUST_CHECK_FALSE, CHECK_SC_TXES_COMMITMENT, &voidedCertList);
         GetMainSignals().BlockChecked(*pblock, state);
         if (!rv) {
             if (state.IsInvalid())
@@ -3237,6 +3239,9 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         int bwtMaturityDepth = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin() - chainActive.Height();
         SyncWithWallets(cert, pblock, bwtMaturityDepth);
     }
+
+    for(const uint256& certHash: voidedCertList)
+        SyncBwtCeasing(certHash, true);
 
     // Update cached incremental witnesses
     GetMainSignals().ChainTip(pindexNew, pblock, oldTree, true);

@@ -1266,7 +1266,7 @@ bool CCoinsViewCache::CancelSidechainEvent(const CScCertificate& cert)
     return true;
 }
 
-bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo)
+bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<uint256>* pVoidedCertsList)
 {
     if (!HaveSidechainEvents(height))
         return true;
@@ -1345,7 +1345,9 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo)
             }
         }
 
-        SyncBwtCeasing(scInfo.lastCertificateHash, true);
+        //SyncBwtCeasing(scInfo.lastCertificateHash, true);
+       assert(pVoidedCertsList != nullptr);
+       pVoidedCertsList->push_back(scInfo.lastCertificateHash);
     }
 
     return true;
