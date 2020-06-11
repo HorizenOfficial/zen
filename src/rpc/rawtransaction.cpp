@@ -18,11 +18,13 @@
 #include "script/sign.h"
 #include "script/standard.h"
 #include "uint256.h"
+#include "tinyformat.h"
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
 #endif
 
 #include <stdint.h>
+#include <string>
 
 #include <boost/assign/list_of.hpp>
 
@@ -222,7 +224,9 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
     UniValue x(UniValue::VOBJ);
     x.push_back(Pair("scid", cert.GetScId().GetHex()));
     x.push_back(Pair("epochNumber", cert.epochNumber));
+    x.push_back(Pair("quality", cert.quality));
     x.push_back(Pair("endEpochBlockHash", cert.endEpochBlockHash.GetHex()));
+    x.push_back(Pair("scProof", HexStr(cert.scProof)));
     x.push_back(Pair("totalAmount", ValueFromAmount(cert.GetValueOfBackwardTransfers())));
 
     entry.push_back(Pair("cert", x));
@@ -389,7 +393,9 @@ UniValue getrawcertificate(const UniValue& params, bool fHelp)
             "     {\n"
             "       \"scid\" : \"sc id\",              (string) the sidechain id\n"
             "       \"epochNumber\": epn,            (numeric) the withdrawal epoch number this certificate refers to\n"
+            "       \"quality\": n,                  (numeric) the quality of this withdrawal certificate. \n"
             "       \"endEpochBlockHash\" : \"eph\"    (string) the hash of the block marking the end of the abovementioned epoch\n"
+            "       \"scProof\": \"scp\"               (string) SNARK proof whose verification key wCertVk was set upon sidechain registration\n"
             "       \"totalAmount\" : x.xxx         (numeric) The total value of the certificate in " + CURRENCY_UNIT + "\n"
             "     }\n"
             "  \"vout\" : [              (array of json objects)\n"
@@ -605,7 +611,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 {   
     if (fHelp || params.size() > 4)
         throw runtime_error(
-            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} ( [{epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"customData\":hexstr},...] ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id}] ) )\n"
+            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} ( [{epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"wCertVk\":hexstr, \"customData\":hexstr, \"constant\":hexstr},...] ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id}] ) )\n"
             "\nCreate a transaction spending the given inputs and sending to the given addresses.\n"
             "Returns hex-encoded raw transaction.\n"
             "Note that the transaction's inputs are not signed, and\n"
@@ -632,8 +638,12 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "         \"epoch_length\":n (numeric, required) length of the withdrawal epochs\n"
             "         \"address\":\"address\",  (string, required) The receiver PublicKey25519Proposition in the SC\n"
             "         \"amount\":amount         (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
-            "         \"customData\":hexstr     (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "       }\n"
+            "         \"wCertVk\":hexstr          (string, required) It is an arbitrary byte string of even length expressed in\n"
+            "                                       hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "         \"customData\":hexstr       (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                       hexadecimal format. A max limit of 1024 bytes will be checked\n"
+            "         \"constant\":hexstr         (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                       hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"            "       }\n"
             "       ,...\n"
             "     ]\n"
             "4. \"forward transfers\"   (string, optional) A json array of json objects\n"
@@ -796,7 +806,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
 {   
     if (fHelp || params.size() != 4)
         throw runtime_error(
-            "createrawcertificate [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} {\"pubkeyhash\":amount,...} {\"scid\":\"id\", \"withdrawalEpochNumber\":n, \"endEpochBlockHash\":\"blockHash\"})\n"
+            "createrawcertificate [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} {\"pubkeyhash\":amount,...} {\"scid\":\"id\", \"withdrawalEpochNumber\":n, \"quality\":n, \"endEpochBlockHash\":\"blockHash\", \"scProof\":\"scProof\"})\n"
             "\nCreate a SC certificate spending the given inputs, sending to the given addresses and transferring funds from the specified SC to the given pubkey hash list.\n"
             "Returns hex-encoded raw certificate.\n"
             "It is not stored in the wallet or transmitted to the network.\n"
@@ -824,7 +834,9 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             "    {\n"
             "      \"scid\":\"id\",                    (string, required) The side chain id\n"
             "      \"withdrawalEpochNumber\":n       (numeric, required) The epoch number this certificate refers to\n"
+            "      \"quality\":n                     (numeric, required) A positive number specifying the quality of this withdrawal certificate. \n"
             "      \"endEpochBlockHash\":\"blockHash\" (string, required) The block hash determining the end of the referenced epoch\n"
+            "      \"scProof\":\"scProof\"             (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + "bytes \n"
             "    }\n"
             "\nResult:\n"
             "\"certificate\" (string) hex string of the certificate\n"
@@ -833,7 +845,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             + HelpExampleCli("createrawcertificate",
                 "\'[{\"txid\":\"7e3caf89f5f56fa7466f41d869d48c17ed8148a5fc6cc4c5923664dd2e667afe\", \"vout\": 0}]\' "
                 "\'{\"ztmDWqXc2ZaMDGMhsgnVEmPKGLhi5GhsQok\":10.0}\' \'{\"fde10bda830e1d8590ca8bb8da8444cad953a852\":0.1}\' "
-                "\'{\"scid\":\"02c5e79e8090c32e01e2a8636bfee933fd63c0cc15a78f0888cdf2c25b4a5e5f\", \"withdrawalEpochNumber\":3, \"endEpochBlockHash\":\"0555e4e775ce3cf79d2c15b8981df46c7448e0b408ad0a7c30c043fe5341c04e\"}\'"
+                "\'{\"scid\":\"02c5e79e8090c32e01e2a8636bfee933fd63c0cc15a78f0888cdf2c25b4a5e5f\", \"withdrawalEpochNumber\":3, \"quality\":10, \"endEpochBlockHash\":\"0555e4e775ce3cf79d2c15b8981df46c7448e0b408ad0a7c30c043fe5341c04e\", \"scProof\": \"abcd..ef\"}\'"
                 )
         );
 
@@ -885,7 +897,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     std::set<std::string> setKeyArgs;
 
     // valid input keywords for certificate data
-    static const std::set<std::string> validKeyArgs = {"scid", "withdrawalEpochNumber", "endEpochBlockHash"};
+    static const std::set<std::string> validKeyArgs = {"scid", "withdrawalEpochNumber", "quality", "endEpochBlockHash", "scProof"};
 
     // sanity check, report error if unknown/duplicate key-value pairs
     for (const string& s : cert_params.getKeys())
@@ -920,6 +932,20 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"withdrawalEpochNumber\"" );
     }
 
+    int64_t quality;
+    if (setKeyArgs.count("quality"))
+    {
+        quality = find_value(cert_params, "quality").get_int64();
+        if (quality < 0)
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter \"quality\": must be a positive number");
+        }
+    }
+    else
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"quality\"" );
+    }
+
     uint256 endEpochBlockHash;
     if (setKeyArgs.count("endEpochBlockHash"))
     {
@@ -931,8 +957,28 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"endEpochBlockHash\"" );
     }
 
+    if (setKeyArgs.count("scProof"))
+    {
+        string inputString = find_value(cert_params, "scProof").get_str();
+        std::string error;
+        std::vector<unsigned char> scProofVec;
+        if (!Sidechain::AddScData(inputString, scProofVec, SC_PROOF_SIZE, true, error))
+            throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + error);
+
+        libzendoomc::ScProof scProof(scProofVec);
+        if (!libzendoomc::IsValidScProof(scProof))
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid cert \"scProof\"");
+        
+        rawCert.scProof = scProof;
+    }
+    else
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scProof\"" );
+    }
+
     rawCert.scId = scId;
     rawCert.epochNumber = withdrawalEpochNumber;
+    rawCert.quality = quality;
     rawCert.endEpochBlockHash = endEpochBlockHash;
 
     return EncodeHexCert(rawCert);

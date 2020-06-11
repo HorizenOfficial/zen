@@ -7,6 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, dump_ordered_tips
+from test_framework.mc_test.mc_test import generate_params, generate_random_field_element_hex
 import os
 from decimal import Decimal
 import pprint
@@ -76,7 +77,11 @@ class sc_cr_fw(BitcoinTestFramework):
         totScAmount = 0
         # sidechain creation
         #-------------------
-        creating_tx = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, "abcdef")
+        # generate wCertVk and constant
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, "sc1")
+        constant = generate_random_field_element_hex()
+
+        creating_tx = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         mark_logs("Node 0 created a sidechain via {}".format(creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 

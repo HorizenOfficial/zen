@@ -8,6 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
     dump_sc_info_record
+from test_framework.mc_test.mc_test import *
 import os
 from decimal import Decimal
 
@@ -61,6 +62,10 @@ class SCCreateTest(BitcoinTestFramework):
         fwt_amount_3 = Decimal("3.0")
         fwt_amount_many = fwt_amount_1 + fwt_amount_2 + fwt_amount_3
 
+        #generate wCertVk and constant
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, "sc1")
+        constant = generate_random_field_element_hex()
+
         # ---------------------------------------------------------------------------------------
         # Node 2 try create a SC with insufficient funds
         mark_logs("\nNode 2 try creates a SC with insufficient funds", self.nodes, DEBUG_MODE)
@@ -68,7 +73,7 @@ class SCCreateTest(BitcoinTestFramework):
         amounts = [{"address": "dada", "amount": creation_amount}]
         errorString = ""
         try:
-            self.nodes[2].sc_create(123, "dada", creation_amount, "abcdef")
+            self.nodes[2].sc_create(123, "dada", creation_amount, vk, "", constant)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
@@ -81,7 +86,7 @@ class SCCreateTest(BitcoinTestFramework):
         self.nodes[2].generate(1)
         self.sync_all()
         try:
-            self.nodes[2].sc_create(123, "dada", creation_amount, "abcdef")
+            self.nodes[2].sc_create(123, "dada", creation_amount, vk, "", constant)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
@@ -92,7 +97,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creates a SC with null address", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "", creation_amount, "abcdef")
+            self.nodes[1].sc_create(123, "", creation_amount, vk, "", constant)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
@@ -102,7 +107,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creates a SC with null amount", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", "", "abcdef")
+            self.nodes[1].sc_create(123, "ada", "", vk, "", constant)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
@@ -113,53 +118,163 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creates a SC with 0 amount", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", Decimal("0.0"), "abcdef")
+            self.nodes[1].sc_create(123, "ada", Decimal("0.0"), vk, "", constant)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("amount must be positive" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a bad custom data
-        mark_logs("\nNode 1 try creates a SC with a bad custom data", self.nodes, DEBUG_MODE)
+        # Node 1 try create a SC with a bad wCertVk
+        mark_logs("\nNode 1 try creates a SC with a non hex wCertVk", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", 0.1, "ciao")
+            self.nodes[1].sc_create(123, "ada", 0.1, "zz" * SC_VK_SIZE, "", constant)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("customData format: not an hex" in errorString, True)
+        assert_equal("wCertVk: Invalid format: not an hex" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a bad custom data
-        mark_logs("\nNode 1 try creates a SC with a odd number of char in custom data string", self.nodes, DEBUG_MODE)
+        # Node 1 try create a SC with a bad wCertVk
+        mark_logs("\nNode 1 try creates a SC with a odd number of char in wCertVk", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", 0.1, "eaf")
+            self.nodes[1].sc_create(123, "ada", 0.1, "a" * (SC_VK_SIZE - 1))
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("must be even" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a custom data too long
-        mark_logs("\nNode 1 try creates a SC with too long a custom data byte string", self.nodes, DEBUG_MODE)
-
-        cdlong = "a"*2050
+        # Node 1 try create a SC with a wCertVk too short
+        mark_logs("\nNode 1 try creates a SC with too short wCertVk byte string", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", 0.1, cdlong)
+            self.nodes[1].sc_create(123, "ada", 0.1, "aa" * (SC_VK_SIZE - 1))
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("Invalid customData length" in errorString, True)
+        assert_equal("bytes" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with negative epocLength
-        mark_logs("\nNode 1 try creates a SC with 0 epocLength", self.nodes, DEBUG_MODE)
+        # Node 1 try create a SC with a wCertVk too long
+        mark_logs("\nNode 1 try creates a SC with too long wCertVk byte string", self.nodes, DEBUG_MODE)
 
         try:
-            txbad = self.nodes[1].sc_create(-1, "ada", Decimal("1.0"), "101010101010")
+            self.nodes[1].sc_create(123, "ada", 0.1, "aa" * (SC_VK_SIZE + 1))
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal("bytes" in errorString, True)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with an invalid wCertVk
+        mark_logs("\nNode 1 try creates a SC with an invalid wCertVk", self.nodes, DEBUG_MODE)
+
+        try:
+            self.nodes[1].sc_create(123, "ada", 0.1, "aa" * SC_VK_SIZE)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal("Invalid wCertVk" in errorString, True)
+
+        # ---------------------------------------------------------------------------------------
+
+        # Node 1 try create a SC with a bad customData
+        mark_logs("\nNode 1 try creates a SC with a bad customData", self.nodes, DEBUG_MODE)
+
+        try:
+            self.nodes[1].sc_create(123, "ada", 0.1, vk, "zz" * 1024)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal("customData: Invalid format: not an hex" in errorString, True)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a bad customData
+        mark_logs("\nNode 1 try creates a SC with a odd number of char in customData", self.nodes, DEBUG_MODE)
+
+        try:
+            self.nodes[1].sc_create(123, "ada", 0.1, vk, "b" * 1023)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal("must be even" in errorString, True)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with customData too long
+        mark_logs("\nNode 1 try creates a SC with too long customData byte string", self.nodes, DEBUG_MODE)
+
+        try:
+            self.nodes[1].sc_create(123, "ada", 0.1, vk, "bb" * 1025)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal("bytes" in errorString, True)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a bad constant
+        mark_logs("\nNode 1 try creates a SC with a non hex constant", self.nodes, DEBUG_MODE)
+
+        try:
+            self.nodes[1].sc_create(123, "ada", 0.1, vk, "", "zz" * SC_FIELD_SIZE)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal("constant: Invalid format: not an hex" in errorString, True)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a bad constant
+        mark_logs("\nNode 1 try creates a SC with a odd number of char in constant", self.nodes, DEBUG_MODE)
+
+        try:
+            self.nodes[1].sc_create(123, "ada", 0.1, vk, "", "b" * (SC_FIELD_SIZE - 1))
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal("must be even" in errorString, True)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a constant too short
+        mark_logs("\nNode 1 try creates a SC with too short constant byte string", self.nodes, DEBUG_MODE)
+
+        try:
+            self.nodes[1].sc_create(123, "ada", 0.1, vk, "", "bb" * (SC_FIELD_SIZE - 1))
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal("bytes" in errorString, True)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a constant too long
+        mark_logs("\nNode 1 try creates a SC with too long constant byte string", self.nodes, DEBUG_MODE)
+
+        try:
+            self.nodes[1].sc_create(123, "ada", 0.1, vk, "", "bb" * (SC_FIELD_SIZE + 1))
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal("bytes" in errorString, True)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a bad constant
+        mark_logs("\nNode 1 try creates a SC with an invalid constant", self.nodes, DEBUG_MODE)
+
+        try:
+            self.nodes[1].sc_create(123, "ada", 0.1, vk, "", "aa" * SC_FIELD_SIZE)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal("Invalid constant" in errorString, True)
+
+        # ---------------------------------------------------------------------------------------
+        
+        # Node 1 try create a SC with negative epocLength
+        mark_logs("\nNode 1 try creates a SC with 0 epochLength", self.nodes, DEBUG_MODE)
+
+        try:
+            txbad = self.nodes[1].sc_create(-1, "ada", Decimal("1.0"), "aa" * 1544)
             print self.nodes[1].getrawtransaction(txbad, 1)['vsc_ccout']
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -169,8 +284,7 @@ class SCCreateTest(BitcoinTestFramework):
         # Node 1 create the SC
         mark_logs("\nNode 1 creates SC", self.nodes, DEBUG_MODE)
 
-        cdField = "ccababababdd"
-        tx = self.nodes[1].sc_create(123, "dada", creation_amount, cdField)
+        tx = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "bb" * 1024, constant)
         self.sync_all()
 
         decoded_tx = self.nodes[1].getrawtransaction(tx, 1)
@@ -187,8 +301,10 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal(scinfo0, scinfo1)
         assert_equal(scinfo0, scinfo2)
 
-        mark_logs("Verify custom data are set as expected...", self.nodes, DEBUG_MODE)
-        assert_equal(scinfo0['customData'], cdField)
+        mark_logs("Verify fields are set as expected...", self.nodes, DEBUG_MODE)
+        assert_equal(scinfo0['wCertVk'], vk)
+        assert_equal(scinfo0['customData'], "bb" * 1024)
+        assert_equal(scinfo0['constant'], constant)
         mark_logs(str(scinfo0), self.nodes, DEBUG_MODE)
         mark_logs(str(scinfo1), self.nodes, DEBUG_MODE)
         mark_logs(str(scinfo2), self.nodes, DEBUG_MODE)

@@ -8,6 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
     dump_sc_info, dump_sc_info_record
+from test_framework.mc_test.mc_test import *
 import os
 import pprint
 from decimal import Decimal
@@ -76,12 +77,16 @@ class SCCreateTest(BitcoinTestFramework):
         errorString = ""
         toaddress = "abcdef"
 
+        #generate wCertVk and constant
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, 'sc1')
+        constant = generate_random_field_element_hex()
+
         # create with wrong key in input
         #------------------------------------
         amount = 12.0
         fee = 0.000025
 
-        cmdInput = {'wrong_key': 123, 'toaddress': toaddress, 'amount': amount, 'fee': fee}
+        cmdInput = {'wrong_key': 123, 'toaddress': toaddress, 'amount': amount, 'fee': fee, 'wCertVk': vk}
 
         mark_logs("\nNode 1 create SC with wrong key in input", self.nodes, DEBUG_MODE)
         try:
@@ -93,7 +98,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         # create with duplicate key in input
         #------------------------------------
-        cmdInput = FakeDict( [('fee', fee), ('amount', amount), ('amount', 6.0), ('toaddress', str(toaddress))])
+        cmdInput = FakeDict( [('fee', fee), ('amount', amount), ('amount', 6.0), ('toaddress', str(toaddress)), ('wCertVk', vk)])
 
         mark_logs("\nNode 1 create SC with duplicate key in input",self.nodes,DEBUG_MODE)
         try:
@@ -107,7 +112,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         # create with a missing mandatory key in input
         #------------------------------------------------
-        cmdInput = {'withdrawalEpochLength': 10, 'toaddress': toaddress, 'fee': fee}
+        cmdInput = {'withdrawalEpochLength': 10, 'toaddress': toaddress, 'fee': fee, 'wCertVk': vk, 'customData': "bb" * 1024}
 
         mark_logs("\nNode 1 create SC with duplicate key in input",self.nodes,DEBUG_MODE)
         try:
@@ -121,7 +126,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         # create with a bad value for amount
         #------------------------------------------------
-        cmdInput = {'withdrawalEpochLength': 10, 'toaddress': toaddress, 'amount': -0.1, 'fee': fee}
+        cmdInput = {'withdrawalEpochLength': 10, 'toaddress': toaddress, 'amount': -0.1, 'fee': fee, 'wCertVk': vk, 'constant': constant}
 
         mark_logs("\nNode 1 create SC with an invalid amount in input", self.nodes, DEBUG_MODE)
         try:
@@ -135,7 +140,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         # create with a bad withdrawal epoch length 
         #------------------------------------------------
-        cmdInput = {'withdrawalEpochLength': 0, 'toaddress': toaddress, 'amount': 0.1, 'fee': fee}
+        cmdInput = {'withdrawalEpochLength': 0, 'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk}
 
         mark_logs("\nNode 1 create SC with an invalid epoch length in input", self.nodes, DEBUG_MODE)
         try:
@@ -149,7 +154,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         # create with a fromaddress expressed in a wrong format
         #----------------------------------------------------------------
-        cmdInput = {'fromaddress': "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2", 'toaddress': toaddress, 'amount': 0.1, 'fee': fee}
+        cmdInput = {'fromaddress': "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2", 'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk}
 
         mark_logs("\nNode 1 create SC with a fromaddress expressed in a wrong format", self.nodes, DEBUG_MODE)
         try:
@@ -163,7 +168,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         # create with a changeaddress that does not belong to the node
         #----------------------------------------------------------------
-        cmdInput = {'changeaddress': "zthWZsNRTykixeceqgifx18hMMLNrNCzCzj", 'toaddress': toaddress, 'amount': 0.1, 'fee': fee}
+        cmdInput = {'changeaddress': "zthWZsNRTykixeceqgifx18hMMLNrNCzCzj", 'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk}
 
         mark_logs("\nNode 1 create SC with a changeaddress that does not belong to the node", self.nodes, DEBUG_MODE)
         try:
@@ -180,7 +185,7 @@ class SCCreateTest(BitcoinTestFramework):
         amount_below_dust_threshold = 0.00000001
         bad_amount = float(self.nodes[1].getbalance()) -  fee - amount_below_dust_threshold
 
-        cmdInput = {'toaddress': toaddress, 'amount': bad_amount, 'fee': fee}
+        cmdInput = {'toaddress': toaddress, 'amount': bad_amount, 'fee': fee, 'wCertVk': vk}
 
         mark_logs("\nNode 1 create SC with an amount that prevents a change above the dust threshold", self.nodes, DEBUG_MODE)
         try:
@@ -192,6 +197,202 @@ class SCCreateTest(BitcoinTestFramework):
             mark_logs(("bad amount: %f" % bad_amount), self.nodes, DEBUG_MODE)
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true("dust threshold" in errorString)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a bad wCertVk
+        mark_logs("\nNode 1 try creates a SC with a non hex wCertVk", self.nodes, DEBUG_MODE)
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "zz" * SC_VK_SIZE}
+
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert_true("wCertVk: Invalid format: not an hex" in errorString)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a bad wCertVk
+        mark_logs("\nNode 1 try creates a SC with a odd number of char in wCertVk", self.nodes, DEBUG_MODE)
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "a" * (SC_VK_SIZE - 1)}
+
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert_true("must be even" in errorString)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a wCertVk too short
+        mark_logs("\nNode 1 try creates a SC with too short wCertVk byte string", self.nodes, DEBUG_MODE)
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "aa" * (SC_VK_SIZE - 1)}
+
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert_true("bytes" in errorString)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a wCertVk too long
+        mark_logs("\nNode 1 try creates a SC with too long wCertVk byte string", self.nodes, DEBUG_MODE)
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "aa" * (SC_VK_SIZE + 1)}
+
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert_true("bytes" in errorString)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with an invalid wCertVk
+        mark_logs("\nNode 1 try creates a SC with an invalid wCertVk", self.nodes, DEBUG_MODE)
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "aa" * SC_VK_SIZE}
+
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert_true("Invalid wCertVk" in errorString)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC without wCertVk
+        mark_logs("\nNode 1 try creates a SC without wCertVk", self.nodes, DEBUG_MODE)
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee}
+
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert_true("Missing mandatory parameter in input: \"wCertVk\"" in errorString)
+        
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a bad customData
+        mark_logs("\nNode 1 try creates a SC with non hex customData", self.nodes, DEBUG_MODE)
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'customData': "zz" * 1024}
+
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert_true("customData: Invalid format: not an hex" in errorString)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a bad customData
+        mark_logs("\nNode 1 try creates a SC with a odd number of char in customData", self.nodes, DEBUG_MODE)
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'customData': "b" * 1023}
+
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert_true("must be even" in errorString)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with customData too long
+        mark_logs("\nNode 1 try creates a SC with too long customData byte string", self.nodes, DEBUG_MODE)
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'customData': "bb" * 1025}
+
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert_true("bytes" in errorString)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a bad constant
+        mark_logs("\nNode 1 try creates a SC with a non hex constant", self.nodes, DEBUG_MODE)
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'constant': "zz" * SC_FIELD_SIZE}
+
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert_true("constant: Invalid format: not an hex" in errorString)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a bad constant
+        mark_logs("\nNode 1 try creates a SC with a odd number of char in constant", self.nodes, DEBUG_MODE)
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'constant': "b" * (SC_FIELD_SIZE - 1)}
+
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert_true("must be even" in errorString)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a constant too short
+        mark_logs("\nNode 1 try creates a SC with too short constant byte string", self.nodes, DEBUG_MODE)
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'constant': "bb" * (SC_FIELD_SIZE - 1)}
+
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert_true("bytes" in errorString)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a constant too long
+        mark_logs("\nNode 1 try creates a SC with too long constant byte string", self.nodes, DEBUG_MODE)
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'constant': "bb" * (SC_FIELD_SIZE + 1)}
+
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert_true("bytes" in errorString)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 1 try create a SC with a bad constant
+        mark_logs("\nNode 1 try creates a SC with an invalid constant", self.nodes, DEBUG_MODE)
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'constant': "aa" * SC_FIELD_SIZE}
+
+        try:
+            tx = self.nodes[1].create_sidechain(cmdInput)
+            print "tx=", tx
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert_true("invalid constant" in errorString)
 
         # Node 1 create the SC using a valid input and a fromaddress+changeaddress key/value
         #------------------------------------------------------------------------------------------
@@ -221,7 +422,7 @@ class SCCreateTest(BitcoinTestFramework):
         changeaddress = self.nodes[1].getnewaddress()
 
         mark_logs(("using fromaddress: %s "%fromaddr), self.nodes,DEBUG_MODE)
-        cmdInput = {"fromaddress": fromaddr, "toaddress": toaddress, "amount": amount, "changeaddress":changeaddress, "fee": fee}
+        cmdInput = {"fromaddress": fromaddr, "toaddress": toaddress, "amount": amount, "changeaddress":changeaddress, "fee": fee, 'wCertVk': vk}
 
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
@@ -298,7 +499,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         # create with a minconf value which led to an error
         #---------------------------------------------------
-        cmdInput = {'fromaddress':fromaddr, 'toaddress': toaddress, 'amount': 6.0, 'minconf': MIN_CONF}
+        cmdInput = {'fromaddress':fromaddr, 'toaddress': toaddress, 'amount': 6.0, 'minconf': MIN_CONF, 'wCertVk': vk}
 
         mark_logs("\nNode 1 create SC with an minconf value in input which gives an error", self.nodes, DEBUG_MODE)
         try:
@@ -311,11 +512,10 @@ class SCCreateTest(BitcoinTestFramework):
             assert_true("minconf" in errorString)
 
         MIN_CONF = 1
-        CDATA = "badcaffe"
 
-        # create with a minconf value which is ok and with valid customData
+        # create with a minconf value which is ok
         #--------------------------------------------------------------------------------------
-        cmdInput = {'fromaddress':fromaddr, 'toaddress': toaddress, 'amount': 6.0, 'minconf': MIN_CONF, 'customData': CDATA}
+        cmdInput = {'fromaddress':fromaddr, 'toaddress': toaddress, 'amount': 6.0, 'minconf': MIN_CONF, 'wCertVk': vk, 'customData': "bb" * 1024, 'constant': constant}
 
         mark_logs("\nNode 1 create SC with an minconf value in input which is OK, with scid auto generation and valid custom data", self.nodes, DEBUG_MODE)
         try:
@@ -328,7 +528,9 @@ class SCCreateTest(BitcoinTestFramework):
 
         decoded_tx = self.nodes[1].getrawtransaction(tx, 1)
         scid    = decoded_tx['vsc_ccout'][0]['scid']
-        cdField = decoded_tx['vsc_ccout'][0]['customData']
+        wCertVk = decoded_tx['vsc_ccout'][0]['wCertVk']
+        constant = decoded_tx['vsc_ccout'][0]['constant']
+        customData = decoded_tx['vsc_ccout'][0]['customData']
 
         # check we are sending change to the proper address, which is fromaddr, since we have not set a change address
         for i in decoded_tx['vout']:
@@ -345,7 +547,9 @@ class SCCreateTest(BitcoinTestFramework):
         scinfo0 = self.nodes[0].getscinfo(scid)
         mark_logs("...verify that scid and custom data are set as expected...", self.nodes, DEBUG_MODE)
         assert_equal(scinfo0['scid'], scid)
-        assert_equal(scinfo0['customData'], cdField)
+        assert_equal(scinfo0['wCertVk'], wCertVk)
+        assert_equal(scinfo0['constant'], constant)
+        assert_equal(scinfo0['customData'], "bb" * 1024)
 
         # test sending funds to sicechain with sbh command
         #--------------------------------------------------------------------------------------

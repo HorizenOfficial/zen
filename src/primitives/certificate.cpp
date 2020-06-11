@@ -27,24 +27,28 @@ CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nV
 }
 
 CScCertificate::CScCertificate(int versionIn): CTransactionBase(versionIn),
-    scId(), epochNumber(EPOCH_NOT_INITIALIZED), endEpochBlockHash(), nFirstBwtPos(BWT_POS_UNSET) {}
+    scId(), epochNumber(EPOCH_NOT_INITIALIZED), quality(QUALITY_NULL),
+    endEpochBlockHash(), scProof(), nFirstBwtPos(BWT_POS_UNSET) {}
 
 CScCertificate::CScCertificate(const CScCertificate &cert): CTransactionBase(cert),
-    scId(cert.scId), epochNumber(cert.epochNumber),
-    endEpochBlockHash(cert.endEpochBlockHash), nFirstBwtPos(cert.nFirstBwtPos) {}
+    scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
+    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof), nFirstBwtPos(cert.nFirstBwtPos) {}
 
 CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
 {
     CTransactionBase::operator=(cert);
     *const_cast<uint256*>(&scId) = cert.scId;
     *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
+    *const_cast<int64_t*>(&quality) = cert.quality;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
+    *const_cast<libzendoomc::ScProof*>(&scProof) = cert.scProof;
     *const_cast<int*>(&nFirstBwtPos) = cert.nFirstBwtPos;
     return *this;
 }
 
 CScCertificate::CScCertificate(const CMutableScCertificate &cert): CTransactionBase(cert),
-    scId(cert.scId), epochNumber(cert.epochNumber), endEpochBlockHash(cert.endEpochBlockHash), nFirstBwtPos(cert.nFirstBwtPos)
+    scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
+    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof), nFirstBwtPos(cert.nFirstBwtPos)
 {
     UpdateHash();
 }
@@ -258,11 +262,12 @@ CAmount CScCertificate::GetValueOfChange() const
 // Mutable Certificate
 //-------------------------------------
 CMutableScCertificate::CMutableScCertificate() :
-        scId(), epochNumber(CScCertificate::EPOCH_NULL), endEpochBlockHash(), nFirstBwtPos(BWT_POS_UNSET) {}
+    scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL),
+    endEpochBlockHash(), scProof(), nFirstBwtPos(BWT_POS_UNSET) { }
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert) :
-    scId(cert.GetScId()), epochNumber(cert.epochNumber),
-    endEpochBlockHash(cert.endEpochBlockHash), nFirstBwtPos(cert.nFirstBwtPos)
+    scId(cert.GetScId()), epochNumber(cert.epochNumber), quality(cert.quality), 
+    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof), nFirstBwtPos(cert.nFirstBwtPos)
 {
     nVersion = cert.nVersion;
     vin  = cert.GetVin();

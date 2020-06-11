@@ -2,19 +2,13 @@
 #define _SIDECHAIN_CORE_H
 
 #include "amount.h"
-#include "chain.h"
 #include "hash.h"
-#include <boost/unordered_map.hpp>
-#include "sync.h"
-
 #include "sc/sidechaintypes.h"
+#include <primitives/certificate.h>
 
-//------------------------------------------------------------------------------------
-class CTxMemPool;
-class CBlockUndo;
-class UniValue;
 class CValidationState;
-class CLevelDBWrapper;
+class CTransaction;
+class CCoinsViewCache;
 
 class CSidechainEvents {
 public:
@@ -123,6 +117,7 @@ public:
 };
 
 namespace Sidechain {
+    bool checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state);
     bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
     bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
 }; // end of namespace

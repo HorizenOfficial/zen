@@ -8,6 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
     dump_ordered_tips, mark_logs, disconnect_nodes
+from test_framework.mc_test.mc_test import generate_params, generate_random_field_element_hex
 import os
 from decimal import Decimal
 import time
@@ -118,7 +119,12 @@ class ScInvalidateTest(BitcoinTestFramework):
         sc_address = "0000000000000000000000000000000000000000000000000000000000000abc"
         sc_epoch = 123
         sc_cr_amount = tx_amount
-        sc = [{"epoch_length": sc_epoch, "amount": sc_cr_amount, "address": sc_address}]
+
+        #generate wCertVk and constant
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, "sc1")
+        constant = generate_random_field_element_hex()
+
+        sc = [{"epoch_length": sc_epoch, "amount": sc_cr_amount, "address": sc_address, "wCertVk": vk, "constant": constant}]
         inputs = [{'txid': txid, 'vout': vout['n']}]
         sc_ft = []
 

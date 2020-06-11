@@ -28,6 +28,7 @@
 #include "consensus/params.h"
 #include <sc/sidechaintypes.h>
 #include <script/script_error.h>
+#include <sc/proofverifier.h>
 
 static const int32_t SC_CERT_VERSION = 0xFFFFFFFB; // -5
 static const int32_t SC_TX_VERSION = 0xFFFFFFFC; // -4
@@ -518,6 +519,8 @@ private:
 public:
     int withdrawalEpochLength; 
     std::vector<unsigned char> customData;
+    libzendoomc::ScConstant constant;
+    libzendoomc::ScVk wCertVk;
 
     CTxScCreationOut():withdrawalEpochLength(-1) { }
 
@@ -532,9 +535,12 @@ public:
         READWRITE(nValue);
         READWRITE(address);
         READWRITE(customData);
+        READWRITE(constant);
+        READWRITE(wCertVk);
     }
 
     virtual const uint256& GetScId() const override { return generatedScId;}; 
+
     virtual uint256 GetHash() const override;
     virtual std::string ToString() const override;
 
@@ -543,7 +549,9 @@ public:
         return (isBaseEqual(a, b) &&
                  a.generatedScId == b.generatedScId &&
                  a.withdrawalEpochLength == b.withdrawalEpochLength &&
-                 a.customData == b.customData);
+                 a.customData == b.customData &&
+                 a.constant == b.constant &&
+                 a.wCertVk == b.wCertVk );
     }
 
     friend bool operator!=(const CTxScCreationOut& a, const CTxScCreationOut& b)

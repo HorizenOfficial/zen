@@ -8,6 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     mark_logs, start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
     disconnect_nodes
+from test_framework.mc_test.mc_test import generate_params, generate_random_field_element_hex
 import os
 from decimal import Decimal
 import time
@@ -113,7 +114,12 @@ class headers(BitcoinTestFramework):
         mark_logs("\nNode 1 creates SC 1 with " + str(creation_amount) + " coins", self.nodes, DEBUG_MODE)
         amounts = []
         amounts.append({"address": "dada", "amount": creation_amount})
-        tx1 = self.nodes[1].sc_create(123, "dada", creation_amount, "123ffffffff123")
+        
+        #generate wCertVk and constant
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, "sc1")
+        constant = generate_random_field_element_hex()
+
+        tx1 = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "", constant)
         self.sync_all()
 
         decoded_tx = self.nodes[1].getrawtransaction(tx1, 1)
@@ -153,9 +159,10 @@ class headers(BitcoinTestFramework):
         mark_logs("\nNode 1 creates SC 2,3,4, all with " + str(creation_amount) + " coins", self.nodes, DEBUG_MODE)
         amounts = []
         amounts.append({"address": "dada", "amount": creation_amount})
-        tx2 = self.nodes[1].sc_create(123, "dada", creation_amount, "cdcdcd")
-        tx3 = self.nodes[1].sc_create(123, "dada", creation_amount, "ababab")
-        tx4 = self.nodes[1].sc_create(123, "dada", creation_amount, "efefef")
+        
+        tx2 = self.nodes[1].sc_create(123, "dada", creation_amount, generate_params(self.options.tmpdir, self.options.srcdir, "sc2"), "", generate_random_field_element_hex())
+        tx3 = self.nodes[1].sc_create(123, "dada", creation_amount, generate_params(self.options.tmpdir, self.options.srcdir, "sc3"), "", generate_random_field_element_hex())
+        tx4 = self.nodes[1].sc_create(123, "dada", creation_amount, generate_params(self.options.tmpdir, self.options.srcdir, "sc4"), "", generate_random_field_element_hex())
         self.sync_all()
 
         decoded_tx = self.nodes[1].getrawtransaction(tx2, 1)

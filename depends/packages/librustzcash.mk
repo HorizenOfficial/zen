@@ -21,7 +21,10 @@ endef
 
 define $(package)_preprocess_cmds
   mkdir .cargo && \
-  cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' > .cargo/config
+  cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' > .cargo/config && \
+  cat Cargo.toml | sed '/lto/d' | sed '/panic/d' > toml.temp && \
+  cat toml.temp >  Cargo.toml && \
+  rm toml.temp 
 endef
 
 define $(package)_build_cmds

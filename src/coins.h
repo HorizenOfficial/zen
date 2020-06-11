@@ -18,6 +18,7 @@
 #include <boost/unordered_map.hpp>
 #include "zcash/IncrementalMerkleTree.hpp"
 #include <sc/sidechain.h>
+#include <sc/proofverifier.h>
 
 class CBlockUndo;
 class CVoidedCertUndo;
@@ -560,7 +561,7 @@ public:
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state);
+    bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier);
     bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash);
     bool UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry);
     bool RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry);

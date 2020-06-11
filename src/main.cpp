@@ -916,6 +916,9 @@ bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
 
     if (!cert.CheckInputsInteraction(state))
         return false;
+    
+    if(!Sidechain::checkCertSemanticValidity(cert, state))
+        return false;
 
     return true;
 }
@@ -1110,7 +1113,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                 return false;
             }
 
-            if (!view.IsCertApplicableToState(cert, nextBlockHeight, state) )
+            auto scVerifier = libzendoomc::CScProofVerifier::Strict();   
+            if (!view.IsCertApplicableToState(cert, nextBlockHeight, state, scVerifier))
             {
                 LogPrint("sc", "%s():%d - certificate [%s] is not applicable\n", __func__, __LINE__, certHash.ToString());
                 return state.DoS(0, error("%s(): certificate not applicable", __func__),
@@ -2785,7 +2789,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         control.Add(vChecks);
 
-        if (!view.IsCertApplicableToState(cert, pindex->nHeight, state) ) {
+        auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+        if (!view.IsCertApplicableToState(cert, pindex->nHeight, state, scVerifier) ) {
             LogPrint("sc", "%s():%d - ERROR: cert=%s\n", __func__, __LINE__, cert.GetHash().ToString() );
             return state.DoS(100, error("ConnectBlock(): invalid sc certificate [%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-applicable");
@@ -4252,7 +4257,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
     CBlockIndex indexDummy(block);
     indexDummy.pprev = pindexPrev;
     indexDummy.nHeight = pindexPrev->nHeight + 1;
-    // JoinSplit proofs are verified in ConnectBlock
+    // JoinSplit and Sidechains proofs are verified in ConnectBlock
     auto verifier = libzcash::ProofVerifier::Disabled();
 
     // NOTE: CheckBlockHeader is called by CheckBlock

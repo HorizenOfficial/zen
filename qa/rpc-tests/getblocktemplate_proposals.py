@@ -7,6 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_false, assert_equal, mark_logs
 from test_framework.mininode import COIN, hash256, ser_string
+from test_framework.mc_test.mc_test import *
 
 from binascii import a2b_hex, b2a_hex
 from hashlib import sha256
@@ -147,20 +148,32 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         mark_logs(("active chain height = %d: testing after sidechain fork" %  self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
 
         # create a sidechain and a certificate for it in the mempool
-        creating_tx = self.nodes[1].sc_create(SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT)
+        vk = generate_params(self.options.tmpdir, self.options.srcdir, "sc1")
+        constant = generate_random_field_element_hex()
+
+        creating_tx = self.nodes[1].sc_create(SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT, vk, "bb" * 1024, constant)
         self.sync_all()
 
         decoded_tx = self.nodes[1].getrawtransaction(creating_tx, 1)
         scid = decoded_tx['vsc_ccout'][0]['scid']
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
+        current_height = self.nodes[1].getblockcount()
+        pebh = self.nodes[1].getblockhash(current_height)
         block_list = self.nodes[0].generate(SC_EPOCH_LENGTH) 
         self.sync_all()
 
         pkh = self.nodes[0].getnewaddress("", True)
         amounts = [{"pubkeyhash": pkh, "amount": SC_CERT_AMOUNT}]
+
+        #create wCert proof
+        eph = block_list[-1]
+        proof = create_test_proof(
+        self.options.tmpdir, self.options.srcdir, "sc1", 0, eph, pebh,
+        0, constant, [pkh], [SC_CERT_AMOUNT])
+
         fee = 0.000023
-        cert = self.nodes[0].send_certificate(scid, 0, block_list[-1], amounts, fee)
+        cert = self.nodes[0].send_certificate(scid, 0, 0, block_list[-1], proof, amounts, fee)
         self.sync_all()
         assert_true(cert in self.nodes[0].getrawmempool() ) 
 
