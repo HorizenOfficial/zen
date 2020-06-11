@@ -162,6 +162,21 @@ namespace libzendoomc{
             }
         }
 
+	LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"end epoch hash\": %s\n",
+                 __func__, __LINE__, scCert.endEpochBlockHash.ToString());
+	LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"prev end epoch hash\": %s\n",
+		__func__, __LINE__, prev_end_epoch_block_hash.ToString());
+	LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"bt_list_len\": %d\n",
+		__func__, __LINE__, inputs.bt_list.size());
+	LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"quality\": %s\n",
+		__func__, __LINE__, scCert.quality);
+	LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"constant\": %s\n",
+		__func__, __LINE__, HexStr(constant));
+	LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_proof\": %s\n",
+		__func__, __LINE__, HexStr(scCert.scProof));
+	LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_vk\": %s\n",
+		__func__, __LINE__, HexStr(wCertVk));
+
         // Call verifier
         if (!verify_sc_proof(scCert.endEpochBlockHash.begin(), prev_end_epoch_block_hash.begin(),
                             inputs.bt_list.data(), inputs.bt_list.size(), scCert.quality,
