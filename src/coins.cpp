@@ -1129,22 +1129,21 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CScCertificate& cert)
 
     int curCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+1) + scInfo.SafeguardMargin()+1;
     int nextCeasingHeight = curCeasingHeight + scInfo.creationData.withdrawalEpochLength;
-    int prevCeasingHeight = nextCeasingHeight - scInfo.creationData.withdrawalEpochLength;
 
-    //clear up prev ceasing height, if any
-    if (HaveSidechainEvents(prevCeasingHeight))
+    //clear up current ceasing height, if any
+    if (HaveSidechainEvents(curCeasingHeight))
     {
-        cacheSidechainEvents[prevCeasingHeight].scEvents.ceasingScs.erase(cert.GetScId());
-        if (!cacheSidechainEvents[prevCeasingHeight].scEvents.IsNull()) //still other sc ceasing at that height or fwds maturing
-            cacheSidechainEvents[prevCeasingHeight].flag = CSidechainEventsCacheEntry::Flags::DIRTY;
+        cacheSidechainEvents[curCeasingHeight].scEvents.ceasingScs.erase(cert.GetScId());
+        if (!cacheSidechainEvents[curCeasingHeight].scEvents.IsNull()) //still other sc ceasing at that height or fwds maturing
+            cacheSidechainEvents[curCeasingHeight].flag = CSidechainEventsCacheEntry::Flags::DIRTY;
         else
-            cacheSidechainEvents[prevCeasingHeight].flag = CSidechainEventsCacheEntry::Flags::ERASED;
+            cacheSidechainEvents[curCeasingHeight].flag = CSidechainEventsCacheEntry::Flags::ERASED;
 
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: cert [%s] removes prevCeasingHeight [%d]\n",
-                __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), prevCeasingHeight);
+                __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), curCeasingHeight);
     } else {
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: cert [%s] finds not prevCeasingHeight [%d] to remove\n",
-                __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), prevCeasingHeight);
+                __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), curCeasingHeight);
         // we always must have previous ceasing height record (at list one for current cert sc id).
         return false;
     }
