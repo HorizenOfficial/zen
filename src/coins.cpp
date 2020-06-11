@@ -13,7 +13,6 @@
 #include "utilmoneystr.h"
 #include <undo.h>
 #include <chainparams.h>
-#include <validationinterface.h>
 
 std::string CCoins::ToString() const
 {
@@ -790,8 +789,7 @@ int CSidechain::SafeguardMargin() const { return -1; }
 size_t CSidechain::DynamicMemoryUsage() const { return 0; }
 bool CCoinsViewCache::isEpochDataValid(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) {return true;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state) {return true;}
-bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height) { return true;}
-void SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped) {};
+bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height) { return true;};
 size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
 
 #else
@@ -1345,7 +1343,6 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
             }
         }
 
-        //SyncBwtCeasing(scInfo.lastCertificateHash, true);
         assert(pVoidedCertsList != nullptr);
         pVoidedCertsList->push_back(scInfo.lastCertificateHash);
     }
@@ -1430,7 +1427,6 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
             coins->vout.at(coins->nFirstBwtPos + idx) = voidedOuts.at(idx).txout;
         }
 
-        //SyncBwtCeasing(voidedCertUndo.voidedCertHash, false);
         assert(pVoidedCertsList != nullptr);
         pVoidedCertsList->push_back(voidedCertUndo.voidedCertHash);
 

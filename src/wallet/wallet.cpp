@@ -1359,7 +1359,7 @@ void CWallet::SyncCertificate(const CScCertificate& cert, const CBlock* pblock, 
     MarkAffectedTransactionsDirty(cert);
 }
 
-void CWallet::SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped)
+void CWallet::SyncVoidedCert(const uint256& certHash, bool bwtAreStripped)
 {
     LOCK2(cs_main, cs_wallet);
 

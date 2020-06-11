@@ -3152,7 +3152,7 @@ bool static DisconnectTip(CValidationState &state) {
     }
 
     for(const uint256& certHash: voidedCertList)
-        SyncBwtCeasing(certHash, false);
+        SyncVoidedCert(certHash, false);
 
     // Update cached incremental witnesses
     GetMainSignals().ChainTip(pindexDelete, &block, newTree, false);
@@ -3245,7 +3245,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     }
 
     for(const uint256& certHash: voidedCertList)
-        SyncBwtCeasing(certHash, true);
+        SyncVoidedCert(certHash, true);
 
     // Update cached incremental witnesses
     GetMainSignals().ChainTip(pindexNew, pblock, oldTree, true);
