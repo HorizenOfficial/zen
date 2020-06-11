@@ -32,7 +32,7 @@ void SyncWithWallets(const CTransaction& tx, const CBlock* pblock = NULL);
 /** Push an updated certificate to all registered wallets */
 void SyncWithWallets(const CScCertificate& cert, const CBlock* pblock = NULL, int bwtMaturityDepth = -1);
 /** Push to wallets that bwt have been stripped */
-void SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped);
+void SyncVoidedCert(const uint256& certHash, bool bwtAreStripped);
 
 
 class CValidationInterface {
@@ -41,7 +41,7 @@ protected:
     virtual void UpdatedBlockTip(const CBlockIndex *pindex) {}
     virtual void SyncTransaction(const CTransaction &tx, const CBlock *pblock) {}
     virtual void SyncCertificate(const CScCertificate &tx, const CBlock *pblock, int bwtMaturityDepth) {}
-    virtual void SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped) {}
+    virtual void SyncVoidedCert(const uint256& certHash, bool bwtAreStripped) {}
     virtual void EraseFromWallet(const uint256 &hash) {}
     virtual void ChainTip(const CBlockIndex *pindex, const CBlock *pblock, ZCIncrementalMerkleTree tree, bool added) {}
     virtual void SetBestChain(const CBlockLocator &locator) {}

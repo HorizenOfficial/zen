@@ -32,9 +32,9 @@ public:
     MOCK_METHOD0(TxnAbort, bool());
 
 #if 0
-    MOCK_METHOD2(WriteTx, bool(uint256 hash, const CWalletTx& wtx));
+    MOCK_METHOD2(WriteWalletTxBase, bool(uint256 hash, const CWalletTx& wtx));
 #else
-    MOCK_METHOD2(WriteTx, bool(uint256 hash, const CWalletTransactionBase& wtx));
+    MOCK_METHOD2(WriteWalletTxBase, bool(uint256 hash, const CWalletTransactionBase& wtx));
 #endif
     MOCK_METHOD1(WriteWitnessCacheSize, bool(int64_t nWitnessCacheSize));
     MOCK_METHOD1(WriteBestBlock, bool(const CBlockLocator& loc));
@@ -907,20 +907,20 @@ TEST(wallet_tests, WriteWitnessCache) {
     EXPECT_CALL(walletdb, TxnBegin())
         .WillRepeatedly(Return(true));
 
-    // WriteTx fails
-    EXPECT_CALL(walletdb, WriteTx(wtx.GetHash(), Eq(ByRef(refWtx))))
+    // WriteWalletTxBase fails
+    EXPECT_CALL(walletdb, WriteWalletTxBase(wtx.GetHash(), Eq(ByRef(refWtx))))
         .WillOnce(Return(false));
     EXPECT_CALL(walletdb, TxnAbort())
         .Times(1);
     wallet.SetBestChain(walletdb, loc);             
                                                     
-    // WriteTx throws
-    EXPECT_CALL(walletdb, WriteTx(wtx.GetHash(), Eq(ByRef(refWtx))))
+    // WriteWalletTxBase throws
+    EXPECT_CALL(walletdb, WriteWalletTxBase(wtx.GetHash(), Eq(ByRef(refWtx))))
         .WillOnce(ThrowLogicError());
     EXPECT_CALL(walletdb, TxnAbort())
         .Times(1);
     wallet.SetBestChain(walletdb, loc);
-    EXPECT_CALL(walletdb, WriteTx(wtx.GetHash(), Eq(ByRef(refWtx))))
+    EXPECT_CALL(walletdb, WriteWalletTxBase(wtx.GetHash(), Eq(ByRef(refWtx))))
         .WillRepeatedly(Return(true));
 
     // WriteWitnessCacheSize fails

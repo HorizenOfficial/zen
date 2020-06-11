@@ -795,7 +795,7 @@ protected:
         }
         try {
             for (auto& wtxItem : mapWallet) {
-                if (!walletdb.WriteTx(wtxItem.first, *(wtxItem.second))) {
+                if (!walletdb.WriteWalletTxBase(wtxItem.first, *(wtxItem.second))) {
                     LogPrintf("SetBestChain(): Failed to write CWalletTx, aborting atomic write\n");
                     walletdb.TxnAbort();
                     return;
@@ -1059,7 +1059,7 @@ public:
     bool AddToWallet(const CWalletTransactionBase& wtxIn, bool fFromLoadWallet, CWalletDB* pwalletdb);
     void SyncTransaction(const CTransaction& tx, const CBlock* pblock) override;
     void SyncCertificate(const CScCertificate& cert, const CBlock* pblock, int bwtMaturityDepth = -1) override;
-    void SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped) override;
+    void SyncVoidedCert(const uint256& certHash, bool bwtAreStripped) override;
     bool AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, bool fUpdate);
     void EraseFromWallet(const uint256 &hash) override;
     void WitnessNoteCommitment(

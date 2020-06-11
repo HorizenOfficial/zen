@@ -1359,7 +1359,7 @@ void CWallet::SyncCertificate(const CScCertificate& cert, const CBlock* pblock, 
     MarkAffectedTransactionsDirty(cert);
 }
 
-void CWallet::SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped)
+void CWallet::SyncVoidedCert(const uint256& certHash, bool bwtAreStripped)
 {
     LOCK2(cs_main, cs_wallet);
 
@@ -1403,7 +1403,7 @@ void CWallet::EraseFromWallet(const uint256 &hash)
         LogPrint("cert", "%s():%d - called for obj[%s]\n", __func__, __LINE__, hash.ToString());
 
         if (mapWallet.erase(hash))
-            CWalletDB(strWalletFile).EraseTx(hash);
+            CWalletDB(strWalletFile).EraseWalletTxBase(hash);
     }
     return;
 }
@@ -1963,7 +1963,7 @@ void CWalletTransactionBase::GetMatureAmountsForAccount(const string& strAccount
 
 bool CWalletTransactionBase::WriteToDisk(CWalletDB *pwalletdb)
 {
-    return pwalletdb->WriteTx(pTxBase->GetHash(), *this);
+    return pwalletdb->WriteWalletTxBase(pTxBase->GetHash(), *this);
 }
 
 void CWallet::WitnessNoteCommitment(std::vector<uint256> commitments,

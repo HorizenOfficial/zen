@@ -206,6 +206,9 @@ class CBlockUndo
      * Therefore the magic number must be a number greater than this limit. */
     static const uint16_t _marker = 0xffff;
 
+    static_assert(_marker > (MAX_BLOCK_SIZE / MIN_TX_SIZE),
+        "CBlockUndo::_marker must be greater than max number of tx in a block!");
+
     /** memory only */
     bool includesSidechainAttributes;
 
