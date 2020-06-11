@@ -150,32 +150,31 @@ namespace libzendoomc{
         }
 
         //Retrieve BT list
-        for (auto out : scCert.GetVout()){
-            if (out.isFromBackwardTransfer){
-                CBackwardTransferOut btout(out);
-                backward_transfer bt;
+        for(int pos = scCert.nFirstBwtPos; pos < scCert.GetVout().size(); ++pos)
+        {
+            CBackwardTransferOut btout(scCert.GetVout()[pos]);
+            backward_transfer bt;
 
-                std::copy(btout.pubKeyHash.begin(), btout.pubKeyHash.end(), std::begin(bt.pk_dest));
-                bt.amount = btout.nValue;
+            std::copy(btout.pubKeyHash.begin(), btout.pubKeyHash.end(), std::begin(bt.pk_dest));
+            bt.amount = btout.nValue;
 
-                inputs.bt_list.push_back(bt);
-            }
+            inputs.bt_list.push_back(bt);
         }
 
-	LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"end epoch hash\": %s\n",
-                 __func__, __LINE__, scCert.endEpochBlockHash.ToString());
-	LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"prev end epoch hash\": %s\n",
-		__func__, __LINE__, prev_end_epoch_block_hash.ToString());
-	LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"bt_list_len\": %d\n",
-		__func__, __LINE__, inputs.bt_list.size());
-	LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"quality\": %s\n",
-		__func__, __LINE__, scCert.quality);
-	LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"constant\": %s\n",
-		__func__, __LINE__, HexStr(constant));
-	LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_proof\": %s\n",
-		__func__, __LINE__, HexStr(scCert.scProof));
-	LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_vk\": %s\n",
-		__func__, __LINE__, HexStr(wCertVk));
+        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"end epoch hash\": %s\n",
+                    __func__, __LINE__, scCert.endEpochBlockHash.ToString());
+        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"prev end epoch hash\": %s\n",
+            __func__, __LINE__, prev_end_epoch_block_hash.ToString());
+        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"bt_list_len\": %d\n",
+            __func__, __LINE__, inputs.bt_list.size());
+        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"quality\": %s\n",
+            __func__, __LINE__, scCert.quality);
+        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"constant\": %s\n",
+            __func__, __LINE__, HexStr(constant));
+        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_proof\": %s\n",
+            __func__, __LINE__, HexStr(scCert.scProof));
+        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_vk\": %s\n",
+            __func__, __LINE__, HexStr(wCertVk));
 
         // Call verifier
         if (!verify_sc_proof(scCert.endEpochBlockHash.begin(), prev_end_epoch_block_hash.begin(),
