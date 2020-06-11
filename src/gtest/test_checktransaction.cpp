@@ -52,10 +52,8 @@ CMutableTransaction GetValidTransaction(int txVersion) {
     mtx.vin[0].prevout.n = 0;
     mtx.vin[1].prevout.hash = uint256S("0000000000000000000000000000000000000000000000000000000000000002");
     mtx.vin[1].prevout.n = 0;
-    mtx.vout.resize(2);
-    // mtx.vout[0].scriptPubKey = 
-    mtx.vout[0].nValue = 0;
-    mtx.vout[1].nValue = 0;
+    mtx.addOut(CTxOut(0,CScript()));
+    mtx.addOut(CTxOut(0,CScript()));
 
     if (txVersion == SC_TX_VERSION)
     {     
@@ -112,9 +110,8 @@ CMutableScCertificate GetValidCertificate() {
     CMutableScCertificate mcert;
 	mcert.nVersion = SC_CERT_VERSION;
 
-    mcert.vout.resize(2);
-    mcert.vout[0].nValue = 0.5;
-    mcert.vout[1].nValue = 1.0;
+    mcert.addOut(CTxOut(0.5,CScript()));
+    mcert.addOut(CTxOut(1,CScript()));
 
     mcert.scId = GetRandHash();
     mcert.epochNumber = 3;
@@ -167,7 +164,7 @@ TEST(checktransaction_tests, bad_txns_vin_empty) {
 TEST(checktransaction_tests, bad_txns_vout_empty) {
     CMutableTransaction mtx = GetValidTransaction();
     mtx.vjoinsplit.resize(0);
-    mtx.vout.resize(0);
+    mtx.resizeOut(0);
 
     CTransaction tx(mtx);
 
@@ -209,7 +206,7 @@ TEST(checktransaction_tests, bad_txns_oversize) {
 
 TEST(checktransaction_tests, bad_txns_vout_negative) {
     CMutableTransaction mtx = GetValidTransaction();
-    mtx.vout[0].nValue = -1;
+    mtx.getOut(0).nValue = -1;
 
     CTransaction tx(mtx);
 
@@ -220,7 +217,7 @@ TEST(checktransaction_tests, bad_txns_vout_negative) {
 
 TEST(checktransaction_tests, bad_txns_vout_toolarge) {
     CMutableTransaction mtx = GetValidTransaction();
-    mtx.vout[0].nValue = MAX_MONEY + 1;
+    mtx.getOut(0).nValue = MAX_MONEY + 1;
 
     CTransaction tx(mtx);
 
@@ -231,8 +228,8 @@ TEST(checktransaction_tests, bad_txns_vout_toolarge) {
 
 TEST(checktransaction_tests, bad_txns_txouttotal_toolarge_outputs) {
     CMutableTransaction mtx = GetValidTransaction();
-    mtx.vout[0].nValue = MAX_MONEY;
-    mtx.vout[1].nValue = 1;
+    mtx.getOut(0).nValue = MAX_MONEY;
+    mtx.getOut(1).nValue = 1;
 
     CTransaction tx(mtx);
 
@@ -243,7 +240,7 @@ TEST(checktransaction_tests, bad_txns_txouttotal_toolarge_outputs) {
 
 TEST(checktransaction_tests, bad_txns_txouttotal_toolarge_joinsplit) {
     CMutableTransaction mtx = GetValidTransaction();
-    mtx.vout[0].nValue = 1;
+    mtx.getOut(0).nValue = 1;
     mtx.vjoinsplit[0].vpub_old = MAX_MONEY;
 
     CTransaction tx(mtx);

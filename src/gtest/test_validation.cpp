@@ -52,7 +52,7 @@ public:
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CCeasingScsMap& mapCeasedScs) override
+                    CSidechainEventsMap& mapSidechainEvents) override
     {
         return false;
     }

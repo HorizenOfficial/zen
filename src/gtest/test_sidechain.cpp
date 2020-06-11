@@ -47,7 +47,7 @@ public:
 
     bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                     const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap, CCeasingScsMap& mapCeasingScs) override
+                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap, CSidechainEventsMap& mapSidechainEvents) override
     {
         for (auto& entry : sidechainMap)
             switch (entry.second.flag) {
@@ -510,7 +510,7 @@ TEST_F(SidechainTestSuite, FRESHSidechainsGetWrittenInBackingCache) {
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
 
     uint256 scId = uint256S("aaaa");
@@ -535,7 +535,7 @@ TEST_F(SidechainTestSuite, FRESHSidechainsCanBeWrittenOnlyIfUnknownToBackingCach
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
 
     //Prefill backing cache with sidechain
@@ -560,7 +560,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsAreStoredInBackingCache) {
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
 
     uint256 scId = uint256S("aaaa");
@@ -585,7 +585,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsUpdatesDirtyOnesInBackingCache) {
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
 
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
@@ -617,7 +617,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsOverwriteErasedOnesInBackingCache) {
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
 
     //Create sidechain...
@@ -654,7 +654,7 @@ TEST_F(SidechainTestSuite, ERASEDSidechainsSetExistingOnesInBackingCacheasErased
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
@@ -683,7 +683,7 @@ TEST_F(SidechainTestSuite, DEFAULTSidechainsCanBeWrittenInBackingCacheasOnlyIfUn
     const uint256 hashAnchor;
     CAnchorsMap mapAnchors;
     CNullifiersMap mapNullifiers;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
@@ -851,7 +851,7 @@ TEST_F(SidechainTestSuite, GetScIdsOnChainstateDbSelectOnlySidechains) {
     CAnchorsMap    emptyAnchorsMap;
     CNullifiersMap emptyNullifiersMap;
     CSidechainsMap emptySidechainsMap;
-    CCeasingScsMap mapCeasingScs;
+    CSidechainEventsMap mapCeasingScs;
 
     sidechainsView->BatchWrite(mapCoins, uint256(), uint256(), emptyAnchorsMap, emptyNullifiersMap, emptySidechainsMap, mapCeasingScs);
 
@@ -901,13 +901,10 @@ TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation)
 
     //a bwt cert is accepted in mempool too
     CAmount certAmount = 4;
-    CMutableScCertificate cert = CScCertificate();
+    CMutableScCertificate cert;
     cert.scId = scId;
-
-    cert.vout.resize(1);
-    cert.vout[0].nValue = certAmount;
-    cert.vout[0].scriptPubKey << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
-    cert.vout[0].isFromBackwardTransfer = true;
+    CScript scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    cert.addBwt(CTxOut(certAmount, scriptPubKey));
 
     CCertificateMemPoolEntry bwtPoolEntry(cert, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(bwtPoolEntry.GetCertificate().GetHash(), bwtPoolEntry);

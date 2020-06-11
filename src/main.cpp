@@ -673,8 +673,11 @@ unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans) EXCLUSIVE_LOCKS_REQUIRE
 
 bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHeight)
 {
-    if (!txBase.CheckVersionIsStandard(reason, nHeight))
+    if (!txBase.IsVersionStandard(nHeight))
+    {
+        reason = "version";
         return false;
+    }
 
 
     BOOST_FOREACH(const CTxIn& txin, txBase.GetVin())
@@ -698,7 +701,8 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
 
     unsigned int nDataOut = 0;
     txnouttype whichType;
-    BOOST_FOREACH(const CTxOut& txout, txBase.GetVout()) {
+    for(int pos = 0; pos < txBase.GetVout().size(); ++pos) {
+        const CTxOut & txout = txBase.GetVout()[pos];
         CheckBlockResult checkBlockResult;
         if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
             reason = "scriptpubkey";
@@ -717,7 +721,7 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
         }
 
         // provide temporary replay protection for two minerconf windows during chainsplit
-        if ((!txBase.IsCoinBase() && !txout.isFromBackwardTransfer) &&
+        if ((!txBase.IsCoinBase() && !txBase.IsBackwardTransfer(pos)) &&
             (!ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(), whichType))) {
             reason = "op-checkblockatheight-needed";
             return false;
@@ -912,8 +916,8 @@ bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
 
     if (!cert.CheckInputsInteraction(state))
         return false;
-
-    if (!Sidechain::checkCertSemanticValidity(cert, state))
+    
+    if(!Sidechain::checkCertSemanticValidity(cert, state))
         return false;
 
     return true;
@@ -1062,7 +1066,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
         if ((pool.mapSidechains.count(cert.GetScId()) != 0) &&
             (!pool.mapSidechains.at(cert.GetScId()).backwardCertificate.IsNull())) {
-            LogPrint("mempool", "Dropping cert %s : another cert for same sc is already in mempool\n", certHash.ToString());
+            LogPrintf("mempool", "%s():%d - Dropping cert %s : another cert for same sc is already in mempool\n",
+                __func__, __LINE__, certHash.ToString());
             return error("another cert for same sc is already in mempool");
         }
 
@@ -1078,7 +1083,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             if (pool.mapCertificate.count(vin.prevout.hash)) {
                 const CScCertificate & inputCert = pool.mapCertificate[vin.prevout.hash].GetCertificate();
                 // certificates can only spend change outputs of another certificate in mempool, while backward transfers must mature first
-                if (inputCert.GetVout()[vin.prevout.n].isFromBackwardTransfer ) 
+                if (inputCert.IsBackwardTransfer(vin.prevout.n))
                 {
                     LogPrint("mempool", "%s():%d - Dropping cert[%s]: it would spend the backward transfer output %d of cert[%s] that is in mempool\n",
                         __func__, __LINE__, certHash.ToString(), vin.prevout.n, vin.prevout.hash.ToString());
@@ -1106,13 +1111,6 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             {
                 LogPrint("mempool", "Dropping cert %s : already have coins\n", certHash.ToString());
                 return false;
-            }
-
-            if(viewMemPool.HaveCertForEpoch(cert.GetScId(), cert.epochNumber))
-            {
-                LogPrint("mempool", "Dropping cert %s : already have cert for same sc and epoch\n", certHash.ToString());
-                return state.DoS(0, error("%s(): certificate for same sc and epoch already received", __func__),
-                            REJECT_INVALID, "bad-sc-cert-not-applicable");
             }
 
             auto scVerifier = libzendoomc::CScProofVerifier::Strict();   
@@ -1945,8 +1943,6 @@ bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint
         coins->vout.resize(out.n+1);
 
     coins->vout[out.n] = undo.txout;
-    if (coins->IsFromCert() && (out.n >= coins->nFirstBwtPos))
-        coins->vout[out.n].isFromBackwardTransfer = true;
 
     return fClean;
 }

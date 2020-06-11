@@ -98,7 +98,7 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx, const std::vector<CWalle
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
         out.push_back(Pair("scriptPubKey", o));
-        if (txout.isFromBackwardTransfer)
+        if (tx.getTxBase()->IsBackwardTransfer(i))
             out.push_back(Pair("backwardTransfer", true));
         vout.push_back(out);
     }
@@ -4755,23 +4755,15 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert height"));
     }
 
-    // - there must not be another certificate for the same epoch (multiple certificates are not allowed)
-    // This also checks in mempool
+    // there must not be another certificate for the same scId in mempool (multiple certificates are not allowed)
     {
         LOCK(mempool.cs);
-        CCoinsViewMemPool viewMemPool(pcoinsTip, mempool);
-
-        if (viewMemPool.HaveCertForEpoch(scId, epochNumber))
+        if ((mempool.mapSidechains.count(scId) != 0) && (!mempool.mapSidechains.at(scId).backwardCertificate.IsNull()))
         {
-            uint256 conflictingCertHash;
-            if (mempool.mapSidechains.count(scId))
-                conflictingCertHash = mempool.mapSidechains.at(scId).backwardCertificate;
-            else
-                conflictingCertHash.SetNull();
-
-            LogPrintf("ERROR: certificate %s for epoch %d is already been issued\n",
-                (conflictingCertHash.IsNull())?"":conflictingCertHash.ToString(), epochNumber);
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert epoch"));
+            const uint256& conflictingCertHash = mempool.mapSidechains.at(scId).backwardCertificate;
+            LogPrintf("%s():%d - ERROR: a certificate %s for scid %s is already in the mempool\n",
+                __func__, __LINE__, conflictingCertHash.ToString(), scId.ToString());
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("conflicting cert"));
         }
     }
     cert.endEpochBlockHash = endEpochBlockHash;

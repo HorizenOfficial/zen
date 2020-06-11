@@ -158,7 +158,7 @@ bool GetTxInputsDependencies(const CTransactionBase& txBase, CAmount& nTotalIn, 
             const CScCertificate & inputCert = mempool.mapCertificate[txin.prevout.hash].GetCertificate();
 
             if (!txBase.IsCertificate() || // this is a tx
-                inputCert.GetVout()[txin.prevout.n].isFromBackwardTransfer ) // out is a backward transfer 
+                inputCert.IsBackwardTransfer(txin.prevout.n)) // out is a backward transfer
             {
                 // This should never happen
                 LogPrintf("%s():%d - ERROR: [%s] has unspendable input that is an unconfirmed certificate [%s] output %d\n",
@@ -683,23 +683,22 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         CMutableTransaction txNew;
         txNew.vin.resize(1);
         txNew.vin[0].prevout.SetNull();
-        txNew.vout.resize(1);
-        txNew.vout[0].scriptPubKey = scriptPubKeyIn;        
-        CAmount reward = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
-        txNew.vout[0].nValue = reward;
 
+        CAmount reward = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+        CTxOut out(reward, scriptPubKeyIn);
+        txNew.addOut(out);
 
         for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
             CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight, reward, cfType);
             if (vCommunityFund > 0) {
                 // Take some reward away from miners
-                txNew.vout[0].nValue -= vCommunityFund;
+                txNew.getOut(0).nValue -= vCommunityFund;
                 // And give it to the community
-                txNew.vout.push_back(CTxOut(vCommunityFund, chainparams.GetCommunityFundScriptAtHeight(nHeight, cfType)));
+                txNew.addOut(CTxOut(vCommunityFund, chainparams.GetCommunityFundScriptAtHeight(nHeight, cfType)));
             }
         }
         // Add fees
-        txNew.vout[0].nValue += nFees;
+        txNew.getOut(0).nValue += nFees;
         txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;        
         pblock->vtx[0] = txNew;
         pblocktemplate->vTxFees[0] = -nFees;

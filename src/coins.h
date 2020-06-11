@@ -255,9 +255,6 @@ public:
         if (this->IsFromCert()) {
             ::Unserialize(s, nFirstBwtPos, nType,nVersion);
             ::Unserialize(s, nBwtMaturityHeight, nType,nVersion);
-
-            for(int idx = nFirstBwtPos; idx < vout.size(); ++idx)
-                vout[idx].isFromBackwardTransfer = true;
         }
 
         Cleanup();
@@ -353,8 +350,8 @@ struct CNullifiersCacheEntry
 };
 
 typedef boost::unordered_map<uint256, CCoinsCacheEntry, CCoinsKeyHasher>      CCoinsMap;
-typedef boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> CSidechainsMap;
-typedef boost::unordered_map<int, CSidechainEventsCacheEntry>                 CCeasingScsMap;
+typedef boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> CSidechainsMap; //maps scId to sidechain informations
+typedef boost::unordered_map<int, CSidechainEventsCacheEntry>                 CSidechainEventsMap; //maps blockchain height to sidechain amount to mature/certs to void
 typedef boost::unordered_map<uint256, CAnchorsCacheEntry, CCoinsKeyHasher>    CAnchorsMap;
 typedef boost::unordered_map<uint256, CNullifiersCacheEntry, CCoinsKeyHasher> CNullifiersMap;
 
@@ -404,9 +401,6 @@ public:
     //! Retrieve all the known sidechain ids
     virtual void GetScIds(std::set<uint256>& scIdsList) const;
 
-    //! just check whether we have data for a certificate in a given epoch for given sidechain
-    virtual bool HaveCertForEpoch(const uint256& scId, int epochNumber) const;
-
     //! Retrieve the block hash whose state this CCoinsView currently represents
     virtual uint256 GetBestBlock() const;
 
@@ -421,7 +415,7 @@ public:
                             CAnchorsMap &mapAnchors,
                             CNullifiersMap &mapNullifiers,
                             CSidechainsMap& mapSidechains,
-                            CCeasingScsMap& mapCeasedScs);
+                            CSidechainEventsMap& mapCeasedScs);
 
     //! Calculate statistics about the unspent transaction output set
     virtual bool GetStats(CCoinsStats &stats) const;
@@ -448,7 +442,6 @@ public:
     bool HaveSidechainEvents(int height)                               const override;
     bool GetSidechainEvents(int height, CSidechainEvents& scEvents)    const override;
     void GetScIds(std::set<uint256>& scIdsList)                        const override;
-    bool HaveCertForEpoch(const uint256& scId, int epochNumber)        const override;
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
     void SetBackend(CCoinsView &viewIn);
@@ -458,7 +451,7 @@ public:
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CCeasingScsMap& mapCeasedScs)                            override;
+                    CSidechainEventsMap& mapCeasedScs)                            override;
     bool GetStats(CCoinsStats &stats)                                  const override;
 };
 
@@ -500,7 +493,7 @@ protected:
     mutable uint256        hashBlock;
     mutable CCoinsMap      cacheCoins;
     mutable CSidechainsMap cacheSidechains;
-    mutable CCeasingScsMap cacheSidechainEvents;
+    mutable CSidechainEventsMap cacheSidechainEvents;
     mutable uint256        hashAnchor;
     mutable CAnchorsMap    cacheAnchors;
     mutable CNullifiersMap cacheNullifiers;
@@ -526,7 +519,7 @@ public:
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CCeasingScsMap& mapCeasedScs)                            override;
+                    CSidechainEventsMap& mapCeasedScs)                            override;
 
 
     // Adds the tree to mapAnchors and sets the current commitment
@@ -626,7 +619,7 @@ private:
     CCoinsMap::iterator            FetchCoins(const uint256 &txid);
     CCoinsMap::const_iterator      FetchCoins(const uint256 &txid)      const;
     CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
-    CCeasingScsMap::const_iterator FetchSidechainEvents(int height)     const;
+    CSidechainEventsMap::const_iterator FetchSidechainEvents(int height)     const;
 
     static int getInitScCoinsMaturity();
     int getScCoinsMaturity();
