@@ -441,7 +441,8 @@ TEST_F(SidechainsEventsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCe
     int minimalCeaseHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin()+1;
     EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
     CBlockUndo coinsBlockUndo;
-    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo));
+    std::vector<uint256> dummy;
+    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy));
 
     //Checks
     CCoins updatedCoin;
@@ -482,7 +483,8 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     int minimalCeaseHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin()+1;
     EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
     CBlockUndo coinsBlockUndo;
-    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo));
+    std::vector<uint256> dummy;
+    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy));
 
     //Checks
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -531,7 +533,8 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSi
     int minimalCeaseHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin()+1;
     EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
     CBlockUndo coinsBlockUndo;
-    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo));
+    std::vector<uint256> dummy;
+    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy));
 
     //Checks
     CCoins updatedCoin;
@@ -571,7 +574,8 @@ TEST_F(SidechainsEventsTestSuite, EmptyCertificatesCoinsAreNotAffectedByCeasedSi
     int minimalCeaseHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin()+1;
     EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
     CBlockUndo coinsBlockUndo;
-    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo));
+    std::vector<uint256> dummy;
+    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy));
 
     //Checks
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -613,10 +617,11 @@ TEST_F(SidechainsEventsTestSuite, RestoreFullCertCeasedCoins) {
 
     // Null the coins
     CBlockUndo coinsBlockUndo;
-    view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo);
+    std::vector<uint256> dummy;
+    view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy);
 
     //test
-    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight);
+    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight, &dummy);
 
     //checks
     CCoins rebuiltCoin;
@@ -664,11 +669,12 @@ TEST_F(SidechainsEventsTestSuite, RestorePureBwtCeasedCoins) {
 
     // Null the coins
     CBlockUndo coinsBlockUndo;
-    view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo);
+    std::vector<uint256> dummy;
+    view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy);
     ASSERT_FALSE(view->HaveCoins(cert.GetHash()));
 
     //test
-    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight);
+    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight, &dummy);
 
     //checks
     CCoins rebuiltCoin;
@@ -716,10 +722,11 @@ TEST_F(SidechainsEventsTestSuite, RestoreNoBwtCeasedCoins) {
 
     // Null the coins
     CBlockUndo coinsBlockUndo;
-    view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo);
+    std::vector<uint256> dummy;
+    view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy);
 
     //test
-    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight);
+    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight, &dummy);
 
     //checks
     CCoins rebuiltCoin;
@@ -766,10 +773,11 @@ TEST_F(SidechainsEventsTestSuite, RestoreEmptyCertCeasedCoins) {
 
     // Null the coins
     CBlockUndo coinsBlockUndo;
-    view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo);
+    std::vector<uint256> dummy;
+    view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy);
 
     //test
-    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight);
+    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight, &dummy);
 
     //checks
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -1268,7 +1276,8 @@ TEST_F(SidechainsEventsTestSuite, ScCreationAmountMaturesAtHeight) {
     //test
     int creationMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
     CBlockUndo blockUndo;
-    EXPECT_TRUE(view->HandleSidechainEvents(creationMaturityHeight, blockUndo));
+    std::vector<uint256> dummy;
+    EXPECT_TRUE(view->HandleSidechainEvents(creationMaturityHeight, blockUndo, &dummy));
 
     //Checks
     CSidechain sidechain;
@@ -1297,7 +1306,8 @@ TEST_F(SidechainsEventsTestSuite, FwdAmountMaturesAtHeight) {
     //test
     int fwdMaturityHeight = fwdHeight + Params().ScCoinsMaturity();
     CBlockUndo blockUndo;
-    EXPECT_TRUE(view->HandleSidechainEvents(fwdMaturityHeight, blockUndo));
+    std::vector<uint256> dummy;
+    EXPECT_TRUE(view->HandleSidechainEvents(fwdMaturityHeight, blockUndo, &dummy));
 
     //Checks
     CSidechain sidechain;
@@ -1332,7 +1342,8 @@ TEST_F(SidechainsEventsTestSuite, DoubleFwdsMatureAtHeight) {
     //test
     int fwdMaturityHeight = fwdHeight + Params().ScCoinsMaturity();
     CBlockUndo blockUndo;
-    EXPECT_TRUE(view->HandleSidechainEvents(fwdMaturityHeight, blockUndo));
+    std::vector<uint256> dummy;
+    EXPECT_TRUE(view->HandleSidechainEvents(fwdMaturityHeight, blockUndo, &dummy));
 
     //Checks
     CSidechain sidechain;
@@ -1354,10 +1365,11 @@ TEST_F(SidechainsEventsTestSuite, CreationAmountDoesNotMatureUponRevertSidechain
 
     int creationMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
     CBlockUndo blockUndo;
-    EXPECT_TRUE(view->HandleSidechainEvents(creationMaturityHeight, blockUndo));
+    std::vector<uint256> dummy;
+    EXPECT_TRUE(view->HandleSidechainEvents(creationMaturityHeight, blockUndo, &dummy));
 
     //test
-    EXPECT_TRUE(view->RevertSidechainEvents(blockUndo, creationMaturityHeight));
+    EXPECT_TRUE(view->RevertSidechainEvents(blockUndo, creationMaturityHeight, &dummy));
 
     //Checks
     CSidechain sidechain;
@@ -1377,7 +1389,8 @@ TEST_F(SidechainsEventsTestSuite, FwdAmountsDoNotMatureUponRevertSidechainEvents
     EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationTx.GetVscCcOut()[0], scCreationHeight));
 
     CBlockUndo dummyBlockUndo;
-    EXPECT_TRUE(view->HandleSidechainEvents(scCreationHeight + Params().ScCoinsMaturity(), dummyBlockUndo));
+    std::vector<uint256> dummy;
+    EXPECT_TRUE(view->HandleSidechainEvents(scCreationHeight + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
 
     // create and mature a fwd
     CAmount fwdAmount = 200;
@@ -1388,10 +1401,10 @@ TEST_F(SidechainsEventsTestSuite, FwdAmountsDoNotMatureUponRevertSidechainEvents
 
     int fwdMaturityHeight = fwdHeight + Params().ScCoinsMaturity();
     CBlockUndo blockUndo;
-    EXPECT_TRUE(view->HandleSidechainEvents(fwdMaturityHeight, blockUndo));
+    EXPECT_TRUE(view->HandleSidechainEvents(fwdMaturityHeight, blockUndo, &dummy));
 
     //test
-    EXPECT_TRUE(view->RevertSidechainEvents(blockUndo, fwdMaturityHeight));
+    EXPECT_TRUE(view->RevertSidechainEvents(blockUndo, fwdMaturityHeight, &dummy));
 
     //Checks
     CSidechain sidechain;
@@ -1410,7 +1423,8 @@ TEST_F(SidechainsEventsTestSuite, DoubleFwdsDoNotMatureUponRevertSidechainEvents
     EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationTx.GetVscCcOut()[0], scCreationHeight));
 
     CBlockUndo dummyBlockUndo;
-    EXPECT_TRUE(view->HandleSidechainEvents(scCreationHeight + Params().ScCoinsMaturity(), dummyBlockUndo));
+    std::vector<uint256> dummy;
+    EXPECT_TRUE(view->HandleSidechainEvents(scCreationHeight + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
 
     //Create transaction with double fwd Tx
     CAmount fwdAmount1 = 200;
@@ -1427,10 +1441,10 @@ TEST_F(SidechainsEventsTestSuite, DoubleFwdsDoNotMatureUponRevertSidechainEvents
 
     int fwdMaturityHeight = fwdHeight + Params().ScCoinsMaturity();
     CBlockUndo blockUndo;
-    EXPECT_TRUE(view->HandleSidechainEvents(fwdMaturityHeight, blockUndo));
+    EXPECT_TRUE(view->HandleSidechainEvents(fwdMaturityHeight, blockUndo, &dummy));
 
     //test
-    EXPECT_TRUE(view->RevertSidechainEvents(blockUndo, fwdMaturityHeight));
+    EXPECT_TRUE(view->RevertSidechainEvents(blockUndo, fwdMaturityHeight, &dummy));
 
     //Checks
     CSidechain sidechain;

@@ -13,7 +13,6 @@
 #include "utilmoneystr.h"
 #include <undo.h>
 #include <chainparams.h>
-#include <validationinterface.h>
 
 std::string CCoins::ToString() const
 {
@@ -790,8 +789,7 @@ int CSidechain::SafeguardMargin() const { return -1; }
 size_t CSidechain::DynamicMemoryUsage() const { return 0; }
 bool CCoinsViewCache::isEpochDataValid(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) {return true;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state) {return true;}
-bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height) { return true;}
-void SyncBwtCeasing(const uint256& certHash, bool bwtAreStripped) {};
+bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height) { return true;};
 size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
 
 #else
@@ -1174,8 +1172,7 @@ bool CCoinsViewCache::CancelSidechainEvent(const CTxScCreationOut& scCreationOut
 
 
     //remove current ceasing Height
-    int restoredEpoch = restoredScInfo.EpochFor(restoredScInfo.creationBlockHeight);
-    int currentCeasingHeight = restoredScInfo.StartHeightForEpoch(restoredEpoch + 1) + restoredScInfo.SafeguardMargin() +1;
+    int currentCeasingHeight = restoredScInfo.StartHeightForEpoch(1) + restoredScInfo.SafeguardMargin() +1;
 
     // Cancel Ceasing Sidechains
     if (!HaveSidechainEvents(currentCeasingHeight)) {
@@ -1266,7 +1263,7 @@ bool CCoinsViewCache::CancelSidechainEvent(const CScCertificate& cert)
     return true;
 }
 
-bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo)
+bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<uint256>* pVoidedCertsList)
 {
     if (!HaveSidechainEvents(height))
         return true;
@@ -1345,13 +1342,14 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo)
             }
         }
 
-        SyncBwtCeasing(scInfo.lastCertificateHash, true);
+        assert(pVoidedCertsList != nullptr);
+        pVoidedCertsList->push_back(scInfo.lastCertificateHash);
     }
 
     return true;
 }
 
-bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int height)
+bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<uint256>* pVoidedCertsList)
 {
     // Reverting amount maturing
     for (std::map<uint256, ScUndoData>::const_iterator it = blockUndo.scUndoMap.begin(); it != blockUndo.scUndoMap.end(); ++it)
@@ -1428,7 +1426,8 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
             coins->vout.at(coins->nFirstBwtPos + idx) = voidedOuts.at(idx).txout;
         }
 
-        SyncBwtCeasing(voidedCertUndo.voidedCertHash, false);
+        assert(pVoidedCertsList != nullptr);
+        pVoidedCertsList->push_back(voidedCertUndo.voidedCertHash);
 
         if (!fClean) return false;
     }

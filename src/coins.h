@@ -15,7 +15,6 @@
 #include <assert.h>
 #include <stdint.h>
 
-#include <boost/foreach.hpp>
 #include <boost/unordered_map.hpp>
 #include "zcash/IncrementalMerkleTree.hpp"
 #include <sc/sidechain.h>
@@ -578,8 +577,8 @@ public:
     bool CancelSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight);
     bool CancelSidechainEvent(const CScCertificate& cert);
 
-    bool HandleSidechainEvents(int height, CBlockUndo& blockUndo);
-    bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height);
+    bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<uint256>* pVoidedCertsList);
+    bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<uint256>* pVoidedCertsList);
 
     CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
 

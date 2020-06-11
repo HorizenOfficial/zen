@@ -56,13 +56,13 @@ bool CWalletDB::ErasePurpose(const string& strPurpose)
 }
 
 #if 0
-bool CWalletDB::WriteTx(uint256 hash, const CWalletTx& wtx)
+bool CWalletDB::WriteWalletTxBase(uint256 hash, const CWalletTx& wtx)
 {
     nWalletDBUpdated++;
     return Write(std::make_pair(std::string("tx"), hash), wtx);
 }
 #else
-bool CWalletDB::WriteTx(uint256 hash, const CWalletTransactionBase& obj)
+bool CWalletDB::WriteWalletTxBase(uint256 hash, const CWalletTransactionBase& obj)
 {
     const CTransactionBase* const pRef = obj.getTxBase();
 
@@ -97,7 +97,7 @@ bool CWalletDB::WriteTx(uint256 hash, const CWalletTransactionBase& obj)
 }
 #endif
 
-bool CWalletDB::EraseTx(uint256 hash)
+bool CWalletDB::EraseWalletTxBase(uint256 hash)
 {
     nWalletDBUpdated++;
     LogPrint("cert", "%s():%d - called for obj[%s]\n", __func__, __LINE__, hash.ToString());
@@ -398,7 +398,7 @@ DBErrors CWalletDB::ReorderTransactions(CWallet* pwallet)
 
             if (pwtx)
             {
-                if (!WriteTx(pwtx->getTxBase()->GetHash(), *pwtx))
+                if (!WriteWalletTxBase(pwtx->getTxBase()->GetHash(), *pwtx))
                     return DB_LOAD_FAIL;
             }
             else
@@ -422,7 +422,7 @@ DBErrors CWalletDB::ReorderTransactions(CWallet* pwallet)
             // Since we're changing the order, write it back
             if (pwtx)
             {
-                if (!WriteTx(pwtx->getTxBase()->GetHash(), *pwtx))
+                if (!WriteWalletTxBase(pwtx->getTxBase()->GetHash(), *pwtx))
                     return DB_LOAD_FAIL;
             }
             else
@@ -910,7 +910,7 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
         pwallet->nTimeFirstKey = 1; // 0 would be considered 'no value'
 
     for(uint256 hash: wss.vWalletUpgrade)
-        WriteTx(hash, *(pwallet->getMapWallet().at(hash)));
+        WriteWalletTxBase(hash, *(pwallet->getMapWallet().at(hash)));
 
 
     // Rewrite encrypted wallets of versions 0.4.0 and 0.5.0rc:
@@ -1027,7 +1027,7 @@ DBErrors CWalletDB::ZapWalletTx(CWallet* pwallet, std::vector<std::shared_ptr<CW
 
     // erase each wallet TX
     BOOST_FOREACH (uint256& hash, vTxHash) {
-        if (!EraseTx(hash))
+        if (!EraseWalletTxBase(hash))
             return DB_CORRUPT;
     }
 
