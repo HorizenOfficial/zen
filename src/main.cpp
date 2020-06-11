@@ -2285,7 +2285,7 @@ bool AbortNode(CValidationState& state, const std::string& strMessage, const std
 } // anon namespace
 
 bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
-    bool* pfClean)
+    bool* pfClean, std::vector<uint256>* pVoidedCertsList)
 {
     assert(pindex->GetBlockHash() == view.GetBestBlock());
 
@@ -2307,7 +2307,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     if (blockUndo.vtxundo.size() != (block.vtx.size() - 1 + block.vcert.size()))
         return error("DisconnectBlock(): block and undo data inconsistent");
 
-    if (!view.RevertSidechainEvents(blockUndo, pindex->nHeight))
+    if (!view.RevertSidechainEvents(blockUndo, pindex->nHeight, pVoidedCertsList))
     {
         LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed reverting scheduled event\n", __func__, __LINE__);
         return error("DisconnectBlock(): cannot revert sidechains scheduled events");
@@ -3080,9 +3080,10 @@ bool static DisconnectTip(CValidationState &state) {
     // Apply the block atomically to the chain state.
     uint256 anchorBeforeDisconnect = pcoinsTip->GetBestAnchor();
     int64_t nStart = GetTimeMicros();
+    std::vector<uint256> voidedCertList;
     {
         CCoinsViewCache view(pcoinsTip);
-        if (!DisconnectBlock(block, state, pindexDelete, view, NULL))
+        if (!DisconnectBlock(block, state, pindexDelete, view, NULL, &voidedCertList))
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         assert(view.Flush());
     }
@@ -3149,6 +3150,9 @@ bool static DisconnectTip(CValidationState &state) {
     for(const CScCertificate &cert: block.vcert) {
         SyncWithWallets(cert, nullptr);
     }
+
+    for(const uint256& certHash: voidedCertList)
+        SyncBwtCeasing(certHash, false);
 
     // Update cached incremental witnesses
     GetMainSignals().ChainTip(pindexDelete, &block, newTree, false);

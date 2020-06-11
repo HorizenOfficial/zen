@@ -1346,14 +1346,14 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
         }
 
         //SyncBwtCeasing(scInfo.lastCertificateHash, true);
-       assert(pVoidedCertsList != nullptr);
-       pVoidedCertsList->push_back(scInfo.lastCertificateHash);
+        assert(pVoidedCertsList != nullptr);
+        pVoidedCertsList->push_back(scInfo.lastCertificateHash);
     }
 
     return true;
 }
 
-bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int height)
+bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<uint256>* pVoidedCertsList)
 {
     // Reverting amount maturing
     for (std::map<uint256, ScUndoData>::const_iterator it = blockUndo.scUndoMap.begin(); it != blockUndo.scUndoMap.end(); ++it)
@@ -1430,7 +1430,9 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
             coins->vout.at(coins->nFirstBwtPos + idx) = voidedOuts.at(idx).txout;
         }
 
-        SyncBwtCeasing(voidedCertUndo.voidedCertHash, false);
+        //SyncBwtCeasing(voidedCertUndo.voidedCertHash, false);
+        assert(pVoidedCertsList != nullptr);
+        pVoidedCertsList->push_back(voidedCertUndo.voidedCertHash);
 
         if (!fClean) return false;
     }
