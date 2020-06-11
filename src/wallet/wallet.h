@@ -795,7 +795,7 @@ protected:
         }
         try {
             for (auto& wtxItem : mapWallet) {
-                if (!walletdb.WriteTx(wtxItem.first, *(wtxItem.second))) {
+                if (!walletdb.WriteWalletTxBase(wtxItem.first, *(wtxItem.second))) {
                     LogPrintf("SetBestChain(): Failed to write CWalletTx, aborting atomic write\n");
                     walletdb.TxnAbort();
                     return;
