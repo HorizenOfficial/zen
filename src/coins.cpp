@@ -821,7 +821,15 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     {
         LogPrint("sc", "%s():%d - invalid cert[%s], scId[%s] invalid epoch data\n",
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString() );
-        return state.Invalid(error("certificate with invalid epoch considering mempool"),
+        return state.Invalid(error("certificate with invalid epoch"),
+             REJECT_INVALID, "sidechain-certificate-epoch");
+    }
+
+    int certWindowStartHeight = scInfo.StartHeightForEpoch(cert.epochNumber+1);
+    if (!((nHeight >= certWindowStartHeight) && (nHeight <= certWindowStartHeight + scInfo.SafeguardMargin())))
+    {
+        LogPrint("sc", "%s():%d - invalid cert[%s], cert epoch not acceptable at this height\n", __func__, __LINE__);
+        return state.Invalid(error("cert epoch not acceptable at this height"),
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
