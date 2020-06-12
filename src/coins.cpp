@@ -1362,8 +1362,8 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
             }
         }
 
-        assert(pVoidedCertsList != nullptr);
-        pVoidedCertsList->push_back(scInfo.lastCertificateHash);
+        if (pVoidedCertsList != nullptr)
+            pVoidedCertsList->push_back(scInfo.lastCertificateHash);
     }
 
     cacheSidechainEvents[height].flag = CSidechainEventsCacheEntry::Flags::ERASED;
@@ -1460,8 +1460,8 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
             coins->vout.at(coins->nFirstBwtPos + idx) = voidedOuts.at(idx).txout;
         }
 
-        assert(pVoidedCertsList != nullptr);
-        pVoidedCertsList->push_back(coinHash);
+        if(pVoidedCertsList != nullptr);
+            pVoidedCertsList->push_back(coinHash);
 
         if (!fClean) return false;
 

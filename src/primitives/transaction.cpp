@@ -295,6 +295,8 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
     *const_cast<uint256*>(&generatedScId) = ccout.generatedScId;
     withdrawalEpochLength = ccout.withdrawalEpochLength;
     customData = ccout.customData;
+    constant = ccout.constant;
+    wCertVk = ccout.wCertVk;
     return *this;
 }
 
