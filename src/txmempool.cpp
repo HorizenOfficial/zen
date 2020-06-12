@@ -373,26 +373,26 @@ inline bool CTxMemPool::addToListForRemovalImmatureExpenditures(
             return true;
         }
  
-        int maturityHeight = coins->GetMaturityHeightForOutput(txin.prevout.n);
-        assert(maturityHeight >= 0);
-        if ((maturityHeight != MEMPOOL_HEIGHT) && (nMemPoolHeight < (unsigned int)maturityHeight))
+        if (coins->IsCoinBase() || coins->IsFromCert() )
         {
-            LogPrintf("%s():%d - Error: txBase [%s] attempts to spend immature output [%d] of tx [%s]\n",
-                    __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
-            LogPrintf("%s():%d - Error: Immature coin info: coin creation height [%d], output maturity height [%d], spend height [%d]\n",
-                    __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, nMemPoolHeight);
-            if (coins->IsCoinBase()) {
-                LogPrint("mempool", "%s():%d - adding tx [%s] to list for removing since it spends immature coinbase [%s]\n",
-                    __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
-                transactionsToRemove.push_back(&tx);
-                return true;
-            } else {
-                LogPrint("mempool", "%s():%d - adding tx [%s] to list for removing since it spends immature cert output %d of [%s]\n",
-                    __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
-                transactionsToRemove.push_back(&tx);
+            if (!coins->isOutputMature(txin.prevout.n, nMemPoolHeight) )
+            {
+                LogPrintf("%s():%d - Error: txBase [%s] attempts to spend immature output [%d] of tx [%s]\n",
+                        __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
+                LogPrintf("%s():%d - Error: Immature coin info: coin creation height [%d], output maturity height [%d], spend height [%d]\n",
+                        __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, nMemPoolHeight);
+                if (coins->IsCoinBase()) {
+                    LogPrint("mempool", "%s():%d - adding tx [%s] to list for removing since it spends immature coinbase [%s]\n",
+                        __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
+                    transactionsToRemove.push_back(&tx);
+                } else {
+                    LogPrint("mempool", "%s():%d - adding tx [%s] to list for removing since it spends immature cert output %d of [%s]\n",
+                        __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
+                    transactionsToRemove.push_back(&tx);
+                }
                 return true;
             }
-        }
+        }       
     }
     return false;
 }
@@ -711,7 +711,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             CValidationState state;
             assert(::ContextualCheckInputs(tx, state, mempoolDuplicateTx, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            UpdateCoins(tx, mempoolDuplicateTx, dummyUndo, MEMPOOL_HEIGHT);
+            UpdateCoins(tx, mempoolDuplicateTx, dummyUndo, 1000000);
         }
     }
 
@@ -727,7 +727,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         } else {
             assert(::ContextualCheckInputs(entry->GetTx(), state, mempoolDuplicateTx, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            UpdateCoins(entry->GetTx(), mempoolDuplicateTx, dummyUndo, MEMPOOL_HEIGHT);
+            UpdateCoins(entry->GetTx(), mempoolDuplicateTx, dummyUndo, 1000000);
             stepsSinceLastRemoveTx = 0;
         }
     }
@@ -784,7 +784,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             CValidationState state;
             assert(::ContextualCheckInputs(cert, state, mempoolDuplicateCert, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            UpdateCoins(cert, mempoolDuplicateCert, dummyUndo, MEMPOOL_HEIGHT);
+            UpdateCoins(cert, mempoolDuplicateCert, dummyUndo, 1000000);
         }
     }
 
@@ -800,7 +800,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         } else {
             assert(::ContextualCheckInputs(entry->GetCertificate(), state, mempoolDuplicateCert, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            UpdateCoins(entry->GetCertificate(), mempoolDuplicateCert, dummyUndo, MEMPOOL_HEIGHT);
+            UpdateCoins(entry->GetCertificate(), mempoolDuplicateCert, dummyUndo, 1000000);
             stepsSinceLastRemoveCert = 0;
         }
     }

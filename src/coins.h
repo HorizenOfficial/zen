@@ -140,7 +140,7 @@ public:
         IMMATURE
     };
 
-    int GetMaturityHeightForOutput(unsigned int outPos) const;
+    bool isOutputMature(unsigned int outPos, int nSpendingHeight) const;
 
     //! mark a vout spent
     bool Spend(uint32_t nPos);
