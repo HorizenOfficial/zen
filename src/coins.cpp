@@ -1343,7 +1343,7 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
             if (!foundFirstBwt)
             {
                 blockUndo.vVoidedCertUndo.push_back(CVoidedCertUndo());
-                blockUndo.vVoidedCertUndo.back().voidedCertHash = scInfo.lastCertificateHash;
+                blockUndo.vVoidedCertUndo.back().voidedCertScId = ceasingScId;
                 LogPrint("sc", "%s():%d - set voidedCertHash[%s], firstBwtPos[%d]\n",
                     __func__, __LINE__, scInfo.lastCertificateHash.ToString(), pos);
                 foundFirstBwt = true;
@@ -1425,7 +1425,10 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
     {
         bool fClean = true;
 
-        const uint256& coinHash = voidedCertUndo.voidedCertHash;
+        CSidechain scInfo;
+        assert(GetSidechain(voidedCertUndo.voidedCertScId, scInfo));
+        const uint256& coinHash = scInfo.lastCertificateHash;
+
         if(coinHash.IsNull())
         {
             fClean = fClean && error("%s: malformed undo data, missing voided certificate hash ", __func__);
@@ -1458,7 +1461,7 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
         }
 
         assert(pVoidedCertsList != nullptr);
-        pVoidedCertsList->push_back(voidedCertUndo.voidedCertHash);
+        pVoidedCertsList->push_back(coinHash);
 
         if (!fClean) return false;
 

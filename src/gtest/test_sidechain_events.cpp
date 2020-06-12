@@ -450,6 +450,7 @@ TEST_F(SidechainsEventsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCe
     updatedCoin.ClearUnspendable();
     EXPECT_TRUE(updatedCoin.vout.size() == cert.nFirstBwtPos);
     EXPECT_TRUE(updatedCoin.nFirstBwtPos == cert.nFirstBwtPos);
+    EXPECT_FALSE(view->HaveSidechainEvents(minimalCeaseHeight));
 }
 
 TEST_F(SidechainsEventsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
@@ -501,6 +502,7 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     }
 
     EXPECT_TRUE(cert.GetVout().size() == bwtCounter); //all cert outputs are handled
+    EXPECT_FALSE(view->HaveSidechainEvents(minimalCeaseHeight));
 }
 
 TEST_F(SidechainsEventsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSidechainHandling) {
@@ -542,6 +544,7 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSi
     updatedCoin.ClearUnspendable();
     EXPECT_TRUE(updatedCoin.vout.size() == cert.GetVout().size());
     EXPECT_TRUE(updatedCoin.nFirstBwtPos == cert.nFirstBwtPos);
+    EXPECT_FALSE(view->HaveSidechainEvents(minimalCeaseHeight));
 }
 
 TEST_F(SidechainsEventsTestSuite, EmptyCertificatesCoinsAreNotAffectedByCeasedSidechainHandling) {
@@ -579,6 +582,7 @@ TEST_F(SidechainsEventsTestSuite, EmptyCertificatesCoinsAreNotAffectedByCeasedSi
 
     //Checks
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
+    EXPECT_FALSE(view->HaveSidechainEvents(minimalCeaseHeight));
 }
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// RevertCeasingScs ///////////////////////////////
@@ -633,6 +637,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreFullCertCeasedCoins) {
     for (unsigned int pos = 0; pos < cert.GetVout().size(); ++pos) {
         EXPECT_TRUE(rebuiltCoin.vout[pos] == originalCoins.vout[pos]);
     }
+    EXPECT_TRUE(view->HaveSidechainEvents(minimalCeaseHeight));
 }
 
 TEST_F(SidechainsEventsTestSuite, RestorePureBwtCeasedCoins) {
@@ -686,6 +691,7 @@ TEST_F(SidechainsEventsTestSuite, RestorePureBwtCeasedCoins) {
     for (unsigned int pos = 0; pos < cert.GetVout().size(); ++pos) {
         EXPECT_TRUE(rebuiltCoin.vout[pos] == originalCoins.vout[pos]);
     }
+    EXPECT_TRUE(view->HaveSidechainEvents(minimalCeaseHeight));
 }
 
 TEST_F(SidechainsEventsTestSuite, RestoreNoBwtCeasedCoins) {
@@ -738,6 +744,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreNoBwtCeasedCoins) {
     for (unsigned int pos = 0; pos < cert.GetVout().size(); ++pos) {
         EXPECT_TRUE(rebuiltCoin.vout[pos] == originalCoins.vout[pos]);
     }
+    EXPECT_TRUE(view->HaveSidechainEvents(minimalCeaseHeight));
 }
 
 TEST_F(SidechainsEventsTestSuite, RestoreEmptyCertCeasedCoins) {
@@ -781,6 +788,8 @@ TEST_F(SidechainsEventsTestSuite, RestoreEmptyCertCeasedCoins) {
 
     //checks
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
+
+    EXPECT_TRUE(view->HaveSidechainEvents(minimalCeaseHeight));
 }
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// UndoCeasingScs ///////////////////////////////

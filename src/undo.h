@@ -92,17 +92,15 @@ public:
 
 class CVoidedCertUndo {
 public:
-    std::vector<CTxInUndo> voidedOuts;
-    uint256 voidedCertHash;
+    std::vector<CTxInUndo> voidedOuts;;
     uint256 voidedCertScId;
 
-    CVoidedCertUndo(): voidedOuts(), voidedCertHash(), voidedCertScId() {};
+    CVoidedCertUndo(): voidedOuts(),voidedCertScId() {};
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(voidedOuts);
-        READWRITE(voidedCertHash);
         READWRITE(voidedCertScId);
     }
 
@@ -112,7 +110,7 @@ public:
         str += strprintf("    voidedOuts.size %u\n", voidedOuts.size());
         for (unsigned int i = 0; i < voidedOuts.size(); i++)
             str += "        " + voidedOuts[i].ToString() + "\n";
-        str += strprintf("    refTx       %s\n", voidedCertHash.ToString());
+        str += strprintf("    voidedCertScId       %s\n", voidedCertScId.ToString());
         return str;
     }
 };
