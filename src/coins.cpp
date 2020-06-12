@@ -1468,8 +1468,12 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
         recreatedScEvent.ceasingScs.insert(voidedCertUndo.voidedCertScId);
     }
 
-    cacheSidechainEvents[height].scEvents = recreatedScEvent;
-    cacheSidechainEvents[height].flag = CSidechainEventsCacheEntry::Flags::FRESH;
+    if (!recreatedScEvent.IsNull())
+    {
+        cacheSidechainEvents[height].scEvents = recreatedScEvent;
+        cacheSidechainEvents[height].flag = CSidechainEventsCacheEntry::Flags::FRESH;
+    }
+
     return true;
 }
 
