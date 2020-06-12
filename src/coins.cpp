@@ -1460,7 +1460,7 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
             coins->vout.at(coins->nFirstBwtPos + idx) = voidedOuts.at(idx).txout;
         }
 
-        if(pVoidedCertsList != nullptr);
+        if(pVoidedCertsList != nullptr)
             pVoidedCertsList->push_back(coinHash);
 
         if (!fClean) return false;
