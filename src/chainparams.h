@@ -139,4 +139,9 @@ void SelectParams(CBaseChainParams::Network network);
  */
 bool SelectParamsFromCommandLine();
 
+int getCheckBlockAtHeightSafeDepth();
+int getScMinWithdrawalEpochLength();
+int getCheckBlockAtHeightMinAge();
+bool getRequireStandard();
+int getScCoinsMaturity();
 #endif // BITCOIN_CHAINPARAMS_H

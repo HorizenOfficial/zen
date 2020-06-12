@@ -298,7 +298,7 @@ TEST_F(SidechainTestSuite, RevertingScCreationTxRemovesTheSc) {
     sidechainsView->UpdateScInfo(aTransaction, aBlock, scCreationHeight);
 
     //test
-    bool res = sidechainsView->RevertTxOutputs(aTransaction, scCreationHeight);
+    bool res = sidechainsView->RevertTxOutputs(aTransaction, scCreationHeight + getScCoinsMaturity());
 
     //checks
     EXPECT_TRUE(res);
@@ -317,7 +317,7 @@ TEST_F(SidechainTestSuite, RevertingFwdTransferRemovesCoinsFromImmatureBalance) 
     sidechainsView->UpdateScInfo(aTransaction, aBlock, fwdTxHeight);
 
     //test
-    bool res = sidechainsView->RevertTxOutputs(aTransaction, fwdTxHeight);
+    bool res = sidechainsView->RevertTxOutputs(aTransaction, fwdTxHeight + getScCoinsMaturity());
 
     //checks
     EXPECT_TRUE(res);
@@ -360,7 +360,7 @@ TEST_F(SidechainTestSuite, RevertingAFwdTransferOnTheWrongHeightHasNoEffect) {
     sidechainsView->UpdateScInfo(aTransaction, aBlock, fwdTxHeight);
 
     //test
-    int faultyHeight = fwdTxHeight -1;
+    int faultyHeight = fwdTxHeight + getScCoinsMaturity() -1;
     bool res = sidechainsView->RevertTxOutputs(aTransaction, faultyHeight);
 
     //checks
@@ -628,7 +628,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsOverwriteErasedOnesInBackingCache) {
     sidechainsView->UpdateScInfo(scTx, CBlock(), /*nHeight*/ 1000);
 
     //...then revert it to have it erased
-    sidechainsView->RevertTxOutputs(scTx, /*nHeight*/1000);
+    sidechainsView->RevertTxOutputs(scTx, /*nHeight*/1000 + getScCoinsMaturity());
     ASSERT_FALSE(sidechainsView->HaveSidechain(scId));
 
     CSidechainsMap mapToWrite;
@@ -754,7 +754,7 @@ TEST_F(SidechainTestSuite, FlushPersistsScErasureToo) {
     sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
     sidechainsView->Flush();
 
-    sidechainsView->RevertTxOutputs(aTransaction, /*height*/int(1789));
+    sidechainsView->RevertTxOutputs(aTransaction, /*height*/int(1789) + getScCoinsMaturity());
 
     //test
     bool res = sidechainsView->Flush();
@@ -775,7 +775,7 @@ TEST_F(SidechainTestSuite, FlushPersistsNewScsOnTopOfErasedOnes) {
     ASSERT_TRUE(fakeChainStateDb->HaveSidechain(scId));
 
     //Remove it and flush again
-    sidechainsView->RevertTxOutputs(scCreationTx, /*height*/int(1789));
+    sidechainsView->RevertTxOutputs(scCreationTx, /*height*/int(1789) + getScCoinsMaturity());
     sidechainsView->Flush();
     ASSERT_FALSE(fakeChainStateDb->HaveSidechain(scId));
 
@@ -810,7 +810,7 @@ TEST_F(SidechainTestSuite, GetScIdsReturnsNonErasedSidechains) {
     ASSERT_TRUE(sidechainsView->UpdateScInfo(scTx2, aBlock,sc2CreationHeight));
     ASSERT_TRUE(sidechainsView->Flush());
 
-    ASSERT_TRUE(sidechainsView->RevertTxOutputs(scTx2, sc2CreationHeight));
+    ASSERT_TRUE(sidechainsView->RevertTxOutputs(scTx2, sc2CreationHeight + getScCoinsMaturity()));
 
     //test
     std::set<uint256> knownScIdsSet;

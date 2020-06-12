@@ -265,7 +265,8 @@ CTxScCreationOut::CTxScCreationOut(
     const CAmount& nValueIn, const uint256& addressIn,
     const Sidechain::ScCreationParameters& paramsIn)
     :CTxCrosschainOut(nValueIn, addressIn), generatedScId(),
-     withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData), constant(paramsIn.constant), wCertVk(paramsIn.wCertVk) {}
+     withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData),
+     constant(paramsIn.constant), wCertVk(paramsIn.wCertVk) {}
 
 uint256 CTxScCreationOut::GetHash() const
 {
@@ -295,6 +296,8 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
     *const_cast<uint256*>(&generatedScId) = ccout.generatedScId;
     withdrawalEpochLength = ccout.withdrawalEpochLength;
     customData = ccout.customData;
+    constant = ccout.constant;
+    wCertVk = ccout.wCertVk;
     return *this;
 }
 

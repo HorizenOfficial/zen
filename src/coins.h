@@ -558,7 +558,7 @@ public:
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
     bool HaveScRequirements(const CTransaction& tx, int height);
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
-    bool RevertTxOutputs(const CTransaction& tx, int nHeight);
+    bool RevertTxOutputs(const CTransaction& tx, int maturityHeight, std::set<uint256>* sScIds = nullptr);
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier);
@@ -620,8 +620,6 @@ private:
     CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
     CSidechainEventsMap::const_iterator FetchSidechainEvents(int height)     const;
 
-    static int getInitScCoinsMaturity();
-    int getScCoinsMaturity();
 
     bool DecrementImmatureAmount(const uint256& scId, CSidechain& targetScInfo, CAmount nValue, int maturityHeight);
     void Dump_info() const;

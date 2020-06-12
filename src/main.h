@@ -245,11 +245,6 @@ int getMostRecentGlobalForkTips(std::vector<uint256>& output);
 bool updateGlobalForkTips(const CBlockIndex* pindex, bool lookForwardTips);
 bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, CBlockIndex** pindexReference);
 
-int getCheckBlockAtHeightSafeDepth();
-int getScMinWithdrawalEpochLength();
-int getCheckBlockAtHeightMinAge();
-bool getRequireStandard();
-
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams);
 
 /**

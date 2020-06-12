@@ -640,24 +640,6 @@ void CCoinsViewCache::GetScIds(std::set<uint256>& scIdsList) const
     return;
 }
 
-int CCoinsViewCache::getInitScCoinsMaturity()
-{
-    if ( (Params().NetworkIDString() == "regtest") )
-    {
-        int val = (int)(GetArg("-sccoinsmaturity", Params().ScCoinsMaturity() ));
-        LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
-        return val;
-    }
-    return Params().ScCoinsMaturity();
-}
-
-int CCoinsViewCache::getScCoinsMaturity()
-{
-    // gets constructed just one time
-    static int retVal( getInitScCoinsMaturity() );
-    return retVal;
-}
-
 bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, int blockHeight)
 {
     const uint256& txHash = tx.GetHash();
@@ -718,11 +700,8 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
     return true;
 }
 
-bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
+bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int maturityHeight, std::set<uint256>* sScIds)
 {
-    static const int SC_COIN_MATURITY = getScCoinsMaturity();
-    const int maturityHeight = nHeight + SC_COIN_MATURITY;
-
     // revert forward transfers
     for(const auto& entry: tx.GetVftCcOut())
     {
@@ -737,6 +716,8 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
+        if (sScIds)
+            sScIds->insert(scId);
 
         if (!DecrementImmatureAmount(scId, targetScInfo, entry.nValue, maturityHeight) )
         {
@@ -761,6 +742,8 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
+        if (sScIds)
+            sScIds->insert(scId);
 
         if (!DecrementImmatureAmount(scId, targetScInfo, entry.nValue, maturityHeight) )
         {
@@ -1362,8 +1345,8 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
             }
         }
 
-        assert(pVoidedCertsList != nullptr);
-        pVoidedCertsList->push_back(scInfo.lastCertificateHash);
+        if (pVoidedCertsList != nullptr)
+            pVoidedCertsList->push_back(scInfo.lastCertificateHash);
     }
 
     return true;
@@ -1446,8 +1429,8 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
             coins->vout.at(coins->nFirstBwtPos + idx) = voidedOuts.at(idx).txout;
         }
 
-        assert(pVoidedCertsList != nullptr);
-        pVoidedCertsList->push_back(voidedCertUndo.voidedCertHash);
+        if (pVoidedCertsList != nullptr)
+            pVoidedCertsList->push_back(voidedCertUndo.voidedCertHash);
 
         if (!fClean) return false;
     }

@@ -2385,6 +2385,9 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
     }
 
+    std::set<uint256> sScIds;
+    const int maturityHeight = pindex->nHeight + getScCoinsMaturity();
+
     // undo transactions in reverse order
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
         const CTransaction &tx = block.vtx[i];
@@ -2434,7 +2437,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
 
         LogPrint("sc", "%s():%d - undo sc outputs if any\n", __func__, __LINE__);
-        if (!view.RevertTxOutputs(tx, pindex->nHeight) )
+        if (!view.RevertTxOutputs(tx, maturityHeight, &sScIds) )
         {
             LogPrint("sc", "%s():%d - ERROR undoing sc creation\n", __func__, __LINE__);
             return error("DisconnectBlock(): sc creation can not be reverted: data inconsistent");
@@ -2454,6 +2457,25 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 }
 
             }
+        }
+    }
+
+    // this loop checks that all forward transfers have been correctly reverted
+    for (auto& scId : sScIds)
+    {
+        CSidechain targetScInfo;
+        if (!view.GetSidechain(scId, targetScInfo))
+        {
+            // if the sidechain has been removed
+            LogPrint("sc", "%s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
+            continue;
+        }
+        if (targetScInfo.mImmatureAmounts.count(maturityHeight))
+        {
+            // should not happen 
+            LogPrint("sc", "ERROR %s():%d - scId=%s could not empty immature amounts at height %d: remaining amount %s\n",
+                __func__, __LINE__, scId.ToString(), maturityHeight, FormatMoney(targetScInfo.mImmatureAmounts[maturityHeight]));
+            return false;
         }
     }
 
@@ -4269,8 +4291,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
         return false;
 
     static const bool JUST_CHECK_TRUE = true;
-    std::vector<uint256> dummyVoidedCerts;
-    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, JUST_CHECK_TRUE, fCheckScTxesCommitment, &dummyVoidedCerts))
+    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, JUST_CHECK_TRUE, fCheckScTxesCommitment))
         return false;
     assert(state.IsValid());
 
@@ -4642,8 +4663,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
         // check level 3: check for inconsistencies during memory-only disconnect of tip blocks
         if (nCheckLevel >= 3 && pindex == pindexState && (coins.DynamicMemoryUsage() + pcoinsTip->DynamicMemoryUsage()) <= nCoinCacheUsage) {
             bool fClean = true;
-            std::vector<uint256> dummyVoidedCert;
-            if (!DisconnectBlock(block, state, pindex, coins, &fClean, &dummyVoidedCert))
+            if (!DisconnectBlock(block, state, pindex, coins, &fClean))
                 return error("VerifyDB(): *** irrecoverable inconsistency in block data at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             pindexState = pindex->pprev;
             if (!fClean) {
@@ -4675,8 +4695,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
             chainHistorical.SetHeight(pindex->nHeight - 1);
             static const bool JUST_CHECK_FALSE = false;
             static const bool CHECK_SC_TXES_COMMITMENT = true;
-            std::vector<uint256> dummyVoidedCerts;
-            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, JUST_CHECK_FALSE, CHECK_SC_TXES_COMMITMENT, &dummyVoidedCerts))
+            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, JUST_CHECK_FALSE, CHECK_SC_TXES_COMMITMENT))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         }
     }
@@ -7337,72 +7356,3 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
     LogPrint("forks", "%s():%d - ##### Exiting returning FALSE\n", __func__, __LINE__);
     return false;
 }
-    
-
-static int getInitCbhSafeDepth()
-{
-    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
-    {
-        int val = (int)(GetArg("-cbhsafedepth", Params().CbhSafeDepth() ));
-        LogPrint("cbh", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
-        return val;
-    }
-    return Params().CbhSafeDepth();
-}
-
-int getCheckBlockAtHeightSafeDepth()
-{
-    // gets constructed just one time
-    static int retVal( getInitCbhSafeDepth() );
-    return retVal;
-}
-
-int getScMinWithdrawalEpochLength()
-{
-    // gets constructed just one time
-    static int retVal(Params().ScMinWithdrawalEpochLength());
-    return retVal;
-}
-
-static int getInitCbhMinAge()
-{
-    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
-    {
-        int val = (int)(GetArg("-cbhminage", Params().CbhMinimumAge() ));
-        LogPrint("cbh", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
-        return val;
-    }
-    return Params().CbhMinimumAge();
-}
-
-int getCheckBlockAtHeightMinAge()
-{
-    // gets constructed just one time
-    static int retVal( getInitCbhMinAge() );
-    return retVal;
-}
-
-static bool getInitRequireStandard()
-{
-    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
-    {
-        bool val = Params().RequireStandard();
-
-        if ((bool)(GetBoolArg("-allownonstandardtx",  false ) ) )
-        {
-            // if this flag is set the user wants to allow non-standars tx, therefore we override default param and return false  
-            val = false;
-        }
-        LogPrintf("%s():%d - %s: using val %d (%s)\n", __func__, __LINE__, Params().NetworkIDString(), (int)val, (val?"Y":"N"));
-        return val;
-    }
-    return Params().RequireStandard();
-}
-
-bool getRequireStandard()
-{
-    // gets constructed just one time
-    static int retVal( getInitRequireStandard() );
-    return retVal;
-}
-

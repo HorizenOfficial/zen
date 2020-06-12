@@ -384,4 +384,88 @@ CScript CChainParams::GetCommunityFundScriptAtHeight(int nHeight, Fork::Communit
     return script;
 }
 
+static int getInitCbhSafeDepth()
+{
+    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
+    {
+        int val = (int)(GetArg("-cbhsafedepth", Params().CbhSafeDepth() ));
+        LogPrint("cbh", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
+        return val;
+    }
+    return Params().CbhSafeDepth();
+}
+
+int getCheckBlockAtHeightSafeDepth()
+{
+    // gets constructed just one time
+    static int retVal( getInitCbhSafeDepth() );
+    return retVal;
+}
+
+int getScMinWithdrawalEpochLength()
+{
+    // gets constructed just one time
+    static int retVal(Params().ScMinWithdrawalEpochLength());
+    return retVal;
+}
+
+static int getInitCbhMinAge()
+{
+    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
+    {
+        int val = (int)(GetArg("-cbhminage", Params().CbhMinimumAge() ));
+        LogPrint("cbh", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
+        return val;
+    }
+    return Params().CbhMinimumAge();
+}
+
+int getCheckBlockAtHeightMinAge()
+{
+    // gets constructed just one time
+    static int retVal( getInitCbhMinAge() );
+    return retVal;
+}
+
+int getInitScCoinsMaturity()
+{
+    if ( (Params().NetworkIDString() == "regtest") )
+    {
+        int val = (int)(GetArg("-sccoinsmaturity", Params().ScCoinsMaturity() ));
+        LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
+        return val;
+    }
+    return Params().ScCoinsMaturity();
+}
+
+int getScCoinsMaturity()
+{
+    // gets constructed just one time
+    static int retVal( getInitScCoinsMaturity() );
+    return retVal;
+}
+
+static bool getInitRequireStandard()
+{
+    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
+    {
+        bool val = Params().RequireStandard();
+
+        if ((bool)(GetBoolArg("-allownonstandardtx",  false ) ) )
+        {
+            // if this flag is set the user wants to allow non-standars tx, therefore we override default param and return false  
+            val = false;
+        }
+        LogPrintf("%s():%d - %s: using val %d (%s)\n", __func__, __LINE__, Params().NetworkIDString(), (int)val, (val?"Y":"N"));
+        return val;
+    }
+    return Params().RequireStandard();
+}
+
+bool getRequireStandard()
+{
+    // gets constructed just one time
+    static int retVal( getInitRequireStandard() );
+    return retVal;
+}
 
