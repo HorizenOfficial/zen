@@ -1202,10 +1202,7 @@ bool CCoinsViewCache::CancelSidechainEvent(const CTxScCreationOut& scCreationOut
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s] misses current ceasing height; expected value was [%d]\n",
             __func__, __LINE__, scCreationOut.GetScId().ToString(), currentCeasingHeight);
         return false;
-    } else
-        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s] maturing height [%d] already deleted. This may happen in case of concurrent fwd\n",
-            __func__, __LINE__, scCreationOut.GetScId().ToString(), maturityHeight);
-
+    }
 
     cacheSidechainEvents[currentCeasingHeight].scEvents.ceasingScs.erase(scCreationOut.GetScId());
     if (!cacheSidechainEvents[currentCeasingHeight].scEvents.IsNull())
