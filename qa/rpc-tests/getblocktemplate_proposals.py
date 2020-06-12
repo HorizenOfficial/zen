@@ -148,7 +148,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         mark_logs(("active chain height = %d: testing after sidechain fork" %  self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
 
         # create a sidechain and a certificate for it in the mempool
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, "sc1")
+        vk = generate_params(self.options.tmpdir,"sc1")
         constant = generate_random_field_element_hex()
 
         creating_tx = self.nodes[1].sc_create(SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT, vk, "bb" * 1024, constant)
@@ -169,7 +169,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         #create wCert proof
         eph = block_list[-1]
         proof = create_test_proof(
-        self.options.tmpdir, self.options.srcdir, "sc1", 0, eph, pebh,
+        self.options.tmpdir, "sc1", 0, eph, pebh,
         0, constant, [pkh], [SC_CERT_AMOUNT])
 
         fee = 0.000023

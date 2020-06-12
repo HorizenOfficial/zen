@@ -10,12 +10,12 @@ SC_VK_SIZE = 1544
 COIN = 100000000
 
 
-def generate_params(datadir, srcdir, id):
+def generate_params(datadir, id):
     params_dir = _get_params_dir(datadir, id)
     if os.path.isfile(params_dir + "test_mc_pk") and os.path.isfile(params_dir + "test_mc_vk"):
         return
     args = []
-    args.append(os.path.join(srcdir, "zendoo/mcTest"))
+    args.append(os.getenv("ZENDOOMC", "mcTest"))
     args.append("generate")
     args.append(str(params_dir))
 
@@ -25,7 +25,7 @@ def generate_params(datadir, srcdir, id):
     return _get_vk(params_dir + "test_mc_vk")
 
 def create_test_proof(
-    datadir, srcdir, id, epoch_number, end_epoch_block_hash, prev_end_epoch_block_hash,
+    datadir, id, epoch_number, end_epoch_block_hash, prev_end_epoch_block_hash,
     quality, constant, pks, amounts):
 
     params_dir = _get_params_dir(datadir, id)
@@ -33,7 +33,7 @@ def create_test_proof(
         return
     proof_path = "{}epoch_{}_wcert_proof".format(_get_proofs_dir(datadir, id), epoch_number)
     args = []
-    args.append(os.path.join(srcdir, "zendoo/mcTest"))
+    args.append(os.getenv("ZENDOOMC", "mcTest"))
     args.append("create")
     args.append(str(proof_path))
     args.append(str(params_dir))

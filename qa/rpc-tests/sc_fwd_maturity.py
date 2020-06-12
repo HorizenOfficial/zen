@@ -116,7 +116,7 @@ class headers(BitcoinTestFramework):
         amounts.append({"address": "dada", "amount": creation_amount})
         
         #generate wCertVk and constant
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, "sc1")
+        vk = generate_params(self.options.tmpdir,"sc1")
         constant = generate_random_field_element_hex()
 
         tx1 = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "", constant)
@@ -160,9 +160,9 @@ class headers(BitcoinTestFramework):
         amounts = []
         amounts.append({"address": "dada", "amount": creation_amount})
         
-        tx2 = self.nodes[1].sc_create(123, "dada", creation_amount, generate_params(self.options.tmpdir, self.options.srcdir, "sc2"), "", generate_random_field_element_hex())
-        tx3 = self.nodes[1].sc_create(123, "dada", creation_amount, generate_params(self.options.tmpdir, self.options.srcdir, "sc3"), "", generate_random_field_element_hex())
-        tx4 = self.nodes[1].sc_create(123, "dada", creation_amount, generate_params(self.options.tmpdir, self.options.srcdir, "sc4"), "", generate_random_field_element_hex())
+        tx2 = self.nodes[1].sc_create(123, "dada", creation_amount, generate_params(self.options.tmpdir,"sc2"), "", generate_random_field_element_hex())
+        tx3 = self.nodes[1].sc_create(123, "dada", creation_amount, generate_params(self.options.tmpdir,"sc3"), "", generate_random_field_element_hex())
+        tx4 = self.nodes[1].sc_create(123, "dada", creation_amount, generate_params(self.options.tmpdir,"sc4"), "", generate_random_field_element_hex())
         self.sync_all()
 
         decoded_tx = self.nodes[1].getrawtransaction(tx2, 1)

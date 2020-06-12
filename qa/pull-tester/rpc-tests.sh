@@ -7,6 +7,8 @@ CURDIR=$(cd $(dirname "$0"); pwd)
 
 export BITCOINCLI=${BUILDDIR}/qa/pull-tester/run-bitcoin-cli
 export BITCOIND=${REAL_BITCOIND}
+export ZENDOOMC=${REAL_ZENDOO_MC_TEST}
+
 
 #Run the tests
 

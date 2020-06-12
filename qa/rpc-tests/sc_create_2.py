@@ -78,7 +78,7 @@ class SCCreateTest(BitcoinTestFramework):
         toaddress = "abcdef"
 
         #generate wCertVk and constant
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, 'sc1')
+        vk = generate_params(self.options.tmpdir,'sc1')
         constant = generate_random_field_element_hex()
 
         # create with wrong key in input

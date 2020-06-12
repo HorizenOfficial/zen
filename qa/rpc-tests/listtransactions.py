@@ -243,7 +243,7 @@ class ListTransactionsTest(BitcoinTestFramework):
         sc_creation_amount -= fee
 
         # generate vk and constant for this sidechain
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, "sc1")
+        vk = generate_params(self.options.tmpdir,"sc1")
         constant = generate_random_field_element_hex()
 
         cmdInput = {'fromaddress': fromaddr, 'toaddress': sidechain_address, 'amount': sc_creation_amount, 'fee': fee, 'wCertVk': vk, "constant": constant}
