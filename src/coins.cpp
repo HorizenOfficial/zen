@@ -117,24 +117,19 @@ bool CCoins::IsFromCert() const {
     return (nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f);
 }
 
-int CCoins::GetMaturityHeightForOutput(unsigned int outPos) const
+bool CCoins::isOutputMature(unsigned int outPos, int nSpendingHeigh) const
 {
     if (!IsCoinBase() && !IsFromCert())
-        return nHeight;
+        return true;
 
     if (IsCoinBase())
-        return nHeight + COINBASE_MATURITY;
+        return nSpendingHeigh >= (nHeight + COINBASE_MATURITY);
 
     //Hereinafter a cert
-    // We check output availability only for certs since spent outputs for other txs 
-    // are handled in wallet in their own way
-    if(!IsAvailable(outPos))
-        return -1; //This may happen in wallet when you check credit on certificate whose bwt has been erased
-                   
     if (outPos >= nFirstBwtPos)
-        return nBwtMaturityHeight;
+        return nSpendingHeigh >= nBwtMaturityHeight;
     else
-        return nHeight;
+        return true;
 }
 
 bool CCoins::Spend(uint32_t nPos)

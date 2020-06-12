@@ -2091,24 +2091,24 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
         assert(coins);
 
         // Ensure that coinbases and certificates outputs are matured
-        int maturityHeight = coins->GetMaturityHeightForOutput(in.prevout.n);
-        assert(maturityHeight >= 0);
-        if ((maturityHeight != MEMPOOL_HEIGHT) && (nSpendHeight < maturityHeight))
+        if (coins->IsCoinBase() || coins->IsFromCert() )
         {
-            LogPrintf("%s():%d - Error: txBase [%s] attempts to spend immature output [%d] of tx [%s]\n",
-                    __func__, __LINE__, txBase.GetHash().ToString(), in.prevout.n, in.prevout.hash.ToString());
-            LogPrintf("%s():%d - Error: Immature coin info: coin creation height [%d], output maturity height [%d], spend height [%d]\n",
-                    __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, nSpendHeight);
-            if (coins->IsCoinBase())
-                return state.Invalid(
-                    error("CheckInputs(): tried to spend coinbase at depth %d", nSpendHeight - coins->nHeight),
-                    REJECT_INVALID, "bad-txns-premature-spend-of-coinbase");
-            if (coins->IsFromCert())
-                return state.Invalid(
-                    error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
-                    REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
+            if (!coins->isOutputMature(in.prevout.n, nSpendHeight) )
+            {
+                LogPrintf("%s():%d - Error: txBase [%s] attempts to spend immature output [%d] of tx [%s]\n",
+                        __func__, __LINE__, txBase.GetHash().ToString(), in.prevout.n, in.prevout.hash.ToString());
+                LogPrintf("%s():%d - Error: Immature coin info: coin creation height [%d], output maturity height [%d], spend height [%d]\n",
+                        __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, nSpendHeight);
+                if (coins->IsCoinBase())
+                    return state.Invalid(
+                        error("CheckInputs(): tried to spend coinbase at depth %d", nSpendHeight - coins->nHeight),
+                        REJECT_INVALID, "bad-txns-premature-spend-of-coinbase");
+                if (coins->IsFromCert())
+                    return state.Invalid(
+                        error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
+                        REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
+            }
         }
-
 
         if (coins->IsCoinBase())
         {
