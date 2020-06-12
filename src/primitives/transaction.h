@@ -705,12 +705,7 @@ public:
     }
 
     static bool IsTransaction(int nVersion) {
-        return (
-            nVersion == TRANSPARENT_TX_VERSION ||
-            nVersion == PHGR_TX_VERSION        ||
-            nVersion == GROTH_TX_VERSION       ||
-            nVersion == SC_TX_VERSION 
-        );
+        return !IsCertificate(nVersion);
     }
 };
 
