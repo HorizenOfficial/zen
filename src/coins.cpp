@@ -1366,11 +1366,20 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
         pVoidedCertsList->push_back(scInfo.lastCertificateHash);
     }
 
+    cacheSidechainEvents[height].flag = CSidechainEventsCacheEntry::Flags::ERASED;
     return true;
 }
 
 bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<uint256>* pVoidedCertsList)
 {
+    if (HaveSidechainEvents(height)) {
+        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT:: attempt to recreate sidechain event at height [%d], but there is one already\n",
+            __func__, __LINE__, height);
+        return false;
+    }
+
+    CSidechainEvents recreatedScEvent;
+
     // Reverting amount maturing
     for (std::map<uint256, ScUndoData>::const_iterator it = blockUndo.scUndoMap.begin(); it != blockUndo.scUndoMap.end(); ++it)
     {
@@ -1407,6 +1416,8 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
 
             cacheSidechains.at(scId).flag = CSidechainsCacheEntry::Flags::DIRTY;
         }
+
+        recreatedScEvent.maturingScs.insert(scId);
     }
 
     // Reverting ceasing sidechains
@@ -1450,8 +1461,12 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
         pVoidedCertsList->push_back(voidedCertUndo.voidedCertHash);
 
         if (!fClean) return false;
+
+        recreatedScEvent.ceasingScs.insert(voidedCertUndo.voidedCertScId);
     }
 
+    cacheSidechainEvents[height].scEvents = recreatedScEvent;
+    cacheSidechainEvents[height].flag = CSidechainEventsCacheEntry::Flags::FRESH;
     return true;
 }
 
