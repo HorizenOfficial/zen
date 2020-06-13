@@ -68,7 +68,8 @@ class sc_cert_base(BitcoinTestFramework):
         self.sync_all()
 
         #generate wCertVk and constant
-        vk = generate_params(self.options.tmpdir,"sc1")
+        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
         creating_tx = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
@@ -104,8 +105,8 @@ class sc_cert_base(BitcoinTestFramework):
         
         #Create proof for WCert
         quality = 1
-        proof = create_test_proof(
-            self.options.tmpdir,  "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
+        proof = mcTest.create_test_proof(
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node2], [bwt_amount])
         
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
@@ -166,8 +167,8 @@ class sc_cert_base(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 2
-        proof = create_test_proof(
-            self.options.tmpdir,  "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
+        proof = mcTest.create_test_proof(
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node2], [bwt_amount_2])
         
         mark_logs("Node 3 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount_2, pkh_node2), self.nodes, DEBUG_MODE)
