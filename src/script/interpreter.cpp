@@ -1064,64 +1064,21 @@ public:
             ::Serialize(s, txBaseTo.GetVout()[nOutput], nType, nVersion);
     }
  
-    /** Serialize a cross chain outputs of txTo */
-    template<typename S>
-    void SerializeScCreationCcOutput(S &s, unsigned int nCcOutput, int nType, int nVersion) const {
-        if (!txBaseTo.IsCertificate() ) {
-            const CTransaction& txTo = dynamic_cast<const CTransaction&>(txBaseTo);
-            ::Serialize(s, txTo.GetVscCcOut()[nCcOutput], nType, nVersion);
-        }
-    }
- 
-    template<typename S>
-    void SerializeForwardTransferCcOutput(S &s, unsigned int nCcOutput, int nType, int nVersion) const {
-        if (!txBaseTo.IsCertificate() ) {
-            const CTransaction& txTo = dynamic_cast<const CTransaction&>(txBaseTo);
-            ::Serialize(s, txTo.GetVftCcOut()[nCcOutput], nType, nVersion);
-        }
-    }
-
-    /** Serialize a bwt output of certTo */
-    template<typename S>
-    void SerializeBwtOutput(S &s, CBackwardTransferOut& out, int nType, int nVersion) const {
-         ::Serialize(s, out, nType, nVersion);
-    }
-
-#if 0
-    /** Serialize an output of certTo */
-    template<typename S>
-    void SerializeNonBwtOutput(S &s, CTxOut& out, int nType, int nVersion) const {
-        ::Serialize(s, out, nType, nVersion);
-    }
-#endif
-
     /** Serialize txTo */
     template<typename S>
     void Serialize(S &s, int nType, int nVersion) const {
-        // Serialize nVersion
+
+        // Serialize nVersion for both tx and cert
         ::Serialize(s, txBaseTo.nVersion, nType, nVersion);
-
-        if (txBaseTo.IsCertificate() ) {
-            const CScCertificate& certTo = dynamic_cast<const CScCertificate&>(txBaseTo);
-
-            ::Serialize(s, certTo.nVersion, nType, nVersion);
-            ::Serialize(s, certTo.GetScId(), nType, nVersion);
-            ::Serialize(s, certTo.epochNumber, nType, nVersion);
-            ::Serialize(s, certTo.quality, nType, nVersion);
-            ::Serialize(s, certTo.endEpochBlockHash, nType, nVersion);
-            ::Serialize(s, certTo.scProof, nType, nVersion);
-        }
-
-        // Serialize vin
-        unsigned int nInputs = fAnyoneCanPay ? 1 : txBaseTo.GetVin().size();
-        ::WriteCompactSize(s, nInputs);
-        for (unsigned int nInput = 0; nInput < nInputs; nInput++)
-             SerializeInput(s, nInput, nType, nVersion);
-
 
         if (!txBaseTo.IsCertificate() ) {
             const CTransaction& txTo = dynamic_cast<const CTransaction&>(txBaseTo);
 
+            // Serialize vin
+            unsigned int nInputs = fAnyoneCanPay ? 1 : txTo.GetVin().size();
+            ::WriteCompactSize(s, nInputs);
+            for (unsigned int nInput = 0; nInput < nInputs; nInput++)
+             SerializeInput(s, nInput, nType, nVersion);
             // Serialize vout
             unsigned int nOutputs = fHashNone ? 0 : (fHashSingle ? nIn+1 : txTo.GetVout().size());
             ::WriteCompactSize(s, nOutputs);
@@ -1136,12 +1093,12 @@ public:
                 nCcOutputs = fHashNone ? 0 : (txTo.GetVscCcOut().size());
                 ::WriteCompactSize(s, nCcOutputs);
                 for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
-                     SerializeScCreationCcOutput(s, nCcOutput, nType, nVersion);
+                    ::Serialize(s, txTo.GetVscCcOut()[nCcOutput], nType, nVersion);
  
                 nCcOutputs = fHashNone ? 0 : (txTo.GetVftCcOut().size());
                 ::WriteCompactSize(s, nCcOutputs);
                 for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
-                     SerializeForwardTransferCcOutput(s, nCcOutput, nType, nVersion);
+                    ::Serialize(s, txTo.GetVftCcOut()[nCcOutput], nType, nVersion);
             }
  
             // Serialize nLockTime
@@ -1158,7 +1115,7 @@ public:
             	auto os = WithTxVersion(&s, txTo.nVersion);
             	::Serialize(os, txTo.GetVjoinsplit(), nType, nVersion);
                 if (txTo.GetVjoinsplit().size() > 0) {
-                    ::Serialize(s, txTo.joinSplnInitPubKey, nType, nVersion);
+                ::Serialize(s, txTo.joinSplitPubKey, nType, nVersion);
  
                     CTransaction::joinsplit_sig_t nullSig = {};
                     ::Serialize(s, nullSig, nType, nVersion);
@@ -1169,7 +1126,20 @@ public:
         {
             const CScCertificate& certTo = dynamic_cast<const CScCertificate&>(txBaseTo);
 
+            ::Serialize(s, certTo.GetScId(), nType, nVersion);
+            ::Serialize(s, certTo.epochNumber, nType, nVersion);
+            ::Serialize(s, certTo.quality, nType, nVersion);
+            ::Serialize(s, certTo.endEpochBlockHash, nType, nVersion);
+            ::Serialize(s, certTo.scProof, nType, nVersion);
+
+            // Serialize vin
+            unsigned int nInputs = fAnyoneCanPay ? 1 : certTo.GetVin().size();
+            ::WriteCompactSize(s, nInputs);
+            for (unsigned int nInput = 0; nInput < nInputs; nInput++)
+                 SerializeInput(s, nInput, nType, nVersion);
+
             // Serialize vout
+
             // split bwd transfer and change
             std::vector<CBackwardTransferOut> vbt_ccout_ser;
             // we must not modify vout
@@ -1184,113 +1154,16 @@ public:
                     vbt_ccout_ser.push_back(CBackwardTransferOut(certTo.GetVout()[pos]));
             }
  
-#if 0
-            unsigned int voutSize = vout_ser.size();
-            ::WriteCompactSize(s, voutSize);
-            for (unsigned int nOutput = 0; nOutput < voutSize; nOutput++)
-                 SerializeNonBwtOutput(s, vout_ser[nOutput], nType, nVersion);
-#else
             unsigned int nOutputs = fHashNone ? 0 : (fHashSingle ? nIn+1 : vout_ser.size());
             ::WriteCompactSize(s, nOutputs);
             for (unsigned int nOutput = 0; nOutput < nOutputs; nOutput++)
                  SerializeOutput(s, nOutput, nType, nVersion);
  
-#endif
- 
             unsigned int voutBtSize = vbt_ccout_ser.size();
             ::WriteCompactSize(s, voutBtSize);
             for (unsigned int nOutput = 0; nOutput < voutBtSize; nOutput++)
-                 SerializeBwtOutput(s, vbt_ccout_ser[nOutput], nType, nVersion);
+                ::Serialize(s, vbt_ccout_ser[nOutput], nType, nVersion);
         }
-    }
-};
-
-/**
- * Wrapper that serializes like CScCertificate, but with the modifications
- *  required for the signature hash done in-place
- */
-class CScCertificateSignatureSerializer {
-private:
-    const CScCertificate &certTo;  //! reference to the spending certificate (the one being serialized)
-    const CScript &scriptCode; //! output script being consumed
-    const unsigned int nIn;    //! input index of certTo being signed
-
-public:
-    CScCertificateSignatureSerializer(const CScCertificate &certToIn, const CScript &scriptCodeIn, unsigned int nInIn) :
-        certTo(certToIn), scriptCode(scriptCodeIn), nIn(nInIn) {}
-
-    /** Serialize the passed scriptCode */
-    template<typename S>
-    void SerializeScriptCode(S &s, int nType, int nVersion) const {
-        auto size = scriptCode.size();
-        ::WriteCompactSize(s, size);
-        s.write((char*)&scriptCode.begin()[0], size);
-    }
-
-    /** Serialize an input of certTo */
-    template<typename S>
-    void SerializeInput(S &s, unsigned int nInput, int nType, int nVersion) const {
-        // Serialize the prevout
-        ::Serialize(s, certTo.GetVin()[nInput].prevout, nType, nVersion);
-        // Serialize the script
-        SerializeScriptCode(s, nType, nVersion);
-        // Serialize the nSequence
-        ::Serialize(s, certTo.GetVin()[nInput].nSequence, nType, nVersion);
-    }
-
-    /** Serialize an output of certTo */
-    template<typename S>
-    void SerializeOutput(S &s, CTxOut& out, int nType, int nVersion) const {
-        ::Serialize(s, out, nType, nVersion);
-    }
-
-    /** Serialize a bwt output of certTo */
-    template<typename S>
-    void SerializeOutput(S &s, CBackwardTransferOut& out, int nType, int nVersion) const {
-        ::Serialize(s, out, nType, nVersion);
-    }
-
-    /** Serialize certTo */
-    template<typename S>
-    void Serialize(S &s, int nType, int nVersion) const {
-        // Serialize nVersion and certificate attributes
-        ::Serialize(s, certTo.nVersion, nType, nVersion);
-        ::Serialize(s, certTo.GetScId(), nType, nVersion);
-        ::Serialize(s, certTo.epochNumber, nType, nVersion);
-        ::Serialize(s, certTo.quality, nType, nVersion);
-        ::Serialize(s, certTo.endEpochBlockHash, nType, nVersion);
-        ::Serialize(s, certTo.scProof, nType, nVersion);
-
-        // Serialize vin
-        unsigned int nInputs = certTo.GetVin().size();
-        ::WriteCompactSize(s, nInputs);
-        for (unsigned int nInput = 0; nInput < nInputs; nInput++)
-             SerializeInput(s, nInput, nType, nVersion);
-
-        // Serialize vout
-        // split bwd transfer and change
-        std::vector<CBackwardTransferOut> vbt_ccout_ser;
-        // we must not modify vout
-        std::vector<CTxOut> vout_ser;
-
-        // reading from memory and writing to data stream
-        for(int pos = 0; pos < certTo.GetVout().size(); ++pos)
-        {
-            if (pos < certTo.nFirstBwtPos)
-                vout_ser.push_back(certTo.GetVout()[pos]);
-            else
-                vbt_ccout_ser.push_back(CBackwardTransferOut(certTo.GetVout()[pos]));
-        }
-
-        unsigned int voutSize = vout_ser.size();
-        ::WriteCompactSize(s, voutSize);
-        for (unsigned int nOutput = 0; nOutput < voutSize; nOutput++)
-             SerializeOutput(s, vout_ser[nOutput], nType, nVersion);
-
-        unsigned int voutBtSize = vbt_ccout_ser.size();
-        ::WriteCompactSize(s, voutBtSize);
-        for (unsigned int nOutput = 0; nOutput < voutBtSize; nOutput++)
-             SerializeOutput(s, vbt_ccout_ser[nOutput], nType, nVersion);
     }
 };
 
@@ -1314,57 +1187,36 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
     // Wrapper to serialize only the necessary parts of the transaction being signed
     CTransactionSignatureSerializer txTmp(txTo, scriptCode, nIn, nHashType);
 
-
     // Serialize and hash
     CHashWriter ss(SER_GETHASH, 0);
     ss << txTmp << nHashType;
     return ss.GetHash();
 }
 
-uint256 SignatureHash(const CScript& scriptCode, const CScCertificate& txTo, unsigned int nIn, int nHashType)
+uint256 SignatureHash(const CScript& scriptCode, const CScCertificate& certTo, unsigned int nIn, int nHashType)
 {
-#if 1
-    if (nIn >= txTo.GetVin().size() && nIn != NOT_AN_INPUT) {
+    if (nIn >= certTo.GetVin().size() && nIn != NOT_AN_INPUT) {
         //  nIn out of range
         throw logic_error("input index is out of range");
     }
 
     // Check for invalid use of SIGHASH_SINGLE
     if ((nHashType & 0x1f) == SIGHASH_SINGLE) {
-        if (nIn >= txTo.GetVout().size()) {
+        // consider only the outputs that are not bwt
+        unsigned int outSize = (certTo.nFirstBwtPos == BWT_POS_UNSET) ? certTo.GetVout().size() : certTo.nFirstBwtPos;
+        if (nIn >= outSize) {
             //  nOut out of range
             throw logic_error("no matching output for SIGHASH_SINGLE");
         }
     }
 
     // Wrapper to serialize only the necessary parts of the transaction being signed
-    CTransactionSignatureSerializer txTmp(txTo, scriptCode, nIn, nHashType);
-
-
-    // Serialize and hash
-    CHashWriter ss(SER_GETHASH, 0);
-    ss << txTmp << nHashType;
-    return ss.GetHash();
-#else
-    if (nIn >= certTo.GetVin().size() && nIn != NOT_AN_INPUT) {
-        //  nIn out of range
-        throw logic_error("input index is out of range");
-    }
-
-    if (nHashType != SIGHASH_ALL)
-    {
-        throw logic_error("invalid hash type");
-    }
-
-    // Wrapper to serialize only the necessary parts of the transaction being signed
+    CTransactionSignatureSerializer certTmp(certTo, scriptCode, nIn, nHashType);
 
     // Serialize and hash
     CHashWriter ss(SER_GETHASH, 0);
-    CScCertificateSignatureSerializer certTmp(certTo, scriptCode, nIn);
-    // hash type is always SIGHASH_ALL 
-    ss << certTmp << (int)SIGHASH_ALL;
+    ss << certTmp << nHashType;
     return ss.GetHash();
-#endif
 }
 
 TransactionSignatureChecker::TransactionSignatureChecker(const CTransaction* txToIn,
