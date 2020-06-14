@@ -375,32 +375,6 @@ class ListTransactionsTest(BitcoinTestFramework):
         decoded_tx = self.nodes[1].getrawtransaction(tx, 1)
         assert_equal(0, len(decoded_tx['vout']))
 
-        # get this last tx by filtering without the input address
-        result_node1_novin = self.nodes[1].listtransactions("*", 1, 0, False, fromaddr)
-
-        # get this last tx by filtering with the input address
-        result_node1 = self.nodes[1].listtransactions("*", 1, 0, False, fromaddr, True)
-
-        # verify the first result is the same as before creating the sc
-        assert_true(result_node1_novin == result_node1_latest)
-
-        # verify we have the expected result by filtering on vin
-        check_array_result([result_node1[0]], 
-                           {"txid": tx},
-                           {"category": "crosschain", "sc address": sidechain_address})
-
-
-        # get this last tx by filtering all txes with the input address and taking just the last one
-        listtxes_ret = self.nodes[1].listtxesbyaddress(fromaddr, 1)
-
-        # check that output of command has tx with expanded vin
-        tot = Decimal('0.0')
-        for i in range(0, len(listtxes_ret[0]['vin'])):
-            address_list = listtxes_ret[0]['vin'][i]['vout'][0]['scriptPubKey']['addresses']
-            tot += listtxes_ret[0]['vin'][i]['vout'][0]['value']
-            assert_true(fromaddr in address_list)
-
-        assert_true(tot, sc_creation_amount+fee)
 
 if __name__ == '__main__':
     ListTransactionsTest().main()
