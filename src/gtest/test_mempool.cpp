@@ -58,7 +58,7 @@ public:
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CCeasingScsMap& mapCeasedScs) override
+                    CSidechainEventsMap& mapSidechainEvents) override
     {
         return false;
     }
@@ -113,7 +113,7 @@ TEST(Mempool, TxInputLimit) {
     // Check it fails as expected
     CValidationState state1;
     CTransaction tx1(mtx);
-    EXPECT_FALSE(AcceptToMemoryPool(pool, state1, tx1, false, &missingInputs));
+    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state1, tx1, false, &missingInputs));
     EXPECT_EQ(state1.GetRejectReason(), "bad-txns-version-too-low");
 
     // Set a limit
@@ -121,7 +121,7 @@ TEST(Mempool, TxInputLimit) {
 
     // Check it stil fails as expected
     CValidationState state2;
-    EXPECT_FALSE(AcceptToMemoryPool(pool, state2, tx1, false, &missingInputs));
+    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state2, tx1, false, &missingInputs));
     EXPECT_EQ(state2.GetRejectReason(), "bad-txns-version-too-low");
 
     // Resize the transaction
@@ -130,7 +130,7 @@ TEST(Mempool, TxInputLimit) {
     // Check it now fails due to exceeding the limit
     CValidationState state3;
     CTransaction tx3(mtx);
-    EXPECT_FALSE(AcceptToMemoryPool(pool, state3, tx3, false, &missingInputs));
+    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state3, tx3, false, &missingInputs));
     // The -mempooltxinputlimit check doesn't set a reason
     EXPECT_EQ(state3.GetRejectReason(), "");
 
@@ -139,7 +139,7 @@ TEST(Mempool, TxInputLimit) {
 
     // Check it no longer fails due to exceeding the limit
     CValidationState state4;
-    EXPECT_FALSE(AcceptToMemoryPool(pool, state4, tx3, false, &missingInputs));
+    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state4, tx3, false, &missingInputs));
     EXPECT_EQ(state4.GetRejectReason(), "bad-txns-version-too-low");
 }
 //TO BE UPDATED WITH OUR TX VERSIONS
@@ -159,7 +159,7 @@ TEST(Mempool, OverwinterNotActiveYet) {
     CValidationState state1;
 
     CTransaction tx1(mtx);
-    EXPECT_FALSE(AcceptToMemoryPool(pool, state1, tx1, false, &missingInputs));
+    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state1, tx1, false, &missingInputs));
     EXPECT_EQ(state1.GetRejectReason(), "tx-overwinter-not-active");
 
     // Revert to default
@@ -181,7 +181,7 @@ TEST(Mempool, SproutV3TxFailsAsExpected) {
     CValidationState state1;
     CTransaction tx1(mtx);
 
-    EXPECT_FALSE(AcceptToMemoryPool(pool, state1, tx1, false, &missingInputs));
+    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state1, tx1, false, &missingInputs));
     //EXPECT_EQ(state1.GetRejectReason(), "version");
     //EXPECT_EQ(state1.GetRejectReason(), "bad-tx-shielded-version-too-low");
     EXPECT_EQ(state1.GetRejectReason(), "bad-tx-version-unexpected");
@@ -199,7 +199,7 @@ TEST(Mempool, SproutV3TxWhenGrothNotActive) {
     mtx.vjoinsplit.resize(0); // no joinsplits
     CValidationState state1;
     CTransaction tx1(mtx);
-    EXPECT_FALSE(AcceptToMemoryPool(pool, state1, tx1, false, &missingInputs));
+    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state1, tx1, false, &missingInputs));
     //EXPECT_EQ(state1.GetRejectReason(), "bad-tx-shielded-version-too-low");
     EXPECT_EQ(state1.GetRejectReason(), "bad-tx-version-unexpected");
 }
@@ -230,7 +230,7 @@ TEST(Mempool, SproutNegativeVersionTx) {
         EXPECT_EQ(tx1.nVersion, -3);
 
         CValidationState state1;
-        EXPECT_FALSE(AcceptToMemoryPool(pool, state1, tx1, false, &missingInputs));
+        EXPECT_FALSE(AcceptTxToMemoryPool(pool, state1, tx1, false, &missingInputs));
         //EXPECT_EQ(state1.GetRejectReason(), "bad-tx-shielded-version-too-low");
         EXPECT_EQ(state1.GetRejectReason(), "bad-tx-version-unexpected");
     }
@@ -247,7 +247,7 @@ TEST(Mempool, SproutNegativeVersionTx) {
         EXPECT_EQ(tx1.nVersion, -2147483645);
 
         CValidationState state1;
-        EXPECT_FALSE(AcceptToMemoryPool(pool, state1, tx1, false, &missingInputs));
+        EXPECT_FALSE(AcceptTxToMemoryPool(pool, state1, tx1, false, &missingInputs));
         EXPECT_EQ(state1.GetRejectReason(), "bad-txns-version-too-low");
     }
 

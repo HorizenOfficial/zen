@@ -10,7 +10,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from decimal import Decimal
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal
-from test_framework.mc_test.mc_test import generate_params, generate_random_field_element_hex
+from test_framework.mc_test.mc_test import *
 
 def check_array_result(object_array, to_match, expected):
     """
@@ -243,11 +243,11 @@ class ListTransactionsTest(BitcoinTestFramework):
         sc_creation_amount -= fee
 
         # generate vk and constant for this sidechain
-        scid = "1111111111111111111111111111111111111111111111111111111111111111"
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
+        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        cmdInput = {'scid': scid, 'fromaddress': fromaddr, 'toaddress': sidechain_address, 'amount': sc_creation_amount, 'fee': fee, 'wCertVk': vk, "constant": constant}
+        cmdInput = {'fromaddress': fromaddr, 'toaddress': sidechain_address, 'amount': sc_creation_amount, 'fee': fee, 'wCertVk': vk, "constant": constant}
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
             self.sync_all()

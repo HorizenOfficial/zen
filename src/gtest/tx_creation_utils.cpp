@@ -3,7 +3,7 @@
 #include <pubkey.h>
 #include "tx_creation_utils.h"
 
-CMutableTransaction txCreationUtils::populateTx(int txVersion, const uint256 & newScId, const CAmount & creationTxAmount, const CAmount & fwdTxAmount, int epochLength)
+CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, const CAmount & fwdTxAmount, int epochLength)
 {
     CMutableTransaction mtx;
     mtx.nVersion = txVersion;
@@ -14,9 +14,9 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const uint256 & n
     mtx.vin[1].prevout.hash = uint256S("2");
     mtx.vin[1].prevout.n = 0;
 
-    mtx.vout.resize(2);
-    mtx.vout[0].nValue = 0;
-    mtx.vout[1].nValue = 0;
+    mtx.resizeOut(2);
+    mtx.getOut(0).nValue = 0;
+    mtx.getOut(1).nValue = 0;
 
     mtx.vjoinsplit.push_back(
             JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
@@ -28,13 +28,8 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const uint256 & n
     mtx.vjoinsplit[1].nullifiers.at(1) = uint256S("3");
 
     mtx.vsc_ccout.resize(1);
-    mtx.vsc_ccout[0].scId = newScId;
     mtx.vsc_ccout[0].nValue = creationTxAmount;
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
-
-    mtx.vft_ccout.resize(1);
-    mtx.vft_ccout[0].scId = mtx.vsc_ccout[0].scId;
-    mtx.vft_ccout[0].nValue = fwdTxAmount;
 
     return mtx;
 }
@@ -60,10 +55,10 @@ void txCreationUtils::signTx(CMutableTransaction& mtx)
     assert(crypto_sign_detached(&mtx.joinSplitSig[0], NULL, dataToBeSigned.begin(), 32, joinSplitPrivKey ) == 0);
 }
 
-CTransaction txCreationUtils::createNewSidechainTxWith(const uint256 & newScId, const CAmount & creationTxAmount, int epochLength)
+CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength)
 {
-    CMutableTransaction mtx = populateTx(SC_TX_VERSION, newScId, creationTxAmount, CAmount(0), epochLength);
-    mtx.vout.resize(0);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, creationTxAmount, CAmount(0), epochLength);
+    mtx.resizeOut(0);
     mtx.vjoinsplit.resize(0);
     mtx.vft_ccout.resize(0);
     signTx(mtx);
@@ -73,10 +68,15 @@ CTransaction txCreationUtils::createNewSidechainTxWith(const uint256 & newScId, 
 
 CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
 {
-    CMutableTransaction mtx = populateTx(SC_TX_VERSION, newScId, CAmount(0), fwdTxAmount);
-    mtx.vout.resize(0);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, CAmount(0), fwdTxAmount);
+    mtx.resizeOut(0);
     mtx.vjoinsplit.resize(0);
     mtx.vsc_ccout.resize(0);
+
+    mtx.vft_ccout.resize(1);
+    mtx.vft_ccout[0].scId = newScId;
+    mtx.vft_ccout[0].nValue = fwdTxAmount;
+
     signTx(mtx);
 
     return CTransaction(mtx);
@@ -124,11 +124,10 @@ void txCreationUtils::extendTransaction(CTransaction & tx, const uint256 & scId,
     mtx.nVersion = SC_TX_VERSION;
 
     CTxScCreationOut aSidechainCreationTx;
-    aSidechainCreationTx.scId = scId;
     mtx.vsc_ccout.push_back(aSidechainCreationTx);
 
     CTxForwardTransferOut aForwardTransferTx;
-    aForwardTransferTx.scId = aSidechainCreationTx.scId;
+    aForwardTransferTx.scId = scId;
     aForwardTransferTx.nValue = amount;
     mtx.vft_ccout.push_back(aForwardTransferTx);
 
@@ -143,18 +142,13 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
     res.epochNumber = epochNum;
     res.endEpochBlockHash = endEpochBlockHash;
 
-    res.vout.resize(numChangeOut+numBwt);
-    for(unsigned int idx = 0; idx < numChangeOut; ++idx) {
-    res.vout[idx].nValue = insecure_rand();
-    res.vout[idx].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
-    res.vout[idx].isFromBackwardTransfer = false;
-    }
+    CScript dummyScriptPubKey =
+            GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
+    for(unsigned int idx = 0; idx < numChangeOut; ++idx)
+        res.addOut(CTxOut(insecure_rand(),dummyScriptPubKey));
 
-    for(unsigned int idx = 0; idx < numBwt; ++idx) {
-        res.vout[numChangeOut+idx].nValue = bwTotaltAmount/numBwt;
-        res.vout[numChangeOut+idx].scriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
-        res.vout[numChangeOut+idx].isFromBackwardTransfer = true;
-    }
+    for(unsigned int idx = 0; idx < numBwt; ++idx)
+        res.addBwt(CTxOut(bwTotaltAmount/numBwt, dummyScriptPubKey));
 
     return res;
 }
@@ -163,21 +157,28 @@ void chainSettingUtils::GenerateChainActive(int targetHeight) {
     chainActive.SetTip(nullptr);
     mapBlockIndex.clear();
 
-    std::vector<uint256> blockHashes(targetHeight);
-    std::vector<CBlockIndex> blocks(targetHeight);
+    static std::vector<uint256> blockHashes;
+    blockHashes.clear();
+    blockHashes.resize(targetHeight+1);
+    std::vector<CBlockIndex> blocks(targetHeight+1);
+
+    ZCIncrementalMerkleTree dummyTree;
+    dummyTree.append(GetRandHash());
 
     for (unsigned int height=0; height<blocks.size(); ++height) {
         blockHashes[height] = ArithToUint256(height);
 
-        blocks[height].nHeight = height+1;
-        blocks[height].pprev = height == 0? nullptr : &blocks[height - 1];
+        blocks[height].nHeight = height;
+        blocks[height].pprev = height == 0? nullptr : mapBlockIndex[blockHashes[height-1]];
         blocks[height].phashBlock = &blockHashes[height];
         blocks[height].nTime = 1269211443 + height * Params().GetConsensus().nPowTargetSpacing;
         blocks[height].nBits = 0x1e7fffff;
         blocks[height].nChainWork = height == 0 ? arith_uint256(0) : blocks[height - 1].nChainWork + GetBlockProof(blocks[height - 1]);
 
-        mapBlockIndex[blockHashes[height]] = &blocks[height];
-    }
+        blocks[height].hashAnchor = dummyTree.root();
 
-    chainActive.SetTip(&blocks.back());
+        mapBlockIndex[blockHashes[height]] = new CBlockIndex(blocks[height]);
+        mapBlockIndex[blockHashes[height]]->phashBlock = &blockHashes[height];
+        chainActive.SetTip(mapBlockIndex[blockHashes[height]]);
+    }
 }

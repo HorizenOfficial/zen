@@ -211,23 +211,11 @@ std::string CTxIn::ToString() const
     return str;
 }
 
-CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nValue)
-{
-    auto it = std::find(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), OP_HASH160);
-    assert(it != txout.scriptPubKey.end());
-    ++it; 
-    assert(*it == sizeof(uint160));
-    ++it;
-    std::vector<unsigned char>  pubKeyV(it, (it + sizeof(uint160)));
-    pubKeyHash = uint160(pubKeyV);
-}
-
 CTxOut::CTxOut(const CBackwardTransferOut& btout) : nValue(btout.nValue)
 {
     scriptPubKey.clear();
     std::vector<unsigned char> pkh(btout.pubKeyHash.begin(), btout.pubKeyHash.end());
     scriptPubKey << OP_DUP << OP_HASH160 << pkh << OP_EQUALVERIFY << OP_CHECKSIG;
-    isFromBackwardTransfer = true;
 }
 
 uint256 CTxOut::GetHash() const
@@ -237,8 +225,8 @@ uint256 CTxOut::GetHash() const
 
 std::string CTxOut::ToString() const
 {
-    return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s, isFromBackwardTransfer=%d)",
-        nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30), isFromBackwardTransfer);
+    return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s)",
+        nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30));
 }
 
 //----------------------------------------------------------------------------
@@ -274,9 +262,9 @@ bool CTxCrosschainOut::CheckAmountRange(CAmount& cumulatedAmount) const
 }
 
 CTxScCreationOut::CTxScCreationOut(
-    const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn,
+    const CAmount& nValueIn, const uint256& addressIn,
     const Sidechain::ScCreationParameters& paramsIn)
-    :CTxCrosschainOut(scIdIn, nValueIn, addressIn),
+    :CTxCrosschainOut(nValueIn, addressIn), generatedScId(),
      withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData), constant(paramsIn.constant), wCertVk(paramsIn.wCertVk) {}
 
 uint256 CTxScCreationOut::GetHash() const
@@ -286,17 +274,40 @@ uint256 CTxScCreationOut::GetHash() const
 
 std::string CTxScCreationOut::ToString() const
 {
-    return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, customData=[%s], constant=[%s], wCertVk=[%s]" ,
-        scId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData), HexStr(constant), HexStr(wCertVk) );
+    return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, customData=[%s], constant=[%s], wCertVk=[%s]",
+        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData), HexStr(constant), HexStr(wCertVk) );
+}
+
+void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const
+{
+    const uint256& scid = Hash(
+            BEGIN(txHash),    END(txHash),
+            BEGIN(pos),       END(pos) );
+
+    LogPrint("sc", "%s():%d - updating scid=%s - tx[%s], pos[%u]\n",
+        __func__, __LINE__, scid.ToString(), txHash.ToString(), pos);
+
+    *const_cast<uint256*>(&generatedScId) = scid;
+}
+
+CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
+    CTxCrosschainOut::operator=(ccout);
+    *const_cast<uint256*>(&generatedScId) = ccout.generatedScId;
+    withdrawalEpochLength = ccout.withdrawalEpochLength;
+    customData = ccout.customData;
+    constant = ccout.constant;
+    wCertVk = ccout.wCertVk;
+    return *this;
 }
 
 
-CMutableTransactionBase::CMutableTransactionBase() :
+CMutableTransactionBase::CMutableTransactionBase():
     nVersion(TRANSPARENT_TX_VERSION), vin(), vout() {}
 
-CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(), nLockTime(0) {}
+CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(),
+    vsc_ccout(), vft_ccout(), nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() {}
 
-CMutableTransaction::CMutableTransaction(const CTransaction& tx) :
+CMutableTransaction::CMutableTransaction(const CTransaction& tx): CMutableTransactionBase(),
     vsc_ccout(tx.GetVscCcOut()), vft_ccout(tx.GetVftCcOut()), nLockTime(tx.GetLockTime()),
     vjoinsplit(tx.GetVjoinsplit()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
@@ -310,36 +321,31 @@ uint256 CMutableTransaction::GetHash() const
     return SerializeHash(*this);
 }
 
-bool CMutableTransaction::add(const CTxScCreationOut& out) 
-{
-    vsc_ccout.push_back(out);
-    return true;
-}
-
-bool CMutableTransaction::add(const CTxForwardTransferOut& out)
-{
-    vft_ccout.push_back(out);
-    return true;
-}
+void CMutableTransaction::insertAtPos(unsigned int pos, const CTxOut& out) { vout.insert(vout.begin() + pos, out);}
+void CMutableTransaction::eraseAtPos(unsigned int pos) { vout.erase(vout.begin() + pos); }
+void CMutableTransaction::resizeOut(unsigned int newSize) { vout.resize(newSize); }
+bool CMutableTransaction::addOut(const CTxOut& out) { vout.push_back(out); return true;}
+bool CMutableTransaction::addBwt(const CTxOut& out) { return false; }
+bool CMutableTransaction::add(const CTxScCreationOut& out)  { vsc_ccout.push_back(out); return true; }
+bool CMutableTransaction::add(const CTxForwardTransferOut& out) { vft_ccout.push_back(out); return true; }
 
 //--------------------------------------------------------------------------------------------------------
-CTransactionBase::CTransactionBase() :
-    nVersion(TRANSPARENT_TX_VERSION), vin(), vout() {}
+CTransactionBase::CTransactionBase(int nVersionIn):
+    nVersion(nVersionIn), vin(), vout(), hash() {}
+
+CTransactionBase::CTransactionBase(const CTransactionBase &tx):
+    nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), hash(tx.hash) {}
 
 CTransactionBase& CTransactionBase::operator=(const CTransactionBase &tx) {
-    *const_cast<uint256*>(&hash) = tx.hash;
-    *const_cast<int*>(&nVersion) = tx.nVersion;
-    *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
+    *const_cast<uint256*>(&hash)             = tx.hash;
+    *const_cast<int*>(&nVersion)             = tx.nVersion;
+    *const_cast<std::vector<CTxIn>*>(&vin)   = tx.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
     return *this;
 }
 
-CTransactionBase::CTransactionBase(const CTransactionBase &tx) : nVersion(TRANSPARENT_TX_VERSION) {
-    *const_cast<uint256*>(&hash) = tx.hash;
-    *const_cast<int*>(&nVersion) = tx.nVersion;
-    *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
-    *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
-}
+CTransactionBase::CTransactionBase(const CMutableTransactionBase& mutTxBase):
+    nVersion(mutTxBase.nVersion), vin(mutTxBase.vin), vout(mutTxBase.getVout()), hash(mutTxBase.GetHash()) {}
 
 CAmount CTransactionBase::GetValueOut() const
 {
@@ -368,76 +374,98 @@ CAmount CTransactionBase::GetJoinSplitValueIn() const
     return nCumulatedValue;
 }
 
-bool CTransactionBase::CheckInputsAmount(CValidationState &state) const
-{
-    // Ensure input values do not exceed MAX_MONEY
-    // We have not resolved the txin values at this stage,
-    // but we do know what the joinsplits claim to add
-    // to the value pool.
-    CAmount nCumulatedValueIn = 0;
-    for (std::vector<JSDescription>::const_iterator it(GetVjoinsplit().begin()); it != GetVjoinsplit().end(); ++it)
-    {
-        nCumulatedValueIn += it->vpub_new;
-
-        if (!MoneyRange(it->vpub_new) || !MoneyRange(nCumulatedValueIn)) {
-            return state.DoS(100, error("CheckTransaction(): txin total out of range"),
-                             REJECT_INVALID, "bad-txns-txintotal-toolarge");
-        }
-    }
-
-    return true;
-}
-
-bool CTransactionBase::CheckOutputsAmount(CValidationState &state) const
+bool CTransaction::CheckAmounts(CValidationState &state) const
 {
     // Check for negative or overflow output values
     CAmount nCumulatedValueOut = 0;
-    for(const CTxOut& txout: GetVout())
+    for(const CTxOut& txout: vout)
     {
         if (txout.nValue < 0)
-            return state.DoS(100, error("CheckOutputAmounts(): txout.nValue negative"),
+            return state.DoS(100, error("CheckAmounts(): txout.nValue negative"),
                              REJECT_INVALID, "bad-txns-vout-negative");
         if (txout.nValue > MAX_MONEY)
-            return state.DoS(100, error("CheckOutputAmounts(): txout.nValue too high"),
+            return state.DoS(100, error("CheckAmounts(): txout.nValue too high"),
                              REJECT_INVALID, "bad-txns-vout-toolarge");
         nCumulatedValueOut += txout.nValue;
         if (!MoneyRange(nCumulatedValueOut))
-            return state.DoS(100, error("CheckOutputAmounts(): txout total out of range"),
+            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
                              REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
 
     // Ensure that joinsplit values are well-formed
-    for(const JSDescription& joinsplit: GetVjoinsplit())
+    for(const JSDescription& joinsplit: vjoinsplit)
     {
         if (joinsplit.vpub_old < 0) {
-            return state.DoS(100, error("CheckOutputAmounts(): joinsplit.vpub_old negative"),
+            return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_old negative"),
                              REJECT_INVALID, "bad-txns-vpub_old-negative");
         }
 
         if (joinsplit.vpub_new < 0) {
-            return state.DoS(100, error("CheckOutputAmounts(): joinsplit.vpub_new negative"),
+            return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_new negative"),
                              REJECT_INVALID, "bad-txns-vpub_new-negative");
         }
 
         if (joinsplit.vpub_old > MAX_MONEY) {
-            return state.DoS(100, error("CheckOutputAmounts(): joinsplit.vpub_old too high"),
+            return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_old too high"),
                              REJECT_INVALID, "bad-txns-vpub_old-toolarge");
         }
 
         if (joinsplit.vpub_new > MAX_MONEY) {
-            return state.DoS(100, error("CheckOutputAmounts(): joinsplit.vpub_new too high"),
+            return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_new too high"),
                              REJECT_INVALID, "bad-txns-vpub_new-toolarge");
         }
 
         if (joinsplit.vpub_new != 0 && joinsplit.vpub_old != 0) {
-            return state.DoS(100, error("CheckOutputAmounts(): joinsplit.vpub_new and joinsplit.vpub_old both nonzero"),
+            return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_new and joinsplit.vpub_old both nonzero"),
                              REJECT_INVALID, "bad-txns-vpubs-both-nonzero");
         }
 
         nCumulatedValueOut += joinsplit.vpub_old;
         if (!MoneyRange(nCumulatedValueOut)) {
-            return state.DoS(100, error("CheckOutputAmounts(): txout total out of range"),
+            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
                              REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+        }
+    }
+
+    for(const CTxScCreationOut& scOut: vsc_ccout)
+    {
+        if (scOut.nValue < 0)
+            return state.DoS(100, error("CheckAmounts(): scOut.nValue negative"),
+                             REJECT_INVALID, "bad-txns-vout-negative");
+        if (scOut.nValue > MAX_MONEY)
+            return state.DoS(100, error("CheckAmounts(): scOut.nValue too high"),
+                             REJECT_INVALID, "bad-txns-vout-toolarge");
+        nCumulatedValueOut += scOut.nValue;
+        if (!MoneyRange(nCumulatedValueOut))
+            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
+                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+    }
+
+    for(const CTxForwardTransferOut& fwdOut: vft_ccout)
+    {
+        if (fwdOut.nValue < 0)
+            return state.DoS(100, error("CheckAmounts(): fwdOut.nValue negative"),
+                             REJECT_INVALID, "bad-txns-vout-negative");
+        if (fwdOut.nValue > MAX_MONEY)
+            return state.DoS(100, error("CheckAmounts(): fwdOut.nValue too high"),
+                             REJECT_INVALID, "bad-txns-vout-toolarge");
+        nCumulatedValueOut += fwdOut.nValue;
+        if (!MoneyRange(nCumulatedValueOut))
+            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
+                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+    }
+
+    // Ensure input values do not exceed MAX_MONEY
+    // We have not resolved the txin values at this stage, but we do know what the joinsplits claim to add
+    // to the value pool.
+    CAmount nCumulatedValueIn = 0;
+    for(const JSDescription& joinsplit: GetVjoinsplit())
+    {
+        nCumulatedValueIn += joinsplit.vpub_new;
+
+        if (!MoneyRange(joinsplit.vpub_new) || !MoneyRange(nCumulatedValueIn)) {
+            return state.DoS(100, error("CheckAmounts(): txin total out of range"),
+                             REJECT_INVALID, "bad-txns-txintotal-toolarge");
         }
     }
 
@@ -473,22 +501,26 @@ bool CTransactionBase::CheckInputsDuplication(CValidationState &state) const
     return true;
 }
 
-bool CTransactionBase::CheckInputsInteraction(CValidationState &state) const
+bool CTransaction::CheckInputsInteraction(CValidationState &state) const
 {
     if (IsCoinBase())
     {
         // There should be no joinsplits in a coinbase transaction
-        if (GetVjoinsplit().size() > 0)
+        if (vjoinsplit.size() > 0)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase has joinsplits"),
                              REJECT_INVALID, "bad-cb-has-joinsplits");
 
-        if (GetVin()[0].scriptSig.size() < 2 || GetVin()[0].scriptSig.size() > 100)
+        if (vin[0].scriptSig.size() < 2 || vin[0].scriptSig.size() > 100)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase script size"),
                              REJECT_INVALID, "bad-cb-length");
+
+        if (vsc_ccout.size() != 0 || vft_ccout.size() != 0)
+            return state.DoS(100, error("CheckInputsInteraction(): coinbase destined to sidechains"),
+                                         REJECT_INVALID, "bad-cb-destination");
     }
     else
     {
-        for(const CTxIn& txin: GetVin())
+        for(const CTxIn& txin: vin)
             if (txin.prevout.IsNull())
                 return state.DoS(10, error("CheckInputsInteraction(): prevout is null"),
                                  REJECT_INVALID, "bad-txns-prevout-null");
@@ -497,53 +529,39 @@ bool CTransactionBase::CheckInputsInteraction(CValidationState &state) const
     return true;
 }
 
-CTransaction::CTransaction() :
-    CTransactionBase(),
-    vjoinsplit(), nLockTime(0),
-    vsc_ccout(), vft_ccout(),
-    joinSplitPubKey(), joinSplitSig() { }
+CTransaction::CTransaction(int nVersionIn): CTransactionBase(nVersionIn),
+    vjoinsplit(), nLockTime(0), vsc_ccout(), vft_ccout(),
+    joinSplitPubKey(), joinSplitSig() {}
+
+CTransaction::CTransaction(const CTransaction &tx) : CTransactionBase(tx),
+    vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime),
+    vsc_ccout(tx.vsc_ccout), vft_ccout(tx.vft_ccout),
+    joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig) {}
+
+CTransaction& CTransaction::operator=(const CTransaction &tx) {
+    CTransactionBase::operator=(tx);
+    *const_cast<std::vector<JSDescription>*>(&vjoinsplit)        = tx.vjoinsplit;
+    *const_cast<uint32_t*>(&nLockTime)                           = tx.nLockTime;
+    *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout)      = tx.vsc_ccout;
+    *const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout) = tx.vft_ccout;
+    *const_cast<uint256*>(&joinSplitPubKey)                      = tx.joinSplitPubKey;
+    *const_cast<joinsplit_sig_t*>(&joinSplitSig)                 = tx.joinSplitSig;
+    return *this;
+}
 
 void CTransaction::UpdateHash() const
 {
     *const_cast<uint256*>(&hash) = SerializeHash(*this);
+    // if any sidechain creation is taking place within this transaction, we generate the sidechain id
+    for(unsigned int pos = 0; pos < vsc_ccout.size(); pos++)
+        vsc_ccout[pos].GenerateScId(hash, pos);
 }
 
-CTransaction::CTransaction(const CMutableTransaction &tx) :
-    vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime),
-    vsc_ccout(tx.vsc_ccout), vft_ccout(tx.vft_ccout),
-    joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
+CTransaction::CTransaction(const CMutableTransaction &tx): CTransactionBase(tx),
+    vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime), vsc_ccout(tx.vsc_ccout),
+    vft_ccout(tx.vft_ccout), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
-    *const_cast<int*>(&nVersion) = tx.nVersion;
-    *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
-    *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
     UpdateHash();
-}
-
-CTransaction& CTransaction::operator=(const CTransaction &tx) {
-    CTransactionBase::operator=(tx);
-    *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout) = tx.vsc_ccout;
-    *const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout) = tx.vft_ccout;
-    *const_cast<uint32_t*>(&nLockTime) = tx.nLockTime;
-    *const_cast<std::vector<JSDescription>*>(&vjoinsplit) = tx.vjoinsplit;
-    *const_cast<uint256*>(&joinSplitPubKey) = tx.joinSplitPubKey;
-    *const_cast<joinsplit_sig_t*>(&joinSplitSig) = tx.joinSplitSig;
-    return *this;
-}
-
-CTransaction::CTransaction(const CTransaction &tx) : nLockTime(0)
-{
-    // call explicitly the copy of members of virtual base class
-    *const_cast<int*>(&nVersion) = tx.nVersion;
-    *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
-    *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
-    *const_cast<uint256*>(&hash) = tx.hash;
-    //---
-    *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout) = tx.vsc_ccout;
-    *const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout) = tx.vft_ccout;
-    *const_cast<uint32_t*>(&nLockTime) = tx.nLockTime;
-    *const_cast<std::vector<JSDescription>*>(&vjoinsplit) = tx.vjoinsplit;
-    *const_cast<uint256*>(&joinSplitPubKey) = tx.joinSplitPubKey;
-    *const_cast<joinsplit_sig_t*>(&joinSplitSig) = tx.joinSplitSig;
 }
 
 unsigned int CTransactionBase::CalculateModifiedSize(unsigned int nTxSize) const
@@ -556,7 +574,7 @@ unsigned int CTransactionBase::CalculateModifiedSize(unsigned int nTxSize) const
     if (nTxSize == 0)
     {
         // polymorphic call
-        nTxSize = CalculateSize();
+        nTxSize = GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     }
     for (std::vector<CTxIn>::const_iterator it(vin.begin()); it != vin.end(); ++it)
     {
@@ -575,7 +593,25 @@ double CTransactionBase::ComputePriority(double dPriorityInputs, unsigned int nT
     return dPriorityInputs / nTxSize;
 }
 
-bool CTransaction::CheckVersionBasic(CValidationState &state) const
+const uint256& CTransaction::GetScIdFromScCcOut(int pos) const
+{
+    static const uint256 nullHash;
+    if (pos < 0 ||pos >= GetVscCcOut().size())
+    {
+        LogPrint("sc", "%s():%d - tx[%s] pos %d out of range (vsc_ccout size %d)\n",
+            __func__, __LINE__, GetHash().ToString(), pos, GetVscCcOut().size());
+        return nullHash;
+    }
+
+    const uint256& scid = GetVscCcOut().at(pos).GetScId();
+
+    LogPrint("sc", "%s():%d - tx[%s] has scid[%s] for ccout[%s] (pos[%d])\n",
+        __func__, __LINE__, GetHash().ToString(), scid.ToString(), GetVscCcOut().at(pos).GetHash().ToString(), pos);
+
+    return scid;
+}
+
+bool CTransaction::IsValidVersion(CValidationState &state) const
 {
     // Basic checks that don't depend on any context
     // Check transaction version
@@ -588,24 +624,32 @@ bool CTransaction::CheckVersionBasic(CValidationState &state) const
     return true;
 }
 
-bool CTransaction::CheckInputsAvailability(CValidationState &state) const
+bool CTransaction::CheckNonEmpty(CValidationState &state) const
 {
     // Transactions can contain empty `vin` and `vout` so long as
     // `vjoinsplit` is non-empty.
     if (GetVin().empty() && GetVjoinsplit().empty())
     {
         LogPrint("sc", "%s():%d - Error: tx[%s]\n", __func__, __LINE__, GetHash().ToString() );
-        return state.DoS(10, error("CheckInputsAvailability(): vin empty"),
+        return state.DoS(10, error("CheckNonEmpty(): vin empty"),
                          REJECT_INVALID, "bad-txns-vin-empty");
+    }
+
+    // Allow the case when crosschain outputs are not empty. In that case there might be no vout at all
+    // when utxo reminder is only dust, which is added to fee leaving no change for the sender
+    if (GetVout().empty() && GetVjoinsplit().empty() && ccIsNull())
+    {
+        return state.DoS(10, error("CheckNonEmpty(): vout empty"),
+                         REJECT_INVALID, "bad-txns-vout-empty");
     }
 
     return true;
 }
 
-bool CTransaction::CheckSerializedSize(CValidationState &state) const
+bool CTransactionBase::CheckSerializedSize(CValidationState &state) const
 {
     BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_TX_SIZE); // sanity
-    if (::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION) > MAX_TX_SIZE)
+    if (GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION) > MAX_TX_SIZE)
         return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
                          REJECT_INVALID, "bad-txns-oversize");
 
@@ -617,7 +661,7 @@ bool CTransaction::CheckFeeAmount(const CAmount& totalVinAmount, CValidationStat
         return state.DoS(100, error("CheckFeeAmount(): total input amount out of range"),
                          REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
-    if (!CheckOutputsAmount(state))
+    if (!CheckAmounts(state))
         return false;
 
     if (totalVinAmount < GetValueOut() )
@@ -638,19 +682,6 @@ bool CTransaction::CheckFeeAmount(const CAmount& totalVinAmount, CValidationStat
     return true;
 }
 
-bool CTransaction::CheckOutputsAvailability(CValidationState &state) const
-{
-    // Allow the case when crosschain outputs are not empty. In that case there might be no vout at all
-    // when utxo reminder is only dust, which is added to fee leaving no change for the sender
-    if (GetVout().empty() && GetVjoinsplit().empty() && ccIsNull())
-    {
-        return state.DoS(10, error("CheckOutputsAvailability(): vout empty"),
-                         REJECT_INVALID, "bad-txns-vout-empty");
-    }
-
-    return true;
-}
-
 CAmount CTransaction::GetValueOut() const
 {
     // vout
@@ -666,14 +697,10 @@ CAmount CTransaction::GetValueOut() const
     }
 
     nValueOut += (GetValueCcOut(vsc_ccout) + GetValueCcOut(vft_ccout));
-    return nValueOut;
-}
+    if (!MoneyRange(nValueOut))
+        throw std::runtime_error("CTransaction::GetValueOut(): value out of range");
 
-unsigned int CTransaction::CalculateSize() const
-{
-    unsigned int sz = ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);
-    //LogPrint("cert", "%s():%d - tx[%s]: sz=%u\n", __func__, __LINE__, GetHash().ToString(), sz);
-    return sz;
+    return nValueOut;
 }
 
 std::string CTransaction::ToString() const
@@ -716,36 +743,17 @@ std::string CTransaction::ToString() const
     return str;
 }
 
-void CTransaction::addToScCommitment(std::map<uint256, std::vector<uint256> >& mLeaves, std::set<uint256>& sScIds) const
-{
-    if (!IsScVersion())
-    {
-        return;
-    }
-
-    unsigned int nIdx = 0;
-    LogPrint("sc", "%s():%d -getting leaves for vsc out\n", __func__, __LINE__);
-    fillCrosschainOutput(vsc_ccout, nIdx, mLeaves, sScIds);
-
-    LogPrint("sc", "%s():%d -getting leaves for vft out\n", __func__, __LINE__);
-    fillCrosschainOutput(vft_ccout, nIdx, mLeaves, sScIds);
-
-    LogPrint("sc", "%s():%d - nIdx[%d]\n", __func__, __LINE__, nIdx);
-}
-
 //--------------------------------------------------------------------------------------------
 // binaries other than zend that are produced in the build, do not call these members and therefore do not
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
-bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const { return true; }
-bool CTransaction::CheckVersionIsStandard(std::string& reason, const int nHeight) const {return true;}
+bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int unused, int dosLevel) const { return true; }
+bool CTransaction::IsVersionStandard(int nHeight) const {return true;}
 
-bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
 void CTransaction::AddToBlock(CBlock* pblock) const { return; }
 void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const {return; }
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return true; }
-bool CTransaction::CheckFinal(int flags) const { return true; }
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
@@ -756,10 +764,7 @@ std::shared_ptr<BaseSignatureChecker> CTransaction::MakeSignatureChecker(unsigne
 {
     return std::shared_ptr<BaseSignatureChecker>();
 }
-bool CTransaction::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-    bool* pfMissingInputs, bool fRejectAbsurdFee) const { return true; }
 void CTransaction::Relay() const {}
-unsigned int CTransaction::GetSerializeSizeBase(int nType, int nVersion) const { return 0;}
 std::shared_ptr<const CTransactionBase> CTransaction::MakeShared() const
 {
     return std::shared_ptr<const CTransactionBase>();
@@ -767,29 +772,26 @@ std::shared_ptr<const CTransactionBase> CTransaction::MakeShared() const
 
 #else
 //----- 
-bool CTransaction::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
-{
-    CValidationState state;
-    return ::AcceptToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
-};
-
-bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& state) const
+bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int nHeight, int dosLevel) const
 {
     // Check for vout's without OP_CHECKBLOCKATHEIGHT opcode
-    BOOST_FOREACH(const CTxOut& txout, vout)
+    //BOOST_FOREACH(const CTxOut& txout, vout)
+    for(int pos = 0; pos < GetVout().size(); ++pos)
     {
         // if the output comes from a backward transfer (when we are a certificate), skip this check
         // but go on if the certificate txout is an ordinary one
-        if (txout.isFromBackwardTransfer)
+        if (IsBackwardTransfer(pos))
             continue;
 
+        const CTxOut& txout = GetVout()[pos];
         txnouttype whichType;
         ::IsStandard(txout.scriptPubKey, whichType);
 
         // provide temporary replay protection for two minerconf windows during chainsplit
-        if (!IsCoinBase() && !ForkManager::getInstance().isTransactionTypeAllowedAtHeight(chainActive.Height(),whichType))
+        if (!IsCoinBase() && !ForkManager::getInstance().isTransactionTypeAllowedAtHeight(nHeight, whichType))
         {
-            return state.DoS(0, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s", __FILE__, __func__, ::GetTxnOutputType(whichType), chainActive.Height(), GetHash().ToString()),
+            return state.DoS(dosLevel, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s",
+                    __FILE__, __func__, ::GetTxnOutputType(whichType), nHeight, GetHash().ToString()),
                 REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
     }
@@ -797,7 +799,7 @@ bool CTransactionBase::CheckOutputsCheckBlockAtHeightOpCode(CValidationState& st
     return true;
 }
 
-bool CTransaction::CheckVersionIsStandard(std::string& reason, int nHeight) const {
+bool CTransaction::IsVersionStandard(int nHeight) const {
     // sidechain fork (happens after groth fork)
     int sidechainVersion = 0;
     bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
@@ -817,7 +819,6 @@ bool CTransaction::CheckVersionIsStandard(std::string& reason, int nHeight) cons
 
         if (nVersion > CTransaction::MAX_OLD_VERSION || nVersion < CTransaction::MIN_OLD_VERSION)
         {
-            reason = "version";
             return false;
         }
     }
@@ -828,7 +829,6 @@ bool CTransaction::CheckVersionIsStandard(std::string& reason, int nHeight) cons
             // check sidechain tx
             if ( !(areSidechainsSupported && (nVersion == sidechainVersion)) )
             {
-                reason = "version";
                 return false;
             }
         }
@@ -854,13 +854,13 @@ bool CTransactionBase::CheckInputsLimit() const {
 
 void CTransaction::AddToBlock(CBlock* pblock) const 
 {
-    LogPrint("cert", "%s():%d - adding to block tx %s\n", __func__, __LINE__, GetHash().ToString());
+    LogPrint("sc", "%s():%d - adding to block tx %s\n", __func__, __LINE__, GetHash().ToString());
     pblock->vtx.push_back(*this);
 }
 
 void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const
 {
-    LogPrint("cert", "%s():%d - adding to block templ tx %s, fee=%s, sigops=%u\n", __func__, __LINE__,
+    LogPrint("sc", "%s():%d - adding to block templ tx %s, fee=%s, sigops=%u\n", __func__, __LINE__,
         GetHash().ToString(), FormatMoney(fee), sigops);
     pblocktemplate->vTxFees.push_back(fee);
     pblocktemplate->vTxSigOps.push_back(sigops);
@@ -868,12 +868,69 @@ void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fe
 
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const
 {
-    return ::ContextualCheckTransaction(*this, state, nHeight, dosLevel);
-}
+    if (!CheckBlockAtHeight(state, nHeight, dosLevel))
+        return false;
 
-bool CTransaction::CheckFinal(int flags) const
-{
-    return ::CheckFinalTx(*this, flags);
+    //Valid txs are:
+    // at any height
+    // at height < groth_fork v>=1 txs with PHGR proofs
+    // at height >= groth_fork v=-3 shielded with GROTH proofs and v=1 transparent with joinsplit empty
+    // at height >= sidechain_fork same as above but also v=-4 with joinsplit empty
+
+    // sidechain fork (happens after groth fork)
+    int sidechainVersion = 0; 
+    bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
+    if (areSidechainsSupported)
+    {
+        sidechainVersion = ForkManager::getInstance().getSidechainTxVersion(nHeight);
+    }
+
+    // groth fork
+    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
+    bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
+
+    if(isGROTHActive)
+    {
+        //verify if transaction is transparent or related to sidechain...
+        if (nVersion == TRANSPARENT_TX_VERSION  ||
+            (areSidechainsSupported && (nVersion == sidechainVersion) ) )
+        {
+            //enforce empty joinsplit for transparent txs and sidechain tx
+            if(!GetVjoinsplit().empty()) {
+                return state.DoS(dosLevel, error("ContextualCheck(): transparent or sc tx but vjoinsplit not empty"),
+                                     REJECT_INVALID, "bad-txns-transparent-jsnotempty");
+            }
+            return true;
+        }
+
+        // ... or the actual shielded version
+        if(nVersion != GROTH_TX_VERSION)
+        {
+            LogPrintf("ContextualCheck(): rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
+                nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
+            return state.DoS(dosLevel,
+                             error("ContextualCheck(): unexpected tx version"),
+                             REJECT_INVALID, "bad-tx-version-unexpected");
+        }
+        return true;
+    }
+    else
+    {
+        // sidechain fork is after groth one
+        assert(!areSidechainsSupported);
+
+        if(nVersion < TRANSPARENT_TX_VERSION)
+        {
+            LogPrintf("ContextualCheck(): rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
+                nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
+            return state.DoS(0,
+                             error("ContextualCheck(): unexpected tx version"),
+                             REJECT_INVALID, "bad-tx-version-unexpected");
+        }
+        return true;
+    }
+
+    return true;
 }
 
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const
@@ -924,15 +981,7 @@ std::string CTransaction::EncodeHex() const
     return EncodeHexTx(*this);
 }
 
-bool CTransaction::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-    bool* pfMissingInputs, bool fRejectAbsurdFee) const
-{
-    return ::AcceptToMemoryPool(pool, state, *this, fLimitFree, pfMissingInputs, fRejectAbsurdFee);
-}
-
 void CTransaction::Relay() const { ::Relay(*this); }
-
-unsigned int CTransaction::GetSerializeSizeBase(int nType, int nVersion) const { return this->GetSerializeSize(nType, nVersion);}
 
 std::shared_ptr<const CTransactionBase>
 CTransaction::MakeShared() const {

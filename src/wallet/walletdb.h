@@ -26,7 +26,7 @@ class CMasterKey;
 class CScript;
 class CWallet;
 class CWalletTx;
-class CWalletObjBase;
+class CWalletTransactionBase;
 class uint160;
 class uint256;
 
@@ -88,12 +88,8 @@ public:
     bool WritePurpose(const std::string& strAddress, const std::string& purpose);
     bool ErasePurpose(const std::string& strAddress);
 
-#if 0
-    bool WriteTx(uint256 hash, const CWalletTx& wtx);
-#else
-    bool WriteTx(uint256 hash, const CWalletObjBase& wtx);
-#endif
-    bool EraseTx(uint256 hash);
+    bool WriteWalletTxBase(uint256 hash, const CWalletTransactionBase& wtx);
+    bool EraseWalletTxBase(uint256 hash);
 
     bool WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata &keyMeta);
     bool WriteCryptedKey(const CPubKey& vchPubKey, const std::vector<unsigned char>& vchCryptedSecret, const CKeyMetadata &keyMeta);
@@ -137,8 +133,8 @@ public:
     DBErrors FindWalletTx(CWallet* pwallet, std::vector<uint256>& vTxHash, std::vector<CWalletTx>& vWtx);
     DBErrors ZapWalletTx(CWallet* pwallet, std::vector<CWalletTx>& vWtx);
 #else
-    DBErrors FindWalletTx(CWallet* pwallet, std::vector<uint256>& vTxHash, std::vector<std::shared_ptr<CWalletObjBase> >& vWtx);
-    DBErrors ZapWalletTx(CWallet* pwallet, std::vector<std::shared_ptr<CWalletObjBase> >& vWtx);
+    DBErrors FindWalletTx(CWallet* pwallet, std::vector<uint256>& vTxHash, std::vector<std::shared_ptr<CWalletTransactionBase> >& vWtx);
+    DBErrors ZapWalletTx(CWallet* pwallet, std::vector<std::shared_ptr<CWalletTransactionBase> >& vWtx);
 #endif
     static bool Recover(CDBEnv& dbenv, const std::string& filename, bool fOnlyKeys);
     static bool Recover(CDBEnv& dbenv, const std::string& filename);

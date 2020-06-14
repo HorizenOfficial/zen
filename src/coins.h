@@ -15,13 +15,13 @@
 #include <assert.h>
 #include <stdint.h>
 
-#include <boost/foreach.hpp>
 #include <boost/unordered_map.hpp>
 #include "zcash/IncrementalMerkleTree.hpp"
 #include <sc/sidechain.h>
 #include <sc/proofverifier.h>
 
 class CBlockUndo;
+class CVoidedCertUndo;
 
 /**
  * Pruned version of CTransaction: only retains metadata and unspent transaction outputs
@@ -97,9 +97,14 @@ public:
     //! as new tx version will probably only be introduced at certain heights
     int nVersion;
 
-    //! if coin comes from a bwt, originScId will contain the associated ScId; otherwise it will be null
-    //! originScId will be serialized only for coins from bwt, which will be stored in chainstate db under different key
-    uint256 originScId;
+    //| If coins comes from a certificate, nFirstBwtPos represents the position of the first backward transfer;
+    //! All outputs after nFirstBwtPos, including nFirstBwtPos, are backward transfers
+    //! If coins comes from a tx, it is currently set to BWT_POS_UNSET and not used
+    int nFirstBwtPos;
+
+    //! if coin comes from a certificate, nBwtMaturityHeight signals the height at which these output will be mature
+    //! nBwtMaturityHeight will be serialized only for coins from certificate
+    int nBwtMaturityHeight;
 
     std::string ToString() const;
 
@@ -107,9 +112,11 @@ public:
     CCoins();
 
     //! construct a CCoins from a CTransaction, at a given height
-    CCoins(const CTransactionBase &tx, int nHeightIn);
+    CCoins(const CTransaction &tx, int nHeightIn);
+    CCoins(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeight);
 
-    void FromTx(const CTransactionBase &tx, int nHeightIn);
+    void From(const CTransaction &tx, int nHeightIn);
+    void From(const CScCertificate &tx, int nHeightIn, int bwtMaturityHeight);
 
     void Clear();
 
@@ -126,6 +133,14 @@ public:
 
     bool IsCoinBase() const;
     bool IsFromCert() const;
+
+    enum class outputMaturity {
+        NOT_APPLICABLE = 0,
+        MATURE,
+        IMMATURE
+    };
+
+    bool isOutputMature(unsigned int outPos, int nSpendingHeight) const;
 
     //! mark a vout spent
     bool Spend(uint32_t nPos);
@@ -161,19 +176,9 @@ public:
         nSize += ::GetSerializeSize(VARINT(nHeight), nType, nVersion);
 
         if (this->IsFromCert()) {
-            nSize += ::GetSerializeSize(originScId,      nType,nVersion);
-
-            unsigned int changeOutputCounter = 0;
-            for(const CTxOut& out: vout) {
-                if (!out.isFromBackwardTransfer)
-                    ++changeOutputCounter;
-                else
-                    break;
-            }
-
-            nSize += ::GetSerializeSize(changeOutputCounter,nType,nVersion);
+            nSize += ::GetSerializeSize(nFirstBwtPos, nType, nVersion);
+            nSize += ::GetSerializeSize(nBwtMaturityHeight, nType, nVersion);
         }
-
 
         return nSize;
     }
@@ -208,17 +213,8 @@ public:
         ::Serialize(s, VARINT(nHeight), nType, nVersion);
 
         if (this->IsFromCert()) {
-            ::Serialize(s,originScId,      nType,nVersion);
-
-            unsigned int changeOutputCounter = 0;
-            for(const CTxOut& out: vout) {
-                if (!out.isFromBackwardTransfer)
-                    ++changeOutputCounter;
-                else
-                    break;
-            }
-
-            ::Serialize(s,changeOutputCounter,nType,nVersion);
+            ::Serialize(s, nFirstBwtPos, nType, nVersion);
+            ::Serialize(s, nBwtMaturityHeight, nType, nVersion);
         }
     }
 
@@ -254,18 +250,11 @@ public:
         // coinbase height
         ::Unserialize(s, VARINT(nHeight), nType, nVersion);
 
-        unsigned int changeOutputCounter = vout.size();
+        nFirstBwtPos = BWT_POS_UNSET;
         if (this->IsFromCert()) {
-            ::Unserialize(s, originScId,       nType,nVersion);
-            ::Unserialize(s, changeOutputCounter, nType,nVersion);
+            ::Unserialize(s, nFirstBwtPos, nType,nVersion);
+            ::Unserialize(s, nBwtMaturityHeight, nType,nVersion);
         }
-
-        for(unsigned int idx = 0; idx < vout.size(); ++idx)
-            if ( idx < changeOutputCounter)
-                vout[idx].isFromBackwardTransfer = false;
-            else
-                vout[idx].isFromBackwardTransfer = true;
-
 
         Cleanup();
     }
@@ -319,9 +308,9 @@ struct CSidechainsCacheEntry
     CSidechainsCacheEntry(const CSidechain & _scInfo, Flags _flag) : scInfo(_scInfo), flag(_flag) {}
 };
 
-struct CCeasingScsCacheEntry
+struct CSidechainEventsCacheEntry
 {
-    CCeasingSidechains ceasingScs; // The actual cached data.
+    CSidechainEvents scEvents; // The actual cached data.
 
     enum class Flags {
         DEFAULT = 0,
@@ -330,8 +319,8 @@ struct CCeasingScsCacheEntry
         ERASED  = (1 << 2), // The parent view does have this entry but current one have it erased
     } flag;
 
-    CCeasingScsCacheEntry() : ceasingScs(), flag(Flags::DEFAULT) {}
-    CCeasingScsCacheEntry(const CCeasingSidechains & _scList, Flags _flag) : ceasingScs(_scList), flag(_flag) {}
+    CSidechainEventsCacheEntry() : scEvents(), flag(Flags::DEFAULT) {}
+    CSidechainEventsCacheEntry(const CSidechainEvents & _scList, Flags _flag) : scEvents(_scList), flag(_flag) {}
 };
 
 struct CAnchorsCacheEntry
@@ -360,8 +349,8 @@ struct CNullifiersCacheEntry
 };
 
 typedef boost::unordered_map<uint256, CCoinsCacheEntry, CCoinsKeyHasher>      CCoinsMap;
-typedef boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> CSidechainsMap;
-typedef boost::unordered_map<int, CCeasingScsCacheEntry>                      CCeasingScsMap;
+typedef boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> CSidechainsMap; //maps scId to sidechain informations
+typedef boost::unordered_map<int, CSidechainEventsCacheEntry>                 CSidechainEventsMap; //maps blockchain height to sidechain amount to mature/certs to void
 typedef boost::unordered_map<uint256, CAnchorsCacheEntry, CCoinsKeyHasher>    CAnchorsMap;
 typedef boost::unordered_map<uint256, CNullifiersCacheEntry, CCoinsKeyHasher> CNullifiersMap;
 
@@ -403,16 +392,13 @@ public:
     virtual bool GetSidechain(const uint256& scId, CSidechain& info) const;
 
     //! Just check whether we have ceasing sidechains at given height
-    virtual bool HaveCeasingScs(int height) const;
+    virtual bool HaveSidechainEvents(int height) const;
 
     //! Retrieve the scId list of sidechain ceasing at given height.
-    virtual bool GetCeasingScs(int height, CCeasingSidechains& ceasingScs) const;
+    virtual bool GetSidechainEvents(int height, CSidechainEvents& scEvent) const;
 
     //! Retrieve all the known sidechain ids
-    virtual void queryScIds(std::set<uint256>& scIdsList) const;
-
-    //! just check whether we have data for a certificate in a given epoch for given sidechain
-    virtual bool HaveCertForEpoch(const uint256& scId, int epochNumber) const;
+    virtual void GetScIds(std::set<uint256>& scIdsList) const;
 
     //! Retrieve the block hash whose state this CCoinsView currently represents
     virtual uint256 GetBestBlock() const;
@@ -428,7 +414,7 @@ public:
                             CAnchorsMap &mapAnchors,
                             CNullifiersMap &mapNullifiers,
                             CSidechainsMap& mapSidechains,
-                            CCeasingScsMap& mapCeasedScs);
+                            CSidechainEventsMap& mapCeasedScs);
 
     //! Calculate statistics about the unspent transaction output set
     virtual bool GetStats(CCoinsStats &stats) const;
@@ -452,10 +438,9 @@ public:
     bool HaveCoins(const uint256 &txid)                                const override;
     bool HaveSidechain(const uint256& scId)                            const override;
     bool GetSidechain(const uint256& scId, CSidechain& info)           const override;
-    bool HaveCeasingScs(int height)                                    const override;
-    bool GetCeasingScs(int height, CCeasingSidechains& ceasingScs)     const override;
-    void queryScIds(std::set<uint256>& scIdsList)                      const override;
-    bool HaveCertForEpoch(const uint256& scId, int epochNumber)        const override;
+    bool HaveSidechainEvents(int height)                               const override;
+    bool GetSidechainEvents(int height, CSidechainEvents& scEvents)    const override;
+    void GetScIds(std::set<uint256>& scIdsList)                        const override;
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
     void SetBackend(CCoinsView &viewIn);
@@ -465,7 +450,7 @@ public:
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CCeasingScsMap& mapCeasedScs)                            override;
+                    CSidechainEventsMap& mapCeasedScs)                            override;
     bool GetStats(CCoinsStats &stats)                                  const override;
 };
 
@@ -507,7 +492,7 @@ protected:
     mutable uint256        hashBlock;
     mutable CCoinsMap      cacheCoins;
     mutable CSidechainsMap cacheSidechains;
-    mutable CCeasingScsMap cacheCeasingScs;
+    mutable CSidechainEventsMap cacheSidechainEvents;
     mutable uint256        hashAnchor;
     mutable CAnchorsMap    cacheAnchors;
     mutable CNullifiersMap cacheNullifiers;
@@ -533,7 +518,7 @@ public:
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CCeasingScsMap& mapCeasedScs)                            override;
+                    CSidechainEventsMap& mapCeasedScs)                            override;
 
 
     // Adds the tree to mapAnchors and sets the current commitment
@@ -570,31 +555,33 @@ public:
     //SIDECHAIN RELATED PUBLIC MEMBERS
     bool HaveSidechain(const uint256& scId)                           const override;
     bool GetSidechain(const uint256 & scId, CSidechain& targetScInfo) const override;
-    void queryScIds(std::set<uint256>& scIdsList)                     const override;
+    void GetScIds(std::set<uint256>& scIdsList)                       const override;
     bool HaveScRequirements(const CTransaction& tx, int height);
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
-    bool ApplyMatureBalances(int nHeight, CBlockUndo& blockundo);
-    bool RestoreImmatureBalances(int nHeight, const CBlockUndo& blockundo);
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    bool HaveCertForEpoch(const uint256& scId, int epochNumber) const override;
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier);
-    bool isLegalEpoch(const uint256& scId, int epochNumber, const uint256& epochBlockHash);
-    bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& bu);
-    bool RevertCertOutputs(const CScCertificate& cert);
+    bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash);
+    bool UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry);
+    bool RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry);
 
-    //CEASING SIDECHAINS RELATED MEMBERS
-    bool HaveCeasingScs(int height)                                const override;
-    bool GetCeasingScs(int height, CCeasingSidechains& ceasingScs) const override;
-    bool UpdateCeasingScs(const CTxScCreationOut& scCreationOut);
-    bool UndoCeasingScs(const CTxScCreationOut& scCreationOut);
-    bool UpdateCeasingScs(const CScCertificate& cert);
-    bool UndoCeasingScs(const CScCertificate& cert);
-    bool HandleCeasingScs(int height, CBlockUndo& blockUndo);
-    bool RevertCeasingScs(const CTxUndo& ceasedCertUndo);
+    //SIDECHAINS EVENTS RELATED MEMBERS
+    bool HaveSidechainEvents(int height)                            const override;
+    bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override;
 
-    CSidechain::state isCeasedAtHeight(const uint256& scId, int height) const;
+    bool ScheduleSidechainEvent(const CTxScCreationOut& scCreationOut, int creationHeight);
+    bool ScheduleSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight);
+    bool ScheduleSidechainEvent(const CScCertificate& cert);
+
+    bool CancelSidechainEvent(const CTxScCreationOut& scCreationOut, int creationHeight);
+    bool CancelSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight);
+    bool CancelSidechainEvent(const CScCertificate& cert);
+
+    bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<uint256>* pVoidedCertsList);
+    bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<uint256>* pVoidedCertsList);
+
+    CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
 
     bool Flush();
 
@@ -614,14 +601,6 @@ public:
      */
     CAmount GetValueIn(const CTransactionBase& tx) const;
 
-    //! Verify whether given output is mature according to current view
-    enum class outputMaturity {
-        NOT_APPLICABLE = 0,
-        MATURE,
-        IMMATURE
-    };
-    outputMaturity IsCertOutputMature(const uint256& txHash, unsigned int pos, int spendHeight) const;
-
     //! Check whether all prevouts of the transaction are present in the UTXO set represented by this view
     bool HaveInputs(const CTransactionBase& txBase) const;
 
@@ -639,7 +618,7 @@ private:
     CCoinsMap::iterator            FetchCoins(const uint256 &txid);
     CCoinsMap::const_iterator      FetchCoins(const uint256 &txid)      const;
     CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
-    CCeasingScsMap::const_iterator FetchCeasingScs(int height)          const;
+    CSidechainEventsMap::const_iterator FetchSidechainEvents(int height)     const;
 
     static int getInitScCoinsMaturity();
     int getScCoinsMaturity();

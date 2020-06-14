@@ -8,7 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     mark_logs, start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
     disconnect_nodes
-from test_framework.mc_test.mc_test import generate_params, generate_random_field_element_hex
+from test_framework.mc_test.mc_test import *
 import os
 from decimal import Decimal
 import time
@@ -100,11 +100,6 @@ class headers(BitcoinTestFramework):
         self.nodes[1].generate(220)
         self.sync_all()
 
-        # side chain id
-        scid_1 = "11"
-        scid_2 = "22"
-        scid_3 = "33"
-        scid_4 = "44"
         errorString = ""
 
         creation_amount = Decimal("1.0")
@@ -121,11 +116,16 @@ class headers(BitcoinTestFramework):
         amounts.append({"address": "dada", "amount": creation_amount})
         
         #generate wCertVk and constant
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid_1)
+        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        self.nodes[1].sc_create(scid_1, 123, "dada", creation_amount, vk, "", constant)
+        tx1 = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "", constant)
         self.sync_all()
+
+        decoded_tx = self.nodes[1].getrawtransaction(tx1, 1)
+        scid_1 = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid_1), self.nodes, DEBUG_MODE)
 
         mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
@@ -161,10 +161,22 @@ class headers(BitcoinTestFramework):
         amounts = []
         amounts.append({"address": "dada", "amount": creation_amount})
         
-        self.nodes[1].sc_create(scid_2, 123, "dada", creation_amount, generate_params(self.options.tmpdir, self.options.srcdir, scid_2), "", generate_random_field_element_hex())
-        self.nodes[1].sc_create(scid_3, 123, "dada", creation_amount, generate_params(self.options.tmpdir, self.options.srcdir, scid_3), "", generate_random_field_element_hex())
-        self.nodes[1].sc_create(scid_4, 123, "dada", creation_amount, generate_params(self.options.tmpdir, self.options.srcdir, scid_4), "", generate_random_field_element_hex())
+        tx2 = self.nodes[1].sc_create(123, "dada", creation_amount, mcTest.generate_params("sc2"), "", generate_random_field_element_hex())
+        tx3 = self.nodes[1].sc_create(123, "dada", creation_amount, mcTest.generate_params("sc3"), "", generate_random_field_element_hex())
+        tx4 = self.nodes[1].sc_create(123, "dada", creation_amount, mcTest.generate_params("sc4"), "", generate_random_field_element_hex())
         self.sync_all()
+
+        decoded_tx = self.nodes[1].getrawtransaction(tx2, 1)
+        scid_2 = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid_2), self.nodes, DEBUG_MODE)
+
+        decoded_tx = self.nodes[1].getrawtransaction(tx3, 1)
+        scid_3 = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid_3), self.nodes, DEBUG_MODE)
+
+        decoded_tx = self.nodes[1].getrawtransaction(tx4, 1)
+        scid_4 = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid_4), self.nodes, DEBUG_MODE)
 
         mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)

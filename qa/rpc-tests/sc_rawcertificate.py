@@ -57,14 +57,10 @@ class sc_rawcert(BitcoinTestFramework):
 
     def run_test(self):
 
-        # side chain id
-        scid = "1111111111111111111111111111111111111111111111111111111111111111"
-
         # forward transfer amount
-        cr_amount = Decimal("2.0")
-        ft_amount = Decimal("3.0")
+        cr_amount = Decimal("5.0")
         bt_amount = Decimal("4.0")
-        sc_amount = cr_amount + ft_amount
+        sc_amount = cr_amount 
 
         # node 1 earns some coins, they would be available after 100 blocks
         mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
@@ -86,16 +82,21 @@ class sc_rawcert(BitcoinTestFramework):
         sc_address = "fade"
 
         #generate vk and constant for this sidechain
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
+        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
         
-        sc_cr = [{"scid": scid, "epoch_length": EPOCH_LENGTH, "amount": cr_amount, "address": sc_address, "wCertVk": vk, "constant": constant}]
-        sc_ft = [{"address": sc_address, "amount":ft_amount, "scid": scid}]
+        sc_cr = [{"epoch_length": EPOCH_LENGTH, "amount": cr_amount, "address": sc_address, "wCertVk": vk, "constant": constant}]
+        sc_ft = []
         raw_tx = self.nodes[1].createrawtransaction([], {}, sc_cr, sc_ft)
         funded_tx = self.nodes[1].fundrawtransaction(raw_tx)
         signed_tx = self.nodes[1].signrawtransaction(funded_tx['hex'])
         creating_tx = self.nodes[1].sendrawtransaction(signed_tx['hex'])
         self.sync_all()
+
+        decoded_tx = self.nodes[1].getrawtransaction(creating_tx, 1)
+        scid = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         #retrieve previous_end_epoch_mc_b_hash
         current_height = self.nodes[3].getblockcount()
@@ -104,6 +105,10 @@ class sc_rawcert(BitcoinTestFramework):
         epn = 0
         eph = self.nodes[3].generate(EPOCH_LENGTH)[-1]
         self.sync_all()
+
+        # save them for the last test
+        epn_0 = epn
+        eph_0 = eph
 
         # -------------------------- end epoch
 
@@ -117,8 +122,8 @@ class sc_rawcert(BitcoinTestFramework):
 
         # create wCert proof
         quality = 0
-        proof = create_test_proof(
-        self.options.tmpdir, self.options.srcdir,  scid, epn, eph, pebh,
+        proof = mcTest.create_test_proof(
+        "sc1", epn, eph, pebh,
         quality, constant, [pkh_node2], [bt_amount])
 
         raw_inputs   = []
@@ -173,6 +178,18 @@ class sc_rawcert(BitcoinTestFramework):
 
         # -------------------------- end epoch
 
+        mark_logs("Node2 tries to send to Node1 spending immature backward transfers, expecting failure", self.nodes, DEBUG_MODE)
+        inputs = [{'txid': cert, 'vout': 0}]
+        rawtx_amount = Decimal("3.99995")
+        outputs = { self.nodes[1].getnewaddress() : rawtx_amount }
+        rawtx=self.nodes[2].createrawtransaction(inputs, outputs)
+        sigRawtx = self.nodes[2].signrawtransaction(rawtx)
+        try:
+            rawtx = self.nodes[2].sendrawtransaction(sigRawtx['hex'])
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+
         sc_funds_post = self.nodes[3].getscinfo(scid)['balance']
         assert_equal(sc_funds_post, sc_funds_pre - bt_amount)
 
@@ -198,8 +215,8 @@ class sc_rawcert(BitcoinTestFramework):
 
         # create wCert proof
         quality = 1
-        proof = create_test_proof(
-        self.options.tmpdir, self.options.srcdir,  scid, epn, eph, pebh,
+        proof = mcTest.create_test_proof(
+        "sc1", epn, eph, pebh,
         quality, constant, [], [])
 
         raw_inputs   = []
@@ -341,8 +358,8 @@ class sc_rawcert(BitcoinTestFramework):
             pks.append(pk)
             amounts.append(amount)
 
-        proof = create_test_proof(
-        self.options.tmpdir, self.options.srcdir,  scid, epn, eph, pebh,
+        proof = mcTest.create_test_proof(
+        "sc1", epn, eph, pebh,
         quality, constant, pks, amounts)
 
         raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
@@ -391,8 +408,8 @@ class sc_rawcert(BitcoinTestFramework):
 
         # create wCert proof
         quality = 3
-        proof = create_test_proof(
-        self.options.tmpdir, self.options.srcdir,  scid, epn, eph, pebh,
+        proof = mcTest.create_test_proof(
+        "sc1", epn, eph, pebh,
         quality, constant, [], [])
 
         raw_inputs   = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
@@ -439,6 +456,43 @@ class sc_rawcert(BitcoinTestFramework):
             assert_true(False)
 
         self.sync_all()
+
+        mark_logs("Node2 retries to send the same failed tx to Node1 spending now matured backward transfers", self.nodes, DEBUG_MODE)
+        try:
+            rawtx = self.nodes[2].sendrawtransaction(sigRawtx['hex'])
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+            assert_true(False)
+
+        self.sync_all()
+
+        mark_logs("Check tx is in mempool", self.nodes, DEBUG_MODE)
+        assert_equal(True, rawtx in self.nodes[2].getrawmempool())
+
+        bal_1_pre = self.nodes[1].getbalance()
+
+        mark_logs("Node 0 generates 1 block", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        bal_1_post = self.nodes[1].getbalance()
+        mark_logs("Verify Node 1 balance", self.nodes, DEBUG_MODE)
+        assert_equal(bal_1_post - bal_1_pre, rawtx_amount)
+
+        mark_logs("Node 0 tries to send a certificate for old epoch {}, expecting failure...".format(epn_0), self.nodes, DEBUG_MODE)
+        raw_inputs   = []
+        raw_outs     = {}
+        raw_bwt_outs = {}
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph_0, "scProof": proof, "withdrawalEpochNumber": epn_0}
+        try:
+            raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
+            signed_cert = self.nodes[0].signrawcertificate(raw_cert)
+            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            assert_true(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
 
 
 

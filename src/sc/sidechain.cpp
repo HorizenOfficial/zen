@@ -37,6 +37,31 @@ int CSidechain::SafeguardMargin() const
     return creationData.withdrawalEpochLength/5;
 }
 
+int CSidechain::GetCeasingHeight() const
+{
+    if ( creationData.withdrawalEpochLength == -1) //default value
+        return -1;
+    return StartHeightForEpoch(lastEpochReferencedByCertificate+2) + SafeguardMargin();
+}
+
+std::string CSidechain::stateToString(State s)
+{
+    switch(s)
+    {
+        case State::ALIVE:  return "ALIVE";          break;
+        case State::CEASED: return "CEASED";         break;
+        default:            return "NOT_APPLICABLE"; break;
+    }
+}
+
+size_t CSidechain::DynamicMemoryUsage() const {
+    return memusage::DynamicUsage(mImmatureAmounts);
+}
+
+size_t CSidechainEvents::DynamicMemoryUsage() const {
+    return memusage::DynamicUsage(maturingScs) + memusage::DynamicUsage(ceasingScs);
+}
+
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
 {
     // check version consistency
@@ -123,23 +148,11 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
     return true;
 }
 
-bool Sidechain::anyForwardTransaction(const CTransaction& tx, const uint256& scId)
-{
-    BOOST_FOREACH(const auto& fwd, tx.GetVftCcOut())
-    {
-        if (fwd.scId == scId)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
 bool Sidechain::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
 {
     BOOST_FOREACH(const auto& sc, tx.GetVscCcOut())
     {
-        if (sc.scId == scId)
+        if (sc.GetScId() == scId)
         {
             return true;
         }
@@ -150,23 +163,6 @@ bool Sidechain::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
 bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state)
 {
     const uint256& certHash = cert.GetHash();
-
-    LogPrint("sc", "%s():%d - cert=%s\n", __func__, __LINE__, certHash.ToString() );
-
-    if (cert.nVersion != SC_CERT_VERSION )
-    {
-        LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate bad version %d\n",
-            __func__, __LINE__, certHash.ToString(), cert.nVersion );
-        return state.DoS(100, error("version too low"), REJECT_INVALID, "bad-cert-version-too-low");
-    }
-
-    if (!MoneyRange(cert.GetValueOfBackwardTransfers()))
-    {
-        LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate amount is outside range\n",
-            __func__, __LINE__, certHash.ToString() );
-        return state.DoS(100, error("%s: certificate amount is outside range",
-            __func__), REJECT_INVALID, "sidechain-bwd-transfer-amount-outside-range");
-    }
 
     if (cert.quality < 0)
     {

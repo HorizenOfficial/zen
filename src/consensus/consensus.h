@@ -34,7 +34,8 @@ static const unsigned int MAX_BLOCK_SIZE = 2000000;
 static const unsigned int MAX_BLOCK_SIGOPS = 20000;
 /** The maximum size of a transaction (network rule) */
 static const unsigned int MAX_TX_SIZE = 100000;
-static const unsigned int MAX_CERT_SIZE = MAX_TX_SIZE;
+/** The minimum theoretical possible size of a consistent tx*/
+static const unsigned int MIN_TX_SIZE = 61;
 /** Coinbase transaction outputs can only be spent after this number of new blocks (network rule) */
 static const int COINBASE_MATURITY = 100;
 

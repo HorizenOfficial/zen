@@ -30,7 +30,7 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
     for (unsigned int i = 0; i < tx.GetVscCcOut().size(); i++) {
         const CTxScCreationOut& out = tx.GetVscCcOut()[i];
         UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("scid", out.scId.GetHex()));
+        o.push_back(Pair("scid", out.GetScId().GetHex()));
         o.push_back(Pair("n", (int64_t)nIdx));
         o.push_back(Pair("withdrawal epoch length", (int)out.withdrawalEpochLength));
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
@@ -106,16 +106,6 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         const UniValue& input = sc_crs[i];
         const UniValue& o = input.get_obj();
 
-        std::string inputString = find_value(o, "scid").get_str();
-        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-        {
-            error = "Invalid scid format: not an hex";
-            return false;
-        }
-
-        uint256 scId;
-        scId.SetHex(inputString);
-
         const UniValue& sh_v = find_value(o, "epoch_length");
         if (sh_v.isNull() || !sh_v.isNum())
         {
@@ -151,7 +141,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             return false;
         }
 
-        inputString = adv.get_str();
+        const std::string& inputString = adv.get_str();
         if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
         {
             error = "Invalid address format: not an hex";
@@ -169,7 +159,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         }
         else
         {
-            inputString = wCertVk.get_str();
+            const std::string& inputString = wCertVk.get_str();
             std::vector<unsigned char> wCertVkVec;
             if (!AddScData(inputString, wCertVkVec, SC_VK_SIZE, true, error))
             {
@@ -189,7 +179,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         const UniValue& cd = find_value(o, "customData");
         if (!cd.isNull())
         {
-            inputString = cd.get_str();
+            const std::string& inputString = cd.get_str();
             if (!AddScData(inputString, sc.customData, MAX_SC_DATA_LEN, false, error))
             {
                 error = "customData: " + error;
@@ -200,7 +190,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         const UniValue& constant = find_value(o, "constant");
         if (!constant.isNull())
         {
-            inputString = constant.get_str();
+            const std::string& inputString = constant.get_str();
             if (!AddScData(inputString, sc.constant, SC_FIELD_SIZE, false, error))
             {
                 error = "constant: " + error;
@@ -214,7 +204,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             }
         }
 
-        CTxScCreationOut txccout(scId, nAmount, address, sc);
+        CTxScCreationOut txccout(nAmount, address, sc);
 
         rawTx.vsc_ccout.push_back(txccout);
     }
@@ -271,7 +261,6 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& 
     BOOST_FOREACH(const auto& entry, tx.GetVscCcOut())
     {
         CRecipientScCreation sc;
-        sc.scId = entry.scId;
         sc.nValue = entry.nValue;
         sc.address = entry.address;
         sc.creationData.withdrawalEpochLength = entry.withdrawalEpochLength;
@@ -304,7 +293,7 @@ bool CRecipientHandler::visit(const CcRecipientVariant& rec)
 
 bool CRecipientHandler::handle(const CRecipientScCreation& r)
 {
-    CTxScCreationOut txccout(r.scId, r.nValue, r.address, r.creationData);
+    CTxScCreationOut txccout(r.nValue, r.address, r.creationData);
     // no dust can be found in sc creation
     return txBase->add(txccout);
 };
@@ -322,8 +311,8 @@ bool CRecipientHandler::handle(const CRecipientForwardTransfer& r)
 
 bool CRecipientHandler::handle(const CRecipientBackwardTransfer& r)
 {
-    CTxOut txout(r.nValue, r.scriptPubKey, true);
-    return txBase->add(txout);
+    CTxOut txout(r.nValue, r.scriptPubKey);
+    return txBase->addBwt(txout);
 };
 
 bool FillCcOutput(CMutableTransaction& tx, std::vector<Sidechain::CcRecipientVariant> vecCcSend, std::string& strFailReason)
@@ -389,7 +378,7 @@ void ScRpcCmd::addInputs()
     for (const auto& out: vAvailableCoins)
     {
         LogPrint("sc", "utxo %s depth: %5d, val: %12s, spendable: %s\n",
-            out.tx->GetHash().ToString(), out.nDepth, FormatMoney(out.tx->GetVout()[out.pos].nValue), out.fSpendable?"Y":"N");
+            out.tx->getTxBase()->GetHash().ToString(), out.nDepth, FormatMoney(out.tx->getTxBase()->GetVout()[out.pos].nValue), out.fSpendable?"Y":"N");
 
         if (!out.fSpendable || out.nDepth < _minConf) {
             continue;
@@ -398,7 +387,7 @@ void ScRpcCmd::addInputs()
         if (_hasFromAddress)
         {
             CTxDestination dest;
-            if (!ExtractDestination(out.tx->GetVout()[out.pos].scriptPubKey, dest)) {
+            if (!ExtractDestination(out.tx->getTxBase()->GetVout()[out.pos].scriptPubKey, dest)) {
                 continue;
             }
 
@@ -407,9 +396,9 @@ void ScRpcCmd::addInputs()
             }
         }
 
-        CAmount nValue = out.tx->GetVout()[out.pos].nValue;
+        CAmount nValue = out.tx->getTxBase()->GetVout()[out.pos].nValue;
 
-        SelectedUTXO utxo(out.tx->GetHash(), out.pos, nValue);
+        SelectedUTXO utxo(out.tx->getTxBase()->GetHash(), out.pos, nValue);
         vInputUtxo.push_back(utxo);
     }
 
@@ -508,22 +497,17 @@ void ScRpcCmd::addChange()
 
             scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
         }
-        CTxOut out(change, scriptPubKey);
-        _tx.vout.push_back(out);
+
+        _tx.addOut(CTxOut(change, scriptPubKey));
     }
 }
 
 ScRpcCmdTx::ScRpcCmdTx(
-        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        CMutableTransaction& tx,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee):
-        ScRpcCmd(tx, fromaddress, changeaddress, minConf, nFee),
-        _outParams(outParams)
+        ScRpcCmd(tx, fromaddress, changeaddress, minConf, nFee)
 {
-    for (const auto& entry : _outParams)
-    {
-        _totalOutputAmount += entry._nAmount;
-    }
 }
 
 ScRpcCmdCert::ScRpcCmdCert(
@@ -680,10 +664,16 @@ void ScRpcCmdTx::send()
 }
 
 ScRpcCreationCmd::ScRpcCreationCmd(
-        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        CMutableTransaction& tx, const std::vector<sCrOutParams>& outParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee, const ScCreationParameters& cd):
-        ScRpcCmdTx(tx, outParams, fromaddress, changeaddress, minConf, nFee), _creationData(cd) { } 
+        ScRpcCmdTx(tx, fromaddress, changeaddress, minConf, nFee), _creationData(cd), _outParams(outParams)
+{
+    for (const auto& entry : _outParams)
+    {
+        _totalOutputAmount += entry._nAmount;
+    }
+} 
 
 void ScRpcCreationCmd::addCcOutputs()
 {
@@ -697,7 +687,6 @@ void ScRpcCreationCmd::addCcOutputs()
 
     // creation output
     CRecipientScCreation sc;
-    sc.scId = _outParams[0]._scid;
     sc.address = _outParams[0]._toScAddress;
     sc.nValue = _outParams[0]._nAmount;
     sc.creationData = _creationData;
@@ -712,10 +701,17 @@ void ScRpcCreationCmd::addCcOutputs()
 }
 
 ScRpcSendCmd::ScRpcSendCmd(
-        CMutableTransaction& tx, const std::vector<sOutParams>& outParams,
+        CMutableTransaction& tx, const std::vector<sFtOutParams>& outParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee):
-        ScRpcCmdTx(tx, outParams, fromaddress, changeaddress, minConf, nFee) { } 
+        ScRpcCmdTx(tx, fromaddress, changeaddress, minConf, nFee), _outParams(outParams)
+{
+    for (const auto& entry : _outParams)
+    {
+        _totalOutputAmount += entry._nAmount;
+    }
+} 
+
 
 void ScRpcSendCmd::addCcOutputs()
 {

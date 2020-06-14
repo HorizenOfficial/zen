@@ -53,9 +53,6 @@ class sc_cert_invalidate(BitcoinTestFramework):
 
     def run_test(self):
 
-        # side chain id
-        scid = "1111111111111111111111111111111111111111111111111111111111111111"
-
         sc_txes = []
         certs = []
 
@@ -73,8 +70,8 @@ class sc_cert_invalidate(BitcoinTestFramework):
         balance_node0 = []
 
         # node 1 earns some coins, they would be available after 100 blocks
-        mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)  # TODO this is not 1
+        mark_logs("Node 0 generates 1 block", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
         self.sync_all()
 
         mark_logs("Node 0 generates 220 block", self.nodes, DEBUG_MODE)
@@ -87,10 +84,15 @@ class sc_cert_invalidate(BitcoinTestFramework):
         mark_logs("Node 1 creates the SC spending {} coins ...".format(creation_amount), self.nodes, DEBUG_MODE)
 
         #generate wCertVk and constant
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
+        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        creating_tx = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+
+        decoded_tx = self.nodes[0].getrawtransaction(creating_tx, 1)
+        scid = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         mark_logs("creating_tx = {}".format(creating_tx), self.nodes, DEBUG_MODE)
         sc_txes.append(creating_tx)
@@ -153,8 +155,8 @@ class sc_cert_invalidate(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 0
-        proof = create_test_proof(
-            self.options.tmpdir, self.options.srcdir,  scid, ep_n_0, ep_hash_0, prev_ep_hash_0,
+        proof = mcTest.create_test_proof(
+            "sc1", ep_n_0, ep_hash_0, prev_ep_hash_0,
             quality, constant, [pkh_node1], [bwt_amount_1])
 
         cert = self.nodes[0].send_certificate(scid, ep_n_0, quality, ep_hash_0, proof, amounts, CERT_FEE)
@@ -236,8 +238,8 @@ class sc_cert_invalidate(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 1
-        proof = create_test_proof(
-            self.options.tmpdir, self.options.srcdir,  scid, ep_n_1, ep_hash_1, prev_ep_hash_1,
+        proof = mcTest.create_test_proof(
+            "sc1", ep_n_1, ep_hash_1, prev_ep_hash_1,
             quality, constant, [pkh_node2], [bwt_amount_2])
 
         cert = self.nodes[0].send_certificate(scid, ep_n_1, quality, ep_hash_1, proof, amounts, CERT_FEE)

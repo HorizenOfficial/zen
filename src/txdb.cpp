@@ -77,16 +77,16 @@ void static BatchSidechains(CLevelDBBatch &batch, const uint256 &scId, const CSi
     return;
 }
 
-void static BatchCeasedScs(CLevelDBBatch &batch, int height, const CCeasingScsCacheEntry &ceasedScs) {
+void static BatchCeasedScs(CLevelDBBatch &batch, int height, const CSidechainEventsCacheEntry &ceasedScs) {
     switch (ceasedScs.flag) {
-        case CCeasingScsCacheEntry::Flags::FRESH:
-        case CCeasingScsCacheEntry::Flags::DIRTY:
-            batch.Write(make_pair(DB_CEASEDSCS, height), ceasedScs.ceasingScs);
+        case CSidechainEventsCacheEntry::Flags::FRESH:
+        case CSidechainEventsCacheEntry::Flags::DIRTY:
+            batch.Write(make_pair(DB_CEASEDSCS, height), ceasedScs.scEvents);
             break;
-        case CCeasingScsCacheEntry::Flags::ERASED:
+        case CSidechainEventsCacheEntry::Flags::ERASED:
             batch.Erase(make_pair(DB_CEASEDSCS, height));
             break;
-        case CCeasingScsCacheEntry::Flags::DEFAULT:
+        case CSidechainEventsCacheEntry::Flags::DEFAULT:
         default:
             break;
     }
@@ -145,17 +145,17 @@ bool CCoinsViewDB::HaveSidechain(const uint256& scId) const
     return db.Exists(std::make_pair(DB_SIDECHAINS, scId));
 }
 
-bool CCoinsViewDB::HaveCeasingScs(int height) const
+bool CCoinsViewDB::HaveSidechainEvents(int height) const
 {
     return db.Exists(std::make_pair(DB_CEASEDSCS, height));
 }
 
-bool CCoinsViewDB::GetCeasingScs(int height, CCeasingSidechains& ceasingScs) const
+bool CCoinsViewDB::GetSidechainEvents(int height, CSidechainEvents& ceasingScs) const
 {
     return db.Read(std::make_pair(DB_CEASEDSCS, height), ceasingScs);
 }
 
-void CCoinsViewDB::queryScIds(std::set<uint256>& scIdsList) const
+void CCoinsViewDB::GetScIds(std::set<uint256>& scIdsList) const
 {
     std::unique_ptr<leveldb::Iterator> it(const_cast<CLevelDBWrapper*>(&db)->NewIterator());
     for (it->SeekToFirst(); it->Valid(); it->Next())
@@ -198,7 +198,7 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
                               CAnchorsMap &mapAnchors,
                               CNullifiersMap &mapNullifiers,
                               CSidechainsMap& mapSidechains,
-                              CCeasingScsMap& mapCeasedScs) {
+                              CSidechainEventsMap& mapSidechainEvents) {
     CLevelDBBatch batch;
     size_t count = 0;
     size_t changed = 0;
@@ -236,10 +236,10 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
         mapSidechains.erase(itOld);
     }
 
-    for (CCeasingScsMap::iterator it = mapCeasedScs.begin(); it != mapCeasedScs.end();) {
+    for (CSidechainEventsMap::iterator it = mapSidechainEvents.begin(); it != mapSidechainEvents.end();) {
         BatchCeasedScs(batch, it->first, it->second);
-        CCeasingScsMap::iterator itOld = it++;
-        mapCeasedScs.erase(itOld);
+        CSidechainEventsMap::iterator itOld = it++;
+        mapSidechainEvents.erase(itOld);
     }
 
     if (!hashBlock.IsNull())
@@ -315,17 +315,8 @@ bool CCoinsViewDB::GetStats(CCoinsStats &stats) const {
                 }
 
                 if (coins.IsFromCert()) {
-                    ss << coins.originScId;
-
-                    unsigned int changeOutputCounter = 0;
-                    for(const CTxOut& out: coins.vout) {
-                        if (!out.isFromBackwardTransfer)
-                            ++changeOutputCounter;
-                        else
-                            break;
-                    }
-
-                    ss << changeOutputCounter;
+                    ss << coins.nBwtMaturityHeight;
+                    ss << coins.nBwtMaturityHeight;;
                 }
                 stats.nSerializedSize += 32 + slValue.size();
                 ss << VARINT(0);

@@ -68,8 +68,6 @@ class sc_cert_change(BitcoinTestFramework):
            node0 mine a new block
         6) node3 has 0.5 balance and 3.0 immature from cert_ep2
         '''
-        # side chain id
-        scid = "1111111111111111111111111111111111111111111111111111111111111111"
 
         # cross chain transfer amounts
         creation_amount = Decimal("10.0")
@@ -79,11 +77,16 @@ class sc_cert_change(BitcoinTestFramework):
         self.sync_all()
 
         # (1) node0 create sidechain with 10.0 coins
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
+        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
-        creating_tx = self.nodes[0].sc_create(scid, EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        creating_tx = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         mark_logs("Node 0 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
+
+        decoded_tx = self.nodes[0].getrawtransaction(creating_tx, 1)
+        scid = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         mark_logs("Node0 generates 5 blocks to achieve end of epoch", self.nodes, DEBUG_MODE)
         prev_epoch_block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
@@ -97,8 +100,8 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
 
         quality = 0
-        proof = create_test_proof(
-        self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+        proof = mcTest.create_test_proof(
+        "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
         quality, constant, [pkh_node1], [bwt_amount])
         
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(bwt_amount, pkh_node1), self.nodes, DEBUG_MODE)
@@ -124,8 +127,8 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
 
         quality = 1
-        proof = create_test_proof(
-        self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+        proof = mcTest.create_test_proof(
+        "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
         quality, constant, [pkh_node2], [bwt_amount])
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
@@ -151,8 +154,8 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node3, "amount": bwt_amount}]
 
         quality = 2
-        proof = create_test_proof(
-        self.options.tmpdir, self.options.srcdir,  scid, epoch_number, epoch_block_hash, prev_epoch_block_hash,
+        proof = mcTest.create_test_proof(
+        "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
         quality, constant, [pkh_node3], [bwt_amount])
 
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node3 pkh".format(bwt_amount, pkh_node3), self.nodes, DEBUG_MODE)

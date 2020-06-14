@@ -61,7 +61,7 @@ class SCCreateTest(BitcoinTestFramework):
         '''
         This test try to create a SC using the command create_sidechain using invalid parameters and valid parameters.
         '''
-        #{"scid", "withdrawalEpochLength", "fromaddress", "toaddress", "amount", "minconf", "fee", "customData"};
+        #{"withdrawalEpochLength", "fromaddress", "toaddress", "amount", "minconf", "fee", "customData"};
 
         # network topology: (0)--(1)
 
@@ -78,7 +78,8 @@ class SCCreateTest(BitcoinTestFramework):
         toaddress = "abcdef"
 
         #generate wCertVk and constant
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, '1234')
+        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk = mcTest.generate_params('sc1')
         constant = generate_random_field_element_hex()
 
         # create with wrong key in input
@@ -112,7 +113,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         # create with a missing mandatory key in input
         #------------------------------------------------
-        cmdInput = {'withdrawalEpochLength': 10, 'toaddress': toaddress, 'scid': "1234", 'fee': fee, 'wCertVk': vk, 'customData': "bb" * 1024}
+        cmdInput = {'withdrawalEpochLength': 10, 'toaddress': toaddress, 'fee': fee, 'wCertVk': vk, 'customData': "bb" * 1024}
 
         mark_logs("\nNode 1 create SC with duplicate key in input",self.nodes,DEBUG_MODE)
         try:
@@ -126,7 +127,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         # create with a bad value for amount
         #------------------------------------------------
-        cmdInput = {'withdrawalEpochLength': 10, 'toaddress': toaddress, 'amount': -0.1, 'scid': "1234", 'fee': fee, 'wCertVk': vk, 'constant': constant}
+        cmdInput = {'withdrawalEpochLength': 10, 'toaddress': toaddress, 'amount': -0.1, 'fee': fee, 'wCertVk': vk, 'constant': constant}
 
         mark_logs("\nNode 1 create SC with an invalid amount in input", self.nodes, DEBUG_MODE)
         try:
@@ -140,7 +141,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         # create with a bad withdrawal epoch length 
         #------------------------------------------------
-        cmdInput = {'withdrawalEpochLength': 0, 'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee, 'wCertVk': vk}
+        cmdInput = {'withdrawalEpochLength': 0, 'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk}
 
         mark_logs("\nNode 1 create SC with an invalid epoch length in input", self.nodes, DEBUG_MODE)
         try:
@@ -154,7 +155,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         # create with a fromaddress expressed in a wrong format
         #----------------------------------------------------------------
-        cmdInput = {'fromaddress': "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2", 'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee, 'wCertVk': vk}
+        cmdInput = {'fromaddress': "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2", 'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk}
 
         mark_logs("\nNode 1 create SC with a fromaddress expressed in a wrong format", self.nodes, DEBUG_MODE)
         try:
@@ -168,7 +169,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         # create with a changeaddress that does not belong to the node
         #----------------------------------------------------------------
-        cmdInput = {'changeaddress': "zthWZsNRTykixeceqgifx18hMMLNrNCzCzj", 'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee, 'wCertVk': vk}
+        cmdInput = {'changeaddress': "zthWZsNRTykixeceqgifx18hMMLNrNCzCzj", 'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk}
 
         mark_logs("\nNode 1 create SC with a changeaddress that does not belong to the node", self.nodes, DEBUG_MODE)
         try:
@@ -185,7 +186,7 @@ class SCCreateTest(BitcoinTestFramework):
         amount_below_dust_threshold = 0.00000001
         bad_amount = float(self.nodes[1].getbalance()) -  fee - amount_below_dust_threshold
 
-        cmdInput = {'toaddress': toaddress, 'amount': bad_amount, 'scid': "1234", 'fee': fee, 'wCertVk': vk}
+        cmdInput = {'toaddress': toaddress, 'amount': bad_amount, 'fee': fee, 'wCertVk': vk}
 
         mark_logs("\nNode 1 create SC with an amount that prevents a change above the dust threshold", self.nodes, DEBUG_MODE)
         try:
@@ -201,7 +202,7 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with a bad wCertVk
         mark_logs("\nNode 1 try creates a SC with a non hex wCertVk", self.nodes, DEBUG_MODE)
-        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee, 'wCertVk': "zz" * SC_VK_SIZE}
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "zz" * SC_VK_SIZE}
 
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
@@ -215,7 +216,7 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with a bad wCertVk
         mark_logs("\nNode 1 try creates a SC with a odd number of char in wCertVk", self.nodes, DEBUG_MODE)
-        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee, 'wCertVk': "a" * (SC_VK_SIZE - 1)}
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "a" * (SC_VK_SIZE - 1)}
 
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
@@ -229,7 +230,7 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with a wCertVk too short
         mark_logs("\nNode 1 try creates a SC with too short wCertVk byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee, 'wCertVk': "aa" * (SC_VK_SIZE - 1)}
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "aa" * (SC_VK_SIZE - 1)}
 
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
@@ -243,7 +244,7 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with a wCertVk too long
         mark_logs("\nNode 1 try creates a SC with too long wCertVk byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee, 'wCertVk': "aa" * (SC_VK_SIZE + 1)}
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "aa" * (SC_VK_SIZE + 1)}
 
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
@@ -257,7 +258,7 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with an invalid wCertVk
         mark_logs("\nNode 1 try creates a SC with an invalid wCertVk", self.nodes, DEBUG_MODE)
-        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee, 'wCertVk': "aa" * SC_VK_SIZE}
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "aa" * SC_VK_SIZE}
 
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
@@ -271,7 +272,7 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC without wCertVk
         mark_logs("\nNode 1 try creates a SC without wCertVk", self.nodes, DEBUG_MODE)
-        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee}
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee}
 
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
@@ -285,7 +286,7 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with a bad customData
         mark_logs("\nNode 1 try creates a SC with non hex customData", self.nodes, DEBUG_MODE)
-        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee, 'wCertVk': vk, 'customData': "zz" * 1024}
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'customData': "zz" * 1024}
 
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
@@ -299,7 +300,7 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with a bad customData
         mark_logs("\nNode 1 try creates a SC with a odd number of char in customData", self.nodes, DEBUG_MODE)
-        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee, 'wCertVk': vk, 'customData': "b" * 1023}
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'customData': "b" * 1023}
 
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
@@ -313,7 +314,7 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with customData too long
         mark_logs("\nNode 1 try creates a SC with too long customData byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee, 'wCertVk': vk, 'customData': "bb" * 1025}
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'customData': "bb" * 1025}
 
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
@@ -327,7 +328,7 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with a bad constant
         mark_logs("\nNode 1 try creates a SC with a non hex constant", self.nodes, DEBUG_MODE)
-        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee, 'wCertVk': vk, 'constant': "zz" * SC_FIELD_SIZE}
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'constant': "zz" * SC_FIELD_SIZE}
 
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
@@ -341,7 +342,7 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with a bad constant
         mark_logs("\nNode 1 try creates a SC with a odd number of char in constant", self.nodes, DEBUG_MODE)
-        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee, 'wCertVk': vk, 'constant': "b" * (SC_FIELD_SIZE - 1)}
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'constant': "b" * (SC_FIELD_SIZE - 1)}
 
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
@@ -355,7 +356,7 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with a constant too short
         mark_logs("\nNode 1 try creates a SC with too short constant byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee, 'wCertVk': vk, 'constant': "bb" * (SC_FIELD_SIZE - 1)}
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'constant': "bb" * (SC_FIELD_SIZE - 1)}
 
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
@@ -369,7 +370,7 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with a constant too long
         mark_logs("\nNode 1 try creates a SC with too long constant byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee, 'wCertVk': vk, 'constant': "bb" * (SC_FIELD_SIZE + 1)}
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'constant': "bb" * (SC_FIELD_SIZE + 1)}
 
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
@@ -383,7 +384,7 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with a bad constant
         mark_logs("\nNode 1 try creates a SC with an invalid constant", self.nodes, DEBUG_MODE)
-        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'scid': "1234", 'fee': fee, 'wCertVk': vk, 'constant': "aa" * SC_FIELD_SIZE}
+        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'constant': "aa" * SC_FIELD_SIZE}
 
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
@@ -398,7 +399,6 @@ class SCCreateTest(BitcoinTestFramework):
         #------------------------------------------------------------------------------------------
         mark_logs("\nNode 1 create SC with valid input and a fromaddress key/value", self.nodes,DEBUG_MODE)
 
-        sc_id = "95f5de0829fd3c5e45b63f67beab8c4cb8c1c359ef6e2787aaaf5442d6f4779f"
         wel = 5
         fromaddr = []
         toaddress = "abcdef"
@@ -423,7 +423,7 @@ class SCCreateTest(BitcoinTestFramework):
         changeaddress = self.nodes[1].getnewaddress()
 
         mark_logs(("using fromaddress: %s "%fromaddr), self.nodes,DEBUG_MODE)
-        cmdInput = {"scid":sc_id, "fromaddress": fromaddr, "toaddress": toaddress, "amount": amount, "changeaddress":changeaddress, "fee": fee, 'wCertVk': vk}
+        cmdInput = {"fromaddress": fromaddr, "toaddress": toaddress, "amount": amount, "changeaddress":changeaddress, "fee": fee, 'wCertVk': vk}
 
         try:
             tx = self.nodes[1].create_sidechain(cmdInput)
@@ -435,6 +435,7 @@ class SCCreateTest(BitcoinTestFramework):
         self.sync_all()
 
         decoded_tx = self.nodes[1].getrawtransaction(tx, 1)
+        sc_id = decoded_tx['vsc_ccout'][0]['scid']
 
         totalOutAmount = 0.0
         totalInAmount  = 0.0
@@ -479,16 +480,12 @@ class SCCreateTest(BitcoinTestFramework):
         # check that in=out+fee
         assert_equal(totalOutAmount, totalInAmount - fee)
 
-        # get scid and check its value
-        scid = decoded_tx['vsc_ccout'][0]['scid']
-
         mark_logs("\nNode 0 generates 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
 
-        dump_sc_info(self.nodes, NUMB_OF_NODES, scid, DEBUG_MODE)
-        assert_equal(self.nodes[0].getscinfo(scid)['scid'], scid)
-        assert_equal(sc_id, scid)
+        dump_sc_info(self.nodes, NUMB_OF_NODES, sc_id, DEBUG_MODE)
+        assert_equal(self.nodes[0].getscinfo(sc_id)['scid'], sc_id)
 
         amount2 = 5.0
         mark_logs(("\nNode 0 sends %s to Node 1" % amount2), self.nodes, DEBUG_MODE)

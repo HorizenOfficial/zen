@@ -227,8 +227,7 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
     CScript scriptPubKey = GetScriptForDestination(addr.Get());
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
-    tx.vout.push_back(txout);
+    tx.addOut(CTxOut(value, scriptPubKey));
 }
 
 static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput)
@@ -250,8 +249,7 @@ static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput
     CScript scriptPubKey = ParseScript(strScript); // throws on err
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
-    tx.vout.push_back(txout);
+    tx.addOut(CTxOut(value, scriptPubKey));
 }
 
 static void MutateTxDelInput(CMutableTransaction& tx, const string& strInIdx)
@@ -271,13 +269,13 @@ static void MutateTxDelOutput(CMutableTransaction& tx, const string& strOutIdx)
 {
     // parse requested deletion index
     int outIdx = atoi(strOutIdx);
-    if (outIdx < 0 || outIdx >= (int)tx.vout.size()) {
+    if (outIdx < 0 || outIdx >= (int)tx.getVout().size()) {
         string strErr = "Invalid TX output index '" + strOutIdx + "'";
         throw runtime_error(strErr.c_str());
     }
 
     // delete output from transaction
-    tx.vout.erase(tx.vout.begin() + outIdx);
+    tx.eraseAtPos(outIdx);
 }
 
 static const unsigned int N_SIGHASH_OPTS = 6;
@@ -425,7 +423,7 @@ static void MutateTxSign(CMutableTransaction& tx, const string& flagStr)
 
         txin.scriptSig.clear();
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
-        if (!fHashSingle || (i < mergedTx.vout.size()))
+        if (!fHashSingle || (i < mergedTx.getVout().size()))
             SignSignature(keystore, prevPubKey, mergedTx, i, nHashType);
 
         // ... and merge in other signatures:

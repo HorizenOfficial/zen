@@ -15,43 +15,42 @@
 
 #include "main.h"
 
-CScCertificate::CScCertificate() : CTransactionBase(),
-    scId(), epochNumber(EPOCH_NULL), quality(QUALITY_NULL), 
-    endEpochBlockHash(), scProof() { }
-
-CScCertificate::CScCertificate(const CMutableScCertificate &cert) :
-    scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
-    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof)
+CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nValue)
 {
-    *const_cast<int*>(&nVersion) = cert.nVersion;
-    *const_cast<std::vector<CTxIn>*>(&vin) = cert.vin;
-    *const_cast<std::vector<CTxOut>*>(&vout) = cert.vout;
-    UpdateHash();
+    auto it = std::find(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), OP_HASH160);
+    assert(it != txout.scriptPubKey.end());
+    ++it;
+    assert(*it == sizeof(uint160));
+    ++it;
+    std::vector<unsigned char>  pubKeyV(it, (it + sizeof(uint160)));
+    pubKeyHash = uint160(pubKeyV);
 }
 
-CScCertificate& CScCertificate::operator=(const CScCertificate &cert) {
+CScCertificate::CScCertificate(int versionIn): CTransactionBase(versionIn),
+    scId(), epochNumber(EPOCH_NOT_INITIALIZED), quality(QUALITY_NULL),
+    endEpochBlockHash(), scProof(), nFirstBwtPos(BWT_POS_UNSET) {}
+
+CScCertificate::CScCertificate(const CScCertificate &cert): CTransactionBase(cert),
+    scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
+    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof), nFirstBwtPos(cert.nFirstBwtPos) {}
+
+CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
+{
     CTransactionBase::operator=(cert);
-    //---
     *const_cast<uint256*>(&scId) = cert.scId;
     *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
     *const_cast<int64_t*>(&quality) = cert.quality;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     *const_cast<libzendoomc::ScProof*>(&scProof) = cert.scProof;
+    *const_cast<int*>(&nFirstBwtPos) = cert.nFirstBwtPos;
     return *this;
 }
 
-CScCertificate::CScCertificate(const CScCertificate &cert) : epochNumber(0), quality(0) {
-    // call explicitly the copy of members of virtual base class
-    *const_cast<int32_t*>(&nVersion) = cert.nVersion;
-    *const_cast<std::vector<CTxIn>*>(&vin) = cert.vin;
-    *const_cast<std::vector<CTxOut>*>(&vout) = cert.vout;
-    *const_cast<uint256*>(&hash) = cert.hash;
-    //---
-    *const_cast<uint256*>(&scId) = cert.scId;
-    *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
-    *const_cast<int64_t*>(&quality) = cert.quality;
-    *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
-    *const_cast<libzendoomc::ScProof*>(&scProof) = cert.scProof;
+CScCertificate::CScCertificate(const CMutableScCertificate &cert): CTransactionBase(cert),
+    scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
+    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof), nFirstBwtPos(cert.nFirstBwtPos)
+{
+    UpdateHash();
 }
 
 void CScCertificate::UpdateHash() const
@@ -59,39 +58,61 @@ void CScCertificate::UpdateHash() const
     *const_cast<uint256*>(&hash) = SerializeHash(*this);
 }
 
-bool CScCertificate::CheckVersionBasic(CValidationState &state) const
+bool CScCertificate::IsBackwardTransfer(int pos) const
 {
-    return true;
+    assert(pos >= 0 && pos < vout.size());
+    return pos >= nFirstBwtPos;
 }
 
-bool CScCertificate::CheckVersionIsStandard(std::string& reason, int nHeight) const {
-    if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
+bool CScCertificate::IsValidVersion(CValidationState &state) const
+{
+    if (nVersion != SC_CERT_VERSION )
     {
-        reason = "version";
-        return false;
+        LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate bad version %d\n",
+            __func__, __LINE__, GetHash().ToString(), nVersion );
+        return state.DoS(100, error("cert version"), REJECT_INVALID, "bad-cert-version");
     }
 
     return true;
 }
 
-bool CScCertificate::CheckInputsAvailability(CValidationState &state) const
+bool CScCertificate::IsVersionStandard(int nHeight) const
 {
-    // there might be no inputs if 0 fee, therefore this never fails
+    if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
+        return false;
+
     return true;
 }
 
-bool CScCertificate::CheckOutputsAvailability(CValidationState &state) const
+bool CScCertificate::CheckAmounts(CValidationState &state) const
 {
-    // we allow empty certificate, that is with no backward transfers and no change
-    return true;
-}
-
-bool CScCertificate::CheckSerializedSize(CValidationState &state) const
-{
-    BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_CERT_SIZE); // sanity
-    if (CalculateSize() > MAX_CERT_SIZE)
+    // Check for negative or overflow output values
+    CAmount nCumulatedValueOut = 0;
+    for(unsigned int pos = 0; pos < vout.size(); ++pos)
     {
-        return state.DoS(100, error("size limits failed"), REJECT_INVALID, "bad-cert-oversize");
+        const CTxOut & txout = vout[pos];
+        if (txout.nValue < 0)
+            return state.DoS(100, error("CheckAmounts(): txout.nValue negative"),
+                             REJECT_INVALID, "bad-txns-vout-negative");
+        if (txout.nValue > MAX_MONEY)
+            return state.DoS(100, error("CheckAmounts(): txout.nValue too high"),
+                             REJECT_INVALID, "bad-txns-vout-toolarge");
+
+        if (pos >= nFirstBwtPos && txout.nValue == 0)
+            return state.DoS(100, error("CheckAmounts(): backward transfer has zero amount"),
+                             REJECT_INVALID, "bad-txns-bwd-vout-zero");
+        nCumulatedValueOut += txout.nValue;
+        if (!MoneyRange(nCumulatedValueOut))
+            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
+                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+    }
+
+    if (!MoneyRange(GetValueOfBackwardTransfers()))
+    {
+        LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate amount is outside range\n",
+            __func__, __LINE__, GetHash().ToString() );
+        return state.DoS(100, error("%s: certificate amount is outside range",
+            __func__), REJECT_INVALID, "bwd-transfer-amount-outside-range");
     }
 
     return true;
@@ -104,7 +125,7 @@ bool CScCertificate::CheckFeeAmount(const CAmount& totalVinAmount, CValidationSt
                          REJECT_INVALID, "bad-cert-inputvalues-outofrange");
 
     // check all of the outputs because change is computed subtracting bwd transfers from them
-    if (!CheckOutputsAmount(state))
+    if (!CheckAmounts(state))
         return false;
 
     if (totalVinAmount < GetValueOfChange() )
@@ -125,16 +146,19 @@ bool CScCertificate::CheckFeeAmount(const CAmount& totalVinAmount, CValidationSt
     return true;
 }
 
+bool CScCertificate::CheckInputsInteraction(CValidationState &state) const
+{
+    for(const CTxIn& txin: vin)
+        if (txin.prevout.IsNull())
+            return state.DoS(10, error("CheckInputsInteraction(): prevout is null"),
+                             REJECT_INVALID, "bad-txns-prevout-null");
+
+    return true;
+}
+
 CAmount CScCertificate::GetFeeAmount(const CAmount& valueIn) const
 {
     return (valueIn - GetValueOfChange());
-}
-
-unsigned int CScCertificate::CalculateSize() const
-{
-    unsigned int sz = ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);
-//    LogPrint("cert", "%s():%d -sz=%u\n", __func__, __LINE__, sz);
-    return sz;
 }
 
 std::string CScCertificate::EncodeHex() const
@@ -146,11 +170,12 @@ std::string CScCertificate::ToString() const
 {
     CAmount total = GetValueOfBackwardTransfers();
     std::string str;
-    str += strprintf("CScCertificate(hash=%s, ver=%d, vin.size()=%s, vout.size=%u, totAmount=%d.%08d\n)",
+    str += strprintf("CScCertificate(hash=%s, ver=%d, vin.size()=%s, vout.size=%u, nFirstBwtPos=%d, totAmount=%d.%08d,\n)",
         GetHash().ToString().substr(0,10),
         nVersion,
         vin.size(),
         vout.size(),
+        nFirstBwtPos,
         total / COIN, total % COIN);
     for (unsigned int i = 0; i < vin.size(); i++)
         str += "    " + vin[i].ToString() + "\n";
@@ -177,14 +202,13 @@ void CScCertificate::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount 
 bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const 
 {
     bool areScSupported = zen::ForkManager::getInstance().areSidechainsSupported(nHeight);
+
     if (!areScSupported)
          return state.DoS(dosLevel, error("Sidechain are not supported"), REJECT_INVALID, "bad-cert-version");
-    return true;
-}
 
-bool CScCertificate::CheckFinal(int flags) const
-{
-    // as of now certificate finality has yet to be defined (see tx.nLockTime)
+    if (!CheckBlockAtHeight(state, nHeight, dosLevel))
+        return false;
+
     return true;
 }
 
@@ -193,41 +217,24 @@ bool CScCertificate::CheckFinal(int flags) const
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
-bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee) {return true;}
 std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
 {
     return std::shared_ptr<BaseSignatureChecker>(NULL);
 }
 
-bool CScCertificate::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-    bool* pfMissingInputs, bool fRejectAbsurdFee) const { return true; }
 void CScCertificate::Relay() const {}
-unsigned int CScCertificate::GetSerializeSizeBase(int nType, int nVersion) const { return 0;}
 std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
 {
     return std::shared_ptr<const CTransactionBase>();
 }
 #else
-bool CScCertificate::TryPushToMempool(bool fLimitFree, bool fRejectAbsurdFee)
-{
-    CValidationState state;
-    return ::AcceptCertificateToMemoryPool(mempool, state, *this, fLimitFree, nullptr, fRejectAbsurdFee);
-}
 
 std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
 {
     return std::shared_ptr<BaseSignatureChecker>(new CachingCertificateSignatureChecker(this, nIn, chain, cacheStore));
 }
 
-bool CScCertificate::AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, bool fLimitFree, 
-    bool* pfMissingInputs, bool fRejectAbsurdFee) const
-{
-    return ::AcceptCertificateToMemoryPool(pool, state, *this, fLimitFree, pfMissingInputs, fRejectAbsurdFee);
-}
-
 void CScCertificate::Relay() const { ::Relay(*this); }
-
-unsigned int CScCertificate::GetSerializeSizeBase(int nType, int nVersion) const { return this->GetSerializeSize(nType, nVersion);}
 
 std::shared_ptr<const CTransactionBase>
 CScCertificate::MakeShared() const {
@@ -235,40 +242,32 @@ CScCertificate::MakeShared() const {
 }
 #endif
 
-void CScCertificate::addToScCommitment(std::map<uint256, uint256>& map, std::set<uint256>& sScIds) const
-{
-    sScIds.insert(scId);
-    map[scId] = GetHash();
-}
-
 CAmount CScCertificate::GetValueOfBackwardTransfers() const
 {
     CAmount nValueOut = 0;
-    for (auto out : vout)
-        if (out.isFromBackwardTransfer)
-            nValueOut += out.nValue;
+    for(int pos = nFirstBwtPos; pos < vout.size(); ++pos)
+        nValueOut += vout[pos].nValue;
+
     return nValueOut;
 }
 
-int CScCertificate::GetNumbOfBackwardTransfers() const
+CAmount CScCertificate::GetValueOfChange() const
 {
-    int size = 0;
-    for (auto out : vout)
-        if (out.isFromBackwardTransfer)
-            size += 1;
-    return size;
+    CAmount nValueOut = 0;
+    for(unsigned int pos = 0; pos < nFirstBwtPos; ++pos)
+        nValueOut += vout[pos].nValue;
+    return nValueOut;
 }
-
 
 // Mutable Certificate
 //-------------------------------------
 CMutableScCertificate::CMutableScCertificate() :
     scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL),
-    endEpochBlockHash(), scProof() { }
+    endEpochBlockHash(), scProof(), nFirstBwtPos(BWT_POS_UNSET) { }
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert) :
     scId(cert.GetScId()), epochNumber(cert.epochNumber), quality(cert.quality), 
-    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof)
+    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof), nFirstBwtPos(cert.nFirstBwtPos)
 {
     nVersion = cert.nVersion;
     vin  = cert.GetVin();
@@ -279,6 +278,49 @@ uint256 CMutableScCertificate::GetHash() const
 {
     return SerializeHash(*this);
 }
+
+void CMutableScCertificate::insertAtPos(unsigned int pos, const CTxOut& out) {
+    if (nFirstBwtPos == BWT_POS_UNSET)
+        (*const_cast<int*>(&nFirstBwtPos)) = 0;
+
+    if (pos < nFirstBwtPos)
+        ++(*const_cast<int*>(&nFirstBwtPos));
+
+    vout.insert(vout.begin() + pos, out);
+}
+void CMutableScCertificate::eraseAtPos(unsigned int pos) {
+    if (nFirstBwtPos == BWT_POS_UNSET)
+        (*const_cast<int*>(&nFirstBwtPos)) = 0;
+
+    if (pos < nFirstBwtPos)
+        --(*const_cast<int*>(&nFirstBwtPos));
+
+    vout.erase(vout.begin() + pos);
+}
+void CMutableScCertificate::resizeOut(unsigned int newSize) {
+    if (newSize > nFirstBwtPos)
+        (*const_cast<int*>(&nFirstBwtPos)) = newSize;
+
+    vout.resize(newSize);
+}
+bool CMutableScCertificate::addOut(const CTxOut& out) {
+    if (nFirstBwtPos == BWT_POS_UNSET)
+        (*const_cast<int*>(&nFirstBwtPos)) = 0;
+
+    ++(*const_cast<int*>(&nFirstBwtPos));
+    vout.push_back(out);
+    return true;
+}
+bool CMutableScCertificate::addBwt(const CTxOut& out) {
+    if (nFirstBwtPos == BWT_POS_UNSET)
+        (*const_cast<int*>(&nFirstBwtPos)) = 0;
+
+    vout.push_back(out);
+    return true;
+}
+
+bool CMutableScCertificate::add(const CTxScCreationOut& out) {return false;}
+bool CMutableScCertificate::add(const CTxForwardTransferOut& out) {return false;}
 
 std::string CMutableScCertificate::ToString() const
 {

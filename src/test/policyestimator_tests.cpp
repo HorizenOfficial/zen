@@ -48,8 +48,8 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates)
     std::list<CScCertificate> dummyCerts;
     tx.vin.resize(1);
     tx.vin[0].scriptSig = garbage;
-    tx.vout.resize(1);
-    tx.vout[0].nValue=0LL;
+    tx.resizeOut(1);
+    tx.getOut(0).nValue=0LL;
     CFeeRate baseRate(basefee, ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION));
 
     // Create a fake block

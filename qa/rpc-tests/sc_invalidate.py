@@ -8,7 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
     dump_ordered_tips, mark_logs, disconnect_nodes
-from test_framework.mc_test.mc_test import generate_params, generate_random_field_element_hex
+from test_framework.mc_test.mc_test import *
 import os
 from decimal import Decimal
 import time
@@ -92,12 +92,13 @@ class ScInvalidateTest(BitcoinTestFramework):
 
         txes = []
 
+        tx_amount = Decimal('10.00000000')
         # ---------------------------------------------------------------------------------------
         # Node 1 sends 10 coins to node 2 to have UTXO
-        mark_logs("\n...Node 1 sends 10 coins to node 2 to have a UTXO", self.nodes, DEBUG_MODE)
+        mark_logs("\n...Node 1 sends {} coins to node 2 to have a UTXO".format(tx_amount), self.nodes, DEBUG_MODE)
 
         address_ds = self.nodes[2].getnewaddress()
-        txid = self.nodes[1].sendtoaddress(address_ds, 10.0)
+        txid = self.nodes[1].sendtoaddress(address_ds, tx_amount)
 
         self.sync_all()
 
@@ -111,24 +112,22 @@ class ScInvalidateTest(BitcoinTestFramework):
         decodedTx = self.nodes[2].decoderawtransaction(self.nodes[2].gettransaction(txid)['hex'])
         vout = {}
         for outpoint in decodedTx['vout']:
-            if outpoint['value'] == Decimal('10.0'):
+            if outpoint['value'] == tx_amount:
                 vout = outpoint
                 break
 
         sc_address = "0000000000000000000000000000000000000000000000000000000000000abc"
-        scid = "0000000000000000000000000000000000000000000000000000000000000022"
         sc_epoch = 123
-        sc_cr_amount = Decimal('5.00000000')
-        sc_ft_amount = Decimal('5.00000000')
-        sc_amount = sc_cr_amount + sc_ft_amount
+        sc_cr_amount = tx_amount
 
         #generate wCertVk and constant
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
+        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        sc = [{"scid": scid, "epoch_length": sc_epoch, "amount": sc_cr_amount, "address": sc_address, "wCertVk": vk, "constant": constant}]
+        sc = [{"epoch_length": sc_epoch, "amount": sc_cr_amount, "address": sc_address, "wCertVk": vk, "constant": constant}]
         inputs = [{'txid': txid, 'vout': vout['n']}]
-        sc_ft = [{"address": sc_address, "amount": sc_ft_amount, "scid": scid}]
+        sc_ft = []
 
         rawtx = self.nodes[2].createrawtransaction(inputs, {}, sc, sc_ft)
         sigRawtx = self.nodes[2].signrawtransaction(rawtx)
@@ -136,7 +135,7 @@ class ScInvalidateTest(BitcoinTestFramework):
         # Node 2 create rawtransaction with same UTXO
         mark_logs("\nNode 2 create rawtransaction with same UTXO...", self.nodes, DEBUG_MODE)
 
-        outputs = {self.nodes[0].getnewaddress(): sc_amount}
+        outputs = {self.nodes[0].getnewaddress(): sc_cr_amount}
         rawtx2 = self.nodes[2].createrawtransaction(inputs, outputs)
         sigRawtx2 = self.nodes[2].signrawtransaction(rawtx2)
 
@@ -150,6 +149,10 @@ class ScInvalidateTest(BitcoinTestFramework):
         finalTx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
         txes.append(finalTx)
         self.sync_all()
+
+        decoded_tx = self.nodes[0].getrawtransaction(finalTx, 1)
+        scid = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
@@ -196,7 +199,7 @@ class ScInvalidateTest(BitcoinTestFramework):
             dump_ordered_tips(chaintips, DEBUG_MODE)
 
         # Checking SC info on network
-        mark_logs("\nChecking SC info on network, noone see the SC...", self.nodes, DEBUG_MODE)
+        mark_logs("\nChecking SC info on network, none see the SC...", self.nodes, DEBUG_MODE)
         for i in range(0, NUMB_OF_NODES):
             try:
                 self.nodes[i].getscinfo(scid)

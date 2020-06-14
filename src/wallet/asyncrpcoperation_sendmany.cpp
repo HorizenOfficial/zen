@@ -614,7 +614,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
             int wtxDepth = -1;
             {
                 LOCK2(cs_main, pwalletMain->cs_wallet);
-                const CWalletObjBase& wtx = *(pwalletMain->getMapWallet().at(jso.hash));
+                const CWalletTransactionBase& wtx = *(pwalletMain->getMapWallet().at(jso.hash));
                 // Zero confirmaton notes belong to transactions which have not yet been mined
                 if (mapBlockIndex.find(wtx.hashBlock) == mapBlockIndex.end()) {
                     throw JSONRPCError(RPC_WALLET_ERROR, strprintf("mapBlockIndex does not contain block hash %s", wtx.hashBlock.ToString()));
@@ -835,7 +835,7 @@ bool AsyncRPCOperation_sendmany::find_utxos(bool fAcceptCoinbase=false) {
 
         if (setAddress.size()) {
             CTxDestination address;
-            if (!ExtractDestination(out.tx->GetVout()[out.pos].scriptPubKey, address)) {
+            if (!ExtractDestination(out.tx->getTxBase()->GetVout()[out.pos].scriptPubKey, address)) {
                 continue;
             }
 
@@ -845,13 +845,13 @@ bool AsyncRPCOperation_sendmany::find_utxos(bool fAcceptCoinbase=false) {
         }
 
         // By default we ignore coinbase outputs
-        bool isCoinbase = out.tx->IsCoinBase();
+        bool isCoinbase = out.tx->getTxBase()->IsCoinBase();
         if (isCoinbase && fAcceptCoinbase==false) {
             continue;
         }
 
-        CAmount nValue = out.tx->GetVout()[out.pos].nValue;
-        SendManyInputUTXO utxo(out.tx->GetHash(), out.pos, nValue, isCoinbase);
+        CAmount nValue = out.tx->getTxBase()->GetVout()[out.pos].nValue;
+        SendManyInputUTXO utxo(out.tx->getTxBase()->GetHash(), out.pos, nValue, isCoinbase);
         t_inputs_.push_back(utxo);
     }
 
@@ -1101,9 +1101,7 @@ void AsyncRPCOperation_sendmany::add_taddr_outputs_to_tx() {
         }
 
         CScript scriptPubKey = GetScriptForDestination(address.Get());
-
-        CTxOut out(nAmount, scriptPubKey);
-        rawTx.vout.push_back(out);
+        rawTx.addOut(CTxOut(nAmount, scriptPubKey));
     }
 
     tx_ = CTransaction(rawTx);
@@ -1121,10 +1119,9 @@ void AsyncRPCOperation_sendmany::add_taddr_change_output_to_tx(CAmount amount) {
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Could not generate a taddr to use as a change address"); // should never fail, as we just unlocked
     }
     CScript scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
-    CTxOut out(amount, scriptPubKey);
 
     CMutableTransaction rawTx(tx_);
-    rawTx.vout.push_back(out);
+    rawTx.addOut(CTxOut(amount, scriptPubKey));
     tx_ = CTransaction(rawTx);
 }
 

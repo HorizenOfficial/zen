@@ -270,6 +270,7 @@ case $host in
      AC_CHECK_LIB([shlwapi],      [main],, AC_MSG_ERROR(lib missing))
      AC_CHECK_LIB([iphlpapi],      [main],, AC_MSG_ERROR(lib missing))
      AC_CHECK_LIB([crypt32],      [main],, AC_MSG_ERROR(lib missing))
+     AC_CHECK_LIB([userenv],      [main],, AC_MSG_ERROR(lib missing))
 
      # -static is interpreted by libtool, where it has a different meaning.
      # In libtool-speak, it's -all-static.
@@ -761,6 +762,15 @@ case $host in
     ;;
 esac
 
+ZENDOO_MCTEST_LIBS="-lzendoo_mc -lpthread"
+case $host in
+  *mingw*)
+    ;;
+  *)
+    ZENDOO_MCTEST_LIBS="$ZENDOO_MCTEST_LIBS -ldl"
+    ;;
+esac
+
 dnl Check for OpenMP support
 AX_OPENMP(
   [AC_DEFINE(HAVE_OPENMP, 1, [Define if OpenMP is enabled])
@@ -937,6 +947,7 @@ AC_SUBST(GMP_LIBS)
 AC_SUBST(GMPXX_LIBS)
 AC_SUBST(LIBSNARK_DEPINST)
 AC_SUBST(LIBZCASH_LIBS)
+AC_SUBST(ZENDOO_MCTEST_LIBS)
 AC_SUBST(PROTON_LIBS)
 AC_CONFIG_FILES([Makefile src/Makefile doc/man/Makefile share/setup.nsi src/test/buildenv.py])
 AC_CONFIG_FILES([qa/pull-tester/run-bitcoind-for-test.sh],[chmod +x qa/pull-tester/run-bitcoind-for-test.sh])

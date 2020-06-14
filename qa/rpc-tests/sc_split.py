@@ -8,7 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
     mark_logs, disconnect_nodes
-from test_framework.mc_test.mc_test import generate_params, generate_random_field_element_hex
+from test_framework.mc_test.mc_test import *
 import os
 from decimal import Decimal
 import time
@@ -66,9 +66,6 @@ class ScSplitTest(BitcoinTestFramework):
         '''
         # network topology: (0)--(1)--(2)
 
-        # side chain id
-        scid = "22"
-
         # forward transfer amount
         creation_amount = Decimal("0.5")
         fwt_amount_1 = Decimal("4.0")
@@ -114,21 +111,17 @@ class ScSplitTest(BitcoinTestFramework):
         mark_logs("\nNode 1 creates the SC", self.nodes, DEBUG_MODE)
 
         #generate wCertVk and constant
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, scid)
+        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        tx_create = self.nodes[1].sc_create(scid, 123, "dada", creation_amount, vk, "", constant)
+        tx_create = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "", constant)
         txes.append(tx_create)
         self.sync_all()
 
-        # Node 0 try create a SC with same id
-        mark_logs("\nNode 0 try creating the same SC", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[0].sc_create(scid, 123, "dada", creation_amount, vk, "", constant)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("Transaction commit failed" in errorString, True)
+        decoded_tx = self.nodes[1].getrawtransaction(tx_create, 1)
+        scid = decoded_tx['vsc_ccout'][0]['scid']
+        mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         mark_logs("\nNode0 generating 1 honest block", self.nodes, DEBUG_MODE)
 

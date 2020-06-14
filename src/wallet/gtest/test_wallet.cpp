@@ -32,9 +32,9 @@ public:
     MOCK_METHOD0(TxnAbort, bool());
 
 #if 0
-    MOCK_METHOD2(WriteTx, bool(uint256 hash, const CWalletTx& wtx));
+    MOCK_METHOD2(WriteWalletTxBase, bool(uint256 hash, const CWalletTx& wtx));
 #else
-    MOCK_METHOD2(WriteTx, bool(uint256 hash, const CWalletObjBase& wtx));
+    MOCK_METHOD2(WriteWalletTxBase, bool(uint256 hash, const CWalletTransactionBase& wtx));
 #endif
     MOCK_METHOD1(WriteWitnessCacheSize, bool(int64_t nWitnessCacheSize));
     MOCK_METHOD1(WriteBestBlock, bool(const CBlockLocator& loc));
@@ -244,7 +244,7 @@ TEST(wallet_tests, find_unspent_notes) {
 
 
     // Let's receive a new note
-    CWalletTx wtx3;
+    std::unique_ptr<CWalletTx> wtx3;
     {
         auto wtx = GetValidReceive(sk, 20, true);
         auto note = GetNote(sk, wtx, 0, 1);
@@ -259,13 +259,13 @@ TEST(wallet_tests, find_unspent_notes) {
         wallet.AddToWallet(wtx, true, NULL);
         EXPECT_FALSE(wallet.IsSpent(nullifier));
 
-        wtx3 = wtx;
+        wtx3 = std::unique_ptr<CWalletTx>(new CWalletTx(wtx));
     }
 
     // Fake-mine the new transaction
     EXPECT_EQ(1, chainActive.Height());
     CBlock block3;
-    block3.vtx.push_back(wtx3);
+    block3.vtx.push_back(*wtx3);
     block3.hashMerkleRoot = block3.BuildMerkleTree();
     block3.hashPrevBlock = blockHash2;
     auto blockHash3 = block3.GetHash();
@@ -276,8 +276,8 @@ TEST(wallet_tests, find_unspent_notes) {
     EXPECT_TRUE(chainActive.Contains(&fakeIndex3));
     EXPECT_EQ(2, chainActive.Height());
 
-    wtx3.SetMerkleBranch(block3);
-    wallet.AddToWallet(wtx3, true, NULL);
+    wtx3->SetMerkleBranch(block3);
+    wallet.AddToWallet(*wtx3, true, NULL);
 
     // We now have an unspent note which has one confirmation, in addition to our spent note.
     wallet.GetFilteredNotes(entries, "", 1);
@@ -875,12 +875,7 @@ TEST(wallet_tests, ClearNoteWitnessCache) {
     wallet.GetNoteWitnesses(notes, witnesses, anchor2);
     EXPECT_TRUE((bool) witnesses[0]);
     EXPECT_FALSE((bool) witnesses[1]);
-#if 0
-    EXPECT_EQ(1, wallet.getMapWallet().at(hash).mapNoteData[jsoutpt].witnessHeight);
-#else
-    mapNoteData_t* m = const_cast<mapNoteData_t*>(wallet.getMapWallet().at(hash)->GetMapNoteData());
-    EXPECT_EQ(1, ((*m)[jsoutpt]).witnessHeight);
-#endif
+    EXPECT_EQ(1, wallet.getMapWallet().at(hash)->mapNoteData[jsoutpt].witnessHeight);
     EXPECT_EQ(1, wallet.nWitnessCacheSize);
 
     // After clearing, we should not have a witness for either note
@@ -889,12 +884,7 @@ TEST(wallet_tests, ClearNoteWitnessCache) {
     wallet.GetNoteWitnesses(notes, witnesses, anchor2);
     EXPECT_FALSE((bool) witnesses[0]);
     EXPECT_FALSE((bool) witnesses[1]);
-#if 0
-    EXPECT_EQ(-1, wallet.getMapWallet().at(hash).mapNoteData[jsoutpt].witnessHeight);
-#else
-    mapNoteData_t* m2 = const_cast<mapNoteData_t*>(wallet.getMapWallet().at(hash)->GetMapNoteData());
-    EXPECT_EQ(-1, (*m2)[jsoutpt].witnessHeight);
-#endif
+    EXPECT_EQ(-1, wallet.getMapWallet().at(hash)->mapNoteData[jsoutpt].witnessHeight);
     EXPECT_EQ(0, wallet.nWitnessCacheSize);
 }
 
@@ -906,8 +896,9 @@ TEST(wallet_tests, WriteWitnessCache) {
     auto sk = libzcash::SpendingKey::random();
     wallet.AddSpendingKey(sk);
 
-    auto wtx = GetValidReceive(sk, 10, true);
-    wallet.AddToWallet(wtx, true, NULL);
+    CWalletTx wtx = GetValidReceive(sk, 10, true);
+    CWalletTransactionBase& refWtx(wtx);
+    wallet.AddToWallet(refWtx, true, NULL);
 
     // TxnBegin fails
     EXPECT_CALL(walletdb, TxnBegin())
@@ -916,20 +907,20 @@ TEST(wallet_tests, WriteWitnessCache) {
     EXPECT_CALL(walletdb, TxnBegin())
         .WillRepeatedly(Return(true));
 
-    // WriteTx fails
-    EXPECT_CALL(walletdb, WriteTx(wtx.GetHash(), Eq(ByRef(wtx))))
-        .WillOnce(Return(false));                   
-    EXPECT_CALL(walletdb, TxnAbort())               
-        .Times(1);                                  
+    // WriteWalletTxBase fails
+    EXPECT_CALL(walletdb, WriteWalletTxBase(wtx.GetHash(), Eq(ByRef(refWtx))))
+        .WillOnce(Return(false));
+    EXPECT_CALL(walletdb, TxnAbort())
+        .Times(1);
     wallet.SetBestChain(walletdb, loc);             
                                                     
-    // WriteTx throws                               
-    EXPECT_CALL(walletdb, WriteTx(wtx.GetHash(), Eq(ByRef(wtx))))
-        .WillOnce(ThrowLogicError());               
-    EXPECT_CALL(walletdb, TxnAbort())               
-        .Times(1);                                  
-    wallet.SetBestChain(walletdb, loc);             
-    EXPECT_CALL(walletdb, WriteTx(wtx.GetHash(), Eq(ByRef(wtx))))
+    // WriteWalletTxBase throws
+    EXPECT_CALL(walletdb, WriteWalletTxBase(wtx.GetHash(), Eq(ByRef(refWtx))))
+        .WillOnce(ThrowLogicError());
+    EXPECT_CALL(walletdb, TxnAbort())
+        .Times(1);
+    wallet.SetBestChain(walletdb, loc);
+    EXPECT_CALL(walletdb, WriteWalletTxBase(wtx.GetHash(), Eq(ByRef(refWtx))))
         .WillRepeatedly(Return(true));
 
     // WriteWitnessCacheSize fails
@@ -1079,20 +1070,11 @@ TEST(wallet_tests, MarkAffectedTransactionsDirty) {
     wallet.MarkAffectedTransactionsDirty(wtx);
 
     // After getting a cached value, the first tx should be clean
-#if 0
-    wallet.getMapWallet().at(hash).GetDebit(ISMINE_ALL);
-    EXPECT_TRUE(wallet.getMapWallet().at(hash).SetfDebitCached());
-#else
     wallet.getMapWallet().at(hash)->GetDebit(ISMINE_ALL);
-    EXPECT_TRUE(wallet.getMapWallet().at(hash)->SetfDebitCached());
-#endif
+    EXPECT_TRUE(wallet.getMapWallet().at(hash)->GetfDebitCached());
 
     // After adding the note spend, the first tx should be dirty
     wallet.AddToWallet(wtx2, true, NULL);
     wallet.MarkAffectedTransactionsDirty(wtx2);
-#if 0
-    EXPECT_FALSE(wallet.getMapWallet().at(hash).SetfDebitCached());
-#else
-    EXPECT_FALSE(wallet.getMapWallet().at(hash)->SetfDebitCached());
-#endif
+    EXPECT_FALSE(wallet.getMapWallet().at(hash)->GetfDebitCached());
 }
