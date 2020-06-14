@@ -2218,7 +2218,7 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() > 6)
+    if (fHelp || params.size() > 5)
         throw runtime_error(
             "listtransactions ( \"account\" count from includeWatchonly)\n"
             "\nReturns up to 'count' most recent transactions skipping the first 'from' transactions for address 'address'.\n"
@@ -2228,7 +2228,6 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
             "3. from           (numeric, optional, default=0) The number of transactions to skip\n"
             "4. includeWatchonly (bool, optional, default=false) Include transactions to watchonly addresses (see 'importaddress')\n"
             "5. address (string, optional) Include only transactions involving this address\n"
-            "6. includeFilteredVin (bool, optional, default=false) Meaningful only if address is specified: include also transactions involving the address as input\n"
             "\nResult:\n"
             "[\n"
             "  {\n"
@@ -2296,36 +2295,39 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
         if(params[3].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
     string address("*");
+    CBitcoinAddress baddress;
+    CScript scriptPubKey;
     if (params.size()>4) {
         address=params[4].get_str();
         if (address!=("*")) {
-            CBitcoinAddress baddress = CBitcoinAddress(address);
+            baddress = CBitcoinAddress(address);
             if (!baddress.IsValid())
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
+            else
+                scriptPubKey = GetScriptForDestination(baddress.Get(), false);
         }
     }
 
-    bool includeFilteredVin = false;
-    if(params.size() > 5)
-        if(params[5].get_bool())
-            includeFilteredVin = true;
-
     UniValue ret(UniValue::VARR);
-
-    std::list<CAccountingEntry> acentries;
-    // TODO resolve this
-    TxItems txOrdered; // = pwalletMain->OrderedTxItems(acentries, strAccount, address, includeFilteredVin);
-
+    const TxItems & txOrdered = pwalletMain->wtxOrdered;
     // iterate backwards until we have nCount items to return:
-    for (TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
+    for (TxItems::const_reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
     {
-#if 0
-        CWalletTx *const pwtx = (*it).second.first;
-#else
         CWalletTransactionBase *const pwtx = (*it).second.first;
-#endif
-        if (pwtx != nullptr)
-            ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
+        if (pwtx != nullptr){
+            if(baddress.IsValid()) {
+                for(const CTxOut& txout : pwtx->getTxBase()->GetVout()) {
+                    auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
+                    if (res == txout.scriptPubKey.begin()) {
+                        ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
+                        break;
+                    }
+                }
+            }
+            else {
+                ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
+            }
+        }
         CAccountingEntry *const pacentry = (*it).second.second;
         if (pacentry != nullptr)
             AcentryToJSON(*pacentry, strAccount, ret);
