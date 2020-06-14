@@ -220,7 +220,7 @@ protected:
         boost::filesystem::create_directories(pathTemp);
         mapArgs["-datadir"] = pathTemp.string();
 
-        fPrintToConsole = true;
+        //fPrintToConsole = true;
 
         SelectParams(CBaseChainParams::REGTEST);
     }

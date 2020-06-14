@@ -217,8 +217,8 @@ TEST(ForkManager, FutureTimeStampRegtest) {
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(0), false);
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(2), false);
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(200), false);
-	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(249), false);
-	int futureTimeStampActivation = 250;
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(209), false);
+	int futureTimeStampActivation = 210;
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation), true);
 	EXPECT_EQ(ForkManager::getInstance().isFutureTimeStampActive(futureTimeStampActivation), true);
 }

@@ -795,13 +795,13 @@ protected:
         }
         try {
             for (auto& wtxItem : mapWallet) {
-                auto wtx = *wtxItem.second;
+                auto wtx = wtxItem.second.get();
                 // We skip transactions for which mapSproutNoteData is empty.
                 //This covers transactions that have no Sprout
                 // (i.e. are purely transparent), as well as shielding and unshielding
                 // transactions in which we only have transparent addresses involved.
-                if (!(wtx.mapNoteData.empty())) {
-                    if (!walletdb.WriteWalletTxBase(wtxItem.first, wtx)) {
+                if (!(wtx->mapNoteData.empty())) {
+                    if (!walletdb.WriteWalletTxBase(wtxItem.first, *wtx)) {
                         LogPrintf("SetBestChain(): Failed to write CWalletTx, aborting atomic write\n");
                         walletdb.TxnAbort();
                         return;
@@ -1054,7 +1054,8 @@ public:
      */
     int64_t IncOrderPosNext(CWalletDB *pwalletdb = NULL);
 
-//    MapTxWithInputs OrderedTxWithInputsMap(const std::string& address) const;
+    /* TODO rewrite this using a wtxOrdered data member */
+    MapTxWithInputs OrderedTxWithInputsMap(const std::string& address) const;
 
     void MarkDirty();
     bool UpdateNullifierNoteMap();

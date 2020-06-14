@@ -10,7 +10,7 @@
 #include "zen/forks/fork3_communityfundandrpfixfork.h"
 #include "zen/forks/fork4_nulltransactionfork.h"
 #include "zen/forks/fork5_shieldfork.h"
-#include "zen/forks/fork6_sidechainfork.h"
+#include "zen/forks/fork7_sidechainfork.h"
 using namespace zen;
 
 class MockCValidationState : public CValidationState {
@@ -457,15 +457,15 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
 
     mtx.vin[0].scriptSig = CScript() << exceedHeight << OP_0;
 
-    mtx.vout.resize(3);
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.25 * COIN;
+    mtx.resizeOut(3);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.25 * COIN;
 
-    mtx.vout[1].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-    mtx.vout[1].nValue = 0.625 * COIN;
+    mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+    mtx.getOut(1).nValue = 0.625 * COIN;
 
-    mtx.vout[2].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-    mtx.vout[2].nValue = 0.625 * COIN;
+    mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+    mtx.getOut(2).nValue = 0.625 * COIN;
 
     indexPrev.nHeight = exceedHeight -1;
     block.vtx[0] = CTransaction(mtx);;
@@ -513,6 +513,8 @@ TEST(ContextualCheckBlockHeader, CheckBlockVersion) {
     EXPECT_TRUE(BLOCK_VERSION_SC_SUPPORT < BLOCK_VERSION_ORIGINAL);
     hardForkHeight -= 1;
     indexPrev.nHeight = hardForkHeight -1;
+    // set a suited prev block time not to have errors since sc fork is after timeblock fork 
+    indexPrev.nTime = block.nTime - MAX_FUTURE_BLOCK_TIME_LOCAL/2;
     block.nVersion = BLOCK_VERSION_SC_SUPPORT;
     EXPECT_CALL(state, Invalid(false, REJECT_INVALID, "bad-version")).Times(1);
     EXPECT_FALSE(ContextualCheckBlockHeader(block, state, &indexPrev));

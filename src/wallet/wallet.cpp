@@ -967,7 +967,6 @@ int64_t CWallet::IncOrderPosNext(CWalletDB *pwalletdb)
     return nRet;
 }
 
-#if 0
 MapTxWithInputs CWallet::OrderedTxWithInputsMap(const std::string& address) const
 {
     AssertLockHeld(cs_wallet);
@@ -1029,7 +1028,6 @@ MapTxWithInputs CWallet::OrderedTxWithInputsMap(const std::string& address) cons
 
     return mOrderedTxes;
 }
-#endif
 
 void CWallet::MarkDirty()
 {
@@ -3414,7 +3412,7 @@ bool CWallet::AddAccountingEntry(const CAccountingEntry& acentry, CWalletDB & pw
 
     laccentries.push_back(acentry);
     CAccountingEntry & entry = laccentries.back();
-    wtxOrdered.insert(make_pair(entry.nOrderPos, TxPair((CWalletTxBase*)0, &entry)));
+    wtxOrdered.insert(make_pair(entry.nOrderPos, TxPair((CWalletTransactionBase*)0, &entry)));
 
     return true;
 }

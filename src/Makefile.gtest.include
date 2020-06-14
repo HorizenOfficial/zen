@@ -12,7 +12,6 @@ zen_gtest_SOURCES = \
 	gtest/json_test_vectors.cpp \
 	gtest/json_test_vectors.h \
 	gtest/libzendoo_test_files.h \
-	gtest/test_foundersreward.cpp \
  	gtest/test_forkmanager.cpp \
   	gtest/test_checkblockdelay.cpp
 

@@ -1107,9 +1107,9 @@ TEST(wallet_tests, SetBestChainIgnoresTxsWithoutShieldedData) {
 
     // Generate a transparent transaction that is ours
     CMutableTransaction t;
-    t.vout.resize(1);
-    t.vout[0].nValue = 90*CENT;
-    t.vout[0].scriptPubKey = scriptPubKey;
+    t.resizeOut(1);
+    t.getOut(0).nValue = 90*CENT;
+    t.getOut(0).scriptPubKey = scriptPubKey;
     CWalletTx wtxTransparent {nullptr, t};
     wallet.AddToWallet(wtxTransparent, true, nullptr);
 
@@ -1125,17 +1125,17 @@ TEST(wallet_tests, SetBestChainIgnoresTxsWithoutShieldedData) {
     auto note = GetNote(sk2, wtxInput, 0, 0);
     auto wtxTmp = GetValidSpend(sk2, note, 5);
     CMutableTransaction mtx {wtxTmp};
-    mtx.vout[0].scriptPubKey = scriptPubKey;
+    mtx.getOut(0).scriptPubKey = scriptPubKey;
     CWalletTx wtxSproutTransparent {nullptr, mtx};
     wallet.AddToWallet(wtxSproutTransparent, true, nullptr);
 
     EXPECT_CALL(walletdb, TxnBegin())
         .WillOnce(Return(true));
-    EXPECT_CALL(walletdb, WriteTx(wtxTransparent.GetHash(), wtxTransparent))
+    EXPECT_CALL(walletdb, WriteWalletTxBase(wtxTransparent.GetHash(), Eq(ByRef(wtxTransparent))))
         .Times(0);
-    EXPECT_CALL(walletdb, WriteTx(wtxSprout.GetHash(), wtxSprout))
+    EXPECT_CALL(walletdb, WriteWalletTxBase(wtxSprout.GetHash(), Eq(ByRef(wtxSprout))))
         .Times(1).WillOnce(Return(true));
-    EXPECT_CALL(walletdb, WriteTx(wtxSproutTransparent.GetHash(), wtxSproutTransparent))
+    EXPECT_CALL(walletdb, WriteWalletTxBase(wtxSproutTransparent.GetHash(), Eq(ByRef(wtxSproutTransparent))))
         .Times(0);
     EXPECT_CALL(walletdb, WriteWitnessCacheSize(0))
         .WillOnce(Return(true));

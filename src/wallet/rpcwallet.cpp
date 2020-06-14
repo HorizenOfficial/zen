@@ -2313,7 +2313,8 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     UniValue ret(UniValue::VARR);
 
     std::list<CAccountingEntry> acentries;
-    TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, strAccount, address, includeFilteredVin);
+    // TODO resolve this
+    TxItems txOrdered; // = pwalletMain->OrderedTxItems(acentries, strAccount, address, includeFilteredVin);
 
     // iterate backwards until we have nCount items to return:
     for (TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
