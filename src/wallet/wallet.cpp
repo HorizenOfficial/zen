@@ -1304,7 +1304,7 @@ void CWallet::SyncTransaction(const CTransaction& tx, const CBlock* pblock)
 
 void CWallet::SyncCertificate(const CScCertificate& cert, const CBlock* pblock, int bwtMaturityHeight)
 {
-    LOCK2(cs_main, cs_wallet);
+    LOCK(cs_wallet);
     if (!AddToWalletIfInvolvingMe(cert, pblock, true))
         return; // Not one of ours
 
@@ -1318,7 +1318,7 @@ void CWallet::SyncCertificate(const CScCertificate& cert, const CBlock* pblock, 
 
 void CWallet::SyncVoidedCert(const uint256& certHash, bool bwtAreStripped)
 {
-    LOCK2(cs_main, cs_wallet);
+    LOCK(cs_wallet);
 
     std::map<uint256, std::shared_ptr<CWalletTransactionBase>>::iterator itCert = mapWallet.find(certHash);
     if (itCert == mapWallet.end())

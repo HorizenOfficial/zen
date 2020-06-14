@@ -144,7 +144,7 @@ private:
     bool addToListForRemovalImmatureExpenditures(
         const CTransactionBase& txBase, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, 
         std::list<const CTransactionBase*>& transactionsToRemove);
-    std::map<uint256, const CTransactionBase*> mapRecentlyAddedTxBase;
+    std::map<uint256, std::shared_ptr<CTransactionBase> > mapRecentlyAddedTxBase;
     uint64_t nRecentlyAddedSequence = 0;
     uint64_t nNotifiedSequence = 0;
 

@@ -142,7 +142,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     mapTx[hash] = entry;
     const CTransaction& tx = mapTx[hash].GetTx();
 
-    mapRecentlyAddedTxBase[tx.GetHash()] = &tx;
+    mapRecentlyAddedTxBase[tx.GetHash()] = std::shared_ptr<CTransactionBase>(new CTransaction(tx));
     nRecentlyAddedSequence += 1;
 
     for (unsigned int i = 0; i < tx.GetVin().size(); i++)
@@ -180,7 +180,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     mapCertificate[hash] = entry;
     const CScCertificate& cert = mapCertificate[hash].GetCertificate();
 
-    mapRecentlyAddedTxBase[cert.GetHash()] = &cert;
+    mapRecentlyAddedTxBase[cert.GetHash()] = std::shared_ptr<CTransactionBase>(new CScCertificate(cert));
     nRecentlyAddedSequence += 1;
 
     for (unsigned int i = 0; i < cert.GetVin().size(); i++)
@@ -968,7 +968,7 @@ bool CTxMemPool::HasNoInputsOf(const CTransaction &tx) const
 void CTxMemPool::NotifyRecentlyAdded()
 {
     uint64_t recentlyAddedSequence;
-    std::vector<const CTransactionBase*> vTxBase;
+    std::vector<std::shared_ptr<CTransactionBase> > vTxBase;
     {
         LOCK(cs);
         recentlyAddedSequence = nRecentlyAddedSequence;

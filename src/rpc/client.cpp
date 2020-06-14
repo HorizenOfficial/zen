@@ -53,7 +53,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listtransactions", 1 },
     { "listtransactions", 2 },
     { "listtransactions", 3 },
-    { "listtransactions", 5 },
     { "listtxesbyaddress", 1 },
     { "listtxesbyaddress", 2 },
     { "listtxesbyaddress", 3 },
