@@ -8,7 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
     mark_logs, disconnect_nodes
-from test_framework.mc_test.mc_test import generate_params, generate_random_field_element_hex
+from test_framework.mc_test.mc_test import *
 import os
 from decimal import Decimal
 import time
@@ -111,7 +111,8 @@ class ScSplitTest(BitcoinTestFramework):
         mark_logs("\nNode 1 creates the SC", self.nodes, DEBUG_MODE)
 
         #generate wCertVk and constant
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, "sc1")
+        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
         tx_create = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "", constant)

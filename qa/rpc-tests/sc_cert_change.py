@@ -77,7 +77,8 @@ class sc_cert_change(BitcoinTestFramework):
         self.sync_all()
 
         # (1) node0 create sidechain with 10.0 coins
-        vk = generate_params(self.options.tmpdir, self.options.srcdir, "sc1")
+        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
         creating_tx = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         mark_logs("Node 0 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
@@ -99,8 +100,8 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
 
         quality = 0
-        proof = create_test_proof(
-        self.options.tmpdir, self.options.srcdir,  "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
+        proof = mcTest.create_test_proof(
+        "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
         quality, constant, [pkh_node1], [bwt_amount])
         
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(bwt_amount, pkh_node1), self.nodes, DEBUG_MODE)
@@ -126,8 +127,8 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
 
         quality = 1
-        proof = create_test_proof(
-        self.options.tmpdir, self.options.srcdir,  "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
+        proof = mcTest.create_test_proof(
+        "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
         quality, constant, [pkh_node2], [bwt_amount])
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
@@ -153,8 +154,8 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node3, "amount": bwt_amount}]
 
         quality = 2
-        proof = create_test_proof(
-        self.options.tmpdir, self.options.srcdir,  "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
+        proof = mcTest.create_test_proof(
+        "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
         quality, constant, [pkh_node3], [bwt_amount])
 
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node3 pkh".format(bwt_amount, pkh_node3), self.nodes, DEBUG_MODE)
