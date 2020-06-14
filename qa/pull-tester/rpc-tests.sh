@@ -34,7 +34,6 @@ done
 #Run the tests
 
 testScripts=(
-<<<<<<< HEAD
   'paymentdisclosure.py'
   'prioritisetransaction.py'
   'wallet_treestate.py'
