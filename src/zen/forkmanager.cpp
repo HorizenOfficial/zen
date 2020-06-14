@@ -10,7 +10,8 @@
 #include "forks/fork3_communityfundandrpfixfork.h"
 #include "forks/fork4_nulltransactionfork.h"
 #include "forks/fork5_shieldfork.h"
-#include "forks/fork6_sidechainfork.h"
+#include "forks/fork6_timeblockfork.h"
+#include "forks/fork7_sidechainfork.h"
 
 namespace zen {
 
@@ -153,6 +154,20 @@ bool ForkManager::isValidBlockVersion(int height, int nVersion) const {
     return getForkAtHeight(height)->isValidBlockVersion(nVersion);
 }
 
+/**
+ * @brief
+ */
+bool ForkManager::isFutureMiningTimeStampActive(int height) const {
+	return getForkAtHeight(height)->isFutureMiningTimeStampActive();
+}
+
+/**
+ * @brief
+ */
+bool ForkManager::isFutureTimeStampActive(int height) const {
+	return getForkAtHeight(height)->isFutureTimeStampActive(height, currentNetwork);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// PRIVATE MEMBERS
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -169,6 +184,7 @@ ForkManager::ForkManager() {
     registerFork(new CommunityFundAndRPFixFork());
     registerFork(new NullTransactionFork());
     registerFork(new ShieldFork());
+    registerFork(new TimeBlockFork());
     registerFork(new SidechainFork());
 }
 

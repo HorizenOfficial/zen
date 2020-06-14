@@ -311,7 +311,7 @@ public:
      * >=1 : this many blocks deep in the main chain
      */
     int GetDepthInMainChain(const CBlockIndex* &pindexRet) const;
-    int SetMerkleBranch(const CBlock& block);
+    void SetMerkleBranch(const CBlock& block);
 
     int GetDepthInMainChain() const { const CBlockIndex *pindexRet; return GetDepthInMainChain(pindexRet); }
     bool IsInMainChain() const { const CBlockIndex *pindexRet; return GetDepthInMainChainINTERNAL(pindexRet) > 0; }
@@ -795,10 +795,17 @@ protected:
         }
         try {
             for (auto& wtxItem : mapWallet) {
-                if (!walletdb.WriteWalletTxBase(wtxItem.first, *(wtxItem.second))) {
-                    LogPrintf("SetBestChain(): Failed to write CWalletTx, aborting atomic write\n");
-                    walletdb.TxnAbort();
-                    return;
+                auto wtx = *wtxItem.second;
+                // We skip transactions for which mapSproutNoteData is empty.
+                //This covers transactions that have no Sprout
+                // (i.e. are purely transparent), as well as shielding and unshielding
+                // transactions in which we only have transparent addresses involved.
+                if (!(wtx.mapNoteData.empty())) {
+                    if (!walletdb.WriteWalletTxBase(wtxItem.first, wtx)) {
+                        LogPrintf("SetBestChain(): Failed to write CWalletTx, aborting atomic write\n");
+                        walletdb.TxnAbort();
+                        return;
+                   }
                 }
             }
             if (!walletdb.WriteWitnessCacheSize(nWitnessCacheSize)) {
@@ -944,6 +951,9 @@ public:
     const std::map<uint256, std::shared_ptr<CWalletTransactionBase> > & getMapWallet() const  {return mapWallet;}
     //No need for mapWallet setter, meaning that mapWallet is only read outside CWallet class
     typedef std::map<uint256, std::shared_ptr<CWalletTransactionBase> >::const_iterator MAP_WALLET_CONST_IT;
+    std::list<CAccountingEntry> laccentries;
+
+    TxItems wtxOrdered;
 
     int64_t nOrderPosNext;
     std::map<uint256, int> mapRequestCount;
@@ -1044,14 +1054,7 @@ public:
      */
     int64_t IncOrderPosNext(CWalletDB *pwalletdb = NULL);
 
-    /**
-     * Get the wallet's activity log
-     * @return multimap of ordered transactions and accounting entries
-     * @warning Returned pointers are *only* valid within the scope of passed acentries
-     */
-    TxItems OrderedTxItems(std::list<CAccountingEntry>& acentries, const std::string& strAccount = "",const std::string& address="*", bool includeFilteredVin = false);
-
-    MapTxWithInputs OrderedTxWithInputsMap(const std::string& address) const;
+//    MapTxWithInputs OrderedTxWithInputsMap(const std::string& address) const;
 
     void MarkDirty();
     bool UpdateNullifierNoteMap();
@@ -1097,6 +1100,7 @@ public:
         const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
         CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
         std::string& strFailReason, bool sign = true);
+    bool AddAccountingEntry(const CAccountingEntry&, CWalletDB & pwalletdb);
 
     static CFeeRate minTxFee;
     static CAmount GetMinimumFee(unsigned int nTxBytes, unsigned int nConfirmTarget, const CTxMemPool& pool);

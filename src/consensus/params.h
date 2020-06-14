@@ -36,7 +36,7 @@ struct Params {
      */
     int SubsidySlowStartShift() const { return nSubsidySlowStartInterval / 2; }
     int nSubsidyHalvingInterval;
-    int GetLastCommunityRewardBlockHeight() const {
+    int _deprecatedGetLastCommunityRewardBlockHeight() const {
         return nSubsidyHalvingInterval + SubsidySlowStartShift() - 1;
     }
     /** Used to check majorities for block version upgrade */

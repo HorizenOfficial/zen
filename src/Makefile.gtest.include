@@ -13,8 +13,9 @@ zen_gtest_SOURCES = \
 	gtest/json_test_vectors.h \
 	gtest/libzendoo_test_files.h \
 	gtest/test_foundersreward.cpp \
-        gtest/test_forkmanager.cpp \
-        gtest/test_checkblockdelay.cpp
+ 	gtest/test_forkmanager.cpp \
+  	gtest/test_checkblockdelay.cpp
+
 # These tests are order-dependent, because they
 # depend on global state (see #1539)
 if ENABLE_WALLET
@@ -23,11 +24,13 @@ zen_gtest_SOURCES += \
 endif
 zen_gtest_SOURCES += \
 	gtest/test_tautology.cpp \
+	gtest/test_checkblock.cpp \
 	gtest/test_deprecation.cpp \
 	gtest/test_equihash.cpp \
 	gtest/test_httprpc.cpp \
 	gtest/test_joinsplit.cpp \
 	gtest/test_keystore.cpp \
+	gtest/test_libzcash_utils.cpp \	
 	gtest/test_noteencryption.cpp \
 	gtest/test_mempool.cpp \
 	gtest/test_merkletree.cpp \
@@ -37,14 +40,13 @@ zen_gtest_SOURCES += \
 	gtest/test_random.cpp \
 	gtest/test_rpc.cpp \
 	gtest/test_getblocktemplate.cpp \
+	gtest/test_timedata.cpp \
 	gtest/test_transaction.cpp \
+	gtest/test_txid.cpp \
 	gtest/test_validation.cpp \
 	gtest/test_circuit.cpp \
-	gtest/test_txid.cpp \
-	gtest/test_libzcash_utils.cpp \
 	gtest/test_proofs.cpp \
 	gtest/test_paymentdisclosure.cpp \
-	gtest/test_checkblock.cpp       \
 	gtest/test_relayforks.cpp	\
 	gtest/test_sidechain.cpp	\
 	gtest/test_sidechain_to_mempool.cpp \
@@ -53,7 +55,8 @@ zen_gtest_SOURCES += \
 
 if ENABLE_WALLET
 zen_gtest_SOURCES += \
-	wallet/gtest/test_wallet.cpp
+	wallet/gtest/test_wallet.cpp \
+	wallet/gtest/test_deadlock.cpp
 endif
 
 # zen_gtest_CPPFLAGS = $(AM_CPPFLAGS) -DMULTICORE -fopenmp -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DSTATIC -DBITCOIN_TX $(BITCOIN_INCLUDES)

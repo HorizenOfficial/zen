@@ -1,12 +1,12 @@
 #ifndef _SIDECHAINFORK_H
 #define _SIDECHAINFORK_H
 
-#include "fork5_shieldfork.h"
+#include "fork6_timeblockfork.h"
 #include "primitives/block.h"
 
 namespace zen {
 
-class SidechainFork : public ShieldFork
+class SidechainFork : public TimeBlockFork
 {
 public:
     SidechainFork();

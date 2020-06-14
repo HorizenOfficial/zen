@@ -103,7 +103,14 @@ public:
 
 void UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
-    pblock->nTime = std::max(pindexPrev->GetMedianTimePast()+1, GetAdjustedTime());
+   auto medianTimePast = pindexPrev->GetMedianTimePast();
+   auto nTime = std::max(medianTimePast + 1, GetTime());
+
+   if ( ForkManager::getInstance().isFutureMiningTimeStampActive(pindexPrev->nHeight))  {
+	   nTime = std::min(nTime, medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP);
+   }
+   pblock->nTime = nTime;
+
 }
 
 bool VerifyForwardTransfersDependencies(const CTransaction& tx, const CCoinsViewCache& view, list<COrphan>& vOrphan, map<uint256, vector<COrphan*> >& mapDependers, COrphan*& porphan)
@@ -480,7 +487,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         LOCK2(cs_main, mempool.cs);
         CBlockIndex* pindexPrev = chainActive.Tip();
         const int nHeight = pindexPrev->nHeight + 1;
-        pblock->nTime = GetAdjustedTime();
+        pblock->nTime = GetTime();
         const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();
 
         pblock->nVersion = ForkManager::getInstance().getNewBlockVersion(nHeight);

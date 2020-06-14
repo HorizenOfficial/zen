@@ -14,6 +14,7 @@
 #include "util.h"
 #include "utilmoneystr.h"
 #include "version.h"
+#include "validationinterface.h"
 #include "main.h"
 #include <undo.h>
 
@@ -141,6 +142,9 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     mapTx[hash] = entry;
     const CTransaction& tx = mapTx[hash].GetTx();
 
+    mapRecentlyAddedTxBase[tx.GetHash()] = &tx;
+    nRecentlyAddedSequence += 1;
+
     for (unsigned int i = 0; i < tx.GetVin().size(); i++)
         mapNextTx[tx.GetVin()[i].prevout] = CInPoint(&tx, i);
 
@@ -175,6 +179,9 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     LOCK(cs);
     mapCertificate[hash] = entry;
     const CScCertificate& cert = mapCertificate[hash].GetCertificate();
+
+    mapRecentlyAddedTxBase[cert.GetHash()] = &cert;
+    nRecentlyAddedSequence += 1;
 
     for (unsigned int i = 0; i < cert.GetVin().size(); i++)
         mapNextTx[cert.GetVin()[i].prevout] = CInPoint(&cert, i);
@@ -255,6 +262,8 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                     }
                 }
  
+                mapRecentlyAddedTxBase.erase(hash);
+
                 BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
                     mapNextTx.erase(txin.prevout);
                 BOOST_FOREACH(const JSDescription& joinsplit, tx.GetVjoinsplit()) {
@@ -309,6 +318,8 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                     }
                 }
  
+                mapRecentlyAddedTxBase.erase(hash);
+
                 BOOST_FOREACH(const CTxIn& txin, cert.GetVin())
                     mapNextTx.erase(txin.prevout);
  
@@ -952,6 +963,60 @@ bool CTxMemPool::HasNoInputsOf(const CTransaction &tx) const
             return false;
     return true;
 
+}
+
+void CTxMemPool::NotifyRecentlyAdded()
+{
+    uint64_t recentlyAddedSequence;
+    std::vector<const CTransactionBase*> vTxBase;
+    {
+        LOCK(cs);
+        recentlyAddedSequence = nRecentlyAddedSequence;
+        for (const auto& kv : mapRecentlyAddedTxBase) {
+            vTxBase.push_back(kv.second);
+        }
+        mapRecentlyAddedTxBase.clear();
+    }
+
+    // A race condition can occur here between these SyncWithWallets calls, and
+    // the ones triggered by block logic (in ConnectTip and DisconnectTip). It
+    // is harmless because calling SyncWithWallets(_, NULL) does not alter the
+    // wallet transaction's block information.
+    for (auto txBase : vTxBase) {
+        try {
+            if (txBase->IsCertificate())
+            {
+                LogPrint("mempool", "%s():%d - sync with wallet cert[%s]\n", __func__, __LINE__, txBase->GetHash().ToString());
+                SyncWithWallets( dynamic_cast<const CScCertificate&>(*txBase), NULL);
+            }
+            else
+            {
+                LogPrint("mempool", "%s():%d - sync with wallet tx[%s]\n", __func__, __LINE__, txBase->GetHash().ToString());
+                SyncWithWallets( dynamic_cast<const CTransaction&>(*txBase), NULL);
+            }
+        } catch (const boost::thread_interrupted&) {
+            LogPrintf("%s():%d - thread interrupted exception\n", __func__, __LINE__);
+            throw;
+        } catch (const std::exception& e) {
+            // this also catches bad_cast
+            PrintExceptionContinue(&e, "CTxMemPool::NotifyRecentlyAdded()");
+        } catch (...) {
+            PrintExceptionContinue(NULL, "CTxMemPool::NotifyRecentlyAdded()");
+        }
+    }
+
+    // Update the notified sequence number. We only need this in regtest mode,
+    // and should not lock on cs after calling SyncWithWallets otherwise.
+    if (Params().NetworkIDString() == "regtest") {
+        LOCK(cs);
+        nNotifiedSequence = recentlyAddedSequence;
+    }
+}
+
+bool CTxMemPool::IsFullyNotified() {
+    assert(Params().NetworkIDString() == "regtest");
+    LOCK(cs);
+    return nRecentlyAddedSequence == nNotifiedSequence;
 }
 
 CCoinsViewMemPool::CCoinsViewMemPool(CCoinsView *baseIn, CTxMemPool &mempoolIn) : CCoinsViewBacked(baseIn), mempool(mempoolIn) { }

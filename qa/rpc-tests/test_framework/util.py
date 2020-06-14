@@ -65,7 +65,7 @@ def sync_blocks(rpc_connections, wait=1, p=False, limit_loop=0):
 def sync_mempools(rpc_connections, wait=1):
     """
     Wait until everybody has the same transactions in their memory
-    pools
+    pools, and has notified all internal listeners of them
     """
     while True:
         pool = set(rpc_connections[0].getrawmempool())
@@ -76,6 +76,15 @@ def sync_mempools(rpc_connections, wait=1):
         if num_match == len(rpc_connections):
             break
         time.sleep(wait)
+
+    # Now that the mempools are in sync, wait for the internal
+    # notifications to finish
+    while True:
+        notified = [ x.getmempoolinfo()['fullyNotified'] for x in rpc_connections ]
+        if notified == [ True ] * len(notified):
+            break
+        time.sleep(wait)
+
 
 bitcoind_processes = {}
 
@@ -107,13 +116,17 @@ def initialize_chain(test_dir):
     4 wallets.
     zend and zen-cli must be in search path.
     """
-
+    if os.path.isdir(os.path.join("cache", "node0")):
+        if os.stat("cache").st_mtime + (60 * 60) < time.time():
+            print("initialize_chain(): Removing stale cache")
+            shutil.rmtree("cache")
+            
     if not os.path.isdir(os.path.join("cache", "node0")):
         devnull = open("/dev/null", "w+")
         # Create cache directories, run bitcoinds:
         for i in range(4):
             datadir=initialize_datadir("cache", i)
-            args = [ os.getenv("BITCOIND", "zend"), "-keypool=1", "-datadir="+datadir, "-discover=0" ]
+            args = [ os.getenv("BITCOIND", "zend"), "-keypool=1", "-datadir="+datadir, "-discover=0", "-rpcservertimeout=600" ]
             if i > 0:
                 args.append("-connect=127.0.0.1:"+str(p2p_port(0)))
             bitcoind_processes[i] = subprocess.Popen(args)
@@ -137,16 +150,20 @@ def initialize_chain(test_dir):
         # gets 25 mature blocks and 25 immature.
         # blocks are created with timestamps 10 minutes apart, starting
         # at Fri, 12 May 2017 00:15:50 GMT (genesis block time)
-        block_time = 1494548150
+        # block_time = 1494548150
+        block_time = int(time.time()) - (200 * 150) # 200 is number of blocks and 150 is blocktime target spacing 150 / 60 = 2.5 min
         for i in range(2):
             for peer in range(4):
                 for j in range(25):
                     set_node_times(rpcs, block_time)
                     rpcs[peer].generate(1)
-                    block_time += 10*60
+                    # block_time += 10*60 # this was BTC target spacing ??
+                    block_time += 150   # ZEN blocktime target spacing
                 # Must sync before next peer starts generating blocks
                 sync_blocks(rpcs)
-
+        # Check that local time isn't going backwards                
+        assert_greater_than(time.time() + 1, block_time)
+                
         # Shut them down, and clean up cache directories:
         stop_nodes(rpcs)
         wait_bitcoinds()
@@ -198,7 +215,7 @@ def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=
     datadir = os.path.join(dirname, "node"+str(i))
     if binary is None:
         binary = os.getenv("BITCOIND", "zend")
-    args = [ binary, "-datadir="+datadir, "-keypool=1", "-discover=0", "-rest" ]
+    args = [ binary, "-datadir="+datadir, "-keypool=1", "-discover=0", "-rest", "-rpcservertimeout=600" ]
     if extra_args is not None: args.extend(extra_args)
     bitcoind_processes[i] = subprocess.Popen(args)
     devnull = open("/dev/null", "w+")

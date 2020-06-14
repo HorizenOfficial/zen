@@ -30,6 +30,7 @@ public:
         SUPERNODE,
         ENDTYPE
     };
+
     /**
      * @brief ~Fork public destructor
      */
@@ -112,6 +113,16 @@ public:
      * @brief returns true if the nVersion is valid at input block height
      */
     virtual bool isValidBlockVersion(int nVersion) const = 0;
+
+    /**
+	 * @brief returns true or false if the miner has to use MAX_FUTURE_BLOCK_TIME_MTP
+	 */
+	virtual bool isFutureMiningTimeStampActive() const=0;
+
+    /**
+	 * @brief returns true or false if the contextualcheckblockheader uses the MAX_FUTURE_BLOCK_TIME_MTP check block time
+	 */
+	virtual bool isFutureTimeStampActive(int height, CBaseChainParams::Network network) const=0;
 
 protected:
     

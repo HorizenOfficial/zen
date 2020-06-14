@@ -100,6 +100,17 @@ public:
 	 */
     bool isValidBlockVersion(int height, int nVersion) const;
 
+    /**
+	 * @brief
+	 */
+	bool isFutureMiningTimeStampActive(int height) const;
+
+    /**
+	 * @brief
+	 */
+	bool isFutureTimeStampActive(int height) const;
+
+
 private:
     
     /**

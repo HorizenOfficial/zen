@@ -2,6 +2,7 @@
 #define ORIGINALFORK_H
 
 #include "fork.h"
+#include "chain.h"
 
 namespace zen {
 
@@ -78,6 +79,15 @@ public:
      */
     inline virtual bool isValidBlockVersion(int nVersion) const { return (nVersion >= BLOCK_VERSION_ORIGINAL); }
 
+    /**
+	 * @brief returns true if the miner has to use MAX_FUTURE_BLOCK_TIME_MTP
+	 */
+    inline virtual bool isFutureMiningTimeStampActive() const { return false; }
+
+    /**
+     * @brief returns true if the contextualcheckblockheader uses the MAX_FUTURE_BLOCK_TIME_MTP check blocktime,
+     */
+    inline virtual bool isFutureTimeStampActive(int height, CBaseChainParams::Network network) const { return false; }
 };
 
 }

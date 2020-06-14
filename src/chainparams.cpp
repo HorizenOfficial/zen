@@ -99,11 +99,11 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.push_back(CDNSSeedData("horizen.global", "dnsseed.horizen.global"));
-        vSeeds.push_back(CDNSSeedData("zenseed.network", "dnsseed.zenseed.network"));
-        vSeeds.push_back(CDNSSeedData("zenchain.info", "node1.zenchain.info"));
-        vSeeds.push_back(CDNSSeedData("zenseed.network", "mainnet.zenseed.network"));
-        vSeeds.push_back(CDNSSeedData("horizen.global", "mainnet.horizen.global"));
+        vSeeds.push_back(CDNSSeedData("dnsseed.horizen.global", "dnsseed.horizen.global")); // dns seeder
+        vSeeds.push_back(CDNSSeedData("dnsseed.zensystem.io", "dnsseed.zensystem.io")); // dns seeder
+        vSeeds.push_back(CDNSSeedData("mainnet.horizen.global", "mainnet.horizen.global")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("mainnet.zensytem.io", "mainnet.zensystem.io")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("node1.zenchain.info", "node1.zenchain.info")); // fixed seed
 
         // guarantees the first 2 characters, when base58 encoded, are "zn"
         // guarantees the first 2 characters, when base58 encoded, are "t1"
@@ -146,11 +146,14 @@ public:
             ( 294072, uint256S("0x000000005f9ceecc87d9e5eaab2cf548c787231829ad6f609975fadd10fff5be"))
             ( 429014, uint256S("0x000000000dc4f58375d9fa6dc4cb1bfc4b0afefbf4f7e1ee2cc755d6ca3b40b0"))
             ( 491000, uint256S("0x0000000018d0b189de58bcd8ff5048d2e4d1c652b98912ff002c8f07c6f81b8c"))
-            ( 543000, uint256S("0x00000000111469e247ecb152e57c371147775b56173260950075dcb471614fed")),
-            1561970026,     // * UNIX timestamp of last checkpoint block
-            8879326,        // * total number of transactions between genesis and last checkpoint
+            ( 543000, uint256S("0x00000000111469e247ecb152e57c371147775b56173260950075dcb471614fed"))
+            ( 596000, uint256S("0x000000000656846513b2d3faf3a70f59dc22fffcb8e14401ec5a17eec8994410"))
+            ( 671000, uint256S("0x00000000097174dacaf850075917d1a24145fce88a800881ece709bb8f8746cf"))
+            ( 724100, uint256S("0x000000000ab34fd9c61be9f10a11a97f63a0f26c8f530e67a6397fb9934709dc")),
+            1589319810,     // * UNIX timestamp of last checkpoint block
+            14588555,       // * total number of transactions between genesis and last checkpoint
                             //   (the tx=... number in the SetBestChain debug.log lines)
-            9418            // * estimated number of transactions per day after checkpoint
+            11604           // * estimated number of transactions per day after checkpoint
                             //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
@@ -194,11 +197,11 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-
-        vSeeds.push_back(CDNSSeedData("horizen.global", "dnsseed.testnet.horizen.global"));
-        vSeeds.push_back(CDNSSeedData("blockoperations.com", "zpool2.blockoperations.com"));
-        vSeeds.push_back(CDNSSeedData("scottrockcafe.com", "node.scottrockcafe.com"));
-        vSeeds.push_back(CDNSSeedData("horizen.global", "testnet.horizen.global"));
+        vSeeds.push_back(CDNSSeedData("dnsseed.testnet.horizen.global", "dnsseed.testnet.horizen.global")); // dns seeder
+        vSeeds.push_back(CDNSSeedData("dnsseed.testnet.zensystem.io", "dnsseed.testnet.zensystem.io")); // dns seeder
+        vSeeds.push_back(CDNSSeedData("testnet.horizen.global", "testnet.horizen.global")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("tesntet.zensytem.io", "tesntet.zensystem.io")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("node1.zenchain.info", "node1.zenchain.info")); // fixed seed
 
         // guarantees the first 2 characters, when base58 encoded, are "zt"
         // guarantees the first 2 characters, when base58 encoded, are "tm"
@@ -239,11 +242,14 @@ public:
             (38000, uint256S("0x001e9a2d2e2892b88e9998cf7b079b41d59dd085423a921fe8386cecc42287b8"))
             (362210, uint256S("0x00023d5c074a7c2ccf130dac34b2b6f77e3c4466cfed0b72c3f3715157c92949"))
             (423000, uint256S("0x000d04b28067fe99445961f795ee7436f1dbbffc3a045f6890868e605209d170"))
-            (467550, uint256S("0x0007f73f339ea99e920e83da38d7537ce7d0028d48e709c88b1b89adf521b4f9")),
-            1561953209,     // * UNIX timestamp of last checkpoint block
-            981759,         // * total number of transactions between genesis and last checkpoint
+            (467550, uint256S("0x0007f73f339ea99e920e83da38d7537ce7d0028d48e709c88b1b89adf521b4f9"))
+            (520000, uint256S("0x00052e65426a0ffbb90893208a6c89a82816abbed328fa2be5a647828609e61a"))
+            (595000, uint256S("0x0000da85ddc79fdd297e996d6b6b887fc5b345619b7a6726c496941dcf830966"))
+            (643000, uint256S("0x0000cabf39e3ac435d54b95c32e6173d6bb1b060066ecb7453d2146a0dd40947")),
+            1589272118,     // * UNIX timestamp of last checkpoint block
+            1325872,        // * total number of transactions between genesis and last checkpoint
                             //   (the tx=... number in the SetBestChain debug.log lines)
-            1209            //   total number of tx / (checkpoint block height / (24 * 24))
+            1187            //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
 //  commented out - seems to make no sense but kept around for reference just in case
@@ -368,8 +374,7 @@ bool SelectParamsFromCommandLine()
 // Block height must be >0 and <=last CF reward block height (note that after hfCommunityFundHeight hard fork CF reward is permanent)
 // Index variable i ranges from 0 - (vCommunityFundAddress.size()-1)
 std::string CChainParams::GetCommunityFundAddressAtHeight(int nHeight , Fork::CommunityFundType cfType) const {
-
-    return ForkManager::getInstance().getCommunityFundAddress(nHeight,consensus.GetLastCommunityRewardBlockHeight(), cfType);
+    return ForkManager::getInstance().getCommunityFundAddress(nHeight,consensus._deprecatedGetLastCommunityRewardBlockHeight(), cfType);
 }
 
 // The community fund address is expected to be a multisig (P2SH) address

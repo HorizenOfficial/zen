@@ -183,7 +183,7 @@ bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey)
 
 bool CWallet::AddCryptedKey(const CPubKey &vchPubKey,
                             const vector<unsigned char> &vchCryptedSecret)
-{ 
+{
     if (!CCryptoKeyStore::AddCryptedKey(vchPubKey, vchCryptedSecret))
         return false;
     if (!fFileBacked)
@@ -425,6 +425,7 @@ void CWallet::ChainTip(const CBlockIndex *pindex, const CBlock *pblock,
 
 void CWallet::SetBestChain(const CBlockLocator& loc)
 {
+    LOCK(cs_wallet);
     CWalletDB walletdb(strWalletFile);
     SetBestChainINTERNAL(walletdb, loc);
 }
@@ -521,7 +522,7 @@ bool CWallet::Verify(const string& walletFile, string& warningString, string& er
             LogPrintf("Moved old %s to %s. Retrying.\n", pathDatabase.string(), pathDatabaseBak.string());
         } catch (const boost::filesystem::filesystem_error&) {
             // failure is ok (well, not really, but it's not worse than what we started with)
-        }      
+        }
         // try again
         if (!bitdb.Open(GetDataDir())) {
             // if it still fails, it probably means we can't even create the database env
@@ -529,13 +530,13 @@ bool CWallet::Verify(const string& walletFile, string& warningString, string& er
             errorString += msg;
             return true;
         }
-    }   
+    }
     if (GetBoolArg("-salvagewallet", false))
     {
         // Recover readable keypairs:
         if (!CWalletDB::Recover(bitdb, walletFile, true))
             return false;
-    }  
+    }
     if (boost::filesystem::exists(GetDataDir() / walletFile))
     {
         CDBEnv::VerifyResult r = bitdb.Verify(walletFile, CWalletDB::Recover);
@@ -548,7 +549,7 @@ bool CWallet::Verify(const string& walletFile, string& warningString, string& er
         }
         if (r == CDBEnv::RECOVER_FAIL)
             errorString += _("wallet.dat corrupt, salvage failed");
-    } 
+    }
     return true;
 }
 
@@ -966,59 +967,7 @@ int64_t CWallet::IncOrderPosNext(CWalletDB *pwalletdb)
     return nRet;
 }
 
-TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries, const std::string& strAccount,const std::string& address, bool includeFilteredVin)
-{
-    AssertLockHeld(cs_wallet); // mapWallet
-    CWalletDB walletdb(strWalletFile);
-
-    CScript scriptPubKey;
-    bool noFilter=address==std::string("*");
-    if(!noFilter) {
-         CBitcoinAddress baddress = CBitcoinAddress(address);
-         scriptPubKey = GetScriptForDestination(baddress.Get(), false);
-    }
-
-    // First: get all CWalletTx and CAccountingEntry into a sorted-by-order multimap.
-    TxItems txOrdered;
-
-    // Note: maintaining indices in the database of (account,time) --> txid and (account, time) --> acentry
-    // would make this much faster for applications that do this a lot.
-    for (MAP_WALLET_CONST_IT it = mapWallet.begin(); it != mapWallet.end(); ++it)
-    {
-        CWalletTransactionBase* wtx = it->second.get();
-        if(noFilter)
-            txOrdered.insert(make_pair(wtx->nOrderPos, TxPair(wtx, (CAccountingEntry*)0)));
-        else
-        {
-            // search in the tx outputs
-            bool outputFound = false;
-
-            for(const CTxOut& txout : wtx->getTxBase()->GetVout()) {
-                auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
-                if (res == txout.scriptPubKey.begin()) {
-                    txOrdered.insert(make_pair(wtx->nOrderPos, TxPair(wtx, (CAccountingEntry*)0)));
-                    outputFound = true;
-                    break;
-                }
-            }
-
-            if (includeFilteredVin && !wtx->getTxBase()->IsCoinBase() && !outputFound)
-            {
-                wtx->addOrderedInputTx(txOrdered, scriptPubKey);
-            }
-        }
-    }
-
-    acentries.clear();
-    walletdb.ListAccountCreditDebit(strAccount, acentries);
-    BOOST_FOREACH(CAccountingEntry& entry, acentries)
-    {
-        txOrdered.insert(make_pair(entry.nOrderPos, TxPair((CWalletTx*)0, &entry)));
-    }
-
-    return txOrdered;
-}
-
+#if 0
 MapTxWithInputs CWallet::OrderedTxWithInputsMap(const std::string& address) const
 {
     AssertLockHeld(cs_wallet);
@@ -1080,6 +1029,7 @@ MapTxWithInputs CWallet::OrderedTxWithInputsMap(const std::string& address) cons
 
     return mOrderedTxes;
 }
+#endif
 
 void CWallet::MarkDirty()
 {
@@ -1154,7 +1104,9 @@ bool CWallet::AddToWallet(const CWalletTransactionBase& wtxIn, bool fFromLoadWal
     if (fFromLoadWallet)
     {
         mapWallet[hash] = wtxIn.MakeWalletMapObject();
-        mapWallet[hash]->BindWallet(this);
+        CWalletTransactionBase& wtx = *mapWallet[hash];
+        wtx.BindWallet(this);
+        wtxOrdered.insert(make_pair(wtx.nOrderPos, TxPair(&wtx, (CAccountingEntry*)0)));
         UpdateNullifierNoteMapWithTx(*(mapWallet[hash]));
         AddToSpends(hash);
     }
@@ -1170,8 +1122,9 @@ bool CWallet::AddToWallet(const CWalletTransactionBase& wtxIn, bool fFromLoadWal
         bool fInsertedNew = ret.second;
         if (fInsertedNew)
         {
-            wtx.nTimeReceived = GetAdjustedTime();
+            wtx.nTimeReceived = GetTime();
             wtx.nOrderPos = IncOrderPosNext(pwalletdb);
+            wtxOrdered.insert(make_pair(wtx.nOrderPos, TxPair(&wtx, (CAccountingEntry*)0)));
 
             wtx.nTimeSmart = wtx.nTimeReceived;
             if (!wtxIn.hashBlock.IsNull())
@@ -1183,9 +1136,8 @@ bool CWallet::AddToWallet(const CWalletTransactionBase& wtxIn, bool fFromLoadWal
                     {
                         // Tolerate times up to the last timestamp in the wallet not more than 5 minutes into the future
                         int64_t latestTolerated = latestNow + 300;
-                        std::list<CAccountingEntry> acentries;
-                        TxItems txOrdered = OrderedTxItems(acentries);
-                        for (TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
+                        const TxItems & txOrdered = wtxOrdered;
+                        for (TxItems::const_reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
                         {
                             CWalletTransactionBase *const pwtx = (*it).second.first;
                             if (pwtx == &wtx)
@@ -1296,6 +1248,13 @@ bool CWallet::UpdatedNoteData(const CWalletTransactionBase& wtxIn, CWalletTransa
  * Add a transaction to the wallet, or update it.
  * pblock is optional, but should be provided if the transaction is known to be in a block.
  * If fUpdate is true, existing transactions will be updated.
+ *
+ * If pblock is null, this transaction has either recently entered the mempool from the
+ * network, is re-entering the mempool after a block was disconnected, or is exiting the
+ * mempool because it conflicts with another transaction. In all these cases, if there is
+ * an existing wallet transaction, the wallet transaction's Merkle branch data is _not_
+ * updated; instead, the transaction being in the mempool or conflicted is determined on
+ * the fly in CMerkleTx::GetDepthInMainChain().
  */
 bool CWallet::AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, bool fUpdate)
 {
@@ -1338,7 +1297,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock
 
 void CWallet::SyncTransaction(const CTransaction& tx, const CBlock* pblock)
 {
-    LOCK2(cs_main, cs_wallet);
+    LOCK(cs_wallet);
     if (!AddToWalletIfInvolvingMe(tx, pblock, true))
         return; // Not one of ours
 
@@ -1688,7 +1647,7 @@ int CWalletTx::GetIndexInBlock(const CBlock& block)
 
     if (nIndex == (int)block.vtx.size())
     {
-        LogPrintf("ERROR: SetMerkleBranch(): couldn't find cert in block\n");
+        LogPrintf("ERROR: %s(): couldn't find tx in block\n", __func__);
         return -1;
     }
     return nIndex;
@@ -2040,7 +1999,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
 
         // no need to read and scan block, if block was created before
         // our wallet birthday (as adjusted for block time variability)
-        while (pindex && nTimeFirstKey && (pindex->GetBlockTime() < (nTimeFirstKey - 7200)))
+        while (pindex && nTimeFirstKey && (pindex->GetBlockTime() < (nTimeFirstKey - TIMESTAMP_WINDOW)))
             pindex = chainActive.Next(pindex);
 
         ShowProgress(_("Rescanning..."), 0); // show rescan progress in GUI as dialog or on splashscreen, if -rescan on startup
@@ -3448,6 +3407,18 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
     return true;
 }
 
+bool CWallet::AddAccountingEntry(const CAccountingEntry& acentry, CWalletDB & pwalletdb)
+{
+    if (!pwalletdb.WriteAccountingEntry_Backend(acentry))
+        return false;
+
+    laccentries.push_back(acentry);
+    CAccountingEntry & entry = laccentries.back();
+    wtxOrdered.insert(make_pair(entry.nOrderPos, TxPair((CWalletTxBase*)0, &entry)));
+
+    return true;
+}
+
 CAmount CWallet::GetMinimumFee(unsigned int nTxBytes, unsigned int nConfirmTarget, const CTxMemPool& pool)
 {
     // payTxFee is user-set "I want to pay this much"
@@ -4053,7 +4024,7 @@ void CWallet::GetKeyBirthTimes(std::map<CKeyID, int64_t> &mapKeyBirth) const {
 
     // Extract block timestamps for those keys
     for (std::map<CKeyID, CBlockIndex*>::const_iterator it = mapKeyFirstBlock.begin(); it != mapKeyFirstBlock.end(); it++)
-        mapKeyBirth[it->first] = it->second->GetBlockTime() - 7200; // block times can be 2h off
+        mapKeyBirth[it->first] = it->second->GetBlockTime() - TIMESTAMP_WINDOW; // block times can be 2h off
 }
 
 bool CWallet::AddDestData(const CTxDestination &dest, const std::string &key, const std::string &value)
@@ -4315,10 +4286,8 @@ void CWalletTransactionBase::addInputTx(std::pair<int64_t, TxWithInputsPair>& en
 }
 
 
-int CWalletTransactionBase::SetMerkleBranch(const CBlock& block)
+void CWalletTransactionBase::SetMerkleBranch(const CBlock& block)
 {
-    AssertLockHeld(cs_main);
-
     // Update the tx's hashBlock
     hashBlock = block.GetHash();
 
@@ -4327,22 +4296,12 @@ int CWalletTransactionBase::SetMerkleBranch(const CBlock& block)
     if (nIndex == -1)
     {
         vMerkleBranch.clear();
-        return 0;
+        LogPrintf("ERROR: %s(): couldn't find tx in block\n", __func__);
+        return;
     }
 
     // Fill in merkle branch
     vMerkleBranch = block.GetMerkleBranch(nIndex);
-
-    // Is the obj in a block that's in the main chain
-    BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
-    if (mi == mapBlockIndex.end())
-        return 0;
-
-    const CBlockIndex* pindex = (*mi).second;
-    if (!pindex || !chainActive.Contains(pindex))
-        return 0;
-
-    return chainActive.Height() - pindex->nHeight + 1;
 }
 
 int CWalletCert::GetIndexInBlock(const CBlock& block)
@@ -4354,7 +4313,7 @@ int CWalletCert::GetIndexInBlock(const CBlock& block)
 
     if (nIndex == (int)block.vcert.size())
     {
-        LogPrintf("ERROR: SetMerkleBranch(): couldn't find cert in block\n");
+        LogPrintf("ERROR: %s(): couldn't find tx in block\n", __func__);
         return -1;
     }
 
