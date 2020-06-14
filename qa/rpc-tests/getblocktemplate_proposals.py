@@ -282,7 +282,11 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         # Test 10: Bad timestamps
         realtime = tmpl['curtime']
         tmpl['curtime'] = 0x7fffffff
-        assert_template(node, tmpl, txlist, certlist, 'time-too-new')
+        if len(certlist) == 0:
+            assert_template(node, tmpl, txlist, certlist, 'time-too-new')
+        else:
+            # if we reached sc fork we also have passed timeblock fork and the error changes
+            assert_template(node, tmpl, txlist, certlist, 'time-too-far-ahead-of-mtp')
         tmpl['curtime'] = 0
         assert_template(node, tmpl, txlist, certlist, 'time-too-old')
         tmpl['curtime'] = realtime
