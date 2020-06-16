@@ -11,19 +11,23 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, connect_nodes_bi
+    start_nodes, connect_nodes_bi, assert_true
+from test_framework.mc_test.mc_test import *
 
 from decimal import Decimal
+
+NUMB_OF_NODES=3
 
 # Create one-input, one-output, no-fee transaction:
 class RawTransactionsTest(BitcoinTestFramework):
 
     def setup_chain(self):
         print("Initializing test directory "+self.options.tmpdir)
-        initialize_chain_clean(self.options.tmpdir, 3)
+        initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 
     def setup_network(self, split=False):
-        self.nodes = start_nodes(3, self.options.tmpdir)
+        self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
+                                 extra_args=[["-sccoinsmaturity=0", '-logtimemicros=1', '-debug=sc', '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench']] * NUMB_OF_NODES )
 
         #connect to a local machine for debugging
         #url = "http://bitcoinrpc:DP6DvqZtqXarpeNWyN3LZTFchCCyCUuHwNF7E8pX99x1@%s:%d" % ('127.0.0.1', 18232)
@@ -37,6 +41,15 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         self.is_network_split=False
         self.sync_all()
+
+    def print_data(self,index):
+        print("////////////////////")
+        walletinfo=self.nodes[index].getwalletinfo()
+        print("Nodo: ",index, " Wallet-balance: ",walletinfo['balance'])
+        print("Nodo: ",index, " Wallet-immature_balance: ",walletinfo['immature_balance'])
+        print("Nodo: ",index, " z_total_balance: ",self.nodes[index].z_gettotalbalance())
+
+    print("////////////////////")
 
     def run_test(self):
 
@@ -91,9 +104,6 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
         assert_equal(self.nodes[2].getbalance(), bal+Decimal('1.20000000')) #node2 has both keys of the 2of2 ms addr., tx should affect the balance
 
-
-
-
         # 2of3 test from different nodes
         bal = self.nodes[2].getbalance()
         addr1 = self.nodes[1].getnewaddress()
@@ -139,11 +149,130 @@ class RawTransactionsTest(BitcoinTestFramework):
         rawTxSigned = self.nodes[2].signrawtransaction(rawTx, inputs)
         assert_equal(rawTxSigned['complete'], True) # node2 can sign the tx compl., own two of three keys
         self.nodes[2].sendrawtransaction(rawTxSigned['hex'])
-        rawTx = self.nodes[0].decoderawtransaction(rawTxSigned['hex'])
+        self.nodes[0].decoderawtransaction(rawTxSigned['hex'])
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
         assert_equal(self.nodes[0].getbalance(), bal+Decimal('11.4375')+Decimal('2.19900000')) #block reward + tx
+
+        #########################
+        # RAW TX CREATE SC TEST #
+        #########################
+        print("Testing the SC creation with createrawtransaction function")
+
+        print("Node 1 generate "+str(220-self.nodes[0].getblockcount()+1)+" blocks to reach height 221...")
+        #reach block height 221 needed to create a SC
+        self.nodes[1].generate(220-self.nodes[0].getblockcount()+1)
+        self.sync_all()
+
+        print("Node 1 sends 10 coins to node 0 to have a UTXO...")
+        txid=self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(),10.0)
+        self.sync_all()
+
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        sc_address="0000000000000000000000000000000000000000000000000000000000000abc"
+        sc_epoch = 123
+        sc_cr_amount = Decimal('10.00000000')
+
+        #generate wCertVk and constant
+        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk = mcTest.generate_params("sc1")
+        constant = generate_random_field_element_hex()
+
+        sc_cr = [{"epoch_length": sc_epoch, "amount":sc_cr_amount, "address":sc_address, "wCertVk": vk, "constant": constant}]
+
+        #Try create a SC with no inputs
+        print("Try create a SC with no inputs...")
+
+        rawtx=self.nodes[0].createrawtransaction([],{},sc_cr)
+        sigRawtx = self.nodes[0].signrawtransaction(rawtx)
+        try:
+            finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
+        except JSONRPCException,e:
+            errorString = e.error['message']
+        assert_equal("vin-empty" in errorString, True)
+
+        #Create a SC
+        print("Create a SC")
+
+        decodedTx=self.nodes[0].decoderawtransaction(self.nodes[0].gettransaction(txid)['hex'])
+        vout = {}
+        for outpoint in decodedTx['vout']:
+            if outpoint['value'] == sc_cr_amount:
+                vout = outpoint
+                break;
+
+        inputs = [{'txid': txid, 'vout': vout['n']}]
+        sc_ft = []
+        rawtx=self.nodes[0].createrawtransaction(inputs,{},sc_cr,sc_ft)
+        sigRawtx = self.nodes[0].signrawtransaction(rawtx)
+        finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
+
+        self.sync_all()
+
+        decoded_tx = self.nodes[1].getrawtransaction(finalRawtx, 1)
+        scid = decoded_tx['vsc_ccout'][0]['scid']
+
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        print("Verify all nodes see the new SC...")
+        scinfo0=self.nodes[0].getscinfo(scid)
+        scinfo1=self.nodes[1].getscinfo(scid)
+        scinfo2=self.nodes[2].getscinfo(scid)
+        assert_equal(scinfo0,scinfo1)
+        assert_equal(scinfo0,scinfo2)
+        print(scinfo0)
+        print(scinfo1)
+        print(scinfo2)
+
+        #Try decode the SC with decoderawtransaction function
+        print("Decode the new SC with decoderawtransaction function...")
+
+        decodedTx=self.nodes[0].decoderawtransaction(self.nodes[0].gettransaction(finalRawtx)['hex'])
+        print(decodedTx)
+
+        assert(len(decodedTx['vsc_ccout'])==1)
+        assert_equal(decodedTx['vsc_ccout'][0]['scid'],scid)
+        assert_equal(decodedTx['vsc_ccout'][0]['withdrawal epoch length'],sc_epoch)
+        assert_equal(decodedTx['vsc_ccout'][0]['wCertVk'],vk)
+        assert_equal(decodedTx['vsc_ccout'][0]['constant'],constant)
+        assert_equal(decodedTx['vsc_ccout'][0]['value'],sc_cr_amount)
+        assert_equal(decodedTx['vsc_ccout'][0]['address'],sc_address)
+
+        #Try create a FT
+        print("Try create new FT to SC just created using fund cmd")
+        inputs = []
+        sc_ft_amount = Decimal('7.00000000')
+        sc_ft = [{"address": sc_address, "amount":sc_ft_amount, "scid": scid}]
+        rawtx=self.nodes[0].createrawtransaction(inputs,{},[],sc_ft)
+        funded_tx = self.nodes[0].fundrawtransaction(rawtx)
+        sigRawtx = self.nodes[0].signrawtransaction(funded_tx['hex'])
+        finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
+
+        self.sync_all()
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        print("Verify all nodes see the new FT...")
+        scinfo0=self.nodes[0].getscinfo(scid)
+        scinfo1=self.nodes[1].getscinfo(scid)
+        scinfo2=self.nodes[2].getscinfo(scid)
+        assert_equal(scinfo0,scinfo1)
+        assert_equal(scinfo0,scinfo2)
+        print(scinfo0)
+        print(scinfo1)
+        print(scinfo2)
+
+        decodedTx=self.nodes[0].decoderawtransaction(self.nodes[0].gettransaction(finalRawtx)['hex'])
+        assert(len(decodedTx['vsc_ccout'])==0)
+        assert(len(decodedTx['vft_ccout'])==1)
+        assert_equal(decodedTx['vft_ccout'][0]['scid'],scid)
+        assert_equal(decodedTx['vft_ccout'][0]['value'],sc_ft_amount)
+        assert_equal(decodedTx['vft_ccout'][0]['address'],sc_address)
+
 
 if __name__ == '__main__':
     RawTransactionsTest().main()

@@ -52,21 +52,35 @@ CMutableTransaction GetValidTransaction(int txVersion) {
     mtx.vin[0].prevout.n = 0;
     mtx.vin[1].prevout.hash = uint256S("0000000000000000000000000000000000000000000000000000000000000002");
     mtx.vin[1].prevout.n = 0;
-    mtx.vout.resize(2);
-    // mtx.vout[0].scriptPubKey = 
-    mtx.vout[0].nValue = 0;
-    mtx.vout[1].nValue = 0;
+    mtx.addOut(CTxOut(0,CScript()));
+    mtx.addOut(CTxOut(0,CScript()));
 
-	mtx.vjoinsplit.clear();
-	mtx.vjoinsplit.push_back(JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
-	mtx.vjoinsplit.push_back(JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
+    if (txVersion == SC_TX_VERSION)
+    {     
+	    mtx.vjoinsplit.clear();
 
-    mtx.vjoinsplit[0].nullifiers.at(0) = uint256S("0000000000000000000000000000000000000000000000000000000000000000");
-    mtx.vjoinsplit[0].nullifiers.at(1) = uint256S("0000000000000000000000000000000000000000000000000000000000000001");
-    mtx.vjoinsplit[1].nullifiers.at(0) = uint256S("0000000000000000000000000000000000000000000000000000000000000002");
-    mtx.vjoinsplit[1].nullifiers.at(1) = uint256S("0000000000000000000000000000000000000000000000000000000000000003");
+        CTxScCreationOut cr_ccout;
+        cr_ccout.nValue = 1.0;
+        cr_ccout.withdrawalEpochLength = 111;
+        mtx.vsc_ccout.push_back(cr_ccout);
 
-
+        CTxForwardTransferOut ft_ccout;
+        ft_ccout.nValue = 10.0;
+        ft_ccout.scId = GetRandHash();
+        mtx.vft_ccout.push_back(ft_ccout);
+    }
+    else
+    {
+		mtx.vjoinsplit.clear();
+		mtx.vjoinsplit.push_back(JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
+		mtx.vjoinsplit.push_back(JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
+    
+        mtx.vjoinsplit[0].nullifiers.at(0) = uint256S("0000000000000000000000000000000000000000000000000000000000000000");
+        mtx.vjoinsplit[0].nullifiers.at(1) = uint256S("0000000000000000000000000000000000000000000000000000000000000001");
+        mtx.vjoinsplit[1].nullifiers.at(0) = uint256S("0000000000000000000000000000000000000000000000000000000000000002");
+        mtx.vjoinsplit[1].nullifiers.at(1) = uint256S("0000000000000000000000000000000000000000000000000000000000000003");
+    }
+    
     // Generate an ephemeral keypair.
     uint256 joinSplitPubKey;
     unsigned char joinSplitPrivKey[crypto_sign_SECRETKEYBYTES];
@@ -90,6 +104,20 @@ CMutableTransaction GetValidTransaction(int txVersion) {
                          joinSplitPrivKey
                         ) == 0);
     return mtx;
+}
+
+CMutableScCertificate GetValidCertificate() {
+    CMutableScCertificate mcert;
+	mcert.nVersion = SC_CERT_VERSION;
+
+    mcert.addOut(CTxOut(0.5,CScript()));
+    mcert.addOut(CTxOut(1,CScript()));
+
+    mcert.scId = GetRandHash();
+    mcert.epochNumber = 3;
+    mcert.endEpochBlockHash = GetRandHash();
+
+    return mcert;
 }
 
 CMutableTransaction GetValidTransaction() {
@@ -136,7 +164,7 @@ TEST(checktransaction_tests, bad_txns_vin_empty) {
 TEST(checktransaction_tests, bad_txns_vout_empty) {
     CMutableTransaction mtx = GetValidTransaction();
     mtx.vjoinsplit.resize(0);
-    mtx.vout.resize(0);
+    mtx.resizeOut(0);
 
     CTransaction tx(mtx);
 
@@ -178,7 +206,7 @@ TEST(checktransaction_tests, bad_txns_oversize) {
 
 TEST(checktransaction_tests, bad_txns_vout_negative) {
     CMutableTransaction mtx = GetValidTransaction();
-    mtx.vout[0].nValue = -1;
+    mtx.getOut(0).nValue = -1;
 
     CTransaction tx(mtx);
 
@@ -189,7 +217,7 @@ TEST(checktransaction_tests, bad_txns_vout_negative) {
 
 TEST(checktransaction_tests, bad_txns_vout_toolarge) {
     CMutableTransaction mtx = GetValidTransaction();
-    mtx.vout[0].nValue = MAX_MONEY + 1;
+    mtx.getOut(0).nValue = MAX_MONEY + 1;
 
     CTransaction tx(mtx);
 
@@ -200,8 +228,8 @@ TEST(checktransaction_tests, bad_txns_vout_toolarge) {
 
 TEST(checktransaction_tests, bad_txns_txouttotal_toolarge_outputs) {
     CMutableTransaction mtx = GetValidTransaction();
-    mtx.vout[0].nValue = MAX_MONEY;
-    mtx.vout[1].nValue = 1;
+    mtx.getOut(0).nValue = MAX_MONEY;
+    mtx.getOut(1).nValue = 1;
 
     CTransaction tx(mtx);
 
@@ -212,7 +240,7 @@ TEST(checktransaction_tests, bad_txns_txouttotal_toolarge_outputs) {
 
 TEST(checktransaction_tests, bad_txns_txouttotal_toolarge_joinsplit) {
     CMutableTransaction mtx = GetValidTransaction();
-    mtx.vout[0].nValue = 1;
+    mtx.getOut(0).nValue = 1;
     mtx.vjoinsplit[0].vpub_old = MAX_MONEY;
 
     CTransaction tx(mtx);
@@ -432,9 +460,9 @@ TEST(checktransaction_tests, TransparentTxVersionWithJoinsplit) {
 	CTransaction tx(mtx);
 	MockCValidationState state;
 	EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
-	EXPECT_TRUE(ContextualCheckTransaction(tx, state, 1, 100));
+	EXPECT_TRUE(tx.ContextualCheck(state, 1, 100));
 	EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-transparent-jsnotempty", false)).Times(1);
-	EXPECT_FALSE(ContextualCheckTransaction(tx, state, 200, 100));
+	EXPECT_FALSE(tx.ContextualCheck(state, 200, 100));
 }
 
 TEST(checktransaction_tests, GrothTxVersion) {
@@ -443,9 +471,9 @@ TEST(checktransaction_tests, GrothTxVersion) {
 	CTransaction tx(mtx);
 	MockCValidationState state;
 	EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
-	EXPECT_CALL(state, DoS(0, false, REJECT_INVALID, "bad-tx-shielded-version-too-low", false)).Times(1);
-	EXPECT_FALSE(ContextualCheckTransaction(tx, state, 1, 100));
-	EXPECT_TRUE(ContextualCheckTransaction(tx, state, 200, 100));
+	EXPECT_CALL(state, DoS(0, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
+	EXPECT_FALSE(tx.ContextualCheck(state, 1, 100));
+	EXPECT_TRUE(tx.ContextualCheck(state, 200, 100));
 }
 
 TEST(checktransaction_tests, PhgrTxVersion) {
@@ -454,9 +482,32 @@ TEST(checktransaction_tests, PhgrTxVersion) {
 	CTransaction tx(mtx);
 	MockCValidationState state;
 	EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
-	EXPECT_TRUE(ContextualCheckTransaction(tx, state, 1, 100));
-	EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-shielded-version-too-low", false)).Times(1);
-	EXPECT_FALSE(ContextualCheckTransaction(tx, state, 200, 100));
+	EXPECT_TRUE(tx.ContextualCheck(state, 1, 100));
+	EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
+	EXPECT_FALSE(tx.ContextualCheck(state, 200, 100));
+}
+
+TEST(checktransaction_tests, ScTxVersion) {
+	SelectParams(CBaseChainParams::REGTEST);
+	CMutableTransaction mtx = GetValidTransaction(SC_TX_VERSION);
+	mtx.vjoinsplit.clear();
+
+	CTransaction tx(mtx);
+	MockCValidationState state;
+	EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
+	EXPECT_TRUE(tx.ContextualCheck(state, 220, 100));
+	EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
+	EXPECT_FALSE(tx.ContextualCheck(state, 219, 100));
+}
+
+TEST(checktransaction_tests, ScCertVersion) {
+	SelectParams(CBaseChainParams::REGTEST);
+	CMutableScCertificate mcert = GetValidCertificate();
+
+	CScCertificate cert(mcert);
+	CValidationState state;
+	EXPECT_TRUE(cert.ContextualCheck(state, 220, 100));
+	EXPECT_FALSE(cert.ContextualCheck(state, 219, 100));
 }
 
 

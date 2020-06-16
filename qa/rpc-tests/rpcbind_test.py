@@ -65,7 +65,7 @@ def run_test(tmpdir):
             non_loopback_ip = ip
             break
     if non_loopback_ip is None:
-        assert(not 'This test requires at least one non-loopback IPv4 interface')
+        assert False, "This test requires at least one non-loopback IPv4 interface. Hint: is networking enabled?"
     print("Using interface %s for testing" % non_loopback_ip)
 
     defaultport = rpc_port(0)
@@ -99,7 +99,7 @@ def run_test(tmpdir):
     run_allowip_test(tmpdir, [non_loopback_ip], non_loopback_ip, defaultport)
     try:
         run_allowip_test(tmpdir, ['1.1.1.1'], non_loopback_ip, defaultport)
-        assert(not 'Connection not denied by rpcallowip as expected')
+        assert False, "Connection not denied by rpcallowip as expected"
     except ValueError:
         pass
 

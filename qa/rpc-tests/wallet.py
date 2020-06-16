@@ -217,7 +217,7 @@ class WalletTest (BitcoinTestFramework):
         #do some -walletbroadcast tests
         stop_nodes(self.nodes)
         wait_bitcoinds()
-        self.nodes = start_nodes(3, self.options.tmpdir, [["-walletbroadcast=0"],["-walletbroadcast=0"],["-walletbroadcast=0"]])
+        self.nodes = start_nodes(3, self.options.tmpdir, [["-debug=1", "-walletbroadcast=0"]]*3)
         connect_nodes_bi(self.nodes,0,1)
         connect_nodes_bi(self.nodes,1,2)
         connect_nodes_bi(self.nodes,0,2)

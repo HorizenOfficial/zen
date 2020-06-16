@@ -237,10 +237,8 @@ double benchmark_large_tx()
     // The "original" transaction that the spending transaction will spend
     // from.
     CMutableTransaction m_orig_tx;
-    m_orig_tx.vout.resize(1);
-    m_orig_tx.vout[0].nValue = 1000000;
     CScript prevPubKey = GetScriptForDestination(pub.GetID());
-    m_orig_tx.vout[0].scriptPubKey = prevPubKey;
+    m_orig_tx.addOut(CTxOut(1000000, prevPubKey));
 
     auto orig_tx = CTransaction(m_orig_tx);
 
@@ -275,7 +273,7 @@ double benchmark_large_tx()
     timer_start(tv_start);
     for (size_t i = 0; i < NUM_INPUTS; i++) {
         ScriptError serror = SCRIPT_ERR_OK;
-        assert(VerifyScript(final_spending_tx.vin[i].scriptSig,
+        assert(VerifyScript(final_spending_tx.GetVin()[i].scriptSig,
                             prevPubKey,
                             STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
                             TransactionSignatureChecker(&final_spending_tx, i, nullptr),
@@ -365,7 +363,7 @@ class FakeCoinsViewDB : public CCoinsViewDB {
 public:
     FakeCoinsViewDB(std::string dbName, uint256& hash) : CCoinsViewDB(dbName, 100, false, false), hash(hash) {}
 
-    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const {
+    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const override {
         if (rt == t.root()) {
             tree = t;
             return true;
@@ -373,15 +371,15 @@ public:
         return false;
     }
 
-    bool GetNullifier(const uint256 &nf) const {
+    bool GetNullifier(const uint256 &nf) const override {
         return false;
     }
 
-    uint256 GetBestBlock() const {
+    uint256 GetBestBlock() const override {
         return hash;
     }
 
-    uint256 GetBestAnchor() const {
+    uint256 GetBestAnchor() const override {
         return t.root();
     }
 
@@ -389,11 +387,14 @@ public:
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers) {
+                    CNullifiersMap &mapNullifiers,
+                    CSidechainsMap& mapSidechains,
+                    CSidechainEventsMap& mapSidechainEvents) override
+    {
         return false;
     }
 
-    bool GetStats(CCoinsStats &stats) const {
+    bool GetStats(CCoinsStats &stats) const override {
         return false;
     }
 };

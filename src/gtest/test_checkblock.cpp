@@ -10,6 +10,7 @@
 #include "zen/forks/fork3_communityfundandrpfixfork.h"
 #include "zen/forks/fork4_nulltransactionfork.h"
 #include "zen/forks/fork5_shieldfork.h"
+#include "zen/forks/fork7_sidechainfork.h"
 using namespace zen;
 
 class MockCValidationState : public CValidationState {
@@ -36,7 +37,7 @@ TEST(CheckBlock, VersionTooLow) {
     block.nVersion = 1;
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "version-too-low", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "version-invalid", false)).Times(1);
     EXPECT_FALSE(CheckBlock(block, state, verifier, false, false));
 }
 
@@ -50,9 +51,9 @@ TEST(CheckBlock, BlockRejectsBadVersion) {
     mtx.vin.resize(1);
     mtx.vin[0].prevout.SetNull();
     mtx.vin[0].scriptSig = CScript() << 1 << OP_0;
-    mtx.vout.resize(1);
-    mtx.vout[0].scriptPubKey = CScript() << OP_TRUE;
-    mtx.vout[0].nValue = 0;
+    mtx.resizeOut(1);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_TRUE;
+    mtx.getOut(0).nValue = 0;
 
     mtx.nVersion = -1;
 
@@ -123,9 +124,9 @@ TEST(CheckBlock, BlockRejectsNoCbh) {
     mtx_cb.vin.resize(1);
     mtx_cb.vin[0].prevout.SetNull();
     mtx_cb.vin[0].scriptSig = CScript() << 1 << OP_0;
-    mtx_cb.vout.resize(1);
-    mtx_cb.vout[0].scriptPubKey = CScript() << OP_TRUE;
-    mtx_cb.vout[0].nValue = 0;
+    mtx_cb.resizeOut(1);
+    mtx_cb.getOut(0).scriptPubKey = CScript() << OP_TRUE;
+    mtx_cb.getOut(0).nValue = 0;
 
     block.vtx.push_back(mtx_cb);
 
@@ -145,16 +146,14 @@ TEST(CheckBlock, BlockRejectsNoCbh) {
 
     //std::cout << "Script: " << scriptPubKey.ToString() << std::endl;
 
-    mtx.vout.push_back( CTxOut(0.5, scriptPubKey));
+    mtx.addOut(CTxOut(0.5, scriptPubKey));
 
     block.vtx.push_back(mtx);
 
     MockCValidationState state;
 
-    auto verifier = libzcash::ProofVerifier::Strict();
-
-    EXPECT_CALL(state, DoS(0, false, REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed", false)).Times(1);
-    EXPECT_FALSE(CheckBlock(block, state, verifier, false, false));
+    EXPECT_CALL(state, DoS(100, false, REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed", false)).Times(1);
+    EXPECT_FALSE(ContextualCheckBlock(block, state, fm->pprev));
 
     CleanUpAll();
 }
@@ -177,19 +176,16 @@ protected:
         // Set height
         mtx.vin[0].scriptSig = CScript() << height << OP_0;
 
-        mtx.vout.resize(1);
-        mtx.vout[0].scriptPubKey = CScript() << OP_TRUE;
-        mtx.vout[0].nValue = 0;
-
+        mtx.addOut(CTxOut(0, CScript() << OP_TRUE));
         CAmount reward = GetBlockSubsidy(height, Params().GetConsensus());
 
 		for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
 			CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(height, reward, cfType);
 			if (vCommunityFund > 0) {
 				// Take some reward away from miners
-				mtx.vout[0].nValue -= vCommunityFund;
+				mtx.getOut(0).nValue -= vCommunityFund;
 				// And give it to the community
-				mtx.vout.push_back(CTxOut(vCommunityFund, Params().GetCommunityFundScriptAtHeight(height, cfType)));
+				mtx.addOut(CTxOut(vCommunityFund, Params().GetCommunityFundScriptAtHeight(height, cfType)));
 			}
 		}
         return mtx;
@@ -246,9 +242,9 @@ TEST_F(ContextualCheckBlockTest, BadCoinbaseHeight) {
     mtx.vin.resize(1);
     mtx.vin[0].prevout.SetNull();
     mtx.vin[0].scriptSig = CScript() << OP_0; // missing height
-    mtx.vout.resize(1);
-    mtx.vout[0].scriptPubKey = CScript() << OP_TRUE;
-    mtx.vout[0].nValue = 0;
+    mtx.resizeOut(1);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_TRUE;
+    mtx.getOut(0).nValue = 0;
 
     CBlock block;
     block.vtx.push_back(mtx);
@@ -303,7 +299,8 @@ protected:
 	        mtx.nVersion = GROTH_TX_VERSION;
 	        {
 	            SCOPED_TRACE("BlockShieldRulesRejectGrothTx");
-	            ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1, 0, "bad-tx-shielded-version-too-low");
+//	            ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1, 0, "bad-tx-shielded-version-too-low");
+	            ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1, 0, "bad-tx-version-unexpected");
 	        }
 
 	        // Make it a PHGR transaction: since nHeight is below 200, it will succeed
@@ -323,7 +320,8 @@ protected:
 	        mtx.nVersion = PHGR_TX_VERSION;
 	        {
 	            SCOPED_TRACE("BlockShieldRulesRejectPhgrTx");
-	            ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight, 100, "bad-tx-shielded-version-too-low");
+	            //ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight, 100, "bad-tx-shielded-version-too-low");
+	            ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight, 100, "bad-tx-version-unexpected");
 	        }
 
 	    }
@@ -346,9 +344,9 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     mtx.vin.resize(1);
     mtx.vin[0].prevout.SetNull();
     mtx.vin[0].scriptSig = CScript() << 109999 << OP_0;
-    mtx.vout.resize(1);
-    mtx.vout[0].scriptPubKey = CScript() << OP_TRUE;
-    mtx.vout[0].nValue = 0;
+    mtx.resizeOut(1);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_TRUE;
+    mtx.getOut(0).nValue = 0;
     CTransaction tx{mtx};
     CBlock block;
     block.vtx.push_back(tx);
@@ -372,8 +370,8 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     // Add community reward output for post chain split block
     CBitcoinAddress address(Params().GetCommunityFundAddressAtHeight(110001, Fork::CommunityFundType::FOUNDATION).c_str());
     CScriptID scriptID = boost::get<CScriptID>(address.Get());
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.0625 * COIN;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.0625 * COIN;
     block.vtx[0] = CTransaction(mtx);
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 
@@ -382,8 +380,8 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     int hardForkHeight = communityFundAndRPFixFork.getHeight(CBaseChainParams::MAIN);
     // Test community reward output for post hard fork block
     CScriptID scriptID2 = boost::get<CScriptID>(CBitcoinAddress("zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82").Get());
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID2) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.5 * COIN;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID2) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.5 * COIN;
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
     indexPrev.nHeight = hardForkHeight - 1;
     block.vtx[0] = CTransaction(mtx);;
@@ -404,15 +402,15 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
 
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
 
-    mtx.vout.resize(3);
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.25 * COIN;
+    mtx.resizeOut(3);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.25 * COIN;
 
-    mtx.vout[1].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-    mtx.vout[1].nValue = 1.25 * COIN;
+    mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+    mtx.getOut(1).nValue = 1.25 * COIN;
 
-    mtx.vout[2].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-    mtx.vout[2].nValue = 1.25 * COIN;
+    mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+    mtx.getOut(2).nValue = 1.25 * COIN;
 
     indexPrev.nHeight = hardForkHeight - 1;
     block.vtx[0] = CTransaction(mtx);;
@@ -432,15 +430,15 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
 
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
 
-    mtx.vout.resize(3);
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
-    mtx.vout[0].nValue = 2.5 * COIN;
+    mtx.resizeOut(3);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
+    mtx.getOut(0).nValue = 2.5 * COIN;
 
-    mtx.vout[1].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-    mtx.vout[1].nValue = 1.25 * COIN;
+    mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+    mtx.getOut(1).nValue = 1.25 * COIN;
 
-    mtx.vout[2].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-    mtx.vout[2].nValue = 1.25 * COIN;
+    mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+    mtx.getOut(2).nValue = 1.25 * COIN;
 
     indexPrev.nHeight = hardForkHeight -1;
     block.vtx[0] = CTransaction(mtx);;
@@ -459,19 +457,71 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
 
     mtx.vin[0].scriptSig = CScript() << exceedHeight << OP_0;
 
-    mtx.vout.resize(3);
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.25 * COIN;
+    mtx.resizeOut(3);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.25 * COIN;
 
-    mtx.vout[1].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-    mtx.vout[1].nValue = 0.625 * COIN;
+    mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+    mtx.getOut(1).nValue = 0.625 * COIN;
 
-    mtx.vout[2].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-    mtx.vout[2].nValue = 0.625 * COIN;
+    mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+    mtx.getOut(2).nValue = 0.625 * COIN;
 
     indexPrev.nHeight = exceedHeight -1;
     block.vtx[0] = CTransaction(mtx);;
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
+}
+
+TEST(ContextualCheckBlockHeader, CheckBlockVersion) {
+    SelectParams(CBaseChainParams::MAIN);
+
+    const CChainParams& chainParams = Params();
+    const Consensus::Params& consensusParams = chainParams.GetConsensus();
+
+    CBlock prev;
+    CBlockIndex indexPrev{prev};
+
+    SidechainFork scFork;
+
+    CBlock block;
+    block.nBits = GetNextWorkRequired(&indexPrev, &block, consensusParams);
+    block.nTime = scFork.getMinimumTime(CBaseChainParams::Network::MAIN);
+
+    MockCValidationState state;
+
+    // check that after sidechain fork, the only legal block version is BLOCK_VERSION_SC_SUPPORT 
+    int hardForkHeight = scFork.getHeight(CBaseChainParams::MAIN);
+    indexPrev.nHeight = hardForkHeight -1;
+
+    int newBlockVersion = ForkManager::getInstance().getNewBlockVersion(hardForkHeight);
+    EXPECT_TRUE(newBlockVersion == BLOCK_VERSION_SC_SUPPORT);
+
+    block.nVersion = BLOCK_VERSION_ORIGINAL;
+    EXPECT_CALL(state, Invalid(false, REJECT_INVALID, "bad-version")).Times(1);
+    EXPECT_FALSE(ContextualCheckBlockHeader(block, state, &indexPrev));
+
+    block.nVersion = BLOCK_VERSION_BEFORE_SC;
+    EXPECT_CALL(state, Invalid(false, REJECT_INVALID, "bad-version")).Times(1);
+    EXPECT_FALSE(ContextualCheckBlockHeader(block, state, &indexPrev));
+
+    block.nVersion = BLOCK_VERSION_SC_SUPPORT;
+    EXPECT_TRUE(ContextualCheckBlockHeader(block, state, &indexPrev));
+
+    // check that before sidechain fork, block version BLOCK_VERSION_SC_SUPPORT is not valid 
+    // since is considered obsolete (<4)
+
+    EXPECT_TRUE(BLOCK_VERSION_SC_SUPPORT < BLOCK_VERSION_ORIGINAL);
+    hardForkHeight -= 1;
+    indexPrev.nHeight = hardForkHeight -1;
+    // set a suited prev block time not to have errors since sc fork is after timeblock fork 
+    indexPrev.nTime = block.nTime - MAX_FUTURE_BLOCK_TIME_LOCAL/2;
+    block.nVersion = BLOCK_VERSION_SC_SUPPORT;
+    EXPECT_CALL(state, Invalid(false, REJECT_INVALID, "bad-version")).Times(1);
+    EXPECT_FALSE(ContextualCheckBlockHeader(block, state, &indexPrev));
+
+    // and before sidechain fork the new block version is the legacy BLOCK_VERSION_0x2000000
+    newBlockVersion = ForkManager::getInstance().getNewBlockVersion(hardForkHeight);
+    EXPECT_TRUE(newBlockVersion == BLOCK_VERSION_BEFORE_SC);
 }
 
 TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
@@ -492,9 +542,9 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     mtx.vin.resize(1);
     mtx.vin[0].prevout.SetNull();
     mtx.vin[0].scriptSig = CScript() << 110001 << OP_0;
-    mtx.vout.resize(1);
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.0624 * COIN;
+    mtx.resizeOut(1);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.0624 * COIN;
     indexPrev.nHeight = 110000;
     CBlock block;
     block.vtx.push_back(CTransaction(mtx));
@@ -507,14 +557,14 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
     CBitcoinAddress address1(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::FOUNDATION).c_str());
     CScriptID scriptID1 = boost::get<CScriptID>(address1.Get());
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.0625 * COIN;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.0625 * COIN;
     indexPrev.nHeight = hardForkHeight - 1;
     block.vtx[0] = CTransaction(mtx);
     EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
-    mtx.vout.resize(3);
+    mtx.resizeOut(3);
 
     NullTransactionFork nullTransactionFork;
 
@@ -530,15 +580,15 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     scriptID1 = boost::get<CScriptID>(address1.Get());
 
 
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
     // this is the wrong amount for the FOUNDATION
-    mtx.vout[0].nValue = 1.2 * COIN;
+    mtx.getOut(0).nValue = 1.2 * COIN;
 
-    mtx.vout[1].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-	mtx.vout[1].nValue = 1.25 * COIN;
+    mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+	mtx.getOut(1).nValue = 1.25 * COIN;
 
-	mtx.vout[2].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-	mtx.vout[2].nValue = 1.25 * COIN;
+	mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+	mtx.getOut(2).nValue = 1.25 * COIN;
 
     indexPrev.nHeight = hardForkHeight - 1;
     block.vtx[0] = CTransaction(mtx);
@@ -546,7 +596,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // this is the correct amount for the FOUNDATION
-    mtx.vout[0].nValue = 1.25 * COIN;
+    mtx.getOut(0).nValue = 1.25 * COIN;
 
     indexPrev.nHeight = hardForkHeight - 1;
     block.vtx[0] = CTransaction(mtx);
@@ -566,15 +616,15 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
 	scriptID1 = boost::get<CScriptID>(address1.Get());
 
 
-	mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
+	mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
 	// this is the wrong amount for the FOUNDATION
-	mtx.vout[0].nValue = 1.25 * COIN;
+	mtx.getOut(0).nValue = 1.25 * COIN;
 
-	mtx.vout[1].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-	mtx.vout[1].nValue = 1.25 * COIN;
+	mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+	mtx.getOut(1).nValue = 1.25 * COIN;
 
-	mtx.vout[2].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-	mtx.vout[2].nValue = 1.25 * COIN;
+	mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+	mtx.getOut(2).nValue = 1.25 * COIN;
 
 	indexPrev.nHeight = hardForkHeight - 1;
 	block.vtx[0] = CTransaction(mtx);
@@ -582,7 +632,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // this is the correct amount for the FOUNDATION
-    mtx.vout[0].nValue = 2.5 * COIN;
+    mtx.getOut(0).nValue = 2.5 * COIN;
 	indexPrev.nHeight = hardForkHeight - 1;
 	block.vtx[0] = CTransaction(mtx);
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
@@ -602,10 +652,10 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     mtx.vin.resize(1);
     mtx.vin[0].prevout.SetNull();
     mtx.vin[0].scriptSig = CScript() << 139199 << OP_0;
-    mtx.vout.resize(1);
+    mtx.resizeOut(1);
     CScriptID scriptID = boost::get<CScriptID>(CBitcoinAddress("zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82").Get());
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.0625 * COIN;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.0625 * COIN;
     indexPrev.nHeight = 139198;
     CBlock block;
     block.vtx.push_back(CTransaction(mtx));
@@ -616,8 +666,8 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     // Test bad addr for community reward output after hardfork
     CScriptID scriptID1 = boost::get<CScriptID>(CBitcoinAddress("zsfa9VVJCEdjfPbku4XrFcRR8kTDm2T64rz").Get());
     mtx.vin[0].scriptSig = CScript() << 139200 << OP_0;
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.5 * COIN;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.5 * COIN;
     indexPrev.nHeight = 139199;
     block.vtx[0] = CTransaction(mtx);;
     EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
@@ -625,7 +675,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
 
     // Test community reward address rotation. Addresses should change every 50000 blocks in a round-robin fashion.
     CScriptID scriptID3 = boost::get<CScriptID>(CBitcoinAddress("zsfULrmbX7xbhqhAFRffVqCw9RyGv2hqNNG").Get());
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID3) << OP_EQUAL;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID3) << OP_EQUAL;
     mtx.vin[0].scriptSig = CScript() << 189200 << OP_0;
     indexPrev.nHeight = 189199;
     block.vtx[0] = CTransaction(mtx);
@@ -633,7 +683,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
 
     // Test community reward address rotation. Addresses should change every 50000 blocks in a round-robin fashion.
     CScriptID scriptID4 = boost::get<CScriptID>(CBitcoinAddress("zsoemTfqjicem2QVU8cgBHquKb1o9JR5p4Z").Get());
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID4) << OP_EQUAL;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID4) << OP_EQUAL;
     mtx.vin[0].scriptSig = CScript() << 239200 << OP_0;
     indexPrev.nHeight = 239199;
     block.vtx[0] = CTransaction(mtx);
@@ -641,7 +691,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
 
     // Test community reward address rotation. Addresses should change every 50000 blocks in a round-robin fashion.
     CScriptID scriptID5 = boost::get<CScriptID>(CBitcoinAddress("zt339oiGL6tTgc9Q71f5g1sFTZf6QiXrRUr").Get());
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID5) << OP_EQUAL;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID5) << OP_EQUAL;
     mtx.vin[0].scriptSig = CScript() << 289200 << OP_0;
     indexPrev.nHeight = 289199;
     block.vtx[0] = CTransaction(mtx);

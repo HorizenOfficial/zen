@@ -11,6 +11,7 @@
 #include "forks/fork4_nulltransactionfork.h"
 #include "forks/fork5_shieldfork.h"
 #include "forks/fork6_timeblockfork.h"
+#include "forks/fork7_sidechainfork.h"
 
 namespace zen {
 
@@ -113,6 +114,45 @@ int ForkManager::getShieldedTxVersion(int height) const {
     return getForkAtHeight(height)->getShieldedTxVersion();
 }
 
+/**
+ * @param height height to test against
+ * @return returns sidechain tx version based on block height
+ */
+int ForkManager::getSidechainTxVersion(int height) const {
+    return getForkAtHeight(height)->getSidechainTxVersion();
+}
+
+/**
+ * @param height height to test against
+ * @return returns sidechain cert version based on block height
+ */
+int ForkManager::getCertificateVersion(int height) const {
+    return getForkAtHeight(height)->getCertificateVersion();
+}
+
+/**
+ * @brief returns true sidechains are supported based on block height, false otherwise
+ * @return true if allowed, false otherwise
+ */
+bool ForkManager::areSidechainsSupported(int height) const {
+    return getForkAtHeight(height)->areSidechainsSupported();
+}
+
+/**
+ * @param height height to test against
+ * @return returns new block version based on block height
+ */
+int ForkManager::getNewBlockVersion(int height) const {
+    return getForkAtHeight(height)->getNewBlockVersion();
+}
+
+/**
+ * @param height height to test against
+ * @return returns true if the nVersion is valid at input block height
+ */
+bool ForkManager::isValidBlockVersion(int height, int nVersion) const {
+    return getForkAtHeight(height)->isValidBlockVersion(nVersion);
+}
 
 /**
  * @brief
@@ -127,7 +167,6 @@ bool ForkManager::isFutureMiningTimeStampActive(int height) const {
 bool ForkManager::isFutureTimeStampActive(int height) const {
 	return getForkAtHeight(height)->isFutureTimeStampActive(height, currentNetwork);
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// PRIVATE MEMBERS
@@ -146,6 +185,7 @@ ForkManager::ForkManager() {
     registerFork(new NullTransactionFork());
     registerFork(new ShieldFork());
     registerFork(new TimeBlockFork());
+    registerFork(new SidechainFork());
 }
 
 /**

@@ -2074,15 +2074,15 @@ instance_of_cnetcleanup;
 
 
 
-void RelayTransaction(const CTransaction& tx)
+void Relay(const CTransaction& tx)
 {
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss.reserve(10000);
     ss << tx;
-    RelayTransaction(tx, ss);
+    Relay(tx, ss);
 }
 
-void RelayTransaction(const CTransaction& tx, const CDataStream& ss)
+void Relay(const CTransactionBase& tx, const CDataStream& ss)
 {
     CInv inv(MSG_TX, tx.GetHash());
     {
@@ -2111,6 +2111,14 @@ void RelayTransaction(const CTransaction& tx, const CDataStream& ss)
         } else
             pnode->PushInventory(inv);
     }
+}
+
+void Relay(const CScCertificate& cert)
+{
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss.reserve(10000);
+    ss << cert;
+    Relay(cert, ss);
 }
 
 void CNode::RecordBytesRecv(uint64_t bytes)

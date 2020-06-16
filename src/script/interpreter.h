@@ -8,6 +8,7 @@
 
 #include "script_error.h"
 #include "primitives/transaction.h"
+#include "primitives/certificate.h"
 
 #include <vector>
 #include <stdint.h>
@@ -95,6 +96,7 @@ enum
 static const unsigned int CONTEXTUAL_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_CHECKBLOCKATHEIGHT;
 
 uint256 SignatureHash(const CScript &scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType);
+uint256 SignatureHash(const CScript &scriptCode, const CScCertificate& certTo, unsigned int nIn, int nHashType);
 
 class BaseSignatureChecker
 {
@@ -128,7 +130,7 @@ protected:
     virtual bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
 
 public:
-    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CChain* chainIn) : txTo(txToIn), nIn(nInIn), chain(chainIn) {}
+    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CChain* chainIn);
     bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode) const;
     bool CheckLockTime(const CScriptNum& nLockTime) const;
     bool CheckBlockHash(const int32_t nHeight, const std::vector<unsigned char>& nBlockHash) const;
@@ -141,6 +143,33 @@ private:
 
 public:
     MutableTransactionSignatureChecker(const CMutableTransaction* txToIn, unsigned int nInIn) : TransactionSignatureChecker(&txTo, nInIn, nullptr), txTo(*txToIn) {}
+};
+
+class CertificateSignatureChecker : public BaseSignatureChecker
+{
+private:
+    const CScCertificate* certTo;
+    unsigned int nIn;
+    const CChain* chain;
+
+protected:
+    virtual bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
+
+public:
+    CertificateSignatureChecker(const CScCertificate* certToIn, unsigned int nInIn, const CChain* chainIn);
+    bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode) const;
+    // certificate does not have it
+    bool CheckLockTime(const CScriptNum& nLockTime) const { return true;}
+    bool CheckBlockHash(const int32_t nHeight, const std::vector<unsigned char>& nBlockHash) const;
+};
+
+class MutableCertificateSignatureChecker : public CertificateSignatureChecker
+{
+private:
+    const CScCertificate certTo;
+
+public:
+    MutableCertificateSignatureChecker(const CMutableScCertificate* certToIn, unsigned int nInIn) : CertificateSignatureChecker(&certTo, nInIn, nullptr), certTo(*certToIn) {}
 };
 
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* error = NULL);

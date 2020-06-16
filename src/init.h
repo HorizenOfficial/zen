@@ -6,20 +6,15 @@
 #ifndef BITCOIN_INIT_H
 #define BITCOIN_INIT_H
 
-#include <string>
-
 #include "zcash/JoinSplit.hpp"
+#include <string>
 
 class CScheduler;
 class CWallet;
+namespace boost { class thread_group; }
 
-namespace boost
-{
-class thread_group;
-} // namespace boost
-
-extern CWallet* pwalletMain;
-extern ZCJoinSplit* pzcashParams;
+extern CWallet*      pwalletMain;
+extern ZCJoinSplit*  pzcashParams;
 
 void StartShutdown();
 bool ShutdownRequested();

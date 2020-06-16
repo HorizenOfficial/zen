@@ -17,6 +17,12 @@ public:
 	 * @brief returns phpgr,groth,... tx version based on block height
 	 */
 	inline virtual int getShieldedTxVersion() const { return GROTH_TX_VERSION; }
+
+    /**
+	 * @brief returns supported new block version based on block height
+     *        mined block after this fork (and up to the next fork) will have this version
+	 */
+	inline virtual int getNewBlockVersion() const { return BLOCK_VERSION_BEFORE_SC; }
 };
 
 }

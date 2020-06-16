@@ -7,7 +7,8 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, start_node, connect_nodes, stop_node, stop_nodes, \
-    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision
+    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision, \
+    disconnect_nodes
 import traceback
 import os,sys
 import shutil
@@ -30,7 +31,11 @@ class headers(BitcoinTestFramework):
     def setup_network(self, split=False):
         self.nodes = []
 
-        self.nodes = start_nodes(2, self.options.tmpdir)
+        self.nodes = start_nodes(2, self.options.tmpdir,
+            extra_args = [
+                ["-debug=1", "-logtimemicros=1"],
+                ["-debug=1", "-logtimemicros=1"]
+            ])
 
         if not split:
             connect_nodes_bi(self.nodes, 0, 1)
@@ -40,19 +45,11 @@ class headers(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
-    def disconnect_nodes(self, from_connection, node_num):
-        ip_port = "127.0.0.1:"+str(p2p_port(node_num))
-        from_connection.disconnectnode(ip_port)
-        # poll until version handshake complete to avoid race conditions
-        # with transaction relaying
-        while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
-            time.sleep(0.1)
-
     def split_network(self):
         # Split the network of two nodes into nodes 0 and 1.
         assert not self.is_network_split
-        self.disconnect_nodes(self.nodes[0], 1)
-        self.disconnect_nodes(self.nodes[1], 0)
+        disconnect_nodes(self.nodes[0], 1)
+        disconnect_nodes(self.nodes[1], 0)
         self.is_network_split = True
 
 
@@ -81,7 +78,7 @@ class headers(BitcoinTestFramework):
 
         blocks.append(self.nodes[0].getblockhash(0))
         print("\n\nGenesis block is:\n" + blocks[0] + "\n")
-#        raw_input("press enter to go on..")
+        # raw_input("press enter to go on..")
 
         s = "Node 0 generates a block"
         print("\n" + s) 

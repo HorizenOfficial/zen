@@ -63,6 +63,7 @@ libsnark-tests: $(wildcard snark/src/*)
 $(LIBUNIVALUE): $(wildcard univalue/lib/*) $(wildcard univalue/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
 
+
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
 EXTRA_LIBRARIES = \
@@ -72,7 +73,7 @@ EXTRA_LIBRARIES = \
   libbitcoin_server.a \
   libbitcoin_cli.a \
   libzcash.a \
-  libzencash.a
+  libzencash.a 
 
 if ENABLE_WALLET
 BITCOIN_INCLUDES += $(BDB_CPPFLAGS)
@@ -115,7 +116,7 @@ LIBZCASH_H = \
   zcash/util.h \
   zcash/Zcash.h
 
-.PHONY: FORCE collate-libsnark check-symbols check-security
+.PHONY: FORCE  cargo-build collate-libsnark check-symbols check-security
 # bitcoin core #
 BITCOIN_CORE_H = \
   addrman.h \
@@ -211,7 +212,6 @@ BITCOIN_CORE_H = \
   utilstrencodings.h \
   utiltime.h \
   validationinterface.h \
-  versionbits.h \
   version.h \
   wallet/asyncrpcoperation_sendmany.h \
   wallet/asyncrpcoperation_shieldcoinbase.h \
@@ -223,13 +223,12 @@ BITCOIN_CORE_H = \
   zmq/zmqabstractnotifier.h \
   zmq/zmqconfig.h\
   zmq/zmqnotificationinterface.h \
-  zmq/zmqpublishnotifier.h
+  zmq/zmqpublishnotifier.h 
 
 LIBZENCASH_H = \
     zen/utiltls.h\
     zen/forkmanager.h\
-    zen/replayprotectionlevel.h
-
+    zen/replayprotectionlevel.h 	
 
 obj/build.h: FORCE
 	@$(MKDIR_P) $(builddir)/obj
@@ -272,13 +271,14 @@ libbitcoin_server_a_SOURCES = \
   rpc/net.cpp \
   rpc/rawtransaction.cpp \
   rpc/server.cpp \
-  script/sigcache.cpp \
+  sc/proofverifier.cpp \
+  sc/sidechain.cpp \
+  sc/sidechainrpc.cpp \
   timedata.cpp \
   torcontrol.cpp \
   txdb.cpp \
   txmempool.cpp \
   validationinterface.cpp \
-  versionbits.cpp \
   $(BITCOIN_CORE_H) \
   $(LIBZCASH_H) \
   $(LIBZENCASH_H)
@@ -379,11 +379,13 @@ libbitcoin_common_a_SOURCES = \
   netbase.cpp \
   primitives/block.cpp \
   primitives/transaction.cpp \
+  primitives/certificate.cpp \
   protocol.cpp \
   pubkey.cpp \
   scheduler.cpp \
   script/interpreter.cpp \
   script/script.cpp \
+  script/sigcache.cpp \
   script/script_error.cpp \
   script/sign.cpp \
   script/standard.cpp \
@@ -450,7 +452,7 @@ zend_LDADD = \
   $(LIBSNARK) \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
-  $(LIBSECP256K1)
+  $(LIBSECP256K1) 
 
 if ENABLE_ZMQ
 zend_LDADD += $(LIBBITCOIN_ZMQ) $(ZMQ_LIBS)
@@ -496,11 +498,17 @@ zen_cli_LDADD = \
   $(LIBZENCASH) \
   $(LIBSNARK) \
   $(LIBBITCOIN_CRYPTO) \
-  $(LIBZCASH_LIBS)
+  $(LIBZCASH_LIBS) 
 
 
 # zen-tx binary #
-zen_tx_SOURCES = bitcoin-tx.cpp script/interpreter.cpp script/standard.cpp
+zen_tx_SOURCES = \
+    bitcoin-tx.cpp \
+    primitives/transaction.cpp \
+    primitives/certificate.cpp \
+    coins.cpp \
+    script/interpreter.cpp \
+    script/standard.cpp
 zen_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS) -DBITCOIN_TX
 zen_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) -DBITCOIN_TX
 zen_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
@@ -519,7 +527,7 @@ zen_tx_LDADD = \
   $(LIBZENCASH) \
   $(LIBSNARK) \
   $(LIBBITCOIN_CRYPTO) \
-  $(LIBZCASH_LIBS)
+  $(LIBZCASH_LIBS) 
 
 zen_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
 
@@ -590,8 +598,10 @@ libzencash_a_SOURCES = \
     zen/forks/fork4_nulltransactionfork.cpp\
     zen/forks/fork5_shieldfork.cpp\
     zen/forks/fork6_timeblockfork.cpp\
+    zen/forks/fork7_sidechainfork.cpp\
     zen/tlsmanager.cpp\
-    zen/delay.cpp
+    zen/delay.cpp \
+    zen/websocket_server.cpp
 
 if HAVE_OPENMP
 libzencash_a_CPPFLAGS = -DMULTICORE -fopenmp
@@ -603,6 +613,21 @@ libzencash_a_CXXFLAGS = $(HARDENED_CXXFLAGS) -fwrapv -fno-strict-aliasing
 libzencash_a_LDFLAGS = $(HARDENED_LDFLAGS)
 
 libzencash_a_CPPFLAGS += -DMONTGOMERY_OUTPUT
+
+
+noinst_PROGRAMS += \
+  zendoo/mcTest
+  
+# tool for testing sidechain
+zendoo_mcTest_SOURCES = \
+    zendoo/mcTestCall.cpp \ 
+    uint256.cpp \
+    utilstrencodings.cpp 
+
+zendoo_mcTest_CPPFLAGS = $(AM_CPPFLAGS) $(EVENT_CFLAGS) $(PIC_FLAGS)
+zendoo_mcTest_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+zendoo_mcTest_LDADD = $(ZENDOO_MCTEST_LIBS)
+zendoo_mcTest_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 
 

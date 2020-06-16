@@ -92,19 +92,24 @@ UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp)
     }
 
     // Check is mine
-    if (!pwalletMain->mapWallet.count(hash)) {
+    if (!pwalletMain->getMapWallet().count(hash)) {
         throw JSONRPCError(RPC_MISC_ERROR, "Transaction does not belong to the wallet");
     }
-    const CWalletTx& wtx = pwalletMain->mapWallet[hash];
+
+    const CWalletTransactionBase& wtx = *(pwalletMain->getMapWallet().at(hash));
 
     // Check if shielded tx
-    if (wtx.vjoinsplit.empty()) {
+    if (wtx.getTxBase()->GetVjoinsplit().size() == 0) {
         throw JSONRPCError(RPC_MISC_ERROR, "Transaction is not a shielded transaction");
     }
 
     // Check js_index
     int js_index = params[1].get_int();
-    if (js_index < 0 || js_index >= wtx.vjoinsplit.size()) {
+#if 0
+    if (js_index < 0 || js_index >= wtx.GetVjoinsplit().size()) {
+#else
+    if (js_index < 0 || js_index >= wtx.getTxBase()->GetVjoinsplit().size()) {
+#endif
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid js_index");
     }
 
@@ -130,7 +135,7 @@ UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_DATABASE_ERROR, "Could not find payment disclosure info for the given joinsplit output");
     }
 
-    PaymentDisclosure pd( wtx.joinSplitPubKey, key, info, msg );
+    PaymentDisclosure pd( wtx.getTxBase()->GetJoinSplitPubKey(), key, info, msg );
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << pd;
     string strHex = HexStr(ss.begin(), ss.end());
@@ -219,7 +224,7 @@ UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp)
     }
 
     // Check if shielded tx
-    if (tx.vjoinsplit.empty()) {
+    if (tx.GetVjoinsplit().empty()) {
         throw JSONRPCError(RPC_MISC_ERROR, "Transaction is not a shielded transaction");
     }
 
@@ -228,7 +233,7 @@ UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp)
     o.push_back(Pair("txid", pd.payload.txid.ToString()));
 
     // Check js_index
-    if (pd.payload.js >= tx.vjoinsplit.size()) {
+    if (pd.payload.js >= tx.GetVjoinsplit().size()) {
         errs.push_back("Payment disclosure refers to an invalid joinsplit index");
     }
     o.push_back(Pair("jsIndex", pd.payload.js));
@@ -262,7 +267,7 @@ UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp)
 
         try {
             // Decrypt the note to get value and memo field
-            JSDescription jsdesc = tx.vjoinsplit[pd.payload.js];
+            JSDescription jsdesc = tx.GetVjoinsplit()[pd.payload.js];
             uint256 h_sig = jsdesc.h_sig(*pzcashParams, tx.joinSplitPubKey);
 
             ZCPaymentDisclosureNoteDecryption decrypter;
