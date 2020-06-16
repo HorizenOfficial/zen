@@ -3,7 +3,7 @@
 
 #include "fork0_originalfork.h"
 
-namespace zen {
+namespace sic {
 
 /**
  * @brief The ChainsplitFork class represents the original chainsplit fork

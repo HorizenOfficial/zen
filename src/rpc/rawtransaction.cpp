@@ -214,7 +214,7 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             "         \"reqSigs\" : n,            (numeric) The required sigs\n"
             "         \"type\" : \"pubkeyhash\",  (string) The type, eg 'pubkeyhash'\n"
             "         \"addresses\" : [           (json array of string)\n"
-            "           \"horizenaddress\"          (string) Horizen address\n"
+            "           \"horisicaddress\"          (string) Horisic address\n"
             "           ,...\n"
             "         ]\n"
             "       }\n"
@@ -418,7 +418,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "     ]\n"
             "2. \"addresses\"           (string, required) a json object with addresses as keys and amounts as values\n"
             "    {\n"
-            "      \"address\": x.xxx   (numeric, required) The key is the Horizen address, the value is the " + CURRENCY_UNIT + " amount\n"
+            "      \"address\": x.xxx   (numeric, required) The key is the Horisic address, the value is the " + CURRENCY_UNIT + " amount\n"
             "      ,...\n"
             "    }\n"
 
@@ -460,7 +460,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
     BOOST_FOREACH(const string& name_, addrList) {
         CBitcoinAddress address(name_);
         if (!address.IsValid())
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Horizen address: ")+name_);
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Horisic address: ")+name_);
 
         if (setAddress.count(address))
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+name_);
@@ -513,7 +513,7 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
             "         \"reqSigs\" : n,            (numeric) The required sigs\n"
             "         \"type\" : \"pubkeyhash\",  (string) The type, eg 'pubkeyhash'\n"
             "         \"addresses\" : [           (json array of string)\n"
-            "           \"t12tvKAXCxZjSmdNbao16dKXC8tRWfcF5oc\"   (string) Horizen address\n"
+            "           \"t12tvKAXCxZjSmdNbao16dKXC8tRWfcF5oc\"   (string) Horisic address\n"
             "           ,...\n"
             "         ]\n"
             "       }\n"
@@ -583,7 +583,7 @@ UniValue decodescript(const UniValue& params, bool fHelp)
             "  \"type\":\"type\", (string) The output type\n"
             "  \"reqSigs\": n,    (numeric) The required signatures\n"
             "  \"addresses\": [   (json array of string)\n"
-            "     \"address\"     (string) Zen address\n"
+            "     \"address\"     (string) Sic address\n"
             "     ,...\n"
             "  ],\n"
             "  \"p2sh\",\"address\" (string) script address\n"

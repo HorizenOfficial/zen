@@ -132,7 +132,7 @@ void CreatePidFile(const boost::filesystem::path &path, pid_t pid);
 #endif
 class missing_zcash_conf : public std::runtime_error {
 public:
-    missing_zcash_conf() : std::runtime_error("Missing zen.conf") { }
+    missing_zcash_conf() : std::runtime_error("Missing sic.conf") { }
 };
 void ReadConfigFile(std::map<std::string, std::string>& mapSettingsRet, std::map<std::string, std::vector<std::string> >& mapMultiSettingsRet);
 #ifdef WIN32
@@ -236,7 +236,7 @@ void RenameThread(const char* name);
  */
 template <typename Callable> void TraceThread(const char* name,  Callable func)
 {
-    std::string s = strprintf("zen-%s", name);
+    std::string s = strprintf("sic-%s", name);
     RenameThread(s.c_str());
     try
     {

@@ -38,7 +38,7 @@ LIBSECP256K1=secp256k1/libsecp256k1.la
 LIBSNARK=snark/libsnark.a
 LIBUNIVALUE=univalue/libunivalue.la
 LIBZCASH=libzcash.a
-LIBZENCASH=libzencash.a
+LIBSICASH=libsicash.a
 
 $(LIBSECP256K1): $(wildcard secp256k1/src/*) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
@@ -72,7 +72,7 @@ EXTRA_LIBRARIES = \
   libbitcoin_server.a \
   libbitcoin_cli.a \
   libzcash.a \
-  libzencash.a
+  libsicash.a
 
 if ENABLE_WALLET
 BITCOIN_INCLUDES += $(BDB_CPPFLAGS)
@@ -97,11 +97,11 @@ noinst_PROGRAMS =
 TESTS =
 
 if BUILD_BITCOIND
-  bin_PROGRAMS += zend
+  bin_PROGRAMS += sicd
 endif
 
 if BUILD_BITCOIN_UTILS
-  bin_PROGRAMS += zen-cli zen-tx
+  bin_PROGRAMS += sic-cli sic-tx
 endif
 
 LIBZCASH_H = \
@@ -225,10 +225,10 @@ BITCOIN_CORE_H = \
   zmq/zmqnotificationinterface.h \
   zmq/zmqpublishnotifier.h
 
-LIBZENCASH_H = \
-    zen/utiltls.h\
-    zen/forkmanager.h\
-    zen/replayprotectionlevel.h
+LIBSICASH_H = \
+    sic/utiltls.h\
+    sic/forkmanager.h\
+    sic/replayprotectionlevel.h
 
 
 obj/build.h: FORCE
@@ -281,7 +281,7 @@ libbitcoin_server_a_SOURCES = \
   versionbits.cpp \
   $(BITCOIN_CORE_H) \
   $(LIBZCASH_H) \
-  $(LIBZENCASH_H)
+  $(LIBSICASH_H)
 
 if ENABLE_ZMQ
 LIBBITCOIN_ZMQ=libbitcoin_zmq.a
@@ -430,37 +430,37 @@ nodist_libbitcoin_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
 # bitcoind binary #
-zend_SOURCES = bitcoind.cpp
-zend_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-zend_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-zend_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+sicd_SOURCES = bitcoind.cpp
+sicd_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+sicd_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+sicd_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-zend_SOURCES += bitcoind-res.rc
+sicd_SOURCES += bitcoind-res.rc
 endif
 
-zend_LDADD = \
+sicd_LDADD = \
   $(LIBBITCOIN_SERVER) \
   $(LIBBITCOIN_COMMON) \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_UTIL) \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBZCASH) \
-  $(LIBZENCASH) \
+  $(LIBSICASH) \
   $(LIBSNARK) \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
 if ENABLE_ZMQ
-zend_LDADD += $(LIBBITCOIN_ZMQ) $(ZMQ_LIBS)
+sicd_LDADD += $(LIBBITCOIN_ZMQ) $(ZMQ_LIBS)
 endif
 
 if ENABLE_WALLET
-zend_LDADD += libbitcoin_wallet.a
+sicd_LDADD += libbitcoin_wallet.a
 endif
 
-zend_LDADD += \
+sicd_LDADD += \
   $(BOOST_LIBS) \
   $(BDB_LIBS) \
   $(SSL_LIBS) \
@@ -471,20 +471,20 @@ zend_LDADD += \
   $(LIBZCASH_LIBS)
 
 if ENABLE_PROTON
-zend_LDADD += $(LIBBITCOIN_PROTON) $(PROTON_LIBS)
+sicd_LDADD += $(LIBBITCOIN_PROTON) $(PROTON_LIBS)
 endif
 
 # bitcoin-cli binary #
-zen_cli_SOURCES = bitcoin-cli.cpp
-zen_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS)
-zen_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-zen_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+sic_cli_SOURCES = bitcoin-cli.cpp
+sic_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS)
+sic_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+sic_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-zen_cli_SOURCES += bitcoin-cli-res.rc
+sic_cli_SOURCES += bitcoin-cli-res.rc
 endif
 
-zen_cli_LDADD = \
+sic_cli_LDADD = \
   $(LIBBITCOIN_CLI) \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_UTIL) \
@@ -493,35 +493,35 @@ zen_cli_LDADD = \
   $(CRYPTO_LIBS) \
   $(EVENT_LIBS) \
   $(LIBZCASH) \
-  $(LIBZENCASH) \
+  $(LIBSICASH) \
   $(LIBSNARK) \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBZCASH_LIBS)
 
 
-# zen-tx binary #
-zen_tx_SOURCES = bitcoin-tx.cpp script/interpreter.cpp script/standard.cpp
-zen_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS) -DBITCOIN_TX
-zen_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) -DBITCOIN_TX
-zen_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+# sic-tx binary #
+sic_tx_SOURCES = bitcoin-tx.cpp script/interpreter.cpp script/standard.cpp
+sic_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS) -DBITCOIN_TX
+sic_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) -DBITCOIN_TX
+sic_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-zen_tx_SOURCES += bitcoin-tx-res.rc
+sic_tx_SOURCES += bitcoin-tx-res.rc
 endif
 
-# FIXME: Is libzcash needed for zen_tx?
-zen_tx_LDADD = \
+# FIXME: Is libzcash needed for sic_tx?
+sic_tx_LDADD = \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_COMMON) \
   $(LIBBITCOIN_UTIL) \
   $(LIBSECP256K1) \
   $(LIBZCASH) \
-  $(LIBZENCASH) \
+  $(LIBSICASH) \
   $(LIBSNARK) \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBZCASH_LIBS)
 
-zen_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
+sic_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
 
 
 # zcash protocol primitives #
@@ -578,31 +578,31 @@ libzcashconsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 endif
 #
 
-# zencash-specific sources #
-libzencash_a_SOURCES = \
-    zen/utiltls.cpp\
-    zen/forkmanager.cpp\
-    zen/forks/fork.cpp\
-    zen/forks/fork0_originalfork.cpp\
-    zen/forks/fork1_chainsplitfork.cpp\
-    zen/forks/fork2_replayprotectionfork.cpp\
-    zen/forks/fork3_communityfundandrpfixfork.cpp\
-    zen/forks/fork4_nulltransactionfork.cpp\
-    zen/forks/fork5_shieldfork.cpp\
-    zen/forks/fork6_timeblockfork.cpp\
-    zen/tlsmanager.cpp\
-    zen/delay.cpp
+# sicash-specific sources #
+libsicash_a_SOURCES = \
+    sic/utiltls.cpp\
+    sic/forkmanager.cpp\
+    sic/forks/fork.cpp\
+    sic/forks/fork0_originalfork.cpp\
+    sic/forks/fork1_chainsplitfork.cpp\
+    sic/forks/fork2_replayprotectionfork.cpp\
+    sic/forks/fork3_communityfundandrpfixfork.cpp\
+    sic/forks/fork4_nulltransactionfork.cpp\
+    sic/forks/fork5_shieldfork.cpp\
+    sic/forks/fork6_timeblockfork.cpp\
+    sic/tlsmanager.cpp\
+    sic/delay.cpp
 
 if HAVE_OPENMP
-libzencash_a_CPPFLAGS = -DMULTICORE -fopenmp
+libsicash_a_CPPFLAGS = -DMULTICORE -fopenmp
 endif
-libzencash_a_CPPFLAGS := $(libzencash_a_CPPFLAGS) -fPIC -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DBOOST_SPIRIT_THREADSAFE -DHAVE_BUILD_INFO -D__STDC_FORMAT_MACROS $(HARDENED_CPPFLAGS) -pipe -O1 -g  -Wstack-protector -fstack-protector-all -fPIE -fvisibility=hidden -DSTATIC $(BITCOIN_INCLUDES)
+libsicash_a_CPPFLAGS := $(libsicash_a_CPPFLAGS) -fPIC -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DBOOST_SPIRIT_THREADSAFE -DHAVE_BUILD_INFO -D__STDC_FORMAT_MACROS $(HARDENED_CPPFLAGS) -pipe -O1 -g  -Wstack-protector -fstack-protector-all -fPIE -fvisibility=hidden -DSTATIC $(BITCOIN_INCLUDES)
 
-libzencash_a_CXXFLAGS = $(HARDENED_CXXFLAGS) -fwrapv -fno-strict-aliasing
+libsicash_a_CXXFLAGS = $(HARDENED_CXXFLAGS) -fwrapv -fno-strict-aliasing
 
-libzencash_a_LDFLAGS = $(HARDENED_LDFLAGS)
+libsicash_a_LDFLAGS = $(HARDENED_LDFLAGS)
 
-libzencash_a_CPPFLAGS += -DMONTGOMERY_OUTPUT
+libsicash_a_CPPFLAGS += -DMONTGOMERY_OUTPUT
 
 
 

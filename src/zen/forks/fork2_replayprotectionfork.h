@@ -3,7 +3,7 @@
 
 #include "fork1_chainsplitfork.h"
 
-namespace zen {
+namespace sic {
 
 /**
  * @brief The ReplayProtectionFork class represents the original replay protection fork

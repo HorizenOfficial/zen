@@ -29,10 +29,10 @@ Alberto Sala (27):
       Fix for test files after the merge
       Fix for getblockfinalityindex
       Added rpc method getglobaltips
-      Removed debug log categories from zen.conf in py tests; minor modification to blockdelay py test; minor files cleanup
+      Removed debug log categories from sic.conf in py tests; minor modification to blockdelay py test; minor files cleanup
       Removed #if 0 macro; fixes for global gtest execution
       Added some more py test in the ext execution list; minor fix in blockdelay.py test
-      Fixed issue #4 "zen-cli help not working anymore"
+      Fixed issue #4 "sic-cli help not working anymore"
       Fix for issue #167: int64_t used in place of int; added a limit on tip age for checking finality; added a new gtest
       Introduced a minimum age for the referenced block in the scriptPubKey for CHECKBLOCKATHEIGHT part
       Moved check of minimum age of referenced block from solver method to its interested caller
@@ -85,8 +85,8 @@ Code Particle (8):
       Integrated commit - Update ANSI art - 03/24/2017
       Integrated Commit Update folder locations - 03/04/2017
       Integrated Commit - Remove Zcash references in bitcoind.cpp - 03/05/2017
-      Integrated Commit - Update binary names to Zen - 03/05/2017 - additional changes were required
-      Integrated Commit - Updated resource files for Zen - 03/05/2017
+      Integrated Commit - Update binary names to Sic - 03/05/2017 - additional changes were required
+      Integrated Commit - Updated resource files for Sic - 03/05/2017
       Integrated Commit - Remove Zcash references in bitcoin-cli.cpp - 03/05/2017
       Integrated Commit - Updated Network Magic Start Values - 03/19/2017.
       [VERIFIED] - Fixed compilation and test suite issues.
@@ -168,7 +168,7 @@ Forrest Voight (1):
       When processing RPC commands during warmup phase, parse the request object before returning an error so that id value can be used in the response.
 
 Franck De Girolami (1):
-      Complete pass on fork management Added new null transaction fork and new unit and rpc tests Fixed existing unit tests and rpc tests Further refactored zen code change community rewards and secure node rewards, add super node rewards
+      Complete pass on fork management Added new null transaction fork and new unit and rpc tests Fixed existing unit tests and rpc tests Further refactored sic code change community rewards and secure node rewards, add super node rewards
 
 FranckDG (219):
       fix for compile error
@@ -178,7 +178,7 @@ FranckDG (219):
       Integrated Commit: Disable key_tests for now (FIXME) #1cee593
       Integrated Commit: Updated testnet multisig addresses #bd76b58
       Integrated Commit: Update regtest chainparams #e5c99a9b
-      Integrated Commit: Obtain TLS configuration from zen.conf and generate TLS certificates automatically #f9a65c52
+      Integrated Commit: Obtain TLS configuration from sic.conf and generate TLS certificates automatically #f9a65c52
       Integrated Commit: Extend CLI support for cert location and show metrics #55e36467
       Integrated Commit: Update routing secrecy for Tor #4efd19f2
       Integrated Commit: Update routing secrecy for Tor #4543107a
@@ -187,19 +187,19 @@ FranckDG (219):
       Integrated Commit: Disable InitialBlockDownload() for pre-chainsplit blocks #0c479520
       Integrated Commit: Remove Zcash references in rpcserver.cpp #22f28d16
       Integrated Commit: Update Core/DAO allocations and add 110 #a9358796
-      Integrated Commit: Update zen.conf example. #4af49736
+      Integrated Commit: Update sic.conf example. #4af49736
       Integrated Commit: Stay non-blocking for SSL_read #0836b27e
       Integrated Commit:  Update chainparams.cpp #596ecdcf
       Integrated Commit: Adds section on building on CentOS #91e22fee
       Integrated Commit: fixes typo... #951cfcea
-      Integrated Commit: Ignore Zen binaries #7eef0592
-      Integrated Commit: Updages build scripts to Zen rather then Zcash where possible #dc821c4b
+      Integrated Commit: Ignore Sic binaries #7eef0592
+      Integrated Commit: Updages build scripts to Sic rather then Zcash where possible #dc821c4b
       Integrated Commit: Adds 'Development tools' group #812ae675
       Integrated Commit: Change network identifier and versions #c782bcfe
       Integrated Commit: Bugfix: socket loop in OpenSSL #bc7dadac
       Integrated Commit: Don't disconnect on undefined non-blocking behavior #9edcc066
       Integrated Commit: Bugfix: Clean stack for OP_CHECKBLOCKATHEIGHT #d345ccbc
-      Integrated Commit: Update default port for ZEN #d888a776
+      Integrated Commit: Update default port for SIC #d888a776
       Integrated Commit: Fix CBitcoinAddress to support both pre-chainsplit and post-chainsplit prefixes #a90d521e
       Integrated Commit: Bugfix: allow pre-fork addresses to sign transactions #77822968
       Integrated Commit: change testnet port #8e3bdaea
@@ -246,8 +246,8 @@ FranckDG (219):
       Integrated Commit: Reject blocks containing transactions without OP_CHECKBLOCKATHEIGHT past 117000 (#3) #624c552f
       Integrated Commit: Bump readme version #b4315d99
       Integrated Commit: Update slack info #c400f067
-      Integrated Commit: Update zen.conf #c7d6c188
-      Integrated Commit: Updates qa directory to work with zen (#12) #af79e89d
+      Integrated Commit: Update sic.conf #c7d6c188
+      Integrated Commit: Updates qa directory to work with sic (#12) #af79e89d
       Integrated Commit: Fix wallet warning (pre chainsplit txs are considered as invalid which is not true) (#13) #e40ff3c1
       Integrated Commit: Fixed #14: add the ability to send P2SH transactions #c2a434da
       Integrated Commit: Disable P2SH transactions until HF #19b7538e
@@ -292,7 +292,7 @@ FranckDG (219):
       Integrated Commit: Update DL link to our own fork of libgmp #7294e634
       Integrated Commit: Fix comments #f7d5865a
       Integrated Commit: Set CF addressChangeInterval for main net #8822896c
-      Integrated Commit: Updates emaile addresses to point at admin@zensystem.io rather then personal ones. #08a51125
+      Integrated Commit: Updates emaile addresses to point at admin@sicsystem.io rather then personal ones. #08a51125
       Integrated Commit: Update control #e30e8b1a
       Integrated Commit: Fix unit tests for OP_CHECKBLOCKATHEIGHT #25b9a41b
       Integrated Commit: Fix OP_CHECKBLOCKATHEIGHT validation for vouts #6f3cc47c
@@ -311,7 +311,7 @@ FranckDG (219):
       Integrated Commit: Update README.md #f1b8f572
       Integrated Commit: Fix watchonly addresses. Fix functionality that was broken by modifeid GetScriptForDestination #eb885b43
       Fixed compilation issue from latest commits integration
-      Integrated Commit: Fix pull-tester: fix path to zend and zen-cli. Fix config to be able to run it for Zen. Set chainsplit index for regtest. #a2ade7d2
+      Integrated Commit: Fix pull-tester: fix path to sicd and sic-cli. Fix config to be able to run it for Sic. Set chainsplit index for regtest. #a2ade7d2
       Integrated Commit: Checkpoint HF block (139200) #e608d425
       Integrated Commit: Implemented support of the non-TLS (unencrypted) connections; Refactored TLS implementation #c5b1bfff
       Integrated Commit: Fix pull-tester: fix tests #7ad2333f
@@ -326,7 +326,7 @@ FranckDG (219):
       Integrated Commit: Fix pull-tester: fix tests. Disable tests that are failed and cant be fixed currently because of some issues in zcash. #ac22a5a1
       Integrated Commit: Fix pull-tester: smartfees.py (taken from bitcoin) #6e8228fe
       Integrated Commit: Revert zcash-specific tests #c1cc92be
-      Integrated Commit: Zenify docs #1462d9c3
+      Integrated Commit: Sicify docs #1462d9c3
       Integrated Commit: Trusted directories and root certificates management; Private key encryption; Refactored credentials preparation #deb56fe8
       Integrated Commit: initial working arm64 version #7b51bb12
       Integrated Commit: Add aarch64 instructions to README.md #b373a7ba
@@ -336,10 +336,10 @@ FranckDG (219):
       Integrated Commit: Refactored certs and net related code #a9da9133
       Integrated Commit: TLS: Clean up the code #a4d5b91e
       Integrated Commit: TLS: add tls certificate status to getpeerinfo and getnetworkinfo #5ef497d7
-      Integrated Commit: Use zensystem.io depends mirror #69fabeb5
+      Integrated Commit: Use sicsystem.io depends mirror #69fabeb5
       Integrated Commit: Update test-depends-sources-mirror.py #5aab5420
       Integrated Commit: Update OpenSSL to 1.1.0f #25e19591
-      Integrated Commit: Changes emails from ZCash to zencash Changes admin@zensystem.io to info@zensystem.io #4956fd03
+      Integrated Commit: Changes emails from ZCash to sicash Changes admin@sicsystem.io to info@sicsystem.io #4956fd03
       Integrated Commit: Update chainparams.cpp #ade861b1
       Integrated Commit: TLS: Clean up debug logs #6e1a51aa
       Integrated Commit: v2.0.10 #d3cad1d0
@@ -366,11 +366,11 @@ FranckDG (219):
       Revert "Integrated Commit: Auto merge of #2335 - str4d:2333-validation-speed #0a228771"
       Integrated Commit: Add option to limit debug.log size #54909514
       Integrated Commit: fix wording after script changes #d215e203
-      Integrated Commit: Fix the logo art that appears when you launch zend #72 #823203a4
+      Integrated Commit: Fix the logo art that appears when you launch sicd #72 #823203a4
       Integrated Commit: Fix CentOS compile dependencies #430a373a
       Integrated Commit: Disable last part of test_wallet.cpp temporarily #db3b7236
       Integrated Commit: Add `listaddresses` rpc command to go with z_listaddresses #5db3633c
-      Integrated Commit: More zen #6eada0c0
+      Integrated Commit: More sic #6eada0c0
       Integrated Commit: Fix examples; add  rpc test #b2a82191
       Integrated Commit: bump versions and auto-deprecation #b0dff43d
       Integrated Commit: Update README.md #c9d158dc
@@ -380,16 +380,16 @@ FranckDG (219):
       Integrated Commit: Bump auto-deprecation #f83d7df3
       Integrated Commit: Updates Discord link in README.md #00e81433
       Integrated Commit: Removes second Discord link from README.md - Thanks @cronic for finding this. #a7e5de5d
-      Integrated Commit: Changes zcash to zen. #dad810df
+      Integrated Commit: Changes zcash to sic. #dad810df
       Integrated Commit: Implement RPC shield_coinbase #2448. #a86d2f70
       Integrated Commit: Closes #2639. Adds optional limit parameter with a default value of 50. #5fbdc0c9
       Integrated Commit: Closes #2446 by adding generated field to listunspent. #ed2b1c95
-      Integrated Commit: Updates shieldcoinbase tests to use Zen CF amount #6aafeb0b
+      Integrated Commit: Updates shieldcoinbase tests to use Sic CF amount #6aafeb0b
       Integrated Commit: Modified for macOS High Sierra Build #af45c7aa
       Integrated Commit: add macos shieldconbase support #dc39545d
       updated developer notes with new requirements
-      moved zen-specific utiltls files to zen folder and namespace
-      [WIP] implemented new core classes for fork management with new unit tests [WIP] Modified makefiles to have a separate libzencash [WIP] Removed Zencash-specific chain params: hfFixReplayProtectionHeight, hfFixPS3SHHeight, sfReplayProtectionHeight, hfCommunityFundHeight, nChainsplitIndex, nChainsplitTime and fDisableCoinbaseProtectionForCommunityFund(always true - unused). [WIP] increased fork index by 1 for original chainsplitfork and sfReplayProtection. These forks were non-inclusive (the starting block of the fork was previously not included in the fork) as opposed to newer forks that are inclusive. [WIP] refactor pass to force all calls through ForkManager directly.
+      moved sic-specific utiltls files to sic folder and namespace
+      [WIP] implemented new core classes for fork management with new unit tests [WIP] Modified makefiles to have a separate libsicash [WIP] Removed Sicash-specific chain params: hfFixReplayProtectionHeight, hfFixPS3SHHeight, sfReplayProtectionHeight, hfCommunityFundHeight, nChainsplitIndex, nChainsplitTime and fDisableCoinbaseProtectionForCommunityFund(always true - unused). [WIP] increased fork index by 1 for original chainsplitfork and sfReplayProtection. These forks were non-inclusive (the starting block of the fork was previously not included in the fork) as opposed to newer forks that are inclusive. [WIP] refactor pass to force all calls through ForkManager directly.
 
 Gavin Andresen (2):
       configure --enable-debug changes
@@ -410,7 +410,7 @@ Igor Mikheiko (1):
       Added additional path check for default config file when app installed from .deb package #91
 
 JOSEPH NICHOLAS R. ALCANTARA (1):
-      Merge pull request #135 from ZencashOfficial/TorDocumentation
+      Merge pull request #135 from SicashOfficial/TorDocumentation
 
 Jack Gavigan (2):
       Removed markdown from COPYING
@@ -628,11 +628,11 @@ Jack Grigg (209):
       make-release.py: Updated release notes and changelog for 1.0.14.
 
 Jake Tarren (11):
-      Cleans up ZEN_MOD_* statements
-      Updates 'zen' to 'horizen' where possible
-      Updates to use Horizen where applicable
-      Updates logo to Horizen logo
-      Removes all ZEN_MOD_* statements
+      Cleans up SIC_MOD_* statements
+      Updates 'sic' to 'horisic' where possible
+      Updates to use Horisic where applicable
+      Updates logo to Horisic logo
+      Removes all SIC_MOD_* statements
       Removes build error caused by inline comment
       Improves the wording of the configuration copying messages a bit.
       Fixes issues with package name while building APT package
@@ -836,12 +836,12 @@ Pavel Vasin (1):
 
 PeaStew (7):
       Remove ZCash from error message
-      ZcashMiner -> ZenMiner in many strings and thread name
-      ZCash -> Zen in string
-      ZCash -> Zen or zcashd -> zend in message strings
-      ZCash -> Zen in message strings rpcrawtransaction.cpp
-      ZCash -> Zen or zcashd -> zend in message strings rpcmining.cpp
-      ZCash -> Zen in message strings rpcnet.cpp
+      ZcashMiner -> SicMiner in many strings and thread name
+      ZCash -> Sic in string
+      ZCash -> Sic or zcashd -> sicd in message strings
+      ZCash -> Sic in message strings rpcrawtransaction.cpp
+      ZCash -> Sic or zcashd -> sicd in message strings rpcmining.cpp
+      ZCash -> Sic in message strings rpcnet.cpp
 
 Per Grön (2):
       Deduplicate test utility method wait_and_assert_operationid_status
@@ -948,7 +948,7 @@ Simon Liu (52):
 
 Smrtz (3):
       Updates alert private key.  To test: `./src/test/test_bitcoin -t Alert_tests`
-      Adds `//ZEN MOD START` and `END` comments.
+      Adds `//SIC MOD START` and `END` comments.
       Removes ZCash security message from  output.
 
 Stefano (1):
@@ -1027,7 +1027,7 @@ calebogden (1):
       Fixing typos on security-check.py and torcontrol.cpp
 
 codeparticle (2):
-      [core-upgrade] - Merged PR 14 from zencashio: TX Replay Protection
+      [core-upgrade] - Merged PR 14 from sicashio: TX Replay Protection
       additional changes from PR 14 that were in the merge itself
 
 cronicc (74):
@@ -1035,11 +1035,11 @@ cronicc (74):
       Update build-debian-package.sh
       Fix fetch-params.sh
       Fixup copy std config
-      Zenify payment-api.md
+      Sicify payment-api.md
       Fix typo
       Fixup2 copy std config
       Add MacOS support to fetch-params.sh
-      Add # ZEN_MOD to fetch-params.sh
+      Add # SIC_MOD to fetch-params.sh
       Add new logo ascii art
       Remove libsnark.mk
       Revert "Integrated Commit: Update libsodium.mk #1fe1ccc3"
@@ -1053,16 +1053,16 @@ cronicc (74):
       Update build-arm.sh
       Update contrib/debian
       Fix merge conflict fragments in /doc
-      Zenify manpage buildsystem
+      Sicify manpage buildsystem
       Update build-debian-package.sh
-      Zenify bash-completion
+      Sicify bash-completion
       Regenerate man pages
-      Update zen.manpages
+      Update sic.manpages
       Update build-debian-package.sh
-      Zcash->Zen in deprecation msg
+      Zcash->Sic in deprecation msg
       Add test for Super/SecureNode address and reward
       Clean up after each rpc-test again
-      Make full_test_suite.py work with zen
+      Make full_test_suite.py work with sic
       Fix make check-security on Linux
       Add Mainnet tests to test_forkmanager.cpp
       Set 16 week deprecation
@@ -1102,9 +1102,9 @@ cronicc (74):
       Add new mainnet and testnet checkpoint blocks
       Handle '[log] showSignature = true' git global config
       Set deprecation block 610000, ~16weeks in the future
-      Rename zcash to zen
+      Rename zcash to sic
       Bump version to v2.0.18
-      Changes to responsible_disclosure.md for Horizen
+      Changes to responsible_disclosure.md for Horisic
 
 daniel (1):
       add powerpc build support for openssl lib
@@ -1154,11 +1154,11 @@ joshuayabut (20):
       Integrated Commit: Update RPC ports
       Integrated Commit: Chainsplit: Allow blocks up to 10 days old to be the chain tip
       Integrated Commit: Update README.md 199bc65
-      Integrated Commit: Update depends update URL to Zen 55f82c4
-      Integrated Commit: fixup! Update binary names to Zen b0fac5c - Note that most changes from that commit were already merged from a previous PR.
+      Integrated Commit: Update depends update URL to Sic 55f82c4
+      Integrated Commit: fixup! Update binary names to Sic b0fac5c - Note that most changes from that commit were already merged from a previous PR.
       Integrated Commit: Fixup debug.log enabled 8455ec0
       Integrated Commit: Add block checkpoint at 96577 e83ff75
-      Integrated Commit: Modify Zen base58 prefixes & abbreviations; update DNS seeds d9d6453
+      Integrated Commit: Modify Sic base58 prefixes & abbreviations; update DNS seeds d9d6453
       #12 - Bugfix for out of bounds read.
       Integrated Commit: Add BIP9 Softfork Capability for OP_CHECKBLOCKATHEIGHT b01498b
       Integrated Commit: fixup! Update metric screen 1932f31
@@ -1205,8 +1205,8 @@ pierstab (29):
       minor merge fixes, first pass Mac OS support
       re-add proton lib
       add build-mac-clang to build with clang, its temporary
-      add missing zen tags
-      add missing zen tags
+      add missing sic tags
+      add missing sic tags
       fixes the bug implementation of the replay protection CheckBlockHash
       add hashReserved to LoadBlockIndexGuts
       fix typo
@@ -1218,7 +1218,7 @@ pierstab (29):
       fix iscommunityfund
       fix reward/miner/foundation
       Revert "Merge branch 'master' into development"
-      fix https://github.com/ZencashOfficial/zencash/issues/46 and https://github.com/ZencashOfficial/zencash/issues/46
+      fix https://github.com/SicashOfficial/sicash/issues/46 and https://github.com/SicashOfficial/sicash/issues/46
       minor fixes
       refine CF,SN,XN addresses for testnet, reduce set for mainnet
       change the getblocktemplate , add securenode, supernode in the coinbasetxn object, add the check in the related test

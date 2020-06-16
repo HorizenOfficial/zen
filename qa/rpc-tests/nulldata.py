@@ -55,7 +55,7 @@ class NullDataTest (BitcoinTestFramework):
         
         # Forging a dummy script and replacing it with an OP_RETURN script.
         dummy_script = ""
-        data = "Zencash is awesome!"
+        data = "Sicash is awesome!"
         for vo in decoded_tx['vout']:
             if vo['valueZat']==0:
                 dummy_script = vo['scriptPubKey']['hex']

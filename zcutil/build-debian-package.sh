@@ -6,7 +6,7 @@ set -e
 set -x
 
 BUILD_PATH="/tmp/zcbuild"
-PACKAGE_NAME="zen"
+PACKAGE_NAME="sic"
 SRC_PATH=`pwd`
 SRC_DEB=$SRC_PATH/contrib/debian
 SRC_DOC=$SRC_PATH/doc
@@ -21,7 +21,7 @@ if [ ! -d $BUILD_PATH ]; then
     mkdir $BUILD_PATH
 fi
 
-PACKAGE_VERSION=$($SRC_PATH/src/zend --version | grep version | cut -d' ' -f4 | tr -d v)
+PACKAGE_VERSION=$($SRC_PATH/src/sicd --version | grep version | cut -d' ' -f4 | tr -d v)
 DEBVERSION=$(echo $PACKAGE_VERSION | sed 's/-beta/~beta/' | sed 's/-rc/~rc/' | sed 's/-/+/')
 BUILD_DIR="$BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-$ARCH"
 
@@ -42,33 +42,33 @@ chmod 0755 -R $BUILD_DIR/*
 #cp $SRC_DEB/preinst $BUILD_DIR/DEBIAN
 #cp $SRC_DEB/prerm $BUILD_DIR/DEBIAN
 # Copy binaries
-cp $SRC_PATH/src/zend $DEB_BIN
-cp $SRC_PATH/src/zen-cli $DEB_BIN
-cp $SRC_PATH/zcutil/fetch-params.sh $DEB_BIN/zen-fetch-params
+cp $SRC_PATH/src/sicd $DEB_BIN
+cp $SRC_PATH/src/sic-cli $DEB_BIN
+cp $SRC_PATH/zcutil/fetch-params.sh $DEB_BIN/sic-fetch-params
 # Copy docs
 cp $SRC_PATH/doc/release-notes/release-notes-1.0.0.md $DEB_DOC/changelog
 cp $SRC_DEB/changelog $DEB_DOC/changelog.Debian
 cp $SRC_DEB/copyright $DEB_DOC
 cp -r $SRC_DEB/examples $DEB_DOC
 # Copy manpages
-cp $SRC_DOC/man/zend.1 $DEB_MAN/zend.1
-cp $SRC_DOC/man/zen-cli.1 $DEB_MAN/zen-cli.1
-cp $SRC_DOC/man/zen-fetch-params.1 $DEB_MAN/zen-fetch-params.1
+cp $SRC_DOC/man/sicd.1 $DEB_MAN/sicd.1
+cp $SRC_DOC/man/sic-cli.1 $DEB_MAN/sic-cli.1
+cp $SRC_DOC/man/sic-fetch-params.1 $DEB_MAN/sic-fetch-params.1
 # Copy bash completion files
-cp $SRC_PATH/contrib/zend.bash-completion $DEB_CMP/zend
-cp $SRC_PATH/contrib/zen-cli.bash-completion $DEB_CMP/zen-cli
+cp $SRC_PATH/contrib/sicd.bash-completion $DEB_CMP/sicd
+cp $SRC_PATH/contrib/sic-cli.bash-completion $DEB_CMP/sic-cli
 # Gzip files
 gzip --best -n $DEB_DOC/changelog
 gzip --best -n $DEB_DOC/changelog.Debian
 
-gzip --best -n $DEB_MAN/zend.1
-gzip --best -n $DEB_MAN/zen-cli.1
-gzip --best -n $DEB_MAN/zen-fetch-params.1
+gzip --best -n $DEB_MAN/sicd.1
+gzip --best -n $DEB_MAN/sic-cli.1
+gzip --best -n $DEB_MAN/sic-fetch-params.1
 
 cd $SRC_PATH/contrib
 
 # Create the control file
-dpkg-shlibdeps $DEB_BIN/zend $DEB_BIN/zen-cli
+dpkg-shlibdeps $DEB_BIN/sicd $DEB_BIN/sic-cli
 dpkg-gencontrol -P$BUILD_DIR -v$DEBVERSION
 
 # Create the Debian package

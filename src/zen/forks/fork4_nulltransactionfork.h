@@ -2,7 +2,7 @@
 #define NULLTRANSACTIONFORK_H
 
 #include "fork3_communityfundandrpfixfork.h"
-namespace zen {
+namespace sic {
 
 class NullTransactionFork : public CommunityFundAndRPFixFork
 {

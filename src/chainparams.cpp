@@ -36,7 +36,7 @@ class CMainParams : public CChainParams {
 public:
     CMainParams() {
         strNetworkID = "main";
-        strCurrencyUnits = "ZEN";
+        strCurrencyUnits = "SIC";
         consensus.fCoinbaseMustBeProtected = true;
         consensus.nSubsidySlowStartInterval = 2;
         consensus.nSubsidyHalvingInterval = 840000;
@@ -54,7 +54,7 @@ public:
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
 
         /**
-         * ZEN Network Magic Start Value
+         * SIC Network Magic Start Value
          */
         pchMessageStart[0] = 0x63;
         pchMessageStart[1] = 0x61;
@@ -101,11 +101,11 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.push_back(CDNSSeedData("dnsseed.horizen.global", "dnsseed.horizen.global")); // dns seeder
-        vSeeds.push_back(CDNSSeedData("dnsseed.zensystem.io", "dnsseed.zensystem.io")); // dns seeder
-        vSeeds.push_back(CDNSSeedData("mainnet.horizen.global", "mainnet.horizen.global")); // fixed seed
-        vSeeds.push_back(CDNSSeedData("mainnet.zensytem.io", "mainnet.zensystem.io")); // fixed seed
-        vSeeds.push_back(CDNSSeedData("node1.zenchain.info", "node1.zenchain.info")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("dnsseed.horisic.global", "dnsseed.horisic.global")); // dns seeder
+        vSeeds.push_back(CDNSSeedData("dnsseed.sicsystem.io", "dnsseed.sicsystem.io")); // dns seeder
+        vSeeds.push_back(CDNSSeedData("mainnet.horisic.global", "mainnet.horisic.global")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("mainnet.sicsytem.io", "mainnet.sicsystem.io")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("node1.sicchain.info", "node1.sicchain.info")); // fixed seed
 
         // guarantees the first 2 characters, when base58 encoded, are "zn"
         // guarantees the first 2 characters, when base58 encoded, are "t1"
@@ -199,11 +199,11 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.push_back(CDNSSeedData("dnsseed.testnet.horizen.global", "dnsseed.testnet.horizen.global")); // dns seeder
-        vSeeds.push_back(CDNSSeedData("dnsseed.testnet.zensystem.io", "dnsseed.testnet.zensystem.io")); // dns seeder
-        vSeeds.push_back(CDNSSeedData("testnet.horizen.global", "testnet.horizen.global")); // fixed seed
-        vSeeds.push_back(CDNSSeedData("tesntet.zensytem.io", "tesntet.zensystem.io")); // fixed seed
-        vSeeds.push_back(CDNSSeedData("node1.zenchain.info", "node1.zenchain.info")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("dnsseed.testnet.horisic.global", "dnsseed.testnet.horisic.global")); // dns seeder
+        vSeeds.push_back(CDNSSeedData("dnsseed.testnet.sicsystem.io", "dnsseed.testnet.sicsystem.io")); // dns seeder
+        vSeeds.push_back(CDNSSeedData("testnet.horisic.global", "testnet.horisic.global")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("tesntet.sicsytem.io", "tesntet.sicsystem.io")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("node1.sicchain.info", "node1.sicchain.info")); // fixed seed
 
         // guarantees the first 2 characters, when base58 encoded, are "zt"
         // guarantees the first 2 characters, when base58 encoded, are "tm"

@@ -24,7 +24,7 @@ void EnforceNodeDeprecation(int nHeight, bool forceLogging) {
         if (blocksToDeprecation == 0 || forceLogging) {
             auto msg = strprintf(_("This version has been deprecated as of block height %d."),
                                  DEPRECATION_HEIGHT) + " " +
-                       _("You should upgrade to the latest version of Zen.");
+                       _("You should upgrade to the latest version of Sic.");
             if (!disableDeprecation) {
                 msg += " " + strprintf(_("To disable deprecation for this version, set %s%s."),
                                        "-disabledeprecation=", CLIENT_VERSION_STR);
@@ -41,11 +41,11 @@ void EnforceNodeDeprecation(int nHeight, bool forceLogging) {
         if (disableDeprecation) {
             msg = strprintf(_("This version will be deprecated at block height %d."),
                             DEPRECATION_HEIGHT) + " " +
-                  _("You should upgrade to the latest version of Zen.");
+                  _("You should upgrade to the latest version of Sic.");
         } else {
             msg = strprintf(_("This version will be deprecated at block height %d, and will automatically shut down."),
                             DEPRECATION_HEIGHT) + " " +
-                  _("You should upgrade to the latest version of Zen.") + " " +
+                  _("You should upgrade to the latest version of Sic.") + " " +
                   strprintf(_("To disable deprecation for this version, set %s%s."),
                             "-disabledeprecation=", CLIENT_VERSION_STR);
         }

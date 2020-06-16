@@ -14,7 +14,7 @@
 #include "streams.h"
 #include "sync.h"
 #include "util.h"
-#include "zen/delay.h"
+#include "sic/delay.h"
 
 #include <stdint.h>
 
@@ -544,8 +544,8 @@ UniValue gettxout(const UniValue& params, bool fHelp)
             "     \"hex\" : \"hex\",        (string) \n"
             "     \"reqSigs\" : n,          (numeric) Number of required signatures\n"
             "     \"type\" : \"pubkeyhash\", (string) The type, eg pubkeyhash\n"
-            "     \"addresses\" : [          (array of string) array of Horizen addresses\n"
-            "        \"horizenaddress\"        (string) Horizen address\n"
+            "     \"addresses\" : [          (array of string) array of Horisic addresses\n"
+            "        \"horisicaddress\"        (string) Horisic address\n"
             "        ,...\n"
             "     ]\n"
             "  },\n"

@@ -341,7 +341,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-blocknotify=<cmd>", _("Execute command when the best block changes (%s in cmd is replaced by block hash)"));
     strUsage += HelpMessageOpt("-checkblocks=<n>", strprintf(_("How many blocks to check at startup (default: %u, 0 = all)"), 288));
     strUsage += HelpMessageOpt("-checklevel=<n>", strprintf(_("How thorough the block verification of -checkblocks is (0-4, default: %u)"), 3));
-    strUsage += HelpMessageOpt("-conf=<file>", strprintf(_("Specify configuration file (default: %s)"), "zen.conf"));
+    strUsage += HelpMessageOpt("-conf=<file>", strprintf(_("Specify configuration file (default: %s)"), "sic.conf"));
     if (mode == HMM_BITCOIND)
     {
 #if !defined(WIN32)
@@ -359,7 +359,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-par=<n>", strprintf(_("Set the number of script verification threads (%u to %d, 0 = auto, <0 = leave that many cores free, default: %d)"),
         -GetNumCores(), MAX_SCRIPTCHECK_THREADS, DEFAULT_SCRIPTCHECK_THREADS));
 #ifndef WIN32
-    strUsage += HelpMessageOpt("-pid=<file>", strprintf(_("Specify pid file (default: %s)"), "zend.pid"));
+    strUsage += HelpMessageOpt("-pid=<file>", strprintf(_("Specify pid file (default: %s)"), "sicd.pid"));
 #endif
     strUsage += HelpMessageOpt("-prune=<n>", strprintf(_("Reduce storage requirements by pruning (deleting) old blocks. This mode disables wallet support and is incompatible with -txindex. "
             "Warning: Reverting this setting requires re-downloading the entire blockchain. "
@@ -739,9 +739,9 @@ static void ZC_LoadParams()
         boost::filesystem::exists(sprout_groth16)
     )) {
         uiInterface.ThreadSafeMessageBox(strprintf(
-            _("Cannot find the Horizen network parameters in the following directory:\n"
+            _("Cannot find the Horisic network parameters in the following directory:\n"
               "%s\n"
-              "Please run 'zen-fetch-params' or './zcutil/fetch-params.sh' and then restart."),
+              "Please run 'sic-fetch-params' or './zcutil/fetch-params.sh' and then restart."),
                 ZC_GetParamsDir()),
             "", CClientUIInterface::MSG_ERROR);
         StartShutdown();
@@ -880,7 +880,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     fLogTimeMicros = GetBoolArg("-logtimemicros", false);
     fLogIPs = GetBoolArg("-logips", false);
 
-    LogPrintf("Horizen version %s (%s)\n", FormatFullVersion(), CLIENT_DATE);
+    LogPrintf("Horisic version %s (%s)\n", FormatFullVersion(), CLIENT_DATE);
 
     // when specifying an explicit binding address, you want to listen on it
     // even when -connect or -proxy is specified
@@ -1132,7 +1132,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     // Sanity check
     if (!InitSanityCheck())
-        return InitError(_("Initialization sanity check failed. Zen is shutting down."));
+        return InitError(_("Initialization sanity check failed. Sic is shutting down."));
 
     std::string strDataDir = GetDataDir().string();
 #ifdef ENABLE_WALLET
@@ -1148,10 +1148,10 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     try {
         static boost::interprocess::file_lock lock(pathLockFile.string().c_str());
         if (!lock.try_lock())
-            return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Zen is probably already running."), strDataDir));
+            return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Sic is probably already running."), strDataDir));
 
     } catch(const boost::interprocess::interprocess_exception& e) {
-        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Zen is probably already running.") + " %s.", strDataDir, e.what()));
+        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Sic is probably already running.") + " %s.", strDataDir, e.what()));
     }
 
 #ifndef WIN32
@@ -1162,7 +1162,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (GetBoolArg("-shrinkdebugfile", !fDebug))
         ShrinkDebugFile();
 
-    LogPrintf("Zen version %s (%s)\n", FormatFullVersion(), CLIENT_DATE);
+    LogPrintf("Sic version %s (%s)\n", FormatFullVersion(), CLIENT_DATE);
 
     if (fPrintToDebugLog)
         OpenDebugLog();
@@ -1590,10 +1590,10 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 InitWarning(msg);
             }
             else if (nLoadWalletRet == DB_TOO_NEW)
-                strErrors << _("Error loading wallet.dat: Wallet requires newer version of Horizen") << "\n";
+                strErrors << _("Error loading wallet.dat: Wallet requires newer version of Horisic") << "\n";
             else if (nLoadWalletRet == DB_NEED_REWRITE)
             {
-                strErrors << _("Wallet needed to be rewritten: restart Horizen to complete") << "\n";
+                strErrors << _("Wallet needed to be rewritten: restart Horisic to complete") << "\n";
                 LogPrintf("%s", strErrors.str());
                 return InitError(strErrors.str());
             }
@@ -1694,10 +1694,10 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 #ifdef ENABLE_MINING
  #ifndef ENABLE_WALLET
     if (GetBoolArg("-minetolocalwallet", false)) {
-        return InitError(_("Horizen was not built with wallet support. Set -minetolocalwallet=0 to use -mineraddress, or rebuild Horizen with wallet support."));
+        return InitError(_("Horisic was not built with wallet support. Set -minetolocalwallet=0 to use -mineraddress, or rebuild Horisic with wallet support."));
     }
     if (GetArg("-mineraddress", "").empty() && GetBoolArg("-gen", false)) {
-        return InitError(_("Horizen was not built with wallet support. Set -mineraddress, or rebuild Horizen with wallet support."));
+        return InitError(_("Horisic was not built with wallet support. Set -mineraddress, or rebuild Horisic with wallet support."));
     }
  #endif // !ENABLE_WALLET
 

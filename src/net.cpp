@@ -16,7 +16,7 @@
 #include "scheduler.h"
 #include "ui_interface.h"
 #include "crypto/common.h"
-#include "zen/utiltls.h"
+#include "sic/utiltls.h"
 
 
 
@@ -34,8 +34,8 @@
 #include <openssl/conf.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
-#include <zen/tlsmanager.cpp>
-using namespace zen;
+#include <sic/tlsmanager.cpp>
+using namespace sic;
 
 // Dump addresses to peers.dat every 15 minutes (900s)
 #define DUMP_ADDRESSES_INTERVAL 900
@@ -1865,7 +1865,7 @@ bool BindListenPort(const CService &addrBind, string& strError, bool fWhiteliste
     {
         int nErr = WSAGetLastError();
         if (nErr == WSAEADDRINUSE)
-            strError = strprintf(_("Unable to bind to %s on this computer. Horizen is probably already running."), addrBind.ToString());
+            strError = strprintf(_("Unable to bind to %s on this computer. Horisic is probably already running."), addrBind.ToString());
         else
             strError = strprintf(_("Unable to bind to %s on this computer (bind returned error %s)"), addrBind.ToString(), NetworkErrorString(nErr));
         LogPrintf("%s\n", strError);

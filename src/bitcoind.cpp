@@ -67,13 +67,13 @@ bool AppInit(int argc, char* argv[])
     //
     // Parameters
     //
-    // If Qt is used, parameters/zen.conf are parsed in qt/bitcoin.cpp's main()
+    // If Qt is used, parameters/sic.conf are parsed in qt/bitcoin.cpp's main()
     ParseParameters(argc, argv);
 
     // Process help and version before taking care about datadir
     if (mapArgs.count("-?") || mapArgs.count("-h") ||  mapArgs.count("-help") || mapArgs.count("-version"))
     {
-        std::string strUsage = _("Zen Daemon") + " " + _("version") + " " + FormatFullVersion() + "\n";
+        std::string strUsage = _("Sic Daemon") + " " + _("version") + " " + FormatFullVersion() + "\n";
 
         if (mapArgs.count("-version"))
         {
@@ -82,7 +82,7 @@ bool AppInit(int argc, char* argv[])
         else
         {
             strUsage += "\n" + _("Usage:") + "\n" +
-                  "  zend [options]                     " + _("Start Zen Daemon") + "\n";
+                  "  sicd [options]                     " + _("Start Sic Daemon") + "\n";
 
             strUsage += "\n" + HelpMessage(HMM_BITCOIND);
         }
@@ -109,21 +109,21 @@ bool AppInit(int argc, char* argv[])
                 fprintf(stdout,
                     "------------------------------------------------------------------\n"
                     "                        ERROR:\n"
-                    " The configuration file zen.conf is missing.\n"
-                    " Please create a valid zen.conf in the application data directory.\n"
+                    " The configuration file sic.conf is missing.\n"
+                    " Please create a valid sic.conf in the application data directory.\n"
                     " The default application data directories are:\n"
                     "\n"
-                    " Windows (pre Vista): C:\\Documents and Settings\\Username\\Application Data\\Zen\n"
-                    " Windows (Vista and later): C:\\Users\\Username\\AppData\\Roaming\\Zen\n"
+                    " Windows (pre Vista): C:\\Documents and Settings\\Username\\Application Data\\Sic\n"
+                    " Windows (Vista and later): C:\\Users\\Username\\AppData\\Roaming\\Sic\n"
                     "\n"
                     " You can find the default configuration file at:\n"
-                    " https://github.com/ZencashOfficial/zen/blob/master/contrib/debian/examples/zen.conf\n"
+                    " https://github.com/SicashOfficial/sic/blob/master/contrib/debian/examples/sic.conf\n"
                     "\n"
                     "                        WARNING:\n"
-                    " Running the default configuration file without review is considered a potential risk, as zend\n"
+                    " Running the default configuration file without review is considered a potential risk, as sicd\n"
                     " might accidentally compromise your privacy if there is a default option that you need to change!\n"
                     "\n"
-                    " Please create a valid zen.conf and restart to zend continue.\n"
+                    " Please create a valid sic.conf and restart to sicd continue.\n"
                     "------------------------------------------------------------------\n");
                 return false;
 #endif
@@ -134,36 +134,36 @@ bool AppInit(int argc, char* argv[])
                     "Automatically copying the default config file to:\n"
                     "\n"
 #ifdef  __APPLE__
-                    "~/Library/Application Support/Zen\n"
+                    "~/Library/Application Support/Sic\n"
 #else
-                    "~/.zen/zen.conf\n"
+                    "~/.sic/sic.conf\n"
 #endif
                     "\n"
-                    " Running the default configuration file without review is considered a potential risk, as zend\n"
+                    " Running the default configuration file without review is considered a potential risk, as sicd\n"
                     " might accidentally compromise your privacy if there is a default option that you need to change!\n"
                     "\n"
-                    "           Please restart zend to continue.\n"
+                    "           Please restart sicd to continue.\n"
                     "           You will not see this warning again.\n"
                     "------------------------------------------------------------------\n");
 
 
 #ifdef __APPLE__
-                // On Mac OS try to copy the default config file if zend is started from source folder zen/src/zend
-                std::string strConfPath("../contrib/debian/examples/zen.conf");
+                // On Mac OS try to copy the default config file if sicd is started from source folder sic/src/sicd
+                std::string strConfPath("../contrib/debian/examples/sic.conf");
                 if (!boost::filesystem::exists(strConfPath)){
-                    strConfPath = "contrib/debian/examples/zen.conf";
+                    strConfPath = "contrib/debian/examples/sic.conf";
                 }
 #else
-                std::string strConfPath("/usr/share/doc/zen/examples/zen.conf");
+                std::string strConfPath("/usr/share/doc/sic/examples/sic.conf");
 
                 if (!boost::filesystem::exists(strConfPath))
                 {
-                    strConfPath = "contrib/debian/examples/zen.conf";
+                    strConfPath = "contrib/debian/examples/sic.conf";
                 }
 
                 if (!boost::filesystem::exists(strConfPath))
                 {
-                    strConfPath = "../contrib/debian/examples/zen.conf";
+                    strConfPath = "../contrib/debian/examples/sic.conf";
                 }
 #endif
                 // Copy default config file
@@ -180,14 +180,14 @@ bool AppInit(int argc, char* argv[])
                     "\n"
                     " Please create a configuration file in the data directory.\n"
                     " The default application data directories are:\n"
-                    " Windows (pre Vista): C:\\Documents and Settings\\Username\\Application Data\\Zen\n"
-                    " Windows (Vista and later): C:\\Users\\Username\\AppData\\Roaming\\Zen\n"
+                    " Windows (pre Vista): C:\\Documents and Settings\\Username\\Application Data\\Sic\n"
+                    " Windows (Vista and later): C:\\Users\\Username\\AppData\\Roaming\\Sic\n"
                     "\n"
                     " You can find the default configuration file at:\n"
-                    " https://github.com/ZencashOfficial/zen/blob/master/contrib/debian/examples/zen.conf\n"
+                    " https://github.com/SicashOfficial/sic/blob/master/contrib/debian/examples/sic.conf\n"
                     "\n"
                     "                        WARNING:\n"
-                    " Running the default configuration file without review is considered a potential risk, as zend\n"
+                    " Running the default configuration file without review is considered a potential risk, as sicd\n"
                     " might accidentally compromise your privacy if there is a default option that you need to change!\n"
                     "------------------------------------------------------------------\n");
                 fprintf(stderr, "Error copying configuration file: %s\n", e.what());
@@ -206,19 +206,19 @@ bool AppInit(int argc, char* argv[])
         // Command-line RPC
         bool fCommandLine = false;
         for (int i = 1; i < argc; i++)
-            if (!IsSwitchChar(argv[i][0]) && !boost::algorithm::istarts_with(argv[i], "zen:"))
+            if (!IsSwitchChar(argv[i][0]) && !boost::algorithm::istarts_with(argv[i], "sic:"))
                 fCommandLine = true;
 
         if (fCommandLine)
         {
-            fprintf(stderr, "Error: There is no RPC client functionality in zend. Use the zen-cli utility instead.\n");
+            fprintf(stderr, "Error: There is no RPC client functionality in sicd. Use the sic-cli utility instead.\n");
             exit(1);
         }
 #ifndef WIN32
         fDaemon = GetBoolArg("-daemon", false);
         if (fDaemon)
         {
-            fprintf(stdout, "Zen server starting\n");
+            fprintf(stdout, "Sic server starting\n");
 
             // Daemonize
             pid_t pid = fork();

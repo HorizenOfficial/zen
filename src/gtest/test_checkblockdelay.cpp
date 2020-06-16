@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include <zen/delay.h> 
-using namespace zen;
+#include <sic/delay.h> 
+using namespace sic;
 
 TEST(delay_tests, get_block_delay) {
     CBlockIndex *block = new CBlockIndex();

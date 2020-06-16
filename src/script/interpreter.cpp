@@ -1215,7 +1215,7 @@ bool TransactionSignatureChecker::CheckBlockHash(const int32_t nHeight, const st
         return true;
     }
 #else
-    // zen-tx does not link all symbols
+    // sic-tx does not link all symbols
     if (nHeight <= chain->Height() - 52596) {
         return true;
     }

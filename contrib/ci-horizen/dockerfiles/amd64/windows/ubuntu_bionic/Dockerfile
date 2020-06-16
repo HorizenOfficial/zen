@@ -1,6 +1,6 @@
 FROM ubuntu:bionic
 
-MAINTAINER cronic@zensystem.io
+MAINTAINER cronic@sicsystem.io
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 

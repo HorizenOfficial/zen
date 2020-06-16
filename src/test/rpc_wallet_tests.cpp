@@ -35,9 +35,9 @@
 
 #include <univalue.h>
 
-#include "zen/forks/fork3_communityfundandrpfixfork.h"
-#include "zen/forks/fork4_nulltransactionfork.h"
-#include "zen/forks/fork5_shieldfork.h"
+#include "sic/forks/fork3_communityfundandrpfixfork.h"
+#include "sic/forks/fork4_nulltransactionfork.h"
+#include "sic/forks/fork5_shieldfork.h"
 
 using namespace std;
 

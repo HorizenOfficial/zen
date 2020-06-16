@@ -74,8 +74,8 @@ void ThreadShowMetricsScreen();
 
 /**
  * Rendering options:
-// ZEN MOD START
- * Logo: img2txt -W 60 -H 30 -f utf8 -d none -g 0.7 Horizen-logo.png > horizen.utf8
+// SIC MOD START
+ * Logo: img2txt -W 60 -H 30 -f utf8 -d none -g 0.7 Horisic-logo.png > horisic.utf8
  */
 const std::string METRICS_ART =
 
@@ -109,4 +109,4 @@ const std::string METRICS_ART =
 "              [0;34;46mS[0;1;34;94;46m88888888888888888888888888[0;1;36;96;46m....[0;34;46mt[0m              \n"
 "                 [0;34;46m8%[0;1;34;94;46m8888888888888888888888[0;34;46mt8[0m                 \n"
 "                       [0;34;46m8XSt;[0;1;34;94;46m8888[0;34;46m;t%X8[0m                       \n";
-// ZEN MOD END
+// SIC MOD END

@@ -146,7 +146,7 @@ class ReceivedByTest(BitcoinTestFramework):
         if balance != balance_by_account + Decimal("0.1"):
             raise AssertionError("Wrong balance returned by getreceivedbyaccount, %0.2f"%(balance))
 
-        # Accounts are not supported currently in Zen
+        # Accounts are not supported currently in Sic
         #
         # #Create a new account named "mynewaccount" that has a 0 balance
         # self.nodes[1].getaccountaddress("mynewaccount")

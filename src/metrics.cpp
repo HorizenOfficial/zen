@@ -23,9 +23,9 @@
 #endif
 #include <unistd.h>
 
-#include "zen/forkmanager.h"
+#include "sic/forkmanager.h"
 
-using namespace zen;
+using namespace sic;
 
 void AtomicTimer::start()
 {
@@ -297,7 +297,7 @@ int printMiningStatus(bool mining)
         lines++;
     } else {
         std::cout << _("You are currently not mining.") << std::endl;
-        std::cout << _("To enable mining, add 'gen=1' to your zen.conf and restart.") << std::endl;
+        std::cout << _("To enable mining, add 'gen=1' to your sic.conf and restart.") << std::endl;
         lines += 2;
     }
     std::cout << std::endl;
@@ -477,7 +477,7 @@ bool enableVTMode()
 void ThreadShowMetricsScreen()
 {
     // Make this thread recognisable as the metrics screen thread
-    RenameThread("horizen-metrics-screen");
+    RenameThread("horisic-metrics-screen");
 
     // Determine whether we should render a persistent UI or rolling metrics
     bool isTTY = isatty(STDOUT_FILENO);
@@ -496,7 +496,7 @@ void ThreadShowMetricsScreen()
         std::cout << std::endl;
 
         // Thank you text
-        std::cout << _("Zen is economic freedom. Thanks for running a node.") << std::endl;
+        std::cout << _("Sic is economic freedom. Thanks for running a node.") << std::endl;
         std::cout << _("仕方が無い") << std::endl;
         std::cout << _("Shikata ga nai.") << std::endl;
         std::cout << _("它不能得到帮助") << std::endl << std::endl;
@@ -551,7 +551,7 @@ void ThreadShowMetricsScreen()
             //std::cout << "[" << _("Press Ctrl+C to exit") << "] [" << _("Set 'showmetrics=0' to hide") << "]" << std::endl;
             std::cout << "[";
 #ifdef WIN32
-            std::cout << _("'zen-cli.exe stop' to exit");
+            std::cout << _("'sic-cli.exe stop' to exit");
 #else
             std::cout << _("Press Ctrl+C to exit");
 #endif

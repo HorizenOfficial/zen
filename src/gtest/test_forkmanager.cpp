@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
-#include "zen/forkmanager.h"
+#include "sic/forkmanager.h"
 #include "chainparams.h"
 
-using namespace zen;
+using namespace sic;
 TEST(ForkManager, TestCommunityFundRewardTestnet) {
     SelectParams(CBaseChainParams::TESTNET);
     CAmount fakeReward = (CAmount)1000L;

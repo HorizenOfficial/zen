@@ -4,7 +4,7 @@ Notable changes
 Removal of time adjustment
 -------------------------------------------------------------
 
-Prior to v2.0.21, `zend` would adjust the local time that it used by up
+Prior to v2.0.21, `sicd` would adjust the local time that it used by up
 to 70 minutes, according to a median of the times sent by the first 200 peers
 to connect to it. This mechanism was inherently insecure, since an adversary
 making multiple connections to the node could effectively control its time
@@ -35,7 +35,7 @@ cronicc (8):
       Set version to 2.0.21
       Add release-notes
       Regenerate man pages
-      Fixup: z_sendmany help message lines were misordered in https://github.com/ZencashOfficial/zen/pull/249
+      Fixup: z_sendmany help message lines were misordered in https://github.com/SicashOfficial/sic/pull/249
 
 root (7):
       add timeblock check

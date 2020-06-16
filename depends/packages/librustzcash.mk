@@ -15,7 +15,7 @@ $(package)_library_file=target/release/librustzcash.a
 endif
 
 define $(package)_set_vars
-$(package)_build_opts=--frozen --release
+$(package)_build_opts=--frosic --release
 $(package)_build_opts_mingw32=--target=x86_64-pc-windows-gnu
 endef
 

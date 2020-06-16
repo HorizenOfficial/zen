@@ -19,8 +19,8 @@
 #include "zcash/Note.hpp"
 #include "crypter.h"
 #include "chainparams.h"
-#include "zen/forkmanager.h"
-using namespace zen;
+#include "sic/forkmanager.h"
+using namespace sic;
 
 #include <assert.h>
 

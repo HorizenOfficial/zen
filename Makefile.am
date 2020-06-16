@@ -12,9 +12,9 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libzcashconsensus.pc
 endif
 
-BITCOIND_BIN=$(top_builddir)/src/zend$(EXEEXT)
+BITCOIND_BIN=$(top_builddir)/src/sicd$(EXEEXT)
 BITCOIN_QT_BIN=$(top_builddir)/src/qt/bitcoin-qt$(EXEEXT)
-BITCOIN_CLI_BIN=$(top_builddir)/src/zen-cli$(EXEEXT)
+BITCOIN_CLI_BIN=$(top_builddir)/src/sic-cli$(EXEEXT)
 BITCOIN_WIN_INSTALLER=$(PACKAGE)-$(PACKAGE_VERSION)-win$(WINDOWS_BITS)-setup$(EXEEXT)
 
 ##OSX_APP=Bitcoin-Qt.app
@@ -46,7 +46,7 @@ COVERAGE_INFO = baseline_filtered_combined.info baseline.info \
   leveldb_baseline.info test_bitcoin_filtered.info total_coverage.info \
   baseline_filtered.info \
   leveldb_baseline_filtered.info test_bitcoin_coverage.info test_bitcoin.info \
-  zen-gtest.info zen-gtest_filtered.info zen-gtest_coverage.info
+  sic-gtest.info sic-gtest_filtered.info sic-gtest_coverage.info
 
 dist-hook:
 	-$(MAKE) -C $(top_distdir)/src/leveldb clean
@@ -198,13 +198,13 @@ test_bitcoin_filtered.info: test_bitcoin.info
                       "$(abs_builddir)/src/wallet/test/*" \
                       -o $@
 
-zen-gtest.info: baseline_filtered_combined.info
-	$(MAKE) -C src/ zen-gtest_check
-	$(LCOV) -c -d $(abs_builddir)/src -t zen-gtest -o $@
+sic-gtest.info: baseline_filtered_combined.info
+	$(MAKE) -C src/ sic-gtest_check
+	$(LCOV) -c -d $(abs_builddir)/src -t sic-gtest -o $@
 	$(LCOV) -z -d $(abs_builddir)/src
 	$(LCOV) -z -d $(abs_builddir)/src/leveldb
 
-zen-gtest_filtered.info: zen-gtest.info
+sic-gtest_filtered.info: sic-gtest.info
 	$(LCOV) -r $< "/usr/include/*" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/*.h" \
                       "$(abs_builddir)/depends/x86_64-unknown-linux-gnu/include/boost/*" \
@@ -219,37 +219,37 @@ zen-gtest_filtered.info: zen-gtest.info
 test_bitcoin_coverage.info: baseline_filtered_combined.info test_bitcoin_filtered.info
 	$(LCOV) -a baseline_filtered.info -a leveldb_baseline_filtered.info -a test_bitcoin_filtered.info -o $@
 
-zen-gtest_coverage.info: baseline_filtered_combined.info zen-gtest_filtered.info
-	$(LCOV) -a baseline_filtered.info -a leveldb_baseline_filtered.info -a zen-gtest_filtered.info -o $@
+sic-gtest_coverage.info: baseline_filtered_combined.info sic-gtest_filtered.info
+	$(LCOV) -a baseline_filtered.info -a leveldb_baseline_filtered.info -a sic-gtest_filtered.info -o $@
 
-total_coverage.info:  baseline_filtered_combined.info test_bitcoin_filtered.info zen-gtest_filtered.info
-	$(LCOV) -a baseline_filtered.info -a leveldb_baseline_filtered.info -a test_bitcoin_filtered.info -a zen-gtest_filtered.info -a block_test_filtered.info -o $@ | $(GREP) "\%" | $(AWK) '{ print substr($$3,2,50) "/" $$5 }' > coverage_percent.txt
+total_coverage.info:  baseline_filtered_combined.info test_bitcoin_filtered.info sic-gtest_filtered.info
+	$(LCOV) -a baseline_filtered.info -a leveldb_baseline_filtered.info -a test_bitcoin_filtered.info -a sic-gtest_filtered.info -a block_test_filtered.info -o $@ | $(GREP) "\%" | $(AWK) '{ print substr($$3,2,50) "/" $$5 }' > coverage_percent.txt
 
 test_bitcoin.coverage/.dirstamp:  test_bitcoin_coverage.info
 	$(GENHTML) -s $< -o $(@D)
 	@touch $@
 
-zen-gtest.coverage/.dirstamp:  zen-gtest_coverage.info
+sic-gtest.coverage/.dirstamp:  sic-gtest_coverage.info
 	$(GENHTML) -s $< -o $(@D)
 	@touch $@
 
-cov-zen: zen-gtest.coverage/.dirstamp
+cov-sic: sic-gtest.coverage/.dirstamp
 
 total.coverage/.dirstamp: total_coverage.info
 	$(GENHTML) -s $< -o $(@D)
 	@touch $@
 
-cov: test_bitcoin.coverage/.dirstamp cov-zen total.coverage/.dirstamp
+cov: test_bitcoin.coverage/.dirstamp cov-sic total.coverage/.dirstamp
 
 endif
 
 dist_bin_SCRIPTS = zcutil/fetch-params.sh
 dist_noinst_SCRIPTS = autogen.sh zcutil/build-debian-package.sh zcutil/build.sh
 
-EXTRA_DIST = $(top_srcdir)/share/genbuild.sh qa/pull-tester/rpc-tests.sh qa/pull-tester/run-bitcoin-cli qa/rpc-tests qa/zen $(DIST_DOCS) $(BIN_CHECKS)
+EXTRA_DIST = $(top_srcdir)/share/genbuild.sh qa/pull-tester/rpc-tests.sh qa/pull-tester/run-bitcoin-cli qa/rpc-tests qa/sic $(DIST_DOCS) $(BIN_CHECKS)
 
 install-exec-hook:
-	mv $(DESTDIR)$(bindir)/fetch-params.sh $(DESTDIR)$(bindir)/zen-fetch-params
+	mv $(DESTDIR)$(bindir)/fetch-params.sh $(DESTDIR)$(bindir)/sic-fetch-params
 
 CLEANFILES = $(OSX_DMG) $(BITCOIN_WIN_INSTALLER)
 
@@ -258,4 +258,4 @@ CLEANFILES = $(OSX_DMG) $(BITCOIN_WIN_INSTALLER)
 DISTCHECK_CONFIGURE_FLAGS = --enable-man
 
 clean-local:
-	rm -rf test_bitcoin.coverage/ zen-gtest.coverage/ total.coverage/ $(OSX_APP)
+	rm -rf test_bitcoin.coverage/ sic-gtest.coverage/ total.coverage/ $(OSX_APP)

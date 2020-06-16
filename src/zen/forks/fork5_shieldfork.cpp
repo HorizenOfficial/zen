@@ -1,6 +1,6 @@
 #include "fork5_shieldfork.h"
 
-namespace zen {
+namespace sic {
 
 ShieldFork::ShieldFork()
 {

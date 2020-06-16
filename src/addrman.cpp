@@ -37,7 +37,7 @@ bool CAddrInfo::IsTerrible(int64_t nNow) const
     if (nTime > nNow + 10 * 60) // came in a flying DeLorean
         return true;
 
-    if (nTime == 0 || nNow - nTime > ADDRMAN_HORIZON_DAYS * 24 * 60 * 60) // not seen in recent history
+    if (nTime == 0 || nNow - nTime > ADDRMAN_SICASH_DAYS * 24 * 60 * 60) // not seen in recent history
         return true;
 
     if (nLastSuccess == 0 && nAttempts >= ADDRMAN_RETRIES) // tried N times and never a success

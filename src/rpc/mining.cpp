@@ -33,8 +33,8 @@
 
 using namespace std;
 
-#include "zen/forkmanager.h"
-using namespace zen;
+#include "sic/forkmanager.h"
+using namespace sic;
 
 /**
  * Return average network hashes per second based on the last 'lookup' blocks,
@@ -148,7 +148,7 @@ UniValue getgenerate(const UniValue& params, bool fHelp)
         throw runtime_error(
             "getgenerate\n"
             "\nReturn if the server is set to generate coins or not. The default is false.\n"
-            "It is set with the command line argument -gen (or zen.conf setting gen)\n"
+            "It is set with the command line argument -gen (or sic.conf setting gen)\n"
             "It can also be set with the setgenerate call.\n"
             "\nResult\n"
             "true|false      (boolean) If the server is set to generate coins or not\n"
@@ -182,7 +182,7 @@ UniValue generate(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Wallet disabled and -mineraddress not set");
         }
 #else
-        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "zend compiled without wallet and -mineraddress not set");
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "sicd compiled without wallet and -mineraddress not set");
 #endif
     }
     if (!Params().MineBlocksOnDemand())
@@ -297,7 +297,7 @@ UniValue setgenerate(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Wallet disabled and -mineraddress not set");
         }
 #else
-        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "zend compiled without wallet and -mineraddress not set");
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "sicd compiled without wallet and -mineraddress not set");
 #endif
     }
     if (Params().MineBlocksOnDemand())
@@ -499,7 +499,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Wallet disabled and -mineraddress not set");
         }
 #else
-        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "zend compiled without wallet and -mineraddress not set");
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "sicd compiled without wallet and -mineraddress not set");
 #endif
     }
 
@@ -556,11 +556,11 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid mode");
 
     if (vNodes.empty())
-        throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Horizen is not connected!");
+        throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Horisic is not connected!");
 
-    // from https://github.com/ZencashOfficial/zen/commit/e7a774e9a72fae1228ccbc764d520bd685860822
+    // from https://github.com/SicashOfficial/sic/commit/e7a774e9a72fae1228ccbc764d520bd685860822
     if (IsInitialBlockDownload() && ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight-(Params().GetConsensus().nMinerConfirmationWindow * 2)))
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Horizen is downloading blocks...");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Horisic is downloading blocks...");
 
     static unsigned int nTransactionsUpdatedLast;
 
@@ -891,10 +891,10 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
             "1. height         (numeric, optional) The block height.  If not provided, defaults to the current height of the chain.\n"
             "\nResult:\n"
             "{\n"
-            "  \"miner\" : x.xxx           (numeric) The mining reward amount in ZEN.\n"
-            "  \"community\" : x.xxx        (numeric) The community fund amount in ZEN.\n"
-            "  \"securenodes\" : x.xxx        (numeric) The securenodes fund amount in ZEN (only if securenode HF fund is available).\n"
-            "  \"supernodes\" : x.xxx        (numeric) The supernodes fund amount in ZEN (only if supernode HF fund is available).\n"
+            "  \"miner\" : x.xxx           (numeric) The mining reward amount in SIC.\n"
+            "  \"community\" : x.xxx        (numeric) The community fund amount in SIC.\n"
+            "  \"securenodes\" : x.xxx        (numeric) The securenodes fund amount in SIC (only if securenode HF fund is available).\n"
+            "  \"supernodes\" : x.xxx        (numeric) The supernodes fund amount in SIC (only if supernode HF fund is available).\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("getblocksubsidy", "1000")

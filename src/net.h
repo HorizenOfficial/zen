@@ -30,7 +30,7 @@
 #include <boost/foreach.hpp>
 #include <boost/signals2/signal.hpp>
 
-// Enable OpenSSL Support for Zen
+// Enable OpenSSL Support for Sic
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
 

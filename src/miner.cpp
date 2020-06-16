@@ -42,8 +42,8 @@
 
 using namespace std;
 
-#include "zen/forkmanager.h"
-using namespace zen; 
+#include "sic/forkmanager.h"
+using namespace sic; 
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -605,7 +605,7 @@ static bool ProcessBlockFound(CBlock* pblock)
     {
         LOCK(cs_main);
         if (pblock->hashPrevBlock != chainActive.Tip()->GetBlockHash())
-            return error("HorizenMiner: generated block is stale");
+            return error("HorisicMiner: generated block is stale");
     }
 
 #ifdef ENABLE_WALLET
@@ -624,7 +624,7 @@ static bool ProcessBlockFound(CBlock* pblock)
     // Process this block the same as if we had received it from another node
     CValidationState state;
     if (!ProcessNewBlock(state, NULL, pblock, true, NULL))
-        return error("HorizenMiner: ProcessNewBlock, block not accepted");
+        return error("HorisicMiner: ProcessNewBlock, block not accepted");
 
     TrackMinedBlock(pblock->GetHash());
 
@@ -637,9 +637,9 @@ void static BitcoinMiner(CWallet *pwallet)
 void static BitcoinMiner()
 #endif
 {
-    LogPrintf("HorizenMiner started\n");
+    LogPrintf("HorisicMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
-    RenameThread("zen-miner");
+    RenameThread("sic-miner");
     const CChainParams& chainparams = Params();
 
 #ifdef ENABLE_WALLET
@@ -700,16 +700,16 @@ void static BitcoinMiner()
             if (!pblocktemplate.get())
             {
                 if (GetArg("-mineraddress", "").empty()) {
-                    LogPrintf("Error in HorizenMiner: Keypool ran out, please call keypoolrefill before restarting the mining thread\n");
+                    LogPrintf("Error in HorisicMiner: Keypool ran out, please call keypoolrefill before restarting the mining thread\n");
                 } else {
                     // Should never reach here, because -mineraddress validity is checked in init.cpp
-                    LogPrintf("Error in HorizenMiner: Invalid -mineraddress\n");
+                    LogPrintf("Error in HorisicMiner: Invalid -mineraddress\n");
                 }
                 return;
             }
             CBlock *pblock = &pblocktemplate->block;
             IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
-            LogPrintf("Running HorizenMiner with %u transactions in block (%u bytes)\n", pblock->vtx.size(),
+            LogPrintf("Running HorisicMiner with %u transactions in block (%u bytes)\n", pblock->vtx.size(),
                 ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION));
 
             //
@@ -760,7 +760,7 @@ void static BitcoinMiner()
 
                     // Found a solution
                     SetThreadPriority(THREAD_PRIORITY_NORMAL);
-                    LogPrintf("HorizenMiner:\n");
+                    LogPrintf("HorisicMiner:\n");
                     LogPrintf("proof-of-work found  \n  hash: %s  \ntarget: %s\n", pblock->GetHash().GetHex(), hashTarget.GetHex());
 #ifdef ENABLE_WALLET
                     if (ProcessBlockFound(pblock, *pwallet, reservekey)) {
@@ -857,14 +857,14 @@ void static BitcoinMiner()
     {
         miningTimer.stop();
         c.disconnect();
-        LogPrintf("HorizenMiner terminated\n");
+        LogPrintf("HorisicMiner terminated\n");
         throw;
     }
     catch (const std::runtime_error &e)
     {
         miningTimer.stop();
         c.disconnect();
-        LogPrintf("HorizenMiner runtime error: %s\n", e.what());
+        LogPrintf("HorisicMiner runtime error: %s\n", e.what());
         return;
     }
     miningTimer.stop();

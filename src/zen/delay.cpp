@@ -1,4 +1,4 @@
-#include "zen/delay.h"
+#include "sic/delay.h"
 
 int64_t GetBlockDelay(const CBlockIndex& newBlock, const CBlockIndex& prevBlock, const int activeChainHeight, const bool isStartupSyncing)
 {

@@ -1,4 +1,4 @@
-// Copyright (c) 2017 The Zen Core developers
+// Copyright (c) 2017 The Sic Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -6,7 +6,7 @@
 #define UTILTLS_H
 
 #include <boost/filesystem/path.hpp>
-namespace zen {
+namespace sic {
 
 #define TLS_KEY_FILE_NAME   "key.pem"    // default name of a private key
 #define TLS_CERT_FILE_NAME  "cert.pem"   // default name of a certificate

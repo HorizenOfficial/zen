@@ -9,17 +9,17 @@ NEED_MAC_SIGN_CREDS="false"
 NEED_WIN_SIGN_CREDS="false"
 NEED_PGP_SIGN_CREDS="false"
 
-export B2_DOWNLOAD_URL="https://downloads.horizen.global/file/${B2_BUCKET_NAME}/"
+export B2_DOWNLOAD_URL="https://downloads.horisic.global/file/${B2_BUCKET_NAME}/"
 
 if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
   export DOCKER_UPDATE_PACKAGES="binfmt-support containerd.io docker-ce docker-ce-cli qemu-user-static"
   export UPDATE_PACKAGES="ca-certificates curl jq openssl"
   export PIP_UPDATE_PACKAGES="python-pip python-setuptools python-wheel python-wheel-common"
   export PIP_INSTALL=""
-  export IMAGE_NAME=zencash/zen-builder
+  export IMAGE_NAME=sicash/sic-builder
   export IMAGE_BASE_TAG="${DOCKER_ARCH}-${DOCKER_TARGET_OS}-${DOCKER_FROM}"
   export IMAGE_LATEST_TAG="${IMAGE_BASE_TAG}-latest"
-  export DOCKER_HOME="/home/zenbuilder/build"
+  export DOCKER_HOME="/home/sicbuilder/build"
   if [ -z "${TRAVIS_TAG}" ]; then
     export IMAGE_TAG="${IMAGE_LATEST_TAG}"
   else
@@ -27,7 +27,7 @@ if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
   fi
   if [ "${TRAVIS_BUILD_STAGE_NAME}" = "Prepare" ]; then
     export DATE=$(date '+%Y-%m-%d')
-    export IMAGE_PATH="${TRAVIS_BUILD_DIR}/contrib/ci-horizen/dockerfiles/${DOCKER_ARCH}/${DOCKER_TARGET_OS}/${DOCKER_FROM}"
+    export IMAGE_PATH="${TRAVIS_BUILD_DIR}/contrib/ci-horisic/dockerfiles/${DOCKER_ARCH}/${DOCKER_TARGET_OS}/${DOCKER_FROM}"
     NEED_DOCKER_CREDS="true"
   fi
   if [ "${TRAVIS_BUILD_STAGE_NAME}" = "Build" ]; then
@@ -62,16 +62,16 @@ if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
   export PIP_INSTALL=""
   if [ "${TRAVIS_BUILD_STAGE_NAME}" = "Prepare" ]; then
     export PIP_INSTALL="${PIP_INSTALL} b2"
-    export CLONE_REPO="https://github.com/ZencashOfficial/zencash-apple.git"
-    export CLONE_TARGET="${HOME}/zencash-apple"
+    export CLONE_REPO="https://github.com/SicashOfficial/sicash-apple.git"
+    export CLONE_TARGET="${HOME}/sicash-apple"
     export B2_UL_COMPRESS_FOLDER="${CLONE_TARGET}"
-    export B2_UL_FILENAME="${TRAVIS_CPU_ARCH}-${TRAVIS_OS_NAME}-${TRAVIS_OSX_IMAGE}-${TRAVIS_BUILD_ID}-${TRAVIS_COMMIT}-zencash-apple.tar.gz"
+    export B2_UL_FILENAME="${TRAVIS_CPU_ARCH}-${TRAVIS_OS_NAME}-${TRAVIS_OSX_IMAGE}-${TRAVIS_BUILD_ID}-${TRAVIS_COMMIT}-sicash-apple.tar.gz"
     NEED_B2_CREDS="true"
   fi
   if [ "${TRAVIS_BUILD_STAGE_NAME}" = "Build" ]; then
     export PIP_INSTALL="${PIP_INSTALL} b2"
-    export B2_DL_DECOMPRESS_FOLDER="${HOME}/zencash-apple"
-    export B2_DL_FILENAME="${TRAVIS_CPU_ARCH}-${TRAVIS_OS_NAME}-${TRAVIS_OSX_IMAGE}-${TRAVIS_BUILD_ID}-${TRAVIS_COMMIT}-zencash-apple.tar.gz"
+    export B2_DL_DECOMPRESS_FOLDER="${HOME}/sicash-apple"
+    export B2_DL_FILENAME="${TRAVIS_CPU_ARCH}-${TRAVIS_OS_NAME}-${TRAVIS_OSX_IMAGE}-${TRAVIS_BUILD_ID}-${TRAVIS_COMMIT}-sicash-apple.tar.gz"
     export B2_UL_COMPRESS_FOLDER="${TRAVIS_BUILD_DIR}"
     export B2_UL_FILENAME="${TRAVIS_CPU_ARCH}-${TRAVIS_OS_NAME}-${TRAVIS_OSX_IMAGE}-${TRAVIS_BUILD_ID}-${TRAVIS_COMMIT}.tar.gz"
     NEED_B2_CREDS="true"

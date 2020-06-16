@@ -20,7 +20,7 @@
 
 using namespace std;
 
-namespace zen
+namespace sic
 {
 typedef struct _NODE_ADDR {
     std::string ipAddr;
@@ -34,7 +34,7 @@ bool operator==(const _NODE_ADDR b) const
 } NODE_ADDR, *PNODE_ADDR;
 
 /**
- * @brief A class to wrap some of zen specific TLS functionalities used in the net.cpp
+ * @brief A class to wrap some of sic specific TLS functionalities used in the net.cpp
  * 
  */
 class TLSManager

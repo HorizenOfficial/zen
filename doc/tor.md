@@ -1,8 +1,8 @@
-*** Warning: Do not assume Tor support does the correct thing in Zen; better Tor support is a future feature goal. ***
+*** Warning: Do not assume Tor support does the correct thing in Sic; better Tor support is a future feature goal. ***
 
-### TOR SUPPORT IN Zen
+### TOR SUPPORT IN Sic
 
-It is possible to run Zen as a Tor hidden service, and connect to such services.
+It is possible to run Sic as a Tor hidden service, and connect to such services.
 
 ### BASIC Tor INSTALL AND CONFIGUATION
 
@@ -34,9 +34,9 @@ Now restart the Tor service.
 sudo systemctl restart tor.service
 ```
 
-If you've configured Tor as previously described there is nothing more you need to do. When you start zend without any command line options e.g. `./zend` it will automatically create a HiddenService and be reachable via the Tor network and clearnet. The node should have created a file `~/.zen/onion_private_key`, this file stores the private key of your HiddenService address.
+If you've configured Tor as previously described there is nothing more you need to do. When you start sicd without any command line options e.g. `./sicd` it will automatically create a HiddenService and be reachable via the Tor network and clearnet. The node should have created a file `~/.sic/onion_private_key`, this file stores the private key of your HiddenService address.
 
-When you use `./zen-cli getnetworkinfo` you should see that your node is reachable as a HiddenService like so:
+When you use `./sic-cli getnetworkinfo` you should see that your node is reachable as a HiddenService like so:
 ```
 [...]
     {
@@ -57,7 +57,7 @@ When you use `./zen-cli getnetworkinfo` you should see that your node is reachab
 [...]
 ```
 
-Currently, there is no Zen Seed Node to provide Tor node addresses, edit your `~/.zen/zen.conf` and add:
+Currently, there is no Sic Seed Node to provide Tor node addresses, edit your `~/.sic/sic.conf` and add:
 ```
 addnode=d2y2vsq5rxkcpk6f.onion
 addnode=eorrku3hauy53zup.onion
@@ -65,17 +65,17 @@ addnode=dr7rtjaszmuowjrt.onion
 ```
 
 
-### ADVANCED Zend/Tor CONFIGURATION OPTIONS
+### ADVANCED Sicd/Tor CONFIGURATION OPTIONS
 
 
 The following directions assume you have a Tor proxy running on port 9050 (possibly by following the above). Many distributions default to having a SOCKS proxy listening on port 9050, but others may not. In particular, the Tor Browser Bundle defaults to listening on port 9150. See [Tor Project FAQ:TBBSocksPort](https://www.torproject.org/docs/faq.html.en#TBBSocksPort) for how to properly
 configure Tor.
 
 
-1. Run Zen behind a Tor proxy
+1. Run Sic behind a Tor proxy
 -------------------------------
 
-The first step is running Zen behind a Tor proxy. This will already make all
+The first step is running Sic behind a Tor proxy. This will already make all
 outgoing connections be anonymized, but more is possible.
 
 	-proxy=ip:port  Set the proxy server. If SOCKS5 is selected (default), this proxy
@@ -96,28 +96,28 @@ outgoing connections be anonymized, but more is possible.
 
 In a typical situation, this suffices to run behind a Tor proxy:
 
-	./Zend -proxy=127.0.0.1:9050
+	./Sicd -proxy=127.0.0.1:9050
 
-Note: Running Zend without the proxy argument will work, however, you will only be able to connect to other nodes on Tor.  The proxy argument allows you to connect to both Tor nodes and Clearnet nodes.
+Note: Running Sicd without the proxy argument will work, however, you will only be able to connect to other nodes on Tor.  The proxy argument allows you to connect to both Tor nodes and Clearnet nodes.
 
-2. Run a Zen hidden server
+2. Run a Sic hidden server
 ----------------------------
 
 If you configure your Tor system accordingly, it is possible to make your node also
 reachable from the Tor network. Add these lines to your /etc/tor/torrc (or equivalent
 config file):
 
-	HiddenServiceDir /var/lib/tor/zen-service/
+	HiddenServiceDir /var/lib/tor/sic-service/
 	HiddenServicePort 9033 127.0.0.1:9033
 	HiddenServicePort 19033 127.0.0.1:19033
 
 The directory can be different of course, but (both) port numbers should be equal to
-your Zend's P2P listen port (9033 by default).
+your Sicd's P2P listen port (9033 by default).
 
-	-externalip=X   You can tell zend about its publicly reachable address using
+	-externalip=X   You can tell sicd about its publicly reachable address using
 	                this option, and this can be a .onion address. Given the above
 	                configuration, you can find your onion address in
-	                /var/lib/tor/Zen-service/hostname. Onion addresses are given
+	                /var/lib/tor/Sic-service/hostname. Onion addresses are given
 	                preference for your node to advertize itself with, for connections
 	                coming from unroutable addresses (such as 127.0.0.1, where the
 	                Tor proxy typically runs).
@@ -134,25 +134,25 @@ your Zend's P2P listen port (9033 by default).
 
 In a typical situation, where you're only reachable via Tor, this should suffice:
 
-	./zend -proxy=127.0.0.1:9050 -externalip=d2y2vsq5rxkcpk6f.onion -listen
+	./sicd -proxy=127.0.0.1:9050 -externalip=d2y2vsq5rxkcpk6f.onion -listen
 
 (Replace the Onion address with your own). It should be noted that you still
 listen on all devices and another node could establish a clearnet connection, when knowing
 your address. To mitigate this, additionally bind the address of your Tor proxy:
 
-	./zend ... -bind=127.0.0.1
+	./sicd ... -bind=127.0.0.1
 
 If you don't care too much about hiding your node, and want to be reachable on IPv4
 as well, use `discover` instead:
 
-	./zend ... -discover
+	./sicd ... -discover
 
 and open port 9033 on your firewall (or use -upnp).
 
 If you only want to use Tor to reach onion addresses, but not use it as a proxy
 for normal IPv4/IPv6 communication, use:
 
-	./zend -onion=127.0.0.1:9050 -externalip=d2y2vsq5rxkcpk6f.onion -discover
+	./sicd -onion=127.0.0.1:9050 -externalip=d2y2vsq5rxkcpk6f.onion -discover
 
 
 3. Automatically listen on Tor
@@ -160,42 +160,42 @@ for normal IPv4/IPv6 communication, use:
 
 Starting with Tor version 0.2.7.1 it is possible, through Tor's control socket
 API, to create and destroy 'ephemeral' hidden services programmatically.
-Zen has been updated to make use of this.
+Sic has been updated to make use of this.
 
 This means that if Tor is running (and proper authentication has been configured),
-Zend automatically creates a hidden service to listen on. Zend will also use Tor
+Sicd automatically creates a hidden service to listen on. Sicd will also use Tor
 automatically to connect to other .onion nodes if the control socket can be
 successfully opened. This will positively affect the number of available .onion
 nodes and their usage.
 
-This new feature is enabled by default if Zen is listening (`-listen`), and
+This new feature is enabled by default if Sic is listening (`-listen`), and
 requires a Tor connection to work. It can be explicitly disabled with `-listenonion=0`
 and, if not disabled, configured using the `-torcontrol` and `-torpassword` settings.
 To show verbose debugging information, pass `-debug=tor`.
 
 Connecting to Tor's control socket API requires one of two authentication methods to be 
-configured. For cookie authentication the user running Zend must have write access 
+configured. For cookie authentication the user running Sicd must have write access 
 to the `CookieAuthFile` specified in Tor configuration. In some cases this is 
 preconfigured and the creation of a hidden service is automatic. If permission problems 
 are seen with `-debug=tor` they can be resolved by adding both the user running tor and 
-the user running Zend to the same group and setting permissions appropriately. On 
-Debian-based systems the user running Zend can be added to the debian-tor group, 
+the user running Sicd to the same group and setting permissions appropriately. On 
+Debian-based systems the user running Sicd can be added to the debian-tor group, 
 which has the appropriate permissions. An alternative authentication method is the use 
 of the `-torpassword` flag and a `hash-password` which can be enabled and specified in 
 Tor configuration.
 
 
-4. Connect to a Zen hidden server
+4. Connect to a Sic hidden server
 -----------------------------------
 
 To test your set-up, you might want to try connecting via Tor on a different computer to just a
-a single Zen hidden server. Launch zend as follows:
+a single Sic hidden server. Launch sicd as follows:
 
-	./zend -onion=127.0.0.1:9050 -connect=d2y2vsq5rxkcpk6f.onion
+	./sicd -onion=127.0.0.1:9050 -connect=d2y2vsq5rxkcpk6f.onion
 
-Now use Zen-cli to verify there is only a single peer connection.
+Now use Sic-cli to verify there is only a single peer connection.
 
-	Zen-cli getpeerinfo
+	Sic-cli getpeerinfo
 
 	[
 	    {
@@ -203,20 +203,20 @@ Now use Zen-cli to verify there is only a single peer connection.
 	        "addr" : "d2y2vsq5rxkcpk6f.onion:18233",
 	        ...
 	        "version" : 170002,
-	        "subver" : "/zen:1.0.0/",
+	        "subver" : "/sic:1.0.0/",
 	        ...
 	    }
 	]
 
 To connect to multiple Tor nodes, use:
 
-	./zend -onion=127.0.0.1:9050 -addnode=d2y2vsq5rxkcpk6f.onion -dnsseed=0 -onlynet=onion
+	./sicd -onion=127.0.0.1:9050 -addnode=d2y2vsq5rxkcpk6f.onion -dnsseed=0 -onlynet=onion
 
 ### USING Tor PLUGGABLE TRANSPORTS
 
 Pluggable Transports transform the Tor traffic flow between the client and the bridge. This way, censors who monitor traffic between the client and the bridge will see innocent-looking transformed traffic instead of the actual Tor traffic. External programs can talk to Tor clients and Tor bridges using the pluggable transport API, to make it easier to build interoperable programs.
 
-(Currently, only Meek has been confirmed to work with Zend.)
+(Currently, only Meek has been confirmed to work with Sicd.)
 
 --------------------------------
 1. install `meek-client` (Ubuntu only):

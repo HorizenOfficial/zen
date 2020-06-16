@@ -1,4 +1,4 @@
-namespace zen
+namespace sic
 {
 typedef enum { SSL_ACCEPT,
                SSL_CONNECT,

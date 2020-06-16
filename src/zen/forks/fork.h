@@ -1,4 +1,4 @@
-// Copyright (c) 2017 The Zen Core developers
+// Copyright (c) 2017 The Sic Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -10,9 +10,9 @@
 #include "amount.h"
 #include <map>
 #include <vector>
-#include "zen/replayprotectionlevel.h"
+#include "sic/replayprotectionlevel.h"
 
-namespace zen {
+namespace sic {
 
 /**
  * @brief The Fork class is the base abstract class for all forks

@@ -1,5 +1,5 @@
 ---
-name: "zen-2.0.9-4"
+name: "sic-2.0.9-4"
 enable_cache: true
 distro: "debian"
 suites:
@@ -25,8 +25,8 @@ packages:
 - "wget"
 - "zlib1g-dev"
 remotes:
-- "url": "https://github.com/ZencashOfficial/zen.git"
-  "dir": "zen"
+- "url": "https://github.com/SicashOfficial/sic.git"
+  "dir": "sic"
 files: []
 script: |
   WRAP_DIR=$HOME/wrapped

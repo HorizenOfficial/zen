@@ -12,11 +12,11 @@
 #include "primitives/block.h"
 #include "protocol.h"
 
-#include "zen/forkmanager.h"
+#include "sic/forkmanager.h"
 
 #include <vector>
 
-using namespace zen;
+using namespace sic;
 
 struct CDNSSeedData {
     std::string name, host;

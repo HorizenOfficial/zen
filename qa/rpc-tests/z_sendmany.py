@@ -67,7 +67,7 @@ class ZSendmanyTest(BitcoinTestFramework):
         assert_equal(self.nodes[1].getbalance(),50)
 
         amount = 10.0
-        #Send 10 Zen to Zaddress and verify the change is returned back to the input address of the transaction
+        #Send 10 Sic to Zaddress and verify the change is returned back to the input address of the transaction
         ZDestAddress = self.nodes[2].z_getnewaddress()
         recipients= [{"address":ZDestAddress, "amount": amount}]
         myopid = self.nodes[1].z_sendmany(fromAddress,recipients,1,self.FEE, True)
@@ -83,7 +83,7 @@ class ZSendmanyTest(BitcoinTestFramework):
         assert_equal(self.nodes[2].z_getbalance(ZDestAddress),10)
 
 
-        #Send 10 Zen to Taddress and verify the change is returned back to the input address of the transaction
+        #Send 10 Sic to Taddress and verify the change is returned back to the input address of the transaction
         TDestAddress = self.nodes[2].getnewaddress()
         recipients= [{"address":TDestAddress, "amount": amount}]
         myopid = self.nodes[1].z_sendmany(fromAddress,recipients,1,self.FEE, True)
@@ -103,7 +103,7 @@ class ZSendmanyTest(BitcoinTestFramework):
         assert_equal(self.nodes[2].getbalance(),amount)
 
 
-        #Send 10 Zen to Taddress and verify the change is sent to a new address
+        #Send 10 Sic to Taddress and verify the change is sent to a new address
         recipients= [{"address":TDestAddress, "amount": amount}]
         myopid = self.nodes[1].z_sendmany(fromAddress,recipients,1,self.FEE, False)
         txid = wait_and_assert_operationid_status(self.nodes[1], myopid)
@@ -122,7 +122,7 @@ class ZSendmanyTest(BitcoinTestFramework):
         assert_equal(self.nodes[2].getbalance(),amount*2)
 
 
-        #Send 10 Zen to Taddress and verify the change is sent to a new address
+        #Send 10 Sic to Taddress and verify the change is sent to a new address
         recipients= [{"address":fromAddress, "amount": amount}]
         myopid = self.nodes[2].z_sendmany(TDestAddress,recipients)
         txid = wait_and_assert_operationid_status(self.nodes[2], myopid)
@@ -139,7 +139,7 @@ class ZSendmanyTest(BitcoinTestFramework):
                 newAddress = False
         assert_equal(newAddress,True)
 
-        #Send 10 Zen from a multiSig address and verify the change is returned back to the input address of the transaction
+        #Send 10 Sic from a multiSig address and verify the change is returned back to the input address of the transaction
         Taddr1 = self.nodes[1].getnewaddress()
         Taddr2 = self.nodes[1].getnewaddress()
         addr1Obj = self.nodes[1].validateaddress(Taddr1)

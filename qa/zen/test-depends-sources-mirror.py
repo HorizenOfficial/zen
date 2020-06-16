@@ -1,9 +1,9 @@
 #!/usr/bin/env python2
 
-# This script tests that the package mirror at https://horizen.global/depends-sources/
-# contains all of the packages required to build this version of Zen.
+# This script tests that the package mirror at https://horisic.global/depends-sources/
+# contains all of the packages required to build this version of Sic.
 #
-# This script assumes you've just built Zen, and that as a result of that
+# This script assumes you've just built Sic, and that as a result of that
 # build, all of the dependency packages have been downloaded into the
 # depends/sources directory (inside the root of this repository). The script
 # checks that all of those files are accessible on the mirror.
@@ -12,7 +12,7 @@ import sys
 import os
 import requests
 
-MIRROR_URL_DIR="https://downloads.horizen.global/file/depends-sources/"
+MIRROR_URL_DIR="https://downloads.horisic.global/file/depends-sources/"
 DEPENDS_SOURCES_DIR=os.path.realpath(os.path.join(
     os.path.dirname(__file__),
     "..", "..", "depends", "sources"

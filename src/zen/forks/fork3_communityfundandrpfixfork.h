@@ -3,7 +3,7 @@
 
 #include "fork2_replayprotectionfork.h"
 
-namespace zen {
+namespace sic {
 
 /**
  * @brief The CommunityFundAndRPFixFork class represents the fork that modified the community fund from 8.5% to 12% and fixed the replay protection

@@ -12,14 +12,14 @@
 #include "sync.h"
 #include "util.h"
 #include "version.h"
-#include "zen/utiltls.h"
+#include "sic/utiltls.h"
 
 #include <boost/foreach.hpp>
 
 #include <univalue.h>
 
 using namespace std;
-using namespace zen;
+using namespace sic;
 
 UniValue getconnectioncount(const UniValue& params, bool fHelp)
 {
@@ -260,7 +260,7 @@ UniValue getaddednodeinfo(const UniValue& params, bool fHelp)
             "    \"connected\" : true|false,          (boolean) If connected\n"
             "    \"addresses\" : [\n"
             "       {\n"
-            "         \"address\" : \"192.168.0.201:8233\",  (string) The Horizen server host and port\n"
+            "         \"address\" : \"192.168.0.201:8233\",  (string) The Horisic server host and port\n"
             "         \"connected\" : \"outbound\"           (string) connection, inbound or outbound\n"
             "       }\n"
             "       ,...\n"

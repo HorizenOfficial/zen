@@ -149,7 +149,7 @@ public:
 #define ADDRMAN_NEW_BUCKETS_PER_ADDRESS 8
 
 //! how old addresses can maximally be
-#define ADDRMAN_HORIZON_DAYS 30
+#define ADDRMAN_SICASH_DAYS 30
 
 //! after how many failed attempts we give up on a new node
 #define ADDRMAN_RETRIES 3
@@ -166,8 +166,8 @@ public:
 //! the maximum number of nodes to return in a getaddr call
 #define ADDRMAN_GETADDR_MAX 2500
 
-/** 
- * Stochastical (IP) address manager 
+/**
+ * Stochastical (IP) address manager
  */
 class CAddrMan
 {

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Execute all of the automated tests related to Zen.
+# Execute all of the automated tests related to Sic.
 #
 
 set -eu
@@ -26,8 +26,8 @@ function run_test_phase
 cd "${REPOROOT}"
 
 # Test phases:
-run_test_phase "${REPOROOT}/qa/zen/check-security-hardening.sh"
-run_test_phase "${REPOROOT}/qa/zen/ensure-no-dot-so-in-depends.py"
+run_test_phase "${REPOROOT}/qa/sic/check-security-hardening.sh"
+run_test_phase "${REPOROOT}/qa/sic/ensure-no-dot-so-in-depends.py"
 
 # If make check fails, show test-suite.log as part of our run_test_phase
 # output (and fail the phase with false):

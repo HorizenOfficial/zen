@@ -1,4 +1,4 @@
-// Copyright (c) 2017 The Zen Core developers
+// Copyright (c) 2017 The Sic Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -16,7 +16,7 @@
 #include "util.h"
 #include "utiltls.h"
 
-namespace zen {
+namespace sic {
 
 // Set of most common default trusted certificates directories used by OpenSSL
 static const char* defaultTrustedDirs[] =

@@ -80,10 +80,10 @@ testScriptsExt=(
   'getblocktemplate_proposals.py'
   'getblocktemplate_blockmaxcomplexity.py'
   'getblocktemplate_priority.py'
-# 'pruning.py'                # disabled for Zen. Failed because of the issue #1302 in zcash
+# 'pruning.py'                # disabled for Sic. Failed because of the issue #1302 in zcash
   'forknotify.py'
-# 'hardforkdetection.py'      # disabled for Zen. Failed because of the issue #1302 in zcash
-# 'invalidateblock.py'        # disabled for Zen. Failed because of the issue #1302 in zcash
+# 'hardforkdetection.py'      # disabled for Sic. Failed because of the issue #1302 in zcash
+# 'invalidateblock.py'        # disabled for Sic. Failed because of the issue #1302 in zcash
   'keypool.py'
   'receivedby.py'
   'rpcbind_test.py'

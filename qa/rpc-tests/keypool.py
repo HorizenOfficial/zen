@@ -80,7 +80,7 @@ def main():
     parser.add_option("--nocleanup", dest="nocleanup", default=False, action="store_true",
                       help="Leave bitcoinds and test.* datadir on exit or error")
     parser.add_option("--srcdir", dest="srcdir", default="../../src",
-                      help="Source directory containing zend/zen-cli (default: %default%)")
+                      help="Source directory containing sicd/sic-cli (default: %default%)")
     parser.add_option("--tmpdir", dest="tmpdir", default=tempfile.mkdtemp(prefix="test"),
                       help="Root directory for datadirs")
     (options, args) = parser.parse_args()

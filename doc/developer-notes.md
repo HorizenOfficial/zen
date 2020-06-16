@@ -36,14 +36,14 @@ class Class
 }
 ```
 
-Zencash-specific code
+Sicash-specific code
 ====================
 
-This new version of Zencash is no longer based on ZClassic but on ZCash.
+This new version of Sicash is no longer based on ZClassic but on ZCash.
 
-### zen folder and namespace
+### sic folder and namespace
 
-All Zencash-specific files should reside under a zen subfolder and Zencash-specific C++ classes must be declared within a zen namespace.
+All Sicash-specific files should reside under a sic subfolder and Sicash-specific C++ classes must be declared within a sic namespace.
 
 
 Doxygen comments

@@ -1,4 +1,4 @@
-// Copyright (c) 2017 The Zen Core developers
+// Copyright (c) 2017 The Sic Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -8,11 +8,11 @@
 #include "chainparamsbase.h"
 #include "amount.h"
 #include <list>
-#include "zen/replayprotectionlevel.h"
+#include "sic/replayprotectionlevel.h"
 #include "script/standard.h"
 #include "forks/fork.h"
 
-namespace zen {
+namespace sic {
 class Fork;
 
 /**

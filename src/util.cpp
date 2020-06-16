@@ -441,7 +441,7 @@ static std::string FormatException(const std::exception* pex, const char* pszThr
     char pszModule[MAX_PATH] = "";
     GetModuleFileNameA(NULL, pszModule, sizeof(pszModule));
 #else
-    const char* pszModule = "Zen";
+    const char* pszModule = "Sic";
 #endif
     if (pex)
         return strprintf(
@@ -462,13 +462,13 @@ void PrintExceptionContinue(const std::exception* pex, const char* pszThread)
 boost::filesystem::path GetDefaultDataDir()
 {
     namespace fs = boost::filesystem;
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Zen
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Zen
-    // Mac: ~/Library/Application Support/Zen
-    // Unix: ~/.zen
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Sic
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Sic
+    // Mac: ~/Library/Application Support/Sic
+    // Unix: ~/.sic
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "Zen";
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "Sic";
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -480,10 +480,10 @@ boost::filesystem::path GetDefaultDataDir()
     // Mac
     pathRet /= "Library/Application Support";
     TryCreateDirectory(pathRet);
-    return pathRet / "Zen";
+    return pathRet / "Sic";
 #else
     // Unix
-    return pathRet / ".zen";
+    return pathRet / ".sic";
 #endif
 #endif
 }
@@ -600,7 +600,7 @@ void ClearDatadirCache()
 
 boost::filesystem::path GetConfigFile()
 {
-    boost::filesystem::path pathConfigFile(GetArg("-conf", "zen.conf"));
+    boost::filesystem::path pathConfigFile(GetArg("-conf", "sic.conf"));
     if (!pathConfigFile.is_complete())
         pathConfigFile = GetDataDir(false) / pathConfigFile;
 
@@ -619,7 +619,7 @@ void ReadConfigFile(map<string, string>& mapSettingsRet,
 
     for (boost::program_options::detail::config_file_iterator it(streamConfig, setOptions), end; it != end; ++it)
     {
-        // Don't overwrite existing settings so command line settings override zen.conf
+        // Don't overwrite existing settings so command line settings override sic.conf
         string strKey = string("-") + it->string_key;
         if (mapSettingsRet.count(strKey) == 0)
         {
@@ -636,7 +636,7 @@ void ReadConfigFile(map<string, string>& mapSettingsRet,
 #ifndef WIN32
 boost::filesystem::path GetPidFile()
 {
-    boost::filesystem::path pathPidFile(GetArg("-pid", "zend.pid"));
+    boost::filesystem::path pathPidFile(GetArg("-pid", "sicd.pid"));
     if (!pathPidFile.is_complete()) pathPidFile = GetDataDir() / pathPidFile;
     return pathPidFile;
 }
@@ -918,7 +918,7 @@ std::string LicenseInfo()
            FormatParagraph(strprintf(_("Copyright (C) 2009-%i The Bitcoin Core Developers"), COPYRIGHT_YEAR)) + "\n" +
            FormatParagraph(strprintf(_("Copyright (C) 2015-%i The Zcash Developers"), COPYRIGHT_YEAR)) + "\n" +
            FormatParagraph(strprintf(_("Copyright (C) 2015-%i Zdeveloper.org"), COPYRIGHT_YEAR)) + "\n" +
-           FormatParagraph(strprintf(_("Copyright (C) 2015-%i Zen Blockchain Foundation"), COPYRIGHT_YEAR)) + "\n" +
+           FormatParagraph(strprintf(_("Copyright (C) 2015-%i Sic Blockchain Foundation"), COPYRIGHT_YEAR)) + "\n" +
            "\n" +
            FormatParagraph(_("This is experimental software.")) + "\n" +
            "\n" +

@@ -2,7 +2,7 @@ language: shell
 
 os: linux
 
-.com.github.zencashofficial.zen_ci_testing.env-definitions:
+.com.github.sicashofficial.sic_ci_testing.env-definitions:
   - &docker_amd64_linux_ubuntu_xenial
     env:
       - DOCKER_ARCH=amd64
@@ -59,7 +59,7 @@ os: linux
       - DOCKER_TARGET_OS=linux
       - DOCKER_FROM=ubuntu_xenial
       - DOCKER_IS_DEB=true
-      - TEST_CMD="./qa/zen/test-fetch-params.sh"
+      - TEST_CMD="./qa/sic/test-fetch-params.sh"
   - &docker_amd64_linux_ubuntu_bionic_unit-tests
     env:
       - DOCKER_ARCH=amd64
@@ -109,14 +109,14 @@ os: linux
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py --rpc-split=3:3"
 
-.com.github.zencashofficial.zen_ci_testing.job-definitions:
+.com.github.sicashofficial.sic_ci_testing.job-definitions:
   - &prepare_docker_amd64
     os: linux
     dist: bionic
     cache: false
     script:
-      - bash "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/prepare/docker_image_build.sh"
-      - bash "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/prepare/docker_image_deploy.sh"
+      - bash "${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/prepare/docker_image_build.sh"
+      - bash "${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/prepare/docker_image_deploy.sh"
   - &build_docker_amd64
     os: linux
     dist: bionic
@@ -124,8 +124,8 @@ os: linux
       directories:
         - "$HOME/.ccache"
     script:
-      - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/build/build_${TRAVIS_CPU_ARCH}_${DOCKER_TARGET_OS}_${DOCKER_FROM}.sh"
-      - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/push_archive.sh ${B2_UL_COMPRESS_FOLDER} ${B2_UL_FILENAME}"
+      - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/build/build_${TRAVIS_CPU_ARCH}_${DOCKER_TARGET_OS}_${DOCKER_FROM}.sh"
+      - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/common/push_archive.sh ${B2_UL_COMPRESS_FOLDER} ${B2_UL_FILENAME}"
   - &test_docker_amd64
     if: env(SKIP_TESTS) != true
     os: linux
@@ -134,9 +134,9 @@ os: linux
       directories:
         - "$HOME/.zcash-params"
     script:
-      - bash -c "RENAME_FOLDER='true' RENAME_SUFFIX='_clean' ${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/get_archive.sh ${B2_DL_DECOMPRESS_FOLDER} ${B2_DL_FILENAME}"
-      - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
-      - bash -c '${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/test/run_test.sh "${TEST_CMD}" "${TEST_ARGS}"'
+      - bash -c "RENAME_FOLDER='true' RENAME_SUFFIX='_clean' ${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/common/get_archive.sh ${B2_DL_DECOMPRESS_FOLDER} ${B2_DL_FILENAME}"
+      - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/common/travis_stay_alive.sh"
+      - bash -c '${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/test/run_test.sh "${TEST_CMD}" "${TEST_ARGS}"'
   - &test_osx_xcode9_4
     if: (env(SKIP_TESTS) != true) OR (env(SKIP_OSX) != true)
     os: osx
@@ -145,15 +145,15 @@ os: linux
       directories:
         - "$HOME/Library/Application Support/ZcashParams"
     script:
-      - bash -c "RENAME_FOLDER='true' RENAME_SUFFIX='_clean' ${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/get_archive.sh ${B2_DL_DECOMPRESS_FOLDER} ${B2_DL_FILENAME}"
-      - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/travis_stay_alive.sh"
-      - bash -c '${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/test/run_test.sh "${TEST_CMD}" "${TEST_ARGS}"'
+      - bash -c "RENAME_FOLDER='true' RENAME_SUFFIX='_clean' ${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/common/get_archive.sh ${B2_DL_DECOMPRESS_FOLDER} ${B2_DL_FILENAME}"
+      - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/common/travis_stay_alive.sh"
+      - bash -c '${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/test/run_test.sh "${TEST_CMD}" "${TEST_ARGS}"'
 
 before_install:
-  - source "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/setup_environment.sh"
+  - source "${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/common/setup_environment.sh"
 
 install:
-  - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/install.sh"
+  - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/common/install.sh"
 
 jobs:
   include:
@@ -167,15 +167,15 @@ jobs:
     - stage: Prepare
       <<: *prepare_docker_amd64
       <<: *docker_amd64_windows_ubuntu_bionic
-    # build zencash-apple toolchain
+    # build sicash-apple toolchain
     - stage: Prepare
       if: env(SKIP_OSX) != true
       os: osx
       osx_image: xcode9.4
       cache: false
       script:
-        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/prepare/build_zencash-apple.sh"
-        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/push_archive.sh ${B2_UL_COMPRESS_FOLDER} ${B2_UL_FILENAME}"
+        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/prepare/build_sicash-apple.sh"
+        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/common/push_archive.sh ${B2_UL_COMPRESS_FOLDER} ${B2_UL_FILENAME}"
     # Docker based builds
     - stage: Build
       <<: *build_docker_amd64
@@ -195,9 +195,9 @@ jobs:
         directories:
           - "$HOME/.ccache"
       script:
-        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/get_archive.sh ${B2_DL_DECOMPRESS_FOLDER} ${B2_DL_FILENAME}"
-        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/build/build_${TRAVIS_CPU_ARCH}_${TRAVIS_OS_NAME}_${TRAVIS_OSX_IMAGE}.sh"
-        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/push_archive.sh ${B2_UL_COMPRESS_FOLDER} ${B2_UL_FILENAME}"
+        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/common/get_archive.sh ${B2_DL_DECOMPRESS_FOLDER} ${B2_DL_FILENAME}"
+        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/build/build_${TRAVIS_CPU_ARCH}_${TRAVIS_OS_NAME}_${TRAVIS_OSX_IMAGE}.sh"
+        - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horisic/scripts/common/push_archive.sh ${B2_UL_COMPRESS_FOLDER} ${B2_UL_FILENAME}"
     # Docker based tests
     - stage: Test
       <<: *test_docker_amd64

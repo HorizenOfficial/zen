@@ -4,7 +4,7 @@
 #include "fork.h"
 #include "chain.h"
 
-namespace zen {
+namespace sic {
 
 /**
  * @brief The OriginalFork class represents the original fork at block 0

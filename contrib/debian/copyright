@@ -1,17 +1,18 @@
 Format: http://svn.debian.org/wsvn/dep/web/deps/dep5.mdwn?rev=174
-Upstream-Name: Horizen
-Upstream-Contact: Horizen Team <info@Horizen.global>
-Source: https://github.com/ZenCashOfficial/zen
+Upstream-Name: Horisic
+Upstream-Contact: Horisic Team <info@Horisic.global>
+Source: https://github.com/SicCashOfficial/sic
 
 Files: *
-Copyright: 2016-2018, The Zen Blockchain Foundation
+Copyright: 2019-2020, The SICash Blockchain Foundation
+Copyright: 2016-2018, The Sic Blockchain Foundation
  2016-2017, The Zcash developers
  2009-2017, Bitcoin Core developers
 License: Expat
 Comment: The Bitcoin Core developers encompasses the current developers listed on bitcoin.org,
  as well as the numerous contributors to the project.
  The Zcash developers are listed at https://z.cash/team.html.
- The Horizen developers are listed at https://horizen.global/team.
+ The Horisic developers are listed at https://horisic.global/team.
 
 Files: depends/sources/libsodium-*.tar.gz
 Copyright: 2013-2016 Frank Denis
@@ -1095,7 +1096,7 @@ License: LGPL-with-ZeroMQ-exception
  the license of that module. An independent module is a module which is not
  derived from or based on this library. If you modify this library, you must
  extend this exception to your version of the library.
-  
+
  Note: this exception relieves you of any obligations under sections 4 and 5
  of this license, and section 6 of the GNU General Public License.
 Comment:
@@ -1323,4 +1324,3 @@ License: GNU-All-permissive-License
  permitted in any medium without royalty provided the copyright notice
  and this notice are preserved. This file is offered as-is, without any
  warranty.
-

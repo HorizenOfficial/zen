@@ -1,6 +1,6 @@
 #include "fork6_timeblockfork.h"
 
-namespace zen {
+namespace sic {
 
 
 #define TIMEBLOCK_ACTIVATION 576

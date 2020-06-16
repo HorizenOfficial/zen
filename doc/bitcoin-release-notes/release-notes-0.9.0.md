@@ -390,7 +390,7 @@ Thanks to everyone who contributed to this release:
 - Ryan Niebur
 - Scott Ellis
 - Scott Willeke
-- Sergey Kazenyuk
+- Sergey Kasicyuk
 - Shawn Wilkinson
 - Sined
 - sje

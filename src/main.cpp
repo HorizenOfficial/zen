@@ -40,15 +40,15 @@
 #include <boost/thread.hpp>
 #include <boost/static_assert.hpp>
 
-#include "zen/forkmanager.h"
-#include "zen/delay.h"
+#include "sic/forkmanager.h"
+#include "sic/delay.h"
 
-using namespace zen;
+using namespace sic;
 
 using namespace std;
 
 #if defined(NDEBUG)
-# error "Zen cannot be compiled without assertions."
+# error "Sic cannot be compiled without assertions."
 #endif
 
 /**
@@ -1590,7 +1590,7 @@ bool IsInitialBlockDownload()
 {
     const CChainParams& chainParams = Params();
     LOCK(cs_main);
-    // from commit: https://github.com/ZencashOfficial/zen/commit/0c479520d29cae571dc531e54aa01813daacd1e1
+    // from commit: https://github.com/SicashOfficial/sic/commit/0c479520d29cae571dc531e54aa01813daacd1e1
     if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Height()))
         return false;
     if (fImporting || fReindex)
@@ -2172,7 +2172,7 @@ bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, unsigne
 static CCheckQueue<CScriptCheck> scriptcheckqueue(128);
 
 void ThreadScriptCheck() {
-    RenameThread("horizen-scriptch");
+    RenameThread("horisic-scriptch");
     scriptcheckqueue.Thread();
 }
 
@@ -3140,7 +3140,7 @@ bool updateGlobalForkTips(const CBlockIndex* pindex, bool lookForwardTips)
     }
     else
     {
-        // check from tips downward if we connect to this index and in this case 
+        // check from tips downward if we connect to this index and in this case
         // update the tip instead (for coping with very old tips not in the most recent set)
         if (lookForwardTips)
         {
@@ -3161,7 +3161,7 @@ bool updateGlobalForkTips(const CBlockIndex* pindex, bool lookForwardTips)
                     LogPrint("forks", "%s():%d - skipping main chain tip\n", __func__, __LINE__);
                     continue;
                 }
- 
+
                 const CBlockIndex* dum = tipIndex;
                 while ( dum != pindex && dum->nHeight >= h)
                 {
@@ -3645,7 +3645,7 @@ bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBloc
     if (miSelf != mapBlockIndex.end()) {
         // Block header is already known.
         pindex = miSelf->second;
-        
+
         // update it because if it is a tip, its timestamp is most probably changed
         updateGlobalForkTips(pindex, lookForwardTips);
 
@@ -5292,7 +5292,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 if (pindex)
                     pindex = chainActive.Next(pindex);
             }
- 
+
             // we must use CBlocks, as CBlockHeaders won't include the 0x00 nTx count at the end
             vector<CBlock> vHeaders;
             int nLimit = MAX_HEADERS_RESULTS;
@@ -5318,16 +5318,16 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             if (hashStop != uint256() )
             {
                 BlockMap::iterator mi = mapBlockIndex.find(hashStop);
-                if (mi == mapBlockIndex.end() ) 
+                if (mi == mapBlockIndex.end() )
                 {
                     // should never happen
                     LogPrint("forks", "%s():%d - block [%s] not found\n", __func__, __LINE__, hashStop.ToString() );
                     return true;
                 }
-    
+
                 LogPrint("forks", "%s():%d - peer is not using chain active! Starting from %s at h(%d)\n",
                     __func__, __LINE__, pindexReference->GetBlockHash().ToString(), pindexReference->nHeight );
- 
+
                 std::deque<CBlock> dHeadersAlternative;
 
                 bool found = false;
@@ -5336,24 +5336,24 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 while ( pindexReference )
                 {
                     dHeadersAlternative.push_front(pindexReference->GetBlockHeader());
- 
+
                     BOOST_FOREACH(const uint256& hash, locator.vHave)
                     {
                         if (hash == pindexReference->GetBlockHash() )
                         {
-                            // we found the tip passed along in locator, we must stop here 
+                            // we found the tip passed along in locator, we must stop here
                             LogPrint("forks", "%s():%d - matched fork tip in locator [%s]\n",
                                 __func__, __LINE__, hash.ToString() );
                             found = true;
                             break;
-                        } 
+                        }
                     }
- 
+
                     if (found || pindexReference->pprev == chainActive.Genesis() )
                     {
                         break;
                     }
- 
+
                     pindexReference = pindexReference->pprev;
                 }
 
@@ -5401,7 +5401,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                     LogPrint("forks", "%s():%d - tips %s h(%d)\n",
                         __func__, __LINE__, block->GetBlockHash().ToString(), block->nHeight);
 
-                    while (block && 
+                    while (block &&
                            block != pindexReference &&
                            block->nHeight >= h)
                     {
@@ -5619,9 +5619,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 LogPrint("forks", "%s():%d - non continuous sequence\n", __func__, __LINE__);
                 return error("non-continuous headers sequence");
             }
-            
+
             bool lookForwardTips = (++cnt == MAX_HEADERS_RESULTS);
-             
+
             if (!AcceptBlockHeader(header, state, &pindexLast, lookForwardTips)) {
                 int nDoS;
                 if (state.IsInvalid(nDoS)) {
@@ -6419,7 +6419,7 @@ bool RelayAlternativeChain(CValidationState &state, CBlock *pblock, BlockSet* sF
         __func__, __LINE__, sForkTips->size(), pindex->nHeight, pindex->GetBlockHash().ToString() );
 
     std::vector<CInv> vInv;
-    
+
     BOOST_FOREACH(const CBlockIndex* block, *sForkTips)
     {
         vInv.push_back(CInv(MSG_BLOCK, block->GetBlockHash()) );
@@ -6429,7 +6429,7 @@ bool RelayAlternativeChain(CValidationState &state, CBlock *pblock, BlockSet* sF
     int nBlockEstimate = 0;
     if (fCheckpointsEnabled)
         nBlockEstimate = Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints());
- 
+
     int nodeHeight = -1;
     if (nLocalServices & NODE_NETWORK) {
         LOCK(cs_vNodes);
@@ -6544,7 +6544,7 @@ std::string dbg_blk_global_tips()
         bool onForkPrev = false;
         if (onFork && pindex->pprev)
         {
-            // chanches are that the header is temporarly not a tip but will be promoted soon when the full blocks comes 
+            // chanches are that the header is temporarly not a tip but will be promoted soon when the full blocks comes
             onForkPrev = !chainActive.Contains(pindex->pprev);
         }
 
@@ -6586,7 +6586,7 @@ void dump_index(const CBlockIndex* pindex, int val)
     bool onForkPrev = false;
     if (onFork && pindex->pprev)
     {
-        // chanches are that the header is temporarly not a tip but will be promoted soon when the full blocks comes 
+        // chanches are that the header is temporarly not a tip but will be promoted soon when the full blocks comes
         onForkPrev = !chainActive.Contains(pindex->pprev);
     }
 
@@ -6644,7 +6644,7 @@ void dump_db()
         const CBlockIndex* dum = block;
 
         bool onFork = !chainActive.Contains(dum);
-        
+
         while (true)
         {
             if (dum)
@@ -6684,7 +6684,7 @@ void dump_candidates()
     BOOST_FOREACH(const CBlockIndex* block, setBlockIndexCandidates)
     {
         const CBlockIndex* dum = block;
-        
+
         dump_index(dum);
     }
 }
@@ -6707,7 +6707,7 @@ void dump_global_tips(int limit)
             break;
         }
         const CBlockIndex* block = mapPair.first;
-        
+
         dump_index(block, mapPair.second);
     }
 
@@ -6733,13 +6733,13 @@ void dump_dirty()
     BOOST_FOREACH(const CBlockIndex* block, setDirtyBlockIndex)
     {
         const CBlockIndex* dum = block;
-        
+
         dump_index(dum);
     }
 }
 
 bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, CBlockIndex** pindexReference)
-{ 
+{
     LogPrint("forks", "%s():%d - Entering hashStop[%s]\n", __func__, __LINE__, hashStop.ToString() );
     if (locator.IsNull() )
     {
@@ -6754,7 +6754,7 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
     if (hashStop != uint256() )
     {
         BlockMap::iterator mi = mapBlockIndex.find(hashStop);
-        if (mi != mapBlockIndex.end() ) 
+        if (mi != mapBlockIndex.end() )
         {
             *pindexReference = (*mi).second;
             bool onMain = (chainActive.Contains((*mi).second) );
@@ -6792,10 +6792,10 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
                 __func__, __LINE__, hash_0.ToString() );
 
             BlockMap::iterator mi = mapBlockIndex.find(hash_0);
-            if (mi != mapBlockIndex.end() ) 
+            if (mi != mapBlockIndex.end() )
             {
                 CBlockIndex* idx = (*mi).second;
- 
+
                 if (!chainActive.Contains(idx))
                 {
                     // tip of locator not on main
@@ -6821,7 +6821,7 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
     LogPrint("forks", "%s():%d - ##### Exiting returning FALSE\n", __func__, __LINE__);
     return false;
 }
-    
+
 
 static int getInitCbhSafeDepth()
 {
@@ -6867,7 +6867,7 @@ static bool getInitRequireStandard()
 
         if ((bool)(GetBoolArg("-allownonstandardtx",  false ) ) )
         {
-            // if this flag is set the user wants to allow non-standars tx, therefore we override default param and return false  
+            // if this flag is set the user wants to allow non-standars tx, therefore we override default param and return false
             val = false;
         }
         LogPrintf("%s():%d - %s: using val %d (%s)\n", __func__, __LINE__, Params().NetworkIDString(), (int)val, (val?"Y":"N"));
@@ -6882,4 +6882,3 @@ bool getRequireStandard()
     static int retVal( getInitRequireStandard() );
     return retVal;
 }
-

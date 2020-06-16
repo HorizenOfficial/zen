@@ -1,16 +1,16 @@
-# bash programmable completion for zend(1)
+# bash programmable completion for sicd(1)
 # Copyright (c) 2012-2017 The Bitcoin Core developers
 # Copyright (c) 2016-2017 The Zcash developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-_zend() {
+_sicd() {
     local cur prev words=() cword
-    local zend
+    local sicd
 
-    # save and use original argument to invoke zend for -help
+    # save and use original argument to invoke sicd for -help
     # it might not be in $PATH
-    zend="$1"
+    sicd="$1"
 
     COMPREPLY=()
     _get_comp_words_by_ref -n = cur prev words cword
@@ -34,7 +34,7 @@ _zend() {
             # only parse -help if senseful
             if [[ -z "$cur" || "$cur" =~ ^- ]]; then
                 local helpopts
-                helpopts=$($zend -help 2>&1 | awk '$1 ~ /^-/ { sub(/=.*/, "="); print $1 }' )
+                helpopts=$($sicd -help 2>&1 | awk '$1 ~ /^-/ { sub(/=.*/, "="); print $1 }' )
                 COMPREPLY=( $( compgen -W "$helpopts" -- "$cur" ) )
             fi
 
@@ -46,7 +46,7 @@ _zend() {
             ;;
     esac
 } &&
-complete -F _zend zend
+complete -F _sicd sicd
 
 # Local variables:
 # mode: shell-script

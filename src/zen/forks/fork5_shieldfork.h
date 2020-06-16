@@ -2,7 +2,7 @@
 #define SHIELDFORK_H
 
 #include "fork4_nulltransactionfork.h"
-namespace zen {
+namespace sic {
 
 class ShieldFork : public NullTransactionFork
 {

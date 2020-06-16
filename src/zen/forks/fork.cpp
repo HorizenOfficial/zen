@@ -1,10 +1,10 @@
-// Copyright (c) 2017 The Zen Core developers
+// Copyright (c) 2017 The Sic Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "fork.h"
 
-namespace zen {
+namespace sic {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// PUBLIC MEMBERS

@@ -1,6 +1,6 @@
 #include "fork4_nulltransactionfork.h"
 
-namespace zen {
+namespace sic {
 
 NullTransactionFork::NullTransactionFork()
 {

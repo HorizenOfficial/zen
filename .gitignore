@@ -1,8 +1,8 @@
-# Ignore Zen binaries
-src/zen-cli
-src/zen-gtest
-src/zen-tx
-src/zend
+# Ignore Sic binaries
+src/sic-cli
+src/sic-gtest
+src/sic-tx
+src/sicd
 
 *.tar.gz
 *.deb
@@ -92,7 +92,7 @@ qrc_*.cpp
 # Mac specific
 .DS_Store
 build
-!contrib/ci-horizen/scripts/build
+!contrib/ci-horisic/scripts/build
 
 #lcov
 *.gcno

@@ -17,9 +17,9 @@ Usage:
 $0 --help
   Show this help message and exit.
 $0 [ --enable-lcov ] [ MAKEARGS... ]
-  Build Zen and most of its transitive dependencies from
-  source. MAKEARGS are applied to both dependencies and Zen itself. If
-  --enable-lcov is passed, Zen is configured to add coverage
+  Build Sic and most of its transitive dependencies from
+  source. MAKEARGS are applied to both dependencies and Sic itself. If
+  --enable-lcov is passed, Sic is configured to add coverage
   instrumentation, thus enabling "make cov" to work.
 EOF
     exit 0

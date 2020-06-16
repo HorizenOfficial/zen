@@ -97,7 +97,7 @@ def initialize_datadir(dirname, n):
     datadir = os.path.join(dirname, "node"+str(n))
     if not os.path.isdir(datadir):
         os.makedirs(datadir)
-    with open(os.path.join(datadir, "zen.conf"), 'w') as f:
+    with open(os.path.join(datadir, "sic.conf"), 'w') as f:
         f.write("regtest=1\n");
         f.write("showmetrics=0\n");
         f.write("rpcuser=rt\n");
@@ -113,7 +113,7 @@ def initialize_chain(test_dir):
     """
     Create (or copy from cache) a 200-block-long chain and
     4 wallets.
-    zend and zen-cli must be in search path.
+    sicd and sic-cli must be in search path.
     """
     if os.path.isdir(os.path.join("cache", "node0")):
         if os.stat("cache").st_mtime + (60 * 60) < time.time():
@@ -125,16 +125,16 @@ def initialize_chain(test_dir):
         # Create cache directories, run bitcoinds:
         for i in range(4):
             datadir=initialize_datadir("cache", i)
-            args = [ os.getenv("BITCOIND", "zend"), "-keypool=1", "-datadir="+datadir, "-discover=0", "-rpcservertimeout=600" ]
+            args = [ os.getenv("BITCOIND", "sicd"), "-keypool=1", "-datadir="+datadir, "-discover=0", "-rpcservertimeout=600" ]
             if i > 0:
                 args.append("-connect=127.0.0.1:"+str(p2p_port(0)))
             bitcoind_processes[i] = subprocess.Popen(args)
             if os.getenv("PYTHON_DEBUG", ""):
-                print "initialize_chain: zend started, calling zen-cli -rpcwait getblockcount"
-            subprocess.check_call([ os.getenv("BITCOINCLI", "zen-cli"), "-datadir="+datadir,
+                print "initialize_chain: sicd started, calling sic-cli -rpcwait getblockcount"
+            subprocess.check_call([ os.getenv("BITCOINCLI", "sic-cli"), "-datadir="+datadir,
                                     "-rpcwait", "getblockcount"], stdout=devnull)
             if os.getenv("PYTHON_DEBUG", ""):
-                print "initialize_chain: zen-cli -rpcwait getblockcount completed"
+                print "initialize_chain: sic-cli -rpcwait getblockcount completed"
         devnull.close()
         rpcs = []
         for i in range(4):
@@ -157,7 +157,7 @@ def initialize_chain(test_dir):
                     set_node_times(rpcs, block_time)
                     rpcs[peer].generate(1)
                     # block_time += 10*60 # this was BTC target spacing ??
-                    block_time += 150   # ZEN blocktime target spacing
+                    block_time += 150   # SIC blocktime target spacing
                 # Must sync before next peer starts generating blocks
                 sync_blocks(rpcs)
         # Check that local time isn't going backwards                
@@ -176,7 +176,7 @@ def initialize_chain(test_dir):
         from_dir = os.path.join("cache", "node"+str(i))
         to_dir = os.path.join(test_dir,  "node"+str(i))
         shutil.copytree(from_dir, to_dir)
-        initialize_datadir(test_dir, i) # Overwrite port/rpcport in zen.conf
+        initialize_datadir(test_dir, i) # Overwrite port/rpcport in sic.conf
 
 def initialize_chain_clean(test_dir, num_nodes):
     """
@@ -209,22 +209,22 @@ def _rpchost_to_args(rpchost):
 
 def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=None):
     """
-    Start a zend and return RPC connection to it
+    Start a sicd and return RPC connection to it
     """
     datadir = os.path.join(dirname, "node"+str(i))
     if binary is None:
-        binary = os.getenv("BITCOIND", "zend")
+        binary = os.getenv("BITCOIND", "sicd")
     args = [ binary, "-datadir="+datadir, "-keypool=1", "-discover=0", "-rest", "-rpcservertimeout=600" ]
     if extra_args is not None: args.extend(extra_args)
     bitcoind_processes[i] = subprocess.Popen(args)
     devnull = open("/dev/null", "w+")
     if os.getenv("PYTHON_DEBUG", ""):
-        print "start_node: zend started, calling zen-cli -rpcwait getblockcount"
-    subprocess.check_call([ os.getenv("BITCOINCLI", "zen-cli"), "-datadir="+datadir] +
+        print "start_node: sicd started, calling sic-cli -rpcwait getblockcount"
+    subprocess.check_call([ os.getenv("BITCOINCLI", "sic-cli"), "-datadir="+datadir] +
                           _rpchost_to_args(rpchost)  +
                           ["-rpcwait", "getblockcount"], stdout=devnull)
     if os.getenv("PYTHON_DEBUG", ""):
-        print "start_node: calling zen-cli -rpcwait getblockcount returned"
+        print "start_node: calling sic-cli -rpcwait getblockcount returned"
     devnull.close()
     url = "http://rt:rt@%s:%d" % (rpchost or '127.0.0.1', rpc_port(i))
     if timewait is not None:
@@ -236,7 +236,7 @@ def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=
 
 def start_nodes(num_nodes, dirname, extra_args=None, rpchost=None, binary=None):
     """
-    Start multiple zends, return RPC connections to them
+    Start multiple sicds, return RPC connections to them
     """
     if extra_args is None: extra_args = [ None for i in range(num_nodes) ]
     if binary is None: binary = [ None for i in range(num_nodes) ]

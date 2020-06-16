@@ -1,16 +1,16 @@
-Source: zen
+Source: sic
 Section: utils
 Priority: optional
-Maintainer: Zen Blockchain Foundation <info@horizen.global>
-Homepage: https://horizen.global
+Maintainer: Sic Blockchain Foundation <info@horisic.global>
+Homepage: https://horisic.global
 Build-Depends: autoconf, automake, bsdmainutils, build-essential,
  git, g++-multilib, libc6-dev, libtool,
  m4, ncurses-dev, pkg-config, python,
  unzip, wget, zlib1g-dev
-Vcs-Git: https://github.com/ZencashOfficial/zen.git
-Vcs-Browser: https://github.com/ZencashOfficial/zen
+Vcs-Git: https://github.com/SicashOfficial/sic.git
+Vcs-Browser: https://github.com/SicashOfficial/sic
 
-Package: zen
+Package: sic
 Architecture: any
 Depends: ${shlibs:Depends}
-Description: Private and reliable transactions, communications, and publishing - horizen.global
+Description: Private and reliable transactions, communications, and publishing - horisic.global

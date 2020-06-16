@@ -1,1 +1,1 @@
-dist_man1_MANS=zend.1 zen-cli.1 zen-fetch-params.1 zen-tx.1
+dist_man1_MANS=sicd.1 sic-cli.1 sic-fetch-params.1 sic-tx.1

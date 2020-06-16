@@ -1,22 +1,22 @@
-Zen 2.0.21-1
+Sic 2.0.21-1
 ==============
 
-What is Horizen?
+What is Horisic?
 ----------------
 A globally accessible and anonymous blockchain for censorship-resistant communications and economic activity.
 
 Upgrading from 2.0.11 source
 ----------------
 
-To upgrade from any version prior to 2.0.14, you will have to re-clone the repository, the [ZencashOfficial/zen](https://github.com/ZencashOfficial/zen) repository was replaced by a new repository based on Zcash upstream with a different commit history. Merging/pulling is not possible without issues.
-Assuming your current repository is stored at `~/zen`, do the following to upgrade:
+To upgrade from any version prior to 2.0.14, you will have to re-clone the repository, the [SicashOfficial/sic](https://github.com/SicashOfficial/sic) repository was replaced by a new repository based on Zcash upstream with a different commit history. Merging/pulling is not possible without issues.
+Assuming your current repository is stored at `~/sic`, do the following to upgrade:
 ```{r, engine='bash'}
 # if you don't want to keep the old src around
-rm -r ~/zen
+rm -r ~/sic
 # or if you do want to keep it
-mv ~/zen ~/zen_archived
-git clone https://github.com/ZencashOfficial/zen.git
-cd ~/zen
+mv ~/sic ~/sic_archived
+git clone https://github.com/SicashOfficial/sic.git
+cd ~/sic
 ```
 Now continue with building from source.
 
@@ -64,23 +64,23 @@ Building from source
 
 * Install for Linux
 ```{r, engine='bash'}
-git clone https://github.com/ZencashOfficial/zen.git
-cd zen
+git clone https://github.com/SicashOfficial/sic.git
+cd sic
 # Build
 ./zcutil/build.sh -j$(nproc)
 # fetch key
 ./zcutil/fetch-params.sh
 # Run
-./src/zend
+./src/sicd
 ```
 
 * Install for Mac OS (using clang)
 
 ```
-Read and follow the README.md at https://github.com/ZencashOfficial/zencash-apple
+Read and follow the README.md at https://github.com/SicashOfficial/sicash-apple
 ```
 
-https://github.com/ZencashOfficial/zencash-apple
+https://github.com/SicashOfficial/sicash-apple
 
 
 * Install for Windows (Cross-Compiled, building on Windows is not supported yet)
@@ -102,7 +102,7 @@ ln -s /usr/bin/nm aarch64-unknown-linux-gnu-nm
 ln -s /usr/bin/ranlib aarch64-unknown-linux-gnu-ranlib
 ln -s /usr/bin/strip aarch64-unknown-linux-gnu-strip
 PATH=$PATH:~/bin
-cd ~/zen/
+cd ~/sic/
 export HOST=aarch64-unknown-linux
 ./zcutil/build.sh -j$(nproc)
 ```
@@ -135,20 +135,20 @@ Running Regression Tests
 Instructions to redeem pre-block 110,000 ZCL
 -------------
 1. Linux:
-Copy and paste your wallet.dat from ~/.zclassic/ to ~/.zen. That's it!
+Copy and paste your wallet.dat from ~/.zclassic/ to ~/.sic. That's it!
 
 2. Windows:
-Copy and paste your wallet.dat from %APPDATA%/Zclassic/ to %APPDATA%/Zen. That's it!
+Copy and paste your wallet.dat from %APPDATA%/Zclassic/ to %APPDATA%/Sic. That's it!
 
 About
 --------------
 
-[Zen](https://horizen.global/) is a platform for secure communications and for deniable economic activity.
-Horizen is an evolution of the Zclassic codebase aimed at primarily enabling intriniscally secure communications and
+[Sic](https://horisic.global/) is a platform for secure communications and for deniable economic activity.
+Horisic is an evolution of the Zclassic codebase aimed at primarily enabling intriniscally secure communications and
 resilient networking.
 
-This software is the Horizen client. It downloads and stores the entire history
-of Horizen transactions; depending on the speed of your computer and network
+This software is the Horisic client. It downloads and stores the entire history
+of Horisic transactions; depending on the speed of your computer and network
 connection, the synchronization process could take a day or more once the
 blockchain has reached a significant size.
 
@@ -158,28 +158,28 @@ Security Warnings
 See important security warnings in
 [doc/security-warnings.md](doc/security-warnings.md).
 
-**Horizen is unfinished and highly experimental.** Use at your own risk.
+**Horisic is unfinished and highly experimental.** Use at your own risk.
 
 Where do I begin?
 -----------------
-* The easiest way to get started is to download one of the available GUI wallets from [horizen.global](https://horizen.global)
+* The easiest way to get started is to download one of the available GUI wallets from [horisic.global](https://horisic.global)
 
 ### Need Help?
 
-* Many guides and tutorials are available at [Horizen Discord](https://discord.gg/CEbKY9w)
+* Many guides and tutorials are available at [Horisic Discord](https://discord.gg/CEbKY9w)
   for help and more information.
 
 ### Want to participate in development?
 
 * Code review is welcome!
 
-Participation in the Horizen project is subject to a
+Participation in the Horisic project is subject to a
 [Code of Conduct](code_of_conduct.md).
 
 Building
 --------
 
-Build Horizen along with most dependencies from source by running
+Build Horisic along with most dependencies from source by running
 ./zcutil/build.sh for Linux.
 ./zcutil/build-win.sh for Windows
 ./zcutil/build-mac.sh for MacOS.

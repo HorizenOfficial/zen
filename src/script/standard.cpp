@@ -14,8 +14,8 @@
 
 #include "main.h"
 #include "versionbits.h"
-#include "zen/forkmanager.h"
-using namespace zen;
+#include "sic/forkmanager.h"
+using namespace sic;
 
 using namespace std;
 
@@ -195,7 +195,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
             {
             	// Full-fledged implementation of the OP_CHECKBLOCKATHEIGHT opcode for verification of vout's
 
-#if !defined(BITCOIN_TX) // TODO: This is an workaround. zen-tx does not have access to chain state so no replay protection is possible
+#if !defined(BITCOIN_TX) // TODO: This is an workaround. sic-tx does not have access to chain state so no replay protection is possible
 
                 if (vchBlockHash.size() != 32)
                 {
@@ -394,7 +394,7 @@ public:
         return false;
     }
 
-#ifdef BITCOIN_TX // zen-tx does not have access to chain state so no replay protection is possible
+#ifdef BITCOIN_TX // sic-tx does not have access to chain state so no replay protection is possible
     bool operator()(const CKeyID &keyID) const {
         script->clear();
         *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
