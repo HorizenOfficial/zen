@@ -5,6 +5,27 @@ What is Horizen?
 ----------------
 A globally accessible and anonymous blockchain for censorship-resistant communications and economic activity.
 
+Zend_oo - the Zendoo-powered Sidechain Platform
+-------------------
+**Zend_oo** is the beta version of Zend allowing Horizen Mainchain to manage and interact with any number of **sidechains**.
+
+This version of Zend implements the **Zendoo** verifiable Cross-Chain Transfer Protocol that allows the creation of ad-hoc sidechains, each with an independent **custom** business logic. Moreover it grants the possibility of transferring coins from the Mainchain and allows to safely retrieve coins back from the sidechain by means of verifiable withdrawal certificates.
+
+Horizen Sidechains are **fully decentralized**: sidechain nodes observe the Mainchain but the Mainchain only observes cryptographically authenticated certificates received from the sidechain; Certificate authentication and validation are achieved thanks to an innovative use of the **SNARK** technology, which enable constant-sized proofs of arbitrary computations, not involving any trusted third party and keeping Mainchain totally **agnostic** from sidechain's rules.
+
+The main feature of our construction is the high degree of **generalization**: sidechains are allowed to use their own rules and data, defining custom SNARKs to let mainchain authenticate their certificates without any knowledge of the sidechain internals. 
+
+### **Beta Preview features**
+-------------------
+
+- Sidechain Declaration with customizable SNARK verification key;
+- Forward Transfer transaction to sidechain;
+- Sidechain epoch management with liveness monitoring and ceasing procedure;
+- Sidechain Backward Transfer by means of Withdrawal Certificate;
+- Agnostic Withdrawal Certificate validation via custom SNARK proof verification (powered by[ zendoo-mc-cryptolib](https://github.com/ZencashOfficial/zendoo-mc-cryptolib));
+- Extended rpc interface to create and dispatch Sidechain Declaration, Forward Transfer transactions and Withdrawal Certificates;
+- Extensive unit tests and integrations tests for verifying sidechain functionality.
+
 Upgrading from 2.0.11 source
 ----------------
 
@@ -151,6 +172,8 @@ This software is the Horizen client. It downloads and stores the entire history
 of Horizen transactions; depending on the speed of your computer and network
 connection, the synchronization process could take a day or more once the
 blockchain has reached a significant size.
+
+You can read more about the Zendoo protocol in our [whitepaper](https://www.horizen.global/assets/files/Horizen-Sidechain-Zendoo-A_zk-SNARK-Verifiable-Cross-Chain-Transfer-Protocol.pdf), and explore our default sidechain implementation and SDK in our [Sidechains-SDK](https://github.com/ZencashOfficial/Sidechains-SDK);
 
 Security Warnings
 -----------------
