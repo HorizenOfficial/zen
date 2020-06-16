@@ -13,7 +13,9 @@ This version of Zend implements the **Zendoo** verifiable Cross-Chain Transfer P
 
 Horizen Sidechains are **fully decentralized**: sidechain nodes observe the Mainchain but the Mainchain only observes cryptographically authenticated certificates received from the sidechain; Certificate authentication and validation are achieved thanks to an innovative use of the **SNARK** technology, which enable constant-sized proofs of arbitrary computations, not involving any trusted third party and keeping Mainchain totally **agnostic** from sidechain's rules.
 
-The main feature of our construction is the high degree of **generalization**: sidechains are allowed to use their own rules and data, defining custom SNARKs to let mainchain authenticate their certificates without any knowledge of the sidechain internals. 
+The main feature of our construction is the high degree of **generalization**: sidechains are allowed to use their own rules and data, defining custom SNARKs to let mainchain authenticate their certificates without any knowledge of the sidechain internals.
+
+You can read more about the Zendoo protocol in our [whitepaper](https://www.horizen.global/assets/files/Horizen-Sidechain-Zendoo-A_zk-SNARK-Verifiable-Cross-Chain-Transfer-Protocol.pdf), and explore our default sidechain implementation and SDK in our [Sidechains-SDK](https://github.com/ZencashOfficial/Sidechains-SDK).
 
 ### **Beta Preview features**
 -------------------
@@ -156,8 +158,6 @@ This software is the Horizen client. It downloads and stores the entire history
 of Horizen transactions; depending on the speed of your computer and network
 connection, the synchronization process could take a day or more once the
 blockchain has reached a significant size.
-
-You can read more about the Zendoo protocol in our [whitepaper](https://www.horizen.global/assets/files/Horizen-Sidechain-Zendoo-A_zk-SNARK-Verifiable-Cross-Chain-Transfer-Protocol.pdf), and explore our default sidechain implementation and SDK in our [Sidechains-SDK](https://github.com/ZencashOfficial/Sidechains-SDK);
 
 Security Warnings
 -----------------
