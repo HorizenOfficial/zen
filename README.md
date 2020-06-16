@@ -1,4 +1,4 @@
-Zen 2.0.21-1
+Zen 2.1.0-beta1
 ==============
 
 What is Horizen?
@@ -24,22 +24,13 @@ The main feature of our construction is the high degree of **generalization**: s
 - Sidechain Backward Transfer by means of Withdrawal Certificate;
 - Agnostic Withdrawal Certificate validation via custom SNARK proof verification (powered by[ zendoo-mc-cryptolib](https://github.com/ZencashOfficial/zendoo-mc-cryptolib));
 - Extended rpc interface to create and dispatch Sidechain Declaration, Forward Transfer transactions and Withdrawal Certificates;
-- Extensive unit tests and integrations tests for verifying sidechain functionality.
+- Extensive unit tests and integrations tests for verifying sidechain functionality;
+- Public Sidechain testnet separate from normal testnet3.
 
-Upgrading from 2.0.11 source
+Branching strategy
 ----------------
-
-To upgrade from any version prior to 2.0.14, you will have to re-clone the repository, the [ZencashOfficial/zen](https://github.com/ZencashOfficial/zen) repository was replaced by a new repository based on Zcash upstream with a different commit history. Merging/pulling is not possible without issues.
-Assuming your current repository is stored at `~/zen`, do the following to upgrade:
-```{r, engine='bash'}
-# if you don't want to keep the old src around
-rm -r ~/zen
-# or if you do want to keep it
-mv ~/zen ~/zen_archived
-git clone https://github.com/ZencashOfficial/zen.git
-cd ~/zen
-```
-Now continue with building from source.
+- [sidechains_testnet](https://github.com/ZencashOfficial/zend_oo/tree/sidechains_testnet) - Sidechains testnet branch, release branch of Sidechains testnet beta versions, compile from this branch to run a Mainchain node on the Sidechains test network
+- [sidechains_dev](https://github.com/ZencashOfficial/zend_oo/tree/sidechains_dev) - Sidechains development branch, ongoing development takes place here, any time a release is being done this branch will be merged into [sidechains_testnet](https://github.com/ZencashOfficial/zend_oo/tree/sidechains_testnet)
 
 Building from source
 ----------------
@@ -85,7 +76,7 @@ Building from source
 
 * Install for Linux
 ```{r, engine='bash'}
-git clone https://github.com/ZencashOfficial/zen.git
+git clone https://github.com/ZencashOfficial/zend_oo.git
 cd zen
 # Build
 ./zcutil/build.sh -j$(nproc)
@@ -153,14 +144,7 @@ Running Regression Tests
     ./zcutil/fetch-params.sh
     ./qa/zcash/full_test_suite.py ${TEST_ARGS}
     ```
-Instructions to redeem pre-block 110,000 ZCL
--------------
-1. Linux:
-Copy and paste your wallet.dat from ~/.zclassic/ to ~/.zen. That's it!
-
-2. Windows:
-Copy and paste your wallet.dat from %APPDATA%/Zclassic/ to %APPDATA%/Zen. That's it!
-
+    
 About
 --------------
 
@@ -198,14 +182,6 @@ Where do I begin?
 
 Participation in the Horizen project is subject to a
 [Code of Conduct](code_of_conduct.md).
-
-Building
---------
-
-Build Horizen along with most dependencies from source by running
-./zcutil/build.sh for Linux.
-./zcutil/build-win.sh for Windows
-./zcutil/build-mac.sh for MacOS.
 
 License
 -------
