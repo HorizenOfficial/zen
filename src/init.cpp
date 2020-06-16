@@ -1303,6 +1303,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // Count uptime
     MarkStartTime();
 
+    // running in mainnet is prevented for the time being
+    if ((chainparams.NetworkIDString() == "main"))
+    {
+        LogPrintf("ERROR: running this Zen version in main net is not allowed! Please restart zend with -regtest or -testnet flag\n");
+        LogPrintf("Zen version %s (%s)\n", FormatFullVersion(), CLIENT_DATE);
+        assert(!"ERROR: running this Zen version in main net is not allowed!");
+    }
+
     if ((chainparams.NetworkIDString() != "regtest") &&
             GetBoolArg("-showmetrics", isatty(STDOUT_FILENO)) &&
             !fPrintToConsole && !GetBoolArg("-daemon", false)) {
