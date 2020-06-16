@@ -9,6 +9,13 @@
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 #include "crypto/common.h"
+#include <boost/foreach.hpp>
+
+// uncomment for debugging mkl root hash calculations
+//#define DEBUG_MKLTREE_HASH 1
+
+// uncomment for debugging mkl branch check
+//#define DEBUG_MERKLE_BRANCH 1
 
 uint256 CBlockHeader::GetHash() const
 {
@@ -53,29 +60,68 @@ uint256 CBlock::BuildMerkleTree(bool* fMutated) const
        root.
     */
     vMerkleTree.clear();
-    vMerkleTree.reserve(vtx.size() * 2 + 16); // Safe upper bound for the number of total nodes.
-    for (std::vector<CTransaction>::const_iterator it(vtx.begin()); it != vtx.end(); ++it)
-        vMerkleTree.push_back(it->GetHash());
+
+    std::vector<const CTransactionBase*> vTxBase;
+    GetTxAndCertsVector(vTxBase);
+
+    vMerkleTree.reserve(vTxBase.size() * 2 + 16); // Safe upper bound for the number of total nodes.
+    for (auto it(vTxBase.begin()); it != vTxBase.end(); ++it)
+        vMerkleTree.push_back((*it)->GetHash());
+
+    return BuildMerkleTree(vMerkleTree, vTxBase.size(), fMutated);
+}
+
+uint256 CBlock::BuildMerkleTree(std::vector<uint256>& vMerkleTreeIn, size_t vtxSize, bool* fMutated)
+{
     int j = 0;
     bool mutated = false;
-    for (int nSize = vtx.size(); nSize > 1; nSize = (nSize + 1) / 2)
+    for (int nSize = vtxSize; nSize > 1; nSize = (nSize + 1) / 2)
     {
         for (int i = 0; i < nSize; i += 2)
         {
             int i2 = std::min(i+1, nSize-1);
-            if (i2 == i + 1 && i2 + 1 == nSize && vMerkleTree[j+i] == vMerkleTree[j+i2]) {
+            if (i2 == i + 1 && i2 + 1 == nSize && vMerkleTreeIn[j+i] == vMerkleTreeIn[j+i2]) {
                 // Two identical hashes at the end of the list at a particular level.
                 mutated = true;
             }
-            vMerkleTree.push_back(Hash(BEGIN(vMerkleTree[j+i]),  END(vMerkleTree[j+i]),
-                                       BEGIN(vMerkleTree[j+i2]), END(vMerkleTree[j+i2])));
+            vMerkleTreeIn.push_back(Hash(BEGIN(vMerkleTreeIn[j+i]),  END(vMerkleTreeIn[j+i]),
+                                         BEGIN(vMerkleTreeIn[j+i2]), END(vMerkleTreeIn[j+i2])));
+#ifdef DEBUG_MKLTREE_HASH
+            std::cout << " -------------------------------------------" << std::endl;
+            std::cout << i << ") mkl hash: " << vMerkleTreeIn.back().ToString() << std::endl;
+            std::cout <<      "      hash1: " << vMerkleTreeIn[j+i].ToString() << std::endl;
+            std::cout <<      "      hash2: " << vMerkleTreeIn[j+i2].ToString() << std::endl;
+#endif
         }
         j += nSize;
     }
     if (fMutated) {
         *fMutated = mutated;
     }
-    return (vMerkleTree.empty() ? uint256() : vMerkleTree.back());
+    return (vMerkleTreeIn.empty() ? uint256() : vMerkleTreeIn.back());
+}
+
+uint256 SidechainTxsCommitmentBuilder::getMerkleRootHash(const std::vector<uint256>& vInput) 
+{
+    std::vector<uint256> vTempMerkleTree = vInput;
+    return CBlock::BuildMerkleTree(vTempMerkleTree, vInput.size());
+}
+
+uint256 CBlock::BuildScTxsCommitment()
+{
+    SidechainTxsCommitmentBuilder scCommitmentBuilder;
+
+    for (const auto& tx : vtx)
+    {
+        scCommitmentBuilder.add(tx);
+    }
+
+    for (const auto& cert : vcert)
+    {
+        scCommitmentBuilder.add(cert);
+    }
+
+    return scCommitmentBuilder.getCommitment();
 }
 
 std::vector<uint256> CBlock::GetMerkleBranch(int nIndex) const
@@ -84,7 +130,7 @@ std::vector<uint256> CBlock::GetMerkleBranch(int nIndex) const
         BuildMerkleTree();
     std::vector<uint256> vMerkleBranch;
     int j = 0;
-    for (int nSize = vtx.size(); nSize > 1; nSize = (nSize + 1) / 2)
+    for (int nSize = (vtx.size() + vcert.size()); nSize > 1; nSize = (nSize + 1) / 2)
     {
         int i = std::min(nIndex^1, nSize-1);
         vMerkleBranch.push_back(vMerkleTree[j+i]);
@@ -100,11 +146,21 @@ uint256 CBlock::CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMer
         return uint256();
     for (std::vector<uint256>::const_iterator it(vMerkleBranch.begin()); it != vMerkleBranch.end(); ++it)
     {
+#ifdef DEBUG_MERKLE_BRANCH
+        std::cout << " -------------------------------------------" << std::endl;
+        std::cout << "  idx: " << nIndex << std::endl;
+        std::cout << "     (b)hash:  " << (*it).ToString() << std::endl;
+        std::cout << "        hash:  " << hash.ToString() << std::endl;
+#endif
         if (nIndex & 1)
             hash = Hash(BEGIN(*it), END(*it), BEGIN(hash), END(hash));
         else
             hash = Hash(BEGIN(hash), END(hash), BEGIN(*it), END(*it));
         nIndex >>= 1;
+#ifdef DEBUG_MERKLE_BRANCH
+        std::cout << "  ret hash: " << hash.ToString() << std::endl;
+#endif
+
     }
     return hash;
 }
@@ -112,17 +168,22 @@ uint256 CBlock::CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMer
 std::string CBlock::ToString() const
 {
     std::stringstream s;
-    s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, hashReserved=%s, nTime=%u, nBits=%08x, nNonce=%s, vtx=%u)\n",
+    s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, hashScTxsCommitment=%s, nTime=%u, nBits=%08x, nNonce=%s, vtx=%u, vcert=%u)\n",
         GetHash().ToString(),
         nVersion,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
-        hashReserved.ToString(),
+        hashScTxsCommitment.ToString(),
         nTime, nBits, nNonce.ToString(),
-        vtx.size());
+        vtx.size(),
+        vcert.size());
     for (unsigned int i = 0; i < vtx.size(); i++)
     {
         s << "  " << vtx[i].ToString() << "\n";
+    }
+    for (unsigned int i = 0; i < vcert.size(); i++)
+    {
+        s << "  " << vcert[i].ToString() << "\n";
     }
     s << "  vMerkleTree: ";
     for (unsigned int i = 0; i < vMerkleTree.size(); i++)
@@ -130,3 +191,111 @@ std::string CBlock::ToString() const
     s << "\n";
     return s.str();
 }
+
+void CBlock::GetTxAndCertsVector(std::vector<const CTransactionBase*>& vBase) const
+{
+    vBase.clear();
+    vBase.reserve(vtx.size() + vcert.size()); 
+
+    for (unsigned int i = 0; i < vtx.size(); i++)
+    {
+        vBase.push_back(&(vtx[i]));
+    }
+    for (unsigned int i = 0; i < vcert.size(); i++)
+    {
+        vBase.push_back(&(vcert[i]));
+    }
+}
+
+const std::string SidechainTxsCommitmentBuilder::MAGIC_SC_STRING = "Horizen ScTxsCommitment null hash string";
+
+const uint256& SidechainTxsCommitmentBuilder::getCrossChainNullHash()
+{
+    static bool generated = false;
+    static uint256 theHash;
+
+    if (!generated)
+    {
+        CHashWriter ss(SER_GETHASH, 0);
+        ss << MAGIC_SC_STRING;
+        theHash = ss.GetHash();
+        LogPrintf("%s():%d - Generated sc null hash [%s]\n", __func__, __LINE__, theHash.ToString());
+        generated = true;
+    }
+    return theHash;
+}
+
+void SidechainTxsCommitmentBuilder::add(const CTransaction& tx)
+{
+    if (!tx.IsScVersion())
+        return;
+
+    unsigned int nIdx = 0;
+    LogPrint("sc", "%s():%d -getting leaves for vsc out\n", __func__, __LINE__);
+    tx.fillCrosschainOutput(tx.GetVscCcOut(), nIdx, mScMerkleTreeLeavesFt, sScIds);
+
+    LogPrint("sc", "%s():%d -getting leaves for vft out\n", __func__, __LINE__);
+    tx.fillCrosschainOutput(tx.GetVftCcOut(), nIdx, mScMerkleTreeLeavesFt, sScIds);
+
+    LogPrint("sc", "%s():%d - nIdx[%d]\n", __func__, __LINE__, nIdx);
+}
+
+void SidechainTxsCommitmentBuilder::add(const CScCertificate& cert)
+{
+    sScIds.insert(cert.GetScId());
+    mScCerts[cert.GetScId()] = cert.GetHash();
+}
+
+uint256 SidechainTxsCommitmentBuilder::getCommitment()
+{
+    std::vector<uint256> vSortedScLeaves;
+
+    // set of scid is ordered
+    for (const auto& scid : sScIds)
+    {
+        uint256 ftHash(getCrossChainNullHash());
+        uint256 btrHash(getCrossChainNullHash());
+        uint256 wCertHash(getCrossChainNullHash());
+
+        auto itFt = mScMerkleTreeLeavesFt.find(scid);
+        if (itFt != mScMerkleTreeLeavesFt.end() )
+        {
+            ftHash = getMerkleRootHash(itFt->second);
+        }
+
+        auto itBtr = mScMerkleTreeLeavesBtr.find(scid);
+        if (itBtr != mScMerkleTreeLeavesBtr.end() )
+        {
+            btrHash = getMerkleRootHash(itBtr->second);
+        }
+
+        auto itCert = mScCerts.find(scid);
+        if (itCert != mScCerts.end() )
+        {
+            wCertHash = itCert->second;
+        }
+
+        const uint256& txsHash = Hash(
+            BEGIN(ftHash),    END(ftHash),
+            BEGIN(btrHash),   END(btrHash) );
+
+        const uint256& scHash = Hash(
+            BEGIN(txsHash),   END(txsHash),
+            BEGIN(wCertHash), END(wCertHash),
+            BEGIN(scid),      END(scid) );
+
+#ifdef DEBUG_SC_COMMITMENT_HASH
+        std::cout << " -------------------------------------------" << std::endl;
+        std::cout << "  FtHash:  " << ftHash.ToString() << std::endl;
+        std::cout << "  BtrHash: " << btrHash.ToString() << std::endl;
+        std::cout << "  => TxsHash:   " << txsHash.ToString() << std::endl;
+        std::cout << "     WCertHash: " << wCertHash.ToString() << std::endl;
+        std::cout << "     scid:      " << scid.ToString() << std::endl;
+        std::cout << "     => ScsHash:  " << scHash.ToString() << std::endl;
+#endif
+        vSortedScLeaves.push_back(scHash);
+    }
+
+    return getMerkleRootHash(vSortedScLeaves);
+}
+

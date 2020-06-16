@@ -50,8 +50,6 @@ public:
         consensus.nPowMaxAdjustUp = 16; // 16% adjustment up
         consensus.nPowTargetSpacing = 2.5 * 60;
 //        consensus.fPowAllowMinDifficultyBlocks = false;
-        consensus.nRuleChangeActivationThreshold = 1916; // 95% of 2016
-        consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
 
         /**
          * ZEN Network Magic Start Value
@@ -82,10 +80,10 @@ public:
         CMutableTransaction txNew;
         txNew.nVersion = 1;
         txNew.vin.resize(1);
-        txNew.vout.resize(1);
         txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
-        txNew.vout[0].nValue = 0;
-        txNew.vout[0].scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
+        txNew.addOut(CTxOut());
+        txNew.getOut(0).nValue = 0;
+        txNew.getOut(0).scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
         genesis.vtx.push_back(txNew);
         genesis.hashPrevBlock.SetNull();
         genesis.hashMerkleRoot = genesis.BuildMerkleTree();
@@ -135,6 +133,8 @@ public:
 
         nCbhMinimumAge = 99;
         nCbhSafeDepth = 52596;
+        nScCoinsMaturity = 10;
+        nScMinWithdrawalEpochLength = 100;
 
         checkpointData = (Checkpoints::CCheckpointData) {
             boost::assign::map_list_of
@@ -178,8 +178,6 @@ public:
         consensus.powLimit = uint256S("07ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nPowAveragingWindow);
 //        consensus.fPowAllowMinDifficultyBlocks = true;
-        consensus.nRuleChangeActivationThreshold = 1512; // 75% for testchains
-        consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
 
         pchMessageStart[0] = 0xbf;
         pchMessageStart[1] = 0xf2;
@@ -235,6 +233,8 @@ public:
 
         nCbhMinimumAge = 99;
         nCbhSafeDepth = 52596;
+        nScCoinsMaturity = 10;
+        nScMinWithdrawalEpochLength = 100;
 
         checkpointData = (Checkpoints::CCheckpointData) {
             boost::assign::map_list_of
@@ -276,8 +276,6 @@ public:
         assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nPowAveragingWindow);
         consensus.nPowMaxAdjustDown = 0; // Turn off adjustment down
         consensus.nPowMaxAdjustUp = 0; // Turn off adjustment up
-        consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
-        consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
 
         pchMessageStart[0] = 0x2f;
         pchMessageStart[1] = 0x54;
@@ -313,6 +311,8 @@ public:
 
         nCbhMinimumAge = 99;
         nCbhSafeDepth = 320;
+        nScCoinsMaturity = 3;
+        nScMinWithdrawalEpochLength = 2;
 
         checkpointData = (Checkpoints::CCheckpointData){
             boost::assign::map_list_of

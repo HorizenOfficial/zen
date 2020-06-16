@@ -18,8 +18,17 @@ private:
     bool store;
 
 public:
-    CachingTransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CChain* chainIn, bool storeIn=true) : TransactionSignatureChecker(txToIn, nInIn, chainIn), store(storeIn) {}
+    CachingTransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CChain* chainIn, bool storeIn=true);
+    bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
+};
 
+class CachingCertificateSignatureChecker : public CertificateSignatureChecker
+{
+private:
+    bool store;
+
+public:
+    CachingCertificateSignatureChecker(const CScCertificate* certToIn, unsigned int nInIn, const CChain* chainIn, bool storeIn=true);
     bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
 };
 

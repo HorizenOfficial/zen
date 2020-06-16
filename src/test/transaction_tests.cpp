@@ -86,6 +86,36 @@ string FormatScriptFlags(unsigned int flags)
     return ret.substr(0, ret.size() - 1);
 }
 
+void GenerateChainActive(int targetHeight) {
+    chainActive.SetTip(nullptr);
+    mapBlockIndex.clear();
+
+    static std::vector<uint256> blockHashes;
+    blockHashes.clear();
+    blockHashes.resize(targetHeight+1);
+    std::vector<CBlockIndex> blocks(targetHeight+1);
+
+    ZCIncrementalMerkleTree dummyTree;
+    dummyTree.append(GetRandHash());
+
+    for (unsigned int height=0; height<blocks.size(); ++height) {
+        blockHashes[height] = ArithToUint256(height);
+
+        blocks[height].nHeight = height;
+        blocks[height].pprev = height == 0? nullptr : mapBlockIndex[blockHashes[height-1]];
+        blocks[height].phashBlock = &blockHashes[height];
+        blocks[height].nTime = 1269211443 + height * Params().GetConsensus().nPowTargetSpacing;
+        blocks[height].nBits = 0x1e7fffff;
+        blocks[height].nChainWork = height == 0 ? arith_uint256(0) : blocks[height - 1].nChainWork + GetBlockProof(blocks[height - 1]);
+
+        blocks[height].hashAnchor = dummyTree.root();
+
+        mapBlockIndex[blockHashes[height]] = new CBlockIndex(blocks[height]);
+        mapBlockIndex[blockHashes[height]]->phashBlock = &blockHashes[height];
+        chainActive.SetTip(mapBlockIndex[blockHashes[height]]);
+    }
+}
+
 BOOST_FIXTURE_TEST_SUITE(transaction_tests, JoinSplitTestingSetup)
 
 BOOST_AUTO_TEST_CASE(tx_valid)
@@ -147,16 +177,16 @@ BOOST_AUTO_TEST_CASE(tx_valid)
             BOOST_CHECK_MESSAGE(CheckTransaction(tx, state, verifier), strTest + comment);
             BOOST_CHECK_MESSAGE(state.IsValid(), comment);
 
-            for (unsigned int i = 0; i < tx.vin.size(); i++)
+            for (unsigned int i = 0; i < tx.GetVin().size(); i++)
             {
-                if (!mapprevOutScriptPubKeys.count(tx.vin[i].prevout))
+                if (!mapprevOutScriptPubKeys.count(tx.GetVin()[i].prevout))
                 {
                     BOOST_ERROR("Bad test: " << strTest << comment);
                     break;
                 }
 
                 unsigned int verify_flags = ParseScriptFlags(test[2].get_str());
-                BOOST_CHECK_MESSAGE(VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
+                BOOST_CHECK_MESSAGE(VerifyScript(tx.GetVin()[i].scriptSig, mapprevOutScriptPubKeys[tx.GetVin()[i].prevout],
                                                  verify_flags, TransactionSignatureChecker(&tx, i, nullptr), &err),
                                     strTest);
                 BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
@@ -230,16 +260,16 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
             CValidationState state;
             fValid = CheckTransaction(tx, state, verifier) && state.IsValid();
 
-            for (unsigned int i = 0; i < tx.vin.size() && fValid; i++)
+            for (unsigned int i = 0; i < tx.GetVin().size() && fValid; i++)
             {
-                if (!mapprevOutScriptPubKeys.count(tx.vin[i].prevout))
+                if (!mapprevOutScriptPubKeys.count(tx.GetVin()[i].prevout))
                 {
                     BOOST_ERROR("Bad test: " << strTest << comment);
                     break;
                 }
 
                 unsigned int verify_flags = ParseScriptFlags(test[2].get_str());
-                fValid = VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
+                fValid = VerifyScript(tx.GetVin()[i].scriptSig, mapprevOutScriptPubKeys[tx.GetVin()[i].prevout],
                         verify_flags, TransactionSignatureChecker(&tx, i, nullptr), &err);
             }
             BOOST_CHECK_MESSAGE(!fValid, strTest + comment);
@@ -293,19 +323,19 @@ SetupDummyInputs(CBasicKeyStore& keystoreRet, CCoinsViewCache& coinsRet)
     }
 
     // Create some dummy input transactions
-    dummyTransactions[0].vout.resize(2);
-    dummyTransactions[0].vout[0].nValue = 11*CENT;
-    dummyTransactions[0].vout[0].scriptPubKey << ToByteVector(key[0].GetPubKey()) << OP_CHECKSIG;
-    dummyTransactions[0].vout[1].nValue = 50*CENT;
-    dummyTransactions[0].vout[1].scriptPubKey << ToByteVector(key[1].GetPubKey()) << OP_CHECKSIG;
-    coinsRet.ModifyCoins(dummyTransactions[0].GetHash())->FromTx(dummyTransactions[0], 0);
+    dummyTransactions[0].resizeOut(2);
+    dummyTransactions[0].getOut(0).nValue = 11*CENT;
+    dummyTransactions[0].getOut(0).scriptPubKey << ToByteVector(key[0].GetPubKey()) << OP_CHECKSIG;
+    dummyTransactions[0].getOut(1).nValue = 50*CENT;
+    dummyTransactions[0].getOut(1).scriptPubKey << ToByteVector(key[1].GetPubKey()) << OP_CHECKSIG;
+    coinsRet.ModifyCoins(dummyTransactions[0].GetHash())->From(dummyTransactions[0], 0);
 
-    dummyTransactions[1].vout.resize(2);
-    dummyTransactions[1].vout[0].nValue = 21*CENT;
-    dummyTransactions[1].vout[0].scriptPubKey = GetScriptForDestination(key[2].GetPubKey().GetID());
-    dummyTransactions[1].vout[1].nValue = 22*CENT;
-    dummyTransactions[1].vout[1].scriptPubKey = GetScriptForDestination(key[3].GetPubKey().GetID());
-    coinsRet.ModifyCoins(dummyTransactions[1].GetHash())->FromTx(dummyTransactions[1], 0);
+    dummyTransactions[1].resizeOut(2);
+    dummyTransactions[1].getOut(0).nValue = 21*CENT;
+    dummyTransactions[1].getOut(0).scriptPubKey = GetScriptForDestination(key[2].GetPubKey().GetID());
+    dummyTransactions[1].getOut(1).nValue = 22*CENT;
+    dummyTransactions[1].getOut(1).scriptPubKey = GetScriptForDestination(key[3].GetPubKey().GetID());
+    coinsRet.ModifyCoins(dummyTransactions[1].GetHash())->From(dummyTransactions[1], 0);
 
     return dummyTransactions;
 }
@@ -544,9 +574,9 @@ BOOST_AUTO_TEST_CASE(test_Get)
     t1.vin[2].prevout.hash = dummyTransactions[1].GetHash();
     t1.vin[2].prevout.n = 1;
     t1.vin[2].scriptSig << std::vector<unsigned char>(65, 0) << std::vector<unsigned char>(33, 4);
-    t1.vout.resize(2);
-    t1.vout[0].nValue = 90*CENT;
-    t1.vout[0].scriptPubKey << OP_1;
+    t1.resizeOut(2);
+    t1.getOut(0).nValue = 90*CENT;
+    t1.getOut(0).scriptPubKey << OP_1;
 
     BOOST_CHECK(AreInputsStandard(t1, coins));
     BOOST_CHECK_EQUAL(coins.GetValueIn(t1), (50+21+22)*CENT);
@@ -573,58 +603,58 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     t.vin[0].prevout.hash = dummyTransactions[0].GetHash();
     t.vin[0].prevout.n = 1;
     t.vin[0].scriptSig << std::vector<unsigned char>(65, 0);
-    t.vout.resize(1);
-    t.vout[0].nValue = 90*CENT;
+    t.resizeOut(1);
+    t.getOut(0).nValue = 90*CENT;
     CKey key;
     key.MakeNewKey(true);
-    t.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
+    t.getOut(0).scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
 
     string reason;
     BOOST_CHECK(IsStandardTx(t, reason, 0));
 
-    t.vout[0].nValue = 53; // dust
+    t.getOut(0).nValue = 53; // dust
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
-    t.vout[0].nValue = 2730; // not dust
+    t.getOut(0).nValue = 2730; // not dust
     BOOST_CHECK(IsStandardTx(t, reason, 0));
 
-    t.vout[0].scriptPubKey = CScript() << OP_1;
+    t.getOut(0).scriptPubKey = CScript() << OP_1;
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
     // 80-byte TX_NULL_DATA (standard)
-    t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
+    t.getOut(0).scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
     BOOST_CHECK(IsStandardTx(t, reason, 0));
 
     // 81-byte TX_NULL_DATA (non-standard)
-    t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3800");
+    t.getOut(0).scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3804678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef3800");
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
     // TX_NULL_DATA w/o PUSHDATA
-    t.vout.resize(1);
-    t.vout[0].scriptPubKey = CScript() << OP_RETURN;
+    t.resizeOut(1);
+    t.getOut(0).scriptPubKey = CScript() << OP_RETURN;
     BOOST_CHECK(IsStandardTx(t, reason, 0));
 
     // Only one TX_NULL_DATA permitted in all cases
-    t.vout.resize(2);
-    t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
-    t.vout[1].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
+    t.resizeOut(2);
+    t.getOut(0).scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
+    t.getOut(1).scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
-    t.vout[0].scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
-    t.vout[1].scriptPubKey = CScript() << OP_RETURN;
+    t.getOut(0).scriptPubKey = CScript() << OP_RETURN << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38");
+    t.getOut(1).scriptPubKey = CScript() << OP_RETURN;
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 
-    t.vout[0].scriptPubKey = CScript() << OP_RETURN;
-    t.vout[1].scriptPubKey = CScript() << OP_RETURN;
+    t.getOut(0).scriptPubKey = CScript() << OP_RETURN;
+    t.getOut(1).scriptPubKey = CScript() << OP_RETURN;
     BOOST_CHECK(!IsStandardTx(t, reason, 0));
 }
 
 
-void verifyTx(CMutableTransaction &t, int height, bool expectResultStd, bool expectResultCtx) {
+void verifyTx(const CTransaction &tx, int height, bool expectResultStd, bool expectResultCtx) {
 	string reason;
 	CValidationState state;
-	BOOST_CHECK_MESSAGE(IsStandardTx(t, reason, height) == expectResultStd, "IsStandardTx unexpected (" << !expectResultStd << ") result for tx version " << t.nVersion << ", height " << height);
-	BOOST_CHECK_MESSAGE(ContextualCheckTransaction(t, state, height, 100) == expectResultCtx, "ContextualCheckTransaction unexpected (" << !expectResultCtx << ") result for tx version " << t.nVersion << ", height " << height );
+	BOOST_CHECK_MESSAGE(IsStandardTx(tx, reason, height) == expectResultStd, "IsStandardTx unexpected (" << !expectResultStd << ") result for tx version " << tx.nVersion << ", height " << height);
+	BOOST_CHECK_MESSAGE(tx.ContextualCheck(state, height, 100) == expectResultCtx, "ContextualCheck() unexpected (" << !expectResultCtx << ") result for tx version " << tx.nVersion << ", height " << height );
 }
 
 void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHeight)
@@ -638,17 +668,21 @@ void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHe
     CCoinsViewCache coins(&coinsDummy);
     std::vector<CMutableTransaction> dummyTransactions = SetupDummyInputs(keystore, coins);
 
-
     CMutableTransaction t;
     t.vin.resize(1);
     t.vin[0].prevout.hash = dummyTransactions[0].GetHash();
     t.vin[0].prevout.n = 1;
     t.vin[0].scriptSig << std::vector<unsigned char>(65, 0);
-    t.vout.resize(1);
-    t.vout[0].nValue = 90*CENT;
+    t.resizeOut(1);
+    t.getOut(0).nValue = 90*CENT;
     CKey key;
     key.MakeNewKey(true);
-    t.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
+
+    // we need to generate a chain active with at least genesis 
+    // following the moving of check block at height into the contextual check 
+    GenerateChainActive(0);
+
+    t.getOut(0).scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
 
 
     // A v2 transaction with no JoinSplits is still standard.
@@ -662,20 +696,20 @@ void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHe
     // ... and when that JoinSplit takes from a transparent input.
     JSDescription *jsdesc = &t.vjoinsplit[0];
     jsdesc->vpub_old = 10*CENT;
-    t.vout[0].nValue -= 10*CENT;
+    t.getOut(0).nValue -= 10*CENT;
     verifyTx(t, grothIntroductionHeight - 1, true, true);
 
     // A v2 transaction with JoinSplits but no transparent inputs is standard.
     jsdesc->vpub_old = 0;
     jsdesc->vpub_new = 100*CENT;
-    t.vout[0].nValue = 90*CENT;
+    t.getOut(0).nValue = 90*CENT;
     t.vin.resize(0);
     verifyTx(t, grothIntroductionHeight - 1, true, true);
     // but is not standard if Groth is active
     verifyTx(t, grothIntroductionHeight, false, false);
 
     // v2 transactions can still be non-standard for the same reasons as v1.
-    t.vout[0].nValue = 53; // dust
+    t.getOut(0).nValue = 53; // dust
     verifyTx(t, grothIntroductionHeight, false, false);
 
 
@@ -686,7 +720,7 @@ void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHe
     jsdesc = &t.vjoinsplit[0];
     jsdesc->vpub_old = 0;
     jsdesc->vpub_new = 100*CENT;
-    t.vout[0].nValue = 90*CENT;
+    t.getOut(0).nValue = 90*CENT;
     t.vin.resize(0);
     verifyTx(t, grothIntroductionHeight - 1, false, false);
     // v3 with Groth is standard when Groth is active
@@ -699,7 +733,7 @@ void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHe
 	jsdesc = &t.vjoinsplit[0];
 	jsdesc->vpub_old = 0;
 	jsdesc->vpub_new = 100*CENT;
-	t.vout[0].nValue = 90*CENT;
+	t.getOut(0).nValue = 90*CENT;
     verifyTx(t, grothIntroductionHeight, false, false);
 
 	// v1 is still standard after Groth is active but should be refused by contextual checks if joinsplit is not empty

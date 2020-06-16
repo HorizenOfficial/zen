@@ -8,7 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.script import OP_DUP, OP_EQUALVERIFY, OP_HASH160, OP_EQUAL, hash160, OP_CHECKSIG, OP_CHECKBLOCKATHEIGHT
 from test_framework.util import assert_equal, assert_greater_than, initialize_chain_clean, \
     start_nodes, start_node, connect_nodes, stop_node, stop_nodes, \
-    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision
+    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision, disconnect_nodes
 from test_framework.script import CScript
 from test_framework.mininode import CTransaction, ToHex
 from test_framework.util import hex_str_to_bytes, bytes_to_hex_str
@@ -76,19 +76,11 @@ class headers(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
-    def disconnect_nodes(self, from_connection, node_num):
-        ip_port = "127.0.0.1:"+str(p2p_port(node_num))
-        from_connection.disconnectnode(ip_port)
-        # poll until version handshake complete to avoid race conditions
-        # with transaction relaying
-        while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
-            time.sleep(0.1)
-
     def split_network(self):
         # Split the network of 4 nodes into nodes 0-1-2 and 3.
         assert not self.is_network_split
-        self.disconnect_nodes(self.nodes[2], 3)
-        self.disconnect_nodes(self.nodes[3], 2)
+        disconnect_nodes(self.nodes[2], 3)
+        disconnect_nodes(self.nodes[3], 2)
         self.is_network_split = True
 
 

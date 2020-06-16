@@ -13,7 +13,6 @@
 #include <boost/foreach.hpp>
 
 #include "main.h"
-#include "versionbits.h"
 #include "zen/forkmanager.h"
 using namespace zen;
 

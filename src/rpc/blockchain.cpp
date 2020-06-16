@@ -22,9 +22,17 @@
 
 #include <regex>
 
+#include "sc/sidechain.h"
+#include "sc/sidechainrpc.h"
+
+#include "validationinterface.h"
+
 using namespace std;
 
+using namespace Sidechain;
+
 extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
+extern void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& entry);
 void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
 
 double GetDifficultyINTERNAL(const CBlockIndex* blockindex, bool networkDifficulty)
@@ -138,6 +146,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.push_back(Pair("height", blockindex->nHeight));
     result.push_back(Pair("version", block.nVersion));
     result.push_back(Pair("merkleroot", block.hashMerkleRoot.GetHex()));
+    result.push_back(Pair("scTxsCommitment", block.hashScTxsCommitment.GetHex()));
     UniValue txs(UniValue::VARR);
     BOOST_FOREACH(const CTransaction&tx, block.vtx)
     {
@@ -151,6 +160,24 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
             txs.push_back(tx.GetHash().GetHex());
     }
     result.push_back(Pair("tx", txs));
+    if (block.nVersion == BLOCK_VERSION_SC_SUPPORT)
+    {
+        UniValue certs(UniValue::VARR);
+        BOOST_FOREACH(const CScCertificate& cert, block.vcert)
+        {
+            if(txDetails)
+            {
+                UniValue objCert(UniValue::VOBJ);
+                CertToJSON(cert, uint256(), objCert);
+                certs.push_back(objCert);
+            }
+            else
+            {
+                certs.push_back(cert.GetHash().GetHex());
+            }
+        }
+        result.push_back(Pair("cert", certs));
+    }
     result.push_back(Pair("time", block.GetBlockTime()));
     result.push_back(Pair("nonce", block.nNonce.GetHex()));
     result.push_back(Pair("solution", HexStr(block.nSolution)));
@@ -222,6 +249,54 @@ UniValue getdifficulty(const UniValue& params, bool fHelp)
     return GetNetworkDifficulty();
 }
 
+void AddDependancy(const CTransaction& tx, UniValue& info)
+{
+    set<string> setDepends;
+    BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
+    {
+        if (mempool.exists(txin.prevout.hash))
+            setDepends.insert(txin.prevout.hash.ToString());
+    }
+    // the dependancy of a certificate from the sc creation is not considered
+    for (const auto& ft: tx.GetVftCcOut())
+    {
+        if (mempool.hasSidechainCreationTx(ft.scId))
+        {
+            const uint256& scCreationHash = mempool.mapSidechains.at(ft.scId).scCreationTxHash; 
+
+            // check if tx is also creating the sc
+            if (scCreationHash != tx.GetHash())
+                setDepends.insert(scCreationHash.ToString());
+        }
+    }
+
+    UniValue depends(UniValue::VARR);
+    BOOST_FOREACH(const string& dep, setDepends)
+    {
+        depends.push_back(dep);
+    }
+
+    info.push_back(Pair("depends", depends));
+}
+
+void AddDependancy(const CScCertificate& cert, UniValue& info)
+{
+    set<string> setDepends;
+    BOOST_FOREACH(const CTxIn& txin, cert.GetVin())
+    {
+        if (mempool.exists(txin.prevout.hash))
+            setDepends.insert(txin.prevout.hash.ToString());
+    }
+
+    UniValue depends(UniValue::VARR);
+    BOOST_FOREACH(const string& dep, setDepends)
+    {
+        depends.push_back(dep);
+    }
+
+    info.push_back(Pair("depends", depends));
+}
+
 UniValue mempoolToJSON(bool fVerbose = false)
 {
     if (fVerbose)
@@ -240,20 +315,32 @@ UniValue mempoolToJSON(bool fVerbose = false)
             info.push_back(Pair("startingpriority", e.GetPriority(e.GetHeight())));
             info.push_back(Pair("currentpriority", e.GetPriority(chainActive.Height())));
             const CTransaction& tx = e.GetTx();
-            set<string> setDepends;
-            BOOST_FOREACH(const CTxIn& txin, tx.vin)
-            {
-                if (mempool.exists(txin.prevout.hash))
-                    setDepends.insert(txin.prevout.hash.ToString());
-            }
-
-            UniValue depends(UniValue::VARR);
-            BOOST_FOREACH(const string& dep, setDepends)
-            {
-                depends.push_back(dep);
-            }
-
-            info.push_back(Pair("depends", depends));
+            AddDependancy(tx, info);
+            o.push_back(Pair(hash.ToString(), info));
+        }
+        BOOST_FOREACH(const PAIRTYPE(uint256, CCertificateMemPoolEntry)& entry, mempool.mapCertificate)
+        {
+            const uint256& hash = entry.first;
+            const auto& e = entry.second;
+            UniValue info(UniValue::VOBJ);
+            info.push_back(Pair("size", (int)e.GetCertificateSize()));
+            info.push_back(Pair("fee", ValueFromAmount(e.GetFee())));
+            info.push_back(Pair("time", e.GetTime()));
+            info.push_back(Pair("height", (int)e.GetHeight()));
+            info.push_back(Pair("startingpriority", e.GetPriority(e.GetHeight())));
+            info.push_back(Pair("currentpriority", e.GetPriority(chainActive.Height())));
+            const CScCertificate& cert = e.GetCertificate();
+            AddDependancy(cert, info);
+            o.push_back(Pair(hash.ToString(), info));
+        }
+        BOOST_FOREACH(const auto& entry, mempool.mapDeltas)
+        {
+            const uint256& hash = entry.first;
+            const auto& p = entry.second.first;
+            const auto& f = entry.second.second;
+            UniValue info(UniValue::VOBJ);
+            info.push_back(Pair("fee", ValueFromAmount(f)));
+            info.push_back(Pair("priority", p));
             o.push_back(Pair(hash.ToString(), info));
         }
         return o;
@@ -599,7 +686,12 @@ UniValue gettxout(const UniValue& params, bool fHelp)
     ScriptPubKeyToJSON(coins.vout[n].scriptPubKey, o, true);
     ret.push_back(Pair("scriptPubKey", o));
     ret.push_back(Pair("version", coins.nVersion));
+#if 0
     ret.push_back(Pair("coinbase", coins.fCoinBase));
+#else
+    ret.push_back(Pair("certificate", coins.IsFromCert()));
+    ret.push_back(Pair("coinbase", coins.IsCoinBase()));
+#endif
 
     return ret;
 }
@@ -662,26 +754,6 @@ static UniValue SoftForkDesc(const std::string &name, int version, CBlockIndex* 
     return rv;
 }
 
-static UniValue BIP9SoftForkDesc(const Consensus::Params& consensusParams, Consensus::DeploymentPos id)
-{
-    UniValue rv(UniValue::VOBJ);
-    const ThresholdState thresholdState = VersionBitsTipState(consensusParams, id);
-    switch (thresholdState) {
-        case THRESHOLD_DEFINED: rv.push_back(Pair("status", "defined")); break;
-        case THRESHOLD_STARTED: rv.push_back(Pair("status", "started")); break;
-        case THRESHOLD_LOCKED_IN: rv.push_back(Pair("status", "locked_in")); break;
-        case THRESHOLD_ACTIVE: rv.push_back(Pair("status", "active")); break;
-        case THRESHOLD_FAILED: rv.push_back(Pair("status", "failed")); break;
-    }
-    if (THRESHOLD_STARTED == thresholdState)
-    {
-        rv.push_back(Pair("bit", consensusParams.vDeployments[id].bit));
-    }
-    rv.push_back(Pair("startTime", consensusParams.vDeployments[id].nStartTime));
-    rv.push_back(Pair("timeout", consensusParams.vDeployments[id].nTimeout));
-    return rv;
-}
-
 UniValue getblockchaininfo(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
@@ -712,13 +784,6 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
             "     }, ...\n"
             "  \n"
             "}\n"
-            "  \"bip9_softforks\": {          (object) status of BIP9 softforks in progress\n"
-            "  \"xxxx\" : {                (string) name of the softfork\n"
-            "      \"status\": \"xxxx\",    (string) one of \"defined\", \"started\", \"lockedin\", \"active\", \"failed\"\n"
-            "      \"bit\": xx,             (numeric) the bit, 0-28, in the block version field used to signal this soft fork\n"
-            "      \"startTime\": xx,       (numeric) the minimum median time past of a block at which the bit gains its meaning\n"
-            "       \"timeout\": xx          (numeric) the median time past of a block at which the deployment is considered failed if not yet locked in\n"
-            "  }\n"
             "\nExamples:\n"
             + HelpExampleCli("getblockchaininfo", "")
             + HelpExampleRpc("getblockchaininfo", "")
@@ -751,10 +816,8 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
     softforks.push_back(SoftForkDesc("bip34", 2, tip, consensusParams));
     softforks.push_back(SoftForkDesc("bip66", 3, tip, consensusParams));
     softforks.push_back(SoftForkDesc("bip65", 4, tip, consensusParams));
-    //bip9_softforks.push_back(Pair("cbah", BIP9SoftForkDesc(consensusParams, Consensus::DEPLOYMENT_CBAH)));
 
     obj.push_back(Pair("softforks",             softforks));
-    obj.push_back(Pair("bip9_softforks", bip9_softforks));
 
     if (fPruneMode)
     {
@@ -762,7 +825,8 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
         while (block && block->pprev && (block->pprev->nStatus & BLOCK_HAVE_DATA))
             block = block->pprev;
 
-        obj.push_back(Pair("pruneheight",        block->nHeight));
+        if (block)
+            obj.push_back(Pair("pruneheight",        block->nHeight));
     }
     return obj;
 }
@@ -861,7 +925,7 @@ UniValue mempoolInfoToJSON()
 {
     UniValue ret(UniValue::VOBJ);
     ret.push_back(Pair("size", (int64_t) mempool.size()));
-    ret.push_back(Pair("bytes", (int64_t) mempool.GetTotalTxSize()));
+    ret.push_back(Pair("bytes", (int64_t) mempool.GetTotalSize()));
     ret.push_back(Pair("usage", (int64_t) mempool.DynamicMemoryUsage()));
 
     if (Params().NetworkIDString() == "regtest") {
@@ -966,6 +1030,233 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     }
 
     return NullUniValue;
+}
+
+void AddScInfoToJSON(const uint256& scId, const CSidechain& info, CSidechain::State scState, UniValue& sc)
+{
+    int currentEpoch = info.EpochFor(chainActive.Height());
+    sc.push_back(Pair("scid", scId.GetHex()));
+    sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
+    sc.push_back(Pair("epoch", currentEpoch));
+    sc.push_back(Pair("end epoch height", info.StartHeightForEpoch(currentEpoch +1) - 1));
+    sc.push_back(Pair("state", CSidechain::stateToString(scState)));
+    sc.push_back(Pair("ceasing height", info.GetCeasingHeight()));
+    sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
+    sc.push_back(Pair("created in block", info.creationBlockHash.ToString()));
+    sc.push_back(Pair("created at block height", info.creationBlockHeight));
+    sc.push_back(Pair("last certificate epoch", info.lastEpochReferencedByCertificate));
+    sc.push_back(Pair("last certificate hash", info.lastCertificateHash.GetHex()));
+    // creation parameters
+    sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
+    sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
+    sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
+    sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
+
+    UniValue ia(UniValue::VARR);
+    BOOST_FOREACH(const auto& entry, info.mImmatureAmounts)
+    {
+        UniValue o(UniValue::VOBJ);
+        o.push_back(Pair("maturityHeight", entry.first));
+        o.push_back(Pair("amount", ValueFromAmount(entry.second)));
+        ia.push_back(o);
+    }
+    sc.push_back(Pair("immature amounts", ia));
+}
+
+bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
+{
+    CSidechain scInfo;
+    CCoinsViewCache scView(pcoinsTip);
+    if (!scView.GetSidechain(scId, scInfo)) {
+        LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+        return false;
+    }
+    CSidechain::State scState = scView.isCeasedAtHeight(scId, chainActive.Height() + 1);
+
+    AddScInfoToJSON(scId, scInfo, scState, sc);
+    return true;
+}
+
+void AddScInfoToJSON(UniValue& result)
+{
+    CCoinsViewCache scView(pcoinsTip);
+    std::set<uint256> sScIds;
+    scView.GetScIds(sScIds);
+
+    BOOST_FOREACH(const auto& entry, sScIds)
+    {
+        UniValue sc(UniValue::VOBJ);
+        AddScInfoToJSON(entry, sc);
+        result.push_back(sc);
+    }
+}
+
+UniValue getscinfo(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() > 1)
+        throw runtime_error(
+            "getscinfo \"scid\" (Optional)\n"
+            "\nReturns side chain info for the given id or for all of the existing sc if the id is not given.\n"
+            "\nResult:\n"
+            "[\n"
+            "  {\n"
+            "    \"scid\":                    xxxxx,   (string)  sidechain ID\n"
+            "    \"balance\":                 xxxxx,   (numeric) available balance\n"
+            "    \"epoch\":                   xxxxx,   (numeric) current epoch for this sidechain\n"
+            "    \"end epoch height\":        xxxxx,   (numeric) height of the last block of the current epoch\n"
+            "    \"state\":                   xxxxx,   (string)  state of the sidechain at the current chain height\n"
+            "    \"ceasing height\":          xxxxx,   (numeric) height at which the sidechain is considered ceased if a certificate has not been received\n"
+            "    \"creating tx hash\":        xxxxx,   (string)  txid of the creating transaction\n"
+            "    \"created in block\":        xxxxx,   (string)  hash of the block containing the creatimg tx\n"
+            "    \"created at block height\": xxxxx,   (numeric) height of the above block\n"
+            "    \"last certificate epoch\":  xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
+            "    \"last certificate hash\":   xxxxx,   (numeric) the hash of the last certificate that has been received\n"
+            "    \"withdrawalEpochLength\":   xxxxx,   (numeric) length of the withdrawal epoch\n"
+            "    \"wCertVk\":                 xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
+            "    \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
+            "    \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
+            "    \"immature amounts\": [\n"
+            "      {\n"
+            "        \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"
+            "        \"amount\":              xxxxx,   (numeric) immature fund\n"    
+            "      },\n"
+            "      ... ]\n"
+            "  },\n"
+            "  ...\n"
+            "]\n"
+
+            "\nExamples\n"
+            + HelpExampleCli("getscinfo", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
+            + HelpExampleCli("getscinfo", "")
+        );
+
+    if (params.size() > 0)
+    {
+        // side chain id
+        string inputString = params[0].get_str();
+        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+ 
+        uint256 scId;
+        scId.SetHex(inputString);
+ 
+        UniValue sc(UniValue::VOBJ);
+        if (!AddScInfoToJSON(scId, sc) )
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+        }
+ 
+        return sc;
+    }
+
+    // dump all of them if any
+    UniValue result(UniValue::VARR);
+    AddScInfoToJSON(result);
+
+    return result;
+}
+
+UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+    {
+        throw runtime_error(
+            "getscgenesisinfo \"scid\"\n"
+            "\nReturns side chain genesis info for the given id or for all of the existing sc if the id is not given.\n"
+            "\n"
+            "\nResult:\n"
+            "\"data\"             (string) A string that is serialized, hex-encoded data.\n"
+            // TODO explain the contents
+
+            "\nExamples\n"
+            + HelpExampleCli("getscgenesisinfo", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
+        );
+    }
+
+    // side chain id
+    string inputString = params[0].get_str();
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+ 
+    uint256 scId;
+    scId.SetHex(inputString);
+ 
+    // sanity check of the side chain ID
+    CCoinsViewCache scView(pcoinsTip);
+    if (!scView.HaveSidechain(scId))
+    {
+        LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+    }
+
+    // find the block where it has been created
+    CSidechain info;
+    if (!scView.GetSidechain(scId, info))
+    {
+        LogPrint("sc", "cound not get info for scid[%s], probably not yet created\n", scId.ToString() );
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+    }
+ 
+    const uint256& blockHash = info.creationBlockHash;
+
+    assert(mapBlockIndex.count(blockHash) != 0);
+
+    CBlock block;
+    CBlockIndex* pblockindex = mapBlockIndex[blockHash];
+
+    if (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0)
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Block not available (pruned data)");
+
+    if(!ReadBlockFromDisk(block, pblockindex))
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
+
+    CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+
+    // ntw type
+    CBaseChainParams::Network network = NetworkIdFromCommandLine();
+    if (network >= CBaseChainParams::Network::MAX_NETWORK_TYPES)
+    {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Illegal network type " + std::to_string(network) );
+    }
+    char cNetwork = (char)network;
+    LogPrint("sc", "ntw type[%d]\n", cNetwork);
+    ssBlock << cNetwork;
+
+    // scid
+    ssBlock << scId;
+
+    // pow data
+    const int vec_size = Params().GetConsensus().nPowAveragingWindow + CBlockIndex::nMedianTimeSpan;
+
+    std::vector<ScPowRelatedData> vData;
+    vData.reserve(vec_size);
+
+    CBlockIndex* prev = pblockindex;
+
+    for (int i = 0; i < vec_size; i++)
+    {
+        ScPowRelatedData s = {};
+        prev = prev->pprev;
+        if (!prev)
+        {
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't set block index!");
+        }
+        s.a = prev->nTime;
+        s.b = prev->nBits;
+        vData.push_back(s);
+    }
+
+    ssBlock << vData;
+
+    // block height
+    ssBlock << pblockindex->nHeight;
+
+    // block hex data
+    ssBlock << block;
+
+    std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
+    return strHex;
+   
 }
 
 UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
@@ -1129,3 +1420,21 @@ UniValue dbg_log(const UniValue& params, bool fHelp)
     LogPrint("py", "%s() - ########## [%s] #########\n", __func__, s);
     return "Log printed";
 }
+
+UniValue dbg_do(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() == 0)
+    {
+        throw runtime_error(
+            "dbg_do: does some hard coded helper task\n"
+            "\nExamples:\n"
+            + HelpExampleCli("dbg_do", "\"todo\"")
+        );
+    }
+    std::string ret = "TODO";
+
+    return ret;
+}
+
+
+

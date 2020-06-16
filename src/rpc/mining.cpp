@@ -503,6 +503,9 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
 #endif
     }
 
+    int nHeight = chainActive.Height() + 1;
+    bool certSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
+
     std::string strMode = "template";
     UniValue lpval = NullUniValue;
     // TODO: Re-enable coinbasevalue once a specification has been written
@@ -547,7 +550,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
             if (block.hashPrevBlock != pindexPrev->GetBlockHash())
                 return "inconclusive-not-best-prevblk";
             CValidationState state;
-            TestBlockValidity(state, block, pindexPrev, false, true);
+            TestBlockValidity(state, block, pindexPrev, false, true/*checkMklRoot*/, true/*checkScTxesCommitment*/);
             return BIP22ValidationResult(state);
         }
     }
@@ -555,11 +558,11 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     if (strMode != "template")
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid mode");
 
+    /* for testing, comment this block out if using just one node */
     if (vNodes.empty())
         throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Horizen is not connected!");
 
-    // from https://github.com/ZencashOfficial/zen/commit/e7a774e9a72fae1228ccbc764d520bd685860822
-    if (IsInitialBlockDownload() && ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight-(Params().GetConsensus().nMinerConfirmationWindow * 2)))
+    if (IsInitialBlockDownload())
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Horizen is downloading blocks...");
 
     static unsigned int nTransactionsUpdatedLast;
@@ -669,7 +672,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         entry.push_back(Pair("hash", txHash.GetHex()));
 
         UniValue deps(UniValue::VARR);
-        BOOST_FOREACH (const CTxIn &in, tx.vin)
+        BOOST_FOREACH (const CTxIn &in, tx.GetVin())
         {
             if (setTxIndex.count(in.prevout.hash))
                 deps.push_back(setTxIndex[in.prevout.hash]);
@@ -682,12 +685,12 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
 
         if (tx.IsCoinBase()) {
             // Show community reward if it is required
-            if (pblock->vtx[0].vout.size() > 1) {
+            if (pblock->vtx[0].GetVout().size() > 1) {
                 // Correct this if GetBlockTemplate changes the order
-                entry.push_back(Pair("communityfund", (int64_t)tx.vout[1].nValue));
-                if (pblock->vtx[0].vout.size() > 3) {
-                    entry.push_back(Pair("securenodes", (int64_t)tx.vout[2].nValue));
-                    entry.push_back(Pair("supernodes", (int64_t)tx.vout[3].nValue));
+                entry.push_back(Pair("communityfund", (int64_t)tx.GetVout()[1].nValue));
+                if (pblock->vtx[0].GetVout().size() > 3) {
+                    entry.push_back(Pair("securenodes", (int64_t)tx.GetVout()[2].nValue));
+                    entry.push_back(Pair("supernodes", (int64_t)tx.GetVout()[3].nValue));
                 }
             }
             entry.push_back(Pair("required", true));
@@ -707,6 +710,10 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     {
         aMutable.push_back("time");
         aMutable.push_back("transactions");
+        if (certSupported)
+        {
+            aMutable.push_back("certificates");
+        }
         aMutable.push_back("prevblock");
     }
 
@@ -715,12 +722,32 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     result.push_back(Pair("version", pblock->nVersion));
     result.push_back(Pair("previousblockhash", pblock->hashPrevBlock.GetHex()));
     result.push_back(Pair("transactions", transactions));
+
+    if (certSupported)
+    {
+        UniValue certificates(UniValue::VARR);
+        int cert_idx_in_template = 0;
+        BOOST_FOREACH (const CScCertificate& cert, pblock->vcert) {
+            uint256 certHash = cert.GetHash();
+            UniValue entry(UniValue::VOBJ);
+ 
+            entry.push_back(Pair("data", EncodeHexCert(cert)));
+            entry.push_back(Pair("hash", certHash.GetHex()));
+            // no depends for cert since there are no inputs
+            entry.push_back(Pair("fee", pblocktemplate->vCertFees[cert_idx_in_template]));
+            entry.push_back(Pair("sigops", pblocktemplate->vCertSigOps[cert_idx_in_template]));
+            certificates.push_back(entry);
+ 
+            cert_idx_in_template++;
+        }
+        result.push_back(Pair("certificates", certificates));
+    }
     if (coinbasetxn) {
         assert(txCoinbase.isObject());
         result.push_back(Pair("coinbasetxn", txCoinbase));
     } else {
         result.push_back(Pair("coinbaseaux", aux));
-        result.push_back(Pair("coinbasevalue", (int64_t)pblock->vtx[0].vout[0].nValue));
+        result.push_back(Pair("coinbasevalue", (int64_t)pblock->vtx[0].GetVout()[0].nValue));
     }
     result.push_back(Pair("longpollid", chainActive.Tip()->GetBlockHash().GetHex() + i64tostr(nTransactionsUpdatedLast)));
     result.push_back(Pair("target", hashTarget.GetHex()));

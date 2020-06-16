@@ -133,7 +133,7 @@ bool CBloomFilter::IsWithinSizeConstraints() const
     return vData.size() <= MAX_BLOOM_FILTER_SIZE && nHashFuncs <= MAX_HASH_FUNCS;
 }
 
-bool CBloomFilter::IsRelevantAndUpdate(const CTransaction& tx)
+bool CBloomFilter::IsRelevantAndUpdate(const CTransactionBase& tx)
 {
     bool fFound = false;
     // Match if the filter contains the hash of tx
@@ -146,9 +146,9 @@ bool CBloomFilter::IsRelevantAndUpdate(const CTransaction& tx)
     if (contains(hash))
         fFound = true;
 
-    for (unsigned int i = 0; i < tx.vout.size(); i++)
+    for (unsigned int i = 0; i < tx.GetVout().size(); i++)
     {
-        const CTxOut& txout = tx.vout[i];
+        const CTxOut& txout = tx.GetVout()[i];
         // Match if the filter contains any arbitrary script data element in any scriptPubKey in tx
         // If this matches, also add the specific output that was matched.
         // This means clients don't have to update the filter themselves when a new relevant tx 
@@ -181,7 +181,7 @@ bool CBloomFilter::IsRelevantAndUpdate(const CTransaction& tx)
     if (fFound)
         return true;
 
-    BOOST_FOREACH(const CTxIn& txin, tx.vin)
+    BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
     {
         // Match if the filter contains an outpoint tx spends
         if (contains(txin.prevout))

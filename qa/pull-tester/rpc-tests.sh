@@ -7,6 +7,7 @@ CURDIR=$(cd $(dirname "$0"); pwd)
 
 export BITCOINCLI="${BUILDDIR}/qa/pull-tester/run-bitcoin-cli"
 export BITCOIND="${REAL_BITCOIND}"
+export ZENDOOMC="${REAL_ZENDOO_MC_TEST}"
 
 # parse args
 for i in "$@"; do
@@ -74,6 +75,20 @@ testScripts=(
   'blockdelay.py'
   'blockdelay_2.py'
   'z_sendmany.py'
+  'sc_create.py'
+  'sc_create_2.py'
+  'sc_split.py'
+  'sc_invalidate.py'
+  'sc_cert_base.py'
+  'sc_cert_fee.py'
+  'sc_cert_epoch.py'
+  'sc_cert_invalidate.py'
+  'sc_fwd_maturity.py'
+  'sc_rawcertificate.py'
+  'getunconfirmedtxdata.py'
+  'sc_cr_and_fw_in_mempool.py'
+  'sc_cert_change.py'
+  'sc_cert_orphans.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'

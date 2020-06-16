@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <sc/sidechaintypes.h>
 
 template <unsigned int BITS>
 base_blob<BITS>::base_blob(const std::vector<unsigned char>& vch)
@@ -80,6 +81,10 @@ template std::string base_blob<256>::GetHex() const;
 template std::string base_blob<256>::ToString() const;
 template void base_blob<256>::SetHex(const char*);
 template void base_blob<256>::SetHex(const std::string&);
+
+// Other explicit instantiations
+template base_blob<SC_PROOF_SIZE * 8>::base_blob(const std::vector<unsigned char>&);
+template base_blob<SC_VK_SIZE * 8>::base_blob(const std::vector<unsigned char>&);
 
 static void inline HashMix(uint32_t& a, uint32_t& b, uint32_t& c)
 {

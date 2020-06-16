@@ -26,7 +26,7 @@ extern UniValue read_json(const std::string& jsondata);
 uint256 static SignatureHashOld(CScript scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType)
 {
     static const uint256 one(uint256S("0000000000000000000000000000000000000000000000000000000000000001"));
-    if (nIn >= txTo.vin.size())
+    if (nIn >= txTo.GetVin().size())
     {
         printf("ERROR: SignatureHash(): nIn=%d out of range\n", nIn);
         return one;
@@ -42,7 +42,7 @@ uint256 static SignatureHashOld(CScript scriptCode, const CTransaction& txTo, un
     if ((nHashType & 0x1f) == SIGHASH_NONE)
     {
         // Wildcard payee
-        txTmp.vout.clear();
+        txTmp.resizeOut(0);
 
         // Let the others update at will
         for (unsigned int i = 0; i < txTmp.vin.size(); i++)
@@ -53,14 +53,14 @@ uint256 static SignatureHashOld(CScript scriptCode, const CTransaction& txTo, un
     {
         // Only lock-in the txout payee at same index as txin
         unsigned int nOut = nIn;
-        if (nOut >= txTmp.vout.size())
+        if (nOut >= txTmp.getVout().size())
         {
             printf("ERROR: SignatureHash(): nOut=%d out of range\n", nOut);
             return one;
         }
-        txTmp.vout.resize(nOut+1);
+        txTmp.resizeOut(nOut+1);
         for (unsigned int i = 0; i < nOut; i++)
-            txTmp.vout[i].SetNull();
+            txTmp.getOut(i).SetNull();
 
         // Let the others update at will
         for (unsigned int i = 0; i < txTmp.vin.size(); i++)
@@ -84,12 +84,113 @@ uint256 static SignatureHashOld(CScript scriptCode, const CTransaction& txTo, un
     return ss.GetHash();
 }
 
+uint256 static SignatureHashCert(CScript scriptCode, const CScCertificate& certTo, unsigned int nIn, int nHashType)
+{
+    static const uint256 one(uint256S("0000000000000000000000000000000000000000000000000000000000000001"));
+    if (nIn >= certTo.GetVin().size())
+    {
+        printf("ERROR: SignatureHash(): nIn=%d out of range\n", nIn);
+        return one;
+    }
+    CMutableScCertificate certTmp(certTo);
+
+    // Blank out other inputs' signatures
+    for (unsigned int i = 0; i < certTmp.vin.size(); i++)
+        certTmp.vin[i].scriptSig = CScript();
+    certTmp.vin[nIn].scriptSig = scriptCode;
+
+    // Blank out some of the outputs
+    if ((nHashType & 0x1f) == SIGHASH_NONE)
+    {
+        // Wildcard payee
+
+        // save bwt if any...
+        std::vector<CTxOut> bwtStored;
+        for(int pos = certTmp.nFirstBwtPos; pos < certTmp.getVout().size(); ++pos)
+        {
+            bwtStored.push_back(certTmp.getVout()[pos]);
+        }
+
+        certTmp.resizeOut(0);
+        *const_cast<int*>(&certTmp.nFirstBwtPos) = 0;
+
+        // ... and restore in vouts
+        //for (auto& entry : bwtStored)
+        for (std::vector<CTxOut>::iterator it = bwtStored.begin(); it != bwtStored.end(); ++it ) { 
+            certTmp.addBwt(*it);
+        }
+
+        // Let the others update at will
+        for (unsigned int i = 0; i < certTmp.vin.size(); i++)
+            if (i != nIn)
+                certTmp.vin[i].nSequence = 0;
+    }
+    else if ((nHashType & 0x1f) == SIGHASH_SINGLE)
+    {
+        // Only lock-in the txout payee at same index as txin
+        unsigned int nOut = nIn;
+        unsigned int outSize = (certTmp.nFirstBwtPos == BWT_POS_UNSET) ? certTmp.getVout().size() : certTmp.nFirstBwtPos;
+        if (nOut >= outSize)
+        {
+            printf("ERROR: SignatureHash(): nOut=%d out of range\n", nOut);
+            return one;
+        }
+
+        // save bwt if any...
+        std::vector<CTxOut> bwtStored;
+        for(int pos = certTmp.nFirstBwtPos; pos < certTmp.getVout().size(); ++pos)
+        {
+            bwtStored.push_back(certTmp.getVout()[pos]);
+        }
+
+        certTmp.resizeOut(nOut+1);
+        *const_cast<int*>(&certTmp.nFirstBwtPos) = nOut+1;
+
+        for (unsigned int i = 0; i < nOut; i++)
+            certTmp.getOut(i).SetNull();
+
+        // ... and restore in vouts
+        //for (auto& entry : bwtStored)
+        for (std::vector<CTxOut>::iterator it = bwtStored.begin(); it != bwtStored.end(); ++it ) { 
+            certTmp.addBwt(*it);
+        }
+
+        // Let the others update at will
+        for (unsigned int i = 0; i < certTmp.vin.size(); i++)
+            if (i != nIn)
+                certTmp.vin[i].nSequence = 0;
+    }
+
+    // Blank out other inputs completely, not recommended for open transactions
+    if (nHashType & SIGHASH_ANYONECANPAY)
+    {
+        certTmp.vin[0] = certTmp.vin[nIn];
+        certTmp.vin.resize(1);
+    }
+
+    // Serialize and hash
+    CHashWriter ss(SER_GETHASH, 0);
+    ss << certTmp << nHashType;
+    return ss.GetHash();
+}
+
+
 void static RandomScript(CScript &script) {
     static const opcodetype oplist[] = {OP_FALSE, OP_1, OP_2, OP_3, OP_CHECKSIG, OP_IF, OP_VERIF, OP_RETURN};
     script = CScript();
     int ops = (insecure_rand() % 10);
     for (int i=0; i<ops; i++)
         script << oplist[insecure_rand() % (sizeof(oplist)/sizeof(oplist[0]))];
+}
+
+void static RandomScriptBwt(CScript &script) {
+    RandomScript(script);
+    std::vector<unsigned char> pkh;
+    for (unsigned int i = 0; i < sizeof(uint160); i++)
+    {
+        pkh.push_back((unsigned char)(insecure_rand() % 0xff));
+    }
+    script << OP_HASH160 << pkh;
 }
 
 void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyInputScript = false) {
@@ -103,7 +204,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
 	}
 
     tx.vin.clear();
-    tx.vout.clear();
+    tx.resizeOut(0);
     tx.nLockTime = (insecure_rand() % 2) ? insecure_rand() : 0;
     int ins = (insecure_rand() % 4) + 1;
     int outs = fSingle ? ins : (insecure_rand() % 4) + 1;
@@ -121,8 +222,8 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
         txin.nSequence = (insecure_rand() % 2) ? insecure_rand() : (unsigned int)-1;
     }
     for (int out = 0; out < outs; out++) {
-        tx.vout.push_back(CTxOut());
-        CTxOut &txout = tx.vout.back();
+        tx.addOut(CTxOut());
+        CTxOut &txout = tx.getOut(tx.getVout().size()-1);
         txout.nValue = insecure_rand() % 100000000;
         RandomScript(txout.scriptPubKey);
     }
@@ -170,6 +271,48 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
     }
 }
 
+void static RandomCertificate(CMutableScCertificate &cert, bool fSingle, bool emptyInputScript = false) {
+    static const unsigned char NUM_R = 4;
+    cert.nVersion = SC_CERT_VERSION;
+    cert.vin.clear();
+    cert.resizeOut(0);
+    cert.scId = GetRandHash();
+    cert.quality = 3;
+//    cert.scProof
+    cert.epochNumber = (insecure_rand() % NUM_R) + 1;
+    cert.endEpochBlockHash = GetRandHash();
+
+    int ins = (insecure_rand() % NUM_R) + 1;
+    int outs = fSingle ? ins : (insecure_rand() % NUM_R) + 1;
+    int bwt_outs = (insecure_rand() % NUM_R) + 1;
+
+    for (int in = 0; in < ins; in++) {
+        cert.vin.push_back(CTxIn());
+        CTxIn &txin = cert.vin.back();
+        txin.prevout.hash = GetRandHash();
+        txin.prevout.n = insecure_rand() % NUM_R;
+        if(emptyInputScript) {
+        	txin.scriptSig = CScript();
+        } else {
+        	RandomScript(txin.scriptSig);
+        }
+        txin.nSequence = (insecure_rand() % 2) ? insecure_rand() : (unsigned int)-1;
+    }
+
+    for (int out = 0; out < outs; out++) {
+        cert.addOut(CTxOut());
+        CTxOut &txout = cert.getOut(cert.getVout().size()-1);
+        txout.nValue = insecure_rand() % 100000000;
+        RandomScript(txout.scriptPubKey);
+    }
+    for (int out = 0; out < bwt_outs; out++) {
+        cert.addBwt(CTxOut());
+        CTxOut &txout = cert.getOut(cert.getVout().size()-1);
+        txout.nValue = insecure_rand() % 100000000;
+        RandomScriptBwt(txout.scriptPubKey);
+    }
+}
+
 BOOST_FIXTURE_TEST_SUITE(sighash_tests, TestingSetup)
 
 BOOST_AUTO_TEST_CASE(sighash_test)
@@ -211,6 +354,57 @@ BOOST_AUTO_TEST_CASE(sighash_test)
         }
         std::cout << "\n";
         #endif
+        BOOST_CHECK(sh == sho);
+    }
+    #if defined(PRINT_SIGHASH_JSON)
+    std::cout << "]\n";
+    #endif
+
+}
+
+BOOST_AUTO_TEST_CASE(sighash_cert_test)
+{
+    seed_insecure_rand(false);
+
+    #if defined(PRINT_SIGHASH_JSON)
+    std::cout << "[\n";
+    std::cout << "\t[\"raw_transaction, script, input_index, hashType, signature_hash (result)\"],\n";
+    #endif
+    int nRandomTests = 50000;
+
+    #if defined(PRINT_SIGHASH_JSON)
+    nRandomTests = 500;
+    #endif
+    for (int i=0; i<nRandomTests; i++) {
+        int nHashType = insecure_rand();
+        CMutableScCertificate certTo;
+        RandomCertificate(certTo, (nHashType & 0x1f) == SIGHASH_SINGLE);
+        CScript scriptCode;
+        RandomScript(scriptCode);
+        int nIn = insecure_rand() % certTo.vin.size();
+
+        uint256 sh, sho;
+        sho = SignatureHashCert(scriptCode, certTo, nIn, nHashType);
+        sh = SignatureHash(scriptCode, certTo, nIn, nHashType);
+        #if defined(PRINT_SIGHASH_JSON)
+        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+        ss << certTo;
+
+        std::cout << "\t[\"" ;
+        std::cout << HexStr(ss.begin(), ss.end()) << "\", \"";
+        std::cout << HexStr(scriptCode) << "\", ";
+        std::cout << nIn << ", ";
+        std::cout << nHashType << ", \"";
+        std::cout << sho.GetHex() << "\"]";
+        if (i+1 != nRandomTests) {
+          std::cout << ",";
+        }
+        std::cout << "\n";
+        #endif
+        if (sh != sho)
+        {
+            std::cout << "nHashType = " << nHashType << std::endl;
+        }
         BOOST_CHECK(sh == sho);
     }
     #if defined(PRINT_SIGHASH_JSON)

@@ -90,6 +90,31 @@ public:
     virtual int getShieldedTxVersion() const = 0;
 
     /**
+	 * @brief returns sidechain tx version based on block height
+	 */
+	virtual int getSidechainTxVersion() const = 0;
+
+    /**
+	 * @brief returns sidechain cert version based on block height
+	 */
+	virtual int getCertificateVersion() const = 0;
+
+    /**
+	 * @brief returns true sidechains are supported based on block height, false otherwise
+	 */
+	virtual bool areSidechainsSupported() const = 0;
+
+    /**
+	 * @brief returns new block version based on block height
+	 */
+	virtual int getNewBlockVersion() const = 0;
+
+    /**
+     * @brief returns true if the nVersion is valid at input block height
+     */
+    virtual bool isValidBlockVersion(int nVersion) const = 0;
+
+    /**
 	 * @brief returns true or false if the miner has to use MAX_FUTURE_BLOCK_TIME_MTP
 	 */
 	virtual bool isFutureMiningTimeStampActive() const=0;
@@ -98,7 +123,6 @@ public:
 	 * @brief returns true or false if the contextualcheckblockheader uses the MAX_FUTURE_BLOCK_TIME_MTP check block time
 	 */
 	virtual bool isFutureTimeStampActive(int height, CBaseChainParams::Network network) const=0;
-
 
 protected:
     

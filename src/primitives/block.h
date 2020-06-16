@@ -7,8 +7,12 @@
 #define BITCOIN_PRIMITIVES_BLOCK_H
 
 #include "primitives/transaction.h"
+#include "primitives/certificate.h"
 #include "serialize.h"
 #include "uint256.h"
+
+// uncomment for debugging some sc commitment related hashing calculations
+// #define DEBUG_SC_COMMITMENT_HASH 1
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
@@ -22,10 +26,11 @@ class CBlockHeader
 public:
     // header
     static const size_t HEADER_SIZE=4+32+32+32+4+4+32; // excluding Equihash solution
+
     int32_t nVersion;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
-    uint256 hashReserved;
+    uint256 hashScTxsCommitment;
     uint32_t nTime;
     uint32_t nBits;
     uint256 nNonce;
@@ -44,7 +49,7 @@ public:
         nVersion = this->nVersion;
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
-        READWRITE(hashReserved);
+        READWRITE(hashScTxsCommitment);
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
@@ -56,7 +61,7 @@ public:
         nVersion = 0;
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
-        hashReserved.SetNull();
+        hashScTxsCommitment.SetNull();
         nTime = 0;
         nBits = 0;
         nNonce = uint256();
@@ -76,25 +81,49 @@ public:
     }
 };
 
+class CBlockHeaderForNetwork : public CBlockHeader
+{
+    std::vector<CTransaction> vtx_dummy;
+public:
+
+    CBlockHeaderForNetwork()
+    {
+        SetNull();
+    }
+
+    explicit CBlockHeaderForNetwork(const CBlockHeader &header)
+    {
+        *static_cast<CBlockHeader*>(this) = header;
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(*(CBlockHeader*)this);
+        READWRITE(vtx_dummy);
+    }
+
+    void SetNull()
+    {
+        CBlockHeader::SetNull();
+        vtx_dummy.clear();
+    }
+};
 
 class CBlock : public CBlockHeader
 {
 public:
     // network and disk
     std::vector<CTransaction> vtx;
+    std::vector<CScCertificate> vcert;
 
     // memory only
     mutable std::vector<uint256> vMerkleTree;
-
+    
     CBlock()
     {
         SetNull();
-    }
-
-    CBlock(const CBlockHeader &header)
-    {
-        SetNull();
-        *((CBlockHeader*)this) = header;
     }
 
     ADD_SERIALIZE_METHODS;
@@ -103,12 +132,17 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(*(CBlockHeader*)this);
         READWRITE(vtx);
+        if (this->nVersion == BLOCK_VERSION_SC_SUPPORT)
+        {
+            READWRITE(vcert);
+        }
     }
 
     void SetNull()
     {
         CBlockHeader::SetNull();
         vtx.clear();
+        vcert.clear();
         vMerkleTree.clear();
     }
 
@@ -118,7 +152,7 @@ public:
         block.nVersion       = nVersion;
         block.hashPrevBlock  = hashPrevBlock;
         block.hashMerkleRoot = hashMerkleRoot;
-        block.hashReserved   = hashReserved;
+        block.hashScTxsCommitment = hashScTxsCommitment;
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
@@ -132,9 +166,20 @@ public:
     // merkle root).
     uint256 BuildMerkleTree(bool* mutated = NULL) const;
 
+    // return the sc txs commitment calculated as described in zendoo paper. It is based on contribution from
+    // sidechains-related txes and certificates contained in this block
+    uint256 BuildScTxsCommitment();
+    
     std::vector<uint256> GetMerkleBranch(int nIndex) const;
-    static uint256 CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex);
     std::string ToString() const;
+
+    // returns the vector of ptrs of tx and certs of the block (&tx1, .., &txn, &cert1, .., &certn).
+    void GetTxAndCertsVector(std::vector<const CTransactionBase*>& vBase) const;
+
+    // build the merkel tree storing it in the vMerkleTreeIn in/out vector and return the merkle root hash
+    static uint256 BuildMerkleTree(std::vector<uint256>& vMerkleTreeIn, size_t vtxSize, bool* mutated = NULL);
+
+    static uint256 CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex);
 };
 
 
@@ -159,7 +204,7 @@ public:
         nVersion = this->nVersion;
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
-        READWRITE(hashReserved);
+        READWRITE(hashScTxsCommitment);
         READWRITE(nTime);
         READWRITE(nBits);
     }
@@ -203,6 +248,43 @@ struct CBlockLocator
     friend bool operator==(const CBlockLocator& a, const CBlockLocator& b) {
         return (a.vHave == b.vHave);
     }
+};
+
+class SidechainTxsCommitmentBuilder
+{
+private:
+    // the final model will have a fixed-height merkle tree for 'SCTxsCommitment'.
+    // That will also imply having a limit per block to the number of crosschain outputs per SC
+    // and also to the number of SC
+    // ----------------------------- 
+
+    // Key:   the side chain ID
+    // Value: the array of objs of type 'Hash( Hash(ccout) | txid | n)', where n is the index of the 
+    //        ccout in the tx pertaining to the key scid. Tx are ordered as they are included in the block  
+    std::map<uint256, std::vector<uint256> > mScMerkleTreeLeavesFt; 
+
+    // The same for BTR (to be implemented)
+    std::map<uint256, std::vector<uint256> > mScMerkleTreeLeavesBtr; 
+
+    // Key:   the side chain ID
+    // Value: the hash of the certificate related to this scid
+    std::map<uint256, uint256 > mScCerts; 
+
+    // the catalog of scid, resulting after having collected all above contributions
+    std::set<uint256> sScIds;
+
+    static const std::string MAGIC_SC_STRING;
+
+    // return the merkle root hash of the input leaves. The merkle tree is not saved.
+    static uint256 getMerkleRootHash(const std::vector<uint256>& vInputLeaves);
+public:
+    void add(const CTransaction& tx);
+    void add(const CScCertificate& cert);
+    uint256 getCommitment();
+
+    // return the hash of a well known string (MAGIC_SC_STRING declared above) which can be used
+    // as a null-semantic value
+    static const uint256& getCrossChainNullHash();
 };
 
 #endif // BITCOIN_PRIMITIVES_BLOCK_H

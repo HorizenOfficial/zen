@@ -1120,20 +1120,20 @@ BOOST_AUTO_TEST_CASE(rpc_z_sendmany_internals)
         TEST_FRIEND_AsyncRPCOperation_sendmany proxy(ptr);
 
         CTransaction tx = proxy.getTx();
-        BOOST_CHECK(tx.vout.size() == 0);
+        BOOST_CHECK(tx.GetVout().size() == 0);
 
         CAmount amount = 123.456;
         proxy.add_taddr_change_output_to_tx(amount);
         tx = proxy.getTx();
-        BOOST_CHECK(tx.vout.size() == 1);
-        CTxOut out = tx.vout[0];
+        BOOST_CHECK(tx.GetVout().size() == 1);
+        CTxOut out = tx.GetVout()[0];
         BOOST_CHECK_EQUAL(out.nValue, amount);
 
         amount = 1.111;
         proxy.add_taddr_change_output_to_tx(amount);
         tx = proxy.getTx();
-        BOOST_CHECK(tx.vout.size() == 2);
-        out = tx.vout[1];
+        BOOST_CHECK(tx.GetVout().size() == 2);
+        out = tx.GetVout()[1];
         BOOST_CHECK_EQUAL(out.nValue, amount);
     }
 
@@ -1151,10 +1151,10 @@ BOOST_AUTO_TEST_CASE(rpc_z_sendmany_internals)
         proxy.add_taddr_outputs_to_tx();
 
         CTransaction tx = proxy.getTx();
-        BOOST_CHECK(tx.vout.size() == 3);
-        BOOST_CHECK_EQUAL(tx.vout[0].nValue, CAmount(1.23));
-        BOOST_CHECK_EQUAL(tx.vout[1].nValue, CAmount(4.56));
-        BOOST_CHECK_EQUAL(tx.vout[2].nValue, CAmount(7.89));
+        BOOST_CHECK(tx.GetVout().size() == 3);
+        BOOST_CHECK_EQUAL(tx.GetVout()[0].nValue, CAmount(1.23));
+        BOOST_CHECK_EQUAL(tx.GetVout()[1].nValue, CAmount(4.56));
+        BOOST_CHECK_EQUAL(tx.GetVout()[2].nValue, CAmount(7.89));
     }
 
 
