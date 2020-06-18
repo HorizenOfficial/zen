@@ -370,8 +370,9 @@ void ScRpcCmd::addInputs()
 
     static const bool fOnlyConfirmed = false;
     static const bool fIncludeZeroValue = false;
-    static const bool fIncludeCoinBase = true;
-    static const bool fIncludeCommunityFund = true;
+    bool fProtectCoinbase = !Params().GetConsensus().fCoinbaseMustBeProtected;
+    static const bool fIncludeCoinBase = fProtectCoinbase;
+    static const bool fIncludeCommunityFund = fProtectCoinbase;
 
     pwalletMain->AvailableCoins(vAvailableCoins, fOnlyConfirmed, NULL, fIncludeZeroValue, fIncludeCoinBase, fIncludeCommunityFund);
 

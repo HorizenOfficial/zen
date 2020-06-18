@@ -487,8 +487,10 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssValue >> wtx;
             CValidationState state;
             auto verifier = libzcash::ProofVerifier::Strict();
-            if (!(CheckTransaction(wtx, state, verifier) && (wtx.GetHash() == hash) && state.IsValid()))
+            CTransaction tx = wtx;
+            if (!(CheckTransaction(tx, state, verifier) && (wtx.GetHash() == hash) && state.IsValid()))
             {
+                LogPrintf("%s: failure: tx id = %s, rejext code = %d", __func__, wtx.GetHash().ToString(), state.GetRejectCode());
                 // Don't consider REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND error code as a failure. It can appear because a tx
                 // is a pre-chainsplit tx, so it is perfectly fine in this case.
                 if (state.GetRejectCode() != REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND)
@@ -526,7 +528,8 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             CWalletCert wcert;
             ssValue >> wcert;
             CValidationState state;
-            if (!(CheckCertificate(wcert, state) && (wcert.GetHash() == hash) && state.IsValid()))
+            CScCertificate cert = wcert;
+            if (!(CheckCertificate(cert, state) && (wcert.GetHash() == hash) && state.IsValid()))
             {
                 LogPrint("cert", "%s():%d - cert[%s] is invalid\n", __func__, __LINE__, wcert.GetHash().ToString());
                 return false;
