@@ -649,9 +649,12 @@ bool CTransaction::CheckNonEmpty(CValidationState &state) const
 bool CTransactionBase::CheckSerializedSize(CValidationState &state) const
 {
     BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_TX_SIZE); // sanity
-    if (GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION) > MAX_TX_SIZE)
-        return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
+    uint32_t size = GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    if (size > MAX_TX_SIZE) {
+    	LogPrintf("CheckSerializedSize: Tx id = %s, size = %d, limit = %d, tx = %s", GetHash().ToString(), size, MAX_TX_SIZE, ToString());
+	return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
                          REJECT_INVALID, "bad-txns-oversize");
+    }
 
     return true;
 }
