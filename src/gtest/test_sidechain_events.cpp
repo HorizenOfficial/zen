@@ -744,7 +744,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreNoBwtCeasedCoins) {
     for (unsigned int pos = 0; pos < cert.GetVout().size(); ++pos) {
         EXPECT_TRUE(rebuiltCoin.vout[pos] == originalCoins.vout[pos]);
     }
-    EXPECT_FALSE(view->HaveSidechainEvents(minimalCeaseHeight));
+    EXPECT_TRUE(view->HaveSidechainEvents(minimalCeaseHeight));
 }
 
 TEST_F(SidechainsEventsTestSuite, RestoreEmptyCertCeasedCoins) {
@@ -789,7 +789,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreEmptyCertCeasedCoins) {
     //checks
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
 
-    EXPECT_FALSE(view->HaveSidechainEvents(minimalCeaseHeight));
+    EXPECT_TRUE(view->HaveSidechainEvents(minimalCeaseHeight));
 }
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// UndoCeasingScs ///////////////////////////////
