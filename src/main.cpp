@@ -2573,6 +2573,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
 
+    if(block.nVersion != BLOCK_VERSION_SC_SUPPORT) {
+    	fCheckScTxesCommitment = false;
+    }
+
     bool fExpensiveChecks = true;
     if (fCheckpointsEnabled) {
         CBlockIndex *pindexLastCheckpoint = Checkpoints::GetLastCheckpoint(chainparams.Checkpoints());
