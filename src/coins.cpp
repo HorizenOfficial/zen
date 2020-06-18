@@ -1324,6 +1324,11 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: lastCertEpoch [%d], lastCertHash [%s]\n",
                 __func__, __LINE__, scInfo.lastEpochReferencedByCertificate, scInfo.lastCertificateHash.ToString());
 
+        blockUndo.vVoidedCertUndo.push_back(CVoidedCertUndo());
+        blockUndo.vVoidedCertUndo.back().voidedCertScId = ceasingScId;
+        LogPrint("sc", "%s():%d - set voidedCertHash[%s], ceasingScId = %s\n",
+            __func__, __LINE__, scInfo.lastCertificateHash.ToString(), ceasingScId.ToString());
+
         if (scInfo.lastEpochReferencedByCertificate == CScCertificate::EPOCH_NULL) {
             assert(scInfo.lastCertificateHash.IsNull());
             continue;
@@ -1336,19 +1341,8 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
         assert(coins->nBwtMaturityHeight != 0);
 
         //null all bwt outputs and add related txundo in block
-        bool foundFirstBwt = false;
-
         for(int pos = coins->nFirstBwtPos; pos < coins->vout.size(); ++pos)
         {
-            if (!foundFirstBwt)
-            {
-                blockUndo.vVoidedCertUndo.push_back(CVoidedCertUndo());
-                blockUndo.vVoidedCertUndo.back().voidedCertScId = ceasingScId;
-                LogPrint("sc", "%s():%d - set voidedCertHash[%s], firstBwtPos[%d]\n",
-                    __func__, __LINE__, scInfo.lastCertificateHash.ToString(), pos);
-                foundFirstBwt = true;
-            }
-
             blockUndo.vVoidedCertUndo.back().voidedOuts.push_back(CTxInUndo(coins->vout.at(pos)));
             coins->Spend(pos);
             if (coins->vout.size() == 0)
@@ -1427,41 +1421,46 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
 
         CSidechain scInfo;
         assert(GetSidechain(voidedCertUndo.voidedCertScId, scInfo));
-        const uint256& coinHash = scInfo.lastCertificateHash;
 
-        if(coinHash.IsNull())
-        {
-            fClean = fClean && error("%s: malformed undo data, missing voided certificate hash ", __func__);
-            return fClean;
-        }
-        LogPrint("sc", "%s():%d - reverting voiding of bwt for certificate [%s]\n", __func__, __LINE__, coinHash.ToString());
 
-        CCoinsModifier coins = this->ModifyCoins(coinHash);
-        const std::vector<CTxInUndo>& voidedOuts = voidedCertUndo.voidedOuts;
-        for (size_t idx = voidedOuts.size(); idx-- > 0;)
+        if (scInfo.lastEpochReferencedByCertificate != CScCertificate::EPOCH_NULL)
         {
-            if (voidedOuts.at(idx).nHeight != 0)
+            const uint256& coinHash = scInfo.lastCertificateHash;
+ 
+            if(coinHash.IsNull())
             {
-                coins->fCoinBase          = voidedOuts.at(idx).fCoinBase;
-                coins->nHeight            = voidedOuts.at(idx).nHeight;
-                coins->nVersion           = voidedOuts.at(idx).nVersion;
-                coins->nFirstBwtPos       = voidedOuts.at(idx).nFirstBwtPos;
-                coins->nBwtMaturityHeight = voidedOuts.at(idx).nBwtMaturityHeight;
-            } else
-            {
-                if (coins->IsPruned())
-                    fClean = fClean && error("%s: undo data adding output to missing transaction", __func__);
+                fClean = fClean && error("%s: malformed undo data, missing voided certificate hash ", __func__);
+                return fClean;
             }
-
-            if(coins->IsAvailable(coins->nFirstBwtPos + idx))
-                fClean = fClean && error("%s: undo data overwriting existing output", __func__);
-            if (coins->vout.size() < (coins->nFirstBwtPos + idx+1))
-                coins->vout.resize(coins->nFirstBwtPos + idx+1);
-            coins->vout.at(coins->nFirstBwtPos + idx) = voidedOuts.at(idx).txout;
+            LogPrint("sc", "%s():%d - reverting voiding of bwt for certificate [%s]\n", __func__, __LINE__, coinHash.ToString());
+ 
+            CCoinsModifier coins = this->ModifyCoins(coinHash);
+            const std::vector<CTxInUndo>& voidedOuts = voidedCertUndo.voidedOuts;
+            for (size_t idx = voidedOuts.size(); idx-- > 0;)
+            {
+                if (voidedOuts.at(idx).nHeight != 0)
+                {
+                    coins->fCoinBase          = voidedOuts.at(idx).fCoinBase;
+                    coins->nHeight            = voidedOuts.at(idx).nHeight;
+                    coins->nVersion           = voidedOuts.at(idx).nVersion;
+                    coins->nFirstBwtPos       = voidedOuts.at(idx).nFirstBwtPos;
+                    coins->nBwtMaturityHeight = voidedOuts.at(idx).nBwtMaturityHeight;
+                } else
+                {
+                    if (coins->IsPruned())
+                        fClean = fClean && error("%s: undo data adding output to missing transaction", __func__);
+                }
+ 
+                if(coins->IsAvailable(coins->nFirstBwtPos + idx))
+                    fClean = fClean && error("%s: undo data overwriting existing output", __func__);
+                if (coins->vout.size() < (coins->nFirstBwtPos + idx+1))
+                    coins->vout.resize(coins->nFirstBwtPos + idx+1);
+                coins->vout.at(coins->nFirstBwtPos + idx) = voidedOuts.at(idx).txout;
+            }
+ 
+            if(pVoidedCertsList != nullptr)
+                pVoidedCertsList->push_back(coinHash);
         }
-
-        if(pVoidedCertsList != nullptr)
-            pVoidedCertsList->push_back(coinHash);
 
         if (!fClean) return false;
 
