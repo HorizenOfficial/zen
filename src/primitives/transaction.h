@@ -977,6 +977,7 @@ public:
     virtual void insertAtPos(unsigned int pos, const CTxOut& out) = 0;
     virtual void eraseAtPos(unsigned int pos)                     = 0;
     virtual void resizeOut(unsigned int newSize)                  = 0;
+    virtual void resizeBwt(unsigned int newSize)                  = 0;
     virtual bool addOut(const CTxOut& out)                        = 0;
     virtual bool addBwt(const CTxOut& out)                        = 0;
     virtual bool add(const CTxScCreationOut& out)                 = 0;
@@ -1040,6 +1041,7 @@ struct CMutableTransaction : public CMutableTransactionBase
     void insertAtPos(unsigned int pos, const CTxOut& out) override final;
     void eraseAtPos(unsigned int pos)                     override final;
     void resizeOut(unsigned int newSize)                  override final;
+    void resizeBwt(unsigned int newSize)                  override final;
     bool addOut(const CTxOut& out)                        override final;
     bool addBwt(const CTxOut& out)                        override final;
     bool add(const CTxScCreationOut& out)                 override final;

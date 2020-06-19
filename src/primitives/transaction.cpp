@@ -324,6 +324,7 @@ uint256 CMutableTransaction::GetHash() const
 void CMutableTransaction::insertAtPos(unsigned int pos, const CTxOut& out) { vout.insert(vout.begin() + pos, out);}
 void CMutableTransaction::eraseAtPos(unsigned int pos) { vout.erase(vout.begin() + pos); }
 void CMutableTransaction::resizeOut(unsigned int newSize) { vout.resize(newSize); }
+void CMutableTransaction::resizeBwt(unsigned int newSize) { return; }
 bool CMutableTransaction::addOut(const CTxOut& out) { vout.push_back(out); return true;}
 bool CMutableTransaction::addBwt(const CTxOut& out) { return false; }
 bool CMutableTransaction::add(const CTxScCreationOut& out)  { vsc_ccout.push_back(out); return true; }
