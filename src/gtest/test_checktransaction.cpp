@@ -605,8 +605,8 @@ TEST(CertificateManipulation, EmptyCertTransformationToMutableIsNotReversible) {
     EXPECT_FALSE(EmptyOriginalCert == revertedCertByCopyCtor);
     EXPECT_TRUE(EmptyOriginalCert.GetHash().IsNull());
     EXPECT_FALSE(revertedCertByCopyCtor.GetHash().IsNull());
-    EXPECT_TRUE(EmptyOriginalCert.nFirstBwtPos == BWT_POS_UNSET);
-    EXPECT_TRUE(revertedCertByCopyCtor.nFirstBwtPos == BWT_POS_UNSET);
+    EXPECT_TRUE(EmptyOriginalCert.nFirstBwtPos == 0);
+    EXPECT_TRUE(revertedCertByCopyCtor.nFirstBwtPos == 0);
 
     // AssignOp -> CopyCtor
     CMutableScCertificate mutByAssignOp;
@@ -616,7 +616,7 @@ TEST(CertificateManipulation, EmptyCertTransformationToMutableIsNotReversible) {
     EXPECT_FALSE(EmptyOriginalCert == revertedTxFromAssignement);
     EXPECT_TRUE(EmptyOriginalCert.GetHash().IsNull());
     EXPECT_FALSE(revertedTxFromAssignement.GetHash().IsNull());
-    EXPECT_TRUE(revertedTxFromAssignement.nFirstBwtPos == BWT_POS_UNSET);
+    EXPECT_TRUE(revertedTxFromAssignement.nFirstBwtPos == 0);
 
     // CopyCtor -> AssignOp
     CScCertificate revertedTxByAssignOp;
@@ -625,7 +625,7 @@ TEST(CertificateManipulation, EmptyCertTransformationToMutableIsNotReversible) {
     EXPECT_FALSE(EmptyOriginalCert == revertedTxByAssignOp);
     EXPECT_TRUE(EmptyOriginalCert.GetHash().IsNull());
     EXPECT_FALSE(revertedTxByAssignOp.GetHash().IsNull());
-    EXPECT_TRUE(revertedTxByAssignOp.nFirstBwtPos == BWT_POS_UNSET);
+    EXPECT_TRUE(revertedTxByAssignOp.nFirstBwtPos == 0);
 }
 
 TEST(CertificateManipulation, NonEmptyCertTransformationToMutableIsReversible) {

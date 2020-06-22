@@ -114,7 +114,7 @@ uint256 static SignatureHashCert(CScript scriptCode, const CScCertificate& certT
     {
         // Only lock-in the txout payee at same index as txin
         unsigned int nOut = nIn;
-        unsigned int outSize = (certTmp.nFirstBwtPos == BWT_POS_UNSET) ? certTmp.getVout().size() : certTmp.nFirstBwtPos;
+        unsigned int outSize = certTmp.nFirstBwtPos;
         if (nOut >= outSize)
         {
             printf("ERROR: SignatureHash(): nOut=%d out of range\n", nOut);

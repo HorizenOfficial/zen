@@ -1203,7 +1203,7 @@ uint256 SignatureHash(const CScript& scriptCode, const CScCertificate& certTo, u
     // Check for invalid use of SIGHASH_SINGLE
     if ((nHashType & 0x1f) == SIGHASH_SINGLE) {
         // consider only the outputs that are not bwt
-        unsigned int outSize = (certTo.nFirstBwtPos == BWT_POS_UNSET) ? certTo.GetVout().size() : certTo.nFirstBwtPos;
+        unsigned int outSize = certTo.nFirstBwtPos;
         if (nIn >= outSize) {
             //  nOut out of range
             throw logic_error("no matching output for SIGHASH_SINGLE");

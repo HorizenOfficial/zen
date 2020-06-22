@@ -23,6 +23,8 @@
 class CBlockUndo;
 class CVoidedCertUndo;
 
+static const int BWT_POS_UNSET = -1;
+
 /**
  * Pruned version of CTransaction: only retains metadata and unspent transaction outputs
  *

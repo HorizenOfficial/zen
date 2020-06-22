@@ -47,8 +47,6 @@ static_assert(TRANSPARENT_TX_VERSION >= MIN_OLD_TX_VERSION,
 //Many static casts to int * of Tx nVersion (int32_t *) are performed. Verify at compile time that they are equivalent.
 static_assert(sizeof(int32_t) == sizeof(int), "int size differs from 4 bytes. This may lead to unexpected behaviors on static casts");
 
-static const int BWT_POS_UNSET = -1;
-
 template <typename Stream>
 class SproutProofSerializer : public boost::static_visitor<>
 {

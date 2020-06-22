@@ -9,6 +9,7 @@
 #include "compressor.h" 
 #include "primitives/transaction.h"
 #include "serialize.h"
+#include "coins.h"
 
 /** Undo information for a CTxIn
  *
