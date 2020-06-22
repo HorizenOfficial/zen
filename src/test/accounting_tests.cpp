@@ -53,11 +53,7 @@ BOOST_AUTO_TEST_CASE(acc_orderupgrade)
 
     wtx.mapValue["comment"] = "z";
     pwalletMain->AddToWallet(wtx, false, &walletdb);
-#if 0
-    vpwtx.push_back(&pwalletMain->getMapWallet().at(wtx.GetHash()));
-#else
-    vpwtx.push_back(pwalletMain->getMapWallet().at(wtx.GetHash()).get());
-#endif
+    vpwtx.push_back(pwalletMain->getMapWallet().at(wtx.getWrappedTx().GetHash()).get());
     vpwtx[0]->nTimeReceived = (unsigned int)1333333335;
     vpwtx[0]->nOrderPos = -1;
 
@@ -94,30 +90,22 @@ BOOST_AUTO_TEST_CASE(acc_orderupgrade)
 
     wtx.mapValue["comment"] = "y";
     {
-        CMutableTransaction tx(wtx);
+        CMutableTransaction tx(wtx.getWrappedTx());
         --tx.nLockTime;  // Just to change the hash :)
-        *static_cast<CTransaction*>(&wtx) = CTransaction(tx);
+        wtx.ResetWrappedTx(tx);
     }
     pwalletMain->AddToWallet(wtx, false, &walletdb);
-#if 0
-    vpwtx.push_back(&pwalletMain->getMapWallet().at(wtx.GetHash()));
-#else
-    vpwtx.push_back(pwalletMain->getMapWallet().at(wtx.GetHash()).get());
-#endif
+    vpwtx.push_back(pwalletMain->getMapWallet().at(wtx.getWrappedTx().GetHash()).get());
     vpwtx[1]->nTimeReceived = (unsigned int)1333333336;
 
     wtx.mapValue["comment"] = "x";
     {
-        CMutableTransaction tx(wtx);
+        CMutableTransaction tx(wtx.getWrappedTx());
         --tx.nLockTime;  // Just to change the hash :)
-        *static_cast<CTransaction*>(&wtx) = CTransaction(tx);
+        wtx.ResetWrappedTx(tx);
     }
     pwalletMain->AddToWallet(wtx, false, &walletdb);
-#if 0
-    vpwtx.push_back(&pwalletMain->getMapWallet().at(wtx.GetHash()));
-#else
-    vpwtx.push_back(pwalletMain->getMapWallet().at(wtx.GetHash()).get());
-#endif
+    vpwtx.push_back(pwalletMain->getMapWallet().at(wtx.getWrappedTx().GetHash()).get());
     vpwtx[2]->nTimeReceived = (unsigned int)1333333329;
     vpwtx[2]->nOrderPos = -1;
 

@@ -19,7 +19,7 @@ void write_db(CWallet &wallet, SpendingKey &sk, std::atomic_int &finish)
     CBlock block;
     for (int i = 0; i < 1000; i++) {
         auto wtx = GetValidReceive(*params, sk, 10, true);
-        wallet.SyncTransaction(wtx, &block);
+        wallet.SyncTransaction(wtx.getWrappedTx(), &block);
     }
 
     finish++;

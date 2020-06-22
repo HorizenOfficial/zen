@@ -346,7 +346,7 @@ protected:
     const CWallet* pwallet;
     const CTransactionBase* pTxBase;
 public:
-    explicit CWalletTransactionBase(const CWallet* pwalletIn, const CTransactionBase& refTxBase): pwallet(pwalletIn), pTxBase(&refTxBase) { Reset(pwalletIn); }
+    explicit CWalletTransactionBase(const CWallet* pwalletIn, const CTransactionBase* pWrappedTxBase): pwallet(pwalletIn), pTxBase(pWrappedTxBase) { Reset(pwalletIn); }
     CWalletTransactionBase& operator=(const CWalletTransactionBase& o) = default;
     CWalletTransactionBase(const CWalletTransactionBase&) = default;
     virtual ~CWalletTransactionBase() = default;
@@ -439,8 +439,14 @@ public:
  * A transaction with a bunch of additional info that only the owner cares about.
  * It includes any unrecorded transactions needed to link it back to the block chain.
  */
-class CWalletTx : public CTransaction, public CWalletTransactionBase
+class CWalletTx: public CWalletTransactionBase
 {
+private:
+    CTransaction wrappedTx;
+public:
+    const CTransaction& getWrappedTx() const { return wrappedTx; }
+    void ResetWrappedTx(const CTransaction& newTx) { *const_cast<CTransaction*>(&wrappedTx) = newTx; }
+
 protected:
     int GetIndexInBlock(const CBlock& block) override final;
 
@@ -450,9 +456,8 @@ public:
     CWalletTx(const CWalletTx& rhs);
     CWalletTx& operator=(const CWalletTx& rhs);
 
-    // useful in gtest
     friend bool operator==(const CWalletTx& a, const CWalletTx& b) {
-        return (CTransaction&)a == (CTransaction&)b;
+        return a.wrappedTx == b.wrappedTx;
     }
 
     ADD_SERIALIZE_METHODS;
@@ -473,8 +478,8 @@ public:
                 mapValue["timesmart"] = strprintf("%u", nTimeSmart);
         }
 
-        READWRITE(*(CTransaction*)this);
-        nVersion = this->nVersion;
+        READWRITE(wrappedTx);
+        nVersion = wrappedTx.nVersion;
         READWRITE(hashBlock);
         READWRITE(vMerkleBranch);
         READWRITE(nIndex);
@@ -524,8 +529,13 @@ public:
     std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const override;
 };
 
-class CWalletCert : public CScCertificate, public CWalletTransactionBase
+class CWalletCert : public CWalletTransactionBase
 {
+private:
+    CScCertificate wrappedCertificate;
+public:
+    const CScCertificate& getWrappedCert() { return wrappedCertificate; }
+
 protected:
     int GetIndexInBlock(const CBlock& block) override final;
 
@@ -535,9 +545,8 @@ public:
     CWalletCert(const CWalletCert&);
     CWalletCert& operator=(const CWalletCert& rhs);
 
-    // useful in gtest
     friend bool operator==(const CWalletCert& a, const CWalletCert& b) {
-        return (CScCertificate&)a == (CScCertificate&)b;
+        return a.wrappedCertificate == b.wrappedCertificate;
     }
 
     ADD_SERIALIZE_METHODS;
@@ -558,8 +567,8 @@ public:
                 mapValue["timesmart"] = strprintf("%u", nTimeSmart);
         }
 
-        READWRITE(*(CScCertificate*)this);
-        nVersion = this->nVersion;
+        READWRITE(wrappedCertificate);
+        nVersion = wrappedCertificate.nVersion;
         READWRITE(hashBlock);
         READWRITE(vMerkleBranch);
         READWRITE(nIndex);

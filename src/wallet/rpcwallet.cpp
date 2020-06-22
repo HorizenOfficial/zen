@@ -589,7 +589,7 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
 
     SendMoney(address.Get(), nAmount, fSubtractFeeFromAmount, wtx);
 
-    return wtx.GetHash().GetHex();
+    return wtx.getWrappedTx().GetHash().GetHex();
 }
 
 UniValue sc_send(const UniValue& params, bool fHelp)
@@ -785,7 +785,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     CWalletTx wtx;
     ScHandleTransaction(wtx, vecCcSend, nAmount);
 
-    return wtx.GetHash().GetHex();
+    return wtx.getWrappedTx().GetHash().GetHex();
 }
 
 UniValue create_sidechain(const UniValue& params, bool fHelp)
@@ -1726,7 +1726,7 @@ UniValue sendfrom(const UniValue& params, bool fHelp)
 
     SendMoney(address.Get(), nAmount, false, wtx);
 
-    return wtx.GetHash().GetHex();
+    return wtx.getWrappedTx().GetHash().GetHex();
 }
 
 
@@ -1839,7 +1839,7 @@ UniValue sendmany(const UniValue& params, bool fHelp)
     if (!pwalletMain->CommitTransaction(wtx, keyChange))
         throw JSONRPCError(RPC_WALLET_ERROR, "Transaction commit failed");
 
-    return wtx.GetHash().GetHex();
+    return wtx.getWrappedTx().GetHash().GetHex();
 }
 
 // Defined in rpcmisc.cpp
@@ -4673,7 +4673,7 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
 
     ScHandleTransaction(wtx, vecSend, nTotalOut);
 
-    return wtx.GetHash().GetHex();
+    return wtx.getWrappedTx().GetHash().GetHex();
 }
 
 UniValue send_certificate(const UniValue& params, bool fHelp)
