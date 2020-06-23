@@ -1,15 +1,43 @@
 #include <gtest/gtest.h>
 #include "gtest/tx_creation_utils.h"
+#include <boost/filesystem.hpp>
 
+#include <chainparams.h>
 #include <wallet/wallet.h>
+#include <wallet/walletdb.h>
+
 
 class CertInWalletTest : public ::testing::Test {
 public:
-    CertInWalletTest() {}
+    CertInWalletTest(): walletDbLocation(), wallet("wallet.dat"), pWalletDb(nullptr) {}
     ~CertInWalletTest() = default;
 
-    void SetUp() override {};
-    void TearDown() override {};
+    void SetUp() override {
+        //Setup environment
+        SelectParams(CBaseChainParams::TESTNET);
+        boost::filesystem::path walletDbLocation = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+        boost::filesystem::create_directories(walletDbLocation);
+        mapArgs["-datadir"] = walletDbLocation.string();
+
+        //create wallet db
+        try {  pWalletDb = new CWalletDB(wallet.strWalletFile, "cr+"); }
+        catch(std::exception& e) {
+            ASSERT_TRUE(false)<<"Could not create tmp wallet db for reason "<<e.what();
+        }
+
+    };
+    void TearDown() override {
+        delete pWalletDb;
+        pWalletDb = nullptr;
+
+        ClearDatadirCache();
+        boost::system::error_code ec;
+        boost::filesystem::remove_all(walletDbLocation.string(), ec);
+    };
+protected:
+    boost::filesystem::path walletDbLocation;
+    CWallet wallet;
+    CWalletDB* pWalletDb;
 };
 
 TEST_F(CertInWalletTest, WalletCertSerializationOps) {
@@ -34,8 +62,8 @@ TEST_F(CertInWalletTest, WalletTxSerializationOps) {
     CMutableTransaction mutTx;
     mutTx.nVersion = TRANSPARENT_TX_VERSION;
     mutTx.vin.resize(1);
-    mutTx.vin.push_back(CTxIn(COutPoint(uint256S("aaa"), 0), CScript(), 1));
-    mutTx.addOut(CTxOut(CAmount(10), CScript()));
+    mutTx.vin.push_back(CTxIn(COutPoint(uint256S("aaa"), 0), CScript(), 10));
+    mutTx.addOut(CTxOut(CAmount(5), CScript()));
     CTransaction tx(mutTx);
 
     CWalletTx walletTx(&dummyWallet, tx);
@@ -50,4 +78,38 @@ TEST_F(CertInWalletTest, WalletTxSerializationOps) {
     EXPECT_TRUE(walletTx == retrievedWalletTx);
 }
 
+TEST_F(CertInWalletTest, LoadWalletTxFromDb) {
+    //Create wallet transaction to be stored
+    CMutableTransaction mutTx;
+    mutTx.nVersion = TRANSPARENT_TX_VERSION;
+    mutTx.vin.push_back(CTxIn(COutPoint(uint256S("aaa"), 0), CScript(), 1));
+    mutTx.addOut(CTxOut(CAmount(10), CScript()));
+    CTransaction tx(mutTx);
+    CWalletTx walletTx(&wallet, tx);
+
+    // Test
+    EXPECT_TRUE(pWalletDb->WriteWalletTxBase(tx.GetHash(), walletTx));
+
+    DBErrors ret  = pWalletDb->LoadWallet(&wallet);
+    ASSERT_TRUE(DB_LOAD_OK == ret) << "Error: "<<ret;
+    ASSERT_TRUE(wallet.getMapWallet().count(tx.GetHash()));
+    CWalletTx retrievedWalletTx = *dynamic_cast<const CWalletTx*>(wallet.getMapWallet().at(tx.GetHash()).get());
+    EXPECT_TRUE(retrievedWalletTx == walletTx);
+}
+
+TEST_F(CertInWalletTest, LoadWalletCertFromDb) {
+    //Create wallet cert to be stored
+    CScCertificate cert =
+            txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0, uint256S("bbb"), /*numChangeOut*/2, /*bwTotaltAmount*/CAmount(10), /*numBwt*/4);
+    CWalletCert walletCert(&wallet, cert);
+
+    // Test
+    EXPECT_TRUE(pWalletDb->WriteWalletTxBase(cert.GetHash(), walletCert));
+
+    DBErrors ret  = pWalletDb->LoadWallet(&wallet);
+    ASSERT_TRUE(DB_LOAD_OK == ret) << "Error: "<<ret;
+    ASSERT_TRUE(wallet.getMapWallet().count(cert.GetHash()));
+    CWalletCert retrievedWalletCert = *dynamic_cast<const CWalletCert*>(wallet.getMapWallet().at(cert.GetHash()).get());
+    EXPECT_TRUE(retrievedWalletCert == walletCert);
+}
 
