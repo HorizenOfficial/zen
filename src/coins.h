@@ -618,12 +618,13 @@ private:
     CCoinsMap::iterator            FetchCoins(const uint256 &txid);
     CCoinsMap::const_iterator      FetchCoins(const uint256 &txid)      const;
     CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
+    CSidechainsMap::iterator       ModifySidechain(const uint256& scId);
     CSidechainEventsMap::const_iterator FetchSidechainEvents(int height)     const;
 
     static int getInitScCoinsMaturity();
     int getScCoinsMaturity();
 
-    bool DecrementImmatureAmount(const uint256& scId, CSidechain& targetScInfo, CAmount nValue, int maturityHeight);
+    bool DecrementImmatureAmount(const uint256& scId, const CSidechainsMap::iterator& targetEntry, CAmount nValue, int maturityHeight);
     void Dump_info() const;
 
 private:

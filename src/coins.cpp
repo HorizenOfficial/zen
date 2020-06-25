@@ -272,6 +272,23 @@ CSidechainsMap::const_iterator CCoinsViewCache::FetchSidechains(const uint256& s
     return ret;
 }
 
+CSidechainsMap::iterator CCoinsViewCache::ModifySidechain(const uint256& scId) {
+    CSidechainsMap::iterator candidateIt = cacheSidechains.find(scId);
+    if (candidateIt != cacheSidechains.end())
+        return candidateIt;
+
+    CSidechainsMap::iterator ret = cacheSidechains.end();
+
+    CSidechain tmp;
+    if (base->GetSidechain(scId, tmp))
+        ret = cacheSidechains.insert(std::make_pair(scId, CSidechainsCacheEntry(tmp, CSidechainsCacheEntry::Flags::DEFAULT ))).first;
+    else
+        ret = cacheSidechains.insert(std::make_pair(scId, CSidechainsCacheEntry(tmp, CSidechainsCacheEntry::Flags::FRESH ))).first;
+
+    cachedCoinsUsage += ret->second.scInfo.DynamicMemoryUsage();
+    return ret;
+}
+
 CSidechainEventsMap::const_iterator CCoinsViewCache::FetchSidechainEvents(int height) const {
     CSidechainEventsMap::iterator candidateIt = cacheSidechainEvents.find(height);
     if (candidateIt != cacheSidechainEvents.end())
@@ -670,18 +687,18 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
             return false;
         }
 
-        assert(cacheSidechains.count(scId) == 0);
-        cacheSidechains[scId].scInfo.creationBlockHash = block.GetHash();
-        cacheSidechains[scId].scInfo.creationBlockHeight = blockHeight;
-        cacheSidechains[scId].scInfo.creationTxHash = txHash;
-        cacheSidechains[scId].scInfo.lastEpochReferencedByCertificate = CScCertificate::EPOCH_NULL;
-        cacheSidechains[scId].scInfo.lastCertificateHash.SetNull();
-        cacheSidechains[scId].scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
-        cacheSidechains[scId].scInfo.creationData.customData = cr.customData;
-        cacheSidechains[scId].scInfo.creationData.constant = cr.constant;
-        cacheSidechains[scId].scInfo.creationData.wCertVk = cr.wCertVk;
-        cacheSidechains[scId].scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
-        cacheSidechains[scId].flag = CSidechainsCacheEntry::Flags::FRESH;
+        CSidechainsMap::iterator scIt = ModifySidechain(scId);
+        scIt->second.scInfo.creationBlockHash = block.GetHash();
+        scIt->second.scInfo.creationBlockHeight = blockHeight;
+        scIt->second.scInfo.creationTxHash = txHash;
+        scIt->second.scInfo.lastEpochReferencedByCertificate = CScCertificate::EPOCH_NULL;
+        scIt->second.scInfo.lastCertificateHash.SetNull();
+        scIt->second.scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
+        scIt->second.scInfo.creationData.customData = cr.customData;
+        scIt->second.scInfo.creationData.constant = cr.constant;
+        scIt->second.scInfo.creationData.wCertVk = cr.wCertVk;
+        scIt->second.scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
+        scIt->second.flag = CSidechainsCacheEntry::Flags::FRESH;
 
         LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
             __func__, __LINE__, maturityHeight, FormatMoney(cr.nValue), scId.ToString());
@@ -699,12 +716,12 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
                 __func__, __LINE__, ft.scId.ToString() );
             return false;
         }
-        assert(cacheSidechains.count(ft.scId) != 0);
+        CSidechainsMap::iterator scIt = ModifySidechain(ft.scId);
 
         // add a new immature balance entry in sc info or increment it if already there
-        cacheSidechains[ft.scId].scInfo.mImmatureAmounts[maturityHeight] += ft.nValue;
-        if (cacheSidechains[ft.scId].flag != CSidechainsCacheEntry::Flags::FRESH)
-            cacheSidechains[ft.scId].flag = CSidechainsCacheEntry::Flags::DIRTY;
+        scIt->second.scInfo.mImmatureAmounts[maturityHeight] += ft.nValue;
+        if (scIt->second.flag != CSidechainsCacheEntry::Flags::FRESH)
+            scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
 
         LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
             __func__, __LINE__, maturityHeight, FormatMoney(ft.nValue), ft.scId.ToString());
@@ -722,18 +739,17 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
     for(const auto& entry: tx.GetVftCcOut())
     {
         const uint256& scId = entry.scId;
-
         LogPrint("sc", "%s():%d - removing fwt for scId=%s\n", __func__, __LINE__, scId.ToString());
 
-        CSidechain targetScInfo;
-        if (!GetSidechain(scId, targetScInfo))
+        if (!HaveSidechain(scId))
         {
             // should not happen
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
 
-        if (!DecrementImmatureAmount(scId, targetScInfo, entry.nValue, maturityHeight) )
+        CSidechainsMap::iterator scIt = ModifySidechain(scId);
+        if (!DecrementImmatureAmount(scId, scIt, entry.nValue, maturityHeight) )
         {
             // should not happen
             LogPrint("sc", "ERROR %s():%d - scId=%s could not handle immature balance at height%d\n",
@@ -746,18 +762,17 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
     for(const auto& entry: tx.GetVscCcOut())
     {
         const uint256& scId = entry.GetScId();
-
         LogPrint("sc", "%s():%d - removing scId=%s\n", __func__, __LINE__, scId.ToString());
 
-        CSidechain targetScInfo;
-        if (!GetSidechain(scId, targetScInfo))
+        if (!HaveSidechain(scId))
         {
             // should not happen
             LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
 
-        if (!DecrementImmatureAmount(scId, targetScInfo, entry.nValue, maturityHeight) )
+        CSidechainsMap::iterator scIt = ModifySidechain(scId);
+        if (!DecrementImmatureAmount(scId, scIt, entry.nValue, maturityHeight) )
         {
             // should not happen
             LogPrint("sc", "ERROR %s():%d - scId=%s could not handle immature balance at height%d\n",
@@ -765,16 +780,15 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
             return false;
         }
 
-        if (targetScInfo.balance > 0)
+        if (scIt->second.scInfo.balance > 0)
         {
             // should not happen either
             LogPrint("sc", "ERROR %s():%d - scId=%s balance not null: %s\n",
-                __func__, __LINE__, scId.ToString(), FormatMoney(targetScInfo.balance));
+                __func__, __LINE__, scId.ToString(), FormatMoney(scIt->second.scInfo.balance));
             return false;
         }
 
-        cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::ERASED);
-
+        scIt->second.flag = CSidechainsCacheEntry::Flags::ERASED;
         LogPrint("sc", "%s():%d - scId=%s removed from scView\n", __func__, __LINE__, scId.ToString() );
     }
     return true;
@@ -979,8 +993,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndo
 
     LogPrint("cert", "%s():%d - cert=%s\n", __func__, __LINE__, certHash.ToString() );
 
-    CSidechain targetScInfo;
-    if (!GetSidechain(scId, targetScInfo))
+    if (!HaveSidechain(scId))
     {
         // should not happen
         LogPrint("cert", "%s():%d - Can not update balance, could not find scId=%s\n",
@@ -988,23 +1001,24 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndo
         return false;
     }
 
-    if (targetScInfo.balance < totalAmount)
+    CSidechainsMap::iterator scIt = ModifySidechain(scId);
+    if (scIt->second.scInfo.balance < totalAmount)
     {
         LogPrint("cert", "%s():%d - Can not update balance %s with amount[%s] for scId=%s, would be negative\n",
-            __func__, __LINE__, FormatMoney(targetScInfo.balance), FormatMoney(totalAmount), scId.ToString() );
+            __func__, __LINE__, FormatMoney(scIt->second.scInfo.balance), FormatMoney(totalAmount), scId.ToString() );
         return false;
     }
 
-    certUndoEntry.replacedLastCertEpoch = targetScInfo.lastEpochReferencedByCertificate;
-    certUndoEntry.replacedLastCertHash = targetScInfo.lastCertificateHash;
+    certUndoEntry.replacedLastCertEpoch = scIt->second.scInfo.lastEpochReferencedByCertificate;
+    certUndoEntry.replacedLastCertHash = scIt->second.scInfo.lastCertificateHash;
 
-    targetScInfo.balance -= totalAmount;
-    targetScInfo.lastEpochReferencedByCertificate = cert.epochNumber;
-    targetScInfo.lastCertificateHash = certHash;
-    cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
+    scIt->second.scInfo.balance -= totalAmount;
+    scIt->second.scInfo.lastEpochReferencedByCertificate = cert.epochNumber;
+    scIt->second.scInfo.lastCertificateHash = certHash;
+    scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
 
     LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",
-        __func__, __LINE__, FormatMoney(totalAmount), FormatMoney(targetScInfo.balance), scId.ToString());
+        __func__, __LINE__, FormatMoney(totalAmount), FormatMoney(scIt->second.scInfo.balance), scId.ToString());
 
     return true;
 }
@@ -1016,23 +1030,21 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CTxUnd
 
     LogPrint("cert", "%s():%d - removing cert for scId=%s\n", __func__, __LINE__, scId.ToString());
 
-    CSidechain targetScInfo;
-    if (!GetSidechain(scId, targetScInfo))
+    if (!HaveSidechain(scId))
     {
         // should not happen
         LogPrint("cert", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
         return false;
     }
 
-    targetScInfo.balance += totalAmount;
-    targetScInfo.lastEpochReferencedByCertificate = certUndoEntry.replacedLastCertEpoch;
-    targetScInfo.lastCertificateHash = certUndoEntry.replacedLastCertHash;
-    cacheSidechains.at(scId).flag = CSidechainsCacheEntry::Flags::DIRTY;
-
-    cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
+    CSidechainsMap::iterator scIt = ModifySidechain(scId);
+    scIt->second.scInfo.balance += totalAmount;
+    scIt->second.scInfo.lastEpochReferencedByCertificate = certUndoEntry.replacedLastCertEpoch;
+    scIt->second.scInfo.lastCertificateHash = certUndoEntry.replacedLastCertHash;
+    scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
 
     LogPrint("cert", "%s():%d - amount restored to scView (amount=%s, resulting bal=%s) %s\n",
-        __func__, __LINE__, FormatMoney(totalAmount), FormatMoney(targetScInfo.balance), scId.ToString());
+        __func__, __LINE__, FormatMoney(totalAmount), FormatMoney(scIt->second.scInfo.balance), scId.ToString());
 
     return true;
 }
@@ -1513,10 +1525,10 @@ bool CCoinsViewCache::Flush() {
     return fOk;
 }
 
-bool CCoinsViewCache::DecrementImmatureAmount(const uint256& scId, CSidechain& targetScInfo, CAmount nValue, int maturityHeight)
+bool CCoinsViewCache::DecrementImmatureAmount(const uint256& scId, const CSidechainsMap::iterator& targetEntry, CAmount nValue, int maturityHeight)
 {
     // get the map of immature amounts, they are indexed by height
-    auto& iaMap = targetScInfo.mImmatureAmounts;
+    auto& iaMap = targetEntry->second.scInfo.mImmatureAmounts;
 
     if (!iaMap.count(maturityHeight) )
     {
@@ -1538,7 +1550,7 @@ bool CCoinsViewCache::DecrementImmatureAmount(const uint256& scId, CSidechain& t
     }
 
     iaMap[maturityHeight] -= nValue;
-    cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
+    targetEntry->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
 
     LogPrint("sc", "%s():%d - immature amount after: %s\n",
         __func__, __LINE__, FormatMoney(iaMap[maturityHeight]));
@@ -1546,7 +1558,7 @@ bool CCoinsViewCache::DecrementImmatureAmount(const uint256& scId, CSidechain& t
     if (iaMap[maturityHeight] == 0)
     {
         iaMap.erase(maturityHeight);
-        cacheSidechains[scId] = CSidechainsCacheEntry(targetScInfo, CSidechainsCacheEntry::Flags::DIRTY);
+        targetEntry->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
         LogPrint("sc", "%s():%d - removed entry height=%d from immature amounts in memory\n",
             __func__, __LINE__, maturityHeight );
     }
