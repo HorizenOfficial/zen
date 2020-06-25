@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
+from test_framework.util import assert_true, assert_equal, initialize_chain_clean, get_epoch_data, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, dump_ordered_tips
 from test_framework.mc_test.mc_test import *
 import os
@@ -44,15 +44,6 @@ class sc_cert_orphans(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
-    def getEpochData(self, scid, node_idx = 0):
-        sc_creating_height = self.nodes[node_idx].getscinfo(scid)['created at block height']
-        current_height = self.nodes[node_idx].getblockcount()
-        epoch_number = (current_height - sc_creating_height + 1) // EPOCH_LENGTH - 1
-        mark_logs("Current height {}, Sc creation height {}, epoch length {} --> current epoch number {}"
-                  .format(current_height, sc_creating_height, EPOCH_LENGTH, epoch_number), self.nodes, DEBUG_MODE)
-        epoch_block_hash = self.nodes[node_idx].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * EPOCH_LENGTH))
-        return epoch_block_hash, epoch_number
-
     def run_test(self):
 
         '''
@@ -75,9 +66,6 @@ class sc_cert_orphans(BitcoinTestFramework):
         # (11) Node0 reconsiders last invalidated block in order to allow network alignemnt when other nodes will prevail 
         # (12) Node3  generates 2 blocks prevailing over Node0 and realigning the network 
         '''
-        # side chain id
-        scid_1 = "1111"
-        scid_2 = "2222"
 
         # cross chain transfer amounts
         creation_amount = Decimal("10.0")
@@ -95,7 +83,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         vk_2 = mcTest.generate_params("sc2")
         constant_2 = generate_random_field_element_hex()
 
-        mark_logs("Node0 creates SC {} and {}".format(scid_1, scid_2), self.nodes, DEBUG_MODE)
+        mark_logs("Node0 creates two SCs", self.nodes, DEBUG_MODE)
         creating_tx_1 = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk_1, "", constant_1)
         self.sync_all()
         
@@ -114,7 +102,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         prev_epoch_block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         self.nodes[0].generate(5)
         self.sync_all()
-        epoch_block_hash, epoch_number = self.getEpochData(scid_1);
+        epoch_block_hash, epoch_number = get_epoch_data(scid_1, self.nodes[0], EPOCH_LENGTH)
 
         # (2) node0 sends fund to node1, the resulting tx1 is in mempool
         taddr1 = self.nodes[1].getnewaddress()

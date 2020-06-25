@@ -7,6 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
+    get_epoch_data, \
     assert_false, assert_true
 from test_framework.mc_test.mc_test import *
 import os
@@ -122,15 +123,10 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc balance has matured
         assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
 
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
-        current_height = self.nodes[0].getblockcount()
-        epoch_number = (current_height - sc_creating_height + 1) // EPOCH_LENGTH - 1
-        mark_logs("Current height {}, Sc creation height {}, epoch length {} --> current epoch number {}"
-                  .format(current_height, sc_creating_height, EPOCH_LENGTH, epoch_number), self.nodes, DEBUG_MODE)
-        epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * EPOCH_LENGTH))
         prev_epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number) * EPOCH_LENGTH))
-        eph_wrong = self.nodes[0].getblockhash(sc_creating_height)
-        print "epoch_number = ", epoch_number, ", epoch_block_hash = ", epoch_block_hash
 
         pkh_node1 = self.nodes[1].getnewaddress("", True)
 
@@ -371,6 +367,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         #---------------------end scProof tests-------------------------
 
+        eph_wrong = self.nodes[0].getblockhash(sc_creating_height)
         mark_logs("Node 0 tries to perform a bwd transfer with an invalid end epoch hash block ...", self.nodes, DEBUG_MODE)
         try:
             self.nodes[0].send_certificate(scid, epoch_number, quality, eph_wrong, proof, amount_cert_1, CERT_FEE)
@@ -474,15 +471,9 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes[0].generate(EPOCH_LENGTH - 1)
         self.sync_all()
 
-        current_height = self.nodes[0].getblockcount()
-        epoch_number = (current_height - sc_creating_height + 1) // EPOCH_LENGTH - 1
-        assert_equal(epoch_number, 1)
-
-        mark_logs("Current height {}, Sc creation height {}, epoch length {} --> current epoch number {}"
-               .format(current_height, sc_creating_height, EPOCH_LENGTH, epoch_number), self.nodes, DEBUG_MODE)
-        
         prev_epoch_block_hash = epoch_block_hash
-        epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * EPOCH_LENGTH))
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
         amount_cert_2 = []
 

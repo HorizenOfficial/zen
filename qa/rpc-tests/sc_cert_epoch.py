@@ -6,7 +6,7 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import initialize_chain_clean, assert_equal, \
-    start_nodes, stop_nodes, \
+    start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs
 from test_framework.mc_test.mc_test import *
 import os
@@ -77,7 +77,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         scid = decoded_tx['vsc_ccout'][0]['scid']
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
-        prev_epoch_hash = blocks[-1]
+        prev_epoch_block_hash = blocks[-1]
         mark_logs("Node0 confirms Sc creation generating 1 block", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
@@ -103,8 +103,8 @@ class sc_cert_epoch(BitcoinTestFramework):
         assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount)
         assert_equal(self.nodes[0].getscinfo(scid)['immature amounts'][0]['amount'], fwt_amount_immature_at_epoch)
 
-        epoch_number = 0
-        epoch_hash = blocks[-1]
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
         pkh_node2 = self.nodes[2].getnewaddress("", True)
         amounts_bad = [{"pubkeyhash": pkh_node2, "amount": bwt_amount + fwt_amount_immature_at_epoch}]
@@ -126,11 +126,11 @@ class sc_cert_epoch(BitcoinTestFramework):
         #Create proof for WCert
         quality = 0
         proof_bad = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_hash, prev_epoch_hash,
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node2], [bwt_amount + fwt_amount_immature_at_epoch])
 
         try:
-            self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_hash, proof_bad, amounts_bad, CERT_FEE)
+            self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof_bad, amounts_bad, CERT_FEE)
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -141,11 +141,11 @@ class sc_cert_epoch(BitcoinTestFramework):
         #Create proof for WCert
         quality = 0
         proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_hash, prev_epoch_hash,
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node2], [bwt_amount])
         
         try:
-            cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_hash, proof, amounts, CERT_FEE)
+            cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
             mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh via cert {}.".format(bwt_amount, cert_epoch_0), self.nodes, DEBUG_MODE)
             assert(len(cert_epoch_0) > 0)
         except JSONRPCException, e:
@@ -184,17 +184,17 @@ class sc_cert_epoch(BitcoinTestFramework):
         self.sync_all()
 
         try:
-            epoch_number = 1
-            prev_epoch_hash = epoch_hash
-            epoch_hash = blocks[-1]
+            prev_epoch_block_hash = epoch_block_hash
+            epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+            mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
             
             #Create proof for WCert
             quality = 1
             proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_hash, prev_epoch_hash,
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [], [])
 
-            cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_hash, proof, [], CERT_FEE)
+            cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, [], CERT_FEE)
             mark_logs("Node 0 send a certificate {} with no bwd transfers".format(cert_epoch_1), self.nodes, DEBUG_MODE)
             assert(len(cert_epoch_1) > 0)
         except JSONRPCException, e:

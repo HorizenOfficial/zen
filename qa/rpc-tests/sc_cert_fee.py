@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, initialize_chain_clean, \
+from test_framework.util import assert_equal, initialize_chain_clean, get_epoch_data, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs
 from test_framework.mc_test.mc_test import *
 import os
@@ -44,14 +44,6 @@ class sc_cert_base(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
-    def getEpochData(self, sc_creating_height):
-        current_height = self.nodes[0].getblockcount()
-        epoch_number = (current_height - sc_creating_height + 1) // EPOCH_LENGTH - 1
-        mark_logs("Current height {}, Sc creation height {}, epoch length {} --> current epoch number {}"
-                  .format(current_height, sc_creating_height, EPOCH_LENGTH, epoch_number), self.nodes, DEBUG_MODE)
-        epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * EPOCH_LENGTH))
-        return epoch_block_hash, epoch_number
-
     def run_test(self):
 
         # cross chain transfer amounts
@@ -83,7 +75,6 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node0 confirms Sc creation generating 1 block", self.nodes, DEBUG_MODE)
         prev_epoch_block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         self.nodes[0].generate(1)
-        sc_creating_height = self.nodes[0].getblockcount()  # Should not this be in SC info??'
         self.sync_all()
 
         # fee can be seen on sender wallet (it is a negative value)
@@ -97,7 +88,8 @@ class sc_cert_base(BitcoinTestFramework):
         # print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
         mark_logs("Sc {} state: {}".format(scid, self.nodes[0].getscinfo(scid)), self.nodes, DEBUG_MODE)
 
-        epoch_block_hash, epoch_number = self.getEpochData(sc_creating_height);
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
         pkh_node2 = self.nodes[2].getnewaddress("", True)
 
@@ -158,7 +150,8 @@ class sc_cert_base(BitcoinTestFramework):
         self.sync_all()
 
         prev_epoch_block_hash = epoch_block_hash
-        epoch_block_hash, epoch_number = self.getEpochData(sc_creating_height);
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
         bal3 = self.nodes[3].getbalance()
         bwt_amount_2 = bal3/2
