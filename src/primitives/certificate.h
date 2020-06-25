@@ -13,7 +13,7 @@ public:
     CAmount nValue;
     uint160 pubKeyHash;
 
-    CBackwardTransferOut(): nValue(0), pubKeyHash() {};
+    CBackwardTransferOut(): nValue(-1), pubKeyHash() {};
     explicit CBackwardTransferOut(const CTxOut& txout);
 
     ADD_SERIALIZE_METHODS;
@@ -23,6 +23,14 @@ public:
         READWRITE(nValue);
         READWRITE(pubKeyHash);
     }
+
+    void SetNull()
+    {
+        nValue = -1;
+        pubKeyHash.SetNull();
+    }
+
+    bool IsNull() const { return (nValue == -1);  }
 };
 
 class CScCertificate : virtual public CTransactionBase

@@ -211,11 +211,13 @@ std::string CTxIn::ToString() const
     return str;
 }
 
-CTxOut::CTxOut(const CBackwardTransferOut& btout) : nValue(btout.nValue)
+CTxOut::CTxOut(const CBackwardTransferOut& btout) : nValue(btout.nValue), scriptPubKey()
 {
-    scriptPubKey.clear();
-    std::vector<unsigned char> pkh(btout.pubKeyHash.begin(), btout.pubKeyHash.end());
-    scriptPubKey << OP_DUP << OP_HASH160 << pkh << OP_EQUALVERIFY << OP_CHECKSIG;
+    if (!btout.IsNull())
+    {
+        std::vector<unsigned char> pkh(btout.pubKeyHash.begin(), btout.pubKeyHash.end());
+        scriptPubKey << OP_DUP << OP_HASH160 << pkh << OP_EQUALVERIFY << OP_CHECKSIG;
+    }
 }
 
 uint256 CTxOut::GetHash() const

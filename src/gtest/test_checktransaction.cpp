@@ -523,7 +523,7 @@ TEST(TransactionManipulation, EmptyTxTransformationToMutableIsNotReversible) {
     // AssignOp -> CopyCtor
     CMutableTransaction mutByAssignOp;
     mutByAssignOp = EmptyOriginalTx;
-    CTransaction revertedTxFromAssignement(mutByCopyCtor);
+    CTransaction revertedTxFromAssignement(mutByAssignOp);
 
     EXPECT_FALSE(EmptyOriginalTx == revertedTxFromAssignement);
     EXPECT_TRUE(EmptyOriginalTx.GetHash().IsNull());
@@ -558,7 +558,7 @@ TEST(TransactionManipulation, NonEmptyTxTransformationToMutableIsReversible) {
     // AssignOp -> CopyCtor
     CMutableTransaction mutByAssignOp;
     mutByAssignOp = nonEmptyOriginalTx;
-    CTransaction revertedTxFromAssignement(mutByCopyCtor);
+    CTransaction revertedTxFromAssignement(mutByAssignOp);
 
     EXPECT_TRUE(nonEmptyOriginalTx == revertedTxByCopyCtor)
         <<" nonEmptyOriginalTx.GetHash() "<<nonEmptyOriginalTx.GetHash().ToString()
@@ -637,7 +637,7 @@ TEST(CertificateManipulation, NonEmptyCertTransformationToMutableIsReversible) {
 
     unsigned int bwtOut = 3;
     CScript bwtScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
-    for(unsigned int idx = 0; idx < OutNum; ++idx)
+    for(unsigned int idx = 0; idx < bwtOut; ++idx)
         helperMutCert.addBwt(CTxOut(CAmount(idx),bwtScript));
 
     CScCertificate nonEmptyOriginalCert(helperMutCert);
@@ -770,8 +770,6 @@ TEST(CertificateManipulation, ResizingCertificateChangeOutputs) {
     //increase bwt
     unsigned increaseBwtNum = 10;
     mutCert.resizeBwt(increaseBwtNum);
-    for(unsigned int idx = increasedOutNum; idx < increasedOutNum + increaseBwtNum; ++idx)
-        mutCert.getOut(idx).scriptPubKey = bwtScript; //Needed otherwise get hash will crash
 
     CScCertificate increasedBwtsCert = mutCert;
     EXPECT_TRUE(increasedBwtsCert.GetVout().size() == increasedOutNum + increaseBwtNum)

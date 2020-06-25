@@ -382,10 +382,7 @@ public:
         scriptPubKey.clear();
     }
 
-    bool IsNull() const
-    {
-        return (nValue == -1);
-    }
+    bool IsNull() const { return (nValue == -1);  }
 
     uint256 GetHash() const;
 
