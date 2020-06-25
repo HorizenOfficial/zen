@@ -9,7 +9,7 @@
 
 class CertInWalletTest : public ::testing::Test {
 public:
-    CertInWalletTest(): walletDbLocation(), wallet("wallet.dat"), pWalletDb(nullptr) {}
+    CertInWalletTest(): walletDbLocation(), pWallet(nullptr), pWalletDb(nullptr) {}
     ~CertInWalletTest() = default;
 
     void SetUp() override {
@@ -20,23 +20,31 @@ public:
         mapArgs["-datadir"] = walletDbLocation.string();
 
         //create wallet db
-        try {  pWalletDb = new CWalletDB(wallet.strWalletFile, "cr+"); }
+        pWallet = new CWallet("wallet.dat");
+        try {  pWalletDb = new CWalletDB(pWallet->strWalletFile, "cr+"); }
         catch(std::exception& e) {
             ASSERT_TRUE(false)<<"Could not create tmp wallet db for reason "<<e.what();
         }
-
     };
+
     void TearDown() override {
+        std::vector<std::shared_ptr<CWalletTransactionBase> > vWtx;
+        DBErrors nZapWalletRet = pWallet->ZapWalletTx(vWtx);
+
         delete pWalletDb;
         pWalletDb = nullptr;
+
+        delete pWallet;
+        pWallet = nullptr;
 
         ClearDatadirCache();
         boost::system::error_code ec;
         boost::filesystem::remove_all(walletDbLocation.string(), ec);
     };
+
 protected:
     boost::filesystem::path walletDbLocation;
-    CWallet wallet;
+    CWallet* pWallet;
     CWalletDB* pWalletDb;
 };
 
@@ -85,15 +93,16 @@ TEST_F(CertInWalletTest, LoadWalletTxFromDb) {
     mutTx.vin.push_back(CTxIn(COutPoint(uint256S("aaa"), 0), CScript(), 1));
     mutTx.addOut(CTxOut(CAmount(10), CScript()));
     CTransaction tx(mutTx);
-    CWalletTx walletTx(&wallet, tx);
+    CWalletTx walletTx(pWallet, tx);
 
     // Test
     EXPECT_TRUE(pWalletDb->WriteWalletTxBase(tx.GetHash(), walletTx));
 
-    DBErrors ret  = pWalletDb->LoadWallet(&wallet);
+    DBErrors ret  = pWalletDb->LoadWallet(pWallet);
     ASSERT_TRUE(DB_LOAD_OK == ret) << "Error: "<<ret;
-    ASSERT_TRUE(wallet.getMapWallet().count(tx.GetHash()));
-    CWalletTx retrievedWalletTx = *dynamic_cast<const CWalletTx*>(wallet.getMapWallet().at(tx.GetHash()).get());
+    //EXPECT_TRUE(pWallet->getMapWallet().size() == 1);
+    ASSERT_TRUE(pWallet->getMapWallet().count(tx.GetHash()));
+    CWalletTx retrievedWalletTx = *dynamic_cast<const CWalletTx*>(pWallet->getMapWallet().at(tx.GetHash()).get());
     EXPECT_TRUE(retrievedWalletTx == walletTx);
 }
 
@@ -101,15 +110,15 @@ TEST_F(CertInWalletTest, LoadWalletCertFromDb) {
     //Create wallet cert to be stored
     CScCertificate cert =
             txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0, uint256S("bbb"), /*numChangeOut*/2, /*bwTotaltAmount*/CAmount(10), /*numBwt*/4);
-    CWalletCert walletCert(&wallet, cert);
+    CWalletCert walletCert(pWallet, cert);
 
     // Test
     EXPECT_TRUE(pWalletDb->WriteWalletTxBase(cert.GetHash(), walletCert));
 
-    DBErrors ret  = pWalletDb->LoadWallet(&wallet);
+    DBErrors ret  = pWalletDb->LoadWallet(pWallet);
     ASSERT_TRUE(DB_LOAD_OK == ret) << "Error: "<<ret;
-    ASSERT_TRUE(wallet.getMapWallet().count(cert.GetHash()));
-    CWalletCert retrievedWalletCert = *dynamic_cast<const CWalletCert*>(wallet.getMapWallet().at(cert.GetHash()).get());
+    //EXPECT_TRUE(pWallet->getMapWallet().size() == 1) << pWallet->getMapWallet().size();
+    ASSERT_TRUE(pWallet->getMapWallet().count(cert.GetHash()));
+    CWalletCert retrievedWalletCert = *dynamic_cast<const CWalletCert*>(pWallet->getMapWallet().at(cert.GetHash()).get());
     EXPECT_TRUE(retrievedWalletCert == walletCert);
 }
-
