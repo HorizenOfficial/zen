@@ -15,7 +15,7 @@ public:
     void SetUp() override {
         //Setup environment
         SelectParams(CBaseChainParams::TESTNET);
-        boost::filesystem::path walletDbLocation = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+        walletDbLocation = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
         boost::filesystem::create_directories(walletDbLocation);
         mapArgs["-datadir"] = walletDbLocation.string();
 
@@ -30,6 +30,9 @@ public:
     void TearDown() override {
         std::vector<std::shared_ptr<CWalletTransactionBase> > vWtx;
         DBErrors nZapWalletRet = pWallet->ZapWalletTx(vWtx);
+        EXPECT_TRUE(DB_LOAD_OK == nZapWalletRet)
+            <<"Failed cleaning-up the wallet with return code" << nZapWalletRet
+            <<". Isolation and independence of subsequent UTs cannot be guaranteed";
 
         delete pWalletDb;
         pWalletDb = nullptr;
@@ -38,8 +41,6 @@ public:
         pWallet = nullptr;
 
         ClearDatadirCache();
-        boost::system::error_code ec;
-        boost::filesystem::remove_all(walletDbLocation.string(), ec);
     };
 
 protected:
