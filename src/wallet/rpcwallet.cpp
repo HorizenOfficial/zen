@@ -88,7 +88,29 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx, const std::vector<CWalle
 
     tx.AddVinExpandedToJSON(entry, vtxIn);
 
+    int conf = tx.GetDepthInMainChain();
+    int64_t timestamp = tx.GetTxTime();
+    bool hasBlockTime = false;
+
+    if (!tx.hashBlock.IsNull()) {
+        BlockMap::iterator mi = mapBlockIndex.find(tx.hashBlock);
+        if (mi != mapBlockIndex.end() && (*mi).second) {
+            CBlockIndex* pindex = (*mi).second;
+            if (chainActive.Contains(pindex)) {
+                timestamp = pindex->GetBlockTime();
+                hasBlockTime = true;
+            } else {
+                timestamp = tx.GetTxTime();
+            }
+        }
+    }
+
     UniValue vout(UniValue::VARR);
+    int bwtMaturityHeight = -1;
+    if (conf >= 0) {
+        bwtMaturityHeight = tx.bwtMaturityDepth - conf + chainActive.Height() + 1;
+    }
+
     for (unsigned int i = 0; i < tx.getTxBase()->GetVout().size(); i++) {
         const CTxOut& txout = tx.getTxBase()->GetVout()[i];
         UniValue out(UniValue::VOBJ);
@@ -99,7 +121,10 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx, const std::vector<CWalle
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
         out.push_back(Pair("scriptPubKey", o));
         if (tx.getTxBase()->IsBackwardTransfer(i))
+        {
             out.push_back(Pair("backwardTransfer", true));
+            out.push_back(Pair("maturityHeight", bwtMaturityHeight));
+        }
         vout.push_back(out);
     }
     entry.push_back(Pair("vout", vout));
@@ -109,29 +134,18 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx, const std::vector<CWalle
 
     if (!tx.hashBlock.IsNull()) {
         entry.push_back(Pair("blockhash", tx.hashBlock.GetHex()));
-        BlockMap::iterator mi = mapBlockIndex.find(tx.hashBlock);
-        if (mi != mapBlockIndex.end() && (*mi).second) {
-            CBlockIndex* pindex = (*mi).second;
-            if (chainActive.Contains(pindex)) {
-                entry.push_back(Pair("confirmations", 1 + chainActive.Height() - pindex->nHeight));
-                entry.push_back(Pair("time", pindex->GetBlockTime()));
-                entry.push_back(Pair("blocktime", pindex->GetBlockTime()));
-            }
-            else
-                entry.push_back(Pair("confirmations", 0));
+        entry.push_back(Pair("confirmations", conf));
+        entry.push_back(Pair("time", timestamp));
+        if (hasBlockTime) {
+            entry.push_back(Pair("blocktime", timestamp));
         }
-    }
-    else
-    {
-        entry.push_back(Pair("confirmations", 0));
-        entry.push_back(Pair("time", tx.GetTxTime()));
+    } else {
+        entry.push_back(Pair("confirmations", conf));
+        entry.push_back(Pair("time", timestamp));
     }
 
-    if (tx.IsFromMe(ISMINE_ALL))
-    {
+    if (tx.IsFromMe(ISMINE_ALL)) {
         CAmount nDebit = tx.GetDebit(ISMINE_ALL);
-        // with positive sign
-        //CAmount nFee = nDebit - nOut;
         CAmount nFee = tx.getTxBase()->GetFeeAmount(nDebit);
         entry.push_back(Pair("fees", ValueFromAmount(nFee)));
     }
