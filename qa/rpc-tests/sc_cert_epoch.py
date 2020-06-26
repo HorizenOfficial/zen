@@ -45,6 +45,14 @@ class sc_cert_epoch(BitcoinTestFramework):
 
     def run_test(self):
 
+        '''
+        Node0 creates a sc, sends funds and then sends a certificate to it with a bwt to Node2
+        testing maturity of bwt, spendability and balances.
+        Node0 then performs some block invalidation for reverting the certificate and the tx that
+        spends it. Node0 finally generates more blocks, and this causes other nodes to revert their
+        chains erasing cert and tx spending it from their active chain and mempool as well
+        '''
+
         # cross-chain transfer amount
         creation_amount = Decimal("0.5")
         fwt_amount = Decimal("30")
@@ -241,13 +249,13 @@ class sc_cert_epoch(BitcoinTestFramework):
         mark_logs("Checking tx speding bwd returns to mempool", self.nodes, DEBUG_MODE)
         assert(speding_bwd_tx in self.nodes[0].getrawmempool())
 
-        mark_logs("Node0 invalidates enough blocks unconfirm epoch 1 certificate", self.nodes, DEBUG_MODE)
+        mark_logs("Node0 invalidates enough blocks to unconfirm epoch 1 certificate", self.nodes, DEBUG_MODE)
         for num in range(1,3):
             block_to_invalidate = self.nodes[0].getbestblockhash()
             self.nodes[0].invalidateblock(block_to_invalidate)
             time.sleep(1)  # Is there a better wait to settle?
 
-        mark_logs("Checking bwd returns to mempool while tx spending epoch 0 certificate gets removed", self.nodes, DEBUG_MODE)
+        mark_logs("Checking cert returns to mempool while tx spending it gets removed from mempool", self.nodes, DEBUG_MODE)
         assert(cert_epoch_1 in self.nodes[0].getrawmempool())
         assert(speding_bwd_tx not in self.nodes[0].getrawmempool()) # speding_bwd_tx would spend an immature cert now since epoch 1 cert is not confirmed anymore
 
@@ -259,7 +267,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         self.nodes[0].invalidateblock(block_to_invalidate)
         time.sleep(1)  # Is there a better wait to settle?
 
-        mark_logs("Checking both bwd is still mempool", self.nodes, DEBUG_MODE)
+        mark_logs("Checking both bwd and spending tx are no more in the node mempool", self.nodes, DEBUG_MODE)
         assert(cert_epoch_1 not in self.nodes[0].getrawmempool())
         assert(speding_bwd_tx not in self.nodes[0].getrawmempool())
 
@@ -280,8 +288,8 @@ class sc_cert_epoch(BitcoinTestFramework):
             sc_post_regeneration = node.getscinfo(scid)
             assert_equal(sc_post_regeneration["last certificate epoch"], Decimal(0))
             assert_equal(sc_post_regeneration["balance"], creation_amount + fwt_amount + fwt_amount_immature_at_epoch - bwt_amount)
-            assert(cert_epoch_1 not in self.nodes[0].getrawmempool())
-            assert(speding_bwd_tx not in self.nodes[0].getrawmempool())
+            assert(cert_epoch_1 not in node.getrawmempool())
+            assert(speding_bwd_tx not in node.getrawmempool())
 
         assert_equal(node2_balance_ante_cert, self.nodes[2].getbalance())
         assert_equal(node3_balance_ante_cert, self.nodes[3].getbalance())
@@ -296,8 +304,8 @@ class sc_cert_epoch(BitcoinTestFramework):
             sc_post_regeneration = node.getscinfo(scid)
             assert_equal(sc_post_regeneration["last certificate epoch"], Decimal(0))
             assert_equal(sc_post_regeneration["balance"], creation_amount + fwt_amount + fwt_amount_immature_at_epoch - bwt_amount)
-            assert(cert_epoch_1 not in self.nodes[0].getrawmempool())
-            assert(speding_bwd_tx not in self.nodes[0].getrawmempool())
+            assert(cert_epoch_1 not in node.getrawmempool())
+            assert(speding_bwd_tx not in node.getrawmempool())
 
 
 if __name__ == '__main__':

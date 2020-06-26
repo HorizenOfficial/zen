@@ -46,6 +46,13 @@ class sc_cert_base(BitcoinTestFramework):
 
     def run_test(self):
 
+        '''
+        Node1 creates a sc and sends to it a certificate with a bwt to Node2 and a fee.
+        Node0 mines a block and checks that the cert fee is contained in the coinbase
+        Node0 sends a lot of small coins to Node3, who will use them as input for including a fee
+        in a new certificate
+        '''
+
         # cross chain transfer amounts
         creation_amount = Decimal("0.5")
         bwt_amount = Decimal("0.4")
@@ -85,7 +92,6 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes[0].generate(4)
         self.sync_all()
 
-        # print "SC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
         mark_logs("Sc {} state: {}".format(scid, self.nodes[0].getscinfo(scid)), self.nodes, DEBUG_MODE)
 
         epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)

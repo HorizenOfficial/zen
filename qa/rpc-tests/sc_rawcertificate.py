@@ -57,6 +57,11 @@ class sc_rawcert(BitcoinTestFramework):
 
     def run_test(self):
 
+        '''
+        Testing the capabilities of the api for creating raw certificates and handling their decoding.
+        Negative tests are also performed by specifying wrong params and incorrect pkey for the signing
+        '''
+
         # forward transfer amount
         cr_amount = Decimal("5.0")
         bt_amount = Decimal("4.0")

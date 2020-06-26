@@ -60,6 +60,15 @@ class sc_cert_invalidate(BitcoinTestFramework):
 
     def run_test(self):
 
+        '''
+        Node0 creates a SC and sends funds to it, and then sends a cert to it with a bwt to Node1
+        Node0 then sends a few tx with fwt to the same SC and then a second cert with a bwt to Node2 
+        Node0 than invalidates all the latest blocks one by one checking sc state and checking also
+        that a cert remains in mempool until its end epoch is reverted
+        Node0 finally generates a sufficient number of blocks for reverting other nodes' chains and
+        the test checks their sc state
+        '''
+
         sc_txes = []
         certs = []
 
@@ -86,7 +95,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
 
         sc_info.append("No SC")
 
-        mark_logs("Node 1 creates the SC spending {} coins ...".format(creation_amount), self.nodes, DEBUG_MODE)
+        mark_logs("Node0 creates the SC spending {} coins ...".format(creation_amount), self.nodes, DEBUG_MODE)
 
         #generate wCertVk and constant
         mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
@@ -181,7 +190,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
-        mark_logs("Node 0 performs a bwd transfer of {} coins to Node1...".format(bwt_amount_2), self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 performs a bwd transfer of {} coins to Node2...".format(bwt_amount_2), self.nodes, DEBUG_MODE)
         amounts = []
         amounts.append({"pubkeyhash": pkh_node2, "amount": bwt_amount_2})
 

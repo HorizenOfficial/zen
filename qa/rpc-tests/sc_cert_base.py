@@ -46,6 +46,13 @@ class sc_cert_base(BitcoinTestFramework):
 
     def run_test(self):
 
+        '''
+        The test creates a sc, send funds to it and then sends a certificate to it,
+        verifying also that specifying various combination of bad parameters causes a certificate
+        to be refused. This test also checks that the receiver of cert backward transfer can spend it
+        only when they become mature. 
+        '''
+
         # forward transfer amounts
         creation_amount = Decimal("0.5")
         fwt_amount = Decimal("50")
