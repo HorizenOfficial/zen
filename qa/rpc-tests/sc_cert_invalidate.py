@@ -51,7 +51,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
             time.sleep(0.1)
 
-    def gen_block(self, sc_info, scid, nIdx = 0 ):
+    def refresh_sidechain(self, sc_info, scid, nIdx = 0 ):
         mark_logs("Node{} generating 1 block".format(nIdx), self.nodes, DEBUG_MODE)
         self.nodes[nIdx].generate(1)
         self.sync_all()
@@ -114,7 +114,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
 
         prev_epoch_block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
 
-        self.gen_block(sc_info, scid)
+        self.refresh_sidechain(sc_info, scid)
 
         sc_creating_height = self.nodes[0].getblockcount()
 
@@ -124,15 +124,15 @@ class sc_cert_invalidate(BitcoinTestFramework):
         sc_txes.append(fwd_tx)
         self.sync_all()
 
-        self.gen_block(sc_info, scid)
+        self.refresh_sidechain(sc_info, scid)
 
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         pkh_node2 = self.nodes[2].getnewaddress("", True)
 
         mark_logs("...3 more blocks needed for achieving sc coins maturity", self.nodes, DEBUG_MODE)
-        self.gen_block(sc_info, scid)
-        self.gen_block(sc_info, scid)
-        self.gen_block(sc_info, scid)
+        self.refresh_sidechain(sc_info, scid)
+        self.refresh_sidechain(sc_info, scid)
+        self.refresh_sidechain(sc_info, scid)
 
         mark_logs("##### End epoch block = {}".format(self.nodes[0].getbestblockhash()), self.nodes, DEBUG_MODE)
 
@@ -154,7 +154,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         certs.append(cert)
         self.sync_all()
 
-        self.gen_block(sc_info, scid)
+        self.refresh_sidechain(sc_info, scid)
 
         mark_logs("Node 0 performs a fwd transfer of {} coins to SC...".format(fwt_amount_2), self.nodes, DEBUG_MODE)
         fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_2, scid)
@@ -162,7 +162,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         sc_txes.append(fwd_tx)
         self.sync_all()
 
-        self.gen_block(sc_info, scid)
+        self.refresh_sidechain(sc_info, scid)
 
         mark_logs("Node 0 performs a fwd transfer of {} coins to SC...".format(fwt_amount_3), self.nodes, DEBUG_MODE)
         fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_3, scid)
@@ -170,7 +170,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         sc_txes.append(fwd_tx)
         self.sync_all()
 
-        self.gen_block(sc_info, scid)
+        self.refresh_sidechain(sc_info, scid)
 
         mark_logs("Node 0 performs a fwd transfer of {} coins to SC...".format(fwt_amount_4), self.nodes, DEBUG_MODE)
         fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_4, scid)
@@ -178,13 +178,13 @@ class sc_cert_invalidate(BitcoinTestFramework):
         sc_txes.append(fwd_tx)
         self.sync_all()
 
-        self.gen_block(sc_info, scid)
+        self.refresh_sidechain(sc_info, scid)
 
-        self.gen_block(sc_info, scid)
+        self.refresh_sidechain(sc_info, scid)
 
         mark_logs("##### End epoch block = {}".format(self.nodes[0].getbestblockhash()), self.nodes, DEBUG_MODE)
 
-        self.gen_block(sc_info, scid)
+        self.refresh_sidechain(sc_info, scid)
 
         prev_epoch_block_hash = epoch_block_hash
         epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
@@ -205,7 +205,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         certs.append(cert)
         self.sync_all()
         
-        self.gen_block(sc_info, scid)
+        self.refresh_sidechain(sc_info, scid)
 
         old_bal = self.nodes[0].getbalance()
         
