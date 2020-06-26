@@ -611,7 +611,7 @@ TEST(CertificateManipulation, EmptyCertTransformationToMutableIsNotReversible) {
     // AssignOp -> CopyCtor
     CMutableScCertificate mutByAssignOp;
     mutByAssignOp = EmptyOriginalCert;
-    CScCertificate revertedTxFromAssignement(mutByCopyCtor);
+    CScCertificate revertedTxFromAssignement(mutByAssignOp);
 
     EXPECT_FALSE(EmptyOriginalCert == revertedTxFromAssignement);
     EXPECT_TRUE(EmptyOriginalCert.GetHash().IsNull());
