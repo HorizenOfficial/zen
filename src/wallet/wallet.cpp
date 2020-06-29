@@ -2136,6 +2136,29 @@ CAmount CWalletTransactionBase::GetDebit(const isminefilter& filter) const
     return debit;
 }
 
+bool CWalletTransactionBase::HasImmatureOutputs() const
+{
+    for(unsigned int pos = 0; pos < pTxBase->GetVout().size(); ++pos)
+    {
+        switch(this->IsOutputMature(pos)) {
+        case CCoins::outputMaturity::MATURE:
+            continue;
+
+        case CCoins::outputMaturity::IMMATURE:
+            return true;
+
+        case CCoins::outputMaturity::NOT_APPLICABLE:
+            // is OutputMature returns NOT_APPLICABLE even if the output is spent, but others can be spendable
+            continue;
+
+        default:
+            return false;
+        }
+    }
+
+    return false;
+}
+
 bool CWalletTransactionBase::HasMatureOutputs() const
 {
     for(unsigned int pos = 0; pos < pTxBase->GetVout().size(); ++pos)
@@ -2204,6 +2227,12 @@ CCoins::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned int vOutP
 CAmount CWalletTransactionBase::GetCredit(const isminefilter& filter) const
 {
     int64_t credit = 0;
+    if (this->pTxBase->IsCoinBase() && this->HasImmatureOutputs())
+    {
+        fCreditCached = false;
+        fWatchCreditCached = false;
+    }
+
     if (filter & ISMINE_SPENDABLE) {
         // It used to be that GetBalance can assume transactions in mapWallet won't change
         // With certificate it is up to the transaction to tell whether its credit

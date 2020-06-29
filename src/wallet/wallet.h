@@ -390,7 +390,8 @@ public:
     void GetMatureAmountsForAccount(const std::string& strAccount, CAmount& nReceived,
                            CAmount& nSent, CAmount& nFee, const isminefilter& filter) const;
 
-    virtual bool HasMatureOutputs() const;
+    bool HasImmatureOutputs() const;
+    bool HasMatureOutputs() const;
     CCoins::outputMaturity IsOutputMature(unsigned int pos) const;
     CAmount GetCredit(const isminefilter& filter) const;
     CAmount GetImmatureCredit(bool fUseCache=true) const;
