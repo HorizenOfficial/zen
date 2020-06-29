@@ -370,3 +370,58 @@ TEST_F(CertInWalletTest, IsOutputMature_Certificate_Conflicted) {
         <<"txMaturity is "<<int(bwtOutputMaturity);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////// GetCredit //////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST_F(CertInWalletTest, GetCredit_CoinBase)
+{
+    //Create coinbase
+    CAmount coinBaseAmount = 10;
+    CMutableTransaction mutCoinBase = txCreationUtils::createCoinBase(coinBaseAmount);
+
+    CKey coinsKey;
+    coinsKey.MakeNewKey(true);
+    pWallet->AddKey(coinsKey);
+    CScript lockingScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    mutCoinBase.getOut(0).scriptPubKey = lockingScript;
+    CTransaction coinBase = mutCoinBase;
+
+    //Add block information
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
+    CWalletTx walletCoinBase(pWallet, coinBase);
+    CBlock coinBaseBlock;
+    coinBaseBlock.vtx.push_back(coinBase);
+    walletCoinBase.hashBlock = coinBaseBlock.GetHash();
+    walletCoinBase.SetMerkleBranch(coinBaseBlock);
+    walletCoinBase.fMerkleVerified = true; //shortcut
+
+    chainSettingUtils::ExtendChainActiveWithBlock(coinBaseBlock);
+    int coinBaseCreationHeight = chainActive.Height();
+
+    CAmount coinBaseCredit =-1;
+
+    //Test
+    for(int height = coinBaseCreationHeight+1; height < coinBaseCreationHeight + COINBASE_MATURITY; ++height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        coinBaseCredit = walletCoinBase.GetCredit(ISMINE_SPENDABLE);
+        EXPECT_TRUE(CAmount(0) == coinBaseCredit)
+            <<"coinBaseCredit at height "<< height << " is "<<coinBaseCredit;
+    }
+
+    //Test
+    chainSettingUtils::ExtendChainActiveToHeight(coinBaseCreationHeight + COINBASE_MATURITY);
+    coinBaseCredit = walletCoinBase.GetCredit(ISMINE_SPENDABLE);
+    EXPECT_TRUE(coinBaseAmount == coinBaseCredit)
+        <<"coinBaseCredit is "<<int(coinBaseCredit);
+
+    //Test no hysteresis
+    for(int height = coinBaseCreationHeight + COINBASE_MATURITY-1; height >= coinBaseCreationHeight; --height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        coinBaseCredit = walletCoinBase.GetCredit(ISMINE_SPENDABLE);
+        EXPECT_TRUE(CAmount(0) == coinBaseCredit)
+            <<"coinBaseCredit at height "<< height <<" is "<<int(coinBaseCredit);
+    }
+}
