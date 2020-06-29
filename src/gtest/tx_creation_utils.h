@@ -4,7 +4,8 @@
 #include <primitives/transaction.h>
 #include <primitives/certificate.h>
 
-namespace txCreationUtils {
+namespace txCreationUtils
+{
 CMutableTransaction populateTx(int txVersion,
                                const CAmount & creationTxAmount = CAmount(0),
                                const CAmount & fwdTxAmount = CAmount(0),
@@ -14,6 +15,7 @@ void signTx(CMutableTransaction& mtx);
 CTransaction createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength = 15);
 CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
 
+CTransaction createCoinBase();
 CTransaction createTransparentTx(bool ccIsNull = true); //ccIsNull = false allows generation of faulty tx with non-empty cross chain output
 CTransaction createSproutTx(bool ccIsNull = true); //ccIsNull = false allows generation of faulty tx with non-empty cross chain output
 
@@ -23,8 +25,9 @@ CScCertificate createCertificate(const uint256 & scId, int epochNum, const uint2
                                  unsigned int numChangeOut = 0, CAmount bwTotaltAmount = 1, unsigned int numBwt = 1);
 } // end of namespace
 
-namespace chainSettingUtils {
-    void GenerateChainActive(int targetHeight);
-};
+namespace chainSettingUtils
+{
+    void ExtendChainActiveToHeight(int targetHeight);
+} // end of namespace
 
 #endif

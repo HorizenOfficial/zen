@@ -3,6 +3,7 @@
 #include <boost/filesystem.hpp>
 
 #include <chainparams.h>
+#include <main.h>
 #include <wallet/wallet.h>
 #include <wallet/walletdb.h>
 
@@ -28,6 +29,8 @@ public:
     };
 
     void TearDown() override {
+        mempool.clear();
+
         std::vector<std::shared_ptr<CWalletTransactionBase> > vWtx;
         DBErrors nZapWalletRet = pWallet->ZapWalletTx(vWtx);
         EXPECT_TRUE(DB_LOAD_OK == nZapWalletRet)
@@ -123,3 +126,235 @@ TEST_F(CertInWalletTest, LoadWalletCertFromDb) {
     CWalletCert retrievedWalletCert = *dynamic_cast<const CWalletCert*>(pWallet->getMapWallet().at(cert.GetHash()).get());
     EXPECT_TRUE(retrievedWalletCert == walletCert);
 }
+
+TEST_F(CertInWalletTest, IsOutputMature_TransparentTx_InBlockChain) {
+    //Create a transparent tx
+    CTransaction transparentTx = txCreationUtils::createTransparentTx();
+
+    //Add block information
+    int txCreationHeight = 100;
+    chainSettingUtils::ExtendChainActiveToHeight(txCreationHeight);
+    CWalletTx walletTx(pWallet, transparentTx);
+    walletTx.hashBlock = *(chainActive.Tip()->phashBlock);
+    CBlock txBlock;
+    txBlock.vtx.push_back(transparentTx);
+    walletTx.SetMerkleBranch(txBlock);
+    walletTx.fMerkleVerified = true; //shortcut
+
+    CCoins::outputMaturity txMaturity = CCoins::outputMaturity::NOT_APPLICABLE;
+
+    //Test
+    txMaturity = walletTx.IsOutputMature(0);
+    EXPECT_TRUE(txMaturity == CCoins::outputMaturity::MATURE)
+        <<"txMaturity is "<<int(txMaturity);
+}
+
+TEST_F(CertInWalletTest, IsOutputMature_CoinBase_InBlockChain) {
+    //Create coinbase
+    CTransaction coinBase = txCreationUtils::createCoinBase();
+
+    //Add block information
+    int coinBaseCreationHeight = 100;
+    chainSettingUtils::ExtendChainActiveToHeight(coinBaseCreationHeight);
+    CWalletTx walletCoinBase(pWallet, coinBase);
+    walletCoinBase.hashBlock = *(chainActive.Tip()->phashBlock);
+    CBlock coinBaseBlock;
+    coinBaseBlock.vtx.push_back(coinBase);
+    walletCoinBase.SetMerkleBranch(coinBaseBlock);
+    walletCoinBase.fMerkleVerified = true; //shortcut
+
+    CCoins::outputMaturity coinBaseMaturity = CCoins::outputMaturity::NOT_APPLICABLE;
+
+    //Test
+    for(int height = coinBaseCreationHeight; height < coinBaseCreationHeight + COINBASE_MATURITY; ++height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        coinBaseMaturity = walletCoinBase.IsOutputMature(0);
+        EXPECT_TRUE(coinBaseMaturity == CCoins::outputMaturity::IMMATURE)
+            <<"coinBaseMaturity at heght"<< height << " is "<<int(coinBaseMaturity);
+    }
+
+    //Test
+    chainSettingUtils::ExtendChainActiveToHeight(coinBaseCreationHeight + COINBASE_MATURITY);
+    coinBaseMaturity = walletCoinBase.IsOutputMature(0);
+    EXPECT_TRUE(coinBaseMaturity == CCoins::outputMaturity::MATURE)
+        <<"coinBaseMaturity is "<<int(coinBaseMaturity);
+
+    //Test no hysteresis
+    chainSettingUtils::ExtendChainActiveToHeight(coinBaseCreationHeight + COINBASE_MATURITY - 1);
+    coinBaseMaturity = walletCoinBase.IsOutputMature(0);
+    EXPECT_TRUE(coinBaseMaturity == CCoins::outputMaturity::IMMATURE)
+        <<"coinBaseMaturity is "<<int(coinBaseMaturity);
+}
+
+TEST_F(CertInWalletTest, IsOutputMature_Certificate_InBlockChain) {
+    //Create certificate
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12,
+            /*endEpochBlockHash*/uint256S("ccc"), /*numChangeOut*/2, /*bwTotaltAmount*/CAmount(10), /*numBwt*/4);
+
+    //Add block information
+    int certCreationHeight = 100;
+    chainSettingUtils::ExtendChainActiveToHeight(certCreationHeight);
+    CWalletCert walletCert(pWallet, cert);
+    walletCert.hashBlock = *(chainActive.Tip()->phashBlock);
+    CBlock certBlock;
+    certBlock.vcert.push_back(cert);
+    walletCert.SetMerkleBranch(certBlock);
+    walletCert.fMerkleVerified = true; //shortcut
+    walletCert.bwtMaturityDepth = 25;
+
+    CCoins::outputMaturity changeOutputMaturity = CCoins::outputMaturity::NOT_APPLICABLE;
+    CCoins::outputMaturity bwtOutputMaturity    = CCoins::outputMaturity::NOT_APPLICABLE;
+
+    //Test
+    for(int height = certCreationHeight; height < certCreationHeight + walletCert.bwtMaturityDepth; ++height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        changeOutputMaturity = walletCert.IsOutputMature(0);
+        EXPECT_TRUE(changeOutputMaturity == CCoins::outputMaturity::MATURE)
+            <<"changeOutputMaturity for output 0 at height "<< height << " is "<<int(changeOutputMaturity);
+
+        bwtOutputMaturity = walletCert.IsOutputMature(cert.GetVout().size()-1);
+        EXPECT_TRUE(bwtOutputMaturity == CCoins::outputMaturity::IMMATURE)
+            <<"bwtOutputMaturity for output"<< cert.GetVout().size()-1 <<" at height"<< height << " is "<<int(bwtOutputMaturity);
+    }
+
+    //Test
+    chainSettingUtils::ExtendChainActiveToHeight(certCreationHeight + walletCert.bwtMaturityDepth);
+    changeOutputMaturity = walletCert.IsOutputMature(0);
+    EXPECT_TRUE(changeOutputMaturity == CCoins::outputMaturity::MATURE)
+        <<"changeOutputMaturity for output 0 at height "<< certCreationHeight + walletCert.bwtMaturityDepth
+        << " is "<<int(changeOutputMaturity);
+
+    bwtOutputMaturity = walletCert.IsOutputMature(cert.GetVout().size()-1);
+    EXPECT_TRUE(bwtOutputMaturity == CCoins::outputMaturity::MATURE)
+        <<"bwtOutputMaturity for output"<< cert.GetVout().size()-1 <<" at height"<< certCreationHeight + walletCert.bwtMaturityDepth << " is "<<int(bwtOutputMaturity);
+
+    //Test no hysteresis
+    chainSettingUtils::ExtendChainActiveToHeight(certCreationHeight + walletCert.bwtMaturityDepth - 1);
+    changeOutputMaturity = walletCert.IsOutputMature(0);
+    EXPECT_TRUE(changeOutputMaturity == CCoins::outputMaturity::MATURE)
+        <<"changeOutputMaturity for output 0 at height "<< certCreationHeight + walletCert.bwtMaturityDepth
+        << " is "<<int(changeOutputMaturity);
+
+    bwtOutputMaturity = walletCert.IsOutputMature(cert.GetVout().size()-1);
+    EXPECT_TRUE(bwtOutputMaturity == CCoins::outputMaturity::IMMATURE)
+        <<"bwtOutputMaturity for output"<< cert.GetVout().size()-1 <<" at height"<< certCreationHeight + walletCert.bwtMaturityDepth << " is "<<int(bwtOutputMaturity);
+}
+
+TEST_F(CertInWalletTest, IsOutputMature_TransparentTx_InMemoryPool) {
+    //Create a transparent tx
+    CTransaction transparentTx = txCreationUtils::createTransparentTx();
+
+    //Add block information
+    int txCreationHeight = 100;
+    chainSettingUtils::ExtendChainActiveToHeight(txCreationHeight);
+
+    CTxMemPoolEntry mempoolEntry(transparentTx, /*fee*/CAmount(0), int64_t(0), double(0.0), int(0), false);
+    mempool.addUnchecked(transparentTx.GetHash(), mempoolEntry , /*fCurrentEstimate*/false);
+
+    CWalletTx walletTx(pWallet, transparentTx);
+    walletTx.hashBlock.SetNull();
+    walletTx.nIndex = -1;
+
+    CCoins::outputMaturity txMaturity = CCoins::outputMaturity::NOT_APPLICABLE;
+
+    //Test
+    txMaturity = walletTx.IsOutputMature(0);
+    EXPECT_TRUE(txMaturity == CCoins::outputMaturity::MATURE)
+        <<"txMaturity is "<<int(txMaturity);
+}
+
+TEST_F(CertInWalletTest, IsOutputMature_Certificate_InMemoryPool) {
+    //Create certificate
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12,
+            /*endEpochBlockHash*/uint256S("ccc"), /*numChangeOut*/2, /*bwTotaltAmount*/CAmount(10), /*numBwt*/4);
+
+    //Add block information
+    int txCreationHeight = 100;
+    chainSettingUtils::ExtendChainActiveToHeight(txCreationHeight);
+
+    CCertificateMemPoolEntry mempoolEntry(cert, /*fee*/CAmount(0), int64_t(0), double(0.0), int(0));
+    mempool.addUnchecked(cert.GetHash(), mempoolEntry , /*fCurrentEstimate*/false);
+
+    CWalletCert walletCert(pWallet, cert);
+    walletCert.hashBlock.SetNull();
+    walletCert.nIndex = -1;
+
+    CCoins::outputMaturity changeOutputMaturity = CCoins::outputMaturity::NOT_APPLICABLE;
+    CCoins::outputMaturity bwtOutputMaturity    = CCoins::outputMaturity::NOT_APPLICABLE;
+
+    //Test
+    changeOutputMaturity = walletCert.IsOutputMature(0);
+    EXPECT_TRUE(changeOutputMaturity == CCoins::outputMaturity::MATURE)
+        <<"txMaturity is "<<int(changeOutputMaturity);
+
+    bwtOutputMaturity = walletCert.IsOutputMature(cert.GetVout().size()-1);
+    EXPECT_TRUE(bwtOutputMaturity == CCoins::outputMaturity::IMMATURE)
+        <<"txMaturity is "<<int(bwtOutputMaturity);
+}
+
+TEST_F(CertInWalletTest, IsOutputMature_TransparentTx_Conflicted) {
+    //Create a transparent tx
+    CTransaction transparentTx = txCreationUtils::createTransparentTx();
+
+    //Add block information
+    int txCreationHeight = 100;
+    chainSettingUtils::ExtendChainActiveToHeight(txCreationHeight);
+
+    CWalletTx walletTx(pWallet, transparentTx);
+    walletTx.hashBlock.SetNull();
+    walletTx.nIndex = -1;
+
+    CCoins::outputMaturity txMaturity = CCoins::outputMaturity::NOT_APPLICABLE;
+
+    //Test
+    txMaturity = walletTx.IsOutputMature(0);
+    EXPECT_TRUE(txMaturity == CCoins::outputMaturity::NOT_APPLICABLE)
+        <<"txMaturity is "<<int(txMaturity);
+}
+
+TEST_F(CertInWalletTest, IsOutputMature_CoinBase_Conflicted) {
+    //Create coinbase
+    CTransaction coinBase = txCreationUtils::createCoinBase();
+
+    //Add block information
+    int coinBaseCreationHeight = 100;
+    chainSettingUtils::ExtendChainActiveToHeight(coinBaseCreationHeight);
+    CWalletTx walletCoinBase(pWallet, coinBase);
+    walletCoinBase.hashBlock.SetNull();
+    walletCoinBase.nIndex = -1;
+
+    //Test
+    CCoins::outputMaturity coinBaseMaturity = CCoins::outputMaturity::NOT_APPLICABLE;
+    coinBaseMaturity = walletCoinBase.IsOutputMature(0);
+    EXPECT_TRUE(coinBaseMaturity == CCoins::outputMaturity::NOT_APPLICABLE)
+        <<"coinBaseMaturity is "<<int(coinBaseMaturity);
+}
+
+TEST_F(CertInWalletTest, IsOutputMature_Certificate_Conflicted) {
+    //Create certificate
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12,
+            /*endEpochBlockHash*/uint256S("ccc"), /*numChangeOut*/2, /*bwTotaltAmount*/CAmount(10), /*numBwt*/4);
+
+    //Add block information
+    int txCreationHeight = 100;
+    chainSettingUtils::ExtendChainActiveToHeight(txCreationHeight);
+
+    CWalletCert walletCert(pWallet, cert);
+    walletCert.hashBlock.SetNull();
+    walletCert.nIndex = -1;
+
+    CCoins::outputMaturity changeOutputMaturity = CCoins::outputMaturity::NOT_APPLICABLE;
+    CCoins::outputMaturity bwtOutputMaturity    = CCoins::outputMaturity::NOT_APPLICABLE;
+
+    //Test
+    changeOutputMaturity = walletCert.IsOutputMature(0);
+    EXPECT_TRUE(changeOutputMaturity == CCoins::outputMaturity::NOT_APPLICABLE)
+        <<"txMaturity is "<<int(changeOutputMaturity);
+
+    bwtOutputMaturity = walletCert.IsOutputMature(cert.GetVout().size()-1);
+    EXPECT_TRUE(bwtOutputMaturity == CCoins::outputMaturity::NOT_APPLICABLE)
+        <<"txMaturity is "<<int(bwtOutputMaturity);
+}
+

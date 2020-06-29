@@ -55,7 +55,7 @@ public:
     }
 
     void SetUp() override {
-        chainSettingUtils::GenerateChainActive(minimalHeightForSidechains);
+        chainSettingUtils::ExtendChainActiveToHeight(minimalHeightForSidechains);
         pcoinsTip->SetBestBlock(chainActive.Tip()->GetBlockHash());
         pindexBestHeader = chainActive.Tip();
 
@@ -110,7 +110,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewSidechainsAreAcceptedToMempool) {
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed) {
     int creationHeight = 1789;
-    chainSettingUtils::GenerateChainActive(creationHeight);
+    chainSettingUtils::ExtendChainActiveToHeight(creationHeight);
 
     CTransaction scTx = GenerateScTx(CAmount(10));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);

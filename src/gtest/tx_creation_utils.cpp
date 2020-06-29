@@ -82,6 +82,14 @@ CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, c
     return CTransaction(mtx);
 }
 
+CTransaction txCreationUtils::createCoinBase()
+{
+    CMutableTransaction mutCoinBase;
+    mutCoinBase.vin.push_back(CTxIn(uint256(), -1));
+    mutCoinBase.addOut(CTxOut(CAmount(10),CScript()));
+    return CTransaction(mutCoinBase);
+}
+
 // Well-formatted transparent txs have no sc-related info.
 // ccisNull allow you to create a faulty transparent tx, for testing purposes.
 CTransaction txCreationUtils::createTransparentTx(bool ccIsNull)
@@ -154,32 +162,31 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
     return res;
 }
 
-void chainSettingUtils::GenerateChainActive(int targetHeight) {
-    chainActive.SetTip(nullptr);
-    mapBlockIndex.clear();
-
-    static std::vector<uint256> blockHashes;
-    blockHashes.clear();
-    blockHashes.resize(targetHeight+1);
-    std::vector<CBlockIndex> blocks(targetHeight+1);
+void chainSettingUtils::ExtendChainActiveToHeight(int targetHeight)
+{
+    if (chainActive.Height() > targetHeight)
+       return chainActive.SetTip(chainActive[targetHeight]); //TODO: delete content before setting tip
 
     ZCIncrementalMerkleTree dummyTree;
     dummyTree.append(GetRandHash());
 
-    for (unsigned int height=0; height<blocks.size(); ++height) {
-        blockHashes[height] = ArithToUint256(height);
+    uint256 prevBlockHash = chainActive.Height() <= 0 ? uint256(): *(chainActive.Tip()->phashBlock);
+    for (unsigned int height=std::max(chainActive.Height(),0); height<= targetHeight; ++height) {
+        uint256 currBlockHash = ArithToUint256(height);
+        CBlockIndex* pNewBlockIdx = new CBlockIndex();
+        assert(pNewBlockIdx != nullptr);
 
-        blocks[height].nHeight = height;
-        blocks[height].pprev = height == 0? nullptr : mapBlockIndex[blockHashes[height-1]];
-        blocks[height].phashBlock = &blockHashes[height];
-        blocks[height].nTime = 1269211443 + height * Params().GetConsensus().nPowTargetSpacing;
-        blocks[height].nBits = 0x1e7fffff;
-        blocks[height].nChainWork = height == 0 ? arith_uint256(0) : blocks[height - 1].nChainWork + GetBlockProof(blocks[height - 1]);
+        pNewBlockIdx->nHeight = height;
+        pNewBlockIdx->pprev = height == 0? nullptr : mapBlockIndex.at(prevBlockHash);
+        pNewBlockIdx->nTime = 1269211443 + height * Params().GetConsensus().nPowTargetSpacing;
+        pNewBlockIdx->nBits = 0x1e7fffff;
+        pNewBlockIdx->nChainWork = height == 0 ? arith_uint256(0) : mapBlockIndex.at(prevBlockHash)->nChainWork + GetBlockProof(*(mapBlockIndex.at(prevBlockHash)));
+        pNewBlockIdx->hashAnchor = dummyTree.root();
 
-        blocks[height].hashAnchor = dummyTree.root();
+        BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(currBlockHash, pNewBlockIdx)).first;
+        pNewBlockIdx->phashBlock = &(mi->first);
+        chainActive.SetTip(mapBlockIndex.at(currBlockHash));
 
-        mapBlockIndex[blockHashes[height]] = new CBlockIndex(blocks[height]);
-        mapBlockIndex[blockHashes[height]]->phashBlock = &blockHashes[height];
-        chainActive.SetTip(mapBlockIndex[blockHashes[height]]);
+        prevBlockHash = currBlockHash;
     }
 }

@@ -259,7 +259,7 @@ TEST_F(SidechainTestSuite, NewScCreationsHaveTheRightDependencies) {
 
 TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsHaveTheRightDependencies) {
     int creationHeight = 1789;
-    chainSettingUtils::GenerateChainActive(creationHeight);
+    chainSettingUtils::ExtendChainActiveToHeight(creationHeight);
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
     CBlock aBlock;
     sidechainsView->UpdateScInfo(aTransaction, aBlock, creationHeight);
@@ -276,7 +276,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsHaveTheRightDependencies
 
 TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsHaveNotTheRightDependencies) {
     int fwdHeight = 1789;
-    chainSettingUtils::GenerateChainActive(fwdHeight);
+    chainSettingUtils::ExtendChainActiveToHeight(fwdHeight);
 
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(uint256S("1492"), CAmount(1815));
 
