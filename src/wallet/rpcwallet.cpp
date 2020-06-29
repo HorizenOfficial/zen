@@ -108,9 +108,22 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx, const std::vector<CWalle
     int bwtMaturityHeight = -1;
     if (tx.getTxBase()->IsCertificate() )
     {
-        entry.push_back(Pair("scid", dynamic_cast<const CScCertificate*>(tx.getTxBase())->GetScId().GetHex()));
-        if (conf >= 0) {
+        const uint256& scid = dynamic_cast<const CScCertificate*>(tx.getTxBase())->GetScId();
+        entry.push_back(Pair("scid", scid.GetHex()));
+        if (conf > 0) {
             bwtMaturityHeight = tx.bwtMaturityDepth - conf + chainActive.Height() + 1;
+        } else
+        if (conf == 0) {
+            // no info in tx because the block has yet to be mined
+            CSidechain sidechain;
+            int nHeight = chainActive.Height() + 1;
+            assert(pcoinsTip->GetSidechain(scid, sidechain));
+            int currentEpoch = sidechain.EpochFor(nHeight);
+            int bwtMaturityDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
+                sidechain.SafeguardMargin() - nHeight;
+            bwtMaturityHeight = bwtMaturityDepth + nHeight;
+        } else {
+            // if conf < 0 we can not tell
         }
     }
 
