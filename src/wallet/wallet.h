@@ -1083,7 +1083,8 @@ public:
         ZCC_UNDEF
     };
 
-    void GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput, CAmount& unconfOutput, eZeroConfChangeUsage zconfchangeusage) const;
+    void GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput,
+        CAmount& unconfOutput, CAmount& bwtImmatureOutput, eZeroConfChangeUsage zconfchangeusage) const;
     CAmount GetImmatureBalance() const;
     CAmount GetWatchOnlyBalance() const;
     CAmount GetUnconfirmedWatchOnlyBalance() const;

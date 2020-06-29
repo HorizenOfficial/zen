@@ -105,12 +105,16 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx, const std::vector<CWalle
         }
     }
 
-    UniValue vout(UniValue::VARR);
     int bwtMaturityHeight = -1;
-    if (conf >= 0) {
-        bwtMaturityHeight = tx.bwtMaturityDepth - conf + chainActive.Height() + 1;
+    if (tx.getTxBase()->IsCertificate() )
+    {
+        entry.push_back(Pair("scid", dynamic_cast<const CScCertificate*>(tx.getTxBase())->GetScId().GetHex()));
+        if (conf >= 0) {
+            bwtMaturityHeight = tx.bwtMaturityDepth - conf + chainActive.Height() + 1;
+        }
     }
 
+    UniValue vout(UniValue::VARR);
     for (unsigned int i = 0; i < tx.getTxBase()->GetVout().size(); i++) {
         const CTxOut& txout = tx.getTxBase()->GetVout()[i];
         UniValue out(UniValue::VOBJ);
@@ -2414,11 +2418,13 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
     int n = 0;
     CAmount unconfInput = 0;
     CAmount unconfOutput = 0;
-    pwalletMain->GetUnconfirmedData(address, n, unconfInput, unconfOutput, zconfchangeusage);
+    CAmount bwtImmatureOutput = 0;
+    pwalletMain->GetUnconfirmedData(address, n, unconfInput, unconfOutput, bwtImmatureOutput, zconfchangeusage);
 
     UniValue ret(UniValue::VOBJ);
     ret.push_back(Pair("unconfirmedInput", ValueFromAmount(unconfInput)));
     ret.push_back(Pair("unconfirmedOutput", ValueFromAmount(unconfOutput)));
+    ret.push_back(Pair("bwtImmatureOutput", ValueFromAmount(bwtImmatureOutput)));
     ret.push_back(Pair("unconfirmedTxApperances", n));
 
     return ret;

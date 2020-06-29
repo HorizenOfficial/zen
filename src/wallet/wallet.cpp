@@ -1310,8 +1310,18 @@ void CWallet::SyncCertificate(const CScCertificate& cert, const CBlock* pblock, 
 
     std::map<uint256, std::shared_ptr<CWalletTransactionBase>>::iterator itCert = mapWallet.find(cert.GetHash());
     assert(itCert != mapWallet.end());
-    assert(itCert->second.get()->getTxBase()->IsCertificate());
-    itCert->second.get()->bwtMaturityDepth = bwtMaturityHeight;
+    assert(itCert->second->getTxBase()->IsCertificate());
+    itCert->second->bwtMaturityDepth = bwtMaturityHeight;
+
+    // Write to disk
+    CWalletDB walletdb(strWalletFile, "r+", false);
+    if (!itCert->second->WriteToDisk(&walletdb))
+    {
+        LogPrintf("%s():%d - ERROR in writing to db\n", __func__, __LINE__);
+    }
+
+    // Break debit/credit balance caches:
+    itCert->second->MarkDirty();
 
     MarkAffectedTransactionsDirty(cert);
 }
@@ -1326,6 +1336,9 @@ void CWallet::SyncVoidedCert(const uint256& certHash, bool bwtAreStripped)
 
     assert(itCert->second.get()->getTxBase()->IsCertificate());
     itCert->second.get()->areBwtCeased = bwtAreStripped;
+
+    LogPrintf("%s():%d - Called for cert[%s], bwtAreStripped[%d]\n",
+        __func__, __LINE__, certHash.ToString(), bwtAreStripped);
 
     MarkAffectedTransactionsDirty(*(itCert->second.get()->getTxBase()));
 }
@@ -2016,7 +2029,23 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             for (const CTransactionBase* obj: vTxBase)
             {
                 if (AddToWalletIfInvolvingMe(*obj, &block, fUpdate))
+                {
                     ret++;
+
+#if 1
+                    if (obj->IsCertificate() )
+                    {
+                        int nHeight = pindex->nHeight;
+                        const CScCertificate& cert = dynamic_cast<const CScCertificate&>(*obj);
+                        CSidechain sidechain;
+                        assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
+                        int currentEpoch = sidechain.EpochFor(nHeight);
+                        int bwtMaturityDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
+                            sidechain.SafeguardMargin() - nHeight;
+                        SyncCertificate(cert, &block, bwtMaturityDepth);
+                    }
+#endif
+                }
             }
 
             ZCIncrementalMerkleTree tree;
@@ -2523,10 +2552,12 @@ CAmount CWallet::GetUnconfirmedBalance() const
     return nTotal;
 }
 
-void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput, CAmount& unconfOutput, eZeroConfChangeUsage zconfchangeusage) const
+void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput,
+    CAmount& unconfOutput, CAmount& bwtImmatureOutput, eZeroConfChangeUsage zconfchangeusage) const
 {
     unconfOutput = 0;
     unconfInput = 0;
+    bwtImmatureOutput = 0;
     numbOfUnconfirmedTx = 0;
 
     CBitcoinAddress taddr = CBitcoinAddress(address);
@@ -2562,7 +2593,7 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
                 int vout_idx = 0;
                 bool outputFound = false;
                 bool inputFound = false;
-             
+
                 for(const auto& txout : pcoin->getTxBase()->GetVout())
                 {
                     auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptToMatch.begin(), scriptToMatch.end());
@@ -2613,7 +2644,29 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
                 {
                     numbOfUnconfirmedTx++;
                 }
-             
+            }
+
+            // only for certificates, look for immature amounts, not depending on number of confirmations
+            if (pcoin->getTxBase()->IsCertificate() )
+            {
+                const CScCertificate* cert = dynamic_cast<const CScCertificate*>(pcoin->getTxBase());
+                assert(cert);
+
+                for (unsigned int i = 0; i < cert->GetVout().size(); i++) {
+                    if (cert->IsBackwardTransfer(i) &&
+                        pcoin->IsOutputMature(i) == CCoins::outputMaturity::IMMATURE)
+                    {
+                        const CTxOut& txout = cert->GetVout()[i];
+
+                        auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptToMatch.begin(), scriptToMatch.end());
+                        if (res == txout.scriptPubKey.begin())
+                        {
+                            bwtImmatureOutput += GetCredit(txout, ISMINE_SPENDABLE);
+                            LogPrint("cert", "%s():%d - found bwtout of matching cert[%s] with immature credit\n",
+                                __func__, __LINE__, cert->GetHash().ToString());
+                        }
+                    }
+                }
             }
         }
     }

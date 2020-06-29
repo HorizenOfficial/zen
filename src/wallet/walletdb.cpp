@@ -541,7 +541,8 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 wss.fAnyUnordered = true;
             }
 
-            LogPrint("cert", "%s():%d - adding cert[%s] to wallet\n", __func__, __LINE__, wcert.GetHash().ToString());
+            LogPrint("cert", "%s():%d - adding cert[%s] to wallet (bwtMaturityDepth[%d])\n",
+                __func__, __LINE__, wcert.GetHash().ToString(), wcert.bwtMaturityDepth);
             pwallet->AddToWallet(wcert, true, NULL);
         }
         else if (strType == "acentry")
