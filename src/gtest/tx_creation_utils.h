@@ -15,7 +15,7 @@ void signTx(CMutableTransaction& mtx);
 CTransaction createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength = 15);
 CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
 
-CTransaction createCoinBase();
+CTransaction createCoinBase(const CAmount& amount);
 CTransaction createTransparentTx(bool ccIsNull = true); //ccIsNull = false allows generation of faulty tx with non-empty cross chain output
 CTransaction createSproutTx(bool ccIsNull = true); //ccIsNull = false allows generation of faulty tx with non-empty cross chain output
 
@@ -28,6 +28,7 @@ CScCertificate createCertificate(const uint256 & scId, int epochNum, const uint2
 namespace chainSettingUtils
 {
     void ExtendChainActiveToHeight(int targetHeight);
+    void ExtendChainActiveWithBlock(const CBlock& block);
 } // end of namespace
 
 #endif

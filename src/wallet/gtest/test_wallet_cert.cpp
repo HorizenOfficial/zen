@@ -127,19 +127,25 @@ TEST_F(CertInWalletTest, LoadWalletCertFromDb) {
     EXPECT_TRUE(retrievedWalletCert == walletCert);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+//////////////////////////////// IsOutputMature ///////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 TEST_F(CertInWalletTest, IsOutputMature_TransparentTx_InBlockChain) {
     //Create a transparent tx
     CTransaction transparentTx = txCreationUtils::createTransparentTx();
 
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
+
     //Add block information
-    int txCreationHeight = 100;
-    chainSettingUtils::ExtendChainActiveToHeight(txCreationHeight);
     CWalletTx walletTx(pWallet, transparentTx);
-    walletTx.hashBlock = *(chainActive.Tip()->phashBlock);
     CBlock txBlock;
     txBlock.vtx.push_back(transparentTx);
+    walletTx.hashBlock = txBlock.GetHash();
     walletTx.SetMerkleBranch(txBlock);
     walletTx.fMerkleVerified = true; //shortcut
+
+    chainSettingUtils::ExtendChainActiveWithBlock(txBlock);
+    int txCreationHeight = chainActive.Height();
 
     CCoins::outputMaturity txMaturity = CCoins::outputMaturity::NOT_APPLICABLE;
 
@@ -151,17 +157,20 @@ TEST_F(CertInWalletTest, IsOutputMature_TransparentTx_InBlockChain) {
 
 TEST_F(CertInWalletTest, IsOutputMature_CoinBase_InBlockChain) {
     //Create coinbase
-    CTransaction coinBase = txCreationUtils::createCoinBase();
+    CAmount coinBaseAmount = 10;
+    CTransaction coinBase = txCreationUtils::createCoinBase(coinBaseAmount);
 
     //Add block information
-    int coinBaseCreationHeight = 100;
-    chainSettingUtils::ExtendChainActiveToHeight(coinBaseCreationHeight);
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
     CWalletTx walletCoinBase(pWallet, coinBase);
-    walletCoinBase.hashBlock = *(chainActive.Tip()->phashBlock);
     CBlock coinBaseBlock;
     coinBaseBlock.vtx.push_back(coinBase);
+    walletCoinBase.hashBlock = coinBaseBlock.GetHash();
     walletCoinBase.SetMerkleBranch(coinBaseBlock);
     walletCoinBase.fMerkleVerified = true; //shortcut
+
+    chainSettingUtils::ExtendChainActiveWithBlock(coinBaseBlock);
+    int coinBaseCreationHeight = chainActive.Height();
 
     CCoins::outputMaturity coinBaseMaturity = CCoins::outputMaturity::NOT_APPLICABLE;
 
@@ -171,7 +180,7 @@ TEST_F(CertInWalletTest, IsOutputMature_CoinBase_InBlockChain) {
         chainSettingUtils::ExtendChainActiveToHeight(height);
         coinBaseMaturity = walletCoinBase.IsOutputMature(0);
         EXPECT_TRUE(coinBaseMaturity == CCoins::outputMaturity::IMMATURE)
-            <<"coinBaseMaturity at heght"<< height << " is "<<int(coinBaseMaturity);
+            <<"coinBaseMaturity at height "<< height << " is "<<int(coinBaseMaturity);
     }
 
     //Test
@@ -193,15 +202,17 @@ TEST_F(CertInWalletTest, IsOutputMature_Certificate_InBlockChain) {
             /*endEpochBlockHash*/uint256S("ccc"), /*numChangeOut*/2, /*bwTotaltAmount*/CAmount(10), /*numBwt*/4);
 
     //Add block information
-    int certCreationHeight = 100;
-    chainSettingUtils::ExtendChainActiveToHeight(certCreationHeight);
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
     CWalletCert walletCert(pWallet, cert);
-    walletCert.hashBlock = *(chainActive.Tip()->phashBlock);
     CBlock certBlock;
     certBlock.vcert.push_back(cert);
+    walletCert.hashBlock = certBlock.GetHash();
+    walletCert.bwtMaturityDepth = 25;
     walletCert.SetMerkleBranch(certBlock);
     walletCert.fMerkleVerified = true; //shortcut
-    walletCert.bwtMaturityDepth = 25;
+
+    chainSettingUtils::ExtendChainActiveWithBlock(certBlock);
+    int certCreationHeight = chainActive.Height();
 
     CCoins::outputMaturity changeOutputMaturity = CCoins::outputMaturity::NOT_APPLICABLE;
     CCoins::outputMaturity bwtOutputMaturity    = CCoins::outputMaturity::NOT_APPLICABLE;
@@ -216,7 +227,7 @@ TEST_F(CertInWalletTest, IsOutputMature_Certificate_InBlockChain) {
 
         bwtOutputMaturity = walletCert.IsOutputMature(cert.GetVout().size()-1);
         EXPECT_TRUE(bwtOutputMaturity == CCoins::outputMaturity::IMMATURE)
-            <<"bwtOutputMaturity for output"<< cert.GetVout().size()-1 <<" at height"<< height << " is "<<int(bwtOutputMaturity);
+            <<"bwtOutputMaturity for output"<< cert.GetVout().size()-1 <<" at height "<< height << " is "<<int(bwtOutputMaturity);
     }
 
     //Test
@@ -228,7 +239,7 @@ TEST_F(CertInWalletTest, IsOutputMature_Certificate_InBlockChain) {
 
     bwtOutputMaturity = walletCert.IsOutputMature(cert.GetVout().size()-1);
     EXPECT_TRUE(bwtOutputMaturity == CCoins::outputMaturity::MATURE)
-        <<"bwtOutputMaturity for output"<< cert.GetVout().size()-1 <<" at height"<< certCreationHeight + walletCert.bwtMaturityDepth << " is "<<int(bwtOutputMaturity);
+        <<"bwtOutputMaturity for output"<< cert.GetVout().size()-1 <<" at height "<< certCreationHeight + walletCert.bwtMaturityDepth << " is "<<int(bwtOutputMaturity);
 
     //Test no hysteresis
     chainSettingUtils::ExtendChainActiveToHeight(certCreationHeight + walletCert.bwtMaturityDepth - 1);
@@ -239,7 +250,7 @@ TEST_F(CertInWalletTest, IsOutputMature_Certificate_InBlockChain) {
 
     bwtOutputMaturity = walletCert.IsOutputMature(cert.GetVout().size()-1);
     EXPECT_TRUE(bwtOutputMaturity == CCoins::outputMaturity::IMMATURE)
-        <<"bwtOutputMaturity for output"<< cert.GetVout().size()-1 <<" at height"<< certCreationHeight + walletCert.bwtMaturityDepth << " is "<<int(bwtOutputMaturity);
+        <<"bwtOutputMaturity for output"<< cert.GetVout().size()-1 <<" at height "<< certCreationHeight + walletCert.bwtMaturityDepth << " is "<<int(bwtOutputMaturity);
 }
 
 TEST_F(CertInWalletTest, IsOutputMature_TransparentTx_InMemoryPool) {
@@ -316,7 +327,8 @@ TEST_F(CertInWalletTest, IsOutputMature_TransparentTx_Conflicted) {
 
 TEST_F(CertInWalletTest, IsOutputMature_CoinBase_Conflicted) {
     //Create coinbase
-    CTransaction coinBase = txCreationUtils::createCoinBase();
+    CAmount coinBaseAmount = 10;
+    CTransaction coinBase = txCreationUtils::createCoinBase(coinBaseAmount);
 
     //Add block information
     int coinBaseCreationHeight = 100;

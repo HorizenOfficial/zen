@@ -82,11 +82,11 @@ CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, c
     return CTransaction(mtx);
 }
 
-CTransaction txCreationUtils::createCoinBase()
+CTransaction txCreationUtils::createCoinBase(const CAmount& amount)
 {
     CMutableTransaction mutCoinBase;
     mutCoinBase.vin.push_back(CTxIn(uint256(), -1));
-    mutCoinBase.addOut(CTxOut(CAmount(10),CScript()));
+    mutCoinBase.addOut(CTxOut(amount,CScript()));
     return CTransaction(mutCoinBase);
 }
 
@@ -189,4 +189,29 @@ void chainSettingUtils::ExtendChainActiveToHeight(int targetHeight)
 
         prevBlockHash = currBlockHash;
     }
+    return;
+}
+
+void chainSettingUtils::ExtendChainActiveWithBlock(const CBlock& block)
+{
+    ZCIncrementalMerkleTree dummyTree;
+    dummyTree.append(GetRandHash());
+
+    uint256 prevBlockHash = chainActive.Height() <= 0 ? uint256(): *(chainActive.Tip()->phashBlock);
+
+    uint256 currBlockHash = block.GetHash();
+    CBlockIndex* pNewBlockIdx = new CBlockIndex();
+    assert(pNewBlockIdx != nullptr);
+
+    pNewBlockIdx->nHeight = chainActive.Height()+1;
+    pNewBlockIdx->pprev = (chainActive.Height()+1) == 0? nullptr : mapBlockIndex.at(prevBlockHash);
+    pNewBlockIdx->nTime = 1269211443 + chainActive.Height()+1 * Params().GetConsensus().nPowTargetSpacing;
+    pNewBlockIdx->nBits = 0x1e7fffff;
+    pNewBlockIdx->nChainWork = (chainActive.Height()+1) == 0 ? arith_uint256(0) : mapBlockIndex.at(prevBlockHash)->nChainWork + GetBlockProof(*(mapBlockIndex.at(prevBlockHash)));
+    pNewBlockIdx->hashAnchor = dummyTree.root();
+
+    BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(currBlockHash, pNewBlockIdx)).first;
+    pNewBlockIdx->phashBlock = &(mi->first);
+    chainActive.SetTip(mapBlockIndex.at(currBlockHash));
+    return;
 }
