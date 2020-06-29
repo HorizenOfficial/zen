@@ -2227,7 +2227,7 @@ CCoins::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned int vOutP
 CAmount CWalletTransactionBase::GetCredit(const isminefilter& filter) const
 {
     int64_t credit = 0;
-    if (this->pTxBase->IsCoinBase() && this->HasImmatureOutputs())
+    if ((this->pTxBase->IsCoinBase() || this->pTxBase->IsCertificate()) && this->HasImmatureOutputs())
     {
         fCreditCached = false;
         fWatchCreditCached = false;
