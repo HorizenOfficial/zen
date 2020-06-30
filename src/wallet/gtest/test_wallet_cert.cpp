@@ -55,7 +55,9 @@ protected:
 TEST_F(CertInWalletTest, WalletCertSerializationOps) {
     CWallet dummyWallet;
     CScCertificate cert =
-            txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0, uint256S("bbb"), /*numChangeOut*/2, /*bwTotaltAmount*/CAmount(10), /*numBwt*/4);
+            txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0, uint256S("bbb"),
+                /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2,
+                /*bwTotaltAmount*/CAmount(10), /*numBwt*/4);
     CWalletCert walletCert(&dummyWallet, cert);
 
     //test
@@ -113,7 +115,9 @@ TEST_F(CertInWalletTest, LoadWalletTxFromDb) {
 TEST_F(CertInWalletTest, LoadWalletCertFromDb) {
     //Create wallet cert to be stored
     CScCertificate cert =
-            txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0, uint256S("bbb"), /*numChangeOut*/2, /*bwTotaltAmount*/CAmount(10), /*numBwt*/4);
+            txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0, uint256S("bbb"),
+                /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2,
+                /*bwTotaltAmount*/CAmount(10), /*numBwt*/4);
     CWalletCert walletCert(pWallet, cert);
 
     // Test
@@ -198,8 +202,9 @@ TEST_F(CertInWalletTest, IsOutputMature_CoinBase_InBlockChain) {
 
 TEST_F(CertInWalletTest, IsOutputMature_Certificate_InBlockChain) {
     //Create certificate
-    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12,
-            /*endEpochBlockHash*/uint256S("ccc"), /*numChangeOut*/2, /*bwTotaltAmount*/CAmount(10), /*numBwt*/4);
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12, /*endEpochBlockHash*/uint256S("ccc"),
+        /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2,
+        /*bwTotaltAmount*/CAmount(10), /*numBwt*/4);
 
     //Add block information
     chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
@@ -281,8 +286,9 @@ TEST_F(CertInWalletTest, IsOutputMature_TransparentTx_InMemoryPool) {
 
 TEST_F(CertInWalletTest, IsOutputMature_Certificate_InMemoryPool) {
     //Create certificate
-    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12,
-            /*endEpochBlockHash*/uint256S("ccc"), /*numChangeOut*/2, /*bwTotaltAmount*/CAmount(10), /*numBwt*/4);
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12, /*endEpochBlockHash*/uint256S("ccc"),
+        /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2,
+        /*bwTotaltAmount*/CAmount(10), /*numBwt*/4);
 
     //Add block information
     int txCreationHeight = 100;
@@ -349,8 +355,9 @@ TEST_F(CertInWalletTest, IsOutputMature_CoinBase_Conflicted) {
 
 TEST_F(CertInWalletTest, IsOutputMature_Certificate_Conflicted) {
     //Create certificate
-    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12,
-            /*endEpochBlockHash*/uint256S("ccc"), /*numChangeOut*/2, /*bwTotaltAmount*/CAmount(10), /*numBwt*/4);
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12, /*endEpochBlockHash*/uint256S("ccc"),
+        /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2,
+        /*bwTotaltAmount*/CAmount(10), /*numBwt*/4);
 
     //Add block information
     int txCreationHeight = 100;
@@ -433,8 +440,8 @@ TEST_F(CertInWalletTest, GetCredit_BwtOnlyCertificate_NotVoided)
 {
     //Create certificate
     CAmount certAmount = 12;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12,
-            /*endEpochBlockHash*/uint256S("ccc"), /*numChangeOut*/0, /*bwTotaltAmount*/certAmount, /*numBwt*/4);
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+            /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/0, /*numChangeOut*/0, /*bwtTotalAmount*/certAmount, /*numBwt*/4);
 
     CKey coinsKey;
     coinsKey.MakeNewKey(true);

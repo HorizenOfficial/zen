@@ -143,7 +143,9 @@ void txCreationUtils::extendTransaction(CTransaction & tx, const uint256 & scId,
     return;
 }
 
-CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash, unsigned int numChangeOut, CAmount bwTotaltAmount, unsigned int numBwt) {
+CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
+                                                  CAmount changeTotalAmount, unsigned int numChangeOut,
+                                                  CAmount bwtTotalAmount, unsigned int numBwt) {
     CMutableScCertificate res;
     res.nVersion = SC_CERT_VERSION;
     res.scId = scId;
@@ -154,10 +156,10 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
     CScript dummyScriptPubKey =
             GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
     for(unsigned int idx = 0; idx < numChangeOut; ++idx)
-        res.addOut(CTxOut(insecure_rand(),dummyScriptPubKey));
+        res.addOut(CTxOut(changeTotalAmount/numChangeOut,dummyScriptPubKey));
 
     for(unsigned int idx = 0; idx < numBwt; ++idx)
-        res.addBwt(CTxOut(bwTotaltAmount/numBwt, dummyScriptPubKey));
+        res.addBwt(CTxOut(bwtTotalAmount/numBwt, dummyScriptPubKey));
 
     return res;
 }

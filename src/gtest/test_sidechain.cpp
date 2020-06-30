@@ -392,7 +392,8 @@ TEST_F(SidechainTestSuite, RevertCertOutputsRestoresLastCertHash) {
 
     //Update sc with cert and create the associate blockUndo
     int certEpoch = 19;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash());
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
     CTxUndo certUndoEntry;
     sidechainsView->UpdateScInfo(cert, certUndoEntry);
     CSidechain scInfoPostCert;
@@ -493,7 +494,8 @@ TEST_F(SidechainTestSuite, CertificateUpdatesLastCertificateHash) {
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummy));
 
     CTxUndo certUndoEntry;
-    CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash());
+    CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
     EXPECT_TRUE(sidechainsView->UpdateScInfo(aCertificate, certUndoEntry));
 
     //check
