@@ -259,7 +259,7 @@ TEST_F(SidechainTestSuite, NewScCreationsHaveTheRightDependencies) {
 
 TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsHaveTheRightDependencies) {
     int creationHeight = 1789;
-    chainSettingUtils::GenerateChainActive(creationHeight);
+    chainSettingUtils::ExtendChainActiveToHeight(creationHeight);
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
     CBlock aBlock;
     sidechainsView->UpdateScInfo(aTransaction, aBlock, creationHeight);
@@ -276,7 +276,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsHaveTheRightDependencies
 
 TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsHaveNotTheRightDependencies) {
     int fwdHeight = 1789;
-    chainSettingUtils::GenerateChainActive(fwdHeight);
+    chainSettingUtils::ExtendChainActiveToHeight(fwdHeight);
 
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(uint256S("1492"), CAmount(1815));
 
@@ -392,7 +392,8 @@ TEST_F(SidechainTestSuite, RevertCertOutputsRestoresLastCertHash) {
 
     //Update sc with cert and create the associate blockUndo
     int certEpoch = 19;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash());
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
     CTxUndo certUndoEntry;
     sidechainsView->UpdateScInfo(cert, certUndoEntry);
     CSidechain scInfoPostCert;
@@ -493,7 +494,8 @@ TEST_F(SidechainTestSuite, CertificateUpdatesLastCertificateHash) {
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummy));
 
     CTxUndo certUndoEntry;
-    CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash());
+    CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
     EXPECT_TRUE(sidechainsView->UpdateScInfo(aCertificate, certUndoEntry));
 
     //check
