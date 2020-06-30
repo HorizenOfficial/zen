@@ -50,6 +50,37 @@ protected:
     boost::filesystem::path walletDbLocation;
     CWallet* pWallet;
     CWalletDB* pWalletDb;
+
+    //helpers
+    void SetLockingScriptFor(CTransaction& tx)
+    {
+        CMutableTransaction mutTx = tx;
+        CKey coinsKey;
+        coinsKey.MakeNewKey(true);
+        pWallet->AddKey(coinsKey);
+        CScript lockingScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+        for(unsigned int pos = 0; pos < mutTx.getVout().size(); ++pos)
+            mutTx.getOut(pos).scriptPubKey = lockingScript;
+
+        tx = mutTx;
+        return;
+    }
+
+    void SetLockingScriptFor(CScCertificate& cert)
+    {
+        CMutableScCertificate mutCert = cert;
+        CKey coinsKey;
+        coinsKey.MakeNewKey(true);
+        pWallet->AddKey(coinsKey);
+        CScript lockingScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+        for(unsigned int pos = 0; pos < mutCert.getVout().size(); ++pos)
+            mutCert.getOut(pos).scriptPubKey = lockingScript;
+
+        cert = mutCert;
+        return;
+    }
 };
 
 TEST_F(CertInWalletTest, WalletCertSerializationOps) {
@@ -387,15 +418,8 @@ TEST_F(CertInWalletTest, GetCredit_CoinBase)
 {
     //Create coinbase
     CAmount coinBaseAmount = 10;
-    CMutableTransaction mutCoinBase = txCreationUtils::createCoinBase(coinBaseAmount);
-
-    CKey coinsKey;
-    coinsKey.MakeNewKey(true);
-    pWallet->AddKey(coinsKey);
-    CScript lockingScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
-
-    mutCoinBase.getOut(0).scriptPubKey = lockingScript;
-    CTransaction coinBase = mutCoinBase;
+    CTransaction coinBase = txCreationUtils::createCoinBase(coinBaseAmount);
+    SetLockingScriptFor(coinBase);
 
     //Add block information
     chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
@@ -441,18 +465,9 @@ TEST_F(CertInWalletTest, GetCredit_FullCertificate_NotVoided)
     //Create certificate
     CAmount changeAmount = 20;
     CAmount bwtAmount = 12;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
             /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4);
-
-    CKey coinsKey;
-    coinsKey.MakeNewKey(true);
-    pWallet->AddKey(coinsKey);
-    CScript lockingScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
-
-    for(unsigned int pos = 0; pos < mutCert.getVout().size(); ++pos)
-        mutCert.getOut(pos).scriptPubKey = lockingScript;
-
-    CScCertificate cert = mutCert;
+    SetLockingScriptFor(cert);
 
     //Add block information
     chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
@@ -499,18 +514,9 @@ TEST_F(CertInWalletTest, GetCredit_BwtOnlyCertificate_NotVoided)
     //Create certificate
     CAmount changeAmount = 0;
     CAmount bwtAmount = 12;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
             /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/0, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4);
-
-    CKey coinsKey;
-    coinsKey.MakeNewKey(true);
-    pWallet->AddKey(coinsKey);
-    CScript lockingScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
-
-    for(unsigned int pos = 0; pos < mutCert.getVout().size(); ++pos)
-        mutCert.getOut(pos).scriptPubKey = lockingScript;
-
-    CScCertificate cert = mutCert;
+    SetLockingScriptFor(cert);
 
     //Add block information
     chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
@@ -557,18 +563,9 @@ TEST_F(CertInWalletTest, GetCredit_NoBwtCertificate_NotVoided)
     //Create certificate
     CAmount changeAmount = 20;
     CAmount bwtAmount = 0;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
             /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/0);
-
-    CKey coinsKey;
-    coinsKey.MakeNewKey(true);
-    pWallet->AddKey(coinsKey);
-    CScript lockingScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
-
-    for(unsigned int pos = 0; pos < mutCert.getVout().size(); ++pos)
-        mutCert.getOut(pos).scriptPubKey = lockingScript;
-
-    CScCertificate cert = mutCert;
+    SetLockingScriptFor(cert);
 
     //Add block information
     chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
@@ -615,18 +612,9 @@ TEST_F(CertInWalletTest, GetCredit_FullCertificate_Voided)
     //Create certificate
     CAmount changeAmount = 20;
     CAmount bwtAmount = 12;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
             /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4);
-
-    CKey coinsKey;
-    coinsKey.MakeNewKey(true);
-    pWallet->AddKey(coinsKey);
-    CScript lockingScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
-
-    for(unsigned int pos = 0; pos < mutCert.getVout().size(); ++pos)
-        mutCert.getOut(pos).scriptPubKey = lockingScript;
-
-    CScCertificate cert = mutCert;
+    SetLockingScriptFor(cert);
 
     //Add block information
     chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
@@ -674,18 +662,9 @@ TEST_F(CertInWalletTest, GetCredit_BwtOnlyCertificate_Voided)
     //Create certificate
     CAmount changeAmount = 0;
     CAmount bwtAmount = 12;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
             /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/0, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4);
-
-    CKey coinsKey;
-    coinsKey.MakeNewKey(true);
-    pWallet->AddKey(coinsKey);
-    CScript lockingScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
-
-    for(unsigned int pos = 0; pos < mutCert.getVout().size(); ++pos)
-        mutCert.getOut(pos).scriptPubKey = lockingScript;
-
-    CScCertificate cert = mutCert;
+    SetLockingScriptFor(cert);
 
     //Add block information
     chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
@@ -733,18 +712,9 @@ TEST_F(CertInWalletTest, GetCredit_NoBwtCertificate_Voided)
     //Create certificate
     CAmount changeAmount = 20;
     CAmount bwtAmount = 0;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
             /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/0);
-
-    CKey coinsKey;
-    coinsKey.MakeNewKey(true);
-    pWallet->AddKey(coinsKey);
-    CScript lockingScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
-
-    for(unsigned int pos = 0; pos < mutCert.getVout().size(); ++pos)
-        mutCert.getOut(pos).scriptPubKey = lockingScript;
-
-    CScCertificate cert = mutCert;
+    SetLockingScriptFor(cert);
 
     //Add block information
     chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
@@ -784,5 +754,351 @@ TEST_F(CertInWalletTest, GetCredit_NoBwtCertificate_Voided)
         certCredit = walletCert.GetCredit(ISMINE_SPENDABLE);
         EXPECT_TRUE(changeAmount == certCredit)
             <<"certCredit is "<<int(certCredit);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+////////////////////////////// GetImmatureCredit //////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST_F(CertInWalletTest, GetImmatureCredit_CoinBase)
+{
+    //Create coinbase
+    CAmount coinBaseAmount = 10;
+    CTransaction coinBase = txCreationUtils::createCoinBase(coinBaseAmount);
+    SetLockingScriptFor(coinBase);
+
+    //Add block information
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
+    CWalletTx walletCoinBase(pWallet, coinBase);
+    CBlock coinBaseBlock;
+    coinBaseBlock.vtx.push_back(coinBase);
+    walletCoinBase.hashBlock = coinBaseBlock.GetHash();
+    walletCoinBase.SetMerkleBranch(coinBaseBlock);
+    walletCoinBase.fMerkleVerified = true; //shortcut
+
+    chainSettingUtils::ExtendChainActiveWithBlock(coinBaseBlock);
+    int coinBaseCreationHeight = chainActive.Height();
+
+    CAmount coinBaseImmatureCredit =-1;
+
+    //Test
+    for(int height = coinBaseCreationHeight+1; height < coinBaseCreationHeight + COINBASE_MATURITY; ++height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        coinBaseImmatureCredit = walletCoinBase.GetImmatureCredit(/*fUseCache*/true);
+        EXPECT_TRUE(coinBaseAmount == coinBaseImmatureCredit)
+            <<"coinBaseImmatureCredit at height "<< height << " is "<<coinBaseImmatureCredit;
+    }
+
+    //Test
+    chainSettingUtils::ExtendChainActiveToHeight(coinBaseCreationHeight + COINBASE_MATURITY);
+    coinBaseImmatureCredit = walletCoinBase.GetImmatureCredit(/*fUseCache*/true);
+    EXPECT_TRUE(CAmount(0) == coinBaseImmatureCredit)
+        <<"coinBaseImmatureCredit is "<<coinBaseImmatureCredit;
+
+    //Test no hysteresis
+    for(int height = coinBaseCreationHeight + COINBASE_MATURITY-1; height >= coinBaseCreationHeight; --height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        coinBaseImmatureCredit = walletCoinBase.GetImmatureCredit(/*fUseCache*/true);
+        EXPECT_TRUE(coinBaseAmount == coinBaseImmatureCredit)
+        <<"coinBaseImmatureCredit at height "<< height << " is "<<coinBaseImmatureCredit;
+    }
+}
+
+TEST_F(CertInWalletTest, GetImmatureCredit_FullCertificate_NotVoided)
+{
+    //Create certificate
+    CAmount changeAmount = 20;
+    CAmount bwtAmount = 12;
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+            /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4);
+    SetLockingScriptFor(cert);
+
+    //Add block information
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
+    CWalletCert walletCert(pWallet, cert);
+    CBlock certBlock;
+    certBlock.vcert.push_back(cert);
+    walletCert.hashBlock = certBlock.GetHash();
+    walletCert.bwtMaturityDepth = 5;
+    walletCert.SetMerkleBranch(certBlock);
+    walletCert.fMerkleVerified = true; //shortcut
+
+    chainSettingUtils::ExtendChainActiveWithBlock(certBlock);
+    int certCreationHeight = chainActive.Height();
+
+    CAmount certImmatureCredit =-1;
+
+    //Test
+    for(int height = certCreationHeight; height < certCreationHeight + walletCert.bwtMaturityDepth; ++height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+        EXPECT_TRUE(bwtAmount == certImmatureCredit)
+            <<"certImmatureCredit at height "<< height << " is "<<certImmatureCredit;
+    }
+
+    //Test
+    chainSettingUtils::ExtendChainActiveToHeight(certCreationHeight + walletCert.bwtMaturityDepth);
+    certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+    EXPECT_TRUE(CAmount(0) == certImmatureCredit)
+        <<"certImmatureCredit is "<<int(certImmatureCredit);
+
+    //Test no hysteresis
+    for(int height = certCreationHeight + walletCert.bwtMaturityDepth -1; height >= certCreationHeight; --height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+        EXPECT_TRUE(bwtAmount == certImmatureCredit)
+            <<"certImmatureCredit is "<<int(certImmatureCredit);
+    }
+}
+
+TEST_F(CertInWalletTest, GetImmatureCredit_BwtOnlyCertificate_NotVoided)
+{
+    //Create certificate
+    CAmount changeAmount = 0;
+    CAmount bwtAmount = 12;
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+            /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/0, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4);
+    SetLockingScriptFor(cert);
+
+    //Add block information
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
+    CWalletCert walletCert(pWallet, cert);
+    CBlock certBlock;
+    certBlock.vcert.push_back(cert);
+    walletCert.hashBlock = certBlock.GetHash();
+    walletCert.bwtMaturityDepth = 10;
+    walletCert.SetMerkleBranch(certBlock);
+    walletCert.fMerkleVerified = true; //shortcut
+
+    chainSettingUtils::ExtendChainActiveWithBlock(certBlock);
+    int certCreationHeight = chainActive.Height();
+
+    CAmount certImmatureCredit =-1;
+
+    //Test
+    for(int height = certCreationHeight; height < certCreationHeight + walletCert.bwtMaturityDepth; ++height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+        EXPECT_TRUE(bwtAmount == certImmatureCredit)
+            <<"certImmatureCredit at height "<< height << " is "<<certImmatureCredit;
+    }
+
+    //Test
+    chainSettingUtils::ExtendChainActiveToHeight(certCreationHeight + walletCert.bwtMaturityDepth);
+    certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+    EXPECT_TRUE(CAmount(0) == certImmatureCredit)
+        <<"certImmatureCredit is "<<int(certImmatureCredit);
+
+    //Test no hysteresis
+    for(int height = certCreationHeight + walletCert.bwtMaturityDepth -1; height >= certCreationHeight; --height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+        EXPECT_TRUE(bwtAmount == certImmatureCredit)
+            <<"certImmatureCredit is "<<int(certImmatureCredit);
+    }
+}
+
+TEST_F(CertInWalletTest, GetImmatureCredit_NoBwtCertificate_NotVoided)
+{
+    //Create certificate
+    CAmount changeAmount = 20;
+    CAmount bwtAmount = 0;
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+            /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/0);
+    SetLockingScriptFor(cert);
+
+    //Add block information
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
+    CWalletCert walletCert(pWallet, cert);
+    CBlock certBlock;
+    certBlock.vcert.push_back(cert);
+    walletCert.hashBlock = certBlock.GetHash();
+    walletCert.bwtMaturityDepth = 3;
+    walletCert.SetMerkleBranch(certBlock);
+    walletCert.fMerkleVerified = true; //shortcut
+
+    chainSettingUtils::ExtendChainActiveWithBlock(certBlock);
+    int certCreationHeight = chainActive.Height();
+
+    CAmount certImmatureCredit =-1;
+
+    //Test
+    for(int height = certCreationHeight; height < certCreationHeight + walletCert.bwtMaturityDepth; ++height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+        EXPECT_TRUE(CAmount(0) == certImmatureCredit)
+            <<"certImmatureCredit at height "<< height << " is "<<certImmatureCredit;
+    }
+
+    //Test
+    chainSettingUtils::ExtendChainActiveToHeight(certCreationHeight + walletCert.bwtMaturityDepth);
+    certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+    EXPECT_TRUE(CAmount(0) == certImmatureCredit)
+        <<"certImmatureCredit is "<<int(certImmatureCredit);
+
+    //Test no hysteresis
+    for(int height = certCreationHeight + walletCert.bwtMaturityDepth -1; height >= certCreationHeight; --height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+        EXPECT_TRUE(CAmount(0) == certImmatureCredit)
+            <<"certImmatureCredit is "<<int(certImmatureCredit);
+    }
+}
+
+TEST_F(CertInWalletTest, GetImmatureCredit_FullCertificate_Voided)
+{
+    //Create certificate
+    CAmount changeAmount = 20;
+    CAmount bwtAmount = 12;
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+            /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4);
+    SetLockingScriptFor(cert);
+
+    //Add block information
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
+    CWalletCert walletCert(pWallet, cert);
+    CBlock certBlock;
+    certBlock.vcert.push_back(cert);
+    walletCert.hashBlock = certBlock.GetHash();
+    walletCert.bwtMaturityDepth = 5;
+    walletCert.areBwtCeased = true;
+    walletCert.SetMerkleBranch(certBlock);
+    walletCert.fMerkleVerified = true; //shortcut
+
+    chainSettingUtils::ExtendChainActiveWithBlock(certBlock);
+    int certCreationHeight = chainActive.Height();
+
+    CAmount certImmatureCredit =-1;
+
+    //Test
+    for(int height = certCreationHeight; height < certCreationHeight + walletCert.bwtMaturityDepth; ++height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+        EXPECT_TRUE(CAmount(0) == certImmatureCredit)
+            <<"certImmatureCredit at height "<< height << " is "<<certImmatureCredit;
+    }
+
+    //Test
+    chainSettingUtils::ExtendChainActiveToHeight(certCreationHeight + walletCert.bwtMaturityDepth);
+    certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+    EXPECT_TRUE(CAmount(0) == certImmatureCredit)
+        <<"certImmatureCredit is "<<int(certImmatureCredit);
+
+    //Test no hysteresis
+    for(int height = certCreationHeight + walletCert.bwtMaturityDepth -1; height >= certCreationHeight; --height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+        EXPECT_TRUE(CAmount(0) == certImmatureCredit)
+            <<"certImmatureCredit is "<<int(certImmatureCredit);
+    }
+}
+
+TEST_F(CertInWalletTest, GetImmatureCredit_BwtOnlyCertificate_Voided)
+{
+    //Create certificate
+    CAmount changeAmount = 0;
+    CAmount bwtAmount = 12;
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+            /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/0, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4);
+    SetLockingScriptFor(cert);
+
+    //Add block information
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
+    CWalletCert walletCert(pWallet, cert);
+    CBlock certBlock;
+    certBlock.vcert.push_back(cert);
+    walletCert.hashBlock = certBlock.GetHash();
+    walletCert.bwtMaturityDepth = 10;
+    walletCert.areBwtCeased = true;
+    walletCert.SetMerkleBranch(certBlock);
+    walletCert.fMerkleVerified = true; //shortcut
+
+    chainSettingUtils::ExtendChainActiveWithBlock(certBlock);
+    int certCreationHeight = chainActive.Height();
+
+    CAmount certImmatureCredit =-1;
+
+    //Test
+    for(int height = certCreationHeight; height < certCreationHeight + walletCert.bwtMaturityDepth; ++height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+        EXPECT_TRUE(CAmount(0) == certImmatureCredit)
+            <<"certImmatureCredit at height "<< height << " is "<<certImmatureCredit;
+    }
+
+    //Test
+    chainSettingUtils::ExtendChainActiveToHeight(certCreationHeight + walletCert.bwtMaturityDepth);
+    certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+    EXPECT_TRUE(CAmount(0) == certImmatureCredit)
+        <<"certImmatureCredit is "<<int(certImmatureCredit);
+
+    //Test no hysteresis
+    for(int height = certCreationHeight + walletCert.bwtMaturityDepth -1; height >= certCreationHeight; --height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+        EXPECT_TRUE(CAmount(0) == certImmatureCredit)
+            <<"certImmatureCredit is "<<int(certImmatureCredit);
+    }
+}
+
+TEST_F(CertInWalletTest, GetImmatureCredit_NoBwtCertificate_Voided)
+{
+    //Create certificate
+    CAmount changeAmount = 20;
+    CAmount bwtAmount = 0;
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+            /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/0);
+    SetLockingScriptFor(cert);
+
+    //Add block information
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
+    CWalletCert walletCert(pWallet, cert);
+    CBlock certBlock;
+    certBlock.vcert.push_back(cert);
+    walletCert.hashBlock = certBlock.GetHash();
+    walletCert.bwtMaturityDepth = 3;
+    walletCert.areBwtCeased = true;
+    walletCert.SetMerkleBranch(certBlock);
+    walletCert.fMerkleVerified = true; //shortcut
+
+    chainSettingUtils::ExtendChainActiveWithBlock(certBlock);
+    int certCreationHeight = chainActive.Height();
+
+    CAmount certImmatureCredit =-1;
+
+    //Test
+    for(int height = certCreationHeight; height < certCreationHeight + walletCert.bwtMaturityDepth; ++height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+        EXPECT_TRUE(CAmount(0) == certImmatureCredit)
+            <<"certImmatureCredit at height "<< height << " is "<<certImmatureCredit;
+    }
+
+    //Test
+    chainSettingUtils::ExtendChainActiveToHeight(certCreationHeight + walletCert.bwtMaturityDepth);
+    certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+    EXPECT_TRUE(CAmount(0) == certImmatureCredit)
+        <<"certImmatureCredit is "<<int(certImmatureCredit);
+
+    //Test no hysteresis
+    for(int height = certCreationHeight + walletCert.bwtMaturityDepth -1; height >= certCreationHeight; --height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        certImmatureCredit = walletCert.GetImmatureCredit(/*fUseCache*/true);
+        EXPECT_TRUE(CAmount(0) == certImmatureCredit)
+            <<"certImmatureCredit is "<<int(certImmatureCredit);
     }
 }

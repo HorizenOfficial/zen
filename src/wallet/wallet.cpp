@@ -2257,39 +2257,41 @@ CAmount CWalletTransactionBase::GetCredit(const isminefilter& filter) const
 
 CAmount CWalletTransactionBase::GetImmatureCredit(bool fUseCache) const
 {
-    if (!IsInMainChain() && !pTxBase->IsCertificate())
-        return CAmount(0);
+    if ((this->pTxBase->IsCoinBase() || this->pTxBase->IsCertificate()) && this->HasImmatureOutputs())
+    {
+        if (fUseCache && fImmatureCreditCached)
+            return nImmatureCreditCached;
 
-    if (!pTxBase->IsCoinBase() && !pTxBase->IsCertificate())
-        return CAmount(0);
-
-    if (fUseCache && fImmatureCreditCached)
+        nImmatureCreditCached = pwallet->GetCredit(*this, ISMINE_SPENDABLE, fImmatureCreditCached, /*keepImmatureVoutsOnly*/true);
         return nImmatureCreditCached;
+    }
 
-    nImmatureCreditCached = pwallet->GetCredit(*this, ISMINE_SPENDABLE, fImmatureCreditCached, /*keepImmatureVoutsOnly*/true);
-    return nImmatureCreditCached;
-
+    return CAmount(0);
 }
 
 CAmount CWalletTransactionBase::GetImmatureWatchOnlyCredit(const bool& fUseCache) const
 {
-    if (!IsInMainChain())
-        return CAmount(0);
+    if ((this->pTxBase->IsCoinBase() || this->pTxBase->IsCertificate()) && this->HasImmatureOutputs())
+    {
+        if (fUseCache && fImmatureWatchCreditCached)
+            return nImmatureWatchCreditCached;
 
-    if (!pTxBase->IsCoinBase() && !pTxBase->IsCertificate())
-        return CAmount(0);
-
-    if (fUseCache && fImmatureWatchCreditCached)
+        nImmatureWatchCreditCached = pwallet->GetCredit(*this, ISMINE_WATCH_ONLY, fImmatureWatchCreditCached, /*keepImmatureVoutsOnly*/true);
         return nImmatureWatchCreditCached;
+    }
 
-    nImmatureWatchCreditCached = pwallet->GetCredit(*this, ISMINE_WATCH_ONLY, fImmatureWatchCreditCached, /*keepImmatureVoutsOnly*/true);
-    return nImmatureWatchCreditCached;
+    return CAmount(0);
 }
 
 CAmount CWalletTransactionBase::GetAvailableCredit(bool fUseCache) const
 {
     if (pwallet == 0)
         return 0;
+
+    if ((this->pTxBase->IsCoinBase() || this->pTxBase->IsCertificate()) && this->HasImmatureOutputs())
+    {
+        fAvailableCreditCached = false;
+    }
 
     if (fUseCache && fAvailableCreditCached)
         return nAvailableCreditCached;
@@ -2300,9 +2302,6 @@ CAmount CWalletTransactionBase::GetAvailableCredit(bool fUseCache) const
     {
         CCoins::outputMaturity outputMaturity = this->IsOutputMature(pos);
         if (outputMaturity == CCoins::outputMaturity::NOT_APPLICABLE) {
-            // fAvailableCreditCached = false;
-            // is OutputMature returns NOT_APPLICABLE even if the output is spent, but others can be spendable
-            //return CAmount(0);
             continue;
         }
 
@@ -2330,6 +2329,11 @@ CAmount CWalletTransactionBase::GetAvailableWatchOnlyCredit(const bool& fUseCach
     if (pwallet == 0)
         return 0;
 
+    if ((this->pTxBase->IsCoinBase() || this->pTxBase->IsCertificate()) && this->HasImmatureOutputs())
+    {
+        fAvailableWatchCreditCached = false;
+    }
+
     if (fUseCache && fAvailableWatchCreditCached)
         return nAvailableWatchCreditCached;
 
@@ -2339,7 +2343,7 @@ CAmount CWalletTransactionBase::GetAvailableWatchOnlyCredit(const bool& fUseCach
         CCoins::outputMaturity outputMaturity = this->IsOutputMature(pos);
         if (outputMaturity == CCoins::outputMaturity::NOT_APPLICABLE) {
             fAvailableWatchCreditCached = false;
-            return CAmount(0);
+            continue;
         }
 
         if (outputMaturity == CCoins::outputMaturity::IMMATURE) {
