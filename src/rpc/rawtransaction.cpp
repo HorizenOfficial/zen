@@ -367,7 +367,7 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
 
 UniValue getrawcertificate(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 || params.size() > 2)
+    if (fHelp || params.size() < 1 || params.size() > 3)
         throw runtime_error(
             "getrawcertificate \"certid\" ( verbose )\n"
             "\nNOTE: By default this function only works sometimes. This is when the certificate is in the mempool\n"
@@ -380,6 +380,7 @@ UniValue getrawcertificate(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             "1. \"certid\"      (string, required) The certificate id\n"
             "2. verbose       (numeric, optional, default=0) If 0, return a string, other return a json object\n"
+            "3. blockheight       (numeric, optional) If -txindex is not set and cert is not in mempool, we directly read from db the containing block of this given height\n"
 
             "\nResult (if verbose is not set or set to 0):\n"
             "\"data\"      (string) The serialized, hex-encoded data for 'certid'\n"
@@ -436,9 +437,13 @@ UniValue getrawcertificate(const UniValue& params, bool fHelp)
     if (params.size() > 1)
         fVerbose = (params[1].get_int() != 0);
 
+    int blockHeight = -1;
+    if (params.size() > 2)
+        blockHeight = params[2].get_int();
+
     CScCertificate cert;
     uint256 hashBlock;
-    if (!GetCertificate(hash, cert, hashBlock, true))
+    if (!GetCertificate(hash, cert, hashBlock, true, blockHeight))
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about certificate");
 
     string strHex = EncodeHexCert(cert);

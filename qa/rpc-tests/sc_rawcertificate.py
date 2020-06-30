@@ -219,9 +219,6 @@ class sc_rawcert(BitcoinTestFramework):
         "sc1", epn, eph, pebh,
         quality, constant, [], [])
 
-        raw_inputs   = []
-        raw_outs     = {}
-        raw_bwt_outs = {}
         raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
         raw_cert = []
         cert = []
@@ -239,6 +236,7 @@ class sc_rawcert(BitcoinTestFramework):
 
         raw_inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         raw_outs    = { self.nodes[0].getnewaddress() : change }
+        raw_bwt_outs = {}
 
         # generate a certificate with no backward transfers and only a fee
         try:
@@ -494,6 +492,62 @@ class sc_rawcert(BitcoinTestFramework):
             errorString = e.error['message']
             print "\n======> ", errorString
 
+        mark_logs("Node0 generating 4 block reaching next epoch", self.nodes, DEBUG_MODE)
+        pebh = eph
+        eph = self.nodes[0].generate(4)[-1]
+        epn = 4
+        self.sync_all()
+        
+        # create wCert proof
+        quality = 1
+        proof = mcTest.create_test_proof(
+        "sc1", epn, eph, pebh,
+        quality, constant, [], [])
+
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
+        raw_cert = []
+        cert = []
+
+        raw_inputs  = []
+        raw_outs    = {}
+        raw_bwt_outs = {}
+
+        # generate a certificate with no backward transfers and no change nor fee
+        try:
+            raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
+            signed_cert = self.nodes[0].signrawcertificate(raw_cert)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+            assert_true(False)
+
+        decoded_cert_pre = self.nodes[0].decoderawcertificate(signed_cert['hex'])
+        decoded_cert_pre_list = sorted(decoded_cert_pre.items())
+
+        mark_logs("Node3 sending raw certificate with no backward transfer and no fee for epoch {}".format(epn), self.nodes, DEBUG_MODE)
+        try:
+            cert = self.nodes[3].sendrawcertificate(signed_cert['hex'])
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+            assert_true(False)
+
+        self.sync_all()
+
+        mark_logs("Node2 generating 1 block", self.nodes, DEBUG_MODE)
+        self.nodes[2].generate(1)
+        self.sync_all()
+
+        mark_logs("Check the certificate for this scid has no vin and no vouts", self.nodes, DEBUG_MODE)
+        # we enabled -txindex in zend therefore node 2 can see it even if no coins can be used in db and no block height is given
+        ret = self.nodes[2].getrawcertificate(cert, 1)
+        assert_equal(ret['cert']['scid'], scid)
+        assert_equal(len(ret['vin']), 0)
+        assert_equal(len(ret['vout']), 0)
+
+        mark_logs("Check the certificate is the last received for this scid", self.nodes, DEBUG_MODE)
+        ret = self.nodes[2].getscinfo(scid)
+        assert_equal(ret['last certificate hash'], cert)
 
 
 

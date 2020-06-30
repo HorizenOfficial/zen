@@ -489,7 +489,7 @@ class sc_cert_base(BitcoinTestFramework):
         bal_before_cert_2 = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance before epoch 1 certificate is received: {}".format(bal_before_cert_2), self.nodes, DEBUG_MODE)        
 
-        mark_logs("Generate new certificate for epoch {}. No bwt are included".format(epoch_number), self.nodes, DEBUG_MODE)
+        mark_logs("Generate new certificate for epoch {}. No bwt and no fee are included".format(epoch_number), self.nodes, DEBUG_MODE)
 
         # Create new proof for WCert
         quality = 1
@@ -498,18 +498,31 @@ class sc_cert_base(BitcoinTestFramework):
             quality, constant, [], [])
 
         try:
-            cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_2, CERT_FEE)
+            cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_2)
             assert(len(cert_epoch_1) > 0)
             mark_logs("Certificate is {}".format(cert_epoch_1), self.nodes, DEBUG_MODE)
+            self.sync_all()
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
 
-        mark_logs("Confirm the certificate for epoch {} and move beyond safeguard,".format(epoch_number), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(3)
+        mark_logs("Confirm the certificate for epoch {} and move beyond safeguard".format(epoch_number), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
+        h = self.nodes[0].getblockcount()
+        self.nodes[0].generate(2)
         self.sync_all()
 
+        mark_logs("Check the certificate for this scid has no vin and no vouts", self.nodes, DEBUG_MODE)
+        try:
+            ret = self.nodes[0].getrawcertificate(cert_epoch_1, 1, h)
+            assert_equal(ret['cert']['scid'], scid)
+            assert_equal(len(ret['vin']), 0)
+            assert_equal(len(ret['vout']), 0)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("can not get raw info for cert {} error: {}".format(cert_epoch_1, errorString), self.nodes, DEBUG_MODE)
+    
         bal_after_cert_2 = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance after epoch 1 certificate is received and safeguard passed: {}".format(bal_after_cert_2), self.nodes, DEBUG_MODE)        
 

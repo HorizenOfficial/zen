@@ -4681,7 +4681,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() != 7  )
+    if (fHelp || params.size() < 6  )
         throw runtime_error(
             "send_certificate scid epochNumber quality endEpochBlockHash scProof [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
             "\nSend cross chain backward transfers from SC to MC as a certificate."
@@ -4790,7 +4790,12 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         cert.scProof = libzendoomc::ScProof(scProofVec);
 
         if(!libzendoomc::IsValidScProof(cert.scProof))
+#if 1
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert scProof"));
+#else
+// TODO TEST TEST TEST for websocket
+         {;}
+#endif
     }
 
     // can be empty
@@ -4844,8 +4849,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     if (params.size() > 6)
     {
         nCertFee = AmountFromValue(params[6]);
-        if (nCertFee <= 0)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for fee, must be positive");
+        if (nCertFee < 0)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for fee, must be positive or null");
         // any check for upper threshold is left to cert processing
     }
 

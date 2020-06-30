@@ -1594,7 +1594,7 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock
 }
 
 /** Return certificate in certOut, and if it was found inside a block, its hash is placed in hashBlock */
-bool GetCertificate(const uint256 &hash, CScCertificate &certOut, uint256 &hashBlock, bool fAllowSlow)
+bool GetCertificate(const uint256 &hash, CScCertificate &certOut, uint256 &hashBlock, bool fAllowSlow, int blockHeight)
 {
     CBlockIndex *pindexSlow = NULL;
 
@@ -1626,16 +1626,29 @@ bool GetCertificate(const uint256 &hash, CScCertificate &certOut, uint256 &hashB
         }
     }
 
-    if (fAllowSlow) { // use coin database to locate block that contains cert, and scan it
-        int nHeight = -1;
+    if (fAllowSlow) {
+        if (blockHeight > 0)
         {
-            CCoinsViewCache &view = *pcoinsTip;
-            const CCoins* coins = view.AccessCoins(hash);
-            if (coins)
-                nHeight = coins->nHeight;
+            // use input data, if valid, to locate the block that contains the cert
+            // this is useful in case of empty cert (no bwt and no change) because the coin db
+            // would have no info about it
+            pindexSlow = chainActive[blockHeight];
         }
-        if (nHeight > 0)
-            pindexSlow = chainActive[nHeight];
+        else
+        {
+            // use coin database to locate block that contains cert, and scan it
+            int nHeight = -1;
+            {
+                CCoinsViewCache &view = *pcoinsTip;
+                const CCoins* coins = view.AccessCoins(hash);
+                if (coins)
+                    nHeight = coins->nHeight;
+            }
+            if (nHeight > 0)
+            {
+                pindexSlow = chainActive[nHeight];
+            }
+        }
     }
 
     if (pindexSlow) {
