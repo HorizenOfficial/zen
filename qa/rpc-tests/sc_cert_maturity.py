@@ -66,7 +66,7 @@ class sc_cert_maturity(BitcoinTestFramework):
         creation_amount = Decimal("10.0")
         bwt_amount1      = Decimal("1.0")
         bwt_amount2      = Decimal("2.0")
-        bwt_amount3      = Decimal("3.0")
+        bwt_amount3      = Decimal("4.0")
 
         mark_logs("Node 0 generates 220 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(220)
@@ -142,6 +142,8 @@ class sc_cert_maturity(BitcoinTestFramework):
         mark_logs("Check the there are immature outputs in the unconfirmed tx data when cert is unconfirmed", self.nodes, DEBUG_MODE)
         ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
         assert_equal(ud['bwtImmatureOutput'], bwt_amount1+bwt_amount2)
+        # unconf bwt do not contribute to unconfOutput
+        assert_equal(ud['unconfirmedOutput'], Decimal("0.0"))
 
         mark_logs("Node0 generates 5 more blocks to achieve end of withdrawal epochs", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(5)
@@ -197,6 +199,7 @@ class sc_cert_maturity(BitcoinTestFramework):
 
         mark_logs("Check Node1 has not bwt in its balance yet", self.nodes, DEBUG_MODE)
         assert_equal(self.nodes[1].getbalance(), bal_without_bwt) 
+        assert_equal(self.nodes[1].z_getbalance(bwt_address), bal_without_bwt)
 
         mark_logs("Stopping and restarting nodes", self.nodes, DEBUG_MODE)
         stop_nodes(self.nodes)
@@ -206,6 +209,7 @@ class sc_cert_maturity(BitcoinTestFramework):
 
         mark_logs("Check Node1 still has not bwt in its balance", self.nodes, DEBUG_MODE)
         assert_equal(self.nodes[1].getbalance(), bal_without_bwt) 
+        assert_equal(self.nodes[1].z_getbalance(bwt_address), bal_without_bwt)
 
         mark_logs("Node0 generates 1 more block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
@@ -213,6 +217,7 @@ class sc_cert_maturity(BitcoinTestFramework):
 
         mark_logs("Check Node1 still has not bwt in its balance also after 1 block is mined", self.nodes, DEBUG_MODE)
         assert_equal(self.nodes[1].getbalance(), bal_without_bwt) 
+        assert_equal(self.nodes[1].z_getbalance(bwt_address), bal_without_bwt)
 
         mark_logs("Node0 generates 1 more block attaining the maturity of the first pair of bwts", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
@@ -221,6 +226,7 @@ class sc_cert_maturity(BitcoinTestFramework):
         mark_logs("Check Node1 now has bwts in its balance, and their maturity height is as expected", self.nodes, DEBUG_MODE)
         assert_equal(self.nodes[1].getblockcount(), bwtMaturityHeight) 
         assert_equal(self.nodes[1].getbalance(), bwt_amount1+bwt_amount2) 
+        assert_equal(self.nodes[1].z_getbalance(bwt_address), bwt_amount1+bwt_amount2)
 
         mark_logs("Check the output of the listtxesbyaddress cmd is not changed",
             self.nodes, DEBUG_MODE)
@@ -236,6 +242,15 @@ class sc_cert_maturity(BitcoinTestFramework):
         mark_logs("Check the there are no immature outputs in the unconfirmed tx data but the last cert bwt", self.nodes, DEBUG_MODE)
         ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
         assert_equal(ud['bwtImmatureOutput'], bwt_amount3 )
+
+        mark_logs("Node0 generates 5 more block attaining the maturity of the last bwt", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(5)
+        self.sync_all()
+
+        assert_equal(self.nodes[1].z_getbalance(bwt_address), bwt_amount1+bwt_amount2+bwt_amount3)
+        assert_equal(self.nodes[1].getbalance(), bwt_amount1+bwt_amount2+bwt_amount3)
+        ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
+        assert_equal(ud['bwtImmatureOutput'], Decimal("0.0") )
 
 
 

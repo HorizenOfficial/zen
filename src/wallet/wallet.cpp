@@ -2577,6 +2577,13 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
         for (MapTxWithInputs::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
         {
             const CWalletTransactionBase* pcoin = (*it).second.first;
+            
+            const CScCertificate* cert = nullptr;
+            if (pcoin->getTxBase()->IsCertificate() )
+            {
+                cert = dynamic_cast<const CScCertificate*>(pcoin->getTxBase());
+                assert(cert != nullptr);
+            }
 
             bool trusted = false;
             if (zconfchangeusage == eZeroConfChangeUsage::ZCC_UNDEF)
@@ -2596,6 +2603,12 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
 
                 for(const auto& txout : pcoin->getTxBase()->GetVout())
                 {
+                    if (cert && cert->IsBackwardTransfer(vout_idx) )
+                    {
+                        // skip any certificate bwt, they must not take part in unconfOutput amount
+                        continue;
+                    }
+
                     auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptToMatch.begin(), scriptToMatch.end());
                     if (res == txout.scriptPubKey.begin())
                     {
@@ -2646,12 +2659,9 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
                 }
             }
 
-            // only for certificates, look for immature amounts, not depending on number of confirmations
-            if (pcoin->getTxBase()->IsCertificate() )
+            // only for certificates, look for immature amounts of bwts, not depending on number of confirmations
+            if (cert != nullptr)
             {
-                const CScCertificate* cert = dynamic_cast<const CScCertificate*>(pcoin->getTxBase());
-                assert(cert);
-
                 for (unsigned int i = 0; i < cert->GetVout().size(); i++) {
                     if (cert->IsBackwardTransfer(i) &&
                         pcoin->IsOutputMature(i) == CCoins::outputMaturity::IMMATURE)
