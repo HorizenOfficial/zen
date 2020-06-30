@@ -436,12 +436,71 @@ TEST_F(CertInWalletTest, GetCredit_CoinBase)
     }
 }
 
+TEST_F(CertInWalletTest, GetCredit_FullCertificate_NotVoided)
+{
+    //Create certificate
+    CAmount changeAmount = 20;
+    CAmount bwtAmount = 12;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+            /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4);
+
+    CKey coinsKey;
+    coinsKey.MakeNewKey(true);
+    pWallet->AddKey(coinsKey);
+    CScript lockingScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    for(unsigned int pos = 0; pos < mutCert.getVout().size(); ++pos)
+        mutCert.getOut(pos).scriptPubKey = lockingScript;
+
+    CScCertificate cert = mutCert;
+
+    //Add block information
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
+    CWalletCert walletCert(pWallet, cert);
+    CBlock certBlock;
+    certBlock.vcert.push_back(cert);
+    walletCert.hashBlock = certBlock.GetHash();
+    walletCert.bwtMaturityDepth = 25;
+    walletCert.SetMerkleBranch(certBlock);
+    walletCert.fMerkleVerified = true; //shortcut
+
+    chainSettingUtils::ExtendChainActiveWithBlock(certBlock);
+    int certCreationHeight = chainActive.Height();
+
+    CAmount certCredit =-1;
+
+    //Test
+    for(int height = certCreationHeight; height < certCreationHeight + walletCert.bwtMaturityDepth; ++height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        certCredit = walletCert.GetCredit(ISMINE_SPENDABLE);
+        EXPECT_TRUE(changeAmount == certCredit)
+            <<"certCredit at height "<< height << " is "<<certCredit;
+    }
+
+    //Test
+    chainSettingUtils::ExtendChainActiveToHeight(certCreationHeight + walletCert.bwtMaturityDepth);
+    certCredit = walletCert.GetCredit(ISMINE_SPENDABLE);
+    EXPECT_TRUE((bwtAmount + changeAmount) == certCredit)
+        <<"certCredit is "<<int(certCredit);
+
+    //Test no hysteresis
+    for(int height = certCreationHeight + walletCert.bwtMaturityDepth -1; height >= certCreationHeight; --height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        certCredit = walletCert.GetCredit(ISMINE_SPENDABLE);
+        EXPECT_TRUE(changeAmount == certCredit)
+            <<"certCredit is "<<int(certCredit);
+    }
+}
+
 TEST_F(CertInWalletTest, GetCredit_BwtOnlyCertificate_NotVoided)
 {
     //Create certificate
-    CAmount certAmount = 12;
+    CAmount changeAmount = 0;
+    CAmount bwtAmount = 12;
     CMutableScCertificate mutCert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
-            /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/0, /*numChangeOut*/0, /*bwtTotalAmount*/certAmount, /*numBwt*/4);
+            /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/0, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4);
 
     CKey coinsKey;
     coinsKey.MakeNewKey(true);
@@ -480,7 +539,7 @@ TEST_F(CertInWalletTest, GetCredit_BwtOnlyCertificate_NotVoided)
     //Test
     chainSettingUtils::ExtendChainActiveToHeight(certCreationHeight + walletCert.bwtMaturityDepth);
     certCredit = walletCert.GetCredit(ISMINE_SPENDABLE);
-    EXPECT_TRUE(certAmount == certCredit)
+    EXPECT_TRUE(bwtAmount == certCredit)
         <<"certCredit is "<<int(certCredit);
 
     //Test no hysteresis
@@ -489,6 +548,64 @@ TEST_F(CertInWalletTest, GetCredit_BwtOnlyCertificate_NotVoided)
         chainSettingUtils::ExtendChainActiveToHeight(height);
         certCredit = walletCert.GetCredit(ISMINE_SPENDABLE);
         EXPECT_TRUE(CAmount(0) == certCredit)
+            <<"certCredit is "<<int(certCredit);
+    }
+}
+
+TEST_F(CertInWalletTest, GetCredit_NoBwtCertificate_NotVoided)
+{
+    //Create certificate
+    CAmount changeAmount = 20;
+    CAmount bwtAmount = 0;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+            /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/0);
+
+    CKey coinsKey;
+    coinsKey.MakeNewKey(true);
+    pWallet->AddKey(coinsKey);
+    CScript lockingScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    for(unsigned int pos = 0; pos < mutCert.getVout().size(); ++pos)
+        mutCert.getOut(pos).scriptPubKey = lockingScript;
+
+    CScCertificate cert = mutCert;
+
+    //Add block information
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/100);
+    CWalletCert walletCert(pWallet, cert);
+    CBlock certBlock;
+    certBlock.vcert.push_back(cert);
+    walletCert.hashBlock = certBlock.GetHash();
+    walletCert.bwtMaturityDepth = 25;
+    walletCert.SetMerkleBranch(certBlock);
+    walletCert.fMerkleVerified = true; //shortcut
+
+    chainSettingUtils::ExtendChainActiveWithBlock(certBlock);
+    int certCreationHeight = chainActive.Height();
+
+    CAmount certCredit =-1;
+
+    //Test
+    for(int height = certCreationHeight; height < certCreationHeight + walletCert.bwtMaturityDepth; ++height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        certCredit = walletCert.GetCredit(ISMINE_SPENDABLE);
+        EXPECT_TRUE(changeAmount == certCredit)
+            <<"certCredit at height "<< height << " is "<<certCredit;
+    }
+
+    //Test
+    chainSettingUtils::ExtendChainActiveToHeight(certCreationHeight + walletCert.bwtMaturityDepth);
+    certCredit = walletCert.GetCredit(ISMINE_SPENDABLE);
+    EXPECT_TRUE(changeAmount == certCredit)
+        <<"certCredit is "<<int(certCredit);
+
+    //Test no hysteresis
+    for(int height = certCreationHeight + walletCert.bwtMaturityDepth -1; height >= certCreationHeight; --height)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        certCredit = walletCert.GetCredit(ISMINE_SPENDABLE);
+        EXPECT_TRUE(changeAmount == certCredit)
             <<"certCredit is "<<int(certCredit);
     }
 }
