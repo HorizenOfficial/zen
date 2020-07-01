@@ -979,8 +979,6 @@ public:
     virtual void resizeOut(unsigned int newSize)                  = 0;
     virtual bool addOut(const CTxOut& out)                        = 0;
     virtual bool addBwt(const CTxOut& out)                        = 0;
-    virtual bool add(const CTxScCreationOut& out)                 = 0;
-    virtual bool add(const CTxForwardTransferOut& out)            = 0;
 };
 
 
@@ -1042,8 +1040,8 @@ struct CMutableTransaction : public CMutableTransactionBase
     void resizeOut(unsigned int newSize)                  override final;
     bool addOut(const CTxOut& out)                        override final;
     bool addBwt(const CTxOut& out)                        override final;
-    bool add(const CTxScCreationOut& out)                 override final;
-    bool add(const CTxForwardTransferOut& out)            override final;
+    bool add(const CTxScCreationOut& out);
+    bool add(const CTxForwardTransferOut& out);
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

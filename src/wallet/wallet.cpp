@@ -30,6 +30,7 @@ using namespace zen;
 
 #include "sc/sidechain.h"
 #include <univalue.h>
+#include "rpc/protocol.h"
 
 using namespace std;
 using namespace libzcash;
@@ -2994,8 +2995,9 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
     }
 
     // Turn the ccout set into a CcRecipientVariant vector
-    vector< Sidechain::CcRecipientVariant > vecCcSend;
-    Sidechain::fundCcRecipients(tx, vecCcSend);
+    vector<CRecipientScCreation> vecScSend;
+    vector<CRecipientForwardTransfer> vecFtSend;
+    Sidechain::fundCcRecipients(tx, vecScSend, vecFtSend);
     
     CCoinControl coinControl;
     coinControl.fAllowOtherInputs = true;
@@ -3004,7 +3006,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
 
     CReserveKey reservekey(this);
     CWalletTx wtx;
-    if (!CreateTransaction(vecSend, vecCcSend, wtx, reservekey, nFeeRet, nChangePosRet, strFailReason, &coinControl, false))
+    if (!CreateTransaction(vecSend, vecScSend, vecFtSend, wtx, reservekey, nFeeRet, nChangePosRet, strFailReason, &coinControl, false))
         return false;
 
     if (nChangePosRet != -1)
@@ -3031,7 +3033,9 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
 
 
 bool CWallet::CreateTransaction(
-    const std::vector<CRecipient>& vecSend, const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
+    const std::vector<CRecipient>& vecSend,
+    const std::vector<CRecipientScCreation>& vecScSend,
+    const std::vector<CRecipientForwardTransfer>& vecFtSend,
     CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
     int& nChangePosRet, std::string& strFailReason, const CCoinControl* coinControl, bool sign)
 {
@@ -3050,6 +3054,7 @@ bool CWallet::CreateTransaction(
             nSubtractFeeFromAmount++;
     }
 
+#if 0
     BOOST_FOREACH (const auto& ccRecipient, vecCcSend)
     {
         CAmount amount = boost::apply_visitor(CcRecipientAmountVisitor(), ccRecipient);
@@ -3060,8 +3065,30 @@ bool CWallet::CreateTransaction(
         }
         nValue += amount;
     }
+#else
+    for (auto entry : vecScSend)
+    {
+        CAmount amount = entry.nValue;
+        if (nValue < 0 || amount < 0)
+        {
+            strFailReason = _("Transaction amounts must be positive");
+            return false;
+        }
+        nValue += amount;
+    }
+    for (auto entry : vecFtSend)
+    {
+        CAmount amount = entry.nValue;
+        if (nValue < 0 || amount < 0)
+        {
+            strFailReason = _("Transaction amounts must be positive");
+            return false;
+        }
+        nValue += amount;
+    }
+#endif
 
-    if ( (vecSend.empty() && vecCcSend.empty() ) || nValue < 0)
+    if ( (vecSend.empty() && vecScSend.empty() && vecFtSend.empty() ) || nValue < 0)
     {
         strFailReason = _("Transaction amounts must be positive");
         return false;
@@ -3071,7 +3098,7 @@ bool CWallet::CreateTransaction(
     wtxNew.BindWallet(this);
     CMutableTransaction txNew;
 
-    if (!vecCcSend.empty() )
+    if (!vecScSend.empty() || !vecFtSend.empty() )
     {
         // set proper version
         txNew.nVersion = SC_TX_VERSION;
@@ -3150,7 +3177,23 @@ bool CWallet::CreateTransaction(
                 }
 
                 // vccouts to the payees
-                Sidechain::FillCcOutput(txNew, vecCcSend, strFailReason);
+//                Sidechain::FillCcOutput(txNew, vecCcSend, strFailReason);
+                for (auto entry : vecScSend)
+                {
+                    CTxScCreationOut txccout(entry.nValue, entry.address, entry.creationData);
+                    if (txccout.IsDust(::minRelayTxFee)) {
+                        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output, amount is too small"));
+                    }
+                    txNew.add(txccout);
+                }
+                for (auto entry : vecFtSend)
+                {
+                    CTxForwardTransferOut txccout(entry.scId, entry.nValue, entry.address);
+                    if (txccout.IsDust(::minRelayTxFee)) {
+                        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output, amount is too small"));
+                    }
+                    txNew.add(txccout);
+                }
 
                 // Choose coins to use
                 set<pair<const CWalletTransactionBase*,unsigned int> > setCoins;

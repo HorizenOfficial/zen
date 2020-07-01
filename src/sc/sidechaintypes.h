@@ -91,18 +91,9 @@ struct CRecipientForwardTransfer : public CRecipientCrossChainBase
 };
 
 
-struct CRecipientBackwardTransfer
-{
-    CScript scriptPubKey;
-    CAmount nValue;
-
-    CRecipientBackwardTransfer(): nValue(0) {};
-};
-
 typedef boost::variant<
         CRecipientScCreation,
-        CRecipientForwardTransfer,
-        CRecipientBackwardTransfer
+        CRecipientForwardTransfer
     > CcRecipientVariant;
 
 static const int MAX_SC_DATA_LEN = 1024;

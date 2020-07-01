@@ -521,11 +521,12 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtr
     CAmount nFeeRequired;
     std::string strError;
     vector<CRecipient> vecSend;
-    vector< Sidechain::CcRecipientVariant > vecCcSend;
+    vector<CRecipientScCreation> vecScSend;
+    vector<CRecipientForwardTransfer> vecFtSend;
     int nChangePosRet = -1;
     CRecipient recipient = {scriptPubKey, nValue, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
-    if (!pwalletMain->CreateTransaction(vecSend, vecCcSend, wtxNew, reservekey, nFeeRequired, nChangePosRet, strError)) {
+    if (!pwalletMain->CreateTransaction(vecSend, vecScSend, vecFtSend, wtxNew, reservekey, nFeeRequired, nChangePosRet, strError)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > pwalletMain->GetBalance())
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s because of its amount, complexity, or use of recently received funds!", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
@@ -666,7 +667,8 @@ UniValue sc_send(const UniValue& params, bool fHelp)
     return sc_sendmany(input, false);
 }
 
-static void ScHandleTransaction(CWalletTx& wtx, std::vector<CcRecipientVariant>& vecCcSend, const CAmount& nTotalOut)
+static void ScHandleTransaction(CWalletTx& wtx, std::vector<CRecipientScCreation>& vecScSend,
+    std::vector<CRecipientForwardTransfer>& vecFtSend, const CAmount& nTotalOut)
 {
     CAmount curBalance = pwalletMain->GetBalance();
     if (nTotalOut > curBalance)
@@ -677,7 +679,7 @@ static void ScHandleTransaction(CWalletTx& wtx, std::vector<CcRecipientVariant>&
     int nChangePosRet = -1;
     string strFailReason;
     std::vector<CRecipient> vecSend;
-    bool fCreated = pwalletMain->CreateTransaction(vecSend, vecCcSend, wtx, keyChange, nFeeRequired, nChangePosRet, strFailReason);
+    bool fCreated = pwalletMain->CreateTransaction(vecSend, vecScSend, vecFtSend, wtx, keyChange, nFeeRequired, nChangePosRet, strFailReason);
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     if (!pwalletMain->CommitTransaction(wtx, keyChange))
@@ -775,15 +777,14 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         }
     }
 
-    CcRecipientVariant r(sc);
-
-    vector<CcRecipientVariant> vecCcSend;
-    vecCcSend.push_back(r);
+    vector<CRecipientForwardTransfer> dumVec;
+    vector<CRecipientScCreation> vecScSend;
+    vecScSend.push_back(sc);
 
     EnsureWalletIsUnlocked();
 
     CWalletTx wtx;
-    ScHandleTransaction(wtx, vecCcSend, nAmount);
+    ScHandleTransaction(wtx, vecScSend, dumVec, nAmount);
 
     return wtx.GetHash().GetHex();
 }
@@ -1000,17 +1001,12 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     CMutableTransaction tx_create;
     tx_create.nVersion = SC_TX_VERSION;
 
-    std::vector<ScRpcCreationCmd::sCrOutParams> vOutputs;
-    vOutputs.push_back(ScRpcCreationCmd::sCrOutParams(toaddress, nAmount));
+    std::vector<ScRpcCreationCmdTx::sCrOutParams> vOutputs;
+    vOutputs.push_back(ScRpcCreationCmdTx::sCrOutParams(toaddress, nAmount));
 
-    Sidechain::ScRpcCreationCmd cmd(tx_create, vOutputs, fromaddress, changeaddress, nMinDepth, nFee, creationData);
+    Sidechain::ScRpcCreationCmdTx cmd(tx_create, vOutputs, fromaddress, changeaddress, nMinDepth, nFee, creationData);
 
-    cmd.addInputs();
-    cmd.addChange();
-    cmd.addCcOutputs();
-
-    cmd.sign();
-    cmd.send();
+    cmd.execute();
         
     return tx_create.GetHash().GetHex();
 }
@@ -1059,7 +1055,7 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
     UniValue outputsArr = params[0].get_array();
 
     // ---------------------------------------------------------
-    std::vector<ScRpcSendCmd::sFtOutParams> vOutputs;
+    std::vector<ScRpcSendCmdTx::sFtOutParams> vOutputs;
     CAmount totalAmount = 0;
 
     if (outputsArr.size()==0)
@@ -1138,7 +1134,7 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
             }
         }
  
-        vOutputs.push_back(ScRpcSendCmd::sFtOutParams(scId, toaddress, nAmount));
+        vOutputs.push_back(ScRpcSendCmdTx::sFtOutParams(scId, toaddress, nAmount));
         totalAmount += nAmount;
     }
 
@@ -1223,14 +1219,8 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
     CMutableTransaction tx_fwd;
     tx_fwd.nVersion = SC_TX_VERSION;
 
-    Sidechain::ScRpcSendCmd cmd(tx_fwd, vOutputs, fromaddress, changeaddress, nMinDepth, nFee);
-
-    cmd.addInputs();
-    cmd.addChange();
-    cmd.addCcOutputs();
-
-    cmd.sign();
-    cmd.send();
+    Sidechain::ScRpcSendCmdTx cmd(tx_fwd, vOutputs, fromaddress, changeaddress, nMinDepth, nFee);
+    cmd.execute();
         
     return tx_fwd.GetHash().GetHex();
 }
@@ -1832,8 +1822,10 @@ UniValue sendmany(const UniValue& params, bool fHelp)
     CAmount nFeeRequired = 0;
     int nChangePosRet = -1;
     string strFailReason;
-    vector< Sidechain::CcRecipientVariant > vecCcSend;
-    bool fCreated = pwalletMain->CreateTransaction(vecSend, vecCcSend, wtx, keyChange, nFeeRequired, nChangePosRet, strFailReason);
+    vector<CRecipientScCreation> dumVecScSend;
+    vector<CRecipientForwardTransfer> dumVecFtSend;
+
+    bool fCreated = pwalletMain->CreateTransaction(vecSend, dumVecScSend, dumVecFtSend, wtx, keyChange, nFeeRequired, nChangePosRet, strFailReason);
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     if (!pwalletMain->CommitTransaction(wtx, keyChange))
@@ -4603,7 +4595,7 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
 
     // Recipients
     CAmount nTotalOut = 0;
-    vector<CcRecipientVariant> vecSend;
+    vector<CRecipientForwardTransfer> vecFtSend;
 
     for (const UniValue& o : outputs.getValues())
     {
@@ -4647,7 +4639,7 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
         ft.nValue = nAmount;
         ft.scId = scId;
 
-        vecSend.push_back(CcRecipientVariant(ft));
+        vecFtSend.push_back(ft);
 
         nTotalOut += nAmount;
     }
@@ -4661,7 +4653,7 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
     txsize += tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     txsize += CTXIN_SPEND_DUST_SIZE;
     txsize += CTXOUT_REGULAR_SIZE;      // There will probably be taddr change
-    txsize += CTXOUT_REGULAR_SIZE * vecSend.size();
+    txsize += CTXOUT_REGULAR_SIZE * vecFtSend.size();
     if (txsize > MAX_TX_SIZE) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Too many outputs, size of raw transaction would be larger than limit of %d bytes", MAX_TX_SIZE ));
     }
@@ -4671,7 +4663,8 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
     // Send
     CWalletTx wtx;
 
-    ScHandleTransaction(wtx, vecSend, nTotalOut);
+    vector<CRecipientScCreation> dumVecScSend;
+    ScHandleTransaction(wtx, dumVecScSend, vecFtSend, nTotalOut);
 
     return wtx.GetHash().GetHex();
 }
@@ -4868,13 +4861,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     }
 
     Sidechain::ScRpcCmdCert cmd(cert, vBackwardTransfers, fromaddress, changeaddress, nMinDepth, nCertFee);
-
-    cmd.addInputs();
-    cmd.addChange();
-    cmd.addBackwardTransfers();
-
-    cmd.sign();
-    cmd.send();
+    cmd.execute();
 
     return cert.GetHash().GetHex();
 }

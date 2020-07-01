@@ -274,6 +274,21 @@ CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert) :
     vout = cert.GetVout();
 }
 
+CMutableScCertificate& CMutableScCertificate::operator=(const CMutableScCertificate& rhs)
+{
+    nVersion          = rhs.nVersion;
+    vin               = rhs.vin;
+    vout              = rhs.vout;
+    scId              = rhs.scId;
+    epochNumber       = rhs.epochNumber;
+    quality           = rhs.quality;
+    endEpochBlockHash = rhs.endEpochBlockHash;
+    scProof           = rhs.scProof;
+    *const_cast<int*>(&nFirstBwtPos) = rhs.nFirstBwtPos;
+
+    return *this;
+}
+
 uint256 CMutableScCertificate::GetHash() const
 {
     return SerializeHash(*this);
@@ -318,9 +333,6 @@ bool CMutableScCertificate::addBwt(const CTxOut& out) {
     vout.push_back(out);
     return true;
 }
-
-bool CMutableScCertificate::add(const CTxScCreationOut& out) {return false;}
-bool CMutableScCertificate::add(const CTxForwardTransferOut& out) {return false;}
 
 std::string CMutableScCertificate::ToString() const
 {
