@@ -1194,6 +1194,8 @@ bool CWallet::AddToWallet(const CWalletTransactionBase& wtxIn, bool fFromLoadWal
                 wtx.fFromMe = wtxIn.fFromMe;
                 fUpdated = true;
             }
+
+            wtx.bwtMaturityDepth = wtxIn.bwtMaturityDepth;
         }
 
         //// debug print
@@ -1254,7 +1256,7 @@ bool CWallet::UpdatedNoteData(const CWalletTransactionBase& wtxIn, CWalletTransa
  * updated; instead, the transaction being in the mempool or conflicted is determined on
  * the fly in CMerkleTx::GetDepthInMainChain().
  */
-bool CWallet::AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, bool fUpdate)
+bool CWallet::AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, int bwtMaturityDepth, bool fUpdate)
 {
     {
         AssertLockHeld(cs_wallet);
@@ -1266,6 +1268,8 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock
             if (fExisted || IsMine(obj) || IsFromMe(obj) || noteData.size() > 0)
             {
                 std::shared_ptr<CWalletTransactionBase> sobj = CWalletTransactionBase::MakeWalletObjectBase(obj, this);
+                sobj->bwtMaturityDepth = bwtMaturityDepth;
+
                 if (noteData.size() > 0) {
                     sobj->SetNoteData(noteData);
                 }
@@ -1296,7 +1300,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock
 void CWallet::SyncTransaction(const CTransaction& tx, const CBlock* pblock)
 {
     LOCK(cs_wallet);
-    if (!AddToWalletIfInvolvingMe(tx, pblock, true))
+    if (!AddToWalletIfInvolvingMe(tx, pblock, -1, true))
         return; // Not one of ours
 
     MarkAffectedTransactionsDirty(tx);
@@ -1305,23 +1309,8 @@ void CWallet::SyncTransaction(const CTransaction& tx, const CBlock* pblock)
 void CWallet::SyncCertificate(const CScCertificate& cert, const CBlock* pblock, int bwtMaturityHeight)
 {
     LOCK(cs_wallet);
-    if (!AddToWalletIfInvolvingMe(cert, pblock, true))
+    if (!AddToWalletIfInvolvingMe(cert, pblock, bwtMaturityHeight, true))
         return; // Not one of ours
-
-    std::map<uint256, std::shared_ptr<CWalletTransactionBase>>::iterator itCert = mapWallet.find(cert.GetHash());
-    assert(itCert != mapWallet.end());
-    assert(itCert->second->getTxBase()->IsCertificate());
-    itCert->second->bwtMaturityDepth = bwtMaturityHeight;
-
-    // Write to disk
-    CWalletDB walletdb(strWalletFile, "r+", false);
-    if (!itCert->second->WriteToDisk(&walletdb))
-    {
-        LogPrintf("%s():%d - ERROR in writing to db\n", __func__, __LINE__);
-    }
-
-    // Break debit/credit balance caches:
-    itCert->second->MarkDirty();
 
     MarkAffectedTransactionsDirty(cert);
 }
@@ -1337,10 +1326,13 @@ void CWallet::SyncVoidedCert(const uint256& certHash, bool bwtAreStripped)
     assert(itCert->second.get()->getTxBase()->IsCertificate());
     itCert->second.get()->areBwtCeased = bwtAreStripped;
 
+    // Write to disk
+    CWalletDB walletdb(strWalletFile, "r+", false);
+    if (!itCert->second->WriteToDisk(&walletdb))
+        LogPrintf("%s():%d - ERROR in writing to db\n", __func__, __LINE__);
+
     LogPrintf("%s():%d - Called for cert[%s], bwtAreStripped[%d]\n",
         __func__, __LINE__, certHash.ToString(), bwtAreStripped);
-
-    MarkAffectedTransactionsDirty(*(itCert->second.get()->getTxBase()));
 }
 
 void CWallet::MarkAffectedTransactionsDirty(const CTransactionBase& tx)
@@ -2026,23 +2018,31 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
   
             for (const CTransactionBase* obj: vTxBase)
             {
-                if (AddToWalletIfInvolvingMe(*obj, &block, fUpdate))
+                int bwtMatDepth = -1;
+                bool areBwtVoided = false;
+
+                if (obj->IsCertificate())
+                {
+                    int nHeight = pindex->nHeight;
+                    const CScCertificate& cert = dynamic_cast<const CScCertificate&>(*obj);
+                    CSidechain sidechain;
+                    assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
+                    int currentEpoch = sidechain.EpochFor(nHeight);
+                    bwtMatDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
+                        sidechain.SafeguardMargin() - nHeight;
+
+                    if (CSidechain::State::CEASED == pcoinsTip->isCeasedAtHeight(cert.GetScId(), chainActive.Height()))
+                        areBwtVoided = true;
+                }
+
+                if (AddToWalletIfInvolvingMe(*obj, &block, bwtMatDepth, fUpdate))
                 {
                     ret++;
 
-#if 1
-                    if (obj->IsCertificate() )
+                    if (fUpdate && obj->IsCertificate())
                     {
-                        int nHeight = pindex->nHeight;
-                        const CScCertificate& cert = dynamic_cast<const CScCertificate&>(*obj);
-                        CSidechain sidechain;
-                        assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
-                        int currentEpoch = sidechain.EpochFor(nHeight);
-                        int bwtMaturityDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
-                            sidechain.SafeguardMargin() - nHeight;
-                        SyncCertificate(cert, &block, bwtMaturityDepth);
+                        SyncVoidedCert(obj->GetHash(), areBwtVoided);
                     }
-#endif
                 }
             }
 

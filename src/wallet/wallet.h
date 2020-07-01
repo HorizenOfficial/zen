@@ -1074,13 +1074,13 @@ public:
     void SyncTransaction(const CTransaction& tx, const CBlock* pblock) override;
     void SyncCertificate(const CScCertificate& cert, const CBlock* pblock, int bwtMaturityDepth = -1) override;
     void SyncVoidedCert(const uint256& certHash, bool bwtAreStripped) override;
-    bool AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, bool fUpdate);
+    bool AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, int bwtMaturityDepth, bool fUpdate);
     void EraseFromWallet(const uint256 &hash) override;
     void WitnessNoteCommitment(
          std::vector<uint256> commitments,
          std::vector<boost::optional<ZCIncrementalWitness>>& witnesses,
          uint256 &final_anchor);
-    int ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate = false);
+    int ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate);
     void ReacceptWalletTransactions();
     void ResendWalletTransactions(int64_t nBestBlockTime) override;
     std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime);
