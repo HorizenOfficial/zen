@@ -136,7 +136,7 @@ typedef std::pair<CWalletTransactionBase*, CAccountingEntry*> TxPair;
 typedef std::multimap<int64_t, TxPair > TxItems;
 
 typedef std::pair<CWalletTransactionBase*, std::vector<CWalletTransactionBase*> > TxWithInputsPair;
-typedef std::map<int64_t, TxWithInputsPair> MapTxWithInputs;
+typedef std::vector<TxWithInputsPair> vTxWithInputs;
 
 static void ReadOrderPos(int64_t& nOrderPos, mapValue_t& mapValue)
 {
@@ -433,7 +433,7 @@ public:
 
     void AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletTransactionBase*>& vtxIn) const;
     void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const;
-    void addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const;
+    void addInputTxToVector(std::vector<CWalletTransactionBase*>& vec, const CScript& scriptPubKey, bool& inputFound) const;
 };
 
 /** 
@@ -1064,8 +1064,7 @@ public:
      */
     int64_t IncOrderPosNext(CWalletDB *pwalletdb = NULL);
 
-    /* TODO rewrite this using a wtxOrdered data member */
-    MapTxWithInputs OrderedTxWithInputsMap(const std::string& address) const;
+    vTxWithInputs OrderedTxWithInputs(const std::string& address) const;
 
     void MarkDirty();
     bool UpdateNullifierNoteMap();
