@@ -404,6 +404,9 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-tlskeypwd=<password>", _("Password for a private key encryption (default: not set, i.e. private key will be stored unencrypted)"));
     strUsage += HelpMessageOpt("-tlscertpath=<path>", _("Full path to a certificate"));
     strUsage += HelpMessageOpt("-tlstrustdir=<path>", _("Full path to a trusted certificates directory"));
+    strUsage += HelpMessageOpt("-websocket=<0 or 1>", _("If set to 1 opens a websocket channel listening for client connections (default: 0)"));
+    strUsage += HelpMessageOpt("-wsaddress=<ip address>", _("If websocket=1, listen for ws connections at this ip address (default: 127.0.0.1)"));
+    strUsage += HelpMessageOpt("-wsport=<port>", _("If websocket=1, listen for ws connections at this ip port (default: 8888)"));
 #ifdef USE_UPNP
 #if USE_UPNP
     strUsage += HelpMessageOpt("-upnp", _("Use UPnP to map the listening port (default: 1 when listening and no -proxy)"));
