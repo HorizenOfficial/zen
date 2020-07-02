@@ -1681,7 +1681,7 @@ CWalletTx::CWalletTx(const CWalletTx& rhs):
 CWalletTx& CWalletTx::operator=(const CWalletTx& rhs)
 {
     CWalletTransactionBase::operator=(rhs);
-    this->wrappedTx = rhs.wrappedTx;
+    *const_cast<CTransaction*>(&wrappedTx) = rhs.wrappedTx;
     this->mapNoteData = rhs.mapNoteData;
     CWalletTransactionBase::pTxBase = &wrappedTx;
     return *this;
@@ -4381,7 +4381,7 @@ CWalletCert::CWalletCert(const CWalletCert& rhs):
 CWalletCert& CWalletCert::operator=(const CWalletCert& rhs)
 {
     CWalletTransactionBase::operator=(rhs);
-    wrappedCertificate = rhs.wrappedCertificate;
+    *const_cast<CScCertificate*>(&wrappedCertificate) = rhs.wrappedCertificate;
     CWalletTransactionBase::pTxBase = &wrappedCertificate;
     return *this;
 }
