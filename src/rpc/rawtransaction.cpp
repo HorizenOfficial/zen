@@ -1574,6 +1574,7 @@ UniValue sendrawcertificate(const UniValue& params, bool fHelp)
         bool fMissingInputs;
         if (!AcceptCertificateToMemoryPool(mempool, state, cert, false, &fMissingInputs, !fOverrideFees))
         {
+            LogPrintf("%s():%d - cert[%s] not accepted in mempool\n", __func__, __LINE__, hashCertificate.ToString());
             if (state.IsInvalid())
             {
                 throw JSONRPCError(RPC_TRANSACTION_REJECTED, strprintf("%i: %s", state.GetRejectCode(), state.GetRejectReason()));
@@ -1584,7 +1585,7 @@ UniValue sendrawcertificate(const UniValue& params, bool fHelp)
                 {
                     throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
                 }
-                throw JSONRPCError(RPC_TRANSACTION_ERROR, state.GetRejectReason());
+                throw JSONRPCError(RPC_TRANSACTION_ERROR, "certificate not accepted to mempool");
             }
         }
     }

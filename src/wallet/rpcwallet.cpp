@@ -4696,7 +4696,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             "      \"pubkeyhash\":\"pkh\"    (string, required) The public key hash of the receiver\n"
             "      \"amount\":amount       (numeric, required) The numeric amount in ZEN\n"
             "    }, ... ]\n"
-            "7. fee                     (numeric, optional) The fee of the certificate in ZEN\n"
+            "7. fee                     (numeric, optional, default=" + strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee of the certificate in ZEN\n"
             "\nResult:\n"
             "  \"certificateId\"   (string) The resulting certificate id.\n"
             "\nExamples:\n"
@@ -4724,7 +4724,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     if (!scView.GetSidechain(scId,scInfo))
     {
         LogPrint("sc", "scid[%s] does not exists \n", scId.ToString() );
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not exists: ") + scId.ToString());
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid does not exists: ") + scId.ToString());
     }
     cert.scId = scId;
 
@@ -4790,12 +4790,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         cert.scProof = libzendoomc::ScProof(scProofVec);
 
         if(!libzendoomc::IsValidScProof(cert.scProof))
-#if 1
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert scProof"));
-#else
-// TODO TEST TEST TEST for websocket
-         {;}
-#endif
     }
 
     // can be empty
@@ -4844,13 +4839,19 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         nTotalOut += nAmount;
     }
 
-    // fee
-    CAmount nCertFee = 0;
+    // fee, default to a small amount
+    CAmount nCertFee = SC_RPC_OPERATION_DEFAULT_MINERS_FEE;
     if (params.size() > 6)
     {
-        nCertFee = AmountFromValue(params[6]);
+        try {
+            nCertFee = AmountFromValue(params[6]);
+        } catch (const UniValue& error) {
+            UniValue errMsg  = find_value(error, "message");
+            throw JSONRPCError(RPC_TYPE_ERROR, ("Invalid fee param:" + errMsg.getValStr() ));
+        } 
+
         if (nCertFee < 0)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for fee, must be positive or null");
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for fee, can not be negative");
         // any check for upper threshold is left to cert processing
     }
 
