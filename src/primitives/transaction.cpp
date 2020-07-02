@@ -909,8 +909,8 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
         // ... or the actual shielded version
         if(nVersion != GROTH_TX_VERSION)
         {
-            LogPrintf("ContextualCheck(): rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
-                nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
+            LogPrintf("%s():%d - rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
+                __func__, __LINE__, nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
             return state.DoS(dosLevel,
                              error("ContextualCheck(): unexpected tx version"),
                              REJECT_INVALID, "bad-tx-version-unexpected");
@@ -924,8 +924,8 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
 
         if(nVersion < TRANSPARENT_TX_VERSION)
         {
-            LogPrintf("ContextualCheck(): rejecting (ver=%d) transaction at block height %d - groth_active[%d], sidechain_active[%d]\n",
-                nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
+            LogPrintf("%s():%d - rejecting (ver=%d) transaction at block height %d - groth_active[%d] (shieldedTxVersion=%d), sidechain_active[%d]\n",
+                __func__, __LINE__, nVersion, nHeight, (int)isGROTHActive, shieldedTxVersion, (int)areSidechainsSupported);
             return state.DoS(0,
                              error("ContextualCheck(): unexpected tx version"),
                              REJECT_INVALID, "bad-tx-version-unexpected");

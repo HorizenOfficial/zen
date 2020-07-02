@@ -286,45 +286,6 @@ void fundCcRecipients(const CTransaction& tx,
 //--------------------------------------------------------------------------------------------
 // Cross chain outputs
 
-bool CRecipientHandler::visit(const CcRecipientVariant& rec)
-{
-    return boost::apply_visitor(CcRecipientVisitor(this), rec);
-};
-
-
-bool CRecipientHandler::handle(const CRecipientScCreation& r)
-{
-    CTxScCreationOut txccout(r.nValue, r.address, r.creationData);
-    // no dust can be found in sc creation
-    return tx->add(txccout);
-};
-
-bool CRecipientHandler::handle(const CRecipientForwardTransfer& r)
-{
-    CTxForwardTransferOut txccout(r.scId, r.nValue, r.address);
-    if (txccout.IsDust(::minRelayTxFee))
-    {
-        err = _("Transaction amount too small");
-        return false;
-    }
-    return tx->add(txccout);
-};
-
-#if 0
-bool FillCcOutput(CMutableTransaction& tx, std::vector<Sidechain::CcRecipientVariant> vecCcSend, std::string& strFailReason)
-{
-    for (const auto& ccRecipient: vecCcSend)
-    {
-        CRecipientHandler handler(&tx, strFailReason);
-        if (!handler.visit(ccRecipient) )
-        {
-            return false;
-        }
-    }
-    return true;
-}
-#endif
-
 ScRpcCmd::ScRpcCmd(
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee): 
@@ -669,29 +630,11 @@ void ScRpcCreationCmdTx::addCcOutputs()
         throw JSONRPCError(RPC_WALLET_ERROR, strprintf("invalid number of output: %d!", _outParams.size()));
     }
 
-#if 0
-    std::vector<CcRecipientVariant> vecCcSend;
-
-    // creation output
-    CRecipientScCreation sc;
-    sc.address = _outParams[0]._toScAddress;
-    sc.nValue = _outParams[0]._nAmount;
-    sc.creationData = _creationData;
-
-    vecCcSend.push_back(CcRecipientVariant(sc));
-
-    std::string strFailReason;
-    if (!FillCcOutput(_tx, vecCcSend, strFailReason))
-    {
-        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output! %s", strFailReason.c_str()));
-    }
-#else
     CTxScCreationOut txccout(_outParams[0]._nAmount, _outParams[0]._toScAddress, _creationData);
     if (txccout.IsDust(::minRelayTxFee)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output, amount is too small"));
     }
     _tx.add(txccout);
-#endif
 }
 
 ScRpcSendCmdTx::ScRpcSendCmdTx(
@@ -715,25 +658,6 @@ void ScRpcSendCmdTx::addCcOutputs()
         throw JSONRPCError(RPC_WALLET_ERROR, "null number of output!");
     }
 
-#if 0
-    std::vector<CcRecipientVariant> vecCcSend;
-
-    for (const auto& entry : _outParams)
-    {
-        CRecipientForwardTransfer ft;
-        ft.address = entry._toScAddress;
-        ft.nValue = entry._nAmount;
-        ft.scId = entry._scid;
-
-        vecCcSend.push_back(CcRecipientVariant(ft));
-    }
-
-    std::string strFailReason;
-    if (!FillCcOutput(_tx, vecCcSend, strFailReason))
-    {
-        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output! %s", strFailReason.c_str()));
-    }
-#else
     for (const auto& entry : _outParams)
     {
         CTxForwardTransferOut txccout(entry._scid, entry._nAmount, entry._toScAddress);
@@ -742,7 +666,6 @@ void ScRpcSendCmdTx::addCcOutputs()
         }
         _tx.add(txccout);
     }
-#endif
 }
 
 }  // end of namespace

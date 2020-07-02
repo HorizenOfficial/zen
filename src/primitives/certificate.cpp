@@ -78,9 +78,6 @@ bool CScCertificate::IsValidVersion(CValidationState &state) const
 
 bool CScCertificate::IsVersionStandard(int nHeight) const
 {
-    if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
-        return false;
-
     return true;
 }
 

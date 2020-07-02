@@ -777,12 +777,12 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         }
     }
 
-    vector<CRecipientForwardTransfer> dumVec;
     vector<CRecipientScCreation> vecScSend;
     vecScSend.push_back(sc);
 
     EnsureWalletIsUnlocked();
-
+    vector<CRecipientForwardTransfer> dumVec;
+    
     CWalletTx wtx;
     ScHandleTransaction(wtx, vecScSend, dumVec, nAmount);
 

@@ -105,7 +105,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewSidechainsAreAcceptedToMempool) {
     CValidationState txState;
     bool missingInputs = false;
 
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, txState, scTx, false, &missingInputs));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, txState, scTx, false, &missingInputs, /*disconnecting*/false));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed) {
@@ -125,7 +125,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed
     CValidationState fwdTxState;
     bool missingInputs = false;
 
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs, /*disconnecting*/false));
 }
 
 //A proof that https://github.com/ZencashOfficial/zen/issues/215 is solved
@@ -134,12 +134,12 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToSideChainsInMempoolAreAllowed
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CValidationState scTxState;
     bool missingInputs = false;
-    AcceptTxToMemoryPool(mempool, scTxState, scTx, false, &missingInputs);
+    AcceptTxToMemoryPool(mempool, scTxState, scTx, false, &missingInputs, /*disconnecting*/false);
     ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs, /*disconnecting*/false));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSideChainAreNotAllowed) {
@@ -148,7 +148,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSideChainAreNotAllowed
     CValidationState fwdTxState;
     bool missingInputs = false;
 
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs, /*disconnecting*/false));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {

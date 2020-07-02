@@ -20,40 +20,6 @@ class CSidechain;
 namespace Sidechain
 {
 
-class CRecipientHandler
-{
-    private:
-       CMutableTransaction* tx;
-       std::string& err;
-
-    public:
-       CRecipientHandler(CMutableTransaction* objIn, std::string& errIn)
-           : tx(objIn), err(errIn) {}
-
-    bool visit(const CcRecipientVariant& rec);
-
-    bool handle(const CRecipientScCreation& r);
-    bool handle(const CRecipientForwardTransfer& r);
-};
-
-class CcRecipientVisitor : public boost::static_visitor<bool>
-{
-    private:
-       CRecipientHandler* handler;
-    public:
-       explicit CcRecipientVisitor(CRecipientHandler* hIn) : handler(hIn) {}
-
-    template <typename T>
-    bool operator() (const T& r) const { return handler->handle(r); }
-};
-
-class CcRecipientAmountVisitor : public boost::static_visitor<CAmount>
-{
-    public:
-    CAmount operator() (const CRecipientScCreation& r) const { return r.nValue; }
-    CAmount operator() (const CRecipientForwardTransfer& r) const { return r.nValue; }
-};
-
 // used in get tx family of rpc commands
 void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj);
 
@@ -108,6 +74,30 @@ class ScRpcCmd
 
 };
 
+class ScRpcCmdTx : public ScRpcCmd
+{
+  protected:
+    // this is a reference to the tx that gets processed
+    CMutableTransaction& _tx;
+
+    virtual void addOutput(const CTxOut& out) override {_tx.addOut(out); }
+    virtual void addInput(const CTxIn& in) override    {_tx.vin.push_back(in); }
+
+    virtual void addCcOutputs() = 0;
+
+    void sign() override;
+    void send() override;    
+
+  public:
+    ScRpcCmdTx(
+        CMutableTransaction& tx,
+        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
+        int minConf, const CAmount& nFee);
+
+    virtual void execute() override;
+
+};
+
 class ScRpcCmdCert : public ScRpcCmd
 {
   protected:
@@ -144,29 +134,6 @@ class ScRpcCmdCert : public ScRpcCmd
     virtual void execute() override;
 };
 
-class ScRpcCmdTx : public ScRpcCmd
-{
-  protected:
-    // this is a reference to the tx that gets processed
-    CMutableTransaction& _tx;
-
-    virtual void addOutput(const CTxOut& out) override {_tx.addOut(out); }
-    virtual void addInput(const CTxIn& in) override    {_tx.vin.push_back(in); }
-
-    virtual void addCcOutputs() = 0;
-
-    void sign() override;
-    void send() override;    
-
-  public:
-    ScRpcCmdTx(
-        CMutableTransaction& tx,
-        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
-        int minConf, const CAmount& nFee);
-
-    virtual void execute() override;
-
-};
 
 class ScRpcCreationCmdTx : public ScRpcCmdTx
 {
@@ -221,8 +188,6 @@ class ScRpcSendCmdTx : public ScRpcCmdTx
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee);
 };
-
-bool FillCcOutput(CMutableTransaction& tx, std::vector<Sidechain::CcRecipientVariant> vecCcSend, std::string& strFailReason);
 
 }; // end of namespace
 

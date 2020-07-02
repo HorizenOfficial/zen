@@ -2066,7 +2066,7 @@ void CWallet::ReacceptWalletTransactions()
     {
         CWalletTransactionBase& wtx = *(item.second);
         LOCK(mempool.cs);
-        AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtx.getTxBase(), false, nullptr, true);
+        AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtx.getTxBase(), false, nullptr, /* disconnecting */false, /*fRejectAbsurdFee*/ true);
     }
 }
 
@@ -3054,19 +3054,7 @@ bool CWallet::CreateTransaction(
             nSubtractFeeFromAmount++;
     }
 
-#if 0
-    BOOST_FOREACH (const auto& ccRecipient, vecCcSend)
-    {
-        CAmount amount = boost::apply_visitor(CcRecipientAmountVisitor(), ccRecipient);
-        if (nValue < 0 || amount < 0)
-        {
-            strFailReason = _("Transaction amounts must be positive");
-            return false;
-        }
-        nValue += amount;
-    }
-#else
-    for (auto entry : vecScSend)
+    for (const auto& entry : vecScSend)
     {
         CAmount amount = entry.nValue;
         if (nValue < 0 || amount < 0)
@@ -3076,7 +3064,8 @@ bool CWallet::CreateTransaction(
         }
         nValue += amount;
     }
-    for (auto entry : vecFtSend)
+
+    for (const auto& entry : vecFtSend)
     {
         CAmount amount = entry.nValue;
         if (nValue < 0 || amount < 0)
@@ -3086,7 +3075,6 @@ bool CWallet::CreateTransaction(
         }
         nValue += amount;
     }
-#endif
 
     if ( (vecSend.empty() && vecScSend.empty() && vecFtSend.empty() ) || nValue < 0)
     {
@@ -3177,8 +3165,7 @@ bool CWallet::CreateTransaction(
                 }
 
                 // vccouts to the payees
-//                Sidechain::FillCcOutput(txNew, vecCcSend, strFailReason);
-                for (auto entry : vecScSend)
+                for (const auto& entry : vecScSend)
                 {
                     CTxScCreationOut txccout(entry.nValue, entry.address, entry.creationData);
                     if (txccout.IsDust(::minRelayTxFee)) {
@@ -3186,7 +3173,8 @@ bool CWallet::CreateTransaction(
                     }
                     txNew.add(txccout);
                 }
-                for (auto entry : vecFtSend)
+
+                for (const auto& entry : vecFtSend)
                 {
                     CTxForwardTransferOut txccout(entry.scId, entry.nValue, entry.address);
                     if (txccout.IsDust(::minRelayTxFee)) {
@@ -3436,7 +3424,7 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
         {
             // Broadcast
             CValidationState stateDummy;
-            if (!AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtxNew.getTxBase(), false, nullptr, true))
+            if (!AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtxNew.getTxBase(), false, nullptr, /* disconnecting */false, /*fRejectAbsurdFee*/ true))
             {
                 // This must not fail. The transaction has already been signed and recorded.
                 LogPrintf("CommitTransaction(): Error: Transaction not valid\n");

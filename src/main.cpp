@@ -1029,7 +1029,7 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
 }
 
 bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee, bool disconnecting)
+                        bool* pfMissingInputs,  bool disconnecting, bool fRejectAbsurdFee)
 {
     AssertLockHeld(cs_main);
     if (pfMissingInputs)
@@ -1249,7 +1249,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
 
 bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee, bool disconnecting)
+                        bool* pfMissingInputs,  bool disconnecting, bool fRejectAbsurdFee)
 {
     AssertLockHeld(cs_main);
     if (pfMissingInputs)
@@ -1509,19 +1509,19 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
 }
 
 bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee, bool disconnecting)
+                        bool* pfMissingInputs,  bool disconnecting, bool fRejectAbsurdFee)
 {
     try
     {
         if (txBase.IsCertificate())
         {
             return AcceptCertificateToMemoryPool(pool, state, dynamic_cast<const CScCertificate&>(txBase), fLimitFree,
-                pfMissingInputs, fRejectAbsurdFee, disconnecting);
+                pfMissingInputs, disconnecting, fRejectAbsurdFee);
         }
         else
         {
             return AcceptTxToMemoryPool(pool, state, dynamic_cast<const CTransaction&>(txBase), fLimitFree,
-                pfMissingInputs, fRejectAbsurdFee, disconnecting);
+                pfMissingInputs, disconnecting, fRejectAbsurdFee);
         }
     }
     catch (...)
@@ -3107,7 +3107,7 @@ bool static DisconnectTip(CValidationState &state) {
             LogPrint("sc", "%s():%d - resurrecting tx [%s] to mempool\n", __func__, __LINE__, tx.GetHash().ToString());
         }
 
-        if (tx.IsCoinBase() || !AcceptTxToMemoryPool(mempool, stateDummy, tx, false, NULL, false, /*disconnecting*/true)) {
+        if (tx.IsCoinBase() || !AcceptTxToMemoryPool(mempool, stateDummy, tx, false, NULL, /*disconnecting*/true, /*fRejectAbsurdFee*/false)) {
             LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, tx.GetHash().ToString(), tx.ToString());
             mempool.remove(tx, dummyTxs, dummyCerts, true);
@@ -3120,7 +3120,7 @@ bool static DisconnectTip(CValidationState &state) {
         // ignore validation errors in resurrected certificates
         LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
         CValidationState stateDummy;
-        if (!AcceptCertificateToMemoryPool(mempool, stateDummy, cert, false, NULL, false, /*disconnecting*/true)) {
+        if (!AcceptCertificateToMemoryPool(mempool, stateDummy, cert, false, NULL, /*disconnecting*/true, /*fRejectAbsurdFee*/false)) {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
 
@@ -5394,7 +5394,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
     pfrom->setAskFor.erase(inv.hash);
     mapAlreadyAskedFor.erase(inv);
 
-    if (!AlreadyHave(inv) && AcceptTxBaseToMemoryPool(mempool, state, txBase, true, &fMissingInputs))
+    if (!AlreadyHave(inv) && AcceptTxBaseToMemoryPool(mempool, state, txBase, true, &fMissingInputs, /*disconnecting*/false))
     {
         mempool.check(pcoinsTip);
         txBase.Relay();
@@ -5427,7 +5427,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
 
                 if (setMisbehaving.count(fromPeer))
                     continue;
-                if (AcceptTxBaseToMemoryPool(mempool, stateDummy, orphanTx, true, &fMissingInputs2))
+                if (AcceptTxBaseToMemoryPool(mempool, stateDummy, orphanTx, true, &fMissingInputs2, /*disconnecting*/false))
                 {
                     LogPrint("mempool", "   accepted orphan tx %s\n", orphanHash.ToString());
                     orphanTx.Relay();
