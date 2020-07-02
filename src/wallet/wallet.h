@@ -443,7 +443,7 @@ public:
 class CWalletTx: public CWalletTransactionBase
 {
 private:
-    CTransaction wrappedTx;
+    const CTransaction wrappedTx;
 public:
     const CTransaction& getWrappedTx() const { return wrappedTx; }
     void ResetWrappedTx(const CTransaction& newTx) { *const_cast<CTransaction*>(&wrappedTx) = newTx; }
@@ -479,7 +479,7 @@ public:
                 mapValue["timesmart"] = strprintf("%u", nTimeSmart);
         }
 
-        READWRITE(wrappedTx);
+        READWRITE(*const_cast<CTransaction*>(&wrappedTx));
         nVersion = wrappedTx.nVersion;
         READWRITE(hashBlock);
         READWRITE(vMerkleBranch);
@@ -533,7 +533,7 @@ public:
 class CWalletCert : public CWalletTransactionBase
 {
 private:
-    CScCertificate wrappedCertificate;
+    const CScCertificate wrappedCertificate;
 public:
     const CScCertificate& getWrappedCert() { return wrappedCertificate; }
 
@@ -568,7 +568,7 @@ public:
                 mapValue["timesmart"] = strprintf("%u", nTimeSmart);
         }
 
-        READWRITE(wrappedCertificate);
+        READWRITE(*const_cast<CScCertificate*>(&wrappedCertificate));
         nVersion = wrappedCertificate.nVersion;
         READWRITE(hashBlock);
         READWRITE(vMerkleBranch);
