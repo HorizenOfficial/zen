@@ -117,19 +117,16 @@ CTransaction txCreationUtils::createSproutTx(bool ccIsNull)
     return CTransaction(mtx);
 }
 
-void txCreationUtils::extendTransaction(CTransaction & tx, const uint256 & scId, const CAmount & amount)
+void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & scAmount)
 {
     CMutableTransaction mtx = tx;
 
     mtx.nVersion = SC_TX_VERSION;
 
     CTxScCreationOut aSidechainCreationTx;
+    aSidechainCreationTx.nValue = scAmount;
+    aSidechainCreationTx.withdrawalEpochLength = 100;
     mtx.vsc_ccout.push_back(aSidechainCreationTx);
-
-    CTxForwardTransferOut aForwardTransferTx;
-    aForwardTransferTx.scId = scId;
-    aForwardTransferTx.nValue = amount;
-    mtx.vft_ccout.push_back(aForwardTransferTx);
 
     tx = mtx;
     return;
