@@ -7,7 +7,7 @@
 #include "base58.h"
 
 //------------------------------------------------------------------------------------
-static const CAmount SC_RPC_OPERATION_DEFAULT_MINERS_FEE(10000);
+static const CAmount SC_RPC_OPERATION_DEFAULT_MINERS_FEE(1000);
 static const int SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH(100);
 
 class UniValue;

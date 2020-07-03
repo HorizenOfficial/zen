@@ -365,6 +365,12 @@ ScRpcCmd::ScRpcCmd(
 
 void ScRpcCmd::addInputs()
 {
+    if (_fee == 0)
+    {
+        LogPrint("sc", "%s():%d - No fee therefore no inputs are added to cert, exiting\n", __func__, __LINE__);
+        return;
+    }
+
     std::vector<COutput> vAvailableCoins;
     std::vector<SelectedUTXO> vInputUtxo;
 

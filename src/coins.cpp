@@ -866,7 +866,8 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     int certWindowStartHeight = scInfo.StartHeightForEpoch(cert.epochNumber+1);
     if (!((nHeight >= certWindowStartHeight) && (nHeight <= certWindowStartHeight + scInfo.SafeguardMargin())))
     {
-        LogPrint("sc", "%s():%d - invalid cert[%s], cert epoch not acceptable at this height\n", __func__, __LINE__);
+        LogPrint("sc", "%s():%d - invalid cert[%s], cert epoch not acceptable at this height\n",
+            __func__, __LINE__, certHash.ToString());
         return state.Invalid(error("cert epoch not acceptable at this height"),
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
@@ -1093,7 +1094,7 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CTxScCreationOut& scCreationO
 {
     CSidechain scInfo;
     if (!this->GetSidechain(scCreationOut.GetScId(), scInfo)) {
-        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: attempt schedule maturing scCreation for unknown scId\n",
+        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: attempt schedule maturing scCreation for unknown scId[%s]\n",
             __func__, __LINE__, scCreationOut.GetScId().ToString());
         return false;
     }
