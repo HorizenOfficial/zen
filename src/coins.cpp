@@ -1342,7 +1342,7 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
         CSidechainsMap::iterator scMaturingIt = ModifySidechain(maturingScId);
         assert(scMaturingIt->second.scInfo.mImmatureAmounts.count(height));
 
-        scMaturingIt->second.scInfo.balance += AccessSidechain(maturingScId)->mImmatureAmounts.at(height);
+        scMaturingIt->second.scInfo.balance += scMaturingIt->second.scInfo.mImmatureAmounts.at(height);
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId=%s balance updated to: %s\n",
             __func__, __LINE__, maturingScId.ToString(), FormatMoney(scMaturingIt->second.scInfo.balance));
 
