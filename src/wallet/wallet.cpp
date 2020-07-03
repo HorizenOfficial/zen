@@ -967,34 +967,37 @@ int64_t CWallet::IncOrderPosNext(CWalletDB *pwalletdb)
     return nRet;
 }
 
-MapTxWithInputs CWallet::OrderedTxWithInputsMap(const std::string& address) const
+vTxWithInputs CWallet::OrderedTxWithInputs(const std::string& address) const
 {
     AssertLockHeld(cs_wallet);
     CWalletDB walletdb(strWalletFile);
 
-    MapTxWithInputs mOrderedTxes;
+    vTxWithInputs vOrderedTxes;
 
     CBitcoinAddress taddr = CBitcoinAddress(address);
 
     if (!taddr.IsValid())
     {
         // taddr should be checked by the caller
-        return mOrderedTxes;
+        return vOrderedTxes;
     }
 
     const CScript& scriptPubKey = GetScriptForDestination(taddr.Get(), false);
 
-    for (auto it : mapWallet)
+    // tx are ordered in this map, from the oldest to the newest. As a consequence, the returned vector is ordered 
+    // as well
+    for (auto it : wtxOrdered)
     {
-        auto& wtx = *(it.second.get());
-        std::vector<CWalletTransactionBase*> vtxIn;
+        CWalletTransactionBase* wtx = it.second.first;
+        int64_t orderPos = it.first;
 
-        std::pair<int64_t, TxWithInputsPair> entry = make_pair(wtx.nOrderPos, TxWithInputsPair(&wtx, vtxIn) );
+        LogPrintf("%s():%d - processing ordered tx: nOrderPos[%d]: tx[%s]\n", __func__, __LINE__,
+            orderPos, wtx->getTxBase()->GetHash().ToString() );
 
         bool outputFound = false;
         bool inputFound = false;
 
-        for(const auto& txout : wtx.getTxBase()->GetVout())
+        for(const auto& txout : wtx->getTxBase()->GetVout())
         {
             auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
             if (res == txout.scriptPubKey.begin())
@@ -1004,29 +1007,19 @@ MapTxWithInputs CWallet::OrderedTxWithInputsMap(const std::string& address) cons
             }
         }
 
-        if (!wtx.getTxBase()->IsCoinBase())
+        std::vector<CWalletTransactionBase*> vtxIn;
+        if (!wtx->getTxBase()->IsCoinBase())
         {
-            // add to entry obj the txes whose outputs are part of wtx input
-            wtx.addInputTx(entry, scriptPubKey, inputFound);
+            // add to the passed vector all the selected txes whose outputs are inputs of wtx
+            wtx->addInputTxToVector(vtxIn, scriptPubKey, inputFound);
         }
 
-        if (outputFound || inputFound)
-        {
-            auto ret = mOrderedTxes.insert(entry);
-            if (!ret.second)
-            {
-                // should not happen, since nOrderPos is unique
-                auto elementAlreadyThereIt = ret.first;
-                int64_t nPos = (*elementAlreadyThereIt).first;
-                const TxWithInputsPair& p = (*elementAlreadyThereIt).second;
-
-                LogPrintf("%s():%d - An element is already there at nOrderPos[%d]: tx[%s]\n",
-                    __func__, __LINE__, nPos, p.first->getTxBase()->GetHash().ToString() );
-            }
+        if (outputFound || inputFound) {
+            vOrderedTxes.push_back(make_pair(wtx, vtxIn));
         }
     }
 
-    return mOrderedTxes;
+    return vOrderedTxes;
 }
 
 void CWallet::MarkDirty()
@@ -2598,16 +2591,17 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
         return;
     }
 
-    MapTxWithInputs txOrdered = OrderedTxWithInputsMap(address);
+    // tx are ordered in this vector from the oldest to the newest
+    vTxWithInputs txOrdered = OrderedTxWithInputs(address);
 
     const CScript& scriptToMatch = GetScriptForDestination(taddr.Get(), false);
 
     {
         LOCK2(cs_main, cs_wallet);
 
-        for (MapTxWithInputs::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
+        for (vTxWithInputs::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
         {
-            const CWalletTransactionBase* pcoin = (*it).second.first;
+            const CWalletTransactionBase* pcoin = (*it).first;
             
             const CScCertificate* cert = nullptr;
             if (pcoin->getTxBase()->IsCertificate() )
@@ -2660,7 +2654,7 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
                     vout_idx++;
                 }
              
-                std::vector<CWalletTransactionBase*> vtxIn = (*it).second.second;
+                std::vector<CWalletTransactionBase*> vtxIn = (*it).second;
              
                 for (const CTxIn& txin : pcoin->getTxBase()->GetVin())
                 {
@@ -4349,7 +4343,7 @@ void CWalletTransactionBase::AddVinExpandedToJSON(UniValue& entry, const std::ve
     entry.push_back(Pair("vin", vinArr));
 }
 
-void CWalletTransactionBase::addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const 
+void CWalletTransactionBase::addInputTxToVector(std::vector<CWalletTransactionBase*>& vec, const CScript& scriptPubKey, bool& inputFound) const 
 {
     for(const auto& txin: pTxBase->GetVin())
     {
@@ -4372,7 +4366,7 @@ void CWalletTransactionBase::addInputTx(std::pair<int64_t, TxWithInputsPair>& en
         // add input anyway if we can expand it
         if (pwallet->IsMine(utxo))
         {
-            entry.second.second.push_back(inputTx.get());
+            vec.push_back(inputTx.get());
         }
     }
 }

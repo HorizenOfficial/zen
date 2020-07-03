@@ -2494,13 +2494,15 @@ UniValue listtxesbyaddress(const UniValue& params, bool fHelp)
     UniValue ret(UniValue::VARR);
     std::list<CAccountingEntry> unused;
     static const bool FILTER_VIN = true;
-    MapTxWithInputs txOrdered = pwalletMain->OrderedTxWithInputsMap(address);
+
+    // tx are ordered in this vector from the oldest to the newest
+    vTxWithInputs txOrdered = pwalletMain->OrderedTxWithInputs(address);
 
     // iterate backwards until we have nCount items to return:
-    for (MapTxWithInputs::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
+    for (vTxWithInputs::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
     {
-        const CWalletTransactionBase& wtx = *((*it).second.first);
-        std::vector<CWalletTransactionBase*> vtxIn = (*it).second.second;
+        const CWalletTransactionBase& wtx = *((*it).first);
+        std::vector<CWalletTransactionBase*> vtxIn = (*it).second;
         UniValue o(UniValue::VOBJ);
         TxExpandedToJSON(wtx, vtxIn, o);
         ret.push_back(o);
