@@ -235,7 +235,6 @@ TEST_F(CertInWalletTest, IsOutputMature_TransparentTx_InBlockChain) {
     walletTx.fMerkleVerified = true; //shortcut
 
     chainSettingUtils::ExtendChainActiveWithBlock(txBlock);
-    int txCreationHeight = chainActive.Height();
 
     CCoins::outputMaturity txMaturity = CCoins::outputMaturity::NOT_APPLICABLE;
 
