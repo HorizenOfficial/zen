@@ -98,17 +98,17 @@ JSOutPoint CreateValidBlock(TestWallet& wallet,
                             CBlock& block,
                             ZCIncrementalMerkleTree& tree) {
     auto wtx = GetValidReceive(sk, 50, true);
-    auto note = GetNote(sk, wtx, 0, 1);
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
 
     mapNoteData_t noteData;
-    JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+    JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
     CNoteData nd {sk.address(), nullifier};
     noteData[jsoutpt] = nd;
     wtx.SetNoteData(noteData);
     wallet.AddToWallet(wtx, true, NULL);
 
-    block.vtx.push_back(wtx);
+    block.vtx.push_back(wtx.getWrappedTx());
     wallet.IncrementNoteWitnesses(&index, &block, tree);
 
     return jsoutpt;
@@ -124,11 +124,11 @@ TEST(wallet_tests, setup_datadir_location_run_as_first_test) {
 TEST(wallet_tests, note_data_serialisation) {
     auto sk = libzcash::SpendingKey::random();
     auto wtx = GetValidReceive(sk, 10, true);
-    auto note = GetNote(sk, wtx, 0, 1);
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
 
     mapNoteData_t noteData;
-    JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+    JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
     CNoteData nd {sk.address(), nullifier};
     ZCIncrementalMerkleTree tree;
     nd.witnesses.push_front(tree.witness());
@@ -152,11 +152,11 @@ TEST(wallet_tests, find_unspent_notes) {
     wallet.AddSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
-    auto note = GetNote(sk, wtx, 0, 1);
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
 
     mapNoteData_t noteData;
-    JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+    JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
     CNoteData nd {sk.address(), nullifier};
     noteData[jsoutpt] = nd;
 
@@ -176,7 +176,7 @@ TEST(wallet_tests, find_unspent_notes) {
     // Fake-mine the transaction
     EXPECT_EQ(-1, chainActive.Height());
     CBlock block;
-    block.vtx.push_back(wtx);
+    block.vtx.push_back(wtx.getWrappedTx());
     block.hashMerkleRoot = block.BuildMerkleTree();
     auto blockHash = block.GetHash();
     CBlockIndex fakeIndex {block};
@@ -210,7 +210,7 @@ TEST(wallet_tests, find_unspent_notes) {
     // Fake-mine a spend transaction
     EXPECT_EQ(0, chainActive.Height());
     CBlock block2;
-    block2.vtx.push_back(wtx2);
+    block2.vtx.push_back(wtx2.getWrappedTx());
     block2.hashMerkleRoot = block2.BuildMerkleTree();
     block2.hashPrevBlock = blockHash;
     auto blockHash2 = block2.GetHash();
@@ -247,11 +247,11 @@ TEST(wallet_tests, find_unspent_notes) {
     std::unique_ptr<CWalletTx> wtx3;
     {
         auto wtx = GetValidReceive(sk, 20, true);
-        auto note = GetNote(sk, wtx, 0, 1);
+        auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
         auto nullifier = note.nullifier(sk);
 
         mapNoteData_t noteData;
-        JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+        JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
         CNoteData nd {sk.address(), nullifier};
         noteData[jsoutpt] = nd;
 
@@ -265,7 +265,7 @@ TEST(wallet_tests, find_unspent_notes) {
     // Fake-mine the new transaction
     EXPECT_EQ(1, chainActive.Height());
     CBlock block3;
-    block3.vtx.push_back(*wtx3);
+    block3.vtx.push_back(wtx3->getWrappedTx());
     block3.hashMerkleRoot = block3.BuildMerkleTree();
     block3.hashPrevBlock = blockHash2;
     auto blockHash3 = block3.GetHash();
@@ -307,12 +307,12 @@ TEST(wallet_tests, find_unspent_notes) {
 TEST(wallet_tests, set_note_addrs_in_cwallettx) {
     auto sk = libzcash::SpendingKey::random();
     auto wtx = GetValidReceive(sk, 10, true);
-    auto note = GetNote(sk, wtx, 0, 1);
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
     EXPECT_EQ(0, wtx.mapNoteData.size());
 
     mapNoteData_t noteData;
-    JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+    JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
     CNoteData nd {sk.address(), nullifier};
     noteData[jsoutpt] = nd;
 
@@ -326,7 +326,7 @@ TEST(wallet_tests, set_invalid_note_addrs_in_cwallettx) {
 
     mapNoteData_t noteData;
     auto sk = libzcash::SpendingKey::random();
-    JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+    JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
     CNoteData nd {sk.address(), uint256()};
     noteData[jsoutpt] = nd;
 
@@ -341,14 +341,14 @@ TEST(WalletTests, CheckNoteCommitmentAgainstNotePlaintext) {
     auto dec = ZCNoteDecryption(sk.receiving_key());
 
     auto wtx = GetInvalidCommitmentReceive(sk, 10, true);
-    auto note = GetNote(sk, wtx, 0, 1);
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
 
-    auto hSig = wtx.GetVjoinsplit()[0].h_sig(
-        *params, wtx.joinSplitPubKey);
+    auto hSig = wtx.getWrappedTx().GetVjoinsplit()[0].h_sig(
+        *params, wtx.getWrappedTx().joinSplitPubKey);
 
     ASSERT_THROW(wallet.GetNoteNullifier(
-        wtx.GetVjoinsplit()[0],
+        wtx.getWrappedTx().GetVjoinsplit()[0],
         address,
         dec,
         hSig, 1), libzcash::note_decryption_failed);
@@ -362,14 +362,14 @@ TEST(WalletTests, GetNoteNullifier) {
     auto dec = ZCNoteDecryption(sk.receiving_key());
 
     auto wtx = GetValidReceive(sk, 10, true);
-    auto note = GetNote(sk, wtx, 0, 1);
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
 
-    auto hSig = wtx.GetVjoinsplit()[0].h_sig(
-        *params, wtx.joinSplitPubKey);
+    auto hSig = wtx.getWrappedTx().GetVjoinsplit()[0].h_sig(
+        *params, wtx.getWrappedTx().joinSplitPubKey);
 
     auto ret = wallet.GetNoteNullifier(
-        wtx.GetVjoinsplit()[0],
+        wtx.getWrappedTx().GetVjoinsplit()[0],
         address,
         dec,
         hSig, 1);
@@ -378,7 +378,7 @@ TEST(WalletTests, GetNoteNullifier) {
     wallet.AddSpendingKey(sk);
 
     ret = wallet.GetNoteNullifier(
-        wtx.GetVjoinsplit()[0],
+        wtx.getWrappedTx().GetVjoinsplit()[0],
         address,
         dec,
         hSig, 1);
@@ -393,18 +393,18 @@ TEST(wallet_tests, FindMyNotes) {
     wallet.AddSpendingKey(sk2);
 
     auto wtx = GetValidReceive(sk, 10, true);
-    auto note = GetNote(sk, wtx, 0, 1);
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
 
-    auto noteMap = wallet.FindMyNotes(wtx);
+    auto noteMap = wallet.FindMyNotes(wtx.getWrappedTx());
     EXPECT_EQ(0, noteMap.size());
 
     wallet.AddSpendingKey(sk);
 
-    noteMap = wallet.FindMyNotes(wtx);
+    noteMap = wallet.FindMyNotes(wtx.getWrappedTx());
     EXPECT_EQ(2, noteMap.size());
 
-    JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+    JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
     CNoteData nd {sk.address(), nullifier};
     EXPECT_EQ(1, noteMap.count(jsoutpt));
     EXPECT_EQ(nd, noteMap[jsoutpt]);
@@ -421,20 +421,20 @@ TEST(wallet_tests, FindMyNotesInEncryptedWallet) {
     ASSERT_TRUE(wallet.EncryptKeys(vMasterKey));
 
     auto wtx = GetValidReceive(sk, 10, true);
-    auto note = GetNote(sk, wtx, 0, 1);
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
 
-    auto noteMap = wallet.FindMyNotes(wtx);
+    auto noteMap = wallet.FindMyNotes(wtx.getWrappedTx());
     EXPECT_EQ(2, noteMap.size());
 
-    JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+    JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
     CNoteData nd {sk.address(), nullifier};
     EXPECT_EQ(1, noteMap.count(jsoutpt));
     EXPECT_NE(nd, noteMap[jsoutpt]);
 
     ASSERT_TRUE(wallet.Unlock(vMasterKey));
 
-    noteMap = wallet.FindMyNotes(wtx);
+    noteMap = wallet.FindMyNotes(wtx.getWrappedTx());
     EXPECT_EQ(2, noteMap.size());
     EXPECT_EQ(1, noteMap.count(jsoutpt));
     EXPECT_EQ(nd, noteMap[jsoutpt]);
@@ -447,13 +447,13 @@ TEST(wallet_tests, get_conflicted_notes) {
     wallet.AddSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
-    auto note = GetNote(sk, wtx, 0, 1);
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
 
     auto wtx2 = GetValidSpend(sk, note, 5);
     auto wtx3 = GetValidSpend(sk, note, 10);
-    auto hash2 = wtx2.GetHash();
-    auto hash3 = wtx3.GetHash();
+    auto hash2 = wtx2.getWrappedTx().GetHash();
+    auto hash3 = wtx3.getWrappedTx().GetHash();
 
     // No conflicts for no spends
     EXPECT_EQ(0, wallet.GetConflicts(hash2).size());
@@ -478,7 +478,7 @@ TEST(wallet_tests, nullifier_is_spent) {
     wallet.AddSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
-    auto note = GetNote(sk, wtx, 0, 1);
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
 
     EXPECT_FALSE(wallet.IsSpent(nullifier));
@@ -493,7 +493,7 @@ TEST(wallet_tests, nullifier_is_spent) {
     // Fake-mine the transaction
     EXPECT_EQ(-1, chainActive.Height());
     CBlock block;
-    block.vtx.push_back(wtx2);
+    block.vtx.push_back(wtx2.getWrappedTx());
     block.hashMerkleRoot = block.BuildMerkleTree();
     auto blockHash = block.GetHash();
     CBlockIndex fakeIndex {block};
@@ -518,11 +518,11 @@ TEST(wallet_tests, navigate_from_nullifier_to_note) {
     wallet.AddSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
-    auto note = GetNote(sk, wtx, 0, 1);
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
 
     mapNoteData_t noteData;
-    JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+    JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
     CNoteData nd {sk.address(), nullifier};
     noteData[jsoutpt] = nd;
 
@@ -532,7 +532,7 @@ TEST(wallet_tests, navigate_from_nullifier_to_note) {
 
     wallet.AddToWallet(wtx, true, NULL);
     EXPECT_EQ(1, wallet.mapNullifiersToNotes.count(nullifier));
-    EXPECT_EQ(wtx.GetHash(), wallet.mapNullifiersToNotes[nullifier].hash);
+    EXPECT_EQ(wtx.getWrappedTx().GetHash(), wallet.mapNullifiersToNotes[nullifier].hash);
     EXPECT_EQ(0, wallet.mapNullifiersToNotes[nullifier].js);
     EXPECT_EQ(1, wallet.mapNullifiersToNotes[nullifier].n);
 }
@@ -544,25 +544,25 @@ TEST(wallet_tests, spent_note_is_from_me) {
     wallet.AddSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
-    auto note = GetNote(sk, wtx, 0, 1);
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
     auto wtx2 = GetValidSpend(sk, note, 5);
 
-    EXPECT_FALSE(wallet.IsFromMe(wtx));
-    EXPECT_FALSE(wallet.IsFromMe(wtx2));
+    EXPECT_FALSE(wallet.IsFromMe(wtx.getWrappedTx()));
+    EXPECT_FALSE(wallet.IsFromMe(wtx2.getWrappedTx()));
 
     mapNoteData_t noteData;
-    JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+    JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
     CNoteData nd {sk.address(), nullifier};
     noteData[jsoutpt] = nd;
 
     wtx.SetNoteData(noteData);
-    EXPECT_FALSE(wallet.IsFromMe(wtx));
-    EXPECT_FALSE(wallet.IsFromMe(wtx2));
+    EXPECT_FALSE(wallet.IsFromMe(wtx.getWrappedTx()));
+    EXPECT_FALSE(wallet.IsFromMe(wtx2.getWrappedTx()));
 
     wallet.AddToWallet(wtx, true, NULL);
-    EXPECT_FALSE(wallet.IsFromMe(wtx));
-    EXPECT_TRUE(wallet.IsFromMe(wtx2));
+    EXPECT_FALSE(wallet.IsFromMe(wtx.getWrappedTx()));
+    EXPECT_TRUE(wallet.IsFromMe(wtx2.getWrappedTx()));
 }
 
 TEST(wallet_tests, cached_witnesses_empty_chain) {
@@ -572,14 +572,14 @@ TEST(wallet_tests, cached_witnesses_empty_chain) {
     wallet.AddSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
-    auto note = GetNote(sk, wtx, 0, 0);
-    auto note2 = GetNote(sk, wtx, 0, 1);
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 0);
+    auto note2 = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
     auto nullifier2 = note2.nullifier(sk);
 
     mapNoteData_t noteData;
-    JSOutPoint jsoutpt {wtx.GetHash(), 0, 0};
-    JSOutPoint jsoutpt2 {wtx.GetHash(), 0, 1};
+    JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 0};
+    JSOutPoint jsoutpt2 {wtx.getWrappedTx().GetHash(), 0, 1};
     CNoteData nd {sk.address(), nullifier};
     CNoteData nd2 {sk.address(), nullifier2};
     noteData[jsoutpt] = nd;
@@ -601,7 +601,7 @@ TEST(wallet_tests, cached_witnesses_empty_chain) {
     EXPECT_FALSE((bool) witnesses[1]);
 
     CBlock block;
-    block.vtx.push_back(wtx);
+    block.vtx.push_back(wtx.getWrappedTx());
     CBlockIndex index(block);
     ZCIncrementalMerkleTree tree;
     wallet.IncrementNoteWitnesses(&index, &block, tree);
@@ -639,11 +639,11 @@ TEST(wallet_tests, cached_witnesses_chain_tip) {
     {
         // Second transaction
         auto wtx = GetValidReceive(sk, 50, true);
-        auto note = GetNote(sk, wtx, 0, 1);
+        auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
         auto nullifier = note.nullifier(sk);
 
         mapNoteData_t noteData;
-        JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+        JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
         CNoteData nd {sk.address(), nullifier};
         noteData[jsoutpt] = nd;
         wtx.SetNoteData(noteData);
@@ -659,7 +659,7 @@ TEST(wallet_tests, cached_witnesses_chain_tip) {
         // Second block
         CBlock block2;
         block2.hashPrevBlock = block1.GetHash();
-        block2.vtx.push_back(wtx);
+        block2.vtx.push_back(wtx.getWrappedTx());
         CBlockIndex index2(block2);
         index2.nHeight = 2;
         ZCIncrementalMerkleTree tree2 {tree};
@@ -728,11 +728,11 @@ TEST(wallet_tests, CachedWitnessesDecrementFirst) {
     {
         // Third transaction - never mined
         auto wtx = GetValidReceive(sk, 20, true);
-        auto note = GetNote(sk, wtx, 0, 1);
+        auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
         auto nullifier = note.nullifier(sk);
 
         mapNoteData_t noteData;
-        JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+        JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
         CNoteData nd {sk.address(), nullifier};
         noteData[jsoutpt] = nd;
         wtx.SetNoteData(noteData);
@@ -848,13 +848,13 @@ TEST(wallet_tests, ClearNoteWitnessCache) {
     wallet.AddSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
-    auto hash = wtx.GetHash();
-    auto note = GetNote(sk, wtx, 0, 0);
+    auto hash = wtx.getWrappedTx().GetHash();
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 0);
     auto nullifier = note.nullifier(sk);
 
     mapNoteData_t noteData;
-    JSOutPoint jsoutpt {wtx.GetHash(), 0, 0};
-    JSOutPoint jsoutpt2 {wtx.GetHash(), 0, 1};
+    JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 0};
+    JSOutPoint jsoutpt2 {wtx.getWrappedTx().GetHash(), 0, 1};
     CNoteData nd {sk.address(), nullifier};
     noteData[jsoutpt] = nd;
     wtx.SetNoteData(noteData);
@@ -897,11 +897,11 @@ TEST(wallet_tests, WriteWitnessCache) {
     wallet.AddSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
-    auto note = GetNote(sk, wtx, 0, 1);
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
 
     mapNoteData_t noteData;
-    JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+    JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
     CNoteData nd {sk.address(), nullifier};
     noteData[jsoutpt] = nd;
     wtx.SetNoteData(noteData);
@@ -917,19 +917,19 @@ TEST(wallet_tests, WriteWitnessCache) {
         .WillRepeatedly(Return(true));
 
     // WriteWalletTxBase fails
-    EXPECT_CALL(walletdb, WriteWalletTxBase(wtx.GetHash(), Eq(ByRef(refWtx))))
+    EXPECT_CALL(walletdb, WriteWalletTxBase(wtx.getWrappedTx().GetHash(), Eq(ByRef(refWtx))))
         .WillOnce(Return(false));
     EXPECT_CALL(walletdb, TxnAbort())
         .Times(1);
     wallet.SetBestChain(walletdb, loc);             
                                                     
     // WriteWalletTxBase throws
-    EXPECT_CALL(walletdb, WriteWalletTxBase(wtx.GetHash(), Eq(ByRef(refWtx))))
+    EXPECT_CALL(walletdb, WriteWalletTxBase(wtx.getWrappedTx().GetHash(), Eq(ByRef(refWtx))))
         .WillOnce(ThrowLogicError());
     EXPECT_CALL(walletdb, TxnAbort())
         .Times(1);
     wallet.SetBestChain(walletdb, loc);
-    EXPECT_CALL(walletdb, WriteWalletTxBase(wtx.GetHash(), Eq(ByRef(refWtx))))
+    EXPECT_CALL(walletdb, WriteWalletTxBase(wtx.getWrappedTx().GetHash(), Eq(ByRef(refWtx))))
         .WillRepeatedly(Return(true));
 
     // WriteWitnessCacheSize fails
@@ -986,12 +986,12 @@ TEST(wallet_tests, UpdateNullifierNoteMap) {
     ASSERT_TRUE(wallet.EncryptKeys(vMasterKey));
 
     auto wtx = GetValidReceive(sk, 10, true);
-    auto note = GetNote(sk, wtx, 0, 1);
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
 
     // Pretend that we called FindMyNotes while the wallet was locked
     mapNoteData_t noteData;
-    JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+    JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
     CNoteData nd {sk.address()};
     noteData[jsoutpt] = nd;
     wtx.SetNoteData(noteData);
@@ -1005,7 +1005,7 @@ TEST(wallet_tests, UpdateNullifierNoteMap) {
 
     EXPECT_TRUE(wallet.UpdateNullifierNoteMap());
     EXPECT_EQ(1, wallet.mapNullifiersToNotes.count(nullifier));
-    EXPECT_EQ(wtx.GetHash(), wallet.mapNullifiersToNotes[nullifier].hash);
+    EXPECT_EQ(wtx.getWrappedTx().GetHash(), wallet.mapNullifiersToNotes[nullifier].hash);
     EXPECT_EQ(0, wallet.mapNullifiersToNotes[nullifier].js);
     EXPECT_EQ(1, wallet.mapNullifiersToNotes[nullifier].n);
 }
@@ -1017,8 +1017,8 @@ TEST(wallet_tests, UpdatedNoteData) {
     wallet.AddSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
-    auto note = GetNote(sk, wtx, 0, 0);
-    auto note2 = GetNote(sk, wtx, 0, 1);
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 0);
+    auto note2 = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
     auto nullifier2 = note2.nullifier(sk);
     auto wtx2 = wtx;
@@ -1026,7 +1026,7 @@ TEST(wallet_tests, UpdatedNoteData) {
     // First pretend we added the tx to the wallet and
     // we don't have the key for the second note
     mapNoteData_t noteData;
-    JSOutPoint jsoutpt {wtx.GetHash(), 0, 0};
+    JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 0};
     CNoteData nd {sk.address(), nullifier};
     noteData[jsoutpt] = nd;
     wtx.SetNoteData(noteData);
@@ -1039,7 +1039,7 @@ TEST(wallet_tests, UpdatedNoteData) {
     // Now pretend we added the key for the second note, and
     // the tx was "added" to the wallet again to update it.
     // This happens via the 'z_importkey' RPC method.
-    JSOutPoint jsoutpt2 {wtx2.GetHash(), 0, 1};
+    JSOutPoint jsoutpt2 {wtx2.getWrappedTx().GetHash(), 0, 1};
     CNoteData nd2 {sk.address(), nullifier2};
     noteData[jsoutpt2] = nd2;
     wtx2.SetNoteData(noteData);
@@ -1064,8 +1064,8 @@ TEST(wallet_tests, MarkAffectedTransactionsDirty) {
     wallet.AddSpendingKey(sk);
 
     auto wtx = GetValidReceive(sk, 10, true);
-    auto hash = wtx.GetHash();
-    auto note = GetNote(sk, wtx, 0, 1);
+    auto hash = wtx.getWrappedTx().GetHash();
+    auto note = GetNote(sk, wtx.getWrappedTx(), 0, 1);
     auto nullifier = note.nullifier(sk);
     auto wtx2 = GetValidSpend(sk, note, 5);
 
@@ -1076,7 +1076,7 @@ TEST(wallet_tests, MarkAffectedTransactionsDirty) {
 
     wtx.SetNoteData(noteData);
     wallet.AddToWallet(wtx, true, NULL);
-    wallet.MarkAffectedTransactionsDirty(wtx);
+    wallet.MarkAffectedTransactionsDirty(wtx.getWrappedTx());
 
     // After getting a cached value, the first tx should be clean
     wallet.getMapWallet().at(hash)->GetDebit(ISMINE_ALL);
@@ -1084,7 +1084,7 @@ TEST(wallet_tests, MarkAffectedTransactionsDirty) {
 
     // After adding the note spend, the first tx should be dirty
     wallet.AddToWallet(wtx2, true, NULL);
-    wallet.MarkAffectedTransactionsDirty(wtx2);
+    wallet.MarkAffectedTransactionsDirty(wtx2.getWrappedTx());
     EXPECT_FALSE(wallet.getMapWallet().at(hash)->GetfDebitCached());
 }
 
@@ -1115,27 +1115,27 @@ TEST(wallet_tests, SetBestChainIgnoresTxsWithoutShieldedData) {
 
     // Generate a Sprout transaction that is ours
     auto wtxSprout = GetValidReceive(sk, 10, true);
-    auto noteMap = wallet.FindMyNotes(wtxSprout);
+    auto noteMap = wallet.FindMyNotes(wtxSprout.getWrappedTx());
     wtxSprout.SetNoteData(noteMap);
     wallet.AddToWallet(wtxSprout, true, nullptr);
 
     // Generate a Sprout transaction that only involves our transparent address
     auto sk2 = libzcash::SpendingKey::random();
     auto wtxInput = GetValidReceive(sk2, 10, true);
-    auto note = GetNote(sk2, wtxInput, 0, 0);
+    auto note = GetNote(sk2, wtxInput.getWrappedTx(), 0, 0);
     auto wtxTmp = GetValidSpend(sk2, note, 5);
-    CMutableTransaction mtx {wtxTmp};
+    CMutableTransaction mtx {wtxTmp.getWrappedTx()};
     mtx.getOut(0).scriptPubKey = scriptPubKey;
     CWalletTx wtxSproutTransparent {nullptr, mtx};
     wallet.AddToWallet(wtxSproutTransparent, true, nullptr);
 
     EXPECT_CALL(walletdb, TxnBegin())
         .WillOnce(Return(true));
-    EXPECT_CALL(walletdb, WriteWalletTxBase(wtxTransparent.GetHash(), Eq(ByRef(wtxTransparent))))
+    EXPECT_CALL(walletdb, WriteWalletTxBase(wtxTransparent.getWrappedTx().GetHash(), Eq(ByRef(wtxTransparent))))
         .Times(0);
-    EXPECT_CALL(walletdb, WriteWalletTxBase(wtxSprout.GetHash(), Eq(ByRef(wtxSprout))))
+    EXPECT_CALL(walletdb, WriteWalletTxBase(wtxSprout.getWrappedTx().GetHash(), Eq(ByRef(wtxSprout))))
         .Times(1).WillOnce(Return(true));
-    EXPECT_CALL(walletdb, WriteWalletTxBase(wtxSproutTransparent.GetHash(), Eq(ByRef(wtxSproutTransparent))))
+    EXPECT_CALL(walletdb, WriteWalletTxBase(wtxSproutTransparent.getWrappedTx().GetHash(), Eq(ByRef(wtxSproutTransparent))))
         .Times(0);
     EXPECT_CALL(walletdb, WriteWitnessCacheSize(0))
         .WillOnce(Return(true));

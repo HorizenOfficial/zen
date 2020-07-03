@@ -55,32 +55,23 @@ bool CWalletDB::ErasePurpose(const string& strPurpose)
     return Erase(make_pair(string("purpose"), strPurpose));
 }
 
-#if 0
-bool CWalletDB::WriteWalletTxBase(uint256 hash, const CWalletTx& wtx)
-{
-    nWalletDBUpdated++;
-    return Write(std::make_pair(std::string("tx"), hash), wtx);
-}
-#else
 bool CWalletDB::WriteWalletTxBase(uint256 hash, const CWalletTransactionBase& obj)
 {
-    const CTransactionBase* const pRef = obj.getTxBase();
-
     LogPrint("cert", "%s():%d - called for %s[%s], writing to db\n", __func__, __LINE__,
-            pRef->IsCertificate()?"cert":"tx", pRef->GetHash().ToString());
+            obj.getTxBase()->IsCertificate()?"cert":"tx", obj.getTxBase()->GetHash().ToString());
     
     nWalletDBUpdated++;
 
     try
     {
-        if (pRef->IsCertificate() )
+        if (obj.getTxBase()->IsCertificate() )
         {
-            LogPrint("cert", "%s():%d - called for cert[%s], writing to db\n", __func__, __LINE__, pRef->GetHash().ToString());
-            return Write(std::make_pair(std::string("cert"), hash), dynamic_cast<const CWalletCert&>(*pRef));
+            LogPrint("cert", "%s():%d - called for cert[%s], writing to db\n", __func__, __LINE__, obj.getTxBase()->GetHash().ToString());
+            return Write(std::make_pair(std::string("cert"), hash), dynamic_cast<const CWalletCert&>(obj));
         }
         else
         {
-            return Write(std::make_pair(std::string("tx"), hash), dynamic_cast<const CWalletTx&>(*pRef));
+            return Write(std::make_pair(std::string("tx"), hash), dynamic_cast<const CWalletTx&>(obj));
         }
     }
     catch (const std::exception &exc)
@@ -95,7 +86,6 @@ bool CWalletDB::WriteWalletTxBase(uint256 hash, const CWalletTransactionBase& ob
     }
     return false;
 }
-#endif
 
 bool CWalletDB::EraseWalletTxBase(uint256 hash)
 {
@@ -487,10 +477,9 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssValue >> wtx;
             CValidationState state;
             auto verifier = libzcash::ProofVerifier::Strict();
-            CTransaction tx = wtx;
-            if (!(CheckTransaction(tx, state, verifier) && (wtx.GetHash() == hash) && state.IsValid()))
+            if (!(CheckTransaction(wtx.getWrappedTx(), state, verifier) && (wtx.getWrappedTx().GetHash() == hash) && state.IsValid()))
             {
-                LogPrintf("%s: failure: tx id = %s, rejext code = %d", __func__, wtx.GetHash().ToString(), state.GetRejectCode());
+                LogPrintf("%s: failure: tx id = %s, rejext code = %d", __func__, wtx.getWrappedTx().GetHash().ToString(), state.GetRejectCode());
                 // Don't consider REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND error code as a failure. It can appear because a tx
                 // is a pre-chainsplit tx, so it is perfectly fine in this case.
                 if (state.GetRejectCode() != REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND)
@@ -528,20 +517,19 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             CWalletCert wcert;
             ssValue >> wcert;
             CValidationState state;
-            CScCertificate cert = wcert;
-            if (!(CheckCertificate(cert, state) && (wcert.GetHash() == hash) && state.IsValid()))
+            if (!(CheckCertificate(wcert.getWrappedCert(), state) && (wcert.getWrappedCert().GetHash() == hash) && state.IsValid()))
             {
-                LogPrint("cert", "%s():%d - cert[%s] is invalid\n", __func__, __LINE__, wcert.GetHash().ToString());
+                LogPrint("cert", "%s():%d - cert[%s] is invalid\n", __func__, __LINE__, wcert.getWrappedCert().GetHash().ToString());
                 return false;
             }
 
             if (wcert.nOrderPos == -1)
             {
-                LogPrint("cert", "%s():%d - cert[%s] is unordered\n", __func__, __LINE__, wcert.GetHash().ToString());
+                LogPrint("cert", "%s():%d - cert[%s] is unordered\n", __func__, __LINE__, wcert.getWrappedCert().GetHash().ToString());
                 wss.fAnyUnordered = true;
             }
 
-            LogPrint("cert", "%s():%d - adding cert[%s] to wallet\n", __func__, __LINE__, wcert.GetHash().ToString());
+            LogPrint("cert", "%s():%d - adding cert[%s] to wallet\n", __func__, __LINE__, wcert.getWrappedCert().GetHash().ToString());
             pwallet->AddToWallet(wcert, true, NULL);
         }
         else if (strType == "acentry")

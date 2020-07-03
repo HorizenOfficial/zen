@@ -55,6 +55,7 @@ zen_gtest_SOURCES += \
 if ENABLE_WALLET
 zen_gtest_SOURCES += \
 	wallet/gtest/test_wallet.cpp \
+	wallet/gtest/test_wallet_cert.cpp \
 	wallet/gtest/test_deadlock.cpp
 endif
 

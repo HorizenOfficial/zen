@@ -141,6 +141,7 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
     res.scId = scId;
     res.epochNumber = epochNum;
     res.endEpochBlockHash = endEpochBlockHash;
+    res.quality = 3; //setup to non zero value
 
     CScript dummyScriptPubKey =
             GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);

@@ -291,11 +291,11 @@ double benchmark_try_decrypt_notes(size_t nAddrs)
     }
 
     auto sk = libzcash::SpendingKey::random();
-    auto tx = GetValidReceive(*pzcashParams, sk, 10, true);
+    auto walletTx = GetValidReceive(*pzcashParams, sk, 10, true);
 
     struct timeval tv_start;
     timer_start(tv_start);
-    auto nd = wallet.FindMyNotes(tx);
+    auto nd = wallet.FindMyNotes(walletTx.getWrappedTx());
     return timer_stop(tv_start);
 }
 
@@ -311,17 +311,17 @@ double benchmark_increment_note_witnesses(size_t nTxs)
     CBlock block1;
     for (int i = 0; i < nTxs; i++) {
         auto wtx = GetValidReceive(*pzcashParams, sk, 10, true);
-        auto note = GetNote(*pzcashParams, sk, wtx, 0, 1);
+        auto note = GetNote(*pzcashParams, sk, wtx.getWrappedTx(), 0, 1);
         auto nullifier = note.nullifier(sk);
 
         mapNoteData_t noteData;
-        JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+        JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
         CNoteData nd {sk.address(), nullifier};
         noteData[jsoutpt] = nd;
 
         wtx.SetNoteData(noteData);
         wallet.AddToWallet(wtx, true, NULL);
-        block1.vtx.push_back(wtx);
+        block1.vtx.push_back(wtx.getWrappedTx());
     }
     CBlockIndex index1(block1);
     index1.nHeight = 1;
@@ -334,17 +334,17 @@ double benchmark_increment_note_witnesses(size_t nTxs)
     block2.hashPrevBlock = block1.GetHash();
     {
         auto wtx = GetValidReceive(*pzcashParams, sk, 10, true);
-        auto note = GetNote(*pzcashParams, sk, wtx, 0, 1);
+        auto note = GetNote(*pzcashParams, sk, wtx.getWrappedTx(), 0, 1);
         auto nullifier = note.nullifier(sk);
 
         mapNoteData_t noteData;
-        JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+        JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
         CNoteData nd {sk.address(), nullifier};
         noteData[jsoutpt] = nd;
 
         wtx.SetNoteData(noteData);
         wallet.AddToWallet(wtx, true, NULL);
-        block2.vtx.push_back(wtx);
+        block2.vtx.push_back(wtx.getWrappedTx());
     }
     CBlockIndex index2(block2);
     index2.nHeight = 2;
