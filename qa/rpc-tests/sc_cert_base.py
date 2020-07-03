@@ -508,15 +508,11 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
 
-        mark_logs("Confirm the certificate for epoch {} and move beyond safeguard".format(epoch_number), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
-        h = self.nodes[0].getblockcount()
-        self.nodes[0].generate(2)
-        self.sync_all()
-
+        # if txindex has not been specified when starting zend, this certificate can be retrieved only while is
+        # in mempool, since it has no coins to be searched in the coins db
         mark_logs("Check the certificate for this scid has no vin and no vouts", self.nodes, DEBUG_MODE)
         try:
-            ret = self.nodes[0].getrawcertificate(cert_epoch_1, 1, h)
+            ret = self.nodes[0].getrawcertificate(cert_epoch_1, 1)
             assert_equal(ret['cert']['scid'], scid)
             assert_equal(len(ret['vin']), 0)
             assert_equal(len(ret['vout']), 0)
@@ -524,6 +520,12 @@ class sc_cert_base(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs("can not get raw info for cert {} error: {}".format(cert_epoch_1, errorString), self.nodes, DEBUG_MODE)
     
+        mark_logs("Confirm the certificate for epoch {} and move beyond safeguard".format(epoch_number), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
+        h = self.nodes[0].getblockcount()
+        self.nodes[0].generate(2)
+        self.sync_all()
+
         bal_after_cert_2 = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance after epoch 1 certificate is received and safeguard passed: {}".format(bal_after_cert_2), self.nodes, DEBUG_MODE)        
 

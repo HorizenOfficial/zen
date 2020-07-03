@@ -21,7 +21,6 @@
 #include <univalue.h>
 #include "uint256.h"
 
-// rpc cmd
 extern UniValue send_certificate(const UniValue& params, bool fHelp);
 extern CAmount AmountFromValue(const UniValue& value);
 
@@ -58,7 +57,7 @@ static void dumpUniValueError(const UniValue& error, std::string& outMsg)
     {
         outMsg = errMsg.get_str();
     }
-    LogPrint("ws", "%s():%d - JSON RPC error: %s\n", __func__, __LINE__, (strPrint + outMsg));
+    LogPrint("ws", "%s():%d - JSON error: %s\n", __func__, __LINE__, (strPrint + outMsg));
 }
 
 static std::string findFieldValue(const std::string& field, const UniValue& request)
@@ -403,7 +402,7 @@ private:
         return OK;
     }
 
-    int sendRpcCmd(const UniValue& cmdParams, const std::string& clientRequestId, std::string& outMsg) {
+    int sendCertificate(const UniValue& cmdParams, const std::string& clientRequestId, std::string& outMsg) {
         UniValue ret;
         try {
              ret = send_certificate(cmdParams, false);
@@ -715,7 +714,7 @@ private:
 
                 const UniValue& feeVal = find_value(reqPayload, "fee");
 
-                // can be null, it is optional. The default is set in the rpc cmd
+                // can be null, it is optional. The default is set in the cmd
                 if (!feeVal.isNull()) {
                     try {
                         cmdParams.push_back(feeVal);
@@ -728,7 +727,7 @@ private:
                     }
                 }
 
-                return sendRpcCmd(cmdParams, clientRequestId, outMsg);
+                return sendCertificate(cmdParams, clientRequestId, outMsg);
             }
 
             // if we are here that means it is no valid request type, and reqType is an enum defaulting to 255
@@ -1061,7 +1060,9 @@ bool StartWsServer()
 {
     try
     {
-        std::string strAddress = GetArg("-wsaddress", "127.0.0.1");
+        // ip address is not configurable as of now, it is locahost mandatorily
+        //std::string strAddress = GetArg("-wsaddress", "127.0.0.1");
+        std::string strAddress = "127.0.0.1";
         int port = GetArg("-wsport", 8888);
 
         ws_thread = boost::thread(ws_main, strAddress, port);
