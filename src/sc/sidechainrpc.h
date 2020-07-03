@@ -66,6 +66,8 @@ class ScRpcCmd
     virtual void addInput(const CTxIn& out) = 0;
 
   public:
+    virtual ~ScRpcCmd() {};
+
     ScRpcCmd(
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee);
@@ -80,8 +82,8 @@ class ScRpcCmdTx : public ScRpcCmd
     // this is a reference to the tx that gets processed
     CMutableTransaction& _tx;
 
-    virtual void addOutput(const CTxOut& out) override {_tx.addOut(out); }
-    virtual void addInput(const CTxIn& in) override    {_tx.vin.push_back(in); }
+    void addOutput(const CTxOut& out) override {_tx.addOut(out); }
+    void addInput(const CTxIn& in) override    {_tx.vin.push_back(in); }
 
     virtual void addCcOutputs() = 0;
 
@@ -94,7 +96,7 @@ class ScRpcCmdTx : public ScRpcCmd
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee);
 
-    virtual void execute() override;
+    void execute() override;
 
 };
 
@@ -104,11 +106,13 @@ class ScRpcCmdCert : public ScRpcCmd
     // this is a reference to the tx that gets processed
     CMutableScCertificate& _cert;
 
-    virtual void addOutput(const CTxOut& out) override {_cert.addOut(out); }
-    virtual void addInput(const CTxIn& in) override    {_cert.vin.push_back(in); }
+    void addOutput(const CTxOut& out) override {_cert.addOut(out); }
+    void addInput(const CTxIn& in) override    {_cert.vin.push_back(in); }
   
     void sign() override;
     void send() override;    
+
+  private:
     void addBackwardTransfers();
 
   public:
@@ -131,7 +135,7 @@ class ScRpcCmdCert : public ScRpcCmd
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee);
 
-    virtual void execute() override;
+    void execute() override;
 };
 
 
