@@ -158,21 +158,18 @@ bool CCoinsViewDB::GetSidechainEvents(int height, CSidechainEvents& ceasingScs) 
 void CCoinsViewDB::GetScIds(std::set<uint256>& scIdsList) const
 {
     std::unique_ptr<leveldb::Iterator> it(const_cast<CLevelDBWrapper*>(&db)->NewIterator());
-    for (it->SeekToFirst(); it->Valid(); it->Next())
+    static std::string scIdsPrefix = std::string(1,DB_SIDECHAINS);
+
+    for(it->Seek(scIdsPrefix); it->Valid() && it->key().starts_with(scIdsPrefix); it->Next())
     {
         boost::this_thread::interruption_point();
 
         leveldb::Slice slKey = it->key();
-        CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
-        char chType;
-        ssKey >> chType;
-        if (chType == DB_SIDECHAINS)
-        {
-            uint256 keyScId;
-            ssKey >> keyScId;
-            scIdsList.insert(keyScId);
-            LogPrint("sc", "%s():%d - scId[%s] added in map\n", __func__, __LINE__, keyScId.ToString() );
-        }
+        // serialize key, skipping prefix
+        CDataStream ssKey(slKey.data() + sizeof(char), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
+        uint256 keyScId;
+        ssKey >> keyScId;
+        scIdsList.insert(keyScId);
     }
 
     return;

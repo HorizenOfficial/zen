@@ -833,40 +833,58 @@ TEST_F(SidechainTestSuite, GetScIdsOnChainstateDbSelectOnlySidechains) {
     CCoinsViewDB chainStateDb(chainStateDbSize,/*fWipe*/true);
     sidechainsView->SetBackend(chainStateDb);
 
-    //prepare a sidechain
-    CBlock aBlock;
-    int sc1CreationHeight(11);
-    CTransaction scTx = txCreationUtils::createNewSidechainTxWith(CAmount(1));
-    const uint256& scId = scTx.GetScIdFromScCcOut(0);
-    ASSERT_TRUE(sidechainsView->UpdateScInfo(scTx, aBlock, sc1CreationHeight));
+    //Insert in db two sidechains
+    CSidechainsCacheEntry sidechain1;
+    sidechain1.flag = CSidechainsCacheEntry::Flags::FRESH;
+    sidechain1.scInfo.balance = CAmount(100);
+    sidechain1.scInfo.creationBlockHash = uint256S("aaa");
+    sidechain1.scInfo.creationBlockHeight = 1985;
+    uint256 scId1 = uint256S("123456789AAA");
 
-    //prepare a coin
+    CSidechainsCacheEntry sidechain2;
+    sidechain2.flag = CSidechainsCacheEntry::Flags::FRESH;
+    sidechain2.scInfo.balance = CAmount(100);
+    sidechain2.scInfo.creationBlockHash = uint256S("aaa");
+    sidechain2.scInfo.creationBlockHeight = 1985;
+    uint256 scId2 = uint256S("987654321BBB");
+
+    CSidechainsMap mapSidechains;
+    mapSidechains[scId1] = sidechain1;
+    mapSidechains[scId2] = sidechain2;
+
+    //Insert in db a coin
     CCoinsCacheEntry aCoin;
     aCoin.flags = CCoinsCacheEntry::FRESH | CCoinsCacheEntry::DIRTY;
     aCoin.coins.fCoinBase = false;
     aCoin.coins.nVersion = TRANSPARENT_TX_VERSION;
     aCoin.coins.vout.resize(1);
     aCoin.coins.vout[0].nValue = CAmount(10);
-
     CCoinsMap mapCoins;
     mapCoins[uint256S("aaaa")] = aCoin;
-    CAnchorsMap    emptyAnchorsMap;
-    CNullifiersMap emptyNullifiersMap;
-    CSidechainsMap emptySidechainsMap;
+
+    //Insert in db a sidechainEvent
+    CSidechainEventsCacheEntry aSidechainEvent;
+    aSidechainEvent.flag = CSidechainEventsCacheEntry::Flags::DIRTY;
+    aSidechainEvent.scEvents.maturingScs.insert(uint256S("aaaa"));
+    aSidechainEvent.scEvents.maturingScs.insert(uint256S("bbbb"));
+    aSidechainEvent.scEvents.ceasingScs.insert(uint256S("cccc"));
     CSidechainEventsMap mapCeasingScs;
+    mapCeasingScs[1987] = aSidechainEvent;
 
-    sidechainsView->BatchWrite(mapCoins, uint256(), uint256(), emptyAnchorsMap, emptyNullifiersMap, emptySidechainsMap, mapCeasingScs);
+    //test
+    CAnchorsMap    dummyAnchorsMap;
+    CNullifiersMap dummyNullifiersMap;
 
-    //flush both the coin and the sidechain to the tmp chainstatedb
-    ASSERT_TRUE(sidechainsView->Flush());
+    chainStateDb.BatchWrite(mapCoins, uint256(), uint256(), dummyAnchorsMap, dummyNullifiersMap, mapSidechains, mapCeasingScs);
 
     //test
     std::set<uint256> knownScIdsSet;
     sidechainsView->GetScIds(knownScIdsSet);
 
     //check
-    EXPECT_TRUE(knownScIdsSet.size() == 1)<<"Instead knowScIdSet size is "<<knownScIdsSet.size();
-    EXPECT_TRUE(knownScIdsSet.count(scId) == 1)<<"Actual count is "<<knownScIdsSet.count(scId);
+    EXPECT_TRUE(knownScIdsSet.size() == 2)<<"Instead knowScIdSet size is "<<knownScIdsSet.size();
+    EXPECT_TRUE(knownScIdsSet.count(scId1) == 1)<<"Actual count is "<<knownScIdsSet.count(scId1);
+    EXPECT_TRUE(knownScIdsSet.count(scId2) == 1)<<"Actual count is "<<knownScIdsSet.count(scId2);
 
     ClearDatadirCache();
     boost::system::error_code ec;
