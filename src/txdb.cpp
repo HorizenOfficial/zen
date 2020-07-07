@@ -158,7 +158,7 @@ bool CCoinsViewDB::GetSidechainEvents(int height, CSidechainEvents& ceasingScs) 
 void CCoinsViewDB::GetScIds(std::set<uint256>& scIdsList) const
 {
     std::unique_ptr<leveldb::Iterator> it(const_cast<CLevelDBWrapper*>(&db)->NewIterator());
-    static std::string scIdsPrefix = std::string(1,DB_SIDECHAINS);
+    static const std::string scIdsPrefix = std::string(1,DB_SIDECHAINS);
 
     for(it->Seek(scIdsPrefix); it->Valid() && it->key().starts_with(scIdsPrefix); it->Next())
     {
