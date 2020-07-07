@@ -4324,10 +4324,10 @@ void CWalletTransactionBase::AddVinExpandedToJSON(UniValue& entry, const std::ma
                     int nRequired;
                     vector<CTxDestination> addresses;
                     if (!ExtractDestinations(txout.scriptPubKey, type, addresses, nRequired)) {
-                        in.push_back(Pair("address", "Unknown"));
+                        in.push_back(Pair("addr", "Unknown"));
                     } else {
                         const CTxDestination& addr = addresses[0];
-                        in.push_back(Pair("address", (CBitcoinAddress(addr).ToString() )));
+                        in.push_back(Pair("addr", (CBitcoinAddress(addr).ToString() )));
                     }
                 }
             }
