@@ -91,7 +91,8 @@ class SCCreateTest(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with wrong key in input", self.nodes, DEBUG_MODE)
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
+            self.nodes[1].create_sidechain(cmdInput)
+            assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -103,8 +104,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with duplicate key in input",self.nodes,DEBUG_MODE)
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -117,8 +117,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with duplicate key in input",self.nodes,DEBUG_MODE)
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -131,8 +130,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with an invalid amount in input", self.nodes, DEBUG_MODE)
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -145,8 +143,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with an invalid epoch length in input", self.nodes, DEBUG_MODE)
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -159,8 +156,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with a fromaddress expressed in a wrong format", self.nodes, DEBUG_MODE)
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -173,8 +169,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with a changeaddress that does not belong to the node", self.nodes, DEBUG_MODE)
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -190,8 +185,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with an amount that prevents a change above the dust threshold", self.nodes, DEBUG_MODE)
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -205,8 +199,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "zz" * SC_VK_SIZE}
 
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -219,8 +212,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "a" * (SC_VK_SIZE - 1)}
 
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -233,8 +225,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "aa" * (SC_VK_SIZE - 1)}
 
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -247,8 +238,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "aa" * (SC_VK_SIZE + 1)}
 
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -261,8 +251,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "aa" * SC_VK_SIZE}
 
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -275,8 +264,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee}
 
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -289,8 +277,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'customData': "zz" * 1024}
 
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -303,8 +290,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'customData': "b" * 1023}
 
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -317,8 +303,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'customData': "bb" * 1025}
 
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -331,8 +316,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'constant': "zz" * SC_FIELD_SIZE}
 
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -345,8 +329,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'constant': "b" * (SC_FIELD_SIZE - 1)}
 
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -359,8 +342,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'constant': "bb" * (SC_FIELD_SIZE - 1)}
 
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -373,8 +355,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'constant': "bb" * (SC_FIELD_SIZE + 1)}
 
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -387,8 +368,7 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk, 'constant': "aa" * SC_FIELD_SIZE}
 
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -426,7 +406,10 @@ class SCCreateTest(BitcoinTestFramework):
         cmdInput = {"fromaddress": fromaddr, "toaddress": toaddress, "amount": amount, "changeaddress":changeaddress, "fee": fee, 'wCertVk': vk}
 
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
+            res = self.nodes[1].create_sidechain(cmdInput)
+            tx =   res['txid']
+            scid = res['scid']
+            pprint.pprint(res)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -436,6 +419,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         decoded_tx = self.nodes[1].getrawtransaction(tx, 1)
         sc_id = decoded_tx['vsc_ccout'][0]['scid']
+        assert_equal(scid, sc_id)
 
         totalOutAmount = 0.0
         totalInAmount  = 0.0
@@ -504,8 +488,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with an minconf value in input which gives an error", self.nodes, DEBUG_MODE)
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
-            print "tx=", tx
+            self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -520,7 +503,10 @@ class SCCreateTest(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with an minconf value in input which is OK, with scid auto generation and valid custom data", self.nodes, DEBUG_MODE)
         try:
-            tx = self.nodes[1].create_sidechain(cmdInput)
+            res = self.nodes[1].create_sidechain(cmdInput)
+            tx =   res['txid']
+            scid = res['scid']
+            pprint.pprint(res)
             self.sync_all()
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -528,7 +514,8 @@ class SCCreateTest(BitcoinTestFramework):
             assert_true(False)
 
         decoded_tx = self.nodes[1].getrawtransaction(tx, 1)
-        scid    = decoded_tx['vsc_ccout'][0]['scid']
+        sc_id   = decoded_tx['vsc_ccout'][0]['scid']
+        assert_equal(scid, sc_id)
         wCertVk = decoded_tx['vsc_ccout'][0]['wCertVk']
         constant = decoded_tx['vsc_ccout'][0]['constant']
         customData = decoded_tx['vsc_ccout'][0]['customData']
@@ -573,8 +560,8 @@ class SCCreateTest(BitcoinTestFramework):
             assert_true(False)
 
         decoded_tx = self.nodes[1].getrawtransaction(tx, 1)
-        if DEBUG_MODE:
-            pprint.pprint(decoded_tx)
+#        if DEBUG_MODE:
+#            pprint.pprint(decoded_tx)
 
         mark_logs("\nNode 0 generates 2 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(2)

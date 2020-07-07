@@ -135,7 +135,7 @@ class CAccountingEntry;
 typedef std::pair<CWalletTransactionBase*, CAccountingEntry*> TxPair;
 typedef std::multimap<int64_t, TxPair > TxItems;
 
-typedef std::pair<CWalletTransactionBase*, std::vector<CWalletTransactionBase*> > TxWithInputsPair;
+typedef std::pair<CWalletTransactionBase*, std::map<uint256, CWalletTransactionBase*> > TxWithInputsPair;
 typedef std::vector<TxWithInputsPair> vTxWithInputs;
 
 static void ReadOrderPos(int64_t& nOrderPos, mapValue_t& mapValue)
@@ -431,9 +431,9 @@ public:
     virtual std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const = 0;
     static std::shared_ptr<CWalletTransactionBase> MakeWalletObjectBase(const CTransactionBase& obj, const CWallet* pwallet);
 
-    void AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletTransactionBase*>& vtxIn) const;
+    void AddVinExpandedToJSON(UniValue& entry, const std::map<uint256, CWalletTransactionBase*>& vtxIn) const;
     void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const;
-    void addInputTxToVector(std::vector<CWalletTransactionBase*>& vec, const CScript& scriptPubKey, bool& inputFound) const;
+    void addInputTx(std::map<uint256, CWalletTransactionBase*>& mapTxin, const CScript& scriptPubKey, bool& inputFound) const;
 };
 
 /** 
@@ -1093,7 +1093,7 @@ public:
     };
 
     void GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput,
-        CAmount& unconfOutput, CAmount& bwtImmatureOutput, eZeroConfChangeUsage zconfchangeusage) const;
+        CAmount& unconfOutput, CAmount& bwtImmatureOutput, eZeroConfChangeUsage zconfchangeusage, bool fIncludeNonFinal) const;
     CAmount GetImmatureBalance() const;
     CAmount GetWatchOnlyBalance() const;
     CAmount GetUnconfirmedWatchOnlyBalance() const;

@@ -1007,15 +1007,15 @@ vTxWithInputs CWallet::OrderedTxWithInputs(const std::string& address) const
             }
         }
 
-        std::vector<CWalletTransactionBase*> vtxIn;
+        std::map<uint256, CWalletTransactionBase*> mtxIn;
         if (!wtx->getTxBase()->IsCoinBase())
         {
-            // add to the passed vector all the selected txes whose outputs are inputs of wtx
-            wtx->addInputTxToVector(vtxIn, scriptPubKey, inputFound);
+            // add to the passed map all the selected txes whose outputs are inputs of wtx
+            wtx->addInputTx(mtxIn, scriptPubKey, inputFound);
         }
 
         if (outputFound || inputFound) {
-            vOrderedTxes.push_back(make_pair(wtx, vtxIn));
+            vOrderedTxes.push_back(make_pair(wtx, mtxIn));
         }
     }
 
@@ -2577,7 +2577,7 @@ CAmount CWallet::GetUnconfirmedBalance() const
 }
 
 void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput,
-    CAmount& unconfOutput, CAmount& bwtImmatureOutput, eZeroConfChangeUsage zconfchangeusage) const
+    CAmount& unconfOutput, CAmount& bwtImmatureOutput, eZeroConfChangeUsage zconfchangeusage, bool fIncludeNonFinal) const
 {
     unconfOutput = 0;
     unconfInput = 0;
@@ -2620,7 +2620,11 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
                 trusted = pcoin->IsTrusted(zconfchangeusage == eZeroConfChangeUsage::ZCC_TRUE);
             }
 
-            if (!CheckFinalTx(*pcoin->getTxBase()) || (!trusted && pcoin->GetDepthInMainChain() == 0))
+            bool isFinal = CheckFinalTx(*pcoin->getTxBase());
+            if (!fIncludeNonFinal && !isFinal)
+                continue;
+
+            if (!isFinal || (!trusted && pcoin->GetDepthInMainChain() == 0))
             {
                 int vout_idx = 0;
                 bool outputFound = false;
@@ -2654,26 +2658,21 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
                     vout_idx++;
                 }
              
-                std::vector<CWalletTransactionBase*> vtxIn = (*it).second;
+                std::map<uint256, CWalletTransactionBase*> mtxIn = (*it).second;
              
                 for (const CTxIn& txin : pcoin->getTxBase()->GetVin())
                 {
                     const uint256& inputTxHash = txin.prevout.hash;
-             
-                    for (const auto& inputTx : vtxIn)
+
+                    auto mi = mtxIn.find(inputTxHash);
+                    if (mi != mtxIn.end() && (*mi).second)
                     {
-                        if (inputTx->getTxBase()->GetHash() == inputTxHash)
+                        const CTxOut& txout = (*mi).second->getTxBase()->GetVout()[txin.prevout.n];
+                        auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptToMatch.begin(), scriptToMatch.end());
+                        if (res == txout.scriptPubKey.begin())
                         {
-                            if (txin.prevout.n >= inputTx->getTxBase()->GetVout().size())
-                                break;
-             
-                            const CTxOut& txout = inputTx->getTxBase()->GetVout()[txin.prevout.n];
-                            auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptToMatch.begin(), scriptToMatch.end());
-                            if (res == txout.scriptPubKey.begin())
-                            {
-                                unconfInput += GetCredit(txout, ISMINE_SPENDABLE);
-                                inputFound = true;
-                            }
+                            unconfInput += GetCredit(txout, ISMINE_SPENDABLE);
+                            inputFound = true;
                         }
                     }
                 }
@@ -4287,7 +4286,7 @@ void CWallet::GetFilteredNotes(std::vector<CNotePlaintextEntry> & outEntries, st
     }
 }
 
-void CWalletTransactionBase::AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletTransactionBase*>& vtxIn) const
+void CWalletTransactionBase::AddVinExpandedToJSON(UniValue& entry, const std::map<uint256, CWalletTransactionBase*>& mtxIn) const
 {
     if (!pTxBase->IsCertificate() )
         entry.push_back(Pair("locktime", (int64_t)pTxBase->GetLockTime()));
@@ -4302,40 +4301,37 @@ void CWalletTransactionBase::AddVinExpandedToJSON(UniValue& entry, const std::ve
         else
         {
             const uint256& inputTxHash = txin.prevout.hash;
-            bool inputFound = false;
+
             in.push_back(Pair("txid", inputTxHash.GetHex()));
+            in.push_back(Pair("vout", (int64_t)txin.prevout.n));
 
-            for (const auto& inputTx : vtxIn)
-            {
-                if (inputTx->getTxBase()->GetHash() == inputTxHash)
-                {
-                    if (txin.prevout.n >= inputTx->getTxBase()->GetVout().size())
-                        break;
-
-                    const CTxOut& txout = inputTx->getTxBase()->GetVout()[txin.prevout.n];
-
-                    UniValue vout(UniValue::VARR);
-                    UniValue out(UniValue::VOBJ);
-                    out.push_back(Pair("value", ValueFromAmount(txout.nValue)));
-                    out.push_back(Pair("valueZat", txout.nValue));
-                    out.push_back(Pair("n", (int64_t)txin.prevout.n));
-                    UniValue o(UniValue::VOBJ);
-                    ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
-                    out.push_back(Pair("scriptPubKey", o));
-                    vout.push_back(out);
-                    in.push_back(Pair("vout", vout));
-                    inputFound = true;
-                }
-            }
-
-            if (!inputFound)
-            {
-                in.push_back(Pair("vout", (int64_t)txin.prevout.n));
-            }
             UniValue o(UniValue::VOBJ);
             o.push_back(Pair("asm", txin.scriptSig.ToString()));
             o.push_back(Pair("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end())));
             in.push_back(Pair("scriptSig", o));
+
+            auto mi = mtxIn.find(inputTxHash);
+            if (mi != mtxIn.end() && (*mi).second)
+            {
+                if ((*mi).second->getTxBase()->GetHash() == inputTxHash)
+                {
+                    const CTxOut& txout = (*mi).second->getTxBase()->GetVout()[txin.prevout.n];
+
+                    in.push_back(Pair("value", ValueFromAmount(txout.nValue)));
+                    in.push_back(Pair("valueSat", txout.nValue));
+
+                    txnouttype type;
+                    int nRequired;
+                    vector<CTxDestination> addresses;
+                    if (!ExtractDestinations(txout.scriptPubKey, type, addresses, nRequired)) {
+                        in.push_back(Pair("address", "Unknown"));
+                    } else {
+                        const CTxDestination& addr = addresses[0];
+                        in.push_back(Pair("address", (CBitcoinAddress(addr).ToString() )));
+                    }
+                }
+            }
+
         }
         in.push_back(Pair("sequence", (int64_t)txin.nSequence));
         vinArr.push_back(in);
@@ -4343,7 +4339,7 @@ void CWalletTransactionBase::AddVinExpandedToJSON(UniValue& entry, const std::ve
     entry.push_back(Pair("vin", vinArr));
 }
 
-void CWalletTransactionBase::addInputTxToVector(std::vector<CWalletTransactionBase*>& vec, const CScript& scriptPubKey, bool& inputFound) const 
+void CWalletTransactionBase::addInputTx(std::map<uint256, CWalletTransactionBase*>& mapTxin, const CScript& scriptPubKey, bool& inputFound) const 
 {
     for(const auto& txin: pTxBase->GetVin())
     {
@@ -4366,7 +4362,7 @@ void CWalletTransactionBase::addInputTxToVector(std::vector<CWalletTransactionBa
         // add input anyway if we can expand it
         if (pwallet->IsMine(utxo))
         {
-            vec.push_back(inputTx.get());
+            mapTxin[txin.prevout.hash] = inputTx.get();
         }
     }
 }

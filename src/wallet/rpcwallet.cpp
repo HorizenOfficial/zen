@@ -81,12 +81,12 @@ void EnsureWalletIsUnlocked()
         throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Please enter the wallet passphrase with walletpassphrase first.");
 }
 
-void TxExpandedToJSON(const CWalletTransactionBase& tx, const std::vector<CWalletTransactionBase*>& vtxIn, UniValue& entry)
+void TxExpandedToJSON(const CWalletTransactionBase& tx, const std::map<uint256, CWalletTransactionBase*>& mtxIn, UniValue& entry)
 {
     entry.push_back(Pair("txid", tx.getTxBase()->GetHash().GetHex()));
     entry.push_back(Pair("version", tx.getTxBase()->nVersion));
 
-    tx.AddVinExpandedToJSON(entry, vtxIn);
+    tx.AddVinExpandedToJSON(entry, mtxIn);
 
     int conf = tx.GetDepthInMainChain();
     int64_t timestamp = tx.GetTxTime();
@@ -847,7 +847,10 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "                                          hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
             "}\n"
             "\nResult:\n"
-            "\"transactionid\"    (string) The resulting transaction id.\n"
+            "{\n"
+            "  \"txid\": transaction id    (string) The resulting transaction id.\n"
+            "  \"scid\": sidechainid       (string) The id of the sidechain created by this tx.\n"
+            "}\n"
             "\nExamples:\n"
             + HelpExampleCli("create_sidechain", "'{\"toaddress\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0, \"wCertVk\": abcd..ef}'")
         );
@@ -1043,7 +1046,19 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     cmd.sign();
     cmd.send();
         
-    return tx_create.GetHash().GetHex();
+    CTransaction tx(tx_create);
+    UniValue ret(UniValue::VOBJ);
+    ret.push_back(Pair("txid", tx.GetHash().GetHex()));
+
+    // there must be one and only one creation output
+    if (tx.GetVscCcOut().size() != 1)
+    {
+        throw JSONRPCError(RPC_TYPE_ERROR, strprintf("creation vector output size %d is invalid",
+            tx.GetVscCcOut().size()));
+    }
+    ret.push_back(Pair("scid", tx.GetScIdFromScCcOut(0).GetHex()));
+
+    return ret;
 }
 
 UniValue send_to_sidechain(const UniValue& params, bool fHelp)
@@ -2394,7 +2409,7 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() > 2)
+    if (fHelp || params.size() > 3)
         throw runtime_error(
             "getunconfirmedtxdata ( \"address\")\n"
             "\nReturns the server's total unconfirmed data relevanto to the input address\n"
@@ -2403,6 +2418,8 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
             " spendzeroconfchange  (boolean, optional) If provided the command will force zero confirmation change\n"
             "                         spendability as specified, otherwise the value set by zend option \'spendzeroconfchange\' \n"
             "                         will be used instead\n"
+            " includeNonFinalTxes  (boolean, optional, default=true) If true the command will consider also non final txes in the\n"
+            "                         computation of unconfirmed quantities\n"
 
             "\nExamples:\n"
             + HelpExampleCli("getunconfirmedtxdata", "\"ztZ5M1P9ucj3P5JaW5xtY2hWTkp6JsToiHP\"")
@@ -2428,11 +2445,21 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
         }
     }
 
+    bool fIncludeNonFinal = true;
+    if (params.size() == 3 )
+    {
+        if (!params[1].get_bool())
+        {
+            fIncludeNonFinal = false;
+        }
+    }
+
     int n = 0;
     CAmount unconfInput = 0;
     CAmount unconfOutput = 0;
     CAmount bwtImmatureOutput = 0;
-    pwalletMain->GetUnconfirmedData(address, n, unconfInput, unconfOutput, bwtImmatureOutput, zconfchangeusage);
+    pwalletMain->GetUnconfirmedData(address, n, unconfInput, unconfOutput, bwtImmatureOutput,
+        zconfchangeusage, fIncludeNonFinal);
 
     UniValue ret(UniValue::VOBJ);
     ret.push_back(Pair("unconfirmedInput", ValueFromAmount(unconfInput)));
@@ -2502,9 +2529,9 @@ UniValue listtxesbyaddress(const UniValue& params, bool fHelp)
     for (vTxWithInputs::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
     {
         const CWalletTransactionBase& wtx = *((*it).first);
-        std::vector<CWalletTransactionBase*> vtxIn = (*it).second;
+        std::map<uint256, CWalletTransactionBase*> mtxIn = (*it).second;
         UniValue o(UniValue::VOBJ);
-        TxExpandedToJSON(wtx, vtxIn, o);
+        TxExpandedToJSON(wtx, mtxIn, o);
         ret.push_back(o);
 
         if ((int)ret.size() >= (nCount+nFrom)) break;
