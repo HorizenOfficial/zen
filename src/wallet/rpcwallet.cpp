@@ -81,12 +81,65 @@ void EnsureWalletIsUnlocked()
         throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Please enter the wallet passphrase with walletpassphrase first.");
 }
 
-void TxExpandedToJSON(const CWalletTransactionBase& tx, const std::map<uint256, CWalletTransactionBase*>& mtxIn, UniValue& entry)
+void AddVinExpandedToJSON(const CWalletTransactionBase& tx, UniValue& entry)
+{
+    if (!tx.getTxBase()->IsCertificate() )
+        entry.push_back(Pair("locktime", (int64_t)tx.getTxBase()->GetLockTime()));
+    UniValue vinArr(UniValue::VARR);
+    for (const CTxIn& txin : tx.getTxBase()->GetVin())
+    {
+        UniValue in(UniValue::VOBJ);
+        if (tx.getTxBase()->IsCoinBase())
+        {
+            in.push_back(Pair("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end())));
+        }
+        else
+        {
+            const uint256& inputTxHash = txin.prevout.hash;
+
+            in.push_back(Pair("txid", inputTxHash.GetHex()));
+            in.push_back(Pair("vout", (int64_t)txin.prevout.n));
+
+            UniValue o(UniValue::VOBJ);
+            o.push_back(Pair("asm", txin.scriptSig.ToString()));
+            o.push_back(Pair("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end())));
+            in.push_back(Pair("scriptSig", o));
+
+            auto mi = pwalletMain->getMapWallet().find(inputTxHash);
+            if (mi != pwalletMain->getMapWallet().end() )
+            {
+                if ((*mi).second->getTxBase()->GetHash() == inputTxHash)
+                {
+                    const CTxOut& txout = (*mi).second->getTxBase()->GetVout()[txin.prevout.n];
+
+                    in.push_back(Pair("value", ValueFromAmount(txout.nValue)));
+                    in.push_back(Pair("valueSat", txout.nValue));
+
+                    txnouttype type;
+                    int nRequired;
+                    vector<CTxDestination> addresses;
+                    if (!ExtractDestinations(txout.scriptPubKey, type, addresses, nRequired)) {
+                        in.push_back(Pair("addr", "Unknown"));
+                    } else {
+                        const CTxDestination& addr = addresses[0];
+                        in.push_back(Pair("addr", (CBitcoinAddress(addr).ToString() )));
+                    }
+                }
+            }
+
+        }
+        in.push_back(Pair("sequence", (int64_t)txin.nSequence));
+        vinArr.push_back(in);
+    }
+    entry.push_back(Pair("vin", vinArr));
+}
+
+void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
 {
     entry.push_back(Pair("txid", tx.getTxBase()->GetHash().GetHex()));
     entry.push_back(Pair("version", tx.getTxBase()->nVersion));
 
-    tx.AddVinExpandedToJSON(entry, mtxIn);
+    AddVinExpandedToJSON(tx, entry);
 
     int conf = tx.GetDepthInMainChain();
     int64_t timestamp = tx.GetTxTime();
@@ -2433,7 +2486,7 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
 
     CWallet::eZeroConfChangeUsage zconfchangeusage = CWallet::eZeroConfChangeUsage::ZCC_UNDEF; 
-    if (params.size() == 2 )
+    if (params.size() >= 2 )
     {
         if (params[1].get_bool())
         {
@@ -2448,7 +2501,7 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
     bool fIncludeNonFinal = true;
     if (params.size() == 3 )
     {
-        if (!params[1].get_bool())
+        if (!params[2].get_bool())
         {
             fIncludeNonFinal = false;
         }
@@ -2528,10 +2581,9 @@ UniValue listtxesbyaddress(const UniValue& params, bool fHelp)
     // iterate backwards until we have nCount items to return:
     for (vTxWithInputs::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
     {
-        const CWalletTransactionBase& wtx = *((*it).first);
-        std::map<uint256, CWalletTransactionBase*> mtxIn = (*it).second;
+        const CWalletTransactionBase& wtx = *(*it);
         UniValue o(UniValue::VOBJ);
-        TxExpandedToJSON(wtx, mtxIn, o);
+        TxExpandedToJSON(wtx, o);
         ret.push_back(o);
 
         if ((int)ret.size() >= (nCount+nFrom)) break;

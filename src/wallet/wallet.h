@@ -135,8 +135,8 @@ class CAccountingEntry;
 typedef std::pair<CWalletTransactionBase*, CAccountingEntry*> TxPair;
 typedef std::multimap<int64_t, TxPair > TxItems;
 
-typedef std::pair<CWalletTransactionBase*, std::map<uint256, CWalletTransactionBase*> > TxWithInputsPair;
-typedef std::vector<TxWithInputsPair> vTxWithInputs;
+//typedef std::pair<CWalletTransactionBase*, std::map<uint256, CWalletTransactionBase*> > TxWithInputsPair;
+typedef std::vector<CWalletTransactionBase*> vTxWithInputs;
 
 static void ReadOrderPos(int64_t& nOrderPos, mapValue_t& mapValue)
 {
@@ -431,9 +431,9 @@ public:
     virtual std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const = 0;
     static std::shared_ptr<CWalletTransactionBase> MakeWalletObjectBase(const CTransactionBase& obj, const CWallet* pwallet);
 
-    void AddVinExpandedToJSON(UniValue& entry, const std::map<uint256, CWalletTransactionBase*>& vtxIn) const;
     void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const;
-    void addInputTx(std::map<uint256, CWalletTransactionBase*>& mapTxin, const CScript& scriptPubKey, bool& inputFound) const;
+    bool HasInput(const CScript& scriptPubKey) const;
+    bool HasOutput(const CScript& scriptPubKey) const;
 };
 
 /** 
