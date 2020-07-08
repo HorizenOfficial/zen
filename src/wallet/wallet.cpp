@@ -994,12 +994,17 @@ vTxWithInputs CWallet::OrderedTxWithInputs(const std::string& address) const
         LogPrintf("%s():%d - processing ordered tx: nOrderPos[%d]: tx[%s]\n", __func__, __LINE__,
             orderPos, wtx->getTxBase()->GetHash().ToString() );
 
-        bool outputFound = wtx->HasOutput(scriptPubKey);
+        if (wtx->GetDepthInMainChain() < 0) {
+            LogPrintf("%s():%d - skipping tx[%s]: conflicted\n", __func__, __LINE__, wtx->getTxBase()->GetHash().ToString() );
+            continue;
+        }
+
+        bool outputFound = wtx->HasOutputFor(scriptPubKey);
 
         bool inputFound = false;
         if (!outputFound && !wtx->getTxBase()->IsCoinBase())
         {
-            inputFound = wtx->HasInput(scriptPubKey);
+            inputFound = wtx->HasInputFrom(scriptPubKey);
         }
 
         if (outputFound || inputFound) {
@@ -2604,6 +2609,7 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
             bool trusted = false;
             if (zconfchangeusage == eZeroConfChangeUsage::ZCC_UNDEF)
             {
+                // use the default settings from zend option
                 trusted = pcoin->IsTrusted();
             }
             else
@@ -2618,11 +2624,11 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
             if (!fIncludeNonFinal && !isFinal)
                 continue;
 
+            // look for outputs
+            bool outputFound = false;
             if (!isFinal || (!trusted && pcoin->GetDepthInMainChain() == 0))
             {
                 int vout_idx = 0;
-                bool outputFound = false;
-                bool inputFound = false;
 
                 for(const auto& txout : pcoin->getTxBase()->GetVout())
                 {
@@ -2651,7 +2657,12 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
                     }
                     vout_idx++;
                 }
+            }
              
+            // look for inputs, and do not consider the trusted flag, since it is related only to tx outputs
+            bool inputFound = false;
+            if (!isFinal || pcoin->GetDepthInMainChain() == 0)
+            {
                 for (const CTxIn& txin : pcoin->getTxBase()->GetVin())
                 {
                     const uint256& inputTxHash = txin.prevout.hash;
@@ -2668,11 +2679,11 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
                         }
                     }
                 }
+            }
 
-                if (inputFound || outputFound)
-                {
-                    numbOfUnconfirmedTx++;
-                }
+            if (inputFound || outputFound)
+            {
+                numbOfUnconfirmedTx++;
             }
 
             // only for certificates, look for immature amounts of bwts, not depending on number of confirmations
@@ -4278,7 +4289,7 @@ void CWallet::GetFilteredNotes(std::vector<CNotePlaintextEntry> & outEntries, st
     }
 }
 
-bool CWalletTransactionBase::HasInput(const CScript& scriptPubKey) const 
+bool CWalletTransactionBase::HasInputFrom(const CScript& scriptPubKey) const 
 {
     for(const auto& txin: pTxBase->GetVin())
     {
@@ -4303,7 +4314,7 @@ bool CWalletTransactionBase::HasInput(const CScript& scriptPubKey) const
     return false;
 }
 
-bool CWalletTransactionBase::HasOutput(const CScript& scriptPubKey) const 
+bool CWalletTransactionBase::HasOutputFor(const CScript& scriptPubKey) const 
 {
     for(const auto& txout : getTxBase()->GetVout())
     {

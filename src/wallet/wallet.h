@@ -432,8 +432,8 @@ public:
     static std::shared_ptr<CWalletTransactionBase> MakeWalletObjectBase(const CTransactionBase& obj, const CWallet* pwallet);
 
     void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const;
-    bool HasInput(const CScript& scriptPubKey) const;
-    bool HasOutput(const CScript& scriptPubKey) const;
+    bool HasInputFrom(const CScript& scriptPubKey) const;
+    bool HasOutputFor(const CScript& scriptPubKey) const;
 };
 
 /** 

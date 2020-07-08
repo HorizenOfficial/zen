@@ -3538,6 +3538,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             }
         }
         entry.push_back(Pair("amount",ValueFromAmount(nValue)));
+        entry.push_back(Pair("satoshis", nValue));
         entry.push_back(Pair("confirmations",out.nDepth));
         entry.push_back(Pair("spendable", out.fSpendable));
         results.push_back(entry);
