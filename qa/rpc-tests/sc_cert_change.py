@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, initialize_chain_clean, \
+from test_framework.util import assert_equal, initialize_chain_clean, get_epoch_data, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs
 from test_framework.mc_test.mc_test import *
 import os
@@ -43,15 +43,6 @@ class sc_cert_change(BitcoinTestFramework):
         sync_mempools(self.nodes[1:NUMB_OF_NODES])
         self.is_network_split = split
         self.sync_all()
-
-    def getEpochData(self, scid, node_idx = 0):
-        sc_creating_height = self.nodes[node_idx].getscinfo(scid)['created at block height']
-        current_height = self.nodes[node_idx].getblockcount()
-        epoch_number = (current_height - sc_creating_height + 1) // EPOCH_LENGTH - 1
-        mark_logs("Current height {}, Sc creation height {}, epoch length {} --> current epoch number {}"
-                  .format(current_height, sc_creating_height, EPOCH_LENGTH, epoch_number), self.nodes, DEBUG_MODE)
-        epoch_block_hash = self.nodes[node_idx].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * EPOCH_LENGTH))
-        return epoch_block_hash, epoch_number
 
     def run_test(self):
 
@@ -94,7 +85,8 @@ class sc_cert_change(BitcoinTestFramework):
         prev_epoch_block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         self.nodes[0].generate(5)
         self.sync_all()
-        epoch_block_hash, epoch_number = self.getEpochData(scid);
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_block_hash, epoch_number), self.nodes, DEBUG_MODE)
 
         # (2) node0 create a cert_ep0 for funding node1 1.0 coins
         pkh_node1 = self.nodes[1].getnewaddress("", True)
@@ -121,7 +113,8 @@ class sc_cert_change(BitcoinTestFramework):
         self.nodes[0].generate(5)
         self.sync_all()
         prev_epoch_block_hash = epoch_block_hash
-        epoch_block_hash, epoch_number = self.getEpochData(scid);
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
         # (3) node0 create a cert_ep1 for funding node1 1.0 coins
         pkh_node2 = self.nodes[2].getnewaddress("", True)
@@ -148,7 +141,8 @@ class sc_cert_change(BitcoinTestFramework):
         self.nodes[0].generate(5)
         self.sync_all()
         prev_epoch_block_hash = epoch_block_hash
-        epoch_block_hash, epoch_number = self.getEpochData(scid);
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
         # (4) node1 create a cert_ep2 for funding node3 3.0 coins: he uses cert_ep0 as input, change will be obtained out of a fee=0.0001
         pkh_node3 = self.nodes[3].getnewaddress("", True)

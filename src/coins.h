@@ -23,6 +23,8 @@
 class CBlockUndo;
 class CVoidedCertUndo;
 
+static const int BWT_POS_UNSET = -1;
+
 /**
  * Pruned version of CTransaction: only retains metadata and unspent transaction outputs
  *
@@ -615,15 +617,18 @@ public:
     friend class CCoinsModifier;
 
 private:
+    CCoinsMap::const_iterator      FetchCoins(const uint256 &txid)       const;
     CCoinsMap::iterator            FetchCoins(const uint256 &txid);
-    CCoinsMap::const_iterator      FetchCoins(const uint256 &txid)      const;
-    CSidechainsMap::const_iterator FetchSidechains(const uint256& scId) const;
-    CSidechainEventsMap::const_iterator FetchSidechainEvents(int height)     const;
+    CSidechainsMap::const_iterator FetchSidechains(const uint256& scId)  const;
+    CSidechainsMap::iterator       ModifySidechain(const uint256& scId);
+    const CSidechain* const        AccessSidechain(const uint256& scId);
+    CSidechainEventsMap::const_iterator FetchSidechainEvents(int height) const;
+    CSidechainEventsMap::iterator  ModifySidechainEvents(int height);
 
     static int getInitScCoinsMaturity();
     int getScCoinsMaturity();
 
-    bool DecrementImmatureAmount(const uint256& scId, CSidechain& targetScInfo, CAmount nValue, int maturityHeight);
+    bool DecrementImmatureAmount(const uint256& scId, const CSidechainsMap::iterator& targetEntry, CAmount nValue, int maturityHeight);
     void Dump_info() const;
 
 private:

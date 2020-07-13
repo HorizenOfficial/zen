@@ -138,14 +138,16 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         self.nodes[0].generate(1) # Mine a block to leave initial block download
         self.sync_all()
 
+        sc_fork_reached = False
         mark_logs(("active chain height = %d: testing before sidechain fork" %  self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
-        self.doTest()
+        self.doTest(sc_fork_reached)
 
         # reach the fork where certificates are supported
         self.nodes[0].generate(20) 
         self.sync_all()
 
         mark_logs(("active chain height = %d: testing after sidechain fork" %  self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
+        sc_fork_reached = True
 
         # create a sidechain and a certificate for it in the mempool
         mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
@@ -185,13 +187,13 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         self.sync_all()
         assert_true(tx in self.nodes[0].getrawmempool() ) 
 
-        self.doTest()
+        self.doTest(sc_fork_reached)
 
         self.nodes[0].generate(1) 
         self.sync_all()
 
 
-    def doTest(self):
+    def doTest(self, sc_fork_reached):
 
         node = self.nodes[0]
 
@@ -207,6 +209,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
 
         # if the block supports certificates, add them (if any)
         if tmpl['version'] == SC_CERTIFICATE_BLOCK_VERSION:
+            assert_true(sc_fork_reached)
             certlist = list(bytearray(a2b_hex(a['data'])) for a in tuple(tmpl['certificates']))
 
         # Test 0: Capability advertised
@@ -284,7 +287,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         # Test 10: Bad timestamps
         realtime = tmpl['curtime']
         tmpl['curtime'] = 0x7fffffff
-        if len(certlist) == 0:
+        if sc_fork_reached == False:
             assert_template(node, tmpl, txlist, certlist, 'time-too-new')
         else:
             # if we reached sc fork we also have passed timeblock fork and the error changes
@@ -293,10 +296,11 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         assert_template(node, tmpl, txlist, certlist, 'time-too-old')
         tmpl['curtime'] = realtime
 
-        if len(certlist) == 0:
+        if sc_fork_reached == False:
             # Test 11: Valid block
             assert_template(node, tmpl, txlist, certlist, None)
         else:
+            assert_true(len(certlist) != 0)
             # compute commitment for the only contribution of certificate (we have no sctx/btr)
             TxsHash = dblsha(SC_NULL_HASH + SC_NULL_HASH)
             WCertHash = dblsha(certlist[0])
@@ -310,7 +314,8 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         assert_template(node, tmpl, txlist, certlist, 'inconclusive-not-best-prevblk')
         tmpl['previousblockhash'] = orig_val
 
-        if len(certlist) != 0:
+        if sc_fork_reached == True:
+            assert_true(len(certlist) != 0)
             # cert only specific tests
 
             # Test 13: Bad scid in cert

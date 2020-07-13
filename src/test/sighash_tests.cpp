@@ -103,22 +103,7 @@ uint256 static SignatureHashCert(CScript scriptCode, const CScCertificate& certT
     if ((nHashType & 0x1f) == SIGHASH_NONE)
     {
         // Wildcard payee
-
-        // save bwt if any...
-        std::vector<CTxOut> bwtStored;
-        for(int pos = certTmp.nFirstBwtPos; pos < certTmp.getVout().size(); ++pos)
-        {
-            bwtStored.push_back(certTmp.getVout()[pos]);
-        }
-
         certTmp.resizeOut(0);
-        *const_cast<int*>(&certTmp.nFirstBwtPos) = 0;
-
-        // ... and restore in vouts
-        //for (auto& entry : bwtStored)
-        for (std::vector<CTxOut>::iterator it = bwtStored.begin(); it != bwtStored.end(); ++it ) { 
-            certTmp.addBwt(*it);
-        }
 
         // Let the others update at will
         for (unsigned int i = 0; i < certTmp.vin.size(); i++)
@@ -129,31 +114,17 @@ uint256 static SignatureHashCert(CScript scriptCode, const CScCertificate& certT
     {
         // Only lock-in the txout payee at same index as txin
         unsigned int nOut = nIn;
-        unsigned int outSize = (certTmp.nFirstBwtPos == BWT_POS_UNSET) ? certTmp.getVout().size() : certTmp.nFirstBwtPos;
+        unsigned int outSize = certTmp.nFirstBwtPos;
         if (nOut >= outSize)
         {
             printf("ERROR: SignatureHash(): nOut=%d out of range\n", nOut);
             return one;
         }
 
-        // save bwt if any...
-        std::vector<CTxOut> bwtStored;
-        for(int pos = certTmp.nFirstBwtPos; pos < certTmp.getVout().size(); ++pos)
-        {
-            bwtStored.push_back(certTmp.getVout()[pos]);
-        }
-
         certTmp.resizeOut(nOut+1);
-        *const_cast<int*>(&certTmp.nFirstBwtPos) = nOut+1;
 
         for (unsigned int i = 0; i < nOut; i++)
             certTmp.getOut(i).SetNull();
-
-        // ... and restore in vouts
-        //for (auto& entry : bwtStored)
-        for (std::vector<CTxOut>::iterator it = bwtStored.begin(); it != bwtStored.end(); ++it ) { 
-            certTmp.addBwt(*it);
-        }
 
         // Let the others update at will
         for (unsigned int i = 0; i < certTmp.vin.size(); i++)

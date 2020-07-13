@@ -21,6 +21,9 @@
 #include <univalue.h>
 #include "uint256.h"
 
+extern UniValue send_certificate(const UniValue& params, bool fHelp);
+extern CAmount AmountFromValue(const UniValue& value);
+
 using tcp = boost::asio::ip::tcp;
 
 namespace websocket = boost::beast::websocket;
@@ -44,6 +47,18 @@ static std::list< boost::shared_ptr<WsHandler> > listWsHandler;
 std::atomic<bool> exit_ws_thread{false};
 boost::thread ws_thread;
 std::mutex wsmtx;
+
+static void dumpUniValueError(const UniValue& error, std::string& outMsg)
+{
+    UniValue errCode = find_value(error, "code");
+    UniValue errMsg  = find_value(error, "message");
+    std::string strPrint = errCode.isNull() ? "" : "error code: " + errCode.getValStr() + "; ";
+    if (errMsg.isStr())
+    {
+        outMsg = errMsg.get_str();
+    }
+    LogPrint("ws", "%s():%d - JSON error: %s\n", __func__, __LINE__, (strPrint + outMsg));
+}
 
 static std::string findFieldValue(const std::string& field, const UniValue& request)
 {
@@ -82,6 +97,7 @@ public:
         GET_SINGLE_BLOCK = 0,
         GET_MULTIPLE_BLOCK_HASHES = 1,
         GET_NEW_BLOCK_HASHES = 2,
+        SEND_CERTIFICATE = 3,
         REQ_UNDEFINED = 0xff
     };
     
@@ -169,6 +185,22 @@ private:
             ++it;
         }
         rspPayload.push_back(Pair("hashes", hashes));
+
+        UniValue* rv = wse->getPayload();
+        if (!clientRequestId.empty())
+            rv->push_back(Pair("requestId", clientRequestId));
+        rv->push_back(Pair("responsePayload", rspPayload));
+        wsq.push(wse);
+    }
+
+    void sendCertificateHash(const UniValue& retCert, WsEvent::WsMsgType msgType, std::string clientRequestId = "")
+    {
+        // Send a message to the client:  type = eventType
+        WsEvent* wse = new WsEvent(msgType);
+        LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
+        UniValue rspPayload(UniValue::VOBJ);
+
+        rspPayload.push_back(Pair("certificateHash", retCert));
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
@@ -297,7 +329,7 @@ private:
     }
 
 
-    int sendHashFromLocator(UniValue& hashes, std::string strLen, const std::string& clientRequestId) {
+    int sendHashFromLocator(const UniValue& hashes, std::string strLen, const std::string& clientRequestId) {
         int len = -1;
         try {
             len = std::stoi(strLen);
@@ -370,6 +402,25 @@ private:
         return OK;
     }
 
+    int sendCertificate(const UniValue& cmdParams, const std::string& clientRequestId, std::string& outMsg) {
+        UniValue ret;
+        try {
+             ret = send_certificate(cmdParams, false);
+        } catch (const UniValue& e) {
+            dumpUniValueError(e, outMsg);
+            return INVALID_PARAMETER;
+        } catch (const std::exception& e) {
+            std::string strPrint = std::string("error: ") + e.what();
+            LogPrint("ws", "%s():%d - std exception: %s\n", __func__, __LINE__, strPrint);
+            return INVALID_PARAMETER;
+        } catch (...) {
+            LogPrint("ws", "%s():%d - Generic exception\n", __func__, __LINE__);
+            return INVALID_PARAMETER;
+        }
+        sendCertificateHash(ret, WsEvent::MSG_RESPONSE, clientRequestId);
+        return OK;
+    }
+
 
     /* this is not necessary boost/beast is handling the pong automatically,
      * the client should send a ping message the server will reply with a pong message (same payload)
@@ -433,7 +484,7 @@ private:
         LogPrint("ws", "%s():%d - write thread exit (this=%p)\n", __func__, __LINE__, this);
     }
 
-    int parseClientMessage(WsEvent::WsRequestType& reqType, std::string& clientRequestId) 
+    int parseClientMessage(WsEvent::WsRequestType& reqType, std::string& clientRequestId, std::string& outMsg) 
     {
         try
         {
@@ -549,7 +600,7 @@ private:
                     return INVALID_JSON_FORMAT;
                 }
 
-                std::string strLen = findFieldValue("limit", reqPayload);
+                const std::string& strLen = findFieldValue("limit", reqPayload);
                 if (strLen.empty()) {
                     LogPrint("ws", "%s():%d - limit empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_PARAMETER;
@@ -561,7 +612,7 @@ private:
                     return MISSING_PARAMETER;
                 }
 
-                UniValue hashes = hashArray.get_array();
+                const UniValue& hashes = hashArray.get_array();
                 if (hashes.size()==0) {
                     LogPrint("ws", "%s():%d - hash array empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_PARAMETER;
@@ -569,20 +620,135 @@ private:
                 return sendHashFromLocator(hashes, strLen, clientRequestId);
             }
 
-            // no valid request type
-            LogPrint("ws", "%s():%d - invalid requestType: msg[%s]\n", __func__, __LINE__, msg);
+            if (requestType == std::to_string(WsEvent::SEND_CERTIFICATE))
+            {
+                reqType = WsEvent::SEND_CERTIFICATE;
+                outMsg.clear();
+
+                if (clientRequestId.empty()) {
+                    outMsg = "clientRequestId null";
+                    LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
+                    return MISSING_REQID;
+                }
+
+                const UniValue& reqPayload = find_value(request, "requestPayload");
+                if (reqPayload.isNull() || !reqPayload.isObject()) {
+                    outMsg = "requestPayload invalid or missing";
+                    LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
+                    return INVALID_JSON_FORMAT;
+                }
+
+                // sanity check, report error if unknown/duplicate key-value pairs
+                std::set<std::string> setKeyArgs;
+
+                static const std::set<std::string> validKeyArgs =
+                    {"scid", "epochNumber", "quality", "fee", "endEpochBlockHash", "scProof", "backwardTransfers"};
+
+                for (const std::string& s : reqPayload.getKeys()) {
+                    if (!validKeyArgs.count(s))
+                        outMsg += " - unknown key: " + s;
+                    if (!setKeyArgs.insert(s).second)
+                        outMsg += " - duplicate key: " + s;
+                }
+
+                if (!outMsg.empty() ) {
+                    LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
+                    return INVALID_PARAMETER;
+                }
+
+                UniValue cmdParams(UniValue::VARR);
+
+                std::string scidStr = findFieldValue("scid", reqPayload);
+                if (scidStr.empty()) {
+                    outMsg = "scid empty";
+                    LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
+                    return MISSING_PARAMETER;
+                }    
+                cmdParams.push_back(scidStr);
+
+                const UniValue& epNumVal = find_value(reqPayload, "epochNumber");
+                if (!epNumVal.isNum() || epNumVal.isNull() ) {
+                    outMsg = "epochNumber missing or invalid";
+                    LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
+                    return MISSING_PARAMETER;
+                }
+                cmdParams.push_back(epNumVal.get_int());
+
+                const UniValue& qualVal = find_value(reqPayload, "quality");
+                if (!qualVal.isNum() || qualVal.isNull()) {
+                    outMsg = "quality missing or invalid";
+                    LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
+                    return MISSING_PARAMETER;
+                }
+                cmdParams.push_back(qualVal.get_int());
+
+                std::string endEpochBlockHashStr = findFieldValue("endEpochBlockHash", reqPayload);
+                if (endEpochBlockHashStr.empty()) {
+                    outMsg = "endEpochBlockHash empty";
+                    LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
+                    return MISSING_PARAMETER;
+                }    
+                cmdParams.push_back(endEpochBlockHashStr);
+
+                std::string scProofStr = findFieldValue("scProof", reqPayload);
+                if (scProofStr.empty()) {
+                    outMsg = "scProof empty";
+                    LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
+                    return MISSING_PARAMETER;
+                }    
+                cmdParams.push_back(scProofStr);
+
+                const UniValue& bwtParam = find_value(reqPayload, "backwardTransfers");
+                if (bwtParam.isNull()) {
+                    outMsg = "backwardTransfers missing (can be an empty array)";
+                    LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
+                    return MISSING_PARAMETER;
+                }
+
+                const UniValue& bwtArray = bwtParam.get_array();
+                if (bwtArray.size() == 0) {
+                    // can also be empty
+                    LogPrint("ws", "%s():%d - bwtArray empty: msg[%s]\n", __func__, __LINE__, msg);
+                }
+                cmdParams.push_back(bwtArray);
+
+                const UniValue& feeVal = find_value(reqPayload, "fee");
+
+                // can be null, it is optional. The default is set in the cmd
+                if (!feeVal.isNull()) {
+                    try {
+                        cmdParams.push_back(feeVal);
+                    } catch (const UniValue& e) {
+                        dumpUniValueError(e, outMsg);
+                        return INVALID_PARAMETER;
+                    } catch (...) {
+                        LogPrint("ws", "%s():%d - Generic exception\n", __func__, __LINE__);
+                        return INVALID_PARAMETER;
+                    }
+                }
+
+                return sendCertificate(cmdParams, clientRequestId, outMsg);
+            }
+
+            // if we are here that means it is no valid request type, and reqType is an enum defaulting to 255
+            *((int*)(&reqType)) = std::stoi(requestType);
+
+            outMsg = "Invalid RequestType Number: " + requestType; 
+            LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
+
             return INVALID_COMMAND;
         }
         catch (std::runtime_error const& rte)
         {
             // most probably thrown by UniValue lib, that means 
             // json is formally correct but not compliant with protocol
-            LogPrint("ws", "%s():%d - %s\n", __func__, __LINE__, rte.what());
+            outMsg = rte.what();
             return INVALID_COMMAND;
         }
         catch (std::exception const& e)
         {
-            LogPrint("ws", "%s():%d - %s\n", __func__, __LINE__, e.what());
+            outMsg = e.what();
+            LogPrint("ws", "%s():%d - %s\n", __func__, __LINE__, outMsg);
             return READ_ERROR;
         }
     }
@@ -593,7 +759,8 @@ private:
         {
             WsEvent::WsRequestType reqType = WsEvent::REQ_UNDEFINED;
             std::string clientRequestId = "";
-            int res = parseClientMessage(reqType, clientRequestId);
+            std::string outMsg;
+            int res = parseClientMessage(reqType, clientRequestId, outMsg);
             if (res == READ_ERROR)
             {
                 LogPrint("ws", "%s():%d - websocket closed exit reading loop\n", __func__, __LINE__);
@@ -623,6 +790,9 @@ private:
                 default:
                     msgError += "Generic error";
                 }
+                if (!outMsg.empty())
+                    msgError += " - Details: " + outMsg;
+
                 // Send a message error to the client:  type = -1
                 WsEvent* wse = new WsEvent(WsEvent::MSG_ERROR);
                 LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
@@ -809,6 +979,10 @@ static void ws_updatetip(const CBlockIndex *pindex)
                 ++it;
             }
         }
+        else
+        {
+            LogPrint("ws", "%s():%d - there are no connected ws clients\n", __func__, __LINE__);
+        }
     }
 }
 
@@ -886,14 +1060,17 @@ bool StartWsServer()
 {
     try
     {
-        std::string strAddress = GetArg("-wsaddress", "127.0.0.1");
+        // ip address is not configurable as of now, it is locahost mandatorily
+        //std::string strAddress = GetArg("-wsaddress", "127.0.0.1");
+        std::string strAddress = "127.0.0.1";
         int port = GetArg("-wsport", 8888);
 
         ws_thread = boost::thread(ws_main, strAddress, port);
         ws_thread.detach();
 
         wsNotificationInterface.reset(new WsNotificationInterface());
-        LogPrint("ws", "%s():%d - allocated notif if %p\n", __func__, __LINE__, wsNotificationInterface.get());
+        LogPrint("ws", "%s():%d - starting server at %s:%d, allocated notif if %p\n",
+            __func__, __LINE__, strAddress, port, wsNotificationInterface.get());
         RegisterValidationInterface(wsNotificationInterface.get());
     }
     catch (const std::exception& e)
