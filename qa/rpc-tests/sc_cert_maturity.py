@@ -78,12 +78,14 @@ class sc_cert_maturity(BitcoinTestFramework):
         constant = generate_random_field_element_hex()
 
         # Create a SC with a budget of 10 coins
-        creating_tx = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        creating_tx = ret['txid']
+        scid = ret['scid']
         mark_logs("Node 0 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
         decoded_tx = self.nodes[1].getrawtransaction(creating_tx, 1)
-        scid = decoded_tx['vsc_ccout'][0]['scid']
+        assert_equal(scid, decoded_tx['vsc_ccout'][0]['scid'])
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         mark_logs("Node0 confirms Sc creation generating 1 block", self.nodes, DEBUG_MODE)

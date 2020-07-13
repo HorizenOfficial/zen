@@ -88,10 +88,12 @@ class sc_cert_invalidate(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        creating_tx = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        creating_tx = ret['txid']
+        scid = ret['scid']
 
         decoded_tx = self.nodes[0].getrawtransaction(creating_tx, 1)
-        scid = decoded_tx['vsc_ccout'][0]['scid']
+        assert_equal(scid, decoded_tx['vsc_ccout'][0]['scid'])
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         mark_logs("creating_tx = {}".format(creating_tx), self.nodes, DEBUG_MODE)

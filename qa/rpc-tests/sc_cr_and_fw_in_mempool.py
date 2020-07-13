@@ -82,13 +82,11 @@ class sc_cr_fw(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        creating_tx = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
-        mark_logs("Node 0 created a sidechain via {}".format(creating_tx), self.nodes, DEBUG_MODE)
+        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        creating_tx = ret['txid']
+        scid = ret['scid']
         self.sync_all()
-
-        decoded_tx = self.nodes[0].getrawtransaction(creating_tx, 1)
-        scid = decoded_tx['vsc_ccout'][0]['scid']
-        mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
+        mark_logs("Node0 created SC scid={}, tx={}".format(scid, creating_tx), self.nodes, DEBUG_MODE)
 
         totScAmount += creation_amount
 

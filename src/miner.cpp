@@ -279,7 +279,6 @@ void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, const CCoinsVie
          mi != mempool.mapCertificate.end(); ++mi)
     {
         const CScCertificate& cert = mi->second.GetCertificate();
-        const uint256& hash = cert.GetHash();
 
         CAmount nTotalIn = 0;
         COrphan* porphan = nullptr;

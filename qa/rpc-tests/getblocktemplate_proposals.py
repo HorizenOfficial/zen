@@ -152,11 +152,13 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        creating_tx = self.nodes[1].sc_create(SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT, vk, "bb" * 1024, constant)
+        ret = self.nodes[1].sc_create(SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT, vk, "bb" * 1024, constant)
+        creating_tx = ret['txid']
+        scid = ret['scid']
         self.sync_all()
 
         decoded_tx = self.nodes[1].getrawtransaction(creating_tx, 1)
-        scid = decoded_tx['vsc_ccout'][0]['scid']
+        assert_equal(scid, decoded_tx['vsc_ccout'][0]['scid'])
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         current_height = self.nodes[1].getblockcount()

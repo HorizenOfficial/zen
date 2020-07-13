@@ -120,11 +120,9 @@ class headers(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        tx1 = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "", constant)
+        scid_1 = ret['scid']
         self.sync_all()
-
-        decoded_tx = self.nodes[1].getrawtransaction(tx1, 1)
-        scid_1 = decoded_tx['vsc_ccout'][0]['scid']
         mark_logs("created SC id: {}".format(scid_1), self.nodes, DEBUG_MODE)
 
         mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
@@ -161,22 +159,19 @@ class headers(BitcoinTestFramework):
         amounts = []
         amounts.append({"address": "dada", "amount": creation_amount})
         
-        tx2 = self.nodes[1].sc_create(123, "dada", creation_amount, mcTest.generate_params("sc2"), "", generate_random_field_element_hex())
-        tx3 = self.nodes[1].sc_create(123, "dada", creation_amount, mcTest.generate_params("sc3"), "", generate_random_field_element_hex())
-        tx4 = self.nodes[1].sc_create(123, "dada", creation_amount, mcTest.generate_params("sc4"), "", generate_random_field_element_hex())
-        self.sync_all()
-
-        decoded_tx = self.nodes[1].getrawtransaction(tx2, 1)
-        scid_2 = decoded_tx['vsc_ccout'][0]['scid']
+        ret = self.nodes[1].sc_create(123, "dada", creation_amount, mcTest.generate_params("sc2"), "", generate_random_field_element_hex())
+        scid_2 = ret['scid']
         mark_logs("created SC id: {}".format(scid_2), self.nodes, DEBUG_MODE)
 
-        decoded_tx = self.nodes[1].getrawtransaction(tx3, 1)
-        scid_3 = decoded_tx['vsc_ccout'][0]['scid']
+        ret = self.nodes[1].sc_create(123, "dada", creation_amount, mcTest.generate_params("sc3"), "", generate_random_field_element_hex())
+        scid_3 = ret['scid']
         mark_logs("created SC id: {}".format(scid_3), self.nodes, DEBUG_MODE)
 
-        decoded_tx = self.nodes[1].getrawtransaction(tx4, 1)
-        scid_4 = decoded_tx['vsc_ccout'][0]['scid']
+        ret = self.nodes[1].sc_create(123, "dada", creation_amount, mcTest.generate_params("sc4"), "", generate_random_field_element_hex())
+        scid_4 = ret['scid']
         mark_logs("created SC id: {}".format(scid_4), self.nodes, DEBUG_MODE)
+
+        self.sync_all()
 
         mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)

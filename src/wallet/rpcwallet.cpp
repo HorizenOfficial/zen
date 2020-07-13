@@ -258,6 +258,22 @@ void WalletTxToJSON(const CWalletTransactionBase& wtx, UniValue& entry, isminefi
 #endif
 }
 
+static void FillScCreationReturnObj(const CTransaction& tx, UniValue& ret)
+{ 
+    // clear it and set type to VOBJ
+    ret.setObject();
+
+    // there must be one and only one creation output in the passed tx
+    if (tx.GetVscCcOut().size() != 1)
+    {
+        throw JSONRPCError(RPC_TYPE_ERROR, strprintf("creation vector output size %d is invalid",
+            tx.GetVscCcOut().size()));
+    }
+
+    ret.push_back(Pair("txid", tx.GetHash().GetHex()));
+    ret.push_back(Pair("scid", tx.GetScIdFromScCcOut(0).GetHex()));
+}
+
 string AccountFromValue(const UniValue& value)
 {
     string strAccount = value.get_str();
@@ -869,7 +885,9 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     CWalletTx wtx;
     ScHandleTransaction(wtx, vecCcSend, nAmount);
 
-    return wtx.getWrappedTx().GetHash().GetHex();
+    UniValue ret(UniValue::VOBJ);
+    FillScCreationReturnObj(wtx.getWrappedTx(), ret);
+    return ret;
 }
 
 UniValue create_sidechain(const UniValue& params, bool fHelp)
@@ -1101,16 +1119,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
         
     CTransaction tx(tx_create);
     UniValue ret(UniValue::VOBJ);
-    ret.push_back(Pair("txid", tx.GetHash().GetHex()));
-
-    // there must be one and only one creation output
-    if (tx.GetVscCcOut().size() != 1)
-    {
-        throw JSONRPCError(RPC_TYPE_ERROR, strprintf("creation vector output size %d is invalid",
-            tx.GetVscCcOut().size()));
-    }
-    ret.push_back(Pair("scid", tx.GetScIdFromScCcOut(0).GetHex()));
-
+    FillScCreationReturnObj(tx, ret);
     return ret;
 }
 
@@ -2573,7 +2582,6 @@ UniValue listtxesbyaddress(const UniValue& params, bool fHelp)
 
     UniValue ret(UniValue::VARR);
     std::list<CAccountingEntry> unused;
-    static const bool FILTER_VIN = true;
 
     // tx are ordered in this vector from the oldest to the newest
     vTxWithInputs txOrdered = pwalletMain->OrderedTxWithInputs(address);
