@@ -10,7 +10,7 @@
 
 class CertInWalletTest : public ::testing::Test {
 public:
-    CertInWalletTest(): walletDbLocation(), pWallet(nullptr), pWalletDb(nullptr) {}
+    CertInWalletTest(): walletName("wallet.dat"), walletDbLocation(), pWallet(nullptr), pWalletDb(nullptr) {}
     ~CertInWalletTest() = default;
 
     void SetUp() override {
@@ -21,7 +21,7 @@ public:
         mapArgs["-datadir"] = walletDbLocation.string();
 
         //create wallet db
-        pWallet = new CWallet("wallet.dat");
+        pWallet = new CWallet(walletName);
         try {  pWalletDb = new CWalletDB(pWallet->strWalletFile, "cr+"); }
         catch(std::exception& e) {
             ASSERT_TRUE(false)<<"Could not create tmp wallet db for reason "<<e.what();
@@ -47,6 +47,7 @@ public:
     };
 
 protected:
+    std::string walletName;
     boost::filesystem::path walletDbLocation;
     CWallet* pWallet;
     CWalletDB* pWalletDb;
@@ -83,6 +84,60 @@ protected:
     }
 };
 
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////// Wallet Construction /////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST(Wallet, DocumentingWalletDbConstructionMachinery) {
+    //Setup environment
+    SelectParams(CBaseChainParams::TESTNET);
+    boost::filesystem::path randomDataDir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+    boost::filesystem::create_directories(randomDataDir);
+    mapArgs["-datadir"] = randomDataDir.string();
+
+    std::string tmpWalletName = "aRandomWallet";
+
+    EXPECT_FALSE(bitdb.mapFileUseCount.count(tmpWalletName));
+    EXPECT_FALSE(bitdb.mapDb.count(tmpWalletName));
+
+    CWalletDB* pWalletDb = nullptr;
+    try {
+        pWalletDb = new CWalletDB(tmpWalletName, "cr+");
+    } catch(std::exception& e) {
+        ASSERT_FALSE(true)<<"Failed creating walletDb with reason "<<e.what();
+    }
+
+    EXPECT_TRUE(bitdb.mapFileUseCount.count(tmpWalletName));
+    EXPECT_TRUE(bitdb.mapFileUseCount.at(tmpWalletName) == 1);
+    EXPECT_TRUE(bitdb.mapDb.count(tmpWalletName));
+    EXPECT_TRUE(bitdb.mapDb.at(tmpWalletName) != nullptr);
+
+    CWalletDB* pSecondWalletDb = nullptr;
+    try {
+        pSecondWalletDb = new CWalletDB(tmpWalletName, "cr+");
+    } catch(std::exception& e) {
+        ASSERT_FALSE(true)<<"Failed creating walletDb with reason "<<e.what();
+    }
+
+    EXPECT_TRUE(bitdb.mapFileUseCount.at(tmpWalletName) == 2);
+
+    delete pSecondWalletDb;
+    pSecondWalletDb = nullptr;
+    EXPECT_TRUE(bitdb.mapFileUseCount.at(tmpWalletName) == 1);
+
+    delete pWalletDb;
+    pWalletDb = nullptr;
+    EXPECT_TRUE(bitdb.mapFileUseCount.at(tmpWalletName) == 0);
+    EXPECT_TRUE(bitdb.mapDb.at(tmpWalletName) != nullptr);
+
+    bitdb.CloseDb(tmpWalletName);
+    EXPECT_TRUE(bitdb.mapDb.at(tmpWalletName) == nullptr);
+
+    ClearDatadirCache();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+////////////////////////// Wallet Cert Serialization //////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 TEST_F(CertInWalletTest, WalletCertSerializationOps) {
     CWallet dummyWallet;
     CScCertificate cert =
@@ -180,7 +235,6 @@ TEST_F(CertInWalletTest, IsOutputMature_TransparentTx_InBlockChain) {
     walletTx.fMerkleVerified = true; //shortcut
 
     chainSettingUtils::ExtendChainActiveWithBlock(txBlock);
-    int txCreationHeight = chainActive.Height();
 
     CCoins::outputMaturity txMaturity = CCoins::outputMaturity::NOT_APPLICABLE;
 
@@ -1101,4 +1155,95 @@ TEST_F(CertInWalletTest, GetImmatureCredit_NoBwtCertificate_Voided)
         EXPECT_TRUE(CAmount(0) == certImmatureCredit)
             <<"certImmatureCredit is "<<int(certImmatureCredit);
     }
+}
+
+/////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////// Sync Signals /////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+TEST_F(CertInWalletTest, SyncCertificate)
+{
+    //Create certificate
+    CAmount changeAmount = 20;
+    CAmount bwtAmount = 10;
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+            /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/2);
+    SetLockingScriptFor(cert);
+
+    CBlock certBlock;
+    certBlock.vcert.push_back(cert);
+
+    int bwtMaturityDepth = 10;
+
+    // test
+    pWallet->SyncCertificate(cert, &certBlock, bwtMaturityDepth);
+
+    // checks
+    EXPECT_TRUE(pWallet->getMapWallet().count(cert.GetHash()));
+    CWalletCert preRestartWalletCert = *dynamic_cast<const CWalletCert*>(pWallet->getMapWallet().at(cert.GetHash()).get());
+    EXPECT_TRUE(preRestartWalletCert.bwtMaturityDepth == bwtMaturityDepth);
+
+    //Close and reopen wallet
+    delete pWalletDb;
+    pWalletDb = nullptr;
+
+    delete pWallet;
+    pWallet = nullptr;
+
+    pWallet = new CWallet("wallet.dat");
+    try {  pWalletDb = new CWalletDB(pWallet->strWalletFile, "cr+"); }
+    catch(std::exception& e) {
+        ASSERT_TRUE(false)<<"Could not create tmp wallet db for reason "<<e.what();
+    }
+
+    //Check cert is duly reloaded
+    EXPECT_FALSE(pWallet->getMapWallet().count(cert.GetHash()));
+    bool dummyBool;
+    EXPECT_TRUE(DB_LOAD_OK == pWallet->LoadWallet(dummyBool));
+    EXPECT_TRUE(pWallet->getMapWallet().count(cert.GetHash()));
+    CWalletCert postRestartWalletCert = *dynamic_cast<const CWalletCert*>(pWallet->getMapWallet().at(cert.GetHash()).get());
+    EXPECT_TRUE(postRestartWalletCert.bwtMaturityDepth == bwtMaturityDepth);
+}
+
+TEST_F(CertInWalletTest, SyncVoidedCert)
+{
+    //Create certificate
+    CAmount changeAmount = 20;
+    CAmount bwtAmount = 10;
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+            /*endEpochBlockHash*/uint256S("ccc"), /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/2);
+    SetLockingScriptFor(cert);
+
+    CBlock certBlock;
+    certBlock.vcert.push_back(cert);
+    int bwtMaturityDepth = 10;
+    pWallet->SyncCertificate(cert, &certBlock, bwtMaturityDepth);
+
+    // test
+    pWallet->SyncVoidedCert(cert.GetHash(), /*bwtAreStripped*/true);
+
+    // checks
+    EXPECT_TRUE(pWallet->getMapWallet().count(cert.GetHash()));
+    CWalletCert preRestartWalletCert = *dynamic_cast<const CWalletCert*>(pWallet->getMapWallet().at(cert.GetHash()).get());
+    EXPECT_TRUE(preRestartWalletCert.areBwtCeased == true);
+
+    //Close and reopen wallet
+    delete pWalletDb;
+    pWalletDb = nullptr;
+
+    delete pWallet;
+    pWallet = nullptr;
+
+    pWallet = new CWallet("wallet.dat");
+    try {  pWalletDb = new CWalletDB(pWallet->strWalletFile, "cr+"); }
+    catch(std::exception& e) {
+        ASSERT_TRUE(false)<<"Could not create tmp wallet db for reason "<<e.what();
+    }
+
+    //Check cert is duly reloaded
+    EXPECT_FALSE(pWallet->getMapWallet().count(cert.GetHash()));
+    bool dummyBool;
+    EXPECT_TRUE(DB_LOAD_OK == pWallet->LoadWallet(dummyBool));
+    EXPECT_TRUE(pWallet->getMapWallet().count(cert.GetHash()));
+    CWalletCert postRestartWalletCert = *dynamic_cast<const CWalletCert*>(pWallet->getMapWallet().at(cert.GetHash()).get());
+    EXPECT_TRUE(postRestartWalletCert.areBwtCeased == preRestartWalletCert.areBwtCeased);
 }

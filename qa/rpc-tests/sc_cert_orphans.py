@@ -83,20 +83,17 @@ class sc_cert_orphans(BitcoinTestFramework):
         vk_2 = mcTest.generate_params("sc2")
         constant_2 = generate_random_field_element_hex()
 
-        mark_logs("Node0 creates two SCs", self.nodes, DEBUG_MODE)
-        creating_tx_1 = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk_1, "", constant_1)
-        self.sync_all()
-        
-        decoded_tx1 = self.nodes[0].getrawtransaction(creating_tx_1, 1)
-        scid_1 = decoded_tx1['vsc_ccout'][0]['scid']
-        mark_logs("created SC id: {}".format(scid_1), self.nodes, DEBUG_MODE)
-
-        creating_tx_2 = self.nodes[0].sc_create(EPOCH_LENGTH, "baba", creation_amount, vk_2, "", constant_2)
+        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk_1, "", constant_1)
+        creating_tx_1 = ret['txid']
+        scid_1 = ret['scid']
+        mark_logs("Node0 created SC id: {}".format(scid_1), self.nodes, DEBUG_MODE)
         self.sync_all()
 
-        decoded_tx2 = self.nodes[0].getrawtransaction(creating_tx_2, 1)
-        scid_2 = decoded_tx2['vsc_ccout'][0]['scid']
-        mark_logs("created SC id: {}".format(scid_2), self.nodes, DEBUG_MODE)
+        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "baba", creation_amount, vk_2, "", constant_2)
+        creating_tx_2 = ret['txid']
+        scid_2 = ret['scid']
+        mark_logs("Node0 created SC id: {}".format(scid_2), self.nodes, DEBUG_MODE)
+        self.sync_all()
 
         mark_logs("Node0 generates 5 blocks to achieve end of epoch", self.nodes, DEBUG_MODE)
         prev_epoch_block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())

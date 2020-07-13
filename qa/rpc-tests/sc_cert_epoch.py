@@ -77,12 +77,14 @@ class sc_cert_epoch(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        sc_creation_tx = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant);
-        mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, sc_creation_tx), self.nodes, DEBUG_MODE)
+        ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant);
+        creating_tx = ret['txid']
+        scid = ret['scid']
+        mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
-        decoded_tx = self.nodes[1].getrawtransaction(sc_creation_tx, 1)
-        scid = decoded_tx['vsc_ccout'][0]['scid']
+        decoded_tx = self.nodes[1].getrawtransaction(creating_tx, 1)
+        assert_equal(scid, decoded_tx['vsc_ccout'][0]['scid'])
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         prev_epoch_block_hash = blocks[-1]

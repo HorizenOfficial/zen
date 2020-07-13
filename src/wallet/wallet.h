@@ -135,8 +135,8 @@ class CAccountingEntry;
 typedef std::pair<CWalletTransactionBase*, CAccountingEntry*> TxPair;
 typedef std::multimap<int64_t, TxPair > TxItems;
 
-typedef std::pair<CWalletTransactionBase*, std::vector<CWalletTransactionBase*> > TxWithInputsPair;
-typedef std::map<int64_t, TxWithInputsPair> MapTxWithInputs;
+//typedef std::pair<CWalletTransactionBase*, std::map<uint256, CWalletTransactionBase*> > TxWithInputsPair;
+typedef std::vector<CWalletTransactionBase*> vTxWithInputs;
 
 static void ReadOrderPos(int64_t& nOrderPos, mapValue_t& mapValue)
 {
@@ -431,9 +431,9 @@ public:
     virtual std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const = 0;
     static std::shared_ptr<CWalletTransactionBase> MakeWalletObjectBase(const CTransactionBase& obj, const CWallet* pwallet);
 
-    void AddVinExpandedToJSON(UniValue& entry, const std::vector<CWalletTransactionBase*>& vtxIn) const;
     void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const;
-    void addInputTx(std::pair<int64_t, TxWithInputsPair>& entry, const CScript& scriptPubKey, bool& inputFound) const;
+    bool HasInputFrom(const CScript& scriptPubKey) const;
+    bool HasOutputFor(const CScript& scriptPubKey) const;
 };
 
 /** 
@@ -1064,8 +1064,7 @@ public:
      */
     int64_t IncOrderPosNext(CWalletDB *pwalletdb = NULL);
 
-    /* TODO rewrite this using a wtxOrdered data member */
-    MapTxWithInputs OrderedTxWithInputsMap(const std::string& address) const;
+    vTxWithInputs OrderedTxWithInputs(const std::string& address) const;
 
     void MarkDirty();
     bool UpdateNullifierNoteMap();
@@ -1074,13 +1073,13 @@ public:
     void SyncTransaction(const CTransaction& tx, const CBlock* pblock) override;
     void SyncCertificate(const CScCertificate& cert, const CBlock* pblock, int bwtMaturityDepth = -1) override;
     void SyncVoidedCert(const uint256& certHash, bool bwtAreStripped) override;
-    bool AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, bool fUpdate);
+    bool AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, int bwtMaturityDepth, bool fUpdate);
     void EraseFromWallet(const uint256 &hash) override;
     void WitnessNoteCommitment(
          std::vector<uint256> commitments,
          std::vector<boost::optional<ZCIncrementalWitness>>& witnesses,
          uint256 &final_anchor);
-    int ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate = false);
+    int ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate);
     void ReacceptWalletTransactions();
     void ResendWalletTransactions(int64_t nBestBlockTime) override;
     std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime);
@@ -1093,7 +1092,8 @@ public:
         ZCC_UNDEF
     };
 
-    void GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput, CAmount& unconfOutput, eZeroConfChangeUsage zconfchangeusage) const;
+    void GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput,
+        CAmount& unconfOutput, CAmount& bwtImmatureOutput, eZeroConfChangeUsage zconfchangeusage, bool fIncludeNonFinal) const;
     CAmount GetImmatureBalance() const;
     CAmount GetWatchOnlyBalance() const;
     CAmount GetUnconfirmedWatchOnlyBalance() const;

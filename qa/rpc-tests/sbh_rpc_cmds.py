@@ -1,0 +1,316 @@
+#!/usr/bin/env python2
+# Copyright (c) 2014 The Bitcoin Core developers
+# Copyright (c) 2018 The Zencash developers
+# Distributed under the MIT software license, see the accompanying
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+from test_framework.test_framework import BitcoinTestFramework
+from test_framework.authproxy import JSONRPCException
+from test_framework.util import assert_equal, assert_true, initialize_chain_clean, \
+    mark_logs, start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
+    disconnect_nodes, wait_and_assert_operationid_status
+from test_framework.mc_test.mc_test import *
+import os
+import pprint
+from decimal import Decimal
+import time
+
+NUMB_OF_NODES = 3
+DEBUG_MODE = 1
+EPOCH_LENGTH = 5
+CERT_FEE = Decimal('0.00015')
+
+def get_epoch_data( scid, node, epochLen):
+    sc_creating_height = node.getscinfo(scid)['created at block height']
+    current_height = node.getblockcount()
+    epoch_number = (current_height - sc_creating_height + 1) // epochLen - 1
+    epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epochLen))
+    prev_epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number) * epochLen))
+    return epoch_block_hash, epoch_number, prev_epoch_block_hash
+
+
+
+class sbh_rpc_cmds(BitcoinTestFramework):
+
+    alert_filename = None
+
+    def setup_chain(self, split=False):
+        print("Initializing test directory " + self.options.tmpdir)
+        initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
+        self.alert_filename = os.path.join(self.options.tmpdir, "alert.txt")
+        with open(self.alert_filename, 'w'):
+            pass  # Just open then close to create zero-length file
+
+    def setup_network(self, split=False):
+        self.nodes = []
+
+        self.nodes = start_nodes(
+            NUMB_OF_NODES, self.options.tmpdir,
+            extra_args=[['-sccoinsmaturity=2', '-logtimemicros=1', '-debug=sc',
+                         '-debug=py', '-debug=mempool', '-debug=net',
+                         '-debug=bench']] * NUMB_OF_NODES)
+
+        if not split:
+            # 1 and 2 are joint only if split==false
+            connect_nodes_bi(self.nodes, 1, 2)
+            sync_blocks(self.nodes[1:NUMB_OF_NODES])
+            sync_mempools(self.nodes[1:NUMB_OF_NODES])
+
+        connect_nodes_bi(self.nodes, 0, 1)
+        self.is_network_split = split
+        self.sync_all()
+
+    def split_network(self):
+        # Split the network of three nodes into nodes 0-1 and 2.
+        assert not self.is_network_split
+        disconnect_nodes(self.nodes[1], 2)
+        disconnect_nodes(self.nodes[2], 1)
+        self.is_network_split = True
+
+    def join_network(self):
+        # Join the (previously split) network pieces together: 0-1-2
+        assert self.is_network_split
+        connect_nodes_bi(self.nodes, 1, 2)
+        connect_nodes_bi(self.nodes, 2, 1)
+        # self.sync_all()
+        time.sleep(2)
+        self.is_network_split = False
+
+    def dump_sc_info_record(self, info, i):
+        if DEBUG_MODE == 0:
+            return
+        print "  Node %d - scid: %s" % (i, info["scid"])
+        print "    balance: %f" % (info["balance"])
+        print "    created in block: %s (%d)" % (info["created in block"], info["created at block height"])
+        print "    created in tx:    %s" % info["creating tx hash"]
+        print "    immature amounts:  ", info["immature amounts"]
+        print
+
+    def dump_sc_info(self, scId=""):
+        if scId != "":
+            print "-------------------------------------------------------------------------------------"
+            for i in range(0, NUMB_OF_NODES):
+                try:
+                    self.dump_sc_info_record(self.nodes[i].getscinfo(scId), i)
+                except JSONRPCException, e:
+                    print "  Node %d: ### [no such scid: %s]" % (i, scId)
+        else:
+            print "-------------------------------------------------------------------------------------"
+            for i in range(0, NUMB_OF_NODES):
+                x = self.nodes[i].getscinfo()
+                for info in x:
+                    self.dump_sc_info_record(info, i)
+        print
+
+    def run_test(self):
+
+        ''' This test validates the rpc cmds for SBH wallet
+        '''
+        amount_1           = Decimal("40.0")
+        sc_creation_amount = Decimal("20.0")
+        sc_fwd_amount      = Decimal("15.0")
+        bwt_amount1        = Decimal("10.0")
+        amount_2           = Decimal("3.0")
+
+        txs_node1 = []
+
+        # network topology: (0)--(1)--(2)
+        mark_logs("\nNode 0 generates 220 blocks", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(220)
+        self.sync_all()
+
+        taddr_1 = self.nodes[1].getnewaddress()
+        #----------------------------------------------------------------------------------------------
+        tx = self.nodes[0].sendtoaddress(taddr_1, amount_1)
+        self.sync_all()
+        txs_node1.append(tx)
+        mark_logs("\n===> Node0 sent {} coins to Node1 at addr {}".format(amount_1, taddr_1), self.nodes, DEBUG_MODE)
+
+        mark_logs("\nNode0 generates 1 more block", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        #generate wCertVk and constant
+        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk = mcTest.generate_params("sc1")
+        constant = generate_random_field_element_hex()
+
+        sc_creating_height = self.nodes[0].getblockcount()+1
+        sc_toaddress = "5c1dadd"
+        minconf = 1
+        fee = Decimal("0.000025")
+        cmdInput = {
+            "withdrawalEpochLength": EPOCH_LENGTH,
+            "fromaddress": taddr_1,
+            "toaddress": sc_toaddress,
+            "amount": sc_creation_amount,
+            "changeaddress":taddr_1,
+            "fee": fee,
+            "wCertVk": vk,
+            "constant":constant
+        }
+
+        try:
+            #----------------------------------------------------------------------------------------------
+            res = self.nodes[1].create_sidechain(cmdInput)
+            tx =   res['txid']
+            scid = res['scid']
+            txs_node1.append(tx)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            assert_true(False);
+
+        self.sync_all()
+
+        decoded_tx = self.nodes[1].getrawtransaction(tx, 1)
+        sc_id = decoded_tx['vsc_ccout'][0]['scid']
+        assert_equal(scid, sc_id)
+
+        mark_logs("\n===> Node1 created SC with {} coins and scid: {}".format(sc_creation_amount, scid), self.nodes, DEBUG_MODE)
+
+        mark_logs("\nChecking Node1 unconfirmed data for addr {} with no zero conf changes spendability".format(taddr_1), self.nodes, DEBUG_MODE)
+        ud = self.nodes[1].getunconfirmedtxdata(taddr_1, False)
+        # this is the UTXO received initailly from Node0 and used as input for the SC creation
+        assert_equal(ud['unconfirmedInput'], amount_1) 
+        # this is the unconfirmed  change, that is = input - SC creation - fee
+        unconf_change_1 = amount_1 - sc_creation_amount - fee
+        assert_equal(ud['unconfirmedOutput'], unconf_change_1) 
+        assert_equal(ud['unconfirmedTxApperances'], 1) 
+
+        mark_logs("\nChecking Node1 unconfirmed data for addr {} with zero conf changes spendability".format(taddr_1), self.nodes, DEBUG_MODE)
+        ud = self.nodes[1].getunconfirmedtxdata(taddr_1, True)
+        assert_equal(ud['unconfirmedInput'], amount_1) 
+        # the unconfiermed change is considered as spendable 
+        assert_equal(ud['unconfirmedOutput'], Decimal("0.0")) 
+        assert_equal(ud['unconfirmedTxApperances'], 1) 
+
+        #--------------------------------------------------------------------------------------
+        outputs = [{'toaddress': sc_toaddress, 'amount': sc_fwd_amount, "scid":scid}]
+        # if changeaddress is not specified but fromtaddress is, they are the same
+        # with minconf == 0 we can use also change from the previous tx, which is still in mempool 
+        cmdParms = { 'fromaddress': taddr_1, "minconf": 0, "fee": fee}
+
+        try:
+            tx = self.nodes[1].send_to_sidechain(outputs, cmdParms)
+            self.sync_all()
+            txs_node1.append(tx)
+            mark_logs("\n===> Node 1 sent {} coins to fund the sc".format(sc_fwd_amount), self.nodes, DEBUG_MODE)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            assert_true(False)
+
+        ud = self.nodes[1].getunconfirmedtxdata(taddr_1, False)
+        mark_logs("\nChecking Node1 unconfirmed data for addr {} with no zero conf changes spendability".format(taddr_1), self.nodes, DEBUG_MODE)
+        # this is the UTXO received initailly from Node0 and the change from the previous tx with the sc cr 
+        assert_equal(ud['unconfirmedInput'], (amount_1 + unconf_change_1)) 
+        # this is the unconfirmed change = input -fwt -fee 
+        unconf_change_2 = unconf_change_1 - sc_fwd_amount - fee
+        assert_equal(ud['unconfirmedOutput'], unconf_change_2) 
+        assert_equal(ud['unconfirmedTxApperances'], 2) 
+
+        ud = self.nodes[1].getunconfirmedtxdata(taddr_1, True)
+        mark_logs("\nChecking Node1 unconfirmed data for addr {} with zero conf changes spendability".format(taddr_1), self.nodes, DEBUG_MODE)
+        # the same
+        assert_equal(ud['unconfirmedInput'], (amount_1 + unconf_change_1)) 
+        # the unconfiermed change is considered as spendable 
+        assert_equal(ud['unconfirmedOutput'], Decimal("0.0")) 
+        assert_equal(ud['unconfirmedTxApperances'], 2) 
+
+        mark_logs("\nNode0 generates 5 blocks to achieve end of withdrawal epochs", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(5)
+        self.sync_all()
+
+        epoch_block_hash, epoch_number, prev_epoch_block_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("\nepoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+
+        # node0 create a cert_1 for funding node1 
+        bwt_address = self.nodes[1].getnewaddress()
+        pkh_node1 = self.nodes[1].validateaddress(bwt_address)['pubkeyhash']
+
+        amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount1}]
+        try:
+            #Create proof for WCert
+            quality = 1
+            proof = mcTest.create_test_proof(
+                "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
+                quality, constant, [pkh_node1], [bwt_amount1])
+
+            #----------------------------------------------------------------------------------------------
+            cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
+            mark_logs("\n===> Node 0 sent a cert for scid {} with bwd transfer of {} coins to Node1 pkh (addr {})".format(scid, bwt_amount1, bwt_address), self.nodes, DEBUG_MODE)
+            #mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
+            self.sync_all()
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert(False)
+
+        mark_logs("\nChecking Node1 unconfirmed data for addr {}".format(bwt_address), self.nodes, DEBUG_MODE)
+        ud1 = self.nodes[1].getunconfirmedtxdata(bwt_address, True)
+        ud2 = self.nodes[1].getunconfirmedtxdata(bwt_address, False)
+        assert_equal(ud1, ud2) 
+        assert_equal(ud1['bwtImmatureOutput'], bwt_amount1) 
+        assert_equal(ud1['unconfirmedInput'], Decimal("0.0")) 
+        assert_equal(ud1['unconfirmedOutput'], Decimal("0.0")) 
+        assert_equal(ud1['unconfirmedTxApperances'], 0) 
+
+        mark_logs("\nNode0 generates 1 more block", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        mark_logs("\nChecking Node1 unconfirmed data for addr {}".format(bwt_address), self.nodes, DEBUG_MODE)
+        ud3 = self.nodes[1].getunconfirmedtxdata(bwt_address, True)
+        assert_equal(ud1, ud3) 
+
+        mark_logs("\nNode0 generates 1 more block", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        bal_1 = self.nodes[1].z_getbalance(taddr_1, 1)
+        utxos =  self.nodes[1].listunspent(1, 1000, [taddr_1])
+        assert_equal(len(utxos), 1)
+        assert_equal(utxos[0]['satoshis'], int(bal_1*100000000))
+
+        taddr_2 = self.nodes[2].getnewaddress()
+        recipients= [{"address":taddr_2, "amount": amount_2}]
+        #----------------------------------------------------------------------------------------------
+        myopid = self.nodes[1].z_sendmany(taddr_1, recipients, 1, fee, True)
+        tx = wait_and_assert_operationid_status(self.nodes[1], myopid)
+        self.sync_all()
+        txs_node1.append(tx)
+        mark_logs("\n===> Node1 sent {} coins to Node2 at addr {}".format(amount_2, taddr_2), self.nodes, DEBUG_MODE)
+
+        ud = self.nodes[1].getunconfirmedtxdata(taddr_1, False)
+        mark_logs("\nChecking Node1 unconfirmed data for addr {} with no zero conf changes spendability".format(taddr_1), self.nodes, DEBUG_MODE)
+        assert_equal(ud['unconfirmedInput'], bal_1) 
+        unconf_change_3 = bal_1 - amount_2 - fee
+        assert_equal(ud['unconfirmedOutput'], unconf_change_3) 
+        assert_equal(ud['unconfirmedTxApperances'], 1) 
+
+        ud = self.nodes[2].getunconfirmedtxdata(taddr_2, False)
+        mark_logs("\nChecking Node2 unconfirmed data for addr {} with no zero conf changes spendability".format(taddr_2), self.nodes, DEBUG_MODE)
+        assert_equal(ud['unconfirmedInput'], Decimal("0.0")) 
+        assert_equal(ud['unconfirmedOutput'], amount_2) 
+        assert_equal(ud['unconfirmedTxApperances'], 1) 
+
+        mark_logs("\nChecking Node1 total tx data for addr {}".format(taddr_1), self.nodes, DEBUG_MODE)
+        ret = self.nodes[1].listtxesbyaddress(taddr_1)
+        assert_equal(len(ret), len(txs_node1))
+
+        mark_logs("\nChecking Node1 total tx data for addr {}".format(bwt_address), self.nodes, DEBUG_MODE)
+        ret = self.nodes[1].listtxesbyaddress(bwt_address)
+        assert_equal(len(ret), 1)
+
+        mark_logs("\nChecking Node2 total tx data for addr {}".format(taddr_1), self.nodes, DEBUG_MODE)
+        ret = self.nodes[2].listtxesbyaddress(taddr_1)
+        assert_equal(len(ret), 1)
+
+        mark_logs("\nChecking Node2 total tx data for addr {}".format(taddr_2), self.nodes, DEBUG_MODE)
+        ret = self.nodes[2].listtxesbyaddress(taddr_2)
+        assert_equal(len(ret), 1)
+
+
+
+if __name__ == '__main__':
+    sbh_rpc_cmds().main()

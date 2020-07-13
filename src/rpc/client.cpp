@@ -57,6 +57,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listtxesbyaddress", 2 },
     { "listtxesbyaddress", 3 },
     { "getunconfirmedtxdata", 1 },
+    { "getunconfirmedtxdata", 2 },
     { "listaccounts", 0 },
     { "listaccounts", 1 },
     { "walletpassphrase", 1 },
