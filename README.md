@@ -79,7 +79,7 @@ Building from source
 * Install for Linux
 ```{r, engine='bash'}
 git clone https://github.com/ZencashOfficial/zend_oo.git
-cd zen
+cd zend_oo
 # Build
 ./zcutil/build.sh -j$(nproc)
 # fetch key
