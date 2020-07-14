@@ -47,8 +47,6 @@ static_assert(TRANSPARENT_TX_VERSION >= MIN_OLD_TX_VERSION,
 //Many static casts to int * of Tx nVersion (int32_t *) are performed. Verify at compile time that they are equivalent.
 static_assert(sizeof(int32_t) == sizeof(int), "int size differs from 4 bytes. This may lead to unexpected behaviors on static casts");
 
-static const int BWT_POS_UNSET = -1;
-
 template <typename Stream>
 class SproutProofSerializer : public boost::static_visitor<>
 {
@@ -384,10 +382,7 @@ public:
         scriptPubKey.clear();
     }
 
-    bool IsNull() const
-    {
-        return (nValue == -1);
-    }
+    bool IsNull() const { return (nValue == -1);  }
 
     uint256 GetHash() const;
 
@@ -977,6 +972,7 @@ public:
     virtual void insertAtPos(unsigned int pos, const CTxOut& out) = 0;
     virtual void eraseAtPos(unsigned int pos)                     = 0;
     virtual void resizeOut(unsigned int newSize)                  = 0;
+    virtual void resizeBwt(unsigned int newSize)                  = 0;
     virtual bool addOut(const CTxOut& out)                        = 0;
     virtual bool addBwt(const CTxOut& out)                        = 0;
     virtual bool add(const CTxScCreationOut& out)                 = 0;
@@ -1040,6 +1036,7 @@ struct CMutableTransaction : public CMutableTransactionBase
     void insertAtPos(unsigned int pos, const CTxOut& out) override final;
     void eraseAtPos(unsigned int pos)                     override final;
     void resizeOut(unsigned int newSize)                  override final;
+    void resizeBwt(unsigned int newSize)                  override final;
     bool addOut(const CTxOut& out)                        override final;
     bool addBwt(const CTxOut& out)                        override final;
     bool add(const CTxScCreationOut& out)                 override final;

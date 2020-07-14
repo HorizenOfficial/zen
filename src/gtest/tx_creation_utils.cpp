@@ -82,6 +82,14 @@ CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, c
     return CTransaction(mtx);
 }
 
+CTransaction txCreationUtils::createCoinBase(const CAmount& amount)
+{
+    CMutableTransaction mutCoinBase;
+    mutCoinBase.vin.push_back(CTxIn(uint256(), -1));
+    mutCoinBase.addOut(CTxOut(amount,CScript()));
+    return CTransaction(mutCoinBase);
+}
+
 // Well-formatted transparent txs have no sc-related info.
 // ccisNull allow you to create a faulty transparent tx, for testing purposes.
 CTransaction txCreationUtils::createTransparentTx(bool ccIsNull)
@@ -135,50 +143,77 @@ void txCreationUtils::extendTransaction(CTransaction & tx, const uint256 & scId,
     return;
 }
 
-CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash, unsigned int numChangeOut, CAmount bwTotaltAmount, unsigned int numBwt) {
+CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
+                                                  CAmount changeTotalAmount, unsigned int numChangeOut,
+                                                  CAmount bwtTotalAmount, unsigned int numBwt) {
     CMutableScCertificate res;
     res.nVersion = SC_CERT_VERSION;
     res.scId = scId;
     res.epochNumber = epochNum;
     res.endEpochBlockHash = endEpochBlockHash;
+    res.quality = 3; //setup to non zero value
 
     CScript dummyScriptPubKey =
             GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
     for(unsigned int idx = 0; idx < numChangeOut; ++idx)
-        res.addOut(CTxOut(insecure_rand(),dummyScriptPubKey));
+        res.addOut(CTxOut(changeTotalAmount/numChangeOut,dummyScriptPubKey));
 
     for(unsigned int idx = 0; idx < numBwt; ++idx)
-        res.addBwt(CTxOut(bwTotaltAmount/numBwt, dummyScriptPubKey));
+        res.addBwt(CTxOut(bwtTotalAmount/numBwt, dummyScriptPubKey));
 
     return res;
 }
 
-void chainSettingUtils::GenerateChainActive(int targetHeight) {
-    chainActive.SetTip(nullptr);
-    mapBlockIndex.clear();
-
-    static std::vector<uint256> blockHashes;
-    blockHashes.clear();
-    blockHashes.resize(targetHeight+1);
-    std::vector<CBlockIndex> blocks(targetHeight+1);
+void chainSettingUtils::ExtendChainActiveToHeight(int targetHeight)
+{
+    if (chainActive.Height() > targetHeight)
+       return chainActive.SetTip(chainActive[targetHeight]); //TODO: delete content before setting tip
 
     ZCIncrementalMerkleTree dummyTree;
     dummyTree.append(GetRandHash());
 
-    for (unsigned int height=0; height<blocks.size(); ++height) {
-        blockHashes[height] = ArithToUint256(height);
+    uint256 prevBlockHash = chainActive.Height() <= 0 ? uint256(): *(chainActive.Tip()->phashBlock);
+    for (unsigned int height=std::max(chainActive.Height(),0); height<= targetHeight; ++height) {
+        uint256 currBlockHash = ArithToUint256(height);
+        CBlockIndex* pNewBlockIdx = new CBlockIndex();
+        assert(pNewBlockIdx != nullptr);
 
-        blocks[height].nHeight = height;
-        blocks[height].pprev = height == 0? nullptr : mapBlockIndex[blockHashes[height-1]];
-        blocks[height].phashBlock = &blockHashes[height];
-        blocks[height].nTime = 1269211443 + height * Params().GetConsensus().nPowTargetSpacing;
-        blocks[height].nBits = 0x1e7fffff;
-        blocks[height].nChainWork = height == 0 ? arith_uint256(0) : blocks[height - 1].nChainWork + GetBlockProof(blocks[height - 1]);
+        pNewBlockIdx->nHeight = height;
+        pNewBlockIdx->pprev = height == 0? nullptr : mapBlockIndex.at(prevBlockHash);
+        pNewBlockIdx->nTime = 1269211443 + height * Params().GetConsensus().nPowTargetSpacing;
+        pNewBlockIdx->nBits = 0x1e7fffff;
+        pNewBlockIdx->nChainWork = height == 0 ? arith_uint256(0) : mapBlockIndex.at(prevBlockHash)->nChainWork + GetBlockProof(*(mapBlockIndex.at(prevBlockHash)));
+        pNewBlockIdx->hashAnchor = dummyTree.root();
 
-        blocks[height].hashAnchor = dummyTree.root();
+        BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(currBlockHash, pNewBlockIdx)).first;
+        pNewBlockIdx->phashBlock = &(mi->first);
+        chainActive.SetTip(mapBlockIndex.at(currBlockHash));
 
-        mapBlockIndex[blockHashes[height]] = new CBlockIndex(blocks[height]);
-        mapBlockIndex[blockHashes[height]]->phashBlock = &blockHashes[height];
-        chainActive.SetTip(mapBlockIndex[blockHashes[height]]);
+        prevBlockHash = currBlockHash;
     }
+    return;
+}
+
+void chainSettingUtils::ExtendChainActiveWithBlock(const CBlock& block)
+{
+    ZCIncrementalMerkleTree dummyTree;
+    dummyTree.append(GetRandHash());
+
+    uint256 prevBlockHash = chainActive.Height() <= 0 ? uint256(): *(chainActive.Tip()->phashBlock);
+
+    uint256 currBlockHash = block.GetHash();
+    CBlockIndex* pNewBlockIdx = new CBlockIndex();
+    assert(pNewBlockIdx != nullptr);
+
+    pNewBlockIdx->nHeight = chainActive.Height()+1;
+    pNewBlockIdx->pprev = (chainActive.Height()+1) == 0? nullptr : mapBlockIndex.at(prevBlockHash);
+    pNewBlockIdx->nTime = 1269211443 + chainActive.Height()+1 * Params().GetConsensus().nPowTargetSpacing;
+    pNewBlockIdx->nBits = 0x1e7fffff;
+    pNewBlockIdx->nChainWork = (chainActive.Height()+1) == 0 ? arith_uint256(0) : mapBlockIndex.at(prevBlockHash)->nChainWork + GetBlockProof(*(mapBlockIndex.at(prevBlockHash)));
+    pNewBlockIdx->hashAnchor = dummyTree.root();
+
+    BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(currBlockHash, pNewBlockIdx)).first;
+    pNewBlockIdx->phashBlock = &(mi->first);
+    chainActive.SetTip(mapBlockIndex.at(currBlockHash));
+    return;
 }

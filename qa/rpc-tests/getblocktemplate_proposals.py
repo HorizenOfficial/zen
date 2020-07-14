@@ -138,25 +138,29 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         self.nodes[0].generate(1) # Mine a block to leave initial block download
         self.sync_all()
 
+        sc_fork_reached = False
         mark_logs(("active chain height = %d: testing before sidechain fork" %  self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
-        self.doTest()
+        self.doTest(sc_fork_reached)
 
         # reach the fork where certificates are supported
         self.nodes[0].generate(20) 
         self.sync_all()
 
         mark_logs(("active chain height = %d: testing after sidechain fork" %  self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
+        sc_fork_reached = True
 
         # create a sidechain and a certificate for it in the mempool
         mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        creating_tx = self.nodes[1].sc_create(SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT, vk, "bb" * 1024, constant)
+        ret = self.nodes[1].sc_create(SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT, vk, "bb" * 1024, constant)
+        creating_tx = ret['txid']
+        scid = ret['scid']
         self.sync_all()
 
         decoded_tx = self.nodes[1].getrawtransaction(creating_tx, 1)
-        scid = decoded_tx['vsc_ccout'][0]['scid']
+        assert_equal(scid, decoded_tx['vsc_ccout'][0]['scid'])
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         current_height = self.nodes[1].getblockcount()
@@ -183,13 +187,13 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         self.sync_all()
         assert_true(tx in self.nodes[0].getrawmempool() ) 
 
-        self.doTest()
+        self.doTest(sc_fork_reached)
 
         self.nodes[0].generate(1) 
         self.sync_all()
 
 
-    def doTest(self):
+    def doTest(self, sc_fork_reached):
 
         node = self.nodes[0]
 
@@ -205,6 +209,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
 
         # if the block supports certificates, add them (if any)
         if tmpl['version'] == SC_CERTIFICATE_BLOCK_VERSION:
+            assert_true(sc_fork_reached)
             certlist = list(bytearray(a2b_hex(a['data'])) for a in tuple(tmpl['certificates']))
 
         # Test 0: Capability advertised
@@ -282,7 +287,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         # Test 10: Bad timestamps
         realtime = tmpl['curtime']
         tmpl['curtime'] = 0x7fffffff
-        if len(certlist) == 0:
+        if sc_fork_reached == False:
             assert_template(node, tmpl, txlist, certlist, 'time-too-new')
         else:
             # if we reached sc fork we also have passed timeblock fork and the error changes
@@ -291,10 +296,11 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         assert_template(node, tmpl, txlist, certlist, 'time-too-old')
         tmpl['curtime'] = realtime
 
-        if len(certlist) == 0:
+        if sc_fork_reached == False:
             # Test 11: Valid block
             assert_template(node, tmpl, txlist, certlist, None)
         else:
+            assert_true(len(certlist) != 0)
             # compute commitment for the only contribution of certificate (we have no sctx/btr)
             TxsHash = dblsha(SC_NULL_HASH + SC_NULL_HASH)
             WCertHash = dblsha(certlist[0])
@@ -308,15 +314,9 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         assert_template(node, tmpl, txlist, certlist, 'inconclusive-not-best-prevblk')
         tmpl['previousblockhash'] = orig_val
 
-        if len(certlist) != 0:
+        if sc_fork_reached == True:
+            assert_true(len(certlist) != 0)
             # cert only specific tests
-
-            # Test 13: Bad scid in cert
-            # set scid to 0x21 (33)
-            orig_val = certlist[0][4]
-            certlist[0][4] = 33
-            assert_template(node, tmpl, txlist, certlist, 'bad-sc-cert-not-applicable')
-            certlist[0][4] = orig_val
 
             # Test 14: Bad cert count
             certlist.append(b'')
@@ -333,12 +333,6 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             except JSONRPCException:
                 pass  # Expected
             certlist[-1].append(lastbyte)
-
-            # Test 16: change epoch number
-            orig_val = certlist[0][4 + 32]
-            certlist[0][4 + 32] = 33 
-            assert_template(node, tmpl, txlist, certlist, 'bad-sc-cert-not-applicable')
-            certlist[0][4 + 32] = orig_val 
 
             # Test 17: wrong commitment
             # compute commitment for the only contribution of certificate (no tx/btr)

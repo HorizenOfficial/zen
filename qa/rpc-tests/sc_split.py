@@ -115,13 +115,12 @@ class ScSplitTest(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        tx_create = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "", constant)
-        txes.append(tx_create)
-        self.sync_all()
-
-        decoded_tx = self.nodes[1].getrawtransaction(tx_create, 1)
-        scid = decoded_tx['vsc_ccout'][0]['scid']
+        ret = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "", constant)
+        creating_tx = ret['txid']
+        scid = ret['scid']
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
+        txes.append(creating_tx)
+        self.sync_all()
 
         mark_logs("\nNode0 generating 1 honest block", self.nodes, DEBUG_MODE)
 
@@ -161,7 +160,7 @@ class ScSplitTest(BitcoinTestFramework):
 
         assert_equal(self.nodes[1].getscinfo(scid)["balance"], creation_amount + fwt_amount_1 + fwt_amount_2)
         assert_equal(self.nodes[1].getscinfo(scid)["created in block"], ownerBlock)
-        assert_equal(self.nodes[1].getscinfo(scid)["creating tx hash"], tx_create)
+        assert_equal(self.nodes[1].getscinfo(scid)["creating tx hash"], creating_tx)
         assert_equal("scid not yet created" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
@@ -226,7 +225,7 @@ class ScSplitTest(BitcoinTestFramework):
         assert_equal(scinfoNode0, scinfoNode2)
         assert_equal(self.nodes[2].getscinfo(scid)["balance"], creation_amount + fwt_amount_1 + fwt_amount_2)
         assert_equal(self.nodes[2].getscinfo(scid)["created in block"], secondOwnerBlock)
-        assert_equal(self.nodes[1].getscinfo(scid)["creating tx hash"], tx_create)
+        assert_equal(self.nodes[1].getscinfo(scid)["creating tx hash"], creating_tx)
 
 
 if __name__ == '__main__':

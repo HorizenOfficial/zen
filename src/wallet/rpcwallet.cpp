@@ -81,25 +81,120 @@ void EnsureWalletIsUnlocked()
         throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Please enter the wallet passphrase with walletpassphrase first.");
 }
 
-void TxExpandedToJSON(const CWalletTransactionBase& tx, const std::vector<CWalletTransactionBase*>& vtxIn, UniValue& entry)
+void AddVinExpandedToJSON(const CWalletTransactionBase& tx, UniValue& entry)
+{
+    if (!tx.getTxBase()->IsCertificate() )
+        entry.push_back(Pair("locktime", (int64_t)tx.getTxBase()->GetLockTime()));
+    UniValue vinArr(UniValue::VARR);
+    for (const CTxIn& txin : tx.getTxBase()->GetVin())
+    {
+        UniValue in(UniValue::VOBJ);
+        if (tx.getTxBase()->IsCoinBase())
+        {
+            in.push_back(Pair("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end())));
+        }
+        else
+        {
+            const uint256& inputTxHash = txin.prevout.hash;
+
+            in.push_back(Pair("txid", inputTxHash.GetHex()));
+            in.push_back(Pair("vout", (int64_t)txin.prevout.n));
+
+            UniValue o(UniValue::VOBJ);
+            o.push_back(Pair("asm", txin.scriptSig.ToString()));
+            o.push_back(Pair("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end())));
+            in.push_back(Pair("scriptSig", o));
+
+            auto mi = pwalletMain->getMapWallet().find(inputTxHash);
+            if (mi != pwalletMain->getMapWallet().end() )
+            {
+                if ((*mi).second->getTxBase()->GetHash() == inputTxHash)
+                {
+                    const CTxOut& txout = (*mi).second->getTxBase()->GetVout()[txin.prevout.n];
+
+                    in.push_back(Pair("value", ValueFromAmount(txout.nValue)));
+                    in.push_back(Pair("valueSat", txout.nValue));
+
+                    txnouttype type;
+                    int nRequired;
+                    vector<CTxDestination> addresses;
+                    if (!ExtractDestinations(txout.scriptPubKey, type, addresses, nRequired)) {
+                        in.push_back(Pair("addr", "Unknown"));
+                    } else {
+                        const CTxDestination& addr = addresses[0];
+                        in.push_back(Pair("addr", (CBitcoinAddress(addr).ToString() )));
+                    }
+                }
+            }
+
+        }
+        in.push_back(Pair("sequence", (int64_t)txin.nSequence));
+        vinArr.push_back(in);
+    }
+    entry.push_back(Pair("vin", vinArr));
+}
+
+void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
 {
     entry.push_back(Pair("txid", tx.getTxBase()->GetHash().GetHex()));
     entry.push_back(Pair("version", tx.getTxBase()->nVersion));
 
-    tx.AddVinExpandedToJSON(entry, vtxIn);
+    AddVinExpandedToJSON(tx, entry);
+
+    int conf = tx.GetDepthInMainChain();
+    int64_t timestamp = tx.GetTxTime();
+    bool hasBlockTime = false;
+
+    if (!tx.hashBlock.IsNull()) {
+        BlockMap::iterator mi = mapBlockIndex.find(tx.hashBlock);
+        if (mi != mapBlockIndex.end() && (*mi).second) {
+            CBlockIndex* pindex = (*mi).second;
+            if (chainActive.Contains(pindex)) {
+                timestamp = pindex->GetBlockTime();
+                hasBlockTime = true;
+            } else {
+                timestamp = tx.GetTxTime();
+            }
+        }
+    }
+
+    int bwtMaturityHeight = -1;
+    if (tx.getTxBase()->IsCertificate() )
+    {
+        const uint256& scid = dynamic_cast<const CScCertificate*>(tx.getTxBase())->GetScId();
+        entry.push_back(Pair("scid", scid.GetHex()));
+        if (conf > 0) {
+            bwtMaturityHeight = tx.bwtMaturityDepth - conf + chainActive.Height() + 1;
+        } else
+        if (conf == 0) {
+            // no info in tx because the block has yet to be mined
+            CSidechain sidechain;
+            int nHeight = chainActive.Height() + 1;
+            assert(pcoinsTip->GetSidechain(scid, sidechain));
+            int currentEpoch = sidechain.EpochFor(nHeight);
+            int bwtMaturityDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
+                sidechain.SafeguardMargin() - nHeight;
+            bwtMaturityHeight = bwtMaturityDepth + nHeight;
+        } else {
+            // if conf < 0 we can not tell
+        }
+    }
 
     UniValue vout(UniValue::VARR);
     for (unsigned int i = 0; i < tx.getTxBase()->GetVout().size(); i++) {
         const CTxOut& txout = tx.getTxBase()->GetVout()[i];
         UniValue out(UniValue::VOBJ);
         out.push_back(Pair("value", ValueFromAmount(txout.nValue)));
-        out.push_back(Pair("valueZat", txout.nValue));
+        out.push_back(Pair("valueSat", txout.nValue));
         out.push_back(Pair("n", (int64_t)i));
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
         out.push_back(Pair("scriptPubKey", o));
         if (tx.getTxBase()->IsBackwardTransfer(i))
+        {
             out.push_back(Pair("backwardTransfer", true));
+            out.push_back(Pair("maturityHeight", bwtMaturityHeight));
+        }
         vout.push_back(out);
     }
     entry.push_back(Pair("vout", vout));
@@ -109,29 +204,18 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx, const std::vector<CWalle
 
     if (!tx.hashBlock.IsNull()) {
         entry.push_back(Pair("blockhash", tx.hashBlock.GetHex()));
-        BlockMap::iterator mi = mapBlockIndex.find(tx.hashBlock);
-        if (mi != mapBlockIndex.end() && (*mi).second) {
-            CBlockIndex* pindex = (*mi).second;
-            if (chainActive.Contains(pindex)) {
-                entry.push_back(Pair("confirmations", 1 + chainActive.Height() - pindex->nHeight));
-                entry.push_back(Pair("time", pindex->GetBlockTime()));
-                entry.push_back(Pair("blocktime", pindex->GetBlockTime()));
-            }
-            else
-                entry.push_back(Pair("confirmations", 0));
+        entry.push_back(Pair("confirmations", conf));
+        entry.push_back(Pair("time", timestamp));
+        if (hasBlockTime) {
+            entry.push_back(Pair("blocktime", timestamp));
         }
-    }
-    else
-    {
-        entry.push_back(Pair("confirmations", 0));
-        entry.push_back(Pair("time", tx.GetTxTime()));
+    } else {
+        entry.push_back(Pair("confirmations", conf));
+        entry.push_back(Pair("time", timestamp));
     }
 
-    if (tx.IsFromMe(ISMINE_ALL))
-    {
+    if (tx.IsFromMe(ISMINE_ALL)) {
         CAmount nDebit = tx.GetDebit(ISMINE_ALL);
-        // with positive sign
-        //CAmount nFee = nDebit - nOut;
         CAmount nFee = tx.getTxBase()->GetFeeAmount(nDebit);
         entry.push_back(Pair("fees", ValueFromAmount(nFee)));
     }
@@ -172,6 +256,22 @@ void WalletTxToJSON(const CWalletTransactionBase& wtx, UniValue& entry, isminefi
     wtx.getTxBase()->AddSidechainOutsToJSON(entry);
     wtx.getTxBase()->AddJoinSplitToJSON(entry);
 #endif
+}
+
+static void FillScCreationReturnObj(const CTransaction& tx, UniValue& ret)
+{ 
+    // clear it and set type to VOBJ
+    ret.setObject();
+
+    // there must be one and only one creation output in the passed tx
+    if (tx.GetVscCcOut().size() != 1)
+    {
+        throw JSONRPCError(RPC_TYPE_ERROR, strprintf("creation vector output size %d is invalid",
+            tx.GetVscCcOut().size()));
+    }
+
+    ret.push_back(Pair("txid", tx.GetHash().GetHex()));
+    ret.push_back(Pair("scid", tx.GetScIdFromScCcOut(0).GetHex()));
 }
 
 string AccountFromValue(const UniValue& value)
@@ -589,7 +689,7 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
 
     SendMoney(address.Get(), nAmount, fSubtractFeeFromAmount, wtx);
 
-    return wtx.GetHash().GetHex();
+    return wtx.getWrappedTx().GetHash().GetHex();
 }
 
 UniValue sc_send(const UniValue& params, bool fHelp)
@@ -785,7 +885,9 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     CWalletTx wtx;
     ScHandleTransaction(wtx, vecCcSend, nAmount);
 
-    return wtx.GetHash().GetHex();
+    UniValue ret(UniValue::VOBJ);
+    FillScCreationReturnObj(wtx.getWrappedTx(), ret);
+    return ret;
 }
 
 UniValue create_sidechain(const UniValue& params, bool fHelp)
@@ -816,7 +918,10 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "                                          hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
             "}\n"
             "\nResult:\n"
-            "\"transactionid\"    (string) The resulting transaction id.\n"
+            "{\n"
+            "  \"txid\": transaction id    (string) The resulting transaction id.\n"
+            "  \"scid\": sidechainid       (string) The id of the sidechain created by this tx.\n"
+            "}\n"
             "\nExamples:\n"
             + HelpExampleCli("create_sidechain", "'{\"toaddress\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0, \"wCertVk\": abcd..ef}'")
         );
@@ -1012,7 +1117,10 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     cmd.sign();
     cmd.send();
         
-    return tx_create.GetHash().GetHex();
+    CTransaction tx(tx_create);
+    UniValue ret(UniValue::VOBJ);
+    FillScCreationReturnObj(tx, ret);
+    return ret;
 }
 
 UniValue send_to_sidechain(const UniValue& params, bool fHelp)
@@ -1726,7 +1834,7 @@ UniValue sendfrom(const UniValue& params, bool fHelp)
 
     SendMoney(address.Get(), nAmount, false, wtx);
 
-    return wtx.GetHash().GetHex();
+    return wtx.getWrappedTx().GetHash().GetHex();
 }
 
 
@@ -1839,7 +1947,7 @@ UniValue sendmany(const UniValue& params, bool fHelp)
     if (!pwalletMain->CommitTransaction(wtx, keyChange))
         throw JSONRPCError(RPC_WALLET_ERROR, "Transaction commit failed");
 
-    return wtx.GetHash().GetHex();
+    return wtx.getWrappedTx().GetHash().GetHex();
 }
 
 // Defined in rpcmisc.cpp
@@ -2363,7 +2471,7 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() > 2)
+    if (fHelp || params.size() > 3)
         throw runtime_error(
             "getunconfirmedtxdata ( \"address\")\n"
             "\nReturns the server's total unconfirmed data relevanto to the input address\n"
@@ -2372,6 +2480,8 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
             " spendzeroconfchange  (boolean, optional) If provided the command will force zero confirmation change\n"
             "                         spendability as specified, otherwise the value set by zend option \'spendzeroconfchange\' \n"
             "                         will be used instead\n"
+            " includeNonFinalTxes  (boolean, optional, default=true) If true the command will consider also non final txes in the\n"
+            "                         computation of unconfirmed quantities\n"
 
             "\nExamples:\n"
             + HelpExampleCli("getunconfirmedtxdata", "\"ztZ5M1P9ucj3P5JaW5xtY2hWTkp6JsToiHP\"")
@@ -2385,7 +2495,7 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
 
     CWallet::eZeroConfChangeUsage zconfchangeusage = CWallet::eZeroConfChangeUsage::ZCC_UNDEF; 
-    if (params.size() == 2 )
+    if (params.size() >= 2 )
     {
         if (params[1].get_bool())
         {
@@ -2397,14 +2507,26 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
         }
     }
 
+    bool fIncludeNonFinal = true;
+    if (params.size() == 3 )
+    {
+        if (!params[2].get_bool())
+        {
+            fIncludeNonFinal = false;
+        }
+    }
+
     int n = 0;
     CAmount unconfInput = 0;
     CAmount unconfOutput = 0;
-    pwalletMain->GetUnconfirmedData(address, n, unconfInput, unconfOutput, zconfchangeusage);
+    CAmount bwtImmatureOutput = 0;
+    pwalletMain->GetUnconfirmedData(address, n, unconfInput, unconfOutput, bwtImmatureOutput,
+        zconfchangeusage, fIncludeNonFinal);
 
     UniValue ret(UniValue::VOBJ);
     ret.push_back(Pair("unconfirmedInput", ValueFromAmount(unconfInput)));
     ret.push_back(Pair("unconfirmedOutput", ValueFromAmount(unconfOutput)));
+    ret.push_back(Pair("bwtImmatureOutput", ValueFromAmount(bwtImmatureOutput)));
     ret.push_back(Pair("unconfirmedTxApperances", n));
 
     return ret;
@@ -2460,16 +2582,16 @@ UniValue listtxesbyaddress(const UniValue& params, bool fHelp)
 
     UniValue ret(UniValue::VARR);
     std::list<CAccountingEntry> unused;
-    static const bool FILTER_VIN = true;
-    MapTxWithInputs txOrdered = pwalletMain->OrderedTxWithInputsMap(address);
+
+    // tx are ordered in this vector from the oldest to the newest
+    vTxWithInputs txOrdered = pwalletMain->OrderedTxWithInputs(address);
 
     // iterate backwards until we have nCount items to return:
-    for (MapTxWithInputs::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
+    for (vTxWithInputs::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
     {
-        const CWalletTransactionBase& wtx = *((*it).second.first);
-        std::vector<CWalletTransactionBase*> vtxIn = (*it).second.second;
+        const CWalletTransactionBase& wtx = *(*it);
         UniValue o(UniValue::VOBJ);
-        TxExpandedToJSON(wtx, vtxIn, o);
+        TxExpandedToJSON(wtx, o);
         ret.push_back(o);
 
         if ((int)ret.size() >= (nCount+nFrom)) break;
@@ -3424,6 +3546,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             }
         }
         entry.push_back(Pair("amount",ValueFromAmount(nValue)));
+        entry.push_back(Pair("satoshis", nValue));
         entry.push_back(Pair("confirmations",out.nDepth));
         entry.push_back(Pair("spendable", out.fSpendable));
         results.push_back(entry);
@@ -4673,7 +4796,7 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
 
     ScHandleTransaction(wtx, vecSend, nTotalOut);
 
-    return wtx.GetHash().GetHex();
+    return wtx.getWrappedTx().GetHash().GetHex();
 }
 
 UniValue send_certificate(const UniValue& params, bool fHelp)
@@ -4681,7 +4804,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() != 7  )
+    if (fHelp || params.size() < 6  )
         throw runtime_error(
             "send_certificate scid epochNumber quality endEpochBlockHash scProof [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
             "\nSend cross chain backward transfers from SC to MC as a certificate."
@@ -4696,7 +4819,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             "      \"pubkeyhash\":\"pkh\"    (string, required) The public key hash of the receiver\n"
             "      \"amount\":amount       (numeric, required) The numeric amount in ZEN\n"
             "    }, ... ]\n"
-            "7. fee                     (numeric, optional) The fee of the certificate in ZEN\n"
+            "7. fee                     (numeric, optional, default=" + strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee of the certificate in ZEN\n"
             "\nResult:\n"
             "  \"certificateId\"   (string) The resulting certificate id.\n"
             "\nExamples:\n"
@@ -4724,7 +4847,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     if (!scView.GetSidechain(scId,scInfo))
     {
         LogPrint("sc", "scid[%s] does not exists \n", scId.ToString() );
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not exists: ") + scId.ToString());
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid does not exists: ") + scId.ToString());
     }
     cert.scId = scId;
 
@@ -4839,13 +4962,19 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         nTotalOut += nAmount;
     }
 
-    // fee
-    CAmount nCertFee = 0;
+    // fee, default to a small amount
+    CAmount nCertFee = SC_RPC_OPERATION_DEFAULT_MINERS_FEE;
     if (params.size() > 6)
     {
-        nCertFee = AmountFromValue(params[6]);
-        if (nCertFee <= 0)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for fee, must be positive");
+        try {
+            nCertFee = AmountFromValue(params[6]);
+        } catch (const UniValue& error) {
+            UniValue errMsg  = find_value(error, "message");
+            throw JSONRPCError(RPC_TYPE_ERROR, ("Invalid fee param:" + errMsg.getValStr() ));
+        } 
+
+        if (nCertFee < 0)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for fee, can not be negative");
         // any check for upper threshold is left to cert processing
     }
 

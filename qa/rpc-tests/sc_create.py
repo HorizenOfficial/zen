@@ -47,7 +47,7 @@ class SCCreateTest(BitcoinTestFramework):
 
     def run_test(self):
         '''
-        This test try create a SC with sc_create using invalid parameters and valid parameters.
+        This test try creating a SC with sc_create using invalid parameters and valid parameters.
         It also checks the coin mature time of the FT
         '''
         # network topology: (0)--(1)--(2)
@@ -68,8 +68,8 @@ class SCCreateTest(BitcoinTestFramework):
         constant = generate_random_field_element_hex()
 
         # ---------------------------------------------------------------------------------------
-        # Node 2 try create a SC with insufficient funds
-        mark_logs("\nNode 2 try creates a SC with insufficient funds", self.nodes, DEBUG_MODE)
+        # Node 2 try creating a SC with insufficient funds
+        mark_logs("\nNode 2 try creating a SC with insufficient funds", self.nodes, DEBUG_MODE)
 
         amounts = [{"address": "dada", "amount": creation_amount}]
         errorString = ""
@@ -81,8 +81,8 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("insufficient funds" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 2 try create a SC with immature funds
-        mark_logs("\nNode 2 try creates a SC with immature funds", self.nodes, DEBUG_MODE)
+        # Node 2 try creating a SC with immature funds
+        mark_logs("\nNode 2 try creating a SC with immature funds", self.nodes, DEBUG_MODE)
 
         self.nodes[2].generate(1)
         self.sync_all()
@@ -94,8 +94,8 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("insufficient funds" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with null address
-        mark_logs("\nNode 1 try creates a SC with null address", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with null address
+        mark_logs("\nNode 1 try creating a SC with null address", self.nodes, DEBUG_MODE)
 
         try:
             self.nodes[1].sc_create(123, "", creation_amount, vk, "", constant)
@@ -104,8 +104,8 @@ class SCCreateTest(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with null amount
-        mark_logs("\nNode 1 try creates a SC with null amount", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with null amount
+        mark_logs("\nNode 1 try creating a SC with null amount", self.nodes, DEBUG_MODE)
 
         try:
             self.nodes[1].sc_create(123, "ada", "", vk, "", constant)
@@ -115,8 +115,8 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("Invalid amount" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with 0 amount
-        mark_logs("\nNode 1 try creates a SC with 0 amount", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with 0 amount
+        mark_logs("\nNode 1 try creating a SC with 0 amount", self.nodes, DEBUG_MODE)
 
         try:
             self.nodes[1].sc_create(123, "ada", Decimal("0.0"), vk, "", constant)
@@ -126,8 +126,8 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("amount must be positive" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a bad wCertVk
-        mark_logs("\nNode 1 try creates a SC with a non hex wCertVk", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with a bad wCertVk
+        mark_logs("\nNode 1 try creating a SC with a non hex wCertVk", self.nodes, DEBUG_MODE)
 
         try:
             self.nodes[1].sc_create(123, "ada", 0.1, "zz" * SC_VK_SIZE, "", constant)
@@ -137,8 +137,8 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("wCertVk: Invalid format: not an hex" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a bad wCertVk
-        mark_logs("\nNode 1 try creates a SC with a odd number of char in wCertVk", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with a bad wCertVk
+        mark_logs("\nNode 1 try creating a SC with a odd number of char in wCertVk", self.nodes, DEBUG_MODE)
 
         try:
             self.nodes[1].sc_create(123, "ada", 0.1, "a" * (SC_VK_SIZE - 1))
@@ -148,8 +148,8 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("must be even" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a wCertVk too short
-        mark_logs("\nNode 1 try creates a SC with too short wCertVk byte string", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with a wCertVk too short
+        mark_logs("\nNode 1 try creating a SC with too short wCertVk byte string", self.nodes, DEBUG_MODE)
 
         try:
             self.nodes[1].sc_create(123, "ada", 0.1, "aa" * (SC_VK_SIZE - 1))
@@ -159,8 +159,8 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("bytes" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a wCertVk too long
-        mark_logs("\nNode 1 try creates a SC with too long wCertVk byte string", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with a wCertVk too long
+        mark_logs("\nNode 1 try creating a SC with too long wCertVk byte string", self.nodes, DEBUG_MODE)
 
         try:
             self.nodes[1].sc_create(123, "ada", 0.1, "aa" * (SC_VK_SIZE + 1))
@@ -170,8 +170,8 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("bytes" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with an invalid wCertVk
-        mark_logs("\nNode 1 try creates a SC with an invalid wCertVk", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with an invalid wCertVk
+        mark_logs("\nNode 1 try creating a SC with an invalid wCertVk", self.nodes, DEBUG_MODE)
 
         try:
             self.nodes[1].sc_create(123, "ada", 0.1, "aa" * SC_VK_SIZE)
@@ -182,8 +182,8 @@ class SCCreateTest(BitcoinTestFramework):
 
         # ---------------------------------------------------------------------------------------
 
-        # Node 1 try create a SC with a bad customData
-        mark_logs("\nNode 1 try creates a SC with a bad customData", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with a bad customData
+        mark_logs("\nNode 1 try creating a SC with a bad customData", self.nodes, DEBUG_MODE)
 
         try:
             self.nodes[1].sc_create(123, "ada", 0.1, vk, "zz" * 1024)
@@ -193,8 +193,8 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("customData: Invalid format: not an hex" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a bad customData
-        mark_logs("\nNode 1 try creates a SC with a odd number of char in customData", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with a bad customData
+        mark_logs("\nNode 1 try creating a SC with a odd number of char in customData", self.nodes, DEBUG_MODE)
 
         try:
             self.nodes[1].sc_create(123, "ada", 0.1, vk, "b" * 1023)
@@ -204,8 +204,8 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("must be even" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with customData too long
-        mark_logs("\nNode 1 try creates a SC with too long customData byte string", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with customData too long
+        mark_logs("\nNode 1 try creating a SC with too long customData byte string", self.nodes, DEBUG_MODE)
 
         try:
             self.nodes[1].sc_create(123, "ada", 0.1, vk, "bb" * 1025)
@@ -215,8 +215,8 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("bytes" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a bad constant
-        mark_logs("\nNode 1 try creates a SC with a non hex constant", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with a bad constant
+        mark_logs("\nNode 1 try creating a SC with a non hex constant", self.nodes, DEBUG_MODE)
 
         try:
             self.nodes[1].sc_create(123, "ada", 0.1, vk, "", "zz" * SC_FIELD_SIZE)
@@ -226,8 +226,8 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("constant: Invalid format: not an hex" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a bad constant
-        mark_logs("\nNode 1 try creates a SC with a odd number of char in constant", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with a bad constant
+        mark_logs("\nNode 1 try creating a SC with a odd number of char in constant", self.nodes, DEBUG_MODE)
 
         try:
             self.nodes[1].sc_create(123, "ada", 0.1, vk, "", "b" * (SC_FIELD_SIZE - 1))
@@ -237,8 +237,8 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("must be even" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a constant too short
-        mark_logs("\nNode 1 try creates a SC with too short constant byte string", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with a constant too short
+        mark_logs("\nNode 1 try creating a SC with too short constant byte string", self.nodes, DEBUG_MODE)
 
         try:
             self.nodes[1].sc_create(123, "ada", 0.1, vk, "", "bb" * (SC_FIELD_SIZE - 1))
@@ -248,8 +248,8 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("bytes" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a constant too long
-        mark_logs("\nNode 1 try creates a SC with too long constant byte string", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with a constant too long
+        mark_logs("\nNode 1 try creating a SC with too long constant byte string", self.nodes, DEBUG_MODE)
 
         try:
             self.nodes[1].sc_create(123, "ada", 0.1, vk, "", "bb" * (SC_FIELD_SIZE + 1))
@@ -259,8 +259,8 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal("bytes" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a bad constant
-        mark_logs("\nNode 1 try creates a SC with an invalid constant", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with a bad constant
+        mark_logs("\nNode 1 try creating a SC with an invalid constant", self.nodes, DEBUG_MODE)
 
         try:
             self.nodes[1].sc_create(123, "ada", 0.1, vk, "", "aa" * SC_FIELD_SIZE)
@@ -271,25 +271,27 @@ class SCCreateTest(BitcoinTestFramework):
 
         # ---------------------------------------------------------------------------------------
         
-        # Node 1 try create a SC with negative epocLength
-        mark_logs("\nNode 1 try creates a SC with 0 epochLength", self.nodes, DEBUG_MODE)
+        # Node 1 try creating a SC with negative epocLength
+        mark_logs("\nNode 1 try creating a SC with 0 epochLength", self.nodes, DEBUG_MODE)
 
         try:
-            txbad = self.nodes[1].sc_create(-1, "ada", Decimal("1.0"), "aa" * 1544)
-            print self.nodes[1].getrawtransaction(txbad, 1)['vsc_ccout']
+            self.nodes[1].sc_create(-1, "ada", Decimal("1.0"), "aa" * 1544)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
+            print "--------------------------------------> Error: ", errorString
 
         # ---------------------------------------------------------------------------------------
         # Node 1 create the SC
         mark_logs("\nNode 1 creates SC", self.nodes, DEBUG_MODE)
 
-        tx = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "bb" * 1024, constant)
+        ret = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "bb" * 1024, constant)
+        creating_tx = ret['txid']
+        scid = ret['scid']
         self.sync_all()
 
-        decoded_tx = self.nodes[1].getrawtransaction(tx, 1)
-        scid = decoded_tx['vsc_ccout'][0]['scid']
+        decoded_tx = self.nodes[1].getrawtransaction(creating_tx, 1)
+        assert_equal(scid, decoded_tx['vsc_ccout'][0]['scid'])
 
         mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)

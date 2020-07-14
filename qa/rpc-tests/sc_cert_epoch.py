@@ -6,7 +6,7 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import initialize_chain_clean, assert_equal, \
-    start_nodes, stop_nodes, \
+    start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs
 from test_framework.mc_test.mc_test import *
 import os
@@ -45,6 +45,14 @@ class sc_cert_epoch(BitcoinTestFramework):
 
     def run_test(self):
 
+        '''
+        Node0 creates a sc, sends funds and then sends a certificate to it with a bwt to Node2
+        testing maturity of bwt, spendability and balances.
+        Node0 then performs some block invalidation for reverting the certificate and the tx that
+        spends it. Node0 finally generates more blocks, and this causes other nodes to revert their
+        chains erasing cert and tx spending it from their active chain and mempool as well
+        '''
+
         # cross-chain transfer amount
         creation_amount = Decimal("0.5")
         fwt_amount = Decimal("30")
@@ -69,15 +77,17 @@ class sc_cert_epoch(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        sc_creation_tx = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant);
-        mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, sc_creation_tx), self.nodes, DEBUG_MODE)
+        ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant);
+        creating_tx = ret['txid']
+        scid = ret['scid']
+        mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
-        decoded_tx = self.nodes[1].getrawtransaction(sc_creation_tx, 1)
-        scid = decoded_tx['vsc_ccout'][0]['scid']
+        decoded_tx = self.nodes[1].getrawtransaction(creating_tx, 1)
+        assert_equal(scid, decoded_tx['vsc_ccout'][0]['scid'])
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
-        prev_epoch_hash = blocks[-1]
+        prev_epoch_block_hash = blocks[-1]
         mark_logs("Node0 confirms Sc creation generating 1 block", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
@@ -103,8 +113,8 @@ class sc_cert_epoch(BitcoinTestFramework):
         assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount)
         assert_equal(self.nodes[0].getscinfo(scid)['immature amounts'][0]['amount'], fwt_amount_immature_at_epoch)
 
-        epoch_number = 0
-        epoch_hash = blocks[-1]
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
         pkh_node2 = self.nodes[2].getnewaddress("", True)
         amounts_bad = [{"pubkeyhash": pkh_node2, "amount": bwt_amount + fwt_amount_immature_at_epoch}]
@@ -126,11 +136,11 @@ class sc_cert_epoch(BitcoinTestFramework):
         #Create proof for WCert
         quality = 0
         proof_bad = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_hash, prev_epoch_hash,
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node2], [bwt_amount + fwt_amount_immature_at_epoch])
 
         try:
-            self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_hash, proof_bad, amounts_bad, CERT_FEE)
+            self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof_bad, amounts_bad, CERT_FEE)
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -141,11 +151,11 @@ class sc_cert_epoch(BitcoinTestFramework):
         #Create proof for WCert
         quality = 0
         proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_hash, prev_epoch_hash,
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node2], [bwt_amount])
         
         try:
-            cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_hash, proof, amounts, CERT_FEE)
+            cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
             mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh via cert {}.".format(bwt_amount, cert_epoch_0), self.nodes, DEBUG_MODE)
             assert(len(cert_epoch_0) > 0)
         except JSONRPCException, e:
@@ -184,17 +194,17 @@ class sc_cert_epoch(BitcoinTestFramework):
         self.sync_all()
 
         try:
-            epoch_number = 1
-            prev_epoch_hash = epoch_hash
-            epoch_hash = blocks[-1]
+            prev_epoch_block_hash = epoch_block_hash
+            epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+            mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
             
             #Create proof for WCert
             quality = 1
             proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_hash, prev_epoch_hash,
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [], [])
 
-            cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_hash, proof, [], CERT_FEE)
+            cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, [], CERT_FEE)
             mark_logs("Node 0 send a certificate {} with no bwd transfers".format(cert_epoch_1), self.nodes, DEBUG_MODE)
             assert(len(cert_epoch_1) > 0)
         except JSONRPCException, e:
@@ -241,13 +251,13 @@ class sc_cert_epoch(BitcoinTestFramework):
         mark_logs("Checking tx speding bwd returns to mempool", self.nodes, DEBUG_MODE)
         assert(speding_bwd_tx in self.nodes[0].getrawmempool())
 
-        mark_logs("Node0 invalidates enough blocks unconfirm epoch 1 certificate", self.nodes, DEBUG_MODE)
+        mark_logs("Node0 invalidates enough blocks to unconfirm epoch 1 certificate", self.nodes, DEBUG_MODE)
         for num in range(1,3):
             block_to_invalidate = self.nodes[0].getbestblockhash()
             self.nodes[0].invalidateblock(block_to_invalidate)
             time.sleep(1)  # Is there a better wait to settle?
 
-        mark_logs("Checking bwd returns to mempool while tx spending epoch 0 certificate gets removed", self.nodes, DEBUG_MODE)
+        mark_logs("Checking cert returns to mempool while tx spending it gets removed from mempool", self.nodes, DEBUG_MODE)
         assert(cert_epoch_1 in self.nodes[0].getrawmempool())
         assert(speding_bwd_tx not in self.nodes[0].getrawmempool()) # speding_bwd_tx would spend an immature cert now since epoch 1 cert is not confirmed anymore
 
@@ -259,7 +269,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         self.nodes[0].invalidateblock(block_to_invalidate)
         time.sleep(1)  # Is there a better wait to settle?
 
-        mark_logs("Checking both bwd is still mempool", self.nodes, DEBUG_MODE)
+        mark_logs("Checking both bwd and spending tx are no more in the node mempool", self.nodes, DEBUG_MODE)
         assert(cert_epoch_1 not in self.nodes[0].getrawmempool())
         assert(speding_bwd_tx not in self.nodes[0].getrawmempool())
 
@@ -280,8 +290,8 @@ class sc_cert_epoch(BitcoinTestFramework):
             sc_post_regeneration = node.getscinfo(scid)
             assert_equal(sc_post_regeneration["last certificate epoch"], Decimal(0))
             assert_equal(sc_post_regeneration["balance"], creation_amount + fwt_amount + fwt_amount_immature_at_epoch - bwt_amount)
-            assert(cert_epoch_1 not in self.nodes[0].getrawmempool())
-            assert(speding_bwd_tx not in self.nodes[0].getrawmempool())
+            assert(cert_epoch_1 not in node.getrawmempool())
+            assert(speding_bwd_tx not in node.getrawmempool())
 
         assert_equal(node2_balance_ante_cert, self.nodes[2].getbalance())
         assert_equal(node3_balance_ante_cert, self.nodes[3].getbalance())
@@ -296,8 +306,8 @@ class sc_cert_epoch(BitcoinTestFramework):
             sc_post_regeneration = node.getscinfo(scid)
             assert_equal(sc_post_regeneration["last certificate epoch"], Decimal(0))
             assert_equal(sc_post_regeneration["balance"], creation_amount + fwt_amount + fwt_amount_immature_at_epoch - bwt_amount)
-            assert(cert_epoch_1 not in self.nodes[0].getrawmempool())
-            assert(speding_bwd_tx not in self.nodes[0].getrawmempool())
+            assert(cert_epoch_1 not in node.getrawmempool())
+            assert(speding_bwd_tx not in node.getrawmempool())
 
 
 if __name__ == '__main__':

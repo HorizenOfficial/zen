@@ -13,7 +13,7 @@ public:
     CAmount nValue;
     uint160 pubKeyHash;
 
-    CBackwardTransferOut(): nValue(0), pubKeyHash() {};
+    CBackwardTransferOut(): nValue(-1), pubKeyHash() {};
     explicit CBackwardTransferOut(const CTxOut& txout);
 
     ADD_SERIALIZE_METHODS;
@@ -23,6 +23,14 @@ public:
         READWRITE(nValue);
         READWRITE(pubKeyHash);
     }
+
+    void SetNull()
+    {
+        nValue = -1;
+        pubKeyHash.SetNull();
+    }
+
+    bool IsNull() const { return (nValue == -1);  }
 };
 
 class CScCertificate : virtual public CTransactionBase
@@ -194,6 +202,9 @@ struct CMutableScCertificate : public CMutableTransactionBase
 
     CMutableScCertificate();
     CMutableScCertificate(const CScCertificate& tx);
+    CMutableScCertificate(const CMutableScCertificate& tx) = default;
+    CMutableScCertificate& operator=(const CMutableScCertificate& tx);
+    ~CMutableScCertificate() = default;
 
     ADD_SERIALIZE_METHODS;
 
@@ -250,6 +261,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
     void insertAtPos(unsigned int pos, const CTxOut& out) override final;
     void eraseAtPos(unsigned int pos)                     override final;
     void resizeOut(unsigned int newSize)                  override final;
+    void resizeBwt(unsigned int newSize)                  override final;
     bool addOut(const CTxOut& out)                        override final;
     bool addBwt(const CTxOut& out)                        override final;
     bool add(const CTxScCreationOut& out)                 override final;

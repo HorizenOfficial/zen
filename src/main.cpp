@@ -1066,7 +1066,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
         if ((pool.mapSidechains.count(cert.GetScId()) != 0) &&
             (!pool.mapSidechains.at(cert.GetScId()).backwardCertificate.IsNull())) {
-            LogPrintf("mempool", "%s():%d - Dropping cert %s : another cert for same sc is already in mempool\n",
+            LogPrintf("%s():%d - Dropping cert %s : another cert for same sc is already in mempool\n",
                 __func__, __LINE__, certHash.ToString());
             return error("another cert for same sc is already in mempool");
         }
@@ -1214,7 +1214,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
         if (fRejectAbsurdFee && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
         {
-            LogPrint("mempool", "%s(): absurdly high fees cert[%s], %d > %d", __func__, certHash.ToString(),
+            LogPrintf("%s():%d - absurdly high fees cert[%s], %d > %d\n", __func__, __LINE__, certHash.ToString(),
                          nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
             return false;
         }
@@ -3240,11 +3240,12 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         SyncWithWallets(tx, pblock);
     }
     for(const CScCertificate &cert: pblock->vcert) {
-        LogPrint("cert", "%s():%d - sync with wallet cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString());
         CSidechain sidechain;
         assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
         int currentEpoch = sidechain.EpochFor(chainActive.Height());
         int bwtMaturityDepth = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin() - chainActive.Height();
+        LogPrint("cert", "%s():%d - sync with wallet cert[%s], bwtMaturityDepth[%d]\n",
+            __func__, __LINE__, cert.GetHash().ToString(), bwtMaturityDepth);
         SyncWithWallets(cert, pblock, bwtMaturityDepth);
     }
 

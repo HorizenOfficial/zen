@@ -494,6 +494,13 @@ def mark_logs(msg,nodes,debug=0):
     for node in nodes:
         node.dbg_log(msg)
 
+def get_epoch_data(scid, node, epochLen):
+    sc_creating_height = node.getscinfo(scid)['created at block height']
+    current_height = node.getblockcount()
+    epoch_number = (current_height - sc_creating_height + 1) // epochLen - 1
+    epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epochLen))
+    return epoch_block_hash, epoch_number
+
 def disconnect_nodes(from_connection, node_num):
     ip_port = "127.0.0.1:" + str(p2p_port(node_num))
     from_connection.disconnectnode(ip_port)

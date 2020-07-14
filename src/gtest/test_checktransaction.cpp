@@ -510,5 +510,294 @@ TEST(checktransaction_tests, ScCertVersion) {
 	EXPECT_FALSE(cert.ContextualCheck(state, 219, 100));
 }
 
+TEST(TransactionManipulation, EmptyTxTransformationToMutableIsNotReversible) {
+    // CopyCtor -> CopyCtor
+    CTransaction        EmptyOriginalTx;
+    CMutableTransaction mutByCopyCtor(EmptyOriginalTx);
+    CTransaction        revertedTxByCopyCtor(mutByCopyCtor);
 
+    EXPECT_FALSE(EmptyOriginalTx == revertedTxByCopyCtor);
+    EXPECT_TRUE(EmptyOriginalTx.GetHash().IsNull());
+    EXPECT_FALSE(revertedTxByCopyCtor.GetHash().IsNull());
 
+    // AssignOp -> CopyCtor
+    CMutableTransaction mutByAssignOp;
+    mutByAssignOp = EmptyOriginalTx;
+    CTransaction revertedTxFromAssignement(mutByAssignOp);
+
+    EXPECT_FALSE(EmptyOriginalTx == revertedTxFromAssignement);
+    EXPECT_TRUE(EmptyOriginalTx.GetHash().IsNull());
+    EXPECT_FALSE(revertedTxFromAssignement.GetHash().IsNull());
+
+    // CopyCtor -> AssignOp
+    CTransaction revertedTxByAssignOp;
+    revertedTxByAssignOp = mutByCopyCtor;
+
+    EXPECT_FALSE(EmptyOriginalTx == revertedTxByAssignOp);
+    EXPECT_TRUE(EmptyOriginalTx.GetHash().IsNull());
+    EXPECT_FALSE(revertedTxByAssignOp.GetHash().IsNull());
+}
+
+TEST(TransactionManipulation, NonEmptyTxTransformationToMutableIsReversible) {
+    //create non-empty transaction
+    CMutableTransaction helperMutTx;
+    unsigned int OutNum = 5;
+    for(unsigned int idx = 0; idx < OutNum; ++idx)
+        helperMutTx.addOut(CTxOut(CAmount(idx),CScript()));
+
+    CTransaction nonEmptyOriginalTx(helperMutTx);
+
+    // CopyCtor -> CopyCtor
+    CMutableTransaction mutByCopyCtor(nonEmptyOriginalTx);
+    CTransaction        revertedTxByCopyCtor(mutByCopyCtor);
+
+    EXPECT_TRUE(nonEmptyOriginalTx == revertedTxByCopyCtor)
+        <<" nonEmptyOriginalTx.GetHash() "<<nonEmptyOriginalTx.GetHash().ToString()
+        <<" revertedTxByCopyCtor.GetHash() "<<revertedTxByCopyCtor.GetHash().ToString();
+
+    // AssignOp -> CopyCtor
+    CMutableTransaction mutByAssignOp;
+    mutByAssignOp = nonEmptyOriginalTx;
+    CTransaction revertedTxFromAssignement(mutByAssignOp);
+
+    EXPECT_TRUE(nonEmptyOriginalTx == revertedTxByCopyCtor)
+        <<" nonEmptyOriginalTx.GetHash() "<<nonEmptyOriginalTx.GetHash().ToString()
+        <<" revertedTxFromAssignement.GetHash() "<<revertedTxFromAssignement.GetHash().ToString();
+
+    // CopyCtor -> AssignOp
+    CTransaction revertedTxByAssignOp;
+    revertedTxByAssignOp = mutByCopyCtor;
+
+    EXPECT_TRUE(nonEmptyOriginalTx == revertedTxByCopyCtor)
+        <<" nonEmptyOriginalTx.GetHash() "<<nonEmptyOriginalTx.GetHash().ToString()
+        <<" revertedTxByAssignOp.GetHash() "<<revertedTxByAssignOp.GetHash().ToString();
+}
+
+TEST(TransactionManipulation, ExtendingTransactionOuts) {
+    CMutableTransaction mutTx;
+    EXPECT_TRUE(mutTx.getVout().size() == 0);
+
+    unsigned int OutNum = 10;
+    for(unsigned int idx = 0; idx < OutNum; ++idx)
+        mutTx.addOut(CTxOut(CAmount(idx),CScript()));
+
+    CTransaction txOutOnly = mutTx;
+    EXPECT_TRUE(txOutOnly.GetVout().size() == OutNum);
+    for(unsigned int idx = 0; idx < OutNum; ++idx)
+        EXPECT_FALSE(txOutOnly.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<"wrongly marked as bwt";
+
+    unsigned int BwtNum = 7;
+    for(unsigned int idx = 0; idx < BwtNum; ++idx)
+        mutTx.addBwt(CTxOut(CAmount(idx + OutNum),CScript()));
+
+    CTransaction txBwtAttempt = mutTx;
+    EXPECT_TRUE(txBwtAttempt.GetVout().size() == OutNum);
+    for(unsigned int idx = 0; idx < OutNum; ++idx)
+        EXPECT_FALSE(txBwtAttempt.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<"wrongly marked as bwt";
+}
+
+TEST(CertificateManipulation, EmptyCertTransformationToMutableIsNotReversible) {
+    // CopyCtor -> CopyCtor
+    CScCertificate        EmptyOriginalCert;
+    CMutableScCertificate mutByCopyCtor(EmptyOriginalCert);
+    CScCertificate        revertedCertByCopyCtor(mutByCopyCtor);
+
+    EXPECT_FALSE(EmptyOriginalCert == revertedCertByCopyCtor);
+    EXPECT_TRUE(EmptyOriginalCert.GetHash().IsNull());
+    EXPECT_FALSE(revertedCertByCopyCtor.GetHash().IsNull());
+    EXPECT_TRUE(EmptyOriginalCert.nFirstBwtPos == 0);
+    EXPECT_TRUE(revertedCertByCopyCtor.nFirstBwtPos == 0);
+
+    // AssignOp -> CopyCtor
+    CMutableScCertificate mutByAssignOp;
+    mutByAssignOp = EmptyOriginalCert;
+    CScCertificate revertedTxFromAssignement(mutByAssignOp);
+
+    EXPECT_FALSE(EmptyOriginalCert == revertedTxFromAssignement);
+    EXPECT_TRUE(EmptyOriginalCert.GetHash().IsNull());
+    EXPECT_FALSE(revertedTxFromAssignement.GetHash().IsNull());
+    EXPECT_TRUE(revertedTxFromAssignement.nFirstBwtPos == 0);
+
+    // CopyCtor -> AssignOp
+    CScCertificate revertedTxByAssignOp;
+    revertedTxByAssignOp = mutByCopyCtor;
+
+    EXPECT_FALSE(EmptyOriginalCert == revertedTxByAssignOp);
+    EXPECT_TRUE(EmptyOriginalCert.GetHash().IsNull());
+    EXPECT_FALSE(revertedTxByAssignOp.GetHash().IsNull());
+    EXPECT_TRUE(revertedTxByAssignOp.nFirstBwtPos == 0);
+}
+
+TEST(CertificateManipulation, NonEmptyCertTransformationToMutableIsReversible) {
+    //create non-empty transaction
+    CMutableScCertificate helperMutCert;
+    unsigned int OutNum = 10;
+    for(unsigned int idx = 0; idx < OutNum; ++idx)
+        helperMutCert.addOut(CTxOut(CAmount(idx),CScript()));
+
+    unsigned int bwtOut = 3;
+    CScript bwtScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    for(unsigned int idx = 0; idx < bwtOut; ++idx)
+        helperMutCert.addBwt(CTxOut(CAmount(idx),bwtScript));
+
+    CScCertificate nonEmptyOriginalCert(helperMutCert);
+
+    // CopyCtor -> CopyCtor
+    CMutableScCertificate mutByCopyCtor(nonEmptyOriginalCert);
+    CScCertificate        revertedCertByCopyCtor(mutByCopyCtor);
+
+    EXPECT_TRUE(nonEmptyOriginalCert == revertedCertByCopyCtor)
+        <<" nonEmptyOriginalTx.GetHash() "<<nonEmptyOriginalCert.GetHash().ToString()
+        <<" revertedTxByCopyCtor.GetHash() "<<revertedCertByCopyCtor.GetHash().ToString();
+
+    // AssignOp -> CopyCtor
+    CMutableScCertificate mutByAssignOp;
+    mutByAssignOp = nonEmptyOriginalCert;
+    CScCertificate revertedCertFromAssignement(mutByAssignOp);
+
+    EXPECT_TRUE(nonEmptyOriginalCert == revertedCertFromAssignement)
+        <<" nonEmptyOriginalTx.GetHash() "<<nonEmptyOriginalCert.GetHash().ToString()
+        <<" revertedTxFromAssignement.GetHash() "<<revertedCertFromAssignement.GetHash().ToString();
+
+    // CopyCtor -> AssignOp
+    CScCertificate revertedCertByAssignOp;
+    revertedCertByAssignOp = mutByCopyCtor;
+
+    EXPECT_TRUE(nonEmptyOriginalCert == revertedCertByAssignOp)
+        <<" nonEmptyOriginalTx.GetHash() "<<nonEmptyOriginalCert.GetHash().ToString()
+        <<" revertedTxByAssignOp.GetHash() "<<revertedCertByAssignOp.GetHash().ToString();
+}
+
+TEST(CertificateManipulation, ExtendingCertificateOutsAndBwts) {
+    CMutableScCertificate mutCert;
+    EXPECT_TRUE(mutCert.getVout().size() == 0);
+
+    // add OutNum change outputs
+    unsigned int OutNum = 1;
+    for(unsigned int idx = 0; idx < OutNum; ++idx)
+        mutCert.addOut(CTxOut(CAmount(idx),CScript()));
+
+    CScCertificate OutputOnlyCert = mutCert;
+    EXPECT_TRUE(OutputOnlyCert.GetVout().size() == OutNum);
+    EXPECT_TRUE(OutputOnlyCert.nFirstBwtPos == OutNum);
+    for(unsigned int idx = 0; idx < OutNum; ++idx)
+        EXPECT_FALSE(OutputOnlyCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as bwt";
+
+    // add BwtNum bwts
+    unsigned int BwtNum = 2;
+    CScript bwtScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    for(unsigned int idx = 0; idx < BwtNum; ++idx)
+        mutCert.addBwt(CTxOut(CAmount(idx + OutNum),bwtScript));
+
+    CScCertificate OutsAndBwtsCert = mutCert;
+    EXPECT_TRUE(OutsAndBwtsCert.GetVout().size() == OutNum + BwtNum);
+    EXPECT_TRUE(OutputOnlyCert.nFirstBwtPos == OutNum);
+    for(unsigned int idx = 0; idx < OutNum ; ++idx)
+        EXPECT_FALSE(OutsAndBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as bwt";
+    for(unsigned int idx = OutNum; idx < OutNum + BwtNum; ++idx)
+        EXPECT_TRUE(OutsAndBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as output";
+
+    // add some extra outputs
+    unsigned int ExtraOuts = 3;
+    for(unsigned int idx = 0; idx < ExtraOuts; ++idx)
+        mutCert.addOut(CTxOut(CAmount(idx),CScript()));
+
+    CScCertificate ExtraOutAndBwtsCert = mutCert;
+    EXPECT_TRUE(ExtraOutAndBwtsCert.GetVout().size() == OutNum + ExtraOuts + BwtNum)
+        <<"certOutAndBwt.GetVout().size() "<<OutsAndBwtsCert.GetVout().size();
+    EXPECT_TRUE(ExtraOutAndBwtsCert.nFirstBwtPos == OutNum + ExtraOuts);
+    for(unsigned int idx = 0; idx < OutNum + ExtraOuts; ++idx)
+        EXPECT_FALSE(ExtraOutAndBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as bwt";
+    for(unsigned int idx = OutNum + ExtraOuts; idx < OutNum + ExtraOuts + BwtNum; ++idx)
+        EXPECT_TRUE(ExtraOutAndBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as output";
+}
+
+TEST(CertificateManipulation, ResizingCertificateChangeOutputs) {
+    CMutableScCertificate mutCert;
+    EXPECT_TRUE(mutCert.getVout().size() == 0);
+
+    // Create initial certificate
+    unsigned int OutNum = 10;
+    for(unsigned int idx = 0; idx < OutNum; ++idx)
+        mutCert.addOut(CTxOut(CAmount(idx),CScript()));
+
+    unsigned int BwtNum = 3;
+    CScript bwtScript = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
+    for(unsigned int idx = 0; idx < BwtNum; ++idx)
+        mutCert.addBwt(CTxOut(CAmount(idx + OutNum),bwtScript));
+
+    CScCertificate initialCert = mutCert;
+    ASSERT_TRUE(initialCert.GetVout().size() == OutNum + BwtNum)
+        <<"initialCert.GetVout().size() "<<initialCert.GetVout().size();
+    for(unsigned int idx = 0; idx < OutNum; ++idx)
+        ASSERT_FALSE(initialCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as bwt";
+    for(unsigned int idx = OutNum; idx < OutNum + BwtNum; ++idx)
+        ASSERT_TRUE(initialCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as output";
+
+    //Reduce change outputs
+    unsigned int reducedOutNum = 5;
+    mutCert.resizeOut(reducedOutNum);
+    CScCertificate reducedOutsCert = mutCert;
+    EXPECT_TRUE(reducedOutsCert.GetVout().size() == reducedOutNum + BwtNum)
+        <<"reducedOutsCert.GetVout().size() "<<reducedOutsCert.GetVout().size();
+    for(unsigned int idx = 0; idx < reducedOutNum; ++idx)
+        EXPECT_FALSE(reducedOutsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as bwt";
+    for(unsigned int idx = reducedOutNum; idx < reducedOutNum + BwtNum; ++idx)
+        EXPECT_TRUE(reducedOutsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as output";
+
+    //Increase change outputs
+    unsigned increasedOutNum = 15;
+    mutCert.resizeOut(increasedOutNum);
+    CScCertificate increasedOutsCert = mutCert;
+    EXPECT_TRUE(increasedOutsCert.GetVout().size() == increasedOutNum + BwtNum)
+        <<"increasedOutsCert.GetVout().size() "<<increasedOutsCert.GetVout().size();
+    for(unsigned int idx = 0; idx < increasedOutNum; ++idx)
+        EXPECT_FALSE(increasedOutsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as bwt";
+    for(unsigned int idx = increasedOutNum; idx < increasedOutNum + BwtNum; ++idx)
+        EXPECT_TRUE(increasedOutsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as output";
+
+    //Reduce bwt
+    unsigned reducedBwtNum = 1;
+    mutCert.resizeBwt(reducedBwtNum);
+    CScCertificate reducedBwtsCert = mutCert;
+    EXPECT_TRUE(reducedBwtsCert.GetVout().size() == increasedOutNum + reducedBwtNum)
+        <<"reducedBwtsCert.GetVout().size() "<<reducedBwtsCert.GetVout().size();
+    for(unsigned int idx = 0; idx < increasedOutNum; ++idx)
+        EXPECT_FALSE(reducedBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as bwt";
+    for(unsigned int idx = increasedOutNum; idx < increasedOutNum + reducedBwtNum; ++idx)
+        EXPECT_TRUE(reducedBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as output";
+
+    //increase bwt
+    unsigned increaseBwtNum = 10;
+    mutCert.resizeBwt(increaseBwtNum);
+
+    CScCertificate increasedBwtsCert = mutCert;
+    EXPECT_TRUE(increasedBwtsCert.GetVout().size() == increasedOutNum + increaseBwtNum)
+        <<"increasedBwtsCert.GetVout().size() "<<increasedBwtsCert.GetVout().size();
+    for(unsigned int idx = 0; idx < increasedOutNum; ++idx)
+        EXPECT_FALSE(increasedBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as bwt";
+    for(unsigned int idx = increasedOutNum; idx < increasedOutNum + increaseBwtNum; ++idx)
+        EXPECT_TRUE(increasedBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as output";
+
+    //remove all change outputs
+    unsigned int noOutNum = 0;
+    mutCert.resizeOut(noOutNum);
+    CScCertificate noOutsCert = mutCert;
+    EXPECT_TRUE(noOutsCert.GetVout().size() == noOutNum + increaseBwtNum)
+        <<"noOutsCert.GetVout().size() "<<noOutsCert.GetVout().size();
+    for(unsigned int idx = 0; idx < noOutNum; ++idx)
+        EXPECT_FALSE(noOutsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as bwt";
+    for(unsigned int idx = noOutNum; idx < noOutNum + increaseBwtNum; ++idx)
+        EXPECT_TRUE(noOutsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as output";
+
+    //remove all bwts
+    unsigned int noBwtNum = 0;
+    mutCert.resizeBwt(noBwtNum);
+    CScCertificate noBwtsCert = mutCert;
+    EXPECT_TRUE(noBwtsCert.GetVout().size() == noOutNum + noBwtNum)
+        <<"noBwtsCert.GetVout().size() "<<noBwtsCert.GetVout().size();
+    for(unsigned int idx = 0; idx < noOutNum; ++idx)
+        EXPECT_FALSE(noBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as bwt";
+    for(unsigned int idx = noOutNum; idx < noOutNum + noBwtNum; ++idx)
+        EXPECT_TRUE(noBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as output";
+}

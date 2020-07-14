@@ -404,6 +404,8 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-tlskeypwd=<password>", _("Password for a private key encryption (default: not set, i.e. private key will be stored unencrypted)"));
     strUsage += HelpMessageOpt("-tlscertpath=<path>", _("Full path to a certificate"));
     strUsage += HelpMessageOpt("-tlstrustdir=<path>", _("Full path to a trusted certificates directory"));
+    strUsage += HelpMessageOpt("-websocket=<0 or 1>", _("If set to 1 opens a websocket channel listening for client connections on localhost (default: 0)"));
+    strUsage += HelpMessageOpt("-wsport=<port>", _("If websocket=1, listen for ws connections at this ip port on localhost (default: 8888)"));
 #ifdef USE_UPNP
 #if USE_UPNP
     strUsage += HelpMessageOpt("-upnp", _("Use UPnP to map the listening port (default: 1 when listening and no -proxy)"));
@@ -1182,7 +1184,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         LogPrintf("Startup time: %s\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()));
     LogPrintf("Default data directory %s\n", GetDefaultDataDir().string());
     LogPrintf("Using data directory %s\n", strDataDir);
-    LogPrintf("Using config file %s\n", GetConfigFile().string());
+    // This print might not be correct, since at this point the options in the the zen.conf have already been read, and if a custom datadir has
+    // ben specified, the config file would be erroneously printed to be there
+    //    LogPrintf("Using config file %s\n", GetConfigFile().string());
     LogPrintf("Using at most %i connections (%i file descriptors available)\n", nMaxConnections, nFD);
     std::ostringstream strErrors;
 

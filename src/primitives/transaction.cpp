@@ -211,11 +211,13 @@ std::string CTxIn::ToString() const
     return str;
 }
 
-CTxOut::CTxOut(const CBackwardTransferOut& btout) : nValue(btout.nValue)
+CTxOut::CTxOut(const CBackwardTransferOut& btout) : nValue(btout.nValue), scriptPubKey()
 {
-    scriptPubKey.clear();
-    std::vector<unsigned char> pkh(btout.pubKeyHash.begin(), btout.pubKeyHash.end());
-    scriptPubKey << OP_DUP << OP_HASH160 << pkh << OP_EQUALVERIFY << OP_CHECKSIG;
+    if (!btout.IsNull())
+    {
+        std::vector<unsigned char> pkh(btout.pubKeyHash.begin(), btout.pubKeyHash.end());
+        scriptPubKey << OP_DUP << OP_HASH160 << pkh << OP_EQUALVERIFY << OP_CHECKSIG;
+    }
 }
 
 uint256 CTxOut::GetHash() const
@@ -324,6 +326,7 @@ uint256 CMutableTransaction::GetHash() const
 void CMutableTransaction::insertAtPos(unsigned int pos, const CTxOut& out) { vout.insert(vout.begin() + pos, out);}
 void CMutableTransaction::eraseAtPos(unsigned int pos) { vout.erase(vout.begin() + pos); }
 void CMutableTransaction::resizeOut(unsigned int newSize) { vout.resize(newSize); }
+void CMutableTransaction::resizeBwt(unsigned int newSize) { return; }
 bool CMutableTransaction::addOut(const CTxOut& out) { vout.push_back(out); return true;}
 bool CMutableTransaction::addBwt(const CTxOut& out) { return false; }
 bool CMutableTransaction::add(const CTxScCreationOut& out)  { vsc_ccout.push_back(out); return true; }

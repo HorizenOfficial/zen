@@ -128,7 +128,8 @@ TEST_F(SidechainsEventsTestSuite, FullCertMovesSidechainTerminationToNextEpochSa
 
     //Prove that certificate reception keeps Sc alive for another epoch
     CBlock CertBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, CertBlock.GetHash(), /*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, CertBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2);
     CTxUndo certUndoEntry;
     view->UpdateScInfo(cert, certUndoEntry);
 
@@ -161,7 +162,8 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCertificateMovesSidechainTerminationToN
 
     //Prove that certificate reception keeps Sc alive for another epoch
     CBlock CertBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, CertBlock.GetHash(), /*numChangeOut*/10, /*bwtAmount*/CAmount(0), /*numBwt*/1);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, CertBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(10),/*numChangeOut*/10, /*bwtAmount*/CAmount(0), /*numBwt*/1);
     CTxUndo certUndoEntry;
     view->UpdateScInfo(cert, certUndoEntry);
 
@@ -194,7 +196,8 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificateMovesSidechainTerminationToNex
 
     //Prove that certificate reception keeps Sc alive for another epoch
     CBlock CertBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, CertBlock.GetHash(), /*numChangeOut*/1, /*bwtAmount*/CAmount(0), /*numBwt*/0);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, CertBlock.GetHash(),
+            /*changeTotalAmount*/CAmount(4), /*numChangeOut*/1, /*bwtAmount*/CAmount(0), /*numBwt*/0);
     CTxUndo certUndoEntry;
     view->UpdateScInfo(cert, certUndoEntry);
 
@@ -227,7 +230,8 @@ TEST_F(SidechainsEventsTestSuite,EmptyCertificateMovesSidechainTerminationToNext
 
     //Prove that certificate reception keeps Sc alive for another epoch
     CBlock CertBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, CertBlock.GetHash(), /*numChangeOut*/0, /*bwtAmount*/CAmount(0), /*numBwt*/0);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, CertBlock.GetHash(),
+            /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0, /*bwtAmount*/CAmount(0), /*numBwt*/0);
     CTxUndo certUndoEntry;
     view->UpdateScInfo(cert, certUndoEntry);
 
@@ -281,7 +285,8 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForFullCert) {
     EXPECT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
 
     uint256 epochZeroEndBlockHash = uint256S("aaa");
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, epochZeroEndBlockHash,/*numChangeOut*/2,/*bwtAmount*/CAmount(0));
+    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, epochZeroEndBlockHash,
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2);
 
     CTxUndo dummyCertUndo;
     EXPECT_TRUE(view->UpdateScInfo(cert, dummyCertUndo));
@@ -318,7 +323,8 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForPureBwtCert) {
     EXPECT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
 
     uint256 epochZeroEndBlockHash = uint256S("aaa");
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, epochZeroEndBlockHash,/*numChangeOut*/0,/*bwtAmount*/CAmount(0), /*numBwt*/4);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, epochZeroEndBlockHash,
+        /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0,/*bwtAmount*/CAmount(0), /*numBwt*/4);
 
     CTxUndo dummyCertUndo;
     EXPECT_TRUE(view->UpdateScInfo(cert, dummyCertUndo));
@@ -355,7 +361,8 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForNoBwtCert) {
     EXPECT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
 
     uint256 epochZeroEndBlockHash = uint256S("aaa");
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, epochZeroEndBlockHash,/*numChangeOut*/3,/*bwtAmount*/CAmount(0), /*numBwt*/0);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, epochZeroEndBlockHash,
+        /*changeTotalAmount*/CAmount(3), /*numChangeOut*/3,/*bwtAmount*/CAmount(0), /*numBwt*/0);
 
     CTxUndo dummyCertUndo;
     EXPECT_TRUE(view->UpdateScInfo(cert, dummyCertUndo));
@@ -392,7 +399,8 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForEmptyCertificate) {
     EXPECT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
 
     uint256 epochZeroEndBlockHash = uint256S("aaa");
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, epochZeroEndBlockHash,/*numChangeOut*/0,/*bwtAmount*/CAmount(0), /*numBwt*/0);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, epochZeroEndBlockHash,
+        /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0,/*bwtAmount*/CAmount(0), /*numBwt*/0);
 
     CTxUndo dummyCertUndo;
     EXPECT_TRUE(view->UpdateScInfo(cert, dummyCertUndo));
@@ -425,7 +433,8 @@ TEST_F(SidechainsEventsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCe
     CSidechain scInfo;
     view->GetSidechain(scId, scInfo);
     CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),/*numChangeOut*/2, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
     CTxUndo certUndoEntry;
     view->UpdateScInfo(cert, certUndoEntry);
     view->ScheduleSidechainEvent(cert);
@@ -467,7 +476,8 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     CSidechain scInfo;
     view->GetSidechain(scId, scInfo);
     CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
     CTxUndo certUndoEntry;
     view->UpdateScInfo(cert, certUndoEntry);
     view->ScheduleSidechainEvent(cert);
@@ -519,7 +529,8 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSi
     CSidechain scInfo;
     view->GetSidechain(scId, scInfo);
     CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),/*numChangeOut*/2, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
     CTxUndo certUndoEntry;
     view->UpdateScInfo(cert, certUndoEntry);
     view->ScheduleSidechainEvent(cert);
@@ -561,7 +572,8 @@ TEST_F(SidechainsEventsTestSuite, EmptyCertificatesCoinsAreNotAffectedByCeasedSi
     CSidechain scInfo;
     view->GetSidechain(scId, scInfo);
     CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
     CTxUndo certUndoEntry;
     view->UpdateScInfo(cert, certUndoEntry);
     view->ScheduleSidechainEvent(cert);
@@ -602,7 +614,8 @@ TEST_F(SidechainsEventsTestSuite, RestoreFullCertCeasedCoins) {
     view->GetSidechain(scId, scInfo);
     int certReferencedEpoch = 0;
     CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(),/*numChangeOut*/2, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
     CTxUndo certUndoEntry;
     view->UpdateScInfo(cert, certUndoEntry);
     view->ScheduleSidechainEvent(cert);
@@ -655,7 +668,8 @@ TEST_F(SidechainsEventsTestSuite, RestorePureBwtCeasedCoins) {
     view->GetSidechain(scId, scInfo);
     int certReferencedEpoch = 0;
     CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
     CTxUndo certUndoEntry;
     view->UpdateScInfo(cert, certUndoEntry);
     view->ScheduleSidechainEvent(cert);
@@ -709,7 +723,8 @@ TEST_F(SidechainsEventsTestSuite, RestoreNoBwtCeasedCoins) {
     view->GetSidechain(scId, scInfo);
     int certReferencedEpoch = 0;
     CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(),/*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
     CTxUndo certUndoEntry;
     view->UpdateScInfo(cert, certUndoEntry);
     view->ScheduleSidechainEvent(cert);
@@ -762,7 +777,8 @@ TEST_F(SidechainsEventsTestSuite, RestoreEmptyCertCeasedCoins) {
     view->GetSidechain(scId, scInfo);
     int certReferencedEpoch = 0;
     CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
     CTxUndo certUndoEntry;
     view->UpdateScInfo(cert, certUndoEntry);
     view->ScheduleSidechainEvent(cert);
@@ -840,7 +856,8 @@ TEST_F(SidechainsEventsTestSuite, UndoFullCertUpdatesToCeasingScs) {
     ASSERT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
 
 
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, uint256S("aaa"), /*numChangeOut*/4, /*bwtTotalAmount*/CAmount(0), /*numBwt*/3);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, uint256S("aaa"),
+        /*changeTotalAmount*/CAmount(4), /*numChangeOut*/4, /*bwtTotalAmount*/CAmount(0), /*numBwt*/3);
     CTxUndo dummyCertUndo;
     view->UpdateScInfo(cert, dummyCertUndo);
     view->ScheduleSidechainEvent(cert);
@@ -885,7 +902,8 @@ TEST_F(SidechainsEventsTestSuite, UndoPureBwtCertUpdatesToCeasingScs) {
     ASSERT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
 
 
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, uint256S("aaa"), /*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/3);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, uint256S("aaa"),
+        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/3);
     CTxUndo dummyCertUndo;
     view->UpdateScInfo(cert, dummyCertUndo);
     view->ScheduleSidechainEvent(cert);
@@ -930,7 +948,8 @@ TEST_F(SidechainsEventsTestSuite, UndoNoBwtCertUpdatesToCeasingScs) {
     ASSERT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
 
 
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, uint256S("aaa"), /*numChangeOut*/4, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, uint256S("aaa"),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/4, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
     CTxUndo dummyCertUndo;
     view->UpdateScInfo(cert, dummyCertUndo);
     view->ScheduleSidechainEvent(cert);
@@ -975,7 +994,8 @@ TEST_F(SidechainsEventsTestSuite, UndoEmptyCertUpdatesToCeasingScs) {
     ASSERT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
 
 
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, uint256S("aaa"), /*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, uint256S("aaa"),
+        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
     CTxUndo dummyCertUndo;
     view->UpdateScInfo(cert, dummyCertUndo);
     view->ScheduleSidechainEvent(cert);
@@ -1002,7 +1022,7 @@ TEST_F(SidechainsEventsTestSuite, UndoEmptyCertUpdatesToCeasingScs) {
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// ApplyTxInUndo ////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainsEventsTestSuite, SpendChangeOutput_CoinReconstructionFromBlockUndo)
+TEST_F(SidechainsEventsTestSuite, Cert_CoinReconstructionFromBlockUndo_SpendChangeOutput)
 {
     //Create sidechain
     static const int dummyHeight = 100;
@@ -1013,7 +1033,8 @@ TEST_F(SidechainsEventsTestSuite, SpendChangeOutput_CoinReconstructionFromBlockU
 
     //Generate certificate
     CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),/*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
 
     //Generate coin from cert, to check it is fully reconstructed from BlockUndo
     CTxUndo dummyTxUndo;
@@ -1048,7 +1069,7 @@ TEST_F(SidechainsEventsTestSuite, SpendChangeOutput_CoinReconstructionFromBlockU
     EXPECT_TRUE(coinFromCert == reconstructedCoinFromCert);
 }
 
-TEST_F(SidechainsEventsTestSuite, SpendBwtOutput_CoinReconstructionFromBlockUndo)
+TEST_F(SidechainsEventsTestSuite, Cert_CoinReconstructionFromBlockUndo_SpendBwtOutput)
 {
     //Create sidechain
     static const int dummyHeight = 100;
@@ -1059,7 +1080,8 @@ TEST_F(SidechainsEventsTestSuite, SpendBwtOutput_CoinReconstructionFromBlockUndo
 
     //Generate certificate
     CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),/*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
 
     //Generate coin from cert, to check it is fully reconstructed from BlockUndo
     CTxUndo dummyTxUndo;
@@ -1094,7 +1116,7 @@ TEST_F(SidechainsEventsTestSuite, SpendBwtOutput_CoinReconstructionFromBlockUndo
     EXPECT_TRUE(coinFromCert == reconstructedCoinFromCert);
 }
 
-TEST_F(SidechainsEventsTestSuite, SpendFullCoinsByChangeOutput_CoinReconstructionFromBlockUndo)
+TEST_F(SidechainsEventsTestSuite, Cert_CoinReconstructionFromBlockUndo_SpendFullCoinsByChangeOutput)
 {
     //Create sidechain
     static const int dummyHeight = 100;
@@ -1105,7 +1127,8 @@ TEST_F(SidechainsEventsTestSuite, SpendFullCoinsByChangeOutput_CoinReconstructio
 
     //Generate certificate
     CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),/*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
 
     //Generate coin from cert, to check it is fully reconstructed from BlockUndo
     CTxUndo dummyTxUndo;
@@ -1140,7 +1163,7 @@ TEST_F(SidechainsEventsTestSuite, SpendFullCoinsByChangeOutput_CoinReconstructio
     EXPECT_TRUE(coinFromCert == reconstructedCoinFromCert)<<coinFromCert.ToString() + reconstructedCoinFromCert.ToString();
 }
 
-TEST_F(SidechainsEventsTestSuite, SpendFullCoinsByBwt_CoinReconstructionFromBlockUndo)
+TEST_F(SidechainsEventsTestSuite, Cert_CoinReconstructionFromBlockUndo_SpendFullCoinsByBwt)
 {
     //Create sidechain
     static const int dummyHeight = 100;
@@ -1151,7 +1174,8 @@ TEST_F(SidechainsEventsTestSuite, SpendFullCoinsByBwt_CoinReconstructionFromBloc
 
     //Generate certificate
     CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
 
     //Generate coin from cert, to check it is fully reconstructed from BlockUndo
     CTxUndo dummyTxUndo;
@@ -1186,6 +1210,100 @@ TEST_F(SidechainsEventsTestSuite, SpendFullCoinsByBwt_CoinReconstructionFromBloc
     EXPECT_TRUE(coinFromCert == reconstructedCoinFromCert);
 }
 
+TEST_F(SidechainsEventsTestSuite, TransparentTx_CoinReconstructionFromBlockUndo_SpendNonFinalOutput)
+{
+    //Generate transparent transaction and the associated coin to be spent
+    CMutableTransaction txToBeSpent;
+    txToBeSpent.addOut(CTxOut(CAmount(10),CScript()));
+    txToBeSpent.addOut(CTxOut(CAmount(20),CScript()));
+
+    CTxUndo dummyTxUndo;
+    int coinHeight = 1987;
+    EXPECT_FALSE(view->HaveCoins(txToBeSpent.GetHash()));
+    UpdateCoins(txToBeSpent, *view, dummyTxUndo, coinHeight);
+    CCoins coinFromTx;
+    EXPECT_TRUE(view->GetCoins(txToBeSpent.GetHash(),coinFromTx));
+
+    //Create Tx spending the and output from txToBeSpent. Not a final one
+    CMutableTransaction spendingTx;
+    spendingTx.vin.resize(1);
+    spendingTx.vin.at(0).prevout.hash = txToBeSpent.GetHash();
+    spendingTx.vin.at(0).prevout.n = 0;
+
+    //Create block undo to rebuild spent coin output
+    CTxUndo txUndo;
+    int spendTxHeight = 2020;
+    UpdateCoins(spendingTx, *view, txUndo, spendTxHeight);
+
+    //Simulate serialization and deserialization
+    CDataStream ssBlockUndo(SER_DISK, 111 /*AVersion*/);
+
+    ssBlockUndo << txUndo;
+    CTxUndo retrievedtxUndo;
+    ssBlockUndo >> retrievedtxUndo;
+
+    //Test
+    for (unsigned int inPos = spendingTx.vin.size(); inPos-- > 0;)
+    {
+        const COutPoint &out = spendingTx.vin[inPos].prevout;
+        const CTxInUndo &undo = retrievedtxUndo.vprevout[inPos];
+        EXPECT_TRUE(ApplyTxInUndo(undo, *view, out));
+    }
+
+    //Checks
+    CCoins reconstructedCoin;
+    EXPECT_TRUE(view->GetCoins(txToBeSpent.GetHash(),reconstructedCoin));
+    EXPECT_TRUE(coinFromTx == reconstructedCoin)
+        <<"\n coinFromTx        "<<coinFromTx.ToString()
+        <<"\n reconstructedCoin "<<reconstructedCoin.ToString();
+}
+
+TEST_F(SidechainsEventsTestSuite, TransparentTx_CoinReconstructionFromBlockUndo_FullySpendOutput)
+{
+    //Generate transparent transaction and the associated coin to be spent
+    CMutableTransaction txToBeSpent;
+    txToBeSpent.addOut(CTxOut(CAmount(10),CScript()));
+
+    CTxUndo dummyTxUndo;
+    int coinHeight = 1987;
+    EXPECT_FALSE(view->HaveCoins(txToBeSpent.GetHash()));
+    UpdateCoins(txToBeSpent, *view, dummyTxUndo, coinHeight);
+    CCoins coinFromTx;
+    EXPECT_TRUE(view->GetCoins(txToBeSpent.GetHash(),coinFromTx));
+
+    //Create Tx spending the last output from txToBeSpent
+    CMutableTransaction spendingTx;
+    spendingTx.vin.resize(1);
+    spendingTx.vin.at(0).prevout.hash = txToBeSpent.GetHash();
+    spendingTx.vin.at(0).prevout.n = 0;
+
+    //Create block undo to rebuild spent coin output
+    CTxUndo txUndo;
+    int spendTxHeight = 2020;
+    UpdateCoins(spendingTx, *view, txUndo, spendTxHeight);
+
+    //Simulate serialization and deserialization
+    CDataStream ssBlockUndo(SER_DISK, 111 /*AVersion*/);
+
+    ssBlockUndo << txUndo;
+    CTxUndo retrievedtxUndo;
+    ssBlockUndo >> retrievedtxUndo;
+
+    //Test
+    for (unsigned int inPos = spendingTx.vin.size(); inPos-- > 0;)
+    {
+        const COutPoint &out = spendingTx.vin[inPos].prevout;
+        const CTxInUndo &undo = retrievedtxUndo.vprevout[inPos];
+        EXPECT_TRUE(ApplyTxInUndo(undo, *view, out));
+    }
+
+    //Checks
+    CCoins reconstructedCoin;
+    EXPECT_TRUE(view->GetCoins(txToBeSpent.GetHash(),reconstructedCoin));
+    EXPECT_TRUE(coinFromTx == reconstructedCoin)
+        <<"\n coinFromTx        "<<coinFromTx.ToString()
+        <<"\n reconstructedCoin "<<reconstructedCoin.ToString();
+}
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////// Mature sidechain balance //////////////////////////
 ///////////////////////////////////////////////////////////////////////////////

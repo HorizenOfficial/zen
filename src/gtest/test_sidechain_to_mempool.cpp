@@ -17,6 +17,7 @@
 #include <sc/sidechain.h>
 #include <txmempool.h>
 #include <init.h>
+#include <undo.h>
 
 class CCoinsOnlyViewDB : public CCoinsViewDB
 {
@@ -55,7 +56,7 @@ public:
     }
 
     void SetUp() override {
-        chainSettingUtils::GenerateChainActive(minimalHeightForSidechains);
+        chainSettingUtils::ExtendChainActiveToHeight(minimalHeightForSidechains);
         pcoinsTip->SetBestBlock(chainActive.Tip()->GetBlockHash());
         pindexBestHeader = chainActive.Tip();
 
@@ -110,7 +111,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewSidechainsAreAcceptedToMempool) {
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed) {
     int creationHeight = 1789;
-    chainSettingUtils::GenerateChainActive(creationHeight);
+    chainSettingUtils::ExtendChainActiveToHeight(creationHeight);
 
     CTransaction scTx = GenerateScTx(CAmount(10));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
@@ -339,7 +340,8 @@ TEST_F(SidechainsInMempoolTestSuite, SimpleCertRemovalFromMempool) {
     sidechainsView.Flush();
 
     //load certificate in mempool
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256());
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(6), /*numBwt*/2);
     CCertificateMemPoolEntry certEntry(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     mempool.addUnchecked(cert.GetHash(), certEntry);
 
@@ -363,14 +365,16 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCertRemovalFromMempool) {
     sidechainsView.Flush();
 
     //load a certificate in mempool
-    CScCertificate cert1 = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256());
+    CScCertificate cert1 = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(6), /*numBwt*/2);
     CCertificateMemPoolEntry certEntry1(cert1, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     mempool.addUnchecked(cert1.GetHash(), certEntry1);
 
     //Remove the certificate
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    CScCertificate cert2 = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256());
+    CScCertificate cert2 = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2);
     mempool.removeConflicts(cert2, removedTxs, removedCerts);
 
     EXPECT_TRUE(removedTxs.size() == 0);
@@ -393,7 +397,8 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_CertRemovalDoesNotAffe
     mempool.addUnchecked(fwdTx.GetHash(), fwdEntry);
 
     //load a certificate in mempool
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256());
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
     CCertificateMemPoolEntry certEntry1(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     mempool.addUnchecked(cert.GetHash(), certEntry1);
 
@@ -426,7 +431,8 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffec
     mempool.addUnchecked(fwdTx.GetHash(), fwdEntry);
 
     //load a certificate in mempool
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256());
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
     CCertificateMemPoolEntry certEntry1(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     mempool.addUnchecked(cert.GetHash(), certEntry1);
 
@@ -442,6 +448,49 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffec
     ASSERT_TRUE(mempool.mapSidechains.count(scId));
     EXPECT_FALSE(mempool.mapSidechains.at(scId).fwdTransfersSet.count(fwdTx.GetHash()));
     EXPECT_TRUE(mempool.mapSidechains.at(scId).backwardCertificate == cert.GetHash());
+}
+
+TEST_F(SidechainsInMempoolTestSuite, ImmatureExpenditureRemoval) {
+    //Create a coinbase
+    CMutableTransaction mutCoinBase;
+    mutCoinBase.vin.push_back(CTxIn(uint256(), -1));
+    mutCoinBase.addOut(CTxOut(10,CScript()));
+    mutCoinBase.addOut(CTxOut(20,CScript()));
+    CTransaction coinBase(mutCoinBase);
+    CTxUndo dummyUndo;
+    UpdateCoins(coinBase, *pcoinsTip, dummyUndo, chainActive.Height());
+
+    EXPECT_FALSE(pcoinsTip->AccessCoins(coinBase.GetHash())->isOutputMature(0, chainActive.Height()));
+    // mature the coinbase
+    chainSettingUtils::ExtendChainActiveToHeight(chainActive.Height() + COINBASE_MATURITY);
+    EXPECT_TRUE(pcoinsTip->AccessCoins(coinBase.GetHash())->isOutputMature(0, chainActive.Height()));
+
+    //add to mempool txes spending coinbase
+    CMutableTransaction mutTx;
+    mutTx.vin.push_back(CTxIn(COutPoint(coinBase.GetHash(), 0), CScript(), -1));
+    CTransaction mempoolTx1(mutTx);
+    CTxMemPoolEntry mempoolEntry1(mempoolTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(mempoolTx1.GetHash(), mempoolEntry1);
+    EXPECT_TRUE(mempool.exists(mempoolTx1.GetHash()));
+
+    mutTx.vin.clear();
+    mutTx.vin.push_back(CTxIn(COutPoint(coinBase.GetHash(), 1), CScript(), -1));
+    CTransaction mempoolTx2(mutTx);
+    CTxMemPoolEntry mempoolEntry2(mempoolTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(mempoolTx2.GetHash(), mempoolEntry2);
+    EXPECT_TRUE(mempool.exists(mempoolTx2.GetHash()));
+
+    //Revert chain undoing coinbase maturity, and check mempool cleanup
+    chainSettingUtils::ExtendChainActiveToHeight(chainActive.Height() -1);
+    // check coinbase is not mature anymore
+    EXPECT_FALSE(pcoinsTip->AccessCoins(coinBase.GetHash())->isOutputMature(0, chainActive.Height()));
+
+    //test
+    mempool.removeImmatureExpenditures(pcoinsTip, chainActive.Height());
+
+    //Check
+    EXPECT_FALSE(mempool.exists(mempoolTx1.GetHash()));
+    EXPECT_FALSE(mempool.exists(mempoolTx2.GetHash()));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

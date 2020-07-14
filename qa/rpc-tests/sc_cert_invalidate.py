@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_true, assert_false, assert_equal, initialize_chain_clean, \
+from test_framework.util import assert_true, assert_false, assert_equal, initialize_chain_clean, get_epoch_data, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, dump_ordered_tips
 from test_framework.mc_test.mc_test import *
 import os
@@ -51,7 +51,23 @@ class sc_cert_invalidate(BitcoinTestFramework):
         while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
             time.sleep(0.1)
 
+    def refresh_sidechain(self, sc_info, scid, nIdx = 0 ):
+        mark_logs("Node{} generating 1 block".format(nIdx), self.nodes, DEBUG_MODE)
+        self.nodes[nIdx].generate(1)
+        self.sync_all()
+        sc_info.append(self.nodes[nIdx].getscinfo(scid))
+        mark_logs("  ==> height {}".format(self.nodes[nIdx].getblockcount()), self.nodes, DEBUG_MODE)
+
     def run_test(self):
+
+        '''
+        Node0 creates a SC and sends funds to it, and then sends a cert to it with a bwt to Node1
+        Node0 then sends a few tx with fwt to the same SC and then a second cert with a bwt to Node2 
+        Node0 than invalidates all the latest blocks one by one checking sc state and checking also
+        that a cert remains in mempool until its end epoch is reverted
+        Node0 finally generates a sufficient number of blocks for reverting other nodes' chains and
+        the test checks their sc state
+        '''
 
         sc_txes = []
         certs = []
@@ -67,7 +83,6 @@ class sc_cert_invalidate(BitcoinTestFramework):
         bwt_amount_2 = Decimal("8.5")
 
         sc_info = []
-        balance_node0 = []
 
         # node 1 earns some coins, they would be available after 100 blocks
         mark_logs("Node 0 generates 1 block", self.nodes, DEBUG_MODE)
@@ -78,34 +93,32 @@ class sc_cert_invalidate(BitcoinTestFramework):
         self.nodes[0].generate(220)
         self.sync_all()
 
-        balance_node0.append(self.nodes[0].getbalance("", 0))
         sc_info.append("No SC")
 
-        mark_logs("Node 1 creates the SC spending {} coins ...".format(creation_amount), self.nodes, DEBUG_MODE)
+        mark_logs("Node0 creates the SC spending {} coins ...".format(creation_amount), self.nodes, DEBUG_MODE)
 
         #generate wCertVk and constant
         mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        creating_tx = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        creating_tx = ret['txid']
+        scid = ret['scid']
 
         decoded_tx = self.nodes[0].getrawtransaction(creating_tx, 1)
-        scid = decoded_tx['vsc_ccout'][0]['scid']
+        assert_equal(scid, decoded_tx['vsc_ccout'][0]['scid'])
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         mark_logs("creating_tx = {}".format(creating_tx), self.nodes, DEBUG_MODE)
         sc_txes.append(creating_tx)
         self.sync_all()
 
-        mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
-        prev_ep_hash_0 = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
-        sc_creating_block = self.nodes[0].generate(1)[0]
-        self.sync_all()
-        mark_logs("  ==> height {}".format(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
+        prev_epoch_block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
+
+        self.refresh_sidechain(sc_info, scid)
+
         sc_creating_height = self.nodes[0].getblockcount()
-        balance_node0.append(self.nodes[0].getbalance("", 0))
-        sc_info.append(self.nodes[0].getscinfo(scid))
 
         mark_logs("Node 0 performs a fwd transfer of {} coins to SC...".format(fwt_amount_1), self.nodes, DEBUG_MODE)
         fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_1, scid)
@@ -113,63 +126,37 @@ class sc_cert_invalidate(BitcoinTestFramework):
         sc_txes.append(fwd_tx)
         self.sync_all()
 
-        mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
-        self.sync_all()
-        mark_logs("  ==> height {}".format(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
-        balance_node0.append(self.nodes[0].getbalance("", 0))
-        sc_info.append(self.nodes[0].getscinfo(scid))
+        self.refresh_sidechain(sc_info, scid)
 
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         pkh_node2 = self.nodes[2].getnewaddress("", True)
 
-        mark_logs("Node0 generating 3 more blocks for achieving sc coins maturity", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
-        self.sync_all()
-        mark_logs("  ==> height {}".format(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
-        balance_node0.append(self.nodes[0].getbalance("", 0))
-        sc_info.append(self.nodes[0].getscinfo(scid))
-
-        self.nodes[0].generate(1)
-        self.sync_all()
-        mark_logs("  ==> height {}".format(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
-        balance_node0.append(self.nodes[0].getbalance("", 0))
-        sc_info.append(self.nodes[0].getscinfo(scid))
-
-        self.nodes[0].generate(1)
-        self.sync_all()
-        mark_logs("  ==> height {}".format(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
-        balance_node0.append(self.nodes[0].getbalance("", 0))
-        sc_info.append(self.nodes[0].getscinfo(scid))
+        mark_logs("...3 more blocks needed for achieving sc coins maturity", self.nodes, DEBUG_MODE)
+        self.refresh_sidechain(sc_info, scid)
+        self.refresh_sidechain(sc_info, scid)
+        self.refresh_sidechain(sc_info, scid)
 
         mark_logs("##### End epoch block = {}".format(self.nodes[0].getbestblockhash()), self.nodes, DEBUG_MODE)
 
-        current_height = self.nodes[0].getblockcount()
-        ep_n_0 = int((current_height - sc_creating_height + 1) / EPOCH_LENGTH) - 1
-        ep_height_0 = sc_creating_height - 1 + ((ep_n_0 + 1) * EPOCH_LENGTH)
-        ep_hash_0 = self.nodes[0].getblockhash(ep_height_0)
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
-        mark_logs(("Node 0 performs a bwd transfer of %s coins to Node1 epn=%d, eph[%s]..." % (str(bwt_amount_1), ep_n_0, ep_hash_0)), self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 performs a bwd transfer of {} coins to Node1...".format(bwt_amount_1), self.nodes, DEBUG_MODE)
         amounts = []
         amounts.append({"pubkeyhash": pkh_node1, "amount": bwt_amount_1})
 
         #Create proof for WCert
         quality = 0
         proof = mcTest.create_test_proof(
-            "sc1", ep_n_0, ep_hash_0, prev_ep_hash_0,
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node1], [bwt_amount_1])
 
-        cert = self.nodes[0].send_certificate(scid, ep_n_0, quality, ep_hash_0, proof, amounts, CERT_FEE)
+        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
         mark_logs("cert = {}".format(cert), self.nodes, DEBUG_MODE)
         certs.append(cert)
         self.sync_all()
 
-        mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
-        self.sync_all()
-        mark_logs("  ==> height {}".format(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
-        balance_node0.append(self.nodes[0].getbalance("", 0))
-        sc_info.append(self.nodes[0].getscinfo(scid))
+        self.refresh_sidechain(sc_info, scid)
 
         mark_logs("Node 0 performs a fwd transfer of {} coins to SC...".format(fwt_amount_2), self.nodes, DEBUG_MODE)
         fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_2, scid)
@@ -177,12 +164,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         sc_txes.append(fwd_tx)
         self.sync_all()
 
-        mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
-        self.sync_all()
-        mark_logs("  ==> height {}".format(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
-        balance_node0.append(self.nodes[0].getbalance("", 0))
-        sc_info.append(self.nodes[0].getscinfo(scid))
+        self.refresh_sidechain(sc_info, scid)
 
         mark_logs("Node 0 performs a fwd transfer of {} coins to SC...".format(fwt_amount_3), self.nodes, DEBUG_MODE)
         fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_3, scid)
@@ -190,12 +172,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         sc_txes.append(fwd_tx)
         self.sync_all()
 
-        mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
-        self.sync_all()
-        mark_logs("  ==> height {}".format(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
-        balance_node0.append(self.nodes[0].getbalance("", 0))
-        sc_info.append(self.nodes[0].getscinfo(scid))
+        self.refresh_sidechain(sc_info, scid)
 
         mark_logs("Node 0 performs a fwd transfer of {} coins to SC...".format(fwt_amount_4), self.nodes, DEBUG_MODE)
         fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_4, scid)
@@ -203,63 +180,41 @@ class sc_cert_invalidate(BitcoinTestFramework):
         sc_txes.append(fwd_tx)
         self.sync_all()
 
-        mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
-        self.sync_all()
-        mark_logs("  ==> height {}".format(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
-        balance_node0.append(self.nodes[0].getbalance("", 0))
-        sc_info.append(self.nodes[0].getscinfo(scid))
+        self.refresh_sidechain(sc_info, scid)
 
-        mark_logs("Node0 generating 3 more blocks for achieving sc coins maturity", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
-        self.sync_all()
-        mark_logs("  ==> height {}".format(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
-        balance_node0.append(self.nodes[0].getbalance("", 0))
-        sc_info.append(self.nodes[0].getscinfo(scid))
+        self.refresh_sidechain(sc_info, scid)
 
         mark_logs("##### End epoch block = {}".format(self.nodes[0].getbestblockhash()), self.nodes, DEBUG_MODE)
 
-        self.nodes[0].generate(1)
-        self.sync_all()
-        mark_logs("  ==> height {}".format(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
-        balance_node0.append(self.nodes[0].getbalance("", 0))
-        sc_info.append(self.nodes[0].getscinfo(scid))
+        self.refresh_sidechain(sc_info, scid)
 
-        current_height = self.nodes[0].getblockcount()
+        prev_epoch_block_hash = epoch_block_hash
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
-        prev_ep_hash_1 = ep_hash_0
-        ep_n_1 = int((current_height - sc_creating_height + 1) / EPOCH_LENGTH) - 1
-        ep_height_1 = sc_creating_height - 1 + ((ep_n_1 + 1) * EPOCH_LENGTH)
-        ep_hash_1 = self.nodes[0].getblockhash(ep_height_1)
-
-        mark_logs(("Node 0 performs a bwd transfer of %s coins to Node1 epn=%d, eph[%s]..." % (str(bwt_amount_2), ep_n_1, ep_hash_1)), self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 performs a bwd transfer of {} coins to Node2...".format(bwt_amount_2), self.nodes, DEBUG_MODE)
         amounts = []
         amounts.append({"pubkeyhash": pkh_node2, "amount": bwt_amount_2})
 
         #Create proof for WCert
         quality = 1
         proof = mcTest.create_test_proof(
-            "sc1", ep_n_1, ep_hash_1, prev_ep_hash_1,
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node2], [bwt_amount_2])
 
-        cert = self.nodes[0].send_certificate(scid, ep_n_1, quality, ep_hash_1, proof, amounts, CERT_FEE)
+        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
         mark_logs("cert = {}".format(cert), self.nodes, DEBUG_MODE)
         certs.append(cert)
         self.sync_all()
-        print "mempool = ", pprint.pprint(self.nodes[0].getrawmempool())
+        
+        self.refresh_sidechain(sc_info, scid)
 
-        mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
-        self.sync_all()
-        mark_logs("  ==> height {}".format(self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
-        balance_node0.append(self.nodes[0].getbalance("", 0))
-        sc_info.append(self.nodes[0].getscinfo(scid))
-        print "mempool = ", pprint.pprint(self.nodes[0].getrawmempool())
-
-        assert_equal(len(sc_info), len(balance_node0))
-
+        old_bal = self.nodes[0].getbalance()
+        
         cross_epoch_1 = False
         cross_epoch_0 = False
+
+        end_epoch_height = self.nodes[0].getblock(epoch_block_hash)['height']
 
         # invalidate all blocks one by one
         for j in range(0, len(sc_info)):
@@ -267,12 +222,11 @@ class sc_cert_invalidate(BitcoinTestFramework):
             inv_heigth = self.nodes[0].getblockcount()
             mark_logs("Node 0 invalidates last block of height = {}".format(inv_heigth), self.nodes, DEBUG_MODE)
             self.nodes[0].invalidateblock(inv_hash)
-            time.sleep(1)
+            sync_mempools(self.nodes[1:3])
             sc_info.pop()
-            balance_node0.pop()
 
             # check that last cert is always in mempool until end epoch is reverted
-            if (ep_height_1 < inv_heigth):
+            if (end_epoch_height < inv_heigth):
                 assert_true(certs[1] in self.nodes[0].getrawmempool())
                 mark_logs("cert[{}] is in mempool".format(certs[1]), self.nodes, DEBUG_MODE)
             else:
@@ -292,7 +246,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
                 assert_true(creating_tx in self.nodes[0].getrawmempool())
                 mark_logs("creating tx[{}] is in mempool".format(creating_tx), self.nodes, DEBUG_MODE)
 
-        time.sleep(1)
+        sync_mempools(self.nodes[1:3])
 
         mempool = self.nodes[0].getrawmempool()
 
@@ -301,27 +255,21 @@ class sc_cert_invalidate(BitcoinTestFramework):
             assert_equal((k in sc_txes), True)
 
         # if a coinbase used as input for a tx gets immature during invalidation, the tx is removed
-        # from mempool and the assert fails
+        # from mempool and the assert fails.
+        # In this case the 1000 coins fwd is sometime removed from the mempool since it spends a coinbase become immature 
+        # TODO what will happen to these funds in the real cases?
+
         # for m in sc_txes:
         #    # check that all sc transactions are in mempool
         #    assert_equal((m in mempool), True)
 
-        sc_amount = Decimal(0.0)
+        sc_amount = Decimal("0.0")
+        sc_fee = Decimal("0.0") 
         for m in mempool:
             a = self.nodes[0].gettransaction(m)['amount']
             f = self.nodes[0].gettransaction(m)['fee']
-            print "amount=", a
-            print "fee=   ", f
-            print "___"
-            sc_amount += (a + f)
-
-        # check that amounts related to sc txes in mempool (no certs) are the diff of the balances after reverting
-        # the whole serie of blocks
-        print "total sc amount in mempool: ", sc_amount
-
-        # (see above) if a coinbase used as input for a tx gets immature during invalidation, the tx is removed
-        # from mempool and the assert fails
-        # assert_equal(sc_amount, diff)
+            sc_amount -= a
+            sc_fee -= f
 
         h0 = self.nodes[0].getblockcount()
         h1 = self.nodes[1].getblockcount()
@@ -332,24 +280,28 @@ class sc_cert_invalidate(BitcoinTestFramework):
         self.nodes[0].generate(numbofblocks)
         self.sync_all()
 
-        print "\nSC info:\n", pprint.pprint(self.nodes[0].getscinfo(scid))
-        print "\nSC info:\n", pprint.pprint(self.nodes[1].getscinfo(scid))
-        print "\nSC info:\n", pprint.pprint(self.nodes[2].getscinfo(scid))
-
-        print "Node0 balance: ", self.nodes[0].getbalance("", 0)
-        print "Node1 balance: ", self.nodes[1].getbalance("", 0)
-        print "Node2 balance: ", self.nodes[2].getbalance("", 0)
-        print "=================================================="
-        print
-
-#        assert_true
-
-        print
+        activeChain = []
         for i in range(0, 3):
             chaintips = self.nodes[i].getchaintips()
-            dump_ordered_tips(chaintips, DEBUG_MODE)
-            mark_logs("---", self.nodes, DEBUG_MODE)
+            for k in chaintips:
+                if k['status'] == "active":
+                    activeChain.append(k)
+                    break
 
+        mark_logs("check that active chain is the same for all nodes", self.nodes, DEBUG_MODE)
+        assert_equal(activeChain[0], activeChain[1])
+        assert_equal(activeChain[0], activeChain[2])
+
+        mark_logs("check that sc is the same for all nodes", self.nodes, DEBUG_MODE)
+        assert_equal(self.nodes[0].getscinfo(scid), self.nodes[1].getscinfo(scid))
+        assert_equal(self.nodes[0].getscinfo(scid), self.nodes[2].getscinfo(scid))
+
+        mark_logs("check that sc balance is the amount we had in mempool at the end of invalidation phase", self.nodes, DEBUG_MODE)
+        assert_equal(self.nodes[0].getscinfo(scid)['balance'], sc_amount)
+
+        print "Node0 balance before: ", old_bal
+        print "Node0 balance now   : ", self.nodes[0].getbalance()
+        print "            sc fee  : ", sc_fee
 
 if __name__ == '__main__':
     sc_cert_invalidate().main()
