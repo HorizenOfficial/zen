@@ -318,13 +318,6 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             assert_true(len(certlist) != 0)
             # cert only specific tests
 
-            # Test 13: Bad scid in cert
-            # set scid to 0x21 (33)
-            orig_val = certlist[0][4]
-            certlist[0][4] = 33
-            assert_template(node, tmpl, txlist, certlist, 'bad-sc-cert-not-applicable')
-            certlist[0][4] = orig_val
-
             # Test 14: Bad cert count
             certlist.append(b'')
             try:
@@ -340,12 +333,6 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             except JSONRPCException:
                 pass  # Expected
             certlist[-1].append(lastbyte)
-
-            # Test 16: change epoch number
-            orig_val = certlist[0][4 + 32]
-            certlist[0][4 + 32] = 33 
-            assert_template(node, tmpl, txlist, certlist, 'bad-sc-cert-not-applicable')
-            certlist[0][4 + 32] = orig_val 
 
             # Test 17: wrong commitment
             # compute commitment for the only contribution of certificate (no tx/btr)
