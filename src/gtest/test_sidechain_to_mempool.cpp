@@ -451,7 +451,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffec
 }
 
 TEST_F(SidechainsInMempoolTestSuite, ImmatureExpenditureRemoval) {
-    //Create and mature coinbase
+    //Create a coinbase
     CMutableTransaction mutCoinBase;
     mutCoinBase.vin.push_back(CTxIn(uint256(), -1));
     mutCoinBase.addOut(CTxOut(10,CScript()));
