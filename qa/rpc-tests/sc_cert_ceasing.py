@@ -88,7 +88,8 @@ class sc_cert_ceasing(BitcoinTestFramework):
         for i in range(0, 3):
             tag = "sc"+str(i+1)
             vk = mcTest.generate_params(tag)
-            creating_tx = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount[i], vk, "abcdef", constant)
+            ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount[i], vk, "abcdef", constant)
+            creating_tx = ret['txid']
             mark_logs("Node 0 created SC spending {} coins via tx1 {}.".format(creation_amount[i], creating_tx), self.nodes, DEBUG_MODE)
             self.sync_all()
             scids.append(self.nodes[0].getrawtransaction(creating_tx, 1)['vsc_ccout'][0]['scid'])
