@@ -17,7 +17,7 @@ The main feature of our construction is the high degree of **generalization**: s
 
 You can read more about the Zendoo protocol in our [whitepaper](https://www.horizen.global/assets/files/Horizen-Sidechain-Zendoo-A_zk-SNARK-Verifiable-Cross-Chain-Transfer-Protocol.pdf), and explore our default sidechain implementation and SDK in our [Sidechains-SDK](https://github.com/ZencashOfficial/Sidechains-SDK).
 
-### **Beta Preview features**
+### **Beta features**
 -------------------
 
 - Sidechain Declaration with customizable SNARK verification key;
