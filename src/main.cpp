@@ -1655,6 +1655,117 @@ bool GetCertificate(const uint256 &hash, CScCertificate &certOut, uint256 &hashB
 }
 
 
+bool GetTxBaseObj(const uint256 &hash, std::unique_ptr<CTransactionBase>& pTxBase, uint256 &hashBlock, bool fAllowSlow)
+{
+    CBlockIndex *pindexSlow = NULL;
+
+    LOCK(cs_main);
+
+    if (mempool.existsTx(hash))
+    {
+        CTransaction tx;
+        if (mempool.lookup(hash, tx))
+        {
+            pTxBase.reset(new CTransaction(tx));
+            return true;
+        }
+        // This case should never happen.
+        return error("%s: txid mismatch", __func__);
+    }
+    else
+    if (mempool.existsCert(hash))
+    {
+        CScCertificate cert;
+        if (mempool.lookup(hash, cert))
+        {
+            pTxBase.reset(new CScCertificate(cert));
+            return true;
+        }
+        // This case should never happen.
+        return error("%s: txid mismatch", __func__);
+    }
+
+    if (fTxIndex) {
+        CDiskTxPos postx;
+        if (pblocktree->ReadTxIndex(hash, postx)) {
+            CAutoFile file(OpenBlockFile(postx, true), SER_DISK, CLIENT_VERSION);
+            if (file.IsNull())
+                return error("%s: OpenBlockFile failed", __func__);
+            CBlockHeader header;
+            try {
+                file >> header;
+                fseek(file.Get(), postx.nTxOffset, SEEK_CUR);
+
+                int nType = file.GetType();
+                int nVersion = file.GetVersion();
+                int txVers = 0;
+
+                ::Unserialize(file, txVers, nType, nVersion);
+
+                if (CTransactionBase::IsTransaction(txVers) )
+                {
+                    CTransaction tx(txVers);
+                    tx.SerializationOpInternal(file, CSerActionUnserialize(), nType, nVersion);
+                    pTxBase.reset(new CTransaction(tx));
+                }
+                else
+                if (CTransactionBase::IsCertificate(txVers) )
+                {
+                    CScCertificate cert(txVers);
+                    cert.SerializationOpInternal(file, CSerActionUnserialize(), nType, nVersion);
+                    pTxBase.reset(new CScCertificate(cert));
+                }
+                else
+                {
+                    // This case should never happen.
+                    return error("%s: txid mismatch", __func__);
+                }
+            } catch (const std::exception& e) {
+                return error("%s: Deserialize or I/O error - %s", __func__, e.what());
+            }
+            hashBlock = header.GetHash();
+            if (pTxBase && pTxBase->GetHash() != hash)
+            {
+                return error("%s: txid mismatch", __func__);
+            }
+            return true;
+        }
+    }
+
+    if (fAllowSlow) { // use coin database to locate block that contains cert, and scan it
+        int nHeight = -1;
+        {
+            CCoinsViewCache &view = *pcoinsTip;
+            const CCoins* coins = view.AccessCoins(hash);
+            if (coins)
+                nHeight = coins->nHeight;
+        }
+        if (nHeight > 0)
+            pindexSlow = chainActive[nHeight];
+    }
+
+    if (pindexSlow) {
+        CBlock block;
+        if (ReadBlockFromDisk(block, pindexSlow)) {
+            BOOST_FOREACH(const CScCertificate &cert, block.vcert) {
+                if (cert.GetHash() == hash) {
+                    pTxBase.reset(new CScCertificate(cert));
+                    hashBlock = pindexSlow->GetBlockHash();
+                    return true;
+                }
+            }
+            BOOST_FOREACH(const CTransaction &tx, block.vtx) {
+                if (tx.GetHash() == hash) {
+                    pTxBase.reset(new CTransaction(tx));
+                    hashBlock = pindexSlow->GetBlockHash();
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
 
 
 

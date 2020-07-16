@@ -349,20 +349,38 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
     if (params.size() > 1)
         fVerbose = (params[1].get_int() != 0);
 
-    CTransaction tx;
+    // allocated by the callee
+    std::unique_ptr<CTransactionBase> pTxBase;
+    
     uint256 hashBlock;
-    if (!GetTransaction(hash, tx, hashBlock, true))
+    if (!GetTxBaseObj(hash, pTxBase, hashBlock, true) || !pTxBase)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
 
-    string strHex = EncodeHexTx(tx);
-
-    if (!fVerbose)
-        return strHex;
-
+    std::string strHex;
     UniValue result(UniValue::VOBJ);
-    result.push_back(Pair("hex", strHex));
-    TxToJSON(tx, hashBlock, result);
-    return result;
+
+    try {
+        if (pTxBase->IsCertificate()) {
+            CScCertificate cert(dynamic_cast<const CScCertificate&>(*pTxBase));
+            strHex = EncodeHexCert(cert);
+            if (fVerbose)
+                CertToJSON(cert, hashBlock, result);
+        } else {
+            CTransaction tx(dynamic_cast<const CTransaction&>(*pTxBase));
+            strHex = EncodeHexTx(tx);
+            if (fVerbose)
+                TxToJSON(tx, hashBlock, result);
+        }
+    } catch (std::exception& e) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, std::string("internal error: ") + std::string(e.what() ));
+    }
+    
+    if(fVerbose) {
+        result.push_back(Pair("hex", strHex));
+        return result;
+    }
+
+    return strHex;
 }
 
 UniValue getrawcertificate(const UniValue& params, bool fHelp)
