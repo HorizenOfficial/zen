@@ -148,7 +148,7 @@ class sc_rawcert(BitcoinTestFramework):
             print "\n======> ", errorString
             assert_true(False)
 
-        decoded_cert_pre = self.nodes[0].decoderawcertificate(raw_cert)
+        decoded_cert_pre = self.nodes[0].decoderawtransaction(raw_cert)
         decoded_cert_pre_list = sorted(decoded_cert_pre.items())
 
         mark_logs("Node0 sending raw certificate for epoch {}, expecting failure...".format(epn), self.nodes, DEBUG_MODE)
@@ -198,7 +198,7 @@ class sc_rawcert(BitcoinTestFramework):
         sc_funds_post = self.nodes[3].getscinfo(scid)['balance']
         assert_equal(sc_funds_post, sc_funds_pre - bt_amount)
 
-        decoded_cert_post = self.nodes[2].getrawcertificate(cert, 1)
+        decoded_cert_post = self.nodes[2].getrawtransaction(cert, 1)
         assert_equal(decoded_cert_post['certid'], cert)
         assert_equal(decoded_cert_post['hex'], raw_cert)
         assert_equal(decoded_cert_post['blockhash'], mined)
@@ -252,7 +252,7 @@ class sc_rawcert(BitcoinTestFramework):
             print "\n======> ", errorString
             assert_true(False)
 
-        decoded_cert_pre = self.nodes[0].decoderawcertificate(signed_cert['hex'])
+        decoded_cert_pre = self.nodes[0].decoderawtransaction(signed_cert['hex'])
         decoded_cert_pre_list = sorted(decoded_cert_pre.items())
 
         mark_logs("Node3 sending raw certificate with no backward transfer for epoch {}".format(epn), self.nodes, DEBUG_MODE)
@@ -270,7 +270,7 @@ class sc_rawcert(BitcoinTestFramework):
         self.sync_all()
 
         # we enabled -txindex in zend therefore also node 2 can see it
-        decoded_cert_post = self.nodes[2].getrawcertificate(cert, 1)
+        decoded_cert_post = self.nodes[2].getrawtransaction(cert, 1)
 
         mark_logs("check that cert contents are as expected", self.nodes, DEBUG_MODE)
         # vout contains just the change 
@@ -380,7 +380,7 @@ class sc_rawcert(BitcoinTestFramework):
             assert_true(False)
 
         self.sync_all()
-        decoded_cert_post = self.nodes[0].getrawcertificate(cert, 1)
+        decoded_cert_post = self.nodes[0].getrawtransaction(cert, 1)
 
         mark_logs("check that cert contents are as expected", self.nodes, DEBUG_MODE)
         assert_equal(decoded_cert_post['certid'], cert)
@@ -526,7 +526,7 @@ class sc_rawcert(BitcoinTestFramework):
             print "\n======> ", errorString
             assert_true(False)
 
-        decoded_cert_pre = self.nodes[0].decoderawcertificate(signed_cert['hex'])
+        decoded_cert_pre = self.nodes[0].decoderawtransaction(signed_cert['hex'])
         decoded_cert_pre_list = sorted(decoded_cert_pre.items())
 
         mark_logs("Node3 sending raw certificate with no backward transfer and no fee for epoch {}".format(epn), self.nodes, DEBUG_MODE)
@@ -545,7 +545,7 @@ class sc_rawcert(BitcoinTestFramework):
 
         mark_logs("Check the certificate for this scid has no vin and no vouts", self.nodes, DEBUG_MODE)
         # we enabled -txindex in zend therefore node 2 can see it even if no coins can be used in db and no block height is given
-        ret = self.nodes[2].getrawcertificate(cert, 1)
+        ret = self.nodes[2].getrawtransaction(cert, 1)
         assert_equal(ret['cert']['scid'], scid)
         assert_equal(len(ret['vin']), 0)
         assert_equal(len(ret['vout']), 0)

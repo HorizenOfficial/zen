@@ -512,7 +512,7 @@ class sc_cert_base(BitcoinTestFramework):
         # in mempool, since it has no coins to be searched in the coins db
         mark_logs("Check the certificate for this scid has no vin and no vouts", self.nodes, DEBUG_MODE)
         try:
-            ret = self.nodes[0].getrawcertificate(cert_epoch_1, 1)
+            ret = self.nodes[0].getrawtransaction(cert_epoch_1, 1)
             assert_equal(ret['cert']['scid'], scid)
             assert_equal(len(ret['vin']), 0)
             assert_equal(len(ret['vout']), 0)

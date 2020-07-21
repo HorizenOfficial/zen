@@ -43,6 +43,7 @@
 #include "zen/delay.h"
 
 #include "sc/sidechain.h"
+#include "core_io.h"
 
 using namespace zen;
 
@@ -1698,28 +1699,11 @@ bool GetTxBaseObj(const uint256 &hash, std::unique_ptr<CTransactionBase>& pTxBas
 
                 int nType = file.GetType();
                 int nVersion = file.GetVersion();
-                int txVers = 0;
+                int objVersion = 0;
 
-                ::Unserialize(file, txVers, nType, nVersion);
+                ::Unserialize(file, objVersion, nType, nVersion);
+                ::makeSerializedTxObj(file, objVersion, pTxBase, nType, nVersion);
 
-                if (CTransactionBase::IsTransaction(txVers) )
-                {
-                    CTransaction tx(txVers);
-                    tx.SerializationOpInternal(file, CSerActionUnserialize(), nType, nVersion);
-                    pTxBase.reset(new CTransaction(tx));
-                }
-                else
-                if (CTransactionBase::IsCertificate(txVers) )
-                {
-                    CScCertificate cert(txVers);
-                    cert.SerializationOpInternal(file, CSerActionUnserialize(), nType, nVersion);
-                    pTxBase.reset(new CScCertificate(cert));
-                }
-                else
-                {
-                    // This case should never happen.
-                    return error("%s: txid mismatch", __func__);
-                }
             } catch (const std::exception& e) {
                 return error("%s: Deserialize or I/O error - %s", __func__, e.what());
             }
@@ -6200,25 +6184,13 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
         int txVers = 0;
         ::Unserialize(vRecv, txVers, nType, nVersion);
-        LogPrint("cert", "%s():%d - ############################### txVers[%d]\n", __func__, __LINE__, txVers );
 
-        if (CTransactionBase::IsTransaction(txVers) )
-        {
-            CTransaction tx(txVers);
-            tx.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
-            LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString() );
-            ProcessTxBaseMsg(tx, pfrom);
-        }
-        else
-        if (CTransactionBase::IsCertificate(txVers) )
-        {
-            CScCertificate cert(txVers);
-            cert.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
-            LogPrint("cert", "%s():%d - cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString() );
-            ProcessTxBaseMsg(cert, pfrom);
-        }
-        else
-        {
+        // allocated by the callee
+        std::unique_ptr<CTransactionBase> pTxBase;
+        ::makeSerializedTxObj(vRecv, txVers, pTxBase, nType, nVersion);
+        if (pTxBase) {
+            ProcessTxBaseMsg(*pTxBase, pfrom);
+        } else {
             // This case should never happen. Consider that failing to read stream properly throws an exception
             // which is not handled here
             LogPrintf("%s():%d - pushing reject: invalid obj got from peer=%d %s\n",

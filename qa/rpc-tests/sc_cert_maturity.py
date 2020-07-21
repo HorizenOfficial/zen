@@ -130,7 +130,7 @@ class sc_cert_maturity(BitcoinTestFramework):
         bwtMaturityHeight = (sc_creating_height-1) + 2*EPOCH_LENGTH + 2
 
         # get the taddr of Node1 where the bwt is send to
-        bwt_address = self.nodes[0].getrawcertificate(cert_1, 1)['vout'][1]['scriptPubKey']['addresses'][0]
+        bwt_address = self.nodes[0].getrawtransaction(cert_1, 1)['vout'][1]['scriptPubKey']['addresses'][0]
 
         mark_logs("Check cert is in mempool", self.nodes, DEBUG_MODE)
         assert_equal(True, cert_1 in self.nodes[1].getrawmempool())
@@ -180,7 +180,7 @@ class sc_cert_maturity(BitcoinTestFramework):
         assert_equal(True, cert_2 in self.nodes[1].getrawmempool())
         
         # get the taddr of Node1 where the bwt is send to
-        bwt_address_new = self.nodes[0].getrawcertificate(cert_2, 1)['vout'][1]['scriptPubKey']['addresses'][0]
+        bwt_address_new = self.nodes[0].getrawtransaction(cert_2, 1)['vout'][1]['scriptPubKey']['addresses'][0]
         assert_equal(bwt_address, bwt_address_new)
 
         mark_logs("Check the output of the listtxesbyaddress cmd is as expected",
