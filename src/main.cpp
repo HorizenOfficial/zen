@@ -1754,7 +1754,7 @@ bool IsInitialBlockDownload()
 {
     const CChainParams& chainParams = Params();
     LOCK(cs_main);
-    // from commit: https://github.com/ZencashOfficial/zen/commit/0c479520d29cae571dc531e54aa01813daacd1e1
+    // from commit: https://github.com/HorizenOfficial/zen/commit/0c479520d29cae571dc531e54aa01813daacd1e1
     if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Height()))
         return false;
     if (fImporting || fReindex)

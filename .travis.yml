@@ -2,7 +2,7 @@ language: shell
 
 os: linux
 
-.com.github.zencashofficial.zen_ci_testing.env-definitions:
+.com.github.horizenofficial.zend_oo.env-definitions:
   - &docker_amd64_linux_ubuntu_xenial
     env:
       - DOCKER_ARCH=amd64
@@ -109,7 +109,7 @@ os: linux
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py --rpc-split=3:3"
 
-.com.github.zencashofficial.zen_ci_testing.job-definitions:
+.com.github.horizenofficial.zend_oo.job-definitions:
   - &prepare_docker_amd64
     os: linux
     dist: bionic

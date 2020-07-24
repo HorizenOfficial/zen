@@ -15,7 +15,7 @@ Horizen Sidechains are **fully decentralized**: sidechain nodes observe the Main
 
 The main feature of our construction is the high degree of **generalization**: sidechains are allowed to use their own rules and data, defining custom SNARKs to let mainchain authenticate their certificates without any knowledge of the sidechain internals.
 
-You can read more about the Zendoo protocol in our [whitepaper](https://www.horizen.global/assets/files/Horizen-Sidechain-Zendoo-A_zk-SNARK-Verifiable-Cross-Chain-Transfer-Protocol.pdf), and explore our default sidechain implementation and SDK in our [Sidechains-SDK](https://github.com/ZencashOfficial/Sidechains-SDK).
+You can read more about the Zendoo protocol in our [whitepaper](https://www.horizen.global/assets/files/Horizen-Sidechain-Zendoo-A_zk-SNARK-Verifiable-Cross-Chain-Transfer-Protocol.pdf), and explore our default sidechain implementation and SDK in our [Sidechains-SDK](https://github.com/HorizenOfficial/Sidechains-SDK).
 
 ### **Beta features**
 -------------------
@@ -24,16 +24,16 @@ You can read more about the Zendoo protocol in our [whitepaper](https://www.hori
 - Forward Transfer transaction to sidechain;
 - Sidechain epoch management with liveness monitoring and ceasing procedure;
 - Sidechain Backward Transfer by means of Withdrawal Certificate;
-- Agnostic Withdrawal Certificate validation via custom SNARK proof verification (powered by[ zendoo-mc-cryptolib](https://github.com/ZencashOfficial/zendoo-mc-cryptolib));
+- Agnostic Withdrawal Certificate validation via custom SNARK proof verification (powered by[ zendoo-mc-cryptolib](https://github.com/HorizenOfficial/zendoo-mc-cryptolib));
 - Extended rpc interface to create and dispatch Sidechain Declaration, Forward Transfer transactions and Withdrawal Certificates;
 - Extensive unit tests and integrations tests for verifying sidechain functionality;
 - Public Sidechain testnet separate from normal testnet3;
-- Graphical Wallet allowing easy sidechain creations, fordward transfers to sidechain, list of existing sidechains and more: [Sphere by Horizen](https://github.com/ZencashOfficial/Sphere_by_Horizen_Sidechain_Testnet/releases/tag/desktop-v2.0.0-beta-sidechain-testnet).
+- Graphical Wallet allowing easy sidechain creations, fordward transfers to sidechain, list of existing sidechains and more: [Sphere by Horizen](https://github.com/HorizenOfficial/Sphere_by_Horizen_Sidechain_Testnet/releases/tag/desktop-v2.0.0-beta-sidechain-testnet).
 
 Branching strategy
 ----------------
-- [sidechains_testnet](https://github.com/ZencashOfficial/zend_oo/tree/sidechains_testnet) - Sidechains testnet branch, release branch of Sidechains testnet beta versions, compile from this branch to run a Mainchain node on the Sidechains test network
-- [sidechains_dev](https://github.com/ZencashOfficial/zend_oo/tree/sidechains_dev) - Sidechains development branch, ongoing development takes place here, any time a release is being done this branch will be merged into [sidechains_testnet](https://github.com/ZencashOfficial/zend_oo/tree/sidechains_testnet)
+- [sidechains_testnet](https://github.com/HorizenOfficial/zend_oo/tree/sidechains_testnet) - Sidechains testnet branch, release branch of Sidechains testnet beta versions, compile from this branch to run a Mainchain node on the Sidechains test network
+- [sidechains_dev](https://github.com/HorizenOfficial/zend_oo/tree/sidechains_dev) - Sidechains development branch, ongoing development takes place here, any time a release is being done this branch will be merged into [sidechains_testnet](https://github.com/HorizenOfficial/zend_oo/tree/sidechains_testnet)
 
 Building from source
 ----------------
@@ -79,7 +79,7 @@ Building from source
 
 * Install for Linux
 ```{r, engine='bash'}
-git clone https://github.com/ZencashOfficial/zend_oo.git
+git clone https://github.com/HorizenOfficial/zend_oo.git
 cd zend_oo
 # Build
 ./zcutil/build.sh -j$(nproc)
@@ -92,10 +92,10 @@ cd zend_oo
 * Install for Mac OS (using clang)
 
 ```
-Read and follow the README.md at https://github.com/ZencashOfficial/zencash-apple
+Read and follow the README.md at https://github.com/HorizenOfficial/zencash-apple
 ```
 
-https://github.com/ZencashOfficial/zencash-apple
+https://github.com/HorizenOfficial/zencash-apple
 
 
 * Install for Windows (Cross-Compiled, building on Windows is not supported yet)
