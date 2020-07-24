@@ -29,7 +29,7 @@ Beta features
 - Extended RPC interface to create and dispatch sidechain declaration, forward transfer transactions, and withdrawal certificates
 - Extensive unit tests and integrations tests for verifying sidechain functionality
 - Public sidechain testnet is separate from the normal testnet
-- Graphical wallet allowing easy sidechain creation, fordward transfers to sidechains, list of existing sidechains and more: [Sphere by Horizen](https://github.com/HorizenOfficial/Sphere_by_Horizen_Sidechain_Testnet/releases/latest).
+- Graphical wallet allowing easy sidechain creation, forward transfers to sidechains, list of existing sidechains and more: [Sphere by Horizen](https://github.com/HorizenOfficial/Sphere_by_Horizen_Sidechain_Testnet/releases/latest).
 
 Branching strategy
 ----------------
