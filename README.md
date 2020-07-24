@@ -8,14 +8,14 @@ A globally accessible and anonymous blockchain for censorship-resistant communic
 Upgrading from 2.0.11 source
 ----------------
 
-To upgrade from any version prior to 2.0.14, you will have to re-clone the repository, the [ZencashOfficial/zen](https://github.com/ZencashOfficial/zen) repository was replaced by a new repository based on Zcash upstream with a different commit history. Merging/pulling is not possible without issues.
+To upgrade from any version prior to 2.0.14, you will have to re-clone the repository, the [HorizenOfficial/zen](https://github.com/HorizenOfficial/zen) repository was replaced by a new repository based on Zcash upstream with a different commit history. Merging/pulling is not possible without issues.
 Assuming your current repository is stored at `~/zen`, do the following to upgrade:
 ```{r, engine='bash'}
 # if you don't want to keep the old src around
 rm -r ~/zen
 # or if you do want to keep it
 mv ~/zen ~/zen_archived
-git clone https://github.com/ZencashOfficial/zen.git
+git clone https://github.com/HorizenOfficial/zen.git
 cd ~/zen
 ```
 Now continue with building from source.
@@ -64,7 +64,7 @@ Building from source
 
 * Install for Linux
 ```{r, engine='bash'}
-git clone https://github.com/ZencashOfficial/zen.git
+git clone https://github.com/HorizenOfficial/zen.git
 cd zen
 # Build
 ./zcutil/build.sh -j$(nproc)
@@ -77,10 +77,10 @@ cd zen
 * Install for Mac OS (using clang)
 
 ```
-Read and follow the README.md at https://github.com/ZencashOfficial/zencash-apple
+Read and follow the README.md at https://github.com/HorizenOfficial/zencash-apple
 ```
 
-https://github.com/ZencashOfficial/zencash-apple
+https://github.com/HorizenOfficial/zencash-apple
 
 
 * Install for Windows (Cross-Compiled, building on Windows is not supported yet)
