@@ -176,14 +176,6 @@ Where do I begin?
 Participation in the Horizen project is subject to a
 [Code of Conduct](code_of_conduct.md).
 
-Building
---------
-
-Build Horizen along with most dependencies from source by running
-./zcutil/build.sh for Linux.
-./zcutil/build-win.sh for Windows
-./zcutil/build-mac.sh for MacOS.
-
 License
 -------
 
