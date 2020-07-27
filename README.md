@@ -1,39 +1,40 @@
 Zen 2.1.0-beta4
-==============
-
+================
 What is Horizen?
 ----------------
-A globally accessible and anonymous blockchain for censorship-resistant communications and economic activity.
+Horizen is an inclusive and scalable platform where everyone is empowered and rewarded for their contributions. Horizen’s sidechain platform enables real-world applications mapped onto a public blockchain architecture with the largest node network in the industry. Horizen’s Sidechain-SDK provides developers with all necessary components to deploy their own fully customizable blockchains on Horizen’s open sidechain protocol, Zendoo.
 
 Zend_oo - the Zendoo-powered Sidechain Platform
--------------------
-**Zend_oo** is the beta version of Zend allowing Horizen Mainchain to manage and interact with any number of **sidechains**.
+----------------
+Zend_oo is the beta version of zend allowing the Horizen mainchain to manage and interact with any number of sidechains. It downloads and stores the entire history of Horizen transactions. Depending on the speed of your computer and network connection, the synchronization process could take a day or more.
 
-This version of Zend implements the **Zendoo** verifiable Cross-Chain Transfer Protocol that allows the creation of ad-hoc sidechains, each with an independent **custom** business logic. Moreover it grants the possibility of transferring coins from the Mainchain and allows to safely retrieve coins back from the sidechain by means of verifiable withdrawal certificates.
+This version of zend implements the Zendoo verifiable Cross-Chain Transfer Protocol (CCTP) that allows the creation of ad-hoc sidechains with independently customizable business logic. Additionally, it enables the transfer of coins from the mainchain to sidechains and from sidechains back to the mainchain through verifiable withdrawal certificates.
 
-Horizen Sidechains are **fully decentralized**: sidechain nodes observe the Mainchain but the Mainchain only observes cryptographically authenticated certificates received from the sidechain; Certificate authentication and validation are achieved thanks to an innovative use of the **SNARK** technology, which enable constant-sized proofs of arbitrary computations, not involving any trusted third party and keeping Mainchain totally **agnostic** from sidechain's rules.
+Horizen Sidechains are fully decentralized:
+----------------
+- Sidechain nodes observe the mainchain but the mainchain only observes cryptographically authenticated certificates received from the sidechain.
+- Certificate authentication and validation are achieved through the innovative use of SNARK technology, which enables constant-sized proofs of arbitrary computations, without involving a trusted third party and keeps the mainchain totally agnostic from any sidechain rules.
 
-The main feature of our construction is the high degree of **generalization**: sidechains are allowed to use their own rules and data, defining custom SNARKs to let mainchain authenticate their certificates without any knowledge of the sidechain internals.
+The main feature of our construction is the high degree of generalization. Sidechains are allowed to use their own rules and data, defining custom SNARKs to let the mainchain authenticate their certificates without any knowledge of the sidechain internals.
 
-You can read more about the Zendoo protocol in our [whitepaper](https://www.horizen.global/assets/files/Horizen-Sidechain-Zendoo-A_zk-SNARK-Verifiable-Cross-Chain-Transfer-Protocol.pdf), and explore our default sidechain implementation and SDK in our [Sidechains-SDK](https://github.com/ZencashOfficial/Sidechains-SDK).
+You can read more about the Zendoo protocol in our [whitepaper](https://www.horizen.global/assets/files/Horizen-Sidechain-Zendoo-A_zk-SNARK-Verifiable-Cross-Chain-Transfer-Protocol.pdf), and explore our default sidechain implementation and SDK in our [Sidechains-SDK](https://github.com/HorizenOfficial/Sidechains-SDK).
 
-### **Beta features**
--------------------
-
-- Sidechain Declaration with customizable SNARK verification key;
-- Forward Transfer transaction to sidechain;
-- Sidechain epoch management with liveness monitoring and ceasing procedure;
-- Sidechain Backward Transfer by means of Withdrawal Certificate;
-- Agnostic Withdrawal Certificate validation via custom SNARK proof verification (powered by[ zendoo-mc-cryptolib](https://github.com/ZencashOfficial/zendoo-mc-cryptolib));
-- Extended rpc interface to create and dispatch Sidechain Declaration, Forward Transfer transactions and Withdrawal Certificates;
-- Extensive unit tests and integrations tests for verifying sidechain functionality;
-- Public Sidechain testnet separate from normal testnet3;
-- Graphical Wallet allowing easy sidechain creations, fordward transfers to sidechain, list of existing sidechains and more: [Sphere by Horizen](https://github.com/ZencashOfficial/Sphere_by_Horizen_Sidechain_Testnet/releases/tag/desktop-v2.0.0-beta-sidechain-testnet).
+Beta features
+----------------
+- Sidechain declaration with customizable SNARK verification key
+- Forward transfer transaction to sidechain
+- Sidechain epoch management with liveness monitoring and ceasing procedure
+- Sidechain backward transfer by means of withdrawal certificate
+- Agnostic withdrawal certificate validation via custom SNARK proof verification (powered by [zendoo-mc-cryptolib](https://github.com/HorizenOfficial/zendoo-mc-cryptolib))
+- Extended RPC interface to create and dispatch sidechain declaration, forward transfer transactions, and withdrawal certificates
+- Extensive unit tests and integrations tests for verifying sidechain functionality
+- Public sidechain testnet is separate from the normal testnet
+- Graphical wallet allowing easy sidechain creation, forward transfers to sidechains, list of existing sidechains and more: [Sphere by Horizen](https://github.com/HorizenOfficial/Sphere_by_Horizen_Sidechain_Testnet/releases/latest).
 
 Branching strategy
 ----------------
-- [sidechains_testnet](https://github.com/ZencashOfficial/zend_oo/tree/sidechains_testnet) - Sidechains testnet branch, release branch of Sidechains testnet beta versions, compile from this branch to run a Mainchain node on the Sidechains test network
-- [sidechains_dev](https://github.com/ZencashOfficial/zend_oo/tree/sidechains_dev) - Sidechains development branch, ongoing development takes place here, any time a release is being done this branch will be merged into [sidechains_testnet](https://github.com/ZencashOfficial/zend_oo/tree/sidechains_testnet)
+- [sidechains_testnet](https://github.com/HorizenOfficial/zend_oo/tree/sidechains_testnet) - Sidechain testnet branch is the release branch of sidechain testnet beta versions. Compile from this branch to run a mainchain node on the sidechain test network.
+- [sidechains_dev](https://github.com/HorizenOfficial/zend_oo/tree/sidechains_dev) - Sidechain development branch. Ongoing development takes place here. Any time a release is being done this branch will be merged into [sidechains_testnet](https://github.com/HorizenOfficial/zend_oo/tree/sidechains_testnet).
 
 Building from source
 ----------------
@@ -79,7 +80,7 @@ Building from source
 
 * Install for Linux
 ```{r, engine='bash'}
-git clone https://github.com/ZencashOfficial/zend_oo.git
+git clone https://github.com/HorizenOfficial/zend_oo.git
 cd zend_oo
 # Build
 ./zcutil/build.sh -j$(nproc)
@@ -92,10 +93,10 @@ cd zend_oo
 * Install for Mac OS (using clang)
 
 ```
-Read and follow the README.md at https://github.com/ZencashOfficial/zencash-apple
+Read and follow the README.md at https://github.com/HorizenOfficial/zencash-apple
 ```
 
-https://github.com/ZencashOfficial/zencash-apple
+https://github.com/HorizenOfficial/zencash-apple
 
 
 * Install for Windows (Cross-Compiled, building on Windows is not supported yet)
@@ -148,43 +149,30 @@ Running Regression Tests
     ./qa/zcash/full_test_suite.py ${TEST_ARGS}
     ```
     
-About
---------------
-
-[Zen](https://horizen.global/) is a platform for secure communications and for deniable economic activity.
-Horizen is an evolution of the Zclassic codebase aimed at primarily enabling intriniscally secure communications and
-resilient networking.
-
-This software is the Horizen client. It downloads and stores the entire history
-of Horizen transactions; depending on the speed of your computer and network
-connection, the synchronization process could take a day or more once the
-blockchain has reached a significant size.
-
 Security Warnings
------------------
+----------------
 
-See important security warnings in
-[doc/security-warnings.md](doc/security-warnings.md).
+See important security warnings in [doc/security-warnings.md](doc/security-warnings.md).
 
 **Horizen is unfinished and highly experimental.** Use at your own risk.
 
 Where do I begin?
------------------
-* The easiest way to get started is to download one of the available GUI wallets from [horizen.global](https://horizen.global)
+----------------
+The easiest way to get started is to download our flagship app [Sphere by Horizen](https://github.com/HorizenOfficial/Sphere_by_Horizen_Sidechain_Testnet/releases/latest) which is the entry point of most Horizen services.
 
-### Need Help?
+Need Help?
+----------------
+Help is available at [Horizen’s Discord](https://www.horizen.global/invite/discord) #sidechains channel.
 
-* Many guides and tutorials are available at [Horizen Discord](https://discord.gg/CEbKY9w)
-  for help and more information.
+Want to Participate in Development?
+----------------
+- Code review is welcomed!
+- Please submit any identified issues [here](https://github.com/HorizenOfficial/zend_oo/issues)
+- Enroll in the Horizen Early Adopter Program [HEAP](https://heap.horizen.global/) to take part in new product and feature testing
 
-### Want to participate in development?
-
-* Code review is welcome!
-
-Participation in the Horizen project is subject to a
-[Code of Conduct](code_of_conduct.md).
+Participation in the Horizen project is subject to a [Code of Conduct](code_of_conduct.md).
 
 License
--------
+----------------
 
 For license information see the file [COPYING](COPYING).

@@ -35,7 +35,7 @@ cronicc (8):
       Set version to 2.0.21
       Add release-notes
       Regenerate man pages
-      Fixup: z_sendmany help message lines were misordered in https://github.com/ZencashOfficial/zen/pull/249
+      Fixup: z_sendmany help message lines were misordered in https://github.com/HorizenOfficial/zen/pull/249
 
 root (7):
       add timeblock check
