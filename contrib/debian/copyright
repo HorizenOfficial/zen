@@ -1,7 +1,7 @@
 Format: http://svn.debian.org/wsvn/dep/web/deps/dep5.mdwn?rev=174
 Upstream-Name: Horizen
 Upstream-Contact: Horizen Team <info@Horizen.global>
-Source: https://github.com/ZenCashOfficial/zen
+Source: https://github.com/HorizenOfficial/zen
 
 Files: *
 Copyright: 2016-2018, The Zen Blockchain Foundation
