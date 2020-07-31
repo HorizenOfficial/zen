@@ -11,7 +11,8 @@
 #include "forks/fork4_nulltransactionfork.h"
 #include "forks/fork5_shieldfork.h"
 #include "forks/fork6_timeblockfork.h"
-#include "forks/fork7_sidechainfork.h"
+#include "forks/fork7_replayprotectionfixfork.h"
+#include "forks/fork8_sidechainfork.h"
 
 namespace zen {
 
@@ -185,6 +186,7 @@ ForkManager::ForkManager() {
     registerFork(new NullTransactionFork());
     registerFork(new ShieldFork());
     registerFork(new TimeBlockFork());
+    registerFork(new ReplayProtectionFixFork());
     registerFork(new SidechainFork());
 }
 

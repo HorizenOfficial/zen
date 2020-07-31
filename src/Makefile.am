@@ -598,7 +598,8 @@ libzencash_a_SOURCES = \
     zen/forks/fork4_nulltransactionfork.cpp\
     zen/forks/fork5_shieldfork.cpp\
     zen/forks/fork6_timeblockfork.cpp\
-    zen/forks/fork7_sidechainfork.cpp\
+    zen/forks/fork7_replayprotectionfixfork.cpp\
+    zen/forks/fork8_sidechainfork.cpp\
     zen/tlsmanager.cpp\
     zen/delay.cpp \
     zen/websocket_server.cpp

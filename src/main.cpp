@@ -705,6 +705,8 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
         const CTxOut & txout = txBase.GetVout()[pos];
         CheckBlockResult checkBlockResult;
         if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
+            LogPrintf("%s():%d - Non standard output: scriptPubKey[%s]\n",
+                __func__, __LINE__, txout.scriptPubKey.ToString());
             reason = "scriptpubkey";
             return false;
         }
@@ -715,9 +717,9 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
             {
                 LogPrintf("%s():%d - referenced block h[%d], chain.h[%d], minAge[%d]\n",
                     __func__, __LINE__, checkBlockResult.referencedHeight, nHeight, getCheckBlockAtHeightMinAge() );
-            reason = "scriptpubkey checkblockatheight: referenced block too recent";
-            return false;
-        }
+                reason = "scriptpubkey checkblockatheight: referenced block too recent";
+                return false;
+            }
         }
 
         // provide temporary replay protection for two minerconf windows during chainsplit
@@ -1138,9 +1140,13 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     string reason;
-    if (getRequireStandard() &&  !IsStandardTx(cert, reason, nextBlockHeight))
-        return state.DoS(0, error("%s(): nonstandard certificate: %s", __func__, reason),
-                            REJECT_NONSTANDARD, reason);
+    if (getRequireStandard() && !IsStandardTx(cert, reason, nextBlockHeight))
+    {
+        LogPrintf("%s():%d - Dropping nonstandard certid %s\n", __func__, __LINE__, cert.GetHash().ToString());
+        return state.DoS(0,
+                         error("%s(): nonstandard certificate: %s", __func__, reason),
+                         REJECT_NONSTANDARD, reason);
+    }
 
     {
         LOCK(pool.cs);

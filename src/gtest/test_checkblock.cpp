@@ -10,7 +10,7 @@
 #include "zen/forks/fork3_communityfundandrpfixfork.h"
 #include "zen/forks/fork4_nulltransactionfork.h"
 #include "zen/forks/fork5_shieldfork.h"
-#include "zen/forks/fork7_sidechainfork.h"
+#include "zen/forks/fork8_sidechainfork.h"
 using namespace zen;
 
 class MockCValidationState : public CValidationState {

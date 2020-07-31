@@ -5,7 +5,7 @@
 
 #include <txdb.h>
 #include <main.h>
-#include <zen/forks/fork7_sidechainfork.h>
+#include <zen/forks/fork8_sidechainfork.h>
 
 #include <key.h>
 #include <keystore.h>

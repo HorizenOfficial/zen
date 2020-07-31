@@ -1862,12 +1862,12 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
         else if (!(fIsMine & filter))
             continue;
 
-        // In either case, we need to get the destination address
+        // In either case, we need to get the destination address if any
         CTxDestination address;
         if (!ExtractDestination(txout.scriptPubKey, address))
         {
-            LogPrintf("CWalletTx::GetAmounts: Unknown transaction type found, txid %s\n",
-                    wrappedTx.GetHash().ToString());
+            LogPrintf("%s():%d - can not get address for txout %d of tx %s (script %s)\n",
+                __func__, __LINE__, pos, wrappedTx.GetHash().ToString(), txout.scriptPubKey.ToString());
             address = CNoDestination();
         }
 
