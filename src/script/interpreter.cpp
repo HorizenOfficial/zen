@@ -405,7 +405,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 
                     if ((vchBlockIndex.size() > sizeof(int)) || (vchBlockHash.size() > 32))
                     {
-                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad params.\n", __FILE__, __func__);
+                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT verification failed. Bad params.\n", __FILE__, __func__, __LINE__);
                         return set_error(serror, SCRIPT_ERR_CHECKBLOCKATHEIGHT);
                     }
 
@@ -416,7 +416,8 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     if (nHeight < 0 || !checker.CheckBlockHash(nHeight, vchBlockHash)) {
                         // Not final rather than a hard reject to avoid caching across different blockchains
                         // Also because it will *eventually* become final when the height gets old enough
-                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Referenced height: %d\n", __FILE__, __func__, nHeight);
+                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT verification failed. Referenced height: %d\n",
+                            __FILE__, __func__, __LINE__, nHeight);
                         return set_error(serror, SCRIPT_ERR_NOT_FINAL);
                     }
 
@@ -1129,6 +1130,8 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
     return ss.GetHash();
 }
 
+TransactionSignatureChecker::TransactionSignatureChecker(const CChain* chainIn): txTo(nullptr), nIn(-1), chain(chainIn) {}
+
 bool TransactionSignatureChecker::VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& pubkey, const uint256& sighash) const
 {
     return pubkey.Verify(sighash, vchSig);
@@ -1136,6 +1139,8 @@ bool TransactionSignatureChecker::VerifySignature(const std::vector<unsigned cha
 
 bool TransactionSignatureChecker::CheckSig(const vector<unsigned char>& vchSigIn, const vector<unsigned char>& vchPubKey, const CScript& scriptCode) const
 {
+    assert(txTo != nullptr);
+
     CPubKey pubkey(vchPubKey);
     if (!pubkey.IsValid())
         return false;
@@ -1162,6 +1167,7 @@ bool TransactionSignatureChecker::CheckSig(const vector<unsigned char>& vchSigIn
 
 bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime) const
 {
+    assert(txTo != nullptr);
     // There are two times of nLockTime: lock-by-blockheight
     // and lock-by-blocktime, distinguished by whether
     // nLockTime < LOCKTIME_THRESHOLD.
@@ -1229,6 +1235,11 @@ bool TransactionSignatureChecker::CheckBlockHash(const int32_t nHeight, const st
         return false;
     }
 
+/*
+    uint256 refBlockHash(vchCompareTo);
+    LogPrint("cbh", "%s():%d - comparing ref %s and %s\n",
+        __func__, __LINE__, refBlockHash.ToString(), blockHash.ToString() );
+ */
     return (vchCompareTo == vchBlockHash);
 }
 

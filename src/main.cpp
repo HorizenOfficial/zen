@@ -728,6 +728,8 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
 
         CheckBlockResult checkBlockResult;
         if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
+            LogPrintf("%s():%d - Non standard output: scriptPubKey[%s]\n",
+                __func__, __LINE__, txout.scriptPubKey.ToString());
             reason = "scriptpubkey";
             return false;
         }
@@ -738,9 +740,9 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
             {
                 LogPrintf("%s():%d - referenced block h[%d], chain.h[%d], minAge[%d]\n",
                     __func__, __LINE__, checkBlockResult.referencedHeight, nHeight, getCheckBlockAtHeightMinAge() );
-            reason = "scriptpubkey checkblockatheight: referenced block too recent";
-            return false;
-        }
+                reason = "scriptpubkey checkblockatheight: referenced block too recent";
+                return false;
+            }
         }
 
         // provide temporary replay protection for two minerconf windows during chainsplit
@@ -1250,9 +1252,12 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     string reason;
     if (getRequireStandard() && !IsStandardTx(tx, reason, nextBlockHeight))
+    {
+        LogPrintf("%s():%d - Dropping nonstandard txid %s\n", __func__, __LINE__, tx.GetHash().ToString());
         return state.DoS(0,
                          error("AcceptToMemoryPool: nonstandard transaction: %s", reason),
                          REJECT_NONSTANDARD, reason);
+    }
 
     // Only accept nLockTime-using transactions that can be mined in the next
     // block; we don't want our mempool filled up with transactions that can't
