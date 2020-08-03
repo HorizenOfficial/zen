@@ -537,7 +537,7 @@ public:
             *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
             return true;
         }
-        int blockIndex = currentBlock->nHeight - 300;
+        int blockIndex = currentBlock->nHeight - CBH_DELTA_HEIGHT;
         if (blockIndex < 0)
             blockIndex = 0;
         *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG << ToByteVector(chainActive[blockIndex]->GetBlockHash()) << chainActive[blockIndex]->nHeight << OP_CHECKBLOCKATHEIGHT;
@@ -551,7 +551,7 @@ public:
             *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
             return true;
         }
-        int blockIndex = currentBlock->nHeight - 300;
+        int blockIndex = currentBlock->nHeight - CBH_DELTA_HEIGHT;
         if (blockIndex < 0)
             blockIndex = 0;
         *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL << ToByteVector(chainActive[blockIndex]->GetBlockHash()) << chainActive[blockIndex]->nHeight << OP_CHECKBLOCKATHEIGHT;
