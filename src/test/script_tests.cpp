@@ -346,7 +346,12 @@ BOOST_AUTO_TEST_CASE(script_build)
     bad.push_back(TestBuilder(CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG << OP_CHECKBLOCKATHEIGHT,
                               "P2PKH OP_CHECKBLOCKATHEIGHT, bad params", 0
                              ).PushSig(keys.key1).Push(keys.pubkey1C));
-
+    bad.push_back(TestBuilder(CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG << 33 << ToByteVector(uint256()) << OP_CHECKBLOCKATHEIGHT,
+                              "P2PKH OP_CHECKBLOCKATHEIGHT, height and hash swapped", 0x400
+                             ).PushSig(keys.key1).Push(keys.pubkey1C));
+    bad.push_back(TestBuilder(CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG << ToByteVector(uint256()) << -1 << OP_CHECKBLOCKATHEIGHT,
+                              "P2PKH OP_CHECKBLOCKATHEIGHT, negative height", 0x400
+                             ).PushSig(keys.key1).Push(keys.pubkey1C));
     good.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1) << OP_CHECKSIG,
                                "P2PK anyonecanpay", 0
                               ).PushSig(keys.key1, SIGHASH_ALL | SIGHASH_ANYONECANPAY));

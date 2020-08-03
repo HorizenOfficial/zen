@@ -29,6 +29,11 @@ static const unsigned int MAX_OP_RETURN_RELAY = 80;      //! bytes
 extern unsigned nMaxDatacarrierBytes;
 
 /**
+ * this value is used for targeting a blockhash in cbh scripts starting from chain tip backwards
+ */
+static const int CBH_DELTA_HEIGHT = 300;
+
+/**
  * Mandatory script verification flags that all new blocks must comply with for
  * them to be valid. (but old blocks may not comply with) Currently just P2SH,
  * but in the future other flags may be added.
