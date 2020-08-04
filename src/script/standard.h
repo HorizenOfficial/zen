@@ -99,16 +99,47 @@ typedef boost::variant<CNoDestination, CKeyID, CScriptID> CTxDestination;
 
 const char* GetTxnOutputType(txnouttype t);
 
-struct CheckBlockResult {
+/**
+ * Attributes are set by the Solver() parser when a replay protection script is found
+ */
+class ReplayProtectionAttributes
+{
+  public:
     int referencedHeight;
-    CheckBlockResult() : referencedHeight(-1) { }
+    std::vector<unsigned char> referencedHash;
+
+    ReplayProtectionAttributes();
+
+    bool IsNull() const;
+
+    enum Status {
+        // no replay protection script to check
+        NOT_APPLICABLE = 0x0,
+        // In a replay protection script could not get valid attributes due to invalid structure 
+        INVALID,
+        // got formal attributes of replay protection script, that does not mean the script is OK
+        VALID
+    };
+
+    Status GetStatus() const { return _status; } 
+    void SetStatus(Status status) { _status = status; } 
+
+    bool check(std::string& reason);
+
+  private:
+    static const int UNDEF = std::numeric_limits<int>::min();
+    Status _status;
 };
 
+bool CheckReplayProtectionAttributes(const CScript& scriptPubKey, std::string reason);
+void GetReplayProtectionAttributes(const CScript& scriptPubKey, ReplayProtectionAttributes& rpAttributes);
+//bool isReplayType(txnouttype t);
+//bool checkReplayScript(const ReplayProtectionAttributes& rpAttributes, std::string& reason);
 
-bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet, CheckBlockResult& checkBlockResult);
+bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet, ReplayProtectionAttributes& rpAttributes);
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet);
 int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned char> >& vSolutions);
-bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType, CheckBlockResult& checkBlockResult);
+bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType, ReplayProtectionAttributes& rpAttributes);
 bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
 bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet);
 bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<CTxDestination>& addressRet, int& nRequiredRet);

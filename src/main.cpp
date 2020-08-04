@@ -726,20 +726,22 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
     txnouttype whichType;
     BOOST_FOREACH(const CTxOut& txout, tx.vout) {
 
-        CheckBlockResult checkBlockResult;
-        if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
+        ReplayProtectionAttributes rpAttributes;
+        LogPrint("cbh", "%s():%d - Checking script %s\n",
+            __func__, __LINE__, txout.scriptPubKey.ToString());
+        if (!::IsStandard(txout.scriptPubKey, whichType, rpAttributes)) {
             LogPrintf("%s():%d - Non standard output: scriptPubKey[%s]\n",
                 __func__, __LINE__, txout.scriptPubKey.ToString());
             reason = "scriptpubkey";
             return false;
         }
 
-        if (checkBlockResult.referencedHeight > 0)
+        if (!rpAttributes.IsNull())
         {
-            if ( (nHeight - checkBlockResult.referencedHeight) < getCheckBlockAtHeightMinAge())
+            if ( (nHeight - rpAttributes.referencedHeight) < getCheckBlockAtHeightMinAge())
             {
                 LogPrintf("%s():%d - referenced block h[%d], chain.h[%d], minAge[%d]\n",
-                    __func__, __LINE__, checkBlockResult.referencedHeight, nHeight, getCheckBlockAtHeightMinAge() );
+                    __func__, __LINE__, rpAttributes.referencedHeight, nHeight, getCheckBlockAtHeightMinAge() );
                 reason = "scriptpubkey checkblockatheight: referenced block too recent";
                 return false;
             }
@@ -847,7 +849,11 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         // get the scriptPubKey corresponding to this input:
         const CScript& prevScript = prev.scriptPubKey;
         if (!Solver(prevScript, whichType, vSolutions))
+        {
+            LogPrintf("%s():%d - Input %d: failed checking scriptpubkey %s\n",
+                __func__, __LINE__, i, prevScript.ToString());
             return false;
+        }
         int nArgsExpected = ScriptSigArgsExpected(whichType, vSolutions);
         if (nArgsExpected < 0)
             return false;
@@ -1338,7 +1344,9 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
         // Check for non-standard pay-to-script-hash in inputs
         if (getRequireStandard() && !AreInputsStandard(tx, view))
+        {
             return error("AcceptToMemoryPool: nonstandard transaction input");
+        }
 
         // Check that the transaction doesn't have an excessive number of
         // sigops, making it impossible to mine. Since the coinbase transaction
@@ -1868,6 +1876,41 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
                                 REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
                     }
                 }
+            }
+            else
+            {
+                /* TODO check if we need this */
+                LogPrint("cbh", "%s():%d - height %d\n", __func__, __LINE__, nSpendHeight);
+                ReplayProtectionLevel rpLevel = ForkManager::getInstance().getReplayProtectionLevel(nSpendHeight);
+
+                if (rpLevel >= RPLEVEL_FIXED_2)
+                {
+                    // check for invalid OP_CHECKBLOCKATHEIGHT in order to catch it before signature verifications are performed
+                    std::string reason;
+                    CScript scriptPubKey(coins->vout[tx.vin[i].prevout.n].scriptPubKey);
+
+#if 0
+                    ReplayProtectionAttributes rpAttributes;
+                    :: GetReplayProtectionAttributes(scriptPubKey, rpAttributes);
+
+
+                    if (!rpAttributes.GetStatus() == ReplayProtectionAttributes::NOT_APPLICABLE &&
+                        !checkReplayScript(rpAttributes, reason))
+#else
+                    if (!CheckReplayProtectionAttributes(scriptPubKey, reason) )
+#endif                        
+                    {
+                        return state.Invalid(
+                            error("%s(): input %d has an invalid scriptPubKey %s (reason=%s)",
+                                __func__, i, scriptPubKey.ToString(), reason),
+                            REJECT_INVALID, "bad-txns-output-scriptpubkey");
+                    }
+                }
+                else
+                {
+                    LogPrint("cbh", "%s():%d - Skip checking out script\n", __func__, __LINE__);
+                }
+                /* */
             }
 
             // Check for negative or overflow input values
