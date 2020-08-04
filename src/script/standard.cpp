@@ -46,7 +46,7 @@ const char* GetTxnOutputType(txnouttype t)
 /**
  * Return public keys or hashes from scriptPubKey, for 'standard' transaction types.
  */
-bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsigned char> >& vSolutionsRet, CheckBlockResult& checkBlockResult)
+bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsigned char> >& vSolutionsRet, ReplayProtectionAttributes& rpAttributes)
 {
     // Templates
     static multimap<txnouttype, CScript> mTemplates;
@@ -253,6 +253,8 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
             }
             else if (opcode2 == OP_CHECKBLOCKATHEIGHT)
             {
+                rpAttributes.SetStatus(ReplayProtectionAttributes::VALID);
+
                 if (rpLevel < RPLEVEL_FIXED_2)
                 {
             	    // Full-fledged implementation of the OP_CHECKBLOCKATHEIGHT opcode for verification of vout's
@@ -262,6 +264,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     if (vchBlockHash.size() != 32)
                     {
                         LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad params.\n", __FILE__, __func__);
+                        rpAttributes.SetStatus(ReplayProtectionAttributes::INVALID);
                         break;
                     }
 
@@ -269,7 +272,8 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     const int32_t nChActHeight = chainActive.Height();
 
                     // interested caller will use this for enforcing that referenced block is valid and not too recent
-                    checkBlockResult.referencedHeight = nHeight;
+                    rpAttributes.referencedHeight = nHeight;
+                    rpAttributes.referencedHash   = vchBlockHash;
 
                     if ((nHeight < 0 || nHeight > nChActHeight ) && ForkManager::getInstance().getReplayProtectionLevel(nChActHeight) == RPLEVEL_FIXED_1)
                     {
@@ -300,6 +304,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     {
                         LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT verification failed. Bad params size = %d\n",
                             __FILE__, __func__, __LINE__, len);
+                        rpAttributes.SetStatus(ReplayProtectionAttributes::INVALID);
                         break;
                     }
                     LogPrint("cbh", "%s: %s():%d - OP_CHECKBLOCKATHEIGHT params size = %d\n", __FILE__, __func__, __LINE__, len);
@@ -313,6 +318,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     {
                         LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT verification failed. Bad params: vh size = %d, vhash size = %d\n",
                             __FILE__, __func__, __LINE__, vchBlockHeight.size(), vchBlockHash.size());
+                        rpAttributes.SetStatus(ReplayProtectionAttributes::INVALID);
                         break;
                     }
  
@@ -322,21 +328,23 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     const int32_t nHeight = CScriptNum(vchBlockHeight, REQ_MINIMAL, sizeof(int32_t)).getint();
  
                     // interested caller will use this for enforcing that referenced block is valid and not too recent
-                    checkBlockResult.referencedHeight = nHeight;
+                    rpAttributes.referencedHeight = nHeight;
+                    rpAttributes.referencedHash   = vchBlockHash;
 
-                    // height outside the chain range are legal only in old rp implemenations
-                    if ( (nHeight < 0 || nHeight> nChActHeight) && (rpLevel >= RPLEVEL_FIXED_1))
+                    // height outside the chain range are legal only in old rp implementations, here we are in rp fix fork
+                    if ( nHeight < 0 || nHeight> nChActHeight) 
                     {
                         LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight not legal[%d], chainActive height: %d\n",
-                            __FILE__, __func__, __LINE__, checkBlockResult.referencedHeight, nChActHeight);
+                            __FILE__, __func__, __LINE__, rpAttributes.referencedHeight, nChActHeight);
                         break;
                     }
 #if !defined(BITCOIN_TX)
-                    // Compare the specified block hash with the input.
+                    // the logic for skipping the check for sufficently old blocks is in the checker obj method, similarly
+                    // to what EvalScript() parser does. 
                     TransactionSignatureChecker checker(&chainActive);
                     if (nHeight < 0 || !checker.CheckBlockHash(nHeight, vchBlockHash))
                     {
-                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Referenced height: %d not corresponding to hash %s\n",
+                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Referenced height %d invalid or not corresponding to hash %s\n",
                             __FILE__, __func__, nHeight, uint256(vchBlockHash).ToString());
                         break;
                     }
@@ -362,8 +370,8 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 }
 
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsigned char> >& vSolutionsRet) {
-	CheckBlockResult checkBlockResult;
-    return Solver(scriptPubKey, typeRet, vSolutionsRet, checkBlockResult);
+	ReplayProtectionAttributes rpAttributes;
+    return Solver(scriptPubKey, typeRet, vSolutionsRet, rpAttributes);
 }
 
 
@@ -393,16 +401,30 @@ int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned c
     return -1;
 }
 
-bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
+bool CheckReplayProtectionAttributes(const CScript& scriptPubKey, std::string reason)
 {
-	CheckBlockResult checkBlockResult;
-    return IsStandard(scriptPubKey, whichType, checkBlockResult);
+    ReplayProtectionAttributes rpAttributes;
+    GetReplayProtectionAttributes(scriptPubKey, rpAttributes);
+    return rpAttributes.check(reason);
 }
 
-bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType, CheckBlockResult& checkBlockResult)
+void GetReplayProtectionAttributes(const CScript& scriptPubKey, ReplayProtectionAttributes& rpAttributes)
 {
     vector<valtype> vSolutions;
-    if (!Solver(scriptPubKey, whichType, vSolutions, checkBlockResult))
+    txnouttype whichType;
+    Solver(scriptPubKey, whichType, vSolutions, rpAttributes);
+}
+
+bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
+{
+	ReplayProtectionAttributes rpAttributes;
+    return IsStandard(scriptPubKey, whichType, rpAttributes);
+}
+
+bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType, ReplayProtectionAttributes& rpAttributes)
+{
+    vector<valtype> vSolutions;
+    if (!Solver(scriptPubKey, whichType, vSolutions, rpAttributes))
         return false;
 
     if (whichType == TX_MULTISIG || whichType == TX_MULTISIG_REPLAY)
@@ -579,4 +601,69 @@ CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys)
         script << ToByteVector(key);
     script << CScript::EncodeOP_N(keys.size()) << OP_CHECKMULTISIG;
     return script;
+}
+
+/*
+bool isReplayType(txnouttype t)
+{
+    switch(t)
+    {
+        case TX_SCRIPTHASH_REPLAY:
+        case TX_PUBKEY_REPLAY:
+        case TX_PUBKEYHASH_REPLAY:
+        case TX_MULTISIG_REPLAY:
+        case TX_NULL_DATA_REPLAY:
+            return true;
+        default:
+            return false;
+    }
+    return false;
+};
+*/
+
+ReplayProtectionAttributes::ReplayProtectionAttributes()
+    :referencedHeight(UNDEF), referencedHash(), _status(NOT_APPLICABLE)
+{}
+
+bool ReplayProtectionAttributes::IsNull() const
+{
+    return ( referencedHeight == UNDEF && referencedHash.empty() );
+}
+
+bool ReplayProtectionAttributes::check(std::string& reason)
+{
+#ifdef BITCOIN_TX // zen-tx does not have access to chain state so no replay protection is possible
+    return true;
+#else
+    if (GetStatus() == NOT_APPLICABLE)
+    {
+        LogPrint("cbh", "%s: %s():%d - not OP_CHECKBLOCKATHEIGHT attributes, returning true\n",
+            __FILE__, __func__, __LINE__);
+        return true;
+    }
+
+    if (IsNull() || GetStatus() == INVALID)
+    {
+        LogPrint("cbh", "%s: %s():%d - OP_CHECKBLOCKATHEIGHT invalid data in check obj: h[%d]/hash[%s]\n",
+            __FILE__, __func__, __LINE__,  referencedHeight,
+            referencedHash.empty() ? "NULL" : uint256(referencedHash).ToString());
+        reason = "scriptpubkey" + std::string(": OP_CHECKBLOCKATHEIGHT referenced block not valid");
+        return false;
+    }
+
+    const int32_t nRefHeight = referencedHeight;
+    const std::vector<unsigned char>& refHash = referencedHash;
+
+    // Compare the specified block hash with the input.
+    TransactionSignatureChecker checker(&chainActive);
+    if (nRefHeight < 0 || !checker.CheckBlockHash(nRefHeight, refHash))
+    {
+        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Referenced height %d not corresponding to hash %s\n",
+            __FILE__, __func__, nRefHeight, uint256(refHash).ToString());
+        reason = "scriptpubkey" + std::string(": OP_CHECKBLOCKATHEIGHT referenced hash not corresponding to height");
+        return false;
+    }
+
+    return true;
+#endif
 }

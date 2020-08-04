@@ -853,7 +853,7 @@ mapArgs["-debug"] = "cbh";
 
     CTransaction tx(mtx);
 
-    CheckBlockResult checkBlockResult;
+    ReplayProtectionAttributes rpAttributes;
     txnouttype whichType;
     std::string reason;
 
@@ -863,13 +863,13 @@ mapArgs["-debug"] = "cbh";
 
     EXPECT_TRUE(IsStandardTx(tx, reason, 220));
 
-    EXPECT_TRUE(IsStandard(tx.vout[0].scriptPubKey, whichType, checkBlockResult));
+    EXPECT_TRUE(IsStandard(tx.vout[0].scriptPubKey, whichType, rpAttributes));
     EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
-    EXPECT_TRUE(IsStandard(tx.vout[1].scriptPubKey, whichType, checkBlockResult));
+    EXPECT_TRUE(IsStandard(tx.vout[1].scriptPubKey, whichType, rpAttributes));
     EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
-    EXPECT_TRUE(IsStandard(tx.vout[2].scriptPubKey, whichType, checkBlockResult));
+    EXPECT_TRUE(IsStandard(tx.vout[2].scriptPubKey, whichType, rpAttributes));
     EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
-    EXPECT_TRUE(IsStandard(tx.vout[3].scriptPubKey, whichType, checkBlockResult));
+    EXPECT_TRUE(IsStandard(tx.vout[3].scriptPubKey, whichType, rpAttributes));
     EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
 
     // after rp fix NOT OK anymore
@@ -879,13 +879,13 @@ mapArgs["-debug"] = "cbh";
     EXPECT_FALSE(IsStandardTx(tx, reason, 500));
     EXPECT_TRUE(reason == "scriptpubkey");
 
-    EXPECT_FALSE(IsStandard(tx.vout[0].scriptPubKey, whichType, checkBlockResult));
+    EXPECT_FALSE(IsStandard(tx.vout[0].scriptPubKey, whichType, rpAttributes));
     EXPECT_TRUE(whichType == TX_NONSTANDARD);
-    EXPECT_FALSE(IsStandard(tx.vout[1].scriptPubKey, whichType, checkBlockResult));
+    EXPECT_FALSE(IsStandard(tx.vout[1].scriptPubKey, whichType, rpAttributes));
     EXPECT_TRUE(whichType == TX_NONSTANDARD);
-    EXPECT_FALSE(IsStandard(tx.vout[2].scriptPubKey, whichType, checkBlockResult));
+    EXPECT_FALSE(IsStandard(tx.vout[2].scriptPubKey, whichType, rpAttributes));
     EXPECT_TRUE(whichType == TX_NONSTANDARD);
-    EXPECT_FALSE(IsStandard(tx.vout[3].scriptPubKey, whichType, checkBlockResult));
+    EXPECT_FALSE(IsStandard(tx.vout[3].scriptPubKey, whichType, rpAttributes));
     EXPECT_TRUE(whichType == TX_NONSTANDARD);
 
     CleanUpAll();

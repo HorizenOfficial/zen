@@ -701,22 +701,24 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
 
     unsigned int nDataOut = 0;
     txnouttype whichType;
-    for(int pos = 0; pos < txBase.GetVout().size(); ++pos) {
-        const CTxOut & txout = txBase.GetVout()[pos];
-        CheckBlockResult checkBlockResult;
-        if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
+    for(const CTxOut& txout: tx.vout) {
+
+        ReplayProtectionAttributes rpAttributes;
+        LogPrint("cbh", "%s():%d - Checking script %s\n",
+            __func__, __LINE__, txout.scriptPubKey.ToString());
+        if (!::IsStandard(txout.scriptPubKey, whichType, rpAttributes)) {
             LogPrintf("%s():%d - Non standard output: scriptPubKey[%s]\n",
                 __func__, __LINE__, txout.scriptPubKey.ToString());
             reason = "scriptpubkey";
             return false;
         }
 
-        if (checkBlockResult.referencedHeight > 0)
+        if (!rpAttributes.IsNull())
         {
-            if ( (nHeight - checkBlockResult.referencedHeight) < getCheckBlockAtHeightMinAge())
+            if ( (nHeight - rpAttributes.referencedHeight) < getCheckBlockAtHeightMinAge())
             {
                 LogPrintf("%s():%d - referenced block h[%d], chain.h[%d], minAge[%d]\n",
-                    __func__, __LINE__, checkBlockResult.referencedHeight, nHeight, getCheckBlockAtHeightMinAge() );
+                    __func__, __LINE__, rpAttributes.referencedHeight, nHeight, getCheckBlockAtHeightMinAge() );
                 reason = "scriptpubkey checkblockatheight: referenced block too recent";
                 return false;
             }
@@ -828,7 +830,11 @@ bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& ma
         // get the scriptPubKey corresponding to this input:
         const CScript& prevScript = prev.scriptPubKey;
         if (!Solver(prevScript, whichType, vSolutions))
+        {
+            LogPrintf("%s():%d - Input %d: failed checking scriptpubkey %s\n",
+                __func__, __LINE__, i, prevScript.ToString());
             return false;
+        }
         int nArgsExpected = ScriptSigArgsExpected(whichType, vSolutions);
         if (nArgsExpected < 0)
             return false;
@@ -2239,6 +2245,38 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                     REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
                 }
             }
+            else
+            {
+                /* TODO check if we need this */
+                LogPrint("cbh", "%s():%d - height %d\n", __func__, __LINE__, nSpendHeight);
+                ReplayProtectionLevel rpLevel = ForkManager::getInstance().getReplayProtectionLevel(nSpendHeight);
+
+                if (rpLevel >= RPLEVEL_FIXED_2)
+                {
+                    // check for invalid OP_CHECKBLOCKATHEIGHT in order to catch it before signature verifications are performed
+                    std::string reason;
+                    CScript scriptPubKey(coins->vout[tx.vin[i].prevout.n].scriptPubKey);
+
+                    if (!CheckReplayProtectionAttributes(scriptPubKey, reason) )
+                    {
+                        return state.Invalid(
+                            error("%s(): input %d has an invalid scriptPubKey %s (reason=%s)",
+                                __func__, i, scriptPubKey.ToString(), reason),
+                            REJECT_INVALID, "bad-txns-output-scriptpubkey");
+                    }
+                }
+                else
+                {
+                    LogPrint("cbh", "%s():%d - Skip checking out script\n", __func__, __LINE__);
+                }
+                /* */
+            }
+
+            // Check for negative or overflow input values
+            nValueIn += coins->vout[prevout.n].nValue;
+            if (!MoneyRange(coins->vout[prevout.n].nValue) || !MoneyRange(nValueIn))
+                return state.DoS(100, error("CheckInputs(): txin values out of range"),
+                                 REJECT_INVALID, "bad-txns-inputvalues-outofrange");
         }
 
         // Check for negative or overflow input values
