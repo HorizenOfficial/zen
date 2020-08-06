@@ -2245,7 +2245,6 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
             }
             else
             {
-                LogPrint("cbh", "%s():%d - height %d\n", __func__, __LINE__, nSpendHeight);
                 ReplayProtectionLevel rpLevel = ForkManager::getInstance().getReplayProtectionLevel(nSpendHeight);
 
                 if (rpLevel >= RPLEVEL_FIXED_2)
@@ -2261,10 +2260,6 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                                 __func__, i, scriptPubKey.ToString(), reason),
                             REJECT_INVALID, "bad-txns-output-scriptpubkey");
                     }
-                }
-                else
-                {
-                    LogPrint("cbh", "%s():%d - Skip checking out script\n", __func__, __LINE__);
                 }
             }
 

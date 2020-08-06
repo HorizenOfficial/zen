@@ -82,7 +82,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
     const int32_t nChActHeight = chainActive.Height();
 #else
     const int32_t nChActHeight = 0;
-#endif
+#endif // BITCOIN_TX
 
     // patch level of the replay protection forks
     ReplayProtectionLevel rpLevel = ForkManager::getInstance().getReplayProtectionLevel(nChActHeight);
@@ -232,14 +232,11 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                             break;
                         }
                         vchCbhData = std::move(vTemp);
-                        LogPrint("cbh", "%s: %s:%d - vchCbhData set to 0x%s\n", __FILE__, __func__, __LINE__, HexStr(vchCbhData.begin(), vchCbhData.end()) );
                     }
                     else
                     {
                         vchCbhData = vch1;
-                        LogPrint("cbh", "%s: %s:%d - vchCbhData set to 0x%s\n", __FILE__, __func__, __LINE__, HexStr(vchCbhData.begin(), vchCbhData.end()) );
                     }
-                    LogPrint("cbh", "%s: %s:%d - pushing 0x%s\n", __FILE__, __func__, __LINE__, HexStr(vchCbhData.begin(), vchCbhData.end()) );
                     vchCbhParams.push_back(vchCbhData);
                 }
 
@@ -277,7 +274,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
                     if ((nHeight < 0 || nHeight > nChActHeight ) && ForkManager::getInstance().getReplayProtectionLevel(nChActHeight) == RPLEVEL_FIXED_1)
                     {
-                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight not legal[%d], chainActive height: %d\n",
+                        LogPrint("cbh", "%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight not legal[%d], chainActive height: %d\n",
                             __FILE__, __func__, __LINE__, nHeight, nChActHeight);
                         break;
                     }
@@ -307,7 +304,6 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                         rpAttributes.SetStatus(ReplayProtectionAttributes::INVALID);
                         break;
                     }
-                    LogPrint("cbh", "%s: %s():%d - OP_CHECKBLOCKATHEIGHT params size = %d\n", __FILE__, __func__, __LINE__, len);
  
                     // they must have been parsed in this order, the following check protects against their swapping
                     vchBlockHash   = vchCbhParams.at(len-2);
@@ -331,21 +327,21 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     rpAttributes.referencedHeight = nHeight;
                     rpAttributes.referencedHash   = vchBlockHash;
 
+#if !defined(BITCOIN_TX)
                     // height outside the chain range are legal only in old rp implementations, here we are in rp fix fork
                     if ( nHeight < 0 || nHeight> nChActHeight) 
                     {
-                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight not legal[%d], chainActive height: %d\n",
+                        // can happen also when aligning the blockchain
+                        LogPrint("cbh", "%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight not legal[%d], chainActive height: %d\n",
                             __FILE__, __func__, __LINE__, rpAttributes.referencedHeight, nChActHeight);
                         break;
                     }
-#if !defined(BITCOIN_TX)
                     // the logic for skipping the check for sufficently old blocks is in the checker obj method, similarly
                     // to what EvalScript() parser does. 
-                    TransactionSignatureChecker checker(&chainActive);
-                    if (nHeight < 0 || !checker.CheckBlockHash(nHeight, vchBlockHash))
+                    if (nHeight < 0 || !CheckReplyProtectionData(&chainActive, nHeight, vchBlockHash) )
                     {
-                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Referenced height %d invalid or not corresponding to hash %s\n",
-                            __FILE__, __func__, nHeight, uint256(vchBlockHash).ToString());
+                        LogPrintf("%s: %s():%d OP_CHECKBLOCKATHEIGHT verification failed. Referenced height %d invalid or not corresponding to hash %s\n",
+                            __FILE__, __func__, __LINE__, nHeight, uint256(vchBlockHash).ToString());
                         break;
                     }
 #endif // BITCOIN_TX
@@ -579,7 +575,7 @@ public:
         *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL << ToByteVector(chainActive[blockIndex]->GetBlockHash()) << chainActive[blockIndex]->nHeight << OP_CHECKBLOCKATHEIGHT;
         return true;
     }
-#endif
+#endif // BITCOIN_TX
 
 };
 }
@@ -626,26 +622,21 @@ bool ReplayProtectionAttributes::check(std::string& reason)
 
     if (IsNull() || GetStatus() == INVALID)
     {
-        LogPrint("cbh", "%s: %s():%d - OP_CHECKBLOCKATHEIGHT invalid data in check obj: h[%d]/hash[%s]\n",
-            __FILE__, __func__, __LINE__,  referencedHeight,
-            referencedHash.empty() ? "NULL" : uint256(referencedHash).ToString());
-        reason = "scriptpubkey" + std::string(": OP_CHECKBLOCKATHEIGHT referenced block not valid");
+        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT invalid data in check obj\n",
+            __FILE__, __func__, __LINE__);
+        reason = "scriptpubkey" + std::string(": OP_CHECKBLOCKATHEIGHT invalid height or referenced block");
         return false;
     }
 
-    const int32_t nRefHeight = referencedHeight;
-    const std::vector<unsigned char>& refHash = referencedHash;
-
     // Compare the specified block hash with the input.
-    TransactionSignatureChecker checker(&chainActive);
-    if (nRefHeight < 0 || !checker.CheckBlockHash(nRefHeight, refHash))
+    if (referencedHeight < 0 || !CheckReplyProtectionData(&chainActive, referencedHeight, referencedHash))
     {
         LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Referenced height %d not corresponding to hash %s\n",
-            __FILE__, __func__, nRefHeight, uint256(refHash).ToString());
+            __FILE__, __func__, referencedHeight, uint256(referencedHash).ToString());
         reason = "scriptpubkey" + std::string(": OP_CHECKBLOCKATHEIGHT referenced hash not corresponding to height");
         return false;
     }
 
     return true;
-#endif
+#endif // BITCOIN_TX
 }
