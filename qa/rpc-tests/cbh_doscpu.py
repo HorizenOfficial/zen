@@ -127,7 +127,8 @@ class cbh_doscpu(BitcoinTestFramework):
             assert_true(False)
         except JSONRPCException,e:
             self.mark_logs("==> Node2 tx has not been accepted in mempool! {}".format(e.error['message']))
-            #assert_true("non-mandatory-script-verify-flag" in e.error['message'])
+            # this has been rejected by the verifier thread
+            assert_true("non-mandatory-script-verify-flag" in e.error['message'])
             self.sync_all()
 
         # reaching rp fix fork
@@ -142,7 +143,8 @@ class cbh_doscpu(BitcoinTestFramework):
             assert_true(False)
         except JSONRPCException,e:
             self.mark_logs("==> Node2 tx has not been accepted in mempool! {}".format(e.error['message']))
-            #assert_true("non-mandatory-script-verify-flag" in e.error['message'])
+            # this has been rejected by the check input thread
+            assert_true("bad-txns-output-scriptpubkey" in e.error['message'])
             self.sync_all()
 
 

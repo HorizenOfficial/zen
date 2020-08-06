@@ -128,7 +128,6 @@ protected:
     virtual bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
 
 public:
-    TransactionSignatureChecker(const CChain* chainIn);
     TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CChain* chainIn) : txTo(txToIn), nIn(nInIn), chain(chainIn) {}
     bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode) const;
     bool CheckLockTime(const CScriptNum& nLockTime) const;
@@ -146,5 +145,7 @@ public:
 
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* error = NULL);
 bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* error = NULL);
+
+bool CheckReplyProtectionData(const CChain* chain, int nHeight, const std::vector<unsigned char>& vchCompareTo);
 
 #endif // BITCOIN_SCRIPT_INTERPRETER_H
