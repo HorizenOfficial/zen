@@ -113,11 +113,11 @@ class ReplayProtectionAttributes
     bool IsNull() const;
 
     enum Status {
-        // no replay protection script to check
+        // no replay protection script was used
         NOT_APPLICABLE = 0x0,
         // In a replay protection script could not get valid attributes due to invalid structure 
         INVALID,
-        // got formal attributes of replay protection script, that does not mean the script is OK
+        // got formal attributes of replay protection script; that does not mean the script is OK
         VALID
     };
 
@@ -133,8 +133,6 @@ class ReplayProtectionAttributes
 
 bool CheckReplayProtectionAttributes(const CScript& scriptPubKey, std::string reason);
 void GetReplayProtectionAttributes(const CScript& scriptPubKey, ReplayProtectionAttributes& rpAttributes);
-//bool isReplayType(txnouttype t);
-//bool checkReplayScript(const ReplayProtectionAttributes& rpAttributes, std::string& reason);
 
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet, ReplayProtectionAttributes& rpAttributes);
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet);

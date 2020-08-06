@@ -1862,7 +1862,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
         else if (!(fIsMine & filter))
             continue;
 
-        // In either case, we need to get the destination address if any
+        // In either case, we need to get a destination address if any is contained in the script
         CTxDestination address;
         if (!ExtractDestination(txout.scriptPubKey, address))
         {

@@ -704,8 +704,6 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
     for(const CTxOut& txout: tx.vout) {
 
         ReplayProtectionAttributes rpAttributes;
-        LogPrint("cbh", "%s():%d - Checking script %s\n",
-            __func__, __LINE__, txout.scriptPubKey.ToString());
         if (!::IsStandard(txout.scriptPubKey, whichType, rpAttributes)) {
             LogPrintf("%s():%d - Non standard output: scriptPubKey[%s]\n",
                 __func__, __LINE__, txout.scriptPubKey.ToString());
@@ -2247,7 +2245,6 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
             }
             else
             {
-                /* TODO check if we need this */
                 LogPrint("cbh", "%s():%d - height %d\n", __func__, __LINE__, nSpendHeight);
                 ReplayProtectionLevel rpLevel = ForkManager::getInstance().getReplayProtectionLevel(nSpendHeight);
 
@@ -2257,7 +2254,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                     std::string reason;
                     CScript scriptPubKey(coins->vout[tx.vin[i].prevout.n].scriptPubKey);
 
-                    if (!CheckReplayProtectionAttributes(scriptPubKey, reason) )
+                    if (!CheckReplayProtectionAttributes(scriptPubKey, reason) )                      
                     {
                         return state.Invalid(
                             error("%s(): input %d has an invalid scriptPubKey %s (reason=%s)",
@@ -2269,7 +2266,6 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                 {
                     LogPrint("cbh", "%s():%d - Skip checking out script\n", __func__, __LINE__);
                 }
-                /* */
             }
 
             // Check for negative or overflow input values

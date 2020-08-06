@@ -18,12 +18,23 @@ class NullDataTest (BitcoinTestFramework):
         initialize_chain_clean(self.options.tmpdir, 3)
 
     def setup_network(self, split=False):
-        self.nodes = start_nodes(3, self.options.tmpdir)
+        self.nodes = start_nodes(3, self.options.tmpdir,
+            extra_args = [
+                ["-logtimemicros", "-debug=py", "-debug=cbh"],
+                ["-logtimemicros", "-debug=py", "-debug=cbh"],
+                ["-logtimemicros", "-debug=py", "-debug=cbh"]
+            ])
         connect_nodes_bi(self.nodes, 0, 1)
         connect_nodes_bi(self.nodes, 1, 2)
         connect_nodes_bi(self.nodes, 0, 2)
         self.is_network_split = False
         self.sync_all()
+
+    def mark_logs(self, msg):
+        print msg
+        self.nodes[0].dbg_log(msg)
+        self.nodes[1].dbg_log(msg)
+        self.nodes[2].dbg_log(msg)
 
     def run_test(self):
         #logging.basicConfig()
@@ -86,7 +97,14 @@ class NullDataTest (BitcoinTestFramework):
         def send_null_tx_and_check(node, tx, data):        
             # Signing and broadcasting the transactions
             tx = node.signrawtransaction(tx)['hex']
-            returned_txid = node.sendrawtransaction(tx)
+            try:
+                returned_txid = node.sendrawtransaction(tx)
+            except JSONRPCException,e:
+                print "================> Failed: ", e.error['message']
+                pprint.pprint(node.decoderawtransaction(tx))
+                raise 
+                
+
             self.sync_all()
  
             node.generate(1)

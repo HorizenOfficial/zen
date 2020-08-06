@@ -603,24 +603,6 @@ CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys)
     return script;
 }
 
-/*
-bool isReplayType(txnouttype t)
-{
-    switch(t)
-    {
-        case TX_SCRIPTHASH_REPLAY:
-        case TX_PUBKEY_REPLAY:
-        case TX_PUBKEYHASH_REPLAY:
-        case TX_MULTISIG_REPLAY:
-        case TX_NULL_DATA_REPLAY:
-            return true;
-        default:
-            return false;
-    }
-    return false;
-};
-*/
-
 ReplayProtectionAttributes::ReplayProtectionAttributes()
     :referencedHeight(UNDEF), referencedHash(), _status(NOT_APPLICABLE)
 {}
