@@ -9,7 +9,6 @@ from binascii import hexlify, unhexlify
 import struct
 import logging
 from decimal import Decimal
-import pprint
 
 
 class NullDataTest (BitcoinTestFramework):
@@ -97,12 +96,7 @@ class NullDataTest (BitcoinTestFramework):
         def send_null_tx_and_check(node, tx, data):        
             # Signing and broadcasting the transactions
             tx = node.signrawtransaction(tx)['hex']
-            try:
-                returned_txid = node.sendrawtransaction(tx)
-            except JSONRPCException,e:
-                print "================> Failed: ", e.error['message']
-                pprint.pprint(node.decoderawtransaction(tx))
-                raise 
+            returned_txid = node.sendrawtransaction(tx)
                 
 
             self.sync_all()
@@ -141,6 +135,7 @@ class NullDataTest (BitcoinTestFramework):
                 # this will be refused because data size exceeds max
                 errorString = e.error['message']
                 assert_equal("scriptpubkey" in errorString, True);
+                print "...Ok, refused data exceeding max size"
 
                 
         # ----------- Tests start ----------------------
