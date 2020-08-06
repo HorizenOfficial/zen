@@ -19,4 +19,4 @@ public:
 };
 
 }
-#endif // _SIDECHAINFORK_H
+#endif // _REPLAY_PROT_FIX_FORK_H

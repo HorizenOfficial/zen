@@ -1235,11 +1235,6 @@ bool TransactionSignatureChecker::CheckBlockHash(const int32_t nHeight, const st
         return false;
     }
 
-/*
-    uint256 refBlockHash(vchCompareTo);
-    LogPrint("cbh", "%s():%d - comparing ref %s and %s\n",
-        __func__, __LINE__, refBlockHash.ToString(), blockHash.ToString() );
- */
     return (vchCompareTo == vchBlockHash);
 }
 

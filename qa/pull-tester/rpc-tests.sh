@@ -74,6 +74,8 @@ testScripts=(
   'blockdelay.py'
   'blockdelay_2.py'
   'z_sendmany.py'
+  'cbh_rpfix.py'
+  'cbh_doscpu.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
