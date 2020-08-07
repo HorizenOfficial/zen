@@ -424,18 +424,23 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
         {
             LOCK(cs_vNonTLSNodesOutbound);
         
+            LogPrint("tls", "%s():%d - handling connection to %s\n", __func__, __LINE__,  addrConnect.ToString());
+
             NODE_ADDR nodeAddr(addrConnect.ToStringIP());
         
             bool bUseTLS = (find(vNonTLSNodesOutbound.begin(),
                                  vNonTLSNodesOutbound.end(),
                                  nodeAddr) == vNonTLSNodesOutbound.end());
+            unsigned long err_code = 0;
             if (bUseTLS)
             {
-                ssl = tlsmanager.connect(hSocket, addrConnect);
+                ssl = tlsmanager.connect(hSocket, addrConnect, err_code);
                 if (!ssl)
                 {
                     // Further reconnection will be made in non-TLS (unencrypted) mode
                     vNonTLSNodesOutbound.push_back(NODE_ADDR(addrConnect.ToStringIP(), GetTimeMillis()));
+                    LogPrint("tls", " err_code %d, adding connection to %s vNonTLSNodesOutbound list (sz=%d)\n",
+                        err_code, addrConnect.ToStringIP(), vNonTLSNodesOutbound.size());
                     CloseSocket(hSocket);
                     return NULL;
                 }
@@ -453,7 +458,8 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
             }
         }
 #else
-        ssl = TLSManager::connect(hSocket, addrConnect);
+        unsigned long err_code = 0;
+        ssl = tlsmanager.connect(hSocket, addrConnect, err_code);
         if(!ssl)
         {
             CloseSocket(hSocket);
@@ -518,8 +524,8 @@ void CNode::CloseSocketDisconnect()
         
             if (ssl)
             {
-
-                tlsmanager.waitFor(SSL_SHUTDOWN, hSocket, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000));
+                unsigned long err_code = 0;
+                tlsmanager.waitFor(SSL_SHUTDOWN, hSocket, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000), err_code);
                 SSL_free(ssl);
                 ssl = NULL;
             }
@@ -1112,18 +1118,23 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
     {
         LOCK(cs_vNonTLSNodesInbound);
     
+        LogPrint("tls", "%s():%d - handling connection from %s\n", __func__, __LINE__,  addr.ToStringIP());
+
         NODE_ADDR nodeAddr(addr.ToStringIP());
         
         bool bUseTLS = (find(vNonTLSNodesInbound.begin(),
                              vNonTLSNodesInbound.end(),
                              nodeAddr) == vNonTLSNodesInbound.end());
+        unsigned long err_code = 0;
         if (bUseTLS)
         {
-            ssl = tlsmanager.accept( hSocket, addr);
+            ssl = tlsmanager.accept( hSocket, addr, err_code);
             if(!ssl)
             {
                 // Further reconnection will be made in non-TLS (unencrypted) mode
                 vNonTLSNodesInbound.push_back(NODE_ADDR(addr.ToStringIP(), GetTimeMillis()));
+                LogPrint("tls", "err_code %d, adding connection from %s vNonTLSNodesInbound list (sz=%d)\n",
+                    err_code, addr.ToStringIP(), vNonTLSNodesInbound.size());
                 CloseSocket(hSocket);
                 return;
             }
@@ -1142,7 +1153,8 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
         }
     }
 #else
-    ssl = TLSManager::accept( hSocket, addr);
+    unsigned long err_code = 0;
+    ssl = tlsmanager.accept( hSocket, addr, err_code);
     if(!ssl)
     {
         CloseSocket(hSocket);
@@ -2351,7 +2363,8 @@ CNode::~CNode()
     {
         if (ssl)
         {
-            tlsmanager.waitFor(SSL_SHUTDOWN, hSocket, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000));
+            unsigned long err_code = 0;
+            tlsmanager.waitFor(SSL_SHUTDOWN, hSocket, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000), err_code);
             
             SSL_free(ssl);
             ssl = NULL;

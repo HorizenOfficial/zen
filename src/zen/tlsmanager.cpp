@@ -8,6 +8,7 @@
 #include "../util.h"
 #include "../protocol.h"
 
+
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 
@@ -35,41 +36,104 @@ int tlsCertVerificationCallback(int preverify_ok, X509_STORE_CTX* chainContext)
  * @param timeoutSec timeout in seconds.
  * @return int returns nError corresponding to the connection event.
  */
-int TLSManager::waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl, int timeoutSec)
+int TLSManager::waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl, int timeoutSec, unsigned long& err_code)
 {
     int nErr = 0;
     ERR_clear_error(); // clear the error queue
+    err_code = 0;
 
     while (true) {
+        // clear the current thread's error queue
+        ERR_clear_error();
+
         switch (eRoutine) {
-        case SSL_CONNECT:
-            nErr = SSL_connect(ssl);
+            case SSL_CONNECT:
+            {
+                nErr = SSL_connect(ssl);
+                if (nErr == 0)
+                {
+                    err_code = ERR_get_error();
+                    const char* error_str = ERR_error_string(err_code, NULL);
+                    LogPrint("tls", "TLS: WARNING: %s: %s():%d - SSL_CONNECT err: %s\n",
+                        __FILE__, __func__, __LINE__, error_str);
+                    return -1;
+                }
+            }
             break;
-
-        case SSL_ACCEPT:
-            nErr = SSL_accept(ssl);
+         
+            case SSL_ACCEPT:
+            {
+                nErr = SSL_accept(ssl);
+                if (nErr == 0)
+                {
+                    err_code = ERR_get_error();
+                    const char* error_str = ERR_error_string(err_code, NULL);
+                    LogPrint("tls", "TLS: WARNING: %s: %s():%d - SSL_ACCEPT err: %s\n",
+                        __FILE__, __func__, __LINE__, error_str);
+                    return -1;
+                }
+            }
             break;
-
-        case SSL_SHUTDOWN:
-            nErr = SSL_shutdown(ssl);
+         
+            case SSL_SHUTDOWN:
+            {
+                int fd = SSL_get_fd(ssl);
+                if (fd >= 0)
+                {
+                    struct sockaddr_in addr;
+                    socklen_t serv_len = sizeof(addr);
+                    getpeername(fd, (struct sockaddr *)&addr, &serv_len);
+                    LogPrint("tls", "TLS: shutting down %s:%d\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+                }
+                nErr = SSL_shutdown(ssl);
+            }
             break;
-
-        default:
-            return -1;
+         
+            default:
+                return -1;
         }
 
         if (eRoutine == SSL_SHUTDOWN) {
-            if (nErr >= 0)
-                break;
+            if (nErr == 0)
+            {
+                LogPrint("tls", "TLS: WARNING: %s: %s():%d - SSL_SHUTDOWN: The close_notify was sent but the peer did not send it back yet.\n",
+                        __FILE__, __func__, __LINE__);
+                // do not call SSL_get_error() because it may misleadingly indicate an error even though no error occurred.
+                return 0;
+            }
+            else
+            if (nErr == 1)
+            {
+                LogPrint("tls", "TLS: %s: %s():%d - SSL_SHUTDOWN completed\n", __FILE__, __func__, __LINE__);
+                return 1;
+            }
         } else {
             if (nErr == 1)
+            {
+                LogPrint("tls", "TLS: %s: %s():%d - %s completed\n", __FILE__, __func__, __LINE__,
+                    eRoutine == SSL_CONNECT ? "SSL_CONNECT" : "SSL_ACCEPT");
                 break;
+            }
         }
 
         int sslErr = SSL_get_error(ssl, nErr);
 
         if (sslErr != SSL_ERROR_WANT_READ && sslErr != SSL_ERROR_WANT_WRITE) {
-            LogPrint("net", "TLS: WARNING: %s: %s: ssl_err_code: %s; errno: %s\n", __FILE__, __func__, ERR_error_string(sslErr, NULL), strerror(errno));
+//            LogPrint("net", "TLS: WARNING: %s: %s: ssl_err_code: %s; errno: %s\n", __FILE__, __func__, ERR_error_string(sslErr, NULL), strerror(errno));
+            err_code = ERR_get_error();
+            const char* error_str = ERR_error_string(err_code, NULL);
+            if (sslErr == SSL_ERROR_SYSCALL)
+            {
+                LogPrint("tls", "TLS: WARNING: %s: %s():%d - routine(%d), sslErr[0x%x], err[0x%x], lib[0x%x], func[0x%x], reas[0x%x]-> err: %s\n",
+                    __FILE__, __func__, __LINE__,
+                    eRoutine, sslErr, errno, ERR_GET_LIB(err_code), ERR_GET_FUNC(err_code), ERR_GET_REASON(err_code), error_str);
+            }
+            else
+            {
+                LogPrint("tls", "TLS: WARNING: %s: %s():%d - routine(%d), sslErr[0x%x], lib[0x%x], func[0x%x], reas[0x%x]-> err: %s\n",
+                    __FILE__, __func__, __LINE__,
+                    eRoutine, sslErr, ERR_GET_LIB(err_code), ERR_GET_FUNC(err_code), ERR_GET_REASON(err_code), error_str);
+            }
             nErr = -1;
             break;
         }
@@ -83,22 +147,24 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl,
         if (sslErr == SSL_ERROR_WANT_READ) {
             int result = select(hSocket + 1, &socketSet, NULL, NULL, &timeout);
             if (result == 0) {
-                LogPrint("net", "TLS: ERROR: %s: %s: WANT_READ timeout\n", __FILE__, __func__);
+                LogPrint("tls", "TLS: ERROR: %s: %s: WANT_READ timeout\n", __FILE__, __func__);
                 nErr = -1;
                 break;
             } else if (result == -1) {
-                LogPrint("net", "TLS: ERROR: %s: %s: WANT_READ ssl_err_code: %s; errno: %s\n", __FILE__, __func__, ERR_error_string(sslErr, NULL), strerror(errno));
+                LogPrint("tls", "TLS: ERROR: %s: %s: WANT_READ ssl_err_code: 0x%x; errno: %s\n",
+                    __FILE__, __func__, sslErr, strerror(errno));
                 nErr = -1;
                 break;
             }
         } else {
             int result = select(hSocket + 1, NULL, &socketSet, NULL, &timeout);
             if (result == 0) {
-                LogPrint("net", "TLS: ERROR: %s: %s: WANT_WRITE timeout\n", __FILE__, __func__);
+                LogPrint("tls", "TLS: ERROR: %s: %s: WANT_WRITE timeout\n", __FILE__, __func__);
                 nErr = -1;
                 break;
             } else if (result == -1) {
-                LogPrint("net", "TLS: ERROR: %s: %s: WANT_WRITE ssl_err_code: %s; errno: %s\n", __FILE__, __func__, ERR_error_string(sslErr, NULL), strerror(errno));
+                LogPrint("tls", "TLS: ERROR: %s: %s: WANT_WRITE ssl_err_code: 0x%x; errno: %s\n",
+                    __FILE__, __func__, sslErr, strerror(errno));
                 nErr = -1;
                 break;
             }
@@ -115,23 +181,27 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl,
  * @param tls_ctx_client TLS Client context
  * @return SSL* returns a ssl* if successful, otherwise returns NULL.
  */
-SSL* TLSManager::connect(SOCKET hSocket, const CAddress& addrConnect)
+SSL* TLSManager::connect(SOCKET hSocket, const CAddress& addrConnect, unsigned long& err_code)
 {
-    LogPrint("net", "TLS: establishing connection (tid = %X), (peerid = %s)\n", pthread_self(), addrConnect.ToString());
+    LogPrint("tls", "TLS: establishing connection (tid = %X), (peerid = %s)\n", pthread_self(), addrConnect.ToString());
 
+    err_code = 0;
     SSL* ssl = NULL;
     bool bConnectedTLS = false;
 
     if ((ssl = SSL_new(tls_ctx_client))) {
         if (SSL_set_fd(ssl, hSocket)) {
-            if (TLSManager::waitFor(SSL_CONNECT, hSocket, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000)) == 1)
-
+            int ret = TLSManager::waitFor(SSL_CONNECT, hSocket, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000), err_code);
+            if (ret == 1)
+            {
                 bConnectedTLS = true;
+            }
         }
     }
 
     if (bConnectedTLS) {
-        LogPrintf("TLS: connection to %s has been established. Using cipher: %s\n", addrConnect.ToString(), SSL_get_cipher(ssl));
+        LogPrintf("TLS: connection to %s has been established (tlsv = %s 0x%04x / ssl = %s 0x%x ). Using cipher: %s\n",
+            addrConnect.ToString(), SSL_get_version(ssl), SSL_version(ssl), OpenSSL_version(OPENSSL_VERSION), OpenSSL_version_num(), SSL_get_cipher(ssl));
     } else {
         LogPrintf("TLS: %s: %s: TLS connection to %s failed\n", __FILE__, __func__, addrConnect.ToString());
 
@@ -161,11 +231,42 @@ SSL_CTX* TLSManager::initCtx(
         !boost::filesystem::exists(certificateFile))
         return NULL;
 
+#ifndef TLS1_2_VERSION
+        LogPrintf("TLS: ERROR: %s: %s():%d Your OpenSSL version %s does not support TLS v1.2\n",
+            __FILE__, __func__, __LINE__, OpenSSL_version(OPENSSL_VERSION) );
+        return NULL;
+#endif
+
     bool bInitialized = false;
     SSL_CTX* tlsCtx = NULL;
 
-    if ((tlsCtx = SSL_CTX_new(ctxType == SERVER_CONTEXT ? TLS_server_method() : TLS_client_method()))) {
+    if ((tlsCtx = SSL_CTX_new(ctxType == SERVER_CONTEXT ? SSLv23_server_method() : SSLv23_client_method()))) {
         SSL_CTX_set_mode(tlsCtx, SSL_MODE_AUTO_RETRY);
+
+        // Disable TLS 1.0. and 1.1
+        int ret = SSL_CTX_set_min_proto_version(tlsCtx, TLS1_2_VERSION);
+        if (ret == 0)
+        {
+            LogPrintf("TLS: WARNING: %s: %s():%d - failed to set min TLS version\n", __FILE__, __func__, __LINE__);
+        }
+
+        // Fix for Secure Client-Initiated Renegotiation DoS threat
+        long mask1 = SSL_CTX_get_options(tlsCtx);
+        long mask2 = SSL_CTX_set_options(tlsCtx, SSL_OP_NO_RENEGOTIATION);
+        if (mask1 == mask2)
+        {
+            LogPrintf("TLS: WARNING: %s: %s():%d - failed to set SSL_OP_NO_RENEGOTIATION option\n", __FILE__, __func__, __LINE__);
+        }
+        long mask3 = SSL_CTX_set_options(tlsCtx, SSL_OP_CIPHER_SERVER_PREFERENCE);
+        if (mask2 == mask3)
+        {
+            LogPrintf("TLS: WARNING: %s: %s():%d - failed to set SSL_OP_CIPHER_SERVER_PREFERENCE option\n", __FILE__, __func__, __LINE__);
+        }
+
+        int min_ver = SSL_CTX_get_min_proto_version(tlsCtx);
+        int max_ver = SSL_CTX_get_max_proto_version(tlsCtx); // 0x0 means auto
+
+        LogPrintf("TLS: proto version: min/max 0x%04x/0x04%x, m1=0x%x, m2=0x%x m3=0x%x\n", min_ver, max_ver, mask1, mask2, mask3);
 
         int rootCertsNum = LoadDefaultRootCertificates(tlsCtx);
         int trustedPathsNum = 0;
@@ -249,22 +350,27 @@ bool TLSManager::prepareCredentials()
  * @param tls_ctx_server TLS server context.
  * @return SSL* returns pointer to the ssl object if successful, otherwise returns NULL
  */
-SSL* TLSManager::accept(SOCKET hSocket, const CAddress& addr)
+SSL* TLSManager::accept(SOCKET hSocket, const CAddress& addr, unsigned long& err_code)
 {
-    LogPrint("net", "TLS: accepting connection from %s (tid = %X)\n", addr.ToString(), pthread_self());
+    LogPrint("tls", "TLS: accepting connection from %s (tid = %X)\n", addr.ToString(), pthread_self());
 
+    err_code = 0; 
     SSL* ssl = NULL;
     bool bAcceptedTLS = false;
 
     if ((ssl = SSL_new(tls_ctx_server))) {
         if (SSL_set_fd(ssl, hSocket)) {
-            if (TLSManager::waitFor(SSL_ACCEPT, hSocket, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000)) == 1)
+            int ret = TLSManager::waitFor(SSL_ACCEPT, hSocket, ssl, (DEFAULT_CONNECT_TIMEOUT / 1000), err_code);
+            if (ret == 1)
+            {
                 bAcceptedTLS = true;
+            }
         }
     }
 
     if (bAcceptedTLS) {
-        LogPrintf("TLS: connection from %s has been accepted. Using cipher: %s\n", addr.ToString(), SSL_get_cipher(ssl));
+        LogPrintf("TLS: connection from %s has been accepted (tlsv = %s 0x%04x / ssl = %s 0x%x ). Using cipher: %s\n",
+            addr.ToString(), SSL_get_version(ssl), SSL_version(ssl), OpenSSL_version(OPENSSL_VERSION), OpenSSL_version_num(), SSL_get_cipher(ssl));
     } else {
         LogPrintf("TLS: ERROR: %s: %s: TLS connection from %s failed\n", __FILE__, __func__, addr.ToString());
 
@@ -305,7 +411,7 @@ void TLSManager::cleanNonTLSPool(std::vector<NODE_ADDR>& vPool, CCriticalSection
     BOOST_FOREACH (NODE_ADDR nodeAddr, vPool) {
         if ((GetTimeMillis() - nodeAddr.time) >= 900000) {
             vDeleted.push_back(nodeAddr);
-            LogPrint("net", "TLS: Node %s is deleted from the non-TLS pool\n", nodeAddr.ipAddr);
+            LogPrint("tls", "TLS: Node %s is deleted from the non-TLS pool\n", nodeAddr.ipAddr);
         }
     }
 
@@ -360,7 +466,7 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
                     LOCK(pnode->cs_hSocket);
 
                     if (pnode->hSocket == INVALID_SOCKET) {
-                        LogPrint("net", "Receive: connection with %s is already closed\n", pnode->addr.ToString());
+                        LogPrint("tls", "Receive: connection with %s is already closed\n", pnode->addr.ToString());
                         return -1;
                     }
 
@@ -383,20 +489,39 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
                     pnode->nRecvBytes += nBytes;
                     pnode->RecordBytesRecv(nBytes);
                 } else if (nBytes == 0) {
+
+                    if (bIsSSL) {
+                        unsigned long error = ERR_get_error();
+                        const char* error_str = ERR_error_string(error, NULL);
+                        LogPrint("tls", "TLS: WARNING: %s: %s():%d - SSL_read err: %s\n",
+                            __FILE__, __func__, __LINE__, error_str);
+                    }
                     // socket closed gracefully (peer disconnected)
                     //
                     if (!pnode->fDisconnect)
-                        LogPrint("net", "socket closed (%s)\n", pnode->addr.ToString());
+                        LogPrint("tls", "socket closed (%s)\n", pnode->addr.ToString());
                     pnode->CloseSocketDisconnect();
+
+
                 } else if (nBytes < 0) {
+                    // TODO Old documentation of Openssl indicated a difference between 0 and -1, and that -1 was retryable.
+                    // You should instead call SSL_get_error() to find out if it's retryable.
+                    // In this case care must be taken for non SSL connections
+
                     // error
                     //
                     if (bIsSSL) {
                         if (nRet != SSL_ERROR_WANT_READ && nRet != SSL_ERROR_WANT_WRITE) // SSL_read() operation has to be repeated because of SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE (https://wiki.openssl.org/index.php/Manual:SSL_read(3)#NOTES)
                         {
                             if (!pnode->fDisconnect)
-                                LogPrintf("ERROR: SSL_read %s\n", ERR_error_string(nRet, NULL));
+                                LogPrintf("TSL: ERROR: SSL_read %s\n", ERR_error_string(nRet, NULL));
                             pnode->CloseSocketDisconnect();
+
+                            unsigned long error = ERR_get_error();
+                            const char* error_str = ERR_error_string(error, NULL);
+                            LogPrint("tls", "TLS: WARNING: %s: %s():%d - SSL_read - code[0x%x], err: %s\n",
+                                __FILE__, __func__, __LINE__, nRet, error_str);
+
                         } else {
                             // preventive measure from exhausting CPU usage
                             //
@@ -405,7 +530,7 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
                     } else {
                         if (nRet != WSAEWOULDBLOCK && nRet != WSAEMSGSIZE && nRet != WSAEINTR && nRet != WSAEINPROGRESS) {
                             if (!pnode->fDisconnect)
-                                LogPrintf("ERROR: socket recv %s\n", NetworkErrorString(nRet));
+                                LogPrintf("TSL: ERROR: socket recv %s\n", NetworkErrorString(nRet));
                             pnode->CloseSocketDisconnect();
                         }
                     }
@@ -467,7 +592,7 @@ bool TLSManager::initialize()
     {
         if ((tls_ctx_client = TLSManager::initCtx(CLIENT_CONTEXT, privKeyFile, certFile, trustedDirs)))
         {
-            LogPrint("net", "TLS: contexts are initialized\n");
+            LogPrint("tls", "TLS: contexts are initialized\n");
             bInitializationStatus = true;
         }
         else
