@@ -43,6 +43,7 @@
 #include "zen/delay.h"
 
 #include "sc/sidechain.h"
+#include <sc/sidechainTxsCommitmentBuilder.h>
 
 using namespace zen;
 

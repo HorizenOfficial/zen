@@ -271,6 +271,7 @@ libbitcoin_server_a_SOURCES = \
   rpc/net.cpp \
   rpc/rawtransaction.cpp \
   rpc/server.cpp \
+  sc/sidechainTxsCommitmentBuilder.cpp \
   sc/proofverifier.cpp \
   sc/sidechain.cpp \
   sc/sidechainrpc.cpp \
@@ -506,6 +507,7 @@ zen_tx_SOURCES = \
     bitcoin-tx.cpp \
     primitives/transaction.cpp \
     primitives/certificate.cpp \
+    sc/sidechainTxsCommitmentBuilder.cpp \
     coins.cpp \
     script/interpreter.cpp \
     script/standard.cpp
