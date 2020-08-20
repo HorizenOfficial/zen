@@ -936,73 +936,7 @@ public:
         return nValueOut;
     }
 
- public:
-    template <typename T>
-    inline void fillCrosschainOutput(const T& vOuts, unsigned int& nIdx, std::map<uint256, std::vector<uint256> >& map, std::set<uint256>& sScIds) const
-    {
-        const uint256& txHash = GetHash();
- 
-        for(const auto& txccout : vOuts)
-        {
-            sScIds.insert(txccout.GetScId());
-
-            // if the mapped value exists, vec is a reference to it. If it does not, vec is
-            // a reference to the new element inserted in the map with the scid as a key
-            std::vector<uint256>& vec = map[txccout.GetScId()];
- 
-            LogPrint("sc", "%s():%d - processing scId[%s], vec size = %d\n",
-                __func__, __LINE__, txccout.GetScId().ToString(), vec.size());
- 
-            const uint256& ccoutHash = txccout.GetHash();
-            unsigned int n = nIdx;
- 
-            LogPrint("sc", "%s():%d -Inputs: h1[%s], h2[%s], n[%d]\n",
-                __func__, __LINE__, ccoutHash.ToString(), txHash.ToString(), n);
-
-            const uint256& entry = Hash(
-                BEGIN(ccoutHash), END(ccoutHash),
-                BEGIN(txHash),    END(txHash),
-                BEGIN(n),         END(n) );
-
-#ifdef DEBUG_SC_COMMITMENT_HASH
-            CDataStream ss2(SER_NETWORK, PROTOCOL_VERSION);
-            ss2 << ccoutHash;
-            ss2 << txHash;
-            ss2 << n;
-            std::string ser2( HexStr(ss2.begin(), ss2.end()));
-            const uint256& entry2 = Hash(ss2.begin(), ss2.begin() + (unsigned int)ss2.in_avail() );
-
-            CHashWriter ss3(SER_GETHASH, PROTOCOL_VERSION);
-            ss3 << ccoutHash;
-            ss3 << txHash;
-            ss3 << n;
-            const uint256& entry3 = ss3.GetHash();
-
-            CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-            ss << txccout;
-            std::string ser( HexStr(ss.begin(), ss.end()));
-         
-            std::cout << __func__ << " -------------------------------------------" << std::endl;
-            std::cout << "                       ccout: " << ser << std::endl;
-            std::cout << "-------------------------------------------" << std::endl;
-            std::cout << "                 Hash(ccout): " << ccoutHash.ToString() << std::endl;
-            std::cout << "                        txid: " << txHash.ToString() << std::endl;
-            std::cout << "                           n: " << std::hex << n << std::dec << std::endl;
-            std::cout << "-------------------------------------------" << std::endl;
-            std::cout << "    Hash(Hash(ccout)|txid|n): " << entry.ToString() << std::endl;
-            std::cout << "-------------------------------------------" << std::endl;
-            std::cout << "concat = Hash(ccout)|txid| n: " << ser2 << std::endl;
-            std::cout << "                Hash(concat): " << entry2.ToString() << std::endl;
-#endif
-
-            vec.push_back(entry);
-
-            LogPrint("sc", "%s():%d -Output: entry[%s]\n", __func__, __LINE__, entry.ToString());
- 
-            nIdx++;
-        }
-    }
-
+public:
     void AddToBlock(CBlock* pblock) const override;
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const override;
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;

@@ -36,14 +36,16 @@ void SidechainTxsCommitmentBuilder::add(const CTransaction& tx)
     if (!tx.IsScVersion())
         return;
 
-    unsigned int nIdx = 0;
+    unsigned int ccOutIdx = 0;
     LogPrint("sc", "%s():%d -getting leaves for vsc out\n", __func__, __LINE__);
-    tx.fillCrosschainOutput(tx.GetVscCcOut(), nIdx, mScMerkleTreeLeavesFt, sScIds);
+    for(; ccOutIdx < tx.GetVscCcOut().size(); ++ccOutIdx)
+        fillCrosschainOutput(tx.GetHash(), tx.GetVscCcOut()[ccOutIdx], ccOutIdx, mScMerkleTreeLeavesFt);
 
     LogPrint("sc", "%s():%d -getting leaves for vft out\n", __func__, __LINE__);
-    tx.fillCrosschainOutput(tx.GetVftCcOut(), nIdx, mScMerkleTreeLeavesFt, sScIds);
+    for(; ccOutIdx < tx.GetVftCcOut().size(); ++ccOutIdx)
+        fillCrosschainOutput(tx.GetHash(), tx.GetVftCcOut()[ccOutIdx], ccOutIdx, mScMerkleTreeLeavesFt);
 
-    LogPrint("sc", "%s():%d - nIdx[%d]\n", __func__, __LINE__, nIdx);
+    LogPrint("sc", "%s():%d - nIdx[%d]\n", __func__, __LINE__, ccOutIdx);
 }
 
 void SidechainTxsCommitmentBuilder::add(const CScCertificate& cert)
