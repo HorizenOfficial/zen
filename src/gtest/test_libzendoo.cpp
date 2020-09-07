@@ -91,7 +91,7 @@ TEST(ZendooLib, PoseidonMerkleTreeTest)  {
     size_t height = 10;
 
     // Deserialize root
-    unsigned char expected_root_bytes[96] = {
+    unsigned char expected_root_bytes[SC_FIELD_SIZE] = {
         231, 64, 42, 251, 206, 22, 102, 105, 222, 145, 252, 133, 62, 169, 60, 150, 50, 133, 187, 38, 47, 246, 192, 170,
         161, 204, 152, 177, 20, 209, 217, 101, 34, 159, 246, 176, 23, 223, 62, 191, 103, 165, 210, 114, 179, 110, 140,
         252, 250, 167, 106, 31, 7, 178, 109, 108, 20, 239, 162, 121, 99, 207, 137, 224, 124, 212, 65, 229, 5, 112, 116,
@@ -101,7 +101,10 @@ TEST(ZendooLib, PoseidonMerkleTreeTest)  {
     ASSERT_TRUE(expected_root != NULL);
 
     //Generate leaves
-    int leaves_len = 512;
+
+    //enum removes variable length buffer [-Wstack-protector] warning that simple const int would give
+    enum { leaves_len = 512 };
+
     const field_t* leaves[leaves_len];
     for (int i = 0; i < leaves_len; i++){
         leaves[i] = zendoo_get_field_from_long(i);
@@ -156,7 +159,7 @@ TEST(ZendooLib, TestProof)
         237, 117, 117, 60, 200, 70, 187, 171
     };
 
-    unsigned char constant_bytes[96] = {
+    unsigned char constant_bytes[SC_FIELD_SIZE] = {
         234, 144, 148, 15, 127, 44, 243, 131, 152, 238, 209, 246, 126, 175, 154, 42, 208, 215, 180, 233, 20, 153, 7, 10,
         180, 78, 89, 9, 9, 160, 1, 42, 91, 202, 221, 104, 241, 231, 8, 59, 174, 159, 27, 108, 74, 80, 118, 192, 127, 238,
         216, 167, 72, 15, 61, 97, 121, 13, 48, 143, 255, 165, 228, 6, 121, 210, 112, 228, 161, 214, 233, 137, 108, 184,
@@ -230,7 +233,7 @@ TEST(ZendooLib, TestProofNoBwt)
         178, 50, 37, 95, 187, 147, 1
     };
 
-    unsigned char constant_bytes[96] = {
+    unsigned char constant_bytes[SC_FIELD_SIZE] = {
         53, 15, 18, 36, 121, 179, 90, 14, 215, 218, 231, 181, 9, 186, 122, 78, 227, 142, 190, 43, 134, 218, 178, 160,
         251, 246, 207, 130, 247, 53, 246, 68, 251, 126, 22, 250, 0, 135, 243, 13, 97, 76, 166, 142, 143, 19, 69, 66,
         225, 142, 210, 176, 253, 197, 145, 68, 142, 4, 96, 91, 23, 39, 56, 43, 96, 115, 57, 59, 34, 62, 156, 221, 27,
