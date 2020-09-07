@@ -55,54 +55,51 @@ private:
     static uint256 getMerkleRootHash(const std::vector<uint256>& vInputLeaves);
 
     template <typename T>
-    inline void fillCrosschainOutput(const uint256& txHash, const T& txccout, unsigned int nIdx, std::map<uint256, std::vector<uint256> >& map)
+    inline void addCrosschainOutput(const uint256& txHash, const T& txCcOut, unsigned int nCcOutPos, std::map<uint256, std::vector<uint256> >& map)
     {
-        sScIds.insert(txccout.GetScId());
+        sScIds.insert(txCcOut.GetScId());
 
         // if the mapped value exists, vec is a reference to it. If it does not, vec is
         // a reference to the new element inserted in the map with the scid as a key
-        std::vector<uint256>& vec = map[txccout.GetScId()];
+        std::vector<uint256>& vec = map[txCcOut.GetScId()];
 
         LogPrint("sc", "%s():%d - processing scId[%s], vec size = %d\n",
-            __func__, __LINE__, txccout.GetScId().ToString(), vec.size());
+            __func__, __LINE__, txCcOut.GetScId().ToString(), vec.size());
 
-        const uint256& ccoutHash = txccout.GetHash();
+        const uint256& ccOutHash = txCcOut.GetHash();
 
         LogPrint("sc", "%s():%d -Inputs: h1[%s], h2[%s], n[%d]\n",
-            __func__, __LINE__, ccoutHash.ToString(), txHash.ToString(), nIdx);
+            __func__, __LINE__, ccOutHash.ToString(), txHash.ToString(), nCcOutPos);
 
-        const uint256& entry = Hash(
-            BEGIN(ccoutHash), END(ccoutHash),
-            BEGIN(txHash),    END(txHash),
-            BEGIN(nIdx),      END(nIdx) );
+        const uint256& entry = HashCcOutput(ccOutHash, txHash, nCcOutPos);
 
         vec.push_back(entry);
         LogPrint("sc", "%s():%d -Output: entry[%s]\n", __func__, __LINE__, entry.ToString());
 
 #ifdef DEBUG_SC_COMMITMENT_HASH
             CDataStream ss2(SER_NETWORK, PROTOCOL_VERSION);
-            ss2 << ccoutHash;
+            ss2 << ccOutHash;
             ss2 << txHash;
-            ss2 << nIdx;
+            ss2 << nCcOutPos;
             std::string ser2( HexStr(ss2.begin(), ss2.end()));
             const uint256& entry2 = Hash(ss2.begin(), ss2.begin() + (unsigned int)ss2.in_avail() );
 
             CHashWriter ss3(SER_GETHASH, PROTOCOL_VERSION);
-            ss3 << ccoutHash;
+            ss3 << ccOutHash;
             ss3 << txHash;
-            ss3 << nIdx;
+            ss3 << nCcOutPos;
             const uint256& entry3 = ss3.GetHash();
 
             CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-            ss << txccout;
+            ss << txCcOut;
             std::string ser( HexStr(ss.begin(), ss.end()));
 
             std::cout << __func__ << " -------------------------------------------" << std::endl;
             std::cout << "                       ccout: " << ser << std::endl;
             std::cout << "-------------------------------------------" << std::endl;
-            std::cout << "                 Hash(ccout): " << ccoutHash.ToString() << std::endl;
+            std::cout << "                 Hash(ccout): " << ccOutHash.ToString() << std::endl;
             std::cout << "                        txid: " << txHash.ToString() << std::endl;
-            std::cout << "                           n: " << std::hex << nIdx << std::dec << std::endl;
+            std::cout << "                           n: " << std::hex << nCcOutPos << std::dec << std::endl;
             std::cout << "-------------------------------------------" << std::endl;
             std::cout << "    Hash(Hash(ccout)|txid|n): " << entry.ToString() << std::endl;
             std::cout << "-------------------------------------------" << std::endl;
@@ -110,6 +107,8 @@ private:
             std::cout << "                Hash(concat): " << entry2.ToString() << std::endl;
 #endif
     }
+
+    uint256 HashCcOutput(const uint256& ccoutHash, const uint256& txHash, unsigned int outPos);
 };
 
 #endif

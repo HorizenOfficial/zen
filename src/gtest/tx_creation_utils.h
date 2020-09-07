@@ -1,8 +1,13 @@
 #ifndef TX_CREATION_UTILS_H
 #define TX_CREATION_UTILS_H
 
-#include <primitives/transaction.h>
-#include <primitives/certificate.h>
+#include <amount.h>
+
+class CTransaction;
+class CMutableTransaction;
+class CScCertificate;
+class uint256;
+class CBlock;
 
 namespace txCreationUtils
 {

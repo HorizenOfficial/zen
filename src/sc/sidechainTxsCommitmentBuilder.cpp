@@ -39,11 +39,11 @@ void SidechainTxsCommitmentBuilder::add(const CTransaction& tx)
     unsigned int ccOutIdx = 0;
     LogPrint("sc", "%s():%d -getting leaves for vsc out\n", __func__, __LINE__);
     for(; ccOutIdx < tx.GetVscCcOut().size(); ++ccOutIdx)
-        fillCrosschainOutput(tx.GetHash(), tx.GetVscCcOut()[ccOutIdx], ccOutIdx, mScMerkleTreeLeavesFt);
+        addCrosschainOutput(tx.GetHash(), tx.GetVscCcOut()[ccOutIdx], ccOutIdx, mScMerkleTreeLeavesFt);
 
     LogPrint("sc", "%s():%d -getting leaves for vft out\n", __func__, __LINE__);
     for(; ccOutIdx < tx.GetVftCcOut().size(); ++ccOutIdx)
-        fillCrosschainOutput(tx.GetHash(), tx.GetVftCcOut()[ccOutIdx], ccOutIdx, mScMerkleTreeLeavesFt);
+        addCrosschainOutput(tx.GetHash(), tx.GetVftCcOut()[ccOutIdx], ccOutIdx, mScMerkleTreeLeavesFt);
 
     LogPrint("sc", "%s():%d - nIdx[%d]\n", __func__, __LINE__, ccOutIdx);
 }
@@ -107,3 +107,12 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
     return getMerkleRootHash(vSortedScLeaves);
 }
 #endif
+
+uint256 SidechainTxsCommitmentBuilder::HashCcOutput(const uint256& ccoutHash, const uint256& txHash, unsigned int outPos)
+{
+    uint256 res = Hash(BEGIN(ccoutHash), END(ccoutHash),
+                       BEGIN(txHash),    END(txHash),
+                       BEGIN(outPos),    END(outPos) );
+
+    return res;
+}

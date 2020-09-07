@@ -1,5 +1,7 @@
 #include "tx_creation_utils.h"
 #include <gtest/libzendoo_test_files.h>
+#include <primitives/transaction.h>
+#include <primitives/certificate.h>
 #include <script/interpreter.h>
 #include <main.h>
 #include <pubkey.h>

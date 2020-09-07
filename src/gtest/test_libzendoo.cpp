@@ -1,9 +1,12 @@
 #include <gtest/gtest.h>
+
+#include <primitives/transaction.h>
+#include <primitives/certificate.h>
+#include <sc/sidechainTxsCommitmentBuilder.h>
+#include "tx_creation_utils.h"
+
 #include <gtest/libzendoo_test_files.h>
 #include <util.h>
-#include "zendoo/zendoo_mc.h"
-#include "zendoo/error.h"
-#include <stdio.h>
 #include <cstring>
 #include <utilstrencodings.h>
 
@@ -31,21 +34,21 @@ TEST(ZendooLib, FieldTest)
 
 TEST(ZendooLib, PoseidonHashTest) 
 {
-    unsigned char lhs[96] = {
+    unsigned char lhs[SC_FIELD_SIZE] = {
         138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
         95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
         144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
         88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 0, 0
     };
 
-    unsigned char rhs[96] = {
+    unsigned char rhs[SC_FIELD_SIZE] = {
         199, 130, 235, 52, 44, 219, 5, 195, 71, 154, 54, 121, 3, 11, 111, 160, 86, 212, 189, 66, 235, 236, 240, 242,
         126, 248, 116, 0, 48, 95, 133, 85, 73, 150, 110, 169, 16, 88, 136, 34, 106, 7, 38, 176, 46, 89, 163, 49, 162,
         222, 182, 42, 200, 240, 149, 226, 173, 203, 148, 194, 207, 59, 44, 185, 67, 134, 107, 221, 188, 208, 122, 212,
         200, 42, 227, 3, 23, 59, 31, 37, 91, 64, 69, 196, 74, 195, 24, 5, 165, 25, 101, 215, 45, 92, 1, 0
     };
 
-    unsigned char hash[96] = {
+    unsigned char hash[SC_FIELD_SIZE] = {
         53, 2, 235, 12, 255, 18, 125, 167, 223, 32, 245, 103, 38, 74, 43, 73, 254, 189, 174, 137, 20, 90, 195, 107, 202,
         24, 151, 136, 85, 23, 9, 93, 207, 33, 229, 200, 178, 225, 221, 127, 18, 250, 108, 56, 86, 94, 171, 1, 76, 21,
         237, 254, 26, 235, 196, 14, 18, 129, 101, 158, 136, 103, 147, 147, 239, 140, 163, 94, 245, 147, 110, 28, 93,
@@ -208,7 +211,8 @@ TEST(ZendooLib, TestProof)
 }
 
 // Execute the test from zen directory
-TEST(ZendooLib, TestProofNoBwt){
+TEST(ZendooLib, TestProofNoBwt)
+{
     //Deserialize zero knowledge proof
     auto proof_serialized = ParseHex(SAMPLE_PROOF_NO_BWT);
     ASSERT_EQ(proof_serialized.size(), zendoo_get_sc_proof_size_in_bytes());
@@ -277,4 +281,24 @@ TEST(ZendooLib, TestProofNoBwt){
     zendoo_sc_proof_free(proof);
     zendoo_sc_vk_free(vk);
     zendoo_field_free(constant);
+}
+
+TEST(ScTxCommitmentTree, SimpleTest)
+{
+    SidechainTxsCommitmentBuilder builder;
+
+    //Add txes containing scCreation and fwd transfer + a certificate
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), /*height*/10);
+    uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
+    CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, CAmount(7));
+
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/12, /*endEpochBlockHash*/uint256S("abc"));
+
+    builder.add(scCreationTx);
+    builder.add(fwdTx);
+    builder.add(cert);
+
+    uint256 scTxCommitmentHash = builder.getCommitment();
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("70fec70a6de4a21ef1106131439b8dd40ed81590a9ed6484c45cb60d2082a820"))
+        <<scTxCommitmentHash.ToString();
 }
