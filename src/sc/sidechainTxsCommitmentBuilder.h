@@ -76,6 +76,9 @@ private:
             BEGIN(txHash),    END(txHash),
             BEGIN(nIdx),      END(nIdx) );
 
+        vec.push_back(entry);
+        LogPrint("sc", "%s():%d -Output: entry[%s]\n", __func__, __LINE__, entry.ToString());
+
 #ifdef DEBUG_SC_COMMITMENT_HASH
             CDataStream ss2(SER_NETWORK, PROTOCOL_VERSION);
             ss2 << ccoutHash;
@@ -106,12 +109,6 @@ private:
             std::cout << "concat = Hash(ccout)|txid| n: " << ser2 << std::endl;
             std::cout << "                Hash(concat): " << entry2.ToString() << std::endl;
 #endif
-
-        vec.push_back(entry);
-
-        LogPrint("sc", "%s():%d -Output: entry[%s]\n", __func__, __LINE__, entry.ToString());
-
-        nIdx++;
     }
 };
 
