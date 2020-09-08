@@ -57,9 +57,6 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
     for (const auto& scid : sScIds)
     {
         field_t* ftRootField = nullptr;
-        field_t* btrRootField = nullptr;
-        field_t* certRootField = nullptr;
-
         auto itFt = mScMerkleTreeLeavesFt.find(scid);
         if (itFt != mScMerkleTreeLeavesFt.end() )
         {
@@ -72,9 +69,10 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
             }
 
             ftTree.finalize_in_place();
-            ftRootField = ftTree.root();
+            ftRootField = ftTree.root(); //deep-copied. To be explicitly freed later on
         }
 
+        field_t* btrRootField = nullptr;
         auto itBtr = mScMerkleTreeLeavesBtr.find(scid);
         if (itBtr != mScMerkleTreeLeavesBtr.end() )
         {
@@ -87,31 +85,35 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
             }
 
             btrTree.finalize_in_place();
-            btrRootField = btrTree.root();
+            btrRootField = btrTree.root(); //root deep-copied. To be explicitly freed later on
         }
 
+        field_t* certRootField = nullptr;
         auto itCert = mScCerts.find(scid);
         if (itCert != mScCerts.end() )
         {
-            //for  symmetry
-            certRootField = itCert->second;
-//            wCertHash = mapFieldToHash(itCert->second);
-//            zendoo_field_free(itCert->second);
+            certRootField = itCert->second; //for symmetry's sake
         }
 
-        uint256 ftHash = mapFieldToHash((ftRootField != nullptr)? ftRootField : emptyField);
-        uint256 btrHash = mapFieldToHash((btrRootField != nullptr)? btrRootField: emptyField);
-        const uint256& txsHash = Hash(
-            BEGIN(ftHash),    END(ftHash),
-            BEGIN(btrHash),   END(btrHash) );
+        unsigned int sidechainTreeHeight = 2 + 1;
+        auto sidechainTree = ZendooGingerRandomAccessMerkleTree(sidechainTreeHeight);
 
-        uint256 wCertHash = mapFieldToHash((certRootField != nullptr)? certRootField: emptyField);
-        const uint256& scHash = Hash(
-            BEGIN(txsHash),   END(txsHash),
-            BEGIN(wCertHash), END(wCertHash),
-            BEGIN(scid),      END(scid) );
+        sidechainTree.append((ftRootField == nullptr)? emptyField : ftRootField);     //there may be no fwds
+        sidechainTree.append((btrRootField == nullptr)? emptyField : btrRootField);   //there may be no btrs
+        sidechainTree.append((certRootField == nullptr)? emptyField : certRootField); //there may be no cert
 
-        vSortedScLeaves.push_back(scHash);
+        field_t* scIdField = mapCertToField(scid);
+        sidechainTree.append((scIdField == nullptr)? emptyField : scIdField); //guard against faulty map to field
+
+        sidechainTree.finalize();
+        field_t * sidechainTreeRoot = sidechainTree.root();
+        vSortedScLeaves.push_back(mapFieldToHash((sidechainTreeRoot == nullptr)? emptyField : sidechainTreeRoot));
+
+        if (ftRootField != emptyField) zendoo_field_free(ftRootField);
+        if (btrRootField != emptyField) zendoo_field_free(btrRootField);
+        if (certRootField != emptyField) zendoo_field_free(certRootField);
+        if (scIdField != emptyField) zendoo_field_free(scIdField);
+        if (sidechainTreeRoot != emptyField) zendoo_field_free(sidechainTreeRoot);
     }
 
     return getMerkleRootHash(vSortedScLeaves);
