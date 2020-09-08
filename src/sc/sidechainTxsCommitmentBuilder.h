@@ -76,9 +76,14 @@ private:
     field_t* mapCertToField(const uint256& certHash);
 
     static const unsigned char zeros[SC_FIELD_SIZE];
-    const field_t* const emptyField;
+    field_t* const emptyField;
 
     uint256 mapFieldToHash(const field_t* pField);
+
+    //helpers
+    inline unsigned int treeHeightForLeaves(unsigned int numberOfLeaves);
+    field_t* merkleTreeRootOf(std::vector<field_t*> leaves);
+
 };
 
 #endif
