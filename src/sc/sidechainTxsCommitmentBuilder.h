@@ -48,9 +48,6 @@ private:
     // the catalog of scid, resulting after having collected all above contributions
     std::set<uint256> sScIds;
 
-    // return the merkle root hash of the input leaves. The merkle tree is not saved.
-    static uint256 getMerkleRootHash(const std::vector<uint256>& vInputLeaves);
-
     template <typename T>
     inline void addCrosschainOutput(const uint256& txHash, const T& txCcOut, unsigned int nCcOutPos, std::map<uint256, std::vector<field_t*> >& map)
     {
@@ -82,8 +79,7 @@ private:
 
     //helpers
     inline unsigned int treeHeightForLeaves(unsigned int numberOfLeaves);
-    field_t* merkleTreeRootOf(std::vector<field_t*> leaves);
-
+    field_t* merkleTreeRootOf(std::vector<field_t*>& leaves);
 };
 
 #endif
