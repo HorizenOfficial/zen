@@ -21,15 +21,13 @@ class CScCertificate;
 class SidechainTxsCommitmentBuilder
 {
 public:
+    SidechainTxsCommitmentBuilder();
+    ~SidechainTxsCommitmentBuilder();
     void add(const CTransaction& tx);
     void add(const CScCertificate& cert);
     uint256 getCommitment();
 
 private:
-    // return the hash of a well known string (MAGIC_SC_STRING declared below) which can be used
-    // as a null-semantic value
-    static const uint256& getCrossChainNullHash();
-
     // the final model will have a fixed-height merkle tree for 'SCTxsCommitment'.
     // That will also imply having a limit per block to the number of crosschain outputs per SC
     // and also to the number of SC
@@ -49,8 +47,6 @@ private:
 
     // the catalog of scid, resulting after having collected all above contributions
     std::set<uint256> sScIds;
-
-    static const std::string MAGIC_SC_STRING;
 
     // return the merkle root hash of the input leaves. The merkle tree is not saved.
     static uint256 getMerkleRootHash(const std::vector<uint256>& vInputLeaves);
@@ -78,6 +74,9 @@ private:
 
     field_t* mapScTxToField(const uint256& ccoutHash, const uint256& txHash, unsigned int outPos);
     field_t* mapCertToField(const uint256& certHash);
+
+    static const unsigned char zeros[SC_FIELD_SIZE];
+    const field_t* const emptyField;
 
     uint256 mapFieldToHash(const field_t* pField);
 };

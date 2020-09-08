@@ -9,23 +9,18 @@ uint256 SidechainTxsCommitmentBuilder::getMerkleRootHash(const std::vector<uint2
     return CBlock::BuildMerkleTree(vTempMerkleTree, vInput.size());
 }
 
-const std::string SidechainTxsCommitmentBuilder::MAGIC_SC_STRING = "Horizen ScTxsCommitment null hash string";
+const unsigned char SidechainTxsCommitmentBuilder::zeros[SC_FIELD_SIZE] = {'\0'};
 
-const uint256& SidechainTxsCommitmentBuilder::getCrossChainNullHash()
+SidechainTxsCommitmentBuilder::SidechainTxsCommitmentBuilder():
+        mScMerkleTreeLeavesFt(), mScMerkleTreeLeavesBtr(),
+        mScCerts(), sScIds(), emptyField(zendoo_deserialize_field(zeros))
+{}
+
+SidechainTxsCommitmentBuilder::~SidechainTxsCommitmentBuilder()
 {
-    static bool generated = false;
-    static uint256 theHash;
-
-    if (!generated)
-    {
-        CHashWriter ss(SER_GETHASH, 0);
-        ss << MAGIC_SC_STRING;
-        theHash = ss.GetHash();
-        LogPrintf("%s():%d - Generated sc null hash [%s]\n", __func__, __LINE__, theHash.ToString());
-        generated = true;
-    }
-    return theHash;
+    zendoo_field_free(const_cast<field_t*>(emptyField));
 }
+
 #ifdef BITCOIN_TX
 void SidechainTxsCommitmentBuilder::add(const CTransaction& tx) { return; }
 void SidechainTxsCommitmentBuilder::add(const CScCertificate& cert) { return; }
@@ -61,9 +56,9 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
     // set of scid is ordered
     for (const auto& scid : sScIds)
     {
-        uint256 ftHash(getCrossChainNullHash());
-        uint256 btrHash(getCrossChainNullHash());
-        uint256 wCertHash(getCrossChainNullHash());
+        field_t* ftRootField = nullptr;
+        field_t* btrRootField = nullptr;
+        field_t* certRootField = nullptr;
 
         auto itFt = mScMerkleTreeLeavesFt.find(scid);
         if (itFt != mScMerkleTreeLeavesFt.end() )
@@ -77,7 +72,7 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
             }
 
             ftTree.finalize_in_place();
-            ftHash = mapFieldToHash(ftTree.root());
+            ftRootField = ftTree.root();
         }
 
         auto itBtr = mScMerkleTreeLeavesBtr.find(scid);
@@ -92,34 +87,30 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
             }
 
             btrTree.finalize_in_place();
-            btrHash = mapFieldToHash(btrTree.root());
+            btrRootField = btrTree.root();
         }
 
         auto itCert = mScCerts.find(scid);
         if (itCert != mScCerts.end() )
         {
-            wCertHash = mapFieldToHash(itCert->second);
-            zendoo_field_free(itCert->second);
+            //for  symmetry
+            certRootField = itCert->second;
+//            wCertHash = mapFieldToHash(itCert->second);
+//            zendoo_field_free(itCert->second);
         }
 
+        uint256 ftHash = mapFieldToHash((ftRootField != nullptr)? ftRootField : emptyField);
+        uint256 btrHash = mapFieldToHash((btrRootField != nullptr)? btrRootField: emptyField);
         const uint256& txsHash = Hash(
             BEGIN(ftHash),    END(ftHash),
             BEGIN(btrHash),   END(btrHash) );
 
+        uint256 wCertHash = mapFieldToHash((certRootField != nullptr)? certRootField: emptyField);
         const uint256& scHash = Hash(
             BEGIN(txsHash),   END(txsHash),
             BEGIN(wCertHash), END(wCertHash),
             BEGIN(scid),      END(scid) );
 
-#ifdef DEBUG_SC_COMMITMENT_HASH
-        std::cout << " -------------------------------------------" << std::endl;
-        std::cout << "  FtHash:  " << ftHash.ToString() << std::endl;
-        std::cout << "  BtrHash: " << btrHash.ToString() << std::endl;
-        std::cout << "  => TxsHash:   " << txsHash.ToString() << std::endl;
-        std::cout << "     WCertHash: " << wCertHash.ToString() << std::endl;
-        std::cout << "     scid:      " << scid.ToString() << std::endl;
-        std::cout << "     => ScsHash:  " << scHash.ToString() << std::endl;
-#endif
         vSortedScLeaves.push_back(scHash);
     }
 
