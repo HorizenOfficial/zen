@@ -302,6 +302,6 @@ TEST(ScTxCommitmentTree, SimpleTest)
     builder.add(cert);
 
     uint256 scTxCommitmentHash = builder.getCommitment();
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("70fec70a6de4a21ef1106131439b8dd40ed81590a9ed6484c45cb60d2082a820"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("7dc386b4721ee0dd8b0d1f2292d6975adaf3e34b27cb307ec748f280b09d6d09"))
         <<scTxCommitmentHash.ToString();
 }
