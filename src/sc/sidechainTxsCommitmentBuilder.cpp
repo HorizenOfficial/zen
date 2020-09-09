@@ -148,7 +148,10 @@ uint256 SidechainTxsCommitmentBuilder::mapFieldToHash(const field_t* pField)
 
 unsigned int SidechainTxsCommitmentBuilder::treeHeightForLeaves(unsigned int numberOfLeaves)
 {
-    unsigned int res = static_cast<unsigned int>(floor(log2f(static_cast<float>(numberOfLeaves+1)))) + 1;
+    if (numberOfLeaves == 1)
+        return 2;
+
+    unsigned int res = static_cast<unsigned int>(ceil(log2f(static_cast<float>(numberOfLeaves)))) + 1;
     return res;
 }
 
@@ -164,8 +167,11 @@ field_t* SidechainTxsCommitmentBuilder::merkleTreeRootOf(std::vector<field_t*>& 
     {
         //As of now we swallow possible errors in deserialization of field by replacing null with empty field
         btrTree.append((leaf != nullptr)? leaf : emptyField.zero);
-        if (leaf != nullptr) zendoo_field_free(leaf);
-        leaf = nullptr;
+        if (leaf != nullptr)
+        {
+            zendoo_field_free(leaf);
+            leaf = nullptr;
+        }
     }
 
     btrTree.finalize_in_place();

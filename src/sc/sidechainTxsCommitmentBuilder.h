@@ -11,9 +11,6 @@
 class CTransaction;
 class CScCertificate;
 
-// uncomment for debugging some sc commitment related hashing calculations
-// #define DEBUG_SC_COMMITMENT_HASH 1
-
 class SidechainTxsCommitmentBuilder
 {
 public:
