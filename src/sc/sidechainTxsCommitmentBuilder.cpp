@@ -92,7 +92,10 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
         vSortedScLeaves.push_back(sidechainTreeRoot);
     }
 
-    field_t * finalTreeRoot = merkleTreeRootOf(vSortedScLeaves);
+    field_t * finalTreeRoot = emptyField.zero;
+    if (vSortedScLeaves.size() != 0)
+        finalTreeRoot = merkleTreeRootOf(vSortedScLeaves);
+
     uint256 res = mapFieldToHash(finalTreeRoot);
     return res;
 }
