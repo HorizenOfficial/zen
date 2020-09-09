@@ -2,17 +2,16 @@
 #include <primitives/transaction.h>
 #include <primitives/certificate.h>
 
-const unsigned char SidechainTxsCommitmentBuilder::zeros[SC_FIELD_SIZE] = {'\0'};
-
-SidechainTxsCommitmentBuilder::SidechainTxsCommitmentBuilder():
-        mScMerkleTreeLeavesFt(), mScMerkleTreeLeavesBtr(),
-        mScCerts(), sScIds(), emptyField(zendoo_deserialize_field(zeros))
+SidechainTxsCommitmentBuilder::EmptyField::EmptyField():
+    zerosHelperArray{'\0'}, zero(zendoo_deserialize_field(zerosHelperArray))
 {}
 
-SidechainTxsCommitmentBuilder::~SidechainTxsCommitmentBuilder()
+SidechainTxsCommitmentBuilder::EmptyField::~EmptyField()
 {
-    zendoo_field_free(const_cast<field_t*>(emptyField));
+    zendoo_field_free(const_cast<field_t*>(zero));
 }
+
+SidechainTxsCommitmentBuilder::EmptyField SidechainTxsCommitmentBuilder::emptyField;
 
 #ifdef BITCOIN_TX
 void SidechainTxsCommitmentBuilder::add(const CTransaction& tx) { return; }
@@ -27,19 +26,34 @@ void SidechainTxsCommitmentBuilder::add(const CTransaction& tx)
     unsigned int ccOutIdx = 0;
     LogPrint("sc", "%s():%d -getting leaves for vsc out\n", __func__, __LINE__);
     for(; ccOutIdx < tx.GetVscCcOut().size(); ++ccOutIdx)
-        addCrosschainOutput(tx.GetHash(), tx.GetVscCcOut()[ccOutIdx], ccOutIdx, mScMerkleTreeLeavesFt);
+    {
+        uint256 scId = tx.GetVscCcOut().at(ccOutIdx).GetScId();
+        sScIds.insert(scId);
+
+        std::vector<field_t*>& vec = mScMerkleTreeLeavesFt[scId]; //create or pick entry for scId
+        field_t* pField = mapScTxToField(tx.GetVscCcOut()[ccOutIdx].GetHash(), tx.GetHash(), ccOutIdx);
+        vec.push_back(pField);
+    }
 
     LogPrint("sc", "%s():%d -getting leaves for vft out\n", __func__, __LINE__);
     for(; ccOutIdx < tx.GetVftCcOut().size(); ++ccOutIdx)
-        addCrosschainOutput(tx.GetHash(), tx.GetVftCcOut()[ccOutIdx], ccOutIdx, mScMerkleTreeLeavesFt);
+    {
+        uint256 scId = tx.GetVftCcOut().at(ccOutIdx).GetScId();
+        sScIds.insert(scId);
+
+        std::vector<field_t*>& vec = mScMerkleTreeLeavesFt[scId]; //create or pick entry for scId
+        field_t* pField = mapScTxToField(tx.GetVftCcOut()[ccOutIdx].GetHash(), tx.GetHash(), ccOutIdx);
+        vec.push_back(pField);
+    }
 
     LogPrint("sc", "%s():%d - nIdx[%d]\n", __func__, __LINE__, ccOutIdx);
 }
 
 void SidechainTxsCommitmentBuilder::add(const CScCertificate& cert)
 {
-    sScIds.insert(cert.GetScId());
-    mScCerts[cert.GetScId()] = mapCertToField(cert.GetHash());
+    uint256 scId = cert.GetScId();
+    sScIds.insert(scId);
+    mScCerts[scId] = mapCertToField(cert.GetHash());
 }
 
 uint256 SidechainTxsCommitmentBuilder::getCommitment()
@@ -129,29 +143,27 @@ uint256 SidechainTxsCommitmentBuilder::mapFieldToHash(const field_t* pField)
 
 unsigned int SidechainTxsCommitmentBuilder::treeHeightForLeaves(unsigned int numberOfLeaves)
 {
-    if (numberOfLeaves == 1)
-        return 2;
-
-    unsigned int res = static_cast<int>(ceil(log2f(static_cast<float>(numberOfLeaves)))) + 1;
+    unsigned int res = static_cast<unsigned int>(floor(log2f(static_cast<float>(numberOfLeaves+1)))) + 1;
     return res;
 }
 
 field_t* SidechainTxsCommitmentBuilder::merkleTreeRootOf(std::vector<field_t*>& leaves)
 {
-    //Note: leaves are consumed, i.e. freed and nulled, if non-empty
-    //      root is a deep-copy, hence it must be freed later on
-    //      null leaves are mapped to emptyField
-    //      it is guaranteed not to return nullptr
+    //Notes: leaves are consumed, i.e. freed and nulled, if non-empty
+    //       root is a deep-copy, hence it must be freed later on
+    //       null leaves are mapped to emptyField
+    //       it is guaranteed not to return nullptr
     field_t* res = nullptr;
     auto btrTree = ZendooGingerRandomAccessMerkleTree(treeHeightForLeaves(leaves.size()));
     for(field_t* & leaf: leaves)
     {
-        btrTree.append((leaf != nullptr)? leaf : emptyField);
+        //As of now we swallow possible errors in deserialization of field by replacing null with empty field
+        btrTree.append((leaf != nullptr)? leaf : emptyField.zero);
         if (leaf != nullptr) zendoo_field_free(leaf);
         leaf = nullptr;
     }
 
     btrTree.finalize_in_place();
     res = btrTree.root();
-    return (res == nullptr)? emptyField : res;
+    return (res == nullptr)? emptyField.zero : res;
 }
