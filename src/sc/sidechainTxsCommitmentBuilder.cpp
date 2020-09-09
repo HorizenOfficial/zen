@@ -97,6 +97,8 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
         finalTreeRoot = merkleTreeRootOf(vSortedScLeaves);
 
     uint256 res = mapFieldToHash(finalTreeRoot);
+    if (finalTreeRoot != emptyField.zero) zendoo_field_free(finalTreeRoot);
+
     return res;
 }
 #endif
