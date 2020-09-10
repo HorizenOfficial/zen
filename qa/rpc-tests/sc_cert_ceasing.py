@@ -169,7 +169,6 @@ class sc_cert_ceasing(BitcoinTestFramework):
 
         bal1 = self.nodes[1].getbalance()
         print "Balance Node1 = {}\n".format(bal1)
-        #assert_equal(bal1, bwt_amount[0])
 
         mark_logs("Node0 generates 2 more blocks to achieve certs maturity and scs ceasing", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(2)
@@ -177,7 +176,6 @@ class sc_cert_ceasing(BitcoinTestFramework):
 
         bal1 = self.nodes[1].getbalance()
         print "Balance Node1 = {}\n".format(bal1)
-        #assert_equal(bal1, bwt_amount[0])
 
         mark_logs("Node0 generates 3 block to restore Node1 balance ", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(3)
