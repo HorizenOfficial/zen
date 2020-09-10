@@ -103,18 +103,27 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
 }
 #endif
 
-field_t* SidechainTxsCommitmentBuilder::mapScTxToField(const uint256& ccoutHash, const uint256& txHash, unsigned int outPos)
+field_t* SidechainTxsCommitmentBuilder::mapScTxToField(const uint256& ccoutHash, const uint256& txHash, unsigned int outPos) const
 {
-    // 1- Map relevant inputs to field element, padding with zeros till SC_FIELD_SIZE bytes
-    // Currently re-using SHA256 to pub all relevant data together since...
-    static_assert(sizeof(uint256) < SC_FIELD_SIZE);
+    static_assert((sizeof(uint256) + sizeof(uint256) + sizeof(unsigned int)) < SC_FIELD_SIZE);
 
-    uint256 res = Hash(BEGIN(ccoutHash), END(ccoutHash),
-                       BEGIN(txHash),    END(txHash),
-                       BEGIN(outPos),    END(outPos) );
+    std::string toHash = std::string(ccoutHash.begin(), ccoutHash.end()) +
+            std::string(txHash.begin(), txHash.end()) +
+            std::string(static_cast<char*>(static_cast<void*>(&outPos)));
 
     unsigned char hash[SC_FIELD_SIZE] = {};
-    std::string resHex = res.GetHex();
+    memcpy(hash, toHash.append(SC_FIELD_SIZE - toHash.size(), '\0').c_str(), SC_FIELD_SIZE);
+
+    //generate field element. MISSING null-check
+    field_t* field = zendoo_deserialize_field(hash);
+    return field;
+}
+
+field_t* SidechainTxsCommitmentBuilder::mapCertToField(const uint256& certHash) const
+{
+    static_assert(sizeof(uint256) < SC_FIELD_SIZE);
+    unsigned char hash[SC_FIELD_SIZE] = {};
+    std::string resHex = std::string(certHash.begin(), certHash.end());
     memcpy(hash, resHex.append(SC_FIELD_SIZE - resHex.size(), '\0').c_str(), SC_FIELD_SIZE);
 
     //generate field element. MISSING null-check
@@ -122,19 +131,7 @@ field_t* SidechainTxsCommitmentBuilder::mapScTxToField(const uint256& ccoutHash,
     return field;
 }
 
-field_t* SidechainTxsCommitmentBuilder::mapCertToField(const uint256& certHash)
-{
-    static_assert(sizeof(uint256) < SC_FIELD_SIZE);
-    unsigned char hash[SC_FIELD_SIZE] = {};
-    std::string resHex = certHash.ToString();
-    memcpy(hash, resHex.append(SC_FIELD_SIZE - resHex.size(), '\0').c_str(), SC_FIELD_SIZE);
-
-    //generate field element. MISSING null-check
-    field_t* field = zendoo_deserialize_field(hash);
-    return field;
-}
-
-uint256 SidechainTxsCommitmentBuilder::mapFieldToHash(const field_t* pField)
+uint256 SidechainTxsCommitmentBuilder::mapFieldToHash(const field_t* pField) const
 {
     if (pField == nullptr)
         throw;
@@ -146,7 +143,7 @@ uint256 SidechainTxsCommitmentBuilder::mapFieldToHash(const field_t* pField)
     return res;
 }
 
-unsigned int SidechainTxsCommitmentBuilder::treeHeightForLeaves(unsigned int numberOfLeaves)
+unsigned int SidechainTxsCommitmentBuilder::treeHeightForLeaves(unsigned int numberOfLeaves) const
 {
     if (numberOfLeaves == 1)
         return 2;
@@ -155,7 +152,7 @@ unsigned int SidechainTxsCommitmentBuilder::treeHeightForLeaves(unsigned int num
     return res;
 }
 
-field_t* SidechainTxsCommitmentBuilder::merkleTreeRootOf(std::vector<field_t*>& leaves)
+field_t* SidechainTxsCommitmentBuilder::merkleTreeRootOf(std::vector<field_t*>& leaves) const
 {
     //Notes: leaves are consumed, i.e. freed and nulled, if non-empty
     //       root is a deep-copy, hence it must be freed later on

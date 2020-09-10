@@ -50,13 +50,13 @@ private:
     };
     static EmptyField emptyField;
 
-    field_t* mapScTxToField(const uint256& ccoutHash, const uint256& txHash, unsigned int outPos);
-    field_t* mapCertToField(const uint256& certHash);
+    field_t* mapScTxToField(const uint256& ccoutHash, const uint256& txHash, unsigned int outPos) const;
+    field_t* mapCertToField(const uint256& certHash) const;
 
-    uint256 mapFieldToHash(const field_t* pField);
+    uint256 mapFieldToHash(const field_t* pField) const;
 
-    inline unsigned int treeHeightForLeaves(unsigned int numberOfLeaves);
-    field_t* merkleTreeRootOf(std::vector<field_t*>& leaves);
+    inline unsigned int treeHeightForLeaves(unsigned int numberOfLeaves) const;
+    field_t* merkleTreeRootOf(std::vector<field_t*>& leaves) const;
 };
 
 #endif
