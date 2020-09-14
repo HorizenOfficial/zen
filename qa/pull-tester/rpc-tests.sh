@@ -76,6 +76,7 @@ testScripts=(
   'z_sendmany.py'
   'cbh_rpfix.py'
   'cbh_rpcheck.py'
+  'tlsprotocols.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
