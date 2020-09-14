@@ -100,6 +100,7 @@ testScripts=(
   'sc_cert_quality_wallet.py'
   'cbh_rpfix.py'
   'cbh_rpcheck.py'
+  'tlsprotocols.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'

@@ -656,6 +656,9 @@ public:
 
     static uint64_t GetTotalBytesRecv();
     static uint64_t GetTotalBytesSent();
+
+    // resource deallocation an cleanup, called at node shutdown
+    static void NetCleanup();
 };
 
 

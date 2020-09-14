@@ -40,7 +40,13 @@ bool operator==(const _NODE_ADDR b) const
 class TLSManager
 {
 public:
+     /* This is set as a custom error number which is not an error in OpenSSL protocol.
+        A true (not null) OpenSSL error returned by ERR_get_error() consists of a library number,
+        function code and reason code. */
+     static const long SELECT_TIMEDOUT = 0xFFFFFFFF;
+
      int waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl, int timeoutSec, unsigned long& err_code);
+
      SSL* connect(SOCKET hSocket, const CAddress& addrConnect, unsigned long& err_code);
      SSL_CTX* initCtx(
         TLSContextType ctxType,

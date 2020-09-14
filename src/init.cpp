@@ -275,6 +275,7 @@ void Shutdown()
     pzcashParams = NULL;
     globalVerifyHandle.reset();
     ECC_Stop();
+    CNode::NetCleanup();
     LogPrintf("%s: done\n", __func__);
 }
 

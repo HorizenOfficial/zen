@@ -1,13 +1,17 @@
 #include <openssl/conf.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+
+#ifndef HEADER_DH_H
+#include <openssl/dh.h>
+#endif
+
 #include "utiltls.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 #include "../util.h"
 #include "../protocol.h"
-
 
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
@@ -16,6 +20,83 @@
 using namespace std;
 namespace zen
 {
+
+// this is the 'dh crypto environment' to be shared between two peers and it is meant to be public, therefore
+// it is OK to hard code it (or as an alternative to read it from a file)
+// ----
+// generated via: openssl dhparam -C  2048
+static DH *get_dh2048(void)
+{
+    static unsigned char dhp_2048[] = {
+        0xCC, 0x9B, 0xD8, 0x4E, 0x5F, 0xCE, 0xB9, 0x0D, 0x3E, 0x01,
+        0x71, 0x9D, 0x26, 0x32, 0x04, 0xFB, 0xEF, 0x27, 0xD2, 0x82,
+        0x11, 0x33, 0x50, 0x79, 0xFA, 0xFF, 0x98, 0xC7, 0x27, 0x3E,
+        0x6F, 0x8B, 0xBC, 0xE8, 0x7F, 0x3B, 0xDF, 0xB2, 0x27, 0x12,
+        0x8E, 0x56, 0x35, 0xE6, 0xCF, 0x31, 0x5B, 0xEB, 0xED, 0x1C,
+        0xE1, 0x8C, 0x1B, 0x59, 0x1A, 0xE7, 0x80, 0x15, 0xBF, 0x5E,
+        0x02, 0xAA, 0x90, 0xA0, 0xE6, 0x60, 0x11, 0x66, 0x78, 0xD9,
+        0x42, 0x44, 0xE7, 0x95, 0x05, 0xF6, 0x98, 0xC2, 0xC5, 0xBF,
+        0x8B, 0x33, 0x5F, 0x35, 0xD5, 0x00, 0xAD, 0x4E, 0x95, 0x7C,
+        0x0E, 0xC3, 0xAB, 0x95, 0x86, 0xD0, 0x05, 0x79, 0x2D, 0x41,
+        0x70, 0xDA, 0x24, 0x5A, 0xA9, 0x8B, 0x8B, 0xAB, 0x6E, 0x6E,
+        0x73, 0xCF, 0xDE, 0x0A, 0xE4, 0xD2, 0xDC, 0xD0, 0xC7, 0xDB,
+        0xC8, 0x4E, 0x01, 0x76, 0x17, 0x75, 0x17, 0x2A, 0xC3, 0xC7,
+        0x8D, 0xF3, 0x60, 0xB6, 0x2C, 0xFA, 0xF2, 0xEC, 0x70, 0xDC,
+        0x6B, 0xE4, 0xCA, 0x38, 0x2F, 0x37, 0x81, 0x7B, 0x8C, 0x63,
+        0x95, 0xD0, 0x70, 0x4F, 0x36, 0x7A, 0x79, 0x94, 0xBC, 0x8D,
+        0xD8, 0x61, 0xE4, 0xFD, 0xB8, 0x27, 0x27, 0xCF, 0x50, 0xFB,
+        0x5F, 0xC5, 0xA9, 0x03, 0x56, 0x7F, 0x62, 0xAA, 0x5A, 0xCA,
+        0xCE, 0x1E, 0xC3, 0x69, 0xD3, 0x1F, 0x50, 0x37, 0x15, 0x5F,
+        0xA8, 0xBE, 0xB7, 0x55, 0xD8, 0xD2, 0xEC, 0xFB, 0x6E, 0x41,
+        0x25, 0xB0, 0xB6, 0xD6, 0x75, 0xD5, 0x10, 0x2A, 0x44, 0x85,
+        0xC2, 0x45, 0x6C, 0xA9, 0xEB, 0xEA, 0xBE, 0xAB, 0x59, 0x6A,
+        0x0B, 0x78, 0x86, 0x5A, 0xCD, 0xE2, 0xDB, 0x14, 0x74, 0xAC,
+        0xDD, 0x3D, 0x65, 0x75, 0xAC, 0xAE, 0x00, 0xB5, 0x01, 0xBF,
+        0x64, 0xC4, 0xBC, 0x5B, 0x10, 0x67, 0xDE, 0xD1, 0x11, 0xFE,
+        0x87, 0x9B, 0x7F, 0xF6, 0x1A, 0xD3
+    };
+
+    static unsigned char dhg_2048[] = {
+        0x02
+    };
+
+    DH *dh = DH_new();
+    BIGNUM *p, *g;
+
+    if (dh == NULL)
+    {
+        unsigned long err_code = ERR_get_error();
+        const char* error_str = ERR_error_string(err_code, NULL);
+        LogPrintf("TLS: %s: %s():%d - ERROR: mem allocation failed (err=%s)\n",
+            __FILE__, __func__, __LINE__, error_str);
+        return NULL;
+    }
+
+    p = BN_bin2bn(dhp_2048, sizeof(dhp_2048), NULL);
+    g = BN_bin2bn(dhg_2048, sizeof(dhg_2048), NULL);
+
+    if (p == NULL || g == NULL || !DH_set0_pqg(dh, p, NULL, g))
+    {
+        unsigned long err_code = ERR_get_error();
+        const char* error_str = ERR_error_string(err_code, NULL);
+        DH_free(dh);
+        BN_free(p);
+        BN_free(g);
+        LogPrintf("TLS: %s: %s():%d - ERROR: p[%p], g[%p] (err=%s)\n",
+            __FILE__, __func__, __LINE__, p, g, error_str);
+        return NULL;
+    }
+    return dh;
+}
+
+DH *tmp_dh_callback(SSL *ssl, int is_export, int keylength)
+{
+    LogPrint("tls", "TLS: %s: %s():%d - Using Diffie-Hellman param for PFS: is_export=%d, keylength=%d\n",
+        __FILE__, __func__, __LINE__, is_export, keylength);
+
+    return get_dh2048(); 
+}
+
 /**
 * @brief If verify_callback always returns 1, the TLS/SSL handshake will not be terminated with respect to verification failures and the connection will be established.
 * 
@@ -25,6 +106,71 @@ namespace zen
 */
 int tlsCertVerificationCallback(int preverify_ok, X509_STORE_CTX* chainContext)
 {
+    char    buf[256] = {};
+    X509   *cert;
+    int     err, depth;
+
+    cert = X509_STORE_CTX_get_current_cert(chainContext);
+    err = X509_STORE_CTX_get_error(chainContext);
+    depth = X509_STORE_CTX_get_error_depth(chainContext);
+
+    LogPrint("tls", "TLS: %s: %s():%d - preverify_ok=%d, errCode=%d, depth=%d\n",
+        __FILE__, __func__, __LINE__, preverify_ok, err, depth);
+
+    // is not useful checking preverify_ok because, after the chain root verification, it is set accordingly
+    // to the return value of this callback, and we choose to always return 1 
+    if (err != X509_V_OK )
+    {
+        LogPrint("tls", "TLS: %s: %s():%d - Certificate Verification ERROR=%d: [%s] at chain depth=%d\n",
+            __FILE__, __func__, __LINE__, err, X509_verify_cert_error_string(err), depth);
+
+        if (cert && err == X509_V_ERR_CERT_HAS_EXPIRED)
+        {
+            struct tm t = {};
+            const ASN1_TIME * at = X509_get0_notAfter(cert);
+            int ret = ASN1_TIME_to_tm(at, &t);
+            if (ret == 1)
+            {
+                (void)strftime(buf, sizeof (buf), "%c", &t);
+                LogPrint("tls", "TLS: %s: %s():%d - expired on=%s\n", 
+                    __FILE__, __func__, __LINE__, buf);
+            }
+        }
+    }
+    else if (cert)
+    {
+        X509_NAME_oneline(X509_get_subject_name(cert), buf, 256);
+        LogPrint("tls", "TLS: %s: %s():%d - subj name=%s\n",
+            __FILE__, __func__, __LINE__, buf);
+
+        X509_NAME_oneline(X509_get_issuer_name(cert), buf, 256);
+        LogPrint("tls", "TLS: %s: %s():%d - issuer name=%s\n",
+            __FILE__, __func__, __LINE__, buf);
+
+        struct tm t = {};
+        const ASN1_TIME * at = X509_get0_notAfter(cert);
+        int ret = ASN1_TIME_to_tm(at, &t);
+        if (ret == 1)
+        {
+            (void)strftime(buf, sizeof (buf), "%c", &t);
+            LogPrint("tls", "TLS: %s: %s():%d - expiring on=%s\n", 
+                __FILE__, __func__, __LINE__, buf);
+        }
+    }
+    else
+    {
+        // should never happen
+        LogPrint("tls", "TLS: %s: %s():%d - invalid cert/err\n", __FILE__, __func__, __LINE__);
+    }
+
+    /* The return value controls the strategy of the further verification process. If it returns 0
+     * the verification process is immediately stopped with "verification failed" state.
+     * If SSL_VERIFY_PEER has been set in set_verify, a verification failure alert is sent to the peer and the TLS/SSL
+     * handshake is terminated.
+     * If it returns 1, the verification process is continued.
+     * Here we choose to continue the verification process by returning 1 and to leave the optional cert
+     * verification if we call ValidatePeerCertificate().
+     */
     return 1;
 }
 /**
@@ -38,8 +184,7 @@ int tlsCertVerificationCallback(int preverify_ok, X509_STORE_CTX* chainContext)
  */
 int TLSManager::waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl, int timeoutSec, unsigned long& err_code)
 {
-    int nErr = 0;
-    ERR_clear_error(); // clear the error queue
+    int retOp = 0;
     err_code = 0;
 
     while (true) {
@@ -49,8 +194,8 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl,
         switch (eRoutine) {
             case SSL_CONNECT:
             {
-                nErr = SSL_connect(ssl);
-                if (nErr == 0)
+                retOp = SSL_connect(ssl);
+                if (retOp == 0)
                 {
                     err_code = ERR_get_error();
                     const char* error_str = ERR_error_string(err_code, NULL);
@@ -63,8 +208,8 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl,
          
             case SSL_ACCEPT:
             {
-                nErr = SSL_accept(ssl);
-                if (nErr == 0)
+                retOp = SSL_accept(ssl);
+                if (retOp == 0)
                 {
                     err_code = ERR_get_error();
                     const char* error_str = ERR_error_string(err_code, NULL);
@@ -77,15 +222,21 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl,
          
             case SSL_SHUTDOWN:
             {
-                int fd = SSL_get_fd(ssl);
-                if (fd >= 0)
+                if (hSocket >= 0)
                 {
                     struct sockaddr_in addr;
                     socklen_t serv_len = sizeof(addr);
-                    getpeername(fd, (struct sockaddr *)&addr, &serv_len);
-                    LogPrint("tls", "TLS: shutting down %s:%d\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+                    int ret = getpeername(hSocket, (struct sockaddr *)&addr, &serv_len);
+                    if (ret != 0)
+                    {
+                        LogPrint("tls", "TLS: error getting peer name for fd=%d (err=%s)\n", hSocket, strerror(errno));
+                    }
+                    else
+                    {
+                        LogPrint("tls", "TLS: shutting down fd=%d, %s:%d\n", hSocket, inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+                    }
                 }
-                nErr = SSL_shutdown(ssl);
+                retOp = SSL_shutdown(ssl);
             }
             break;
          
@@ -94,21 +245,27 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl,
         }
 
         if (eRoutine == SSL_SHUTDOWN) {
-            if (nErr == 0)
+            if (retOp == 0)
             {
                 LogPrint("tls", "TLS: WARNING: %s: %s():%d - SSL_SHUTDOWN: The close_notify was sent but the peer did not send it back yet.\n",
                         __FILE__, __func__, __LINE__);
                 // do not call SSL_get_error() because it may misleadingly indicate an error even though no error occurred.
-                return 0;
+                break;
             }
             else
-            if (nErr == 1)
+            if (retOp == 1)
             {
                 LogPrint("tls", "TLS: %s: %s():%d - SSL_SHUTDOWN completed\n", __FILE__, __func__, __LINE__);
-                return 1;
+                break;
+            }
+            else
+            if (retOp < 1)
+            {
+                LogPrint("tls", "TLS: %s: %s():%d - SSL_SHUTDOWN failed\n", __FILE__, __func__, __LINE__);
+                // the error will be red afterwards
             }
         } else {
-            if (nErr == 1)
+            if (retOp == 1)
             {
                 LogPrint("tls", "TLS: %s: %s():%d - %s completed\n", __FILE__, __func__, __LINE__,
                     eRoutine == SSL_CONNECT ? "SSL_CONNECT" : "SSL_ACCEPT");
@@ -116,25 +273,15 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl,
             }
         }
 
-        int sslErr = SSL_get_error(ssl, nErr);
+        int sslErr = SSL_get_error(ssl, retOp);
 
         if (sslErr != SSL_ERROR_WANT_READ && sslErr != SSL_ERROR_WANT_WRITE) {
-//            LogPrint("net", "TLS: WARNING: %s: %s: ssl_err_code: %s; errno: %s\n", __FILE__, __func__, ERR_error_string(sslErr, NULL), strerror(errno));
             err_code = ERR_get_error();
             const char* error_str = ERR_error_string(err_code, NULL);
-            if (sslErr == SSL_ERROR_SYSCALL)
-            {
-                LogPrint("tls", "TLS: WARNING: %s: %s():%d - routine(%d), sslErr[0x%x], err[0x%x], lib[0x%x], func[0x%x], reas[0x%x]-> err: %s\n",
-                    __FILE__, __func__, __LINE__,
-                    eRoutine, sslErr, errno, ERR_GET_LIB(err_code), ERR_GET_FUNC(err_code), ERR_GET_REASON(err_code), error_str);
-            }
-            else
-            {
-                LogPrint("tls", "TLS: WARNING: %s: %s():%d - routine(%d), sslErr[0x%x], lib[0x%x], func[0x%x], reas[0x%x]-> err: %s\n",
-                    __FILE__, __func__, __LINE__,
-                    eRoutine, sslErr, ERR_GET_LIB(err_code), ERR_GET_FUNC(err_code), ERR_GET_REASON(err_code), error_str);
-            }
-            nErr = -1;
+            LogPrint("tls", "TLS: WARNING: %s: %s():%d - routine(%d), sslErr[0x%x], retOp[%d], errno[0x%x], lib[0x%x], func[0x%x], reas[0x%x]-> err: %s\n",
+                __FILE__, __func__, __LINE__,
+                eRoutine, sslErr, retOp, errno, ERR_GET_LIB(err_code), ERR_GET_FUNC(err_code), ERR_GET_REASON(err_code), error_str);
+            retOp = -1;
             break;
         }
 
@@ -147,32 +294,39 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl,
         if (sslErr == SSL_ERROR_WANT_READ) {
             int result = select(hSocket + 1, &socketSet, NULL, NULL, &timeout);
             if (result == 0) {
-                LogPrint("tls", "TLS: ERROR: %s: %s: WANT_READ timeout\n", __FILE__, __func__);
-                nErr = -1;
+                LogPrint("tls", "TLS: ERROR: %s: %s():%d - WANT_READ timeout on %s\n", __FILE__, __func__, __LINE__,
+                    (eRoutine == SSL_CONNECT ? "SSL_CONNECT" : 
+                        (eRoutine == SSL_ACCEPT ? "SSL_ACCEPT" : "SSL_SHUTDOWN" )));
+                err_code = SELECT_TIMEDOUT;
+                retOp = -1;
                 break;
             } else if (result == -1) {
                 LogPrint("tls", "TLS: ERROR: %s: %s: WANT_READ ssl_err_code: 0x%x; errno: %s\n",
                     __FILE__, __func__, sslErr, strerror(errno));
-                nErr = -1;
+                retOp = -1;
                 break;
             }
         } else {
             int result = select(hSocket + 1, NULL, &socketSet, NULL, &timeout);
             if (result == 0) {
-                LogPrint("tls", "TLS: ERROR: %s: %s: WANT_WRITE timeout\n", __FILE__, __func__);
-                nErr = -1;
+                LogPrint("tls", "TLS: ERROR: %s: %s():%d - WANT_WRITE timeout on %s\n", __FILE__, __func__, __LINE__,
+                    (eRoutine == SSL_CONNECT ? "SSL_CONNECT" : 
+                        (eRoutine == SSL_ACCEPT ? "SSL_ACCEPT" : "SSL_SHUTDOWN" )));
+                err_code = SELECT_TIMEDOUT;
+                retOp = -1;
                 break;
             } else if (result == -1) {
                 LogPrint("tls", "TLS: ERROR: %s: %s: WANT_WRITE ssl_err_code: 0x%x; errno: %s\n",
                     __FILE__, __func__, sslErr, strerror(errno));
-                nErr = -1;
+                retOp = -1;
                 break;
             }
         }
     }
 
-    return nErr;
+    return retOp;
 }
+
 /**
  * @brief establish TLS connection to an address
  * 
@@ -198,12 +352,21 @@ SSL* TLSManager::connect(SOCKET hSocket, const CAddress& addrConnect, unsigned l
             }
         }
     }
+    else
+    {
+        err_code = ERR_get_error();
+        const char* error_str = ERR_error_string(err_code, NULL);
+        LogPrint("tls", "TLS: %s: %s():%d - SSL_new failed err: %s\n",
+            __FILE__, __func__, __LINE__, error_str);
+    }
+
 
     if (bConnectedTLS) {
         LogPrintf("TLS: connection to %s has been established (tlsv = %s 0x%04x / ssl = %s 0x%x ). Using cipher: %s\n",
             addrConnect.ToString(), SSL_get_version(ssl), SSL_version(ssl), OpenSSL_version(OPENSSL_VERSION), OpenSSL_version_num(), SSL_get_cipher(ssl));
     } else {
-        LogPrintf("TLS: %s: %s: TLS connection to %s failed\n", __FILE__, __func__, addrConnect.ToString());
+        LogPrintf("TLS: %s: %s():%d - TLS connection to %s failed (err_code 0x%X)\n",
+            __FILE__, __func__, __LINE__, addrConnect.ToString(), err_code);
 
         if (ssl) {
             SSL_free(ssl);
@@ -227,11 +390,15 @@ SSL_CTX* TLSManager::initCtx(
     const boost::filesystem::path& certificateFile,
     const std::vector<boost::filesystem::path>& trustedDirs)
 {
+    LogPrintf("TLS: %s: %s():%d - Initializing %s context\n", 
+         __FILE__, __func__, __LINE__, ctxType == SERVER_CONTEXT ? "server" : "client");
+
     if (!boost::filesystem::exists(privateKeyFile) ||
         !boost::filesystem::exists(certificateFile))
         return NULL;
 
 #ifndef TLS1_2_VERSION
+        // minimum secure protocol is 1.2
         LogPrintf("TLS: ERROR: %s: %s():%d Your OpenSSL version %s does not support TLS v1.2\n",
             __FILE__, __func__, __LINE__, OpenSSL_version(OPENSSL_VERSION) );
         return NULL;
@@ -250,23 +417,43 @@ SSL_CTX* TLSManager::initCtx(
             LogPrintf("TLS: WARNING: %s: %s():%d - failed to set min TLS version\n", __FILE__, __func__, __LINE__);
         }
 
+        LogPrintf("TLS: %s: %s():%d - setting cipher list\n", __FILE__, __func__, __LINE__);
+
+        // sets the list of available ciphers (TLSv1.2 and below) offering perfect forward secrecy
+        // and using RSA aut method (we have RSA keys)
+        const char *cipher_list =
+              "ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-SHA256:"
+              "DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES128-SHA256";
+
+        int ciph_ret = SSL_CTX_set_cipher_list(tlsCtx, cipher_list);
+        if (ciph_ret == 0) {
+            LogPrintf("TLS: WARNING: %s: %s():%d - failed to set cipher list for TLSv1.2\n", __FILE__, __func__, __LINE__);
+        }
+        // TLS 1.3 has ephemeral Diffie-Hellman as the only key exchange mechanism, so that perfect forward
+        // secrecy is ensured.
+
+        if (ctxType == SERVER_CONTEXT)
+        {
+            // amongst the Cl/Srv mutually-acceptable set, pick the one that the server prefers most instead of the one that
+            // the client prefers most
+            SSL_CTX_set_options(tlsCtx, SSL_OP_CIPHER_SERVER_PREFERENCE);
+
+            // SSL_OP_SINGLE_DH_USE causes the private part of the DH key exchange to be recomputed for each
+            // client connecting.
+            SSL_CTX_set_options(tlsCtx, SSL_OP_SINGLE_DH_USE);
+
+            LogPrintf("TLS: %s: %s():%d - setting dh callback\n", __FILE__, __func__, __LINE__);
+            SSL_CTX_set_tmp_dh_callback(tlsCtx, tmp_dh_callback);
+        }
+
         // Fix for Secure Client-Initiated Renegotiation DoS threat
-        long mask1 = SSL_CTX_get_options(tlsCtx);
-        long mask2 = SSL_CTX_set_options(tlsCtx, SSL_OP_NO_RENEGOTIATION);
-        if (mask1 == mask2)
-        {
-            LogPrintf("TLS: WARNING: %s: %s():%d - failed to set SSL_OP_NO_RENEGOTIATION option\n", __FILE__, __func__, __LINE__);
-        }
-        long mask3 = SSL_CTX_set_options(tlsCtx, SSL_OP_CIPHER_SERVER_PREFERENCE);
-        if (mask2 == mask3)
-        {
-            LogPrintf("TLS: WARNING: %s: %s():%d - failed to set SSL_OP_CIPHER_SERVER_PREFERENCE option\n", __FILE__, __func__, __LINE__);
-        }
+        SSL_CTX_set_options(tlsCtx, SSL_OP_NO_RENEGOTIATION);
 
         int min_ver = SSL_CTX_get_min_proto_version(tlsCtx);
         int max_ver = SSL_CTX_get_max_proto_version(tlsCtx); // 0x0 means auto
+        int opt_mask = SSL_CTX_get_options(tlsCtx);
 
-        LogPrintf("TLS: proto version: min/max 0x%04x/0x04%x, m1=0x%x, m2=0x%x m3=0x%x\n", min_ver, max_ver, mask1, mask2, mask3);
+        LogPrintf("TLS: proto version: min/max 0x%04x/0x04%x, opt_mask=0x%x\n", min_ver, max_ver, opt_mask);
 
         int rootCertsNum = LoadDefaultRootCertificates(tlsCtx);
         int trustedPathsNum = 0;
@@ -367,12 +554,26 @@ SSL* TLSManager::accept(SOCKET hSocket, const CAddress& addr, unsigned long& err
             }
         }
     }
+    else
+    {
+        err_code = ERR_get_error();
+        const char* error_str = ERR_error_string(err_code, NULL);
+        LogPrint("tls", "TLS: %s: %s():%d - SSL_new failed err: %s\n",
+            __FILE__, __func__, __LINE__, error_str);
+    }
 
     if (bAcceptedTLS) {
         LogPrintf("TLS: connection from %s has been accepted (tlsv = %s 0x%04x / ssl = %s 0x%x ). Using cipher: %s\n",
             addr.ToString(), SSL_get_version(ssl), SSL_version(ssl), OpenSSL_version(OPENSSL_VERSION), OpenSSL_version_num(), SSL_get_cipher(ssl));
+
+        STACK_OF(SSL_CIPHER) *sk = SSL_get_ciphers(ssl); 
+        for (int i = 0; i < sk_SSL_CIPHER_num(sk); i++) {
+            const SSL_CIPHER *c = sk_SSL_CIPHER_value(sk, i);
+            LogPrint("tls", "TLS: supporting cipher: %s\n", SSL_CIPHER_get_name(c));
+        }
     } else {
-        LogPrintf("TLS: ERROR: %s: %s: TLS connection from %s failed\n", __FILE__, __func__, addr.ToString());
+        LogPrintf("TLS: %s: %s():%d - TLS connection from %s failed (err_code 0x%X)\n",
+            __FILE__, __func__, __LINE__, addr.ToString(), err_code);
 
         if (ssl) {
             SSL_free(ssl);
@@ -457,7 +658,7 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
         if (lockRecv) {
             {
                 // typical socket buffer is 8K-64K
-                // maximum record size is 16kB for SSLv3/TLSv1
+                // maximum record size is 16kB for SSL/TLS (still valid as of 1.1.1 version)
                 char pchBuf[0x10000];
                 bool bIsSSL = false;
                 int nBytes = 0, nRet = 0;
@@ -504,10 +705,6 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
 
 
                 } else if (nBytes < 0) {
-                    // TODO Old documentation of Openssl indicated a difference between 0 and -1, and that -1 was retryable.
-                    // You should instead call SSL_get_error() to find out if it's retryable.
-                    // In this case care must be taken for non SSL connections
-
                     // error
                     //
                     if (bIsSSL) {

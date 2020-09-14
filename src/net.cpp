@@ -437,10 +437,19 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
                 ssl = tlsmanager.connect(hSocket, addrConnect, err_code);
                 if (!ssl)
                 {
-                    // Further reconnection will be made in non-TLS (unencrypted) mode
-                    vNonTLSNodesOutbound.push_back(NODE_ADDR(addrConnect.ToStringIP(), GetTimeMillis()));
-                    LogPrint("tls", " err_code %d, adding connection to %s vNonTLSNodesOutbound list (sz=%d)\n",
-                        err_code, addrConnect.ToStringIP(), vNonTLSNodesOutbound.size());
+                    if (err_code == TLSManager::SELECT_TIMEDOUT)
+                    {
+                        // can fail for timeout in select on fd, that is not a ssl error and we should not
+                        // consider this node as non TLS
+                        LogPrint("tls", "%s():%d - Connection to %s timedout\n", __func__, __LINE__, addrConnect.ToStringIP());
+                    }
+                    else
+                    {
+                        // Further reconnection will be made in non-TLS (unencrypted) mode
+                        vNonTLSNodesOutbound.push_back(NODE_ADDR(addrConnect.ToStringIP(), GetTimeMillis()));
+                        LogPrint("tls", "%s():%d - err_code %x, adding connection to %s vNonTLSNodesOutbound list (sz=%d)\n",
+                            __func__, __LINE__, err_code, addrConnect.ToStringIP(), vNonTLSNodesOutbound.size());
+                    }
                     CloseSocket(hSocket);
                     return NULL;
                 }
@@ -466,9 +475,13 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
             return NULL;
         }
 #endif  // COMPAT_NON_TLS
-    
+        
+        // certificate validation is disabled by default    
         if (GetBoolArg("-tlsvalidate", false))
         {
+            if (ssl)
+                LogPrint("tls", "TLS: %s: %s():%d - validating certificate\n", __FILE__, __func__, __LINE__);
+
             if (ssl && !ValidatePeerCertificate(ssl))
             {
                 LogPrintf ("TLS: ERROR: Wrong server certificate from %s. Connection will be closed.\n", addrConnect.ToString());
@@ -478,6 +491,11 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
                 SSL_free(ssl);
                 return NULL;
             }
+        }
+        else
+        {
+            if (ssl)
+                LogPrint("tls", "TLS: %s: %s():%d - WARNING: not validating certificate\n", __FILE__, __func__, __LINE__);
         }
 #endif  // USE_TLS
 
@@ -521,7 +539,7 @@ void CNode::CloseSocketDisconnect()
                 // std::bad_alloc exception when instantiating internal objs for handling log category
                 LogPrintf("(node is probably shutting down) disconnecting peer=%d\n", id);
             }
-        
+
             if (ssl)
             {
                 unsigned long err_code = 0;
@@ -1118,7 +1136,7 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
     {
         LOCK(cs_vNonTLSNodesInbound);
     
-        LogPrint("tls", "%s():%d - handling connection from %s\n", __func__, __LINE__,  addr.ToStringIP());
+        LogPrint("tls", "%s():%d - handling connection from %s\n", __func__, __LINE__,  addr.ToString());
 
         NODE_ADDR nodeAddr(addr.ToStringIP());
         
@@ -1131,17 +1149,26 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
             ssl = tlsmanager.accept( hSocket, addr, err_code);
             if(!ssl)
             {
-                // Further reconnection will be made in non-TLS (unencrypted) mode
-                vNonTLSNodesInbound.push_back(NODE_ADDR(addr.ToStringIP(), GetTimeMillis()));
-                LogPrint("tls", "err_code %d, adding connection from %s vNonTLSNodesInbound list (sz=%d)\n",
-                    err_code, addr.ToStringIP(), vNonTLSNodesInbound.size());
+                if (err_code == TLSManager::SELECT_TIMEDOUT)
+                {
+                    // can fail also for timeout in select on fd, that is not a ssl error and we should not
+                    // consider this node as non TLS
+                    LogPrint("tls", "%s():%d - Connection from %s timedout\n", __func__, __LINE__, addr.ToStringIP());
+                }
+                else
+                {
+                    // Further reconnection will be made in non-TLS (unencrypted) mode
+                    vNonTLSNodesInbound.push_back(NODE_ADDR(addr.ToStringIP(), GetTimeMillis()));
+                    LogPrint("tls", "%s():%d - err_code %x, adding connection from %s vNonTLSNodesInbound list (sz=%d)\n",
+                        __func__, __LINE__, err_code, addr.ToStringIP(), vNonTLSNodesInbound.size());
+                }
                 CloseSocket(hSocket);
                 return;
             }
         }
         else
         {
-            LogPrintf ("TLS: Connection from %s will be unencrypted\n", addr.ToString());
+            LogPrintf ("TLS: Connection from %s will be unencrypted\n", addr.ToStringIP());
             
             vNonTLSNodesInbound.erase(
                     remove(
@@ -1162,8 +1189,12 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
     }
 #endif // COMPAT_NON_TLS
     
+    // certificate validation is disabled by default    
     if (GetBoolArg("-tlsvalidate", false))
     {
+        if (ssl)
+            LogPrint("tls", "TLS: %s: %s():%d - validating certificate\n", __FILE__, __func__, __LINE__);
+
         if (ssl && !ValidatePeerCertificate(ssl))
         {
             LogPrintf ("TLS: ERROR: Wrong client certificate from %s. Connection will be closed.\n", addr.ToString());
@@ -1173,6 +1204,11 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
             SSL_free(ssl);
             return;
         }
+    }
+    else
+    {
+        if (ssl)
+            LogPrint("tls", "TLS: %s: %s():%d - WARNING: not validating certificate\n", __FILE__, __func__, __LINE__);
     }
 #endif // USE_TLS
 
@@ -2044,6 +2080,7 @@ bool StopNode()
     return true;
 }
 
+#if 0
 class CNetCleanup
 {
 public:
@@ -2079,6 +2116,41 @@ public:
     }
 }
 instance_of_cnetcleanup;
+// this is a global obj and is destroyed when the program terminates. But since we can not rely on
+// any order in global obj dtors, we might have other invalid global objs at this point, for instance the multimap
+// for logging specific categories. In that case any LogPrint("<cat>") call might result in a bad_alloc exception
+// Probably a better approach is calling explicitly a cleanup func from init.cpp Shutdown() func.
+#else
+void CNode::NetCleanup()
+    {
+        // Close sockets
+        BOOST_FOREACH(CNode* pnode, vNodes)
+        pnode->CloseSocketDisconnect();
+        BOOST_FOREACH(ListenSocket& hListenSocket, vhListenSocket)
+            if (hListenSocket.socket != INVALID_SOCKET)
+                if (!CloseSocket(hListenSocket.socket))
+                    LogPrintf("CloseSocket(hListenSocket) failed with error %s\n", NetworkErrorString(WSAGetLastError()));
+
+        // clean up some globals (to help leak detection)
+        BOOST_FOREACH(CNode *pnode, vNodes)
+            delete pnode;
+        BOOST_FOREACH(CNode *pnode, vNodesDisconnected)
+            delete pnode;
+        vNodes.clear();
+        vNodesDisconnected.clear();
+        vhListenSocket.clear();
+        delete semOutbound;
+        semOutbound = NULL;
+        delete pnodeLocalHost;
+        pnodeLocalHost = NULL;
+
+#ifdef WIN32
+        // Shutdown Windows Sockets
+        WSACleanup();
+#endif
+    }
+#endif
+
 
 
 
