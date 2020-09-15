@@ -2,17 +2,6 @@
 #include <primitives/transaction.h>
 #include <primitives/certificate.h>
 
-SidechainTxsCommitmentBuilder::EmptyField::EmptyField():
-    zerosHelperArray{'\0'}, zero(zendoo_deserialize_field(zerosHelperArray))
-{}
-
-SidechainTxsCommitmentBuilder::EmptyField::~EmptyField()
-{
-    zendoo_field_free(const_cast<field_t*>(zero));
-}
-
-SidechainTxsCommitmentBuilder::EmptyField SidechainTxsCommitmentBuilder::emptyField;
-
 #ifdef BITCOIN_TX
 void SidechainTxsCommitmentBuilder::add(const CTransaction& tx) { return; }
 void SidechainTxsCommitmentBuilder::add(const CScCertificate& cert) { return; }
@@ -92,12 +81,9 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
         vSortedScLeaves.push_back(sidechainTreeRoot);
     }
 
-    field_t * finalTreeRoot = emptyField.zero;
-    if (vSortedScLeaves.size() != 0)
-        finalTreeRoot = merkleTreeRootOf(vSortedScLeaves);
-
+    field_t * finalTreeRoot = merkleTreeRootOf(vSortedScLeaves);
     uint256 res = mapFieldToHash(finalTreeRoot);
-    if (finalTreeRoot != emptyField.zero) zendoo_field_free(finalTreeRoot);
+    zendoo_field_free(finalTreeRoot);
 
     return res;
 }
@@ -105,7 +91,7 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
 
 field_t* SidechainTxsCommitmentBuilder::mapScTxToField(const uint256& ccoutHash, const uint256& txHash, unsigned int outPos) const
 {
-    static_assert((sizeof(uint256) + sizeof(uint256) + sizeof(unsigned int)) < SC_FIELD_SIZE);
+    static_assert((sizeof(uint256) + sizeof(uint256) + sizeof(unsigned int)) <= SC_FIELD_SAFE_SIZE);
 
     std::string toHash = std::string(ccoutHash.begin(), ccoutHash.end()) +
             std::string(txHash.begin(), txHash.end()) +
@@ -121,7 +107,7 @@ field_t* SidechainTxsCommitmentBuilder::mapScTxToField(const uint256& ccoutHash,
 
 field_t* SidechainTxsCommitmentBuilder::mapCertToField(const uint256& certHash) const
 {
-    static_assert(sizeof(uint256) < SC_FIELD_SIZE);
+    static_assert(sizeof(uint256) <= SC_FIELD_SAFE_SIZE);
     unsigned char hash[SC_FIELD_SIZE] = {};
     std::string resHex = std::string(certHash.begin(), certHash.end());
     memcpy(hash, resHex.append(SC_FIELD_SIZE - resHex.size(), '\0').c_str(), SC_FIELD_SIZE);
@@ -145,33 +131,31 @@ uint256 SidechainTxsCommitmentBuilder::mapFieldToHash(const field_t* pField) con
 
 unsigned int SidechainTxsCommitmentBuilder::treeHeightForLeaves(unsigned int numberOfLeaves) const
 {
-    if (numberOfLeaves == 1)
-        return 2;
+    assert(numberOfLeaves > 0);
 
-    unsigned int res = static_cast<unsigned int>(ceil(log2f(static_cast<float>(numberOfLeaves)))) + 1;
-    return res;
+    return static_cast<unsigned int>(ceil(log2f(static_cast<float>(numberOfLeaves))));
 }
 
 field_t* SidechainTxsCommitmentBuilder::merkleTreeRootOf(std::vector<field_t*>& leaves) const
 {
-    //Notes: leaves are consumed, i.e. freed and nulled, if non-empty
-    //       root is a deep-copy, hence it must be freed later on
-    //       null leaves are mapped to emptyField
-    //       it is guaranteed not to return nullptr
-    field_t* res = nullptr;
-    auto btrTree = ZendooGingerRandomAccessMerkleTree(treeHeightForLeaves(leaves.size()));
+    //Notes: Leaves are consumed, i.e. freed and nulled;
+    //       It is guaranteed not to return nullptr.
+
+    unsigned int numberOfLeaves = leaves.size();
+    if (numberOfLeaves == 0) 
+        numberOfLeaves = 1;
+    
+    auto btrTree = ZendooGingerMerkleTree(treeHeightForLeaves(numberOfLeaves), numberOfLeaves);
     for(field_t* & leaf: leaves)
     {
-        //As of now we swallow possible errors in deserialization of field by replacing null with empty field
-        btrTree.append((leaf != nullptr)? leaf : emptyField.zero);
-        if (leaf != nullptr)
-        {
+        if (leaf != nullptr) {
+            btrTree.append(leaf);
             zendoo_field_free(leaf);
             leaf = nullptr;
         }
     }
 
     btrTree.finalize_in_place();
-    res = btrTree.root();
-    return (res == nullptr)? emptyField.zero : res;
+    field_t* root = btrTree.root();
+    return root;
 }

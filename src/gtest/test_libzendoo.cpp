@@ -65,7 +65,7 @@ TEST(ZendooLib, PoseidonHashTest)
     auto expected_hash = zendoo_deserialize_field(hash);
     ASSERT_TRUE(expected_hash != NULL);
 
-    auto digest = ZendooPoseidonHash(NULL, 0);
+    auto digest = ZendooPoseidonHash();
 
     digest.update(lhs_field);
 
@@ -88,14 +88,15 @@ TEST(ZendooLib, PoseidonHashTest)
 
 TEST(ZendooLib, PoseidonMerkleTreeTest)  {
 
-    size_t height = 10;
+    size_t height = 5;
 
     // Deserialize root
     unsigned char expected_root_bytes[SC_FIELD_SIZE] = {
-        231, 64, 42, 251, 206, 22, 102, 105, 222, 145, 252, 133, 62, 169, 60, 150, 50, 133, 187, 38, 47, 246, 192, 170,
-        161, 204, 152, 177, 20, 209, 217, 101, 34, 159, 246, 176, 23, 223, 62, 191, 103, 165, 210, 114, 179, 110, 140,
-        252, 250, 167, 106, 31, 7, 178, 109, 108, 20, 239, 162, 121, 99, 207, 137, 224, 124, 212, 65, 229, 5, 112, 116,
-        75, 145, 11, 77, 252, 134, 37, 127, 54, 244, 236, 68, 129, 16, 191, 196, 6, 17, 185, 138, 98, 183, 153, 1, 0
+        192, 138, 102, 85, 151, 8, 139, 184, 209, 249, 171, 182, 227, 80, 52, 215, 32, 37, 145, 166,
+        74, 136, 40, 200, 213, 72, 124, 101, 91, 235, 114, 0, 147, 61, 180, 29, 183, 111, 247, 2,
+        169, 12, 179, 173, 87, 88, 187, 229, 26, 139, 80, 228, 125, 246, 145, 141, 43, 19, 148, 94,
+        190, 140, 20, 123, 208, 132, 48, 243, 14, 2, 48, 106, 100, 13, 41, 254, 129, 225, 168, 23,
+        72, 215, 207, 255, 98, 156, 102, 215, 201, 158, 10, 123, 107, 238, 0, 0
     };
     auto expected_root = zendoo_deserialize_field(expected_root_bytes);
     ASSERT_TRUE(expected_root != NULL);
@@ -103,7 +104,7 @@ TEST(ZendooLib, PoseidonMerkleTreeTest)  {
     //Generate leaves
 
     //enum removes variable length buffer [-Wstack-protector] warning that simple const int would give
-    enum { leaves_len = 512 };
+    enum { leaves_len = 32 };
 
     const field_t* leaves[leaves_len];
     for (int i = 0; i < leaves_len; i++){
@@ -111,7 +112,7 @@ TEST(ZendooLib, PoseidonMerkleTreeTest)  {
     }
 
     // Initialize tree
-    auto tree = ZendooGingerRandomAccessMerkleTree(height);
+    auto tree = ZendooGingerMerkleTree(height, leaves_len);
 
     // Add leaves to tree
     for (int i = 0; i < leaves_len; i++){
@@ -129,6 +130,13 @@ TEST(ZendooLib, PoseidonMerkleTreeTest)  {
     auto tree_copy = tree.finalize();
     auto root_copy = tree_copy.root();
     ASSERT_TRUE(("Expected roots to be equal", zendoo_field_assert_eq(root_copy, expected_root)));
+
+    // Test Merkle Paths
+    for (int i = 0; i < leaves_len; i++) {
+        auto path = tree.get_merkle_path(i);
+        ASSERT_TRUE(("Merkle Path must be verified", zendoo_verify_ginger_merkle_path(path, height, (field_t*)leaves[i], root)));
+        zendoo_free_ginger_merkle_path(path);
+    }
 
     // Free memory
     zendoo_field_free(expected_root);
@@ -302,7 +310,8 @@ TEST(ScTxCommitmentTree, SimpleTest)
     builder.add(cert);
 
     uint256 scTxCommitmentHash = builder.getCommitment();
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("b98714e5fdc3d6a2bc2dcc0edd525eeb1be1717caae7c3de4f1c11e9509e089e"))
+
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("982bc09b5afe2d071542312e4b49b2a981f72555a41d7970f502c8d80bd7dc2f"))
         <<scTxCommitmentHash.ToString();
 }
 

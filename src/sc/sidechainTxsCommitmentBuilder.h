@@ -39,17 +39,6 @@ private:
     // the catalog of scid, resulting after having collected all above contributions
     std::set<uint256> sScIds;
 
-    class EmptyField
-    {
-    public:
-        EmptyField();
-        ~EmptyField();
-        field_t* const zero;
-    private:
-        const unsigned char zerosHelperArray[SC_FIELD_SIZE];
-    };
-    static EmptyField emptyField;
-
     field_t* mapScTxToField(const uint256& ccoutHash, const uint256& txHash, unsigned int outPos) const;
     field_t* mapCertToField(const uint256& certHash) const;
 
