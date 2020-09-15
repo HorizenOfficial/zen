@@ -13,14 +13,8 @@
 #include "amount.h"
 #include "chain.h"
 #include "chainparams.h"
-#include "coins.h"
-#include "consensus/consensus.h"
 #include "net.h"
-#include "primitives/block.h"
-#include "primitives/transaction.h"
 #include "script/script.h"
-#include "script/sigcache.h"
-#include "script/standard.h"
 #include "sync.h"
 #include "tinyformat.h"
 #include "txmempool.h"
@@ -38,12 +32,14 @@
 
 #include <boost/unordered_map.hpp>
 
-class CBlockIndex;
+class CTransaction;
+class CCoins;
+class CCoinsViewCache;
+class CCoinsView;
+class CBlock;
+class CBlockLocator;
 class CBlockTreeDB;
-class CBloomFilter;
-class CInv;
 class CScriptCheck;
-class CValidationInterface;
 class CValidationState;
 
 struct CNodeStateStats;
