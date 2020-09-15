@@ -10,7 +10,6 @@
 #include "addrman.h"
 #include "alert.h"
 #include "arith_uint256.h"
-#include "chainparams.h"
 #include "checkpoints.h"
 #include "checkqueue.h"
 #include "consensus/validation.h"
@@ -18,10 +17,8 @@
 #include "init.h"
 #include "merkleblock.h"
 #include "metrics.h"
-#include "net.h"
 #include "pow.h"
 #include "txdb.h"
-#include "txmempool.h"
 #include "ui_interface.h"
 #include "undo.h"
 #include "util.h"
@@ -43,6 +40,9 @@
 #include "zen/delay.h"
 
 #include "sc/sidechain.h"
+
+#include "script/sigcache.h"
+#include "script/standard.h"
 
 using namespace zen;
 
