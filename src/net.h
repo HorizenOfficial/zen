@@ -37,7 +37,6 @@
 
 
 class CAddrMan;
-class CBlockIndex;
 class CScheduler;
 class CNode;
 

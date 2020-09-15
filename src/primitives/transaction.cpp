@@ -23,6 +23,7 @@
 #include "utilmoneystr.h"
 #include <univalue.h>
 #include <limits.h>
+#include "script/sigcache.h"
 
 extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
 

@@ -15,7 +15,6 @@
 #include "utilmoneystr.h"
 #include "version.h"
 #include "validationinterface.h"
-#include "main.h"
 #include <undo.h>
 
 CMemPoolEntry::CMemPoolEntry():

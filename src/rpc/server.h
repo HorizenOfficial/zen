@@ -8,7 +8,6 @@
 
 #include "amount.h"
 #include "rpc/protocol.h"
-#include "uint256.h"
 
 #include <list>
 #include <map>
@@ -22,6 +21,7 @@
 
 class AsyncRPCQueue;
 class CRPCCommand;
+class uint256;
 
 namespace RPCServer
 {
