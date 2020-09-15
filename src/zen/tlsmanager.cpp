@@ -6,17 +6,12 @@
 #include <openssl/dh.h>
 #endif
 
-#include "utiltls.h"
-
-#include <boost/filesystem.hpp>
-#include <boost/thread.hpp>
-#include "../util.h"
-#include "../protocol.h"
-
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 
 #include "tlsmanager.h"
+#include "utiltls.h"
+
 using namespace std;
 namespace zen
 {

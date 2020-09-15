@@ -140,7 +140,7 @@ bool static LookupIntern(const char *pszName, std::vector<CNetAddr>& vIP, unsign
     int nErr = getaddrinfo_a(GAI_NOWAIT, &query, 1, NULL);
     if (nErr)
     {
-        LogPrintf("ERROR: getaddrinfo_a() query failed, err=%s\n", gai_strerror(nErr));
+        LogPrint("net", "%s():%d - getaddrinfo_a() query failed at [%s], err=%s\n", __func__, __LINE__, pszName, gai_strerror(nErr));
         return false;
     }
 
@@ -162,7 +162,7 @@ bool static LookupIntern(const char *pszName, std::vector<CNetAddr>& vIP, unsign
 #endif
     if (nErr)
     {
-        LogPrintf("ERROR: getaddrinfo_a() response failed, err=%s\n", gai_strerror(nErr));
+        LogPrint("net", "%s():%d - getaddrinfo_a() response failed from [%s], err=%s\n", __func__, __LINE__, pszName, gai_strerror(nErr));
         return false;
     }
 
@@ -173,7 +173,6 @@ bool static LookupIntern(const char *pszName, std::vector<CNetAddr>& vIP, unsign
         {
             assert(aiTrav->ai_addrlen >= sizeof(sockaddr_in));
             vIP.push_back(CNetAddr(((struct sockaddr_in*)(aiTrav->ai_addr))->sin_addr));
-            LogPrint("net", "added node %s got from dnsseed[%s]\n", vIP.back().ToString(), pszName);
         }
 
         if (aiTrav->ai_family == AF_INET6)
@@ -181,6 +180,7 @@ bool static LookupIntern(const char *pszName, std::vector<CNetAddr>& vIP, unsign
             assert(aiTrav->ai_addrlen >= sizeof(sockaddr_in6));
             vIP.push_back(CNetAddr(((struct sockaddr_in6*)(aiTrav->ai_addr))->sin6_addr));
         }
+        LogPrint("net", "added node %s got from dnsseed[%s]\n", vIP.back().ToString(), pszName);
 
         aiTrav = aiTrav->ai_next;
     }
