@@ -56,7 +56,6 @@ using namespace zen;
 #endif
 
 #define USE_TLS
-#define COMPAT_NON_TLS // enables compatibility with nodes, that still doesn't support TLS connections
 
 using namespace std;
 
@@ -339,6 +338,9 @@ void AddressCurrentlyConnected(const CService& addr)
 }
 
 
+CNode::eTlsOption CNode::tlsFallbackNonTls = CNode::eTlsOption::INVALID;
+CNode::eTlsOption CNode::tlsValidate       = CNode::eTlsOption::INVALID;
+
 uint64_t CNode::nTotalBytesRecv = 0;
 uint64_t CNode::nTotalBytesSent = 0;
 CCriticalSection CNode::cs_totalBytesRecv;
@@ -420,64 +422,70 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
         
 #ifdef USE_TLS
         /* TCP connection is ready. Do client side SSL. */
-#ifdef COMPAT_NON_TLS
+        if (CNode::GetTlsFallbackNonTls())
         {
-            LOCK(cs_vNonTLSNodesOutbound);
-        
-            LogPrint("tls", "%s():%d - handling connection to %s\n", __func__, __LINE__,  addrConnect.ToString());
-
-            NODE_ADDR nodeAddr(addrConnect.ToStringIP());
-        
-            bool bUseTLS = (find(vNonTLSNodesOutbound.begin(),
-                                 vNonTLSNodesOutbound.end(),
-                                 nodeAddr) == vNonTLSNodesOutbound.end());
-            unsigned long err_code = 0;
-            if (bUseTLS)
             {
-                ssl = tlsmanager.connect(hSocket, addrConnect, err_code);
-                if (!ssl)
+                LOCK(cs_vNonTLSNodesOutbound);
+            
+                LogPrint("tls", "%s():%d - handling connection to %s\n", __func__, __LINE__,  addrConnect.ToString());
+ 
+                NODE_ADDR nodeAddr(addrConnect.ToStringIP());
+            
+                bool bUseTLS = (find(vNonTLSNodesOutbound.begin(),
+                                     vNonTLSNodesOutbound.end(),
+                                     nodeAddr) == vNonTLSNodesOutbound.end());
+                unsigned long err_code = 0;
+                if (bUseTLS)
                 {
-                    if (err_code == TLSManager::SELECT_TIMEDOUT)
+                    ssl = tlsmanager.connect(hSocket, addrConnect, err_code);
+                    if (!ssl)
                     {
-                        // can fail for timeout in select on fd, that is not a ssl error and we should not
-                        // consider this node as non TLS
-                        LogPrint("tls", "%s():%d - Connection to %s timedout\n", __func__, __LINE__, addrConnect.ToStringIP());
+                        if (err_code == TLSManager::SELECT_TIMEDOUT)
+                        {
+                            // can fail for timeout in select on fd, that is not a ssl error and we should not
+                            // consider this node as non TLS
+                            LogPrint("tls", "%s():%d - Connection to %s timedout\n",
+                                __func__, __LINE__, addrConnect.ToStringIP());
+                        }
+                        else
+                        {
+                            // Further reconnection will be made in non-TLS (unencrypted) mode
+                            vNonTLSNodesOutbound.push_back(NODE_ADDR(addrConnect.ToStringIP(), GetTimeMillis()));
+                            LogPrint("tls", "%s():%d - err_code %x, adding connection to %s vNonTLSNodesOutbound list (sz=%d)\n",
+                                __func__, __LINE__, err_code, addrConnect.ToStringIP(), vNonTLSNodesOutbound.size());
+                        }
+                        CloseSocket(hSocket);
+                        return NULL;
                     }
-                    else
-                    {
-                        // Further reconnection will be made in non-TLS (unencrypted) mode
-                        vNonTLSNodesOutbound.push_back(NODE_ADDR(addrConnect.ToStringIP(), GetTimeMillis()));
-                        LogPrint("tls", "%s():%d - err_code %x, adding connection to %s vNonTLSNodesOutbound list (sz=%d)\n",
-                            __func__, __LINE__, err_code, addrConnect.ToStringIP(), vNonTLSNodesOutbound.size());
-                    }
-                    CloseSocket(hSocket);
-                    return NULL;
+                }
+                else
+                {
+                    LogPrintf ("Connection to %s will be unencrypted\n", addrConnect.ToString());
+            
+                    vNonTLSNodesOutbound.erase(
+                            remove(
+                                    vNonTLSNodesOutbound.begin(),
+                                    vNonTLSNodesOutbound.end(),
+                                    nodeAddr),
+                            vNonTLSNodesOutbound.end());
                 }
             }
-            else
+        }
+        else
+        {
+            unsigned long err_code = 0;
+            ssl = tlsmanager.connect(hSocket, addrConnect, err_code);
+            if(!ssl)
             {
-                LogPrintf ("Connection to %s will be unencrypted\n", addrConnect.ToString());
-        
-                vNonTLSNodesOutbound.erase(
-                        remove(
-                                vNonTLSNodesOutbound.begin(),
-                                vNonTLSNodesOutbound.end(),
-                                nodeAddr),
-                        vNonTLSNodesOutbound.end());
+                LogPrint("tls", "%s():%d - err_code %x, connection to %s failed)\n",
+                    __func__, __LINE__, err_code, addrConnect.ToStringIP());
+                CloseSocket(hSocket);
+                return NULL;
             }
         }
-#else
-        unsigned long err_code = 0;
-        ssl = tlsmanager.connect(hSocket, addrConnect, err_code);
-        if(!ssl)
-        {
-            CloseSocket(hSocket);
-            return NULL;
-        }
-#endif  // COMPAT_NON_TLS
         
         // certificate validation is disabled by default    
-        if (GetBoolArg("-tlsvalidate", false))
+        if (CNode::GetTlsValidate())
         {
             if (ssl)
                 LogPrint("tls", "TLS: %s: %s():%d - validating certificate\n", __FILE__, __func__, __LINE__);
@@ -1132,7 +1140,7 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
     
 #ifdef USE_TLS
     /* TCP connection is ready. Do server side SSL. */
-#ifdef COMPAT_NON_TLS
+    if (CNode::GetTlsFallbackNonTls())
     {
         LOCK(cs_vNonTLSNodesInbound);
     
@@ -1179,18 +1187,21 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
                     vNonTLSNodesInbound.end());
         }
     }
-#else
-    unsigned long err_code = 0;
-    ssl = tlsmanager.accept( hSocket, addr, err_code);
-    if(!ssl)
+    else
     {
-        CloseSocket(hSocket);
-        return;
+        unsigned long err_code = 0;
+        ssl = tlsmanager.accept( hSocket, addr, err_code);
+        if(!ssl)
+        {
+            LogPrint("tls", "%s():%d - err_code %x, failure accepting connection from %s\n",
+                __func__, __LINE__, err_code, addr.ToStringIP());
+            CloseSocket(hSocket);
+            return;
+        }
     }
-#endif // COMPAT_NON_TLS
     
     // certificate validation is disabled by default    
-    if (GetBoolArg("-tlsvalidate", false))
+    if (CNode::GetTlsValidate())
     {
         if (ssl)
             LogPrint("tls", "TLS: %s: %s():%d - validating certificate\n", __FILE__, __func__, __LINE__);
@@ -1222,7 +1233,7 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
     }
 }
 
-#if defined(USE_TLS) && defined(COMPAT_NON_TLS)
+#if defined(USE_TLS)
 void ThreadNonTLSPoolsCleaner()
 {
     while (true)
@@ -1233,7 +1244,7 @@ void ThreadNonTLSPoolsCleaner()
     }
 }
 
-#endif // USE_TLS && COMPAT_NON_TLS
+#endif // USE_TLS 
 
 
 void ThreadSocketHandler()
@@ -1728,23 +1739,25 @@ bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOu
     CNode* pnode = ConnectNode(addrConnect, pszDest);
     boost::this_thread::interruption_point();
     
-#if defined(USE_TLS) && defined(COMPAT_NON_TLS)
-    
-    if (!pnode)
+#if defined(USE_TLS)
+    if (CNode::GetTlsFallbackNonTls())
     {
-        string strDest;
-        int port;
-    
-        if (!pszDest)
-            strDest = addrConnect.ToStringIP();
-        else
-            SplitHostPort(string(pszDest), port, strDest);
-    
-        if (tlsmanager.isNonTLSAddr(strDest, vNonTLSNodesOutbound, cs_vNonTLSNodesOutbound))
+        if (!pnode)
         {
-            // Attempt to reconnect in non-TLS mode
-            pnode = ConnectNode(addrConnect, pszDest);
-            boost::this_thread::interruption_point();
+            string strDest;
+            int port;
+        
+            if (!pszDest)
+                strDest = addrConnect.ToStringIP();
+            else
+                SplitHostPort(string(pszDest), port, strDest);
+        
+            if (tlsmanager.isNonTLSAddr(strDest, vNonTLSNodesOutbound, cs_vNonTLSNodesOutbound))
+            {
+                // Attempt to reconnect in non-TLS mode
+                pnode = ConnectNode(addrConnect, pszDest);
+                boost::this_thread::interruption_point();
+            }
         }
     }
     
@@ -2055,9 +2068,12 @@ void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler)
     // Process messages
     threadGroup.create_thread(boost::bind(&TraceThread<void (*)()>, "msghand", &ThreadMessageHandler));
 
-#if defined(USE_TLS) && defined(COMPAT_NON_TLS)
-    // Clean pools of addresses for non-TLS connections
-    threadGroup.create_thread(boost::bind(&TraceThread<void (*)()>, "poolscleaner", &ThreadNonTLSPoolsCleaner));
+#if defined(USE_TLS)
+    if (CNode::GetTlsFallbackNonTls())
+    {
+        // Clean pools of addresses for non-TLS connections
+        threadGroup.create_thread(boost::bind(&TraceThread<void (*)()>, "poolscleaner", &ThreadNonTLSPoolsCleaner));
+    }
 #endif
     
     // Dump network addresses
@@ -2424,6 +2440,48 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
         PushVersion();
 
     GetNodeSignals().InitializeNode(GetId(), this);
+}
+
+bool CNode::GetTlsFallbackNonTls()
+{
+    if (tlsFallbackNonTls == eTlsOption::INVALID)
+    {
+        // one time only setting of static class attribute
+        if ( GetBoolArg("-tlsfallbacknontls", true))
+        {
+            LogPrint("tls", "%s():%d - Non-TLS connections will be used in case of failure on TLS\n",
+                __func__, __LINE__);
+            tlsFallbackNonTls = eTlsOption::TRUE;
+        }
+        else
+        {
+            LogPrint("tls", "%s():%d - Non-TLS connections will be NOT be used in case of failure on TLS\n",
+                __func__, __LINE__);
+            tlsFallbackNonTls = eTlsOption::FALSE;
+        }
+    }
+    return (tlsFallbackNonTls == eTlsOption::TRUE);
+}
+
+bool CNode::GetTlsValidate()
+{
+    if (tlsValidate == eTlsOption::INVALID)
+    {
+        // one time only setting of static class attribute
+        if ( GetBoolArg("-tlsvalidate", false))
+        {
+            LogPrint("tls", "%s():%d - TLS certificates will be validated\n",
+                __func__, __LINE__);
+            tlsValidate = eTlsOption::TRUE;
+        }
+        else
+        {
+            LogPrint("tls", "%s():%d - TLS certificates will NOT be validated\n",
+                __func__, __LINE__);
+            tlsValidate = eTlsOption::FALSE;
+        }
+    }
+    return (tlsValidate == eTlsOption::TRUE);
 }
 
 CNode::~CNode()

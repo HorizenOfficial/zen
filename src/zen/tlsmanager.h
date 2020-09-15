@@ -1,12 +1,10 @@
 #include <openssl/conf.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
-#include "utiltls.h"
 #include "tlsenums.h"
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 #include "../util.h"
-#include "../protocol.h"
 #include "../net.h"
 #include "sync.h"
 #include <boost/filesystem/path.hpp>

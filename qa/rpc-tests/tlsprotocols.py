@@ -4,38 +4,16 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.authproxy import JSONRPCException
-from test_framework.script import OP_DUP, OP_EQUALVERIFY, OP_HASH160, OP_EQUAL, hash160, OP_CHECKSIG, OP_CHECKBLOCKATHEIGHT
-from test_framework.util import assert_true, assert_equal, assert_greater_than, initialize_chain_clean, \
-    start_nodes, start_node, connect_nodes, stop_node, stop_nodes, \
-    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision
-from test_framework.script import CScript
-from test_framework.mininode import CTransaction, ToHex
-from test_framework.util import hex_str_to_bytes, bytes_to_hex_str
-import traceback
-from binascii import unhexlify
-import cStringIO
+from test_framework.util import assert_true, initialize_chain_clean, \
+    start_nodes, sync_blocks, connect_nodes_bi, p2p_port
 import os,sys
-import shutil
-from decimal import Decimal
-import binascii
-import codecs
-
 import socket
 import ssl
-'''
-from random import randint
-import logging
-import pprint
-import struct
-import array
-'''
-
 import time
 
 NUMB_OF_NODES = 2
 
-class tls01(BitcoinTestFramework):
+class tlsproto(BitcoinTestFramework):
 
     alert_filename = None
 
@@ -52,42 +30,14 @@ class tls01(BitcoinTestFramework):
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
             extra_args = [
                 ["-logtimemicros", "-debug=net", "-debug=tls", "-debug=py"],
-                ["-logtimemicros", "-debug=net", "-debug=tls", "-debug=py"]
+                ["-logtimemicros", "-debug=net", "-debug=tls", "-debug=py", "-tlsfallbacknontls=0"]
             ])
 
-        if not split:
-            connect_nodes_bi(self.nodes, 0, 1)
-            connect_nodes_bi(self.nodes, 1, 0)
+        connect_nodes_bi(self.nodes, 0, 1)
+        connect_nodes_bi(self.nodes, 1, 0)
 
         self.is_network_split = split
         self.sync_all()
-        '''
-        self.is_network_split = split
-        '''
-
-    def disconnect_nodes(self, from_connection, node_num):
-        ip_port = "127.0.0.1:"+str(p2p_port(node_num))
-        from_connection.disconnectnode(ip_port)
-        # poll until version handshake complete to avoid race conditions
-        # with transaction relaying
-        while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
-            time.sleep(0.1)
-
-    def split_network(self):
-        # Split the network of 4 nodes into nodes 0-1-2 and 3.
-        assert not self.is_network_split
-        self.disconnect_nodes(self.nodes[0], 1)
-        self.disconnect_nodes(self.nodes[1], 0)
-        self.is_network_split = True
-
-
-    def join_network(self):
-        #Join the (previously split) network pieces together: 0-1-2-3
-        assert self.is_network_split
-        connect_nodes_bi(self.nodes, 0, 1)
-        connect_nodes_bi(self.nodes, 1, 0)
-        sync_blocks(self.nodes, 1, False, 5)
-        self.is_network_split = False
 
     def mark_logs(self, msg):
         print msg
@@ -97,13 +47,14 @@ class tls01(BitcoinTestFramework):
 
     def run_test(self):
 
-        def do_tls_conn(tls_protocol, peer, expected_result, ciphers=None):
-            # CREATE SOCKET
+        def do_tls_conn(tls_protocol, peer, expected_result=True, ciphers=None, tlsOnly=False):
+
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(1)
  
             ctx = ssl.SSLContext(tls_protocol)
             if ciphers:
+                print "Trying ciphers: ", ciphers
                 try:
                     ctx.set_ciphers(ciphers)
                 except Exception, e:
@@ -133,38 +84,52 @@ class tls01(BitcoinTestFramework):
                     print "Error: ", e
                     assert_true(False)
 
-                print "OK, it failed: ", e
+                print "...OK, TLS connection failed: ", e
 
                 wrappedSocket.close()
                 sock.close()
  
-                # upon failure a TLS node falls back to unencrypted mode for this endpoint ip, 
-                # therefore we must connect/disconnect in order to be able to try a new TLS connection 
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.connect(peer)
-                sock.close()
+                if tlsOnly == False:
+                    # upon failure, a TLS node optionally can fall back to unencrypted mode for this endpoint ip, 
+                    # therefore we must connect/disconnect in order to be able to try a new TLS connection 
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(1)
+                    print "...connecting non-TLS and exiting..."
+                    sock.connect(peer)
+                    sock.close()
 
             if result != expected_result:
                 raise AssertionError("Unexpected result!")
+            print
 
  
 
-        print "Using system lib: ", ssl.OPENSSL_VERSION
+        # this api is supported only from py 2.7.15
+        #b = ssl.HAS_TLSv1_3
+
+        # TLS1.3 support has been added from 1.1.1 on
+        openssl_111_v = hex(long('1010100f', base=16))
+
+        hex_openssl_v = hex(ssl.OPENSSL_VERSION_NUMBER)
+        print "Using system lib: {} - ({})".format(ssl.OPENSSL_VERSION, hex_openssl_v)
+
+        # generate some block and sync, just in case
         self.nodes[1].generate(10)
         self.sync_all()
 
+        # connect on Node0
         HOST, PORT = '127.0.0.1', p2p_port(0)
 
         self.mark_logs("\nTrying TLSv1 connection")
-        do_tls_conn(ssl.PROTOCOL_TLSv1, (HOST, PORT), False)
+        do_tls_conn(ssl.PROTOCOL_TLSv1, (HOST, PORT), expected_result=False)
 
         self.mark_logs("\nTrying TLSv1_1 connection")
-        do_tls_conn(ssl.PROTOCOL_TLSv1_1, (HOST, PORT), False)
+        do_tls_conn(ssl.PROTOCOL_TLSv1_1, (HOST, PORT), expected_result=False)
 
         self.mark_logs("\nTrying TLSv1_2 connection with non-PFS cipher")
-        do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), False, ciphers="AES256-GCM-SHA384")
+        do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), expected_result=False, ciphers="AES256-GCM-SHA384")
 
-        self.mark_logs("\nTrying TLSv1_2 connection with PFS ciphers")
+        self.mark_logs("\nTrying TLSv1_2 connection with several PFS ciphers...\n")
 
         # TLS1.2 ciphers supporting PFS and using RSA autentication
         ciph_array = [
@@ -176,10 +141,30 @@ class tls01(BitcoinTestFramework):
         ]
 
         for c in ciph_array:
-            print "\n    ", c
-            do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), True, ciphers=c)
+            do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), expected_result=True, ciphers=c)
 
+        # connect to Node1 which supports only TLS connections (no fallback to unencripted connections)
+        HOST, PORT = '127.0.0.1', p2p_port(1)
+
+        self.mark_logs("\nTrying TLSv1 connection with tls-only node")
+        do_tls_conn(ssl.PROTOCOL_TLSv1, (HOST, PORT), expected_result=False, tlsOnly=True)
+
+        self.mark_logs("\nTrying TLSv1_2 connection with tls-only node with unsupported cipher")
+        do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), expected_result=False, ciphers="DH-DSS-AES128-GCM-SHA256", tlsOnly=True)
+
+        self.mark_logs("\nTrying TLSv1_2 connection with tls-only node with supported cipher")
+        do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), expected_result=True, ciphers="DHE-RSA-AES256-SHA256", tlsOnly=True)
+
+        self.mark_logs("\nTrying TLSv1_2 connection with tls-only node letting it choose cipher")
+        do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), expected_result=True, ciphers=None, tlsOnly=True)
+ 
+        if hex_openssl_v >= openssl_111_v:
+            self.mark_logs("\nTrying TLSv1_3 connection with tls-only node letting it choose cipher")
+            do_tls_conn(ssl.PROTOCOL_TLSv1_3, (HOST, PORT), expected_result=True, ciphers=None, tlsOnly=True)
+        else:
+            print "\nNo test with TLS1.3 can be done since client does not support it, at least OpenSSL 1.1.1 ({}) is necessary".format(str(openssl_111_v))
+ 
 
 
 if __name__ == '__main__':
-    tls01().main()
+    tlsproto().main()

@@ -4491,7 +4491,7 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(chainActive.Height() + 1);
-    LogPrintf("z_sendmany shieldedTxVersion: %d\n", shieldedTxVersion);
+    //LogPrintf("z_sendmany shieldedTxVersion: %d\n", shieldedTxVersion);
 
     if (fHelp || params.size() < 2 || params.size() > 5)
         throw runtime_error(
