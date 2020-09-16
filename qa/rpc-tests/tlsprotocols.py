@@ -65,7 +65,7 @@ class tlsproto(BitcoinTestFramework):
             if expected_result == False:
                 res_string = "should fail"
             else:
-                res_string = "should succed"
+                res_string = "should succeed"
             print "--->", res_string
 
             result = True
