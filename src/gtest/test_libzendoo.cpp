@@ -300,6 +300,11 @@ TEST(ScTxCommitmentTree, SimpleTest)
 
     //Add txes containing scCreation and fwd transfer + a certificate
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), /*height*/10);
+    CMutableTransaction mutTx = scCreationTx;
+    mutTx.vsc_ccout.push_back(CTxScCreationOut(CAmount(10), uint256S("aaa"), Sidechain::ScCreationParameters()));
+    mutTx.vft_ccout.push_back(CTxForwardTransferOut(uint256S("bbb"), CAmount(1985), uint256S("badcafe")));
+    scCreationTx = mutTx;
+
     uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, CAmount(7));
 
@@ -311,7 +316,7 @@ TEST(ScTxCommitmentTree, SimpleTest)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("982bc09b5afe2d071542312e4b49b2a981f72555a41d7970f502c8d80bd7dc2f"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("adc44e32603f4a406d2fe152d63cfa0140684e9f33b667cc9c62e77bfbbd3733"))
         <<scTxCommitmentHash.ToString();
 }
 

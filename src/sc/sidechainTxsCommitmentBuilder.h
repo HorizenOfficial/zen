@@ -39,10 +39,10 @@ private:
     // the catalog of scid, resulting after having collected all above contributions
     std::set<uint256> sScIds;
 
-    field_t* mapScTxToField(const uint256& ccoutHash, const uint256& txHash, unsigned int outPos) const;
-    field_t* mapCertToField(const uint256& certHash) const;
+    static field_t* mapScTxToField(const uint256& ccoutHash, const uint256& txHash, unsigned int outPos);
+    static field_t* mapCertToField(const uint256& certHash);
 
-    uint256 mapFieldToHash(const field_t* pField) const;
+    static  uint256 mapFieldToHash(const field_t* pField);
 
     inline unsigned int treeHeightForLeaves(unsigned int numberOfLeaves) const;
     field_t* merkleTreeRootOf(std::vector<field_t*>& leaves) const;

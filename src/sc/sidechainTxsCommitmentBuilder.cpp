@@ -12,30 +12,28 @@ void SidechainTxsCommitmentBuilder::add(const CTransaction& tx)
     if (!tx.IsScVersion())
         return;
 
-    unsigned int ccOutIdx = 0;
     LogPrint("sc", "%s():%d -getting leaves for vsc out\n", __func__, __LINE__);
-    for(; ccOutIdx < tx.GetVscCcOut().size(); ++ccOutIdx)
+    for(unsigned int scIdx = 0; scIdx < tx.GetVscCcOut().size(); ++scIdx)
     {
-        uint256 scId = tx.GetVscCcOut().at(ccOutIdx).GetScId();
+        uint256 scId = tx.GetVscCcOut().at(scIdx).GetScId();
         sScIds.insert(scId);
 
         std::vector<field_t*>& vec = mScMerkleTreeLeavesFt[scId]; //create or pick entry for scId
-        field_t* pField = mapScTxToField(tx.GetVscCcOut()[ccOutIdx].GetHash(), tx.GetHash(), ccOutIdx);
+        field_t* pField = mapScTxToField(tx.GetVscCcOut().at(scIdx).GetHash(), tx.GetHash(), scIdx);
         vec.push_back(pField);
     }
 
+    unsigned int fwdBaseMapIdx = tx.GetVscCcOut().size();
     LogPrint("sc", "%s():%d -getting leaves for vft out\n", __func__, __LINE__);
-    for(; ccOutIdx < tx.GetVftCcOut().size(); ++ccOutIdx)
+    for(unsigned int fwdIdx = 0; fwdIdx < tx.GetVftCcOut().size(); ++fwdIdx)
     {
-        uint256 scId = tx.GetVftCcOut().at(ccOutIdx).GetScId();
+        uint256 scId = tx.GetVftCcOut().at(fwdIdx).GetScId();
         sScIds.insert(scId);
 
         std::vector<field_t*>& vec = mScMerkleTreeLeavesFt[scId]; //create or pick entry for scId
-        field_t* pField = mapScTxToField(tx.GetVftCcOut()[ccOutIdx].GetHash(), tx.GetHash(), ccOutIdx);
+        field_t* pField = mapScTxToField(tx.GetVftCcOut().at(fwdIdx).GetHash(), tx.GetHash(), fwdBaseMapIdx + fwdIdx);
         vec.push_back(pField);
     }
-
-    LogPrint("sc", "%s():%d - nIdx[%d]\n", __func__, __LINE__, ccOutIdx);
 }
 
 void SidechainTxsCommitmentBuilder::add(const CScCertificate& cert)
@@ -89,7 +87,7 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
 }
 #endif
 
-field_t* SidechainTxsCommitmentBuilder::mapScTxToField(const uint256& ccoutHash, const uint256& txHash, unsigned int outPos) const
+field_t* SidechainTxsCommitmentBuilder::mapScTxToField(const uint256& ccoutHash, const uint256& txHash, unsigned int outPos)
 {
     static_assert((sizeof(uint256) + sizeof(uint256) + sizeof(unsigned int)) <= SC_FIELD_SAFE_SIZE);
 
@@ -105,7 +103,7 @@ field_t* SidechainTxsCommitmentBuilder::mapScTxToField(const uint256& ccoutHash,
     return field;
 }
 
-field_t* SidechainTxsCommitmentBuilder::mapCertToField(const uint256& certHash) const
+field_t* SidechainTxsCommitmentBuilder::mapCertToField(const uint256& certHash)
 {
     static_assert(sizeof(uint256) <= SC_FIELD_SAFE_SIZE);
     unsigned char hash[SC_FIELD_SIZE] = {};
@@ -117,7 +115,7 @@ field_t* SidechainTxsCommitmentBuilder::mapCertToField(const uint256& certHash) 
     return field;
 }
 
-uint256 SidechainTxsCommitmentBuilder::mapFieldToHash(const field_t* pField) const
+uint256 SidechainTxsCommitmentBuilder::mapFieldToHash(const field_t* pField)
 {
     if (pField == nullptr)
         throw;
