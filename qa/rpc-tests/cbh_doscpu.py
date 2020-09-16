@@ -59,6 +59,13 @@ class cbh_doscpu(BitcoinTestFramework):
         self.nodes[2].dbg_log(msg)
 
     def run_test(self):
+        ''' This test creates a malformed transaction (Block hash and height swapped in checkblockatHeight).
+            The transaction is accepted pre replayprotectionfixfork but its spending is prohibited both before
+            and after the fork.
+            The whole point of the test is to show that spending rejection happens for different reason.
+            In more details, post replayprotectionfixfork rejection must happen 
+            before the CPU intensive script validations are performed.
+        '''
 
         MODE_HEIGHT    = 0
         MODE_SWAP_ARGS = 1
@@ -147,8 +154,5 @@ class cbh_doscpu(BitcoinTestFramework):
             assert_true("bad-txns-output-scriptpubkey" in e.error['message'])
             self.sync_all()
 
-
-        
-        
 if __name__ == '__main__':
     cbh_doscpu().main()
