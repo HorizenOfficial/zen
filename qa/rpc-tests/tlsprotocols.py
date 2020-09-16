@@ -58,8 +58,9 @@ class tlsproto(BitcoinTestFramework):
                 try:
                     ctx.set_ciphers(ciphers)
                 except Exception, e:
-                    print "Error: could not set ciphers {}, {}".format(ciphers, e)
-                    assert_true(False)
+                    print "===> Error: could not set ciphers {}, {}".format(ciphers, e)
+                    print "     Check openssl version used by python"
+                    return
 
             if expected_result == False:
                 res_string = "should fail"
@@ -150,7 +151,7 @@ class tlsproto(BitcoinTestFramework):
         do_tls_conn(ssl.PROTOCOL_TLSv1, (HOST, PORT), expected_result=False, tlsOnly=True)
 
         self.mark_logs("\nTrying TLSv1_2 connection with tls-only node with unsupported cipher")
-        do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), expected_result=False, ciphers="PSK-AES256-GCM-SHA384", tlsOnly=True)
+        do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), expected_result=False, ciphers="AES128-GCM-SHA256", tlsOnly=True)
 
         self.mark_logs("\nTrying TLSv1_2 connection with tls-only node with supported cipher")
         do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), expected_result=True, ciphers="DHE-RSA-AES256-SHA256", tlsOnly=True)
@@ -162,7 +163,7 @@ class tlsproto(BitcoinTestFramework):
             self.mark_logs("\nTrying TLSv1_3 connection with tls-only node letting it choose cipher")
             do_tls_conn(ssl.PROTOCOL_TLS, (HOST, PORT), expected_result=True, ciphers=None, tlsOnly=True)
         else:
-            print "\nNo test with TLS1.3 can be done since client does not support it, at least OpenSSL 1.1.1 ({}) is necessary".format(str(openssl_111_v))
+            print "No test with TLS1.3 can be done since client does not support it, at least OpenSSL 1.1.1 ({}) is necessary\n".format(str(openssl_111_v))
  
 
 
