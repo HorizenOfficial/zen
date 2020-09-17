@@ -98,7 +98,10 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         vector<unsigned char> vch1, vch2;
 
         // OP_CHECKBLOCKATHEIGHT parameters
+        // --
+        // used before rp-level-2 fix fork
         vector<unsigned char> vchBlockHash, vchBlockHeight;
+        // used after rp-level-2 fix fork, in order to check the order of processing of hash and height in a rp script
         std::vector< std::vector<unsigned char>> vchCbhParams;
 
         // Compare
@@ -205,9 +208,6 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     // they are pushed into a stack for preventing the inversion of height/hash
                     if (vch1.size() == 0)
                     {
-                        // leave vch1 alone and use a copy, just to be in the safest side
-                        vector<unsigned char> vTemp;
- 
                         if ((opcode1 >= OP_1 && opcode1 <= OP_16) || opcode1 == OP_1NEGATE)
                         {
                             // small size int (1..16) are not in vch1
@@ -216,13 +216,13 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                             // the same holds for -1, which we choose to handle here too
         
                             CScriptNum bn((int)opcode1 - (int)(OP_1 - 1));
-                            vTemp = std::move(bn.getvch());
+                            vchCbhData = std::move(bn.getvch());
                         }
                         else if (opcode1 == OP_0)
                         {
                             CScriptNum bn((int)opcode1);
                             // an empty vector
-                            vTemp = std::move(bn.getvch());
+                            vchCbhData = std::move(bn.getvch());
                         }
                         else
                         {
@@ -231,7 +231,6 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                                 __FILE__, __func__, __LINE__, opcode1);
                             break;
                         }
-                        vchCbhData = std::move(vTemp);
                     }
                     else
                     {
@@ -252,11 +251,11 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
             {
                 rpAttributes.SetStatus(ReplayProtectionAttributes::VALID);
 
+#if !defined(BITCOIN_TX) // TODO: This is an workaround. zen-tx does not have access to chain state so no replay protection is possible
                 if (rpLevel < RPLEVEL_FIXED_2)
                 {
             	    // Full-fledged implementation of the OP_CHECKBLOCKATHEIGHT opcode for verification of vout's
   
-#if !defined(BITCOIN_TX) // TODO: This is an workaround. zen-tx does not have access to chain state so no replay protection is possible
 
                     if (vchBlockHash.size() != 32)
                     {
@@ -266,13 +265,12 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     }
 
                     const int32_t nHeight = CScriptNum(vchBlockHeight, false, sizeof(int32_t)).getint();
-                    const int32_t nChActHeight = chainActive.Height();
 
                     // interested caller will use this for enforcing that referenced block is valid and not too recent
                     rpAttributes.referencedHeight = nHeight;
                     rpAttributes.referencedHash   = vchBlockHash;
 
-                    if ((nHeight < 0 || nHeight > nChActHeight ) && ForkManager::getInstance().getReplayProtectionLevel(nChActHeight) == RPLEVEL_FIXED_1)
+                    if ((nHeight < 0 || nHeight > nChActHeight ) && rpLevel == RPLEVEL_FIXED_1)
                     {
                         LogPrint("cbh", "%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight not legal[%d], chainActive height: %d\n",
                             __FILE__, __func__, __LINE__, nHeight, nChActHeight);
@@ -292,7 +290,6 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                             break;
                         }
                      }
-#endif // BITCOIN_TX
                 }
                 else
                 {
@@ -310,7 +307,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     vchBlockHeight = vchCbhParams.at(len-1);
  
                     // vchBlockHeight can be empty when height is represented as 0
-                    if ((vchBlockHeight.size() > sizeof(int)) || (vchBlockHash.size() != 32))
+                    if ((vchBlockHeight.size() > sizeof(int)) || (vchBlockHash.size() > 32))
                     {
                         LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT verification failed. Bad params: vh size = %d, vhash size = %d\n",
                             __FILE__, __func__, __LINE__, vchBlockHeight.size(), vchBlockHash.size());
@@ -327,7 +324,6 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     rpAttributes.referencedHeight = nHeight;
                     rpAttributes.referencedHash   = vchBlockHash;
 
-#if !defined(BITCOIN_TX)
                     // height outside the chain range are legal only in old rp implementations, here we are in rp fix fork
                     if ( nHeight < 0 || nHeight> nChActHeight) 
                     {
@@ -344,8 +340,8 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                             __FILE__, __func__, __LINE__, nHeight, uint256(vchBlockHash).ToString());
                         break;
                     }
-#endif // BITCOIN_TX
                 }
+#endif // BITCOIN_TX
 
                 if (opcode1 != opcode2 || vch1 != vch2)
                 {
