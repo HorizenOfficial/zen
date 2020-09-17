@@ -296,6 +296,8 @@ TEST(ZendooLib, TestProofNoBwt)
 
 TEST(ScTxCommitmentTree, TreeCommitmentCalculation)
 {
+	fPrintToConsole = true;
+
     SidechainTxsCommitmentBuilder builder;
 
     //Add txes containing scCreation and fwd transfer + a certificate
@@ -322,6 +324,7 @@ TEST(ScTxCommitmentTree, TreeCommitmentCalculation)
 
 TEST(ScTxCommitmentTree, EmptyTreeCommitmentCalculation)
 {
+	fPrintToConsole = true;
     SidechainTxsCommitmentBuilder builder;
 
     //Nothing to add

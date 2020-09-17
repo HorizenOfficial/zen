@@ -105,9 +105,8 @@ field_t* SidechainTxsCommitmentBuilder::mapScTxToField(const uint256& ccoutHash,
     std::move(std::begin(tmp), std::end(tmp), std::back_inserter(mediumTerm));
     mediumTerm.resize(SC_FIELD_SIZE, '\0');
 
-    for(const auto& uChar : mediumTerm) //To write to logs rather than stdin
-    	std::cout<<std::hex<<(int)uChar<<" ";
-    std::cout<<std::endl;
+    LogPrintf("%s():%d - Data about to be mapped to field point [%s]\n",
+        __func__, __LINE__, HexStr(mediumTerm));
 
     //generate field element. MISSING null-check
     field_t* field = zendoo_deserialize_field(mediumTerm.data());
@@ -123,9 +122,8 @@ field_t* SidechainTxsCommitmentBuilder::mapScTxToField(const uint256& ccoutHash,
     std::move(std::begin(tmp), std::end(tmp), mediumTerm.begin()+(ccoutHash.size()+txHash.size())/sizeof(unsigned char));
     mediumTerm.resize(SC_FIELD_SIZE, '\0');
 
-    for(const auto& uChar : mediumTerm) //To write to logs rather than stdin
-    	std::cout<<std::hex<<(int)uChar<<" ";
-    std::cout<<std::endl;
+    LogPrintf("%s():%d - Data about to be mapped to field point [%s]\n",
+        __func__, __LINE__, HexStr(mediumTerm));
 
     //generate field element. MISSING null-check
     field_t* field = zendoo_deserialize_field(mediumTerm.data());
@@ -139,9 +137,8 @@ field_t* SidechainTxsCommitmentBuilder::mapScTxToField(const uint256& ccoutHash,
     unsigned char mediumTerm[SC_FIELD_SIZE] = {};
     memcpy(mediumTerm, toHash.append(SC_FIELD_SIZE - toHash.size(), '\0').c_str(), SC_FIELD_SIZE);
 
-    for(const auto& uChar : mediumTerm) //To write to logs rather than stdin
-    	std::cout<<std::hex<<(int)uChar<<" ";
-    std::cout<<std::endl;
+    LogPrintf("%s():%d - Data about to be mapped to field point [%s]\n",
+        __func__, __LINE__, HexStr(mediumTerm));
 
     //generate field element. MISSING null-check
     field_t* field = zendoo_deserialize_field(mediumTerm);
