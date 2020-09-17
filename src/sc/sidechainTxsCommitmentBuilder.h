@@ -41,7 +41,6 @@ private:
 
     static field_t* mapScTxToField(const uint256& ccoutHash, const uint256& txHash, unsigned int outPos);
     static field_t* mapCertToField(const uint256& certHash);
-
     static  uint256 mapFieldToHash(const field_t* pField);
 
     inline unsigned int treeHeightForLeaves(unsigned int numberOfLeaves) const;

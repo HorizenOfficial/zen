@@ -294,7 +294,7 @@ TEST(ZendooLib, TestProofNoBwt)
     zendoo_field_free(constant);
 }
 
-TEST(ScTxCommitmentTree, SimpleTest)
+TEST(ScTxCommitmentTree, TreeCommitmentCalculation)
 {
     SidechainTxsCommitmentBuilder builder;
 
@@ -320,7 +320,7 @@ TEST(ScTxCommitmentTree, SimpleTest)
         <<scTxCommitmentHash.ToString();
 }
 
-TEST(ScTxCommitmentTree, EmptyTest)
+TEST(ScTxCommitmentTree, EmptyTreeCommitmentCalculation)
 {
     SidechainTxsCommitmentBuilder builder;
 

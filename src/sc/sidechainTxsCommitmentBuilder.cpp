@@ -87,25 +87,72 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
 }
 #endif
 
+#include <algorithm>
+#include <iostream>
+#define IMPLEMENTATION 2
 field_t* SidechainTxsCommitmentBuilder::mapScTxToField(const uint256& ccoutHash, const uint256& txHash, unsigned int outPos)
 {
-    static_assert((sizeof(uint256) + sizeof(uint256) + sizeof(unsigned int)) <= SC_FIELD_SAFE_SIZE);
+    static_assert((sizeof(uint256) + sizeof(uint256) + sizeof(unsigned int)) <= SC_FIELD_SAFE_SIZE,
+            "ScTx data to field point mapping not working with current configuration");
 
-    std::string toHash = std::string(ccoutHash.begin(), ccoutHash.end()) +
-            std::string(txHash.begin(), txHash.end()) +
-            std::string(static_cast<char*>(static_cast<void*>(&outPos)));
+#if IMPLEMENTATION == 1
+    std::vector<unsigned char> mediumTerm;
+    mediumTerm.insert(mediumTerm.end(), ccoutHash.begin(), ccoutHash.end());
+    mediumTerm.insert(mediumTerm.end(), txHash.begin(), txHash.end());
 
-    unsigned char hash[SC_FIELD_SIZE] = {};
-    memcpy(hash, toHash.append(SC_FIELD_SIZE - toHash.size(), '\0').c_str(), SC_FIELD_SIZE);
+    unsigned char* outPosPtr = static_cast<unsigned char*>(static_cast<void*>(&outPos));
+    std::vector<unsigned char> tmp(outPosPtr, outPosPtr + sizeof(unsigned int));
+    std::move(std::begin(tmp), std::end(tmp), std::back_inserter(mediumTerm));
+    mediumTerm.resize(SC_FIELD_SIZE, '\0');
+
+    for(const auto& uChar : mediumTerm) //To write to logs rather than stdin
+    	std::cout<<std::hex<<(int)uChar<<" ";
+    std::cout<<std::endl;
 
     //generate field element. MISSING null-check
-    field_t* field = zendoo_deserialize_field(hash);
+    field_t* field = zendoo_deserialize_field(mediumTerm.data());
     return field;
+#endif
+#if IMPLEMENTATION == 2
+    std::vector<unsigned char> mediumTerm(SC_FIELD_SIZE, '\0');
+    mediumTerm.insert(mediumTerm.begin(), ccoutHash.begin(), ccoutHash.end());
+    mediumTerm.insert(mediumTerm.begin()+ccoutHash.size()/sizeof(unsigned char), txHash.begin(), txHash.end());
+
+    unsigned char* outPosPtr = static_cast<unsigned char*>(static_cast<void*>(&outPos));
+    std::vector<unsigned char> tmp(outPosPtr, outPosPtr + sizeof(unsigned int));
+    std::move(std::begin(tmp), std::end(tmp), mediumTerm.begin()+(ccoutHash.size()+txHash.size())/sizeof(unsigned char));
+    mediumTerm.resize(SC_FIELD_SIZE, '\0');
+
+    for(const auto& uChar : mediumTerm) //To write to logs rather than stdin
+    	std::cout<<std::hex<<(int)uChar<<" ";
+    std::cout<<std::endl;
+
+    //generate field element. MISSING null-check
+    field_t* field = zendoo_deserialize_field(mediumTerm.data());
+    return field;
+#endif
+#if IMPLEMENTATION == 3
+    std::string toHash = std::string(ccoutHash.begin(), ccoutHash.end()) +
+            std::string(txHash.begin(), txHash.end()) +
+            std::string(static_cast<char*>(static_cast<void*>(&outPos)), sizeof(unsigned int));
+
+    unsigned char mediumTerm[SC_FIELD_SIZE] = {};
+    memcpy(mediumTerm, toHash.append(SC_FIELD_SIZE - toHash.size(), '\0').c_str(), SC_FIELD_SIZE);
+
+    for(const auto& uChar : mediumTerm) //To write to logs rather than stdin
+    	std::cout<<std::hex<<(int)uChar<<" ";
+    std::cout<<std::endl;
+
+    //generate field element. MISSING null-check
+    field_t* field = zendoo_deserialize_field(mediumTerm);
+    return field;
+#endif
 }
 
 field_t* SidechainTxsCommitmentBuilder::mapCertToField(const uint256& certHash)
 {
-    static_assert(sizeof(uint256) <= SC_FIELD_SAFE_SIZE);
+    static_assert(sizeof(uint256) <= SC_FIELD_SAFE_SIZE,
+            "Certificate data to field point mapping not working with current configuration");
     unsigned char hash[SC_FIELD_SIZE] = {};
     std::string resHex = std::string(certHash.begin(), certHash.end());
     memcpy(hash, resHex.append(SC_FIELD_SIZE - resHex.size(), '\0').c_str(), SC_FIELD_SIZE);
