@@ -473,9 +473,6 @@ mapMultiArgs["-debug"].push_back("cbh");
 mapArgs["-debug"] = "cbh";
 */
 
-    // this is for avoiding checking blockheight against blockhash, because hashes are fake
-    mapArgs["-cbhsafedepth"] = "10";
-
     SelectParams(CBaseChainParams::REGTEST);
     CMutableTransaction mtx = GetValidTransaction(TRANSPARENT_TX_VERSION);
 
@@ -491,10 +488,6 @@ mapArgs["-debug"] = "cbh";
     mtx.vout[1].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
         << 2 << ToByteVector(uint256()) << OP_CHECKBLOCKATHEIGHT;
 
-    //std::vector<unsigned char> data(ParseHex("76a914f85d211e4175cd4b0f53284af6ddab6bbb3c5f0288ac20bf309c2d04f3fdd3cb6f4ccddb3985211d360e08e4f790c3d780d5c3f912e704025501b4"));
-    //std::vector<unsigned char> data(ParseHex("76a914f85d211e4175cd4b0f53284af6ddab6bbb3c5f0288ac20bf309c2d04f3fdd3cb6f4ccddb3985211d360e08e4f790c3d780d5c3f912e704ffb4"));
-    //std::vector<unsigned char> data(ParseHex("76a914f85d211e4175cd4b0f53284af6ddab6bbb3c5f0288ac20bf309c2d04f3fdd3cb6f4ccddb3985211d360e08e4f790c3d780d5c3f912e70487b4"));
-    
     // an invalid op (0xFF) where height is expected
     std::vector<unsigned char> data1(ParseHex("76a914f85d211e4175cd4b0f53284af6ddab6bbb3c5f0288ac20bf309c2d04f3fdd3cb6f4ccddb3985211d360e08e4f790c3d780d5c3f912e704ffb4"));
     CScript bad_script1(data1.begin(), data1.end());
@@ -515,11 +508,17 @@ mapArgs["-debug"] = "cbh";
     txnouttype whichType;
     std::string reason;
 
-    // before rp fix all of them are OK
+    // ------------------ before rp fix all of them are OK
+    static const int H_PRE_FORK = 220;
     CleanUpAll();
-    makeMain(220);
+    makeMain(H_PRE_FORK);
 
-    EXPECT_TRUE(IsStandardTx(tx, reason, 220));
+    // This is useful only for the tests of pre-rp-fix fork.
+    // This is for avoiding checking blockheight against blockhash in scripts, because hashes are fake
+    // in this simple test environment, and it would always make IsStandard() return false even when scripts parse ok.
+    mapArgs["-cbhsafedepth"] = "10";
+
+    EXPECT_TRUE(IsStandardTx(tx, reason, H_PRE_FORK));
 
     EXPECT_TRUE(IsStandard(tx.vout[0].scriptPubKey, whichType, rpAttributes));
     EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
@@ -530,11 +529,12 @@ mapArgs["-debug"] = "cbh";
     EXPECT_TRUE(IsStandard(tx.vout[3].scriptPubKey, whichType, rpAttributes));
     EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
 
-    // after rp fix NOT OK anymore
+    // ------------------ after rp fix NOT OK anymore
+    static const int H_POST_FORK = 500;
     CleanUpAll();
-    makeMain(500);
+    makeMain(H_POST_FORK);
 
-    EXPECT_FALSE(IsStandardTx(tx, reason, 500));
+    EXPECT_FALSE(IsStandardTx(tx, reason, H_POST_FORK));
     EXPECT_TRUE(reason == "scriptpubkey");
 
     EXPECT_FALSE(IsStandard(tx.vout[0].scriptPubKey, whichType, rpAttributes));
@@ -546,8 +546,6 @@ mapArgs["-debug"] = "cbh";
     EXPECT_FALSE(IsStandard(tx.vout[3].scriptPubKey, whichType, rpAttributes));
     EXPECT_TRUE(whichType == TX_NONSTANDARD);
 
-    CleanUpAll();
-    mapArgs.erase("-cbhsafedepth");
 }
 
 
