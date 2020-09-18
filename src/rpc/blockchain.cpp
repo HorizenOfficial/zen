@@ -1034,7 +1034,10 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
 
 void AddScInfoToJSON(const uint256& scId, const CSidechain& info, CSidechain::State scState, UniValue& sc)
 {
-    int currentEpoch = info.EpochFor(chainActive.Height());
+    int currentEpoch = (scState == CSidechain::State::ALIVE)?
+            info.EpochFor(chainActive.Height()):
+            info.EpochFor(info.GetCeasingHeight());
+
     sc.push_back(Pair("scid", scId.GetHex()));
     sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
     sc.push_back(Pair("epoch", currentEpoch));
@@ -1053,7 +1056,7 @@ void AddScInfoToJSON(const uint256& scId, const CSidechain& info, CSidechain::St
     sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
 
     UniValue ia(UniValue::VARR);
-    BOOST_FOREACH(const auto& entry, info.mImmatureAmounts)
+    for(const auto& entry: info.mImmatureAmounts)
     {
         UniValue o(UniValue::VOBJ);
         o.push_back(Pair("maturityHeight", entry.first));
