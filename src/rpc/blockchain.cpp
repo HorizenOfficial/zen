@@ -1032,8 +1032,11 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
-void AddScInfoToJSON(const uint256& scId, const CSidechain& info, CSidechain::State scState, UniValue& sc)
+void AddScInfoToJSON(const uint256& scId, const CSidechain& info, CSidechain::State scState, UniValue& sc, bool bOnlyAlive)
 {
+    if (bOnlyAlive && (scState != CSidechain::State::ALIVE))
+    	return;
+
     int currentEpoch = (scState == CSidechain::State::ALIVE)?
             info.EpochFor(chainActive.Height()):
             info.EpochFor(info.GetCeasingHeight());
@@ -1066,7 +1069,7 @@ void AddScInfoToJSON(const uint256& scId, const CSidechain& info, CSidechain::St
     sc.push_back(Pair("immature amounts", ia));
 }
 
-bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
+bool AddScInfoToJSON(const uint256& scId, UniValue& sc, bool bOnlyAlive)
 {
     CSidechain scInfo;
     CCoinsViewCache scView(pcoinsTip);
@@ -1076,11 +1079,11 @@ bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
     }
     CSidechain::State scState = scView.isCeasedAtHeight(scId, chainActive.Height() + 1);
 
-    AddScInfoToJSON(scId, scInfo, scState, sc);
+    AddScInfoToJSON(scId, scInfo, scState, sc, bOnlyAlive);
     return true;
 }
 
-void AddScInfoToJSON(UniValue& result)
+void AddScInfoToJSON(UniValue& result, bool bOnlyAlive)
 {
     CCoinsViewCache scView(pcoinsTip);
     std::set<uint256> sScIds;
@@ -1089,16 +1092,19 @@ void AddScInfoToJSON(UniValue& result)
     BOOST_FOREACH(const auto& entry, sScIds)
     {
         UniValue sc(UniValue::VOBJ);
-        AddScInfoToJSON(entry, sc);
+        AddScInfoToJSON(entry, sc, bOnlyAlive);
         result.push_back(sc);
     }
 }
 
 UniValue getscinfo(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() > 1)
+    if (fHelp || params.size() > 2)
         throw runtime_error(
-            "getscinfo \"scid\" (Optional)\n"
+            "getscinfo (\"scid\" onlyAlive)\n"
+			"\nArguments:\n"
+			"1. \"scid\"   (string, mandatory) Retrive only information about specified scid, \"*\" means all \n"
+			"2. onlyAlive (bool, optional, default=false) Retrieve only information for alive sidechains\n"
             "\nReturns side chain info for the given id or for all of the existing sc if the id is not given.\n"
             "\nResult:\n"
             "[\n"
@@ -1133,18 +1139,27 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             + HelpExampleCli("getscinfo", "")
         );
 
-    if (params.size() > 0)
+    string inputString = params[0].get_str();
+    bool bRetrieveAll = false;
+    if (!inputString.compare("*"))
+    	bRetrieveAll = true;
+    else
     {
-        // side chain id
-        string inputString = params[0].get_str();
         if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
             throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
- 
+    }
+
+    bool bOnlyAlive = false;
+    if (params.size() > 1)
+    	bOnlyAlive = params[1].get_bool();
+
+    if (!bRetrieveAll)
+    {
         uint256 scId;
         scId.SetHex(inputString);
  
         UniValue sc(UniValue::VOBJ);
-        if (!AddScInfoToJSON(scId, sc) )
+        if (!AddScInfoToJSON(scId, sc, bOnlyAlive) )
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
         }
@@ -1154,7 +1169,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
 
     // dump all of them if any
     UniValue result(UniValue::VARR);
-    AddScInfoToJSON(result);
+    AddScInfoToJSON(result, bOnlyAlive);
 
     return result;
 }
