@@ -1032,10 +1032,10 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
-void AddScInfoToJSON(const uint256& scId, const CSidechain& info, CSidechain::State scState, UniValue& sc, bool bOnlyAlive)
+bool AddScInfoToJSON(const uint256& scId, const CSidechain& info, CSidechain::State scState, UniValue& sc, bool bOnlyAlive)
 {
     if (bOnlyAlive && (scState != CSidechain::State::ALIVE))
-    	return;
+    	return false;
 
     int currentEpoch = (scState == CSidechain::State::ALIVE)?
             info.EpochFor(chainActive.Height()):
@@ -1067,6 +1067,7 @@ void AddScInfoToJSON(const uint256& scId, const CSidechain& info, CSidechain::St
         ia.push_back(o);
     }
     sc.push_back(Pair("immature amounts", ia));
+    return true;
 }
 
 bool AddScInfoToJSON(const uint256& scId, UniValue& sc, bool bOnlyAlive)
@@ -1079,8 +1080,7 @@ bool AddScInfoToJSON(const uint256& scId, UniValue& sc, bool bOnlyAlive)
     }
     CSidechain::State scState = scView.isCeasedAtHeight(scId, chainActive.Height() + 1);
 
-    AddScInfoToJSON(scId, scInfo, scState, sc, bOnlyAlive);
-    return true;
+    return AddScInfoToJSON(scId, scInfo, scState, sc, bOnlyAlive);
 }
 
 void AddScInfoToJSON(UniValue& result, bool bOnlyAlive)
@@ -1092,8 +1092,8 @@ void AddScInfoToJSON(UniValue& result, bool bOnlyAlive)
     BOOST_FOREACH(const auto& entry, sScIds)
     {
         UniValue sc(UniValue::VOBJ);
-        AddScInfoToJSON(entry, sc, bOnlyAlive);
-        result.push_back(sc);
+        if (AddScInfoToJSON(entry, sc, bOnlyAlive))
+            result.push_back(sc);
     }
 }
 
@@ -1140,9 +1140,9 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
         );
 
     string inputString = params[0].get_str();
-    bool bRetrieveAll = false;
+    bool bRetrieveAllSc = false;
     if (!inputString.compare("*"))
-    	bRetrieveAll = true;
+    	bRetrieveAllSc = true;
     else
     {
         if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
@@ -1153,7 +1153,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
     if (params.size() > 1)
     	bOnlyAlive = params[1].get_bool();
 
-    if (!bRetrieveAll)
+    if (!bRetrieveAllSc)
     {
         uint256 scId;
         scId.SetHex(inputString);
