@@ -1097,29 +1097,70 @@ bool AddScInfoToJSON(const uint256& scId, UniValue& sc, bool bOnlyAliv, bool bVe
     return AddScInfoToJSON(scId, scInfo, scState, sc, bOnlyAliv, bVerbosee);
 }
 
-void AddScInfoToJSON(UniValue& result, bool bOnlyAlive, bool bVerbose)
+void AddScInfoToJSON(UniValue& result, bool bOnlyAlive, bool bVerbose, int from=0, int to=-1)
 {
     CCoinsViewCache scView(pcoinsTip);
     std::set<uint256> sScIds;
     scView.GetScIds(sScIds);
 
-    BOOST_FOREACH(const auto& entry, sScIds)
+    std::cout << "Size of scids: " << sScIds.size() << std::endl;
+
+
+    // check consistency of interval.
+    // --
+    // 'from' must be in the set interval
+    // 'to' must be either '-1', which means no upper bound interval, or 
+    // a formally valid upper bound interval number (positive and greater than 'from') but it is
+    // topped anyway to the upper bound value 
+    if (to == -1)
+    {
+        LogPrint("sc", "setting to[%d]->[%d]\n", to, sScIds.size());
+        to = sScIds.size();
+    }
+    else
+    if( to > sScIds.size())
+    {
+        LogPrint("sc", "setting to[%d]->[%d]\n", to, sScIds.size());
+        to = sScIds.size();
+    }
+
+    if ( from < 0 || to < 0 || from >= to)
+    {
+        LogPrint("sc", "invalid from[%d], to[%d] (sz=%d)\n", from, to, sScIds.size());
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid interval");
+    }
+
+    if (sScIds.size() == 0)
+        return;
+
+    std::set<uint256>::iterator it = sScIds.begin();
+    std::advance(it, from);
+
+    while (it != sScIds.end())
     {
         UniValue sc(UniValue::VOBJ);
-        if (AddScInfoToJSON(entry, sc, bOnlyAlive, bVerbose))
+        if (AddScInfoToJSON(*it, sc, bOnlyAlive, bVerbose))
             result.push_back(sc);
+
+        if (result.size() >= (to-from))
+            break;
+
+        ++it;
     }
 }
 
 UniValue getscinfo(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() == 0 || params.size() > 3)
+    if (fHelp || params.size() == 0 || params.size() > 5)
         throw runtime_error(
             "getscinfo (\"scid\" onlyAlive)\n"
 			"\nArguments:\n"
 			"1. \"scid\"   (string, mandatory) Retrive only information about specified scid, \"*\" means all \n"
 			"2. onlyAlive (bool, optional, default=false) Retrieve only information for alive sidechains\n"
 			"3. verbose   (bool, optional, default=true) If false include only essential info in result\n"
+            "   --- meaningful if scid is not specified:\n"
+			"4. from      (integer, optional, default=0) If set, limit the starting item index in the result array to this entry (included) (0 based)\n"
+			"5. to        (integer, optional, default=50) If set, limit the ending item index in the result array to this entry (excluded) (0 based)\n"
             "\nReturns side chain info for the given id or for all of the existing sc if the id is not given.\n"
             "\nResult:\n"
             "[\n"
@@ -1172,6 +1213,9 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
     if (params.size() > 2)
     	bVerbose = params[2].get_bool();
 
+    UniValue ret(UniValue::VOBJ);
+    UniValue result(UniValue::VARR);
+
     if (!bRetrieveAllSc)
     {
         uint256 scId;
@@ -1182,15 +1226,31 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
         }
- 
-        return sc;
+        result.push_back(sc);
+
+        ret.push_back(Pair("totalItems", 1));
+        ret.push_back(Pair("from", 0));
+        ret.push_back(Pair("to", 1));
+    }
+    else
+    {
+        int from = 0;
+        if (params.size() > 3)
+    	    from = params[3].get_int();
+
+        int to = 50;
+        if (params.size() > 4)
+    	    to = params[4].get_int();
+
+        AddScInfoToJSON(result, bOnlyAlive, bVerbose, from, to);
+
+        ret.push_back(Pair("totalItems", result.size()));
+        ret.push_back(Pair("from", from));
+        ret.push_back(Pair("to", from+result.size()));
     }
 
-    // dump all of them if any
-    UniValue result(UniValue::VARR);
-    AddScInfoToJSON(result, bOnlyAlive, bVerbose);
-
-    return result;
+    ret.push_back(Pair("items", result));
+    return ret;
 }
 
 UniValue getscgenesisinfo(const UniValue& params, bool fHelp)

@@ -131,6 +131,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "create_sidechain", 0 },
 	{ "getscinfo", 1 },
 	{ "getscinfo", 2 },
+	{ "getscinfo", 3 },
+	{ "getscinfo", 4 },
     { "send_to_sidechain", 0 },
     { "send_to_sidechain", 1 },
     { "send_certificate", 1 },
