@@ -1032,7 +1032,7 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
-bool AddScInfoToJSON(const uint256& scId, const CSidechain& info, CSidechain::State scState, UniValue& sc, bool bOnlyAlive)
+bool AddScInfoToJSON(const uint256& scId, const CSidechain& info, CSidechain::State scState, UniValue& sc, bool bOnlyAlive, bool bVerbose)
 {
     if (bOnlyAlive && (scState != CSidechain::State::ALIVE))
     	return false;
@@ -1047,30 +1047,44 @@ bool AddScInfoToJSON(const uint256& scId, const CSidechain& info, CSidechain::St
     sc.push_back(Pair("end epoch height", info.StartHeightForEpoch(currentEpoch +1) - 1));
     sc.push_back(Pair("state", CSidechain::stateToString(scState)));
     sc.push_back(Pair("ceasing height", info.GetCeasingHeight()));
-    sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
-    sc.push_back(Pair("created in block", info.creationBlockHash.ToString()));
+
+    if (bVerbose)
+    {
+        sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
+        sc.push_back(Pair("created in block", info.creationBlockHash.ToString()));
+    }
+
     sc.push_back(Pair("created at block height", info.creationBlockHeight));
     sc.push_back(Pair("last certificate epoch", info.lastEpochReferencedByCertificate));
-    sc.push_back(Pair("last certificate hash", info.lastCertificateHash.GetHex()));
+
+    if (bVerbose)
+    {
+        sc.push_back(Pair("last certificate hash", info.lastCertificateHash.GetHex()));
+    }
+
     // creation parameters
     sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
-    sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
-    sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
-    sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
 
-    UniValue ia(UniValue::VARR);
-    for(const auto& entry: info.mImmatureAmounts)
+    if (bVerbose)
     {
-        UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("maturityHeight", entry.first));
-        o.push_back(Pair("amount", ValueFromAmount(entry.second)));
-        ia.push_back(o);
+        sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
+        sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
+        sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
+
+        UniValue ia(UniValue::VARR);
+        for(const auto& entry: info.mImmatureAmounts)
+        {
+            UniValue o(UniValue::VOBJ);
+            o.push_back(Pair("maturityHeight", entry.first));
+            o.push_back(Pair("amount", ValueFromAmount(entry.second)));
+            ia.push_back(o);
+        }
+        sc.push_back(Pair("immature amounts", ia));
     }
-    sc.push_back(Pair("immature amounts", ia));
     return true;
 }
 
-bool AddScInfoToJSON(const uint256& scId, UniValue& sc, bool bOnlyAlive)
+bool AddScInfoToJSON(const uint256& scId, UniValue& sc, bool bOnlyAliv, bool bVerbosee)
 {
     CSidechain scInfo;
     CCoinsViewCache scView(pcoinsTip);
@@ -1080,10 +1094,10 @@ bool AddScInfoToJSON(const uint256& scId, UniValue& sc, bool bOnlyAlive)
     }
     CSidechain::State scState = scView.isCeasedAtHeight(scId, chainActive.Height() + 1);
 
-    return AddScInfoToJSON(scId, scInfo, scState, sc, bOnlyAlive);
+    return AddScInfoToJSON(scId, scInfo, scState, sc, bOnlyAliv, bVerbosee);
 }
 
-void AddScInfoToJSON(UniValue& result, bool bOnlyAlive)
+void AddScInfoToJSON(UniValue& result, bool bOnlyAlive, bool bVerbose)
 {
     CCoinsViewCache scView(pcoinsTip);
     std::set<uint256> sScIds;
@@ -1092,19 +1106,20 @@ void AddScInfoToJSON(UniValue& result, bool bOnlyAlive)
     BOOST_FOREACH(const auto& entry, sScIds)
     {
         UniValue sc(UniValue::VOBJ);
-        if (AddScInfoToJSON(entry, sc, bOnlyAlive))
+        if (AddScInfoToJSON(entry, sc, bOnlyAlive, bVerbose))
             result.push_back(sc);
     }
 }
 
 UniValue getscinfo(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() > 2)
+    if (fHelp || params.size() == 0 || params.size() > 3)
         throw runtime_error(
             "getscinfo (\"scid\" onlyAlive)\n"
 			"\nArguments:\n"
 			"1. \"scid\"   (string, mandatory) Retrive only information about specified scid, \"*\" means all \n"
 			"2. onlyAlive (bool, optional, default=false) Retrieve only information for alive sidechains\n"
+			"3. verbose   (bool, optional, default=true) If false include only essential info in result\n"
             "\nReturns side chain info for the given id or for all of the existing sc if the id is not given.\n"
             "\nResult:\n"
             "[\n"
@@ -1139,8 +1154,8 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             + HelpExampleCli("getscinfo", "")
         );
 
-    string inputString = params[0].get_str();
     bool bRetrieveAllSc = false;
+    string inputString = params[0].get_str();
     if (!inputString.compare("*"))
     	bRetrieveAllSc = true;
     else
@@ -1153,13 +1168,17 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
     if (params.size() > 1)
     	bOnlyAlive = params[1].get_bool();
 
+    bool bVerbose = true;
+    if (params.size() > 2)
+    	bVerbose = params[2].get_bool();
+
     if (!bRetrieveAllSc)
     {
         uint256 scId;
         scId.SetHex(inputString);
  
         UniValue sc(UniValue::VOBJ);
-        if (!AddScInfoToJSON(scId, sc, bOnlyAlive) )
+        if (!AddScInfoToJSON(scId, sc, bOnlyAlive, bVerbose) )
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
         }
@@ -1169,7 +1188,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
 
     // dump all of them if any
     UniValue result(UniValue::VARR);
-    AddScInfoToJSON(result, bOnlyAlive);
+    AddScInfoToJSON(result, bOnlyAlive, bVerbose);
 
     return result;
 }
