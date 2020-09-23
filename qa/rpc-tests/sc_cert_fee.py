@@ -94,7 +94,7 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes[0].generate(4)
         self.sync_all()
 
-        mark_logs("Sc {} state: {}".format(scid, self.nodes[0].getscinfo(scid)), self.nodes, DEBUG_MODE)
+        mark_logs("Sc {} state: {}".format(scid, self.nodes[0].getscinfo(scid)['items'][0]), self.nodes, DEBUG_MODE)
 
         epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)

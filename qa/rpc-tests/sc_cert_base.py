@@ -101,8 +101,8 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node1 balance after SC creation: {}".format(bal_after_sc_creation), self.nodes, DEBUG_MODE)
         assert_equal(bal_before_sc_creation, bal_after_sc_creation + creation_amount - fee_sc_creation)
 
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], Decimal(0))
-        assert_equal(self.nodes[0].getscinfo(scid)['immature amounts'][0]['amount'], creation_amount)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], Decimal(0))
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts'][0]['amount'], creation_amount)
 
         # Fwd Transfer to Sc
         bal_before_fwd_tx = self.nodes[0].getbalance("", 0)
@@ -122,15 +122,15 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node0 balance after fwd: {}".format(bal_after_fwd_tx), self.nodes, DEBUG_MODE)
         assert_equal(bal_before_fwd_tx, bal_after_fwd_tx + fwt_amount - fee_fwt - Decimal(8.75))  # 8.75 is matured coinbase
 
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], Decimal(0))
-        assert_equal(self.nodes[0].getscinfo(scid)['immature amounts'][0]['amount'], creation_amount)
-        assert_equal(self.nodes[0].getscinfo(scid)['immature amounts'][1]['amount'], fwt_amount)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], Decimal(0))
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts'][0]['amount'], creation_amount)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts'][1]['amount'], fwt_amount)
 
         mark_logs("Node0 generating 3 more blocks to achieve end of withdrawal epoch", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(3)
         self.sync_all()
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc balance has matured
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc balance has matured
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
         epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
@@ -156,8 +156,8 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         assert_equal("sidechain has insufficient funds" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount)
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount)
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
         mark_logs("Node 0 tries to perform a bwd transfer with an invalid epoch number ...", self.nodes, DEBUG_MODE)
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
@@ -170,8 +170,8 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         assert_equal("invalid epoch data" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
         mark_logs("Node 0 tries to perform a bwd transfer with an invalid quality ...", self.nodes, DEBUG_MODE)
 
@@ -183,8 +183,8 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         assert_equal("Invalid quality parameter" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
         # ----------------scProof tests-----------------
         mark_logs("Node 0 tries to perform a bwd transfer with a scProof too short ...", self.nodes, DEBUG_MODE)
@@ -197,8 +197,8 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         assert_equal("scProof: Invalid length" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
         
         #--------------------------------------------------------------------------------------
         
@@ -212,8 +212,8 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         assert_equal("scProof: Invalid length" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
         #--------------------------------------------------------------------------------------
 
@@ -227,8 +227,8 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         assert_equal("invalid cert scProof" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
         #--------------------------------------------------------------------------------------
 
@@ -247,8 +247,8 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         assert_equal("bad-sc-cert-not-applicable" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
         
         #--------------------------------------------------------------------------------------
 
@@ -268,8 +268,8 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         assert_equal("bad-sc-cert-not-applicable" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
         #--------------------------------------------------------------------------------------
 
@@ -288,8 +288,8 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         assert_equal("bad-sc-cert-not-applicable" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
         #--------------------------------------------------------------------------------------
 
@@ -308,8 +308,8 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         assert_equal("bad-sc-cert-not-applicable" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
         #--------------------------------------------------------------------------------------
 
@@ -328,8 +328,8 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         assert_equal("bad-sc-cert-not-applicable" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
         #--------------------------------------------------------------------------------------
 
@@ -349,8 +349,8 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         assert_equal("bad-sc-cert-not-applicable" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
         #--------------------------------------------------------------------------------------
 
@@ -371,8 +371,8 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         assert_equal("bad-sc-cert-not-applicable" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
         #---------------------end scProof tests-------------------------
 
@@ -386,8 +386,8 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         assert_equal("invalid epoch data" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
         epoch_number_0     = epoch_number
         epoch_block_hash_0 = epoch_block_hash
@@ -435,8 +435,8 @@ class sc_cert_base(BitcoinTestFramework):
         decoded_coinbase = self.nodes[2].getrawtransaction(coinbase, 1)
         miner_quota = decoded_coinbase['vout'][0]['value']
         assert_equal(miner_quota, (Decimal('7.5') + CERT_FEE))
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount- amount_cert_1[0]["amount"])
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount- amount_cert_1[0]["amount"])
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
         mark_logs("Node 0 tries to performs a bwd transfer for the same epoch number as before...", self.nodes, DEBUG_MODE)
         try:

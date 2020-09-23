@@ -55,7 +55,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         mark_logs("Node{} generating 1 block".format(nIdx), self.nodes, DEBUG_MODE)
         self.nodes[nIdx].generate(1)
         self.sync_all()
-        sc_info.append(self.nodes[nIdx].getscinfo(scid))
+        sc_info.append(self.nodes[nIdx].getscinfo(scid)['items'][0])
         mark_logs("  ==> height {}".format(self.nodes[nIdx].getblockcount()), self.nodes, DEBUG_MODE)
 
     def run_test(self):
@@ -237,7 +237,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
                 break
 
             try:
-                assert_equal(self.nodes[0].getscinfo(scid), sc_info[-1])
+                assert_equal(self.nodes[0].getscinfo(scid)['items'][0], sc_info[-1])
             except JSONRPCException, e:
                 errorString = e.error['message']
                 print errorString
@@ -297,7 +297,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         assert_equal(self.nodes[0].getscinfo(scid), self.nodes[2].getscinfo(scid))
 
         mark_logs("check that sc balance is the amount we had in mempool at the end of invalidation phase", self.nodes, DEBUG_MODE)
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], sc_amount)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], sc_amount)
 
         print "Node0 balance before: ", old_bal
         print "Node0 balance now   : ", self.nodes[0].getbalance()

@@ -169,12 +169,12 @@ class ScInvalidateTest(BitcoinTestFramework):
         self.sync_all()
 
         mark_logs("\nChecking SC info on Node 2 that should not have any SC...", self.nodes, DEBUG_MODE)
-        scinfoNode0 = self.nodes[0].getscinfo(scid)
-        scinfoNode1 = self.nodes[1].getscinfo(scid)
+        scinfoNode0 = self.nodes[0].getscinfo(scid)['items'][0]
+        scinfoNode1 = self.nodes[1].getscinfo(scid)['items'][0]
         mark_logs("Node 0: " + str(scinfoNode0), self.nodes, DEBUG_MODE)
         mark_logs("Node 1: " + str(scinfoNode1), self.nodes, DEBUG_MODE)
         try:
-            self.nodes[2].getscinfo(scid)
+            self.nodes[2].getscinfo(scid)['items'][0]
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
@@ -202,7 +202,7 @@ class ScInvalidateTest(BitcoinTestFramework):
         mark_logs("\nChecking SC info on network, none see the SC...", self.nodes, DEBUG_MODE)
         for i in range(0, NUMB_OF_NODES):
             try:
-                self.nodes[i].getscinfo(scid)
+                self.nodes[i].getscinfo(scid)['items'][0]
             except JSONRPCException, e:
                 errorString = e.error['message']
                 mark_logs(errorString, self.nodes, DEBUG_MODE)

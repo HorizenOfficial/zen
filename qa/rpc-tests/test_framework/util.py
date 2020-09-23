@@ -465,25 +465,25 @@ def dump_ordered_tips(tip_list,debug=0):
 def dump_sc_info_record(info, i, debug=0):
     if debug == 0:
         return
-    print ("  Node %d - balance: %f" % (i, info["balance"]))
-    print ("    created in block: %s (%d)" % (info["created in block"], info["created at block height"]))
-    print ("    created in tx:    %s" % info["creating tx hash"])
-    print ("    immature amounts:  ", info["immature amounts"])
+    print "  Node %d - balance: %f" % (i, info["balance"])
+    print "    created in block: %s (%d)" % (info["created in block"], info["created at block height"])
+    print "    created in tx:    %s" % info["creating tx hash"]
+    print "    immature amounts: %s" % info["immature amounts"]
 
 def dump_sc_info(nodes,nNodes,scId="",debug=0):
     if debug == 0:
         return
-    if scId != "":
+    if scId != "*":
         print ("scid: " + scId)
         print ("-------------------------------------------------------------------------------------")
         for i in range(0, nNodes):
             try:
-                dump_sc_info_record(nodes[i].getscinfo(scId), i,debug)
+                dump_sc_info_record(nodes[i].getscinfo(scId)['items'][0], i,debug)
             except JSONRPCException, e:
                 print "  Node %d: ### [no such scid: %s]" % (i, scId)
     else:
         for i in range(0, nNodes):
-            x = nodes[i].getscinfo()
+            x = nodes[i].getscinfo("*")['items']
             for info in x:
                 dump_sc_info_record(info, i,nNodes)
 
@@ -495,7 +495,7 @@ def mark_logs(msg,nodes,debug=0):
         node.dbg_log(msg)
 
 def get_epoch_data(scid, node, epochLen):
-    sc_creating_height = node.getscinfo(scid)['created at block height']
+    sc_creating_height = node.getscinfo(scid)['items'][0]['created at block height']
     current_height = node.getblockcount()
     epoch_number = (current_height - sc_creating_height + 1) // epochLen - 1
     epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epochLen))
