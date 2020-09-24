@@ -92,6 +92,7 @@ testScripts=(
   'sc_cert_maturity.py'
   'sbh_rpc_cmds.py'
   'sc_cert_ceasing.py'
+  'sc_getscinfo.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
