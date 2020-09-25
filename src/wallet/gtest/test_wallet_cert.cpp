@@ -26,6 +26,8 @@ public:
         catch(std::exception& e) {
             ASSERT_TRUE(false)<<"Could not create tmp wallet db for reason "<<e.what();
         }
+
+        chainActive.SetTip(nullptr);
     };
 
     void TearDown() override {
@@ -43,6 +45,7 @@ public:
         delete pWallet;
         pWallet = nullptr;
 
+        chainActive.SetTip(nullptr);
         ClearDatadirCache();
     };
 
