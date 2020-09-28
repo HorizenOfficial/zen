@@ -338,8 +338,8 @@ void AddressCurrentlyConnected(const CService& addr)
 }
 
 
-CNode::eTlsOption CNode::tlsFallbackNonTls = CNode::eTlsOption::INVALID;
-CNode::eTlsOption CNode::tlsValidate       = CNode::eTlsOption::INVALID;
+CNode::eTlsOption CNode::tlsFallbackNonTls = CNode::eTlsOption::FALLBACK_UNSET;
+CNode::eTlsOption CNode::tlsValidate       = CNode::eTlsOption::FALLBACK_UNSET;
 
 uint64_t CNode::nTotalBytesRecv = 0;
 uint64_t CNode::nTotalBytesSent = 0;
@@ -2395,44 +2395,44 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
 
 bool CNode::GetTlsFallbackNonTls()
 {
-    if (tlsFallbackNonTls == eTlsOption::INVALID)
+    if (tlsFallbackNonTls == eTlsOption::FALLBACK_UNSET)
     {
         // one time only setting of static class attribute
         if ( GetBoolArg("-tlsfallbacknontls", true))
         {
             LogPrint("tls", "%s():%d - Non-TLS connections will be used in case of failure on TLS\n",
                 __func__, __LINE__);
-            tlsFallbackNonTls = eTlsOption::TRUE;
+            tlsFallbackNonTls = eTlsOption::FALLBACK_TRUE;
         }
         else
         {
             LogPrint("tls", "%s():%d - Non-TLS connections will be NOT be used in case of failure on TLS\n",
                 __func__, __LINE__);
-            tlsFallbackNonTls = eTlsOption::FALSE;
+            tlsFallbackNonTls = eTlsOption::FALLBACK_FALSE;
         }
     }
-    return (tlsFallbackNonTls == eTlsOption::TRUE);
+    return (tlsFallbackNonTls == eTlsOption::FALLBACK_TRUE);
 }
 
 bool CNode::GetTlsValidate()
 {
-    if (tlsValidate == eTlsOption::INVALID)
+    if (tlsValidate == eTlsOption::FALLBACK_UNSET)
     {
         // one time only setting of static class attribute
         if ( GetBoolArg("-tlsvalidate", false))
         {
             LogPrint("tls", "%s():%d - TLS certificates will be validated\n",
                 __func__, __LINE__);
-            tlsValidate = eTlsOption::TRUE;
+            tlsValidate = eTlsOption::FALLBACK_TRUE;
         }
         else
         {
             LogPrint("tls", "%s():%d - TLS certificates will NOT be validated\n",
                 __func__, __LINE__);
-            tlsValidate = eTlsOption::FALSE;
+            tlsValidate = eTlsOption::FALLBACK_FALSE;
         }
     }
-    return (tlsValidate == eTlsOption::TRUE);
+    return (tlsValidate == eTlsOption::FALLBACK_TRUE);
 }
 
 CNode::~CNode()
