@@ -323,9 +323,9 @@ protected:
     void Fuzz(int nChance); // modifies ssSend
 
     enum class eTlsOption {
-        INVALID,
-        FALSE,
-        TRUE
+        FALLBACK_UNSET = 0,
+        FALLBACK_FALSE = 1,
+        FALLBACK_TRUE = 2
     };
     static eTlsOption tlsFallbackNonTls;
     static eTlsOption tlsValidate;
