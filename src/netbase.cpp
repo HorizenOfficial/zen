@@ -180,7 +180,6 @@ bool static LookupIntern(const char *pszName, std::vector<CNetAddr>& vIP, unsign
             assert(aiTrav->ai_addrlen >= sizeof(sockaddr_in6));
             vIP.push_back(CNetAddr(((struct sockaddr_in6*)(aiTrav->ai_addr))->sin6_addr));
         }
-        LogPrint("net", "added node %s got from dnsseed[%s]\n", vIP.back().ToString(), pszName);
 
         aiTrav = aiTrav->ai_next;
     }

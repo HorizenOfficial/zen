@@ -2096,83 +2096,34 @@ bool StopNode()
     return true;
 }
 
-#if 0
-class CNetCleanup
-{
-public:
-    CNetCleanup() {}
-
-    ~CNetCleanup()
-    {
-        // Close sockets
-        BOOST_FOREACH(CNode* pnode, vNodes)
-        pnode->CloseSocketDisconnect();
-        BOOST_FOREACH(ListenSocket& hListenSocket, vhListenSocket)
-            if (hListenSocket.socket != INVALID_SOCKET)
-                if (!CloseSocket(hListenSocket.socket))
-                    LogPrintf("CloseSocket(hListenSocket) failed with error %s\n", NetworkErrorString(WSAGetLastError()));
-
-        // clean up some globals (to help leak detection)
-        BOOST_FOREACH(CNode *pnode, vNodes)
-            delete pnode;
-        BOOST_FOREACH(CNode *pnode, vNodesDisconnected)
-            delete pnode;
-        vNodes.clear();
-        vNodesDisconnected.clear();
-        vhListenSocket.clear();
-        delete semOutbound;
-        semOutbound = NULL;
-        delete pnodeLocalHost;
-        pnodeLocalHost = NULL;
-
-#ifdef WIN32
-        // Shutdown Windows Sockets
-        WSACleanup();
-#endif
-    }
-}
-instance_of_cnetcleanup;
-// this is a global obj and is destroyed when the program terminates. But since we can not rely on
-// any order in global obj dtors, we might have other invalid global objs at this point, for instance the multimap
-// for logging specific categories. In that case any LogPrint("<cat>") call might result in a bad_alloc exception
-// Probably a better approach is calling explicitly a cleanup func from init.cpp Shutdown() func.
-#else
 void CNode::NetCleanup()
-    {
-        // Close sockets
-        BOOST_FOREACH(CNode* pnode, vNodes)
-        pnode->CloseSocketDisconnect();
-        BOOST_FOREACH(ListenSocket& hListenSocket, vhListenSocket)
-            if (hListenSocket.socket != INVALID_SOCKET)
-                if (!CloseSocket(hListenSocket.socket))
-                    LogPrintf("CloseSocket(hListenSocket) failed with error %s\n", NetworkErrorString(WSAGetLastError()));
+{
+    // Close sockets
+    BOOST_FOREACH(CNode* pnode, vNodes)
+    pnode->CloseSocketDisconnect();
+    BOOST_FOREACH(ListenSocket& hListenSocket, vhListenSocket)
+        if (hListenSocket.socket != INVALID_SOCKET)
+            if (!CloseSocket(hListenSocket.socket))
+                LogPrintf("CloseSocket(hListenSocket) failed with error %s\n", NetworkErrorString(WSAGetLastError()));
 
-        // clean up some globals (to help leak detection)
-        BOOST_FOREACH(CNode *pnode, vNodes)
-            delete pnode;
-        BOOST_FOREACH(CNode *pnode, vNodesDisconnected)
-            delete pnode;
-        vNodes.clear();
-        vNodesDisconnected.clear();
-        vhListenSocket.clear();
-        delete semOutbound;
-        semOutbound = NULL;
-        delete pnodeLocalHost;
-        pnodeLocalHost = NULL;
+    // clean up some globals (to help leak detection)
+    BOOST_FOREACH(CNode *pnode, vNodes)
+        delete pnode;
+    BOOST_FOREACH(CNode *pnode, vNodesDisconnected)
+        delete pnode;
+    vNodes.clear();
+    vNodesDisconnected.clear();
+    vhListenSocket.clear();
+    delete semOutbound;
+    semOutbound = NULL;
+    delete pnodeLocalHost;
+    pnodeLocalHost = NULL;
 
 #ifdef WIN32
-        // Shutdown Windows Sockets
-        WSACleanup();
+    // Shutdown Windows Sockets
+    WSACleanup();
 #endif
-    }
-#endif
-
-
-
-
-
-
-
+}
 
 void RelayTransaction(const CTransaction& tx)
 {
