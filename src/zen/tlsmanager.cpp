@@ -228,17 +228,15 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl,
             {
                 if (hSocket >= 0)
                 {
+                    std::string disconnectedPeer("no info");
                     struct sockaddr_in addr;
                     socklen_t serv_len = sizeof(addr);
                     int ret = getpeername(hSocket, (struct sockaddr *)&addr, &serv_len);
-                    if (ret != 0)
+                    if (ret == 0)
                     {
-                        LogPrint("tls", "TLS: error getting peer name for fd=%d (err=%s)\n", hSocket, strerror(errno));
+                        disconnectedPeer = std::string(inet_ntoa(addr.sin_addr)) + ":" + std::to_string(ntohs(addr.sin_port));
                     }
-                    else
-                    {
-                        LogPrint("tls", "TLS: shutting down fd=%d, %s:%d\n", hSocket, inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
-                    }
+                    LogPrint("tls", "TLS: shutting down fd=%d, peer=%s\n", hSocket, disconnectedPeer);
                 }
                 retOp = SSL_shutdown(ssl);
             }
@@ -263,10 +261,9 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl,
                 break;
             }
             else
-            if (retOp < 1)
             {
                 LogPrint("tls", "TLS: %s: %s():%d - SSL_SHUTDOWN failed\n", __FILE__, __func__, __LINE__);
-                // the error will be red afterwards
+                // the error will be read afterwards
             }
         } else {
             if (retOp == 1)
