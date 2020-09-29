@@ -432,10 +432,6 @@ SSL_CTX* TLSManager::initCtx(
             // the client prefers most
             SSL_CTX_set_options(tlsCtx, SSL_OP_CIPHER_SERVER_PREFERENCE);
 
-            // SSL_OP_SINGLE_DH_USE causes the private part of the DH key exchange to be recomputed for each
-            // client connecting.
-            SSL_CTX_set_options(tlsCtx, SSL_OP_SINGLE_DH_USE);
-
             LogPrintf("TLS: %s: %s():%d - setting dh callback\n", __FILE__, __func__, __LINE__);
             SSL_CTX_set_tmp_dh_callback(tlsCtx, tmp_dh_callback);
         }
