@@ -92,15 +92,12 @@ DH *tmp_dh_callback(SSL *ssl, int is_export, int keylength)
     return get_dh2048(); 
 }
 
-/**
-* @brief If verify_callback always returns 1, the TLS/SSL handshake will not be terminated with respect to verification failures and the connection will be established.
-* 
-* @param preverify_ok 
-* @param chainContext 
-* @return int 
-*/
-int tlsCertVerificationCallback(int preverify_ok, X509_STORE_CTX* chainContext)
+/** if 'tls' debug category is enabled, collect info about certificates relevant to the passed context and print them on logs */
+static void dumpCertificateDebugInfo(int preverify_ok, X509_STORE_CTX* chainContext)
 {
+    if (!LogAcceptCategory("tls") )
+        return;
+
     char    buf[256] = {};
     X509   *cert;
     int     err, depth;
@@ -109,14 +106,14 @@ int tlsCertVerificationCallback(int preverify_ok, X509_STORE_CTX* chainContext)
     err = X509_STORE_CTX_get_error(chainContext);
     depth = X509_STORE_CTX_get_error_depth(chainContext);
 
-    LogPrint("tls", "TLS: %s: %s():%d - preverify_ok=%d, errCode=%d, depth=%d\n",
+    LogPrintf("TLS: %s: %s():%d - preverify_ok=%d, errCode=%d, depth=%d\n",
         __FILE__, __func__, __LINE__, preverify_ok, err, depth);
 
     // is not useful checking preverify_ok because, after the chain root verification, it is set accordingly
     // to the return value of this callback, and we choose to always return 1 
     if (err != X509_V_OK )
     {
-        LogPrint("tls", "TLS: %s: %s():%d - Certificate Verification ERROR=%d: [%s] at chain depth=%d\n",
+        LogPrintf("TLS: %s: %s():%d - Certificate Verification ERROR=%d: [%s] at chain depth=%d\n",
             __FILE__, __func__, __LINE__, err, X509_verify_cert_error_string(err), depth);
 
         if (cert && err == X509_V_ERR_CERT_HAS_EXPIRED)
@@ -127,7 +124,7 @@ int tlsCertVerificationCallback(int preverify_ok, X509_STORE_CTX* chainContext)
             if (ret == 1)
             {
                 (void)strftime(buf, sizeof (buf), "%c", &t);
-                LogPrint("tls", "TLS: %s: %s():%d - expired on=%s\n", 
+                LogPrintf("TLS: %s: %s():%d - expired on=%s\n", 
                     __FILE__, __func__, __LINE__, buf);
             }
         }
@@ -135,11 +132,11 @@ int tlsCertVerificationCallback(int preverify_ok, X509_STORE_CTX* chainContext)
     else if (cert)
     {
         X509_NAME_oneline(X509_get_subject_name(cert), buf, 256);
-        LogPrint("tls", "TLS: %s: %s():%d - subj name=%s\n",
+        LogPrintf("TLS: %s: %s():%d - subj name=%s\n",
             __FILE__, __func__, __LINE__, buf);
 
         X509_NAME_oneline(X509_get_issuer_name(cert), buf, 256);
-        LogPrint("tls", "TLS: %s: %s():%d - issuer name=%s\n",
+        LogPrintf("TLS: %s: %s():%d - issuer name=%s\n",
             __FILE__, __func__, __LINE__, buf);
 
         struct tm t = {};
@@ -148,15 +145,27 @@ int tlsCertVerificationCallback(int preverify_ok, X509_STORE_CTX* chainContext)
         if (ret == 1)
         {
             (void)strftime(buf, sizeof (buf), "%c", &t);
-            LogPrint("tls", "TLS: %s: %s():%d - expiring on=%s\n", 
+            LogPrintf("TLS: %s: %s():%d - expiring on=%s\n", 
                 __FILE__, __func__, __LINE__, buf);
         }
     }
     else
     {
         // should never happen
-        LogPrint("tls", "TLS: %s: %s():%d - invalid cert/err\n", __FILE__, __func__, __LINE__);
+        LogPrintf("TLS: %s: %s():%d - invalid cert/err\n", __FILE__, __func__, __LINE__);
     }
+}
+
+/**
+* @brief If verify_callback always returns 1, the TLS/SSL handshake will not be terminated with respect to verification failures and the connection will be established.
+* 
+* @param preverify_ok 
+* @param chainContext 
+* @return int 
+*/
+int tlsCertVerificationCallback(int preverify_ok, X509_STORE_CTX* chainContext)
+{
+    dumpCertificateDebugInfo(preverify_ok, chainContext);
 
     /* The return value controls the strategy of the further verification process. If it returns 0
      * the verification process is immediately stopped with "verification failed" state.
@@ -392,17 +401,10 @@ SSL_CTX* TLSManager::initCtx(
         !boost::filesystem::exists(certificateFile))
         return NULL;
 
-#ifndef TLS1_2_VERSION
-        // minimum secure protocol is 1.2
-        LogPrintf("TLS: ERROR: %s: %s():%d Your OpenSSL version %s does not support TLS v1.2\n",
-            __FILE__, __func__, __LINE__, OpenSSL_version(OPENSSL_VERSION) );
-        return NULL;
-#endif
-
     bool bInitialized = false;
     SSL_CTX* tlsCtx = NULL;
 
-    if ((tlsCtx = SSL_CTX_new(ctxType == SERVER_CONTEXT ? SSLv23_server_method() : SSLv23_client_method()))) {
+    if ((tlsCtx = SSL_CTX_new(ctxType == SERVER_CONTEXT ? TLS_server_method() : TLS_client_method()))) {
         SSL_CTX_set_mode(tlsCtx, SSL_MODE_AUTO_RETRY);
 
         // Disable TLS 1.0. and 1.1
