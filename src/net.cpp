@@ -57,6 +57,13 @@ using namespace zen;
 
 #define USE_TLS
 
+#if defined(USE_TLS) && !defined(TLS1_2_VERSION)
+    // minimum secure protocol is 1.2
+    // TLS1_2_VERSION is defined in openssl/tls1.h
+    #error "ERROR: Your OpenSSL version does not support TLS v1.2"
+#endif
+
+
 using namespace std;
 
 namespace {
@@ -487,9 +494,6 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
         // certificate validation is disabled by default    
         if (CNode::GetTlsValidate())
         {
-            if (ssl)
-                LogPrint("tls", "TLS: %s: %s():%d - validating certificate\n", __FILE__, __func__, __LINE__);
-
             if (ssl && !ValidatePeerCertificate(ssl))
             {
                 LogPrintf ("TLS: ERROR: Wrong server certificate from %s. Connection will be closed.\n", addrConnect.ToString());
@@ -499,11 +503,6 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
                 SSL_free(ssl);
                 return NULL;
             }
-        }
-        else
-        {
-            if (ssl)
-                LogPrint("tls", "TLS: %s: %s():%d - WARNING: not validating certificate\n", __FILE__, __func__, __LINE__);
         }
 #endif  // USE_TLS
 
@@ -1203,9 +1202,6 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
     // certificate validation is disabled by default    
     if (CNode::GetTlsValidate())
     {
-        if (ssl)
-            LogPrint("tls", "TLS: %s: %s():%d - validating certificate\n", __FILE__, __func__, __LINE__);
-
         if (ssl && !ValidatePeerCertificate(ssl))
         {
             LogPrintf ("TLS: ERROR: Wrong client certificate from %s. Connection will be closed.\n", addr.ToString());
@@ -1215,11 +1211,6 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
             SSL_free(ssl);
             return;
         }
-    }
-    else
-    {
-        if (ssl)
-            LogPrint("tls", "TLS: %s: %s():%d - WARNING: not validating certificate\n", __FILE__, __func__, __LINE__);
     }
 #endif // USE_TLS
 
