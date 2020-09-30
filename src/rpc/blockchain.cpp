@@ -1084,7 +1084,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
     return true;
 }
 
-bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAliv, bool bVerbosee)
+bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAlive, bool bVerbose)
 {
     CSidechain scInfo;
     CCoinsViewCache scView(pcoinsTip);
@@ -1094,7 +1094,7 @@ bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAliv, bool 
     }
     CSidechain::State scState = scView.isCeasedAtHeight(scId, chainActive.Height() + 1);
 
-    return FillScRecordFromInfo(scId, scInfo, scState, scRecord, bOnlyAliv, bVerbosee);
+    return FillScRecordFromInfo(scId, scInfo, scState, scRecord, bOnlyAlive, bVerbose);
 }
 
 int FillScList(UniValue& scItems, bool bOnlyAlive, bool bVerbose, int from=0, int to=-1)
