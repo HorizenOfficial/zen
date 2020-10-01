@@ -663,7 +663,7 @@ public:
     static uint64_t GetTotalBytesRecv();
     static uint64_t GetTotalBytesSent();
 
-    // resource deallocation an cleanup, called at node shutdown
+    // resource deallocation on cleanup, called at node shutdown
     static void NetCleanup();
 
     // returns the value of the tlsfallbacknontls and tlsvalidate flags set at zend startup (see init.cpp)
