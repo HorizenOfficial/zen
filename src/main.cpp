@@ -1882,7 +1882,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
                 {
                     // check for invalid OP_CHECKBLOCKATHEIGHT in order to catch it before signature verifications are performed
                     std::string reason;
-                    CScript scriptPubKey(coins->vout[tx.vin[i].prevout.n].scriptPubKey);
+                    CScript scriptPubKey(coins->vout[prevout.n].scriptPubKey);
 
                     if (!CheckReplayProtectionAttributes(scriptPubKey, reason) )                      
                     {

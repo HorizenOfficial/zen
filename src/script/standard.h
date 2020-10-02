@@ -111,24 +111,10 @@ class ReplayProtectionAttributes
     ReplayProtectionAttributes();
 
     bool IsNull() const;
-
-    enum Status {
-        // no replay protection script was used
-        NOT_APPLICABLE = 0x0,
-        // In a replay protection script could not get valid attributes due to invalid structure 
-        INVALID,
-        // got formal attributes of replay protection script; that does not mean the script is OK
-        VALID
-    };
-
-    Status GetStatus() const { return _status; } 
-    void SetStatus(Status status) { _status = status; } 
-
-    bool check(std::string& reason);
+    void SetNull();
 
   private:
     static const int UNDEF = std::numeric_limits<int>::min();
-    Status _status;
 };
 
 bool CheckReplayProtectionAttributes(const CScript& scriptPubKey, std::string reason);
