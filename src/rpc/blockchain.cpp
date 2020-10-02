@@ -1084,7 +1084,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
     return true;
 }
 
-bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAliv, bool bVerbosee)
+bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAlive, bool bVerbose)
 {
     CSidechain scInfo;
     CCoinsViewCache scView(pcoinsTip);
@@ -1094,7 +1094,7 @@ bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAliv, bool 
     }
     CSidechain::State scState = scView.isCeasedAtHeight(scId, chainActive.Height() + 1);
 
-    return FillScRecordFromInfo(scId, scInfo, scState, scRecord, bOnlyAliv, bVerbosee);
+    return FillScRecordFromInfo(scId, scInfo, scState, scRecord, bOnlyAlive, bVerbose);
 }
 
 int FillScList(UniValue& scItems, bool bOnlyAlive, bool bVerbose, int from=0, int to=-1)
@@ -1169,7 +1169,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
 			"3. verbose   (bool, optional, default=true) If false include only essential info in result\n"
             "   --- meaningful if scid is not specified:\n"
 			"4. from      (integer, optional, default=0) If set, limit the starting item index (0-base) in the result array to this entry (included)\n"
-			"5. to        (integer, optional, default=50) If set, limit the ending item index (0-base) in the result array to this entry (excluded) (-1 means max)\n"
+			"5. to        (integer, optional, default=-1) If set, limit the ending item index (0-base) in the result array to this entry (excluded) (-1 means max)\n"
             "\nReturns side chain info for the given id or for all of the existing sc if the id is not given.\n"
             "\nResult:\n"
             "{\n"
@@ -1261,7 +1261,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
         if (params.size() > 3)
     	    from = params[3].get_int();
 
-        int to = 50;
+        int to = -1;
         if (params.size() > 4)
     	    to = params[4].get_int();
 

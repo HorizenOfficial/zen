@@ -795,7 +795,8 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "\nCreate a Side chain with the given id staring from the given block. A fixed amount is charged to the creator\n"
             "\nIt also sends cross chain forward transfer of coins multiple times. Amounts are double-precision floating point numbers."
             "\nArguments:\n"
-            "1. withdrawalEpochLength:   (numeric, required) Length of the withdrawal epochs\n"
+            "1. withdrawalEpochLength:   (numeric, required) Length of the withdrawal epochs. The minimum valid value for " +
+                                          Params().NetworkIDString() + " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
             "2. \"address\"                (string, required) The receiver PublicKey25519Proposition in the SC\n"
             "3. amount:                  (numeric, required) The numeric amount in ZEN is the value\n"
             "4. \"wCertVk\"                (string, required) It is an arbitrary byte string of even length expressed in\n"
@@ -901,7 +902,9 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "\nCreate a Side chain.\n"
             "\nArguments:\n"
             "{\n"                     
-            "   \"withdrawalEpochLength\": epoch  (numeric, optional, default=100) length of the withdrawal epochs\n"
+            "   \"withdrawalEpochLength\": epoch  (numeric, optional, default=" + strprintf("%d", SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH) +
+                                                  ") length of the withdrawal epochs. The minimum valid value in " + Params().NetworkIDString() +
+                                                  " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
             "   \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
             "   \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a new generated address will be used\n"
             "   \"toaddress\":scaddr              (string, required) The receiver PublicKey25519Proposition in the SC\n"
