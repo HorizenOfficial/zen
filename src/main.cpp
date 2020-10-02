@@ -737,8 +737,9 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
         {
             if ( (nHeight - rpAttributes.referencedHeight) < getCheckBlockAtHeightMinAge())
             {
-                LogPrintf("%s():%d - referenced block h[%d], chain.h[%d], minAge[%d]\n",
-                    __func__, __LINE__, rpAttributes.referencedHeight, nHeight, getCheckBlockAtHeightMinAge() );
+                LogPrintf("%s():%d - referenced block h[%d], chain.h[%d], minAge[%d] (tx=%s)\n",
+                    __func__, __LINE__, rpAttributes.referencedHeight, nHeight, getCheckBlockAtHeightMinAge(),
+                    tx.GetHash().ToString() );
                 reason = "scriptpubkey checkblockatheight: referenced block too recent";
                 return false;
             }

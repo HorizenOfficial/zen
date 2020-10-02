@@ -399,23 +399,7 @@ bool CheckReplayProtectionAttributes(const CScript& scriptPubKey, std::string re
     ReplayProtectionAttributes rpAttributes;
     vector<valtype> vSolutions;
     txnouttype whichType;
-    bool ret = Solver(scriptPubKey, whichType, vSolutions, rpAttributes);
-    if (ret)
-    {
-        if (!rpAttributes.IsNull() )
-        {
-            // Compare the specified block hash with the input.
-            if (rpAttributes.referencedHeight < 0 ||
-                !CheckReplyProtectionData(&chainActive, rpAttributes.referencedHeight, rpAttributes.referencedHash))
-            {
-                LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Referenced height %d not corresponding to hash %s\n",
-                    __FILE__, __func__, rpAttributes.referencedHeight, uint256(rpAttributes.referencedHash).ToString());
-                reason = "scriptpubkey" + std::string(": OP_CHECKBLOCKATHEIGHT referenced hash not corresponding to height");
-                return false;
-            }
-        }
-    }
-    return ret;
+    return Solver(scriptPubKey, whichType, vSolutions, rpAttributes);
 #else
     // zen-tx does not have access to chain state so replay protection check is not applicable 
     return true;
