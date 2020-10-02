@@ -497,7 +497,7 @@ private:
             if (ec == websocket::error::closed || ec == websocket::error::no_connection)
             {
                 // graceful disconnection
-                LogPrint("ws", "%s():%d - err[%d]: %s\n", __func__, __LINE__,ec.value(), ec.message());
+                LogPrint("ws", "%s():%d - code[%d]: %s\n", __func__, __LINE__,ec.value(), ec.message());
                 return READ_ERROR;
             }
             else
@@ -520,6 +520,12 @@ private:
             msgType         = findFieldValue("msgType", request);
             clientRequestId = findFieldValue("requestId", request);
             requestType     = findFieldValue("requestType", request);
+
+            if (msgType != std::to_string(WsEvent::MSG_REQUEST)) {
+                // just log it and assume it is a request
+                LogPrint("ws", "%s():%d - WARNING: msgType[%d] invalid, assuming MSG_REQUEST (%d)\n",
+                    __func__, __LINE__, msgType, WsEvent::MSG_REQUEST);
+            }
 
             if (requestType.empty()) {
                 LogPrint("ws", "%s():%d - requestType empty: msg[%s]\n", __func__, __LINE__, msg);
