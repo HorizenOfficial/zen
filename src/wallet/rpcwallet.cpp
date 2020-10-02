@@ -852,7 +852,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         }
     }
 
-    if ((params.size() > 4) && (!params[4].get_str().size() == 0))
+    if ((params.size() > 4) && (params[4].get_str().size() != 0))
     {
         const std::string& inputString = params[4].get_str();
         if(!Sidechain::AddScData(inputString, sc.creationData.customData, MAX_SC_DATA_LEN, false, error))
