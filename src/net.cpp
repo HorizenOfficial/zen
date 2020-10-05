@@ -2389,7 +2389,7 @@ bool CNode::GetTlsFallbackNonTls()
         }
         else
         {
-            LogPrint("tls", "%s():%d - Non-TLS connections will be NOT be used in case of failure on TLS\n",
+            LogPrint("tls", "%s():%d - Non-TLS connections will NOT be used in case of failure of TLS\n",
                 __func__, __LINE__);
             tlsFallbackNonTls = eTlsOption::FALLBACK_FALSE;
         }
