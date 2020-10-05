@@ -711,7 +711,7 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
             return false;
         }
 
-        if (!rpAttributes.IsNull())
+        if (rpAttributes.GotValues())
         {
             if ( (nHeight - rpAttributes.referencedHeight) < getCheckBlockAtHeightMinAge())
             {

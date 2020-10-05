@@ -86,6 +86,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
     // patch level of the replay protection forks
     ReplayProtectionLevel rpLevel = ForkManager::getInstance().getReplayProtectionLevel(nChActHeight);
+    rpAttributes.SetNull();
 
     // Scan templates
     const CScript& script1 = scriptPubKey;
@@ -103,8 +104,6 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         vector<unsigned char> vchBlockHash, vchBlockHeight;
         // used after rp-level-2 fix fork, in order to check the order of processing of hash and height in a rp script
         std::vector< std::vector<unsigned char>> vchCbhParams;
-
-        rpAttributes.SetNull();
 
         // Compare
         CScript::const_iterator pc1 = script1.begin();
@@ -251,6 +250,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
             }
             else if (opcode2 == OP_CHECKBLOCKATHEIGHT)
             {
+                rpAttributes.foundOpCode = true;
 
 #if !defined(BITCOIN_TX) // zen-tx does not have access to chain state so no replay protection is possible
                 if (rpLevel < RPLEVEL_FIXED_2)
@@ -398,7 +398,20 @@ bool CheckReplayProtectionAttributes(const CScript& scriptPubKey, std::string re
     ReplayProtectionAttributes rpAttributes;
     vector<valtype> vSolutions;
     txnouttype whichType;
-    return Solver(scriptPubKey, whichType, vSolutions, rpAttributes);
+
+    bool solverResult = Solver(scriptPubKey, whichType, vSolutions, rpAttributes);
+    if(!rpAttributes.foundOpCode)
+    {
+        if(!solverResult)
+        {
+            LogPrint("cbh", "%s: %s():%d solver failed but no rp attributes found for script %s\n",
+                __FILE__, __func__, __LINE__, scriptPubKey.ToString());
+        }
+        // we are checking only the rp attributes and do not care of other cases
+        return true;
+    }
+    return solverResult;
+    
 #else
     // zen-tx does not have access to chain state so replay protection check is not applicable 
     return true;
@@ -601,17 +614,18 @@ CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys)
 }
 
 ReplayProtectionAttributes::ReplayProtectionAttributes()
-    :referencedHeight(UNDEF), referencedHash()
+    :referencedHeight(UNDEF), referencedHash(), foundOpCode(false)
 {}
 
 void ReplayProtectionAttributes::SetNull() 
 {
     referencedHeight = UNDEF;
     referencedHash.clear();
+    foundOpCode = false;
 }
 
-bool ReplayProtectionAttributes::IsNull() const
+bool ReplayProtectionAttributes::GotValues() const
 {
-    return ( referencedHeight == UNDEF && referencedHash.empty() );
+    return ( referencedHeight != UNDEF && !referencedHash.empty() );
 }
 
