@@ -58,13 +58,7 @@ class cbh_rpfix(BitcoinTestFramework):
         self.nodes[2].dbg_log(msg)
 
     def run_test(self):
-        ''' An audit on our mainchain node, and subsequent dev team investigations found some 
-            weaknesses in the way locking/unlocking scripts are processed. In more details,
-            the weaknesses relates to asymmetries in processing the scripts when txs are 
-            received/spent, resulting in situations when a tx is accepted as valid but cannot
-            subsequently be spent.
-            The test shows that these weaknesses have been fixed post replayprotectionfixfork
-        '''
+        ''' Test verifying the fix of some corner cases in the implementation of cbh '''
         TARGET_H  = 3
         FEE = Decimal('0.00005')
 

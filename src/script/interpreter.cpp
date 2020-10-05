@@ -1295,7 +1295,7 @@ bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime) con
     return true;
 }
 
-bool CheckReplyProtectionData(const CChain* chain, int nHeight, const std::vector<unsigned char>& vchCompareTo)
+bool CheckReplayProtectionData(const CChain* chain, int nHeight, const std::vector<unsigned char>& vchCompareTo)
 {
     if (!chain) {
         return false;
@@ -1414,7 +1414,7 @@ bool CertificateSignatureChecker::CheckBlockHash(const int32_t nHeight, const st
 
 bool TransactionSignatureChecker::CheckBlockHash(const int32_t nHeight, const std::vector<unsigned char>& vchCompareTo) const
 {
-    return CheckReplyProtectionData(chain, nHeight, vchCompareTo);
+    return CheckReplayProtectionData(chain, nHeight, vchCompareTo);
 }
 
 bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror)

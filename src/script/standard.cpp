@@ -306,7 +306,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     vchBlockHeight = vchCbhParams.at(len-1);
  
                     // vchBlockHeight can be empty when height is represented as 0
-                    if ((vchBlockHeight.size() > sizeof(int)) || (vchBlockHash.size() > 32))
+                    if ((vchBlockHeight.size() > sizeof(int)) || (vchBlockHash.size() != 32))
                     {
                         LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT verification failed. Bad params: vh size = %d, vhash size = %d\n",
                             __FILE__, __func__, __LINE__, vchBlockHeight.size(), vchBlockHash.size());
@@ -329,7 +329,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
                     // the logic for skipping the check for sufficently old blocks is in the checker obj method, similarly
                     // to what EvalScript() parser does. 
-                    if (!CheckReplyProtectionData(&chainActive, nHeight, vchBlockHash) )
+                    if (!CheckReplayProtectionData(&chainActive, nHeight, vchBlockHash) )
                     {
                         LogPrintf("%s: %s():%d OP_CHECKBLOCKATHEIGHT verification failed. Referenced height %d invalid or not corresponding to hash %s\n",
                             __FILE__, __func__, __LINE__, nHeight, uint256(vchBlockHash).ToString());

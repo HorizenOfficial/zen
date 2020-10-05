@@ -99,7 +99,7 @@ testScripts=(
   'sc_quality_voiding.py'
   'sc_cert_quality_wallet.py'
   'cbh_rpfix.py'
-  'cbh_doscpu.py'
+  'cbh_rpcheck.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
