@@ -2391,7 +2391,7 @@ bool CNode::GetTlsFallbackNonTls()
         // one time only setting of static class attribute
         if ( GetBoolArg("-tlsfallbacknontls", true))
         {
-            LogPrint("tls", "%s():%d - Non-TLS connections will be used in case of failure on TLS\n",
+            LogPrint("tls", "%s():%d - Non-TLS connections will be used in case of failure of TLS\n",
                 __func__, __LINE__);
             tlsFallbackNonTls = eTlsOption::FALLBACK_TRUE;
         }
