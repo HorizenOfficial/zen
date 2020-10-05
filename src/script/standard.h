@@ -107,10 +107,11 @@ class ReplayProtectionAttributes
   public:
     int referencedHeight;
     std::vector<unsigned char> referencedHash;
+    bool foundOpCode;
 
     ReplayProtectionAttributes();
 
-    bool IsNull() const;
+    bool GotValues() const;
     void SetNull();
 
   private:
