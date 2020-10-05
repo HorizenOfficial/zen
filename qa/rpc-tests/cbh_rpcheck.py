@@ -62,9 +62,7 @@ class cbh_doscpu(BitcoinTestFramework):
         ''' This test creates a malformed transaction (Block hash and height swapped in checkblockatHeight).
             The transaction is accepted pre replayprotectionfixfork but its spending is prohibited both before
             and after the fork.
-            The whole point of the test is to show that spending rejection happens for different reason.
-            In more details, post replayprotectionfixfork rejection must happen 
-            before the CPU intensive script validations are performed.
+            The whole point of the test is to show that spending rejection happens for two different reasons.
         '''
 
         MODE_HEIGHT    = 0
