@@ -153,7 +153,7 @@ class tlsproto(BitcoinTestFramework):
         do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), expected_result=False, ciphers="AES128-GCM-SHA256", tlsOnly=True)
 
         self.mark_logs("\nTrying TLSv1_2 connection with tls-only node with supported cipher")
-        do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), expected_result=True, ciphers="DHE-RSA-AES256-GCM-SHA256", tlsOnly=True)
+        do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), expected_result=True, ciphers="DHE-RSA-AES256-GCM-SHA384", tlsOnly=True)
 
         self.mark_logs("\nTrying TLSv1_2 connection with tls-only node letting it choose cipher")
         do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), expected_result=True, ciphers=None, tlsOnly=True)
