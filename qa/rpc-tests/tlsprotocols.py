@@ -134,11 +134,10 @@ class tlsproto(BitcoinTestFramework):
 
         # TLS1.2 ciphers supporting PFS and using RSA autentication
         ciph_array = [
+            "ECDHE-RSA-AES256-GCM-SHA384",
             "DHE-RSA-AES256-GCM-SHA384",
-            "DHE-RSA-AES256-SHA256",
-            "DHE-RSA-AES128-GCM-SHA256",
-            "DHE-RSA-AES128-SHA256",
-            "ECDHE-RSA-AES256-GCM-SHA384"
+            "ECDHE-RSA-AES128-GCM-SHA256",
+            "DHE-RSA-AES128-GCM-SHA256"
         ]
 
         for c in ciph_array:
@@ -154,7 +153,7 @@ class tlsproto(BitcoinTestFramework):
         do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), expected_result=False, ciphers="AES128-GCM-SHA256", tlsOnly=True)
 
         self.mark_logs("\nTrying TLSv1_2 connection with tls-only node with supported cipher")
-        do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), expected_result=True, ciphers="DHE-RSA-AES256-SHA256", tlsOnly=True)
+        do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), expected_result=True, ciphers="DHE-RSA-AES256-GCM-SHA256", tlsOnly=True)
 
         self.mark_logs("\nTrying TLSv1_2 connection with tls-only node letting it choose cipher")
         do_tls_conn(ssl.PROTOCOL_TLSv1_2, (HOST, PORT), expected_result=True, ciphers=None, tlsOnly=True)
