@@ -66,6 +66,7 @@ def fill_ws_send_certificate_output(jrsp):
     print "Json Received '%s'" % jrsp
     return jrsp['responsePayload']['certificateHash']
 
+#----------------------------------------------------------------
 def fill_ws_get_single_block_input(args):
     if len(args) == 0:
         raise JSONWSException("{}(): wrong number of args {}".format(__func(), len(args)))
@@ -84,6 +85,12 @@ def fill_ws_get_single_block_output(jrsp):
     print "Json Received '%s'" % jrsp
     return jrsp['responsePayload']['height'], jrsp['responsePayload']['hash'], jrsp['responsePayload']['block']
 
+#----------------------------------------------------------------
+# to be continued with all the supported messages...
+
+
+# for negative tests 
+#----------------------------------------------------------------
 def fill_ws_test_input(args):
     if len(args) == 0:
         raise JSONWSException("{}(): wrong number of args {}".format(__func(), len(args)))
@@ -103,6 +110,7 @@ def fill_ws_test_input(args):
 def fill_ws_test_output(jrsp):
     print "Json Received '%s'" % jrsp
     return jrsp['responsePayload']['height'], jrsp['responsePayload']['hash'], jrsp['responsePayload']['block']
+
 
 #----------------------------------------------------------------
 def fill_ws_cmd_input(method, args):
@@ -125,6 +133,7 @@ def fill_ws_cmd_output(method, jrsp):
 
 
     raise JSONWSException("Websocket method \"{}\" not supported".format(method))
+
 
 class WsServiceProxy(object):
     __id_count = 0

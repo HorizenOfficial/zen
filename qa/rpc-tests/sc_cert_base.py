@@ -11,16 +11,14 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     assert_false, assert_true
 from test_framework.mc_test.mc_test import *
 import os
-import json
 import pprint
 from decimal import Decimal
-from websocket import create_connection
-import time
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 3
 EPOCH_LENGTH = 5
 CERT_FEE = Decimal('0.00015')
+
 
 class sc_cert_base(BitcoinTestFramework):
 
@@ -36,19 +34,9 @@ class sc_cert_base(BitcoinTestFramework):
     def setup_network(self, split=False):
         self.nodes = []
 
-        common_args = [
-            '-websocket=1', '-debug=ws',
-            '-txindex=1',
-#            '-wsport=12345',
-#            '-debug=ws',
-            '-debug=py', '-debug=sc', '-debug=mempool', '-debug=net',
-            '-debug=cert', '-debug=zendoo_mc_cryptolib', '-logtimemicros=1']
+        self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
+            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib', '-logtimemicros=1']] * NUMB_OF_NODES)
 
-#        extra_args = add_websocket_arg(NUMB_OF_NODES, common_args)
-        
-        self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args = [common_args]*NUMB_OF_NODES)
-
-#        import pdb; pdb.set_trace()
         connect_nodes_bi(self.nodes, 0, 1)
         connect_nodes_bi(self.nodes, 1, 2)
         sync_blocks(self.nodes[1:NUMB_OF_NODES])
@@ -81,8 +69,6 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node 0 generates 220 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(220)
         self.sync_all()
-
-#        qqq = self.nodes[0].ws_test("qqqqqqqqqq")
 
         # SC creation
         bal_before_sc_creation = self.nodes[1].getbalance("", 0)
@@ -200,7 +186,6 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
         assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
 
-        '''
         # ----------------scProof tests-----------------
         mark_logs("Node 0 tries to perform a bwd transfer with a scProof too short ...", self.nodes, DEBUG_MODE)
 
@@ -390,7 +375,6 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
 
         #---------------------end scProof tests-------------------------
-        '''
 
         eph_wrong = self.nodes[0].getblockhash(sc_creating_height)
         mark_logs("Node 0 tries to perform a bwd transfer with an invalid end epoch hash block ...", self.nodes, DEBUG_MODE)
@@ -408,31 +392,7 @@ class sc_cert_base(BitcoinTestFramework):
         epoch_number_0     = epoch_number
         epoch_block_hash_0 = epoch_block_hash
 
-        mark_logs("Node 0 performs a bwd transfer to Node1 pkh {} of {} coins".format(amount_cert_1[0]["pubkeyhash"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
-        #----------------------------------------------------------------"
-        #cert_epoch_0 = self.nodes[0].ws_xsend_certificate(0, scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1, CERT_FEE)
-        cert_epoch_0 = self.nodes[1].ws_send_certificate(
-            scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1)
-
-        self.sync_all()
-        self.nodes[0].generate(1)
-        self.sync_all()
-
-        '''
-        height_, hash_, block_ = self.nodes[0].ws_get_single_block(100)
-        print
-        print height_
-        print hash_
-        print block_
-        '''
-
-        raw_input("______________________")
-        mark_logs("Node 1 getrawtransaction", self.nodes, DEBUG_MODE)
-        print self.nodes[1].getrawcertificate(cert_epoch_0, 1)
-        return
-
-        #----------------------------------------------------------------"
-        '''
+        mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(amount_cert_1[0]["pubkeyhash"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
         try:
             cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1, CERT_FEE)
             assert(len(cert_epoch_0) > 0)
@@ -441,7 +401,6 @@ class sc_cert_base(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
-       '''
 
         mark_logs("Checking mempools alignement", self.nodes, DEBUG_MODE)
         self.sync_all()

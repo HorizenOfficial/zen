@@ -18,6 +18,7 @@ import threading
 import time
 from websocket import create_connection
 from websocket._exceptions import WebSocketConnectionClosedException
+from test_framework.wsproxy import JSONWSException
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 3
@@ -44,10 +45,14 @@ def ws_client(node, arg):
     ws = create_connection(wsurl)
 
     t = threading.currentThread()
+    c = 0
 
     while getattr(t, "do_run", True):
         try:
             data = ws.recv()
+            #c += 1
+            #print "received data....", c
+
             if getattr(t, "handle_events", True):
                 arg.wsEventPayload = json.loads(data)['eventPayload']
                 arg.sem.release()
@@ -80,8 +85,6 @@ class ws_messages(BitcoinTestFramework):
         common_args = [
             '-websocket=1', '-debug=ws',
             '-txindex=1',
-#            '-wsport=12345',
-#            '-debug=ws',
             '-debug=py', '-debug=sc', '-debug=mempool', '-debug=net',
             '-debug=cert', '-debug=zendoo_mc_cryptolib', '-logtimemicros=1']
 
@@ -126,6 +129,16 @@ class ws_messages(BitcoinTestFramework):
         mark_logs("Node 0 generates 220 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(220)
         self.sync_all()
+
+        mark_logs("Sending an invalid ws message", self.nodes, DEBUG_MODE)
+        try:
+            self.nodes[0].ws_test("Hello World!")
+            print qqq
+        except JSONWSException, e:
+            print "############ exception:", e.error
+        except Exception, e:
+            print "Unexpected exception:  ", str(e)
+
 
         # SC creation
 
@@ -198,208 +211,16 @@ class ws_messages(BitcoinTestFramework):
         assert_equal(self.wsEventPayload['height'], bc)
         assert_equal(self.wsEventPayload['hash'], bh)
         assert_equal(self.wsEventPayload['block'], bl)
+        print "=====> GotEvent: "
+        pprint.pprint(self.wsEventPayload)
 
+        mark_logs("Getting block via ws", self.nodes, DEBUG_MODE)
         height_, hash_, block_ = self.nodes[0].ws_get_single_block(bc)
         assert_equal(height_, bc)
         assert_equal(hash_, bh)
         assert_equal(block_, bl)
-        '''
-        '''
 
         t.do_run = False
-#        t.join()
-        return
-
-        #----------------------------------------------------------------"
-        '''
-        try:
-            cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1, CERT_FEE)
-            assert(len(cert_epoch_0) > 0)
-            mark_logs("Certificate is {}".format(cert_epoch_0), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
-            assert(False)
-       '''
-
-        mark_logs("Checking mempools alignement", self.nodes, DEBUG_MODE)
-        self.sync_all()
-        for i in range(1, NUMB_OF_NODES):
-            assert_equal(sorted(self.nodes[0].getrawmempool()), sorted(self.nodes[i].getrawmempool()))
-
-        mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
-        assert_equal(True, cert_epoch_0 in self.nodes[0].getrawmempool())
-
-        bal_before_bwt = self.nodes[1].getbalance("", 0)
-        mark_logs("Node1 balance before bwt is received: {}".format(bal_before_bwt), self.nodes, DEBUG_MODE)
-
-        mark_logs("Node 0 try to generate a second bwd transfer for the same epoch number before first bwd is confirmed", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1, CERT_FEE)
-            assert(False)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-
-        assert_equal("conflicting cert" in errorString, True)
-
-        mark_logs("Node0 confims bwd transfer generating 1 block", self.nodes, DEBUG_MODE)
-        mined = self.nodes[0].generate(1)[0]
-        self.sync_all()
-
-        mark_logs("Check cert is not in mempool anymore", self.nodes, DEBUG_MODE)
-        assert_equal(False, cert_epoch_0 in self.nodes[0].getrawmempool())
-
-        mark_logs("Check block coinbase contains the certificate fee", self.nodes, DEBUG_MODE)
-        coinbase = self.nodes[0].getblock(mined, True)['tx'][0]
-        decoded_coinbase = self.nodes[2].getrawtransaction(coinbase, 1)
-        miner_quota = decoded_coinbase['vout'][0]['value']
-        assert_equal(miner_quota, (Decimal('7.5') + CERT_FEE))
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], creation_amount + fwt_amount- amount_cert_1[0]["amount"])
-        assert_equal(len(self.nodes[0].getscinfo(scid)['immature amounts']), 0)
-
-        mark_logs("Node 0 tries to performs a bwd transfer for the same epoch number as before...", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1, CERT_FEE)
-            assert(False)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-
-        assert_equal("invalid" in errorString, True)
-
-        mark_logs("Checking that amount transferred by certificate reaches Node1 wallet", self.nodes, DEBUG_MODE)
-        retrieved_cert = self.nodes[1].gettransaction(cert_epoch_0)
-        assert_equal(retrieved_cert['amount'], 0)  # Certificate amount is not mature yet
-        assert_equal(retrieved_cert['details'][0]['category'], "immature")
-        assert_equal(retrieved_cert['details'][0]['amount'], amount_cert_1[0]["amount"])
-
-        assert_equal(self.nodes[1].getwalletinfo()['immature_balance'], amount_cert_1[0]["amount"])
-        utxos_Node1 = self.nodes[1].listunspent()
-        for utxo in utxos_Node1:
-            assert_false("cert" in utxo.keys())
-            assert_false(utxo["txid"] == cert_epoch_0)
-
-        bal_after_bwt_confirmed = self.nodes[1].getbalance("", 0)
-        mark_logs("Node1 balance after bwt is confirmed: {}".format(bal_after_bwt_confirmed), self.nodes, DEBUG_MODE)
-        assert_equal(bal_after_bwt_confirmed, bal_before_bwt)  # cert_net_amount is not matured yet.
-
-        mark_logs("Checking that Node1 cannot immediately spend coins received from bwd transfer", self.nodes, DEBUG_MODE)
-        mark_logs("Node 1 tries to send {} coins to node2...".format(amount_cert_1[0]["amount"] / 2), self.nodes, DEBUG_MODE)
-        try:
-            tx = self.nodes[1].sendtoaddress(self.nodes[2].getnewaddress(), amount_cert_1[0]["amount"] / 2)
-            assert(len(tx) == 0)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-
-        assert_equal("Insufficient funds" in errorString, True)
-
-        mark_logs("Show that coins from bwt can be spent once next epoch certificate is received and confirmed", self.nodes, DEBUG_MODE)
-        mark_logs("Node0 generating enough blocks to move to new withdrawal epoch", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(EPOCH_LENGTH - 1)
-        self.sync_all()
-
-        prev_epoch_block_hash = epoch_block_hash
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
-
-        amount_cert_2 = []
-
-        bal_before_cert_2 = self.nodes[1].getbalance("", 0)
-        mark_logs("Node1 balance before epoch 1 certificate is received: {}".format(bal_before_cert_2), self.nodes, DEBUG_MODE)        
-
-        mark_logs("Generate new certificate for epoch {}. No bwt and no fee are included".format(epoch_number), self.nodes, DEBUG_MODE)
-
-        # Create new proof for WCert
-        quality = 1
-        proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [], [])
-
-        nullFee = Decimal("0.0")
-        try:
-            cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_2, nullFee)
-            assert(len(cert_epoch_1) > 0)
-            mark_logs("Certificate is {}".format(cert_epoch_1), self.nodes, DEBUG_MODE)
-            self.sync_all()
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
-            assert(False)
-
-        # if txindex has not been specified when starting zend, this certificate can be retrieved only while is
-        # in mempool, since it has no coins to be searched in the coins db
-        mark_logs("Check the certificate for this scid has no vin and no vouts", self.nodes, DEBUG_MODE)
-        try:
-            ret = self.nodes[0].getrawcertificate(cert_epoch_1, 1)
-            assert_equal(ret['cert']['scid'], scid)
-            assert_equal(len(ret['vin']), 0)
-            assert_equal(len(ret['vout']), 0)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs("can not get raw info for cert {} error: {}".format(cert_epoch_1, errorString), self.nodes, DEBUG_MODE)
-    
-        mark_logs("Confirm the certificate for epoch {} and move beyond safeguard".format(epoch_number), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
-        h = self.nodes[0].getblockcount()
-        self.nodes[0].generate(2)
-        self.sync_all()
-
-        bal_after_cert_2 = self.nodes[1].getbalance("", 0)
-        mark_logs("Node1 balance after epoch 1 certificate is received and safeguard passed: {}".format(bal_after_cert_2), self.nodes, DEBUG_MODE)        
-
-        mark_logs("Checking that certificate received from previous epoch is spendable,".format(epoch_number), self.nodes, DEBUG_MODE)
-        retrieved_cert = self.nodes[1].gettransaction(cert_epoch_0)
-        assert_equal(retrieved_cert['amount'], amount_cert_1[0]["amount"])  # Certificate amount has matured
-        assert_equal(retrieved_cert['details'][0]['category'], "receive")
-        assert_equal(retrieved_cert['details'][0]['amount'], amount_cert_1[0]["amount"])  # In cert details you can see the actual amount transferred
-
-        assert_equal(self.nodes[1].getwalletinfo()['immature_balance'], Decimal(0))
-        utxos_Node1 = self.nodes[1].listunspent()
-        cert_epoch_0_availalble = False
-        for utxo in utxos_Node1:
-            if ("certified" in utxo.keys()):
-                cert_epoch_0_availalble = True
-                assert_true(utxo["txid"] == cert_epoch_0)
-        assert_true(cert_epoch_0_availalble)
-
-        mark_logs("Checking Node1 balance is duly updated,".format(epoch_number), self.nodes, DEBUG_MODE)
-        assert_equal(bal_after_cert_2, bal_before_cert_2 + amount_cert_1[0]["amount"])
-
-        Node2_bal_before_cert_expenditure = self.nodes[2].getbalance("", 0)
-        mark_logs("Checking that Node1 can spend coins received from bwd transfer in previous epoch", self.nodes, DEBUG_MODE)
-        mark_logs("Node 1 sends {} coins to node2...".format(amount_cert_1[0]["amount"] / 2), self.nodes, DEBUG_MODE)
-        try:
-            tx = self.nodes[1].sendtoaddress(self.nodes[2].getnewaddress(), amount_cert_1[0]["amount"] / 2)
-            assert(len(tx) > 0)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs("tx spending certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
-            assert(False)
-
-        vin = self.nodes[1].getrawtransaction(tx, 1)['vin']
-        assert_equal(vin[0]['txid'], cert_epoch_0)
-
-        mark_logs("Node0 confims spending of bwd transfer founds generating 1 block", self.nodes, DEBUG_MODE)
-        self.sync_all()
-        self.nodes[0].generate(1)
-        self.sync_all()
-
-        Node2_bal_after_cert_expenditure = self.nodes[2].getbalance("", 0)
-
-        mark_logs("Verify balances following Node1 spending bwd transfer to Node2.", self.nodes, DEBUG_MODE)
-        assert_equal(Node2_bal_before_cert_expenditure + amount_cert_1[0]["amount"] / 2, Node2_bal_after_cert_expenditure)
-
-        mark_logs("Node 0 tries to send a certificate for old epoch {}...".format(epoch_number_0), self.nodes, DEBUG_MODE)
-        amounts = []
-        try:
-            self.nodes[0].send_certificate(scid, epoch_number_0, 0, epoch_block_hash_0, proof, amounts, CERT_FEE)
-            assert(False)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("invalid epoch data" in errorString, True)
 
 
 
