@@ -5405,14 +5405,14 @@ void static ProcessGetData(CNode* pfrom)
 
                         // this is set by ConnectBlock method, when a new tip is added to the main chain
                         bool b1 = mi->second->IsValid(BLOCK_VALID_SCRIPTS);
-                        bool b2 = (pindexBestHeader != NULL);
-                        bool b3 = (pindexBestHeader->GetBlockTime() - mi->second->GetBlockTime() < nOneMonth);
-                        bool b4 = (GetBlockProofEquivalentTime(*pindexBestHeader, *mi->second, *pindexBestHeader, Params().GetConsensus()) < nOneMonth);
+                        bool b2 = (pindexBestHeader != NULL) &&
+                                  (pindexBestHeader->GetBlockTime() - mi->second->GetBlockTime() < nOneMonth) &&
+                                  (GetBlockProofEquivalentTime(*pindexBestHeader, *mi->second, *pindexBestHeader, Params().GetConsensus()) < nOneMonth);
 
-                        send = b1 && b2 && b3 && b4;
+                        send = b1 && b2;
                         if (!send)
                         {
-                            if (b2 && b3 && b4)
+                            if (b2)
                             {
                                 // BLOCK_VALID_SCRIPTS is set when connecting block on main chain, but we must
                                 // propagate also when relevant blocks are on a fork. Consider that a further check
