@@ -226,7 +226,7 @@ int TLSManager::waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl,
          
             case SSL_SHUTDOWN:
             {
-                if (hSocket >= 0)
+                if (hSocket != INVALID_SOCKET)
                 {
                     std::string disconnectedPeer("no info");
                     struct sockaddr_in addr;
