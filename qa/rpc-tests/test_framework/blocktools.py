@@ -81,7 +81,7 @@ def create_transaction(prevtx, n, sig, value):
     tx.calc_sha256()
     return tx
 
-# create a signed tx with a tampered reply protection script according to a mode parameter
+# create a signed tx with a tampered replay protection script according to a mode parameter
 MODE_HEIGHT    = 0 
 MODE_SWAP_ARGS = 1
 def create_tampered_rawtx_cbh(node_from, node_to, tx_amount, fee, mode):
