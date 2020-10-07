@@ -4,9 +4,9 @@ namespace zen {
 
 ReplayProtectionFixFork::ReplayProtectionFixFork()
 {
-    setHeightMap({{CBaseChainParams::Network::MAIN,800000}, // TODO set it properly
+    setHeightMap({{CBaseChainParams::Network::MAIN,835968},
                   {CBaseChainParams::Network::REGTEST,400},
-                  {CBaseChainParams::Network::TESTNET,660000}}); // TODO set it properly
+                  {CBaseChainParams::Network::TESTNET,735700}});
 
 }
 
