@@ -415,15 +415,9 @@ SSL_CTX* TLSManager::initCtx(
 
         // sets the list of available ciphers (TLSv1.2 and below) offering perfect forward secrecy
         // and using RSA aut method (we have RSA keys)
-#if 0
-        const char *cipher_list =
-              "ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-SHA256:"
-              "DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES128-SHA256";
-#else
         const char *cipher_list =
               "ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384:"
               "ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES128-GCM-SHA256";
-#endif
 
         int ciph_ret = SSL_CTX_set_cipher_list(tlsCtx, cipher_list);
         if (ciph_ret == 0) {
