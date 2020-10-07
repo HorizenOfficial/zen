@@ -2496,12 +2496,24 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTx*
     }
 
     // remove preset inputs from vCoins
-    for (vector<COutput>::iterator it = vCoins.begin(); it != vCoins.end() && coinControl && coinControl->HasSelected();)
+    if((coinControl != nullptr)	&& coinControl->HasSelected())
     {
-        if (setPresetCoins.count(make_pair(it->tx, it->i)))
-            it = vCoins.erase(it);
-        else
-            ++it;
+        struct predicate
+        {
+            predicate(const std::set<std::pair<const CWalletTransactionBase*, uint32_t>>& setCoins):
+                _setCoins(setCoins) {};
+
+            bool operator()(const COutput& out)
+            {
+                return _setCoins.count(make_pair(out.tx, out.pos));
+            };
+
+        private:
+            const std::set<std::pair<const CWalletTransactionBase*, uint32_t>>& _setCoins;
+        } isInputPreset(setPresetCoins);
+
+        auto it = std::remove_if(vCoins.begin(), vCoins.end(), isInputPreset);
+        vCoins.erase(it, vCoins.end());
     }
 
     bool res = nTargetValue <= nValueFromPresetInputs ||
