@@ -126,6 +126,10 @@ struct CRecipient
 
 typedef std::map<std::string, std::string> mapValue_t;
 
+typedef std::pair<CWalletTx*, CAccountingEntry*> TxPair;
+typedef std::multimap<int64_t, TxPair > TxItems;
+
+typedef std::vector<CWalletTx*> vTxWithInputs;
 
 static void ReadOrderPos(int64_t& nOrderPos, mapValue_t& mapValue)
 {
@@ -509,7 +513,7 @@ public:
         return (GetDebit(filter) > 0);
     }
 
-    bool IsTrusted() const;
+    bool IsTrusted(bool canSpendZeroConfChange = bSpendZeroConfChange) const;
 
     bool WriteToDisk(CWalletDB *pwalletdb);
 
@@ -519,6 +523,10 @@ public:
     bool RelayWalletTransaction();
 
     std::set<uint256> GetConflicts() const;
+
+    void addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const;
+    bool HasInputFrom(const CScript& scriptPubKey) const;
+    bool HasOutputFor(const CScript& scriptPubKey) const;
 };
 
 
@@ -876,8 +884,6 @@ public:
     std::map<uint256, CWalletTx> mapWallet;
     std::list<CAccountingEntry> laccentries;
 
-    typedef std::pair<CWalletTx*, CAccountingEntry*> TxPair;
-    typedef std::multimap<int64_t, TxPair > TxItems;
     TxItems wtxOrdered;
 
     int64_t nOrderPosNext;
@@ -978,6 +984,8 @@ public:
      */
     int64_t IncOrderPosNext(CWalletDB *pwalletdb = NULL);
 
+    vTxWithInputs OrderedTxWithInputs(const std::string& address) const;
+
     void MarkDirty();
     bool UpdateNullifierNoteMap();
     void UpdateNullifierNoteMapWithTx(const CWalletTx& wtx);
@@ -995,6 +1003,15 @@ public:
     std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime);
     CAmount GetBalance() const;
     CAmount GetUnconfirmedBalance() const;
+
+    enum class eZeroConfChangeUsage {
+        ZCC_FALSE,
+        ZCC_TRUE,
+        ZCC_UNDEF
+    };
+
+    void GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput,
+        CAmount& unconfOutput, eZeroConfChangeUsage zconfchangeusage, bool fIncludeNonFinal) const;
     CAmount GetImmatureBalance() const;
     CAmount GetWatchOnlyBalance() const;
     CAmount GetUnconfirmedWatchOnlyBalance() const;

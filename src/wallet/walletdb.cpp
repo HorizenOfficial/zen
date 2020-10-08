@@ -832,7 +832,7 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
     pwallet->laccentries.clear();
     ListAccountCreditDebit("*", pwallet->laccentries);
     BOOST_FOREACH(CAccountingEntry& entry, pwallet->laccentries) {
-        pwallet->wtxOrdered.insert(make_pair(entry.nOrderPos, CWallet::TxPair((CWalletTx*)0, &entry)));
+        pwallet->wtxOrdered.insert(make_pair(entry.nOrderPos, TxPair((CWalletTx*)0, &entry)));
     }
 
     return result;

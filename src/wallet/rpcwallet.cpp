@@ -41,6 +41,7 @@ using namespace std;
 using namespace libzcash;
 
 extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
+extern void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
 
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
@@ -71,6 +72,118 @@ void EnsureWalletIsUnlocked()
 {
     if (pwalletMain->IsLocked())
         throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Please enter the wallet passphrase with walletpassphrase first.");
+}
+
+void AddVinExpandedToJSON(const CWalletTx& tx, UniValue& entry)
+{
+    entry.push_back(Pair("locktime", (int64_t)tx.nLockTime));
+    UniValue vinArr(UniValue::VARR);
+    for (const CTxIn& txin : tx.vin)
+    {
+        UniValue in(UniValue::VOBJ);
+        if (tx.IsCoinBase())
+        {
+            in.push_back(Pair("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end())));
+        }
+        else
+        {
+            const uint256& inputTxHash = txin.prevout.hash;
+
+            in.push_back(Pair("txid", inputTxHash.GetHex()));
+            in.push_back(Pair("vout", (int64_t)txin.prevout.n));
+
+            UniValue o(UniValue::VOBJ);
+            o.push_back(Pair("asm", txin.scriptSig.ToString()));
+            o.push_back(Pair("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end())));
+            in.push_back(Pair("scriptSig", o));
+
+            auto mi = pwalletMain->mapWallet.find(inputTxHash);
+            if (mi != pwalletMain->mapWallet.end() )
+            {
+                if ((*mi).second.GetHash() == inputTxHash)
+                {
+                    const CTxOut& txout = (*mi).second.vout[txin.prevout.n];
+
+                    in.push_back(Pair("value", ValueFromAmount(txout.nValue)));
+                    in.push_back(Pair("valueSat", txout.nValue));
+
+                    txnouttype type;
+                    int nRequired;
+                    vector<CTxDestination> addresses;
+                    if (!ExtractDestinations(txout.scriptPubKey, type, addresses, nRequired)) {
+                        in.push_back(Pair("addr", "Unknown"));
+                    } else {
+                        const CTxDestination& addr = addresses[0];
+                        in.push_back(Pair("addr", (CBitcoinAddress(addr).ToString() )));
+                    }
+                }
+            }
+
+        }
+        in.push_back(Pair("sequence", (int64_t)txin.nSequence));
+        vinArr.push_back(in);
+    }
+    entry.push_back(Pair("vin", vinArr));
+}
+
+
+void TxExpandedToJSON(const CWalletTx& tx,  UniValue& entry)
+{
+    entry.push_back(Pair("txid", tx.GetHash().GetHex()));
+    entry.push_back(Pair("version", tx.nVersion));
+
+    AddVinExpandedToJSON(tx, entry);
+
+    int conf = tx.GetDepthInMainChain();
+    int64_t timestamp = tx.GetTxTime();
+    bool hasBlockTime = false;
+
+    if (!tx.hashBlock.IsNull()) {
+        BlockMap::iterator mi = mapBlockIndex.find(tx.hashBlock);
+        if (mi != mapBlockIndex.end() && (*mi).second) {
+            CBlockIndex* pindex = (*mi).second;
+            if (chainActive.Contains(pindex)) {
+                timestamp = pindex->GetBlockTime();
+                hasBlockTime = true;
+            } else {
+                timestamp = tx.GetTxTime();
+            }
+        }
+    }
+
+    UniValue vout(UniValue::VARR);
+    for (unsigned int i = 0; i < tx.vout.size(); i++) {
+        const CTxOut& txout = tx.vout[i];
+        UniValue out(UniValue::VOBJ);
+        out.push_back(Pair("value", ValueFromAmount(txout.nValue)));
+        out.push_back(Pair("valueSat", txout.nValue));
+        out.push_back(Pair("n", (int64_t)i));
+        UniValue o(UniValue::VOBJ);
+        ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
+        out.push_back(Pair("scriptPubKey", o));
+        vout.push_back(out);
+    }
+    entry.push_back(Pair("vout", vout));
+
+    entry.push_back(Pair("vjoinsplit", TxJoinSplitToJSON(tx)));
+
+    if (!tx.hashBlock.IsNull()) {
+        entry.push_back(Pair("blockhash", tx.hashBlock.GetHex()));
+        entry.push_back(Pair("confirmations", conf));
+        entry.push_back(Pair("time", timestamp));
+        if (hasBlockTime) {
+            entry.push_back(Pair("blocktime", timestamp));
+        }
+    } else {
+        entry.push_back(Pair("confirmations", conf));
+        entry.push_back(Pair("time", timestamp));
+    }
+
+    if (tx.IsFromMe(ISMINE_ALL)) {
+        CAmount nDebit = tx.GetDebit(ISMINE_ALL);
+        CAmount nFee = nDebit - tx.GetValueOut();
+        entry.push_back(Pair("fees", ValueFromAmount(nFee)));
+    }
 }
 
 void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
@@ -1543,9 +1656,9 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
 
 
     UniValue ret(UniValue::VARR);
-    const CWallet::TxItems & txOrdered = pwalletMain->wtxOrdered;
+    const TxItems & txOrdered = pwalletMain->wtxOrdered;
     // iterate backwards until we have nCount items to return:
-    for (CWallet::TxItems::const_reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
+    for (TxItems::const_reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
     {
         CWalletTx *const pwtx = (*it).second.first;
         if (pwtx != nullptr){
@@ -1585,6 +1698,158 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     if (first != arrTmp.begin()) arrTmp.erase(arrTmp.begin(), first);
 
     std::reverse(arrTmp.begin(), arrTmp.end()); // Return oldest to newest
+
+    ret.clear();
+    ret.setArray();
+    ret.push_backV(arrTmp);
+    return ret;
+}
+
+UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() > 3)
+        throw runtime_error(
+            "getunconfirmedtxdata ( \"address\" spendzeroconfchange includeNonFinalTxes)\n"
+            "\nReturns the server's total unconfirmed data relevanto to the input address\n"
+            "\nArguments:\n"
+            " \"address\"            (string, mandatory) consider transactions involving this address\n"
+            " spendzeroconfchange  (boolean, optional) If provided the command will force zero confirmation change\n"
+            "                         spendability as specified, otherwise the value set by zend option \'spendzeroconfchange\' \n"
+            "                         will be used instead\n"
+            " includeNonFinalTxes  (boolean, optional, default=true) If true the command will consider also non final txes in the\n"
+            "                         computation of unconfirmed quantities\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("getunconfirmedtxdata", "\"ztZ5M1P9ucj3P5JaW5xtY2hWTkp6JsToiHP\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    string address = params[0].get_str();
+    CBitcoinAddress taddr = CBitcoinAddress(address);
+    if (!taddr.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
+
+    CWallet::eZeroConfChangeUsage zconfchangeusage = CWallet::eZeroConfChangeUsage::ZCC_UNDEF; 
+    if (params.size() >= 2 )
+    {
+        if (params[1].get_bool())
+        {
+            zconfchangeusage = CWallet::eZeroConfChangeUsage::ZCC_TRUE;
+        }
+        else
+        {
+            zconfchangeusage = CWallet::eZeroConfChangeUsage::ZCC_FALSE;
+        }
+    }
+
+    bool fIncludeNonFinal = true;
+    if (params.size() == 3 )
+    {
+        if (!params[2].get_bool())
+        {
+            fIncludeNonFinal = false;
+        }
+    }
+
+    int n = 0;
+    CAmount unconfInput = 0;
+    CAmount unconfOutput = 0;
+    pwalletMain->GetUnconfirmedData(address, n, unconfInput, unconfOutput, zconfchangeusage, fIncludeNonFinal);
+
+    UniValue ret(UniValue::VOBJ);
+    ret.push_back(Pair("unconfirmedInput", ValueFromAmount(unconfInput)));
+    ret.push_back(Pair("unconfirmedOutput", ValueFromAmount(unconfOutput)));
+    ret.push_back(Pair("unconfirmedTxApperances", n));
+
+    return ret;
+}
+
+UniValue listtxesbyaddress(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() == 0 || params.size() > 4)
+        throw runtime_error(
+            "listtxesbyaddress ( \"address\" count)\n"
+            "\nReturns up to 'count' most recent transactions involving address 'address' bot for vin and vout.\n"
+            "\nArguments:\n"
+            "1. \"address\"     (string, mandatory) Include transactions involving this address\n"
+            "2. count          (numeric, optional, default=10) The number of transactions to return\n"
+            "3. from           (numeric, optional, default=0) The number of transactions to skip\n"
+            "4. reverse_order  (bool, optional, default=true) sort from the most recent to the oldest\n"
+            "\nResult:\n"
+            "[\n"
+            "  {\n"
+            "      TODO\n"
+            "  }\n"
+            "]\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("listtxesbyaddress", "\"ztZ5M1P9ucj3P5JaW5xtY2hWTkp6JsToiHP\" 20")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    string address = params[0].get_str();
+    CBitcoinAddress taddr = CBitcoinAddress(address);
+    if (!taddr.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Zen address");
+
+    int nCount = 10;
+    if (params.size() > 1)
+        nCount = params[1].get_int();
+    if (nCount < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative count");
+
+    int nFrom = 0;
+    if (params.size() > 2)
+        nFrom = params[2].get_int();
+    if (nFrom < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Negative from");
+
+    bool reverse = false;
+    if (params.size() > 3)
+        reverse = params[3].get_bool();
+
+    UniValue ret(UniValue::VARR);
+    std::list<CAccountingEntry> unused;
+
+    // tx are ordered in this vector from the oldest to the newest
+    vTxWithInputs txOrdered = pwalletMain->OrderedTxWithInputs(address);
+
+    // iterate backwards until we have nCount items to return:
+    for (vTxWithInputs::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
+    {
+        const CWalletTx& wtx = *(*it);
+        UniValue o(UniValue::VOBJ);
+        TxExpandedToJSON(wtx, o);
+        ret.push_back(o);
+
+        if ((int)ret.size() >= (nCount+nFrom)) break;
+    }
+
+    //getting all the specific Txes requested by nCount and nFrom
+    if (nFrom > (int)ret.size())
+        nFrom = ret.size();
+    if ((nFrom + nCount) > (int)ret.size())
+        nCount = ret.size() - nFrom;
+
+    vector<UniValue> arrTmp = ret.getValues();
+    vector<UniValue>::iterator first = arrTmp.begin();
+    std::advance(first, nFrom);
+    vector<UniValue>::iterator last = arrTmp.begin();
+    std::advance(last, nFrom+nCount);
+
+    if (last != arrTmp.end()) arrTmp.erase(last, arrTmp.end());
+    if (first != arrTmp.begin()) arrTmp.erase(arrTmp.begin(), first);
+
+    if (reverse)
+        std::reverse(arrTmp.begin(), arrTmp.end()); // Return oldest to newest
 
     ret.clear();
     ret.setArray();

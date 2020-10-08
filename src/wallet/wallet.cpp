@@ -946,6 +946,54 @@ int64_t CWallet::IncOrderPosNext(CWalletDB *pwalletdb)
     return nRet;
 }
 
+vTxWithInputs CWallet::OrderedTxWithInputs(const std::string& address) const
+{
+    AssertLockHeld(cs_wallet);
+    CWalletDB walletdb(strWalletFile);
+
+    vTxWithInputs vOrderedTxes;
+
+    CBitcoinAddress taddr = CBitcoinAddress(address);
+
+    if (!taddr.IsValid())
+    {
+        // taddr should be checked by the caller
+        return vOrderedTxes;
+    }
+
+    const CScript& scriptPubKey = GetScriptForDestination(taddr.Get(), false);
+
+    // tx are ordered in this map, from the oldest to the newest. As a consequence, the returned vector is ordered 
+    // as well
+    for (auto it : wtxOrdered)
+    {
+        CWalletTx* wtx = it.second.first;
+        int64_t orderPos = it.first;
+
+        LogPrintf("%s():%d - processing ordered tx: nOrderPos[%d]: tx[%s]\n", __func__, __LINE__,
+            orderPos, wtx->GetHash().ToString() );
+
+        if (wtx->GetDepthInMainChain() < 0) {
+            LogPrintf("%s():%d - skipping tx[%s]: conflicted\n", __func__, __LINE__, wtx->GetHash().ToString() );
+            continue;
+        }
+
+        bool outputFound = wtx->HasOutputFor(scriptPubKey);
+
+        bool inputFound = false;
+        if (!outputFound && !wtx->IsCoinBase())
+        {
+            inputFound = wtx->HasInputFrom(scriptPubKey);
+        }
+
+        if (outputFound || inputFound) {
+            vOrderedTxes.push_back(wtx);
+        }
+    }
+
+    return vOrderedTxes;
+}
+
 void CWallet::MarkDirty()
 {
     {
@@ -2039,7 +2087,7 @@ CAmount CWalletTx::GetChange() const
     return nChangeCached;
 }
 
-bool CWalletTx::IsTrusted() const
+bool CWalletTx::IsTrusted(bool canSpendZeroConfChange) const
 {
     // Quick answer in most cases
     if (!CheckFinalTx(*this))
@@ -2049,7 +2097,7 @@ bool CWalletTx::IsTrusted() const
         return true;
     if (nDepth < 0)
         return false;
-    if (!bSpendZeroConfChange || !IsFromMe(ISMINE_ALL)) // using wtx's cached debit
+    if (!canSpendZeroConfChange || !IsFromMe(ISMINE_ALL)) // using wtx's cached debit
         return false;
 
     // Trusted if all inputs are from us and are in the mempool:
@@ -2057,7 +2105,7 @@ bool CWalletTx::IsTrusted() const
     {
         // Transactions not sent by us: not trusted
         const CWalletTx* parent = pwallet->GetWalletTx(txin.prevout.hash);
-        if (parent == NULL)
+        if (parent == nullptr)
             return false;
         const CTxOut& parentOut = parent->vout[txin.prevout.n];
         if (pwallet->IsMine(parentOut) != ISMINE_SPENDABLE)
@@ -2065,6 +2113,7 @@ bool CWalletTx::IsTrusted() const
     }
     return true;
 }
+
 
 std::vector<uint256> CWallet::ResendWalletTransactionsBefore(int64_t nTime)
 {
@@ -2153,6 +2202,112 @@ CAmount CWallet::GetUnconfirmedBalance() const
         }
     }
     return nTotal;
+}
+
+void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfirmedTx, CAmount& unconfInput,
+    CAmount& unconfOutput, eZeroConfChangeUsage zconfchangeusage, bool fIncludeNonFinal) const
+{
+    unconfOutput = 0;
+    unconfInput = 0;
+    numbOfUnconfirmedTx = 0;
+
+    LogPrint("rpc", "%s():%d - called zconfchangeusage[%d], fIncludeNonFinal[%d]\n",
+        __func__, __LINE__, (int)zconfchangeusage, fIncludeNonFinal);
+
+    CBitcoinAddress taddr = CBitcoinAddress(address);
+    if (!taddr.IsValid())
+    {
+        // taddr should be checked by the caller
+        return;
+    }
+
+    // tx are ordered in this vector from the oldest to the newest
+    vTxWithInputs txOrdered = OrderedTxWithInputs(address);
+
+    const CScript& scriptToMatch = GetScriptForDestination(taddr.Get(), false);
+
+    {
+        LOCK2(cs_main, cs_wallet);
+
+        for (vTxWithInputs::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
+        {
+            const CWalletTx* pcoin = (*it);
+            
+            bool trusted = false;
+            if (zconfchangeusage == eZeroConfChangeUsage::ZCC_UNDEF)
+            {
+                // use the default settings from zend option
+                trusted = pcoin->IsTrusted();
+            }
+            else
+            {
+                trusted = pcoin->IsTrusted(zconfchangeusage == eZeroConfChangeUsage::ZCC_TRUE);
+            }
+
+            bool isFinal = CheckFinalTx(*pcoin);
+            LogPrint("rpc", "%s():%d - isFinal[%d], tx[%s]\n",
+                __func__, __LINE__, (int)isFinal, pcoin->GetHash().ToString());
+
+            if (!fIncludeNonFinal && !isFinal)
+                continue;
+
+            // look for outputs
+            bool outputFound = false;
+            if (!isFinal || (!trusted && pcoin->GetDepthInMainChain() == 0))
+            {
+                int vout_idx = 0;
+
+                for(const auto& txout : pcoin->vout)
+                {
+                    auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptToMatch.begin(), scriptToMatch.end());
+                    if (res == txout.scriptPubKey.begin())
+                    {
+                        outputFound = true;
+                   
+                        if (!IsSpent(pcoin->GetHash(), vout_idx))
+                        {
+                            unconfOutput += GetCredit(txout, ISMINE_SPENDABLE);
+                            LogPrint("rpc", "%s():%d - found out of matching tx[%s] with credit\n",
+                                __func__, __LINE__, pcoin->GetHash().ToString());
+                        }
+                        else
+                        {
+                            LogPrint("rpc", "%s():%d - found matching tx[%s] but out[%d] is spent: %s\n",
+                                __func__, __LINE__, pcoin->GetHash().ToString(), vout_idx, pcoin->ToString() );
+                        }
+                    }
+                    vout_idx++;
+                }
+            }
+             
+            // look for inputs, and do not consider the trusted flag, since it is related only to tx outputs
+            bool inputFound = false;
+            if (!isFinal || pcoin->GetDepthInMainChain() == 0)
+            {
+                for (const CTxIn& txin : pcoin->vin)
+                {
+                    const uint256& inputTxHash = txin.prevout.hash;
+
+                    auto mi = mapWallet.find(inputTxHash);
+                    if (mi != mapWallet.end() )
+                    {
+                        const CTxOut& txout = (*mi).second.vout[txin.prevout.n];
+                        auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptToMatch.begin(), scriptToMatch.end());
+                        if (res == txout.scriptPubKey.begin())
+                        {
+                            unconfInput += GetCredit(txout, ISMINE_SPENDABLE);
+                            inputFound = true;
+                        }
+                    }
+                }
+            }
+
+            if (inputFound || outputFound)
+            {
+                numbOfUnconfirmedTx++;
+            }
+        }
+    }
 }
 
 CAmount CWallet::GetImmatureBalance() const
@@ -3736,4 +3891,42 @@ void CWallet::GetFilteredNotes(std::vector<CNotePlaintextEntry> & outEntries, st
             }
         }
     }
+}
+
+bool CWalletTx::HasInputFrom(const CScript& scriptPubKey) const 
+{
+    for(const auto& txin: vin)
+    {
+        const auto mi = pwallet->mapWallet.find(txin.prevout.hash);
+        if (mi == pwallet->mapWallet.end()) {
+            continue;
+        }
+
+        const auto& inputTx = (*mi).second;
+        if (txin.prevout.n >= inputTx.vout.size()) {
+            continue;
+        }
+
+        const CTxOut& utxo = inputTx.vout[txin.prevout.n];
+ 
+        auto res = std::search(utxo.scriptPubKey.begin(), utxo.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
+        if (res == utxo.scriptPubKey.begin())
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool CWalletTx::HasOutputFor(const CScript& scriptPubKey) const 
+{
+    for(const auto& txout : vout)
+    {
+        auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
+        if (res == txout.scriptPubKey.begin())
+        {
+            return true;
+        }
+    }
+    return false;
 }
