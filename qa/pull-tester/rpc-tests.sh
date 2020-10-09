@@ -74,6 +74,7 @@ testScripts=(
   'blockdelay.py'
   'blockdelay_2.py'
   'z_sendmany.py'
+  'getunconfirmedtxdata.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'

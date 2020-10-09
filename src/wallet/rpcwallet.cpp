@@ -76,26 +76,26 @@ void EnsureWalletIsUnlocked()
 
 void AddVinExpandedToJSON(const CWalletTx& tx, UniValue& entry)
 {
-    entry.push_back(Pair("locktime", (int64_t)tx.nLockTime));
+    entry.pushKV("locktime", (int64_t)tx.nLockTime);
     UniValue vinArr(UniValue::VARR);
     for (const CTxIn& txin : tx.vin)
     {
         UniValue in(UniValue::VOBJ);
         if (tx.IsCoinBase())
         {
-            in.push_back(Pair("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end())));
+            in.pushKV("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
         }
         else
         {
             const uint256& inputTxHash = txin.prevout.hash;
 
-            in.push_back(Pair("txid", inputTxHash.GetHex()));
-            in.push_back(Pair("vout", (int64_t)txin.prevout.n));
+            in.pushKV("txid", inputTxHash.GetHex());
+            in.pushKV("vout", (int64_t)txin.prevout.n);
 
             UniValue o(UniValue::VOBJ);
-            o.push_back(Pair("asm", txin.scriptSig.ToString()));
-            o.push_back(Pair("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end())));
-            in.push_back(Pair("scriptSig", o));
+            o.pushKV("asm", txin.scriptSig.ToString());
+            o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
+            in.pushKV("scriptSig", o);
 
             auto mi = pwalletMain->mapWallet.find(inputTxHash);
             if (mi != pwalletMain->mapWallet.end() )
@@ -104,33 +104,33 @@ void AddVinExpandedToJSON(const CWalletTx& tx, UniValue& entry)
                 {
                     const CTxOut& txout = (*mi).second.vout[txin.prevout.n];
 
-                    in.push_back(Pair("value", ValueFromAmount(txout.nValue)));
-                    in.push_back(Pair("valueSat", txout.nValue));
+                    in.pushKV("value", ValueFromAmount(txout.nValue));
+                    in.pushKV("valueSat", txout.nValue);
 
                     txnouttype type;
                     int nRequired;
                     vector<CTxDestination> addresses;
                     if (!ExtractDestinations(txout.scriptPubKey, type, addresses, nRequired)) {
-                        in.push_back(Pair("addr", "Unknown"));
+                        in.pushKV("addr", "Unknown");
                     } else {
                         const CTxDestination& addr = addresses[0];
-                        in.push_back(Pair("addr", (CBitcoinAddress(addr).ToString() )));
+                        in.pushKV("addr", (CBitcoinAddress(addr).ToString() ));
                     }
                 }
             }
 
         }
-        in.push_back(Pair("sequence", (int64_t)txin.nSequence));
+        in.pushKV("sequence", (int64_t)txin.nSequence);
         vinArr.push_back(in);
     }
-    entry.push_back(Pair("vin", vinArr));
+    entry.pushKV("vin", vinArr);
 }
 
 
 void TxExpandedToJSON(const CWalletTx& tx,  UniValue& entry)
 {
-    entry.push_back(Pair("txid", tx.GetHash().GetHex()));
-    entry.push_back(Pair("version", tx.nVersion));
+    entry.pushKV("txid", tx.GetHash().GetHex());
+    entry.pushKV("version", tx.nVersion);
 
     AddVinExpandedToJSON(tx, entry);
 
@@ -155,34 +155,34 @@ void TxExpandedToJSON(const CWalletTx& tx,  UniValue& entry)
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
         const CTxOut& txout = tx.vout[i];
         UniValue out(UniValue::VOBJ);
-        out.push_back(Pair("value", ValueFromAmount(txout.nValue)));
-        out.push_back(Pair("valueSat", txout.nValue));
-        out.push_back(Pair("n", (int64_t)i));
+        out.pushKV("value", ValueFromAmount(txout.nValue));
+        out.pushKV("valueSat", txout.nValue);
+        out.pushKV("n", (int64_t)i);
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
-        out.push_back(Pair("scriptPubKey", o));
+        out.pushKV("scriptPubKey", o);
         vout.push_back(out);
     }
-    entry.push_back(Pair("vout", vout));
+    entry.pushKV("vout", vout);
 
-    entry.push_back(Pair("vjoinsplit", TxJoinSplitToJSON(tx)));
+    entry.pushKV("vjoinsplit", TxJoinSplitToJSON(tx));
 
     if (!tx.hashBlock.IsNull()) {
-        entry.push_back(Pair("blockhash", tx.hashBlock.GetHex()));
-        entry.push_back(Pair("confirmations", conf));
-        entry.push_back(Pair("time", timestamp));
+        entry.pushKV("blockhash", tx.hashBlock.GetHex());
+        entry.pushKV("confirmations", conf);
+        entry.pushKV("time", timestamp);
         if (hasBlockTime) {
-            entry.push_back(Pair("blocktime", timestamp));
+            entry.pushKV("blocktime", timestamp);
         }
     } else {
-        entry.push_back(Pair("confirmations", conf));
-        entry.push_back(Pair("time", timestamp));
+        entry.pushKV("confirmations", conf);
+        entry.pushKV("time", timestamp);
     }
 
     if (tx.IsFromMe(ISMINE_ALL)) {
         CAmount nDebit = tx.GetDebit(ISMINE_ALL);
         CAmount nFee = nDebit - tx.GetValueOut();
-        entry.push_back(Pair("fees", ValueFromAmount(nFee)));
+        entry.pushKV("fees", ValueFromAmount(nFee));
     }
 }
 
@@ -1761,9 +1761,9 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
     pwalletMain->GetUnconfirmedData(address, n, unconfInput, unconfOutput, zconfchangeusage, fIncludeNonFinal);
 
     UniValue ret(UniValue::VOBJ);
-    ret.push_back(Pair("unconfirmedInput", ValueFromAmount(unconfInput)));
-    ret.push_back(Pair("unconfirmedOutput", ValueFromAmount(unconfOutput)));
-    ret.push_back(Pair("unconfirmedTxApperances", n));
+    ret.pushKV("unconfirmedInput", ValueFromAmount(unconfInput));
+    ret.pushKV("unconfirmedOutput", ValueFromAmount(unconfOutput));
+    ret.pushKV("unconfirmedTxApperances", n);
 
     return ret;
 }
@@ -1775,7 +1775,7 @@ UniValue listtxesbyaddress(const UniValue& params, bool fHelp)
 
     if (fHelp || params.size() == 0 || params.size() > 4)
         throw runtime_error(
-            "listtxesbyaddress ( \"address\" count)\n"
+            "listtxesbyaddress ( \"address\" count from reverse_order)\n"
             "\nReturns up to 'count' most recent transactions involving address 'address' bot for vin and vout.\n"
             "\nArguments:\n"
             "1. \"address\"     (string, mandatory) Include transactions involving this address\n"
