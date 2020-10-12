@@ -4,7 +4,7 @@ This issue tracker is only for technical issues related to Zen.
 
 General Zen questions and/or support requests are best directed to the [Discord](https://horizen.global/invite/discord), or [Support Portal](https://support.horizen.global).
 
-For reporting security vulnerabilities or for sensitive discussions with our security team, please see the [Bug Bounty Policy and Scope](https://horizenofficial.atlassian.net/wiki/spaces/ZEN/pages/136871957/Bug+Bounty+Submission+Policy+and+Scope), or send an encrypted email to security@horizen.global with information. The public key for that address is available [here](https://zencashofficial.github.io/keys/).
+For reporting security vulnerabilities or for sensitive discussions with our security team, please see the [Bug Bounty Policy and Scope](https://horizenofficial.atlassian.net/wiki/spaces/ZEN/pages/136871957/Bug+Bounty+Submission+Policy+and+Scope), or send an encrypted email to security@horizen.global with information. The public key for that address is available [here](https://HorizenOfficial.github.io/keys/).
 
 ### Describe the issue
 Please provide a general summary of the issue you're experiencing

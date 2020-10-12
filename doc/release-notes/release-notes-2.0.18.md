@@ -410,7 +410,7 @@ Igor Mikheiko (1):
       Added additional path check for default config file when app installed from .deb package #91
 
 JOSEPH NICHOLAS R. ALCANTARA (1):
-      Merge pull request #135 from ZencashOfficial/TorDocumentation
+      Merge pull request #135 from HorizenOfficial/TorDocumentation
 
 Jack Gavigan (2):
       Removed markdown from COPYING
@@ -1218,7 +1218,7 @@ pierstab (29):
       fix iscommunityfund
       fix reward/miner/foundation
       Revert "Merge branch 'master' into development"
-      fix https://github.com/ZencashOfficial/zencash/issues/46 and https://github.com/ZencashOfficial/zencash/issues/46
+      fix https://github.com/HorizenOfficial/zencash/issues/46 and https://github.com/HorizenOfficial/zencash/issues/46
       minor fixes
       refine CF,SN,XN addresses for testnet, reduce set for mainnet
       change the getblocktemplate , add securenode, supernode in the coinbasetxn object, add the check in the related test
