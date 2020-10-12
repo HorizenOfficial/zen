@@ -1721,6 +1721,14 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
             "                         will be used instead\n"
             " includeNonFinalTxes  (boolean, optional, default=true) If true the command will consider also non final txes in the\n"
             "                         computation of unconfirmed quantities\n"
+            "\nResult:\n"
+            "[\n"
+            "  {\n"
+            "   u'unconfirmedInput': n,       (numeric) Total unconfirmed input value relevant to the given address\n"
+            "   u'unconfirmedOutput': n,      (numeric) Total unconfirmed output value relevant to the given address\n"
+            "   u'unconfirmedTxApperances': n (numeric) Number of tx with unconfirmed data concerning given address\n"
+            "  }\n"
+            "]\n"
 
             "\nExamples:\n"
             + HelpExampleCli("getunconfirmedtxdata", "\"ztZ5M1P9ucj3P5JaW5xtY2hWTkp6JsToiHP\"")
@@ -1776,18 +1784,13 @@ UniValue listtxesbyaddress(const UniValue& params, bool fHelp)
     if (fHelp || params.size() == 0 || params.size() > 4)
         throw runtime_error(
             "listtxesbyaddress ( \"address\" count from reverse_order)\n"
-            "\nReturns up to 'count' most recent transactions involving address 'address' bot for vin and vout.\n"
+            "\nReturns up to 'count' most recent transactions involving address 'address' both for vin and vout.\n"
+            "Such transactions are decoded and, if possible, vins are expanded showing used vout.\n"
             "\nArguments:\n"
             "1. \"address\"     (string, mandatory) Include transactions involving this address\n"
             "2. count          (numeric, optional, default=10) The number of transactions to return\n"
             "3. from           (numeric, optional, default=0) The number of transactions to skip\n"
             "4. reverse_order  (bool, optional, default=true) sort from the most recent to the oldest\n"
-            "\nResult:\n"
-            "[\n"
-            "  {\n"
-            "      TODO\n"
-            "  }\n"
-            "]\n"
 
             "\nExamples:\n"
             + HelpExampleCli("listtxesbyaddress", "\"ztZ5M1P9ucj3P5JaW5xtY2hWTkp6JsToiHP\" 20")
