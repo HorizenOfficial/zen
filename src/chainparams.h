@@ -69,6 +69,7 @@ public:
     bool RequireStandard() const { return fRequireStandard; }
     int CbhMinimumAge() const { return nCbhMinimumAge; }
     int CbhSafeDepth() const { return nCbhSafeDepth; }
+    int SubsidyHalvingInterval() const { return consensus.nSubsidyHalvingInterval; }
     int64_t MaxTipAge() const { return nMaxTipAge; }
     int64_t PruneAfterHeight() const { return nPruneAfterHeight; }
     unsigned int EquihashN() const { return nEquihashN; }
