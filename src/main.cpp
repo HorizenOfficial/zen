@@ -102,6 +102,8 @@ void EraseOrphansFor(NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 static bool IsSuperMajority(int minVersion, const CBlockIndex* pstart, unsigned nRequired, const Consensus::Params& consensusParams);
 static void CheckBlockIndex();
 
+int getSubsidyHalvingInterval();
+
 /** Constant stuff for coinbase transactions we create: */
 CScript COINBASE_FLAGS;
 
@@ -1587,7 +1589,7 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
     }
 
     assert(nHeight > consensusParams.SubsidySlowStartShift());
-    int halvings = (nHeight - consensusParams.SubsidySlowStartShift()) / consensusParams.nSubsidyHalvingInterval;
+    int halvings = (nHeight - consensusParams.SubsidySlowStartShift()) / getSubsidyHalvingInterval();
     // Force block reward to zero when right shift is undefined.
     if (halvings >= 64)
         return 0;
@@ -6852,6 +6854,23 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
     return false;
 }
     
+static int getHalvingInterval()
+{
+    if ( (Params().NetworkIDString() == "regtest") )
+    {
+        int val = (int)(GetArg("-subsidyhalvinginterval", Params().SubsidyHalvingInterval() ));
+        LogPrintf("%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
+        return val;
+    }
+    return Params().SubsidyHalvingInterval();
+}
+
+int getSubsidyHalvingInterval()
+{
+    // gets constructed just one time
+    static int retVal( getHalvingInterval() );
+    return retVal;
+}
 
 static int getInitCbhSafeDepth()
 {

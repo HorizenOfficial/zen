@@ -77,6 +77,7 @@ testScripts=(
   'cbh_rpfix.py'
   'cbh_rpcheck.py'
   'tlsprotocols.py'
+  'subsidyhalving.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
