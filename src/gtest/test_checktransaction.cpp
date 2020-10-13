@@ -5,6 +5,7 @@
 #include "main.h"
 #include "primitives/transaction.h"
 #include "consensus/validation.h"
+#include "base58.h"
 
 TEST(checktransaction_tests, check_vpub_not_both_nonzero) {
     CMutableTransaction tx;
@@ -458,6 +459,95 @@ TEST(checktransaction_tests, PhgrTxVersion) {
 	EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-shielded-version-too-low", false)).Times(1);
 	EXPECT_FALSE(ContextualCheckTransaction(tx, state, 200, 100));
 }
+
+
+extern const CBlockIndex* makeMain(int trunk_size);
+extern void CleanUpAll();
+
+TEST(checktransaction_tests, isStandardTransaction) {
+
+/*
+fDebug = true;
+fPrintToConsole = true;
+mapMultiArgs["-debug"].push_back("cbh");
+mapArgs["-debug"] = "cbh";
+*/
+
+    SelectParams(CBaseChainParams::REGTEST);
+    CMutableTransaction mtx = GetValidTransaction(TRANSPARENT_TX_VERSION);
+
+    mtx.vout.resize(4);
+
+    // a -1 value for height
+    mtx.vout[0].nValue = 1;
+    mtx.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
+        << ToByteVector(uint256()) << -1 << OP_CHECKBLOCKATHEIGHT;
+
+    // height and hash are swapped
+    mtx.vout[1].nValue = 1;
+    mtx.vout[1].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
+        << 2 << ToByteVector(uint256()) << OP_CHECKBLOCKATHEIGHT;
+
+    // an invalid op (0xFF) where height is expected
+    std::vector<unsigned char> data1(ParseHex("76a914f85d211e4175cd4b0f53284af6ddab6bbb3c5f0288ac20bf309c2d04f3fdd3cb6f4ccddb3985211d360e08e4f790c3d780d5c3f912e704ffb4"));
+    CScript bad_script1(data1.begin(), data1.end());
+    //std::cout << bad_script1.ToString() << std::endl;
+    mtx.vout[2].nValue = 1;
+    mtx.vout[2].scriptPubKey = bad_script1; 
+
+    // an unknown op (0xBA) where height is expected
+    std::vector<unsigned char> data2(ParseHex("76a914f85d211e4175cd4b0f53284af6ddab6bbb3c5f0288ac20bf309c2d04f3fdd3cb6f4ccddb3985211d360e08e4f790c3d780d5c3f912e704bab4"));
+    CScript bad_script2(data2.begin(), data2.end());
+    //std::cout << bad_script2.ToString() << std::endl;
+    mtx.vout[3].nValue = 1;
+    mtx.vout[3].scriptPubKey = bad_script2; 
+
+    CTransaction tx(mtx);
+
+    ReplayProtectionAttributes rpAttributes;
+    txnouttype whichType;
+    std::string reason;
+
+    // ------------------ before rp fix all of them are OK
+    static const int H_PRE_FORK = 220;
+    CleanUpAll();
+    makeMain(H_PRE_FORK);
+
+    // This is useful only for the tests of pre-rp-fix fork.
+    // This is for avoiding checking blockheight against blockhash in scripts, because hashes are fake
+    // in this simple test environment, and it would always make IsStandard() return false even when scripts parse ok.
+    mapArgs["-cbhsafedepth"] = "10";
+
+    EXPECT_TRUE(IsStandardTx(tx, reason, H_PRE_FORK));
+
+    EXPECT_TRUE(IsStandard(tx.vout[0].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+    EXPECT_TRUE(IsStandard(tx.vout[1].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+    EXPECT_TRUE(IsStandard(tx.vout[2].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+    EXPECT_TRUE(IsStandard(tx.vout[3].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+
+    // ------------------ after rp fix NOT OK anymore
+    static const int H_POST_FORK = 500;
+    CleanUpAll();
+    makeMain(H_POST_FORK);
+
+    EXPECT_FALSE(IsStandardTx(tx, reason, H_POST_FORK));
+    EXPECT_TRUE(reason == "scriptpubkey");
+
+    EXPECT_FALSE(IsStandard(tx.vout[0].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_NONSTANDARD);
+    EXPECT_FALSE(IsStandard(tx.vout[1].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_NONSTANDARD);
+    EXPECT_FALSE(IsStandard(tx.vout[2].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_NONSTANDARD);
+    EXPECT_FALSE(IsStandard(tx.vout[3].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_NONSTANDARD);
+
+}
+
 
 
 
