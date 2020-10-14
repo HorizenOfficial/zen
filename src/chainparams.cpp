@@ -104,7 +104,7 @@ public:
         vSeeds.push_back(CDNSSeedData("dnsseed.horizen.global", "dnsseed.horizen.global")); // dns seeder
         vSeeds.push_back(CDNSSeedData("dnsseed.zensystem.io", "dnsseed.zensystem.io")); // dns seeder
         vSeeds.push_back(CDNSSeedData("mainnet.horizen.global", "mainnet.horizen.global")); // fixed seed
-        vSeeds.push_back(CDNSSeedData("mainnet.zensytem.io", "mainnet.zensystem.io")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("mainnet.zensystem.io", "mainnet.zensystem.io")); // fixed seed
         vSeeds.push_back(CDNSSeedData("node1.zenchain.info", "node1.zenchain.info")); // fixed seed
 
         // guarantees the first 2 characters, when base58 encoded, are "zn"

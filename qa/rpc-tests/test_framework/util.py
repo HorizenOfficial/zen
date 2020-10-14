@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import time
 import re
+import codecs
 
 from authproxy import AuthServiceProxy
 
@@ -449,3 +450,9 @@ def wait_and_assert_operationid_status(node, myopid, in_status='success', in_err
         return result # if there was an error return the result
     else:
         return txid # otherwise return the txid
+
+
+def swap_bytes(input_buf):
+    return codecs.encode(codecs.decode(input_buf, 'hex')[::-1], 'hex').decode()
+
+

@@ -65,7 +65,9 @@ TEST(ForkManager, TestReplayProtectionTestnet) {
     EXPECT_EQ(ForkManager::getInstance().getReplayProtectionLevel(72649),RPLEVEL_NONE);
     EXPECT_EQ(ForkManager::getInstance().getReplayProtectionLevel(72650),RPLEVEL_BASIC);
     EXPECT_EQ(ForkManager::getInstance().getReplayProtectionLevel(85499),RPLEVEL_BASIC);
-    EXPECT_EQ(ForkManager::getInstance().getReplayProtectionLevel(85500),RPLEVEL_FIXED);
+    EXPECT_EQ(ForkManager::getInstance().getReplayProtectionLevel(85500),RPLEVEL_FIXED_1);
+    EXPECT_EQ(ForkManager::getInstance().getReplayProtectionLevel(735699),RPLEVEL_FIXED_1);
+    EXPECT_EQ(ForkManager::getInstance().getReplayProtectionLevel(735700),RPLEVEL_FIXED_2);
 }
 
 TEST(ForkManager, TestReplayProtectionMainnet) {
@@ -74,7 +76,9 @@ TEST(ForkManager, TestReplayProtectionMainnet) {
     EXPECT_EQ(ForkManager::getInstance().getReplayProtectionLevel(117575),RPLEVEL_NONE);
     EXPECT_EQ(ForkManager::getInstance().getReplayProtectionLevel(117576),RPLEVEL_BASIC);
     EXPECT_EQ(ForkManager::getInstance().getReplayProtectionLevel(139199),RPLEVEL_BASIC);
-    EXPECT_EQ(ForkManager::getInstance().getReplayProtectionLevel(139200),RPLEVEL_FIXED);
+    EXPECT_EQ(ForkManager::getInstance().getReplayProtectionLevel(139200),RPLEVEL_FIXED_1);
+    EXPECT_EQ(ForkManager::getInstance().getReplayProtectionLevel(835967),RPLEVEL_FIXED_1);
+    EXPECT_EQ(ForkManager::getInstance().getReplayProtectionLevel(835968),RPLEVEL_FIXED_2);
 }
 
 TEST(ForkManager, TestTransparentCFAddressTestnet) {

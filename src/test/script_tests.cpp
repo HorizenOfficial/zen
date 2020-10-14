@@ -32,7 +32,16 @@
 using namespace std;
 
 // Uncomment if you want to output updated JSON tests.
-// #define UPDATE_JSON_TESTS
+// When running the test, such outputs are redirected to the json files:
+//     ./script_valid.json.gen
+//     ./script_invalid.json.gen
+//#define UPDATE_JSON_TESTS
+// --
+// One might want to do it if new test elements are added in the good/bad vectors (see below). In this case
+// the files:
+//     src/test/data/script_valid.json
+//     src/test/data/script_invalid.json
+// must be also updated with the expected patterns which can be copied/pasted from the former gen files
 
 static const unsigned int flags = SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_STRICTENC;
 
@@ -346,7 +355,23 @@ BOOST_AUTO_TEST_CASE(script_build)
     bad.push_back(TestBuilder(CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG << OP_CHECKBLOCKATHEIGHT,
                               "P2PKH OP_CHECKBLOCKATHEIGHT, bad params", 0
                              ).PushSig(keys.key1).Push(keys.pubkey1C));
-
+    bad.push_back(TestBuilder(CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG << 33 << ToByteVector(uint256()) << OP_CHECKBLOCKATHEIGHT,
+                              "P2PKH OP_CHECKBLOCKATHEIGHT, height and hash swapped", SCRIPT_VERIFY_CHECKBLOCKATHEIGHT
+                             ).PushSig(keys.key1).Push(keys.pubkey1C));
+    // -1 is a 'special' negative number which is encoded as an opcode (OP_1NEGATE)
+    bad.push_back(TestBuilder(CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG << ToByteVector(uint256()) << -1 << OP_CHECKBLOCKATHEIGHT,
+                              "P2PKH OP_CHECKBLOCKATHEIGHT, height == -1", SCRIPT_VERIFY_CHECKBLOCKATHEIGHT
+                             ).PushSig(keys.key1).Push(keys.pubkey1C));
+    // a 'normal' negative number which is serialized in an encoded vector of bytes (see CScriptNum::serialize()). In this case:
+    // -25 = (neg)0x19 = since is lesser than 0x80 -> (0x19 |= 0x80) = 0x99, that means 0x01 0x99 by prepending the size of the vector containing that byte.
+    bad.push_back(TestBuilder(CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG << ToByteVector(uint256()) << -25 << OP_CHECKBLOCKATHEIGHT,
+                              "P2PKH OP_CHECKBLOCKATHEIGHT, negative height", SCRIPT_VERIFY_CHECKBLOCKATHEIGHT
+                             ).PushSig(keys.key1).Push(keys.pubkey1C));
+    // another bigger negative number
+    // -123456 = (neg)0x01E240 = since is lesser than 0x800000 -> (0x01E240 |= 0x800000) = 0x81E240, that means 0x03 0x40E281 by prepending the size of the vector containing those bytes (in reverse order).
+    bad.push_back(TestBuilder(CScript() << OP_DUP << OP_HASH160 << ToByteVector(keys.pubkey1C.GetID()) << OP_EQUALVERIFY << OP_CHECKSIG << ToByteVector(uint256()) << -123456 << OP_CHECKBLOCKATHEIGHT,
+                              "P2PKH OP_CHECKBLOCKATHEIGHT, big negative height", SCRIPT_VERIFY_CHECKBLOCKATHEIGHT
+                             ).PushSig(keys.key1).Push(keys.pubkey1C));
     good.push_back(TestBuilder(CScript() << ToByteVector(keys.pubkey1) << OP_CHECKSIG,
                                "P2PK anyonecanpay", 0
                               ).PushSig(keys.key1, SIGHASH_ALL | SIGHASH_ANYONECANPAY));

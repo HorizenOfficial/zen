@@ -6,7 +6,6 @@
 #include "interpreter.h"
 
 #include "chain.h"
-#include "primitives/transaction.h"
 #include "crypto/ripemd160.h"
 #include "crypto/sha1.h"
 #include "crypto/sha256.h"
@@ -405,7 +404,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 
                     if ((vchBlockIndex.size() > sizeof(int)) || (vchBlockHash.size() > 32))
                     {
-                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad params.\n", __FILE__, __func__);
+                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT verification failed. Bad params.\n", __FILE__, __func__, __LINE__);
                         return set_error(serror, SCRIPT_ERR_CHECKBLOCKATHEIGHT);
                     }
 
@@ -416,7 +415,8 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     if (nHeight < 0 || !checker.CheckBlockHash(nHeight, vchBlockHash)) {
                         // Not final rather than a hard reject to avoid caching across different blockchains
                         // Also because it will *eventually* become final when the height gets old enough
-                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Referenced height: %d\n", __FILE__, __func__, nHeight);
+                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT verification failed. Referenced height: %d\n",
+                            __FILE__, __func__, __LINE__, nHeight);
                         return set_error(serror, SCRIPT_ERR_NOT_FINAL);
                     }
 
@@ -1196,7 +1196,7 @@ bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime) con
     return true;
 }
 
-bool TransactionSignatureChecker::CheckBlockHash(const int32_t nHeight, const std::vector<unsigned char>& vchCompareTo) const
+bool CheckReplayProtectionData(const CChain* chain, int nHeight, const std::vector<unsigned char>& vchCompareTo)
 {
     if (!chain) {
         return false;
@@ -1230,6 +1230,11 @@ bool TransactionSignatureChecker::CheckBlockHash(const int32_t nHeight, const st
     }
 
     return (vchCompareTo == vchBlockHash);
+}
+
+bool TransactionSignatureChecker::CheckBlockHash(const int32_t nHeight, const std::vector<unsigned char>& vchCompareTo) const
+{
+    return CheckReplayProtectionData(chain, nHeight, vchCompareTo);
 }
 
 bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror)
