@@ -69,7 +69,6 @@ public:
     bool RequireStandard() const { return fRequireStandard; }
     int CbhMinimumAge() const { return nCbhMinimumAge; }
     int CbhSafeDepth() const { return nCbhSafeDepth; }
-    int SubsidyHalvingInterval() const { return consensus.nSubsidyHalvingInterval; }
     int64_t MaxTipAge() const { return nMaxTipAge; }
     int64_t PruneAfterHeight() const { return nPruneAfterHeight; }
     unsigned int EquihashN() const { return nEquihashN; }
@@ -90,6 +89,9 @@ public:
     CScript GetCommunityFundScriptAtHeight(int height, Fork::CommunityFundType cfType) const;
     /** Enforce coinbase consensus rule in regtest mode */
     void SetRegTestCoinbaseMustBeProtected() { consensus.fCoinbaseMustBeProtected = true; }
+
+    int _deprecatedGetLastCommunityRewardBlockHeight() const;
+    void SetSubsidyHalvingInterval(int val) { consensus.nSubsidyHalvingInterval = val;}
 protected:
     CChainParams() {}
 

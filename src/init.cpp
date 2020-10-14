@@ -963,6 +963,19 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 #endif
     }
 
+    if ( (Params().NetworkIDString() == "regtest") && mapArgs.count("-subsidyhalvinginterval"))
+    {
+        int val = (int)(GetArg("-subsidyhalvinginterval", Params().GetConsensus().nSubsidyHalvingInterval));
+        if (val != Params().GetConsensus().nSubsidyHalvingInterval)
+        {
+            LogPrintf("%s():%d - nSubsidyHalvingInterval = %d\n",
+                __func__, __LINE__, Params().GetConsensus().nSubsidyHalvingInterval);
+            Params(CBaseChainParams::REGTEST).SetSubsidyHalvingInterval(val);
+            LogPrintf("%s():%d - %s: set nSubsidyHalvingInterval = %d) \n",
+                __func__, __LINE__, Params().NetworkIDString(), Params().GetConsensus().nSubsidyHalvingInterval);
+        }
+    }
+
     // ********************************************************* Step 3: parameter-to-internal-flags
 
     fDebug = !mapMultiArgs["-debug"].empty();

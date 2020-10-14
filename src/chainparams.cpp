@@ -374,7 +374,11 @@ bool SelectParamsFromCommandLine()
 // Block height must be >0 and <=last CF reward block height (note that after hfCommunityFundHeight hard fork CF reward is permanent)
 // Index variable i ranges from 0 - (vCommunityFundAddress.size()-1)
 std::string CChainParams::GetCommunityFundAddressAtHeight(int nHeight , Fork::CommunityFundType cfType) const {
-    return ForkManager::getInstance().getCommunityFundAddress(nHeight,consensus._deprecatedGetLastCommunityRewardBlockHeight(), cfType);
+    return ForkManager::getInstance().getCommunityFundAddress(nHeight, _deprecatedGetLastCommunityRewardBlockHeight(), cfType);
+}
+
+int CChainParams::_deprecatedGetLastCommunityRewardBlockHeight() const {
+    return consensus.nSubsidyHalvingInterval + consensus.SubsidySlowStartShift() - 1;
 }
 
 // The community fund address is expected to be a multisig (P2SH) address

@@ -14,7 +14,6 @@ from decimal import *
 DEBUG_MODE = 1
 NUMB_OF_NODES = 3
 
-# TODO set to 2000 when done
 #HALVING_INTERVAL = 500
 HALVING_INTERVAL = 2000
 
@@ -61,18 +60,30 @@ class subsidyhalving(BitcoinTestFramework):
     def run_test(self):
 
         """
-         miner reward
-        -------------------------------------------
-               fork
-        -------------------------------------------
-        Height    0,.., 100 --> reward: 11.43750000
-        Height  101,.., 104 --> reward: 11.00000000
-        Height  105,.., 199 --> reward:  8.75000000
-        Height  200,..,1999 --> reward:  7.50000000
-        Height 2000,..,3999 --> reward:  3.75000000 (1st halving)
-        Height 4000,..,5999 --> reward:  1.87500000 (2nd halving)
-                                                ...
+        In this test 3 nodes are connected with each other, one of them is a malicious one and
+        has a halving period longer than the others.
+        Several fork points are reached and the correct subsidy partition is verified.
+        When the halving height is reached, the malicious node mines a block containing a
+        pre-halving coinbase amount.
+        As a result the other nodes reject such a block and ban the sender, which gets disconnected
+        from both the others.
+        One of the nodes mine some block which has the subsids properly halved.
+        The network is then restarted and also the formerly malicious node is set to have the default
+        halving interval. After its chain reorganization all three nodes converge on the same chain.
+
+
+        -------------------------------------------------------------
+        miner reward recap in regtest
+        -------------------------------------------------------------
+        Height    0 , .. ,  100 --> reward: 11.43750000
+        Height  101 , .. ,  104 --> reward: 11.00000000
+        Height  105 , .. ,  199 --> reward:  8.75000000
+        Height  200 , .. , 1999 --> reward:  7.50000000
+        Height 2000 , .. , 3999 --> reward:  3.75000000 (1st halving)
+        Height 4000 , .. , 5999 --> reward:  1.87500000 (2nd halving)
+        ...
         """
+
         COINBASE_AMOUNT = Decimal("12.50000000")
 
         MINER_REWARD_0    = Decimal("11.4375")
@@ -83,11 +94,12 @@ class subsidyhalving(BitcoinTestFramework):
         MINER_REWARD_4000 = Decimal("1.8750")
 
         def check_coinbase(node, block, reward_amount, coinbase_amount):
-            # check we have expected coinbase amount
-            coinbase = node.getblock(block, True)['tx'][0]
+            # check we have expected miner quota in coinbase amounts
+            coinbase         = node.getblock(block, True)['tx'][0]
             decoded_coinbase = node.getrawtransaction(coinbase, 1)
-            miner_quota       = decoded_coinbase['vout'][0]['value']
+            miner_quota      = decoded_coinbase['vout'][0]['value']
             assert_equal(miner_quota, reward_amount)
+
             tot = miner_quota
             print "Height {:>5} ---> miner reward:       {:>12}".format(node.getblockcount(), miner_quota)
 
@@ -109,8 +121,8 @@ class subsidyhalving(BitcoinTestFramework):
             print "               COINBASE TOT AMOUNT:   {:>12}".format(coinbase_amount)
             print
 
-        def check_fork_reward(node, numb_of_blocks, reward_amount, coinbase_amount = COINBASE_AMOUNT):
 
+        def mine_and_check_fork_reward(node, numb_of_blocks, reward_amount, coinbase_amount = COINBASE_AMOUNT):
             block = node.generate(1)[0]
             #self.sync_all()
             sync_blocks(self.nodes, 1, False, 5)
@@ -128,12 +140,11 @@ class subsidyhalving(BitcoinTestFramework):
             # check ending block
             check_coinbase(node, block, reward_amount, coinbase_amount)
 
- 
-        check_fork_reward(self.nodes[1],  100, MINER_REWARD_0)
-        check_fork_reward(self.nodes[1],    4, MINER_REWARD_101)
-        check_fork_reward(self.nodes[1],   95, MINER_REWARD_105)
-#        check_fork_reward(self.nodes[1], 1800, MINER_REWARD_200)
-        check_fork_reward(self.nodes[1], (HALVING_INTERVAL-200), MINER_REWARD_200)
+
+        mine_and_check_fork_reward(self.nodes[1],  100, MINER_REWARD_0)
+        mine_and_check_fork_reward(self.nodes[1],    4, MINER_REWARD_101)
+        mine_and_check_fork_reward(self.nodes[1],   95, MINER_REWARD_105)
+        mine_and_check_fork_reward(self.nodes[1], (HALVING_INTERVAL-200), MINER_REWARD_200)
 
         peer_info_0_pre = self.nodes[0].getpeerinfo()
         peer_info_1_pre = self.nodes[1].getpeerinfo()
@@ -144,16 +155,22 @@ class subsidyhalving(BitcoinTestFramework):
         assert_equal(len(peer_info_0_pre), len(peer_info_1_pre))
         assert_equal(len(peer_info_0_pre), len(peer_info_2_pre))
 
-        self.mark_logs("Testing 1st halving...")
+        # verify that all Nodes share the same blockchain
+        assert_equal(self.nodes[0].getbestblockhash(), self.nodes[1].getbestblockhash())
+        assert_equal(self.nodes[0].getbestblockhash(), self.nodes[2].getbestblockhash())
 
-        self.mark_logs("Checking we reject blocks with pre-halving coinbase amount...")
+        self.mark_logs("Testing 1st halving, it will take place from the next block...")
 
         self.mark_logs("Node0 generate 1 block with pre-halving coinbase amount...")
         bad_block = self.nodes[0].generate(1)[0]
+
+        self.mark_logs("Checking block generated from Node0 has expected pre-halving coinbase amount...")
         check_coinbase(self.nodes[0], bad_block, MINER_REWARD_200, COINBASE_AMOUNT)
 
         # upon sync, the other nodes will reject this block and Node0 will be banned by both Node1 and Node2
         sync_blocks(self.nodes, 1, False, 5)
+
+        self.mark_logs("Checking we reject blocks with pre-halving coinbase amount and ban the sender Node...")
 
         peer_info_0_post = self.nodes[0].getpeerinfo()
         peer_info_1_post = self.nodes[1].getpeerinfo()
@@ -164,20 +181,21 @@ class subsidyhalving(BitcoinTestFramework):
         assert_equal(len(peer_info_1_post), 1)
         assert_equal(len(peer_info_1_post), len(peer_info_2_post))
 
-        check_fork_reward(self.nodes[1], 5, MINER_REWARD_2000, COINBASE_AMOUNT*Decimal("0.5"))
+        self.mark_logs("Cross the halving height and check that blocks have expected halved coinbase amounts...")
+
+        mine_and_check_fork_reward(self.nodes[1], 5, MINER_REWARD_2000, COINBASE_AMOUNT*Decimal("0.5"))
         
-        # Node0 has just its own chain
+        # verify that Node0, being disconneceted, has just its own chain
         ct0 = self.nodes[0].getchaintips()
         assert_equal(len(ct0), 1)
         best_0 = self.nodes[0].getbestblockhash()
 
-        # Node1 and Node2 sees Node0 fork as invalid
+        # verify that Node1 and Node2 sees Node0 fork as invalid
         ct1 = self.nodes[1].getchaintips()
         ct2 = self.nodes[2].getchaintips()
         assert_equal(len(ct1), 2)
         assert_equal(ct1, ct2)
 
-        # and both sees as invalid chain tip the best block hash of Node0
         for k in ct1:
             if k['status'] == "invalid":
                 assert_equal(k['hash'], best_0)
@@ -190,7 +208,7 @@ class subsidyhalving(BitcoinTestFramework):
         self.setup_network(False, False)
 
         # enhance active chain after halving
-        check_fork_reward(self.nodes[2], 20, MINER_REWARD_2000, COINBASE_AMOUNT*Decimal("0.5"))
+        mine_and_check_fork_reward(self.nodes[2], 20, MINER_REWARD_2000, COINBASE_AMOUNT*Decimal("0.5"))
 
         # Node0 had its bad chain reverted and now all Nodes share the same blockchain with halved coinbase
         assert_equal(self.nodes[0].getbestblockhash(), self.nodes[1].getbestblockhash())
