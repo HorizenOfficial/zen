@@ -10,7 +10,6 @@
 #include "addrman.h"
 #include "alert.h"
 #include "arith_uint256.h"
-#include "chainparams.h"
 #include "checkpoints.h"
 #include "checkqueue.h"
 #include "consensus/validation.h"
@@ -18,16 +17,13 @@
 #include "init.h"
 #include "merkleblock.h"
 #include "metrics.h"
-#include "net.h"
 #include "pow.h"
 #include "txdb.h"
-#include "txmempool.h"
 #include "ui_interface.h"
 #include "undo.h"
 #include "util.h"
 #include "utilmoneystr.h"
 #include "validationinterface.h"
-#include "versionbits.h"
 #include "wallet/asyncrpcoperation_sendmany.h"
 #include "wallet/asyncrpcoperation_shieldcoinbase.h"
 
@@ -42,6 +38,9 @@
 
 #include "zen/forkmanager.h"
 #include "zen/delay.h"
+
+#include "script/sigcache.h"
+#include "script/standard.h"
 
 using namespace zen;
 
@@ -726,21 +725,24 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
     txnouttype whichType;
     BOOST_FOREACH(const CTxOut& txout, tx.vout) {
 
-        CheckBlockResult checkBlockResult;
-        if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
+        ReplayProtectionAttributes rpAttributes;
+        if (!::IsStandard(txout.scriptPubKey, whichType, rpAttributes)) {
+            LogPrintf("%s():%d - Non standard output: scriptPubKey[%s]\n",
+                __func__, __LINE__, txout.scriptPubKey.ToString());
             reason = "scriptpubkey";
             return false;
         }
 
-        if (checkBlockResult.referencedHeight > 0)
+        if (rpAttributes.GotValues())
         {
-            if ( (nHeight - checkBlockResult.referencedHeight) < getCheckBlockAtHeightMinAge())
+            if ( (nHeight - rpAttributes.referencedHeight) < getCheckBlockAtHeightMinAge())
             {
-                LogPrintf("%s():%d - referenced block h[%d], chain.h[%d], minAge[%d]\n",
-                    __func__, __LINE__, checkBlockResult.referencedHeight, nHeight, getCheckBlockAtHeightMinAge() );
-            reason = "scriptpubkey checkblockatheight: referenced block too recent";
-            return false;
-        }
+                LogPrintf("%s():%d - referenced block h[%d], chain.h[%d], minAge[%d] (tx=%s)\n",
+                    __func__, __LINE__, rpAttributes.referencedHeight, nHeight, getCheckBlockAtHeightMinAge(),
+                    tx.GetHash().ToString() );
+                reason = "scriptpubkey checkblockatheight: referenced block too recent";
+                return false;
+            }
         }
 
         // provide temporary replay protection for two minerconf windows during chainsplit
@@ -845,7 +847,11 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         // get the scriptPubKey corresponding to this input:
         const CScript& prevScript = prev.scriptPubKey;
         if (!Solver(prevScript, whichType, vSolutions))
+        {
+            LogPrintf("%s():%d - Input %d: failed checking scriptpubkey %s\n",
+                __func__, __LINE__, i, prevScript.ToString());
             return false;
+        }
         int nArgsExpected = ScriptSigArgsExpected(whichType, vSolutions);
         if (nArgsExpected < 0)
             return false;
@@ -1250,9 +1256,12 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     string reason;
     if (getRequireStandard() && !IsStandardTx(tx, reason, nextBlockHeight))
+    {
+        LogPrint("mempool", "%s():%d - Dropping nonstandard txid %s\n", __func__, __LINE__, tx.GetHash().ToString());
         return state.DoS(0,
                          error("AcceptToMemoryPool: nonstandard transaction: %s", reason),
                          REJECT_NONSTANDARD, reason);
+    }
 
     // Only accept nLockTime-using transactions that can be mined in the next
     // block; we don't want our mempool filled up with transactions that can't
@@ -1333,7 +1342,9 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
         // Check for non-standard pay-to-script-hash in inputs
         if (getRequireStandard() && !AreInputsStandard(tx, view))
+        {
             return error("AcceptToMemoryPool: nonstandard transaction input");
+        }
 
         // Check that the transaction doesn't have an excessive number of
         // sigops, making it impossible to mine. Since the coinbase transaction
@@ -1861,6 +1872,25 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
                         return state.Invalid(
                                 error("CheckInputs(): tried to spend coinbase with transparent outputs"),
                                 REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
+                    }
+                }
+            }
+            else
+            {
+                ReplayProtectionLevel rpLevel = ForkManager::getInstance().getReplayProtectionLevel(nSpendHeight);
+
+                if (rpLevel >= RPLEVEL_FIXED_2)
+                {
+                    // check for invalid OP_CHECKBLOCKATHEIGHT in order to catch it before signature verifications are performed
+                    std::string reason;
+                    CScript scriptPubKey(coins->vout[prevout.n].scriptPubKey);
+
+                    if (!CheckReplayProtectionAttributes(scriptPubKey, reason) )                      
+                    {
+                        return state.Invalid(
+                            error("%s(): input %d has an invalid scriptPubKey %s (reason=%s)",
+                                __func__, i, scriptPubKey.ToString(), reason),
+                            REJECT_INVALID, "bad-txns-output-scriptpubkey");
                     }
                 }
             }
@@ -4754,14 +4784,14 @@ void static ProcessGetData(CNode* pfrom)
 
                         // this is set by ConnectBlock method, when a new tip is added to the main chain
                         bool b1 = mi->second->IsValid(BLOCK_VALID_SCRIPTS);
-                        bool b2 = (pindexBestHeader != NULL);
-                        bool b3 = (pindexBestHeader->GetBlockTime() - mi->second->GetBlockTime() < nOneMonth);
-                        bool b4 = (GetBlockProofEquivalentTime(*pindexBestHeader, *mi->second, *pindexBestHeader, Params().GetConsensus()) < nOneMonth);
+                        bool b2 = (pindexBestHeader != NULL) &&
+                                  (pindexBestHeader->GetBlockTime() - mi->second->GetBlockTime() < nOneMonth) &&
+                                  (GetBlockProofEquivalentTime(*pindexBestHeader, *mi->second, *pindexBestHeader, Params().GetConsensus()) < nOneMonth);
 
-                        send = b1 && b2 && b3 && b4;
+                        send = b1 && b2;
                         if (!send)
                         {
-                            if (b2 && b3 && b4)
+                            if (b2)
                             {
                                 // BLOCK_VALID_SCRIPTS is set when connecting block on main chain, but we must
                                 // propagate also when relevant blocks are on a fork. Consider that a further check
