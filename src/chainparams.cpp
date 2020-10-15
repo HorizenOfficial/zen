@@ -149,11 +149,12 @@ public:
             ( 543000, uint256S("0x00000000111469e247ecb152e57c371147775b56173260950075dcb471614fed"))
             ( 596000, uint256S("0x000000000656846513b2d3faf3a70f59dc22fffcb8e14401ec5a17eec8994410"))
             ( 671000, uint256S("0x00000000097174dacaf850075917d1a24145fce88a800881ece709bb8f8746cf"))
-            ( 724100, uint256S("0x000000000ab34fd9c61be9f10a11a97f63a0f26c8f530e67a6397fb9934709dc")),
-            1589319810,     // * UNIX timestamp of last checkpoint block
-            14588555,       // * total number of transactions between genesis and last checkpoint
+            ( 724100, uint256S("0x000000000ab34fd9c61be9f10a11a97f63a0f26c8f530e67a6397fb9934709dc"))
+            ( 812000, uint256S("0x0000000000bccf70e0d2caa0473279decddb798f456d5a4bb399898e00eb4ce9")),
+            1602660459,     // * UNIX timestamp of last checkpoint block
+            17503039,       // * total number of transactions between genesis and last checkpoint
                             //   (the tx=... number in the SetBestChain debug.log lines)
-            11604           // * estimated number of transactions per day after checkpoint
+            12416           // * estimated number of transactions per day after checkpoint
                             //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
@@ -244,12 +245,21 @@ public:
             (520000, uint256S("0x00052e65426a0ffbb90893208a6c89a82816abbed328fa2be5a647828609e61a"))
             (595000, uint256S("0x0000da85ddc79fdd297e996d6b6b887fc5b345619b7a6726c496941dcf830966"))
             (643000, uint256S("0x0000cabf39e3ac435d54b95c32e6173d6bb1b060066ecb7453d2146a0dd40947"))
+			//TODO: CONFLICT TO BE FIXED UPON RELEASE BY REPLACING CHECKPOINTS BELOW WITH A SINGLE ONE ON OFFICIAL TESTNET
+//<<<<<<< HEAD
             (655826, uint256S("0x00036f9e25a28763e6b5385988b2d36aec99a051854ab32bc0efff4ff65aa2f4")) // split from normal testnet
             (657000, uint256S("0x013bbc2e60182c16479f082f9a0470183544fe11c572609c71a39e2588dd157d")), // sidechain testnet HF activation block
             1592223871,     // * UNIX timestamp of last checkpoint block
             1356092,        // * total number of transactions between genesis and last checkpoint
                             //   (the tx=... number in the SetBestChain debug.log lines)
             1189            //   total number of tx / (checkpoint block height / (24 * 24))
+//=======
+//            (729000, uint256S("0x00013f6d5315f29094287bf0981b177098c5d467422bc4ab7764f88f11333f5f")),
+//            1602709259,     // * UNIX timestamp of last checkpoint block
+//            1474883,        // * total number of transactions between genesis and last checkpoint
+//                            //   (the tx=... number in the SetBestChain debug.log lines)
+//            1165            //   total number of tx / (checkpoint block height / (24 * 24))
+//>>>>>>> 9d80a5048... Set mainnet/testnet checkpoint blocks
         };
 
 //  commented out - seems to make no sense but kept around for reference just in case
