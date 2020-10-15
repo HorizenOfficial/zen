@@ -1,4 +1,4 @@
-Zen 2.0.21-1
+Zen 2.0.22
 ==============
 
 What is Horizen?
