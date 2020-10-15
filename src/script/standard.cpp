@@ -44,6 +44,22 @@ const char* GetTxnOutputType(txnouttype t)
     return NULL;
 }
 
+bool static CheckMinimalCbhHeightPush(std::vector<unsigned char> data)
+{
+    if (data.size() == 0) {
+        // Could have used OP_0.
+        return false;
+    } else if (data.size() == 1 && data[0] >= 1 && data[0] <= 16) {
+        // Could have used OP_1 .. OP_16.
+        return false;
+    } else if (data.size() == 1 && data[0] == 0x81) {
+        // Could have used OP_1NEGATE.
+        return false;
+    }
+    return true;
+}
+
+
 /**
  * Return public keys or hashes from scriptPubKey, for 'standard' transaction types.
  */
@@ -317,7 +333,30 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     // Check that the number is encoded with the minimum possible number of bytes. This is also different 
                     // before the fork but this way is consistent with interpreter
                     static const bool REQ_MINIMAL = true;
-                    const int32_t nHeight = CScriptNum(vchBlockHeight, REQ_MINIMAL, sizeof(int32_t)).getint();
+                    int32_t nHeight = -1;
+                    try
+                    {
+                        nHeight = CScriptNum(vchBlockHeight, REQ_MINIMAL, sizeof(int32_t)).getint();
+                    }
+                    catch(const scriptnum_error& e)
+                    {
+                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight %d not minimally encoded (err=%s)\n",
+                            __FILE__, __func__, __LINE__, nHeight, e.what());
+                        break;
+                    }
+                    catch(...)
+                    {
+                        LogPrint("%s: %s():%d - unexpected exception\n", __FILE__, __func__, __LINE__);
+                        break;
+                    }
+
+                    // a further check on minimal push in case of 1 byte vector, since this is not trapped by the previous check
+                    if (!CheckMinimalCbhHeightPush(vchBlockHeight))
+                    {
+                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight %d not minimally pushed\n",
+                            __FILE__, __func__, __LINE__, nHeight);
+                        break;
+                    }
  
                     // height outside the chain range are legal only in old rp implementations, here we are in rp fix fork
                     if ( nHeight < 0 || nHeight> nChActHeight) 
