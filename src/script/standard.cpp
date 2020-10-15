@@ -339,8 +339,8 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     }
                     catch(const scriptnum_error& e)
                     {
-                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight %d not minimally encoded (err=%s)\n",
-                            __FILE__, __func__, __LINE__, nHeight, e.what());
+                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight 0x%s not minimally encoded (err=%s)\n",
+                            __FILE__, __func__, __LINE__, HexStr(vchBlockHeight.begin(), vchBlockHeight.end()), e.what());
                         break;
                     }
                     catch(...)
