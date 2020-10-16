@@ -476,7 +476,7 @@ mapArgs["-debug"] = "cbh";
     SelectParams(CBaseChainParams::REGTEST);
     CMutableTransaction mtx = GetValidTransaction(TRANSPARENT_TX_VERSION);
 
-    mtx.vout.resize(8);
+    mtx.vout.resize(9);
 
     // a -1 value for height, minimally encoded
     mtx.vout[0].nValue = 1;
@@ -528,6 +528,15 @@ mapArgs["-debug"] = "cbh";
     mtx.vout[7].nValue = 1;
     mtx.vout[7].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
         << ToByteVector(uint256()) << hnm4 << OP_CHECKBLOCKATHEIGHT;
+
+    // an OP_0 op (0x00) where height is expected
+    std::vector<unsigned char> good_data(ParseHex("76a914f85d211e4175cd4b0f53284af6ddab6bbb3c5f0288ac20bf309c2d04f3fdd3cb6f4ccddb3985211d360e08e4f790c3d780d5c3f912e70400b4"));
+    CScript good_script(good_data.begin(), good_data.end());
+    //std::cout << good_script.ToString() << std::endl;
+    //std::string dumStr = HexStr(good_script.begin(), good_script.end());
+    //std::cout << dumStr << std::endl;
+    mtx.vout[8].nValue = 1;
+    mtx.vout[8].scriptPubKey = good_script; 
 
     CTransaction tx(mtx);
 
@@ -597,6 +606,8 @@ mapArgs["-debug"] = "cbh";
     EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
     EXPECT_TRUE(IsStandard(tx.vout[7].scriptPubKey, whichType, rpAttributes));
     EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+    EXPECT_TRUE(IsStandard(tx.vout[8].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
 
     // expecting to fail before and after the fork
     EXPECT_FALSE(IsStandardTx(tx_bad_param, reason, H_PRE_FORK));
@@ -635,8 +646,11 @@ mapArgs["-debug"] = "cbh";
     EXPECT_FALSE(IsStandard(tx.vout[5].scriptPubKey, whichType, rpAttributes));
     EXPECT_FALSE(IsStandard(tx.vout[6].scriptPubKey, whichType, rpAttributes));
 
-    // legal height encoding
+    // legal height encodings
     EXPECT_TRUE(IsStandard(tx.vout[7].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+
+    EXPECT_TRUE(IsStandard(tx.vout[8].scriptPubKey, whichType, rpAttributes));
     EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
 
     // expecting to fail before and after the fork
