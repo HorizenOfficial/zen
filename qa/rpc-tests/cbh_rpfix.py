@@ -7,8 +7,9 @@ from test_framework.util import assert_true, assert_equal, assert_greater_than, 
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision
 from test_framework.util import swap_bytes
 from decimal import Decimal
-from test_framework.blocktools import create_tampered_rawtx_cbh, MODE_HEIGHT, MODE_SWAP_ARGS
+from test_framework.blocktools import create_tampered_rawtx_cbh, MODE_HEIGHT, MODE_SWAP_ARGS, MODE_NON_MIN_ENC
 import os
+import pprint
 
 NUMB_OF_NODES = 3
 
@@ -92,6 +93,19 @@ class cbh_rpfix(BitcoinTestFramework):
             # before rp fix fork this is expected to succeed
             assert_true(False)
 
+        # create a Tx with a non minimal encoded height
+        payment_3 = Decimal('3.0')
+        raw_tx_3 = create_tampered_rawtx_cbh(self.nodes[1], self.nodes[2], payment_3, FEE, MODE_NON_MIN_ENC)
+         
+        try:
+            self.mark_logs("Node1 sending tx3 with tampered cbh script to Node2")
+            tx_3 = self.nodes[1].sendrawtransaction(raw_tx_3['hex'])
+            self.sync_all()
+        except JSONRPCException,e:
+            print " ==> Tx has been rejected! {}".format(e.error['message'])
+            # before rp fix fork this is expected to succeed
+            assert_true(False)
+
         self.mark_logs("Node1 generates 1 block")
         bl = self.nodes[1].generate(1)[-1]
         self.sync_all()
@@ -103,16 +117,17 @@ class cbh_rpfix(BitcoinTestFramework):
             txids.append(x['txid'])
         assert_true(tx_1 in txids)
         assert_true(tx_2 in txids)
+        assert_true(tx_3 in txids)
 
         # check that in Node2 both cached and uncached balance has the same value
-        node2_wrong_bal = payment_1 + payment_2
+        node2_wrong_bal = payment_1 + payment_2 + payment_3
         assert_equal(self.nodes[2].getbalance(), node2_wrong_bal)
         assert_equal(Decimal(self.nodes[2].z_gettotalbalance()['total']), node2_wrong_bal)
 
         self.mark_logs("Node2 balance = {} in {} utxos".format(node2_wrong_bal, len(usp)))
 
         # trigger the issue using the tampered tx just received
-        payment = Decimal('12.0')
+        payment = Decimal('18.0')
 
         try:
             self.mark_logs("Node2 tries sending {} coins to Node0 using tampered utxos".format(payment))
@@ -124,8 +139,8 @@ class cbh_rpfix(BitcoinTestFramework):
             assert_true("The transaction was rejected" in e.error['message'])
             self.sync_all()
 
-        #check Node2 wallet has the expected number of txes, 2recvd/1sent
-        assert_equal(self.nodes[2].getwalletinfo()['txcount'], 3)
+        #check Node2 wallet has the expected number of txes, 3recvd/1sent
+        assert_equal(self.nodes[2].getwalletinfo()['txcount'], 4)
 
         # reaching rp fix fork
         self.mark_logs("Node1 generates 100 blocks crossing rp fix fork")
@@ -138,18 +153,18 @@ class cbh_rpfix(BitcoinTestFramework):
         self.mark_logs("Node2 now has no spendable utxos")
 
         # check Node2 wallet info still has tampered txes with a wrong cached balance
-        assert_equal(self.nodes[2].getwalletinfo()['txcount'], 3)
+        assert_equal(self.nodes[2].getwalletinfo()['txcount'], 4)
         assert_equal(self.nodes[2].getbalance(), node2_wrong_bal)
         # but z_balance is now correct
         assert_equal(Decimal(self.nodes[2].z_gettotalbalance()['total']), Decimal("0.0"))
 
         # try to use send tampered txes after the rp fix fork has been reached
         payment = Decimal('3.0')
-        raw_tx_3 = create_tampered_rawtx_cbh(self.nodes[1], self.nodes[2], payment, FEE, MODE_HEIGHT)
+        raw_tx = create_tampered_rawtx_cbh(self.nodes[1], self.nodes[2], payment, FEE, MODE_HEIGHT)
 
         try:
-            self.mark_logs("Node1 sending tx3 with tampered cbh script to Node2")
-            tx_3 = self.nodes[1].sendrawtransaction(raw_tx_3['hex'])
+            self.mark_logs("Node1 sending tx with tampered cbh script to Node2")
+            tx = self.nodes[1].sendrawtransaction(raw_tx['hex'])
             # after rp fix fork this is expected to fail
             assert_true(False)
         except JSONRPCException,e:
@@ -157,15 +172,27 @@ class cbh_rpfix(BitcoinTestFramework):
             assert_true("scriptpubkey" in e.error['message'])
 
         payment = Decimal('2.0')
-        raw_tx_4 = create_tampered_rawtx_cbh(self.nodes[1], self.nodes[2], payment, FEE, MODE_SWAP_ARGS)
+        raw_tx = create_tampered_rawtx_cbh(self.nodes[1], self.nodes[2], payment, FEE, MODE_SWAP_ARGS)
          
         try:
-            self.mark_logs("Node1 sending tx4 with tampered cbh script to Node2")
-            tx_4 = self.nodes[1].sendrawtransaction(raw_tx_4['hex'])
+            self.mark_logs("Node1 sending tx with tampered cbh script to Node2")
+            tx = self.nodes[1].sendrawtransaction(raw_tx['hex'])
             # after rp fix fork this is expected to fail
             assert_true(False)
         except JSONRPCException,e:
             print " ==> Tx has been rejected!"
+            assert_true("scriptpubkey" in e.error['message'])
+
+        # create a Tx TODO
+        raw_tx = create_tampered_rawtx_cbh(self.nodes[1], self.nodes[2], payment, FEE, MODE_NON_MIN_ENC)
+         
+        try:
+            self.mark_logs("Node1 sending tx with tampered cbh script to Node2")
+            tx = self.nodes[1].sendrawtransaction(raw_tx['hex'])
+            # after rp fix fork this is expected to fail
+            assert_true(False)
+        except JSONRPCException,e:
+            print " ==> Tx has been rejected! {}".format(e.error['message'])
             assert_true("scriptpubkey" in e.error['message'])
 
         # check Node2 still has no valid utxos
@@ -184,7 +211,7 @@ class cbh_rpfix(BitcoinTestFramework):
         assert_equal(len(usp), 0)
 
         # check Node2 wallet info still has tampered txes but now a correct cached balance
-        assert_equal(self.nodes[2].getwalletinfo()['txcount'], 3)
+        assert_equal(self.nodes[2].getwalletinfo()['txcount'], 4)
         assert_equal(self.nodes[2].getbalance(), Decimal(0.0))
         assert_equal(Decimal(self.nodes[2].z_gettotalbalance()['total']), Decimal("0.0"))
 
