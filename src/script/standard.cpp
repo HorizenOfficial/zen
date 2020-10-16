@@ -44,7 +44,7 @@ const char* GetTxnOutputType(txnouttype t)
     return NULL;
 }
 
-bool static CheckMinimalCbhHeightPush(std::vector<unsigned char> data)
+bool static CheckMinimalCbhHeightPush(const std::vector<unsigned char>& data)
 {
     if (data.size() == 0) {
         // Could have used OP_0.
