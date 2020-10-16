@@ -7,7 +7,7 @@ from test_framework.util import assert_true, assert_equal, assert_greater_than, 
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision
 from test_framework.util import swap_bytes
 from decimal import Decimal
-from test_framework.blocktools import create_tampered_rawtx_cbh, MODE_HEIGHT, MODE_SWAP_ARGS
+from test_framework.blocktools import create_tampered_rawtx_cbh, MODE_SWAP_ARGS
 import os
 import pprint
 
@@ -64,9 +64,6 @@ class cbh_doscpu(BitcoinTestFramework):
             and after the fork.
             The whole point of the test is to show that spending rejection happens for two different reasons.
         '''
-
-        MODE_HEIGHT    = 0
-        MODE_SWAP_ARGS = 1
 
         TARGET_H  = 3
         FEE = Decimal('0.00005')
