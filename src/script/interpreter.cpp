@@ -19,8 +19,6 @@
 
 using namespace std;
 
-typedef vector<unsigned char> valtype;
-
 namespace {
 
 inline bool set_success(ScriptError* ret)
@@ -213,7 +211,7 @@ bool static CheckPubKeyEncoding(const valtype &vchSig, unsigned int flags, Scrip
     return true;
 }
 
-bool static CheckMinimalPush(const valtype& data, opcodetype opcode) {
+bool CheckMinimalPush(const valtype& data, opcodetype opcode) {
     if (data.size() == 0) {
         // Could have used OP_0.
         return opcode == OP_0;

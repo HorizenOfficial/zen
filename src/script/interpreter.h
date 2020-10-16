@@ -176,4 +176,7 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigne
 
 bool CheckReplayProtectionData(const CChain* chain, int nHeight, const std::vector<unsigned char>& vchCompareTo);
 
+typedef std::vector<unsigned char> valtype;
+bool CheckMinimalPush(const valtype& data, opcodetype opcode);
+
 #endif // BITCOIN_SCRIPT_INTERPRETER_H

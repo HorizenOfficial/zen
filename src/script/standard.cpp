@@ -18,8 +18,6 @@ using namespace zen;
 
 using namespace std;
 
-typedef vector<unsigned char> valtype;
-
 unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
 
 CScriptID::CScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
@@ -41,18 +39,6 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_NULL_DATA_REPLAY: return "nulldatareplay";
     }
     return NULL;
-}
-
-bool static CheckMinimalCbhHeightPush(const std::vector<unsigned char>& data)
-{
-    if (data.size() == 1 && data[0] >= 1 && data[0] <= 16) {
-        // Could have used OP_1 .. OP_16.
-        return false;
-    } else if (data.size() == 1 && data[0] == 0x81) {
-        // Could have used OP_1NEGATE.
-        return false;
-    }
-    return true;
 }
 
 
@@ -116,7 +102,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         // used before rp-level-2 fix fork
         vector<unsigned char> vchBlockHash, vchBlockHeight;
         // used after rp-level-2 fix fork, in order to check the order of processing of hash and height in a rp script
-        std::vector< std::vector<unsigned char>> vchCbhParams;
+        std::vector< std::pair<std::vector<unsigned char>, opcodetype>> vchCbhParams;
 
         // Compare
         CScript::const_iterator pc1 = script1.begin();
@@ -220,6 +206,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     std::vector<unsigned char> vchCbhData;
                 	// Possible values of OP_CHECKBLOCKATHEIGHT parameters
                     // they are pushed into a stack for preventing the inversion of height/hash
+
                     if (vch1.size() == 0)
                     {
                         if ((opcode1 >= OP_1 && opcode1 <= OP_16) || opcode1 == OP_1NEGATE)
@@ -250,7 +237,8 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     {
                         vchCbhData = vch1;
                     }
-                    vchCbhParams.push_back(vchCbhData);
+
+                    vchCbhParams.push_back(std::make_pair(vchCbhData, opcode1));
                 }
 
                 // small pushdata, <= nMaxDatacarrierBytes
@@ -315,8 +303,10 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     }
  
                     // they must have been parsed in this order, the following check protects against their swapping
-                    vchBlockHash   = vchCbhParams.at(len-2);
-                    vchBlockHeight = vchCbhParams.at(len-1);
+                    vchBlockHash   = vchCbhParams.at(len-2).first;
+
+                    vchBlockHeight = vchCbhParams.at(len-1).first;
+                    opcodetype hopcode  = vchCbhParams.at(len-1).second;
  
                     // vchBlockHeight can be empty when height is represented as 0
                     if ((vchBlockHeight.size() > sizeof(int)) || (vchBlockHash.size() != 32))
@@ -346,14 +336,13 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                         break;
                     }
 
-                    // a further check on minimal push in case of 1 byte vector, since this is not trapped by the previous check
-                    if (!CheckMinimalCbhHeightPush(vchBlockHeight))
+                    if (!CheckMinimalPush(vchBlockHeight, hopcode))
                     {
-                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight %d not minimally pushed\n",
-                            __FILE__, __func__, __LINE__, nHeight);
+                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT value 0x%s not minimally pushed\n",
+                            __FILE__, __func__, __LINE__, HexStr(vchBlockHeight.begin(), vchBlockHeight.end()) );
                         break;
                     }
- 
+
                     // height outside the chain range are legal only in old rp implementations, here we are in rp fix fork
                     if ( nHeight < 0 || nHeight> nChActHeight) 
                     {
