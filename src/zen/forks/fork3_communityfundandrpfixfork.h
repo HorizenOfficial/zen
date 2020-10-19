@@ -30,7 +30,7 @@ public:
     /**
      * @brief getReplayProtectionLevel returns the replay protection level provided by the current fork
      */
-    inline virtual ReplayProtectionLevel getReplayProtectionLevel() const { return RPLEVEL_FIXED; }
+    inline virtual ReplayProtectionLevel getReplayProtectionLevel() const { return RPLEVEL_FIXED_1; }
 
     /**
      * @brief canSendCommunityFundsToTransparentAddress true if community funds can be sent to a transparent address

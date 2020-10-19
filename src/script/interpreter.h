@@ -16,8 +16,6 @@
 
 class CChain;
 class CPubKey;
-class CScript;
-class CTransaction;
 class uint256;
 
 /** Special case nIn for signing JoinSplits. */
@@ -145,5 +143,10 @@ public:
 
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* error = NULL);
 bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* error = NULL);
+
+bool CheckReplayProtectionData(const CChain* chain, int nHeight, const std::vector<unsigned char>& vchCompareTo);
+
+typedef std::vector<unsigned char> valtype;
+bool CheckMinimalPush(const valtype& data, opcodetype opcode);
 
 #endif // BITCOIN_SCRIPT_INTERPRETER_H

@@ -37,7 +37,6 @@
 
 
 class CAddrMan;
-class CBlockIndex;
 class CScheduler;
 class CNode;
 
@@ -85,8 +84,6 @@ EVP_PKEY *generate_key();
 X509 *generate_x509(EVP_PKEY *pkey);
 bool write_to_disk(EVP_PKEY *pkey, X509 *x509);
 void configure_context(SSL_CTX *ctx, bool server_side);
-static boost::filesystem::path tlsKeyPath;
-static boost::filesystem::path tlsCertPath;
 
 // OpenSSL related variables for metrics.cpp
 static std::string routingsecrecy;
@@ -324,6 +321,14 @@ protected:
 
     // Basic fuzz-testing
     void Fuzz(int nChance); // modifies ssSend
+
+    enum class eTlsOption {
+        FALLBACK_UNSET = 0,
+        FALLBACK_FALSE = 1,
+        FALLBACK_TRUE = 2
+    };
+    static eTlsOption tlsFallbackNonTls;
+    static eTlsOption tlsValidate;
 
 public:
     uint256 hashContinue;
@@ -657,6 +662,13 @@ public:
 
     static uint64_t GetTotalBytesRecv();
     static uint64_t GetTotalBytesSent();
+
+    // resource deallocation on cleanup, called at node shutdown
+    static void NetCleanup();
+
+    // returns the value of the tlsfallbacknontls and tlsvalidate flags set at zend startup (see init.cpp)
+    static bool GetTlsFallbackNonTls();
+    static bool GetTlsValidate();
 };
 
 

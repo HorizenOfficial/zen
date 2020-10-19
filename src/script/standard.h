@@ -29,6 +29,11 @@ static const unsigned int MAX_OP_RETURN_RELAY = 80;      //! bytes
 extern unsigned nMaxDatacarrierBytes;
 
 /**
+ * this value is used for targeting a blockhash in cbh scripts starting from chain tip backwards
+ */
+static const int CBH_DELTA_HEIGHT = 300;
+
+/**
  * Mandatory script verification flags that all new blocks must comply with for
  * them to be valid. (but old blocks may not comply with) Currently just P2SH,
  * but in the future other flags may be added.
@@ -94,16 +99,32 @@ typedef boost::variant<CNoDestination, CKeyID, CScriptID> CTxDestination;
 
 const char* GetTxnOutputType(txnouttype t);
 
-struct CheckBlockResult {
+/**
+ * Attributes are set by the Solver() parser when a replay protection script is found
+ */
+class ReplayProtectionAttributes
+{
+  public:
     int referencedHeight;
-    CheckBlockResult() : referencedHeight(-1) { }
+    std::vector<unsigned char> referencedHash;
+    bool foundOpCode;
+
+    ReplayProtectionAttributes();
+
+    bool GotValues() const;
+    void SetNull();
+
+  private:
+    static const int UNDEF = std::numeric_limits<int>::min();
 };
 
+bool CheckReplayProtectionAttributes(const CScript& scriptPubKey, std::string reason);
+void GetReplayProtectionAttributes(const CScript& scriptPubKey, ReplayProtectionAttributes& rpAttributes);
 
-bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet, CheckBlockResult& checkBlockResult);
+bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet, ReplayProtectionAttributes& rpAttributes);
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet);
 int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned char> >& vSolutions);
-bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType, CheckBlockResult& checkBlockResult);
+bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType, ReplayProtectionAttributes& rpAttributes);
 bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
 bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet);
 bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<CTxDestination>& addressRet, int& nRequiredRet);
