@@ -6,15 +6,15 @@ Notable changes
 * Security hardening of TLS P2P code, only allow PFS ciphers, limit TLS versions to 1.2/1.3
 * Extend TLS unit tests
 * Extend the 'getblock' RPC command with additional verbosity level, adding transaction information in the format of the getrawtransaction RPC call
-* Add fetch-params.ps1 powershell script for Windows trusted setup DL and verification 
+* Add fetch-params.ps1 powershell script for Windows trusted setup DL and verification
 * Fix for gcc10 compatibility
 * Updates of dependencies OpenSSL, Univalue, libsodium
-* Rename GH organization to HorizenOfficial 
+* Rename GH organization to HorizenOfficial
 
 Changelog
 =========
 
-Alberto Sala (26):
+Alberto Sala (31):
       WIP:Replay protection fixes
       Added gtest for new rpfixfork in forkmanager
       Added py test for tx_null_replay with different msg sizes pre-post rp fix fork
@@ -41,6 +41,11 @@ Alberto Sala (26):
       Fix wrong bool condition assignment
       Removed unused var in GetChance() func
       Absorbing pr https://github.com/HorizenOfficial/zen/pull/321 with minor change
+      Added checks for minimal encoding height in rp
+      Added UTs for rp data encodings
+      Further modif and UT tests  for minimal encoding
+      Modified check of minimal push using the same code of interpreter.cpp
+      Added test of tx with non minimal encoding in py script
 
 Jack Grigg (5):
       Add test vectors for small-order Ed25519 pubkeys
@@ -59,12 +64,13 @@ PowerVANO (1):
 Taylor Hornby (1):
       Avoid names starting with __.
 
-abi87 (5):
+abi87 (6):
       Cleanup headers and forward declarations
       Added py test description
       First changes following final code review
       Renamed enum to allow for windows compilation
       Fixed socket fd check for portability
+      Removed pass-by-value
 
 alsala (4):
       tls py test: fixed setting of unsupported cipher; fixed tls1.3 protocol connection
@@ -75,7 +81,7 @@ alsala (4):
 ca333 (1):
       update libsodium to v1.0.18
 
-cronicc (18):
+cronicc (19):
       Update openssl from 1.1.1d to 1.1.1g
       Update univalue to v1.1.1
       Fix MacOS build issue "conversion from 'size_t' (aka 'unsigned long') to 'const UniValue' is ambiguous"
@@ -92,8 +98,9 @@ cronicc (18):
       Set mainnet/testnet checkpoint blocks
       Set next deprecation block 920000
       Set version to 2.0.22, set copyright year 2020
-      Rename zcash-shutoff thread to zen-shutoff
+      Rename threads from zcash to horizen
       Regenerate man pages
+      Add release-notes
 
 ​Felix Ippolitov (1):
       Fix build with gcc10
