@@ -4,12 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "wallet_ismine.h"
-
-#include "key.h"
 #include "keystore.h"
-#include "script/script.h"
-#include "script/standard.h"
-
 #include <boost/foreach.hpp>
 
 using namespace std;

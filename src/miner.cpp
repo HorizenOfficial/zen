@@ -639,7 +639,7 @@ void static BitcoinMiner()
 {
     LogPrintf("HorizenMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
-    RenameThread("zen-miner");
+    RenameThread("horizzen-miner");
     const CChainParams& chainparams = Params();
 
 #ifdef ENABLE_WALLET

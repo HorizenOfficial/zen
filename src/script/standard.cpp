@@ -19,8 +19,6 @@ using namespace zen;
 
 using namespace std;
 
-typedef vector<unsigned char> valtype;
-
 unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
 
 CScriptID::CScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
@@ -44,10 +42,11 @@ const char* GetTxnOutputType(txnouttype t)
     return NULL;
 }
 
+
 /**
  * Return public keys or hashes from scriptPubKey, for 'standard' transaction types.
  */
-bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsigned char> >& vSolutionsRet, CheckBlockResult& checkBlockResult)
+bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsigned char> >& vSolutionsRet, ReplayProtectionAttributes& rpAttributes)
 {
     // Templates
     static multimap<txnouttype, CScript> mTemplates;
@@ -79,8 +78,15 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         mTemplates.insert(make_pair(TX_NULL_DATA_REPLAY, CScript() << OP_RETURN << OP_SMALLDATA << OP_SMALLDATA << OP_CHECKBLOCKATHEIGHT));
     }
 
-    // OP_CHECKBLOCKATHEIGHT parameters
-    vector<unsigned char> vchBlockHash, vchBlockHeight;
+#if !defined(BITCOIN_TX)
+    const int32_t nChActHeight = chainActive.Height();
+#else
+    const int32_t nChActHeight = 0;
+#endif // BITCOIN_TX
+
+    // patch level of the replay protection forks
+    ReplayProtectionLevel rpLevel = ForkManager::getInstance().getReplayProtectionLevel(nChActHeight);
+    rpAttributes.SetNull();
 
     // Scan templates
     const CScript& script1 = scriptPubKey;
@@ -91,6 +97,13 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
         opcodetype opcode1, opcode2;
         vector<unsigned char> vch1, vch2;
+
+        // OP_CHECKBLOCKATHEIGHT parameters
+        // --
+        // used before rp-level-2 fix fork
+        vector<unsigned char> vchBlockHash, vchBlockHeight;
+        // used after rp-level-2 fix fork, in order to check the order of processing of hash and height in a rp script
+        std::vector< std::pair<std::vector<unsigned char>, opcodetype>> vchCbhParams;
 
         // Compare
         CScript::const_iterator pc1 = script1.begin();
@@ -163,73 +176,198 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
             }
             else if (opcode2 == OP_SMALLDATA)
             {
-            	// Possible values of OP_CHECKBLOCKATHEIGHT parameters
-            	if (vch1.size() <= sizeof(int32_t))
+                if (rpLevel < RPLEVEL_FIXED_2)
                 {
-                    if (vch1.size() == 0 && (opcode1 >= OP_1 && opcode1 <= OP_16) )
+                	// Possible values of OP_CHECKBLOCKATHEIGHT parameters
+                	if (vch1.size() <= sizeof(int32_t))
                     {
-                        // small size int (1..16) are not in vch1
-                        // they are represented in the opcode itself
-                        // (see CScript::push_int64() method)
+                        if (vch1.size() == 0 && (opcode1 >= OP_1 && opcode1 <= OP_16) )
+                        {
+                            // small size int (1..16) are not in vch1
+                            // they are represented in the opcode itself
+                            // (see CScript::push_int64() method)
 
-                        // leave vch1 alone and use a copy, just to be in the safest side
-                        vector<unsigned char> vTemp;
-                        vTemp.push_back((unsigned char)(opcode1 - OP_1 + 1));
-                        vchBlockHeight = vTemp;
+                            // leave vch1 alone and use a copy, just to be in the safest side
+                            vector<unsigned char> vTemp;
+                            vTemp.push_back((unsigned char)(opcode1 - OP_1 + 1));
+                            vchBlockHeight = vTemp;
+                        }
+                        else
+                        {
+                            vchBlockHeight = vch1;
+                        }
                     }
                     else
                     {
-                        vchBlockHeight = vch1;
+                        vchBlockHash = vch1;
                     }
                 }
                 else
                 {
-                    vchBlockHash = vch1;
+                    std::vector<unsigned char> vchCbhData;
+                	// Possible values of OP_CHECKBLOCKATHEIGHT parameters
+                    // they are pushed into a stack for preventing the inversion of height/hash
+
+                    if (vch1.size() == 0)
+                    {
+                        if ((opcode1 >= OP_1 && opcode1 <= OP_16) || opcode1 == OP_1NEGATE)
+                        {
+                            // small size int (1..16) are not in vch1
+                            // they are represented in the opcode itself
+                            // (see CScript::push_int64() method)
+                            // the same holds for -1, which we choose to handle here too
+        
+                            CScriptNum bn((int)opcode1 - (int)(OP_1 - 1));
+                            vchCbhData = std::move(bn.getvch());
+                        }
+                        else if (opcode1 == OP_0)
+                        {
+                            CScriptNum bn((int)opcode1);
+                            // an empty vector
+                            vchCbhData = std::move(bn.getvch());
+                        }
+                        else
+                        {
+                            // opcode other that the ones specified above are not legal
+                            LogPrintf("%s: %s:%d - OP_CHECKBLOCKATHEIGHT verification failed. Bad height param (opcode=0x%X not legal in setting height).\n",
+                                __FILE__, __func__, __LINE__, opcode1);
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        vchCbhData = vch1;
+                    }
+
+                    vchCbhParams.push_back(std::make_pair(vchCbhData, opcode1));
                 }
 
                 // small pushdata, <= nMaxDatacarrierBytes
                 if (vch1.size() > nMaxDatacarrierBytes)
+                {
+                    LogPrintf("%s: %s():%d - data size %d bigger than max allowed %d\n",
+                        __FILE__, __func__, __LINE__, vch1.size(), nMaxDatacarrierBytes );
                     break;
+                }
             }
             else if (opcode2 == OP_CHECKBLOCKATHEIGHT)
             {
-            	// Full-fledged implementation of the OP_CHECKBLOCKATHEIGHT opcode for verification of vout's
+                rpAttributes.foundOpCode = true;
 
-#if !defined(BITCOIN_TX) // TODO: This is an workaround. zen-tx does not have access to chain state so no replay protection is possible
-
-                if (vchBlockHash.size() != 32)
+#if !defined(BITCOIN_TX) // zen-tx does not have access to chain state so no replay protection is possible
+                if (rpLevel < RPLEVEL_FIXED_2)
                 {
-                    LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad params.\n", __FILE__, __func__);
-                    break;
-                }
+            	    // Full-fledged implementation of the OP_CHECKBLOCKATHEIGHT opcode for verification of vout's
+  
 
-                const int32_t nHeight = CScriptNum(vchBlockHeight, false, sizeof(int32_t)).getint();
-                const int32_t nChActHeight = chainActive.Height();
-
-                // interested caller will use this for enforcing that referenced block is valid and not too recent
-                checkBlockResult.referencedHeight = nHeight;
-
-                if ((nHeight < 0 || nHeight > nChActHeight ) && ForkManager::getInstance().getReplayProtectionLevel(nChActHeight) == RPLEVEL_FIXED)
-                {
-                    LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight not legal[%d], chainActive height: %d\n",
-                        __FILE__, __func__, __LINE__, nHeight, nChActHeight);
-                    break;
-                }
-
-                // According to BIP115, sufficiently old blocks are always valid, so reject only blocks of depth less than 52596.
-                // Skip check if referenced block is further than chainActive. It means that we are not fully synchronized.
-                if (nHeight > (nChActHeight - getCheckBlockAtHeightSafeDepth() ) && nHeight >= 0 &&
-                    nHeight <= nChActHeight)
-                {
-                    CBlockIndex* pblockindex = chainActive[nHeight];
-
-                    if (pblockindex->GetBlockHash() != uint256(vchBlockHash))
+                    if (vchBlockHash.size() != 32)
                     {
-                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. vout block height: %d\n", __FILE__, __func__, nHeight);
+                        LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed. Bad params.\n", __FILE__, __func__);
                         break;
                     }
+
+                    const int32_t nHeight = CScriptNum(vchBlockHeight, false, sizeof(int32_t)).getint();
+
+                    if ((nHeight < 0 || nHeight > nChActHeight ) && rpLevel == RPLEVEL_FIXED_1)
+                    {
+                        LogPrint("cbh", "%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight not legal[%d], chainActive height: %d\n",
+                            __FILE__, __func__, __LINE__, nHeight, nChActHeight);
+                        break;
+                    }
+
+                    // According to BIP115, sufficiently old blocks are always valid, so reject only blocks of depth less than 52596.
+                    // Skip check if referenced block is further than chainActive. It means that we are not fully synchronized.
+                    if (nHeight > (nChActHeight - getCheckBlockAtHeightSafeDepth() ) && nHeight >= 0 &&
+                        nHeight <= nChActHeight)
+                    {
+                        CBlockIndex* pblockindex = chainActive[nHeight];
+
+                        if (pblockindex->GetBlockHash() != uint256(vchBlockHash))
+                        {
+                            LogPrintf("%s: %s: OP_CHECKBLOCKATHEIGHT verification failed: script block height: %d\n", __FILE__, __func__, nHeight);
+                            break;
+                        }
+                    }
+
+                    // interested caller will use this for enforcing that referenced block is valid and not too recent
+                    rpAttributes.referencedHeight = nHeight;
+                    rpAttributes.referencedHash   = vchBlockHash;
                 }
-#endif
+                else
+                {
+                    size_t len = vchCbhParams.size();
+                    if (len < 2)
+                    {
+                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT verification failed. Bad params size = %d\n",
+                            __FILE__, __func__, __LINE__, len);
+                        break;
+                    }
+ 
+                    // they must have been parsed in this order, the following check protects against their swapping
+                    vchBlockHash   = vchCbhParams.at(len-2).first;
+
+                    vchBlockHeight = vchCbhParams.at(len-1).first;
+                    opcodetype hopcode  = vchCbhParams.at(len-1).second;
+ 
+                    // vchBlockHeight can be empty when height is represented as 0
+                    if ((vchBlockHeight.size() > sizeof(int)) || (vchBlockHash.size() != 32))
+                    {
+                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT verification failed. Bad params: vh size = %d, vhash size = %d\n",
+                            __FILE__, __func__, __LINE__, vchBlockHeight.size(), vchBlockHash.size());
+                        break;
+                    }
+ 
+                    // Check that the number is encoded with the minimum possible number of bytes. This is also different 
+                    // before the fork but this way is consistent with interpreter
+                    static const bool REQ_MINIMAL = true;
+                    int32_t nHeight = -1;
+                    try
+                    {
+                        nHeight = CScriptNum(vchBlockHeight, REQ_MINIMAL, sizeof(int32_t)).getint();
+                    }
+                    catch(const scriptnum_error& e)
+                    {
+                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight 0x%s not minimally encoded (err=%s)\n",
+                            __FILE__, __func__, __LINE__, HexStr(vchBlockHeight.begin(), vchBlockHeight.end()), e.what());
+                        break;
+                    }
+                    catch(...)
+                    {
+                        LogPrint("%s: %s():%d - unexpected exception\n", __FILE__, __func__, __LINE__);
+                        break;
+                    }
+
+                    if (!CheckMinimalPush(vchBlockHeight, hopcode))
+                    {
+                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT value 0x%s not minimally pushed\n",
+                            __FILE__, __func__, __LINE__, HexStr(vchBlockHeight.begin(), vchBlockHeight.end()) );
+                        break;
+                    }
+
+                    // height outside the chain range are legal only in old rp implementations, here we are in rp fix fork
+                    if ( nHeight < 0 || nHeight> nChActHeight) 
+                    {
+                        // can happen also when aligning the blockchain
+                        LogPrint("cbh", "%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight not legal[%d], chainActive height: %d\n",
+                            __FILE__, __func__, __LINE__, nHeight, nChActHeight);
+                        break;
+                    }
+
+                    // the logic for skipping the check for sufficently old blocks is in the checker obj method, similarly
+                    // to what EvalScript() parser does. 
+                    if (!CheckReplayProtectionData(&chainActive, nHeight, vchBlockHash) )
+                    {
+                        LogPrintf("%s: %s():%d OP_CHECKBLOCKATHEIGHT verification failed. Referenced height %d invalid or not corresponding to hash %s\n",
+                            __FILE__, __func__, __LINE__, nHeight, uint256(vchBlockHash).ToString());
+                        break;
+                    }
+
+                    // interested caller will use this for enforcing that referenced block is valid and not too recent
+                    rpAttributes.referencedHeight = nHeight;
+                    rpAttributes.referencedHash   = vchBlockHash;
+                }
+#endif // BITCOIN_TX
+
                 if (opcode1 != opcode2 || vch1 != vch2)
                 {
                     break;
@@ -249,8 +387,8 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 }
 
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsigned char> >& vSolutionsRet) {
-	CheckBlockResult checkBlockResult;
-    return Solver(scriptPubKey, typeRet, vSolutionsRet, checkBlockResult);
+	ReplayProtectionAttributes rpAttributes;
+    return Solver(scriptPubKey, typeRet, vSolutionsRet, rpAttributes);
 }
 
 
@@ -280,16 +418,49 @@ int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned c
     return -1;
 }
 
-bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
+bool CheckReplayProtectionAttributes(const CScript& scriptPubKey, std::string reason)
 {
-	CheckBlockResult checkBlockResult;
-    return IsStandard(scriptPubKey, whichType, checkBlockResult);
+#if !defined(BITCOIN_TX)
+    ReplayProtectionAttributes rpAttributes;
+    vector<valtype> vSolutions;
+    txnouttype whichType;
+
+    bool solverResult = Solver(scriptPubKey, whichType, vSolutions, rpAttributes);
+    if(!rpAttributes.foundOpCode)
+    {
+        if(!solverResult)
+        {
+            LogPrint("cbh", "%s: %s():%d solver failed but no rp attributes found for script %s\n",
+                __FILE__, __func__, __LINE__, scriptPubKey.ToString());
+        }
+        // we are checking only the rp attributes and do not care of other cases
+        return true;
+    }
+    return solverResult;
+    
+#else
+    // zen-tx does not have access to chain state so replay protection check is not applicable 
+    return true;
+#endif // BITCOIN_TX
 }
 
-bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType, CheckBlockResult& checkBlockResult)
+void GetReplayProtectionAttributes(const CScript& scriptPubKey, ReplayProtectionAttributes& rpAttributes)
 {
     vector<valtype> vSolutions;
-    if (!Solver(scriptPubKey, whichType, vSolutions, checkBlockResult))
+    txnouttype whichType;
+    Solver(scriptPubKey, whichType, vSolutions, rpAttributes);
+}
+
+bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
+{
+	ReplayProtectionAttributes rpAttributes;
+    return IsStandard(scriptPubKey, whichType, rpAttributes);
+}
+
+bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType, ReplayProtectionAttributes& rpAttributes)
+{
+    vector<valtype> vSolutions;
+    if (!Solver(scriptPubKey, whichType, vSolutions, rpAttributes))
         return false;
 
     if (whichType == TX_MULTISIG || whichType == TX_MULTISIG_REPLAY)
@@ -332,7 +503,17 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
         addressRet = CScriptID(uint160(vSolutions[0]));
         return true;
     }
-    // Multisig txns have more than one address...
+    else if (whichType == TX_NULL_DATA || whichType == TX_NULL_DATA_REPLAY)
+    {
+        // no address is stored
+        return false;
+    }
+    else if (whichType == TX_MULTISIG || whichType == TX_MULTISIG_REPLAY)
+    {
+        // Multisig txns have more than one address...
+        return false;
+    }
+    LogPrintf("%s():%d - Unknown transaction type found %d\n", __func__, __LINE__, whichType);
     return false;
 }
 
@@ -414,7 +595,7 @@ public:
             *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
             return true;
         }
-        int blockIndex = currentBlock->nHeight - 300;
+        int blockIndex = currentBlock->nHeight - CBH_DELTA_HEIGHT;
         if (blockIndex < 0)
             blockIndex = 0;
         *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG << ToByteVector(chainActive[blockIndex]->GetBlockHash()) << chainActive[blockIndex]->nHeight << OP_CHECKBLOCKATHEIGHT;
@@ -428,13 +609,13 @@ public:
             *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
             return true;
         }
-        int blockIndex = currentBlock->nHeight - 300;
+        int blockIndex = currentBlock->nHeight - CBH_DELTA_HEIGHT;
         if (blockIndex < 0)
             blockIndex = 0;
         *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL << ToByteVector(chainActive[blockIndex]->GetBlockHash()) << chainActive[blockIndex]->nHeight << OP_CHECKBLOCKATHEIGHT;
         return true;
     }
-#endif
+#endif // BITCOIN_TX
 
 };
 }
@@ -457,3 +638,20 @@ CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys)
     script << CScript::EncodeOP_N(keys.size()) << OP_CHECKMULTISIG;
     return script;
 }
+
+ReplayProtectionAttributes::ReplayProtectionAttributes()
+    :referencedHeight(UNDEF), referencedHash(), foundOpCode(false)
+{}
+
+void ReplayProtectionAttributes::SetNull() 
+{
+    referencedHeight = UNDEF;
+    referencedHash.clear();
+    foundOpCode = false;
+}
+
+bool ReplayProtectionAttributes::GotValues() const
+{
+    return ( referencedHeight != UNDEF && !referencedHash.empty() );
+}
+

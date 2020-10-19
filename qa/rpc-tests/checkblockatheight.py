@@ -11,7 +11,7 @@ from test_framework.util import assert_equal, assert_greater_than, initialize_ch
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision
 from test_framework.script import CScript
 from test_framework.mininode import CTransaction, ToHex
-from test_framework.util import hex_str_to_bytes, bytes_to_hex_str
+from test_framework.util import hex_str_to_bytes, bytes_to_hex_str, swap_bytes
 import traceback
 from binascii import unhexlify
 import cStringIO
@@ -20,27 +20,22 @@ import shutil
 from decimal import Decimal
 import binascii
 import codecs
-'''
-from random import randint
-import logging
 import pprint
-import struct
-import array
-'''
 
 import time
 
 NUMB_OF_NODES = 4
 
-# the scripts will not be checked if we have more than this depth of referenced block
+# the cbh scripts will not be checked if we have more than this depth of referenced block
 FINALITY_SAFE_DEPTH = 150
 
 # 0 means do not check any minimum age for referenced blocks in scripts
 FINALITY_MIN_AGE = 75 
 
-CBH_DELTA = 300
+# mainchain uses this value for targeting a blockhash when building cbh script starting from chain tip backwards
+CBH_DELTA_HEIGHT = 300
 
-class headers(BitcoinTestFramework):
+class checkblockatheight(BitcoinTestFramework):
 
     alert_filename = None
 
@@ -56,10 +51,10 @@ class headers(BitcoinTestFramework):
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
             extra_args = [
-                ["-debug=cbh", "-cbhsafedepth="+str(FINALITY_SAFE_DEPTH), "-cbhminage="+str(minAge)],
-                ["-debug=cbh", "-cbhsafedepth="+str(FINALITY_SAFE_DEPTH), "-cbhminage="+str(minAge)],
-                ["-debug=cbh", "-cbhsafedepth="+str(FINALITY_SAFE_DEPTH), "-cbhminage="+str(minAge)],
-                ["-debug=cbh", "-cbhsafedepth="+str(FINALITY_SAFE_DEPTH), "-cbhminage="+str(minAge)]
+                ["-debug=py", "-debug=cbh", "-cbhsafedepth="+str(FINALITY_SAFE_DEPTH), "-cbhminage="+str(minAge)],
+                ["-debug=py", "-debug=cbh", "-cbhsafedepth="+str(FINALITY_SAFE_DEPTH), "-cbhminage="+str(minAge)],
+                ["-debug=py", "-debug=cbh", "-cbhsafedepth="+str(FINALITY_SAFE_DEPTH), "-cbhminage="+str(minAge)],
+                ["-debug=py", "-debug=cbh", "-cbhsafedepth="+str(FINALITY_SAFE_DEPTH), "-cbhminage="+str(minAge)]
             ])
 
         if not split:
@@ -97,18 +92,15 @@ class headers(BitcoinTestFramework):
         assert self.is_network_split
         connect_nodes_bi(self.nodes, 2, 3)
         connect_nodes_bi(self.nodes, 3, 2)
-#        self.sync_all()
         sync_blocks(self.nodes, 1, False, 5)
         self.is_network_split = False
 
     def mark_logs(self, msg):
+        print msg
         self.nodes[0].dbg_log(msg)
         self.nodes[1].dbg_log(msg)
         self.nodes[2].dbg_log(msg)
         self.nodes[3].dbg_log(msg)
-
-    def swap_bytes(self, input_buf):
-        return codecs.encode(codecs.decode(input_buf, 'hex')[::-1], 'hex').decode()
 
     def is_in_block(self, tx, bhash, node_idx = 0):
         blk_txs = self.nodes[node_idx].getblock(bhash, True)['tx']
@@ -128,80 +120,79 @@ class headers(BitcoinTestFramework):
         blocks = []
         self.bl_count = 0
 
-        blocks.append(self.nodes[1].getblockhash(0))
+        blocks.append(self.nodes[0].getblockhash(0))
 
         small_target_h = 3
 
-        s = "  Node1 generates %d blocks" % (CBH_DELTA + small_target_h)
-        print(s)
-        print
-        self.mark_logs(s)
-        blocks.extend(self.nodes[1].generate(CBH_DELTA + small_target_h))
+        self.mark_logs("Node0 generates %d blocks" % (CBH_DELTA_HEIGHT + small_target_h - 1))
+        blocks.extend(self.nodes[0].generate(CBH_DELTA_HEIGHT + small_target_h -1))
         self.sync_all()
 
-        #-------------------------------------------------------------------------------------------------------
-        print "Trying to send a tx with a scriptPubKey referencing a block too recent..."
-        #-------------------------------------------------------------------------------------------------------
+        amount_node1 = Decimal("1002.0")
+        self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), amount_node1)
+        self.sync_all()
+
+        self.mark_logs("Node0 generates 1 blocks")
+        blocks.extend(self.nodes[0].generate(1))
+        self.sync_all()
+
+        self.mark_logs("Trying to send a tx with a scriptPubKey referencing a block too recent...")
+
         # Create a tx having in its scriptPubKey a custom referenced block in the CHECKBLOCKATHEIGHT part 
-
         # select necessary utxos for doing the PAYMENT
-        usp = self.nodes[1].listunspent()
+        usp = self.nodes[0].listunspent()
 
-        PAYMENT = Decimal('1.0')
-        FEE     = Decimal('0.00005')
-        amount = Decimal('0')
+        payment = Decimal('1.0')
+        fee     = Decimal('0.00005')
+
+        amount  = Decimal('0')
         inputs  = []
-
-        print "  Node1 sends %f coins to Node2" % PAYMENT
-
         for x in usp:
             amount += Decimal(x['amount']) 
             inputs.append( {"txid":x['txid'], "vout":x['vout']})
-            if amount >= PAYMENT+FEE:
+            if amount >= payment+fee:
                 break
 
-        outputs = {self.nodes[1].getnewaddress(): (Decimal(amount) - PAYMENT - FEE), self.nodes[2].getnewaddress(): PAYMENT}
-        rawTx   = self.nodes[1].createrawtransaction(inputs, outputs)
+        outputs = {self.nodes[0].getnewaddress(): (Decimal(amount) - payment - fee), self.nodes[2].getnewaddress(): payment}
+        rawTx   = self.nodes[0].createrawtransaction(inputs, outputs)
 
         # build an object from the raw tx in order to be able to modify it
         tx_01 = CTransaction()
         f = cStringIO.StringIO(unhexlify(rawTx))
         tx_01.deserialize(f)
 
-        decodedScriptOrig = self.nodes[1].decodescript(binascii.hexlify(tx_01.vout[1].scriptPubKey))
+        decodedScriptOrig = self.nodes[0].decodescript(binascii.hexlify(tx_01.vout[1].scriptPubKey))
 
         scriptOrigAsm = decodedScriptOrig['asm']
 
-#        print "Original scriptPubKey asm 1:   ", scriptOrigAsm
-#        print
-
         # store the hashed script, it is reused
         params = scriptOrigAsm.split()
-        hash_script = hex_str_to_bytes(params[2])
+        hash160 = hex_str_to_bytes(params[2])
 
         # new referenced block height
-        modTargetHeigth = CBH_DELTA + small_target_h - FINALITY_MIN_AGE + 5
+        modTargetHeigth = CBH_DELTA_HEIGHT + small_target_h - FINALITY_MIN_AGE + 5
 
         # new referenced block hash
-        modTargetHash = hex_str_to_bytes(self.swap_bytes(blocks[modTargetHeigth]))
+        modTargetHash = hex_str_to_bytes(swap_bytes(blocks[modTargetHeigth]))
         
         # build modified script
-        modScriptPubKey = CScript([OP_DUP, OP_HASH160, hash_script, OP_EQUALVERIFY, OP_CHECKSIG, modTargetHash, modTargetHeigth, OP_CHECKBLOCKATHEIGHT])
+        modScriptPubKey = CScript([OP_DUP, OP_HASH160, hash160, OP_EQUALVERIFY, OP_CHECKSIG, modTargetHash, modTargetHeigth, OP_CHECKBLOCKATHEIGHT])
 
         tx_01.vout[1].scriptPubKey = modScriptPubKey
         tx_01.rehash()
 
-        decodedScriptMod = self.nodes[1].decodescript(binascii.hexlify(tx_01.vout[1].scriptPubKey))
+        decodedScriptMod = self.nodes[0].decodescript(binascii.hexlify(tx_01.vout[1].scriptPubKey))
         print "  Modified scriptPubKey in tx 1: ", decodedScriptMod['asm']
 
-        signedRawTx = self.nodes[1].signrawtransaction(ToHex(tx_01))
+        signedRawTx = self.nodes[0].signrawtransaction(ToHex(tx_01))
 
-        h = self.nodes[1].getblockcount()
+        h = self.nodes[0].getblockcount()
         assert_greater_than(FINALITY_MIN_AGE, h - modTargetHeigth)
 
-        #raw_input("\npress enter to go on ..")
+        print "  Node0 sends %f coins to Node2" % payment
+
         try:
-            txid = self.nodes[1].sendrawtransaction(signedRawTx['hex'])
+            txid = self.nodes[0].sendrawtransaction(signedRawTx['hex'])
             print "  Tx sent: ", txid
             # should fail, therefore force test failure
             assert_equal(True, False)
@@ -217,33 +208,29 @@ class headers(BitcoinTestFramework):
         # check that small height works for 'check block at height' in script
         #--------------------------------------------------------------------
         node1_pay = Decimal('0.5')
-        s = "  Node1 sends %f coins to Node3 for checking script in tx" % node1_pay
-        print s
-        self.mark_logs(s)
+        self.mark_logs("  Node0 sends %f coins to Node3" % node1_pay)
 
-        tx1 = self.nodes[1].sendtoaddress(self.nodes[3].getnewaddress(), node1_pay)
+        tx1 = self.nodes[0].sendtoaddress(self.nodes[3].getnewaddress(), node1_pay)
         print "  ==> tx sent: ", tx1
 
         sync_mempools(self.nodes[0:4])
 
         assert_equal(self.is_in_mempool(tx1), True)
 
-        script = self.nodes[1].getrawtransaction(tx1, 1)['vout'][0]['scriptPubKey']['asm']
+        script = self.nodes[0].getrawtransaction(tx1, 1)['vout'][0]['scriptPubKey']['asm']
         tokens = script.split()
         small_h = int(tokens[6])
-        small_h_hash = self.swap_bytes(tokens[5])
+        small_h_hash = swap_bytes(tokens[5])
 
         print "  ScriptPubKey: ", script
 
         assert_equal(small_h, small_target_h)
         assert_equal(small_h_hash, blocks[int(small_h)])
 
-        print("  Node1 generating 1 honest block")
-        blocks.extend(self.nodes[1].generate(1))
+        print("  Node0 generating 1 honest block")
+        blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        print "  | Node0 balance: ", self.nodes[0].getbalance()
-        print "  | Node1 balance: ", self.nodes[1].getbalance()
         print "  | Node2 balance: ", self.nodes[2].getbalance()
         print "  | Node3 balance: ", self.nodes[3].getbalance()
 
@@ -256,25 +243,19 @@ class headers(BitcoinTestFramework):
         # check the balance is the one expected
         assert_equal(self.nodes[3].getbalance(), node1_pay)
 
-        s = "  Node3 sends 0.25 coins to Node2 for checking script in tx"
-        print s
-        self.mark_logs(s)
+        amount_node2 = Decimal("0.25")
+        self.mark_logs("  Node3 sends {} coins to Node2".format(amount_node2) )
 
-        tx2 = self.nodes[3].sendtoaddress(self.nodes[2].getnewaddress(), 0.25)
+        tx2 = self.nodes[3].sendtoaddress(self.nodes[2].getnewaddress(), amount_node2)
         print "  ==> tx sent: ", tx2
 
         sync_mempools(self.nodes[0:4])
 
         assert_equal(self.is_in_mempool(tx2), True)
 
-        print("  Node1 generating 1 honest block")
-        blocks.extend(self.nodes[1].generate(1))
+        print("  Node0 generating 1 honest block")
+        blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
-
-        print "  | Node0 balance: ", self.nodes[0].getbalance()
-        print "  | Node1 balance: ", self.nodes[1].getbalance()
-        print "  | Node2 balance: ", self.nodes[2].getbalance()
-        print "  | Node3 balance: ", self.nodes[3].getbalance()
 
         # check tx is no more in mempool
         assert_equal(self.is_in_mempool(tx2), False)
@@ -282,127 +263,111 @@ class headers(BitcoinTestFramework):
         # check tx is in the block just mined
         assert_equal(self.is_in_block(tx2, blocks[-1], 1), True)
 
+        # check Node2 got his money
+        assert_equal(amount_node2, self.nodes[2].getbalance())
+
         print "  ==> OK, small digit height works in scripts:"
         print
         #--------------------------------------------------------------------
         
         print "Verify that a legal tx, when the referenced block is reverted, becomes invalid until the necessary depth of the referenced block height has been reached..."
+        # it is necessary to use cbhminage=0 otherwise the tx to be setup would be refused since it refers
+        # to a block too recent in cbh script 
         print "  Restarting network with -cbhminage=0"
-        # restart Nodes and check their balance: node1 does not have 1000 coins but node2 does not have either
+
         stop_nodes(self.nodes)
         wait_bitcoinds()
         self.setup_network(False, 0)
 
         chunks = 305
-        s = "  Node0 generates %d blocks" % chunks
-        print(s)
-        self.mark_logs(s)
+        self.mark_logs("  Node0 generates %d blocks" % chunks)
         blocks.extend(self.nodes[0].generate(chunks)) 
         self.sync_all()
 
-        print "  Split network: (0)---(1)---(2)   (3)"
+        self.mark_logs("  Split network: (0)---(1)---(2)   (3)")
         self.split_network()
 
-        print "  Node0 generating 1 honest block"
+        self.mark_logs("  Node0 generating 1 honest block")
         blocks.extend(self.nodes[0].generate(1)) 
         sync_blocks(self.nodes, 1, False, 5)
-#        self.sync_all()
-#        time.sleep(5)
+
+        h_current = self.nodes[1].getblockcount()
 
         # we will perform on attack aimed at reverting from this block (latest generated) upward
+        h_attacked = h_current
         hash_attacked = blocks[-1];
-        h_attacked = self.nodes[1].getblockcount()
         assert hash_attacked == blocks[h_attacked]
-        hash_attacked_swapped = self.swap_bytes(hash_attacked)
-        hex_s = "%04x" % h_attacked
-        h_attacked_swapped = self.swap_bytes(hex_s)
-        h_safe_estimated = h_attacked+FINALITY_SAFE_DEPTH+1
+        hash_attacked_swapped = swap_bytes(hash_attacked)
+        hex_tmp = "%04x" % h_attacked
+        h_attacked_swapped = swap_bytes(hex_tmp)
+        h_safe_estimated = h_attacked + FINALITY_SAFE_DEPTH + 1
 
         print "  Honest network has current h[%d]" % h_attacked
 
-        # we will create a transaction whose output will have a CHECKBLOCKATHEIGHT on this block
-        h_checked = h_attacked - CBH_DELTA
-        hex_s = "%04x" % h_checked
-        h_checked_swapped = self.swap_bytes(hex_s)
+        # mainchain creates cbh scripts where target block hash/height are CBH_DELTA_HEIGHT older than chain tip
+        h_checked = h_current - CBH_DELTA_HEIGHT
+        hex_tmp = "%04x" % h_checked
+        h_checked_swapped = swap_bytes(hex_tmp)
         hash_checked = blocks[h_checked]
-        hash_checked_swapped = self.swap_bytes(hash_checked)
+        hash_checked_swapped = swap_bytes(hash_checked)
 
-        # select necessary utxos for doing the PAYMENT, there might be a lot of them
+        # select input, we have just one big utxo 
         usp = self.nodes[1].listunspent()
+        assert_equal(len(usp), 1)
 
-        PAYMENT = Decimal('1000.0')
-        FEE     = Decimal('0.00005')
-        amount = Decimal('0')
-        inputs  = []
+        amount = Decimal('1000.0')
+        fee    = Decimal('0.00005')
+        change = amount_node1 - amount - fee
 
-        for x in usp:
-            amount += Decimal(x['amount']) 
-            inputs.append( {"txid":x['txid'], "vout":x['vout']})
-            if amount >= PAYMENT+FEE:
-                break
+        inputs  = [{"txid":usp[0]['txid'], "vout":usp[0]['vout']}]
+        outputs = {self.nodes[1].getnewaddress(): change, self.nodes[2].getnewaddress(): amount}
 
-        print"  Creating raw tx referencing the current block %d where Node1 sends %f coins to Node2..." % (h_attacked, PAYMENT)
-
-        outputs = {self.nodes[1].getnewaddress(): (Decimal(amount) - PAYMENT - FEE), self.nodes[2].getnewaddress(): PAYMENT}
+        print"  Creating raw tx referencing the current block %d where Node1 sends %f coins to Node2..." % (h_attacked, amount)
         rawTx   = self.nodes[1].createrawtransaction(inputs, outputs)
 
         # replace hash and h referenced in tx's script with the ones of target block 
         from_buf = str(hash_checked_swapped)+'02'+str(h_checked_swapped)
         to_buf   = str(hash_attacked_swapped)+'02'+str(h_attacked_swapped)
-        rawTxReplaced = rawTx.replace(from_buf, to_buf)
 
-        # modifying just one vout is enough for tampering the whole tx
-        script =    self.nodes[1].decoderawtransaction(rawTx)['vout'][0]['scriptPubKey']['asm']
+        # tamper just the output to Node2, not the change
 
-        decodedRep = self.nodes[1].decoderawtransaction(rawTxReplaced)
+        # select the right output, we can not rely on order of appearence of outputs
+        decVout = self.nodes[1].decoderawtransaction(rawTx)['vout']
+        idx = 0
+        if decVout[1]['value'] == amount:
+            idx = 1
 
-        scriptRep = decodedRep['vout'][0]['scriptPubKey']['asm']
-        print "  Changed script in tx"
-        print "    from: ", script
-        print "    to:   ", scriptRep
+        sp1 = decVout[idx]['scriptPubKey']['hex']
+        sp2 = sp1.replace(from_buf, to_buf)
 
-        signedRawTx         = self.nodes[1].signrawtransaction(rawTx)
+        rawTxReplaced = rawTx.replace(sp1, sp2)
+
         signedRawTxReplaced = self.nodes[1].signrawtransaction(rawTxReplaced)
 
-        print "  | Node0 balance: ", self.nodes[0].getbalance()
         print "  | Node1 balance: ", self.nodes[1].getbalance()
         print "  | Node2 balance: ", self.nodes[2].getbalance()
-        print "  | Node3 balance: ", self.nodes[3].getbalance()
+        assert_equal(amount_node1, self.nodes[1].getbalance())
+        assert_equal(amount_node2, self.nodes[2].getbalance())
 
-        amountRep = Decimal('0')
-        changeRep = Decimal('0')
-        nAm = -1;
-        nCh = -1;
-
-        # get the amount and the change of the tx, they might not be ordered as vout entries
-        for x in decodedRep['vout']:
-            if x['value'] == PAYMENT:
-                amountRep = x['value']
-                nAm = x['n']
-            else:
-                changeRep = x['value']
-                nCh = x['n']
-
-        # the tx modified has a script that does not pass the check at referenced block, tx 1000 coins (and also related change)
-        # will be unspendable once the chain is reverted
+        # the tx modified has a script that is currently valid but that will not pass the check
+        # at referenced block once the chain is reverted
         tx_1000 = self.nodes[1].sendrawtransaction(signedRawTxReplaced['hex'])
         print "  ==> tx sent: ", tx_1000
-        print "       amount (vout[%d]): %f" % (nAm, amountRep)
-        print "       change (vout[%d]): %f" % (nCh, changeRep)
+        print "       amount : %f" % ( amount)
+        print "       change : %f" % ( change)
 
         sync_mempools(self.nodes[0:3])
         assert_equal(self.is_in_mempool(tx_1000, 1), True)
         print "  OK, tx is in mempool..."
-
-        print "  | Node0 balance: ", self.nodes[0].getbalance()
         print "  | Node1 balance: ", self.nodes[1].getbalance()
         print "  | Node2 balance: ", self.nodes[2].getbalance()
-        print "  | Node3 balance: ", self.nodes[3].getbalance()
+        assert_equal(change,    self.nodes[1].getbalance())
+        assert_equal(amount_node2, self.nodes[2].getbalance())
 
         print("  Node0 generating 1 honest block")
         blocks.extend(self.nodes[0].generate(1))
-        time.sleep(5)
-
+        sync_blocks(self.nodes[0:2])
+        
         # check tx is no more in mempool
         assert_equal(self.is_in_mempool(tx_1000, 1), False)
 
@@ -411,18 +376,18 @@ class headers(BitcoinTestFramework):
         print "  OK, tx is not in mempool anymore (it is contained in the block just mined)"
         print "  Block: (%d) %s" % ( int(self.nodes[2].getblockcount()), blocks[-1])
 
-        print "  | Node0 balance: ", self.nodes[0].getbalance()
         print "  | Node1 balance: ", self.nodes[1].getbalance()
         print "  | Node2 balance: ", self.nodes[2].getbalance()
-        print "  | Node3 balance: ", self.nodes[3].getbalance()
+        assert_equal(change, self.nodes[1].getbalance())
+        assert_equal(amount_node2 + amount, self.nodes[2].getbalance())
 
         print "  Node3 generating 3 malicious blocks thus reverting the honest chain once the ntw is joined!"
         blocks.extend(self.nodes[3].generate(3))
-        time.sleep(2)
-
+        sync_blocks(self.nodes, limit_loop=5)
+        
+        self.mark_logs("Joining network")
         self.join_network()
 
-        time.sleep(2)
         print "  Network joined: (0)---(1)---(2)---(3)"
         self.mark_logs("Network joined")
 
@@ -434,71 +399,79 @@ class headers(BitcoinTestFramework):
 
         print "  ==> the block has been reverted, the tx is back in the mempool of the reverted nodes!"
 
-        print "  | Node0 balance: ", self.nodes[0].getbalance()
-        print "  | Node1 balance: ", self.nodes[1].getbalance()
-        print "  | Node2 balance: ", self.nodes[2].getbalance()
-        print "  | Node3 balance: ", self.nodes[3].getbalance()
+        node1_bal = Decimal(self.nodes[1].getbalance() )
+        node2_bal = Decimal(self.nodes[2].getbalance() )
+
+        print "  | Node1 balance: ", node1_bal
+        print "  | Node2 balance: ", node2_bal
+        assert_equal(change, node1_bal)
+        assert_equal(amount_node2, node2_bal)
 
         print("  Node0 generating 1 honest block")
         blocks.extend(self.nodes[0].generate(1))
-        time.sleep(2)
-
+        self.sync_all()
+        
         # check tx_1000 is in the block just mined
         assert_equal(self.is_in_block(tx_1000, blocks[-1], 2), True)
 
         print "  ==> TX referencing reverted block has been mined in a new block!!"
         print "       Block: (%d) %s" % ( int(self.nodes[3].getblockcount()), blocks[-1])
 
-        # restart Nodes and check their balance: node1 does not have 1000 coins but node2 does not have either
-        stop_nodes(self.nodes)
-        wait_bitcoinds()
-        self.setup_network(False, 0)
+        node1_bal = Decimal(self.nodes[1].getbalance() )
+        node2_bal = Decimal(self.nodes[2].getbalance() )
 
-        print "  Balances after node restart:"
-        print "  | Node0 balance: ", self.nodes[0].getbalance()
-        print "  | Node1 balance: ", self.nodes[1].getbalance()
-        print "  | Node2 balance: ", self.nodes[2].getbalance()
-        print "  | Node3 balance: ", self.nodes[3].getbalance()
+        print "  | Node1 balance: ", node1_bal
+        print "  | Node2 balance: ", node2_bal
+        assert_equal(change, node1_bal)
+        assert_equal(amount_node2, node2_bal)
 
         print "  Node3 generating %d honest blocks more" % (FINALITY_SAFE_DEPTH - 2)
 
         blocks.extend(self.nodes[3].generate(FINALITY_SAFE_DEPTH - 2))
         self.sync_all()
 
-        # if safe depth is set to FINALITY_SAFE_DEPTH, from the previos block on the tx will become valid
-
+        # from this block on, the tx will become valid because finality safe depth has been reached
+        # and the cbh script is not checked anymore
         h_safe = self.nodes[1].getblockcount()
-
         assert_equal(h_safe, h_safe_estimated)
 
-        print "  OK, at h[%d] the attacked tx should have been restored, node will have it after a restart" % h_safe
+        node1_zbal = Decimal(self.nodes[1].z_gettotalbalance()['total'])
+        node2_zbal = Decimal(self.nodes[2].z_gettotalbalance()['total'])
+        node1_bal = Decimal(self.nodes[1].getbalance() )
+        node2_bal = Decimal(self.nodes[2].getbalance() )
 
-        node1_bal_before = Decimal(self.nodes[1].getbalance() )
-        node2_bal_before = Decimal(self.nodes[2].getbalance() )
+        print "  OK, at h[%d] the attacked tx have been restored (node will have it in cached balance after a restart)" % h_safe
 
         print "  Balances before node restart:"
-        print "  | Node0 balance: ", self.nodes[0].getbalance()
-        print "  | Node1 balance: ", self.nodes[1].getbalance()
-        print "  | Node2 balance: ", self.nodes[2].getbalance()
-        print "  | Node2 balance: ", self.nodes[3].getbalance()
+        print "  | Node1 balance (cached): ", node1_bal
+        print "  | Node2 balance (cached): ", node2_bal
+        print "  | Node1 z_balance: ", node1_zbal
+        print "  | Node2 z_balance: ", node2_zbal
+
+        # non-cached balance must be ok while cached balance still does not have correct amounts
+        assert_equal(node2_bal + amount, node2_zbal)
+
 
         # restart Nodes and check their balance, at this point the 1000 coins should be in the wallet of node2
         stop_nodes(self.nodes)
         wait_bitcoinds()
         self.setup_network(False, 0)
 
-        node1_bal_after = Decimal(self.nodes[1].getbalance() )
-        node2_bal_after = Decimal(self.nodes[2].getbalance() )
+        final_bal1 = Decimal(self.nodes[1].getbalance() )
+        final_bal2 = Decimal(self.nodes[2].getbalance() )
+        node1_zbal = Decimal(self.nodes[1].z_gettotalbalance()['total'])
+        node2_zbal = Decimal(self.nodes[2].z_gettotalbalance()['total'])
 
         print "  Balances after node restart:"
-        print "  | Node0 balance: ", self.nodes[0].getbalance()
-        print "  | Node1 balance: ", self.nodes[1].getbalance()
-        print "  | Node2 balance: ", self.nodes[2].getbalance()
-        print "  | Node2 balance: ", self.nodes[3].getbalance()
+        print "  | Node1 balance: ", final_bal1 
+        print "  | Node2 balance: ", final_bal2
 
-        # ensure both the amount (to the recipient) and the change (to the sender) have been restored
-        assert_equal(node1_bal_before + changeRep, node1_bal_after)
-        assert_equal(node2_bal_before + amountRep, node2_bal_after)
+        # ensure the amounts have been restored in cached balances
+        assert_equal(node1_bal, final_bal1)
+        assert_equal(node2_bal + amount, final_bal2)
+        assert_equal(node1_zbal, final_bal1)
+        assert_equal(node2_zbal, final_bal2)
+
 
 if __name__ == '__main__':
-    headers().main()
+    checkblockatheight().main()

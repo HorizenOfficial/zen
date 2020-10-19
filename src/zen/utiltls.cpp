@@ -399,15 +399,34 @@ bool ValidatePeerCertificate(SSL *ssl)
     X509 *cert = SSL_get_peer_certificate (ssl);
     if (cert)
     {
-        // NOTE: SSL_get_verify_result() is only useful in connection with SSL_get_peer_certificate (https://www.openssl.org/docs/man1.0.2/ssl/SSL_get_verify_result.html)
-        //
-        bIsOk = (SSL_get_verify_result(ssl) == X509_V_OK);
+        // NOTE: SSL_get_verify_result() is only useful in connection with SSL_get_peer_certificate
+        // (https://www.openssl.org/docs/man1.1.1/ssl/SSL_get_verify_result.html)
+        long errCode = SSL_get_verify_result(ssl);
+        if (errCode != X509_V_OK)
+        {
+            LogPrint("tls", "TLS: %s: %s():%d - Certificate Verification ERROR=%d: [%s]\n",
+                __FILE__, __func__, __LINE__, errCode, X509_verify_cert_error_string(errCode));
+        }
+        else
+        {
+            bIsOk = true;
+
+            char    buf[256];
+            X509_NAME_oneline(X509_get_subject_name(cert), buf, 256);
+            LogPrint("tls", "TLS: %s: %s():%d - subj name=%s\n",
+                __FILE__, __func__, __LINE__, buf);
+ 
+            X509_NAME_oneline(X509_get_issuer_name(cert), buf, 256);
+            LogPrint("tls", "TLS: %s: %s():%d - issuer name=%s\n",
+                __FILE__, __func__, __LINE__, buf);
+        }
+
         X509_free(cert);
     }
     else
     {
-        LogPrint("net", "TLS: Peer does not have certificate\n");
-        bIsOk = false;
+        LogPrint("tls", "TLS: %s: %s():%d - WARNING: Peer does not have certificate\n",
+            __FILE__, __func__, __LINE__);
     }
     return bIsOk;
 }
