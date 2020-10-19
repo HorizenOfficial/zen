@@ -84,6 +84,7 @@ def create_transaction(prevtx, n, sig, value):
 # create a signed tx with a tampered replay protection script according to a mode parameter
 MODE_HEIGHT    = 0 
 MODE_SWAP_ARGS = 1
+MODE_NON_MIN_ENC = 2
 def create_tampered_rawtx_cbh(node_from, node_to, tx_amount, fee, mode):
 
     genesis_block_hash = node_from.getblock(str(0))['hash']
@@ -129,6 +130,9 @@ def create_tampered_rawtx_cbh(node_from, node_to, tx_amount, fee, mode):
             modScriptPubKey = CScript([OP_DUP, OP_HASH160, hash160, OP_EQUALVERIFY, OP_CHECKSIG, modTargetHash, evil_height, OP_CHECKBLOCKATHEIGHT])
         elif mode == MODE_SWAP_ARGS:
             modScriptPubKey = CScript([OP_DUP, OP_HASH160, hash160, OP_EQUALVERIFY, OP_CHECKSIG, original_height, original_hash, OP_CHECKBLOCKATHEIGHT])
+        elif mode == MODE_NON_MIN_ENC:
+            non_min_h =  hex_str_to_bytes("07000000")
+            modScriptPubKey = CScript([OP_DUP, OP_HASH160, hash160, OP_EQUALVERIFY, OP_CHECKSIG, original_hash, non_min_h, OP_CHECKBLOCKATHEIGHT])
         else:
             assert(False)
 
