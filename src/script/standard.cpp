@@ -19,8 +19,6 @@ using namespace zen;
 
 using namespace std;
 
-typedef vector<unsigned char> valtype;
-
 unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
 
 CScriptID::CScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
@@ -43,6 +41,7 @@ const char* GetTxnOutputType(txnouttype t)
     }
     return NULL;
 }
+
 
 /**
  * Return public keys or hashes from scriptPubKey, for 'standard' transaction types.
@@ -104,7 +103,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         // used before rp-level-2 fix fork
         vector<unsigned char> vchBlockHash, vchBlockHeight;
         // used after rp-level-2 fix fork, in order to check the order of processing of hash and height in a rp script
-        std::vector< std::vector<unsigned char>> vchCbhParams;
+        std::vector< std::pair<std::vector<unsigned char>, opcodetype>> vchCbhParams;
 
         // Compare
         CScript::const_iterator pc1 = script1.begin();
@@ -208,6 +207,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     std::vector<unsigned char> vchCbhData;
                 	// Possible values of OP_CHECKBLOCKATHEIGHT parameters
                     // they are pushed into a stack for preventing the inversion of height/hash
+
                     if (vch1.size() == 0)
                     {
                         if ((opcode1 >= OP_1 && opcode1 <= OP_16) || opcode1 == OP_1NEGATE)
@@ -238,7 +238,8 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     {
                         vchCbhData = vch1;
                     }
-                    vchCbhParams.push_back(vchCbhData);
+
+                    vchCbhParams.push_back(std::make_pair(vchCbhData, opcode1));
                 }
 
                 // small pushdata, <= nMaxDatacarrierBytes
@@ -303,8 +304,10 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     }
  
                     // they must have been parsed in this order, the following check protects against their swapping
-                    vchBlockHash   = vchCbhParams.at(len-2);
-                    vchBlockHeight = vchCbhParams.at(len-1);
+                    vchBlockHash   = vchCbhParams.at(len-2).first;
+
+                    vchBlockHeight = vchCbhParams.at(len-1).first;
+                    opcodetype hopcode  = vchCbhParams.at(len-1).second;
  
                     // vchBlockHeight can be empty when height is represented as 0
                     if ((vchBlockHeight.size() > sizeof(int)) || (vchBlockHash.size() != 32))
@@ -317,8 +320,30 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     // Check that the number is encoded with the minimum possible number of bytes. This is also different 
                     // before the fork but this way is consistent with interpreter
                     static const bool REQ_MINIMAL = true;
-                    const int32_t nHeight = CScriptNum(vchBlockHeight, REQ_MINIMAL, sizeof(int32_t)).getint();
- 
+                    int32_t nHeight = -1;
+                    try
+                    {
+                        nHeight = CScriptNum(vchBlockHeight, REQ_MINIMAL, sizeof(int32_t)).getint();
+                    }
+                    catch(const scriptnum_error& e)
+                    {
+                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT nHeight 0x%s not minimally encoded (err=%s)\n",
+                            __FILE__, __func__, __LINE__, HexStr(vchBlockHeight.begin(), vchBlockHeight.end()), e.what());
+                        break;
+                    }
+                    catch(...)
+                    {
+                        LogPrint("%s: %s():%d - unexpected exception\n", __FILE__, __func__, __LINE__);
+                        break;
+                    }
+
+                    if (!CheckMinimalPush(vchBlockHeight, hopcode))
+                    {
+                        LogPrintf("%s: %s():%d - OP_CHECKBLOCKATHEIGHT value 0x%s not minimally pushed\n",
+                            __FILE__, __func__, __LINE__, HexStr(vchBlockHeight.begin(), vchBlockHeight.end()) );
+                        break;
+                    }
+
                     // height outside the chain range are legal only in old rp implementations, here we are in rp fix fork
                     if ( nHeight < 0 || nHeight> nChActHeight) 
                     {
