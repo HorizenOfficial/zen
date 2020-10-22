@@ -47,6 +47,8 @@ try:
 except ImportError:
     import urlparse
 
+from wsproxy import WsServiceProxy
+
 USER_AGENT = "AuthServiceProxy/0.1"
 
 HTTP_TIMEOUT = 600
@@ -67,7 +69,7 @@ def EncodeDecimal(o):
 class AuthServiceProxy(object):
     __id_count = 0
 
-    def __init__(self, service_url, service_name=None, timeout=HTTP_TIMEOUT, connection=None):
+    def __init__(self, service_url, service_name=None, timeout=HTTP_TIMEOUT, connection=None, ws_url=None):
         self.__service_url = service_url
         self.__service_name = service_name
         self.__url = urlparse.urlparse(service_url)
@@ -98,13 +100,18 @@ class AuthServiceProxy(object):
             self.__conn = httplib.HTTPConnection(self.__url.hostname, port,
                                                  False, timeout)
 
+        self.__ws_proxy = WsServiceProxy(ws_url, self.__service_name)
+
     def __getattr__(self, name):
         if name.startswith('__') and name.endswith('__'):
             # Python internal stuff
             raise AttributeError
         if self.__service_name is not None:
             name = "%s.%s" % (self.__service_name, name)
-        return AuthServiceProxy(self.__service_url, name, connection=self.__conn)
+
+        wsurl = self.__ws_proxy.get_wsurl()
+        return AuthServiceProxy(self.__service_url, name, connection=self.__conn, ws_url=wsurl)
+
 
     def _request(self, method, path, postdata):
         '''
@@ -142,6 +149,11 @@ class AuthServiceProxy(object):
                                'method': self.__service_name,
                                'params': args,
                                'id': AuthServiceProxy.__id_count}, default=EncodeDecimal)
+
+        if 'ws_' in self.__service_name:
+            # this is a websocket msg, handle it via ws proxy
+            return self.__ws_proxy._request(self.__service_name, args)
+
         response = self._request('POST', self.__url.path, postdata)
         if response['error'] is not None:
             raise JSONRPCException(response['error'])
@@ -169,3 +181,9 @@ class AuthServiceProxy(object):
         else:
             log.debug("<-- "+responsedata)
         return response
+
+    def get_wsurl(self):
+        if self.__ws_proxy == None:
+            return None
+        return self.__ws_proxy.get_wsurl()
+
