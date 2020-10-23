@@ -32,6 +32,9 @@ import json
 script_valid_file   = "../../src/test/data/script_valid.json"
 script_invalid_file = "../../src/test/data/script_invalid.json"
 
+MAX_TIP_AGE = int(24 * 60 * 60)
+MAX_FUTURE_BLOCK_TIME_LOCAL = int(2 * 60 * 60)
+
 # Pass in a set of json files to open. 
 class ScriptTestFile(object):
 
@@ -161,7 +164,13 @@ class ScriptTest(ComparisonTestFramework):
     def generate_test_instance(self, pubkeystring, scriptsigstring):
 
         chainHeight = self.nodes[0].getblockcount()
-        print "Called at height = {}".format(chainHeight)
+        t_now = int(time.time())
+        print "Called at height = {}, delta_t = {}".format(chainHeight, (t_now + MAX_FUTURE_BLOCK_TIME_LOCAL - self.block_time))
+        if self.block_time > (t_now + MAX_FUTURE_BLOCK_TIME_LOCAL - 100):
+            delta = self.block_time - t_now - MAX_FUTURE_BLOCK_TIME_LOCAL + 100
+            print "\n...waiting {} secs not to overtake node time --------------\n".format(delta)
+            time.sleep(delta)
+
 
         scriptpubkey = ParseScript(pubkeystring)
         scriptsig = ParseScript(scriptsigstring)
@@ -203,7 +212,11 @@ class ScriptTest(ComparisonTestFramework):
     def get_tests(self):
         self.tip = int ("0x" + self.nodes[0].getbestblockhash() + "L", 0)
         #self.block_time = 1333230000  # before the BIP16 switchover
-        #self.block_time = int(time.time())+1
+
+        # We had better start from old times otherwise we will overtake node current time with block timing sooner or later
+        # But can not be too old a time (i.e genesis) otherwise the node goes in IBD state and does not inv anything
+
+        self.block_time = int(time.time()) - MAX_TIP_AGE + 100
         chainHeight = 0
 
         '''
@@ -236,7 +249,7 @@ class ScriptTest(ComparisonTestFramework):
         print "Iterate through script tests..."
         counter = 0
         for script_test in self.scripts.get_records():
-            ''' Reset the blockchain to genesis block + 100 blocks. '''
+
             print "{}) blockchain (h={}) ".format(counter, self.nodes[0].getblockcount())
 
             assert(self.nodes[0].getblockcount() == self.nodes[1].getblockcount())
