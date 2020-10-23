@@ -3625,6 +3625,8 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
         CScript expect = CScript() << nHeight;
         if (block.vtx[0].vin[0].scriptSig.size() < expect.size() ||
             !std::equal(expect.begin(), expect.end(), block.vtx[0].vin[0].scriptSig.begin())) {
+            LogPrintf("%s():%d - ERROR: unexpected height in coinbase Script[%s] (exp is %s)\n",
+                __func__, __LINE__, block.vtx[0].vin[0].scriptSig.ToString(), expect.ToString());
             return state.DoS(100, error("%s: block height mismatch in coinbase", __func__), REJECT_INVALID, "bad-cb-height");
         }
     }
@@ -3643,9 +3645,11 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
         CAmount communityReward = ForkManager::getInstance().getCommunityFundReward(nHeight, reward, cfType);
         if (communityReward > 0) {
             bool found = false;
+            const CScript& refScript = Params().GetCommunityFundScriptAtHeight(nHeight, cfType);
 
-            BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
-                if (output.scriptPubKey == Params().GetCommunityFundScriptAtHeight(nHeight, cfType)) {
+            BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout)
+            {
+                if (output.scriptPubKey == refScript) {
                     if (output.nValue == communityReward) {
                         found = true;
                         break;
@@ -3654,6 +3658,8 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
             }
 
             if (!found) {
+                LogPrintf("%s():%d - ERROR: subsidy quota incorrect or missing: refScript[%s], commReward=%d, type=%d\n",
+                    __func__, __LINE__, refScript.ToString(), communityReward, cfType);
                 return state.DoS(100, error("%s: community fund missing block %d", __func__, nHeight), REJECT_INVALID, "cb-no-community-fund");
             }
         }

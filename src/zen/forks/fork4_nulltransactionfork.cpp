@@ -21,7 +21,7 @@ NullTransactionFork::NullTransactionFork()
                                      "zsxWnyDbU8pk2Vp98Uvkx5Nh33RFzqnCpWN"
                                      }},
                                 {CBaseChainParams::Network::REGTEST,{
-                                     "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa"
+                                     "zr9kPMxW6zVgKQnAXZtbMJDv2FYoTrvyhsN"
                                  }},
                                 {CBaseChainParams::Network::TESTNET,{
                                      "zrS7QUB2eDbbKvyP43VJys3t7RpojW8GdxH"
@@ -31,7 +31,7 @@ NullTransactionFork::NullTransactionFork()
                                      "zsnL6pKdzvZ1BPVzALUoqw2KsY966XFs5CE"
                                      }},
                                 {CBaseChainParams::Network::REGTEST,{
-                                     "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa"
+                                     "zrB1kV2g6ufSHQqJ9krxoLthwFeYsD3MLq8"
                                  }},
                                 {CBaseChainParams::Network::TESTNET,{
                                      "zrFr5HVm7woVq3oFzkMEdJdbfBchfPAPDsP"

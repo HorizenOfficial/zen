@@ -177,6 +177,6 @@ class ComparisonTestFramework(BitcoinTestFramework):
 
     def setup_network(self):
         self.nodes = start_nodes(self.num_nodes, self.options.tmpdir,
-                                    extra_args=[['-debug', '-whitelist=127.0.0.1']] * self.num_nodes,
+                                    extra_args=[['-logtimemicros=1', '-debug=net', '-debug=rpc', '-whitelist=127.0.0.1']] * self.num_nodes,
                                     binary=[self.options.testbinary] +
                                            [self.options.refbinary]*(self.num_nodes-1))

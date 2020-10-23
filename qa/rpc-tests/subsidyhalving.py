@@ -12,7 +12,7 @@ import pprint
 from decimal import *
 
 DEBUG_MODE = 1
-NUMB_OF_NODES = 3
+NUMB_OF_NODES = 4
 
 #HALVING_INTERVAL = 500
 HALVING_INTERVAL = 2000
@@ -46,7 +46,9 @@ class subsidyhalving(BitcoinTestFramework):
             extra_args = [
                 ['-logtimemicros', '-debug=py', '-debug=net', '-subsidyhalvinginterval=%d'%halving_interv],
                 ['-logtimemicros', '-debug=py', '-debug=net'],
-                ['-logtimemicros', '-debug=py', '-debug=net']
+                ['-logtimemicros', '-debug=py', '-debug=net'],
+                # standalone node
+                ['-logtimemicros', '-debug=py', '-debug=net', '-subsidyhalvinginterval=101']
             ])
 
         connect_nodes(self.nodes[0], 1)
@@ -60,7 +62,31 @@ class subsidyhalving(BitcoinTestFramework):
     def run_test(self):
 
         """
-        In this test 3 nodes are connected with each other, one of them is a malicious one and
+        As a preliminary check, a standalone node builds a long chain completing 31 halvings and verifying that after
+        that, a zero-amount coinbase is achieved.
+        """
+        standalone_node = self.nodes[3]
+
+        gen = standalone_node.getblockhash(0)
+        print("\n\nGenesis block is:\n" + gen + "\n")
+        block = standalone_node.generate(1)[-1]
+
+        for x in xrange(32):
+            coinbase_tx         = standalone_node.getblock(block, True)['tx'][0]
+            decoded_coinbase_tx = standalone_node.getrawtransaction(coinbase_tx, 1)
+            cb                  = sum(i['value'] for i in decoded_coinbase_tx['vout'])*100000000
+            print "Halving n. {:2d}  coinbase subsidy = {:10d} ZAT".format(x, int(cb))
+            block = standalone_node.generate(101)[-1]
+
+        print "Halving n. {:2d}  coinbase subsidy = {:10d} ZAT\n".format(x+1, int(cb))
+
+        # check there are no subsidy quotas in the coinbase tx 
+        assert_equal(1, len(decoded_coinbase_tx['vout']))
+        # and the miner reward has '0' value
+        assert_equal(0, decoded_coinbase_tx['vout'][0]['valueZat'])
+
+        """
+        Now 3 nodes are connected with each other, one of them is a malicious one and
         has a halving period longer than the others.
         Several fork points are reached and the correct subsidy partition is verified.
         When the halving height is reached, the malicious node mines a block containing a
@@ -81,7 +107,7 @@ class subsidyhalving(BitcoinTestFramework):
         Height  200 , .. , 1999 --> reward:  7.50000000
         Height 2000 , .. , 3999 --> reward:  3.75000000 (1st halving)
         Height 4000 , .. , 5999 --> reward:  1.87500000 (2nd halving)
-        ...
+                                                    ...
         """
 
         COINBASE_AMOUNT = Decimal("12.50000000")
@@ -139,6 +165,8 @@ class subsidyhalving(BitcoinTestFramework):
 
             # check ending block
             check_coinbase(node, block, reward_amount, coinbase_amount)
+
+
 
 
         mine_and_check_fork_reward(self.nodes[1],  100, MINER_REWARD_0)

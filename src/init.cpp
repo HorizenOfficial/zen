@@ -521,7 +521,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-allownonstandardtx",
         "regtest/testnet only - allow non-standard tx (default depends on regtest/testnet params)");
 
-    strUsage += HelpMessageOpt("-subsidyhalvinginterval=<n>", "regtest only - Set halving interval for testing purposes (default=2000 in regtest)");
+    strUsage += HelpMessageOpt("-subsidyhalvinginterval=<n>", "regtest only - Set halving interval for testing purposes (default=2000 in regtest; must be > 100)");
         
     if (GetBoolArg("-help-debug", false))
         strUsage += HelpMessageOpt("-blockversion=<n>", "Override block version to test forking scenarios");
@@ -972,6 +972,10 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         {
             LogPrintf("%s():%d - nSubsidyHalvingInterval = %d\n",
                 __func__, __LINE__, Params().GetConsensus().nSubsidyHalvingInterval);
+
+            // the first halving must be at least as the fork2 value, which is 101 in regtest 
+            if (val <= 100) assert(!"subsidyhalvinginterval must be greater than 100");
+
             Params(CBaseChainParams::REGTEST).SetSubsidyHalvingInterval(val);
             LogPrintf("%s():%d - %s: set nSubsidyHalvingInterval = %d) \n",
                 __func__, __LINE__, Params().NetworkIDString(), Params().GetConsensus().nSubsidyHalvingInterval);

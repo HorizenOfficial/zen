@@ -22,10 +22,11 @@ NOTE: This test is very slow and may take more than 40 minutes to run.
 from test_framework.test_framework import ComparisonTestFramework
 from test_framework.comptool import TestInstance, TestManager
 from test_framework.mininode import NetworkThread
-from test_framework.blocktools import create_block, create_coinbase, create_transaction
+from test_framework.blocktools import create_block, create_coinbase_h, get_nBits, create_transaction
 from test_framework.script import CScript, CScriptOp, CScriptNum, OPCODES_BY_NAME
 
 import os
+import time
 import json
 
 script_valid_file   = "../../src/test/data/script_valid.json"
@@ -121,12 +122,10 @@ def ParseScript(json_script):
     return parsed_script
             
 class TestBuilder(object):
-    def create_credit_tx(self, scriptPubKey):
+    def create_credit_tx(self, scriptPubKey, height):
         # self.tx1 is a coinbase transaction, modeled after the one created by script_tests.cpp
         # This allows us to reuse signatures created in the unit test framework.
-        self.tx1 = create_coinbase()                 # this has a bip34 scriptsig,
-        self.tx1.vin[0].scriptSig = CScript([0, 0])  # but this matches the unit tests
-        self.tx1.vout[0].nValue = 0
+        self.tx1 = create_coinbase_h(height)
         self.tx1.vout[0].scriptPubKey = scriptPubKey
         self.tx1.rehash()
     def create_spend_tx(self, scriptSig):
@@ -160,29 +159,38 @@ class ScriptTest(ComparisonTestFramework):
         test.run()
 
     def generate_test_instance(self, pubkeystring, scriptsigstring):
+
+        chainHeight = self.nodes[0].getblockcount()
+        print "Called at height = {}".format(chainHeight)
+
         scriptpubkey = ParseScript(pubkeystring)
         scriptsig = ParseScript(scriptsigstring)
 
         test = TestInstance(sync_every_block=False)
         test_build = TestBuilder()
-        test_build.create_credit_tx(scriptpubkey)
+        test_build.create_credit_tx(scriptpubkey, chainHeight+1)
         test_build.create_spend_tx(scriptsig)
         test_build.rehash()
 
-        block = create_block(self.tip, test_build.tx1, self.block_time)
+        block = create_block(self.tip, test_build.tx1, self.block_time, get_nBits(chainHeight))
+        chainHeight += 1
         self.block_time += 1
         block.solve()
         self.tip = block.sha256
         test.blocks_and_transactions = [[block, True]]
 
         for i in xrange(100):
-            block = create_block(self.tip, create_coinbase(), self.block_time)
+            block = create_block(self.tip, create_coinbase_h(chainHeight+1), self.block_time, get_nBits(chainHeight))
+            chainHeight += 1
             self.block_time += 1
             block.solve()
             self.tip = block.sha256
             test.blocks_and_transactions.append([block, True])
+            if ((i+1) % 10) == 0:
+                print "... {} blocks created".format(i+1)
 
-        block = create_block(self.tip, create_coinbase(), self.block_time)
+        block = create_block(self.tip, create_coinbase_h(chainHeight+1), self.block_time, get_nBits(chainHeight))
+        chainHeight += 1
         self.block_time += 1
         block.vtx.append(test_build.tx2)
         block.hashMerkleRoot = block.calc_merkle_root()
@@ -194,12 +202,15 @@ class ScriptTest(ComparisonTestFramework):
     # This generates the tests for TestManager.
     def get_tests(self):
         self.tip = int ("0x" + self.nodes[0].getbestblockhash() + "L", 0)
-        self.block_time = 1333230000  # before the BIP16 switchover
+        #self.block_time = 1333230000  # before the BIP16 switchover
+        #self.block_time = int(time.time())+1
+        chainHeight = 0
 
         '''
         Create a new block with an anyone-can-spend coinbase
         '''
-        block = create_block(self.tip, create_coinbase(), self.block_time)
+        block = create_block(self.tip, create_coinbase_h(chainHeight+1), self.block_time, get_nBits(chainHeight))
+        chainHeight += 1
         self.block_time += 1
         block.solve()
         self.tip = block.sha256
@@ -210,20 +221,30 @@ class ScriptTest(ComparisonTestFramework):
         '''
         test = TestInstance(objects=[], sync_every_block=False, sync_every_tx=False)
         for i in xrange(100):
-            b = create_block(self.tip, create_coinbase(), self.block_time)
+            b = create_block(self.tip, create_coinbase_h(chainHeight+1), self.block_time, get_nBits(chainHeight))
+            chainHeight += 1
             b.solve()
             test.blocks_and_transactions.append([b, True])
             self.tip = b.sha256
             self.block_time += 1
+            if ((i+1) % 10) == 0:
+                print "... {} blocks created".format(i+1)
         yield test
  
+
         ''' Iterate through script tests. '''
+        print "Iterate through script tests..."
         counter = 0
         for script_test in self.scripts.get_records():
             ''' Reset the blockchain to genesis block + 100 blocks. '''
-            if self.nodes[0].getblockcount() > 101:
-                self.nodes[0].invalidateblock(self.nodes[0].getblockhash(102))
-                self.nodes[1].invalidateblock(self.nodes[1].getblockhash(102))
+            print "{}) blockchain (h={}) ".format(counter, self.nodes[0].getblockcount())
+
+            assert(self.nodes[0].getblockcount() == self.nodes[1].getblockcount())
+            
+            # can not invalidate more than 100 blocks ---> assert hit
+            #if bcnt > 101:
+            #    self.nodes[0].invalidateblock(self.nodes[0].getblockhash(102))
+            #    self.nodes[1].invalidateblock(self.nodes[1].getblockhash(102))
 
             self.tip = int ("0x" + self.nodes[0].getbestblockhash() + "L", 0)
 
@@ -236,10 +257,10 @@ class ScriptTest(ComparisonTestFramework):
             # We intentionally let the block time grow by 1 each time.
             # This forces the block hashes to differ between tests, so that
             # a call to invalidateblock doesn't interfere with a later test.
-            if (flags & SCRIPT_VERIFY_P2SH):
-                self.block_time = 1333238400 + counter # Advance to enforcing BIP16
-            else:
-                self.block_time = 1333230000 + counter # Before the BIP16 switchover
+            #if (flags & SCRIPT_VERIFY_P2SH):
+            #    self.block_time = 1333238400 + counter # Advance to enforcing BIP16
+            #else:
+            #    self.block_time = 1333230000 + counter # Before the BIP16 switchover
 
             print "Script test: [%s]" % script_test
 
