@@ -107,26 +107,36 @@ class ws_messages(BitcoinTestFramework):
         mark_logs("Node 0 generates 220 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(220)
 
+        # TODO Place following code block after all other websocket tests on merging.
+
         mark_logs("Test for retrieving 1 header", self.nodes, DEBUG_MODE)
         start_height = self.nodes[0].getblockcount()
         self.nodes[0].generate(1)
         height = self.nodes[0].getblockcount()
+        exp_headers = [self.nodes[0].getblock(str(start_height), False)[0:354]]
         hashes = [self.nodes[0].getblockhash(n) for n in range(start_height, height)]
-        self.nodes[0].ws_get_block_headers(hashes)
+        headers_ = self.nodes[0].ws_get_block_headers(hashes)
+        assert_equal(exp_headers, headers_)
 
         mark_logs("Test for retrieving 10 headers", self.nodes, DEBUG_MODE)
         start_height = self.nodes[0].getblockcount()
         self.nodes[0].generate(10)
         height = self.nodes[0].getblockcount()
         hashes = [self.nodes[0].getblockhash(n) for n in range(start_height, height)]
-        self.nodes[0].ws_get_block_headers(hashes)
+        exp_headers = [self.nodes[0].getblock(str(n), False)[0:354] for n in range(start_height, height)]
+        headers_ = self.nodes[0].ws_get_block_headers(hashes)
+        assert_equal(exp_headers, headers_)
 
         mark_logs("Test for retrieving 50 headers", self.nodes, DEBUG_MODE)
         start_height = self.nodes[0].getblockcount()
         self.nodes[0].generate(50)
         height = self.nodes[0].getblockcount()
         hashes = [self.nodes[0].getblockhash(n) for n in range(start_height, height)]
+        exp_headers = [self.nodes[0].getblock(str(n), False)[0:354] for n in range(start_height, height)]
         self.nodes[0].ws_get_block_headers(hashes)
+        headers_ = self.nodes[0].ws_get_block_headers(hashes)
+        assert_equal(exp_headers, headers_)
+
 
         mark_logs("Test for retrieving 51 headers(Should end up with exception: Invalid parameter)", self.nodes, DEBUG_MODE)
         start_height = self.nodes[0].getblockcount()
@@ -134,12 +144,11 @@ class ws_messages(BitcoinTestFramework):
         height = self.nodes[0].getblockcount()
         hashes = [self.nodes[0].getblockhash(n) for n in range(start_height, height)]
         try:
+            mark_logs("Try to request block headers over the limit", self.nodes, DEBUG_MODE)
             self.nodes[0].ws_get_block_headers(hashes)
-            print("We should never get here.")
+            raise RuntimeError("Get block headers. Rquest over the limit(50 headers) passed.")
         except JSONWSException as e:
             print "Exception:", e.error
-        except Exception as e:
-            print "Unexpected exception:  ", str(e)
 
 if __name__ == '__main__':
     ws_messages().main()
