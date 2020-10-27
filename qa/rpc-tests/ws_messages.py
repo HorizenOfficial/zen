@@ -24,6 +24,7 @@ DEBUG_MODE = 1
 NUMB_OF_NODES = 3
 EPOCH_LENGTH = 5
 CERT_FEE = Decimal('0.00015')
+BLOCK_HASH_LIMIT = 100
 
 def get_epoch_data( scid, node, epochLen):
     sc_creating_height = node.getscinfo(scid)['created at block height']
@@ -196,9 +197,11 @@ class ws_messages(BitcoinTestFramework):
         mark_logs("Check cert is in mempool", self.nodes, DEBUG_MODE)
         assert_equal(True, cert_epoch_0 in self.nodes[0].getrawmempool())
 
+        # ----------------------------------------------------------------"
+        # Test get single block
         mark_logs("Node0 generates 1 block, check that Websocket evt is correctly handled ", self.nodes, DEBUG_MODE)
         t.handle_events = True
-        bh = self.nodes[0].generate(1)[0]
+        block_hash = self.nodes[0].generate(1)[0]
         self.sync_all()
         while True:
             self.sem.acquire()
@@ -206,22 +209,120 @@ class ws_messages(BitcoinTestFramework):
             print "############ Sem Taken"
             break
 
-        bc = self.nodes[0].getblockcount()
-        bl = self.nodes[0].getblock(str(bc), False)
-        assert_equal(self.wsEventPayload['height'], bc)
-        assert_equal(self.wsEventPayload['hash'], bh)
-        assert_equal(self.wsEventPayload['block'], bl)
+        height = self.nodes[0].getblockcount()
+        exp_block = self.nodes[0].getblock(str(height), False)
+        assert_equal(self.wsEventPayload['height'], height)
+        assert_equal(self.wsEventPayload['hash'], block_hash)
+        assert_equal(self.wsEventPayload['block'], exp_block)
         print "=====> GotEvent: "
         pprint.pprint(self.wsEventPayload)
 
-        mark_logs("Getting block via ws", self.nodes, DEBUG_MODE)
-        height_, hash_, block_ = self.nodes[0].ws_get_single_block(bc)
-        assert_equal(height_, bc)
-        assert_equal(hash_, bh)
-        assert_equal(block_, bl)
+        mark_logs("Getting block via ws with block height", self.nodes, DEBUG_MODE)
+        height_, hash_, block_ = self.nodes[0].ws_get_single_block(height)
+        assert_equal(height, height_)
+        assert_equal(block_hash, hash_)
+        assert_equal(exp_block, block_)
+
+        mark_logs("Getting block via ws with block hash", self.nodes, DEBUG_MODE)
+        height_, hash_, block_ = self.nodes[0].ws_get_single_block(block_hash)
+        assert_equal(height, height_)
+        assert_equal(block_hash, hash_)
+        assert_equal(exp_block, block_)
+
+        # ----------------------------------------------------------------"
+        # Test get multiple block hashes
+        # On this test start_height and start_hash point to block before created sequence.
+        mark_logs("Node0 generates 5 blocks", self.nodes, DEBUG_MODE)
+        start_height = self.nodes[0].getblockcount()
+        start_hash = self.nodes[0].getblockhash(start_height)
+        self.nodes[0].generate(5)[0]
+        self.sync_all()
+
+        height = self.nodes[0].getblockcount()
+        exp_hashes = [self.nodes[0].getblockhash(n) for n in range(start_height + 1, height + 1)]
+
+        mark_logs("Getting multiple hashes via ws with starting hash", self.nodes, DEBUG_MODE)
+        height_,hashes_ = self.nodes[0].ws_get_multiple_block_hashes(start_hash, 5)
+        assert_equal(exp_hashes, hashes_)
+        assert_equal(start_height + 1, height_)
+
+        mark_logs("Getting multiple hashes via ws with starting height", self.nodes, DEBUG_MODE)
+        height_,hashes_ = self.nodes[0].ws_get_multiple_block_hashes(start_height, 5)
+        assert_equal(exp_hashes, hashes_)
+        assert_equal(start_height + 1, height_)
+
+        mark_logs("Node0 generates " + str(BLOCK_HASH_LIMIT) +" blocks", self.nodes, DEBUG_MODE)
+        start_height = self.nodes[0].getblockcount()
+        start_hash = self.nodes[0].getblockhash(start_height)
+        self.nodes[0].generate(BLOCK_HASH_LIMIT)[0]
+        self.sync_all()
+
+        height = self.nodes[0].getblockcount()
+        exp_hashes = [self.nodes[0].getblockhash(n) for n in range(start_height + 1, height + 1)]
+
+        mark_logs("Getting multiple hashes via ws with starting hash", self.nodes, DEBUG_MODE)
+        height_,hashes_ = self.nodes[0].ws_get_multiple_block_hashes(start_hash, BLOCK_HASH_LIMIT)
+        assert_equal(exp_hashes, hashes_)
+        assert_equal(start_height + 1, height_)
+
+        mark_logs("Getting multiple hashes via ws with starting height", self.nodes, DEBUG_MODE)
+        height_,hashes_ = self.nodes[0].ws_get_multiple_block_hashes(start_height, BLOCK_HASH_LIMIT)
+        assert_equal(exp_hashes, hashes_)
+        assert_equal(start_height + 1, height_)
+
+        try:
+            mark_logs("Try to request block hashes over the limit", self.nodes, DEBUG_MODE)
+            self.nodes[0].ws_get_multiple_block_hashes(start_hash, BLOCK_HASH_LIMIT + 1)
+            raise RuntimeError("Get multiple block hashes. Rquest over the limit(" + str(BLOCK_HASH_LIMIT) +" hashes) passed.")
+        except JSONWSException as e:
+            print "Exception:", e.error
+
+        try:
+            mark_logs("Try to request block hashes over the limit", self.nodes, DEBUG_MODE)
+            self.nodes[0].ws_get_multiple_block_hashes(start_height, BLOCK_HASH_LIMIT + 1)
+            raise RuntimeError("Get multiple block hashes. Rquest over the limit(" + str(BLOCK_HASH_LIMIT) +" hashes) passed.")
+        except JSONWSException as e:
+            print "Exception:", e.error
+
+        # ----------------------------------------------------------------"
+        # Test get new block hashes
+        # On this test start_height and start_hash is the first block of created sequence.
+        mark_logs("Node0 generates 5 blocks", self.nodes, DEBUG_MODE)
+        start_height = self.nodes[0].getblockcount()
+        start_hash = self.nodes[0].generate(5)[0]
+        start_height = start_height + 1  # First created block of sequence
+        self.sync_all()
+
+        height = self.nodes[0].getblockcount()
+        exp_hashes = [self.nodes[0].getblockhash(n) for n in range(start_height, height + 1)]
+
+        mark_logs("Getting new block hashes via ws", self.nodes, DEBUG_MODE)
+        height_,hashes_ = self.nodes[0].ws_get_new_block_hashes([start_hash], 5)
+        assert_equal(exp_hashes, hashes_)
+        assert_equal(start_height, height_)
+
+        mark_logs("Node0 generates " + str(BLOCK_HASH_LIMIT) +" blocks", self.nodes, DEBUG_MODE)
+        start_height = self.nodes[0].getblockcount()
+        start_hash = self.nodes[0].generate(BLOCK_HASH_LIMIT)[0]
+        start_height = start_height + 1 # First created block of sequence
+        self.sync_all()
+
+        height = self.nodes[0].getblockcount()
+        exp_hashes = [self.nodes[0].getblockhash(n) for n in range(start_height, height + 1)]
+
+        mark_logs("Getting new block hashes via ws", self.nodes, DEBUG_MODE)
+        height_,hashes_ = self.nodes[0].ws_get_new_block_hashes([start_hash], BLOCK_HASH_LIMIT)
+        assert_equal(exp_hashes, hashes_)
+        assert_equal(start_height, height_)
+
+        try:
+            mark_logs("Try to request block hashes over the limit", self.nodes, DEBUG_MODE)
+            self.nodes[0].ws_get_new_block_hashes([start_hash], BLOCK_HASH_LIMIT + 1)
+            raise RuntimeError("New block hashes. Rquest over the limit(" + str(BLOCK_HASH_LIMIT) +" hashes) passed.")
+        except JSONWSException as e:
+            print "Exception:", e.error
 
         t.do_run = False
-
 
 
 

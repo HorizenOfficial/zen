@@ -77,8 +77,11 @@ def fill_ws_get_single_block_input(args):
     msg['requestType'] = REQ_GET_SINGLE_BLOCK 
 
     msg['requestPayload'] = {}
-    # TODO height or hash depending on arg value
-    msg['requestPayload']['height'] = args[0] 
+    if isinstance(args[0], int):
+      msg['requestPayload']['height'] = args[0]
+    else:
+      msg['requestPayload']['hash'] = args[0]
+
     return json.dumps(msg, default=EncodeDecimal)
 
 def fill_ws_get_single_block_output(jrsp):
@@ -86,7 +89,49 @@ def fill_ws_get_single_block_output(jrsp):
     return jrsp['responsePayload']['height'], jrsp['responsePayload']['hash'], jrsp['responsePayload']['block']
 
 #----------------------------------------------------------------
-# to be continued with all the supported messages...
+def fill_ws_get_multiple_block_hashes_input(args):
+    if len(args) == 0:
+        raise JSONWSException("{}(): wrong number of args {}".format(__func(), len(args)))
+
+    msg = {}
+    msg['msgType']     = MSG_REQUEST
+    msg['requestId']   = "req_" + str(time.time())
+    msg['requestType'] = REQ_GET_MULTIPLE_BLOCK_HASHES
+
+    msg['requestPayload'] = {}
+    if isinstance(args[0], int):
+      msg['requestPayload']['afterHeight'] = args[0]
+    else:
+      msg['requestPayload']['afterHash'] = args[0]
+
+    msg['requestPayload']['afterHash'] = args[0]
+    msg['requestPayload']['limit'] = args[1]
+    return json.dumps(msg, default=EncodeDecimal)
+
+def fill_ws_get_multiple_block_hashes_output(jrsp):
+    print "Json Received '%s'" % jrsp
+    return jrsp['responsePayload']['height'], jrsp['responsePayload']['hashes']
+
+#----------------------------------------------------------------
+def fill_ws_get_new_block_hashes_input(args):
+    if len(args) == 0:
+        raise JSONWSException("{}(): wrong number of args {}".format(__func(), len(args)))
+
+    msg = {}
+    msg['msgType']     = MSG_REQUEST
+    msg['requestId']   = "req_" + str(time.time())
+    msg['requestType'] = REQ_GET_NEW_BLOCK_HASHES
+
+    msg['requestPayload'] = {}
+    msg['requestPayload']['locatorHashes'] = args[0]
+    msg['requestPayload']['limit'] = args[1]
+    return json.dumps(msg, default=EncodeDecimal)
+
+def fill_ws_get_new_block_hashes_output(jrsp):
+    print "Json Received '%s'" % jrsp
+    return jrsp['responsePayload']['height'], jrsp['responsePayload']['hashes']
+
+#----------------------------------------------------------------
 
 
 # for negative tests 
@@ -116,6 +161,8 @@ def fill_ws_test_output(jrsp):
 def fill_ws_cmd_input(method, args):
     if method == "ws_send_certificate": return fill_ws_send_certificate_input(args)
     if method == "ws_get_single_block": return fill_ws_get_single_block_input(args)
+    if method == "ws_get_multiple_block_hashes": return fill_ws_get_multiple_block_hashes_input(args)
+    if method == "ws_get_new_block_hashes": return fill_ws_get_new_block_hashes_input(args)
 
     if method == "ws_test": return fill_ws_test_input(args)
     # add specific method calls here
@@ -127,6 +174,8 @@ def fill_ws_cmd_output(method, jrsp):
 
     if method == "ws_send_certificate": return fill_ws_send_certificate_output(jrsp)
     if method == "ws_get_single_block": return fill_ws_get_single_block_output(jrsp)
+    if method == "ws_get_multiple_block_hashes": return fill_ws_get_multiple_block_hashes_output(jrsp)
+    if method == "ws_get_new_block_hashes": return fill_ws_get_new_block_hashes_output(jrsp)
 
     if method == "ws_test": return fill_ws_test_output(jrsp)
     # add specific method calls here
