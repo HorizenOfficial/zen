@@ -930,9 +930,10 @@ TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation)
 //////////////////////////////// UndoBlock versioning /////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainTestSuite, CSidechainBlockUndoVersioning) {
-
-    static const std::string autofileName = "/tmp/test_block_undo_versioning.txt";
-    CAutoFile fileout(fopen(autofileName.c_str(), "wb+") , SER_DISK, CLIENT_VERSION);
+    boost::filesystem::path pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path());
+    boost::filesystem::create_directories(pathTemp);
+    static const std::string autofileName = "test_block_undo_versioning.txt";
+    CAutoFile fileout(fopen((pathTemp.string() + autofileName).c_str(), "wb+") , SER_DISK, CLIENT_VERSION);
     EXPECT_TRUE(fileout.Get() != NULL);
 
     // write an old version undo block to the file
@@ -985,7 +986,7 @@ TEST_F(SidechainTestSuite, CSidechainBlockUndoVersioning) {
 
     // read both blocks and tell their version
     //-----------------------------------------------
-    CAutoFile filein(fopen(autofileName.c_str(), "r+") , SER_DISK, CLIENT_VERSION);
+    CAutoFile filein(fopen((pathTemp.string() + autofileName).c_str(), "rb+") , SER_DISK, CLIENT_VERSION);
     EXPECT_TRUE(filein.Get() != NULL);
 
     bool good_read = true;
@@ -1010,6 +1011,8 @@ TEST_F(SidechainTestSuite, CSidechainBlockUndoVersioning) {
     EXPECT_TRUE(h2 == h_buon);
 
     filein.fclose();
+    boost::system::error_code ec;
+    boost::filesystem::remove_all(pathTemp.string(), ec);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

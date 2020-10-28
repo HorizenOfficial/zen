@@ -25,7 +25,7 @@ packages:
 - "wget"
 - "zlib1g-dev"
 remotes:
-- "url": "https://github.com/ZencashOfficial/zen.git"
+- "url": "https://github.com/HorizenOfficial/zen.git"
   "dir": "zen"
 files: []
 script: |
