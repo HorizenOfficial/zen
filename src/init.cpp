@@ -66,6 +66,8 @@
 
 #include "librustzcash.h"
 
+#include <zen/forks/fork2_replayprotectionfork.h>
+
 using namespace std;
 
 extern void ThreadSendAlert();
@@ -521,7 +523,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-allownonstandardtx",
         "regtest/testnet only - allow non-standard tx (default depends on regtest/testnet params)");
 
-    strUsage += HelpMessageOpt("-subsidyhalvinginterval=<n>", "regtest only - Set halving interval for testing purposes (default=2000 in regtest; must be > 100)");
+    strUsage += HelpMessageOpt("-subsidyhalvinginterval=<n>", "regtest only - Set halving interval for testing purposes (default=2000; must be > 100)");
         
     if (GetBoolArg("-help-debug", false))
         strUsage += HelpMessageOpt("-blockversion=<n>", "Override block version to test forking scenarios");
@@ -973,8 +975,13 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
             LogPrintf("%s():%d - nSubsidyHalvingInterval = %d\n",
                 __func__, __LINE__, Params().GetConsensus().nSubsidyHalvingInterval);
 
-            // the first halving must be at least as the fork2 value, which is 101 in regtest 
-            if (val <= 100) assert(!"subsidyhalvinginterval must be greater than 100");
+            // Halving period cannot be shortened below fork2 activation height. In fact fork1_chainsplitfork imposes
+            // a maximal height for community rewards generation, currently set to the first halving height.
+            // Should be the first halving height be reduced below fork2 activation, the maximal height constraing could
+            // be violated for otherwise valid height, causing an assert to crash the node
+            ::zen::ReplayProtectionFork targetFork;
+            if (val <= targetFork.getHeight(CBaseChainParams::REGTEST))
+            	assert(!"subsidyhalvinginterval too low");
 
             Params(CBaseChainParams::REGTEST).SetSubsidyHalvingInterval(val);
             LogPrintf("%s():%d - %s: set nSubsidyHalvingInterval = %d) \n",

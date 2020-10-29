@@ -3644,16 +3644,14 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
         CAmount communityReward = ForkManager::getInstance().getCommunityFundReward(nHeight, reward, cfType);
         if (communityReward > 0) {
-            bool found = false;
             const CScript& refScript = Params().GetCommunityFundScriptAtHeight(nHeight, cfType);
 
-            BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout)
+            bool found = false;
+            for(const CTxOut& output: block.vtx[0].vout)
             {
-                if (output.scriptPubKey == refScript) {
-                    if (output.nValue == communityReward) {
+                if ((output.scriptPubKey == refScript) && (output.nValue == communityReward)) {
                         found = true;
                         break;
-                    }
                 }
             }
 
