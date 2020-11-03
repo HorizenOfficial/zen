@@ -1050,128 +1050,250 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
-void AddScInfoToJSON(const uint256& scId, const CSidechain& info, CSidechain::State scState, UniValue& sc)
+bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechain::State scState, UniValue& sc, bool bOnlyAlive, bool bVerbose)
 {
-    int currentEpoch = info.EpochFor(chainActive.Height());
+    if (bOnlyAlive && (scState != CSidechain::State::ALIVE))
+    	return false;
+
+    int currentEpoch = (scState == CSidechain::State::ALIVE)?
+            info.EpochFor(chainActive.Height()):
+            info.EpochFor(info.GetCeasingHeight());
+
     sc.push_back(Pair("scid", scId.GetHex()));
     sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
     sc.push_back(Pair("epoch", currentEpoch));
     sc.push_back(Pair("end epoch height", info.StartHeightForEpoch(currentEpoch +1) - 1));
     sc.push_back(Pair("state", CSidechain::stateToString(scState)));
     sc.push_back(Pair("ceasing height", info.GetCeasingHeight()));
-    sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
-    sc.push_back(Pair("created in block", info.creationBlockHash.ToString()));
+
+    if (bVerbose)
+    {
+        sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
+        sc.push_back(Pair("created in block", info.creationBlockHash.ToString()));
+    }
+
     sc.push_back(Pair("created at block height", info.creationBlockHeight));
     sc.push_back(Pair("last certificate epoch", info.lastEpochReferencedByCertificate));
-    sc.push_back(Pair("last certificate hash", info.lastCertificateHash.GetHex()));
+
+    if (bVerbose)
+    {
+        sc.push_back(Pair("last certificate hash", info.lastCertificateHash.GetHex()));
+    }
+
     // creation parameters
     sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
-    sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
-    sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
-    sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
 
-    UniValue ia(UniValue::VARR);
-    BOOST_FOREACH(const auto& entry, info.mImmatureAmounts)
+    if (bVerbose)
     {
-        UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("maturityHeight", entry.first));
-        o.push_back(Pair("amount", ValueFromAmount(entry.second)));
-        ia.push_back(o);
+        sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
+        sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
+        sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
+
+        UniValue ia(UniValue::VARR);
+        for(const auto& entry: info.mImmatureAmounts)
+        {
+            UniValue o(UniValue::VOBJ);
+            o.push_back(Pair("maturityHeight", entry.first));
+            o.push_back(Pair("amount", ValueFromAmount(entry.second)));
+            ia.push_back(o);
+        }
+        sc.push_back(Pair("immature amounts", ia));
     }
-    sc.push_back(Pair("immature amounts", ia));
+    return true;
 }
 
-bool AddScInfoToJSON(const uint256& scId, UniValue& sc)
+bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAlive, bool bVerbose)
 {
     CSidechain scInfo;
     CCoinsViewCache scView(pcoinsTip);
     if (!scView.GetSidechain(scId, scInfo)) {
         LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
-        return false;
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
     }
     CSidechain::State scState = scView.isCeasedAtHeight(scId, chainActive.Height() + 1);
 
-    AddScInfoToJSON(scId, scInfo, scState, sc);
-    return true;
+    return FillScRecordFromInfo(scId, scInfo, scState, scRecord, bOnlyAlive, bVerbose);
 }
 
-void AddScInfoToJSON(UniValue& result)
+int FillScList(UniValue& scItems, bool bOnlyAlive, bool bVerbose, int from=0, int to=-1)
 {
     CCoinsViewCache scView(pcoinsTip);
     std::set<uint256> sScIds;
     scView.GetScIds(sScIds);
 
-    BOOST_FOREACH(const auto& entry, sScIds)
+    if (sScIds.size() == 0)
+        return 0;
+
+    // means upper limit max
+    if (to == -1)
     {
-        UniValue sc(UniValue::VOBJ);
-        AddScInfoToJSON(entry, sc);
-        result.push_back(sc);
+        to = sScIds.size();
     }
+
+    // basic check of interval parameters
+    if ( from < 0 || to < 0 || from >= to)
+    {
+        LogPrint("sc", "invalid interval: from[%d], to[%d] (sz=%d)\n", from, to, sScIds.size());
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid interval");
+    }
+
+    UniValue totalResult(UniValue::VARR);
+    std::set<uint256>::iterator it = sScIds.begin();
+
+    while (it != sScIds.end())
+    {
+        UniValue scRecord(UniValue::VOBJ);
+        if (FillScRecord(*it, scRecord, bOnlyAlive, bVerbose))
+            totalResult.push_back(scRecord);
+        ++it;
+    }
+
+    // check consistency of interval in the filtered results list
+    // --
+    // 'from' must be in the valid interval
+    if (from >= totalResult.size())
+    {
+        LogPrint("sc", "invalid interval: from[%d] >= sz[%d]\n", from, totalResult.size());
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid interval");
+    }
+
+    // 'to' must be a formally valid upper bound interval number (positive and greater than 'from') but it is
+    // topped anyway to the upper bound value 
+    if (to > totalResult.size())
+    {
+        to = totalResult.size();
+    }
+
+    auto vec = totalResult.getValues();
+    auto first = vec.begin() + from;
+    auto last  = vec.begin() + to;
+
+    while (first != last)
+    {
+        scItems.push_back(*first++);
+    }
+
+    return vec.size(); 
 }
 
 UniValue getscinfo(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() > 1)
+    if (fHelp || params.size() == 0 || params.size() > 5)
         throw runtime_error(
-            "getscinfo \"scid\" (Optional)\n"
+            "getscinfo (\"scid\" onlyAlive)\n"
+			"\nArguments:\n"
+			"1. \"scid\"   (string, mandatory) Retrive only information about specified scid, \"*\" means all \n"
+			"2. onlyAlive (bool, optional, default=false) Retrieve only information for alive sidechains\n"
+			"3. verbose   (bool, optional, default=true) If false include only essential info in result\n"
+            "   --- meaningful if scid is not specified:\n"
+			"4. from      (integer, optional, default=0) If set, limit the starting item index (0-base) in the result array to this entry (included)\n"
+			"5. to        (integer, optional, default=-1) If set, limit the ending item index (0-base) in the result array to this entry (excluded) (-1 means max)\n"
             "\nReturns side chain info for the given id or for all of the existing sc if the id is not given.\n"
             "\nResult:\n"
-            "[\n"
-            "  {\n"
-            "    \"scid\":                    xxxxx,   (string)  sidechain ID\n"
-            "    \"balance\":                 xxxxx,   (numeric) available balance\n"
-            "    \"epoch\":                   xxxxx,   (numeric) current epoch for this sidechain\n"
-            "    \"end epoch height\":        xxxxx,   (numeric) height of the last block of the current epoch\n"
-            "    \"state\":                   xxxxx,   (string)  state of the sidechain at the current chain height\n"
-            "    \"ceasing height\":          xxxxx,   (numeric) height at which the sidechain is considered ceased if a certificate has not been received\n"
-            "    \"creating tx hash\":        xxxxx,   (string)  txid of the creating transaction\n"
-            "    \"created in block\":        xxxxx,   (string)  hash of the block containing the creatimg tx\n"
-            "    \"created at block height\": xxxxx,   (numeric) height of the above block\n"
-            "    \"last certificate epoch\":  xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
-            "    \"last certificate hash\":   xxxxx,   (numeric) the hash of the last certificate that has been received\n"
-            "    \"withdrawalEpochLength\":   xxxxx,   (numeric) length of the withdrawal epoch\n"
-            "    \"wCertVk\":                 xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
-            "    \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
-            "    \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
-            "    \"immature amounts\": [\n"
-            "      {\n"
-            "        \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"
-            "        \"amount\":              xxxxx,   (numeric) immature fund\n"
-            "      },\n"
-            "      ... ]\n"
-            "  },\n"
-            "  ...\n"
-            "]\n"
+            "{\n"
+            "  \"totalItems\":            xx,      (numeric) number of items found\n"
+            "  \"from\":                  xx,      (numeric) index of the starting item (included in result)\n"
+            "  \"to\":                    xx,      (numeric) index of the ending item (excluded in result)\n"
+            "  \"items\":[\n"
+            "   {\n"
+            "     \"scid\":                    xxxxx,   (string)  sidechain ID\n"
+            "     \"balance\":                 xxxxx,   (numeric) available balance\n"
+            "     \"epoch\":                   xxxxx,   (numeric) current epoch for this sidechain\n"
+            "     \"end epoch height\":        xxxxx,   (numeric) height of the last block of the current epoch\n"
+            "     \"state\":                   xxxxx,   (string)  state of the sidechain at the current chain height\n"
+            "     \"ceasing height\":          xxxxx,   (numeric) height at which the sidechain is considered ceased if a certificate has not been received\n"
+            "     \"creating tx hash\":        xxxxx,   (string)  txid of the creating transaction\n"
+            "     \"created in block\":        xxxxx,   (string)  hash of the block containing the creatimg tx\n"
+            "     \"created at block height\": xxxxx,   (numeric) height of the above block\n"
+            "     \"last certificate epoch\":  xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
+            "     \"last certificate hash\":   xxxxx,   (numeric) the hash of the last certificate that has been received\n"
+            "     \"withdrawalEpochLength\":   xxxxx,   (numeric) length of the withdrawal epoch\n"
+            "     \"wCertVk\":                 xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
+            "     \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
+            "     \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
+            "     \"immature amounts\": [\n"
+            "       {\n"
+            "         \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"
+            "         \"amount\":              xxxxx,   (numeric) immature fund\n"
+            "       },\n"
+            "       ... ]\n"
+            "    },\n"
+            "    ...\n"
+            "  ]\n"
+            "}\n"
 
             "\nExamples\n"
             + HelpExampleCli("getscinfo", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
-            + HelpExampleCli("getscinfo", "")
+            + HelpExampleCli("getscinfo", "\"*\" true false 2 10")
+            + HelpExampleCli("getscinfo", "\"*\" ")
         );
 
-    if (params.size() > 0)
+    bool bRetrieveAllSc = false;
+    string inputString = params[0].get_str();
+    if (!inputString.compare("*"))
+    	bRetrieveAllSc = true;
+    else
     {
-        // side chain id
-        string inputString = params[0].get_str();
         if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
             throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
-
-        uint256 scId;
-        scId.SetHex(inputString);
-
-        UniValue sc(UniValue::VOBJ);
-        if (!AddScInfoToJSON(scId, sc) )
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
-        }
-
-        return sc;
     }
 
-    // dump all of them if any
-    UniValue result(UniValue::VARR);
-    AddScInfoToJSON(result);
+    bool bOnlyAlive = false;
+    if (params.size() > 1)
+    	bOnlyAlive = params[1].get_bool();
 
-    return result;
+    bool bVerbose = true;
+    if (params.size() > 2)
+    	bVerbose = params[2].get_bool();
+
+    UniValue ret(UniValue::VOBJ);
+    UniValue scItems(UniValue::VARR);
+
+    if (!bRetrieveAllSc)
+    {
+        // single search
+        uint256 scId;
+        scId.SetHex(inputString);
+ 
+        UniValue scRecord(UniValue::VOBJ);
+        // throws a json rpc exception if the scid is not found in the db
+        if (!FillScRecord(scId, scRecord, bOnlyAlive, bVerbose) )
+        {
+            // after filtering no sc has been found, this can happen for instance when the sc is ceased
+            // and bOnlyAlive is true
+            ret.push_back(Pair("totalItems", 0));
+            ret.push_back(Pair("from", 0));
+            ret.push_back(Pair("to", 0));
+        }
+        else
+        {
+            ret.push_back(Pair("totalItems", 1));
+            ret.push_back(Pair("from", 0));
+            ret.push_back(Pair("to", 1));
+            scItems.push_back(scRecord);
+        }
+    }
+    else
+    {
+        int from = 0;
+        if (params.size() > 3)
+    	    from = params[3].get_int();
+
+        int to = -1;
+        if (params.size() > 4)
+    	    to = params[4].get_int();
+
+        // throws a json rpc exception if the from/to parameters are invalid or out of the range of the
+        // retrieved scItems list
+        int tot = FillScList(scItems, bOnlyAlive, bVerbose, from, to);
+
+        ret.push_back(Pair("totalItems", tot));
+        ret.push_back(Pair("from", from));
+        ret.push_back(Pair("to", from + scItems.size()));
+    }
+
+    ret.push_back(Pair("items", scItems));
+    return ret;
 }
 
 UniValue getscgenesisinfo(const UniValue& params, bool fHelp)

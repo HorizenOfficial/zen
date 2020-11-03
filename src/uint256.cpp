@@ -9,7 +9,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <sc/sidechaintypes.h>
+#include <zendoo/zendoo_mc.h>
 
 template <unsigned int BITS>
 base_blob<BITS>::base_blob(const std::vector<unsigned char>& vch)

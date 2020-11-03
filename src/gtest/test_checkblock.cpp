@@ -146,7 +146,7 @@ TEST(CheckBlock, BlockRejectsNoCbh) {
 
     //std::cout << "Script: " << scriptPubKey.ToString() << std::endl;
 
-    mtx.addOut(CTxOut(0.5, scriptPubKey));
+    mtx.addOut(CTxOut(0.5 * COIN, scriptPubKey)); //CAmount is measured in zatoshi
 
     block.vtx.push_back(mtx);
 

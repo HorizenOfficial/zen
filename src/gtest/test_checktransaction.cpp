@@ -110,8 +110,8 @@ CMutableScCertificate GetValidCertificate() {
     CMutableScCertificate mcert;
 	mcert.nVersion = SC_CERT_VERSION;
 
-    mcert.addOut(CTxOut(0.5,CScript()));
-    mcert.addOut(CTxOut(1,CScript()));
+    mcert.addOut(CTxOut(0.5 * COIN,CScript())); //CAmount is measured in zatoshi
+    mcert.addOut(CTxOut(1 * COIN,CScript()));   //CAmount is measured in zatoshi
 
     mcert.scId = GetRandHash();
     mcert.epochNumber = 3;
