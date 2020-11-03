@@ -90,7 +90,6 @@ public:
     /** Enforce coinbase consensus rule in regtest mode */
     void SetRegTestCoinbaseMustBeProtected() { consensus.fCoinbaseMustBeProtected = true; }
 
-    int _deprecatedGetLastCommunityRewardBlockHeight() const;
     void SetSubsidyHalvingInterval(int val) { consensus.nSubsidyHalvingInterval = val;}
 protected:
     CChainParams() {}

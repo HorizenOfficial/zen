@@ -116,7 +116,7 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&
     // Check range
     if (fNegative || bnTarget == 0 || fOverflow || bnTarget > UintToArith256(params.powLimit))
     {
-        LogPrintf("nBits = %x, n=%d, o=%d\n", nBits, (int)fNegative, (int)fOverflow);
+        LogPrint("pow", "nBits = %x, n=%d, o=%d\n", nBits, (int)fNegative, (int)fOverflow);
         return error("CheckProofOfWork(): nBits below minimum work");
     }
 

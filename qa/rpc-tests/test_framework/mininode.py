@@ -30,7 +30,6 @@ from threading import RLock
 from threading import Thread
 import logging
 import copy
-import time
 from pyblake2 import blake2b
 
 from .equihash import (
@@ -1384,7 +1383,6 @@ class NodeConn(asyncore.dispatcher):
         self.rpc = rpc
 
     def show_debug_msg(self, msg):
-        #print msg
         self.log.debug(msg)
 
     def handle_connect(self):
@@ -1472,7 +1470,6 @@ class NodeConn(asyncore.dispatcher):
         if self.state != "connected" and not pushbuf:
             return
         self.show_debug_msg("Send %s" % repr(message))
-        #print "\n---> Sending %s\n" % repr(message)
         command = message.command
         data = message.serialize()
         tmsg = self.MAGIC_BYTES[self.network]

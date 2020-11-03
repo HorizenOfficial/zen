@@ -46,6 +46,9 @@ def serialize_script_num(value):
 
 
 def get_nBits(chainHeight):
+    # Hard-coding max target would not work due to rounding behaviour of arith_uint256 type in division in the
+    # pow.cpp src code. This is an approximation for regtest.
+    #---
     # consensus.nPowAveragingWindow = 17
     # genesis.nBits = 0x200f0f0f
     # nBits stabilizes after 0x2d windows

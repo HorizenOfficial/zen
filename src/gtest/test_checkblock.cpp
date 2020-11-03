@@ -448,7 +448,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
 
     //Exceed the LastCommunityRewardBlockHeight
     // this is also the first block after the halving height
-    int exceedHeight=Params()._deprecatedGetLastCommunityRewardBlockHeight()+1;
+    int exceedHeight=Params().GetConsensus()._deprecatedGetLastCommunityRewardBlockHeight()+1;
 
     address_foundation.SetString(Params().GetCommunityFundAddressAtHeight(exceedHeight, Fork::CommunityFundType::FOUNDATION).c_str());
     address_sec_node.SetString(Params().GetCommunityFundAddressAtHeight(exceedHeight, Fork::CommunityFundType::SECURENODE).c_str());
