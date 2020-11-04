@@ -4892,17 +4892,6 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert height"));
     }
 
-    // there must not be another certificate for the same scId in mempool (multiple certificates are not allowed)
-    {
-        LOCK(mempool.cs);
-        if ((mempool.mapSidechains.count(scId) != 0) && (!mempool.mapSidechains.at(scId).backwardCertificate.IsNull()))
-        {
-            const uint256& conflictingCertHash = mempool.mapSidechains.at(scId).backwardCertificate;
-            LogPrintf("%s():%d - ERROR: a certificate %s for scid %s is already in the mempool\n",
-                __func__, __LINE__, conflictingCertHash.ToString(), scId.ToString());
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("conflicting cert"));
-        }
-    }
     cert.endEpochBlockHash = endEpochBlockHash;
 
     //scProof
@@ -5004,6 +4993,17 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     cmd.addInputs();
     cmd.addChange();
     cmd.addBackwardTransfers();
+
+    // now that cert obj is complete, check that we do not have an equivalent one in mempool already
+    {
+        LOCK(mempool.cs);
+        if (!mempool.CheckScEquivalent(cert))
+        {
+            LogPrintf("%s():%d - ERROR: an equivalent certificate for scid %s is already in the mempool\n",
+                __func__, __LINE__, scId.ToString());
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("conflicting cert"));
+        }
+    }
 
     cmd.sign();
     cmd.send();

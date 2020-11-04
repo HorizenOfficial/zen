@@ -102,6 +102,7 @@ public:
                (this->creationTxHash                   == rhs.creationTxHash)                   &&
                (this->lastEpochReferencedByCertificate == rhs.lastEpochReferencedByCertificate) &&
                (this->lastCertificateHash              == rhs.lastCertificateHash)              &&
+               (this->balance                          == rhs.balance)                          &&
                (this->creationData                     == rhs.creationData)                     &&
                (this->mImmatureAmounts                 == rhs.mImmatureAmounts);
     }

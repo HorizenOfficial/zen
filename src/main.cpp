@@ -1042,10 +1042,11 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
     if (!cert.CheckInputsLimit())
         return false;
 
-    if(!CheckCertificate(cert,state))
+    if(!CheckCertificate(cert, state))
         return error("%s(): CheckCertificate failed", __func__);
 
-    if(!cert.ContextualCheck(state, nextBlockHeight, 10))
+    static const int DOS_LEVEL = 10;
+    if(!cert.ContextualCheck(state, nextBlockHeight, DOS_LEVEL))
         return error("%s(): ContextualCheck failed", __func__);
 
     uint256 certHash = cert.GetHash();
@@ -1064,11 +1065,11 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             return false;
         }
 
-        if ((pool.mapSidechains.count(cert.GetScId()) != 0) &&
-            (!pool.mapSidechains.at(cert.GetScId()).backwardCertificate.IsNull())) {
-            LogPrintf("%s():%d - Dropping cert %s : another cert for same sc is already in mempool\n",
-                __func__, __LINE__, certHash.ToString());
-            return error("another cert for same sc is already in mempool");
+        if (!pool.CheckScEquivalent(cert))
+        {
+            LogPrintf("%s():%d - Dropping cert %s : an equivalent cert for same sc %s is already in mempool\n",
+                __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
+            return error("an equivalent cert for same sc is already in mempool");
         }
 
         for (const CTxIn & vin : cert.GetVin()) {

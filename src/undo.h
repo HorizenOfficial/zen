@@ -170,7 +170,9 @@ public:
     {
         std::string str;
         for(const CTxInUndo& in: vprevout)
-            str += strprintf("\n[%s]", in.ToString());
+            str += strprintf("\n  [%s]\n", in.ToString());
+        str += strprintf("replacedLastCertEpoch      %d\n", replacedLastCertEpoch);
+        str += strprintf("replacedLastCertHash       %s\n", replacedLastCertHash.ToString());
         return str;
     }
 
@@ -279,6 +281,11 @@ public:
         str += strprintf("vtxundo.size %u\n", vtxundo.size());
         for(const CTxUndo& txUndo: vtxundo)
             str += txUndo.ToString() + "\n";
+
+        str += strprintf("scUndoMap.size %u\n", scUndoMap.size());
+        for(const auto& pair: scUndoMap)
+            str += strprintf("%s --> %s\n", pair.first.ToString().substr(0,10), pair.second.ToString());
+
         str += strprintf("vVoidedCertUndo.size %u\n", vVoidedCertUndo.size());
         for(const CVoidedCertUndo& voidCertUndo: vVoidedCertUndo)
             str += voidCertUndo.ToString() + "\n";

@@ -823,8 +823,8 @@ int CSidechain::EpochFor(int targetHeight) const { return CScCertificate::EPOCH_
 int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
 int CSidechain::SafeguardMargin() const { return -1; }
 size_t CSidechain::DynamicMemoryUsage() const { return 0; }
-bool CCoinsViewCache::isEpochDataValid(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) {return true;}
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) {return true;}
+bool CCoinsViewCache::isEpochDataValid(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) const {return true;}
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const {return true;}
 bool libzendoomc::CScProofVerifier::verifyCScCertificate(              
     const libzendoomc::ScConstant& constant,
     const libzendoomc::ScVk& wCertVk,
@@ -838,7 +838,7 @@ size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
 
 #include "consensus/validation.h"
 #include "main.h"
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier)
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const
 {
     const uint256& certHash = cert.GetHash();
 
@@ -906,7 +906,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     return true;
 }
 
-bool CCoinsViewCache::isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& endEpochBlockHash)
+bool CCoinsViewCache::isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& endEpochBlockHash) const
 {
     if (epochNumber < 0 || endEpochBlockHash.IsNull())
     {
@@ -914,11 +914,16 @@ bool CCoinsViewCache::isEpochDataValid(const CSidechain& scInfo, int epochNumber
         return false;
     }
 
+    // TODO quality
+    // Adding handling of quality, we can have also certificates for the same epoch of the last certificate
     // 1. the epoch number must be consistent with the sc certificate history (no old epoch allowed)
-    if (epochNumber != scInfo.lastEpochReferencedByCertificate+1)
+    if ( epochNumber != scInfo.lastEpochReferencedByCertificate &&
+         epochNumber != scInfo.lastEpochReferencedByCertificate + 1)
+
     {
-        LogPrint("sc", "%s():%d - can not receive a certificate for epoch %d (expected: %d)\n",
-            __func__, __LINE__, epochNumber, scInfo.lastEpochReferencedByCertificate+1 );
+        LogPrint("sc", "%s():%d - can not receive a certificate for epoch %d (expected: %d or %d)\n",
+            __func__, __LINE__, epochNumber,
+            scInfo.lastEpochReferencedByCertificate, scInfo.lastEpochReferencedByCertificate+1);
         return false;
     }
 
@@ -1186,7 +1191,12 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CScCertificate& cert)
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: cert [%s] finds not prevCeasingHeight [%d] to remove\n",
                 __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), curCeasingHeight);
         // we always must have previous ceasing height record (at list one for current cert sc id).
-        return false;
+
+        // TODO quality
+        // if we have two certificates of different quality and one has been already processed, we hit
+        // this condition when we are processing the second
+        // return false;
+        return true;
     }
 
     //add next ceasing Height

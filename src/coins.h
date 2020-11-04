@@ -563,8 +563,8 @@ public:
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier);
-    bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash);
+    bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const;
+    bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash) const;
     bool UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry);
     bool RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry);
 

@@ -150,7 +150,7 @@ bool VerifyForwardTransfersDependencies(const CTransaction& tx, const CCoinsView
     return true;
 }
 
-bool GetTxInputsDependencies(const CTransactionBase& txBase, CAmount& nTotalIn, int nHeight, list<COrphan>& vOrphan,
+bool GetInputsDependencies(const CTransactionBase& txBase, CAmount& nTotalIn, int nHeight, list<COrphan>& vOrphan,
                              map<uint256, vector<COrphan*> >& mapDependers, COrphan*& porphan)
 {
     const uint256& hash = txBase.GetHash();
@@ -205,7 +205,7 @@ bool GetTxInputsDependencies(const CTransactionBase& txBase, CAmount& nTotalIn, 
     return true;
 }
 
-bool AddTxToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& view, CAmount& nTotalIn,
+bool AddToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& view, CAmount& nTotalIn,
                        int nHeight, const CMemPoolEntry& mpEntry, vector<TxPriority>& vecPriority, COrphan* porphan)
 {
     const uint256& hash = txBase.GetHash();
@@ -283,7 +283,7 @@ void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, const CCoinsVie
         CAmount nTotalIn = 0;
         COrphan* porphan = nullptr;
 
-        if (!GetTxInputsDependencies(cert, nTotalIn, nHeight, vOrphan, mapDependers, porphan) )
+        if (!GetInputsDependencies(cert, nTotalIn, nHeight, vOrphan, mapDependers, porphan) )
         {
             if (porphan)
                 vOrphan.pop_back();
@@ -291,7 +291,7 @@ void GetBlockCertPriorityData(const CBlock *pblock, int nHeight, const CCoinsVie
         }
 
         const CMemPoolEntry& mpEntry = mi->second;
-        if (!AddTxToPriorities(cert, view, nTotalIn, nHeight, mpEntry, vecPriority, porphan) )
+        if (!AddToPriorities(cert, view, nTotalIn, nHeight, mpEntry, vecPriority, porphan) )
         {
             if (porphan)
                 vOrphan.pop_back();
@@ -318,7 +318,7 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
         CAmount nTotalIn = 0;
         COrphan* porphan = nullptr;
 
-        if (!GetTxInputsDependencies(tx, nTotalIn, nHeight, vOrphan, mapDependers, porphan) )
+        if (!GetInputsDependencies(tx, nTotalIn, nHeight, vOrphan, mapDependers, porphan) )
         {
             if (porphan)
                 vOrphan.pop_back();
@@ -333,7 +333,7 @@ void GetBlockTxPriorityData(const CBlock *pblock, int nHeight, int64_t nMedianTi
         }
 
         const CMemPoolEntry& mpEntry = mi->second;
-        if (!AddTxToPriorities(tx, view, nTotalIn, nHeight, mpEntry, vecPriority, porphan) )
+        if (!AddToPriorities(tx, view, nTotalIn, nHeight, mpEntry, vecPriority, porphan) )
         {
             if (porphan)
                 vOrphan.pop_back();

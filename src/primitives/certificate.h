@@ -72,6 +72,9 @@ public:
         return a.hash != b.hash;
     }
 
+    static bool IsScEquivalent(const CScCertificate& a, const CScCertificate& b);
+    uint256 GetScAttributesHash() const;
+
     const uint256& GetHash() const { return hash; }
 
     size_t GetSerializeSize(int nType, int nVersion) const override {

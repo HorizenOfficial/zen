@@ -187,7 +187,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
         mapNextTx[cert.GetVin()[i].prevout] = CInPoint(&cert, i);
 
     LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, cert.GetScId().ToString() );
-    mapSidechains[cert.GetScId()].backwardCertificate = hash;
+    mapSidechains[cert.GetScId()].vBackwardCertificates.push_back(hash);
            
     nCertificatesUpdated++;
     totalCertificateSize += entry.GetCertificateSize();
@@ -258,7 +258,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                             objToRemove.push_back(ccObjHash);
  
                         //no backward cert for unconfirmed sidechain can be in mempool
-                        assert(mapSidechains.at(sc.GetScId()).backwardCertificate.IsNull());
+                        assert(mapSidechains.at(sc.GetScId()).vBackwardCertificates.size() == 0);
                     }
                 }
  
@@ -323,7 +323,10 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                 BOOST_FOREACH(const CTxIn& txin, cert.GetVin())
                     mapNextTx.erase(txin.prevout);
  
-                mapSidechains.at(cert.GetScId()).backwardCertificate.SetNull();
+                // remove certificate hash from stack
+                auto& stack = mapSidechains.at(cert.GetScId()).vBackwardCertificates;
+                stack.erase(std::remove(stack.begin(), stack.end(), hash), stack.end());
+
                 if (mapSidechains.at(cert.GetScId()).IsNull())
                 {
                     LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, cert.GetScId().ToString() );
@@ -619,10 +622,12 @@ void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransacti
     if (!mapSidechains.count(cert.GetScId()))
         return;
 
-    if (mapSidechains.at(cert.GetScId()).backwardCertificate.IsNull())
+    auto& stack = mapSidechains.at(cert.GetScId()).vBackwardCertificates;
+    auto it = std::find(stack.begin(), stack.end(), cert.GetHash());
+    if (it == stack.end())
         return;
 
-    const CScCertificate& conflictingCert = mapCertificate.at(mapSidechains.at(cert.GetScId()).backwardCertificate).GetCertificate();
+    const CScCertificate& conflictingCert = mapCertificate.at(*it).GetCertificate();
     remove(conflictingCert, removedTxs, removedCerts, true);
 }
 
@@ -719,7 +724,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             assert(!pcoins->HaveSidechain(scCreation.GetScId()));
 
             //there cannot be no certificates for unconfirmed sidechains
-            assert(mapSidechains.at(scCreation.GetScId()).backwardCertificate.IsNull());
+            assert(mapSidechains.at(scCreation.GetScId()).vBackwardCertificates.size() == 0);
         }
 
         for(const auto& fwd: tx.GetVftCcOut()) {
@@ -796,7 +801,9 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
         //certificate must be duly recorded in mapSidechain
         assert(mapSidechains.count(cert.GetScId()) != 0);
-        assert(mapSidechains.at(cert.GetScId()).backwardCertificate == cert.GetHash());
+        auto& stack = mapSidechains.at(cert.GetScId()).vBackwardCertificates;
+        auto itStack = std::find(stack.begin(), stack.end(), cert.GetHash());
+        assert(itStack != stack.end());
 
         bool fDependsWait = false;
         BOOST_FOREACH(const CTxIn &txin, cert.GetVin()) {
@@ -1030,12 +1037,12 @@ void CTxMemPool::NotifyRecentlyAdded()
             if (txBase->IsCertificate())
             {
                 LogPrint("mempool", "%s():%d - sync with wallet cert[%s]\n", __func__, __LINE__, txBase->GetHash().ToString());
-                SyncWithWallets( dynamic_cast<const CScCertificate&>(*txBase), NULL);
+                SyncWithWallets( dynamic_cast<const CScCertificate&>(*txBase), nullptr);
             }
             else
             {
                 LogPrint("mempool", "%s():%d - sync with wallet tx[%s]\n", __func__, __LINE__, txBase->GetHash().ToString());
-                SyncWithWallets( dynamic_cast<const CTransaction&>(*txBase), NULL);
+                SyncWithWallets( dynamic_cast<const CTransaction&>(*txBase), nullptr);
             }
         } catch (const boost::thread_interrupted&) {
             LogPrintf("%s():%d - thread interrupted exception\n", __func__, __LINE__);
@@ -1125,9 +1132,13 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                     info.mImmatureAmounts[-1] += fwdAmount.nValue;
         }
 
-        if (!mempool.mapSidechains.at(scId).backwardCertificate.IsNull()) {
-            const uint256& certHash = mempool.mapSidechains.at(scId).backwardCertificate;
-            const CScCertificate & cert = mempool.mapCertificate.at(certHash).GetCertificate();
+        if (!mempool.mapSidechains.at(scId).vBackwardCertificates.size() == 0) {
+            // TODO quality
+            // we consider only the top quality cert for this epoch, both in mempool and in blockchain
+            uint256 topQualityHash;
+            assert(mempool.GetTopQualityCert(scId, topQualityHash));
+            const CScCertificate & cert = mempool.mapCertificate.at(topQualityHash).GetCertificate();
+
             info.balance -= cert.GetValueOfBackwardTransfers();
         }
     }
@@ -1148,5 +1159,79 @@ size_t CTxMemPool::DynamicMemoryUsage() const {
           memusage::DynamicUsage(mapCertificate) +
           memusage::DynamicUsage(mapSidechains) +
           cachedInnerUsage);
+}
+
+bool CTxMemPool::CheckScEquivalent(const CScCertificate& cert) const
+{
+    if ((mapSidechains.count(cert.GetScId()) != 0) &&
+        (!mapSidechains.at(cert.GetScId()).vBackwardCertificates.size() == 0))
+    {
+        const auto& vec = mapSidechains.at(cert.GetScId()).vBackwardCertificates;
+
+        for (const auto& entry : vec)
+        {
+            const CScCertificate& memPoolCert = mapCertificate.at(entry).GetCertificate();
+            if (cert.GetHash() != memPoolCert.GetHash() &&
+                CScCertificate::IsScEquivalent(memPoolCert, cert) )
+            {
+                LogPrintf("%s():%d - Dropping cert %s: an equivalent cert %s for same sc %s is already in mempool\n",
+                    __func__, __LINE__, cert.GetHash().ToString(), memPoolCert.GetHash().ToString(),
+                    memPoolCert.GetScId().ToString());
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool CTxMemPool::GetTopQualityCert(const uint256& scId, uint256& hash) const
+{ 
+    hash.SetNull();
+    int64_t maxQuality = CScCertificate::QUALITY_NULL;
+    CAmount maxFee     = -1;
+
+    if ((mapSidechains.count(scId) != 0) &&
+        (!mapSidechains.at(scId).vBackwardCertificates.size() == 0))
+    {
+        const auto& vec = mapSidechains.at(scId).vBackwardCertificates;
+
+        for (const auto& entry : vec)
+        {
+            const CScCertificate& memPoolCert = mapCertificate.at(entry).GetCertificate();
+
+            // first of all compare quality
+            if (memPoolCert.quality > maxQuality)
+            {
+                hash = memPoolCert.GetHash();
+                maxQuality = memPoolCert.quality;
+            }
+            else
+            if (memPoolCert.quality == maxQuality)
+            {
+                // in case of equal quality, compare fee
+                CAmount memPoolCertFee = mapCertificate.at(entry).GetFee();
+                if (memPoolCertFee > maxFee)
+                {
+                    hash = memPoolCert.GetHash();
+                    maxFee = memPoolCertFee;
+                }
+                else
+                if (memPoolCertFee == maxFee)
+                {
+                    // lastly, tie-break comparing hash value
+                    if (hash < memPoolCert.GetHash())
+                    {
+                        hash = memPoolCert.GetHash();
+                    }
+                }
+            }
+        }
+
+        if (maxQuality != CScCertificate::QUALITY_NULL)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
