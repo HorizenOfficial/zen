@@ -987,6 +987,59 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
+int64_t calculateGap(const CBlockIndex *forkTip, const CBlockIndex * targetBlock, int64_t delta)
+{
+	int64_t gap = 0;
+	const int targetBlockHeight = targetBlock->nHeight;
+    const int selectedTipHeight = forkTip->nHeight;
+    const int intersectionHeight = chainActive.FindFork(forkTip)->nHeight;
+
+	LogPrint("forks",
+			"%s():%d - processing tip h(%d) [%s] forkBaseHeight[%d]\n",
+			__func__, __LINE__, forkTip->nHeight, forkTip->GetBlockHash().ToString(),
+			intersectionHeight);
+	// during a node's life, there might be many tips in the container, it is not useful
+	// keeping all of them into account for calculating the finality, just consider the most recent ones.
+	// Blocks are ordered by heigth, stop if we exceed a safe limit in depth, lets say the max age
+	if ((chainActive.Height() - selectedTipHeight) >= MAX_BLOCK_AGE_FOR_FINALITY) {
+		LogPrint("forks",
+				"%s():%d - exiting loop on tips, max age reached: forkBaseHeight[%d], chain[%d]\n",
+				__func__, __LINE__, intersectionHeight, chainActive.Height());
+		gap = LLONG_MAX;
+	} else if (intersectionHeight < targetBlockHeight) {
+		// if the fork base is older than the input block, finality also depends on the current penalty
+		// ongoing on the fork
+		int64_t forkDelay = forkTip->nChainDelay;
+		if (selectedTipHeight >= chainActive.Height()) {
+			// if forkDelay is null one has to mine 1 block only
+			gap = forkDelay ? forkDelay : 1;
+			LogPrint("forks", "%s():%d - gap[%d], forkDelay[%d]\n", __func__,
+					__LINE__, gap, forkDelay);
+		} else {
+			int64_t dt = chainActive.Height() - selectedTipHeight + 1;
+			dt = dt * (dt + 1) / 2;
+			gap = dt + forkDelay + 1;
+			LogPrint("forks", "%s():%d - gap[%d], forkDelay[%d], dt[%d]\n",
+					__func__, __LINE__, gap, forkDelay, dt);
+		}
+	} else {
+		// this also handles the main chain tip
+		if (delta < PENALTY_THRESHOLD + 1) {
+			// an attacker can mine from previous block up to tip + 1
+			gap = delta + 1;
+			LogPrint("forks", "%s():%d - gap[%d], delta[%d]\n", __func__,
+					__LINE__, gap, delta);
+		} else {
+			// penalty applies
+			gap = (delta * (delta + 1) / 2);
+			LogPrint("forks", "%s():%d - gap[%d], delta[%d]\n", __func__,
+					__LINE__, gap, delta);
+		}
+	}
+
+	return gap;
+}
+
 UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 2)
@@ -1006,25 +1059,20 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
     if (hash == Params().GetConsensus().hashGenesisBlock)
         throw JSONRPCError(RPC_INVALID_PARAMS, "Finality does not apply to genesis block");
 
-    CBlockIndex* pblkIndex = mapBlockIndex[hash];
+    CBlockIndex* pTargetBlockIdx = mapBlockIndex[hash];
 
-    if (fHavePruned && !(pblkIndex->nStatus & BLOCK_HAVE_DATA) && pblkIndex->nTx > 0)
+    if (fHavePruned && !(pTargetBlockIdx->nStatus & BLOCK_HAVE_DATA) && pTargetBlockIdx->nTx > 0)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Block not available (pruned data)");
-/*
- *  CBlock block;
- *  if(!ReadBlockFromDisk(block, pblkIndex))
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk (header only)");
- */
 
     // 0. if the input does not belong to the main chain can not tell finality
-    if (!chainActive.Contains(pblkIndex))
+    if (!chainActive.Contains(pTargetBlockIdx))
     {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't tell finality of a block not on main chain");
     }
 
-    int inputHeight = pblkIndex->nHeight;
+    int inputHeight = pTargetBlockIdx->nHeight;
     LogPrint("forks", "%s():%d - input h(%d) [%s]\n",
-        __func__, __LINE__, pblkIndex->nHeight, pblkIndex->GetBlockHash().ToString());
+        __func__, __LINE__, pTargetBlockIdx->nHeight, pTargetBlockIdx->GetBlockHash().ToString());
 
     int64_t delta = chainActive.Height() - inputHeight + 1;
     if (delta >= MAX_BLOCK_AGE_FOR_FINALITY)
@@ -1042,66 +1090,14 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
 
 //    dump_global_tips();
 
-    int64_t gap = 0;
     int64_t minGap = LLONG_MAX;
 
     // For each tip find the stemming block on the main chain
     // In case of main tip such a block would be the tip itself
     //-----------------------------------------------------------------------
-    BOOST_FOREACH(auto idx, setTips)
+    for(auto selectedTip: setTips)
     {
-        const int forkTipHeight = idx->nHeight;
-        const int forkBaseHeight = chainActive.FindFork(idx)->nHeight;
-
-        LogPrint("forks", "%s():%d - processing tip h(%d) [%s] forkBaseHeight[%d]\n",
-            __func__, __LINE__, idx->nHeight, idx->GetBlockHash().ToString(), forkBaseHeight);
-
-        // during a node's life, there might be many tips in the container, it is not useful
-        // keeping all of them into account for calculating the finality, just consider the most recent ones.
-        // Blocks are ordered by heigth, stop if we exceed a safe limit in depth, lets say the max age
-        if ( (chainActive.Height() - forkTipHeight) >=  MAX_BLOCK_AGE_FOR_FINALITY )
-        {
-            LogPrint("forks", "%s():%d - exiting loop on tips, max age reached: forkBaseHeight[%d], chain[%d]\n",
-                __func__, __LINE__, forkBaseHeight, chainActive.Height());
-            break;
-        }
-
-        if (forkBaseHeight < inputHeight)
-        {
-            // if the fork base is older than the input block, finality also depends on the current penalty
-            // ongoing on the fork
-            int64_t forkDelay  = idx->nChainDelay;
-            if (forkTipHeight >= chainActive.Height())
-            {
-                // if forkDelay is null one has to mine 1 block only
-                gap = forkDelay ? forkDelay : 1;
-                LogPrint("forks", "%s():%d - gap[%d], forkDelay[%d]\n", __func__, __LINE__, gap, forkDelay);
-            }
-            else
-            {
-                int64_t dt = chainActive.Height() - forkTipHeight + 1;
-                dt = dt * ( dt + 1) / 2;
-
-                gap  = dt + forkDelay + 1;
-                LogPrint("forks", "%s():%d - gap[%d], forkDelay[%d], dt[%d]\n", __func__, __LINE__, gap, forkDelay, dt);
-            }
-        }
-        else
-        {
-            // this also handles the main chain tip
-            if (delta < PENALTY_THRESHOLD + 1)
-            {
-                // an attacker can mine from previous block up to tip + 1
-                gap = delta + 1;
-                LogPrint("forks", "%s():%d - gap[%d], delta[%d]\n", __func__, __LINE__, gap, delta);
-            }
-            else
-            {
-                // penalty applies
-                gap = (delta * (delta + 1) / 2);
-                LogPrint("forks", "%s():%d - gap[%d], delta[%d]\n", __func__, __LINE__, gap, delta);
-            }
-        }
+		int64_t gap = calculateGap(selectedTip, pTargetBlockIdx, delta);
         minGap = std::min(minGap, gap);
     }
 
