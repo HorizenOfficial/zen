@@ -1022,14 +1022,6 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't tell finality of a block not on main chain");
     }
 
-    std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
-    BOOST_FOREACH(auto mapPair, mGlobalForkTips)
-    {
-        const CBlockIndex* idx = mapPair.first;
-        setTips.insert(idx);
-    }
-    setTips.insert(chainActive.Tip());
-
     int inputHeight = pblkIndex->nHeight;
     LogPrint("forks", "%s():%d - input h(%d) [%s]\n",
         __func__, __LINE__, pblkIndex->nHeight, pblkIndex->GetBlockHash().ToString());
@@ -1039,6 +1031,14 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
     {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Old block: older than 2000!");
     }
+
+    std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
+    for(auto mapPair: mGlobalForkTips)
+    {
+        const CBlockIndex* idx = mapPair.first;
+        setTips.insert(idx);
+    }
+    setTips.insert(chainActive.Tip());
 
 //    dump_global_tips();
 

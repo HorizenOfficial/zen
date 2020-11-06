@@ -6566,7 +6566,7 @@ std::string dbg_blk_global_tips()
         return ret;
     }
 
-    BOOST_FOREACH(auto mapPair, mGlobalForkTips)
+    for(auto mapPair: mGlobalForkTips)
     {
         const CBlockIndex* pindex = mapPair.first;
 
@@ -6603,7 +6603,7 @@ std::string dbg_blk_global_tips()
     getMostRecentGlobalForkTips(vOutput);
 
     ret += "Ordered: ---------------\n";
-    BOOST_FOREACH(const uint256& hash, vOutput)
+    for(const uint256& hash: vOutput)
     {
         ret += "  [" + hash.GetHex() + "]\n";
     }
