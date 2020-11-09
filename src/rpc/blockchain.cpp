@@ -1078,6 +1078,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
     if (bVerbose)
     {
         sc.push_back(Pair("last certificate hash", info.lastCertificateHash.GetHex()));
+        sc.push_back(Pair("last certificate quality", info.lastCertificateQuality));
     }
 
     // creation parameters

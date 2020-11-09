@@ -188,6 +188,7 @@ bool CCoinsView::GetSidechain(const uint256& scId, CSidechain& info)           c
 bool CCoinsView::HaveSidechainEvents(int height)                               const { return false; }
 bool CCoinsView::GetSidechainEvents(int height, CSidechainEvents& scEvent)     const { return false; }
 void CCoinsView::GetScIds(std::set<uint256>& scIdsList)                        const { scIdsList.clear(); return; }
+bool CCoinsView::IsQualityValid(const CScCertificate& cert, CAmount fee)       const { return false; }
 uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
 uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
@@ -208,6 +209,7 @@ bool CCoinsViewBacked::GetSidechain(const uint256& scId, CSidechain& info)      
 bool CCoinsViewBacked::HaveSidechainEvents(int height)                               const { return base->HaveSidechainEvents(height); }
 bool CCoinsViewBacked::GetSidechainEvents(int height, CSidechainEvents& scEvents)    const { return base->GetSidechainEvents(height, scEvents); }
 void CCoinsViewBacked::GetScIds(std::set<uint256>& scIdsList)                        const { return base->GetScIds(scIdsList); }
+bool CCoinsViewBacked::IsQualityValid(const CScCertificate& cert, CAmount fee)       const { return base->IsQualityValid(cert, fee); }
 uint256 CCoinsViewBacked::GetBestBlock()                                             const { return base->GetBestBlock(); }
 uint256 CCoinsViewBacked::GetBestAnchor()                                            const { return base->GetBestAnchor(); }
 void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
@@ -676,6 +678,27 @@ void CCoinsViewCache::GetScIds(std::set<uint256>& scIdsList) const
     return;
 }
 
+bool CCoinsViewCache::IsQualityValid(const CScCertificate& cert, CAmount certFee) const
+{
+    // check in blockchain if a better cert is already there for this epoch
+    CSidechain info;
+    if (GetSidechain(cert.GetScId(), info))
+    {
+        if (info.lastEpochReferencedByCertificate == cert.epochNumber &&
+            info.lastCertificateQuality >= cert.quality)
+        {
+            LogPrint("cert", "%s():%d - NOK, cert %s q=%d : a cert q=%d for same sc/epoch is already in blockchain\n",
+                __func__, __LINE__, cert.GetHash().ToString(), cert.quality, info.lastCertificateQuality);
+            return false;
+        }
+    }
+
+    LogPrint("cert", "%s():%d - cert %s q=%d : OK, no better quality certs for same sc/epoch are in blockchain\n",
+        __func__, __LINE__, cert.GetHash().ToString(), cert.quality);
+    return true;
+}
+
+
 int CCoinsViewCache::getInitScCoinsMaturity()
 {
     if ( (Params().NetworkIDString() == "regtest") )
@@ -717,6 +740,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         scIt->second.scInfo.creationTxHash = txHash;
         scIt->second.scInfo.lastEpochReferencedByCertificate = CScCertificate::EPOCH_NULL;
         scIt->second.scInfo.lastCertificateHash.SetNull();
+        scIt->second.scInfo.lastCertificateQuality = CScCertificate::QUALITY_NULL;
         scIt->second.scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
         scIt->second.scInfo.creationData.customData = cr.customData;
         scIt->second.scInfo.creationData.constant = cr.constant;
@@ -914,7 +938,6 @@ bool CCoinsViewCache::isEpochDataValid(const CSidechain& scInfo, int epochNumber
         return false;
     }
 
-    // TODO quality
     // Adding handling of quality, we can have also certificates for the same epoch of the last certificate
     // 1. the epoch number must be consistent with the sc certificate history (no old epoch allowed)
     if ( epochNumber != scInfo.lastEpochReferencedByCertificate &&
@@ -1039,16 +1062,40 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndo
         return false;
     }
 
-    certUndoEntry.replacedLastCertEpoch = scIt->second.scInfo.lastEpochReferencedByCertificate;
-    certUndoEntry.replacedLastCertHash = scIt->second.scInfo.lastCertificateHash;
+    certUndoEntry.replacedLastCertEpoch   = scIt->second.scInfo.lastEpochReferencedByCertificate;
+    certUndoEntry.replacedLastCertHash    = scIt->second.scInfo.lastCertificateHash;
+    certUndoEntry.replacedLastCertQuality = scIt->second.scInfo.lastCertificateQuality;
 
-    scIt->second.scInfo.balance -= totalAmount;
-    scIt->second.scInfo.lastEpochReferencedByCertificate = cert.epochNumber;
-    scIt->second.scInfo.lastCertificateHash = certHash;
+    if (scIt->second.scInfo.lastEpochReferencedByCertificate != cert.epochNumber)
+    {
+        // we are changing epoch, this is the first certificate we got
+        assert(cert.epochNumber == scIt->second.scInfo.lastEpochReferencedByCertificate+1);
+
+        scIt->second.scInfo.balance -= totalAmount;
+        scIt->second.scInfo.lastEpochReferencedByCertificate = cert.epochNumber;
+        scIt->second.scInfo.lastCertificateHash = certHash;
+        scIt->second.scInfo.lastCertificateQuality = cert.quality;
+        LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",
+          __func__, __LINE__, FormatMoney(totalAmount), FormatMoney(scIt->second.scInfo.balance), scId.ToString());
+    }
+    else
+    {
+        // another cert for the same epoch in this sci// TODO
+        // if (scIt->second.scInfo.HasBetterQuality(cert))
+        {
+            // TODO remove from balance the ex-topquality amount
+            // scIt->second.scInfo.balance += previous amount
+            
+            // update top-quality certificate data
+            scIt->second.scInfo.lastCertificateQuality = cert.quality;
+            
+            scIt->second.scInfo.balance -= totalAmount;
+            LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",
+              __func__, __LINE__, FormatMoney(totalAmount), FormatMoney(scIt->second.scInfo.balance), scId.ToString());
+        }
+    }
+
     scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
-
-    LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",
-        __func__, __LINE__, FormatMoney(totalAmount), FormatMoney(scIt->second.scInfo.balance), scId.ToString());
 
     return true;
 }
@@ -1622,6 +1669,8 @@ void CCoinsViewCache::Dump_info() const
         LogPrint("sc", "  created in block[%s] (h=%d)\n", info.creationBlockHash.ToString(), info.creationBlockHeight );
         LogPrint("sc", "  creationTx[%s]\n", info.creationTxHash.ToString());
         LogPrint("sc", "  lastEpochReferencedByCertificate[%d]\n", info.lastEpochReferencedByCertificate);
+        LogPrint("sc", "  lastCertificateHash[%s]\n", info.lastCertificateHash.ToString());
+        LogPrint("sc", "  lastCertificateQuality[%d]\n", info.lastCertificateQuality);
         LogPrint("sc", "  balance[%s]\n", FormatMoney(info.balance));
         LogPrint("sc", "  ----- creation data:\n");
         LogPrint("sc", "      withdrawalEpochLength[%d]\n", info.creationData.withdrawalEpochLength);

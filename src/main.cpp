@@ -1065,13 +1065,6 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             return false;
         }
 
-        if (!pool.CheckScEquivalent(cert))
-        {
-            LogPrintf("%s():%d - Dropping cert %s : an equivalent cert for same sc %s is already in mempool\n",
-                __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
-            return error("an equivalent cert for same sc is already in mempool");
-        }
-
         for (const CTxIn & vin : cert.GetVin()) {
             if (pool.mapNextTx.count(vin.prevout)) {
                 LogPrint("mempool", "%s():%d - Dropping cert %s : it double spends input of [%s] that is in mempool\n",
@@ -1150,6 +1143,13 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             view.GetBestBlock();
             nFees = cert.GetFeeAmount(view.GetValueIn(cert));
  
+            // this check is on mempool view, which is backed by pcointips
+            if (!viewMemPool.IsQualityValid(cert, nFees))
+            {
+                LogPrintf("%s():%d - Dropping cert %s : invalid quality\n", __func__, __LINE__, certHash.ToString());
+                return error("invalid quality");
+            }
+
             // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
             view.SetBackend(dummy);
         }

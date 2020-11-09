@@ -121,10 +121,14 @@ class CTxUndo
 {
 public:
     std::vector<CTxInUndo> vprevout; // undo information for all txins
-    int replacedLastCertEpoch;       //for cert only, to restore ScInfo
-    uint256 replacedLastCertHash;    //for cert only, to restore ScInfo
+
+    //for cert only, to restore ScInfo
+    int replacedLastCertEpoch;
+    uint256 replacedLastCertHash;
+    int64_t replacedLastCertQuality;
+
     CTxUndo(): vprevout(), replacedLastCertEpoch(CScCertificate::EPOCH_NOT_INITIALIZED),
-            replacedLastCertHash() {}
+            replacedLastCertHash(), replacedLastCertQuality(CScCertificate::QUALITY_NOT_INITIALIZED) {}
 
     size_t GetSerializeSize(int nType, int nVersion) const
     {
@@ -138,9 +142,10 @@ public:
     {
         if (replacedLastCertEpoch != CScCertificate::EPOCH_NOT_INITIALIZED) {
             WriteCompactSize(s, certAttributesMarker);
-            ::Serialize(s, vprevout,              nType, nVersion);
-            ::Serialize(s, replacedLastCertEpoch, nType, nVersion);
-            ::Serialize(s, replacedLastCertHash,  nType, nVersion);
+            ::Serialize(s, vprevout,                nType, nVersion);
+            ::Serialize(s, replacedLastCertEpoch,   nType, nVersion);
+            ::Serialize(s, replacedLastCertHash,    nType, nVersion);
+            ::Serialize(s, replacedLastCertQuality, nType, nVersion);
         }
         else {
             ::Serialize(s, vprevout, nType, nVersion);
@@ -154,13 +159,15 @@ public:
         vprevout.clear();
         replacedLastCertEpoch = CScCertificate::EPOCH_NOT_INITIALIZED;
         replacedLastCertHash.SetNull();
+        replacedLastCertQuality = CScCertificate::QUALITY_NOT_INITIALIZED;
 
         unsigned int nSize = ReadCompactSize(s);
         if (nSize == certAttributesMarker)
         {
             ::Unserialize(s, vprevout, nType, nVersion);
-            ::Unserialize(s, replacedLastCertEpoch, nType, nVersion);
-            ::Unserialize(s, replacedLastCertHash, nType, nVersion);
+            ::Unserialize(s, replacedLastCertEpoch,   nType, nVersion);
+            ::Unserialize(s, replacedLastCertHash,    nType, nVersion);
+            ::Unserialize(s, replacedLastCertQuality, nType, nVersion);
         }
         else
             ::AddEntriesInVector(s, vprevout, nType, nVersion, nSize);
@@ -169,10 +176,12 @@ public:
     std::string ToString() const
     {
         std::string str;
+        str += strprintf("vprevout.size %u\n", vprevout.size());
         for(const CTxInUndo& in: vprevout)
             str += strprintf("\n  [%s]\n", in.ToString());
-        str += strprintf("replacedLastCertEpoch      %d\n", replacedLastCertEpoch);
-        str += strprintf("replacedLastCertHash       %s\n", replacedLastCertHash.ToString());
+        str += strprintf("replacedLastCertEpoch   %d\n", replacedLastCertEpoch);
+        str += strprintf("replacedLastCertHash    %s\n", replacedLastCertHash.ToString());
+        str += strprintf("replacedLastCertQuality %d\n", replacedLastCertQuality);
         return str;
     }
 

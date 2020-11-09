@@ -43,7 +43,8 @@ class CSidechain {
 public:
     CSidechain() : creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
                    lastEpochReferencedByCertificate(CScCertificate::EPOCH_NULL),
-                   lastCertificateHash(), balance(0) {}
+                   lastCertificateHash(), lastCertificateQuality(CScCertificate::QUALITY_NULL),
+                   balance(0) {}
 
     // reference to the block containing the tx that created the side chain
     uint256 creationBlockHash;
@@ -57,8 +58,11 @@ public:
     // last epoch for which a certificate have been received
     int lastEpochReferencedByCertificate;
 
-    // hash of the last certificate received for this sidechain
+    // hash of the best quality certificate received for this sidechain
     uint256 lastCertificateHash;
+
+    // quality of the certificate
+    int64_t lastCertificateQuality;
 
     // total amount given by sum(fw transfer)-sum(bkw transfer)
     CAmount balance;
@@ -90,6 +94,7 @@ public:
         READWRITE(creationTxHash);
         READWRITE(lastEpochReferencedByCertificate);
         READWRITE(lastCertificateHash);
+        READWRITE(lastCertificateQuality);
         READWRITE(balance);
         READWRITE(creationData);
         READWRITE(mImmatureAmounts);
@@ -102,6 +107,7 @@ public:
                (this->creationTxHash                   == rhs.creationTxHash)                   &&
                (this->lastEpochReferencedByCertificate == rhs.lastEpochReferencedByCertificate) &&
                (this->lastCertificateHash              == rhs.lastCertificateHash)              &&
+               (this->lastCertificateQuality           == rhs.lastCertificateQuality)           &&
                (this->balance                          == rhs.balance)                          &&
                (this->creationData                     == rhs.creationData)                     &&
                (this->mImmatureAmounts                 == rhs.mImmatureAmounts);

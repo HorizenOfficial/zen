@@ -109,7 +109,7 @@ struct CSidechainMemPoolEntry
 {
     uint256 scCreationTxHash;
     std::set<uint256> fwdTransfersSet;
-    // TODO quality - certificates are pushed as they arrive
+    // certificates are pushed as they arrive (TODO consider using an ordered-by-quality container)
     std::vector<uint256> vBackwardCertificates;
     // Note: in fwdTransfersSet, a tx is registered only once, even if sends multiple fwd founds to a sidechain
     // Upon removal we will need to guard against potential double deletes.
@@ -177,7 +177,6 @@ public:
     void check(const CCoinsViewCache *pcoins) const;
     void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
 
-    bool CheckScEquivalent(const CScCertificate& cert) const;
     bool GetTopQualityCert(const uint256& scId, uint256& hash) const;
 
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
@@ -309,6 +308,7 @@ public:
     bool HaveCoins(const uint256 &txid)                           const override;
     bool GetSidechain(const uint256& scId, CSidechain& info)      const override;
     bool HaveSidechain(const uint256& scId)                       const override;
+    bool IsQualityValid(const CScCertificate& cert, CAmount certFee) const override;
 };
 
 #endif // BITCOIN_TXMEMPOOL_H

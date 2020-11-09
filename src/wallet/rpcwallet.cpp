@@ -4988,22 +4988,13 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "sidechain has insufficient funds");
     }
 
+    // TODO quality - add check on quality
+
     Sidechain::ScRpcCmdCert cmd(cert, vBackwardTransfers, fromaddress, changeaddress, nMinDepth, nCertFee);
 
     cmd.addInputs();
     cmd.addChange();
     cmd.addBackwardTransfers();
-
-    // now that cert obj is complete, check that we do not have an equivalent one in mempool already
-    {
-        LOCK(mempool.cs);
-        if (!mempool.CheckScEquivalent(cert))
-        {
-            LogPrintf("%s():%d - ERROR: an equivalent certificate for scid %s is already in the mempool\n",
-                __func__, __LINE__, scId.ToString());
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("conflicting cert"));
-        }
-    }
 
     cmd.sign();
     cmd.send();

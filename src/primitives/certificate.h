@@ -39,9 +39,14 @@ class CScCertificate : virtual public CTransactionBase
     void UpdateHash() const override;
 
 public:
-    static const int32_t EPOCH_NULL = -1;
-    static const int32_t EPOCH_NOT_INITIALIZED = -2;
-    static const int64_t QUALITY_NULL = -1;
+    static const int32_t INT_NULL = -1;
+    static const int32_t INT_NOT_INITIALIZED = -2;
+
+    static const int32_t EPOCH_NULL = INT_NULL;
+    static const int32_t EPOCH_NOT_INITIALIZED = INT_NOT_INITIALIZED;
+
+    static const int64_t QUALITY_NULL = INT_NULL;
+    static const int64_t QUALITY_NOT_INITIALIZED = INT_NOT_INITIALIZED;
 
 private:
     const uint256 scId;
@@ -71,9 +76,6 @@ public:
     {
         return a.hash != b.hash;
     }
-
-    static bool IsScEquivalent(const CScCertificate& a, const CScCertificate& b);
-    uint256 GetScAttributesHash() const;
 
     const uint256& GetHash() const { return hash; }
 

@@ -401,6 +401,7 @@ public:
 
     //! Retrieve all the known sidechain ids
     virtual void GetScIds(std::set<uint256>& scIdsList) const;
+    virtual bool IsQualityValid(const CScCertificate& cert, CAmount certFee) const;
 
     //! Retrieve the block hash whose state this CCoinsView currently represents
     virtual uint256 GetBestBlock() const;
@@ -443,6 +444,7 @@ public:
     bool HaveSidechainEvents(int height)                               const override;
     bool GetSidechainEvents(int height, CSidechainEvents& scEvents)    const override;
     void GetScIds(std::set<uint256>& scIdsList)                        const override;
+    bool IsQualityValid(const CScCertificate& cert, CAmount certFee)   const override;
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
     void SetBackend(CCoinsView &viewIn);
@@ -558,6 +560,7 @@ public:
     bool HaveSidechain(const uint256& scId)                           const override;
     bool GetSidechain(const uint256 & scId, CSidechain& targetScInfo) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
+    bool IsQualityValid(const CScCertificate& cert, CAmount certFee)  const override;
     bool HaveScRequirements(const CTransaction& tx, int height);
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);

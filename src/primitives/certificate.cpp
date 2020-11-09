@@ -15,49 +15,6 @@
 
 #include "main.h"
 
-bool CScCertificate::IsScEquivalent(const CScCertificate& a, const CScCertificate& b)
-{
-    // first of all check simple attributes
-    bool attrAreEqual = (
-        a.scId              == b.scId              &&
-        a.epochNumber       == b.epochNumber       &&
-        a.quality           == b.quality           &&
-        a.endEpochBlockHash == b.endEpochBlockHash &&
-        // a.scProof           == b.scProof       && // this is most probably different anyway
-        a.nFirstBwtPos      == b.nFirstBwtPos
-    );
-
-    if (!attrAreEqual)
-        return false;
-
-    // check backward transfers contributions only
-    for(int pos = a.nFirstBwtPos; pos < a.vout.size(); ++pos)
-        if (a.vout[pos] != b.vout[pos])
-            return false;
-
-    // all concerned fields are the same
-
-    // TODO - remove, just for test
-    assert(a.GetScAttributesHash() == b.GetScAttributesHash());
-
-    return true;
-}
-
-uint256 CScCertificate::GetScAttributesHash() const
-{
-    CHashWriter ss(SER_NETWORK, PROTOCOL_VERSION);
-    ss << scId;
-    ss << epochNumber;
-    ss << quality;
-    ss << endEpochBlockHash;
-    ss << nFirstBwtPos;
-
-    for(int pos = nFirstBwtPos; pos < vout.size(); ++pos)
-        ss << vout[pos];
-
-    return ss.GetHash();
-}
-
 CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nValue), pubKeyHash()
 {
     if (!txout.IsNull())
