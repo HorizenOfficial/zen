@@ -832,7 +832,7 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
     if ((params.size() >= 1) && !params[0].isBool())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "\"with-penalties\" paramenter should be boolean");
 
-    bool bShowPenaltyInfo = (params.size() >= 1)? params[0].getBool() : true;
+    bool bShowPenaltyInfo = (params.size() >= 1)? params[0].getBool() : false;
 
     /* Build up a list of chain tips.  We start with the list of all
        known blocks, and successively remove blocks that appear as pprev

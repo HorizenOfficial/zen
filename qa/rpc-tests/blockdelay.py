@@ -223,8 +223,12 @@ class blockdelay(BitcoinTestFramework):
         print("Malicious blocks generated")
 
         for i in range(0, 4):
-            print "Node%d  ---" % i 
-            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "Node%d  ---" % i
+            getchaintips_res = self.nodes[i].getchaintips(True)
+            self.dump_ordered_tips(getchaintips_res)
+            assert(getchaintips_res[0]["penalty-at-start"] == 0)
+            assert(getchaintips_res[0]["penalty-at-tip"] == 0)
+            assert(getchaintips_res[0]["blocks-to-mainchain"] == 0)
             print "---"
 # 
 
@@ -246,9 +250,38 @@ class blockdelay(BitcoinTestFramework):
         print("\nNetwork joined")
 
         for i in range(0, 4):
-            print "Node%d  ---" % i 
-            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            print "Node%d  ---" % i
+            getchaintips_res = self.nodes[i].getchaintips(True)
+            self.dump_ordered_tips(getchaintips_res)
             print "---"
+
+        print("\nTesting fork related data from getchaintips")
+        print("\nTesting Node 0")
+        getchaintips_res = self.nodes[0].getchaintips(True)
+        assert(getchaintips_res[0]["penalty-at-start"] == 11)
+        assert(getchaintips_res[0]["penalty-at-tip"] == 65)
+        assert(getchaintips_res[0]["blocks-to-mainchain"] == 65)
+        assert(getchaintips_res[1]["penalty-at-start"] == 0)
+        assert(getchaintips_res[1]["penalty-at-tip"] == 0)
+        assert(getchaintips_res[1]["blocks-to-mainchain"] == 0)
+
+        print("\nTesting Node 1")
+        assert(self.nodes[1].getchaintips(True).sort() == self.nodes[0].getchaintips(True).sort())
+
+        print("\nTesting Node 2")
+        getchaintips_res = self.nodes[2].getchaintips(True)
+        assert(getchaintips_res[0]["penalty-at-start"] == 0)
+        assert(getchaintips_res[0]["penalty-at-tip"] == 0)
+        assert(getchaintips_res[0]["blocks-to-mainchain"] == 0)
+
+        print("\nTesting Node 3")
+        getchaintips_res = self.nodes[3].getchaintips(True)
+        assert(getchaintips_res[1]["penalty-at-start"] == 12)
+        assert(getchaintips_res[1]["penalty-at-tip"] == 78)
+        assert(getchaintips_res[1]["blocks-to-mainchain"] == 82)
+        assert(getchaintips_res[0]["penalty-at-start"] == 0)
+        assert(getchaintips_res[0]["penalty-at-tip"] == 0)
+        assert(getchaintips_res[0]["blocks-to-mainchain"] == 0)
 
         print("\nTesting if the current chain is still the honest chain")
         assert self.nodes[0].getbestblockhash() == last_main_blockhash
@@ -292,9 +325,36 @@ class blockdelay(BitcoinTestFramework):
 
         for i in range(0, 4):
             print "Node%d  ---" % i 
-            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            self.dump_ordered_tips(self.nodes[i].getchaintips(True))
             print "---"
 
+        print("\nTesting fork related data from getchaintips")
+        print("\nTesting Node 0")
+        getchaintips_res = self.nodes[0].getchaintips(True)
+        assert(getchaintips_res[0]["penalty-at-start"] == 11)
+        assert(getchaintips_res[0]["penalty-at-tip"] == 1)
+        assert(getchaintips_res[0]["blocks-to-mainchain"] == 1)
+        assert(getchaintips_res[1]["penalty-at-start"] == 0)
+        assert(getchaintips_res[1]["penalty-at-tip"] == 0)
+        assert(getchaintips_res[1]["blocks-to-mainchain"] == 0)
+
+        print("\nTesting Node 1")
+        assert(self.nodes[1].getchaintips(True).sort() == self.nodes[0].getchaintips(True).sort())
+
+        print("\nTesting Node 2")
+        getchaintips_res = self.nodes[2].getchaintips(True)
+        assert(getchaintips_res[0]["penalty-at-start"] == 0)
+        assert(getchaintips_res[0]["penalty-at-tip"] == 0)
+        assert(getchaintips_res[0]["blocks-to-mainchain"] == 0)
+
+        print("\nTesting Node 3")
+        getchaintips_res = self.nodes[3].getchaintips(True)
+        assert(getchaintips_res[1]["penalty-at-start"] == 12)
+        assert(getchaintips_res[1]["penalty-at-tip"] == 78)
+        assert(getchaintips_res[1]["blocks-to-mainchain"] == 2290)
+        assert(getchaintips_res[0]["penalty-at-start"] == 0)
+        assert(getchaintips_res[0]["penalty-at-tip"] == 0)
+        assert(getchaintips_res[0]["blocks-to-mainchain"] == 0)
 
         print("\nTesting if the current chain is still the honest chain")
         assert self.nodes[0].getbestblockhash() == last_main_blockhash
@@ -347,10 +407,38 @@ class blockdelay(BitcoinTestFramework):
 
         for i in range(0, 4):
             print "Node%d  ---" % i 
-            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            self.dump_ordered_tips(self.nodes[i].getchaintips(True))
             print "---"
 
 #        raw_input("press enter to generate 1 more malicious blocks which will cause the attack to succeed..")
+
+        print("\nTesting fork related data from getchaintips")
+        print("\nTesting Node 0")
+        getchaintips_res = self.nodes[0].getchaintips(True)
+        assert(getchaintips_res[1]["penalty-at-start"] == 11)
+        assert(getchaintips_res[1]["penalty-at-tip"] == 1)
+        assert(getchaintips_res[1]["blocks-to-mainchain"] == 1)
+        assert(getchaintips_res[0]["penalty-at-start"] == 0)
+        assert(getchaintips_res[0]["penalty-at-tip"] == 0)
+        assert(getchaintips_res[0]["blocks-to-mainchain"] == 0)
+
+        print("\nTesting Node 1")
+        assert(self.nodes[1].getchaintips(True).sort() == self.nodes[0].getchaintips(True).sort())
+
+        print("\nTesting Node 2")
+        getchaintips_res = self.nodes[2].getchaintips(True)
+        assert(getchaintips_res[0]["penalty-at-start"] == 0)
+        assert(getchaintips_res[0]["penalty-at-tip"] == 0)
+        assert(getchaintips_res[0]["blocks-to-mainchain"] == 0)
+
+        print("\nTesting Node 3")
+        getchaintips_res = self.nodes[3].getchaintips(True)
+        assert(getchaintips_res[1]["penalty-at-start"] == 12)
+        assert(getchaintips_res[1]["penalty-at-tip"] == 2158)
+        assert(getchaintips_res[1]["blocks-to-mainchain"] == 2158)
+        assert(getchaintips_res[0]["penalty-at-start"] == 0)
+        assert(getchaintips_res[0]["penalty-at-tip"] == 0)
+        assert(getchaintips_res[0]["blocks-to-mainchain"] == 0)
 
         print("\nGenerating 1 more malicious block")
         self.mark_logs("Generating 1 more malicious block ")
@@ -365,8 +453,36 @@ class blockdelay(BitcoinTestFramework):
 
         for i in range(0, 4):
             print "Node%d  ---" % i 
-            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            self.dump_ordered_tips(self.nodes[i].getchaintips(True))
             print "---"
+
+        print("\nTesting fork related data from getchaintips")
+        print("\nTesting Node 0")
+        getchaintips_res = self.nodes[0].getchaintips(True)
+        assert(getchaintips_res[1]["penalty-at-start"] == 0)
+        assert(getchaintips_res[1]["penalty-at-tip"] == 0)
+        assert(getchaintips_res[1]["blocks-to-mainchain"] == 4)
+        assert(getchaintips_res[0]["penalty-at-start"] == 0)
+        assert(getchaintips_res[0]["penalty-at-tip"] == 0)
+        assert(getchaintips_res[0]["blocks-to-mainchain"] == 0)
+
+        print("\nTesting Node 1")
+        assert(self.nodes[1].getchaintips(True).sort() == self.nodes[0].getchaintips(True).sort())
+
+        print("\nTesting Node 2")
+        getchaintips_res = self.nodes[2].getchaintips(True)
+        assert(getchaintips_res[0]["penalty-at-start"] == 0)
+        assert(getchaintips_res[0]["penalty-at-tip"] == 0)
+        assert(getchaintips_res[0]["blocks-to-mainchain"] == 0)
+
+        print("\nTesting Node 3")
+        getchaintips_res = self.nodes[3].getchaintips(True)
+        assert(getchaintips_res[1]["penalty-at-start"] == 12)
+        assert(getchaintips_res[1]["penalty-at-tip"] == 2158)
+        assert(getchaintips_res[1]["blocks-to-mainchain"] == 2162)
+        assert(getchaintips_res[0]["penalty-at-start"] == 0)
+        assert(getchaintips_res[0]["penalty-at-tip"] == 0)
+        assert(getchaintips_res[0]["blocks-to-mainchain"] == 0)
 
         print("\nTesting if all the nodes/chains have the same best tip")
         assert (self.nodes[0].getbestblockhash() == self.nodes[1].getbestblockhash()
@@ -410,7 +526,7 @@ class blockdelay(BitcoinTestFramework):
 
         for i in range(0, 5):
             print "Node%d  ---" % i 
-            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            self.dump_ordered_tips(self.nodes[i].getchaintips(True))
             print "---"
 
         print("\nNode0 generating 1 new blocks")       
@@ -421,7 +537,7 @@ class blockdelay(BitcoinTestFramework):
 
         for i in range(0, 5):
             print "Node%d  ---" % i 
-            self.dump_ordered_tips(self.nodes[i].getchaintips())
+            self.dump_ordered_tips(self.nodes[i].getchaintips(True))
             print "---"
 
         # check node1 balance has been restored
