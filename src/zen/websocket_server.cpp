@@ -212,7 +212,7 @@ private:
         wsq.push(wse);
     }
 
-    void sendBlockHeaders(UniValue headers, WsEvent::WsMsgType msgType, std::string clientRequestId = "")
+    void sendBlockHeaders(const UniValue& headers, WsEvent::WsMsgType msgType, std::string clientRequestId = "")
     {
         // Send a message to the client:  type = eventType
         WsEvent* wse = new WsEvent(msgType);
@@ -1048,12 +1048,7 @@ static int getheader(const CBlockIndex *pindex, std::string& strHex)
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     {
         LOCK(cs_main);
-        CBlock block;
-        if (!ReadBlockFromDisk(block, pindex)) {
-            LogPrint("ws", "%s():%d - error: could not read block from disk\n", __func__, __LINE__);
-            return WsHandler::READ_ERROR;
-        }
-        ss << block.GetBlockHeader();
+        ss << pindex->GetBlockHeader();
         strHex = HexStr(ss.begin(), ss.end());
     }
     return WsHandler::OK;
