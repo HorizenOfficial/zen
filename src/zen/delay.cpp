@@ -16,8 +16,12 @@ int64_t GetBlockDelay(const CBlockIndex& newBlock, const CBlockIndex& prevBlock,
     if (prevBlock.nChainDelay > 0)
     {
     	// blocks on tip get penalty reduced by 1;
-    	// others get penalty increased proportionally to distance from tip
-    	return std::max<int>((activeChainHeight - newBlock.nHeight),-1);
+    	// other blocks get penalty increased proportionally to distance from tip
+    	int64_t blockDelay =  std::max<int64_t>((activeChainHeight - newBlock.nHeight),int64_t(-1));
+
+    	LogPrintf("calculated blockDelay %d for newBlockHeight %d (activeChainHeight: %d, prevBlockChainDelay: %d)!\n",
+    			blockDelay, activeChainHeight, newBlock.nHeight, prevBlock.nChainDelay);
+    	return blockDelay;
     }
 
     // Introduce penalty in case we receive a historic block.
