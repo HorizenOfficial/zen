@@ -93,6 +93,7 @@ testScripts=(
   'sbh_rpc_cmds.py'
   'sc_cert_ceasing.py'
   'sc_getscinfo.py'
+  'quality_mempool.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
