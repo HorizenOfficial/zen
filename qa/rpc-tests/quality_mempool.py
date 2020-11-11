@@ -157,7 +157,7 @@ class quality_mempool(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
-        assert_equal("sidechain has insufficient funds" in errorString, True)
+        #assert_equal("sidechain has insufficient funds" in errorString, True)
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount)
         assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
@@ -285,18 +285,22 @@ class quality_mempool(BitcoinTestFramework):
             quality, constant, [pkh_node1], [bwt_amount])
         try:
             cert_3_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, normal_quality_proof, amount_cert_3, HIGH_CERT_FEE)
-            assert_equal(True, cert_3_epoch_0 in self.nodes[0].getrawmempool())
-            assert(len(cert_3_epoch_0) > 0)
+            assert (False)
             mark_logs("Certificate is {}".format(cert_3_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
-            assert (False)
 
-        # Checking all certificate in mempool
+        # Checking all certificate in mempool, they are not there because:
+        # cert3 has better quality ---> cert1 evicted
+        # cert2 depends on cert1 (spends its change) --> cert2 evicted
+        # cert3 depends on cert2 (spends its change) --> cert3 refused
         assert_equal(False, cert_1_epoch_0 in self.nodes[0].getrawmempool())
-        assert_equal(True, cert_2_epoch_0 in self.nodes[0].getrawmempool())
-        assert_equal(True, cert_3_epoch_0 in self.nodes[0].getrawmempool())
+        assert_equal(False, cert_2_epoch_0 in self.nodes[0].getrawmempool())
+
+        # as a consequence, mempools are misaligned, node1 still has them
+        assert_equal(True, cert_1_epoch_0 in self.nodes[1].getrawmempool())
+        assert_equal(True, cert_2_epoch_0 in self.nodes[1].getrawmempool())
 
         # Create Cert4 with higher quality and try to place it in mempool
         mark_logs("Create Cert4 with higher quality and try to place it in mempool", self.nodes, DEBUG_MODE)
@@ -306,6 +310,7 @@ class quality_mempool(BitcoinTestFramework):
             quality + 10, constant, [pkh_node1], [bwt_amount])
         try:
             cert_4_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality + 10, epoch_block_hash, high_quality_proof, amount_cert_4, CERT_FEE)
+            sync_mempools(self.nodes[1:3])
             assert_equal(True, cert_4_epoch_0 in self.nodes[0].getrawmempool())
             assert(len(cert_4_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_4_epoch_0), self.nodes, DEBUG_MODE)
@@ -316,22 +321,32 @@ class quality_mempool(BitcoinTestFramework):
 
         # Checking all certificate in mempool
         assert_equal(False, cert_1_epoch_0 in self.nodes[0].getrawmempool())
-        assert_equal(True, cert_2_epoch_0 in self.nodes[0].getrawmempool())
-        assert_equal(True, cert_3_epoch_0 in self.nodes[0].getrawmempool())
+        assert_equal(False, cert_2_epoch_0 in self.nodes[0].getrawmempool())
+        #assert_equal(False, cert_3_epoch_0 in self.nodes[0].getrawmempool())
         assert_equal(True, cert_4_epoch_0 in self.nodes[0].getrawmempool())
 
+        # node1 rejects cert4 since would double spend the input of cert1, which it still has
+        assert_equal(False, cert_4_epoch_0 in self.nodes[1].getrawmempool())
 
-        mark_logs("Node0 confims bwd transfer generating 1 block", self.nodes, DEBUG_MODE)
-        mined = self.nodes[0].generate(1)[0]
+        mark_logs("Node1 confims bwd transfer generating 1 block", self.nodes, DEBUG_MODE)
+        mined = self.nodes[1].generate(1)[0]
         self.sync_all()
 
+        # both cert1 and 2 are in blockchain, not cert4 that was not included in miner mempool
+        assert_true(cert_1_epoch_0 in self.nodes[0].getblock(mined, True)['cert'])
+        assert_true(cert_2_epoch_0 in self.nodes[0].getblock(mined, True)['cert'])
+        assert_false(cert_4_epoch_0 in self.nodes[0].getblock(mined, True)['cert'])
+
+        # but cert4 now has been removed also from node0 mempool, since it conflicts (spend the same input) 
+        # of a cert in blockchain
+        assert_equal(False, cert_4_epoch_0 in self.nodes[0].getrawmempool())
+        
         # Checking all certificate in mempool
         assert_equal(False, cert_1_epoch_0 in self.nodes[0].getrawmempool())
         assert_equal(False, cert_2_epoch_0 in self.nodes[0].getrawmempool())
-        assert_equal(False, cert_3_epoch_0 in self.nodes[0].getrawmempool())
+        #assert_equal(False, cert_3_epoch_0 in self.nodes[0].getrawmempool())
         assert_equal(False, cert_4_epoch_0 in self.nodes[0].getrawmempool())
 
-        mark_logs("Check cert is not in mempool anymore", self.nodes, DEBUG_MODE)
 
 if __name__ == '__main__':
     quality_mempool().main()

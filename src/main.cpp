@@ -1242,7 +1242,12 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         }
 
         // remove any conflicted certificate already included in mempool, if any. We are sure now that this is a good one 
-        pool.RemoveAnyConflictingQualityCert(cert);
+        // unless there is dependancy of this cert from some of the conflicting ones
+        bool ret = pool.RemoveAnyConflictingQualityCert(cert);
+        if (!ret)
+        {
+            return error("%s(): cert %s depends on some conflicting quality certs", __func__, certHash.ToString());
+        }
 
         // Store transaction in memory
         pool.addUnchecked(certHash, entry, !IsInitialBlockDownload());

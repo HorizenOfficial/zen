@@ -616,6 +616,8 @@ void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransacti
             const CTransactionBase &txConflict = *it->second.ptx;
             if (txConflict.GetHash() != cert.GetHash())
             {
+                LogPrint("mempool", "%s():%d - removing [%s] conflicting with cert [%s]\n",
+                    __func__, __LINE__, txConflict.GetHash().ToString(), cert.GetHash().ToString());
                 remove(txConflict, removedTxs, removedCerts, true);
             }
         }
@@ -1212,11 +1214,15 @@ bool CCoinsViewMemPool::IsQualityValid(const CScCertificate& cert, CAmount certF
     return true;
 }
 
-void CTxMemPool::RemoveAnyConflictingQualityCert(const CScCertificate& cert)
+bool CTxMemPool::RemoveAnyConflictingQualityCert(const CScCertificate& cert)
 {
     const uint256& scId = cert.GetScId();
 
-    // remove any conflicting certificate if any
+    std::list<CTransaction> conflictingTxs;
+    std::list<CScCertificate> conflictingCerts;
+    CScCertificate conflictingCert;
+
+    // find any conflicting certificate if any
     if ((mapSidechains.count(scId) != 0) &&
         (!mapSidechains.at(scId).vBackwardCertificates.size() == 0))
     {
@@ -1224,27 +1230,69 @@ void CTxMemPool::RemoveAnyConflictingQualityCert(const CScCertificate& cert)
 
         for (const auto& hash : vec)
         {
-            // make a copy
-            const CScCertificate conflictingCert = mapCertificate.at(hash).GetCertificate();
-            if (conflictingCert.quality == cert.quality)
+            if (mapCertificate.count(hash))
             {
-                std::list<CTransaction> dummyTxs;
-                std::list<CScCertificate> removedCerts;
-                LogPrint("mempool", "%s():%d - removing [%s] from mapSidechain\n", __func__, __LINE__, hash.ToString() );
- 
-                // this removes from mapCertificate as well, therefore the input reference is not valid anymore
-                remove(conflictingCert, dummyTxs, removedCerts, true);
- 
-                if (removedCerts.size() != 1)
+                // make a copy
+                conflictingCert = mapCertificate.at(hash).GetCertificate();
+                if (conflictingCert.quality == cert.quality)
                 {
-                    LogPrint("mempool", "%s():%d - WARNING! more than 1 cert to be removed!!! Have we got any dependancy amoung certs for the same epoch?\n", __func__, __LINE__);
+                    LogPrint("mempool", "%s():%d - found conflicting cert [%s]\n", __func__, __LINE__, hash.ToString() );
+  
+                    remove(conflictingCert, conflictingTxs, conflictingCerts, true);
+  
+                    if (conflictingCerts.size() > 1)
+                    {
+                        LogPrint("mempool", "%s():%d - WARNING! more than 1 Conflicting cert!!! Have we got any dependancy amoung certs for the same epoch?\n", __func__, __LINE__);
+                    }
+
+                    // we can bail out, there can be at most one cert for this scid/epoch with the same quality
+                    break;
                 }
- 
-                // Tell wallet about this certificate that went from mempool to conflicted:
-                SyncWithWallets(conflictingCert, nullptr);
-                LogPrint("mempool", "%s():%d - synced cert[%s]\n", __func__, __LINE__, hash.ToString());
             }
         }
     }
+    else
+    {
+        LogPrint("mempool", "%s():%d - nothing to check\n", __func__, __LINE__);
+        return true;
+    }
+
+    if (conflictingCerts.size() == 0)
+    {
+        assert(conflictingTxs.size() == 0);
+        LogPrint("mempool", "%s():%d - no conflicts\n", __func__, __LINE__);
+        return true;
+    }
+
+    // finally check that we are not spending any outputs from conflicting certs/txes
+    for (const CTxIn txin : cert.GetVin())
+    {
+        const uint256& hash = txin.prevout.hash;
+
+        auto pred = [&hash](const CTransactionBase& t) { return t.GetHash() == hash; };
+
+        std::list<CTransaction>::iterator   itTx   = std::find_if(conflictingTxs.begin(),   conflictingTxs.end(),  pred); 
+        std::list<CScCertificate>::iterator itCert = std::find_if(conflictingCerts.begin(), conflictingCerts.end(), pred);  
+
+        if (itTx != conflictingTxs.end() ||  itCert != conflictingCerts.end())
+        {
+            const uint256& h = (itTx != conflictingTxs.end()) ? itTx->GetHash() : itCert->GetHash(); 
+            LogPrint("mempool", "%s():%d - cert %s depends on conflincting %s\n", __func__, __LINE__,
+                cert.GetHash().ToString(), h.ToString());
+            return false;
+        }
+    }
+
+    // Tell wallet about transactions and certificates that went from mempool to conflicted:
+    for(const auto &t: conflictingTxs) {
+        LogPrint("mempool", "%s():%d - syncing tx %s\n", __func__, __LINE__, t.GetHash().ToString());
+        SyncWithWallets(t, nullptr);
+    }
+    for(const auto &c: conflictingCerts) {
+        LogPrint("mempool", "%s():%d - syncing cert %s\n", __func__, __LINE__, c.GetHash().ToString());
+        SyncWithWallets(c, nullptr);
+    }
+
+    return true;
 }
 
