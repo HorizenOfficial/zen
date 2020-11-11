@@ -1050,7 +1050,8 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
-bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechain::State scState, UniValue& sc, bool bOnlyAlive, bool bVerbose)
+bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechain::State scState, const CCoinsViewCache& view,
+    UniValue& sc, bool bOnlyAlive, bool bVerbose)
 {
     if (bOnlyAlive && (scState != CSidechain::State::ALIVE))
     	return false;
@@ -1074,12 +1075,9 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
 
     sc.push_back(Pair("created at block height", info.creationBlockHeight));
     sc.push_back(Pair("last certificate epoch", info.lastEpochReferencedByCertificate));
-
-    if (bVerbose)
-    {
-        sc.push_back(Pair("last certificate hash", info.lastCertificateHash.GetHex()));
-        sc.push_back(Pair("last certificate quality", info.lastCertificateQuality));
-    }
+    sc.push_back(Pair("last certificate hash", info.lastCertificateHash.GetHex()));
+    sc.push_back(Pair("last certificate quality", info.lastCertificateQuality));
+    sc.push_back(Pair("last certificate amount", ValueFromAmount(view.GetValueOfBackwardTransfers(info.lastCertificateHash))));
 
     // creation parameters
     sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
@@ -1113,7 +1111,7 @@ bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAlive, bool
     }
     CSidechain::State scState = scView.isCeasedAtHeight(scId, chainActive.Height() + 1);
 
-    return FillScRecordFromInfo(scId, scInfo, scState, scRecord, bOnlyAlive, bVerbose);
+    return FillScRecordFromInfo(scId, scInfo, scState, scView, scRecord, bOnlyAlive, bVerbose);
 }
 
 int FillScList(UniValue& scItems, bool bOnlyAlive, bool bVerbose, int from=0, int to=-1)

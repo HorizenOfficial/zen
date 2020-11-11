@@ -1241,6 +1241,9 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             return error("%s(): BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", __func__, certHash.ToString());
         }
 
+        // remove any conflicted certificate already included in mempool, if any. We are sure now that this is a good one 
+        pool.RemoveAnyConflictingQualityCert(cert);
+
         // Store transaction in memory
         pool.addUnchecked(certHash, entry, !IsInitialBlockDownload());
     }

@@ -320,16 +320,19 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
  
                 mapRecentlyAddedTxBase.erase(hash);
 
-                BOOST_FOREACH(const CTxIn& txin, cert.GetVin())
+                for (const CTxIn& txin : cert.GetVin())
                     mapNextTx.erase(txin.prevout);
  
                 // remove certificate hash from list
+                LogPrint("mempool", "%s():%d - removing cert [%s] from mapSidechain[%s]\n",
+                    __func__, __LINE__, hash.ToString(), cert.GetScId().ToString());
                 auto& vec = mapSidechains.at(cert.GetScId()).vBackwardCertificates;
                 vec.erase(std::remove(vec.begin(), vec.end(), hash), vec.end());
 
                 if (mapSidechains.at(cert.GetScId()).IsNull())
                 {
-                    LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, cert.GetScId().ToString() );
+                    assert(mapSidechains.at(cert.GetScId()).vBackwardCertificates.size() == 0);
+                    LogPrint("mempool", "%s():%d - erasing scid [%s] from mapSidechain\n", __func__, __LINE__, cert.GetScId().ToString() );
                     mapSidechains.erase(cert.GetScId());
                 }
  
@@ -1132,6 +1135,7 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                     info.mImmatureAmounts[-1] += fwdAmount.nValue;
         }
 
+#if 0
         if (!mempool.mapSidechains.at(scId).vBackwardCertificates.size() == 0) {
             // we consider only the top quality cert for this epoch, both in mempool and in blockchain
             uint256 topQualityHash;
@@ -1141,6 +1145,7 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
             // TODO quality - add former top-quality amount if we have a better quality cert here
             info.balance -= cert.GetValueOfBackwardTransfers();
         }
+#endif
     }
 
     return true;
@@ -1207,34 +1212,39 @@ bool CCoinsViewMemPool::IsQualityValid(const CScCertificate& cert, CAmount certF
     return true;
 }
 
-bool CTxMemPool::GetTopQualityCert(const uint256& scId, uint256& hash) const
-{ 
-    hash.SetNull();
-    int64_t maxQuality = CScCertificate::QUALITY_NULL;
+void CTxMemPool::RemoveAnyConflictingQualityCert(const CScCertificate& cert)
+{
+    const uint256& scId = cert.GetScId();
 
+    // remove any conflicting certificate if any
     if ((mapSidechains.count(scId) != 0) &&
         (!mapSidechains.at(scId).vBackwardCertificates.size() == 0))
     {
         const auto& vec = mapSidechains.at(scId).vBackwardCertificates;
 
-        for (const auto& entry : vec)
+        for (const auto& hash : vec)
         {
-            const CScCertificate& memPoolCert = mapCertificate.at(entry).GetCertificate();
-            assert(memPoolCert.quality != maxQuality);
-
-            // compare quality
-            if (memPoolCert.quality > maxQuality)
+            // make a copy
+            const CScCertificate conflictingCert = mapCertificate.at(hash).GetCertificate();
+            if (conflictingCert.quality == cert.quality)
             {
-                hash = memPoolCert.GetHash();
-                maxQuality = memPoolCert.quality;
+                std::list<CTransaction> dummyTxs;
+                std::list<CScCertificate> removedCerts;
+                LogPrint("mempool", "%s():%d - removing [%s] from mapSidechain\n", __func__, __LINE__, hash.ToString() );
+ 
+                // this removes from mapCertificate as well, therefore the input reference is not valid anymore
+                remove(conflictingCert, dummyTxs, removedCerts, true);
+ 
+                if (removedCerts.size() != 1)
+                {
+                    LogPrint("mempool", "%s():%d - WARNING! more than 1 cert to be removed!!! Have we got any dependancy amoung certs for the same epoch?\n", __func__, __LINE__);
+                }
+ 
+                // Tell wallet about this certificate that went from mempool to conflicted:
+                SyncWithWallets(conflictingCert, nullptr);
+                LogPrint("mempool", "%s():%d - synced cert[%s]\n", __func__, __LINE__, hash.ToString());
             }
         }
-
-        if (maxQuality != CScCertificate::QUALITY_NULL)
-        {
-            return true;
-        }
     }
-    return false;
 }
 

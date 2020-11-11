@@ -560,17 +560,19 @@ public:
     bool HaveSidechain(const uint256& scId)                           const override;
     bool GetSidechain(const uint256 & scId, CSidechain& targetScInfo) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
-    bool IsQualityValid(const CScCertificate& cert, CAmount certFee)  const override;
     bool HaveScRequirements(const CTransaction& tx, int height);
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
+    bool GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const;
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const;
     bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash) const;
     bool UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry);
     bool RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry);
-
+    bool IsQualityValid(const CScCertificate& cert, CAmount certFee)  const override;
+    CAmount GetValueOfBackwardTransfers(const uint256& certHash) const;
+    
     //SIDECHAINS EVENTS RELATED MEMBERS
     bool HaveSidechainEvents(int height)                            const override;
     bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override;

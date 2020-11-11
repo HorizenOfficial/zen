@@ -83,7 +83,7 @@ public:
         str += strprintf("txout(%s)\n", txout.ToString());
         str += strprintf("        fCoinBase         = %d\n", fCoinBase);
         str += strprintf("        nHeight           = %d\n", nHeight);
-        str += strprintf("        nVersion          = %d\n", nVersion);
+        str += strprintf("        nVersion          = %x\n", nVersion);
         str += strprintf("        nFirstBwtPos      = %d\n", nFirstBwtPos);
         str += strprintf("        nBwtMaturityHeight= %d\n", nBwtMaturityHeight);
         return str;
