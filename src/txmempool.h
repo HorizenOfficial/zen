@@ -182,6 +182,8 @@ public:
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
+    std::set<uint256> mempoolDirectDependenciesOf(const CTransactionBase& root);
+    std::set<uint256> mempoolFullDependenciesOf(const CTransactionBase& origTx);
     void remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false);
 
     void removeWithAnchor(const uint256 &invalidRoot);

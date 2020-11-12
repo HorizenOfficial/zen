@@ -256,7 +256,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsOnlyInMempool_FwdNonRecursiveRemoval) {
 
 TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScRecursiveRemoval) {
     // Associated scenario: Sidechain creation and some fwds are in mempool, e.g. as a result of previous blocks disconnections
-    // One of the new blocks about to me mounted double spends the original fwdTx, hence scCreation is marked for recursive removal by removeForConflicts
+    // One of the new blocks about to me mounted double spends the original scTx, hence scCreation is marked for recursive removal by removeForConflicts
     // both scCreation and fwds must be cleared from mempool
 
     CTxMemPool aMempool(::minRelayTxFee);
