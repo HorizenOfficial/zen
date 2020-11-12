@@ -94,6 +94,7 @@ testScripts=(
   'sc_cert_ceasing.py'
   'sc_getscinfo.py'
   'quality_mempool.py'
+  'quality_blockchain.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
