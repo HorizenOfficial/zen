@@ -177,6 +177,7 @@ public:
     void check(const CCoinsViewCache *pcoins) const;
     void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
 
+    bool CertSpendsOutputOfSet(const CScCertificate& cert, const std::set<uint256>& s) const;
     bool RemoveAnyConflictingQualityCert(const CScCertificate& cert);
 
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);

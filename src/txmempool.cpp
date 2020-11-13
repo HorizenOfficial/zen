@@ -508,9 +508,9 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
     std::list<const CTransactionBase*>   txsToRemove;
 
     // Remove certificates referring to this block as end epoch
-    for (std::map<uint256, CCertificateMemPoolEntry>::const_iterator it = mapCertificate.begin(); it != mapCertificate.end(); it++)
+    for (std::map<uint256, CCertificateMemPoolEntry>::const_iterator itCert = mapCertificate.begin(); itCert != mapCertificate.end(); itCert++)
     {
-        const CScCertificate& cert = it->second.GetCertificate();
+        const CScCertificate& cert = itCert->second.GetCertificate();
 
         if (cert.endEpochBlockHash == pindexDelete->GetBlockHash() )
         {
@@ -856,7 +856,6 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
         checkTotal += it->second.GetCertificateSize();
         innerUsage += it->second.DynamicMemoryUsage();
-        CValidationState state;
 
         if (fDependsWait)
         {
@@ -1229,11 +1228,28 @@ bool CCoinsViewMemPool::IsQualityValid(const CScCertificate& cert, CAmount certF
     return true;
 }
 
+bool CTxMemPool::CertSpendsOutputOfSet(const CScCertificate& cert, const std::set<uint256>& s) const
+{
+    for (const CTxIn txin : cert.GetVin())
+    {
+        const uint256& hash = txin.prevout.hash;
+
+        if (s.count(hash))
+        {
+            LogPrint("mempool", "%s():%d - cert %s spends output %d of %s\n", __func__, __LINE__,
+                cert.GetHash().ToString(), txin.prevout.n, hash.ToString());
+            return true;
+        }
+    }
+    return false;
+}
+
 bool CTxMemPool::RemoveAnyConflictingQualityCert(const CScCertificate& cert)
 {
     const uint256& scId = cert.GetScId();
 
     const CScCertificate* conflictingCert = nullptr;
+    std::vector<CScCertificate> vHigherQualityCerts;
 
     // find any conflicting certificate for this scid if any
     if ((mapSidechains.count(scId) != 0) &&
@@ -1241,19 +1257,21 @@ bool CTxMemPool::RemoveAnyConflictingQualityCert(const CScCertificate& cert)
     {
         for (const auto& hash : mapSidechains.at(scId).vBackwardCertificates)
         {
-            conflictingCert = &mapCertificate.at(hash).GetCertificate();
-            if (conflictingCert->quality == cert.quality)
+            const CScCertificate& memPoolCert = mapCertificate.at(hash).GetCertificate();
+            if (memPoolCert.quality == cert.quality)
             {
                 // we already have handled the case of a cert in mempool with same quality and greater or equal fee
+                // at this point there can be at most one of such cert in the mempool
+                assert(!conflictingCert);
                 // TODO if necessary we could pass along also the fee and assert that it is necessarely lower
+
                 LogPrint("mempool", "%s():%d - found conflicting cert [%s]\n", __func__, __LINE__, hash.ToString() );
-                // we can bail out, there can be at most one cert for this scid/epoch with the same quality
-                break;
+                conflictingCert = &memPoolCert;
             }
             else
+            if (memPoolCert.quality > cert.quality)
             {
-                // qualities are different, no conflicts
-                conflictingCert = nullptr;
+                vHigherQualityCerts.push_back(memPoolCert);
             }
         }
     }
@@ -1264,29 +1282,34 @@ bool CTxMemPool::RemoveAnyConflictingQualityCert(const CScCertificate& cert)
         return true;
     }
 
+    // loop on higher quality certs: we can not depend on anyone of them since the dependancy ordering
+    // clashes with the quality ordering, both required by consensus rules when mining a block
+    for (auto entry : vHigherQualityCerts)
+    {
+        std::set<uint256> s  = mempoolFullDependenciesOf(entry);
+        s.insert(entry.GetHash());
+        if (CertSpendsOutputOfSet(cert, s) )
+        {
+            LogPrint("mempool", "%s():%d - cert %s depends on a higher quality cert\n", __func__, __LINE__,
+                cert.GetHash().ToString());
+            return false;
+        }
+    }
+
+    // finally check that we are not spending any outputs from conflicting cert or its dependancies
     if (!conflictingCert)
     {
         LogPrint("mempool", "%s():%d - no conflicting cert found\n", __func__, __LINE__);
         return true;
     }
 
-    // get the hashes of direct and indirect dependancies
     std::set<uint256> s  = mempoolFullDependenciesOf(*conflictingCert);
-
-    // add the conflicting cert itself
     s.insert(conflictingCert->GetHash());
-
-    // finally check that we are not spending any outputs from conflicting cert or its dependancies
-    for (const CTxIn txin : cert.GetVin())
+    if (CertSpendsOutputOfSet(cert, s) )
     {
-        const uint256& hash = txin.prevout.hash;
-
-        if (s.count(hash))
-        {
-            LogPrint("mempool", "%s():%d - cert %s depends on %s\n", __func__, __LINE__,
-                cert.GetHash().ToString(), hash.ToString());
-            return false;
-        }
+        LogPrint("mempool", "%s():%d - cert %s depends on a conflicting cert\n", __func__, __LINE__,
+            cert.GetHash().ToString());
+        return false;
     }
 
     // ok, we can safely remove the conflicting certs and all of dependancies if any
