@@ -3367,6 +3367,7 @@ bool ReceivedBlockTransactions(const CBlock &block, CValidationState& state, CBl
 
 bool FindBlockPos(CValidationState &state, CDiskBlockPos &pos, unsigned int nAddSize, unsigned int nHeight, uint64_t nTime, bool fKnown = false)
 {
+    // Currently fKnown is false for blocks coming from network, true for blocks loaded from files upon reindexing
     LOCK(cs_LastBlockFile);
 
     unsigned int nFile = fKnown ? pos.nFile : nLastBlockFile;
