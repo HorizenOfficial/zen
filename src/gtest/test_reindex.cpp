@@ -16,6 +16,7 @@ public:
         boost::filesystem::create_directories(dataDirLocation);
         mapArgs["-datadir"] = dataDirLocation.string();
     };
+
     ~ReindexTestSuite()
     {
         ClearDatadirCache();
@@ -30,14 +31,6 @@ private:
     boost::filesystem::path  dataDirLocation;
 };
 
-TEST_F(ReindexTestSuite, EmptyTest1) {
-    EXPECT_TRUE(true);
-}
-
-TEST_F(ReindexTestSuite, EmptyTest2) {
-    EXPECT_FALSE(false);
-}
-
 TEST_F(ReindexTestSuite, LoadingBlocksFromNullFilePtrWillAbort) {
 	//prerequisites
     int blkFileSuffix = {1987};
@@ -45,11 +38,10 @@ TEST_F(ReindexTestSuite, LoadingBlocksFromNullFilePtrWillAbort) {
     CDiskBlockPos diskBlkPos(blkFileSuffix, 0);
     ASSERT_TRUE(!boost::filesystem::exists(GetBlockPosFilename(diskBlkPos, "blk")));
 
-    //test
     FILE* filePtr = OpenBlockFile(diskBlkPos, /*fReadOnly*/true);
+    ASSERT_TRUE(filePtr == nullptr);
 
-    //checks
-    EXPECT_TRUE(filePtr == nullptr);
+    //test && checks
     EXPECT_EXIT(LoadBlocksFromExternalFile(filePtr, &diskBlkPos), ::testing::KilledBySignal(SIGSEGV),".*");
 }
 
