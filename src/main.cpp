@@ -318,8 +318,8 @@ CNodeState *State(NodeId pnode) {
 }
 
 bool IsStartupSyncing() {
-	LOCK(cs_main);
-	return fIsStartupSyncing;
+    LOCK(cs_main);
+    return fIsStartupSyncing;
 }
 
 
@@ -687,19 +687,19 @@ unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans) EXCLUSIVE_LOCKS_REQUIRE
 bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
 {
 
-	const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
-	bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
-	if(!isGROTHActive) {
-		if (tx.nVersion > CTransaction::MAX_OLD_VERSION || tx.nVersion < CTransaction::MIN_OLD_VERSION) {
-			reason = "version";
-			return false;
-		}
-	} else {
-		if (tx.nVersion != TRANSPARENT_TX_VERSION && tx.nVersion != GROTH_TX_VERSION) {
-			reason = "version";
-			return false;
-		}
-	}
+    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
+    bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
+    if(!isGROTHActive) {
+        if (tx.nVersion > CTransaction::MAX_OLD_VERSION || tx.nVersion < CTransaction::MIN_OLD_VERSION) {
+            reason = "version";
+            return false;
+        }
+    } else {
+        if (tx.nVersion != TRANSPARENT_TX_VERSION && tx.nVersion != GROTH_TX_VERSION) {
+            reason = "version";
+            return false;
+        }
+    }
 
 
     BOOST_FOREACH(const CTxIn& txin, tx.vin)
@@ -942,42 +942,42 @@ bool ContextualCheckTransaction(
         bool (*isInitBlockDownload)())
 {
 
-	//Valid txs are:
-	// at any height
-	// at height < groth_fork v>=1 txs with PHGR proofs
-	// at height >= groth_fork v=-3 shielded with GROTH proofs and v=1 transparent with joinsplit empty
+    //Valid txs are:
+    // at any height
+    // at height < groth_fork v>=1 txs with PHGR proofs
+    // at height >= groth_fork v=-3 shielded with GROTH proofs and v=1 transparent with joinsplit empty
 
 
-	const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
-	bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
+    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
+    bool isGROTHActive = (shieldedTxVersion == GROTH_TX_VERSION);
 
-	if(isGROTHActive) {
-		//verify if transaction is transparent or the actual shielded version
-		if(tx.nVersion == TRANSPARENT_TX_VERSION) {
-			//enforce empty joinsplit for transparent txs
-			if(!tx.vjoinsplit.empty()) {
-				return state.DoS(dosLevel, error("ContextualCheckTransaction(): transparent tx but vjoinsplit not empty"),
-									 REJECT_INVALID, "bad-txns-transparent-jsnotempty");
-			}
-			return true;
-		}
-		if(tx.nVersion != GROTH_TX_VERSION) {
-			LogPrintf("ContextualCheckTransaction: rejecting non GROTH (%d) transaction because GROTH is already active at block height %d\n", tx.nVersion, nHeight);
-			return state.DoS(dosLevel,
-	                         error("ContextualCheckTransaction(): groth is already active"),
-	                         REJECT_INVALID, "bad-tx-shielded-version-too-low");
-		}
-		return true;
+    if(isGROTHActive) {
+        //verify if transaction is transparent or the actual shielded version
+        if(tx.nVersion == TRANSPARENT_TX_VERSION) {
+            //enforce empty joinsplit for transparent txs
+            if(!tx.vjoinsplit.empty()) {
+                return state.DoS(dosLevel, error("ContextualCheckTransaction(): transparent tx but vjoinsplit not empty"),
+                                     REJECT_INVALID, "bad-txns-transparent-jsnotempty");
+            }
+            return true;
+        }
+        if(tx.nVersion != GROTH_TX_VERSION) {
+            LogPrintf("ContextualCheckTransaction: rejecting non GROTH (%d) transaction because GROTH is already active at block height %d\n", tx.nVersion, nHeight);
+            return state.DoS(dosLevel,
+                             error("ContextualCheckTransaction(): groth is already active"),
+                             REJECT_INVALID, "bad-tx-shielded-version-too-low");
+        }
+        return true;
 
-	} else {
-		if(tx.nVersion < TRANSPARENT_TX_VERSION) {
-			LogPrintf("ContextualCheckTransaction: rejecting non PHGR (%d) transaction because PHGR is still active at block height %d\n", tx.nVersion, nHeight);
-			return state.DoS(0,
-	                         error("ContextualCheckTransaction(): phgr is still active"),
-	                         REJECT_INVALID, "bad-tx-shielded-version-too-low");
-		}
-		return true;
-	}
+    } else {
+        if(tx.nVersion < TRANSPARENT_TX_VERSION) {
+            LogPrintf("ContextualCheckTransaction: rejecting non PHGR (%d) transaction because PHGR is still active at block height %d\n", tx.nVersion, nHeight);
+            return state.DoS(0,
+                             error("ContextualCheckTransaction(): phgr is still active"),
+                             REJECT_INVALID, "bad-tx-shielded-version-too-low");
+        }
+        return true;
+    }
 
 
     return true;
@@ -2656,9 +2656,9 @@ void static UpdateTip(CBlockIndex *pindexNew) {
     mempool.AddTransactionsUpdated(1);
 
     double syncProgress = Checkpoints::GuessVerificationProgress(chainParams.Checkpoints(), chainActive.Tip());
-	if(fIsStartupSyncing && std::abs(1.0 - syncProgress) < 0.000001) {
-    	LogPrintf("Fully synchronized at block height %d\n", chainActive.Height());
-    	fIsStartupSyncing = false;
+    if(fIsStartupSyncing && std::abs(1.0 - syncProgress) < 0.000001) {
+        LogPrintf("Fully synchronized at block height %d\n", chainActive.Height());
+        fIsStartupSyncing = false;
     }
 
     LogPrintf("%s: new best=%s  height=%d  log2_work=%.8g  tx=%lu  date=%s progress=%f  cache=%.1fMiB(%utx)\n", __func__,
@@ -3274,7 +3274,7 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
         pindexNew->nChainDelay = 0 ;
     }
     if(pindexNew->nChainDelay != 0) {
-    	LogPrintf("%s: Block belong to a chain under punishment Delay VAL: %i BLOCKHEIGHT: %d\n",__func__, pindexNew->nChainDelay,pindexNew->nHeight);
+        LogPrintf("%s: Block belong to a chain under punishment Delay VAL: %i BLOCKHEIGHT: %d\n",__func__, pindexNew->nChainDelay,pindexNew->nHeight);
     }
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);
     if (pindexBestHeader == NULL || (pindexBestHeader->nChainWork < pindexNew->nChainWork && pindexNew->nChainDelay==0))
@@ -3370,17 +3370,13 @@ bool FindBlockPos(CValidationState &state, CDiskBlockPos &pos, unsigned int nAdd
     LOCK(cs_LastBlockFile);
 
     unsigned int nFile = fKnown ? pos.nFile : nLastBlockFile;
-    if (vinfoBlockFile.size() <= nFile) {
-        vinfoBlockFile.resize(nFile + 1);
-    }
+    vinfoBlockFile.resize(std::max<unsigned int>(vinfoBlockFile.size(), nFile + 1));
 
-    if (!fKnown) {
-        while (vinfoBlockFile[nFile].nSize + nAddSize >= MAX_BLOCKFILE_SIZE) {
-            nFile++;
-            if (vinfoBlockFile.size() <= nFile) {
-                vinfoBlockFile.resize(nFile + 1);
-            }
-        }
+    if (!fKnown)
+    {
+        for(;vinfoBlockFile[nFile].nSize + nAddSize >= MAX_BLOCKFILE_SIZE; ++nFile)
+            vinfoBlockFile.resize(std::max<unsigned int>(vinfoBlockFile.size(), nFile + 1));
+
         pos.nFile = nFile;
         pos.nPos = vinfoBlockFile[nFile].nSize;
     }
@@ -3556,26 +3552,26 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     // Check timestamp against prev
     auto medianTimePast = pindexPrev->GetMedianTimePast();
     if (block.GetBlockTime() <= medianTimePast) {
-    	return state.Invalid(error("%s: block at height %d, timestamp %d is not later than median-time-past %d",
-    			__func__, nHeight, block.GetBlockTime(), medianTimePast),
-    			REJECT_INVALID, "time-too-old");
+        return state.Invalid(error("%s: block at height %d, timestamp %d is not later than median-time-past %d",
+                __func__, nHeight, block.GetBlockTime(), medianTimePast),
+                REJECT_INVALID, "time-too-old");
     }
 
 
     if (ForkManager::getInstance().isFutureTimeStampActive(nHeight) &&
-    		block.GetBlockTime() > medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP) {
-		return state.Invalid(error("%s: block at height %d, timestamp %d is too far ahead of median-time-past, limit is %d",
-				__func__, nHeight, block.GetBlockTime(), medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP),
-				REJECT_INVALID, "time-too-far-ahead-of-mtp");
-	}
+            block.GetBlockTime() > medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP) {
+        return state.Invalid(error("%s: block at height %d, timestamp %d is too far ahead of median-time-past, limit is %d",
+                __func__, nHeight, block.GetBlockTime(), medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP),
+                REJECT_INVALID, "time-too-far-ahead-of-mtp");
+    }
 
 
     // Check timestamp
     auto nTimeLimit = GetTime() + MAX_FUTURE_BLOCK_TIME_LOCAL;
     if (block.GetBlockTime() > nTimeLimit) {
         return state.Invalid(error("%s: block at height %d, timestamp %d is too far ahead of local time, limit is %d",
-        		__func__, nHeight, block.GetBlockTime(), nTimeLimit),
-        		REJECT_INVALID, "time-too-new");
+                __func__, nHeight, block.GetBlockTime(), nTimeLimit),
+                REJECT_INVALID, "time-too-new");
     }
 
     if (fCheckpointsEnabled)
