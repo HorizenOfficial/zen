@@ -48,6 +48,8 @@ boost::optional<CScript> GetMinerScriptPubKey();
 CBlockTemplate* CreateNewBlockWithKey();
 #endif
 
+CMutableTransaction createCoinbase(const CScript &scriptPubKeyIn, CAmount fees, const int nHeight);
+
 #ifdef ENABLE_MINING
 /** Modify the extranonce in a block */
 void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& nExtraNonce);
