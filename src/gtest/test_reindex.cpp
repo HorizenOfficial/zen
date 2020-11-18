@@ -6,6 +6,8 @@
 #include <util.h>
 #include <primitives/block.h>
 #include <pubkey.h>
+#include <consensus/validation.h>
+#include <pow.h>
 
 //includes for sut
 #include <main.h>
@@ -169,6 +171,8 @@ CBlockHeader ReindexTestSuite::generateABlockHeader()
 CBlock ReindexTestSuite::generateABlock()
 {
     CBlock res = generateABlockHeader();
+    generateEquihash(res);
+
     res.vtx.push_back(generateATransparentTx());
     return res;
 }
