@@ -639,17 +639,29 @@ void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransacti
         }
     }
 
-    //a certificate for a sidechain has been confirmed in a block. Any unconfirmed cert in mempool is deemed conflicting and removed
-    if (!mapSidechains.count(cert.GetScId()))
+    if (!mapSidechains.count(cert.GetScId()) || (mapSidechains.at(cert.GetScId()).vBackwardCertificates.empty()) )
         return;
 
-    auto& vec = mapSidechains.at(cert.GetScId()).vBackwardCertificates;
-    auto it = std::find(vec.begin(), vec.end(), cert.GetHash());
-    if (it == vec.end())
-        return;
+    // cert has been confirmed in a block, therefore any other cert in mempool for this scid
+    // with equal or lower quality is deemed conflicting and must be removed
+    std::list<CScCertificate> vLowerQualCerts;
+    for (auto memPoolCertHash :  mapSidechains.at(cert.GetScId()).vBackwardCertificates)
+    {
+        const CScCertificate& memPoolCert = mapCertificate.at(memPoolCertHash).GetCertificate();
+        assert(memPoolCert.epochNumber == cert.epochNumber);
 
-    const CScCertificate& conflictingCert = mapCertificate.at(*it).GetCertificate();
-    remove(conflictingCert, removedTxs, removedCerts, true);
+        if (memPoolCert.quality <= cert.quality)
+        {
+            LogPrint("mempool", "%s():%d - mempool cert[%s] q=%d conflicting with cert[%s] q=%d\n",
+                __func__, __LINE__, memPoolCertHash.ToString(), memPoolCert.quality, cert.GetHash().ToString(), cert.quality);
+            vLowerQualCerts.push_back(memPoolCert);
+        }
+    }
+
+    for (auto& conflictingCert : vLowerQualCerts)
+    {
+        remove(conflictingCert, removedTxs, removedCerts, true);
+    }
 }
 
 void CTxMemPool::removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight,
@@ -1258,6 +1270,8 @@ bool CTxMemPool::RemoveAnyConflictingQualityCert(const CScCertificate& cert)
         for (const auto& hash : mapSidechains.at(scId).vBackwardCertificates)
         {
             const CScCertificate& memPoolCert = mapCertificate.at(hash).GetCertificate();
+            assert(memPoolCert.epochNumber == cert.epochNumber);
+
             if (memPoolCert.quality == cert.quality)
             {
                 // we already have handled the case of a cert in mempool with same quality and greater or equal fee
