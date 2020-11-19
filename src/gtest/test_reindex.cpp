@@ -283,6 +283,63 @@ TEST_F(ReindexTestSuite, OutOfOrderBlocksAreLoadedFromFileIntoChainActive) {
     EXPECT_TRUE(*(chainActive.Tip()->pprev->phashBlock) == aBlock.GetHash());
 }
 
+TEST_F(ReindexTestSuite, DuplicatedBlocksAreHandledInMapBlockIndex) {
+    // prerequisites
+    CDiskBlockPos diskPos(12345, 0);
+
+    CBlock genesisCpy = Params().GenesisBlock();
+    CBlock aBlock = createCoinBaseOnlyBlock(genesisCpy.GetHash(), /*height*/1);
+
+    ASSERT_TRUE(storeToFile(genesisCpy, diskPos));
+    ASSERT_TRUE(storeToFile(aBlock, diskPos));
+    ASSERT_TRUE(storeToFile(aBlock, diskPos));
+    ASSERT_TRUE(storeToFile(aBlock, diskPos)); //store it thrice
+
+    //Note: read from start of file, not from pos returned by storeToFile
+    CDiskBlockPos diskPosReopened(12345, 0);
+    FILE* filePtr = OpenBlockFile(diskPosReopened, /*fReadOnly*/true);
+    ASSERT_TRUE(filePtr != nullptr);
+
+    //test
+    bool res = LoadBlocksFromExternalFile(filePtr, &diskPosReopened, /*loadHeadersOnly*/false);
+
+    //checks
+    EXPECT_TRUE(res);
+    ASSERT_TRUE(mapBlockIndex.count(Params().GenesisBlock().GetHash()));
+    EXPECT_TRUE(mapBlockIndex.at(Params().GenesisBlock().GetHash())->nStatus
+            == BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_SCRIPTS);
+    ASSERT_TRUE(mapBlockIndex.count(aBlock.GetHash()));
+    EXPECT_TRUE(mapBlockIndex.at(aBlock.GetHash())->nStatus
+            == BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_SCRIPTS);
+}
+
+TEST_F(ReindexTestSuite, DuplicatedBlocksAreHandledInChainActive) {
+    // prerequisites
+    CDiskBlockPos diskPos(12345, 0);
+
+    CBlock genesisCpy = Params().GenesisBlock();
+    CBlock aBlock = createCoinBaseOnlyBlock(genesisCpy.GetHash(), /*height*/1);
+
+    ASSERT_TRUE(storeToFile(genesisCpy, diskPos));
+    ASSERT_TRUE(storeToFile(aBlock, diskPos));
+    ASSERT_TRUE(storeToFile(aBlock, diskPos));
+    ASSERT_TRUE(storeToFile(aBlock, diskPos)); //store it thrice
+
+    //Note: read from start of file, not from pos returned by storeToFile
+    CDiskBlockPos diskPosReopened(12345, 0);
+    FILE* filePtr = OpenBlockFile(diskPosReopened, /*fReadOnly*/true);
+    ASSERT_TRUE(filePtr != nullptr);
+
+    //test
+    bool res = LoadBlocksFromExternalFile(filePtr, &diskPosReopened, /*loadHeadersOnly*/false);
+
+    //checks
+    EXPECT_TRUE(res);
+    EXPECT_TRUE(chainActive.Height() == 1);
+    EXPECT_TRUE(*(chainActive.Genesis()->phashBlock) == Params().GenesisBlock().GetHash());
+    EXPECT_TRUE(*(chainActive.Tip()->phashBlock) == aBlock.GetHash());
+}
+
 TEST_F(ReindexTestSuite, BlocksHeadersAreNotLoadedFromEmptyBlkFile) {
     //prerequisites
     int blkFileSuffix = {1};
@@ -397,13 +454,43 @@ TEST_F(ReindexTestSuite, OutOfOrderBlockHeadersAreLoadedFromFileIntoMapBlockInde
     EXPECT_TRUE(res);
     ASSERT_TRUE(mapBlockIndex.count(Params().GenesisBlock().GetHash()));
     EXPECT_TRUE(mapBlockIndex.at(Params().GenesisBlock().GetHash())->nStatus
-            == BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_TREE);
+            == BlockStatus::BLOCK_VALID_TREE);
     ASSERT_TRUE(mapBlockIndex.count(aBlock.GetHash()));
     EXPECT_TRUE(mapBlockIndex.at(aBlock.GetHash())->nStatus
-            == BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_TREE);
+            == BlockStatus::BLOCK_VALID_TREE);
     ASSERT_TRUE(mapBlockIndex.count(anotherBlock.GetHash()));
     EXPECT_TRUE(mapBlockIndex.at(anotherBlock.GetHash())->nStatus
-            == BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_TREE);
+            == BlockStatus::BLOCK_VALID_TREE);
+}
+
+TEST_F(ReindexTestSuite, DuplicatedBlocksHeadersAreHandledInMapBlockIndex) {
+    // prerequisites
+    CDiskBlockPos diskPos(12345, 0);
+
+    CBlock genesisCpy = Params().GenesisBlock();
+    CBlock aBlock = createCoinBaseOnlyBlock(genesisCpy.GetHash(), /*height*/1);
+
+    ASSERT_TRUE(storeToFile(genesisCpy, diskPos));
+    ASSERT_TRUE(storeToFile(aBlock, diskPos));
+    ASSERT_TRUE(storeToFile(aBlock, diskPos));
+    ASSERT_TRUE(storeToFile(aBlock, diskPos)); //store it thrice
+
+    //Note: read from start of file, not from pos returned by storeToFile
+    CDiskBlockPos diskPosReopened(12345, 0);
+    FILE* filePtr = OpenBlockFile(diskPosReopened, /*fReadOnly*/true);
+    ASSERT_TRUE(filePtr != nullptr);
+
+    //test
+    bool res = LoadBlocksFromExternalFile(filePtr, &diskPosReopened, /*loadHeadersOnly*/true);
+
+    //checks
+    EXPECT_TRUE(res);
+    ASSERT_TRUE(mapBlockIndex.count(Params().GenesisBlock().GetHash()));
+    EXPECT_TRUE(mapBlockIndex.at(Params().GenesisBlock().GetHash())->nStatus
+            == BlockStatus::BLOCK_VALID_TREE);
+    ASSERT_TRUE(mapBlockIndex.count(aBlock.GetHash()));
+    EXPECT_TRUE(mapBlockIndex.at(aBlock.GetHash())->nStatus
+    		== BlockStatus::BLOCK_VALID_TREE);
 }
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
