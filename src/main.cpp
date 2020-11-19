@@ -4396,14 +4396,15 @@ CBlock LoadBlockFrom(CBufferedFile& blkdat, CDiskBlockPos* pLastLoadedBlkPos)
     return res;
 }
 
-bool LoadBlocksFromExternalFile(FILE* fileIn, CDiskBlockPos *dbp)
+bool LoadBlocksFromExternalFile(FILE* fileIn, CDiskBlockPos *dbp, bool loadHeadersOnly)
 {
     const CChainParams& chainparams = Params();
     // Map of disk positions for blocks with unknown parent (only used for reindex)
     static std::multimap<uint256, CDiskBlockPos> mapBlocksUnknownParent;
     int64_t nStart = GetTimeMillis();
 
-    int nLoaded = 0;
+    int nLoadedHeaders = 0;
+    int nLoadedBlocks = 0;
 
     // This takes over fileIn and calls fclose() on it in the CBufferedFile destructor
     CBufferedFile blkdat(fileIn, 2*MAX_BLOCK_SIZE, MAX_BLOCK_SIZE+8, SER_DISK, CLIENT_VERSION);
@@ -4424,12 +4425,25 @@ bool LoadBlocksFromExternalFile(FILE* fileIn, CDiskBlockPos *dbp)
             }
 
             // process in case the block isn't known yet
-            if (mapBlockIndex.count(hash) == 0 || (mapBlockIndex[hash]->nStatus & BLOCK_HAVE_DATA) == 0) {
+            if (mapBlockIndex.count(hash) == 0 ||
+                    (mapBlockIndex[hash]->nStatus & (BLOCK_HAVE_DATA) || BLOCK_VALID_TREE) == 0) //Todo: verify header status
+            {
                 CValidationState state;
-                if (ProcessNewBlock(state, NULL, &loadedBlk, true, dbp))
-                    nLoaded++;
-                if (state.IsError())
-                    break;
+                if (loadHeadersOnly)
+                {
+                    if (AcceptBlockHeader(loadedBlk, state, /*ppindex*/nullptr, /*lookForwardTips*/false)) //Todo: verify lookForwardTips
+                    	++nLoadedHeaders;
+
+                    if (state.IsError())
+                        break;
+                } else
+                {
+                	if (ProcessNewBlock(state, NULL, &loadedBlk, true, dbp))
+                        nLoadedBlocks++;
+
+                    if (state.IsError())
+                        break;
+                }
             } else if (hash != chainparams.GetConsensus().hashGenesisBlock && mapBlockIndex[hash]->nHeight % 1000 == 0) {
                 LogPrintf("Block Import: already had block %s at height %d\n", hash.ToString(), mapBlockIndex[hash]->nHeight);
             }
@@ -4448,10 +4462,21 @@ bool LoadBlocksFromExternalFile(FILE* fileIn, CDiskBlockPos *dbp)
                         LogPrintf("%s: Processing out of order child %s of %s\n", __func__, loadedBlk.GetHash().ToString(),
                                 head.ToString());
                         CValidationState dummy;
-                        if (ProcessNewBlock(dummy, NULL, &loadedBlk, true, &it->second)) //Here, issue on Process Block does not cause whole stop as before
+
+                        if (loadHeadersOnly)
                         {
-                            nLoaded++;
-                            queue.push_back(loadedBlk.GetHash());
+                        	if (AcceptBlockHeader(loadedBlk, dummy, /*ppindex*/nullptr, /*lookForwardTips*/false))
+                        	{ //Todo: verify lookForwardTips and correctness of not breaking up
+                                nLoadedHeaders++;
+                                queue.push_back(loadedBlk.GetHash());
+                        	}
+                        } else {
+                        	//Todo: verify that issue on Process Block does not cause whole stop as before
+                            if (ProcessNewBlock(dummy, NULL, &loadedBlk, true, &it->second))
+                            {
+                                nLoadedBlocks++;
+                                queue.push_back(loadedBlk.GetHash());
+                            }
                         }
                     }
                     range.first++;
@@ -4462,12 +4487,12 @@ bool LoadBlocksFromExternalFile(FILE* fileIn, CDiskBlockPos *dbp)
     } catch (const std::runtime_error& e) {
         AbortNode(std::string("System error: ") + e.what());
     } catch (...) {
-    	AbortNode(std::string("System error while LoadBlocksFromExternalFile"));
+        AbortNode(std::string("System error while LoadBlocksFromExternalFile"));
     }
 
-    if (nLoaded > 0)
-        LogPrintf("Loaded %i blocks from external file in %dms\n", nLoaded, GetTimeMillis() - nStart);
-    return nLoaded > 0;
+    if (nLoadedBlocks > 0)
+        LogPrintf("Loaded %i blocks from external file in %dms\n", nLoadedBlocks, GetTimeMillis() - nStart);
+    return (loadHeadersOnly && (nLoadedHeaders > 0)) || (!loadHeadersOnly && (nLoadedBlocks > 0));
 }
 
 void static CheckBlockIndex()

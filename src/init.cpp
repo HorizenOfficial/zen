@@ -634,21 +634,40 @@ void CleanupBlockRevFiles()
 void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
 {
     RenameThread("horizen-loadblk");
+
+    bool fReindexFast = false; //temporarily local
+
     // -reindex
-    if (fReindex) {
+    if (fReindex || fReindexFast)
+    {
         CImportingNow imp;
         int nFile = 0;
-        while (true) {
+        while (fReindexFast)
+        {
             CDiskBlockPos pos(nFile, 0);
             if (!boost::filesystem::exists(GetBlockPosFilename(pos, "blk")))
                 break; // No block files left to reindex
             FILE *file = OpenBlockFile(pos, true);
-            if (!file)
-                break; // This error is logged in OpenBlockFile
-            LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
-            LoadBlocksFromExternalFile(file, &pos);
+            if (!file) break; // This error is logged in OpenBlockFile
+            LogPrintf("Reindexing block file blk%05u.dat, headers only...\n", (unsigned int)nFile);
+            LoadBlocksFromExternalFile(file, &pos, /*loadHeadersOnly*/true);
             nFile++;
         }
+        fReindexFast = false;
+        nFile = 0;
+
+        while (true)
+        {
+            CDiskBlockPos pos(nFile, 0);
+            if (!boost::filesystem::exists(GetBlockPosFilename(pos, "blk")))
+                break; // No block files left to reindex
+            FILE *file = OpenBlockFile(pos, true);
+            if (!file) break; // This error is logged in OpenBlockFile
+            LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
+            LoadBlocksFromExternalFile(file, &pos, /*loadHeadersOnly*/false);
+            nFile++;
+        }
+
         pblocktree->WriteReindexing(false);
         fReindex = false;
         LogPrintf("Reindexing finished\n");
@@ -664,7 +683,7 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
             CImportingNow imp;
             boost::filesystem::path pathBootstrapOld = GetDataDir() / "bootstrap.dat.old";
             LogPrintf("Importing bootstrap.dat...\n");
-            LoadBlocksFromExternalFile(file);
+            LoadBlocksFromExternalFile(file, nullptr, /*loadHeadersOnly*/false);
             RenameOver(pathBootstrap, pathBootstrapOld);
         } else {
             LogPrintf("Warning: Could not open bootstrap file %s\n", pathBootstrap.string());
@@ -677,7 +696,7 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
         if (file) {
             CImportingNow imp;
             LogPrintf("Importing blocks file %s...\n", path.string());
-            LoadBlocksFromExternalFile(file);
+            LoadBlocksFromExternalFile(file, nullptr, /*loadHeadersOnly*/false);
         } else {
             LogPrintf("Warning: Could not open blocks file %s\n", path.string());
         }
