@@ -4981,18 +4981,21 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     // allow use of unconfirmed coins
     int nMinDepth = 0; //1; 
 
-// TODO quality - add check on quality
-// if a cert for this epoch has already been received, the sc balance should be increment by the
-// relevant amount before checking this nTotalOut
-#if 0
-    if (nTotalOut > scInfo.balance)
+    uint256 topQualityCert;
+    CAmount delta = 0;
+
+    if (scView.GetTopQualityCert(scId, epochNumber, topQualityCert) )
+    {
+        delta = scView.GetValueOfBackwardTransfers(topQualityCert);
+    }
+
+    if (nTotalOut > scInfo.balance+delta)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scid[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, scId.ToString(), FormatMoney(scInfo.balance), FormatMoney(nTotalOut) );
+            __func__, __LINE__, scId.ToString(), FormatMoney(scInfo.balance+delta), FormatMoney(nTotalOut) );
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "sidechain has insufficient funds");
     }
-#endif
-    
+
     Sidechain::ScRpcCmdCert cmd(cert, vBackwardTransfers, fromaddress, changeaddress, nMinDepth, nCertFee);
 
     cmd.addInputs();

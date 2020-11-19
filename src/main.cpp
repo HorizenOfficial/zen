@@ -2364,16 +2364,23 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             outs->Clear();
         }
 
-        if (!view.CancelSidechainEvent(cert)) {
-            LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
-            return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
-        }
-
+        // this must be called before cancelling sc events since certificate quality is handled here
         const CTxUndo &certUndo = blockUndo.vtxundo[certOffset + i];
         if (!view.RevertCertOutputs(cert, certUndo) ) {
             LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
             return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
         }
+
+        // TODO quality
+        // if we have more certs for scid/epoch with different qualities we must handle it somehow
+        // maybe out of the loop on certificates after having collected all of them?
+        // unlsess consensus rules that certs are ordered by quality
+
+        if (!view.CancelSidechainEvent(cert)) {
+            LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
+            return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
+        }
+
 
         // restore inputs
         if (certUndo.vprevout.size() != cert.GetVin().size())

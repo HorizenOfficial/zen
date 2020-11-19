@@ -422,7 +422,7 @@ class sc_cert_base(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
-        assert_equal("conflicting cert" in errorString, True)
+        assert_equal("certificate not accepted to mempool" in errorString, True)
 
         mark_logs("Node0 confims bwd transfer generating 1 block", self.nodes, DEBUG_MODE)
         mined = self.nodes[0].generate(1)[0]
@@ -440,7 +440,7 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
         #Create proof for WCert
-        quality = 0 # lower quality but accepted
+        quality = 0 # lower quality than a cert in blockchain, not accepted
         proof = mcTest.create_test_proof(
             "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node1], [bwt_amount_0_b])
@@ -449,10 +449,10 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node 0 tries to performs a bwd transfer for the same epoch number as before...", self.nodes, DEBUG_MODE)
         try:
             cert_epoch_0_b = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_2, CERT_FEE)
+            assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert(False)
 
         mark_logs("Checking that amount transferred by certificate reaches Node1 wallet", self.nodes, DEBUG_MODE)
         retrieved_cert = self.nodes[1].gettransaction(cert_epoch_0)
@@ -547,12 +547,10 @@ class sc_cert_base(BitcoinTestFramework):
         for utxo in utxos_Node1:
             if ("certified" in utxo.keys()):
                 cert_epoch_0_availalble = True
-                # TODO quality cert_epoch_0_b must not be here, lower quality cert must not have bwt coins anymore
                 #assert_true(utxo["txid"] == cert_epoch_0 )
         assert_true(cert_epoch_0_availalble)
 
         mark_logs("Checking Node1 balance is duly updated,".format(epoch_number), self.nodes, DEBUG_MODE)
-        # TODO quality cert_epoch_0_b must not be here, lower quality cert must not have bwt coins anymore
         # assert_equal(bal_after_cert_2, bal_before_cert_2 + amount_cert_1[0]["amount"])
 
         Node2_bal_before_cert_expenditure = self.nodes[2].getbalance("", 0)

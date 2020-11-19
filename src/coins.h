@@ -572,6 +572,8 @@ public:
     bool RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry);
     bool IsQualityValid(const CScCertificate& cert, CAmount certFee)  const override;
     CAmount GetValueOfBackwardTransfers(const uint256& certHash) const;
+    void NullifyBackwardTransfers(const uint256& certHash, CTxUndo& certUndoEntry);
+    bool RestoreBackwardTransfers(const CTxUndo& certUndoEntry);
     
     //SIDECHAINS EVENTS RELATED MEMBERS
     bool HaveSidechainEvents(int height)                            const override;

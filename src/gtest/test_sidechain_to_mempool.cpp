@@ -413,7 +413,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_CertRemovalDoesNotAffe
     EXPECT_TRUE(mempool.existsTx(fwdTx.GetHash()));
     ASSERT_TRUE(mempool.mapSidechains.count(scId));
     EXPECT_TRUE(mempool.mapSidechains.at(scId).fwdTransfersSet.count(fwdTx.GetHash()));
-    EXPECT_TRUE(mempool.mapSidechains.at(scId).vBackwardCertificates.size() == 0);
+    EXPECT_TRUE(mempool.mapSidechains.at(scId).mBackwardCertificates.empty());
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffectCert) {
@@ -447,7 +447,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffec
     EXPECT_TRUE(mempool.existsCert(cert.GetHash()));
     ASSERT_TRUE(mempool.mapSidechains.count(scId));
     EXPECT_FALSE(mempool.mapSidechains.at(scId).fwdTransfersSet.count(fwdTx.GetHash()));
-    EXPECT_TRUE(mempool.mapSidechains.at(scId).vBackwardCertificates.back() == cert.GetHash());
+    EXPECT_TRUE(mempool.mapSidechains.at(scId).HasCert(cert.GetHash()));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, ImmatureExpenditureRemoval) {

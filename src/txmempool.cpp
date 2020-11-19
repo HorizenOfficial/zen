@@ -91,6 +91,37 @@ CCertificateMemPoolEntry::GetPriority(unsigned int currentHeight) const
 #endif
 }
 
+const std::map<int64_t, uint256>::const_reverse_iterator CSidechainMemPoolEntry::GetTopQualityCert() const
+{
+    return mBackwardCertificates.crbegin();
+}
+
+void CSidechainMemPoolEntry::EraseCert(const uint256& hash)
+{
+    for(auto it = mBackwardCertificates.begin(); it != mBackwardCertificates.end(); )
+    {
+        if(it->second == hash)
+        {
+            LogPrint("mempool", "%s():%d - removing cert [%s] from mBackwardCertificates\n",
+                __func__, __LINE__, hash.ToString());
+            it = mBackwardCertificates.erase(it);
+        }
+        else
+            ++it;
+    }
+}
+
+const std::map<int64_t, uint256>::const_iterator CSidechainMemPoolEntry::GetCert(const uint256& hash) const
+{
+    return std::find_if(mBackwardCertificates.begin(), mBackwardCertificates.end(),
+        [&hash](const std::map<int64_t, uint256>::value_type& item) { return hash == item.second; });
+}
+
+bool CSidechainMemPoolEntry::HasCert(const uint256& hash) const
+{
+    return GetCert(hash) != mBackwardCertificates.end();
+}
+
 CTxMemPool::CTxMemPool(const CFeeRate& _minRelayFee) :
     nTransactionsUpdated(0), nCertificatesUpdated(0), cachedInnerUsage(0)
 {
@@ -186,8 +217,11 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     for (unsigned int i = 0; i < cert.GetVin().size(); i++)
         mapNextTx[cert.GetVin()[i].prevout] = CInPoint(&cert, i);
 
-    LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, cert.GetScId().ToString() );
-    mapSidechains[cert.GetScId()].vBackwardCertificates.push_back(hash);
+    LogPrint("mempool", "%s():%d - adding cert [%s] q=%d in mapSidechain\n", __func__, __LINE__,
+        cert.GetScId().ToString(), cert.quality);
+
+    assert(mapSidechains[cert.GetScId()].mBackwardCertificates.count(cert.quality) == 0);
+    mapSidechains[cert.GetScId()].mBackwardCertificates[cert.quality] = hash;
            
     nCertificatesUpdated++;
     totalCertificateSize += entry.GetCertificateSize();
@@ -342,12 +376,11 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                 // remove certificate hash from list
                 LogPrint("mempool", "%s():%d - removing cert [%s] from mapSidechain[%s]\n",
                     __func__, __LINE__, hash.ToString(), cert.GetScId().ToString());
-                auto& vec = mapSidechains.at(cert.GetScId()).vBackwardCertificates;
-                vec.erase(std::remove(vec.begin(), vec.end(), hash), vec.end());
+                mapSidechains.at(cert.GetScId()).EraseCert(hash);
 
                 if (mapSidechains.at(cert.GetScId()).IsNull())
                 {
-                    assert(mapSidechains.at(cert.GetScId()).vBackwardCertificates.size() == 0);
+                    assert(mapSidechains.at(cert.GetScId()).mBackwardCertificates.empty());
                     LogPrint("mempool", "%s():%d - erasing scid [%s] from mapSidechain\n", __func__, __LINE__, cert.GetScId().ToString() );
                     mapSidechains.erase(cert.GetScId());
                 }
@@ -639,18 +672,18 @@ void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransacti
         }
     }
 
-    if (!mapSidechains.count(cert.GetScId()) || (mapSidechains.at(cert.GetScId()).vBackwardCertificates.empty()) )
+    if (!mapSidechains.count(cert.GetScId()) || (mapSidechains.at(cert.GetScId()).mBackwardCertificates.empty()) )
         return;
 
     // cert has been confirmed in a block, therefore any other cert in mempool for this scid
     // with equal or lower quality is deemed conflicting and must be removed
     std::list<CScCertificate> vLowerQualCerts;
-    for (auto memPoolCertHash :  mapSidechains.at(cert.GetScId()).vBackwardCertificates)
+    for (auto entry :  mapSidechains.at(cert.GetScId()).mBackwardCertificates)
     {
+        const uint256& memPoolCertHash = entry.second;
         const CScCertificate& memPoolCert = mapCertificate.at(memPoolCertHash).GetCertificate();
-        assert(memPoolCert.epochNumber == cert.epochNumber);
 
-        if (memPoolCert.quality <= cert.quality)
+        if (memPoolCert.epochNumber == cert.epochNumber && memPoolCert.quality <= cert.quality)
         {
             LogPrint("mempool", "%s():%d - mempool cert[%s] q=%d conflicting with cert[%s] q=%d\n",
                 __func__, __LINE__, memPoolCertHash.ToString(), memPoolCert.quality, cert.GetHash().ToString(), cert.quality);
@@ -757,7 +790,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             assert(!pcoins->HaveSidechain(scCreation.GetScId()));
 
             //there cannot be no certificates for unconfirmed sidechains
-            assert(mapSidechains.at(scCreation.GetScId()).vBackwardCertificates.size() == 0);
+            assert(mapSidechains.at(scCreation.GetScId()).mBackwardCertificates.empty());
         }
 
         for(const auto& fwd: tx.GetVftCcOut()) {
@@ -834,9 +867,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
         //certificate must be duly recorded in mapSidechain
         assert(mapSidechains.count(cert.GetScId()) != 0);
-        auto& vec = mapSidechains.at(cert.GetScId()).vBackwardCertificates;
-        auto itStack = std::find(vec.begin(), vec.end(), cert.GetHash());
-        assert(itStack != vec.end());
+        auto hash = cert.GetHash();
+        assert(mapSidechains.at(cert.GetScId()).GetCert(hash) != mapSidechains.at(cert.GetScId()).mBackwardCertificates.end() );
 
         bool fDependsWait = false;
         BOOST_FOREACH(const CTxIn &txin, cert.GetVin()) {
@@ -1206,15 +1238,21 @@ bool CCoinsViewMemPool::IsQualityValid(const CScCertificate& cert, CAmount certF
     const uint256& scId = cert.GetScId();
 
     if ((mempool.mapSidechains.count(scId) != 0) &&
-        (!mempool.mapSidechains.at(scId).vBackwardCertificates.size() == 0))
+        (!mempool.mapSidechains.at(scId).mBackwardCertificates.size() == 0))
     {
 
-        for (const auto& entry : mempool.mapSidechains.at(scId).vBackwardCertificates)
+        for (const auto& entry : mempool.mapSidechains.at(scId).mBackwardCertificates)
         {
-            const CScCertificate& memPoolCert = mempool.mapCertificate.at(entry).GetCertificate();
+            const uint256& memPoolCertHash = entry.second;
+            const CScCertificate& memPoolCert = mempool.mapCertificate.at(memPoolCertHash).GetCertificate();
 
-            // can be nothing but the same epoch
-            assert(memPoolCert.epochNumber == cert.epochNumber);
+            // should be nothing but the same epoch
+            if (memPoolCert.epochNumber != cert.epochNumber)
+            {
+                LogPrint("cert", "%s:%s():%d - WARNING: cert %s epoch=%d vs cert %s epoch=%d\n", __FILE__,__func__, __LINE__,
+                    cert.GetHash().ToString(), cert.epochNumber, memPoolCertHash.ToString(), memPoolCert.epochNumber);
+                continue;
+            }
 
             // first of all compare quality
             if (memPoolCert.quality != cert.quality)
@@ -1225,8 +1263,8 @@ bool CCoinsViewMemPool::IsQualityValid(const CScCertificate& cert, CAmount certF
             else
             {
                 // in case of equal quality, compare fee
-                CAmount memPoolCertFee = mempool.mapCertificate.at(entry).GetFee();
-                if (memPoolCertFee > certFee)
+                CAmount memPoolCertFee = mempool.mapCertificate.at(memPoolCertHash).GetFee();
+                if (memPoolCertFee >= certFee)
                 {
                     LogPrint("cert", "%s:%s():%d - cert %s q=%d, fee=%s NOK; q=%d, fee=%s for same sc/epoch is in mempool\n",
                         __FILE__, __func__, __LINE__, cert.GetHash().ToString(), cert.quality, FormatMoney(certFee),
@@ -1265,12 +1303,20 @@ bool CTxMemPool::RemoveAnyConflictingQualityCert(const CScCertificate& cert)
 
     // find any conflicting certificate for this scid if any
     if ((mapSidechains.count(scId) != 0) &&
-        (!mapSidechains.at(scId).vBackwardCertificates.size() == 0))
+        (!mapSidechains.at(scId).mBackwardCertificates.empty()))
     {
-        for (const auto& hash : mapSidechains.at(scId).vBackwardCertificates)
+        for (const auto& entry : mapSidechains.at(scId).mBackwardCertificates)
         {
-            const CScCertificate& memPoolCert = mapCertificate.at(hash).GetCertificate();
-            assert(memPoolCert.epochNumber == cert.epochNumber);
+            const uint256& memPoolCertHash = entry.second;
+            const CScCertificate& memPoolCert = mapCertificate.at(memPoolCertHash).GetCertificate();
+
+            // should be nothing but the same epoch
+            if (memPoolCert.epochNumber != cert.epochNumber)
+            {
+                LogPrint("cert", "%s:%s():%d - WARNING: cert %s epoch=%d vs cert %s epoch=%d\n", __FILE__,__func__, __LINE__,
+                    cert.GetHash().ToString(), cert.epochNumber, memPoolCertHash.ToString(), memPoolCert.epochNumber);
+                continue;
+            }
 
             if (memPoolCert.quality == cert.quality)
             {
@@ -1279,7 +1325,7 @@ bool CTxMemPool::RemoveAnyConflictingQualityCert(const CScCertificate& cert)
                 assert(!conflictingCert);
                 // TODO if necessary we could pass along also the fee and assert that it is necessarely lower
 
-                LogPrint("mempool", "%s():%d - found conflicting cert [%s]\n", __func__, __LINE__, hash.ToString() );
+                LogPrint("mempool", "%s():%d - found conflicting cert [%s]\n", __func__, __LINE__, memPoolCertHash.ToString() );
                 conflictingCert = &memPoolCert;
             }
             else

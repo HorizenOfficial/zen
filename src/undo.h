@@ -126,9 +126,11 @@ public:
     int replacedLastCertEpoch;
     uint256 replacedLastCertHash;
     int64_t replacedLastCertQuality;
+    std::vector<CTxInUndo> vBwts; // undo information for bwt
 
     CTxUndo(): vprevout(), replacedLastCertEpoch(CScCertificate::EPOCH_NOT_INITIALIZED),
-            replacedLastCertHash(), replacedLastCertQuality(CScCertificate::QUALITY_NOT_INITIALIZED) {}
+            replacedLastCertHash(), replacedLastCertQuality(CScCertificate::QUALITY_NOT_INITIALIZED),
+            vBwts() {}
 
     size_t GetSerializeSize(int nType, int nVersion) const
     {
@@ -146,6 +148,7 @@ public:
             ::Serialize(s, replacedLastCertEpoch,   nType, nVersion);
             ::Serialize(s, replacedLastCertHash,    nType, nVersion);
             ::Serialize(s, replacedLastCertQuality, nType, nVersion);
+            ::Serialize(s, vBwts,                   nType, nVersion);
         }
         else {
             ::Serialize(s, vprevout, nType, nVersion);
@@ -160,6 +163,7 @@ public:
         replacedLastCertEpoch = CScCertificate::EPOCH_NOT_INITIALIZED;
         replacedLastCertHash.SetNull();
         replacedLastCertQuality = CScCertificate::QUALITY_NOT_INITIALIZED;
+        vBwts.clear();
 
         unsigned int nSize = ReadCompactSize(s);
         if (nSize == certAttributesMarker)
@@ -168,6 +172,7 @@ public:
             ::Unserialize(s, replacedLastCertEpoch,   nType, nVersion);
             ::Unserialize(s, replacedLastCertHash,    nType, nVersion);
             ::Unserialize(s, replacedLastCertQuality, nType, nVersion);
+            ::Unserialize(s, vBwts,                   nType, nVersion);
         }
         else
             ::AddEntriesInVector(s, vprevout, nType, nVersion, nSize);
@@ -182,6 +187,9 @@ public:
         str += strprintf("replacedLastCertEpoch   %d\n", replacedLastCertEpoch);
         str += strprintf("replacedLastCertHash    %s\n", replacedLastCertHash.ToString());
         str += strprintf("replacedLastCertQuality %d\n", replacedLastCertQuality);
+        str += strprintf("vBwts.size %u\n", vBwts.size());
+        for(const CTxInUndo& x: vBwts)
+            str += strprintf("\n  [%s]\n", x.ToString());
         return str;
     }
 
