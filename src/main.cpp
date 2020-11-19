@@ -4342,7 +4342,7 @@ bool InitBlockIndex() {
     return true;
 }
 
-CBlock LoadBlockFrom(CBufferedFile& blkdat, CDiskBlockPos& lastLoadedBlkPos)
+CBlock LoadBlockFrom(CBufferedFile& blkdat, CDiskBlockPos* pLastLoadedBlkPos)
 {
     CBlock res{};
 
@@ -4351,8 +4351,8 @@ CBlock LoadBlockFrom(CBufferedFile& blkdat, CDiskBlockPos& lastLoadedBlkPos)
 
     int blkSize = -1;
 
-    //should rewind start from lastLoadedBlkPos instead??
-    for(uint64_t nRewind = blkdat.GetPos(); !blkdat.eof() && (blkSize == -1);) //locate Header
+    //locate Header
+    for(uint64_t nRewind = blkdat.GetPos(); !blkdat.eof() && (blkSize == -1);)
     {
         blkdat.SetPos(nRewind); // Note: setPos does NOT simply overwrite the var returned by GetPos()!!
         nRewind++;              // start one byte further next time, in case of failure
@@ -4382,9 +4382,10 @@ CBlock LoadBlockFrom(CBufferedFile& blkdat, CDiskBlockPos& lastLoadedBlkPos)
         return res;
 
     //Here block has been found. Load it!
-    lastLoadedBlkPos.nPos = blkdat.GetPos();
-    blkdat.SetLimit(lastLoadedBlkPos.nPos + blkSize);
-    blkdat.SetPos(lastLoadedBlkPos.nPos);
+    unsigned int blkStartPos = blkdat.GetPos();
+    if (pLastLoadedBlkPos != nullptr) pLastLoadedBlkPos->nPos = blkStartPos;
+    blkdat.SetLimit(blkStartPos + blkSize);
+    blkdat.SetPos(blkStartPos);
     try {
         blkdat >> res;
     } catch (const std::exception& e) {
@@ -4407,12 +4408,9 @@ bool LoadBlocksFromExternalFile(FILE* fileIn, CDiskBlockPos *dbp)
     // This takes over fileIn and calls fclose() on it in the CBufferedFile destructor
     CBufferedFile blkdat(fileIn, 2*MAX_BLOCK_SIZE, MAX_BLOCK_SIZE+8, SER_DISK, CLIENT_VERSION);
 
-    CDiskBlockPos emptyBlkPos{0,0}; //Note: emptyBlkPos.IsNull() == false
-    CDiskBlockPos& lastLoadedBlkPos = (dbp == nullptr)? emptyBlkPos : *dbp;
-
     try {
-        for(CBlock loadedBlk = LoadBlockFrom(blkdat, lastLoadedBlkPos); !loadedBlk.IsNull();
-            loadedBlk = LoadBlockFrom(blkdat, lastLoadedBlkPos) )
+        for(CBlock loadedBlk = LoadBlockFrom(blkdat, dbp); !loadedBlk.IsNull();
+            loadedBlk = LoadBlockFrom(blkdat, dbp) )
         {
             try
             {
