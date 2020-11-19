@@ -15,10 +15,10 @@
 
 //NOTES: LoadBlocksFromExternalFile invoke fclose on file via CBufferedFile dtor
 
-class CCoinsOnlyViewDB : public CCoinsViewDB
+class CFakeCoinDB : public CCoinsViewDB
 {
 public:
-    CCoinsOnlyViewDB(size_t nCacheSize, bool fWipe = false)
+    CFakeCoinDB(size_t nCacheSize, bool fWipe = false)
         : CCoinsViewDB(nCacheSize, false, fWipe) {}
 
     bool BatchWrite(CCoinsMap &mapCoins) { return true; }
@@ -37,21 +37,13 @@ public:
         boost::filesystem::create_directories(dataDirLocation);
         mapArgs["-datadir"] = dataDirLocation.string();
 
-        pChainStateDb = new CCoinsOnlyViewDB(chainStateDbSize,/*fWipe*/true);
+        pChainStateDb = new CFakeCoinDB(chainStateDbSize,/*fWipe*/true);
         pcoinsTip     = new CCoinsViewCache(pChainStateDb);
     };
 
-    void SetUp() override
-    {
-        chainActive.SetTip(nullptr);
-        mapBlockIndex.clear();
-    };
+    void SetUp() override { UnloadBlockIndex(); };
 
-    void TearDown() override
-    {
-        chainActive.SetTip(nullptr);
-        mapBlockIndex.clear();
-    };
+    void TearDown() override { UnloadBlockIndex(); };
 
     ~ReindexTestSuite()
     {
@@ -75,7 +67,7 @@ private:
 
     boost::filesystem::path  dataDirLocation;
     const unsigned int       chainStateDbSize;
-    CCoinsOnlyViewDB*        pChainStateDb;
+    CFakeCoinDB*             pChainStateDb;
 };
 
 TEST_F(ReindexTestSuite, LoadingBlocksFromNullFilePtrWillAbort) {
@@ -130,6 +122,7 @@ TEST_F(ReindexTestSuite, OrphanBlocksAreNotLoadedFromFileIntoMapBlockIndex) {
     //checks
     EXPECT_FALSE(res);
     EXPECT_FALSE(mapBlockIndex.count(aBlock.GetHash()));
+    EXPECT_TRUE(chainActive.Height() == -1);
 }
 
 TEST_F(ReindexTestSuite, GenesisIsLoadedFromFileIntoMapBlockIndex) {
@@ -149,7 +142,28 @@ TEST_F(ReindexTestSuite, GenesisIsLoadedFromFileIntoMapBlockIndex) {
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_TRUE(mapBlockIndex.count(Params().GenesisBlock().GetHash()));
+    ASSERT_TRUE(mapBlockIndex.count(Params().GenesisBlock().GetHash()));
+    EXPECT_TRUE(mapBlockIndex.at(Params().GenesisBlock().GetHash())->nStatus
+            == BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_SCRIPTS);
+}
+
+TEST_F(ReindexTestSuite, GenesisIsLoadedFromFileIntoChainActive) {
+    // prerequisites
+    CDiskBlockPos diskPos(12345, 0);
+
+    CBlock genesisCpy = Params().GenesisBlock();
+    ASSERT_TRUE(storeToFile(genesisCpy, diskPos));
+
+    //Note: read from start of file, not from pos returned by storeToFile
+    CDiskBlockPos diskPosReopened(12345, 0);
+    FILE* filePtr = OpenBlockFile(diskPosReopened, /*fReadOnly*/true);
+    ASSERT_TRUE(filePtr != nullptr);
+
+    //test
+    bool res = LoadBlocksFromExternalFile(filePtr, &diskPosReopened);
+
+    //checks
+    EXPECT_TRUE(res);
     EXPECT_TRUE(chainActive.Height() == 0);
     EXPECT_TRUE(*(chainActive.Genesis()->phashBlock) == Params().GenesisBlock().GetHash());
 }
@@ -174,7 +188,34 @@ TEST_F(ReindexTestSuite, NonOrphanBlockIsLoadedFromFileIntoMapBlockIndex) {
 
     //checks
     EXPECT_TRUE(res);
-    EXPECT_TRUE(mapBlockIndex.count(Params().GenesisBlock().GetHash()));
+    ASSERT_TRUE(mapBlockIndex.count(Params().GenesisBlock().GetHash()));
+    EXPECT_TRUE(mapBlockIndex.at(Params().GenesisBlock().GetHash())->nStatus
+            == BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_SCRIPTS);
+    ASSERT_TRUE(mapBlockIndex.count(aBlock.GetHash()));
+    EXPECT_TRUE(mapBlockIndex.at(aBlock.GetHash())->nStatus
+            == BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_SCRIPTS);
+}
+
+TEST_F(ReindexTestSuite, NonOrphanBlockIsLoadedFromFileIntoChainActive) {
+    // prerequisites
+    CDiskBlockPos diskPos(12345, 0);
+
+    CBlock genesisCpy = Params().GenesisBlock();
+    ASSERT_TRUE(storeToFile(genesisCpy, diskPos));
+
+    CBlock aBlock = createCoinBaseOnlyBlock(genesisCpy.GetHash(), /*height*/1);
+    ASSERT_TRUE(storeToFile(aBlock, diskPos));
+
+    //Note: read from start of file, not from pos returned by storeToFile
+    CDiskBlockPos diskPosReopened(12345, 0);
+    FILE* filePtr = OpenBlockFile(diskPosReopened, /*fReadOnly*/true);
+    ASSERT_TRUE(filePtr != nullptr);
+
+    //test
+    bool res = LoadBlocksFromExternalFile(filePtr, &diskPosReopened);
+
+    //checks
+    EXPECT_TRUE(res);
     EXPECT_TRUE(chainActive.Height() == 1);
     EXPECT_TRUE(*(chainActive.Genesis()->phashBlock) == Params().GenesisBlock().GetHash());
     EXPECT_TRUE(*(chainActive.Tip()->phashBlock) == aBlock.GetHash());
