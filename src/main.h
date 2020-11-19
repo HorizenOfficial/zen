@@ -444,7 +444,7 @@ public:
 bool WriteBlockToDisk(CBlock& block, CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& messageStart);
 bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos);
 bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex);
-CBlock LoadBlockFrom(CBufferedFile& blkdat, CDiskBlockPos& lastLoadedBlkPos);
+CBlock LoadBlockFrom(CBufferedFile& blkdat, CDiskBlockPos* pLastLoadedBlkPos);
 
 /** Functions for validating blocks and updating the block tree */
 
