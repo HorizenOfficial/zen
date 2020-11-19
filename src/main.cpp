@@ -4432,13 +4432,13 @@ bool LoadBlocksFromExternalFile(FILE* fileIn, CDiskBlockPos *dbp, bool loadHeade
                 if (loadHeadersOnly)
                 {
                     if (AcceptBlockHeader(loadedBlk, state, /*ppindex*/nullptr, /*lookForwardTips*/false)) //Todo: verify lookForwardTips
-                    	++nLoadedHeaders;
+                        ++nLoadedHeaders;
 
                     if (state.IsError())
                         break;
                 } else
                 {
-                	if (ProcessNewBlock(state, NULL, &loadedBlk, true, dbp))
+                    if (ProcessNewBlock(state, NULL, &loadedBlk, true, dbp))
                         nLoadedBlocks++;
 
                     if (state.IsError())
@@ -4465,13 +4465,13 @@ bool LoadBlocksFromExternalFile(FILE* fileIn, CDiskBlockPos *dbp, bool loadHeade
 
                         if (loadHeadersOnly)
                         {
-                        	if (AcceptBlockHeader(loadedBlk, dummy, /*ppindex*/nullptr, /*lookForwardTips*/false))
-                        	{ //Todo: verify lookForwardTips and correctness of not breaking up
+                            if (AcceptBlockHeader(loadedBlk, dummy, /*ppindex*/nullptr, /*lookForwardTips*/false))
+                            { //Todo: verify lookForwardTips and correctness of not breaking up
                                 nLoadedHeaders++;
                                 queue.push_back(loadedBlk.GetHash());
-                        	}
+                            }
                         } else {
-                        	//Todo: verify that issue on Process Block does not cause whole stop as before
+                            //Todo: verify that issue on Process Block does not cause whole stop as before
                             if (ProcessNewBlock(dummy, NULL, &loadedBlk, true, &it->second))
                             {
                                 nLoadedBlocks++;
