@@ -4342,6 +4342,59 @@ bool InitBlockIndex() {
     return true;
 }
 
+CBlock LoadBlockFrom(CBufferedFile& blkdat, CDiskBlockPos& lastLoadedBlkPos)
+{
+    CBlock res{};
+
+    if (blkdat.eof())
+        return res;
+
+    int blkSize = -1;
+
+    //should rewind start from lastLoadedBlkPos instead??
+    for(uint64_t nRewind = blkdat.GetPos(); !blkdat.eof() && (blkSize == -1);) //locate Header
+    {
+        blkdat.SetPos(nRewind); // Note: setPos does NOT simply overwrite the var returned by GetPos()!!
+        nRewind++;              // start one byte further next time, in case of failure
+        blkdat.SetLimit();      // remove former limit
+
+        try
+        {
+            unsigned char buf[MESSAGE_START_SIZE];
+            blkdat.FindByte(Params().MessageStart()[0]); //throws upon eof
+            nRewind = blkdat.GetPos()+1;
+            blkdat >> FLATDATA(buf);
+            if (memcmp(buf, Params().MessageStart(), MESSAGE_START_SIZE))
+                continue; // just first byte of magic number matches. Keep searching
+
+            blkdat >> blkSize; // read size
+            if (blkSize < 80 || blkSize > MAX_BLOCK_SIZE) {
+                blkSize = -1;
+                continue; // while whole magic number matches, it can't be block size. Keep searching
+            }
+        } catch (const std::exception&) {
+            // no valid block header found; don't complain
+            break;
+        }
+    }
+
+    if (blkSize == -1)
+        return res;
+
+    //Here block has been found. Load it!
+    lastLoadedBlkPos.nPos = blkdat.GetPos();
+    blkdat.SetLimit(lastLoadedBlkPos.nPos + blkSize);
+    blkdat.SetPos(lastLoadedBlkPos.nPos);
+    try {
+        blkdat >> res;
+    } catch (const std::exception& e) {
+        LogPrintf("%s: Deserialize or I/O error - %s\n", __func__, e.what());
+    }
+
+    blkdat.SetPos(blkdat.GetPos()); // Note: setPos does NOT simply overwrite the var returned by GetPos()!!
+    return res;
+}
+
 bool LoadBlocksFromExternalFile(FILE* fileIn, CDiskBlockPos *dbp)
 {
     const CChainParams& chainparams = Params();
@@ -4350,58 +4403,33 @@ bool LoadBlocksFromExternalFile(FILE* fileIn, CDiskBlockPos *dbp)
     int64_t nStart = GetTimeMillis();
 
     int nLoaded = 0;
+
+    // This takes over fileIn and calls fclose() on it in the CBufferedFile destructor
+    CBufferedFile blkdat(fileIn, 2*MAX_BLOCK_SIZE, MAX_BLOCK_SIZE+8, SER_DISK, CLIENT_VERSION);
+
+    CDiskBlockPos emptyBlkPos{0,0}; //Note: emptyBlkPos.IsNull() == false
+    CDiskBlockPos& lastLoadedBlkPos = (dbp == nullptr)? emptyBlkPos : *dbp;
+
     try {
-        // This takes over fileIn and calls fclose() on it in the CBufferedFile destructor
-        CBufferedFile blkdat(fileIn, 2*MAX_BLOCK_SIZE, MAX_BLOCK_SIZE+8, SER_DISK, CLIENT_VERSION);
-        uint64_t nRewind = blkdat.GetPos();
-        while (!blkdat.eof()) {
-            boost::this_thread::interruption_point();
-
-            blkdat.SetPos(nRewind);
-            nRewind++; // start one byte further next time, in case of failure
-            blkdat.SetLimit(); // remove former limit
-            unsigned int nSize = 0;
-            try {
-                // locate a header
-                unsigned char buf[MESSAGE_START_SIZE];
-                blkdat.FindByte(Params().MessageStart()[0]);
-                nRewind = blkdat.GetPos()+1;
-                blkdat >> FLATDATA(buf);
-                if (memcmp(buf, Params().MessageStart(), MESSAGE_START_SIZE))
-                    continue;
-                // read size
-                blkdat >> nSize;
-                if (nSize < 80 || nSize > MAX_BLOCK_SIZE)
-                    continue;
-            } catch (const std::exception&) {
-                // no valid block header found; don't complain
-                break;
-            }
-            try {
-                // read block
-                uint64_t nBlockPos = blkdat.GetPos();
-                if (dbp)
-                    dbp->nPos = nBlockPos;
-                blkdat.SetLimit(nBlockPos + nSize);
-                blkdat.SetPos(nBlockPos);
-                CBlock block;
-                blkdat >> block;
-                nRewind = blkdat.GetPos();
-
+        for(CBlock loadedBlk = LoadBlockFrom(blkdat, lastLoadedBlkPos); !loadedBlk.IsNull();
+            loadedBlk = LoadBlockFrom(blkdat, lastLoadedBlkPos) )
+        {
+            try
+            {
                 // detect out of order blocks, and store them for later
-                uint256 hash = block.GetHash();
-                if (hash != chainparams.GetConsensus().hashGenesisBlock && mapBlockIndex.find(block.hashPrevBlock) == mapBlockIndex.end()) {
+                uint256 hash = loadedBlk.GetHash();
+                if (hash != chainparams.GetConsensus().hashGenesisBlock && mapBlockIndex.find(loadedBlk.hashPrevBlock) == mapBlockIndex.end()) {
                     LogPrint("reindex", "%s: Out of order block %s, parent %s not known\n", __func__, hash.ToString(),
-                            block.hashPrevBlock.ToString());
+                            loadedBlk.hashPrevBlock.ToString());
                     if (dbp)
-                        mapBlocksUnknownParent.insert(std::make_pair(block.hashPrevBlock, *dbp));
+                        mapBlocksUnknownParent.insert(std::make_pair(loadedBlk.hashPrevBlock, *dbp));
                     continue;
                 }
 
                 // process in case the block isn't known yet
                 if (mapBlockIndex.count(hash) == 0 || (mapBlockIndex[hash]->nStatus & BLOCK_HAVE_DATA) == 0) {
                     CValidationState state;
-                    if (ProcessNewBlock(state, NULL, &block, true, dbp))
+                    if (ProcessNewBlock(state, NULL, &loadedBlk, true, dbp))
                         nLoaded++;
                     if (state.IsError())
                         break;
@@ -4418,15 +4446,15 @@ bool LoadBlocksFromExternalFile(FILE* fileIn, CDiskBlockPos *dbp)
                     std::pair<std::multimap<uint256, CDiskBlockPos>::iterator, std::multimap<uint256, CDiskBlockPos>::iterator> range = mapBlocksUnknownParent.equal_range(head);
                     while (range.first != range.second) {
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
-                        if (ReadBlockFromDisk(block, it->second))
+                        if (ReadBlockFromDisk(loadedBlk, it->second))
                         {
-                            LogPrintf("%s: Processing out of order child %s of %s\n", __func__, block.GetHash().ToString(),
+                            LogPrintf("%s: Processing out of order child %s of %s\n", __func__, loadedBlk.GetHash().ToString(),
                                     head.ToString());
                             CValidationState dummy;
-                            if (ProcessNewBlock(dummy, NULL, &block, true, &it->second))
+                            if (ProcessNewBlock(dummy, NULL, &loadedBlk, true, &it->second)) //Here, issue on Process Block does not cause whole stop as before
                             {
                                 nLoaded++;
-                                queue.push_back(block.GetHash());
+                                queue.push_back(loadedBlk.GetHash());
                             }
                         }
                         range.first++;
