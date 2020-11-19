@@ -169,7 +169,7 @@ TEST_F(ReindexTestSuite, GenesisIsLoadedFromFileIntoChainActive) {
     EXPECT_TRUE(*(chainActive.Genesis()->phashBlock) == Params().GenesisBlock().GetHash());
 }
 
-TEST_F(ReindexTestSuite, NonOrphanBlockIsLoadedFromFileIntoMapBlockIndex) {
+TEST_F(ReindexTestSuite, BlockIsLoadedFromFileIntoMapBlockIndex) {
     // prerequisites
     CDiskBlockPos diskPos(12345, 0);
 
@@ -197,7 +197,7 @@ TEST_F(ReindexTestSuite, NonOrphanBlockIsLoadedFromFileIntoMapBlockIndex) {
             == BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_SCRIPTS);
 }
 
-TEST_F(ReindexTestSuite, NonOrphanBlockIsLoadedFromFileIntoChainActive) {
+TEST_F(ReindexTestSuite, BlockIsLoadedFromFileIntoChainActive) {
     // prerequisites
     CDiskBlockPos diskPos(12345, 0);
 
@@ -220,6 +220,67 @@ TEST_F(ReindexTestSuite, NonOrphanBlockIsLoadedFromFileIntoChainActive) {
     EXPECT_TRUE(chainActive.Height() == 1);
     EXPECT_TRUE(*(chainActive.Genesis()->phashBlock) == Params().GenesisBlock().GetHash());
     EXPECT_TRUE(*(chainActive.Tip()->phashBlock) == aBlock.GetHash());
+}
+
+TEST_F(ReindexTestSuite, OutOfOrderBlocksAreLoadedFromFileIntoMapBlockIndex) {
+    // prerequisites
+    CDiskBlockPos diskPos(12345, 0);
+
+    CBlock genesisCpy = Params().GenesisBlock();
+    CBlock aBlock = createCoinBaseOnlyBlock(genesisCpy.GetHash(), /*height*/1);
+    CBlock anotherBlock = createCoinBaseOnlyBlock(aBlock.GetHash(), /*height*/2);
+
+    ASSERT_TRUE(storeToFile(aBlock, diskPos));
+    ASSERT_TRUE(storeToFile(anotherBlock, diskPos));
+    ASSERT_TRUE(storeToFile(genesisCpy, diskPos));
+
+    //Note: read from start of file, not from pos returned by storeToFile
+    CDiskBlockPos diskPosReopened(12345, 0);
+    FILE* filePtr = OpenBlockFile(diskPosReopened, /*fReadOnly*/true);
+    ASSERT_TRUE(filePtr != nullptr);
+
+    //test
+    bool res = LoadBlocksFromExternalFile(filePtr, &diskPosReopened, /*loadHeadersOnly*/false);
+
+    //checks
+    EXPECT_TRUE(res);
+    ASSERT_TRUE(mapBlockIndex.count(Params().GenesisBlock().GetHash()));
+    EXPECT_TRUE(mapBlockIndex.at(Params().GenesisBlock().GetHash())->nStatus
+            == BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_SCRIPTS);
+    ASSERT_TRUE(mapBlockIndex.count(aBlock.GetHash()));
+    EXPECT_TRUE(mapBlockIndex.at(aBlock.GetHash())->nStatus
+            == BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_SCRIPTS);
+    ASSERT_TRUE(mapBlockIndex.count(anotherBlock.GetHash()));
+    EXPECT_TRUE(mapBlockIndex.at(anotherBlock.GetHash())->nStatus
+            == BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_SCRIPTS);
+}
+
+TEST_F(ReindexTestSuite, OutOfOrderBlocksAreLoadedFromFileIntoChainActive) {
+    // prerequisites
+    CDiskBlockPos diskPos(12345, 0);
+
+    CBlock genesisCpy = Params().GenesisBlock();
+    CBlock aBlock = createCoinBaseOnlyBlock(genesisCpy.GetHash(), /*height*/1);
+    CBlock anotherBlock = createCoinBaseOnlyBlock(aBlock.GetHash(), /*height*/2);
+
+    ASSERT_TRUE(storeToFile(aBlock, diskPos));
+    ASSERT_TRUE(storeToFile(anotherBlock, diskPos));
+    ASSERT_TRUE(storeToFile(genesisCpy, diskPos));
+
+    //Note: read from start of file, not from pos returned by storeToFile
+    CDiskBlockPos diskPosReopened(12345, 0);
+    FILE* filePtr = OpenBlockFile(diskPosReopened, /*fReadOnly*/true);
+    ASSERT_TRUE(filePtr != nullptr);
+
+    //test
+    bool res = LoadBlocksFromExternalFile(filePtr, &diskPosReopened, /*loadHeadersOnly*/false);
+
+    //checks
+    EXPECT_TRUE(res);
+    EXPECT_TRUE(chainActive.Height() == 2);
+    EXPECT_TRUE(*(chainActive.Genesis()->phashBlock) == Params().GenesisBlock().GetHash());
+    EXPECT_TRUE(*(chainActive.Tip()->phashBlock) == anotherBlock.GetHash());
+    EXPECT_TRUE(*(chainActive.Tip()->pprev->phashBlock) == aBlock.GetHash());
 }
 
 TEST_F(ReindexTestSuite, BlocksHeadersAreNotLoadedFromEmptyBlkFile) {
@@ -285,7 +346,7 @@ TEST_F(ReindexTestSuite, GenesisHeaderIsLoadedFromFileIntoMapBlockIndex) {
     EXPECT_TRUE(chainActive.Height() == -1);
 }
 
-TEST_F(ReindexTestSuite, NonOrphanBlockHeaderIsLoadedFromFileIntoMapBlockIndex) {
+TEST_F(ReindexTestSuite, BlockHeaderIsLoadedFromFileIntoMapBlockIndex) {
     // prerequisites
     CDiskBlockPos diskPos(12345, 0);
 
@@ -311,6 +372,39 @@ TEST_F(ReindexTestSuite, NonOrphanBlockHeaderIsLoadedFromFileIntoMapBlockIndex) 
     EXPECT_TRUE(mapBlockIndex.at(aBlock.GetHash())->nStatus == BLOCK_VALID_TREE);
     EXPECT_TRUE(chainActive.Height() == -1);
 }
+
+TEST_F(ReindexTestSuite, OutOfOrderBlockHeadersAreLoadedFromFileIntoMapBlockIndex) {
+    // prerequisites
+    CDiskBlockPos diskPos(12345, 0);
+
+    CBlock genesisCpy = Params().GenesisBlock();
+    CBlock aBlock = createCoinBaseOnlyBlock(genesisCpy.GetHash(), /*height*/1);
+    CBlock anotherBlock = createCoinBaseOnlyBlock(aBlock.GetHash(), /*height*/2);
+
+    ASSERT_TRUE(storeToFile(aBlock, diskPos));
+    ASSERT_TRUE(storeToFile(anotherBlock, diskPos));
+    ASSERT_TRUE(storeToFile(genesisCpy, diskPos));
+
+    //Note: read from start of file, not from pos returned by storeToFile
+    CDiskBlockPos diskPosReopened(12345, 0);
+    FILE* filePtr = OpenBlockFile(diskPosReopened, /*fReadOnly*/true);
+    ASSERT_TRUE(filePtr != nullptr);
+
+    //test
+    bool res = LoadBlocksFromExternalFile(filePtr, &diskPosReopened, /*loadHeadersOnly*/true);
+
+    //checks
+    EXPECT_TRUE(res);
+    ASSERT_TRUE(mapBlockIndex.count(Params().GenesisBlock().GetHash()));
+    EXPECT_TRUE(mapBlockIndex.at(Params().GenesisBlock().GetHash())->nStatus
+            == BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_TREE);
+    ASSERT_TRUE(mapBlockIndex.count(aBlock.GetHash()));
+    EXPECT_TRUE(mapBlockIndex.at(aBlock.GetHash())->nStatus
+            == BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_TREE);
+    ASSERT_TRUE(mapBlockIndex.count(anotherBlock.GetHash()));
+    EXPECT_TRUE(mapBlockIndex.at(anotherBlock.GetHash())->nStatus
+            == BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_TREE);
+}
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -322,6 +416,8 @@ CBlockHeader ReindexTestSuite::createCoinBaseOnlyBlockHeader(const uint256& prev
     res.hashMerkleRoot = uint256();
     res.hashReserved.SetNull();
 
+    static unsigned int runCounter = 0;
+    SetMockTime(time(nullptr) + ++runCounter);
     CBlockIndex fakePrevBlockIdx(Params().GenesisBlock());
     UpdateTime(&res, Params().GetConsensus(), &fakePrevBlockIdx);
 
