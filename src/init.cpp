@@ -635,13 +635,14 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
 {
     RenameThread("horizen-loadblk");
 
-    bool fReindexFast = false; //temporarily local
+    bool fReindexFast = true; //temporarily local
 
     // -reindex
     if (fReindex || fReindexFast)
     {
         CImportingNow imp;
         int nFile = 0;
+        if (fReindexFast) uiInterface.InitMessage(_("Reindexing block headers from files..."));
         while (fReindexFast)
         {
             CDiskBlockPos pos(nFile, 0);
@@ -655,7 +656,7 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
         }
         fReindexFast = false;
         nFile = 0;
-
+        if (fReindex) uiInterface.InitMessage(_("Reindexing block from files..."));
         while (true)
         {
             CDiskBlockPos pos(nFile, 0);
@@ -671,6 +672,7 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
         pblocktree->WriteReindexing(false);
         fReindex = false;
         LogPrintf("Reindexing finished\n");
+        uiInterface.InitMessage(_("Reindexing finished"));
         // To avoid ending up in a situation without genesis block, re-try initializing (no-op if reindexing worked):
         InitBlockIndex();
     }

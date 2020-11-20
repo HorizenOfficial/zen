@@ -4446,83 +4446,84 @@ bool LoadBlocksFromExternalFile(FILE* fileIn, CDiskBlockPos *dbp, bool loadHeade
                 CBlock loadedBlk;
                 blkdat >> loadedBlk;
                 nRewind = blkdat.GetPos();
-				// detect out of order blocks, and store them for later
-				uint256 hash = loadedBlk.GetHash();
-				if (hash != chainparams.GetConsensus().hashGenesisBlock && mapBlockIndex.find(loadedBlk.hashPrevBlock) == mapBlockIndex.end()) {
-					LogPrint("reindex", "%s: Out of order block %s, parent %s not known\n", __func__, hash.ToString(),
-							loadedBlk.hashPrevBlock.ToString());
-					if (dbp)
-						mapBlocksUnknownParent.insert(std::make_pair(loadedBlk.hashPrevBlock, *dbp));
-					continue;
-				}
+                // detect out of order blocks, and store them for later
+                uint256 hash = loadedBlk.GetHash();
+                if (hash != chainparams.GetConsensus().hashGenesisBlock && mapBlockIndex.find(loadedBlk.hashPrevBlock) == mapBlockIndex.end()) {
+                    LogPrint("reindex", "%s: Out of order block %s, parent %s not known\n", __func__, hash.ToString(),
+                            loadedBlk.hashPrevBlock.ToString());
+                    if (dbp)
+                        mapBlocksUnknownParent.insert(std::make_pair(loadedBlk.hashPrevBlock, *dbp));
+                    continue;
+                }
 
-				// process in case the block isn't known yet
-				if (mapBlockIndex.count(hash) == 0 ||
-						(mapBlockIndex[hash]->nStatus & (BLOCK_HAVE_DATA) || BLOCK_VALID_TREE) == 0) //Todo: verify header status
-				{
-					CValidationState state;
-					if (loadHeadersOnly)
-					{
-						if (AcceptBlockHeader(loadedBlk, state, /*ppindex*/nullptr, /*lookForwardTips*/false)) //Todo: verify lookForwardTips
-							++nLoadedHeaders;
+                // process in case the block isn't known yet
+                if (mapBlockIndex.count(hash) == 0 || (mapBlockIndex[hash]->nStatus & BLOCK_HAVE_DATA) == 0)
+                {
+                    CValidationState state;
+                    if (loadHeadersOnly)
+                    {
+                        if (AcceptBlockHeader(loadedBlk, state, /*ppindex*/nullptr, /*lookForwardTips*/false)) //Todo: verify lookForwardTips
+                            ++nLoadedHeaders;
 
-						if (state.IsError())
-							break;
-					} else
-					{
-						if (ProcessNewBlock(state, NULL, &loadedBlk, true, dbp))
-							nLoadedBlocks++;
+                        if (state.IsError())
+                            break;
+                    } else
+                    {
+                        if (ProcessNewBlock(state, NULL, &loadedBlk, true, dbp))
+                            nLoadedBlocks++;
 
-						if (state.IsError())
-							break;
-					}
-				} else if (hash != chainparams.GetConsensus().hashGenesisBlock && mapBlockIndex[hash]->nHeight % 1000 == 0) {
-					LogPrintf("Block Import: already had block %s at height %d\n", hash.ToString(), mapBlockIndex[hash]->nHeight);
-				}
+                        if (state.IsError())
+                            break;
+                    }
+                } else if (hash != chainparams.GetConsensus().hashGenesisBlock && mapBlockIndex[hash]->nHeight % 1000 == 0) {
+                    LogPrintf("Block Import: already had block %s at height %d\n", hash.ToString(), mapBlockIndex[hash]->nHeight);
+                }
 
-				// Recursively process earlier encountered successors of this block
-				deque<uint256> queue{hash};
-				do
-				{
-					uint256 head = queue.front();
-					queue.pop_front();
-					auto range = mapBlocksUnknownParent.equal_range(head);
-					while (range.first != range.second)
-					{
-						std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
-						if (ReadBlockFromDisk(loadedBlk, it->second))
-						{
-							LogPrintf("%s: Processing out of order child %s of %s\n", __func__, loadedBlk.GetHash().ToString(),
-									head.ToString());
-							CValidationState dummy;
+                // Recursively process earlier encountered successors of this block
+                deque<uint256> queue{hash};
+                do
+                {
+                    uint256 head = queue.front();
+                    queue.pop_front();
+                    auto range = mapBlocksUnknownParent.equal_range(head);
+                    while (range.first != range.second)
+                    {
+                        std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
+                        if (ReadBlockFromDisk(loadedBlk, it->second))
+                        {
+                            CValidationState dummy;
+                            if (loadHeadersOnly)
+                            {
+                                LogPrintf("%s: Processing out of order header, child %s of %s\n", __func__, loadedBlk.GetHash().ToString(),
+                                        head.ToString());
+                                if (AcceptBlockHeader(loadedBlk, dummy, /*ppindex*/nullptr, /*lookForwardTips*/false))
+                                { //Todo: verify lookForwardTips and correctness of not breaking up
+                                    nLoadedHeaders++;
+                                    queue.push_back(loadedBlk.GetHash());
+                                }
+                            } else {
+                                LogPrintf("%s: Processing out of order block, child %s of %s\n", __func__, loadedBlk.GetHash().ToString(),
+                                        head.ToString());
 
-							if (loadHeadersOnly)
-							{
-								if (AcceptBlockHeader(loadedBlk, dummy, /*ppindex*/nullptr, /*lookForwardTips*/false))
-								{ //Todo: verify lookForwardTips and correctness of not breaking up
-									nLoadedHeaders++;
-									queue.push_back(loadedBlk.GetHash());
-								}
-							} else {
-								//Todo: verify that issue on Process Block does not cause whole stop as before
-								if (ProcessNewBlock(dummy, NULL, &loadedBlk, true, &it->second))
-								{
-									nLoadedBlocks++;
-									queue.push_back(loadedBlk.GetHash());
-								}
-							}
-						}
-						range.first++;
-						mapBlocksUnknownParent.erase(it);
-					}
-				} while (!queue.empty());
+                                //Todo: verify that issue on Process Block does not cause whole stop as before
+                                if (ProcessNewBlock(dummy, NULL, &loadedBlk, true, &it->second))
+                                {
+                                    nLoadedBlocks++;
+                                    queue.push_back(loadedBlk.GetHash());
+                                }
+                            }
+                        }
+                        range.first++;
+                        mapBlocksUnknownParent.erase(it);
+                    }
+                } while (!queue.empty());
             } catch (const std::exception& e) {
-            	LogPrintf("%s: Deserialize or I/O error - %s\n", __func__, e.what());
+                LogPrintf("%s: Deserialize or I/O error - %s\n", __func__, e.what());
             }
         }
-	} catch (const std::runtime_error& e) {
-		AbortNode(std::string("System error: ") + e.what());
-	}
+    } catch (const std::runtime_error& e) {
+        AbortNode(std::string("System error: ") + e.what());
+    }
 
     if (nLoadedBlocks > 0)
         LogPrintf("Loaded %i blocks from external file in %dms\n", nLoadedBlocks, GetTimeMillis() - nStart);
