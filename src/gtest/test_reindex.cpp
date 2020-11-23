@@ -492,6 +492,49 @@ TEST_F(ReindexTestSuite, DuplicatedBlocksHeadersAreHandledInMapBlockIndex) {
     EXPECT_TRUE(mapBlockIndex.at(aBlock.GetHash())->nStatus
     		== BlockStatus::BLOCK_VALID_TREE);
 }
+
+TEST_F(ReindexTestSuite, HeaderAndBlockLoadWorkBackToBack) {
+    // prerequisites
+    CDiskBlockPos diskPos(12345, 0);
+
+    CBlock genesisCpy = Params().GenesisBlock();
+    CBlock aBlock = createCoinBaseOnlyBlock(genesisCpy.GetHash(), /*height*/1);
+    CBlock anotherBlock = createCoinBaseOnlyBlock(aBlock.GetHash(), /*height*/2);
+
+    ASSERT_TRUE(storeToFile(genesisCpy, diskPos));
+    ASSERT_TRUE(storeToFile(aBlock, diskPos));
+    ASSERT_TRUE(storeToFile(anotherBlock, diskPos));
+
+    //Note: read from start of file, not from pos returned by storeToFile
+    CDiskBlockPos diskPosReopened(12345, 0);
+    FILE* filePtr = OpenBlockFile(diskPosReopened, /*fReadOnly*/true);
+    ASSERT_TRUE(filePtr != nullptr);
+
+    //test headers load first...
+    LoadBlocksFromExternalFile(filePtr, &diskPosReopened, /*loadHeadersOnly*/true);
+
+    //checks
+    EXPECT_TRUE(mapBlockIndex.at(Params().GenesisBlock().GetHash())->nStatus
+            == BlockStatus::BLOCK_VALID_TREE);
+    EXPECT_TRUE(mapBlockIndex.at(aBlock.GetHash())->nStatus
+            == BlockStatus::BLOCK_VALID_TREE);
+    EXPECT_TRUE(mapBlockIndex.at(anotherBlock.GetHash())->nStatus
+            == BlockStatus::BLOCK_VALID_TREE);
+
+    //... then test blocks load first
+    diskPosReopened.nPos = 0;
+    filePtr = OpenBlockFile(diskPosReopened, /*fReadOnly*/true);
+    LoadBlocksFromExternalFile(filePtr, &diskPosReopened, /*loadHeadersOnly*/false);
+
+    //checks
+    EXPECT_TRUE(mapBlockIndex.at(Params().GenesisBlock().GetHash())->nStatus
+            == BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_SCRIPTS);
+    EXPECT_TRUE(mapBlockIndex.at(aBlock.GetHash())->nStatus
+    		== BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_SCRIPTS);
+    EXPECT_TRUE(mapBlockIndex.at(anotherBlock.GetHash())->nStatus
+    		== BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_SCRIPTS);
+    EXPECT_TRUE(chainActive.Height() == 2) << chainActive.Height();
+}
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
