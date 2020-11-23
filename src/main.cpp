@@ -69,6 +69,7 @@ int nScriptCheckThreads = 0;
 bool fExperimentalMode = false;
 bool fImporting = false;
 bool fReindex = false;
+bool fReindexFast = false;
 bool fTxIndex = false;
 bool fHavePruned = false;
 bool fPruneMode = false;
@@ -1604,7 +1605,7 @@ bool IsInitialBlockDownload()
     // from commit: https://github.com/HorizenOfficial/zen/commit/0c479520d29cae571dc531e54aa01813daacd1e1
     if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Height()))
         return false;
-    if (fImporting || fReindex)
+    if (fImporting || fReindex || fReindexFast)
         return true;
     if (fCheckpointsEnabled && chainActive.Height() < Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()))
         return true;
@@ -2547,7 +2548,8 @@ bool static FlushStateToDisk(CValidationState &state, FlushStateMode mode) {
     std::set<int> setFilesToPrune;
     bool fFlushForPrune = false;
     try {
-    if (fPruneMode && fCheckForPruning && !fReindex) {
+    if (fPruneMode && fCheckForPruning && !fReindex && !fReindexFast)
+    {
         FindFilesToPrune(setFilesToPrune);
         fCheckForPruning = false;
         if (!setFilesToPrune.empty()) {
@@ -4125,6 +4127,10 @@ bool static LoadBlockIndexDB()
     pblocktree->ReadReindexing(fReindexing);
     fReindex |= fReindexing;
 
+    bool fReindexingFast = false;
+    pblocktree->ReadFastReindexing(fReindexingFast);
+    fReindexFast |= fReindexingFast;
+
     // Check whether we have a transaction index
     pblocktree->ReadFlag("txindex", fTxIndex);
     LogPrintf("%s: transaction index %s\n", __func__, fTxIndex ? "enabled" : "disabled");
@@ -4293,9 +4299,10 @@ void UnloadBlockIndex()
 bool LoadBlockIndex()
 {
     // Load block index from databases
-    if (!fReindex && !LoadBlockIndexDB())
-        return false;
-    return true;
+    if (fReindex || fReindexFast)
+        return true;
+
+    return LoadBlockIndexDB();
 }
 
 
@@ -4316,27 +4323,28 @@ bool InitBlockIndex() {
     LogPrintf("Initializing databases...\n");
 
     // Only add the genesis block if not reindexing (in which case we reuse the one already on disk)
-    if (!fReindex) {
-        try {
-            CBlock &block = const_cast<CBlock&>(Params().GenesisBlock());
-            // Start new block file
-            unsigned int nBlockSize = ::GetSerializeSize(block, SER_DISK, CLIENT_VERSION);
-            CDiskBlockPos blockPos;
-            CValidationState state;
-            if (!FindBlockPos(state, blockPos, nBlockSize+8, 0, block.GetBlockTime()))
-                return error("LoadBlockIndex(): FindBlockPos failed");
-            if (!WriteBlockToDisk(block, blockPos, chainparams.MessageStart()))
-                return error("LoadBlockIndex(): writing genesis block to disk failed");
-            CBlockIndex *pindex = AddToBlockIndex(block);
-            if (!ReceivedBlockTransactions(block, state, pindex, blockPos, NULL))
-                return error("LoadBlockIndex(): genesis block not accepted");
-            if (!ActivateBestChain(state, &block))
-                return error("LoadBlockIndex(): genesis block cannot be activated");
-            // Force a chainstate write so that when we VerifyDB in a moment, it doesn't check stale data
-            return FlushStateToDisk(state, FLUSH_STATE_ALWAYS);
-        } catch (const std::runtime_error& e) {
-            return error("LoadBlockIndex(): failed to initialize block database: %s", e.what());
-        }
+    if (fReindex || fReindexFast)
+        return true;
+
+    try {
+        CBlock &block = const_cast<CBlock&>(Params().GenesisBlock());
+        // Start new block file
+        unsigned int nBlockSize = ::GetSerializeSize(block, SER_DISK, CLIENT_VERSION);
+        CDiskBlockPos blockPos;
+        CValidationState state;
+        if (!FindBlockPos(state, blockPos, nBlockSize+8, 0, block.GetBlockTime()))
+            return error("LoadBlockIndex(): FindBlockPos failed");
+        if (!WriteBlockToDisk(block, blockPos, chainparams.MessageStart()))
+            return error("LoadBlockIndex(): writing genesis block to disk failed");
+        CBlockIndex *pindex = AddToBlockIndex(block);
+        if (!ReceivedBlockTransactions(block, state, pindex, blockPos, NULL))
+            return error("LoadBlockIndex(): genesis block not accepted");
+        if (!ActivateBestChain(state, &block))
+            return error("LoadBlockIndex(): genesis block cannot be activated");
+        // Force a chainstate write so that when we VerifyDB in a moment, it doesn't check stale data
+        return FlushStateToDisk(state, FLUSH_STATE_ALWAYS);
+    } catch (const std::runtime_error& e) {
+        return error("LoadBlockIndex(): failed to initialize block database: %s", e.what());
     }
 
     return true;
@@ -4426,11 +4434,11 @@ bool LoadBlocksFromExternalFile(FILE* fileIn, CDiskBlockPos *dbp, bool loadHeade
                 nRewind = blkdat.GetPos()+1;
                 blkdat >> FLATDATA(buf);
                 if (memcmp(buf, Params().MessageStart(), MESSAGE_START_SIZE))
-                    continue;
+                    continue; //only first byte of magic number matches. Keep searching...
                 // read size
                 blkdat >> nSize;
                 if (nSize < 80 || nSize > MAX_BLOCK_SIZE)
-                    continue;
+                    continue; //magic number matches but size can't be block one. Keep searching...
             } catch (const std::exception&) {
                 // no valid block header found; don't complain
                 break;
@@ -4479,7 +4487,7 @@ bool LoadBlocksFromExternalFile(FILE* fileIn, CDiskBlockPos *dbp, bool loadHeade
                     LogPrintf("Block Import: already had block %s at height %d\n", hash.ToString(), mapBlockIndex[hash]->nHeight);
                 }
 
-                // Recursively process earlier encountered successors of this block
+                // Breath-first process earlier encountered successors of this block
                 deque<uint256> queue{hash};
                 do
                 {
@@ -5239,12 +5247,12 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             LogPrint("net", "got inv: %s  %s peer=%d,%d/%d\n",
                 inv.ToString(), fAlreadyHave ? "have" : "new", pfrom->id, (nInv+1), vInv.size());
 
-            if (!fAlreadyHave && !fImporting && !fReindex && inv.type != MSG_BLOCK)
+            if (!fAlreadyHave && !fImporting && !fReindex && !fReindexFast && inv.type != MSG_BLOCK)
                 pfrom->AskFor(inv);
 
             if (inv.type == MSG_BLOCK) {
                 UpdateBlockAvailability(pfrom->GetId(), inv.hash);
-                if (!fAlreadyHave && !fImporting && !fReindex && !mapBlocksInFlight.count(inv.hash)) {
+                if (!fAlreadyHave && !fImporting && !fReindex && !fReindexFast && !mapBlocksInFlight.count(inv.hash)) {
                     // First request the headers preceding the announced block. In the normal fully-synced
                     // case where a new block is announced that succeeds the current tip (no reorganization),
                     // there are no such headers.
@@ -5697,7 +5705,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
     }
 
 
-    else if (strCommand == "headers" && !fImporting && !fReindex) // Ignore headers received while importing
+    else if (strCommand == "headers" && !fImporting && !fReindex && !fReindexFast) // Ignore headers received while importing
     {
         std::vector<CBlockHeader> headers;
 
@@ -5765,7 +5773,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         CheckBlockIndex();
     }
 
-    else if (strCommand == "block" && !fImporting && !fReindex) // Ignore blocks received while importing
+    else if (strCommand == "block" && !fImporting && !fReindex && !fReindexFast) // Ignore blocks received while importing
     {
         CBlock block;
         vRecv >> block;
@@ -6271,7 +6279,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         if (pindexBestHeader == NULL)
             pindexBestHeader = chainActive.Tip();
         bool fFetch = state.fPreferredDownload || (nPreferredDownload == 0 && !pto->fClient && !pto->fOneShot); // Download if this is a nice peer, or we have no nice peers and this one might do.
-        if (!state.fSyncStarted && !pto->fClient && !fImporting && !fReindex) {
+        if (!state.fSyncStarted && !pto->fClient && !fImporting && !fReindex && !fReindexFast) {
             // Only actively request headers from a single peer, unless we're close to today.
             time_t t = time(0);
             int height = chainActive.Tip()->nHeight;
@@ -6301,7 +6309,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         // Resend wallet transactions that haven't gotten in a block yet
         // Except during reindex, importing and IBD, when old wallet
         // transactions become unconfirmed and spams other nodes.
-        if (!fReindex && !fImporting && !IsInitialBlockDownload())
+        if (!fReindex && !fReindexFast && !fImporting && !IsInitialBlockDownload())
         {
             GetMainSignals().Broadcast(nTimeBestReceived);
         }

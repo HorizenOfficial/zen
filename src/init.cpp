@@ -366,7 +366,8 @@ std::string HelpMessage(HelpMessageMode mode)
             "Warning: Reverting this setting requires re-downloading the entire blockchain. "
             "(default: 0 = disable pruning blocks, >%u = target size in MiB to use for block files)"), MIN_DISK_SPACE_FOR_BLOCK_FILES / 1024 / 1024));
     strUsage += HelpMessageOpt("-reindex", _("Rebuild block chain index from current blk000??.dat files on startup"));
-#if !defined(WIN32)
+    strUsage += HelpMessageOpt("-reindexfast", _("Rebuild block chain index from current blk000??.dat files on startup, skipping expensive checks for blocks below checkpoints"));
+    #if !defined(WIN32)
     strUsage += HelpMessageOpt("-sysperms", _("Create new files with system default permissions, instead of umask 077 (only effective with disabled wallet functionality)"));
 #endif
     strUsage += HelpMessageOpt("-txindex", strprintf(_("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)"), 0));
@@ -635,9 +636,7 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
 {
     RenameThread("horizen-loadblk");
 
-    bool fReindexFast = true; //temporarily local
-
-    // -reindex
+    // -reindex or -reindexfast
     if (fReindex || fReindexFast)
     {
         CImportingNow imp;
@@ -654,7 +653,9 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
             LoadBlocksFromExternalFile(file, &pos, /*loadHeadersOnly*/true);
             nFile++;
         }
+        pblocktree->WriteFastReindexing(false);
         fReindexFast = false;
+
         nFile = 0;
         if (fReindex) uiInterface.InitMessage(_("Reindexing block from files..."));
         while (true)
@@ -673,6 +674,7 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
         fReindex = false;
         LogPrintf("Reindexing finished\n");
         uiInterface.InitMessage(_("Reindexing finished"));
+
         // To avoid ending up in a situation without genesis block, re-try initializing (no-op if reindexing worked):
         InitBlockIndex();
     }
@@ -1414,6 +1416,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // ********************************************************* Step 7: load block chain
 
     fReindex = GetBoolArg("-reindex", false);
+    fReindexFast = GetBoolArg("-reindexfast", false);
 
     // Upgrading to 0.8; hard-link the old blknnnn.dat files into /blocks/
     boost::filesystem::path blocksDir = GetDataDir() / "blocks";
@@ -1460,7 +1463,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     bool fLoaded = false;
     while (!fLoaded) {
-        bool fReset = fReindex;
+        bool fReset = fReindex || fReindexFast;
         std::string strLoadError;
 
         uiInterface.InitMessage(_("Loading block index..."));
@@ -1474,13 +1477,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 delete pcoinscatcher;
                 delete pblocktree;
 
-                pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex);
-                pcoinsdbview = new CCoinsViewDB(nCoinDBCache, false, fReindex);
+                pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex | fReindexFast);
+                pcoinsdbview = new CCoinsViewDB(nCoinDBCache, false, fReindex | fReindexFast);
                 pcoinscatcher = new CCoinsViewErrorCatcher(pcoinsdbview);
                 pcoinsTip = new CCoinsViewCache(pcoinscatcher);
 
-                if (fReindex) {
-                    pblocktree->WriteReindexing(true);
+                if (fReindex || fReindexFast) {
+                    if (fReindex) pblocktree->WriteReindexing(true);
+                    if (fReindexFast) pblocktree->WriteFastReindexing(true);
                     //If we're reindexing in prune mode, wipe away unusable block files and all undo data files
                     if (fPruneMode)
                         CleanupBlockRevFiles();
@@ -1511,7 +1515,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 // Check for changed -prune state.  What we are concerned about is a user who has pruned blocks
                 // in the past, but is now trying to run unpruned.
                 if (fHavePruned && !fPruneMode) {
-                    strLoadError = _("You need to rebuild the database using -reindex to go back to unpruned mode.  This will redownload the entire blockchain");
+                    strLoadError = _("You need to rebuild the database using -reindex or -reindexfast to go back to unpruned mode.  This will redownload the entire blockchain");
                     break;
                 }
 
@@ -1748,7 +1752,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (fPruneMode) {
         LogPrintf("Unsetting NODE_NETWORK on prune mode\n");
         nLocalServices &= ~NODE_NETWORK;
-        if (!fReindex) {
+        if (!fReindex || !fReindexFast) {
             uiInterface.InitMessage(_("Pruning blockstore..."));
             PruneAndFlush();
         }
