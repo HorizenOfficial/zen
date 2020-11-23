@@ -1029,7 +1029,7 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
 }
 
 bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee, bool disconnecting)
+                        bool* pfMissingInputs, bool fRejectAbsurdFee, bool disconnecting, bool fVerifyCert)
 {
     AssertLockHeld(cs_main);
     if (pfMissingInputs)
@@ -1107,7 +1107,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                 return false;
             }
 
-            auto scVerifier = libzendoomc::CScProofVerifier::Strict();   
+            auto scVerifier = fVerifyCert ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
             if (!view.IsCertApplicableToState(cert, nextBlockHeight, state, scVerifier))
             {
                 LogPrint("sc", "%s():%d - certificate [%s] is not applicable\n", __func__, __LINE__, certHash.ToString());
@@ -1144,7 +1144,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             nFees = cert.GetFeeAmount(view.GetValueIn(cert));
  
             // this check is on mempool view, which is backed by pcointips
-            if (!viewMemPool.IsQualityValid(cert, nFees))
+            if (!viewMemPool.CheckQuality(cert, nFees))
             {
                 LogPrintf("%s():%d - Dropping cert %s : invalid quality\n", __func__, __LINE__, certHash.ToString());
                 return error("invalid quality");
@@ -2360,7 +2360,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             }
   
             // remove outputs
-            LogPrint("cert", "%s():%d - clearing outs of tx[%s]\n", __func__, __LINE__, hash.ToString());
+            LogPrint("cert", "%s():%d - clearing outs of cert[%s]\n", __func__, __LINE__, hash.ToString());
             outs->Clear();
         }
 
@@ -2374,7 +2374,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         // TODO quality
         // if we have more certs for scid/epoch with different qualities we must handle it somehow
         // maybe out of the loop on certificates after having collected all of them?
-        // unlsess consensus rules that certs are ordered by quality
+        // unless consensus rules that certs are ordered by quality
 
         if (!view.CancelSidechainEvent(cert)) {
             LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);

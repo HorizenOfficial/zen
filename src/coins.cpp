@@ -188,7 +188,9 @@ bool CCoinsView::GetSidechain(const uint256& scId, CSidechain& info)           c
 bool CCoinsView::HaveSidechainEvents(int height)                               const { return false; }
 bool CCoinsView::GetSidechainEvents(int height, CSidechainEvents& scEvent)     const { return false; }
 void CCoinsView::GetScIds(std::set<uint256>& scIdsList)                        const { scIdsList.clear(); return; }
-bool CCoinsView::IsQualityValid(const CScCertificate& cert, CAmount fee)       const { return false; }
+bool CCoinsView::CheckQuality(const CScCertificate& cert, CAmount fee)         const { return false; }
+CAmount CCoinsView::GetValueOfBackwardTransfers(const uint256& certHash)       const { return 0; }
+int64_t CCoinsView::GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const { return CScCertificate::QUALITY_NULL;}
 uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
 uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
@@ -209,7 +211,9 @@ bool CCoinsViewBacked::GetSidechain(const uint256& scId, CSidechain& info)      
 bool CCoinsViewBacked::HaveSidechainEvents(int height)                               const { return base->HaveSidechainEvents(height); }
 bool CCoinsViewBacked::GetSidechainEvents(int height, CSidechainEvents& scEvents)    const { return base->GetSidechainEvents(height, scEvents); }
 void CCoinsViewBacked::GetScIds(std::set<uint256>& scIdsList)                        const { return base->GetScIds(scIdsList); }
-bool CCoinsViewBacked::IsQualityValid(const CScCertificate& cert, CAmount fee)       const { return base->IsQualityValid(cert, fee); }
+bool CCoinsViewBacked::CheckQuality(const CScCertificate& cert, CAmount fee)         const { return base->CheckQuality(cert, fee); }
+CAmount CCoinsViewBacked::GetValueOfBackwardTransfers(const uint256& certHash)       const { return base->GetValueOfBackwardTransfers(certHash); }
+int64_t CCoinsViewBacked::GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const { return base->GetTopQualityCert(scId, epochNumber, hash); }
 uint256 CCoinsViewBacked::GetBestBlock()                                             const { return base->GetBestBlock(); }
 uint256 CCoinsViewBacked::GetBestAnchor()                                            const { return base->GetBestAnchor(); }
 void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
@@ -661,24 +665,25 @@ bool CCoinsViewCache::GetSidechain(const uint256 & scId, CSidechain& targetScInf
     return false;
 }
 
-bool CCoinsViewCache::GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const
+int64_t CCoinsViewCache::GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const
 {
+    LogPrint("mempool", "%s.%s():%d - sc %s, epoch %d\n", __FILE__, __func__, __LINE__, scId.ToString(), epochNumber);
+
+    int64_t topQual = base->GetTopQualityCert(scId, epochNumber, hash);
+    LogPrint("mempool", "%s.%s():%d - base: cert [%s], q=%d\n", __FILE__, __func__, __LINE__, hash.ToString(), topQual);
+
     CSidechain targetInfo;
-    hash.SetNull();
-
-    if (!GetSidechain(scId, targetInfo)                            ||
-        targetInfo.lastCertificateHash.IsNull()                    ||
-        epochNumber != targetInfo.lastEpochReferencedByCertificate)
+    if (GetSidechain(scId, targetInfo)                             &&
+        !targetInfo.lastCertificateHash.IsNull()                   &&
+        epochNumber == targetInfo.lastEpochReferencedByCertificate &&
+        targetInfo.lastCertificateQuality > topQual)
     {
-        return false;
+        LogPrint("mempool", "%s.%s():%d - cache: cert [%s], q=%d\n", __FILE__, __func__, __LINE__, hash.ToString(), topQual);
+        hash = targetInfo.lastCertificateHash;
+        topQual = targetInfo.lastCertificateQuality;
     }
-
-    hash = targetInfo.lastCertificateHash;
-
-    LogPrint("cert", "%s():%d - cache: found cert [%s] scid[%s]\n",
-        __func__, __LINE__, targetInfo.lastCertificateHash.ToString(), scId.ToString());
-
-    return true;
+    
+    return topQual;
 }
 
 void CCoinsViewCache::GetScIds(std::set<uint256>& scIdsList) const
@@ -698,23 +703,29 @@ void CCoinsViewCache::GetScIds(std::set<uint256>& scIdsList) const
     return;
 }
 
-bool CCoinsViewCache::IsQualityValid(const CScCertificate& cert, CAmount unused) const
+bool CCoinsViewCache::CheckQuality(const CScCertificate& cert, CAmount unused) const
 {
     // check in blockchain if a better cert is already there for this epoch
     CSidechain info;
     if (GetSidechain(cert.GetScId(), info))
     {
-        if (info.lastEpochReferencedByCertificate == cert.epochNumber &&
+        if (info.lastCertificateHash != cert.GetHash() &&
+            info.lastEpochReferencedByCertificate == cert.epochNumber &&
             info.lastCertificateQuality >= cert.quality)
         {
-            LogPrint("cert", "%s():%d - NOK, cert %s q=%d : a cert q=%d for same sc/epoch is already in blockchain\n",
-                __func__, __LINE__, cert.GetHash().ToString(), cert.quality, info.lastCertificateQuality);
+            LogPrint("cert", "%s.%s():%d - NOK, cert %s q=%d : a cert q=%d for same sc/epoch is already in blockchain\n",
+                __FILE__, __func__, __LINE__, cert.GetHash().ToString(), cert.quality, info.lastCertificateQuality);
             return false;
         }
     }
+    else
+    {
+        LogPrint("cert", "%s.%s():%d - cert %s has no scid in blockchain\n",
+            __FILE__, __func__, __LINE__, cert.GetHash().ToString());
+    }
 
-    LogPrint("cert", "%s():%d - cert %s q=%d : OK, no better quality certs for same sc/epoch are in blockchain\n",
-        __func__, __LINE__, cert.GetHash().ToString(), cert.quality);
+    LogPrint("cert", "%s.%s():%d - cert %s q=%d : OK, no better quality certs for same sc/epoch are in blockchain\n",
+        __FILE__, __func__, __LINE__, cert.GetHash().ToString(), cert.quality);
     return true;
 }
 
@@ -932,7 +943,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
         // if we are targeting the same epoch of an existing certificate, add
         // to the scInfo.balance the amount of the former top-quality cert if any
         uint256 topQualityCert;
-        if (GetTopQualityCert(cert.GetScId(), cert.epochNumber, topQualityCert) )
+        if (GetTopQualityCert(cert.GetScId(), cert.epochNumber, topQualityCert) != CScCertificate::QUALITY_NULL )
         {
             delta = GetValueOfBackwardTransfers(topQualityCert);
         }
@@ -1186,8 +1197,8 @@ void CCoinsViewCache::NullifyBackwardTransfers(const uint256& certHash, CTxUndo&
     for(int pos = coins->nFirstBwtPos; pos < coins->vout.size(); ++pos)
     {
         certUndoEntry.vBwts.push_back(CTxInUndo(coins->vout.at(pos)));
-        LogPrint("cert", "%s():%d - nullifying %s, pos=%d\n", __func__, __LINE__,
-            FormatMoney(coins->vout.at(pos).nValue), pos);
+        LogPrint("cert", "%s():%d - nullifying %s amount, pos=%d, cert %s\n", __func__, __LINE__,
+            FormatMoney(coins->vout.at(pos).nValue), pos, certHash.ToString());
         coins->Spend(pos);
         if (coins->vout.size() == 0)
         {
@@ -1300,10 +1311,16 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CTxUnd
 
 CAmount CCoinsViewCache::GetValueOfBackwardTransfers(const uint256& certHash) const
 {
-    const CCoins* c = AccessCoins(certHash);
     CAmount bt_amount = 0;
+    const CCoins* c = AccessCoins(certHash);
 
-    if(c && c->nFirstBwtPos != BWT_POS_UNSET)
+    if(!c)
+    {
+        LogPrint("mempool", "%s.%s():%d calling base for cert %s\n", __FILE__, __func__, __LINE__, certHash.ToString());
+        return base->GetValueOfBackwardTransfers(certHash);
+    }
+    else
+    if (c->nFirstBwtPos != BWT_POS_UNSET)
     {
         for(int pos = c->nFirstBwtPos; pos < c->vout.size(); ++pos)
         {

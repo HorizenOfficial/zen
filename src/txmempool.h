@@ -313,12 +313,14 @@ protected:
 
 public:
     CCoinsViewMemPool(CCoinsView *baseIn, CTxMemPool &mempoolIn);
-    bool GetNullifier(const uint256 &txid)                        const override;
-    bool GetCoins(const uint256 &txid, CCoins &coins)             const override;
-    bool HaveCoins(const uint256 &txid)                           const override;
-    bool GetSidechain(const uint256& scId, CSidechain& info)      const override;
-    bool HaveSidechain(const uint256& scId)                       const override;
-    bool IsQualityValid(const CScCertificate& cert, CAmount certFee) const override;
+    bool GetNullifier(const uint256 &txid)                         const override;
+    bool GetCoins(const uint256 &txid, CCoins &coins)              const override;
+    bool HaveCoins(const uint256 &txid)                            const override;
+    bool GetSidechain(const uint256& scId, CSidechain& info)       const override;
+    bool HaveSidechain(const uint256& scId)                        const override;
+    bool CheckQuality(const CScCertificate& cert, CAmount certFee) const override;
+    CAmount GetValueOfBackwardTransfers(const uint256& certHash)   const override;
+    int64_t GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const override;
 };
 
 #endif // BITCOIN_TXMEMPOOL_H

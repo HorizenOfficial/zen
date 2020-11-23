@@ -293,7 +293,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
                         bool* pfMissingInputs, bool fRejectAbsurdFee=false, bool disconnecting = false);
 
 bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee=false, bool disconnecting = false);
+                        bool* pfMissingInputs, bool fRejectAbsurdFee=false, bool disconnecting = false, bool verifyCert = true);
 
 struct CNodeStateStats {
     int nMisbehavior;

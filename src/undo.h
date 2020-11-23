@@ -125,6 +125,7 @@ public:
     //for cert only, to restore ScInfo
     int replacedLastCertEpoch;
     uint256 replacedLastCertHash;
+
     int64_t replacedLastCertQuality;
     std::vector<CTxInUndo> vBwts; // undo information for bwt
 

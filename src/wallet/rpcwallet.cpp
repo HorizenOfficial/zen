@@ -4845,7 +4845,10 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     scId.SetHex(scIdString);
 
     // sanity check of the side chain ID
-    CCoinsViewCache scView(pcoinsTip);
+    CCoinsView dummy;
+    CCoinsViewCache scView(&dummy);
+    CCoinsViewMemPool vm(pcoinsTip, mempool);
+    scView.SetBackend(vm);
     CSidechain scInfo;
     if (!scView.GetSidechain(scId,scInfo))
     {
@@ -4984,7 +4987,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     uint256 topQualityCert;
     CAmount delta = 0;
 
-    if (scView.GetTopQualityCert(scId, epochNumber, topQualityCert) )
+    if (scView.GetTopQualityCert(scId, epochNumber, topQualityCert) != CScCertificate::QUALITY_NULL)
     {
         delta = scView.GetValueOfBackwardTransfers(topQualityCert);
     }

@@ -82,8 +82,12 @@ public:
     }
 
 protected:
-    CTransaction GenerateScTx(const CAmount & creationTxAmount);
+    CTransaction GenerateScTx(const CAmount & creationTxAmount, int epochLenght = -1);
     CTransaction GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount);
+    CScCertificate GenerateCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
+                                 CAmount inputAmount, CAmount changeTotalAmount/* = 0*/, unsigned int numChangeOut/* = 0*/,
+                                 CAmount bwtTotalAmount/* = 1*/, unsigned int numBwt/* = 1*/, int64_t quality,
+                                 const CTransactionBase* inputTxBase = nullptr);
 
 private:
     boost::filesystem::path  pathTemp;
@@ -450,6 +454,118 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffec
     EXPECT_TRUE(mempool.mapSidechains.at(scId).HasCert(cert.GetHash()));
 }
 
+TEST_F(SidechainsInMempoolTestSuite, CertInMempool_QualityOfCerts) {
+
+    //Create and persist sidechain
+    CTransaction scTx = GenerateScTx(CAmount(10000), /*epochLenght*/5);
+    const uint256& scId = scTx.GetScIdFromScCcOut(0);
+    CBlock aBlock;
+    CCoinsViewCache sidechainsView(pcoinsTip);
+    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(401));
+    sidechainsView.Flush();
+
+    CBlockUndo dummyBlockUndo;
+    for(const CTxScCreationOut& scCreationOut: scTx.GetVscCcOut())
+        ASSERT_TRUE(sidechainsView.ScheduleSidechainEvent(scCreationOut, 401));
+
+    std::vector<uint256> dummy;
+    ASSERT_TRUE(sidechainsView.HandleSidechainEvents(401 + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
+    sidechainsView.Flush();
+
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/406);
+
+    const uint256& endEpochBlockHash = ArithToUint256(405);
+    CValidationState state;
+    bool missingInputs = false;
+
+    //load a certificate in mempool (q=3, fee=600)
+    CScCertificate cert1 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(1000),
+        /*changeTotalAmount*/CAmount(400),/*numChangeOut*/1, /*bwtAmount*/CAmount(2000), /*numBwt*/2, /*quality*/3);
+
+    EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert1, false, &missingInputs, false, false, false ));
+
+    //load a certificate in mempool (q=2, fee=150)
+    CScCertificate cert2 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(300),
+        /*changeTotalAmount*/CAmount(150),/*numChangeOut*/1, /*bwtAmount*/CAmount(30), /*numBwt*/2, /*quality*/2);
+
+    EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert2, false, &missingInputs, false, false, false ));
+
+    //load a certificate in mempool (q=2, fee=150) ---> dropped because this fee is the same
+    CScCertificate cert3 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(400),
+        /*changeTotalAmount*/CAmount(250),/*numChangeOut*/1, /*bwtAmount*/CAmount(40), /*numBwt*/2, /*quality*/2);
+
+    EXPECT_FALSE(AcceptCertificateToMemoryPool(mempool, state, cert3, false, &missingInputs, false, false, false ));
+
+    //load a certificate in mempool (q=2, fee=100) ---> dropped because this fee is lower
+    CScCertificate cert3b = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(390),
+        /*changeTotalAmount*/CAmount(290),/*numChangeOut*/1, /*bwtAmount*/CAmount(40), /*numBwt*/2, /*quality*/2);
+
+    EXPECT_FALSE(AcceptCertificateToMemoryPool(mempool, state, cert3b, false, &missingInputs, false, false, false ));
+
+    //load a certificate in mempool (q=4, fee=100)
+    CScCertificate cert4 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(1500),
+        /*changeTotalAmount*/CAmount(1400),/*numChangeOut*/2, /*bwtAmount*/CAmount(60), /*numBwt*/2, /*quality*/4);
+
+    EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert4, false, &missingInputs, false, false, false ));
+
+    EXPECT_TRUE(mempool.mapSidechains.at(scId).HasCert(cert1.GetHash()));
+    EXPECT_TRUE(mempool.mapSidechains.at(scId).HasCert(cert2.GetHash()));
+    EXPECT_FALSE(mempool.mapSidechains.at(scId).HasCert(cert3.GetHash()));
+    EXPECT_TRUE(mempool.mapSidechains.at(scId).HasCert(cert4.GetHash()));
+
+    EXPECT_TRUE(mempool.mapSidechains.at(scId).GetTopQualityCert()->second == cert4.GetHash());
+    
+    // erase a cert from mempool
+    std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
+    mempool.remove(cert4, removedTxs, removedCerts, /*fRecursive*/false);
+
+    EXPECT_FALSE(mempool.mapSidechains.at(scId).HasCert(cert4.GetHash()));
+    EXPECT_TRUE(mempool.mapSidechains.at(scId).GetTopQualityCert()->second == cert1.GetHash());
+
+    int64_t tq = mempool.mapSidechains.at(scId).GetTopQualityCert()->first;
+    
+    //create a certificate (not loading it in mempool) with quality same as top-quality and remove any conflict in mempool with that 
+    // verify that former top-quality has been removed
+    CScCertificate cert5 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(0),
+        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(90), /*numBwt*/2, /*quality*/tq);
+
+    EXPECT_TRUE(mempool.RemoveAnyConflictingQualityCert(cert5));
+    
+    EXPECT_FALSE(mempool.mapSidechains.at(scId).HasCert(cert1.GetHash()));
+    EXPECT_TRUE(mempool.mapSidechains.at(scId).GetTopQualityCert()->second == cert2.GetHash());
+    tq = mempool.mapSidechains.at(scId).GetTopQualityCert()->first;
+
+    //load a certificate in mempool (q=top=2, fee=200) --> former is removed since this fee is higher
+    CScCertificate cert6 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(600),
+        /*changeTotalAmount*/CAmount(400),/*numChangeOut*/1, /*bwtAmount*/CAmount(30), /*numBwt*/2, /*quality*/tq);
+
+    EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert6, false, &missingInputs, false, false, false ));
+
+    EXPECT_FALSE(mempool.mapSidechains.at(scId).HasCert(cert2.GetHash()));
+    EXPECT_TRUE(mempool.mapSidechains.at(scId).GetTopQualityCert()->second == cert6.GetHash());
+    tq = mempool.mapSidechains.at(scId).GetTopQualityCert()->first;
+
+    // create a certificate with same quality than top but depending on top-quality cert in mempool
+    // and verify that the check on conflict fails
+    CScCertificate cert7 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(0),
+        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(90), /*numBwt*/2, /*quality*/tq,
+        &cert6);
+
+    EXPECT_FALSE(mempool.RemoveAnyConflictingQualityCert(cert7));
+    
+    // create a certificate with lower quality than top but depending on top-quality cert in mempool
+    // and verify that the check on conflict fails since a clash in consensus rules would be achieved
+    // q1 < q2 but q1 depends on q2
+    CScCertificate cert8 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(0),
+        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(90), /*numBwt*/2, /*quality*/tq-1,
+        &cert6);
+
+    EXPECT_FALSE(mempool.RemoveAnyConflictingQualityCert(cert8));
+
+    EXPECT_TRUE(mempool.mapSidechains.at(scId).GetTopQualityCert()->second == cert6.GetHash());
+}
+
 TEST_F(SidechainsInMempoolTestSuite, ImmatureExpenditureRemoval) {
     //Create a coinbase
     CMutableTransaction mutCoinBase;
@@ -539,7 +655,7 @@ bool SidechainsInMempoolTestSuite::StoreCoins(const std::pair<uint256, CCoinsCac
     return view.HaveCoins(entryToStore.first) == true;
 }
 
-CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const CAmount & creationTxAmount) {
+CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const CAmount & creationTxAmount, int epochLenght) {
     std::pair<uint256, CCoinsCacheEntry> coinData = GenerateCoinsAmount(1000);
     StoreCoins(coinData);
 
@@ -550,7 +666,7 @@ CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const CAmount & creation
 
     scTx.vsc_ccout.resize(1);
     scTx.vsc_ccout[0].nValue = creationTxAmount;
-    scTx.vsc_ccout[0].withdrawalEpochLength = getScMinWithdrawalEpochLength();
+    scTx.vsc_ccout[0].withdrawalEpochLength = (epochLenght < 0)?getScMinWithdrawalEpochLength(): epochLenght;
 
     SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);
 
@@ -578,3 +694,41 @@ CTransaction SidechainsInMempoolTestSuite::GenerateFwdTransferTx(const uint256 &
 
     return scTx;
 }
+
+CScCertificate SidechainsInMempoolTestSuite::GenerateCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
+                 CAmount inputAmount, CAmount changeTotalAmount, unsigned int numChangeOut,
+                 CAmount bwtTotalAmount, unsigned int numBwt, int64_t quality, const CTransactionBase* inputTxBase)
+{
+    CMutableScCertificate res;
+    res.nVersion = SC_CERT_VERSION;
+    res.scId = scId;
+    res.epochNumber = epochNum;
+    res.endEpochBlockHash = endEpochBlockHash;
+    res.quality = quality;
+
+    CScript dummyScriptPubKey =
+            GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/true);
+    for(unsigned int idx = 0; idx < numChangeOut; ++idx)
+        res.addOut(CTxOut(changeTotalAmount/numChangeOut,dummyScriptPubKey));
+
+    for(unsigned int idx = 0; idx < numBwt; ++idx)
+        res.addBwt(CTxOut(bwtTotalAmount/numBwt, dummyScriptPubKey));
+
+    if (inputTxBase)
+    {
+        res.vin.push_back(CTxIn(COutPoint(inputTxBase->GetHash(), 0), CScript(), -1));
+        SignSignature(keystore, inputTxBase->GetVout()[0].scriptPubKey, res, 0);
+    }
+    else
+    if (inputAmount > 0)
+    {
+        std::pair<uint256, CCoinsCacheEntry> coinData = GenerateCoinsAmount(inputAmount);
+        StoreCoins(coinData);
+    
+        res.vin.push_back(CTxIn(COutPoint(coinData.first, 0), CScript(), -1));
+        SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, res, 0);
+    }
+
+    return res;
+}
+
