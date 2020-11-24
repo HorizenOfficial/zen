@@ -155,6 +155,9 @@ private:
     bool checkCertImmatureExpenditures(
         const CScCertificate& cert, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
 
+    std::set<uint256> mempoolDirectAncestorsOf(const CTransactionBase& root) const;
+    std::set<uint256> mempoolDirectDescendantsOf(const CTransactionBase& root) const;
+
     std::map<uint256, std::shared_ptr<CTransactionBase> > mapRecentlyAddedTxBase;
     uint64_t nRecentlyAddedSequence = 0;
     uint64_t nNotifiedSequence = 0;
@@ -184,14 +187,13 @@ public:
     void check(const CCoinsViewCache *pcoins) const;
     void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
 
-    bool CertSpendsOutputOfSet(const CScCertificate& cert, const std::set<uint256>& s) const;
     bool RemoveAnyConflictingQualityCert(const CScCertificate& cert);
 
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
-    std::set<uint256> mempoolDirectDependenciesOf(const CTransactionBase& root);
-    std::set<uint256> mempoolFullDependenciesOf(const CTransactionBase& origTx);
+    std::set<uint256> mempoolFullAncestorsOf(const CTransactionBase& origTx) const;
+    std::set<uint256> mempoolFullDescendantsOf(const CTransactionBase& origTx) const;
     void remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false);
 
     void removeWithAnchor(const uint256 &invalidRoot);
