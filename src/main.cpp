@@ -6859,7 +6859,7 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
 
 static int getInitCbhSafeDepth()
 {
-    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "test") )
+    if (Params().NetworkIDString() == "regtest")
     {
         int val = (int)(GetArg("-cbhsafedepth", Params().CbhSafeDepth() ));
         LogPrint("cbh", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
@@ -6877,7 +6877,7 @@ int getCheckBlockAtHeightSafeDepth()
 
 static int getInitCbhMinAge()
 {
-    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "test") )
+    if (Params().NetworkIDString() == "regtest")
     {
         int val = (int)(GetArg("-cbhminage", Params().CbhMinimumAge() ));
         LogPrint("cbh", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);

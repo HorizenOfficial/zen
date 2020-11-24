@@ -164,7 +164,8 @@ class InvalidBlockPostHalving(ComparisonTestFramework):
         assert_equal(cb_subsidy, cb_subsidy_pre_halving)
 
         print "---> Make sure that a block with pre-halving subsidy is rejected."
-        block3 = create_block(self.tip, create_coinbase_h(chainHeight+1), self.block_time, get_nBits(chainHeight))
+        block3 = create_block(self.tip, create_coinbase_h(chainHeight+1, SUBS_HALV_INTERVAL +1 #force not trigger halving
+            ), self.block_time, get_nBits(chainHeight))
         chainHeight += 1
         self.block_time += 1
         block3.solve()
