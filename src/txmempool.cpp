@@ -1377,49 +1377,32 @@ int64_t CCoinsViewMemPool::GetTopQualityCert(const uint256& scId, int epochNumbe
 
 bool CTxMemPool::RemoveAnyConflictingQualityCert(const CScCertificate& cert)
 {
-    // No lower quality certs should spend (directly or indirectly)
-    // outputs of higher- or equal-quality certs
-    std::set<uint256> certAncestors = mempoolFullAncestorsOf(cert);
-    for(const uint256& ancestor: certAncestors)
-    {
-        if (mapCertificate.count(ancestor)==0)
-            continue; //tx won't conflict with cert on quality
-
-        const CScCertificate& ancestorCert = mapCertificate.at(ancestor).GetCertificate();
-        if (ancestorCert.GetScId() != cert.GetScId())
-            continue; //no certs conflicts with certs of other sidechains
-        if (ancestorCert.quality > cert.quality)
-            return false;
-        if (ancestorCert.quality == cert.quality)
-            return false; // cert spends ancestorCert without improving quality. Drop it
-    }
-
     // currently here a certificate with same quality as cert would have a lower quality
     // and should be dropped
     if (mapSidechains.count(cert.GetScId()) != 0)
     {
-    	for(const auto& mempoolCertEntry : mapSidechains.at(cert.GetScId()).mBackwardCertificates) {
-    		const CScCertificate& mempoolCert = mapCertificate.at(mempoolCertEntry.second).GetCertificate();
-    		if (mempoolCert.quality == cert.quality)
-    		{
-    	        std::list<CTransaction> conflictingTxs;
-    	        std::list<CScCertificate> conflictingCerts;
-    	        remove(mempoolCert, conflictingTxs, conflictingCerts, true);
+        for(const auto& mempoolCertEntry : mapSidechains.at(cert.GetScId()).mBackwardCertificates) {
+            const CScCertificate& mempoolCert = mapCertificate.at(mempoolCertEntry.second).GetCertificate();
+            if (mempoolCert.quality == cert.quality)
+            {
+                std::list<CTransaction> conflictingTxs;
+                std::list<CScCertificate> conflictingCerts;
+                remove(mempoolCert, conflictingTxs, conflictingCerts, true);
 
-    	        // the conflicting cert itself must be the only one in this list
-    	        assert(conflictingCerts.size() == 1); //this assert should prolly be done in mempool::check
+                // the conflicting cert itself must be the only one in this list
+                assert(conflictingCerts.size() == 1); //this assert should prolly be done in mempool::check
 
-    	        // Tell wallet about transactions and certificates that went from mempool to conflicted:
-    	        for(const auto &t: conflictingTxs) {
-    	            LogPrint("mempool", "%s():%d - syncing tx %s\n", __func__, __LINE__, t.GetHash().ToString());
-    	            SyncWithWallets(t, nullptr);
-    	        }
-    	        for(const auto &c: conflictingCerts) {
-    	            LogPrint("mempool", "%s():%d - syncing cert %s\n", __func__, __LINE__, c.GetHash().ToString());
-    	            SyncWithWallets(c, nullptr);
-    	        }
-    		}
-    	}
+                // Tell wallet about transactions and certificates that went from mempool to conflicted:
+                for(const auto &t: conflictingTxs) {
+                    LogPrint("mempool", "%s():%d - syncing tx %s\n", __func__, __LINE__, t.GetHash().ToString());
+                    SyncWithWallets(t, nullptr);
+                }
+                for(const auto &c: conflictingCerts) {
+                    LogPrint("mempool", "%s():%d - syncing cert %s\n", __func__, __LINE__, c.GetHash().ToString());
+                    SyncWithWallets(c, nullptr);
+                }
+            }
+        }
     }
 
     return true;
