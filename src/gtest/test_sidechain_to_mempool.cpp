@@ -454,6 +454,56 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffec
     EXPECT_TRUE(mempool.mapSidechains.at(scId).HasCert(cert.GetHash()));
 }
 
+TEST_F(SidechainsInMempoolTestSuite, CertsCannotSpendHigherQualityCerts) {
+    //Create and persist sidechain
+    CTransaction scTx = GenerateScTx(CAmount(10000), /*epochLenght*/5);
+    const uint256& scId = scTx.GetScIdFromScCcOut(0);
+    CBlock aBlock;
+    CCoinsViewCache sidechainsView(pcoinsTip);
+    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(401));
+    sidechainsView.Flush();
+
+    CBlockUndo dummyBlockUndo;
+    for(const CTxScCreationOut& scCreationOut: scTx.GetVscCcOut())
+        ASSERT_TRUE(sidechainsView.ScheduleSidechainEvent(scCreationOut, 401));
+
+    std::vector<uint256> dummy;
+    ASSERT_TRUE(sidechainsView.HandleSidechainEvents(401 + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
+    sidechainsView.Flush();
+
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/406);
+
+    const uint256& endEpochBlockHash = ArithToUint256(405);
+    CValidationState state;
+    bool missingInputs = false;
+
+    //load a certificate in mempool (q=3, fee=600)
+    CScCertificate cert1 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(1000),
+        /*changeTotalAmount*/CAmount(400),/*numChangeOut*/1, /*bwtAmount*/CAmount(2000), /*numBwt*/2, /*quality*/3);
+
+    ASSERT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert1, false, &missingInputs, false, false, false ));
+    int64_t topQuality = mempool.mapSidechains.at(scId).GetTopQualityCert()->first;
+
+    // create a certificate with same quality than top but depending on top-quality cert in mempool
+    // and verify it is not accepted to mempool
+    CScCertificate cert2 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(0),
+        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(90), /*numBwt*/2, /*quality*/topQuality,
+        &cert1);
+
+    EXPECT_FALSE(AcceptCertificateToMemoryPool(mempool, state, cert2, false, &missingInputs, false, false, false ));
+
+    // create a certificate with lower quality than top but depending on top-quality cert in mempool
+    // and verify that it is not accepted to mempool since a clash in consensus rules would be achieved
+    // q1 < q2 but q1 depends on q2
+    CScCertificate cert3 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(0),
+        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(90), /*numBwt*/2, /*quality*/topQuality-1,
+        &cert1);
+
+    EXPECT_FALSE(AcceptCertificateToMemoryPool(mempool, state, cert3, false, &missingInputs, false, false, false ));
+
+    EXPECT_TRUE(mempool.mapSidechains.at(scId).GetTopQualityCert()->second == cert1.GetHash());
+}
+
 TEST_F(SidechainsInMempoolTestSuite, CertInMempool_QualityOfCerts) {
 
     //Create and persist sidechain
@@ -541,28 +591,7 @@ TEST_F(SidechainsInMempoolTestSuite, CertInMempool_QualityOfCerts) {
         /*changeTotalAmount*/CAmount(400),/*numChangeOut*/1, /*bwtAmount*/CAmount(30), /*numBwt*/2, /*quality*/tq);
 
     EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert6, false, &missingInputs, false, false, false ));
-
     EXPECT_FALSE(mempool.mapSidechains.at(scId).HasCert(cert2.GetHash()));
-    EXPECT_TRUE(mempool.mapSidechains.at(scId).GetTopQualityCert()->second == cert6.GetHash());
-    tq = mempool.mapSidechains.at(scId).GetTopQualityCert()->first;
-
-    // create a certificate with same quality than top but depending on top-quality cert in mempool
-    // and verify that the check on conflict fails
-    CScCertificate cert7 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(0),
-        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(90), /*numBwt*/2, /*quality*/tq,
-        &cert6);
-
-    EXPECT_FALSE(mempool.RemoveAnyConflictingQualityCert(cert7));
-    
-    // create a certificate with lower quality than top but depending on top-quality cert in mempool
-    // and verify that the check on conflict fails since a clash in consensus rules would be achieved
-    // q1 < q2 but q1 depends on q2
-    CScCertificate cert8 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(0),
-        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(90), /*numBwt*/2, /*quality*/tq-1,
-        &cert6);
-
-    EXPECT_FALSE(mempool.RemoveAnyConflictingQualityCert(cert8));
-
     EXPECT_TRUE(mempool.mapSidechains.at(scId).GetTopQualityCert()->second == cert6.GetHash());
 }
 

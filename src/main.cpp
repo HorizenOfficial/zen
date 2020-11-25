@@ -1065,7 +1065,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             return false;
         }
 
-        for (const CTxIn & vin : cert.GetVin()) {
+        for (const CTxIn & vin : cert.GetVin())
+        {
             if (pool.mapNextTx.count(vin.prevout)) {
                 LogPrint("mempool", "%s():%d - Dropping cert %s : it double spends input of [%s] that is in mempool\n",
                     __func__, __LINE__, certHash.ToString(), vin.prevout.hash.ToString());

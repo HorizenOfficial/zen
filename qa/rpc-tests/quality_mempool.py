@@ -354,7 +354,7 @@ class quality_mempool(BitcoinTestFramework):
         assert_equal(True, cert_1_epoch_0 in self.nodes[0].getrawmempool())
         assert_equal(True, cert_2_epoch_0 in self.nodes[0].getrawmempool())
 
-        # Create Cert3 with equal quality, equal fee and try to place it in mempool
+        # Create Cert3 with equal quality, high fee and try to place it in mempool
         mark_logs("Checking rejection of cert_3 with same (scId, epoch), equal quality, higher fee, with spending deps on cert_1", self.nodes, DEBUG_MODE)
         amount_cert_3 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
         cert3_proof = mcTest.create_test_proof(
