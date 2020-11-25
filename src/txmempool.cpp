@@ -236,6 +236,8 @@ std::set<uint256> CTxMemPool::mempoolDirectAncestorsOf(const CTransactionBase& r
 {
     std::set<uint256> res; //set allows to avoid duplicates
 
+    AssertLockHeld(cs);
+
     //collect all inputs in mempool (zero-spent ones)...
     for(const auto& input : root.GetVin()) {
         if ((mapTx.count(input.prevout.hash) != 0) || (mapCertificate.count(input.prevout.hash) != 0))
@@ -262,8 +264,8 @@ std::set<uint256> CTxMemPool::mempoolDirectAncestorsOf(const CTransactionBase& r
 
 std::set<uint256> CTxMemPool::mempoolFullAncestorsOf(const CTransactionBase& originTx) const
 {
+    AssertLockHeld(cs);
     // it's Breath-First-Search on txes/certs Direct Acyclic Graph, having originTx as root.
-
     std::set<uint256> res = mempoolDirectAncestorsOf(originTx);
     std::deque<uint256> toVisit(res.begin(), res.end());
 
@@ -294,6 +296,8 @@ std::set<uint256> CTxMemPool::mempoolFullAncestorsOf(const CTransactionBase& ori
 std::set<uint256> CTxMemPool::mempoolDirectDescendantsOf(const CTransactionBase& root) const
 {
     std::set<uint256> res; //set allows to avoid duplicates
+
+    AssertLockHeld(cs);
 
     //Direct dependencies of root are txes/certs directly spending root outputs...
     for (unsigned int i = 0; i < root.GetVout().size(); i++)
@@ -331,6 +335,8 @@ std::set<uint256> CTxMemPool::mempoolFullDescendantsOf(const CTransactionBase& o
 {
     // it's Depth-First-Search on txes/certs Direct Acyclic Graph, having originTx as root.
 
+    AssertLockHeld(cs);
+
     std::set<uint256> res = mempoolDirectDescendantsOf(origTx);
     std::deque<uint256> toVisit(res.begin(), res.end());
 
@@ -360,91 +366,91 @@ std::set<uint256> CTxMemPool::mempoolFullDescendantsOf(const CTransactionBase& o
 void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive)
 {
     // Remove transaction from memory pool
+ 
+    LOCK(cs);
+    std::set<uint256> objToRemove;
+
+    if (fRecursive)
+        objToRemove = mempoolFullDescendantsOf(origTx);
+
+    objToRemove.insert(origTx.GetHash());
+
+    for(const uint256& hash : objToRemove)
     {
-        LOCK(cs);
-        std::set<uint256> objToRemove;
-
-        if (fRecursive)
-            objToRemove = mempoolFullDescendantsOf(origTx);
-
-        objToRemove.insert(origTx.GetHash());
-
-        for(const uint256& hash : objToRemove)
+        if (mapTx.count(hash))
         {
-            if (mapTx.count(hash))
-            {
-                const CTransaction& tx = mapTx[hash].GetTx();
-                mapRecentlyAddedTxBase.erase(hash);
+            const CTransaction& tx = mapTx[hash].GetTx();
+            mapRecentlyAddedTxBase.erase(hash);
 
-                for(const CTxIn& txin: tx.GetVin())
-                    mapNextTx.erase(txin.prevout);
-                for(const JSDescription& joinsplit: tx.GetVjoinsplit()) {
-                    for(const uint256& nf: joinsplit.nullifiers) {
-                        mapNullifiers.erase(nf);
-                    }
+            for(const CTxIn& txin: tx.GetVin())
+                mapNextTx.erase(txin.prevout);
+            for(const JSDescription& joinsplit: tx.GetVjoinsplit()) {
+                for(const uint256& nf: joinsplit.nullifiers) {
+                    mapNullifiers.erase(nf);
                 }
-
-                for(const auto& fwd: tx.GetVftCcOut()) {
-                    if (mapSidechains.count(fwd.scId)) { //Guard against double-delete on multiple fwds toward the same sc in same tx
-                        mapSidechains.at(fwd.scId).fwdTransfersSet.erase(tx.GetHash());
-
-                        if (mapSidechains.at(fwd.GetScId()).IsNull())
-                        {
-                            LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, fwd.scId.ToString() );
-                            mapSidechains.erase(fwd.scId);
-                        }
-                    }
-                }
-
-                for(const auto& sc: tx.GetVscCcOut()) {
-                    assert(mapSidechains.count(sc.GetScId()) != 0);
-                    mapSidechains.at(sc.GetScId()).scCreationTxHash.SetNull();
-
-                    if (mapSidechains.at(sc.GetScId()).IsNull())
-                    {
-                        LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, sc.GetScId().ToString() );
-                        mapSidechains.erase(sc.GetScId());
-                    }
-                }
-
-                removedTxs.push_back(tx);
-                totalTxSize -= mapTx[hash].GetTxSize();
-                cachedInnerUsage -= mapTx[hash].DynamicMemoryUsage();
-
-                LogPrint("mempool", "%s():%d - removing tx [%s] from mempool\n", __func__, __LINE__, hash.ToString() );
-                mapTx.erase(hash);
-
-                nTransactionsUpdated++;
-                minerPolicyEstimator->removeTx(hash);
-            } else if (mapCertificate.count(hash))
-            {
-                const CScCertificate& cert = mapCertificate[hash].GetCertificate();
-                mapRecentlyAddedTxBase.erase(hash);
-
-                for(const CTxIn& txin: cert.GetVin())
-                    mapNextTx.erase(txin.prevout);
-
-                // remove certificate hash from list
-                LogPrint("mempool", "%s():%d - removing cert [%s] from mapSidechain[%s]\n",
-                    __func__, __LINE__, hash.ToString(), cert.GetScId().ToString());
-                mapSidechains.at(cert.GetScId()).EraseCert(hash);
-
-                if (mapSidechains.at(cert.GetScId()).IsNull())
-                {
-                    assert(mapSidechains.at(cert.GetScId()).mBackwardCertificates.empty());
-                    LogPrint("mempool", "%s():%d - erasing scid [%s] from mapSidechain\n", __func__, __LINE__, cert.GetScId().ToString() );
-                    mapSidechains.erase(cert.GetScId());
-                }
-
-                removedCerts.push_back(cert);
-                totalCertificateSize -= mapCertificate[hash].GetCertificateSize();
-                cachedInnerUsage -= mapCertificate[hash].DynamicMemoryUsage();
-                LogPrint("mempool", "%s():%d - removing cert [%s] from mempool\n", __func__, __LINE__, hash.ToString() );
-                mapCertificate.erase(hash);
-                nCertificatesUpdated++;
             }
+
+            for(const auto& fwd: tx.GetVftCcOut()) {
+                if (mapSidechains.count(fwd.scId)) { //Guard against double-delete on multiple fwds toward the same sc in same tx
+                    mapSidechains.at(fwd.scId).fwdTransfersSet.erase(tx.GetHash());
+
+                    if (mapSidechains.at(fwd.GetScId()).IsNull())
+                    {
+                        LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, fwd.scId.ToString() );
+                        mapSidechains.erase(fwd.scId);
+                    }
+                }
+            }
+
+            for(const auto& sc: tx.GetVscCcOut()) {
+                assert(mapSidechains.count(sc.GetScId()) != 0);
+                mapSidechains.at(sc.GetScId()).scCreationTxHash.SetNull();
+
+                if (mapSidechains.at(sc.GetScId()).IsNull())
+                {
+                    LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, sc.GetScId().ToString() );
+                    mapSidechains.erase(sc.GetScId());
+                }
+            }
+
+            removedTxs.push_back(tx);
+            totalTxSize -= mapTx[hash].GetTxSize();
+            cachedInnerUsage -= mapTx[hash].DynamicMemoryUsage();
+
+            LogPrint("mempool", "%s():%d - removing tx [%s] from mempool\n", __func__, __LINE__, hash.ToString() );
+            mapTx.erase(hash);
+
+            nTransactionsUpdated++;
+            minerPolicyEstimator->removeTx(hash);
+        } else if (mapCertificate.count(hash))
+        {
+            const CScCertificate& cert = mapCertificate[hash].GetCertificate();
+            mapRecentlyAddedTxBase.erase(hash);
+
+            for(const CTxIn& txin: cert.GetVin())
+                mapNextTx.erase(txin.prevout);
+
+            // remove certificate hash from list
+            LogPrint("mempool", "%s():%d - removing cert [%s] from mapSidechain[%s]\n",
+                __func__, __LINE__, hash.ToString(), cert.GetScId().ToString());
+            mapSidechains.at(cert.GetScId()).EraseCert(hash);
+
+            if (mapSidechains.at(cert.GetScId()).IsNull())
+            {
+                assert(mapSidechains.at(cert.GetScId()).mBackwardCertificates.empty());
+                LogPrint("mempool", "%s():%d - erasing scid [%s] from mapSidechain\n", __func__, __LINE__, cert.GetScId().ToString() );
+                mapSidechains.erase(cert.GetScId());
+            }
+
+            removedCerts.push_back(cert);
+            totalCertificateSize -= mapCertificate[hash].GetCertificateSize();
+            cachedInnerUsage -= mapCertificate[hash].DynamicMemoryUsage();
+            LogPrint("mempool", "%s():%d - removing cert [%s] from mempool\n", __func__, __LINE__, hash.ToString() );
+            mapCertificate.erase(hash);
+            nCertificatesUpdated++;
         }
     }
+ 
 }
 
 inline bool CTxMemPool::checkTxImmatureExpenditures(
@@ -1377,6 +1383,7 @@ int64_t CCoinsViewMemPool::GetTopQualityCert(const uint256& scId, int epochNumbe
 
 bool CTxMemPool::RemoveAnyConflictingQualityCert(const CScCertificate& cert)
 {
+    LOCK(cs);
     // No lower quality certs should spend (directly or indirectly)
     // outputs of higher or equal quality certs
     std::set<uint256> certAncestors = mempoolFullAncestorsOf(cert);
@@ -1389,7 +1396,11 @@ bool CTxMemPool::RemoveAnyConflictingQualityCert(const CScCertificate& cert)
         if (ancestorCert.GetScId() != cert.GetScId())
             continue; //no certs conflicts with certs of other sidechains
         if (ancestorCert.quality >= cert.quality)
+        {
+            LogPrint("mempool", "%s():%d - cert %s depends on worse-quality ancestorCert %s\n", __func__, __LINE__,
+                cert.GetHash().ToString(), ancestorCert.GetHash().ToString());
             return false;
+        }
     }
 
     // currently here a certificate in mempool with same quality as cert
