@@ -345,9 +345,9 @@ std::set<uint256> CTxMemPool::mempoolFullDescendantsOf(const CTransactionBase& o
         const CTransactionBase * pCurrentRoot = nullptr;
         if (mapTx.count(toVisit.front()))
         {
-            pCurrentRoot = &mapTx.at(toVisit.back()).GetTx();
+            pCurrentRoot = &mapTx.at(toVisit.front()).GetTx();
         } else if (mapCertificate.count(toVisit.front())) {
-            pCurrentRoot = &mapCertificate.at(toVisit.back()).GetCertificate();
+            pCurrentRoot = &mapCertificate.at(toVisit.front()).GetCertificate();
         } else
             assert(pCurrentRoot);
 
