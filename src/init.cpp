@@ -366,7 +366,7 @@ std::string HelpMessage(HelpMessageMode mode)
             "Warning: Reverting this setting requires re-downloading the entire blockchain. "
             "(default: 0 = disable pruning blocks, >%u = target size in MiB to use for block files)"), MIN_DISK_SPACE_FOR_BLOCK_FILES / 1024 / 1024));
     strUsage += HelpMessageOpt("-reindex", _("Rebuild block chain index from current blk000??.dat files on startup"));
-    strUsage += HelpMessageOpt("-reindexfast", _("Rebuild block chain index from current blk000??.dat files on startup, skipping expensive checks for blocks below checkpoints"));
+    strUsage += HelpMessageOpt("-reindexfast", _("Rebuild block chain index from current blk000??.dat files on startup, skipping expensive checks for blocks below checkpoints. It is incompatible with reindex"));
     #if !defined(WIN32)
     strUsage += HelpMessageOpt("-sysperms", _("Create new files with system default permissions, instead of umask 077 (only effective with disabled wallet functionality)"));
 #endif
@@ -657,7 +657,7 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
         fReindexFast = false;
 
         nFile = 0;
-        if (fReindex) uiInterface.InitMessage(_("Reindexing block from files..."));
+        uiInterface.InitMessage(_("Reindexing block from files..."));
         while (true)
         {
             CDiskBlockPos pos(nFile, 0);
@@ -985,6 +985,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         }
 #endif
     }
+
+    if (GetBoolArg("-reindex", false) && GetBoolArg("-reindexfast", false))
+        return InitError(_("-reindex is incompatible with -reindexfast."));
 
     // ********************************************************* Step 3: parameter-to-internal-flags
 
@@ -1477,8 +1480,8 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 delete pcoinscatcher;
                 delete pblocktree;
 
-                pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex | fReindexFast);
-                pcoinsdbview = new CCoinsViewDB(nCoinDBCache, false, fReindex | fReindexFast);
+                pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex || fReindexFast);
+                pcoinsdbview = new CCoinsViewDB(nCoinDBCache, false, fReindex || fReindexFast);
                 pcoinscatcher = new CCoinsViewErrorCatcher(pcoinsdbview);
                 pcoinsTip = new CCoinsViewCache(pcoinscatcher);
 
@@ -1752,7 +1755,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (fPruneMode) {
         LogPrintf("Unsetting NODE_NETWORK on prune mode\n");
         nLocalServices &= ~NODE_NETWORK;
-        if (!fReindex || !fReindexFast) {
+        if (!(fReindex || fReindexFast)) {
             uiInterface.InitMessage(_("Pruning blockstore..."));
             PruneAndFlush();
         }
