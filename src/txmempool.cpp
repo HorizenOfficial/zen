@@ -1377,8 +1377,23 @@ int64_t CCoinsViewMemPool::GetTopQualityCert(const uint256& scId, int epochNumbe
 
 bool CTxMemPool::RemoveAnyConflictingQualityCert(const CScCertificate& cert)
 {
-    // currently here a certificate with same quality as cert would have a lower quality
-    // and should be dropped
+    // No lower quality certs should spend (directly or indirectly)
+    // outputs of higher or equal quality certs
+    std::set<uint256> certAncestors = mempoolFullAncestorsOf(cert);
+    for(const uint256& ancestor: certAncestors)
+    {
+        if (mapCertificate.count(ancestor)==0)
+            continue; //tx won't conflict with cert on quality
+
+        const CScCertificate& ancestorCert = mapCertificate.at(ancestor).GetCertificate();
+        if (ancestorCert.GetScId() != cert.GetScId())
+            continue; //no certs conflicts with certs of other sidechains
+        if (ancestorCert.quality >= cert.quality)
+            return false;
+    }
+
+    // currently here a certificate in mempool with same quality as cert
+    // would have a lower quality and should be dropped
     if (mapSidechains.count(cert.GetScId()) != 0)
     {
         for(const auto& mempoolCertEntry : mapSidechains.at(cert.GetScId()).mBackwardCertificates) {
@@ -1401,6 +1416,7 @@ bool CTxMemPool::RemoveAnyConflictingQualityCert(const CScCertificate& cert)
                     LogPrint("mempool", "%s():%d - syncing cert %s\n", __func__, __LINE__, c.GetHash().ToString());
                     SyncWithWallets(c, nullptr);
                 }
+                break;
             }
         }
     }
