@@ -361,7 +361,7 @@ class quality_mempool(BitcoinTestFramework):
             "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
             quality, constant_1, [pkh_node1], [bwt_amount])
         try:
-            cert_3_epoch_0 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1, cert3_proof, amount_cert_3, CERT_FEE)
+            cert_3_epoch_0 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1, cert3_proof, amount_cert_3, HIGH_CERT_FEE)
             assert_equal(True, cert_1_epoch_0 in self.nodes[0].getrawmempool())
             assert(len(cert_3_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_3_epoch_0), self.nodes, DEBUG_MODE)
