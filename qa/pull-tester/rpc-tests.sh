@@ -95,6 +95,7 @@ testScripts=(
   'sc_getscinfo.py'
   'quality_mempool.py'
   'quality_blockchain.py'
+  'quality_nodes.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
