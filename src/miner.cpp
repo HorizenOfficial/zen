@@ -86,6 +86,34 @@ public:
 
     bool operator()(const TxPriority& a, const TxPriority& b)
     {
+        // first of all, if we are comparing two certs, we must be sure they are ordered by
+        // quality if they refer to the same scid and epoch; this criterion is a consensus rule
+        // and overrides the others two
+        if (a.get<2>()->IsCertificate() && b.get<2>()->IsCertificate() )
+        {
+            // dynamic casting throws an exception upon failure
+            try {
+                const CScCertificate& aCert = dynamic_cast<const CScCertificate&>(*a.get<2>());
+                const CScCertificate& bCert = dynamic_cast<const CScCertificate&>(*b.get<2>());
+ 
+                if (aCert.GetScId() == bCert.GetScId() )
+                {
+                    LogPrint("sc", "%s():%d - qa=%d - qb=%d\n", __func__, __LINE__, aCert.quality, bCert.quality );
+
+                    if (aCert.epochNumber != bCert.epochNumber)
+                        assert("two certs for the same scid can not have different epochs" == 0);
+                        
+                    if (aCert.quality == bCert.quality)
+                        assert("two certs for the same scid can not have the same quality" == 0);
+
+                    return aCert.quality > bCert.quality;
+                }
+            } catch (...) {
+                LogPrintf("%s():%d - ERROR: cast error\n", __func__, __LINE__ );
+                assert("could not cast txbase obj" == 0);
+            }
+        }
+
         if (byFee)
         {
             if (a.get<1>() == b.get<1>())

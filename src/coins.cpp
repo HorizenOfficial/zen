@@ -1137,9 +1137,6 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndo
         // another cert for the same epoch in this scid
         assert(cert.quality != scIt->second.scInfo.lastCertificateQuality);
 
-        // TODO if consensus rules that certs are ordered by quality, this must hold
-        // assert(cert.quality > scIt->second.scInfo.lastCertificateQuality);
-
         if (cert.quality > scIt->second.scInfo.lastCertificateQuality)
         {
             // we found a better cert
@@ -1173,9 +1170,10 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndo
         }
         else
         {
-            // TODO should never happen if certs are ordered by quality in block
-            LogPrint("cert", "%s():%d - cert quality lower than previous", __func__, __LINE__);
-            NullifyBackwardTransfers(certHash, certUndoEntry);
+            // should never happen if certs are ordered by quality in a block
+            LogPrint("cert", "%s():%d - cert quality %d not greater than last seen %d", 
+                __func__, __LINE__, cert.quality, scIt->second.scInfo.lastCertificateQuality);
+            return false;
         }
     }
 

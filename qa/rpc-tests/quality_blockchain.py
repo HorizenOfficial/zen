@@ -11,6 +11,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     assert_false, assert_true
 from test_framework.mc_test.mc_test import *
 import os
+import time
 import pprint
 from decimal import Decimal
 
@@ -396,7 +397,8 @@ class quality_blockchain(BitcoinTestFramework):
         mark_logs("Checking certificates in mempool after block revertion(via invalidateblock)", self.nodes, DEBUG_MODE)
         block_inv = self.nodes[0].getbestblockhash()
         self.nodes[0].invalidateblock(block_inv)
-        self.sync_all()
+        sync_mempools(self.nodes[1:NUMB_OF_NODES])
+        sync_blocks(self.nodes[1:NUMB_OF_NODES])
 
         # Checking certificate in mempool
         assert_false(cert_1_epoch_0 in self.nodes[0].getrawmempool())

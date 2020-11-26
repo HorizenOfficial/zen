@@ -923,6 +923,32 @@ bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
     return true;
 }
 
+bool CheckQualityOrdering(const CScCertificate& cert,
+    CValidationState& state, std::map<uint256, CScCertificate>& mTopQualityCerts)
+{
+    const uint256& scid = cert.GetScId();
+    if (mTopQualityCerts.count(scid))
+    {
+        if (mTopQualityCerts[scid].epochNumber != cert.epochNumber)
+        {
+            LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an invalid epoch in block for scid = %s\n",
+                __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
+            return state.DoS(100, error("%s: certificate for the same scid with different epochs",
+                __func__), REJECT_INVALID, "bad-cert-epoch");
+        }
+        if (mTopQualityCerts[scid].quality >= cert.quality)
+        {
+            LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an incorrect order in block for scid = %s\n",
+                __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
+            return state.DoS(100, error("%s: certificate with quality not ordered in block",
+                __func__), REJECT_INVALID, "bad-cert-quality-in-block");
+        }
+    }
+    LogPrint("cert", "%s():%d - setting cert %s / q=%d / epoch=%d as current best in block for scid = %s\n",
+        __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
+    mTopQualityCerts[scid] = cert;
+    return true;
+}
 
 bool CheckTransaction(const CTransaction& tx, CValidationState &state,
                       libzcash::ProofVerifier& verifier)
@@ -3967,9 +3993,16 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
         }
     }
 
-    for(const CScCertificate& cert: block.vcert) {
+    // key = scid, value = best quality cert
+    std::map<uint256, CScCertificate> mTopCertQualities;
+
+    for(const CScCertificate& cert: block.vcert)
+    {
         if (!CheckCertificate(cert, state)) {
             return error("CheckBlock(): Certificate check failed");
+        }
+        if (!CheckQualityOrdering(cert, state, mTopCertQualities)) {
+            return error("CheckBlock(): Certificate quality ordering failed");
         }
     }
 
