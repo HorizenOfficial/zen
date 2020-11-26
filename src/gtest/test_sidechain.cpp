@@ -391,7 +391,7 @@ TEST_F(SidechainTestSuite, RevertCertOutputsRestoresLastCertHash) {
 
 
     //Update sc with cert and create the associate blockUndo
-    int certEpoch = 19;
+    int certEpoch = 0;
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
         /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
     CTxUndo certUndoEntry;
@@ -908,6 +908,7 @@ TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation)
     CAmount certAmount = 4;
     CMutableScCertificate cert;
     cert.scId = scId;
+    cert.quality = 33;
     CScript scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
     cert.addBwt(CTxOut(certAmount, scriptPubKey));
 

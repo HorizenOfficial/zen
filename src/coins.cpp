@@ -1107,7 +1107,12 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndo
     if (scIt->second.scInfo.lastEpochReferencedByCertificate != cert.epochNumber)
     {
         // we are changing epoch, this is the first certificate we got
-        assert(cert.epochNumber == scIt->second.scInfo.lastEpochReferencedByCertificate+1);
+        if (cert.epochNumber != scIt->second.scInfo.lastEpochReferencedByCertificate+1)
+        {
+            LogPrint("cert", "%s():%d - bad epoch value: %d (should be %d)\n",
+                __func__, __LINE__, cert.epochNumber, scIt->second.scInfo.lastEpochReferencedByCertificate+1);
+            return false;
+        }
 
         if (scIt->second.scInfo.balance < totalAmount)
         {

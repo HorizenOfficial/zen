@@ -871,6 +871,7 @@ TEST_F(SidechainsEventsTestSuite, UndoFullCertUpdatesToCeasingScs) {
     ASSERT_TRUE(!view->HaveSidechainEvents(initialCeasingHeight));
 
     //test
+    view->RevertCertOutputs(cert, dummyCertUndo);
     view->CancelSidechainEvent(cert);
 
     //Checks
@@ -917,6 +918,7 @@ TEST_F(SidechainsEventsTestSuite, UndoPureBwtCertUpdatesToCeasingScs) {
     ASSERT_TRUE(!view->HaveSidechainEvents(initialCeasingHeight));
 
     //test
+    view->RevertCertOutputs(cert, dummyCertUndo);
     view->CancelSidechainEvent(cert);
 
     //Checks
@@ -963,6 +965,7 @@ TEST_F(SidechainsEventsTestSuite, UndoNoBwtCertUpdatesToCeasingScs) {
     ASSERT_TRUE(!view->HaveSidechainEvents(initialCeasingHeight));
 
     //test
+    view->RevertCertOutputs(cert, dummyCertUndo);
     view->CancelSidechainEvent(cert);
 
     //Checks
@@ -1009,6 +1012,7 @@ TEST_F(SidechainsEventsTestSuite, UndoEmptyCertUpdatesToCeasingScs) {
     ASSERT_TRUE(!view->HaveSidechainEvents(initialCeasingHeight));
 
     //test
+    view->RevertCertOutputs(cert, dummyCertUndo);
     view->CancelSidechainEvent(cert);
 
     //Checks
