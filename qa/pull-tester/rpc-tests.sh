@@ -96,6 +96,7 @@ testScripts=(
   'quality_mempool.py'
   'quality_blockchain.py'
   'quality_nodes.py'
+  'quality_voiding.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
