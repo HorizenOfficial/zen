@@ -595,7 +595,7 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
     LOCK(cs);
     assert(pindexDelete);
 
-    std::list<const CTransactionBase*>   txsToRemove;
+    std::set<uint256> certsToRemove;
 
     // Remove certificates referring to this block as end epoch
     for (std::map<uint256, CCertificateMemPoolEntry>::const_iterator itCert = mapCertificate.begin(); itCert != mapCertificate.end(); itCert++)
@@ -606,25 +606,25 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
         {
             LogPrint("mempool", "%s():%d - adding cert [%s] to list for removing (endEpochBlockHash %s)\n",
                 __func__, __LINE__, cert.GetHash().ToString(), pindexDelete->GetBlockHash().ToString());
-            txsToRemove.push_back(&cert);
-
-            // Remove also txes that depend on such certificates
-            for (unsigned int i = 0; i < cert.GetVout().size(); i++) {
-                std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(cert.GetHash(), i));
-                if (it == mapNextTx.end())
-                    continue;
-                LogPrint("mempool", "%s():%d - marking tx [%s] for removal since it spends out-of-epoch cert\n", __func__, __LINE__, it->second.ptx->GetHash().ToString());
-                txsToRemove.push_back(it->second.ptx);
-            }
+            certsToRemove.insert(cert.GetHash());
         }
     }
 
+    if (certsToRemove.empty())
+        return;
 
-    for(const CTransactionBase* tx: txsToRemove) {
-        std::list<CTransaction> dummyTxs;
-        std::list<CScCertificate> dummyCerts;
-        remove(*tx, dummyTxs, dummyCerts, true);
+    std::list<CTransaction> dummyTxs;
+    std::list<CScCertificate> dummyCerts;
+    for(const auto hash: certsToRemove)
+    {
+        // there can be dependancy also between certs, so check that a cert is still in map during the loop
+        if (mapCertificate.count(hash))
+        {
+            const CScCertificate& cert = mapCertificate.at(hash).GetCertificate();
+            remove(cert, dummyTxs, dummyCerts, true);
+        }
     }
+    LogPrint("mempool", "%s():%d - removed %d certs and %d txes", __func__, __LINE__, dummyCerts.size(), dummyTxs.size());
 }
 
 

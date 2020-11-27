@@ -102,7 +102,7 @@ public:
 
                     if (aCert.epochNumber != bCert.epochNumber)
                         assert("two certs for the same scid can not have different epochs" == 0);
-                        
+
                     if (aCert.quality == bCert.quality)
                         assert("two certs for the same scid can not have the same quality" == 0);
 
