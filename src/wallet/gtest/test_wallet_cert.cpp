@@ -680,7 +680,7 @@ TEST_F(CertInWalletTest, GetCredit_FullCertificate_Voided)
     certBlock.vcert.push_back(cert);
     walletCert.hashBlock = certBlock.GetHash();
     walletCert.bwtMaturityDepth = 25;
-    walletCert.areBwtCeased = true;
+    walletCert.bwtAreStripped = true;
     walletCert.SetMerkleBranch(certBlock);
     walletCert.fMerkleVerified = true; //shortcut
 
@@ -730,7 +730,7 @@ TEST_F(CertInWalletTest, GetCredit_BwtOnlyCertificate_Voided)
     certBlock.vcert.push_back(cert);
     walletCert.hashBlock = certBlock.GetHash();
     walletCert.bwtMaturityDepth = 25;
-    walletCert.areBwtCeased = true;
+    walletCert.bwtAreStripped = true;
     walletCert.SetMerkleBranch(certBlock);
     walletCert.fMerkleVerified = true; //shortcut
 
@@ -780,7 +780,7 @@ TEST_F(CertInWalletTest, GetCredit_NoBwtCertificate_Voided)
     certBlock.vcert.push_back(cert);
     walletCert.hashBlock = certBlock.GetHash();
     walletCert.bwtMaturityDepth = 25;
-    walletCert.areBwtCeased = true;
+    walletCert.bwtAreStripped = true;
     walletCert.SetMerkleBranch(certBlock);
     walletCert.fMerkleVerified = true; //shortcut
 
@@ -1026,7 +1026,7 @@ TEST_F(CertInWalletTest, GetImmatureCredit_FullCertificate_Voided)
     certBlock.vcert.push_back(cert);
     walletCert.hashBlock = certBlock.GetHash();
     walletCert.bwtMaturityDepth = 5;
-    walletCert.areBwtCeased = true;
+    walletCert.bwtAreStripped = true;
     walletCert.SetMerkleBranch(certBlock);
     walletCert.fMerkleVerified = true; //shortcut
 
@@ -1076,7 +1076,7 @@ TEST_F(CertInWalletTest, GetImmatureCredit_BwtOnlyCertificate_Voided)
     certBlock.vcert.push_back(cert);
     walletCert.hashBlock = certBlock.GetHash();
     walletCert.bwtMaturityDepth = 10;
-    walletCert.areBwtCeased = true;
+    walletCert.bwtAreStripped = true;
     walletCert.SetMerkleBranch(certBlock);
     walletCert.fMerkleVerified = true; //shortcut
 
@@ -1126,7 +1126,7 @@ TEST_F(CertInWalletTest, GetImmatureCredit_NoBwtCertificate_Voided)
     certBlock.vcert.push_back(cert);
     walletCert.hashBlock = certBlock.GetHash();
     walletCert.bwtMaturityDepth = 3;
-    walletCert.areBwtCeased = true;
+    walletCert.bwtAreStripped = true;
     walletCert.SetMerkleBranch(certBlock);
     walletCert.fMerkleVerified = true; //shortcut
 
@@ -1227,7 +1227,7 @@ TEST_F(CertInWalletTest, SyncVoidedCert)
     // checks
     EXPECT_TRUE(pWallet->getMapWallet().count(cert.GetHash()));
     CWalletCert preRestartWalletCert = *dynamic_cast<const CWalletCert*>(pWallet->getMapWallet().at(cert.GetHash()).get());
-    EXPECT_TRUE(preRestartWalletCert.areBwtCeased == true);
+    EXPECT_TRUE(preRestartWalletCert.bwtAreStripped == true);
 
     //Close and reopen wallet
     delete pWalletDb;
@@ -1248,5 +1248,5 @@ TEST_F(CertInWalletTest, SyncVoidedCert)
     EXPECT_TRUE(DB_LOAD_OK == pWallet->LoadWallet(dummyBool));
     EXPECT_TRUE(pWallet->getMapWallet().count(cert.GetHash()));
     CWalletCert postRestartWalletCert = *dynamic_cast<const CWalletCert*>(pWallet->getMapWallet().at(cert.GetHash()).get());
-    EXPECT_TRUE(postRestartWalletCert.areBwtCeased == preRestartWalletCert.areBwtCeased);
+    EXPECT_TRUE(postRestartWalletCert.bwtAreStripped == preRestartWalletCert.bwtAreStripped);
 }

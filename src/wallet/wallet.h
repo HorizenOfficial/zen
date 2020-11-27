@@ -361,7 +361,7 @@ public:
     std::string strFromAccount;
     int64_t nOrderPos; //! position in ordered transaction list
     int bwtMaturityDepth;
-    bool areBwtCeased;
+    bool bwtAreStripped;
 
     // useful in gtest
     friend bool operator==(const CWalletTransactionBase& a, const CWalletTransactionBase& b) {
@@ -574,7 +574,7 @@ public:
         READWRITE(vMerkleBranch);
         READWRITE(nIndex);
         READWRITE(bwtMaturityDepth);
-        READWRITE(areBwtCeased);
+        READWRITE(bwtAreStripped);
         std::vector<CScCertificate> vUnused; //! Used to be vtxPrev
         READWRITE(vUnused);
         READWRITE(mapValue);
@@ -1150,6 +1150,7 @@ public:
     bool IsChange(const CTxOut& txout) const;
     CAmount GetChange(const CTxOut& txout) const;
     bool IsMine(const CTransactionBase& tx) const;
+    bool BwtIsMine(const CScCertificate& cert) const;
     /** should probably be renamed to IsRelevantToMe */
     bool IsFromMe(const CTransactionBase& tx) const;
     CAmount GetDebit (const CTransactionBase& txBase, const isminefilter& filter) const;

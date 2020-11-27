@@ -878,6 +878,7 @@ int CSidechain::EpochFor(int targetHeight) const { return CScCertificate::EPOCH_
 int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
 int CSidechain::SafeguardMargin() const { return -1; }
 size_t CSidechain::DynamicMemoryUsage() const { return 0; }
+void CSidechain::SetVoidedCert(const uint256& certHash, bool flag, std::map<uint256, bool>* pVoidedCertsMap) {}
 bool CCoinsViewCache::isEpochDataValid(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) const {return true;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const {return true;}
 bool libzendoomc::CScProofVerifier::verifyCScCertificate(              
@@ -1082,7 +1083,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
 
 #endif
 
-bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry)
+bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry, std::map<uint256, bool>* pVoidedCertsMap)
 {
     const uint256& certHash = cert.GetHash();
     const uint256& scId = cert.GetScId();
@@ -1156,7 +1157,8 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndo
 
             // previous certificate will not have bacwardtransfers anymore
             NullifyBackwardTransfers(scIt->second.scInfo.lastCertificateHash, certUndoEntry);
-            
+            CSidechain::SetVoidedCert(scIt->second.scInfo.lastCertificateHash, true, pVoidedCertsMap);
+
             // update top-quality certificate data
             scIt->second.scInfo.lastCertificateHash    = certHash;
             scIt->second.scInfo.lastCertificateQuality = cert.quality;
@@ -1259,7 +1261,7 @@ bool CCoinsViewCache::RestoreBackwardTransfers(const CTxUndo& certUndoEntry)
     return fClean;
 }
 
-bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry)
+bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry, std::map<uint256, bool>* pVoidedCertsMap)
 {
     const uint256& scId = cert.GetScId();
     const CAmount& totalAmount = cert.GetValueOfBackwardTransfers();
@@ -1275,7 +1277,7 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CTxUnd
 
     CSidechainsMap::iterator scIt = ModifySidechain(scId);
 
-    // TODO quality - restore only if this is the top quality cert for this epoch
+    // restore only if this is the top quality cert for this epoch
     LogPrint("cert", "%s():%d - cert %s, last cert %s, undo cert %s\n", __func__, __LINE__,
         cert.GetHash().ToString(), scIt->second.scInfo.lastCertificateHash.ToString(), certUndoEntry.replacedLastCertHash.ToString());
     LogPrint("cert", "%s():%d - cert epoch %d, last epoch %d, undo epoch %d\n", __func__, __LINE__,
@@ -1298,7 +1300,11 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CTxUnd
 
             // certificate must resurrect its bacwardtransfers
             RestoreBackwardTransfers(certUndoEntry);
-            
+            CSidechain::SetVoidedCert(certUndoEntry.replacedLastCertHash, false, pVoidedCertsMap);
+
+            // and void replaced cert
+            CSidechain::SetVoidedCert(scIt->second.scInfo.lastCertificateHash, true, pVoidedCertsMap);
+
             // in this case we have to update the sc balance with undo amount
             scIt->second.scInfo.balance -= GetValueOfBackwardTransfers(certUndoEntry.replacedLastCertHash);
         }
@@ -1614,7 +1620,7 @@ bool CCoinsViewCache::CancelSidechainEvent(const CScCertificate& cert)
     return true;
 }
 
-bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<uint256>* pVoidedCertsList)
+bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::map<uint256, bool>* pVoidedCertsMap)
 {
     if (!HaveSidechainEvents(height))
         return true;
@@ -1688,8 +1694,8 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
             }
         }
 
-        if (pVoidedCertsList != nullptr)
-            pVoidedCertsList->push_back(scInfo.lastCertificateHash);
+        CSidechain::SetVoidedCert(scInfo.lastCertificateHash, true, pVoidedCertsMap);
+
     }
 
     CSidechainEventsMap::iterator scCeasingIt = ModifySidechainEvents(height);
@@ -1697,7 +1703,7 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
     return true;
 }
 
-bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<uint256>* pVoidedCertsList)
+bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::map<uint256, bool>* pVoidedCertsMap)
 {
     if (HaveSidechainEvents(height)) {
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT:: attempt to recreate sidechain event at height [%d], but there is one already\n",
@@ -1787,8 +1793,7 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
                 coins->vout.at(coins->nFirstBwtPos + idx) = voidedOuts.at(idx).txout;
             }
  
-            if(pVoidedCertsList != nullptr)
-                pVoidedCertsList->push_back(coinHash);
+            CSidechain::SetVoidedCert(coinHash, false, pVoidedCertsMap);
         }
 
         if (!fClean) return false;
@@ -1830,6 +1835,37 @@ CSidechain::State CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int hei
     }
 
     return  CSidechain::State::ALIVE;
+}
+
+bool CCoinsViewCache::IsBwtStripped(const uint256& certHash) const
+{
+    const CCoins* c = AccessCoins(certHash);
+
+    if(!c)
+    {
+        // this coin is not even available, if all of its ouputs have been spent, also its bwt are
+        LogPrint("cert", "%s.%s():%d cert %s has no coins\n", __FILE__, __func__, __LINE__, certHash.ToString());
+    }
+    else
+    if (c->nFirstBwtPos != BWT_POS_UNSET)
+    {
+        for(int pos = c->nFirstBwtPos; pos < c->vout.size(); ++pos)
+        {
+            if (!c->vout.at(pos).IsNull())
+            {
+                LogPrint("cert", "%s.%s():%d cert %s NOT STRIPPED\n", __FILE__, __func__, __LINE__, certHash.ToString());
+                return false;
+            }
+        }
+    }
+    else
+    {
+        // should not happen
+        LogPrint("cert", "%s.%s():%d cert %s has invalid nFirstBwtPos!!\n", __FILE__, __func__, __LINE__, certHash.ToString());
+    }
+
+    LogPrint("cert", "%s.%s():%d cert %s STRIPPED\n", __FILE__, __func__, __LINE__, certHash.ToString());
+    return true;
 }
 
 bool CCoinsViewCache::Flush() {

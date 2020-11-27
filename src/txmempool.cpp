@@ -1434,3 +1434,64 @@ bool CTxMemPool::RemoveAnyConflictingQualityCert(const CScCertificate& cert)
 
     return true;
 }
+
+bool CTxMemPool::IsTopQualityCertInMempool(const CScCertificate& cert)
+{
+    const uint256& scId = cert.GetScId();
+    if (mapSidechains.count(scId) != 0  &&
+        !mapSidechains.at(scId).mBackwardCertificates.empty())
+    {
+        return cert.GetHash() == mapSidechains.at(scId).GetTopQualityCert()->second;
+    }
+    return false;
+}
+
+void CTxMemPool::SyncLowQualityCerts(const CScCertificate& cert)
+{
+    const uint256& scId = cert.GetScId();
+
+    // look for worse certs in mempool
+    if ((mapSidechains.count(scId) != 0) &&
+        (!mapSidechains.at(scId).mBackwardCertificates.empty()))
+    {
+        for (const auto& entry : mapSidechains.at(scId).mBackwardCertificates)
+        {
+            const uint256& hash = entry.second;
+            // if just this cert is the only one return true, otherwise skip
+            if (hash == cert.GetHash())
+            {
+                if (mapSidechains.at(scId).mBackwardCertificates.size() == 1)
+                    break;
+                else
+                    continue;
+            }
+
+            const CScCertificate& memPoolCert = mapCertificate.at(hash).GetCertificate();
+            if (memPoolCert.quality < cert.quality)
+            {
+                LogPrint("cert", "%s():%d - sync voiding cert %s\n", __func__, __LINE__, hash.ToString() ); 
+                SyncVoidedCert(hash, true);
+            }
+        }
+    }
+
+    // look for worse cert in db (will be overridden as soon as the next block will be mined)
+    CCoinsViewCache &view = *pcoinsTip;
+    CSidechain info;
+    if (view.GetSidechain(scId, info))
+    {
+        if (info.lastEpochReferencedByCertificate == cert.epochNumber &&
+            info.lastCertificateQuality < cert.quality)
+        {
+            LogPrint("cert", "%s():%d - sync voiding cert %s\n", __func__, __LINE__, info.lastCertificateHash.ToString() ); 
+            SyncVoidedCert(info.lastCertificateHash, true);
+        }
+    }
+
+    // finally promote it to be the best in wallet if the case
+    if (IsTopQualityCertInMempool(cert))
+    {
+        LogPrint("cert", "%s():%d - sync refilling cert %s\n", __func__, __LINE__, cert.GetHash().ToString() ); 
+        SyncVoidedCert(cert.GetHash(), false);
+    }
+}

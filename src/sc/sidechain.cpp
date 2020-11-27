@@ -182,3 +182,17 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
 
     return true;
 }
+
+void CSidechain::SetVoidedCert(const uint256& certHash, bool flag, std::map<uint256, bool>* pVoidedCertsMap)
+{
+    if(pVoidedCertsMap != nullptr)
+    {
+        if (pVoidedCertsMap->count(certHash))
+        {
+            LogPrint("cert", "%s():%d - cert %s already in map with flag %s\n", __func__, __LINE__, certHash.ToString(), flag?"voiding":"refilling"); 
+        }
+
+        LogPrint("cert", "%s():%d - setting flag=%s, cert %s\n", __func__, __LINE__, flag?"voiding":"refilling", certHash.ToString() ); 
+        (*pVoidedCertsMap)[certHash] = flag;
+    }
+}

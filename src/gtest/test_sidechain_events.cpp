@@ -450,7 +450,7 @@ TEST_F(SidechainsEventsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCe
     int minimalCeaseHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin()+1;
     EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
     CBlockUndo coinsBlockUndo;
-    std::vector<uint256> dummy;
+    std::map<uint256, bool> dummy;
     EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy));
 
     //Checks
@@ -494,7 +494,7 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     int minimalCeaseHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin()+1;
     EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
     CBlockUndo coinsBlockUndo;
-    std::vector<uint256> dummy;
+    std::map<uint256, bool> dummy;
     EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy));
 
     //Checks
@@ -546,7 +546,7 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSi
     int minimalCeaseHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin()+1;
     EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
     CBlockUndo coinsBlockUndo;
-    std::vector<uint256> dummy;
+    std::map<uint256, bool> dummy;
     EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy));
 
     //Checks
@@ -589,7 +589,7 @@ TEST_F(SidechainsEventsTestSuite, EmptyCertificatesCoinsAreNotAffectedByCeasedSi
     int minimalCeaseHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin()+1;
     EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
     CBlockUndo coinsBlockUndo;
-    std::vector<uint256> dummy;
+    std::map<uint256, bool> dummy;
     EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy));
 
     //Checks
@@ -634,7 +634,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreFullCertCeasedCoins) {
 
     // Null the coins
     CBlockUndo coinsBlockUndo;
-    std::vector<uint256> dummy;
+    std::map<uint256, bool> dummy;
     view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy);
 
     //test
@@ -688,7 +688,7 @@ TEST_F(SidechainsEventsTestSuite, RestorePureBwtCeasedCoins) {
 
     // Null the coins
     CBlockUndo coinsBlockUndo;
-    std::vector<uint256> dummy;
+    std::map<uint256, bool> dummy;
     view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy);
     ASSERT_FALSE(view->HaveCoins(cert.GetHash()));
 
@@ -743,7 +743,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreNoBwtCeasedCoins) {
 
     // Null the coins
     CBlockUndo coinsBlockUndo;
-    std::vector<uint256> dummy;
+    std::map<uint256, bool> dummy;
     view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy);
 
     //test
@@ -796,7 +796,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreEmptyCertCeasedCoins) {
 
     // Null the coins
     CBlockUndo coinsBlockUndo;
-    std::vector<uint256> dummy;
+    std::map<uint256, bool> dummy;
     view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy);
 
     //test
@@ -1407,7 +1407,7 @@ TEST_F(SidechainsEventsTestSuite, ScCreationAmountMaturesAtHeight) {
     //test
     int creationMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
     CBlockUndo blockUndo;
-    std::vector<uint256> dummy;
+    std::map<uint256, bool> dummy;
     EXPECT_TRUE(view->HandleSidechainEvents(creationMaturityHeight, blockUndo, &dummy));
 
     //Checks
@@ -1437,7 +1437,7 @@ TEST_F(SidechainsEventsTestSuite, FwdAmountMaturesAtHeight) {
     //test
     int fwdMaturityHeight = fwdHeight + Params().ScCoinsMaturity();
     CBlockUndo blockUndo;
-    std::vector<uint256> dummy;
+    std::map<uint256, bool> dummy;
     EXPECT_TRUE(view->HandleSidechainEvents(fwdMaturityHeight, blockUndo, &dummy));
 
     //Checks
@@ -1473,7 +1473,7 @@ TEST_F(SidechainsEventsTestSuite, DoubleFwdsMatureAtHeight) {
     //test
     int fwdMaturityHeight = fwdHeight + Params().ScCoinsMaturity();
     CBlockUndo blockUndo;
-    std::vector<uint256> dummy;
+    std::map<uint256, bool> dummy;
     EXPECT_TRUE(view->HandleSidechainEvents(fwdMaturityHeight, blockUndo, &dummy));
 
     //Checks
@@ -1496,7 +1496,7 @@ TEST_F(SidechainsEventsTestSuite, CreationAmountDoesNotMatureUponRevertSidechain
 
     int creationMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
     CBlockUndo blockUndo;
-    std::vector<uint256> dummy;
+    std::map<uint256, bool> dummy;
     EXPECT_TRUE(view->HandleSidechainEvents(creationMaturityHeight, blockUndo, &dummy));
 
     //test
@@ -1520,7 +1520,7 @@ TEST_F(SidechainsEventsTestSuite, FwdAmountsDoNotMatureUponRevertSidechainEvents
     EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationTx.GetVscCcOut()[0], scCreationHeight));
 
     CBlockUndo dummyBlockUndo;
-    std::vector<uint256> dummy;
+    std::map<uint256, bool> dummy;
     EXPECT_TRUE(view->HandleSidechainEvents(scCreationHeight + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
 
     // create and mature a fwd
@@ -1554,7 +1554,7 @@ TEST_F(SidechainsEventsTestSuite, DoubleFwdsDoNotMatureUponRevertSidechainEvents
     EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationTx.GetVscCcOut()[0], scCreationHeight));
 
     CBlockUndo dummyBlockUndo;
-    std::vector<uint256> dummy;
+    std::map<uint256, bool> dummy;
     EXPECT_TRUE(view->HandleSidechainEvents(scCreationHeight + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
 
     //Create transaction with double fwd Tx

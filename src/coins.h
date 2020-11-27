@@ -571,8 +571,8 @@ public:
     //CERTIFICATES RELATED PUBLIC MEMBERS
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const;
     bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash) const;
-    bool UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry);
-    bool RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry);
+    bool UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry, std::map<uint256, bool>* pVoidedCertsMap = nullptr);
+    bool RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry, std::map<uint256, bool>* pVoidedCertsMap = nullptr);
     bool CheckQuality(const CScCertificate& cert, CAmount certFee)  const override;
     CAmount GetValueOfBackwardTransfers(const uint256& certHash) const override;
     int64_t GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const override;
@@ -591,10 +591,11 @@ public:
     bool CancelSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight);
     bool CancelSidechainEvent(const CScCertificate& cert);
 
-    bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<uint256>* pVoidedCertsList);
-    bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<uint256>* pVoidedCertsList);
+    bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::map<uint256, bool>* pVoidedCertsMap);
+    bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::map<uint256, bool>* pVoidedCertsMap);
 
     CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
+    bool IsBwtStripped(const uint256& certHash) const;
 
     bool Flush();
 

@@ -81,6 +81,7 @@ public:
         CEASED
     };
     static std::string stateToString(State s);
+    static void SetVoidedCert(const uint256& certHash, bool flag, std::map<uint256, bool>* pVoidedCertsMap);
 
     std::string ToString() const;
 

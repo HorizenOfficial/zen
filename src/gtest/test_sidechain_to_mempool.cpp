@@ -467,7 +467,7 @@ TEST_F(SidechainsInMempoolTestSuite, CertsCannotSpendHigherQualityCerts) {
     for(const CTxScCreationOut& scCreationOut: scTx.GetVscCcOut())
         ASSERT_TRUE(sidechainsView.ScheduleSidechainEvent(scCreationOut, 401));
 
-    std::vector<uint256> dummy;
+    std::map<uint256, bool> dummy;
     ASSERT_TRUE(sidechainsView.HandleSidechainEvents(401 + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
     sidechainsView.Flush();
 
@@ -518,7 +518,7 @@ TEST_F(SidechainsInMempoolTestSuite, CertInMempool_QualityOfCerts) {
     for(const CTxScCreationOut& scCreationOut: scTx.GetVscCcOut())
         ASSERT_TRUE(sidechainsView.ScheduleSidechainEvent(scCreationOut, 401));
 
-    std::vector<uint256> dummy;
+    std::map<uint256, bool> dummy;
     ASSERT_TRUE(sidechainsView.HandleSidechainEvents(401 + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
     sidechainsView.Flush();
 
