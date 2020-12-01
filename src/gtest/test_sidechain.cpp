@@ -923,7 +923,7 @@ TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation)
     //check
     EXPECT_TRUE(retrievedInfo.creationBlockHeight == scCreationHeight);
     EXPECT_TRUE(retrievedInfo.balance == creationAmount - certAmount);
-    EXPECT_TRUE(retrievedInfo.topCommittedCertReferencedEpoch == -1); //certs in mempool do not affect lastEpochReferencedByCertificate
+    EXPECT_TRUE(retrievedInfo.topCommittedCertReferencedEpoch == -1); //certs in mempool do not affect topCommittedCertReferencedEpoch
     EXPECT_TRUE(retrievedInfo.mImmatureAmounts.at(-1) == fwdAmount);
 }
 

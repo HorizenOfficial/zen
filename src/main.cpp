@@ -2634,7 +2634,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     AssertLockHeld(cs_main);
 
     if(block.nVersion != BLOCK_VERSION_SC_SUPPORT) {
-    	fCheckScTxesCommitment = false;
+        fCheckScTxesCommitment = false;
     }
 
     bool fExpensiveChecks = true;
@@ -4068,26 +4068,26 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     // Check timestamp against prev
     auto medianTimePast = pindexPrev->GetMedianTimePast();
     if (block.GetBlockTime() <= medianTimePast) {
-    	return state.Invalid(error("%s: block at height %d, timestamp %d is not later than median-time-past %d",
-    			__func__, nHeight, block.GetBlockTime(), medianTimePast),
-    			REJECT_INVALID, "time-too-old");
+        return state.Invalid(error("%s: block at height %d, timestamp %d is not later than median-time-past %d",
+                __func__, nHeight, block.GetBlockTime(), medianTimePast),
+                REJECT_INVALID, "time-too-old");
     }
 
 
     if (ForkManager::getInstance().isFutureTimeStampActive(nHeight) &&
-    		block.GetBlockTime() > medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP) {
-		return state.Invalid(error("%s: block at height %d, timestamp %d is too far ahead of median-time-past, limit is %d",
-				__func__, nHeight, block.GetBlockTime(), medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP),
-				REJECT_INVALID, "time-too-far-ahead-of-mtp");
-	}
+            block.GetBlockTime() > medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP) {
+        return state.Invalid(error("%s: block at height %d, timestamp %d is too far ahead of median-time-past, limit is %d",
+                __func__, nHeight, block.GetBlockTime(), medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP),
+                REJECT_INVALID, "time-too-far-ahead-of-mtp");
+    }
 
 
     // Check timestamp
     auto nTimeLimit = GetTime() + MAX_FUTURE_BLOCK_TIME_LOCAL;
     if (block.GetBlockTime() > nTimeLimit) {
         return state.Invalid(error("%s: block at height %d, timestamp %d is too far ahead of local time, limit is %d",
-        		__func__, nHeight, block.GetBlockTime(), nTimeLimit),
-        		REJECT_INVALID, "time-too-new");
+                __func__, nHeight, block.GetBlockTime(), nTimeLimit),
+                REJECT_INVALID, "time-too-new");
     }
 
     if (fCheckpointsEnabled)

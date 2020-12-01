@@ -1943,8 +1943,8 @@ void CCoinsViewCache::Dump_info() const
 
         LogPrint("sc", "  created in block[%s] (h=%d)\n", info.creationBlockHash.ToString(), info.creationBlockHeight );
         LogPrint("sc", "  creationTx[%s]\n", info.creationTxHash.ToString());
-        LogPrint("sc", "  lastEpochReferencedByCertificate[%d]\n", info.topCommittedCertReferencedEpoch);
-        LogPrint("sc", "  lastCertificateHash[%s]\n", info.topCommittedCertHash.ToString());
+        LogPrint("sc", "  topCommittedCertReferencedEpoch[%d]\n", info.topCommittedCertReferencedEpoch);
+        LogPrint("sc", "  topCommittedCertHash[%s]\n", info.topCommittedCertHash.ToString());
         LogPrint("sc", "  topCommittedCertQuality[%d]\n", info.topCommittedCertQuality);
         LogPrint("sc", "  lastCertificateAmount[%s]\n", FormatMoney(GetValueOfBackwardTransfers(info.topCommittedCertHash)));
         LogPrint("sc", "  balance[%s]\n", FormatMoney(info.balance));
