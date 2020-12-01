@@ -1244,37 +1244,41 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
     } else if (!base->GetSidechain(scId, info))
         return false;
 
-    //decorate sidechain with fwds and bwt in mempool
-    if (mempool.mapSidechains.count(scId)) {
-        for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet) {
-            const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
-            for (const auto& fwdAmount : fwdTx.GetVftCcOut())
-                if (scId == fwdAmount.scId)
-                    info.mImmatureAmounts[-1] += fwdAmount.nValue;
-        }
-
-        if (!mempool.mapSidechains.at(scId).mBackwardCertificates.empty())
-        {
-            const uint256& topQualCertHash    = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
-            const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
-
-            // must be a valid and consistent quality
-            assert(mempool.mapSidechains.at(scId).GetTopQualityCert()->first > CScCertificate::QUALITY_NULL);
-            assert(mempool.mapSidechains.at(scId).GetTopQualityCert()->first == topQualCert.quality);
-
-            if (topQualCert.epochNumber == info.lastEpochReferencedByCertificate &&
-                topQualCert.quality > info.lastCertificateQuality)
-            {
-                info.balance += GetValueOfBackwardTransfers(info.lastCertificateHash);
-                LogPrint("mempool", "%s():%d - §§§ amount restored into info (amount=%s, resulting bal=%s)\n", __func__, __LINE__,
-                    FormatMoney(base->GetValueOfBackwardTransfers(info.lastCertificateHash)), FormatMoney(info.balance));
-
-                info.balance -= GetValueOfBackwardTransfers(topQualCertHash);
-                LogPrint("mempool", "%s():%d - §§§ amount removed from info (amount=%s, resulting bal=%s)\n",
-                    __func__, __LINE__, FormatMoney(GetValueOfBackwardTransfers(topQualCertHash)), FormatMoney(info.balance));
-            }
-        }
+    //decorate sidechain with fwds and bwt in mempool if any
+    if (mempool.mapSidechains.count(scId) == 0)
+    {
+    	return true;
     }
+
+	for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
+	{
+		const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
+		for (const auto& fwdAmount : fwdTx.GetVftCcOut())
+			if (scId == fwdAmount.scId)
+				info.mImmatureAmounts[-1] += fwdAmount.nValue;
+	}
+
+	if (!mempool.mapSidechains.at(scId).mBackwardCertificates.empty())
+	{
+		const uint256& topQualCertHash    = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
+		const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
+
+		// must be a valid and consistent quality
+		assert(mempool.mapSidechains.at(scId).GetTopQualityCert()->first > CScCertificate::QUALITY_NULL);
+		assert(mempool.mapSidechains.at(scId).GetTopQualityCert()->first == topQualCert.quality);
+
+		if (topQualCert.epochNumber == info.topCommittedCertReferencedEpoch &&
+			topQualCert.quality > info.topCommittedCertQuality)
+		{
+			info.balance += GetValueOfBackwardTransfers(info.topCommittedCertHash);
+			LogPrint("mempool", "%s():%d - §§§ amount restored into info (amount=%s, resulting bal=%s)\n", __func__, __LINE__,
+				FormatMoney(base->GetValueOfBackwardTransfers(info.topCommittedCertHash)), FormatMoney(info.balance));
+
+			info.balance -= GetValueOfBackwardTransfers(topQualCertHash);
+			LogPrint("mempool", "%s():%d - §§§ amount removed from info (amount=%s, resulting bal=%s)\n",
+				__func__, __LINE__, FormatMoney(GetValueOfBackwardTransfers(topQualCertHash)), FormatMoney(info.balance));
+		}
+	}
 
     return true;
 }
@@ -1480,11 +1484,11 @@ void CTxMemPool::SyncLowQualityCerts(const CScCertificate& cert)
     CSidechain info;
     if (view.GetSidechain(scId, info))
     {
-        if (info.lastEpochReferencedByCertificate == cert.epochNumber &&
-            info.lastCertificateQuality < cert.quality)
+        if (info.topCommittedCertReferencedEpoch == cert.epochNumber &&
+            info.topCommittedCertQuality < cert.quality)
         {
-            LogPrint("cert", "%s():%d - sync voiding cert %s\n", __func__, __LINE__, info.lastCertificateHash.ToString() ); 
-            SyncVoidedCert(info.lastCertificateHash, true);
+            LogPrint("cert", "%s():%d - sync voiding cert %s\n", __func__, __LINE__, info.topCommittedCertHash.ToString() ); 
+            SyncVoidedCert(info.topCommittedCertHash, true);
         }
     }
 

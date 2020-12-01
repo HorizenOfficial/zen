@@ -41,7 +41,7 @@ int CSidechain::GetCeasingHeight() const
 {
     if ( creationData.withdrawalEpochLength == -1) //default value
         return -1;
-    return StartHeightForEpoch(lastEpochReferencedByCertificate+2) + SafeguardMargin();
+    return StartHeightForEpoch(topCommittedCertReferencedEpoch+2) + SafeguardMargin();
 }
 
 std::string CSidechain::stateToString(State s)

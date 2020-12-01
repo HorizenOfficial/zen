@@ -1074,10 +1074,10 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
     }
 
     sc.push_back(Pair("created at block height", info.creationBlockHeight));
-    sc.push_back(Pair("last certificate epoch", info.lastEpochReferencedByCertificate));
-    sc.push_back(Pair("last certificate hash", info.lastCertificateHash.GetHex()));
-    sc.push_back(Pair("last certificate quality", info.lastCertificateQuality));
-    sc.push_back(Pair("last certificate amount", ValueFromAmount(view.GetValueOfBackwardTransfers(info.lastCertificateHash))));
+    sc.push_back(Pair("last certificate epoch", info.topCommittedCertReferencedEpoch));
+    sc.push_back(Pair("last certificate hash", info.topCommittedCertHash.GetHex()));
+    sc.push_back(Pair("last certificate quality", info.topCommittedCertQuality));
+    sc.push_back(Pair("last certificate amount", ValueFromAmount(view.GetValueOfBackwardTransfers(info.topCommittedCertHash))));
 
     // creation parameters
     sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
