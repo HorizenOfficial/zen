@@ -1084,6 +1084,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                             REJECT_NONSTANDARD, reason);
 
     // Check if cert is already in mempool or if there are conflicts with in-memory certs
+    std::pair<uint256, CAmount> conflictingCertData = std::make_pair(uint256(),CAmount(-1));
     {
         LOCK(pool.cs);
         if (pool.mapCertificate.count(certHash) != 0) {
@@ -1093,7 +1094,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
         for (const CTxIn & vin : cert.GetVin())
         {
-            if (pool.mapNextTx.count(vin.prevout)) {
+            if (pool.mapNextTx.count(vin.prevout))
+            {
                 LogPrint("mempool", "%s():%d - Dropping cert %s : it double spends input of [%s] that is in mempool\n",
                     __func__, __LINE__, certHash.ToString(), vin.prevout.hash.ToString());
                 return state.DoS(0,
@@ -1101,7 +1103,9 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                              __func__, certHash.ToString()),
                          REJECT_INVALID, "double spend");
             }
-            if (pool.mapCertificate.count(vin.prevout.hash)) {
+
+            if (pool.mapCertificate.count(vin.prevout.hash))
+            {
                 const CScCertificate & inputCert = pool.mapCertificate[vin.prevout.hash].GetCertificate();
                 // certificates can only spend change outputs of another certificate in mempool, while backward transfers must mature first
                 if (inputCert.IsBackwardTransfer(vin.prevout.n))
@@ -1112,6 +1116,19 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                          error("%s(): cert[%s]: it would spend the output %d of cert[%s] that is in mempool", 
                              __func__, certHash.ToString(), vin.prevout.n, vin.prevout.hash.ToString()),
                          REJECT_INVALID, "certificate unconfirmed output");
+                }
+            }
+        }
+
+        if (pool.mapSidechains.count(cert.GetScId()) != 0)
+        {
+            for(const auto& mempoolCertEntry : pool.mapSidechains.at(cert.GetScId()).mBackwardCertificates)
+            {
+                const CScCertificate& mempoolCert = pool.mapCertificate.at(mempoolCertEntry.second).GetCertificate();
+                if (mempoolCert.quality == cert.quality) {
+                    conflictingCertData.first  = mempoolCert.GetHash();
+                    conflictingCertData.second = pool.mapCertificate.at(mempoolCertEntry.second).GetFee();
+                    break;
                 }
             }
         }
@@ -1170,10 +1187,10 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             view.GetBestBlock();
             nFees = cert.GetFeeAmount(view.GetValueIn(cert));
  
-            // this check is on mempool view, which is backed by pcointips
-            if (!viewMemPool.CheckQuality(cert, nFees))
+            if (!conflictingCertData.first.IsNull() && conflictingCertData.second >= nFees)
             {
-                LogPrintf("%s():%d - Dropping cert %s : invalid quality\n", __func__, __LINE__, certHash.ToString());
+                LogPrintf("%s():%d - Dropping cert %s : low fee and same quality as other cert in mempool\n",
+                        __func__, __LINE__, certHash.ToString());
                 return error("invalid quality");
             }
 

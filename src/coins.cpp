@@ -188,7 +188,7 @@ bool CCoinsView::GetSidechain(const uint256& scId, CSidechain& info)           c
 bool CCoinsView::HaveSidechainEvents(int height)                               const { return false; }
 bool CCoinsView::GetSidechainEvents(int height, CSidechainEvents& scEvent)     const { return false; }
 void CCoinsView::GetScIds(std::set<uint256>& scIdsList)                        const { scIdsList.clear(); return; }
-bool CCoinsView::CheckQuality(const CScCertificate& cert, CAmount fee)         const { return false; }
+bool CCoinsView::CheckQuality(const CScCertificate& cert)                      const { return false; }
 CAmount CCoinsView::GetValueOfBackwardTransfers(const uint256& certHash)       const { return 0; }
 int64_t CCoinsView::GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const { return CScCertificate::QUALITY_NULL;}
 uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
@@ -211,7 +211,7 @@ bool CCoinsViewBacked::GetSidechain(const uint256& scId, CSidechain& info)      
 bool CCoinsViewBacked::HaveSidechainEvents(int height)                               const { return base->HaveSidechainEvents(height); }
 bool CCoinsViewBacked::GetSidechainEvents(int height, CSidechainEvents& scEvents)    const { return base->GetSidechainEvents(height, scEvents); }
 void CCoinsViewBacked::GetScIds(std::set<uint256>& scIdsList)                        const { return base->GetScIds(scIdsList); }
-bool CCoinsViewBacked::CheckQuality(const CScCertificate& cert, CAmount fee)         const { return base->CheckQuality(cert, fee); }
+bool CCoinsViewBacked::CheckQuality(const CScCertificate& cert)                      const { return base->CheckQuality(cert); }
 CAmount CCoinsViewBacked::GetValueOfBackwardTransfers(const uint256& certHash)       const { return base->GetValueOfBackwardTransfers(certHash); }
 int64_t CCoinsViewBacked::GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const { return base->GetTopQualityCert(scId, epochNumber, hash); }
 uint256 CCoinsViewBacked::GetBestBlock()                                             const { return base->GetBestBlock(); }
@@ -703,7 +703,7 @@ void CCoinsViewCache::GetScIds(std::set<uint256>& scIdsList) const
     return;
 }
 
-bool CCoinsViewCache::CheckQuality(const CScCertificate& cert, CAmount unused) const
+bool CCoinsViewCache::CheckQuality(const CScCertificate& cert) const
 {
     // check in blockchain if a better cert is already there for this epoch
     CSidechain info;
@@ -933,6 +933,13 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
             certHash.ToString(), cert.GetScId().ToString(), chainActive.Height());
         return state.Invalid(error("received a delayed cert"),
                      REJECT_INVALID, "sidechain-certificate-delayed");
+    }
+
+    if (!CheckQuality(cert))
+    {
+        LogPrintf("%s():%d - Dropping cert %s : invalid quality\n", __func__, __LINE__, certHash.ToString());
+        return state.Invalid(error("invalid quality"),
+                             REJECT_INVALID, "sidechain-invalid-quality-certificate");
     }
 
     CAmount totalAmount = cert.GetValueOfBackwardTransfers(); 
