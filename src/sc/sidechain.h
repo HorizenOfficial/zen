@@ -103,14 +103,14 @@ public:
 
     inline bool operator==(const CSidechain& rhs) const
     {
-        return (this->creationBlockHash                == rhs.creationBlockHash)                &&
-               (this->creationBlockHeight              == rhs.creationBlockHeight)              &&
-               (this->creationTxHash                   == rhs.creationTxHash)                   &&
-               (this->topCommittedCertReferencedEpoch == rhs.topCommittedCertReferencedEpoch) &&
-               (this->topCommittedCertHash              == rhs.topCommittedCertHash)              &&
-               (this->topCommittedCertQuality           == rhs.topCommittedCertQuality)           &&
-               (this->balance                          == rhs.balance)                          &&
-               (this->creationData                     == rhs.creationData)                     &&
+        return (this->creationBlockHash                == rhs.creationBlockHash)               &&
+               (this->creationBlockHeight              == rhs.creationBlockHeight)             &&
+               (this->creationTxHash                   == rhs.creationTxHash)                  &&
+               (this->topCommittedCertReferencedEpoch  == rhs.topCommittedCertReferencedEpoch) &&
+               (this->topCommittedCertHash             == rhs.topCommittedCertHash)            &&
+               (this->topCommittedCertQuality          == rhs.topCommittedCertQuality)         &&
+               (this->balance                          == rhs.balance)                         &&
+               (this->creationData                     == rhs.creationData)                    &&
                (this->mImmatureAmounts                 == rhs.mImmatureAmounts);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }

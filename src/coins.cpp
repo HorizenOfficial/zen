@@ -673,8 +673,8 @@ int64_t CCoinsViewCache::GetTopQualityCert(const uint256& scId, int epochNumber,
     LogPrint("mempool", "%s.%s():%d - base: cert [%s], q=%d\n", __FILE__, __func__, __LINE__, hash.ToString(), topQual);
 
     CSidechain targetInfo;
-    if (GetSidechain(scId, targetInfo)                             &&
-        !targetInfo.topCommittedCertHash.IsNull()                   &&
+    if (GetSidechain(scId, targetInfo)                            &&
+        !targetInfo.topCommittedCertHash.IsNull()                 &&
         epochNumber == targetInfo.topCommittedCertReferencedEpoch &&
         targetInfo.topCommittedCertQuality > topQual)
     {
