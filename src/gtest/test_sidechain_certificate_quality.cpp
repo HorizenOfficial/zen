@@ -6,6 +6,8 @@
 #include <pubkey.h>
 #include <main.h>
 #include <txdb.h>
+#include <main.h>
+#include <consensus/validation.h>
 
 class CInMemorySidechainDb final: public CCoinsView {
 public:
@@ -484,6 +486,98 @@ TEST_F(SidechainMultipleCertsTestSuite, GetTopQualityCertFromViewMempool_CertsIn
     EXPECT_TRUE(viewMempool.GetTopQualityCert(scId, cert.epochNumber * 10, retrievedCertHash)
                     == CScCertificate::QUALITY_NULL);
     EXPECT_TRUE(retrievedCertHash.IsNull());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+////////////////////////// CheckCertificatesOrdering //////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST(SidechainMultipleCerts, BlocksWithCertsOfDifferentEpochsAreRejected) {
+	CMutableScCertificate cert_1;
+	cert_1.scId = uint256S("aaa");
+	cert_1.quality = 100;
+	cert_1.epochNumber = 12;
+
+	CMutableScCertificate cert_2;
+	cert_2.scId = cert_1.scId;
+	cert_2.quality = cert_1.quality;
+	cert_2.epochNumber = cert_1.epochNumber+1;
+
+	CBlock aBlock;
+	aBlock.vcert = {cert_1, cert_2};
+
+	CValidationState dummyState;
+	EXPECT_FALSE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+}
+
+TEST(SidechainMultipleCerts, BlocksWithCertsWithEqualQualitiesAreRejected) {
+	CMutableScCertificate cert_1;
+	cert_1.scId = uint256S("aaa");
+	cert_1.epochNumber = 12;
+	cert_1.quality = 100;
+
+	CMutableScCertificate cert_2;
+	cert_2.scId = cert_1.scId;
+	cert_2.epochNumber = cert_1.epochNumber;
+	cert_2.quality = cert_1.quality * 2;
+
+	CMutableScCertificate cert_3;
+	cert_3.scId = cert_1.scId;
+	cert_3.epochNumber = cert_1.epochNumber;
+	cert_3.quality = cert_1.quality;
+
+	CBlock aBlock;
+	aBlock.vcert = {cert_1, cert_2, cert_3};
+
+	CValidationState dummyState;
+	EXPECT_FALSE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+}
+
+TEST(SidechainMultipleCerts, BlocksWithCertsOrderedByDecreasingQualitiesAreRejected) {
+	CMutableScCertificate cert_1;
+	cert_1.scId = uint256S("aaa");
+	cert_1.epochNumber = 12;
+	cert_1.quality = 100;
+
+	CMutableScCertificate cert_2;
+	cert_2.scId = cert_1.scId;
+	cert_2.epochNumber = cert_1.epochNumber;
+	cert_2.quality = cert_1.quality/2;
+
+	CBlock aBlock;
+	aBlock.vcert = {cert_1, cert_2};
+
+	CValidationState dummyState;
+	EXPECT_FALSE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+}
+
+TEST(SidechainMultipleCerts, BlocksWithSameEpochCertssOrderedByIncreasingQualityAreAccepted) {
+	CMutableScCertificate cert_A_1, cert_A_2, cert_A_3;
+	cert_A_1.scId = uint256S("aaa");
+	cert_A_1.epochNumber = 12;
+	cert_A_1.quality = 100;
+
+	cert_A_2.scId = cert_A_1.scId;
+	cert_A_2.epochNumber = cert_A_1.epochNumber;
+	cert_A_2.quality = cert_A_1.quality * 2;
+
+	cert_A_3.scId = cert_A_2.scId;
+	cert_A_3.epochNumber = cert_A_2.epochNumber;
+	cert_A_3.quality = cert_A_2.quality + 1;
+
+	CMutableScCertificate cert_B_1, cert_B_2;
+	cert_B_1.scId = uint256S("bbb");
+	cert_B_1.epochNumber = 90;
+	cert_B_1.quality = 20;
+
+	cert_B_2.scId = cert_B_1.scId;
+	cert_B_2.epochNumber = cert_B_1.epochNumber;
+	cert_B_2.quality = 2000;
+
+	CBlock aBlock;
+	aBlock.vcert = {cert_B_1, cert_A_1, cert_A_2, cert_B_2, cert_A_3};
+
+	CValidationState dummyState;
+	EXPECT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
