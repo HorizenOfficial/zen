@@ -1134,12 +1134,12 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndo
           __func__, __LINE__, FormatMoney(totalAmount), FormatMoney(scIt->second.scInfo.balance), scId.ToString());
 
         scIt->second.scInfo.topCommittedCertReferencedEpoch = cert.epochNumber;
-        scIt->second.scInfo.topCommittedCertHash              = certHash;
-        scIt->second.scInfo.topCommittedCertQuality           = cert.quality;
+        scIt->second.scInfo.topCommittedCertHash            = certHash;
+        scIt->second.scInfo.topCommittedCertQuality         = cert.quality;
 
         LogPrint("cert", "%s():%d - cert quality set in scView (best cert=%s, best q=%d)\n", __func__, __LINE__,
-
         scIt->second.scInfo.topCommittedCertHash.ToString(), scIt->second.scInfo.topCommittedCertQuality);
+
         CSidechain::SetVoidedCert(scIt->second.scInfo.topCommittedCertHash, false, pVoidedCertsMap);
     }
     else
@@ -1172,8 +1172,8 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndo
             scIt->second.scInfo.topCommittedCertHash    = certHash;
             scIt->second.scInfo.topCommittedCertQuality = cert.quality;
             LogPrint("cert", "%s():%d - cert quality updated in scView (best cert=%s, best q=%d)\n", __func__, __LINE__,
-
             scIt->second.scInfo.topCommittedCertHash.ToString(), scIt->second.scInfo.topCommittedCertQuality);
+
             CSidechain::SetVoidedCert(scIt->second.scInfo.topCommittedCertHash, false, pVoidedCertsMap);
           
             scIt->second.scInfo.balance -= totalAmount;

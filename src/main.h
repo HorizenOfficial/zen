@@ -388,7 +388,7 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo& t
 bool CheckTransaction(const CTransaction& tx, CValidationState& state, libzcash::ProofVerifier& verifier);
 bool CheckCertificate(const CScCertificate& cert, CValidationState& state);
 bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidationState &state);
-bool CheckQualityOrdering(const CScCertificate& cert, CValidationState& state, std::map<uint256, CScCertificate>& mTopQualityCerts);
+bool CheckCertificatesOrdering(const std::vector<CScCertificate>& certList, CValidationState& state);
 
 /** Check for standard transaction types
  * @return True if all outputs (scriptPubKeys) use only standard transaction forms

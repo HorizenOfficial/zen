@@ -923,30 +923,35 @@ bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
     return true;
 }
 
-bool CheckQualityOrdering(const CScCertificate& cert,
-    CValidationState& state, std::map<uint256, CScCertificate>& mTopQualityCerts)
+bool CheckCertificatesOrdering(const std::vector<CScCertificate>& certList, CValidationState& state)
 {
-    const uint256& scid = cert.GetScId();
-    if (mTopQualityCerts.count(scid))
+    std::map<uint256, std::pair<int32_t,int64_t>> mBestCertDataByScId;
+
+    for(const CScCertificate& cert: certList)
     {
-        if (mTopQualityCerts[scid].epochNumber != cert.epochNumber)
+        const uint256& scid = cert.GetScId();
+        if (mBestCertDataByScId.count(scid))
         {
-            LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an invalid epoch in block for scid = %s\n",
-                __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
-            return state.DoS(100, error("%s: certificate for the same scid with different epochs",
-                __func__), REJECT_INVALID, "bad-cert-epoch");
+            if (mBestCertDataByScId.at(scid).first != cert.epochNumber)
+            {
+                LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an invalid epoch in block for scid = %s\n",
+                    __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
+                return state.DoS(100, error("%s: certificate for the same scid with different epochs",
+                    __func__), REJECT_INVALID, "bad-cert-epoch");
+            }
+            if (mBestCertDataByScId.at(scid).second >= cert.quality)
+            {
+                LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an incorrect order in block for scid = %s\n",
+                    __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
+                return state.DoS(100, error("%s: certificate with quality not ordered in block",
+                    __func__), REJECT_INVALID, "bad-cert-quality-in-block");
+            }
         }
-        if (mTopQualityCerts[scid].quality >= cert.quality)
-        {
-            LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an incorrect order in block for scid = %s\n",
-                __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
-            return state.DoS(100, error("%s: certificate with quality not ordered in block",
-                __func__), REJECT_INVALID, "bad-cert-quality-in-block");
-        }
+        LogPrint("cert", "%s():%d - setting cert %s / q=%d / epoch=%d as current best in block for scid = %s\n",
+            __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
+        mBestCertDataByScId[scid] = std::make_pair(cert.epochNumber,cert.quality);
     }
-    LogPrint("cert", "%s():%d - setting cert %s / q=%d / epoch=%d as current best in block for scid = %s\n",
-        __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
-    mTopQualityCerts[scid] = cert;
+
     return true;
 }
 
@@ -4009,16 +4014,13 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
         }
     }
 
-    // key = scid, value = best quality cert
-    std::map<uint256, CScCertificate> mTopCertQualities;
+    if(!CheckCertificatesOrdering(block.vcert, state))
+        return error("CheckBlock(): Certificate quality ordering check failed");
 
     for(const CScCertificate& cert: block.vcert)
     {
         if (!CheckCertificate(cert, state)) {
             return error("CheckBlock(): Certificate check failed");
-        }
-        if (!CheckQualityOrdering(cert, state, mTopCertQualities)) {
-            return error("CheckBlock(): Certificate quality ordering failed");
         }
     }
 
