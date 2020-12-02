@@ -1132,6 +1132,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndo
 
         LogPrint("cert", "%s():%d - cert quality set in scView (best cert=%s, best q=%d)\n", __func__, __LINE__,
             scIt->second.scInfo.lastCertificateHash.ToString(), scIt->second.scInfo.lastCertificateQuality);
+        CSidechain::SetVoidedCert(scIt->second.scInfo.lastCertificateHash, false, pVoidedCertsMap);
     }
     else
     {
@@ -1164,6 +1165,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndo
             scIt->second.scInfo.lastCertificateQuality = cert.quality;
             LogPrint("cert", "%s():%d - cert quality updated in scView (best cert=%s, best q=%d)\n", __func__, __LINE__,
                 scIt->second.scInfo.lastCertificateHash.ToString(), scIt->second.scInfo.lastCertificateQuality);
+            CSidechain::SetVoidedCert(scIt->second.scInfo.lastCertificateHash, false, pVoidedCertsMap);
 
             scIt->second.scInfo.balance -= totalAmount;
             LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",

@@ -334,6 +334,19 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes[2].reconsiderblock(sc_cr_block)
         time.sleep(5)
 
+        scinfo = self.nodes[2].getscinfo(scid, False, False)
+        #pprint.pprint(scinfo)
+        assert_equal(bwt_amount_5 + bwt_amount_4 + bwt_amount_2, creation_amount - scinfo['items'][0]['balance']) 
+        assert_equal(bwt_amount_5, scinfo['items'][0]['last certificate amount']) 
+        assert_equal(cert_epoch_2_5, scinfo['items'][0]['last certificate hash']) 
+        assert_equal(quality, scinfo['items'][0]['last certificate quality']) 
+
+        winfo = self.nodes[2].getwalletinfo()
+        #pprint.pprint(winfo)
+        assert_equal(bwt_amount_2 + bwt_amount_4, winfo['balance']) 
+        assert_equal(bwt_amount_5, winfo['immature_balance']) 
+        assert_equal(7, winfo['txcount']) 
+
         pprint.pprint(self.nodes[2].getscinfo(scid, False, False))
         pprint.pprint(self.nodes[2].getwalletinfo())
         pprint.pprint(self.nodes[2].listunspent(0))
