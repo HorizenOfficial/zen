@@ -1298,12 +1298,6 @@ void CWallet::SyncCertificate(const CScCertificate& cert, const CBlock* pblock, 
     if (!AddToWalletIfInvolvingMe(cert, pblock, bwtMaturityHeight, true))
         return; // Not one of ours
 
-    if (pblock)
-    {
-        // for a brand new cert the default is false (not-voided), but it might be updated after a chain reorg
-        // therefore enforce it here
-        SyncVoidedCert(cert.GetHash(), false);
-    }
     MarkAffectedTransactionsDirty(cert);
 }
 
