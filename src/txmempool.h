@@ -187,7 +187,8 @@ public:
     void check(const CCoinsViewCache *pcoins) const;
     void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
 
-    bool RemoveAnyConflictingQualityCert(const CScCertificate& cert);
+    std::pair<uint256, CAmount> FindConflictingCert(const uint256& scId, int64_t certQuality);
+    bool RemoveConflictingQualityCert(const uint256& certToRmHash);
     bool IsTopQualityCertInMempool(const CScCertificate& cert);
     void SyncLowQualityCerts(const CScCertificate& cert);
 

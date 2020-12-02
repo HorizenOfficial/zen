@@ -24,8 +24,6 @@ class CBlockUndo_OldVersion
         }   
 };
 
-
-
 class CInMemorySidechainDb final: public CCoinsView {
 public:
     CInMemorySidechainDb()  = default;
@@ -473,7 +471,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
     EXPECT_TRUE(res);
 }
 
-TEST_F(SidechainTestSuite, CertificateUpdatesLastCertificateHash) {
+TEST_F(SidechainTestSuite, CertificateUpdatesTopCommittedCertHash) {
     //Create Sc
     int scCreationHeight = 1987;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(5));

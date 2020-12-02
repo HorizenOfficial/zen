@@ -1083,8 +1083,6 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         return state.DoS(0, error("%s(): nonstandard certificate: %s", __func__, reason),
                             REJECT_NONSTANDARD, reason);
 
-    // Check if cert is already in mempool or if there are conflicts with in-memory certs
-    std::pair<uint256, CAmount> conflictingCertData = std::make_pair(uint256(),CAmount(-1));
     {
         LOCK(pool.cs);
         if (pool.mapCertificate.count(certHash) != 0) {
@@ -1120,19 +1118,27 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             }
         }
 
-        if (pool.mapSidechains.count(cert.GetScId()) != 0)
+        // No lower quality certs should spend (directly or indirectly) outputs of higher or equal quality certs
+        std::set<uint256> certAncestors = pool.mempoolFullAncestorsOf(cert);
+        for(const uint256& ancestor: certAncestors)
         {
-            for(const auto& mempoolCertEntry : pool.mapSidechains.at(cert.GetScId()).mBackwardCertificates)
+            if (pool.mapCertificate.count(ancestor)==0)
+                continue; //tx won't conflict with cert on quality
+
+            const CScCertificate& ancestorCert = pool.mapCertificate.at(ancestor).GetCertificate();
+            if (ancestorCert.GetScId() != cert.GetScId())
+                continue; //no certs conflicts with certs of other sidechains
+            if (ancestorCert.quality >= cert.quality)
             {
-                const CScCertificate& mempoolCert = pool.mapCertificate.at(mempoolCertEntry.second).GetCertificate();
-                if (mempoolCert.quality == cert.quality) {
-                    conflictingCertData.first  = mempoolCert.GetHash();
-                    conflictingCertData.second = pool.mapCertificate.at(mempoolCertEntry.second).GetFee();
-                    break;
-                }
+                LogPrint("mempool", "%s():%d - cert %s depends on worse-quality ancestorCert %s\n", __func__, __LINE__,
+                    cert.GetHash().ToString(), ancestorCert.GetHash().ToString());
+                return false;
             }
         }
     }
+
+    // Check if cert is already in mempool or if there are conflicts with in-memory certs
+    std::pair<uint256, CAmount> conflictingCertData = pool.FindConflictingCert(cert.GetScId(), cert.quality);
 
     {
         CCoinsView dummy;
@@ -1162,14 +1168,11 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             // do all inputs exist?
             // Note that this does not check for the presence of actual outputs (see the next check for that),
             // and only helps with filling in pfMissingInputs (to determine missing vs spent).
-            BOOST_FOREACH(const CTxIn txin, cert.GetVin())
+            for(const CTxIn txin: cert.GetVin())
             {
                 if (!view.HaveCoins(txin.prevout.hash))
                 {
-                    if (pfMissingInputs)
-                    {
-                        *pfMissingInputs = true;
-                    }
+                    if (pfMissingInputs) { *pfMissingInputs = true; }
                     LogPrint("mempool", "Dropping cert %s : no coins for vin (tx=%s)\n", certHash.ToString(), txin.prevout.hash.ToString());
                     return false;
                 }
@@ -1285,13 +1288,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             return error("%s(): BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", __func__, certHash.ToString());
         }
 
-        // remove any conflicted certificate already included in mempool, if any. We are sure now that this is a good one 
-        // unless there is dependancy of this cert from some of the conflicting ones
-        bool ret = pool.RemoveAnyConflictingQualityCert(cert);
-        if (!ret)
-        {
+        if (!pool.RemoveConflictingQualityCert(conflictingCertData.first))
             return error("%s(): cert %s depends on some conflicting quality certs", __func__, certHash.ToString());
-        }
 
         // Store transaction in memory
         pool.addUnchecked(certHash, entry, !IsInitialBlockDownload());
