@@ -187,7 +187,8 @@ public:
     void check(const CCoinsViewCache *pcoins) const;
     void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
 
-    bool RemoveAnyConflictingQualityCert(const CScCertificate& cert);
+    std::pair<uint256, CAmount> FindConflictingCert(const uint256& scId, int64_t certQuality);
+    bool RemoveConflictingQualityCert(const uint256& certToRmHash);
     bool IsTopQualityCertInMempool(const CScCertificate& cert);
     void SyncLowQualityCerts(const CScCertificate& cert);
 
@@ -322,7 +323,6 @@ public:
     bool HaveCoins(const uint256 &txid)                            const override;
     bool GetSidechain(const uint256& scId, CSidechain& info)       const override;
     bool HaveSidechain(const uint256& scId)                        const override;
-    bool CheckQuality(const CScCertificate& cert, CAmount certFee) const override;
     CAmount GetValueOfBackwardTransfers(const uint256& certHash)   const override;
     int64_t GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const override;
 };

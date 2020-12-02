@@ -42,8 +42,8 @@ public:
 class CSidechain {
 public:
     CSidechain() : creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
-                   lastEpochReferencedByCertificate(CScCertificate::EPOCH_NULL),
-                   lastCertificateHash(), lastCertificateQuality(CScCertificate::QUALITY_NULL),
+                   topCommittedCertReferencedEpoch(CScCertificate::EPOCH_NULL),
+                   topCommittedCertHash(), topCommittedCertQuality(CScCertificate::QUALITY_NULL),
                    balance(0) {}
 
     // reference to the block containing the tx that created the side chain
@@ -56,13 +56,13 @@ public:
     uint256 creationTxHash;
 
     // last epoch for which a certificate have been received
-    int lastEpochReferencedByCertificate;
+    int topCommittedCertReferencedEpoch;
 
     // hash of the best quality certificate received for this sidechain
-    uint256 lastCertificateHash;
+    uint256 topCommittedCertHash;
 
     // quality of the certificate
-    int64_t lastCertificateQuality;
+    int64_t topCommittedCertQuality;
 
     // total amount given by sum(fw transfer)-sum(bkw transfer)
     CAmount balance;
@@ -93,9 +93,9 @@ public:
         READWRITE(creationBlockHash);
         READWRITE(creationBlockHeight);
         READWRITE(creationTxHash);
-        READWRITE(lastEpochReferencedByCertificate);
-        READWRITE(lastCertificateHash);
-        READWRITE(lastCertificateQuality);
+        READWRITE(topCommittedCertReferencedEpoch);
+        READWRITE(topCommittedCertHash);
+        READWRITE(topCommittedCertQuality);
         READWRITE(balance);
         READWRITE(creationData);
         READWRITE(mImmatureAmounts);
@@ -103,14 +103,14 @@ public:
 
     inline bool operator==(const CSidechain& rhs) const
     {
-        return (this->creationBlockHash                == rhs.creationBlockHash)                &&
-               (this->creationBlockHeight              == rhs.creationBlockHeight)              &&
-               (this->creationTxHash                   == rhs.creationTxHash)                   &&
-               (this->lastEpochReferencedByCertificate == rhs.lastEpochReferencedByCertificate) &&
-               (this->lastCertificateHash              == rhs.lastCertificateHash)              &&
-               (this->lastCertificateQuality           == rhs.lastCertificateQuality)           &&
-               (this->balance                          == rhs.balance)                          &&
-               (this->creationData                     == rhs.creationData)                     &&
+        return (this->creationBlockHash                == rhs.creationBlockHash)               &&
+               (this->creationBlockHeight              == rhs.creationBlockHeight)             &&
+               (this->creationTxHash                   == rhs.creationTxHash)                  &&
+               (this->topCommittedCertReferencedEpoch  == rhs.topCommittedCertReferencedEpoch) &&
+               (this->topCommittedCertHash             == rhs.topCommittedCertHash)            &&
+               (this->topCommittedCertQuality          == rhs.topCommittedCertQuality)         &&
+               (this->balance                          == rhs.balance)                         &&
+               (this->creationData                     == rhs.creationData)                    &&
                (this->mImmatureAmounts                 == rhs.mImmatureAmounts);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }

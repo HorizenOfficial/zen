@@ -1083,7 +1083,6 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         return state.DoS(0, error("%s(): nonstandard certificate: %s", __func__, reason),
                             REJECT_NONSTANDARD, reason);
 
-    // Check if cert is already in mempool or if there are conflicts with in-memory certs
     {
         LOCK(pool.cs);
         if (pool.mapCertificate.count(certHash) != 0) {
@@ -1093,7 +1092,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
         for (const CTxIn & vin : cert.GetVin())
         {
-            if (pool.mapNextTx.count(vin.prevout)) {
+            if (pool.mapNextTx.count(vin.prevout))
+            {
                 LogPrint("mempool", "%s():%d - Dropping cert %s : it double spends input of [%s] that is in mempool\n",
                     __func__, __LINE__, certHash.ToString(), vin.prevout.hash.ToString());
                 return state.DoS(0,
@@ -1101,7 +1101,9 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                              __func__, certHash.ToString()),
                          REJECT_INVALID, "double spend");
             }
-            if (pool.mapCertificate.count(vin.prevout.hash)) {
+
+            if (pool.mapCertificate.count(vin.prevout.hash))
+            {
                 const CScCertificate & inputCert = pool.mapCertificate[vin.prevout.hash].GetCertificate();
                 // certificates can only spend change outputs of another certificate in mempool, while backward transfers must mature first
                 if (inputCert.IsBackwardTransfer(vin.prevout.n))
@@ -1115,7 +1117,28 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                 }
             }
         }
+
+        // No lower quality certs should spend (directly or indirectly) outputs of higher or equal quality certs
+        std::set<uint256> certAncestors = pool.mempoolFullAncestorsOf(cert);
+        for(const uint256& ancestor: certAncestors)
+        {
+            if (pool.mapCertificate.count(ancestor)==0)
+                continue; //tx won't conflict with cert on quality
+
+            const CScCertificate& ancestorCert = pool.mapCertificate.at(ancestor).GetCertificate();
+            if (ancestorCert.GetScId() != cert.GetScId())
+                continue; //no certs conflicts with certs of other sidechains
+            if (ancestorCert.quality >= cert.quality)
+            {
+                LogPrint("mempool", "%s():%d - cert %s depends on worse-quality ancestorCert %s\n", __func__, __LINE__,
+                    cert.GetHash().ToString(), ancestorCert.GetHash().ToString());
+                return false;
+            }
+        }
     }
+
+    // Check if cert is already in mempool or if there are conflicts with in-memory certs
+    std::pair<uint256, CAmount> conflictingCertData = pool.FindConflictingCert(cert.GetScId(), cert.quality);
 
     {
         CCoinsView dummy;
@@ -1145,14 +1168,11 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             // do all inputs exist?
             // Note that this does not check for the presence of actual outputs (see the next check for that),
             // and only helps with filling in pfMissingInputs (to determine missing vs spent).
-            BOOST_FOREACH(const CTxIn txin, cert.GetVin())
+            for(const CTxIn txin: cert.GetVin())
             {
                 if (!view.HaveCoins(txin.prevout.hash))
                 {
-                    if (pfMissingInputs)
-                    {
-                        *pfMissingInputs = true;
-                    }
+                    if (pfMissingInputs) { *pfMissingInputs = true; }
                     LogPrint("mempool", "Dropping cert %s : no coins for vin (tx=%s)\n", certHash.ToString(), txin.prevout.hash.ToString());
                     return false;
                 }
@@ -1170,10 +1190,10 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             view.GetBestBlock();
             nFees = cert.GetFeeAmount(view.GetValueIn(cert));
  
-            // this check is on mempool view, which is backed by pcointips
-            if (!viewMemPool.CheckQuality(cert, nFees))
+            if (!conflictingCertData.first.IsNull() && conflictingCertData.second >= nFees)
             {
-                LogPrintf("%s():%d - Dropping cert %s : invalid quality\n", __func__, __LINE__, certHash.ToString());
+                LogPrintf("%s():%d - Dropping cert %s : low fee and same quality as other cert in mempool\n",
+                        __func__, __LINE__, certHash.ToString());
                 return error("invalid quality");
             }
 
@@ -1268,13 +1288,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             return error("%s(): BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", __func__, certHash.ToString());
         }
 
-        // remove any conflicted certificate already included in mempool, if any. We are sure now that this is a good one 
-        // unless there is dependancy of this cert from some of the conflicting ones
-        bool ret = pool.RemoveAnyConflictingQualityCert(cert);
-        if (!ret)
-        {
+        if (!pool.RemoveConflictingQualityCert(conflictingCertData.first))
             return error("%s(): cert %s depends on some conflicting quality certs", __func__, certHash.ToString());
-        }
 
         // Store transaction in memory
         pool.addUnchecked(certHash, entry, !IsInitialBlockDownload());
@@ -2617,7 +2632,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     AssertLockHeld(cs_main);
 
     if(block.nVersion != BLOCK_VERSION_SC_SUPPORT) {
-    	fCheckScTxesCommitment = false;
+        fCheckScTxesCommitment = false;
     }
 
     bool fExpensiveChecks = true;
@@ -4051,26 +4066,26 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     // Check timestamp against prev
     auto medianTimePast = pindexPrev->GetMedianTimePast();
     if (block.GetBlockTime() <= medianTimePast) {
-    	return state.Invalid(error("%s: block at height %d, timestamp %d is not later than median-time-past %d",
-    			__func__, nHeight, block.GetBlockTime(), medianTimePast),
-    			REJECT_INVALID, "time-too-old");
+        return state.Invalid(error("%s: block at height %d, timestamp %d is not later than median-time-past %d",
+                __func__, nHeight, block.GetBlockTime(), medianTimePast),
+                REJECT_INVALID, "time-too-old");
     }
 
 
     if (ForkManager::getInstance().isFutureTimeStampActive(nHeight) &&
-    		block.GetBlockTime() > medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP) {
-		return state.Invalid(error("%s: block at height %d, timestamp %d is too far ahead of median-time-past, limit is %d",
-				__func__, nHeight, block.GetBlockTime(), medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP),
-				REJECT_INVALID, "time-too-far-ahead-of-mtp");
-	}
+            block.GetBlockTime() > medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP) {
+        return state.Invalid(error("%s: block at height %d, timestamp %d is too far ahead of median-time-past, limit is %d",
+                __func__, nHeight, block.GetBlockTime(), medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP),
+                REJECT_INVALID, "time-too-far-ahead-of-mtp");
+    }
 
 
     // Check timestamp
     auto nTimeLimit = GetTime() + MAX_FUTURE_BLOCK_TIME_LOCAL;
     if (block.GetBlockTime() > nTimeLimit) {
         return state.Invalid(error("%s: block at height %d, timestamp %d is too far ahead of local time, limit is %d",
-        		__func__, nHeight, block.GetBlockTime(), nTimeLimit),
-        		REJECT_INVALID, "time-too-new");
+                __func__, nHeight, block.GetBlockTime(), nTimeLimit),
+                REJECT_INVALID, "time-too-new");
     }
 
     if (fCheckpointsEnabled)

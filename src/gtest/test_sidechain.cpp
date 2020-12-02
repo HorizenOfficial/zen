@@ -24,8 +24,6 @@ class CBlockUndo_OldVersion
         }   
 };
 
-
-
 class CInMemorySidechainDb final: public CCoinsView {
 public:
     CInMemorySidechainDb()  = default;
@@ -398,8 +396,8 @@ TEST_F(SidechainTestSuite, RevertCertOutputsRestoresLastCertHash) {
     sidechainsView->UpdateScInfo(cert, certUndoEntry);
     CSidechain scInfoPostCert;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, scInfoPostCert));
-    EXPECT_TRUE(scInfoPostCert.lastEpochReferencedByCertificate == certEpoch);
-    EXPECT_TRUE(scInfoPostCert.lastCertificateHash == cert.GetHash());
+    EXPECT_TRUE(scInfoPostCert.topCommittedCertReferencedEpoch == certEpoch);
+    EXPECT_TRUE(scInfoPostCert.topCommittedCertHash == cert.GetHash());
 
     //test
     bool res = sidechainsView->RevertCertOutputs(cert,certUndoEntry);
@@ -408,8 +406,8 @@ TEST_F(SidechainTestSuite, RevertCertOutputsRestoresLastCertHash) {
     EXPECT_TRUE(res);
     CSidechain scInfoPostCertUndo;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, scInfoPostCertUndo));
-    EXPECT_TRUE(scInfoPostCertUndo.lastCertificateHash == scInfoAtCreation.lastCertificateHash);
-    EXPECT_TRUE(scInfoPostCertUndo.lastEpochReferencedByCertificate == scInfoAtCreation.lastEpochReferencedByCertificate);
+    EXPECT_TRUE(scInfoPostCertUndo.topCommittedCertHash == scInfoAtCreation.topCommittedCertHash);
+    EXPECT_TRUE(scInfoPostCertUndo.topCommittedCertReferencedEpoch == scInfoAtCreation.topCommittedCertReferencedEpoch);
 }
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// UpdateScInfo ////////////////////////////////
@@ -473,7 +471,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
     EXPECT_TRUE(res);
 }
 
-TEST_F(SidechainTestSuite, CertificateUpdatesLastCertificateHash) {
+TEST_F(SidechainTestSuite, CertificateUpdatesTopCommittedCertHash) {
     //Create Sc
     int scCreationHeight = 1987;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(5));
@@ -483,7 +481,7 @@ TEST_F(SidechainTestSuite, CertificateUpdatesLastCertificateHash) {
 
     CSidechain scInfo;
     EXPECT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
-    EXPECT_TRUE(scInfo.lastCertificateHash.IsNull());
+    EXPECT_TRUE(scInfo.topCommittedCertHash.IsNull());
 
     //Fully mature initial Sc balance
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
@@ -500,7 +498,7 @@ TEST_F(SidechainTestSuite, CertificateUpdatesLastCertificateHash) {
 
     //check
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
-    EXPECT_TRUE(scInfo.lastCertificateHash == aCertificate.GetHash());
+    EXPECT_TRUE(scInfo.topCommittedCertHash == aCertificate.GetHash());
     EXPECT_TRUE(certUndoEntry.replacedLastCertEpoch == -1);
     EXPECT_TRUE(certUndoEntry.replacedLastCertHash.IsNull());
 }
@@ -923,7 +921,7 @@ TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation)
     //check
     EXPECT_TRUE(retrievedInfo.creationBlockHeight == scCreationHeight);
     EXPECT_TRUE(retrievedInfo.balance == creationAmount - certAmount);
-    EXPECT_TRUE(retrievedInfo.lastEpochReferencedByCertificate == -1); //certs in mempool do not affect lastEpochReferencedByCertificate
+    EXPECT_TRUE(retrievedInfo.topCommittedCertReferencedEpoch == -1); //certs in mempool do not affect topCommittedCertReferencedEpoch
     EXPECT_TRUE(retrievedInfo.mImmatureAmounts.at(-1) == fwdAmount);
 }
 
