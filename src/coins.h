@@ -578,6 +578,7 @@ public:
     int64_t GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const override;
     void NullifyBackwardTransfers(const uint256& certHash, CTxUndo& certUndoEntry);
     bool RestoreBackwardTransfers(const CTxUndo& certUndoEntry);
+    std::vector<uint256> CertsToVoidUponConnectionOf(const CBlock& blockToConnect);
 
     //SIDECHAINS EVENTS RELATED MEMBERS
     bool HaveSidechainEvents(int height)                            const override;

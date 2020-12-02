@@ -95,7 +95,9 @@ protected:
     CNullifiersMap      dummyNullifiers;
     CSidechainEventsMap dummyCeasedScs;
 
-    uint256 storeSidechain(const CSidechain& sidechain);
+    CValidationState    dummyState;
+
+    uint256 storeSidechain(const uint256& scId, const CSidechain& sidechain);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -105,7 +107,8 @@ TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoIncreasingQualitiesCertsIn
     CSidechain initialScState;
     initialScState.balance = CAmount(10);
     initialScState.creationBlockHeight = 1987;
-    uint256 scId = storeSidechain(initialScState);
+    uint256 scId = uint256S("aaa");
+    storeSidechain(scId, initialScState);
 
     //Insert low quality Certificate
     CMutableScCertificate lowQualityCert = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
@@ -146,7 +149,8 @@ TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoDecreasingQualitiesCertsIn
     CSidechain initialScState;
     initialScState.balance = CAmount(10);
     initialScState.creationBlockHeight = 1987;
-    uint256 scId = storeSidechain(initialScState);
+    uint256 scId = uint256S("aaa");
+    storeSidechain(scId, initialScState);
 
     //Insert high quality Certificate
     CMutableScCertificate highQualityCert = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
@@ -188,7 +192,8 @@ TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoIncreasingQualitiesCertsIn
     CSidechain initialScState;
     initialScState.balance = CAmount(10);
     initialScState.creationBlockHeight = 1987;
-    uint256 scId = storeSidechain(initialScState);
+    uint256 scId = uint256S("aaa");
+    storeSidechain(scId, initialScState);
 
     //Insert low quality Certificate
     CMutableScCertificate lowQualityCert = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
@@ -234,7 +239,8 @@ TEST_F(SidechainMultipleCertsTestSuite, CheckQualityRejectsLowerQualityCertsInSa
     initialScState.topCommittedCertHash = uint256S("ddd");
     initialScState.topCommittedCertQuality = 100;
     initialScState.topCommittedCertReferencedEpoch = 12;
-    uint256 scId = storeSidechain(initialScState);
+    uint256 scId = uint256S("aaa");
+    storeSidechain(scId, initialScState);
 
     CMutableScCertificate lowQualityCert;
     lowQualityCert.scId = scId;
@@ -251,7 +257,8 @@ TEST_F(SidechainMultipleCertsTestSuite, CheckQualityRejectsEqualQualityCertsInSa
     initialScState.topCommittedCertHash = uint256S("ddd");
     initialScState.topCommittedCertQuality = 100;
     initialScState.topCommittedCertReferencedEpoch = 12;
-    uint256 scId = storeSidechain(initialScState);
+    uint256 scId = uint256S("aaa");
+    storeSidechain(scId, initialScState);
 
     CMutableScCertificate equalQualityCert;
     equalQualityCert.scId = scId;
@@ -268,7 +275,8 @@ TEST_F(SidechainMultipleCertsTestSuite, CheckQualityAcceptsHigherQualityCertsInS
     initialScState.topCommittedCertHash = uint256S("ddd");
     initialScState.topCommittedCertQuality = 100;
     initialScState.topCommittedCertReferencedEpoch = 12;
-    uint256 scId = storeSidechain(initialScState);
+    uint256 scId = uint256S("aaa");
+    storeSidechain(scId, initialScState);
 
     CMutableScCertificate highQualityCert;
     highQualityCert.scId = scId;
@@ -285,7 +293,8 @@ TEST_F(SidechainMultipleCertsTestSuite, CheckAcceptsLowerQualityCertsInDifferent
     initialScState.topCommittedCertHash = uint256S("ddd");
     initialScState.topCommittedCertQuality = 100;
     initialScState.topCommittedCertReferencedEpoch = 12;
-    uint256 scId = storeSidechain(initialScState);
+    uint256 scId = uint256S("aaa");
+    storeSidechain(scId, initialScState);
 
     CMutableScCertificate highQualityCert;
     highQualityCert.scId = scId;
@@ -305,7 +314,8 @@ TEST_F(SidechainMultipleCertsTestSuite, CheckInMempoolDelegateToBackingView) {
     initialScState.topCommittedCertHash = uint256S("ddd");
     initialScState.topCommittedCertQuality = 100;
     initialScState.topCommittedCertReferencedEpoch = 12;
-    uint256 scId = storeSidechain(initialScState);
+    uint256 scId = uint256S("aaa");
+    storeSidechain(scId, initialScState);
 
     CMutableScCertificate cert;
     cert.scId = scId;
@@ -341,7 +351,8 @@ TEST_F(SidechainMultipleCertsTestSuite, CertsInMempoolDoNotAffectCheckQuality) {
     initialScState.topCommittedCertHash = uint256S("ddd");
     initialScState.topCommittedCertQuality = 100;
     initialScState.topCommittedCertReferencedEpoch = 12;
-    uint256 scId = storeSidechain(initialScState);
+    uint256 scId = uint256S("aaa");
+    storeSidechain(scId, initialScState);
 
     // add certificate to mempool
     CMutableScCertificate mempoolCert;
@@ -413,7 +424,8 @@ TEST_F(SidechainMultipleCertsTestSuite, GetTopQualityCert_View) {
     sidechain.topCommittedCertQuality = 100;
     sidechain.topCommittedCertHash = uint256S("aaa");
     sidechain.topCommittedCertReferencedEpoch = 15;
-    uint256 scId = storeSidechain(sidechain);
+    uint256 scId = uint256S("aaa");
+    storeSidechain(scId, sidechain);
 
     // Selecting same cert epoch, top quality is returned
     uint256 retrievedCertHash;
@@ -436,7 +448,8 @@ TEST_F(SidechainMultipleCertsTestSuite, GetTopQualityCert_ViewMempool_CertInBack
     sidechain.topCommittedCertQuality = 100;
     sidechain.topCommittedCertHash = uint256S("aaa");
     sidechain.topCommittedCertReferencedEpoch = 15;
-    uint256 scId = storeSidechain(sidechain);
+    uint256 scId = uint256S("aaa");
+    storeSidechain(scId, sidechain);
 
     // Selecting same cert epoch, top quality is returned
     uint256 retrievedCertHash;
@@ -459,7 +472,8 @@ TEST_F(SidechainMultipleCertsTestSuite, GetTopQualityCertFromViewMempool_CertsIn
     sidechain.topCommittedCertQuality = 100;
     sidechain.topCommittedCertHash = uint256S("aaa");
     sidechain.topCommittedCertReferencedEpoch = 15;
-    uint256 scId = storeSidechain(sidechain);
+    uint256 scId = uint256S("aaa");
+    storeSidechain(scId, sidechain);
 
     // add certificate to mempool
     CMutableScCertificate cert;
@@ -492,101 +506,244 @@ TEST_F(SidechainMultipleCertsTestSuite, GetTopQualityCertFromViewMempool_CertsIn
 ////////////////////////// CheckCertificatesOrdering //////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST(SidechainMultipleCerts, BlocksWithCertsOfDifferentEpochsAreRejected) {
-	CMutableScCertificate cert_1;
-	cert_1.scId = uint256S("aaa");
-	cert_1.quality = 100;
-	cert_1.epochNumber = 12;
+    CMutableScCertificate cert_1;
+    cert_1.scId = uint256S("aaa");
+    cert_1.quality = 100;
+    cert_1.epochNumber = 12;
 
-	CMutableScCertificate cert_2;
-	cert_2.scId = cert_1.scId;
-	cert_2.quality = cert_1.quality;
-	cert_2.epochNumber = cert_1.epochNumber+1;
+    CMutableScCertificate cert_2;
+    cert_2.scId = cert_1.scId;
+    cert_2.quality = cert_1.quality;
+    cert_2.epochNumber = cert_1.epochNumber+1;
 
-	CBlock aBlock;
-	aBlock.vcert = {cert_1, cert_2};
+    CBlock aBlock;
+    aBlock.vcert = {cert_1, cert_2};
 
-	CValidationState dummyState;
-	EXPECT_FALSE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+    CValidationState dummyState;
+    EXPECT_FALSE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
 }
 
 TEST(SidechainMultipleCerts, BlocksWithCertsWithEqualQualitiesAreRejected) {
-	CMutableScCertificate cert_1;
-	cert_1.scId = uint256S("aaa");
-	cert_1.epochNumber = 12;
-	cert_1.quality = 100;
+    CMutableScCertificate cert_1;
+    cert_1.scId = uint256S("aaa");
+    cert_1.epochNumber = 12;
+    cert_1.quality = 100;
 
-	CMutableScCertificate cert_2;
-	cert_2.scId = cert_1.scId;
-	cert_2.epochNumber = cert_1.epochNumber;
-	cert_2.quality = cert_1.quality * 2;
+    CMutableScCertificate cert_2;
+    cert_2.scId = cert_1.scId;
+    cert_2.epochNumber = cert_1.epochNumber;
+    cert_2.quality = cert_1.quality * 2;
 
-	CMutableScCertificate cert_3;
-	cert_3.scId = cert_1.scId;
-	cert_3.epochNumber = cert_1.epochNumber;
-	cert_3.quality = cert_1.quality;
+    CMutableScCertificate cert_3;
+    cert_3.scId = cert_1.scId;
+    cert_3.epochNumber = cert_1.epochNumber;
+    cert_3.quality = cert_1.quality;
 
-	CBlock aBlock;
-	aBlock.vcert = {cert_1, cert_2, cert_3};
+    CBlock aBlock;
+    aBlock.vcert = {cert_1, cert_2, cert_3};
 
-	CValidationState dummyState;
-	EXPECT_FALSE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+    CValidationState dummyState;
+    EXPECT_FALSE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
 }
 
 TEST(SidechainMultipleCerts, BlocksWithCertsOrderedByDecreasingQualitiesAreRejected) {
-	CMutableScCertificate cert_1;
-	cert_1.scId = uint256S("aaa");
-	cert_1.epochNumber = 12;
-	cert_1.quality = 100;
+    CMutableScCertificate cert_1;
+    cert_1.scId = uint256S("aaa");
+    cert_1.epochNumber = 12;
+    cert_1.quality = 100;
 
-	CMutableScCertificate cert_2;
-	cert_2.scId = cert_1.scId;
-	cert_2.epochNumber = cert_1.epochNumber;
-	cert_2.quality = cert_1.quality/2;
+    CMutableScCertificate cert_2;
+    cert_2.scId = cert_1.scId;
+    cert_2.epochNumber = cert_1.epochNumber;
+    cert_2.quality = cert_1.quality/2;
 
-	CBlock aBlock;
-	aBlock.vcert = {cert_1, cert_2};
+    CBlock aBlock;
+    aBlock.vcert = {cert_1, cert_2};
 
-	CValidationState dummyState;
-	EXPECT_FALSE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+    CValidationState dummyState;
+    EXPECT_FALSE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
 }
 
 TEST(SidechainMultipleCerts, BlocksWithSameEpochCertssOrderedByIncreasingQualityAreAccepted) {
-	CMutableScCertificate cert_A_1, cert_A_2, cert_A_3;
-	cert_A_1.scId = uint256S("aaa");
-	cert_A_1.epochNumber = 12;
-	cert_A_1.quality = 100;
+    CMutableScCertificate cert_A_1, cert_A_2, cert_A_3;
+    cert_A_1.scId = uint256S("aaa");
+    cert_A_1.epochNumber = 12;
+    cert_A_1.quality = 100;
 
-	cert_A_2.scId = cert_A_1.scId;
-	cert_A_2.epochNumber = cert_A_1.epochNumber;
-	cert_A_2.quality = cert_A_1.quality * 2;
+    cert_A_2.scId = cert_A_1.scId;
+    cert_A_2.epochNumber = cert_A_1.epochNumber;
+    cert_A_2.quality = cert_A_1.quality * 2;
 
-	cert_A_3.scId = cert_A_2.scId;
-	cert_A_3.epochNumber = cert_A_2.epochNumber;
-	cert_A_3.quality = cert_A_2.quality + 1;
+    cert_A_3.scId = cert_A_2.scId;
+    cert_A_3.epochNumber = cert_A_2.epochNumber;
+    cert_A_3.quality = cert_A_2.quality + 1;
 
-	CMutableScCertificate cert_B_1, cert_B_2;
-	cert_B_1.scId = uint256S("bbb");
-	cert_B_1.epochNumber = 90;
-	cert_B_1.quality = 20;
+    CMutableScCertificate cert_B_1, cert_B_2;
+    cert_B_1.scId = uint256S("bbb");
+    cert_B_1.epochNumber = 90;
+    cert_B_1.quality = 20;
 
-	cert_B_2.scId = cert_B_1.scId;
-	cert_B_2.epochNumber = cert_B_1.epochNumber;
-	cert_B_2.quality = 2000;
+    cert_B_2.scId = cert_B_1.scId;
+    cert_B_2.epochNumber = cert_B_1.epochNumber;
+    cert_B_2.quality = 2000;
 
-	CBlock aBlock;
-	aBlock.vcert = {cert_B_1, cert_A_1, cert_A_2, cert_B_2, cert_A_3};
+    CBlock aBlock;
+    aBlock.vcert = {cert_B_1, cert_A_1, cert_A_2, cert_B_2, cert_A_3};
 
-	CValidationState dummyState;
-	EXPECT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+    CValidationState dummyState;
+    EXPECT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////// CertsToVoidUponConnectionOf /////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST_F(SidechainMultipleCertsTestSuite, CertToVoid_EmptyBlock)
+{
+    CSidechain sidechain;
+    sidechain.topCommittedCertQuality = 100;
+    sidechain.topCommittedCertHash = uint256S("999");
+    sidechain.topCommittedCertReferencedEpoch = 15;
+    uint256 scId = uint256S("aaa");
+    storeSidechain(scId, sidechain);
+
+    CBlock emptyBlock;
+    EXPECT_TRUE(sidechainsView->CertsToVoidUponConnectionOf(emptyBlock).empty());
+}
+
+TEST_F(SidechainMultipleCertsTestSuite, CertToVoid_FirstCert)
+{
+    CSidechain sidechain;
+    sidechain.topCommittedCertQuality = 100;
+    sidechain.topCommittedCertHash = uint256S("aaa");
+    sidechain.topCommittedCertReferencedEpoch = -1;
+    uint256 scId = uint256S("aaa");
+    storeSidechain(scId, sidechain);
+
+    CMutableScCertificate firstCert;
+    firstCert.scId = scId;
+    firstCert.epochNumber = 0;
+    firstCert.quality = 10;
+
+    CBlock aBlock;
+    aBlock.vcert.push_back(firstCert);
+
+    EXPECT_TRUE(sidechainsView->CertsToVoidUponConnectionOf(aBlock).empty());
+}
+
+TEST_F(SidechainMultipleCertsTestSuite, CertToVoid_SameScId_DifferentEpoch)
+{
+    CSidechain sidechain;
+    sidechain.topCommittedCertQuality = 100;
+    sidechain.topCommittedCertHash = uint256S("aaa");
+    sidechain.topCommittedCertReferencedEpoch = 15;
+    uint256 scId = uint256S("aaa");
+    storeSidechain(scId, sidechain);
+
+    CMutableScCertificate lowQualityCert;
+    lowQualityCert.scId = scId;
+    lowQualityCert.epochNumber = sidechain.topCommittedCertReferencedEpoch +1;
+    lowQualityCert.quality = 10;
+
+    CMutableScCertificate highQualityCert;
+    highQualityCert.scId = scId;
+    highQualityCert.epochNumber = lowQualityCert.epochNumber;
+    highQualityCert.quality = lowQualityCert.quality * 2;
+
+    CBlock aBlock;
+    aBlock.vcert.push_back(lowQualityCert);
+    aBlock.vcert.push_back(highQualityCert);
+    ASSERT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+
+    std::vector<uint256> certHashToVoid = {lowQualityCert.GetHash()};
+    EXPECT_TRUE(sidechainsView->CertsToVoidUponConnectionOf(aBlock) == certHashToVoid);
+}
+
+TEST_F(SidechainMultipleCertsTestSuite, CertToVoid_SameScId_SameEpoch)
+{
+    CSidechain sidechain;
+    sidechain.topCommittedCertQuality = 10;
+    sidechain.topCommittedCertHash = uint256S("aaa");
+    sidechain.topCommittedCertReferencedEpoch = 15;
+    uint256 scId = uint256S("aaa");
+    storeSidechain(scId, sidechain);
+
+    CMutableScCertificate lowQualityCert;
+    lowQualityCert.scId = scId;
+    lowQualityCert.epochNumber = sidechain.topCommittedCertReferencedEpoch;
+    lowQualityCert.quality = sidechain.topCommittedCertQuality * 2;
+
+    CMutableScCertificate highQualityCert;
+    highQualityCert.scId = scId;
+    highQualityCert.epochNumber = lowQualityCert.epochNumber;
+    highQualityCert.quality = lowQualityCert.quality * 2;
+
+    CBlock aBlock;
+    aBlock.vcert.push_back(lowQualityCert);
+    aBlock.vcert.push_back(highQualityCert);
+    ASSERT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+
+    std::vector<uint256> certHashesToVoid = {sidechain.topCommittedCertHash, lowQualityCert.GetHash()};
+    EXPECT_TRUE(sidechainsView->CertsToVoidUponConnectionOf(aBlock) == certHashesToVoid);
+}
+
+TEST_F(SidechainMultipleCertsTestSuite, CertToVoid_MultipleScIds)
+{
+    CSidechain sidechain_A;
+    sidechain_A.topCommittedCertHash = uint256S("aaa");
+    sidechain_A.topCommittedCertQuality = 10;
+    sidechain_A.topCommittedCertReferencedEpoch = 15;
+    uint256 scId_A = uint256S("aaa");
+    storeSidechain(scId_A, sidechain_A);
+
+    CSidechain sidechain_B;
+    sidechain_B.topCommittedCertHash = uint256S("bbb");
+    sidechain_B.topCommittedCertQuality = 2;
+    sidechain_B.topCommittedCertReferencedEpoch = 200;
+    uint256 scId_B = uint256S("bbb");
+    storeSidechain(scId_B, sidechain_B);
+
+    CMutableScCertificate cert_A_1;
+    cert_A_1.scId = scId_A;
+    cert_A_1.epochNumber = sidechain_A.topCommittedCertReferencedEpoch;
+    cert_A_1.quality = sidechain_A.topCommittedCertQuality * 2;
+
+    CMutableScCertificate cert_A_2;
+    cert_A_2.scId = scId_A;
+    cert_A_2.epochNumber = sidechain_A.topCommittedCertReferencedEpoch;
+    cert_A_2.quality = sidechain_A.topCommittedCertQuality * 3;
+
+    CMutableScCertificate cert_A_3;
+    cert_A_3.scId = scId_A;
+    cert_A_3.epochNumber = sidechain_A.topCommittedCertReferencedEpoch;
+    cert_A_3.quality = sidechain_A.topCommittedCertQuality * 4;
+
+    CMutableScCertificate cert_B_1;
+    cert_B_1.scId = scId_B;
+    cert_B_1.epochNumber = sidechain_B.topCommittedCertReferencedEpoch + 1;
+    cert_B_1.quality = sidechain_B.topCommittedCertQuality + 1;
+
+    CMutableScCertificate cert_B_2;
+    cert_B_2.scId = scId_B;
+    cert_B_2.epochNumber = sidechain_B.topCommittedCertReferencedEpoch + 1;
+    cert_B_2.quality = sidechain_B.topCommittedCertQuality + 2;
+
+    CBlock aBlock;
+    aBlock.vcert.push_back(cert_A_1);
+    aBlock.vcert.push_back(cert_B_1);
+    aBlock.vcert.push_back(cert_A_2);
+    aBlock.vcert.push_back(cert_B_2);
+    aBlock.vcert.push_back(cert_A_3);
+    ASSERT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+
+    std::vector<uint256> certHashesToVoid = {sidechain_A.topCommittedCertHash, cert_A_1.GetHash(), cert_A_2.GetHash(), cert_B_1.GetHash()};
+    EXPECT_TRUE(sidechainsView->CertsToVoidUponConnectionOf(aBlock) == certHashesToVoid);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// HELPERS ///////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-uint256 SidechainMultipleCertsTestSuite::storeSidechain(const CSidechain& sidechain)
+uint256 SidechainMultipleCertsTestSuite::storeSidechain(const uint256& scId, const CSidechain& sidechain)
 {
-    uint256 scId = uint256S("aaa");
-
     CSidechainsMap mapSidechain;
     mapSidechain[scId] = CSidechainsCacheEntry(sidechain,CSidechainsCacheEntry::Flags::FRESH);
 

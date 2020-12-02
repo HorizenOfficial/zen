@@ -1218,7 +1218,7 @@ void CCoinsViewCache::NullifyBackwardTransfers(const uint256& certHash, CTxUndo&
         coins->Spend(pos);
         if (coins->vout.size() == 0)
         {
-            CTxInUndo& undo = certUndoEntry.vBwts.back();
+            CTxInUndo& undo         = certUndoEntry.vBwts.back();
             undo.nHeight            = coins->nHeight;
             undo.fCoinBase          = coins->fCoinBase;
             undo.nVersion           = coins->nVersion;
@@ -1353,6 +1353,35 @@ CAmount CCoinsViewCache::GetValueOfBackwardTransfers(const uint256& certHash) co
     return bt_amount;
 }
 
+std::vector<uint256> CCoinsViewCache::CertsToVoidUponConnectionOf(const CBlock& blockToConnect)
+{
+    // The function assumes that certs of given scId are ordered by increasing quality and
+    // reference the same epoch as CheckBlock() guarantees.
+    std::vector<uint256> res;
+    typedef uint256 ScId;
+    typedef int ScEpoch;
+    std::map<std::pair<ScId, ScEpoch>, std::vector<uint256>> blockCertHashesByScData;
+
+    for(const CScCertificate& cert: blockToConnect.vcert)
+        blockCertHashesByScData[std::make_pair(cert.GetScId(), cert.epochNumber)].push_back(cert.GetHash());
+
+    for (auto itSc = blockCertHashesByScData.begin(); itSc != blockCertHashesByScData.end(); ++itSc)
+    {
+        // Certificate already confirmed should be voided if it belongs to same epoch as certs in block
+        CSidechain sidechain;
+        if(!GetSidechain(itSc->first.first, sidechain))
+            continue;
+
+        if (itSc->first.second == sidechain.topCommittedCertReferencedEpoch)
+            res.push_back(sidechain.topCommittedCertHash);
+
+        //all certs but the last (highest quality one) should be voided
+        for(auto itCert = itSc->second.begin(); itCert != std::prev(itSc->second.end()); ++itCert)
+            res.push_back(*itCert);
+    }
+
+    return res;
+}
 
 bool CCoinsViewCache::HaveSidechainEvents(int height) const
 {
