@@ -1375,9 +1375,8 @@ std::vector<uint256> CCoinsViewCache::CertsToVoidUponConnectionOf(const CBlock& 
         if (itSc->first.second == sidechain.topCommittedCertReferencedEpoch)
             res.push_back(sidechain.topCommittedCertHash);
 
-        //all certs but the last (highest quality one) should be voided
-        for(auto itCert = itSc->second.begin(); itCert != std::prev(itSc->second.end()); ++itCert)
-            res.push_back(*itCert);
+        // all certs but the last (highest quality one) should be voided too
+        res.insert(res.end(), itSc->second.begin(), std::prev(itSc->second.end()));
     }
 
     return res;
