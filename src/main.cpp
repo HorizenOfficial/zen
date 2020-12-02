@@ -2723,9 +2723,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     SidechainTxsCommitmentBuilder scCommitmentBuilder;
      
-    for (unsigned int i = 0; i < block.vtx.size(); i++) // Processing transactions loop
+    for (unsigned int txIdx = 0; txIdx < block.vtx.size(); ++txIdx) // Processing transactions loop
     {
-        const CTransaction &tx = block.vtx[i];
+        const CTransaction &tx = block.vtx[txIdx];
 
         nInputs += tx.GetVin().size();
         nSigOps += GetLegacySigOpCount(tx);
@@ -2766,12 +2766,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
 
         CTxUndo undoDummy;
-        if (i > 0) {
+        if (txIdx > 0) {
             blockundo.vtxundo.push_back(CTxUndo());
         }
-        UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
+        UpdateCoins(tx, view, txIdx == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
 
-        if ( i > 0)
+        if (txIdx > 0)
         {
             if (!view.UpdateScInfo(tx, block, pindex->nHeight) )
             {
@@ -2786,7 +2786,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     return state.DoS(100, error("ConnectBlock(): error scheduling maturing height for sidechain [%s]", scCreation.GetScId().ToString()),
                                                          REJECT_INVALID, "bad-sc-not-recorded");
                 }
-
             }
 
             for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
@@ -2797,7 +2796,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                      REJECT_INVALID, "bad-fwd-not-recorded");
                 }
             }
-
         }
 
         BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
@@ -2814,9 +2812,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         {
             scCommitmentBuilder.add(tx);
         }
-
     }  //end of Processing transactions loop
-
 
     for (unsigned int certIdx = 0; certIdx < block.vcert.size(); certIdx++) // Processing certificates loop
     {
@@ -2867,9 +2863,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
             return state.DoS(100, error("ConnectBlock(): Error updating ceasing heights with certificate [%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-recorded");
-
         }
-
 
         if (certIdx == 0) {
             // we are processing the first certificate, add the size of the vcert to the offset
@@ -2895,7 +2889,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         return state.DoS(100, error("ConnectBlock(): could not handle scheduled event"),
                                  REJECT_INVALID, "bad-sc-events-handling");
     }
-
 
     view.PushAnchor(tree);
     if (!fJustCheck) {
