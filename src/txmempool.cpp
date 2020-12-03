@@ -1276,31 +1276,6 @@ size_t CTxMemPool::DynamicMemoryUsage() const {
           cachedInnerUsage);
 }
 
-int64_t CCoinsViewMemPool::GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const
-{
-    LogPrint("mempool", "%s.%s():%d - sc %s, epoch %d\n", __FILE__, __func__, __LINE__, scId.ToString(), epochNumber);
-
-    int64_t topQual = base->GetTopQualityCert(scId, epochNumber, hash);
-    LogPrint("cert", "%s.%s():%d - base: cert [%s], q=%d\n", __FILE__, __func__, __LINE__, hash.ToString(), topQual);
-
-    if ((mempool.mapSidechains.count(scId) != 0) &&
-        (!mempool.mapSidechains.at(scId).mBackwardCertificates.empty()))
-    {
-        const uint256&        memPoolCertHash = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
-        const CScCertificate& memPoolCert     = mempool.mapCertificate.at(memPoolCertHash).GetCertificate();
-
-        if (memPoolCert.epochNumber == epochNumber && memPoolCert.quality > topQual)
-        {
-            LogPrint("cert", "%s.%s():%d - mempool: cert [%s], q=%d\n", __FILE__, __func__, __LINE__,
-                memPoolCertHash.ToString(), memPoolCert.quality);
-            topQual = memPoolCert.quality;
-            hash = memPoolCertHash;
-        }
-    }
-
-    return topQual;
-}
-
 std::pair<uint256, CAmount> CTxMemPool::FindConflictingCert(const uint256& scId, int64_t certQuality)
 {
     LOCK(cs);
