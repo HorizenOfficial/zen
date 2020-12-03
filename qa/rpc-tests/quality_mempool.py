@@ -196,12 +196,20 @@ class quality_mempool(BitcoinTestFramework):
         assert_equal(True, cert_1_epoch_0 in self.nodes[0].getrawmempool())
 
         # Create Cert2 with lower quality, any fee, deps on cert_1 and try to place it in mempool
-        mark_logs("#Checking rejection of cert_2 with same (scId, epoch), lower quality,  any fee, with spending deps on cert_1", self.nodes, DEBUG_MODE)
+        mark_logs("Checking rejection of cert_2 with same (scId, epoch), lower quality,  any fee, with spending deps on cert_1", self.nodes, DEBUG_MODE)
         low_quality_proof = mcTest.create_test_proof(
             "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
             quality - 10, constant_1, [pkh_node1], [bwt_amount])
+
+        inputs = [{'txid': cert_1_epoch_0, 'vout': 0}]
+        outputs = {}
+        bwt_outs = {pkh_node1: bwt_amount}
+        params = {"scid": scid_1, "quality": quality - 10, "endEpochBlockHash": epoch_block_hash_1, "scProof": low_quality_proof,
+                  "withdrawalEpochNumber": epoch_number_1}
         try:
-            cert_2_epoch_0 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality - 10, epoch_block_hash_1, low_quality_proof, amount_cert, CERT_FEE)
+            rawcert    = self.nodes[1].createrawcertificate(inputs, outputs, bwt_outs, params)
+            signed_cert = self.nodes[1].signrawcertificate(rawcert)
+            rawcert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
             assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -276,8 +284,16 @@ class quality_mempool(BitcoinTestFramework):
         cert3_proof = mcTest.create_test_proof(
             "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
             quality, constant_1, [pkh_node1], [bwt_amount])
+
+        inputs = [{'txid': cert_1_epoch_0, 'vout': 0}]
+        outputs = {}
+        bwt_outs = {pkh_node1: bwt_amount}
+        params = {"scid": scid_1, "quality": quality, "endEpochBlockHash": epoch_block_hash_1, "scProof": cert3_proof,
+                  "withdrawalEpochNumber": epoch_number_1}
         try:
-            cert_3_epoch_0 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1, cert3_proof, amount_cert_3, HIGH_CERT_FEE)
+            rawcert    = self.nodes[1].createrawcertificate(inputs, outputs, bwt_outs, params)
+            signed_cert = self.nodes[1].signrawcertificate(rawcert)
+            cert_3_epoch_0 = self.nodes[1].sendrawcertificate(signed_cert['hex'])
             assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
