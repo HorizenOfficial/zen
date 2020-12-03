@@ -402,7 +402,6 @@ public:
     //! Retrieve all the known sidechain ids
     virtual void GetScIds(std::set<uint256>& scIdsList) const;
     virtual bool CheckQuality(const CScCertificate& cert) const;
-    virtual CAmount GetValueOfBackwardTransfers(const uint256& certHash) const;
     virtual int64_t GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const;
 
     //! Retrieve the block hash whose state this CCoinsView currently represents
@@ -447,7 +446,6 @@ public:
     bool GetSidechainEvents(int height, CSidechainEvents& scEvents)    const override;
     void GetScIds(std::set<uint256>& scIdsList)                        const override;
     bool CheckQuality(const CScCertificate& cert)                      const override;
-    CAmount GetValueOfBackwardTransfers(const uint256& certHash)       const override;
     int64_t GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const override;
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
@@ -574,7 +572,6 @@ public:
     bool UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry, std::map<uint256, bool>* pVoidedCertsMap = nullptr);
     bool RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry, std::map<uint256, bool>* pVoidedCertsMap = nullptr);
     bool CheckQuality(const CScCertificate& cert)  const override;
-    CAmount GetValueOfBackwardTransfers(const uint256& certHash) const override;
     int64_t GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const override;
     void NullifyBackwardTransfers(const uint256& certHash, CTxUndo& certUndoEntry);
     bool RestoreBackwardTransfers(const CTxUndo& certUndoEntry);

@@ -323,7 +323,6 @@ public:
     bool HaveCoins(const uint256 &txid)                            const override;
     bool GetSidechain(const uint256& scId, CSidechain& info)       const override;
     bool HaveSidechain(const uint256& scId)                        const override;
-    CAmount GetValueOfBackwardTransfers(const uint256& certHash)   const override;
     int64_t GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const override;
 };
 
