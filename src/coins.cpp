@@ -189,7 +189,6 @@ bool CCoinsView::HaveSidechainEvents(int height)                               c
 bool CCoinsView::GetSidechainEvents(int height, CSidechainEvents& scEvent)     const { return false; }
 void CCoinsView::GetScIds(std::set<uint256>& scIdsList)                        const { scIdsList.clear(); return; }
 bool CCoinsView::CheckQuality(const CScCertificate& cert)                      const { return false; }
-int64_t CCoinsView::GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const { return CScCertificate::QUALITY_NULL;}
 uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
 uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
@@ -211,7 +210,6 @@ bool CCoinsViewBacked::HaveSidechainEvents(int height)                          
 bool CCoinsViewBacked::GetSidechainEvents(int height, CSidechainEvents& scEvents)    const { return base->GetSidechainEvents(height, scEvents); }
 void CCoinsViewBacked::GetScIds(std::set<uint256>& scIdsList)                        const { return base->GetScIds(scIdsList); }
 bool CCoinsViewBacked::CheckQuality(const CScCertificate& cert)                      const { return base->CheckQuality(cert); }
-int64_t CCoinsViewBacked::GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const { return base->GetTopQualityCert(scId, epochNumber, hash); }
 uint256 CCoinsViewBacked::GetBestBlock()                                             const { return base->GetBestBlock(); }
 uint256 CCoinsViewBacked::GetBestAnchor()                                            const { return base->GetBestAnchor(); }
 void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
@@ -661,27 +659,6 @@ bool CCoinsViewCache::GetSidechain(const uint256 & scId, CSidechain& targetScInf
         return true;
     }
     return false;
-}
-
-int64_t CCoinsViewCache::GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const
-{
-    LogPrint("mempool", "%s.%s():%d - sc %s, epoch %d\n", __FILE__, __func__, __LINE__, scId.ToString(), epochNumber);
-
-    int64_t topQual = base->GetTopQualityCert(scId, epochNumber, hash);
-    LogPrint("mempool", "%s.%s():%d - base: cert [%s], q=%d\n", __FILE__, __func__, __LINE__, hash.ToString(), topQual);
-
-    CSidechain targetInfo;
-    if (GetSidechain(scId, targetInfo)                            &&
-        !targetInfo.topCommittedCertHash.IsNull()                 &&
-        epochNumber == targetInfo.topCommittedCertReferencedEpoch &&
-        targetInfo.topCommittedCertQuality > topQual)
-    {
-        LogPrint("mempool", "%s.%s():%d - cache: cert [%s], q=%d\n", __FILE__, __func__, __LINE__, hash.ToString(), topQual);
-        hash = targetInfo.topCommittedCertHash;
-        topQual = targetInfo.topCommittedCertQuality;
-    }
-    
-    return topQual;
 }
 
 void CCoinsViewCache::GetScIds(std::set<uint256>& scIdsList) const
