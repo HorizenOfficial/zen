@@ -4984,12 +4984,10 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     // allow use of unconfirmed coins
     int nMinDepth = 0; //1; 
 
-    uint256 topQualityCert;
     CAmount delta = 0;
-
-    if (scView.GetTopQualityCert(scId, epochNumber, topQualityCert) != CScCertificate::QUALITY_NULL)
+    if (epochNumber == scInfo.topCommittedCertReferencedEpoch)
     {
-        delta = scView.GetValueOfBackwardTransfers(topQualityCert);
+        delta = scInfo.topCommittedCertBwtAmount;
     }
 
     if (nTotalOut > scInfo.balance+delta)
