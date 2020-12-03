@@ -2865,6 +2865,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-sc-cert-not-updated");
         }
 
+        view.NullifyBackwardTransfers(lowQualityCertHashes[certIdx], blockundo.vtxundo.back().vBwts);
+
         if (!view.ScheduleSidechainEvent(cert))
         {
             LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);

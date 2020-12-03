@@ -21,6 +21,7 @@
 #include <sc/proofverifier.h>
 
 class CBlockUndo;
+class CTxInUndo;
 class CVoidedCertUndo;
 
 static const int BWT_POS_UNSET = -1;
@@ -576,7 +577,7 @@ public:
     bool CheckQuality(const CScCertificate& cert)  const override;
     CAmount GetValueOfBackwardTransfers(const uint256& certHash) const override;
     int64_t GetTopQualityCert(const uint256& scId, int epochNumber, uint256& hash) const override;
-    void NullifyBackwardTransfers(const uint256& certHash, CTxUndo& certUndoEntry);
+    void NullifyBackwardTransfers(const uint256& certHash, std::vector<CTxInUndo>& nullifiedOuts);
     bool RestoreBackwardTransfers(const CTxUndo& certUndoEntry);
     std::vector<uint256> LowQualityCertsUponConnectionOf(const CBlock& blockToConnect);
 
