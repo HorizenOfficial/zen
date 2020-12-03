@@ -201,15 +201,25 @@ class quality_mempool(BitcoinTestFramework):
             "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
             quality - 10, constant_1, [pkh_node1], [bwt_amount])
 
-        inputs = [{'txid': cert_1_epoch_0, 'vout': 0}]
-        outputs = {}
+        # get a UTXO
+        utx = False
+        listunspent = self.nodes[0].listunspent(0)
+        for aUtx in listunspent:
+            if aUtx['amount'] > HIGH_CERT_FEE and aUtx['txid'] == cert_1_epoch_0:
+                utx = aUtx
+                change = aUtx['amount'] - CERT_FEE
+                break;
+
+        inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
+        outputs = { self.nodes[0].getnewaddress() : change }
         bwt_outs = {pkh_node1: bwt_amount}
         params = {"scid": scid_1, "quality": quality - 10, "endEpochBlockHash": epoch_block_hash_1, "scProof": low_quality_proof,
                   "withdrawalEpochNumber": epoch_number_1}
+
         try:
-            rawcert    = self.nodes[1].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[1].signrawcertificate(rawcert)
-            rawcert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
+            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            cert2 = self.nodes[0].sendrawcertificate(signed_cert['hex'])
             assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -285,15 +295,27 @@ class quality_mempool(BitcoinTestFramework):
             "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
             quality, constant_1, [pkh_node1], [bwt_amount])
 
-        inputs = [{'txid': cert_1_epoch_0, 'vout': 0}]
-        outputs = {}
+
+        # get a UTXO
+        utx = False
+        listunspent = self.nodes[0].listunspent(0)
+        for aUtx in listunspent:
+            pprint.pprint(aUtx)
+            if aUtx['amount'] > HIGH_CERT_FEE and aUtx['txid'] == cert_1_epoch_0:
+                utx = aUtx
+                change = aUtx['amount'] - HIGH_CERT_FEE
+                break;
+
+        inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
+        outputs = { self.nodes[0].getnewaddress() : change }
         bwt_outs = {pkh_node1: bwt_amount}
         params = {"scid": scid_1, "quality": quality, "endEpochBlockHash": epoch_block_hash_1, "scProof": cert3_proof,
                   "withdrawalEpochNumber": epoch_number_1}
+
         try:
-            rawcert    = self.nodes[1].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[1].signrawcertificate(rawcert)
-            cert_3_epoch_0 = self.nodes[1].sendrawcertificate(signed_cert['hex'])
+            rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
+            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            cert_3_epoch_0 = self.nodes[0].sendrawcertificate(signed_cert['hex'])
             assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
