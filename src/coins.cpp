@@ -1353,30 +1353,38 @@ CAmount CCoinsViewCache::GetValueOfBackwardTransfers(const uint256& certHash) co
     return bt_amount;
 }
 
-std::vector<uint256> CCoinsViewCache::CertsToVoidUponConnectionOf(const CBlock& blockToConnect)
+std::vector<uint256> CCoinsViewCache::LowQualityCertsUponConnectionOf(const CBlock& blockToConnect)
 {
     // The function assumes that certs of given scId are ordered by increasing quality and
-    // reference the same epoch as CheckBlock() guarantees.
+    // reference all the same epoch as CheckBlock() guarantees.
+
+    // It's key that res[pos] carries the hash of the certificate made low quality by blockToConnect.vcert[pos]
+    // Should a cert in block NOT superseed another one, an empty hash will be placed
     std::vector<uint256> res;
     typedef uint256 ScId;
-    typedef int ScEpoch;
-    std::map<std::pair<ScId, ScEpoch>, std::vector<uint256>> blockCertHashesByScData;
 
-    for(const CScCertificate& cert: blockToConnect.vcert)
-        blockCertHashesByScData[std::make_pair(cert.GetScId(), cert.epochNumber)].push_back(cert.GetHash());
-
-    for (auto itSc = blockCertHashesByScData.begin(); itSc != blockCertHashesByScData.end(); ++itSc)
+    std::map<ScId, unsigned int> certsPosByScId;
+    for(unsigned int pos = 0; pos < blockToConnect.vcert.size(); ++pos)
     {
-        // Certificate already confirmed should be voided if it belongs to same epoch as certs in block
-        CSidechain sidechain;
-        if(!GetSidechain(itSc->first.first, sidechain))
-            continue;
+        const CScCertificate& currentCert = blockToConnect.vcert[pos];
+        if (certsPosByScId.count(currentCert.GetScId()) == 0)
+        {
+            // First cert in block, for a given scId and same epoch, makes committed cert in view a low quality one
+            CSidechain sidechain;
+            if(!GetSidechain(currentCert.GetScId(), sidechain))
+                continue;
 
-        if (itSc->first.second == sidechain.topCommittedCertReferencedEpoch)
-            res.push_back(sidechain.topCommittedCertHash);
-
-        // all certs but the last (highest quality one) should be voided too
-        res.insert(res.end(), itSc->second.begin(), std::prev(itSc->second.end()));
+            if (currentCert.epochNumber == sidechain.topCommittedCertReferencedEpoch)
+                res.push_back(sidechain.topCommittedCertHash);
+            else
+                res.push_back(uint256());
+        } else
+        {
+            // N-th cert in block, for a given scId, makes (N-1)th cert in block a low quality one
+            unsigned int& prevCertPosition = certsPosByScId[currentCert.GetScId()];
+            res.push_back(blockToConnect.vcert.at(prevCertPosition).GetHash());
+        }
+        certsPosByScId[currentCert.GetScId()] = pos;
     }
 
     return res;

@@ -2819,6 +2819,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
     }  //end of Processing transactions loop
 
+    std::vector<uint256> lowQualityCertHashes = view.LowQualityCertsUponConnectionOf(block);
+
     for (unsigned int certIdx = 0; certIdx < block.vcert.size(); certIdx++) // Processing certificates loop
     {
         const CScCertificate &cert = block.vcert[certIdx];
