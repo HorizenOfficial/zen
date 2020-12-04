@@ -2,35 +2,35 @@
 
 int64_t GetBlockDelay(const CBlockIndex& newBlock, const CBlockIndex& prevBlock, const int activeChainHeight, const bool isStartupSyncing)
 {
-    if(isStartupSyncing)
-    {
+
+    if(isStartupSyncing) {
     	return 0;
     }
 
-    if(newBlock.nHeight < activeChainHeight )
-    {
+    if(newBlock.nHeight < activeChainHeight ) {
       	LogPrintf("Received a delayed block (activeChainHeight: %d, newBlockHeight: %d)!\n", activeChainHeight, newBlock.nHeight);
     }
 
     // if the current chain is penalised.
-    if (prevBlock.nChainDelay > 0)
-    {
-    	// blocks on tip get penalty reduced by 1;
-    	// other blocks get penalty increased proportionally to distance from tip
-    	int64_t blockDelay =  std::max<int64_t>((activeChainHeight - newBlock.nHeight),int64_t(-1));
-
-    	LogPrintf("calculated blockDelay %d for newBlockHeight %d (activeChainHeight: %d, prevBlockChainDelay: %d)!\n",
-    			blockDelay, activeChainHeight, newBlock.nHeight, prevBlock.nChainDelay);
-    	return blockDelay;
-    }
-
-    // Introduce penalty in case we receive a historic block.
-    // (uses a threshold value)
-    if (activeChainHeight - newBlock.nHeight > PENALTY_THRESHOLD )
-    {
-        return (activeChainHeight - newBlock.nHeight);
-    } else // no delay detected.
-    {
-        return 0;
+    if (prevBlock.nChainDelay > 0) {
+        // Positive values to increase the penalty until
+        // we reach the current active height.
+        if (activeChainHeight >= newBlock.nHeight ) {
+        	return (activeChainHeight - newBlock.nHeight);
+        } else {
+        	LogPrintf("Decreasing penalty to chain (activeChainHeight: %d, newBlockHeight: %d, prevBlockChainDelay: %d)!\n", activeChainHeight, newBlock.nHeight, prevBlock.nChainDelay);
+        	// -1 to decrease the penalty afterwards.
+            return -1;
+        } 
+    // no penalty yet, or penalty already resolved.
+    } else {
+        // Introduce penalty in case we receive a historic block.
+        // (uses a threshold value)
+        if (activeChainHeight - newBlock.nHeight > PENALTY_THRESHOLD ){
+            return (activeChainHeight - newBlock.nHeight);
+        // no delay detected.
+        } else {
+            return 0;
+        }
     }
 }
