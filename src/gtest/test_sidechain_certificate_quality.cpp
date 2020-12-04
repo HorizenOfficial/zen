@@ -91,9 +91,11 @@ protected:
 
     CCoinsMap           dummyCoins;
     uint256             dummyHash;
+    uint256             dummyAnchor;
     CAnchorsMap         dummyAnchors;
     CNullifiersMap      dummyNullifiers;
-    CSidechainEventsMap dummyCeasedScs;
+    CSidechainsMap      dummySidechains;
+    CSidechainEventsMap dummyScEvents;
 
     CValidationState    dummyState;
 
@@ -411,7 +413,7 @@ TEST_F(SidechainMultipleCertsTestSuite, CertsInMempoolDoNotAffectCheckQuality) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///////////////////////// CheckCertificatesOrdering ///////////////////////////
+///////////////////////// CheckCertificatesOrdering //////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST(SidechainMultipleCerts, BlocksWithCertsOfDifferentEpochsAreRejected) {
     CMutableScCertificate cert_1;
@@ -656,8 +658,8 @@ uint256 SidechainMultipleCertsTestSuite::storeSidechain(const uint256& scId, con
     CSidechainsMap mapSidechain;
     mapSidechain[scId] = CSidechainsCacheEntry(sidechain,CSidechainsCacheEntry::Flags::FRESH);
 
-    sidechainsView->BatchWrite(dummyCoins, dummyHash, dummyHash, dummyAnchors,
-                               dummyNullifiers, mapSidechain, dummyCeasedScs);
+    sidechainsView->BatchWrite(dummyCoins, dummyHash, dummyAnchor, dummyAnchors,
+                               dummyNullifiers, mapSidechain, dummyScEvents);
 
     return scId;
 }

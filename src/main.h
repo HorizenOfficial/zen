@@ -240,6 +240,7 @@ bool ActivateBestChain(CValidationState &state, CBlock *pblock = NULL);
 /** Find an alternative chain tip and propagate to the network */
 bool RelayAlternativeChain(CValidationState &state, CBlock *pblock, BlockSet* sForkTips);
 
+CBlockIndex* AddToBlockIndex(const CBlockHeader& block);
 bool addToGlobalForkTips(const CBlockIndex* pindex);
 int getMostRecentGlobalForkTips(std::vector<uint256>& output);
 bool updateGlobalForkTips(const CBlockIndex* pindex, bool lookForwardTips);
