@@ -44,6 +44,7 @@ public:
     CSidechain() : creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
                    topCommittedCertReferencedEpoch(CScCertificate::EPOCH_NULL),
                    topCommittedCertHash(), topCommittedCertQuality(CScCertificate::QUALITY_NULL),
+                   topCommittedCertBwtAmount(0),
                    balance(0) {}
 
     // reference to the block containing the tx that created the side chain
@@ -63,6 +64,9 @@ public:
 
     // quality of the certificate
     int64_t topCommittedCertQuality;
+
+    // total bwt amount of the certificate
+    CAmount topCommittedCertBwtAmount;
 
     // total amount given by sum(fw transfer)-sum(bkw transfer)
     CAmount balance;
@@ -96,6 +100,7 @@ public:
         READWRITE(topCommittedCertReferencedEpoch);
         READWRITE(topCommittedCertHash);
         READWRITE(topCommittedCertQuality);
+        READWRITE(topCommittedCertBwtAmount);
         READWRITE(balance);
         READWRITE(creationData);
         READWRITE(mImmatureAmounts);
@@ -109,6 +114,7 @@ public:
                (this->topCommittedCertReferencedEpoch  == rhs.topCommittedCertReferencedEpoch) &&
                (this->topCommittedCertHash             == rhs.topCommittedCertHash)            &&
                (this->topCommittedCertQuality          == rhs.topCommittedCertQuality)         &&
+               (this->topCommittedCertBwtAmount        == rhs.topCommittedCertBwtAmount)       &&
                (this->balance                          == rhs.balance)                         &&
                (this->creationData                     == rhs.creationData)                    &&
                (this->mImmatureAmounts                 == rhs.mImmatureAmounts);

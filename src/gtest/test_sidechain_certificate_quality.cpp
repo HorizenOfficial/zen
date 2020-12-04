@@ -108,13 +108,10 @@ TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoIncreasingQualitiesCertsIn
     uint256 scId = storeSidechain(initialScState);
 
     //Insert low quality Certificate
-    CMutableScCertificate lowQualityCert = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/1, /*bwtAmount*/CAmount(0), /*numBwt*/0);
+    CMutableScCertificate lowQualityCert;
+    lowQualityCert.scId = scId;
     lowQualityCert.quality = 100;
     lowQualityCert.epochNumber = 0; // NEEDED IN CURRENT IMPLENTATION
-
-    // NEEDED IN CURRENT IMPLENTATION
-    UpdateCoins(lowQualityCert, *sidechainsView, dummyUndo, initialScState.creationBlockHeight + Params().ScCoinsMaturity());
 
     //test
     ASSERT_TRUE(sidechainsView->UpdateScInfo(lowQualityCert, dummyUndo));
@@ -122,9 +119,10 @@ TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoIncreasingQualitiesCertsIn
     //check
     CSidechain sidechain;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,sidechain));
-    EXPECT_TRUE(sidechain.balance == initialScState.balance - CScCertificate(lowQualityCert).GetValueOfBackwardTransfers());
     EXPECT_TRUE(sidechain.topCommittedCertHash == lowQualityCert.GetHash());
     EXPECT_TRUE(sidechain.topCommittedCertQuality == lowQualityCert.quality);
+    EXPECT_TRUE(sidechain.topCommittedCertBwtAmount == CScCertificate(lowQualityCert).GetValueOfBackwardTransfers());
+    EXPECT_TRUE(sidechain.balance == initialScState.balance - sidechain.topCommittedCertBwtAmount);
 
     //Insert high quality Certificate
     CMutableScCertificate highQualityCert = lowQualityCert;
@@ -137,9 +135,10 @@ TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoIncreasingQualitiesCertsIn
 
     //check
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,sidechain));
-    EXPECT_TRUE(sidechain.balance == initialScState.balance - CScCertificate(highQualityCert).GetValueOfBackwardTransfers());
     EXPECT_TRUE(sidechain.topCommittedCertHash == highQualityCert.GetHash());
     EXPECT_TRUE(sidechain.topCommittedCertQuality == highQualityCert.quality);
+    EXPECT_TRUE(sidechain.topCommittedCertBwtAmount == CScCertificate(highQualityCert).GetValueOfBackwardTransfers());
+    EXPECT_TRUE(sidechain.balance == initialScState.balance - sidechain.topCommittedCertBwtAmount);
 }
 
 TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoDecreasingQualitiesCertsInSameEpoch) {
@@ -149,14 +148,11 @@ TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoDecreasingQualitiesCertsIn
     uint256 scId = storeSidechain(initialScState);
 
     //Insert high quality Certificate
-    CMutableScCertificate highQualityCert = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/1, /*bwtAmount*/CAmount(0), /*numBwt*/0);
+    CMutableScCertificate highQualityCert;
+    highQualityCert.scId = scId;
     highQualityCert.addBwt(CTxOut(CAmount(2), dummyScriptPubKey));
     highQualityCert.quality = 200;
     highQualityCert.epochNumber = 0; // NEEDED IN CURRENT IMPLENTATION
-
-    // NEEDED IN CURRENT IMPLENTATION
-    UpdateCoins(highQualityCert, *sidechainsView, dummyUndo, initialScState.creationBlockHeight + Params().ScCoinsMaturity());
 
     //test
     ASSERT_TRUE(sidechainsView->UpdateScInfo(highQualityCert, dummyUndo));
@@ -164,13 +160,14 @@ TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoDecreasingQualitiesCertsIn
     //check
     CSidechain sidechain;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,sidechain));
-    EXPECT_TRUE(sidechain.balance == initialScState.balance - CScCertificate(highQualityCert).GetValueOfBackwardTransfers());
     EXPECT_TRUE(sidechain.topCommittedCertHash == highQualityCert.GetHash());
     EXPECT_TRUE(sidechain.topCommittedCertQuality == highQualityCert.quality);
+    EXPECT_TRUE(sidechain.topCommittedCertBwtAmount == CScCertificate(highQualityCert).GetValueOfBackwardTransfers());
+    EXPECT_TRUE(sidechain.balance == initialScState.balance - sidechain.topCommittedCertBwtAmount);
 
     //Insert low quality Certificate
-    CMutableScCertificate lowQualityCert = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
+    CMutableScCertificate lowQualityCert;
+    lowQualityCert.scId = scId;
     lowQualityCert.quality = highQualityCert.quality /2;
     lowQualityCert.epochNumber = highQualityCert.epochNumber;
 
@@ -179,9 +176,10 @@ TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoDecreasingQualitiesCertsIn
 
     //check
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,sidechain));
-    EXPECT_TRUE(sidechain.balance == initialScState.balance - CScCertificate(highQualityCert).GetValueOfBackwardTransfers());
     EXPECT_TRUE(sidechain.topCommittedCertHash == highQualityCert.GetHash());
     EXPECT_TRUE(sidechain.topCommittedCertQuality == highQualityCert.quality);
+    EXPECT_TRUE(sidechain.topCommittedCertBwtAmount == CScCertificate(highQualityCert).GetValueOfBackwardTransfers());
+    EXPECT_TRUE(sidechain.balance == initialScState.balance - sidechain.topCommittedCertBwtAmount);
 }
 
 TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoIncreasingQualitiesCertsInSubsequentEpoch) {
@@ -191,13 +189,10 @@ TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoIncreasingQualitiesCertsIn
     uint256 scId = storeSidechain(initialScState);
 
     //Insert low quality Certificate
-    CMutableScCertificate lowQualityCert = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/1, /*bwtAmount*/CAmount(0), /*numBwt*/0);
+    CMutableScCertificate lowQualityCert;
+    lowQualityCert.scId = scId;
     lowQualityCert.quality = 100;
     lowQualityCert.epochNumber = 0; // NEEDED IN CURRENT IMPLENTATION
-
-    // NEEDED IN CURRENT IMPLENTATION
-    UpdateCoins(lowQualityCert, *sidechainsView, dummyUndo, initialScState.creationBlockHeight + Params().ScCoinsMaturity());
 
     //test
     ASSERT_TRUE(sidechainsView->UpdateScInfo(lowQualityCert, dummyUndo));
@@ -205,9 +200,10 @@ TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoIncreasingQualitiesCertsIn
     //check
     CSidechain sidechain;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,sidechain));
-    EXPECT_TRUE(sidechain.balance == initialScState.balance - CScCertificate(lowQualityCert).GetValueOfBackwardTransfers());
     EXPECT_TRUE(sidechain.topCommittedCertHash == lowQualityCert.GetHash());
     EXPECT_TRUE(sidechain.topCommittedCertQuality == lowQualityCert.quality);
+    EXPECT_TRUE(sidechain.topCommittedCertBwtAmount == CScCertificate(lowQualityCert).GetValueOfBackwardTransfers());
+    EXPECT_TRUE(sidechain.balance == initialScState.balance - sidechain.topCommittedCertBwtAmount);
 
     //Insert high quality Certificate
     CMutableScCertificate highQualityCert = lowQualityCert;
@@ -219,9 +215,10 @@ TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoIncreasingQualitiesCertsIn
 
     //check
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,sidechain));
-    EXPECT_TRUE(sidechain.balance == initialScState.balance - CScCertificate(highQualityCert).GetValueOfBackwardTransfers());
     EXPECT_TRUE(sidechain.topCommittedCertHash == highQualityCert.GetHash());
     EXPECT_TRUE(sidechain.topCommittedCertQuality == highQualityCert.quality);
+    EXPECT_TRUE(sidechain.topCommittedCertBwtAmount == CScCertificate(highQualityCert).GetValueOfBackwardTransfers());
+    EXPECT_TRUE(sidechain.balance == initialScState.balance - sidechain.topCommittedCertBwtAmount);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -373,119 +370,6 @@ TEST_F(SidechainMultipleCertsTestSuite, CertsInMempoolDoNotAffectCheckQuality) {
     trialCert.quality = initialScState.topCommittedCertQuality - 1;
     trialCert.epochNumber = initialScState.topCommittedCertReferencedEpoch + 1;
     EXPECT_TRUE(viewMempool.CheckQuality(trialCert));
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/////////////////////////////// GetTopQualityCert /////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainMultipleCertsTestSuite, GetTopQualityCert_Db_AlwaysNull) {
-    boost::filesystem::path  pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path());
-    boost::filesystem::create_directories(pathTemp);
-    mapArgs["-datadir"] = pathTemp.string();
-    CCoinsViewDB aChainStateDb(1024, false, false);
-    CCoinsViewCache cache(&aChainStateDb);
-
-    const uint256& scId = uint256S("aaabbbccc");
-
-    CSidechainsMap mapSidechain;
-    CSidechain sidechain;
-    sidechain.topCommittedCertQuality = 100;
-    sidechain.topCommittedCertHash = uint256S("aaa");
-    sidechain.topCommittedCertReferencedEpoch = 15;
-    mapSidechain[scId] = CSidechainsCacheEntry(sidechain,CSidechainsCacheEntry::Flags::FRESH);
-
-    // Null quality without persisted sidechain
-    uint256 retrievedCertHash;
-    EXPECT_TRUE(aChainStateDb.GetTopQualityCert(scId, sidechain.topCommittedCertReferencedEpoch, retrievedCertHash)
-                    == CScCertificate::QUALITY_NULL);
-
-    ASSERT_TRUE(cache.BatchWrite(dummyCoins, dummyHash, dummyHash, dummyAnchors,
-                                 dummyNullifiers, mapSidechain, dummyCeasedScs));
-
-    // CURRENTLY still null quality without persisted sidechain
-    EXPECT_TRUE(aChainStateDb.GetTopQualityCert(scId, sidechain.topCommittedCertReferencedEpoch, retrievedCertHash)
-                    == CScCertificate::QUALITY_NULL);
-    EXPECT_TRUE(retrievedCertHash.IsNull());
-}
-
-TEST_F(SidechainMultipleCertsTestSuite, GetTopQualityCert_View) {
-    CSidechain sidechain;
-    sidechain.topCommittedCertQuality = 100;
-    sidechain.topCommittedCertHash = uint256S("aaa");
-    sidechain.topCommittedCertReferencedEpoch = 15;
-    uint256 scId = storeSidechain(sidechain);
-
-    // Selecting same cert epoch, top quality is returned
-    uint256 retrievedCertHash;
-    EXPECT_TRUE(sidechainsView->GetTopQualityCert(scId, sidechain.topCommittedCertReferencedEpoch, retrievedCertHash)
-                    == sidechain.topCommittedCertQuality);
-    EXPECT_TRUE(retrievedCertHash == sidechain.topCommittedCertHash);
-
-    // Selecting different epoch than cert, null quality is returned
-    retrievedCertHash.SetNull();
-    EXPECT_TRUE(sidechainsView->GetTopQualityCert(scId, sidechain.topCommittedCertReferencedEpoch +1, retrievedCertHash)
-                    == CScCertificate::QUALITY_NULL);
-    EXPECT_TRUE(retrievedCertHash.IsNull());
-}
-
-TEST_F(SidechainMultipleCertsTestSuite, GetTopQualityCert_ViewMempool_CertInBackingViewOnly) {
-    CTxMemPool aMempool(::minRelayTxFee);
-    CCoinsViewMemPool viewMempool(sidechainsView, aMempool);
-
-    CSidechain sidechain;
-    sidechain.topCommittedCertQuality = 100;
-    sidechain.topCommittedCertHash = uint256S("aaa");
-    sidechain.topCommittedCertReferencedEpoch = 15;
-    uint256 scId = storeSidechain(sidechain);
-
-    // Selecting same cert epoch, top quality is returned
-    uint256 retrievedCertHash;
-    EXPECT_TRUE(viewMempool.GetTopQualityCert(scId, sidechain.topCommittedCertReferencedEpoch, retrievedCertHash)
-                    == sidechain.topCommittedCertQuality);
-    EXPECT_TRUE(retrievedCertHash == sidechain.topCommittedCertHash);
-
-    // Selecting different epoch than cert, null quality is returned
-    retrievedCertHash.SetNull();
-    EXPECT_TRUE(sidechainsView->GetTopQualityCert(scId, sidechain.topCommittedCertReferencedEpoch +1, retrievedCertHash)
-                    == CScCertificate::QUALITY_NULL);
-    EXPECT_TRUE(retrievedCertHash.IsNull());
-}
-
-TEST_F(SidechainMultipleCertsTestSuite, GetTopQualityCertFromViewMempool_CertsInBackingViewAndMempool) {
-    CTxMemPool aMempool(::minRelayTxFee);
-    CCoinsViewMemPool viewMempool(sidechainsView, aMempool);
-
-    CSidechain sidechain;
-    sidechain.topCommittedCertQuality = 100;
-    sidechain.topCommittedCertHash = uint256S("aaa");
-    sidechain.topCommittedCertReferencedEpoch = 15;
-    uint256 scId = storeSidechain(sidechain);
-
-    // add certificate to mempool
-    CMutableScCertificate cert;
-    cert.scId = scId;
-    cert.quality = sidechain.topCommittedCertQuality * 2;
-    cert.epochNumber = sidechain.topCommittedCertReferencedEpoch + 1 ;
-    CCertificateMemPoolEntry certEntry(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    ASSERT_TRUE(aMempool.addUnchecked(cert.GetHash(), certEntry));
-
-    // Selecting cert epoch from backing view, backing view quality is returned
-    uint256 retrievedCertHash;
-    EXPECT_TRUE(viewMempool.GetTopQualityCert(scId, sidechain.topCommittedCertReferencedEpoch, retrievedCertHash)
-                    == sidechain.topCommittedCertQuality);
-    EXPECT_TRUE(retrievedCertHash == sidechain.topCommittedCertHash);
-
-    // Selecting cert epoch from mempool view, mempool view quality is returned
-    retrievedCertHash.SetNull();
-    EXPECT_TRUE(viewMempool.GetTopQualityCert(scId, cert.epochNumber, retrievedCertHash)
-                    == cert.quality);
-    EXPECT_TRUE(retrievedCertHash == cert.GetHash());
-
-    // Selecting any other epoch, null quality is returned
-    retrievedCertHash.SetNull();
-    EXPECT_TRUE(viewMempool.GetTopQualityCert(scId, cert.epochNumber * 10, retrievedCertHash)
-                    == CScCertificate::QUALITY_NULL);
-    EXPECT_TRUE(retrievedCertHash.IsNull());
 }
 
 ///////////////////////////////////////////////////////////////////////////////

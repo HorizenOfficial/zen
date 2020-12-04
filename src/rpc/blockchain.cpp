@@ -1077,7 +1077,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
     sc.push_back(Pair("last certificate epoch", info.topCommittedCertReferencedEpoch));
     sc.push_back(Pair("last certificate hash", info.topCommittedCertHash.GetHex()));
     sc.push_back(Pair("last certificate quality", info.topCommittedCertQuality));
-    sc.push_back(Pair("last certificate amount", ValueFromAmount(view.GetValueOfBackwardTransfers(info.topCommittedCertHash))));
+    sc.push_back(Pair("last certificate amount", ValueFromAmount(info.topCommittedCertBwtAmount)));
 
     // creation parameters
     sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
