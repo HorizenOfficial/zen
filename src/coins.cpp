@@ -1307,7 +1307,7 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CTxUnd
         if (scIt->second.scInfo.topCommittedCertReferencedEpoch == certUndoEntry.replacedLastCertEpoch)
         {
             // if we are restoring a cert for the same epoch it must have a lower quality than us
-            assert(cert.quality > certUndoEntry.replacedLastCertEpoch);
+            assert(cert.quality > certUndoEntry.replacedLastCertQuality);
 
             // certificate must resurrect its bacwardtransfers
             RestoreBackwardTransfers(certUndoEntry);
