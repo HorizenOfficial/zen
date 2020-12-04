@@ -472,6 +472,40 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
     return  CreateNewBlock(scriptPubKeyIn,  nBlockMaxComplexitySize);
 }
 
+CMutableTransaction createCoinbase(const CScript &scriptPubKeyIn, CAmount fees, const int nHeight)
+{
+    const CChainParams& chainparams = Params();
+    CMutableTransaction txNew;
+
+    txNew.vin.resize(1);
+    txNew.vin[0].prevout.SetNull();
+    txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;
+
+    std::vector<CTxOut> coinbaseOutputList(1);
+    coinbaseOutputList.at(0).scriptPubKey = scriptPubKeyIn;
+    CAmount reward = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+    coinbaseOutputList.at(0).nValue = reward;
+    for (Fork::CommunityFundType cfType = Fork::CommunityFundType::FOUNDATION;
+            cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1))
+    {
+        CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight, reward, cfType);
+        if (vCommunityFund > 0)
+        {
+            // Take some reward away from miners
+        	coinbaseOutputList.at(0).nValue -= vCommunityFund;
+            // And give it to the community
+        	coinbaseOutputList.push_back(CTxOut(vCommunityFund, chainparams.GetCommunityFundScriptAtHeight(nHeight, cfType)));
+        }
+    }
+
+    coinbaseOutputList.at(0).nValue += fees;
+
+    for(const CTxOut& coinbaseOut: coinbaseOutputList)
+    	txNew.addOut(coinbaseOut);
+
+    return txNew;
+}
+
 CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlockMaxComplexitySize)
 {
     const CChainParams& chainparams = Params();
@@ -713,28 +747,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         nLastBlockSize = nBlockSize;
         LogPrintf("CreateNewBlock(): total size %u, tx/certs fee=%d\n", nBlockSize, nFees);
 
-        // Create coinbase tx
-        CMutableTransaction txNew;
-        txNew.vin.resize(1);
-        txNew.vin[0].prevout.SetNull();
-
-        CAmount reward = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
-        CTxOut out(reward, scriptPubKeyIn);
-        txNew.addOut(out);
-
-        for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
-            CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(nHeight, reward, cfType);
-            if (vCommunityFund > 0) {
-                // Take some reward away from miners
-                txNew.getOut(0).nValue -= vCommunityFund;
-                // And give it to the community
-                txNew.addOut(CTxOut(vCommunityFund, chainparams.GetCommunityFundScriptAtHeight(nHeight, cfType)));
-            }
-        }
-        // Add fees
-        txNew.getOut(0).nValue += nFees;
-        txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;        
-        pblock->vtx[0] = txNew;
+        pblock->vtx[0] = createCoinbase(scriptPubKeyIn, nFees, nHeight);
         pblocktemplate->vTxFees[0] = -nFees;
 
         // Randomise nonce
