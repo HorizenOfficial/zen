@@ -145,7 +145,7 @@ TEST_F(SidechainMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainIs
     initialScState.balance = CAmount(100);
     storeSidechain(scId, initialScState);
 
-    //Insert high quality Certificate
+    //Insert low quality Certificate
     CMutableScCertificate lowQualityCert;
     lowQualityCert.scId        = scId;
     lowQualityCert.epochNumber = initialScState.topCommittedCertReferencedEpoch;
@@ -175,7 +175,7 @@ TEST_F(SidechainMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_Sidecha
     initialScState.balance = CAmount(100);
     storeSidechain(scId, initialScState);
 
-    //Insert high quality Certificate
+    //Insert next epoch Certificate
     CMutableScCertificate nextEpochCert;
     nextEpochCert.scId        = scId;
     nextEpochCert.epochNumber = initialScState.topCommittedCertReferencedEpoch + 1;
@@ -195,6 +195,65 @@ TEST_F(SidechainMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_Sidecha
     EXPECT_TRUE(sidechain.balance == initialScState.balance - nextEpochCert_TotalBwtAmount);
 }
 
+TEST_F(SidechainMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_UndoDataCheck) {
+    uint256 scId = uint256S("aaa");
+
+    CSidechain initialScState;
+    initialScState.topCommittedCertHash = uint256S("cccc");
+    initialScState.topCommittedCertQuality = 100;
+    initialScState.topCommittedCertReferencedEpoch = 1987;
+    initialScState.topCommittedCertBwtAmount = 50;
+    initialScState.balance = CAmount(100);
+    storeSidechain(scId, initialScState);
+
+    //Insert high quality Certificate
+    CMutableScCertificate highQualityCert;
+    highQualityCert.scId        = scId;
+    highQualityCert.epochNumber = initialScState.topCommittedCertReferencedEpoch;
+    highQualityCert.quality     = initialScState.topCommittedCertQuality * 2;
+    highQualityCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
+    CAmount highQualityCert_TotalBwtAmount = CScCertificate(highQualityCert).GetValueOfBackwardTransfers();
+
+    //test
+    CTxUndo scUndoData;
+    ASSERT_TRUE(sidechainsView->UpdateScInfo(highQualityCert, scUndoData));
+
+    //check
+    EXPECT_TRUE(scUndoData.replacedLastCertHash      == initialScState.topCommittedCertHash);
+    EXPECT_TRUE(scUndoData.replacedLastCertEpoch     == initialScState.topCommittedCertReferencedEpoch);
+    EXPECT_TRUE(scUndoData.replacedLastCertQuality   == initialScState.topCommittedCertQuality);
+    EXPECT_TRUE(scUndoData.replacedLastCertBwtAmount == initialScState.topCommittedCertBwtAmount);
+}
+
+TEST_F(SidechainMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDataCheck) {
+    uint256 scId = uint256S("aaa");
+
+    CSidechain initialScState;
+    initialScState.topCommittedCertHash = uint256S("cccc");
+    initialScState.topCommittedCertQuality = 100;
+    initialScState.topCommittedCertReferencedEpoch = 1987;
+    initialScState.topCommittedCertBwtAmount = 50;
+    initialScState.balance = CAmount(100);
+    storeSidechain(scId, initialScState);
+
+    //Insert next epoch Certificate
+    CMutableScCertificate nextEpochCert;
+    nextEpochCert.scId        = scId;
+    nextEpochCert.epochNumber = initialScState.topCommittedCertReferencedEpoch + 1;
+    nextEpochCert.quality     = initialScState.topCommittedCertQuality / 2;
+    nextEpochCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
+    CAmount nextEpochCert_TotalBwtAmount = CScCertificate(nextEpochCert).GetValueOfBackwardTransfers();
+
+    //test
+    CTxUndo scUndoData;
+    ASSERT_TRUE(sidechainsView->UpdateScInfo(nextEpochCert, scUndoData));
+
+    //check
+    EXPECT_TRUE(scUndoData.replacedLastCertHash      == initialScState.topCommittedCertHash);
+    EXPECT_TRUE(scUndoData.replacedLastCertEpoch     == initialScState.topCommittedCertReferencedEpoch);
+    EXPECT_TRUE(scUndoData.replacedLastCertQuality   == initialScState.topCommittedCertQuality);
+    EXPECT_TRUE(scUndoData.replacedLastCertBwtAmount == initialScState.topCommittedCertBwtAmount);
+}
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// CheckQuality ////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
