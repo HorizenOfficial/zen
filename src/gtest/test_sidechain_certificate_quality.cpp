@@ -206,7 +206,7 @@ TEST_F(SidechainMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_UndoDataChe
     initialScState.balance = CAmount(100);
     storeSidechain(scId, initialScState);
 
-    //Insert high quality Certificate
+    //Insert high quality Certificate and generate undo data
     CMutableScCertificate highQualityCert;
     highQualityCert.scId        = scId;
     highQualityCert.epochNumber = initialScState.topCommittedCertReferencedEpoch;
@@ -214,15 +214,15 @@ TEST_F(SidechainMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_UndoDataChe
     highQualityCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
     CAmount highQualityCert_TotalBwtAmount = CScCertificate(highQualityCert).GetValueOfBackwardTransfers();
 
-    //test
     CTxUndo scUndoData;
     ASSERT_TRUE(sidechainsView->UpdateScInfo(highQualityCert, scUndoData));
 
-    //check
-    EXPECT_TRUE(scUndoData.replacedLastCertHash      == initialScState.topCommittedCertHash);
-    EXPECT_TRUE(scUndoData.replacedLastCertEpoch     == initialScState.topCommittedCertReferencedEpoch);
-    EXPECT_TRUE(scUndoData.replacedLastCertQuality   == initialScState.topCommittedCertQuality);
-    EXPECT_TRUE(scUndoData.replacedLastCertBwtAmount == initialScState.topCommittedCertBwtAmount);
+    //test
+    EXPECT_TRUE(sidechainsView->RevertCertOutputs(highQualityCert, scUndoData, &dummyVoidedCertMap));
+
+    CSidechain revertedSidechain;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId,revertedSidechain));
+    EXPECT_TRUE(initialScState == revertedSidechain);
 }
 
 TEST_F(SidechainMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDataCheck) {
@@ -242,17 +242,16 @@ TEST_F(SidechainMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDat
     nextEpochCert.epochNumber = initialScState.topCommittedCertReferencedEpoch + 1;
     nextEpochCert.quality     = initialScState.topCommittedCertQuality / 2;
     nextEpochCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
-    CAmount nextEpochCert_TotalBwtAmount = CScCertificate(nextEpochCert).GetValueOfBackwardTransfers();
 
-    //test
     CTxUndo scUndoData;
     ASSERT_TRUE(sidechainsView->UpdateScInfo(nextEpochCert, scUndoData));
 
-    //check
-    EXPECT_TRUE(scUndoData.replacedLastCertHash      == initialScState.topCommittedCertHash);
-    EXPECT_TRUE(scUndoData.replacedLastCertEpoch     == initialScState.topCommittedCertReferencedEpoch);
-    EXPECT_TRUE(scUndoData.replacedLastCertQuality   == initialScState.topCommittedCertQuality);
-    EXPECT_TRUE(scUndoData.replacedLastCertBwtAmount == initialScState.topCommittedCertBwtAmount);
+    //test
+    EXPECT_TRUE(sidechainsView->RevertCertOutputs(nextEpochCert, scUndoData, &dummyVoidedCertMap));
+
+    CSidechain revertedSidechain;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId,revertedSidechain));
+    EXPECT_TRUE(initialScState == revertedSidechain);
 }
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// CheckQuality ////////////////////////////////

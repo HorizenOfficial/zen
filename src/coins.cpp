@@ -1254,6 +1254,7 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CTxUnd
     }
 
     CSidechainsMap::iterator scIt = ModifySidechain(scId);
+    CSidechain copyToDebug = scIt->second.scInfo;
 
     // restore only if this is the top quality cert for this epoch
     LogPrint("cert", "%s():%d - cert %s, last cert %s, undo cert %s\n", __func__, __LINE__,
@@ -1274,7 +1275,7 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CTxUnd
         if (scIt->second.scInfo.topCommittedCertReferencedEpoch == certUndoEntry.replacedLastCertEpoch)
         {
             // if we are restoring a cert for the same epoch it must have a lower quality than us
-            assert(cert.quality > certUndoEntry.replacedLastCertEpoch);
+            assert(cert.quality > certUndoEntry.replacedLastCertQuality);
 
             // certificate must resurrect its bacwardtransfers
             RestoreBackwardTransfers(certUndoEntry);
