@@ -108,8 +108,8 @@ TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoIncreasingQualitiesCertsIn
     uint256 scId = storeSidechain(initialScState);
 
     //Insert low quality Certificate
-    CMutableScCertificate lowQualityCert = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/1, /*bwtAmount*/CAmount(0), /*numBwt*/0);
+    CMutableScCertificate lowQualityCert;
+    lowQualityCert.scId = scId;
     lowQualityCert.quality = 100;
     lowQualityCert.epochNumber = 0; // NEEDED IN CURRENT IMPLENTATION
 
@@ -148,8 +148,8 @@ TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoDecreasingQualitiesCertsIn
     uint256 scId = storeSidechain(initialScState);
 
     //Insert high quality Certificate
-    CMutableScCertificate highQualityCert = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/1, /*bwtAmount*/CAmount(0), /*numBwt*/0);
+    CMutableScCertificate highQualityCert;
+    highQualityCert.scId = scId;
     highQualityCert.addBwt(CTxOut(CAmount(2), dummyScriptPubKey));
     highQualityCert.quality = 200;
     highQualityCert.epochNumber = 0; // NEEDED IN CURRENT IMPLENTATION
@@ -166,8 +166,8 @@ TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoDecreasingQualitiesCertsIn
     EXPECT_TRUE(sidechain.balance == initialScState.balance - sidechain.topCommittedCertBwtAmount);
 
     //Insert low quality Certificate
-    CMutableScCertificate lowQualityCert = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
+    CMutableScCertificate lowQualityCert;
+    lowQualityCert.scId = scId;
     lowQualityCert.quality = highQualityCert.quality /2;
     lowQualityCert.epochNumber = highQualityCert.epochNumber;
 
@@ -189,8 +189,8 @@ TEST_F(SidechainMultipleCertsTestSuite, InsertionOfTwoIncreasingQualitiesCertsIn
     uint256 scId = storeSidechain(initialScState);
 
     //Insert low quality Certificate
-    CMutableScCertificate lowQualityCert = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/1, /*bwtAmount*/CAmount(0), /*numBwt*/0);
+    CMutableScCertificate lowQualityCert;
+    lowQualityCert.scId = scId;
     lowQualityCert.quality = 100;
     lowQualityCert.epochNumber = 0; // NEEDED IN CURRENT IMPLENTATION
 
