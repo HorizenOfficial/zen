@@ -19,7 +19,7 @@ DEBUG_MODE = 1
 NUMB_OF_NODES = 3
 EPOCH_LENGTH = 20
 CERT_FEE = Decimal('0.00015')
-HIGH_CERT_FEE = Decimal('0.00015')
+HIGH_CERT_FEE = Decimal('0.00020')
 LOW_CERT_FEE = Decimal('0.00005')
 
 class quality_blockchain(BitcoinTestFramework):
@@ -49,16 +49,14 @@ class quality_blockchain(BitcoinTestFramework):
     def run_test(self):
 
         '''
-        The test creates a sc, send funds to it and then sends a certificate to it,
-        verifying also that specifying various combination of bad parameters causes a certificate
-        to be refused. This test also checks that the receiver of cert backward transfer can spend it
-        only when they become mature.
+        The test creates a sc, send funds to it and then sends a certificates to it,
+        verifying also that mempool accepts certificate with quality higher than previous blocks,
+        certificates after block reversion return to mempool
         '''
 
         # forward transfer amounts
         creation_amount = Decimal("0.5")
         fwt_amount = Decimal("200")
-        bwt_amount_bad = Decimal("250.0")
         bwt_amount = Decimal("20")
         bwt_amount_2 = Decimal("30")
 
@@ -129,7 +127,7 @@ class quality_blockchain(BitcoinTestFramework):
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts'][0]['amount'], creation_amount)
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts'][1]['amount'], fwt_amount)
 
-        mark_logs("Node0 generating 3 more blocks to achieve end of withdrawal epoch", self.nodes, DEBUG_MODE)
+        mark_logs("Node0 generating {} more blocks to achieve end of withdrawal epoch".format(EPOCH_LENGTH - 2), self.nodes, DEBUG_MODE)
         self.nodes[0].generate(EPOCH_LENGTH - 2)
         self.sync_all()
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc balance has matured
@@ -142,81 +140,11 @@ class quality_blockchain(BitcoinTestFramework):
 
         pkh_node1 = self.nodes[1].getnewaddress("", True)
 
-        #Create proof for WCert
-        quality = 0
-        proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [pkh_node1], [bwt_amount])
-
-        mark_logs("Node 0 tries to perform a bwd transfer with insufficient Sc balance...", self.nodes, DEBUG_MODE)
-        amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount_bad}]
-
-        try:
-            self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
-            assert(False)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-
-        mark_logs(errorString, self.nodes, DEBUG_MODE)
-        #assert_equal(True, "sidechain has insufficient funds" in errorString)
-        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount)
-        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
-
-        mark_logs("Node 0 tries to perform a bwd transfer with an invalid epoch number ...", self.nodes, DEBUG_MODE)
-        amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
-
-        try:
-            self.nodes[0].send_certificate(scid, epoch_number + 1, quality, epoch_block_hash, proof, amount_cert_1, CERT_FEE)
-            assert(False)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-
-        assert_equal("invalid epoch data" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
-        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
-
-        mark_logs("Node 0 tries to perform a bwd transfer with an invalid quality ...", self.nodes, DEBUG_MODE)
-
-        try:
-            self.nodes[0].send_certificate(scid, epoch_number, quality - 1, epoch_block_hash, proof, amount_cert_1, CERT_FEE)
-            assert(False)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-
-        assert_equal("Invalid quality parameter" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
-        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
-
-        #--------------------------------------------------------------------------------------
-        mark_logs("Node 0 tries to perform a bwd transfer using a wrong vk for the scProof...", self.nodes, DEBUG_MODE)
-
-        # let's generate new params and create a correct proof with them 
-        mcTest.generate_params("sc_temp")
-
-        quality = 100
-
-        wrong_proof = mcTest.create_test_proof(
-            "sc_temp", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [pkh_node1], [bwt_amount])
-
-        try:
-            self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, wrong_proof, amount_cert_1, CERT_FEE)
-            assert(False)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-
-        assert_equal("bad-sc-cert-not-applicable" in errorString, True)
-        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
-        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
-
-        #---------------------end scProof tests-------------------------
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
 
         # Create Cert1 with quality 100 and place it in mempool
+
+
         mark_logs("Create Cert1 with quality 100 and place it in mempool", self.nodes, DEBUG_MODE)
         quality = 100
         proof = mcTest.create_test_proof(
@@ -283,9 +211,6 @@ class quality_blockchain(BitcoinTestFramework):
             quality, constant, [pkh_node1], [bwt_amount])
         try:
             cert_3_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1, CERT_FEE)
-            assert(len(cert_3_epoch_0) > 0)
-            mark_logs("Certificate is {}".format(cert_3_epoch_0), self.nodes, DEBUG_MODE)
-            assert_equal(False, cert_3_epoch_0 in self.nodes[0].getrawmempool())
             assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -298,9 +223,6 @@ class quality_blockchain(BitcoinTestFramework):
             quality, constant, [pkh_node1], [bwt_amount])
         try:
             cert_3_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1, CERT_FEE)
-            assert(len(cert_3_epoch_0) > 0)
-            mark_logs("Certificate is {}".format(cert_3_epoch_0), self.nodes, DEBUG_MODE)
-            assert_equal(False, cert_3_epoch_0 in self.nodes[0].getrawmempool())
             assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -313,9 +235,6 @@ class quality_blockchain(BitcoinTestFramework):
             quality, constant, [pkh_node1], [bwt_amount])
         try:
             cert_3_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1, HIGH_CERT_FEE)
-            assert(len(cert_3_epoch_0) > 0)
-            mark_logs("Certificate is {}".format(cert_3_epoch_0), self.nodes, DEBUG_MODE)
-            assert_equal(False, cert_3_epoch_0 in self.nodes[0].getrawmempool())
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -368,9 +287,6 @@ class quality_blockchain(BitcoinTestFramework):
             quality, constant, [pkh_node1], [bwt_amount])
         try:
             cert_5_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_5, CERT_FEE)
-            assert(len(cert_5_epoch_0) > 0)
-            mark_logs("Certificate is {}".format(cert_5_epoch_0), self.nodes, DEBUG_MODE)
-            assert_equal(False, cert_5_epoch_0 in self.nodes[0].getrawmempool())
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -411,6 +327,83 @@ class quality_blockchain(BitcoinTestFramework):
         assert_true(cert_2_epoch_0 in self.nodes[0].getblock(self.nodes[0].getbestblockhash(), True)['cert'])
         assert_false(cert_3_epoch_0 in self.nodes[0].getblock(self.nodes[0].getbestblockhash(), True)['cert'])
         assert_false(cert_4_epoch_0 in self.nodes[0].getblock(self.nodes[0].getbestblockhash(), True)['cert'])
+
+        # quality-epoch mistype testcase
+
+        self.nodes[0].generate(EPOCH_LENGTH)
+
+        prev_epoch_block_hash = epoch_block_hash
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+        mark_logs("prev_epoch_block_hash = {}".format(prev_epoch_block_hash), self.nodes, DEBUG_MODE)
+
+        quality = 100
+        mark_logs("Create Cert1 with quality {} for {} epoch and place it in mempool".format(quality, epoch_number), self.nodes, DEBUG_MODE)
+        proof = mcTest.create_test_proof(
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            quality, constant, [pkh_node1], [bwt_amount])
+        try:
+            cert_1_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1, CERT_FEE)
+            assert(len(cert_1_epoch_1) > 0)
+            mark_logs("Certificate is {}".format(cert_1_epoch_1), self.nodes, DEBUG_MODE)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert(False)
+
+        self.nodes[0].generate(EPOCH_LENGTH)
+        prev_epoch_block_hash = epoch_block_hash
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+        mark_logs("prev_epoch_block_hash = {}".format(prev_epoch_block_hash), self.nodes, DEBUG_MODE)
+
+        quality = 0
+        mark_logs("Create Cert1 with quality {} for {} epoch and place it in mempool".format(quality, epoch_number), self.nodes, DEBUG_MODE)
+        proof = mcTest.create_test_proof(
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            quality, constant, [pkh_node1], [bwt_amount])
+        try:
+            cert_1_epoch_2 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1, CERT_FEE)
+            assert(len(cert_1_epoch_2) > 0)
+            mark_logs("Certificate is {}".format(cert_1_epoch_2), self.nodes, DEBUG_MODE)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert(False)
+
+        assert_true(cert_1_epoch_2 in self.nodes[0].getrawmempool())
+
+        mark_logs("Accept block containing a certificate of quality larger than max quality of certs in mempool (scId, epoch).", self.nodes, DEBUG_MODE)
+        quality = 1
+        amount_cert_3 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
+        proof = mcTest.create_test_proof(
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            quality, constant, [pkh_node1], [bwt_amount])
+        try:
+            cert_2_epoch_2 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof,
+                                                            amount_cert_3, CERT_FEE)
+            assert (len(cert_2_epoch_2) > 0)
+            mark_logs("Certificate is {}".format(cert_2_epoch_2), self.nodes, DEBUG_MODE)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert (False)
+
+        assert_true(cert_1_epoch_2 in self.nodes[0].getrawmempool())
+        assert_true(cert_2_epoch_2 in self.nodes[0].getrawmempool())
+        mark_logs("Node0 confims bwd transfer generating 1 block", self.nodes, DEBUG_MODE)
+        mined = self.nodes[0].generate(1)[0]
+        self.sync_all()
+        assert_true(cert_1_epoch_2 in self.nodes[0].getblock(mined, True)['cert'])
+        assert_true(cert_2_epoch_2 in self.nodes[0].getblock(mined, True)['cert'])
+
+        mark_logs("Checking certificate in mempool after block revertion(via invalidateblock)", self.nodes, DEBUG_MODE)
+        block_inv = self.nodes[0].getbestblockhash()
+        self.nodes[0].invalidateblock(block_inv)
+        assert_true(cert_1_epoch_2 in self.nodes[0].getrawmempool())
+        assert_true(cert_2_epoch_2 in self.nodes[0].getrawmempool())
+        assert_false(cert_1_epoch_2 in self.nodes[0].getblock(self.nodes[0].getbestblockhash(), True)['cert'])
+        assert_false(cert_2_epoch_2 in self.nodes[0].getblock(self.nodes[0].getbestblockhash(), True)['cert'])
 
 if __name__ == '__main__':
     quality_blockchain().main()
