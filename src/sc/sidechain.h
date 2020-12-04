@@ -44,6 +44,7 @@ public:
     CSidechain() : creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
                    topCommittedCertReferencedEpoch(CScCertificate::EPOCH_NULL),
                    topCommittedCertHash(), topCommittedCertQuality(CScCertificate::QUALITY_NULL),
+                   topCommittedCertBwtAmount(0),
                    balance(0) {}
 
     // reference to the block containing the tx that created the side chain

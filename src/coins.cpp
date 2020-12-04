@@ -747,6 +747,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         scIt->second.scInfo.topCommittedCertReferencedEpoch = CScCertificate::EPOCH_NULL;
         scIt->second.scInfo.topCommittedCertHash.SetNull();
         scIt->second.scInfo.topCommittedCertQuality = CScCertificate::QUALITY_NULL;
+        scIt->second.scInfo.topCommittedCertBwtAmount = 0;
         scIt->second.scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
         scIt->second.scInfo.creationData.customData = cr.customData;
         scIt->second.scInfo.creationData.constant = cr.constant;
@@ -1122,7 +1123,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndo
         {
             scIt->second.scInfo.balance += scIt->second.scInfo.topCommittedCertBwtAmount;
             LogPrint("cert", "%s():%d - amount restored into scView (amount=%s, resulting bal=%s) %s\n", __func__, __LINE__,
-                FormatMoney(scIt->second.scInfo.topCommittedCertQuality), FormatMoney(scIt->second.scInfo.balance), scId.ToString());
+                FormatMoney(scIt->second.scInfo.topCommittedCertBwtAmount), FormatMoney(scIt->second.scInfo.balance), scId.ToString());
 
             if (scIt->second.scInfo.balance < bwtTotalAmount)
             {
