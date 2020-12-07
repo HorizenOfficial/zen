@@ -61,10 +61,8 @@ class SidechainConnectCertsBlockTestSuite : public ::testing::Test {
 public:
     SidechainConnectCertsBlockTestSuite():
         fakeChainStateDb(nullptr), sidechainsView(nullptr),
-        dummyBlock(), dummyUndo(), dummyVoidedCertMap(), dummyScriptPubKey(),
-        dummyCoins(), dummyHash(), dummyAnchor(), dummyAnchors(), dummyNullifiers(),
-        dummySidechains(), dummyScEvents(), dummyState(), dummyChain(),
-        dummyFeeAmount(), dummyCoinbaseScript()
+        dummyBlock(), dummyHash(), dummyVoidedCertMap(), dummyScriptPubKey(),
+        dummyState(), dummyChain(), dummyFeeAmount(), dummyCoinbaseScript()
     {
         dummyScriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
     }
@@ -80,13 +78,6 @@ public:
         sidechainsView     = new CCoinsViewCache(fakeChainStateDb);
 
         dummyHash = dummyBlock.GetHash();
-
-        dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
-        CAnchorsCacheEntry dummyAnchorsEntry;
-        dummyAnchorsEntry.entered = true;
-        dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
-        dummyAnchors[dummyAnchor] = dummyAnchorsEntry;
-
         dummyCoinbaseScript = CScript() << OP_DUP << OP_HASH160
                 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
     };
@@ -106,17 +97,9 @@ protected:
 
     //helpers
     CBlock                  dummyBlock;
-    CTxUndo                 dummyUndo;
+    uint256                 dummyHash;
     std::map<uint256, bool> dummyVoidedCertMap;
     CScript                 dummyScriptPubKey;
-
-    CCoinsMap           dummyCoins;
-    uint256             dummyHash;
-    uint256             dummyAnchor;
-    CAnchorsMap         dummyAnchors;
-    CNullifiersMap      dummyNullifiers;
-    CSidechainsMap      dummySidechains;
-    CSidechainEventsMap dummyScEvents;
 
     CValidationState    dummyState;
     CChain              dummyChain;
@@ -416,6 +399,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Different
     EXPECT_TRUE(highQualityCertCoin.nFirstBwtPos == 0);
     EXPECT_TRUE(highQualityCertCoin.IsAvailable(0));
 }
+
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// HELPERS ///////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -423,6 +407,18 @@ uint256 SidechainConnectCertsBlockTestSuite::storeSidechain(const uint256& scId,
 {
     CSidechainsMap mapSidechain;
     mapSidechain[scId] = CSidechainsCacheEntry(sidechain,CSidechainsCacheEntry::Flags::FRESH);
+
+    CCoinsMap           dummyCoins;
+    uint256             dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
+    CNullifiersMap      dummyNullifiers;
+    CSidechainEventsMap dummyScEvents;
+
+    CAnchorsCacheEntry dummyAnchorsEntry;
+    dummyAnchorsEntry.entered = true;
+    dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
+
+    CAnchorsMap dummyAnchors;
+    dummyAnchors[dummyAnchor] = dummyAnchorsEntry;
 
     sidechainsView->BatchWrite(dummyCoins, dummyHash, dummyAnchor, dummyAnchors,
                                dummyNullifiers, mapSidechain, dummyScEvents);
@@ -450,6 +446,7 @@ void SidechainConnectCertsBlockTestSuite::fillBlockHeader(CBlock& blockToFill, c
 uint256 SidechainConnectCertsBlockTestSuite::CreateSpendableTxAtHeight(unsigned int coinHeight)
 {
     CTransaction inputTx = createCoinbase(dummyCoinbaseScript, dummyFeeAmount, coinHeight);
+    CTxUndo dummyUndo;
     UpdateCoins(inputTx, *sidechainsView, dummyUndo, coinHeight);
     assert(sidechainsView->HaveCoins(inputTx.GetHash()));
     return inputTx.GetHash();
