@@ -11,7 +11,6 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     assert_false, assert_true
 from test_framework.mc_test.mc_test import *
 import os
-import pprint
 from decimal import Decimal
 
 DEBUG_MODE = 1
@@ -237,10 +236,8 @@ class quality_mempool(BitcoinTestFramework):
             quality - 10, constant_1, [pkh_node2], [bwt_amount])
         try:
             cert_2_epoch_0 = self.nodes[1].send_certificate(scid_1, epoch_number_1, quality - 10, epoch_block_hash_1, low_quality_proof, amount_cert_2, CERT_FEE)
-            assert_equal(True, cert_1_epoch_0 in self.nodes[0].getrawmempool())
             assert(len(cert_2_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_2_epoch_0), self.nodes, DEBUG_MODE)
-            assert_equal(True, cert_2_epoch_0 in self.nodes[1].getrawmempool())
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
@@ -300,7 +297,6 @@ class quality_mempool(BitcoinTestFramework):
         utx = False
         listunspent = self.nodes[0].listunspent(0)
         for aUtx in listunspent:
-            pprint.pprint(aUtx)
             if aUtx['amount'] > HIGH_CERT_FEE and aUtx['txid'] == cert_1_epoch_0:
                 utx = aUtx
                 change = aUtx['amount'] - HIGH_CERT_FEE
@@ -353,7 +349,6 @@ class quality_mempool(BitcoinTestFramework):
         try:
             cert_4_epoch_0 = self.nodes[2].send_certificate(scid_1, epoch_number_1, quality + 20, epoch_block_hash_1, high_quality_proof, amount_cert_4, CERT_FEE)
             sync_mempools(self.nodes[1:3])
-            assert_equal(True, cert_4_epoch_0 in self.nodes[2].getrawmempool())
             assert(len(cert_4_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_4_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
