@@ -575,7 +575,7 @@ public:
     bool CheckQuality(const CScCertificate& cert)  const override;
     void NullifyBackwardTransfers(const uint256& certHash, std::vector<CTxInUndo>& nullifiedOuts);
     bool RestoreBackwardTransfers(const CTxUndo& certUndoEntry);
-    std::vector<uint256> LowQualityCertsUponConnectionOf(const CBlock& blockToConnect);
+    std::map<uint256,uint256> HighQualityCertDataFor(const CBlock& blockToConnect);
 
     //SIDECHAINS EVENTS RELATED MEMBERS
     bool HaveSidechainEvents(int height)                            const override;

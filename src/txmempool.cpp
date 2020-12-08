@@ -966,7 +966,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             CValidationState state;
             assert(::ContextualCheckInputs(cert, state, mempoolDuplicateCert, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            UpdateCoins(cert, mempoolDuplicateCert, dummyUndo, 1000000);
+            UpdateCoins(cert, mempoolDuplicateCert, dummyUndo, 1000000, /*fVoidBwts*/false);
         }
     }
 
@@ -982,7 +982,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         } else {
             assert(::ContextualCheckInputs(entry->GetCertificate(), state, mempoolDuplicateCert, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            UpdateCoins(entry->GetCertificate(), mempoolDuplicateCert, dummyUndo, 1000000);
+            UpdateCoins(entry->GetCertificate(), mempoolDuplicateCert, dummyUndo, 1000000, /*fVoidBwts*/false);
             stepsSinceLastRemoveCert = 0;
         }
     }

@@ -505,9 +505,9 @@ TEST(SidechainMultipleCerts, BlocksWithSameEpochCertssOrderedByIncreasingQuality
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-/////////////////////// LowQualityCertsUponConnectionOf ///////////////////////
+//////////////////////////// HighQualityCertDataFor ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainMultipleCertsTestSuite, LowQualityCerts_EmptyBlock)
+TEST_F(SidechainMultipleCertsTestSuite, HighQualityCertData_EmptyBlock)
 {
     CSidechain sidechain;
     sidechain.topCommittedCertQuality = 100;
@@ -517,10 +517,10 @@ TEST_F(SidechainMultipleCertsTestSuite, LowQualityCerts_EmptyBlock)
     storeSidechain(scId, sidechain);
 
     CBlock emptyBlock;
-    EXPECT_TRUE(sidechainsView->LowQualityCertsUponConnectionOf(emptyBlock).empty());
+    EXPECT_TRUE(sidechainsView->HighQualityCertDataFor(emptyBlock).empty());
 }
 
-TEST_F(SidechainMultipleCertsTestSuite, LowQualityCerts_FirstCert)
+TEST_F(SidechainMultipleCertsTestSuite, HighQualityCertDataFor_FirstCert)
 {
     CSidechain sidechain;
     sidechain.topCommittedCertQuality = 100;
@@ -537,8 +537,7 @@ TEST_F(SidechainMultipleCertsTestSuite, LowQualityCerts_FirstCert)
     CBlock aBlock;
     aBlock.vcert.push_back(firstCert);
 
-    std::vector<uint256> certHashToVoid = {uint256()};
-    EXPECT_TRUE(sidechainsView->LowQualityCertsUponConnectionOf(aBlock) == certHashToVoid);
+    EXPECT_TRUE(sidechainsView->HighQualityCertDataFor(aBlock).at(firstCert.GetHash()).IsNull());
 }
 
 TEST_F(SidechainMultipleCertsTestSuite, LowQualityCerts_SameScId_DifferentEpoch)
@@ -565,8 +564,7 @@ TEST_F(SidechainMultipleCertsTestSuite, LowQualityCerts_SameScId_DifferentEpoch)
     aBlock.vcert.push_back(highQualityCert);
     ASSERT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
 
-    std::vector<uint256> certHashToVoid = {uint256(), lowQualityCert.GetHash()};
-    EXPECT_TRUE(sidechainsView->LowQualityCertsUponConnectionOf(aBlock) == certHashToVoid);
+    EXPECT_TRUE(sidechainsView->HighQualityCertDataFor(aBlock).at(highQualityCert.GetHash()).IsNull());
 }
 
 TEST_F(SidechainMultipleCertsTestSuite, LowQualityCerts_SameScId_SameEpoch)
@@ -593,8 +591,7 @@ TEST_F(SidechainMultipleCertsTestSuite, LowQualityCerts_SameScId_SameEpoch)
     aBlock.vcert.push_back(highQualityCert);
     ASSERT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
 
-    std::vector<uint256> certHashesToVoid = {sidechain.topCommittedCertHash, lowQualityCert.GetHash()};
-    EXPECT_TRUE(sidechainsView->LowQualityCertsUponConnectionOf(aBlock) == certHashesToVoid);
+    EXPECT_TRUE(sidechainsView->HighQualityCertDataFor(aBlock).at(highQualityCert.GetHash()) == sidechain.topCommittedCertHash);
 }
 
 TEST_F(SidechainMultipleCertsTestSuite, LowQualityCerts_MultipleScIds)
@@ -646,8 +643,8 @@ TEST_F(SidechainMultipleCertsTestSuite, LowQualityCerts_MultipleScIds)
     aBlock.vcert.push_back(cert_A_3);
     ASSERT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
 
-    std::vector<uint256> certHashesToVoid = {sidechain_A.topCommittedCertHash, uint256(), cert_A_1.GetHash(), cert_B_1.GetHash(), cert_A_2.GetHash()};
-    EXPECT_TRUE(sidechainsView->LowQualityCertsUponConnectionOf(aBlock) == certHashesToVoid);
+    EXPECT_TRUE(sidechainsView->HighQualityCertDataFor(aBlock).at(cert_A_3.GetHash()) == sidechain_A.topCommittedCertHash);
+    EXPECT_TRUE(sidechainsView->HighQualityCertDataFor(aBlock).at(cert_B_2.GetHash()).IsNull());
 }
 
 ///////////////////////////////////////////////////////////////////////////////

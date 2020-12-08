@@ -678,7 +678,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             CTxUndo dummyUndo;
             try {
                 if (tx.IsCertificate())
-                    UpdateCoins(dynamic_cast<const CScCertificate&>(tx), view, dummyUndo, nHeight);
+                    UpdateCoins(dynamic_cast<const CScCertificate&>(tx), view, dummyUndo, nHeight, /*fVoidBwts*/false);
                 else
                     UpdateCoins(dynamic_cast<const CTransaction&>(tx), view, dummyUndo, nHeight);
             } catch (...) {
@@ -689,14 +689,9 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
 
             // Added
-#if 0
-            pblock->vtx.push_back(tx);
-            pblocktemplate->vTxFees.push_back(nTxFees);
-            pblocktemplate->vTxSigOps.push_back(nTxSigOps);
-#else
             tx.AddToBlock(pblock);
             tx.AddToBlockTemplate(pblocktemplate.get(), nTxFees, nTxSigOps);
-#endif
+
             nBlockSize += nTxSize;
             ++nBlockTx;
             nBlockSigOps += nTxSigOps;

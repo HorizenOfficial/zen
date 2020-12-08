@@ -91,6 +91,7 @@ public:
 
         UnloadBlockIndex();
     };
+
 protected:
     CInMemorySidechainDb *fakeChainStateDb;
     CCoinsViewCache      *sidechainsView;
