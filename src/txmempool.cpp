@@ -1309,9 +1309,6 @@ bool CTxMemPool::RemoveConflictingQualityCert(const uint256& certToRmHash)
     std::list<CScCertificate> conflictingCerts;
     remove(certToRm, conflictingTxs, conflictingCerts, true);
 
-    // the conflicting cert itself must be the only one in this list
-    assert(conflictingCerts.size() == 1); //this assert should prolly be done in mempool::check
-
     // Tell wallet about transactions and certificates that went from mempool to conflicted:
     for(const auto &t: conflictingTxs) {
         LogPrint("mempool", "%s():%d - syncing tx %s\n", __func__, __LINE__, t.GetHash().ToString());

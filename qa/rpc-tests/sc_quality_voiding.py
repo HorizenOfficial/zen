@@ -164,7 +164,7 @@ class quality_voiding(BitcoinTestFramework):
         mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
         assert_equal(True, cert_1_epoch_0 in self.nodes[0].getrawmempool())
 
-        # Create Cert2 with lower quality and place it in mempool
+        # Create Cert2 with higher quality and place it in mempool
         quality = 90
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         amount_cert_2 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount_2}]
@@ -233,7 +233,6 @@ class quality_voiding(BitcoinTestFramework):
         self.sync_all()
 
         # Check balance
-        bwt_address = self.nodes[1].getrawcertificate(cert_3_epoch_0, 1)['vout'][1]['scriptPubKey']['addresses'][0]
         res = self.nodes[1].listtxesbyaddress(bwt_address)
         assert_equal(res[0]['scid'], scid)
         mark_logs("Height : {}".format(res[0]['vout'][1]['maturityHeight']), self.nodes, DEBUG_MODE)
@@ -270,7 +269,6 @@ class quality_voiding(BitcoinTestFramework):
         assert_false(cert_3_epoch_0 in self.nodes[1].getblock(self.nodes[1].getbestblockhash(), True)['cert'])
 
         # Check balance
-        bwt_address = self.nodes[1].getrawcertificate(cert_3_epoch_0, 1)['vout'][1]['scriptPubKey']['addresses'][0]
         res = self.nodes[1].listtxesbyaddress(bwt_address)
         assert_equal(res[0]['scid'], scid)
         mark_logs("Height : {}".format(res[1]['vout'][1]['maturityHeight']), self.nodes, DEBUG_MODE)
@@ -296,7 +294,6 @@ class quality_voiding(BitcoinTestFramework):
         assert_true(cert_3_epoch_0 in self.nodes[1].getblock(self.nodes[1].getbestblockhash(), True)['cert'])
 
         # Check balance
-        bwt_address = self.nodes[1].getrawcertificate(cert_3_epoch_0, 1)['vout'][1]['scriptPubKey']['addresses'][0]
         res = self.nodes[1].listtxesbyaddress(bwt_address)
         assert_equal(res[0]['scid'], scid)
         mark_logs("Height : {}".format(res[1]['vout'][1]['maturityHeight']), self.nodes, DEBUG_MODE)
@@ -313,7 +310,6 @@ class quality_voiding(BitcoinTestFramework):
         wait_bitcoinds()
         self.setup_network(False)
 
-        bwt_address = self.nodes[1].getrawcertificate(cert_3_epoch_0, 1)['vout'][1]['scriptPubKey']['addresses'][0]
         res = self.nodes[1].listtxesbyaddress(bwt_address)
         assert_equal(res[0]['scid'], scid)
         mark_logs("Height : {}".format(res[1]['vout'][1]['maturityHeight']), self.nodes, DEBUG_MODE)
@@ -324,6 +320,13 @@ class quality_voiding(BitcoinTestFramework):
         utxos = self.nodes[1].listunspent()
         assert_equal(len(utxos), 1)
         assert_equal(utxos[0]['txid'], cert_3_epoch_0)
+
+        mark_logs("Check voiding of cert1 and cert2", self.nodes, DEBUG_MODE)
+        utx_out = self.nodes[1].gettxout(cert_1_epoch_0, 1)
+        assert_equal(None, utx_out)
+
+        utx_out = self.nodes[1].gettxout(cert_2_epoch_0, 1)
+        assert_equal(None, utx_out)
 
 
 if __name__ == '__main__':
