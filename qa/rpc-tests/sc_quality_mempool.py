@@ -497,6 +497,7 @@ class quality_mempool(BitcoinTestFramework):
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
             cert_6_epoch_0 = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            mark_logs("Certificate is {}".format(cert_6_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
@@ -518,15 +519,19 @@ class quality_mempool(BitcoinTestFramework):
             cert_7_epoch_0 = self.nodes[2].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1, quality_proof, amount_cert_2, HIGH_CERT_FEE)
             assert(len(cert_7_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_7_epoch_0), self.nodes, DEBUG_MODE)
-            assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert (False)
 
 
         self.sync_all()
-        assert_true(cert_5_epoch_0 in self.nodes[0].getrawmempool())
-        assert_true(cert_6_epoch_0 in self.nodes[0].getrawmempool())
+        assert_false(cert_5_epoch_0 in self.nodes[0].getrawmempool())
+        assert_false(cert_6_epoch_0 in self.nodes[0].getrawmempool())
+        assert_true(cert_7_epoch_0 in self.nodes[0].getrawmempool())
+
+        mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
+        self.nodes[1].generate(1)
 
 if __name__ == '__main__':
     quality_mempool().main()
