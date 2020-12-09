@@ -2411,7 +2411,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             if (highQualityCertData.count(cert.GetHash()) == 0) //drop bwts of low q certs
             {
                 for(unsigned int bwtPos = outsBlock.nFirstBwtPos; bwtPos < outsBlock.vout.size(); ++bwtPos)
-                	outsBlock.Spend(bwtPos);
+                    outsBlock.Spend(bwtPos);
             }
             outsBlock.ClearUnspendable();
 
@@ -2703,13 +2703,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     // Do not allow blocks that contain transactions which 'overwrite' older transactions,
     // unless those are already completely spent.
-    BOOST_FOREACH(const CTransaction& tx, block.vtx) {
+    for(const CTransaction& tx: block.vtx)
+    {
         const CCoins* coins = view.AccessCoins(tx.GetHash());
         if (coins && !coins->IsPruned())
             return state.DoS(100, error("ConnectBlock(): tried to overwrite transaction"),
                              REJECT_INVALID, "bad-txns-BIP30");
     }
-    BOOST_FOREACH(const CScCertificate& cert, block.vcert) {
+    for(const CScCertificate& cert: block.vcert)
+    {
         const CCoins* coins = view.AccessCoins(cert.GetHash());
         if (coins && !coins->IsPruned())
             return state.DoS(100, error("ConnectBlock(): tried to overwrite certificate"),
@@ -2902,8 +2904,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): Error updating ceasing heights with certificate [%s]", cert.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-cert-not-recorded");
             }
-
-        }
+        } else
+            CSidechain::SetVoidedCert(cert.GetHash(), true, pVoidedCertsMap);
 
         if (certIdx == 0) {
             // we are processing the first certificate, add the size of the vcert to the offset
