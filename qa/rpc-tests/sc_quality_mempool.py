@@ -150,10 +150,6 @@ class quality_mempool(BitcoinTestFramework):
         assert_equal(self.nodes[0].getscinfo(scid_1)['items'][0]['immature amounts'][0]['amount'], creation_amount)
         assert_equal(self.nodes[0].getscinfo(scid_1)['items'][0]['immature amounts'][1]['amount'], fwt_amount)
 
-
-        bal_after_fwd_tx = self.nodes[0].getbalance("", 0)
-        mark_logs("Node0 balance after fwd: {}".format(bal_after_fwd_tx), self.nodes, DEBUG_MODE)
-
         mark_logs("Node0 generating more blocks to achieve end of withdrawal epoch", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(EPOCH_LENGTH - 3)
         self.sync_all()
@@ -452,6 +448,85 @@ class quality_mempool(BitcoinTestFramework):
         assert_equal(False, cert_1_sc1 in self.nodes[0].getrawmempool())
         assert_equal(False, cert_2_sc2 in self.nodes[0].getrawmempool())
         assert_equal(False, cert_3_sc2 in self.nodes[0].getrawmempool())
+
+        # Cert6 depends on Cert5(quality of Cert6 > quality of Cert5). Check that Cert7 will be rejected on attempt to replace Cert1
+        # Create Cert5 with quality 200 and place it in mempool
+        mark_logs("Create Cert5 with quality 200 and place it in mempool", self.nodes, DEBUG_MODE)
+        quality = 200
+        #pkh_node2 = self.nodes[2].getnewaddress("", True)
+        amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
+        quality_proof = mcTest.create_test_proof(
+            "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
+            quality, constant_1, [pkh_node1], [bwt_amount])
+        try:
+            cert_5_epoch_0 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1, quality_proof, amount_cert_1, CERT_FEE)
+            assert(len(cert_5_epoch_0) > 0)
+            mark_logs("Certificate is {}".format(cert_5_epoch_0), self.nodes, DEBUG_MODE)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert (False)
+
+        self.sync_all()
+        assert_true(cert_5_epoch_0 in self.nodes[0].getrawmempool())
+
+        mark_logs("Create Cert6 with quality 220, with dependency on Cert5 and place it in mempool", self.nodes, DEBUG_MODE)
+        quality = 220
+        amount_cert_6 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
+        cert6_proof = mcTest.create_test_proof(
+            "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
+            quality, constant_1, [pkh_node1], [bwt_amount])
+
+        # get a UTXO
+        utx = False
+        listunspent = self.nodes[0].listunspent(0)
+        for aUtx in listunspent:
+            if aUtx['amount'] > HIGH_CERT_FEE and aUtx['txid'] == cert_5_epoch_0:
+                utx = aUtx
+                change = aUtx['amount'] - CERT_FEE
+                break;
+
+        inputs = [{'txid': utx['txid'], 'vout': utx['vout']}]
+        outputs = {self.nodes[0].getnewaddress(): change}
+        bwt_outs = {pkh_node1: bwt_amount}
+        params = {"scid": scid_1, "quality": quality, "endEpochBlockHash": epoch_block_hash_1,
+                  "scProof": cert6_proof,
+                  "withdrawalEpochNumber": epoch_number_1}
+
+        try:
+            rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
+            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            cert_6_epoch_0 = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert (False)
+
+        self.sync_all()
+        assert_true(cert_5_epoch_0 in self.nodes[0].getrawmempool())
+        assert_true(cert_6_epoch_0 in self.nodes[0].getrawmempool())
+
+        # Create Cert7 with quality 200 and place it in mempool
+        mark_logs("Check rejection Cert7 that tries to replace Cert5", self.nodes, DEBUG_MODE)
+        quality = 200
+        pkh_node2 = self.nodes[2].getnewaddress("", True)
+        amount_cert_2 = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
+        quality_proof = mcTest.create_test_proof(
+            "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
+            quality, constant_1, [pkh_node2], [bwt_amount])
+        try:
+            cert_7_epoch_0 = self.nodes[2].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1, quality_proof, amount_cert_2, HIGH_CERT_FEE)
+            assert(len(cert_7_epoch_0) > 0)
+            mark_logs("Certificate is {}".format(cert_7_epoch_0), self.nodes, DEBUG_MODE)
+            assert (False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+
+
+        self.sync_all()
+        assert_true(cert_5_epoch_0 in self.nodes[0].getrawmempool())
+        assert_true(cert_6_epoch_0 in self.nodes[0].getrawmempool())
 
 if __name__ == '__main__':
     quality_mempool().main()
