@@ -640,11 +640,11 @@ TEST_F(SidechainsInMempoolTestSuite, ImmatureExpenditureRemoval) {
 
 TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsInEmptyMempool) {
     // prerequisites
-	CTxMemPool aMempool(::minRelayTxFee);
+    CTxMemPool aMempool(::minRelayTxFee);
 
-	CAmount dummyAmount(10);
-	CScript dummyScript;
-	CTxOut dummyOut(dummyAmount, dummyScript);
+    CAmount dummyAmount(10);
+    CScript dummyScript;
+    CTxOut dummyOut(dummyAmount, dummyScript);
 
     CMutableTransaction tx_1;
     tx_1.vin.push_back(CTxIn(uint256(), 0, dummyScript));
@@ -657,16 +657,16 @@ TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsInEmptyMempool) {
 
 TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfSingleTransaction) {
     // prerequisites
-	CTxMemPool aMempool(::minRelayTxFee);
+    CTxMemPool aMempool(::minRelayTxFee);
 
-	CAmount dummyAmount(10);
-	CScript dummyScript;
-	CTxOut dummyOut(dummyAmount, dummyScript);
+    CAmount dummyAmount(10);
+    CScript dummyScript;
+    CTxOut dummyOut(dummyAmount, dummyScript);
 
-	CMutableTransaction tx_1;
+    CMutableTransaction tx_1;
     tx_1.vin.push_back(CTxIn(uint256(), 0, dummyScript));
     tx_1.addOut(dummyOut);
-	CTxMemPoolEntry tx_1_entry(tx_1, /*fee*/dummyAmount, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    CTxMemPoolEntry tx_1_entry(tx_1, /*fee*/dummyAmount, /*time*/ 1000, /*priority*/1.0, /*height*/1987);
 
     //test
     aMempool.addUnchecked(tx_1.GetHash(), tx_1_entry);
@@ -679,12 +679,12 @@ TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfSingleTransaction)
 
 TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfSimpleChain) {
     // prerequisites
-	CTxMemPool aMempool(::minRelayTxFee);
-	CAmount dummyAmount(10);
-	CScript dummyScript;
-	CTxOut dummyOut(dummyAmount, dummyScript);
+    CTxMemPool aMempool(::minRelayTxFee);
+    CAmount dummyAmount(10);
+    CScript dummyScript;
+    CTxOut dummyOut(dummyAmount, dummyScript);
 
-	// Create chain tx_1 -> tx_2 -> tx_3
+    // Create chain tx_1 -> tx_2 -> tx_3
     CMutableTransaction tx_1;
     tx_1.vin.push_back(CTxIn(uint256(), 0, dummyScript));
     tx_1.addOut(dummyOut);
@@ -704,20 +704,20 @@ TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfSimpleChain) {
 
     //checks
     EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_1).empty());
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_1) == std::set<uint256>({tx_2.GetHash(),tx_3.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_2) == std::set<uint256>({tx_1.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_2) == std::set<uint256>({tx_3.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_3) == std::set<uint256>({tx_1.GetHash(),tx_2.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_1) == std::vector<uint256>({tx_2.GetHash(),tx_3.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_2) == std::vector<uint256>({tx_1.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_2) == std::vector<uint256>({tx_3.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_3) == std::vector<uint256>({tx_2.GetHash(),tx_1.GetHash()}));
     EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_3).empty());
 }
 
 TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfTree) {
     // prerequisites
-	CTxMemPool aMempool(::minRelayTxFee);
-	CAmount dummyAmount(10);
-	CScript dummyScript;
-	CTxOut dummyOut_1(dummyAmount, dummyScript);
-	CTxOut dummyOut_2(++dummyAmount, dummyScript);
+    CTxMemPool aMempool(::minRelayTxFee);
+    CAmount dummyAmount(10);
+    CScript dummyScript;
+    CTxOut dummyOut_1(dummyAmount, dummyScript);
+    CTxOut dummyOut_2(++dummyAmount, dummyScript);
 
     CMutableTransaction tx_root;
     tx_root.vin.push_back(CTxIn(uint256(), 0, dummyScript));
@@ -758,30 +758,30 @@ TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfTree) {
     //checks
     EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_root).empty());
     EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_root)
-        == std::set<uint256>({tx_child_1.GetHash(), tx_child_2.GetHash(),
-                              tx_grandchild_1.GetHash(), tx_grandchild_2.GetHash(), tx_grandchild_3.GetHash()}));
+        == std::vector<uint256>({tx_child_1.GetHash(), tx_child_2.GetHash(),
+                                       tx_grandchild_2.GetHash(), tx_grandchild_1.GetHash(), tx_grandchild_3.GetHash()}));
 
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_child_1) == std::set<uint256>({tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_child_1) == std::set<uint256>({tx_grandchild_1.GetHash(), tx_grandchild_2.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_child_1) == std::vector<uint256>({tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_child_1) == std::vector<uint256>({tx_grandchild_1.GetHash(), tx_grandchild_2.GetHash()}));
 
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_child_2) == std::set<uint256>({tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_child_2) == std::set<uint256>({tx_grandchild_3.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_child_2) == std::vector<uint256>({tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_child_2) == std::vector<uint256>({tx_grandchild_3.GetHash()}));
 
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_grandchild_1) == std::set<uint256>({tx_root.GetHash(),tx_child_1.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_grandchild_1) == std::vector<uint256>({tx_child_1.GetHash(), tx_root.GetHash()}));
     EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_grandchild_1).empty());
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_grandchild_2) == std::set<uint256>({tx_root.GetHash(),tx_child_1.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_grandchild_2) == std::vector<uint256>({tx_child_1.GetHash(), tx_root.GetHash(),}));
     EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_grandchild_2).empty());
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_grandchild_3) == std::set<uint256>({tx_root.GetHash(),tx_child_2.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_grandchild_3) == std::vector<uint256>({tx_child_2.GetHash(), tx_root.GetHash()}));
     EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_grandchild_3).empty());
 }
 
 TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfTDAG) {
     // prerequisites
-	CTxMemPool aMempool(::minRelayTxFee);
-	CAmount dummyAmount(10);
-	CScript dummyScript;
-	CTxOut dummyOut_1(dummyAmount, dummyScript);
-	CTxOut dummyOut_2(++dummyAmount, dummyScript);
+    CTxMemPool aMempool(::minRelayTxFee);
+    CAmount dummyAmount(10);
+    CScript dummyScript;
+    CTxOut dummyOut_1(dummyAmount, dummyScript);
+    CTxOut dummyOut_2(++dummyAmount, dummyScript);
 
     CMutableTransaction tx_root;
     tx_root.vin.push_back(CTxIn(uint256(), 0, dummyScript));
@@ -804,14 +804,15 @@ TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfTDAG) {
 
     //checks
     EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_root).empty());
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_root) == std::set<uint256>({tx_child_1.GetHash(), tx_grandchild_1.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_root) == std::vector<uint256>({tx_child_1.GetHash(), tx_grandchild_1.GetHash()}));
 
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_child_1) == std::set<uint256>({tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_child_1) == std::set<uint256>({tx_grandchild_1.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_child_1) == std::vector<uint256>({tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_child_1) == std::vector<uint256>({tx_grandchild_1.GetHash()}));
 
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_grandchild_1) == std::set<uint256>({tx_root.GetHash(),tx_child_1.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_grandchild_1) == std::vector<uint256>({tx_root.GetHash(),tx_child_1.GetHash()}));
     EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_grandchild_1).empty());
 }
+
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Test Fixture definitions ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
