@@ -234,9 +234,8 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
 
 std::vector<uint256> CTxMemPool::mempoolDirectAncestorsOf(const CTransactionBase& root) const
 {
-    std::vector<uint256> res;
-
     AssertLockHeld(cs);
+    std::vector<uint256> res;
 
     //collect all inputs in mempool (zero-spent ones)...
     for(const auto& input : root.GetVin()) {
@@ -264,10 +263,12 @@ std::vector<uint256> CTxMemPool::mempoolDirectAncestorsOf(const CTransactionBase
 
 std::vector<uint256> CTxMemPool::mempoolFullAncestorsOf(const CTransactionBase& originTx) const
 {
-    AssertLockHeld(cs);
     // it's Breath-First-Search on txes/certs Direct Acyclic Graph, having originTx as root.
+
+    AssertLockHeld(cs);
     std::vector<uint256> res = mempoolDirectAncestorsOf(originTx);
-    std::deque<uint256> toVisit(res.begin(), res.end());
+    std::deque<uint256> toVisit{res.begin(), res.end()};
+    res.clear();
 
     while(!toVisit.empty())
     {
@@ -297,9 +298,8 @@ std::vector<uint256> CTxMemPool::mempoolFullAncestorsOf(const CTransactionBase& 
 
 std::vector<uint256> CTxMemPool::mempoolDirectDescendantsOf(const CTransactionBase& root) const
 {
-    std::vector<uint256> res;
-
     AssertLockHeld(cs);
+    std::vector<uint256> res;
 
     //Direct dependencies of root are txes/certs directly spending root outputs...
     for (unsigned int i = 0; i < root.GetVout().size(); i++)
@@ -338,9 +338,9 @@ std::vector<uint256> CTxMemPool::mempoolFullDescendantsOf(const CTransactionBase
     // it's Depth-First-Search on txes/certs Direct Acyclic Graph, having originTx as root.
 
     AssertLockHeld(cs);
-
     std::vector<uint256> res = mempoolDirectDescendantsOf(origTx);
-    std::deque<uint256> toVisit(res.begin(), res.end());
+    std::deque<uint256> toVisit{res.begin(), res.end()};
+    res.clear();
 
     while(!toVisit.empty())
     {
