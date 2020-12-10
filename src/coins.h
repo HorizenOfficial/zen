@@ -587,7 +587,7 @@ public:
 
     bool CancelSidechainEvent(const CTxScCreationOut& scCreationOut, int creationHeight);
     bool CancelSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight);
-    bool CancelSidechainEvent(const CScCertificate& cert);
+    bool CancelSidechainEvent(const CScCertificate& cert, const CTxUndo &certUndoEntry);
 
     bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::map<uint256, bool>* pVoidedCertsMap);
     bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::map<uint256, bool>* pVoidedCertsMap);

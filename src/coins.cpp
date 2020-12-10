@@ -919,23 +919,23 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     }
 
     CAmount bwtTotalAmount = cert.GetValueOfBackwardTransfers(); 
-    CAmount delta = 0;
+    CAmount scBalance = scInfo.balance;
     if (cert.epochNumber == scInfo.topCommittedCertReferencedEpoch) 
     {
         // if we are targeting the same epoch of an existing certificate, add
         // to the scInfo.balance the amount of the former top-quality cert if any
-        delta = scInfo.topCommittedCertBwtAmount;
+        scBalance += scInfo.topCommittedCertBwtAmount;
     }
 
-    if (bwtTotalAmount > scInfo.balance + delta)
+    if (bwtTotalAmount > scBalance)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scId[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scInfo.balance+delta), FormatMoney(bwtTotalAmount) );
+            __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount) );
         return state.Invalid(error("insufficient balance"),
                      REJECT_INVALID, "sidechain-insufficient-balance");
     }
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
-        __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scInfo.balance+delta), FormatMoney(bwtTotalAmount) );
+        __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount) );
 
     // Retrieve previous end epoch block hash for certificate proof verification
     int targetHeight = scInfo.StartHeightForEpoch(cert.epochNumber) - 1;
@@ -1435,17 +1435,21 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CScCertificate& cert)
         else
             scCurCeasingEventIt->second.flag = CSidechainEventsCacheEntry::Flags::ERASED;
 
-        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: cert [%s] removes prevCeasingHeight [%d]\n",
-                __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), curCeasingHeight);
+        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: cert [%s] removes prevCeasingHeight [%d] (certEp=%d, currentEp=%d)\n",
+                __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), curCeasingHeight, cert.epochNumber,
+                scInfo.topCommittedCertReferencedEpoch);
     } else {
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: cert [%s] finds not prevCeasingHeight [%d] to remove\n",
                 __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), curCeasingHeight);
-        // we always must have previous ceasing height record (at list one for current cert sc id).
-
-        // TODO quality
-        // if we have two certificates of different quality and one has been already processed, we hit
-        // this condition when we are processing the second
-        // return false;
+        // if we have more than one certificate of different quality in the epoch, and one has been already processed, we hit
+        // this condition when we are processing another one, in this case we must have the event already scheduled
+        // In this specific case the quality ordering is not important
+        if (!HaveSidechainEvents(nextCeasingHeight) )
+        {
+            LogPrint("sc", "%s():%d - No scheduled event for next ceasing height %d\n",
+                __func__, __LINE__, nextCeasingHeight);
+            return false;
+        }
         return true;
     }
 
@@ -1541,7 +1545,7 @@ bool CCoinsViewCache::CancelSidechainEvent(const CTxForwardTransferOut& forwardO
     return true;
 }
 
-bool CCoinsViewCache::CancelSidechainEvent(const CScCertificate& cert)
+bool CCoinsViewCache::CancelSidechainEvent(const CScCertificate& cert, const CTxUndo &certUndoEntry)
 {
     CSidechain restoredScInfo;
     if (!this->GetSidechain(cert.GetScId(), restoredScInfo)) {
@@ -1553,22 +1557,11 @@ bool CCoinsViewCache::CancelSidechainEvent(const CScCertificate& cert)
     //LogPrint("sc", "%s():%d -------------- info -------------- \n", __func__, __LINE__);
     //Dump_info();
 
-    if (restoredScInfo.topCommittedCertReferencedEpoch == cert.epochNumber)
+    if (certUndoEntry.replacedLastCertEpoch == cert.epochNumber)
     {
-        if (restoredScInfo.topCommittedCertQuality >= cert.quality)
-        {
-            LogPrint("sc", "%s():%d - ERROR scId[%s]: cert q[%d] should be greater than %d\n",
-                __func__, __LINE__, cert.GetScId().ToString(), cert.quality, restoredScInfo.topCommittedCertQuality);
-            return false;
-        }
         LogPrint("sc", "%s():%d - nothing to do for scId[%s]: undo of cert [%s] / q[%d] does not change epoch\n",
             __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), cert.quality);
         return true;
-    }
-    else
-    {
-        LogPrint("sc", "%s():%d - undo of cert [%s] / q[%d] is changing epoch %d into epoch %d \n", __func__, __LINE__,
-            cert.GetHash().ToString(), cert.quality, cert.epochNumber, restoredScInfo.topCommittedCertReferencedEpoch);
     }
 
     int currentCeasingHeight = restoredScInfo.StartHeightForEpoch(cert.epochNumber+2) + restoredScInfo.SafeguardMargin()+1;
