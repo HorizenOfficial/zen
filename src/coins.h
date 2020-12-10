@@ -21,6 +21,7 @@
 #include <sc/proofverifier.h>
 
 class CBlockUndo;
+class CTxInUndo;
 class CVoidedCertUndo;
 
 static const int BWT_POS_UNSET = -1;
@@ -572,8 +573,9 @@ public:
     bool UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry, std::map<uint256, bool>* pVoidedCertsMap = nullptr);
     bool RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry, std::map<uint256, bool>* pVoidedCertsMap = nullptr);
     bool CheckQuality(const CScCertificate& cert)  const override;
-    void NullifyBackwardTransfers(const uint256& certHash, CTxUndo& certUndoEntry);
+    void NullifyBackwardTransfers(const uint256& certHash, std::vector<CTxInUndo>& nullifiedOuts);
     bool RestoreBackwardTransfers(const CTxUndo& certUndoEntry);
+    std::map<uint256,uint256> HighQualityCertDataFor(const CBlock& blockToConnect);
 
     //SIDECHAINS EVENTS RELATED MEMBERS
     bool HaveSidechainEvents(int height)                            const override;

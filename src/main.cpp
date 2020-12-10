@@ -2036,7 +2036,7 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache &inputs, CTxUndo &txund
     inputs.ModifyCoins(tx.GetHash())->From(tx, nHeight);
 }
 
-void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight)
+void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight, bool fVoidBwts)
 {
     // mark inputs spent
     txundo.vprevout.reserve(cert.GetVin().size());
@@ -2065,7 +2065,25 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
     assert(inputs.GetSidechain(cert.GetScId(), sidechain));
     int currentEpoch = sidechain.EpochFor(nHeight);
     int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
-    inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight, bwtMaturityHeight);
+
+    if (!fVoidBwts)
+    {
+        inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight, bwtMaturityHeight);
+        return;
+    } else
+    {
+        if (cert.nFirstBwtPos == 0) //no change
+            return; // no coin once all bwts are dropped
+        else
+        {
+            CCoinsModifier certCoinModified = inputs.ModifyCoins(cert.GetHash());
+            certCoinModified->From(cert, nHeight, bwtMaturityHeight);
+            for(unsigned int bwtPos = certCoinModified->nFirstBwtPos; bwtPos < certCoinModified->vout.size(); ++bwtPos)
+                certCoinModified->Spend(bwtPos);
+
+            return;
+        }
+    }
 }
 
 CScriptCheck::CScriptCheck(): ptxTo(0), nIn(0), chain(nullptr),
@@ -2368,9 +2386,9 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         return error("DisconnectBlock(): cannot revert sidechains scheduled events");
     }
 
-
     // not including coinbase
     const int certOffset = block.vtx.size() - 1;
+    std::map<uint256,uint256> highQualityCertData = view.HighQualityCertDataFor(block);
 
     // undo certificates in reverse order
     for (int i = block.vcert.size() - 1; i >= 0; i--) {
@@ -2390,6 +2408,13 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             int currentEpoch = sidechain.EpochFor(pindex->nHeight);
             int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
             CCoins outsBlock(cert, pindex->nHeight, bwtMaturityHeight);
+            if (highQualityCertData.count(cert.GetHash()) == 0) //drop bwts of low q certs
+            {
+                for(unsigned int bwtPos = outsBlock.nFirstBwtPos; bwtPos < outsBlock.vout.size(); ++bwtPos)
+                    outsBlock.Spend(bwtPos);
+            }
+            outsBlock.ClearUnspendable();
+
             // The CCoins serialization does not serialize negative numbers.
             // No network rules currently depend on the version here, so an inconsistency is harmless
             // but it must be corrected before txout nversion ever influences a network rule.
@@ -2413,21 +2438,23 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
         // this must be called before cancelling sc events since certificate quality is handled here
         const CTxUndo &certUndo = blockUndo.vtxundo[certOffset + i];
-        if (!view.RevertCertOutputs(cert, certUndo, pVoidedCertsMap) ) {
-            LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
-            return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
+        if (highQualityCertData.count(cert.GetHash()) != 0)
+        {
+            if (!view.RevertCertOutputs(cert, certUndo, pVoidedCertsMap) ) {
+                LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
+                return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
+            }
+
+            // TODO quality
+            // if we have more certs for scid/epoch with different qualities we must handle it somehow
+            // maybe out of the loop on certificates after having collected all of them?
+            // unless consensus rules that certs are ordered by quality
+
+            if (!view.CancelSidechainEvent(cert)) {
+                LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
+                return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
+            }
         }
-
-        // TODO quality
-        // if we have more certs for scid/epoch with different qualities we must handle it somehow
-        // maybe out of the loop on certificates after having collected all of them?
-        // unless consensus rules that certs are ordered by quality
-
-        if (!view.CancelSidechainEvent(cert)) {
-            LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
-            return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
-        }
-
 
         // restore inputs
         if (certUndo.vprevout.size() != cert.GetVin().size())
@@ -2676,13 +2703,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     // Do not allow blocks that contain transactions which 'overwrite' older transactions,
     // unless those are already completely spent.
-    BOOST_FOREACH(const CTransaction& tx, block.vtx) {
+    for(const CTransaction& tx: block.vtx)
+    {
         const CCoins* coins = view.AccessCoins(tx.GetHash());
         if (coins && !coins->IsPruned())
             return state.DoS(100, error("ConnectBlock(): tried to overwrite transaction"),
                              REJECT_INVALID, "bad-txns-BIP30");
     }
-    BOOST_FOREACH(const CScCertificate& cert, block.vcert) {
+    for(const CScCertificate& cert: block.vcert)
+    {
         const CCoins* coins = view.AccessCoins(cert.GetHash());
         if (coins && !coins->IsPruned())
             return state.DoS(100, error("ConnectBlock(): tried to overwrite certificate"),
@@ -2819,6 +2848,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
     }  //end of Processing transactions loop
 
+    std::map<uint256,uint256> highQualityCertData = view.HighQualityCertDataFor(block);
+
     for (unsigned int certIdx = 0; certIdx < block.vcert.size(); certIdx++) // Processing certificates loop
     {
         const CScCertificate &cert = block.vcert[certIdx];
@@ -2855,20 +2886,26 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
 
         blockundo.vtxundo.push_back(CTxUndo());
-        UpdateCoins(cert, view, blockundo.vtxundo.back(), pindex->nHeight);
+        UpdateCoins(cert, view, blockundo.vtxundo.back(), pindex->nHeight, /*fVoidBwts*/highQualityCertData.count(cert.GetHash()) == 0);
 
-        if (!view.UpdateScInfo(cert, blockundo.vtxundo.back(), pVoidedCertsMap) )
+        if (highQualityCertData.count(cert.GetHash()) != 0)
         {
-            return state.DoS(100, error("ConnectBlock(): could not add in scView: cert[%s]", cert.GetHash().ToString()),
-                             REJECT_INVALID, "bad-sc-cert-not-updated");
-        }
+            if (!view.UpdateScInfo(cert, blockundo.vtxundo.back(), pVoidedCertsMap) )
+            {
+                return state.DoS(100, error("ConnectBlock(): could not add in scView: cert[%s]", cert.GetHash().ToString()),
+                                 REJECT_INVALID, "bad-sc-cert-not-updated");
+            }
 
-        if (!view.ScheduleSidechainEvent(cert))
-        {
-            LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
-            return state.DoS(100, error("ConnectBlock(): Error updating ceasing heights with certificate [%s]", cert.GetHash().ToString()),
-                             REJECT_INVALID, "bad-sc-cert-not-recorded");
-        }
+            view.NullifyBackwardTransfers(highQualityCertData[cert.GetHash()], blockundo.vtxundo.back().vBwts);
+
+            if (!view.ScheduleSidechainEvent(cert))
+            {
+                LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
+                return state.DoS(100, error("ConnectBlock(): Error updating ceasing heights with certificate [%s]", cert.GetHash().ToString()),
+                                 REJECT_INVALID, "bad-sc-cert-not-recorded");
+            }
+        } else
+            CSidechain::SetVoidedCert(cert.GetHash(), true, pVoidedCertsMap);
 
         if (certIdx == 0) {
             // we are processing the first certificate, add the size of the vcert to the offset

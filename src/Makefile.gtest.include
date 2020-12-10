@@ -51,6 +51,7 @@ zen_gtest_SOURCES += \
 	gtest/test_sidechain_to_mempool.cpp \
 	gtest/test_sidechain_events.cpp \
 	gtest/test_sidechain_certificate_quality.cpp \
+	gtest/test_sidechain_ConnectBlock.cpp \
 	gtest/test_libzendoo.cpp
 
 if ENABLE_WALLET
