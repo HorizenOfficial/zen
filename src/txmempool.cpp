@@ -232,16 +232,15 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     return true;
 }
 
-std::set<uint256> CTxMemPool::mempoolDirectAncestorsOf(const CTransactionBase& root) const
+std::vector<uint256> CTxMemPool::mempoolDirectAncestorsOf(const CTransactionBase& root) const
 {
-    std::set<uint256> res; //set allows to avoid duplicates
-
     AssertLockHeld(cs);
+    std::vector<uint256> res;
 
     //collect all inputs in mempool (zero-spent ones)...
     for(const auto& input : root.GetVin()) {
         if ((mapTx.count(input.prevout.hash) != 0) || (mapCertificate.count(input.prevout.hash) != 0))
-            res.insert(input.prevout.hash);
+            res.push_back(input.prevout.hash);
     }
 
     //... and scCreations of all possible fwt
@@ -255,19 +254,21 @@ std::set<uint256> CTxMemPool::mempoolDirectAncestorsOf(const CTransactionBase& r
 
         for(const auto& fwt: tx->GetVftCcOut()) {
             if (mapSidechains.count(fwt.scId) && !mapSidechains.at(fwt.scId).scCreationTxHash.IsNull())
-                res.insert(mapSidechains.at(fwt.scId).scCreationTxHash);
+                res.push_back(mapSidechains.at(fwt.scId).scCreationTxHash);
         }
     }
 
     return res;
 }
 
-std::set<uint256> CTxMemPool::mempoolFullAncestorsOf(const CTransactionBase& originTx) const
+std::vector<uint256> CTxMemPool::mempoolFullAncestorsOf(const CTransactionBase& originTx) const
 {
-    AssertLockHeld(cs);
     // it's Breath-First-Search on txes/certs Direct Acyclic Graph, having originTx as root.
-    std::set<uint256> res = mempoolDirectAncestorsOf(originTx);
-    std::deque<uint256> toVisit(res.begin(), res.end());
+
+    AssertLockHeld(cs);
+    std::vector<uint256> res = mempoolDirectAncestorsOf(originTx);
+    std::deque<uint256> toVisit{res.begin(), res.end()};
+    res.clear();
 
     while(!toVisit.empty())
     {
@@ -281,11 +282,13 @@ std::set<uint256> CTxMemPool::mempoolFullAncestorsOf(const CTransactionBase& ori
             assert(pCurrentNode);
 
         toVisit.pop_back();
-        res.insert(pCurrentNode->GetHash());
+        if (std::find(res.begin(), res.end(), pCurrentNode->GetHash()) == res.end())
+            res.push_back(pCurrentNode->GetHash());
 
-        std::set<uint256> directAncestors = mempoolDirectAncestorsOf(*pCurrentNode);
+        std::vector<uint256> directAncestors = mempoolDirectAncestorsOf(*pCurrentNode);
         for(const uint256& ancestor : directAncestors) {
-            if (std::find(toVisit.begin(), toVisit.end(), ancestor) == toVisit.end())
+            if ( (std::find(toVisit.begin(), toVisit.end(), ancestor) == toVisit.end()) &&
+                 (std::find(res.begin(), res.end(), ancestor) == res.end()))
                 toVisit.push_front(ancestor);
         }
     }
@@ -293,11 +296,10 @@ std::set<uint256> CTxMemPool::mempoolFullAncestorsOf(const CTransactionBase& ori
     return res;
 }
 
-std::set<uint256> CTxMemPool::mempoolDirectDescendantsOf(const CTransactionBase& root) const
+std::vector<uint256> CTxMemPool::mempoolDirectDescendantsOf(const CTransactionBase& root) const
 {
-    std::set<uint256> res; //set allows to avoid duplicates
-
     AssertLockHeld(cs);
+    std::vector<uint256> res;
 
     //Direct dependencies of root are txes/certs directly spending root outputs...
     for (unsigned int i = 0; i < root.GetVout().size(); i++)
@@ -306,7 +308,7 @@ std::set<uint256> CTxMemPool::mempoolDirectDescendantsOf(const CTransactionBase&
         if (it == mapNextTx.end())
             continue;
 
-        res.insert(it->second.ptx->GetHash());
+        res.push_back(it->second.ptx->GetHash());
     }
 
     // ... and, should root be a scCreationTx, also all fwds in mempool directed to sc created by root
@@ -325,20 +327,20 @@ std::set<uint256> CTxMemPool::mempoolDirectDescendantsOf(const CTransactionBase&
             if (mapSidechains.count(sc.GetScId()) == 0)
                 continue;
             for(const auto& fwdTxHash : mapSidechains.at(sc.GetScId()).fwdTransfersSet)
-                res.insert(fwdTxHash);
+                res.push_back(fwdTxHash);
         }
     }
     return res;
 }
 
-std::set<uint256> CTxMemPool::mempoolFullDescendantsOf(const CTransactionBase& origTx) const
+std::vector<uint256> CTxMemPool::mempoolFullDescendantsOf(const CTransactionBase& origTx) const
 {
     // it's Depth-First-Search on txes/certs Direct Acyclic Graph, having originTx as root.
 
     AssertLockHeld(cs);
-
-    std::set<uint256> res = mempoolDirectDescendantsOf(origTx);
-    std::deque<uint256> toVisit(res.begin(), res.end());
+    std::vector<uint256> res = mempoolDirectDescendantsOf(origTx);
+    std::deque<uint256> toVisit{res.begin(), res.end()};
+    res.clear();
 
     while(!toVisit.empty())
     {
@@ -351,12 +353,14 @@ std::set<uint256> CTxMemPool::mempoolFullDescendantsOf(const CTransactionBase& o
         } else
             assert(pCurrentRoot);
 
-        res.insert(toVisit.front());
         toVisit.pop_front();
+        if (std::find(res.begin(), res.end(), pCurrentRoot->GetHash()) == res.end())
+            res.push_back(pCurrentRoot->GetHash());
 
-        std::set<uint256> directDescendants = mempoolDirectDescendantsOf(*pCurrentRoot);
+        std::vector<uint256> directDescendants = mempoolDirectDescendantsOf(*pCurrentRoot);
         for(const uint256& dep : directDescendants)
-            if (std::find(toVisit.begin(), toVisit.end(),dep) == toVisit.end())
+            if ((std::find(toVisit.begin(), toVisit.end(),dep) == toVisit.end()) &&
+                (std::find(res.begin(), res.end(),dep) == res.end()))
                 toVisit.push_front(dep);
     }
 
@@ -366,14 +370,13 @@ std::set<uint256> CTxMemPool::mempoolFullDescendantsOf(const CTransactionBase& o
 void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive)
 {
     // Remove transaction from memory pool
- 
     LOCK(cs);
-    std::set<uint256> objToRemove;
+    std::vector<uint256> objToRemove{};
 
     if (fRecursive)
         objToRemove = mempoolFullDescendantsOf(origTx);
 
-    objToRemove.insert(origTx.GetHash());
+    objToRemove.insert(objToRemove.begin(), origTx.GetHash());
 
     for(const uint256& hash : objToRemove)
     {

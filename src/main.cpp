@@ -1124,7 +1124,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         }
 
         // No lower quality certs should spend (directly or indirectly) outputs of higher or equal quality certs
-        std::set<uint256> certAncestors = pool.mempoolFullAncestorsOf(cert);
+        std::vector<uint256> certAncestors = pool.mempoolFullAncestorsOf(cert);
         for(const uint256& ancestor: certAncestors)
         {
             if (pool.mapCertificate.count(ancestor)==0)
