@@ -112,7 +112,6 @@ protected:
 
     CAmount dummyFeeAmount;
     CScript dummyCoinbaseScript;
-    uint256 CreateSpendableTxAtHeight(unsigned int coinHeight);
     void    CreateCheckpointAfter(CBlockIndex* blkIdx);
 };
 
@@ -123,7 +122,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_Ce
 {
     // create coinbase to finance certificate submission (just in view)
     int certBlockHeight {201};
-    uint256 inputTxHash = CreateSpendableTxAtHeight(certBlockHeight-COINBASE_MATURITY);
+    uint256 inputTxHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY);
 
     // extend blockchain to right height
     chainSettingUtils::ExtendChainActiveToHeight(certBlockHeight - 1);
@@ -192,7 +191,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEpo
 {
     // create coinbase to finance certificate submission (just in view)
     int certBlockHeight {201};
-    uint256 inputTxHash = CreateSpendableTxAtHeight(certBlockHeight-COINBASE_MATURITY);
+    uint256 inputTxHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY);
 
     // extend blockchain to right height
     chainSettingUtils::ExtendChainActiveToHeight(certBlockHeight - 1);
@@ -261,8 +260,8 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoch
 {
     // create coinbase to finance certificate submission (just in view)
     int certBlockHeight {201};
-    uint256 inputLowQCertHash = CreateSpendableTxAtHeight(certBlockHeight-COINBASE_MATURITY);
-    uint256 inputHighQCertHash = CreateSpendableTxAtHeight(certBlockHeight-COINBASE_MATURITY-1);
+    uint256 inputLowQCertHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY);
+    uint256 inputHighQCertHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY-1);
 
     // extend blockchain to right height
     chainSettingUtils::ExtendChainActiveToHeight(certBlockHeight - 1);
@@ -344,8 +343,8 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Different
 {
     // create coinbase to finance certificate submission (just in view)
     int certBlockHeight {201};
-    uint256 inputLowQCertHash = CreateSpendableTxAtHeight(certBlockHeight-COINBASE_MATURITY);
-    uint256 inputHighQCertHash = CreateSpendableTxAtHeight(certBlockHeight-COINBASE_MATURITY-1);
+    uint256 inputLowQCertHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY);
+    uint256 inputHighQCertHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY-1);
 
     // extend blockchain to right height
     chainSettingUtils::ExtendChainActiveToHeight(certBlockHeight - 1);
@@ -465,15 +464,6 @@ void SidechainConnectCertsBlockTestSuite::fillBlockHeader(CBlock& blockToFill, c
     return;
 }
 
-uint256 SidechainConnectCertsBlockTestSuite::CreateSpendableTxAtHeight(unsigned int coinHeight)
-{
-    CTransaction inputTx = createCoinbase(dummyCoinbaseScript, dummyFeeAmount, coinHeight);
-    CTxUndo dummyUndo;
-    UpdateCoins(inputTx, *sidechainsView, dummyUndo, coinHeight);
-    assert(sidechainsView->HaveCoins(inputTx.GetHash()));
-    return inputTx.GetHash();
-}
-
 void SidechainConnectCertsBlockTestSuite::CreateCheckpointAfter(CBlockIndex* blkIdx)
 {
     assert(blkIdx != nullptr);
@@ -484,4 +474,197 @@ void SidechainConnectCertsBlockTestSuite::CreateCheckpointAfter(CBlockIndex* blk
     dummyCheckPoint->pprev = blkIdx;
     Checkpoints::CCheckpointData& checkpoints = const_cast<Checkpoints::CCheckpointData&>(Params().Checkpoints());
     checkpoints.mapCheckpoints[dummyCheckPoint->nHeight] = dummyCheckpointBlock.GetHash();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////// BLOCK_FORMATION ///////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+#include <algorithm>
+
+class SidechainBlockFormationTestSuite : public ::testing::Test {
+public:
+    SidechainBlockFormationTestSuite():
+        fakeChainStateDb(nullptr), blockchainView(nullptr),
+        vecPriority(), orphanList(), mapDependers(),
+        dummyHeight(1987), dummyLockTimeCutoff(0),
+        dummyAmount(10), dummyScript(), dummyOut(dummyAmount, dummyScript) {}
+
+    ~SidechainBlockFormationTestSuite() = default;
+
+    void SetUp() override {
+        SelectParams(CBaseChainParams::REGTEST);
+
+        UnloadBlockIndex();
+
+        fakeChainStateDb   = new CInMemorySidechainDb();
+        blockchainView     = new CCoinsViewCache(fakeChainStateDb);
+    };
+
+    void TearDown() override {
+        delete blockchainView;
+        blockchainView = nullptr;
+
+        delete fakeChainStateDb;
+        fakeChainStateDb = nullptr;
+
+        UnloadBlockIndex();
+    };
+
+protected:
+    CInMemorySidechainDb *fakeChainStateDb;
+    CCoinsViewCache      *blockchainView;
+
+    std::vector<TxPriority> vecPriority;
+    std::list<COrphan> orphanList;
+    std::map<uint256, std::vector<COrphan*> > mapDependers;
+
+    int dummyHeight;
+    int64_t dummyLockTimeCutoff;
+
+    CAmount dummyAmount;
+    CScript dummyScript;
+    CTxOut dummyOut;
+};
+
+TEST_F(SidechainBlockFormationTestSuite, EmptyMempoolOrdering)
+{
+    ASSERT_TRUE(mempool.size() == 0);
+
+    GetBlockTxPriorityData(*blockchainView, dummyHeight, dummyLockTimeCutoff, vecPriority, orphanList, mapDependers);
+    GetBlockCertPriorityData(*blockchainView, dummyHeight, vecPriority, orphanList, mapDependers);
+
+    EXPECT_TRUE(vecPriority.size() == 0);
+    EXPECT_TRUE(orphanList.size() == 0);
+    EXPECT_TRUE(mapDependers.size() == 0);
+}
+
+TEST_F(SidechainBlockFormationTestSuite, SingleTxes_MempoolOrdering)
+{
+    uint256 inputCoinHash_1 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight);
+    uint256 inputCoinHash_2 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight-1);
+
+    CMutableTransaction tx_highFee;
+    tx_highFee.vin.push_back(CTxIn(inputCoinHash_1, 0, dummyScript));
+    tx_highFee.addOut(dummyOut);
+    CTxMemPoolEntry tx_highFee_entry(tx_highFee, /*fee*/CAmount(100), /*time*/ 1000, /*priority*/1.0, /*height*/dummyHeight);
+    ASSERT_TRUE(mempool.addUnchecked(tx_highFee.GetHash(), tx_highFee_entry));
+
+    CMutableTransaction tx_highPriority;
+    tx_highPriority.vin.push_back(CTxIn(inputCoinHash_2, 0, dummyScript));
+    tx_highPriority.addOut(dummyOut);
+    CTxMemPoolEntry tx_highPriority_entry(tx_highPriority, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/100.0, /*height*/dummyHeight);
+    ASSERT_TRUE(mempool.addUnchecked(tx_highPriority.GetHash(), tx_highPriority_entry));
+
+    //test
+    GetBlockTxPriorityData(*blockchainView, dummyHeight, dummyLockTimeCutoff, vecPriority, orphanList, mapDependers);
+
+    //checks
+    EXPECT_TRUE(vecPriority.size() == 2);
+    EXPECT_TRUE(orphanList.size() == 0);
+
+    TxPriorityCompare sortByFee(/*sort-by-fee*/true);
+    std::make_heap(vecPriority.begin(), vecPriority.end(), sortByFee);
+    EXPECT_TRUE(vecPriority.front().get<2>()->GetHash() == tx_highFee.GetHash());
+    EXPECT_TRUE(vecPriority.back().get<2>()->GetHash() == tx_highPriority.GetHash());
+
+    TxPriorityCompare sortByPriority(/*sort-by-fee*/false);
+    std::make_heap(vecPriority.begin(), vecPriority.end(), sortByPriority);
+    EXPECT_TRUE(vecPriority.front().get<2>()->GetHash() == tx_highPriority.GetHash());
+    EXPECT_TRUE(vecPriority.back().get<2>()->GetHash() == tx_highFee.GetHash());
+}
+
+TEST_F(SidechainBlockFormationTestSuite, DifferentScIdCerts_FeesAndPriorityOnlyContributeToMempoolOrdering)
+{
+    uint256 inputCoinHash_1 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight);
+    uint256 inputCoinHash_2 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight-1);
+
+    CMutableScCertificate cert_highFee;
+    cert_highFee.scId = uint256S("aaa");
+    cert_highFee.vin.push_back(CTxIn(inputCoinHash_1, 0, dummyScript));
+    cert_highFee.addOut(dummyOut);
+    CCertificateMemPoolEntry cert_highFee_entry(cert_highFee, /*fee*/CAmount(100), /*time*/ 1000, /*priority*/1.0, /*height*/dummyHeight);
+    ASSERT_TRUE(mempool.addUnchecked(cert_highFee.GetHash(), cert_highFee_entry));
+
+    CMutableScCertificate cert_highPriority;
+    cert_highPriority.scId = uint256S("bbb");
+    cert_highPriority.vin.push_back(CTxIn(inputCoinHash_2, 0, dummyScript));
+    cert_highPriority.addOut(dummyOut);
+    CCertificateMemPoolEntry cert_highPriority_entry(cert_highPriority, /*fee*/CAmount(1),   /*time*/ 1000, /*priority*/100.0, /*height*/dummyHeight);
+    ASSERT_TRUE(mempool.addUnchecked(cert_highPriority.GetHash(), cert_highPriority_entry));
+
+    //test
+    GetBlockCertPriorityData(*blockchainView, dummyHeight, vecPriority, orphanList, mapDependers);
+
+    //checks
+    EXPECT_TRUE(vecPriority.size() == 2);
+    EXPECT_TRUE(orphanList.size() == 0);
+
+    TxPriorityCompare sortByFee(/*sort-by-fee*/true);
+    std::make_heap(vecPriority.begin(), vecPriority.end(), sortByFee);
+    EXPECT_TRUE(vecPriority.front().get<2>()->GetHash() == cert_highFee.GetHash());
+    EXPECT_TRUE(vecPriority.back().get<2>()->GetHash() == cert_highPriority.GetHash());
+
+    TxPriorityCompare sortByPriority(/*sort-by-fee*/false);
+    std::make_heap(vecPriority.begin(), vecPriority.end(), sortByPriority);
+    EXPECT_TRUE(vecPriority.front().get<2>()->GetHash() == cert_highPriority.GetHash());
+    EXPECT_TRUE(vecPriority.back().get<2>()->GetHash() == cert_highFee.GetHash());
+}
+
+TEST_F(SidechainBlockFormationTestSuite, SameScIdCerts_HighwQualityCertsSpedingLowQualityOnesAreAccepted)
+{
+    uint256 inputCoinHash_1 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight);
+
+    CMutableScCertificate cert_lowQuality;
+    cert_lowQuality.scId = uint256S("aaa");
+    cert_lowQuality.quality = 100;
+    cert_lowQuality.vin.push_back(CTxIn(inputCoinHash_1, 0, dummyScript));
+    cert_lowQuality.addOut(dummyOut);
+    CCertificateMemPoolEntry cert_lowQuality_entry(cert_lowQuality, /*fee*/CAmount(1),   /*time*/ 1000, /*priority*/1.0, /*height*/dummyHeight);
+    ASSERT_TRUE(mempool.addUnchecked(cert_lowQuality.GetHash(), cert_lowQuality_entry));
+
+    CMutableScCertificate cert_highQuality;
+    cert_highQuality.scId = cert_lowQuality.scId;
+    cert_highQuality.quality = cert_lowQuality.quality * 2;
+    cert_highQuality.vin.push_back(CTxIn(cert_lowQuality.GetHash(), 0, dummyScript));
+    cert_highQuality.addOut(dummyOut);
+    CCertificateMemPoolEntry cert_highQuality_entry(cert_highQuality, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/dummyHeight);
+    ASSERT_TRUE(mempool.addUnchecked(cert_highQuality.GetHash(), cert_highQuality_entry));
+
+    //test
+    GetBlockCertPriorityData(*blockchainView, dummyHeight, vecPriority, orphanList, mapDependers);
+
+    //checks
+    EXPECT_TRUE(vecPriority.size() == 1);
+    EXPECT_TRUE(vecPriority.back().get<2>()->GetHash() == cert_lowQuality.GetHash());
+    EXPECT_TRUE(orphanList.size() == 1);
+    EXPECT_TRUE(*dynamic_cast<const CScCertificate*>(orphanList.back().ptx) == CScCertificate(cert_highQuality));
+}
+
+TEST_F(SidechainBlockFormationTestSuite, SameScIdCerts_LowQualityCertsSpedingHighQualityOnesAreRejected)
+{
+    uint256 inputCoinHash_1 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight);
+
+    CMutableScCertificate cert_highQuality;
+    cert_highQuality.scId = uint256S("aaa");
+    cert_highQuality.quality = 100;
+    cert_highQuality.vin.push_back(CTxIn(inputCoinHash_1, 0, dummyScript));
+    cert_highQuality.addOut(dummyOut);
+    CCertificateMemPoolEntry cert_highQuality_entry(cert_highQuality, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/dummyHeight);
+    ASSERT_TRUE(mempool.addUnchecked(cert_highQuality.GetHash(), cert_highQuality_entry));
+
+    CMutableScCertificate cert_lowQuality;
+    cert_lowQuality.scId = cert_highQuality.scId;
+    cert_lowQuality.quality = cert_highQuality.quality / 2;
+    cert_lowQuality.vin.push_back(CTxIn(cert_highQuality.GetHash(), 0, dummyScript));
+    cert_lowQuality.addOut(dummyOut);
+    CCertificateMemPoolEntry cert_lowQuality_entry(cert_lowQuality, /*fee*/CAmount(1),   /*time*/ 1000, /*priority*/1.0, /*height*/dummyHeight);
+    ASSERT_TRUE(mempool.addUnchecked(cert_lowQuality.GetHash(), cert_lowQuality_entry));
+
+    //test
+    GetBlockCertPriorityData(*blockchainView, dummyHeight, vecPriority, orphanList, mapDependers);
+
+    //checks
+    EXPECT_TRUE(vecPriority.size() == 1);
+    EXPECT_TRUE(vecPriority.back().get<2>()->GetHash() == cert_highQuality.GetHash());
+    EXPECT_TRUE(orphanList.size() == 0) << "cert_lowQuality should not be counted since it's wrong dependency";
 }
