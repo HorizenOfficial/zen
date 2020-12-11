@@ -2039,12 +2039,10 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                     bwtMaxDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
                         sidechain.SafeguardMargin() - nHeight;
 
-                    if (CSidechain::State::CEASED == pcoinsTip->isCeasedAtHeight(cert.GetScId(), chainActive.Height()))
-                    {
-                        LogPrint("cert", "%s():%d - cert[%s] is CEASED\n", __func__, __LINE__, cert.GetHash().ToString());
-                        areBwtStripped = true;
-                    }
-
+                    // Certs can have their bwts cleared for different reasons
+                    // ( being spent, voided due to sidechain ceasing, voided since cert has low quality)
+                    // which we are not able to reconstruct here.
+                    // Currently we just void all the bwts here
                     if (pcoinsTip->IsBwtStripped(cert.GetHash()) )
                     {
                         LogPrint("cert", "%s():%d - cert[%s] has bwt stripped\n",

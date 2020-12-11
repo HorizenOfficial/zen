@@ -130,6 +130,8 @@ class sc_cert_ceasing(BitcoinTestFramework):
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
 
+        self.sync_all()
+
         # node0 create an empty cert_2 
         mark_logs("Node 0 sends an empty cert for scid_2 {}".format(scids[1]), self.nodes, DEBUG_MODE)
         try:
