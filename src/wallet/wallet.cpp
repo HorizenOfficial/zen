@@ -2026,7 +2026,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
   
             for (const CTransactionBase* obj: vTxBase)
             {
-                int bwtMatDepth = -1;
+                int bwtMaxDepth = -1;
                 bool areBwtStripped = false;
 
                 if (obj->IsCertificate())
@@ -2036,7 +2036,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                     CSidechain sidechain;
                     assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
                     int currentEpoch = sidechain.EpochFor(nHeight);
-                    bwtMatDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
+                    bwtMaxDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
                         sidechain.SafeguardMargin() - nHeight;
 
                     if (CSidechain::State::CEASED == pcoinsTip->isCeasedAtHeight(cert.GetScId(), chainActive.Height()))
@@ -2053,7 +2053,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                     }
                 }
 
-                if (AddToWalletIfInvolvingMe(*obj, &block, bwtMatDepth, fUpdate))
+                if (AddToWalletIfInvolvingMe(*obj, &block, bwtMaxDepth, fUpdate))
                 {
                     ret++;
 

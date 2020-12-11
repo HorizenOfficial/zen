@@ -1280,7 +1280,7 @@ size_t CTxMemPool::DynamicMemoryUsage() const {
           cachedInnerUsage);
 }
 
-std::pair<uint256, CAmount> CTxMemPool::FindConflictingCert(const uint256& scId, int64_t certQuality)
+std::pair<uint256, CAmount> CTxMemPool::FindCertWithQuality(const uint256& scId, int64_t certQuality)
 {
     LOCK(cs);
     std::pair<uint256, CAmount> res = std::make_pair(uint256(),CAmount(-1));
@@ -1301,7 +1301,7 @@ std::pair<uint256, CAmount> CTxMemPool::FindConflictingCert(const uint256& scId,
     return res;
 }
 
-bool CTxMemPool::RemoveConflictingQualityCert(const uint256& certToRmHash)
+bool CTxMemPool::RemoveCertAndSync(const uint256& certToRmHash)
 {
     LOCK(cs);
 
@@ -1335,54 +1335,4 @@ bool CTxMemPool::IsTopQualityCertInMempool(const CScCertificate& cert)
         return cert.GetHash() == mapSidechains.at(scId).GetTopQualityCert()->second;
     }
     return false;
-}
-
-void CTxMemPool::SyncLowQualityCerts(const CScCertificate& cert)
-{
-    const uint256& scId = cert.GetScId();
-
-    // look for worse certs in mempool
-    if ((mapSidechains.count(scId) != 0) &&
-        (!mapSidechains.at(scId).mBackwardCertificates.empty()))
-    {
-        for (const auto& entry : mapSidechains.at(scId).mBackwardCertificates)
-        {
-            const uint256& hash = entry.second;
-            // if just this cert is the only one return true, otherwise skip
-            if (hash == cert.GetHash())
-            {
-                if (mapSidechains.at(scId).mBackwardCertificates.size() == 1)
-                    break;
-                else
-                    continue;
-            }
-
-            const CScCertificate& memPoolCert = mapCertificate.at(hash).GetCertificate();
-            if (memPoolCert.quality < cert.quality)
-            {
-                LogPrint("cert", "%s():%d - sync voiding cert %s\n", __func__, __LINE__, hash.ToString() ); 
-                SyncVoidedCert(hash, true);
-            }
-        }
-    }
-
-    // look for worse cert in db (will be overridden as soon as the next block will be mined)
-    CCoinsViewCache &view = *pcoinsTip;
-    CSidechain info;
-    if (view.GetSidechain(scId, info))
-    {
-        if (info.topCommittedCertReferencedEpoch == cert.epochNumber &&
-            info.topCommittedCertQuality < cert.quality)
-        {
-            LogPrint("cert", "%s():%d - sync voiding cert %s\n", __func__, __LINE__, info.topCommittedCertHash.ToString() ); 
-            SyncVoidedCert(info.topCommittedCertHash, true);
-        }
-    }
-
-    // finally promote it to be the best in wallet if the case
-    if (IsTopQualityCertInMempool(cert))
-    {
-        LogPrint("cert", "%s():%d - sync refilling cert %s\n", __func__, __LINE__, cert.GetHash().ToString() ); 
-        SyncVoidedCert(cert.GetHash(), false);
-    }
 }

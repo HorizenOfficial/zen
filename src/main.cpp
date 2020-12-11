@@ -1143,7 +1143,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
     }
 
     // Check if cert is already in mempool or if there are conflicts with in-memory certs
-    std::pair<uint256, CAmount> conflictingCertData = pool.FindConflictingCert(cert.GetScId(), cert.quality);
+    std::pair<uint256, CAmount> conflictingCertData = pool.FindCertWithQuality(cert.GetScId(), cert.quality);
 
     {
         CCoinsView dummy;
@@ -1293,7 +1293,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             return error("%s(): BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", __func__, certHash.ToString());
         }
 
-        if (!pool.RemoveConflictingQualityCert(conflictingCertData.first))
+        if (!pool.RemoveCertAndSync(conflictingCertData.first))
             return error("%s(): cert %s depends on some conflicting quality certs", __func__, certHash.ToString());
 
         // Store transaction in memory

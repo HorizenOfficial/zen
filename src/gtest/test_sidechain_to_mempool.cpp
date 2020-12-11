@@ -580,7 +580,7 @@ TEST_F(SidechainsInMempoolTestSuite, CertInMempool_QualityOfCerts) {
     CScCertificate cert5 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(0),
         /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(90), /*numBwt*/2, /*quality*/tq);
 
-    EXPECT_TRUE(mempool.RemoveConflictingQualityCert(mempool.FindConflictingCert(scId, cert5.quality).first));
+    EXPECT_TRUE(mempool.RemoveCertAndSync(mempool.FindCertWithQuality(scId, cert5.quality).first));
     
     EXPECT_FALSE(mempool.mapSidechains.at(scId).HasCert(cert1.GetHash()));
     EXPECT_TRUE(mempool.mapSidechains.at(scId).GetTopQualityCert()->second == cert2.GetHash());
