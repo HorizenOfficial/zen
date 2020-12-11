@@ -1325,14 +1325,3 @@ bool CTxMemPool::RemoveCertAndSync(const uint256& certToRmHash)
 
     return true;
 }
-
-bool CTxMemPool::IsTopQualityCertInMempool(const CScCertificate& cert)
-{
-    const uint256& scId = cert.GetScId();
-    if (mapSidechains.count(scId) != 0  &&
-        !mapSidechains.at(scId).mBackwardCertificates.empty())
-    {
-        return cert.GetHash() == mapSidechains.at(scId).GetTopQualityCert()->second;
-    }
-    return false;
-}

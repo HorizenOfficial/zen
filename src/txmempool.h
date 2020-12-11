@@ -189,7 +189,6 @@ public:
 
     std::pair<uint256, CAmount> FindCertWithQuality(const uint256& scId, int64_t certQuality);
     bool RemoveCertAndSync(const uint256& certToRmHash);
-    bool IsTopQualityCertInMempool(const CScCertificate& cert);
 
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
