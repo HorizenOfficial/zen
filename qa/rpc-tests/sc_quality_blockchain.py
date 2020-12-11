@@ -372,6 +372,7 @@ class quality_blockchain(BitcoinTestFramework):
             assert(False)
 
         assert_true(cert_1_epoch_2 in self.nodes[0].getrawmempool())
+        self.sync_all()
 
         mark_logs("Accept block containing a certificate of quality larger than max quality of certs in mempool (scId, epoch).", self.nodes, DEBUG_MODE)
         quality = 1
