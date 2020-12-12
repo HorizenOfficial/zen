@@ -123,15 +123,15 @@ public:
     std::vector<CTxInUndo> vprevout; // undo information for all txins
 
     //for cert only, to restore ScInfo
-    int replacedLastCertEpoch;
-    uint256 replacedLastCertHash;
-    int64_t replacedLastCertQuality;
-    CAmount replacedLastCertBwtAmount;
+    int prevTopCommittedCertReferencedEpoch;
+    uint256 prevTopCommittedCertHash;
+    int64_t prevTopCommittedCertQuality;
+    CAmount prevTopCommittedCertBwtAmount;
     std::vector<CTxInUndo> vBwts; // undo information for bwt
 
-    CTxUndo(): vprevout(), replacedLastCertEpoch(CScCertificate::EPOCH_NOT_INITIALIZED),
-            replacedLastCertHash(), replacedLastCertQuality(CScCertificate::QUALITY_NOT_INITIALIZED),
-            replacedLastCertBwtAmount(0), vBwts() {}
+    CTxUndo(): vprevout(), prevTopCommittedCertReferencedEpoch(CScCertificate::EPOCH_NOT_INITIALIZED),
+            prevTopCommittedCertHash(), prevTopCommittedCertQuality(CScCertificate::QUALITY_NOT_INITIALIZED),
+            prevTopCommittedCertBwtAmount(0), vBwts() {}
 
     size_t GetSerializeSize(int nType, int nVersion) const
     {
@@ -143,13 +143,13 @@ public:
     template<typename Stream>
     void Serialize(Stream& s, int nType, int nVersion) const
     {
-        if (replacedLastCertEpoch != CScCertificate::EPOCH_NOT_INITIALIZED) {
+        if (prevTopCommittedCertReferencedEpoch != CScCertificate::EPOCH_NOT_INITIALIZED) {
             WriteCompactSize(s, certAttributesMarker);
             ::Serialize(s, vprevout,                  nType, nVersion);
-            ::Serialize(s, replacedLastCertEpoch,     nType, nVersion);
-            ::Serialize(s, replacedLastCertHash,      nType, nVersion);
-            ::Serialize(s, replacedLastCertQuality,   nType, nVersion);
-            ::Serialize(s, replacedLastCertBwtAmount, nType, nVersion);
+            ::Serialize(s, prevTopCommittedCertReferencedEpoch,     nType, nVersion);
+            ::Serialize(s, prevTopCommittedCertHash,      nType, nVersion);
+            ::Serialize(s, prevTopCommittedCertQuality,   nType, nVersion);
+            ::Serialize(s, prevTopCommittedCertBwtAmount, nType, nVersion);
             ::Serialize(s, vBwts,                     nType, nVersion);
         }
         else {
@@ -162,20 +162,20 @@ public:
     {
         // reading from data stream to memory
         vprevout.clear();
-        replacedLastCertEpoch = CScCertificate::EPOCH_NOT_INITIALIZED;
-        replacedLastCertHash.SetNull();
-        replacedLastCertQuality = CScCertificate::QUALITY_NOT_INITIALIZED;
-        replacedLastCertBwtAmount = 0;
+        prevTopCommittedCertReferencedEpoch = CScCertificate::EPOCH_NOT_INITIALIZED;
+        prevTopCommittedCertHash.SetNull();
+        prevTopCommittedCertQuality = CScCertificate::QUALITY_NOT_INITIALIZED;
+        prevTopCommittedCertBwtAmount = 0;
         vBwts.clear();
 
         unsigned int nSize = ReadCompactSize(s);
         if (nSize == certAttributesMarker)
         {
             ::Unserialize(s, vprevout, nType, nVersion);
-            ::Unserialize(s, replacedLastCertEpoch,     nType, nVersion);
-            ::Unserialize(s, replacedLastCertHash,      nType, nVersion);
-            ::Unserialize(s, replacedLastCertQuality,   nType, nVersion);
-            ::Unserialize(s, replacedLastCertBwtAmount, nType, nVersion);
+            ::Unserialize(s, prevTopCommittedCertReferencedEpoch,     nType, nVersion);
+            ::Unserialize(s, prevTopCommittedCertHash,      nType, nVersion);
+            ::Unserialize(s, prevTopCommittedCertQuality,   nType, nVersion);
+            ::Unserialize(s, prevTopCommittedCertBwtAmount, nType, nVersion);
             ::Unserialize(s, vBwts,                     nType, nVersion);
         }
         else
@@ -188,10 +188,10 @@ public:
         str += strprintf("vprevout.size %u\n", vprevout.size());
         for(const CTxInUndo& in: vprevout)
             str += strprintf("\n  [%s]\n", in.ToString());
-        str += strprintf("replacedLastCertEpoch     %d\n", replacedLastCertEpoch);
-        str += strprintf("replacedLastCertHash      %s\n", replacedLastCertHash.ToString());
-        str += strprintf("replacedLastCertQuality   %d\n", replacedLastCertQuality);
-        str += strprintf("replacedLastCertBwtAmount %d\n", replacedLastCertBwtAmount);
+        str += strprintf("prevTopCommittedCertReferencedEpoch     %d\n", prevTopCommittedCertReferencedEpoch);
+        str += strprintf("prevTopCommittedCertHash      %s\n", prevTopCommittedCertHash.ToString());
+        str += strprintf("prevTopCommittedCertQuality   %d\n", prevTopCommittedCertQuality);
+        str += strprintf("prevTopCommittedCertBwtAmount %d\n", prevTopCommittedCertBwtAmount);
         str += strprintf("vBwts.size %u\n", vBwts.size());
         for(const CTxInUndo& x: vBwts)
             str += strprintf("\n  [%s]\n", x.ToString());

@@ -499,8 +499,8 @@ TEST_F(SidechainTestSuite, CertificateUpdatesTopCommittedCertHash) {
     //check
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
     EXPECT_TRUE(scInfo.topCommittedCertHash == aCertificate.GetHash());
-    EXPECT_TRUE(certUndoEntry.replacedLastCertEpoch == -1);
-    EXPECT_TRUE(certUndoEntry.replacedLastCertHash.IsNull());
+    EXPECT_TRUE(certUndoEntry.prevTopCommittedCertReferencedEpoch == -1);
+    EXPECT_TRUE(certUndoEntry.prevTopCommittedCertHash.IsNull());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
