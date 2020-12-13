@@ -876,11 +876,13 @@ TEST_F(SidechainsEventsTestSuite, UndoFullCertUpdatesToCeasingScs) {
 
     //Checks
     view->GetSidechain(scId, scInfo);
-
     EXPECT_FALSE(view->HaveSidechainEvents(newCeasingHeight));
     CSidechainEvents restoredCeasingScIds;
     EXPECT_TRUE(view->GetSidechainEvents(initialCeasingHeight,restoredCeasingScIds));
     EXPECT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
+
+    //check idempotency
+    EXPECT_TRUE(view->CancelSidechainEvent(cert));
 }
 
 TEST_F(SidechainsEventsTestSuite, UndoPureBwtCertUpdatesToCeasingScs) {
@@ -928,6 +930,9 @@ TEST_F(SidechainsEventsTestSuite, UndoPureBwtCertUpdatesToCeasingScs) {
     CSidechainEvents restoredCeasingScIds;
     EXPECT_TRUE(view->GetSidechainEvents(initialCeasingHeight,restoredCeasingScIds));
     EXPECT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
+
+    //check idempotency
+    EXPECT_TRUE(view->CancelSidechainEvent(cert));
 }
 
 TEST_F(SidechainsEventsTestSuite, UndoNoBwtCertUpdatesToCeasingScs) {
@@ -975,6 +980,9 @@ TEST_F(SidechainsEventsTestSuite, UndoNoBwtCertUpdatesToCeasingScs) {
     CSidechainEvents restoredCeasingScIds;
     EXPECT_TRUE(view->GetSidechainEvents(initialCeasingHeight,restoredCeasingScIds));
     EXPECT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
+
+    //check idempotency
+    EXPECT_TRUE(view->CancelSidechainEvent(cert));
 }
 
 TEST_F(SidechainsEventsTestSuite, UndoEmptyCertUpdatesToCeasingScs) {
@@ -1022,6 +1030,9 @@ TEST_F(SidechainsEventsTestSuite, UndoEmptyCertUpdatesToCeasingScs) {
     CSidechainEvents restoredCeasingScIds;
     EXPECT_TRUE(view->GetSidechainEvents(initialCeasingHeight,restoredCeasingScIds));
     EXPECT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
+
+    //check idempotency
+    EXPECT_TRUE(view->CancelSidechainEvent(cert));
 }
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// ApplyTxInUndo ////////////////////////////////

@@ -1374,15 +1374,15 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CTxForwardTransferOut& forwar
 
 bool CCoinsViewCache::ScheduleSidechainEvent(const CScCertificate& cert)
 {
-    CSidechain scInfo;
-    if (!this->GetSidechain(cert.GetScId(), scInfo)) {
+    CSidechain sidechain;
+    if (!this->GetSidechain(cert.GetScId(), sidechain)) {
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT:: attempt to update ceasing sidechain map with cert to unknown scId[%s]\n",
             __func__, __LINE__, cert.GetScId().ToString());
         return false;
     }
 
-    int curCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+1) + scInfo.SafeguardMargin()+1;
-    int nextCeasingHeight = curCeasingHeight + scInfo.creationData.withdrawalEpochLength;
+    int curCeasingHeight = sidechain.StartHeightForEpoch(cert.epochNumber+1) + sidechain.SafeguardMargin()+1;
+    int nextCeasingHeight = curCeasingHeight + sidechain.creationData.withdrawalEpochLength;
 
     //clear up current ceasing height, if any
     if (HaveSidechainEvents(curCeasingHeight))
@@ -1396,19 +1396,19 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CScCertificate& cert)
 
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: cert [%s] removes prevCeasingHeight [%d] (certEp=%d, currentEp=%d)\n",
                 __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), curCeasingHeight, cert.epochNumber,
-                scInfo.topCommittedCertReferencedEpoch);
-    } else {
-        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: cert [%s] finds not prevCeasingHeight [%d] to remove\n",
-                __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), curCeasingHeight);
-        // if we have more than one certificate of different quality in the epoch, and one has been already processed, we hit
-        // this condition when we are processing another one, in this case we must have the event already scheduled
-        // In this specific case the quality ordering is not important
+                sidechain.topCommittedCertReferencedEpoch);
+    } else
+    {
         if (!HaveSidechainEvents(nextCeasingHeight) )
         {
-            LogPrint("sc", "%s():%d - No scheduled event for next ceasing height %d\n",
-                __func__, __LINE__, nextCeasingHeight);
+            LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: Could not find scheduling for current ceasing height [%d] nor next ceasing height [%d]\n",
+                __func__, __LINE__, cert.GetScId().ToString(), curCeasingHeight, nextCeasingHeight);
             return false;
         }
+        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: cert [%s] misses prevCeasingHeight [%d] to remove\n",
+            __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), curCeasingHeight);
+        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: nextCeasingHeight already scheduled at[%d].\n",
+            __func__, __LINE__, cert.GetScId().ToString(), nextCeasingHeight);
         return true;
     }
 
@@ -1506,21 +1506,31 @@ bool CCoinsViewCache::CancelSidechainEvent(const CTxForwardTransferOut& forwardO
 
 bool CCoinsViewCache::CancelSidechainEvent(const CScCertificate& cert)
 {
-    CSidechain restoredScInfo;
-    if (!this->GetSidechain(cert.GetScId(), restoredScInfo)) {
+    CSidechain restoredSidechain;
+    if (!this->GetSidechain(cert.GetScId(), restoredSidechain)) {
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT:: attempt to undo ceasing sidechain map with cert to unknown scId[%s]\n",
             __func__, __LINE__, cert.GetScId().ToString());
         return false;
     }
 
-    int currentCeasingHeight = restoredScInfo.StartHeightForEpoch(cert.epochNumber+2) + restoredScInfo.SafeguardMargin()+1;
-    int restoredCeasingHeight = currentCeasingHeight - restoredScInfo.creationData.withdrawalEpochLength;
+    int currentCeasingHeight = restoredSidechain.StartHeightForEpoch(cert.epochNumber+2) + restoredSidechain.SafeguardMargin()+1;
+    int previousCeasingHeight = currentCeasingHeight - restoredSidechain.creationData.withdrawalEpochLength;
 
     //remove current ceasing Height
-    if (!HaveSidechainEvents(currentCeasingHeight)) {
-        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s] misses current ceasing height; expected value was [%d]\n",
+    if (!HaveSidechainEvents(currentCeasingHeight))
+    {
+        if (!HaveSidechainEvents(previousCeasingHeight) )
+        {
+            LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: Could not find scheduling for current ceasing height [%d] nor previous ceasing height [%d]\n",
+                __func__, __LINE__, cert.GetScId().ToString(), currentCeasingHeight, previousCeasingHeight);
+            return false;
+        }
+        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: misses current ceasing height [%d]\n",
             __func__, __LINE__, cert.GetScId().ToString(), currentCeasingHeight);
-        return false;
+        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: previousCeasingHeight already restored at[%d].\n",
+            __func__, __LINE__, cert.GetScId().ToString(), previousCeasingHeight);
+
+        return true;
     }
 
     CSidechainEventsMap::iterator scCurCeasingEventIt = ModifySidechainEvents(currentCeasingHeight);
@@ -1534,7 +1544,7 @@ bool CCoinsViewCache::CancelSidechainEvent(const CScCertificate& cert)
             __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), currentCeasingHeight);
 
     //restore previous ceasing Height
-    CSidechainEventsMap::iterator scRestoredCeasingEventIt = ModifySidechainEvents(restoredCeasingHeight);
+    CSidechainEventsMap::iterator scRestoredCeasingEventIt = ModifySidechainEvents(previousCeasingHeight);
     if (scRestoredCeasingEventIt->second.flag == CSidechainEventsCacheEntry::Flags::FRESH) {
         scRestoredCeasingEventIt->second.scEvents.ceasingScs.insert(cert.GetScId());
     } else {
@@ -1543,7 +1553,7 @@ bool CCoinsViewCache::CancelSidechainEvent(const CScCertificate& cert)
     }
 
     LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: undo of cert [%s] set nextCeasingHeight to [%d]\n",
-            __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), restoredCeasingHeight);
+        __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), previousCeasingHeight);
 
     return true;
 }
