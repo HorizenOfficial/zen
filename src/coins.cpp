@@ -1429,8 +1429,8 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CScCertificate& cert)
 
 bool CCoinsViewCache::CancelSidechainEvent(const CTxScCreationOut& scCreationOut, int creationHeight)
 {
-    CSidechain restoredScInfo;
-    if (!this->GetSidechain(scCreationOut.GetScId(), restoredScInfo)) {
+    CSidechain sidechain;
+    if (!this->GetSidechain(scCreationOut.GetScId(), sidechain)) {
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: attempt to undo ScCreation amount maturing for unknown scId[%s]\n",
             __func__, __LINE__, scCreationOut.GetScId().ToString());
         return false;
@@ -1457,7 +1457,7 @@ bool CCoinsViewCache::CancelSidechainEvent(const CTxScCreationOut& scCreationOut
 
 
     //remove current ceasing Height
-    int currentCeasingHeight = restoredScInfo.StartHeightForEpoch(1) + restoredScInfo.SafeguardMargin() +1;
+    int currentCeasingHeight = sidechain.StartHeightForEpoch(1) + sidechain.SafeguardMargin() +1;
 
     // Cancel Ceasing Sidechains
     if (!HaveSidechainEvents(currentCeasingHeight)) {
@@ -1580,7 +1580,8 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId=%s balance updated to: %s\n",
             __func__, __LINE__, maturingScId.ToString(), FormatMoney(scMaturingIt->second.scInfo.balance));
 
-        blockUndo.scUndoMap[maturingScId].appliedMaturedAmount = scMaturingIt->second.scInfo.mImmatureAmounts[height];
+        blockUndo.scUndoDatabyScId[maturingScId].appliedMaturedAmount = scMaturingIt->second.scInfo.mImmatureAmounts[height];
+        blockUndo.scUndoDatabyScId[maturingScId].contentBitMask |= CSidechainUndoData::AvailableSections::MATURED_AMOUNTS;
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: adding immature amount %s for scId=%s in blockundo\n",
             __func__, __LINE__, FormatMoney(scMaturingIt->second.scInfo.mImmatureAmounts[height]), maturingScId.ToString());
 
@@ -1600,17 +1601,17 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: lastCertEpoch [%d], lastCertHash [%s]\n",
                 __func__, __LINE__, scInfo.topCommittedCertReferencedEpoch, scInfo.topCommittedCertHash.ToString());
 
-        blockUndo.vVoidedCertUndo.push_back(CVoidedCertUndo());
-        blockUndo.vVoidedCertUndo.back().voidedCertScId = ceasingScId;
         LogPrint("sc", "%s():%d - set voidedCertHash[%s], ceasingScId = %s\n",
             __func__, __LINE__, scInfo.topCommittedCertHash.ToString(), ceasingScId.ToString());
 
         if (scInfo.topCommittedCertReferencedEpoch == CScCertificate::EPOCH_NULL) {
             assert(scInfo.topCommittedCertHash.IsNull());
+            blockUndo.scUndoDatabyScId[ceasingScId].contentBitMask |= CSidechainUndoData::AvailableSections::CEASED_CERTIFICATE_DATA;
             continue;
         }
 
-        NullifyBackwardTransfers(scInfo.topCommittedCertHash, blockUndo.vVoidedCertUndo.back().voidedOuts);
+        NullifyBackwardTransfers(scInfo.topCommittedCertHash, blockUndo.scUndoDatabyScId[ceasingScId].ceasedBwts);
+        blockUndo.scUndoDatabyScId[ceasingScId].contentBitMask |= CSidechainUndoData::AvailableSections::CEASED_CERTIFICATE_DATA;
         CSidechain::SetVoidedCert(scInfo.topCommittedCertHash, true, pVoidedCertsMap);
     }
 
@@ -1630,8 +1631,11 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
     CSidechainEvents recreatedScEvent;
 
     // Reverting amount maturing
-    for (std::map<uint256, ScUndoData>::const_iterator it = blockUndo.scUndoMap.begin(); it != blockUndo.scUndoMap.end(); ++it)
+    for (auto it = blockUndo.scUndoDatabyScId.begin(); it != blockUndo.scUndoDatabyScId.end(); ++it)
     {
+        if ((it->second.contentBitMask & CSidechainUndoData::AvailableSections::MATURED_AMOUNTS) == 0)
+            continue;
+
         const uint256& scId = it->first;
         const std::string& scIdString = scId.ToString();
 
@@ -1669,11 +1673,15 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
     }
 
     // Reverting ceasing sidechains
-    for(const CVoidedCertUndo& voidedCertUndo: blockUndo.vVoidedCertUndo)
+    for (auto it = blockUndo.scUndoDatabyScId.begin(); it != blockUndo.scUndoDatabyScId.end(); ++it)
     {
+        if ((it->second.contentBitMask & CSidechainUndoData::AvailableSections::CEASED_CERTIFICATE_DATA) == 0)
+            continue;
+
+        const uint256& scId = it->first;
         bool fClean = true;
 
-        const CSidechain* const pSidechain = AccessSidechain(voidedCertUndo.voidedCertScId);
+        const CSidechain* const pSidechain = AccessSidechain(scId);
         if (pSidechain->topCommittedCertReferencedEpoch != CScCertificate::EPOCH_NULL)
         {
             const uint256& coinHash = pSidechain->topCommittedCertHash;
@@ -1686,7 +1694,7 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
             LogPrint("sc", "%s():%d - reverting voiding of bwt for certificate [%s]\n", __func__, __LINE__, coinHash.ToString());
  
             CCoinsModifier coins = this->ModifyCoins(coinHash);
-            const std::vector<CTxInUndo>& voidedOuts = voidedCertUndo.voidedOuts;
+            const std::vector<CTxInUndo>& voidedOuts = it->second.ceasedBwts;
             for (size_t idx = voidedOuts.size(); idx-- > 0;)
             {
                 if (voidedOuts.at(idx).nHeight != 0)
@@ -1714,7 +1722,7 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
 
         if (!fClean) return false;
 
-        recreatedScEvent.ceasingScs.insert(voidedCertUndo.voidedCertScId);
+        recreatedScEvent.ceasingScs.insert(scId);
     }
 
     if (!recreatedScEvent.IsNull())

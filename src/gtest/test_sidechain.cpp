@@ -1021,9 +1021,9 @@ CBlockUndo SidechainTestSuite::createBlockUndoWith(const uint256 & scId, int hei
 {
     CBlockUndo retVal;
     CAmount AmountPerHeight = amount;
-    ScUndoData data;
+    CSidechainUndoData data;
     data.appliedMaturedAmount = AmountPerHeight;
-    retVal.scUndoMap[scId] = data;
+    retVal.scUndoDatabyScId[scId] = data;
 
     return retVal;
 }

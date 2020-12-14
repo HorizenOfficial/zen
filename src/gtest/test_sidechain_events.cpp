@@ -501,13 +501,14 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
 
     unsigned int bwtCounter = 0;
-    ASSERT_TRUE(coinsBlockUndo.vVoidedCertUndo.size() == 1);
-    for(int pos =  cert.nFirstBwtPos; pos < cert.GetVout().size(); ++pos) {
+    ASSERT_TRUE(coinsBlockUndo.scUndoDatabyScId.at(scId).ceasedBwts.size() == 1);
+    for(int pos =  cert.nFirstBwtPos; pos < cert.GetVout().size(); ++pos)
+    {
         const CTxOut& out = cert.GetVout()[pos];
-        EXPECT_TRUE( (coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f))
-                     <<coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].nVersion;
-        EXPECT_TRUE(coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].nBwtMaturityHeight == coinFromCert.nBwtMaturityHeight);
-        EXPECT_TRUE(out == coinsBlockUndo.vVoidedCertUndo[0].voidedOuts[bwtCounter].txout);
+        EXPECT_TRUE( (coinsBlockUndo.scUndoDatabyScId.at(scId).ceasedBwts.at(bwtCounter).nVersion & 0x7f) == (SC_CERT_VERSION & 0x7f))
+                     <<coinsBlockUndo.scUndoDatabyScId.at(scId).ceasedBwts.at(bwtCounter).nVersion;
+        EXPECT_TRUE(coinsBlockUndo.scUndoDatabyScId.at(scId).ceasedBwts.at(bwtCounter).nBwtMaturityHeight == coinFromCert.nBwtMaturityHeight);
+        EXPECT_TRUE(out == coinsBlockUndo.scUndoDatabyScId.at(scId).ceasedBwts.at(bwtCounter).txout);
         ++bwtCounter;
     }
 
@@ -610,8 +611,8 @@ TEST_F(SidechainsEventsTestSuite, RestoreFullCertCeasedCoins) {
         view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
 
     //Generate certificate
-    CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
+    CSidechain sidechain;
+    view->GetSidechain(scId, sidechain);
     int certReferencedEpoch = 0;
     CBlock endEpochBlock;
     CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(),
@@ -624,12 +625,12 @@ TEST_F(SidechainsEventsTestSuite, RestoreFullCertCeasedCoins) {
     CValidationState state;
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, scInfo.StartHeightForEpoch(1), /*fVoidBwts*/false);
+    UpdateCoins(cert, *view, txundo, sidechain.StartHeightForEpoch(1), /*fVoidBwts*/false);
     CCoins originalCoins;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),originalCoins));
 
     //Make the sidechain cease
-    int minimalCeaseHeight = scInfo.StartHeightForEpoch(certReferencedEpoch+2)+scInfo.SafeguardMargin()+1;
+    int minimalCeaseHeight = sidechain.StartHeightForEpoch(certReferencedEpoch+2)+sidechain.SafeguardMargin()+1;
     EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
 
     // Null the coins
@@ -648,7 +649,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreFullCertCeasedCoins) {
     EXPECT_TRUE(rebuiltCoin.nBwtMaturityHeight == originalCoins.nBwtMaturityHeight);
     EXPECT_TRUE(rebuiltCoin.vout.size()        == originalCoins.vout.size());
     for (unsigned int pos = 0; pos < cert.GetVout().size(); ++pos) {
-        EXPECT_TRUE(rebuiltCoin.vout[pos] == originalCoins.vout[pos]);
+        EXPECT_TRUE(rebuiltCoin.vout.at(pos) == originalCoins.vout.at(pos));
     }
     EXPECT_TRUE(view->HaveSidechainEvents(minimalCeaseHeight));
 }
@@ -1427,8 +1428,7 @@ TEST_F(SidechainsEventsTestSuite, ScCreationAmountMaturesAtHeight) {
     EXPECT_TRUE(sidechain.balance == scCreationTx.GetVscCcOut()[0].nValue);
     EXPECT_TRUE(sidechain.mImmatureAmounts.count(creationMaturityHeight) == 0);
 
-    ASSERT_TRUE(blockUndo.scUndoMap.count(scId) != 0);
-    EXPECT_TRUE(blockUndo.scUndoMap.at(scId).appliedMaturedAmount == scCreationTx.GetVscCcOut()[0].nValue);
+    EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).appliedMaturedAmount == scCreationTx.GetVscCcOut()[0].nValue);
 }
 
 TEST_F(SidechainsEventsTestSuite, FwdAmountMaturesAtHeight) {
@@ -1457,8 +1457,7 @@ TEST_F(SidechainsEventsTestSuite, FwdAmountMaturesAtHeight) {
     EXPECT_TRUE(sidechain.balance == fwdTx.GetVftCcOut()[0].nValue);
     EXPECT_TRUE(sidechain.mImmatureAmounts.count(fwdMaturityHeight) == 0);
 
-    ASSERT_TRUE(blockUndo.scUndoMap.count(scId) != 0);
-    EXPECT_TRUE(blockUndo.scUndoMap.at(scId).appliedMaturedAmount == fwdTx.GetVftCcOut()[0].nValue);
+    EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).appliedMaturedAmount == fwdTx.GetVftCcOut()[0].nValue);
 }
 
 TEST_F(SidechainsEventsTestSuite, DoubleFwdsMatureAtHeight) {
@@ -1493,8 +1492,7 @@ TEST_F(SidechainsEventsTestSuite, DoubleFwdsMatureAtHeight) {
     EXPECT_TRUE(sidechain.balance == fwdTx.GetVftCcOut()[0].nValue + fwdTx.GetVftCcOut()[1].nValue);
     EXPECT_TRUE(sidechain.mImmatureAmounts.count(fwdMaturityHeight) == 0);
 
-    ASSERT_TRUE(blockUndo.scUndoMap.count(scId) != 0);
-    EXPECT_TRUE(blockUndo.scUndoMap.at(scId).appliedMaturedAmount == fwdTx.GetVftCcOut()[0].nValue + fwdTx.GetVftCcOut()[1].nValue);
+    EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).appliedMaturedAmount == fwdTx.GetVftCcOut()[0].nValue + fwdTx.GetVftCcOut()[1].nValue);
 }
 
 TEST_F(SidechainsEventsTestSuite, CreationAmountDoesNotMatureUponRevertSidechainEvents) {
