@@ -165,8 +165,6 @@ class sc_getscinfo(BitcoinTestFramework):
             assert_equal(scids_all[count], item['scid'])
             count += 1
 
-        pprint.pprint(sc_info)
-
         #------------------------------------------------------------------------------------------
         sz_subset = 3
         from_par = 5
@@ -255,27 +253,11 @@ class sc_getscinfo(BitcoinTestFramework):
             print e.error['message']
             assert_true(False)
 
-        try:
-            # this is not OK because the interval is outside of filtered alive sc set
-            ret = self.nodes[1].getscinfo("*", True, True, NUM_ALIVE, 100)
-            pprint.pprint(ret)
-            print "-----"
-            #assert_true(False)
-        except JSONRPCException, e:
-            print e.error['message']
-            pass
-
         # get a ceased sc info filtering on active state
         null_result = self.nodes[0].getscinfo(a_ceased_scid, True)
         pprint.pprint(null_result)
         assert_equal(null_result['totalItems'], 0)
         assert_equal(len(null_result['items']), int(0))
-
-        '''
-        mark_logs("Node0 generating more blocks to achieve end of withdrawal epoch", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(EPOCH_LENGTH - 1)
-        self.sync_all()
-        '''
 
         CERT_FEE = Decimal('0.00015')
         bwt_amount = Decimal("0.20")
@@ -306,9 +288,12 @@ class sc_getscinfo(BitcoinTestFramework):
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
 
-        result = self.nodes[0].getscinfo(scid_0)
-        pprint.pprint(result)
         self.sync_all()
+
+        result = self.nodes[0].getscinfo(scid_0)
+        assert_equal(cert_1_epoch_0, result['items'][0]['unconf top quality certificate hash'])
+        assert_equal(quality, result['items'][0]['unconf top quality certificate quality'])
+
 
 if __name__ == '__main__':
     sc_getscinfo().main()
