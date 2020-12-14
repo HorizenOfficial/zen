@@ -46,6 +46,20 @@ public:
                    topCommittedCertHash(), topCommittedCertQuality(CScCertificate::QUALITY_NULL),
                    topCommittedCertBwtAmount(0), balance(0) {}
 
+    bool IsNull() const
+    {
+        return (
+             creationBlockHash.IsNull()                                    &&
+             creationBlockHeight == -1                                     &&
+             creationTxHash.IsNull()                                       &&
+             topCommittedCertReferencedEpoch == CScCertificate::EPOCH_NULL &&
+             topCommittedCertHash.IsNull()                                 &&
+             topCommittedCertQuality == CScCertificate::QUALITY_NULL       &&
+             topCommittedCertBwtAmount == 0 && balance == 0                &&
+             creationData.IsNull()                                         &&
+             mImmatureAmounts.empty());
+    }
+
     // reference to the block containing the tx that created the side chain
     uint256 creationBlockHash;
 

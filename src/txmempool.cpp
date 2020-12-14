@@ -928,8 +928,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
         //certificate must be duly recorded in mapSidechain
         assert(mapSidechains.count(cert.GetScId()) != 0);
-        auto hash = cert.GetHash();
-        assert(mapSidechains.at(cert.GetScId()).GetCert(hash) != mapSidechains.at(cert.GetScId()).mBackwardCertificates.end() );
+        assert(mapSidechains.at(cert.GetScId()).HasCert(cert.GetHash()) );
 
         bool fDependsWait = false;
         BOOST_FOREACH(const CTxIn &txin, cert.GetVin()) {
@@ -1249,18 +1248,6 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
         }
     } else if (!base->GetSidechain(scId, info))
         return false;
-
-    //decorate sidechain with fwds and bwt in mempool if any
-    if (mempool.mapSidechains.count(scId) != 0)
-    {
-        for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
-        {
-            const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
-            for (const auto& fwdAmount : fwdTx.GetVftCcOut())
-                if (scId == fwdAmount.scId)
-                    info.mImmatureAmounts[-1] += fwdAmount.nValue;
-        }
-    }
 
     return true;
 }

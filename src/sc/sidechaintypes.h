@@ -43,6 +43,15 @@ struct ScCreationParameters
     libzendoomc::ScConstant constant;
     libzendoomc::ScVk wCertVk;
 
+    bool IsNull() const
+    {
+        return (
+            withdrawalEpochLength == -1 &&
+            customData.empty()          &&
+            constant.empty( )           &&
+            wCertVk.IsNull() );
+    }
+
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
