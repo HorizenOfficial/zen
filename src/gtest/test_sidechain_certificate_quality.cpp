@@ -58,7 +58,7 @@ class SidechainMultipleCertsTestSuite : public ::testing::Test {
 public:
     SidechainMultipleCertsTestSuite(): fakeChainStateDb(nullptr), sidechainsView(nullptr),
                                        dummyBlock(), dummyUndo(), dummyBlockUndo(),
-                                       dummyVoidedCertMap(), dummyScriptPubKey() {
+                                       dummyScriptPubKey() {
         dummyScriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
     }
 
@@ -86,7 +86,6 @@ protected:
     CBlock                  dummyBlock;
     CTxUndo                 dummyUndo;
     CBlockUndo              dummyBlockUndo;
-    std::map<uint256, bool> dummyVoidedCertMap;
     CScript                 dummyScriptPubKey;
 
     CCoinsMap           dummyCoins;
@@ -220,7 +219,7 @@ TEST_F(SidechainMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_UndoDataChe
     ASSERT_TRUE(sidechainsView->UpdateScInfo(highQualityCert, scUndoData));
 
     //test
-    EXPECT_TRUE(sidechainsView->RevertCertOutputs(highQualityCert, scUndoData, &dummyVoidedCertMap));
+    EXPECT_TRUE(sidechainsView->RevertCertOutputs(highQualityCert, scUndoData));
 
     CSidechain revertedSidechain;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,revertedSidechain));
@@ -249,7 +248,7 @@ TEST_F(SidechainMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDat
     ASSERT_TRUE(sidechainsView->UpdateScInfo(nextEpochCert, scUndoData));
 
     //test
-    EXPECT_TRUE(sidechainsView->RevertCertOutputs(nextEpochCert, scUndoData, &dummyVoidedCertMap));
+    EXPECT_TRUE(sidechainsView->RevertCertOutputs(nextEpochCert, scUndoData));
 
     CSidechain revertedSidechain;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,revertedSidechain));
@@ -505,7 +504,7 @@ TEST(SidechainMultipleCerts, BlocksWithSameEpochCertssOrderedByIncreasingQuality
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-//////////////////////////// HighQualityCertDataFor ///////////////////////////
+///////////////////////////// HighQualityCertData /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainMultipleCertsTestSuite, HighQualityCertData_EmptyBlock)
 {
@@ -517,10 +516,10 @@ TEST_F(SidechainMultipleCertsTestSuite, HighQualityCertData_EmptyBlock)
     storeSidechain(scId, sidechain);
 
     CBlock emptyBlock;
-    EXPECT_TRUE(sidechainsView->HighQualityCertDataFor(emptyBlock).empty());
+    EXPECT_TRUE(HighQualityCertData(emptyBlock, *sidechainsView).empty());
 }
 
-TEST_F(SidechainMultipleCertsTestSuite, HighQualityCertDataFor_FirstCert)
+TEST_F(SidechainMultipleCertsTestSuite, HighQualityCertData_FirstCert)
 {
     CSidechain sidechain;
     sidechain.topCommittedCertQuality = 100;
@@ -537,7 +536,7 @@ TEST_F(SidechainMultipleCertsTestSuite, HighQualityCertDataFor_FirstCert)
     CBlock aBlock;
     aBlock.vcert.push_back(firstCert);
 
-    EXPECT_TRUE(sidechainsView->HighQualityCertDataFor(aBlock).at(firstCert.GetHash()).IsNull());
+    EXPECT_TRUE(HighQualityCertData(aBlock, *sidechainsView).at(firstCert.GetHash()).IsNull());
 }
 
 TEST_F(SidechainMultipleCertsTestSuite, LowQualityCerts_SameScId_DifferentEpoch)
@@ -564,7 +563,7 @@ TEST_F(SidechainMultipleCertsTestSuite, LowQualityCerts_SameScId_DifferentEpoch)
     aBlock.vcert.push_back(highQualityCert);
     ASSERT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
 
-    EXPECT_TRUE(sidechainsView->HighQualityCertDataFor(aBlock).at(highQualityCert.GetHash()).IsNull());
+    EXPECT_TRUE(HighQualityCertData(aBlock, *sidechainsView).at(highQualityCert.GetHash()).IsNull());
 }
 
 TEST_F(SidechainMultipleCertsTestSuite, LowQualityCerts_SameScId_SameEpoch)
@@ -591,7 +590,7 @@ TEST_F(SidechainMultipleCertsTestSuite, LowQualityCerts_SameScId_SameEpoch)
     aBlock.vcert.push_back(highQualityCert);
     ASSERT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
 
-    EXPECT_TRUE(sidechainsView->HighQualityCertDataFor(aBlock).at(highQualityCert.GetHash()) == sidechain.topCommittedCertHash);
+    EXPECT_TRUE(HighQualityCertData(aBlock, *sidechainsView).at(highQualityCert.GetHash()) == sidechain.topCommittedCertHash);
 }
 
 TEST_F(SidechainMultipleCertsTestSuite, LowQualityCerts_MultipleScIds)
@@ -643,8 +642,8 @@ TEST_F(SidechainMultipleCertsTestSuite, LowQualityCerts_MultipleScIds)
     aBlock.vcert.push_back(cert_A_3);
     ASSERT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
 
-    EXPECT_TRUE(sidechainsView->HighQualityCertDataFor(aBlock).at(cert_A_3.GetHash()) == sidechain_A.topCommittedCertHash);
-    EXPECT_TRUE(sidechainsView->HighQualityCertDataFor(aBlock).at(cert_B_2.GetHash()).IsNull());
+    EXPECT_TRUE(HighQualityCertData(aBlock, *sidechainsView).at(cert_A_3.GetHash()) == sidechain_A.topCommittedCertHash);
+    EXPECT_TRUE(HighQualityCertData(aBlock, *sidechainsView).at(cert_B_2.GetHash()).IsNull());
 }
 
 ///////////////////////////////////////////////////////////////////////////////

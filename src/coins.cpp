@@ -1060,7 +1060,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
 
 #endif
 
-bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry, std::map<uint256, bool>* pVoidedCertsMap)
+bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry)
 {
     const uint256& certHash       = cert.GetHash();
     const uint256& scId           = cert.GetScId();
@@ -1078,10 +1078,10 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndo
 
     CSidechainsMap::iterator scIt = ModifySidechain(scId);
 
-    certUndoEntry.replacedLastCertEpoch     = scIt->second.scInfo.topCommittedCertReferencedEpoch;
-    certUndoEntry.replacedLastCertHash      = scIt->second.scInfo.topCommittedCertHash;
-    certUndoEntry.replacedLastCertQuality   = scIt->second.scInfo.topCommittedCertQuality;
-    certUndoEntry.replacedLastCertBwtAmount = scIt->second.scInfo.topCommittedCertBwtAmount;
+    certUndoEntry.prevTopCommittedCertReferencedEpoch = scIt->second.scInfo.topCommittedCertReferencedEpoch;
+    certUndoEntry.prevTopCommittedCertHash            = scIt->second.scInfo.topCommittedCertHash;
+    certUndoEntry.prevTopCommittedCertQuality         = scIt->second.scInfo.topCommittedCertQuality;
+    certUndoEntry.prevTopCommittedCertBwtAmount       = scIt->second.scInfo.topCommittedCertBwtAmount;
 
     if (scIt->second.scInfo.topCommittedCertReferencedEpoch != cert.epochNumber)
     {
@@ -1111,8 +1111,6 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndo
 
         LogPrint("cert", "%s():%d - cert quality set in scView (best cert=%s, best q=%d)\n", __func__, __LINE__,
         scIt->second.scInfo.topCommittedCertHash.ToString(), scIt->second.scInfo.topCommittedCertQuality);
-
-        CSidechain::SetVoidedCert(scIt->second.scInfo.topCommittedCertHash, false, pVoidedCertsMap);
     }
     else
     {
@@ -1132,17 +1130,12 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndo
                 return false;
             }
 
-            CSidechain::SetVoidedCert(scIt->second.scInfo.topCommittedCertHash, true, pVoidedCertsMap);
-
             // update top-quality certificate data
             scIt->second.scInfo.topCommittedCertHash      = certHash;
             scIt->second.scInfo.topCommittedCertQuality   = cert.quality;
             scIt->second.scInfo.topCommittedCertBwtAmount = bwtTotalAmount;
             LogPrint("cert", "%s():%d - cert quality updated in scView (best cert=%s, best q=%d)\n", __func__, __LINE__,
             scIt->second.scInfo.topCommittedCertHash.ToString(), scIt->second.scInfo.topCommittedCertQuality);
-
-            CSidechain::SetVoidedCert(scIt->second.scInfo.topCommittedCertHash, false, pVoidedCertsMap);
-          
             scIt->second.scInfo.balance -= bwtTotalAmount;
             LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",
               __func__, __LINE__, FormatMoney(bwtTotalAmount), FormatMoney(scIt->second.scInfo.balance), scId.ToString());
@@ -1199,7 +1192,7 @@ void CCoinsViewCache::NullifyBackwardTransfers(const uint256& certHash, std::vec
 bool CCoinsViewCache::RestoreBackwardTransfers(const CTxUndo& certUndoEntry)
 {
     bool fClean = true;
-    const uint256& coinHash = certUndoEntry.replacedLastCertHash;
+    const uint256& coinHash = certUndoEntry.prevTopCommittedCertHash;
     LogPrint("cert", "%s():%d - called for cert %s\n", __func__, __LINE__, coinHash.ToString());
 
     CCoinsModifier coins = this->ModifyCoins(coinHash);
@@ -1240,7 +1233,7 @@ bool CCoinsViewCache::RestoreBackwardTransfers(const CTxUndo& certUndoEntry)
     return fClean;
 }
 
-bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry, std::map<uint256, bool>* pVoidedCertsMap)
+bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry)
 {
     const uint256& scId           = cert.GetScId();
     const CAmount& bwtTotalAmount = cert.GetValueOfBackwardTransfers();
@@ -1258,9 +1251,9 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CTxUnd
 
     // restore only if this is the top quality cert for this epoch
     LogPrint("cert", "%s():%d - cert %s, last cert %s, undo cert %s\n", __func__, __LINE__,
-        cert.GetHash().ToString(), scIt->second.scInfo.topCommittedCertHash.ToString(), certUndoEntry.replacedLastCertHash.ToString());
+        cert.GetHash().ToString(), scIt->second.scInfo.topCommittedCertHash.ToString(), certUndoEntry.prevTopCommittedCertHash.ToString());
     LogPrint("cert", "%s():%d - cert epoch %d, last epoch %d, undo epoch %d\n", __func__, __LINE__,
-        cert.epochNumber, scIt->second.scInfo.topCommittedCertReferencedEpoch, certUndoEntry.replacedLastCertEpoch);
+        cert.epochNumber, scIt->second.scInfo.topCommittedCertReferencedEpoch, certUndoEntry.prevTopCommittedCertReferencedEpoch);
 
     if (cert.GetHash() == scIt->second.scInfo.topCommittedCertHash)
     {
@@ -1272,61 +1265,27 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CTxUnd
 
         //if a lower quality certificate is restored, we have to subtract the relevant amount
         // from the balance
-        if (scIt->second.scInfo.topCommittedCertReferencedEpoch == certUndoEntry.replacedLastCertEpoch)
+        if (cert.epochNumber == certUndoEntry.prevTopCommittedCertReferencedEpoch)
         {
             // if we are restoring a cert for the same epoch it must have a lower quality than us
-            assert(cert.quality > certUndoEntry.replacedLastCertQuality);
+            assert(cert.quality > certUndoEntry.prevTopCommittedCertQuality);
 
             // certificate must resurrect its bacwardtransfers
             RestoreBackwardTransfers(certUndoEntry);
-            CSidechain::SetVoidedCert(certUndoEntry.replacedLastCertHash, false, pVoidedCertsMap);
-
-            // and void replaced cert
-            CSidechain::SetVoidedCert(scIt->second.scInfo.topCommittedCertHash, true, pVoidedCertsMap);
 
             // in this case we have to update the sc balance with undo amount
-            scIt->second.scInfo.balance -= certUndoEntry.replacedLastCertBwtAmount;
+            scIt->second.scInfo.balance -= certUndoEntry.prevTopCommittedCertBwtAmount;
         }
     }
 
-    scIt->second.scInfo.topCommittedCertReferencedEpoch = certUndoEntry.replacedLastCertEpoch;
-    scIt->second.scInfo.topCommittedCertHash            = certUndoEntry.replacedLastCertHash;
-    scIt->second.scInfo.topCommittedCertQuality         = certUndoEntry.replacedLastCertQuality;
-    scIt->second.scInfo.topCommittedCertBwtAmount       = certUndoEntry.replacedLastCertBwtAmount;
+    scIt->second.scInfo.topCommittedCertReferencedEpoch = certUndoEntry.prevTopCommittedCertReferencedEpoch;
+    scIt->second.scInfo.topCommittedCertHash            = certUndoEntry.prevTopCommittedCertHash;
+    scIt->second.scInfo.topCommittedCertQuality         = certUndoEntry.prevTopCommittedCertQuality;
+    scIt->second.scInfo.topCommittedCertBwtAmount       = certUndoEntry.prevTopCommittedCertBwtAmount;
 
     scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
 
     return true;
-}
-
-std::map<uint256,uint256> CCoinsViewCache::HighQualityCertDataFor(const CBlock& blockToConnect)
-{
-    // The function assumes that certs of given scId are ordered by increasing quality and
-    // reference all the same epoch as CheckBlock() guarantees.
-
-    // It's key that res[pos] carries the hash of the certificate made low quality by blockToConnect.vcert[pos]
-    // Should a cert in block NOT superseed another one, an empty hash will be placed
-
-    std::set<uint256> visitedScIds;
-    std::map<uint256,uint256> res;
-    for(auto itCert = blockToConnect.vcert.rbegin(); itCert != blockToConnect.vcert.rend(); ++itCert)
-    {
-    	if (visitedScIds.count(itCert->GetScId()) != 0)
-    		continue;
-
-        CSidechain sidechain;
-        if(!GetSidechain(itCert->GetScId(), sidechain))
-            continue;
-
-        if (itCert->epochNumber == sidechain.topCommittedCertReferencedEpoch)
-        	res[itCert->GetHash()] = sidechain.topCommittedCertHash;
-        else
-        	res[itCert->GetHash()] = uint256();
-
-    	visitedScIds.insert(itCert->GetScId());
-    }
-
-    return res;
 }
 
 bool CCoinsViewCache::HaveSidechainEvents(int height) const
@@ -1415,15 +1374,15 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CTxForwardTransferOut& forwar
 
 bool CCoinsViewCache::ScheduleSidechainEvent(const CScCertificate& cert)
 {
-    CSidechain scInfo;
-    if (!this->GetSidechain(cert.GetScId(), scInfo)) {
+    CSidechain sidechain;
+    if (!this->GetSidechain(cert.GetScId(), sidechain)) {
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT:: attempt to update ceasing sidechain map with cert to unknown scId[%s]\n",
             __func__, __LINE__, cert.GetScId().ToString());
         return false;
     }
 
-    int curCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+1) + scInfo.SafeguardMargin()+1;
-    int nextCeasingHeight = curCeasingHeight + scInfo.creationData.withdrawalEpochLength;
+    int curCeasingHeight = sidechain.StartHeightForEpoch(cert.epochNumber+1) + sidechain.SafeguardMargin()+1;
+    int nextCeasingHeight = curCeasingHeight + sidechain.creationData.withdrawalEpochLength;
 
     //clear up current ceasing height, if any
     if (HaveSidechainEvents(curCeasingHeight))
@@ -1437,19 +1396,19 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CScCertificate& cert)
 
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: cert [%s] removes prevCeasingHeight [%d] (certEp=%d, currentEp=%d)\n",
                 __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), curCeasingHeight, cert.epochNumber,
-                scInfo.topCommittedCertReferencedEpoch);
-    } else {
-        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: cert [%s] finds not prevCeasingHeight [%d] to remove\n",
-                __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), curCeasingHeight);
-        // if we have more than one certificate of different quality in the epoch, and one has been already processed, we hit
-        // this condition when we are processing another one, in this case we must have the event already scheduled
-        // In this specific case the quality ordering is not important
+                sidechain.topCommittedCertReferencedEpoch);
+    } else
+    {
         if (!HaveSidechainEvents(nextCeasingHeight) )
         {
-            LogPrint("sc", "%s():%d - No scheduled event for next ceasing height %d\n",
-                __func__, __LINE__, nextCeasingHeight);
+            LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: Could not find scheduling for current ceasing height [%d] nor next ceasing height [%d]\n",
+                __func__, __LINE__, cert.GetScId().ToString(), curCeasingHeight, nextCeasingHeight);
             return false;
         }
+        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: cert [%s] misses prevCeasingHeight [%d] to remove\n",
+            __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), curCeasingHeight);
+        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: nextCeasingHeight already scheduled at[%d].\n",
+            __func__, __LINE__, cert.GetScId().ToString(), nextCeasingHeight);
         return true;
     }
 
@@ -1545,33 +1504,33 @@ bool CCoinsViewCache::CancelSidechainEvent(const CTxForwardTransferOut& forwardO
     return true;
 }
 
-bool CCoinsViewCache::CancelSidechainEvent(const CScCertificate& cert, const CTxUndo &certUndoEntry)
+bool CCoinsViewCache::CancelSidechainEvent(const CScCertificate& cert)
 {
-    CSidechain restoredScInfo;
-    if (!this->GetSidechain(cert.GetScId(), restoredScInfo)) {
+    CSidechain restoredSidechain;
+    if (!this->GetSidechain(cert.GetScId(), restoredSidechain)) {
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT:: attempt to undo ceasing sidechain map with cert to unknown scId[%s]\n",
             __func__, __LINE__, cert.GetScId().ToString());
         return false;
     }
 
-    //LogPrint("sc", "%s():%d -------------- info -------------- \n", __func__, __LINE__);
-    //Dump_info();
-
-    if (certUndoEntry.replacedLastCertEpoch == cert.epochNumber)
-    {
-        LogPrint("sc", "%s():%d - nothing to do for scId[%s]: undo of cert [%s] / q[%d] does not change epoch\n",
-            __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), cert.quality);
-        return true;
-    }
-
-    int currentCeasingHeight = restoredScInfo.StartHeightForEpoch(cert.epochNumber+2) + restoredScInfo.SafeguardMargin()+1;
-    int restoredCeasingHeight = currentCeasingHeight - restoredScInfo.creationData.withdrawalEpochLength;
+    int currentCeasingHeight = restoredSidechain.StartHeightForEpoch(cert.epochNumber+2) + restoredSidechain.SafeguardMargin()+1;
+    int previousCeasingHeight = currentCeasingHeight - restoredSidechain.creationData.withdrawalEpochLength;
 
     //remove current ceasing Height
-    if (!HaveSidechainEvents(currentCeasingHeight)) {
-        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s] misses current ceasing height; expected value was [%d]\n",
+    if (!HaveSidechainEvents(currentCeasingHeight))
+    {
+        if (!HaveSidechainEvents(previousCeasingHeight) )
+        {
+            LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: Could not find scheduling for current ceasing height [%d] nor previous ceasing height [%d]\n",
+                __func__, __LINE__, cert.GetScId().ToString(), currentCeasingHeight, previousCeasingHeight);
+            return false;
+        }
+        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: misses current ceasing height [%d]\n",
             __func__, __LINE__, cert.GetScId().ToString(), currentCeasingHeight);
-        return false;
+        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: previousCeasingHeight already restored at[%d].\n",
+            __func__, __LINE__, cert.GetScId().ToString(), previousCeasingHeight);
+
+        return true;
     }
 
     CSidechainEventsMap::iterator scCurCeasingEventIt = ModifySidechainEvents(currentCeasingHeight);
@@ -1585,7 +1544,7 @@ bool CCoinsViewCache::CancelSidechainEvent(const CScCertificate& cert, const CTx
             __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), currentCeasingHeight);
 
     //restore previous ceasing Height
-    CSidechainEventsMap::iterator scRestoredCeasingEventIt = ModifySidechainEvents(restoredCeasingHeight);
+    CSidechainEventsMap::iterator scRestoredCeasingEventIt = ModifySidechainEvents(previousCeasingHeight);
     if (scRestoredCeasingEventIt->second.flag == CSidechainEventsCacheEntry::Flags::FRESH) {
         scRestoredCeasingEventIt->second.scEvents.ceasingScs.insert(cert.GetScId());
     } else {
@@ -1594,7 +1553,7 @@ bool CCoinsViewCache::CancelSidechainEvent(const CScCertificate& cert, const CTx
     }
 
     LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: undo of cert [%s] set nextCeasingHeight to [%d]\n",
-            __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), restoredCeasingHeight);
+        __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), previousCeasingHeight);
 
     return true;
 }
