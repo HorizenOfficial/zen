@@ -1056,48 +1056,120 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
     if (bOnlyAlive && (scState != CSidechain::State::ALIVE))
     	return false;
 
-    int currentEpoch = (scState == CSidechain::State::ALIVE)?
-            info.EpochFor(chainActive.Height()):
-            info.EpochFor(info.GetCeasingHeight());
-
     sc.push_back(Pair("scid", scId.GetHex()));
-    sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
-    sc.push_back(Pair("epoch", currentEpoch));
-    sc.push_back(Pair("end epoch height", info.StartHeightForEpoch(currentEpoch +1) - 1));
-    sc.push_back(Pair("state", CSidechain::stateToString(scState)));
-    sc.push_back(Pair("ceasing height", info.GetCeasingHeight()));
-
-    if (bVerbose)
+    if (!info.IsNull() )
     {
-        sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
-        sc.push_back(Pair("created in block", info.creationBlockHash.ToString()));
-    }
-
-    sc.push_back(Pair("created at block height", info.creationBlockHeight));
-    sc.push_back(Pair("last certificate epoch", info.topCommittedCertReferencedEpoch));
-    sc.push_back(Pair("last certificate hash", info.topCommittedCertHash.GetHex()));
-    sc.push_back(Pair("last certificate quality", info.topCommittedCertQuality));
-    sc.push_back(Pair("last certificate amount", ValueFromAmount(info.topCommittedCertBwtAmount)));
-
-    // creation parameters
-    sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
-
-    if (bVerbose)
-    {
-        sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
-        sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
-        sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
-
-        UniValue ia(UniValue::VARR);
-        for(const auto& entry: info.mImmatureAmounts)
+        int currentEpoch = (scState == CSidechain::State::ALIVE)?
+                info.EpochFor(chainActive.Height()):
+                info.EpochFor(info.GetCeasingHeight());
+ 
+        sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
+        sc.push_back(Pair("epoch", currentEpoch));
+        sc.push_back(Pair("end epoch height", info.StartHeightForEpoch(currentEpoch +1) - 1));
+        sc.push_back(Pair("state", CSidechain::stateToString(scState)));
+        sc.push_back(Pair("ceasing height", info.GetCeasingHeight()));
+ 
+        if (bVerbose)
         {
-            UniValue o(UniValue::VOBJ);
-            o.push_back(Pair("maturityHeight", entry.first));
-            o.push_back(Pair("amount", ValueFromAmount(entry.second)));
-            ia.push_back(o);
+            sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
+            sc.push_back(Pair("created in block", info.creationBlockHash.ToString()));
         }
-        sc.push_back(Pair("immature amounts", ia));
+ 
+        sc.push_back(Pair("created at block height", info.creationBlockHeight));
+        sc.push_back(Pair("last certificate epoch", info.topCommittedCertReferencedEpoch));
+        sc.push_back(Pair("last certificate hash", info.topCommittedCertHash.GetHex()));
+        sc.push_back(Pair("last certificate quality", info.topCommittedCertQuality));
+        sc.push_back(Pair("last certificate amount", ValueFromAmount(info.topCommittedCertBwtAmount)));
+ 
+        // creation parameters
+        sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
+ 
+        if (bVerbose)
+        {
+            sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
+            sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
+            sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
+ 
+            UniValue ia(UniValue::VARR);
+            for(const auto& entry: info.mImmatureAmounts)
+            {
+                UniValue o(UniValue::VOBJ);
+                o.push_back(Pair("maturityHeight", entry.first));
+                o.push_back(Pair("amount", ValueFromAmount(entry.second)));
+                ia.push_back(o);
+            }
+            sc.push_back(Pair("immature amounts", ia));
+        }
+
+        // get fwd / bwt unconfirmed data if any
+        if (mempool.mapSidechains.count(scId)!= 0)
+        {
+            if (!mempool.mapSidechains.at(scId).mBackwardCertificates.empty())
+            {
+                const uint256& topQualCertHash    = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
+                const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
+ 
+                sc.push_back(Pair("unconf top quality certificate epoch",   topQualCert.epochNumber));
+                sc.push_back(Pair("unconf top quality certificate hash",    topQualCertHash.GetHex()));
+                sc.push_back(Pair("unconf top quality certificate quality", topQualCert.quality));
+                sc.push_back(Pair("unconf top quality certificate amount",  ValueFromAmount(topQualCert.GetValueOfBackwardTransfers())));
+            }
+
+            if (bVerbose)
+            {
+                UniValue ia(UniValue::VARR);
+                for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
+                {
+                    const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
+                    for (const auto& fwdAmount : fwdTx.GetVftCcOut())
+                    {
+                        if (scId == fwdAmount.scId)
+                        {
+                             UniValue o(UniValue::VOBJ);
+                             o.push_back(Pair("unconf maturityHeight", -1));
+                             o.push_back(Pair("unconf amount", ValueFromAmount(fwdAmount.nValue)));
+                             ia.push_back(o);
+                         }
+                    }
+                }
+            }
+        }
     }
+    else
+    {
+        // check if we have it in mempool
+        CCoinsView dummy;
+        CCoinsViewMemPool vm(&dummy, mempool);
+        CSidechain info;
+        if (vm.GetSidechain(scId, info))
+        {
+            sc.push_back(Pair("unconf creating tx hash", info.creationTxHash.GetHex()));
+            sc.push_back(Pair("unconf withdrawalEpochLength", info.creationData.withdrawalEpochLength));
+
+            if (bVerbose)
+            {
+                sc.push_back(Pair("unconf wCertVk", HexStr(info.creationData.wCertVk)));
+                sc.push_back(Pair("unconf customData", HexStr(info.creationData.customData)));
+                sc.push_back(Pair("unconf constant", HexStr(info.creationData.constant)));
+  
+                UniValue ia(UniValue::VARR);
+                for(const auto& entry: info.mImmatureAmounts)
+                {
+                    UniValue o(UniValue::VOBJ);
+                    o.push_back(Pair("unconf maturityHeight", entry.first));
+                    o.push_back(Pair("unconf amount", ValueFromAmount(entry.second)));
+                    ia.push_back(o);
+                }
+                sc.push_back(Pair("unconf immature amounts", ia));
+            }
+        }
+        else
+        {
+            // nowhere to be found
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -1106,8 +1178,7 @@ bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAlive, bool
     CSidechain scInfo;
     CCoinsViewCache scView(pcoinsTip);
     if (!scView.GetSidechain(scId, scInfo)) {
-        LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+        LogPrint("sc", "%s():%d - scid[%s] not yet created\n", __func__, __LINE__, scId.ToString() );
     }
     CSidechain::State scState = scView.isCeasedAtHeight(scId, chainActive.Height() + 1);
 
@@ -1150,9 +1221,9 @@ int FillScList(UniValue& scItems, bool bOnlyAlive, bool bVerbose, int from=0, in
     // check consistency of interval in the filtered results list
     // --
     // 'from' must be in the valid interval
-    if (from >= totalResult.size())
+    if (from > totalResult.size())
     {
-        LogPrint("sc", "invalid interval: from[%d] >= sz[%d]\n", from, totalResult.size());
+        LogPrint("sc", "invalid interval: from[%d] > sz[%d]\n", from, totalResult.size());
         throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid interval");
     }
 
@@ -1324,7 +1395,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     CCoinsViewCache scView(pcoinsTip);
     if (!scView.HaveSidechain(scId))
     {
-        LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+        LogPrint("sc", "%s():%d - scid[%s] not yet created\n", __func__, __LINE__, scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
     }
 

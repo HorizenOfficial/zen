@@ -928,8 +928,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
         //certificate must be duly recorded in mapSidechain
         assert(mapSidechains.count(cert.GetScId()) != 0);
-        auto hash = cert.GetHash();
-        assert(mapSidechains.at(cert.GetScId()).GetCert(hash) != mapSidechains.at(cert.GetScId()).mBackwardCertificates.end() );
+        assert(mapSidechains.at(cert.GetScId()).HasCert(cert.GetHash()) );
 
         bool fDependsWait = false;
         BOOST_FOREACH(const CTxIn &txin, cert.GetVin()) {

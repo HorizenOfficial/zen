@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, initialize_chain_clean, \
+from test_framework.util import assert_true, assert_false, assert_equal, initialize_chain_clean, \
     mark_logs, start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
     disconnect_nodes, dump_sc_info, dump_sc_info_record
 from test_framework.mc_test.mc_test import *
@@ -286,6 +286,8 @@ class sc_fwd_maturity(BitcoinTestFramework):
             print "...OK"
             print
 
+        creating_tx = self.nodes[2].getscinfo(scid_1)['items'][0]['creating tx hash']
+        
         mark_logs("\nNode 2 invalidates best block", self.nodes, DEBUG_MODE)
         try:
             self.nodes[2].invalidateblock(self.nodes[2].getbestblockhash())
@@ -294,14 +296,11 @@ class sc_fwd_maturity(BitcoinTestFramework):
             print errorString
         time.sleep(1)
         print "Current height: ", self.nodes[2].getblockcount()
-        print "Checking that sc info on Node2 is not available..."
-        try:
-            print self.nodes[2].getscinfo(scid_1)['items'][0]
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            print errorString
+        print "Checking that sc info on Node2 is not available in blockchain (just in mempool)..."
+        scinfo = self.nodes[2].getscinfo(scid_1)['items'][0]
+        assert_false('creating tx hash' in scinfo)
+        assert_true(scinfo['unconf creating tx hash'], creating_tx)
 
-        assert_equal("scid not yet created" in errorString, True)
         print "...OK"
         print
         time.sleep(1)
