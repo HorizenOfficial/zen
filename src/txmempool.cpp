@@ -1249,18 +1249,6 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
     } else if (!base->GetSidechain(scId, info))
         return false;
 
-    //decorate sidechain with fwds and bwt in mempool if any
-    if (mempool.mapSidechains.count(scId) != 0)
-    {
-        for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
-        {
-            const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
-            for (const auto& fwdAmount : fwdTx.GetVftCcOut())
-                if (scId == fwdAmount.scId)
-                    info.mImmatureAmounts[-1] += fwdAmount.nValue;
-        }
-    }
-
     return true;
 }
 
