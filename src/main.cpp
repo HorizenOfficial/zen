@@ -2500,6 +2500,10 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 }
             } else
             {
+                // certificate must resurrect its bwts
+                assert(blockUndo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask & CSidechainUndoData::AvailableSections::LOW_QUALITY_CERT_DATA);
+                view.RestoreBackwardTransfers(highQualityCertData.at(cert.GetHash()), blockUndo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
+
                 CSidechain::SetVoidedCert(cert.GetHash(), true, pVoidedCertsMap);
                 CSidechain::SetVoidedCert(highQualityCertData.at(cert.GetHash()), false, pVoidedCertsMap);
             }

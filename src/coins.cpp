@@ -1269,10 +1269,6 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CBlock
             // if we are restoring a cert for the same epoch it must have a lower quality than us
             assert(cert.quality > blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertQuality);
 
-            // certificate must resurrect its bacwardtransfers
-            assert(blockUndo.scUndoDatabyScId.at(scId).contentBitMask & CSidechainUndoData::AvailableSections::LOW_QUALITY_CERT_DATA);
-            RestoreBackwardTransfers(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertHash,blockUndo.scUndoDatabyScId.at(scId).lowQualityBwts);
-
             // in this case we have to update the sc balance with undo amount
             scIt->second.scInfo.balance -= blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertBwtAmount;
         }
