@@ -898,8 +898,9 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     int certWindowStartHeight = scInfo.StartHeightForEpoch(cert.epochNumber+1);
     if (!((nHeight >= certWindowStartHeight) && (nHeight <= certWindowStartHeight + scInfo.SafeguardMargin())))
     {
-        LogPrint("sc", "%s():%d - invalid cert[%s], cert epoch not acceptable at this height\n",
-            __func__, __LINE__, certHash.ToString());
+        std::string s = CSidechain::stateToString(isCeasedAtHeight(cert.GetScId(), nHeight));
+        LogPrint("sc", "%s():%d - invalid cert[%s], cert epoch not acceptable at this height %d (state=%s, wsh=%d, sg=%d)\n",
+            __func__, __LINE__, certHash.ToString(), nHeight, s, certWindowStartHeight, scInfo.SafeguardMargin());
         return state.Invalid(error("cert epoch not acceptable at this height"),
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
@@ -1329,7 +1330,7 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CTxScCreationOut& scCreationO
              __func__, __LINE__, scCreationOut.GetScId().ToString(), maturityHeight);
 
     // Schedule Ceasing Sidechains
-    int nextCeasingHeight = scInfo.StartHeightForEpoch(1) + scInfo.SafeguardMargin() +1;
+    int nextCeasingHeight = scInfo.StartHeightForEpoch(1) + scInfo.SafeguardMargin();
 
     CSidechainEventsMap::iterator scCeasingEventIt = ModifySidechainEvents(nextCeasingHeight);
     if (scCeasingEventIt->second.flag == CSidechainEventsCacheEntry::Flags::FRESH) {
@@ -1381,7 +1382,7 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CScCertificate& cert)
         return false;
     }
 
-    int curCeasingHeight = sidechain.StartHeightForEpoch(cert.epochNumber+1) + sidechain.SafeguardMargin()+1;
+    int curCeasingHeight = sidechain.StartHeightForEpoch(cert.epochNumber+1) + sidechain.SafeguardMargin();
     int nextCeasingHeight = curCeasingHeight + sidechain.creationData.withdrawalEpochLength;
 
     //clear up current ceasing height, if any
@@ -1457,7 +1458,7 @@ bool CCoinsViewCache::CancelSidechainEvent(const CTxScCreationOut& scCreationOut
 
 
     //remove current ceasing Height
-    int currentCeasingHeight = restoredScInfo.StartHeightForEpoch(1) + restoredScInfo.SafeguardMargin() +1;
+    int currentCeasingHeight = restoredScInfo.StartHeightForEpoch(1) + restoredScInfo.SafeguardMargin();
 
     // Cancel Ceasing Sidechains
     if (!HaveSidechainEvents(currentCeasingHeight)) {
@@ -1513,7 +1514,7 @@ bool CCoinsViewCache::CancelSidechainEvent(const CScCertificate& cert)
         return false;
     }
 
-    int currentCeasingHeight = restoredSidechain.StartHeightForEpoch(cert.epochNumber+2) + restoredSidechain.SafeguardMargin()+1;
+    int currentCeasingHeight = restoredSidechain.StartHeightForEpoch(cert.epochNumber+2) + restoredSidechain.SafeguardMargin();
     int previousCeasingHeight = currentCeasingHeight - restoredSidechain.creationData.withdrawalEpochLength;
 
     //remove current ceasing Height
