@@ -960,15 +960,14 @@ std::map<uint256,uint256> HighQualityCertData(const CBlock& blockToDisconnect, c
     std::set<uint256> visitedScIds;
     std::map<uint256,uint256> res;
 
-    const int certUndoOffset = blockToDisconnect.vtx.size() - 1;
     for (int certPos = blockToDisconnect.vcert.size() - 1; certPos >= 0; certPos--)
     {
         const CScCertificate& cert = blockToDisconnect.vcert.at(certPos);
         if (visitedScIds.count(cert.GetScId()) != 0)
             continue;
 
-        if (cert.epochNumber == blockUndo.vtxundo.at(certUndoOffset + certPos).prevTopCommittedCertReferencedEpoch)
-            res[cert.GetHash()] = blockUndo.vtxundo.at(certPos).prevTopCommittedCertHash;
+        if (cert.epochNumber == blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertReferencedEpoch)
+            res[cert.GetHash()] = blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertHash;
         else
             res[cert.GetHash()] = uint256();
 
@@ -2429,9 +2428,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     if (!UndoReadFromDisk(blockUndo, pos, pindex->pprev->GetBlockHash()))
         return error("DisconnectBlock(): failure reading undo data");
 
-//    LogPrint("sc", "%s():%d - ===============> CBlockUndo red from DB:\n%s\n",
-//        __func__, __LINE__, blockUndo.ToString());
-    // no coinbase in blockundo
     if (blockUndo.vtxundo.size() != (block.vtx.size() - 1 + block.vcert.size()))
         return error("DisconnectBlock(): block and undo data inconsistent");
 
@@ -2508,7 +2504,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 CSidechain::SetVoidedCert(highQualityCertData.at(cert.GetHash()), false, pVoidedCertsMap);
             }
 
-            if (!view.RevertCertOutputs(cert, certUndo) )
+            if (!view.RevertCertOutputs(cert, blockUndo) )
             {
                 LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
                 return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
@@ -2949,13 +2945,18 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (highQualityCertData.count(cert.GetHash()) != 0)
         {
-            if (!view.UpdateScInfo(cert, blockundo.vtxundo.back()) )
+            if (!view.UpdateScInfo(cert, blockundo) )
             {
                 return state.DoS(100, error("ConnectBlock(): could not add in scView: cert[%s]", cert.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-cert-not-updated");
             }
 
-            view.NullifyBackwardTransfers(highQualityCertData[cert.GetHash()], blockundo.vtxundo.back().vBwts);
+            if (!highQualityCertData.at(cert.GetHash()).IsNull())
+            {
+                view.NullifyBackwardTransfers(highQualityCertData.at(cert.GetHash()), blockundo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
+                blockundo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask |= CSidechainUndoData::AvailableSections::LOW_QUALITY_CERT_DATA;
+                CSidechain::SetVoidedCert(highQualityCertData.at(cert.GetHash()), true, pVoidedCertsMap);
+            }
 
             if (!view.ScheduleSidechainEvent(cert))
             {
@@ -2965,8 +2966,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
 
             CSidechain::SetVoidedCert(cert.GetHash(), false, pVoidedCertsMap);
-            if (!highQualityCertData.at(cert.GetHash()).IsNull())
-                CSidechain::SetVoidedCert(highQualityCertData.at(cert.GetHash()), true, pVoidedCertsMap);
         } else
             CSidechain::SetVoidedCert(cert.GetHash(), true, pVoidedCertsMap);
 

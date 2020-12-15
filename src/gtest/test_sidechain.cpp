@@ -392,15 +392,15 @@ TEST_F(SidechainTestSuite, RevertCertOutputsRestoresLastCertHash) {
     int certEpoch = 0;
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
         /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
-    CTxUndo certUndoEntry;
-    sidechainsView->UpdateScInfo(cert, certUndoEntry);
+    CBlockUndo blockUndo;
+    sidechainsView->UpdateScInfo(cert, blockUndo);
     CSidechain scInfoPostCert;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, scInfoPostCert));
     EXPECT_TRUE(scInfoPostCert.topCommittedCertReferencedEpoch == certEpoch);
     EXPECT_TRUE(scInfoPostCert.topCommittedCertHash == cert.GetHash());
 
     //test
-    bool res = sidechainsView->RevertCertOutputs(cert,certUndoEntry);
+    bool res = sidechainsView->RevertCertOutputs(cert, blockUndo);
 
     //checks
     EXPECT_TRUE(res);
@@ -491,16 +491,16 @@ TEST_F(SidechainTestSuite, CertificateUpdatesTopCommittedCertHash) {
     std::map<uint256, bool> dummy;
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummy));
 
-    CTxUndo certUndoEntry;
+    CBlockUndo blockUndo;
     CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
         /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
-    EXPECT_TRUE(sidechainsView->UpdateScInfo(aCertificate, certUndoEntry));
+    EXPECT_TRUE(sidechainsView->UpdateScInfo(aCertificate, blockUndo));
 
     //check
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
     EXPECT_TRUE(scInfo.topCommittedCertHash == aCertificate.GetHash());
-    EXPECT_TRUE(certUndoEntry.prevTopCommittedCertReferencedEpoch == -1);
-    EXPECT_TRUE(certUndoEntry.prevTopCommittedCertHash.IsNull());
+    EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertReferencedEpoch == -1);
+    EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertHash.IsNull());
 }
 
 ///////////////////////////////////////////////////////////////////////////////

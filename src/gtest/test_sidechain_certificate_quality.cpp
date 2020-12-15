@@ -84,7 +84,7 @@ protected:
 
     //helpers
     CBlock                  dummyBlock;
-    CTxUndo                 dummyUndo;
+    CBlockUndo              dummyUndo;
     CBlockUndo              dummyBlockUndo;
     CScript                 dummyScriptPubKey;
 
@@ -215,11 +215,11 @@ TEST_F(SidechainMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_UndoDataChe
     highQualityCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
     CAmount highQualityCert_TotalBwtAmount = CScCertificate(highQualityCert).GetValueOfBackwardTransfers();
 
-    CTxUndo scUndoData;
-    ASSERT_TRUE(sidechainsView->UpdateScInfo(highQualityCert, scUndoData));
+    CBlockUndo blockUndo;
+    ASSERT_TRUE(sidechainsView->UpdateScInfo(highQualityCert, blockUndo));
 
     //test
-    EXPECT_TRUE(sidechainsView->RevertCertOutputs(highQualityCert, scUndoData));
+    EXPECT_TRUE(sidechainsView->RevertCertOutputs(highQualityCert, blockUndo));
 
     CSidechain revertedSidechain;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,revertedSidechain));
@@ -244,11 +244,11 @@ TEST_F(SidechainMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDat
     nextEpochCert.quality     = initialScState.topCommittedCertQuality / 2;
     nextEpochCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
 
-    CTxUndo scUndoData;
-    ASSERT_TRUE(sidechainsView->UpdateScInfo(nextEpochCert, scUndoData));
+    CBlockUndo blockUndo;
+    ASSERT_TRUE(sidechainsView->UpdateScInfo(nextEpochCert, blockUndo));
 
     //test
-    EXPECT_TRUE(sidechainsView->RevertCertOutputs(nextEpochCert, scUndoData));
+    EXPECT_TRUE(sidechainsView->RevertCertOutputs(nextEpochCert, blockUndo));
 
     CSidechain revertedSidechain;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,revertedSidechain));
