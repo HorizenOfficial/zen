@@ -400,7 +400,7 @@ TEST_F(SidechainTestSuite, RevertCertOutputsRestoresLastCertHash) {
     EXPECT_TRUE(scInfoPostCert.topCommittedCertHash == cert.GetHash());
 
     //test
-    bool res = sidechainsView->RevertCertOutputs(cert, blockUndo);
+    bool res = sidechainsView->RevertCertOutputs(cert, blockUndo.scUndoDatabyScId.at(scId));
 
     //checks
     EXPECT_TRUE(res);

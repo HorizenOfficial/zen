@@ -1232,7 +1232,7 @@ bool CCoinsViewCache::RestoreBackwardTransfers(const uint256& certHash, const st
     return fClean;
 }
 
-bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CBlockUndo & blockUndo)
+bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CSidechainUndoData& sidechainUndo)
 {
     const uint256& scId           = cert.GetScId();
     const CAmount& bwtTotalAmount = cert.GetValueOfBackwardTransfers();
@@ -1250,9 +1250,9 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CBlock
 
     // restore only if this is the top quality cert for this epoch
     LogPrint("cert", "%s():%d - cert %s, last cert %s, undo cert %s\n", __func__, __LINE__,
-        cert.GetHash().ToString(), scIt->second.scInfo.topCommittedCertHash.ToString(), blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertHash.ToString());
+        cert.GetHash().ToString(), scIt->second.scInfo.topCommittedCertHash.ToString(), sidechainUndo.prevTopCommittedCertHash.ToString());
     LogPrint("cert", "%s():%d - cert epoch %d, last epoch %d, undo epoch %d\n", __func__, __LINE__,
-        cert.epochNumber, scIt->second.scInfo.topCommittedCertReferencedEpoch, blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertReferencedEpoch);
+        cert.epochNumber, scIt->second.scInfo.topCommittedCertReferencedEpoch, sidechainUndo.prevTopCommittedCertReferencedEpoch);
 
     if (cert.GetHash() == scIt->second.scInfo.topCommittedCertHash)
     {
@@ -1264,21 +1264,21 @@ bool CCoinsViewCache::RevertCertOutputs(const CScCertificate& cert, const CBlock
 
         //if a lower quality certificate is restored, we have to subtract the relevant amount
         // from the balance
-        if (cert.epochNumber == blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertReferencedEpoch)
+        if (cert.epochNumber == sidechainUndo.prevTopCommittedCertReferencedEpoch)
         {
             // if we are restoring a cert for the same epoch it must have a lower quality than us
-            assert(cert.quality > blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertQuality);
+            assert(cert.quality > sidechainUndo.prevTopCommittedCertQuality);
 
             // in this case we have to update the sc balance with undo amount
-            scIt->second.scInfo.balance -= blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertBwtAmount;
+            scIt->second.scInfo.balance -= sidechainUndo.prevTopCommittedCertBwtAmount;
         }
     }
 
-    assert(blockUndo.scUndoDatabyScId.at(scId).contentBitMask & CSidechainUndoData::AvailableSections::SIDECHAIN_STATE);
-    scIt->second.scInfo.topCommittedCertReferencedEpoch = blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertReferencedEpoch;
-    scIt->second.scInfo.topCommittedCertHash            = blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertHash;
-    scIt->second.scInfo.topCommittedCertQuality         = blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertQuality;
-    scIt->second.scInfo.topCommittedCertBwtAmount       = blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertBwtAmount;
+    assert(sidechainUndo.contentBitMask & CSidechainUndoData::AvailableSections::SIDECHAIN_STATE);
+    scIt->second.scInfo.topCommittedCertReferencedEpoch = sidechainUndo.prevTopCommittedCertReferencedEpoch;
+    scIt->second.scInfo.topCommittedCertHash            = sidechainUndo.prevTopCommittedCertHash;
+    scIt->second.scInfo.topCommittedCertQuality         = sidechainUndo.prevTopCommittedCertQuality;
+    scIt->second.scInfo.topCommittedCertBwtAmount       = sidechainUndo.prevTopCommittedCertBwtAmount;
 
     scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
 
@@ -1675,48 +1675,15 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
             continue;
 
         const uint256& scId = it->first;
-        bool fClean = true;
-
         const CSidechain* const pSidechain = AccessSidechain(scId);
+
         if (pSidechain->topCommittedCertReferencedEpoch != CScCertificate::EPOCH_NULL)
         {
-            const uint256& coinHash = pSidechain->topCommittedCertHash;
+            if (!RestoreBackwardTransfers(pSidechain->topCommittedCertHash, blockUndo.scUndoDatabyScId.at(scId).ceasedBwts))
+                return false;
  
-            if(coinHash.IsNull())
-            {
-                fClean = fClean && error("%s: malformed undo data, missing voided certificate hash ", __func__);
-                return fClean;
-            }
-            LogPrint("sc", "%s():%d - reverting voiding of bwt for certificate [%s]\n", __func__, __LINE__, coinHash.ToString());
- 
-            CCoinsModifier coins = this->ModifyCoins(coinHash);
-            const std::vector<CTxInUndo>& voidedOuts = it->second.ceasedBwts;
-            for (size_t idx = voidedOuts.size(); idx-- > 0;)
-            {
-                if (voidedOuts.at(idx).nHeight != 0)
-                {
-                    coins->fCoinBase          = voidedOuts.at(idx).fCoinBase;
-                    coins->nHeight            = voidedOuts.at(idx).nHeight;
-                    coins->nVersion           = voidedOuts.at(idx).nVersion;
-                    coins->nFirstBwtPos       = voidedOuts.at(idx).nFirstBwtPos;
-                    coins->nBwtMaturityHeight = voidedOuts.at(idx).nBwtMaturityHeight;
-                } else
-                {
-                    if (coins->IsPruned())
-                        fClean = fClean && error("%s: undo data adding output to missing transaction", __func__);
-                }
- 
-                if(coins->IsAvailable(coins->nFirstBwtPos + idx))
-                    fClean = fClean && error("%s: undo data overwriting existing output", __func__);
-                if (coins->vout.size() < (coins->nFirstBwtPos + idx+1))
-                    coins->vout.resize(coins->nFirstBwtPos + idx+1);
-                coins->vout.at(coins->nFirstBwtPos + idx) = voidedOuts.at(idx).txout;
-            }
- 
-            CSidechain::SetVoidedCert(coinHash, false, pVoidedCertsMap);
+            CSidechain::SetVoidedCert(pSidechain->topCommittedCertHash, false, pVoidedCertsMap);
         }
-
-        if (!fClean) return false;
 
         recreatedScEvent.ceasingScs.insert(scId);
     }

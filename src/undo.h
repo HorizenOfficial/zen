@@ -130,7 +130,8 @@ public:
 
 struct CSidechainUndoData
 {
-    enum AvailableSections : uint32_t
+    uint32_t sidechainUndoDataVersion;
+    enum AvailableSections : uint8_t
     {
         UNDEFINED               = 0,
         SIDECHAIN_STATE         = 1,
@@ -155,7 +156,7 @@ struct CSidechainUndoData
     // CEASED_CERTIFICATE_DATA
     std::vector<CTxInUndo> ceasedBwts;
 
-    CSidechainUndoData(): contentBitMask(AvailableSections::UNDEFINED),
+    CSidechainUndoData(): sidechainUndoDataVersion(0), contentBitMask(AvailableSections::UNDEFINED),
         prevTopCommittedCertReferencedEpoch(CScCertificate::EPOCH_NULL), prevTopCommittedCertHash(),
         prevTopCommittedCertQuality(CScCertificate::QUALITY_NULL), prevTopCommittedCertBwtAmount(0),
         appliedMaturedAmount(0), lowQualityBwts(), ceasedBwts()
@@ -163,7 +164,8 @@ struct CSidechainUndoData
 
     size_t GetSerializeSize(int nType, int nVersion) const
     {
-        unsigned int totalSize = ::GetSerializeSize(static_cast<uint32_t>(contentBitMask), nType, nVersion);
+        unsigned int totalSize = ::GetSerializeSize(sidechainUndoDataVersion, nType, nVersion);
+        totalSize += ::GetSerializeSize(static_cast<uint8_t>(contentBitMask), nType, nVersion);
         if (contentBitMask & AvailableSections::SIDECHAIN_STATE)
         {
             totalSize += ::GetSerializeSize(prevTopCommittedCertReferencedEpoch, nType, nVersion);
@@ -189,7 +191,8 @@ struct CSidechainUndoData
     template<typename Stream>
     void Serialize(Stream& s, int nType, int nVersion) const
     {
-        ::Serialize(s, static_cast<uint32_t>(contentBitMask), nType, nVersion);
+        ::Serialize(s, sidechainUndoDataVersion, nType, nVersion);
+        ::Serialize(s, static_cast<uint8_t>(contentBitMask), nType, nVersion);
         if (contentBitMask & AvailableSections::SIDECHAIN_STATE)
         {
             ::Serialize(s, prevTopCommittedCertReferencedEpoch, nType, nVersion);
@@ -215,7 +218,8 @@ struct CSidechainUndoData
     template<typename Stream>
     void Unserialize(Stream& s, int nType, int nVersion)
     {
-        uint32_t tmp;
+        ::Unserialize(s, sidechainUndoDataVersion, nType, nVersion);
+        uint8_t tmp;
         ::Unserialize(s, tmp, nType, nVersion);
         contentBitMask = static_cast<AvailableSections>(tmp);
         if (contentBitMask & AvailableSections::SIDECHAIN_STATE)
@@ -269,7 +273,7 @@ struct CSidechainUndoData
 
 inline CSidechainUndoData::AvailableSections operator | (CSidechainUndoData::AvailableSections lhs, CSidechainUndoData::AvailableSections rhs)
 {
-    return static_cast<CSidechainUndoData::AvailableSections>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
+    return static_cast<CSidechainUndoData::AvailableSections>(static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs));
 }
 
 inline CSidechainUndoData::AvailableSections& operator |= (CSidechainUndoData::AvailableSections& lhs, CSidechainUndoData::AvailableSections rhs)

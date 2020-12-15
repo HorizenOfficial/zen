@@ -571,7 +571,7 @@ public:
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const;
     bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash) const;
     bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& blockUndo);
-    bool RevertCertOutputs(const CScCertificate& cert, const CBlockUndo & blockUndo);
+    bool RevertCertOutputs(const CScCertificate& cert, const CSidechainUndoData& sidechainUndo);
     bool CheckQuality(const CScCertificate& cert)  const override;
     void NullifyBackwardTransfers(const uint256& certHash, std::vector<CTxInUndo>& nullifiedOuts);
     bool RestoreBackwardTransfers(const uint256& certHash, const std::vector<CTxInUndo>& outsToRestore);

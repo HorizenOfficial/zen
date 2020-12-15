@@ -8,13 +8,13 @@
 
 class CValidationState;
 class CTransaction;
-class CCoinsViewCache;
 
 class CSidechainEvents {
 public:
-    CSidechainEvents() = default;
+    CSidechainEvents(): sidechainEventsVersion(0), ceasingScs(), maturingScs() {};
     ~CSidechainEvents() = default;
 
+    int32_t sidechainEventsVersion;
     std::set<uint256> ceasingScs;
     std::set<uint256> maturingScs;
 
@@ -24,13 +24,15 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+    	READWRITE(sidechainEventsVersion);
         READWRITE(ceasingScs);
         READWRITE(maturingScs);
     }
 
     inline bool operator==(const CSidechainEvents& rhs) const {
-        return ((this->ceasingScs  == rhs.ceasingScs) &&
-                (this->maturingScs == rhs.maturingScs));
+        return (this->sidechainEventsVersion  == rhs.sidechainEventsVersion) &&
+               (this->ceasingScs              == rhs.ceasingScs)             &&
+               (this->maturingScs             == rhs.maturingScs);
     }
 
     inline bool operator!=(const CSidechainEvents& rhs) const { return !(*this == rhs); }
@@ -41,10 +43,12 @@ public:
 
 class CSidechain {
 public:
-    CSidechain() : creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
+    CSidechain() : sidechainVersion(0), creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
                    topCommittedCertReferencedEpoch(CScCertificate::EPOCH_NULL),
                    topCommittedCertHash(), topCommittedCertQuality(CScCertificate::QUALITY_NULL),
                    topCommittedCertBwtAmount(0), balance(0) {}
+
+    int32_t sidechainVersion;
 
     // reference to the block containing the tx that created the side chain
     uint256 creationBlockHash;
@@ -93,6 +97,7 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
+        READWRITE(sidechainVersion);
         READWRITE(creationBlockHash);
         READWRITE(creationBlockHeight);
         READWRITE(creationTxHash);
@@ -107,7 +112,8 @@ public:
 
     inline bool operator==(const CSidechain& rhs) const
     {
-        return (this->creationBlockHash                == rhs.creationBlockHash)               &&
+        return (this->sidechainVersion                 == rhs.sidechainVersion)                &&
+               (this->creationBlockHash                == rhs.creationBlockHash)               &&
                (this->creationBlockHeight              == rhs.creationBlockHeight)             &&
                (this->creationTxHash                   == rhs.creationTxHash)                  &&
                (this->topCommittedCertReferencedEpoch  == rhs.topCommittedCertReferencedEpoch) &&
