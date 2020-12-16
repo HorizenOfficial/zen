@@ -940,8 +940,8 @@ std::map<uint256,uint256> HighQualityCertData(const CBlock& blockToConnect, cons
         if(!view.GetSidechain(itCert->GetScId(), sidechain))
             continue;
 
-        if (itCert->epochNumber == sidechain.topCommittedCertReferencedEpoch)
-            res[itCert->GetHash()] = sidechain.topCommittedCertHash;
+        if (itCert->epochNumber == sidechain.prevBlockTopQualityCertReferencedEpoch)
+            res[itCert->GetHash()] = sidechain.prevBlockTopQualityCertHash;
         else
             res[itCert->GetHash()] = uint256();
 
@@ -1178,19 +1178,19 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         }
 
         // No lower quality certs should spend (directly or indirectly) outputs of higher or equal quality certs
-        std::vector<uint256> certAncestors = pool.mempoolFullAncestorsOf(cert);
-        for(const uint256& ancestor: certAncestors)
+        std::vector<uint256> txesHashesSpentByCert = pool.mempoolDependenciesFrom(cert);
+        for(const uint256& dep: txesHashesSpentByCert)
         {
-            if (pool.mapCertificate.count(ancestor)==0)
+            if (pool.mapCertificate.count(dep)==0)
                 continue; //tx won't conflict with cert on quality
 
-            const CScCertificate& ancestorCert = pool.mapCertificate.at(ancestor).GetCertificate();
-            if (ancestorCert.GetScId() != cert.GetScId())
+            const CScCertificate& certDep = pool.mapCertificate.at(dep).GetCertificate();
+            if (certDep.GetScId() != cert.GetScId())
                 continue; //no certs conflicts with certs of other sidechains
-            if (ancestorCert.quality >= cert.quality)
+            if (certDep.quality >= cert.quality)
             {
                 LogPrint("mempool", "%s():%d - cert %s depends on worse-quality ancestorCert %s\n", __func__, __LINE__,
-                    cert.GetHash().ToString(), ancestorCert.GetHash().ToString());
+                    cert.GetHash().ToString(), certDep.GetHash().ToString());
                 return false;
             }
         }
@@ -2090,7 +2090,7 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache &inputs, CTxUndo &txund
     inputs.ModifyCoins(tx.GetHash())->From(tx, nHeight);
 }
 
-void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight, bool fVoidBwts)
+void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight, bool isBlockTopQualityCert)
 {
     // mark inputs spent
     txundo.vprevout.reserve(cert.GetVin().size());
@@ -2119,25 +2119,8 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
     assert(inputs.GetSidechain(cert.GetScId(), sidechain));
     int currentEpoch = sidechain.EpochFor(nHeight);
     int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
-
-    if (!fVoidBwts)
-    {
-        inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight, bwtMaturityHeight);
-        return;
-    } else
-    {
-        if (cert.nFirstBwtPos == 0) //no change
-            return; // no coin once all bwts are dropped
-        else
-        {
-            CCoinsModifier certCoinModified = inputs.ModifyCoins(cert.GetHash());
-            certCoinModified->From(cert, nHeight, bwtMaturityHeight);
-            for(unsigned int bwtPos = certCoinModified->nFirstBwtPos; bwtPos < certCoinModified->vout.size(); ++bwtPos)
-                certCoinModified->Spend(bwtPos);
-
-            return;
-        }
-    }
+    inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight, bwtMaturityHeight, isBlockTopQualityCert);
+    return;
 }
 
 CScriptCheck::CScriptCheck(): ptxTo(0), nIn(0), chain(nullptr),
@@ -2440,11 +2423,13 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     // not including coinbase
     const int certOffset = block.vtx.size() - 1;
     std::map<uint256,uint256> highQualityCertData = HighQualityCertData(block, blockUndo);
+    // key: current block top quality cert for given sc --> value: prev block superseeded cert hash (possibly null)
 
     // undo certificates in reverse order
     for (int i = block.vcert.size() - 1; i >= 0; i--) {
         const CScCertificate& cert = block.vcert[i];
         uint256 hash = cert.GetHash();
+        bool isBlockTopQualityCert = highQualityCertData.count(cert.GetHash()) != 0;
 
         LogPrint("cert", "%s():%d - reverting outs of cert[%s]\n", __func__, __LINE__, hash.ToString());
 
@@ -2458,12 +2443,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             assert(view.GetSidechain(cert.GetScId(), sidechain));
             int currentEpoch = sidechain.EpochFor(pindex->nHeight);
             int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
-            CCoins outsBlock(cert, pindex->nHeight, bwtMaturityHeight);
-            if (highQualityCertData.count(cert.GetHash()) == 0) //drop bwts of low q certs
-            {
-                for(unsigned int bwtPos = outsBlock.nFirstBwtPos; bwtPos < outsBlock.vout.size(); ++bwtPos)
-                    outsBlock.Spend(bwtPos);
-            }
+            CCoins outsBlock(cert, pindex->nHeight, bwtMaturityHeight, isBlockTopQualityCert);
             outsBlock.ClearUnspendable();
 
             // The CCoins serialization does not serialize negative numbers.
@@ -2488,10 +2468,12 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
 
         const CTxUndo &certUndo = blockUndo.vtxundo[certOffset + i];
-        if (highQualityCertData.count(cert.GetHash()) != 0)
+        if (isBlockTopQualityCert)
         {
+        	const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
+
             // cancels scEvents only if cert is first in its epoch, i.e. if it won't restore any other cert
-            if (highQualityCertData.at(cert.GetHash()).IsNull())
+            if (prevBlockTopQualityCertHash.IsNull())
             {
                 if (!view.CancelSidechainEvent(cert))
                 {
@@ -2501,14 +2483,14 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             } else
             {
                 // certificate must resurrect its bwts
-                assert(blockUndo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask & CSidechainUndoData::AvailableSections::LOW_QUALITY_CERT_DATA);
-                view.RestoreBackwardTransfers(highQualityCertData.at(cert.GetHash()), blockUndo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
+                assert(blockUndo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask & CSidechainUndoData::AvailableSections::SUPERSEDED_CERT_DATA);
+                view.RestoreBackwardTransfers(prevBlockTopQualityCertHash, blockUndo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
 
                 CSidechain::SetVoidedCert(cert.GetHash(), true, pVoidedCertsMap);
-                CSidechain::SetVoidedCert(highQualityCertData.at(cert.GetHash()), false, pVoidedCertsMap);
+                CSidechain::SetVoidedCert(prevBlockTopQualityCertHash, false, pVoidedCertsMap);
             }
 
-            if (!view.RevertCertOutputs(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())) )
+            if (!view.RestoreScInfo(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())) )
             {
                 LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
                 return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
@@ -2907,7 +2889,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
     }  //end of Processing transactions loop
 
+
     std::map<uint256,uint256> highQualityCertData = HighQualityCertData(block, view);
+    // key: current block top quality cert for given sc --> value: prev block superseeded cert hash (possibly null)
 
     for (unsigned int certIdx = 0; certIdx < block.vcert.size(); certIdx++) // Processing certificates loop
     {
@@ -2945,9 +2929,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
 
         blockundo.vtxundo.push_back(CTxUndo());
-        UpdateCoins(cert, view, blockundo.vtxundo.back(), pindex->nHeight, /*fVoidBwts*/highQualityCertData.count(cert.GetHash()) == 0);
+        bool isBlockTopQualityCert = highQualityCertData.count(cert.GetHash()) != 0;
+        UpdateCoins(cert, view, blockundo.vtxundo.back(), pindex->nHeight, isBlockTopQualityCert);
 
-        if (highQualityCertData.count(cert.GetHash()) != 0)
+        if (isBlockTopQualityCert)
         {
             if (!view.UpdateScInfo(cert, blockundo) )
             {
@@ -2955,11 +2940,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  REJECT_INVALID, "bad-sc-cert-not-updated");
             }
 
-            if (!highQualityCertData.at(cert.GetHash()).IsNull())
+            const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
+            if (!prevBlockTopQualityCertHash.IsNull())
             {
-                view.NullifyBackwardTransfers(highQualityCertData.at(cert.GetHash()), blockundo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
-                blockundo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask |= CSidechainUndoData::AvailableSections::LOW_QUALITY_CERT_DATA;
-                CSidechain::SetVoidedCert(highQualityCertData.at(cert.GetHash()), true, pVoidedCertsMap);
+                view.NullifyBackwardTransfers(prevBlockTopQualityCertHash, blockundo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
+                blockundo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask |= CSidechainUndoData::AvailableSections::SUPERSEDED_CERT_DATA;
+                CSidechain::SetVoidedCert(prevBlockTopQualityCertHash, true, pVoidedCertsMap);
             }
 
             if (!view.ScheduleSidechainEvent(cert))

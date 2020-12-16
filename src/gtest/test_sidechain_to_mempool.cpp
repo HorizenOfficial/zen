@@ -638,7 +638,7 @@ TEST_F(SidechainsInMempoolTestSuite, ImmatureExpenditureRemoval) {
     EXPECT_FALSE(mempool.exists(mempoolTx2.GetHash()));
 }
 
-TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsInEmptyMempool) {
+TEST_F(SidechainsInMempoolTestSuite, DependenciesInEmptyMempool) {
     // prerequisites
     CTxMemPool aMempool(::minRelayTxFee);
 
@@ -651,11 +651,11 @@ TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsInEmptyMempool) {
     tx_1.addOut(dummyOut);
 
     //test and checks
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_1).empty());
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_1).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_1).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_1).empty());
 }
 
-TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfSingleTransaction) {
+TEST_F(SidechainsInMempoolTestSuite, DependenciesOfSingleTransaction) {
     // prerequisites
     CTxMemPool aMempool(::minRelayTxFee);
 
@@ -672,12 +672,12 @@ TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfSingleTransaction)
     aMempool.addUnchecked(tx_1.GetHash(), tx_1_entry);
 
     //checks
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_1).empty());
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_1).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_1).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_1).empty());
 }
 
 
-TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfSimpleChain) {
+TEST_F(SidechainsInMempoolTestSuite, DependenciesOfSimpleChain) {
     // prerequisites
     CTxMemPool aMempool(::minRelayTxFee);
     CAmount dummyAmount(10);
@@ -703,16 +703,16 @@ TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfSimpleChain) {
     ASSERT_TRUE(aMempool.addUnchecked(tx_3.GetHash(), tx_3_entry));
 
     //checks
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_1).empty());
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_2) == std::vector<uint256>({tx_1.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_3) == std::vector<uint256>({tx_2.GetHash(),tx_1.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_1).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_2) == std::vector<uint256>({tx_1.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_3) == std::vector<uint256>({tx_2.GetHash(),tx_1.GetHash()}));
 
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_1) == std::vector<uint256>({tx_2.GetHash(),tx_3.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_2) == std::vector<uint256>({tx_3.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_3).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_1) == std::vector<uint256>({tx_2.GetHash(),tx_3.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_2) == std::vector<uint256>({tx_3.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_3).empty());
 }
 
-TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfTree) {
+TEST_F(SidechainsInMempoolTestSuite, DependenciesOfTree) {
     // prerequisites
     CTxMemPool aMempool(::minRelayTxFee);
     CAmount dummyAmount(10);
@@ -757,24 +757,24 @@ TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfTree) {
     ASSERT_TRUE(aMempool.addUnchecked(tx_grandchild_3.GetHash(), tx_grandchild_3_entry));
 
     //checks
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_root).empty());
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_child_1) == std::vector<uint256>({tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_child_2) == std::vector<uint256>({tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_grandchild_1) == std::vector<uint256>({tx_child_1.GetHash(), tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_grandchild_2) == std::vector<uint256>({tx_child_1.GetHash(), tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_grandchild_3) == std::vector<uint256>({tx_child_2.GetHash(), tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_root).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_child_1) == std::vector<uint256>({tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_child_2) == std::vector<uint256>({tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_grandchild_1) == std::vector<uint256>({tx_child_1.GetHash(), tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_grandchild_2) == std::vector<uint256>({tx_child_1.GetHash(), tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_grandchild_3) == std::vector<uint256>({tx_child_2.GetHash(), tx_root.GetHash()}));
 
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_root)
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_root)
         == std::vector<uint256>({tx_child_1.GetHash(), tx_grandchild_2.GetHash(), tx_grandchild_1.GetHash(),
                                  tx_child_2.GetHash(), tx_grandchild_3.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_child_1) == std::vector<uint256>({tx_grandchild_1.GetHash(), tx_grandchild_2.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_child_2) == std::vector<uint256>({tx_grandchild_3.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_grandchild_1).empty());
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_grandchild_2).empty());
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_grandchild_3).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_child_1) == std::vector<uint256>({tx_grandchild_1.GetHash(), tx_grandchild_2.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_child_2) == std::vector<uint256>({tx_grandchild_3.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_grandchild_1).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_grandchild_2).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_grandchild_3).empty());
 }
 
-TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfTDAG) {
+TEST_F(SidechainsInMempoolTestSuite, DependenciesOfTDAG) {
     // prerequisites
     CTxMemPool aMempool(::minRelayTxFee);
     CAmount dummyAmount(10);
@@ -802,13 +802,13 @@ TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfTDAG) {
     ASSERT_TRUE(aMempool.addUnchecked(tx_grandchild_1.GetHash(), tx_grandchild_1_entry));
 
     //checks
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_root).empty());
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_child_1) == std::vector<uint256>({tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_grandchild_1) == std::vector<uint256>({tx_child_1.GetHash(),tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_root).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_child_1) == std::vector<uint256>({tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_grandchild_1) == std::vector<uint256>({tx_child_1.GetHash(),tx_root.GetHash()}));
 
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_root) == std::vector<uint256>({tx_child_1.GetHash(), tx_grandchild_1.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_child_1) == std::vector<uint256>({tx_grandchild_1.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_grandchild_1).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_root) == std::vector<uint256>({tx_child_1.GetHash(), tx_grandchild_1.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_child_1) == std::vector<uint256>({tx_grandchild_1.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_grandchild_1).empty());
 }
 
 ///////////////////////////////////////////////////////////////////////////////

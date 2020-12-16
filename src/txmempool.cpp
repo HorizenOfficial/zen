@@ -233,7 +233,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     return true;
 }
 
-std::vector<uint256> CTxMemPool::mempoolDirectAncestorsOf(const CTransactionBase& root) const
+std::vector<uint256> CTxMemPool::mempoolDirectDependenciesFrom(const CTransactionBase& root) const
 {
     AssertLockHeld(cs);
     std::vector<uint256> res;
@@ -262,12 +262,12 @@ std::vector<uint256> CTxMemPool::mempoolDirectAncestorsOf(const CTransactionBase
     return res;
 }
 
-std::vector<uint256> CTxMemPool::mempoolFullAncestorsOf(const CTransactionBase& originTx) const
+std::vector<uint256> CTxMemPool::mempoolDependenciesFrom(const CTransactionBase& originTx) const
 {
     // it's Breath-First-Search on txes/certs Direct Acyclic Graph, having originTx as root.
 
     AssertLockHeld(cs);
-    std::vector<uint256> res = mempoolDirectAncestorsOf(originTx);
+    std::vector<uint256> res = mempoolDirectDependenciesFrom(originTx);
     std::deque<uint256> toVisit{res.begin(), res.end()};
     res.clear();
 
@@ -286,7 +286,7 @@ std::vector<uint256> CTxMemPool::mempoolFullAncestorsOf(const CTransactionBase& 
         if (std::find(res.begin(), res.end(), pCurrentNode->GetHash()) == res.end())
             res.push_back(pCurrentNode->GetHash());
 
-        std::vector<uint256> directAncestors = mempoolDirectAncestorsOf(*pCurrentNode);
+        std::vector<uint256> directAncestors = mempoolDirectDependenciesFrom(*pCurrentNode);
         for(const uint256& ancestor : directAncestors) {
             if ( (std::find(toVisit.begin(), toVisit.end(), ancestor) == toVisit.end()) &&
                  (std::find(res.begin(), res.end(), ancestor) == res.end()))
@@ -297,7 +297,7 @@ std::vector<uint256> CTxMemPool::mempoolFullAncestorsOf(const CTransactionBase& 
     return res;
 }
 
-std::vector<uint256> CTxMemPool::mempoolDirectDescendantsOf(const CTransactionBase& root) const
+std::vector<uint256> CTxMemPool::mempoolDirectDependenciesOf(const CTransactionBase& root) const
 {
     AssertLockHeld(cs);
     std::vector<uint256> res;
@@ -334,12 +334,12 @@ std::vector<uint256> CTxMemPool::mempoolDirectDescendantsOf(const CTransactionBa
     return res;
 }
 
-std::vector<uint256> CTxMemPool::mempoolFullDescendantsOf(const CTransactionBase& origTx) const
+std::vector<uint256> CTxMemPool::mempoolDependenciesOf(const CTransactionBase& origTx) const
 {
     // it's Depth-First-Search on txes/certs Direct Acyclic Graph, having originTx as root.
 
     AssertLockHeld(cs);
-    std::vector<uint256> res = mempoolDirectDescendantsOf(origTx);
+    std::vector<uint256> res = mempoolDirectDependenciesOf(origTx);
     std::deque<uint256> toVisit{res.begin(), res.end()};
     res.clear();
 
@@ -358,7 +358,7 @@ std::vector<uint256> CTxMemPool::mempoolFullDescendantsOf(const CTransactionBase
         if (std::find(res.begin(), res.end(), pCurrentRoot->GetHash()) == res.end())
             res.push_back(pCurrentRoot->GetHash());
 
-        std::vector<uint256> directDescendants = mempoolDirectDescendantsOf(*pCurrentRoot);
+        std::vector<uint256> directDescendants = mempoolDirectDependenciesOf(*pCurrentRoot);
         for(const uint256& dep : directDescendants)
             if ((std::find(toVisit.begin(), toVisit.end(),dep) == toVisit.end()) &&
                 (std::find(res.begin(), res.end(),dep) == res.end()))
@@ -375,7 +375,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
     std::vector<uint256> objToRemove{};
 
     if (fRecursive)
-        objToRemove = mempoolFullDescendantsOf(origTx);
+        objToRemove = mempoolDependenciesOf(origTx);
 
     objToRemove.insert(objToRemove.begin(), origTx.GetHash());
 
@@ -969,7 +969,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             CValidationState state;
             assert(::ContextualCheckInputs(cert, state, mempoolDuplicateCert, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            UpdateCoins(cert, mempoolDuplicateCert, dummyUndo, 1000000, /*fVoidBwts*/false);
+            UpdateCoins(cert, mempoolDuplicateCert, dummyUndo, 1000000, /*isBlockTopQualityCert*/true);
         }
     }
 
@@ -1216,7 +1216,7 @@ bool CCoinsViewMemPool::GetCoins(const uint256 &txid, CCoins &coins) const {
     CScCertificate cert;
     if (mempool.lookup(txid, cert)) {
         LogPrint("mempool", "%s():%d - making coins for cert [%s]\n", __func__, __LINE__, txid.ToString() );
-        coins = CCoins(cert, MEMPOOL_HEIGHT, MEMPOOL_HEIGHT);
+        coins = CCoins(cert, MEMPOOL_HEIGHT, MEMPOOL_HEIGHT, /*isBlockTopQualityCert*/true);
         return true;
     }
     return (base->GetCoins(txid, coins) && !coins.IsPruned());
