@@ -139,7 +139,7 @@ struct CSidechainUndoData
         LOW_QUALITY_CERT_DATA   = 4,
         CEASED_CERTIFICATE_DATA = 8
     };
-    AvailableSections contentBitMask;
+    uint8_t contentBitMask;
 
     // SIDECHAIN_STATE section
     int prevTopCommittedCertReferencedEpoch;
@@ -165,7 +165,7 @@ struct CSidechainUndoData
     size_t GetSerializeSize(int nType, int nVersion) const
     {
         unsigned int totalSize = ::GetSerializeSize(sidechainUndoDataVersion, nType, nVersion);
-        totalSize += ::GetSerializeSize(static_cast<uint8_t>(contentBitMask), nType, nVersion);
+        totalSize += ::GetSerializeSize(contentBitMask, nType, nVersion);
         if (contentBitMask & AvailableSections::SIDECHAIN_STATE)
         {
             totalSize += ::GetSerializeSize(prevTopCommittedCertReferencedEpoch, nType, nVersion);
@@ -192,7 +192,7 @@ struct CSidechainUndoData
     void Serialize(Stream& s, int nType, int nVersion) const
     {
         ::Serialize(s, sidechainUndoDataVersion, nType, nVersion);
-        ::Serialize(s, static_cast<uint8_t>(contentBitMask), nType, nVersion);
+        ::Serialize(s, contentBitMask, nType, nVersion);
         if (contentBitMask & AvailableSections::SIDECHAIN_STATE)
         {
             ::Serialize(s, prevTopCommittedCertReferencedEpoch, nType, nVersion);
@@ -219,9 +219,7 @@ struct CSidechainUndoData
     void Unserialize(Stream& s, int nType, int nVersion)
     {
         ::Unserialize(s, sidechainUndoDataVersion, nType, nVersion);
-        uint8_t tmp;
-        ::Unserialize(s, tmp, nType, nVersion);
-        contentBitMask = static_cast<AvailableSections>(tmp);
+        ::Unserialize(s, contentBitMask, nType, nVersion);
         if (contentBitMask & AvailableSections::SIDECHAIN_STATE)
         {
             ::Unserialize(s, prevTopCommittedCertReferencedEpoch, nType, nVersion);
@@ -248,7 +246,7 @@ struct CSidechainUndoData
     {
         std::string res;
         res += strprintf("contentBitMask=%u\n", contentBitMask);
-        if (contentBitMask && AvailableSections::SIDECHAIN_STATE)
+        if (contentBitMask & AvailableSections::SIDECHAIN_STATE)
         {
             res += strprintf("prevTopCommittedCertReferencedEpoch=%d\n", prevTopCommittedCertReferencedEpoch);
             res += strprintf("prevTopCommittedCertHash=%s\n", prevTopCommittedCertHash.ToString());
@@ -256,7 +254,7 @@ struct CSidechainUndoData
             res += strprintf("prevTopCommittedCertBwtAmount=%d.%08d\n", prevTopCommittedCertBwtAmount / COIN, prevTopCommittedCertBwtAmount % COIN);
         }
 
-        if (contentBitMask && AvailableSections::MATURED_AMOUNTS)
+        if (contentBitMask & AvailableSections::MATURED_AMOUNTS)
             res += strprintf("appliedMaturedAmount=%d.%08d\n", appliedMaturedAmount / COIN, appliedMaturedAmount % COIN);
 
         res += strprintf("ceasedBwts.size()=%u\n", ceasedBwts.size());
@@ -270,17 +268,6 @@ struct CSidechainUndoData
         return res;
     }
 };
-
-inline CSidechainUndoData::AvailableSections operator | (CSidechainUndoData::AvailableSections lhs, CSidechainUndoData::AvailableSections rhs)
-{
-    return static_cast<CSidechainUndoData::AvailableSections>(static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs));
-}
-
-inline CSidechainUndoData::AvailableSections& operator |= (CSidechainUndoData::AvailableSections& lhs, CSidechainUndoData::AvailableSections rhs)
-{
-    lhs = lhs | rhs;
-    return lhs;
-}
 
 /** Undo information for a CBlock */
 class CBlockUndo
