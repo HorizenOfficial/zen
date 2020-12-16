@@ -45,7 +45,7 @@ class sc_cr_fw(BitcoinTestFramework):
 
     def run_test(self):
         '''
-        Test the situation when bot a fw transfer and a certificate for the same scid are in the mempool and a block is mined"
+        Test the situation when both a fw transfer and a certificate for the same scid are in the mempool and a block is mined"
         '''
 
         def get_epoch_data(node, sc_creating_height, epoch_length):

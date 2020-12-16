@@ -233,6 +233,5 @@ class sc_cert_ceasing(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
 
-
 if __name__ == '__main__':
     sc_cert_ceasing().main()

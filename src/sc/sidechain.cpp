@@ -41,7 +41,7 @@ int CSidechain::GetCeasingHeight() const
 {
     if ( creationData.withdrawalEpochLength == -1) //default value
         return -1;
-    return StartHeightForEpoch(topCommittedCertReferencedEpoch+2) + SafeguardMargin();
+    return StartHeightForEpoch(prevBlockTopQualityCertReferencedEpoch+2) + SafeguardMargin();
 }
 
 std::string CSidechain::stateToString(State s)
@@ -122,7 +122,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                 __func__), REJECT_INVALID, "sidechain-sc-creation-invalid-wcert-vk");
         }
 
-        if(!sc.constant.size() == 0)
+        if(sc.constant.size() != 0)
         {
             if(!libzendoomc::IsValidScConstant(sc.constant))
             {
