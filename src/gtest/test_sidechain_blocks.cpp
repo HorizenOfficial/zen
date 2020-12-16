@@ -141,7 +141,8 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_Ce
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
     CSidechainEventsMap ceasingMap;
-    ceasingMap[205] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
+    // safeguard ceasing height is 20% of epoch length (20), end of epoch 5 is h=200
+    ceasingMap[204] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
     storeSidechain(scId, initialScState, ceasingMap);
 
     // create block with certificate ...
@@ -210,7 +211,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEpo
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
     CSidechainEventsMap ceasingMap;
-    ceasingMap[205] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
+    ceasingMap[204] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
     storeSidechain(scId, initialScState, ceasingMap);
 
     // create block with certificate ...
@@ -280,7 +281,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoch
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
     CSidechainEventsMap ceasingMap;
-    ceasingMap[205] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
+    ceasingMap[204] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
     storeSidechain(scId, initialScState, ceasingMap);
 
     // create block with certificates ...
@@ -363,7 +364,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Different
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
     CSidechainEventsMap ceasingMap;
-    ceasingMap[205] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
+    ceasingMap[204] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
     storeSidechain(scId, initialScState, ceasingMap);
 
     // create block with certificates ...
