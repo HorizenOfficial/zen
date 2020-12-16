@@ -915,12 +915,14 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
+/*
     if (isCeasedAtHeight(cert.GetScId(), nHeight)!= CSidechain::State::ALIVE) {
         LogPrintf("ERROR: certificate[%s] cannot be accepted, sidechain [%s] already ceased at height = %d (chain.h = %d)\n",
             certHash.ToString(), cert.GetScId().ToString(), nHeight, chainActive.Height());
         return state.Invalid(error("received a delayed cert"),
                      REJECT_INVALID, "sidechain-certificate-delayed");
     }
+*/
 
     if (!CheckQuality(cert))
     {
@@ -1728,7 +1730,7 @@ CSidechain::State CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int hei
     if (currentEpoch == scInfo.prevBlockTopQualityCertReferencedEpoch + 2)
     {
         int targetEpochSafeguardHeight = scInfo.StartHeightForEpoch(currentEpoch) + scInfo.SafeguardMargin();
-        if (height > targetEpochSafeguardHeight)
+        if (height >= targetEpochSafeguardHeight)
             return CSidechain::State::CEASED;
     }
 
