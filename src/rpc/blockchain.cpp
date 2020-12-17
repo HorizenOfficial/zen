@@ -1205,7 +1205,7 @@ bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAlive, bool
     if (!scView.GetSidechain(scId, scInfo)) {
         LogPrint("sc", "%s():%d - scid[%s] not yet created\n", __func__, __LINE__, scId.ToString() );
     }
-    CSidechain::State scState = scView.isCeasedAtHeight(scId, chainActive.Height());
+    CSidechain::State scState = scView.GetSidechainState(scId);
 
     return FillScRecordFromInfo(scId, scInfo, scState, scRecord, bOnlyAlive, bVerbose);
 }

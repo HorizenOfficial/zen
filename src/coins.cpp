@@ -763,6 +763,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         scIt->second.scInfo.creationData.constant = cr.constant;
         scIt->second.scInfo.creationData.wCertVk = cr.wCertVk;
         scIt->second.scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
+        scIt->second.scInfo.currentState = (uint8_t)CSidechain::State::ALIVE;
         scIt->second.flag = CSidechainsCacheEntry::Flags::FRESH;
 
         LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
@@ -865,6 +866,7 @@ int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
 int CSidechain::SafeguardMargin() const { return -1; }
 size_t CSidechain::DynamicMemoryUsage() const { return 0; }
 void CSidechain::SetVoidedCert(const uint256& certHash, bool flag, std::map<uint256, bool>* pVoidedCertsMap) {}
+std::string CSidechain::stateToString(State s) { return "";}
 bool CCoinsViewCache::isEpochDataValid(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) const {return true;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const {return true;}
 bool libzendoomc::CScProofVerifier::verifyCScCertificate(              
@@ -915,14 +917,12 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
-/*
     if (isCeasedAtHeight(cert.GetScId(), nHeight)!= CSidechain::State::ALIVE) {
         LogPrintf("ERROR: certificate[%s] cannot be accepted, sidechain [%s] already ceased at height = %d (chain.h = %d)\n",
             certHash.ToString(), cert.GetScId().ToString(), nHeight, chainActive.Height());
         return state.Invalid(error("received a delayed cert"),
                      REJECT_INVALID, "sidechain-certificate-delayed");
     }
-*/
 
     if (!CheckQuality(cert))
     {
@@ -1614,6 +1614,10 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
         LogPrint("sc", "%s():%d - set voidedCertHash[%s], ceasingScId = %s\n",
             __func__, __LINE__, scInfo.prevBlockTopQualityCertHash.ToString(), ceasingScId.ToString());
 
+        CSidechainsMap::iterator scIt = ModifySidechain(ceasingScId);
+        scIt->second.scInfo.currentState = (uint8_t)CSidechain::State::CEASED;
+        scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
+        
         blockUndo.scUndoDatabyScId[ceasingScId].contentBitMask |= CSidechainUndoData::AvailableSections::CEASED_CERTIFICATE_DATA;
         if (scInfo.prevBlockTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL) {
             assert(scInfo.prevBlockTopQualityCertHash.IsNull());
@@ -1699,6 +1703,9 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
         }
 
         recreatedScEvent.ceasingScs.insert(scId);
+        CSidechainsMap::iterator scIt = ModifySidechain(scId);
+        scIt->second.scInfo.currentState = (uint8_t)CSidechain::State::ALIVE;
+        scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
     }
 
     if (!recreatedScEvent.IsNull())
@@ -1709,6 +1716,19 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
     }
 
     return true;
+}
+
+CSidechain::State CCoinsViewCache::GetSidechainState(const uint256& scId) const
+{
+    if (!HaveSidechain(scId))
+        return CSidechain::State::NOT_APPLICABLE;
+
+    CSidechain scInfo;
+    GetSidechain(scId, scInfo);
+
+    LogPrint("cert", "%s.%s():%d sc %s state is %s\n", __FILE__, __func__, __LINE__, scId.ToString(),
+        CSidechain::stateToString((CSidechain::State)scInfo.currentState));
+    return (CSidechain::State)scInfo.currentState;
 }
 
 CSidechain::State CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int height) const
@@ -1730,7 +1750,7 @@ CSidechain::State CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int hei
     if (currentEpoch == scInfo.prevBlockTopQualityCertReferencedEpoch + 2)
     {
         int targetEpochSafeguardHeight = scInfo.StartHeightForEpoch(currentEpoch) + scInfo.SafeguardMargin();
-        if (height >= targetEpochSafeguardHeight)
+        if (height > targetEpochSafeguardHeight)
             return CSidechain::State::CEASED;
     }
 
