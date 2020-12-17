@@ -4,6 +4,7 @@
 #include "consensus/validation.h"
 #include "main.h"
 #include "zcash/Proof.hpp"
+#include <pow.h>
 #include "base58.h"
 #include "zen/forkmanager.h"
 #include "zen/forks/fork1_chainsplitfork.h"

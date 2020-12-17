@@ -701,8 +701,8 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
 
     unsigned int nDataOut = 0;
     txnouttype whichType;
-    for(const CTxOut& txout: tx.vout) {
-
+    for(int pos = 0; pos < txBase.GetVout().size(); ++pos) {
+        const CTxOut & txout = txBase.GetVout()[pos];
         ReplayProtectionAttributes rpAttributes;
         if (!::IsStandard(txout.scriptPubKey, whichType, rpAttributes)) {
             LogPrintf("%s():%d - Non standard output: scriptPubKey[%s]\n",
@@ -717,7 +717,7 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
             {
                 LogPrintf("%s():%d - referenced block h[%d], chain.h[%d], minAge[%d] (tx=%s)\n",
                     __func__, __LINE__, rpAttributes.referencedHeight, nHeight, getCheckBlockAtHeightMinAge(),
-                    tx.GetHash().ToString() );
+                    txBase.GetHash().ToString() );
                 reason = "scriptpubkey checkblockatheight: referenced block too recent";
                 return false;
             }
@@ -821,8 +821,9 @@ bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& ma
     if (txBase.IsCoinBase())
         return true; // Coinbases don't use vin normally
 
-    for(const CTxIn& in : txBase.GetVin()) {
-        const CTxOut& prev = mapInputs.GetOutputFor(in);
+    for (unsigned int i = 0; i < txBase.GetVin().size(); i++)
+    {
+        const CTxOut& prev = mapInputs.GetOutputFor(txBase.GetVin().at(i));
 
         vector<vector<unsigned char> > vSolutions;
         txnouttype whichType;
@@ -845,7 +846,7 @@ bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& ma
         // IsStandardTx() will have already returned false
         // and this method isn't called.
         vector<vector<unsigned char> > stack;
-        if (!EvalScript(stack, in.scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker()))
+        if (!EvalScript(stack, txBase.GetVin().at(i).scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker()))
             return false;
 
         if (whichType == TX_SCRIPTHASH || whichType == TX_SCRIPTHASH_REPLAY)
@@ -2202,7 +2203,8 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
         return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", txBase.GetHash().ToString()));
 
     CAmount nValueIn = 0;
-    for(const CTxIn& in: txBase.GetVin()) {
+    for (unsigned int i = 0; i < txBase.GetVin().size(); i++) {
+        const CTxIn& in = txBase.GetVin().at(i);
         const COutPoint &prevout = in.prevout;
         const CCoins *coins = inputs.AccessCoins(prevout.hash);
         assert(coins);

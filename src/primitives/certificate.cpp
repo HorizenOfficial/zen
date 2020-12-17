@@ -12,6 +12,7 @@
 #include "txmempool.h"
 #include "zen/forkmanager.h"
 #include "script/interpreter.h"
+#include <script/sigcache.h>
 
 #include "main.h"
 
