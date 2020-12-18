@@ -460,20 +460,20 @@ TEST_F(SidechainsInMempoolTestSuite, CertsCannotSpendHigherQualityCerts) {
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(401));
+    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(420));
     sidechainsView.Flush();
 
     CBlockUndo dummyBlockUndo;
     for(const CTxScCreationOut& scCreationOut: scTx.GetVscCcOut())
-        ASSERT_TRUE(sidechainsView.ScheduleSidechainEvent(scCreationOut, 401));
+        ASSERT_TRUE(sidechainsView.ScheduleSidechainEvent(scCreationOut, 420));
 
     std::map<uint256, bool> dummy;
-    ASSERT_TRUE(sidechainsView.HandleSidechainEvents(401 + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
+    ASSERT_TRUE(sidechainsView.HandleSidechainEvents(420 + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
     sidechainsView.Flush();
 
-    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/406);
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/425);
 
-    const uint256& endEpochBlockHash = ArithToUint256(405);
+    const uint256& endEpochBlockHash = ArithToUint256(424);
     CValidationState state;
     bool missingInputs = false;
 
@@ -511,20 +511,20 @@ TEST_F(SidechainsInMempoolTestSuite, CertInMempool_QualityOfCerts) {
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(401));
+    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(420));
     sidechainsView.Flush();
 
     CBlockUndo dummyBlockUndo;
     for(const CTxScCreationOut& scCreationOut: scTx.GetVscCcOut())
-        ASSERT_TRUE(sidechainsView.ScheduleSidechainEvent(scCreationOut, 401));
+        ASSERT_TRUE(sidechainsView.ScheduleSidechainEvent(scCreationOut, 420));
 
     std::map<uint256, bool> dummy;
-    ASSERT_TRUE(sidechainsView.HandleSidechainEvents(401 + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
+    ASSERT_TRUE(sidechainsView.HandleSidechainEvents(420 + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
     sidechainsView.Flush();
 
-    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/406);
+    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/425);
 
-    const uint256& endEpochBlockHash = ArithToUint256(405);
+    const uint256& endEpochBlockHash = ArithToUint256(424);
     CValidationState state;
     bool missingInputs = false;
 

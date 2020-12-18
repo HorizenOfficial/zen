@@ -47,7 +47,7 @@ public:
 
 CMutableTransaction GetValidTransaction(int txVersion) {
     CMutableTransaction mtx;
-	mtx.nVersion = txVersion;
+    mtx.nVersion = txVersion;
     mtx.vin.resize(2);
     mtx.vin[0].prevout.hash = uint256S("0000000000000000000000000000000000000000000000000000000000000001");
     mtx.vin[0].prevout.n = 0;
@@ -57,8 +57,8 @@ CMutableTransaction GetValidTransaction(int txVersion) {
     mtx.addOut(CTxOut(0,CScript()));
 
     if (txVersion == SC_TX_VERSION)
-    {     
-	    mtx.vjoinsplit.clear();
+    {
+        mtx.vjoinsplit.clear();
 
         CTxScCreationOut cr_ccout;
         cr_ccout.nValue = 1.0;
@@ -72,9 +72,9 @@ CMutableTransaction GetValidTransaction(int txVersion) {
     }
     else
     {
-		mtx.vjoinsplit.clear();
-		mtx.vjoinsplit.push_back(JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
-		mtx.vjoinsplit.push_back(JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
+        mtx.vjoinsplit.clear();
+        mtx.vjoinsplit.push_back(JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
+        mtx.vjoinsplit.push_back(JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
     
         mtx.vjoinsplit[0].nullifiers.at(0) = uint256S("0000000000000000000000000000000000000000000000000000000000000000");
         mtx.vjoinsplit[0].nullifiers.at(1) = uint256S("0000000000000000000000000000000000000000000000000000000000000001");
@@ -109,7 +109,7 @@ CMutableTransaction GetValidTransaction(int txVersion) {
 
 CMutableScCertificate GetValidCertificate() {
     CMutableScCertificate mcert;
-	mcert.nVersion = SC_CERT_VERSION;
+    mcert.nVersion = SC_CERT_VERSION;
 
     mcert.addOut(CTxOut(0.5 * COIN,CScript())); //CAmount is measured in zatoshi
     mcert.addOut(CTxOut(1 * COIN,CScript()));   //CAmount is measured in zatoshi
@@ -122,7 +122,7 @@ CMutableScCertificate GetValidCertificate() {
 }
 
 CMutableTransaction GetValidTransaction() {
-	return GetValidTransaction(PHGR_TX_VERSION);
+    return GetValidTransaction(PHGR_TX_VERSION);
 }
 
 TEST(checktransaction_tests, valid_transparent_transaction) {
@@ -443,7 +443,7 @@ TEST(checktransaction_tests, non_canonical_ed25519_signature) {
 // Test that a Sprout tx with a negative version number is detected
 // given the new Overwinter logic
 TEST(checktransaction_tests, SproutTxVersionTooLow) {
-	SelectParams(CBaseChainParams::REGTEST);
+    SelectParams(CBaseChainParams::REGTEST);
     CMutableTransaction mtx = GetValidTransaction();
     mtx.vjoinsplit.resize(0);
     mtx.nVersion = -1;
@@ -451,64 +451,64 @@ TEST(checktransaction_tests, SproutTxVersionTooLow) {
     CTransaction tx(mtx);
     MockCValidationState state;
 
-	EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-version-too-low", false)).Times(1);
-	CheckTransactionWithoutProofVerification(tx, state);
+    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-version-too-low", false)).Times(1);
+    CheckTransactionWithoutProofVerification(tx, state);
 }
 
 TEST(checktransaction_tests, TransparentTxVersionWithJoinsplit) {
-	SelectParams(CBaseChainParams::REGTEST);
-	CMutableTransaction mtx = GetValidTransaction(TRANSPARENT_TX_VERSION);
-	CTransaction tx(mtx);
-	MockCValidationState state;
-	EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
-	EXPECT_TRUE(tx.ContextualCheck(state, 1, 100));
-	EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-transparent-jsnotempty", false)).Times(1);
-	EXPECT_FALSE(tx.ContextualCheck(state, 200, 100));
+    SelectParams(CBaseChainParams::REGTEST);
+    CMutableTransaction mtx = GetValidTransaction(TRANSPARENT_TX_VERSION);
+    CTransaction tx(mtx);
+    MockCValidationState state;
+    EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(tx.ContextualCheck(state, 1, 100));
+    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-transparent-jsnotempty", false)).Times(1);
+    EXPECT_FALSE(tx.ContextualCheck(state, 200, 100));
 }
 
 TEST(checktransaction_tests, GrothTxVersion) {
-	SelectParams(CBaseChainParams::REGTEST);
-	CMutableTransaction mtx = GetValidTransaction(GROTH_TX_VERSION);
-	CTransaction tx(mtx);
-	MockCValidationState state;
-	EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
-	EXPECT_CALL(state, DoS(0, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
-	EXPECT_FALSE(tx.ContextualCheck(state, 1, 100));
-	EXPECT_TRUE(tx.ContextualCheck(state, 200, 100));
+    SelectParams(CBaseChainParams::REGTEST);
+    CMutableTransaction mtx = GetValidTransaction(GROTH_TX_VERSION);
+    CTransaction tx(mtx);
+    MockCValidationState state;
+    EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_CALL(state, DoS(0, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
+    EXPECT_FALSE(tx.ContextualCheck(state, 1, 100));
+    EXPECT_TRUE(tx.ContextualCheck(state, 200, 100));
 }
 
 TEST(checktransaction_tests, PhgrTxVersion) {
-	SelectParams(CBaseChainParams::REGTEST);
-	CMutableTransaction mtx = GetValidTransaction(PHGR_TX_VERSION);
-	CTransaction tx(mtx);
-	MockCValidationState state;
-	EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
-	EXPECT_TRUE(tx.ContextualCheck(state, 1, 100));
-	EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
-	EXPECT_FALSE(tx.ContextualCheck(state, 200, 100));
+    SelectParams(CBaseChainParams::REGTEST);
+    CMutableTransaction mtx = GetValidTransaction(PHGR_TX_VERSION);
+    CTransaction tx(mtx);
+    MockCValidationState state;
+    EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(tx.ContextualCheck(state, 1, 100));
+    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
+    EXPECT_FALSE(tx.ContextualCheck(state, 200, 100));
 }
 
 TEST(checktransaction_tests, ScTxVersion) {
-	SelectParams(CBaseChainParams::REGTEST);
-	CMutableTransaction mtx = GetValidTransaction(SC_TX_VERSION);
-	mtx.vjoinsplit.clear();
+    SelectParams(CBaseChainParams::REGTEST);
+    CMutableTransaction mtx = GetValidTransaction(SC_TX_VERSION);
+    mtx.vjoinsplit.clear();
 
-	CTransaction tx(mtx);
-	MockCValidationState state;
-	EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
-	EXPECT_TRUE(tx.ContextualCheck(state, 220, 100));
-	EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
-	EXPECT_FALSE(tx.ContextualCheck(state, 219, 100));
+    CTransaction tx(mtx);
+    MockCValidationState state;
+    EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(tx.ContextualCheck(state, 420, 100));
+    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
+    EXPECT_FALSE(tx.ContextualCheck(state, 419, 100));
 }
 
 TEST(checktransaction_tests, ScCertVersion) {
-	SelectParams(CBaseChainParams::REGTEST);
-	CMutableScCertificate mcert = GetValidCertificate();
+    SelectParams(CBaseChainParams::REGTEST);
+    CMutableScCertificate mcert = GetValidCertificate();
 
-	CScCertificate cert(mcert);
-	CValidationState state;
-	EXPECT_TRUE(cert.ContextualCheck(state, 220, 100));
-	EXPECT_FALSE(cert.ContextualCheck(state, 219, 100));
+    CScCertificate cert(mcert);
+    CValidationState state;
+    EXPECT_TRUE(cert.ContextualCheck(state, 420, 100));
+    EXPECT_FALSE(cert.ContextualCheck(state, 419, 100));
 }
 
 TEST(TransactionManipulation, EmptyTxTransformationToMutableIsNotReversible) {
@@ -808,18 +808,19 @@ extern void CleanUpAll();
 
 TEST(checktransaction_tests, isStandardTransaction) {
 
-/*
-fDebug = true;
-fPrintToConsole = true;
-mapMultiArgs["-debug"].push_back("cbh");
-mapArgs["-debug"] = "cbh";
-*/
+//    fDebug = true;
+//    fPrintToConsole = true;
+//    mapMultiArgs["-debug"].push_back("cbh");
+//    mapArgs["-debug"] = "cbh";
 
     SelectParams(CBaseChainParams::REGTEST);
     CMutableTransaction mtx = GetValidTransaction(TRANSPARENT_TX_VERSION);
+    mtx.resizeOut(0);
+    mtx.resizeBwt(0);
+    CScript scriptPubKey;
 
     // a -1 value for height, minimally encoded
-    CScript scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
+    scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
         << ToByteVector(uint256()) << -1 << OP_CHECKBLOCKATHEIGHT;
     mtx.insertAtPos(0, CTxOut(CAmount(1),scriptPubKey));
 
@@ -836,7 +837,7 @@ mapArgs["-debug"] = "cbh";
     // an unknown op (0xBA) where height is expected
     std::vector<unsigned char> data2(ParseHex("76a914f85d211e4175cd4b0f53284af6ddab6bbb3c5f0288ac20bf309c2d04f3fdd3cb6f4ccddb3985211d360e08e4f790c3d780d5c3f912e704bab4"));
     CScript bad_script2(data2.begin(), data2.end());
-    mtx.insertAtPos(2, CTxOut(CAmount(1),bad_script2));
+    mtx.insertAtPos(3, CTxOut(CAmount(1),bad_script2));
 
     // a non minimal height, caught by CScriptNum
     std::vector<unsigned char> hnm1(ParseHex("01000000"));
@@ -844,19 +845,19 @@ mapArgs["-debug"] = "cbh";
         << ToByteVector(uint256()) << hnm1 << OP_CHECKBLOCKATHEIGHT;
     mtx.insertAtPos(4, CTxOut(CAmount(1), scriptPubKey));
 
-    // another non minimal height 
+    // another non minimal height
     std::vector<unsigned char> hnm2(ParseHex("00"));
     scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
         << ToByteVector(uint256()) << hnm2 << OP_CHECKBLOCKATHEIGHT;
     mtx.insertAtPos(5, CTxOut(CAmount(1), scriptPubKey));
 
-    // another non minimal height, not caught by CScriptNum but checking minimal pushing 
+    // another non minimal height, not caught by CScriptNum but checking minimal pushing
     std::vector<unsigned char> hnm3(ParseHex("10"));
     scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
         << ToByteVector(uint256()) << hnm3 << OP_CHECKBLOCKATHEIGHT;
     mtx.insertAtPos(6, CTxOut(CAmount(1), scriptPubKey));
 
-    // minimal height, ok in both forks 
+    // minimal height, ok in both forks
     std::vector<unsigned char> hnm4(ParseHex("11"));
     scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
         << ToByteVector(uint256()) << hnm4 << OP_CHECKBLOCKATHEIGHT;
@@ -871,6 +872,8 @@ mapArgs["-debug"] = "cbh";
 
     // these are expected to fail in both forks
     CMutableTransaction mtx_bad_param = GetValidTransaction(TRANSPARENT_TX_VERSION);
+    mtx_bad_param.resizeOut(0);
+    mtx_bad_param.resizeBwt(0);
 
     // a hash representation shorter than 32 bytes
     std::vector<unsigned char> data31NullBytes;
